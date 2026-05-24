@@ -14,6 +14,8 @@
 #include "ospf6_top.h"
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
+#include "ospf6_message.h"
+#include "ospf6_neighbor.h"
 #include "ospf6_route.h"
 #include "ospf6_nb.h"
 #include "ospf6_nssa.h"
@@ -490,11 +492,14 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_destroy(struct nb_cb_destro
 	 * the NOAUTOCOST flag.
 	 */
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
+	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
 	oi->hello_interval = OSPF6_INTERFACE_HELLO_INTERVAL;
 	oi->dead_interval = OSPF6_INTERFACE_DEAD_INTERVAL;
 	oi->rxmt_interval = OSPF6_INTERFACE_RXMT_INTERVAL;
 	oi->priority = OSPF6_INTERFACE_PRIORITY;
 	oi->mtu_ignore = 0;
+	oi->type_cfg = false;
+	oi->type = ospf6_default_iftype(ifp);
 	ospf6_interface_stop(oi);
 	oi->area_id = 0;
 	oi->area_id_format = OSPF6_AREA_FMT_UNSET;
@@ -1071,5 +1076,176 @@ int ospf6d_ietf_ospf_areas_area_ranges_range_cost_destroy(struct nb_cb_destroy_a
 	range->path.u.cost_config = OSPF_AREA_RANGE_COST_UNSPEC;
 	if (ospf6_check_and_set_router_abr(ospf6))
 		ospf6_schedule_abr_task(ospf6);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../interface/interface-type (OSPFv3)
+ *
+ * RFC 9129 declares broadcast, non-broadcast, point-to-multipoint,
+ * point-to-point and hybrid. ospf6d's `ipv6 ospf6 network` CLI only
+ * accepts broadcast, point-to-point, and point-to-multipoint; NBMA and
+ * hybrid have no v3 surface and are rejected here. The legacy DEFUN
+ * triggers a full interface_down/up cycle on type change; the NB
+ * callback follows the same pattern via event_execute.
+ */
+static int ospf6_iftype_from_yang(const char *val)
+{
+	if (!strcmp(val, "broadcast"))
+		return OSPF_IFTYPE_BROADCAST;
+	if (!strcmp(val, "point-to-point"))
+		return OSPF_IFTYPE_POINTOPOINT;
+	if (!strcmp(val, "point-to-multipoint"))
+		return OSPF_IFTYPE_POINTOMULTIPOINT;
+	return -1;
+}
+
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+	const char *val;
+	int type;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
+						 args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+
+	val = yang_dnode_get_string(args->dnode, NULL);
+	type = ospf6_iftype_from_yang(val);
+	if (type < 0)
+		return NB_ERR_VALIDATION;
+
+	oi->type_cfg = true;
+	if (oi->type == type)
+		return NB_OK;
+
+	oi->type = type;
+	event_execute(master, interface_down, oi, 0, NULL);
+	event_execute(master, interface_up, oi, 0, NULL);
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_interface_type_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+	uint8_t type;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf6, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		return NB_OK;
+
+	oi->type_cfg = false;
+	type = ospf6_default_iftype(ifp);
+	if (oi->type == type)
+		return NB_OK;
+
+	oi->type = type;
+	event_execute(master, interface_down, oi, 0, NULL);
+	event_execute(master, interface_up, oi, 0, NULL);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../interface/passive (OSPFv3)
+ */
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_passive_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+	struct listnode *node, *nnode;
+	struct ospf6_neighbor *on;
+	bool passive;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
+						 args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+
+	passive = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (passive) {
+		SET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
+		event_cancel(&oi->thread_send_hello);
+		event_cancel(&oi->thread_sso);
+		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
+			event_cancel(&on->inactivity_timer);
+			event_add_event(master, inactivity_timer, on, 0, NULL);
+		}
+	} else {
+		UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
+		event_cancel(&oi->thread_send_hello);
+		event_cancel(&oi->thread_sso);
+		if (!if_is_loopback(oi->interface))
+			event_add_timer(master, ospf6_hello_send, oi, 0, &oi->thread_send_hello);
+	}
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_passive_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf6, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		return NB_OK;
+
+	/* Revert to FRR's natural default (active). */
+	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)) {
+		UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
+		event_cancel(&oi->thread_send_hello);
+		event_cancel(&oi->thread_sso);
+		if (!if_is_loopback(oi->interface))
+			event_add_timer(master, ospf6_hello_send, oi, 0, &oi->thread_send_hello);
+	}
 	return NB_OK;
 }

@@ -119,7 +119,7 @@ static void ospf6_interface_lsdb_hook_remove(struct ospf6_lsa *lsa)
 	ospf6_interface_lsdb_hook(lsa, ospf6_lsremove_to_spf_reason(lsa));
 }
 
-static uint8_t ospf6_default_iftype(struct interface *ifp)
+uint8_t ospf6_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return OSPF_IFTYPE_POINTOPOINT;

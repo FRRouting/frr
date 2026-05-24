@@ -259,6 +259,7 @@ ospf6_interface_get_global_address(struct interface *ifp);
 /* interface event */
 extern void interface_up(struct event *event);
 extern void interface_down(struct event *event);
+extern uint8_t ospf6_default_iftype(struct interface *ifp);
 extern void wait_timer(struct event *event);
 extern void backup_seen(struct event *event);
 extern void neighbor_change(struct event *event);

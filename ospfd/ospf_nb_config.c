@@ -17,8 +17,10 @@
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_interface.h"
+#include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_nb.h"
+#include "ospfd/ospf_vty.h"
 
 /*
  * RFC 9129 ietf-ospf area-type identityrefs. libyang canonicalises identityref
@@ -613,6 +615,14 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_destroy(struct nb_cb_destroy
 		UNSET_IF_PARAM(params, mtu_ignore);
 		params->mtu_ignore = 0;
 	}
+	if (OSPF_IF_PARAM_CONFIGURED(params, type)) {
+		UNSET_IF_PARAM(params, type);
+		params->type_cfg = false;
+	}
+	if (OSPF_IF_PARAM_CONFIGURED(params, passive_interface)) {
+		UNSET_IF_PARAM(params, passive_interface);
+		params->passive_interface = OSPF_IF_ACTIVE;
+	}
 
 	UNSET_IF_PARAM(params, if_area);
 	ospf_interface_area_unset(ospf, ifp);
@@ -1173,5 +1183,203 @@ int ospfd_ietf_ospf_areas_area_ranges_range_cost_destroy(struct nb_cb_destroy_ar
 
 	/* "no explicit cost" -> the auto-cost path takes over. */
 	ospf_area_range_cost_set(ospf, area, area->ranges, &p, OSPF_AREA_RANGE_COST_UNSPEC);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../interface/interface-type
+ *
+ * RFC 9129's interface-type enumeration maps onto FRR's OSPF_IFTYPE_*
+ * macros. The legacy `ip ospf network` DEFUN also supports FRR-specific
+ * modifiers (dmvpn, delay-reflood, non-broadcast) that have no RFC 9129
+ * counterpart; those stay reachable only through the legacy CLI.
+ * The YANG modify clears any previously-set FRR modifiers so the
+ * resulting state is the canonical RFC-9129-shaped one.
+ */
+static int ospf_iftype_from_yang(const char *val)
+{
+	if (!strcmp(val, "broadcast"))
+		return OSPF_IFTYPE_BROADCAST;
+	if (!strcmp(val, "non-broadcast"))
+		return OSPF_IFTYPE_NBMA;
+	if (!strcmp(val, "point-to-multipoint"))
+		return OSPF_IFTYPE_POINTOMULTIPOINT;
+	if (!strcmp(val, "point-to-point"))
+		return OSPF_IFTYPE_POINTOPOINT;
+	return -1;
+}
+
+static void ospf_apply_interface_type(struct interface *ifp, int new_type)
+{
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+	struct route_node *rn;
+	int old_type = params->type;
+	uint8_t old_ptp_dmvpn = params->ptp_dmvpn;
+	uint8_t old_p2mp_delay_reflood = params->p2mp_delay_reflood;
+	uint8_t old_p2mp_non_broadcast = params->p2mp_non_broadcast;
+
+	/* RFC 9129 has no FRR-specific modifiers; reset them. */
+	params->ptp_dmvpn = 0;
+	params->p2mp_delay_reflood = OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
+	params->p2mp_non_broadcast = OSPF_P2MP_NON_BROADCAST_DEFAULT;
+	params->type = new_type;
+	params->type_cfg = true;
+	SET_IF_PARAM(params, type);
+
+	if (params->type == old_type && params->ptp_dmvpn == old_ptp_dmvpn &&
+	    params->p2mp_delay_reflood == old_p2mp_delay_reflood &&
+	    params->p2mp_non_broadcast == old_p2mp_non_broadcast)
+		return;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi = rn->info;
+
+		if (!oi)
+			continue;
+		oi->type = params->type;
+		oi->ptp_dmvpn = params->ptp_dmvpn;
+		oi->p2mp_delay_reflood = params->p2mp_delay_reflood;
+		oi->p2mp_non_broadcast = params->p2mp_non_broadcast;
+
+		if (oi->type != old_type || oi->ptp_dmvpn != old_ptp_dmvpn ||
+		    oi->p2mp_non_broadcast != old_p2mp_non_broadcast) {
+			if (oi->state > ISM_Down) {
+				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
+				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
+			}
+		}
+	}
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	const char *val;
+	int type;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (IF_DEF_PARAMS(ifp)->type == OSPF_IFTYPE_LOOPBACK)
+		return NB_ERR_INCONSISTENCY;
+
+	val = yang_dnode_get_string(args->dnode, NULL);
+	type = ospf_iftype_from_yang(val);
+	if (type < 0)
+		return NB_ERR_VALIDATION;
+
+	ospf_apply_interface_type(ifp, type);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	if (!OSPF_IF_PARAM_CONFIGURED(params, type))
+		return NB_OK;
+
+	UNSET_IF_PARAM(params, type);
+	params->type_cfg = false;
+	/*
+	 * Without an explicit setting, ospfd will re-derive the type from
+	 * the underlying kernel interface on the next state recompute. The
+	 * cleanest way to trigger that here is to flap any existing
+	 * ospf_interface objects.
+	 */
+	{
+		struct route_node *rn;
+
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			struct ospf_interface *oi = rn->info;
+
+			if (oi && oi->state > ISM_Down) {
+				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
+				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
+			}
+		}
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath: .../interface/passive
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_passive_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = INADDR_ANY };
+	uint8_t newval;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	params = IF_DEF_PARAMS(ifp);
+	newval = yang_dnode_get_bool(args->dnode, NULL) ? OSPF_IF_PASSIVE : OSPF_IF_ACTIVE;
+	ospf_passive_interface_update(ifp, params, addr, newval);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_passive_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = INADDR_ANY };
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	if (!OSPF_IF_PARAM_CONFIGURED(params, passive_interface))
+		return NB_OK;
+	/* Revert to FRR's natural default (active). */
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_ACTIVE);
+	UNSET_IF_PARAM(params, passive_interface);
 	return NB_OK;
 }

@@ -395,9 +395,9 @@ static void ospf_passive_interface_default_update(struct ospf *ospf,
 		ospf_if_set_multicast(oi);
 }
 
-static void ospf_passive_interface_update(struct interface *ifp,
-					  struct ospf_if_params *params,
-					  struct in_addr addr, uint8_t newval)
+void ospf_passive_interface_update(struct interface *ifp,
+				   struct ospf_if_params *params,
+				   struct in_addr addr, uint8_t newval)
 {
 	struct route_node *rn;
 
