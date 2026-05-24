@@ -12436,7 +12436,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			  struct attr *pattr, uint16_t show_opts)
 {
 	char buf[INET6_ADDRSTRLEN];
-	char labels_buf[9 * BGP_MAX_LABELS]; /* 8 per label + / or \0 for each */
+	char labels_buf[BGP_MAX_LABEL_DIGITS]; /* 8 per label + / or \0 for each */
 	char vni_buf[30] = {};
 	struct attr *attr = pattr ? pattr : path->attr;
 	time_t tbuf;

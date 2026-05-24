@@ -1106,7 +1106,15 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 
 	bpacket_attr_vec_arr_reset(&vecarr);
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	/*
+	 * Use an expandable stream so that an oversized re-encoded UPDATE
+	 * (large unknown-transitive attribute plus route-map additions) does
+	 * not silently truncate via CHECK_SIZE or assert in stream_put_prefix.
+	 * The on-wire UPDATE inside a BMP Route-Monitoring message must still
+	 * fit BGP's 16-bit length field, so we drop the route if the encoded
+	 * size exceeds BGP_MAX_PACKET_SIZE.
+	 */
+	s = stream_new_expandable(BGP_MAX_PACKET_SIZE);
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
 
 	/* 2: withdrawn routes length */
@@ -1119,8 +1127,6 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 	/* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
 					      NULL, NULL, 0, 0, 0, 0, NULL, NULL);
-
-	/* space check? */
 
 	/* peer_cap_enhe & add-path removed */
 	if (afi == AFI_IP && safi == SAFI_UNICAST)
@@ -1135,6 +1141,13 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels, 0, 0, attr, NULL);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 		total_attr_len += stream_get_endp(s) - p1;
+	}
+
+	if (stream_get_endp(s) > BGP_MAX_PACKET_SIZE) {
+		zlog_warn("bmp: skipping route-monitoring for %pFX: re-encoded UPDATE exceeds %u bytes",
+			  p, BGP_MAX_PACKET_SIZE);
+		stream_free(s);
+		return NULL;
 	}
 
 	/* set the total attribute length correctly */
@@ -1152,7 +1165,7 @@ static struct stream *bmp_withdraw(const struct prefix *p,
 	bgp_size_t total_attr_len = 0;
 	bgp_size_t unfeasible_len;
 
-	s = stream_new(BGP_MAX_PACKET_SIZE);
+	s = stream_new_expandable(BGP_MAX_PACKET_SIZE);
 
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
 	stream_putw(s, 0);
@@ -1177,6 +1190,13 @@ static struct stream *bmp_withdraw(const struct prefix *p,
 		/* Set total path attribute length. */
 		total_attr_len = stream_get_endp(s) - mp_start;
 		stream_putw_at(s, attrlen_pos, total_attr_len);
+	}
+
+	if (stream_get_endp(s) > BGP_MAX_PACKET_SIZE) {
+		zlog_warn("bmp: skipping route-monitoring withdraw for %pFX: encoded UPDATE exceeds %u bytes",
+			  p, BGP_MAX_PACKET_SIZE);
+		stream_free(s);
+		return NULL;
 	}
 
 	bgp_packet_set_size(s);
@@ -1207,6 +1227,9 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 				 num_labels);
 	else
 		msg = bmp_withdraw(p, prd, afi, safi);
+
+	if (!msg)
+		return;
 
 	hdr = stream_new(BGP_MAX_PACKET_SIZE);
 	bmp_common_hdr(hdr, BMP_VERSION_3, BMP_TYPE_ROUTE_MONITORING);

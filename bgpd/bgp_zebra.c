@@ -1545,7 +1545,7 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 	char eth_buf[ETHER_ADDR_STRLEN + 7] = { '\0' };
 	char buf1[ETHER_ADDR_STRLEN];
 	/* strlen("label ") + 8 chars per label + '/' or '\0' for each label */
-	char label_buf[6 + 9 * BGP_MAX_LABELS];
+	char label_buf[6 + BGP_MAX_LABEL_DIGITS];
 	char sid_buf[20];
 	char segs_buf[256];
 	struct zapi_nexthop *api_nh;

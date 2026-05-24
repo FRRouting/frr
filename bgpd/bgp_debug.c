@@ -2951,7 +2951,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    struct bgp_route_evpn *overlay_index,
 				    char *str, int size)
 {
-	char tag_buf[30];
+	char tag_buf[sizeof(" label ") + BGP_MAX_LABEL_DIGITS];
 	char overlay_index_buf[INET6_ADDRSTRLEN + 14];
 	const struct prefix_evpn *evp;
 	int len = 0;
