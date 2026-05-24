@@ -2044,8 +2044,8 @@ DEFUN (no_ipv6_ospf6_ifmtu,
  * to direct mutation. Returns 0 on success and writes the xpath into
  * buf; returns -1 if YANG is not applicable.
  */
-static int ospf6_per_iface_xpath(char *xpath, size_t size,
-				 const struct interface *ifp, const char *leaf)
+static int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
+				 const char *leaf)
 {
 	const struct ospf6_interface *oi;
 	const struct ospf6 *ospf6;
@@ -2065,8 +2065,8 @@ static int ospf6_per_iface_xpath(char *xpath, size_t size,
 	inet_ntop(AF_INET, &addr, area_id_str, sizeof(area_id_str));
 	return snprintf(xpath, size,
 			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
-			ospf6->name ? ospf6->name : "default", area_id_str,
-			ifp->name, leaf ? leaf : "");
+			ospf6->name ? ospf6->name : "default", area_id_str, ifp->name,
+			leaf ? leaf : "");
 }
 
 DEFPY_YANG (ipv6_ospf6_cost,
@@ -2223,8 +2223,7 @@ static void ospf6_hello_reschedule(struct ospf6_interface *oi)
 {
 	if (event_is_scheduled(oi->thread_send_hello)) {
 		event_cancel(&oi->thread_send_hello);
-		event_add_timer(master, ospf6_hello_send, oi, 0,
-				&oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0, &oi->thread_send_hello);
 	}
 }
 
@@ -2453,8 +2452,7 @@ ALIAS (ipv6_ospf6_retransmitinterval,
 static void ospf6_priority_recompute(struct ospf6_interface *oi)
 {
 	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER ||
-			 oi->state == OSPF6_INTERFACE_BDR ||
-			 oi->state == OSPF6_INTERFACE_DR)) {
+			 oi->state == OSPF6_INTERFACE_BDR || oi->state == OSPF6_INTERFACE_DR)) {
 		if (ospf6_interface_state_change(dr_election(oi), oi) == -1)
 			OSPF6_LINK_LSA_SCHEDULE(oi);
 	}

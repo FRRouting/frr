@@ -293,8 +293,7 @@ static int ospf_area_xpath(char *xpath, size_t size, const struct ospf *ospf,
 	inet_ntop(AF_INET, &area_id, area_id_str, sizeof(area_id_str));
 	return snprintf(xpath, size,
 			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']%s",
-			ospf->name ? ospf->name : "default", area_id_str,
-			leaf ? leaf : "");
+			ospf->name ? ospf->name : "default", area_id_str, leaf ? leaf : "");
 }
 
 /*
@@ -306,8 +305,8 @@ static int ospf_area_xpath(char *xpath, size_t size, const struct ospf *ospf,
  * `ip ospf cost N A.B.C.D`) are out of RFC 9129's scope and never go
  * through YANG; the caller checks ifaddr_str before calling this.
  */
-static int ospf_per_iface_xpath(char *xpath, size_t size,
-				const struct interface *ifp, const char *leaf)
+static int ospf_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
+				const char *leaf)
 {
 	const struct ospf *ospf;
 	const struct ospf_if_params *params;
@@ -325,8 +324,8 @@ static int ospf_per_iface_xpath(char *xpath, size_t size,
 	inet_ntop(AF_INET, &params->if_area, area_id_str, sizeof(area_id_str));
 	return snprintf(xpath, size,
 			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
-			ospf->name ? ospf->name : "default", area_id_str,
-			ifp->name, leaf ? leaf : "");
+			ospf->name ? ospf->name : "default", area_id_str, ifp->name,
+			leaf ? leaf : "");
 }
 
 DEFPY_YANG (ospf_router_id,
@@ -406,13 +405,10 @@ DEFPY_YANG (no_ospf_router_id,
 	return ret;
 }
 
-ALIAS_ATTR (no_ospf_router_id,
-            no_router_id_cmd,
-            "no router-id [A.B.C.D]",
-            NO_STR
-            "router-id for the OSPF process\n"
-            "OSPF router-id in IP address format\n",
-            CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
+ALIAS_ATTR(no_ospf_router_id, no_router_id_cmd, "no router-id [A.B.C.D]",
+	   NO_STR "router-id for the OSPF process\n"
+		  "OSPF router-id in IP address format\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
 
 static void ospf_passive_interface_default_update(struct ospf *ospf,
 						  uint8_t newval)
@@ -427,8 +423,7 @@ static void ospf_passive_interface_default_update(struct ospf *ospf,
 		ospf_if_set_multicast(oi);
 }
 
-void ospf_passive_interface_update(struct interface *ifp,
-				   struct ospf_if_params *params,
+void ospf_passive_interface_update(struct interface *ifp, struct ospf_if_params *params,
 				   struct in_addr addr, uint8_t newval)
 {
 	struct route_node *rn;
@@ -1476,8 +1471,7 @@ DEFUN (no_ospf_area_shortcut,
  * wrappers just enqueue the right combination and forward the display
  * format (a FRR-internal concern that doesn't live in YANG).
  */
-static void ospf_area_display_format_set_if_present(struct ospf *ospf,
-						    struct in_addr area_id,
+static void ospf_area_display_format_set_if_present(struct ospf *ospf, struct in_addr area_id,
 						    int format)
 {
 	struct ospf_area *area;
@@ -8102,16 +8096,15 @@ DEFUN_HIDDEN (no_ospf_message_digest_key,
  * form and the hidden backwards-compat `ospf X` alias.
  */
 
-static int ospf_cost_set_apply(struct vty *vty, struct interface *ifp,
-			       uint32_t cost, const char *ifaddr_str)
+static int ospf_cost_set_apply(struct vty *vty, struct interface *ifp, uint32_t cost,
+			       const char *ifaddr_str)
 {
 	struct ospf_if_params *params;
 	struct in_addr addr = { .s_addr = 0L };
 	char xpath[XPATH_MAXLEN];
 	char buf[16];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/cost") == 0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/cost") == 0) {
 		snprintf(buf, sizeof(buf), "%u", cost);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
 		return nb_cli_apply_changes(vty, NULL);
@@ -8161,15 +8154,13 @@ DEFPY_YANG_HIDDEN (ospf_cost,
 	return ospf_cost_set_apply(vty, ifp, cost, ifaddr_str);
 }
 
-static int ospf_cost_unset_apply(struct vty *vty, struct interface *ifp,
-				 const char *ifaddr_str)
+static int ospf_cost_unset_apply(struct vty *vty, struct interface *ifp, const char *ifaddr_str)
 {
 	struct ospf_if_params *params;
 	struct in_addr addr = { .s_addr = 0L };
 	char xpath[XPATH_MAXLEN];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/cost") == 0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/cost") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -8319,18 +8310,14 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 	return CMD_SUCCESS;
 }
 
-static int ospf_dead_interval_set_apply(struct vty *vty,
-					struct interface *ifp,
-					uint32_t seconds,
+static int ospf_dead_interval_set_apply(struct vty *vty, struct interface *ifp, uint32_t seconds,
 					const char *ifaddr_str)
 {
 	char xpath[XPATH_MAXLEN];
 	char buf[16];
 
 	snprintf(buf, sizeof(buf), "%u", seconds);
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/dead-interval") ==
-		    0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/dead-interval") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -8391,10 +8378,8 @@ DEFUN (ip_ospf_dead_interval_minimal,
 						  argv[idx_number]->arg);
 }
 
-static int ospf_dead_interval_unset_apply(struct vty *vty,
-					  struct interface *ifp,
-					  const char *ifaddr_str,
-					  bool had_args)
+static int ospf_dead_interval_unset_apply(struct vty *vty, struct interface *ifp,
+					  const char *ifaddr_str, bool had_args)
 {
 	struct in_addr addr = { .s_addr = 0L };
 	struct ospf_if_params *params;
@@ -8402,9 +8387,7 @@ static int ospf_dead_interval_unset_apply(struct vty *vty,
 	struct route_node *rn;
 	char xpath[XPATH_MAXLEN];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/dead-interval") ==
-		    0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/dead-interval") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -8485,8 +8468,8 @@ DEFPY_YANG_HIDDEN (no_ospf_dead_interval,
 	return ospf_dead_interval_unset_apply(vty, ifp, ifaddr_str, argc > 3);
 }
 
-static int ospf_hello_set_apply(struct vty *vty, struct interface *ifp,
-				uint32_t seconds, const char *ifaddr_str)
+static int ospf_hello_set_apply(struct vty *vty, struct interface *ifp, uint32_t seconds,
+				const char *ifaddr_str)
 {
 	struct ospf_if_params *params;
 	struct in_addr addr = { .s_addr = 0L };
@@ -8495,9 +8478,7 @@ static int ospf_hello_set_apply(struct vty *vty, struct interface *ifp,
 	char xpath[XPATH_MAXLEN];
 	char buf[16];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/hello-interval") ==
-		    0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/hello-interval") == 0) {
 		snprintf(buf, sizeof(buf), "%u", seconds);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
 		return nb_cli_apply_changes(vty, NULL);
@@ -8559,17 +8540,14 @@ DEFPY_YANG_HIDDEN (ospf_hello_interval,
 	return ospf_hello_set_apply(vty, ifp, seconds, ifaddr_str);
 }
 
-static int ospf_hello_unset_apply(struct vty *vty, struct interface *ifp,
-				  const char *ifaddr_str)
+static int ospf_hello_unset_apply(struct vty *vty, struct interface *ifp, const char *ifaddr_str)
 {
 	struct ospf_if_params *params;
 	struct in_addr addr = { .s_addr = 0L };
 	struct route_node *rn;
 	char xpath[XPATH_MAXLEN];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/hello-interval") ==
-		    0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/hello-interval") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -8805,8 +8783,8 @@ DEFUN_HIDDEN (no_ospf_network,
 	return no_ip_ospf_network(self, vty, argc, argv);
 }
 
-static int ospf_priority_set_apply(struct vty *vty, struct interface *ifp,
-				   uint8_t priority, const char *ifaddr_str)
+static int ospf_priority_set_apply(struct vty *vty, struct interface *ifp, uint8_t priority,
+				   const char *ifaddr_str)
 {
 	struct ospf_if_params *params;
 	struct in_addr addr = { 0 };
@@ -8814,8 +8792,7 @@ static int ospf_priority_set_apply(struct vty *vty, struct interface *ifp,
 	char xpath[XPATH_MAXLEN];
 	char buf[8];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/priority") == 0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/priority") == 0) {
 		snprintf(buf, sizeof(buf), "%u", priority);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
 		return nb_cli_apply_changes(vty, NULL);
@@ -8875,16 +8852,14 @@ DEFPY_YANG_HIDDEN (ospf_priority,
 	return ospf_priority_set_apply(vty, ifp, priority, ifaddr_str);
 }
 
-static int ospf_priority_unset_apply(struct vty *vty, struct interface *ifp,
-				     const char *ifaddr_str)
+static int ospf_priority_unset_apply(struct vty *vty, struct interface *ifp, const char *ifaddr_str)
 {
 	struct ospf_if_params *params;
 	struct in_addr addr = { 0 };
 	struct route_node *rn;
 	char xpath[XPATH_MAXLEN];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/priority") == 0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/priority") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -9434,15 +9409,14 @@ DEFUN (no_ip_ospf_area,
 	return CMD_SUCCESS;
 }
 
-static int ospf_iface_passive_apply(struct vty *vty, struct interface *ifp,
-				    uint8_t newval, const char *ifaddr_str)
+static int ospf_iface_passive_apply(struct vty *vty, struct interface *ifp, uint8_t newval,
+				    const char *ifaddr_str)
 {
 	struct ospf_if_params *params;
 	struct in_addr addr = { .s_addr = INADDR_ANY };
 	char xpath[XPATH_MAXLEN];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/passive") == 0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/passive") == 0) {
 		if (newval == OSPF_IF_PASSIVE)
 			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 		else
@@ -10010,15 +9984,14 @@ DEFUN (ospf_distance_ospf,
  * the legacy DEFUNs are symmetric except for which value they write
  * to params->mtu_ignore.
  */
-static int ospf_mtu_ignore_apply(struct vty *vty, struct interface *ifp,
-				 uint8_t new_value, const char *ifaddr_str)
+static int ospf_mtu_ignore_apply(struct vty *vty, struct interface *ifp, uint8_t new_value,
+				 const char *ifaddr_str)
 {
 	struct ospf_if_params *params;
 	struct in_addr addr = { 0 };
 	char xpath[XPATH_MAXLEN];
 
-	if (!ifaddr_str &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/mtu-ignore") == 0) {
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/mtu-ignore") == 0) {
 		if (new_value)
 			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 		else

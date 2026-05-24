@@ -38,8 +38,7 @@ extern void ospf_vty_init(void);
 extern void ospf_vty_show_init(void);
 extern void ospf_vty_clear_init(void);
 extern int str2area_id(const char *str, struct in_addr *area_id, int *area_id_fmt);
-extern void ospf_passive_interface_update(struct interface *ifp,
-					  struct ospf_if_params *params,
+extern void ospf_passive_interface_update(struct interface *ifp, struct ospf_if_params *params,
 					  struct in_addr addr, uint8_t newval);
 
 /* unit tests */

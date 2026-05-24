@@ -160,7 +160,7 @@ static const struct frr_yang_module_info ietf_routing_info = {
  * same set so mgmtd-side validation accepts the same paths the daemons
  * implement.
  */
-static const char * const ietf_ospf_features[] = { "*", NULL };
+static const char *const ietf_ospf_features[] = { "*", NULL };
 
 static const struct frr_yang_module_info ietf_ospf_info = {
 	.name = "ietf-ospf",

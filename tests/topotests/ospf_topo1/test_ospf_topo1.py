@@ -103,32 +103,22 @@ def teardown_module():
 def _expect_ospfv2_neighbor_full(router, neighbor):
     "Wait until OSPFv2 neighbor reaches Full."
     tgen = get_topogen()
-    logger.info(
-        "waiting OSPFv2 router '{}' for neighbor {}".format(router, neighbor)
-    )
+    logger.info("waiting OSPFv2 router '{}' for neighbor {}".format(router, neighbor))
 
     def run_command_and_expect():
-        result = tgen.gears[router].vtysh_cmd(
-            "show ip ospf neighbor json", isjson=True
-        )
+        result = tgen.gears[router].vtysh_cmd("show ip ospf neighbor json", isjson=True)
         return topotest.json_cmp(
             result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
         )
 
-    _, result = topotest.run_and_expect(
-        run_command_and_expect, None, count=130, wait=1
-    )
-    assert result is None, '"{}" convergence failure for {}'.format(
-        router, neighbor
-    )
+    _, result = topotest.run_and_expect(run_command_and_expect, None, count=130, wait=1)
+    assert result is None, '"{}" convergence failure for {}'.format(router, neighbor)
 
 
 def _expect_ospfv3_neighbor_full(router, neighbor):
     "Wait until OSPFv3 neighbor reaches Full."
     tgen = get_topogen()
-    logger.info(
-        "waiting OSPFv3 router '{}' for neighbor {}".format(router, neighbor)
-    )
+    logger.info("waiting OSPFv3 router '{}' for neighbor {}".format(router, neighbor))
     test_func = partial(
         topotest.router_json_cmp,
         tgen.gears[router],
@@ -136,9 +126,7 @@ def _expect_ospfv3_neighbor_full(router, neighbor):
         {"neighbors": [{"neighborId": neighbor, "state": "Full"}]},
     )
     _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
-    assert result is None, '"{}" convergence failure for {}'.format(
-        router, neighbor
-    )
+    assert result is None, '"{}" convergence failure for {}'.format(router, neighbor)
 
 
 def _force_ospf_reconvergence_to_steady_state():
@@ -212,9 +200,7 @@ def _expect_ospfv2_lsdb_equal(router, area, expected_lsa_count):
     tgen = get_topogen()
 
     def lsdb_matches():
-        result = tgen.gears[router].vtysh_cmd(
-            "show ip ospf json", isjson=True
-        )
+        result = tgen.gears[router].vtysh_cmd("show ip ospf json", isjson=True)
         try:
             lsa_count = result["areas"][area]["lsaNumber"]
         except (KeyError, TypeError):
@@ -224,10 +210,8 @@ def _expect_ospfv2_lsdb_equal(router, area, expected_lsa_count):
         return "lsaNumber={} != {}".format(lsa_count, expected_lsa_count)
 
     _, diag = topotest.run_and_expect(lsdb_matches, None, count=180, wait=1)
-    assert diag is None, (
-        '"{}" LSDB did not converge to {} LSAs in area {}: {}'.format(
-            router, expected_lsa_count, area, diag
-        )
+    assert diag is None, '"{}" LSDB did not converge to {} LSAs in area {}: {}'.format(
+        router, expected_lsa_count, area, diag
     )
 
 
@@ -372,7 +356,9 @@ def _yang_ospf_neighbor_state(router, protocol_type, expected_address_prefix):
     """
     try:
         output = _yang_operational_root(router)
-        ospf = _yang_ospf_container(_yang_ospf_protocol(output, protocol_type, "default"))
+        ospf = _yang_ospf_container(
+            _yang_ospf_protocol(output, protocol_type, "default")
+        )
         area = _yang_ospf_area(ospf, "0.0.0.0")
         interface = _yang_ospf_interface(area, "r1-eth1")
         neighbor = _yang_ospf_neighbor(interface, "10.0.255.2")
@@ -381,7 +367,9 @@ def _yang_ospf_neighbor_state(router, protocol_type, expected_address_prefix):
     if neighbor.get("state") != "full":
         return "neighbor state is {}".format(neighbor.get("state"))
     if not neighbor.get("address", "").startswith(expected_address_prefix):
-        return "neighbor address {} not in expected family".format(neighbor.get("address"))
+        return "neighbor address {} not in expected family".format(
+            neighbor.get("address")
+        )
     return None
 
 
@@ -476,10 +464,10 @@ def _set_yang_router_id(router, protocol_type, daemon, running_line, new_value):
     _mgmt_set_and_commit(router, xpath, new_value)
 
     running = router.vtysh_cmd("show running-config {}".format(daemon))
-    assert "{} {}".format(running_line, new_value) in running, (
-        "expected '{} {}' in running-config after YANG set, got:\n{}".format(
-            running_line, new_value, running
-        )
+    assert (
+        "{} {}".format(running_line, new_value) in running
+    ), "expected '{} {}' in running-config after YANG set, got:\n{}".format(
+        running_line, new_value, running
     )
 
     # Restore the original value through the same YANG path so subsequent
@@ -523,8 +511,9 @@ def _yang_area_xpath(protocol_type, area_id):
     )
 
 
-def _set_yang_area_type(router, protocol_type, daemon, area_id, area_type,
-                        expect_running_line):
+def _set_yang_area_type(
+    router, protocol_type, daemon, area_id, area_type, expect_running_line
+):
     """Set areas/area[id=X]/area-type via mgmtd and verify it lands.
 
     area_type is one of "stub-area", "nssa-area", "normal-area" (the RFC 9129
@@ -540,10 +529,10 @@ def _set_yang_area_type(router, protocol_type, daemon, area_id, area_type,
     )
 
     running = router.vtysh_cmd("show running-config {}".format(daemon))
-    assert expect_running_line in running, (
-        "expected '{}' in running-config after YANG area-type set to {}, got:\n{}".format(
-            expect_running_line, area_type, running
-        )
+    assert (
+        expect_running_line in running
+    ), "expected '{}' in running-config after YANG area-type set to {}, got:\n{}".format(
+        expect_running_line, area_type, running
     )
 
 
@@ -568,7 +557,11 @@ def test_ospf_yang_area_type_config():
     # OSPFv2: create a new stub area via YANG, verify it appears in
     # show running-config, then remove it.
     _set_yang_area_type(
-        r1, "ietf-ospf:ospfv2", "ospfd", "0.0.0.42", "stub-area",
+        r1,
+        "ietf-ospf:ospfv2",
+        "ospfd",
+        "0.0.0.42",
+        "stub-area",
         "area 0.0.0.42 stub",
     )
     _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.42")
@@ -579,7 +572,11 @@ def test_ospf_yang_area_type_config():
 
     # OSPFv3: same shape.
     _set_yang_area_type(
-        r1, "ietf-ospf:ospfv3", "ospf6d", "0.0.0.42", "stub-area",
+        r1,
+        "ietf-ospf:ospfv3",
+        "ospf6d",
+        "0.0.0.42",
+        "stub-area",
         "area 0.0.0.42 stub",
     )
     _clear_yang_area(r1, "ietf-ospf:ospfv3", "0.0.0.42")
@@ -641,33 +638,25 @@ def test_ospf_area_cli_routes_through_yang():
     assert "area 0.0.0.51 stub no-summary" not in running, running
     assert "default-cost 17" not in running, running
 
-    r1.vtysh_cmd(
-        "configure terminal\nrouter ospf\n no area 0.0.0.51 stub\n"
-    )
+    r1.vtysh_cmd("configure terminal\nrouter ospf\n no area 0.0.0.51 stub\n")
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "0.0.0.51" not in running, running
 
     # OSPFv3: same cycle, minus default-cost (no v3 surface).
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf6\n"
-        " area 0.0.0.52 stub no-summary\n"
+        "configure terminal\n" "router ospf6\n" " area 0.0.0.52 stub no-summary\n"
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "area 0.0.0.52 stub no-summary" in running, running
 
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf6\n"
-        " no area 0.0.0.52 stub no-summary\n"
+        "configure terminal\n" "router ospf6\n" " no area 0.0.0.52 stub no-summary\n"
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "area 0.0.0.52 stub" in running, running
     assert "area 0.0.0.52 stub no-summary" not in running, running
 
-    r1.vtysh_cmd(
-        "configure terminal\nrouter ospf6\n no area 0.0.0.52 stub\n"
-    )
+    r1.vtysh_cmd("configure terminal\nrouter ospf6\n no area 0.0.0.52 stub\n")
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "0.0.0.52" not in running, running
 
@@ -728,7 +717,8 @@ def test_ospf_yang_area_interface_cost_config():
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "ipv6 ospf6 cost 88" in running, (
-        "expected 'ipv6 ospf6 cost 88' in running-config after YANG set, got:\n" + running
+        "expected 'ipv6 ospf6 cost 88' in running-config after YANG set, got:\n"
+        + running
     )
 
     r1.vtysh_cmd(
@@ -782,9 +772,9 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         "ip ospf priority 13",
         "ip ospf mtu-ignore",
     ):
-        assert expected in running, (
-            "expected '{}' in v2 running-config, got:\n{}".format(expected, running)
-        )
+        assert (
+            expected in running
+        ), "expected '{}' in v2 running-config, got:\n{}".format(expected, running)
 
     # Tear down individual leaves
     cmds = (
@@ -805,9 +795,9 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         "ip ospf priority 13",
         "ip ospf mtu-ignore",
     ):
-        assert unexpected not in running, (
-            "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
-        )
+        assert (
+            unexpected not in running
+        ), "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
 
     # OSPFv3: same leaves, same path shape.
     iface = (
@@ -832,9 +822,9 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         "ipv6 ospf6 priority 13",
         "ipv6 ospf6 mtu-ignore",
     ):
-        assert expected in running, (
-            "expected '{}' in v3 running-config, got:\n{}".format(expected, running)
-        )
+        assert (
+            expected in running
+        ), "expected '{}' in v3 running-config, got:\n{}".format(expected, running)
 
     cmds = (
         "configure terminal file-lock\n"
@@ -854,9 +844,9 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
         "ipv6 ospf6 priority 13",
         "ipv6 ospf6 mtu-ignore",
     ):
-        assert unexpected not in running, (
-            "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
-        )
+        assert (
+            unexpected not in running
+        ), "'{}' should be gone after YANG delete, got:\n{}".format(unexpected, running)
 
 
 def test_ospf_per_iface_cli_routes_through_yang():
@@ -898,10 +888,10 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ip ospf mtu-ignore",
         "ip ospf passive",
     ):
-        assert expected in running, (
-            "expected '{}' in v2 running-config after CLI set, got:\n{}".format(
-                expected, running
-            )
+        assert (
+            expected in running
+        ), "expected '{}' in v2 running-config after CLI set, got:\n{}".format(
+            expected, running
         )
 
     r1.vtysh_cmd(
@@ -923,11 +913,9 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ip ospf mtu-ignore",
         "ip ospf passive",
     ):
-        assert unexpected not in running, (
-            "'{}' should be gone after CLI no form, got:\n{}".format(
-                unexpected, running
-            )
-        )
+        assert (
+            unexpected not in running
+        ), "'{}' should be gone after CLI no form, got:\n{}".format(unexpected, running)
 
     # OSPFv3 on r1-eth1
     r1.vtysh_cmd(
@@ -949,10 +937,10 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ipv6 ospf6 mtu-ignore",
         "ipv6 ospf6 passive",
     ):
-        assert expected in running, (
-            "expected '{}' in v3 running-config after CLI set, got:\n{}".format(
-                expected, running
-            )
+        assert (
+            expected in running
+        ), "expected '{}' in v3 running-config after CLI set, got:\n{}".format(
+            expected, running
         )
 
     r1.vtysh_cmd(
@@ -974,11 +962,9 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ipv6 ospf6 mtu-ignore",
         "ipv6 ospf6 passive",
     ):
-        assert unexpected not in running, (
-            "'{}' should be gone after CLI no form, got:\n{}".format(
-                unexpected, running
-            )
-        )
+        assert (
+            unexpected not in running
+        ), "'{}' should be gone after CLI no form, got:\n{}".format(unexpected, running)
 
 
 def test_ospf_yang_preference_config():
@@ -1014,10 +1000,10 @@ def test_ospf_yang_preference_config():
             "mgmt commit apply".format(instance)
         )
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
-        assert "{} 137".format(cli_prefix) in running, (
-            "expected '{} 137' in {} running-config, got:\n{}".format(
-                cli_prefix, daemon, running
-            )
+        assert (
+            "{} 137".format(cli_prefix) in running
+        ), "expected '{} 137' in {} running-config, got:\n{}".format(
+            cli_prefix, daemon, running
         )
         r1.vtysh_cmd(
             "configure terminal file-lock\n"
@@ -1036,10 +1022,10 @@ def test_ospf_yang_preference_config():
             "mgmt commit apply".format(instance, instance, instance)
         )
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
-        assert "{} {} intra-area 21".format(cli_prefix, cli_proto) in running, (
-            "expected '{} {} intra-area 21' in {} running-config, got:\n{}".format(
-                cli_prefix, cli_proto, daemon, running
-            )
+        assert (
+            "{} {} intra-area 21".format(cli_prefix, cli_proto) in running
+        ), "expected '{} {} intra-area 21' in {} running-config, got:\n{}".format(
+            cli_prefix, cli_proto, daemon, running
         )
         assert "inter-area 22" in running, running
         assert "external 23" in running, running
@@ -1112,7 +1098,8 @@ def test_ospf_yang_interface_type_and_passive_config():
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "ipv6 ospf6 network point-to-point" in running, (
-        "expected ipv6 ospf6 network point-to-point in v3 running-config, got:\n" + running
+        "expected ipv6 ospf6 network point-to-point in v3 running-config, got:\n"
+        + running
     )
     assert "ipv6 ospf6 passive" in running, (
         "expected ipv6 ospf6 passive in v3 running-config, got:\n" + running
@@ -1224,7 +1211,9 @@ def test_ospf_yang_area_summary_default_cost_config():
     #   area 0.0.0.43 stub no-summary
     #   area 0.0.0.43 default-cost 42
     _set_yang_area_attrs(
-        r1, "ietf-ospf:ospfv2", "0.0.0.43",
+        r1,
+        "ietf-ospf:ospfv2",
+        "0.0.0.43",
         [("area-type", "stub-area"), ("summary", "false"), ("default-cost", "42")],
     )
     running = r1.vtysh_cmd("show running-config ospfd")
@@ -1244,7 +1233,9 @@ def test_ospf_yang_area_summary_default_cost_config():
     # surface, so the default-cost leaf is intentionally unimplemented on
     # the v3 side; see ospf6_nb_config.c for the rationale).
     _set_yang_area_attrs(
-        r1, "ietf-ospf:ospfv3", "0.0.0.43",
+        r1,
+        "ietf-ospf:ospfv3",
+        "0.0.0.43",
         [("area-type", "stub-area"), ("summary", "false")],
     )
     running = r1.vtysh_cmd("show running-config ospf6d")

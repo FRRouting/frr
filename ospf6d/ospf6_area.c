@@ -1285,8 +1285,8 @@ DEFUN(show_ipv6_ospf6_simulate_spf_tree_root,
  * control-plane-protocol type. area_id is a network-byte-order uint32_t.
  * Pass NULL for `leaf` to get the list-entry xpath.
  */
-static int ospf6_area_xpath(char *xpath, size_t size, const struct ospf6 *o,
-			    uint32_t area_id, const char *leaf)
+static int ospf6_area_xpath(char *xpath, size_t size, const struct ospf6 *o, uint32_t area_id,
+			    const char *leaf)
 {
 	char area_id_str[INET_ADDRSTRLEN];
 	struct in_addr addr = { .s_addr = area_id };
@@ -1294,8 +1294,7 @@ static int ospf6_area_xpath(char *xpath, size_t size, const struct ospf6 *o,
 	inet_ntop(AF_INET, &addr, area_id_str, sizeof(area_id_str));
 	return snprintf(xpath, size,
 			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']%s",
-			o->name ? o->name : "default", area_id_str,
-			leaf ? leaf : "");
+			o->name ? o->name : "default", area_id_str, leaf ? leaf : "");
 }
 
 /*
