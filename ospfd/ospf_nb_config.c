@@ -10,10 +10,13 @@
 #include "yang.h"
 #include "yang_wrappers.h"
 
+#include "if.h"
+#include "lib/bfd.h"
 #include "libospf.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_abr.h"
+#include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_nb.h"
 
@@ -429,6 +432,142 @@ int ospfd_ietf_ospf_areas_area_default_cost_modify(struct nb_cb_modify_args *arg
 	return NB_OK;
 }
 
+/*
+ * Walk up from a dnode within the area/interfaces/interface subtree to
+ * extract the interface name. Returns NULL if the parent list entry
+ * cannot be found (the schema guarantees it under areas/area, so this
+ * is purely defensive).
+ */
+static const char *ospfd_ietf_ospf_interface_name_from_dnode(const struct lyd_node *dnode)
+{
+	const struct lyd_node *iface_node;
+
+	iface_node = yang_dnode_get_parent(dnode, "interface");
+	if (!iface_node)
+		return NULL;
+	return yang_dnode_get_string(iface_node, "name");
+}
+
+/*
+ * Resolve a YANG per-interface dnode to the FRR-side struct interface in
+ * the OSPF instance's VRF. ietf-interfaces names are unqualified for
+ * vrf-lite mode and ":<vrf>:<name>" qualified under netns backend (the
+ * same convention zebra uses to populate /ietf-interfaces:interfaces).
+ * Returns NULL if no matching interface exists, which the caller treats
+ * as NB_OK (no-op apply).
+ */
+static struct interface *ospfd_ietf_ospf_interface_from_dnode(const struct ospf *ospf,
+							      const struct lyd_node *dnode)
+{
+	const char *name;
+
+	name = ospfd_ietf_ospf_interface_name_from_dnode(dnode);
+	if (!name)
+		return NULL;
+	return if_lookup_by_name(name, ospf->vrf_id);
+}
+
+static bool ospfd_ietf_ospf_area_has_interface(const struct lyd_node *area_node,
+					       const char *ifname)
+{
+	const struct lyd_node *interfaces_node;
+	const struct lyd_node *iface_node;
+
+	interfaces_node = yang_dnode_get(area_node, "interfaces");
+	if (!interfaces_node)
+		return false;
+
+	LY_LIST_FOR (lyd_child(interfaces_node), iface_node) {
+		const char *name;
+
+		if (strcmp(iface_node->schema->name, "interface"))
+			continue;
+
+		name = yang_dnode_get_string(iface_node, "name");
+		if (name && !strcmp(name, ifname))
+			return true;
+	}
+
+	return false;
+}
+
+static int ospfd_ietf_ospf_validate_interface_area_unique(const struct lyd_node *dnode,
+							  const char *ifname, char *errmsg,
+							  size_t errmsg_len)
+{
+	const struct lyd_node *area_node;
+	const struct lyd_node *areas_node;
+	const struct lyd_node *other_area_node;
+	const char *area_id;
+
+	area_node = yang_dnode_get_parent(dnode, "area");
+	if (!area_node)
+		return NB_OK;
+	areas_node = yang_dnode_get_parent(area_node, "areas");
+	if (!areas_node)
+		return NB_OK;
+
+	/*
+	 * Walk the candidate subtree directly rather than synthesising an XPath
+	 * predicate from the interface name. Interface names are external strings;
+	 * avoiding XPath quoting keeps validation simple and exact.
+	 */
+	area_id = yang_dnode_get_string(area_node, "area-id");
+	LY_LIST_FOR (lyd_child(areas_node), other_area_node) {
+		const char *other_area_id;
+
+		if (other_area_node == area_node ||
+		    strcmp(other_area_node->schema->name, "area"))
+			continue;
+		if (!ospfd_ietf_ospf_area_has_interface(other_area_node, ifname))
+			continue;
+
+		other_area_id = yang_dnode_get_string(other_area_node, "area-id");
+		snprintf(errmsg, errmsg_len,
+			 "interface '%s' is configured under multiple OSPF areas (%s and %s)",
+			 ifname, area_id, other_area_id);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * VALIDATE-rejecting variant for per-interface create / modify callbacks.
+ * frr-deviations-ietf-routing-ospf keeps the RFC 9129 interface-name
+ * leafref but sets require-instance false so configuration can be emitted
+ * ahead of interface plumbing. This helper performs the FRR daemon-side
+ * existence check, returning NB_ERR_VALIDATION at VALIDATE when the
+ * interface is not present in the OSPF instance's VRF.
+ *
+ * Returns:
+ *   NB_OK + *ifp_out set      -- proceed.
+ *   NB_OK + *ifp_out == NULL  -- APPLY-phase race tolerated.
+ *   NB_ERR_VALIDATION         -- VALIDATE rejected.
+ */
+static int ospfd_ietf_ospf_resolve_interface(const struct ospf *ospf, const struct lyd_node *dnode,
+					     enum nb_event event, char *errmsg, size_t errmsg_len,
+					     struct interface **ifp_out)
+{
+	struct interface *ifp;
+
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, dnode);
+	*ifp_out = ifp;
+	if (ifp)
+		return NB_OK;
+
+	if (event == NB_EV_VALIDATE) {
+		const struct lyd_node *iface_node = yang_dnode_get_parent(dnode, "interface");
+
+		snprintf(errmsg, errmsg_len, "interface '%s' is not present in vrf-id %u",
+			 iface_node ? yang_dnode_get_string(iface_node, "name") : "?",
+			 ospf->vrf_id);
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+
 int ospfd_ietf_ospf_areas_area_default_cost_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
@@ -456,6 +595,170 @@ int ospfd_ietf_ospf_areas_area_default_cost_destroy(struct nb_cb_destroy_args *a
 	area->default_cost = 1;
 	if (area->external_routing != OSPF_AREA_DEFAULT)
 		ospf_abr_announce_network_to_area(&p, area->default_cost, area);
+
+	return NB_OK;
+}
+
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/interfaces/interface
+ *
+ * RFC 9129 keys the interface entry by name with the area as the
+ * structural parent: creating the entry assigns the interface to that
+ * area. This is the same semantic as the legacy `ip ospf area X`
+ * per-interface command, but expressed through the area-centric YANG
+ * shape rather than the interface-centric CLI shape.
+ *
+ * One interface, one area. VALIDATE rejects a candidate that contains
+ * the same interface entry under more than one area, matching FRR's
+ * OSPF interface model and the legacy CLI's "Must remove previous
+ * area/address config before changing ospf area" restriction.
+ *
+ * Per-address overrides (`ip ospf area X A.B.C.D`) have no RFC 9129
+ * counterpart and stay reachable only via the legacy CLI on the
+ * direct-mutation path. The YANG-managed default-params attachment
+ * is the canonical one for newly-emitted config.
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_create(struct nb_cb_create_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	struct in_addr area_id;
+	int format = OSPF_AREA_ID_FMT_DOTTEDQUAD;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event == NB_EV_VALIDATE) {
+		ret = ospfd_ietf_ospf_validate_interface_area_unique(
+			args->dnode, ifp->name, args->errmsg, args->errmsg_len);
+		if (ret != NB_OK)
+			return ret;
+	}
+
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	SET_IF_PARAM(params, if_area);
+	params->if_area = area_id;
+	params->if_area_id_fmt = format;
+
+	ospf_interface_area_set(ospf, ifp);
+
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	struct in_addr area_id;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	if (!OSPF_IF_PARAM_CONFIGURED(params, if_area))
+		return NB_OK;
+
+	/*
+	 * Mirror the legacy `no ip ospf area` semantics exactly: only clear
+	 * the area binding.  Per-interface attrs (cost, hello-interval,
+	 * dead-interval, etc.) are intentionally preserved across area
+	 * changes -- operators rely on `no ip ospf area` /
+	 * `ip ospf area <new>` to re-bind without losing tuning.
+	 */
+	UNSET_IF_PARAM(params, if_area);
+	ospf_interface_area_unset(ospf, ifp);
+	ospf_area_check_free(ospf, area_id);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/interfaces/interface/cost
+ *
+ * Maps to the per-interface output cost via IF_DEF_PARAMS. The YANG
+ * model is strictly per-interface, so we always mutate the default
+ * params -- the legacy per-address overrides reachable through
+ * `ip ospf cost N A.B.C.D` remain on the direct-mutation path.
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_cost_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	SET_IF_PARAM(params, output_cost_cmd);
+	/* ospf-link-metric is uint16; widen on store into output_cost_cmd. */
+	params->output_cost_cmd = yang_dnode_get_uint16(args->dnode, NULL);
+
+	ospf_if_recalculate_output_cost(ifp);
+
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_cost_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	if (!OSPF_IF_PARAM_CONFIGURED(params, output_cost_cmd))
+		return NB_OK;
+
+	UNSET_IF_PARAM(params, output_cost_cmd);
+	ospf_if_recalculate_output_cost(ifp);
 
 	return NB_OK;
 }

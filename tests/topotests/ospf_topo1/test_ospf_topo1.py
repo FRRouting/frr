@@ -665,6 +665,76 @@ def test_ospf_area_cli_routes_through_yang():
     assert "0.0.0.52" not in running, running
 
 
+def test_ospf_yang_area_interface_cost_config():
+    """areas/area[id]/interfaces/interface[name]/cost via mgmtd.
+
+    Exercises the per-interface YANG path end-to-end: creating the
+    /areas/area[id='0.0.0.0']/interfaces/interface[name='r1-eth1']
+    entry attaches r1-eth1 to area 0 (the same area it's already in
+    from the fixture config), setting cost mutates the FRR-side
+    output-cost-cmd. Then unwinds: deleting cost reverts to default,
+    deleting the interface entry detaches it from the area.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2: r1-eth1 is already in area 0.0.0.0 via `network 10.0.1.0/24 area 0`
+    # in the fixture. The YANG list create is idempotent (same area), so this
+    # is a clean set + cost change.
+    area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+    iface_path = area_path + "/interfaces/interface[name='r1-eth1']"
+    cost_path = iface_path + "/cost"
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {} 77\n"
+        "mgmt commit apply".format(cost_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf cost 77" in running, (
+        "expected 'ip ospf cost 77' in running-config after YANG set, got:\n" + running
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}\n"
+        "mgmt commit apply".format(cost_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf cost 77" not in running, (
+        "ip ospf cost should be removed after YANG delete, got:\n" + running
+    )
+
+    # OSPFv3: r1-eth1 is already in area 0 via the fixture's
+    # `ipv6 ospf6 area 0` per-interface command. Same set + clear cycle.
+    area_path = _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+    iface_path = area_path + "/interfaces/interface[name='r1-eth1']"
+    cost_path = iface_path + "/cost"
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {} 88\n"
+        "mgmt commit apply".format(cost_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "ipv6 ospf6 cost 88" in running, (
+        "expected 'ipv6 ospf6 cost 88' in running-config after YANG set, got:\n" + running
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}\n"
+        "mgmt commit apply".format(cost_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "ipv6 ospf6 cost 88" not in running, (
+        "ipv6 ospf6 cost should be removed after YANG delete, got:\n" + running
+    )
+
+
 def test_ospf_yang_area_summary_default_cost_config():
     "Verify areas/area[]/summary and /default-cost round-trip via mgmtd."
     tgen = get_topogen()

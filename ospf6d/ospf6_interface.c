@@ -171,7 +171,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	return cost;
 }
 
-static void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi)
+void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi)
 {
 	/* update cost held in route_connected list in ospf6_interface */
 	ospf6_interface_connected_route_update(oi->interface);
@@ -186,7 +186,7 @@ static void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi)
 	}
 }
 
-static void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
+void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
 {
 	uint32_t newcost;
 
@@ -1865,9 +1865,9 @@ void ospf6_interface_stop(struct ospf6_interface *oi)
 }
 
 /* interface variable set command */
-DEFUN (ipv6_ospf6_area,
+DEFPY_YANG (ipv6_ospf6_area,
        ipv6_ospf6_area_cmd,
-       "ipv6 ospf6 area <A.B.C.D|(0-4294967295)>",
+       "ipv6 ospf6 area <A.B.C.D|(0-4294967295)>$areaid",
        IP6_STR
        OSPF6_STR
        "Specify the OSPF6 area ID\n"
@@ -1876,9 +1876,12 @@ DEFUN (ipv6_ospf6_area,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
-	int idx_ipv4 = 3;
-	uint32_t area_id;
+	struct ospf6 *o6;
+	uint32_t area_id_int;
 	int format;
+	struct in_addr area_addr;
+	char area_id_str[INET_ADDRSTRLEN];
+	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
 
@@ -1893,12 +1896,32 @@ DEFUN (ipv6_ospf6_area,
 		return CMD_SUCCESS;
 	}
 
-	if (str2area_id(argv[idx_ipv4]->arg, &area_id, &format)) {
-		vty_out(vty, "Malformed Area-ID: %s\n", argv[idx_ipv4]->arg);
+	if (str2area_id(areaid, &area_id_int, &format)) {
+		vty_out(vty, "Malformed Area-ID: %s\n", areaid);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	oi->area_id = area_id;
+	/*
+	 * Route attachment through the ietf-ospf YANG
+	 * areas/area/interfaces/interface list-create callback. v3 has no
+	 * per-address override or per-instance form, so the only fallback
+	 * is when no ospf6 instance is configured yet (which mgmtd would
+	 * also fail to satisfy because the instance keys the xpath).
+	 */
+	o6 = ospf6_lookup_by_vrf_id(ifp->vrf->vrf_id);
+	if (o6) {
+		area_addr.s_addr = area_id_int;
+		inet_ntop(AF_INET, &area_addr, area_id_str, sizeof(area_id_str));
+		snprintf(xpath, sizeof(xpath),
+			 OSPF6D_IETF_ROUTING_PROTOCOL_XPATH
+			 "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']",
+			 o6->name ? o6->name : VRF_DEFAULT_NAME, area_id_str,
+			 ifp->name);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	oi->area_id = area_id_int;
 	oi->area_id_format = format;
 
 	ospf6_interface_start(oi);
@@ -1906,9 +1929,9 @@ DEFUN (ipv6_ospf6_area,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ipv6_ospf6_area,
+DEFPY_YANG (no_ipv6_ospf6_area,
        no_ipv6_ospf6_area_cmd,
-       "no ipv6 ospf6 area [<A.B.C.D|(0-4294967295)>]",
+       "no ipv6 ospf6 area [<A.B.C.D|(0-4294967295)>$areaid]",
        NO_STR
        IP6_STR
        OSPF6_STR
@@ -1918,6 +1941,10 @@ DEFUN (no_ipv6_ospf6_area,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
+	struct ospf6 *o6;
+	struct in_addr area_addr;
+	char area_id_str[INET_ADDRSTRLEN];
+	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
 
@@ -1925,6 +1952,19 @@ DEFUN (no_ipv6_ospf6_area,
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
+
+	if (oi->area) {
+		o6 = oi->area->ospf6;
+		area_addr.s_addr = oi->area->area_id;
+		inet_ntop(AF_INET, &area_addr, area_id_str, sizeof(area_id_str));
+		snprintf(xpath, sizeof(xpath),
+			 OSPF6D_IETF_ROUTING_PROTOCOL_XPATH
+			 "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']",
+			 o6->name ? o6->name : VRF_DEFAULT_NAME, area_id_str,
+			 ifp->name);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	ospf6_interface_stop(oi);
 

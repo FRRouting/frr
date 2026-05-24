@@ -157,11 +157,23 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			.xpath = OSPF6D_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface",
 			.cbs = {
+				.create = ospf6d_ietf_ospf_areas_area_interfaces_interface_create,
+				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_destroy,
 				.get_next = ospf6d_ietf_ospf_areas_area_interfaces_interface_get_next,
 				.get_keys = ospf6d_ietf_ospf_areas_area_interfaces_interface_get_keys,
 				.lookup_entry =
 					ospf6d_ietf_ospf_areas_area_interfaces_interface_lookup_entry,
 			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/cost",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_cost_modify,
+				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_cost_destroy,
+			},
+			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH

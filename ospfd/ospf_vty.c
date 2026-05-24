@@ -9134,9 +9134,35 @@ DEFUN_HIDDEN (no_ospf_transmit_delay,
 	return no_ip_ospf_transmit_delay(self, vty, argc, argv);
 }
 
-DEFUN (ip_ospf_area,
+/*
+ * Build an absolute ietf-ospf areas/area/interfaces/interface list-entry
+ * xpath for (ospf instance, area-id, ifname). Used by the
+ * `ip ospf area` / `ipv6 ospf6 area` CLI conversions to issue NB_OP_CREATE
+ * and NB_OP_DESTROY against the same xpath the per-interface leaf
+ * callbacks already key off.
+ */
+static int ospf_iface_area_xpath(char *xpath, size_t size, const struct ospf *ospf,
+				 const char *area_id_str, const char *ifname)
+{
+	char instance_name[XPATH_MAXLEN];
+	int ret;
+
+	if (!ospf || !area_id_str || !ifname)
+		return -1;
+	ret = snprintf(xpath, size,
+		       OSPFD_IETF_ROUTING_PROTOCOL_XPATH
+		       "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']",
+		       ospfd_ietf_ospf_instance_name(ospf, instance_name,
+						     sizeof(instance_name)),
+		       area_id_str, ifname);
+	if (ret < 0 || (size_t)ret >= size)
+		return -1;
+	return 0;
+}
+
+DEFPY_YANG (ip_ospf_area,
        ip_ospf_area_cmd,
-       "ip ospf [(1-65535)] area <A.B.C.D|(0-4294967295)> [A.B.C.D]",
+       "ip ospf [(1-65535)$instance_id] area <A.B.C.D|(0-4294967295)>$areaid [A.B.C.D$ifaddr]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Instance ID\n"
@@ -9152,21 +9178,41 @@ DEFUN (ip_ospf_area,
 	struct in_addr addr;
 	struct ospf_if_params *params = NULL;
 	struct route_node *rn;
-	struct ospf *ospf = NULL;
-	unsigned short instance = 0;
-	char *areaid;
+	struct ospf *ospf_inst = NULL;
+	unsigned short instance = (instance_id > 0) ? (unsigned short)instance_id : 0;
 	uint32_t count = 0;
+	char xpath[XPATH_MAXLEN];
 
-	if (argv_find(argv, argc, "(1-65535)", &idx))
-		instance = strtol(argv[idx]->arg, NULL, 10);
-
-	argv_find(argv, argc, "area", &idx);
-	areaid = argv[idx + 1]->arg;
+	(void)argv_find(argv, argc, "area", &idx);
 
 	if (!instance)
-		ospf = ifp->vrf->info;
+		ospf_inst = ifp->vrf->info;
 	else
-		ospf = ospf_lookup_instance(instance);
+		ospf_inst = ospf_lookup_instance(instance);
+
+	/*
+	 * Route the common case (default instance, no per-address override,
+	 * no conflicting `network` statements) through the ietf-ospf YANG
+	 * areas/area/interfaces/interface list-create callback. Per-address
+	 * overrides and non-default instances stay on the legacy direct-
+	 * mutation path: RFC 9129's interface list is per-interface, so
+	 * those FRR-specific surfaces have no YANG counterpart.
+	 */
+	if (!instance && !ifaddr_str && ospf_inst) {
+		bool has_network = false;
+
+		for (rn = route_top(ospf_inst->networks); rn; rn = route_next(rn))
+			if (rn->info) {
+				has_network = true;
+				break;
+			}
+		if (!has_network &&
+		    ospf_iface_area_xpath(xpath, sizeof(xpath), ospf_inst,
+					  areaid, ifp->name) == 0) {
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+			return nb_cli_apply_changes(vty, NULL);
+		}
+	}
 
 	if (instance && instance != ospf_instance) {
 		/*
@@ -9195,9 +9241,9 @@ DEFUN (ip_ospf_area,
 			}
 
 		if (count > 0) {
-			ospf = ifp->vrf->info;
-			if (ospf)
-				ospf_interface_area_unset(ospf, ifp);
+			ospf_inst = ifp->vrf->info;
+			if (ospf_inst)
+				ospf_interface_area_unset(ospf_inst, ifp);
 		}
 
 		return CMD_NOT_MY_INSTANCE;
@@ -9213,8 +9259,8 @@ DEFUN (ip_ospf_area,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ospf) {
-		for (rn = route_top(ospf->networks); rn; rn = route_next(rn)) {
+	if (ospf_inst) {
+		for (rn = route_top(ospf_inst->networks); rn; rn = route_next(rn)) {
 			if (rn->info != NULL) {
 				vty_out(vty,
 					"Please remove all network commands first.\n");
@@ -9231,14 +9277,13 @@ DEFUN (ip_ospf_area,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	// Check if we have an address arg and process it
-	if (argc == idx + 3) {
-		if (!inet_aton(argv[idx + 2]->arg, &addr)) {
+	/* Per-address override [A.B.C.D] tail. */
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify Intf Address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		// update/create address-level params
 		params = ospf_get_if_params((ifp), (addr));
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 			if (!IPV4_ADDR_SAME(&params->if_area, &area_id)) {
@@ -9258,15 +9303,15 @@ DEFUN (ip_ospf_area,
 		params->if_area_id_fmt = format;
 	}
 
-	if (ospf)
-		ospf_interface_area_set(ospf, ifp);
+	if (ospf_inst)
+		ospf_interface_area_set(ospf_inst, ifp);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ip_ospf_area,
+DEFPY_YANG (no_ip_ospf_area,
        no_ip_ospf_area_cmd,
-       "no ip ospf [(1-65535)] area [<A.B.C.D|(0-4294967295)> [A.B.C.D]]",
+       "no ip ospf [(1-65535)$instance_id] area [<A.B.C.D|(0-4294967295)>$areaid [A.B.C.D$ifaddr]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -9277,29 +9322,45 @@ DEFUN (no_ip_ospf_area,
        "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	struct ospf *ospf;
+	struct ospf *ospf_inst;
 	struct ospf_if_params *params;
-	unsigned short instance = 0;
+	unsigned short instance = (instance_id > 0) ? (unsigned short)instance_id : 0;
 	struct in_addr addr;
 	struct in_addr area_id;
-
-	if (argv_find(argv, argc, "(1-65535)", &idx))
-		instance = strtol(argv[idx]->arg, NULL, 10);
+	char xpath[XPATH_MAXLEN];
+	char area_id_str[INET_ADDRSTRLEN];
 
 	if (!instance)
-		ospf = ifp->vrf->info;
+		ospf_inst = ifp->vrf->info;
 	else
-		ospf = ospf_lookup_instance(instance);
+		ospf_inst = ospf_lookup_instance(instance);
 
 	if (instance && instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	argv_find(argv, argc, "area", &idx);
+	/*
+	 * Route the common case through the ietf-ospf YANG list-destroy
+	 * callback. Per-address overrides stay on the legacy path because
+	 * RFC 9129 has no representation for them.
+	 */
+	if (!instance && !ifaddr_str && ospf_inst) {
+		params = IF_DEF_PARAMS(ifp);
+		if (!OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
+			vty_out(vty,
+				"Can't find specified interface area configuration.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		inet_ntop(AF_INET, &params->if_area, area_id_str,
+			  sizeof(area_id_str));
+		if (ospf_iface_area_xpath(xpath, sizeof(xpath), ospf_inst,
+					  area_id_str, ifp->name) == 0) {
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+			return nb_cli_apply_changes(vty, NULL);
+		}
+	}
 
-	// Check if we have an address arg and process it
-	if (argc == idx + 3) {
-		if (!inet_aton(argv[idx + 2]->arg, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify Intf Address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -9323,9 +9384,9 @@ DEFUN (no_ip_ospf_area,
 		ospf_if_update_params((ifp), (addr));
 	}
 
-	if (ospf) {
-		ospf_interface_area_unset(ospf, ifp);
-		ospf_area_check_free(ospf, area_id);
+	if (ospf_inst) {
+		ospf_interface_area_unset(ospf_inst, ifp);
+		ospf_area_check_free(ospf_inst, area_id);
 	}
 
 	return CMD_SUCCESS;
