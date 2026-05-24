@@ -222,6 +222,7 @@ int ospf6d_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args)
 	 */
 	ospf6_area_stub_unset(ospf6, area);
 	ospf6_area_nssa_unset(ospf6, area);
+	ospf6_area_no_summary_unset(ospf6, area);
 
 	ospf6_area_no_config_delete(area);
 
@@ -284,6 +285,71 @@ int ospf6d_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
 	} else {
 		return NB_ERR_VALIDATION;
 	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/summary
+ *
+ * Same inverted semantics as the OSPFv2 side: summary=true means summary
+ * LSAs are injected, summary=false means totally stubby.
+ *
+ * NOTE: RFC 9129 also defines areas/area/default-cost. ospf6d has no
+ * per-area stub default-cost knob, so that leaf is intentionally
+ * unimplemented here; setting it through YANG against an ospf6 instance
+ * is rejected by mgmtd as "no backend handles this path". This matches
+ * FRR's existing v3 CLI surface (which has no `area X default-cost`
+ * equivalent) and is a pre-existing v2/v3 feature gap, not introduced
+ * by this conversion.
+ */
+int ospf6d_ietf_ospf_areas_area_summary_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct ospf6_area *area;
+	uint32_t area_id;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	area = ospf6_area_lookup(area_id, ospf6);
+	if (!area)
+		return NB_OK;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		ospf6_area_no_summary_unset(ospf6, area);
+	else
+		ospf6_area_no_summary_set(ospf6, area);
+
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_summary_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct ospf6_area *area;
+	uint32_t area_id;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	if (ospf6d_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+	area = ospf6_area_lookup(area_id, ospf6);
+	if (!area)
+		return NB_OK;
+
+	ospf6_area_no_summary_unset(ospf6, area);
 
 	return NB_OK;
 }

@@ -582,6 +582,68 @@ def test_ospf_yang_area_delete_clears_native_nssa_ranges():
         + running
     )
 
+def _set_yang_area_attrs(router, protocol_type, area_id, attrs):
+    """Set multiple area attrs in one configure-and-commit block.
+
+    `attrs` is a list of (sub_path, value) tuples; each becomes one
+    `mgmt set-config` line, with all changes batched into a single
+    commit apply. Uses `configure terminal file-lock` so the commit
+    has the candidate+running DS locks it requires.
+    """
+    area_path = _yang_area_xpath(protocol_type, area_id)
+    lines = ["configure terminal file-lock"]
+    for sub_path, value in attrs:
+        lines.append("mgmt set-config {}/{} {}".format(area_path, sub_path, value))
+    lines.append("mgmt commit apply")
+    router.vtysh_cmd("\n".join(lines))
+
+
+def test_ospf_yang_area_summary_default_cost_config():
+    "Verify areas/area[]/summary and /default-cost round-trip via mgmtd."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2: stub-area + summary=false + default-cost=42 should yield
+    #   area 0.0.0.43 stub no-summary
+    #   area 0.0.0.43 default-cost 42
+    _set_yang_area_attrs(
+        r1, "ietf-ospf:ospfv2", "0.0.0.43",
+        [("area-type", "stub-area"), ("summary", "false"), ("default-cost", "42")],
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "area 0.0.0.43 stub no-summary" in running, (
+        "expected 'area 0.0.0.43 stub no-summary' in running-config, got:\n" + running
+    )
+    assert "area 0.0.0.43 default-cost 42" in running, (
+        "expected 'area 0.0.0.43 default-cost 42' in running-config, got:\n" + running
+    )
+    _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.43")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "0.0.0.43" not in running, (
+        "area 0.0.0.43 should be fully removed after YANG delete, running:\n" + running
+    )
+
+    # OSPFv3: summary only (FRR ospf6d has no per-area stub default-cost
+    # surface, so the default-cost leaf is intentionally unimplemented on
+    # the v3 side; see ospf6_nb_config.c for the rationale).
+    _set_yang_area_attrs(
+        r1, "ietf-ospf:ospfv3", "0.0.0.43",
+        [("area-type", "stub-area"), ("summary", "false")],
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "area 0.0.0.43 stub no-summary" in running, (
+        "expected 'area 0.0.0.43 stub no-summary' in running-config, got:\n" + running
+    )
+    _clear_yang_area(r1, "ietf-ospf:ospfv3", "0.0.0.43")
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "0.0.0.43" not in running, (
+        "area 0.0.0.43 should be fully removed after YANG delete, running:\n" + running
+    )
+
+
 def test_ospf_convergence():
     "Test OSPF daemon convergence"
     tgen = get_topogen()

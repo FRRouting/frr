@@ -10,7 +10,10 @@
 #include "yang.h"
 #include "yang_wrappers.h"
 
+#include "libospf.h"
+
 #include "ospfd/ospfd.h"
+#include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_nb.h"
 
 /*
@@ -208,11 +211,18 @@ int ospfd_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args)
 	 * ospf_area_check_free's precondition (external_routing == DEFAULT,
 	 * no_summary == 0, default_cost == 1, no ranges) can match. Per-leaf
 	 * destroy isn't dispatched for leaves with YANG defaults (area-type
-	 * defaults to normal-area), so we mirror those resets here. Future
-	 * slices that add more area leaves should extend this block.
+	 * defaults to normal-area), so we mirror those resets here.
 	 */
 	ospf_area_stub_unset(ospf, area_id);
 	ospf_area_nssa_unset(ospf, area_id);
+	ospf_area_no_summary_unset(ospf, area_id);
+	{
+		struct ospf_area *area;
+
+		area = ospf_area_lookup_by_area_id(ospf, area_id);
+		if (area)
+			area->default_cost = 1;
+	}
 
 	ospf_area_check_free(ospf, area_id);
 
@@ -291,6 +301,151 @@ int ospfd_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
 	} else {
 		return NB_ERR_VALIDATION;
 	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/summary
+ *
+ * RFC 9129 inverts FRR's no_summary flag: summary=true means summary LSAs
+ * ARE injected (the default for a stub area), summary=false means they're
+ * suppressed (totally stubby).
+ */
+int ospfd_ietf_ospf_areas_area_summary_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct in_addr area_id;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		ospf_area_no_summary_unset(ospf, area_id);
+	else
+		ospf_area_no_summary_set(ospf, area_id);
+
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_summary_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr area_id;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+
+	/*
+	 * summary has no YANG default; destroy means the operator removed the
+	 * explicit setting. Revert to FRR's natural default (summary LSAs on).
+	 */
+	ospf_area_no_summary_unset(ospf, area_id);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area/default-cost
+ *
+ * The YANG `when` clause restricts this leaf to stub or NSSA areas; the
+ * modify callback still defensively checks external_routing and returns
+ * NB_ERR_VALIDATION on misuse rather than silently mutating an
+ * inappropriate area.
+ */
+int ospfd_ietf_ospf_areas_area_default_cost_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct in_addr area_id;
+	struct ospf_area *area;
+	struct prefix_ipv4 p = {
+		.family = AF_INET,
+		.prefix.s_addr = OSPF_DEFAULT_DESTINATION,
+		.prefixlen = 0,
+	};
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len, "malformed area-id");
+		return NB_ERR_VALIDATION;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/*
+	 * Defer the area-existence and area-type checks to APPLY: at
+	 * VALIDATE the area may be in the same candidate transaction as
+	 * this leaf (atomic stub-area + default-cost commit), so
+	 * ospf_area_lookup_by_area_id would return NULL even though the
+	 * area-create APPLY runs first within the same transaction. RFC
+	 * 9129's `when` clause on default-cost (restricts to stub / NSSA
+	 * in the candidate datastore) is the authoritative area-type
+	 * cross-leaf check; libyang enforces it before any callback
+	 * fires. The check here is defensive at APPLY time only:
+	 * silently no-op if the area is gone, defensively skip the
+	 * mutation on a normal area (shouldn't happen, but matches the
+	 * "logged and dropped" APPLY-error semantics).
+	 */
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!area)
+		return NB_OK;
+	if (area->external_routing == OSPF_AREA_DEFAULT)
+		return NB_OK;
+
+	area->default_cost = yang_dnode_get_uint32(args->dnode, NULL);
+	ospf_abr_announce_network_to_area(&p, area->default_cost, area);
+
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_default_cost_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr area_id;
+	struct ospf_area *area;
+	struct prefix_ipv4 p = {
+		.family = AF_INET,
+		.prefix.s_addr = OSPF_DEFAULT_DESTINATION,
+		.prefixlen = 0,
+	};
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
+		return NB_ERR_VALIDATION;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!area)
+		return NB_OK;
+
+	area->default_cost = 1;
+	if (area->external_routing != OSPF_AREA_DEFAULT)
+		ospf_abr_announce_network_to_area(&p, area->default_cost, area);
 
 	return NB_OK;
 }

@@ -114,6 +114,14 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			.cfg_opt_in = true,
 		},
 		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH "/areas/area/summary",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_summary_modify,
+				.destroy = ospf6d_ietf_ospf_areas_area_summary_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH
 				 "/areas/area/statistics/spf-runs-count",
 			.cbs = {

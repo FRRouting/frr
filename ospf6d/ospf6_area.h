@@ -151,6 +151,8 @@ extern struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id);
 
 extern int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area);
 extern void ospf6_area_stub_unset(struct ospf6 *ospf6, struct ospf6_area *area);
+extern void ospf6_area_no_summary_set(struct ospf6 *ospf6, struct ospf6_area *area);
+extern void ospf6_area_no_summary_unset(struct ospf6 *ospf6, struct ospf6_area *area);
 extern void ospf6_area_enable(struct ospf6_area *oa);
 extern void ospf6_area_disable(struct ospf6_area *oa);
 

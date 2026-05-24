@@ -106,6 +106,22 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cfg_opt_in = true,
 		},
 		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/areas/area/summary",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_summary_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_summary_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/areas/area/default-cost",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_default_cost_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_default_cost_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/statistics/spf-runs-count",
 			.cbs = {
