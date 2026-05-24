@@ -17,7 +17,6 @@ import sys
 
 import pytest
 from lib.common_config import step
-from lib.micronet import commander
 from lib.topogen import Topogen, TopoRouter
 from lib.topotest import json_cmp
 
@@ -48,13 +47,6 @@ try:
 except ImportError:
     pytest.skip(
         "skipping; gRPC modules not installed", allow_module_level=True
-    )
-
-try:
-    commander.cmd_raises([script_path, "--check"])
-except Exception:
-    pytest.skip(
-        "skipping; cannot create or import gRPC proto modules", allow_module_level=True
     )
 
 
