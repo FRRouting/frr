@@ -73,6 +73,46 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cfg_opt_in = true,
 		},
 		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/all",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_preference_all_modify,
+				.destroy = ospfd_ietf_ospf_preference_all_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/intra-area",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_preference_intra_area_modify,
+				.destroy = ospfd_ietf_ospf_preference_intra_area_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/inter-area",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_preference_inter_area_modify,
+				.destroy = ospfd_ietf_ospf_preference_inter_area_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/internal",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_preference_internal_modify,
+				.destroy = ospfd_ietf_ospf_preference_internal_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/external",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_preference_external_modify,
+				.destroy = ospfd_ietf_ospf_preference_external_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/statistics/originate-new-lsa-count",
 			.cbs = {

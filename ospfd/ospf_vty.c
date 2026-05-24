@@ -263,6 +263,32 @@ static int ospf_router_id_xpath(char *xpath, size_t size, const struct ospf *osp
 			ospf_get_name(ospf));
 }
 
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol[ospf]/ietf-ospf:ospf/<leaf>
+ *
+ * Build an absolute ietf-ospf instance-level leaf xpath for the given OSPF
+ * instance. The `router ospf` block is not yet converted to YANG, so the
+ * instance keys come from FRR-side context rather than a vty xpath push.
+ * Returns -1 on truncation.
+ */
+static int ospf_per_instance_xpath(char *xpath, size_t size,
+				   const struct ospf *ospf, const char *leaf)
+{
+	char instance_name[XPATH_MAXLEN];
+	int ret;
+
+	if (!ospf || !leaf)
+		return -1;
+	ret = snprintf(xpath, size,
+		       OSPFD_IETF_ROUTING_PROTOCOL_XPATH "/ietf-ospf:ospf%s",
+		       ospfd_ietf_ospf_instance_name(ospf, instance_name,
+						     sizeof(instance_name)),
+		       leaf);
+	if (ret < 0 || (size_t)ret >= size)
+		return -1;
+	return 0;
+}
+
 static void ospf_router_id_change_advise(struct vty *vty, const struct ospf *ospf)
 {
 	struct listnode *node;
@@ -9971,26 +9997,23 @@ DEFPY (ospf_forwarding_address_self,
 }
 
 
-DEFUN (ospf_distance,
+DEFPY_YANG (ospf_distance,
        ospf_distance_cmd,
-       "distance (1-255)",
+       "distance (1-255)$distance",
        "Administrative distance\n"
        "OSPF Administrative distance\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_number = 1;
-	uint8_t distance;
+	char xpath[XPATH_MAXLEN];
 
-	distance = atoi(argv[idx_number]->arg);
-	if (ospf->distance_all != distance) {
-		ospf->distance_all = distance;
-		ospf_restart_spf(ospf);
-	}
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/preference/all") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, distance_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf_distance,
+DEFPY_YANG (no_ospf_distance,
        no_ospf_distance_cmd,
        "no distance [(1-255)]",
        NO_STR
@@ -9998,18 +10021,18 @@ DEFUN (no_ospf_distance,
        "OSPF Administrative distance\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
-	if (ospf->distance_all) {
-		ospf->distance_all = 0;
-		ospf_restart_spf(ospf);
-	}
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/preference/all") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf_distance_ospf,
+DEFPY_YANG (no_ospf_distance_ospf,
        no_ospf_distance_ospf_cmd,
-       "no distance ospf [{intra-area [(1-255)]|inter-area [(1-255)]|external [(1-255)]}]",
+       "no distance ospf [{intra-area$intra [(1-255)]|inter-area$inter [(1-255)]|external$external [(1-255)]}]",
        NO_STR
        "Administrative distance\n"
        "OSPF administrative distance\n"
@@ -10021,21 +10044,33 @@ DEFUN (no_ospf_distance_ospf,
        "Distance for external routes\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx = 0;
+	char xpath[XPATH_MAXLEN];
+	bool all_scopes = (!intra && !inter && !external);
 
-	if (argv_find(argv, argc, "intra-area", &idx) || argc == 3)
-		idx = ospf->distance_intra = 0;
-	if (argv_find(argv, argc, "inter-area", &idx) || argc == 3)
-		idx = ospf->distance_inter = 0;
-	if (argv_find(argv, argc, "external", &idx) || argc == 3)
-		ospf->distance_external = 0;
-
-	return CMD_SUCCESS;
+	if (intra || all_scopes) {
+		if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+					    "/preference/intra-area") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	if (inter || all_scopes) {
+		if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+					    "/preference/inter-area") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	if (external || all_scopes) {
+		if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+					    "/preference/external") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ospf_distance_ospf,
+DEFPY_YANG (ospf_distance_ospf,
        ospf_distance_ospf_cmd,
-       "distance ospf {intra-area (1-255)|inter-area (1-255)|external (1-255)}",
+       "distance ospf {intra-area (1-255)$intra|inter-area (1-255)$inter|external (1-255)$external}",
        "Administrative distance\n"
        "OSPF administrative distance\n"
        "Intra-area routes\n"
@@ -10046,22 +10081,33 @@ DEFUN (ospf_distance_ospf,
        "Distance for external routes\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx = 0;
+	char xpath[XPATH_MAXLEN];
 
-	ospf->distance_intra = 0;
-	ospf->distance_inter = 0;
-	ospf->distance_external = 0;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/preference/intra-area") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (intra)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, intra_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	if (argv_find(argv, argc, "intra-area", &idx))
-		ospf->distance_intra = atoi(argv[idx + 1]->arg);
-	idx = 0;
-	if (argv_find(argv, argc, "inter-area", &idx))
-		ospf->distance_inter = atoi(argv[idx + 1]->arg);
-	idx = 0;
-	if (argv_find(argv, argc, "external", &idx))
-		ospf->distance_external = atoi(argv[idx + 1]->arg);
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/preference/inter-area") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (inter)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, inter_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/preference/external") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (external)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, external_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_ospf_mtu_ignore,

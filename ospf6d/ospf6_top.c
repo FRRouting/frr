@@ -815,6 +815,27 @@ static int ospf6_router_id_xpath(char *xpath, size_t size, const struct ospf6 *o
 }
 
 /*
+ * Build an absolute ietf-ospf instance-level leaf xpath for the given OSPFv3
+ * instance. The `router ospf6` block is not yet converted to YANG, so the
+ * instance keys come from FRR-side context rather than a vty xpath push.
+ * Returns -1 on truncation.
+ */
+static int ospf6_per_instance_xpath(char *xpath, size_t size,
+				    const struct ospf6 *o, const char *leaf)
+{
+	int ret;
+
+	if (!o || !leaf)
+		return -1;
+	ret = snprintf(xpath, size,
+		       OSPF6D_IETF_ROUTING_PROTOCOL_XPATH "/ietf-ospf:ospf%s",
+		       o->name ? o->name : VRF_DEFAULT_NAME, leaf);
+	if (ret < 0 || (size_t)ret >= size)
+		return -1;
+	return 0;
+}
+
+/*
  * Mirror the legacy advisory: if the static value and the runtime router-id
  * disagree after apply, the change was staged but adjacencies must be cleared
  * for it to take effect. ospf6_router_id_update() encodes this by returning
@@ -1001,43 +1022,42 @@ DEFUN (no_ospf6_timers_lsa,
 }
 
 
-DEFUN (ospf6_distance,
+DEFPY_YANG (ospf6_distance,
        ospf6_distance_cmd,
-       "distance (1-255)",
+       "distance (1-255)$distance",
        "Administrative distance\n"
        "OSPF6 Administrative distance\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	uint8_t distance;
+	char xpath[XPATH_MAXLEN];
 
-	distance = atoi(argv[1]->arg);
-	if (o->distance_all != distance) {
-		o->distance_all = distance;
-		ospf6_restart_spf(o);
-	}
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/preference/all") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, distance_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf6_distance,
+DEFPY_YANG (no_ospf6_distance,
        no_ospf6_distance_cmd,
-       "no distance (1-255)",
+       "no distance (1-255)$distance",
        NO_STR
        "Administrative distance\n"
        "OSPF6 Administrative distance\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
+	char xpath[XPATH_MAXLEN];
 
-	if (o->distance_all) {
-		o->distance_all = 0;
-		ospf6_restart_spf(o);
-	}
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/preference/all") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ospf6_distance_ospf6,
+DEFPY_YANG (ospf6_distance_ospf6,
        ospf6_distance_ospf6_cmd,
-       "distance ospf6 {intra-area (1-255)|inter-area (1-255)|external (1-255)}",
+       "distance ospf6 {intra-area (1-255)$intra|inter-area (1-255)$inter|external (1-255)$external}",
        "Administrative distance\n"
        "OSPF6 administrative distance\n"
        "Intra-area routes\n"
@@ -1048,27 +1068,38 @@ DEFUN (ospf6_distance_ospf6,
        "Distance for external routes\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	int idx = 0;
+	char xpath[XPATH_MAXLEN];
 
-	o->distance_intra = 0;
-	o->distance_inter = 0;
-	o->distance_external = 0;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/preference/intra-area") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (intra)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, intra_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	if (argv_find(argv, argc, "intra-area", &idx))
-		o->distance_intra = atoi(argv[idx + 1]->arg);
-	idx = 0;
-	if (argv_find(argv, argc, "inter-area", &idx))
-		o->distance_inter = atoi(argv[idx + 1]->arg);
-	idx = 0;
-	if (argv_find(argv, argc, "external", &idx))
-		o->distance_external = atoi(argv[idx + 1]->arg);
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/preference/inter-area") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (inter)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, inter_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/preference/external") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (external)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, external_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf6_distance_ospf6,
+DEFPY_YANG (no_ospf6_distance_ospf6,
        no_ospf6_distance_ospf6_cmd,
-       "no distance ospf6 [{intra-area [(1-255)]|inter-area [(1-255)]|external [(1-255)]}]",
+       "no distance ospf6 [{intra-area$intra [(1-255)]|inter-area$inter [(1-255)]|external$external [(1-255)]}]",
        NO_STR
        "Administrative distance\n"
        "OSPF6 distance\n"
@@ -1080,16 +1111,28 @@ DEFUN (no_ospf6_distance_ospf6,
        "Distance for external routes\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	int idx = 0;
+	char xpath[XPATH_MAXLEN];
+	bool all_scopes = (!intra && !inter && !external);
 
-	if (argv_find(argv, argc, "intra-area", &idx) || argc == 3)
-		idx = o->distance_intra = 0;
-	if (argv_find(argv, argc, "inter-area", &idx) || argc == 3)
-		idx = o->distance_inter = 0;
-	if (argv_find(argv, argc, "external", &idx) || argc == 3)
-		o->distance_external = 0;
-
-	return CMD_SUCCESS;
+	if (intra || all_scopes) {
+		if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+					     "/preference/intra-area") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	if (inter || all_scopes) {
+		if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+					     "/preference/inter-area") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	if (external || all_scopes) {
+		if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+					     "/preference/external") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ospf6_stub_router_admin,
