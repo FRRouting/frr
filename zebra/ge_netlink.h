@@ -45,6 +45,8 @@ netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth,
 int netlink_sr_tunsrc_reply_read(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 int netlink_sr_tunsrc_read(struct zebra_ns *zns);
 
+extern uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, int *error);
+
 extern void ge_netlink_init(struct zebra_ns *zns);
 
 #ifdef __cplusplus

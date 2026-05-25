@@ -269,80 +269,9 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		ctx, *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]));
 }
 
-static uint32_t get_iflink_speed(struct interface *interface, int *error)
-{
-	struct ifreq ifdata;
-	struct ethtool_cmd ecmd;
-	int sd;
-	int rc;
-	const char *ifname = interface->name;
-	uint32_t ret;
-
-	if (error)
-		*error = 0;
-	/* initialize struct */
-	memset(&ifdata, 0, sizeof(ifdata));
-
-	/* set interface name */
-	strlcpy(ifdata.ifr_name, ifname, sizeof(ifdata.ifr_name));
-
-	/* initialize ethtool interface */
-	memset(&ecmd, 0, sizeof(ecmd));
-	ecmd.cmd = ETHTOOL_GSET; /* ETHTOOL_GLINK */
-	ifdata.ifr_data = (caddr_t)&ecmd;
-
-	/* use ioctl to get speed of an interface */
-	frr_with_privs(&zserv_privs) {
-		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
-				interface->vrf->vrf_id, NULL);
-		if (sd < 0) {
-			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("Failure to read interface %s speed: %d %s",
-					   ifname, errno, safe_strerror(errno));
-			/* no vrf socket creation may probably mean vrf issue */
-			if (error)
-				*error = INTERFACE_SPEED_ERROR_READ;
-
-			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
-				 safe_strerror(errno), 1);
-
-			return 0;
-		}
-		/* Get the current link state for the interface */
-		rc = vrf_ioctl(interface->vrf->vrf_id, sd, SIOCETHTOOL,
-			       (char *)&ifdata);
-	}
-	if (rc < 0) {
-		if (errno != EOPNOTSUPP && IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"IOCTL failure to read interface %s speed: %d %s",
-				ifname, errno, safe_strerror(errno));
-		/* no device means interface unreachable */
-		if (errno == ENODEV && error)
-			*error = INTERFACE_SPEED_ERROR_READ;
-
-		if (errno != EOPNOTSUPP)
-			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
-				 safe_strerror(errno), 2);
-
-		ecmd.speed_hi = 0;
-		ecmd.speed = 0;
-	}
-
-	close(sd);
-
-	ret = ((uint32_t)ecmd.speed_hi << 16) | ecmd.speed;
-	if (ret == UINT32_MAX) {
-		if (error)
-			*error = INTERFACE_SPEED_ERROR_UNKNOWN;
-		ret = 0;
-	}
-	return ret;
-}
-
 uint32_t kernel_get_speed(struct interface *ifp, int *error)
 {
-	return get_iflink_speed(ifp, error);
+	return netlink_get_interface_speed(zebra_ns_lookup(ifp->vrf->vrf_id), ifp->name, error);
 }
 
 static ssize_t
