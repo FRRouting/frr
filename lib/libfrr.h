@@ -197,6 +197,7 @@ extern FRR_NORETURN void frr_help_exit(int status);
 
 extern struct event_loop *frr_init(void);
 extern const char *frr_get_progname(void);
+extern unsigned short frr_get_instance(void);
 extern enum frr_cli_mode frr_get_cli_mode(void);
 extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);

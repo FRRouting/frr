@@ -8,12 +8,15 @@
  */
 
 #include <zebra.h>
+#include <libyang/plugins_types.h>
+
 #include "darr.h"
 #include "frrevent.h"
 #include "frrstr.h"
 #include "sockopt.h"
 #include "network.h"
 #include "libfrr.h"
+#include "yang.h"
 #include "mgmt_msg.h"
 #include "mgmt_msg_native.h"
 #include "mgmtd/mgmt.h"
@@ -149,33 +152,459 @@ static ssize_t printfrr_be_mask(struct fbuf *buf, struct printfrr_eargs *ea, con
 /* XPath Mapping Functions */
 /* ======================= */
 
+static const char *mgmt_be_xpath_segment_end(const char *segment)
+{
+	const char *p;
+
+	for (p = segment; *p && *p != '/'; p++) {
+		if (*p == '[') {
+			p = frrstr_skip_over_char(p + 1, ']');
+			if (!p)
+				return NULL;
+			p--;
+		}
+	}
+
+	return p;
+}
+
+static size_t mgmt_be_xpath_segment_name_len(const char *segment)
+{
+	const char *p;
+
+	for (p = segment; *p && *p != '/' && *p != '['; p++)
+		;
+
+	return p - segment;
+}
+
+static bool mgmt_be_xpath_segment_names_equal(const char *a, size_t a_len,
+					      const char *b, size_t b_len)
+{
+	return a_len == b_len && strncmp(a, b, a_len) == 0;
+}
+
+static bool mgmt_be_xpath_segment_module_prefix(const char *prefix,
+						size_t prefix_len,
+						const char *segment,
+						size_t segment_len)
+{
+	return prefix_len < segment_len &&
+	       segment[prefix_len] == ':' &&
+	       strncmp(prefix, segment, prefix_len) == 0;
+}
+
+static bool mgmt_be_xpath_append_segment(char *path, size_t path_len,
+					 const char *segment,
+					 size_t segment_len)
+{
+	size_t len = strlen(path);
+
+	if (len + segment_len + 2 > path_len)
+		return false;
+
+	path[len++] = '/';
+	memcpy(path + len, segment, segment_len);
+	path[len + segment_len] = '\0';
+
+	return true;
+}
+
+static bool mgmt_be_xpath_identity_is_allowed(
+	const struct lysc_type_identityref *type, const struct lysc_ident *ident)
+{
+	uint64_t i;
+
+	LY_ARRAY_FOR (type->bases, i) {
+		const struct lysc_ident *base = type->bases[i];
+
+		if (ident == base ||
+		    lyplg_type_identity_isderived(base, ident) == LY_SUCCESS)
+			return true;
+	}
+
+	return false;
+}
+
+static bool mgmt_be_xpath_name_match(const char *str, const char *name,
+				     size_t name_len)
+{
+	return strlen(str) == name_len && strncmp(str, name, name_len) == 0;
+}
+
+static const struct lysc_ident *mgmt_be_xpath_resolve_identity(
+	const struct lysc_type_identityref *type, const char *value,
+	size_t value_len)
+{
+	const char *colon = memchr(value, ':', value_len);
+	const struct lysc_ident *ident = NULL;
+	const char *module = NULL;
+	size_t module_len = 0;
+	const char *name = value;
+	size_t name_len = value_len;
+	const struct lys_module *mod;
+	uint32_t idx = 0;
+	uint64_t i;
+
+	if (colon) {
+		module = value;
+		module_len = colon - value;
+		name = colon + 1;
+		name_len = value + value_len - name;
+	}
+
+	while ((mod = ly_ctx_get_module_iter(ly_native_ctx, &idx))) {
+		if (module && !mgmt_be_xpath_name_match(mod->name, module,
+							module_len) &&
+		    !mgmt_be_xpath_name_match(mod->prefix, module, module_len))
+			continue;
+
+		LY_ARRAY_FOR (mod->identities, i) {
+			const struct lysc_ident *candidate = &mod->identities[i];
+
+			if (!mgmt_be_xpath_name_match(candidate->name, name,
+						      name_len) ||
+			    !mgmt_be_xpath_identity_is_allowed(type, candidate))
+				continue;
+
+			if (ident && ident != candidate)
+				return NULL;
+			ident = candidate;
+		}
+	}
+
+	return ident;
+}
+
+static bool mgmt_be_xpath_identityref_values_match(const struct lysc_type *type,
+						   const char *map_value,
+						   size_t map_value_len,
+						   const char *xpath_value,
+						   size_t xpath_value_len)
+{
+	const struct lysc_type_identityref *ident_type =
+		(const struct lysc_type_identityref *)type;
+	const struct lysc_ident *map_ident;
+	const struct lysc_ident *xpath_ident;
+
+	map_ident = mgmt_be_xpath_resolve_identity(ident_type, map_value,
+						   map_value_len);
+	xpath_ident = mgmt_be_xpath_resolve_identity(ident_type, xpath_value,
+						     xpath_value_len);
+	if (!map_ident || !xpath_ident)
+		return false;
+
+	return map_ident == xpath_ident;
+}
+
+static const struct lysc_node *
+mgmt_be_xpath_key_snode(const struct lysc_node *list_snode, const char *key,
+			size_t key_len)
+{
+	const struct lysc_node *child;
+	const char *key_name = key;
+	size_t key_name_len = key_len;
+	const char *colon;
+
+	if (!list_snode || list_snode->nodetype != LYS_LIST)
+		return NULL;
+
+	colon = memchr(key, ':', key_len);
+	if (colon) {
+		key_name = colon + 1;
+		key_name_len = key + key_len - key_name;
+	}
+
+	LY_LIST_FOR (lysc_node_child(list_snode), child) {
+		if (!lysc_is_key(child))
+			continue;
+
+		if (strlen(child->name) == key_name_len &&
+		    strncmp(child->name, key_name, key_name_len) == 0)
+			return child;
+	}
+
+	return NULL;
+}
+
+static bool mgmt_be_xpath_values_match(const struct lysc_node *key_snode,
+				       const char *map_value,
+				       size_t map_value_len,
+				       const char *xpath_value,
+				       size_t xpath_value_len)
+{
+	const struct lysc_type *type;
+	const char *map_canon = NULL;
+	const char *xpath_canon = NULL;
+	LY_ERR map_err, xpath_err;
+	bool match;
+
+	if (!key_snode)
+		return map_value_len == xpath_value_len &&
+		       strncmp(map_value, xpath_value, map_value_len) == 0;
+
+	type = yang_snode_get_type(key_snode);
+	if (!type)
+		return false;
+
+	if (type->basetype == LY_TYPE_IDENT)
+		return mgmt_be_xpath_identityref_values_match(
+			type, map_value, map_value_len, xpath_value,
+			xpath_value_len);
+
+	map_err = lyd_value_validate(NULL, key_snode, map_value, map_value_len,
+				     NULL, NULL, &map_canon);
+	xpath_err = lyd_value_validate(NULL, key_snode, xpath_value,
+				       xpath_value_len, NULL, NULL,
+				       &xpath_canon);
+	if (map_err || xpath_err || !map_canon || !xpath_canon) {
+		match = false;
+		goto out;
+	}
+
+	match = strcmp(map_canon, xpath_canon) == 0;
+
+out:
+	free((void *)map_canon);
+	free((void *)xpath_canon);
+	return match;
+}
+
+static bool mgmt_be_xpath_predicate_parse(const char *predicate, const char *segment_end,
+					  const char **key, size_t *key_len, const char **value,
+					  size_t *value_len, const char **next)
+{
+	const char *key_start;
+	const char *key_end;
+	const char *predicate_end;
+	const char *close;
+	const char *equals;
+	const char *value_start;
+	const char *value_end;
+
+	predicate_end = frrstr_skip_over_char(predicate + 1, ']');
+	if (!predicate_end || predicate_end > segment_end)
+		return false;
+
+	close = predicate_end - 1;
+	equals = memchr(predicate + 1, '=', close - predicate - 1);
+	if (!equals)
+		return false;
+
+	key_start = predicate + 1;
+	while (key_start < equals && isspace((unsigned char)*key_start))
+		key_start++;
+	key_end = equals;
+	while (key_end > key_start && isspace((unsigned char)key_end[-1]))
+		key_end--;
+	if (key_start == key_end)
+		return false;
+
+	*key = key_start;
+	*key_len = key_end - key_start;
+
+	value_start = equals + 1;
+	while (value_start < close && isspace((unsigned char)*value_start))
+		value_start++;
+	value_end = close;
+	while (value_end > value_start && isspace((unsigned char)value_end[-1]))
+		value_end--;
+	if (value_start == value_end)
+		return false;
+
+	if (value_start < value_end && (*value_start == '\'' || *value_start == '"')) {
+		char quote = *value_start;
+
+		value_start++;
+		value_end = memchr(value_start, quote, close - value_start);
+		if (!value_end)
+			return false;
+		if (value_end + 1 != close) {
+			const char *p = value_end + 1;
+
+			while (p < close && isspace((unsigned char)*p))
+				p++;
+			if (p != close)
+				return false;
+		}
+	} else if (memchr(value_start, '\'', value_end - value_start) ||
+		   memchr(value_start, '"', value_end - value_start)) {
+		return false;
+	}
+
+	*value = value_start;
+	*value_len = value_end - value_start;
+	*next = predicate_end;
+
+	return true;
+}
+
+static bool mgmt_be_xpath_find_predicate(const char *segment, const char *segment_end,
+					 const char *key, size_t key_len, const char **value,
+					 size_t *value_len, bool *found)
+{
+	const char *p = segment + mgmt_be_xpath_segment_name_len(segment);
+
+	*found = false;
+	while (p < segment_end) {
+		const char *predicate_key;
+		const char *predicate_value;
+		const char *next;
+		size_t predicate_key_len;
+		size_t predicate_value_len;
+
+		while (p < segment_end && *p != '[')
+			p++;
+		if (p >= segment_end)
+			return true;
+
+		if (!mgmt_be_xpath_predicate_parse(p, segment_end, &predicate_key,
+						   &predicate_key_len, &predicate_value,
+						   &predicate_value_len, &next))
+			return false;
+
+		if (predicate_key_len == key_len && strncmp(predicate_key, key, key_len) == 0) {
+			*value = predicate_value;
+			*value_len = predicate_value_len;
+			*found = true;
+			return true;
+		}
+
+		p = next;
+	}
+
+	return true;
+}
+
+static bool mgmt_be_xpath_segment_predicates_compatible(const char *map_segment,
+							const char *map_end,
+							const char *xpath_segment,
+							const char *xpath_end,
+							const struct lysc_node *snode)
+{
+	const char *p = map_segment + mgmt_be_xpath_segment_name_len(map_segment);
+
+	while (p < map_end) {
+		const char *map_key;
+		const char *map_value;
+		const char *xpath_value;
+		const char *next;
+		size_t map_key_len;
+		size_t map_value_len;
+		size_t xpath_value_len;
+		bool found;
+
+		while (p < map_end && *p != '[')
+			p++;
+		if (p >= map_end)
+			return true;
+
+		if (!mgmt_be_xpath_predicate_parse(p, map_end, &map_key, &map_key_len, &map_value,
+						   &map_value_len, &next))
+			return false;
+
+		if (!mgmt_be_xpath_find_predicate(xpath_segment, xpath_end, map_key, map_key_len,
+						  &xpath_value, &xpath_value_len, &found))
+			return false;
+
+		if (found &&
+		    !mgmt_be_xpath_values_match(
+			    mgmt_be_xpath_key_snode(snode, map_key, map_key_len),
+			    map_value, map_value_len, xpath_value,
+			    xpath_value_len))
+			return false;
+
+		p = next;
+	}
+
+	return true;
+}
+
 /*
  * Check if either map_path or xpath is a prefix of the other along path
- * boundaries (i.e., either module name ending with ':' or path segment ending
- * with '/' or 0 byte). Before checking
- * the xpath is converted to a regular path string (i.e., removing predicates).
+ * boundaries. The same segment walk handles both predicate-free and predicated
+ * registrations.
+ *
+ * Predicated registrations are used when multiple backends own entries under a
+ * shared YANG list, such as OSPFv2 and OSPFv3 under RFC 9129's
+ * ietf-routing control-plane-protocol list. In that case predicates constrain
+ * backend ownership only when the query also specifies the same predicate key,
+ * using the key schema when possible so identityrefs and other YANG values are
+ * compared by type rather than by raw bytes. A conflicting value rejects the
+ * backend, but a missing query predicate is a wildcard: unkeyed list and parent
+ * queries still dispatch to every matching backend so the frontend can merge
+ * their entries.
+ *
+ * Keep this matcher tree-free. It is shared by configuration, operational,
+ * notification and RPC dispatch, and the last three paths have no candidate data
+ * tree at backend-selection time. Per-daemon callbacks perform data-tree
+ * validation after mgmtd has selected the backend set.
  */
 static bool mgmt_be_xpath_prefix(const char *map_path, const char *xpath)
 {
-	int xc, pc = 0;
+	const char *map = map_path;
+	const char *path = xpath;
+	char schema_path[XPATH_MAXLEN] = "";
 
-	while ((xc = *xpath++)) {
-		if (xc == '[') {
-			xpath = frrstr_skip_over_char(xpath, ']');
-			if (!xpath)
-				return false;
-			continue;
-		}
-		pc = *map_path++;
-		if (!pc)
-			/* pc is done, if xpath ends at a path separator, it's a match */
-			return (xc == '/' || xc == ':');
-		if (pc != xc)
-			return false;
+	if (strnlen(map_path, XPATH_MAXLEN) == XPATH_MAXLEN ||
+	    strnlen(xpath, XPATH_MAXLEN) == XPATH_MAXLEN) {
+		_log_warn("xpath too long for backend dispatch: %s", xpath);
+		return false;
 	}
-	pc = *map_path++;
-	/* if they are equal, or map_path ends at a path separator, it's a match */
-	return (!pc || pc == '/' || pc == ':');
+
+	while (*map == '/')
+		map++;
+	while (*path == '/')
+		path++;
+
+	while (*map && *path) {
+		const char *map_end;
+		const char *path_end;
+		size_t map_name_len;
+		size_t path_name_len;
+		const struct lysc_node *snode = NULL;
+		bool map_module_prefix;
+		bool path_module_prefix;
+
+		map_end = mgmt_be_xpath_segment_end(map);
+		path_end = mgmt_be_xpath_segment_end(path);
+		if (!map_end || !path_end)
+			return false;
+
+		map_name_len = mgmt_be_xpath_segment_name_len(map);
+		path_name_len = mgmt_be_xpath_segment_name_len(path);
+		if (!mgmt_be_xpath_segment_names_equal(map, map_name_len, path,
+						       path_name_len)) {
+			map_module_prefix = mgmt_be_xpath_segment_module_prefix(
+				map, map_name_len, path, path_name_len);
+			path_module_prefix = mgmt_be_xpath_segment_module_prefix(
+				path, path_name_len, map, map_name_len);
+
+			if (map_module_prefix)
+				return *map_end == '\0';
+			if (path_module_prefix)
+				return *path_end == '\0';
+
+			return false;
+		}
+
+		if (!mgmt_be_xpath_append_segment(schema_path,
+						  sizeof(schema_path), map,
+						  map_name_len))
+			return false;
+		if (memchr(map + map_name_len, '[', map_end - map_name_len - map))
+			snode = lys_find_path(ly_native_ctx, NULL, schema_path,
+					      0);
+
+		if (!mgmt_be_xpath_segment_predicates_compatible(
+			    map, map_end, path, path_end, snode))
+			return false;
+
+		map = *map_end == '/' ? map_end + 1 : map_end;
+		path = *path_end == '/' ? path_end + 1 : path_end;
+	}
+
+	return true;
 }
 
 /*

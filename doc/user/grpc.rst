@@ -28,6 +28,15 @@ Northbound gRPC Features
 
    There is currently no support for YANG notifications.
 
+.. note::
+
+   Per-daemon gRPC ``Execute`` validates RPC input in the daemon-local
+   libyang context before dispatching to the northbound callback.  RPCs whose
+   input contains a leafref into ``/ietf-routing:routing`` can therefore fail
+   with ``INVALID_ARGUMENT`` even when the referenced routing protocol exists
+   in mgmtd.  The mgmtd-fronted ``vtysh`` RPC path does not have this
+   limitation.
+
 
 .. note::
 

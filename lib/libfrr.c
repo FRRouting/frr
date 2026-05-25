@@ -861,6 +861,11 @@ const char *frr_get_progname(void)
 	return di ? di->progname : NULL;
 }
 
+unsigned short frr_get_instance(void)
+{
+	return di ? di->instance : 0;
+}
+
 enum frr_cli_mode frr_get_cli_mode(void)
 {
 	return di ? di->cli_mode : FRR_CLI_CLASSIC;

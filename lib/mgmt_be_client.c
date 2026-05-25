@@ -12,6 +12,7 @@
 #include "libfrr.h"
 #include "lib_errors.h"
 #include "mgmt_be_client.h"
+#include "mgmt_defines.h"
 #include "mgmt_msg.h"
 #include "mgmt_msg_native.h"
 #include "network.h"
@@ -1386,6 +1387,9 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 {
 	struct mgmt_be_client *client;
 	char server_path[MAXPATHLEN];
+	char client_name_inst[MAXPATHLEN];
+	int ret;
+	unsigned short instance = frr_get_instance();
 
 	if (__be_client)
 		return NULL;
@@ -1396,7 +1400,27 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 	/* Only call after frr_init() */
 	assert(running_config);
 
-	client->name = XSTRDUP(MTYPE_MGMTD_BE_CLIENT_NAME, client_name);
+	if (instance)
+		ret = snprintf(client_name_inst, sizeof(client_name_inst), "%s-%u",
+			       client_name, instance);
+	else
+		ret = snprintf(client_name_inst, sizeof(client_name_inst), "%s",
+			       client_name);
+
+	if (ret < 0 || ret >= MGMTD_CLIENT_NAME_MAX_LEN) {
+		if (instance)
+			flog_err(EC_LIB_SYSTEM_CALL,
+				 "%s: backend client name '%s-%u' is too long",
+				 __func__, client_name, instance);
+		else
+			flog_err(EC_LIB_SYSTEM_CALL,
+				 "%s: backend client name '%s' is too long",
+				 __func__, client_name);
+		XFREE(MTYPE_MGMTD_BE_CLIENT, client);
+		__be_client = NULL;
+		return NULL;
+	}
+	client->name = XSTRDUP(MTYPE_MGMTD_BE_CLIENT_NAME, client_name_inst);
 	client->running_config = running_config;
 	// client->candidate_config = vty_shared_candidate_config;
 	if (cbs)
