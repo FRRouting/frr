@@ -25,6 +25,7 @@
 #include <zebra/zebra_dplane.h>
 #include <zebra/rt_netlink.h>
 #include <zebra/kernel_netlink.h>
+#include <zebra/zebra_router.h>
 
 #define LOG_UNSUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE()                                              \
 	zlog_err("%s: SEG6LOCAL DT6 routes with VRFTABLE is NOT supported", __func__)
@@ -39,11 +40,13 @@
 #define CHECK_SRV6_ATTR_PREFIX_STR	"2001:db8:efff::"
 #define CHECK_SRV6_DUMMY_INTERFACE	"6wsrv6dummy"
 #define CHECK_SRV6_ATTR_SOURCE_ADDRESS	"2001:db8:dfff::"
+#define CHECK_SRV6_ATTR_SUPPORTED_FUNC_DELAY_NOTIFY 30
 
 static bool check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress;
 static bool check_srv6_seg6local_dt6_vrftable_attr_supported;
 static bool check_srv6_seg6_source_encap_attr_supported_in_progress;
 static bool check_srv6_seg6_source_encap_attr_supported;
+struct event *check_srv6_attr_supported_func_thread;
 
 static bool configure_fake_l3vrf(struct zebra_ns *zns, bool add_l3vrf)
 {
@@ -507,6 +510,19 @@ netlink_error:
 	return -1;
 }
 
+static void check_srv6_attr_supported_func_notify(struct event *thread)
+{
+	if (check_srv6_seg6local_dt6_vrftable_attr_supported)
+		LOG_SUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE();
+	else
+		LOG_UNSUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE();
+
+	if (check_srv6_seg6_source_encap_attr_supported)
+		LOG_SUPPORTED_SRV6_SEG6_SOURCE_ENCAP();
+	else
+		LOG_UNSUPPORTED_SRV6_SEG6_SOURCE_ENCAP();
+}
+
 void zebra_kernel_capabilities_init(void)
 {
 	check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress = false;
@@ -555,6 +571,10 @@ void zebra_kernel_capabilities_interface_created_cb(struct interface *ifp)
 
 	if (check_srv6_seg6_source_encap_attr_supported_func(zns, ifp, ifp_dummy) < 0)
 		goto netlink_error;
+
+	event_add_timer(zrouter.master, check_srv6_attr_supported_func_notify, NULL,
+			CHECK_SRV6_ATTR_SUPPORTED_FUNC_DELAY_NOTIFY,
+			&check_srv6_attr_supported_func_thread);
 
 netlink_error:
 	supported_func_done = true;
