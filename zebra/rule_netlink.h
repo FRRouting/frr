@@ -17,7 +17,7 @@ extern "C" {
 /*
  * Handle netlink notification informing a rule add or delete.
  */
-extern int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
+extern int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.

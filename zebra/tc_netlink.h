@@ -49,11 +49,9 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
  * the sake of consistency with kernel message types (RTM_NEWTFILTER etc.)
  */
 
-extern int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id,
-				  int startup);
-extern int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id,
-				 int startup);
-extern int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
+extern int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
+extern int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
+extern int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 
 
 #ifdef __cplusplus

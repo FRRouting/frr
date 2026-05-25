@@ -907,8 +907,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_PACKET, RTM_GETLINK, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0,
-				 true);
+	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0, true, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -917,8 +916,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 					RTEXT_FILTER_BRVLAN);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0,
-				 true);
+	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0, true, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -966,8 +964,8 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_INET, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd,
-				 &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd, &dp_info, 0, true,
+				 NULL);
 	if (ret < 0)
 		return ret;
 
@@ -975,8 +973,8 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_INET6, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd,
-				 &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd, &dp_info, 0, true,
+				 NULL);
 	if (ret < 0)
 		return ret;
 
@@ -1012,8 +1010,7 @@ int kernel_interface_set_master(struct interface *master,
 		return -1;
 	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL);
 }
 
 /* Interface address modification. */
@@ -1133,8 +1130,8 @@ netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
  * This runs in the dplane pthread; the context is enqueued to the
  * main pthread for processing.
  */
-int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
-				  int startup /*ignored*/)
+int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id, int startup /*ignored*/,
+				  void *arg)
 {
 	int len;
 	struct ifaddrmsg *ifa;
@@ -1369,7 +1366,7 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	return 0;
 }
 
-int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct ifinfomsg *ifi;
@@ -1763,8 +1760,8 @@ static int tunneldump_walk_cb(struct interface *ifp, void *arg)
 		return NS_WALK_STOP;
 	}
 
-	ret = netlink_parse_info(netlink_link_change, &(ctx->zns->netlink_cmd),
-				 ctx->dp_info, 0, true);
+	ret = netlink_parse_info(netlink_link_change, &(ctx->zns->netlink_cmd), ctx->dp_info, 0,
+				 true, NULL);
 
 	if (ret < 0) {
 		ctx->ret = ret;
@@ -1798,7 +1795,7 @@ static uint8_t netlink_get_dplane_vlan_state(uint8_t state)
  *
  * Return:	Result status
  */
-int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len, rem;
 	struct br_vlan_msg *bvm;
@@ -1958,8 +1955,7 @@ int netlink_vlan_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
-	ret = netlink_parse_info(netlink_vlan_change, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+	ret = netlink_parse_info(netlink_vlan_change, &zns->netlink_cmd, &dp_info, 0, 1, NULL);
 
 	return ret;
 }

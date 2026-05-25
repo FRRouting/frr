@@ -231,7 +231,7 @@ void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold, bool set)
 			      memory_order_relaxed);
 }
 
-int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	/*
 	 * This is an error condition that must be handled during
@@ -379,8 +379,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
  * Dispatch an incoming netlink message; used by the zebra main pthread's
  * netlink event reader.
  */
-static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
-				     int startup)
+static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	/*
 	 * When we handle new message types here
@@ -393,17 +392,17 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	 */
 	switch (h->nlmsg_type) {
 	case RTM_NEWROUTE:
-		return netlink_route_change(h, ns_id, startup);
+		return netlink_route_change(h, ns_id, startup, arg);
 	case RTM_DELROUTE:
-		return netlink_route_change(h, ns_id, startup);
+		return netlink_route_change(h, ns_id, startup, arg);
 	case RTM_NEWRULE:
-		return netlink_rule_change(h, ns_id, startup);
+		return netlink_rule_change(h, ns_id, startup, arg);
 	case RTM_DELRULE:
-		return netlink_rule_change(h, ns_id, startup);
+		return netlink_rule_change(h, ns_id, startup, arg);
 	case RTM_NEWNEXTHOP:
-		return netlink_nexthop_change(h, ns_id, startup);
+		return netlink_nexthop_change(h, ns_id, startup, arg);
 	case RTM_DELNEXTHOP:
-		return netlink_nexthop_change(h, ns_id, startup);
+		return netlink_nexthop_change(h, ns_id, startup, arg);
 
 	/* Messages we may receive, but ignore */
 	case RTM_NEWCHAIN:
@@ -454,8 +453,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
  * Dispatch an incoming netlink message; used by the dataplane pthread's
  * netlink event reader code.
  */
-static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
-					    int startup)
+static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int startup,
+					    void *arg)
 {
 	/*
 	 * Dispatch the incoming messages that the dplane pthread handles
@@ -463,21 +462,21 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	switch (h->nlmsg_type) {
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
-		return netlink_interface_addr_dplane(h, ns_id, startup);
+		return netlink_interface_addr_dplane(h, ns_id, startup, arg);
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
-		return netlink_netconf_change(h, ns_id, startup);
+		return netlink_netconf_change(h, ns_id, startup, arg);
 
 	/* TODO -- other messages for the dplane socket and pthread */
 
 	case RTM_NEWLINK:
 	case RTM_DELLINK:
-		return netlink_link_change(h, ns_id, startup);
+		return netlink_link_change(h, ns_id, startup, arg);
 
 	case RTM_NEWVLAN:
 	case RTM_DELVLAN:
-		return netlink_vlan_change(h, ns_id, startup);
+		return netlink_vlan_change(h, ns_id, startup, arg);
 
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
@@ -486,13 +485,13 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 
 	case RTM_NEWQDISC:
 	case RTM_DELQDISC:
-		return netlink_qdisc_change(h, ns_id, startup);
+		return netlink_qdisc_change(h, ns_id, startup, arg);
 	case RTM_NEWTCLASS:
 	case RTM_DELTCLASS:
-		return netlink_tclass_change(h, ns_id, startup);
+		return netlink_tclass_change(h, ns_id, startup, arg);
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
-		return netlink_tfilter_change(h, ns_id, startup);
+		return netlink_tfilter_change(h, ns_id, startup, arg);
 
 	default:
 		break;
@@ -509,8 +508,7 @@ static void kernel_read(struct event *event)
 	/* Capture key info from ns struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, false);
 
-	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info,
-			   5, false);
+	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info, 5, false, NULL);
 
 	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
 		       &zns->t_netlink);
@@ -523,8 +521,7 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
 {
 	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
 
-	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5,
-			   false);
+	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, NULL);
 
 	return 0;
 }
@@ -928,9 +925,8 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
  * startup -> Are we reading in under startup conditions? passed to
  *            the filter.
  */
-int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-		       struct nlsock *nl, const struct zebra_dplane_info *zns,
-		       int count, bool startup)
+int netlink_parse_info(netlink_parse_filter_t filter, struct nlsock *nl,
+		       const struct zebra_dplane_info *zns, int count, bool startup, void *arg)
 {
 	int status;
 	int ret = 0;
@@ -1004,7 +1000,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 				continue;
 			}
 
-			error = (*filter)(h, zns->ns_id, startup);
+			error = (*filter)(h, zns->ns_id, startup, arg);
 			if (error < 0) {
 				zlog_debug("%s filter function error",
 					   nl->name);
@@ -1040,10 +1036,8 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
-static int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t,
-					   int startup),
-			     struct nlmsghdr *n,
-			     struct zebra_dplane_info *dp_info, bool startup)
+static int netlink_talk_info(netlink_parse_filter_t filter, struct nlmsghdr *n,
+			     struct zebra_dplane_info *dp_info, bool startup, void *arg)
 {
 	struct nlsock *nl;
 
@@ -1065,16 +1059,15 @@ static int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t,
 	 * Get reply from netlink socket.
 	 * The reply should either be an acknowledgement or an error.
 	 */
-	return netlink_parse_info(filter, nl, dp_info, 0, startup);
+	return netlink_parse_info(filter, nl, dp_info, 0, startup, arg);
 }
 
 /*
  * Synchronous version of netlink_talk_info. Converts args to suit the
  * common version, which is suitable for both sync and async use.
  */
-int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
-		 bool startup)
+int netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsock *nl,
+		 struct zebra_ns *zns, bool startup, void *arg)
 {
 	struct zebra_dplane_info dp_info;
 
@@ -1086,15 +1079,15 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	/* Capture info in intermediate info struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, (nl == &(zns->netlink_cmd)));
 
-	return netlink_talk_info(filter, n, &dp_info, startup);
+	return netlink_talk_info(filter, n, &dp_info, startup, arg);
 }
 
 /*
  * Synchronous version of netlink_talk_info. Converts args to suit the
  * common version, which is suitable for both sync and async use.
  */
-int ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		    struct nlmsghdr *n, struct zebra_ns *zns, bool startup)
+int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct zebra_ns *zns,
+		    bool startup, void *arg)
 {
 	struct zebra_dplane_info dp_info;
 
@@ -1113,7 +1106,7 @@ int ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	dp_info.sock = zns->ge_netlink_cmd.sock;
 	dp_info.seq = zns->ge_netlink_cmd.seq;
 
-	return netlink_talk_info(filter, n, &dp_info, startup);
+	return netlink_talk_info(filter, n, &dp_info, startup, arg);
 }
 
 /* Issue request message to kernel via netlink socket. GET messages

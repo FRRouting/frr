@@ -55,7 +55,7 @@
  */
 static int16_t seg6_genl_family = -1;
 
-static int genl_parse_getfamily(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+static int genl_parse_getfamily(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct rtattr *tb[CTRL_ATTR_MAX + 1];
@@ -133,7 +133,7 @@ int genl_resolve_family(const char *family)
 			 strlen(family) + 1))
 		return -1;
 
-	return ge_netlink_talk(genl_parse_getfamily, &req.n, zns, false);
+	return ge_netlink_talk(genl_parse_getfamily, &req.n, zns, false, NULL);
 }
 
 /*
@@ -234,7 +234,7 @@ netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx
 
 	zns = zebra_ns_lookup(dplane_ctx_get_ns_sock(ctx));
 
-	return ge_netlink_talk(netlink_talk_filter, &req.n, zns, false);
+	return ge_netlink_talk(netlink_talk_filter, &req.n, zns, false, NULL);
 }
 
 /**
@@ -246,7 +246,7 @@ netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx
  *
  * Return:	Result status
  */
-int netlink_sr_tunsrc_reply_read(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_sr_tunsrc_reply_read(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct genlmsghdr *ghdr;
@@ -340,8 +340,8 @@ int netlink_sr_tunsrc_read(struct zebra_ns *zns)
 	ret = netlink_request_sr_tunsrc(zns);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_sr_tunsrc_reply_read,
-				 &zns->ge_netlink_cmd, &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_sr_tunsrc_reply_read, &zns->ge_netlink_cmd, &dp_info, 0,
+				 true, NULL);
 	if (ret < 0)
 		return ret;
 
