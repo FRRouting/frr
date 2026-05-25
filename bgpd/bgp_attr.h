@@ -338,9 +338,6 @@ struct attr {
 	/* EVPN ES */
 	esi_t esi;
 
-	/* SR-TE Color */
-	uint32_t srte_color;
-
 	/* Nexthop type */
 	enum nexthop_types_t nh_type;
 
@@ -512,7 +509,7 @@ extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 extern enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 						      struct attr *attr);
 
-extern uint32_t bgp_attr_get_color(struct attr *attr);
+extern uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi);
 
 static inline bool bgp_rmap_nhop_changed(uint32_t out_rmap_flags)
 {

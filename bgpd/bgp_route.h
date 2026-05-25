@@ -263,6 +263,11 @@ struct bgp_path_info_extra {
 
 	/* For vrf leaking*/
 	struct bgp_path_info_extra_vrfleak *vrfleak;
+
+	/* SR-TE Color (set by route-map 'set sr-te color' or derived from
+	 * the Color Extended Community via bgp_path_info_get_srte_color()).
+	 */
+	uint32_t srte_color;
 };
 
 struct bgp_mplsvpn_label_nh {
@@ -669,6 +674,8 @@ static inline bool is_pi_family_matching(struct bgp_path_info *pi,
 	return false;
 }
 
+extern struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *path);
+
 static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 				       struct bgp_path_info_extra *dst_pie, struct bgp_dest *dest,
 				       struct bgp_path_info *src_pi, struct peer *peer,
@@ -680,15 +687,29 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	dst_pi->from = from;
 	dst_pi->attr = attr;
 	dst_pi->net = dest;
+	dst_pi->extra = dst_pie;
 	if (src_pi) {
 		dst_pi->flags = src_pi->flags;
 		dst_pi->type = src_pi->type;
 		dst_pi->sub_type = src_pi->sub_type;
-		if (src_pi->extra) {
+		if (src_pi->extra)
 			memcpy(dst_pie, src_pi->extra, sizeof(struct bgp_path_info_extra));
-			dst_pi->extra = dst_pie;
-		}
 	}
+}
+
+/* Propagate fields that route-map "set" commands may have written to a
+ * transient stack-allocated bgp_path_info_extra into the real per-path
+ * extra. Extend as additional path-info fields become settable via
+ * route-map.
+ */
+static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
+						 const struct bgp_path_info_extra *src_bpie)
+{
+	if (!src_bpie || !dst_bpi)
+		return;
+
+	if (src_bpie->srte_color || (dst_bpi->extra && dst_bpi->extra->srte_color))
+		bgp_path_info_extra_get(dst_bpi)->srte_color = src_bpie->srte_color;
 }
 
 static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,

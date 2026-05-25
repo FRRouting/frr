@@ -1166,8 +1166,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    srv6_l3service_same(bgp_attr_get_srv6_l3service(attr1),
 					bgp_attr_get_srv6_l3service(attr2)) &&
 		    srv6_vpn_same(bgp_attr_get_srv6_vpn(attr1), bgp_attr_get_srv6_vpn(attr2)) &&
-		    attr1->srte_color == attr2->srte_color && attr1->nh_type == attr2->nh_type &&
-		    attr1->bh_type == attr2->bh_type &&
+		    attr1->nh_type == attr2->nh_type && attr1->bh_type == attr2->bh_type &&
 		    bgp_attr_get_otc(attr1) == bgp_attr_get_otc(attr2) &&
 		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
 		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
@@ -2796,13 +2795,21 @@ cluster_list_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
-/* get locally configure or received srte-color value*/
-uint32_t bgp_attr_get_color(struct attr *attr)
+/* Get the effective SR-TE color for a path: prefer a value set locally on
+ * the path (e.g. via the "set sr-te color" route-map command, stored in
+ * bgp_path_info_extra), otherwise fall back to the Color Extended
+ * Community carried in the BGP attribute (RFC 9012).
+ */
+uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi)
 {
-	if (attr->srte_color)
-		return attr->srte_color;
-	if (attr->ecommunity)
-		return ecommunity_select_color(attr->ecommunity);
+	struct ecommunity *ecom = bgp_attr_get_ecommunity(bpi->attr);
+
+	if (bpi->extra && bpi->extra->srte_color)
+		return bpi->extra->srte_color;
+
+	if (ecom)
+		return ecommunity_select_color(ecom);
+
 	return 0;
 }
 
