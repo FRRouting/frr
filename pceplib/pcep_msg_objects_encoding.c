@@ -28,8 +28,8 @@
 
 void write_object_header(struct pcep_object_header *object_hdr,
 			 uint16_t object_length, uint8_t *buf);
-void pcep_decode_object_hdr(const uint8_t *obj_buf,
-			    struct pcep_object_header *obj_hdr);
+static void pcep_decode_object_hdr(const uint8_t *obj_buf,
+				   struct pcep_object_header *obj_hdr);
 void set_ro_subobj_fields(struct pcep_object_ro_subobj *subobj, bool flag_l,
 			  uint8_t subobj_type);
 
@@ -935,8 +935,8 @@ void encode_ipv6(struct in6_addr *src_ipv6, uint32_t *dst)
  * Decoding functions.
  */
 
-void pcep_decode_object_hdr(const uint8_t *obj_buf,
-			    struct pcep_object_header *obj_hdr)
+static void pcep_decode_object_hdr(const uint8_t *obj_buf,
+				   struct pcep_object_header *obj_hdr)
 {
 	memset(obj_hdr, 0, sizeof(struct pcep_object_header));
 
@@ -985,13 +985,31 @@ bool pcep_object_has_tlvs(struct pcep_object_header *object_hdr)
 	return (object_hdr->encoded_object_length - object_length) > 0;
 }
 
-struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf)
+struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf, size_t buflen)
 {
 
 	struct pcep_object_header object_hdr;
+
+	if (buflen < OBJECT_HEADER_LENGTH) {
+		pcep_log(LOG_INFO, "%s: Cannot decode Object: invalid length", __func__);
+		return NULL;
+	}
+
 	/* Only initializes and decodes the Object Header: class, type, flags,
 	 * and length */
 	pcep_decode_object_hdr(obj_buf, &object_hdr);
+
+	if (object_hdr.encoded_object_length <= OBJECT_HEADER_LENGTH) {
+		pcep_log(LOG_INFO, "%s: Cannot decode Object: invalid header length %d",
+			 __func__, object_hdr.encoded_object_length);
+		return NULL;
+	}
+
+	if (object_hdr.encoded_object_length > buflen) {
+		pcep_log(LOG_INFO, "%s: Cannot decode Object: invalid length %d",
+			 __func__, object_hdr.encoded_object_length);
+		return NULL;
+	}
 
 	if (object_hdr.object_class >= MAX_OBJECT_ENCODER_INDEX) {
 		pcep_log(LOG_INFO,
@@ -1010,7 +1028,8 @@ struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf)
 	}
 
 	/* The object decoders will start decoding the object body, if
-	 * anything from the header is needed, they have the object_hdr */
+	 * anything from the header is needed, they have the object_hdr
+	 */
 	struct pcep_object_header *object =
 		obj_decoder(&object_hdr, obj_buf + OBJECT_HEADER_LENGTH);
 	if (object == NULL) {
