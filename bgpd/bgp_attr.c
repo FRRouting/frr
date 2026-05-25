@@ -5450,8 +5450,17 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	struct aspath *aspath;
 	int send_as4_path = 0;
 	int send_as4_aggregator = 0;
-	bool use32bit = CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) &&
-			CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV);
+	/*
+	 * For BMP Route Monitoring always encode ASNs as 32-bit. BMP is an
+	 * observability channel, not a BGP session; the peer's AS4 capability
+	 * state is irrelevant and may be stale across peer/VRF flaps, which
+	 * would produce 16-bit AS_PATH segments that modern BMP collectors
+	 * (always 32-bit) can't parse. As a side effect this also suppresses
+	 * the AS4_PATH backward-compat attribute (send_as4_path is only set
+	 * when use32bit is false), which BMP collectors don't need anyway.
+	 */
+	bool use32bit = for_bmp || (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) &&
+				    CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV));
 
 	if (!bgp)
 		bgp = peer->bgp;
