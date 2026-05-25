@@ -508,7 +508,7 @@ static void kernel_read(struct event *event)
 	/* Capture key info from ns struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, false);
 
-	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info, 5, false, NULL);
+	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info, 5, false, NULL, NULL);
 
 	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
 		       &zns->t_netlink);
@@ -521,7 +521,7 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
 {
 	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
 
-	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, NULL);
+	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, NULL, NULL);
 
 	return 0;
 }
@@ -926,7 +926,8 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
  *            the filter.
  */
 int netlink_parse_info(netlink_parse_filter_t filter, struct nlsock *nl,
-		       const struct zebra_dplane_info *zns, int count, bool startup, void *arg)
+		       const struct zebra_dplane_info *zns, int count, bool startup, void *arg,
+		       int *nl_err)
 {
 	int status;
 	int ret = 0;
@@ -965,8 +966,18 @@ int netlink_parse_info(netlink_parse_filter_t filter, struct nlsock *nl,
 					if (!(h->nlmsg_flags & NLM_F_MULTI))
 						return 0;
 					continue;
-				} else
-					return err;
+				}
+				/*
+				 * Real error: expose the kernel-reported code
+				 * to the caller if requested, then bail out.
+				 */
+				if (nl_err &&
+				    h->nlmsg_len >= NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+					struct nlmsgerr *nlerr = NLMSG_DATA(h);
+
+					*nl_err = nlerr->error;
+				}
+				return err;
 			}
 
 			/*
@@ -1037,7 +1048,8 @@ int netlink_parse_info(netlink_parse_filter_t filter, struct nlsock *nl,
  *             This is passed through eventually to filter.
  */
 static int netlink_talk_info(netlink_parse_filter_t filter, struct nlmsghdr *n,
-			     struct zebra_dplane_info *dp_info, bool startup, void *arg)
+			     struct zebra_dplane_info *dp_info, bool startup, void *arg,
+			     int *nl_err)
 {
 	struct nlsock *nl;
 
@@ -1059,7 +1071,7 @@ static int netlink_talk_info(netlink_parse_filter_t filter, struct nlmsghdr *n,
 	 * Get reply from netlink socket.
 	 * The reply should either be an acknowledgement or an error.
 	 */
-	return netlink_parse_info(filter, nl, dp_info, 0, startup, arg);
+	return netlink_parse_info(filter, nl, dp_info, 0, startup, arg, nl_err);
 }
 
 /*
@@ -1067,7 +1079,7 @@ static int netlink_talk_info(netlink_parse_filter_t filter, struct nlmsghdr *n,
  * common version, which is suitable for both sync and async use.
  */
 int netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsock *nl,
-		 struct zebra_ns *zns, bool startup, void *arg)
+		 struct zebra_ns *zns, bool startup, void *arg, int *nl_err)
 {
 	struct zebra_dplane_info dp_info;
 
@@ -1079,7 +1091,7 @@ int netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsoc
 	/* Capture info in intermediate info struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, (nl == &(zns->netlink_cmd)));
 
-	return netlink_talk_info(filter, n, &dp_info, startup, arg);
+	return netlink_talk_info(filter, n, &dp_info, startup, arg, nl_err);
 }
 
 /*
@@ -1087,7 +1099,7 @@ int netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsoc
  * common version, which is suitable for both sync and async use.
  */
 int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct zebra_ns *zns,
-		    bool startup, void *arg)
+		    bool startup, void *arg, int *nl_err)
 {
 	struct zebra_dplane_info dp_info;
 
@@ -1106,7 +1118,7 @@ int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct ze
 	dp_info.sock = zns->ge_netlink_cmd.sock;
 	dp_info.seq = zns->ge_netlink_cmd.seq;
 
-	return netlink_talk_info(filter, n, &dp_info, startup, arg);
+	return netlink_talk_info(filter, n, &dp_info, startup, arg, nl_err);
 }
 
 /* Issue request message to kernel via netlink socket. GET messages

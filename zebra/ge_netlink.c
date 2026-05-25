@@ -133,7 +133,7 @@ int genl_resolve_family(const char *family)
 			 strlen(family) + 1))
 		return -1;
 
-	return ge_netlink_talk(genl_parse_getfamily, &req.n, zns, false, NULL);
+	return ge_netlink_talk(genl_parse_getfamily, &req.n, zns, false, NULL, NULL);
 }
 
 /*
@@ -234,7 +234,7 @@ netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx
 
 	zns = zebra_ns_lookup(dplane_ctx_get_ns_sock(ctx));
 
-	return ge_netlink_talk(netlink_talk_filter, &req.n, zns, false, NULL);
+	return ge_netlink_talk(netlink_talk_filter, &req.n, zns, false, NULL, NULL);
 }
 
 /**
@@ -341,7 +341,7 @@ int netlink_sr_tunsrc_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_sr_tunsrc_reply_read, &zns->ge_netlink_cmd, &dp_info, 0,
-				 true, NULL);
+				 true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 

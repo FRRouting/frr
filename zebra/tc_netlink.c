@@ -822,7 +822,7 @@ void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 
 	ret = netlink_request_qdiscs(nl, AF_UNSPEC, RTM_GETQDISC);
 	if (ret >= 0)
-		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true, NULL);
+		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true, NULL, NULL);
 
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 

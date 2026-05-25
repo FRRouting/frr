@@ -907,7 +907,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_PACKET, RTM_GETLINK, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0, true, NULL);
+	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0, true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -916,7 +916,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 					RTEXT_FILTER_BRVLAN);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0, true, NULL);
+	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0, true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -965,7 +965,7 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd, &dp_info, 0, true,
-				 NULL);
+				 NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -974,7 +974,7 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd, &dp_info, 0, true,
-				 NULL);
+				 NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -1010,7 +1010,7 @@ int kernel_interface_set_master(struct interface *master,
 		return -1;
 	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 /* Interface address modification. */
@@ -1761,7 +1761,7 @@ static int tunneldump_walk_cb(struct interface *ifp, void *arg)
 	}
 
 	ret = netlink_parse_info(netlink_link_change, &(ctx->zns->netlink_cmd), ctx->dp_info, 0,
-				 true, NULL);
+				 true, NULL, NULL);
 
 	if (ret < 0) {
 		ctx->ret = ret;
@@ -1955,7 +1955,7 @@ int netlink_vlan_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
-	ret = netlink_parse_info(netlink_vlan_change, &zns->netlink_cmd, &dp_info, 0, 1, NULL);
+	ret = netlink_parse_info(netlink_vlan_change, &zns->netlink_cmd, &dp_info, 0, 1, NULL, NULL);
 
 	return ret;
 }
