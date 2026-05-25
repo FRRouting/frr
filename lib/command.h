@@ -584,6 +584,7 @@ extern int command_config_read_one_line(struct vty *vty,
 					const struct cmd_element **cmd,
 					uint32_t line_num, int use_config_node);
 extern int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num);
+extern void cmd_config_file_batching_set(bool enabled);
 extern enum node_type node_parent(enum node_type node);
 /*
  * Execute command under the given vty context.
