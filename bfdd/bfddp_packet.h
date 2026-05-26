@@ -14,6 +14,7 @@
 
 #include <netinet/in.h>
 
+#include <stddef.h>
 #include <stdint.h>
 
 /*
@@ -51,8 +52,16 @@
 #define BFD_SOURCE_PORT_BEGIN 49152
 #define BFD_SOURCE_PORT_END 65535
 
-/** BFD data plane protocol version. */
-#define BFD_DP_VERSION 1
+/**
+ * BFD data plane protocol version.
+ *
+ * Bumped to 2 because `struct bfddp_session` grows to carry appended
+ * SBFD/SRv6 fields. Existing fields keep their wire offsets, but the
+ * current check in `bfdd/dplane.c::bfd_dplane_read` is strict
+ * equality: a peer compiled against v1 is rejected outright. bfdd
+ * and any subscribers must therefore be rebuilt together.
+ */
+#define BFD_DP_VERSION 2
 
 /** BFD data plane message types. */
 enum bfddp_message_type {
@@ -171,7 +180,86 @@ struct bfddp_session {
 	char ifname[64];
 
 	/* TODO: missing authentication. */
+
+	/*
+	 * SBFD over SRv6 extensions.
+	 *
+	 * These fields are appended to the existing payload to preserve the
+	 * offsets of all earlier fields. A subscriber that doesn't care about
+	 * SBFD can ignore the bytes after `ifname[]`. A sender on a system
+	 * that doesn't use SBFD will leave them zeroed.
+	 */
+	/**
+	 * BFD session mode. Values match enum `bfd_mode_type` in
+	 * `bfdd/bfd.h`:
+	 *   0 = BFD_MODE_TYPE_BFD       (classical BFD; default)
+	 *   1 = BFD_MODE_TYPE_SBFD_ECHO (RFC 7881 echo, self-loop initiator)
+	 *   2 = BFD_MODE_TYPE_SBFD_INIT (RFC 7880 §6 initiator)
+	 *
+	 * NOTE: `struct bfd_session::bfd_mode` is stored as `uint32_t`,
+	 * so the cast on the producer side is a narrowing truncation
+	 * guarded only by the current enum range. A future enum that
+	 * grows past 255 would silently lose the high byte; the producer
+	 * (`bfdd/dplane.c::_bfd_dplane_session_fill`) logs an error when
+	 * that branch is hit.
+	 */
+	uint8_t bfd_mode;
+	/**
+	 * Encapsulation type for outgoing BFD/SBFD packets.
+	 *   0 = none (default; classical BFD)
+	 *   1 = SRv6
+	 */
+	uint8_t encap_type;
+	/**
+	 * Number of valid IPv6 SIDs in `seg_list[]` (0 .. SRV6_MAX_SEGS).
+	 *
+	 * The cap matches the compile-time SRV6_MAX_SEGS from `lib/srv6.h`.
+	 */
+	uint8_t seg_num;
+	/** Reserved / zeroed for alignment. */
+	uint8_t zero2;
+	/**
+	 * Remote discriminator known a-priori for `sbfd_init` mode.
+	 * Zero for `bfd` and `sbfd_echo` modes.
+	 */
+	uint32_t remote_discr;
+	/**
+	 * SRv6 outer-IPv6 source address (used when `encap_type == 1`).
+	 * Zero-filled otherwise.
+	 */
+	struct in6_addr srv6_source_ipv6;
+	/**
+	 * SRv6 SID list, in transmission order. `seg_list[0]` becomes the
+	 * outer IPv6 destination; the final SID is the destination End SID
+	 * (typically a reflector). Only the first `seg_num` entries are
+	 * valid.
+	 */
+	struct in6_addr seg_list[8];
+	/**
+	 * Operator-supplied session name (FRR `bfd-name`). Empty string for
+	 * unnamed sessions.
+	 *
+	 * Length-bounded at 64 here to keep the wire payload compact;
+	 * `BFD_NAME_SIZE` in `bfdd/bfd.h` is 255. The producer truncates
+	 * with `strlcpy` and logs a warning when truncation happens, so a
+	 * sender pushing a longer name is observable in the bfdd log
+	 * rather than silently corrupting the key on the subscriber side.
+	 */
+	char bfd_name[64];
 };
+
+/*
+ * Wire-format guard rails for the BFDDP v2 layout.
+ *
+ * These compile-time checks catch ABI drift before it becomes silent
+ * corruption on the wire. `ifname` is the last field of the v1
+ * layout; if a compiler ever pads it differently, the assert fires.
+ * `sizeof` covers the v2-appended tail.
+ */
+_Static_assert(offsetof(struct bfddp_session, ifname) == 68,
+	       "bfddp_session v1 layout: ifname offset must stay at 68");
+_Static_assert(sizeof(struct bfddp_session) == 348,
+	       "bfddp_session v2 layout: total size drifted from expected 348 bytes");
 
 /** BFD packet state values as defined in RFC 5880, Section 4.1. */
 enum bfd_state_value {
