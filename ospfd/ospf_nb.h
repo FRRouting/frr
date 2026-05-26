@@ -11,13 +11,36 @@
 
 struct ospf;
 
+#define OSPFD_IETF_ROUTING_CP_XPATH                                           \
+	"/ietf-routing:routing/control-plane-protocols/"                      \
+	"control-plane-protocol"
+#define OSPFD_IETF_ROUTING_PROTOCOL_TYPE_XPATH                                \
+	OSPFD_IETF_ROUTING_CP_XPATH "[type='ietf-ospf:ospfv2']"
+#define OSPFD_IETF_ROUTING_PROTOCOL_XPATH                                     \
+	OSPFD_IETF_ROUTING_PROTOCOL_TYPE_XPATH "[name='%s']"
+#define OSPFD_IETF_OSPF_XPATH                                                 \
+	OSPFD_IETF_ROUTING_CP_XPATH "/ietf-ospf:ospf"
+
 extern const struct frr_yang_module_info ospfd_ietf_routing_info;
 extern const struct frr_yang_module_info ospfd_ietf_routing_ospf_deviation_info;
 extern const struct frr_yang_module_info ospfd_ietf_ospf_info;
 
+const char *ospfd_ietf_instance_name(unsigned short instance, const char *name,
+				     char *buf, size_t buf_len);
+const char *ospfd_ietf_ospf_instance_name(const struct ospf *ospf, char *buf,
+					  size_t buf_len);
+int ospfd_ietf_nbr_state_yang(int nsm_state);
+int ospfd_ietf_routing_protocol_xpath(char *xpath, size_t xpath_len,
+				      const struct ospf *ospf);
+int ospfd_ietf_routing_protocol_instance_xpath(char *xpath, size_t xpath_len,
+					       unsigned short instance,
+					       const char *name);
+
 /* Shared lookup: find an OSPF instance by the ietf-routing instance name. */
 struct ospf *ospfd_ietf_ospf_lookup_instance(const char *name);
 
+int ospfd_ietf_routing_control_plane_protocol_create(struct nb_cb_create_args *args);
+int ospfd_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args *args);
 const void *ospfd_ietf_routing_control_plane_protocol_get_next(struct nb_cb_get_next_args *args);
 int ospfd_ietf_routing_control_plane_protocol_get_keys(struct nb_cb_get_keys_args *args);
 const void *

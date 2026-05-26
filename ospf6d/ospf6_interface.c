@@ -30,6 +30,7 @@
 #include "ospf6_abr.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_nb.h"
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
 #include "ospf6d.h"
@@ -2105,8 +2106,9 @@ static int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interfac
 	addr.s_addr = oi->area->area_id;
 	inet_ntop(AF_INET, &addr, area_id_str, sizeof(area_id_str));
 	ret = snprintf(xpath, size,
-		       "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
-		       ospf6->name ? ospf6->name : "default", area_id_str, ifp->name,
+		       OSPF6D_IETF_ROUTING_PROTOCOL_XPATH
+		       "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
+		       ospf6->name ? ospf6->name : VRF_DEFAULT_NAME, area_id_str, ifp->name,
 		       leaf ? leaf : "");
 	if (ret < 0 || (size_t)ret >= size)
 		return -1;

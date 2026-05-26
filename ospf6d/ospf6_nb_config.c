@@ -21,6 +21,8 @@
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_route.h"
+#include "ospf6_tlv.h"
+#include "ospf6_gr.h"
 #include "ospf6_nb.h"
 #include "ospf6_nssa.h"
 
@@ -41,6 +43,70 @@ static bool ospf6_area_type_is(const char *val, const char *name)
 	if (strncmp(val, "ietf-ospf:", strlen("ietf-ospf:")) == 0)
 		return !strcmp(val + strlen("ietf-ospf:"), name);
 	return false;
+}
+
+static bool ospf6d_ietf_ospf_type_is(const char *val)
+{
+	return val && (!strcmp(val, "ospfv3") ||
+		       !strcmp(val, "ietf-ospf:ospfv3"));
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol
+ *
+ * Keep the IETF routing protocol list present in the local candidate whenever
+ * the legacy `router ospf6` CLI creates the daemon instance directly. Child
+ * commands converted to RFC 9129 leaves, such as explicit-router-id, then have
+ * a real parent list entry to modify during the pending NB commit.
+ */
+int ospf6d_ietf_routing_control_plane_protocol_create(struct nb_cb_create_args *args)
+{
+	const char *type;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_string(args->dnode, "type");
+	if (!ospf6d_ietf_ospf_type_is(type))
+		return NB_OK;
+
+	name = yang_dnode_get_string(args->dnode, "name");
+	if (!name)
+		name = VRF_DEFAULT_NAME;
+
+	if (!ospf6d_ietf_ospf_lookup_instance(name))
+		ospf6_instance_create(name);
+
+	return NB_OK;
+}
+
+int ospf6d_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args *args)
+{
+	const char *type;
+	const char *name;
+	struct ospf6 *ospf6;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_string(args->dnode, "type");
+	if (!ospf6d_ietf_ospf_type_is(type))
+		return NB_OK;
+
+	name = yang_dnode_get_string(args->dnode, "name");
+	if (!name)
+		name = VRF_DEFAULT_NAME;
+
+	ospf6 = ospf6d_ietf_ospf_lookup_instance(name);
+	if (!ospf6)
+		return NB_OK;
+
+	if (ospf6->gr_info.restart_support)
+		ospf6_gr_nvm_delete(ospf6);
+	ospf6_delete(&ospf6);
+
+	return NB_OK;
 }
 
 /*

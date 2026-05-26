@@ -43,6 +43,7 @@
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_network.h"
+#include "ospfd/ospf_nb.h"
 #include "ospfd/ospf_memory.h"
 
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
@@ -186,6 +187,7 @@ DEFUN_NOSH (router_ospf,
 	const char *vrf_name;
 	bool created = false;
 	struct ospf *ospf;
+	char xpath[XPATH_MAXLEN];
 	int ret;
 
 	ret = ospf_router_cmd_parse(vty, argv, argc, &instance, &vrf_name);
@@ -209,6 +211,12 @@ DEFUN_NOSH (router_ospf,
 			ospf->instance, ospf_get_name(ospf), ospf->vrf_id,
 			ospf->oi_running);
 
+	ospfd_ietf_routing_protocol_xpath(xpath, sizeof(xpath), ospf);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
 	VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
 
 	return ret;
@@ -226,6 +234,7 @@ DEFUN (no_router_ospf,
 	unsigned short instance;
 	const char *vrf_name;
 	struct ospf *ospf;
+	char xpath[XPATH_MAXLEN];
 	int ret;
 
 	ret = ospf_router_cmd_parse(vty, argv, argc, &instance, &vrf_name);
@@ -237,10 +246,13 @@ DEFUN (no_router_ospf,
 
 	ospf = ospf_lookup(instance, vrf_name);
 	if (ospf) {
+		ospfd_ietf_routing_protocol_xpath(xpath, sizeof(xpath), ospf);
 		if (ospf->gr_info.restart_support)
 			ospf_gr_nvm_delete(ospf);
 
 		ospf_finish(ospf);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		ret = nb_cli_apply_changes_clear_pending(vty, "%s", xpath);
 	} else
 		ret = CMD_WARNING_CONFIG_FAILED;
 
@@ -258,9 +270,11 @@ DEFUN (no_router_ospf,
  */
 static int ospf_router_id_xpath(char *xpath, size_t size, const struct ospf *ospf)
 {
+	char instance_name[XPATH_MAXLEN];
+
 	return snprintf(xpath, size,
 			OSPFD_IETF_ROUTING_PROTOCOL_XPATH "/ietf-ospf:ospf/explicit-router-id",
-			ospf_get_name(ospf));
+			ospfd_ietf_ospf_instance_name(ospf, instance_name, sizeof(instance_name)));
 }
 
 /*
@@ -317,12 +331,15 @@ static int ospf_area_xpath(char *xpath, size_t size, const struct ospf *ospf,
 			   struct in_addr area_id, const char *leaf)
 {
 	char area_id_str[INET_ADDRSTRLEN];
+	char instance_name[XPATH_MAXLEN];
 	int ret;
 
 	inet_ntop(AF_INET, &area_id, area_id_str, sizeof(area_id_str));
 	ret = snprintf(xpath, size,
-		       "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']%s",
-		       ospf->name ? ospf->name : "default", area_id_str, leaf ? leaf : "");
+		       OSPFD_IETF_ROUTING_PROTOCOL_XPATH
+		       "/ietf-ospf:ospf/areas/area[area-id='%s']%s",
+		       ospfd_ietf_ospf_instance_name(ospf, instance_name, sizeof(instance_name)),
+		       area_id_str, leaf ? leaf : "");
 	if (ret < 0 || (size_t)ret >= size)
 		return -1;
 
@@ -346,6 +363,7 @@ static int ospf_per_iface_xpath(char *xpath, size_t size, const struct interface
 	const struct ospf_if_params *params;
 	struct route_node *rn;
 	char area_id_str[INET_ADDRSTRLEN];
+	char instance_name[XPATH_MAXLEN];
 	int ret;
 
 	if (!ifp)
@@ -379,9 +397,10 @@ static int ospf_per_iface_xpath(char *xpath, size_t size, const struct interface
 
 	inet_ntop(AF_INET, &params->if_area, area_id_str, sizeof(area_id_str));
 	ret = snprintf(xpath, size,
-		       "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2'][name='%s']/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
-		       ospf->name ? ospf->name : "default", area_id_str, ifp->name,
-		       leaf ? leaf : "");
+		       OSPFD_IETF_ROUTING_PROTOCOL_XPATH
+		       "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
+		       ospfd_ietf_ospf_instance_name(ospf, instance_name, sizeof(instance_name)),
+		       area_id_str, ifp->name, leaf ? leaf : "");
 	if (ret < 0 || (size_t)ret >= size)
 		return -1;
 

@@ -8,6 +8,7 @@
 # Acee Lindem
 #
 
+import json
 import os
 import sys
 from functools import partial
@@ -49,6 +50,43 @@ sys.path.append(os.path.join(CWD, "../"))
 # Required to instantiate the topology builder class.
 
 pytestmark = [pytest.mark.ospfd, pytest.mark.bgpd]
+
+
+def _as_list(value):
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _yang_ospf_instance_protocol(router, name):
+    xpath = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        'control-plane-protocol[type="ietf-ospf:ospfv2"][name="{}"]'
+    ).format(name)
+
+    try:
+        output = json.loads(
+            router.vtysh_cmd(
+                "show mgmt get-data {} datastore operational".format(xpath)
+            )
+        )
+        protocols = output["ietf-routing:routing"]["control-plane-protocols"][
+            "control-plane-protocol"
+        ]
+    except (KeyError, json.JSONDecodeError) as error:
+        return "OSPFv2 YANG instance {} is not ready: {}".format(name, error)
+
+    protocols = _as_list(protocols)
+    if len(protocols) != 1:
+        return "OSPFv2 YANG instance {} returned {} entries".format(
+            name, len(protocols)
+        )
+
+    protocol = protocols[0]
+    if protocol.get("type") != "ietf-ospf:ospfv2" or protocol.get("name") != name:
+        return "OSPFv2 YANG instance {} returned {}".format(name, protocol)
+
+    return None
 
 
 def build_topo(tgen):
@@ -106,6 +144,26 @@ def test_multi_instance_default_origination():
 
     if tgen.routers_have_failure():
         pytest.skip("Skipped because of router(s) failure")
+
+    r2 = tgen.gears["r2"]
+
+    backend_adapters = r2.vtysh_cmd("show mgmt backend-adapter all")
+    assert "Client: \t\t\tospfd-1" in backend_adapters
+    assert "Client: \t\t\tospfd-2" in backend_adapters
+    assert "Client: \t\t\tospfd\n" not in backend_adapters
+
+    xpath_registry = r2.vtysh_cmd("show mgmt backend-yang-xpath-registry oper")
+    assert "control-plane-protocol[type='ietf-ospf:ospfv2'][name='1']" in xpath_registry
+    assert "control-plane-protocol[type='ietf-ospf:ospfv2'][name='2']" in xpath_registry
+
+    for instance_name in ("1", "2"):
+        _, result = topotest.run_and_expect(
+            partial(_yang_ospf_instance_protocol, r2, instance_name),
+            None,
+            count=30,
+            wait=1,
+        )
+        assert result is None, result
 
     step("Configure a local default route")
     r1 = tgen.gears["r1"]
@@ -170,7 +228,6 @@ def test_multi_instance_default_origination():
         topotest.router_json_cmp, r1, "show ip ospf database json", input_dict
     )
 
-    r2 = tgen.gears["r2"]
     step("Verify the OSPF instance 1 installation of default route on router 2")
     input_dict = {
         "0.0.0.0/0": [

@@ -11,6 +11,16 @@
 
 struct ospf6;
 
+#define OSPF6D_IETF_ROUTING_CP_XPATH                                          \
+	"/ietf-routing:routing/control-plane-protocols/"                      \
+	"control-plane-protocol"
+#define OSPF6D_IETF_ROUTING_PROTOCOL_TYPE_XPATH                               \
+	OSPF6D_IETF_ROUTING_CP_XPATH "[type='ietf-ospf:ospfv3']"
+#define OSPF6D_IETF_ROUTING_PROTOCOL_XPATH                                    \
+	OSPF6D_IETF_ROUTING_PROTOCOL_TYPE_XPATH "[name='%s']"
+#define OSPF6D_IETF_OSPF_XPATH                                                \
+	OSPF6D_IETF_ROUTING_CP_XPATH "/ietf-ospf:ospf"
+
 extern const struct frr_yang_module_info ospf6d_ietf_routing_info;
 extern const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info;
 extern const struct frr_yang_module_info ospf6d_ietf_ospf_info;
@@ -19,6 +29,8 @@ extern const struct frr_yang_module_info ospf6d_ietf_ospf_info;
 const char *ospf6d_ietf_ospf_instance_name(const struct ospf6 *ospf6);
 struct ospf6 *ospf6d_ietf_ospf_lookup_instance(const char *name);
 
+int ospf6d_ietf_routing_control_plane_protocol_create(struct nb_cb_create_args *args);
+int ospf6d_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args *args);
 const void *ospf6d_ietf_routing_control_plane_protocol_get_next(struct nb_cb_get_next_args *args);
 int ospf6d_ietf_routing_control_plane_protocol_get_keys(struct nb_cb_get_keys_args *args);
 const void *

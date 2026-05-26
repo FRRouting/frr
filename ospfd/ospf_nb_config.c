@@ -24,6 +24,8 @@
 #include "ospfd/ospf_lsdb.h"
 #include "ospfd/ospf_nb.h"
 #include "ospfd/ospf_neighbor.h"
+#include "ospfd/ospf_opaque.h"
+#include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_vty.h"
 
@@ -47,14 +49,80 @@ static bool ospf_area_type_is(const char *val, const char *name)
 	return false;
 }
 
+static bool ospfd_ietf_ospf_type_is(const char *val)
+{
+	return val && (!strcmp(val, "ospfv2") ||
+		       !strcmp(val, "ietf-ospf:ospfv2"));
+}
+
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol
+ *
+ * Keep the IETF routing protocol list present in the local candidate whenever
+ * the legacy `router ospf` CLI creates the daemon instance directly. Child
+ * commands converted to RFC 9129 leaves, such as explicit-router-id, then have
+ * a real parent list entry to modify during the pending NB commit.
+ */
+int ospfd_ietf_routing_control_plane_protocol_create(struct nb_cb_create_args *args)
+{
+	const char *type;
+	const char *name;
+	bool created = false;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_string(args->dnode, "type");
+	if (!ospfd_ietf_ospf_type_is(type))
+		return NB_OK;
+
+	name = yang_dnode_get_string(args->dnode, "name");
+	if (!name)
+		name = VRF_DEFAULT_NAME;
+
+	ospf_get(ospf_instance, name, &created);
+
+	return NB_OK;
+}
+
+int ospfd_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args *args)
+{
+	const char *type;
+	const char *name;
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_string(args->dnode, "type");
+	if (!ospfd_ietf_ospf_type_is(type))
+		return NB_OK;
+
+	name = yang_dnode_get_string(args->dnode, "name");
+	if (!name)
+		name = VRF_DEFAULT_NAME;
+
+	ospf = ospfd_ietf_ospf_lookup_instance(name);
+	if (!ospf)
+		return NB_OK;
+
+	if (ospf->gr_info.restart_support)
+		ospf_gr_nvm_delete(ospf);
+	ospf_finish(ospf);
+
+	return NB_OK;
+}
+
 /*
  * Look up the OSPF instance corresponding to an ietf-ospf config dnode.
  * Walks up to the parent control-plane-protocol list entry to read the
  * instance name, then resolves it through the shared helper.
  *
  * mgmtd's predicate-aware dispatch (mgmt_be_xpath_prefix) routes only
- * control-plane-protocol[type='ietf-ospf:ospfv2'] entries to ospfd, so
- * the type check is handled at the dispatch layer and not repeated here.
+ * control-plane-protocol[type='ietf-ospf:ospfv2'] entries to ospfd. In
+ * daemon-instance mode, each ospfd backend also registers its own `name`
+ * predicate, so the instance-name check is handled at the dispatch layer
+ * and not repeated here.
  *
  * Returns NULL when no FRR-side OSPF instance exists for the named
  * control-plane-protocol; the caller should treat the configuration as a

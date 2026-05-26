@@ -30,6 +30,7 @@
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_nb.h"
 #include "ospf6_network.h"
 
 #include "ospf6_flood.h"
@@ -676,13 +677,21 @@ bool ospf6_router_id_update(struct ospf6 *ospf6, bool init)
 	return true;
 }
 
+static int ospf6_ietf_routing_protocol_xpath(char *xpath, size_t size, const struct ospf6 *ospf6)
+{
+	return snprintf(xpath, size, OSPF6D_IETF_ROUTING_PROTOCOL_XPATH,
+			ospf6->name ? ospf6->name : VRF_DEFAULT_NAME);
+}
+
 /* start ospf6 */
 DEFUN_NOSH(router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
 	   ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	struct ospf6 *ospf6;
 	const char *vrf_name = VRF_DEFAULT_NAME;
+	char xpath[XPATH_MAXLEN];
 	int idx_vrf = 0;
+	int ret;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
 		vrf_name = argv[idx_vrf + 1]->arg;
@@ -691,6 +700,12 @@ DEFUN_NOSH(router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
 	ospf6 = ospf6_lookup_by_vrf_name(vrf_name);
 	if (ospf6 == NULL)
 		ospf6 = ospf6_instance_create(vrf_name);
+
+	ospf6_ietf_routing_protocol_xpath(xpath, sizeof(xpath), ospf6);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	/* set current ospf point. */
 	VTY_PUSH_CONTEXT(OSPF6_NODE, ospf6);
@@ -704,7 +719,9 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
 {
 	struct ospf6 *ospf6;
 	const char *vrf_name = VRF_DEFAULT_NAME;
+	char xpath[XPATH_MAXLEN];
 	int idx_vrf = 0;
+	int ret = CMD_SUCCESS;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
 		vrf_name = argv[idx_vrf + 1]->arg;
@@ -714,16 +731,19 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
 	if (ospf6 == NULL)
 		vty_out(vty, "OSPFv3 is not configured\n");
 	else {
+		ospf6_ietf_routing_protocol_xpath(xpath, sizeof(xpath), ospf6);
 		if (ospf6->gr_info.restart_support)
 			ospf6_gr_nvm_delete(ospf6);
 
 		ospf6_delete(&ospf6);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		ret = nb_cli_apply_changes_clear_pending(vty, "%s", xpath);
 	}
 
 	/* return to config node . */
 	VTY_PUSH_CONTEXT_NULL(CONFIG_NODE);
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
 static void ospf6_db_clear(struct ospf6 *ospf6)
@@ -810,8 +830,8 @@ DEFPY (clear_router_ospf6,
 static int ospf6_router_id_xpath(char *xpath, size_t size, const struct ospf6 *o)
 {
 	return snprintf(xpath, size,
-			"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3'][name='%s']/ietf-ospf:ospf/explicit-router-id",
-			o->name ? o->name : "default");
+			OSPF6D_IETF_ROUTING_PROTOCOL_XPATH "/ietf-ospf:ospf/explicit-router-id",
+			o->name ? o->name : VRF_DEFAULT_NAME);
 }
 
 /*

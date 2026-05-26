@@ -64,18 +64,16 @@ static void *ospfd_ietf_list_next_data(struct list *list, const void *entry)
 	return NULL;
 }
 
-static const char *ospfd_ietf_instance_name(const struct ospf *ospf)
-{
-	return ospf->name ? ospf->name : "default";
-}
-
 struct ospf *ospfd_ietf_ospf_lookup_instance(const char *name)
 {
 	const struct listnode *node;
 	struct ospf *ospf;
+	char instance_name[XPATH_MAXLEN];
 
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf))
-		if (!strcmp(ospfd_ietf_instance_name(ospf), name))
+		if (!strcmp(ospfd_ietf_ospf_instance_name(ospf, instance_name,
+							  sizeof(instance_name)),
+			    name))
 			return ospf;
 
 	return NULL;
@@ -137,10 +135,13 @@ const void *ospfd_ietf_routing_control_plane_protocol_get_next(struct nb_cb_get_
 int ospfd_ietf_routing_control_plane_protocol_get_keys(struct nb_cb_get_keys_args *args)
 {
 	const struct ospf *ospf = args->list_entry;
+	char instance_name[XPATH_MAXLEN];
 
 	args->keys->num = 2;
 	strlcpy(args->keys->key[0], "ietf-ospf:ospfv2", sizeof(args->keys->key[0]));
-	strlcpy(args->keys->key[1], ospfd_ietf_instance_name(ospf), sizeof(args->keys->key[1]));
+	strlcpy(args->keys->key[1],
+		ospfd_ietf_ospf_instance_name(ospf, instance_name, sizeof(instance_name)),
+		sizeof(args->keys->key[1]));
 
 	return NB_OK;
 }

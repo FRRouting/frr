@@ -188,11 +188,11 @@ static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
  * in mgmtd/mgmt_be_adapter.c::mgmt_be_xpath_prefix().
  */
 static const char *const ospf6d_oper_xpaths[] = {
-	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3']",
+	OSPF6D_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
 };
 
 static const char *const ospf6d_config_xpaths[] = {
-	"/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv3']",
+	OSPF6D_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
 };
 
 struct mgmt_be_client_cbs ospf6d_be_client_data = {
@@ -288,7 +288,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* OSPF6 master init. */
 	ospf6_master_init(frr_init());
-	cmd_config_file_batching_set(true);
 
 	/* thread master */
 	master = om6->master;
@@ -300,6 +299,7 @@ int main(int argc, char *argv[], char *envp[])
 	prefix_list_init();
 
 	/* initialize ospf6 */
+	cmd_config_file_batching_set(true);
 	ospf6_init(master);
 
 	/* Configuration processing callback initialization. */

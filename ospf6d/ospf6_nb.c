@@ -11,12 +11,6 @@
 #include "ospf6_nb.h"
 #include "ospf6_top.h"
 
-#define OSPF6D_IETF_ROUTING_CP_XPATH                                          \
-	"/ietf-routing:routing/control-plane-protocols/"                      \
-	"control-plane-protocol"
-#define OSPF6D_IETF_OSPF_XPATH                                                \
-	OSPF6D_IETF_ROUTING_CP_XPATH "/ietf-ospf:ospf"
-
 /* clang-format off */
 const struct frr_yang_module_info ospf6d_ietf_routing_info = {
 	.name = "ietf-routing",
@@ -25,11 +19,14 @@ const struct frr_yang_module_info ospf6d_ietf_routing_info = {
 		{
 			.xpath = OSPF6D_IETF_ROUTING_CP_XPATH,
 			.cbs = {
+				.create = ospf6d_ietf_routing_control_plane_protocol_create,
+				.destroy = ospf6d_ietf_routing_control_plane_protocol_destroy,
 				.get_next = ospf6d_ietf_routing_control_plane_protocol_get_next,
 				.get_keys = ospf6d_ietf_routing_control_plane_protocol_get_keys,
 				.lookup_entry =
 					ospf6d_ietf_routing_control_plane_protocol_lookup_entry,
 			},
+			.cfg_opt_in = true,
 		},
 		{
 			.xpath = NULL,
