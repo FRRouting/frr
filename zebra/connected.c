@@ -236,7 +236,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	uint32_t count = 0;
 	struct connected *c;
 	bool install_local = true;
+	struct zebra_if *zif;
+	bool promote_secondaries;
 
+	zif = ifp->info;
+	assert(zif);
+	promote_secondaries = !!CHECK_FLAG(zif->flags, ZIF_FLAG_IPV4_PROMOTE_SECONDARIES);
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
 		flog_err(
@@ -323,11 +328,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
 			count++;
 
-		if (count >= 2)
+		if ((count == 2 && !promote_secondaries) || (count > 2 && promote_secondaries))
 			return;
 	}
 
-	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+	/* When promoting secondary case, we keep connected prefix */
+	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE) && !promote_secondaries) {
 		connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
 
 		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0, flags, &p,
@@ -440,6 +446,12 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	uint32_t count = 0;
 	struct connected *c;
 	bool remove_local = true;
+	struct zebra_if *zif;
+	bool promote_secondaries;
+
+	zif = ifp->info;
+	assert(zif);
+	promote_secondaries = !!CHECK_FLAG(zif->flags, ZIF_FLAG_IPV4_PROMOTE_SECONDARIES);
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -521,15 +533,16 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
 			count++;
 
-		if (count >= 1)
+		if ((count == 1 && !promote_secondaries) || (count > 1 && promote_secondaries))
 			return;
 	}
 
 	/*
 	 * Same logic as for connected_up(): push the changes into the
 	 * head.
+	 * When promoting secondary case, we keep connected prefix
 	 */
-	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE) && !promote_secondaries) {
 		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, &nh, 0,
 			   zvrf->table_id, 0, 0, false);
