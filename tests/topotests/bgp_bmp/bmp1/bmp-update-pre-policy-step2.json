@@ -3,7 +3,7 @@
         "update": {
             "172.31.0.15/32": {
                 "afi": 1,
-                "as_path": "65501 65502",
+                "as_path": "65502",
                 "bmp_log_type": "update",
                 "ip_prefix": "172.31.0.15/32",
                 "ipv6": false,
@@ -22,7 +22,7 @@
             },
             "2001::1111/128": {
                 "afi": 2,
-                "as_path": "65501 65502",
+                "as_path": "65502",
                 "bmp_log_type": "update",
                 "ip_prefix": "2001::1111/128",
                 "ipv6": true,
