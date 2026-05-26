@@ -2033,7 +2033,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		uint32_t mtu;
 		ns_id_t link_nsid;
 		struct zebra_if *zif;
-		bool protodown, protodown_set, startup;
+		bool protodown, protodown_set, startup, promote_secondaries;
 		uint32_t rc_bitfield;
 		uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 		char *desc;
@@ -2064,6 +2064,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		desc = dplane_ctx_get_ifp_desc(ctx);
 		family = dplane_ctx_get_ifp_family(ctx);
 		change_flags = dplane_ctx_get_ifp_change_flags(ctx);
+		promote_secondaries = dplane_ctx_intf_is_promote_secondaries(ctx);
 
 #ifndef AF_BRIDGE
 		/*
@@ -2244,6 +2245,18 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 						kernel_pd_cleared = true;
 					UNSET_FLAG(zif->flags, ZIF_FLAG_KERNEL_PROTODOWN_SET);
 				}
+			}
+
+			if (promote_secondaries !=
+			    !!CHECK_FLAG(zif->flags, ZIF_FLAG_IPV4_PROMOTE_SECONDARIES)) {
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug("Intf %s(%u) has promote secondaries turned %s",
+						   name, ifp->ifindex,
+						   promote_secondaries ? "on" : "off");
+				if (promote_secondaries)
+					SET_FLAG(zif->flags, ZIF_FLAG_IPV4_PROMOTE_SECONDARIES);
+				else
+					UNSET_FLAG(zif->flags, ZIF_FLAG_IPV4_PROMOTE_SECONDARIES);
 			}
 
 			if (if_is_no_ptm_operative(ifp)) {
@@ -2848,6 +2861,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	vty_out(vty, "  MPLS %s %s\n", zebra_if->mpls ? "enabled" : "",
 		if_zebra_data_state(zebra_if->multicast));
+
+	vty_out(vty, "  Promoting IPv4 addresses is turned %s\n",
+		CHECK_FLAG(zebra_if->flags, ZIF_FLAG_IPV4_PROMOTE_SECONDARIES) ? "on" : "off");
 
 	if (zebra_if->linkdown)
 		vty_out(vty, "  Ignore all v4 routes with linkdown\n");

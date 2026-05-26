@@ -214,6 +214,7 @@ struct dplane_intf_info {
 	enum zebra_link_type zltype;
 	uint8_t family;
 	struct zebra_vxlan_vni_array *vniarray;
+	uint32_t promote_secondaries;
 	bool no_bvinfo_avail;
 	bool no_afspec_avail;
 	struct zebra_dplane_bridge_vlan_info bvinfo;
@@ -1446,6 +1447,13 @@ void dplane_ctx_set_ifp_vxlan_vni_array(struct zebra_dplane_ctx *ctx,
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.intf.vniarray = vniarray;
+}
+
+void dplane_ctx_set_ifp_promote_secondaries(struct zebra_dplane_ctx *ctx, uint32_t val)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.promote_secondaries = val;
 }
 
 const struct zebra_vxlan_vni_array *
@@ -2726,6 +2734,13 @@ bool dplane_ctx_intf_is_protodown(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.protodown;
+}
+
+bool dplane_ctx_intf_is_promote_secondaries(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.promote_secondaries;
 }
 
 /* Is interface addr p2p? */

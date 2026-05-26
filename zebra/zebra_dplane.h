@@ -459,6 +459,7 @@ uint8_t dplane_ctx_get_ifp_family(const struct zebra_dplane_ctx *ctx);
 struct zebra_vxlan_vni_array;
 void dplane_ctx_set_ifp_vxlan_vni_array(struct zebra_dplane_ctx *ctx,
 					struct zebra_vxlan_vni_array *vniarray);
+void dplane_ctx_set_ifp_promote_secondaries(struct zebra_dplane_ctx *ctx, uint32_t val);
 
 /*
  * These defines mirror the values for bridge values in linux
@@ -730,6 +731,7 @@ void dplane_ctx_set_intf_metric(struct zebra_dplane_ctx *ctx, uint32_t metric);
 uint32_t dplane_ctx_get_intf_pd_reason_val(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_intf_pd_reason_val(struct zebra_dplane_ctx *ctx, bool val);
 bool dplane_ctx_intf_is_protodown(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_is_promote_secondaries(const struct zebra_dplane_ctx *ctx);
 /* Is interface addr p2p? */
 bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_connected(struct zebra_dplane_ctx *ctx);

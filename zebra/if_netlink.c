@@ -65,6 +65,47 @@
 #include "zebra/zebra_trace.h"
 #include "lib/netlink_parser.h"
 
+/* the below enum is inherited from include/linux/ip.h */
+/* index values for the variables in ipv4_devconf */
+enum {
+	IPV4_DEVCONF_FORWARDING = 1,
+	IPV4_DEVCONF_MC_FORWARDING,
+	IPV4_DEVCONF_PROXY_ARP,
+	IPV4_DEVCONF_ACCEPT_REDIRECTS,
+	IPV4_DEVCONF_SECURE_REDIRECTS,
+	IPV4_DEVCONF_SEND_REDIRECTS,
+	IPV4_DEVCONF_SHARED_MEDIA,
+	IPV4_DEVCONF_RP_FILTER,
+	IPV4_DEVCONF_ACCEPT_SOURCE_ROUTE,
+	IPV4_DEVCONF_BOOTP_RELAY,
+	IPV4_DEVCONF_LOG_MARTIANS,
+	IPV4_DEVCONF_TAG,
+	IPV4_DEVCONF_ARPFILTER,
+	IPV4_DEVCONF_MEDIUM_ID,
+	IPV4_DEVCONF_NOXFRM,
+	IPV4_DEVCONF_NOPOLICY,
+	IPV4_DEVCONF_FORCE_IGMP_VERSION,
+	IPV4_DEVCONF_ARP_ANNOUNCE,
+	IPV4_DEVCONF_ARP_IGNORE,
+	IPV4_DEVCONF_PROMOTE_SECONDARIES,
+	IPV4_DEVCONF_ARP_ACCEPT,
+	IPV4_DEVCONF_ARP_NOTIFY,
+	IPV4_DEVCONF_ACCEPT_LOCAL,
+	IPV4_DEVCONF_SRC_VMARK,
+	IPV4_DEVCONF_PROXY_ARP_PVLAN,
+	IPV4_DEVCONF_ROUTE_LOCALNET,
+	IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL,
+	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
+	IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
+	IPV4_DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
+	IPV4_DEVCONF_DROP_GRATUITOUS_ARP,
+	IPV4_DEVCONF_BC_FORWARDING,
+	IPV4_DEVCONF_ARP_EVICT_NOCARRIER,
+	__IPV4_DEVCONF_MAX
+};
+
+#define IPV4_DEVCONF_MAX (__IPV4_DEVCONF_MAX - 1)
+
 extern struct zebra_privs_t zserv_privs;
 
 /* Utility function to parse hardware link-layer address and update ifp */
@@ -754,6 +795,33 @@ static int netlink_bridge_vxlan_update(struct zebra_dplane_ctx *ctx,
 
 	dplane_ctx_set_ifp_bridge_vlan_info(ctx, &bvinfo);
 	return 0;
+}
+
+static void netlink_interface_promote_secondaries_update(struct zebra_dplane_ctx *ctx,
+							 struct rtattr *af_spec)
+{
+	struct rtattr *i, *j;
+	int rem, rem2, len;
+	int32_t *devconf;
+
+	for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec); RTA_OK(i, rem);
+	     i = RTA_NEXT(i, rem)) {
+		if (i->rta_type != AF_INET)
+			continue;
+		for (j = RTA_DATA(i), rem2 = RTA_PAYLOAD(i); RTA_OK(j, rem2);
+		     j = RTA_NEXT(j, rem2)) {
+			if (j->rta_type == IFLA_INET_CONF) {
+				devconf = (int32_t *)RTA_DATA(j);
+				len = RTA_PAYLOAD(j) / sizeof(int32_t);
+				if (len > IPV4_DEVCONF_PROMOTE_SECONDARIES - 1)
+					dplane_ctx_set_ifp_promote_secondaries(
+						ctx,
+						(uint32_t)devconf[IPV4_DEVCONF_PROMOTE_SECONDARIES -
+								  1]);
+				break;
+			}
+		}
+	}
 }
 
 static void netlink_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
@@ -1491,6 +1559,11 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 #ifndef AF_BRIDGE
 #define AF_BRIDGE 7
 #endif
+	if (tb[IFLA_AF_SPEC]) {
+		/* look for promote secondaries */
+		netlink_interface_promote_secondaries_update(ctx, tb[IFLA_AF_SPEC]);
+	}
+
 	if (ifi->ifi_family == AF_BRIDGE) {
 		dplane_ctx_set_op(ctx, DPLANE_OP_INTF_INSTALL);
 		return netlink_bridge_interface(ctx, tb[IFLA_AF_SPEC], startup);
