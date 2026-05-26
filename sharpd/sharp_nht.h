@@ -27,4 +27,5 @@ extern void sharp_nhgroup_id_set_installed(uint32_t id, bool installed);
 extern bool sharp_nhgroup_id_is_installed(uint32_t id);
 
 extern void sharp_nhgroup_init(void);
+extern void sharp_nhgroup_terminate(void);
 #endif

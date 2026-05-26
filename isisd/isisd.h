@@ -222,6 +222,8 @@ struct isis_area {
 	uint8_t log_pdu_drops;
 	/* multi topology settings */
 	struct list *mt_settings;
+	/* Distribute link-state information to external consumers */
+	bool distribute_link_state;
 	/* MPLS-TE settings */
 	struct mpls_te_area *mta;
 	/* Segment Routing information */
@@ -286,6 +288,7 @@ DECLARE_DLIST(isis_area_list, struct isis_area, area_list_item);
 DECLARE_MTYPE(ISIS_ACL_NAME);	/* isis_area->spf_prefix_prioritites */
 DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
 DECLARE_MTYPE(ISIS_PLIST_NAME);
+DECLARE_MTYPE(ISIS_BFD_PROFILE); /* isis_circuit->bfd_config.profile */
 
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 

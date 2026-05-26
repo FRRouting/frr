@@ -380,7 +380,6 @@ const struct frr_yang_module_info frr_pim_info = {
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/override-interval",
 			.cbs = {
 				.modify = lib_interface_pim_override_interval_modify,
-				.destroy = lib_interface_pim_override_interval_destroy,
 			}
 		},
 		{
@@ -524,6 +523,13 @@ const struct frr_yang_module_info frr_pim_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-pim-route-map:multicast-interface",
 			.cbs = {
 				.modify = pim_route_map_match_interface_modify,
+				.destroy = lib_route_map_entry_match_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-pim-route-map:multicast-source-interface",
+			.cbs = {
+				.modify = pim_route_map_match_source_interface_modify,
 				.destroy = lib_route_map_entry_match_destroy,
 			}
 		},
@@ -883,6 +889,13 @@ const struct frr_yang_module_info frr_gmp_info = {
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/proxy",
 			.cbs = {
 				.modify = lib_interface_gmp_address_family_proxy_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/proxy-route-map",
+			.cbs = {
+				.modify  = lib_interface_gm_proxy_rmap_modify,
+				.destroy = lib_interface_gm_proxy_rmap_destroy,
 			}
 		},
 		{

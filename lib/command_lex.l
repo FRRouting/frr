@@ -73,6 +73,7 @@ ASNUM           ASNUM
 .               {return yytext[0];}
 %%
 
+__attribute__((unused))
 static YY_BUFFER_STATE buffer;
 
 void set_lexer_string (yyscan_t *scn, const char *string)

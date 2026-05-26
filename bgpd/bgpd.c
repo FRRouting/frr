@@ -1069,6 +1069,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	bgp_soft_reconfig_table_task_cancel(bgp, bgp->rib[afi][safi], peer);
 
 	bgp_stop_announce_route_timer(af);
+	event_cancel(&peer->t_llgr_stale[afi][safi]);
 
 	if (PAF_SUBGRP(af)) {
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
@@ -2112,6 +2113,24 @@ void bgp_peer_conf_if_to_su_update(struct peer_connection *connection)
 			 * su if needed.
 			 */
 			connection->su = old_su;
+			/* Let's clean up the bnc attached to
+			 * this peer. Since the connection->su
+			 * has changed, a new bnc will be created
+			 * and attached to the peer, the bnc that
+			 * is attached to the peer will be stale.
+			 * In this case, when peer is deleted it
+			 * just gets the bnc with the connection->su
+			 * and deletes that bnc. The other bnc will
+			 * remain there. So unlink the bnc from the
+			 * peer here. In some cases when 2 bnc entries are
+			 * present for the same peer, and say peer is
+			 * deconfigured and then interface down event comes
+			 * only one bnc is detached from the peer.
+			 * Although the peer is deleted, the other stale
+			 * bnc still holds the previous peer pointer
+			 * and while accesing the peer it crashes.
+			 */
+			bgp_unlink_nexthop_by_peer(peer);
 			hash_release(peer->bgp->connectionhash, connection);
 			listnode_delete(peer->bgp->peer, peer);
 
@@ -2646,9 +2665,8 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 		if (peer_established(peer->connection)) {
 			if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
 				peer->afc_adv[afi][safi] = 1;
-				bgp_capability_send(peer, afi, safi,
-						    CAPABILITY_CODE_MP,
-						    CAPABILITY_ACTION_SET);
+				bgp_capability_send(peer->connection, afi, safi,
+						    CAPABILITY_CODE_MP, CAPABILITY_ACTION_SET);
 				if (peer->afc_recv[afi][safi]) {
 					peer->afc_nego[afi][safi] = 1;
 					bgp_announce_route(peer, afi, safi,
@@ -2803,9 +2821,8 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 			peer->afc_nego[afi][safi] = 0;
 
 			if (peer_active_nego(peer)) {
-				bgp_capability_send(peer, afi, safi,
-						    CAPABILITY_CODE_MP,
-						    CAPABILITY_ACTION_UNSET);
+				bgp_capability_send(peer->connection, afi, safi,
+						    CAPABILITY_CODE_MP, CAPABILITY_ACTION_UNSET);
 				bgp_clear_route(peer, afi, safi);
 				peer->pcount[afi][safi] = 0;
 			} else {
@@ -2951,6 +2968,7 @@ int peer_delete(struct peer *peer)
 	struct bgp_filter *filter;
 	struct listnode *pn;
 	int accept_peer;
+	bool clear_queue_lock_held = false;
 
 	assert(peer->connection->status != Deleted);
 
@@ -3028,6 +3046,13 @@ int peer_delete(struct peer *peer)
 	bgp_stop(peer->connection);
 	UNSET_FLAG(peer->flags, PEER_FLAG_DELETE);
 
+	/*
+	 * If shutdown interrupts clear-node workers, drain the queue now and
+	 * account for the deferred bgp_clear_route() peer lock explicitly.
+	 */
+	if (bm->terminating)
+		clear_queue_lock_held = bgp_clear_node_queue_drain(peer);
+
 	if (peer->doppelganger) {
 		peer->doppelganger->doppelganger = NULL;
 		peer->doppelganger = NULL;
@@ -3092,6 +3117,7 @@ int peer_delete(struct peer *peer)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
 		XFREE(MTYPE_ROUTE_MAP_NAME, peer->default_rmap[afi][safi].name);
 		ecommunity_free(&peer->soo[afi][safi]);
+		XFREE(MTYPE_ROUTE_MAP_NAME, peer->allowas_in_rmap[afi][safi].name);
 	}
 
 	FOREACH_AFI_SAFI (afi, safi)
@@ -3101,7 +3127,9 @@ int peer_delete(struct peer *peer)
 	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
 	XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
 
-	peer_unlock(peer); /* initial reference */
+	if (clear_queue_lock_held)
+		peer_unlock(peer); /* bgp_clear_route, completion callback equivalent */
+	peer_unlock(peer);	   /* initial reference */
 
 	return 0;
 }
@@ -3797,11 +3825,13 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 peer_init:
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
-	bgp->connectionhash = hash_create(connection_hash_key_make, connection_hash_same,
-					  "BGP Peer Hash");
-	bgp->connectionhash->max_size = BGP_PEER_MAX_HASH_SIZE;
+	if (!bgp->connectionhash) {
+		bgp->connectionhash = hash_create(connection_hash_key_make, connection_hash_same,
+						  "BGP Peer Hash");
+		bgp->connectionhash->max_size = BGP_PEER_MAX_HASH_SIZE;
+	}
 
-	if (!hidden)
+	if (!bgp->group)
 		bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
@@ -4547,6 +4577,20 @@ int bgp_delete(struct bgp *bgp)
 		} while (connection != NULL);
 	}
 
+	if (bm->bgp_evpn == bgp) {
+		/*
+		 * Clean ES route tables before peer and route teardown starts.
+		 * This avoids ES-linked local MAC-IP updates from running after
+		 * clear-route/cleanup has already reaped the local paths.
+		 *
+		 * Run for any teardown of the EVPN-owner instance, not just
+		 * daemon termination: deleting the owner via "no router bgp"
+		 * also needs the ES tables purged so paths can be reaped and
+		 * the bgp/peer refcounts can drop to zero.
+		 */
+		bgp_evpn_es_cleanup_routes(bgp);
+	}
+
 	/* Free peers and peer-groups. */
 	for (ALL_LIST_ELEMENTS(bgp->group, node, next, group))
 		peer_group_delete(group);
@@ -4604,16 +4648,40 @@ int bgp_delete(struct bgp *bgp)
 		}
 	}
 
+	if (bm->bgp_evpn == bgp) {
+		/*
+		 * Reap all paths from per-VNI route tables BEFORE the global
+		 * EVPN RIB is finalized by bgp_cleanup_routes() below.
+		 *
+		 * Per-VNI imported BPIs hold extra->vrfleak->parent references
+		 * back into the global EVPN RIB.  bgp_cleanup_routes() calls
+		 * bgp_table_finish() on the per-RD inner tables which forcibly
+		 * zeroes node->lock and frees the dest objects.  If the per-VNI
+		 * paths are reaped after that, bgp_path_info_extra_free()
+		 * tries to bgp_dest_unlock_node() those already-freed dests,
+		 * tripping the "node->lock > 0" assert.
+		 */
+		bgp_evpn_cleanup_per_vni_routes(bgp);
+	}
+
 	bgp_cleanup_routes(bgp);
 
-	if (bm->terminating && bm->bgp_evpn == bgp) {
+	if (bm->bgp_evpn == bgp) {
 		/*
-		 * Clean ES route tables while bgp is still alive,
-		 * then release EVPN VNI bgp_lock references so the
-		 * subsequent bgp_unlock() can drive refcount to
-		 * zero and trigger bgp_free().
+		 * Release EVPN VNI bgp_lock references so the subsequent
+		 * bgp_unlock() can drive refcount to zero and trigger
+		 * bgp_free().
+		 *
+		 * This must run on every teardown of the EVPN-owner instance
+		 * (not only during daemon termination).  Each L2VNI holds a
+		 * bgp_lock on the owner via bgpevpn_link_to_l3vni(); without
+		 * releasing those locks here, "no router bgp" of the EVPN
+		 * owner leaks the instance, its peer_self, and any local
+		 * EVPN paths still held in the per-VNI tables.  The per-VNI
+		 * route tables were already drained above; free_vni_entry()
+		 * here re-runs delete_all_vni_routes() which is a no-op (the
+		 * tables are empty) and then frees the bgpevpn structs.
 		 */
-		bgp_evpn_es_cleanup_routes(bgp);
 		bgp_evpn_cleanup(bgp);
 	}
 
@@ -4715,10 +4783,7 @@ void bgp_free(struct bgp *bgp)
 	list_delete(&bgp->group);
 	list_delete(&bgp->peer);
 
-	if (bgp->connectionhash) {
-		hash_free(bgp->connectionhash);
-		bgp->connectionhash = NULL;
-	}
+	hash_clean_and_free(&bgp->connectionhash, NULL);
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		/* Special handling for 2-level routing tables. */
@@ -4756,6 +4821,7 @@ void bgp_free(struct bgp *bgp)
 	bgp_evpn_cleanup(bgp);
 	bgp_pbr_cleanup(bgp);
 	bgp_ls_cleanup(bgp);
+	bgp_addpath_finish_bgp_data(&bgp->tx_addpath);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		enum vpn_policy_direction dir;
@@ -5250,7 +5316,7 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 		peer_notify_config_change(peer->connection);
 	} else if (type == peer_change_reset_in) {
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+			bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
 					       BGP_ROUTE_REFRESH_NORMAL);
 		else {
 			if ((peer->doppelganger) &&
@@ -6690,7 +6756,7 @@ void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 			return;
 
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+			bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
 					       BGP_ROUTE_REFRESH_NORMAL);
 	}
 }
@@ -7166,32 +7232,54 @@ void peer_interface_unset(struct peer *peer)
 }
 
 /* Allow-as in.  */
-int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num, bool origin)
+/*
+ * Set/update a peer's allowas-in route-map name and cached pointer.
+ * Pass NULL to clear an existing route-map.
+ */
+static void peer_allowas_in_rmap_update(struct peer *peer, afi_t afi, safi_t safi,
+					const char *rmap_name)
+{
+	XFREE(MTYPE_ROUTE_MAP_NAME, peer->allowas_in_rmap[afi][safi].name);
+	if (rmap_name) {
+		peer->allowas_in_rmap[afi][safi].name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
+		peer->allowas_in_rmap[afi][safi].rmap = route_map_lookup_by_name(rmap_name);
+	} else {
+		peer->allowas_in_rmap[afi][safi].rmap = NULL;
+	}
+}
+
+int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num, bool origin,
+			const char *rmap_name)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
+	bool rmap_changed;
 
 	if (!origin && (allow_num < 1 || allow_num > 10))
 		return BGP_ERR_INVALID_VALUE;
 
+	rmap_changed = ((peer->allowas_in_rmap[afi][safi].name == NULL) != (rmap_name == NULL)) ||
+		       (rmap_name && peer->allowas_in_rmap[afi][safi].name &&
+			strcmp(peer->allowas_in_rmap[afi][safi].name, rmap_name) != 0);
+
+	if (rmap_changed)
+		peer_allowas_in_rmap_update(peer, afi, safi, rmap_name);
+
 	/* Set flag and configuration on peer. */
 	peer_af_flag_set(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
 	if (origin) {
-		if (peer->allowas_in[afi][safi] != 0
-		    || !CHECK_FLAG(peer->af_flags[afi][safi],
-				   PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-			peer_af_flag_set(peer, afi, safi,
-					 PEER_FLAG_ALLOWAS_IN_ORIGIN);
+		if (peer->allowas_in[afi][safi] != 0 ||
+		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+		    rmap_changed) {
+			peer_af_flag_set(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
 			peer->allowas_in[afi][safi] = 0;
 			peer_on_policy_change(peer, afi, safi, 0);
 		}
 	} else {
-		if (peer->allowas_in[afi][safi] != allow_num
-		    || CHECK_FLAG(peer->af_flags[afi][safi],
-				  PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-
-			peer_af_flag_unset(peer, afi, safi,
-					   PEER_FLAG_ALLOWAS_IN_ORIGIN);
+		if (peer->allowas_in[afi][safi] != allow_num ||
+		    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+		    rmap_changed) {
+			peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
 			peer->allowas_in[afi][safi] = allow_num;
 			peer_on_policy_change(peer, afi, safi, 0);
 		}
@@ -7207,25 +7295,26 @@ int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->af_flags_override[afi][safi],
-			       PEER_FLAG_ALLOWAS_IN))
+		if (CHECK_FLAG(member->af_flags_override[afi][safi], PEER_FLAG_ALLOWAS_IN))
 			continue;
+
+		peer_allowas_in_rmap_update(member, afi, safi, rmap_name);
 
 		/* Set flag and configuration on peer-group member. */
 		SET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
 		if (origin) {
-			if (member->allowas_in[afi][safi] != 0
-			    || !CHECK_FLAG(member->af_flags[afi][safi],
-					   PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+			if (member->allowas_in[afi][safi] != 0 ||
+			    !CHECK_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+			    rmap_changed) {
 				SET_FLAG(member->af_flags[afi][safi],
 					 PEER_FLAG_ALLOWAS_IN_ORIGIN);
 				member->allowas_in[afi][safi] = 0;
 				peer_on_policy_change(member, afi, safi, 0);
 			}
 		} else {
-			if (member->allowas_in[afi][safi] != allow_num
-			    || CHECK_FLAG(member->af_flags[afi][safi],
-					  PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+			if (member->allowas_in[afi][safi] != allow_num ||
+			    CHECK_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+			    rmap_changed) {
 				UNSET_FLAG(member->af_flags[afi][safi],
 					   PEER_FLAG_ALLOWAS_IN_ORIGIN);
 				member->allowas_in[afi][safi] = allow_num;
@@ -7252,6 +7341,9 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 		peer_af_flag_inherit(peer, afi, safi,
 				     PEER_FLAG_ALLOWAS_IN_ORIGIN);
 		PEER_ATTR_INHERIT(peer, peer->group, allowas_in[afi][safi]);
+		PEER_STR_ATTR_INHERIT(peer, peer->group, allowas_in_rmap[afi][safi].name,
+				      MTYPE_ROUTE_MAP_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group, allowas_in_rmap[afi][safi].rmap);
 		peer_on_policy_change(peer, afi, safi, 0);
 
 		return 0;
@@ -7261,6 +7353,7 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
 	peer->allowas_in[afi][safi] = 0;
+	peer_allowas_in_rmap_update(peer, afi, safi, NULL);
 	peer_on_policy_change(peer, afi, safi, 0);
 
 	/* Skip peer-group mechanics if handling a regular peer. */
@@ -7282,6 +7375,7 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 		UNSET_FLAG(member->af_flags[afi][safi],
 			   PEER_FLAG_ALLOWAS_IN_ORIGIN);
 		member->allowas_in[afi][safi] = 0;
+		peer_allowas_in_rmap_update(member, afi, safi, NULL);
 		peer_on_policy_change(member, afi, safi, 0);
 	}
 
@@ -8934,7 +9028,7 @@ static void peer_reset_message_stats(struct peer *peer)
  */
 static void peer_clear_capabilities(struct peer *peer, afi_t afi, safi_t safi)
 {
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_FQDN,
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_FQDN,
 			    CAPABILITY_ACTION_SET);
 }
 
@@ -9005,25 +9099,21 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			if (filter->plist[FILTER_IN].plist) {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
 					       PEER_STATUS_ORF_PREFIX_SEND))
-					bgp_route_refresh_send(
-						peer, afi, safi, prefix_type,
-						REFRESH_DEFER, 1,
-						BGP_ROUTE_REFRESH_NORMAL);
-				bgp_route_refresh_send(
-					peer, afi, safi, prefix_type,
-					REFRESH_IMMEDIATE, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
+					bgp_route_refresh_send(peer->connection, afi, safi,
+							       prefix_type, REFRESH_DEFER, 1,
+							       BGP_ROUTE_REFRESH_NORMAL);
+				bgp_route_refresh_send(peer->connection, afi, safi, prefix_type,
+						       REFRESH_IMMEDIATE, 0,
+						       BGP_ROUTE_REFRESH_NORMAL);
 			} else {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
 					       PEER_STATUS_ORF_PREFIX_SEND))
-					bgp_route_refresh_send(
-						peer, afi, safi, prefix_type,
-						REFRESH_IMMEDIATE, 1,
-						BGP_ROUTE_REFRESH_NORMAL);
+					bgp_route_refresh_send(peer->connection, afi, safi,
+							       prefix_type, REFRESH_IMMEDIATE, 1,
+							       BGP_ROUTE_REFRESH_NORMAL);
 				else
-					bgp_route_refresh_send(
-						peer, afi, safi, 0, 0, 0,
-						BGP_ROUTE_REFRESH_NORMAL);
+					bgp_route_refresh_send(peer->connection, afi, safi, 0, 0,
+							       0, BGP_ROUTE_REFRESH_NORMAL);
 			}
 			return 0;
 		}
@@ -9038,9 +9128,8 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			   refresh
 			   message to the peer. */
 			if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-				bgp_route_refresh_send(
-					peer, afi, safi, 0, 0, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
+				bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
+						       BGP_ROUTE_REFRESH_NORMAL);
 			else
 				return BGP_ERR_SOFT_RECONFIG_UNCONFIGURED;
 		}
@@ -9801,7 +9890,8 @@ static void bgp_process_conn_error(struct event *event)
 			if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
 			     || CHECK_FLAG(peer->flags,
 					   PEER_FLAG_GRACEFUL_RESTART_HELPER))
-			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
+			    && !peer->notify.hard_reset) {
 				peer_set_last_reset(peer, PEER_DOWN_NSF_CLOSE_SESSION);
 				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 			} else

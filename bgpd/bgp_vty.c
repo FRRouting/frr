@@ -3597,7 +3597,7 @@ DEFUN (bgp_graceful_restart_restart_time,
 				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 					bgp_update_graceful_restart_capability(peer);
 				else
-					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 							    CAPABILITY_CODE_RESTART,
 							    CAPABILITY_ACTION_SET);
 			}
@@ -3610,7 +3610,7 @@ DEFUN (bgp_graceful_restart_restart_time,
 			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 				bgp_update_graceful_restart_capability(peer);
 			else
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 						    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
 		}
 	}
@@ -3702,7 +3702,7 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 					bgp_update_graceful_restart_capability(peer);
 				else
-					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 							    CAPABILITY_CODE_RESTART,
 							    CAPABILITY_ACTION_UNSET);
 			}
@@ -3716,7 +3716,7 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 				bgp_update_graceful_restart_capability(peer);
 			else
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 						    CAPABILITY_CODE_RESTART,
 						    CAPABILITY_ACTION_UNSET);
 		}
@@ -3813,9 +3813,8 @@ DEFPY (bgp_graceful_restart_notification,
 		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_RESTART,
-				    CAPABILITY_ACTION_SET);
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
 
 	return CMD_SUCCESS;
 }
@@ -3858,12 +3857,10 @@ DEFUN (bgp_graceful_restart_disable,
 			"Graceful restart configuration changed, reset all peers to take effect\n");
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART,
-					    CAPABILITY_ACTION_UNSET);
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_LLGR,
-					    CAPABILITY_ACTION_UNSET);
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_UNSET);
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_UNSET);
 		}
 	}
 
@@ -4224,8 +4221,8 @@ DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
 	bgp->llgr_stale_time = llgr_stale_time;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_SET);
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
+				    CAPABILITY_ACTION_SET);
 
 	return CMD_SUCCESS;
 }
@@ -4244,8 +4241,7 @@ DEFUN(no_bgp_llgr_stalepath_time, no_bgp_llgr_stalepath_time_cmd,
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_LLGR,
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
 				    CAPABILITY_ACTION_UNSET);
 
 	return CMD_SUCCESS;
@@ -6499,11 +6495,37 @@ DEFPY (neighbor_capability_fqdn,
 		ret = peer_flag_set_vty(vty, neighbor,
 					PEER_FLAG_CAPABILITY_FQDN);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_FQDN,
-			    no ? CAPABILITY_ACTION_UNSET
-			       : CAPABILITY_ACTION_SET);
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_FQDN,
+			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
+}
+
+/*
+ * Send dynamic capability on the peer(s) that own the TCP BGP session.
+ * The peer-group template (PEER_STATUS_GROUP) stays Idle; members in
+ * peer->group->peer are Established.
+ */
+static void bgp_vty_capability_send_dynamic_peer_group(struct peer *peer, afi_t afi, safi_t safi,
+						       int capability_code, int action)
+{
+	struct listnode *node;
+	struct peer *member;
+	struct peer_group *pg;
+
+	if (!peer)
+		return;
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		pg = peer->group;
+		if (!pg)
+			return;
+		for (ALL_LIST_ELEMENTS_RO(pg->peer, node, member))
+			bgp_capability_send(member->connection, afi, safi, capability_code,
+					    action);
+	} else {
+		bgp_capability_send(peer->connection, afi, safi, capability_code, action);
+	}
 }
 
 /* neighbor capability extended next hop encoding */
@@ -6523,9 +6545,13 @@ DEFUN (neighbor_capability_enhe,
 	if (peer && peer->conf_if)
 		return CMD_SUCCESS;
 
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	ret = peer_flag_set_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE, CAPABILITY_ACTION_SET);
+	bgp_vty_capability_send_dynamic_peer_group(peer, AFI_IP, SAFI_UNICAST,
+						   CAPABILITY_CODE_ENHE, CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -6551,10 +6577,18 @@ DEFUN (no_neighbor_capability_enhe,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE,
-			    CAPABILITY_ACTION_UNSET);
+	/*
+	 * Send dynamic UNSET while PEER_FLAG_CAPABILITY_ENHE is still set.
+	 * bgp_capability_send() only encodes ENHE TLVs when that flag is set;
+	 * peer_flag_unset_vty clears it on members first.
+	 */
+	bgp_vty_capability_send_dynamic_peer_group(peer, AFI_IP, SAFI_UNICAST,
+						   CAPABILITY_CODE_ENHE, CAPABILITY_ACTION_UNSET);
+
+	ret = peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
 
 	return ret;
 }
@@ -6584,7 +6618,7 @@ DEFPY(neighbor_capability_software_version,
 	else
 		ret = peer_flag_set_vty(vty, neighbor, encoding);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_SOFT_VERSION,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_SOFT_VERSION,
 			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -6612,7 +6646,7 @@ DEFPY(neighbor_capability_link_local,
 	else
 		ret = peer_flag_set_vty(vty, neighbor, PEER_FLAG_CAPABILITY_LINK_LOCAL);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LINK_LOCAL,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LINK_LOCAL,
 			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -6698,7 +6732,7 @@ DEFUN (neighbor_capability_orf_prefix,
 	if (strmatch(argv[idx_send_recv]->text, "send")) {
 		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
 					   PEER_FLAG_ORF_PREFIX_SM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_SET);
 		return ret;
 	}
@@ -6706,7 +6740,7 @@ DEFUN (neighbor_capability_orf_prefix,
 	if (strmatch(argv[idx_send_recv]->text, "receive")) {
 		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
 					   PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_SET);
 		return ret;
 	}
@@ -6716,7 +6750,7 @@ DEFUN (neighbor_capability_orf_prefix,
 					   PEER_FLAG_ORF_PREFIX_SM) |
 		      peer_af_flag_set_vty(vty, peer_str, afi, safi,
 					   PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_SET);
 		return ret;
 	}
@@ -6763,7 +6797,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
 	if (strmatch(argv[idx_send_recv]->text, "send")) {
 		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
 					     PEER_FLAG_ORF_PREFIX_SM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_UNSET);
 		return ret;
 	}
@@ -6771,7 +6805,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
 	if (strmatch(argv[idx_send_recv]->text, "receive")) {
 		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
 					     PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_UNSET);
 		return ret;
 	}
@@ -6781,7 +6815,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
 					     PEER_FLAG_ORF_PREFIX_SM) |
 		      peer_af_flag_unset_vty(vty, peer_str, afi, safi,
 					     PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_UNSET);
 		return ret;
 	}
@@ -7755,7 +7789,7 @@ DEFPY(neighbor_role,
 
 	ret = peer_role_set_vty(vty, peer, role, false);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
 			    CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -7779,7 +7813,7 @@ DEFPY(neighbor_role_strict,
 
 	ret = peer_role_set_vty(vty, peer, role, true);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
 			    CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -7804,7 +7838,7 @@ DEFPY(no_neighbor_role,
 
 	ret = bgp_vty_return(vty, peer_role_unset(peer));
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
 			    CAPABILITY_ACTION_UNSET);
 
 	return ret;
@@ -9682,64 +9716,65 @@ DEFPY (no_neighbor_soo,
 }
 
 /* "neighbor allowas-in" */
-DEFUN (neighbor_allowas_in,
+DEFPY (neighbor_allowas_in,
        neighbor_allowas_in_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map RMAP_NAME$rmap_name] [<(1-10)$allow_num|origin$origin_kw>]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Accept as-path with my AS present in it\n"
+       "Filter routes using route-map\n"
+       "Name of route-map\n"
        "Number of occurrences of AS number\n"
        "Only accept my AS in the as-path if the route was originated in my AS\n")
 {
-	int idx_peer = 1;
-	int idx_number_origin = 3;
 	int ret;
-	bool origin = false;
 	struct peer *peer;
-	int allow_num = 0;
+	int allow_num_val;
+	bool origin = !!origin_kw;
 
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (argc <= idx_number_origin)
-		allow_num = BGP_ALLOWAS_IN_DEFAULT;
-	else {
-		if (argv[idx_number_origin]->type == WORD_TKN)
-			origin = true;
-		else
-			allow_num = atoi(argv[idx_number_origin]->arg);
-	}
+	if (origin)
+		allow_num_val = 0;
+	else if (allow_num)
+		allow_num_val = (int)allow_num;
+	else
+		allow_num_val = BGP_ALLOWAS_IN_DEFAULT;
 
-	ret = peer_allowas_in_set(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				  allow_num, origin);
+	ret = peer_allowas_in_set(peer, bgp_node_afi(vty), bgp_node_safi(vty), allow_num_val,
+				  origin, rmap_name);
 
 	return bgp_vty_return(vty, ret);
 }
 
 ALIAS_HIDDEN(
 	neighbor_allowas_in, neighbor_allowas_in_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]",
+	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map RMAP_NAME$rmap_name] [<(1-10)$allow_num|origin$origin_kw>]",
 	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Accept as-path with my AS present in it\n"
+	"Filter routes using route-map\n"
+	"Name of route-map\n"
 	"Number of occurrences of AS number\n"
 	"Only accept my AS in the as-path if the route was originated in my AS\n")
 
-DEFUN (no_neighbor_allowas_in,
+DEFPY (no_neighbor_allowas_in,
        no_neighbor_allowas_in_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map [RMAP_NAME]] [<(1-10)|origin>]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "allow local ASN appears in aspath attribute\n"
+       "Filter routes using route-map\n"
+       "Name of route-map\n"
        "Number of occurrences of AS number\n"
        "Only accept my AS in the as-path if the route was originated in my AS\n")
 {
-	int idx_peer = 2;
 	int ret;
 	struct peer *peer;
 
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -9751,9 +9786,11 @@ DEFUN (no_neighbor_allowas_in,
 
 ALIAS_HIDDEN(
 	no_neighbor_allowas_in, no_neighbor_allowas_in_hidden_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]",
+	"no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map [RMAP_NAME]] [<(1-10)|origin>]",
 	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"allow local ASN appears in aspath attribute\n"
+	"Filter routes using route-map\n"
+	"Name of route-map\n"
 	"Number of occurrences of AS number\n"
 	"Only accept my AS in the as-path if the route was originated in my AS\n")
 
@@ -10083,7 +10120,7 @@ DEFPY (neighbor_addpath_paths_limit,
 
 	peer->addpath_paths_limit[afi][safi].send = paths_limit;
 
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
 			    CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -10112,7 +10149,7 @@ DEFPY (no_neighbor_addpath_paths_limit,
 
 	peer->addpath_paths_limit[afi][safi].send = 0;
 
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
 			    CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -14567,9 +14604,19 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			else if (peer->connection->su.sa.sa_family == AF_INET)
 				json_object_string_add(json_peer, "idType",
 						       "ipv4");
-			else if (peer->connection->su.sa.sa_family == AF_INET6)
+			else if (peer->connection->su.sa.sa_family == AF_INET6) {
 				json_object_string_add(json_peer, "idType",
 						       "ipv6");
+				if (IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr)) {
+					ifindex_t scope_id =
+						peer->connection->su.sin6.sin6_scope_id;
+
+					json_object_int_add(json_peer, "scopeId", scope_id);
+					json_object_string_add(json_peer, "scopeIfName",
+							       ifindex2ifname(scope_id,
+									      bgp->vrf_id));
+				}
+			}
 			json_object_object_add(json_peers, peer->host,
 					       json_peer);
 		} else {
@@ -15575,6 +15622,10 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			else
 				json_object_int_add(json_addr, "allowAsInCount",
 						    p->allowas_in[afi][safi]);
+
+			if (p->allowas_in_rmap[afi][safi].name)
+				json_object_string_add(json_addr, "allowAsInRouteMap",
+						       p->allowas_in_rmap[afi][safi].name);
 		}
 
 		if (p->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
@@ -15893,9 +15944,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				vty_out(vty,
 					"  Local AS allowed as path origin\n");
 			else
-				vty_out(vty,
-					"  Local AS allowed in path, %d occurrences\n",
+				vty_out(vty, "  Local AS allowed in path, %d occurrences\n",
 					p->allowas_in[afi][safi]);
+
+			if (p->allowas_in_rmap[afi][safi].name)
+				vty_out(vty, "  Local AS allowed with route-map: %s\n",
+					p->allowas_in_rmap[afi][safi].name);
 		}
 
 		if (p->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
@@ -20453,6 +20507,14 @@ DEFPY(bgp_ls_distribute_bgp_fabric,
 	bgp->ls_info->instance_id = instance_id;
 	bgp->ls_info->enable_distribution = true;
 
+	bgp_redist_add(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0);
+	if (bgp_redistribute_set(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0, false) != CMD_SUCCESS)
+		zlog_warn("%s: failed to subscribe to IPv6 ZEBRA_ROUTE_ALL redistribution",
+			  __func__);
+
+	if (bgp_zclient && bgp_zclient->sock >= 0)
+		bgp_zebra_srv6_manager_get_locator(NULL);
+
 	if (bgp_ls_export_bgp_topology(bgp) != 0) {
 		vty_out(vty, "%% Failed to export BGP topology\n");
 		return CMD_WARNING;
@@ -20490,6 +20552,8 @@ DEFPY(no_bgp_ls_distribute_bgp_fabric,
 	if (bgp->ls_info) {
 		if (!bgp->ls_info->enable_distribution)
 			return CMD_SUCCESS;
+
+		bgp_redistribute_unset(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0);
 
 		bgp->ls_info->enable_distribution = false;
 		bgp->ls_info->instance_id = 0;
@@ -21621,14 +21685,29 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 	/* allowas-in <1-10> */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_ALLOWAS_IN)) {
-		if (peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-			vty_out(vty, "  neighbor %s allowas-in origin\n", addr);
-		} else if (peer->allowas_in[afi][safi] == BGP_ALLOWAS_IN_DEFAULT) {
-			vty_out(vty, "  neighbor %s allowas-in\n", addr);
+		if (peer->allowas_in_rmap[afi][safi].name) {
+			/* allowas-in with route-map */
+			if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+				vty_out(vty, "  neighbor %s allowas-in route-map %s origin\n",
+					addr, peer->allowas_in_rmap[afi][safi].name);
+			} else if (peer->allowas_in[afi][safi] == BGP_ALLOWAS_IN_DEFAULT) {
+				vty_out(vty, "  neighbor %s allowas-in route-map %s\n", addr,
+					peer->allowas_in_rmap[afi][safi].name);
+			} else {
+				vty_out(vty, "  neighbor %s allowas-in route-map %s %d\n", addr,
+					peer->allowas_in_rmap[afi][safi].name,
+					peer->allowas_in[afi][safi]);
+			}
 		} else {
-			vty_out(vty, "  neighbor %s allowas-in %d\n", addr,
-				peer->allowas_in[afi][safi]);
+			/* regular allowas-in without filtering */
+			if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+				vty_out(vty, "  neighbor %s allowas-in origin\n", addr);
+			} else if (peer->allowas_in[afi][safi] == BGP_ALLOWAS_IN_DEFAULT) {
+				vty_out(vty, "  neighbor %s allowas-in\n", addr);
+			} else {
+				vty_out(vty, "  neighbor %s allowas-in %d\n", addr,
+					peer->allowas_in[afi][safi]);
+			}
 		}
 	}
 

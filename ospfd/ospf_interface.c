@@ -270,6 +270,7 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	/* Initialize neighbor list. */
 	oi->nbrs = route_table_init();
+	oi->bfd_sessions = route_table_init();
 
 	/* Initialize static neighbor list. */
 	oi->nbr_nbma = list_new();
@@ -387,6 +388,8 @@ void ospf_if_free(struct ospf_interface *oi)
 	/* Free Pseudo Neighbour */
 	ospf_nbr_delete(oi->nbr_self);
 
+	ospf_bfd_if_flush(oi);
+	route_table_finish(oi->bfd_sessions);
 	route_table_finish(oi->nbrs);
 	route_table_finish(oi->ls_upd_queue);
 
@@ -573,6 +576,9 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, opaque_capable);
 	UNSET_IF_PARAM(oip, keychain_name);
 	UNSET_IF_PARAM(oip, nbr_filter_name);
+	UNSET_IF_PARAM(oip, dead_timer_any);
+	UNSET_IF_PARAM(oip, dscp_ospf_all);
+	UNSET_IF_PARAM(oip, dscp_low_control);
 
 	oip->auth_crypt = list_new();
 
@@ -582,7 +588,11 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	oip->ptp_dmvpn = 0;
 	oip->p2mp_delay_reflood = OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
 	oip->opaque_capable = OSPF_OPAQUE_CAPABLE_DEFAULT;
-
+	/* RFC4222 timers */
+	oip->dead_timer_any = false;
+	/* RFC4222 dscp Priority */
+	oip->dscp_ospf_all = IPTOS_PREC_INTERNETCONTROL >> 2;	 /* upper 6 bits */
+	oip->dscp_low_control = IPTOS_PREC_INTERNETCONTROL >> 2; /* Default feature is off */
 	return oip;
 }
 
@@ -618,19 +628,17 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_window) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, passive_interface) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, v_hello) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, v_wait) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, priority) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, type) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_type) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, if_area) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, v_hello) && !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, v_wait) && !OSPF_IF_PARAM_CONFIGURED(oip, priority) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, type) && !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_type) && !OSPF_IF_PARAM_CONFIGURED(oip, if_area) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, opaque_capable) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, prefix_suppression) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, keychain_name) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, nbr_filter_name) &&
-	    listcount(oip->auth_crypt) == 0) {
+	    !OSPF_IF_PARAM_CONFIGURED(oip, dead_timer_any) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_ospf_all) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_low_control) && listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
@@ -744,6 +752,8 @@ int ospf_if_new_hook(struct interface *ifp)
 
 	IF_DEF_PARAMS(ifp)->prefix_suppression = OSPF_PREFIX_SUPPRESSION_DEFAULT;
 
+	/* RFC4222 parameters intentionally left out here. */
+
 	rc = ospf_opaque_new_if(ifp);
 	return rc;
 }
@@ -856,14 +866,13 @@ void ospf_if_set_multicast(struct ospf_interface *oi)
 
 int ospf_if_up(struct ospf_interface *oi)
 {
-	if (oi == NULL)
+	if (oi == NULL || CHECK_FLAG(oi->ospf->config, OSPF_SHUTDOWN))
 		return 0;
 
 	if (oi->type == OSPF_IFTYPE_LOOPBACK)
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_LoopInd);
-	else {
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_InterfaceUp);
-	}
+		OSPF_ISM_EVENT_EXECUTE(oi, ISM_LoopInd);
+	else
+		OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
 
 	return 1;
 }

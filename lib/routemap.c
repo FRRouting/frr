@@ -2850,7 +2850,7 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 	}
 	if (!dep->dep_rmap_hash->count) {
 		dep = hash_release(dep->this_hash, (void *)dep->dep_name);
-		hash_free(dep->dep_rmap_hash);
+		hash_clean_and_free(&dep->dep_rmap_hash, NULL);
 		XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
 		XFREE(MTYPE_ROUTE_MAP_DEP, dep);
 	}
@@ -3002,7 +3002,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 
 		if (!dep->dep_rmap_hash->count) {
 			dep = hash_release(dephash, dname);
-			hash_free(dep->dep_rmap_hash);
+			hash_clean_and_free(&dep->dep_rmap_hash, NULL);
 			XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
 			XFREE(MTYPE_ROUTE_MAP_DEP, dep);
 		}
@@ -3338,13 +3338,10 @@ void route_map_finish(void)
 		route_map_delete(map);
 	}
 
-	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++) {
-		hash_free(route_map_dep_hash[i]);
-		route_map_dep_hash[i] = NULL;
-	}
+	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
+		hash_clean_and_free(&route_map_dep_hash[i], NULL);
 
-	hash_free(route_map_master_hash);
-	route_map_master_hash = NULL;
+	hash_clean_and_free(&route_map_master_hash, NULL);
 }
 
 /* Increment the use_count counter while attaching the route map */

@@ -52,3 +52,12 @@ struct nhrp_reqid *nhrp_reqid_lookup(struct nhrp_reqid_pool *p, uint32_t reqid)
 	key.request_id = reqid;
 	return hash_lookup(p->reqid_hash, &key);
 }
+
+void nhrp_reqid_terminate(struct nhrp_reqid_pool *p)
+{
+	if (!p)
+		return;
+
+	hash_clean_and_free(&p->reqid_hash, NULL);
+	p->next_request_id = 0;
+}

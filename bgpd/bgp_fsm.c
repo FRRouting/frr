@@ -488,13 +488,13 @@ void bgp_timer_set(struct peer_connection *connection)
 		}
 		break;
 	case Deleted:
-		event_cancel(&peer->connection->t_gr_restart);
-		event_cancel(&peer->connection->t_gr_stale);
+		event_cancel(&connection->t_gr_restart);
+		event_cancel(&connection->t_gr_stale);
 
 		FOREACH_AFI_SAFI (afi, safi)
 			event_cancel(&peer->t_llgr_stale[afi][safi]);
 
-		event_cancel(&peer->connection->t_pmax_restart);
+		event_cancel(&connection->t_pmax_restart);
 		event_cancel(&peer->t_refresh_stalepath);
 		fallthrough;
 	case Clearing:
@@ -676,9 +676,9 @@ const char *const peer_down_str[] = {
 	"Cease: subcode unknown",
 };
 
-static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
-					   struct peer *peer)
+static void bgp_graceful_restart_timer_off(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
 	afi_t afi;
 	safi_t safi;
 
@@ -728,7 +728,7 @@ static void bgp_llgr_stale_timer_expire(struct event *event)
 
 	bgp_clear_stale_route(peer, afi, safi);
 
-	bgp_graceful_restart_timer_off(peer->connection, peer);
+	bgp_graceful_restart_timer_off(peer->connection);
 }
 
 static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
@@ -771,7 +771,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
 							peer, &dest->rn->p);
 
-					attr = *pi->attr;
+					bgp_attr_dup_into(&attr, pi->attr);
 					bgp_attr_add_llgr_community(&attr);
 					pi->attr = bgp_attr_intern(&attr);
 					bgp_process(bgp, rm, pi, afi, safi);
@@ -800,7 +800,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
 						peer, &dest->rn->p);
 
-				attr = *pi->attr;
+				bgp_attr_dup_into(&attr, pi->attr);
 				bgp_attr_add_llgr_community(&attr);
 				pi->attr = bgp_attr_intern(&attr);
 				bgp_process(bgp, dest, pi, afi, safi);
@@ -867,7 +867,7 @@ static void bgp_graceful_restart_timer_expire(struct event *event)
 		}
 	}
 
-	bgp_graceful_restart_timer_off(connection, peer);
+	bgp_graceful_restart_timer_off(connection);
 }
 
 static void bgp_graceful_stale_timer_expire(struct event *event)
@@ -881,10 +881,39 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 		zlog_debug("%pBP graceful restart stalepath timer expired for %s", peer,
 			   bgp_peer_get_connection_direction_string(connection));
 
-	/* NSF delete stale route */
-	FOREACH_AFI_SAFI_NSF (afi, safi)
-		if (peer->nsf[afi][safi])
-			bgp_clear_stale_route(peer, afi, safi);
+	/*
+	 * RFC 9494 §4.3: for LLGR-negotiated AFI/SAFI, retention is bounded
+	 * by the Long-Lived Stale Time, not stalepath-time. Skip the delete
+	 * if LLGR retention is (or will be) active for this AFI/SAFI:
+	 *   - t_llgr_stale[afi][safi] scheduled: the LLGR window is already
+	 *     running; t_gr_restart has fired but didn't cancel t_gr_stale
+	 *     (bgp_graceful_restart_timer_off() bails when any AFI/SAFI is
+	 *     in PEER_STATUS_LLGR_WAIT).
+	 *   - t_gr_restart scheduled and LLGR negotiated for this AFI/SAFI:
+	 *     still in the restart-time window; t_llgr_stale will be armed
+	 *     by bgp_graceful_restart_timer_expire() when t_gr_restart fires.
+	 * Using the t_llgr_stale scheduled state (rather than the configured
+	 * stale_time) also covers the case where stale_time is reconfigured
+	 * to 0 mid-flight while the timer is still running.
+	 * Non-LLGR AFI/SAFIs keep the original delete-now behaviour.
+	 */
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (!peer->nsf[afi][safi])
+			continue;
+
+		if (event_is_scheduled(peer->t_llgr_stale[afi][safi]) ||
+		    (peer->llgr[afi][safi].stale_time &&
+		     event_is_scheduled(connection->t_gr_restart))) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP graceful restart stalepath timer expired for %s: LLGR active for %s, skip stale route clear",
+					   peer,
+					   bgp_peer_get_connection_direction_string(connection),
+					   get_afi_safi_str(afi, safi, false));
+			continue;
+		}
+
+		bgp_clear_stale_route(peer, afi, safi);
+	}
 }
 
 /*
@@ -1420,7 +1449,7 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 				  bgp->v_update_delay);
 		}
 		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
-			bgp_update_restarted_peers(peer);
+			bgp_update_restarted_peers(peer->connection);
 	}
 	if (peer->connection->ostatus == Established && bgp_update_delay_active(bgp)) {
 		/* Adjust the update-delay state to account for this flap.
@@ -1633,7 +1662,17 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 	 */
 	if (bgp_gr_check_all_eors(bgp, afi, safi, &multihop_eors_pending)) {
 		gr_info = &(bgp->gr_info[afi][safi]);
-		if (!BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: GR check path select for %s, gr_deferred=%u",
+				   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+				   bgp->gr_info[afi][safi].gr_deferred);
+		/*
+		 * Turn off t_select_deferral if wfi feature is not enabled or
+		 * if there are no routes for deferred calculation or if
+		 * the incoming safi does not support wfi feature.
+		 */
+		if (!BGP_SUPPRESS_FIB_ENABLED(bgp) || !bgp->gr_info[afi][safi].gr_deferred ||
+		    !bgp_fibupd_safi(safi)) {
 			if (gr_info->t_select_deferral) {
 				void *info = EVENT_ARG(gr_info->t_select_deferral);
 
@@ -1986,10 +2025,15 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	    (bgp->established_peers == 0))
 		bgp_router_id_zebra_bump(bgp->vrf_id, NULL);
 
-	/* Transition into Clearing or Deleted must /always/ clear all routes..
-	 * (and must do so before actually changing into Deleted..
+	/* Transition into Clearing or Deleted must clear all routes,
+	 * and must do so before actually changing into Deleted.
+	 * Skip the clear if the peer was not in Established state,
+	 * as it cannot have any routes in the BGP table (e.g.,
+	 * doppelganger peers from collision resolution.
+	 * Walking the entire BGP table for such
+	 * peers is pure overhead.
 	 */
-	if (status >= Clearing && (peer->established || peer != bgp->peer_self)) {
+	if (status >= Clearing && peer_established(connection)) {
 		bgp_clear_route_all(peer);
 
 		/* If no route was queued for the clear-node processing,
@@ -2507,9 +2551,8 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 	peer->v_delayopen = peer->delayopen;
 
 	/* Start the DelayOpenTimer if it is not already running */
-	if (!peer->connection->t_delayopen)
-		BGP_TIMER_ON(peer->connection->t_delayopen, bgp_delayopen_timer,
-			     peer->v_delayopen);
+	if (!connection->t_delayopen)
+		BGP_TIMER_ON(connection->t_delayopen, bgp_delayopen_timer, peer->v_delayopen);
 
 	frrtrace(2, frr_bgp, session_state_change, peer, 6);
 	if (bgp_debug_neighbor_events(peer))
@@ -2672,8 +2715,8 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 				   peer->host, connection->fd,
 				   bgp_peer_get_connection_direction_string(connection));
 		if (connection->fd < 0) {
-			flog_err(EC_BGP_FSM, "%s peer's fd is negative value %d",
-				 __func__, peer->connection->fd);
+			flog_err(EC_BGP_FSM, "%s peer's fd is negative value %d", __func__,
+				 connection->fd);
 			return BGP_FSM_FAILURE;
 		}
 		bgp_connect_in_progress_update_connection(connection);
@@ -2801,6 +2844,7 @@ static void bgp_peer_process_gr_cap_clear_stale(struct peer *peer)
 	}
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+	peer->notify.hard_reset = false;
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		if (peer->afc_nego[afi][safi] && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
 		    CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV)) {
@@ -2945,10 +2989,9 @@ bgp_establish(struct peer_connection *connection)
 			       PEER_CAP_ORF_PREFIX_SM_ADV)) {
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_RM_RCV))
-				bgp_route_refresh_send(
-					peer, afi, safi, ORF_TYPE_PREFIX,
-					REFRESH_IMMEDIATE, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
+				bgp_route_refresh_send(connection, afi, safi, ORF_TYPE_PREFIX,
+						       REFRESH_IMMEDIATE, 0,
+						       BGP_ROUTE_REFRESH_NORMAL);
 		}
 	}
 
@@ -2976,9 +3019,8 @@ bgp_establish(struct peer_connection *connection)
 	 * of read-only mode.
 	 */
 	if (!bgp_update_delay_active(bgp)) {
-		event_cancel(&peer->connection->t_routeadv);
-		BGP_TIMER_ON(peer->connection->t_routeadv, bgp_routeadv_timer,
-			     0);
+		event_cancel(&connection->t_routeadv);
+		BGP_TIMER_ON(connection->t_routeadv, bgp_routeadv_timer, 0);
 	}
 
 	if (peer->doppelganger &&

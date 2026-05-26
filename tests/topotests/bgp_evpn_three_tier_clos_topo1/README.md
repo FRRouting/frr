@@ -22,6 +22,8 @@ This test validates BGP EVPN functionality using:
 - **External router connectivity** via BorderToR L3VNI BGP peering
 - **Dynamic BGP neighbor** testing via ext-21 with `bgp listen range` in VRF RED
 - **Static blackhole routes** on ToRs for EVPN Type-5 route testing
+- **EVPN Type-5 RD prefix lookup** testing on bordertor-11 for `rd all` and
+  specific-RD commands
 - VXLAN aging: 18000 centiseconds (180 seconds = 3 minutes), TTL: 64
 
 ## Topology
@@ -343,21 +345,25 @@ All underlay links use IPv6 /126 subnets from fd00:10:254::/32
    - Validates route 198.51.100.0/24 in vrf1 on tor-21
    - Checks ECMP next-hops, nexthop groups, and 'onlink' flag
    - Tests RFC 5549: IPv4 routes with IPv6 next-hops (IPv6 underlay)
-10. **test_host_to_host_ping()** - Verify end-to-end connectivity (host-211 → host-111)
+10. **test_evpn_rd_prefix_route_lookup()** - Verify EVPN Type-5 RD prefix lookup commands on bordertor-11
+    - Checks `show bgp l2vpn evpn route rd all prefix <prefix>` for existing and missing prefixes
+    - Checks `show bgp l2vpn evpn route rd <RD> prefix <prefix>` for existing and missing prefixes
+    - Runs under both IPv4 and IPv6 VTEP underlay modes
+11. **test_host_to_host_ping()** - Verify end-to-end connectivity (host-211 → host-111)
     - Uses `evpn_verify_ping_connectivity()` from `lib/evpn.py`
     - IPv4 test when using IPv4 underlay, IPv6 test when using IPv6 underlay
 
 ### Dynamic Neighbor Tests
-11. **test_ext21_dynamic_neighbor()** - Verify ext-21 dynamic BGP neighbor in VRF RED (IPv4 only)
+12. **test_ext21_dynamic_neighbor()** - Verify ext-21 dynamic BGP neighbor in VRF RED (IPv4 only)
     - ext-21 uses `bgp listen range 10.1.10.0/24` to discover leaf-21 dynamically
     - Validates Established state and correct remote AS on both sides
-12. **test_ext21_dynamic_neighbor_password()** - Verify password add/remove on peer-group with dynamic neighbor (IPv4 only)
+13. **test_ext21_dynamic_neighbor_password()** - Verify password add/remove on peer-group with dynamic neighbor (IPv4 only)
     - Sets `neighbor test password test4` and confirms the dynamic neighbor is torn down
     - Removes the password and confirms the dynamic neighbor re-establishes
     - Validates the fix for stale per-peer TCP MD5 entry on the listen socket
 
 ### Memory and Cleanup
-13. **test_memory_leak()** - Memory leak detection
+14. **test_memory_leak()** - Memory leak detection
 
 ## Generic EVPN Library Functions
 
@@ -440,6 +446,8 @@ This test utilizes generic, reusable EVPN helper functions located in `tests/top
 - **L2 Connectivity:** EVPN Type-2 MAC/IP routes for intra-VLAN communication
 - **L3 Connectivity:** EVPN Type-5 IP prefix routes for inter-subnet routing via L3VNIs
 - **External Connectivity:** Per-VRF BGP peering with external router for Type-5 routes
+- **RD Prefix Lookup:** `show bgp l2vpn evpn route rd <all|RD> prefix <prefix>`
+  coverage on bordertor-11 for present and absent Type-5 prefixes
 - **Dynamic BGP Neighbor:** ext-21 tests `bgp listen range` in VRF RED (IPv4 only)
 - **Symmetric IRB:** Inter-subnet routing with L3VNI encapsulation
 - **Multi-tenancy:** Separate VRFs (vrf1, vrf2) with independent routing tables

@@ -1214,6 +1214,26 @@ void cli_show_isis_mpls_te_export(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, " mpls-te export\n");
 }
 
+DEFPY_YANG(isis_distribute_link_state, isis_distribute_link_state_cmd,
+	     "[no] distribute link-state",
+	     NO_STR
+	     "Distribute routing information to external services\n"
+	     "Distribute the link-state database to external services\n")
+{
+	nb_cli_enqueue_change(vty, "./distribute-link-state", NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_distribute_link_state(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	vty_out(vty, " distribute link-state\n");
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate
  */
@@ -3671,6 +3691,7 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
 	install_element(ISIS_NODE, &isis_mpls_te_export_cmd);
 	install_element(ISIS_NODE, &no_isis_mpls_te_export_cmd);
+	install_element(ISIS_NODE, &isis_distribute_link_state_cmd);
 
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_cmd);

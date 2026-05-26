@@ -454,7 +454,7 @@ extern int prefix_ipv4_any(const struct prefix_ipv4 *p);
 extern void apply_classful_mask_ipv4(struct prefix_ipv4 *p);
 
 extern uint8_t ip_masklen(struct in_addr addr);
-extern void masklen2ip(const int length, struct in_addr *addr);
+extern void masklen2ip(int length, struct in_addr *addr);
 /* given the address of a host on a network and the network mask length,
  * calculate the broadcast address for that network;
  * special treatment for /31 according to RFC3021 section 3.3 */
@@ -469,7 +469,7 @@ extern int str2prefix_ipv6(const char *str, struct prefix_ipv6 *p);
 extern void apply_mask_ipv6(struct prefix_ipv6 *p);
 
 extern int ip6_masklen(struct in6_addr netmask);
-extern void masklen2ip6(const int masklen, struct in6_addr *netmask);
+extern void masklen2ip6(int masklen, struct in6_addr *netmask);
 
 extern int is_zero_mac(const struct ethaddr *mac);
 extern bool is_mcast_mac(const struct ethaddr *mac);

@@ -283,41 +283,33 @@ int rfapiGetL2o(struct attr *attr, struct rfapi_l2address_option *l2o)
 		for (pEncap = bgp_attr_get_vnc_subtlvs(attr); pEncap;
 		     pEncap = pEncap->next) {
 
-			if (pEncap->type == BGP_VNC_SUBTLV_TYPE_RFPOPTION) {
-				if (pEncap->value[0]
-				    == RFAPI_VN_OPTION_TYPE_L2ADDR) {
+			if (pEncap->type != BGP_VNC_SUBTLV_TYPE_RFPOPTION)
+				continue;
 
-					if (pEncap->value[1] == 14) {
-						memcpy(l2o->macaddr.octet,
-						       pEncap->value + 2,
-						       ETH_ALEN);
-						l2o->label =
-							((pEncap->value[10]
-							  >> 4)
-							 & 0x0f)
-							+ ((pEncap->value[9]
-							    << 4)
-							   & 0xff0)
-							+ ((pEncap->value[8]
-							    << 12)
-							   & 0xff000);
+			/* Validate length before accessing first two octets */
+			if (pEncap->length < 2)
+				continue;
 
-						l2o->local_nve_id =
-							pEncap->value[12];
+			if (pEncap->value[0] == RFAPI_VN_OPTION_TYPE_L2ADDR) {
+				if (pEncap->value[1] == 14) {
+					/* Validate subtlv length before accessing */
+					if (pEncap->length < 16)
+						continue;
 
-						l2o->logical_net_id =
-							(pEncap->value[15]
-							 & 0xff)
-							+ ((pEncap->value[14]
-							    << 8)
-							   & 0xff00)
-							+ ((pEncap->value[13]
-							    << 16)
-							   & 0xff0000);
-					}
+					memcpy(l2o->macaddr.octet, pEncap->value + 2, ETH_ALEN);
+					l2o->label = (((pEncap->value[10] >> 4) & 0x0f) +
+						      ((pEncap->value[9] << 4) & 0xff0) +
+						      ((pEncap->value[8] << 12) & 0xff000));
 
-					return 0;
+					l2o->local_nve_id = pEncap->value[12];
+
+					l2o->logical_net_id =
+						((pEncap->value[15] & 0xff) +
+						 ((pEncap->value[14] << 8) & 0xff00) +
+						 ((pEncap->value[13] << 16) & 0xff0000));
 				}
+
+				return 0;
 			}
 		}
 	}

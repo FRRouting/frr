@@ -139,6 +139,7 @@ extern void pbr_nht_nexthop_update(struct zapi_route *nhr);
 extern void pbr_nht_nexthop_interface_update(struct interface *ifp);
 
 extern void pbr_nht_init(void);
+extern void pbr_nht_terminate(void);
 
 extern void pbr_nht_vrf_update(struct pbr_vrf *pbr_vrf);
 extern void pbr_nht_interface_update(struct interface *ifp);

@@ -85,6 +85,21 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
 		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT);
 	}
 
+	/* Multi-Topology IDs (TLV 263) - RFC 9552 §5.2.1.4 */
+	if (CHECK_FLAG(ls_node->flags, LS_NODE_MT_IDS) && ls_node->mt_id_count > 0 &&
+	    !(ls_node->mt_id_count == 1 && ls_node->mt_ids[0] == 0)) {
+		attr->mt_id = XCALLOC(MTYPE_BGP_LS_ATTR, ls_node->mt_id_count * sizeof(uint16_t));
+		memcpy(attr->mt_id, ls_node->mt_ids, ls_node->mt_id_count * sizeof(uint16_t));
+		attr->mt_id_count = ls_node->mt_id_count;
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT);
+	}
+
+	/* SRv6 Capabilities (TLV 1038, RFC 9514 Section 3.1) */
+	if (CHECK_FLAG(ls_node->flags, LS_NODE_SRV6)) {
+		attr->srv6_cap_flags = ls_node->srv6_cap_flags;
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT);
+	}
+
 	return 0;
 }
 
@@ -93,6 +108,76 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
  * Link Attribute Population
  * ===========================================================================
  */
+
+/*
+ * Fill a pre-allocated SRv6 End.X SID entry (TLV 1106) from a Link State adjacency SID
+ */
+static void bgp_ls_fill_srv6_endx_sid(struct bgp_ls_srv6_endx_sid *endx,
+				      const struct ls_srv6_adjacency *adj)
+{
+	memset(endx, 0, sizeof(*endx));
+	endx->endpoint_behavior = adj->endpoint_behavior;
+	endx->flags = adj->flags;
+	endx->weight = adj->weight;
+	IPV6_ADDR_COPY(&endx->sid, &adj->sid);
+	if (adj->has_structure) {
+		endx->has_structure = true;
+		endx->structure.lb_len = adj->lb_len;
+		endx->structure.ln_len = adj->ln_len;
+		endx->structure.fun_len = adj->fn_len;
+		endx->structure.arg_len = adj->arg_len;
+	}
+}
+
+/*
+ * Fill a pre-allocated SRv6 LAN End.X SID entry (TLV 1107/1108) from a Link State adjacency SID
+ */
+static void bgp_ls_fill_srv6_lan_endx_sid(struct bgp_ls_srv6_lan_endx_sid *endx,
+					  const struct ls_srv6_adjacency *adj)
+{
+	memset(endx, 0, sizeof(*endx));
+	endx->endpoint_behavior = adj->endpoint_behavior;
+	endx->flags = adj->flags;
+	endx->weight = adj->weight;
+	endx->is_isis = true; /* Only IS-IS LAN End.X SID (TLV 1107) is currently supported */
+	IPV6_ADDR_COPY(&endx->sid, &adj->sid);
+	memcpy(endx->neighbor.sysid, adj->neighbor.sysid, ISO_SYS_ID_LEN);
+	if (adj->has_structure) {
+		endx->has_structure = true;
+		endx->structure.lb_len = adj->lb_len;
+		endx->structure.ln_len = adj->ln_len;
+		endx->structure.fun_len = adj->fn_len;
+		endx->structure.arg_len = adj->arg_len;
+	}
+}
+
+/*
+ * Append a single SRv6 adjacency SID to the appropriate BGP-LS attribute array.
+ * A non-zero neighbor sysid identifies a LAN adjacency (TLV 1107/1108);
+ * an all-zero sysid identifies a point-to-point adjacency (TLV 1106).
+ */
+static void bgp_ls_populate_srv6_adj_sid(struct bgp_ls_attr *attr,
+					 const struct ls_srv6_adjacency *adj)
+{
+	static const uint8_t zero_sysid[ISO_SYS_ID_LEN];
+
+	if (memcmp(adj->neighbor.sysid, zero_sysid, ISO_SYS_ID_LEN) == 0) {
+		/* Point-to-point adjacency: End.X SID (TLV 1106) */
+		attr->srv6_endx_sid =
+			XREALLOC(MTYPE_BGP_LS_ATTR, attr->srv6_endx_sid,
+				 (attr->srv6_endx_sid_count + 1) * sizeof(*attr->srv6_endx_sid));
+		bgp_ls_fill_srv6_endx_sid(&attr->srv6_endx_sid[attr->srv6_endx_sid_count++], adj);
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT);
+	} else {
+		/* LAN adjacency: LAN End.X SID (IS-IS TLV 1107 / OSPFv3 TLV 1108) */
+		attr->srv6_lan_endx_sid = XREALLOC(MTYPE_BGP_LS_ATTR, attr->srv6_lan_endx_sid,
+						   (attr->srv6_lan_endx_sid_count + 1) *
+							   sizeof(*attr->srv6_lan_endx_sid));
+		bgp_ls_fill_srv6_lan_endx_sid(&attr->srv6_lan_endx_sid[attr->srv6_lan_endx_sid_count++],
+					      adj);
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT);
+	}
+}
 
 /*
  * Populate BGP-LS Attributes from Link State Attributes
@@ -230,6 +315,12 @@ int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr 
 		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_UTILIZED_BW_BIT);
 	}
 
+	/* SRv6 End.X SID (TLV 1106) / LAN End.X SID (TLV 1107/1108, RFC 9514 Section 4) */
+	if (CHECK_FLAG(ls_attr->flags, LS_ATTR_ADJ_SRV6SID))
+		bgp_ls_populate_srv6_adj_sid(attr, &ls_attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6]);
+	if (CHECK_FLAG(ls_attr->flags, LS_ATTR_BCK_ADJ_SRV6SID))
+		bgp_ls_populate_srv6_adj_sid(attr, &ls_attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6]);
+
 	return 0;
 }
 
@@ -286,6 +377,48 @@ int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr 
 			attr->prefix_sid.algo = ls_prefix->sr.algo;
 			SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT);
 		}
+	}
+
+	/* SRv6 Locator (TLV 1162, RFC 9514 Section 5.1) — for SRv6 Locator prefixes */
+	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_SRV6)) {
+		attr->srv6_locator_flags = 0;
+		attr->srv6_locator_algo = 0;
+		attr->srv6_locator_metric = ls_prefix->metric;
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT);
+	}
+
+	return 0;
+}
+
+/*
+ * Populate BGP-LS Attributes for an SRv6 SID NLRI (Type 6)
+ *
+ * Fills in the SRv6 SID-specific attribute TLVs:
+ *   TLV 1250 - SRv6 Endpoint Behavior (RFC 9514 Section 7.1)
+ *   TLV 1252 - SRv6 SID Structure (RFC 9514 Section 7.3)
+ *              (populated only when structure info is available in ls_prefix)
+ */
+static int bgp_ls_populate_srv6_sid_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr *attr)
+{
+	if (!ls_prefix || !attr)
+		return -1;
+
+	if (!CHECK_FLAG(ls_prefix->flags, LS_PREF_SRV6))
+		return 0;
+
+	/* SRv6 Endpoint Behavior (TLV 1250) - identifies the SID function */
+	attr->srv6_endpoint_behavior = ls_prefix->srv6.behavior;
+	attr->srv6_endpoint_flags = ls_prefix->srv6.flags;
+	attr->srv6_endpoint_algo = 0;
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT);
+
+	/* SRv6 SID Structure (TLV 1252, RFC 9514 Section 7.3) */
+	if (ls_prefix->srv6.has_structure) {
+		attr->srv6_sid_structure.lb_len = ls_prefix->srv6.lb_len;
+		attr->srv6_sid_structure.ln_len = ls_prefix->srv6.ln_len;
+		attr->srv6_sid_structure.fun_len = ls_prefix->srv6.fn_len;
+		attr->srv6_sid_structure.arg_len = ls_prefix->srv6.arg_len;
+		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT);
 	}
 
 	return 0;
@@ -352,7 +485,7 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.node.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.node.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.node.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.node.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -362,7 +495,7 @@ int bgp_ls_originate_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.node.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.node.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -422,7 +555,7 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.node.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.node.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.node.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.node.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -432,7 +565,7 @@ int bgp_ls_withdraw_node(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_i
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.node.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.node.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -491,7 +624,8 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.link.local_node.igp_router_id_len = local_router_id_len;
-	memcpy(nlri.nlri_data.link.local_node.igp_router_id, local_router_id, local_router_id_len);
+	memcpy(nlri.nlri_data.link.local_node.igp_router_id.raw, local_router_id,
+	       local_router_id_len);
 	SET_FLAG(nlri.nlri_data.link.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number for Local Node if available */
@@ -503,7 +637,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 
 	/* Set Remote Node Descriptor */
 	nlri.nlri_data.link.remote_node.igp_router_id_len = remote_router_id_len;
-	memcpy(nlri.nlri_data.link.remote_node.igp_router_id, remote_router_id,
+	memcpy(nlri.nlri_data.link.remote_node.igp_router_id.raw, remote_router_id,
 	       remote_router_id_len);
 	SET_FLAG(nlri.nlri_data.link.remote_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
@@ -515,7 +649,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.link.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.link.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -544,6 +678,12 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 	}
 
 	/* IPv4 Neighbor Address (TLV 260) */
+
+	/* Advertise MT-ID only for non-default topologies (RFC 9552 §5.2.2.1). */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_MT_ID) && edge->attributes->mt_id != 0) {
+		nlri.nlri_data.link.link_desc.mt_id = edge->attributes->mt_id;
+		SET_FLAG(nlri.nlri_data.link.link_desc.present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT);
+	}
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ADDR)) {
 		nlri.nlri_data.link.link_desc.ipv4_neigh_addr = edge->attributes->standard.remote;
 		SET_FLAG(nlri.nlri_data.link.link_desc.present_tlvs,
@@ -628,7 +768,8 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.link.local_node.igp_router_id_len = local_router_id_len;
-	memcpy(nlri.nlri_data.link.local_node.igp_router_id, local_router_id, local_router_id_len);
+	memcpy(nlri.nlri_data.link.local_node.igp_router_id.raw, local_router_id,
+	       local_router_id_len);
 	SET_FLAG(nlri.nlri_data.link.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number for Local Node if available */
@@ -640,7 +781,7 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 
 	/* Set Remote Node Descriptor */
 	nlri.nlri_data.link.remote_node.igp_router_id_len = remote_router_id_len;
-	memcpy(nlri.nlri_data.link.remote_node.igp_router_id, remote_router_id,
+	memcpy(nlri.nlri_data.link.remote_node.igp_router_id.raw, remote_router_id,
 	       remote_router_id_len);
 	SET_FLAG(nlri.nlri_data.link.remote_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
@@ -652,7 +793,7 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.link.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.link.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -666,6 +807,12 @@ int bgp_ls_withdraw_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_ro
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID)) {
 		nlri.nlri_data.link.link_desc.link_local_id = edge->attributes->standard.local_id;
 		SET_FLAG(nlri.nlri_data.link.link_desc.present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT);
+	}
+
+	/* Advertise MT-ID only for non-default topologies (RFC 9552 §5.2.2.1). */
+	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_MT_ID) && edge->attributes->mt_id != 0) {
+		nlri.nlri_data.link.link_desc.mt_id = edge->attributes->mt_id;
+		SET_FLAG(nlri.nlri_data.link.link_desc.present_tlvs, BGP_LS_LINK_DESC_MT_ID_BIT);
 	}
 
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_NEIGH_ID)) {
@@ -762,13 +909,14 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 		return -1;
 	}
 
+
 	/* Build Prefix NLRI */
 	nlri.nlri_data.prefix.protocol_id = protocol_id;
 	nlri.nlri_data.prefix.identifier = 0; /* Instance ID, use 0 for default */
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.prefix.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.prefix.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.prefix.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.prefix.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -779,7 +927,7 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.prefix.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.prefix.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -789,6 +937,13 @@ int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *route
 	nlri.nlri_data.prefix.prefix_desc.prefix = *prefix;
 	apply_mask(&nlri.nlri_data.prefix.prefix_desc.prefix);
 	SET_FLAG(nlri.nlri_data.prefix.prefix_desc.present_tlvs, BGP_LS_PREFIX_DESC_IP_REACH_BIT);
+
+	/* Advertise MT-ID only for non-default topologies (RFC 9552 §5.2.3). */
+	if (CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_MT_ID) && subnet->ls_pref->mt_id != 0) {
+		nlri.nlri_data.prefix.prefix_desc.mt_id = subnet->ls_pref->mt_id;
+		SET_FLAG(nlri.nlri_data.prefix.prefix_desc.present_tlvs,
+			 BGP_LS_PREFIX_DESC_MT_ID_BIT);
+	}
 
 	/* Populate BGP-LS attributes from Link State subnet */
 	ls_attr = bgp_ls_attr_alloc();
@@ -840,6 +995,7 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 	memset(&nlri, 0, sizeof(nlri));
 
 	/* Determine NLRI type based on prefix family */
+
 	if (prefix->family == AF_INET)
 		nlri.nlri_type = BGP_LS_NLRI_TYPE_IPV4_PREFIX;
 	else if (prefix->family == AF_INET6)
@@ -855,7 +1011,7 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 
 	/* Set Local Node Descriptor */
 	nlri.nlri_data.prefix.local_node.igp_router_id_len = router_id_len;
-	memcpy(nlri.nlri_data.prefix.local_node.igp_router_id, router_id, router_id_len);
+	memcpy(nlri.nlri_data.prefix.local_node.igp_router_id.raw, router_id, router_id_len);
 	SET_FLAG(nlri.nlri_data.prefix.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
 
 	/* Set AS Number if available */
@@ -866,7 +1022,7 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 	}
 
 	/* Set OSPF Area ID if OSPF */
-	if (protocol_id == BGP_LS_PROTO_OSPFV2 || protocol_id == BGP_LS_PROTO_OSPFV3) {
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
 		nlri.nlri_data.prefix.local_node.ospf_area_id = area_id;
 		SET_FLAG(nlri.nlri_data.prefix.local_node.present_tlvs,
 			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
@@ -875,6 +1031,13 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 	/* Set Prefix Descriptor */
 	nlri.nlri_data.prefix.prefix_desc.prefix = *prefix;
 	SET_FLAG(nlri.nlri_data.prefix.prefix_desc.present_tlvs, BGP_LS_PREFIX_DESC_IP_REACH_BIT);
+
+	/* Advertise MT-ID only for non-default topologies (RFC 9552 §5.2.3). */
+	if (CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_MT_ID) && subnet->ls_pref->mt_id != 0) {
+		nlri.nlri_data.prefix.prefix_desc.mt_id = subnet->ls_pref->mt_id;
+		SET_FLAG(nlri.nlri_data.prefix.prefix_desc.present_tlvs,
+			 BGP_LS_PREFIX_DESC_MT_ID_BIT);
+	}
 
 	/* Withdraw from RIB */
 	ret = bgp_ls_withdraw(bgp, &nlri);
@@ -886,6 +1049,140 @@ int bgp_ls_withdraw_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t *router
 	if (BGP_DEBUG(linkstate, LINKSTATE))
 		zlog_debug("BGP-LS: Withdrawn Prefix NLRI %pFX for protocol %u", prefix,
 			   protocol_id);
+
+	return 0;
+}
+
+
+/*
+ * Originate SRv6 SID NLRI (Type 6, RFC 9514 Section 6) from IGP SRv6 SID data
+ *
+ * Called when an IGP prefix carrying an SRv6 SID is learned from the TED.
+ * Builds the SRv6 SID NLRI (local node + SID descriptor) and installs it
+ * in the RIB for advertisement to BGP-LS peers.
+ */
+int bgp_ls_originate_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_id,
+			      uint16_t router_id_len, uint32_t area_id, struct ls_subnet *subnet)
+{
+	struct bgp_ls_nlri nlri;
+	struct bgp_ls_attr *ls_attr = NULL;
+	int ret;
+
+	if (!bgp || !router_id || !subnet || !subnet->ls_pref)
+		return -1;
+
+	if (!CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SRV6))
+		return 0;
+
+	/* Clear NLRI structure */
+	memset(&nlri, 0, sizeof(nlri));
+
+	/* Build SRv6 SID NLRI (Type 6) */
+	nlri.nlri_type = BGP_LS_NLRI_TYPE_SRV6_SID;
+	nlri.nlri_data.srv6_sid.protocol_id = protocol_id;
+	nlri.nlri_data.srv6_sid.identifier = 0;
+
+	/* Local Node Descriptor */
+	nlri.nlri_data.srv6_sid.local_node.igp_router_id_len = router_id_len;
+	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id.raw, router_id, router_id_len);
+	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
+
+	/* Set AS Number if available */
+	if (subnet->vertex && subnet->vertex->node &&
+	    CHECK_FLAG(subnet->vertex->node->flags, LS_NODE_AS_NUMBER)) {
+		nlri.nlri_data.srv6_sid.local_node.asn = subnet->vertex->node->as_number;
+		SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_AS_BIT);
+	}
+
+	/* Set OSPF Area ID if OSPF (mirrors bgp_ls_originate_prefix). */
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
+		nlri.nlri_data.srv6_sid.local_node.ospf_area_id = area_id;
+		SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs,
+			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
+	}
+
+	/* SRv6 SID Descriptor: SID Information (TLV 518) */
+	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, &subnet->ls_pref->srv6.sid);
+	SET_FLAG(nlri.nlri_data.srv6_sid.sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_INFO_BIT);
+
+	/* Advertise MT-ID only for non-default topologies. */
+	if (CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_MT_ID) && subnet->ls_pref->mt_id != 0) {
+		nlri.nlri_data.srv6_sid.sid_desc.mt_id = subnet->ls_pref->mt_id;
+		SET_FLAG(nlri.nlri_data.srv6_sid.sid_desc.present_tlvs,
+			 BGP_LS_SRV6_SID_DESC_MT_ID_BIT);
+	}
+
+	/* Populate SRv6 SID attributes (endpoint behavior, SID structure) */
+	ls_attr = bgp_ls_attr_alloc();
+	if (bgp_ls_populate_srv6_sid_attr(subnet->ls_pref, ls_attr) < 0) {
+		zlog_warn("BGP-LS: Failed to populate SRv6 SID attributes");
+		bgp_ls_attr_free(ls_attr);
+		return -1;
+	}
+
+	/* Install in RIB */
+	ret = bgp_ls_update(bgp, &nlri, ls_attr);
+	if (ret < 0) {
+		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to originate SRv6 SID NLRI");
+		bgp_ls_attr_free(ls_attr);
+		return -1;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Originated SRv6 SID NLRI %pI6 behavior 0x%04x",
+			   &subnet->ls_pref->srv6.sid, subnet->ls_pref->srv6.behavior);
+
+	bgp_ls_attr_free(ls_attr);
+	return 0;
+}
+
+
+int bgp_ls_withdraw_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_id,
+			     uint16_t router_id_len, uint32_t area_id, struct ls_subnet *subnet)
+{
+	struct bgp_ls_nlri nlri;
+	int ret;
+
+	if (!bgp || !router_id || !subnet || !subnet->ls_pref)
+		return -1;
+
+	if (!CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SRV6))
+		return 0;
+
+	memset(&nlri, 0, sizeof(nlri));
+
+	nlri.nlri_type = BGP_LS_NLRI_TYPE_SRV6_SID;
+	nlri.nlri_data.srv6_sid.protocol_id = protocol_id;
+	nlri.nlri_data.srv6_sid.identifier = 0;
+
+	nlri.nlri_data.srv6_sid.local_node.igp_router_id_len = router_id_len;
+	memcpy(nlri.nlri_data.srv6_sid.local_node.igp_router_id.raw, router_id, router_id_len);
+	SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs, BGP_LS_NODE_DESC_IGP_ROUTER_BIT);
+
+	if (bgp_ls_protocol_is_ospf(protocol_id)) {
+		nlri.nlri_data.srv6_sid.local_node.ospf_area_id = area_id;
+		SET_FLAG(nlri.nlri_data.srv6_sid.local_node.present_tlvs,
+			 BGP_LS_NODE_DESC_OSPF_AREA_BIT);
+	}
+
+	IPV6_ADDR_COPY(&nlri.nlri_data.srv6_sid.sid_desc.sid, &subnet->ls_pref->srv6.sid);
+	SET_FLAG(nlri.nlri_data.srv6_sid.sid_desc.present_tlvs, BGP_LS_SRV6_SID_DESC_INFO_BIT);
+
+	/* Advertise MT-ID only for non-default topologies. */
+	if (CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_MT_ID) && subnet->ls_pref->mt_id != 0) {
+		nlri.nlri_data.srv6_sid.sid_desc.mt_id = subnet->ls_pref->mt_id;
+		SET_FLAG(nlri.nlri_data.srv6_sid.sid_desc.present_tlvs,
+			 BGP_LS_SRV6_SID_DESC_MT_ID_BIT);
+	}
+
+	ret = bgp_ls_withdraw(bgp, &nlri);
+	if (ret < 0) {
+		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Failed to withdraw SRv6 SID NLRI");
+		return -1;
+	}
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Withdrawn SRv6 SID NLRI %pI6", &subnet->ls_pref->srv6.sid);
 
 	return 0;
 }
@@ -1051,6 +1348,7 @@ int bgp_ls_process_edge(struct bgp *bgp, struct ls_edge *edge, uint8_t event)
 
 /*
  * Process Link State subnet and originate/withdraw BGP-LS Prefix NLRI
+ * and, when the prefix carries an SRv6 SID, also the SRv6 SID NLRI (Type 6).
  */
 int bgp_ls_process_subnet(struct bgp *bgp, struct ls_subnet *subnet, uint8_t event)
 {
@@ -1097,14 +1395,29 @@ int bgp_ls_process_subnet(struct bgp *bgp, struct ls_subnet *subnet, uint8_t eve
 	switch (event) {
 	case LS_MSG_EVENT_SYNC:
 	case LS_MSG_EVENT_ADD:
-	case LS_MSG_EVENT_UPDATE:
-		return bgp_ls_originate_prefix(bgp, protocol_id, router_id, router_id_len,
-					       &subnet->key, area_id, subnet);
-
-	case LS_MSG_EVENT_DELETE:
-		return bgp_ls_withdraw_prefix(bgp, protocol_id, router_id, router_id_len,
-					      &subnet->key, area_id, subnet);
-
+	case LS_MSG_EVENT_UPDATE: {
+		int ret = bgp_ls_originate_prefix(bgp, protocol_id, router_id, router_id_len,
+						  &subnet->key, area_id, subnet);
+		if (ret < 0)
+			return ret;
+		/* Also originate SRv6 SID NLRI for prefixes carrying an SRv6 SID */
+		if (CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SRV6))
+			ret = bgp_ls_originate_srv6_sid(bgp, protocol_id, router_id, router_id_len,
+							area_id, subnet);
+		return ret;
+	}
+	case LS_MSG_EVENT_DELETE: {
+		int ret = bgp_ls_withdraw_prefix(bgp, protocol_id, router_id, router_id_len,
+						 &subnet->key, area_id, subnet);
+		/* Also withdraw SRv6 SID NLRI when present */
+		if (CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SRV6)) {
+			int srv6_ret = bgp_ls_withdraw_srv6_sid(bgp, protocol_id, router_id,
+								router_id_len, area_id, subnet);
+			if (!ret)
+				ret = srv6_ret;
+		}
+		return ret;
+	}
 	default:
 		zlog_warn("BGP-LS: Unknown event type %u for subnet", event);
 		return -1;

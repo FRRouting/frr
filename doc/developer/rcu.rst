@@ -263,6 +263,13 @@ Internals
    important if the pthread created ends up calling back into FRR and
    one of the various zlog_XXX functions is called.
 
+.. c:function:: void frr_pthread_non_controlled_shutdown(pthread_t thread)
+
+   If a pthread on shutdown needs to be cleaned up in a manner that is
+   not controlled via the FRR pthread mechanisms, then this should be
+   called to remove the pthread from tracking.  Again if zlog_XXX functions
+   are called on shutdown after this is called we might experience some fun.
+
 .. c:function:: void rcu_shutdown(void)
 
    Stop the RCU sweeper thread and make sure all cleanup has finished.

@@ -38,4 +38,10 @@ extern void ospf_interface_disable_bfd(struct interface *ifp,
  */
 extern void ospf_neighbor_bfd_apply(struct ospf_neighbor *nbr);
 
+/* Remove BFD session associated with a neighbor (interface-owned). */
+extern void ospf_neighbor_bfd_clear(struct ospf_neighbor *nbr);
+
+/* Flush all per-interface BFD session entries. */
+extern void ospf_bfd_if_flush(struct ospf_interface *oi);
+
 #endif /* _ZEBRA_OSPF_BFD_H */

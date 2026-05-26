@@ -94,6 +94,7 @@ static FRR_NORETURN void sigint(void)
 	rip_zclient_stop();
 
 	route_map_finish();
+	access_list_reset();
 	prefix_list_reset();
 
 	keychain_terminate();

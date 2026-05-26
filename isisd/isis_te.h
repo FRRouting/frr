@@ -75,6 +75,7 @@ typedef enum _interas_mode_t { off, region, as, emulate } interas_mode_t;
 	 e->status != EXT_SRV6_LAN_ENDX_SID)
 #define IS_MPLS_TE(a)	(a && a->status == enable)
 #define IS_EXPORT_TE(a) (a->export)
+#define IS_DISTRIBUTE_LS(area) ((area) && (area)->distribute_link_state)
 
 /* Per area MPLS-TE parameters */
 struct ls_ted;
@@ -104,6 +105,7 @@ struct isis_te_args {
 	struct ls_vertex *vertex;
 	bool export;
 	bool srv6_locator;
+	uint16_t mt_id; /* IS-IS MT-ID of the current iteration context */
 };
 
 enum lsp_event { LSP_UNKNOWN, LSP_ADD, LSP_UPD, LSP_DEL, LSP_INC, LSP_TICK };

@@ -57,6 +57,8 @@
 
 #define OSPF_DEBUG_OPAQUE_LSA 0x01
 
+#define OSPF_DEBUG_QNBR 0x01
+
 /* Macro for setting debug option. */
 #define CONF_DEBUG_PACKET_ON(a, b)	    conf_debug_ospf_packet[a] |= (b)
 #define CONF_DEBUG_PACKET_OFF(a, b)	    conf_debug_ospf_packet[a] &= ~(b)
@@ -109,6 +111,7 @@
 #define IS_DEBUG_OSPF_GR IS_DEBUG_OSPF(gr, GR)
 #define IS_DEBUG_OSPF_CLIENT_API IS_DEBUG_OSPF(client_api, CLIENT_API)
 #define IS_DEBUG_OSPF_OPAQUE_LSA IS_DEBUG_OSPF(opaque_lsa, OPAQUE_LSA)
+#define IS_DEBUG_OSPF_QNBR	 IS_DEBUG_OSPF(qnbr, QNBR)
 
 #define IS_CONF_DEBUG_OSPF_PACKET(a, b)                                        \
 	(conf_debug_ospf_packet[a] & OSPF_DEBUG_##b)
@@ -135,6 +138,7 @@ extern unsigned long term_debug_ospf_gr;
 extern unsigned long term_debug_ospf_bfd;
 extern unsigned long term_debug_ospf_client_api;
 extern unsigned long term_debug_ospf_opaque_lsa;
+extern unsigned long term_debug_ospf_qnbr;
 
 /* Message Strings. */
 extern char *ospf_lsa_type_str[];

@@ -45,6 +45,8 @@
 #include "isisd/isis_flex_algo.h"
 #include "isisd/isis_zebra.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_SPF_BACKOFF_BUF_NB, "ISIS NB SPF backoff temporary buffer");
+
 #define AFFINITY_INCLUDE_ANY 0
 #define AFFINITY_INCLUDE_ALL 1
 #define AFFINITY_EXCLUDE_ANY 2
@@ -632,7 +634,7 @@ void ietf_backoff_delay_apply_finish(struct nb_cb_apply_finish_args *args)
 	long timetolearn = yang_dnode_get_uint16(args->dnode, "time-to-learn");
 	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
 	size_t bufsiz = strlen(area->area_tag) + sizeof("IS-IS  Lx");
-	char *buf = XCALLOC(MTYPE_TMP, bufsiz);
+	char *buf = XCALLOC(MTYPE_ISIS_TMP_SPF_BACKOFF_BUF_NB, bufsiz);
 
 	snprintf(buf, bufsiz, "IS-IS %s L1", area->area_tag);
 	spf_backoff_free(area->spf_delay_ietf[0]);
@@ -644,7 +646,7 @@ void ietf_backoff_delay_apply_finish(struct nb_cb_apply_finish_args *args)
 	area->spf_delay_ietf[1] = spf_backoff_new(master, buf, init_delay, short_delay, long_delay,
 						  holddown, timetolearn);
 
-	XFREE(MTYPE_TMP, buf);
+	XFREE(MTYPE_ISIS_TMP_SPF_BACKOFF_BUF_NB, buf);
 }
 
 int isis_instance_spf_ietf_backoff_delay_create(struct nb_cb_create_args *args)
@@ -1998,6 +2000,40 @@ int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args)
 		if (isis_zebra_ls_register(true) != 0)
 			zlog_warn("Unable to register Link State");
 	} else {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Disable Link State export");
+		if (isis_zebra_ls_register(false) != 0)
+			zlog_warn("Unable to register Link State");
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/distribute-link-state
+ */
+int isis_instance_distribute_link_state_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->distribute_link_state = yang_dnode_get_bool(args->dnode, NULL);
+
+	/* Keep TED active for link-state distribution even without mpls-te config. */
+	if (area->distribute_link_state && !area->mta)
+		isis_mpls_te_create(area);
+
+	if (area->distribute_link_state) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Enabled Link State export");
+		if (isis_zebra_ls_register(true) != 0)
+			zlog_warn("Unable to register Link State");
+	} else {
+		isis_mpls_te_disable(area);
+
 		if (IS_DEBUG_EVENTS)
 			zlog_debug("MPLS-TE: Disable Link State export");
 		if (isis_zebra_ls_register(false) != 0)
@@ -3633,8 +3669,9 @@ int lib_interface_isis_bfd_monitoring_profile_modify(struct nb_cb_modify_args *a
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
-	circuit->bfd_config.profile = XSTRDUP(MTYPE_TMP, yang_dnode_get_string(args->dnode, NULL));
+	XFREE(MTYPE_ISIS_BFD_PROFILE, circuit->bfd_config.profile);
+	circuit->bfd_config.profile = XSTRDUP(MTYPE_ISIS_BFD_PROFILE,
+					      yang_dnode_get_string(args->dnode, NULL));
 
 	return NB_OK;
 }
@@ -3647,7 +3684,7 @@ int lib_interface_isis_bfd_monitoring_profile_destroy(struct nb_cb_destroy_args 
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
+	XFREE(MTYPE_ISIS_BFD_PROFILE, circuit->bfd_config.profile);
 
 	return NB_OK;
 }

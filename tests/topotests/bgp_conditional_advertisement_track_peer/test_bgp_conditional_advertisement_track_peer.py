@@ -117,8 +117,12 @@ def test_bgp_conditional_advertisement_track_peer():
         return topotest.json_cmp(output, expected)
 
     # Verify if R1 received 172.16.255.2/32 from R2
+    # The conditional-advertisement scanner is phase-locked at 5s intervals
+    # (see `bgp conditional-advertisement timer 5` in r2/bgpd.conf), so the
+    # worst-case wait is BGP session establishment + one full scanner cycle.
+    # Use a longer window to absorb that on slow CI hosts.
     test_func = functools.partial(_bgp_check_conditional_static_routes_from_r2)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "R1 SHOULD receive 172.16.255.2/32 from R2"
 
     step("Disable session between R2 and R3 again")
@@ -132,7 +136,7 @@ def test_bgp_conditional_advertisement_track_peer():
 
     # Verify if R2 is not sending any routes to R1 again
     test_func = functools.partial(_bgp_converge)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "R2 SHOULD not send any routes to R1"
 
 

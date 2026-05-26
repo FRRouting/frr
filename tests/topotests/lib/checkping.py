@@ -9,7 +9,9 @@ from lib.topolog import logger
 from lib import topotest
 
 
-def check_ping(name, dest_addr, expect_connected, count, wait, source_addr=None):
+def check_ping(
+    name, dest_addr, expect_connected, count, wait, source_addr=None, vrf=None
+):
     """
     Assert that ping to dest_addr is expected
     * 'name': the router to set the ping from
@@ -17,11 +19,19 @@ def check_ping(name, dest_addr, expect_connected, count, wait, source_addr=None)
     * 'expect_connected': True if ping is expected to pass
     * 'count': how many echos to send
     * 'wait': how long ping should wait to receive all replies
+    * 'vrf': VRF or netns name to run ping in (auto-detected), or None for default
     """
 
-    def _check(name, dest_addr, source_addr, expect_connected):
+    def _check(name, dest_addr, source_addr, vrf, expect_connected):
         tgen = get_topogen()
-        cmd = "ping {}".format(dest_addr)
+        if vrf:
+            vrf_check = tgen.gears[name].run(f"ip vrf show {vrf}")
+            if vrf in vrf_check:
+                cmd = f"ip vrf exec {vrf} ping {dest_addr}"
+            else:
+                cmd = f"ip netns exec {vrf} ping {dest_addr}"
+        else:
+            cmd = "ping {}".format(dest_addr)
         if source_addr:
             cmd += " -I {}".format(source_addr)
         cmd += " -c 1 -w 1"
@@ -54,6 +64,8 @@ def check_ping(name, dest_addr, expect_connected, count, wait, source_addr=None)
         )
     )
     tgen = get_topogen()
-    func = functools.partial(_check, name, dest_addr, source_addr, expect_connected)
+    func = functools.partial(
+        _check, name, dest_addr, source_addr, vrf, expect_connected
+    )
     _, result = topotest.run_and_expect(func, None, count=count, wait=wait)
     assert result is None, "Failed"

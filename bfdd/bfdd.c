@@ -24,6 +24,8 @@
 #include "lib/version.h"
 #include "lib/command.h"
 #include "lib/plist.h"
+#include "lib/hook.h"
+#include "lib/keychain.h"
 
 
 /*
@@ -41,6 +43,7 @@ static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW
 
 /* BFD daemon information. */
 static struct frr_daemon_info bfdd_di;
+static int bfd_process_keychain_remove(const char *keychain_name);
 
 void socket_close(int *s)
 {
@@ -70,6 +73,8 @@ static FRR_NORETURN void sigterm_handler(void)
 
 	/* Stop receiving message from zebra. */
 	bfdd_zclient_stop();
+
+	keychain_terminate();
 
 	/* Shutdown and free all protocol related memory. */
 	bfd_shutdown();
@@ -114,15 +119,18 @@ static struct frr_signal_t bfd_signals[] = {
 	},
 };
 
+/* clang-format off */
+
 static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
 	/* CLI-only filter YANG; do not use frr_filter_info (no filter backend). */
 	&frr_filter_cli_info,
 	&frr_interface_info,
 	&frr_bfdd_info,
 	&frr_vrf_info,
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
 };
 
-/* clang-format off */
 FRR_DAEMON_INFO(bfdd, BFD,
 	.vty_port = BFDD_VTY_PORT,
 	.proghelp = "Implementation of the BFD protocol.",
@@ -308,6 +316,72 @@ distributed_bfd_init(const char *arg)
 	bfd_dplane_init((struct sockaddr *)&sa, salen, is_client);
 }
 
+static void __bfd_process_keychain_updated(const char *keychain_name, bool is_mhop,
+					   bool remove_event)
+{
+	struct bfd_session *bs;
+	const struct bfd_session *iter = NULL;
+	struct keychain *kc;
+
+	kc = keychain_lookup(keychain_name);
+
+	while ((iter = bfd_session_next(iter, is_mhop, BFD_MODE_TYPE_BFD)) != NULL) {
+		bs = (struct bfd_session *)iter;
+
+		if (!bfd_session_auth_config_takes_precedence_over_profile(bs))
+			/* Peer-specific config takes precedence */
+			continue;
+
+		if (strcmp(keychain_name, bs->peer_profile.auth_config.key_chain_name) != 0)
+			/* peer profile keychain name does not match */
+			continue;
+
+		if (kc && remove_event == false)
+			bs->kc = kc;
+		else
+			bs->kc = NULL;
+
+		zlog_info("BFD: session [%s], keychain %s %s", bs_to_string(bs), keychain_name,
+			  remove_event ? "removed" : "updated");
+
+		bfd_session_apply(bs);
+	}
+}
+
+static int _bfd_process_keychain_updated(const char *keychain_name, bool remove_event)
+{
+	struct bfd_profile *bp;
+
+	if (!keychain_name)
+		return 0;
+
+	TAILQ_FOREACH (bp, &bplist, entry) {
+		if (bp->auth_config.key_chain_name[0] == '\0' ||
+		    strcmp(keychain_name, bp->auth_config.key_chain_name) != 0)
+			/* profile keychain name does not match */
+			continue;
+
+		zlog_info("BFD: profile %s, keychain %s %s", bp->name, keychain_name,
+			  remove_event ? "removed" : "updated");
+
+		bfd_profile_update(bp);
+	}
+
+	__bfd_process_keychain_updated(keychain_name, false, remove_event);
+	__bfd_process_keychain_updated(keychain_name, true, remove_event);
+	return 0;
+}
+
+static int bfd_process_keychain_remove(const char *keychain_name)
+{
+	return _bfd_process_keychain_updated(keychain_name, true);
+}
+
+static int bfd_process_keychain_update(const char *keychain_name)
+{
+	return _bfd_process_keychain_updated(keychain_name, false);
+}
+
 static void bg_init(void)
 {
 	struct zebra_privs_t bfdd_privs = {
@@ -368,6 +442,8 @@ int main(int argc, char *argv[])
 	/* Initialize FRR infrastructure. */
 	master = frr_init();
 
+	keychain_init();
+
 	/* Initialize BFD data structures. */
 	bfd_initialize();
 
@@ -380,6 +456,9 @@ int main(int argc, char *argv[])
 
 	/* Install commands. */
 	bfdd_vty_init();
+
+	hook_register(keychain_removed, bfd_process_keychain_remove);
+	hook_register(keychain_updated, bfd_process_keychain_update);
 
 	/* read configuration file and daemonize  */
 	frr_config_fork();

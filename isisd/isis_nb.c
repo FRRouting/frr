@@ -645,6 +645,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/distribute-link-state",
+			.cbs = {
+				.cli_show = cli_show_isis_distribute_link_state,
+				.modify = isis_instance_distribute_link_state_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/segment-routing/enabled",
 			.cbs = {
 				.modify = isis_instance_segment_routing_enabled_modify,

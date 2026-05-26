@@ -133,6 +133,49 @@ struct bgp_attr_srv6_vpn {
 	struct in6_addr sid;
 };
 
+struct attr_extra {
+	unsigned long refcnt;
+
+	/* draft-ietf-idr-nhc attribute */
+	struct bgp_nhc *nhc;
+
+	/* EVPN overlay index */
+	struct bgp_route_evpn *evpn_overlay;
+
+	/* AIGP Metric */
+	uint64_t aigp_metric;
+
+	/* For BGP-LS Attribute (RFC 9552) */
+	struct bgp_ls_attr *ls_attr;
+
+	/* Link bandwidth value extracted from ecommunity, if any. */
+	uint64_t link_bw;
+
+	/* SRv6 VPN SID */
+	struct bgp_attr_srv6_vpn *srv6_vpn;
+
+	/* SRv6 L3 service SID */
+	struct bgp_attr_srv6_l3service *srv6_l3service;
+
+	/* PMSI tunnel type (RFC 6514). */
+	enum pta_type pmsi_tnl_type;
+
+	/* PMSI Tunnel Id */
+	struct in6_addr tunn_id;
+
+	/* RFC 9234 */
+	uint32_t otc;
+
+	/* IPv6 Extended Communities attribute. */
+	struct ecommunity *ipv6_ecommunity;
+};
+
+extern struct attr_extra *bgp_attr_extra_get(struct attr *attr);
+extern void bgp_attr_extra_put(struct attr *attr);
+extern struct attr_extra *bgp_attr_extra_dup(const struct attr_extra *src);
+extern void bgp_attr_extra_discard(struct attr *attr);
+extern void bgp_attr_dup_into(struct attr *to, const struct attr *from);
+
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -229,10 +272,6 @@ struct attr {
 
 	uint16_t encap_tunneltype;
 
-	/* PMSI tunnel type (RFC 6514). */
-	enum pta_type pmsi_tnl_type;
-	struct in6_addr tunn_id; /* PMSI Tunnel Id */
-
 	/* Multi-Protocol Nexthop, AFI IPv6 */
 	struct in6_addr mp_nexthop_global;
 	struct in6_addr mp_nexthop_local;
@@ -245,9 +284,6 @@ struct attr {
 
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
-
-	/* Extended Communities attribute. */
-	struct ecommunity *ipv6_ecommunity;
 
 	/* Large Communities attribute. */
 	struct lcommunity *lcommunity;
@@ -281,20 +317,11 @@ struct attr {
 	/* rmap set table */
 	uint32_t rmap_table_id;
 
-	/* SRv6 VPN SID */
-	struct bgp_attr_srv6_vpn *srv6_vpn;
-
-	/* SRv6 L3 service SID */
-	struct bgp_attr_srv6_l3service *srv6_l3service;
-
 	struct bgp_attr_encap_subtlv *encap_subtlvs; /* rfc5512 */
 
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs; /* VNC-specific */
 #endif
-	/* EVPN */
-	struct bgp_route_evpn *evpn_overlay;
-
 	/* EVPN MAC Mobility sequence number, if any. */
 	uint32_t mm_seqnum;
 	/* highest MM sequence number rxed in a MAC-IP route from an
@@ -308,9 +335,6 @@ struct attr {
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
 
-	/* Link bandwidth value, if any. */
-	uint64_t link_bw;
-
 	/* EVPN ES */
 	esi_t esi;
 
@@ -323,17 +347,8 @@ struct attr {
 	/* If NEXTHOP_TYPE_BLACKHOLE, then blackhole type */
 	enum blackhole_type bh_type;
 
-	/* OTC value if set */
-	uint32_t otc;
-
-	/* AIGP Metric */
-	uint64_t aigp_metric;
-
-	/* Next-hop characteristics */
-	struct bgp_nhc *nhc;
-
-	/* For BGP-LS Attribute (RFC 9552) */
-	struct bgp_ls_attr *ls_attr;
+	/* Optional feature-specific attributes */
+	struct attr_extra *extra;
 };
 
 /* rmap_change_flags definition */
@@ -398,9 +413,9 @@ struct bpacket_attr_vec_arr;
 /* Prototypes. */
 extern void bgp_attr_init(void);
 extern void bgp_attr_finish(void);
-extern enum bgp_attr_parse_ret
-bgp_attr_parse(struct peer *peer, struct attr *attr, bgp_size_t size,
-	       struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw);
+extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struct attr *attr,
+					      bgp_size_t size, struct bgp_nlri *mp_update,
+					      struct bgp_nlri *mp_withdraw);
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern struct bgp_attr_srv6_l3service *
 bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_l3service *vpn);
@@ -521,13 +536,54 @@ static inline uint32_t mac_mobility_seqnum(struct attr *attr)
 
 static inline enum pta_type bgp_attr_get_pmsi_tnl_type(const struct attr *attr)
 {
-	return attr->pmsi_tnl_type;
+	return attr->extra ? attr->extra->pmsi_tnl_type : PMSI_TNLTYPE_NO_INFO;
 }
 
+static inline void bgp_attr_unset_tunn_id(struct attr *attr)
+{
+	if (!attr->extra || bgp_attr_get_pmsi_tnl_type(attr) != PMSI_TNLTYPE_INGR_REPL)
+		return;
+
+	attr->extra->tunn_id = in6addr_any;
+}
+
+/* One attr_extra slot covers both pmsi_tnl_type and (for INGR_REPL) tunn_id. */
 static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
 					      enum pta_type pmsi_tnl_type)
 {
-	attr->pmsi_tnl_type = pmsi_tnl_type;
+	enum pta_type old = bgp_attr_get_pmsi_tnl_type(attr);
+
+	if (old == pmsi_tnl_type)
+		return;
+
+	/* Zero tunn_id when leaving INGR_REPL (no refcnt change). */
+	if (old == PMSI_TNLTYPE_INGR_REPL && pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL)
+		bgp_attr_unset_tunn_id(attr);
+
+	if (pmsi_tnl_type == PMSI_TNLTYPE_NO_INFO) {
+		/* Release slot (old was non-NO_INFO). */
+		attr->extra->pmsi_tnl_type = PMSI_TNLTYPE_NO_INFO;
+		bgp_attr_extra_put(attr);
+	} else if (old == PMSI_TNLTYPE_NO_INFO)
+		bgp_attr_extra_get(attr)->pmsi_tnl_type = pmsi_tnl_type;
+	else
+		attr->extra->pmsi_tnl_type = pmsi_tnl_type;
+}
+
+static inline const struct in6_addr *bgp_attr_get_tunn_id(const struct attr *attr)
+{
+	return attr->extra ? &attr->extra->tunn_id : &in6addr_any;
+}
+
+static inline void bgp_attr_set_tunn_id(struct attr *attr, const struct in6_addr *tunn_id)
+{
+	/* Caller must set pmsi_tnl_type to PMSI_TNLTYPE_INGR_REPL first;
+	 * that transition is what claims the tunn_id slot.
+	 */
+	if (!attr->extra || bgp_attr_get_pmsi_tnl_type(attr) != PMSI_TNLTYPE_INGR_REPL)
+		return;
+
+	attr->extra->tunn_id = tunn_id ? *tunn_id : in6addr_any;
 }
 
 static inline struct ecommunity *
@@ -584,13 +640,22 @@ static inline void bgp_attr_set_community(struct attr *attr,
 static inline struct ecommunity *
 bgp_attr_get_ipv6_ecommunity(const struct attr *attr)
 {
-	return attr->ipv6_ecommunity;
+	return attr->extra ? attr->extra->ipv6_ecommunity : NULL;
 }
 
 static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 						struct ecommunity *ipv6_ecomm)
 {
-	attr->ipv6_ecommunity = ipv6_ecomm;
+	struct ecommunity *old = bgp_attr_get_ipv6_ecommunity(attr);
+
+	if (ipv6_ecomm && !old) {
+		bgp_attr_extra_get(attr)->ipv6_ecommunity = ipv6_ecomm;
+	} else if (ipv6_ecomm && old) {
+		attr->extra->ipv6_ecommunity = ipv6_ecomm; /* replace; refcnt unchanged */
+	} else if (!ipv6_ecomm && old) {
+		attr->extra->ipv6_ecommunity = NULL;
+		bgp_attr_extra_put(attr);
+	}
 
 	if (ipv6_ecomm && ipv6_ecomm->size)
 		SET_FLAG(attr->flag,
@@ -613,12 +678,21 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 
 static inline struct bgp_nhc *bgp_attr_get_nhc(const struct attr *attr)
 {
-	return attr->nhc;
+	return attr->extra ? attr->extra->nhc : NULL;
 }
 
 static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 {
-	attr->nhc = bnc;
+	struct bgp_nhc *old = bgp_attr_get_nhc(attr);
+
+	if (bnc && !old) {
+		bgp_attr_extra_get(attr)->nhc = bnc;
+	} else if (bnc && old) {
+		attr->extra->nhc = bnc; /* replace; refcnt unchanged */
+	} else if (!bnc && old) {
+		attr->extra->nhc = NULL;
+		bgp_attr_extra_put(attr);
+	}
 
 	if (bnc)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC));
@@ -632,12 +706,34 @@ static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 
 static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 {
-	return attr->aigp_metric;
+	return attr->extra ? attr->extra->aigp_metric : 0;
+}
+
+static inline void bgp_attr_unset_aigp_metric(struct attr *attr)
+{
+	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP))
+		return;
+
+	if (attr->extra) {
+		attr->extra->aigp_metric = 0;
+		bgp_attr_extra_put(attr);
+	}
+
+	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
 static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 {
-	attr->aigp_metric = aigp;
+	if (aigp == 0) {
+		bgp_attr_unset_aigp_metric(attr);
+		return;
+	}
+
+	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP) || !attr->extra)
+		bgp_attr_extra_get(attr)->aigp_metric = aigp;
+	else
+		attr->extra->aigp_metric = aigp;
+
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
@@ -677,13 +773,126 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {
-	return attr->evpn_overlay;
+	return attr->extra ? attr->extra->evpn_overlay : NULL;
 }
 
 static inline void bgp_attr_set_evpn_overlay(struct attr *attr,
 					     struct bgp_route_evpn *bre)
 {
-	attr->evpn_overlay = bre;
+	struct bgp_route_evpn *old = bgp_attr_get_evpn_overlay(attr);
+
+	if (bre && !old) {
+		bgp_attr_extra_get(attr)->evpn_overlay = bre;
+	} else if (bre && old) {
+		attr->extra->evpn_overlay = bre; /* replace; refcnt unchanged */
+	} else if (!bre && old) {
+		attr->extra->evpn_overlay = NULL;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->ls_attr : NULL;
+}
+
+static inline void bgp_attr_set_ls_attr(struct attr *attr, struct bgp_ls_attr *ls_attr)
+{
+	struct bgp_ls_attr *old = bgp_attr_get_ls_attr(attr);
+
+	if (ls_attr && !old) {
+		bgp_attr_extra_get(attr)->ls_attr = ls_attr;
+	} else if (ls_attr && old) {
+		attr->extra->ls_attr = ls_attr; /* replace; refcnt unchanged */
+	} else if (!ls_attr && old) {
+		attr->extra->ls_attr = NULL;
+		bgp_attr_extra_put(attr);
+	}
+
+	if (ls_attr)
+		bgp_attr_set(attr, BGP_ATTR_LINK_STATE);
+	else
+		bgp_attr_unset(attr, BGP_ATTR_LINK_STATE);
+}
+
+static inline uint64_t bgp_attr_get_link_bw(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->link_bw : 0;
+}
+
+static inline void bgp_attr_set_link_bw(struct attr *attr, uint64_t link_bw)
+{
+	uint64_t old = bgp_attr_get_link_bw(attr);
+
+	if (link_bw && !old) {
+		bgp_attr_extra_get(attr)->link_bw = link_bw;
+	} else if (link_bw && old) {
+		attr->extra->link_bw = link_bw; /* replace; refcnt unchanged */
+	} else if (!link_bw && old) {
+		attr->extra->link_bw = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint32_t bgp_attr_get_otc(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->otc : 0;
+}
+
+static inline void bgp_attr_set_otc(struct attr *attr, uint32_t otc)
+{
+	uint32_t old = bgp_attr_get_otc(attr);
+
+	if (otc && !old) {
+		bgp_attr_extra_get(attr)->otc = otc;
+		bgp_attr_set(attr, BGP_ATTR_OTC);
+	} else if (otc && old) {
+		attr->extra->otc = otc; /* replace; refcnt unchanged */
+		bgp_attr_set(attr, BGP_ATTR_OTC);
+	} else if (!otc && old) {
+		attr->extra->otc = 0;
+		bgp_attr_extra_put(attr);
+		bgp_attr_unset(attr, BGP_ATTR_OTC);
+	}
+}
+
+static inline struct bgp_attr_srv6_vpn *bgp_attr_get_srv6_vpn(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->srv6_vpn : NULL;
+}
+
+static inline void bgp_attr_set_srv6_vpn(struct attr *attr, struct bgp_attr_srv6_vpn *vpn)
+{
+	struct bgp_attr_srv6_vpn *old = bgp_attr_get_srv6_vpn(attr);
+
+	if (vpn && !old) {
+		bgp_attr_extra_get(attr)->srv6_vpn = vpn;
+	} else if (vpn && old) {
+		attr->extra->srv6_vpn = vpn; /* replace; refcnt unchanged */
+	} else if (!vpn && old) {
+		attr->extra->srv6_vpn = NULL;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline struct bgp_attr_srv6_l3service *bgp_attr_get_srv6_l3service(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->srv6_l3service : NULL;
+}
+
+static inline void bgp_attr_set_srv6_l3service(struct attr *attr,
+					       struct bgp_attr_srv6_l3service *srv6_l3service)
+{
+	struct bgp_attr_srv6_l3service *old = bgp_attr_get_srv6_l3service(attr);
+
+	if (srv6_l3service && !old) {
+		bgp_attr_extra_get(attr)->srv6_l3service = srv6_l3service;
+	} else if (srv6_l3service && old) {
+		attr->extra->srv6_l3service = srv6_l3service; /* replace; refcnt unchanged */
+	} else if (!srv6_l3service && old) {
+		attr->extra->srv6_l3service = NULL;
+		bgp_attr_extra_put(attr);
+	}
 }
 
 static inline struct bgp_attr_encap_subtlv *

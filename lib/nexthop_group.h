@@ -120,6 +120,7 @@ void nexthop_group_init(
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
 			    const struct nexthop *nhop),
 	void (*destroy)(const char *name));
+void nexthop_group_terminate(void);
 
 void nexthop_group_enable_vrf(struct vrf *vrf);
 void nexthop_group_disable_vrf(struct vrf *vrf);

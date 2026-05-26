@@ -441,6 +441,8 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 		api.distance = pn->distance;
 	}
+	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
+	api.metric = pn->metric;
 	if (pn->tag) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
 		api.tag = pn->tag;
@@ -470,8 +472,6 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
 			api_nh->srte_color = nh->color;
 		}
-
-		nh->state = STATIC_SENT_TO_ZEBRA;
 
 		switch (nh->type) {
 		case STATIC_IFNAME:
@@ -518,6 +518,8 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			}
 			break;
 		}
+
+		nh->state = STATIC_SENT_TO_ZEBRA;
 
 		if (nh->snh_label.num_labels) {
 			int i;
@@ -1390,7 +1392,6 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	struct listnode *node;
 	char buf[256];
 	struct static_srv6_sid *sid = NULL;
-	char *loc_name;
 	bool found = false;
 
 	if (!srv6_locators)
@@ -1398,7 +1399,7 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 	/* Decode the received notification message */
 	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, NULL, &note,
-					 &loc_name)) {
+					 NULL, 0)) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}

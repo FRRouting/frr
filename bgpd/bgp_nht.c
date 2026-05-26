@@ -133,7 +133,7 @@ static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
 	if (bgp_zebra_num_connects() == 0)
 		return 1;
 
-	if (path->attr->srv6_l3service || path->attr->srv6_vpn) {
+	if (bgp_attr_get_srv6_l3service(path->attr) || bgp_attr_get_srv6_vpn(path->attr)) {
 		/* In the case of SRv6-VPN, we need to track the reachability to the
 		 * SID (in other words, IPv6 address). We check that the SID is
 		 * available in the BGP update; then if it is available, we check
@@ -1132,12 +1132,15 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 			}
 		}
 		break;
-	case AFI_IP6:
+	case AFI_IP6: {
+		struct bgp_attr_srv6_l3service *srv6_l3service =
+			bgp_attr_get_srv6_l3service(pi->attr);
+
 		p->family = AF_INET6;
-		if (pi->attr->srv6_l3service) {
+		if (srv6_l3service) {
 			tmp_prefix.family = AF_INET6;
 			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
-			tmp_prefix.prefix = pi->attr->srv6_l3service->sid;
+			tmp_prefix.prefix = srv6_l3service->sid;
 			if (bgp_nexthop->vpn_policy[afi].tovpn_sid_locator &&
 			    bgp_nexthop->vpn_policy[afi].tovpn_sid)
 				local_sid = prefix_match(&bgp_nexthop->vpn_policy[afi]
@@ -1152,18 +1155,17 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 								  .sid_locator->prefix,
 							 &tmp_prefix);
 		}
-		if (local_sid == false && pi->attr->srv6_l3service) {
+		if (local_sid == false && srv6_l3service) {
 			p->prefixlen = IPV6_MAX_BITLEN;
-			if (pi->attr->srv6_l3service->transposition_len != 0 &&
-			    BGP_PATH_INFO_NUM_LABELS(pi)) {
-				IPV6_ADDR_COPY(&p->u.prefix6, &pi->attr->srv6_l3service->sid);
+			if (srv6_l3service->transposition_len != 0 && BGP_PATH_INFO_NUM_LABELS(pi)) {
+				IPV6_ADDR_COPY(&p->u.prefix6, &srv6_l3service->sid);
 				transpose_sid(&p->u.prefix6,
 					      decode_label(&pi->extra->labels->label[0]),
-					      pi->attr->srv6_l3service->transposition_offset,
-					      pi->attr->srv6_l3service->transposition_len,
+					      srv6_l3service->transposition_offset,
+					      srv6_l3service->transposition_len,
 					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 			} else
-				IPV6_ADDR_COPY(&(p->u.prefix6), &(pi->attr->srv6_l3service->sid));
+				IPV6_ADDR_COPY(&(p->u.prefix6), &(srv6_l3service->sid));
 		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;
@@ -1202,6 +1204,7 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 			p->prefixlen = IPV6_MAX_BITLEN;
 		}
 		break;
+	}
 	default:
 		if (BGP_DEBUG(nht, NHT)) {
 			zlog_debug(
@@ -1532,6 +1535,59 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 						 path);
 		else if (old_path_valid != bnc_is_valid_nexthop) {
 			if (old_path_valid) {
+				/*
+				 * RFC 4724 section 4.2: "A BGP speaker
+				 * could have some way of determining
+				 * whether its peer's forwarding state
+				 * is still viable, for example through
+				 * Bidirectional Forwarding Detection
+				 * [BFD] or through monitoring layer
+				 * two information. ... In the event
+				 * that it determines that its peer's
+				 * forwarding state is not viable prior
+				 * to the re-establishment of the
+				 * session, the speaker MAY delete all
+				 * the stale routes from the peer that
+				 * it is retaining."
+				 *
+				 * Nexthop becoming unreachable means
+				 * the link went down, so forwarding
+				 * state was not preserved. Delete the
+				 * stale path immediately so traffic
+				 * is not blackholed. If the peer comes
+				 * back before the restart timer and the
+				 * link is up again, NHT will mark the
+				 * nexthop reachable and we no longer
+				 * have this path to revive; the peer
+				 * will re-advertise on session up.
+				 *
+				 * BGP_PATH_STALE is also set during
+				 * Enhanced Route Refresh (RFC 7313),
+				 * so additionally gate on the GR-specific
+				 * condition the setters use
+				 * (PEER_STATUS_NSF_WAIT and
+				 * peer->nsf[afi][safi]) to act only in
+				 * the GR helper context.
+				 */
+				if (CHECK_FLAG(path->flags, BGP_PATH_STALE) &&
+				    CHECK_FLAG(path->peer->sflags, PEER_STATUS_NSF_WAIT) &&
+				    path->peer->nsf[afi][safi]) {
+					if (bgp_debug_neighbor_events(path->peer))
+						zlog_debug("%pBP NH %pFX unreachable and path stale (GR helper), deleting %pFX",
+							   path->peer, &bnc->prefix, p);
+					if (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(
+									 bgp_dest_get_prefix(dest)))
+						bgp_evpn_unimport_route(bgp_path, (afi_t)afi, safi,
+									bgp_dest_get_prefix(dest),
+									path);
+					if (safi == SAFI_UNICAST &&
+					    (bgp_path->inst_type != BGP_INSTANCE_TYPE_VIEW))
+						vpn_leak_from_vrf_withdraw(bgp_get_default(),
+									   bgp_path, path);
+					bgp_rib_remove(dest, path, path->peer, (afi_t)afi, safi);
+					continue;
+				}
+
 				/* No longer valid, clear flag; also for EVPN
 				 * routes, unimport from VRFs if needed.
 				 */

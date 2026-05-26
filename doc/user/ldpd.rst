@@ -158,7 +158,7 @@ LDP Configuration
 
    The following command located under MPLS router node configures the router
    of a LDP device. This device, if found, will have to comply with the
-   configured password. PASSWORD is a clear text password wit its digest sent
+   configured password. PASSWORD is a clear text password with its digest sent
    through the network.
 
 .. clicmd:: neighbor A.B.C.D session holdtime HOLDTIME

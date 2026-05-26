@@ -136,6 +136,14 @@ def test_bgp_community_update_path_change():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see bgp convergence in c1"
 
+    def _bgp_get_dup_count():
+        output = json.loads(
+            tgen.gears["c1"].vtysh_cmd("show bgp neighbors 10.0.1.2 json")
+        )
+        return output["10.0.1.2"]["addressFamilyInfo"]["ipv4Unicast"]["receivedPrefixDup"]
+
+    dup_before = _bgp_get_dup_count()
+
     step("Disable link between y1 and y2")
     tgen.gears["y1"].run("ip link set dev y1-eth1 down")
 
@@ -149,32 +157,19 @@ def test_bgp_community_update_path_change():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see bgp convergence in y1"
 
-    def _bgp_check_for_duplicate_updates():
-        duplicate = False
-        i = 0
-        while i < 5:
-            if (
-                len(
-                    tgen.gears["c1"].run(
-                        'grep "10.0.1.2(x1) rcvd 192.168.255.254/32 IPv4 unicast...duplicate ignored" bgpd.log'
-                    )
-                )
-                > 0
-            ):
-                duplicate = True
-            i += 1
-            sleep(0.5)
-        return duplicate
+    sleep(2.5)
 
     step("Check if we see duplicate BGP UPDATE message in c1 (suppress-duplicates)")
     assert (
-        _bgp_check_for_duplicate_updates() == False
+        _bgp_get_dup_count() == dup_before
     ), "Seen duplicate BGP UPDATE message in c1 from x1"
 
     step("Disable bgp suppress-duplicates at x1")
     tgen.gears["x1"].run(
         "vtysh -c 'conf' -c 'router bgp' -c 'no bgp suppress-duplicates'"
     )
+
+    dup_before = _bgp_get_dup_count()
 
     step("Enable link between y1 and y2")
     tgen.gears["y1"].run("ip link set dev y1-eth1 up")
@@ -196,12 +191,16 @@ def test_bgp_community_update_path_change():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see bgp convergence in y1"
 
+    def _bgp_check_for_duplicate_updates():
+        return _bgp_get_dup_count() > dup_before
+
     step(
         "Check if we see duplicate BGP UPDATE message in c1 (no bgp suppress-duplicates)"
     )
-    assert (
-        _bgp_check_for_duplicate_updates() == True
-    ), "Didn't see duplicate BGP UPDATE message in c1 from x1"
+    _, result = topotest.run_and_expect(
+        _bgp_check_for_duplicate_updates, True, count=10, wait=1.5
+    )
+    assert result is True, "Didn't see duplicate BGP UPDATE message in c1 from x1"
 
 
 if __name__ == "__main__":

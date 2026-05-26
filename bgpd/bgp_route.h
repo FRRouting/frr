@@ -352,6 +352,7 @@ struct bgp_path_info {
  * the actual ecmp path.
  */
 #define BGP_PATH_MULTIPATH_NEW (1 << 20)
+#define BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP (1 << 21)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -464,7 +465,9 @@ struct bgp_aggregate {
 		struct route_map *map;
 	} rmap;
 
-	/* Suppress-count. */
+	/* More-specific active routes contributing to this aggregate,
+	 * excluding aggregate routes (sub_type == BGP_ROUTE_AGGREGATE).
+	 */
 	unsigned long count;
 
 	/* Count of routes of origin type incomplete under this aggregate. */
@@ -798,6 +801,7 @@ extern void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 extern bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_route_all(struct peer *peer);
+extern bool bgp_clear_node_queue_drain(struct peer *peer);
 /* Clear routes for a batch of peers */
 void bgp_clear_route_batch(struct bgp_clearing_info *cinfo);
 
@@ -838,12 +842,12 @@ extern int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr, struct bgp_nl
 
 extern bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi, int always);
 
-extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
-				 const union g_addr *nexthop, ifindex_t ifindex,
-				 enum nexthop_types_t nhtype, uint8_t distance,
-				 enum blackhole_type bhtype, uint32_t metric,
-				 uint8_t type, unsigned short instance,
-				 route_tag_t tag);
+extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr *nexthop,
+				 ifindex_t ifindex, enum nexthop_types_t nhtype, uint8_t distance,
+				 enum blackhole_type bhtype, uint32_t metric, uint8_t type,
+				 unsigned short instance, route_tag_t tag,
+				 uint32_t seg6local_action,
+				 const struct seg6local_context *seg6local_ctx);
 extern void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
 				    unsigned short instance);
 extern void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,

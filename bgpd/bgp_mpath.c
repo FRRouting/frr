@@ -459,7 +459,16 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (old_best) {
 		old_mpath_count = bgp_path_info_mpath_count(dest);
-		if (old_mpath_count == 1)
+		/* Only mark old best as multipath when there is a new best path
+		 * AND it is a different path. When new_best is NULL (e.g. only
+		 * path became invalid/holddown) the old path is not "another
+		 * ECMP path" and should not show as multipath. When new_best
+		 * equals old_best the path is still the bestpath and must not
+		 * carry BGP_PATH_MULTIPATH; the walk-loop below only sets the
+		 * flag on non-best siblings and never clears it on new_best,
+		 * so once set on the (still) best path it would persist.
+		 */
+		if (new_best && new_best != old_best && old_mpath_count == 1)
 			SET_FLAG(old_best->flags, BGP_PATH_MULTIPATH);
 		old_cum_bw = bgp_path_info_mpath_cumbw(dest);
 		bgp_path_info_mpath_count_set(dest, 0);
@@ -636,7 +645,7 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		return;
 	}
 
-	attr = *new_best->attr;
+	bgp_attr_dup_into(&attr, new_best->attr);
 
 	if (new_best->peer
 	    && CHECK_FLAG(new_best->peer->bgp->flags,

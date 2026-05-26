@@ -531,6 +531,9 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 	/* Remove deleted routes */
 	for (rn = route_top(old_external_route); rn; rn = route_next(rn))
 		if ((or = rn->info)) {
+			/* Discard routes are managed by ABR, not ASE. */
+			if (or->type == OSPF_DESTINATION_DISCARD)
+				continue;
 			if (!(new_rn = route_node_lookup(new_external_route,
 							 &rn->p)))
 				ospf_zebra_delete(
@@ -542,11 +545,15 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 
 	/* Install new routes */
 	for (rn = route_top(new_external_route); rn; rn = route_next(rn))
-		if ((or = rn->info) != NULL)
+		if ((or = rn->info) != NULL) {
+			/* Discard routes are managed by ABR, not ASE. */
+			if (or->type == OSPF_DESTINATION_DISCARD)
+				continue;
 			if (!ospf_ase_route_match_same(old_external_route,
 						       &rn->p, or))
 				ospf_zebra_add(
 					ospf, (struct prefix_ipv4 *)&rn->p, or);
+		}
 
 	return 0;
 }

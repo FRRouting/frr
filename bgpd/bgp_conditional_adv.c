@@ -27,7 +27,7 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 		assert(dest_p);
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			dummy_attr = *pi->attr;
+			bgp_attr_dup_into(&dummy_attr, pi->attr);
 
 			/* Fill temp path_info */
 			prep_for_rmap_apply(&path, &path_extra, dest, pi, pi->peer, NULL,
@@ -96,7 +96,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 		assert(dest_p);
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			advmap_attr = *pi->attr;
+			bgp_attr_dup_into(&advmap_attr, pi->attr);
 
 			/* Fill temp path_info */
 			prep_for_rmap_apply(&path, &path_extra, dest, pi, pi->peer, NULL,
@@ -125,6 +125,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				if (!bgp_adj_out_set_subgroup(dest, subgrp,
 							      &attr, pi))
 					bgp_attr_flush(&attr);
+				bgp_attr_extra_discard(&advmap_attr);
 			} else {
 				/* If default originate is enabled for
 				 * the peer, do not send explicit
@@ -134,8 +135,10 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				 */
 				if (CHECK_FLAG(peer->af_flags[afi][safi],
 					       PEER_FLAG_DEFAULT_ORIGINATE) &&
-				    is_default_prefix(dest_p))
+				    is_default_prefix(dest_p)) {
+					bgp_attr_flush(&advmap_attr);
 					break;
+				}
 
 				bgp_adj_out_unset_subgroup(dest, subgrp,
 					bgp_addpath_id_for_peer(

@@ -35,7 +35,6 @@
 #define TC_FREQ_DEFAULT (100)
 
 /* some magic number */
-#define TC_QDISC_MAJOR_ZEBRA (0xbeef0000u)
 #define TC_MINOR_NOCLASS (0xffffu)
 
 #define TIME_UNITS_PER_SEC (1000000)
@@ -690,7 +689,7 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
 /*
  * Request queue discipline from the kernel
  */
-static int netlink_request_qdiscs(struct zebra_ns *zns, int family, int type)
+static int netlink_request_qdiscs(struct nlsock *nl, int family, int type)
 {
 	struct {
 		struct nlmsghdr n;
@@ -703,15 +702,13 @@ static int netlink_request_qdiscs(struct zebra_ns *zns, int family, int type)
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
 	req.tc.tcm_family = family;
 
-	return netlink_request(&zns->netlink_cmd, &req);
+	return netlink_request(nl, &req);
 }
 
 int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	struct tcmsg *tcm;
-	struct zebra_tc_qdisc qdisc = {};
 	enum tc_qdisc_kind kind = TC_QDISC_UNSPEC;
-	const char *kind_str = "Unknown";
 
 	int len;
 	struct rtattr *tb[TCA_MAX + 1];
@@ -730,49 +727,22 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	tcm = NLMSG_DATA(h);
 	netlink_parse_rtattr(tb, TCA_MAX, TCA_RTA(tcm), len);
 
-	if (RTA_DATA(tb[TCA_KIND])) {
-		kind_str = (const char *)RTA_DATA(tb[TCA_KIND]);
+	if (RTA_DATA(tb[TCA_KIND]))
+		kind = tc_qdisc_str2kind((const char *)RTA_DATA(tb[TCA_KIND]));
 
-		kind = tc_qdisc_str2kind(kind_str);
-	}
+	enum dplane_tc_qdisc_notify_e notify_type = (h->nlmsg_type == RTM_NEWQDISC)
+							    ? DPLANE_TC_QDISC_NOTIFY_NEW
+							    : DPLANE_TC_QDISC_NOTIFY_DEL;
 
-	qdisc.qdisc.ifindex = tcm->tcm_ifindex;
-
-	switch (kind) {
-	case TC_QDISC_NOQUEUE:
-		/* "noqueue" is the default qdisc */
-		break;
-	case TC_QDISC_HTB:
-	case TC_QDISC_UNSPEC:
-		break;
-	}
-
-	if (tb[TCA_OPTIONS] != NULL) {
-		struct rtattr *options[TCA_HTB_MAX + 1];
-
-		netlink_parse_rtattr_nested(options, TCA_HTB_MAX,
-					    tb[TCA_OPTIONS]);
-
-		/* TODO: more details */
-		/* struct tc_htb_glob *glob = RTA_DATA(options[TCA_HTB_INIT]);
-		 */
-	}
-
-	if (h->nlmsg_type == RTM_NEWQDISC) {
-		if (startup &&
-		    TC_H_MAJ(tcm->tcm_handle) == TC_QDISC_MAJOR_ZEBRA) {
-			enum zebra_dplane_result ret;
-
-			ret = dplane_tc_qdisc_uninstall(&qdisc);
-
-			zlog_debug("%s: %s leftover qdisc: ifindex %d kind %s",
-				   __func__,
-				   ((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
-					    ? "Failed to remove"
-					    : "Removed"),
-				   qdisc.qdisc.ifindex, kind_str);
-		}
-	}
+	/*
+	 * Hand the decoded fields off to the zebra master pthread.
+	 * The dplane thread is purely a decoder here -- the policy
+	 * (e.g. cleaning up a leftover zebra-owned qdisc at startup)
+	 * is decided by zebra_tc_qdisc_handle_notify() in the master
+	 * thread.
+	 */
+	dplane_tc_qdisc_notify_enqueue(ns_id, notify_type, !!startup, kind, tcm->tcm_ifindex,
+				       TC_H_MAJ(tcm->tcm_handle));
 
 	return 0;
 }
@@ -836,23 +806,34 @@ int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
-int netlink_qdisc_read(struct zebra_ns *zns)
+void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 {
+	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
+	struct nlsock *nl;
 	int ret;
-	struct zebra_dplane_info dp_info;
 
-	zebra_dplane_info_from_zns(&dp_info, zns, true);
+	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	if (!nl) {
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		zebra_dplane_startup_stage(dplane_ctx_get_ns_id(ctx),
+					   ZEBRA_DPLANE_FINISHED_READING);
+		return;
+	}
 
-	ret = netlink_request_qdiscs(zns, AF_UNSPEC, RTM_GETQDISC);
-	if (ret < 0)
-		return ret;
+	ret = netlink_request_qdiscs(nl, AF_UNSPEC, RTM_GETQDISC);
+	if (ret >= 0)
+		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true);
 
-	ret = netlink_parse_info(netlink_qdisc_change, &zns->netlink_cmd,
-				 &dp_info, 0, true);
-	if (ret < 0)
-		return ret;
+	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 
-	return 0;
+	/*
+	 * Signal that startup reads are finished. Any platform-specific
+	 * implementation of this function must do the same once it has
+	 * finished reading all TC data, so that zebra can advance from
+	 * ZEBRA_DPLANE_ADDRESSES_READ to ZEBRA_DPLANE_FINISHED_READING.
+	 */
+	zebra_dplane_startup_stage(dplane_ctx_get_ns_id(ctx),
+				   ZEBRA_DPLANE_FINISHED_READING);
 }
 
 #endif /* HAVE_NETLINK */

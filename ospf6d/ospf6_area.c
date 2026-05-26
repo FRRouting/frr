@@ -152,9 +152,22 @@ static void ospf6_area_route_hook_remove(struct ospf6_route *route)
 	struct ospf6 *ospf6 = oa->ospf6;
 	struct ospf6_route *copy;
 
-	copy = ospf6_route_lookup_identical(route, ospf6->route_table);
-	if (copy)
-		ospf6_route_remove(copy, ospf6->route_table);
+	/* Find the corresponding route in the global table by prefix + type +
+	 * origin. We cannot use ospf6_route_lookup_identical() here because
+	 * the route may have been modified in-place (e.g., paths/nexthops
+	 * changed during SPF recalculation) before removal, causing an exact
+	 * match to fail.
+	 */
+	for (copy = ospf6_route_lookup(&route->prefix, ospf6->route_table);
+	     copy; copy = copy->next) {
+		if (!ospf6_route_is_same(copy, route))
+			break;
+		if (copy->type == route->type
+		    && ospf6_route_is_same_origin(copy, route)) {
+			ospf6_route_remove(copy, ospf6->route_table);
+			return;
+		}
+	}
 }
 
 static void ospf6_area_stub_update(struct ospf6_area *area)

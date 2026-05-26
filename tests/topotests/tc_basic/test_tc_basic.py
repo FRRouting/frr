@@ -11,14 +11,15 @@ test_tc_basic.py: Test basic TC filters, classes and qdiscs.
 """
 import sys
 import os
+import functools
 import pytest
-import time
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../lib/"))
 
+from lib import topotest
 from lib.topogen import Topogen, TopoRouter
 from lib.topolog import logger
 
@@ -52,6 +53,19 @@ def tgen(request):
 
     # ... and here it calls initialization functions.
     tgen.start_topology()
+
+    # Before zebra starts, pre-install two qdiscs on r1 to exercise the
+    # dataplane-based RTNLGRP_TC startup dump (DPLANE_OP_TC_QDISC_READ):
+    #
+    #  - On r1-eth0 install an HTB qdisc with the "beef:" major handle
+    #    (the value zebra uses for TC qdiscs it owns). Zebra's startup
+    #    TC read path is supposed to discover this leftover qdisc and
+    #    remove it.
+    #  - On r1-eth1 install an HTB qdisc with the "1234:" major handle.
+    #    Zebra does not own this handle and must leave it alone.
+    r1 = tgen.gears["r1"]
+    r1.cmd_raises("tc qdisc add dev r1-eth0 root handle beef: htb")
+    r1.cmd_raises("tc qdisc add dev r1-eth1 root handle 1234: htb")
 
     # This is a sample of configuration loading.
     router_list = tgen.routers()
@@ -92,6 +106,42 @@ def fetch_iproute2_tc_info(r, interface):
 # ===================
 
 
+def test_tc_startup_removes_leftover_qdisc(tgen):
+    """
+    Verify that zebra's TC startup read path:
+      - removes the leftover "beef:" HTB qdisc on r1-eth0 (zebra owns it)
+      - leaves the "1234:" HTB qdisc on r1-eth1 alone (zebra does not
+        own it)
+    Both qdiscs were installed before start_router.
+    """
+
+    r1 = tgen.gears["r1"]
+
+    def _beef_removed():
+        qdisc = r1.cmd("tc qdisc show dev r1-eth0")
+        if "beef:" in qdisc:
+            return "beef: qdisc still present on r1-eth0: %s" % qdisc
+        return None
+
+    test_func = functools.partial(_beef_removed)
+    result, out = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, (
+        "zebra failed to remove the leftover beef: qdisc at startup: %s" % out
+    )
+
+    def _user_qdisc_present():
+        qdisc = r1.cmd("tc qdisc show dev r1-eth1")
+        if "1234:" not in qdisc:
+            return "1234: qdisc missing on r1-eth1: %s" % qdisc
+        return None
+
+    test_func = functools.partial(_user_qdisc_present)
+    result, out = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, (
+        "zebra incorrectly removed the user-owned 1234: qdisc at startup: %s" % out
+    )
+
+
 def test_tc_basic(tgen):
     "Test installing one pair of filter & class by sharpd"
 
@@ -102,24 +152,39 @@ def test_tc_basic(tgen):
         % intf
     )
 
-    time.sleep(3)
+    expected = [
+        ("qdisc", "htb"),
+        ("qdisc", "beef:"),
+        ("class", "20Mbit"),
+        ("filter", "tcp"),
+        ("filter", "dst_ip 192.168.101.0/24"),
+        ("filter", "src_ip 192.168.100.0/24"),
+        ("filter", "dst_port 8001"),
+        ("filter", "src_port 8000"),
+    ]
+
+    def _tc_installed():
+        qdisc, tclass, tfilter = fetch_iproute2_tc_info(r1, intf)
+        outputs = {"qdisc": qdisc, "class": tclass, "filter": tfilter}
+        for where, needle in expected:
+            if needle not in outputs[where]:
+                return "expected %r in tc %s output, got: %s" % (
+                    needle,
+                    where,
+                    outputs[where],
+                )
+        return None
+
+    test_func = functools.partial(_tc_installed)
+    result, out = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, (
+        "sharpd-driven TC install did not fully propagate to the kernel: %s" % out
+    )
 
     qdisc, tclass, tfilter = fetch_iproute2_tc_info(r1, intf)
-
     logger.info("tc qdisc on %s: %s", intf, qdisc)
     logger.info("tc class on %s: %s", intf, tclass)
     logger.info("tc filter on %s: %s", intf, tfilter)
-
-    assert "htb" in qdisc
-    assert "beef:" in qdisc
-
-    assert "20Mbit" in tclass
-
-    assert "tcp" in tfilter
-    assert "dst_ip 192.168.101.0/24" in tfilter
-    assert "src_ip 192.168.100.0/24" in tfilter
-    assert "dst_port 8001" in tfilter
-    assert "src_port 8000" in tfilter
 
 
 if __name__ == "__main__":

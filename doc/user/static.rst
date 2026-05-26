@@ -27,21 +27,21 @@ Static Route Commands
 Static routing is a very fundamental feature of routing technology. It defines
 a static prefix and gateway, with several possible forms.
 
-.. clicmd:: ip route NETWORK GATEWAY [DISTANCE] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK GATEWAY [tag TAG] [DISTANCE] [metric METRIC] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK IFNAME [DISTANCE] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK IFNAME [tag TAG] [DISTANCE] [metric METRIC] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK GATEWAY IFNAME [DISTANCE] [weight WEIGHT] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK GATEWAY IFNAME [tag TAG] [DISTANCE] [metric METRIC] [weight WEIGHT] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK (Null0|blackhole|reject) [tag TAG] [DISTANCE] [metric METRIC] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY [DISTANCE] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY [tag TAG] [DISTANCE] [metric METRIC] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] IFNAME [DISTANCE] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] IFNAME [tag TAG] [DISTANCE] [metric METRIC] [weight WEIGHT] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY IFNAME [DISTANCE] [weight WEIGHT] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY IFNAME [tag TAG] [DISTANCE] [metric METRIC] [weight WEIGHT] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] (Null0|blackhole|reject) [tag TAG] [DISTANCE] [metric METRIC] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
    NETWORK is destination prefix with a valid v4 or v6 network based upon
    initial form of the command.
@@ -61,6 +61,16 @@ a static prefix and gateway, with several possible forms.
    Alternatively, the gateway can be specified as ``Null0`` or ``blackhole`` to create a blackhole
    route that drops all traffic. It can also be specified as ``reject`` to create an unreachable
    route that rejects traffic with ICMP "Destination Unreachable" messages.
+
+   TAG is an optional 32-bit unsigned integer (1–4294967295) that marks the
+   route entry in the RIB. See :ref:`static-route-tag` for details and
+   limitations.
+
+   DISTANCE is an optional administrative distance (1–255; default 1). See
+   :ref:`static-route-distance-metric` for details.
+
+   METRIC is an optional route metric (0–4294967295; default 0). See
+   :ref:`static-route-distance-metric` for details.
 
    WEIGHT is an optional parameter that specifies the weight attributed to a
    nexthop when multiple nexthops are configured for the same static route. The
@@ -166,6 +176,135 @@ but this time, the route command will apply to the VRF.
    exit-vrf
 
 
+.. _static-route-distance-metric:
+
+Administrative Distance and Metric
+===================================
+
+Static routes are grouped internally by ``(table-id, distance, metric)``.
+Nexthops that share the same tuple belong to the same *path group* and are
+installed in the RIB together as an ECMP set.  Nexthops in different path
+groups for the same prefix are independent: all path groups are present in
+the RIB, but only the group with the lowest distance (and, for the same
+distance, the lowest metric) is selected at any time.
+
+**ECMP** — Multiple nexthops with the same ``(distance, metric)`` form an
+equal-cost multipath group and are active in the RIB together:
+
+.. code-block:: frr
+
+   ip route 10.0.0.0/8 10.0.0.2
+   ip route 10.0.0.0/8 10.0.0.3
+
+Both nexthops share ``(distance=1, metric=0)`` and are active in the RIB as ECMP.
+
+**Floating static routes** — Nexthops with different ``(distance, metric)`` tuples
+form separate path groups.  All groups are present in the RIB; the group with
+the best preference (lowest distance, then lowest metric) is selected.  A
+lower-preference group is promoted when the higher-preference group becomes
+unreachable.
+
+Floating by distance:
+
+.. code-block:: frr
+
+   ip route 10.0.0.0/8 10.0.0.2
+   ip route 10.0.0.0/8 10.0.0.3 200
+
+``10.0.0.2`` is the primary (distance 1); ``10.0.0.3`` is the fallback
+(distance 200), promoted only when ``10.0.0.2`` is gone.
+
+Floating by metric (same distance, different metric):
+
+.. code-block:: frr
+
+   ip route 10.0.0.0/8 10.0.0.2 metric 100
+   ip route 10.0.0.0/8 10.0.0.3 metric 200
+
+``10.0.0.2`` is the primary (metric 100); ``10.0.0.3`` is the fallback
+(metric 200), promoted only when ``10.0.0.2`` is gone.
+
+**Nexthop uniqueness and automatic move** — A given nexthop (identified by
+its forwarding information: type, gateway address, and interface) may appear
+in at most one path group under a prefix at a time.  If a nexthop is
+reconfigured with a new distance or metric, FRR automatically removes it from
+the old path group and installs it in the new one:
+
+.. code-block:: frr
+
+   ip route 10.0.0.0/8 10.0.0.2 10
+   ! Reconfigure with a new distance — old entry is removed automatically:
+   ip route 10.0.0.0/8 10.0.0.2 20
+
+After the second command there is exactly one path group for ``10.0.0.2`` at
+distance 20; no stale distance-10 entry remains.  The same applies when
+metric is changed.
+
+**Removing routes** — FRR identifies the nexthop to remove by its nexthop
+identity (gateway address, interface, or blackhole type) and ignores the
+distance and metric arguments.  Because a given nexthop can appear in at most
+one path group for a prefix, the search is always unambiguous:
+
+.. code-block:: frr
+
+   no ip route 10.0.0.0/8 10.0.0.2
+   no ip route 10.0.0.0/8 10.0.0.2 10
+   no ip route 10.0.0.0/8 10.0.0.2 10 metric 50
+
+All three commands above remove the same nexthop ``10.0.0.2``, regardless of
+which distance or metric it was configured with.
+
+
+.. _static-route-tag:
+
+Route Tag
+=========
+
+TAG is a 32-bit unsigned integer (1–4294967295) that marks a route entry in
+the RIB.  It can be matched by routing policy (route-maps, prefix-lists) to
+filter or modify routes based on their tag value.
+
+The tag is a per-path-group attribute: it is shared by all nexthops in a path
+group and carried into the RIB.  Unlike distance and metric, tag is **not**
+part of the path group identity — two nexthops with the same ``(distance,
+metric)`` always belong to the same path group regardless of their configured
+tags.
+
+**Per-path-group tag** — Assigning a distinct tag to each path group lets
+routing policy distinguish primary from backup routes:
+
+.. code-block:: frr
+
+   ip route 10.0.0.0/8 10.0.0.2 tag 100 10
+   ip route 10.0.0.0/8 10.0.0.3 tag 200 20
+
+``10.0.0.2`` (distance 10) carries tag 100 and ``10.0.0.3`` (distance 20)
+carries tag 200.  Both tags are visible in the RIB simultaneously.
+
+.. note::
+
+   **Same (distance, metric), different tag:** because tag is not part of the
+   path group key, two nexthops with the same ``(distance, metric)`` belong to
+   the same path group and share a single tag in the RIB. When nexthops in the
+   same path group are configured with different tags, the tag with the maximum
+   value takes effect in the RIB. ``show running-config`` stores the
+   operator-configured value for each nexthop individually (YANG per-nexthop
+   state), while the RIB carries the maximum value tag for the whole group. When
+   a nexthop is removed, the path tag is automatically recomputed as the maximum
+   of the remaining configured tags:
+
+   .. code-block:: frr
+
+      ip route 10.0.0.0/8 10.0.0.2 tag 100 10
+      ip route 10.0.0.0/8 10.0.0.3 tag 200 10
+
+   Both nexthops are grouped at distance 10.  The RIB tag is 200 (the
+   maximum).  ``show running-config`` shows 100 for ``10.0.0.2`` and 200
+   for ``10.0.0.3``.  Removing ``10.0.0.3`` lowers the RIB tag to 100
+   (``10.0.0.2``'s configured tag).  To assign independent tags visible
+   separately in the RIB, use different distances or metrics.
+
+
 SR-TE Route Commands
 ====================
 
@@ -239,6 +378,119 @@ When the behavior is not specified, STATIC defaults to using H.Encaps.
   [..]
   S>* 10.0.0.1/32 [1/0] is directly connected, sr0, seg6 fcbb:bbbb:1:2:3:fe00::, weight 1, 00:00:06
   S>* 10.0.0.2/32 [1/0] is directly connected, sr0, seg6 fcbb:bbbb:1:2:3:fe00::, encap behavior H.Encaps.Red, weight 1, 00:00:06
+
+Showing Static Route Status
+===========================
+
+.. clicmd:: show static routes [vrf NAME] [json]
+
+   Display information about all configured static routes, including the
+   internal state of each nexthop.  This is a diagnostic tool for understanding
+   **why a static route is or is not installed** in the RIB.
+
+   Unlike ``show ip route`` (which displays what zebra has in its RIB), this
+   command shows staticd's own view: what it has been configured with, what
+   it has sent to zebra, and the per-nexthop status that determines whether a
+   nexthop is actually inserted.
+
+   For every nexthop the output includes:
+
+   ``active / inactive``
+      Whether the nexthop would currently be included when the route is sent
+      to zebra.  A nexthop can be *inactive* while the overall route shows as
+      *installed* (zebra accepted the route because at least one **other**
+      nexthop was active).
+
+   ``nh-registered``
+      Whether staticd has registered this nexthop for tracking with zebra.
+
+   ``nh-valid``
+      Whether zebra's nexthop tracking has confirmed that a route to this
+      gateway exists.
+
+   ``ifindex``
+      For interface nexthops, the kernel interface index (0 means the
+      interface is not yet resolved).
+
+   ``inactive reason``
+      When a nexthop is inactive, a human-readable reason is shown, for
+      example:
+
+      - *nexthop vrf is not active/known*
+      - *nexthop is not reachable (no route to nexthop)*
+      - *interface does not exist in specified vrf*
+      - *interface is not active*
+      - *BFD session is down*
+      - *rejected by zebra (e.g. another route with lower distance exists)*
+
+   The optional ``json`` keyword produces machine-readable JSON output.
+
+   Example (plain text)::
+
+      node1# show static routes
+      VRF default:
+        IPv4 Unicast:
+          10.0.0.0/8
+            distance 1, tag 0
+              nexthop dev test1
+                active, ifindex: 9
+              nexthop via 172.16.0.2
+                inactive, nh-registered: yes, nh-valid: no
+                inactive reason: nexthop is not reachable (no route to nexthop)
+
+   Example (JSON)::
+
+      node1# show static routes json
+      {
+        "default": {
+          "routes": [
+            {
+              "prefix": "10.0.0.0\/8",
+              "vrf": "default",
+              "afi": "ipv4",
+              "safi": "unicast",
+              "paths": [
+                {
+                  "distance": 1,
+                  "tag": 0,
+                  "tableId": 0,
+                  "nexthops": [
+                    {
+                      "type": "interface",
+                      "active": true,
+                      "routeState": "installed",
+                      "nexthopVrf": "test1",
+                      "interface": "test1",
+                      "interfaceIndex": 9
+                    },
+                    {
+                      "type": "ipv4-gateway",
+                      "active": false,
+                      "routeState": "installed",
+                      "nexthopVrf": "default",
+                      "gateway": "172.16.0.2",
+                      "nhRegistered": true,
+                      "nhValid": false,
+                      "reasonInactive": "nexthop is not reachable (no route to nexthop)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+
+   .. note::
+
+      The ``routeState`` field reflects the route-level state reported by
+      zebra (installed / not-installed).  Because zebra reports a single
+      state for the whole route, it is possible for an individual nexthop to
+      show ``routeState: installed`` while being ``active: false``.  This
+      means zebra accepted the route using other active nexthop(s), but
+      this particular nexthop was **not** included.  The ``active`` field
+      and ``reasonInactive`` / ``inactive reason`` provide the per-nexthop
+      truth.
 
 SRv6 Static SIDs Commands
 =========================

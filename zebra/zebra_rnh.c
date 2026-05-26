@@ -817,7 +817,14 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	}
 	zebra_rnh_store_in_routing_table(rnh);
 
-	if (state_changed || force) {
+	if (state_changed || force ||
+	    (re && CHECK_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL))) {
+		if (re && CHECK_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL)) {
+			struct rnh rnh_empty = *rnh;
+
+			rnh_empty.state = NULL;
+			zebra_rnh_notify_protocol_clients(zvrf, afi, nrn, &rnh_empty, prn, NULL);
+		}
 		/* NOTE: Use the "copy" of resolving route stored in 'rnh' i.e.,
 		 * rnh->state.
 		 */
@@ -1254,10 +1261,8 @@ failure:
  * Render a nexthop into a json object; the caller allocates and owns
  * the json object memory.
  */
-void show_nexthop_json_helper(json_object *json_nexthop,
-			      const struct nexthop *nexthop,
-			      const struct route_node *rn,
-			      const struct route_entry *re)
+void show_nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nexthop,
+			      const struct route_node *rn, const struct route_entry *re, bool brief)
 {
 	bool display_vrfid = false;
 	uint8_t rn_family;
@@ -1270,7 +1275,7 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 	else
 		rn_family = AF_UNSPEC;
 
-	nexthop_json_helper(json_nexthop, nexthop, display_vrfid, rn_family);
+	nexthop_json_helper(json_nexthop, nexthop, display_vrfid, rn_family, brief);
 }
 
 /*
@@ -1381,7 +1386,8 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 				if (json) {
 					json_nexthop = json_object_new_object();
 					json_object_array_add(json_nexthop_array, json_nexthop);
-					show_nexthop_json_helper(json_nexthop, nexthop, rn, NULL);
+					show_nexthop_json_helper(json_nexthop, nexthop, rn, NULL,
+								 false);
 				} else {
 					show_route_nexthop_helper(vty, rn, NULL, nexthop);
 					vty_out(vty, "\n");

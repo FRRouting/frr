@@ -23,6 +23,7 @@ struct peer;
  * It is impossible to pass more than 10 labels by BGP-LU
  */
 #define BGP_MAX_LABELS 10
+#define BGP_MAX_LABEL_DIGITS (9 * BGP_MAX_LABELS)
 
 /* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
 struct bgp_labels {

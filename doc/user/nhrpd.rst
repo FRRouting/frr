@@ -253,7 +253,7 @@ Configuration Example
 
    image
 
-IPSec configurration example
+IPSec configuration example
 ----------------------------
 
 This changes required on all nodes as HUB and Spokes.

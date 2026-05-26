@@ -19,6 +19,7 @@
 #include "bgp_trace.h"
 #include "bgp_mpath.h"
 #include "bgp_ls.h"
+#include "bgp_srv6.h"
 
 void bgp_table_lock(struct bgp_table *rt)
 {
@@ -106,6 +107,17 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 			bgp_ls_nlri_free(dest->ls_nlri);
 		}
 
+		/*
+		 * Release any SRv6 unicast prefix-sid descriptor still
+		 * attached to this dest before the dest itself is freed.
+		 * Normally bgp_cleanup_table() reaps these at instance
+		 * teardown, but a dest can also be freed mid-run when its
+		 * last path is reaped (e.g. peer flap, route withdrawal),
+		 * which bypasses the cleanup walk and leaks the descriptor.
+		 */
+		if (dest->srv6_unicast)
+			bgp_srv6_unicast_unregister_route(dest);
+
 		XFREE(MTYPE_BGP_NODE, dest);
 		dest = NULL;
 		route_node_set_info(rn, NULL);
@@ -135,6 +147,18 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 		/* Free mpath if exists */
 		if (dest->mpath)
 			bgp_path_info_mpath_free(&dest->mpath);
+
+		/*
+		 * As in bgp_dest_unlock_node_debug(), make sure any
+		 * lingering SRv6 unicast descriptor is released before
+		 * the dest itself goes away.  This path is hit when a
+		 * route_table is force-finished (e.g. via
+		 * bgp_table_finish() during instance teardown) while
+		 * one or more dests still carry their dest->srv6_unicast
+		 * pointer.
+		 */
+		if (dest->srv6_unicast)
+			bgp_srv6_unicast_unregister_route(dest);
 
 		XFREE(MTYPE_BGP_NODE, dest);
 		route_node_set_info(node, NULL);

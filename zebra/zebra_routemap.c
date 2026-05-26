@@ -1196,10 +1196,32 @@ void zebra_route_map_set_delay_timer(uint32_t value)
 
 void zebra_routemap_finish(void)
 {
+	afi_t afi;
+	safi_t safi;
+	uint32_t table;
+
 	/* Set zebra_rmap_update_timer to 0 so that it wont schedule again */
 	zebra_rmap_update_timer = 0;
 	/* Thread off if any scheduled already */
 	event_cancel(&zebra_t_rmap_update);
+
+	/*
+	 * Release any per-import-table route-map name strings that were
+	 * never explicitly removed via "no ip import-table ...".  The import
+	 * table machinery only frees the string when the import is torn down
+	 * at runtime, so on a clean SIGTERM shutdown the configured names
+	 * leak.
+	 */
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+			for (table = 0; table < ZEBRA_KERNEL_TABLE_MAX; table++) {
+				if (zebra_import_table_routemap[afi][safi][table])
+					XFREE(MTYPE_ROUTE_MAP_NAME,
+					      zebra_import_table_routemap[afi][safi][table]);
+			}
+		}
+	}
+
 	route_map_finish();
 }
 

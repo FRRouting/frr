@@ -444,7 +444,7 @@ keyword at the end.
 .. clicmd:: ip pim [sm | dm | sm-dm]
 
    Enable PIM on this interface. PIM will use this interface to form PIM
-   neighborships and start exchaning PIM protocol messages with those
+   neighborships and start exchanging PIM protocol messages with those
    neighbors.
    The available modes of operation are:
 
@@ -512,7 +512,7 @@ keyword at the end.
    Join multicast group or source-group on an interface. This will result in
    an IGMP join happening through a local socket so that IGMP reports will be
    sent on this interface. It may also have the side effect of the kernel
-   forwarding multicast traffic to the socket unnessarily.
+   forwarding multicast traffic to the socket unnecessarily.
 
 .. clicmd:: ip igmp static-group A.B.C.D [A.B.C.D]
 
@@ -521,9 +521,92 @@ keyword at the end.
 
 .. clicmd:: ip igmp proxy
 
-   Tell PIM to send proxy IGMP reports for joins occuring on all other
+   Tell PIM to send proxy IGMP reports for joins occurring on all other
    interfaces on this interface. Join-groups on other interfaces will
    also be proxied. The default version is v3.
+
+.. clicmd:: ip igmp proxy route-map ROUTE-MAP
+
+   Apply a route-map to filter which multicast (S,G) entries are forwarded
+   via IGMP proxy on this interface. Only groups permitted by the route-map
+   will be proxied; all others are silently dropped.
+
+   This is evaluated at proxy join time: on initial proxy setup
+   (``ip igmp proxy``) and each time a new IGMP report arrives on another
+   interface. Changing the route-map takes effect on the next proxy
+   enable/disable cycle.
+
+   The following ``match`` statements are supported:
+
+   * ``match ip multicast-group A.B.C.D``
+   * ``match ip multicast-group prefix-list PREFIX-LIST``
+   * ``match ip multicast-source A.B.C.D``
+   * ``match ip multicast-source prefix-list PREFIX-LIST``
+   * ``match multicast-interface INTERFACE-NAME``
+   * ``match multicast-source-interface INTERFACE-NAME``
+
+   ``match multicast-source-interface`` matches against the inbound
+   interface for the filter decision. In a proxy filter that is the
+   interface where the IGMP/MLD report was **received** (the
+   upstream/listener-facing interface), which is distinct from the proxy
+   output interface. In a regular ``ip/ipv6 igmp/mld route-map`` (or a
+   PIM ``join-filter``) it is the interface processing the report or
+   join, in which case it behaves the same as ``match multicast-interface``.
+
+   This allows filtering proxy joins per source interface::
+
+      route-map PROXY_FILTER permit 10
+       match multicast-source-interface eth0
+
+      interface eth1
+       ip igmp proxy
+       ip igmp proxy route-map PROXY_FILTER
+
+   With this configuration, only groups reported on ``eth0`` are proxied
+   out ``eth1``.
+
+   **Indirect IGMPv2 vs IGMPv3 filtering**
+
+   There is no explicit ``match igmp-version`` condition, but IGMP version
+   can be distinguished indirectly through the source address:
+
+   * IGMPv2 joins and IGMPv3 ASM ``(*,G)`` reports both produce entries
+     with source ``0.0.0.0`` (wildcard).
+   * IGMPv3 SSM ``(S,G)`` reports carry a specific non-zero source address.
+
+   To proxy **only** IGMPv3 SSM joins (deny any-source entries)::
+
+      ip prefix-list ANY_SOURCE seq 5 permit 0.0.0.0/32
+
+      route-map PROXY_SSM_ONLY deny 10
+       match ip multicast-source prefix-list ANY_SOURCE
+      route-map PROXY_SSM_ONLY permit 20
+
+      interface eth1
+       ip igmp proxy
+       ip igmp proxy route-map PROXY_SSM_ONLY
+
+   To proxy **only** ASM / IGMPv2-style ``(*,G)`` entries (deny SSM)::
+
+      ip prefix-list ANY_SOURCE seq 5 permit 0.0.0.0/32
+
+      route-map PROXY_ASM_ONLY permit 10
+       match ip multicast-source prefix-list ANY_SOURCE
+
+      interface eth1
+       ip igmp proxy
+       ip igmp proxy route-map PROXY_ASM_ONLY
+
+   Example — proxy only groups in 239.0.0.0/8::
+
+      ip prefix-list PROXY_GROUPS seq 5 permit 239.0.0.0/8 le 32
+
+      route-map PROXY_FILTER permit 10
+       match ip multicast-group prefix-list PROXY_GROUPS
+
+      interface eth1
+       ip igmp proxy
+       ip igmp proxy route-map PROXY_FILTER
 
 .. clicmd:: ip igmp immediate-leave
 

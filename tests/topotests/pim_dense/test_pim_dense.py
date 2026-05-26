@@ -700,6 +700,19 @@ def verify_mroute_pimreg_absent(tgen, router, group, group_type):
     return None
 
 
+def mroute_entry(tgen, router, src, group):
+    """Return the JSON mroute object for a specific (S,G) entry."""
+    output = tgen.gears[router].vtysh_cmd(
+        "show ip mroute {} json".format(group), isjson=True
+    )
+    return output.get(group, {}).get(src, {})
+
+
+def mroute_oil_names(mroute):
+    """Return sorted OIF names for an mroute JSON object, excluding pimreg."""
+    return sorted([oif for oif in mroute.get("oil", {}).keys() if oif != "pimreg"])
+
+
 def test_pim_verify_pimreg_not_in_ssm_dense(request):
     """
     Verify that pimreg interface is NOT added to Dense mode groups.
@@ -801,6 +814,138 @@ def test_pim_verify_pimreg_not_in_ssm_dense(request):
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Dense mode test failed: {}".format(result)
+
+
+def test_pim_dense_to_sparse_on_rp_add(request):
+    "Verify existing dense (S,G) transitions when RP is added"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    routers = ["r1", "r2", "r3", "r4", "r5", "r6"]
+
+    step("Reset dynamic RP mapping for dense test group")
+    for rname in routers:
+        tgen.gears[rname].vtysh_cmd(
+            """
+            conf t
+              router pim
+                no rp 10.0.2.1 239.0.0.0/8
+            """
+        )
+
+    step("Ensure only source traffic is active for transition check")
+    app_helper.stop_host("h4")
+    app_helper.stop_host("h5")
+    app_helper.stop_host("h6")
+    app_helper.stop_host("h1")
+    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Add downstream receiver before RP add")
+    result = app_helper.run_join("h4", DENSE_GROUP, join_intf="h4-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify dense (S,G) exists before RP add")
+
+    def _r1_dense_before_rp():
+        output = tgen.gears["r1"].vtysh_cmd("show ip pim upstream json", isjson=True)
+        group = output.get(DENSE_GROUP, {})
+        if "10.100.0.2" not in group:
+            return "No upstream for 10.100.0.2,{}".format(DENSE_GROUP)
+
+        result = verify_mroutes(
+            tgen, "r1", "10.100.0.2", DENSE_GROUP, "r1-eth1", "r1-eth0"
+        )
+        if result is not True:
+            return result
+        return None
+
+    _, result = topotest.run_and_expect(_r1_dense_before_rp, None, count=30, wait=1)
+    assert result is None, "Dense upstream not present before RP add: {}".format(result)
+
+    step("Add RP mapping for dense group range")
+    for rname in routers:
+        tgen.gears[rname].vtysh_cmd(
+            """
+            conf t
+              router pim
+                rp 10.0.2.1 239.0.0.0/8
+            """
+        )
+
+    step("Verify existing upstream transitions to sparse mode state")
+
+    def _r1_upstream_sparse():
+        output = tgen.gears["r1"].vtysh_cmd(
+            "show ip pim upstream 10.100.0.2 {} json".format(DENSE_GROUP), isjson=True
+        )
+        upstream = output.get(DENSE_GROUP, {}).get("10.100.0.2", {})
+        if not upstream:
+            return "No upstream for 10.100.0.2,{}".format(DENSE_GROUP)
+        if not upstream.get("firstHopRouter"):
+            return "Expected FHR upstream on r1 after RP add"
+        if upstream.get("rpfAddress") != "10.0.2.1":
+            return "Expected sparse RP RPF on r1 after RP add, got {}".format(
+                upstream.get("rpfAddress")
+            )
+
+        mroute = mroute_entry(tgen, "r1", "10.100.0.2", DENSE_GROUP)
+        if not mroute:
+            return "No mroute for (10.100.0.2,{}) on r1 after RP add".format(
+                DENSE_GROUP
+            )
+        if mroute.get("iif") != "r1-eth1":
+            return "Unexpected IIF on r1 after RP add: {}".format(mroute.get("iif"))
+
+        if "flags" in mroute:
+            flags = mroute["flags"]
+            if "D" in flags:
+                return "Dense (D) mroute flag still set on r1, got {!r}".format(flags)
+            if "S" not in flags:
+                return "Expected sparse (S) mroute flag on r1, got {!r}".format(flags)
+        else:
+            oil = mroute_oil_names(mroute)
+            if oil == ["r1-eth0"]:
+                return "Still using dense-style OIL on r1 after RP add: {}".format(oil)
+            if "r1-eth0" in oil:
+                return (
+                    "Unexpected dense flood OIF r1-eth0 on r1 after RP add: {}".format(
+                        oil
+                    )
+                )
+
+        return None
+
+    _, result = topotest.run_and_expect(_r1_upstream_sparse, None, count=60, wait=1)
+    assert result is None, "DM to SM transition check failed: {}".format(result)
+
+    step("Verify r1 no longer uses dense-mode OIL toward r2")
+
+    def _r1_not_dense_oil():
+        mroute = mroute_entry(tgen, "r1", "10.100.0.2", DENSE_GROUP)
+        if not mroute:
+            return "No mroute on r1 after RP add"
+        oil = mroute_oil_names(mroute)
+        if oil == ["r1-eth0"]:
+            return "Dense-style OIL still present on r1: {}".format(oil)
+        return None
+
+    _, result = topotest.run_and_expect(_r1_not_dense_oil, None, count=30, wait=1)
+    assert result is None, "Dense OIL check failed on r1: {}".format(result)
+
+    step("Remove transient RP mapping added for this test")
+    for rname in routers:
+        tgen.gears[rname].vtysh_cmd(
+            """
+            conf t
+              router pim
+                no rp 10.0.2.1 239.0.0.0/8
+            """
+        )
 
 
 def test_memory_leak():

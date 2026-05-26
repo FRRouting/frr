@@ -27,6 +27,7 @@
 #include "distribute.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "nexthop.h"
 #include "nexthop_group.h"
 #include "link_state.h"
 
@@ -74,6 +75,18 @@ static void sharp_srv6_locators_list_delete(void *item)
 
 static void sharp_global_destroy(void)
 {
+	/*
+	 * Route templates can keep SRv6 encap/seg6local payloads attached to
+	 * sg.r.nhop across command invocations. Ensure they are released at exit.
+	 */
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
+	nexthop_del_srv6_seg6local(&sg.r.backup_nhop);
+	nexthop_del_srv6_seg6(&sg.r.backup_nhop);
+
+	/* Free imported Traffic Engineering LSDB (nodes/edges/subnets + attrs). */
+	ls_ted_del_all(&sg.ted);
+
 	list_delete(&sg.nhs);
 
 	sg.srv6_locators->del = sharp_srv6_locators_list_delete;
@@ -94,6 +107,7 @@ static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
+	sharp_nhgroup_terminate();
 	vrf_terminate();
 	sharp_zebra_terminate();
 

@@ -258,9 +258,9 @@ def check_r8_routes(
             )
 
         # Check that we have the expected number of paths
-        if len(paths) < expected_total_paths:
+        if len(paths) != expected_total_paths:
             logger.info(
-                "{}: Expected at least {} paths, got {} (waiting)".format(
+                "{}: Expected {} paths, got {} (waiting)".format(
                     router.name, expected_total_paths, len(paths)
                 )
             )
@@ -334,6 +334,92 @@ def test_bgp_cluster_list_filtering():
     )
     success, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
     assert success, "r3 did not correctly filter paths based on cluster list length"
+
+
+def test_bgp_client_to_client():
+    """Test that routers with the no client-to-client configuration dont reflect routes
+    learned from clients to other clients.
+    For that mater few configuration changes are made:
+    - no client-to-client is configured on both r3 and r6.
+    - r1 will no longer be client of r3
+    - r8 will no longer be client of r6"""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "testing the route reflection on r3 and r6 through looking at route received on r4"
+    )
+
+    r3 = tgen.gears["r3"]
+    r4 = tgen.gears["r4"]
+    r6 = tgen.gears["r6"]
+
+    r3.vtysh_cmd(
+        """ configure
+            router bgp 100
+            no bgp client-to-client reflection
+            address-family ipv4 unicast
+            no neighbor 10.1.3.1 route-reflector-client"""
+    )
+    r6.vtysh_cmd(
+        """ configure
+            router bgp 100
+            no bgp client-to-client reflection
+            address-family ipv4 unicast
+            no neighbor 10.6.8.2 route-reflector-client"""
+    )
+
+    # Test r4: should have 3 total paths : 2 with cluster length 1 in multipath and
+    # one with cluster length 3.
+    # The one going through r2-r3-r5 should not be received anymore since r3 doesn't
+    # reflect routes between it's clients
+
+    logger.info("Checking r4 routes to 10.0.0.8/32")
+    test_func = functools.partial(
+        check_r8_routes,
+        r4,
+        expected_total_paths=3,
+        expected_multipath_count=2,
+        expected_cluster_length=1,
+    )
+    success, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
+    assert (
+        success
+    ), "The no client-to-client option doesn't reflects the intended paths in r3 or r6"
+
+    # resets router configuration
+    r3.vtysh_cmd(
+        """ configure
+            router bgp 100
+            bgp client-to-client reflection 
+            address-family ipv4 unicast
+            neighbor 10.1.3.1 route-reflector-client"""
+    )
+
+    r6.vtysh_cmd(
+        """ configure
+            router bgp 100
+            bgp client-to-client reflection 
+            address-family ipv4 unicast
+            neighbor 10.6.8.2 route-reflector-client"""
+    )
+
+    # Test r4: verify that the topology converged back to it's original state
+    # Test r4: should have 4 total paths but only 2 with cluster length 1 in multipath
+    logger.info("Checking r4 routes to 10.0.0.8/32")
+    test_func = functools.partial(
+        check_r8_routes,
+        r4,
+        expected_total_paths=4,
+        expected_multipath_count=2,
+        expected_cluster_length=1,
+    )
+    success, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
+    assert (
+        success
+    ), "the topology didn't converge to it's original state after being reset"
 
 
 if __name__ == "__main__":

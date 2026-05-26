@@ -16,6 +16,7 @@ DEFINE_MTYPE(LIB, KEYCHAIN_DESC, "Key chain description");
 
 DEFINE_QOBJ_TYPE(keychain);
 DEFINE_QOBJ_TYPE(key);
+DEFINE_HOOK(keychain_removed, (const char *keychain_name), (keychain_name));
 
 /* Master list of key chain. */
 struct list *keychain_list;
@@ -103,10 +104,11 @@ struct keychain *keychain_get(const char *name)
 
 void keychain_delete(struct keychain *keychain)
 {
-	XFREE(MTYPE_KEYCHAIN, keychain->name);
-
-	list_delete(&keychain->key);
 	listnode_delete(keychain_list, keychain);
+	/* from now, keychain_lookup() will fail */
+	hook_call(keychain_removed, keychain->name);
+	list_delete(&keychain->key);
+	XFREE(MTYPE_KEYCHAIN, keychain->name);
 	keychain_free(keychain);
 }
 
@@ -122,8 +124,7 @@ struct key *key_lookup(const struct keychain *keychain, uint32_t index)
 	return NULL;
 }
 
-struct key *key_lookup_for_accept(const struct keychain *keychain,
-				  uint32_t index)
+struct key *key_lookup_for_accept(const struct keychain *keychain, uint32_t index, bool exact)
 {
 	struct listnode *node;
 	struct key *key;
@@ -132,7 +133,7 @@ struct key *key_lookup_for_accept(const struct keychain *keychain,
 	now = time(NULL);
 
 	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
-		if (key->index >= index) {
+		if ((exact && (key->index == index)) || (!exact && (key->index >= index))) {
 			if (key->accept.start == 0)
 				return key;
 
@@ -183,6 +184,33 @@ struct key *key_lookup_for_send(const struct keychain *keychain)
 	return NULL;
 }
 
+/**
+ * Find an active key for sending at a specific time.
+ *
+ * @param keychain The keychain to search within.
+ * @param now_ts The current time as a timespec.
+ * @return The active key, or NULL if no active key is found.
+ */
+struct key *keychain_key_find(const struct keychain *keychain, const struct timespec *now_ts)
+{
+	struct listnode *node;
+	struct key *key;
+	time_t now_sec;
+
+	if (!keychain || !now_ts)
+		return NULL;
+
+	now_sec = now_ts->tv_sec; /* Use seconds part for comparison with time_t lifetimes */
+
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		if (key->send.start == 0 || /* Always valid if start is 0 */
+		    (key->send.start <= now_sec &&
+		     (key->send.end >= now_sec || key->send.end == (time_t)-1))) /* -1 for infinite */
+			return key;
+	}
+	return NULL;
+}
+
 struct key *key_get(const struct keychain *keychain, uint32_t index)
 {
 	struct key *key;
@@ -208,8 +236,11 @@ void key_delete(struct keychain *keychain, struct key *key)
 	key_free(key);
 }
 
+/* clang-format off */
+
 const struct keychain_algo_info algo_info[] = {
 	{KEYCHAIN_ALGO_NULL, "null", 0, 0, "NULL"},
+	{KEYCHAIN_ALGO_CLEARTEXT, "cleartext", 0, 0, "CLEARTEXT"},
 	{KEYCHAIN_ALGO_MD5, "md5", KEYCHAIN_MD5_HASH_SIZE,
 	 KEYCHAIN_ALGO_MD5_INTERNAL_BLK_SIZE, "MD5"},
 	{KEYCHAIN_ALGO_HMAC_SHA1, "hmac-sha-1", KEYCHAIN_HMAC_SHA1_HASH_SIZE,
@@ -226,6 +257,8 @@ const struct keychain_algo_info algo_info[] = {
 	{KEYCHAIN_ALGO_MAX, "max", KEYCHAIN_MAX_HASH_SIZE,
 	 KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE, "Not defined"}
 };
+
+/* clang-format on */
 
 uint16_t keychain_get_block_size(enum keychain_hash_algo key)
 {
@@ -253,13 +286,17 @@ enum keychain_hash_algo keychain_get_algo_id_by_name(const char *name)
 #ifdef CRYPTO_INTERNAL
 	if (!strncmp(name, "hmac-sha-2", 10))
 		return KEYCHAIN_ALGO_HMAC_SHA256;
-	else if (!strncmp(name, "m", 1))
+	else if (!strncmp(name, "md5", 3))
 		return KEYCHAIN_ALGO_MD5;
+	else if (!strncmp(name, "cleartext", 9))
+		return KEYCHAIN_ALGO_CLEARTEXT;
 	else
 		return KEYCHAIN_ALGO_NULL;
 #else
-	if (!strncmp(name, "m", 1))
+	if (!strncmp(name, "md5", 1))
 		return KEYCHAIN_ALGO_MD5;
+	else if (!strncmp(name, "cleartext", 9))
+		return KEYCHAIN_ALGO_CLEARTEXT;
 	else if (!strncmp(name, "hmac-sha-1", 10))
 		return KEYCHAIN_ALGO_HMAC_SHA1;
 	else if (!strncmp(name, "hmac-sha-2", 10))

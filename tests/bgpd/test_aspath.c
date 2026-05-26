@@ -1363,7 +1363,7 @@ static int handle_attr_test(struct aspath_tests *t)
 		datalen += sizeof(dummyaspath) + t->old_segment->len;
 	}
 
-	ret = bgp_attr_parse(&peer, &attr, t->len + datalen, NULL, NULL);
+	ret = bgp_attr_parse(peer.connection, &attr, t->len + datalen, NULL, NULL);
 
 	if (ret != t->result) {
 		printf("bgp_attr_parse returned %d, expected %d\n", ret,

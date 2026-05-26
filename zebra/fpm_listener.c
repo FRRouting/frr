@@ -1120,6 +1120,12 @@ static void fpm_serve(void)
 	}
 }
 
+FRR_NORETURN
+static void sigterm_handler(int signum)
+{
+	exit(0);
+}
+
 /* Signal handler for SIGUSR1 */
 static void sigusr1_handler(int signum)
 {
@@ -1211,6 +1217,22 @@ int main(int argc, char **argv)
 	sa.sa_flags = SA_RESTART;
 	if (sigaction(SIGUSR1, &sa, NULL) < 0) {
 		fprintf(stderr, "Failed to set up SIGUSR1 handler: %s\n", strerror(errno));
+		exit(1);
+	}
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = sigterm_handler;
+	sigemptyset(&sa.sa_mask);
+	if (sigaction(SIGTERM, &sa, NULL) < 0) {
+		fprintf(stderr, "Failed to set up SIGTERM handler: %s\n", strerror(errno));
+		exit(1);
+	}
+	if (sigaction(SIGINT, &sa, NULL) < 0) {
+		fprintf(stderr, "Failed to set up SIGINT handler: %s\n", strerror(errno));
+		exit(1);
+	}
+	if (sigaction(SIGHUP, &sa, NULL) < 0) {
+		fprintf(stderr, "Failed to set up SIGHUP handler: %s\n", strerror(errno));
 		exit(1);
 	}
 

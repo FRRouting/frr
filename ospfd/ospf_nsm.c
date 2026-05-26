@@ -36,6 +36,7 @@
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
+#include "ospfd/ospf_quicknbr.h"
 
 DEFINE_HOOK(ospf_nsm_change,
 	    (struct ospf_neighbor * on, int state, int oldstate),
@@ -69,6 +70,17 @@ static void ospf_inactivity_timer(struct event *event)
 		OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 				  nbr->v_inactivity);
 	}
+}
+/* RFC4222 */
+void ospf_nsm_restart_inactivity_timer(struct ospf_neighbor *nbr)
+{
+	if (!nbr)
+		return;
+
+	/* Start or Restart Inactivity Timer. */
+	event_cancel(&nbr->t_inactivity);
+
+	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer, nbr->v_inactivity);
 }
 
 static void ospf_db_desc_timer(struct event *event)
@@ -337,6 +349,12 @@ static int nsm_adj_ok(struct ospf_neighbor *nbr)
 		ospf_proactively_arp(nbr);
 	} else if (nbr->state >= NSM_ExStart && adj == 0)
 		next_state = NSM_TwoWay;
+	else if (nbr->state == NSM_TwoWay && IS_QUICKNBR(nbr) && adj == 1)
+		/*
+		 * Quick neighbor placeholder; only form adjacency when appropriate
+		 * per RFC2328 10.4.
+		 */
+		next_state = NSM_ExStart;
 
 	return next_state;
 }

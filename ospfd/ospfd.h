@@ -127,11 +127,12 @@ struct ospf_area_fr_info {
 
 /* ospf->config */
 enum {
-	OSPF_RFC1583_COMPATIBLE =	(1 << 0),
-	OSPF_OPAQUE_CAPABLE =		(1 << 2),
-	OSPF_LOG_ADJACENCY_CHANGES =	(1 << 3),
-	OSPF_LOG_ADJACENCY_DETAIL =	(1 << 4),
-	OSPF_SEND_EXTRA_DATA_TO_ZEBRA =	(1 << 5),
+	OSPF_RFC1583_COMPATIBLE = (1 << 0),
+	OSPF_OPAQUE_CAPABLE = (1 << 2),
+	OSPF_LOG_ADJACENCY_CHANGES = (1 << 3),
+	OSPF_LOG_ADJACENCY_DETAIL = (1 << 4),
+	OSPF_SEND_EXTRA_DATA_TO_ZEBRA = (1 << 5),
+	OSPF_SHUTDOWN = (1 << 6),
 };
 
 /* TI-LFA */
@@ -817,5 +818,7 @@ extern int p_spaces_compare_func(const struct p_space *a,
 				 const struct p_space *b);
 extern int q_spaces_compare_func(const struct q_space *a,
 				 const struct q_space *b);
+
+extern void ospf_shutdown(struct ospf *ospf, bool shutdown);
 
 #endif /* _ZEBRA_OSPFD_H */

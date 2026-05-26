@@ -52,6 +52,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
+#include "zebra/zebra_tc.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
 
@@ -91,6 +92,7 @@ enum meta_queue_indexes {
 	META_QUEUE_BGP,
 	META_QUEUE_OTHER,
 	META_QUEUE_GR_RUN,
+	META_QUEUE_FINISHED_STARTUP,
 };
 
 /* Each route type's string and default distance value. */
@@ -271,6 +273,8 @@ static const char *subqueue2str(enum meta_queue_indexes index)
 		return "Other Routes";
 	case META_QUEUE_GR_RUN:
 		return "Graceful Restart";
+	case META_QUEUE_FINISHED_STARTUP:
+		return "Finished Startup";
 	}
 
 	return "Unknown";
@@ -1493,6 +1497,24 @@ static void rib_process(struct route_node *rn)
 
 		if (old_selected) {
 			/*
+			 * We need to check to see if the old_selected was
+			 * something that was removed from the kernel.  At
+			 * this point in time we do not have any code that
+			 * let's us track nhgs to re's so when we have an
+			 * interface down event, we cannot just mark the
+			 * route entries as no longer installed.  We can
+			 * make do for the moment with Kernel/Connected/Local
+			 * routes because we know if we have a removal/addition
+			 * of one of those route types, we had a very very
+			 * quick interface flap and zebra was unable to
+			 * finish up processing the down event before
+			 * new up events have come in.
+			 */
+			if (new_selected && CHECK_FLAG(old_selected->status, ROUTE_ENTRY_REMOVED) &&
+			    RSYSTEM_ROUTE(old_selected->type))
+				SET_FLAG(new_selected->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
+
+			/*
 			 * If we're removing the old entry, we should tell
 			 * redist subscribers about that *if* they aren't
 			 * going to see a redist for the new entry.
@@ -1589,7 +1611,8 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 			 * kernel routes.
 			 */
 			if (re->type == ZEBRA_ROUTE_STATIC && !async &&
-			    re->distance != dplane_ctx_get_old_distance(ctx)) {
+			    (re->distance != dplane_ctx_get_old_distance(ctx) ||
+			     re->metric != dplane_ctx_get_old_metric(ctx))) {
 				result = false;
 			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
 				   re->metric != dplane_ctx_get_old_metric(ctx)) {
@@ -1615,7 +1638,8 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 			 * kernel routes.
 			 */
 			if (re->type == ZEBRA_ROUTE_STATIC && !async &&
-			    re->distance != dplane_ctx_get_distance(ctx)) {
+			    (re->distance != dplane_ctx_get_distance(ctx) ||
+			     re->metric != dplane_ctx_get_metric(ctx))) {
 				result = false;
 			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
 				   re->metric != dplane_ctx_get_metric(ctx)) {
@@ -1668,13 +1692,12 @@ static bool rib_compare_routes(const struct route_entry *re1, const struct route
 	if (re1->instance != re2->instance)
 		return false;
 
-	if (re1->type == ZEBRA_ROUTE_KERNEL) {
-		if (re1->metric != re2->metric)
-			return false;
+	if ((re1->type == ZEBRA_ROUTE_KERNEL || re1->type == ZEBRA_ROUTE_STATIC) &&
+	    re1->metric != re2->metric)
+		return false;
 
-		if (!replace)
-			return false;
-	}
+	if (re1->type == ZEBRA_ROUTE_KERNEL && !replace)
+		return false;
 
 	if (CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
 	    re1->distance != re2->distance)
@@ -1710,14 +1733,13 @@ static bool rib_update_nhg_from_ctx(struct nexthop_group *re_nhg,
 	bool matched_p = true;
 	struct nexthop *nexthop, *ctx_nexthop;
 
-	/* Get the first `installed` one to check against.
-	 * If the dataplane doesn't set these to be what was actually installed,
-	 * it will just be whatever was in re->nhe->nhg?
+	/* First ctx nh must match the RIB walk: active, non-recursive,
+	 * non-duplicate (nexthop_next_active_resolved skips duplicate nh).
 	 */
 	ctx_nexthop = ctx_nhg->nexthop;
-
-	if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
-	    || !CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+	if (ctx_nexthop && (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_RECURSIVE) ||
+			    !CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_ACTIVE) ||
+			    CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_DUPLICATE)))
 		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
 
 	for (ALL_NEXTHOPS_PTR(re_nhg, nexthop)) {
@@ -2214,6 +2236,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	}
 
 	zebra_rib_evaluate_rn_nexthops(rn, seq, rt_delete);
+	if (re)
+		UNSET_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
+
 	zebra_rib_evaluate_mpls(rn);
 done:
 
@@ -2661,7 +2686,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			early_route_memory_free(ere);
 			return;
 		}
-		for (ALL_NEXTHOPS(nhe->nhg, tmp_nh)) {
+		for (ALL_NEXTHOPS(ere->re_nhe->nhg, tmp_nh)) {
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
 				struct ipaddr vtep_ip = {};
 
@@ -2933,7 +2958,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		    ere->re->distance != re->distance)
 			continue;
 
-		if (re->type == ZEBRA_ROUTE_KERNEL &&
+		if ((re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_STATIC) &&
 		    re->metric != ere->re->metric)
 			continue;
 		if ((re->type == ZEBRA_ROUTE_CONNECT ||
@@ -3126,6 +3151,14 @@ static void process_subq_gr_run(struct listnode *lnode)
 	XFREE(MTYPE_WQ_WRAPPER, gr_run);
 }
 
+static void process_subq_finished_startup(struct listnode *lnode)
+{
+	void *data = listgetdata(lnode);
+
+	XFREE(MTYPE_WQ_WRAPPER, data);
+	zebra_main_router_started();
+}
+
 /*
  * Examine the specified subqueue; process one entry and return 1 if
  * there is a node, return 0 otherwise.
@@ -3161,6 +3194,9 @@ static unsigned int process_subq(struct list *subq,
 		break;
 	case META_QUEUE_GR_RUN:
 		process_subq_gr_run(lnode);
+		break;
+	case META_QUEUE_FINISHED_STARTUP:
+		process_subq_finished_startup(lnode);
 		break;
 	}
 	frrtrace(1, frr_zebra, rib_process_subq_dequeue, qindex);
@@ -3887,6 +3923,21 @@ static void rib_meta_queue_gr_run_free(struct meta_queue *mq, struct list *l,
 	}
 }
 
+static void rib_meta_queue_finished_startup_free(struct meta_queue *mq, struct list *l,
+						 struct zebra_vrf *zvrf)
+{
+	struct listnode *node, *nnode;
+	void *data;
+
+
+	for (ALL_LIST_ELEMENTS(l, node, nnode, data)) {
+		XFREE(MTYPE_WQ_WRAPPER, data);
+		node->data = NULL;
+		list_delete_node(l, node);
+		mq->size--;
+	}
+}
+
 void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 {
 	enum meta_queue_indexes i;
@@ -3918,6 +3969,9 @@ void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 		case META_QUEUE_GR_RUN:
 			rib_meta_queue_gr_run_free(mq, mq->subq[i], zvrf);
 			break;
+		case META_QUEUE_FINISHED_STARTUP:
+			rib_meta_queue_finished_startup_free(mq, mq->subq[i], zvrf);
+			break;
 		}
 		if (!zvrf)
 			list_delete(&mq->subq[i]);
@@ -3930,6 +3984,8 @@ void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 /* initialise zebra rib work queue */
 static void rib_queue_init(void)
 {
+	assert(MQ_SIZE - 1 == META_QUEUE_FINISHED_STARTUP);
+
 	zrouter.ribq = work_queue_new(zrouter.master, "route_node processing");
 
 	/* fill in the work queue spec */
@@ -4321,6 +4377,40 @@ int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 	gr_run->stale_client_cleanup = stale_client_cleanup;
 
 	return mq_add_handler(gr_run, rib_meta_queue_gr_run_add);
+}
+
+static int rib_meta_queue_finished_startup_add(struct meta_queue *mq, void *data)
+{
+	uint64_t curr, high;
+
+	listnode_add(mq->subq[META_QUEUE_FINISHED_STARTUP], data);
+	mq->size++;
+	atomic_fetch_add_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&mq->total_subq[META_QUEUE_FINISHED_STARTUP], 1,
+				  memory_order_relaxed);
+	curr = listcount(mq->subq[META_QUEUE_FINISHED_STARTUP]);
+	high = atomic_load_explicit(&mq->max_subq[META_QUEUE_FINISHED_STARTUP],
+				    memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&mq->max_subq[META_QUEUE_FINISHED_STARTUP], curr,
+				      memory_order_relaxed);
+	high = atomic_load_explicit(&mq->max_metaq, memory_order_relaxed);
+	if (mq->size > high)
+		atomic_store_explicit(&mq->max_metaq, mq->size, memory_order_relaxed);
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("Finished Startup adding mq size %u", zrouter.mq->size);
+
+	return 0;
+}
+
+void rib_add_finished_startup(void)
+{
+	void *data;
+
+	data = XCALLOC(MTYPE_WQ_WRAPPER, 1);
+
+	mq_add_handler(data, rib_meta_queue_finished_startup_add);
 }
 
 struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
@@ -5202,6 +5292,10 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_TC_FILTER_UPDATE:
 				break;
 
+			case DPLANE_OP_TC_QDISC_NOTIFY:
+				zebra_tc_qdisc_handle_notify(ctx);
+				break;
+
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:
@@ -5228,6 +5322,11 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_NEIGH_DELETE:
 			case DPLANE_OP_NEIGH_DISCOVER:
 				zebra_neigh_dplane_update(ctx);
+				break;
+
+			case DPLANE_OP_FDB_READ:
+			case DPLANE_OP_NEIGH_READ:
+			case DPLANE_OP_TC_QDISC_READ:
 				break;
 			} /* Dispatch by op code */
 

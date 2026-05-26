@@ -421,18 +421,21 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 				decode_label(&bpi->extra->labels->label[0]));
 	}
 
-	if (bpi->attr->srv6_l3service || bpi->attr->srv6_vpn) {
-		struct in6_addr *sid_tmp = bpi->attr->srv6_l3service
-						   ? (&bpi->attr->srv6_l3service->sid)
-						   : (&bpi->attr->srv6_vpn->sid);
-		vty_out(vty, " sid=%pI6", sid_tmp);
+	{
+		struct bgp_attr_srv6_l3service *srv6_l3service =
+			bgp_attr_get_srv6_l3service(bpi->attr);
 
-		if (bpi->attr->srv6_l3service && bpi->attr->srv6_l3service->loc_block_len != 0) {
-			vty_out(vty, " sid_structure=[%d,%d,%d,%d]",
-				bpi->attr->srv6_l3service->loc_block_len,
-				bpi->attr->srv6_l3service->loc_node_len,
-				bpi->attr->srv6_l3service->func_len,
-				bpi->attr->srv6_l3service->arg_len);
+		if (srv6_l3service || bgp_attr_get_srv6_vpn(bpi->attr)) {
+			struct in6_addr *sid_tmp =
+				srv6_l3service ? (&srv6_l3service->sid)
+					       : (&bgp_attr_get_srv6_vpn(bpi->attr)->sid);
+			vty_out(vty, " sid=%pI6", sid_tmp);
+
+			if (srv6_l3service && srv6_l3service->loc_block_len != 0) {
+				vty_out(vty, " sid_structure=[%d,%d,%d,%d]",
+					srv6_l3service->loc_block_len, srv6_l3service->loc_node_len,
+					srv6_l3service->func_len, srv6_l3service->arg_len);
+			}
 		}
 	}
 

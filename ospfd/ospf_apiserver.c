@@ -1665,8 +1665,8 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 	    offsetof(struct msg_originate_request, data) + ntohs(data->length)) {
 		zlog_warn("%s: message truncated, stream %zu < needed %zu", __func__,
 			  STREAM_READABLE(msg->s),
-			  (size_t)(offsetof(struct msg_originate_request, data) +
-				   (size_t)ntohs(data->length)));
+			  (size_t){ (offsetof(struct msg_originate_request, data) +
+				     (size_t)ntohs(data->length)) });
 		rc = OSPF_API_ERROR;
 		goto out;
 	}

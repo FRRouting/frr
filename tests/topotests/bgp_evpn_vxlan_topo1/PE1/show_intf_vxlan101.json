@@ -1,0 +1,12 @@
+{
+  "vxlan101": {
+    "interfaceType": "Vxlan",
+    "vtepIp": "10.10.10.10",
+    "masterInterface": "br101",
+    "vxlanId": {
+      "101": {
+        "mcastGroup": "0.0.0.0"
+      }
+    }
+  }
+}

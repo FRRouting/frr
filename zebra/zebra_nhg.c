@@ -1293,13 +1293,6 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 
 	frrtrace(1, frr_zebra, nhg_ctx_process_new_nhe, id);
 
-	/*
-	 * If daemon nhg from the kernel, add a refcnt here to indicate the
-	 * daemon owns it.
-	 */
-	if (PROTO_OWNED(nhe))
-		zebra_nhg_increment_ref(nhe);
-
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);

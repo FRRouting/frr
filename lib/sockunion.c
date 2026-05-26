@@ -477,8 +477,17 @@ int sockunion_cmp(const union sockunion *su1, const union sockunion *su2)
 		else
 			return -1;
 	}
-	if (su1->sa.sa_family == AF_INET6)
-		return IPV6_ADDR_CMP(&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
+	if (su1->sa.sa_family == AF_INET6) {
+		int ret = IPV6_ADDR_CMP(&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
+
+		if (ret != 0)
+			return ret;
+
+		if (su1->sin6.sin6_scope_id > su2->sin6.sin6_scope_id)
+			return 1;
+		if (su1->sin6.sin6_scope_id < su2->sin6.sin6_scope_id)
+			return -1;
+	}
 
 	return 0;
 }

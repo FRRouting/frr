@@ -1466,6 +1466,14 @@ out_closedir_free:
 	*statep = NULL;
 }
 
+#ifdef __has_attribute
+#if __has_attribute(force_align_arg_pointer)
+#define entry_extra_attr __attribute__((force_align_arg_pointer))
+#endif
+#endif
+#ifndef entry_extra_attr
+#define entry_extra_attr /* empty */
+#endif
 #ifdef INTERP
 static const char interp[]
 	__attribute__((section(".interp"), used)) = INTERP;
@@ -1476,8 +1484,7 @@ static const char interp[]
  * note that libc initialization is skipped for this so the set of functions
  * that can be called is rather limited
  */
-extern void _libfrr_version(void)
-	__attribute__((visibility("hidden"), noreturn));
+extern void _libfrr_version(void) __attribute__((visibility("hidden"), noreturn)) entry_extra_attr;
 void _libfrr_version(void)
 {
 	const char banner[] =

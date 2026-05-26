@@ -2391,3 +2391,45 @@ const char *ospf_get_name(const struct ospf *ospf)
 	else
 		return VRF_DEFAULT_NAME;
 }
+
+void ospf_shutdown(struct ospf *ospf, bool shutdown)
+{
+	struct ospf_interface *oi;
+	struct route_node *rnode;
+	struct ospf_area *area;
+	struct listnode *node;
+	struct ospf_lsa *lsa;
+
+	/* Avoid shutting down / spinning up if already in that state */
+	if ((CHECK_FLAG(ospf->config, OSPF_SHUTDOWN) && shutdown) ||
+	    (!CHECK_FLAG(ospf->config, OSPF_SHUTDOWN) && !shutdown))
+		return;
+
+	if (shutdown) {
+		SET_FLAG(ospf->config, OSPF_SHUTDOWN);
+
+		/* Shutdown all interfaces */
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
+			ospf_if_down(oi);
+
+		/* Clear all link state databases */
+		for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+			ospf_area_lsdb_discard_delete(area);
+			ospf_lsa_unlock(&area->router_lsa_self);
+		}
+		LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rnode, lsa)
+			ospf_discard_from_db(ospf, ospf->lsdb, lsa);
+		LSDB_LOOP (EXTERNAL_LSDB(ospf), rnode, lsa)
+			ospf_discard_from_db(ospf, ospf->lsdb, lsa);
+
+		ospf_lsdb_delete_all(ospf->lsdb);
+	} else {
+		UNSET_FLAG(ospf->config, OSPF_SHUTDOWN);
+
+		/* Spin up all interfaces */
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
+			ospf_if_up(oi);
+
+		ospf_asbr_reoriginate(ospf);
+	}
+}

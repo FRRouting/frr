@@ -143,7 +143,7 @@ static void ospf_gr_lsa_originate(struct ospf_interface *oi,
 
 	/* Skip originating a Grace-LSA when not necessary. */
 	if (!if_is_operative(oi->ifp) || if_is_loopback(oi->ifp) ||
-	    (reason != OSPF_GR_UNKNOWN_RESTART &&
+	    (reason != OSPF_GR_UNKNOWN_RESTART && reason != OSPF_GR_SWITCH_CONTROL_PROCESSOR &&
 	     ospf_interface_neighbor_count(oi) == 0))
 		return;
 
@@ -162,7 +162,8 @@ static void ospf_gr_lsa_originate(struct ospf_interface *oi,
 	if (old)
 		lsa->data->ls_seqnum = lsa_seqnum_increment(old);
 
-	if (!maxage && reason == OSPF_GR_UNKNOWN_RESTART) {
+	if (!maxage &&
+	    (reason == OSPF_GR_UNKNOWN_RESTART || reason == OSPF_GR_SWITCH_CONTROL_PROCESSOR)) {
 		struct list *update;
 		struct in_addr addr;
 

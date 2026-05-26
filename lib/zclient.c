@@ -1237,8 +1237,7 @@ done:
 int zapi_srv6_locator_chunk_encode(struct stream *s,
 				   const struct srv6_locator_chunk *c)
 {
-	stream_putw(s, strlen(c->locator_name));
-	stream_put(s, c->locator_name, strlen(c->locator_name));
+	zapi_srv6_locname_encode(s, c->locator_name, __func__);
 	stream_putw(s, c->prefix.prefixlen);
 	stream_put(s, &c->prefix.prefix, sizeof(c->prefix.prefix));
 	stream_putc(s, c->block_bits_length);
@@ -1249,18 +1248,42 @@ int zapi_srv6_locator_chunk_encode(struct stream *s,
 	return 0;
 }
 
-int zapi_srv6_locator_chunk_decode(struct stream *s,
-				   struct srv6_locator_chunk *c)
+void zapi_srv6_locname_encode(struct stream *s, const char *name, const char *caller)
+{
+	size_t len = 0;
+
+	if (name) {
+		len = strnlen(name, SRV6_LOCNAME_SIZE);
+		if (len == SRV6_LOCNAME_SIZE) {
+			zlog_warn("%s: Truncating SRv6 locator name as length exceeds maximum %d",
+				  caller, SRV6_LOCNAME_SIZE - 1);
+			len = SRV6_LOCNAME_SIZE - 1;
+		}
+	}
+	stream_putw(s, (uint16_t)len);
+	if (len)
+		stream_put(s, name, len);
+}
+
+bool zapi_srv6_locname_decode(struct stream *s, char *buf, size_t bufsize, const char *caller)
 {
 	uint16_t len = 0;
 
+	if (!stream_getw2(s, &len))
+		return false;
+	if (len >= bufsize) {
+		zlog_warn("%s: SRv6 locator name length %u exceeds maximum %zu", caller, len,
+			  bufsize - 1);
+		return false;
+	}
+	return stream_get2(buf, s, len);
+}
+
+int zapi_srv6_locator_chunk_decode(struct stream *s, struct srv6_locator_chunk *c)
+{
 	c->prefix.family = AF_INET6;
 
-	STREAM_GETW(s, len);
-	if (len > SRV6_LOCNAME_SIZE)
-		goto stream_failure;
-
-	STREAM_GET(c->locator_name, s, len);
+	ZAPI_GET_SRV6_LOCNAME(c->locator_name, s);
 	STREAM_GETW(s, c->prefix.prefixlen);
 	STREAM_GET(&c->prefix.prefix, s, sizeof(c->prefix.prefix));
 	STREAM_GETC(s, c->block_bits_length);
@@ -1276,8 +1299,7 @@ stream_failure:
 
 int zapi_srv6_locator_encode(struct stream *s, const struct srv6_locator *l)
 {
-	stream_putw(s, strlen(l->name));
-	stream_put(s, l->name, strlen(l->name));
+	zapi_srv6_locname_encode(s, l->name, __func__);
 	stream_putw(s, l->prefix.prefixlen);
 	stream_put(s, &l->prefix.prefix, sizeof(l->prefix.prefix));
 	stream_putc(s, l->block_bits_length);
@@ -1290,13 +1312,7 @@ int zapi_srv6_locator_encode(struct stream *s, const struct srv6_locator *l)
 
 int zapi_srv6_locator_decode(struct stream *s, struct srv6_locator *l)
 {
-	uint16_t len = 0;
-
-	STREAM_GETW(s, len);
-	if (len > SRV6_LOCNAME_SIZE)
-		goto stream_failure;
-
-	STREAM_GET(l->name, s, len);
+	ZAPI_GET_SRV6_LOCNAME(l->name, s);
 	STREAM_GETW(s, l->prefix.prefixlen);
 	STREAM_GET(&l->prefix.prefix, s, sizeof(l->prefix.prefix));
 	l->prefix.family = AF_INET6;
@@ -2341,13 +2357,11 @@ stream_failure:
 
 bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 				 struct in6_addr *sid_value, uint32_t *func,
-				 uint32_t *wide_func,
-				 enum zapi_srv6_sid_notify *note,
-				 char **p_locator_name)
+				 uint32_t *wide_func, enum zapi_srv6_sid_notify *note,
+				 char *locator_name, size_t loc_size)
 {
 	uint32_t f, wf;
 	uint16_t len = 0;
-	static char locator_name[SRV6_LOCNAME_SIZE];
 
 	STREAM_GET(note, s, sizeof(*note));
 	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
@@ -2355,25 +2369,30 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 	STREAM_GETL(s, f);
 	STREAM_GETL(s, wf);
 
+	STREAM_GETW(s, len);
+	if (len >= loc_size && locator_name != NULL)
+		return false;
+
 	if (func)
 		*func = f;
 	if (wide_func)
 		*wide_func = wf;
 
-	STREAM_GETW(s, len);
-	if (len > SRV6_LOCNAME_SIZE) {
-		*p_locator_name = NULL;
-		return false;
-	}
-	if (p_locator_name) {
-		if (len == 0)
-			*p_locator_name = NULL;
-		else {
-			memset(locator_name, 0, sizeof(locator_name));
+	if (locator_name != NULL) {
+		/* This is a cstring, and it looks like it's normally sent without
+		 * its terminal NULL...
+		 */
+		if (len == 0) {
+			locator_name[0] = 0;
+		} else {
 			STREAM_GET(locator_name, s, len);
-			*p_locator_name = locator_name;
+			locator_name[len] = 0;
 		}
+	} else if (len > 0) {
+		/* Advance the stream */
+		stream_forward_getp(s, len);
 	}
+
 	return true;
 
 stream_failure:
@@ -3502,7 +3521,6 @@ int srv6_manager_get_locator_chunk(struct zclient *zclient,
 				   const char *locator_name)
 {
 	struct stream *s;
-	const size_t len = strlen(locator_name);
 
 	if (zclient_debug)
 		zlog_debug("Getting SRv6-Locator Chunk %s", locator_name);
@@ -3517,8 +3535,7 @@ int srv6_manager_get_locator_chunk(struct zclient *zclient,
 			      VRF_DEFAULT);
 
 	/* locator_name */
-	stream_putw(s, len);
-	stream_put(s, locator_name, len);
+	zapi_srv6_locname_encode(s, locator_name, __func__);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3537,7 +3554,6 @@ int srv6_manager_release_locator_chunk(struct zclient *zclient,
 				       const char *locator_name)
 {
 	struct stream *s;
-	const size_t len = strlen(locator_name);
 
 	if (zclient_debug)
 		zlog_debug("Releasing SRv6-Locator Chunk %s", locator_name);
@@ -3552,8 +3568,7 @@ int srv6_manager_release_locator_chunk(struct zclient *zclient,
 			      VRF_DEFAULT);
 
 	/* locator_name */
-	stream_putw(s, len);
-	stream_put(s, locator_name, len);
+	zapi_srv6_locname_encode(s, locator_name, __func__);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3565,16 +3580,12 @@ int srv6_manager_release_locator_chunk(struct zclient *zclient,
  * Function to request a SRv6 locator in an asynchronous way
  *
  * @param zclient The zclient used to connect to SRv6 Manager (zebra)
- * @param locator_name Name of SRv6 locator
+ * @param locator_name Name of SRv6 locator, or NULL to request all locators
  * @return 0 on success, -1 otherwise
  */
 int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
 {
 	struct stream *s;
-	size_t len;
-
-	if (!locator_name)
-		return -1;
 
 	if (zclient->sock < 0) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
@@ -3583,9 +3594,7 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
 	}
 
 	if (zclient_debug)
-		zlog_debug("Getting SRv6 Locator %s", locator_name);
-
-	len = strlen(locator_name);
+		zlog_debug("Getting SRv6 Locator %s", locator_name ? locator_name : "<all>");
 
 	/* Send request */
 	s = zclient->obuf;
@@ -3593,8 +3602,7 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
 	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR, VRF_DEFAULT);
 
 	/* Locator name */
-	stream_putw(s, len);
-	stream_put(s, locator_name, len);
+	zapi_srv6_locname_encode(s, locator_name, __func__);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3619,7 +3627,6 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
 {
 	struct stream *s;
 	uint8_t flags = 0;
-	size_t len;
 	char buf[256];
 
 	if (zclient->sock < 0) {
@@ -3655,11 +3662,8 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
 		stream_put(s, sid_value, sizeof(struct in6_addr));
 
 	/* SRv6 locator */
-	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
-		len = strlen(locator_name);
-		stream_putw(s, len);
-		stream_put(s, locator_name, len);
-	}
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR))
+		zapi_srv6_locname_encode(s, locator_name, __func__);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3682,7 +3686,6 @@ int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx 
 {
 	struct stream *s;
 	uint8_t flags = 0;
-	size_t len;
 	char buf[256];
 
 	if (zclient->sock < 0) {
@@ -3713,11 +3716,8 @@ int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx 
 	stream_putc(s, flags);
 
 	/* SRv6 locator */
-	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
-		len = strlen(locator_name);
-		stream_putw(s, len);
-		stream_put(s, locator_name, len);
-	}
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR))
+		zapi_srv6_locname_encode(s, locator_name, __func__);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));

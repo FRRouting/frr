@@ -444,6 +444,7 @@ static void rpki_delete_all_cache_nodes(struct rpki_vrf *rpki_vrf)
 			rtr_mgr_remove_group(rpki_vrf->rtr_config,
 					     cache->preference);
 		listnode_delete(rpki_vrf->cache_list, cache);
+		free_cache(cache);
 	}
 }
 
@@ -878,6 +879,8 @@ static int bgp_rpki_fini(void)
 		XFREE(MTYPE_BGP_RPKI_CACHE, rpki_vrf);
 	}
 
+	list_delete(&rpki_vrf_list);
+
 	return 0;
 }
 
@@ -976,9 +979,16 @@ static int start(struct rpki_vrf *rpki_vrf)
 
 static void stop(struct rpki_vrf *rpki_vrf)
 {
+	struct listnode *cache_node;
+	struct cache *cache;
+
 	rpki_vrf->rtr_is_stopping = true;
 	if (is_running(rpki_vrf)) {
 		event_cancel(&rpki_vrf->t_rpki_sync);
+
+		for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache))
+			frr_pthread_non_controlled_shutdown(cache->rtr_socket->thread_id);
+
 		rtr_mgr_stop(rpki_vrf->rtr_config);
 		rtr_mgr_free(rpki_vrf->rtr_config);
 		rpki_vrf->rtr_is_running = false;
@@ -1726,8 +1736,8 @@ DEFPY (no_rpki,
 	if (!rpki_vrf)
 		return CMD_WARNING;
 
-	rpki_delete_all_cache_nodes(rpki_vrf);
 	stop(rpki_vrf);
+	rpki_delete_all_cache_nodes(rpki_vrf);
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	rpki_vrf->expire_interval = EXPIRE_INTERVAL_DEFAULT;
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;

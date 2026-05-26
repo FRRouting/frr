@@ -737,7 +737,7 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
 	/* Dump each routing table entry. */
 	rte = packet->rte;
 
-	for (lim = (caddr_t)packet + size; (caddr_t)rte < lim; rte++) {
+	for (lim = (caddr_t)packet + size; (caddr_t)(rte + 1) <= lim; rte++) {
 		if (packet->version == RIPv2) {
 			netmask = ip_masklen(rte->mask);
 
@@ -926,7 +926,7 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 		if (keychain == NULL)
 			return 0;
 
-		key = key_lookup_for_accept(keychain, md5->keyid);
+		key = key_lookup_for_accept(keychain, md5->keyid, false);
 		if (key == NULL || key->string == NULL)
 			return 0;
 
@@ -1185,7 +1185,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 	/* Set RTE pointer. */
 	rte = packet->rte;
 
-	for (lim = (caddr_t)packet + size; (caddr_t)rte < lim; rte++) {
+	for (lim = (caddr_t)packet + size; (caddr_t)(rte + 1) <= lim; rte++) {
 		/* RIPv2 authentication check. */
 		/* If the Address Family Identifier of the first (and only the
 		   first) entry in the message is 0xFFFF, then the remainder of
@@ -1692,8 +1692,8 @@ static void rip_request_process(struct rip_packet *packet, int size,
 	rte = packet->rte;
 
 	/* The Request is processed entry by entry.  If there are no
-	   entries, no response is given. */
-	if (lim == (caddr_t)rte)
+	   entries (or only a partial RTE), no response is given. */
+	if ((caddr_t)(rte + 1) > lim)
 		return;
 
 	/* There is one special case.  If there is exactly one entry in the
@@ -1718,7 +1718,7 @@ static void rip_request_process(struct rip_packet *packet, int size,
 		   to the requestor. */
 		p.family = AF_INET;
 
-		for (; ((caddr_t)rte) < lim; rte++) {
+		for (; ((caddr_t)(rte + 1)) <= lim; rte++) {
 			p.prefix = rte->prefix;
 			p.prefixlen = ip_masklen(rte->mask);
 			apply_mask_ipv4(&p);

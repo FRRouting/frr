@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2025 by Carmine Scarpitta
 #
-"""
+r"""
 Test BGP Link-State (RFC 9552) functionality:
 - BGP-LS capability negotiation
 - Producer mode: Export IGP topology to BGP-LS
@@ -127,8 +127,8 @@ def check_bgp_ls_link(router, local_id, remote_id, should_exist=True):
 
     Args:
         router: Router instance
-        local_id: Local node IGP Router ID (e.g., "0000.0000.0002")
-        remote_id: Remote node IGP Router ID (e.g., "0000.0000.0001")
+        local_id: Local node IGP Router ID (e.g., "0000.0000.0002.00")
+        remote_id: Remote node IGP Router ID (e.g., "0000.0000.0001.00")
         should_exist: True to verify presence, False to verify absence
 
     Returns:
@@ -166,7 +166,7 @@ def check_bgp_ls_node(router, node_id, should_exist=True):
 
     Args:
         router: Router instance
-        node_id: Node IGP Router ID (e.g., "0000.0000.0001")
+        node_id: Node IGP Router ID (e.g., "0000.0000.0001.00")
         should_exist: True to verify presence, False to verify absence
 
     Returns:
@@ -452,7 +452,7 @@ def test_bgp_ls_attributes_consumer():
     test_func = functools.partial(
         topotest.router_json_cmp,
         router,
-        "show bgp link-state link-state [T][L2][I0x0][N[s0000.0000.0004]][P[p4.4.4.4/32]] json",
+        "show bgp link-state link-state [T][L2][I0x0][N[s0000.0000.0004.00]][P[p4.4.4.4/32]] json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
@@ -466,7 +466,7 @@ def test_bgp_ls_attributes_consumer():
     test_func = functools.partial(
         topotest.router_json_cmp,
         router,
-        "show bgp link-state link-state [V][L2][I0x0][N[s0000.0000.0004]] json",
+        "show bgp link-state link-state [V][L2][I0x0][N[s0000.0000.0004.00]] json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
@@ -838,7 +838,7 @@ def test_bgp_ls_r4_link_shutdown():
     # Wait for ISIS to detect the link down and propagate to r2, then BGP-LS to withdraw link NLRI
     r2 = tgen.gears["r2"]
     test_func = functools.partial(
-        check_bgp_ls_link, r2, "0000.0000.0004", "0000.0000.0001", should_exist=False
+        check_bgp_ls_link, r2, "0000.0000.0004.00", "0000.0000.0001.00", should_exist=False
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"r2" BGP-LS r4 link down not reflected'
@@ -846,7 +846,7 @@ def test_bgp_ls_r4_link_shutdown():
     # Verify consumer rr received the update
     consumer = tgen.gears["rr"]
     test_func = functools.partial(
-        check_bgp_ls_link, consumer, "0000.0000.0004", "0000.0000.0001", should_exist=False
+        check_bgp_ls_link, consumer, "0000.0000.0004.00", "0000.0000.0001.00", should_exist=False
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"rr" did not receive BGP-LS r4 link down update'
@@ -869,7 +869,7 @@ def test_bgp_ls_r4_link_no_shutdown():
     # Wait for ISIS adjacency to re-establish and propagate to r2, then BGP-LS to advertise link NLRI
     r2 = tgen.gears["r2"]
     test_func = functools.partial(
-        check_bgp_ls_link, r2, "0000.0000.0004", "0000.0000.0001", should_exist=True
+        check_bgp_ls_link, r2, "0000.0000.0004.00", "0000.0000.0001.00", should_exist=True
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"r2" BGP-LS r4 link up not reflected'
@@ -877,7 +877,7 @@ def test_bgp_ls_r4_link_no_shutdown():
     # Verify consumer rr received the update
     consumer = tgen.gears["rr"]
     test_func = functools.partial(
-        check_bgp_ls_link, consumer, "0000.0000.0004", "0000.0000.0001", should_exist=True
+        check_bgp_ls_link, consumer, "0000.0000.0004.00", "0000.0000.0001.00", should_exist=True
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"rr" did not receive BGP-LS r4 link up update'

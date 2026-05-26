@@ -128,7 +128,7 @@ Start FRR daemons with sysrepo plugin:
 
    sudo /usr/lib/frr/isisd -M sysrepo --log stdout
 
-Any daemon running with ``-M sysrepo`` will subscribe to its frr yang moduels 
+Any daemon running with ``-M sysrepo`` will subscribe to its frr yang modules 
 on sysrepo and you be able to configure it by editing module configuration on sysrepo.
 
 Managing the configuration
@@ -142,7 +142,7 @@ to edit frr configuration on sysrepo
 
 Example:
 
-Edit sysrepo running datastore configuration for the desiged frr module:
+Edit sysrepo running datastore configuration for the designed frr module:
 
 .. code-block:: console
 

@@ -829,7 +829,7 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
 			     struct zebra_if *vxlan_zif)
 {
-	struct interface *br_if;
+	ifindex_t bridge_ifindex;
 	struct zebra_evpn_access_bd *acc_bd;
 	uint8_t tmp_cnt;
 
@@ -839,11 +839,22 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
 	if (!vni_id)
 		return;
 
-	br_if = vxlan_zif->brslave_info.br_if;
-	if (!br_if)
+	/*
+	 * Use the stored bridge_ifindex rather than dereferencing
+	 * brslave_info.br_if. At zebra shutdown, vrf_terminate_single() ->
+	 * if_terminate() walks the per-VRF interface tree by name and frees
+	 * interfaces one by one; if the bridge is freed before the VxLAN
+	 * interface, the back pointer becomes a dangling reference. The
+	 * bridge_ifindex field is never invalidated this way, and
+	 * zebra_evpn_acc_vl_find_index() looks up the access-bd directly by
+	 * (vid, ifindex), avoiding the heap-use-after-free in
+	 * zebra_evpn_acc_vl_find()'s br_if->ifindex deref.
+	 */
+	bridge_ifindex = vxlan_zif->brslave_info.bridge_ifindex;
+	if (bridge_ifindex == IFINDEX_INTERNAL)
 		return;
 
-	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
+	acc_bd = zebra_evpn_acc_vl_find_index(vid, bridge_ifindex);
 	if (!acc_bd)
 		return;
 	if (acc_bd->vni_refcnt > 1) {
@@ -860,8 +871,8 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("access vlan %d bridge %s vni %u deref", acc_bd->vid,
-			   br_if->name, vni_id);
+		zlog_debug("access vlan %d bridge ifindex %u vni %u deref", acc_bd->vid,
+			   bridge_ifindex, vni_id);
 
 	if (acc_bd->zevpn)
 		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, acc_bd->zevpn);
@@ -4124,9 +4135,9 @@ void zebra_evpn_mh_terminate(void)
 
 	hash_iterate(zmh_info->evpn_vlan_table,
 			zebra_evpn_acc_vl_cleanup_all, NULL);
-	hash_free(zmh_info->evpn_vlan_table);
-	hash_free(zmh_info->nhg_table);
-	hash_free(zmh_info->nh_ip_table);
+	hash_clean_and_free(&zmh_info->evpn_vlan_table, NULL);
+	hash_clean_and_free(&zmh_info->nhg_table, NULL);
+	hash_clean_and_free(&zmh_info->nh_ip_table, NULL);
 	bf_free(zmh_info->nh_id_bitmap);
 	bf_free(zmh_info->sph_id_bitmap);
 

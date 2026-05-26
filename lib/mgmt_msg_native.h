@@ -484,6 +484,10 @@ _Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
 		       offsetof(struct mgmt_msg_rpc_reply, data),
 	       "Size mismatch");
 
+/* notify-select mode values */
+#define NOTIFY_MODE_ON_CHANGE 0
+#define NOTIFY_MODE_PERIODIC  1
+
 /**
  * struct mgmt_msg_notify_select - Add notification selectors for FE client.
  *
@@ -501,13 +505,18 @@ _Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
  * @selectors: the xpath prefixes to selectors notifications through.
  * @replace: if true replace existing selectors with `selectors`.
  * @get_only: [backend-only]: if true do get op, don't change selectors.
+ * @mode: on-change or periodic mode.
+ * @mode_data: mode-specific data.
+ *            - NOTIFY_MODE_ON_CHANGE: must be 0.
+ *            - NOTIFY_MODE_PERIODIC: interval in msec, must be non-zero.
  */
 struct mgmt_msg_notify_select {
 	struct mgmt_msg_header;
 	uint8_t replace;
 	uint8_t get_only;
 	uint8_t subscribing;
-	uint8_t resv2[5];
+	uint8_t mode;
+	uint32_t mode_data;
 
 	alignas(8) char selectors[];
 };

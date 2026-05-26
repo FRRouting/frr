@@ -1,4 +1,4 @@
-OSPF Neighor Retransmission List
+OSPF Neighbor Retransmission List
 ================================
 
 Overview

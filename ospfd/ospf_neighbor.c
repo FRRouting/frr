@@ -30,6 +30,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_gr.h"
+#include "ospfd/ospf_quicknbr.h"
 
 /* Fill in the the 'key' as appropriate to retrieve the entry for nbr
  * from the ospf_interface's nbrs table. Indexed by interface address
@@ -94,6 +95,7 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 	nbr->gr_helper_info.helper_exit_reason = OSPF_GR_HELPER_EXIT_NONE;
 	nbr->gr_helper_info.gr_restart_reason = OSPF_GR_UNKNOWN_RESTART;
 
+	nbr->dead_timer_resets = 0; /* rfc 4222 rec 2 */
 	return nbr;
 }
 
@@ -135,7 +137,7 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	event_cancel_event(master, nbr);
 
-	bfd_sess_free(&nbr->bfd_session);
+	ospf_neighbor_bfd_clear(nbr);
 
 	event_cancel(&nbr->gr_helper_info.t_grace_timer);
 
@@ -203,8 +205,19 @@ void ospf_nbr_delete(struct ospf_neighbor *nbr)
 		}
 	}
 
+	/* Make sure we keep the quick neighbor count accurate in case a neighbor was added, then
+	 * deleted before a hello packet was received to learn the router-id
+	 */
+	if (IS_QUICKNBR(nbr) && oi->num_q_nbrs > 0)
+		oi->num_q_nbrs--;
+
 	/* Free ospf_neighbor structure. */
 	ospf_nbr_free(nbr);
+}
+
+void ospf_nbr_bring_down(struct ospf_neighbor *nbr)
+{
+	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
 }
 
 /* Check myself is in the neighbor list. */
@@ -496,6 +509,60 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 	}
 
 	nbr->router_id = ospfh->router_id;
+
+	return nbr;
+}
+
+struct ospf_neighbor *ospf_qnbr_get(struct ospf_interface *oi, struct in_addr *src)
+{
+	struct route_node *rn;
+	struct prefix p;
+	struct ospf_neighbor *nbr;
+	struct ospf_header ospfh = {};
+
+	p.family = AF_INET;
+	p.u.prefix4 = *src;
+	p.prefixlen = IPV4_MAX_BITLEN;
+	rn = route_node_get(oi->nbrs, &p);
+
+	if (rn->info) {
+		if (IS_DEBUG_OSPF_QNBR)
+			zlog_debug("%s: Neighbor %pI4 already existed in the neighbor table!!",
+				   __func__, src);
+		route_unlock_node(rn);
+		nbr = rn->info;
+		return nbr;
+	}
+
+	/* Quick neighbor creation requires a configured interface address. */
+	if (!oi->address) {
+		if (IS_DEBUG_OSPF_QNBR)
+			zlog_debug("%s: cannot create quick neighbor for %pI4 on %s: no interface address",
+				   __func__, src, IF_NAME(oi));
+		route_unlock_node(rn);
+		return NULL;
+	}
+
+	/* Prefix length from the neighbor should match our own interface */
+	p.prefixlen = oi->address->prefixlen;
+
+	/* If auth type is cryptographic, then the crypto seq number would be saved. This also
+	 * happens when validating the OSPF header. So we are fine just setting it to NULL here so
+	 * we can create the neighbor and auth still works.
+	 */
+	ospfh.auth_type = htons(OSPF_AUTH_NULL);
+	nbr = ospf_nbr_add(oi, &ospfh, &p);
+
+	/* Copy the priority from our own configuration. As well as the DR/BDR elections and
+	 * supported options
+	 */
+	nbr->priority = PRIORITY(oi);
+	nbr->d_router = DR(oi);
+	nbr->bd_router = BDR(oi);
+	nbr->options = OPTIONS(oi);
+
+	rn->info = nbr;
+	oi->num_q_nbrs++;
 
 	return nbr;
 }

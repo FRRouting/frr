@@ -74,6 +74,7 @@ struct ospf_neighbor {
 	const char *last_regress_str;    /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
 	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmitted.  */
+	uint64_t dead_timer_resets;	 /* Number of times dead-timer was reset RFC4222 rec 2*/
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
@@ -90,6 +91,7 @@ struct ospf_neighbor {
 extern struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi);
 extern void ospf_nbr_free(struct ospf_neighbor *nbr);
 extern void ospf_nbr_delete(struct ospf_neighbor *nbr);
+extern void ospf_nbr_bring_down(struct ospf_neighbor *nbr);
 extern int ospf_nbr_bidirectional(struct in_addr *router_id, struct in_addr *dr, int idx);
 extern void ospf_nbr_self_reset(struct ospf_interface *oi, struct in_addr router_id);
 extern void ospf_nbr_add_self(struct ospf_interface *oi, struct in_addr router_id);
@@ -97,6 +99,7 @@ extern int ospf_nbr_count(struct ospf_interface *oi, int state);
 extern int ospf_nbr_count_opaque_capable(struct ospf_interface *oi);
 extern struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi, struct ospf_header *ospfh,
 					  struct ip *iph, struct prefix *p);
+extern struct ospf_neighbor *ospf_qnbr_get(struct ospf_interface *oi, struct in_addr *src);
 extern struct ospf_neighbor *ospf_nbr_lookup(struct ospf_interface *oi, struct ip *iph,
 					     struct ospf_header *ospfh);
 extern struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,

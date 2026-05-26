@@ -599,7 +599,7 @@ static bool validate_header(struct peer_connection *connection)
 		return false;
 
 	if (memcmp(m_correct, m_rx, BGP_MARKER_SIZE) != 0) {
-		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
+		bgp_notify_io_invalid(connection, BGP_NOTIFY_HEADER_ERR,
 				      BGP_NOTIFY_HEADER_NOT_SYNC, NULL, 0);
 		return false;
 	}
@@ -620,7 +620,7 @@ static bool validate_header(struct peer_connection *connection)
 			zlog_debug("%s unknown message type 0x%02x", peer->host,
 				   type);
 
-		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
+		bgp_notify_io_invalid(connection, BGP_NOTIFY_HEADER_ERR,
 				      BGP_NOTIFY_HEADER_BAD_MESTYPE, &type, 1);
 		return false;
 	}
@@ -646,9 +646,8 @@ static bool validate_header(struct peer_connection *connection)
 
 		uint16_t nsize = htons(size);
 
-		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
-				      BGP_NOTIFY_HEADER_BAD_MESLEN,
-				      (unsigned char *)&nsize, 2);
+		bgp_notify_io_invalid(connection, BGP_NOTIFY_HEADER_ERR,
+				      BGP_NOTIFY_HEADER_BAD_MESLEN, (unsigned char *)&nsize, 2);
 		return false;
 	}
 

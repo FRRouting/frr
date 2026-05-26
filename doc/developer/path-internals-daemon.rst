@@ -7,7 +7,7 @@ Architecture
 Overview
 ........
 
-The pathd deamon manages the segment routing policies, it owns the data
+The pathd daemon manages the segment routing policies, it owns the data
 structures representing them and can load modules that manipulate them like the
 PCEP module. Its responsibility is to select a candidate path for each
 configured policy and to install it into Zebra.
@@ -35,7 +35,7 @@ notified by the mpls hooks `zebra_mpls_label_created`, and then it is installed.
 To get notified when a policy status changes, a client can implement the
 `sr_policy_notify_status` callback defined in `zclient.[hc]`.
 
-For encoding/decoding the various data structures used to comunicate with zebra,
+For encoding/decoding the various data structures used to communicate with zebra,
 the following functions are available from `zclient.[hc]`:
 `zapi_sr_policy_encode`, `zapi_sr_policy_decode` and
 `zapi_sr_policy_notify_status_decode`.

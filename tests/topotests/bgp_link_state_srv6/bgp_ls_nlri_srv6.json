@@ -1,0 +1,783 @@
+{
+	"routes": {
+		"[V][L2][I0x0][N[s0000.0000.0001.00]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0001.00"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					},
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
+			}
+		],
+		"[V][L2][I0x0][N[s0000.0000.0002.00]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0002.00"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					},
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
+			}
+		],
+		"[V][L2][I0x0][N[s0000.0000.0003.00]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0003.00"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					},
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
+			}
+		],
+		"[V][L2][I0x0][N[s0000.0000.0004.00]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0004.00"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					},
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
+			}
+		],
+		"[V][L2][I0x0][N[s0000.0000.0005.00]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0005.00"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					},
+					"multiTopologyIds": [
+						0,
+						2
+					]
+				}
+			}
+		],
+		"[T][L2][I0x0][N[s0000.0000.0001.00]][P[t0x0002][pfcbb:bbbb:1::/48]]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0001.00"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:1::/48",
+						"multiTopologyId": 2
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[T][L2][I0x0][N[s0000.0000.0002.00]][P[t0x0002][pfcbb:bbbb:2::/48]]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0002.00"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:2::/48",
+						"multiTopologyId": 2
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[T][L2][I0x0][N[s0000.0000.0003.00]][P[t0x0002][pfcbb:bbbb:3::/48]]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0003.00"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:3::/48",
+						"multiTopologyId": 2
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[T][L2][I0x0][N[s0000.0000.0004.00]][P[t0x0002][pfcbb:bbbb:4::/48]]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0004.00"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:4::/48",
+						"multiTopologyId": 2
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[T][L2][I0x0][N[s0000.0000.0005.00]][P[t0x0002][pfcbb:bbbb:5::/48]]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0005.00"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:5::/48",
+						"multiTopologyId": 2
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[S][L2][I0x0][N[s0000.0000.0001.00]][S[t0x0002][sdfcbb:bbbb:1::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0001.00"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:1::",
+						"multiTopologyId": [
+							2
+						]
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 16,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[S][L2][I0x0][N[s0000.0000.0002.00]][S[t0x0002][sdfcbb:bbbb:2::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0002.00"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:2::",
+						"multiTopologyId": [
+							2
+						]
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 16,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[S][L2][I0x0][N[s0000.0000.0003.00]][S[t0x0002][sdfcbb:bbbb:3::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0003.00"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:3::",
+						"multiTopologyId": [
+							2
+						]
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 16,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[S][L2][I0x0][N[s0000.0000.0004.00]][S[t0x0002][sdfcbb:bbbb:4::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0004.00"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:4::",
+						"multiTopologyId": [
+							2
+						]
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 16,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[S][L2][I0x0][N[s0000.0000.0005.00]][S[t0x0002][sdfcbb:bbbb:5::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"localNodeDescriptors": {
+						"igpRouterId": "0000.0000.0005.00"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:5::",
+						"multiTopologyId": [
+							2
+						]
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 16,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[E][L2][I0x0][N[s0000.0000.0001.00]][R[s0000.0000.0002.00]][L[ifc00:1::1][nfc00:1::2][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0001.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0002.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:1:e001::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0002.00]][R[s0000.0000.0001.00]][L[ifc00:1::2][nfc00:1::1][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0002.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0001.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:2:e001::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0002.00]][R[s0000.0000.0004.00]][L[ifc00:2::2][nfc00:2::4][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0002.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0004.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:2:e002::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0004.00]][R[s0000.0000.0002.00]][L[ifc00:2::4][nfc00:2::2][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0004.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0002.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:4:e001::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0002.00]][R[s0000.0000.0004.00]][L[ifc00:3::2][nfc00:3::4][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0002.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0004.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:2:e003::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0004.00]][R[s0000.0000.0002.00]][L[ifc00:3::4][nfc00:3::2][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0004.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0002.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:4:e000::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0003.00]][R[s0000.0000.0005.00]][L[ifc00:4::3][nfc00:4::5][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0003.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0005.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:3:e002::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0005.00]][R[s0000.0000.0003.00]][L[ifc00:4::5][nfc00:4::3][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0005.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0003.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:5:e000::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0003.00]][R[s0000.0000.0005.00]][L[ifc00:5::3][nfc00:5::5][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0003.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0005.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:3:e003::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0005.00]][R[s0000.0000.0003.00]][L[ifc00:5::5][nfc00:5::3][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0005.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0003.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:5:e001::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0004.00]][R[s0000.0000.0005.00]][L[ifc00:6::4][nfc00:6::5][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0004.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0005.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:4:e002::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0005.00]][R[s0000.0000.0004.00]][L[ifc00:6::5][nfc00:6::4][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0005.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0004.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:5:e002::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0001.00]][R[s0000.0000.0003.00]][L[ifc00:7::1][nfc00:7::2][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0001.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0003.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:1:e001::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][L2][I0x0][N[s0000.0000.0003.00]][R[s0000.0000.0001.00]][L[ifc00:7::2][nfc00:7::1][t0x0002]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"localNodeDescriptors": {
+							"igpRouterId": "0000.0000.0003.00"
+						},
+						"remoteNodeDescriptors": {
+							"igpRouterId": "0000.0000.0001.00"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:3:e001::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			]
+	}
+}

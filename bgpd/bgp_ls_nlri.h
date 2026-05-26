@@ -7,6 +7,9 @@
 #ifndef _FRR_BGP_LS_NLRI_H
 #define _FRR_BGP_LS_NLRI_H
 
+#define UNKNOWN LS_UNKNOWN
+#include "link_state.h"
+#undef UNKNOWN
 #include "prefix.h"
 #include "bgpd/bgpd.h"
 
@@ -44,6 +47,7 @@ enum bgp_ls_nlri_type {
 	BGP_LS_NLRI_TYPE_LINK = 2,	  /* Link NLRI - RFC 9552 */
 	BGP_LS_NLRI_TYPE_IPV4_PREFIX = 3, /* IPv4 Topology Prefix NLRI - RFC 9552 */
 	BGP_LS_NLRI_TYPE_IPV6_PREFIX = 4, /* IPv6 Topology Prefix NLRI - RFC 9552 */
+	BGP_LS_NLRI_TYPE_SRV6_SID = 6,	  /* SRv6 SID NLRI - RFC 9514 */
 };
 
 /*
@@ -81,6 +85,14 @@ enum bgp_ls_link_descriptor_tlv {
 };
 
 /*
+ * SRv6 SID Descriptor TLV Types (RFC 9514, Section 6)
+ * Used in the SRv6 SID NLRI SID Descriptors field
+ */
+enum bgp_ls_srv6_sid_descriptor_tlv {
+	BGP_LS_TLV_SRV6_SID_INFO = 518, /* SRv6 SID Information - RFC 9514, Section 6.1 */
+};
+
+/*
  * Prefix Descriptor TLV Types
  * IANA: https://www.iana.org/assignments/bgp-ls-parameters/bgp-ls-parameters.xhtml#node-descriptor-link-descriptor-prefix-descriptor-attribute-tlv
  */
@@ -115,6 +127,56 @@ enum bgp_ls_bgp_route_type {
 	BGP_LS_BGP_RT_REDISTRIBUTED = 5, /* Prefix redistributed into BGP */
 };
 
+
+/*
+ * ===========================================================================
+ * SRv6 Structures (RFC 9514)
+ * ===========================================================================
+ */
+
+
+/*
+ * SRv6 SID Structure TLV (RFC 9514, Section 8, Type 1252)
+ * Also used as sub-TLV of SRv6 End.X SID and LAN End.X SID TLVs
+ */
+struct bgp_ls_srv6_sid_structure {
+	uint8_t lb_len;  /* Locator Block length in bits */
+	uint8_t ln_len;  /* Locator Node length in bits */
+	uint8_t fun_len; /* Function length in bits */
+	uint8_t arg_len; /* Argument length in bits */
+};
+
+/*
+ * SRv6 End.X SID entry (RFC 9514, Section 4.1, Type 1106)
+ * Multiple instances may appear in the BGP-LS Attribute of a Link NLRI.
+ */
+/* SRv6 End.X SID (TLV 1106, RFC 9514 Section 4.1) - point-to-point adjacency */
+struct bgp_ls_srv6_endx_sid {
+	uint16_t endpoint_behavior; /* Endpoint Behavior code point (RFC 8986) */
+	uint8_t flags;		    /* Flags (B/S/P for BGP EPE, or from IS-IS/OSPFv3) */
+	uint8_t algo;		    /* Algorithm */
+	uint8_t weight;		    /* Weight for load balancing */
+	struct in6_addr sid;	    /* 128-bit SRv6 SID */
+	bool has_structure;	    /* SID Structure sub-TLV present */
+	struct bgp_ls_srv6_sid_structure structure; /* SID Structure sub-TLV */
+};
+
+/* SRv6 LAN End.X SID (TLV 1107 IS-IS / TLV 1108 OSPFv3, RFC 9514 Section 4.2) - LAN adjacency */
+struct bgp_ls_srv6_lan_endx_sid {
+	uint16_t endpoint_behavior; /* Endpoint Behavior code point (RFC 8986) */
+	uint8_t flags;		    /* Flags */
+	uint8_t algo;		    /* Algorithm */
+	uint8_t weight;		    /* Weight for load balancing */
+	bool is_isis;		    /* true = IS-IS (TLV 1107), false = OSPFv3 (TLV 1108) */
+	struct in6_addr sid;	    /* 128-bit SRv6 SID */
+	union {
+		uint8_t sysid[ISO_SYS_ID_LEN]; /* IS-IS Neighbor System ID (TLV 1107) */
+		struct in_addr router_id;      /* OSPFv3 Neighbor Router-ID (TLV 1108) */
+	} neighbor;
+	bool has_structure;	    /* SID Structure sub-TLV present */
+	struct bgp_ls_srv6_sid_structure structure; /* SID Structure sub-TLV */
+};
+
 /*
  * BGP-LS Attribute TLV Types
  * IANA: https://www.iana.org/assignments/bgp-ls-parameters/bgp-ls-parameters.xhtml#node-descriptor-link-descriptor-prefix-descriptor-attribute-tlv
@@ -131,6 +193,9 @@ enum bgp_ls_attr_tlv {
 	BGP_LS_ATTR_SR_ALGORITHM = 1035,    /* SR Algorithm */
 	BGP_LS_ATTR_SR_LOCAL_BLOCK = 1036,  /* SR Local Block */
 	BGP_LS_ATTR_SRMS_PREFERENCE = 1037, /* SRMS Preference */
+
+	/* Node Attribute TLVs (RFC 9514 Section 3.1) */
+	BGP_LS_ATTR_SRV6_CAPABILITIES = 1038, /* SRv6 Capabilities */
 
 	/* Node Attribute TLVs (RFC 8814) */
 	BGP_LS_ATTR_NODE_MSD = 266,         /* Node MSD */
@@ -157,6 +222,12 @@ enum bgp_ls_attr_tlv {
 	BGP_LS_ATTR_PEER_ADJ_SID = 1102,	      /* PeerAdj SID */
 	BGP_LS_ATTR_PEER_SET_SID = 1103,	      /* PeerSet SID */
 	BGP_LS_ATTR_LINK_MSD = 1104,		      /* Link MSD */
+
+	/* Link Attribute TLVs (RFC 9514 Section 4) */
+	BGP_LS_ATTR_SRV6_ENDX_SID = 1106,	      /* SRv6 End.X SID */
+	BGP_LS_ATTR_SRV6_LAN_ENDX_SID_ISIS = 1107,   /* SRv6 LAN End.X SID (IS-IS) */
+	BGP_LS_ATTR_SRV6_LAN_ENDX_SID_OSPF = 1108,   /* SRv6 LAN End.X SID (OSPFv3) */
+
 	BGP_LS_ATTR_UNIDIRECTIONAL_LINK_DELAY = 1114, /* Unidirectional Link Delay */
 	BGP_LS_ATTR_MIN_MAX_UNIDIRECTIONAL_LINK_DELAY = 1115, /* Min/Max Unidirectional Link Delay */
 	BGP_LS_ATTR_UNIDIRECTIONAL_DELAY_VARIATION = 1116,    /* Unidirectional Delay Variation */
@@ -177,7 +248,11 @@ enum bgp_ls_attr_tlv {
 	BGP_LS_ATTR_RANGE = 1159,	       /* Range */
 	BGP_LS_ATTR_SID_LABEL = 1161,	       /* SID/Label */
 	BGP_LS_ATTR_PREFIX_ATTR_FLAGS = 1170,  /* Prefix Attribute Flags */
-	BGP_LS_ATTR_SRV6_LOCATOR = 1162,       /* SRv6 Locator */
+	BGP_LS_ATTR_SRV6_LOCATOR = 1162,       /* SRv6 Locator - RFC 9514, Section 5.1 */
+
+	/* SRv6 SID Attribute TLVs (RFC 9514 Section 7.1) */
+	BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR = 1250,  /* SRv6 Endpoint Behavior */
+	BGP_LS_ATTR_SRV6_SID_STRUCTURE = 1252,	     /* SRv6 SID Structure */
 };
 
 /*
@@ -207,6 +282,10 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_PREFIX_DESC_OSPF_ROUTE_BIT      (1ULL << 1)
 #define BGP_LS_PREFIX_DESC_IP_REACH_BIT        (1ULL << 2)
 #define BGP_LS_PREFIX_DESC_BGP_ROUTE_TYPE_BIT  (1ULL << 3)
+
+/* Bit positions for SRv6 SID Descriptor TLVs */
+#define BGP_LS_SRV6_SID_DESC_INFO_BIT          (1ULL << 0)
+#define BGP_LS_SRV6_SID_DESC_MT_ID_BIT         (1ULL << 1)
 
 /* Maximum number of MT-IDs per descriptor */
 #define BGP_LS_MAX_MT_ID 16
@@ -261,6 +340,18 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_IGP_MSD_TYPE_BASE_MPLS 1
 
 /*
+ * SRv6 TLV fixed payload sizes (RFC 9514)
+ */
+#define BGP_LS_SRV6_CAPABILITIES_SIZE 4 /* Flags (2) + Reserved (2) */
+#define BGP_LS_SRV6_SID_STRUCTURE_SIZE		4  /* LB Length (1) + LN Length (1) + Fun Length (1) + Arg Length (1) */
+#define BGP_LS_SRV6_ENDX_SID_MIN_SIZE		  22 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) */
+#define BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE	  28 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) + Neighbor Sys-ID (6) */
+#define BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE	  26 /* Behavior (2) + Flags (1) + Algo (1) + Weight (1) + Rsvd (1) + SID (16) + Neighbor Router-ID (4) */
+#define BGP_LS_SRV6_LOCATOR_MIN_SIZE		8  /* Flags (1) + Algo (1) + Reserved (2) + Metric (4) */
+#define BGP_LS_SRV6_ENDPOINT_BEHAVIOR_SIZE	4  /* Behavior (2) + Flags (1) + Algo (1) */
+#define BGP_LS_SRV6_SID_INFO_SIZE		16 /* 128-bit SRv6 SID */
+
+/*
  * Maximum values for arrays
  */
 #define BGP_LS_MAX_SRLG	      64 /* Maximum SRLGs per link */
@@ -269,6 +360,7 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_MAX_EXT_ADMIN_GROUPS 256 /* Maximum number of admin groups in Extended Admin Group TLV */
 #define BGP_LS_MAX_NODE_NAME_LEN 255	/* Maximum node name length */
 #define BGP_LS_MAX_LINK_NAME_LEN 255	/* Maximum link name length */
+#define BGP_LS_MAX_SRV6_SIDS	 256	/* Maximum SRv6 SIDs per TLV type */
 
 /*
  * Bit positions for attribute presence bitmasks
@@ -313,6 +405,14 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_ATTR_RANGE_BIT                  (1ULL << 37)
 #define BGP_LS_ATTR_SID_LABEL_BIT              (1ULL << 38)
 #define BGP_LS_ATTR_SRV6_LOCATOR_BIT           (1ULL << 39)
+/* SRv6 attribute bits (RFC 9514) */
+#define BGP_LS_ATTR_SRV6_CAPABILITIES_BIT      (1ULL << 40)
+#define BGP_LS_ATTR_SRV6_ENDX_SID_BIT	       (1ULL << 41)
+#define BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT      (1ULL << 42)
+#define BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT (1ULL << 43)
+#define BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT     (1ULL << 44)
+/* Multi-Topology IDs - RFC 9552 §5.2.1.4 */
+#define BGP_LS_ATTR_MT_ID_BIT                  (1ULL << 45)
 
 /*
  * Node Flag Bits (TLV 1024)
@@ -361,7 +461,21 @@ struct bgp_ls_node_descriptor {
 	uint32_t bgp_ls_id;	   /* BGP-LS Identifier (deprecated) */
 	uint32_t ospf_area_id;	   /* OSPF Area ID */
 	uint8_t igp_router_id_len; /* Length of IGP Router ID (4-16 bytes) */
-	uint8_t igp_router_id[BGP_LS_IGP_ROUTER_ID_MAX_SIZE]; /* IGP Router ID (ISIS, OSPF, Direct, or Static configuration) */
+	union {
+		uint8_t sysid[BGP_LS_IGP_ROUTER_ID_ISIS_LEN]; /* IS-IS non-pseudonode: 6-byte ISO System-ID */
+		struct {
+			uint8_t sysid[BGP_LS_IGP_ROUTER_ID_ISIS_LEN]; /* IS-IS pseudonode: ISO System-ID */
+			uint8_t psn; /* IS-IS pseudonode: Pseudonode ID (non-zero) */
+		} pseudo_isis;
+		struct in_addr ospf; /* OSPFv2 non-pseudonode: Router-ID */
+		struct {
+			struct in_addr router_id; /* OSPFv2 pseudonode: DIS Router-ID */
+			struct in_addr ifaddr;	  /* OSPFv2 pseudonode: Interface IP Address */
+		} pseudo_ospf;
+		struct in_addr ipv4;			    /* Direct/Static: IPv4 address */
+		struct in6_addr ipv6;			    /* Direct/Static: IPv6 address */
+		uint8_t raw[BGP_LS_IGP_ROUTER_ID_MAX_SIZE]; /* Raw access / encode-decode */
+	} igp_router_id;
 	struct in_addr bgp_router_id;			      /* BGP Router-ID (TLV 516) */
 };
 
@@ -378,8 +492,7 @@ struct bgp_ls_link_descriptor {
 	struct in6_addr ipv6_intf_addr;	 /* IPv6 Interface Address */
 	struct in6_addr ipv6_neigh_addr; /* IPv6 Neighbor Address */
 	as_t remote_asn;		 /* Remote AS Number */
-	uint8_t mt_id_count;		 /* Number of Multi-Topology IDs */
-	uint16_t *mt_id;		 /* Multi-Topology IDs */
+	uint16_t mt_id;			 /* Multi-Topology ID (TLV 263) */
 };
 
 /*
@@ -388,11 +501,21 @@ struct bgp_ls_link_descriptor {
  */
 struct bgp_ls_prefix_descriptor {
 	uint16_t present_tlvs;			     /* Bitmask of present TLVs */
-	uint8_t mt_id_count;			     /* Number of Multi-Topology IDs */
-	uint16_t *mt_id;			     /* Multi-Topology IDs */
+	uint16_t mt_id;				     /* Multi-Topology ID (TLV 263) */
 	enum bgp_ls_ospf_route_type ospf_route_type; /* OSPF Route Type */
 	enum bgp_ls_bgp_route_type bgp_route_type;   /* BGP Route Type */
 	struct prefix prefix;			     /* IP prefix (IPv4 or IPv6) */
+};
+
+/*
+ * SRv6 SID Descriptor (RFC 9514, Section 6)
+ * Identifies a specific SRv6 SID within an SRv6 SID NLRI.
+ * MUST contain exactly one SRv6 SID Information TLV (518).
+ */
+struct bgp_ls_srv6_sid_descriptor {
+	uint16_t present_tlvs;		      /* Bitmask of present SID descriptor TLVs */
+	struct in6_addr sid;		      /* 128-bit SRv6 SID (from TLV 518) */
+	uint16_t mt_id;			      /* Multi-Topology ID (from TLV 263) */
 };
 
 /*
@@ -482,6 +605,29 @@ struct bgp_ls_prefix_nlri {
 	struct bgp_ls_prefix_descriptor prefix_desc; /* Prefix identity */
 };
 
+/*
+ * SRv6 SID NLRI (Type 6) - RFC 9514, Section 6
+ *
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+
+ * |  Protocol-ID  |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                         Identifier                            |
+ * |                          (8 octets)                           |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              Local Node Descriptors (variable)              //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * //              SRv6 SID Descriptors (variable)                //
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+struct bgp_ls_srv6_sid_nlri {
+	enum bgp_ls_protocol_id protocol_id;	    /* IGP/BGP protocol */
+	uint64_t identifier;					    /* Instance identifier */
+	struct bgp_ls_node_descriptor local_node;   /* Local node descriptors */
+	struct bgp_ls_srv6_sid_descriptor sid_desc; /* SRv6 SID descriptors */
+};
+
 /* Forward declare the hash table */
 PREDECL_HASH(bgp_ls_nlri_hash);
 
@@ -513,6 +659,7 @@ struct bgp_ls_nlri {
 		struct bgp_ls_node_nlri node;	  /* Node NLRI (Type 1) */
 		struct bgp_ls_link_nlri link;	  /* Link NLRI (Type 2) */
 		struct bgp_ls_prefix_nlri prefix; /* Prefix NLRI (Type 3/4) */
+		struct bgp_ls_srv6_sid_nlri srv6_sid; /* SRv6 SID NLRI (Type 6, RFC 9514) */
 	} nlri_data;
 
 	unsigned long refcnt; /* Reference count */
@@ -644,6 +791,30 @@ struct bgp_ls_attr {
 	/* Opaque Node Attribute (TLV 1025/1097/1157) */
 	uint16_t opaque_len;
 	uint8_t *opaque_data;
+
+	/* SRv6 Capabilities (TLV 1038, RFC 9514 Section 3.1) */
+	uint16_t srv6_cap_flags; /* SRv6 capability flags */
+
+	/* SRv6 SID Structure (TLV 1252, RFC 9514 Section 8) */
+	struct bgp_ls_srv6_sid_structure srv6_sid_structure;
+
+	/* SRv6 End.X SID (TLV 1106, RFC 9514 Section 4.1) */
+	uint16_t srv6_endx_sid_count;
+	struct bgp_ls_srv6_endx_sid *srv6_endx_sid;
+
+	/* SRv6 LAN End.X SID (TLV 1107/1108, RFC 9514 Section 4.2) */
+	uint16_t srv6_lan_endx_sid_count;
+	struct bgp_ls_srv6_lan_endx_sid *srv6_lan_endx_sid;
+
+	/* SRv6 Locator attributes (TLV 1162, RFC 9514 Section 5.1) */
+	uint8_t srv6_locator_flags;
+	uint8_t srv6_locator_algo;
+	uint32_t srv6_locator_metric;
+
+	/* SRv6 Endpoint Behavior (TLV 1250, RFC 9514 Section 7.1) */
+	uint16_t srv6_endpoint_behavior;
+	uint8_t srv6_endpoint_flags;
+	uint8_t srv6_endpoint_algo;
 
 	unsigned long refcnt; /* Reference count */
 
@@ -815,6 +986,13 @@ extern int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
 /* Decode Prefix NLRI from wire format */
 extern int bgp_ls_decode_prefix_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
 				     uint16_t nlri_type, uint16_t nlri_length);
+
+/* Encode SRv6 SID NLRI to wire format (RFC 9514) */
+extern int bgp_ls_encode_srv6_sid_nlri(struct stream *s, const struct bgp_ls_srv6_sid_nlri *nlri);
+
+/* Decode SRv6 SID NLRI from wire format (RFC 9514) */
+extern int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlri,
+				       uint16_t nlri_length);
 
 /* Decode complete NLRI */
 extern int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri);

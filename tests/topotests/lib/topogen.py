@@ -487,14 +487,17 @@ class Topogen(object):
         errors = ""
         for gear in self.gears.values():
             errors += gear.stop()
-        if len(errors) > 0:
-            logger.error(
-                "Errors found post shutdown - details follow: {}".format(errors)
-            )
 
+        # Always tear down the underlying munet topology before reporting any
+        # gear-level errors back to pytest.  gear.stop() only kills the FRR
+        # daemons inside each router; self.net.stop() (Mininet.delete()) is
+        # what actually reaps the per-gear mutini.py namespace processes,
+        # removes the bridge(s), and unmounts the per-router tmpfs/cgroup
+        # binds.  If we assert before this runs (e.g. on a memory-leak
+        # report from gear.stop()), those mutini.py PID-1 processes - and
+        # the namespaces / mounts they anchor - are leaked across runs.
         try:
             self.net.stop()
-
         except OSError as error:
             # OSError exception is raised when mininet tries to stop switch
             # though switch is stopped once but mininet tries to stop same
@@ -502,6 +505,24 @@ class Topogen(object):
 
             logger.info(error)
             logger.info("Exception ignored: switch is already stopped")
+
+        # Reap any mutini/nsenter children left as zombies under this process.
+        while True:
+            try:
+                wpid, status = os.waitpid(-1, os.WNOHANG)
+            except ChildProcessError:
+                break
+            if wpid == 0:
+                break
+            logger.debug("stop_topology: reaped child pid %s status %s", wpid, status)
+
+        if len(errors) > 0:
+            logger.error(
+                "Errors found post shutdown - details follow: {}".format(errors)
+            )
+            assert False, "Errors found post shutdown - details follow:\n{}".format(
+                errors
+            )
 
     def get_exabgp_cmd(self):
         if not self.exabgp_cmd:
@@ -832,6 +853,7 @@ class TopoRouter(TopoGear):
         logfile = self._setup_tmpdir()
         params["logdir"] = self.logdir
 
+        self.daemondir = params.get("frrdir")
         self.logger = topolog.get_logger(name, log_level="debug", target=logfile)
         params["logger"] = self.logger
         tgen.net.add_host(self.name, cls=cls, **params)
@@ -1201,6 +1223,13 @@ class TopoRouter(TopoGear):
     def has_mpls(self):
         return self.net.hasmpls
 
+    def has_crypto_openssl(self):
+        "Get Build option to know if openssl is used."
+        output = self.vtysh_cmd("show version")
+        if "with-crypto=openssl" in output:
+            return True
+        return False
+
 
 class TopoSwitch(TopoGear):
     """
@@ -1224,6 +1253,7 @@ class TopoSwitch(TopoGear):
 
 class TopoHost(TopoGear):
     "Host abstraction."
+
     # pylint: disable=too-few-public-methods
 
     def __init__(self, tgen, name, **params):
@@ -1262,6 +1292,7 @@ class TopoHost(TopoGear):
 
 class TopoExaBGP(TopoHost):
     "ExaBGP peer abstraction."
+
     # pylint: disable=too-few-public-methods
 
     PRIVATE_DIRS = [

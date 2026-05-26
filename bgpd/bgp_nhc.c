@@ -104,3 +104,20 @@ uint64_t bgp_nhc_nnhn_count(struct bgp_nhc *nhc)
 
 	return 0;
 }
+
+void bgp_nhc_add_bgpid_tlv(struct bgp *bgp, struct attr *attr, afi_t afi, safi_t safi,
+			   uint8_t nh_length)
+{
+	struct bgp_nhc *nhc;
+	struct bgp_nhc_tlv *tlv;
+
+	nhc = XCALLOC(MTYPE_BGP_NHC, sizeof(struct bgp_nhc));
+	nhc->afi = afi;
+	nhc->safi = safi;
+	nhc->nh_length = nh_length;
+	nhc->tlvs_length = IPV4_MAX_BYTELEN;
+
+	tlv = bgp_nhc_tlv_new(BGP_ATTR_NHC_TLV_BGPID, IPV4_MAX_BYTELEN, &bgp->router_id);
+	bgp_nhc_tlv_add(nhc, tlv);
+	bgp_attr_set_nhc(attr, nhc);
+}

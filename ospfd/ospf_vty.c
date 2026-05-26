@@ -3388,6 +3388,88 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	return CMD_SUCCESS;
 }
 
+/* RFC4222 DSCP: 'all' (Hello/Ack + default) and 'low-control' override */
+DEFPY(ospf_if_dscp,
+      ospf_if_dscp_cmd,
+      "[no$no] ip ospf dscp <all|low-control>$which [(0-63)$value]",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "Set DSCP for OSPF control packets\n"    /* dscp */
+      "Default DSCP for all OSPF control packets\n"
+      "DSCP used for lower-priority control packets (DB-Desc, LS-Req, LSUs)\n"   /* low-control */
+      "DSCP value (0-63)\n") /* (0-63)$value */
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+	if (!params)
+		return CMD_WARNING;
+
+	/* Normalize: if no keyword provided, treat as 'all' for backward-ish usage */
+	if (!which)
+		which = "all";
+
+	if (no) {
+		if (!strcmp(which, "all")) {
+			/* Reset to default: Network Control (CS6 = 48) */
+			UNSET_IF_PARAM(params, dscp_ospf_all);
+			params->dscp_ospf_all = IPTOS_PREC_INTERNETCONTROL >> 2;
+		} else if (!strcmp(which, "low-control")) {
+			/* Clear explicit low-control override; fall back to 'all' DSCP */
+			UNSET_IF_PARAM(params, dscp_low_control);
+			params->dscp_low_control = IPTOS_PREC_INTERNETCONTROL >> 2;
+		}
+		return CMD_SUCCESS;
+	}
+
+	/* Non-no case: must have a value */
+	if (!value) {
+		vty_out(vty, "%% DSCP value required\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!strcmp(which, "all")) {
+		params->dscp_ospf_all = value;
+		SET_IF_PARAM(params, dscp_ospf_all);
+	} else if (!strcmp(which, "low-control")) {
+		params->dscp_low_control = value;
+		SET_IF_PARAM(params, dscp_low_control);
+	}
+
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 any packet sets dead-timer inactivity*/
+DEFPY (ospf_dead_timer_any_control,
+	     ospf_dead_timer_any_control_cmd,
+             "[no$no] ip ospf dead-timer-reset any-control",
+             NO_STR
+             IP_STR
+             OSPF_STR
+             "Neighbor dead-timer / inactivity behavior\n"
+             "RFC4222 non-hello control packets also resets dead timer\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	if (!params)
+		return CMD_WARNING;
+
+	if (no) {
+		UNSET_IF_PARAM(params, dead_timer_any);
+		params->dead_timer_any = false; /* Legacy: Hello-only */
+	} else {
+		SET_IF_PARAM(params, dead_timer_any);
+		params->dead_timer_any = true; /* RFC4222 mode */
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_ospf,
        show_ip_ospf_cmd,
        "show ip ospf [vrf <NAME|all>] [json]",
@@ -3920,7 +4002,45 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				ospf_nbr_count(oi, 0),
 				ospf_nbr_count(oi, NSM_Full));
 
+		/* RFC4222 DSCP display */
 		params = IF_DEF_PARAMS(ifp);
+		if (params) {
+			bool all_set = OSPF_IF_PARAM_CONFIGURED(params, dscp_ospf_all);
+			bool low_set = OSPF_IF_PARAM_CONFIGURED(params, dscp_low_control);
+
+			/* Only display if any DSCP knob is configured */
+			if (all_set || low_set) {
+				uint8_t high = OSPF_IF_PARAM(oi, dscp_ospf_all);
+				uint8_t low = low_set ? OSPF_IF_PARAM(oi, dscp_low_control) : high;
+
+				if (use_json) {
+					json_object *dscp_json = json_object_new_object();
+
+					json_object_boolean_add(dscp_json, "allConfigured",
+								all_set);
+					json_object_boolean_add(dscp_json, "lowControlConfigured",
+								low_set);
+
+					json_object_int_add(dscp_json, "highControlDscp", high);
+					json_object_int_add(dscp_json, "lowControlDscp", low);
+
+					if (!low_set)
+						json_object_boolean_add(dscp_json,
+									"lowControlInheritedFromAll",
+									true);
+
+					json_object_object_add(json_interface_sub,
+							       "dscpControlPackets", dscp_json);
+				} else {
+					vty_out(vty, "  DSCP control-packet classes:\n");
+					vty_out(vty, "    high-control : %u (Hello, LS-Ack)\n",
+						high);
+					vty_out(vty,
+						"    low-control  : %u (DB-Desc, LS-Req, LS-Update)%s\n",
+						low, low_set ? "" : " (inherited from all)");
+				}
+			}
+		}
 		if (params &&
 		    OSPF_IF_PARAM_CONFIGURED(params, v_gr_hello_delay)) {
 			if (use_json)
@@ -5320,10 +5440,17 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 			json_object_int_add(
 				json_neigh,
 				"routerDeadIntervalTimerDueMsec", -1);
-	} else
+		/* RFC4222: count inactivity resets due to non-Hello packets */
+		json_object_int_add(json_neigh, "nonHelloDeadTimerResets",
+				    (int64_t)nbr->dead_timer_resets);
+	} else {
 		vty_out(vty, "    Dead timer due in %s\n",
 			ospf_timer_dump(nbr->t_inactivity, timebuf,
 					sizeof(timebuf)));
+		/* RFC4222: count inactivity resets due to non-Hello packets */
+		vty_out(vty, "    Non hello dead timer resets: %llu\n",
+			(unsigned long long)nbr->dead_timer_resets);
+	}
 
 	/* Show Database Summary list. */
 	if (use_json)
@@ -12157,7 +12284,7 @@ static int interface_config_auth_str(struct ospf_if_params *params, char *buf)
 		break;
 
 	case OSPF_AUTH_SIMPLE:
-		snprintf(buf, BUFSIZ, " ");
+		buf[0] = '\0';
 		break;
 
 	case OSPF_AUTH_CRYPTOGRAPHIC:
@@ -12296,6 +12423,13 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 						&rn->p.u.prefix4);
 				vty_out(vty, "\n");
 			}
+			/* RFC4222 DSCP knobs */
+			if (OSPF_IF_PARAM_CONFIGURED(params, dscp_ospf_all))
+				vty_out(vty, " ip ospf dscp all %u\n", params->dscp_ospf_all);
+			if (OSPF_IF_PARAM_CONFIGURED(params, dscp_low_control))
+				vty_out(vty, " ip ospf dscp low-control %u\n",
+					params->dscp_low_control);
+
 
 			/* Hello Graceful-Restart Delay print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params,
@@ -12442,6 +12576,12 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4", &rn->p.u.prefix4);
 				vty_out(vty, "\n");
+			}
+
+			/* dead_timer_any print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, dead_timer_any) &&
+			    params->dead_timer_any) {
+				vty_out(vty, " ip ospf dead-timer-reset any-control\n");
 			}
 
 			while (1) {
@@ -13108,6 +13248,8 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 		vty_out(vty, " socket buffer send %u\n",
 			ospf->send_sock_bufsize);
 
+	if (CHECK_FLAG(ospf->config, OSPF_SHUTDOWN))
+		vty_out(vty, " shutdown\n");
 
 	vty_out(vty, "exit\n");
 
@@ -13275,6 +13417,11 @@ static void ospf_vty_if_init(void)
 
 	/* "ip ospf neighbor-filter" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_neighbor_filter_addr_cmd);
+
+	/* RFC4222 for control packets*/
+	install_element(INTERFACE_NODE, &ospf_dead_timer_any_control_cmd);
+	/* RFC4222 DSCP settings for control packets*/
+	install_element(INTERFACE_NODE, &ospf_if_dscp_cmd);
 
 	/* These commands are compatibitliy for previous version. */
 	install_element(INTERFACE_NODE, &ospf_authentication_key_cmd);
@@ -13650,6 +13797,46 @@ DEFPY (per_intf_socket,
 	return CMD_SUCCESS;
 }
 
+DEFPY(ospf_instance_shutdown, ospf_instance_shutdown_cmd,
+      "[no] shutdown",
+      NO_STR
+      "Administrative shutdown\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (!no && ospf->gr_info.restart_support) {
+		struct listnode *node, *inode;
+		struct ospf_interface *oi;
+		struct ospf_area *area;
+
+		/* Prevent OSPF shutdown with graceful restart if opaque is disabled */
+		if (!CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE)) {
+			vty_out(vty,
+				"%% Failed to activate graceful restart: opaque capability is not enabled\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		/* Reenable routing instance in the GR mode. */
+		ospf_gr_restart_enter(ospf, OSPF_GR_SWITCH_CONTROL_PROCESSOR,
+				      time(NULL) + ospf->gr_info.grace_period);
+
+		/*
+		 * RFC 3623 - Section 5 ("Unplanned Outages"):
+		 * "The grace-LSAs are encapsulated in Link State Update
+		 * Packets and sent out to all interfaces, even though
+		 * the restarted router has no adjacencies and no
+		 * knowledge of previous adjacencies".
+		 */
+		for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
+			for (ALL_LIST_ELEMENTS_RO(area->oiflist, inode, oi))
+				ospf_gr_unplanned_start_interface(oi);
+	}
+
+	ospf_shutdown(ospf, !no);
+
+	return CMD_SUCCESS;
+}
+
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
@@ -13812,6 +13999,8 @@ void ospf_vty_init(void)
 
 	install_element(OSPF_NODE, &ospf_socket_bufsizes_cmd);
 	install_element(OSPF_NODE, &per_intf_socket_cmd);
+
+	install_element(OSPF_NODE, &ospf_instance_shutdown_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();

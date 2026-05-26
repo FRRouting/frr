@@ -152,6 +152,13 @@ struct route_entry {
  * used for nexthops
  */
 #define ROUTE_ENTRY_ROUTE_REPLACING 0x80
+/*
+ * If the route entry experiences a quick flap
+ * of the route entry due to interface flapping
+ * we need to note that we should send a nht removal
+ * then addition.
+ */
+#define ROUTE_ENTRY_SEND_NHT_REMOVAL 0x100
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
@@ -191,8 +198,10 @@ struct route_entry {
  * sub-queue 8: iBGP, eBGP
  * sub-queue 9: any other origin (if any) typically those that
  *              don't generate routes
+ * sub-queue 10: GR run
+ * sub-queue 11: Finished startup
  */
-#define MQ_SIZE 11
+#define MQ_SIZE 12
 
 /* For checking that an object has already queued in some sub-queue */
 #define MQ_BIT_MASK ((1 << MQ_SIZE) - 1)
@@ -617,6 +626,7 @@ extern void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto, u
 extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 			  time_t restart_time, time_t update_pending_time,
 			  bool stale_client_cleanup);
+extern void rib_add_finished_startup(void);
 
 extern void zebra_vty_init(void);
 extern uint32_t zebra_rib_dplane_results_count(void);

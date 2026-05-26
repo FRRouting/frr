@@ -183,7 +183,7 @@ in order to support the route server features.
    that moment, every announcement received by the route server will be also
    considered for the new Loc-RIB.
 
-.. clicmd:: neigbor A.B.C.D|X.X::X.X|peer-group route-map WORD in|out
+.. clicmd:: neighbor A.B.C.D|X.X::X.X|peer-group route-map WORD in|out
 
    This set of commands can be used to specify the route-map that represents
    the Import or Export policy of a peer which is configured as a RS-client

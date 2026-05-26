@@ -229,3 +229,8 @@ void sharp_nhgroup_init(void)
 			   sharp_nhgroup_del_nexthop_cb,
 			   sharp_nhgroup_delete_cb);
 }
+
+void sharp_nhgroup_terminate(void)
+{
+	nexthop_group_terminate();
+}

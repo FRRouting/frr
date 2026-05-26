@@ -152,6 +152,16 @@ ldpe_init(struct ldpd_init *init)
 	zprivs_preinit(&ldpe_privs);
 	zprivs_init(&ldpe_privs);
 
+	/*
+	 * Initialise the accept_queue before any caller of accept_add() so we
+	 * don't LIST_INIT-clobber entries that have already been registered
+	 * (the control socket registers one in control_listen() below). When
+	 * the orphaned entry is later left on a dangling list head, accept_del()
+	 * at shutdown can't find the fd and the struct accept_ev allocation
+	 * leaks.
+	 */
+	accept_init();
+
 	/* listen on ldpd control socket */
 	strlcpy(ctl_sock_path, init->ctl_sock_path, sizeof(ctl_sock_path));
 	if (control_init(ctl_sock_path) == -1)
@@ -177,8 +187,6 @@ ldpe_init(struct ldpd_init *init)
 
 	if ((pkt_ptr = calloc(1, IBUF_READ_SIZE)) == NULL)
 		fatal(__func__);
-
-	accept_init();
 }
 
 static FRR_NORETURN void ldpe_shutdown(void)
@@ -231,7 +239,8 @@ static FRR_NORETURN void ldpe_shutdown(void)
 
 	log_info("ldp engine exiting");
 
-	zlog_fini();
+	frr_early_fini();
+	frr_fini();
 
 	exit(0);
 }
@@ -358,14 +367,13 @@ static void ldpe_dispatch_main(struct event *event)
 				break;
 			}
 
-			if ((iev_lde = malloc(sizeof(struct imsgev))) == NULL)
+			if ((iev_lde = calloc(1, sizeof(struct imsgev))) == NULL)
 				fatal(NULL);
 			imsg_init(&iev_lde->ibuf, fd);
 			iev_lde->handler_read = ldpe_dispatch_lde;
 			event_add_read(master, iev_lde->handler_read, iev_lde,
 				       iev_lde->ibuf.fd, &iev_lde->ev_read);
 			iev_lde->handler_write = ldp_write_handler;
-			iev_lde->ev_write = NULL;
 			break;
 		case IMSG_INIT:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ldpd_init))

@@ -144,11 +144,18 @@ static int bgp_snmp_init(struct event_loop *tm)
 	return 0;
 }
 
+static int bgp_snmp_terminate(void)
+{
+	smux_terminate();
+	return 0;
+}
+
 static int bgp_snmp_module_init(void)
 {
 	hook_register(peer_status_changed, bgpTrapEstablished);
 	hook_register(peer_backward_transition, bgpTrapBackwardTransition);
 	hook_register(frr_late_init, bgp_snmp_init);
+	hook_register(frr_fini, bgp_snmp_terminate);
 	hook_register(bgp_snmp_traps_config_write,
 		      bgp_cli_snmp_traps_config_write);
 	return 0;

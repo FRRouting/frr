@@ -444,8 +444,7 @@ void grpc_client_run_test(void)
 		snprintf(xpath_buf + slen, sizeof(xpath_buf) - slen,
 			 "[prefix='13.0.%d.0/24']"
 			 "[afi-safi='frr-routing:ipv4-unicast']/"
-			 "path-list[table-id='0'][distance='1']/"
-			 "frr-nexthops/nexthop[nh-type='blackhole']"
+			 "path-list[table-id='0'][nh-type='blackhole']"
 			 "[vrf='default'][gateway=''][interface='(null)']",
 			 i);
 		client.EditCandidate(cid, xpath_buf, "");
@@ -583,20 +582,14 @@ const char *json_expect1 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               }
@@ -637,17 +630,11 @@ const char *json_loadconf1 = R"NONCE(
                 "path-list": [
                   {
                     "table-id": 0,
-                    "distance": 1,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)"
-                        }
-                      ]
-                    }
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
+                    "distance": 1
                   }
                 ]
               }
@@ -682,20 +669,14 @@ const char *json_expect2 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -705,20 +686,14 @@ const char *json_expect2 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -728,20 +703,14 @@ const char *json_expect2 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -751,20 +720,14 @@ const char *json_expect2 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -774,20 +737,14 @@ const char *json_expect2 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               }
@@ -827,20 +784,14 @@ const char *json_expect3 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -850,20 +801,14 @@ const char *json_expect3 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -873,20 +818,14 @@ const char *json_expect3 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -896,20 +835,14 @@ const char *json_expect3 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -919,20 +852,14 @@ const char *json_expect3 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               },
@@ -942,20 +869,14 @@ const char *json_expect3 = R"NONCE({
                 "path-list": [
                   {
                     "table-id": 0,
+                    "nh-type": "blackhole",
+                    "vrf": "default",
+                    "gateway": "",
+                    "interface": "(null)",
                     "distance": 1,
                     "tag": 0,
-                    "frr-nexthops": {
-                      "nexthop": [
-                        {
-                          "nh-type": "blackhole",
-                          "vrf": "default",
-                          "gateway": "",
-                          "interface": "(null)",
-                          "bh-type": "null",
-                          "onlink": false
-                        }
-                      ]
-                    }
+                    "bh-type": "null",
+                    "onlink": false
                   }
                 ]
               }

@@ -29,49 +29,49 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_tag_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_create(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_metric_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_distance_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_bh_type_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_weight_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_weight_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_onlink_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_color_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_color_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_entry_create(
 	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_destroy(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_entry_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_bh_type_modify(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_entry_seg_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_weight_modify(
-	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_weight_destroy(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_entry_seg_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_onlink_modify(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_encap_behavior_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_color_modify(
-	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_color_destroy(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_encap_behavior_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_create(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_create(
 	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_destroy(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_modify(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_label_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_destroy(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_label_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_encap_behavior_modify(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_ttl_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_encap_behavior_destroy(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_ttl_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_create(
-	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_destroy(
-	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_label_modify(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_traffic_class_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_label_destroy(
-	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_modify(
-	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_destroy(
-	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_modify(
-	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args);
 int route_next_hop_bfd_create(struct nb_cb_create_args *args);
 int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args);
@@ -123,13 +123,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 
 /* Optional 'apply_finish' callbacks. */
 
-void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_apply_finish(
+void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 void routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 
 /* Optional 'pre_validate' callbacks. */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate(
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_pre_validate(
 	struct nb_cb_pre_validate_args *args);
 
 /*
@@ -140,26 +140,16 @@ int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args);
 
 /* xpath macros */
-/* route-list */
-#define FRR_STATIC_ROUTE_INFO_KEY_XPATH                                                            \
-	"/frr-routing:routing/control-plane-protocols/"                                            \
-	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                  \
-	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"             \
-	"path-list[table-id='%u'][distance='%u']"
+/* Full path-list key: table-id + nexthop identity */
+#define FRR_STATIC_ROUTE_INFO_KEY_XPATH                                                           \
+	"/frr-routing:routing/control-plane-protocols/"                                           \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                 \
+	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"            \
+	"path-list[table-id='%u'][nh-type='%s'][vrf='%s'][gateway='%s'][interface='%s']"
 
-#define FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_XPATH                                                \
-	"/frr-routing:routing/control-plane-protocols/"                                            \
-	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                  \
-	"frr-staticd:staticd/route-list[prefix='%s'][src-prefix='%s'][afi-safi='%s']/"             \
-	"path-list[table-id='%u']"
-
-
+#define FRR_STATIC_ROUTE_PATH_DISTANCE_XPATH "/distance"
+#define FRR_STATIC_ROUTE_PATH_METRIC_XPATH   "/metric"
 #define FRR_STATIC_ROUTE_PATH_TAG_XPATH "/tag"
-
-/* route-list/frr-nexthops */
-#define FRR_STATIC_ROUTE_NH_KEY_XPATH                                          \
-	"/frr-nexthops/"                                                       \
-	"nexthop[nh-type='%s'][vrf='%s'][gateway='%s'][interface='%s']"
 
 #define FRR_STATIC_ROUTE_NH_WEIGHT_XPATH "/weight"
 
@@ -179,15 +169,8 @@ int routing_control_plane_protocols_name_validate(
 
 #define FRR_STATIC_ROUTE_NH_SRV6_ENCAP_BEHAVIOR_XPATH "/encap-behavior"
 
-/* route-list/frr-nexthops */
-#define FRR_DEL_S_ROUTE_NH_KEY_XPATH                                           \
-	FRR_STATIC_ROUTE_INFO_KEY_XPATH                                        \
-	FRR_STATIC_ROUTE_NH_KEY_XPATH
-
-/* route-list/frr-nexthops */
-#define FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH                               \
-	FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_XPATH                            \
-	FRR_STATIC_ROUTE_NH_KEY_XPATH
+/* Deletion: path-list entry = nexthop, full key is sufficient */
+#define FRR_DEL_S_ROUTE_NH_KEY_XPATH FRR_STATIC_ROUTE_INFO_KEY_XPATH
 
 /* srv6 */
 #define FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \

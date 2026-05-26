@@ -111,6 +111,8 @@ struct ospf_if_params {
 		uint32_t min_tx;
 		/** BFD profile. */
 		char profile[BFD_PROFILE_NAME_LEN];
+		/** Allow quick re-adding of BFD neighbors */
+		bool quick;
 	} *bfd_config;
 
 	/* MPLS LDP-IGP Sync configuration */
@@ -130,6 +132,12 @@ struct ospf_if_params {
 
 	/* Name of prefix-list name for packet source address filtering. */
 	DECLARE_IF_PARAM(char *, nbr_filter_name);
+	/* RFC4222 Inactivity */
+	DECLARE_IF_PARAM(bool,
+			 dead_timer_any); /* when true, All recived packets reset inactivity */
+	/* RFC4222 Priority markings */
+	DECLARE_IF_PARAM(uint8_t, dscp_ospf_all);    /* 0–63 */
+	DECLARE_IF_PARAM(uint8_t, dscp_low_control); /* 0–63 */
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -236,10 +244,13 @@ struct ospf_interface {
 
 	uint32_t crypt_seqnum; /* Cryptographic Sequence Number */
 	uint32_t output_cost;  /* Actual Interface Output Cost */
+	uint32_t num_q_nbrs;   /* Number of quick neighbors still active */
 
 	/* Neighbor information. */
 	struct route_table *nbrs;       /* OSPF Neighbor List */
 	struct ospf_neighbor *nbr_self; /* Neighbor Self */
+	/* BFD session entries for this interface (keyed by neighbor endpoint). */
+	struct route_table *bfd_sessions;
 #define DR(I)			((I)->nbr_self->d_router)
 #define BDR(I)			((I)->nbr_self->bd_router)
 #define OPTIONS(I)		((I)->nbr_self->options)
@@ -278,6 +289,7 @@ struct ospf_interface {
 	/* Threads. */
 	struct event *t_hello;		 /* timer */
 	struct event *t_wait;		 /* timer */
+	struct event *t_qn_wait;	 /* timer */
 	struct event *t_ls_ack_delayed;	 /* timer */
 	struct event *t_ls_ack_direct;	 /* event */
 	struct event *t_ls_upd_event;	 /* event */

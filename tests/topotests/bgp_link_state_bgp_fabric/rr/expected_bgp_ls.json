@@ -21,6 +21,9 @@
 						"bgpRouterId": "1.1.1.1"
 					}
 				},
+				"linkStateAttrs": {
+					"nodeName": "r1"
+				},
 				"weight": 0,
 				"peerId": "10.255.1.1",
 				"path": "65001",
@@ -43,6 +46,9 @@
 						"bgpRouterId": "2.2.2.2"
 					}
 				},
+				"linkStateAttrs": {
+					"nodeName": "r2"
+				},
 				"weight": 0,
 				"peerId": "10.255.2.1",
 				"path": "65001",
@@ -64,6 +70,9 @@
 						"asn": 65002,
 						"bgpRouterId": "3.3.3.3"
 					}
+				},
+				"linkStateAttrs": {
+					"nodeName": "r3"
 				},
 				"weight": 0,
 				"peerId": "2001:db9:3::1",
@@ -97,6 +106,9 @@
 						"asn": 65003,
 						"bgpRouterId": "4.4.4.4"
 					}
+				},
+				"linkStateAttrs": {
+					"nodeName": "r4"
 				},
 				"weight": 0,
 				"peerId": "2001:db9:4::1",

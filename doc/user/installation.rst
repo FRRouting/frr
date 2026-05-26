@@ -298,7 +298,7 @@ options from the list below.
 
 .. option:: --disable-version-build-config
 
-   Remove the "configuerd with" field that has all of the build configuration
+   Remove the "configured with" field that has all of the build configuration
    arguments when reporting the version string in `show version` command.
 
 .. option:: --with-pkg-extra-version=VER

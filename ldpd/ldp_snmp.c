@@ -1173,6 +1173,12 @@ static int ldp_snmp_nbr_state_change(struct nbr * nbr, int old_state)
 	return 0;
 }
 
+static int ldp_snmp_terminate(void)
+{
+	smux_terminate();
+	return 0;
+}
+
 static int ldp_snmp_init(struct event_loop *tm)
 {
 	hook_register(agentx_enabled, ldp_snmp_agentx_enabled);
@@ -1208,6 +1214,8 @@ static int ldp_snmp_register_mib(struct event_loop *tm)
 
 static int ldp_snmp_module_init(void)
 {
+	hook_register(frr_fini, ldp_snmp_terminate);
+
 	if (ldpd_process == PROC_MAIN)
 		hook_register(frr_late_init, ldp_snmp_init);
 	else

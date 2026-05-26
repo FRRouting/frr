@@ -54,6 +54,12 @@ struct external_info {
 
 	/* Persistent default route. */
 	bool default_always;
+
+	/*
+	 * Indicates whether this is external information related to an NSSA
+	 * range.
+	 */
+	bool nssa_range;
 };
 
 #define OSPF_EXTL_AGGR_DEFAULT_DELAY 5
@@ -160,4 +166,7 @@ extern int ospf_asbr_external_rt_no_advertise(struct ospf *ospf,
 					      struct prefix_ipv4 *p);
 extern int ospf_asbr_external_rt_advertise(struct ospf *ospf,
 					   struct prefix_ipv4 *p);
+
+extern void ospf_asbr_reoriginate(struct ospf *ospf);
+
 #endif /* _ZEBRA_OSPF_ASBR_H */

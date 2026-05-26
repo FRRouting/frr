@@ -4055,6 +4055,19 @@ static void lsp_table_free(void *p)
 	XFREE(MTYPE_LSP, lsp);
 }
 
+static void zebra_mpls_fec_node_cleanup(struct route_table *table, struct route_node *node)
+{
+	struct zebra_fec *fec;
+
+	if (!node->info)
+		return;
+
+	fec = node->info;
+	list_delete(&fec->client_list);
+	XFREE(MTYPE_FEC, fec);
+	node->info = NULL;
+}
+
 /*
  * Called upon process exiting, need to delete LSP forwarding
  * entries from the kernel.
@@ -4089,6 +4102,8 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 	zvrf->lsp_table = hash_create_size(8, label_hash, label_cmp, buffer);
 	zvrf->fec_table[AFI_IP] = route_table_init();
 	zvrf->fec_table[AFI_IP6] = route_table_init();
+	zvrf->fec_table[AFI_IP]->cleanup = zebra_mpls_fec_node_cleanup;
+	zvrf->fec_table[AFI_IP6]->cleanup = zebra_mpls_fec_node_cleanup;
 	zvrf->mpls_flags = 0;
 	zvrf->mpls_srgb.start_label = MPLS_DEFAULT_MIN_SRGB_LABEL;
 	zvrf->mpls_srgb.end_label = MPLS_DEFAULT_MAX_SRGB_LABEL;

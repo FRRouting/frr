@@ -322,6 +322,64 @@ def test_pe2_converge_evpn():
     assert result is None, assertmsg
 
 
+def show_interface_vxlan0_json(pe, expected):
+    output_json = pe.vtysh_cmd("show interface vxlan0 json", isjson=True)
+    return topotest.json_cmp(output_json, expected)
+
+
+def test_svd_vxlan_interface_json():
+    "Verify SVD vxlan0 JSON output on PE1 contains vxlanId with per-VNI entries"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    json_file = "{}/{}/show_intf_vxlan0.json".format(CWD, pe1.name)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(show_interface_vxlan0_json, pe1, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+
+    output_json = pe1.vtysh_cmd("show interface vxlan0 json", isjson=True)
+    logger.info(
+        "PE1 show interface vxlan0 json:\n%s", json.dumps(output_json, indent=2)
+    )
+
+    assertmsg = '"{}" show interface vxlan0 json output mismatch'.format(pe1.name)
+    assert result is None, assertmsg
+
+
+def test_svd_vxlan_interface_vty():
+    "Verify SVD vxlan0 VTY output on PE1 shows VTEP IP and per-VNI info"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    output = pe1.vtysh_cmd("show interface vxlan0")
+    logger.info("PE1 show interface vxlan0:\n%s", output)
+
+    expected_strings = [
+        "VTEP IP: 10.10.10.10",
+        "VxLAN Id 101",
+        "Access VLAN Id 1",
+        "VxLAN Id 100",
+        "Access VLAN Id 100",
+        "VxLAN Id 4000",
+        "Access VLAN Id 400",
+        "Master interface: bridge",
+    ]
+
+    for s in expected_strings:
+        assert (
+            s in output
+        ), '"{}" show interface vxlan0 missing "{}"\nFull output:\n{}'.format(
+            pe1.name, s, output
+        )
+
+
 def test_learning_pe1():
     "test MAC learning on PE1"
 

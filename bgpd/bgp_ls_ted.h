@@ -111,6 +111,26 @@ extern int bgp_ls_originate_prefix(struct bgp *bgp, uint8_t protocol_id, uint8_t
 				   struct ls_subnet *subnet);
 
 /*
+ * Originate SRv6 SID NLRI (Type 6) from an IGP prefix that carries an SRv6 SID
+ *
+ * Creates a BGP-LS SRv6 SID NLRI from the SRv6 SID fields of ls_prefix
+ * and installs it in the RIB. The prefix must have LS_PREF_SRV6 set.
+ *
+ * @param bgp - BGP instance
+ * @param protocol_id - IGP protocol (ISIS/OSPF)
+ * @param router_id - Advertising router IGP ID
+ * @param router_id_len - Length of router ID
+ * @param area_id - IGP area/level identifier
+ * @param subnet - Link State subnet carrying the SRv6 SID
+ * @return 0 on success, -1 on error
+ */
+extern int bgp_ls_originate_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_id,
+				     uint16_t router_id_len, uint32_t area_id,
+				     struct ls_subnet *subnet);
+extern int bgp_ls_withdraw_srv6_sid(struct bgp *bgp, uint8_t protocol_id, uint8_t *router_id,
+				    uint16_t router_id_len, uint32_t area_id,
+				    struct ls_subnet *subnet);
+/*
  * ===========================================================================
  * Link State Message Processing
  * ===========================================================================

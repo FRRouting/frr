@@ -211,7 +211,7 @@ void isis_circuit_del(struct isis_circuit *circuit)
 		circuit->ext = NULL;
 	}
 
-	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
+	XFREE(MTYPE_ISIS_BFD_PROFILE, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
 
 	/* and lastly the circuit itself */
@@ -301,9 +301,9 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 		ipv4->prefix = connected->address->u.prefix4;
 		listnode_add(circuit->ip_addrs, ipv4);
 
-		/* Update Local IP address parameter if MPLS TE is enable */
-		if (circuit->ext && circuit->area
-		    && IS_MPLS_TE(circuit->area->mta)) {
+		/* Update local IP address parameter if MPLS TE or SRv6 is enabled. */
+		if (circuit->ext && circuit->area &&
+		    (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area))) {
 			circuit->ext->local_addr.s_addr = ipv4->prefix.s_addr;
 			SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR);
 		}
@@ -340,9 +340,9 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 			listnode_add(circuit->ipv6_link, ipv6);
 		else {
 			listnode_add(circuit->ipv6_non_link, ipv6);
-			/* Update Local IPv6 address param. if MPLS TE is on */
-			if (circuit->ext && circuit->area
-			    && IS_MPLS_TE(circuit->area->mta)) {
+			/* Update local IPv6 address parameter if MPLS TE or SRv6 is enabled. */
+			if (circuit->ext && circuit->area &&
+			    (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area))) {
 				IPV6_ADDR_COPY(&circuit->ext->local_addr6,
 					       &ipv6->prefix);
 				SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR6);

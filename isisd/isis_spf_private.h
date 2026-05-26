@@ -191,8 +191,7 @@ __attribute__((__unused__)) static void isis_vertex_queue_free(struct isis_verte
 {
 	isis_vertex_queue_clear(queue);
 
-	hash_free(queue->hash);
-	queue->hash = NULL;
+	hash_clean_and_free(&queue->hash, NULL);
 
 	if (queue->insert_counter) {
 		skiplist_free(queue->l.slist);

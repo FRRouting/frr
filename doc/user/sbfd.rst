@@ -41,7 +41,7 @@ According to RFC7880, SBFD has a stateless SBFDReflector and a stateful SBFDInit
                Figure 1: SBFDInitiator Finite State Machine
 
 * If SBFDInitiator doesn't receive the response packet in time, session is DOWN.
-* If SBFDInitiator receives the response packet in time: reponse state is ADMINDOWN, session goes DOWN; reponse state is UP, session goes UP.
+* If SBFDInitiator receives the response packet in time: response state is ADMINDOWN, session goes DOWN; response state is UP, session goes UP.
 
 .. note::
 
@@ -70,14 +70,14 @@ In the following example, we set up a sbfd session to monitor the path A-B-D (al
        BFD Discrim: 123                     BFD Discrim: 456
    
 
-A is the SBFDInitiator, and D is the SBFDReflector, A will trasmit the SBFD packet to B as the format:
+A is the SBFDInitiator, and D is the SBFDReflector, A will transmit the SBFD packet to B as the format:
 
 ::
 
    IPv6(src="200::A", dst="100::B", nh=43)/IPv6ExtHdrSegmentRouting(addresses=["100::D"], nh=41, segleft=1)/IPv6(src="200::A", dst="200::D")/UDP(dport=7784)/BFD(my_dis=123, your_disc=456, state=UP)
 
 
-Upon receiving the packet, B will take the Srv6 End action since the dst ip 100::B is the End address, B will the shift the dst address according to Srv6 spec, then trasmit the SBFD packet to D as the format:
+Upon receiving the packet, B will take the Srv6 End action since the dst ip 100::B is the End address, B will the shift the dst address according to Srv6 spec, then transmit the SBFD packet to D as the format:
 
 ::
 
@@ -133,14 +133,14 @@ For example, we use Echo SBFD session to protect Srv6 path: A-B-D
        BFD Discrim: 123
 
 
-A is also the SBFDInitiator, and B, C, D is Srv6 ready nodes, A will trasmit the SBFD packet to B as the format:
+A is also the SBFDInitiator, and B, C, D is Srv6 ready nodes, A will transmit the SBFD packet to B as the format:
 
 ::
 
    IPv6(src="200::A", dst="100::B", nh=43)/IPv6ExtHdrSegmentRouting(addresses=["100::D"], nh=41, segleft=1)/IPv6(src="200::A", dst="200::A")/UDP(dport=3785)/BFD(my_dis=123, your_disc=123, state=UP)
 
 
-Upon receiving the packet, B will take the Srv6 End action since the dst ip 100::B is the End address, B will the shift the dst address according to Srv6 spec, then trasmit the SBFD packet to D as the format:
+Upon receiving the packet, B will take the Srv6 End action since the dst ip 100::B is the End address, B will the shift the dst address according to Srv6 spec, then transmit the SBFD packet to D as the format:
 
 ::
 
@@ -185,7 +185,7 @@ We can also configure a SBFD Initiator-Reflector session based on simple IPv6/IP
 
 
 
-A is the SBFDInitiator, and D is the SBFDReflector, A will trasmit the SBFD packet to B or C as the format: 
+A is the SBFDInitiator, and D is the SBFDReflector, A will transmit the SBFD packet to B or C as the format: 
 
 ::
 
@@ -226,7 +226,7 @@ This packet will be routed in the topo according to the dst ip 200::A, it will g
 show command
 ============
 
-The exsiting bfd show command is also appliable to SBFD sessions, for example: 
+The existing bfd show command is also applicable to SBFD sessions, for example: 
 This command will show all the BFD and SBFD sessions in the bfdd:
 
 .. clicmd:: show bfd peers

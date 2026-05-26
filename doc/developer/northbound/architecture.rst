@@ -5,7 +5,7 @@ Introduction
 ------------
 
 The goal of the new northbound API is to provide a better interface to
-configure and monitor FRR programatically. The current design based on
+configure and monitor FRR programmatically. The current design based on
 CLI commands is no longer adequate in a world where computer networks
 are becoming increasingly bigger, more diverse and more complex. Network
 scripting using *expect* and screen scraping techniques is too primitive
@@ -100,7 +100,7 @@ either in memory (volatile) or on persistent storage.
 Figures 1 and 2 below illustrate the old and new northbound architecture
 of FRR, respectively. As it can be seen, in the old architecture the CLI
 was the only interface used to configure and monitor FRR (the SNMP
-plugin was’t taken into account given the small number of implemented
+plugin wasn't taken into account given the small number of implemented
 MIBs). This means that the only way to automate FRR was by writing
 scripts that send CLI commands and parse the text output (which usually
 doesn’t have any structure) using screen scraping and regular

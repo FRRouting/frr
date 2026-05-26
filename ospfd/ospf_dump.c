@@ -47,6 +47,7 @@ unsigned long conf_debug_ospf_gr;
 unsigned long conf_debug_ospf_bfd;
 unsigned long conf_debug_ospf_client_api;
 unsigned long conf_debug_ospf_opaque_lsa;
+unsigned long conf_debug_ospf_qnbr;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -66,6 +67,7 @@ unsigned long term_debug_ospf_gr;
 unsigned long term_debug_ospf_bfd;
 unsigned long term_debug_ospf_client_api;
 unsigned long term_debug_ospf_opaque_lsa;
+unsigned long term_debug_ospf_qnbr;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -1410,6 +1412,33 @@ DEFPY (debug_ospf_opaque_lsa,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_ospf_qnbr,
+       debug_ospf_qnbr_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] quick-neighbor",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "Quick Neighbor operations\n")
+{
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(qnbr, QNBR);
+		else
+			DEBUG_ON(qnbr, QNBR);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(qnbr, QNBR);
+		else
+			TERM_DEBUG_ON(qnbr, QNBR);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1447,6 +1476,7 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(ti_lfa, TI_LFA);
 		DEBUG_OFF(client_api, CLIENT_API);
 		DEBUG_OFF(opaque_lsa, OPAQUE_LSA);
+		DEBUG_OFF(qnbr, QNBR);
 
 		/* BFD debugging is two parts: OSPF and library. */
 		DEBUG_OFF(bfd, BFD_LIB);
@@ -1486,6 +1516,7 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
 	TERM_DEBUG_OFF(client_api, CLIENT_API);
 	TERM_DEBUG_OFF(opaque_lsa, OPAQUE_LSA);
+	TERM_DEBUG_OFF(qnbr, QNBR);
 
 	return CMD_SUCCESS;
 }
@@ -1620,6 +1651,10 @@ static int show_debugging_ospf_common(struct vty *vty)
 	/* Show debug status for OPAQUE-LSA. */
 	if (IS_DEBUG_OSPF(opaque_lsa, OPAQUE_LSA) == OSPF_DEBUG_OPAQUE_LSA)
 		vty_out(vty, "  OSPF opaque-lsa debugging is on\n");
+
+	/* Show debug status for quick neighbor. */
+	if (IS_DEBUG_OSPF(qnbr, QNBR) == OSPF_DEBUG_QNBR)
+		vty_out(vty, "  OSPF Quick Neighbor debugging is on\n");
 
 	return CMD_SUCCESS;
 }
@@ -1835,6 +1870,12 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf quick-neighbor */
+	if (IS_CONF_DEBUG_OSPF(qnbr, QNBR) == OSPF_DEBUG_QNBR) {
+		vty_out(vty, "debug ospf%s quick-neighbor\n", str);
+		write = 1;
+	}
+
 	/* debug ospf default-information */
 	if (IS_CONF_DEBUG_OSPF(defaultinfo, DEFAULTINFO) ==
 	    OSPF_DEBUG_DEFAULTINFO) {
@@ -1864,6 +1905,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_client_api_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_opaque_lsa_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_qnbr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_bfd_cmd);
 
@@ -1887,6 +1929,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_client_api_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_opaque_lsa_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_qnbr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_bfd_cmd);
 

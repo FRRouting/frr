@@ -724,8 +724,9 @@ static void bgp_accept(struct event *event)
 		 */
 		peer_set_last_reset(peer, PEER_DOWN_NSF_CLOSE_SESSION);
 
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) ||
-		    CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
+		if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) ||
+		     CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
+		    && !peer->notify.hard_reset)
 			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 
 		bgp_event_update(connection, TCP_connection_closed);

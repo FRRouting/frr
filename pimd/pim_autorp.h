@@ -26,6 +26,12 @@
 #define DEFAULT_AUTORP_DISCOVERY_INTERVAL 60
 #define DEFAULT_AUTORP_DISCOVERY_SCOPE	  31
 #define DEFAULT_AUTORP_DISCOVERY_HOLDTIME 180
+/*
+ * Upper bounds for learned Auto-RP state to limit memory growth from malformed
+ * or malicious announcement/discovery traffic.
+ */
+#define PIM_AUTORP_MAX_LEARNED_RPS   1024
+#define PIM_AUTORP_MAX_GROUPS_PER_RP 128
 
 PREDECL_SORTLIST_UNIQ(pim_autorp_rp);
 PREDECL_SORTLIST_UNIQ(pim_autorp_grppfix);

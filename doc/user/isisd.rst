@@ -179,7 +179,7 @@ flavors (local LFA, Remote LFA and TI-LFA).
 
 .. clicmd:: default-information originate <ipv4 | ipv6> <level-1 | level-2> [always] [metric (0-16777214)|route-map WORD]
 
-   Originate a default route into the given ISIS level datbase.
+   Originate a default route into the given ISIS level database.
    The `always` command will turn it on by default even if there
    is no default route in the system.
 
@@ -359,7 +359,7 @@ Traffic Engineering
    IS-IS-TE supports RFC 5305 (base TE), RFC 6119 (IPv6) and RFC 7810 / 8570
    (Extended Metric) with or without Multi-Topology. All Traffic Engineering
    information are stored in a database formally named TED. However, best
-   acccuracy is provided without Multi-Topology due to inconsistency of Traffic
+   accuracy is provided without Multi-Topology due to inconsistency of Traffic
    Engineering Advertisement of 3rd party commercial routers when MT is enabled.
    At this time, FRR offers partial support for some of the routing protocol
    extensions that can be used with MPLS-TE. FRR does not currently support a

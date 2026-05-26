@@ -14,7 +14,7 @@
       "internalFlags": 8,
       "internalNextHopNum": 4,
       "internalNextHopActiveNum": 4,
-      "internalNextHopFibInstalledNum": 1,
+      "internalNextHopFibInstalledNum": 2,
       "nexthops": [
         {
           "flags": 267,
@@ -37,7 +37,8 @@
           "weight": 1
         },
         {
-          "flags": 265,
+          "flags": 267,
+          "fib": true,
           "ip": "10.0.0.2",
           "afi": "ipv4",
           "interfaceName": "vlan4001",

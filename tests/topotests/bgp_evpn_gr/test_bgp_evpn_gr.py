@@ -793,7 +793,6 @@ def test_bgp_evpn_gr_select_deferral_cleanup_on_pe2():
     pe2.vtysh_cmd(
             "configure terminal\n"
             "log syslog debugging\n"
-            "log file zebra.log\n"
             "log timestamp precision 6\n"
             "debug zebra events\n"
             "debug bgp graceful-restart\n"

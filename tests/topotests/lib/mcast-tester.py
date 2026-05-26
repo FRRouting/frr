@@ -94,9 +94,7 @@ def group_source_req_32bit(ifindex, group, source):
     "Packs the information into 'struct group_source_req' format."
     mreq = struct.pack("<I", ifindex)
     group_bytes = (
-        struct.pack("<HHI", socket.AF_INET6, 0, 0)
-        + group.packed
-        + struct.pack("<I", 0)
+        struct.pack("<HHI", socket.AF_INET6, 0, 0) + group.packed + struct.pack("<I", 0)
     )
     group_bytes += struct.pack(f"<{128 - len(group_bytes)}x")
 
@@ -128,7 +126,9 @@ def multicast_join(sock, ifindex, group, port, source=None):
             opt = socket.IPV6_JOIN_GROUP
         else:
             if ctypes.sizeof(ctypes.c_voidp) == 4:
-                mreq = group_source_req_32bit(ifindex, group, ipaddress.ip_address(source))
+                mreq = group_source_req_32bit(
+                    ifindex, group, ipaddress.ip_address(source)
+                )
             else:
                 mreq = group_source_req(ifindex, group, ipaddress.ip_address(source))
             opt = 46
@@ -149,6 +149,17 @@ parser.add_argument("--socket", help="Point to topotest UNIX socket")
 parser.add_argument("--source", help="Source address for multicast")
 parser.add_argument(
     "--send", help="Transmit instead of join with interval", type=float, default=0
+)
+parser.add_argument(
+    "--report-sources",
+    help="In RX mode, collect per-source packet counts and print JSON report",
+    action="store_true",
+)
+parser.add_argument(
+    "--report-duration",
+    help="How long to collect RX source stats when --report-sources is used",
+    type=float,
+    default=5.0,
 )
 args = parser.parse_args()
 
@@ -203,12 +214,15 @@ if args.send > 0:
     msock.setblocking(True)
 else:
     multicast_join(msock, ifindex, args.group, args.port, args.source)
+    if args.report_sources:
+        msock.settimeout(0.2)
 
 
 def should_exit():
     if not toposock:
-        # If we are sending then we have slept
-        if not args.send:
+        # Legacy receiver mode idles forever until topotest closes socket.
+        # Source-reporting mode uses a bounded runtime, so don't sleep here.
+        if not args.send and not args.report_sources:
             time.sleep(100)
         return False
     else:
@@ -222,11 +236,37 @@ def should_exit():
 
 
 counter = 0
+source_counts = {}
+start_time = time.time()
 while not should_exit():
     if args.send > 0:
         msock.sendto(b"test %d" % counter, (str(args.group), args.port))
         counter += 1
         time.sleep(args.send)
+    elif args.report_sources:
+        try:
+            _, peer = msock.recvfrom(65535)
+            src = str(peer[0])
+            source_counts[src] = source_counts.get(src, 0) + 1
+        except socket.timeout:
+            pass
+        except BlockingIOError:
+            pass
+
+        if (time.time() - start_time) >= args.report_duration:
+            break
 
 msock.close()
+if args.report_sources:
+    print(
+        json.dumps(
+            {
+                "group": str(args.group),
+                "port": args.port,
+                "duration": args.report_duration,
+                "sources": source_counts,
+            },
+            sort_keys=True,
+        )
+    )
 sys.exit(0)

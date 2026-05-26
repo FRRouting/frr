@@ -444,3 +444,41 @@ void zebra_tc_filter_delete(struct zebra_tc_filter *filter)
 		zlog_debug("%s: tc filter being deleted we know nothing about",
 			   __func__);
 }
+
+/*
+ * Decision-side handler for TC qdisc kernel notifications. Runs in
+ * the zebra master pthread off a DPLANE_OP_TC_QDISC_NOTIFY context
+ * that the dplane thread parsed and translated into a generic
+ * dplane_tc_qdisc_notify_e value. The dplane is purely the decoder;
+ * all policy lives here.
+ */
+void zebra_tc_qdisc_handle_notify(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_tc_qdisc_notify_e notify_type = dplane_ctx_tc_qdisc_notify_get_type(ctx);
+	uint32_t major = dplane_ctx_tc_qdisc_notify_get_major_handle(ctx);
+	bool startup = dplane_ctx_get_startup(ctx);
+	ifindex_t ifindex = dplane_ctx_tc_qdisc_notify_get_ifindex(ctx);
+	int kind = dplane_ctx_tc_qdisc_notify_get_kind(ctx);
+	struct zebra_tc_qdisc qdisc = { 0 };
+
+	if (IS_ZEBRA_DEBUG_DPLANE)
+		zlog_debug("%s: %s ifindex %d major 0x%x kind %s startup %d", __func__,
+			   notify_type == DPLANE_TC_QDISC_NOTIFY_NEW ? "new" : "del", ifindex,
+			   major, tc_qdisc_kind2str(kind), startup);
+
+	/*
+	 * Only act on new-qdisc notifications observed during the
+	 * startup read: if the kernel still has a qdisc whose major
+	 * handle matches zebra's "owned" value, that's a leftover from
+	 * a previous zebra run and we should clean it up. Anything
+	 * else (other major handles, deletes, post-startup
+	 * notifications) is informational only.
+	 */
+	if (notify_type != DPLANE_TC_QDISC_NOTIFY_NEW || !startup || major != TC_QDISC_MAJOR_ZEBRA)
+		return;
+
+	qdisc.qdisc.ifindex = ifindex;
+	qdisc.qdisc.kind = kind;
+
+	dplane_tc_qdisc_uninstall(&qdisc);
+}

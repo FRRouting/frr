@@ -1397,3 +1397,13 @@ void nexthop_group_init(void (*new)(const char *name),
 	if (delete)
 		nhg_hooks.delete = delete;
 }
+
+void nexthop_group_terminate(void)
+{
+	struct nexthop_group_cmd *nhgc;
+
+	while ((nhgc = RB_ROOT(nhgc_entry_head, &nhgc_entries)))
+		nhgc_delete(nhgc);
+
+	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
+}

@@ -6002,6 +6002,22 @@ DEFPY (interface_ip_igmp_proxy,
 	return pim_process_ip_gmp_proxy_cmd(vty, !no);
 }
 
+DEFPY_YANG(interface_ip_igmp_proxy_rmap, interface_ip_igmp_proxy_rmap_cmd,
+	   "[no] ip igmp proxy route-map ![RMAP_NAME]",
+	   NO_STR
+	   IP_STR
+	   IGMP_STR
+	   "Proxy IGMP join/prune operations\n"
+	   "Filter proxied groups through route-map\n"
+	   "Route-map name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./proxy-route-map", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./proxy-route-map", NB_OP_MODIFY, rmap_name);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
 
 DEFPY_YANG(interface_ip_pim_neighbor_prefix_list,
            interface_ip_pim_neighbor_prefix_list_cmd,
@@ -9410,6 +9426,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_proxy_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_proxy_rmap_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_limits_cmd);
 	install_element(INTERFACE_NODE, &no_interface_ip_igmp_limits_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_immediate_leave_cmd);

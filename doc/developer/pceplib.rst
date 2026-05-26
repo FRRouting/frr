@@ -135,7 +135,7 @@ according to `RFC 5440 <https://tools.ietf.org/html/rfc5440>`_.
 
 - DeadTimer
     - If no messages are received before expiration, the session is declared as down
-    - Reset everytime any message is received
+    - Reset every time any message is received
 
 - PCReq request timer
     - How long the PCC waits for the PCE to reply to PCReq messages.
@@ -410,7 +410,7 @@ The ``pceplib_infra_config`` struct has the following fields:
 PCEPlib PCC configuration
 -------------------------
 
-PCEPlib PCC configuratoin functions:
+PCEPlib PCC configuration functions:
 
 - ``pcep_configuration *create_default_pcep_configuration();``
 - ``void destroy_pcep_configuration(pcep_configuration *config);``
@@ -423,7 +423,7 @@ Created ``pcep_configuration`` objects are destroyed with
 ``destroy_pcep_configuration()``.
 
 
-PCEPlib PCC configuration paramaters
+PCEPlib PCC configuration parameters
 ++++++++++++++++++++++++++++++++++++
 
 The ``pcep_configuration`` object is defined in ``pcep_session_logic/include/pcep_session_logic.h``

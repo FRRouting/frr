@@ -1177,7 +1177,7 @@ void pim_igmp_if_fini(struct pim_interface *pim_ifp)
 	assert(!listcount(pim_ifp->gm_group_list));
 
 	list_delete(&pim_ifp->gm_group_list);
-	hash_free(pim_ifp->gm_group_hash);
+	hash_clean_and_free(&pim_ifp->gm_group_hash, NULL);
 
 	list_delete(&pim_ifp->gm_socket_list);
 }
@@ -1379,7 +1379,8 @@ void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 		.grp.ipaddr_v4 = group->group_addr,
 	};
 
-	if (interval_msec && !pim_filter_match(&pim_ifp->gmp_filter, &sg, group->interface)) {
+	if (interval_msec &&
+	    !pim_filter_match(&pim_ifp->gmp_filter, &sg, group->interface, group->interface)) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug("Timer for %pPSG on %s not refreshed due to route-map reject",
 				   &sg, ifname);

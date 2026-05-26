@@ -308,7 +308,7 @@ def check_for_valgrind_memleaks(item: pytest.Item | None = None) -> None:
             logger.debug("Skipping valgrind file %s owned by root", vfile)
             continue
         logger.debug("Checking valgrind file %s not owned by root", vfile)
-        with open(vfile, encoding="ascii") as vf:
+        with open(vfile, encoding="ascii", errors="replace") as vf:
             vfcontent = vf.read()
             match = re.search(r"ERROR SUMMARY: (\d+) errors", vfcontent)
             if match:
@@ -351,7 +351,7 @@ def check_for_memleaks(item: pytest.Item | None = None) -> None:
     for vfile in latest:
         if vfile in existing:
             continue
-        with open(vfile, encoding="ascii") as vf:
+        with open(vfile, encoding="ascii", errors="replace") as vf:
             vfcontent = vf.read()
             num = vfcontent.count("memstats:")
             if num:
@@ -392,9 +392,13 @@ def check_for_core_dumps(item: pytest.Item | None = None) -> None:
         existing |= latest
         tgen.existing_core_files = existing
 
-        # Call gdb_core for each new core dump to show backtrace
+        # Call gdb_core for each new core dump to show backtrace.
+        # NOTE: this can run at module teardown (after stop_topology), at
+        # which point the router netns is already gone and topo_router.net
+        # raises KeyError. We must never let those secondary failures hide
+        # the primary "core file found" message, so any error here is just
+        # logged and we proceed to the pytest.fail() below.
         for core_file in latest:
-            # Extract router name and daemon from core file path
             # Core files are typically named like: /path/to/logdir/router_name/daemon_core_*.dmp
             core_path = Path(core_file)
             router_name = core_path.parent.name
@@ -402,20 +406,22 @@ def check_for_core_dumps(item: pytest.Item | None = None) -> None:
                 0
             ]  # Remove '_core_*.dmp' suffix
 
-            # Get the actual router object from tgen
-            topo_router = tgen.gears.get(router_name)
-            if topo_router:
-                # Access the actual router instance through the net property
-                router = topo_router.net
-                try:
-                    backtrace = gdb_core(router, daemon_name, [core_file])
+            try:
+                topo_router = tgen.gears.get(router_name)
+                if topo_router is None:
                     logger.error(
-                        f"Core dump analysis for {router_name}:{daemon_name}:\n{backtrace}"
+                        f"Core dump found at {core_file} (router {router_name} no longer in topology, skipping backtrace)"
                     )
-                except Exception as e:
-                    logger.error(f"Failed to analyze core dump {core_file}: {e}")
-            else:
-                logger.error(f"Could not find router {router_name} in topology")
+                    continue
+                # topo_router.net dereferences the live netns and will raise
+                backtrace = gdb_core(topo_router, daemon_name, [core_file])
+                logger.error(
+                    f"Core dump analysis for {router_name}:{daemon_name}:\n{backtrace}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Core dump found at {core_file} but backtrace analysis failed: {e!r}"
+                )
 
         emsg = "New core[s] found: " + ", ".join(latest)
         logger.error(emsg)
@@ -440,7 +446,7 @@ def check_for_backtraces(item: pytest.Item | None = None) -> None:
     latest = glob.glob(os.path.join(tgen.logdir, "*/*.log"))
     backtraces = []
     for vfile in latest:
-        with open(vfile, encoding="ascii") as vf:
+        with open(vfile, encoding="ascii", errors="replace") as vf:
             vfcontent = vf.read()
             btcount = vfcontent.count("Backtrace:")
         if not btcount:
@@ -481,6 +487,25 @@ def module_check_memtest(request):
     if request.config.option.memleaks:
         if get_topogen() is not None:
             check_for_memleaks()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def module_check_cores(request):
+    """
+    Daemons can crash during topology shutdown (e.g. while handling SIGTERM
+    from teardown_module). Per-test hooks like check_for_core_dumps() in
+    pytest_runtest_call only fire while tests are running, so a teardown-
+    time crash would otherwise be silently ignored. This module-scoped
+    fixture re-runs the core/backtrace checks once after the topology has
+    been stopped so that any cores or backtraces produced during shutdown
+    cause the module to fail.
+    """
+    yield
+    if get_topogen() is None:
+        return
+    if not request.config.option.ignore_backtraces:
+        check_for_backtraces()
+    check_for_core_dumps()
 
 
 #
@@ -710,8 +735,9 @@ def session_autouse():
     if is_main:
         cleanup_previous()
     yield
-    if is_main:
-        cleanup_current()
+    # Reap munet/mutini children on xdist workers too; otherwise a few stuck
+    # workers with zombie mutini block the controller until the session is killed.
+    cleanup_current()
     logger.debug("After the run (is_main: %s)", is_main)
 
 
@@ -860,14 +886,17 @@ def coverage_finish(terminalreporter, config):
     gcdadir = Path(os.environ["GCOV_PREFIX"])
 
     logger.info("Creating .gcno ssymlink from '%s' to '%s'", gcdadir, bdir)
-    commander.cmd_raises(f"cd {gcdadir}; bdir={bdir}" + """
+    commander.cmd_raises(
+        f"cd {gcdadir}; bdir={bdir}"
+        + """
 for f in $(find . -name '*.gcda'); do
     f=${f#./};
     f=${f%.gcda}.gcno;
     ln -fs $bdir/$f $f;
     touch -h -r $bdir/$f $f;
     echo $f;
-done""")
+done"""
+    )
 
     # Get the results into a summary file
     data_file = rundir / "coverage.info"

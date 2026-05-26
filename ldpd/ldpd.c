@@ -2029,6 +2029,7 @@ void
 config_clear(struct ldpd_conf *conf)
 {
 	struct ldpd_conf	*xconf;
+	struct tnbr		*tnbr;
 
 	/*
 	 * Merge current config with an empty config, this will deactivate
@@ -2044,5 +2045,21 @@ config_clear(struct ldpd_conf *conf)
 	xconf->flags = conf->flags;
 	merge_config(conf, xconf);
 	free(xconf);
+
+	/*
+	 * merge_tnbrs() only walks tnbrs that have F_TNBR_CONFIGURED set;
+	 * dynamic targeted neighbours learned from received hello packets
+	 * (F_TNBR_DYNAMIC, recv_hello() in hello.c) and rlfa tnbrs created
+	 * by ldpe_rlfa_init() in rlfa.c are skipped, so they remain in the
+	 * tree and would leak when conf is freed below. Drain the tree
+	 * explicitly before letting the container go.
+	 */
+	while (!RB_EMPTY(tnbr_head, &conf->tnbr_tree)) {
+		tnbr = RB_ROOT(tnbr_head, &conf->tnbr_tree);
+		event_cancel(&tnbr->hello_timer);
+		RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
+		free(tnbr);
+	}
+
 	free(conf);
 }

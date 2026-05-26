@@ -85,6 +85,38 @@ void bgp_addpath_init_bgp_data(struct bgp_addpath_bgp_data *d)
 }
 
 /*
+ * Destroy any tx addpath id_allocators still attached to the BGP instance.
+ *
+ * Allocators are normally created by bgp_addpath_populate_type() when the
+ * peer count for an (afi, safi, type) combination transitions from zero to
+ * non-zero, and destroyed by the matching bgp_addpath_flush_type() when the
+ * count drops back to zero.  Some configurations keep that count >= 1 even
+ * after every peer has been deleted (e.g. an L3VNI VRF advertising
+ * "ipv4/ipv6 unicast gateway-ip" keeps the BGP_ADDPATH_ALL count at 1 via
+ * advertise_type5_routes_multipath()), so bgp_addpath_flush_type() never
+ * fires.  Call this from bgp_free() to release those leftover allocators.
+ *
+ * It is safe to skip the per-path id drain here because every bgp_path_info
+ * has already been freed by bgp_path_info_free_with_caller() ->
+ * bgp_addpath_free_info_data() by the time bgp_free() runs.
+ */
+void bgp_addpath_finish_bgp_data(struct bgp_addpath_bgp_data *d)
+{
+	safi_t safi;
+	afi_t afi;
+	int i;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		for (i = 0; i < BGP_ADDPATH_MAX; i++) {
+			if (d->id_allocators[afi][safi][i]) {
+				idalloc_destroy(d->id_allocators[afi][safi][i]);
+				d->id_allocators[afi][safi][i] = NULL;
+			}
+		}
+	}
+}
+
+/*
  * Free up resources associated with BGP route info structures.
  */
 void bgp_addpath_free_info_data(struct bgp_addpath_info_data *d,

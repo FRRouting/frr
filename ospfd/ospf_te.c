@@ -159,6 +159,9 @@ int ospf_mpls_te_init(void)
 
 void ospf_mpls_te_term(void)
 {
+	/* Release imported/exported TE link-state database on daemon exit. */
+	ls_ted_del_all(&OspfMplsTE.ted);
+
 	list_delete(&OspfMplsTE.iflist);
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
@@ -177,6 +180,8 @@ void ospf_mpls_te_term(void)
 
 void ospf_mpls_te_finish(void)
 {
+	ls_ted_del_all(&OspfMplsTE.ted);
+
 	OspfMplsTE.enabled = false;
 	OspfMplsTE.inter_as = Off;
 	OspfMplsTE.export = false;

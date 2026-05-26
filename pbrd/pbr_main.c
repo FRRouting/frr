@@ -69,7 +69,11 @@ static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
+	pbr_map_terminate();
 	pbr_vrf_terminate();
+	nexthop_group_terminate();
+	pbr_nht_terminate();
+	access_list_reset();
 
 	pbr_zebra_destroy();
 

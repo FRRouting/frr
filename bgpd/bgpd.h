@@ -2129,6 +2129,12 @@ struct peer {
 	/* allowas-in. */
 	char allowas_in[AFI_MAX][SAFI_MAX];
 
+	/* allowas-in with route-map. */
+	struct {
+		char *name;
+		struct route_map *rmap;
+	} allowas_in_rmap[AFI_MAX][SAFI_MAX];
+
 	/* soo */
 	struct ecommunity *soo[AFI_MAX][SAFI_MAX];
 
@@ -2207,6 +2213,7 @@ struct peer {
 #define PEER_RMAP_TYPE_REDISTRIBUTE   (1U << 3) /* redistribute route-map */
 #define PEER_RMAP_TYPE_DEFAULT        (1U << 4) /* default-originate route-map */
 #define PEER_RMAP_TYPE_AGGREGATE      (1U << 5) /* aggregate-address route-map */
+#define PEER_RMAP_TYPE_ALLOWAS_IN     (1U << 6) /* allowas-in route-map */
 
 	/** Peer overwrite configuration. */
 	struct bfd_session_config {
@@ -2853,7 +2860,7 @@ extern int peer_distribute_set(struct peer *peer, afi_t afi, safi_t safi, int di
 extern int peer_distribute_unset(struct peer *peer, afi_t afi, safi_t safi, int direct);
 
 extern int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num,
-			       bool origin);
+			       bool origin, const char *rmap_name);
 extern int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi);
 
 extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
@@ -3283,10 +3290,15 @@ static inline void bgp_update_gr_completion(void)
 static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
 {
 	/*
-	 * Is forwarding state preserved? Based either on config
-	 * or if BGP restarted gracefully.
-	 * TBD: Additional AFI/SAFI based checks etc.
+	 * F-bit should only be set when a graceful restart is actually
+	 * in progress (t_startup running or GR not yet complete).
+	 * If there is no restart (e.g. port flap), F-bit must be 0
+	 * regardless of preserve-fw-state config or -K flag.
+	 * This aligns F-bit logic with R-bit logic per RFC 4724.
 	 */
+	if (!(bgp->t_startup || bgp_in_graceful_restart()))
+		return false;
+
 	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
 		CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD));
 }

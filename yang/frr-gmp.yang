@@ -171,6 +171,12 @@ module frr-gmp {
         "Enable IGMP proxy on the interface.";
     }
 
+    leaf proxy-route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Filter proxied multicast (S,G) groups with referenced route-map.";
+    }
+
     leaf max-groups {
       type uint32;
       default "4294967295";

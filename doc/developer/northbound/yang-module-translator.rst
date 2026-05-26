@@ -19,7 +19,7 @@ for network management. At this moment both the IETF and OpenConfig
 models are widely implemented and are unlikely to converge, at least not
 in the short term. In the ideal scenario, management applications should
 be able to use either IETF or OpenConfig models to configure and monitor
-FRR programatically (or even both at the same time!).
+FRR programmatically (or even both at the same time!).
 
 But how can FRR support multiple sets of YANG models at the same time?
 There must be only a single source of truth that models the existing
@@ -356,7 +356,7 @@ Module translators can be loaded using the following CLI command:
    ripd(config)# yang module-translator load /usr/local/share/yang/ietf/frr-ietf-translator.json
    % Module translator "ietf" loaded successfully.
 
-Module translators can also be loaded/unloaded programatically using the
+Module translators can also be loaded/unloaded programmatically using the
 ``yang_translator_load()/yang_translator_unload()`` functions within the
 northbound plugins. These functions are documented in the
 *lib/yang_translator.h* file.

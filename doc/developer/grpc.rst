@@ -202,7 +202,7 @@ Using Python To Get Capabilities and Interfaces State
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Below is a sample script to print capabilities and all interfaces Python
-discovered. This demostrates the 2 different RPC results one gets from gRPC,
+discovered. This demonstrates the 2 different RPC results one gets from gRPC,
 Unary (`GetCapabilities`) and Streaming (`Get`) for the interface state.
 
 ::

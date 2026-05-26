@@ -1021,7 +1021,7 @@ static int bfd_dplane_finish_late(void)
 
 	/* Cancel accept thread and close socket. */
 	event_cancel(&bglobal.bg_dplane_sockev);
-	close(bglobal.bg_dplane_sock);
+	socket_close(&bglobal.bg_dplane_sock);
 
 	return 0;
 }

@@ -179,6 +179,7 @@ extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				  ifindex_t svi_ifindex);
 extern void bgp_evpn_flood_control_change(struct bgp *bgp);
 extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
+extern void bgp_evpn_cleanup_per_vni_routes(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);
 extern void bgp_evpn_init(struct bgp *bgp);
 extern int bgp_evpn_get_type5_prefixlen(const struct prefix *pfx);

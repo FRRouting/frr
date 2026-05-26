@@ -1,0 +1,460 @@
+{
+	"routes": {
+		"[V][B][I0x0][N[c65001][q1.1.1.1]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"protocolId": 7,
+					"localNodeDescriptors": {
+						"asn": 65001,
+						"bgpRouterId": "1.1.1.1"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					}
+				}
+			}
+		],
+		"[V][B][I0x0][N[c65001][q2.2.2.2]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"protocolId": 7,
+					"localNodeDescriptors": {
+						"asn": 65001,
+						"bgpRouterId": "2.2.2.2"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					}
+				}
+			}
+		],
+		"[V][B][I0x0][N[c65002][q3.3.3.3]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"protocolId": 7,
+					"localNodeDescriptors": {
+						"asn": 65002,
+						"bgpRouterId": "3.3.3.3"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					}
+				}
+			}
+		],
+		"[V][B][I0x0][N[c65003][q4.4.4.4]]": [
+			{
+				"nlri": {
+					"nlriType": "node",
+					"protocolId": 7,
+					"localNodeDescriptors": {
+						"asn": 65003,
+						"bgpRouterId": "4.4.4.4"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Capabilities": {
+						"flags": "0x0"
+					}
+				}
+			}
+		],
+		"[T][B][I0x0][N[c65001][q1.1.1.1]][P[pfcbb:bbbb:1::/48]][br0x01]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"protocolId": 7,
+					"localNodeDescriptors": {
+						"asn": 65001,
+						"bgpRouterId": "1.1.1.1"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:1::/48",
+						"bgpRouteType": "local"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[T][B][I0x0][N[c65001][q2.2.2.2]][P[pfcbb:bbbb:2::/48]][br0x01]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"protocolId": 7,
+					"localNodeDescriptors": {
+						"asn": 65001,
+						"bgpRouterId": "2.2.2.2"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:2::/48",
+						"bgpRouteType": "local"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[T][B][I0x0][N[c65002][q3.3.3.3]][P[pfcbb:bbbb:3::/48]][br0x01]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"protocolId": 7,
+					"localNodeDescriptors": {
+						"asn": 65002,
+						"bgpRouterId": "3.3.3.3"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:3::/48",
+						"bgpRouteType": "local"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[T][B][I0x0][N[c65003][q4.4.4.4]][P[pfcbb:bbbb:4::/48]][br0x01]": [
+			{
+				"nlri": {
+					"nlriType": "ipv6Prefix",
+					"protocolId": 7,
+					"localNodeDescriptors": {
+						"asn": 65003,
+						"bgpRouterId": "4.4.4.4"
+					},
+					"prefixDescriptors": {
+						"ipReachabilityInformation": "fcbb:bbbb:4::/48",
+						"bgpRouteType": "local"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6Locator": {
+						"flags": "0x0",
+						"algo": 0,
+						"metric": 0
+					}
+				}
+			}
+		],
+		"[S][ST][I0x0][N[q1.1.1.1]][S[sdfcbb:bbbb:1::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"protocolId": 5,
+					"localNodeDescriptors": {
+						"bgpRouterId": "1.1.1.1"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:1::"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 0,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[S][ST][I0x0][N[q2.2.2.2]][S[sdfcbb:bbbb:2::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"protocolId": 5,
+					"localNodeDescriptors": {
+						"bgpRouterId": "2.2.2.2"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:2::"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 0,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[S][ST][I0x0][N[q3.3.3.3]][S[sdfcbb:bbbb:3::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"protocolId": 5,
+					"localNodeDescriptors": {
+						"bgpRouterId": "3.3.3.3"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:3::"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 0,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[S][ST][I0x0][N[q4.4.4.4]][S[sdfcbb:bbbb:4::]]": [
+			{
+				"nlri": {
+					"nlriType": "srv6Sid",
+					"protocolId": 5,
+					"localNodeDescriptors": {
+						"bgpRouterId": "4.4.4.4"
+					},
+					"srv6SidDescriptors": {
+						"srv6SidValue": "fcbb:bbbb:4::"
+					}
+				},
+				"linkStateAttrs": {
+					"srv6EndpointBehavior": {
+						"behavior": "0x2b",
+						"flags": "0x0",
+						"algo": 0
+					},
+					"srv6SidStructure": {
+						"lbLen": 32,
+						"lnLen": 16,
+						"funLen": 0,
+						"argLen": 0
+					}
+				}
+			}
+		],
+		"[E][B][I0x0][N[c65001][q1.1.1.1]][R[c65001][q2.2.2.2]][L[l101/0][i2001:db8:12::1][n2001:db8:12::2]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"protocolId": 7,
+						"localNodeDescriptors": {
+							"asn": 65001,
+							"bgpRouterId": "1.1.1.1"
+						},
+						"remoteNodeDescriptors": {
+							"asn": 65001,
+							"bgpRouterId": "2.2.2.2"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:1:fe01::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							},
+							{
+								"sid": "fcbb:bbbb:fe01::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 0,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][B][I0x0][N[c65001][q2.2.2.2]][R[c65001][q1.1.1.1]][L[l102/0][i2001:db8:12::2][n2001:db8:12::1]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"protocolId": 7,
+						"localNodeDescriptors": {
+							"asn": 65001,
+							"bgpRouterId": "2.2.2.2"
+						},
+						"remoteNodeDescriptors": {
+							"asn": 65001,
+							"bgpRouterId": "1.1.1.1"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:2:fe01::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							},
+							{
+								"sid": "fcbb:bbbb:fe01::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 0,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][B][I0x0][N[c65002][q3.3.3.3]][R[c65003][q4.4.4.4]][L[l103/0][i2001:db8:1::1][n2001:db8:1::2]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"protocolId": 7,
+						"localNodeDescriptors": {
+							"asn": 65002,
+							"bgpRouterId": "3.3.3.3"
+						},
+						"remoteNodeDescriptors": {
+							"asn": 65003,
+							"bgpRouterId": "4.4.4.4"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:3:fe01::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							},
+							{
+								"sid": "fcbb:bbbb:fe01::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 0,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			],
+		"[E][B][I0x0][N[c65003][q4.4.4.4]][R[c65002][q3.3.3.3]][L[l104/0][i2001:db8:1::2][n2001:db8:1::1]]":
+			[
+				{
+					"nlri": {
+						"nlriType": "link",
+						"protocolId": 7,
+						"localNodeDescriptors": {
+							"asn": 65003,
+							"bgpRouterId": "4.4.4.4"
+						},
+						"remoteNodeDescriptors": {
+							"asn": 65002,
+							"bgpRouterId": "3.3.3.3"
+						}
+					},
+					"linkStateAttrs": {
+						"srv6EndxSids": [
+							{
+								"sid": "fcbb:bbbb:4:fe01::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 16,
+									"funLen": 16,
+									"argLen": 0
+								}
+							},
+							{
+								"sid": "fcbb:bbbb:fe01::",
+								"behavior": "0x34",
+								"flags": "0x0",
+								"algo": 0,
+								"weight": 0,
+								"srv6SidStructure": {
+									"lbLen": 32,
+									"lnLen": 0,
+									"funLen": 16,
+									"argLen": 0
+								}
+							}
+						]
+					}
+				}
+			]
+	}
+}

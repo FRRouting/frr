@@ -569,6 +569,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 			json_object_boolean_false_add(json_route, "offloaded");
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
 			json_object_boolean_true_add(json_route, "failed");
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL))
+			json_object_boolean_true_add(json_route, "kernelRemoved");
+
 		json_object_int_add(json_route, "nexthopGroupId", re->nhe_id);
 		json_object_int_add(json_route, "vrfId", re->vrf_id);
 		json_object_string_add(json_route, "vrfName", vrf_id_to_name(re->vrf_id));
@@ -643,7 +646,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 				json_nexthops = json_object_new_array();
 				for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 					json_nexthop = json_object_new_object();
-					show_nexthop_json_helper(json_nexthop, nexthop, rn, re);
+					show_nexthop_json_helper(json_nexthop, nexthop, rn, re,
+								 false);
 
 					json_object_array_add(json_nexthops, json_nexthop);
 				}
@@ -660,7 +664,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 						json_nexthop = json_object_new_object();
 
 						show_nexthop_json_helper(json_nexthop, nexthop, rn,
-									 re);
+									 re, false);
 						json_object_array_add(json_nexthops, json_nexthop);
 					}
 
@@ -1140,7 +1144,7 @@ DEFPY (show_ip_nht,
 }
 
 static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
-				   json_object *json_nhe_hdr)
+				   json_object *json_nhe_hdr, bool brief)
 {
 	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
@@ -1165,15 +1169,15 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	nexthop_count = nexthop_group_nexthop_num_no_recurse(&nhe->nhg);
 
 	if (json) {
-		json_object_string_add(json, "type",
-				       zebra_route_string(nhe->type));
-		json_object_int_add(json, "refCount", nhe->refcnt);
-		if (event_is_scheduled(nhe->timer))
-			json_object_string_add(
-				json, "timeToDeletion",
-				event_timer_to_hhmmss(time_left,
-						      sizeof(time_left),
-						      nhe->timer));
+		if (!brief) {
+			json_object_string_add(json, "type", zebra_route_string(nhe->type));
+			json_object_int_add(json, "refCount", nhe->refcnt);
+			if (event_is_scheduled(nhe->timer))
+				json_object_string_add(json, "timeToDeletion",
+						       event_timer_to_hhmmss(time_left,
+									     sizeof(time_left),
+									     nhe->timer));
+		}
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
@@ -1261,66 +1265,78 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	/* Output nexthops */
 	if (json)
 		json_nexthop_array = json_object_new_array();
-
-
-	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
-		if (json_nexthop_array) {
-			json_nexthops = json_object_new_object();
-			show_nexthop_json_helper(json_nexthops, nexthop, NULL,
-						 NULL);
-		} else {
-			outdent_p = (nexthop->rparent == NULL);
-			if (outdent_p)
-				vty_out(vty, "       ");
-			else
-				/* Make recursive nexthops a bit more clear */
-				vty_out(vty, "          ");
-
-			show_route_nexthop_helper(vty, NULL, NULL, nexthop);
-		}
-
-		if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL) {
-			if (CHECK_FLAG(nexthop->flags,
-				       NEXTHOP_FLAG_HAS_BACKUP)) {
-				if (json)
-					json_object_int_add(
-						json_nexthops, "backup",
-						nexthop->backup_idx[0]);
+	/* Skip outputting nexthops in brief mode for groups with dependencies */
+	if (!(json && brief && !zebra_nhg_depends_is_empty(nhe))) {
+		for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
+			if (json_nexthop_array) {
+				json_nexthops = json_object_new_object();
+				if (brief) {
+					if (zebra_nhg_depends_is_empty(nhe))
+						show_nexthop_json_helper(json_nexthops, nexthop,
+									 NULL, NULL, brief);
+				} else {
+					show_nexthop_json_helper(json_nexthops, nexthop, NULL,
+								 NULL, false);
+				}
+			} else {
+				outdent_p = (nexthop->rparent == NULL);
+				if (outdent_p)
+					vty_out(vty, "       ");
 				else
-					vty_out(vty, " [backup %d]",
-						nexthop->backup_idx[0]);
+					/* Make recursive nexthops a bit more clear */
+					vty_out(vty, "          ");
+
+				show_route_nexthop_helper(vty, NULL, NULL, nexthop);
 			}
 
-			if (!json)
+			if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL) {
+				if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+					if (json)
+						json_object_int_add(json_nexthops, "backup",
+								    nexthop->backup_idx[0]);
+					else
+						vty_out(vty, " [backup %d]",
+							nexthop->backup_idx[0]);
+				}
+
+				if (!json)
+					vty_out(vty, "\n");
+				else
+					json_object_array_add(json_nexthop_array, json_nexthops);
+
+				continue;
+			}
+
+			if (!json) {
+				/* TODO -- print more useful backup info */
+				if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+					int i;
+
+					vty_out(vty, "[backup");
+					for (i = 0; i < nexthop->backup_num; i++)
+						vty_out(vty, " %d", nexthop->backup_idx[i]);
+					vty_out(vty, "]");
+				}
 				vty_out(vty, "\n");
-			else
+			} else {
 				json_object_array_add(json_nexthop_array,
 						      json_nexthops);
-
-			continue;
-		}
-
-		if (!json) {
-			/* TODO -- print more useful backup info */
-			if (CHECK_FLAG(nexthop->flags,
-				       NEXTHOP_FLAG_HAS_BACKUP)) {
-				int i;
-
-				vty_out(vty, "[backup");
-				for (i = 0; i < nexthop->backup_num; i++)
-					vty_out(vty, " %d",
-						nexthop->backup_idx[i]);
-				vty_out(vty, "]");
 			}
-			vty_out(vty, "\n");
-		} else {
-			json_object_array_add(json_nexthop_array,
-					      json_nexthops);
 		}
 	}
 
-	if (json)
+	if (json) {
+		if (brief) {
+			if (zebra_nhg_depends_is_empty(nhe))
+				json_object_object_add(json, "nexthops", json_nexthop_array);
+			else
+				json_object_put(json_nexthop_array);
+			if (json_nhe_hdr)
+				json_object_object_addf(json_nhe_hdr, json, "%u", nhe->id);
+			return;
+		}
 		json_object_object_add(json, "nexthops", json_nexthop_array);
+	}
 
 	/* Output backup nexthops (if any) */
 	backup_nhg = zebra_nhg_get_backup_nhg(nhe);
@@ -1333,8 +1349,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		for (ALL_NEXTHOPS_PTR(backup_nhg, nexthop)) {
 			if (json_backup_nexthop_array) {
 				json_backup_nexthops = json_object_new_object();
-				show_nexthop_json_helper(json_backup_nexthops,
-							 nexthop, NULL, NULL);
+				show_nexthop_json_helper(json_backup_nexthops, nexthop, NULL, NULL,
+							 false);
 				json_object_array_add(json_backup_nexthop_array,
 						      json_backup_nexthops);
 			} else {
@@ -1401,15 +1417,15 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_object_object_addf(json_nhe_hdr, json, "%u", nhe->id);
 }
 
-static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id,
-					    json_object *json)
+static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id, json_object *json,
+					    bool brief)
 {
 	struct nhg_hash_entry *nhe = NULL;
 
 	nhe = zebra_nhg_lookup_id(id);
 
 	if (nhe)
-		show_nexthop_group_out(vty, nhe, json);
+		show_nexthop_group_out(vty, nhe, json, brief);
 	else {
 		if (json)
 			vty_json(vty, json);
@@ -1434,6 +1450,7 @@ struct nhe_show_context {
 	int type;
 	int counter;
 	json_object *json;
+	bool brief;
 	json_object *json_top;
 };
 
@@ -1453,11 +1470,12 @@ static int nhe_show_walker(struct hash_bucket *bucket, void *arg)
 	if (ctx->type && nhe->type != ctx->type)
 		goto done;
 
-	show_nexthop_group_out(ctx->vty, nhe, ctx->json);
+	show_nexthop_group_out(ctx->vty, nhe, ctx->json, ctx->brief);
 
 	if (ctx->json) {
 		ctx->counter++;
-		if (ctx->counter > 5) {
+		/* Only batch-output when not brief; when brief we output once at DEFPY level */
+		if (!ctx->brief && ctx->counter > 5) {
 			/* Output and reset counter */
 			frr_json_vty_out(ctx->vty, ctx->json_top);
 			ctx->counter = 0;
@@ -1468,9 +1486,8 @@ done:
 	return HASHWALK_CONTINUE;
 }
 
-static void show_nexthop_group_cmd_helper(struct vty *vty,
-					  struct zebra_vrf *zvrf, afi_t afi,
-					  int type, json_object *json)
+static void show_nexthop_group_cmd_helper(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
+					  int type, json_object *json, bool brief)
 {
 	struct nhe_show_context ctx;
 	struct json_object *jvrf = NULL;
@@ -1478,7 +1495,8 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 	if (json) {
 		jvrf = json_object_new_object();
 
-		frr_json_set_open(jvrf);
+		if (!brief)
+			frr_json_set_open(jvrf);
 
 		json_object_object_add(json, zvrf->vrf->name, jvrf);
 	}
@@ -1487,6 +1505,7 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 	ctx.afi = afi;
 	ctx.vrf_id = zvrf->vrf->vrf_id;
 	ctx.type = type;
+	ctx.brief = brief;
 	ctx.json = jvrf;
 	ctx.json_top = json;
 	ctx.counter = 0;
@@ -1495,8 +1514,9 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 
 	/* Finish with the json vrf object */
 	if (json) {
-		frr_json_set_complete(jvrf);
-		frr_json_vty_out(vty, json);
+		if (!brief)
+			frr_json_set_complete(jvrf);
+		/* Output only at DEFPY level; do not free json here */
 	}
 }
 
@@ -1515,7 +1535,7 @@ static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
 		}
 
 		vty_out(vty, "   ");
-		show_nexthop_group_out(vty, rb_node_dep->nhe, NULL);
+		show_nexthop_group_out(vty, rb_node_dep->nhe, NULL, false);
 	}
 }
 
@@ -1553,9 +1573,8 @@ DEFPY (show_interface_nexthop_group,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_nexthop_group,
-      show_nexthop_group_cmd,
-      "show nexthop-group rib <(0-4294967295)$id|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [json]",
+DEFPY(show_nexthop_group, show_nexthop_group_cmd,
+      "show nexthop-group rib <(0-4294967295)$id|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [json$uj [brief$brief]]",
       SHOW_STR
       "Show Nexthop Groups\n"
       "RIB information\n"
@@ -1568,20 +1587,20 @@ DEFPY(show_nexthop_group,
       "Border Gateway Protocol (BGP)\n"
       "Super Happy Advanced Routing Protocol (SHARP)\n"
       VRF_FULL_CMD_HELP_STR
-      JSON_STR)
+      JSON_STR
+      "Brief\n")
 {
 
 	struct zebra_vrf *zvrf = NULL;
 	afi_t afi = AFI_UNSPEC;
 	uint8_t type = 0;
-	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 
 	if (uj)
 		json = json_object_new_object();
 
 	if (id)
-		return show_nexthop_group_id_cmd_helper(vty, id, json);
+		return show_nexthop_group_id_cmd_helper(vty, id, json, brief);
 
 	if (v4)
 		afi = AFI_IP;
@@ -1608,7 +1627,7 @@ DEFPY(show_nexthop_group,
 	if (vrf_all) {
 		struct vrf *vrf;
 
-		if (json)
+		if (json && !brief)
 			frr_json_set_open(json);
 
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -1618,13 +1637,16 @@ DEFPY(show_nexthop_group,
 			if (!uj)
 				vty_out(vty, "VRF: %s\n", vrf->name);
 
-			show_nexthop_group_cmd_helper(vty, zvrf, afi, type,
-						      json);
+			show_nexthop_group_cmd_helper(vty, zvrf, afi, type, json, brief);
 		}
 
 		if (uj) {
-			frr_json_set_complete(json);
-			frr_json_vty_out(vty, json);
+			if (brief)
+				vty_json_no_pretty(vty, json);
+			else {
+				frr_json_set_complete(json);
+				frr_json_vty_out(vty, json);
+			}
 		}
 
 		return CMD_SUCCESS;
@@ -1644,14 +1666,18 @@ DEFPY(show_nexthop_group,
 		return CMD_WARNING;
 	}
 
-	if (json)
+	if (json && !brief)
 		frr_json_set_open(json);
 
-	show_nexthop_group_cmd_helper(vty, zvrf, afi, type, json);
+	show_nexthop_group_cmd_helper(vty, zvrf, afi, type, json, brief);
 
 	if (uj) {
-		frr_json_set_complete(json);
-		frr_json_vty_out(vty, json);
+		if (brief)
+			vty_json_no_pretty(vty, json);
+		else {
+			frr_json_set_complete(json);
+			frr_json_vty_out(vty, json);
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -1711,7 +1737,6 @@ DEFPY (show_route,
            " FRR_IP_REDIST_STR_ZEBRA "$type_str\
            |ospf$type_str (1-65535)$ospf_instance_id\
           >]\
-       [<brief$brief>] \
          |ipv6$ipv6 <fib$fib|route>\
           [{\
            table <(1-4294967295)$table|all$table_all>\
@@ -1723,9 +1748,9 @@ DEFPY (show_route,
            |X:X::X:X/M$prefix longer-prefixes\
           }]\
           [" FRR_IP6_REDIST_STR_ZEBRA "$type_str]\
-       [<brief$brief>] \
         >\
-       [nexthop-group$ng [summary$ng_summary [ecmp-count <gt$ecmp_gt|lt$ecmp_lt|eq$ecmp_eq> (1-256)$ecmp_count]]] [failed$failed] [json$json]",
+       [nexthop-group$ng [summary$ng_summary [ecmp-count <gt$ecmp_gt|lt$ecmp_lt|eq$ecmp_eq> (1-256)$ecmp_count]]]\
+       [failed$failed] [json$json [brief$brief]]",
        SHOW_STR
        IP_STR
        "IP forwarding table\n"
@@ -1743,10 +1768,9 @@ DEFPY (show_route,
        FRR_IP_REDIST_HELP_STR_ZEBRA
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n"
-       "Brief\n"
        IPV6_STR
-       "IP forwarding table\n"
-       "IP routing table\n"
+       "IPv6 forwarding table\n"
+       "IPv6 routing table\n"
        "Table to display\n"
        "The table number to display\n"
        "All tables\n"
@@ -1757,6 +1781,7 @@ DEFPY (show_route,
        "IPv6 prefix\n"
        "Show route matching the specified Network/Mask pair only\n"
        FRR_IP6_REDIST_HELP_STR_ZEBRA
+       "Nexthop Group Information\n"
        "Show ECMP count summary\n"
        "Filter by ECMP count\n"
        "Greater than (>)\n"
@@ -1764,9 +1789,8 @@ DEFPY (show_route,
        "Equal to (=)\n"
        "ECMP count value\n"
        "Show only failed routes\n"
-       "Brief\n"
        JSON_STR
-       "Nexthop Group Information\n")
+       "Brief JSON output\n")
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;

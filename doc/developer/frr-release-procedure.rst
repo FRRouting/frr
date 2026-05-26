@@ -265,14 +265,14 @@ Stage 3 - Publish
    This is very important otherwise the announcement will be unreadable on the
    website.
 
-   To get the number of commiters and commits, here is a couple of handy commands:
+   To get the number of committers and commits, here is a couple of handy commands:
 
    .. code-block:: console
 
       # The number of commits
       % git log --oneline --no-merges frr-10.4.0...frr-10.3.0 | wc -l
 
-      # The number of commiters
+      # The number of committers
       % git shortlog --summary --no-merges frr-10.4.0...frr-10.3.0 | wc -l
 
    Make sure to add a link to the GitHub releases page at the top.

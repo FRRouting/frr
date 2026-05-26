@@ -546,7 +546,7 @@ General utility formats
 
    ``%pIS``: :frrfmtout:`01.0203.04O5`
    ISO Network address is printed as separated byte. The number of byte of the
-   address is embeded in the `iso_net` structure.
+   address is embedded in the `iso_net` structure.
 
    ``%pISl``: :frrfmtout:`01.0203.04O5.0607.0809.1011.1213.14` - long format to
    print the long version of the ISO Network address which include the System

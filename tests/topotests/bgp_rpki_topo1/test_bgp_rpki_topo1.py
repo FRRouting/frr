@@ -283,6 +283,70 @@ exit
         assert result is None, "Unexpected prefixes RPKI state on {}".format(rname)
 
 
+def test_no_rpki_command():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process[rname].poll() is not None:
+            pytest.skip(tgen.errors)
+
+    rname = "r2"
+
+    def _show_rpki_no_connection():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show rpki cache-connection json")
+        )
+        return output == {"error": "No connection to RPKI cache server."}
+
+    def _show_rpki_connected():
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show rpki cache-connection json")
+        )
+        return "connectedGroup" in output and "connections" in output
+
+    step("Remove full RPKI configuration using no rpki")
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+no rpki
+"""
+    )
+
+    step("Verify RPKI cache disconnects after no rpki")
+    _, result = topotest.run_and_expect(
+        _show_rpki_no_connection, True, count=60, wait=0.5
+    )
+    assert result, "RPKI is still connected on {} after no rpki".format(rname)
+
+    step("Restore RPKI configuration")
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+rpki
+ rpki retry_interval 5
+ rpki cache tcp 192.0.2.1 15432 preference 1
+exit
+"""
+    )
+
+    step("Verify RPKI reconnects after restoring configuration")
+    _, result = topotest.run_and_expect(_show_rpki_connected, True, count=60, wait=0.5)
+    assert result, "RPKI cache connection did not establish after restoring no rpki"
+
+    step("Verify RPKI prefix table is repopulated")
+    expected = open(os.path.join(CWD, "{}/rpki_prefix_table.json".format(rname))).read()
+    expected_json = json.loads(expected)
+    test_func = functools.partial(show_rpki_prefixes, rname, expected_json)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert (
+        result is None
+    ), "Failed to see RPKI prefixes on {} after no rpki restore".format(rname)
+
+
 def test_show_bgp_rpki_route_map():
     tgen = get_topogen()
 

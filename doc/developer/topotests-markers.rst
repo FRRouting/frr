@@ -25,7 +25,7 @@ systems, all tests must be marked with at least one of the following markers:
 * staticd
 * vrrpd
 
-The markers corespond to the daemon subdirectories in FRR's source code and have
+The markers correspond to the daemon subdirectories in FRR's source code and have
 to be added to tests on a module level depending on which daemons are used
 during the test.
 

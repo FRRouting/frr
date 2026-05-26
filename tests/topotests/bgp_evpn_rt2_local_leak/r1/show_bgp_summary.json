@@ -1,0 +1,21 @@
+{
+  "ipv4Unicast": {
+    "routerId": "10.0.0.1",
+    "as": 65001,
+    "peers": {
+      "eth-r2": {
+        "hostname": "r2",
+        "remoteAs": 65002,
+        "localAs": 65001,
+        "state": "Established"
+      },
+      "eth-r3": {
+        "hostname": "r3",
+        "remoteAs": 65003,
+        "localAs": 65001,
+        "state": "Established"
+      }
+    },
+    "totalPeers": 2
+  }
+}

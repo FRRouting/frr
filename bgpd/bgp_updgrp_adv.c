@@ -989,6 +989,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 	} else {
 		bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
+		attr.mp_nexthop_len = IPV4_MAX_BYTELEN;
 	}
 
 	if (peer->default_rmap[afi][safi].name) {
@@ -1009,8 +1010,9 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
-				struct attr tmp_attr = attr;
+				struct attr tmp_attr;
 
+				bgp_attr_dup_into(&tmp_attr, &attr);
 				tmp_pi.attr = &tmp_attr;
 
 				new_ret = route_map_apply_ext(

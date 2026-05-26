@@ -58,6 +58,11 @@ typedef void (*format_item_func)(uint16_t mtid, struct isis_item *i, struct sbuf
 				 struct json_object *json, int indent);
 typedef struct isis_item *(*copy_item_func)(struct isis_item *i);
 
+static struct sbuf format_tlvs_buf;
+static bool format_tlvs_buf_inited;
+static struct sbuf unpack_tlvs_logbuf;
+static bool unpack_tlvs_logbuf_inited;
+
 struct tlv_ops {
 	const char *name;
 	unpack_tlv_func unpack;
@@ -6348,14 +6353,14 @@ const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json)
 		format_tlvs(tlvs, NULL, json, 0);
 		return NULL;
 	} else {
-		static struct sbuf buf;
+		if (!format_tlvs_buf_inited) {
+			sbuf_init(&format_tlvs_buf, NULL, 0);
+			format_tlvs_buf_inited = true;
+		}
 
-		if (!sbuf_buf(&buf))
-			sbuf_init(&buf, NULL, 0);
-
-		sbuf_reset(&buf);
-		format_tlvs(tlvs, &buf, NULL, 0);
-		return sbuf_buf(&buf);
+		sbuf_reset(&format_tlvs_buf);
+		format_tlvs(tlvs, &format_tlvs_buf, NULL, 0);
+		return sbuf_buf(&format_tlvs_buf);
 	}
 }
 
@@ -6709,29 +6714,46 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len, struct s
 int isis_unpack_tlvs(size_t avail_len, struct stream *stream, struct isis_tlvs **dest,
 		     const char **log)
 {
-	static struct sbuf logbuf;
 	int indent = 0;
 	int rv;
 	struct isis_tlvs *result;
 
-	if (!sbuf_buf(&logbuf))
-		sbuf_init(&logbuf, NULL, 0);
+	if (!unpack_tlvs_logbuf_inited) {
+		sbuf_init(&unpack_tlvs_logbuf, NULL, 0);
+		unpack_tlvs_logbuf_inited = true;
+	}
 
-	sbuf_reset(&logbuf);
+	sbuf_reset(&unpack_tlvs_logbuf);
 	if (avail_len > STREAM_READABLE(stream)) {
-		sbuf_push(&logbuf, indent,
+		sbuf_push(&unpack_tlvs_logbuf, indent,
 			  "Stream doesn't contain sufficient data. Claimed %zu, available %zu\n",
 			  avail_len, STREAM_READABLE(stream));
 		return 1;
 	}
 
 	result = isis_alloc_tlvs();
-	rv = unpack_tlvs(ISIS_CONTEXT_LSP, avail_len, stream, &logbuf, result, indent, NULL);
+	rv = unpack_tlvs(ISIS_CONTEXT_LSP, avail_len, stream, &unpack_tlvs_logbuf, result, indent,
+			 NULL);
 
-	*log = sbuf_buf(&logbuf);
+	*log = sbuf_buf(&unpack_tlvs_logbuf);
 	*dest = result;
 
 	return rv;
+}
+
+void isis_tlvs_terminate(void)
+{
+	if (format_tlvs_buf_inited) {
+		sbuf_free(&format_tlvs_buf);
+		memset(&format_tlvs_buf, 0, sizeof(format_tlvs_buf));
+		format_tlvs_buf_inited = false;
+	}
+
+	if (unpack_tlvs_logbuf_inited) {
+		sbuf_free(&unpack_tlvs_logbuf);
+		memset(&unpack_tlvs_logbuf, 0, sizeof(unpack_tlvs_logbuf));
+		unpack_tlvs_logbuf_inited = false;
+	}
 }
 
 #define TLV_OPS(_name_, _desc_)                                                                   \

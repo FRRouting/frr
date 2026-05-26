@@ -203,10 +203,10 @@ To start OSPF process you have to specify the OSPF router.
 
 .. clicmd:: timers throttle lsa all (0-5000)
 
-   This command sets the minumum interval between originations of the
+   This command sets the minimum interval between originations of the
    same LSA or the `minimum LSA refresh interval`. The time is specified
    in milliseconds and the default is 5 seconds (5000 milliseconds) consistent
-   with the architectual constant MinLSInterval specified in Appendix D of
+   with the architectural constant MinLSInterval specified in Appendix D of
    RFC 2328. When a self-originated LSA needs to be reoriginated, it may be
    delayed for up to this interval.
 
@@ -216,16 +216,16 @@ To start OSPF process you have to specify the OSPF router.
        timers throttle lsa all 1000
 
 
-   In this example, the `mininum LSA refresh interval` is set to 1000ms. This
+   In this example, the `minimum LSA refresh interval` is set to 1000ms. This
    command reduces the delay between successive originations of a self-originated
    LSA from 5000 milliseconds to 1000 milliseconds.
 
 .. clicmd:: timers lsa min-arrival (0-5000)
 
-   This command sets the minumum interval between receptions of instances of
+   This command sets the minimum interval between receptions of instances of
    the same LSA or the `minimum LSA arrival interval`. The time is specified in
    milliseconds and the default is 1 second (1000 milliseconds) consistent with
-   the architectual constant MinLSArrival specified in Appendix D of RFC 2328. If a
+   the architectural constant MinLSArrival specified in Appendix D of RFC 2328. If a
    newer instance of the same LSA is received in less than this interval, it is
    ignored.
 
@@ -364,7 +364,7 @@ To start OSPF process you have to specify the OSPF router.
 
    Use this command to tune the amount of work done in the packet read and
    write threads before relinquishing control. The parameter is the number
-   of packets to process before returning. The defult value of this parameter
+   of packets to process before returning. The default value of this parameter
    is 20.
 
 .. clicmd:: socket buffer <send | recv | all> (1-4000000000)
@@ -741,6 +741,27 @@ Interfaces
    :clicmd:`ip ospf dead-interval minimal hello-multiplier (2-20)` is also
    specified for the interface.
 
+.. clicmd:: ip ospf dead-timer-reset any-control
+
+   Enable resetting the OSPF neighbor inactivity timer upon receipt of any
+   valid OSPF control packet, not only Hello packets. This implements
+   Recommendation 2 from RFC 4222 to improve adjacency robustness under
+   congestion.
+
+.. clicmd:: ip ospf dscp (all|low-control) (0-63)
+
+   Set the DSCP value applied to OSPF control packets. The ``all`` option
+   marks all OSPF packets with the specified DSCP value. The ``low-control``
+   option marks only low‑priority OSPF control packets.
+
+   Example:
+
+   .. code-block:: frr
+
+      ! mark only low‑priority OSPF control packets with DSCP 40:
+      interface eth0
+        ip ospf dscp low-control 40
+
 .. clicmd:: ip ospf graceful-restart hello-delay (1-1800)
 
    Set the length of time during which Grace-LSAs are sent at 1-second intervals
@@ -838,7 +859,7 @@ Interfaces
    to permit or deny OSPF neighbors by IP source address. This is useful for
    multi-access interfaces where adjacencies with only a subset of the
    reachable neighbors are desired. Applications include testing partially
-   meshed topologies, OSPF Denial of Sevice (DoS) mitigation, and avoidance
+   meshed topologies, OSPF Denial of Service (DoS) mitigation, and avoidance
    of adjacencies with OSPF neighbors not meeting traffic engineering criteria.
 
       Example:
@@ -872,7 +893,7 @@ Usage of *ospfd*'s route-map support.
 
    Set a metric for matched route when sending announcement. Use plus (+) sign
    to add a metric value to an existing metric. Use minus (-) sign to
-   substract a metric value from an existing metric.
+   subtract a metric value from an existing metric.
 
 .. _redistribute-routes-to-ospf:
 
@@ -1344,7 +1365,7 @@ Debugging OSPF
 
 .. clicmd:: debug ospf [(1-65535)] lsa [aggregate|flooding|generate|install|refresh]
 
-   Enable or disable detail debuggin of Link State Advertisements (LSAs)
+   Enable or disable detail debugging of Link State Advertisements (LSAs)
 
 .. clicmd:: debug ospf [(1-65535)] sr
 
@@ -1365,7 +1386,7 @@ Debugging OSPF
 .. clicmd:: debug ospf [(1-65535)] graceful-restart
    :daemon: ospfd
 
-   Enable or disable debugying for OSPF Graceful Restart Helper
+   Enable or disable debugging for OSPF Graceful Restart Helper
 
 .. clicmd:: show debugging ospf
 

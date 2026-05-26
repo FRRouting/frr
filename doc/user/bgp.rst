@@ -1896,7 +1896,7 @@ Configuring Peers
    neighbour, may be specified as either an IP address directly or as an
    interface name (in which case the *zebra* daemon MUST be running in order
    for *bgpd* to be able to retrieve interface state).  When there are multiple
-   addresses on the choosen IFNAME then BGP will use the address that matches
+   addresses on the chosen IFNAME then BGP will use the address that matches
    the most number of bits in comparison to the destination peer address.
 
    .. code-block:: frr
@@ -2077,6 +2077,50 @@ Configuring Peers
 
    The parameter `origin` configures BGP to only accept routes originated with
    the same AS number as the system.
+
+   This command is only allowed for eBGP peers.
+
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in route-map WORD [<(1-10)|origin>]
+
+   Accept incoming routes with AS path containing the system AS number, but only
+   for routes that match the specified route-map. This provides maximum flexibility
+   for selective AS-path loop prevention based on any BGP attributes.
+
+   Route-maps can match on prefixes, AS-path patterns, communities, extended communities, and
+   any other BGP attributes, allowing complex filtering logic.
+
+   The parameter ``WORD`` specifies the name of the route-map to use for matching.
+   Only routes that result in a ``permit`` action from the route-map will have
+   allowas-in applied. The route-map performs matching only; it does not modify
+   route attributes.
+
+   The parameter ``(1-10)`` configures the amount of accepted occurrences of the
+   system AS number in AS path for matching routes (default: 3).
+
+   The parameter ``origin`` configures BGP to only accept routes originated with
+   the same AS number as the system, for matching routes.
+
+   Example configuration to allow AS-path loops for routes with a specific SoO community:
+
+   .. code-block:: frr
+
+      ip extcommunity-list standard MGMT_SOO permit soo 1.1.1.1:0
+      !
+      route-map RM_ALLOW_AS permit 10
+       match extcommunity MGMT_SOO
+      !
+      router bgp 65201
+       neighbor 10.0.0.1 remote-as external
+       !
+       address-family ipv4 unicast
+        neighbor 10.0.0.1 allowas-in route-map RM_ALLOW_AS 1
+       exit-address-family
+
+   Behavior:
+
+   - Routes matching the route-map (permit): allowas-in is applied
+   - Routes NOT matching the route-map (deny): strict AS-path loop detection
+   - If route-map is not found: strict AS-path loop detection
 
    This command is only allowed for eBGP peers.
 
@@ -5169,7 +5213,7 @@ incoming/outgoing directions.
    If ``all`` option is specified, ``ip`` keyword is ignored and,
    routes displayed for all AFIs and SAFIs.
    if afi is specified, with ``all`` option, routes will be displayed for
-   each SAFI in the selcted AFI
+   each SAFI in the selected AFI
 
    If a specific prefix is specified, the detailed version of that prefix will
    be displayed.
@@ -5183,6 +5227,23 @@ incoming/outgoing directions.
    ``brief`` is only valid immediately after ``json`` (e.g.
    ``... advertised-routes json brief``); it selects compact per-prefix JSON
    without per-path detail, like other ``show bgp`` ``json brief`` forms.
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [unicast|...]] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json [brief]]
+
+   Display routes learned from a BGP neighbor, flap statistics for that
+   neighbor, or dampened routes received from that neighbor, for the given
+   address family.
+
+   The ``routes`` keyword shows routes in the BGP table that were received
+   from this peer and accepted by inbound policy. The ``flap-statistics``
+   keyword shows flap statistics for routes learned from this neighbor. The
+   ``dampened-routes`` keyword shows dampened paths received from this
+   neighbor.
+
+   If ``json`` is specified, output is in JSON format. The ``brief``
+   keyword may only be used with ``json``; it produces a brief JSON view
+   (prefix-level path and multipath counts and flags, without per-path
+   details) for unicast neighbor routes.
 
 .. clicmd:: show [ip] bgp [afi] [safi] [all] detail-routes [internal]
 
@@ -5350,7 +5411,7 @@ attribute.
    If ``all`` option is specified, ``ip`` keyword is ignored and,
    routes displayed for all AFIs and SAFIs.
    if afi is specified, with ``all`` option, routes will be displayed for
-   each SAFI in the selcted AFI
+   each SAFI in the selected AFI
 
    If ``json`` option is specified, output is displayed in JSON format.
 
@@ -5465,6 +5526,44 @@ Displaying Routes by Route Distinguisher
    For EVPN Type 2 (macip) routes, a MAC address (and optionally an IP address)
    can be supplied to the command to only display matching prefixes in the
    specified RD.
+
+.. clicmd:: show bgp l2vpn evpn route rd <all|RD> prefix <A.B.C.D/M|X:X::X:X/M> [json]
+
+.. clicmd:: show bgp evpn route rd <all|RD> prefix <A.B.C.D/M|X:X::X:X/M> [json]
+
+   For EVPN Type 5 (prefix) routes, an IPv4 or IPv6 prefix can be supplied to
+   only display matching prefixes in the specified RD, or across all RDs with
+   ``all``.
+
+   Example output:
+
+   .. code-block:: frr
+
+      bordertor-11# show bgp l2vpn evpn route rd all prefix 2001:db8:1:1::/64
+      Route Distinguisher: 192.0.2.2:8
+      BGP routing table entry for 192.0.2.2:8:[5]:[0]:[64]:[2001:db8:1:1::]
+      Paths: (1 available, best #1)
+        Advertised to peers:
+        leaf-11(swp1) leaf-12(swp2)
+        Route [5]:[0]:[64]:[2001:db8:1:1::] VNI 104001
+        655000
+          192.0.2.1 (bordertor-11) from 0.0.0.0 (192.0.2.1)
+            Origin incomplete, metric 0, valid, sourced, local, bestpath-from-AS 655000, best (First path received)
+            Extended Community: ET:8 RT:60176:104001 Rmac:00:01:00:00:01:08
+            Last update: Thu Apr 30 17:46:31 2026
+      Route Distinguisher: 192.0.2.6:9
+      BGP routing table entry for 192.0.2.6:9:[5]:[0]:[64]:[2001:db8:1:1::]
+      Paths: (1 available, best #1)
+        Advertised to peers:
+        leaf-11(swp1) leaf-12(swp2)
+        Route [5]:[0]:[64]:[2001:db8:1:1::] VNI 104002
+        655000
+          192.0.2.1 (bordertor-11) from 0.0.0.0 (192.0.2.1)
+            Origin incomplete, metric 0, valid, sourced, local, bestpath-from-AS 655000, best (First path received)
+            Extended Community: ET:8 RT:60176:104002 Rmac:00:01:00:00:01:08
+            Last update: Thu Apr 30 17:46:31 2026
+
+      Displayed 2 prefixes (2 paths)
 
 Displaying Update Group Information
 -----------------------------------

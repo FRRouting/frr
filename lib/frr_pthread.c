@@ -290,6 +290,23 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 	return 0;
 }
 
+void frr_pthread_non_controlled_shutdown(pthread_t thread)
+{
+	frr_with_mutex (&frr_pthread_list_mtx) {
+		struct listnode *n;
+		struct frr_pthread *fpt;
+
+		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt)) {
+			if (!pthread_equal(fpt->thread, thread))
+				continue;
+
+			listnode_delete(frr_pthread_list, fpt);
+			frr_pthread_destroy_nolock(fpt);
+			break;
+		}
+	}
+}
+
 /*
  * ----------------------------------------------------------------------------
  * Default Event Loop

@@ -63,6 +63,24 @@ module frr-staticd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-04-19 {
+    description
+      "Add 'metric' as a non-key path-list attribute with default 0.
+       Nexthops sharing (table-id, distance, metric) form one ECMP group
+       in the RIB; nexthops with different metrics are separate RIB entries
+       enabling metric-based floating static routes.";
+    reference "FRRouting";
+  }
+
+  revision 2026-04-18 {
+    description
+      "Flatten path-list: replace the two-level path-list/nexthop hierarchy
+       with a single flat list keyed by table-id and nexthop identity
+       (nh-type, vrf, gateway, interface).  Distance becomes a non-key
+       attribute with a default of 1.";
+    reference "FRRouting";
+  }
+
   revision 2026-01-23 {
     description
       "Augments the nexthop container with a 'weight' leaf.";
@@ -85,19 +103,34 @@ module frr-staticd {
     description
       "Grouping for staticd prefix attributes.";
     list path-list {
-      key "table-id distance";
+      key "table-id nh-type vrf gateway interface";
       description
-        "List of paths associated with a staticd prefix.";
+        "List of paths associated with a staticd prefix.  Each entry
+         represents one nexthop; entries sharing the same table-id,
+         administrative distance, and metric are installed as ECMP in
+         the RIB.";
       leaf table-id {
         type uint32;
         description
-          "Table-id";
+          "Table-id associated with this route.";
       }
+
+      uses frr-nexthop:frr-nexthop-attributes;
 
       leaf distance {
         type frr-rt:administrative-distance;
+        default "1";
         description
           "Admin distance associated with this route.";
+      }
+
+      leaf metric {
+        type uint32;
+        default "0";
+        description
+          "Route metric.  Nexthops sharing the same (table-id, distance,
+           metric) form one ECMP group; nexthops with different metrics
+           are separate RIB entries enabling metric-based floating routes.";
       }
 
       leaf tag {
@@ -107,7 +140,22 @@ module frr-staticd {
           "Route tag";
       }
 
-      uses frr-nexthop:frr-nexthop;
+      leaf weight {
+        type uint16 {
+          range "1..65535";
+        }
+        description
+          "Weight to be used by the nexthop for purposes of ECMP.";
+      }
+
+      container bfd-monitoring {
+        when "../nh-type = 'ip4' or ../nh-type = 'ip4-ifindex' or
+              ../nh-type = 'ip6' or ../nh-type = 'ip6-ifindex'";
+        presence
+          "Present if BFD configuration is available.";
+        description "BFD monitoring options.";
+        uses frr-bfdd:bfd-monitoring;
+      }
     }
   }
 
@@ -209,32 +257,7 @@ module frr-staticd {
             "AFI-SAFI type.";
         }
 
-        uses staticd-prefix-attributes {
-          augment "path-list/frr-nexthops/nexthop" {
-            description
-              "Augments the nexthop container with BFD monitoring options.";
-            container bfd-monitoring {
-              when "../nh-type = 'ip4' or ../nh-type = 'ip4-ifindex' or
-                    ../nh-type = 'ip6' or ../nh-type = 'ip6-ifindex'";
-              presence
-                "Present if BFD configuration is available.";
-              description "BFD monitoring options.";
-
-              uses frr-bfdd:bfd-monitoring;
-            }
-          }
-          augment "path-list/frr-nexthops/nexthop" {
-            description
-              "Augments the 'nexthop' container to add a 'weight' leaf for ECMP purposes.";
-            leaf weight {
-              type uint16 {
-                range "1..65535";
-              }
-              description
-                "Weight to be used by the nexthop for purposes of ECMP";
-            }
-          }
-        }
+        uses staticd-prefix-attributes;
       }
 
       container segment-routing {

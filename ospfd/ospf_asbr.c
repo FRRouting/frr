@@ -335,6 +335,43 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 	ospf_router_lsa_update(ospf);
 }
 
+static void ospf_nssa_lsa_refresh_type(struct ospf *ospf, uint8_t type, unsigned short instance)
+{
+	struct route_node *rn;
+	struct ospf_external *ext;
+
+	ext = ospf_external_lookup(ospf, type, instance);
+	if (ext && EXTERNAL_INFO(ext)) {
+		/* Refresh each redistributed NSSA-LSAs. */
+		for (rn = route_top(EXTERNAL_INFO(ext)); rn; rn = route_next(rn)) {
+			struct ospf_area *area;
+			struct listnode *node;
+			struct external_info *ei;
+
+			ei = rn->info;
+			if (!ei)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+				struct ospf_lsa *lsa;
+
+				if (area->external_routing != OSPF_AREA_NSSA)
+					continue;
+
+				lsa = ospf_lsa_lookup_by_prefix(area->lsdb, OSPF_AS_NSSA_LSA,
+								&ei->p, ospf->router_id);
+				if (lsa)
+					ospf_nssa_lsa_refresh(lsa->area, lsa, ei);
+				else {
+					if (!ospf_redistribute_check(ospf, ei, NULL))
+						continue;
+					ospf_nssa_lsa_originate(area, ei, true);
+				}
+			}
+		}
+	}
+}
+
 /* If there's redistribution configured, we need to refresh external
  * LSAs (e.g. when default-metric changes or NSSA settings change).
  */
@@ -357,10 +394,11 @@ static void ospf_asbr_redist_update_timer(struct event *event)
 		if (!red_list)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
-			ospf_external_lsa_refresh_type(ospf, type,
-						       red->instance,
+		for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
+			ospf_external_lsa_refresh_type(ospf, type, red->instance,
 						       LSA_REFRESH_FORCE);
+			ospf_nssa_lsa_refresh_type(ospf, type, red->instance);
+		}
 	}
 
 	ospf_external_lsa_refresh_default(ospf);
@@ -1290,4 +1328,39 @@ int ospf_external_aggregator_timer_set(struct ospf *ospf, uint16_t interval)
 {
 	ospf->aggr_delay_interval = interval;
 	return OSPF_SUCCESS;
+}
+
+/* Reoriginate AS-External/NSSA LSAs. */
+void ospf_asbr_reoriginate(struct ospf *ospf)
+{
+	struct route_node *rn;
+	struct external_info *ei;
+	struct ospf_external *ext;
+	struct list *ext_list;
+	struct listnode *node;
+
+	for (int type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
+		ext_list = ospf->external[type];
+		if (!ext_list)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+			if (!ospf_is_type_redistributed(ospf, type, ext->instance))
+				continue;
+
+			if (EXTERNAL_INFO(ext) == NULL)
+				continue;
+
+			for (rn = route_top(EXTERNAL_INFO(ext)); rn; rn = route_next(rn)) {
+				ei = rn->info;
+				if (ei == NULL)
+					continue;
+
+				if (!ospf_distribute_check_connected(ospf, ei))
+					continue;
+
+				ospf_external_lsa_originate(ospf, ei);
+			}
+		}
+	}
 }

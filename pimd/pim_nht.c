@@ -652,7 +652,7 @@ static void pim_nht_drop_maybe(struct pim_instance *pim, struct pim_nexthop_cach
 
 		list_delete(&pnc->rp_list);
 
-		hash_free(pnc->upstream_hash);
+		hash_clean_and_free(&pnc->upstream_hash, NULL);
 		hash_release(pim->nht_hash, pnc);
 
 		if (pnc->urib.nexthop)

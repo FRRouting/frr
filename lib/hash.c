@@ -297,6 +297,23 @@ void hash_clean(struct hash *hash, void (*free_func)(void *))
 	hash->stats.empty = hash->size;
 }
 
+static void hash_free(struct hash *hash)
+{
+	frr_with_mutex (&_hashes_mtx) {
+		if (_hashes) {
+			listnode_delete(_hashes, hash);
+			if (_hashes->count == 0) {
+				list_delete(&_hashes);
+			}
+		}
+	}
+
+	XFREE(MTYPE_HASH, hash->name);
+
+	XFREE(MTYPE_HASH_INDEX, hash->index);
+	XFREE(MTYPE_HASH, hash);
+}
+
 void hash_clean_and_free(struct hash **hash, void (*free_func)(void *))
 {
 	if (!*hash)
@@ -320,23 +337,6 @@ struct list *hash_to_list(struct hash *hash)
 
 	hash_iterate(hash, hash_to_list_iter, list);
 	return list;
-}
-
-void hash_free(struct hash *hash)
-{
-	frr_with_mutex (&_hashes_mtx) {
-		if (_hashes) {
-			listnode_delete(_hashes, hash);
-			if (_hashes->count == 0) {
-				list_delete(&_hashes);
-			}
-		}
-	}
-
-	XFREE(MTYPE_HASH, hash->name);
-
-	XFREE(MTYPE_HASH_INDEX, hash->index);
-	XFREE(MTYPE_HASH, hash);
 }
 
 

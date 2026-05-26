@@ -233,7 +233,7 @@ void fabricd_finish(struct fabricd *f)
 	isis_spftree_del(f->spftree);
 	neighbor_lists_clear(f);
 	skiplist_free(f->neighbors);
-	hash_free(f->neighbors_neighbors);
+	hash_clean_and_free(&f->neighbors_neighbors, NULL);
 }
 
 static void fabricd_initial_sync_timeout(struct event *event)

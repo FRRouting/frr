@@ -146,6 +146,7 @@ int isis_instance_mpls_te_router_address_destroy(struct nb_cb_destroy_args *args
 int isis_instance_mpls_te_router_address_ipv6_modify(struct nb_cb_modify_args *args);
 int isis_instance_mpls_te_router_address_ipv6_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args);
+int isis_instance_distribute_link_state_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_create(struct nb_cb_create_args *args);
 int lib_interface_isis_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args);
@@ -424,6 +425,8 @@ void cli_show_isis_mpls_te_router_addr_ipv6(struct vty *vty, const struct lyd_no
 					    bool show_defaults);
 void cli_show_isis_mpls_te_export(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
+void cli_show_isis_distribute_link_state(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
 void cli_show_isis_def_origin_ipv4(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults);
 void cli_show_isis_def_origin_ipv6(struct vty *vty, const struct lyd_node *dnode,

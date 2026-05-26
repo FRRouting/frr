@@ -148,7 +148,7 @@ static uint32_t route_value_adjust(struct rmap_value *rv, uint32_t current,
 		value = bpi->extra ? bpi->extra->igpmetric : 0;
 		break;
 	case RMAP_VALUE_TYPE_AIGP:
-		value = MIN(bpi->attr->aigp_metric, UINT32_MAX);
+		value = MIN(bgp_attr_get_aigp_metric(bpi->attr), UINT32_MAX);
 		break;
 	default:
 		value = rv->value;
@@ -434,7 +434,9 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
-	struct attr newattr = *path->attr;
+	struct attr newattr;
+
+	bgp_attr_dup_into(&newattr, path->attr);
 
 	int result = frrscript_call(
 		fs, routematch_function, ("prefix", prefix),
@@ -446,6 +448,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	if (result) {
 		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
 			 "Issue running script rule; defaulting to no match");
+		bgp_attr_extra_discard(&newattr);
 		return RMAP_NOMATCH;
 	}
 
@@ -486,6 +489,8 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	XFREE(MTYPE_SCRIPT_RES, action);
 
 	frrscript_delete(fs);
+
+	bgp_attr_extra_discard(&newattr);
 
 	return status;
 }
@@ -2698,10 +2703,10 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 	const char *buf;
 	char src_asn[ASN_STRING_MAX_SIZE];
 	char *acl_list_name = NULL;
-	uint32_t acl_list_name_len = 0;
-	char *buf_acl_name = NULL;
+	size_t acl_list_name_len = 0;
 	static const char asp_acl[] = "as-path-access-list";
 	struct as_list *aspath_acl = NULL;
+	enum route_map_cmd_result_t ret = RMAP_NOOP;
 
 	if (path->peer->sort != BGP_PEER_EBGP) {
 		zlog_warn(
@@ -2715,26 +2720,28 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 					 ? path->peer->change_local_as
 					 : path->peer->local_as;
 	} else if (!strncmp(replace, asp_acl, strlen(asp_acl))) {
+		const char *acl_name_start;
+
 		/* its as-path-acl-list command get the access list name */
 		while (*buf == ' ')
 			buf++;
-		buf_acl_name = (char *)buf;
-		buf = strchr(buf_acl_name, ' ');
+		acl_name_start = buf;
+		buf = strchr(acl_name_start, ' ');
 		if (buf)
-			acl_list_name_len = buf - buf_acl_name;
+			acl_list_name_len = buf - acl_name_start;
 		else
-			acl_list_name_len = strlen(buf_acl_name);
+			acl_list_name_len = strlen(acl_name_start);
 
-		buf_acl_name[acl_list_name_len] = 0;
-		/* get the acl-list */
-		aspath_acl = as_list_lookup(buf_acl_name);
+		acl_list_name = XMALLOC(MTYPE_TMP, acl_list_name_len + 1);
+		memcpy(acl_list_name, acl_name_start, acl_list_name_len);
+		acl_list_name[acl_list_name_len] = '\0';
+
+		aspath_acl = as_list_lookup(acl_list_name);
 		if (!aspath_acl) {
 			zlog_warn("`set as-path replace`, invalid as-path-access-list name: %s",
-				  buf_acl_name);
+				  acl_list_name);
 			goto end_ko;
 		}
-		acl_list_name = XSTRDUP(MTYPE_TMP, buf_acl_name);
-		buf_acl_name[acl_list_name_len] = ' ';
 
 		if (!buf) {
 			configured_asn = path->peer->change_local_as
@@ -2791,16 +2798,11 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 	}
 	aspath_free(aspath_new);
 
-
-	if (acl_list_name)
-		XFREE(MTYPE_TMP, acl_list_name);
-	return RMAP_OKAY;
+	ret = RMAP_OKAY;
 
 end_ko:
-	if (acl_list_name)
-		XFREE(MTYPE_TMP, acl_list_name);
-	return RMAP_NOOP;
-
+	XFREE(MTYPE_TMP, acl_list_name);
+	return ret;
 }
 
 static const struct route_map_rule_cmd route_set_aspath_replace_cmd = {
@@ -4651,7 +4653,7 @@ route_match_vpn_dataplane(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_MATCH;
 
 	if (*bgp_encap_type == BGP_ENCAP_TYPE_SRV6 &&
-	    (path_vpn->attr->srv6_l3service || path_vpn->attr->srv6_vpn))
+	    (bgp_attr_get_srv6_l3service(path_vpn->attr) || bgp_attr_get_srv6_vpn(path_vpn->attr)))
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -4717,9 +4719,8 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 						"Processing route_map %s(%s:%s) update on peer %s (inbound, route-refresh)",
 						rmap_name, afi2str(afi),
 						safi2str(safi), peer->host);
-				bgp_route_refresh_send(
-					peer, afi, safi, 0, 0, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
+				bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
+						       BGP_ROUTE_REFRESH_NORMAL);
 			}
 		}
 	}
@@ -4749,6 +4750,11 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 	if (peer->default_rmap[afi][safi].name
 	    && (strcmp(rmap_name, peer->default_rmap[afi][safi].name) == 0))
 		peer->default_rmap[afi][safi].map = map;
+
+	/* Update allowas-in route-map cache */
+	if (peer->allowas_in_rmap[afi][safi].name &&
+	    (strcmp(rmap_name, peer->allowas_in_rmap[afi][safi].name) == 0))
+		peer->allowas_in_rmap[afi][safi].rmap = map;
 
 	/* Notify BGP conditional advertisement scanner percess */
 	peer->advmap_config_change[afi][safi] = true;
@@ -4800,6 +4806,29 @@ static void bgp_route_map_update_peer_group(const char *rmap_name,
 			if (filter->advmap.cname &&
 			    (strcmp(rmap_name, filter->advmap.cname) == 0))
 				filter->advmap.cmap = map;
+
+			/* Update allowas-in route-map cache for peer-group */
+			if (group->conf->allowas_in_rmap[afi][safi].name &&
+			    (strcmp(rmap_name, group->conf->allowas_in_rmap[afi][safi].name) == 0)) {
+				struct peer *member;
+				struct listnode *m_node, *m_nnode;
+
+				group->conf->allowas_in_rmap[afi][safi].rmap = map;
+
+				/*
+				 * Refresh the cached map pointer on every
+				 * peer-group member that inherits the same
+				 * allowas-in route-map name, so a route-map
+				 * rename/recreate is reflected immediately
+				 * without waiting for a session reset.
+				 */
+				for (ALL_LIST_ELEMENTS(group->peer, m_node, m_nnode, member)) {
+					if (member->allowas_in_rmap[afi][safi].name &&
+					    strcmp(rmap_name,
+						   member->allowas_in_rmap[afi][safi].name) == 0)
+						member->allowas_in_rmap[afi][safi].rmap = map;
+				}
+			}
 		}
 	}
 }

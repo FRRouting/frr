@@ -105,9 +105,7 @@ def _failure_md5_diagnostic_bundle(dut, peer, vrf_name):
     _add("switch1: show bgp listeners", dut.vtysh_cmd("show bgp listeners"))
     _add(
         "switch1: show bgp vrf {} ipv4 unicast summary json".format(vrf_name),
-        dut.vtysh_cmd(
-            "show bgp vrf {} ipv4 unicast summary json".format(vrf_name)
-        ),
+        dut.vtysh_cmd("show bgp vrf {} ipv4 unicast summary json".format(vrf_name)),
     )
     _add(
         "switch1: show bgp vrf {} neighbors".format(vrf_name),
@@ -128,22 +126,16 @@ def _failure_md5_diagnostic_bundle(dut, peer, vrf_name):
     rc1 = dut.vtysh_cmd("show running-config")
     _add(
         "switch1: running-config (BGP vrf instance only)",
-        _extract_running_config_block(
-            rc1, "router bgp 65001 vrf {}".format(vrf_name)
-        ),
+        _extract_running_config_block(rc1, "router bgp 65001 vrf {}".format(vrf_name)),
     )
 
     _add(
         "switch2: show bgp vrf {} neighbors {}".format(vrf_name, DUT_ADDR_VRF1),
-        peer.vtysh_cmd(
-            "show bgp vrf {} neighbors {}".format(vrf_name, DUT_ADDR_VRF1)
-        ),
+        peer.vtysh_cmd("show bgp vrf {} neighbors {}".format(vrf_name, DUT_ADDR_VRF1)),
     )
     _add(
         "switch2: show bgp vrf {} ipv4 unicast summary json".format(vrf_name),
-        peer.vtysh_cmd(
-            "show bgp vrf {} ipv4 unicast summary json".format(vrf_name)
-        ),
+        peer.vtysh_cmd("show bgp vrf {} ipv4 unicast summary json".format(vrf_name)),
     )
     _add(
         "switch2: show ip route vrf {} json".format(vrf_name),
@@ -160,9 +152,7 @@ def _failure_md5_diagnostic_bundle(dut, peer, vrf_name):
     rc2 = peer.vtysh_cmd("show running-config")
     _add(
         "switch2: running-config (BGP vrf instance only)",
-        _extract_running_config_block(
-            rc2, "router bgp 65002 vrf {}".format(vrf_name)
-        ),
+        _extract_running_config_block(rc2, "router bgp 65002 vrf {}".format(vrf_name)),
     )
 
     parts.append(
@@ -208,19 +198,7 @@ def setup_module(mod):
 
     tgen.start_router()
 
-    # VRF: must use ip vrf exec — ping -I<source> does not reliably pick vrf1 FIB here.
-    ping_ok = False
-    for _ in range(30):
-        out = s2.cmd(
-            "ip vrf exec {} ping -c1 -W1 {} 2>/dev/null".format(VRF_NAME, DUT_ADDR_VRF1)
-        )
-        if out and "1 received" in out:
-            ping_ok = True
-            break
-        time.sleep(1)
-    if not ping_ok:
-        pytest.fail("L3: no ping from switch2 (vrf1) to switch1 {}".format(DUT_ADDR_VRF1))
-
+    check_ping("switch2", DUT_ADDR_VRF1, True, 30, 1, vrf=VRF_NAME)
     check_ping("switch3", "10.10.13.1", True, 10, 1)
 
 
@@ -266,7 +244,9 @@ def test_bgp_vrf_dynamic_md5_listen_late():
             "summary_keys": sorted(summary.keys()) if isinstance(summary, dict) else [],
         }
 
-    ok, last = topotest.run_and_expect(functools.partial(_check), None, count=60, wait=1)
+    ok, last = topotest.run_and_expect(
+        functools.partial(_check), None, count=60, wait=1
+    )
     if ok:
         assert last is None
         return

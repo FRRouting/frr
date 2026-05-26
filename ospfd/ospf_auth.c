@@ -413,7 +413,7 @@ int ospf_auth_check_digest(struct ospf_interface *oi, struct ip *iph, struct osp
 		return 0;
 	}
 
-	key = key_lookup_for_accept(keychain, key_id);
+	key = key_lookup_for_accept(keychain, key_id, false);
 	if (!key) {
 		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 			flog_warn(EC_OSPF_AUTH,

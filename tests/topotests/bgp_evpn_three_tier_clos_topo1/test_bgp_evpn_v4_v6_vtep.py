@@ -26,14 +26,15 @@ VTYSH Commands:
 7. show ip route vrf {vrf}
 8. show ip route vrf {vrf} {route} json
 9. show ipv6 route vrf {vrf} {route} json
+10. show bgp l2vpn evpn route rd <all|RD> prefix <prefix>
 
 Linux Commands:
 ---------------
-10. bridge -j fdb show
-11. ip -d -j link show {vxlan_device}
-12. ip -j route show vrf {vrf} {route}
-13. ip -j nexthop get id {nhid}
-14. ping / ping6
+11. bridge -j fdb show
+12. ip -d -j link show {vxlan_device}
+13. ip -j route show vrf {vrf} {route}
+14. ip -j nexthop get id {nhid}
+15. ping / ping6
 
 Test Execution Order:
 =====================
@@ -47,15 +48,17 @@ Test Execution Order:
 8. test_vrf_routes                      - Display VRF routes (informational)
 9. test_evpn_vtep_nexthops              - Verify L3VNI next-hops
 10. test_evpn_check_overlay_route       - Verify EVPN Type-5 overlay route in VRF RIB
-11. test_evpn_vtep_on_uplink_flap       - No stale VTEP when uplinks down; VTEPs back when up
-12. test_host_to_host_ping              - Verify end-to-end connectivity
-13. test_memory_leak                    - Memory leak detection
+11. test_evpn_rd_prefix_route_lookup    - Verify EVPN Type-5 RD prefix lookups
+12. test_evpn_vtep_on_uplink_flap       - No stale VTEP when uplinks down; VTEPs back when up
+13. test_host_to_host_ping              - Verify end-to-end connectivity
+14. test_memory_leak                    - Memory leak detection
 """
 
 import os
 import sys
 import json
 import re
+import ipaddress
 from functools import partial
 import pytest
 
@@ -772,6 +775,75 @@ def _check_route_in_vrf(router, vrf, route, ip_version):
         return f"Route {route} not found in {vrf}"
     if "imported from" not in output.lower():
         return f"Route {route} not imported in {vrf}"
+    return None
+
+
+def _evpn_prefix_route_marker(prefix):
+    """Return the EVPN type-5 route-key suffix for an IP prefix."""
+    network = ipaddress.ip_network(prefix, strict=False)
+    return f"]:[{network.prefixlen}]:[{network.network_address.compressed.lower()}]"
+
+
+def _find_evpn_type5_rd_for_prefix(router, prefix):
+    """Find the RD that contains a specific EVPN type-5 prefix."""
+    output = router.vtysh_cmd("show bgp l2vpn evpn route json", isjson=True)
+    if not output:
+        return None, "No EVPN route JSON output"
+
+    route_marker = _evpn_prefix_route_marker(prefix)
+    for rd, rd_data in output.items():
+        if not isinstance(rd_data, dict):
+            continue
+
+        for route_key in rd_data:
+            route_key = route_key.lower()
+            if route_key.startswith("[5]:") and route_marker in route_key:
+                return rd, None
+
+    return None, f"EVPN type-5 prefix {prefix} not found"
+
+
+def _check_evpn_rd_prefix_route_lookup(router, prefix, missing_prefix):
+    """Verify rd-all and specific-RD prefix lookups for hit and miss cases."""
+    rd, error = _find_evpn_type5_rd_for_prefix(router, prefix)
+    if error:
+        return error
+
+    route_marker = _evpn_prefix_route_marker(prefix)
+    checks = [
+        (
+            f"show bgp l2vpn evpn route rd all prefix {prefix}",
+            ["Route Distinguisher:", "Displayed", route_marker],
+            "% Network not in table",
+        ),
+        (
+            f"show bgp l2vpn evpn route rd {rd} prefix {prefix}",
+            ["Displayed", route_marker],
+            "% Network not in table",
+        ),
+        (
+            f"show bgp l2vpn evpn route rd all prefix {missing_prefix}",
+            ["% Network not in table"],
+            None,
+        ),
+        (
+            f"show bgp l2vpn evpn route rd {rd} prefix {missing_prefix}",
+            ["% Network not in table"],
+            None,
+        ),
+    ]
+
+    for cmd, expected_tokens, unexpected_token in checks:
+        output = router.vtysh_cmd(cmd, isjson=False)
+        output_lower = output.lower()
+
+        for token in expected_tokens:
+            if token.lower() not in output_lower:
+                return f"{cmd}: missing expected token '{token}' in output:\n{output}"
+
+        if unexpected_token and unexpected_token.lower() in output_lower:
+            return f"{cmd}: unexpected token '{unexpected_token}' in output:\n{output}"
+
     return None
 
 
@@ -2228,6 +2300,43 @@ def test_evpn_check_overlay_route(tgen_and_ip_version):
     )
 
 
+# Exercise the new EVPN Type-5 prefix lookup CLI on a border ToR.  The command
+# is checked for both RD-wide and specific-RD lookups, and for present/missing
+# prefixes, while the surrounding fixture repeats the coverage for IPv4 and
+# IPv6 VTEP underlays.
+def test_evpn_rd_prefix_route_lookup(tgen_and_ip_version):
+    """
+    Verify EVPN Type-5 RD prefix lookup commands on bordertor-11.
+
+    The parametrized fixture runs this for both IPv4 and IPv6 VTEPs. For each
+    underlay mode, verify both rd-all and specific-RD prefix lookups for an
+    existing Type-5 prefix and for a prefix that is not present.
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["bordertor-11"]
+
+    if ip_version == "ipv4":
+        prefix = "203.0.113.0/24"
+        missing_prefix = "198.51.100.128/25"
+    else:
+        prefix = "2001:db8:72:21::/64"
+        missing_prefix = "2001:db8:ffff::/64"
+
+    logger.info(
+        "Verifying EVPN RD prefix lookup commands on bordertor-11: "
+        f"prefix={prefix}, missing_prefix={missing_prefix}, {ip_version} underlay"
+    )
+
+    test_func = partial(
+        _check_evpn_rd_prefix_route_lookup, router, prefix, missing_prefix
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, f"EVPN RD prefix lookup verification failed: {result}"
+
+
 def test_evpn_vtep_on_uplink_flap(tgen_and_ip_version):
     """
     Verify EVPN remote VTEP lifecycle across uplink flap.
@@ -2261,9 +2370,9 @@ def test_evpn_vtep_on_uplink_flap(tgen_and_ip_version):
         expected_remote_vteps,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert result is None, (
-        "tor-21: remote VTEPs not present before uplink flap: {}".format(result)
-    )
+    assert (
+        result is None
+    ), f"tor-21: remote VTEPs not present before uplink flap: {result}"
 
     try:
         logger.info(
@@ -2278,9 +2387,7 @@ def test_evpn_vtep_on_uplink_flap(tgen_and_ip_version):
             l3vni_list,
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-        assert result is None, (
-            "tor-21: stale VTEP entries after uplink down: {}".format(result)
-        )
+        assert result is None, f"tor-21: stale VTEP entries after uplink down: {result}"
         logger.info("tor-21: no stale VTEP entries after uplinks down")
 
         logger.info("tor-21: bringing uplinks swp1 and swp2 up")
@@ -2294,9 +2401,9 @@ def test_evpn_vtep_on_uplink_flap(tgen_and_ip_version):
             expected_remote_vteps,
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-        assert result is None, (
-            "tor-21: remote VTEPs not restored after uplink up: {}".format(result)
-        )
+        assert (
+            result is None
+        ), f"tor-21: remote VTEPs not restored after uplink up: {result}"
         logger.info("tor-21: remote VTEPs restored after uplinks up")
     finally:
         router.run("ip link set dev swp1 up 2>/dev/null || true")

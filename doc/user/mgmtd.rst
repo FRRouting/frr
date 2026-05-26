@@ -19,12 +19,12 @@ of YANG based schema. Data shall also be stored/retrieved in YANG format only.
 The MGMTd also acts as a separate computational entity for offloading much
 of the management related computational overload involved in maintaining of
 management data and processing of management requests, from individual
-component daemons (which can otherwise be a signficant burden on the individual
+component daemons (which can otherwise be a significant burden on the individual
 components, affecting performance of its other functionalities).
 
 Lastly, the MGMTd works in-tandem with one (or more) MGMT Frontend
 Clients and a bunch of MGMT Backend Clients to realize the entirety
-of the FRR Management plane. Some of the advanatages of this new framework
+of the FRR Management plane. Some of the advantages of this new framework
 are:
 
  1. Consolidation and management of all Management data by a single entity.
@@ -32,7 +32,7 @@ are:
  3. Faster collection of configuration data (without needing to involve
     individual component daemons).
  4. Offload computational burden of YANG data parsing and validations
-    of new configuration data being provisoned away from individual
+    of new configuration data being provisioned away from individual
     component daemons
  5. Improve performance of individual component daemons while loading
     huge configuration or retrieving huge operational dataset.
@@ -92,7 +92,7 @@ Following are some of the management operations supported:
    specific datastore/database.
  - SET_CONFIG/DELETE_CONFIG: Add/Modify/Delete specific data in a specific
    datastore/database.
- - COMMIT_CONFIG: Validate and/or apply the uncommited set of configurations
+ - COMMIT_CONFIG: Validate and/or apply the uncommitted set of configurations
    from one configuration database to another.
  - Currently committing configurations from Candidate to Running database
    is only allowed, and not vice versa.
@@ -165,6 +165,47 @@ API:
  - RPC_REPLY (receive) - reply from invoking an RPC
  - NOTIFY_SELECT (send) - specify the sub-set of notifications the front-end
    wishes to receive, rather than the default of receiving all.
+
+Native NOTIFY_SELECT Mode Semantics
+-----------------------------------
+
+Native ``NOTIFY_SELECT`` supports mode-based delivery control through
+``struct mgmt_msg_notify_select`` (``lib/mgmt_msg_native.h``):
+
+ - ``mode``: notification mode.
+ - ``mode_data``: mode-specific data.
+
+The following modes are defined:
+
+ - ``NOTIFY_MODE_ON_CHANGE``: on-change notifications. ``mode_data`` must be
+   ``0``.
+ - ``NOTIFY_MODE_PERIODIC``: periodic notifications. ``mode_data`` is the
+   sample interval in milliseconds and must be non-zero.
+
+Invalid ``mode``/``mode_data`` combinations are rejected with native ``ERROR``
+(for example, ``-EINVAL``).
+
+In periodic mode, mgmtd maintains a per-session timer. On each timer expiry,
+mgmtd requests refreshed operational data for that session's selectors and
+forwards notifications to the front-end client.
+
+On-change and periodic selectors are tracked separately per session:
+
+- on-change selectors continue to use the existing ``notify_xpaths`` behavior
+- periodic selectors are tracked independently and sampled by the periodic timer
+
+When a session issues multiple periodic requests, mgmtd keeps one base timer
+using the smallest requested interval for that session.
+
+Front-end C clients can use:
+
+.. code-block:: c
+
+   int mgmt_fe_send_notify_select_req(struct mgmt_fe_client *client,
+                                      uint64_t session_id, uint64_t req_id,
+                                      bool replace, uint8_t mode,
+                                      uint32_t mode_data,
+                                      const char **selectors);
 
 
 Please refer to the MGMT Frontend Client Developers Reference and Guide
@@ -329,7 +370,7 @@ MGMT Configuration commands
 
 .. clicmd:: mgmt commit apply
 
-    This command commits any uncommited changes in the Candidate DB to the
+    This command commits any uncommitted changes in the Candidate DB to the
     Running DB.
 
 .. clicmd:: mgmt commit check
@@ -373,7 +414,7 @@ MGMT Show commands
 
     This command uses the GET_DATA operation over the MGMT Frontend interface and
     returns the xpaths and values of the nodes of the subtree pointed by the <xpath>.
-    Currenlty supported values for 'candidate' and 'running' only
+    Currently supported values for 'candidate' and 'running' only
     ('operational' shall be supported in future soon).
 
 .. clicmd:: show mgmt datastore-contents [candidate|operation|running] [xpath WORD] [file WORD] json|xml

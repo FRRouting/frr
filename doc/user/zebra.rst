@@ -380,7 +380,7 @@ the default route.
 
    This command displays route-map attach point to nexthop tracking and
    displays list of protocol with its applied route-map.
-   When zebra considers sending NHT resoultion, the nofification only
+   When zebra considers sending NHT resolution, the notification only
    sent to appropriate client protocol only after applying route-map filter.
    User can get that information as JSON format when ``json`` keyword
    at the end of cli is presented.
@@ -481,7 +481,7 @@ Route Replace Semantics
 
 When using the Linux Kernel as a forwarding plane, routes are installed
 with a metric of 20 to the kernel.  Please note that the kernel's metric
-value bears no resemblence to FRR's RIB metric or admin distance.  It
+value bears no resemblance to FRR's RIB metric or admin distance.  It
 merely is a way for the Linux Kernel to decide which route to use if it
 has multiple routes for the same prefix from multiple sources.  An example
 here would be if someone else was running another routing suite besides
@@ -1306,7 +1306,7 @@ zebra Table Import
 ==================
 
 Zebra supports importing an alternate routing table into the main unicast RIB (URIB).
-An imported table will continously sync all changes to the main URIB as routes are
+An imported table will continuously sync all changes to the main URIB as routes are
 added or deleted from the alternate table.
 Zebra also supports importing into the main multicast RIB (MRIB) which can be used
 to affect how multicast RPF lookups are performed as described in :ref: `_pim-multicast-rib`.
@@ -1605,7 +1605,7 @@ zebra Terminal Mode Commands
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
-.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [nexthop-group [summary [ecmp-count <gt|lt|eq> (1-256)]]] [failed] [brief] [json]
+.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [nexthop-group [summary [ecmp-count <gt|lt|eq> (1-256)]]] [failed] [json [brief]]
 
    Display detailed information about routes in the routing table. This command provides comprehensive information about specific routes, including their attributes, nexthops, and other routing details.
 
@@ -1622,8 +1622,8 @@ zebra Terminal Mode Commands
      - ``lt``: Show routes with ECMP count less than N
      - ``eq``: Show routes with ECMP count equal to N
    - ``failed``: Show only routes that failed to install in the FIB (kernel). This is useful for troubleshooting route installation issues.
-   - ``brief``: When combined with ``json``, output a minimal set of fields per route (see **Brief JSON view** below). Omitted when not using ``json``.
    - ``json``: Display output in JSON format
+   - ``brief``: When combined with ``json``, output a minimal set of fields per route (see **Brief JSON view** below).
 
    The detailed output includes:
 
@@ -1658,11 +1658,11 @@ zebra Terminal Mode Commands
 
    **Brief JSON view**
 
-   With ``show [ip|ipv6] route ... brief json`` (and the same with ``vrf NAME``, ``vrf default``, or ``vrf all``), zebra outputs a minimal JSON structure per route instead of the full route object. Each route object in the brief view includes at least:
+   With ``show [ip|ipv6] route ... json brief`` (and the same with ``vrf NAME``, ``vrf default``, or ``vrf all``), zebra outputs a minimal JSON structure per route instead of the full route object. Each route object in the brief view includes at least:
 
    - ``protocol``, ``selected``, ``destSelected``, ``distance``, ``metric``, ``installed``, ``nexthopGroupId``, ``uptime``, ``offloaded``
 
-   With ``vrf all brief json``, the top-level structure is an object whose keys are VRF names (e.g. ``"default"``), each containing the same array of brief route objects.
+   With ``vrf all json brief``, the top-level structure is an object whose keys are VRF names (e.g. ``"default"``), each containing the same array of brief route objects.
 
    **Nexthop Group Summary View**
 
@@ -1820,7 +1820,7 @@ zebra Terminal Mode Commands
    total number of route nodes in the table.  Which will be higher than
    the actual number of routes that are held.
 
-.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type] [json]
+.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type] [json [brief]]
 
    Display nexthop groups created by zebra.  The [vrf NAME] option
    is only meaningful if you have started zebra with the --vrfwnetns
@@ -1832,6 +1832,12 @@ zebra Terminal Mode Commands
    was not installed because no-one was using it at that point and
    Zebra can delay installing this route until it is used by something
    else.
+
+   With **json**, the output is in JSON format.  **brief** may only be
+   given together with **json** (after it); it omits the full-detail
+   fields (type, refCount, timeToDeletion) and shows a condensed nexthop
+   list; groups with dependencies list only ``depends`` and not
+   per-nexthop detail.
 
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 
@@ -1960,7 +1966,7 @@ Optional sysctl settings
 
 .. option:: net.ipv4.conf.{all,default,<interface>}.arp_notify = 1
 
-   This per interface option allows the linux kernel to decide whether to send a Gratuitious ARP
+   This per interface option allows the linux kernel to decide whether to send a Gratuitous ARP
    (GARP) frame when the Layer 3 interface comes UP.
    When arp_notify is set to 0, no GARP is sent.
    When arp_notify is set to 1, a GARP is sent when the interface comes UP.

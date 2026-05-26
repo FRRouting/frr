@@ -296,6 +296,37 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 	event_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
+static void ospf_maybe_restart_inactivity(struct ospf_interface *oi, struct ospf_neighbor *nbr,
+					  const struct ip *iph)
+{
+	in_addr_t dst;
+
+	if (!nbr)
+		return;
+
+	/* Only apply when configured */
+	if (!OSPF_IF_PARAM(oi, dead_timer_any))
+		return;
+
+	/* Only once the neighbor is at or beyond 2-Way */
+	if (nbr->state < NSM_TwoWay)
+		return;
+
+	dst = ntohl(iph->ip_dst.s_addr);
+
+	/* Any unicast OSPF packet */
+	bool is_unicast = !IN_MULTICAST(dst);
+
+	/* Any OSPF packet to AllSPFRouters over a point-to-point link */
+	bool is_p2p_allspf = (oi->type == OSPF_IFTYPE_POINTOPOINT &&
+			      dst == OSPF_ALLSPFROUTERS); /* 224.0.0.5 in host order */
+
+	if (is_unicast || is_p2p_allspf) {
+		ospf_nsm_restart_inactivity_timer(nbr);
+		nbr->dead_timer_resets++;
+	}
+}
+
 /*
  * OSPF neighbor link state retransmission timer handler. Unicast
  * unacknowledged LSAs to the neighbors.
@@ -384,6 +415,37 @@ void ospf_ls_ack_delayed_timer(struct event *event)
 	if (ospf_lsa_list_count(&oi->ls_ack_delayed))
 		ospf_ls_ack_send_delayed(oi);
 }
+
+static inline uint8_t ospf_tos_for_type(struct ospf_interface *oi, uint8_t type)
+{
+	uint8_t dscp;
+
+	switch (type) {
+	case OSPF_MSG_HELLO:
+	case OSPF_MSG_LS_ACK:
+		/* Always highest priority */
+		dscp = OSPF_IF_PARAM(oi, dscp_ospf_all);
+		break;
+
+	case OSPF_MSG_DB_DESC:
+	case OSPF_MSG_LS_REQ:
+	case OSPF_MSG_LS_UPD:
+	default:
+		/*
+		 * Other control traffic: use low-control only if explicitly configured;
+		 * otherwise inherit "all".
+		 */
+		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), dscp_low_control))
+			dscp = OSPF_IF_PARAM(oi, dscp_low_control);
+		else
+			dscp = OSPF_IF_PARAM(oi, dscp_ospf_all);
+		break;
+	}
+
+	dscp &= 0x3f;		     /* clamp to 6 bits */
+	return (uint8_t)(dscp << 2); /* DSCP in bits 7..2, ECN = 0 */
+}
+
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
@@ -562,7 +624,8 @@ static void ospf_write(struct event *event)
 					overflow ip_hl.. */
 
 		iph.ip_v = IPVERSION;
-		iph.ip_tos = IPTOS_PREC_INTERNETCONTROL;
+		/* RFC4222: differentiate DSCP per OSPF packet type */
+		iph.ip_tos = ospf_tos_for_type(oi, type);
 		iph.ip_len = (iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) + op->length;
 
 #if defined(__DragonFly__)
@@ -1228,6 +1291,11 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
 			ntohl(dd->dd_seqnum), nbr->dd_seqnum);
 
+	/*
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 	/* Process DD packet by neighbor status. */
 	switch (nbr->state) {
 	case NSM_Down:
@@ -1474,6 +1542,11 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		return;
 	}
 
+	/*
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 	/* Send Link State Update for ALL requested LSAs. */
 	ls_upd = list_new();
 	length = OSPF_HEADER_SIZE + OSPF_LS_UPD_MIN_SIZE;
@@ -1718,6 +1791,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					   NULL));
 		return;
 	}
+	/*
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
 
 	/* Get list of LSAs from Link State Update packet. - Also performs
 	 * Stages 1 (validate LSA checksum) and 2 (check for LSA consistent
@@ -1934,6 +2012,61 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (Flag)
 				continue;
 		}
+		/* Make sure that this is not a stale LSA (after a reboot) that originated from this
+		 * router. If that is the case, refresh the local LSA.
+		 * RFC 2328 Section 13.4:
+		 * https://datatracker.ietf.org/doc/html/rfc2328#page-151
+		 *
+		 * Opaque LSAs are handled above and via ospf_process_self_originated_lsa().
+		 */
+		if (IPV4_ADDR_SAME(&lsa->data->adv_router, &oi->ospf->router_id) &&
+		    !IS_OPAQUE_LSA(lsa->data->type)) {
+			if (current == NULL) {
+				/* RFC 2328 Section 13.4:
+				 * It may be the case the router no longer wishes to originate the
+				 * received LSA. ... Instead of updating the LSA, the LSA should be
+				 * flushed from the routing domain by incrementing the received
+				 * LSA's LS age to MaxAge and reflooding.
+				 */
+				struct ospf_lsa *ls_req;
+
+				if (IS_DEBUG_OSPF(lsa, LSA))
+					zlog_debug("%s: Link State Update[%s]: router-id is local, but no current LSA - setting to MaxAge",
+						   __func__, dump_lsa_key(lsa));
+
+				/* Immediately Ack to stop retransmitting the LSA */
+				ospf_ls_ack_send_direct(nbr, lsa);
+				/* Remove from request list, we are overriding */
+				ls_req = ospf_ls_request_lookup(nbr, lsa);
+				if (ls_req != NULL) {
+					ospf_ls_request_delete(nbr, ls_req);
+					ospf_check_nbr_loading(nbr);
+				}
+
+				/* Set LSA age to MaxAge to flush this stale instance. */
+				LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+
+			} else if (ospf_lsa_more_recent(lsa, current) > 0) {
+				/* RFC 2328 Section 13.4:
+				 * If the received self-originated LSA is newer than the
+				 * last instance that the router actually originated, the router
+				 * must take special action. ... the router must then advance the LSA's LS
+				 * sequence number one past the received LS sequence number, and
+				 * originate a new instance of the LSA.
+				 */
+				if (IS_DEBUG_OSPF(lsa, LSA))
+					zlog_debug("%s: Link State Update[%s]: router-id is local, but has higher seq num",
+						   __func__, dump_lsa_key(lsa));
+				current->data->ls_seqnum = lsa->data->ls_seqnum;
+				ospf_lsa_refresh(oi->ospf, current);
+				/* Discarding without ACK may cause neighbor to retransmit the stale LSA
+				 * until the refreshed LSA arrives, make sure that doesn't happen.
+				 */
+				ospf_ls_ack_send_direct(nbr, lsa);
+				DISCARD_LSA(lsa, 10);
+				continue;
+			}
+		}
 
 		/* (5) Find the instance of this LSA that is currently contained
 		   in the router's link state database.  If there is no
@@ -2107,6 +2240,12 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 					   NULL));
 		return;
 	}
+	/*
+	 * RFC4222: reset inactivity timer on any OSPF unicast packet
+	 * or any AllSPFRouters packet over a point-to-point link.
+	 */
+	ospf_maybe_restart_inactivity(oi, nbr, iph);
+
 
 	while (size >= OSPF_LSA_HEADER_SIZE) {
 		struct ospf_lsa *lsa, *lsr;
@@ -2634,6 +2773,72 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 	return ret;
 }
 
+/*
+ * On PtP/VLinks, neighbor structures are indexed by router-ID. Quick neighbors
+ * are created under the source address until the router ID is known.
+ */
+static void ospf_qnbr_rekey_ptp_vlink(struct ospf_interface *oi, const struct in_addr *src,
+				      struct ospf_neighbor *qnbr)
+{
+	struct prefix oldk, newk;
+	struct route_node *oldrn, *newrn;
+	struct ospf_neighbor *existing;
+
+	memset(&oldk, 0, sizeof(oldk));
+	oldk.family = AF_INET;
+	oldk.prefixlen = IPV4_MAX_BITLEN;
+	oldk.u.prefix4 = *src;
+
+	memset(&newk, 0, sizeof(newk));
+	newk.family = AF_INET;
+	newk.prefixlen = IPV4_MAX_BITLEN;
+	newk.u.prefix4 = qnbr->router_id;
+
+	/* First check if the router-id slot is already occupied. */
+	existing = NULL;
+	newrn = route_node_lookup(oi->nbrs, &newk);
+	if (newrn) {
+		existing = newrn->info;
+		route_unlock_node(newrn);
+	}
+
+	/*
+	 * If another neighbor already exists under the router-id key, prefer it
+	 * and delete the quick placeholder to avoid orphaning it.
+	 */
+	if (existing && existing != qnbr) {
+		if (IS_DEBUG_OSPF_QNBR)
+			zlog_debug("%s: router-id keyed neighbor already exists for %pI4 on %s",
+				   __func__, &qnbr->router_id, IF_NAME(oi));
+
+		oldrn = route_node_lookup(oi->nbrs, &oldk);
+		if (oldrn) {
+			if (oldrn->info == qnbr) {
+				oldrn->info = NULL;
+				route_unlock_node(oldrn);
+			}
+			route_unlock_node(oldrn);
+		}
+
+		ospf_nbr_free(qnbr);
+	} else {
+		newrn = route_node_get(oi->nbrs, &newk);
+		if (!newrn->info)
+			newrn->info = qnbr;
+		else
+			route_unlock_node(newrn);
+
+		oldrn = route_node_lookup(oi->nbrs, &oldk);
+		if (oldrn) {
+			if (oldrn->info == qnbr) {
+				oldrn->info = NULL;
+				route_unlock_node(oldrn);
+			}
+			route_unlock_node(oldrn);
+		}
+	}
+}
+
 /* OSPF Header verification. */
 static int ospf_verify_header(struct stream *ibuf, struct ospf_interface *oi,
 			      struct ip *iph, struct ospf_header *ospfh)
@@ -2660,6 +2865,38 @@ static int ospf_verify_header(struct stream *ibuf, struct ospf_interface *oi,
 	 * required. */
 	if (!ospf_auth_check(oi, iph, ospfh))
 		return -1;
+
+	/* Check for quick neighbors. Update router-id and send immediate hellos if needed */
+	if (oi->num_q_nbrs) {
+		struct ospf_neighbor *qnbr;
+		struct in_addr src;
+
+		src.s_addr = iph->ip_src.s_addr;
+		qnbr = ospf_nbr_lookup_by_addr(oi->nbrs, &src);
+		if (qnbr && qnbr->router_id.s_addr == 0) {
+			if (IS_DEBUG_OSPF_QNBR)
+				zlog_debug("%s: Quick neighbor learned router-id, qnbr=%pI4, router-id=%pI4",
+					   __func__, &src, &ospfh->router_id);
+			/* Fix the router-id and trigger a new hello to be sent */
+			qnbr->router_id = ospfh->router_id;
+			/* This is no longer a "quick" neighbor now that we know the router-id */
+			if (oi->num_q_nbrs)
+				oi->num_q_nbrs--;
+
+			/*
+			 * On Point-to-Point and Virtual-Link interfaces, the neighbor
+			 * table is indexed by router-id. Quick neighbors are created
+			 * (temporarily) under their source address; once the router-id
+			 * is known, re-key the entry to avoid duplicate neighbors.
+			 */
+			if (oi->type == OSPF_IFTYPE_VIRTUALLINK ||
+			    oi->type == OSPF_IFTYPE_POINTOPOINT)
+				ospf_qnbr_rekey_ptp_vlink(oi, &src, qnbr);
+
+			OSPF_ISM_EVENT_EXECUTE(oi, ISM_NeighborChange);
+			ospf_hello_send(oi);
+		}
+	}
 
 	return 0;
 }

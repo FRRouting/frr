@@ -335,7 +335,7 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 	 */
 	memset(&hattr, 0, sizeof(hattr));
 	/* hattr becomes a ghost attr */
-	hattr = *attr;
+	bgp_attr_dup_into(&hattr, attr);
 
 	if (rmap) {
 		struct bgp_path_info pinfo = {};
@@ -764,7 +764,7 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	 */
 	memset(&hattr, 0, sizeof(hattr));
 	/* hattr becomes a ghost attr */
-	hattr = *attr;
+	bgp_attr_dup_into(&hattr, attr);
 
 	if (rmap) {
 		struct bgp_path_info pinfo = {};
@@ -958,7 +958,7 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 	 */
 	memset(&hattr, 0, sizeof(hattr));
 	/* hattr becomes a ghost attr */
-	hattr = *attr;
+	bgp_attr_dup_into(&hattr, attr);
 
 	if (rmap) {
 		struct bgp_path_info path;
@@ -1711,7 +1711,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(new_attr));
-				new_attr = *bpi_interior->attr;
+				bgp_attr_dup_into(&new_attr, bpi_interior->attr);
 				if (info->attr->flag
 				    & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
 					new_attr.local_pref =
@@ -2036,7 +2036,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			/* use local_pref from unicast route */
 			memset(&new_attr, 0, sizeof(struct attr));
-			new_attr = *bpi_interior->attr;
+			bgp_attr_dup_into(&new_attr, bpi_interior->attr);
 			if (bpi_exterior
 			    && (bpi_exterior->attr->flag
 				& ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
@@ -2181,7 +2181,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(struct attr));
-				new_attr = *bpi_interior->attr;
+				bgp_attr_dup_into(&new_attr, bpi_interior->attr);
 				if (bpi_exterior
 				    && (bpi_exterior->attr->flag
 					& ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
@@ -2303,7 +2303,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			/* use local_pref from unicast route */
 			memset(&new_attr, 0, sizeof(struct attr));
-			new_attr = *bpi_interior->attr;
+			bgp_attr_dup_into(&new_attr, bpi_interior->attr);
 			if (bpi_exterior
 			    && (bpi_exterior->attr->flag
 				& ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
@@ -2497,7 +2497,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(new_attr));
-				new_attr = *bpi->attr;
+				bgp_attr_dup_into(&new_attr, bpi->attr);
 				if (bpi_exterior
 				    && (bpi_exterior->attr->flag
 					& ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {

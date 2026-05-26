@@ -22,6 +22,8 @@
 #include "lib/spf_backoff.h"
 #include "isisd/isis_mt.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_SPF_BACKOFF_BUF_VTY, "ISIS VTY SPF backoff temporary buffer");
+
 static struct isis_circuit *isis_circuit_lookup(struct vty *vty)
 {
 	struct interface *ifp = VTY_GET_CONTEXT(interface);
@@ -696,7 +698,7 @@ DEFUN (spf_delay_ietf,
 	long timetolearn = atol(argv[10]->arg);
 
 	size_t bufsiz = strlen(area->area_tag) + sizeof("IS-IS  Lx");
-	char *buf = XCALLOC(MTYPE_TMP, bufsiz);
+	char *buf = XCALLOC(MTYPE_ISIS_TMP_SPF_BACKOFF_BUF_VTY, bufsiz);
 
 	snprintf(buf, bufsiz, "IS-IS %s L1", area->area_tag);
 	spf_backoff_free(area->spf_delay_ietf[0]);
@@ -710,7 +712,7 @@ DEFUN (spf_delay_ietf,
 		spf_backoff_new(master, buf, init_delay, short_delay,
 				long_delay, holddown, timetolearn);
 
-	XFREE(MTYPE_TMP, buf);
+	XFREE(MTYPE_ISIS_TMP_SPF_BACKOFF_BUF_VTY, buf);
 	return CMD_SUCCESS;
 }
 

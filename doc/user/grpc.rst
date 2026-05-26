@@ -17,7 +17,7 @@ configure script.
 Northbound gRPC Features
 ========================
 
-* Get/set configuration using JSON/XML/XPath encondings.
+* Get/set configuration using JSON/XML/XPath encodings.
 * Execute YANG RPC calls.
 * Lock/unlock configuration.
 * Create/edit/load/update/commit candidate configuration.

@@ -404,15 +404,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_nexthop_change(h, ns_id, startup);
 	case RTM_DELNEXTHOP:
 		return netlink_nexthop_change(h, ns_id, startup);
-	case RTM_NEWQDISC:
-	case RTM_DELQDISC:
-		return netlink_qdisc_change(h, ns_id, startup);
-	case RTM_NEWTCLASS:
-	case RTM_DELTCLASS:
-		return netlink_tclass_change(h, ns_id, startup);
-	case RTM_NEWTFILTER:
-	case RTM_DELTFILTER:
-		return netlink_tfilter_change(h, ns_id, startup);
 
 	/* Messages we may receive, but ignore */
 	case RTM_NEWCHAIN:
@@ -435,6 +426,12 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
+	case RTM_NEWQDISC:
+	case RTM_DELQDISC:
+	case RTM_NEWTCLASS:
+	case RTM_DELTCLASS:
+	case RTM_NEWTFILTER:
+	case RTM_DELTFILTER:
 		return 0;
 	default:
 		/*
@@ -486,6 +483,17 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
 		return netlink_neigh_change(h, ns_id);
+
+	case RTM_NEWQDISC:
+	case RTM_DELQDISC:
+		return netlink_qdisc_change(h, ns_id, startup);
+	case RTM_NEWTCLASS:
+	case RTM_DELTCLASS:
+		return netlink_tclass_change(h, ns_id, startup);
+	case RTM_NEWTFILTER:
+	case RTM_DELTFILTER:
+		return netlink_tfilter_change(h, ns_id, startup);
+
 	default:
 		break;
 	}
@@ -1472,6 +1480,10 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 	case DPLANE_OP_STARTUP_STAGE:
 	case DPLANE_OP_VLAN_INSTALL:
+	case DPLANE_OP_FDB_READ:
+	case DPLANE_OP_NEIGH_READ:
+	case DPLANE_OP_TC_QDISC_READ:
+	case DPLANE_OP_TC_QDISC_NOTIFY:
 		return FRR_NETLINK_ERROR;
 
 	case DPLANE_OP_GRE_SET:
@@ -1623,13 +1635,13 @@ void kernel_init(struct zebra_ns *zns)
 	 */
 	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
 		 ((uint32_t)1 << (RTNLGRP_IPV4_RULE - 1)) |
-		 ((uint32_t)1 << (RTNLGRP_IPV6_RULE - 1)) |
-		 ((uint32_t)1 << (RTNLGRP_NEXTHOP - 1)) | ((uint32_t)1 << (RTNLGRP_TC - 1));
+		 ((uint32_t)1 << (RTNLGRP_IPV6_RULE - 1)) | ((uint32_t)1 << (RTNLGRP_NEXTHOP - 1));
 
 	dplane_groups = (RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
 			 ((uint32_t)1 << (RTNLGRP_IPV4_NETCONF - 1)) |
 			 ((uint32_t)1 << (RTNLGRP_IPV6_NETCONF - 1)) |
-			 ((uint32_t)1 << (RTNLGRP_MPLS_NETCONF - 1)));
+			 ((uint32_t)1 << (RTNLGRP_MPLS_NETCONF - 1)) |
+			 ((uint32_t)1 << (RTNLGRP_TC - 1)));
 
 	/* Use setsockopt for > 31 group */
 	ext_groups = RTNLGRP_TUNNEL;
@@ -1863,8 +1875,7 @@ void kernel_router_terminate(void)
 
 	pthread_mutex_destroy(&nlsock_mutex);
 
-	hash_free(nlsock_hash);
-	nlsock_hash = NULL;
+	hash_clean_and_free(&nlsock_hash, NULL);
 }
 
 #endif /* HAVE_NETLINK */

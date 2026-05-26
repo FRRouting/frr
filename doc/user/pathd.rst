@@ -88,14 +88,14 @@ configuration provided to corresponding MPLS labels.
 
 .. note::
 	It would be the same for isis (:ref:`isis-traffic-engineering`) but in the
-	moment of writting it's not fully tested.
+	moment of writing it's not fully tested.
 
 Dynamic Segment Lists
 ---------------------
 
 One of the useful options to configure is the creation of policies with
 the dynamic option. In this case based on a given endpoint the SL will be
-,first calculated, and then sended by means of PCEP protocol by the configured
+,first calculated, and then sent by means of PCEP protocol by the configured
 PCE.
 
 .. code-block:: frr
