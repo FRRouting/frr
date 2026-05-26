@@ -107,6 +107,16 @@ def test_bgp_conditional_advertisement_track_peer():
     """
     )
 
+    def _bgp_check_r2_received_exist_route():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast 172.16.255.3/32 json"))
+        expected = {"paths": [{"valid": True}]}
+        return topotest.json_cmp(output, expected)
+
+    # Wait for the exist-map route before expecting conditional advertisement.
+    test_func = functools.partial(_bgp_check_r2_received_exist_route)
+    _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+    assert result is None, "R2 SHOULD receive 172.16.255.3/32 from R3"
+
     def _bgp_check_conditional_static_routes_from_r2():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json"))
         expected = {
@@ -116,13 +126,12 @@ def test_bgp_conditional_advertisement_track_peer():
         }
         return topotest.json_cmp(output, expected)
 
-    # Verify if R1 received 172.16.255.2/32 from R2
-    # The conditional-advertisement scanner is phase-locked at 5s intervals
-    # (see `bgp conditional-advertisement timer 5` in r2/bgpd.conf), so the
-    # worst-case wait is BGP session establishment + one full scanner cycle.
-    # Use a longer window to absorb that on slow CI hosts.
+    # Verify if R1 received 172.16.255.2/32 from R2. The conditional-advertisement
+    # scanner is phase-locked at 5s intervals (see r2/bgpd.conf); after the
+    # exist-map route is present, allow up to two full scanner cycles plus UPDATE
+    # propagation on loaded CI hosts (see doc/developer/topotests.rst).
     test_func = functools.partial(_bgp_check_conditional_static_routes_from_r2)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R1 SHOULD receive 172.16.255.2/32 from R2"
 
     step("Disable session between R2 and R3 again")
@@ -134,9 +143,19 @@ def test_bgp_conditional_advertisement_track_peer():
     """
     )
 
+    def _bgp_check_r2_withdrew_exist_route():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast 172.16.255.3/32 json"))
+        expected = {"paths": None}
+        return topotest.json_cmp(output, expected)
+
+    # Wait for the exist-map route to disappear before checking withdrawal.
+    test_func = functools.partial(_bgp_check_r2_withdrew_exist_route)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "R2 SHOULD withdraw 172.16.255.3/32 from R3"
+
     # Verify if R2 is not sending any routes to R1 again
     test_func = functools.partial(_bgp_converge)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R2 SHOULD not send any routes to R1"
 
 
