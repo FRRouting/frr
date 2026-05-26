@@ -45,6 +45,7 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs);
 static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json);
 static void _display_peer_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_json_iter(struct hash_bucket *hb, void *arg);
+static void _display_peer_brief_json_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_counter(struct vty *vty, struct bfd_session *bs);
 static struct json_object *__display_peer_counters_json(struct bfd_session *bs);
 static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs);
@@ -921,6 +922,61 @@ static void _display_peer_brief_iter(struct hash_bucket *hb, void *arg)
 	_display_peer_brief(vty, bs);
 }
 
+static struct json_object *_display_peer_brief_json(struct bfd_session *bs)
+{
+	struct json_object *jo = json_object_new_object();
+	char addr_buf[INET6_ADDRSTRLEN];
+
+	json_object_int_add(jo, "id", bs->discrs.my_discr);
+
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
+		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
+		json_object_string_add(jo, "local", addr_buf);
+	} else {
+		if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
+			json_object_string_add(jo, "local",
+					       inet_ntop(bs->key.family, &bs->key.local,
+							 addr_buf, sizeof(addr_buf)));
+		else
+			json_object_string_add(jo, "local", satostr(&bs->local_address));
+	}
+
+	json_object_string_add(jo, "peer",
+			       inet_ntop(bs->key.family, &bs->key.peer,
+					 addr_buf, sizeof(addr_buf)));
+	json_object_string_add(jo, "status", state_list[bs->ses_state].str);
+
+	if (bs->profile_name)
+		json_object_string_add(jo, "profile", bs->profile_name);
+
+	return jo;
+}
+
+static void _display_peer_brief_json_iter(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_vrf_tuple *bvt = (struct bfd_vrf_tuple *)arg;
+	struct json_object *jo, *jon = NULL;
+	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+	jo = bvt->jo;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] ||
+		    !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
+
+	jon = _display_peer_brief_json(bs);
+	if (jon == NULL) {
+		zlog_warn("%s: not enough memory", __func__);
+		return;
+	}
+
+	json_object_array_add(jo, jon);
+}
+
 static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_json)
 {
 	struct json_object *jo;
@@ -951,7 +1007,7 @@ static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_
 	jo = json_object_new_array();
 	bvt.jo = jo;
 
-	bfd_id_iterate(_display_peer_json_iter, &bvt);
+	bfd_id_iterate(_display_peer_brief_json_iter, &bvt);
 
 	vty_json(vty, jo);
 }
