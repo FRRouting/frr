@@ -9,6 +9,7 @@
 import asyncio
 import datetime
 import errno
+import functools
 import ipaddress
 import logging
 import os
@@ -47,6 +48,7 @@ root_hostname = subprocess.check_output("hostname")
 our_pid = os.getpid()
 
 
+@functools.lru_cache(maxsize=1)
 def get_docker_container_id():
     """Detect if running inside Docker and return container ID.
 
@@ -55,26 +57,21 @@ def get_docker_container_id():
     the container from the host (e.g., tmux panes).
     """
     try:
-        # Try cgroup v1 format first
+        # Try cgroup v1 format first - check any cgroup subsystem, not just cpuset
         with open("/proc/1/cgroup") as file:
             cgroup = file.read()
-        m = re.search(r"[0-9]+:cpuset:/docker/([a-f0-9]+)", cgroup)
+        m = re.search(r"[0-9]+:[^:]*:/docker/([a-f0-9]{64})", cgroup)
         if m:
             return m.group(1)
 
         # For cgroup v2, check mountinfo for docker container path
         with open("/proc/self/mountinfo") as file:
             mountinfo = file.read()
-        m = re.search(r"/docker/containers/([a-f0-9]+)/", mountinfo)
+        m = re.search(r"/docker/containers/([a-f0-9]{64})/", mountinfo)
         if m:
             return m.group(1)
 
-        # Fallback: if hostname looks like a container ID, use it
-        # Docker containers often have hostname set to short container ID
-        hostname = subprocess.check_output(["hostname"], text=True).strip()
-        if re.match(r"^[a-f0-9]{12}$", hostname):
-            return hostname
-    except (IOError, OSError, subprocess.CalledProcessError):
+    except (IOError, OSError):
         pass
     return None
 
