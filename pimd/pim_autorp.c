@@ -35,6 +35,8 @@ static const char *PIM_AUTORP_ANNOUNCEMENT_GRP = "224.0.1.39";
 static const char *PIM_AUTORP_DISCOVERY_GRP = "224.0.1.40";
 static const in_port_t PIM_AUTORP_PORT = 496;
 
+static bool autorp_config_loaded;
+
 static int pim_autorp_rp_cmp(const struct pim_autorp_rp *l, const struct pim_autorp_rp *r)
 {
 	return pim_addr_cmp(l->addr, r->addr);
@@ -191,78 +193,176 @@ static bool pim_autorp_should_enable_socket(struct pim_autorp *autorp)
 
 static bool pim_autorp_should_close(struct pim_autorp *autorp)
 {
-	/* If discovery or mapping agent is active, then we need the socket open. We also want to leave
-	 * the socket open if there are any pim interfaces and we have an announcement packet to send.
+	/* Keep the socket open while any AutoRP receive or send role is active.
+	 * For candidate RP, use the configured RP list rather than announce_timer:
+	 * pim_autorp_new_announcement() cancels that timer before rebuilding the
+	 * packet and must not trigger a socket close in between.
 	 */
-	return !autorp->do_discovery && !autorp->send_rp_discovery &&
-	       !(pim_autorp_should_enable_socket(autorp) && autorp->announce_timer != NULL);
+	if (autorp->do_discovery || autorp->send_rp_discovery)
+		return false;
+
+	if (!pim_autorp_should_enable_socket(autorp))
+		return true;
+
+	if (pim_autorp_rp_count(&autorp->candidate_rp_list) > 0)
+		return false;
+
+	return true;
 }
 
-static bool pim_autorp_join_groups(struct interface *ifp)
+static bool pim_autorp_ifp_join_discovery(struct interface *ifp)
 {
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	struct pim_autorp *autorp;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_autorp *autorp = pim_ifp->pim->autorp;
 	pim_addr grp;
 
-	pim_ifp = ifp->info;
-	pim = pim_ifp->pim;
-	autorp = pim->autorp;
-
 	inet_pton(PIM_AF, PIM_AUTORP_DISCOVERY_GRP, &grp);
-	if (pim_socket_join(autorp->sock, grp, pim_ifp->primary_address,
-			    ifp->ifindex, pim_ifp)) {
+	if (pim_socket_join(autorp->sock, grp, pim_ifp->primary_address, ifp->ifindex, pim_ifp)) {
 		zlog_warn("Failed to join group %pI4 on interface %s", &grp, ifp->name);
 		return false;
 	}
 
 	zlog_info("%s: Joined AutoRP discovery group %pPA on interface %s", __func__, &grp,
 		  ifp->name);
-
-	inet_pton(PIM_AF, PIM_AUTORP_ANNOUNCEMENT_GRP, &grp);
-	if (pim_socket_join(pim->autorp->sock, grp, pim_ifp->primary_address, ifp->ifindex,
-			    pim_ifp)) {
-		zlog_warn("Failed to join group %pI4 on interface %s", &grp, ifp->name);
-		return errno;
-	}
-
-	zlog_info("%s: Joined AutoRP announcement group %pPA on interface %s", __func__, &grp,
-		  ifp->name);
-
 	return true;
 }
 
-static bool pim_autorp_leave_groups(struct interface *ifp)
+static bool pim_autorp_ifp_leave_discovery(struct interface *ifp)
 {
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	struct pim_autorp *autorp;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_autorp *autorp = pim_ifp->pim->autorp;
 	pim_addr grp;
 
-	pim_ifp = ifp->info;
-	pim = pim_ifp->pim;
-	autorp = pim->autorp;
-
 	inet_pton(PIM_AF, PIM_AUTORP_DISCOVERY_GRP, &grp);
-	if (pim_socket_leave(autorp->sock, grp, pim_ifp->primary_address,
-			     ifp->ifindex, pim_ifp)) {
+	if (pim_socket_leave(autorp->sock, grp, pim_ifp->primary_address, ifp->ifindex, pim_ifp)) {
 		zlog_warn("Failed to leave group %pI4 on interface %s", &grp, ifp->name);
 		return false;
 	}
 
-	zlog_info("%s: Left AutoRP discovery group %pPA on interface %s", __func__, &grp, ifp->name);
+	zlog_info("%s: Left AutoRP discovery group %pPA on interface %s", __func__, &grp,
+		  ifp->name);
+	return true;
+}
+
+static bool pim_autorp_ifp_join_announce(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_autorp *autorp = pim_ifp->pim->autorp;
+	pim_addr grp;
 
 	inet_pton(PIM_AF, PIM_AUTORP_ANNOUNCEMENT_GRP, &grp);
-	if (pim_socket_leave(pim->autorp->sock, grp, pim_ifp->primary_address, ifp->ifindex,
-			     pim_ifp)) {
+	if (pim_socket_join(autorp->sock, grp, pim_ifp->primary_address, ifp->ifindex, pim_ifp)) {
+		zlog_warn("Failed to join group %pI4 on interface %s", &grp, ifp->name);
+		return false;
+	}
+
+	zlog_info("%s: Joined AutoRP announcement group %pPA on interface %s", __func__, &grp,
+		  ifp->name);
+	return true;
+}
+
+static bool pim_autorp_ifp_leave_announce(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_autorp *autorp = pim_ifp->pim->autorp;
+	pim_addr grp;
+
+	inet_pton(PIM_AF, PIM_AUTORP_ANNOUNCEMENT_GRP, &grp);
+	if (pim_socket_leave(autorp->sock, grp, pim_ifp->primary_address, ifp->ifindex, pim_ifp)) {
 		zlog_warn("Failed to leave group %pI4 on interface %s", &grp, ifp->name);
-		return errno;
+		return false;
 	}
 
 	zlog_info("%s: Left AutoRP announcement group %pPA on interface %s", __func__, &grp,
 		  ifp->name);
-
 	return true;
+}
+
+static void pim_autorp_ifp_groups_apply(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_autorp *autorp;
+
+	if (!autorp_is_pim_interface(ifp) || !pim_ifp || !pim_ifp->pim || !pim_ifp->pim->autorp)
+		return;
+
+	autorp = pim_ifp->pim->autorp;
+	if (autorp->sock == -1)
+		return;
+
+	if (autorp->do_discovery) {
+		if (!pim_ifp->autorp_joined_discovery && pim_autorp_ifp_join_discovery(ifp))
+			pim_ifp->autorp_joined_discovery = true;
+	} else if (pim_ifp->autorp_joined_discovery) {
+		if (pim_autorp_ifp_leave_discovery(ifp))
+			pim_ifp->autorp_joined_discovery = false;
+	}
+
+	if (autorp->send_rp_discovery) {
+		if (!pim_ifp->autorp_joined_announce && pim_autorp_ifp_join_announce(ifp))
+			pim_ifp->autorp_joined_announce = true;
+	} else if (pim_ifp->autorp_joined_announce) {
+		if (pim_autorp_ifp_leave_announce(ifp))
+			pim_ifp->autorp_joined_announce = false;
+	}
+}
+
+static void pim_autorp_groups_apply(struct pim_autorp *autorp)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (autorp->pim->vrf, ifp)
+		pim_autorp_ifp_groups_apply(ifp);
+}
+
+static void pim_autorp_leave_all_groups(struct pim_autorp *autorp)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	if (autorp->sock == -1)
+		return;
+
+	FOR_ALL_INTERFACES (autorp->pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			continue;
+
+		if (pim_ifp->autorp_joined_discovery) {
+			pim_autorp_ifp_leave_discovery(ifp);
+			pim_ifp->autorp_joined_discovery = false;
+		}
+		if (pim_ifp->autorp_joined_announce) {
+			pim_autorp_ifp_leave_announce(ifp);
+			pim_ifp->autorp_joined_announce = false;
+		}
+	}
+}
+
+static bool pim_autorp_socket_disable(struct pim_autorp *autorp);
+static void pim_autorp_maybe_close_socket(struct pim_autorp *autorp)
+{
+	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
+		zlog_warn("%s: AutoRP failed to close socket", __func__);
+}
+
+static void autorp_read_on(struct pim_autorp *autorp);
+static void autorp_read_off(struct pim_autorp *autorp);
+
+static bool pim_autorp_should_read(struct pim_autorp *autorp)
+{
+	return autorp->do_discovery || autorp->send_rp_discovery;
+}
+
+static void pim_autorp_read_apply(struct pim_autorp *autorp)
+{
+	if (autorp->sock == -1)
+		return;
+
+	if (pim_autorp_should_read(autorp))
+		autorp_read_on(autorp);
+	else
+		autorp_read_off(autorp);
 }
 
 static bool pim_autorp_setup(int fd)
@@ -1027,9 +1127,7 @@ static void autorp_send_discovery_off(struct pim_autorp *autorp)
 			zlog_debug("%s: AutoRP discovery sending disabled", __func__);
 	event_cancel(&(autorp->send_discovery_timer));
 
-	/* Close the socket if we need to */
-	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
-		zlog_warn("%s: AutoRP failed to close socket", __func__);
+	pim_autorp_maybe_close_socket(autorp);
 }
 
 static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint16_t holdtime,
@@ -1358,8 +1456,11 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 	struct interface *ifp;
 
 	/* Return early if socket is already enabled */
-	if (autorp->sock != -1)
+	if (autorp->sock != -1) {
+		pim_autorp_groups_apply(autorp);
+		pim_autorp_read_apply(autorp);
 		return true;
+	}
 
 	frr_with_privs (&pimd_privs) {
 		fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
@@ -1394,14 +1495,14 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP socket enabled (fd=%u)", __func__, fd);
 
-	if (autorp->do_discovery)
-		autorp_read_on(autorp);
+	pim_autorp_read_apply(autorp);
 
 	if (autorp->send_rp_discovery)
 		autorp_send_discovery_on(autorp);
 
-	/* Try to build a new announcement to make sure the send timer is enabled */
-	pim_autorp_new_announcement(autorp->pim);
+	/* Restart candidate announcements after socket re-open (e.g. interface flap). */
+	if (pim_autorp_rp_count(&autorp->candidate_rp_list) > 0)
+		pim_autorp_new_announcement(autorp->pim);
 
 	return true;
 }
@@ -1409,21 +1510,25 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 static void autorp_announcement_off(struct pim_autorp *autorp);
 static bool pim_autorp_socket_disable(struct pim_autorp *autorp)
 {
-	/* Return early if socket is already disabled */
+	int fd;
+
 	if (autorp->sock == -1)
 		return true;
 
-	/* No need to leave the autorp groups explicitly, they are left when the socket is closed */
-	if (close(autorp->sock)) {
-		zlog_warn("Failure closing autorp socket: fd=%d errno=%d: %s", autorp->sock, errno,
+	fd = autorp->sock;
+
+	autorp_read_off(autorp);
+	event_cancel(&(autorp->send_discovery_timer));
+	event_cancel(&(autorp->announce_timer));
+	pim_autorp_leave_all_groups(autorp);
+
+	autorp->sock = -1;
+
+	if (close(fd)) {
+		zlog_warn("Failure closing autorp socket: fd=%d errno=%d: %s", fd, errno,
 			  safe_strerror(errno));
 		return false;
 	}
-
-	autorp_send_discovery_off(autorp);
-	autorp_announcement_off(autorp);
-	autorp_read_off(autorp);
-	autorp->sock = -1;
 
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP socket disabled", __func__);
@@ -1508,9 +1613,7 @@ static void autorp_announcement_off(struct pim_autorp *autorp)
 			zlog_debug("%s: AutoRP announcement sending disabled", __func__);
 	event_cancel(&(autorp->announce_timer));
 
-	/* Close the socket if we need to */
-	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
-		zlog_warn("%s: AutoRP failed to close socket", __func__);
+	pim_autorp_maybe_close_socket(autorp);
 }
 
 /* Pack the groups of the RP
@@ -1846,8 +1949,18 @@ void pim_autorp_announce_holdtime(struct pim_instance *pim, int32_t holdtime)
 void pim_autorp_send_discovery_apply(struct pim_autorp *autorp)
 {
 	if (!autorp->mapping_agent_addrsel.run || !autorp->send_rp_discovery) {
+		pim_autorp_groups_apply(autorp);
+		pim_autorp_read_apply(autorp);
 		autorp_send_discovery_off(autorp);
 		return;
+	}
+
+	/* When the socket is already open, socket_enable is a no-op and will not
+	 * refresh group membership or the read callback.
+	 */
+	if (autorp->sock != -1) {
+		pim_autorp_groups_apply(autorp);
+		pim_autorp_read_apply(autorp);
 	}
 
 	autorp_send_discovery_on(autorp);
@@ -1855,14 +1968,8 @@ void pim_autorp_send_discovery_apply(struct pim_autorp *autorp)
 
 void pim_autorp_add_ifp(struct interface *ifp)
 {
-	/* Add a new interface for autorp
-	 *   When autorp is enabled, we must join the autorp groups on all
-	 *   pim/multicast interfaces. When autorp becomes enabled, it finds all
-	 *   current pim enabled interfaces and joins the autorp groups on them.
-	 *   Any new interfaces added after autorp is enabled will use this function
-	 *   to join the autorp groups
-	 * This is called even when adding a new pim interface that is not yet
-	 * active, so make sure the check, it'll call in again once the interface is up.
+	/* Add a new interface for autorp. Join only the AutoRP groups required
+	 * by the active features (discovery and/or mapping agent).
 	 */
 	struct pim_instance *pim;
 	struct pim_interface *pim_ifp;
@@ -1878,21 +1985,16 @@ void pim_autorp_add_ifp(struct interface *ifp)
 			}
 
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Adding interface %s to AutoRP, joining AutoRP groups",
-					   __func__, ifp->name);
-			if (!pim_autorp_join_groups(ifp))
-				zlog_warn("Could not join AutoRP groups, errno=%d, %s", errno,
-					  safe_strerror(errno));
+				zlog_debug("%s: Adding interface %s to AutoRP", __func__,
+					   ifp->name);
+			pim_autorp_ifp_groups_apply(ifp);
 		}
 	}
 }
 
 void pim_autorp_rm_ifp(struct interface *ifp)
 {
-	/* Remove interface for autorp
-	 *   When an interface is no longer enabled for multicast, or at all, then
-	 *   we should leave the AutoRP groups on this interface.
-	 */
+	/* Remove interface for autorp: leave any joined AutoRP groups. */
 	struct pim_instance *pim;
 	struct pim_interface *pim_ifp;
 	struct pim_autorp *autorp = NULL;
@@ -1902,12 +2004,19 @@ void pim_autorp_rm_ifp(struct interface *ifp)
 		pim = pim_ifp->pim;
 		if (pim && pim->autorp) {
 			autorp = pim->autorp;
-			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Removing interface %s from AutoRP, leaving AutoRP groups",
-					   __func__, ifp->name);
-			if (!pim_autorp_leave_groups(ifp))
-				zlog_warn("Could not leave AutoRP groups, errno=%d, %s", errno,
-					  safe_strerror(errno));
+			if (autorp->sock != -1) {
+				if (PIM_DEBUG_AUTORP)
+					zlog_debug("%s: Removing interface %s from AutoRP",
+						   __func__, ifp->name);
+				if (pim_ifp->autorp_joined_discovery) {
+					pim_autorp_ifp_leave_discovery(ifp);
+					pim_ifp->autorp_joined_discovery = false;
+				}
+				if (pim_ifp->autorp_joined_announce) {
+					pim_autorp_ifp_leave_announce(ifp);
+					pim_ifp->autorp_joined_announce = false;
+				}
+			}
 		}
 	}
 
@@ -1938,8 +2047,6 @@ void pim_autorp_start_discovery(struct pim_instance *pim)
 		return;
 	}
 
-	autorp_read_on(autorp);
-
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Discovery started", __func__);
 }
@@ -1952,14 +2059,15 @@ void pim_autorp_stop_discovery(struct pim_instance *pim)
 		return;
 
 	autorp->do_discovery = false;
-	autorp_read_off(autorp);
+
+	pim_autorp_rplist_free(&autorp->discovery_rp_list, true);
+	pim_autorp_groups_apply(autorp);
+	pim_autorp_read_apply(autorp);
 
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Discovery stopped", __func__);
 
-	/* Close the socket if we need to */
-	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
-		zlog_warn("%s: AutoRP failed to close socket", __func__);
+	pim_autorp_maybe_close_socket(autorp);
 }
 
 void pim_autorp_init(struct pim_instance *pim)
@@ -1972,6 +2080,7 @@ void pim_autorp_init(struct pim_instance *pim)
 	autorp->read_event = NULL;
 	autorp->announce_timer = NULL;
 	autorp->do_discovery = false;
+	autorp->discovery_cfg_set = false;
 	autorp->send_discovery_timer = NULL;
 	autorp->send_rp_discovery = false;
 	pim_autorp_rp_init(&(autorp->discovery_rp_list));
@@ -1992,10 +2101,40 @@ void pim_autorp_init(struct pim_instance *pim)
 		zlog_debug("%s: AutoRP Initialized", __func__);
 }
 
+void pim_autorp_discovery_apply_finish(struct pim_instance *pim)
+{
+	struct pim_autorp *autorp = pim->autorp;
+
+	if (!autorp)
+		return;
+
+	autorp_config_loaded = true;
+
+	if (!autorp->discovery_cfg_set)
+		pim_autorp_start_discovery(pim);
+}
+
 void pim_autorp_enable(struct pim_instance *pim)
 {
-	/* Start AutoRP discovery by default on startup */
+	struct pim_autorp *autorp = pim->autorp;
+
+	/* Per-VRF apply_finish handles startup config. For VRFs created at
+	 * runtime after config load, start discovery if not explicitly disabled.
+	 */
+	if (!autorp || !autorp_config_loaded || autorp->discovery_cfg_set)
+		return;
+
 	pim_autorp_start_discovery(pim);
+}
+
+void pim_autorp_discovery_cfg_destroy(struct pim_instance *pim)
+{
+	struct pim_autorp *autorp = pim->autorp;
+
+	if (!autorp)
+		return;
+
+	autorp->discovery_cfg_set = false;
 }
 
 void pim_autorp_finish(struct pim_instance *pim)

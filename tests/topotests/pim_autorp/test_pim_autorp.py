@@ -167,18 +167,18 @@ def test_pim_autorp_disable_enable(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Ensure AutoRP groups are joined on all routers")
+    step("Ensure AutoRP discovery group is joined on all routers")
     for rtr in ["r1", "r2", "r3", "r4"]:
         expected = {
             f"{rtr}-eth0": {
                 "name": f"{rtr}-eth0",
-                "224.0.1.39": "*",
                 "224.0.1.40": "*",
+                "224.0.1.39": None,
             },
             f"{rtr}-eth1": {
                 "name": f"{rtr}-eth1",
-                "224.0.1.39": "*",
                 "224.0.1.40": "*",
+                "224.0.1.39": None,
             },
         }
 
@@ -228,18 +228,18 @@ def test_pim_autorp_disable_enable(request):
             """
         )
 
-    step("Ensure AutoRP groups are re-joined on all routers")
+    step("Ensure AutoRP discovery group is re-joined on all routers")
     for rtr in ["r1", "r2", "r3", "r4"]:
         expected = {
             f"{rtr}-eth0": {
                 "name": f"{rtr}-eth0",
-                "224.0.1.39": "*",
                 "224.0.1.40": "*",
+                "224.0.1.39": None,
             },
             f"{rtr}-eth1": {
                 "name": f"{rtr}-eth1",
-                "224.0.1.39": "*",
                 "224.0.1.40": "*",
+                "224.0.1.39": None,
             },
         }
 
@@ -252,6 +252,148 @@ def test_pim_autorp_disable_enable(request):
         _, result = topotest.run_and_expect(test_func, None)
         assert result is None, "{} does not have correct autorp groups joined".format(
             rtr
+        )
+
+
+def test_pim_autorp_selective_group_joins(request):
+    "Test AutoRP IGMP joins follow active features only"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Disable discovery everywhere first so neighbor IGMP reports on the shared
+    # LANs do not mask whether this router joined Auto-RP groups locally.
+    step("Disable AutoRP discovery on all routers")
+    for rtr in ["r1", "r2", "r3", "r4"]:
+        tgen.routers()[rtr].vtysh_cmd(
+            """
+            conf
+             router pim
+              no autorp discovery
+            """
+        )
+
+    step("Verify AutoRP groups are gone on all routers")
+    for rtr in ["r1", "r2", "r3", "r4"]:
+        expected = {f"{rtr}-eth0": None, f"{rtr}-eth1": None}
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[rtr],
+            "show ip igmp sources json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None)
+        assert result is None, "{} still shows AutoRP IGMP groups".format(rtr)
+
+    step("Configure candidate-only on r2")
+    tgen.routers()["r2"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp announce 10.0.0.2 224.0.0.0/4
+          autorp announce scope 31 interval 1 holdtime 5
+        """
+    )
+
+    step("Verify candidate-only router does not join AutoRP groups")
+    expected = {"r2-eth0": None, "r2-eth1": None}
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r2"],
+        "show ip igmp sources json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r2 joined AutoRP groups as candidate-only"
+
+    step("Configure mapping-agent-only on r1")
+    tgen.routers()["r1"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp send-rp-discovery source interface r1-eth0
+          autorp send-rp-discovery scope 31 interval 1 holdtime 5
+        """
+    )
+
+    step("Verify mapping-agent router joins only the announcement group")
+    expected = {
+        "r1-eth0": {
+            "name": "r1-eth0",
+            "224.0.1.39": "*",
+            "224.0.1.40": None,
+        },
+        "r1-eth1": {
+            "name": "r1-eth1",
+            "224.0.1.39": "*",
+            "224.0.1.40": None,
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r1"],
+        "show ip igmp sources json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r1 has incorrect AutoRP group joins as mapping-agent-only"
+
+    step("Re-enable discovery on r1 and verify both groups are joined")
+    tgen.routers()["r1"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp discovery
+        """
+    )
+    expected = {
+        "r1-eth0": {
+            "name": "r1-eth0",
+            "224.0.1.39": "*",
+            "224.0.1.40": "*",
+        },
+        "r1-eth1": {
+            "name": "r1-eth1",
+            "224.0.1.39": "*",
+            "224.0.1.40": "*",
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r1"],
+        "show ip igmp sources json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert (
+        result is None
+    ), "r1 does not have both AutoRP groups after re-enabling discovery"
+
+    step("Restore default AutoRP state for following tests")
+    tgen.routers()["r1"].vtysh_cmd(
+        """
+        conf
+         router pim
+          no autorp send-rp-discovery
+        """
+    )
+    tgen.routers()["r2"].vtysh_cmd(
+        """
+        conf
+         router pim
+          no autorp announce 10.0.0.2 224.0.0.0/4
+        """
+    )
+    for rtr in ["r1", "r2", "r3", "r4"]:
+        tgen.routers()[rtr].vtysh_cmd(
+            """
+            conf
+             router pim
+              autorp discovery
+            """
         )
 
 
@@ -447,6 +589,109 @@ def test_pim_autorp_discovery_rp(request):
         assert result is None, "{} does not have correct autorp configuration".format(
             rtr
         )
+
+
+def test_pim_autorp_discovery_disable_purge_rp(request):
+    "Test learned AutoRP RPs are removed when discovery is disabled"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.routers()["r3"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp announce 10.0.0.2 224.0.0.0/4
+          autorp announce scope 31 interval 1 holdtime 5
+        """
+    )
+    tgen.routers()["r1"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp send-rp-discovery source interface r1-eth0
+          autorp send-rp-discovery scope 31 interval 1 holdtime 5
+        """
+    )
+
+    step("Verify AutoRP learned RP on r2")
+    expected = json.loads(
+        """
+        {
+          "10.0.3.4":[
+            {
+              "rpAddress":"10.0.3.4",
+              "group":"224.0.1.0/24",
+              "source":"Static"
+            }
+          ],
+          "10.0.0.2":[
+            {
+              "rpAddress":"10.0.0.2",
+              "group":"224.0.0.0/4",
+              "source":"AutoRP"
+            }
+          ]
+        }"""
+    )
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r2"],
+        "show ip pim rp-info json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r2 does not have correct rp-info before disable"
+
+    step("Disable AutoRP discovery on r2")
+    tgen.routers()["r2"].vtysh_cmd(
+        """
+        conf
+         router pim
+          no autorp discovery
+        """
+    )
+
+    step("Verify learned AutoRP RP is removed immediately on r2")
+    expected = json.loads(
+        """
+        {
+          "10.0.3.4":[
+            {
+              "rpAddress":"10.0.3.4",
+              "group":"224.0.1.0/24",
+              "source":"Static"
+            }
+          ]
+        }"""
+    )
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r2"],
+        "show ip pim rp-info json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r2 did not purge learned AutoRP RP after disable"
+
+    step("Restore AutoRP state for following tests")
+    tgen.routers()["r2"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp discovery
+        """
+    )
+    tgen.routers()["r1"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp send-rp-discovery scope 31 interval 1 holdtime 5
+        """
+    )
 
 
 def test_pim_autorp_discovery_multiple_rp_same(request):
