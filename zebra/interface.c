@@ -2039,6 +2039,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		char *desc;
 		uint8_t family;
 		uint64_t change_flags;
+		uint32_t cchanges;
 
 		/* If VRF, create or update the VRF structure itself. */
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
@@ -2064,6 +2065,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		desc = dplane_ctx_get_ifp_desc(ctx);
 		family = dplane_ctx_get_ifp_family(ctx);
 		change_flags = dplane_ctx_get_ifp_change_flags(ctx);
+		cchanges = dplane_ctx_get_intf_carrier_changes(ctx);
 
 #ifndef AF_BRIDGE
 		/*
@@ -2362,6 +2364,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			XFREE(MTYPE_ZIF_DESC, zif->desc);
 			if (desc[0])
 				zif->desc = XSTRDUP(MTYPE_ZIF_DESC, desc);
+
+			zif->carrier_changes = cchanges;
 		}
 	}
 }
@@ -2822,6 +2826,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		zebra_if->up_last[0] ? zebra_if->up_last : "(never)");
 	vty_out(vty, "  Link downs: %5u    last: %s\n", zebra_if->down_count,
 		zebra_if->down_last[0] ? zebra_if->down_last : "(never)");
+	vty_out(vty, "  Total Carrier Changes: %u\n", zebra_if->carrier_changes);
 
 	zebra_ptm_show_status(vty, NULL, ifp);
 
@@ -3533,6 +3538,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	json_object_int_add(json_if, "outputErrors", ifp->stats.ifi_oerrors);
 	json_object_int_add(json_if, "collisions", ifp->stats.ifi_collisions);
 #endif /* HAVE_NET_RT_IFLIST */
+	json_object_int_add(json_if, "carrierChanges", zebra_if->carrier_changes);
 }
 
 static void interface_update_stats(void)

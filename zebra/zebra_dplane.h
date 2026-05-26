@@ -757,6 +757,8 @@ const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label);
 void dplane_ctx_set_intf_txqlen(struct zebra_dplane_ctx *ctx, uint32_t txqlen);
 uint32_t dplane_ctx_get_intf_txqlen(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_intf_carrier_changes(struct zebra_dplane_ctx *ctx, uint32_t cchanges);
+uint32_t dplane_ctx_get_intf_carrier_changes(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for MAC information */
 vlanid_t dplane_ctx_mac_get_vlan(const struct zebra_dplane_ctx *ctx);
