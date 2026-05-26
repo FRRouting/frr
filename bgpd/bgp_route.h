@@ -712,6 +712,15 @@ static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
 		bgp_path_info_extra_get(dst_bpi)->srte_color = src_bpie->srte_color;
 }
 
+static inline bool bgp_path_info_extra_same(const struct bgp_path_info *old_bpi,
+					    const struct bgp_path_info_extra *new_bpie)
+{
+	uint32_t old_srte_color = old_bpi->extra ? old_bpi->extra->srte_color : 0;
+	uint32_t new_srte_color = new_bpie ? new_bpie->srte_color : 0;
+
+	return old_srte_color == new_srte_color;
+}
+
 static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,
 				       safi_t safi)
 {

@@ -6151,7 +6151,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* If the update is implicit withdraw. */
 	if (pi) {
 		pi->uptime = monotime(NULL);
-		same_attr = attrhash_cmp(pi->attr, attr_new);
+		same_attr = attrhash_cmp(pi->attr, attr_new) &&
+			    bgp_path_info_extra_same(pi, &rmap_extra);
 
 		hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
 
@@ -8559,7 +8560,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	if (pi) {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
 		    !CHECK_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS) &&
-		    attrhash_cmp(pi->attr, attr_new)) {
+		    attrhash_cmp(pi->attr, attr_new) && bgp_path_info_extra_same(pi, &rmap_extra)) {
 			bgp_dest_unlock_node(dest);
 			bgp_attr_unintern(&attr_new);
 			aspath_unintern(&attr.aspath);
@@ -10899,7 +10900,8 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 			/* Ensure the (source route) type is updated. */
 			bpi->type = type;
 			if (!CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) &&
-			    attrhash_cmp(bpi->attr, new_attr)) {
+			    attrhash_cmp(bpi->attr, new_attr) &&
+			    bgp_path_info_extra_same(bpi, &rmap_extra)) {
 				bgp_attr_unintern(&new_attr);
 				aspath_unintern(&attr.aspath);
 				bgp_dest_unlock_node(bn);

@@ -1315,13 +1315,13 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 
 		if (labelssame && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) &&
 		    attrhash_cmp(bpi->attr, static_attr) &&
+		    bgp_path_info_extra_same(bpi, bpie ? bpie : source_bpi->extra) &&
 		    leak_update_nexthop_valid(to_bgp, bn, static_attr, afi, safi, source_bpi, bpi,
 					      bgp_orig, p,
 					      debug) == !!CHECK_FLAG(bpi->flags, BGP_PATH_VALID)) {
 			if (debug)
-				zlog_debug(
-					"%s: ->%s: %pBD: Found route, no change",
-					__func__, to_bgp->name_pretty, bn);
+				zlog_debug("%s: ->%s: %pBD: Found route, no change", __func__,
+					   to_bgp->name_pretty, bn);
 			return NULL;
 		}
 
