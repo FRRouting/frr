@@ -963,13 +963,13 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 			zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
 
 		/* Add VRR MAC-IP - if any*/
-		if (advertise_gw_macip_enabled(zevpn)) {
-			vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
-			if (vrr_if)
-				zebra_evpn_add_macip_for_intf(vrr_if, zevpn);
-		}
+		vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+		if (vrr_if && advertise_gw_macip_enabled(zevpn))
+			zebra_evpn_add_macip_for_intf(vrr_if, zevpn);
 
 		dplane_neigh_read_for_vlan(zns, vlan_if);
+		if (vrr_if)
+			dplane_neigh_read_for_vlan(zns, vrr_if);
 	}
 }
 
