@@ -136,6 +136,7 @@ struct zebra_if {
 	char up_last[FRR_TIMESTAMP_LEN];
 	unsigned int down_count;
 	char down_last[FRR_TIMESTAMP_LEN];
+	uint32_t carrier_changes;
 
 	struct rtadvconf rtadv;
 	unsigned int ra_sent, ra_rcvd;

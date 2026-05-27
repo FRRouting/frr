@@ -234,6 +234,7 @@ struct dplane_intf_info {
 	uint32_t rc_bitfield;
 
 	uint32_t txqlen;
+	uint32_t cchanges;
 
 	uint32_t metric;
 	uint32_t flags;
@@ -2903,6 +2904,20 @@ uint32_t dplane_ctx_get_intf_txqlen(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.txqlen;
+}
+
+void dplane_ctx_set_intf_carrier_changes(struct zebra_dplane_ctx *ctx, uint32_t cchanges)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.cchanges = cchanges;
+}
+
+uint32_t dplane_ctx_get_intf_carrier_changes(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.cchanges;
 }
 
 /* Accessors for MAC information */
