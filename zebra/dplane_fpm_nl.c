@@ -1248,9 +1248,11 @@ static int fpm_nhg_send_cb(struct hash_bucket *bucket, void *arg)
 	struct nhg_hash_entry *nhe = bucket->data;
 	struct fpm_nhg_arg *fna = arg;
 
-	/* This entry was already sent, skip it. */
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM))
+	/* This entry was already sent or deferred, skip it. */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM) ||
+	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
 		return HASHWALK_CONTINUE;
+	}
 
 	/* Reset ctx to reuse allocated memory, take a snapshot and send it. */
 	dplane_ctx_reset(fna->ctx);
