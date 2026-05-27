@@ -1829,8 +1829,11 @@ interface_bridge_vxlan_vlan_vni_map_update(struct zebra_dplane_ctx *ctx,
 	vlanid_t vid;
 	int i;
 
-	if (vniarray == NULL)
+	if (vniarray == NULL) {
+		vni_table = zebra_vxlan_vni_table_create();
+		zebra_vxlan_if_vni_table_add_update(ifp, vni_table);
 		return;
+	}
 
 	memset(&vni_start, 0, sizeof(vni_start));
 	memset(&vni_end, 0, sizeof(vni_end));
