@@ -1747,6 +1747,7 @@ static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 	struct rtattr *nest;
 	struct mpls_label_stack *nh_label;
 	enum lsp_types_t nh_label_type;
+	enum lwtunnel_encap_types encap_type = LWTUNNEL_ENCAP_IP;
 
 	nh_label = nexthop->nh_label;
 	nh_label_type = nexthop->nh_label_type;
@@ -1763,8 +1764,12 @@ static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 				       label_buf, label_buf_size);
 
 	if (num_labels && nh_label_type == ZEBRA_LSP_EVPN) {
+		if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
+		    !IS_MAPPED_IPV6(&nexthop->gate.ipv6))
+			encap_type = LWTUNNEL_ENCAP_IP6;
+
 		if (!nl_attr_put16(nlmsg, buflen, RTA_ENCAP_TYPE,
-				   LWTUNNEL_ENCAP_IP))
+				   encap_type))
 			return false;
 
 		nest = nl_attr_nest(nlmsg, buflen, RTA_ENCAP);
