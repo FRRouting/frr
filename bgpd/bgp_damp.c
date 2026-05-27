@@ -164,7 +164,6 @@ static void bgp_reuse_timer(struct event *t)
 	time_t t_now, t_diff;
 	struct bgp_damp_config *bdc = EVENT_ARG(t);
 
-	bdc->t_reuse = NULL;
 	event_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
 			&bdc->t_reuse);
 

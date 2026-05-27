@@ -1523,7 +1523,7 @@ static void zebra_show_stale_client_detail(struct vty *vty, struct zserv *client
 
 				vty_out(vty, "Stalepath removal time: %d sec\n",
 					info->stale_removal_time);
-				if (info->t_stale_removal) {
+				if (event_is_scheduled(info->t_stale_removal)) {
 					vty_out(vty,
 						"Stale delete timer: %ld sec\n",
 						event_timer_remain_second(

@@ -455,8 +455,7 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 				nbr_nbma->nbr = nbr;
 				nbr->nbr_nbma = nbr_nbma;
 
-				if (nbr_nbma->t_poll)
-					event_cancel(&nbr_nbma->t_poll);
+				event_cancel(&nbr_nbma->t_poll);
 
 				nbr->state_change = nbr_nbma->state_change + 1;
 			}

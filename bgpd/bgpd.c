@@ -2933,12 +2933,12 @@ void peer_nsf_stop(struct peer *peer)
 		event_cancel(&peer->t_llgr_stale[afi][safi]);
 	}
 
-	if (peer->connection->t_gr_restart) {
+	if (event_is_scheduled(peer->connection->t_gr_restart)) {
 		event_cancel(&peer->connection->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
-	if (peer->connection->t_gr_stale) {
+	if (event_is_scheduled(peer->connection->t_gr_stale)) {
 		event_cancel(&peer->connection->t_gr_stale);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -3725,8 +3725,6 @@ static void bgp_startup_timer_expire(struct event *event)
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: Startup timer expired", bgp->name_pretty);
-
-	bgp->t_startup = NULL;
 }
 
 /*
@@ -4212,8 +4210,6 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	bgp_scan_init(bgp);
 	*bgp_val = bgp;
 
-	bgp->t_rmap_def_originate_eval = NULL;
-
 	/* If Default instance or VRF, link to the VRF structure, if present. */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
 	    || bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
@@ -4321,8 +4317,7 @@ void bgp_instance_down(struct bgp *bgp)
 	hook_call(bgp_instance_state, bgp);
 
 	/* Stop timers. */
-	if (bgp->t_rmap_def_originate_eval)
-		event_cancel(&bgp->t_rmap_def_originate_eval);
+	event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	/* Bring down peers, so corresponding routes are purged. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
@@ -4549,8 +4544,7 @@ int bgp_delete(struct bgp *bgp)
 	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
 
 	/* Stop timers. */
-	if (bgp->t_rmap_def_originate_eval)
-		event_cancel(&bgp->t_rmap_def_originate_eval);
+	event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	/* Inform peers we're going down. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))
@@ -5508,7 +5502,7 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 
 			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 
-			if (peer->connection->t_pmax_restart) {
+			if (event_is_scheduled(peer->connection->t_pmax_restart)) {
 				event_cancel(&peer->connection->t_pmax_restart);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
@@ -8551,7 +8545,7 @@ static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
 		return false;
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-	if (peer->connection->t_pmax_restart) {
+	if (event_is_scheduled(peer->connection->t_pmax_restart)) {
 		event_cancel(&peer->connection->t_pmax_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -9213,7 +9207,6 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->addresses = addresses;
 	bm->master = master;
 	bm->start_time = monotime(NULL);
-	bm->t_rmap_update = NULL;
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 	bm->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEFAULT;
@@ -9224,14 +9217,10 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->ip_tos = IPTOS_PREC_INTERNETCONTROL;
 	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
 	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
-	bm->t_bgp_sync_label_manager = NULL;
-	bm->t_bgp_start_label_manager = NULL;
-	bm->t_bgp_zebra_route = NULL;
 	bm->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
 	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
-	bm->t_bgp_zebra_l2_vni = NULL;
 
 	bm->peer_clearing_batch_id = 1;
 	/* TODO -- make these configurable */
@@ -9416,7 +9405,7 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	 * If this VRF doesn't have GR configured at global and neighbor level
 	 * then return
 	 */
-	if ((!bgp_in_graceful_restart() && !bgp->t_startup) ||
+	if ((!bgp_in_graceful_restart() && !event_is_scheduled(bgp->t_startup)) ||
 	    (global_gr_mode != GLOBAL_GR && !gr_cfgd_at_nbr))
 		return 0;
 

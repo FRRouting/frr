@@ -679,7 +679,7 @@ static void zlog_backtrace_msg(const struct xref_logmsg *xref, int prio)
 	}
 	free(names);
 #endif
-	if (!found_thread && tc)
+	if (!found_thread && event_is_scheduled(tc))
 		zlog(prio, "| (%s) scheduled from %s(), %s:%u", uid,
 		     tc->xref->xref.func, tc->xref->xref.file,
 		     tc->xref->xref.line);

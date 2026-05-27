@@ -585,8 +585,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->local_ifmembership = PIM_IFMEMBERSHIP_NOINFO;
 
 	ch->ifjoin_state = PIM_IFJOIN_NOINFO;
-	ch->t_ifjoin_expiry_timer = NULL;
-	ch->t_ifjoin_prune_pending_timer = NULL;
 	ch->ifjoin_creation = 0;
 
 	ch->prune_holdtime = 0;
@@ -605,7 +603,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->ifassert_winner = PIMADDR_ANY;
 
 	/* Assert state */
-	ch->t_ifassert_timer = NULL;
 	ch->ifassert_state = PIM_IFASSERT_NOINFO;
 	reset_ifassert_state(ch);
 	if (pim_macro_ch_could_assert_eval(ch))
@@ -925,7 +922,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 		  a
 		  previously received join message with holdtime=0xFFFF.
 		 */
-		if (ch->t_ifjoin_expiry_timer) {
+		if (event_is_scheduled(ch->t_ifjoin_expiry_timer)) {
 			unsigned long remain = event_timer_remain_second(
 				ch->t_ifjoin_expiry_timer);
 			if (remain > holdtime) {
@@ -993,7 +990,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 
 		pim_ifchannel_ifjoin_handler(ch, pim_ifp);
 
-		if (ch->t_ifjoin_expiry_timer) {
+		if (event_is_scheduled(ch->t_ifjoin_expiry_timer)) {
 			unsigned long remain = event_timer_remain_second(
 				ch->t_ifjoin_expiry_timer);
 
@@ -1121,7 +1118,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 			 * current value and the HoldTime from the triggering
 			 * Join/Prune message.
 			 */
-			if (ch->t_ifjoin_expiry_timer) {
+			if (event_is_scheduled(ch->t_ifjoin_expiry_timer)) {
 				unsigned long rem = event_timer_remain_second(
 					ch->t_ifjoin_expiry_timer);
 

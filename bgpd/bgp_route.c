@@ -4240,7 +4240,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	if (old_select || new_select) {
 		bgp_bump_version(dest);
 
-		if (!bgp->t_rmap_def_originate_eval &&
+		if (!event_is_scheduled(bgp->t_rmap_def_originate_eval) &&
 		    bgp->rmap_def_originate_eval_timer)
 			event_add_timer(
 				bm->master,
@@ -4442,7 +4442,7 @@ void bgp_dest_decrement_gr_fib_install_pending_count(struct bgp_dest *dest)
 	    bgp->gr_route_sync_pending) {
 		struct graceful_restart_info *gr_info = &(bgp->gr_info[afi][safi]);
 
-		if (gr_info->t_select_deferral) {
+		if (event_is_scheduled(gr_info->t_select_deferral)) {
 			void *info = EVENT_ARG(gr_info->t_select_deferral);
 
 			XFREE(MTYPE_TMP, info);
@@ -6790,7 +6790,7 @@ void bgp_default_originate(struct peer *peer, afi_t afi, safi_t safi,
  */
 void bgp_stop_announce_route_timer(struct peer_af *paf)
 {
-	if (!paf->t_announce_route)
+	if (!event_is_scheduled(paf->t_announce_route))
 		return;
 
 	event_cancel(&paf->t_announce_route);
@@ -6850,7 +6850,7 @@ void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi, bool force)
 	if (force)
 		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 
-	if (paf->t_announce_route)
+	if (event_is_scheduled(paf->t_announce_route))
 		return;
 
 	/*
@@ -7110,7 +7110,7 @@ bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 		 */
 		bgp_soft_reconfig_table_flag(table, true);
 
-		if (!table->soft_reconfig_thread)
+		if (!event_is_scheduled(table->soft_reconfig_thread))
 			event_add_event(bm->master,
 					bgp_soft_reconfig_table_task, table, 0,
 					&table->soft_reconfig_thread);
@@ -7404,7 +7404,7 @@ void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
 	 * the unlock will happen upon work-queue completion; other wise, the
 	 * unlock happens at the end of this function.
 	 */
-	if (!peer->clear_node_queue->event)
+	if (!event_is_scheduled(peer->clear_node_queue->event))
 		peer_lock(peer);
 
 	if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN)
@@ -7420,7 +7420,7 @@ void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
 		}
 
 	/* unlock if no nodes got added to the clear-node-queue. */
-	if (!peer->clear_node_queue->event)
+	if (!event_is_scheduled(peer->clear_node_queue->event))
 		peer_unlock(peer);
 }
 
@@ -13546,7 +13546,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 	}
 
-	if (path->peer->connection->t_gr_restart &&
+	if (event_is_scheduled(path->peer->connection->t_gr_restart) &&
 	    CHECK_FLAG(path->flags, BGP_PATH_STALE)) {
 		unsigned long gr_remaining = event_timer_remain_second(
 			path->peer->connection->t_gr_restart);
@@ -13561,7 +13561,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				gr_remaining);
 	}
 
-	if (path->peer->t_llgr_stale[afi][safi] &&
+	if (event_is_scheduled(path->peer->t_llgr_stale[afi][safi]) &&
 	    bgp_attr_get_community(attr) &&
 	    community_include(bgp_attr_get_community(attr),
 			      COMMUNITY_LLGR_STALE)) {

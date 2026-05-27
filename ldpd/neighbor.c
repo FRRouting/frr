@@ -408,7 +408,6 @@ static void nbr_ktimer(struct event *event)
 {
 	struct nbr *nbr = EVENT_ARG(event);
 
-	nbr->keepalive_timer = NULL;
 	send_keepalive(nbr);
 	nbr_start_ktimer(nbr);
 }
@@ -421,7 +420,6 @@ nbr_start_ktimer(struct nbr *nbr)
 	/* send three keepalives per period */
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
 	event_cancel(&nbr->keepalive_timer);
-	nbr->keepalive_timer = NULL;
 	event_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
 
@@ -437,8 +435,6 @@ static void nbr_ktimeout(struct event *event)
 {
 	struct nbr *nbr = EVENT_ARG(event);
 
-	nbr->keepalive_timeout = NULL;
-
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	session_shutdown(nbr, S_KEEPALIVE_TMR, 0, 0);
@@ -448,7 +444,6 @@ static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
 	event_cancel(&nbr->keepalive_timeout);
-	nbr->keepalive_timeout = NULL;
 	event_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
 			&nbr->keepalive_timeout);
 }
@@ -477,7 +472,6 @@ nbr_start_itimeout(struct nbr *nbr)
 
 	secs = INIT_FSM_TIMEOUT;
 	event_cancel(&nbr->init_timeout);
-	nbr->init_timeout = NULL;
 	event_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
 
@@ -492,8 +486,6 @@ nbr_stop_itimeout(struct nbr *nbr)
 static void nbr_idtimer(struct event *event)
 {
 	struct nbr *nbr = EVENT_ARG(event);
-
-	nbr->initdelay_timer = NULL;
 
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
@@ -514,7 +506,6 @@ nbr_start_idtimer(struct nbr *nbr)
 	}
 
 	event_cancel(&nbr->initdelay_timer);
-	nbr->initdelay_timer = NULL;
 	event_add_timer(master, nbr_idtimer, nbr, secs, &nbr->initdelay_timer);
 }
 
@@ -541,8 +532,6 @@ static void nbr_connect_cb(struct event *event)
 	struct nbr *nbr = EVENT_ARG(event);
 	int		 error;
 	socklen_t	 len;
-
-	nbr->ev_connect = NULL;
 
 	len = sizeof(error);
 	if (getsockopt(nbr->fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {

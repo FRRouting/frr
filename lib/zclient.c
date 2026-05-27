@@ -350,7 +350,6 @@ static void zclient_flush_data(struct event *event)
 {
 	struct zclient *zclient = EVENT_ARG(event);
 
-	zclient->t_write = NULL;
 	if (zclient->sock < 0)
 		return;
 	switch (buffer_flush_available(zclient->wb, zclient->sock)) {
@@ -362,7 +361,6 @@ static void zclient_flush_data(struct event *event)
 		zclient_failed(zclient);
 		return;
 	case BUFFER_PENDING:
-		zclient->t_write = NULL;
 		event_add_write(zclient->master, zclient_flush_data, zclient,
 				zclient->sock, &zclient->t_write);
 		break;
@@ -834,7 +832,7 @@ int zclient_start(struct zclient *zclient)
 		return 0;
 
 	/* Check connect thread. */
-	if (zclient->t_connect)
+	if (event_is_scheduled(zclient->t_connect))
 		return 0;
 
 	if (zclient_socket_connect(zclient) < 0) {
@@ -911,7 +909,6 @@ static void zclient_connect(struct event *t)
 	struct zclient *zclient;
 
 	zclient = EVENT_ARG(t);
-	zclient->t_connect = NULL;
 
 	if (zclient_debug)
 		zlog_debug("zclient_connect is called");
@@ -4786,7 +4783,6 @@ static void zclient_read(struct event *event)
 
 	/* Get socket to zebra. */
 	zclient = EVENT_ARG(event);
-	zclient->t_read = NULL;
 
 	/* Read zebra header (if we don't have it already). */
 	already = stream_get_endp(zclient->ibuf);

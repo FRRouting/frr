@@ -238,9 +238,9 @@ static struct ospf_apiserver *lookup_apiserver_by_lsa(struct ospf_lsa *lsa)
 struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async)
 {
 	struct ospf_apiserver *new =
-		XMALLOC(MTYPE_APISERVER, sizeof(struct ospf_apiserver));
+		XCALLOC(MTYPE_APISERVER, sizeof(struct ospf_apiserver));
 
-	new->filter = XMALLOC(MTYPE_APISERVER_MSGFILTER,
+	new->filter = XCALLOC(MTYPE_APISERVER_MSGFILTER,
 			      sizeof(struct lsa_filter_type));
 
 	new->fd_sync = fd_sync;
@@ -252,21 +252,12 @@ struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async)
 	/* Initialize temporary storage for LSA instances to be refreshed. */
 	if (IS_DEBUG_OSPF_CLIENT_API)
 		zlog_debug("API: Initiallize the reserve LSDB");
-	memset(&new->reserve, 0, sizeof(struct ospf_lsdb));
 	ospf_lsdb_init(&new->reserve);
 
 	new->out_sync_fifo = msg_fifo_new();
 	new->out_async_fifo = msg_fifo_new();
-	new->t_sync_read = NULL;
-#ifdef USE_ASYNC_READ
-	new->t_async_read = NULL;
-#endif /* USE_ASYNC_READ */
-	new->t_sync_write = NULL;
-	new->t_async_write = NULL;
 
-	new->filter->typemask = 0; /* filter all LSAs */
 	new->filter->origin = ANY_ORIGIN;
-	new->filter->num_areas = 0;
 
 	return new;
 }
@@ -285,7 +276,6 @@ void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 		break;
 #ifdef USE_ASYNC_READ
 	case OSPF_APISERVER_ASYNC_READ:
-		apiserv->t_async_read = NULL;
 		event_add_read(master, ospf_apiserver_read, apiserv, fd,
 			       &apiserv->t_async_read);
 		break;
@@ -372,7 +362,6 @@ void ospf_apiserver_read(struct event *e)
 
 	if (fd == apiserv->fd_sync) {
 		event = OSPF_APISERVER_SYNC_READ;
-		apiserv->t_sync_read = NULL;
 
 		if (IS_DEBUG_OSPF_CLIENT_API)
 			zlog_debug("API: %s: Peer: %pI4/%u", __func__,
@@ -382,7 +371,6 @@ void ospf_apiserver_read(struct event *e)
 #ifdef USE_ASYNC_READ
 	else if (fd == apiserv->fd_async) {
 		event = OSPF_APISERVER_ASYNC_READ;
-		apiserv->t_async_read = NULL;
 
 		if (IS_DEBUG_OSPF_CLIENT_API)
 			zlog_debug("API: %s: Peer: %pI4/%u", __func__,
@@ -429,8 +417,6 @@ void ospf_apiserver_sync_write(struct event *event)
 	apiserv = EVENT_ARG(event);
 	assert(apiserv);
 	fd = EVENT_FD(event);
-
-	apiserv->t_sync_write = NULL;
 
 	/* Sanity check */
 	if (fd != apiserv->fd_sync) {
@@ -489,8 +475,6 @@ void ospf_apiserver_async_write(struct event *event)
 	apiserv = EVENT_ARG(event);
 	assert(apiserv);
 	fd = EVENT_FD(event);
-
-	apiserv->t_async_write = NULL;
 
 	/* Sanity check */
 	if (fd != apiserv->fd_async) {
@@ -1556,10 +1540,7 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 	}
 
 	/* Create a stream for internal opaque LSA */
-	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
-		zlog_warn("%s: stream_new failed", __func__);
-		return NULL;
-	}
+	s = stream_new(OSPF_MAX_LSA_SIZE);
 
 	newlsa = (struct lsa_header *)STREAM_DATA(s);
 

@@ -250,7 +250,6 @@ void ospf_hello_timer(struct event *event)
 	struct ospf_interface *oi;
 
 	oi = EVENT_ARG(event);
-	oi->t_hello = NULL;
 
 	/* Check if the GR hello-delay is active. */
 	if (oi->gr.hello_delay.t_grace_send)
@@ -271,7 +270,6 @@ static void ospf_wait_timer(struct event *event)
 	struct ospf_interface *oi;
 
 	oi = EVENT_ARG(event);
-	oi->t_wait = NULL;
 
 	if (IS_DEBUG_OSPF(ism, ISM_TIMERS))
 		zlog_debug("ISM[%s]: Timer (Wait timer expire)", IF_NAME(oi));

@@ -375,7 +375,7 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 	 *  once expires returns cost to original value
 	 *  if timer is already running or holddown time is off just return
 	 */
-	if (ldp_sync_info->t_holddown ||
+	if (event_is_scheduled(ldp_sync_info->t_holddown) ||
 	    ldp_sync_info->holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
 		return;
 
@@ -556,7 +556,7 @@ static void show_ip_ospf_mpls_ldp_interface_sub(struct vty *vty,
 			vty_out(vty, "  State: Sync achieved\n");
 		break;
 	case LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP:
-		if (ldp_sync_info->t_holddown != NULL) {
+		if (event_is_scheduled(ldp_sync_info->t_holddown)) {
 			if (use_json) {
 				long time_store;
 

@@ -344,7 +344,7 @@ static void pim_igmp_other_querier_expire(struct event *t)
 	 * Adjust the querier robustness value to our own configuration if the
 	 * other querier is no longer present.
 	 */
-	if (igmp->t_other_querier_timer == NULL) {
+	if (!event_is_scheduled(igmp->t_other_querier_timer)) {
 		struct pim_interface *pim_ifp = igmp->interface->info;
 
 		igmp->querier_robustness_variable = pim_ifp->gm_default_robustness_variable;
@@ -374,7 +374,7 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 
 	pim_ifp = igmp->interface->info;
 
-	if (igmp->t_other_querier_timer) {
+	if (event_is_scheduled(igmp->t_other_querier_timer)) {
 		/*
 		  There is other querier present already,
 		  then reset the other-querier-present timer.
@@ -433,7 +433,7 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 	assert(igmp);
 
 	if (PIM_DEBUG_GM_TRACE) {
-		if (igmp->t_other_querier_timer) {
+		if (event_is_scheduled(igmp->t_other_querier_timer)) {
 			zlog_debug("IGMP querier %pI4s fd=%d cancelling other-querier-present TIMER event on %s",
 				   &igmp->ifaddr, igmp->fd, igmp->interface->name);
 		}
@@ -568,7 +568,7 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version, int max_resp
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
 					  group)) {
-			if (!group->t_group_query_retransmit_timer)
+			if (!event_is_scheduled(group->t_group_query_retransmit_timer))
 				continue;
 
 			if (PIM_DEBUG_GM_TRACE)
@@ -908,7 +908,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 	assert(igmp);
 
 	if (PIM_DEBUG_GM_TRACE) {
-		if (igmp->t_igmp_query_timer) {
+		if (event_is_scheduled(igmp->t_igmp_query_timer)) {
 			zlog_debug("IGMP querier %pI4s fd=%d cancelling query TIMER event on %s",
 				   &igmp->ifaddr, igmp->fd, igmp->interface->name);
 		}
@@ -970,7 +970,7 @@ static void sock_close(struct gm_sock *igmp)
 	pim_igmp_general_query_off(igmp);
 
 	if (PIM_DEBUG_GM_TRACE_DETAIL) {
-		if (igmp->t_igmp_read) {
+		if (event_is_scheduled(igmp->t_igmp_read)) {
 			zlog_debug(
 				"Cancelling READ event on IGMP socket %pI4 fd=%d on interface %s",
 				&igmp->ifaddr, igmp->fd,
@@ -1202,9 +1202,6 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->interface = ifp;
 	igmp->ifaddr = ifaddr;
 	igmp->querier_addr = ifaddr;
-	igmp->t_igmp_read = NULL;
-	igmp->t_igmp_query_timer = NULL;
-	igmp->t_other_querier_timer = NULL; /* no other querier present */
 	igmp->querier_robustness_variable =
 		pim_ifp->gm_default_robustness_variable;
 	igmp->sock_creation = pim_time_monotonic_sec();
@@ -1358,7 +1355,7 @@ static void igmp_group_timer(struct event *t)
 
 static void group_timer_off(struct gm_group *group)
 {
-	if (!group->t_group_timer)
+	if (!event_is_scheduled(group->t_group_timer))
 		return;
 
 	if (PIM_DEBUG_GM_TRACE) {
@@ -1469,8 +1466,6 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 	group->group_source_list = list_new();
 	group->group_source_list->del = (void (*)(void *))igmp_source_free;
 
-	group->t_group_timer = NULL;
-	group->t_group_query_retransmit_timer = NULL;
 	group->group_specific_query_retransmit_count = 0;
 	group->group_addr = group_addr;
 	group->interface = igmp->interface;

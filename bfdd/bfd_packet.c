@@ -1107,7 +1107,6 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 		/* Zero out the 20-byte digest field in the temp packet before hashing */
 		memset(msgbuf + BFD_PKT_LEN + 8, 0, digest_len);
 
-		md_alg = EVP_sha1();
 		HMAC(md_alg, key->string, strlen(key->string), msgbuf, cp->len, computed_digest,
 		     &digest_len);
 

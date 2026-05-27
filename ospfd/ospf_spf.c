@@ -1854,8 +1854,6 @@ static void ospf_spf_calculate_schedule_worker(struct event *event)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("SPF: Timer (SPF calculation expire)");
 
-	ospf->t_spf_calc = NULL;
-
 	ospf_vl_unapprove(ospf);
 
 	/* Execute SPF for each area including backbone, see RFC 2328 16.1. */
@@ -2003,7 +2001,7 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 	ospf_spf_set_reason(reason);
 
 	/* SPF calculation timer is already scheduled. */
-	if (ospf->t_spf_calc) {
+	if (event_is_scheduled(ospf->t_spf_calc)) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"SPF: calculation timer is already scheduled: %p",
@@ -2042,7 +2040,6 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("SPF: calculation timer delay = %ld msec", delay);
 
-	ospf->t_spf_calc = NULL;
 	event_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
 			     delay, &ospf->t_spf_calc);
 }

@@ -4457,7 +4457,8 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
  */
 static void bgp_evpn_es_cons_checks_timer_start(void)
 {
-	if (!bgp_mh_info->consistency_checking || bgp_mh_info->t_cons_check)
+	if (!bgp_mh_info->consistency_checking ||
+	    event_is_scheduled(bgp_mh_info->t_cons_check))
 		return;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -5270,8 +5271,7 @@ void bgp_evpn_mh_finish(void)
 		/* Clear local info (attempts normal cleanup and may free es) */
 		bgp_evpn_es_local_info_clear(es, true);
 	}
-	if (bgp_mh_info->t_cons_check)
-		event_cancel(&bgp_mh_info->t_cons_check);
+	event_cancel(&bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
 	list_delete(&bgp_mh_info->ead_es_export_rtl);

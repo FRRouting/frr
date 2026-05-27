@@ -336,10 +336,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		return 0;
 	}
 
-	if (pcc_state->t_reconnect != NULL) {
-		event_cancel(&pcc_state->t_reconnect);
-		pcc_state->t_reconnect = NULL;
-	}
+	event_cancel(&pcc_state->t_reconnect);
 
 	select_transport_address(pcc_state);
 
@@ -404,10 +401,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	}
 
 	// In case some best pce alternative were waiting to activate
-	if (pcc_state->t_update_best != NULL) {
-		event_cancel(&pcc_state->t_update_best);
-		pcc_state->t_update_best = NULL;
-	}
+	event_cancel(&pcc_state->t_update_best);
 
 	pcc_state->status = PCEP_PCC_CONNECTING;
 
@@ -1547,14 +1541,13 @@ void cancel_session_timeout(struct ctrl_state *ctrl_state,
 			    struct pcc_state *pcc_state)
 {
 	/* No need to schedule timeout if multiple PCEs are connected */
-	if (pcc_state->t_session_timeout == NULL) {
+	if (!event_is_scheduled(pcc_state->t_session_timeout)) {
 		PCEP_DEBUG_PCEP("cancel_session_timeout timer thread NULL");
 		return;
 	}
 
 	PCEP_DEBUG_PCEP("Cancel session_timeout timer");
 	pcep_thread_cancel_timer(&pcc_state->t_session_timeout);
-	pcc_state->t_session_timeout = NULL;
 }
 
 void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)
@@ -1673,7 +1666,7 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 {
 	assert(req != NULL);
 
-	if (req->t_retry)
+	if (event_is_scheduled(req->t_retry))
 		return;
 
 	assert(req->path != NULL);

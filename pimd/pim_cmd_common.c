@@ -1468,7 +1468,8 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		 * If the upstream is not dummy and it has a J/P timer for the
 		 * neighbor display that
 		 */
-		if (!up->t_join_timer && up->rpf.source_nexthop.interface) {
+		if (!event_is_scheduled(up->t_join_timer) &&
+		    up->rpf.source_nexthop.interface) {
 			struct pim_neighbor *nbr;
 
 			nbr = pim_neighbor_find(

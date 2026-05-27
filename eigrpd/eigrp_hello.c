@@ -767,7 +767,7 @@ void eigrp_hello_send(struct eigrp_interface *ei, uint8_t flags,
 			ei->on_write_q = 1;
 		}
 
-		if (ei->eigrp->t_write == NULL) {
+		if (!event_is_scheduled(ei->eigrp->t_write)) {
 			if (flags & EIGRP_HELLO_GRACEFUL_SHUTDOWN) {
 				event_execute(master, eigrp_write, ei->eigrp,
 					      ei->eigrp->fd, NULL);

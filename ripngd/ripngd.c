@@ -1980,7 +1980,7 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 				&ripng->t_update);
 		break;
 	case RIPNG_TRIGGERED_UPDATE:
-		if (ripng->t_triggered_interval)
+		if (event_is_scheduled(ripng->t_triggered_interval))
 			ripng->trigger = 1;
 		else
 			event_add_event(master, ripng_triggered_update, ripng,

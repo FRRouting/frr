@@ -618,8 +618,6 @@ void zebra_mlag_init(void)
 	zrouter.mlag_info.mlag_fifo = stream_fifo_new();
 	zrouter.mlag_info.zebra_pth_mlag = NULL;
 	zrouter.mlag_info.th_master = NULL;
-	zrouter.mlag_info.t_read = NULL;
-	zrouter.mlag_info.t_write = NULL;
 	test_mlag_in_progress = false;
 	zebra_mlag_reset_read_buffer();
 }

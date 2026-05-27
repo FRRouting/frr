@@ -268,7 +268,6 @@ void eigrp_distribute_timer_interface(struct event *event)
 	struct eigrp_interface *ei;
 
 	ei = EVENT_ARG(event);
-	ei->t_distribute = NULL;
 
 	/* execute GR for interface */
 	eigrp_update_send_interface_GR(ei, EIGRP_GR_FILTER, NULL);

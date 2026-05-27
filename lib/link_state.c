@@ -504,8 +504,6 @@ struct ls_vertex *ls_vertex_add(struct ls_ted *ted, struct ls_node *node)
 
 	/* Create Vertex and add it to the TED */
 	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_vertex));
-	if (!new)
-		return NULL;
 
 	new->key = key;
 	new->node = node;

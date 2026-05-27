@@ -380,8 +380,6 @@ static void ospf_asbr_redist_update_timer(struct event *event)
 	struct ospf *ospf = EVENT_ARG(event);
 	int type;
 
-	ospf->t_asbr_redist_update = NULL;
-
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Running ASBR redistribution update on timer");
 
@@ -472,8 +470,6 @@ bool is_valid_summary_addr(struct prefix_ipv4 *p)
 void ospf_asbr_external_aggregator_init(struct ospf *instance)
 {
 	instance->rt_aggr_tbl = route_table_init();
-
-	instance->t_external_aggr = NULL;
 
 	instance->aggr_action = 0;
 
@@ -1158,7 +1154,6 @@ static void ospf_asbr_external_aggr_process(struct event *event)
 	struct ospf *ospf = EVENT_ARG(event);
 	int operation = 0;
 
-	ospf->t_external_aggr = NULL;
 	operation = ospf->aggr_action;
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
@@ -1182,7 +1177,7 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 {
 	aggr->action = operation;
 
-	if (ospf->t_external_aggr) {
+	if (event_is_scheduled(ospf->t_external_aggr)) {
 		if (ospf->aggr_action == OSPF_ROUTE_AGGR_ADD || operation != OSPF_ROUTE_AGGR_ADD) {
 			if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 				zlog_debug("%s: Not required to restart timer,set is already added.",

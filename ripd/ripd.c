@@ -2850,7 +2850,7 @@ void rip_event(struct rip *rip, enum rip_event event, int sock)
 				&rip->t_update);
 		break;
 	case RIP_TRIGGERED_UPDATE:
-		if (rip->t_triggered_interval)
+		if (event_is_scheduled(rip->t_triggered_interval))
 			rip->trigger = 1;
 		else
 			event_add_event(master, rip_triggered_update, rip, 0,

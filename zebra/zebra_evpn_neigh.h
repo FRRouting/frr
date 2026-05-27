@@ -181,7 +181,7 @@ static inline bool zebra_evpn_neigh_is_ready_for_bgp(struct zebra_neigh *n)
 
 static inline void zebra_evpn_neigh_stop_hold_timer(struct zebra_neigh *n)
 {
-	if (!n->hold_timer)
+	if (!event_is_scheduled(n->hold_timer))
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)

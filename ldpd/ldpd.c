@@ -581,8 +581,6 @@ static void main_dispatch_ldpe(struct event *event)
 	ssize_t			 n;
 	int			 shut = 0;
 
-	iev->ev_read = NULL;
-
 	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
 		fatal("imsg_read error");
 
@@ -645,8 +643,6 @@ static void main_dispatch_lde(struct event *event)
 	ssize_t		 n;
 	int		 shut = 0;
 	struct zapi_rlfa_response *rlfa_labels;
-
-	iev->ev_read = NULL;
 
 	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
 		fatal("imsg_read error");
@@ -747,8 +743,6 @@ void ldp_write_handler(struct event *event)
 	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf	*ibuf = &iev->ibuf;
 	ssize_t		 n;
-
-	iev->ev_write = NULL;
 
 	if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
 		fatal("msgbuf_write");

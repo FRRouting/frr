@@ -881,7 +881,7 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 
 	/* Dead time */
 	h = m = s = 0;
-	if (on->inactivity_timer) {
+	if (event_is_scheduled(on->inactivity_timer)) {
 		s = monotime_until(&on->inactivity_timer->u.sands, NULL) /
 		    1000000LL;
 		h = s / 3600;

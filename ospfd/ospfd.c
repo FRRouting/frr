@@ -379,7 +379,6 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	/* MaxAge init. */
 	new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
 	new->maxage_lsa = route_table_init();
-	new->t_maxage_walker = NULL;
 	event_add_timer(master, ospf_lsa_maxage_walker, new,
 			OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
 
@@ -392,14 +391,12 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->lsa_refresh_queue.index = 0;
 	new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
 	new->lsa_refresh_timer = OSPF_LS_REFRESH_TIME;
-	new->t_lsa_refresher = NULL;
 	event_add_timer(master, ospf_lsa_refresh_walker, new,
 			new->lsa_refresh_interval, &new->t_lsa_refresher);
 	new->lsa_refresher_started = monotime(NULL);
 
 	new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE + 1);
 
-	new->t_read = NULL;
 	new->oi_write_q = list_new();
 	new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
 
@@ -585,7 +582,7 @@ static void ospf_deferred_shutdown_check(struct ospf *ospf)
 	struct ospf_area *area;
 
 	/* deferred shutdown already running? */
-	if (ospf->t_deferred_shutdown)
+	if (event_is_scheduled(ospf->t_deferred_shutdown))
 		return;
 
 	/* Should we try push out max-metric LSAs? */
@@ -1922,7 +1919,6 @@ int ospf_timers_refresh_unset(struct ospf *ospf)
 
 	if (time_left > OSPF_LSA_REFRESH_INTERVAL_DEFAULT) {
 		event_cancel(&ospf->t_lsa_refresher);
-		ospf->t_lsa_refresher = NULL;
 		event_add_timer(master, ospf_lsa_refresh_walker, ospf,
 				OSPF_LSA_REFRESH_INTERVAL_DEFAULT,
 				&ospf->t_lsa_refresher);

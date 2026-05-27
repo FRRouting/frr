@@ -638,7 +638,6 @@ void nexthop_del_labels(struct nexthop *nexthop)
 
 void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new_stack)
 {
-	struct mpls_label_stack *nh_label_tmp;
 	uint32_t i;
 
 	/* Enforce limit on label stack size */
@@ -647,14 +646,10 @@ void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new
 
 	/* Resize the array to accommodate the new label stack */
 	if (new_stack->num_labels > nexthop->nh_label->num_labels) {
-		nh_label_tmp = XREALLOC(MTYPE_NH_LABEL, nexthop->nh_label,
-					sizeof(struct mpls_label_stack) +
-						new_stack->num_labels * sizeof(mpls_label_t));
-		if (nh_label_tmp) {
-			nexthop->nh_label = nh_label_tmp;
-			nexthop->nh_label->num_labels = new_stack->num_labels;
-		} else
-			new_stack->num_labels = nexthop->nh_label->num_labels;
+		nexthop->nh_label = XREALLOC(MTYPE_NH_LABEL, nexthop->nh_label,
+					     sizeof(struct mpls_label_stack) +
+						     new_stack->num_labels * sizeof(mpls_label_t));
+		nexthop->nh_label->num_labels = new_stack->num_labels;
 	}
 
 	/* Copy the label stack into the array */

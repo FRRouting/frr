@@ -280,7 +280,6 @@ static void ospf_ls_req_timer(struct event *event)
 	struct ospf_neighbor *nbr;
 
 	nbr = EVENT_ARG(event);
-	nbr->t_ls_req = NULL;
 
 	/* Send Link State Request. */
 	if (ospf_ls_request_count(nbr))
@@ -337,7 +336,6 @@ void ospf_ls_rxmt_timer(struct event *event)
 	int retransmit_interval, retransmit_window, rxmt_lsa_count = 0;
 
 	nbr = EVENT_ARG(event);
-	nbr->t_ls_rxmt = NULL;
 	retransmit_interval = nbr->v_ls_rxmt;
 	retransmit_window = OSPF_IF_PARAM(nbr->oi, retransmit_window);
 
@@ -409,7 +407,6 @@ void ospf_ls_ack_delayed_timer(struct event *event)
 	struct ospf_interface *oi;
 
 	oi = EVENT_ARG(event);
-	oi->t_ls_ack_delayed = NULL;
 
 	/* Send Link State Acknowledgment. */
 	if (ospf_lsa_list_count(&oi->ls_ack_delayed))
@@ -1188,7 +1185,7 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 	/* Save received neighbor values from DD. */
 	ospf_db_desc_save_current(nbr, dd);
 
-	if (!nbr->t_ls_req)
+	if (!event_is_scheduled(nbr->t_ls_req))
 		ospf_ls_req_send(nbr);
 }
 
@@ -3737,7 +3734,6 @@ void ospf_poll_timer(struct event *event)
 	struct ospf_nbr_nbma *nbr_nbma;
 
 	nbr_nbma = EVENT_ARG(event);
-	nbr_nbma->t_poll = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
 		zlog_debug("NSM[%s:%pI4]: Timer (Poll timer expire)",
@@ -3756,7 +3752,6 @@ void ospf_hello_reply_timer(struct event *event)
 	struct ospf_neighbor *nbr;
 
 	nbr = EVENT_ARG(event);
-	nbr->t_hello_reply = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
 		zlog_debug("NSM[%s:%pI4]: Timer (hello-reply timer expire)",
@@ -4117,8 +4112,6 @@ static void ospf_ls_upd_send_queue_event(struct event *event)
 	struct list *update;
 	char again = 0;
 
-	oi->t_ls_upd_event = NULL;
-
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s start", __func__);
 
@@ -4145,7 +4138,6 @@ static void ospf_ls_upd_send_queue_event(struct event *event)
 			zlog_debug(
 				"%s: update lists not cleared, %d nodes to try again, raising new event",
 				__func__, again);
-		oi->t_ls_upd_event = NULL;
 		event_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
 				&oi->t_ls_upd_event);
 	}
@@ -4266,8 +4258,6 @@ static void ospf_ls_ack_send_direct_event(struct event *event)
 	struct ospf_interface *oi = EVENT_ARG(event);
 	struct in_addr dst = { INADDR_ANY };
 
-	oi->t_ls_ack_direct = NULL;
-
 	while (ospf_lsa_list_count(&oi->ls_ack_direct))
 		ospf_ls_ack_send_list(oi, &(oi->ls_ack_direct), true, true, dst);
 }
@@ -4348,7 +4338,7 @@ void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	ls_ack_list_entry->lsa = ospf_lsa_lock(lsa);
 	ospf_lsa_list_add_tail(&nbr->oi->ls_ack_direct, ls_ack_list_entry);
 
-	if (oi->t_ls_ack_direct == NULL)
+	if (!event_is_scheduled(oi->t_ls_ack_direct))
 		event_add_event(master, ospf_ls_ack_send_direct_event, oi, 0,
 				&oi->t_ls_ack_direct);
 }

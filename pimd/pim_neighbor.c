@@ -292,7 +292,6 @@ pim_neighbor_new(struct interface *ifp, pim_addr source_addr,
 	neigh->dr_priority = dr_priority;
 	neigh->generation_id = generation_id;
 	neigh->prefix_list = addr_list;
-	neigh->t_expire_timer = NULL;
 	neigh->interface = ifp;
 
 	neigh->upstream_jp_agg = list_new();

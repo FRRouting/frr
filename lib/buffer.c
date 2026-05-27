@@ -88,8 +88,7 @@ char *buffer_getstr(struct buffer *b)
 
 	for (data = b->head; data; data = data->next)
 		totlen += data->cp - data->sp;
-	if (!(s = XMALLOC(MTYPE_TMP, totlen + 1)))
-		return NULL;
+	s = XMALLOC(MTYPE_TMP, totlen + 1);
 	p = s;
 	for (data = b->head; data; data = data->next) {
 		memcpy(p, data->data + data->sp, data->cp - data->sp);

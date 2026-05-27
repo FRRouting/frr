@@ -2835,7 +2835,7 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 				       OSPF_AREA_ADMIN_STUB_ROUTED))
 				json_object_boolean_true_add(
 					json_area, "indefiniteActiveAdmin");
-			if (area->t_stub_router) {
+			if (event_is_scheduled(area->t_stub_router)) {
 				long time_store;
 				time_store =
 					monotime_until(
@@ -2854,7 +2854,7 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 				       OSPF_AREA_ADMIN_STUB_ROUTED))
 				vty_out(vty,
 					"     Administratively activated (indefinitely)\n");
-			if (area->t_stub_router)
+			if (event_is_scheduled(area->t_stub_router))
 				vty_out(vty,
 					"     Active from startup, %s remaining\n",
 					ospf_timer_dump(area->t_stub_router,
@@ -3074,7 +3074,7 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	/* Graceful shutdown */
-	if (ospf->t_deferred_shutdown) {
+	if (event_is_scheduled(ospf->t_deferred_shutdown)) {
 		if (json) {
 			long time_store;
 			time_store =
@@ -3203,7 +3203,7 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	if (json) {
-		if (ospf->t_spf_calc) {
+		if (event_is_scheduled(ospf->t_spf_calc)) {
 			long time_store;
 			time_store =
 				monotime_until(&ospf->t_spf_calc->u.sands, NULL)
@@ -3966,7 +3966,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			char timebuf[OSPF_TIME_DUMP_SIZE];
 			if (use_json) {
 				long time_store = 0;
-				if (oi->t_hello)
+				if (event_is_scheduled(oi->t_hello))
 					time_store =
 						monotime_until(
 							&oi->t_hello->u.sands,
@@ -4617,7 +4617,7 @@ static void show_ip_ospf_neighbour_brief(struct vty *vty,
 				       lookup_msg(ospf_ism_state_msg,
 						  ospf_nbr_ism_state(nbr),
 						  NULL));
-		if (nbr->t_inactivity) {
+		if (event_is_scheduled(nbr->t_inactivity)) {
 			long time_store;
 
 			time_store = monotime_until(&nbr->t_inactivity->u.sands,
@@ -5211,7 +5211,7 @@ static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
 		vty_out(vty, "    Poll interval %d\n", nbr_nbma->v_poll);
 
 	/* Show poll-interval timer. */
-	if (nbr_nbma->t_poll) {
+	if (event_is_scheduled(nbr_nbma->t_poll)) {
 		if (use_json) {
 			long time_store;
 			time_store = monotime_until(&nbr_nbma->t_poll->u.sands,
@@ -5227,7 +5227,7 @@ static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
 
 	/* Show poll-interval timer thread. */
 	if (use_json) {
-		if (nbr_nbma->t_poll != NULL)
+		if (event_is_scheduled(nbr_nbma->t_poll))
 			json_object_string_add(json_sub,
 					       "pollIntervalTimerThread", "on");
 	} else
@@ -5428,7 +5428,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 
 	/* Show Router Dead interval timer. */
 	if (use_json) {
-		if (nbr->t_inactivity) {
+		if (event_is_scheduled(nbr->t_inactivity)) {
 			long time_store;
 			time_store = monotime_until(&nbr->t_inactivity->u.sands,
 						    NULL)
@@ -5479,7 +5479,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 
 	/* Show inactivity timer thread. */
 	if (use_json) {
-		if (nbr->t_inactivity != NULL)
+		if (event_is_scheduled(nbr->t_inactivity))
 			json_object_string_add(json_neigh,
 					       "threadInactivityTimer", "on");
 	} else
@@ -5488,7 +5488,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 
 	/* Show Database Description retransmission thread. */
 	if (use_json) {
-		if (nbr->t_db_desc != NULL)
+		if (event_is_scheduled(nbr->t_db_desc))
 			json_object_string_add(
 				json_neigh,
 				"threadDatabaseDescriptionRetransmission",
@@ -5500,7 +5500,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 
 	/* Show Link State Request Retransmission thread. */
 	if (use_json) {
-		if (nbr->t_ls_req != NULL)
+		if (event_is_scheduled(nbr->t_ls_req))
 			json_object_string_add(
 				json_neigh,
 				"threadLinkStateRequestRetransmission", "on");
@@ -5511,7 +5511,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 
 	/* Show Link State Update Retransmission thread. */
 	if (use_json) {
-		if (nbr->t_ls_rxmt != NULL)
+		if (event_is_scheduled(nbr->t_ls_rxmt))
 			json_object_string_add(
 				json_neigh,
 				"threadLinkStateUpdateRetransmission",

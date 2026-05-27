@@ -606,8 +606,6 @@ static void session_write(struct event *event)
 	struct tcp_conn *tcp = EVENT_ARG(event);
 	struct nbr	*nbr = tcp->nbr;
 
-	tcp->wbuf.ev = NULL;
-
 	if (msgbuf_write(&tcp->wbuf.wbuf) <= 0)
 		if (errno != EAGAIN && nbr)
 			nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
@@ -757,7 +755,6 @@ pending_conn_new(int fd, int af, union ldpd_addr *addr)
 	pconn->af = af;
 	pconn->addr = *addr;
 	TAILQ_INSERT_TAIL(&global.pending_conns, pconn, entry);
-	pconn->ev_timeout = NULL;
 	event_add_timer(master, pending_conn_timeout, pconn,
 			PENDING_CONN_TIMEOUT, &pconn->ev_timeout);
 
@@ -788,8 +785,6 @@ static void pending_conn_timeout(struct event *event)
 {
 	struct pending_conn *pconn = EVENT_ARG(event);
 	struct tcp_conn		*tcp;
-
-	pconn->ev_timeout = NULL;
 
 	log_debug("%s: no adjacency with remote end: %s", __func__,
 	    log_addr(pconn->af, &pconn->addr));

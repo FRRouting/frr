@@ -1759,7 +1759,7 @@ void vnc_direct_bgp_rh_del_route(struct bgp *bgp, afi_t afi,
 	eti = vnc_eti_get(bgp, EXPORT_TYPE_BGP, prefix, peer,
 			  ZEBRA_ROUTE_VNC_DIRECT_RH, BGP_ROUTE_REDISTRIBUTE);
 
-	if (!eti->timer && eti->lifetime <= INT32_MAX) {
+	if (!event_is_scheduled(eti->timer) && eti->lifetime <= INT32_MAX) {
 		eti->timer = NULL;
 		event_add_timer(bm->master, vncExportWithdrawTimer, eti,
 				eti->lifetime, &eti->timer);

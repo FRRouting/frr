@@ -66,7 +66,7 @@ static void sock_close(struct interface *ifp)
 	struct pim_interface *pim_ifp = ifp->info;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		if (pim_ifp->t_pim_sock_read) {
+		if (event_is_scheduled(pim_ifp->t_pim_sock_read)) {
 			zlog_debug(
 				"Cancelling READ event for PIM socket fd=%d on interface %s",
 				pim_ifp->pim_sock_fd, ifp->name);
@@ -75,7 +75,7 @@ static void sock_close(struct interface *ifp)
 	event_cancel(&pim_ifp->t_pim_sock_read);
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		if (pim_ifp->t_pim_hello_timer) {
+		if (event_is_scheduled(pim_ifp->t_pim_hello_timer)) {
 			zlog_debug(
 				"Cancelling PIM hello timer for interface %s",
 				ifp->name);
@@ -617,9 +617,7 @@ void pim_sock_reset(struct interface *ifp)
 
 	pim_ifp->pim_sock_fd = -1;
 	pim_ifp->pim_sock_creation = 0;
-	pim_ifp->t_pim_sock_read = NULL;
 
-	pim_ifp->t_pim_hello_timer = NULL;
 	pim_ifp->pim_hello_period = PIM_DEFAULT_HELLO_PERIOD;
 	pim_ifp->pim_default_holdtime =
 		-1; /* unset: means 3.5 * pim_hello_period */
@@ -1030,7 +1028,7 @@ void pim_hello_restart_triggered(struct interface *ifp)
 	// triggered_hello_delay_msec = 1000 *
 	// pim_ifp->pim_triggered_hello_delay;
 
-	if (pim_ifp->t_pim_hello_timer) {
+	if (event_is_scheduled(pim_ifp->t_pim_hello_timer)) {
 		long remain_msec =
 			pim_time_timer_remain_msec(pim_ifp->t_pim_hello_timer);
 		if (remain_msec <= triggered_hello_delay_msec) {
@@ -1081,7 +1079,7 @@ int pim_sock_add(struct interface *ifp)
 
 	pim_socket_ip_hdr(pim_ifp->pim_sock_fd);
 
-	pim_ifp->t_pim_sock_read = NULL;
+	event_cancel(&pim_ifp->t_pim_sock_read);
 	pim_ifp->pim_sock_creation = pim_time_monotonic_sec();
 
 	/*

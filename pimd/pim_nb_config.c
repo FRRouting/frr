@@ -427,7 +427,7 @@ static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 	if (igmp->mtrace_only)
 		return;
 
-	if (igmp->t_igmp_query_timer) {
+	if (event_is_scheduled(igmp->t_igmp_query_timer)) {
 		/* other querier present */
 		assert(igmp->t_igmp_query_timer);
 		assert(!igmp->t_other_querier_timer);
@@ -517,7 +517,7 @@ static void change_query_max_response_time(struct interface *ifp,
 			/* reset source timers for sources with running
 			 * timers
 			 */
-			if (src->t_source_timer)
+			if (event_is_scheduled(src->t_source_timer))
 				igmp_source_reset_gmi(grp, src);
 		}
 	}
@@ -5042,7 +5042,7 @@ int lib_interface_gmp_address_family_robustness_variable_modify(struct nb_cb_mod
 
 		/* Update all addresses that are acting as querier */
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, node, igmp)) {
-			if (igmp->t_other_querier_timer)
+			if (event_is_scheduled(igmp->t_other_querier_timer))
 				continue;
 
 			igmp->querier_robustness_variable = pim_ifp->gm_default_robustness_variable;

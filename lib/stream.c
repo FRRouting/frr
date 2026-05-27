@@ -164,8 +164,7 @@ struct stream *stream_dupcat(const struct stream *s1, const struct stream *s2,
 		return NULL;
 	}
 
-	if ((new = stream_new(s1->endp + s2->endp)) == NULL)
-		return NULL;
+	new = stream_new(s1->endp + s2->endp);
 
 	new->allow_expansion = s1->allow_expansion || s2->allow_expansion;
 	memcpy(new->data, s1->data, offset);

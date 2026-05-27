@@ -444,8 +444,6 @@ void set_overload_on_start_timer(struct event *event)
 	struct isis_area *area = EVENT_ARG(event);
 	assert(area);
 
-	area->t_overload_on_startup_timer = NULL;
-
 	/* Check if set-overload-bit is not currently configured */
 	if (!area->overload_configured)
 		isis_area_overload_bit_set(area, false);
@@ -2142,7 +2140,6 @@ void lsp_tick(struct event *event)
 
 	area = EVENT_ARG(event);
 	assert(area);
-	area->t_tick = NULL;
 	event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 
 	struct isis_circuit *fabricd_init_c = fabricd_initial_sync_circuit(area);

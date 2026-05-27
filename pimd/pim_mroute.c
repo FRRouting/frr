@@ -548,7 +548,7 @@ have_up:
 	/*
 	 * If we've received a register suppress
 	 */
-	if (!up->t_rs_timer) {
+	if (!event_is_scheduled(up->t_rs_timer)) {
 		if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
 			if (PIM_DEBUG_PIM_REG)
 				zlog_debug(

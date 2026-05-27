@@ -565,7 +565,6 @@ static void wakeup_down(struct event *t_wakeup)
 {
 	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
-	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
 	if ((dmn->connect_tries > 1) && (dmn->state != DAEMON_UP))
@@ -576,7 +575,6 @@ static void wakeup_init(struct event *t_wakeup)
 {
 	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
-	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
 		zlog_info(
 			"%s state -> down : initial connection attempt failed",
@@ -640,7 +638,6 @@ static void handle_read(struct event *t_read)
 	ssize_t rc;
 	struct timeval delay;
 
-	dmn->t_read = NULL;
 	if ((rc = read(dmn->fd, buf, sizeof(buf))) < 0) {
 		char why[100];
 
@@ -766,7 +763,6 @@ static void check_connect(struct event *t_write)
 	int sockerr;
 	socklen_t reslen = sizeof(sockerr);
 
-	dmn->t_write = NULL;
 	if (getsockopt(dmn->fd, SOL_SOCKET, SO_ERROR, (char *)&sockerr, &reslen)
 	    < 0) {
 		zlog_warn("%s: check_connect: getsockopt failed: %s", dmn->name,
@@ -793,7 +789,6 @@ static void wakeup_connect_hanging(struct event *t_wakeup)
 	struct daemon *dmn = EVENT_ARG(t_wakeup);
 	char why[100];
 
-	dmn->t_wakeup = NULL;
 	snprintf(why, sizeof(why),
 		 "connection attempt timed out after %ld seconds", gs.timeout);
 	daemon_down(dmn, why);
@@ -941,7 +936,6 @@ static void wakeup_unresponsive(struct event *t_wakeup)
 {
 	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
-	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
 		flog_err(EC_WATCHFRR_CONNECTION,
 			 "%s: no longer unresponsive (now %s), wakeup should have been cancelled!",
@@ -956,7 +950,6 @@ static void wakeup_no_answer(struct event *t_wakeup)
 {
 	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
-	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
 	if (dmn->ignore_timeout)
 		return;
@@ -973,7 +966,6 @@ static void wakeup_send_echo(struct event *t_wakeup)
 	ssize_t rc;
 	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
-	dmn->t_wakeup = NULL;
 	if (((rc = write(dmn->fd, echocmd, sizeof(echocmd))) < 0)
 	    || ((size_t)rc != sizeof(echocmd))) {
 		char why[100 + sizeof(echocmd)];

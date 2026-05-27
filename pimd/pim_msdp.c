@@ -464,7 +464,8 @@ static bool pim_msdp_sa_local_add_ok(struct pim_upstream *up)
 	/* we are the FHR-DR for this stream  or we are RP and have seen
 	 * registers
 	 * from a FHR for this source */
-	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) || up->t_msdp_reg_timer) {
+	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
+	    event_is_scheduled(up->t_msdp_reg_timer)) {
 		return true;
 	}
 

@@ -50,7 +50,6 @@ static void ospf_inactivity_timer(struct event *event)
 	struct ospf_neighbor *nbr;
 
 	nbr = EVENT_ARG(event);
-	nbr->t_inactivity = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
 		zlog_debug("NSM[%s:%pI4:%s]: Timer (Inactivity timer expire)",
@@ -88,7 +87,6 @@ static void ospf_db_desc_timer(struct event *event)
 	struct ospf_neighbor *nbr;
 
 	nbr = EVENT_ARG(event);
-	nbr->t_db_desc = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
 		zlog_debug("NSM[%s:%pI4:%s]: Timer (DD Retransmit timer expire)",
@@ -331,7 +329,7 @@ static int nsm_exchange_done(struct ospf_neighbor *nbr)
 		return NSM_Full;
 
 	/* Send Link State Request. */
-	if (nbr->t_ls_req == NULL)
+	if (!event_is_scheduled(nbr->t_ls_req))
 		ospf_ls_req_send(nbr);
 
 	return NSM_Loading;

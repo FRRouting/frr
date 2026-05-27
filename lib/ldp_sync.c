@@ -35,7 +35,6 @@ struct ldp_sync_info *ldp_sync_info_create(void)
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	ldp_sync_info->holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-	ldp_sync_info->t_holddown = NULL;
 	return ldp_sync_info;
 }
 

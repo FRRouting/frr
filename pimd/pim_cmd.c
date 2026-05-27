@@ -293,7 +293,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				json_object_int_add(json_row, "version",
 						    pim_ifp->igmp_version);
 
-				if (igmp->t_igmp_query_timer) {
+				if (event_is_scheduled(igmp->t_igmp_query_timer)) {
 					json_object_boolean_true_add(json_row,
 								     "querier");
 					json_object_string_add(json_row,

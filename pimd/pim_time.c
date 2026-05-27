@@ -123,7 +123,7 @@ static int pim_time_hhmmss(char *buf, int buf_size, long sec)
 
 void pim_time_timer_to_mmss(char *buf, int buf_size, struct event *t_timer)
 {
-	if (t_timer) {
+	if (event_is_scheduled(t_timer)) {
 		pim_time_mmss(buf, buf_size,
 			      event_timer_remain_second(t_timer));
 	} else {
@@ -133,7 +133,7 @@ void pim_time_timer_to_mmss(char *buf, int buf_size, struct event *t_timer)
 
 void pim_time_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 {
-	if (t_timer) {
+	if (event_is_scheduled(t_timer)) {
 		pim_time_hhmmss(buf, buf_size,
 				event_timer_remain_second(t_timer));
 	} else {

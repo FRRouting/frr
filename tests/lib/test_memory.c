@@ -87,9 +87,7 @@ int main(int argc, char **argv)
 		memset(a[1], 1, 1024 / 2);
 
 		printf("realloc 0 1024\n");
-		a[3] = XREALLOC(MTYPE_TEST, a[0], 2048); /* invalidate cache */
-		if (a[3] != NULL)
-			a[0] = a[3];
+		a[0] = XREALLOC(MTYPE_TEST, a[0], 2048); /* invalidate cache */
 		memset(a[0], 1, 1024);
 
 		printf("calloc 2 512\n");

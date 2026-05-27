@@ -498,7 +498,6 @@ void isis_adj_expire(struct event *event)
 	 */
 	adj = EVENT_ARG(event);
 	assert(adj);
-	adj->t_expire = NULL;
 
 	/* trigger the adj expire event */
 	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "holding time expired");

@@ -172,7 +172,7 @@ struct vnc_export_info *vnc_eti_checktimer(struct bgp *bgp,
 
 	agg_unlock_node(etn);
 
-	if (eti && eti->timer)
+	if (eti && event_is_scheduled(eti->timer))
 		return eti;
 
 	return NULL;

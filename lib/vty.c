@@ -141,7 +141,7 @@ void vty_resume_response(struct vty *vty, int ret)
 	if (vty->type != VTY_FILE) {
 		header[3] = ret;
 		buffer_put(vty->obuf, header, 4);
-		if (!vty->t_write && (vtysh_flush(vty) < 0)) {
+		if (!event_is_scheduled(vty->t_write) && (vtysh_flush(vty) < 0)) {
 			zlog_err("failed to vtysh_flush");
 			/* Try to flush results; exit if a write error occurs */
 			return;
@@ -2313,7 +2313,7 @@ static void vtysh_read(struct event *event)
 					vty->pass_fd_status[3] = ret;
 					vty->status = VTY_PASSFD;
 
-					if (!vty->t_write)
+					if (!event_is_scheduled(vty->t_write))
 						vty_event(VTYSH_WRITE, vty);
 
 					/* this introduces a "sequence point"
@@ -2357,7 +2357,7 @@ static void vtysh_read(struct event *event)
 				header[3] = ret;
 				buffer_put(vty->obuf, header, 4);
 
-				if (!vty->t_write && (vtysh_flush(vty) < 0))
+				if (!event_is_scheduled(vty->t_write) && (vtysh_flush(vty) < 0))
 					/* Try to flush results; exit if a write
 					 * error occurs. */
 					break;
@@ -2878,7 +2878,7 @@ int vty_config_node_exit(struct vty *vty)
 	(void)nb_cli_pending_commit_check(vty);
 
 	/* Check if there's a pending confirmed commit. */
-	if (vty->t_confirmed_commit_timeout) {
+	if (event_is_scheduled(vty->t_confirmed_commit_timeout)) {
 		vty_out(vty,
 			"exiting with a pending confirmed commit. Rolling back to previous configuration.\n\n");
 		nb_cli_confirmed_commit_rollback(vty);

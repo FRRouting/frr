@@ -405,7 +405,7 @@ static int nb_cli_commit(struct vty *vty, bool force,
 	int ret;
 
 	/* Check if there's a pending confirmed commit. */
-	if (vty->t_confirmed_commit_timeout) {
+	if (event_is_scheduled(vty->t_confirmed_commit_timeout)) {
 		if (confirmed_timeout) {
 			/* Reset timeout if "commit confirmed" is used again. */
 			vty_out(vty,
@@ -437,7 +437,6 @@ static int nb_cli_commit(struct vty *vty, bool force,
 	if (confirmed_timeout) {
 		vty->confirmed_commit_rollback = nb_config_dup(running_config);
 
-		vty->t_confirmed_commit_timeout = NULL;
 		event_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
 				confirmed_timeout * 60,
 				&vty->t_confirmed_commit_timeout);

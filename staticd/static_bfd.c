@@ -32,7 +32,7 @@ static void static_bfd_holddown_timer_cancel(
 	struct static_nexthop *sn,
 	enum static_bfd_holddown_cancel_reason reason)
 {
-	if (!sn->t_bfd_admin_holddown)
+	if (!event_is_scheduled(sn->t_bfd_admin_holddown))
 		return;
 
 	event_cancel(&sn->t_bfd_admin_holddown);

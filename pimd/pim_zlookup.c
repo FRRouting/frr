@@ -92,7 +92,7 @@ static void zclient_lookup_sched_now(struct zclient *zlookup)
 /* Schedule reconnection, if needed. */
 static void zclient_lookup_reconnect(struct zclient *zlookup)
 {
-	if (zlookup->t_connect) {
+	if (event_is_scheduled(zlookup->t_connect)) {
 		return;
 	}
 
@@ -130,7 +130,6 @@ void zclient_lookup_new(void)
 	}
 
 	pim_zlookup->sock = -1;
-	pim_zlookup->t_connect = NULL;
 	pim_zlookup->privs = &pimd_privs;
 
 	zclient_lookup_sched_now(pim_zlookup);

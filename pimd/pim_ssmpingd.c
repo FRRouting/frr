@@ -347,10 +347,8 @@ static struct ssmpingd_sock *ssmpingd_new(struct pim_instance *pim,
 
 	ss->pim = pim;
 	ss->sock_fd = sock_fd;
-	ss->t_sock_read = NULL;
 	ss->source_addr = source_addr;
 	ss->creation = pim_time_monotonic_sec();
-	ss->requests = 0;
 
 	listnode_add(pim->ssmpingd_list, ss);
 

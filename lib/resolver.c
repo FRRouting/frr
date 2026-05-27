@@ -86,7 +86,7 @@ static struct resolver_fd *resolver_fd_get(int fd,
 
 static void resolver_fd_drop_maybe(struct resolver_fd *resfd)
 {
-	if (resfd->t_read || resfd->t_write)
+	if (event_is_scheduled(resfd->t_read) || event_is_scheduled(resfd->t_write))
 		return;
 
 	if (resolver_debug)
@@ -166,13 +166,13 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 
 	if (!readable)
 		event_cancel(&resfd->t_read);
-	else if (!resfd->t_read)
+	else if (!event_is_scheduled(resfd->t_read))
 		event_add_read(r->master, resolver_cb_socket_readable, resfd,
 			       fd, &resfd->t_read);
 
 	if (!writable)
 		event_cancel(&resfd->t_write);
-	else if (!resfd->t_write)
+	else if (!event_is_scheduled(resfd->t_write))
 		event_add_write(r->master, resolver_cb_socket_writable, resfd,
 				fd, &resfd->t_write);
 
