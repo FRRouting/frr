@@ -4710,7 +4710,7 @@ static int netlink_neigh_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (ndm->ndm_family != AF_INET && ndm->ndm_family != AF_INET6)
 		return 0;
 
-	return netlink_neigh_change(h, len);
+	return netlink_neigh_change(h, ns_id);
 }
 
 /* Request for IP neighbor information from the kernel */
