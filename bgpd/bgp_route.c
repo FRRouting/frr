@@ -5391,18 +5391,18 @@ static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, stru
 
 #ifdef ENABLE_BGP_VNC
 	if (safi == SAFI_MPLS_VPN) {
-		struct bgp_dest *pdest = NULL;
-		struct bgp_table *table = NULL;
+		struct bgp_dest *pdest;
+		struct bgp_table *table;
 
-		pdest = bgp_node_get(peer->bgp->rib[afi][safi],
-				     (struct prefix *)prd);
-		if (bgp_dest_has_bgp_path_info_data(pdest)) {
+		pdest = bgp_node_lookup(peer->bgp->rib[afi][safi],
+					(struct prefix *)prd);
+		if (pdest) {
 			table = bgp_dest_get_bgp_table_info(pdest);
-
-			vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
-				peer->bgp, prd, table, p, pi);
+			if (table)
+				vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
+					peer->bgp, prd, table, p, pi);
+			bgp_dest_unlock_node(pdest);
 		}
-		bgp_dest_unlock_node(pdest);
 	}
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
@@ -6283,18 +6283,18 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 #ifdef ENABLE_BGP_VNC
 		if (safi == SAFI_MPLS_VPN) {
-			struct bgp_dest *pdest = NULL;
-			struct bgp_table *table = NULL;
+			struct bgp_dest *pdest;
+			struct bgp_table *table;
 
-			pdest = bgp_node_get(bgp->rib[afi][safi],
-					     (struct prefix *)prd);
-			if (bgp_dest_has_bgp_path_info_data(pdest)) {
+			pdest = bgp_node_lookup(bgp->rib[afi][safi],
+						(struct prefix *)prd);
+			if (pdest) {
 				table = bgp_dest_get_bgp_table_info(pdest);
-
-				vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
-					bgp, prd, table, p, pi);
+				if (table)
+					vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
+						bgp, prd, table, p, pi);
+				bgp_dest_unlock_node(pdest);
 			}
-			bgp_dest_unlock_node(pdest);
 		}
 		if ((afi == AFI_IP || afi == AFI_IP6)
 		    && (safi == SAFI_UNICAST)) {
@@ -6427,18 +6427,18 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 #ifdef ENABLE_BGP_VNC
 		if (safi == SAFI_MPLS_VPN) {
-			struct bgp_dest *pdest = NULL;
-			struct bgp_table *table = NULL;
+			struct bgp_dest *pdest;
+			struct bgp_table *table;
 
-			pdest = bgp_node_get(bgp->rib[afi][safi],
-					     (struct prefix *)prd);
-			if (bgp_dest_has_bgp_path_info_data(pdest)) {
+			pdest = bgp_node_lookup(bgp->rib[afi][safi],
+						(struct prefix *)prd);
+			if (pdest) {
 				table = bgp_dest_get_bgp_table_info(pdest);
-
-				vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
-					bgp, prd, table, p, pi);
+				if (table)
+					vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
+						bgp, prd, table, p, pi);
+				bgp_dest_unlock_node(pdest);
 			}
-			bgp_dest_unlock_node(pdest);
 		}
 #endif
 
@@ -6556,17 +6556,18 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 #ifdef ENABLE_BGP_VNC
 	if (safi == SAFI_MPLS_VPN) {
-		struct bgp_dest *pdest = NULL;
-		struct bgp_table *table = NULL;
+		struct bgp_dest *pdest;
+		struct bgp_table *table;
 
-		pdest = bgp_node_get(bgp->rib[afi][safi], (struct prefix *)prd);
-		if (bgp_dest_has_bgp_path_info_data(pdest)) {
+		pdest = bgp_node_lookup(bgp->rib[afi][safi],
+					(struct prefix *)prd);
+		if (pdest) {
 			table = bgp_dest_get_bgp_table_info(pdest);
-
-			vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
-				bgp, prd, table, p, new);
+			if (table)
+				vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
+					bgp, prd, table, p, new);
+			bgp_dest_unlock_node(pdest);
 		}
-		bgp_dest_unlock_node(pdest);
 	}
 #endif
 
@@ -8838,12 +8839,17 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 	}
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) {
-		pdest = bgp_node_get(bgp->static_routes[afi][safi],
-				     (struct prefix *)&prd);
-		if (!bgp_dest_has_bgp_path_info_data(pdest))
-			bgp_dest_set_bgp_table_info(pdest,
-						    bgp_table_init(bgp, afi,
-								   safi));
+		pdest = bgp_node_lookup(bgp->static_routes[afi][safi], (struct prefix *)&prd);
+		if (!negate) {
+			if (!pdest)
+				pdest = bgp_node_get(bgp->static_routes[afi][safi],
+						     (struct prefix *)&prd);
+			if (!bgp_dest_has_bgp_path_info_data(pdest))
+				bgp_dest_set_bgp_table_info(pdest, bgp_table_init(bgp, afi, safi));
+		} else if (!pdest) {
+			vty_out(vty, "%% Can't find static route RD specified %s\n", rd_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		table = bgp_dest_get_bgp_table_info(pdest);
 	} else {
 		table = bgp->static_routes[afi][safi];
