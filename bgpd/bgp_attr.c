@@ -1705,8 +1705,6 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	bgp_attr_unset_aigp_metric(attr);
 
-	bgp_attr_set_link_bw(attr, 0);
-
 	bgp_attr_set_pmsi_tnl_type(attr, PMSI_TNLTYPE_NO_INFO);
 
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
@@ -1841,8 +1839,6 @@ void bgp_attr_flush(struct attr *attr)
 	}
 
 	bgp_attr_unset_aigp_metric(attr);
-
-	bgp_attr_set_link_bw(attr, 0);
 
 	bgp_attr_set_pmsi_tnl_type(attr, PMSI_TNLTYPE_NO_INFO);
 
@@ -3198,14 +3194,6 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	bgp_attr_extcom_tunnel_type(attr, &tun_type);
 	attr->encap_tunneltype = tun_type;
 
-	/* Extract link bandwidth, if any. */
-	{
-		uint64_t link_bw = 0;
-
-		(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr), &link_bw);
-		bgp_attr_set_link_bw(attr, link_bw);
-	}
-
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
@@ -3237,14 +3225,6 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 	if (!ipv6_ecomm)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
-
-	/* Extract link bandwidth, if any. */
-	{
-		uint64_t link_bw = 0;
-
-		(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(attr), &link_bw);
-		bgp_attr_set_link_bw(attr, link_bw);
-	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 
