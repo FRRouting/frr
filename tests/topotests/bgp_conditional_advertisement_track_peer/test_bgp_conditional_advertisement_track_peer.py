@@ -16,6 +16,7 @@ Also, withdraw if 172.16.255.3/32 disappears.
 import os
 import sys
 import json
+import time
 import pytest
 import functools
 
@@ -133,6 +134,92 @@ def test_bgp_conditional_advertisement_track_peer():
     test_func = functools.partial(_bgp_check_conditional_static_routes_from_r2)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R1 SHOULD receive 172.16.255.2/32 from R2"
+
+    # Once the conditional advertisement has been observed on R1, confirm the
+    # route remains stable across at least one conditional-advertisement scanner
+    # cycle on R2 (configured at 5s in r2/bgpd.conf).  A regression on R2 that
+    # makes the scanner advertise the prefix and then a downstream code path
+    # withdraw it again every cycle (for example, mpath bookkeeping incorrectly
+    # flagging BGP_PATH_MULTIPATH_CHG on the still-best path, triggering
+    # group_announce_route() through deny-all route-map out) shows up here as
+    # either:
+    #   (a) R1 losing 172.16.255.2/32 during the wait, or
+    #   (b) R1's per-prefix BGP dest version moving forward, because the route
+    #       was removed and re-added in the RIB at least once.
+    # Either condition causes the assertion below to fail deterministically,
+    # instead of leaving this test as a probabilistic poller that catches the
+    # flap only when its `wait=1` poll lands in the ~100ms window where the
+    # route happens to be present.
+    def _r1_prefix_version():
+        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json"))
+        paths = (output.get("routes") or {}).get("172.16.255.2/32")
+        return paths[0].get("version") if paths else None
+
+    def _r2_cond_adv_timer_remain():
+        # `bgpTimerUntilConditionalAdvertisementsSec` is sourced from
+        # `event_timer_remain_second(bgp->t_condition_check)` in bgpd; it
+        # counts down each second toward 0 and then jumps back up to
+        # `bgp_conditional-advertisement timer` (5s in r2/bgpd.conf) when the
+        # scanner re-arms its own timer at the top of
+        # `bgp_conditional_adv_timer()`.
+        output = json.loads(r2.vtysh_cmd("show bgp neighbors 192.168.1.1 json"))
+        return (
+            output.get("192.168.1.1", {})
+            .get("bgpTimerUntilConditionalAdvertisementsSec")
+        )
+
+    initial_version = _r1_prefix_version()
+    assert initial_version is not None, (
+        "R1 lost 172.16.255.2/32 immediately after observing it; "
+        "R2 is flapping the conditional advertisement"
+    )
+
+    initial_timer = _r2_cond_adv_timer_remain()
+    assert initial_timer is not None, (
+        "R2 is not reporting bgpTimerUntilConditionalAdvertisementsSec toward "
+        "192.168.1.1; the conditional-advertisement scanner does not appear "
+        "to be scheduled"
+    )
+
+    # Wait for one full scanner cycle to complete on R2 by watching the
+    # remaining-time value tick down and then jump back up.  Using R2's own
+    # running state is more reliable than a fixed sleep: the test waits exactly
+    # as long as R2's scanner says it needs, and no longer.
+    cycle_deadline = time.time() + 25  # >= 4 cycles, well above any single 5s window
+    previous_timer = initial_timer
+    cycle_fired = False
+    while time.time() < cycle_deadline:
+        time.sleep(0.5)
+        current_timer = _r2_cond_adv_timer_remain()
+        if current_timer is None:
+            # The scanner field disappeared mid-test; treat as failure below.
+            break
+        if current_timer > previous_timer:
+            # Timer wrapped back up -> the scanner just fired one cycle.
+            cycle_fired = True
+            break
+        previous_timer = current_timer
+
+    assert cycle_fired, (
+        "R2's conditional-advertisement scanner did not fire within 25s "
+        "(initial bgpTimerUntilConditionalAdvertisementsSec={}, last={}); "
+        "scanner appears stuck".format(initial_timer, previous_timer)
+    )
+
+    final_version = _r1_prefix_version()
+    assert final_version is not None, (
+        "R1 lost 172.16.255.2/32 during a conditional-advertisement scanner "
+        "cycle; R2 is flapping the conditional advertisement "
+        "(advertise/withdraw cycle)"
+    )
+    assert final_version == initial_version, (
+        "R1's 172.16.255.2/32 per-prefix BGP dest version moved from {} to {} "
+        "across a single R2 conditional-advertisement scanner cycle; the route "
+        "was withdrawn and re-added at least once while the exist-map condition "
+        "was still met (conditional advertisement is flapping on R2)".format(
+            initial_version, final_version
+        )
+    )
 
     step("Disable session between R2 and R3 again")
     r3.vtysh_cmd(
