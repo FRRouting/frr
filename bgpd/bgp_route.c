@@ -433,6 +433,24 @@ uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi)
 	return 0;
 }
 
+/* Extract link bandwidth from the BGP path's extended communities.
+ * Falls back to the IPv6 address-specific extended community when no
+ * link-bandwidth value is encoded in the standard extended community.
+ */
+uint64_t bgp_path_info_get_link_bw(struct bgp_path_info *bpi)
+{
+	uint64_t link_bw = 0;
+
+	if (!bpi || !bpi->attr)
+		return 0;
+
+	(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(bpi->attr), &link_bw);
+	if (!link_bw)
+		(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(bpi->attr), &link_bw);
+
+	return link_bw;
+}
+
 bool bgp_path_info_has_valid_label(const struct bgp_path_info *path)
 {
 	if (!BGP_PATH_INFO_NUM_LABELS(path))

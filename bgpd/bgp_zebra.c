@@ -1268,13 +1268,13 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	return true;
 }
 
-static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
+static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct bgp_path_info *bpi,
 					uint64_t *nh_weight)
 {
 	/* zero link-bandwidth and link-bandwidth not present are treated
 	 * as the same situation.
 	 */
-	uint64_t link_bw = bgp_attr_get_link_bw(attr);
+	uint64_t link_bw = bgp_path_info_get_link_bw(bpi);
 
 	if (!link_bw) {
 		/* the only situations should be if we're either told
@@ -1355,22 +1355,7 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		 * in some situations.
 		 */
 		if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_LINK_BW) {
-			/* Extended communities are exported/imported correctly
-			 * between VRFs, but we need to extract the actual link-bandwidth
-			 * value from the extended communities.
-			 */
-			uint64_t link_bw = 0;
-
-			(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(mpinfo->attr),
-							&link_bw);
-			/* Fallback to IPv6 address-specific extended community */
-			if (!link_bw)
-				(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(
-									mpinfo->attr),
-								&link_bw);
-			bgp_attr_set_link_bw(mpinfo->attr, link_bw);
-			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
-							 &nh_weight))
+			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo, &nh_weight))
 				continue;
 		} else if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_NNHN_COUNT) {
 			if (bgp_attr_exists(mpinfo->attr, BGP_ATTR_NHC))
