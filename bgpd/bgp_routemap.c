@@ -2201,7 +2201,7 @@ route_set_srte_color(void *rule, const struct prefix *prefix, void *object)
 
 	path = object;
 
-	path->attr->srte_color = *srte_color;
+	bgp_path_info_extra_get(path)->srte_color = *srte_color;
 
 	return RMAP_OKAY;
 }

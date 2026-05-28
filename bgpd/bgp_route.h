@@ -263,6 +263,11 @@ struct bgp_path_info_extra {
 
 	/* For vrf leaking*/
 	struct bgp_path_info_extra_vrfleak *vrfleak;
+
+	/* SR-TE Color (set by route-map 'set sr-te color' or derived from
+	 * the Color Extended Community via bgp_path_info_get_srte_color()).
+	 */
+	uint32_t srte_color;
 };
 
 struct bgp_mplsvpn_label_nh {
@@ -669,6 +674,8 @@ static inline bool is_pi_family_matching(struct bgp_path_info *pi,
 	return false;
 }
 
+extern struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *path);
+
 static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 				       struct bgp_path_info_extra *dst_pie, struct bgp_dest *dest,
 				       struct bgp_path_info *src_pi, struct peer *peer,
@@ -680,15 +687,36 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	dst_pi->from = from;
 	dst_pi->attr = attr;
 	dst_pi->net = dest;
+	dst_pi->extra = dst_pie;
 	if (src_pi) {
 		dst_pi->flags = src_pi->flags;
 		dst_pi->type = src_pi->type;
 		dst_pi->sub_type = src_pi->sub_type;
-		if (src_pi->extra) {
+		if (src_pi->extra)
 			memcpy(dst_pie, src_pi->extra, sizeof(struct bgp_path_info_extra));
-			dst_pi->extra = dst_pie;
-		}
 	}
+}
+
+static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
+						 const struct bgp_path_info *src_bpi)
+{
+	uint32_t src_srte_color;
+
+	if (!src_bpi || !dst_bpi)
+		return;
+
+	src_srte_color = src_bpi->extra ? src_bpi->extra->srte_color : 0;
+	if (src_srte_color || (dst_bpi->extra && dst_bpi->extra->srte_color))
+		bgp_path_info_extra_get(dst_bpi)->srte_color = src_srte_color;
+}
+
+static inline bool bgp_path_info_extra_same(const struct bgp_path_info *old_bpi,
+					    const struct bgp_path_info *new_bpi)
+{
+	uint32_t old_srte_color = old_bpi && old_bpi->extra ? old_bpi->extra->srte_color : 0;
+	uint32_t new_srte_color = new_bpi && new_bpi->extra ? new_bpi->extra->srte_color : 0;
+
+	return old_srte_color == new_srte_color;
 }
 
 static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,
@@ -1043,4 +1071,5 @@ extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 extern uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp);
 extern int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete);
 extern void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
+extern uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi);
 #endif /* _QUAGGA_BGP_ROUTE_H */

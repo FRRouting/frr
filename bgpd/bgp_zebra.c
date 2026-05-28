@@ -1380,7 +1380,7 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 
 		zapi_nexthop_init(api_nh);
 
-		api_nh->srte_color = bgp_attr_get_color(info->attr);
+		api_nh->srte_color = bgp_path_info_get_srte_color(info);
 
 		if (bgp_debug_zebra(&api->prefix)) {
 			if (BGP_PATH_INFO_NUM_LABELS(mpinfo)) {
@@ -1671,7 +1671,7 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 		api.tableid = info->attr->rmap_table_id;
 	}
 
-	if (info->attr->srte_color)
+	if (info->extra && info->extra->srte_color)
 		SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
 
 	/* Metric is currently based on the best-path only */

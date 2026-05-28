@@ -390,7 +390,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_
 			return 0;
 		}
 
-		srte_color = bgp_attr_get_color(pi->attr);
+		srte_color = bgp_path_info_get_srte_color(pi);
 
 	} else if (peer) {
 		/*
@@ -1510,7 +1510,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ||
 		    CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED) ||
-		    bgp_attr_get_color(path->attr))
+		    bgp_path_info_get_srte_color(path))
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
 		old_path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);
