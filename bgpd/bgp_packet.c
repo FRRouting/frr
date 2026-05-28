@@ -3029,12 +3029,9 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 
 	paf = peer_af_find(peer, afi, safi);
 	if (paf && paf->subgroup) {
-		if (peer->orf_plist[afi][safi]) {
-			updgrp = PAF_UPDGRP(paf);
-			updgrp_peer = UPDGRP_PEER(updgrp);
-			updgrp_peer->orf_plist[afi][safi] =
-				peer->orf_plist[afi][safi];
-		}
+		updgrp = PAF_UPDGRP(paf);
+		updgrp_peer = UPDGRP_PEER(updgrp);
+		updgrp_peer->orf_plist[afi][safi] = peer->orf_plist[afi][safi];
 
 		/* Avoid supressing duplicate routes later
 		 * when processing in subgroup_announce_table().
