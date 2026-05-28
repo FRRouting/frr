@@ -556,70 +556,119 @@ You can inspect the current BFD peer status with the following commands:
 
    frr# show bfd peers
    BFD Peers:
-           peer 192.168.0.1
-                   ID: 1
-                   Remote ID: 1
-                   Status: up
-                   Uptime: 1 minute(s), 51 second(s)
-                   Diagnostics: ok
-                   Remote diagnostics: ok
-                   Peer Type: dynamic
-                   Local timers:
-                           Detect-multiplier: 3
-                           Receive interval: 300ms
-                           Transmission interval: 300ms
-                           Echo receive interval: 50ms
-                           Echo transmission interval: disabled
-                   Remote timers:
-                           Detect-multiplier: 3
-                           Receive interval: 300ms
-                           Transmission interval: 300ms
-                           Echo receive interval: 50ms
+        peer 192.168.0.1 local-address 192.168.0.2 vrf default interface veth1
+                ID: 1
+                Remote ID: 0
+                Active mode
+                Status: down
+                Downtime: 5 second(s)
+                Diagnostics: ok
+                Remote diagnostics: ok
+                Peer Type: configured
+                RTT min/avg/max: 0/0/0 usec
+                Profile: myprofile
+                Local timers:
+                        Detect-multiplier: 3
+                        Receive interval: 300ms
+                        Transmission interval: 300ms
+                        Transmission interval (actual with jitter): 970ms
+                        Detection timeout: 3000ms
+                        Echo receive interval: 50ms
+                        Echo transmission interval: disabled
+                Remote timers:
+                        Detect-multiplier: 3
+                        Receive interval: 1000ms
+                        Transmission interval: 1000ms
+                        Echo receive interval: disabled
 
-           peer 192.168.1.1
-                   ID: 2
-                   Remote ID: 2
-                   Status: up
-                   Uptime: 1 minute(s), 53 second(s)
-                   Diagnostics: ok
-                   Remote diagnostics: ok
-                   Peer Type: configured
-                   Local timers:
-                           Detect-multiplier: 3
-                           Receive interval: 300ms
-                           Transmission interval: 300ms
-                           Echo receive interval: 50ms
-                           Echo transmission interval: disabled
-                   Remote timers:
-                           Detect-multiplier: 3
-                           Receive interval: 300ms
-                           Transmission interval: 300ms
-                           Echo receive interval: 50ms
+        peer 192.168.0.2 local-address 192.168.0.1 vrf default interface veth0
+                ID: 2
+                Remote ID: 0
+                Active mode
+                Status: down
+                Downtime: 5 second(s)
+                Diagnostics: ok
+                Remote diagnostics: ok
+                Peer Type: configured
+                RTT min/avg/max: 0/0/0 usec
+                Profile: myprofile
+                Local timers:
+                        Detect-multiplier: 3
+                        Receive interval: 300ms
+                        Transmission interval: 300ms
+                        Transmission interval (actual with jitter): 790ms
+                        Detection timeout: 3000ms
+                        Echo receive interval: 50ms
+                        Echo transmission interval: disabled
+                Remote timers:
+                        Detect-multiplier: 3
+                        Receive interval: 1000ms
+                        Transmission interval: 1000ms
+                        Echo receive interval: disabled
 
-   frr# show bfd peer 192.168.1.1
+   frr# show bfd peer 192.168.0.2
    BFD Peer:
-               peer 192.168.1.1
-                   ID: 2
-                   Remote ID: 2
-                   Status: up
-                   Uptime: 3 minute(s), 4 second(s)
-                   Diagnostics: ok
-                   Remote diagnostics: ok
-                   Peer Type: dynamic
-                   Local timers:
-                           Detect-multiplier: 3
-                           Receive interval: 300ms
-                           Transmission interval: 300ms
-                           Echo receive interval: 50ms
-                           Echo transmission interval: disabled
-                   Remote timers:
-                           Detect-multiplier: 3
-                           Receive interval: 300ms
-                           Transmission interval: 300ms
-                           Echo receive interval: 50ms
+        peer 192.168.0.2 local-address 192.168.0.1 vrf default interface veth0
+                ID: 2
+                Remote ID: 0
+                Active mode
+                Status: down
+                Downtime: 5 second(s)
+                Diagnostics: ok
+                Remote diagnostics: ok
+                Peer Type: configured
+                RTT min/avg/max: 0/0/0 usec
+                Profile: myprofile
+                Local timers:
+                        Detect-multiplier: 3
+                        Receive interval: 300ms
+                        Transmission interval: 300ms
+                        Transmission interval (actual with jitter): 790ms
+                        Detection timeout: 3000ms
+                        Echo receive interval: 50ms
+                        Echo transmission interval: disabled
+                Remote timers:
+                        Detect-multiplier: 3
+                        Receive interval: 1000ms
+                        Transmission interval: 1000ms
+                        Echo receive interval: disabled
 
-   frr# show bfd peer 192.168.0.1 json
-   {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-receive-interval":50,"echo-transmit-interval":0,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-receive-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
+   frr# show bfd peer 192.168.0.2 json
+   {
+     "multihop":false,
+     "peer":"192.168.0.2",
+     "local":"192.168.0.1",
+     "vrf":"default",
+     "interface":"veth0",
+     "authentication":{
+       "enabled":false,
+       "configured":false
+     },
+     "id":2,
+     "remote-id":0,
+     "passive-mode":false,
+     "log-session-changes":false,
+     "status":"down",
+     "downtime":5,
+     "diagnostic":"ok",
+     "remote-diagnostic":"ok",
+     "type":"configured",
+     "profile":"myprofile",
+     "receive-interval":300,
+     "transmit-interval":300,
+     "transmit-interval-actual":790,
+     "detection-timeout":3000,
+     "echo-receive-interval":50,
+     "echo-transmit-interval":0,
+     "detect-multiplier":3,
+     "remote-receive-interval":1000,
+     "remote-transmit-interval":1000,
+     "remote-echo-receive-interval":0,
+     "remote-detect-multiplier":3,
+     "rtt-min":0,
+     "rtt-avg":0,
+     "rtt-max":0
+   }
 
 If you are running IPV4 BFD Echo, on a Linux platform, we also
 calculate round trip time for the packets.  We display minimum,
@@ -631,10 +680,29 @@ You can inspect the current BFD peer status in brief with the following commands
 ::
 
    frr# show bfd peers brief
-   Session count: 1
-   SessionId  LocalAddress         PeerAddress      Status
-   =========  ============         ===========      ======
-   1          192.168.0.1          192.168.0.2      up
+   Session count: 2
+   SessionId  LocalAddress                             PeerAddress                             Status          Profile
+   =========  ============                             ===========                             ======          =======
+   1          192.168.0.2                              192.168.0.1                             down            myprofile
+   2          192.168.0.1                              192.168.0.2                             down            myprofile
+
+   frr# show bfd peers brief json
+   [
+     {
+       "id":1,
+       "local":"192.168.0.2",
+       "peer":"192.168.0.1",
+       "status":"down",
+       "profile":"myprofile"
+     },
+     {
+       "id":2,
+       "local":"192.168.0.1",
+       "peer":"192.168.0.2",
+       "status":"down",
+       "profile":"myprofile"
+     }
+   ]
 
 
 You can also inspect peer session counters with the following commands:
