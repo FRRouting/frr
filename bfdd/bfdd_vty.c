@@ -925,26 +925,54 @@ static void _display_peer_brief_iter(struct hash_bucket *hb, void *arg)
 static struct json_object *_display_peer_brief_json(struct bfd_session *bs)
 {
 	struct json_object *jo = json_object_new_object();
-	char addr_buf[INET6_ADDRSTRLEN];
 
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
-		json_object_string_add(jo, "local", addr_buf);
-	} else {
-		if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
-			json_object_string_add(jo, "local",
-					       inet_ntop(bs->key.family, &bs->key.local,
-							 addr_buf, sizeof(addr_buf)));
+		if (bs->key.family == AF_INET)
+			json_object_string_addf(jo, "local", "%pI4",
+						(const struct in_addr *)
+						&bs->key.local);
 		else
-			json_object_string_add(jo, "local", satostr(&bs->local_address));
+			json_object_string_addf(jo, "local", "%pI6",
+						&bs->key.local);
+	} else {
+		if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local))) {
+			if (bs->key.family == AF_INET)
+				json_object_string_addf(jo, "local", "%pI4",
+							(const struct in_addr *)
+							&bs->key.local);
+			else
+				json_object_string_addf(jo, "local", "%pI6",
+							&bs->key.local);
+		} else
+			json_object_string_add(jo, "local",
+					       satostr(&bs->local_address));
 	}
 
-	json_object_string_add(jo, "peer",
-			       inet_ntop(bs->key.family, &bs->key.peer,
-					 addr_buf, sizeof(addr_buf)));
-	json_object_string_add(jo, "status", state_list[bs->ses_state].str);
+	if (bs->key.family == AF_INET)
+		json_object_string_addf(jo, "peer", "%pI4",
+					(const struct in_addr *)&bs->key.peer);
+	else
+		json_object_string_addf(jo, "peer", "%pI6", &bs->key.peer);
+
+	switch (bs->ses_state) {
+	case PTM_BFD_ADM_DOWN:
+		json_object_string_add(jo, "status", "shutdown");
+		break;
+	case PTM_BFD_DOWN:
+		json_object_string_add(jo, "status", "down");
+		break;
+	case PTM_BFD_INIT:
+		json_object_string_add(jo, "status", "init");
+		break;
+	case PTM_BFD_UP:
+		json_object_string_add(jo, "status", "up");
+		break;
+	default:
+		json_object_string_add(jo, "status", "unknown");
+		break;
+	}
 
 	if (bs->profile_name)
 		json_object_string_add(jo, "profile", bs->profile_name);
@@ -955,7 +983,7 @@ static struct json_object *_display_peer_brief_json(struct bfd_session *bs)
 static void _display_peer_brief_json_iter(struct hash_bucket *hb, void *arg)
 {
 	struct bfd_vrf_tuple *bvt = (struct bfd_vrf_tuple *)arg;
-	struct json_object *jo, *jon = NULL;
+	struct json_object *jo;
 	struct bfd_session *bs = hb->data;
 
 	if (!bvt)
@@ -968,13 +996,7 @@ static void _display_peer_brief_json_iter(struct hash_bucket *hb, void *arg)
 			return;
 	}
 
-	jon = _display_peer_brief_json(bs);
-	if (jon == NULL) {
-		zlog_warn("%s: not enough memory", __func__);
-		return;
-	}
-
-	json_object_array_add(jo, jon);
+	json_object_array_add(jo, _display_peer_brief_json(bs));
 }
 
 static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_json)
