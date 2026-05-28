@@ -2795,24 +2795,6 @@ cluster_list_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
-/* Get the effective SR-TE color for a path: prefer a value set locally on
- * the path (e.g. via the "set sr-te color" route-map command, stored in
- * bgp_path_info_extra), otherwise fall back to the Color Extended
- * Community carried in the BGP attribute (RFC 9012).
- */
-uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi)
-{
-	struct ecommunity *ecom = bgp_attr_get_ecommunity(bpi->attr);
-
-	if (bpi->extra && bpi->extra->srte_color)
-		return bpi->extra->srte_color;
-
-	if (ecom)
-		return ecommunity_select_color(ecom);
-
-	return 0;
-}
-
 /* Multiprotocol reachability information parse. */
 int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		       struct bgp_nlri *mp_update)

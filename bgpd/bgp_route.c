@@ -415,6 +415,24 @@ struct bgp_path_info_extra *bgp_evpn_path_info_extra_get(struct bgp_path_info *p
 	return pi->extra;
 }
 
+/* Get the effective SR-TE color for a path: prefer a value set locally on
+ * the path (e.g. via the "set sr-te color" route-map command, stored in
+ * bgp_path_info_extra), otherwise fall back to the Color Extended
+ * Community carried in the BGP attribute (RFC 9012).
+ */
+uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi)
+{
+	struct ecommunity *ecom = bgp_attr_get_ecommunity(bpi->attr);
+
+	if (bpi->extra && bpi->extra->srte_color)
+		return bpi->extra->srte_color;
+
+	if (ecom)
+		return ecommunity_select_color(ecom);
+
+	return 0;
+}
+
 bool bgp_path_info_has_valid_label(const struct bgp_path_info *path)
 {
 	if (!BGP_PATH_INFO_NUM_LABELS(path))
