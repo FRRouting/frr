@@ -11937,8 +11937,10 @@ DEFPY(clear_ip_ospf_neighbor, clear_ip_ospf_neighbor_cmd,
 
 	if (vrf_name) {
 		vrf = vrf_lookup_by_name(vrf_name);
-		if (!vrf)
+		if (!vrf) {
+			vty_out(vty, "%% VRF %s not found\n", vrf_name);
 			return CMD_WARNING;
+		}
 	}
 
 	/* Clear all the ospf processes */
@@ -11989,8 +11991,10 @@ DEFPY(clear_ip_ospf_process, clear_ip_ospf_process_cmd,
 
 	if (vrf_name) {
 		vrf = vrf_lookup_by_name(vrf_name);
-		if (!vrf)
+		if (!vrf) {
+			vty_out(vty, "%% VRF %s not found\n", vrf_name);
 			return CMD_WARNING;
+		}
 	}
 
 	/* Clear all the ospf processes */
@@ -13532,8 +13536,11 @@ DEFUN (clear_ip_ospf_interface,
 		vrf_name = NULL;
 	if (vrf_name) {
 		vrf = vrf_lookup_by_name(vrf_name);
-		if (vrf)
-			vrf_id = vrf->vrf_id;
+		if (!vrf) {
+			vty_out(vty, "%% VRF %s not found\n", vrf_name);
+			return CMD_WARNING;
+		}
+		vrf_id = vrf->vrf_id;
 	}
 	if (!argv_find(argv, argc, "IFNAME", &idx_ifname)) {
 		/* Clear all the ospfv2 interfaces. */
