@@ -933,28 +933,22 @@ static struct json_object *_display_peer_brief_json(struct bfd_session *bs)
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
 		if (bs->key.family == AF_INET)
 			json_object_string_addf(jo, "local", "%pI4",
-						(const struct in_addr *)
-						&key_local);
+						(const struct in_addr *)&key_local);
 		else
-			json_object_string_addf(jo, "local", "%pI6",
-						&key_local);
+			json_object_string_addf(jo, "local", "%pI6", &key_local);
 	} else {
 		if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local))) {
 			if (bs->key.family == AF_INET)
 				json_object_string_addf(jo, "local", "%pI4",
-							(const struct in_addr *)
-							&key_local);
+							(const struct in_addr *)&key_local);
 			else
-				json_object_string_addf(jo, "local", "%pI6",
-							&key_local);
+				json_object_string_addf(jo, "local", "%pI6", &key_local);
 		} else
-			json_object_string_add(jo, "local",
-					       satostr(&bs->local_address));
+			json_object_string_add(jo, "local", satostr(&bs->local_address));
 	}
 
 	if (bs->key.family == AF_INET)
-		json_object_string_addf(jo, "peer", "%pI4",
-					(const struct in_addr *)&key_peer);
+		json_object_string_addf(jo, "peer", "%pI4", (const struct in_addr *)&key_peer);
 	else
 		json_object_string_addf(jo, "peer", "%pI6", &key_peer);
 
@@ -993,8 +987,7 @@ static void _display_peer_brief_json_iter(struct hash_bucket *hb, void *arg)
 	jo = bvt->jo;
 
 	if (bvt->vrfname) {
-		if (!bs->key.vrfname[0] ||
-		    !strmatch(bs->key.vrfname, bvt->vrfname))
+		if (!bs->key.vrfname[0] || !strmatch(bs->key.vrfname, bvt->vrfname))
 			return;
 	}
 
