@@ -2093,12 +2093,14 @@ static bool bgp_check_role_applicability(afi_t afi, safi_t safi)
 static int bgp_input_modifier(struct peer *peer, const struct prefix *p, struct attr *attr,
 			      afi_t afi, safi_t safi, const char *rmap_name, mpls_label_t *label,
 			      uint8_t num_labels, struct bgp_dest *dest,
-			      struct bgp_path_info_extra *bpie)
+			      struct bgp_path_info *bpi)
 {
 	struct bgp_filter *filter;
-	struct bgp_path_info rmap_path = { 0 };
+	struct bgp_path_info local_path = {};
 	struct bgp_path_info_extra local_extra = {};
-	struct bgp_path_info_extra *extra = bpie ? bpie : &local_extra;
+	struct bgp_path_info *path = bpi ? bpi : &local_path;
+	struct bgp_path_info_extra *extra = (bpi && bpi->extra) ? bpi->extra
+									  : &local_extra;
 	struct bgp_labels bgp_labels = {};
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
@@ -2120,7 +2122,7 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p, struct 
 
 	/* Route map apply. */
 	if (rmap) {
-		prep_for_rmap_apply(&rmap_path, extra, dest, NULL, peer, NULL, attr);
+		prep_for_rmap_apply(path, extra, dest, NULL, peer, NULL, attr);
 
 		extra->labels = &bgp_labels;
 
@@ -2132,7 +2134,7 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p, struct 
 		SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN);
 
 		/* Apply BGP route map to the attribute. */
-		ret = route_map_apply(rmap, p, &rmap_path);
+		ret = route_map_apply(rmap, p, path);
 
 		peer->rmap_type = 0;
 
@@ -5742,6 +5744,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	safi_t orig_safi = safi;
 	struct bgp_labels bgp_labels = {};
 	struct bgp_path_info_extra rmap_extra = {};
+	struct bgp_path_info rmap_bpi = { .extra = &rmap_extra };
 	struct bgp_route_evpn *p_evpn = evpn;
 	uint8_t i;
 
@@ -6056,7 +6059,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * intern
 	 * the attr (which takes over the memory references) */
 	if (bgp_input_modifier(peer, p, &new_attr, afi, orig_safi, NULL, label, num_labels, dest,
-			       &rmap_extra) == RMAP_DENY) {
+			       &rmap_bpi) == RMAP_DENY) {
 		peer->stat_pfx_filter++;
 		reason = "route-map;";
 		bgp_attr_flush(&new_attr);
@@ -6170,7 +6173,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (pi) {
 		pi->uptime = monotime(NULL);
 		same_attr = attrhash_cmp(pi->attr, attr_new) &&
-			    bgp_path_info_extra_same(pi, &rmap_extra);
+			    bgp_path_info_extra_same(pi, &rmap_bpi);
 
 		hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
 
@@ -6391,7 +6394,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Propagate fields written to the rmap-transient extra
 		 * (e.g. "set sr-te color") onto the real path.
 		 */
-		bgp_path_info_extra_propagate(pi, &rmap_extra);
+		bgp_path_info_extra_propagate(pi, &rmap_bpi);
 
 #ifdef ENABLE_BGP_VNC
 		if ((afi == AFI_IP || afi == AFI_IP6)
@@ -6550,7 +6553,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Propagate fields written to the rmap-transient extra
 	 * (e.g. "set sr-te color") onto the real path.
 	 */
-	bgp_path_info_extra_propagate(new, &rmap_extra);
+	bgp_path_info_extra_propagate(new, &rmap_bpi);
 
 	bgp_update_check_valid_flags(bgp, peer, dest, p, afi, safi, new, attr_new,
 				     bgp_nht_param_prefix, accept_own);
@@ -8441,8 +8444,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 	struct bgp_path_info *new;
-	struct bgp_path_info rmap_path;
 	struct bgp_path_info_extra rmap_extra = {};
+	struct bgp_path_info rmap_path = { .extra = &rmap_extra };
 	struct attr attr;
 	struct attr *attr_new;
 	route_map_result_t ret;
@@ -8533,10 +8536,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 		bgp_attr_dup_into(&attr_tmp, &attr);
 
-		memset(&rmap_path, 0, sizeof(rmap_path));
 		rmap_path.peer = bgp->peer_self;
 		rmap_path.attr = &attr_tmp;
-		rmap_path.extra = &rmap_extra;
 
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_NETWORK);
 
@@ -8578,7 +8579,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	if (pi) {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
 		    !CHECK_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS) &&
-		    attrhash_cmp(pi->attr, attr_new) && bgp_path_info_extra_same(pi, &rmap_extra)) {
+		    attrhash_cmp(pi->attr, attr_new) && bgp_path_info_extra_same(pi, &rmap_path)) {
 			bgp_dest_unlock_node(dest);
 			bgp_attr_unintern(&attr_new);
 			aspath_unintern(&attr.aspath);
@@ -8611,7 +8612,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			bgp_attr_unintern(&pi->attr);
 			pi->attr = attr_new;
 			pi->uptime = monotime(NULL);
-			bgp_path_info_extra_propagate(pi, &rmap_extra);
+			bgp_path_info_extra_propagate(pi, &rmap_path);
 #ifdef ENABLE_BGP_VNC
 			if ((afi == AFI_IP || afi == AFI_IP6) &&
 			    safi == SAFI_UNICAST) {
@@ -8685,7 +8686,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 #endif
 	}
 
-	bgp_path_info_extra_propagate(new, &rmap_extra);
+	bgp_path_info_extra_propagate(new, &rmap_path);
 
 	bgp_nexthop_reachability_check(afi, safi, new, p, dest, bgp, bgp);
 
@@ -10780,7 +10781,6 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 {
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
-	struct bgp_path_info rmap_path;
 	struct bgp_dest *bn;
 	struct attr attr;
 	struct attr *new_attr;
@@ -10868,6 +10868,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 	if (red) {
 		struct attr attr_new;
 		struct bgp_path_info_extra rmap_extra = {};
+		struct bgp_path_info rmap_path = { .extra = &rmap_extra };
 
 		/* Copy attribute for modification. */
 		attr_new = attr;
@@ -10877,10 +10878,8 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 
 		/* Apply route-map. */
 		if (red->rmap.name) {
-			memset(&rmap_path, 0, sizeof(rmap_path));
 			rmap_path.peer = bgp->peer_self;
 			rmap_path.attr = &attr_new;
-			rmap_path.extra = &rmap_extra;
 			rmap_path.type = type;
 
 			SET_FLAG(bgp->peer_self->rmap_type,
@@ -10919,7 +10918,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 			bpi->type = type;
 			if (!CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) &&
 			    attrhash_cmp(bpi->attr, new_attr) &&
-			    bgp_path_info_extra_same(bpi, &rmap_extra)) {
+			    bgp_path_info_extra_same(bpi, &rmap_path)) {
 				bgp_attr_unintern(&new_attr);
 				aspath_unintern(&attr.aspath);
 				bgp_dest_unlock_node(bn);
@@ -10938,7 +10937,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 				bgp_attr_unintern(&bpi->attr);
 				bpi->attr = new_attr;
 				bpi->uptime = monotime(NULL);
-				bgp_path_info_extra_propagate(bpi, &rmap_extra);
+				bgp_path_info_extra_propagate(bpi, &rmap_path);
 
 				/* Process change. */
 				bgp_aggregate_increment(bgp, p, bpi, afi,
@@ -10966,7 +10965,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 		new = info_make(type, BGP_ROUTE_REDISTRIBUTE, instance,
 				bgp->peer_self, new_attr, bn);
 		SET_FLAG(new->flags, BGP_PATH_VALID);
-		bgp_path_info_extra_propagate(new, &rmap_extra);
+		bgp_path_info_extra_propagate(new, &rmap_path);
 
 		bgp_path_info_add(bn, new);
 		bgp_aggregate_increment(bgp, p, new, afi, SAFI_UNICAST);

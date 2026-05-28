@@ -697,26 +697,24 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	}
 }
 
-/* Propagate fields that route-map "set" commands may have written to a
- * transient stack-allocated bgp_path_info_extra into the real per-path
- * extra. Extend as additional path-info fields become settable via
- * route-map.
- */
 static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
-						 const struct bgp_path_info_extra *src_bpie)
+						 const struct bgp_path_info *src_bpi)
 {
-	if (!src_bpie || !dst_bpi)
+	uint32_t src_srte_color;
+
+	if (!src_bpi || !dst_bpi)
 		return;
 
-	if (src_bpie->srte_color || (dst_bpi->extra && dst_bpi->extra->srte_color))
-		bgp_path_info_extra_get(dst_bpi)->srte_color = src_bpie->srte_color;
+	src_srte_color = src_bpi->extra ? src_bpi->extra->srte_color : 0;
+	if (src_srte_color || (dst_bpi->extra && dst_bpi->extra->srte_color))
+		bgp_path_info_extra_get(dst_bpi)->srte_color = src_srte_color;
 }
 
 static inline bool bgp_path_info_extra_same(const struct bgp_path_info *old_bpi,
-					    const struct bgp_path_info_extra *new_bpie)
+					    const struct bgp_path_info *new_bpi)
 {
-	uint32_t old_srte_color = old_bpi->extra ? old_bpi->extra->srte_color : 0;
-	uint32_t new_srte_color = new_bpie ? new_bpie->srte_color : 0;
+	uint32_t old_srte_color = old_bpi && old_bpi->extra ? old_bpi->extra->srte_color : 0;
+	uint32_t new_srte_color = new_bpi && new_bpi->extra ? new_bpi->extra->srte_color : 0;
 
 	return old_srte_color == new_srte_color;
 }
