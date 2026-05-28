@@ -377,12 +377,28 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 				       + BGP_DUMP_MSG_HEADER
 				       + BGP_DUMP_HEADER_SIZE) {
 			stream_set_endp(obuf, endp);
+			if (entry_count == 0) {
+				/* A single path's encoding exceeds the
+				 * per-record cap. Skip it so the caller's
+				 * while (path) loop makes forward progress.
+				 */
+				flog_warn(EC_BGP_DUMP,
+					  "%s: skipping oversized path for %pFX from peer %s",
+					  __func__, p, path->peer->host);
+				path = path->next;
+			}
 			break;
 		}
 
 		entry_count++;
 		endp = cur_endp;
 	}
+
+	/* Skip emitting a zero-entry record: some MRT parsers treat them as
+	 * corrupt.
+	 */
+	if (entry_count == 0)
+		return path;
 
 	/* Overwrite the entry count, now that we know the right number */
 	stream_putw_at(obuf, sizep, entry_count);
