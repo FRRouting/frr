@@ -300,6 +300,12 @@ void pim_bsm_proc_init(struct pim_instance *pim)
 	cand_rp_groups_init(scope->cand_rp_groups);
 
 	scope->unicast_sock = pim_socket_raw(IPPROTO_PIM);
+	if (scope->unicast_sock < 0) {
+		zlog_warn("%s: Could not create BSR unicast socket: %s",
+			  __func__, safe_strerror(errno));
+		return;
+	}
+
 	set_nonblocking(scope->unicast_sock);
 	sockopt_reuseaddr(scope->unicast_sock);
 
@@ -321,7 +327,9 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 	struct cand_rp_group *crpgrp;
 
 	event_cancel(&scope->unicast_read);
-	close(scope->unicast_sock);
+	if (scope->unicast_sock >= 0)
+		close(scope->unicast_sock);
+	scope->unicast_sock = -1;
 
 	pim_bs_timer_stop(scope);
 	pim_bsm_frags_free(scope);
