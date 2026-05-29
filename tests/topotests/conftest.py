@@ -23,7 +23,7 @@ from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import get_test_logdir, logger
 from lib.topotest import gdb_core, json_cmp_result
 from munet import cli
-from munet.base import BaseMunet, Commander, proc_error
+from munet.base import BaseMunet, Commander, lcov_ignore_errors, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
 from munet.config import ConfigOptionsProxy
 from munet.testing.util import pause_test
@@ -905,6 +905,7 @@ done""")
     logger.info("Gathering coverage data into: %s", data_file)
     commander.cmd_raises(
         f"lcov --directory {gcdadir} --capture --output-file {data_file}"
+        f" --ignore-errors {lcov_ignore_errors(commander)}"
     )
 
     # Get coverage info filtered to a specific set of files
