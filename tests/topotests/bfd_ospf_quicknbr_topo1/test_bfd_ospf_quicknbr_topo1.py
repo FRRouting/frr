@@ -11,7 +11,8 @@ This test validates two key properties:
   sessions kept alive by quick mode are pruned.
 
 This test traffic-blackholes the L2 switch with ``tc netem`` (kernel ``sch_netem``).
-If that qdisc is unavailable, the whole module is skipped (see ``setup_module``).
+``setup_module`` attempts to ``modprobe sch_netem``; if the qdisc still isn't
+available (e.g. a kernel image without the module), the whole module is skipped.
 """
 
 import json
@@ -38,11 +39,23 @@ LONG_DEAD = 180
 
 def tc_netem_supported(sw_gear):
     """
-    Require `sch_netem` to already be loaded. We don't try to load it and we
-    don't probe by configuring qdiscs.
+    Ensure `sch_netem` is available, loading the module if necessary.
+
+    Kernel modules are global, so loading it from the switch namespace makes it
+    available to all the topology namespaces. If it is already loaded (or built
+    in) the modprobe is a no-op.
     """
     sw_net = sw_gear.net
     check_cmd = "lsmod 2>/dev/null | grep -q sch_netem"
+
+    status, out, err = sw_net.cmd_status(check_cmd, warn=False)
+    if status == 0:
+        return True
+
+    # Not loaded yet; try to load it. modprobe is idempotent and succeeds if the
+    # module is already present, so we don't need to special-case that here.
+    sw_net.cmd_status("modprobe sch_netem", warn=False)
+
     status, out, err = sw_net.cmd_status(check_cmd, warn=False)
     return status == 0
 
