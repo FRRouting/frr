@@ -395,8 +395,4 @@ int pim_cand_config_write(struct pim_instance *pim, struct vty *vty);
 
 DECLARE_MTYPE(PIM_BSM_FRAG);
 
-DECLARE_MTYPE(PIM_BSM_FRAG);
-
-DECLARE_MTYPE(PIM_BSM_FRAG);
-
 #endif
