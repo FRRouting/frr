@@ -146,7 +146,7 @@ static void ospf_packet_sent_lsas_fini(struct ospf_packet *op)
 
 	if (!op)
 		return;
-	frr_each_safe(ospf_lsa_list, &op->sent_lsas, e) {
+	frr_each_safe (ospf_lsa_list, &op->sent_lsas, e) {
 		ospf_lsa_list_del(&op->sent_lsas, e);
 		ospf_lsa_unlock(&e->lsa);
 		XFREE(MTYPE_OSPF_LSA_LIST, e);
@@ -437,8 +437,7 @@ static void ospf_maybe_restart_inactivity(struct ospf_interface *oi, struct ospf
  * Transfers each LSA lock to rn->info then schedules the queue drain.
  * Functionally identical to ospf_ls_upd_send() for the direct/unicast case.
  */
-static void ospf_ls_upd_send_lsahead(struct ospf_neighbor *nbr,
-				      struct ospf_lsa_list_head *update)
+static void ospf_ls_upd_send_lsahead(struct ospf_neighbor *nbr, struct ospf_lsa_list_head *update)
 {
 	struct ospf_interface *oi = nbr->oi;
 	struct prefix_ipv4 p = { .family = AF_INET,
@@ -453,7 +452,7 @@ static void ospf_ls_upd_send_lsahead(struct ospf_neighbor *nbr,
 	else
 		route_unlock_node(rn);
 
-	frr_each_safe(ospf_lsa_list, update, e) {
+	frr_each_safe (ospf_lsa_list, update, e) {
 		ospf_lsa_list_del(update, e);
 		listnode_add((struct list *)rn->info, ospf_lsa_lock(e->lsa));
 		ospf_lsa_unlock(&e->lsa);
@@ -461,8 +460,7 @@ static void ospf_ls_upd_send_lsahead(struct ospf_neighbor *nbr,
 	}
 
 	if (!oi->t_ls_upd_event)
-		event_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
-				&oi->t_ls_upd_event);
+		event_add_event(master, ospf_ls_upd_send_queue_event, oi, 0, &oi->t_ls_upd_event);
 }
 
 /*
@@ -549,8 +547,7 @@ void ospf_ls_rxmt_timer(struct event *event)
 
 			struct ospf_lsa_list_entry *upd_entry;
 
-			upd_entry = XCALLOC(MTYPE_OSPF_LSA_LIST,
-					    sizeof(*upd_entry));
+			upd_entry = XCALLOC(MTYPE_OSPF_LSA_LIST, sizeof(*upd_entry));
 			upd_entry->lsa = ospf_lsa_lock(ls_rxmt_list_entry->lsa);
 			ospf_lsa_list_add_tail(&update, upd_entry);
 			rxmt_lsa_count++;
@@ -926,7 +923,7 @@ static void ospf_write(struct event *event)
 		    ospf_lsa_list_first(&op->sent_lsas) != NULL) {
 			struct ospf_lsa_list_entry *sent_e;
 
-			frr_each(ospf_lsa_list, &op->sent_lsas, sent_e) {
+			frr_each (ospf_lsa_list, &op->sent_lsas, sent_e) {
 				/* RFC4222/R5: Track sent LSAs for dynamic adjacency pacing */
 				ospf_count_sent_lsa(oi, op->dst, sent_e->lsa);
 			}
@@ -3812,8 +3809,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update, stru
 		if (sent_lsas) {
 			struct ospf_lsa_list_entry *sent_entry;
 
-			sent_entry = XCALLOC(MTYPE_OSPF_LSA_LIST,
-					     sizeof(*sent_entry));
+			sent_entry = XCALLOC(MTYPE_OSPF_LSA_LIST, sizeof(*sent_entry));
 			sent_entry->lsa = ospf_lsa_lock(lsa);
 			ospf_lsa_list_add_tail(sent_lsas, sent_entry);
 		}

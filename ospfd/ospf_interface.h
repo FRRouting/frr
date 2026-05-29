@@ -197,8 +197,8 @@ enum ospf_adj_pacing_mode {
 /* RFC4222/R5 implementation */
 struct ospf_adj_pacing {
 	enum ospf_adj_pacing_mode mode;
-	uint16_t static_limit; /*N for static mode*/
-	uint16_t in_progress;  /* neighbors in ExStart/Exchange/Loading on this oi*/
+	uint16_t static_limit;		     /*N for static mode*/
+	uint16_t in_progress;		     /* neighbors in ExStart/Exchange/Loading on this oi*/
 	struct ospf_pacing_queue_head queue; /* FCFS queue of struct ospf_neighbor */
 
 	/* Dynamic pacing state */

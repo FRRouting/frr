@@ -749,7 +749,8 @@ void ospf_if_update_params_all(struct interface *ifp)
 	struct ospf_interface *oi;
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		if ((oi = rn->info) == NULL)
+		oi = rn->info;
+		if (!oi)
 			continue;
 
 		oi->params = ospf_lookup_if_params(ifp, oi->address->u.prefix4);
