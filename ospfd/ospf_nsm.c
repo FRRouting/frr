@@ -63,7 +63,7 @@ void ospf_adj_pacing_queue_flush(struct ospf_interface *oi)
 	struct ospf_neighbor *nbr;
 	int count = 0;
 
-	frr_each_safe(ospf_pacing_queue, &oi->adj_pacing.queue, nbr) {
+	frr_each_safe (ospf_pacing_queue, &oi->adj_pacing.queue, nbr) {
 		ospf_pacing_queue_del(&oi->adj_pacing.queue, nbr);
 		if (nbr->state == NSM_TwoWay)
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_AdjOK);
@@ -71,8 +71,8 @@ void ospf_adj_pacing_queue_flush(struct ospf_interface *oi)
 	}
 
 	if (count > 0 && IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-		zlog_debug("R5: %s flushed %d queued neighbors (sent NSM_AdjOK)",
-			   IF_NAME(oi), count);
+		zlog_debug("R5: %s flushed %d queued neighbors (sent NSM_AdjOK)", IF_NAME(oi),
+			   count);
 }
 
 static void nsm_clear_adj(struct ospf_neighbor *);
