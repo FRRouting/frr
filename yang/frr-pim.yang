@@ -332,7 +332,7 @@ module frr-pim {
     leaf dm-prefix-list {
         type plist-ref;
         description
-          "Prefix-list used to define Dennse Mode Multicast address range.";
+          "Prefix-list used to define Dense Mode Multicast address range.";
     }
 
 
