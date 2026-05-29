@@ -189,6 +189,14 @@ def get_kernel_version():
     return kv
 
 
+def lcov_ignore_errors(commander):
+    """Return lcov --ignore-errors categories supported by the installed lcov."""
+    _, version, _ = commander.cmd_status("lcov --version")
+    if "LCOV version 2" in (version or ""):
+        return "negative,gcov,source,unexecuted"
+    return "gcov,source"
+
+
 def convert_number(value) -> int:
     """Convert a number value with a possible suffix to an integer.
 
