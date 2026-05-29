@@ -74,6 +74,10 @@ TOPOLOGY = """
 
 DENSE_GROUP = "239.1.1.1"
 SSM_GROUP = "232.1.1.1"
+SPARSE_GROUP = "238.1.1.1"
+OUT_OF_PREFIX_GROUP = "240.1.1.1"
+RP_ADDR = "10.0.2.1"
+SRC = "10.100.0.2"
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -262,6 +266,149 @@ def test_pim_dense_neighbors(request):
         assert res is None, assertmsg
 
 
+def stop_all_hosts():
+    """Stop multicast traffic and IGMP joins on all hosts."""
+    for host in ("h1", "h4", "h5", "h6"):
+        app_helper.stop_host(host)
+
+
+def mroute_entry(tgen, router, src, group):
+    """Return the JSON mroute object for a specific (S,G) entry."""
+    output = tgen.gears[router].vtysh_cmd(
+        "show ip mroute {} json".format(group), isjson=True
+    )
+    return output.get(group, {}).get(src, {})
+
+
+def mroute_oil_names(mroute):
+    """Return sorted OIF names for an mroute JSON object, excluding pimreg."""
+    return sorted([oif for oif in mroute.get("oil", {}).keys() if oif != "pimreg"])
+
+
+def check_mroute_oil(tgen, router, src, group, iif, oil):
+    """
+    Lightweight mroute check for run_and_expect polling.
+
+    Unlike verify_mroutes(), this does not use @retry and returns immediately.
+    """
+    entry = mroute_entry(tgen, router, src, group)
+    if not entry:
+        return "No mroute for ({},{}) on {}".format(src, group, router)
+    if entry.get("installed", 0) == 0:
+        return "mroute ({},{}) not installed on {}".format(src, group, router)
+
+    if isinstance(iif, str):
+        iif = [iif]
+    if entry.get("iif") not in iif:
+        return "Unexpected iif on {}: {} (expected {})".format(
+            router, entry.get("iif"), iif
+        )
+
+    oil_names = mroute_oil_names(entry)
+    if oil == "none":
+        if oil_names:
+            return "Expected no OIL on {}, got {}".format(router, oil_names)
+        return None
+
+    if isinstance(oil, str):
+        oil = [oil]
+    for oif in oil:
+        if oif not in oil_names:
+            return "Expected OIF {} on {}, got {}".format(oif, router, oil_names)
+    return None
+
+
+def _join_entries_for_group(iface_data, group):
+    """Return join entry dict for group, tolerating /32 suffix in JSON keys."""
+    if group in iface_data:
+        return iface_data[group]
+    for key, val in iface_data.items():
+        if key.split("/")[0] == group:
+            return val
+    return None
+
+
+def check_pim_join_present(tgen, router, iface, group):
+    """Return None if iface has an active PIM JOIN for group."""
+    output = tgen.gears[router].vtysh_cmd("show ip pim join json", isjson=True)
+    if iface not in output:
+        return "No PIM join data on {} {}".format(router, iface)
+    grp_data = _join_entries_for_group(output[iface], group)
+    if grp_data is None:
+        return "No PIM join for {} on {} {}".format(group, router, iface)
+    for entry in grp_data.values():
+        if entry.get("channelJoinName") == "JOIN":
+            return None
+    return "No JOIN entry for {} on {} {}".format(group, router, iface)
+
+
+def check_r3_sparse_join(tgen, group):
+    """Return None if r3 has sparse join/upstream state for an RP-covered group."""
+    join_out = tgen.gears["r3"].vtysh_cmd("show ip pim join json", isjson=True)
+    for iface_data in join_out.values():
+        if not isinstance(iface_data, dict):
+            continue
+        grp_data = _join_entries_for_group(iface_data, group)
+        if grp_data is None:
+            continue
+        for entry in grp_data.values():
+            if entry.get("channelJoinName") == "JOIN":
+                return None
+
+    up_out = tgen.gears["r3"].vtysh_cmd("show ip pim upstream json", isjson=True)
+    group_up = up_out.get(group, {})
+    for up in group_up.values():
+        if up.get("joinState") == "Joined":
+            return None
+
+    return "No sparse join/upstream state for {} on r3".format(group)
+
+
+def verify_mroute_flags(tgen, router, src, group, must_have=None, must_not_have=None):
+    """Return None if mroute flags match, else an error string."""
+    entry = mroute_entry(tgen, router, src, group)
+    if not entry:
+        return "No mroute for ({},{}) on {}".format(src, group, router)
+
+    flags = entry.get("flags", "")
+    if must_have:
+        if not flags:
+            return "No flags in mroute for ({},{}) on {}".format(src, group, router)
+        if must_have not in flags:
+            return "Expected {!r} in flags {!r} on {}".format(must_have, flags, router)
+    if must_not_have and must_not_have in flags:
+        return "Unexpected {!r} in flags {!r} on {}".format(
+            must_not_have, flags, router
+        )
+    return None
+
+
+def verify_mroute_not_installed(tgen, router, src, group):
+    """Return None if (S,G) is absent or not installed."""
+    output = tgen.gears[router].vtysh_cmd(
+        "show ip mroute {} json".format(group), isjson=True
+    )
+    if group not in output or src not in output[group]:
+        return None
+    if output[group][src].get("installed", 0) == 0:
+        return None
+    return "Unexpected installed mroute ({},{}) on {}".format(src, group, router)
+
+
+def verify_pruned_mroute_persists(tgen, router, src, group):
+    """Return None if an installed mroute exists with an empty OIL."""
+    entry = mroute_entry(tgen, router, src, group)
+    if not entry:
+        return "No mroute for ({},{}) on {}".format(src, group, router)
+    if entry.get("installed", 0) == 0:
+        return "mroute ({},{}) not installed on {}".format(src, group, router)
+    if mroute_oil_names(entry):
+        return "Expected empty OIL on pruned {}, got {}".format(
+            router, mroute_oil_names(entry)
+        )
+    return None
+
+
 def test_pim_dense_flood_prune(request):
     "Test PIM Dense mode basic functionality"
     tgen = get_topogen()
@@ -270,6 +417,8 @@ def test_pim_dense_flood_prune(request):
 
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    stop_all_hosts()
 
     step(("Send multicast traffic from H1 to dense group {}").format(DENSE_GROUP))
     result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
@@ -298,10 +447,14 @@ def test_pim_dense_flood_prune(request):
 
     step("Verify 'show ip mroute' showing routes with no OIL on all the nodes")
     for dut, data in prune_dict.items():
-        result = verify_mroutes(
-            tgen, dut, data["src_address"], DENSE_GROUP, data["iif"], data["oil"]
-        )
-        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+        def _check_pruned(dut=dut, data=data):
+            return check_mroute_oil(
+                tgen, dut, data["src_address"], DENSE_GROUP, data["iif"], data["oil"]
+            )
+
+        _, result = topotest.run_and_expect(_check_pruned, None, count=30, wait=2)
+        assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
         "Verify 'show ip pim upstream' showing correct IIF and join state on all the nodes"
@@ -809,6 +962,374 @@ def test_pim_verify_pimreg_not_in_ssm_dense(request):
     assert result is None, "Dense mode test failed: {}".format(result)
 
 
+<<<<<<< HEAD
+=======
+def test_pim_sm_dense_mode_groups(request):
+    """Verify sparse-dense picks sparse for RP groups and dense otherwise."""
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    stop_all_hosts()
+
+    step(
+        "Sparse-dense sends sparse joins for RP-covered group {} on sm-dm ifaces".format(
+            SPARSE_GROUP
+        )
+    )
+    result = app_helper.run_join("h5", SPARSE_GROUP, join_intf="h5-eth0")
+    assert result is True, "Failed to join sparse group on h5: {}".format(result)
+
+    def _sparse_join_on_smd_interface():
+        return check_r3_sparse_join(tgen, SPARSE_GROUP)
+
+    _, result = topotest.run_and_expect(
+        _sparse_join_on_smd_interface, None, count=30, wait=2
+    )
+    assert result is None, "Sparse mode check failed: {}".format(result)
+
+    stop_all_hosts()
+
+    step("Sparse-dense uses dense mode for non-RP group {}".format(DENSE_GROUP))
+    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Failed to start dense group traffic: {}".format(result)
+    result = app_helper.run_join("h6", DENSE_GROUP, join_intf="h6-eth0")
+    assert result is True, "Failed to join dense group on h6: {}".format(result)
+
+    def _dense_path_ready():
+        result = check_mroute_oil(tgen, "r6", SRC, DENSE_GROUP, "r6-eth0", "r6-eth1")
+        if result is not None:
+            return result
+        # Transit routers may lack 'D'; that flag is set on FHR dense flood.
+        return verify_mroute_flags(tgen, "r3", SRC, DENSE_GROUP, must_not_have="S")
+
+    _, result = topotest.run_and_expect(_dense_path_ready, None, count=30, wait=2)
+    assert result is None, "Dense mode check failed: {}".format(result)
+
+    stop_all_hosts()
+
+
+def test_pim_ssm_excluded_from_dense(request):
+    """Verify SSM groups are not handled as PIM dense mode."""
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    stop_all_hosts()
+
+    step("Send SSM traffic and join for ({},{})".format(SRC, SSM_GROUP))
+    result = app_helper.run_traffic("h1", SSM_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Failed to start SSM traffic: {}".format(result)
+    result = app_helper.run_join("h4", SSM_GROUP, join_intf="h4-eth0", source=SRC)
+    assert result is True, "Failed SSM join on h4: {}".format(result)
+
+    def _ssm_not_dense():
+        result = verify_mroute_flags(tgen, "r1", SRC, SSM_GROUP, must_not_have="D")
+        if result is not None:
+            return result
+        entry = mroute_entry(tgen, "r2", SRC, SSM_GROUP)
+        if entry and entry.get("installed", 0):
+            flags = entry.get("flags", "")
+            if "D" in flags:
+                return "SSM mroute incorrectly dense on r2: {!r}".format(flags)
+        return None
+
+    _, result = topotest.run_and_expect(_ssm_not_dense, None, count=60, wait=2)
+    assert result is None, "SSM dense exclusion failed: {}".format(result)
+
+    stop_all_hosts()
+
+
+def test_pim_dm_prefix_list_filter(request):
+    """Verify dm prefix-list limits dense mode to configured ranges."""
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    stop_all_hosts()
+
+    step("Group outside prefix-list must not install dense mroute on r5")
+    result = app_helper.run_traffic("h1", OUT_OF_PREFIX_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Failed to start out-of-prefix traffic: {}".format(result)
+    result = app_helper.run_join("h5", OUT_OF_PREFIX_GROUP, join_intf="h5-eth0")
+    assert result is True, "Failed join on h5 for out-of-prefix group: {}".format(
+        result
+    )
+
+    _, result = topotest.run_and_expect(
+        functools.partial(
+            verify_mroute_not_installed, tgen, "r5", SRC, OUT_OF_PREFIX_GROUP
+        ),
+        None,
+        count=30,
+        wait=2,
+    )
+    assert result is None, "Out-of-prefix dense mroute check failed: {}".format(result)
+
+    stop_all_hosts()
+
+    step("Group inside prefix-list must install dense mroute on r5")
+    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Failed to start dense traffic: {}".format(result)
+    result = app_helper.run_join("h5", DENSE_GROUP, join_intf="h5-eth0")
+    assert result is True, "Failed join on h5 for dense group: {}".format(result)
+
+    def _prefix_list_allows_dense():
+        result = check_mroute_oil(tgen, "r5", SRC, DENSE_GROUP, "r5-eth0", "r5-eth1")
+        if result is not None:
+            return result
+        # r5 is a downstream LHR; dense transit sets 'D' on core routers only.
+        return verify_mroute_flags(tgen, "r5", SRC, DENSE_GROUP, must_not_have="S")
+
+    _, result = topotest.run_and_expect(
+        _prefix_list_allows_dense, None, count=30, wait=2
+    )
+    assert result is None, "In-prefix dense mroute check failed: {}".format(result)
+
+    stop_all_hosts()
+
+
+def test_pim_dense_pruned_state_persists(request):
+    """Verify pruned (S,G) state persists on middle hops while source sends traffic."""
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    stop_all_hosts()
+
+    step("Join downstream receiver on long dense-mode path")
+    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Failed to restart dense traffic: {}".format(result)
+    result = app_helper.run_join("h6", DENSE_GROUP, join_intf="h6-eth0")
+    assert result is True, "Failed to join on h6: {}".format(result)
+
+    _, result = topotest.run_and_expect(
+        functools.partial(
+            check_mroute_oil,
+            tgen,
+            "r6",
+            SRC,
+            DENSE_GROUP,
+            "r6-eth0",
+            "r6-eth1",
+        ),
+        None,
+        count=30,
+        wait=2,
+    )
+    assert result is None, "Forwarding to h6 not ready: {}".format(result)
+
+    step("Remove receiver and wait for upstream prune")
+    app_helper.stop_host("h6")
+
+    def _middle_hops_pruned():
+        for dut in ("r2", "r3"):
+            result = check_mroute_oil(
+                tgen, dut, SRC, DENSE_GROUP, dut + "-eth0", "none"
+            )
+            if result is not None:
+                return "{} not pruned yet: {}".format(dut, result)
+        return None
+
+    _, result = topotest.run_and_expect(_middle_hops_pruned, None, count=30, wait=2)
+    assert result is None, "Prune did not propagate: {}".format(result)
+
+    step("Keep source traffic and verify pruned state persists")
+    for dut in ("r2", "r3"):
+        test_func = functools.partial(
+            verify_pruned_mroute_persists, tgen, dut, SRC, DENSE_GROUP
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=45, wait=2)
+        assert result is None, "Pruned state lost on {}: {}".format(dut, result)
+
+
+def test_pim_sparse_non_rp_upstream_cleanup(request):
+    """Verify non-RP sparse upstream cleans up after the last receiver leaves."""
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    stop_all_hosts()
+
+    step("Create sparse join state on non-RP sm-dm router r3")
+    result = app_helper.run_join("h5", SPARSE_GROUP, join_intf="h5-eth0")
+    assert result is True, "Failed to join sparse group on h5: {}".format(result)
+
+    _, result = topotest.run_and_expect(
+        functools.partial(check_r3_sparse_join, tgen, SPARSE_GROUP),
+        None,
+        count=30,
+        wait=2,
+    )
+    assert result is None, "Sparse join not present on r3: {}".format(result)
+
+    step("Remove last receiver and verify r3 upstream is not stuck joined")
+    app_helper.stop_host("h5")
+
+    def _r3_star_g_not_joined():
+        output = tgen.gears["r3"].vtysh_cmd("show ip pim upstream json", isjson=True)
+        star = output.get(SPARSE_GROUP, {}).get("*", {})
+        if not star:
+            return None
+        state = star.get("joinState", "")
+        if state == "NotJoined":
+            return None
+        return "r3 *,G upstream still {!r} for {}".format(state, SPARSE_GROUP)
+
+    _, result = topotest.run_and_expect(_r3_star_g_not_joined, None, count=60, wait=2)
+    assert result is None, "Non-RP sparse upstream cleanup failed: {}".format(result)
+
+    stop_all_hosts()
+
+
+def test_pim_dense_to_sparse_on_rp_add(request):
+    "Verify existing dense (S,G) transitions when RP is added"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    routers = ["r1", "r2", "r3", "r4", "r5", "r6"]
+
+    step("Reset dynamic RP mapping for dense test group")
+    for rname in routers:
+        tgen.gears[rname].vtysh_cmd(
+            """
+            conf t
+              router pim
+                no rp 10.0.2.1 239.0.0.0/8
+            """
+        )
+
+    step("Ensure only source traffic is active for transition check")
+    app_helper.stop_host("h4")
+    app_helper.stop_host("h5")
+    app_helper.stop_host("h6")
+    app_helper.stop_host("h1")
+    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Add downstream receiver before RP add")
+    result = app_helper.run_join("h4", DENSE_GROUP, join_intf="h4-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify dense (S,G) exists before RP add")
+
+    def _r1_dense_before_rp():
+        output = tgen.gears["r1"].vtysh_cmd("show ip pim upstream json", isjson=True)
+        group = output.get(DENSE_GROUP, {})
+        if "10.100.0.2" not in group:
+            return "No upstream for 10.100.0.2,{}".format(DENSE_GROUP)
+
+        result = verify_mroutes(
+            tgen, "r1", "10.100.0.2", DENSE_GROUP, "r1-eth1", "r1-eth0"
+        )
+        if result is not True:
+            return result
+        return None
+
+    _, result = topotest.run_and_expect(_r1_dense_before_rp, None, count=30, wait=1)
+    assert result is None, "Dense upstream not present before RP add: {}".format(result)
+
+    step("Add RP mapping for dense group range")
+    for rname in routers:
+        tgen.gears[rname].vtysh_cmd(
+            """
+            conf t
+              router pim
+                rp 10.0.2.1 239.0.0.0/8
+            """
+        )
+
+    step("Verify existing upstream transitions to sparse mode state")
+
+    def _r1_upstream_sparse():
+        output = tgen.gears["r1"].vtysh_cmd(
+            "show ip pim upstream 10.100.0.2 {} json".format(DENSE_GROUP), isjson=True
+        )
+        upstream = output.get(DENSE_GROUP, {}).get("10.100.0.2", {})
+        if not upstream:
+            return "No upstream for 10.100.0.2,{}".format(DENSE_GROUP)
+        if not upstream.get("firstHopRouter"):
+            return "Expected FHR upstream on r1 after RP add"
+        if upstream.get("rpfAddress") != "10.0.2.1":
+            return "Expected sparse RP RPF on r1 after RP add, got {}".format(
+                upstream.get("rpfAddress")
+            )
+
+        mroute = mroute_entry(tgen, "r1", "10.100.0.2", DENSE_GROUP)
+        if not mroute:
+            return "No mroute for (10.100.0.2,{}) on r1 after RP add".format(
+                DENSE_GROUP
+            )
+        if mroute.get("iif") != "r1-eth1":
+            return "Unexpected IIF on r1 after RP add: {}".format(mroute.get("iif"))
+
+        if "flags" in mroute:
+            flags = mroute["flags"]
+            if "D" in flags:
+                return "Dense (D) mroute flag still set on r1, got {!r}".format(flags)
+            if "S" not in flags:
+                return "Expected sparse (S) mroute flag on r1, got {!r}".format(flags)
+        else:
+            oil = mroute_oil_names(mroute)
+            if oil == ["r1-eth0"]:
+                return "Still using dense-style OIL on r1 after RP add: {}".format(oil)
+            if "r1-eth0" in oil:
+                return (
+                    "Unexpected dense flood OIF r1-eth0 on r1 after RP add: {}".format(
+                        oil
+                    )
+                )
+
+        return None
+
+    _, result = topotest.run_and_expect(_r1_upstream_sparse, None, count=60, wait=1)
+    assert result is None, "DM to SM transition check failed: {}".format(result)
+
+    step("Verify r1 no longer uses dense-mode OIL toward r2")
+
+    def _r1_not_dense_oil():
+        mroute = mroute_entry(tgen, "r1", "10.100.0.2", DENSE_GROUP)
+        if not mroute:
+            return "No mroute on r1 after RP add"
+        oil = mroute_oil_names(mroute)
+        if oil == ["r1-eth0"]:
+            return "Dense-style OIL still present on r1: {}".format(oil)
+        return None
+
+    _, result = topotest.run_and_expect(_r1_not_dense_oil, None, count=30, wait=1)
+    assert result is None, "Dense OIL check failed on r1: {}".format(result)
+
+    step("Remove transient RP mapping added for this test")
+    for rname in routers:
+        tgen.gears[rname].vtysh_cmd(
+            """
+            conf t
+              router pim
+                no rp 10.0.2.1 239.0.0.0/8
+            """
+        )
+
+
+>>>>>>> 88b13d7ff (tests: extend pim_dense topotest for DM mode coverage)
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
