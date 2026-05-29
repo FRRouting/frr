@@ -780,10 +780,24 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	case PIM_MSG_TYPE_BOOTSTRAP:
 	case PIM_MSG_TYPE_ASSERT:
 	case PIM_MSG_TYPE_GRAFT:
-	case PIM_MSG_TYPE_STATE_REFRESH:
-	case PIM_MSG_TYPE_GRAFT_ACK:
 		ttl = 1;
 		break;
+	case PIM_MSG_TYPE_STATE_REFRESH: {
+		struct pim_staterefresh_header *srh;
+
+		/*
+		 * IP TTL normally comes from the SR header body (RFC 3973).
+		 * If the message is truncated, use the default originator TTL.
+		 */
+		if (pim_msg_size < (int)(PIM_MSG_HEADER_LEN + sizeof(*srh))) {
+			ttl = PIM_STATEREFRESH_DEFAULT_TTL;
+			break;
+		}
+		srh = (struct pim_staterefresh_header *)(pim_msg + pim_msg_size - sizeof(*srh));
+		ttl = srh->ttl;
+		break;
+	}
+	case PIM_MSG_TYPE_GRAFT_ACK:
 	case PIM_MSG_TYPE_REGISTER:
 	case PIM_MSG_TYPE_REG_STOP:
 	case PIM_MSG_TYPE_CANDIDATE:
