@@ -1152,6 +1152,15 @@ extern int zapi_srv6_locator_chunk_encode(struct stream *s,
 					  const struct srv6_locator_chunk *c);
 extern int zapi_srv6_locator_chunk_decode(struct stream *s,
 					  struct srv6_locator_chunk *c);
+extern bool zapi_srv6_locname_decode(struct stream *s, char *buf, size_t bufsize,
+				     const char *caller);
+extern void zapi_srv6_locname_encode(struct stream *s, const char *name, const char *caller);
+
+#define ZAPI_GET_SRV6_LOCNAME(BUF, S)                                                             \
+	do {                                                                                      \
+		if (!zapi_srv6_locname_decode((S), (BUF), sizeof(BUF), __func__))                 \
+			goto stream_failure;                                                      \
+	} while (0)
 
 extern enum zclient_send_status zebra_send_pw(struct zclient *zclient,
 					      int command, struct zapi_pw *pw);
