@@ -5727,12 +5727,9 @@ int pim_show_bsr_cand_bsr(const struct vrf *vrf, struct vty *vty, bool uj)
 	}
 
 	if (uj) {
-		char buf[INET_ADDRSTRLEN];
-
 		jsondata = json_object_new_object();
-		inet_ntop(AF_INET, &scope->bsr_addrsel.run_addr, buf,
-			  sizeof(buf));
-		json_object_string_add(jsondata, "address", buf);
+		json_object_string_addf(jsondata, "address", "%pPA",
+					&scope->bsr_addrsel.run_addr);
 		json_object_int_add(jsondata, "priority", scope->cand_bsr_prio);
 		json_object_boolean_add(jsondata, "elected",
 					pim->global_scope.state == BSR_ELECTED);
