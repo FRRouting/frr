@@ -326,6 +326,8 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 	struct bsgrp_node *bsgrp;
 	struct cand_rp_group *crpgrp;
 
+	pim_crp_db_clear(scope);
+
 	event_cancel(&scope->unicast_read);
 	if (scope->unicast_sock >= 0)
 		close(scope->unicast_sock);
