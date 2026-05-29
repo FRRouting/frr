@@ -110,7 +110,7 @@ following steps will get you there on Ubuntu 22.04/24.04.
 .. code:: shell
 
    apt install libsnmp-dev
-   apt install snmpd snmp
+   apt install snmpd snmp snmptrapd
    apt install snmp-mibs-downloader
    download-mibs
    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB
