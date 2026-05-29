@@ -752,6 +752,69 @@ def _set_yang_area_attrs(router, protocol_type, area_id, attrs):
     router.vtysh_cmd("\n".join(lines))
 
 
+def test_ospf_distance_cli_routes_through_yang():
+    """The legacy single-value `distance N` / `no distance` and multi-value
+    `distance ospf intra-area X inter-area Y external Z` / `no distance ospf`
+    forms continue to work via vtysh but now route through the ietf-ospf
+    YANG `/preference/all` and `/preference/{intra-area,inter-area,external}`
+    leaves. Verify by issuing the legacy CLI and confirming the daemon's
+    running-config reflects the change exactly as before.
+
+    The OSPFv3 legacy CLI path also exercises ospf6_restart_spf with a
+    populated route table, which covers the ospf6_route_remove_all iterator
+    hardening."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    for daemon, router_block, cli_proto, no_distance in (
+        ("ospfd", "router ospf", "ospf", "no distance"),
+        ("ospf6d", "router ospf6", "ospf6", "no distance 137"),
+    ):
+        # single-value scope (preference/all)
+        r1.vtysh_cmd(
+            "configure terminal\n" "{}\n" " distance 137\n".format(router_block)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert " distance 137" in running, running
+
+        r1.vtysh_cmd(
+            "configure terminal\n" "{}\n" " {}\n".format(router_block, no_distance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert "distance 137" not in running, running
+
+        # multi-value scope (preference/intra-area + /inter-area + /external)
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "{}\n"
+            " distance {} intra-area 21 inter-area 22 external 23\n".format(
+                router_block, cli_proto
+            )
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "distance {} intra-area 21".format(cli_proto) in running
+        ), "expected 'distance {} intra-area 21' in {} running-config, got:\n{}".format(
+            cli_proto, daemon, running
+        )
+        assert "inter-area 22" in running, running
+        assert "external 23" in running, running
+
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "{}\n"
+            " no distance {}\n".format(router_block, cli_proto)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert "intra-area 21" not in running, running
+        assert "inter-area 22" not in running, running
+        assert "external 23" not in running, running
+
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+
 def test_ospf_area_cli_routes_through_yang():
     """The legacy `area X stub`, `area X stub no-summary`, `area X
     default-cost N`, and their `no` forms continue to work via vtysh but
@@ -1082,12 +1145,13 @@ def test_ospf_per_iface_cli_routes_through_yang():
     Drives `ip ospf cost N`, `ip ospf hello-interval N`, `ip ospf
     dead-interval N`, `ip ospf priority N`, `ip ospf mtu-ignore`,
     `ip ospf passive`, `ip ospf retransmit-interval N`, `ip ospf
-    transmit-delay N` and their v3 siblings via vtysh on r1-eth1
-    (which the fixture already attached to area 0 for both
-    daemons), confirms each lands in running-config, then unwinds
-    via the corresponding `no` form. Covers both the conversion
-    of the main DEFUN to DEFPY_YANG and the routing through the
-    NB callbacks landed in the per-interface slices.
+    transmit-delay N`, `ip ospf network point-to-point` and their
+    v3 siblings via vtysh on r1-eth1 (which the fixture already
+    attached to area 0 for both daemons), confirms each lands in
+    running-config, then unwinds via the corresponding `no` form.
+    Covers both the conversion of the main DEFUN to DEFPY_YANG and
+    the routing through the NB callbacks landed in the per-interface
+    slices.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -1107,6 +1171,7 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " ip ospf passive\n"
         " ip ospf retransmit-interval 23\n"
         " ip ospf transmit-delay 31\n"
+        " ip ospf network point-to-point\n"
     )
     running = r1.vtysh_cmd("show running-config ospfd")
     for expected in (
@@ -1118,6 +1183,7 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ip ospf passive",
         "ip ospf retransmit-interval 23",
         "ip ospf transmit-delay 31",
+        "ip ospf network point-to-point",
     ):
         assert (
             expected in running
@@ -1136,6 +1202,7 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " no ip ospf passive\n"
         " no ip ospf retransmit-interval\n"
         " no ip ospf transmit-delay\n"
+        " no ip ospf network\n"
     )
     running = r1.vtysh_cmd("show running-config ospfd")
     for unexpected in (
@@ -1147,6 +1214,7 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ip ospf passive",
         "ip ospf retransmit-interval 23",
         "ip ospf transmit-delay 31",
+        "ip ospf network point-to-point",
     ):
         assert (
             unexpected not in running
@@ -1164,6 +1232,7 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " ipv6 ospf6 passive\n"
         " ipv6 ospf6 retransmit-interval 23\n"
         " ipv6 ospf6 transmit-delay 31\n"
+        " ipv6 ospf6 network point-to-point\n"
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     for expected in (
@@ -1175,6 +1244,7 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ipv6 ospf6 passive",
         "ipv6 ospf6 retransmit-interval 23",
         "ipv6 ospf6 transmit-delay 31",
+        "ipv6 ospf6 network point-to-point",
     ):
         assert (
             expected in running
@@ -1193,6 +1263,7 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " no ipv6 ospf6 passive\n"
         " no ipv6 ospf6 retransmit-interval\n"
         " no ipv6 ospf6 transmit-delay\n"
+        " no ipv6 ospf6 network\n"
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     for unexpected in (
@@ -1204,6 +1275,7 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ipv6 ospf6 passive",
         "ipv6 ospf6 retransmit-interval 23",
         "ipv6 ospf6 transmit-delay 31",
+        "ipv6 ospf6 network point-to-point",
     ):
         assert (
             unexpected not in running
@@ -1216,6 +1288,44 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " ip ospf dead-interval 10\n"
         " ipv6 ospf6 hello-interval 2\n"
         " ipv6 ospf6 dead-interval 10\n"
+    )
+
+
+def test_ospf_network_dmvpn_falls_back_to_legacy():
+    """`ip ospf network point-to-point dmvpn` keeps working via the
+    legacy direct-mutation path because RFC 9129's interface-type
+    enum doesn't model the FRR-specific dmvpn flag.
+
+    The DEFPY_YANG body classifies the FRR-modifier as out-of-scope
+    for YANG and falls through to ospf_network_legacy_apply.  This
+    test confirms the running-config still shows the dmvpn modifier
+    after the conversion.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "interface r1-eth1\n"
+        " ip ospf network point-to-point dmvpn\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf network point-to-point dmvpn" in running, (
+        "expected 'ip ospf network point-to-point dmvpn' in running-config "
+        "after legacy CLI set, got:\n" + running
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "interface r1-eth1\n"
+        " no ip ospf network\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf network" not in running, (
+        "ip ospf network should be removed after CLI no form, got:\n" + running
     )
 
 
