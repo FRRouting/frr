@@ -528,7 +528,7 @@ static void pim_sock_read(struct event *t)
 
 	pim_ifp = ifp->info;
 
-	if (pim_sock_read_helper(fd, pim_ifp->pim, true) == 0)
+	if (pim_sock_read_helper(fd, pim_ifp->pim, true) != 0)
 		++pim_ifp->pim_ifstat_hello_recvfail;
 
 	pim_sock_read_on(ifp);
