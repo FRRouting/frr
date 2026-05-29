@@ -4559,6 +4559,11 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ip
 		}
 	}
 
+	if ((re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_CONNECT ||
+	     re->type == ZEBRA_ROUTE_LOCAL) &&
+	    n->nhg.nexthop && n->nhg.nexthop->next == NULL && n->afi == AFI_UNSPEC)
+		n->afi = afi;
+
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup, replace);
 
 	/* In error cases, free the route also */
