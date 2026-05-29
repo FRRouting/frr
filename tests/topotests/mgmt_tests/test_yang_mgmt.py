@@ -651,6 +651,55 @@ def test_mgmt_edit_config(request):
     )
 
 
+def test_mgmt_edit_config_with_lock(request):
+    """
+    Verify mgmt edit config with lock across multiple edits followed by commit apply.
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    reset_config_on_routers(tgen)
+
+    r1 = tgen.gears["r1"]
+
+    data1 = {"frr-interface:interface": [{"name": "eth1", "description": "eth1-desc"}]}
+    data2 = {
+        "frr-interface:interface": [
+            {"name": "eth1", "frr-zebra:zebra": {"bandwidth": 120}}
+        ]
+    }
+    r1.vtysh_cmd(
+        f"""
+conf term file-lock
+mgmt edit create /frr-interface:lib {json.dumps(data1, separators=(',', ':'))}
+mgmt edit merge /frr-interface:lib/interface[name='eth1'] {json.dumps(data2, separators=(',', ':'))}
+mgmt commit apply
+        """
+    )
+    data_out = {
+        "frr-interface:interface": [
+            {
+                "name": "eth1",
+                "description": "eth1-desc",
+                "frr-zebra:zebra": {"bandwidth": 120},
+            }
+        ]
+    }
+    assert (
+        router_json_cmp(
+            r1,
+            "show mgmt get-data /frr-interface:lib/interface[name='eth1'] only-config exact",
+            data_out,
+            exact=True,
+        )
+        == None
+    )
+
+
 def test_mgmt_chaos_stop_start_frr(request):
     """
     Kill mgmtd - verify that watch frr restarts.
