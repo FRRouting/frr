@@ -1185,6 +1185,13 @@ void ospf_ls_retransmit_delete(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 		else
 			rxmt_timer_reset = false;
 
+		/* Decrement unacked count if this LSA was counted */
+		if (ls_rxmt_node->counted_sent) {
+			ls_rxmt_node->counted_sent = false;
+			if (nbr->ls_rxmt_unacked)
+				nbr->ls_rxmt_unacked--;
+		}
+
 		lsa->retransmit_counter--;
 
 		/* Keep SA happy */
@@ -1302,8 +1309,7 @@ static void ospf_ls_retransmit_delete_nbr_if(struct ospf_interface *oi,
 			lsr = ospf_ls_retransmit_lookup(nbr, lsa);
 
 			/* If LSA find in ls-retransmit list, remove it. */
-			if (lsr != NULL &&
-			    lsr->data->ls_seqnum == lsa->data->ls_seqnum)
+			if (lsr != NULL && lsr->data->ls_seqnum == lsa->data->ls_seqnum)
 				ospf_ls_retransmit_delete(nbr, lsr);
 		}
 }
