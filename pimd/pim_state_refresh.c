@@ -42,7 +42,6 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 	uint8_t p;
 	int pim_msg_size;
 	struct pim_upstream *up;
-	struct interface *ifp2 = NULL;
 
 	pim_ifp = ifp->info;
 
@@ -187,7 +186,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 						   pim_ifp2->pim->staterefresh_time);
 
 		if (pim_msg_send(pim_ifp2->pim_sock_fd, pim_ifp2->primary_address,
-				 neigh->source_addr, pim_msg, pim_msg_size, ifp2)) {
+				 neigh->source_addr, pim_msg, pim_msg_size, neigh->interface)) {
 			zlog_warn("%s: could not send PIM message on interface %s", __func__,
 				  ifp->name);
 		}
