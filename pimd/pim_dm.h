@@ -9,8 +9,6 @@
 #ifndef PIM_DM_H
 #define PIM_DM_H
 
-#define PIM_DM_STANDARD_RANGE "232.0.0.0/8" // need to check it
-
 struct pim_instance;
 
 /* DM error codes */
