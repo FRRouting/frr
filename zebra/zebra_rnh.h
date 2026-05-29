@@ -45,6 +45,10 @@ extern void zebra_deregister_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client);
 extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 			       const struct prefix *p, safi_t safi);
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+extern void zebra_rnh_prescan_overlay_nht(struct zebra_vrf *zvrf, afi_t afi,
+			int force, const struct prefix *p, safi_t safi);
+#endif
 extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
 				  struct vty *vty, const struct prefix *p,
 				  json_object *json);
@@ -66,6 +70,8 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 
 extern struct prefix g_infovlay_prefix;
 extern struct list *g_inf_ctrl_overlay_ips;
+/* Epoch counter shared with zebra_rib.c for per-RNH SHM result caching. */
+extern uint32_t g_overlay_trkr_eval_seq;
 #ifdef __cplusplus
 }
 #endif
