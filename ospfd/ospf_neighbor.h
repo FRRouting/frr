@@ -10,6 +10,7 @@
 #include <ospfd/ospf_gr.h>
 #include <ospfd/ospf_packet.h>
 #include <ospfd/ospf_flood.h>
+#include <ospfd/ospf_nsm.h>
 
 /* Neighbor Data Structure */
 struct ospf_neighbor {
@@ -70,8 +71,8 @@ struct ospf_neighbor {
 
 	/* Statistics */
 	struct timeval ts_last_progress; /* last advance of NSM            */
-	struct timeval ts_last_regress;  /* last regressive NSM change     */
-	const char *last_regress_str;    /* Event which last regressed NSM */
+	struct timeval ts_last_regress;	 /* last regressive NSM change     */
+	const char *last_regress_str;	 /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
 	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmitted.  */
 	uint64_t dead_timer_resets;	 /* Number of times dead-timer was reset RFC4222 rec 2*/
@@ -81,6 +82,11 @@ struct ospf_neighbor {
 
 	/* ospf graceful restart HELPER info */
 	struct ospf_helper_info gr_helper_info;
+
+	uint32_t ls_rxmt_unacked; /* count of sent but unacked retransmit LSAs */
+
+	/* RFC4222/R5: linkage for per-interface adjacency pacing queue */
+	struct ospf_pacing_queue_item pacing_link;
 };
 
 /* Macros. */
