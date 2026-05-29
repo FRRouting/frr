@@ -154,6 +154,7 @@ class Topogen(object):
         self.peern = 1
         self.cfg_gen = 0
         self.exabgp_cmd = None
+        self.topology_stopped = False
         self._init_topo(topodef)
 
         logger.info("loading topology: {}".format(self.modname))
@@ -483,6 +484,7 @@ class Topogen(object):
                 logger.error("\n...continuing after error: %s", error)
 
         logger.info("stopping topology: {}".format(self.modname))
+        self.topology_stopped = True
 
         errors = ""
         for gear in self.gears.values():

@@ -35,6 +35,18 @@ def get_pids_with_env(has_var, has_val=None):
     return result
 
 
+def _reap_zombie_children():
+    """Reap zombie child processes of the current process."""
+    while True:
+        try:
+            wpid, status = os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            break
+        if wpid == 0:
+            break
+        logging.debug("Reaped child pid %s status %s", wpid, status)
+
+
 def _kill_piddict(pids_by_upid, sig):
     ourpid = str(os.getpid())
     for upid, pids in pids_by_upid:
@@ -104,6 +116,7 @@ def _cleanup_pids(ours, rundir):
 
     pids_by_upid = _get_pids_by_upid(ours, rundir).items()
     _kill_piddict(pids_by_upid, signal.SIGKILL)
+    _reap_zombie_children()
 
 
 def cleanup_current():
@@ -112,6 +125,10 @@ def cleanup_current():
     Currently this only scans for old processes.
     """
     _cleanup_pids(True, None)
+    # Reap any mutini/nsenter zombies left as direct children of this xdist
+    # worker.  SIGKILL above does not waitpid(); unreaped zombies prevent the
+    # worker process from exiting and block the pytest-xdist controller.
+    _reap_zombie_children()
 
 
 def cleanup_previous(rundir=None):
