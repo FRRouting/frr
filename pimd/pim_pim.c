@@ -380,13 +380,13 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		rv = pim_graft_recv(ifp, neigh, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
 				    pim_msg_len - PIM_MSG_HEADER_LEN, PIM_MSG_TYPE_GRAFT);
 
-		/* dm: send ack */
+		/* dm: send ack (RFC 3973: Graft-Ack is unicast to Graft sender) */
 		pim_ifp = ifp->info;
 		if (!pim_ifp->pim_passive_enable) {
-			pim_msg_build_header(sg.src, qpim_all_pim_routers_addr, pim_msg,
+			pim_msg_build_header(pim_ifp->primary_address, sg.src, pim_msg,
 					     pim_msg_len, PIM_MSG_TYPE_GRAFT_ACK, false);
-			pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
-				     qpim_all_pim_routers_addr, pim_msg, pim_msg_len, ifp);
+			pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address, sg.src,
+				     pim_msg, pim_msg_len, ifp);
 		}
 		return rv;
 		break;
