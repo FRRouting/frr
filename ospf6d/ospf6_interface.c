@@ -2494,31 +2494,34 @@ DEFPY(no_ipv6_ospf6_gr_hdelay,
 }
 
 /* interface variable set command */
-DEFUN (ipv6_ospf6_transmitdelay,
+DEFPY_YANG (ipv6_ospf6_transmitdelay,
        ipv6_ospf6_transmitdelay_cmd,
-       "ipv6 ospf6 transmit-delay (1-3600)",
+       "ipv6 ospf6 transmit-delay (1-3600)$interval",
        IP6_STR
        OSPF6_STR
        "Link state transmit delay\n"
        SECONDS_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_number = 3;
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
+				  "/transmit-delay") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, interval_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
-
-	oi->transdelay = strmatch(argv[0]->text, "no")
-				 ? OSPF6_INTERFACE_TRANSDELAY
-				 : strtoul(argv[idx_number]->arg, NULL, 10);
+	oi->transdelay = interval;
 	return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_ospf6_transmitdelay,
+DEFPY_YANG (no_ipv6_ospf6_transmitdelay,
        no_ipv6_ospf6_transmitdelay_cmd,
        "no ipv6 ospf6 transmit-delay [(1-3600)]",
        NO_STR
@@ -2526,33 +2529,55 @@ ALIAS (ipv6_ospf6_transmitdelay,
        OSPF6_STR
        "Link state transmit delay\n"
        SECONDS_STR)
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
+	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
+				  "/transmit-delay") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+	oi->transdelay = OSPF6_INTERFACE_TRANSDELAY;
+	return CMD_SUCCESS;
+}
 
 /* interface variable set command */
-DEFUN (ipv6_ospf6_retransmitinterval,
+DEFPY_YANG (ipv6_ospf6_retransmitinterval,
        ipv6_ospf6_retransmitinterval_cmd,
-       "ipv6 ospf6 retransmit-interval (1-65535)",
+       "ipv6 ospf6 retransmit-interval (1-65535)$interval",
        IP6_STR
        OSPF6_STR
        "Time between retransmitting lost link state advertisements\n"
        SECONDS_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_number = 3;
 	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
 	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
+				  "/retransmit-interval") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, interval_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
-
-	oi->rxmt_interval = strmatch(argv[0]->text, "no")
-				    ? OSPF_RETRANSMIT_INTERVAL_DEFAULT
-				    : strtoul(argv[idx_number]->arg, NULL, 10);
+	oi->rxmt_interval = interval;
 	return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_ospf6_retransmitinterval,
+DEFPY_YANG (no_ipv6_ospf6_retransmitinterval,
        no_ipv6_ospf6_retransmitinterval_cmd,
        "no ipv6 ospf6 retransmit-interval [(1-65535)]",
        NO_STR
@@ -2560,6 +2585,25 @@ ALIAS (ipv6_ospf6_retransmitinterval,
        OSPF6_STR
        "Time between retransmitting lost link state advertisements\n"
        SECONDS_STR)
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+	char xpath[XPATH_MAXLEN];
+
+	assert(ifp);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
+				  "/retransmit-interval") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+	oi->rxmt_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
+	return CMD_SUCCESS;
+}
 
 void ospf6_priority_recompute(struct ospf6_interface *oi)
 {

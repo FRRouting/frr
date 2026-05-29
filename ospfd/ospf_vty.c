@@ -9157,77 +9157,57 @@ DEFPY_YANG_HIDDEN (no_ospf_priority,
 	return ospf_priority_unset_apply(vty, ifp, ifaddr_str);
 }
 
-DEFUN (ip_ospf_retransmit_interval,
-       ip_ospf_retransmit_interval_addr_cmd,
-       "ip ospf retransmit-interval (1-65535) [A.B.C.D]",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n"
-       "Seconds\n"
-       "Address of interface\n")
+static int ospf_retransmit_interval_set_apply(struct vty *vty, struct interface *ifp,
+					      uint32_t seconds, const char *ifaddr_str)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	uint32_t seconds;
-	struct in_addr addr;
 	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
+	char xpath[XPATH_MAXLEN];
+	char buf[16];
+
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp,
+						"/retransmit-interval") == 0) {
+		snprintf(buf, sizeof(buf), "%u", seconds);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
 	params = IF_DEF_PARAMS(ifp);
-
-	argv_find(argv, argc, "(1-65535)", &idx);
-	seconds = strtol(argv[idx]->arg, NULL, 10);
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		if (!inet_aton(argv[idx]->arg, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_get_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
 
 	SET_IF_PARAM(params, retransmit_interval);
 	params->retransmit_interval = seconds;
-
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (ospf_retransmit_interval,
-              ospf_retransmit_interval_cmd,
-              "ospf retransmit-interval (1-65535) [A.B.C.D]",
-              "OSPF interface commands\n"
-              "Time between retransmitting lost link state advertisements\n"
-              "Seconds\n"
-              "Address of interface\n")
+static int ospf_retransmit_interval_unset_apply(struct vty *vty, struct interface *ifp,
+						const char *ifaddr_str)
 {
-	return ip_ospf_retransmit_interval(self, vty, argc, argv);
-}
-
-DEFUN (no_ip_ospf_retransmit_interval,
-       no_ip_ospf_retransmit_interval_addr_cmd,
-       "no ip ospf retransmit-interval [(1-65535)] [A.B.C.D]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n"
-       "Seconds\n"
-       "Address of interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	struct in_addr addr;
 	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
+	char xpath[XPATH_MAXLEN];
+
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp,
+						"/retransmit-interval") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	params = IF_DEF_PARAMS(ifp);
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		if (!inet_aton(argv[idx]->arg, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_lookup_if_params(ifp, addr);
 		if (params == NULL)
 			return CMD_SUCCESS;
@@ -9240,20 +9220,63 @@ DEFUN (no_ip_ospf_retransmit_interval,
 		ospf_free_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
-
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ospf_retransmit_interval,
+DEFPY_YANG (ip_ospf_retransmit_interval,
+       ip_ospf_retransmit_interval_addr_cmd,
+       "ip ospf retransmit-interval (1-65535)$seconds [A.B.C.D]$ifaddr",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Time between retransmitting lost link state advertisements\n"
+       "Seconds\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_retransmit_interval_set_apply(vty, ifp, seconds, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (ospf_retransmit_interval,
+              ospf_retransmit_interval_cmd,
+              "ospf retransmit-interval (1-65535)$seconds [A.B.C.D]$ifaddr",
+              "OSPF interface commands\n"
+              "Time between retransmitting lost link state advertisements\n"
+              "Seconds\n"
+              "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_retransmit_interval_set_apply(vty, ifp, seconds, ifaddr_str);
+}
+
+DEFPY_YANG (no_ip_ospf_retransmit_interval,
+       no_ip_ospf_retransmit_interval_addr_cmd,
+       "no ip ospf retransmit-interval [(1-65535) [A.B.C.D]$ifaddr]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Time between retransmitting lost link state advertisements\n"
+       "Seconds\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_retransmit_interval_unset_apply(vty, ifp, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (no_ospf_retransmit_interval,
        no_ospf_retransmit_interval_cmd,
-       "no ospf retransmit-interval [(1-65535)] [A.B.C.D]",
+       "no ospf retransmit-interval [(1-65535) [A.B.C.D]$ifaddr]",
        NO_STR
        "OSPF interface commands\n"
        "Time between retransmitting lost link state advertisements\n"
        "Seconds\n"
        "Address of interface\n")
 {
-	return no_ip_ospf_retransmit_interval(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_retransmit_interval_unset_apply(vty, ifp, ifaddr_str);
 }
 
 DEFPY(ip_ospf_retransmit_window, ip_ospf_retransmit_window_addr_cmd,
@@ -9343,77 +9366,57 @@ DEFPY (no_ip_ospf_gr_hdelay,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_ospf_transmit_delay,
-       ip_ospf_transmit_delay_addr_cmd,
-       "ip ospf transmit-delay (1-65535) [A.B.C.D]",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Link state transmit delay\n"
-       "Seconds\n"
-       "Address of interface\n")
+static int ospf_transmit_delay_set_apply(struct vty *vty, struct interface *ifp,
+					 uint32_t seconds, const char *ifaddr_str)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	uint32_t seconds;
-	struct in_addr addr;
 	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
+	char xpath[XPATH_MAXLEN];
+	char buf[16];
+
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp,
+						"/transmit-delay") == 0) {
+		snprintf(buf, sizeof(buf), "%u", seconds);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, buf);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	params = IF_DEF_PARAMS(ifp);
-	argv_find(argv, argc, "(1-65535)", &idx);
-	seconds = strtol(argv[idx]->arg, NULL, 10);
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		if (!inet_aton(argv[idx]->arg, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_get_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
 
 	SET_IF_PARAM(params, transmit_delay);
 	params->transmit_delay = seconds;
-
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (ospf_transmit_delay,
-              ospf_transmit_delay_cmd,
-              "ospf transmit-delay (1-65535) [A.B.C.D]",
-              "OSPF interface commands\n"
-              "Link state transmit delay\n"
-              "Seconds\n"
-              "Address of interface\n")
+static int ospf_transmit_delay_unset_apply(struct vty *vty, struct interface *ifp,
+					   const char *ifaddr_str)
 {
-	return ip_ospf_transmit_delay(self, vty, argc, argv);
-}
-
-DEFUN (no_ip_ospf_transmit_delay,
-       no_ip_ospf_transmit_delay_addr_cmd,
-       "no ip ospf transmit-delay [(1-65535)] [A.B.C.D]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Link state transmit delay\n"
-       "Seconds\n"
-       "Address of interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx = 0;
-	struct in_addr addr;
 	struct ospf_if_params *params;
+	struct in_addr addr = { .s_addr = 0L };
+	char xpath[XPATH_MAXLEN];
+
+	if (!ifaddr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp,
+						"/transmit-delay") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	params = IF_DEF_PARAMS(ifp);
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		if (!inet_aton(argv[idx]->arg, &addr)) {
+	if (ifaddr_str) {
+		if (!inet_aton(ifaddr_str, &addr)) {
 			vty_out(vty,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
 		params = ospf_lookup_if_params(ifp, addr);
 		if (params == NULL)
 			return CMD_SUCCESS;
@@ -9426,21 +9429,63 @@ DEFUN (no_ip_ospf_transmit_delay,
 		ospf_free_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
-
 	return CMD_SUCCESS;
 }
 
+DEFPY_YANG (ip_ospf_transmit_delay,
+       ip_ospf_transmit_delay_addr_cmd,
+       "ip ospf transmit-delay (1-65535)$seconds [A.B.C.D]$ifaddr",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Link state transmit delay\n"
+       "Seconds\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-DEFUN_HIDDEN (no_ospf_transmit_delay,
+	return ospf_transmit_delay_set_apply(vty, ifp, seconds, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (ospf_transmit_delay,
+              ospf_transmit_delay_cmd,
+              "ospf transmit-delay (1-65535)$seconds [A.B.C.D]$ifaddr",
+              "OSPF interface commands\n"
+              "Link state transmit delay\n"
+              "Seconds\n"
+              "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_transmit_delay_set_apply(vty, ifp, seconds, ifaddr_str);
+}
+
+DEFPY_YANG (no_ip_ospf_transmit_delay,
+       no_ip_ospf_transmit_delay_addr_cmd,
+       "no ip ospf transmit-delay [(1-65535) [A.B.C.D]$ifaddr]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Link state transmit delay\n"
+       "Seconds\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_transmit_delay_unset_apply(vty, ifp, ifaddr_str);
+}
+
+DEFPY_YANG_HIDDEN (no_ospf_transmit_delay,
               no_ospf_transmit_delay_cmd,
-              "no ospf transmit-delay [(1-65535) [A.B.C.D]]",
+              "no ospf transmit-delay [(1-65535) [A.B.C.D]$ifaddr]",
               NO_STR
               "OSPF interface commands\n"
               "Link state transmit delay\n"
               "Seconds\n"
               "Address of interface\n")
 {
-	return no_ip_ospf_transmit_delay(self, vty, argc, argv);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	return ospf_transmit_delay_unset_apply(vty, ifp, ifaddr_str);
 }
 
 /*

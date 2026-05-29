@@ -1081,7 +1081,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
 
     Drives `ip ospf cost N`, `ip ospf hello-interval N`, `ip ospf
     dead-interval N`, `ip ospf priority N`, `ip ospf mtu-ignore`,
-    `ip ospf passive` and their v3 siblings via vtysh on r1-eth1
+    `ip ospf passive`, `ip ospf retransmit-interval N`, `ip ospf
+    transmit-delay N` and their v3 siblings via vtysh on r1-eth1
     (which the fixture already attached to area 0 for both
     daemons), confirms each lands in running-config, then unwinds
     via the corresponding `no` form. Covers both the conversion
@@ -1104,6 +1105,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " ip ospf priority 19\n"
         " ip ospf mtu-ignore\n"
         " ip ospf passive\n"
+        " ip ospf retransmit-interval 23\n"
+        " ip ospf transmit-delay 31\n"
     )
     running = r1.vtysh_cmd("show running-config ospfd")
     for expected in (
@@ -1113,6 +1116,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ip ospf priority 19",
         "ip ospf mtu-ignore",
         "ip ospf passive",
+        "ip ospf retransmit-interval 23",
+        "ip ospf transmit-delay 31",
     ):
         assert (
             expected in running
@@ -1129,6 +1134,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " no ip ospf priority\n"
         " no ip ospf mtu-ignore\n"
         " no ip ospf passive\n"
+        " no ip ospf retransmit-interval\n"
+        " no ip ospf transmit-delay\n"
     )
     running = r1.vtysh_cmd("show running-config ospfd")
     for unexpected in (
@@ -1138,6 +1145,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ip ospf priority 19",
         "ip ospf mtu-ignore",
         "ip ospf passive",
+        "ip ospf retransmit-interval 23",
+        "ip ospf transmit-delay 31",
     ):
         assert (
             unexpected not in running
@@ -1153,6 +1162,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " ipv6 ospf6 priority 19\n"
         " ipv6 ospf6 mtu-ignore\n"
         " ipv6 ospf6 passive\n"
+        " ipv6 ospf6 retransmit-interval 23\n"
+        " ipv6 ospf6 transmit-delay 31\n"
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     for expected in (
@@ -1162,6 +1173,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ipv6 ospf6 priority 19",
         "ipv6 ospf6 mtu-ignore",
         "ipv6 ospf6 passive",
+        "ipv6 ospf6 retransmit-interval 23",
+        "ipv6 ospf6 transmit-delay 31",
     ):
         assert (
             expected in running
@@ -1178,6 +1191,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
         " no ipv6 ospf6 priority\n"
         " no ipv6 ospf6 mtu-ignore\n"
         " no ipv6 ospf6 passive\n"
+        " no ipv6 ospf6 retransmit-interval\n"
+        " no ipv6 ospf6 transmit-delay\n"
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     for unexpected in (
@@ -1187,6 +1202,8 @@ def test_ospf_per_iface_cli_routes_through_yang():
         "ipv6 ospf6 priority 19",
         "ipv6 ospf6 mtu-ignore",
         "ipv6 ospf6 passive",
+        "ipv6 ospf6 retransmit-interval 23",
+        "ipv6 ospf6 transmit-delay 31",
     ):
         assert (
             unexpected not in running
