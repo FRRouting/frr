@@ -1007,6 +1007,74 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
     assert "ipv6 ospf6 dead-interval 10" in running, running
 
 
+def test_ospf_yang_area_interface_transmit_delay_config():
+    """areas/area[id]/interfaces/interface[name]/transmit-delay via mgmtd.
+
+    Round-trips the per-interface transmit-delay leaf on both
+    daemons: set via mgmt, verify in `show running-config`, delete
+    via mgmt, verify the line is gone and FRR is back at the
+    compile-time default (OSPF_TRANSMIT_DELAY_DEFAULT for ospfd,
+    OSPF6_INTERFACE_TRANSDELAY for ospf6d -- both 1).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # OSPFv2
+    area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+    iface_path = area_path + "/interfaces/interface[name='r1-eth1']"
+    leaf_path = iface_path + "/transmit-delay"
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {} 17\n"
+        "mgmt commit apply".format(leaf_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf transmit-delay 17" in running, (
+        "expected 'ip ospf transmit-delay 17' in running-config after YANG set, got:\n"
+        + running
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}\n"
+        "mgmt commit apply".format(leaf_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf transmit-delay" not in running, (
+        "ip ospf transmit-delay should be removed after YANG delete, got:\n" + running
+    )
+
+    # OSPFv3
+    area_path = _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+    iface_path = area_path + "/interfaces/interface[name='r1-eth1']"
+    leaf_path = iface_path + "/transmit-delay"
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {} 19\n"
+        "mgmt commit apply".format(leaf_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "ipv6 ospf6 transmit-delay 19" in running, (
+        "expected 'ipv6 ospf6 transmit-delay 19' in running-config after YANG set, got:\n"
+        + running
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}\n"
+        "mgmt commit apply".format(leaf_path)
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "ipv6 ospf6 transmit-delay" not in running, (
+        "ipv6 ospf6 transmit-delay should be removed after YANG delete, got:\n" + running
+    )
+
+
 def test_ospf_per_iface_cli_routes_through_yang():
     """legacy per-interface CLI commands route through the
     ietf-ospf YANG layer when the interface is in an area.

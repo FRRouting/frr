@@ -1224,6 +1224,57 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy(
 	return NB_OK;
 }
 
+/* XPath: .../interface/transmit-delay */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	SET_IF_PARAM(params, transmit_delay);
+	params->transmit_delay = yang_dnode_get_uint16(args->dnode, NULL);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, transmit_delay);
+	params->transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
+	return NB_OK;
+}
+
 /*
  * Helper for areas/area/ranges/range list and per-leaf callbacks:
  * walk up to the range list entry, extract the prefix key, narrow to

@@ -104,8 +104,8 @@ Configuration write support is intentionally limited to CLI-equivalent RFC 9129
 leaves. The converted leaves are router-id, preference, area lifecycle,
 area-type, area summary, OSPFv2 default-cost, area ranges, per-interface area
 attachment, interface cost, hello-interval, dead-interval, retransmit-interval,
-priority, mtu-ignore, interface-type, and passive. Existing CLI commands for
-those leaves set the same YANG nodes as mgmtd writes.
+priority, mtu-ignore, transmit-delay, interface-type, and passive. Existing CLI
+commands for those leaves set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
 ---------------------------
@@ -204,6 +204,9 @@ The current config-write mapping is:
 |                               | neighbor-change side effect |                             | change when priority moves. |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/mtu-ignore``      | ``params->mtu_ignore``      | ``oi->mtu_ignore``          | Destroy restores false.     |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/transmit-delay``  | ``params->transmit_delay``; | ``oi->transdelay``; destroy | Passive flood-time scalar;  |
+|                               | destroy restores ``1``      | restores ``1``              | no protocol side effects.   |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/interface-type``  | ``params->type`` / OSPF     | ``oi->type`` with           | Loopback and unsupported    |
 |                               | interface type side effects | ``type_cfg`` marker         | enum values are rejected at |

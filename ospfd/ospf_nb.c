@@ -327,6 +327,15 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/transmit-delay",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface/interface-type",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify,

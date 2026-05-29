@@ -1050,6 +1050,59 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy(
 	return NB_OK;
 }
 
+/* XPath: .../interface/transmit-delay */
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_transmit_delay_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
+						 args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		return NB_OK;
+
+	oi->transdelay = yang_dnode_get_uint16(args->dnode, NULL);
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_transmit_delay_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf6, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	oi = (struct ospf6_interface *)ifp->info;
+	if (!oi)
+		return NB_OK;
+
+	oi->transdelay = OSPF6_INTERFACE_TRANSDELAY;
+	return NB_OK;
+}
+
 /*
  * Helper for areas/area/ranges/range callbacks: extract the prefix
  * key as struct prefix (libyang gives us the full prefix, callers narrow
