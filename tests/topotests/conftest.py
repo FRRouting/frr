@@ -508,17 +508,39 @@ def setup_coverage(config):
     commander = Commander("pytest")
     if config.option.cov_frr_build_dir:
         bdir = Path(config.option.cov_frr_build_dir).resolve()
-        output = commander.cmd_raises(f"find {bdir} -name zebra_nb.gcno").strip()
     else:
         # Support build sub-directory of main source dir
         bdir = Path(__file__).resolve().parent.parent.parent
-        output = commander.cmd_raises(f"find {bdir} -name zebra_nb.gcno").strip()
-    m = re.match(f"({bdir}.*)/zebra/zebra_nb.gcno", output)
-    if not m:
-        logger.warning(
-            "No coverage data files (*.gcno) found, try specifying --cov-frr-build-dir"
+
+    if not bdir.is_dir():
+        pytest.exit(
+            "--cov-topotest: build directory does not exist: "
+            f"{bdir}\nCheck --cov-frr-build-dir."
         )
-        return
+
+    rc, output, _ = commander.cmd_status(f"find {bdir} -name zebra_nb.gcno")
+    output = output.strip() if output else ""
+    if rc != 0 or not output:
+        output = ""
+
+    m = re.match(f"({re.escape(str(bdir))}.*)/zebra/zebra_nb.gcno", output)
+    if not m:
+        build_dir_hint = ""
+        if config.option.cov_frr_build_dir:
+            build_dir_hint = f"\n  --cov-frr-build-dir={bdir}"
+        else:
+            build_dir_hint = (
+                "\nIf FRR was built in a separate directory, also pass:"
+                "\n  --cov-frr-build-dir=/path/to/build"
+            )
+        pytest.exit(
+            "--cov-topotest requires FRR to be built with --enable-gcov.\n"
+            f"No *.gcno files found under {bdir} (looked for zebra/zebra_nb.gcno)."
+            "\n\nRebuild FRR with coverage enabled, then reinstall:"
+            "\n  ../configure ... --enable-gcov"
+            "\n  make clean && make && sudo make install"
+            f"{build_dir_hint}"
+        )
 
     bdir = Path(m.group(1))
     # Save so we can get later from g_pytest_config
@@ -806,6 +828,15 @@ def pytest_runtest_makereport(item, call):
 
 
 def coverage_finish(terminalreporter, config):
+    if "FRR_BUILD_DIR" not in os.environ or "GCOV_PREFIX" not in os.environ:
+        msg = (
+            "Coverage was not initialized; skipping lcov report. "
+            "Rebuild FRR with --enable-gcov or check --cov-frr-build-dir."
+        )
+        logger.warning(msg)
+        terminalreporter.write(f"\n{msg}\n")
+        return
+
     commander = Commander("pytest")
     rundir = Path(config.option.rundir).resolve()
     bdir = Path(os.environ["FRR_BUILD_DIR"])
