@@ -140,9 +140,13 @@ static struct peer *bgpv2PeerTable_lookup(struct variable *v, oid name[],
 	struct peer *peer = NULL;
 	size_t namelen = v ? v->namelen : BGP4V2_PEER_ENTRY_OFFSET;
 	oid *offset = name + namelen;
-	sa_family_t family = name[namelen - 1] == 1 ? AF_INET : AF_INET6;
+	sa_family_t family;
 	int afi_len = IN_ADDR_SIZE;
-	size_t offsetlen = *length - namelen;
+	size_t offsetlen;
+
+	offsetlen = *length - namelen;
+
+	family = name[namelen - 1] == 1 ? AF_INET : AF_INET6;
 
 	if (family == AF_INET6)
 		afi_len = IN6_ADDR_SIZE;
@@ -426,7 +430,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		     struct bgp *bgp, struct prefix *addr, int exact)
 {
 	oid *offset;
-	int offsetlen;
+	size_t idx;
 	struct bgp_path_info *path, *min;
 	struct bgp_dest *dest;
 	union sockunion su;
@@ -439,8 +443,11 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	size_t afi_len;
 	long prefix_type = 0;
 	long peer_addr_type = 0;
-	long nrli_index = 1;
+	long nlri_index = 1;
 	long cur_index = 0;
+
+	if (namelen > (*length))
+		return NULL;
 
 	/* Bgp4V2AddressFamilyIdentifierTC limited to IPv6 */
 	if (name[namelen - 1] > IANA_AFI_IPV6)
@@ -449,72 +456,84 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	afi_len = afi == AFI_IP ? IN_ADDR_SIZE : IN6_ADDR_SIZE;
 	assert(IS_VALID_AFI(afi));
 
-#define BGP_NLRI_ENTRY_OFFSET namelen
-#define BGP4V2_NLRI_V4_V4_OFFSET IN_ADDR_SIZE + IN_ADDR_SIZE + 5
-#define BGP4V2_NLRI_V4_V6_OFFSET IN_ADDR_SIZE + IN6_ADDR_SIZE + 5
-#define BGP4V2_NLRI_V6_V6_OFFSET IN6_ADDR_SIZE + IN6_ADDR_SIZE + 5
-
-
 	sockunion_init(&su);
 
-	if (exact) {
-		if (*length - namelen != BGP4V2_NLRI_V4_V4_OFFSET &&
-		    *length - namelen != BGP4V2_NLRI_V4_V6_OFFSET &&
-		    *length - namelen != BGP4V2_NLRI_V6_V6_OFFSET)
-			return NULL;
+	/* Set OID offset for prefix type */
+	idx = namelen;
 
-		/* Set OID offset for prefix type */
-		offset = name + namelen;
+	if (exact) {
+		if (*length - idx < 2)
+			return NULL;
 
 		/* Bgp4V2SubsequentAddressFamilyIdentifierTC  */
 		/* limited to Labeled unicast */
-		if (*offset > IANA_SAFI_LABELED_UNICAST)
+		if (name[idx] > IANA_SAFI_LABELED_UNICAST)
 			return NULL;
-		safi = safi_iana2int(*offset);
-		offset++;
+		safi = safi_iana2int(name[idx]);
+		idx++;
 
 		/* get bgp4V2NlriPrefixType */
-		prefix_type = *offset;
-		offset++;
+		prefix_type = name[idx];
+		idx++;
 
 		/* get bgp4V2NlriPrefix */
 		if (prefix_type == IANA_AFI_IPV4) {
-			oid2in_addr(offset, IN_ADDR_SIZE, &addr->u.prefix4);
+			if (*length - idx < IN_ADDR_SIZE)
+				return NULL;
+
+			oid2in_addr(name + idx, IN_ADDR_SIZE, &addr->u.prefix4);
 			addr->family = AF_INET;
-			offset += IN_ADDR_SIZE;
+			idx += IN_ADDR_SIZE;
 		} else if (prefix_type == IANA_AFI_IPV6) {
-			oid2in6_addr(offset, &addr->u.prefix6);
+			if (*length - idx < IN6_ADDR_SIZE)
+				return NULL;
+
+			oid2in6_addr(name + idx, &addr->u.prefix6);
 			addr->family = AF_INET6;
-			offset += IN6_ADDR_SIZE;
+			idx += IN6_ADDR_SIZE;
+		} else {
+			return NULL;
 		}
 
+		if (*length - idx < 2)
+			return NULL;
+
 		/* get bgp4V2NlriPrefixLen */
-		addr->prefixlen = *offset;
-		offset++;
+		addr->prefixlen = name[idx];
+		idx++;
 
 		/* get bgp4V2PeerRemoteAddrType */
-		peer_addr_type = *offset;
+		peer_addr_type = name[idx];
 		if (peer_addr_type == IANA_AFI_IPV4)
 			family = AF_INET;
 		else
 			family = AF_INET6;
-		offset++;
+		idx++;
 
 		/* Peer address */
 		su.sin.sin_family = family;
 
 		/* get bgp4V2PeerRemoteAddr*/
 		if (family == AF_INET) {
-			oid2in_addr(offset, IN_ADDR_SIZE, &su.sin.sin_addr);
-			offset += IN_ADDR_SIZE;
+			if (*length - idx < IN_ADDR_SIZE)
+				return NULL;
+
+			oid2in_addr(name + idx, IN_ADDR_SIZE, &su.sin.sin_addr);
+			idx += IN_ADDR_SIZE;
 		} else {
-			oid2in6_addr(offset, &su.sin6.sin6_addr);
-			offset += IN6_ADDR_SIZE;
+			if (*length - idx < IN6_ADDR_SIZE)
+				return NULL;
+
+			oid2in6_addr(name + idx, &su.sin6.sin6_addr);
+			idx += IN6_ADDR_SIZE;
 		}
 
 		/* bgp4V2NlriIndex */
-		nrli_index = *offset;
-		offset++;
+		if (*length - idx < 1)
+			return NULL;
+
+		nlri_index = name[idx];
+		idx++;
 
 		/* Lookup node */
 		dest = bgp_node_lookup(bgp->rib[afi][safi], addr);
@@ -524,7 +543,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 				if (sockunion_same(&path->peer->connection->su,
 						   &su)) {
 					cur_index++;
-					if (cur_index == nrli_index)
+					if (cur_index == nlri_index)
 						return path;
 				}
 
@@ -534,13 +553,11 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		return NULL;
 	}
 
-	/* Set OID offset for prefix type */
-	offset = name + namelen;
-	offsetlen = *length - namelen;
-
-	if (offsetlen == 0) {
+	if (*length - idx == 0) {
 		dest = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]);
 	} else {
+		if (*length - idx < 2)
+			return NULL;
 
 		/* bgp4V2NlriAfi  is already get  */
 		/* it is comming from the name parameter */
@@ -548,35 +565,41 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		/* get bgp4V2NlriSafi */
 		/* Bgp4V2SubsequentAddressFamilyIdentifierTC */
 		/* limited to Labeled unicast */
-		if (*offset > IANA_SAFI_LABELED_UNICAST)
+		if (name[idx] > IANA_SAFI_LABELED_UNICAST)
 			return NULL;
-		safi = safi_iana2int(*offset);
-		offset++;
+		safi = safi_iana2int(name[idx]);
+		idx++;
 
 		/* get bgp4V2NlriPrefixType */
-		prefix_type = *offset;
-		offset++;
+		prefix_type = name[idx];
+		idx++;
+
 		/* get bgp4V2NlriPrefix */
 		if (prefix_type == IANA_AFI_IPV4) {
-			oid2in_addr(offset, IN_ADDR_SIZE, &addr->u.prefix4);
+			if (*length - idx < IN_ADDR_SIZE)
+				return NULL;
+
+			oid2in_addr(name + idx, IN_ADDR_SIZE, &addr->u.prefix4);
 			addr->family = AF_INET;
-			offset += IN_ADDR_SIZE;
-			offsetlen -= IN_ADDR_SIZE;
+			idx += IN_ADDR_SIZE;
 		} else if (prefix_type == IANA_AFI_IPV6) {
-			oid2in6_addr(offset, &addr->u.prefix6);
+			if (*length - idx < IN6_ADDR_SIZE)
+				return NULL;
+
+			oid2in6_addr(name + idx, &addr->u.prefix6);
 			addr->family = AF_INET6;
-			offset += IN6_ADDR_SIZE;
-			offsetlen -= IN6_ADDR_SIZE;
+			idx += IN6_ADDR_SIZE;
+		} else {
+			return NULL;
 		}
 
 		/* get bgp4V2NlriPrefixLen */
-		if (offsetlen > 0)
-			addr->prefixlen = *offset;
-		else
+		if (*length - idx > 0) {
+			addr->prefixlen = name[idx];
+			idx++;
+		} else {
 			addr->prefixlen = afi_len * 8;
-
-		offset++;
-		offsetlen--;
+		}
 
 		/* get node */
 		dest = bgp_node_lookup(bgp->rib[afi][safi], addr);
@@ -585,25 +608,33 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	if (!dest)
 		return NULL;
 
-	if (offsetlen > 0) {
+	if (*length - idx > 0) {
 		/* get bgp4V2PeerRemoteAddrType */
-		peer_addr_type = *offset;
+		peer_addr_type = name[idx];
 		if (peer_addr_type == IANA_AFI_IPV4)
 			family = AF_INET;
 		else
 			family = AF_INET6;
-		offset++;
+		idx++;
 
 		if (family == AF_INET) {
-			oid2in_addr(offset, IN_ADDR_SIZE, &paddr.ip._v4_addr);
-			offset += IN_ADDR_SIZE;
+			if (*length - idx < IN_ADDR_SIZE)
+				return NULL;
+			oid2in_addr(name + idx, IN_ADDR_SIZE, &paddr.ip._v4_addr);
+			idx += IN_ADDR_SIZE;
 		} else {
-			oid2in6_addr(offset, &paddr.ip._v6_addr);
-			offset += IN6_ADDR_SIZE;
+			if (*length - idx < IN6_ADDR_SIZE)
+				return NULL;
+			oid2in6_addr(name + idx, &paddr.ip._v6_addr);
+			idx += IN6_ADDR_SIZE;
 		}
+
+		if (*length - idx < 1)
+			return NULL;
+
 		/* get bgp4V2NlriIndex	*/
-		nrli_index = *offset;
-		offset++;
+		nlri_index = name[idx];
+		idx++;
 
 	} else {
 		/* default case  start with ipv4*/
@@ -612,7 +643,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		else
 			family = AF_INET6;
 		memset(&paddr.ip, 0, sizeof(paddr.ip));
-		nrli_index = 1;
+		nlri_index = 1;
 	}
 
 	do {
@@ -643,10 +674,10 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			    IPV4_ADDR_CMP(&paddr.ip._v4_addr,
 					  &path->peer->connection->su.sin
 						   .sin_addr) == 0) {
-				if (cur_index == nrli_index) {
+				if (cur_index == nlri_index) {
 					min = path;
 					min_family = family;
-					nrli_index++;
+					nlri_index++;
 					break;
 				}
 				cur_index++;
@@ -655,10 +686,10 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 				   IPV6_ADDR_CMP(&paddr.ip._v6_addr,
 						 &path->peer->connection->su
 							  .sin6.sin6_addr) == 0) {
-				if (cur_index == nrli_index) {
+				if (cur_index == nlri_index) {
 					min = path;
 					min_family = family;
-					nrli_index++;
+					nlri_index++;
 					break;
 				}
 				cur_index++;
@@ -741,7 +772,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 
 			/* Encode bgp4V2NlriIndex*/
 
-			*offset = nrli_index;
+			*offset = nlri_index;
 			offset++;
 
 			*length = offset - name;
@@ -755,7 +786,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		}
 
 		memset(&paddr.ip, 0, sizeof(paddr.ip));
-		nrli_index = 1;
+		nlri_index = 1;
 
 	} while ((dest = bgp_route_next(dest)));
 
