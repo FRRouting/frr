@@ -52,8 +52,8 @@ if args.dev_build:
                 basepath,
                 "grep",
                 "-l",
-                "-P",
-                r"^#\s*include.*_clippy.c",
+                "-E",
+                r"^#[ \t]*include.*_clippy.c",
                 "--",
                 "**.c",
             ]
