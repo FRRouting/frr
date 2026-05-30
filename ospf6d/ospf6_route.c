@@ -1078,9 +1078,17 @@ struct ospf6_route *ospf6_route_match_next(struct prefix *prefix,
 void ospf6_route_remove_all(struct ospf6_route_table *table)
 {
 	struct ospf6_route *route;
-	for (route = ospf6_route_head(table); route;
-	     route = ospf6_route_next(route))
+
+	/*
+	 * hook_remove may remove sibling routes from the same table, so do
+	 * not cache route->next across ospf6_route_remove().  Re-read the
+	 * head after each removal and release the iterator lock taken by
+	 * ospf6_route_head() once the table-owned lock has been dropped.
+	 */
+	while ((route = ospf6_route_head(table)) != NULL) {
 		ospf6_route_remove(route, table);
+		ospf6_route_unlock(route);
+	}
 }
 
 struct ospf6_route_table *ospf6_route_table_create(int s, int t)
