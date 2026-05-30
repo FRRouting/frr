@@ -378,6 +378,15 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/prefix-suppression",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/ranges/range",
 			.cbs = {
 				.create = ospfd_ietf_ospf_areas_area_ranges_range_create,

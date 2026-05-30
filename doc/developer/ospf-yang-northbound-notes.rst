@@ -105,8 +105,9 @@ leaves. The converted leaves are router-id, preference, spf-control paths,
 OSPFv2 mpls/ldp/igp-sync, OSPFv2 stub-router unconditional, area lifecycle,
 area-type, area summary, OSPFv2 default-cost, area ranges, per-interface area
 attachment, interface cost, hello-interval, dead-interval, retransmit-interval,
-priority, mtu-ignore, transmit-delay, interface-type, and passive. Existing CLI
-commands for those leaves set the same YANG nodes as mgmtd writes.
+priority, mtu-ignore, transmit-delay, interface-type, passive, and OSPFv2
+prefix-suppression. Existing CLI commands for those leaves set the same YANG
+nodes as mgmtd writes.
 
 Configuration Mapping Model
 ---------------------------
@@ -216,6 +217,14 @@ The current config-write mapping is:
 | ``interface/passive``         | ``params->passive_``        | ``OSPF6_INTERFACE_PASSIVE`` | Destroy restores active.    |
 |                               | ``interface`` and passive   | flag                        |                             |
 |                               | update helper               |                             |                             |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/prefix-``         | ``params->prefix_``         | Not implemented: ospf6d     | RFC 6860; toggling          |
+| ``suppression``               | ``suppression``; destroy    | has no equivalent           | reoriginates Router-LSA on  |
+|                               | restores                    | per-interface flag          | every adjacency and the     |
+|                               | ``OSPF_PREFIX_SUPPRESSION_``|                             | Network-LSA on any iface    |
+|                               | ``DEFAULT``                 |                             | where this router is DR.    |
+|                               |                             |                             | Per-address overrides stay  |
+|                               |                             |                             | on the legacy direct path.  |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/spf-control/paths``    | ``ospf->max_multipath``;    | ``ospf6->max_multipath``;   | RFC types ``paths`` as      |
 |                               | destroy restores            | destroy restores            | uint16 (1..65535) and FRR's |

@@ -10487,7 +10487,17 @@ DEFPY(ip_ospf_capability_opaque, ip_ospf_capability_opaque_addr_cmd,
 }
 
 
-DEFPY(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
+/*
+ * `[no] ip ospf prefix-suppression [A.B.C.D]` maps onto the RFC 9129
+ * per-interface boolean `/areas/area/interfaces/interface/prefix-`
+ * `suppression`.  The whole-interface form (no per-address override
+ * and the interface already in an area) routes through the YANG
+ * callback; per-address overrides stay on the legacy direct-mutation
+ * path because RFC 9129's per-interface list cannot express them, and
+ * not-yet-attached interfaces fall back too because the YANG xpath is
+ * gated on `OSPF_IF_PARAM_CONFIGURED(if_area)`.
+ */
+DEFPY_YANG(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
       "[no] ip ospf prefix-suppression [A.B.C.D]$ip_addr", NO_STR
       "IP Information\n"
       "OSPF interface commands\n"
@@ -10498,6 +10508,16 @@ DEFPY(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
 	struct route_node *rn;
 	bool prefix_suppression_change;
 	struct ospf_if_params *params;
+	char xpath[XPATH_MAXLEN];
+
+	if (!ip_addr_str && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp,
+						 "/prefix-suppression") == 0) {
+		if (no)
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		else
+			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	params = IF_DEF_PARAMS(ifp);
 

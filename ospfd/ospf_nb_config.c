@@ -2110,3 +2110,101 @@ int ospfd_ietf_ospf_stub_router_always_destroy(struct nb_cb_destroy_args *args)
 	ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET;
 	return NB_OK;
 }
+
+/*
+ * Reorigninate the Router-LSA (and Network-LSA when DR) on every OSPF
+ * interface attached to `ifp`, mirroring the legacy `ip ospf
+ * prefix-suppression` DEFPY's per-interface fan-out so the LSA contents
+ * track the flag change immediately.
+ */
+static void ospfd_ietf_ospf_prefix_suppression_lsa_update(struct interface *ifp)
+{
+	struct route_node *rn;
+
+	if (!IF_OSPF_IF_INFO(ifp) || !IF_OIFS(ifp))
+		return;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi = rn->info;
+
+		if (oi && oi->state > ISM_Down) {
+			(void)ospf_router_lsa_update_area(oi->area);
+			if (oi->state == ISM_DR)
+				ospf_network_lsa_update(oi);
+		}
+	}
+}
+
+/*
+ * XPath: .../interface/prefix-suppression
+ *
+ * Per-interface prefix-suppression flag (RFC 6860).  Mirrors the
+ * legacy `ip ospf prefix-suppression` CLI's whole-interface form
+ * (per-address overrides stay on the legacy direct path because RFC
+ * 9129 doesn't model them).  Toggling the flag reoriginates the
+ * Router-LSA on every adjacency, plus the Network-LSA on any
+ * interface where this router is the DR.
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	bool old_value, new_value;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (!ospfd_ietf_ospf_ensure_if_info(ifp))
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	old_value = params->prefix_suppression;
+	new_value = yang_dnode_get_bool(args->dnode, NULL);
+	if (new_value != OSPF_PREFIX_SUPPRESSION_DEFAULT)
+		SET_IF_PARAM(params, prefix_suppression);
+	else
+		UNSET_IF_PARAM(params, prefix_suppression);
+	params->prefix_suppression = new_value;
+	if (old_value != new_value)
+		ospfd_ietf_ospf_prefix_suppression_lsa_update(ifp);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	bool old_value;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	if (!ospfd_ietf_ospf_ensure_if_info(ifp))
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	old_value = params->prefix_suppression;
+	UNSET_IF_PARAM(params, prefix_suppression);
+	params->prefix_suppression = OSPF_PREFIX_SUPPRESSION_DEFAULT;
+	if (old_value != OSPF_PREFIX_SUPPRESSION_DEFAULT)
+		ospfd_ietf_ospf_prefix_suppression_lsa_update(ifp);
+	return NB_OK;
+}

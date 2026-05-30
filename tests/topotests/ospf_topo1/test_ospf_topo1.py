@@ -1535,6 +1535,70 @@ def test_ospf_yang_mpls_ldp_igp_sync_config():
     ), "mpls ldp-sync should be gone after YANG delete, got:\n{}".format(running)
 
 
+def test_ospf_yang_prefix_suppression_config():
+    """per-interface prefix-suppression round-trip via mgmtd (OSPFv2 only)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    iface = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/prefix-suppression true\n"
+        "mgmt commit apply".format(iface)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "ip ospf prefix-suppression" in running
+    ), "expected 'ip ospf prefix-suppression' after YANG set, got:\n{}".format(running)
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}/prefix-suppression\n"
+        "mgmt commit apply".format(iface)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "ip ospf prefix-suppression" not in running
+    ), "'ip ospf prefix-suppression' should be gone after YANG delete, got:\n{}".format(
+        running
+    )
+
+
+def test_ospf_prefix_suppression_cli_routes_through_yang():
+    """Legacy `ip ospf prefix-suppression` / `no ip ospf prefix-suppression`
+    on r1-eth1 (no per-address override) drives the YANG callback."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "interface r1-eth1\n"
+        " ip ospf prefix-suppression\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "ip ospf prefix-suppression" in running
+    ), "expected 'ip ospf prefix-suppression' after CLI set, got:\n{}".format(running)
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "interface r1-eth1\n"
+        " no ip ospf prefix-suppression\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "ip ospf prefix-suppression" not in running
+    ), "'ip ospf prefix-suppression' should be gone after 'no', got:\n{}".format(running)
+
+
 def test_ospf_max_metric_router_lsa_admin_cli_routes_through_yang():
     """Legacy `max-metric router-lsa administrative` / `no max-metric
     router-lsa administrative` continues to work via vtysh and drives
