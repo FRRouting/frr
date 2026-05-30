@@ -35,6 +35,7 @@
 #include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
+#include "northbound_cli.h"
 #include "ospf6d/ospf6_gr_helper_clippy.c"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_GR_HELPER, "OSPF6 Graceful restart helper");
@@ -613,7 +614,7 @@ void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
  * Returns:
  *    Nothing.
  */
-static void ospf6_gr_helper_support_set(struct ospf6 *ospf6, bool support)
+void ospf6_gr_helper_support_set(struct ospf6 *ospf6, bool support)
 {
 	struct ospf6_interface *oi;
 	struct advRtr lookup;
@@ -668,7 +669,7 @@ static void ospf6_gr_helper_support_set(struct ospf6 *ospf6, bool support)
  * Returns:
  *    Nothing.
  */
-static void ospf6_gr_helper_lsacheck_set(struct ospf6 *ospf6, bool enabled)
+void ospf6_gr_helper_lsacheck_set(struct ospf6 *ospf6, bool enabled)
 {
 	if (ospf6->ospf6_helper_cfg.strict_lsa_check == enabled)
 		return;
@@ -1017,8 +1018,13 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 	}
 }
 
-/* Graceful Restart HELPER  config Commands */
-DEFPY(ospf6_gr_helper_enable,
+/*
+ * `graceful-restart helper enable` maps onto RFC 9129
+ * `/graceful-restart/helper-enabled`.  The per-router-id form has no
+ * RFC counterpart; the YANG model has no enable-list, so the per-
+ * router-id case stays on the legacy direct mutation path.
+ */
+DEFPY_YANG(ospf6_gr_helper_enable,
       ospf6_gr_helper_enable_cmd,
       "graceful-restart helper enable [A.B.C.D$rtr_id]",
       "ospf6 graceful restart\n"
@@ -1027,21 +1033,22 @@ DEFPY(ospf6_gr_helper_enable,
       "Advertisement Router-ID\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	char xpath[XPATH_MAXLEN];
 
 	if (rtr_id_str != NULL) {
-
 		ospf6_gr_helper_support_set_per_routerid(ospf6, rtr_id,
 							 OSPF6_TRUE);
-
 		return CMD_SUCCESS;
 	}
 
-	ospf6_gr_helper_support_set(ospf6, OSPF6_TRUE);
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+				     "/graceful-restart/helper-enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(ospf6_gr_helper_disable,
+DEFPY_YANG(ospf6_gr_helper_disable,
       ospf6_gr_helper_disable_cmd,
       "no graceful-restart helper enable [A.B.C.D$rtr_id]",
       NO_STR
@@ -1051,21 +1058,29 @@ DEFPY(ospf6_gr_helper_disable,
       "Advertisement Router-ID\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	char xpath[XPATH_MAXLEN];
 
 	if (rtr_id_str != NULL) {
-
 		ospf6_gr_helper_support_set_per_routerid(ospf6, rtr_id,
 							 OSPF6_FALSE);
-
 		return CMD_SUCCESS;
 	}
 
-	ospf6_gr_helper_support_set(ospf6, OSPF6_FALSE);
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+				     "/graceful-restart/helper-enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(ospf6_gr_helper_disable_lsacheck,
+/*
+ * ospf6d's strict-LSA-check CLI uses an inverted form
+ * (`graceful-restart helper lsa-check-disable` to disable strict
+ * checking, `no ...` to restore it) -- v2 uses the positive form.
+ * The YANG leaf is positive (`helper-strict-lsa-checking`), so this
+ * shim flips the meaning before enqueueing.
+ */
+DEFPY_YANG(ospf6_gr_helper_disable_lsacheck,
       ospf6_gr_helper_disable_lsacheck_cmd,
       "graceful-restart helper lsa-check-disable",
       "ospf6 graceful restart\n"
@@ -1073,23 +1088,31 @@ DEFPY(ospf6_gr_helper_disable_lsacheck,
       "disable strict LSA check\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	char xpath[XPATH_MAXLEN];
 
-	ospf6_gr_helper_lsacheck_set(ospf6, OSPF6_FALSE);
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+				     "/graceful-restart/helper-strict-lsa-checking") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_ospf6_gr_helper_disable_lsacheck,
+DEFPY_YANG(no_ospf6_gr_helper_disable_lsacheck,
       no_ospf6_gr_helper_disable_lsacheck_cmd,
       "no graceful-restart helper lsa-check-disable",
       NO_STR
       "ospf6 graceful restart\n"
       "ospf6 GR Helper\n"
-      "diasble strict LSA check\n")
+      "disable strict LSA check\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	char xpath[XPATH_MAXLEN];
 
-	ospf6_gr_helper_lsacheck_set(ospf6, OSPF6_TRUE);
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+				     "/graceful-restart/helper-strict-lsa-checking") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY(ospf6_gr_helper_planned_only,

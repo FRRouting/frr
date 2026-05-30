@@ -103,7 +103,7 @@ the candidate tree once mgmtd has selected the owning backends.
 Configuration write support is intentionally limited to CLI-equivalent RFC 9129
 leaves. The converted leaves are router-id, preference, spf-control paths,
 auto-cost, OSPFv2 mpls/ldp/igp-sync, OSPFv2 mpls/te-rid, graceful-restart
-enabled and restart-interval, OSPFv2 stub-router unconditional, area
+enabled, restart-interval, helper-enabled and helper-strict-lsa-checking, OSPFv2 stub-router unconditional, area
 lifecycle, area-type, area summary, OSPFv2 default-cost, area ranges,
 per-interface area attachment, interface cost, hello-interval, dead-interval,
 retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type,
@@ -275,6 +275,25 @@ The current config-write mapping is:
 |                               | ``OSPF_DFLT_GRACE_``        | ``OSPF6_DFLT_GRACE_``       | needed.  Modify refreshes   |
 |                               | ``INTERVAL``                | ``INTERVAL``                | the zebra stale-route timer |
 |                               |                             |                             | when GR is enabled.         |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/graceful-restart/``    | ``ospf->is_helper_``        | ``ospf6->ospf6_helper_cfg`` | RFC has no enable-list; the |
+| ``helper-enabled``            | ``supported`` via           | ``.is_helper_supported``    | legacy `graceful-restart    |
+|                               | ``ospf_gr_helper_support_`` | via                         | helper enable A.B.C.D` per- |
+|                               | ``set``                     | ``ospf6_gr_helper_support_``| router-id form stays on the |
+|                               |                             | ``set``                     | legacy direct mutation path.|
+|                               |                             |                             | Disable evicts every active |
+|                               |                             |                             | helper not pinned by the    |
+|                               |                             |                             | per-router-id list.         |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/graceful-restart/``    | ``ospf->strict_lsa_check``  | ``ospf6->ospf6_helper_cfg`` | FRR default is true on both |
+| ``helper-strict-lsa-``        | via                         | ``.strict_lsa_check`` via   | daemons; destroy restores   |
+| ``checking``                  | ``ospf_gr_helper_lsa_``     | ``ospf6_gr_helper_``        | true.  v3's legacy CLI uses |
+|                               | ``check_set``               | ``lsacheck_set``            | the inverted form           |
+|                               |                             |                             | ``lsa-check-disable``; the  |
+|                               |                             |                             | DEFPY_YANG shim flips the   |
+|                               |                             |                             | meaning before enqueueing.  |
+|                               |                             |                             | The deviation module        |
+|                               |                             |                             | advertises the true default.|
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/stub-router/always``   | ``OSPF_AREA_ADMIN_STUB_``   | Not implemented: ospf6d     | Presence container          |
 |                               | ``ROUTED`` per area +       | has no stub-router          | (create / destroy           |

@@ -10761,7 +10761,15 @@ DEFUN (no_ospf_proactive_arp,
 }
 
 /* Graceful Restart HELPER Commands */
-DEFPY(ospf_gr_helper_enable, ospf_gr_helper_enable_cmd,
+/*
+ * `graceful-restart helper enable` maps onto RFC 9129
+ * `/graceful-restart/helper-enabled`.  The per-router-id form
+ * (`graceful-restart helper enable A.B.C.D`) has no RFC counterpart;
+ * the YANG model has no enable-list, so the per-router-id case
+ * stays on the legacy direct mutation path and the bare form alone
+ * routes through the northbound.
+ */
+DEFPY_YANG(ospf_gr_helper_enable, ospf_gr_helper_enable_cmd,
       "graceful-restart helper enable [A.B.C.D$address]",
       "OSPF Graceful Restart\n"
       "OSPF GR Helper\n"
@@ -10769,6 +10777,7 @@ DEFPY(ospf_gr_helper_enable, ospf_gr_helper_enable_cmd,
       "Advertising Router-ID\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
 	if (address_str) {
 		ospf_gr_helper_support_set_per_routerid(ospf, &address,
@@ -10776,12 +10785,14 @@ DEFPY(ospf_gr_helper_enable, ospf_gr_helper_enable_cmd,
 		return CMD_SUCCESS;
 	}
 
-	ospf_gr_helper_support_set(ospf, OSPF_GR_TRUE);
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/graceful-restart/helper-enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_ospf_gr_helper_enable,
+DEFPY_YANG(no_ospf_gr_helper_enable,
       no_ospf_gr_helper_enable_cmd,
       "no graceful-restart helper enable [A.B.C.D$address]",
       NO_STR
@@ -10791,6 +10802,7 @@ DEFPY(no_ospf_gr_helper_enable,
       "Advertising Router-ID\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
 	if (address_str) {
 		ospf_gr_helper_support_set_per_routerid(ospf, &address,
@@ -10798,11 +10810,14 @@ DEFPY(no_ospf_gr_helper_enable,
 		return CMD_SUCCESS;
 	}
 
-	ospf_gr_helper_support_set(ospf, OSPF_GR_FALSE);
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/graceful-restart/helper-enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(ospf_gr_helper_enable_lsacheck,
+DEFPY_YANG(ospf_gr_helper_enable_lsacheck,
       ospf_gr_helper_enable_lsacheck_cmd,
       "graceful-restart helper strict-lsa-checking",
       "OSPF Graceful Restart\n"
@@ -10810,12 +10825,16 @@ DEFPY(ospf_gr_helper_enable_lsacheck,
       "Enable strict LSA check\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
-	ospf_gr_helper_lsa_check_set(ospf, OSPF_GR_TRUE);
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/graceful-restart/helper-strict-lsa-checking") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_ospf_gr_helper_enable_lsacheck,
+DEFPY_YANG(no_ospf_gr_helper_enable_lsacheck,
       no_ospf_gr_helper_enable_lsacheck_cmd,
       "no graceful-restart helper strict-lsa-checking",
       NO_STR
@@ -10824,9 +10843,13 @@ DEFPY(no_ospf_gr_helper_enable_lsacheck,
       "Disable strict LSA check\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
-	ospf_gr_helper_lsa_check_set(ospf, OSPF_GR_FALSE);
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/graceful-restart/helper-strict-lsa-checking") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY(ospf_gr_helper_supported_grace_time,

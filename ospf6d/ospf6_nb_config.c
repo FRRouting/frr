@@ -1990,3 +1990,78 @@ int ospf6d_ietf_ospf_graceful_restart_restart_interval_destroy(struct nb_cb_dest
 	ospf6_gr_set_grace_period(ospf6, OSPF6_DFLT_GRACE_INTERVAL);
 	return NB_OK;
 }
+
+/*
+ * XPath: .../ospf/graceful-restart/helper-enabled
+ *
+ * Companion to the ospfd callback above; same per-router-id caveat.
+ */
+int ospf6d_ietf_ospf_graceful_restart_helper_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6_gr_helper_support_set(ospf6, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_graceful_restart_helper_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	ospf6_gr_helper_support_set(ospf6, false);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/graceful-restart/helper-strict-lsa-checking
+ *
+ * Same semantics as ospfd: default-true, FRR's writer only emits a
+ * line when the value is false.
+ */
+int ospf6d_ietf_ospf_graceful_restart_helper_strict_lsa_checking_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf6_gr_helper_lsacheck_set(ospf6, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_graceful_restart_helper_strict_lsa_checking_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	ospf6_gr_helper_lsacheck_set(
+		ospf6,
+		yang_get_default_bool(
+			"%s/graceful-restart/helper-strict-lsa-checking",
+			OSPF6D_IETF_OSPF_XPATH));
+	return NB_OK;
+}

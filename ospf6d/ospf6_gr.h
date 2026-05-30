@@ -149,4 +149,20 @@ extern int ospf6_gr_restart_support_disable(struct ospf6 *ospf6);
 extern void ospf6_gr_set_grace_period(struct ospf6 *ospf6,
 				      uint32_t grace_period);
 
+/*
+ * Toggle global helper-mode support.  Promoted from static to extern so
+ * the RFC 9129 `/graceful-restart/helper-enabled` callback and the
+ * legacy CLI shim can share the same code path.  On transition to
+ * disabled the helper exits the role on every neighbour not pinned by
+ * a per-router-id entry, matching the legacy CLI semantics.
+ */
+extern void ospf6_gr_helper_support_set(struct ospf6 *ospf6, bool support);
+
+/*
+ * Toggle strict LSA-check on the helper.  `enabled = true` enforces
+ * strict checking (matches the FRR default); `false` relaxes it.
+ * Promoted from static to extern for the same reason.
+ */
+extern void ospf6_gr_helper_lsacheck_set(struct ospf6 *ospf6, bool enabled);
+
 #endif /* OSPF6_GR_H */

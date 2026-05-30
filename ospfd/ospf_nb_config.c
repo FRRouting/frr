@@ -2464,3 +2464,85 @@ int ospfd_ietf_ospf_graceful_restart_restart_interval_destroy(struct nb_cb_destr
 	ospf_gr_set_grace_period(ospf, OSPF_DFLT_GRACE_INTERVAL);
 	return NB_OK;
 }
+
+/*
+ * XPath: .../ospf/graceful-restart/helper-enabled
+ *
+ * RFC 9129's global helper-mode flag.  Maps onto FRR's
+ * `ospf->is_helper_supported`.  The legacy `graceful-restart helper
+ * enable [A.B.C.D]` CLI conflates this global with a per-router-id
+ * enable list; the YANG model has no per-router-id concept, so the
+ * northbound only touches the global flag and the legacy CLI keeps
+ * the per-router-id form on its direct mutation path.
+ */
+int ospfd_ietf_ospf_graceful_restart_helper_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf_gr_helper_support_set(ospf, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_graceful_restart_helper_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ospf_gr_helper_support_set(ospf, false);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/graceful-restart/helper-strict-lsa-checking
+ *
+ * Strict-LSA-check on the helper.  FRR defaults to true; the running
+ * config writer only emits `no graceful-restart helper strict-lsa-
+ * checking` when the value is false, so leaving the leaf unset
+ * matches FRR's default behaviour.  Destroy restores the default.
+ */
+int ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf_gr_helper_lsa_check_set(ospf, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ospf_gr_helper_lsa_check_set(
+		ospf,
+		yang_get_default_bool(
+			"%s/graceful-restart/helper-strict-lsa-checking",
+			OSPFD_IETF_OSPF_XPATH));
+	return NB_OK;
+}

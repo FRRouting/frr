@@ -1829,6 +1829,145 @@ def test_ospf_yang_graceful_restart_config():
         )
 
 
+def test_ospf_yang_graceful_restart_helper_config():
+    """per-instance /graceful-restart/{helper-enabled,helper-strict-lsa-checking}
+    round-trip via mgmtd on both daemons.
+
+    FRR defaults strict-lsa-checking to true; the running-config
+    writer only emits a line when the leaf is false, so the test
+    asserts the line appears after a false write and disappears after
+    delete.  Helper-enabled appears in running-config as
+    `graceful-restart helper enable` on both daemons.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+
+        # Enable helper + relax strict-lsa-checking.  v3's writer
+        # emits `lsa-check-disable`; v2's emits the negated positive
+        # form `no ... strict-lsa-checking` -- the assertion below
+        # accepts either.
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/graceful-restart/helper-enabled true\n"
+            "mgmt set-config {}/graceful-restart/helper-strict-lsa-checking false\n"
+            "mgmt commit apply".format(instance, instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "graceful-restart helper enable" in running
+        ), "expected helper enable line on {}, got:\n{}".format(daemon, running)
+        assert (
+            "lsa-check-disable" in running
+            or "no graceful-restart helper strict-lsa-checking" in running
+        ), "expected relaxed strict-lsa-check on {}, got:\n{}".format(
+            daemon, running
+        )
+
+        # Drop strict-lsa-checking alone -- helper stays on, strict
+        # check restores to FRR's default true (line disappears).
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/graceful-restart/helper-strict-lsa-checking\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "lsa-check-disable" not in running
+            and "no graceful-restart helper strict-lsa-checking" not in running
+        ), "strict-lsa-check line should be gone after delete on {}, got:\n{}".format(
+            daemon, running
+        )
+
+        # And tear down helper.
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/graceful-restart/helper-enabled\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "graceful-restart helper enable" not in running
+        ), "'graceful-restart helper enable' should be gone on {}, got:\n{}".format(
+            daemon, running
+        )
+
+
+def test_ospf_graceful_restart_helper_cli_routes_through_yang():
+    """Legacy helper CLI on both daemons drives the YANG callbacks.
+
+    v3's `lsa-check-disable` CLI is inverted from v2's strict-lsa-
+    checking form; the DEFPY_YANG shim flips the meaning before
+    enqueueing.  Verified by toggling each daemon's relax form and
+    confirming the line appears, then dropping it and confirming the
+    line is gone.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for router_block, daemon, relax, relax_off in (
+        ("router ospf", "ospfd",
+         "no graceful-restart helper strict-lsa-checking",
+         "graceful-restart helper strict-lsa-checking"),
+        ("router ospf6", "ospf6d",
+         "graceful-restart helper lsa-check-disable",
+         "no graceful-restart helper lsa-check-disable"),
+    ):
+        try:
+            r1.vtysh_cmd(
+                "configure terminal\n"
+                "{}\n"
+                " graceful-restart helper enable\n"
+                " {}\n".format(router_block, relax)
+            )
+            running = r1.vtysh_cmd("show running-config {}".format(daemon))
+            assert (
+                "graceful-restart helper enable" in running
+            ), "expected helper enable on {}, got:\n{}".format(daemon, running)
+            assert (
+                "lsa-check-disable" in running
+                or "no graceful-restart helper strict-lsa-checking" in running
+            ), "expected relaxed strict-lsa-check on {}, got:\n{}".format(
+                daemon, running
+            )
+
+            # Restore strict-lsa-check default.
+            r1.vtysh_cmd(
+                "configure terminal\n"
+                "{}\n"
+                " {}\n".format(router_block, relax_off)
+            )
+            running = r1.vtysh_cmd("show running-config {}".format(daemon))
+            assert (
+                "lsa-check-disable" not in running
+                and "no graceful-restart helper strict-lsa-checking" not in running
+            ), "strict-lsa-check should be back to default on {}, got:\n{}".format(
+                daemon, running
+            )
+        finally:
+            r1.vtysh_cmd(
+                "configure terminal\n"
+                "{}\n"
+                " no graceful-restart helper enable\n".format(router_block)
+            )
+
+
 def test_ospf_graceful_restart_cli_routes_through_yang():
     """Legacy `graceful-restart [grace-period N]` / `no graceful-restart`
     on both daemons drive the YANG /graceful-restart callbacks."""
