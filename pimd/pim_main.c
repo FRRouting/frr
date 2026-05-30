@@ -118,6 +118,7 @@ int main(int argc, char **argv, char **envp)
 	pim_vrf_init();
 	access_list_init();
 	access_list_add_hook(pim_access_list_update);
+	access_list_delete_hook(pim_access_list_update);
 	prefix_list_init();
 	prefix_list_add_hook(pim_prefix_list_update);
 	prefix_list_delete_hook(pim_prefix_list_update);
