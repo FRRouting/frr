@@ -1777,10 +1777,9 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, struct in_addr from, str
 		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug("Filtering IGMPv3 group record %pI4 from %pI4s on %s per prefix-list %s or access-list %s",
 				   &grp.s_addr, &from, ifp->name,
-				   (pim_ifp->boundary_oil_plist ? pim_ifp->boundary_oil_plist->name
+				   (pim_ifp->boundary_oil_plist ? pim_ifp->boundary_oil_plist
 								: "(not found)"),
-				   (pim_ifp->boundary_acl ? pim_ifp->boundary_acl->name
-							  : "(not found)"));
+				   (pim_ifp->boundary_acl ? pim_ifp->boundary_acl : "(not found)"));
 		}
 		return false;
 	}
