@@ -11,7 +11,8 @@ This test validates two key properties:
   sessions kept alive by quick mode are pruned.
 
 This test traffic-blackholes the L2 switch with ``tc netem`` (kernel ``sch_netem``).
-If that qdisc is unavailable, the whole module is skipped (see ``setup_module``).
+``setup_module`` attempts to ``modprobe sch_netem``; if the qdisc still isn't
+available (e.g. a kernel image without the module), the whole module is skipped.
 """
 
 import json
@@ -36,13 +37,26 @@ SWITCH_NAME = "s1"
 LONG_HELLO = 60
 LONG_DEAD = 180
 
+
 def tc_netem_supported(sw_gear):
     """
-    Require `sch_netem` to already be loaded. We don't try to load it and we
-    don't probe by configuring qdiscs.
+    Ensure `sch_netem` is available, loading the module if necessary.
+
+    Kernel modules are global, so loading it from the switch namespace makes it
+    available to all the topology namespaces. If it is already loaded (or built
+    in) the modprobe is a no-op.
     """
     sw_net = sw_gear.net
     check_cmd = "lsmod 2>/dev/null | grep -q sch_netem"
+
+    status, out, err = sw_net.cmd_status(check_cmd, warn=False)
+    if status == 0:
+        return True
+
+    # Not loaded yet; try to load it. modprobe is idempotent and succeeds if the
+    # module is already present, so we don't need to special-case that here.
+    sw_net.cmd_status("modprobe sch_netem", warn=False)
+
     status, out, err = sw_net.cmd_status(check_cmd, warn=False)
     return status == 0
 
@@ -165,7 +179,9 @@ def assert_ospf_neighbor_below_twoway(rname, neighbor_rid, count=90, wait=1):
 
     test_func = partial(check)
     _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
-    assert diff is None, f"{rname}: OSPF neighbor {neighbor_rid} did not drop below TwoWay"
+    assert (
+        diff is None
+    ), f"{rname}: OSPF neighbor {neighbor_rid} did not drop below TwoWay"
 
 
 def set_ospf_bfd_quick_mode(rname, ifname, enable):
@@ -177,6 +193,7 @@ def set_ospf_bfd_quick_mode(rname, ifname, enable):
         # Keep BFD enabled, but disable quick mode.
         cmd = f"configure terminal\ninterface {ifname}\nip ospf bfd\nend\n"
     router.vtysh_cmd(cmd, isjson=False)
+
 
 def assert_ospf_bfd_quick_config(rname, ifname, enabled, count=20, wait=1):
     tgen = get_topogen()
@@ -200,15 +217,27 @@ def assert_ospf_bfd_quick_config(rname, ifname, enabled, count=20, wait=1):
         if enabled:
             if has_quick:
                 return None
-            return {"want": "quick", "has_quick": has_quick, "has_bfd": has_bfd, "stanza": stanza}
+            return {
+                "want": "quick",
+                "has_quick": has_quick,
+                "has_bfd": has_bfd,
+                "stanza": stanza,
+            }
         # disabled: accept "ip ospf bfd" without "quick"
         if has_bfd and not has_quick:
             return None
-        return {"want": "non-quick", "has_quick": has_quick, "has_bfd": has_bfd, "stanza": stanza}
+        return {
+            "want": "non-quick",
+            "has_quick": has_quick,
+            "has_bfd": has_bfd,
+            "stanza": stanza,
+        }
 
     test_func = partial(check)
     _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
-    assert diff is None, f"{rname}: interface {ifname} did not reach expected quick config state"
+    assert (
+        diff is None
+    ), f"{rname}: interface {ifname} did not reach expected quick config state"
 
 
 def set_ospf_timers(rname, ifname, hello, dead):
@@ -246,7 +275,10 @@ def assert_ospf_timers_config(rname, ifname, hello, dead, count=20, wait=1):
 
     test_func = partial(check)
     _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
-    assert diff is None, f"{rname}: interface {ifname} did not reach expected OSPF timer config"
+    assert (
+        diff is None
+    ), f"{rname}: interface {ifname} did not reach expected OSPF timer config"
+
 
 def setup_module(mod):
     topodef = {"s1": ("rt1:eth-rt2", "rt2:eth-rt1")}
@@ -286,8 +318,12 @@ def test_quicknbr_bfd_session_established_on_startup():
     assert_ospf_neighbor_full("rt1", "2.2.2.2", count=60, wait=1)
     assert_ospf_neighbor_full("rt2", "1.1.1.1", count=60, wait=1)
 
-    assert_bfd_interface_session_state("rt1", "eth-rt2", want_present=True, want_status="up")
-    assert_bfd_interface_session_state("rt2", "eth-rt1", want_present=True, want_status="up")
+    assert_bfd_interface_session_state(
+        "rt1", "eth-rt2", want_present=True, want_status="up"
+    )
+    assert_bfd_interface_session_state(
+        "rt2", "eth-rt1", want_present=True, want_status="up"
+    )
 
     # Switch to long hello/dead timers before exercising quick-neighbor behavior.
     set_ospf_timers("rt1", "eth-rt2", LONG_HELLO, LONG_DEAD)
@@ -312,7 +348,9 @@ def test_quicknbr_bfd_session_stays_active_when_neighbor_goes_away():
     topotest.sleep(4, "Wait for BFD down notification (traffic blackholed)")
 
     # With quick enabled on rt1, the BFD peer should still be present and down on rt1.
-    assert_bfd_interface_session_state("rt1", "eth-rt2", want_present=True, want_status="down")
+    assert_bfd_interface_session_state(
+        "rt1", "eth-rt2", want_present=True, want_status="down"
+    )
 
     # Ensure OSPF has reacted (neighbor below TwoWay) before toggling quick off.
     assert_ospf_neighbor_below_twoway("rt1", "2.2.2.2")
@@ -333,15 +371,21 @@ def test_quicknbr_comes_back_while_bfd_session_still_present():
     set_switch_blackhole(False)
 
     # First ensure BFD comes back (this is what triggers the quick-neighbor add path).
-    assert_bfd_interface_session_state("rt1", "eth-rt2", want_present=True, want_status="up", count=30, wait=1)
+    assert_bfd_interface_session_state(
+        "rt1", "eth-rt2", want_present=True, want_status="up", count=30, wait=1
+    )
 
     # Then ensure OSPF returns to Full. This window should still be far less than
     # the configured hello interval (60s), demonstrating we didn't just wait for a periodic hello.
     assert_ospf_neighbor_full("rt1", "2.2.2.2", count=40, wait=1)
     assert_ospf_neighbor_full("rt2", "1.1.1.1", count=40, wait=1)
 
-    assert_bfd_interface_session_state("rt1", "eth-rt2", want_present=True, want_status="up")
-    assert_bfd_interface_session_state("rt2", "eth-rt1", want_present=True, want_status="up")
+    assert_bfd_interface_session_state(
+        "rt1", "eth-rt2", want_present=True, want_status="up"
+    )
+    assert_bfd_interface_session_state(
+        "rt2", "eth-rt1", want_present=True, want_status="up"
+    )
 
 
 def test_quicknbr_bfd_session_pruned_when_quick_disabled_while_down():
@@ -359,7 +403,9 @@ def test_quicknbr_bfd_session_pruned_when_quick_disabled_while_down():
     topotest.sleep(4, "Wait for BFD down notification (traffic blackholed)")
 
     # Confirm session is present and down before pruning.
-    assert_bfd_interface_session_state("rt1", "eth-rt2", want_present=True, want_status="down")
+    assert_bfd_interface_session_state(
+        "rt1", "eth-rt2", want_present=True, want_status="down"
+    )
     assert_ospf_neighbor_below_twoway("rt1", "2.2.2.2")
 
     # Disable quick mode while the neighbor is down, this should prune orphan sessions.
@@ -367,7 +413,9 @@ def test_quicknbr_bfd_session_pruned_when_quick_disabled_while_down():
 
     assert_ospf_bfd_quick_config("rt1", "eth-rt2", enabled=False)
 
-    assert_bfd_interface_session_state("rt1", "eth-rt2", want_present=False, count=60, wait=1)
+    assert_bfd_interface_session_state(
+        "rt1", "eth-rt2", want_present=False, count=60, wait=1
+    )
 
 
 def test_memory_leak():
@@ -381,4 +429,3 @@ def test_memory_leak():
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
-

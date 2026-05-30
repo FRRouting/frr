@@ -64,6 +64,21 @@ which versions of the python protobuf packages you need to install.
    python3 -m pip install grpcio grpcio-tools
 
 
+Kernel Modules
+""""""""""""""
+
+Some topotests rely on kernel features that ship as loadable modules. For
+example ``bfd_ospf_quicknbr_topo1`` uses the ``tc netem`` qdisc to blackhole
+traffic, which requires the ``sch_netem`` module. The test will attempt to
+``modprobe sch_netem`` itself, but if the module is not present in your kernel
+image the test is skipped. To make sure it is available (and to load it ahead of
+time) run:
+
+.. code:: shell
+
+   modprobe sch_netem
+
+
 Enable Coredumps
 """"""""""""""""
 
@@ -95,7 +110,7 @@ following steps will get you there on Ubuntu 22.04/24.04.
 .. code:: shell
 
    apt install libsnmp-dev
-   apt install snmpd snmp
+   apt install snmpd snmp snmptrapd
    apt install snmp-mibs-downloader
    download-mibs
    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB
