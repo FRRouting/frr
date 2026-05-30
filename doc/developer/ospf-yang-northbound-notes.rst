@@ -101,12 +101,12 @@ candidate data tree at selection time. Config callbacks still validate against
 the candidate tree once mgmtd has selected the owning backends.
 
 Configuration write support is intentionally limited to CLI-equivalent RFC 9129
-leaves. The converted leaves are router-id, preference, spf-control paths, area
-lifecycle, area-type, area summary, OSPFv2 default-cost, area ranges,
-per-interface area attachment, interface cost, hello-interval, dead-interval,
-retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type, and
-passive. Existing CLI commands for those leaves set the same YANG nodes as
-mgmtd writes.
+leaves. The converted leaves are router-id, preference, spf-control paths,
+OSPFv2 mpls/ldp/igp-sync, area lifecycle, area-type, area summary, OSPFv2
+default-cost, area ranges, per-interface area attachment, interface cost,
+hello-interval, dead-interval, retransmit-interval, priority, mtu-ignore,
+transmit-delay, interface-type, and passive. Existing CLI commands for those
+leaves set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
 ---------------------------
@@ -221,6 +221,14 @@ The current config-write mapping is:
 |                               | destroy restores            | destroy restores            | uint16 (1..65535) and FRR's |
 |                               | ``MULTIPATH_NUM``           | ``MULTIPATH_NUM``           | ``MULTIPATH_NUM`` cap stays |
 |                               |                             |                             | enforced in the CLI body.   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/mpls/ldp/igp-sync``    | ``ospf->ldp_sync_cmd``      | Not implemented: ospf6d     | Enable registers opaque     |
+|                               | flags; modify=true enables  | has no LDP/IGP sync         | LDP zclient handlers and    |
+|                               | and walks all PtoP ifaces,  | implementation              | walks all interfaces;       |
+|                               | modify=false / destroy call |                             | ``ospf_ldp_sync_gbl_exit``  |
+|                               | ``ospf_ldp_sync_gbl_exit``  |                             | tears the state back down.  |
+|                               |                             |                             | Validate rejects non-       |
+|                               |                             |                             | default VRF instances.      |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 
 When adding another RFC 9129 config node, add its row here before or alongside

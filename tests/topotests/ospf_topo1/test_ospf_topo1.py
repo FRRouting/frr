@@ -1494,6 +1494,69 @@ def test_ospf_yang_spf_control_paths_platform_limit_rejected():
         )
 
 
+def test_ospf_yang_mpls_ldp_igp_sync_config():
+    """per-instance mpls/ldp/igp-sync round-trip via mgmtd (OSPFv2 only).
+
+    cEOS-style: set the leaf to true, verify `mpls ldp-sync` lands in
+    `show running-config`, then delete the leaf and verify it is
+    gone. ospf6d has no LDP/IGP sync implementation; the OSPFv3
+    callback is intentionally absent.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    instance = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv2'][name='default']"
+        "/ietf-ospf:ospf"
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/mpls/ldp/igp-sync true\n"
+        "mgmt commit apply".format(instance)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "mpls ldp-sync" in running
+    ), "expected 'mpls ldp-sync' after YANG set, got:\n{}".format(running)
+
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}/mpls/ldp/igp-sync\n"
+        "mgmt commit apply".format(instance)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "mpls ldp-sync" not in running
+    ), "mpls ldp-sync should be gone after YANG delete, got:\n{}".format(running)
+
+
+def test_ospf_mpls_ldp_sync_cli_routes_through_yang():
+    """Legacy `mpls ldp-sync` / `no mpls ldp-sync` continues to work
+    via vtysh and drives the YANG `/mpls/ldp/igp-sync` callback."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("configure terminal\n" "router ospf\n" " mpls ldp-sync\n")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "mpls ldp-sync" in running
+    ), "expected 'mpls ldp-sync' in ospfd running-config, got:\n{}".format(running)
+
+    r1.vtysh_cmd("configure terminal\n" "router ospf\n" " no mpls ldp-sync\n")
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "mpls ldp-sync" not in running
+    ), "mpls ldp-sync should be gone after 'no mpls ldp-sync', got:\n{}".format(running)
+
+
 def test_ospf_max_multipath_cli_routes_through_yang():
     """Legacy `maximum-paths N` continues to work via vtysh; values
     within RFC 9129's 1..32 range route through the YANG

@@ -186,6 +186,14 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cfg_opt_in = true,
 		},
 		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/mpls/ldp/igp-sync",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_mpls_ldp_igp_sync_modify,
+				.destroy = ospfd_ietf_ospf_mpls_ldp_igp_sync_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/statistics/originate-new-lsa-count",
 			.cbs = {

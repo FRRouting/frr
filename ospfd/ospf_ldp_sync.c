@@ -10,6 +10,7 @@
 #include "monotime.h"
 #include "memory.h"
 #include "frrevent.h"
+#include "northbound_cli.h"
 #include "prefix.h"
 #include "table.h"
 #include "vty.h"
@@ -737,35 +738,31 @@ void ospf_ldp_sync_if_write_config(struct vty *vty,
  */
 #include "ospfd/ospf_ldp_sync_clippy.c"
 
-DEFPY (ospf_mpls_ldp_sync,
+/*
+ * `mpls ldp-sync` / `no mpls ldp-sync` map directly onto the RFC 9129
+ * `/mpls/ldp/igp-sync` boolean leaf.  The DEFPY_YANG bodies enqueue
+ * the YANG edit so vtysh dispatches through mgmtd and the same
+ * callback that processes `mgmt set-config` invocations does the
+ * mutation, keeping the candidate datastore consistent regardless of
+ * which front the operator drove the change from.
+ */
+DEFPY_YANG (ospf_mpls_ldp_sync,
        ospf_mpls_ldp_sync_cmd,
        "mpls ldp-sync",
        "MPLS specific commands\n"
        "Enable MPLS LDP-IGP Sync\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
-	struct interface *ifp;
+	char xpath[XPATH_MAXLEN];
 
-	if (ospf->vrf_id != VRF_DEFAULT) {
-		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
-		return CMD_ERR_NOTHING_TODO;
-	}
-
-	/* register with opaque client to recv LDP-IGP Sync msgs */
-	zclient_register_opaque(ospf_zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
-	zclient_register_opaque(ospf_zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
-
-	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		SET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
-		/* turn on LDP-IGP Sync on all ptop OSPF interfaces */
-		FOR_ALL_INTERFACES (vrf, ifp)
-			ospf_if_set_ldp_sync_enable(ospf, ifp);
-	}
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/mpls/ldp/igp-sync") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY (no_ospf_mpls_ldp_sync,
+DEFPY_YANG (no_ospf_mpls_ldp_sync,
        no_ospf_mpls_ldp_sync_cmd,
        "no mpls ldp-sync",
        NO_STR
@@ -773,8 +770,13 @@ DEFPY (no_ospf_mpls_ldp_sync,
        "Disable MPLS LDP-IGP Sync\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	ospf_ldp_sync_gbl_exit(ospf, true);
-	return CMD_SUCCESS;
+	char xpath[XPATH_MAXLEN];
+
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/mpls/ldp/igp-sync") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (ospf_mpls_ldp_sync_holddown,

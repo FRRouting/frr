@@ -20,6 +20,7 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
+#include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_lsdb.h"
 #include "ospfd/ospf_nb.h"
@@ -1976,5 +1977,74 @@ int ospfd_ietf_ospf_spf_control_paths_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 	ospf->max_multipath = MULTIPATH_NUM;
 	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/mpls/ldp/igp-sync
+ *
+ * Per-instance MPLS LDP/IGP sync toggle.  Mirrors the legacy
+ * `mpls ldp-sync` / `no mpls ldp-sync` CLI.  Enabling registers the
+ * opaque LDP-IGP zclient handlers and walks all point-to-point OSPF
+ * interfaces in the default VRF to start sync; disabling unwinds via
+ * `ospf_ldp_sync_gbl_exit`, which clears the flag, resets the
+ * holddown timer, and tears down the per-interface state.  FRR's
+ * LDP/IGP sync is restricted to the default VRF, mirroring the
+ * legacy CLI's `ldp-sync only runs on DEFAULT VRF` precondition.
+ */
+int ospfd_ietf_ospf_mpls_ldp_igp_sync_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct vrf *vrf;
+	struct interface *ifp;
+	int ret;
+	bool enable;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (ospf->vrf_id != VRF_DEFAULT) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "ldp-sync only runs on DEFAULT VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (enable) {
+		if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+			return NB_OK;
+		zclient_register_opaque(ospf_zclient,
+					LDP_IGP_SYNC_IF_STATE_UPDATE);
+		zclient_register_opaque(ospf_zclient,
+					LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+		SET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
+		vrf = vrf_lookup_by_id(ospf->vrf_id);
+		FOR_ALL_INTERFACES (vrf, ifp)
+			ospf_if_set_ldp_sync_enable(ospf, ifp);
+	} else {
+		ospf_ldp_sync_gbl_exit(ospf, true);
+	}
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_mpls_ldp_igp_sync_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ospf_ldp_sync_gbl_exit(ospf, true);
 	return NB_OK;
 }
