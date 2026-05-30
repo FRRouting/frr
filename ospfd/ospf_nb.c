@@ -110,28 +110,6 @@ const struct frr_yang_module_info ospfd_ietf_routing_ospf_deviation_info = {
 };
 
 /*
- * RFC 9129's ietf-ospf BFD container `uses bfd-types:client-cfg-parms`,
- * which brings in the multiplier/tx-rx-interval leaves under a
- * `client-base-cfg-parms` if-feature.  Without explicitly loading
- * ietf-bfd-types and enabling its features, libyang elides those
- * leaves and mgmtd reports "unknown data path" for every BFD
- * sub-leaf write except `enabled`.  Mirror the existing `"*"`
- * wildcard convention so every if-feature in the module is enabled.
- */
-static const char *const ospfd_ietf_bfd_types_features[] = { "*", NULL };
-
-const struct frr_yang_module_info ospfd_ietf_bfd_types_info = {
-	.name = "ietf-bfd-types",
-	.features = (const char **)ospfd_ietf_bfd_types_features,
-	.ignore_cfg_cbs = true,
-	.nodes = {
-		{
-			.xpath = NULL,
-		},
-	},
-};
-
-/*
  * RFC 9129's ietf-ospf is the target northbound shape for OSPFv2 and OSPFv3.
  * Load it now so work can converge on the standard model while FRR-specific
  * callbacks are filled in incrementally. Enable all features so leaves gated

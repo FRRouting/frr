@@ -1368,3 +1368,24 @@ bool bfd_session_is_admin_down(const struct bfd_session_params *session)
 {
 	return session->bss.state == BSS_ADMIN_DOWN;
 }
+
+/*
+ * Shared ietf-bfd-types loader.  See the header comment in lib/bfd.h
+ * for why backend clients that inherit from `bfd-types:client-cfg-
+ * parms` need this in their `frr_yang_module_info` table.  Wildcard
+ * features enabled so every if-feature in the module (including
+ * `client-base-cfg-parms` which gates the multiplier and tx/rx
+ * intervals) becomes visible in the compiled schema.
+ */
+static const char *const ietf_bfd_types_features[] = { "*", NULL };
+
+const struct frr_yang_module_info ietf_bfd_types_info = {
+	.name = "ietf-bfd-types",
+	.features = (const char **)ietf_bfd_types_features,
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = NULL,
+		},
+	},
+};

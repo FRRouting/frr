@@ -8,6 +8,7 @@
 
 #include <zebra.h>
 #include "affinitymap.h"
+#include "bfd.h"
 #include "filter.h"
 #include "frr_pthread.h"
 #include "keychain.h"
@@ -171,23 +172,6 @@ static const struct frr_yang_module_info ietf_ospf_info = {
 
 static const struct frr_yang_module_info ietf_routing_ospf_deviation_info = {
 	.name = "frr-deviations-ietf-routing-ospf",
-	.ignore_cfg_cbs = true,
-	.nodes = { { .xpath = NULL } },
-};
-
-/*
- * Load ietf-bfd-types alongside ietf-ospf so the BFD container under
- * /areas/area/interfaces/interface keeps its base-cfg-parms timer
- * leaves (multiplier, desired-min-tx-interval, required-min-rx-
- * interval).  Without enabling client-base-cfg-parms here mgmtd
- * silently treats those leaves as `unknown data path` while still
- * accepting `enabled`.
- */
-static const char *const ietf_bfd_types_features[] = { "*", NULL };
-
-static const struct frr_yang_module_info ietf_bfd_types_info = {
-	.name = "ietf-bfd-types",
-	.features = (const char **)ietf_bfd_types_features,
 	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };

@@ -23,7 +23,6 @@ struct ospf6;
 
 extern const struct frr_yang_module_info ospf6d_ietf_routing_info;
 extern const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info;
-extern const struct frr_yang_module_info ospf6d_ietf_bfd_types_info;
 extern const struct frr_yang_module_info ospf6d_ietf_ospf_info;
 
 /* Shared lookup: find an OSPFv3 instance by the ietf-routing instance name. */

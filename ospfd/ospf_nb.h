@@ -24,7 +24,6 @@ struct ospf;
 extern const struct frr_yang_module_info ospfd_ietf_routing_info;
 extern const struct frr_yang_module_info ospfd_ietf_routing_ospf_deviation_info;
 extern const struct frr_yang_module_info ospfd_ietf_ospf_info;
-extern const struct frr_yang_module_info ospfd_ietf_bfd_types_info;
 
 const char *ospfd_ietf_instance_name(unsigned short instance, const char *name,
 				     char *buf, size_t buf_len);

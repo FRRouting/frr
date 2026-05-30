@@ -9,10 +9,24 @@
 #define _ZEBRA_BFD_H
 
 #include "lib/zclient.h"
+#include "lib/northbound.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/*
+ * Module info for ietf-bfd-types.  Backend clients that publish data
+ * nodes inheriting from `bfd-types:client-cfg-parms` (e.g. OSPFv2 and
+ * OSPFv3 via RFC 9129's ietf-ospf BFD container) must list this in
+ * their `frr_yang_module_info` table so libyang enables the foreign
+ * module's `client-base-cfg-parms` if-feature.  Without it the
+ * inherited multiplier / tx-rx-interval leaves get elided from the
+ * compiled schema and mgmtd reports "unknown data path" for every
+ * write but `enabled`.  Mirrors the existing `ietf_key_chain_info`
+ * pattern (lib/keychain.h).
+ */
+extern const struct frr_yang_module_info ietf_bfd_types_info;
 
 #define BFD_DEF_MIN_RX 300
 #define BFD_DEF_MIN_TX 300

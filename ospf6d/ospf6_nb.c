@@ -45,24 +45,6 @@ const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info = {
 };
 
 /*
- * Companion to the ospfd loader -- see the ospfd_ietf_bfd_types_info
- * comment in ospfd/ospf_nb.c.  Without this, ietf-ospf's `bfd`
- * container's timer leaves vanish from ospf6d's compiled schema.
- */
-static const char *const ospf6d_ietf_bfd_types_features[] = { "*", NULL };
-
-const struct frr_yang_module_info ospf6d_ietf_bfd_types_info = {
-	.name = "ietf-bfd-types",
-	.features = (const char **)ospf6d_ietf_bfd_types_features,
-	.ignore_cfg_cbs = true,
-	.nodes = {
-		{
-			.xpath = NULL,
-		},
-	},
-};
-
-/*
  * RFC 9129's ietf-ospf is the target northbound shape for OSPFv2 and OSPFv3.
  * Load it now so OSPFv3 work can converge on the shared standard model.
  * Enable all features so leaves gated by 'if-feature' (e.g. explicit-router-id,
