@@ -72,10 +72,24 @@ static int ecmp_path_list_validate(const struct lyd_node *path_list_dnode, char 
 		.metric = yang_dnode_get_uint32(path_list_dnode, "metric"),
 	};
 	const struct lyd_node *route_dnode;
+	const struct lyd_node *child;
 	enum static_nh_type nh_type;
 
 	route_dnode = yang_dnode_get_parent(path_list_dnode, "route-list");
-	yang_dnode_iterate(path_list_ecmp_iter_cb, &ec, route_dnode, "./path-list");
+
+	/*
+	 * Walk path-list children directly rather than via yang_dnode_iterate()
+	 * to avoid libyang's XPath set_sort(), which performs an O(N) DFS from
+	 * the tree root for each node when sorting >=2 results into document
+	 * order.  Document order is irrelevant here since the callback only
+	 * accumulates a count and two boolean flags.
+	 */
+	for (child = lyd_child(route_dnode); child; child = child->next) {
+		if (!child->schema || strcmp(child->schema->name, "path-list"))
+			continue;
+		if (path_list_ecmp_iter_cb(child, &ec) == YANG_ITER_STOP)
+			break;
+	}
 
 	nh_type = yang_dnode_get_enum(path_list_dnode, "nh-type");
 	if (nh_type == STATIC_BLACKHOLE && ec.has_non_blackhole) {
