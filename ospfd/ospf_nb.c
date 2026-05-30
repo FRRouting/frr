@@ -501,6 +501,33 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/static-neighbors/neighbor",
+			.cbs = {
+				.create = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_create,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/static-neighbors/neighbor/poll-interval",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_poll_interval_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_poll_interval_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/static-neighbors/neighbor/priority",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_priority_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_priority_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/ranges/range",
 			.cbs = {
 				.create = ospfd_ietf_ospf_areas_area_ranges_range_create,

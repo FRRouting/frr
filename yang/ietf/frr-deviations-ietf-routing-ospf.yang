@@ -177,4 +177,20 @@ module frr-deviations-ietf-routing-ospf {
           + "/ospf:single-interval/ospf:min-interval" {
     deviate not-supported;
   }
+
+  /*
+   * FRR's NBMA neighbour table (struct ospf_nbr_nbma) carries only
+   * `priority` and `v_poll`; there is no `cost` knob.  RFC 9129
+   * exposes `cost` on every static neighbour entry.  Mark it
+   * not-supported so mgmtd rejects writes cleanly rather than
+   * accepting them into the candidate with no callback to fire.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:static-neighbors/ospf:neighbor/ospf:cost" {
+    deviate not-supported;
+  }
 }

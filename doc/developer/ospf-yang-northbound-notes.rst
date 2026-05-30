@@ -107,9 +107,10 @@ enabled, restart-interval, helper-enabled and helper-strict-lsa-checking, OSPFv2
 lifecycle, area-type, area summary, OSPFv2 default-cost, area ranges,
 per-interface area attachment, interface cost, hello-interval, dead-interval,
 retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type,
-passive, OSPFv2 prefix-suppression, and per-interface BFD
+passive, OSPFv2 prefix-suppression, per-interface BFD
 (enabled, local-multiplier, desired-min-tx-interval,
-required-min-rx-interval). Existing CLI commands for those leaves
+required-min-rx-interval), and OSPFv2 per-interface static
+neighbours (poll-interval, priority). Existing CLI commands for those leaves
 set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
@@ -253,6 +254,27 @@ The current config-write mapping is:
 |                               |                             |                             | 300000 us.  The single-     |
 |                               |                             |                             | interval case is marked     |
 |                               |                             |                             | not-supported.              |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/static-``         | ``struct ospf_nbr_nbma``    | Not implemented: ospf6d     | RFC keys the list per-      |
+| ``neighbors/neighbor``        | via ``ospf_nbr_nbma_set`` / | has no NBMA neighbour       | (area, interface,           |
+|                               | ``_unset``; per-leaf        | surface                     | identifier); FRR's NBMA     |
+|                               | ``poll-interval`` ->        |                             | table is per-(instance,     |
+|                               | ``v_poll`` and ``priority`` |                             | addr).  Area/interface      |
+|                               | -> ``priority`` via         |                             | labels are stored in the    |
+|                               | matching set/unset helpers  |                             | candidate but ignored on    |
+|                               |                             |                             | the FRR side: FRR auto-     |
+|                               |                             |                             | binds the entry to the OI   |
+|                               |                             |                             | whose subnet matches the    |
+|                               |                             |                             | neighbour address.  The     |
+|                               |                             |                             | RFC ``cost`` leaf is        |
+|                               |                             |                             | marked not-supported in the |
+|                               |                             |                             | deviations file (FRR has    |
+|                               |                             |                             | no NBMA cost knob).  Legacy |
+|                               |                             |                             | ``neighbor A.B.C.D`` CLI    |
+|                               |                             |                             | stays on the direct path:   |
+|                               |                             |                             | it is instance-level and    |
+|                               |                             |                             | cannot synthesise a YANG    |
+|                               |                             |                             | area/interface key.         |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/spf-control/paths``    | ``ospf->max_multipath``;    | ``ospf6->max_multipath``;   | RFC types ``paths`` as      |
 |                               | destroy restores            | destroy restores            | uint16 (1..65535) and FRR's |

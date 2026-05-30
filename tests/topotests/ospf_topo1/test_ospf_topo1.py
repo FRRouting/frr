@@ -2198,8 +2198,6 @@ def test_ospf_yang_interface_bfd_interval_rejection():
         assert (
             "Failed to edit configuration" in out
             or "Couldn't apply changes" in out
-            or "Configuration failed" in out
-            or "commit failed" in out
         ), "expected single-interval rejection on {}, got:\n{}".format(proto, out)
         # Below 50ms.
         out = _mgmt_commit_attempt(
@@ -2278,6 +2276,186 @@ def test_ospf_bfd_cli_routes_through_yang():
                 "interface r1-eth1\n"
                 " no {}\n".format(cli)
             )
+
+def test_ospf_yang_interface_static_neighbor_config():
+    """per-interface /static-neighbors/neighbor round-trip via mgmtd
+    (OSPFv2 only -- ospf6d has no NBMA neighbour surface).
+
+    RFC 9129 keys the list per-(area, interface, identifier).  FRR's
+    NBMA table is per-(instance, addr); area/interface labels are
+    stored in the candidate but ignored on the FRR side.  Exercises
+    create + priority + poll-interval + destroy, then verifies the
+    `cost` leaf is rejected by the deviation module.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    iface = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    nbr = iface + "/static-neighbors/neighbor[identifier='192.0.2.7']"
+
+    try:
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/poll-interval 90\n"
+            "mgmt set-config {}/priority 7\n"
+            "mgmt commit apply".format(nbr, nbr)
+        )
+        running = r1.vtysh_cmd("show running-config ospfd")
+        assert (
+            "neighbor 192.0.2.7" in running
+        ), "expected 'neighbor 192.0.2.7' after YANG set, got:\n{}".format(running)
+        assert (
+            "poll-interval 90" in running
+        ), "expected static neighbour poll interval after YANG set, got:\n{}".format(
+            running
+        )
+        assert (
+            "priority 7" in running
+        ), "expected static neighbour priority after YANG set, got:\n{}".format(
+            running
+        )
+
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}\n"
+            "mgmt commit apply".format(nbr)
+        )
+        running = r1.vtysh_cmd("show running-config ospfd")
+        assert (
+            "neighbor 192.0.2.7" not in running
+        ), "'neighbor 192.0.2.7' should be gone after YANG delete, got:\n{}".format(
+            running
+        )
+    finally:
+        # Defensive cleanup in case the assert above tripped.
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "router ospf\n"
+            " no neighbor 192.0.2.7\n"
+        )
+
+def test_ospf_yang_static_neighbor_duplicate_rejected():
+    """The RFC keys static-neighbors per area/interface, but FRR's NBMA
+    table is per instance and address.  Reject duplicate identifiers
+    rather than letting two YANG entries collapse onto one daemon
+    neighbour."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    area = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+    nbr1 = (
+        area
+        + "/interfaces/interface[name='r1-eth1']"
+        + "/static-neighbors/neighbor[identifier='192.0.2.9']"
+    )
+    nbr2 = (
+        area
+        + "/interfaces/interface[name='r1-eth2']"
+        + "/static-neighbors/neighbor[identifier='192.0.2.9']"
+    )
+
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/poll-interval 90\n"
+        "mgmt set-config {}/priority 7".format(nbr1, nbr2),
+    )
+    assert (
+        "already configured in this OSPF instance" in out
+        or "Couldn't apply changes" in out
+        or "Configuration failed" in out
+        or "commit failed" in out
+    ), "expected duplicate static-neighbor rejection, got:\n{}".format(out)
+
+def test_ospf_yang_static_neighbor_partial_leaves():
+    """Static-neighbor optional leaves default to FRR's NBMA values.
+
+    RFC 9129 does not provide defaults for poll-interval or priority.
+    FRR deviates them to the daemon defaults so apply_finish can read a
+    complete settled subtree even when the operator creates a neighbour
+    with only one optional leaf.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    iface = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    nbr = iface + "/static-neighbors/neighbor[identifier='192.0.2.10']"
+
+    try:
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/poll-interval 90\n"
+            "mgmt commit apply".format(nbr)
+        )
+        running = r1.vtysh_cmd("show running-config ospfd")
+        assert (
+            "neighbor 192.0.2.10 poll-interval 90" in running
+        ), "expected poll-only static neighbour, got:\n{}".format(running)
+        assert (
+            "neighbor 192.0.2.10 priority" not in running
+        ), "default static neighbour priority should not be written, got:\n{}".format(
+            running
+        )
+
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/priority 7\n"
+            "mgmt delete-config {}/poll-interval\n"
+            "mgmt commit apply".format(nbr, nbr)
+        )
+        running = r1.vtysh_cmd("show running-config ospfd")
+        assert (
+            "neighbor 192.0.2.10 priority 7" in running
+        ), "expected priority-only static neighbour, got:\n{}".format(running)
+        assert (
+            "neighbor 192.0.2.10 poll-interval" not in running
+        ), "default static neighbour poll interval should not be written, got:\n{}".format(
+            running
+        )
+    finally:
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "router ospf\n"
+            " no neighbor 192.0.2.10\n"
+        )
+
+def test_ospf_yang_static_neighbor_cost_rejected():
+    """The /static-neighbors/neighbor/cost leaf is marked not-supported
+    in the FRR deviations because FRR has no NBMA cost knob.  mgmtd
+    must reject writes against it."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    iface = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    nbr = iface + "/static-neighbors/neighbor[identifier='192.0.2.8']"
+
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/cost 50".format(nbr),
+    )
+    assert (
+        "Failed to edit configuration" in out
+        or "Couldn't apply changes" in out
+        or "Configuration failed" in out
+        or "commit failed" in out
+    ), "expected cost rejection, got:\n{}".format(out)
+
 
 def test_ospf_prefix_suppression_cli_routes_through_yang():
     """Legacy `ip ospf prefix-suppression` / `no ip ospf prefix-suppression`

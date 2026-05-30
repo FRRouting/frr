@@ -2817,3 +2817,171 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval
 	ospf_interface_bfd_apply(ifp);
 	return NB_OK;
 }
+
+/*
+ * RFC 9129 `static-neighbors` are modeled per-(area, interface,
+ * identifier) but FRR's NBMA neighbour table is per-(instance, addr)
+ * -- there is no per-interface or per-area NBMA neighbour state in
+ * `struct ospf_nbr_nbma`.  FRR auto-binds the entry to whichever OI's
+ * subnet matches the neighbour address via
+ * `ospf_nbr_nbma_set`/`_if_update`.  We therefore:
+ *
+ *   - ignore the area/interface labels for FRR-side lookup; only
+ *     `identifier` is used to find the FRR-side neighbour;
+ *   - mark `/cost` not-supported via deviation (FRR has no NBMA
+ *     cost knob, only priority and v_poll);
+ *   - leave the legacy `neighbor A.B.C.D` CLI on the direct mutation
+ *     path because it is instance-level and cannot synthesise a
+ *     credible YANG area/interface key from CLI alone.
+ *
+ * Multiple YANG entries with the same identifier under different
+ * area/interface keys collapse onto the same FRR neighbour: writes
+ * are idempotent, but a destroy on any one entry tears the FRR
+ * neighbour down (no reference counting in this slice; document the
+ * limitation and require operators to use one YANG entry per
+ * identifier).
+ */
+static int ospfd_ietf_ospf_static_neighbor_addr(const struct lyd_node *dnode,
+						struct in_addr *addr)
+{
+	const char *id_str;
+
+	id_str = yang_dnode_get_string(dnode, "identifier");
+	if (!id_str || inet_pton(AF_INET, id_str, addr) != 1)
+		return -1;
+	return 0;
+}
+
+/*
+ * XPath: .../areas/area/interfaces/interface/static-neighbors/neighbor
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_create(struct nb_cb_create_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr addr;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (ospfd_ietf_ospf_static_neighbor_addr(args->dnode, &addr) < 0)
+		return NB_ERR_VALIDATION;
+	(void)ospf_nbr_nbma_set(ospf, addr);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr addr;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospfd_ietf_ospf_static_neighbor_addr(args->dnode, &addr) < 0)
+		return NB_OK;
+	(void)ospf_nbr_nbma_unset(ospf, addr);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../static-neighbors/neighbor/poll-interval
+ *
+ * Maps to FRR's per-neighbour `v_poll`.  Modify only takes effect if
+ * the neighbour entry exists; the per-leaf callback may fire before
+ * the parent list-create when mgmtd commits a fresh entry, in which
+ * case `ospf_nbr_nbma_poll_interval_set` is a no-op and the parent
+ * create immediately afterwards installs the entry with defaults.
+ * The follow-up modify with the actual leaf value then takes effect.
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_poll_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr addr;
+	const struct lyd_node *neigh;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	neigh = yang_dnode_get_parent(args->dnode, "neighbor");
+	if (!neigh || ospfd_ietf_ospf_static_neighbor_addr(neigh, &addr) < 0)
+		return NB_ERR_VALIDATION;
+	(void)ospf_nbr_nbma_poll_interval_set(ospf, addr,
+					      yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_poll_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr addr;
+	const struct lyd_node *neigh;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	neigh = yang_dnode_get_parent(args->dnode, "neighbor");
+	if (!neigh || ospfd_ietf_ospf_static_neighbor_addr(neigh, &addr) < 0)
+		return NB_OK;
+	(void)ospf_nbr_nbma_poll_interval_unset(ospf, addr);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../static-neighbors/neighbor/priority
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_priority_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr addr;
+	const struct lyd_node *neigh;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	neigh = yang_dnode_get_parent(args->dnode, "neighbor");
+	if (!neigh || ospfd_ietf_ospf_static_neighbor_addr(neigh, &addr) < 0)
+		return NB_ERR_VALIDATION;
+	(void)ospf_nbr_nbma_priority_set(ospf, addr,
+					 yang_dnode_get_uint8(args->dnode, NULL));
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_priority_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr addr;
+	const struct lyd_node *neigh;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	neigh = yang_dnode_get_parent(args->dnode, "neighbor");
+	if (!neigh || ospfd_ietf_ospf_static_neighbor_addr(neigh, &addr) < 0)
+		return NB_OK;
+	(void)ospf_nbr_nbma_priority_unset(ospf, addr);
+	return NB_OK;
+}
