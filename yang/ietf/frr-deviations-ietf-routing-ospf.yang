@@ -195,6 +195,160 @@ module frr-deviations-ietf-routing-ospf {
   }
 
   /*
+   * FRR has no separate OSPF on/off toggle: the protocol runs whenever
+   * an ospfd / ospf6d instance is configured (control-plane-protocol
+   * create) and on every interface that is bound into an area.  Mark
+   * `ospf/enabled` and per-interface `interface/enabled` not-supported
+   * so mgmtd rejects writes at validate time rather than silently
+   * accepting `enabled=false` with no FRR mutation.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:enabled" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:enabled" {
+    deviate not-supported;
+  }
+
+  /*
+   * RFC 9129 uses ospf/address-family in notification leafrefs, so
+   * the leaf must stay visible where the base model instantiates it.
+   * The base ietf-ospf module exposes the leaf for OSPFv3 only.  FRR
+   * ospf6d is intrinsically IPv6 in this PR, so reject other values in
+   * the model rather than accepting config with no daemon effect.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:address-family" {
+    deviate add {
+      must ". = 'ipv6'";
+    }
+  }
+
+
+  /*
+   * mgmtd loads one ietf-ospf context for both backends, so feature
+   * advertisement is necessarily the union of the converted OSPFv2 and
+   * OSPFv3 surfaces. Guard OSPFv2-only converted leaves with a type
+   * constraint so writes to OSPFv3 instances are rejected by the model
+   * instead of being retained in mgmtd with no ospf6d callback.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:default-cost" {
+    deviate add {
+      must "derived-from-or-self(../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:mpls/ospf:te-rid"
+          + "/ospf:ipv4-router-id" {
+    deviate add {
+      must "derived-from-or-self(../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:mpls/ospf:ldp"
+          + "/ospf:igp-sync" {
+    deviate add {
+      must "derived-from-or-self(../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:stub-router"
+          + "/ospf:trigger/ospf:always/ospf:always" {
+    deviate add {
+      must "derived-from-or-self(../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:prefix-suppression" {
+    deviate add {
+      must "derived-from-or-self(../../../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:static-neighbors/ospf:neighbor" {
+    deviate add {
+      must "derived-from-or-self(../../../../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  /*
+   * The OSPFv3 instance ID has legacy CLI support, but this PR does
+   * not expose it through the RFC 9129 northbound callbacks.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:instance-id" {
+    deviate not-supported;
+  }
+
+  /*
+   * FRR's OSPFv2 TE router-id callback maps the IPv4 Router Address
+   * TLV. The RFC 9129 IPv6 TE router-id leaf is not wired here.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:mpls/ospf:te-rid"
+          + "/ospf:ipv6-router-id" {
+    deviate not-supported;
+  }
+
+  /*
+   * FRR supports OSPFv2 virtual links through the legacy CLI, but this
+   * PR does not wire the RFC 9129 virtual-link subtree into the daemon
+   * northbound callbacks. Keep the advertised YANG surface honest by
+   * hiding the subtree until the timers and authentication leaves below
+   * it are implemented as a coherent unit.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:virtual-links" {
+    deviate not-supported;
+  }
+
+  /*
    * Only the RFC 9129 authentication key-chain leaves are wired to FRR
    * today. libyang does not accept not-supported deviation targets for
    * the nested choice/case leaves here, so reject unsupported explicit-key
@@ -215,4 +369,12 @@ module frr-deviations-ietf-routing-ospf {
       }
     }
   }
+
+  /*
+   * `ospf/address-family` remains visible for OSPFv3 because RFC 9129
+   * notification headers leafref it. The deviation above constrains the
+   * only reachable FRR value to IPv6 instead of accepting unused
+   * configuration. The base RFC module does not instantiate this leaf
+   * for OSPFv2, so ospfd notifications omit the optional header leaf.
+   */
 }

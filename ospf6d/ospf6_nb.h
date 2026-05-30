@@ -83,7 +83,6 @@ int ospf6d_ietf_ospf_preference_external_destroy(struct nb_cb_destroy_args *args
 int ospf6d_ietf_ospf_spf_control_paths_modify(struct nb_cb_modify_args *args);
 int ospf6d_ietf_ospf_spf_control_paths_destroy(struct nb_cb_destroy_args *args);
 int ospf6d_ietf_ospf_auto_cost_enabled_modify(struct nb_cb_modify_args *args);
-int ospf6d_ietf_ospf_auto_cost_enabled_destroy(struct nb_cb_destroy_args *args);
 int ospf6d_ietf_ospf_auto_cost_reference_bandwidth_modify(struct nb_cb_modify_args *args);
 int ospf6d_ietf_ospf_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_args *args);
 int ospf6d_ietf_ospf_graceful_restart_enabled_modify(struct nb_cb_modify_args *args);
@@ -95,7 +94,6 @@ int ospf6d_ietf_ospf_graceful_restart_helper_enabled_destroy(struct nb_cb_destro
 int ospf6d_ietf_ospf_graceful_restart_helper_strict_lsa_checking_modify(struct nb_cb_modify_args *args);
 int ospf6d_ietf_ospf_graceful_restart_helper_strict_lsa_checking_destroy(struct nb_cb_destroy_args *args);
 int ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify(struct nb_cb_modify_args *args);
-int ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_destroy(struct nb_cb_destroy_args *args);
 int ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_modify(struct nb_cb_modify_args *args);
 int ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_destroy(struct nb_cb_destroy_args *args);
 int ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_modify(struct nb_cb_modify_args *args);

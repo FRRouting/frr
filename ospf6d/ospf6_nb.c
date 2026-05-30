@@ -44,14 +44,17 @@ const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info = {
 	},
 };
 
-/*
- * RFC 9129's ietf-ospf is the target northbound shape for OSPFv2 and OSPFv3.
- * Load it now so OSPFv3 work can converge on the shared standard model.
- * Enable all features so leaves gated by 'if-feature' (e.g. explicit-router-id,
- * mtu-ignore) appear in the compiled schema and become callable from converted
- * callbacks.
- */
-static const char * const ospf6d_ietf_ospf_features[] = { "*", NULL };
+static const char * const ospf6d_ietf_ospf_features[] = {
+	"auto-cost",
+	"bfd",
+	"explicit-router-id",
+	"graceful-restart",
+	"key-chain",
+	"max-ecmp",
+	"mtu-ignore",
+	"ospfv3-authentication-trailer",
+	NULL,
+};
 
 const char *ospf6d_ietf_ospf_instance_name(const struct ospf6 *ospf6)
 {
@@ -129,7 +132,6 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			.xpath = OSPF6D_IETF_OSPF_XPATH "/auto-cost/enabled",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_auto_cost_enabled_modify,
-				.destroy = ospf6d_ietf_ospf_auto_cost_enabled_destroy,
 			},
 			.cfg_opt_in = true,
 		},
@@ -345,7 +347,6 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 				 "/areas/area/interfaces/interface/bfd/enabled",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify,
-				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_destroy,
 			},
 			.cfg_opt_in = true,
 		},

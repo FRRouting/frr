@@ -811,32 +811,6 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy(
 	return NB_OK;
 }
 
-int ospf6d_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct ospf6 *ospf6;
-	struct interface *ifp;
-	struct ospf6_interface *oi;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
-	if (!ospf6)
-		return NB_OK;
-	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf6, args->dnode);
-	if (!ifp)
-		return NB_OK;
-
-	oi = ifp->info;
-	if (!oi)
-		return NB_OK;
-
-	oi->hello_interval = OSPF6_INTERFACE_HELLO_INTERVAL;
-	ospf6_hello_reschedule(oi);
-	return NB_OK;
-}
-
 /* XPath: .../interface/dead-interval */
 int ospf6d_ietf_ospf_areas_area_interfaces_interface_dead_interval_modify(
 	struct nb_cb_modify_args *args)
@@ -1839,14 +1813,6 @@ int ospf6d_ietf_ospf_auto_cost_enabled_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int ospf6d_ietf_ospf_auto_cost_enabled_destroy(struct nb_cb_destroy_args *args)
-{
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-	/* Deviation pins enabled to "true"; FRR has no off-switch. */
-	return NB_OK;
-}
-
 /*
  * XPath: .../ospf/auto-cost/reference-bandwidth
  *
@@ -2151,28 +2117,6 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify(struct n
 		oi->bfd_config.enabled = false;
 		ospf6_bfd_reg_dereg_all_nbr(oi, false);
 	}
-	return NB_OK;
-}
-
-int ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_destroy(struct nb_cb_destroy_args *args)
-{
-	struct ospf6 *ospf6;
-	struct interface *ifp;
-	struct ospf6_interface *oi;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
-	if (!ospf6)
-		return NB_OK;
-	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf6, args->dnode);
-	if (!ifp)
-		return NB_OK;
-	oi = ifp->info;
-	if (!oi || !oi->bfd_config.enabled)
-		return NB_OK;
-	oi->bfd_config.enabled = false;
-	ospf6_bfd_reg_dereg_all_nbr(oi, false);
 	return NB_OK;
 }
 

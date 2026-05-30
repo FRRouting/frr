@@ -945,13 +945,15 @@ NETCONF / RESTCONF / ``vtysh``'s ``mgmt`` subcommands as well as the legacy
 CLI.
 
 The supported set mirrors the OSPFv2 side documented in :ref:`ospfv2`, with
-two v3-specific gaps:
+two v3-specific constraints:
 
 * ``areas/area/default-cost``: ospf6d has no per-area stub default-cost
-  knob, so this leaf is not implemented. Setting it via YANG is rejected
-  by mgmtd as ``no backend handles this path``. This matches FRR's existing
-  v3 CLI surface (which has no ``area X default-cost`` equivalent) and is a
-  pre-existing v2/v3 feature gap, not introduced by this conversion.
+  knob, so this OSPFv2-only leaf is rejected by the deviation module's
+  schema constraints on OSPFv3 instances. The same OSPFv2-only protection
+  applies to ``mpls/ldp/igp-sync``, ``mpls/te-rid/ipv4-router-id``,
+  ``interface/prefix-suppression`` and ``static-neighbors/neighbor``.
+  ``ospf/address-family`` is retained for RFC 9129
+  notification leafrefs and constrained to ``ipv6``.
 * ``interface-type``: RFC 9129 declares ``broadcast``, ``non-broadcast``,
   ``point-to-multipoint``, ``point-to-point`` and ``hybrid``. ospf6d only
   accepts ``broadcast``, ``point-to-point`` and ``point-to-multipoint``;
@@ -967,6 +969,12 @@ mtu-ignore, transmit-delay, interface-type, passive, per-interface BFD
 ``enabled``, ``local-multiplier``, ``desired-min-tx-interval`` and
 ``required-min-rx-interval``, and per-interface
 ``authentication/ospfv3-key-chain``.
+
+For per-interface BFD, ``bfd/enabled`` controls activation.  The multiplier
+and interval leaves can be configured while BFD is disabled, but they do not
+create or register BFD sessions until ``bfd/enabled=true`` is committed.  The
+legacy parameterised BFD CLI enqueues that enable leaf before it writes the
+parameter leaves.
 
 Examples
 ^^^^^^^^

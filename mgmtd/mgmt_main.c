@@ -155,13 +155,21 @@ static const struct frr_yang_module_info ietf_routing_info = {
 	.nodes = { { .xpath = NULL } },
 };
 
-/*
- * Enable all features so leaves gated by 'if-feature' (e.g. explicit-router-id,
- * mtu-ignore) appear in mgmtd's compiled schema. Backend daemons enable the
- * same set so mgmtd-side validation accepts the same paths the daemons
- * implement.
- */
-static const char *const ietf_ospf_features[] = { "*", NULL };
+static const char *const ietf_ospf_features[] = {
+	"auto-cost",
+	"bfd",
+	"explicit-router-id",
+	"graceful-restart",
+	"key-chain",
+	"ldp-igp-sync",
+	"max-ecmp",
+	"mtu-ignore",
+	"ospfv3-authentication-trailer",
+	"prefix-suppression",
+	"stub-router",
+	"te-rid",
+	NULL,
+};
 
 static const struct frr_yang_module_info ietf_ospf_info = {
 	.name = "ietf-ospf",
@@ -208,10 +216,10 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 
 	&frr_zebra_cli_info,
 	&zebra_route_map_info,
-	&ietf_routing_ospf_deviation_info,
 	&ietf_bfd_types_info,
 	&ietf_routing_info,
 	&ietf_ospf_info,
+	&ietf_routing_ospf_deviation_info,
 	&ietf_key_chain_cli_info,
 	&ietf_key_chain_deviation_info,
 	&ietf_srv6_types_info,

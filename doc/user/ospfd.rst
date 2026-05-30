@@ -1131,6 +1131,12 @@ Under ``/ietf-routing:routing/control-plane-protocols/control-plane-protocol[typ
   / destroy), with ``poll-interval`` and ``priority`` leaves
 * ``areas/area/interfaces/interface/authentication/ospfv2-key-chain``
 
+For per-interface BFD, ``bfd/enabled`` controls activation.  The multiplier
+and interval leaves can be configured while BFD is disabled, but they do not
+create or register BFD sessions until ``bfd/enabled=true`` is committed.  The
+legacy parameterised BFD CLI enqueues that enable leaf before it writes the
+parameter leaves.
+
 Out of scope for this slice
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

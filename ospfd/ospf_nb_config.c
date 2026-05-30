@@ -997,17 +997,6 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy(
 	UNSET_IF_PARAM(params, v_hello);
 	params->v_hello = OSPF_HELLO_INTERVAL_DEFAULT;
 
-	/*
-	 * Mirror the legacy `no ip ospf hello-interval` (ospf_hello_unset_apply
-	 * in ospf_vty.c): when dead-interval was never explicitly set, reset
-	 * v_wait back to the protocol default AND clear its CONFIGURED flag,
-	 * not just rewrite the value. Earlier versions used SET_IF_PARAM here,
-	 * which left v_wait marked as explicitly configured -- the same
-	 * numerical default (4 * 10 == 40) but a divergent flag state from
-	 * the legacy path, which could surface if other code consults
-	 * OSPF_IF_PARAM_CONFIGURED(params, v_wait) without also checking
-	 * is_v_wait_set.
-	 */
 	if (!params->is_v_wait_set) {
 		UNSET_IF_PARAM(params, v_wait);
 		params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
@@ -2253,14 +2242,6 @@ int ospfd_ietf_ospf_auto_cost_enabled_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int ospfd_ietf_ospf_auto_cost_enabled_destroy(struct nb_cb_destroy_args *args)
-{
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-	/* Deviation pins enabled to "true"; FRR has no off-switch. */
-	return NB_OK;
-}
-
 /*
  * XPath: .../ospf/auto-cost/reference-bandwidth
  *
@@ -2618,26 +2599,6 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify(struct nb
 	} else if (params->bfd_config) {
 		ospf_interface_disable_bfd(ifp, params);
 	}
-	return NB_OK;
-}
-
-int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_destroy(struct nb_cb_destroy_args *args)
-{
-	struct ospf *ospf;
-	struct interface *ifp;
-	struct ospf_if_params *params;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
-	if (!ospf)
-		return NB_OK;
-	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
-	if (!ifp)
-		return NB_OK;
-	params = IF_DEF_PARAMS(ifp);
-	if (params->bfd_config)
-		ospf_interface_disable_bfd(ifp, params);
 	return NB_OK;
 }
 

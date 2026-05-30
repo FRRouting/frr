@@ -84,6 +84,16 @@ RFC 9129 protocol instance.
 ``mgmtd`` also loads the RFC OSPF modules so it can parse OSPF backend replies
 in the merged operational datastore.
 
+The instanced ``ospfd`` backend name is externally visible in mgmtd state:
+an instanced process registers as ``ospfd-N`` rather than plain ``ospfd`` so
+operators can distinguish backend ownership by OSPF instance.  This is an
+intentional release-note item, along with the new RFC 9129 OSPF
+configuration, RPC, operational state and notification surface.
+
+Notifications emitted by this branch are available to mgmtd native frontend
+subscribers today.  They are also the producer side expected by the companion
+gRPC Subscribe work; the two branches remain independently useful.
+
 The mgmtd backend matcher treats predicates in backend registrations as
 ownership constraints, not as a reason to hide unfiltered list data. A query
 with ``type='ietf-ospf:ospfv2'`` must dispatch only to ``ospfd`` and a query
@@ -115,6 +125,25 @@ authentication key-chain (OSPFv2 ospfv2-key-chain, OSPFv3
 ospfv3-key-chain). Existing CLI commands for those leaves
 set the same YANG nodes as mgmtd writes.
 
+``ietf-ospf`` is a mixed-mode module in this branch.  Nodes listed in the
+mapping table below have config callbacks and mutate daemon state.  Other RFC
+9129 config nodes may still be parsed and schema-validated by libyang, but
+they are intentionally outside the supported write surface unless they are
+deviated as not-supported or listed below.  Future work should prefer adding a
+real callback or a deviation over allowing a writable node to appear supported
+without mutating daemon state.
+
+The daemons advertise only the RFC 9129 features used by the converted
+surface.  ``ospfd`` enables ``auto-cost``, ``bfd``, ``explicit-router-id``,
+``graceful-restart``, ``key-chain``, ``ldp-igp-sync``, ``max-ecmp``,
+``mtu-ignore``, ``prefix-suppression``, ``stub-router`` and ``te-rid``.
+``ospf6d`` enables ``auto-cost``, ``bfd``, ``explicit-router-id``,
+``graceful-restart``, ``key-chain``, ``max-ecmp``, ``mtu-ignore``,
+and ``ospfv3-authentication-trailer``.  ``mgmtd`` loads the union so it can
+validate writes for either backend, while deviations still remove unsupported
+leaves from the advertised schema and reject OSPFv2-only writes on OSPFv3
+instances.
+
 Configuration Mapping Model
 ---------------------------
 
@@ -145,6 +174,15 @@ the commit would leave the intended daemon mutation as a silent no-op. The
 ``NB_EV_APPLY`` phase should still tolerate races, such as an instance, area, or
 interface disappearing after validation, and return ``NB_OK`` where no useful
 recovery exists.
+
+Aggregate subtrees use container or list-entry ``apply_finish`` callbacks when
+the daemon-side mutation depends on more than one leaf, creates or refreshes a
+daemon aggregate, or would otherwise depend on libyang callback ordering.  For
+BFD, the per-leaf callbacks validate only; the ``/bfd`` container reads the
+settled subtree once per transaction and materialises FRR's per-interface BFD
+state.  For ``static-neighbors/neighbor``, the list-entry callback creates or
+refreshes the FRR NBMA neighbour and then applies the settled
+``poll-interval`` and ``priority`` values.
 
 .. warning::
 
@@ -180,7 +218,8 @@ The current config-write mapping is:
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``areas/area/area-type``      | ``external_routing`` via    | area stub/NSSA state via    | OSPFv2 validates virtual    |
 |                               | stub/NSSA helpers; default  | ospf6 helpers; default is   | links before stub/NSSA      |
-|                               | is normal area              | normal area                 | conversion.                 |
+|                               | is normal area; destroy     | normal area; destroy        | conversion.                 |
+|                               | restores normal area        | restores normal area        |                             |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``areas/area/summary``        | ``no_summary`` inverted     | ``no_summary`` inverted     | RFC ``summary=true`` means  |
 |                               | from the RFC leaf; destroy  | from the RFC leaf; destroy  | summary LSAs are allowed.   |
@@ -243,41 +282,56 @@ The current config-write mapping is:
 |                               |                             |                             | on the legacy direct path.  |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/bfd/enabled``     | ``params->bfd_config``      | ``oi->bfd_config.enabled``  | Presence-style toggle:      |
-|                               | (heap-alloc on enable);     | with ``ospf6_bfd_reg_``     | enable allocates with FRR   |
-|                               | ``ospf_interface_enable_``  | ``dereg_all_nbr``           | defaults + applies; disable |
-|                               | ``bfd`` + ``..._bfd_apply`` |                             | tears every session down.   |
+|                               | as active runtime mirror    | as active runtime mirror    | modify stores the requested |
+|                               |                             |                             | state in YANG; parent       |
+|                               |                             |                             | ``apply_finish``            |
+|                               |                             |                             | materialises daemon BFD     |
+|                               |                             |                             | state from stored parameter |
+|                               |                             |                             | leaves; disable or destroy  |
+|                               |                             |                             | tears down every session.   |
 |                               |                             |                             | ``[quick]`` (v2) and        |
 |                               |                             |                             | ``[profile X]`` (v3) have   |
 |                               |                             |                             | no YANG counterpart and     |
 |                               |                             |                             | stay on the legacy path.    |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/bfd/``            | ``bfd_config->``            | ``oi->bfd_config.``         | Type ``multiplier`` (uint8  |
-| ``local-multiplier``          | ``detection_multiplier``;   | ``detection_multiplier``;   | 1..255).  Modify implies    |
-|                               | destroy restores            | destroy restores            | enable (alloc on v2; mark   |
-|                               | ``BFD_DEF_DETECT_MULT``     | ``BFD_DEF_DETECT_MULT``     | on v3); refresh sessions.   |
+| ``local-multiplier``          | ``detection_multiplier``;   | ``detection_multiplier``;   | 1..255).  Modify stores the |
+|                               | delete restores the         | delete restores the         | parameter but does not      |
+|                               | defaulted value through     | defaulted value through     | activate BFD; when enabled, |
+|                               | parent ``apply_finish``     | parent ``apply_finish``     | the session is refreshed.   |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/bfd/``            | ``bfd_config->min_tx`` /    | ``oi->bfd_config.min_tx`` / | RFC unit is microseconds;   |
-| ``desired-min-tx-interval``   | ``->min_rx``; destroy       | ``.min_rx``; destroy        | FRR stores milliseconds.    |
-| ``interface/bfd/``            | restores                    | restores                    | NB_EV_VALIDATE rejects      |
+| ``desired-min-tx-interval``   | ``->min_rx``; delete        | ``.min_rx``; delete         | FRR stores milliseconds.    |
+| ``interface/bfd/``            | restores defaults through   | restores defaults through   | NB_EV_VALIDATE rejects      |
 | ``required-min-rx-interval``  | ``BFD_DEF_MIN_TX`` /        | ``BFD_DEF_MIN_TX`` /        | non-multiple-of-1000 or     |
 |                               | ``BFD_DEF_MIN_RX``          | ``BFD_DEF_MIN_RX``          | out-of-range (50..60000 ms) |
 |                               |                             |                             | values; the deviations file |
 |                               |                             |                             | pins the RFC default to FRR |
 |                               |                             |                             | 300000 us.  The single-     |
 |                               |                             |                             | interval case is marked     |
-|                               |                             |                             | not-supported.              |
+|                               |                             |                             | not-supported.  Parameter   |
+|                               |                             |                             | leaves follow the same      |
+|                               |                             |                             | activation rule as          |
+|                               |                             |                             | ``local-multiplier``.       |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/static-``         | ``struct ospf_nbr_nbma``    | Not implemented: ospf6d     | RFC keys the list per-      |
 | ``neighbors/neighbor``        | via ``ospf_nbr_nbma_set`` / | has no NBMA neighbour       | (area, interface,           |
-|                               | ``_unset``; per-leaf        | surface                     | identifier); FRR's NBMA     |
-|                               | ``poll-interval`` ->        |                             | table is per-(instance,     |
-|                               | ``v_poll`` and ``priority`` |                             | addr).  Area/interface      |
-|                               | -> ``priority`` via         |                             | labels are stored in the    |
-|                               | matching set/unset helpers  |                             | candidate but ignored on    |
-|                               |                             |                             | the FRR side: FRR auto-     |
+|                               | ``_unset``; list-entry      | surface                     | identifier); FRR's NBMA     |
+|                               | ``apply_finish`` applies    |                             | table is per-(instance,     |
+|                               | settled ``poll-interval``   |                             | addr).  Area/interface      |
+|                               | and ``priority`` values     |                             | labels are stored in the    |
+|                               | after create / modify       |                             | candidate but ignored on    |
+|                               | callbacks validate          |                             | the FRR side: FRR auto-     |
 |                               |                             |                             | binds the entry to the OI   |
 |                               |                             |                             | whose subnet matches the    |
-|                               |                             |                             | neighbour address.  The     |
+|                               |                             |                             | neighbour address.          |
+|                               |                             |                             | Duplicate identifiers in    |
+|                               |                             |                             | one OSPF instance are       |
+|                               |                             |                             | rejected at validate.       |
+|                               |                             |                             | ``poll-interval`` defaults  |
+|                               |                             |                             | to 60 and ``priority`` to 0 |
+|                               |                             |                             | to match FRR's NBMA         |
+|                               |                             |                             | neighbour defaults.  The    |
 |                               |                             |                             | RFC ``cost`` leaf is        |
 |                               |                             |                             | marked not-supported in the |
 |                               |                             |                             | deviations file (FRR has    |
@@ -300,8 +354,8 @@ The current config-write mapping is:
 |                               |                             |                             | ``key-chain:key-chain-ref`` |
 |                               |                             |                             | (leafref), so the named     |
 |                               |                             |                             | keychain must exist at      |
-|                               |                             |                             | commit time -- this         |
-|                               |                             |                             | diverges from the legacy    |
+|                               |                             |                             | commit time; this diverges  |
+|                               |                             |                             | from the legacy             |
 |                               |                             |                             | CLI which accepts forward   |
 |                               |                             |                             | references.  Other          |
 |                               |                             |                             | authentication leaves       |
@@ -320,7 +374,8 @@ The current config-write mapping is:
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/auto-cost/enabled``    | no-op on modify=true;       | no-op on modify=true;       | FRR has no off-switch for   |
 |                               | NB_EV_VALIDATE rejects      | NB_EV_VALIDATE rejects      | auto-cost.  Deviations file |
-|                               | modify=false                | modify=false                | pins default to ``true`` so |
+|                               | modify=false; destroy       | modify=false; destroy       | pins default to ``true`` so |
+|                               | no-ops                      | no-ops                      |                             |
 |                               |                             |                             | the ``when`` clause on      |
 |                               |                             |                             | ``reference-bandwidth`` is  |
 |                               |                             |                             | always satisfied.           |
@@ -401,6 +456,223 @@ startup-only temporary flag; a later ``config_from_file()`` call in these
 daemons has the same cross-leaf validation requirements. Other daemons keep the
 legacy per-line config-file behavior.
 
+RPC Support
+-----------
+
+Both RFC 9129 RPCs are implemented on ospfd and ospf6d:
+
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| RFC 9129 RPC                  | OSPFv2 mapping              | OSPFv3 mapping              | Notes                       |
++===============================+=============================+=============================+=============================+
+| ``clear-neighbor``            | ``ospf_neighbor_reset`` for | ``ospf6_interface_clear``   | Both daemons register the   |
+|                               | the instance, or            | iterated over every         | xpath; mgmtd fans the RPC   |
+|                               | neighbour-on-OI loop for    | OSPFv3-bound interface, or  | out to every backend.       |
+|                               | the per-interface case      | a single ``ifp`` for the    | Each handler looks up the   |
+|                               |                             | per-interface case          | named instance and returns  |
+|                               |                             |                             | ``NB_OK`` silently when     |
+|                               |                             |                             | not local.  Unknown         |
+|                               |                             |                             | interface returns           |
+|                               |                             |                             | ``NB_ERR_NOT_FOUND`` with   |
+|                               |                             |                             | ``ospf-interface-not-       |
+|                               |                             |                             | found`` per the RFC.        |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``clear-database``            | ``ospf_process_reset``      | ``ospf6_process_reset``     | Flushes self-originated     |
+|                               |                             |                             | LSAs and drops every        |
+|                               |                             |                             | adjacency; the RFC          |
+|                               |                             |                             | semantics line up exactly   |
+|                               |                             |                             | with the existing process-  |
+|                               |                             |                             | reset helpers the legacy    |
+|                               |                             |                             | ``clear ip ospf process``   |
+|                               |                             |                             | / ``clear ipv6 ospf6        |
+|                               |                             |                             | process`` commands invoke.  |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+
+The RPC xpaths are registered via the ``rpc_xpaths`` array on each daemon's
+``mgmt_be_client_cbs`` (the per-frr-yang-module-info ``.cbs.rpc`` entry alone
+is not enough -- mgmtd routes RPC dispatch through the BE-adapter subscription
+map, not the schema callback registry).
+
+The libyang RPC parser expects the input wrapped in the RPC name:
+
+::
+
+   mgmt rpc /ietf-ospf:clear-neighbor json
+     {"ietf-ospf:clear-neighbor":{"routing-protocol-name":"default"}}
+
+Two deviations from strict RFC 9129 wording are intentional:
+
+* RFC 9129 says an RPC against an unknown ``routing-protocol-name`` SHALL
+  fail with ``error-tag=data-missing`` and ``error-app-tag=routing-protocol-
+  instance-not-found``.  Both daemons receive every dispatched RPC and look
+  up the named instance locally; a non-owner can't distinguish "instance
+  doesn't exist on me but might exist on the sibling" from "instance
+  doesn't exist anywhere", so non-owners return ``NB_OK`` silently rather
+  than racing each other to surface a misleading "not found" reply.  If no
+  daemon owns the name, the client sees combined success.  Lifting this
+  would require mgmtd-side coordination across backend replies (collect
+  every backend's verdict before responding to the frontend), which is
+  outside the scope of this slice.
+
+  The same RFC input shape means an OSPFv2 instance and an OSPFv3 instance
+  with the same ``routing-protocol-name`` both match the RPC.  In that case,
+  ``clear-neighbor`` and ``clear-database`` intentionally act on both local
+  instances.  The RFC RPC input has no protocol ``type`` key to disambiguate
+  the two split FRR daemons, and treating both matching local instances as
+  owners keeps the behaviour aligned with the model the client invoked.  A
+  client that needs protocol-specific clearing should use distinct instance
+  names until mgmtd grows a coordinated multi-backend RPC result model.
+
+* RFC 9129 prescribes structured ``error-app-tag`` strings
+  (``routing-protocol-instance-not-found``, ``ospf-interface-not-found``).
+  FRR's ``nb_cb_rpc_args`` carries only an unstructured ``errmsg`` buffer,
+  so the app-tag string is embedded in the message text rather than
+  surfaced via a NETCONF / RESTCONF ``<error-app-tag>`` element.  The
+  ``ospf-interface-not-found`` case returns ``NB_ERR_NOT_FOUND`` (mgmtd
+  maps to ``MGMTD_INVALID_PARAM``) so the error code at least reflects
+  "client supplied a bad reference" rather than a daemon-internal failure.
+
+Frontend coverage
+~~~~~~~~~~~~~~~~~
+
+The vtysh frontend (``mgmt rpc XPATH json DATA``) is the supported
+invocation path for these RPCs.  It exercises the full mgmtd commit and
+backend-dispatch flow; the four topotests above cover it.
+
+FRR's per-daemon gRPC frontend (``lib/northbound_grpc.cpp``, enabled with
+``--enable-grpc`` and loaded per-daemon via ``-M grpc:<port>``) cannot
+dispatch these RPCs in standalone mode.  ``HandleUnaryExecute`` calls
+``lyd_validate_op(..., LYD_TYPE_RPC_YANG, ...)`` before invoking the
+backend handler, and that validator strictly enforces the
+``routing-protocol-name`` leafref against the daemon's local libyang
+context.  ``ospfd`` and ``ospf6d`` have no ``/ietf-routing:routing/...``
+state populated in their own contexts (that data lives in mgmtd's
+candidate datastore), so every Execute call with a valid
+``routing-protocol-name`` is rejected with ``grpc::StatusCode::INVALID_
+ARGUMENT`` ``"Invalid input data"``.  This is a frontend-side limitation,
+not specific to these RPCs; it affects every RFC 9129 RPC whose inputs
+include a leafref into the routing tree.  Fixing it would require either
+relaxing leafref validation for RPC inputs in
+``lib/northbound_grpc.cpp``, or having backend daemons mirror the
+routing-protocol list locally.  Use the mgmtd-fronted vtysh path until
+either change lands upstream.
+
+Notification Support
+--------------------
+
+RFC 9129 notifications are emitted by hooking the existing state-change
+hooks each daemon already exposes:
+
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| RFC 9129 notification         | OSPFv2 hook                 | OSPFv3 hook                 | Notes                       |
++===============================+=============================+=============================+=============================+
+| ``nbr-state-change``          | ``ospf_nsm_change``         | ``ospf6_neighbor_change``   | OSPFv2 NSM state values     |
+|                               |                             |                             | translate via a small table |
+|                               |                             |                             | (FRR reserves 0/1 for       |
+|                               |                             |                             | DependUpon/Deleted); OSPFv3 |
+|                               |                             |                             | NSM values match RFC 1:1.   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``if-state-change``           | ``ospf_ism_change``         | ``ospf6_interface_change``  | Both daemons need a state   |
+|                               |                             |                             | translation table: numeric  |
+|                               |                             |                             | values agree for the first  |
+|                               |                             |                             | four states but FRR orders  |
+|                               |                             |                             | the DR-election trio as     |
+|                               |                             |                             | DROther/Backup/DR while RFC |
+|                               |                             |                             | uses dr/bdr/dr-other.       |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``restart-status-change``     | ``ospf_gr_restart_enter`` / | ``ospf6_gr_restart_enter`` /| Direct emit calls from the  |
+|                               | ``ospf_gr_restart_exit``    | ``ospf6_gr_restart_exit``   | GR enter/exit sites (no     |
+|                               |                             |                             | dedicated hook).  All FRR-  |
+|                               |                             |                             | known restart reasons are   |
+|                               |                             |                             | software-initiated, so they |
+|                               |                             |                             | map to RFC                  |
+|                               |                             |                             | ``planned-restart`` (value  |
+|                               |                             |                             | 2); ``unplanned-restart``   |
+|                               |                             |                             | (3) would correspond to a   |
+|                               |                             |                             | crash recovery FRR does     |
+|                               |                             |                             | not currently signal.       |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``nbr-restart-helper-status-``| ``ospf_gr_helper`` enter +  | ``ospf6_gr_helper`` enter + | Direct emit calls, one when |
+| ``change``                    | ``ospf_gr_helper_exit``     | ``ospf6_gr_helper_exit``    | the router accepts a grace- |
+|                               |                             |                             | LSA and becomes helper, and |
+|                               |                             |                             | one when helper status ends |
+|                               |                             |                             | (completion, timeout, or    |
+|                               |                             |                             | topology change).  FRR's    |
+|                               |                             |                             | ``enum ospf_helper_exit_``  |
+|                               |                             |                             | ``reason`` is reordered     |
+|                               |                             |                             | through a lookup table into |
+|                               |                             |                             | the RFC                     |
+|                               |                             |                             | ``restart-exit-reason-type``|
+|                               |                             |                             | values.                     |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``if-rx-bad-packet``          | ``ospf_read_helper`` post-  | ``ospf6_receive`` post-     | Emitted once per packet     |
+|                               | ``ospf_verify_header``      | header-validation failure   | that fails the post-header  |
+|                               | failure path                | path                        | sanity check.  ``packet-    |
+|                               |                             |                             | type`` leaf is omitted when |
+|                               |                             |                             | the header didn't parse far |
+|                               |                             |                             | enough to extract it.       |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``if-config-error``           | hello-interval and dead-    | hello-interval and dead-    | Wired at the two most       |
+|                               | interval mismatch checks    | interval mismatch checks    | commonly-hit per-packet     |
+|                               | in ``ospf_hello``           | in ``ospf6_receive``        | mismatches; ``error`` leaf  |
+|                               |                             |                             | passed as RFC enum name     |
+|                               |                             |                             | string.  Other reject paths |
+|                               |                             |                             | (auth-failure, mtu-         |
+|                               |                             |                             | mismatch, area-mismatch,    |
+|                               |                             |                             | option-mismatch, etc.) wire |
+|                               |                             |                             | as future incremental work; |
+|                               |                             |                             | the emit helper is generic  |
+|                               |                             |                             | enough that additions are   |
+|                               |                             |                             | one-line call insertions.   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``nssa-translator-status-``   | ``ospf_abr_nssa_check_``    | n/a; ospf6d has no NSSA     | Wired at the                |
+| ``change`` (v2 only)          | ``status`` transition site  | translator surface          | NSSATranslatorState         |
+|                               |                             |                             | transition site.  FRR only  |
+|                               |                             |                             | tracks DISABLED/ENABLED;    |
+|                               |                             |                             | RFC defines three states    |
+|                               |                             |                             | (enabled/elected/disabled). |
+|                               |                             |                             | FRR ENABLED maps to RFC     |
+|                               |                             |                             | `elected` because FRR only  |
+|                               |                             |                             | enables translation on the  |
+|                               |                             |                             | elected translator.         |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+
+Each daemon registers its hook subscriber from
+``ospf{,6}d_ietf_notif_init()``, called once from
+``ospf{,6}_master_init()``.  The handlers build the YANG notification
+data tree (instance header, interface identity, neighbour leaves, the
+RFC ``nbr-state-type`` enum) and dispatch through
+``nb_notification_send()``.  ``DEBUGD(&nb_dbg_notif, ...)`` logs every
+emit so operators can verify wiring with
+``debug northbound notifications``.
+
+Out of scope for now: ``lsdb-approaching-overflow`` and
+``lsdb-overflow`` (FRR has no max-LSA threshold, as documented under
+Remaining Scope).  All other RFC 9129 notifications now have emit wiring on
+at least one daemon.
+
+Live tests cover ``nbr-state-change``, ``if-state-change`` and
+``if-config-error`` by driving the protocol paths that emit them.  Live test
+coverage for ``restart-status-change`` and
+``nbr-restart-helper-status-change`` is deferred because triggering a
+graceful-restart event in topotest requires a staged daemon kill and relaunch
+with grace-LSA timing that the current topo1 setup does not have.  The
+emit-side wiring compiles and links cleanly; ``debug northbound
+notifications`` plus a ``clear ip ospf process`` from a neighbour during its
+grace period is the manual reproduction path.  The companion gRPC Subscribe
+work can close the observation side of this gap by letting a future combined
+topotest assert the notifications as frontend subscriber data.  That test will
+still need OSPF-specific choreography to create the graceful-restart lifecycle
+reliably.
+
+Live test coverage for ``if-rx-bad-packet`` and
+``nssa-translator-status-change`` is also deferred.  The former needs a
+topotest packet-injection helper that can send malformed OSPF packets safely
+inside a router namespace.  The latter needs an NSSA topology that drives a
+real translator state transition, rather than merely calling the notification
+helper.  Both emit sites are documented in the table above and can be checked
+manually with ``debug northbound notifications`` until those focused tests are
+added.
+
 Remaining Scope
 ---------------
 
@@ -426,6 +698,51 @@ nor ``ospf6d`` has any matching FRR surface to map onto:
 * ``ospf/node-tag-config`` -- FRR has no node-tag CLI, struct field, or LSA
   encoding; ``router-info`` only enables the Opaque Router Information LSA
   without exposing administrative tags.
+* ``ospf/enabled`` and per-interface ``interface/enabled`` -- FRR has no
+  separate OSPF on/off toggle.  The protocol runs whenever an ``ospfd`` /
+  ``ospf6d`` instance is configured (control-plane-protocol create) and on
+  every interface that is bound into an area.  Writing ``enabled=false``
+  has no corresponding FRR mutation.
+* ``interface/multi-areas`` (``{multi-area-adj}`` feature) -- FRR has no
+  multi-area-adjacency surface on either daemon.  Each interface belongs
+  to exactly one area.
+* ``interface/ttl-security`` (``{ttl-security}`` feature) -- neither
+  ``ospfd`` nor ``ospf6d`` exposes a per-interface TTL-security check;
+  GTSM is a generic socket option used elsewhere in FRR but not wired
+  into the OSPF interface params.
+* ``ospf/fast-reroute/lfa`` and ``interface/fast-reroute/lfa/*``
+  (``{fast-reroute}`` / ``{lfa}`` / ``{remote-lfa}`` features) -- FRR's
+  only OSPF fast-reroute surface is the instance-level
+  ``fast-reroute ti-lfa [node-protection]`` command on ``ospfd`` (writes
+  ``ospf->ti_lfa_enabled`` + ``ti_lfa_protection_type``).  RFC 9129 models
+  LFA as a per-interface enable plus an empty instance-level container
+  (``Container creation has no effect on LFA activation.``); the
+  semantics don't line up.  ``ospf6d`` has no TI-LFA implementation at
+  all.  The legacy ``fast-reroute ti-lfa`` CLI stays on the direct
+  mutation path.
+* ``ospf/address-family`` -- the RFC leaf is only present for OSPFv3
+  and is retained there because notification headers leafref it. FRR
+  constrains the leaf to ``ipv6`` in the deviation module; other values
+  are rejected by schema validation because this branch has no separate
+  address-family knob. OSPFv2 notifications omit the optional
+  ``address-family`` header leaf because the base RFC module does not
+  instantiate the referenced config leaf for OSPFv2 instances.
+* ``ospf/mpls/te-rid/ipv6-router-id`` -- the converted OSPFv2 TE callback maps
+  the IPv4 Router Address TLV.  The RFC 9129 IPv6 TE router-id leaf is not
+  wired in this branch and is marked ``not-supported``.
+* ``area/virtual-links`` -- FRR has OSPFv2 virtual-link CLI support, but the
+  RFC 9129 virtual-link subtree is not wired through northbound callbacks in
+  this branch.  It is marked ``not-supported`` until the timers and
+  authentication leaves below it can be implemented as a coherent unit.
+* ``interface/instance-id`` -- the OSPFv3 instance ID has legacy CLI support,
+  but is not exposed through RFC 9129 callbacks in this branch.
+* ``interface/authentication/(auth-key-explicit|ospfv2-auth-trailer-rfc)``
+  and the OSPFv3 ``ospfv3-sa`` / ``ospfv3-key`` / ``ospfv3-sa-id``
+  branches -- the legacy CLI supports them, but this branch implements
+  only the key-chain case through YANG.  The unsupported leaves are
+  marked ``not-supported`` by deviation so mgmtd rejects them at
+  validation time.  The matching legacy CLI commands stay on the direct
+  mutation path.
 
 These should be revisited only if FRR grows the underlying surface; until
 then, leaving the YANG nodes unimplemented is preferable to silent
@@ -454,6 +771,13 @@ The same test file includes config-write checks for the supported OSPFv2 and
 OSPFv3 leaves. The tests exercise mgmtd writes, legacy CLI writes routed through
 YANG, negative validation paths, and cleanup after deleting and recreating an
 area.
+
+Deviation coverage follows the same mapping rule.  A deviation that supplies an
+FRR default must have a positive test for the defaulted behaviour, such as bare
+``auto-cost/reference-bandwidth``, bare BFD enable, or partial NBMA static
+neighbour writes.  A deviation that marks an RFC leaf ``not-supported`` must
+have a rejection test, such as ``ospf/enabled``, ``interface/enabled``, BFD
+``min-interval``, or NBMA static-neighbour ``cost``.
 
 ``tests/topotests/ospf_yang_startup_config/test_ospf_yang_startup_config.py``
 checks startup config-file batching in an isolated one-router topology. Its
