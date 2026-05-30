@@ -102,12 +102,13 @@ the candidate tree once mgmtd has selected the owning backends.
 
 Configuration write support is intentionally limited to CLI-equivalent RFC 9129
 leaves. The converted leaves are router-id, preference, spf-control paths,
-auto-cost, OSPFv2 mpls/ldp/igp-sync, OSPFv2 mpls/te-rid, OSPFv2 stub-router
-unconditional, area lifecycle, area-type, area summary, OSPFv2 default-cost,
-area ranges, per-interface area attachment, interface cost, hello-interval,
-dead-interval, retransmit-interval, priority, mtu-ignore, transmit-delay,
-interface-type, passive, and OSPFv2 prefix-suppression. Existing CLI commands
-for those leaves set the same YANG nodes as mgmtd writes.
+auto-cost, OSPFv2 mpls/ldp/igp-sync, OSPFv2 mpls/te-rid, graceful-restart
+enabled and restart-interval, OSPFv2 stub-router unconditional, area
+lifecycle, area-type, area summary, OSPFv2 default-cost, area ranges,
+per-interface area attachment, interface cost, hello-interval, dead-interval,
+retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type,
+passive, and OSPFv2 prefix-suppression. Existing CLI commands for those leaves
+set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
 ---------------------------
@@ -260,6 +261,20 @@ The current config-write mapping is:
 |                               |                             |                             | when MPLS-TE is enabled,    |
 |                               |                             |                             | otherwise just stores the   |
 |                               |                             |                             | value for later use.        |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/graceful-restart/``    | ``ospf->gr_info.restart_``  | ``ospf6->gr_info.restart_`` | NB_EV_VALIDATE rejects      |
+| ``enabled``                   | ``support`` plus zebra GR   | ``support`` plus zebra GR   | disable when a GR prepare   |
+|                               | enable / NVM bookkeeping    | enable / NVM bookkeeping    | is in flight (mirrors the   |
+|                               |                             |                             | legacy CLI rejection).      |
+|                               |                             |                             | Sibling restart-interval is |
+|                               |                             |                             | a separate northbound knob. |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/graceful-restart/``    | ``ospf->gr_info.grace_``    | ``ospf6->gr_info.grace_``   | RFC default is 120s, which  |
+| ``restart-interval``          | ``period``; destroy         | ``period``; destroy         | matches FRR's compile-time  |
+|                               | restores                    | restores                    | default; no deviation       |
+|                               | ``OSPF_DFLT_GRACE_``        | ``OSPF6_DFLT_GRACE_``       | needed.  Modify refreshes   |
+|                               | ``INTERVAL``                | ``INTERVAL``                | the zebra stale-route timer |
+|                               |                             |                             | when GR is enabled.         |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/stub-router/always``   | ``OSPF_AREA_ADMIN_STUB_``   | Not implemented: ospf6d     | Presence container          |
 |                               | ``ROUTED`` per area +       | has no stub-router          | (create / destroy           |

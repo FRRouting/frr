@@ -106,6 +106,10 @@ int ospfd_ietf_ospf_auto_cost_reference_bandwidth_modify(struct nb_cb_modify_arg
 int ospfd_ietf_ospf_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_modify(struct nb_cb_modify_args *args);
 int ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_graceful_restart_enabled_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_graceful_restart_enabled_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_graceful_restart_restart_interval_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_graceful_restart_restart_interval_destroy(struct nb_cb_destroy_args *args);
 
 struct yang_data *ospfd_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

@@ -423,6 +423,7 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	o->write_oi_count = OSPF6_WRITE_INTERFACE_COUNT_DEFAULT;
 	o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
+	o->gr_info.grace_period = OSPF6_DFLT_GRACE_INTERVAL;
 
 	o->distance_table = route_table_init();
 

@@ -30,6 +30,7 @@
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_te.h"
 #include "ospfd/ospf_vty.h"
+#include "ospfd/ospf_zebra.h"
 
 /*
  * RFC 9129 ietf-ospf area-type identityref values. Accept both the bare
@@ -2364,5 +2365,102 @@ int ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_destroy(struct nb_cb_destroy_args
 	if (ospf->vrf_id != VRF_DEFAULT)
 		return NB_OK;
 	ospf_mpls_te_clear_router_addr();
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/graceful-restart/enabled
+ *
+ * RFC 9129's graceful-restart enable flag.  Maps onto FRR's per-
+ * instance `ospf->gr_info.restart_support` and the matching
+ * zebra/nvm bookkeeping in `ospf_gr_restart_support_enable` /
+ * `_disable`.  Disable is rejected at NB_EV_VALIDATE if a GR
+ * preparation is in flight -- the legacy CLI rejects the same way.
+ * The `restart-interval` leaf is a sibling and is intentionally
+ * not touched here; see the `restart_interval` callback below.
+ */
+int ospfd_ietf_ospf_graceful_restart_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	bool enabled;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!enabled && ospf->gr_info.prepare_in_progress) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Graceful Restart preparation in progress");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (enabled)
+		ospf_gr_restart_support_enable(ospf);
+	else
+		(void)ospf_gr_restart_support_disable(ospf);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_graceful_restart_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	(void)ospf_gr_restart_support_disable(ospf);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/graceful-restart/restart-interval
+ *
+ * Per-instance grace period.  Modify sets the value and, when GR is
+ * currently enabled, refreshes the zebra stale-route timer.  Destroy
+ * restores the RFC default (120s, which also matches FRR's
+ * `OSPF_DFLT_GRACE_INTERVAL`).
+ */
+int ospfd_ietf_ospf_graceful_restart_restart_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	uint16_t period;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	period = yang_dnode_get_uint16(args->dnode, NULL);
+	ospf_gr_set_grace_period(ospf, period);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_graceful_restart_restart_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+
+	ospf_gr_set_grace_period(ospf, OSPF_DFLT_GRACE_INTERVAL);
 	return NB_OK;
 }

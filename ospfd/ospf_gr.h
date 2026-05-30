@@ -174,8 +174,31 @@ extern void ospf_gr_check_lsdb_consistency(struct ospf *ospf,
 						  struct ospf_area *area);
 extern void ospf_gr_check_adjs(struct ospf *ospf);
 extern void ospf_gr_nvm_read(struct ospf *ospf);
+extern void ospf_gr_nvm_update(struct ospf *ospf, bool prepare);
 extern void ospf_gr_nvm_delete(struct ospf *ospf);
 extern void ospf_gr_unplanned_start_interface(struct ospf_interface *oi);
 extern void ospf_gr_init(void);
+
+/*
+ * Apply graceful-restart restarter state.  Shared by the legacy
+ * `graceful-restart` CLI and the RFC 9129 `/graceful-restart/enabled`
+ * northbound callback so the two paths produce identical side effects.
+ */
+extern void ospf_gr_restart_support_enable(struct ospf *ospf);
+
+/*
+ * Disable graceful-restart restarter state.  Returns -1 when a GR
+ * preparation is in flight (the legacy CLI rejects the same way); the
+ * caller surfaces the rejection.  The grace_period is intentionally
+ * left untouched -- the restart-interval leaf has its own restore
+ * path.
+ */
+extern int ospf_gr_restart_support_disable(struct ospf *ospf);
+
+/*
+ * Set the graceful-restart grace period.  Refreshes the zebra GR
+ * stale-route timer if GR is currently enabled.
+ */
+extern void ospf_gr_set_grace_period(struct ospf *ospf, uint32_t grace_period);
 
 #endif /* _ZEBRA_OSPF_GR_H */

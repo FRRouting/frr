@@ -1898,3 +1898,95 @@ int ospf6d_ietf_ospf_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_
 			ospf6_interface_recalculate_cost(oi);
 	return NB_OK;
 }
+
+/*
+ * XPath: .../ospf/graceful-restart/enabled
+ *
+ * Companion to the ospfd callback above.  Same semantics: shared
+ * helper in `ospf6_gr_restart_support_{enable,disable}`, validate-
+ * time rejection when a GR prepare is in flight, sibling
+ * `restart-interval` leaf is not touched here.
+ */
+int ospf6d_ietf_ospf_graceful_restart_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	bool enabled;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!enabled && ospf6->gr_info.prepare_in_progress) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Graceful Restart preparation in progress");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (enabled)
+		ospf6_gr_restart_support_enable(ospf6);
+	else
+		(void)ospf6_gr_restart_support_disable(ospf6);
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_graceful_restart_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	(void)ospf6_gr_restart_support_disable(ospf6);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/graceful-restart/restart-interval
+ *
+ * Per-instance grace period.  Destroy restores the RFC default (120s,
+ * which also matches FRR's `OSPF6_DFLT_GRACE_INTERVAL`).
+ */
+int ospf6d_ietf_ospf_graceful_restart_restart_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	uint16_t period;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	period = yang_dnode_get_uint16(args->dnode, NULL);
+	ospf6_gr_set_grace_period(ospf6, period);
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_graceful_restart_restart_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+
+	ospf6_gr_set_grace_period(ospf6, OSPF6_DFLT_GRACE_INTERVAL);
+	return NB_OK;
+}

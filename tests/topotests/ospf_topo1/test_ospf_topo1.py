@@ -1758,6 +1758,122 @@ def test_ospf_mpls_te_router_addr_cli_routes_through_yang():
         )
 
 
+def test_ospf_yang_graceful_restart_config():
+    """per-instance /graceful-restart/{enabled,restart-interval} round-trip
+    via mgmtd on both daemons.
+
+    RFC 9129 defaults restart-interval to 120s; FRR's compile-time
+    defaults (`OSPF_DFLT_GRACE_INTERVAL` / `OSPF6_DFLT_GRACE_INTERVAL`)
+    are also 120s, so no deviation is needed.  The two leaves are
+    independent in the YANG model but the legacy CLI ties them
+    together (`graceful-restart [grace-period N]`); both behaviours
+    are exercised here.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+
+        # Set enabled=true with a non-default restart-interval.
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/graceful-restart/enabled true\n"
+            "mgmt set-config {}/graceful-restart/restart-interval 240\n"
+            "mgmt commit apply".format(instance, instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "graceful-restart grace-period 240" in running
+        ), "expected 'graceful-restart grace-period 240' on {}, got:\n{}".format(
+            daemon, running
+        )
+
+        # Drop the restart-interval alone -- enabled stays true,
+        # period restores to the FRR/RFC default 120s.  The legacy
+        # writer collapses that to bare `graceful-restart`.
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/graceful-restart/restart-interval\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "graceful-restart\n" in running and "grace-period" not in running
+        ), "expected bare 'graceful-restart' on {} after interval delete, got:\n{}".format(
+            daemon, running
+        )
+
+        # And tear it all down.
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/graceful-restart/enabled\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "graceful-restart" not in running
+        ), "'graceful-restart' should be gone on {} after disable, got:\n{}".format(
+            daemon, running
+        )
+
+
+def test_ospf_graceful_restart_cli_routes_through_yang():
+    """Legacy `graceful-restart [grace-period N]` / `no graceful-restart`
+    on both daemons drive the YANG /graceful-restart callbacks."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for router_block, daemon in (
+        ("router ospf", "ospfd"),
+        ("router ospf6", "ospf6d"),
+    ):
+        try:
+            r1.vtysh_cmd(
+                "configure terminal\n"
+                "{}\n"
+                " graceful-restart grace-period 180\n".format(router_block)
+            )
+            running = r1.vtysh_cmd("show running-config {}".format(daemon))
+            assert (
+                "graceful-restart grace-period 180" in running
+            ), "expected legacy CLI to land GR period 180 on {}, got:\n{}".format(
+                daemon, running
+            )
+
+            r1.vtysh_cmd(
+                "configure terminal\n"
+                "{}\n"
+                " no graceful-restart\n".format(router_block)
+            )
+            running = r1.vtysh_cmd("show running-config {}".format(daemon))
+            assert (
+                "graceful-restart" not in running
+            ), "'graceful-restart' should be gone on {} after legacy 'no', got:\n{}".format(
+                daemon, running
+            )
+        finally:
+            r1.vtysh_cmd(
+                "configure terminal\n"
+                "{}\n"
+                " no graceful-restart\n".format(router_block)
+            )
+
+
 def test_ospf_yang_prefix_suppression_config():
     """per-interface prefix-suppression round-trip via mgmtd (OSPFv2 only)."""
     tgen = get_topogen()

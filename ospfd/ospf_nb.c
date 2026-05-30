@@ -226,6 +226,22 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cfg_opt_in = true,
 		},
 		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/graceful-restart/enabled",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_graceful_restart_enabled_modify,
+				.destroy = ospfd_ietf_ospf_graceful_restart_enabled_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/graceful-restart/restart-interval",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_graceful_restart_restart_interval_modify,
+				.destroy = ospfd_ietf_ospf_graceful_restart_restart_interval_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/statistics/originate-new-lsa-count",
 			.cbs = {

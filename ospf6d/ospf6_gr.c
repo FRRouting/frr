@@ -33,6 +33,8 @@
 #include "ospf6d/ospf6_spf.h"
 #include "ospf6d/ospf6_tlv.h"
 #include "ospf6d/ospf6_gr.h"
+#include "ospf6d/ospf6_top.h"
+#include "northbound_cli.h"
 #include "ospf6d/ospf6_gr_clippy.c"
 
 static void ospf6_gr_grace_period_expired(struct event *event);
@@ -554,7 +556,7 @@ void ospf6_gr_iface_send_grace_lsa(struct event *event)
  * Record in non-volatile memory that the given OSPF instance is attempting to
  * perform a graceful restart.
  */
-static void ospf6_gr_nvm_update(struct ospf6 *ospf6, bool prepare)
+void ospf6_gr_nvm_update(struct ospf6 *ospf6, bool prepare)
 {
 	const char *inst_name;
 	json_object *json;
@@ -789,53 +791,91 @@ DEFPY(ospf6_graceful_restart_prepare, ospf6_graceful_restart_prepare_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(ospf6_graceful_restart, ospf6_graceful_restart_cmd,
+/*
+ * Companion to `ospf_gr_restart_support_enable` in ospfd -- enable GR
+ * on the given ospf6 instance using its current grace_period.
+ * Idempotent.  Shared by the legacy CLI and the RFC 9129 northbound
+ * callback.
+ */
+void ospf6_gr_restart_support_enable(struct ospf6 *ospf6)
+{
+	if (ospf6->gr_info.grace_period == 0)
+		ospf6->gr_info.grace_period = OSPF6_DFLT_GRACE_INTERVAL;
+	ospf6->gr_info.restart_support = true;
+	(void)ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
+	ospf6_gr_nvm_update(ospf6, false);
+}
+
+/*
+ * Disable graceful-restart restarter state.  Returns -1 if a GR
+ * preparation is in flight; the caller surfaces the rejection.  The
+ * grace_period is left untouched -- see the ospfd companion comment.
+ */
+int ospf6_gr_restart_support_disable(struct ospf6 *ospf6)
+{
+	if (!ospf6->gr_info.restart_support)
+		return 0;
+	if (ospf6->gr_info.prepare_in_progress)
+		return -1;
+	ospf6->gr_info.restart_support = false;
+	ospf6_gr_nvm_delete(ospf6);
+	ospf6_zebra_gr_disable(ospf6);
+	return 0;
+}
+
+/*
+ * Set the graceful-restart grace period.  Refresh the zebra GR
+ * stale-route timer if GR is currently enabled.
+ */
+void ospf6_gr_set_grace_period(struct ospf6 *ospf6, uint32_t grace_period)
+{
+	if (ospf6->gr_info.grace_period == grace_period)
+		return;
+	ospf6->gr_info.grace_period = grace_period;
+	if (ospf6->gr_info.restart_support)
+		(void)ospf6_zebra_gr_enable(ospf6, grace_period);
+}
+
+DEFPY_YANG(ospf6_graceful_restart, ospf6_graceful_restart_cmd,
       "graceful-restart [grace-period (1-1800)$grace_period]",
       OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
+	char xpath[XPATH_MAXLEN];
 
-	/* Check and get restart period if present. */
-	if (!grace_period_str)
-		grace_period = OSPF6_DFLT_GRACE_INTERVAL;
-
-	ospf6->gr_info.restart_support = true;
-	ospf6->gr_info.grace_period = grace_period;
-
-	/* Freeze OSPF routes in the RIB. */
-	(void)ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
-
-	/* Record that GR is enabled in non-volatile memory. */
-	ospf6_gr_nvm_update(ospf6, false);
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+				     "/graceful-restart/enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	if (grace_period_str) {
+		if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+					     "/graceful-restart/restart-interval") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, grace_period_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(ospf6_no_graceful_restart, ospf6_no_graceful_restart_cmd,
+DEFPY_YANG(ospf6_no_graceful_restart, ospf6_no_graceful_restart_cmd,
       "no graceful-restart [period (1-1800)]",
       NO_STR OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
+	char xpath[XPATH_MAXLEN];
 
-	if (!ospf6->gr_info.restart_support)
-		return CMD_SUCCESS;
-
-	if (ospf6->gr_info.prepare_in_progress) {
-		vty_out(vty,
-			"%% Error: Graceful Restart preparation in progress\n");
-		return CMD_WARNING;
-	}
-
-	ospf6->gr_info.restart_support = false;
-	ospf6->gr_info.grace_period = OSPF6_DFLT_GRACE_INTERVAL;
-	ospf6_gr_nvm_delete(ospf6);
-	ospf6_zebra_gr_disable(ospf6);
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+				     "/graceful-restart/enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+				     "/graceful-restart/restart-interval") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void ospf6_gr_init(void)

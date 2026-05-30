@@ -31,6 +31,8 @@
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_vty.h"
+#include "northbound_cli.h"
 #include "ospfd/ospf_gr_clippy.c"
 
 static void ospf_gr_grace_period_expired(struct event *event);
@@ -574,7 +576,7 @@ void ospf_gr_iface_send_grace_lsa(struct event *event)
  * Record in non-volatile memory that the given OSPF instance is attempting to
  * perform a graceful restart.
  */
-static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
+void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
 {
 	const char *inst_name;
 	json_object *json;
@@ -788,53 +790,96 @@ DEFPY(graceful_restart_prepare, graceful_restart_prepare_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(graceful_restart, graceful_restart_cmd,
+/*
+ * Enable graceful-restart support on `ospf` using its current
+ * `gr_info.grace_period`.  Idempotent: safe to call when GR is already
+ * enabled (e.g. by a YANG modify that only changed restart-interval).
+ * Extracted from the legacy `graceful-restart` DEFUN so the CLI shim
+ * and the RFC 9129 `/graceful-restart/enabled` callback share one
+ * code path.
+ */
+void ospf_gr_restart_support_enable(struct ospf *ospf)
+{
+	if (ospf->gr_info.grace_period == 0)
+		ospf->gr_info.grace_period = OSPF_DFLT_GRACE_INTERVAL;
+	ospf->gr_info.restart_support = true;
+	(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
+	ospf_gr_nvm_update(ospf, false);
+}
+
+/*
+ * Disable graceful-restart support on `ospf`.  Returns -1 if a GR
+ * preparation is already in flight (the legacy CLI rejects the same
+ * way); the caller is responsible for surfacing the rejection.  The
+ * grace_period is left untouched -- the RFC 9129 `restart-interval`
+ * leaf is a separate northbound knob with its own restore path.
+ */
+int ospf_gr_restart_support_disable(struct ospf *ospf)
+{
+	if (!ospf->gr_info.restart_support)
+		return 0;
+	if (ospf->gr_info.prepare_in_progress)
+		return -1;
+	ospf->gr_info.restart_support = false;
+	ospf_gr_nvm_delete(ospf);
+	ospf_zebra_gr_disable(ospf);
+	return 0;
+}
+
+/*
+ * Set the graceful-restart grace period.  If GR is currently enabled,
+ * refresh the zebra GR stale-route timer so the new value takes
+ * effect on the next restart.
+ */
+void ospf_gr_set_grace_period(struct ospf *ospf, uint32_t grace_period)
+{
+	if (ospf->gr_info.grace_period == grace_period)
+		return;
+	ospf->gr_info.grace_period = grace_period;
+	if (ospf->gr_info.restart_support)
+		(void)ospf_zebra_gr_enable(ospf, grace_period);
+}
+
+DEFPY_YANG(graceful_restart, graceful_restart_cmd,
       "graceful-restart [grace-period (1-1800)$grace_period]",
       OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
-	/* Check and get restart period if present. */
-	if (!grace_period_str)
-		grace_period = OSPF_DFLT_GRACE_INTERVAL;
-
-	ospf->gr_info.restart_support = true;
-	ospf->gr_info.grace_period = grace_period;
-
-	/* Freeze OSPF routes in the RIB. */
-	(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
-
-	/* Record that GR is enabled in non-volatile memory. */
-	ospf_gr_nvm_update(ospf, false);
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/graceful-restart/enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	if (grace_period_str) {
+		if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+					    "/graceful-restart/restart-interval") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, grace_period_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_graceful_restart, no_graceful_restart_cmd,
+DEFPY_YANG(no_graceful_restart, no_graceful_restart_cmd,
       "no graceful-restart [grace-period (1-1800)]",
       NO_STR OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
-	if (!ospf->gr_info.restart_support)
-		return CMD_SUCCESS;
-
-	if (ospf->gr_info.prepare_in_progress) {
-		vty_out(vty,
-			"%% Error: Graceful Restart preparation in progress\n");
-		return CMD_WARNING;
-	}
-
-	ospf->gr_info.restart_support = false;
-	ospf->gr_info.grace_period = OSPF_DFLT_GRACE_INTERVAL;
-	ospf_gr_nvm_delete(ospf);
-	ospf_zebra_gr_disable(ospf);
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/graceful-restart/enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/graceful-restart/restart-interval") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void ospf_gr_init(void)
