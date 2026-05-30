@@ -329,6 +329,7 @@ int pim_socket_leave(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
 		flog_err(EC_LIB_SOCKET,
 			 "Failure socket leaving fd=%d group %pPAs on interface address %pPAs: %m",
 			 fd, &group, &ifaddr);
+		/* We don't track socket leave errors; reuse joins_failed. */
 		pim_ifp->igmp_ifstat_joins_failed++;
 		return ret;
 	}
