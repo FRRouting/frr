@@ -102,11 +102,11 @@ the candidate tree once mgmtd has selected the owning backends.
 
 Configuration write support is intentionally limited to CLI-equivalent RFC 9129
 leaves. The converted leaves are router-id, preference, spf-control paths,
-OSPFv2 mpls/ldp/igp-sync, area lifecycle, area-type, area summary, OSPFv2
-default-cost, area ranges, per-interface area attachment, interface cost,
-hello-interval, dead-interval, retransmit-interval, priority, mtu-ignore,
-transmit-delay, interface-type, and passive. Existing CLI commands for those
-leaves set the same YANG nodes as mgmtd writes.
+OSPFv2 mpls/ldp/igp-sync, OSPFv2 stub-router unconditional, area lifecycle,
+area-type, area summary, OSPFv2 default-cost, area ranges, per-interface area
+attachment, interface cost, hello-interval, dead-interval, retransmit-interval,
+priority, mtu-ignore, transmit-delay, interface-type, and passive. Existing CLI
+commands for those leaves set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
 ---------------------------
@@ -229,6 +229,13 @@ The current config-write mapping is:
 |                               | ``ospf_ldp_sync_gbl_exit``  |                             | tears the state back down.  |
 |                               |                             |                             | Validate rejects non-       |
 |                               |                             |                             | default VRF instances.      |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/stub-router/always``   | ``OSPF_AREA_ADMIN_STUB_``   | Not implemented: ospf6d     | Presence container          |
+|                               | ``ROUTED`` per area +       | has no stub-router          | (create / destroy           |
+|                               | ``ospf->stub_router_admin`` | implementation              | callbacks).  RFC 6987       |
+|                               | ``_set``; destroy preserves |                             | unconditional stub router;  |
+|                               | in-flight startup-timer     |                             | per-area LSA reorigination  |
+|                               | stub state                  |                             | triggered by the flag flip. |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 
 When adding another RFC 9129 config node, add its row here before or alongside

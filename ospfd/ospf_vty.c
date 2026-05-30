@@ -10589,7 +10589,15 @@ DEFPY(ip_ospf_neighbor_filter, ip_ospf_neighbor_filter_addr_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ospf_max_metric_router_lsa_admin,
+/*
+ * `max-metric router-lsa administrative` maps onto the RFC 9129
+ * presence container `/stub-router/always` (RFC 6987 unconditional
+ * stub router; the intermediate `choice trigger` skips the data
+ * path per RFC 7950).  Create -> NB_OP_CREATE on the container;
+ * remove -> NB_OP_DESTROY.  The callback owns the per-area flag
+ * flip and the LSA reorigination.
+ */
+DEFPY_YANG (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
        "max-metric router-lsa administrative",
        "OSPF maximum / infinite-distance metric\n"
@@ -10597,24 +10605,16 @@ DEFUN (ospf_max_metric_router_lsa_admin,
        "Administratively applied, for an indefinite period\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct listnode *ln;
-	struct ospf_area *area;
+	char xpath[XPATH_MAXLEN];
 
-	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
-		SET_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
-
-		if (!CHECK_FLAG(area->stub_router_state,
-				OSPF_AREA_IS_STUB_ROUTED))
-			ospf_router_lsa_update_area(area);
-	}
-
-	/* Allows for areas configured later to get the property */
-	ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_SET;
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/stub-router/always") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf_max_metric_router_lsa_admin,
+DEFPY_YANG (no_ospf_max_metric_router_lsa_admin,
        no_ospf_max_metric_router_lsa_admin_cmd,
        "no max-metric router-lsa administrative",
        NO_STR
@@ -10623,24 +10623,13 @@ DEFUN (no_ospf_max_metric_router_lsa_admin,
        "Administratively applied, for an indefinite period\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct listnode *ln;
-	struct ospf_area *area;
+	char xpath[XPATH_MAXLEN];
 
-	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
-		UNSET_FLAG(area->stub_router_state,
-			   OSPF_AREA_ADMIN_STUB_ROUTED);
-
-		/* Don't trample on the start-up stub timer */
-		if (CHECK_FLAG(area->stub_router_state,
-			       OSPF_AREA_IS_STUB_ROUTED)
-		    && !area->t_stub_router) {
-			UNSET_FLAG(area->stub_router_state,
-				   OSPF_AREA_IS_STUB_ROUTED);
-			ospf_router_lsa_update_area(area);
-		}
-	}
-	ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET;
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/stub-router/always") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ospf_max_metric_router_lsa_startup,

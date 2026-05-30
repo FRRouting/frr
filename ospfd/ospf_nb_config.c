@@ -2048,3 +2048,65 @@ int ospfd_ietf_ospf_mpls_ldp_igp_sync_destroy(struct nb_cb_destroy_args *args)
 	ospf_ldp_sync_gbl_exit(ospf, true);
 	return NB_OK;
 }
+
+/*
+ * XPath: .../ospf/stub-router/always
+ *
+ * Presence container that mirrors the legacy
+ * `max-metric router-lsa administrative` CLI (RFC 6987 unconditional
+ * stub router).  The intermediate `choice trigger` YANG node is not
+ * a data-tree node, so the data path skips it (RFC 7950 sec 7.9.2).
+ * Create sets `OSPF_AREA_ADMIN_STUB_ROUTED` on every existing area
+ * and arms the `stub_router_admin_set` flag so later-created areas
+ * inherit the property; destroy unwinds, preserving any startup-
+ * timer-driven stub state already in flight.
+ */
+int ospfd_ietf_ospf_stub_router_always_create(struct nb_cb_create_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	struct listnode *ln;
+	struct ospf_area *area;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
+		SET_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
+		if (!CHECK_FLAG(area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
+			ospf_router_lsa_update_area(area);
+	}
+	ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_SET;
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_stub_router_always_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct listnode *ln;
+	struct ospf_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
+		UNSET_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
+		/* Don't trample on the start-up stub timer */
+		if (CHECK_FLAG(area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED)
+		    && !area->t_stub_router) {
+			UNSET_FLAG(area->stub_router_state,
+				   OSPF_AREA_IS_STUB_ROUTED);
+			ospf_router_lsa_update_area(area);
+		}
+	}
+	ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET;
+	return NB_OK;
+}

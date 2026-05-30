@@ -1535,6 +1535,48 @@ def test_ospf_yang_mpls_ldp_igp_sync_config():
     ), "mpls ldp-sync should be gone after YANG delete, got:\n{}".format(running)
 
 
+def test_ospf_max_metric_router_lsa_admin_cli_routes_through_yang():
+    """Legacy `max-metric router-lsa administrative` / `no max-metric
+    router-lsa administrative` continues to work via vtysh and drives
+    the YANG `/stub-router/trigger/always` create/destroy callbacks.
+
+    RFC 9129's `/stub-router/trigger/always` is a presence container --
+    a node with no value -- and FRR's mgmtd CLI `mgmt set-config WORD
+    VALUE` grammar requires a VALUE token, so direct mgmtd-side
+    round-trip testing of this leaf has no clean entry point.  The
+    legacy CLI invokes the same NB_OP_CREATE / NB_OP_DESTROY
+    callbacks the YANG path would, so this test covers both."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "router ospf\n"
+        " max-metric router-lsa administrative\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "max-metric router-lsa administrative" in running
+    ), "expected 'max-metric router-lsa administrative' in ospfd running-config, got:\n{}".format(
+        running
+    )
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "router ospf\n"
+        " no max-metric router-lsa administrative\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert (
+        "max-metric router-lsa administrative" not in running
+    ), "max-metric router-lsa administrative should be gone after 'no ...', got:\n{}".format(
+        running
+    )
+
+
 def test_ospf_mpls_ldp_sync_cli_routes_through_yang():
     """Legacy `mpls ldp-sync` / `no mpls ldp-sync` continues to work
     via vtysh and drives the YANG `/mpls/ldp/igp-sync` callback."""

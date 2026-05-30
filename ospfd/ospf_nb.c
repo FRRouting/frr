@@ -194,6 +194,14 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cfg_opt_in = true,
 		},
 		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/stub-router/always",
+			.cbs = {
+				.create = ospfd_ietf_ospf_stub_router_always_create,
+				.destroy = ospfd_ietf_ospf_stub_router_always_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/statistics/originate-new-lsa-count",
 			.cbs = {
