@@ -261,6 +261,8 @@ static FRR_NORETURN void bgp_exit(int status)
 #endif
 	bgp_zebra_destroy();
 
+	bgp_debug_destroy();
+
 	bf_free(bm->rd_idspace);
 	list_delete(&bm->bgp);
 	list_delete(&bm->addresses);
