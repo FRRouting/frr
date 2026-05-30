@@ -947,11 +947,16 @@ static bool autorp_recv_msg(struct pim_autorp *autorp, char *buf, size_t buf_siz
 	}
 
 	if (h->type == AUTORP_ANNOUNCEMENT_TYPE)
+<<<<<<< HEAD
 		return autorp_recv_announcement(autorp, h->rpcnt, htons(h->holdtime),
 						buf + AUTORP_HDRLEN, buf_size - AUTORP_HDRLEN);
+=======
+		return autorp_recv_announcement(autorp, h->rpcnt, ntohs(h->holdtime),
+						buf + AUTORP_HDRLEN, buf_size - AUTORP_HDRLEN, src);
+>>>>>>> b48f05a41 (pimd: fix AutoRP holdtime parsing and minor cleanup)
 
 	if (h->type == AUTORP_DISCOVERY_TYPE)
-		return autorp_recv_discovery(autorp, h->rpcnt, htons(h->holdtime),
+		return autorp_recv_discovery(autorp, h->rpcnt, ntohs(h->holdtime),
 					     buf + AUTORP_HDRLEN, buf_size - AUTORP_HDRLEN, src);
 
 	zlog_warn("%s: Unknown AutoRP message type (%u)", __func__, h->type);
@@ -1278,7 +1283,6 @@ static int pim_autorp_new_announcement_rps(struct pim_autorp *autorp, uint8_t *b
 			plist = prefix_list_lookup(AFI_IP, rp->grplist);
 			if (plist == NULL)
 				continue;
-			plist = prefix_list_lookup(AFI_IP, rp->grplist);
 			for (ple = plist->head; ple; ple = ple->next) {
 				if (pim_addr_is_multicast(ple->prefix.u.prefix4) &&
 				    ple->prefix.prefixlen >= 4)
