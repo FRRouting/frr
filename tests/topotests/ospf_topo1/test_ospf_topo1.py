@@ -1664,6 +1664,100 @@ def test_ospf_auto_cost_cli_routes_through_yang():
         )
 
 
+def test_ospf_yang_mpls_te_router_addr_config():
+    """per-instance /mpls/te-rid/ipv4-router-id round-trip via mgmtd
+    (OSPFv2 only -- ospf6d has no MPLS-TE module).
+
+    MPLS-TE state is a process-wide global in FRR.  The running-config
+    writer only emits `mpls-te router-address` once `mpls-te on` has
+    been set, so the test enables MPLS-TE up front and tears it down at
+    the end.  Cleanup is mandatory: the global `OspfMplsTE` would
+    otherwise survive across tests and corrupt later assertions.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    instance = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv2']"
+        "[name='default']/ietf-ospf:ospf"
+    )
+
+    try:
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "router ospf\n"
+            " mpls-te on\n"
+        )
+
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/mpls/te-rid/ipv4-router-id 10.99.0.1\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config ospfd")
+        assert (
+            "mpls-te router-address 10.99.0.1" in running
+        ), "expected 'mpls-te router-address 10.99.0.1' after YANG set, got:\n{}".format(
+            running
+        )
+
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/mpls/te-rid/ipv4-router-id\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config ospfd")
+        assert (
+            "mpls-te router-address" not in running
+        ), "'mpls-te router-address' should be gone after YANG delete, got:\n{}".format(
+            running
+        )
+    finally:
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "router ospf\n"
+            " no mpls-te\n"
+        )
+
+
+def test_ospf_mpls_te_router_addr_cli_routes_through_yang():
+    """Legacy `mpls-te router-address A.B.C.D` drives the YANG
+    /mpls/te-rid/ipv4-router-id callback (OSPFv2 only).
+
+    The legacy CLI never exposed a `no mpls-te router-address` form
+    (operators clear the value by disabling MPLS-TE wholesale via
+    `no mpls-te`).  We preserve that semantics; the targeted clear is
+    only available through `mgmt delete-config` and is exercised by
+    `test_ospf_yang_mpls_te_router_addr_config`.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    try:
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "router ospf\n"
+            " mpls-te on\n"
+            " mpls-te router-address 10.99.0.2\n"
+        )
+        running = r1.vtysh_cmd("show running-config ospfd")
+        assert (
+            "mpls-te router-address 10.99.0.2" in running
+        ), "expected legacy CLI to land 10.99.0.2, got:\n{}".format(running)
+    finally:
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "router ospf\n"
+            " no mpls-te\n"
+        )
+
+
 def test_ospf_yang_prefix_suppression_config():
     """per-interface prefix-suppression round-trip via mgmtd (OSPFv2 only)."""
     tgen = get_topogen()

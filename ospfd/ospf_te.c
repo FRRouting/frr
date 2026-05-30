@@ -54,6 +54,9 @@
 #include "ospfd/ospf_ext.h"
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_errors.h"
+#include "northbound_cli.h"
+
+#include "ospfd/ospf_te_clippy.c"
 
 /*
  * Global variable to manage Opaque-LSA/MPLS-TE on this node.
@@ -278,6 +281,65 @@ static void set_mpls_te_router_addr(struct in_addr ipv4)
 	OspfMplsTE.router_addr.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
 	OspfMplsTE.router_addr.value = ipv4;
 	return;
+}
+
+/*
+ * Apply a new MPLS-TE router address: store the value and, if MPLS-TE
+ * is enabled, refresh / reoriginate the affected Opaque Router-Address
+ * LSAs.  Extracted from `DEFUN ospf_mpls_te_router_addr` so the
+ * RFC 9129 `/mpls/te-rid/ipv4-router-id` config-write callback and the
+ * legacy CLI can share the same logic.
+ */
+void ospf_mpls_te_apply_router_addr(struct in_addr value)
+{
+	struct te_tlv_router_addr *ra = &OspfMplsTE.router_addr;
+	struct listnode *node, *nnode;
+	struct mpls_te_link *lp;
+	int need_to_reoriginate = 0;
+
+	if (ntohs(ra->header.type) != 0 &&
+	    ntohl(ra->value.s_addr) == ntohl(value.s_addr))
+		return;
+
+	set_mpls_te_router_addr(value);
+
+	if (!OspfMplsTE.enabled)
+		return;
+
+	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
+		if ((lp->area == NULL) || IS_FLOOD_AS(lp->flags))
+			continue;
+		if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
+			need_to_reoriginate = 1;
+			break;
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
+		if ((lp->area == NULL) || IS_FLOOD_AS(lp->flags))
+			continue;
+		if (need_to_reoriginate)
+			SET_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH);
+		else
+			ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
+	}
+
+	if (need_to_reoriginate)
+		ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule,
+					  REORIGINATE_THIS_LSA);
+}
+
+/*
+ * Clear the MPLS-TE router-address (set header.type back to zero so the
+ * TLV is treated as unset).  No reorigination: the running-config write
+ * is gated on `OspfMplsTE.enabled`, and unset router-address has no
+ * meaningful LSA representation.
+ */
+void ospf_mpls_te_clear_router_addr(void)
+{
+	OspfMplsTE.router_addr.header.type = 0;
+	OspfMplsTE.router_addr.header.length = 0;
+	OspfMplsTE.router_addr.value.s_addr = 0;
 }
 
 static void set_linkparams_link_header(struct mpls_te_link *lp)
@@ -4298,8 +4360,9 @@ static void ospf_mpls_te_config_write_router(struct vty *vty)
 
 	if (OspfMplsTE.enabled) {
 		vty_out(vty, " mpls-te on\n");
-		vty_out(vty, " mpls-te router-address %pI4\n",
-			&OspfMplsTE.router_addr.value);
+		if (ntohs(OspfMplsTE.router_addr.header.type) != 0)
+			vty_out(vty, " mpls-te router-address %pI4\n",
+				&OspfMplsTE.router_addr.value);
 
 		if (OspfMplsTE.inter_as == AS)
 			vty_out(vty, " mpls-te inter-as as\n");
@@ -4399,61 +4462,39 @@ DEFUN (no_ospf_mpls_te,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ospf_mpls_te_router_addr,
+/*
+ * The legacy `mpls-te router-address A.B.C.D` CLI maps onto the RFC 9129
+ * `/mpls/te-rid/ipv4-router-id` leaf via mgmtd.  The DEFPY_YANG shim
+ * enqueues the YANG edit; the NB modify callback in `ospf_nb_config.c`
+ * calls `ospf_mpls_te_apply_router_addr` (extracted above) so the
+ * legacy CLI and the YANG path share identical side effects.
+ */
+DEFPY_YANG (ospf_mpls_te_router_addr,
        ospf_mpls_te_router_addr_cmd,
-       "mpls-te router-address A.B.C.D",
+       "mpls-te router-address A.B.C.D$value",
        MPLS_TE_STR
        "Stable IP address of the advertising router\n"
        "MPLS-TE router address in IPv4 address format\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4 = 2;
-	struct te_tlv_router_addr *ra = &OspfMplsTE.router_addr;
-	struct in_addr value;
+	char xpath[XPATH_MAXLEN];
 
-	if (!inet_aton(argv[idx_ipv4]->arg, &value)) {
-		vty_out(vty, "Please specify Router-Addr by A.B.C.D\n");
-		return CMD_WARNING;
-	}
-
-	if (ntohs(ra->header.type) == 0
-	    || ntohl(ra->value.s_addr) != ntohl(value.s_addr)) {
-		struct listnode *node, *nnode;
-		struct mpls_te_link *lp;
-		int need_to_reoriginate = 0;
-
-		set_mpls_te_router_addr(value);
-
-		if (!OspfMplsTE.enabled)
-			return CMD_SUCCESS;
-
-		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-			if ((lp->area == NULL) || IS_FLOOD_AS(lp->flags))
-				continue;
-
-			if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
-				need_to_reoriginate = 1;
-				break;
-			}
-		}
-
-		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-			if ((lp->area == NULL) || IS_FLOOD_AS(lp->flags))
-				continue;
-
-			if (need_to_reoriginate)
-				SET_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH);
-			else
-				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
-		}
-
-		if (need_to_reoriginate)
-			ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule,
-						  REORIGINATE_THIS_LSA);
-	}
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/mpls/te-rid/ipv4-router-id") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, value_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
+
+/*
+ * The legacy CLI never exposed `no mpls-te router-address` -- users
+ * cleared the address by running `no mpls-te` (which disables MPLS-TE
+ * entirely).  We preserve that semantics and rely on YANG
+ * `mgmt delete-config .../mpls/te-rid/ipv4-router-id` for the
+ * targeted clear.  Adding a new `no mpls-te router-address` form here
+ * conflicts with the optional-on branch of `no mpls-te [on]` in the
+ * CLI graph and breaks both commands.
+ */
 
 static int set_inter_as_mode(struct vty *vty, const char *mode_name,
 			     const char *area_id)

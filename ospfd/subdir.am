@@ -84,6 +84,7 @@ clippy_scan += \
 	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_dump.c \
 	ospfd/ospf_gr.c \
+	ospfd/ospf_te.c \
 	# end
 
 noinst_HEADERS += \

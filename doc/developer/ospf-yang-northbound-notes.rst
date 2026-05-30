@@ -102,12 +102,12 @@ the candidate tree once mgmtd has selected the owning backends.
 
 Configuration write support is intentionally limited to CLI-equivalent RFC 9129
 leaves. The converted leaves are router-id, preference, spf-control paths,
-auto-cost, OSPFv2 mpls/ldp/igp-sync, OSPFv2 stub-router unconditional, area
-lifecycle, area-type, area summary, OSPFv2 default-cost, area ranges,
-per-interface area attachment, interface cost, hello-interval, dead-interval,
-retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type,
-passive, and OSPFv2 prefix-suppression. Existing CLI commands for those leaves
-set the same YANG nodes as mgmtd writes.
+auto-cost, OSPFv2 mpls/ldp/igp-sync, OSPFv2 mpls/te-rid, OSPFv2 stub-router
+unconditional, area lifecycle, area-type, area summary, OSPFv2 default-cost,
+area ranges, per-interface area attachment, interface cost, hello-interval,
+dead-interval, retransmit-interval, priority, mtu-ignore, transmit-delay,
+interface-type, passive, and OSPFv2 prefix-suppression. Existing CLI commands
+for those leaves set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
 ---------------------------
@@ -251,6 +251,15 @@ The current config-write mapping is:
 |                               | ``ospf_ldp_sync_gbl_exit``  |                             | tears the state back down.  |
 |                               |                             |                             | Validate rejects non-       |
 |                               |                             |                             | default VRF instances.      |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/mpls/te-rid/``         | ``OspfMplsTE.router_addr``  | Not implemented: ospf6d     | MPLS-TE state is per-       |
+| ``ipv4-router-id``            | (process-wide global);      | has no MPLS-TE module       | process global; validate    |
+|                               | destroy zeros the TLV       |                             | rejects non-default VRF.    |
+|                               | header so the running       |                             | Modify refreshes the        |
+|                               | config gates the line off   |                             | Opaque Router-Address LSAs  |
+|                               |                             |                             | when MPLS-TE is enabled,    |
+|                               |                             |                             | otherwise just stores the   |
+|                               |                             |                             | value for later use.        |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/stub-router/always``   | ``OSPF_AREA_ADMIN_STUB_``   | Not implemented: ospf6d     | Presence container          |
 |                               | ``ROUTED`` per area +       | has no stub-router          | (create / destroy           |

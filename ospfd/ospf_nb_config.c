@@ -28,6 +28,7 @@
 #include "ospfd/ospf_opaque.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_spf.h"
+#include "ospfd/ospf_te.h"
 #include "ospfd/ospf_vty.h"
 
 /*
@@ -2310,5 +2311,58 @@ int ospfd_ietf_ospf_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_a
 	vrf = vrf_lookup_by_id(ospf->vrf_id);
 	FOR_ALL_INTERFACES (vrf, ifp)
 		ospf_if_recalculate_output_cost(ifp);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/mpls/te-rid/ipv4-router-id
+ *
+ * RFC 9129's MPLS-TE Router-ID maps onto FRR's per-process global
+ * `OspfMplsTE.router_addr`.  The legacy `mpls-te router-address`
+ * CLI is process-wide and rejected outside the default VRF; this
+ * callback mirrors that constraint.  The actual mutation +
+ * Opaque-LSA reorigination lives in `ospf_mpls_te_apply_router_addr`
+ * so the CLI shim and the YANG path share identical behaviour.
+ */
+int ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct in_addr value;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (ospf->vrf_id != VRF_DEFAULT) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "mpls-te router-address only runs on DEFAULT VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	yang_dnode_get_ipv4(&value, args->dnode, NULL);
+	ospf_mpls_te_apply_router_addr(value);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospf->vrf_id != VRF_DEFAULT)
+		return NB_OK;
+	ospf_mpls_te_clear_router_addr();
 	return NB_OK;
 }
