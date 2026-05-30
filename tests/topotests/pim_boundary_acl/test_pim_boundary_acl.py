@@ -31,6 +31,25 @@ from lib.topolog import logger
 ASM_GROUP="229.1.1.1"
 SSM_GROUP="232.1.1.1"
 
+def verify_igmp_source(router, group, source, interface):
+    """Return None when the expected IGMP source is present on an interface."""
+    output = router.vtysh_cmd("show ip igmp sources json", isjson=True)
+    iface = output.get(interface, {})
+    group_data = iface.get(group, {})
+    for entry in group_data.get("sources", []):
+        if entry.get("source") == source:
+            return None
+    return "Expected IGMP source {} for {} on {}".format(source, group, interface)
+
+
+def verify_router_running(router):
+    """Return None when all configured daemons are running."""
+    result = router.check_router_running()
+    if result:
+        return "{} daemons are not running: {}".format(router.name, result)
+    return None
+
+
 def build_topo(tgen):
     "Build function"
 
@@ -491,6 +510,225 @@ def test_pim_ssm_igmp_join_acl():
 
     # PIM join
     # PIM-DM forwarding
+
+
+def test_pim_boundary_list_deletion_and_mixed_acl():
+    "Test boundary behavior after list deletion and mixed ACL first-match order"
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+
+    # Leave prior tests in a known state.
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            interface r1-eth0
+              no ip multicast boundary pim-acl
+              no ip multicast boundary oil pim-oil-plist
+            no access-list pim-acl seq 5 permit ip host 10.0.20.2 232.1.1.0 0.0.0.128
+        """
+    )
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              no ip igmp join {}
+              no ip igmp join {} 10.0.20.2
+              no ip multicast boundary pim-acl
+              no ip multicast boundary oil pim-oil-plist
+        """
+        ).format(ASM_GROUP, SSM_GROUP)
+    )
+    r3.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r3-eth0
+              no ip igmp join {} 10.0.40.4
+        """
+        ).format(SSM_GROUP)
+    )
+
+    # Deleting a prefix-list while boundary oil remains configured must not
+    # crash pimd; filtering should stop once the list is gone.
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            interface r1-eth0
+              ip multicast boundary oil pim-oil-plist
+        """
+    )
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              ip igmp join {}
+        """
+        ).format(ASM_GROUP)
+    )
+    test_func = partial(verify_no_igmp_source, r1, ASM_GROUP, "r1-eth0")
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert result is None, "Expected IGMP source to be absent but is present"
+
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            no ip prefix-list pim-oil-plist
+        """
+    )
+    test_func = partial(verify_router_running, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+    assert result is None, result
+
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              no ip igmp join {}
+              ip igmp join {}
+        """
+        ).format(ASM_GROUP, ASM_GROUP)
+    )
+    test_func = partial(verify_igmp_source, r1, ASM_GROUP, "*", "r1-eth0")
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert (
+        result is None
+    ), "Expected IGMP source to be present after prefix-list deletion"
+
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            interface r1-eth0
+              no ip multicast boundary oil pim-oil-plist
+            ip prefix-list pim-oil-plist seq 10 deny 229.1.1.0/24
+            ip prefix-list pim-oil-plist seq 20 permit any
+        """
+    )
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              no ip igmp join {}
+        """
+        ).format(ASM_GROUP)
+    )
+
+    # Same for access-lists referenced by ip multicast boundary.
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            interface r1-eth0
+              ip multicast boundary pim-acl
+        """
+    )
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              ip igmp join {} 10.0.20.2
+        """
+        ).format(SSM_GROUP)
+    )
+    test_func = partial(verify_no_igmp_source, r1, SSM_GROUP, "r1-eth0")
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert result is None, "Expected IGMP source to be absent but is present"
+
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            no access-list pim-acl
+        """
+    )
+    test_func = partial(verify_router_running, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+    assert result is None, result
+
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              no ip igmp join {} 10.0.20.2
+              ip igmp join {} 10.0.20.2
+        """
+        ).format(SSM_GROUP, SSM_GROUP)
+    )
+    test_func = partial(verify_igmp_source, r1, SSM_GROUP, "10.0.20.2", "r1-eth0")
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert (
+        result is None
+    ), "Expected IGMP source to be present after access-list deletion"
+
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            interface r1-eth0
+              no ip multicast boundary pim-acl
+            access-list pim-acl seq 10 deny ip host 10.0.20.2 232.1.1.0 0.0.0.255
+            access-list pim-acl seq 20 permit ip any any
+        """
+    )
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              no ip igmp join {} 10.0.20.2
+        """
+        ).format(SSM_GROUP)
+    )
+
+    # Mixed standard + extended ACL entries must honor first-match order.
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            access-list pim-mixed-acl seq 10 permit 232.1.1.0/24
+            access-list pim-mixed-acl seq 20 deny ip host 10.0.20.2 232.1.1.0 0.0.0.255
+            interface r1-eth0
+              ip multicast boundary pim-mixed-acl
+        """
+    )
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              ip igmp join {} 10.0.20.2
+        """
+        ).format(SSM_GROUP)
+    )
+    test_func = partial(verify_igmp_source, r1, SSM_GROUP, "10.0.20.2", "r1-eth0")
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert result is None, "Expected mixed ACL permit rule to win over later deny"
+
+    # Cleanup
+    r1.vtysh_cmd(
+        """
+          configure terminal
+            interface r1-eth0
+              no ip multicast boundary pim-mixed-acl
+            no access-list pim-mixed-acl
+        """
+    )
+    r2.vtysh_cmd(
+        (
+            """
+          configure terminal
+            interface r2-eth0
+              no ip igmp join {} 10.0.20.2
+        """
+        ).format(SSM_GROUP)
+    )
 
 
 def test_memory_leak():
