@@ -2048,9 +2048,9 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		       sizeof(struct in_addr));
 
 		if (PIM_DEBUG_GM_PACKETS) {
-			zlog_debug("    Recv IGMP report v3 (type %d) from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
-				   rec_type, from_str, ifp->name, i, rec_type, rec_auxdatalen,
-				   rec_num_sources, &rec_group);
+			zlog_debug("    Recv IGMP report v3 (type %d) from %s on %s: record=%d auxdatalen=%d sources=%d group=%pI4",
+				   rec_type, from_str, ifp->name, i, rec_auxdatalen, rec_num_sources,
+				   &rec_group);
 		}
 
 		/* Scan sources */
