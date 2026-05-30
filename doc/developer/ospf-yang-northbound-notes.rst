@@ -109,8 +109,10 @@ per-interface area attachment, interface cost, hello-interval, dead-interval,
 retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type,
 passive, OSPFv2 prefix-suppression, per-interface BFD
 (enabled, local-multiplier, desired-min-tx-interval,
-required-min-rx-interval), and OSPFv2 per-interface static
-neighbours (poll-interval, priority). Existing CLI commands for those leaves
+required-min-rx-interval), OSPFv2 per-interface static
+neighbours (poll-interval, priority), and per-interface
+authentication key-chain (OSPFv2 ospfv2-key-chain, OSPFv3
+ospfv3-key-chain). Existing CLI commands for those leaves
 set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
@@ -143,6 +145,16 @@ the commit would leave the intended daemon mutation as a silent no-op. The
 ``NB_EV_APPLY`` phase should still tolerate races, such as an instance, area, or
 interface disappearing after validation, and return ``NB_OK`` where no useful
 recovery exists.
+
+.. warning::
+
+   Only the key-chain branch of the RFC authentication choice is implemented
+   in this branch.  The explicit-key, IPsec SA and auth-trailer leaves are
+   marked ``not-supported`` in ``frr-deviations-ietf-routing-ospf.yang`` so
+   mgmtd rejects unsupported YANG writes at validation time.  Those deviation
+   paths include the RFC ``choice`` / ``case`` schema nodes; direct data-leaf
+   paths do not resolve through ``pyang`` or ``libyang`` for this part of the
+   schema.
 
 The current config-write mapping is:
 
@@ -275,6 +287,31 @@ The current config-write mapping is:
 |                               |                             |                             | it is instance-level and    |
 |                               |                             |                             | cannot synthesise a YANG    |
 |                               |                             |                             | area/interface key.         |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/``                | ``params->keychain_name``   | ``oi->at_data.keychain``    | Only the key-chain case of  |
+| ``authentication/``           | + ``auth_type =             | + ``OSPF6_AUTH_TRAILER_``   | the RFC's authentication    |
+| ``ospfv2-key-chain``          | OSPF_AUTH_CRYPTOGRAPHIC``;  | ``KEYCHAIN`` flag; destroy  | choice is implemented in    |
+| (v2)                          | destroy restores            | clears flag + frees         | this branch.  v3 rejects    |
+| ``interface/``                | NOTSET                      | keychain                    | the modify at               |
+| ``authentication/``           |                             |                             | NB_EV_VALIDATE if a manual  |
+| ``ospfv3-key-chain``          |                             |                             | key is already set (mirrors |
+| (v3)                          |                             |                             | the legacy CLI's lock).     |
+|                               |                             |                             | The RFC type is             |
+|                               |                             |                             | ``key-chain:key-chain-ref`` |
+|                               |                             |                             | (leafref), so the named     |
+|                               |                             |                             | keychain must exist at      |
+|                               |                             |                             | commit time -- this         |
+|                               |                             |                             | diverges from the legacy    |
+|                               |                             |                             | CLI which accepts forward   |
+|                               |                             |                             | references.  Other          |
+|                               |                             |                             | authentication leaves       |
+|                               |                             |                             | (explicit-key, IPsec SA,    |
+|                               |                             |                             | auth-trailer-rfc) are       |
+|                               |                             |                             | deferred and marked         |
+|                               |                             |                             | ``not-supported`` via       |
+|                               |                             |                             | deviations that include the |
+|                               |                             |                             | RFC ``choice`` / ``case``   |
+|                               |                             |                             | schema nodes.               |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/spf-control/paths``    | ``ospf->max_multipath``;    | ``ospf6->max_multipath``;   | RFC types ``paths`` as      |
 |                               | destroy restores            | destroy restores            | uint16 (1..65535) and FRR's |

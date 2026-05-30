@@ -2985,3 +2985,68 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_pr
 	(void)ospf_nbr_nbma_priority_unset(ospf, addr);
 	return NB_OK;
 }
+
+/*
+ * RFC 9129's `authentication/ospfv2-key-chain` lives under the
+ * `case auth-key-chain` of the `choice ospfv2-auth-specification`
+ * inside `case ospfv2-auth`.  Choice / case nodes do not appear in
+ * the data path (RFC 7950 \xc2\xa77.9.2), so the runtime xpath is
+ * simply `.../authentication/ospfv2-key-chain`.  Maps onto FRR's
+ * per-interface `params->keychain_name` and forces `auth_type` to
+ * `OSPF_AUTH_CRYPTOGRAPHIC`, mirroring `ip ospf authentication
+ * key-chain X` exactly (see ospf_vty.c:7754 onwards).  The other
+ * leaves in the authentication container (explicit-key, trailer-rfc,
+ * v3 IPsec SA) are marked not-supported via deviation -- this slice
+ * intentionally covers the keychain case only.
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_authentication_ospfv2_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	SET_IF_PARAM(params, auth_type);
+	params->auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
+	SET_IF_PARAM(params, keychain_name);
+	XFREE(MTYPE_OSPF_IF_PARAMS, params->keychain_name);
+	params->keychain_name = XSTRDUP(MTYPE_OSPF_IF_PARAMS,
+					yang_dnode_get_string(args->dnode, NULL));
+	UNSET_IF_PARAM(params, auth_crypt);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_authentication_ospfv2_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, keychain_name);
+	XFREE(MTYPE_OSPF_IF_PARAMS, params->keychain_name);
+	UNSET_IF_PARAM(params, auth_type);
+	params->auth_type = OSPF_AUTH_NOTSET;
+	return NB_OK;
+}

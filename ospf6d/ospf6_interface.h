@@ -12,6 +12,7 @@
 #include "ospf6d.h"
 
 DECLARE_MTYPE(OSPF6_AUTH_MANUAL_KEY);
+DECLARE_MTYPE(OSPF6_AUTH_KEYCHAIN);
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_interface;

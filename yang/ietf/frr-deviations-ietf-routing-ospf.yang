@@ -193,4 +193,26 @@ module frr-deviations-ietf-routing-ospf {
           + "/ospf:static-neighbors/ospf:neighbor/ospf:cost" {
     deviate not-supported;
   }
+
+  /*
+   * Only the RFC 9129 authentication key-chain leaves are wired to FRR
+   * today. libyang does not accept not-supported deviation targets for
+   * the nested choice/case leaves here, so reject unsupported explicit-key
+   * alternatives at the authentication container instead.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:authentication" {
+    deviate add {
+      must "not(ospf:ospfv2-key-id or ospf:ospfv2-key or "
+         + "ospf:ospfv2-crypto-algorithm or ospf:ospfv3-sa-id or "
+         + "ospf:ospfv3-key or ospf:ospfv3-crypto-algorithm)" {
+        error-message
+          "Only key-chain authentication is supported by FRR OSPF YANG";
+      }
+    }
+  }
 }

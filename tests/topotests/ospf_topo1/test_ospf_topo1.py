@@ -2430,6 +2430,109 @@ def test_ospf_yang_static_neighbor_partial_leaves():
             " no neighbor 192.0.2.10\n"
         )
 
+def test_ospf_yang_interface_authentication_keychain_config():
+    """per-interface /authentication/ospfv2-key-chain (OSPFv2) and
+    /authentication/ospfv3-key-chain (OSPFv3) round-trip via mgmtd.
+
+    Covers only the key-chain case of the RFC 9129 authentication
+    container -- the explicit-key triplet and OSPFv3 IPsec SA forms
+    map onto different FRR-side surfaces and are marked not-supported
+    by the FRR deviation module.
+
+    RFC 9129 types the key-chain leaves as a leafref into
+    /key-chain:key-chains/key-chain/name, so libyang rejects writes
+    against not-yet-existing keychains.  Create one via the CLI
+    before driving the YANG round-trip.  The legacy CLI is more
+    relaxed but matching the YANG semantics is the principled
+    behaviour for this slice.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # Set up a real keychain so the YANG leafref resolves.
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "key chain kc-test\n"
+        " key 1\n"
+        "  key-string secret\n"
+    )
+
+    try:
+        for proto, daemon, leaf, expect in (
+            ("ietf-ospf:ospfv2", "ospfd", "ospfv2-key-chain",
+             "ip ospf authentication key-chain"),
+            ("ietf-ospf:ospfv3", "ospf6d", "ospfv3-key-chain",
+             "ipv6 ospf6 authentication keychain"),
+        ):
+            iface = (
+                _yang_area_xpath(proto, "0.0.0.0")
+                + "/interfaces/interface[name='r1-eth1']"
+            )
+            path = "{}/authentication/{}".format(iface, leaf)
+
+            r1.vtysh_cmd(
+                "configure terminal file-lock\n"
+                "mgmt set-config {} kc-test\n"
+                "mgmt commit apply".format(path)
+            )
+            running = r1.vtysh_cmd("show running-config {}".format(daemon))
+            assert (
+                "{} kc-test".format(expect) in running
+            ), "expected '{} kc-test' on {} after YANG set, got:\n{}".format(
+                expect, daemon, running
+            )
+
+            r1.vtysh_cmd(
+                "configure terminal file-lock\n"
+                "mgmt delete-config {}\n"
+                "mgmt commit apply".format(path)
+            )
+            running = r1.vtysh_cmd("show running-config {}".format(daemon))
+            assert (
+                expect not in running
+            ), "'{}' should be gone on {} after YANG delete, got:\n{}".format(
+                expect, daemon, running
+            )
+    finally:
+        # Defensive cleanup: tear down auth + the helper keychain.
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "interface r1-eth1\n"
+            " no ip ospf authentication\n"
+            " no ipv6 ospf6 authentication keychain\n"
+            "exit\n"
+            "no key chain kc-test\n"
+        )
+
+
+def test_ospf_yang_authentication_unsupported_leaves_rejected():
+    """Unsupported RFC authentication choices are rejected by deviation.
+
+    Only the key-chain case is implemented through YANG. The explicit-key,
+    OSPFv2 authentication trailer and OSPFv3 IPsec SA branches remain
+    legacy-CLI-only, so mgmtd must reject YANG writes instead of accepting
+    config with no daemon-side effect.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, leaf, value in (
+        ("ietf-ospf:ospfv2", "ospfv2-key-id", "1"),
+        ("ietf-ospf:ospfv2", "ospfv2-auth-trailer-rfc", "rfc7474"),
+        ("ietf-ospf:ospfv3", "sa", "SA-1"),
+        ("ietf-ospf:ospfv3", "ospfv3-sa-id", "1"),
+    ):
+        iface = _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
+        path = "{}/authentication/{}".format(iface, leaf)
+        out = _mgmt_commit_attempt(r1, "mgmt set-config {} {}".format(path, value))
+        _assert_mgmt_rejected(out, "unsupported authentication leaf {}".format(leaf))
+
 def test_ospf_yang_static_neighbor_cost_rejected():
     """The /static-neighbors/neighbor/cost leaf is marked not-supported
     in the FRR deviations because FRR has no NBMA cost knob.  mgmtd

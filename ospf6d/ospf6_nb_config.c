@@ -24,6 +24,7 @@
 #include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 #include "ospf6_bfd.h"
+#include "ospf6_auth_trailer.h"
 #include "ospf6_nb.h"
 #include "ospf6_nssa.h"
 
@@ -2320,5 +2321,90 @@ int ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interva
 	oi->bfd_config.min_rx = BFD_DEF_MIN_RX;
 	if (oi->bfd_config.enabled)
 		ospf6_bfd_reg_dereg_all_nbr(oi, true);
+	return NB_OK;
+}
+
+/*
+ * RFC 9129's `authentication/ospfv3-key-chain` lives under
+ * `choice ospfv3-auth-trailer / case auth-key-chain`.  Maps onto
+ * FRR's per-interface `oi->at_data.keychain` and the
+ * OSPF6_AUTH_TRAILER_KEYCHAIN flag, mirroring `ipv6 ospf6
+ * authentication keychain X` exactly (see
+ * ospf6_interface.c:3438-3470).  Rejects at NB_EV_VALIDATE if the
+ * interface already carries a MANUAL_KEY -- matches the legacy CLI's
+ * mutually-exclusive lock.  Other authentication leaves (explicit
+ * key-id / key / crypto-algo, OSPFv3 IPsec SA, OSPFv2-only leaves)
+ * are marked not-supported via deviation.
+ */
+static int ospf6d_ietf_ospf_authentication_ospfv3_key_chain_validate(struct interface *ifp,
+								     char *errmsg,
+								     size_t errmsg_len)
+{
+	struct ospf6_interface *oi = ifp->info;
+
+	if (oi && CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY)) {
+		snprintf(errmsg, errmsg_len,
+			 "Manual key configured on %s; remove it before configuring a key chain",
+			 ifp->name);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_authentication_ospfv3_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+	int ret;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+	ret = ospf6d_ietf_ospf_resolve_interface(ospf6, args->dnode, args->event, args->errmsg,
+						 args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	oi = ifp->info;
+	if (args->event == NB_EV_VALIDATE)
+		return ospf6d_ietf_ospf_authentication_ospfv3_key_chain_validate(ifp, args->errmsg,
+										 args->errmsg_len);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+	SET_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN);
+	if (oi->at_data.keychain)
+		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
+	oi->at_data.keychain = XSTRDUP(MTYPE_OSPF6_AUTH_KEYCHAIN,
+				       yang_dnode_get_string(args->dnode, NULL));
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_areas_area_interfaces_interface_authentication_ospfv3_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct interface *ifp;
+	struct ospf6_interface *oi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	ifp = ospf6d_ietf_ospf_interface_from_dnode(ospf6, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	oi = ifp->info;
+	if (!oi || !CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN))
+		return NB_OK;
+	if (oi->at_data.keychain)
+		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
+	oi->at_data.flags = 0;
 	return NB_OK;
 }
