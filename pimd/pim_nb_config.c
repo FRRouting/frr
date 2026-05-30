@@ -2783,8 +2783,7 @@ int lib_interface_pim_address_family_multicast_boundary_oil_modify(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		pim_ifp->boundary_oil_plist =
-			prefix_list_lookup(AFI_IP, yang_dnode_get_string(args->dnode, NULL));
+		pim_boundary_oil_plist_set(pim_ifp, yang_dnode_get_string(args->dnode, NULL));
 
 		break;
 	}
@@ -2814,7 +2813,7 @@ int lib_interface_pim_address_family_multicast_boundary_oil_destroy(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		pim_ifp->boundary_oil_plist = NULL;
+		pim_boundary_oil_plist_set(pim_ifp, NULL);
 		break;
 	}
 
@@ -2850,8 +2849,7 @@ int lib_interface_pim_address_family_multicast_boundary_acl_modify(struct nb_cb_
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		pim_ifp->boundary_acl =
-			access_list_lookup(AFI_IP, yang_dnode_get_string(args->dnode, NULL));
+		pim_boundary_acl_set(pim_ifp, yang_dnode_get_string(args->dnode, NULL));
 		break;
 	}
 
@@ -2879,7 +2877,7 @@ int lib_interface_pim_address_family_multicast_boundary_acl_destroy(struct nb_cb
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		pim_ifp->boundary_acl = NULL;
+		pim_boundary_acl_set(pim_ifp, NULL);
 		break;
 	}
 

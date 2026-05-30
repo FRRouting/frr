@@ -37,6 +37,7 @@
 #include "pim_zebra.h"
 #include "pim_mlag.h"
 #include "pim_autorp.h"
+#include "pim_iface.h"
 
 #if MAXVIFS > 256
 CPP_NOTICE("Work needs to be done to make this work properly via the pim mroute socket\n");
@@ -76,8 +77,19 @@ void pim_prefix_list_update(struct prefix_list *plist)
 		pim_autorp_prefix_list_update(pim, plist);
 #endif
 	}
+
+	pim_boundary_prefix_list_update(plist);
 }
 
+<<<<<<< HEAD
+=======
+void pim_access_list_update(struct access_list *access)
+{
+	pim_filter_ref_update();
+	pim_boundary_access_list_update(access);
+}
+
+>>>>>>> 8db6c186c (pimd: cache boundary list pointers and refresh via hooks)
 static void pim_free(void)
 {
 	pim_route_map_terminate();

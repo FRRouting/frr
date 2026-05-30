@@ -117,6 +117,11 @@ int main(int argc, char **argv, char **envp)
 	pim_error_init();
 	pim_vrf_init();
 	access_list_init();
+<<<<<<< HEAD
+=======
+	access_list_add_hook(pim_access_list_update);
+	access_list_delete_hook(pim_access_list_update);
+>>>>>>> 8db6c186c (pimd: cache boundary list pointers and refresh via hooks)
 	prefix_list_init();
 	prefix_list_add_hook(pim_prefix_list_update);
 	prefix_list_delete_hook(pim_prefix_list_update);

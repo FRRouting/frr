@@ -197,27 +197,28 @@ bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp, pim_add
 	pim_addr_to_prefix(&grp_pfx, *grp);
 
 	/* Filter if either group or (S,G) are denied */
-	if (pim_ifp->boundary_oil_plist) {
-		is_filtered = prefix_list_apply_ext(pim_ifp->boundary_oil_plist, NULL, &grp_pfx,
+	if (pim_ifp->boundary_oil_plist_p) {
+		is_filtered = prefix_list_apply_ext(pim_ifp->boundary_oil_plist_p, NULL, &grp_pfx,
 						    true) == PREFIX_DENY;
 		if (is_filtered && PIM_DEBUG_EVENTS) {
 			zlog_debug("Filtering group %pI4 per prefix-list %s", grp,
-				   pim_ifp->boundary_oil_plist->name);
+				   pim_ifp->boundary_oil_plist);
 		}
 	}
-	if (!is_filtered && pim_ifp->boundary_acl) {
+	if (!is_filtered && pim_ifp->boundary_acl_p) {
 		/* If src not provided, set to "any" (*)? */
 		if (!src)
 			src = &any_src;
 		/* S,G filtering using extended access-list syntax */
-		is_filtered = pim_access_list_apply(pim_ifp->boundary_acl, src, grp) == FILTER_DENY;
+		is_filtered = pim_access_list_apply(pim_ifp->boundary_acl_p, src, grp) ==
+			      FILTER_DENY;
 		if (is_filtered && PIM_DEBUG_EVENTS) {
 			if (pim_addr_is_any(*src)) {
 				zlog_debug("Filtering (S,G)=(*, %pI4) per access-list %s", grp,
-					   pim_ifp->boundary_acl->name);
+					   pim_ifp->boundary_acl);
 			} else {
 				zlog_debug("Filtering (S,G)=(%pI4, %pI4) per access-list %s", src,
-					   grp, pim_ifp->boundary_acl->name);
+					   grp, pim_ifp->boundary_acl);
 			}
 		}
 	}
