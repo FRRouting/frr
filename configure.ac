@@ -364,6 +364,7 @@ dnl if the user has specified any CFLAGS, override our settings
 if test "$enable_gcov" = "yes"; then
    if test "$orig_cflags" = ""; then
       AC_C_FLAG([--coverage])
+      AC_C_FLAG([-fprofile-update=atomic])
       AC_C_FLAG([-O0])
    fi
 
