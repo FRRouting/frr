@@ -69,6 +69,43 @@ module frr-deviations-ietf-routing-ospf {
   }
 
   /*
+   * RFC 9129 models interface auto-cost as a two-leaf container with a
+   * `when "../enabled = 'true'"` constraint on reference-bandwidth.
+   * FRR has no on/off switch: it always computes cost from
+   * `reference-bandwidth / interface speed` unless the operator sets
+   * an explicit per-interface cost.  Pinning the default to "true"
+   * keeps the when-clause satisfied for every YANG client that wants
+   * to set reference-bandwidth without first toggling enabled, and
+   * matches the FRR runtime semantics exactly.  Setting enabled to
+   * false is rejected by the NB_EV_VALIDATE callback because FRR has
+   * no mechanism to honour it short of dropping all cost computation.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:auto-cost/ospf:enabled" {
+    deviate add {
+      default "true";
+    }
+  }
+
+  /*
+   * FRR enables strict graceful-restart helper LSA checking by default
+   * in both ospfd and ospf6d. RFC 9129 leaves the leaf without a
+   * default, so advertise FRR's default here and let the daemon
+   * callbacks consume the loaded schema value.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:graceful-restart"
+          + "/ospf:helper-strict-lsa-checking" {
+    deviate add {
+      default "true";
+    }
+  }
+
+  /*
    * RFC 9129 keys areas/area/interfaces/interface by a YANG leafref into
    * /ietf-interfaces:interfaces/interface/name. In FRR, interfaces are
    * discovered from the kernel and exposed by zebra as operational state only;

@@ -2177,39 +2177,31 @@ DEFPY_YANG (no_ipv6_ospf6_cost,
 	return CMD_SUCCESS;
 }
 
-DEFUN (auto_cost_reference_bandwidth,
+/*
+ * `auto-cost reference-bandwidth` maps onto the RFC 9129
+ * `/auto-cost/reference-bandwidth` leaf.  The deviations file pins
+ * `/auto-cost/enabled` to `true` so the YANG when-clause is always
+ * satisfied; ospf6d's runtime semantics match (always compute cost
+ * from bandwidth).
+ */
+DEFPY_YANG (auto_cost_reference_bandwidth,
        auto_cost_reference_bandwidth_cmd,
-       "auto-cost reference-bandwidth (1-4294967)",
+       "auto-cost reference-bandwidth (1-4294967)$refbw",
        "Calculate OSPF interface cost according to bandwidth\n"
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	int idx_number = 2;
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
-	struct listnode *i, *j;
-	uint32_t refbw;
+	char xpath[XPATH_MAXLEN];
 
-	refbw = strtol(argv[idx_number]->arg, NULL, 10);
-	if (refbw < 1 || refbw > 4294967) {
-		vty_out(vty, "reference-bandwidth value is invalid\n");
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/auto-cost/reference-bandwidth") != 0)
 		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* If reference bandwidth is changed. */
-	if ((refbw) == o->ref_bandwidth)
-		return CMD_SUCCESS;
-
-	o->ref_bandwidth = refbw;
-	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa))
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
-			ospf6_interface_recalculate_cost(oi);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, refbw_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_auto_cost_reference_bandwidth,
+DEFPY_YANG (no_auto_cost_reference_bandwidth,
        no_auto_cost_reference_bandwidth_cmd,
        "no auto-cost reference-bandwidth [(1-4294967)]",
        NO_STR
@@ -2218,19 +2210,13 @@ DEFUN (no_auto_cost_reference_bandwidth,
        "The reference bandwidth in terms of Mbits per second\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	struct ospf6_area *oa;
-	struct ospf6_interface *oi;
-	struct listnode *i, *j;
+	char xpath[XPATH_MAXLEN];
 
-	if (o->ref_bandwidth == OSPF6_REFERENCE_BANDWIDTH)
-		return CMD_SUCCESS;
-
-	o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
-	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa))
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
-			ospf6_interface_recalculate_cost(oi);
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/auto-cost/reference-bandwidth") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 

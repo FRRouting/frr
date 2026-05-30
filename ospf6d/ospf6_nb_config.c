@@ -1802,3 +1802,99 @@ int ospf6d_ietf_ospf_spf_control_paths_destroy(struct nb_cb_destroy_args *args)
 	ospf6_restart_spf(ospf6);
 	return NB_OK;
 }
+
+/*
+ * XPath: .../ospf/auto-cost/enabled
+ *
+ * See the ospfd companion comment.  ospf6d shares FRR's "always-on
+ * auto-cost" semantics: there's no on/off switch, so modify=true is a
+ * no-op, modify=false is rejected at validate, and destroy is a no-op
+ * because the deviation file pins the leaf's default to "true".
+ */
+int ospf6d_ietf_ospf_auto_cost_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	int ret;
+	bool enabled;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+	if (args->event == NB_EV_VALIDATE) {
+		if (!enabled) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "FRR auto-cost cannot be disabled; "
+				 "set per-interface 'ipv6 ospf6 cost' instead");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_auto_cost_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	/* Deviation pins enabled to "true"; FRR has no off-switch. */
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/auto-cost/reference-bandwidth
+ *
+ * Per-instance reference bandwidth for the auto-cost computation.
+ * Mirrors the legacy `auto-cost reference-bandwidth N` CLI; RFC 9129
+ * units are Mbits, matching FRR's ospf6->ref_bandwidth.  Destroy
+ * restores `OSPF6_REFERENCE_BANDWIDTH`.
+ */
+int ospf6d_ietf_ospf_auto_cost_reference_bandwidth_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf6 *ospf6;
+	struct ospf6_area *oa;
+	struct ospf6_interface *oi;
+	struct listnode *i, *j;
+	int ret;
+	uint32_t refbw;
+
+	ret = ospf6d_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ospf6);
+	if (ret != NB_OK || !ospf6)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	refbw = yang_dnode_get_uint32(args->dnode, NULL);
+	if (ospf6->ref_bandwidth == refbw)
+		return NB_OK;
+	ospf6->ref_bandwidth = refbw;
+	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa))
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
+			ospf6_interface_recalculate_cost(oi);
+	return NB_OK;
+}
+
+int ospf6d_ietf_ospf_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf6 *ospf6;
+	struct ospf6_area *oa;
+	struct ospf6_interface *oi;
+	struct listnode *i, *j;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf6 = ospf6d_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf6)
+		return NB_OK;
+	if (ospf6->ref_bandwidth == OSPF6_REFERENCE_BANDWIDTH)
+		return NB_OK;
+	ospf6->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
+	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa))
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
+			ospf6_interface_recalculate_cost(oi);
+	return NB_OK;
+}

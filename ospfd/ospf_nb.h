@@ -100,6 +100,10 @@ int ospfd_ietf_ospf_stub_router_always_create(struct nb_cb_create_args *args);
 int ospfd_ietf_ospf_stub_router_always_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_modify(struct nb_cb_modify_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_auto_cost_enabled_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_auto_cost_enabled_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_auto_cost_reference_bandwidth_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_args *args);
 
 struct yang_data *ospfd_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

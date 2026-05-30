@@ -2208,3 +2208,107 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_destroy(s
 		ospfd_ietf_ospf_prefix_suppression_lsa_update(ifp);
 	return NB_OK;
 }
+
+/*
+ * XPath: .../ospf/auto-cost/enabled
+ *
+ * RFC 9129 models interface auto-cost as a two-leaf container -- an
+ * `enabled` boolean and the `reference-bandwidth` value gated by
+ * `when "../enabled = 'true'"`.  FRR has no on/off switch: it always
+ * computes interface cost from `reference-bandwidth / interface
+ * speed` when the operator hasn't set an explicit per-interface cost.
+ *
+ * Modify with `true` is a no-op (FRR is always in this state).  Modify
+ * with `false` is rejected at NB_EV_VALIDATE -- FRR can't honour
+ * `enabled=false` without losing the cost computation that drives
+ * every other interface metric.  The destroy callback is also a
+ * no-op since the deviation file declares `default "true"` so the
+ * leaf is always present and the `when` clause on
+ * `reference-bandwidth` is always satisfied.
+ */
+int ospfd_ietf_ospf_auto_cost_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	bool enabled;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+	if (args->event == NB_EV_VALIDATE) {
+		if (!enabled) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "FRR auto-cost cannot be disabled; "
+				 "set per-interface 'ip ospf cost' instead");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_auto_cost_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	/* Deviation pins enabled to "true"; FRR has no off-switch. */
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/auto-cost/reference-bandwidth
+ *
+ * Per-instance reference bandwidth used by the auto-cost computation.
+ * Mirrors the legacy `auto-cost reference-bandwidth N` CLI.  RFC 9129
+ * units are Mbits; FRR stores the same units in `ospf->ref_bandwidth`
+ * (despite the `Kbps` comment in ospfd.h -- both CLI and computation
+ * treat the value as Mbits/s, see ospf_if_recalculate_output_cost).
+ */
+int ospfd_ietf_ospf_auto_cost_reference_bandwidth_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct vrf *vrf;
+	struct interface *ifp;
+	int ret;
+	uint32_t refbw;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	refbw = yang_dnode_get_uint32(args->dnode, NULL);
+	if (ospf->ref_bandwidth == refbw)
+		return NB_OK;
+	ospf->ref_bandwidth = refbw;
+	vrf = vrf_lookup_by_id(ospf->vrf_id);
+	FOR_ALL_INTERFACES (vrf, ifp)
+		ospf_if_recalculate_output_cost(ifp);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	if (ospf->ref_bandwidth == OSPF_DEFAULT_REF_BANDWIDTH)
+		return NB_OK;
+	ospf->ref_bandwidth = OSPF_DEFAULT_REF_BANDWIDTH;
+	vrf = vrf_lookup_by_id(ospf->vrf_id);
+	FOR_ALL_INTERFACES (vrf, ifp)
+		ospf_if_recalculate_output_cost(ifp);
+	return NB_OK;
+}

@@ -102,12 +102,12 @@ the candidate tree once mgmtd has selected the owning backends.
 
 Configuration write support is intentionally limited to CLI-equivalent RFC 9129
 leaves. The converted leaves are router-id, preference, spf-control paths,
-OSPFv2 mpls/ldp/igp-sync, OSPFv2 stub-router unconditional, area lifecycle,
-area-type, area summary, OSPFv2 default-cost, area ranges, per-interface area
-attachment, interface cost, hello-interval, dead-interval, retransmit-interval,
-priority, mtu-ignore, transmit-delay, interface-type, passive, and OSPFv2
-prefix-suppression. Existing CLI commands for those leaves set the same YANG
-nodes as mgmtd writes.
+auto-cost, OSPFv2 mpls/ldp/igp-sync, OSPFv2 stub-router unconditional, area
+lifecycle, area-type, area summary, OSPFv2 default-cost, area ranges,
+per-interface area attachment, interface cost, hello-interval, dead-interval,
+retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type,
+passive, and OSPFv2 prefix-suppression. Existing CLI commands for those leaves
+set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
 ---------------------------
@@ -230,6 +230,19 @@ The current config-write mapping is:
 |                               | destroy restores            | destroy restores            | uint16 (1..65535) and FRR's |
 |                               | ``MULTIPATH_NUM``           | ``MULTIPATH_NUM``           | ``MULTIPATH_NUM`` cap stays |
 |                               |                             |                             | enforced in the CLI body.   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/auto-cost/enabled``    | no-op on modify=true;       | no-op on modify=true;       | FRR has no off-switch for   |
+|                               | NB_EV_VALIDATE rejects      | NB_EV_VALIDATE rejects      | auto-cost.  Deviations file |
+|                               | modify=false                | modify=false                | pins default to ``true`` so |
+|                               |                             |                             | the ``when`` clause on      |
+|                               |                             |                             | ``reference-bandwidth`` is  |
+|                               |                             |                             | always satisfied.           |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/auto-cost/reference-`` | ``ospf->ref_bandwidth``;    | ``ospf6->ref_bandwidth``;   | RFC units are Mbits.        |
+| ``bandwidth``                 | destroy restores            | destroy restores            | Modify walks every VRF      |
+|                               | ``OSPF_DEFAULT_REF_``       | ``OSPF6_REFERENCE_``        | interface (v2) or area      |
+|                               | ``BANDWIDTH``               | ``BANDWIDTH``               | interface (v3) to recompute |
+|                               |                             |                             | output cost.                |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/mpls/ldp/igp-sync``    | ``ospf->ldp_sync_cmd``      | Not implemented: ospf6d     | Enable registers opaque     |
 |                               | flags; modify=true enables  | has no LDP/IGP sync         | LDP zclient handlers and    |

@@ -1535,6 +1535,135 @@ def test_ospf_yang_mpls_ldp_igp_sync_config():
     ), "mpls ldp-sync should be gone after YANG delete, got:\n{}".format(running)
 
 
+def test_ospf_yang_auto_cost_reference_bandwidth_config():
+    """per-instance /auto-cost/reference-bandwidth round-trip via mgmtd
+    on both daemons.  RFC 9129 wraps the leaf in a `when ../enabled
+    = 'true'` constraint; the deviation file pins enabled to true so
+    a bare reference-bandwidth set works without first toggling
+    enabled.  Setting enabled=false is rejected at NB_EV_VALIDATE
+    because FRR has no off-switch for auto-cost; a separate negative
+    test exercises that path."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/auto-cost/reference-bandwidth 50000\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "auto-cost reference-bandwidth 50000" in running
+        ), "expected 'auto-cost reference-bandwidth 50000' after YANG set, got:\n{}".format(
+            running
+        )
+
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/auto-cost/reference-bandwidth\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "auto-cost reference-bandwidth 50000" not in running
+        ), "'auto-cost reference-bandwidth 50000' should be gone after YANG delete, got:\n{}".format(
+            running
+        )
+
+
+def test_ospf_yang_auto_cost_disable_rejected():
+    """Setting /auto-cost/enabled=false is rejected at NB_EV_VALIDATE on
+    both daemons -- FRR has no mechanism to honour an auto-cost
+    off-switch; the validate callback returns NB_ERR_VALIDATION with
+    the documented error message.
+
+    Uses `_mgmt_commit_attempt` so the rejected candidate edit is
+    aborted before returning, otherwise the bad `enabled=false` value
+    survives in the candidate datastore and poisons every subsequent
+    mgmt commit in the same test session.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+        out = _mgmt_commit_attempt(
+            r1,
+            "mgmt set-config {}/auto-cost/enabled false".format(instance),
+        )
+        assert (
+            "FRR auto-cost cannot be disabled" in out
+        ), "expected validate-time rejection for {}, got:\n{}".format(proto, out)
+        # And confirm nothing actually landed.
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "no auto-cost" not in running
+        ), "rejected auto-cost disable must not appear in running-config, got:\n{}".format(
+            running
+        )
+
+
+def test_ospf_auto_cost_cli_routes_through_yang():
+    """Legacy `auto-cost reference-bandwidth N` / `no ...` on both
+    daemons drives the YANG /auto-cost/reference-bandwidth callback."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for router_block, daemon in (
+        ("router ospf", "ospfd"),
+        ("router ospf6", "ospf6d"),
+    ):
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "{}\n"
+            " auto-cost reference-bandwidth 25000\n".format(router_block)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "auto-cost reference-bandwidth 25000" in running
+        ), "expected legacy CLI to land 25000 on {}, got:\n{}".format(daemon, running)
+
+        r1.vtysh_cmd(
+            "configure terminal\n"
+            "{}\n"
+            " no auto-cost reference-bandwidth\n".format(router_block)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "auto-cost reference-bandwidth 25000" not in running
+        ), "'auto-cost reference-bandwidth 25000' should be gone after 'no', got:\n{}".format(
+            running
+        )
+
+
 def test_ospf_yang_prefix_suppression_config():
     """per-interface prefix-suppression round-trip via mgmtd (OSPFv2 only)."""
     tgen = get_topogen()

@@ -840,8 +840,8 @@ static int ospf6_router_id_xpath(char *xpath, size_t size, const struct ospf6 *o
  * instance keys come from FRR-side context rather than a vty xpath push.
  * Returns -1 on truncation.
  */
-static int ospf6_per_instance_xpath(char *xpath, size_t size,
-				    const struct ospf6 *o, const char *leaf)
+int ospf6_per_instance_xpath(char *xpath, size_t size,
+			     const struct ospf6 *o, const char *leaf)
 {
 	int ret;
 

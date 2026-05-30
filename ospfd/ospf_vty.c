@@ -2641,37 +2641,32 @@ DEFUN (no_ospf_refresh_timer,
 }
 
 
-DEFUN (ospf_auto_cost_reference_bandwidth,
+/*
+ * `auto-cost reference-bandwidth` maps onto the RFC 9129
+ * `/auto-cost/reference-bandwidth` leaf.  The deviations file pins
+ * `/auto-cost/enabled` to `true` so the YANG `when "../enabled = 'true'"`
+ * constraint on the bandwidth leaf is always satisfied from the CLI
+ * side, matching FRR's runtime "always compute cost from bandwidth"
+ * semantics.
+ */
+DEFPY_YANG (ospf_auto_cost_reference_bandwidth,
        ospf_auto_cost_reference_bandwidth_cmd,
-       "auto-cost reference-bandwidth (1-4294967)",
+       "auto-cost reference-bandwidth (1-4294967)$refbw",
        "Calculate OSPF interface cost according to bandwidth\n"
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
-	int idx_number = 2;
-	uint32_t refbw;
-	struct interface *ifp;
+	char xpath[XPATH_MAXLEN];
 
-	refbw = strtol(argv[idx_number]->arg, NULL, 10);
-	if (refbw < 1 || refbw > 4294967) {
-		vty_out(vty, "reference-bandwidth value is invalid\n");
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/auto-cost/reference-bandwidth") != 0)
 		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* If reference bandwidth is changed. */
-	if ((refbw) == ospf->ref_bandwidth)
-		return CMD_SUCCESS;
-
-	ospf->ref_bandwidth = refbw;
-	FOR_ALL_INTERFACES (vrf, ifp)
-		ospf_if_recalculate_output_cost(ifp);
-
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, refbw_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf_auto_cost_reference_bandwidth,
+DEFPY_YANG (no_ospf_auto_cost_reference_bandwidth,
        no_ospf_auto_cost_reference_bandwidth_cmd,
        "no auto-cost reference-bandwidth [(1-4294967)]",
        NO_STR
@@ -2680,21 +2675,13 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
        "The reference bandwidth in terms of Mbits per second\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
-	struct interface *ifp;
+	char xpath[XPATH_MAXLEN];
 
-	if (ospf->ref_bandwidth == OSPF_DEFAULT_REF_BANDWIDTH)
-		return CMD_SUCCESS;
-
-	ospf->ref_bandwidth = OSPF_DEFAULT_REF_BANDWIDTH;
-	vty_out(vty, "%% OSPF: Reference bandwidth is changed.\n");
-	vty_out(vty,
-		"        Please ensure reference bandwidth is consistent across all routers\n");
-
-	FOR_ALL_INTERFACES (vrf, ifp)
-		ospf_if_recalculate_output_cost(ifp);
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/auto-cost/reference-bandwidth") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ospf_write_multiplier,

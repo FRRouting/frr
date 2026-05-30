@@ -202,6 +202,22 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cfg_opt_in = true,
 		},
 		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/auto-cost/enabled",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_auto_cost_enabled_modify,
+				.destroy = ospfd_ietf_ospf_auto_cost_enabled_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/auto-cost/reference-bandwidth",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_auto_cost_reference_bandwidth_modify,
+				.destroy = ospfd_ietf_ospf_auto_cost_reference_bandwidth_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/statistics/originate-new-lsa-count",
 			.cbs = {
