@@ -3302,7 +3302,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *pi2;
 	int paths_eq, do_mpath;
 	bool debug, any_comparisons;
-	char pfx_buf[PREFIX2STR_BUFFER] = {};
+	char pfx_buf[PREFIX2STR_BUFFER + VRF_NAMSIZ + 2] = {};
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
 	enum bgp_path_selection_reason reason = bgp_path_selection_none;
 	bool unsorted_items = true;
@@ -3314,7 +3314,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	debug = bgp_debug_bestpath(dest);
 
 	if (debug)
-		prefix2str(bgp_dest_get_prefix(dest), pfx_buf, sizeof(pfx_buf));
+		snprintfrr(pfx_buf, sizeof(pfx_buf), "%pBD(%s)", dest, bgp->name_pretty);
 
 	/* bgp deterministic-med */
 	new_select = NULL;
@@ -4292,8 +4292,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
 	if (new_select) {
 		if (debug)
-			zlog_debug("%s: %pBD setting SELECTED flag", __func__,
-				   dest);
+			zlog_debug("%s: %pBD(%s) setting SELECTED flag", __func__, dest,
+				   bgp->name_pretty);
 		bgp_path_info_set_flag(dest, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(dest, new_select,
 					 BGP_PATH_ATTR_CHANGED);
@@ -4817,9 +4817,12 @@ static void process_subq_early_route(struct bgp_dest *dest)
 {
 	struct bgp_table *table = bgp_dest_table(dest);
 
-	if (bgp_debug_bestpath(dest))
-		zlog_debug("%s dequeued from sub-queue %s", bgp_dest_get_prefix_str(dest),
+	if (bgp_debug_bestpath(dest)) {
+		struct bgp *bgp = table->bgp;
+
+		zlog_debug("%pBD(%s) dequeued from sub-queue %s", dest, bgp->name_pretty,
 			   subqueue2str(META_QUEUE_EARLY_ROUTE));
+	}
 
 	/* note, new DESTs may be added as part of processing */
 	bgp_process_main_one(table->bgp, dest, table->afi, table->safi);
@@ -4834,9 +4837,12 @@ static void process_subq_other_route(struct bgp_dest *dest)
 {
 	struct bgp_table *table = bgp_dest_table(dest);
 
-	if (bgp_debug_bestpath(dest))
-		zlog_debug("%s dequeued from sub-queue %s", bgp_dest_get_prefix_str(dest),
+	if (bgp_debug_bestpath(dest)) {
+		struct bgp *bgp = table->bgp;
+
+		zlog_debug("%pBD(%s) dequeued from sub-queue %s", dest, bgp->name_pretty,
 			   subqueue2str(META_QUEUE_OTHER_ROUTE));
+	}
 
 	/* note, new DESTs may be added as part of processing */
 	bgp_process_main_one(table->bgp, dest, table->afi, table->safi);
@@ -4935,9 +4941,13 @@ static int early_route_meta_queue_add(struct meta_queue *mq, void *data)
 	enum meta_queue_indexes qindex = META_QUEUE_EARLY_ROUTE;
 	struct bgp_dest *dest = data;
 
-	if (bgp_debug_bestpath(dest))
-		zlog_debug("%s queued into sub-queue %s", bgp_dest_get_prefix_str(dest),
+	if (bgp_debug_bestpath(dest)) {
+		struct bgp_table *table = bgp_dest_table(dest);
+		struct bgp *bgp = table->bgp;
+
+		zlog_debug("%pBD(%s) queued into sub-queue %s", dest, bgp->name_pretty,
 			   subqueue2str(qindex));
+	}
 
 	assert(STAILQ_NEXT(dest, pq) == NULL);
 	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
@@ -4950,9 +4960,13 @@ static int other_route_meta_queue_add(struct meta_queue *mq, void *data)
 	enum meta_queue_indexes qindex = META_QUEUE_OTHER_ROUTE;
 	struct bgp_dest *dest = data;
 
-	if (bgp_debug_bestpath(dest))
-		zlog_debug("%s queued into sub-queue %s", bgp_dest_get_prefix_str(dest),
+	if (bgp_debug_bestpath(dest)) {
+		struct bgp_table *table = bgp_dest_table(dest);
+		struct bgp *bgp = table->bgp;
+
+		zlog_debug("%pBD(%s) queued into sub-queue %s", dest, bgp->name_pretty,
 			   subqueue2str(qindex));
+	}
 
 	assert(STAILQ_NEXT(dest, pq) == NULL);
 	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);

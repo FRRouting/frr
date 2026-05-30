@@ -559,10 +559,11 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			if (debug) {
 				bgp_path_info_path_with_addpath_rx_str(cur_iterator, path_buf,
 								       sizeof(path_buf));
-				zlog_debug("%pBD: add mpath %s nexthop %pI4, cur count %d cum_bw: %" PRIu64
+				zlog_debug("%pBD(%s): add mpath %s nexthop %pI4, cur count %d cum_bw: %" PRIu64
 					   " all_paths_lb: %u",
-					   dest, path_buf, &cur_iterator->attr->nexthop,
-					   mpath_count, cum_bw, all_paths_lb);
+					   dest, bgp->name_pretty, path_buf,
+					   &cur_iterator->attr->nexthop, mpath_count, cum_bw,
+					   all_paths_lb);
 			}
 		} else {
 			/*
