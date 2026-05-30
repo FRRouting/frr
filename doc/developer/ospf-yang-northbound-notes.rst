@@ -328,6 +328,23 @@ overrides, OSPFv2 NSSA translator/suppress-fa knobs, or other FRR-specific
 extensions outside RFC 9129. A native OSPFv3 module should be added only when
 there is concrete FRR-specific state or configuration to expose.
 
+The following RFC 9129 nodes are also out of scope because neither ``ospfd``
+nor ``ospf6d`` has any matching FRR surface to map onto:
+
+* ``ospf/nsr`` -- FRR has no OSPF Non-Stop Routing.
+* ``ospf/database-control/max-lsa`` -- FRR's overload protection is
+  ``max-metric router-lsa on-shutdown/on-startup``, structurally different
+  from RFC 9129's max-LSA accept threshold.
+* ``ospf/spf-control/ietf-spf-delay`` -- FRR's ``timers throttle spf``
+  implements a different back-off algorithm.
+* ``ospf/node-tag-config`` -- FRR has no node-tag CLI, struct field, or LSA
+  encoding; ``router-info`` only enables the Opaque Router Information LSA
+  without exposing administrative tags.
+
+These should be revisited only if FRR grows the underlying surface; until
+then, leaving the YANG nodes unimplemented is preferable to silent
+no-op callbacks.
+
 Test Coverage
 -------------
 
