@@ -165,6 +165,19 @@ static bool pim_cisco_match(const struct filter *filter, const struct in_addr *s
 	return false;
 }
 
+static bool pim_acl_prefix_match(const struct filter *filter, const struct prefix *p)
+{
+	const struct filter_zebra *zfilter = &filter->u.zfilter;
+
+	if (zfilter->prefix.family != p->family)
+		return false;
+
+	if (zfilter->exact && zfilter->prefix.prefixlen != p->prefixlen)
+		return false;
+
+	return prefix_match(&zfilter->prefix, p);
+}
+
 enum filter_type pim_access_list_apply(struct access_list *access, const struct in_addr *source,
 				       const struct in_addr *group)
 {
@@ -174,17 +187,20 @@ enum filter_type pim_access_list_apply(struct access_list *access, const struct 
 	if (access == NULL)
 		return FILTER_DENY;
 
+	group_prefix.family = AF_INET;
+	group_prefix.prefixlen = IPV4_MAX_BITLEN;
+	group_prefix.u.prefix4.s_addr = group->s_addr;
+
 	for (filter = access->head; filter; filter = filter->next) {
 		if (filter->cisco) {
 			if (pim_cisco_match(filter, source, group))
 				return filter->type;
+		} else if (pim_acl_prefix_match(filter, &group_prefix)) {
+			return filter->type;
 		}
 	}
 
-	group_prefix.family = AF_INET;
-	group_prefix.prefixlen = IPV4_MAX_BITLEN;
-	group_prefix.u.prefix4.s_addr = group->s_addr;
-	return access_list_apply(access, &group_prefix);
+	return FILTER_DENY;
 }
 
 bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp, pim_addr *src)
