@@ -178,6 +178,14 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cfg_opt_in = true,
 		},
 		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/spf-control/paths",
+			.cbs = {
+				.modify = ospfd_ietf_ospf_spf_control_paths_modify,
+				.destroy = ospfd_ietf_ospf_spf_control_paths_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/statistics/originate-new-lsa-count",
 			.cbs = {

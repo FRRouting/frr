@@ -101,11 +101,12 @@ candidate data tree at selection time. Config callbacks still validate against
 the candidate tree once mgmtd has selected the owning backends.
 
 Configuration write support is intentionally limited to CLI-equivalent RFC 9129
-leaves. The converted leaves are router-id, preference, area lifecycle,
-area-type, area summary, OSPFv2 default-cost, area ranges, per-interface area
-attachment, interface cost, hello-interval, dead-interval, retransmit-interval,
-priority, mtu-ignore, transmit-delay, interface-type, and passive. Existing CLI
-commands for those leaves set the same YANG nodes as mgmtd writes.
+leaves. The converted leaves are router-id, preference, spf-control paths, area
+lifecycle, area-type, area summary, OSPFv2 default-cost, area ranges,
+per-interface area attachment, interface cost, hello-interval, dead-interval,
+retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type, and
+passive. Existing CLI commands for those leaves set the same YANG nodes as
+mgmtd writes.
 
 Configuration Mapping Model
 ---------------------------
@@ -215,6 +216,11 @@ The current config-write mapping is:
 | ``interface/passive``         | ``params->passive_``        | ``OSPF6_INTERFACE_PASSIVE`` | Destroy restores active.    |
 |                               | ``interface`` and passive   | flag                        |                             |
 |                               | update helper               |                             |                             |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``ospf/spf-control/paths``    | ``ospf->max_multipath``;    | ``ospf6->max_multipath``;   | RFC types ``paths`` as      |
+|                               | destroy restores            | destroy restores            | uint16 (1..65535) and FRR's |
+|                               | ``MULTIPATH_NUM``           | ``MULTIPATH_NUM``           | ``MULTIPATH_NUM`` cap stays |
+|                               |                             |                             | enforced in the CLI body.   |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 
 When adding another RFC 9129 config node, add its row here before or alongside

@@ -1406,6 +1406,129 @@ def test_ospf_yang_preference_config():
         assert "external 23" not in running
 
 
+def test_ospf_yang_spf_control_paths_config():
+    """per-instance spf-control/paths round-trip via mgmtd.
+
+    RFC 9129's `/spf-control/paths` is a uint16; the legacy CLI's
+    `maximum-paths` accepts up to MULTIPATH_NUM (platform-defined).
+    The conversion routes normal writes through YANG and keeps the
+    legacy direct-mutation path as a fallback if an instance XPath
+    cannot be built; this test covers the direct YANG path.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+
+        # YANG set within RFC range.
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt set-config {}/spf-control/paths 7\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "maximum-paths 7" in running
+        ), "expected 'maximum-paths 7' after YANG set, got:\n{}".format(running)
+
+        # YANG delete restores no-config (FRR semantics).
+        r1.vtysh_cmd(
+            "configure terminal file-lock\n"
+            "mgmt delete-config {}/spf-control/paths\n"
+            "mgmt commit apply".format(instance)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "maximum-paths 7" not in running
+        ), "maximum-paths 7 should be gone after YANG delete, got:\n{}".format(running)
+
+
+def test_ospf_yang_spf_control_paths_platform_limit_rejected():
+    """Direct mgmtd writes honour FRR's platform ECMP cap.
+
+    The RFC 9129 type allows values up to 65535, but FRR must still
+    reject anything above MULTIPATH_NUM in the daemon callback so CLI
+    and YANG clients observe the same platform limit.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        instance = (
+            "/ietf-routing:routing/control-plane-protocols/"
+            "control-plane-protocol[type='"
+            + proto
+            + "'][name='default']/ietf-ospf:ospf"
+        )
+        out = _mgmt_commit_attempt(
+            r1,
+            "mgmt set-config {}/spf-control/paths 65535".format(instance),
+        )
+        assert (
+            "maximum-paths exceeds platform max" in out
+        ), "expected platform-limit rejection for {}, got:\n{}".format(proto, out)
+
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "maximum-paths 65535" not in running
+        ), "rejected maximum-paths value must not land on {}, got:\n{}".format(
+            daemon, running
+        )
+
+
+def test_ospf_max_multipath_cli_routes_through_yang():
+    """Legacy `maximum-paths N` continues to work via vtysh; values
+    within RFC 9129's 1..32 range route through the YANG
+    `/spf-control/paths` callback, the rest stay on the legacy
+    direct-mutation path."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for router_block, daemon in (
+        ("router ospf", "ospfd"),
+        ("router ospf6", "ospf6d"),
+    ):
+        r1.vtysh_cmd(
+            "configure terminal\n" "{}\n" " maximum-paths 5\n".format(router_block)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "maximum-paths 5" in running
+        ), "expected 'maximum-paths 5' in {} running-config, got:\n{}".format(
+            daemon, running
+        )
+        r1.vtysh_cmd(
+            "configure terminal\n" "{}\n" " no maximum-paths\n".format(router_block)
+        )
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "maximum-paths 5" not in running
+        ), "maximum-paths 5 should be gone after 'no maximum-paths', got:\n{}".format(
+            running
+        )
+
+
 def test_ospf_yang_interface_type_and_passive_config():
     """interface-type and passive leaves round-trip via mgmtd."""
     tgen = get_topogen()

@@ -1226,33 +1226,57 @@ static void ospf6_maxpath_set(struct ospf6 *ospf6, uint16_t paths)
 	ospf6_restart_spf(ospf6);
 }
 
-/* Ospf Maximum-paths config support */
-DEFUN(ospf6_max_multipath,
+/*
+ * Ospf Maximum-paths config support.
+ *
+ * RFC 9129 models the limit as `/spf-control/paths` (uint16, range
+ * 1..65535), which covers FRR's MULTIPATH_NUM cap for every supported
+ * build.  Routes through the ietf-ospf YANG callback unconditionally;
+ * the legacy direct-mutation path stays only as the fallback when no
+ * OSPFv3 instance owns the xpath context.
+ */
+DEFPY_YANG(ospf6_max_multipath,
       ospf6_max_multipath_cmd,
-      "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+      "maximum-paths (1-65535)$maxpaths",
       "Max no of multiple paths for ECMP support\n"
       "Number of paths\n")
 {
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
-	int idx_number = 1;
-	int maximum_paths = strtol(argv[idx_number]->arg, NULL, 10);
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	char xpath[XPATH_MAXLEN];
 
-	ospf6_maxpath_set(ospf6, maximum_paths);
+	if (maxpaths > MULTIPATH_NUM) {
+		vty_out(vty, "%% maximum-paths exceeds platform max %u\n",
+			MULTIPATH_NUM);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/spf-control/paths") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, maxpaths_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	ospf6_maxpath_set(o, (uint16_t)maxpaths);
 	return CMD_SUCCESS;
 }
 
-DEFUN(no_ospf6_max_multipath,
+DEFPY_YANG(no_ospf6_max_multipath,
       no_ospf6_max_multipath_cmd,
-     "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM)"]",
+     "no maximum-paths [(1-65535)]",
       NO_STR
       "Max no of multiple paths for ECMP support\n"
       "Number of paths\n")
 {
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	char xpath[XPATH_MAXLEN];
 
-	ospf6_maxpath_set(ospf6, MULTIPATH_NUM);
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
+				     "/spf-control/paths") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
+	ospf6_maxpath_set(o, MULTIPATH_NUM);
 	return CMD_SUCCESS;
 }
 

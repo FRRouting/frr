@@ -80,6 +80,8 @@ int ospf6d_ietf_ospf_preference_internal_modify(struct nb_cb_modify_args *args);
 int ospf6d_ietf_ospf_preference_internal_destroy(struct nb_cb_destroy_args *args);
 int ospf6d_ietf_ospf_preference_external_modify(struct nb_cb_modify_args *args);
 int ospf6d_ietf_ospf_preference_external_destroy(struct nb_cb_destroy_args *args);
+int ospf6d_ietf_ospf_spf_control_paths_modify(struct nb_cb_modify_args *args);
+int ospf6d_ietf_ospf_spf_control_paths_destroy(struct nb_cb_destroy_args *args);
 
 struct yang_data *ospf6d_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

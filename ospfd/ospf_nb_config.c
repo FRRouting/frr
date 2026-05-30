@@ -1921,3 +1921,60 @@ int ospfd_ietf_ospf_preference_external_destroy(struct nb_cb_destroy_args *args)
 	ospf_restart_spf(ospf);
 	return NB_OK;
 }
+
+/*
+ * XPath: .../ospf/spf-control/paths
+ *
+ * Per-instance maximum ECMP paths.  Mirrors the legacy `maximum-paths
+ * N` CLI.  RFC 9129 types `paths` as uint16 (range 1..65535), so FRR's
+ * configured MULTIPATH_NUM cap (typically 16..64) fits trivially.  The
+ * destroy callback restores FRR's "no maximum-paths" semantics
+ * (MULTIPATH_NUM), not RFC 9129's absent YANG default.
+ */
+int ospfd_ietf_ospf_spf_control_paths_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	int ret;
+	uint16_t paths;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+
+	if (args->event == NB_EV_VALIDATE) {
+		paths = yang_dnode_get_uint16(args->dnode, NULL);
+		if (paths > MULTIPATH_NUM) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "maximum-paths exceeds platform max %u",
+				 MULTIPATH_NUM);
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	paths = yang_dnode_get_uint16(args->dnode, NULL);
+	if (ospf->max_multipath == paths)
+		return NB_OK;
+	ospf->max_multipath = paths;
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_spf_control_paths_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+			return NB_ERR_VALIDATION;
+		return NB_OK;
+	if (ospf->max_multipath == MULTIPATH_NUM)
+		return NB_OK;
+	ospf->max_multipath = MULTIPATH_NUM;
+	ospf_restart_spf(ospf);
+	return NB_OK;
+}

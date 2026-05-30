@@ -2797,34 +2797,59 @@ static void ospf_maxpath_set(struct vty *vty, struct ospf *ospf, uint16_t paths)
 	ospf_restart_spf(ospf);
 }
 
-/* Ospf Maximum multiple paths config support */
-DEFUN (ospf_max_multipath,
+/*
+ * Ospf Maximum multiple paths config support.
+ *
+ * RFC 9129 models the limit as `/spf-control/paths` (uint16, range
+ * 1..65535), which covers FRR's MULTIPATH_NUM cap for every supported
+ * build.  Routes through the ietf-ospf YANG callback unconditionally;
+ * the legacy direct-mutation path stays only as the fallback when no
+ * OSPF instance owns the xpath context (e.g. before the first
+ * `router ospf` line at boot, when the candidate datastore lacks the
+ * control-plane-protocol parent).
+ */
+DEFPY_YANG (ospf_max_multipath,
        ospf_max_multipath_cmd,
-       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+       "maximum-paths (1-65535)$maxpaths",
        "Max no of multiple paths for ECMP support\n"
        "Number of paths\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_number = 1;
-	uint16_t maxpaths;
+	char xpath[XPATH_MAXLEN];
 
-	maxpaths = strtol(argv[idx_number]->arg, NULL, 10);
+	if (maxpaths > MULTIPATH_NUM) {
+		vty_out(vty, "%% maximum-paths exceeds platform max %u\n",
+			MULTIPATH_NUM);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	ospf_maxpath_set(vty, ospf, maxpaths);
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/spf-control/paths") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, maxpaths_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	ospf_maxpath_set(vty, ospf, (uint16_t)maxpaths);
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ospf_max_multipath,
+DEFPY_YANG (no_ospf_max_multipath,
        no_ospf_max_multipath_cmd,
-       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM)"]",
+       "no maximum-paths [(1-65535)]",
        NO_STR
        "Max no of multiple paths for ECMP support\n"
        "Number of paths\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	uint16_t maxpaths = MULTIPATH_NUM;
+	char xpath[XPATH_MAXLEN];
 
-	ospf_maxpath_set(vty, ospf, maxpaths);
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/spf-control/paths") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	ospf_maxpath_set(vty, ospf, MULTIPATH_NUM);
 	return CMD_SUCCESS;
 }
 
