@@ -103,6 +103,8 @@ struct ospf_if_params {
 
 	/* BFD configuration */
 	struct bfd_configuration {
+		/** BFD session administrative state. */
+		bool enabled;
 		/** BFD session detection multiplier. */
 		uint8_t detection_multiplier;
 		/** BFD session minimum required receive interval. */

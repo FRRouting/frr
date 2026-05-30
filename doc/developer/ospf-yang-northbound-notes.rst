@@ -107,7 +107,9 @@ enabled, restart-interval, helper-enabled and helper-strict-lsa-checking, OSPFv2
 lifecycle, area-type, area summary, OSPFv2 default-cost, area ranges,
 per-interface area attachment, interface cost, hello-interval, dead-interval,
 retransmit-interval, priority, mtu-ignore, transmit-delay, interface-type,
-passive, and OSPFv2 prefix-suppression. Existing CLI commands for those leaves
+passive, OSPFv2 prefix-suppression, and per-interface BFD
+(enabled, local-multiplier, desired-min-tx-interval,
+required-min-rx-interval). Existing CLI commands for those leaves
 set the same YANG nodes as mgmtd writes.
 
 Configuration Mapping Model
@@ -226,6 +228,31 @@ The current config-write mapping is:
 |                               | ``DEFAULT``                 |                             | where this router is DR.    |
 |                               |                             |                             | Per-address overrides stay  |
 |                               |                             |                             | on the legacy direct path.  |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/bfd/enabled``     | ``params->bfd_config``      | ``oi->bfd_config.enabled``  | Presence-style toggle:      |
+|                               | (heap-alloc on enable);     | with ``ospf6_bfd_reg_``     | enable allocates with FRR   |
+|                               | ``ospf_interface_enable_``  | ``dereg_all_nbr``           | defaults + applies; disable |
+|                               | ``bfd`` + ``..._bfd_apply`` |                             | tears every session down.   |
+|                               |                             |                             | ``[quick]`` (v2) and        |
+|                               |                             |                             | ``[profile X]`` (v3) have   |
+|                               |                             |                             | no YANG counterpart and     |
+|                               |                             |                             | stay on the legacy path.    |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/bfd/``            | ``bfd_config->``            | ``oi->bfd_config.``         | Type ``multiplier`` (uint8  |
+| ``local-multiplier``          | ``detection_multiplier``;   | ``detection_multiplier``;   | 1..255).  Modify implies    |
+|                               | destroy restores            | destroy restores            | enable (alloc on v2; mark   |
+|                               | ``BFD_DEF_DETECT_MULT``     | ``BFD_DEF_DETECT_MULT``     | on v3); refresh sessions.   |
++-------------------------------+-----------------------------+-----------------------------+-----------------------------+
+| ``interface/bfd/``            | ``bfd_config->min_tx`` /    | ``oi->bfd_config.min_tx`` / | RFC unit is microseconds;   |
+| ``desired-min-tx-interval``   | ``->min_rx``; destroy       | ``.min_rx``; destroy        | FRR stores milliseconds.    |
+| ``interface/bfd/``            | restores                    | restores                    | NB_EV_VALIDATE rejects      |
+| ``required-min-rx-interval``  | ``BFD_DEF_MIN_TX`` /        | ``BFD_DEF_MIN_TX`` /        | non-multiple-of-1000 or     |
+|                               | ``BFD_DEF_MIN_RX``          | ``BFD_DEF_MIN_RX``          | out-of-range (50..60000 ms) |
+|                               |                             |                             | values; the deviations file |
+|                               |                             |                             | pins the RFC default to FRR |
+|                               |                             |                             | 300000 us.  The single-     |
+|                               |                             |                             | interval case is marked     |
+|                               |                             |                             | not-supported.              |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/spf-control/paths``    | ``ospf->max_multipath``;    | ``ospf6->max_multipath``;   | RFC types ``paths`` as      |
 |                               | destroy restores            | destroy restores            | uint16 (1..65535) and FRR's |

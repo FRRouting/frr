@@ -45,6 +45,24 @@ const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info = {
 };
 
 /*
+ * Companion to the ospfd loader -- see the ospfd_ietf_bfd_types_info
+ * comment in ospfd/ospf_nb.c.  Without this, ietf-ospf's `bfd`
+ * container's timer leaves vanish from ospf6d's compiled schema.
+ */
+static const char *const ospf6d_ietf_bfd_types_features[] = { "*", NULL };
+
+const struct frr_yang_module_info ospf6d_ietf_bfd_types_info = {
+	.name = "ietf-bfd-types",
+	.features = (const char **)ospf6d_ietf_bfd_types_features,
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = NULL,
+		},
+	},
+};
+
+/*
  * RFC 9129's ietf-ospf is the target northbound shape for OSPFv2 and OSPFv3.
  * Load it now so OSPFv3 work can converge on the shared standard model.
  * Enable all features so leaves gated by 'if-feature' (e.g. explicit-router-id,
@@ -337,6 +355,42 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_passive_modify,
 				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_passive_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/bfd/enabled",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify,
+				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/bfd/local-multiplier",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_modify,
+				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/bfd/desired-min-tx-interval",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_modify,
+				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_destroy,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/bfd/required-min-rx-interval",
+			.cbs = {
+				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval_modify,
+				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval_destroy,
 			},
 			.cfg_opt_in = true,
 		},

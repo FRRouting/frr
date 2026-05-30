@@ -175,6 +175,23 @@ static const struct frr_yang_module_info ietf_routing_ospf_deviation_info = {
 	.nodes = { { .xpath = NULL } },
 };
 
+/*
+ * Load ietf-bfd-types alongside ietf-ospf so the BFD container under
+ * /areas/area/interfaces/interface keeps its base-cfg-parms timer
+ * leaves (multiplier, desired-min-tx-interval, required-min-rx-
+ * interval).  Without enabling client-base-cfg-parms here mgmtd
+ * silently treats those leaves as `unknown data path` while still
+ * accepting `enabled`.
+ */
+static const char *const ietf_bfd_types_features[] = { "*", NULL };
+
+static const struct frr_yang_module_info ietf_bfd_types_info = {
+	.name = "ietf-bfd-types",
+	.features = (const char **)ietf_bfd_types_features,
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
 #ifdef HAVE_MGMTD_TESTC
 static const struct frr_yang_module_info frr_test_config_info = {
 	.name = "frr-test-config",
@@ -208,6 +225,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_zebra_cli_info,
 	&zebra_route_map_info,
 	&ietf_routing_ospf_deviation_info,
+	&ietf_bfd_types_info,
 	&ietf_routing_info,
 	&ietf_ospf_info,
 	&ietf_key_chain_cli_info,

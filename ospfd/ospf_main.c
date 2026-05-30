@@ -143,6 +143,7 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_vrf_info,
 	&ospfd_ietf_routing_ospf_deviation_info,
+	&ospfd_ietf_bfd_types_info,
 	&ospfd_ietf_routing_info,
 	&ospfd_ietf_ospf_info,
 	&frr_ospf_route_map_info,

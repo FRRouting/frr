@@ -18,6 +18,7 @@
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_abr.h"
+#include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_ldp_sync.h"
@@ -2544,5 +2545,275 @@ int ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_destroy(struct n
 		yang_get_default_bool(
 			"%s/graceful-restart/helper-strict-lsa-checking",
 			OSPFD_IETF_OSPF_XPATH));
+	return NB_OK;
+}
+
+/*
+ * RFC 9129 `bfd-types:client-cfg-parms` uses microsecond units for the
+ * timer leaves; FRR stores milliseconds internally (see
+ * lib/bfd.c:1120-1125 where bfdd multiplies by 1000 again for the
+ * protocol).  Operators expect to write whole-millisecond values via
+ * YANG, so reject non-multiples of 1000 microseconds at VALIDATE and
+ * convert at APPLY.  Range checks mirror the legacy CLI grammar:
+ * 50..60000 ms.
+ */
+#define OSPFD_IETF_BFD_MIN_INTERVAL_US (50UL * 1000)
+#define OSPFD_IETF_BFD_MAX_INTERVAL_US (60000UL * 1000)
+
+static int ospfd_ietf_bfd_validate_interval_us(uint32_t us, const char *leaf, char *errmsg,
+					       size_t errmsg_len)
+{
+	if (us % 1000 != 0) {
+		snprintf(errmsg, errmsg_len,
+			 "FRR BFD %s must be a whole millisecond (multiple of 1000 us); got %u",
+			 leaf, us);
+		return NB_ERR_VALIDATION;
+	}
+	if (us < OSPFD_IETF_BFD_MIN_INTERVAL_US || us > OSPFD_IETF_BFD_MAX_INTERVAL_US) {
+		snprintf(errmsg, errmsg_len,
+			 "FRR BFD %s must be %u..%u us (50..60000 ms); got %u", leaf,
+			 (unsigned int)OSPFD_IETF_BFD_MIN_INTERVAL_US,
+			 (unsigned int)OSPFD_IETF_BFD_MAX_INTERVAL_US, us);
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/areas/area/interfaces/interface/bfd/enabled
+ *
+ * Presence-style toggle that maps onto FRR's `bfd_config` allocation.
+ * `true` calls `ospf_interface_enable_bfd(ifp, quick=false)` (allocates
+ * the struct with FRR defaults) followed by `ospf_interface_bfd_apply`
+ * to push the session.  `false` / destroy calls
+ * `ospf_interface_disable_bfd` which frees the struct and removes
+ * every BFD session bound to the interface.  FRR's quick-establishment
+ * flag has no YANG counterpart and stays on the legacy direct path.
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	int ret;
+	bool enabled;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+	params = IF_DEF_PARAMS(ifp);
+	if (enabled) {
+		ospf_interface_enable_bfd(ifp, false);
+		ospf_interface_bfd_apply(ifp);
+	} else if (params->bfd_config) {
+		ospf_interface_disable_bfd(ifp, params);
+	}
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	params = IF_DEF_PARAMS(ifp);
+	if (params->bfd_config)
+		ospf_interface_disable_bfd(ifp, params);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/areas/area/interfaces/interface/bfd/local-multiplier
+ *
+ * Maps to `bfd_config->detection_multiplier`.  Type is `multiplier`
+ * (uint8 1..255) in ietf-bfd-types; FRR's CLI accepts the same range.
+ * Setting this leaf only makes sense once `bfd_config` exists, so the
+ * callback creates it via the shared helper (mirroring the legacy
+ * `ip ospf bfd N N N` form which also implies enable).
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	int ret;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf_interface_enable_bfd(ifp, false);
+	params = IF_DEF_PARAMS(ifp);
+	params->bfd_config->detection_multiplier = yang_dnode_get_uint8(args->dnode, NULL);
+	ospf_interface_bfd_apply(ifp);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	params = IF_DEF_PARAMS(ifp);
+	if (!params->bfd_config)
+		return NB_OK;
+	params->bfd_config->detection_multiplier = BFD_DEF_DETECT_MULT;
+	ospf_interface_bfd_apply(ifp);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/areas/area/interfaces/interface/bfd/desired-min-tx-interval
+ *
+ * RFC unit is microseconds; FRR stores milliseconds.  Reject values
+ * that are not whole milliseconds, and clamp the range to FRR's CLI
+ * grammar (50..60000 ms).
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	int ret;
+	uint32_t us;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	us = yang_dnode_get_uint32(args->dnode, NULL);
+	if (args->event == NB_EV_VALIDATE)
+		return ospfd_ietf_bfd_validate_interval_us(us, "desired-min-tx-interval",
+							   args->errmsg, args->errmsg_len);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf_interface_enable_bfd(ifp, false);
+	params = IF_DEF_PARAMS(ifp);
+	params->bfd_config->min_tx = us / 1000;
+	ospf_interface_bfd_apply(ifp);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	params = IF_DEF_PARAMS(ifp);
+	if (!params->bfd_config)
+		return NB_OK;
+	params->bfd_config->min_tx = BFD_DEF_MIN_TX;
+	ospf_interface_bfd_apply(ifp);
+	return NB_OK;
+}
+
+/*
+ * XPath: .../ospf/areas/area/interfaces/interface/bfd/required-min-rx-interval
+ *
+ * Companion to desired-min-tx-interval.  Same unit conversion + range.
+ */
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+	int ret;
+	uint32_t us;
+
+	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
+					       args->errmsg_len, &ospf);
+	if (ret != NB_OK || !ospf)
+		return ret;
+	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event, args->errmsg,
+						args->errmsg_len, &ifp);
+	if (ret != NB_OK || !ifp)
+		return ret;
+
+	us = yang_dnode_get_uint32(args->dnode, NULL);
+	if (args->event == NB_EV_VALIDATE)
+		return ospfd_ietf_bfd_validate_interval_us(us, "required-min-rx-interval",
+							   args->errmsg, args->errmsg_len);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf_interface_enable_bfd(ifp, false);
+	params = IF_DEF_PARAMS(ifp);
+	params->bfd_config->min_rx = us / 1000;
+	ospf_interface_bfd_apply(ifp);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	if (!ospf)
+		return NB_OK;
+	ifp = ospfd_ietf_ospf_interface_from_dnode(ospf, args->dnode);
+	if (!ifp)
+		return NB_OK;
+	params = IF_DEF_PARAMS(ifp);
+	if (!params->bfd_config)
+		return NB_OK;
+	params->bfd_config->min_rx = BFD_DEF_MIN_RX;
+	ospf_interface_bfd_apply(ifp);
 	return NB_OK;
 }

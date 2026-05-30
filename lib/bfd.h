@@ -19,6 +19,9 @@ extern "C" {
 #define BFD_DEF_DETECT_MULT 3
 #define BFD_DEF_STRICT_HOLD_TIME 30 /* seconds */
 
+#define BFD_IETF_MIN_INTERVAL_US (50UL * 1000)
+#define BFD_IETF_MAX_INTERVAL_US (60000UL * 1000)
+
 #define BFD_STATUS_UNKNOWN    (1 << 0) /* BFD session status never received */
 #define BFD_STATUS_DOWN       (1 << 1) /* BFD session status is down */
 #define BFD_STATUS_UP         (1 << 2) /* BFD session status is up */
@@ -29,6 +32,8 @@ extern "C" {
 #define BFD_NAME_SIZE 255
 
 const char *bfd_get_status_str(int status);
+extern int bfd_validate_ietf_interval_us(uint32_t us, const char *leaf,
+					 char *errmsg, size_t errmsg_len);
 
 extern void bfd_client_sendmsg(struct zclient *zclient, int command,
 			       vrf_id_t vrf_id);

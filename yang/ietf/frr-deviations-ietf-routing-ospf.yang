@@ -126,4 +126,55 @@ module frr-deviations-ietf-routing-ospf {
       }
     }
   }
+
+  /*
+   * RFC 9129's per-interface BFD container uses
+   * bfd-types:client-cfg-parms, whose default tx/rx intervals are
+   * 1000000 us (1 s).  FRR's compile-time defaults
+   * (BFD_DEF_MIN_TX / BFD_DEF_MIN_RX) are both 300 ms.  Pin the
+   * deviated defaults to FRR's values so an operator who writes
+   * only `/bfd/enabled = true` via mgmtd gets the same end state as
+   * `ip ospf bfd` from the CLI.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:bfd/ospf:interval-config-type"
+          + "/ospf:tx-rx-intervals"
+          + "/ospf:desired-min-tx-interval" {
+    deviate replace {
+      default "300000";
+    }
+  }
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:bfd/ospf:interval-config-type"
+          + "/ospf:tx-rx-intervals"
+          + "/ospf:required-min-rx-interval" {
+    deviate replace {
+      default "300000";
+    }
+  }
+
+  /*
+   * FRR's BFD library exposes only the (tx, rx) interval form, not
+   * the single-interval case from ietf-bfd-types.  Mark its only
+   * writable leaf not-supported so mgmtd rejects writes against it
+   * cleanly instead of letting them silently accumulate in the
+   * candidate datastore with no callback to fire.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:bfd/ospf:interval-config-type"
+          + "/ospf:single-interval/ospf:min-interval" {
+    deviate not-supported;
+  }
 }

@@ -30,6 +30,7 @@
 #include "ospf_dump.h"
 #include "ospf_vty.h"
 #include "ospf_quicknbr.h"
+#include "northbound_cli.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, BFD_CONFIG, "BFD configuration data");
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_BFD_SESSION_ENTRY, "OSPF BFD session entry");
@@ -44,6 +45,16 @@ struct ospf_bfd_session_entry {
 	struct ospf_neighbor *nbr;
 	struct bfd_session_params *bsp;
 };
+
+static void ospf_interface_bfd_config_set_defaults(struct bfd_configuration *config)
+{
+	config->enabled = false;
+	config->quick = false;
+	config->detection_multiplier = BFD_DEF_DETECT_MULT;
+	config->min_rx = BFD_DEF_MIN_RX;
+	config->min_tx = BFD_DEF_MIN_TX;
+	config->profile[0] = '\0';
+}
 
 static void ospf_bfd_entry_key(const struct in_addr *endpoint, struct prefix *p)
 {
@@ -144,7 +155,7 @@ void ospf_bfd_trigger_event(struct ospf_neighbor *nbr, int old_state, int state)
 	/* In quick neighbor mode, ignore the neighbor state changes. Just keep the session
 	 * installed to allow quick neighbor re-add
 	 */
-	if (!oip->bfd_config || oip->bfd_config->quick)
+	if (!oip->bfd_config || !oip->bfd_config->enabled || oip->bfd_config->quick)
 		return;
 
 	if ((old_state < NSM_TwoWay) && (state >= NSM_TwoWay))
@@ -211,7 +222,8 @@ static void ospf_bfd_session_change(struct bfd_session_params *bsp,
 					   IF_NAME(oi), &entry->endpoint);
 		}
 
-		if (oi && entry && oip && oip->bfd_config && oip->bfd_config->quick)
+		if (oi && entry && oip && oip->bfd_config &&
+		    oip->bfd_config->enabled && oip->bfd_config->quick)
 			ospf_qn_add(oi, &entry->endpoint);
 	}
 }
@@ -223,7 +235,7 @@ void ospf_neighbor_bfd_apply(struct ospf_neighbor *nbr)
 	struct ospf_bfd_session_entry *entry;
 
 	/* BFD configuration was removed. */
-	if (oip->bfd_config == NULL) {
+	if (oip->bfd_config == NULL || !oip->bfd_config->enabled) {
 		ospf_neighbor_bfd_clear(nbr);
 		return;
 	}
@@ -284,7 +296,8 @@ void ospf_neighbor_bfd_clear(struct ospf_neighbor *nbr)
 		 * IMPORTANT: the neighbor object is being freed, so we must drop
 		 * the weak pointer.
 		 */
-		if (oip && oip->bfd_config && oip->bfd_config->quick) {
+		if (oip && oip->bfd_config && oip->bfd_config->enabled
+		    && oip->bfd_config->quick) {
 			entry->nbr = NULL;
 			if (entry->bsp)
 				bfd_sess_install(entry->bsp);
@@ -363,7 +376,7 @@ static void ospf_bfd_if_prune_nonquick(struct ospf_interface *oi)
 	}
 }
 
-static void ospf_interface_bfd_apply(struct interface *ifp)
+void ospf_interface_bfd_apply(struct interface *ifp)
 {
 	struct ospf_interface *oi;
 	struct route_table *nbrs;
@@ -386,20 +399,29 @@ static void ospf_interface_bfd_apply(struct interface *ifp)
 	}
 }
 
-static void ospf_interface_enable_bfd(struct interface *ifp, bool quick)
+struct bfd_configuration *ospf_interface_bfd_config_get(struct interface *ifp)
 {
 	struct ospf_if_params *oip = IF_DEF_PARAMS(ifp);
-	bool old_quick = false;
 
 	if (!oip->bfd_config) {
 		/* Allocate memory for configurations and set defaults. */
 		oip->bfd_config = XCALLOC(MTYPE_BFD_CONFIG, sizeof(*oip->bfd_config));
-		oip->bfd_config->detection_multiplier = BFD_DEF_DETECT_MULT;
-		oip->bfd_config->min_rx = BFD_DEF_MIN_RX;
-		oip->bfd_config->min_tx = BFD_DEF_MIN_TX;
-	} else
-		old_quick = oip->bfd_config->quick;
+		ospf_interface_bfd_config_set_defaults(oip->bfd_config);
+	}
 
+	return oip->bfd_config;
+}
+
+void ospf_interface_enable_bfd(struct interface *ifp, bool quick)
+{
+	struct ospf_if_params *oip = IF_DEF_PARAMS(ifp);
+	bool old_quick = false;
+
+	if (oip->bfd_config)
+		old_quick = oip->bfd_config->quick;
+	ospf_interface_bfd_config_get(ifp);
+
+	oip->bfd_config->enabled = true;
 	oip->bfd_config->quick = quick;
 
 	/* Remove any down sessions kept alive for quick mode if quick
@@ -424,7 +446,10 @@ static void ospf_interface_enable_bfd(struct interface *ifp, bool quick)
 void ospf_interface_disable_bfd(struct interface *ifp,
 				struct ospf_if_params *oip)
 {
-	XFREE(MTYPE_BFD_CONFIG, oip->bfd_config);
+	if (!oip->bfd_config)
+		return;
+
+	oip->bfd_config->enabled = false;
 	ospf_interface_bfd_apply(ifp);
 	/* Ensure any interface-owned entries are removed too. */
 	{
@@ -438,6 +463,17 @@ void ospf_interface_disable_bfd(struct interface *ifp,
 			ospf_bfd_if_flush(oi);
 		}
 	}
+	ospf_interface_bfd_config_set_defaults(oip->bfd_config);
+}
+
+void ospf_interface_bfd_free_config(struct interface *ifp,
+				    struct ospf_if_params *oip)
+{
+	if (!oip->bfd_config)
+		return;
+
+	ospf_interface_disable_bfd(ifp, oip);
+	XFREE(MTYPE_BFD_CONFIG, oip->bfd_config);
 }
 
 /*
@@ -446,6 +482,9 @@ void ospf_interface_disable_bfd(struct interface *ifp,
 void ospf_bfd_write_config(struct vty *vty, const struct ospf_if_params *params
 			   __attribute__((unused)))
 {
+	if (!params->bfd_config || !params->bfd_config->enabled)
+		return;
+
 #if HAVE_BFDD == 0
 	if (params->bfd_config->detection_multiplier != BFD_DEF_DETECT_MULT
 	    || params->bfd_config->min_rx != BFD_DEF_MIN_RX
@@ -469,7 +508,7 @@ void ospf_interface_bfd_show(struct vty *vty, const struct interface *ifp,
 	struct bfd_configuration *bfd_config = params->bfd_config;
 	struct json_object *json_bfd;
 
-	if (bfd_config == NULL)
+	if (bfd_config == NULL || !bfd_config->enabled)
 		return;
 
 	if (json) {
@@ -488,7 +527,15 @@ void ospf_interface_bfd_show(struct vty *vty, const struct interface *ifp,
 			bfd_config->min_tx);
 }
 
-DEFUN (ip_ospf_bfd,
+/*
+ * `ip ospf bfd` maps onto RFC 9129 `/bfd/enabled`.  The `quick` flag
+ * has no YANG counterpart (FRR-specific quick-establishment mode) so
+ * the shim splits: the bare form routes through YANG when the
+ * interface is in an area; `[quick]` and not-yet-bound interfaces stay
+ * on the legacy direct mutation path so existing behaviour is
+ * preserved.
+ */
+DEFUN_YANG (ip_ospf_bfd,
        ip_ospf_bfd_cmd,
        "ip ospf bfd [quick]",
        "IP Information\n"
@@ -497,11 +544,29 @@ DEFUN (ip_ospf_bfd,
        "Quick neighbor establishment mode\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	ospf_interface_enable_bfd(ifp, argc >= 4);
+	bool has_quick = (argc >= 4);
+	char xpath[XPATH_MAXLEN];
+
+	if (!has_quick &&
+	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/bfd/enabled") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	ospf_interface_enable_bfd(ifp, has_quick);
 	ospf_interface_bfd_apply(ifp);
 	return CMD_SUCCESS;
 }
 
+/*
+ * The parametrised `ip ospf bfd N N N [quick]` form keeps its legacy
+ * DEFUN shape because the surrounding `#if HAVE_BFDD` switches between
+ * DEFUN_HIDDEN and DEFUN at the macro level; the clippy scanner can't
+ * cope with CPP directives within macro arg lists, so the DEFPY-family
+ * conversion can't apply here.  The body still routes through YANG
+ * when the interface is in an area and `quick` is absent, mirroring
+ * the simpler `ip ospf bfd` form above.
+ */
 #if HAVE_BFDD > 0
 DEFUN_HIDDEN(
 #else
@@ -523,15 +588,37 @@ DEFUN(
 	int idx_number = 3;
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
+	bool has_quick = (argc >= 7);
+	uint32_t mult = strtol(argv[idx_number]->arg, NULL, 10);
+	uint32_t rx_ms = strtol(argv[idx_number_2]->arg, NULL, 10);
+	uint32_t tx_ms = strtol(argv[idx_number_3]->arg, NULL, 10);
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN + 64];
+	char val[32];
 
-	ospf_interface_enable_bfd(ifp, argc >= 7);
+	if (!has_quick &&
+	    ospf_per_iface_xpath(xpath_base, sizeof(xpath_base), ifp, "/bfd") == 0) {
+		snprintf(xpath, sizeof(xpath), "%s/enabled", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		snprintf(xpath, sizeof(xpath), "%s/local-multiplier", xpath_base);
+		snprintf(val, sizeof(val), "%u", mult);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
+		snprintf(xpath, sizeof(xpath), "%s/required-min-rx-interval",
+			 xpath_base);
+		snprintf(val, sizeof(val), "%u", rx_ms * 1000);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
+		snprintf(xpath, sizeof(xpath), "%s/desired-min-tx-interval",
+			 xpath_base);
+		snprintf(val, sizeof(val), "%u", tx_ms * 1000);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
+	ospf_interface_enable_bfd(ifp, has_quick);
 	params = IF_DEF_PARAMS(ifp);
-	params->bfd_config->detection_multiplier =
-		strtol(argv[idx_number]->arg, NULL, 10);
-	params->bfd_config->min_rx = strtol(argv[idx_number_2]->arg, NULL, 10);
-	params->bfd_config->min_tx = strtol(argv[idx_number_3]->arg, NULL, 10);
-
+	params->bfd_config->detection_multiplier = mult;
+	params->bfd_config->min_rx = rx_ms;
+	params->bfd_config->min_tx = tx_ms;
 	ospf_interface_bfd_apply(ifp);
 
 	return CMD_SUCCESS;
@@ -551,7 +638,7 @@ DEFUN (ip_ospf_bfd_prof,
 	int idx_prof = 4;
 
 	params = IF_DEF_PARAMS(ifp);
-	if (!params->bfd_config) {
+	if (!params->bfd_config || !params->bfd_config->enabled) {
 		vty_out(vty, "ip ospf bfd has not been set\n");
 		return CMD_WARNING;
 	}
@@ -577,7 +664,7 @@ DEFUN (no_ip_ospf_bfd_prof,
 	struct ospf_if_params *params;
 
 	params = IF_DEF_PARAMS(ifp);
-	if (!params->bfd_config)
+	if (!params->bfd_config || !params->bfd_config->enabled)
 		return CMD_SUCCESS;
 
 	params->bfd_config->profile[0] = 0;
@@ -586,6 +673,11 @@ DEFUN (no_ip_ospf_bfd_prof,
 	return CMD_SUCCESS;
 }
 
+/*
+ * `no ip ospf bfd` -- same #if-inside-grammar problem as the param
+ * form, so this stays a DEFUN.  The body routes through YANG when the
+ * interface is in an area.
+ */
 DEFUN (no_ip_ospf_bfd,
        no_ip_ospf_bfd_cmd,
 #if HAVE_BFDD > 0
@@ -606,6 +698,21 @@ DEFUN (no_ip_ospf_bfd,
 )
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN + 64];
+
+	if (ospf_per_iface_xpath(xpath_base, sizeof(xpath_base), ifp, "/bfd") == 0) {
+		snprintf(xpath, sizeof(xpath), "%s/local-multiplier", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		snprintf(xpath, sizeof(xpath), "%s/required-min-rx-interval", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		snprintf(xpath, sizeof(xpath), "%s/desired-min-tx-interval", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		snprintf(xpath, sizeof(xpath), "%s/enabled", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
 	ospf_interface_disable_bfd(ifp, IF_DEF_PARAMS(ifp));
 	return CMD_SUCCESS;
 }

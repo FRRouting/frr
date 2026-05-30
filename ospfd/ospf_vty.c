@@ -355,8 +355,8 @@ static int ospf_area_xpath(char *xpath, size_t size, const struct ospf *ospf,
  * `ip ospf cost N A.B.C.D`) are out of RFC 9129's scope and never go
  * through YANG; the caller checks ifaddr_str before calling this.
  */
-static int ospf_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
-				const char *leaf)
+int ospf_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
+			 const char *leaf)
 {
 	const struct ospf *ospf = NULL;
 	const struct ospf_if_info *oii;

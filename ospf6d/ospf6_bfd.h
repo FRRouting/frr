@@ -30,4 +30,12 @@ extern void ospf6_bfd_info_nbr_create(struct ospf6_interface *oi,
 extern int config_write_ospf6_debug_bfd(struct vty *vty);
 extern void install_element_ospf6_debug_bfd(void);
 
+/*
+ * Register or deregister BFD sessions on every neighbour of the
+ * interface.  Shared by the legacy `ipv6 ospf6 bfd` CLI and the RFC
+ * 9129 `/bfd/enabled` northbound callback so the two paths use
+ * identical session lifecycle.
+ */
+extern void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi, bool install);
+
 #endif /* OSPF6_BFD_H */

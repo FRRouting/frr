@@ -279,6 +279,15 @@ extern uint8_t dr_election(struct ospf6_interface *oi);
 extern void ospf6_interface_auth_trailer_cmd_init(void);
 extern void ospf6_auth_write_config(struct vty *vty,
 				    struct ospf6_auth_data *at_data);
+
+/*
+ * Build the per-interface RFC 9129 ietf-ospf xpath for `leaf` (must
+ * start with '/').  Returns 0 on success, -1 when the interface is
+ * not yet bound to an OSPFv3 area -- callers should fall back to
+ * direct mutation in that case.
+ */
+extern int ospf6_per_iface_xpath(char *xpath, size_t size,
+				 const struct interface *ifp, const char *leaf);
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
 	     (oi, state, old_state));

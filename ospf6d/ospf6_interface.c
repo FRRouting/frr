@@ -18,6 +18,7 @@
 #include "plist.h"
 #include "zclient.h"
 #include "northbound_cli.h"
+#include "bfd.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -227,6 +228,9 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	oi->flag = 0;
 	oi->mtu_ignore = 0;
 	oi->c_ifmtu = 0;
+	oi->bfd_config.detection_multiplier = BFD_DEF_DETECT_MULT;
+	oi->bfd_config.min_rx = BFD_DEF_MIN_RX;
+	oi->bfd_config.min_tx = BFD_DEF_MIN_TX;
 
 	/* Try to adjust I/O buffer size with IfMtu */
 	oi->ifmtu = ifp->mtu6;
@@ -2085,8 +2089,8 @@ DEFUN (no_ipv6_ospf6_ifmtu,
  * to direct mutation. Returns 0 on success and writes the xpath into
  * buf; returns -1 if YANG is not applicable.
  */
-static int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
-				 const char *leaf)
+int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
+			  const char *leaf)
 {
 	const struct ospf6_interface *oi;
 	const struct ospf6 *ospf6;

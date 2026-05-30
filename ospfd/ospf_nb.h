@@ -24,6 +24,7 @@ struct ospf;
 extern const struct frr_yang_module_info ospfd_ietf_routing_info;
 extern const struct frr_yang_module_info ospfd_ietf_routing_ospf_deviation_info;
 extern const struct frr_yang_module_info ospfd_ietf_ospf_info;
+extern const struct frr_yang_module_info ospfd_ietf_bfd_types_info;
 
 const char *ospfd_ietf_instance_name(unsigned short instance, const char *name,
 				     char *buf, size_t buf_len);
@@ -114,6 +115,14 @@ int ospfd_ietf_ospf_graceful_restart_helper_enabled_modify(struct nb_cb_modify_a
 int ospfd_ietf_ospf_graceful_restart_helper_enabled_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_modify(struct nb_cb_modify_args *args);
 int ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_destroy(struct nb_cb_destroy_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval_destroy(struct nb_cb_destroy_args *args);
 
 struct yang_data *ospfd_ietf_ospf_router_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
