@@ -1328,7 +1328,7 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 }
 
 static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
-			       struct rtadv_prefix *rprefix)
+			       struct rtadv_prefix *rprefix, bool deprecate)
 {
 	if (!rprefix)
 		rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, rp);
@@ -1362,6 +1362,24 @@ static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
 			}
 		}
 
+		/*
+		 * Best-effort: before dropping a SLAAC prefix, tell hosts to
+		 * stop using it by advertising it once with preferred/valid
+		 * lifetime 0 (deprecate).  Skipped on global RA cease, which
+		 * already signals router-lifetime 0 per RFC 4861 6.2.5.
+		 */
+		if (deprecate && zif->rtadv.AdvSendAdvertisements &&
+		    rprefix->AdvAutonomousFlag) {
+			struct zebra_vrf *zvrf =
+				rtadv_interface_get_zvrf(zif->ifp);
+
+			rprefix->AdvPreferredLifetime = 0;
+			rprefix->AdvValidLifetime = 0;
+			if (zvrf)
+				rtadv_send_packet(zvrf->rtadv.sock, zif->ifp,
+						  RA_ENABLE);
+		}
+
 		rtadv_prefixes_del(zif->rtadv.prefixes, rprefix);
 		rtadv_prefix_free(rprefix);
 	}
@@ -1381,7 +1399,7 @@ void rtadv_delete_prefix_manual(struct zebra_if *zif,
 
 	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
 
-	rtadv_prefix_reset(zif, &rp, rprefix);
+	rtadv_prefix_reset(zif, &rp, rprefix, true);
 }
 
 /* Add IPv6 prefixes learned from the kernel to the RA prefix list */
@@ -1399,11 +1417,24 @@ void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p)
 void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 {
 	struct rtadv_prefix rp;
+	struct connected *ifc;
+
+	/*
+	 * Another address on the interface may still be in this prefix.  The
+	 * link still serves it then, so it stays advertised, and retiring it
+	 * would deprecate the addresses hosts formed from it.  The address
+	 * being deleted is still on the list at this point.
+	 */
+	frr_each (if_connected, zif->ifp->connected, ifc) {
+		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL) && prefix_cmp(ifc->address, p) == 0 &&
+		    !prefix_same(ifc->address, p))
+			return;
+	}
 
 	rp.prefix = *((struct prefix_ipv6 *)p);
 	apply_mask_ipv6(&rp.prefix);
 	rp.AdvPrefixCreate = PREFIX_SRC_AUTO;
-	rtadv_prefix_reset(zif, &rp, NULL);
+	rtadv_prefix_reset(zif, &rp, NULL, true);
 }
 
 static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
@@ -1653,7 +1684,7 @@ void rtadv_stop_ra_all(void)
 
 			frr_each_safe (rtadv_prefixes, zif->rtadv.prefixes,
 				       rprefix)
-				rtadv_prefix_reset(zif, rprefix, rprefix);
+				rtadv_prefix_reset(zif, rprefix, rprefix, false);
 
 			rtadv_stop_ra(ifp, false);
 		}
