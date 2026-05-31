@@ -84,6 +84,7 @@ RUN for i in $(seq 1 ${APT_RETRIES}); do \
         python3 \
         python3-pip \
         snmp \
+	snmptrapd \
         snmp-mibs-downloader \
         snmpd \
         ssmping \
