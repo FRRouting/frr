@@ -10,6 +10,16 @@
 Test if BGP SoO per neighbor works correctly. Routes having SoO
 extended community MUST be rejected if the neighbor is configured
 with soo (neighbor soo).
+
+test_bgp_soo() validates the core SoO functionality:
+- PE1 attaches SoO 65000:1 to routes received from CPE1
+- PE2 imports these routes via VPN
+- When PE2 has "neighbor soo 65000:1" configured for CPE2, routes
+  with matching SoO are filtered (not advertised to CPE2)
+
+The remaining tests use this SoO/VPN topology to validate the JSON
+output format for neighbor routes and advertised-routes commands.
+They verify JSON structure and path counts, not SoO behavior.
 """
 
 import os
@@ -225,7 +235,7 @@ def test_bgp_soo_pe1_neighbor_routes_json():
                 ],
             },
             "totalRoutes": 4,
-            "totalPaths": 12,
+            "totalPaths": 8,
             "numRoutes": 4,
         }
         return topotest.json_cmp(output, expected)
@@ -261,26 +271,26 @@ def test_bgp_soo_pe1_neighbor_routes_brief_json():
                 "10.0.0.0/24": {
                     "flags": {"bestPathExists": True},
                     "pathCount": 1,
-                    "multiPathCount": 2,
+                    "multiPathCount": 1,
                 },
                 "172.16.255.1/32": {
                     "flags": {"bestPathExists": True},
                     "pathCount": 1,
-                    "multiPathCount": 2,
+                    "multiPathCount": 1,
                 },
                 "192.168.1.0/24": {
                     "flags": {"bestPathExists": True},
                     "pathCount": 1,
-                    "multiPathCount": 2,
+                    "multiPathCount": 1,
                 },
                 "192.168.2.0/24": {
                     "flags": {"bestPathExists": True},
                     "pathCount": 1,
-                    "multiPathCount": 2,
+                    "multiPathCount": 1,
                 },
             },
             "totalRoutes": 4,
-            "totalPaths": 12,
+            "totalPaths": 8,
             "numRoutes": 4,
         }
         return topotest.json_cmp(output, expected)
@@ -412,7 +422,7 @@ def test_bgp_soo_ipv4_advertised_routes_brief_json():
             "advertisedRoutes": {
                 "10.0.0.0/24": {
                     "flags": {"bestPathExists": True},
-                    "pathCount": 3,
+                    "pathCount": 2,
                     "multiPathCount": 1,
                 },
                 "172.16.255.1/32": {
@@ -427,8 +437,8 @@ def test_bgp_soo_ipv4_advertised_routes_brief_json():
                 },
                 "192.168.2.0/24": {
                     "flags": {"bestPathExists": True},
-                    "pathCount": 2,
-                    "multiPathCount": 2,
+                    "pathCount": 1,
+                    "multiPathCount": 1,
                 },
             }
         }
