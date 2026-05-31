@@ -246,8 +246,8 @@ extern void ospf6_delete(struct ospf6 **o);
 extern bool ospf6_router_id_update(struct ospf6 *ospf6, bool init);
 extern void ospf6_process_reset(struct ospf6 *ospf6);
 void ospf6_restart_spf(struct ospf6 *ospf6);
-extern int ospf6_per_instance_xpath(char *xpath, size_t size,
-				    const struct ospf6 *o, const char *leaf);
+extern int ospf6_per_instance_xpath(char *xpath, size_t size, const struct ospf6 *o,
+				    const char *leaf);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
 extern struct ospf6 *ospf6_instance_create(const char *name);

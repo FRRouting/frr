@@ -145,8 +145,8 @@ static void ospf6_gr_flush_grace_lsas(struct ospf6 *ospf6)
 
 		for (ALL_LIST_ELEMENTS_RO(area->if_list, inode, oi)) {
 			lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_GRACE_LSA),
-						htonl(oi->interface->ifindex),
-						ospf6->router_id, oi->lsdb);
+						htonl(oi->interface->ifindex), ospf6->router_id,
+						oi->lsdb);
 			if (!lsa) {
 				zlog_warn("%s: Grace-LSA not found [interface %s] [area %pI4]",
 					  __func__, oi->interface->name, &area->area_id);
@@ -515,8 +515,7 @@ static void ospf6_gr_grace_period_expired(struct event *event)
 {
 	struct ospf6 *ospf6 = EVENT_ARG(event);
 
-	ospf6_gr_restart_exit(ospf6, "grace period has expired",
-			      OSPF6_GR_HELPER_GRACE_TIMEOUT);
+	ospf6_gr_restart_exit(ospf6, "grace period has expired", OSPF6_GR_HELPER_GRACE_TIMEOUT);
 }
 
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
@@ -735,16 +734,14 @@ static int ospf6_gr_neighbor_change(struct ospf6_neighbor *on, int next_state, i
 {
 	struct ospf6 *ospf6;
 
-	if (!on || !on->ospf6_if || !on->ospf6_if->area ||
-	    !on->ospf6_if->area->ospf6)
+	if (!on || !on->ospf6_if || !on->ospf6_if->area || !on->ospf6_if->area->ospf6)
 		return 0;
 
 	ospf6 = on->ospf6_if->area->ospf6;
 
 	if (next_state == OSPF6_NEIGHBOR_FULL && ospf6->gr_info.restart_in_progress) {
 		if (ospf6_gr_check_adjs(ospf6)) {
-			ospf6_gr_restart_exit(ospf6,
-					      "all adjacencies were reestablished",
+			ospf6_gr_restart_exit(ospf6, "all adjacencies were reestablished",
 					      OSPF6_GR_HELPER_COMPLETED);
 		} else {
 			if (IS_DEBUG_OSPF6_GR)

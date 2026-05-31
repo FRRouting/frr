@@ -91,7 +91,6 @@ const struct frr_yang_module_info ospfd_ietf_routing_info = {
 				.lookup_entry =
 					ospfd_ietf_routing_control_plane_protocol_lookup_entry,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = NULL,
@@ -141,7 +140,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_explicit_router_id_modify,
 				.destroy = ospfd_ietf_ospf_explicit_router_id_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/all",
@@ -149,7 +147,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_preference_all_modify,
 				.destroy = ospfd_ietf_ospf_preference_all_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/intra-area",
@@ -157,7 +154,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_preference_intra_area_modify,
 				.destroy = ospfd_ietf_ospf_preference_intra_area_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/inter-area",
@@ -165,7 +161,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_preference_inter_area_modify,
 				.destroy = ospfd_ietf_ospf_preference_inter_area_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/internal",
@@ -173,7 +168,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_preference_internal_modify,
 				.destroy = ospfd_ietf_ospf_preference_internal_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/preference/external",
@@ -181,7 +175,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_preference_external_modify,
 				.destroy = ospfd_ietf_ospf_preference_external_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/spf-control/paths",
@@ -189,7 +182,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_spf_control_paths_modify,
 				.destroy = ospfd_ietf_ospf_spf_control_paths_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/mpls/ldp/igp-sync",
@@ -197,7 +189,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_mpls_ldp_igp_sync_modify,
 				.destroy = ospfd_ietf_ospf_mpls_ldp_igp_sync_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/stub-router/always",
@@ -205,14 +196,12 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.create = ospfd_ietf_ospf_stub_router_always_create,
 				.destroy = ospfd_ietf_ospf_stub_router_always_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/auto-cost/enabled",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_auto_cost_enabled_modify,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/auto-cost/reference-bandwidth",
@@ -220,7 +209,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_auto_cost_reference_bandwidth_modify,
 				.destroy = ospfd_ietf_ospf_auto_cost_reference_bandwidth_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/mpls/te-rid/ipv4-router-id",
@@ -228,7 +216,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_modify,
 				.destroy = ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/graceful-restart/enabled",
@@ -236,14 +223,12 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_graceful_restart_enabled_modify,
 				.destroy = ospfd_ietf_ospf_graceful_restart_enabled_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/graceful-restart/restart-interval",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_graceful_restart_restart_interval_modify,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/graceful-restart/helper-enabled",
@@ -251,7 +236,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_graceful_restart_helper_enabled_modify,
 				.destroy = ospfd_ietf_ospf_graceful_restart_helper_enabled_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/graceful-restart/helper-strict-lsa-checking",
@@ -259,7 +243,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_modify,
 				.destroy = ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -285,14 +268,12 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.get_keys = ospfd_ietf_ospf_areas_area_get_keys,
 				.lookup_entry = ospfd_ietf_ospf_areas_area_lookup_entry,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/areas/area/area-type",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_type_modify,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/areas/area/summary",
@@ -300,7 +281,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_summary_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_summary_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/areas/area/default-cost",
@@ -308,7 +288,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_default_cost_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_default_cost_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -353,7 +332,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.lookup_entry =
 					ospfd_ietf_ospf_areas_area_interfaces_interface_lookup_entry,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -362,7 +340,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_cost_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_cost_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -371,7 +348,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -380,39 +356,38 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface/retransmit-interval",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface/priority",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_priority_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_priority_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface/mtu-ignore",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface/transmit-delay",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_modify,
+				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -421,7 +396,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -430,7 +404,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_passive_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_passive_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -439,7 +412,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -447,7 +419,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cbs = {
 				.apply_finish = ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_apply_finish,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -455,7 +426,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -463,7 +433,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_modify,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -472,7 +441,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -481,7 +449,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -491,7 +458,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.apply_finish = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_apply_finish,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -499,7 +465,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_poll_interval_modify,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -507,7 +472,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_priority_modify,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -516,7 +480,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_interfaces_interface_authentication_ospfv2_key_chain_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_interfaces_interface_authentication_ospfv2_key_chain_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -525,7 +488,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.create = ospfd_ietf_ospf_areas_area_ranges_range_create,
 				.destroy = ospfd_ietf_ospf_areas_area_ranges_range_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -534,7 +496,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_ranges_range_advertise_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_ranges_range_advertise_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH
@@ -543,7 +504,6 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 				.modify = ospfd_ietf_ospf_areas_area_ranges_range_cost_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_ranges_range_cost_destroy,
 			},
-			.cfg_opt_in = true,
 		},
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH

@@ -138,6 +138,7 @@ struct frr_signal_t ospf_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
@@ -162,6 +163,7 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
  * mgmtd/mgmt_be_adapter.c::mgmt_be_xpath_prefix().
  */
 static const char *const ospfd_oper_xpaths[] = {
+	"/frr-backend:clients",
 	OSPFD_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
 };
 
@@ -182,6 +184,7 @@ static const char *const ospfd_rpc_xpaths[] = {
 
 static char ospfd_instance_xpath[XPATH_MAXLEN];
 static const char *const ospfd_instance_oper_xpaths[] = {
+	"/frr-backend:clients",
 	ospfd_instance_xpath,
 };
 static const char *const ospfd_instance_config_xpaths[] = {

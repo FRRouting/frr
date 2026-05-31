@@ -276,6 +276,7 @@ extern int config_write_ospf6_debug_interface(struct vty *vty);
 extern void install_element_ospf6_debug_interface(void);
 extern int ospf6_interface_neighbor_count(struct ospf6_interface *oi);
 extern uint8_t dr_election(struct ospf6_interface *oi);
+extern void ospf6_interface_passive_set(struct ospf6_interface *oi, bool passive);
 
 extern void ospf6_interface_auth_trailer_cmd_init(void);
 extern void ospf6_auth_write_config(struct vty *vty,
@@ -287,8 +288,8 @@ extern void ospf6_auth_write_config(struct vty *vty,
  * not yet bound to an OSPFv3 area -- callers should fall back to
  * direct mutation in that case.
  */
-extern int ospf6_per_iface_xpath(char *xpath, size_t size,
-				 const struct interface *ifp, const char *leaf);
+extern int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
+				 const char *leaf);
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
 	     (oi, state, old_state));

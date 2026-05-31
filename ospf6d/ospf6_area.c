@@ -593,8 +593,7 @@ DEFPY_YANG (area_range,
 	snprintf(tail, sizeof(tail), "/ranges/range[prefix='%s']/advertise", prefix_str);
 	if (ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id_int, tail) != 0)
 		return CMD_WARNING_CONFIG_FAILED;
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
-			      notadv ? "false" : "true");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, notadv ? "false" : "true");
 
 	snprintf(tail, sizeof(tail), "/ranges/range[prefix='%s']/cost", prefix_str);
 	if (ospf6_area_xpath(xpath, sizeof(xpath), ospf6, area_id_int, tail) != 0)

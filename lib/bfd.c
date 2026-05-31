@@ -234,8 +234,7 @@ const char *bfd_get_status_str(int status)
 	}
 }
 
-int bfd_validate_ietf_interval_us(uint32_t us, const char *leaf,
-				  char *errmsg, size_t errmsg_len)
+int bfd_validate_ietf_interval_us(uint32_t us, const char *leaf, char *errmsg, size_t errmsg_len)
 {
 	if (us % 1000 != 0) {
 		snprintf(errmsg, errmsg_len,
@@ -245,9 +244,8 @@ int bfd_validate_ietf_interval_us(uint32_t us, const char *leaf,
 	}
 
 	if (us < BFD_IETF_MIN_INTERVAL_US || us > BFD_IETF_MAX_INTERVAL_US) {
-		snprintf(errmsg, errmsg_len,
-			 "FRR BFD %s must be %u..%u us (50..60000 ms); got %u", leaf,
-			 (unsigned int)BFD_IETF_MIN_INTERVAL_US,
+		snprintf(errmsg, errmsg_len, "FRR BFD %s must be %u..%u us (50..60000 ms); got %u",
+			 leaf, (unsigned int)BFD_IETF_MIN_INTERVAL_US,
 			 (unsigned int)BFD_IETF_MAX_INTERVAL_US, us);
 		return NB_ERR_VALIDATION;
 	}

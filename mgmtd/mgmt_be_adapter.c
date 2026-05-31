@@ -178,24 +178,20 @@ static size_t mgmt_be_xpath_segment_name_len(const char *segment)
 	return p - segment;
 }
 
-static bool mgmt_be_xpath_segment_names_equal(const char *a, size_t a_len,
-					      const char *b, size_t b_len)
+static bool mgmt_be_xpath_segment_names_equal(const char *a, size_t a_len, const char *b,
+					      size_t b_len)
 {
 	return a_len == b_len && strncmp(a, b, a_len) == 0;
 }
 
-static bool mgmt_be_xpath_segment_module_prefix(const char *prefix,
-						size_t prefix_len,
-						const char *segment,
-						size_t segment_len)
+static bool mgmt_be_xpath_segment_module_prefix(const char *prefix, size_t prefix_len,
+						const char *segment, size_t segment_len)
 {
-	return prefix_len < segment_len &&
-	       segment[prefix_len] == ':' &&
+	return prefix_len < segment_len && segment[prefix_len] == ':' &&
 	       strncmp(prefix, segment, prefix_len) == 0;
 }
 
-static bool mgmt_be_xpath_append_segment(char *path, size_t path_len,
-					 const char *segment,
+static bool mgmt_be_xpath_append_segment(char *path, size_t path_len, const char *segment,
 					 size_t segment_len)
 {
 	size_t len = strlen(path);
@@ -210,31 +206,30 @@ static bool mgmt_be_xpath_append_segment(char *path, size_t path_len,
 	return true;
 }
 
-static bool mgmt_be_xpath_identity_is_allowed(
-	const struct lysc_type_identityref *type, const struct lysc_ident *ident)
+static bool mgmt_be_xpath_identity_is_allowed(const struct lysc_type_identityref *type,
+					      const struct lysc_ident *ident)
 {
 	uint64_t i;
 
-	LY_ARRAY_FOR (type->bases, i) {
+	LY_ARRAY_FOR(type->bases, i)
+	{
 		const struct lysc_ident *base = type->bases[i];
 
-		if (ident == base ||
-		    lyplg_type_identity_isderived(base, ident) == LY_SUCCESS)
+		if (ident == base || lyplg_type_identity_isderived(base, ident) == LY_SUCCESS)
 			return true;
 	}
 
 	return false;
 }
 
-static bool mgmt_be_xpath_name_match(const char *str, const char *name,
-				     size_t name_len)
+static bool mgmt_be_xpath_name_match(const char *str, const char *name, size_t name_len)
 {
 	return strlen(str) == name_len && strncmp(str, name, name_len) == 0;
 }
 
-static const struct lysc_ident *mgmt_be_xpath_resolve_identity(
-	const struct lysc_type_identityref *type, const char *value,
-	size_t value_len)
+static const struct lysc_ident *
+mgmt_be_xpath_resolve_identity(const struct lysc_type_identityref *type, const char *value,
+			       size_t value_len)
 {
 	const char *colon = memchr(value, ':', value_len);
 	const struct lysc_ident *ident = NULL;
@@ -254,16 +249,15 @@ static const struct lysc_ident *mgmt_be_xpath_resolve_identity(
 	}
 
 	while ((mod = ly_ctx_get_module_iter(ly_native_ctx, &idx))) {
-		if (module && !mgmt_be_xpath_name_match(mod->name, module,
-							module_len) &&
+		if (module && !mgmt_be_xpath_name_match(mod->name, module, module_len) &&
 		    !mgmt_be_xpath_name_match(mod->prefix, module, module_len))
 			continue;
 
-		LY_ARRAY_FOR (mod->identities, i) {
+		LY_ARRAY_FOR(mod->identities, i)
+		{
 			const struct lysc_ident *candidate = &mod->identities[i];
 
-			if (!mgmt_be_xpath_name_match(candidate->name, name,
-						      name_len) ||
+			if (!mgmt_be_xpath_name_match(candidate->name, name, name_len) ||
 			    !mgmt_be_xpath_identity_is_allowed(type, candidate))
 				continue;
 
@@ -277,29 +271,23 @@ static const struct lysc_ident *mgmt_be_xpath_resolve_identity(
 }
 
 static bool mgmt_be_xpath_identityref_values_match(const struct lysc_type *type,
-						   const char *map_value,
-						   size_t map_value_len,
-						   const char *xpath_value,
-						   size_t xpath_value_len)
+						   const char *map_value, size_t map_value_len,
+						   const char *xpath_value, size_t xpath_value_len)
 {
-	const struct lysc_type_identityref *ident_type =
-		(const struct lysc_type_identityref *)type;
+	const struct lysc_type_identityref *ident_type = (const struct lysc_type_identityref *)type;
 	const struct lysc_ident *map_ident;
 	const struct lysc_ident *xpath_ident;
 
-	map_ident = mgmt_be_xpath_resolve_identity(ident_type, map_value,
-						   map_value_len);
-	xpath_ident = mgmt_be_xpath_resolve_identity(ident_type, xpath_value,
-						     xpath_value_len);
+	map_ident = mgmt_be_xpath_resolve_identity(ident_type, map_value, map_value_len);
+	xpath_ident = mgmt_be_xpath_resolve_identity(ident_type, xpath_value, xpath_value_len);
 	if (!map_ident || !xpath_ident)
 		return false;
 
 	return map_ident == xpath_ident;
 }
 
-static const struct lysc_node *
-mgmt_be_xpath_key_snode(const struct lysc_node *list_snode, const char *key,
-			size_t key_len)
+static const struct lysc_node *mgmt_be_xpath_key_snode(const struct lysc_node *list_snode,
+						       const char *key, size_t key_len)
 {
 	const struct lysc_node *child;
 	const char *key_name = key;
@@ -327,10 +315,8 @@ mgmt_be_xpath_key_snode(const struct lysc_node *list_snode, const char *key,
 	return NULL;
 }
 
-static bool mgmt_be_xpath_values_match(const struct lysc_node *key_snode,
-				       const char *map_value,
-				       size_t map_value_len,
-				       const char *xpath_value,
+static bool mgmt_be_xpath_values_match(const struct lysc_node *key_snode, const char *map_value,
+				       size_t map_value_len, const char *xpath_value,
 				       size_t xpath_value_len)
 {
 	const struct lysc_type *type;
@@ -348,14 +334,12 @@ static bool mgmt_be_xpath_values_match(const struct lysc_node *key_snode,
 		return false;
 
 	if (type->basetype == LY_TYPE_IDENT)
-		return mgmt_be_xpath_identityref_values_match(
-			type, map_value, map_value_len, xpath_value,
-			xpath_value_len);
+		return mgmt_be_xpath_identityref_values_match(type, map_value, map_value_len,
+							      xpath_value, xpath_value_len);
 
-	map_err = lyd_value_validate(NULL, key_snode, map_value, map_value_len,
-				     NULL, NULL, &map_canon);
-	xpath_err = lyd_value_validate(NULL, key_snode, xpath_value,
-				       xpath_value_len, NULL, NULL,
+	map_err = lyd_value_validate(NULL, key_snode, map_value, map_value_len, NULL, NULL,
+				     &map_canon);
+	xpath_err = lyd_value_validate(NULL, key_snode, xpath_value, xpath_value_len, NULL, NULL,
 				       &xpath_canon);
 	if (map_err || xpath_err || !map_canon || !xpath_canon) {
 		match = false;
@@ -507,11 +491,10 @@ static bool mgmt_be_xpath_segment_predicates_compatible(const char *map_segment,
 						  &xpath_value, &xpath_value_len, &found))
 			return false;
 
-		if (found &&
-		    !mgmt_be_xpath_values_match(
-			    mgmt_be_xpath_key_snode(snode, map_key, map_key_len),
-			    map_value, map_value_len, xpath_value,
-			    xpath_value_len))
+		if (found && !mgmt_be_xpath_values_match(mgmt_be_xpath_key_snode(snode, map_key,
+										 map_key_len),
+							 map_value, map_value_len, xpath_value,
+							 xpath_value_len))
 			return false;
 
 		p = next;
@@ -573,12 +556,13 @@ static bool mgmt_be_xpath_prefix(const char *map_path, const char *xpath)
 
 		map_name_len = mgmt_be_xpath_segment_name_len(map);
 		path_name_len = mgmt_be_xpath_segment_name_len(path);
-		if (!mgmt_be_xpath_segment_names_equal(map, map_name_len, path,
-						       path_name_len)) {
-			map_module_prefix = mgmt_be_xpath_segment_module_prefix(
-				map, map_name_len, path, path_name_len);
-			path_module_prefix = mgmt_be_xpath_segment_module_prefix(
-				path, path_name_len, map, map_name_len);
+		if (!mgmt_be_xpath_segment_names_equal(map, map_name_len, path, path_name_len)) {
+			map_module_prefix = mgmt_be_xpath_segment_module_prefix(map, map_name_len,
+										path,
+										path_name_len);
+			path_module_prefix =
+				mgmt_be_xpath_segment_module_prefix(path, path_name_len, map,
+								    map_name_len);
 
 			if (map_module_prefix)
 				return *map_end == '\0';
@@ -588,16 +572,14 @@ static bool mgmt_be_xpath_prefix(const char *map_path, const char *xpath)
 			return false;
 		}
 
-		if (!mgmt_be_xpath_append_segment(schema_path,
-						  sizeof(schema_path), map,
+		if (!mgmt_be_xpath_append_segment(schema_path, sizeof(schema_path), map,
 						  map_name_len))
 			return false;
 		if (memchr(map + map_name_len, '[', map_end - map_name_len - map))
-			snode = lys_find_path(ly_native_ctx, NULL, schema_path,
-					      0);
+			snode = lys_find_path(ly_native_ctx, NULL, schema_path, 0);
 
-		if (!mgmt_be_xpath_segment_predicates_compatible(
-			    map, map_end, path, path_end, snode))
+		if (!mgmt_be_xpath_segment_predicates_compatible(map, map_end, path, path_end,
+								 snode))
 			return false;
 
 		map = *map_end == '/' ? map_end + 1 : map_end;

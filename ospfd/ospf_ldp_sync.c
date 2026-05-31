@@ -755,8 +755,7 @@ DEFPY_YANG (ospf_mpls_ldp_sync,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	char xpath[XPATH_MAXLEN];
 
-	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
-				    "/mpls/ldp/igp-sync") != 0)
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf, "/mpls/ldp/igp-sync") != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 	return nb_cli_apply_changes(vty, NULL);
@@ -772,8 +771,7 @@ DEFPY_YANG (no_ospf_mpls_ldp_sync,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	char xpath[XPATH_MAXLEN];
 
-	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
-				    "/mpls/ldp/igp-sync") != 0)
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf, "/mpls/ldp/igp-sync") != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);

@@ -1087,11 +1087,12 @@ YANG / NETCONF Support
 ----------------------
 
 OSPF operational state and a subset of OSPF configuration are exposed through
-the standard :rfc:`9129` ``ietf-ospf`` YANG model.  The OSPF instance itself
-remains owned by the legacy ``router ospf`` CLI, but per-area, per-interface
-and per-instance configuration leaves are routed through the mgmtd northbound
-so they can be read, set and committed via NETCONF / RESTCONF / ``vtysh``'s
-``mgmt`` subcommands as well as the legacy CLI.
+the standard :rfc:`9129` ``ietf-ospf`` YANG model.  The OSPF instance can be
+created either by the legacy ``router ospf`` CLI or by creating the RFC 9129
+``control-plane-protocol`` entry through mgmtd.  Converted per-instance,
+per-area and per-interface configuration leaves are routed through the mgmtd
+northbound so they can be read, set and committed via NETCONF / RESTCONF /
+``vtysh``'s ``mgmt`` subcommands as well as the legacy CLI.
 
 For the default or VRF-based daemon, the RFC 9129
 ``control-plane-protocol`` name is the OSPF VRF name, normally ``default``.
@@ -1102,6 +1103,10 @@ This keeps separate ``ospfd`` backend processes distinct in mgmtd.
 
 Supported configuration leaves
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Creating or deleting the RFC 9129 ``control-plane-protocol`` entry creates or
+removes the matching daemon instance, matching the legacy ``router ospf`` and
+``no router ospf`` paths.
 
 Under ``/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-ospf:ospfv2']/ietf-ospf:ospf``:
 
@@ -1150,9 +1155,6 @@ Out of scope for this slice
 * FRR-specific area NSSA augments (translator-role,
   default-information-originate, suppress-fa) are not in the RFC 9129 area
   grouping; they remain legacy-CLI-only.
-* The ``router ospf [{(1-65535)|vrf NAME}]`` instance creation step is still
-  CLI-only; YANG operations that target a non-existent instance are
-  rejected at VALIDATE with a clear error pointing at ``router ospf``.
 
 Examples
 ^^^^^^^^

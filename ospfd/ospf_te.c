@@ -297,8 +297,7 @@ void ospf_mpls_te_apply_router_addr(struct in_addr value)
 	struct mpls_te_link *lp;
 	int need_to_reoriginate = 0;
 
-	if (ntohs(ra->header.type) != 0 &&
-	    ntohl(ra->value.s_addr) == ntohl(value.s_addr))
+	if (ntohs(ra->header.type) != 0 && ntohl(ra->value.s_addr) == ntohl(value.s_addr))
 		return;
 
 	set_mpls_te_router_addr(value);
@@ -325,8 +324,7 @@ void ospf_mpls_te_apply_router_addr(struct in_addr value)
 	}
 
 	if (need_to_reoriginate)
-		ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule,
-					  REORIGINATE_THIS_LSA);
+		ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule, REORIGINATE_THIS_LSA);
 }
 
 /*
@@ -4479,8 +4477,7 @@ DEFPY_YANG (ospf_mpls_te_router_addr,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	char xpath[XPATH_MAXLEN];
 
-	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
-				    "/mpls/te-rid/ipv4-router-id") != 0)
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf, "/mpls/te-rid/ipv4-router-id") != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, value_str);
 	return nb_cli_apply_changes(vty, NULL);

@@ -34,47 +34,65 @@
 /*
  * OSPFv3 NSM state values already match RFC 9129's nbr-state-type 1:1
  * (down=1, attempt=2, init=3, twoway=4, exstart=5, exchange=6,
- * loading=7, full=8), so no lookup table is needed.
+ * loading=7, full=8).
  */
+static const int ospf6d_ietf_nbr_state_table[OSPF6_NEIGHBOR_FULL + 1] = {
+	[OSPF6_NEIGHBOR_DOWN] = 1,     /* down */
+	[OSPF6_NEIGHBOR_ATTEMPT] = 2,  /* attempt */
+	[OSPF6_NEIGHBOR_INIT] = 3,     /* init */
+	[OSPF6_NEIGHBOR_TWOWAY] = 4,   /* 2-way */
+	[OSPF6_NEIGHBOR_EXSTART] = 5,  /* exstart */
+	[OSPF6_NEIGHBOR_EXCHANGE] = 6, /* exchange */
+	[OSPF6_NEIGHBOR_LOADING] = 7,  /* loading */
+	[OSPF6_NEIGHBOR_FULL] = 8,     /* full */
+};
+
 static int ospf6d_ietf_nbr_state_yang(int nsm_state)
 {
-	if (nsm_state >= OSPF6_NEIGHBOR_DOWN && nsm_state <= OSPF6_NEIGHBOR_FULL)
-		return nsm_state;
-	return -1;
-}
+	int val;
 
+	if (nsm_state < 0 ||
+	    (size_t)nsm_state >= array_size(ospf6d_ietf_nbr_state_table))
+		return -1;
+
+	val = ospf6d_ietf_nbr_state_table[nsm_state];
+	return val ? val : -1;
+}
 
 /*
  * OSPFv3 ISM state codes deviate from RFC 9129's `if-state-type`:
- * FRR reserves 5 (skipped) and orders DROther=6, BDR=7, DR=8, while the
- * RFC orders dr=5, bdr=6, dr-other=7.  Translate via switch.
+ * FRR uses 5 for point-to-multipoint and orders DROther=6, BDR=7, DR=8,
+ * while the RFC orders dr=5, bdr=6, dr-other=7.  RFC 9129 has no separate
+ * P2MP state, so fold it into point-to-point as OSPFv2 does.
+ * Translate via lookup table.
  *
  * FRR reserves OSPF6_INTERFACE_NONE (0) for the pre-init lifecycle slot.
  * It folds into the RFC's `down` so an interface lifecycle transition
  * through that state stays observable through if-state-change rather
  * than disappearing into a -1 returned by the default arm.
  */
+static const int ospf6d_ietf_if_state_table[OSPF6_INTERFACE_MAX] = {
+	[OSPF6_INTERFACE_NONE] = 1,         /* down */
+	[OSPF6_INTERFACE_DOWN] = 1,         /* down */
+	[OSPF6_INTERFACE_LOOPBACK] = 2,     /* loopback */
+	[OSPF6_INTERFACE_WAITING] = 3,      /* waiting */
+	[OSPF6_INTERFACE_POINTTOPOINT] = 4, /* point-to-point */
+	[OSPF6_INTERFACE_POINTTOMULTIPOINT] = 4, /* point-to-point */
+	[OSPF6_INTERFACE_DR] = 5,           /* dr */
+	[OSPF6_INTERFACE_BDR] = 6,          /* bdr */
+	[OSPF6_INTERFACE_DROTHER] = 7,      /* dr-other */
+};
+
 static int ospf6d_ietf_if_state_yang(int ism_state)
 {
-	switch (ism_state) {
-	case OSPF6_INTERFACE_NONE:
-	case OSPF6_INTERFACE_DOWN:
-		return 1; /* down */
-	case OSPF6_INTERFACE_LOOPBACK:
-		return 2; /* loopback */
-	case OSPF6_INTERFACE_WAITING:
-		return 3; /* waiting */
-	case OSPF6_INTERFACE_POINTTOPOINT:
-		return 4; /* point-to-point */
-	case OSPF6_INTERFACE_DR:
-		return 5; /* dr */
-	case OSPF6_INTERFACE_BDR:
-		return 6; /* bdr */
-	case OSPF6_INTERFACE_DROTHER:
-		return 7; /* dr-other */
-	default:
+	int val;
+
+	if (ism_state < 0 ||
+	    (size_t)ism_state >= array_size(ospf6d_ietf_if_state_table))
 		return -1;
-	}
+
+	val = ospf6d_ietf_if_state_table[ism_state];
+	return val ? val : -1;
 }
 
 static void ospf6d_ietf_notif_add_instance_hdr(struct list *args, const char *xpath,
@@ -191,30 +209,29 @@ static int ospf6d_ietf_if_state_change(struct ospf6_interface *oi, int state, in
 
 /*
  * Translate FRR's `ospf6_helper_exit_reason` (0..4) into RFC 9129's
- * `restart-exit-reason-type` (1..5).  Same names in the same order,
- * just offset by 1.
+ * `restart-exit-reason-type` (1..5).  FRR's enum order differs from the
+ * RFC value order: TOPO_CHG=2 maps to topology-changed=5, while
+ * COMPLETED=4 maps to completed=3.  A simple offset does not work.
  */
+static const int
+	ospf6d_ietf_helper_exit_reason_table[OSPF6_GR_HELPER_COMPLETED + 1] = {
+		[OSPF6_GR_HELPER_EXIT_NONE] = 1,     /* none */
+		[OSPF6_GR_HELPER_INPROGRESS] = 2,    /* in-progress */
+		[OSPF6_GR_HELPER_COMPLETED] = 3,     /* completed */
+		[OSPF6_GR_HELPER_GRACE_TIMEOUT] = 4, /* timed-out */
+		[OSPF6_GR_HELPER_TOPO_CHG] = 5,      /* topology-changed */
+	};
+
 static int ospf6d_ietf_helper_exit_reason_yang(int exit_reason)
 {
-	switch (exit_reason) {
-	case OSPF6_GR_HELPER_EXIT_NONE:
-		return 1; /* none */
-	case OSPF6_GR_HELPER_INPROGRESS:
-		return 2; /* in-progress */
-	case OSPF6_GR_HELPER_COMPLETED:
-		return 3; /* completed */
-	case OSPF6_GR_HELPER_GRACE_TIMEOUT:
-		return 4; /* timed-out */
-	case OSPF6_GR_HELPER_TOPO_CHG:
-		return 5; /* topology-changed */
-	default:
-		/*
-		 * Caller logs and suppresses.  Returning `none` here would
-		 * falsely report "helper has not exited" for an exit that
-		 * just happened for an unfamiliar reason.
-		 */
+	int val;
+
+	if (exit_reason < 0 ||
+	    (size_t)exit_reason >= array_size(ospf6d_ietf_helper_exit_reason_table))
 		return -1;
-	}
+
+	val = ospf6d_ietf_helper_exit_reason_table[exit_reason];
+	return val ? val : -1;
 }
 
 static bool ospf6d_ietf_restart_status_valid(int status)

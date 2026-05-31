@@ -237,8 +237,7 @@ int ospf_dr_election(struct ospf_interface *oi)
 		/* Trigger an extra hello on DR/BDR changes when using quick neighbors to speed up
 		 * correct DR/BDR election.
 		 */
-		if (oip->bfd_config && oip->bfd_config->enabled
-		    && oip->bfd_config->quick)
+		if (oip->bfd_config && oip->bfd_config->enabled && oip->bfd_config->quick)
 			ospf_hello_send(oi);
 	}
 

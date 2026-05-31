@@ -1401,20 +1401,17 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 	assert(running_config);
 
 	if (instance)
-		ret = snprintf(client_name_inst, sizeof(client_name_inst), "%s-%u",
-			       client_name, instance);
+		ret = snprintf(client_name_inst, sizeof(client_name_inst), "%s-%u", client_name,
+			       instance);
 	else
-		ret = snprintf(client_name_inst, sizeof(client_name_inst), "%s",
-			       client_name);
+		ret = snprintf(client_name_inst, sizeof(client_name_inst), "%s", client_name);
 
 	if (ret < 0 || ret >= MGMTD_CLIENT_NAME_MAX_LEN) {
 		if (instance)
-			flog_err(EC_LIB_SYSTEM_CALL,
-				 "%s: backend client name '%s-%u' is too long",
+			flog_err(EC_LIB_SYSTEM_CALL, "%s: backend client name '%s-%u' is too long",
 				 __func__, client_name, instance);
 		else
-			flog_err(EC_LIB_SYSTEM_CALL,
-				 "%s: backend client name '%s' is too long",
+			flog_err(EC_LIB_SYSTEM_CALL, "%s: backend client name '%s' is too long",
 				 __func__, client_name);
 		XFREE(MTYPE_MGMTD_BE_CLIENT, client);
 		__be_client = NULL;

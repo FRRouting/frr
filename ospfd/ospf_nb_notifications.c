@@ -215,12 +215,6 @@ void ospfd_ietf_notif_restart_status_change(struct ospf *ospf, int status, int e
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/restart-interval", xpath);
 	listnode_add(args, yang_data_new_uint16(xpath_arg, ospf->gr_info.grace_period));
 
-	if (!ospfd_ietf_helper_status_valid(status)) {
-		zlog_warn("%s: unrecognised GR helper status %d, suppressing notification",
-			  __func__, status);
-		return;
-	}
-
 	yang_exit = ospfd_ietf_helper_exit_reason_yang(exit_reason);
 	if (yang_exit < 0) {
 		zlog_warn("%s: unrecognised GR exit reason %d, suppressing notification",

@@ -32,8 +32,7 @@ extern void ospf_interface_disable_bfd(struct interface *ifp,
 				       struct ospf_if_params *oip);
 
 /* Free interface BFD configuration during interface parameter teardown. */
-extern void ospf_interface_bfd_free_config(struct interface *ifp,
-					   struct ospf_if_params *oip);
+extern void ospf_interface_bfd_free_config(struct interface *ifp, struct ospf_if_params *oip);
 
 /* Allocate interface BFD configuration with FRR defaults if needed. */
 extern struct bfd_configuration *ospf_interface_bfd_config_get(struct interface *ifp);

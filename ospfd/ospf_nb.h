@@ -10,6 +10,7 @@
 #include "northbound.h"
 
 struct ospf;
+struct ospf_area;
 
 #define OSPFD_IETF_ROUTING_CP_XPATH                                           \
 	"/ietf-routing:routing/control-plane-protocols/"                      \
@@ -65,9 +66,13 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_hello_interval_destroy(struc
 int ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_modify(struct nb_cb_modify_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_dead_interval_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_priority_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_priority_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_modify(struct nb_cb_modify_args *args);
+int ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_areas_area_ranges_range_create(struct nb_cb_create_args *args);
 int ospfd_ietf_ospf_areas_area_ranges_range_destroy(struct nb_cb_destroy_args *args);
 int ospfd_ietf_ospf_areas_area_ranges_range_advertise_modify(struct nb_cb_modify_args *args);
@@ -173,5 +178,6 @@ void ospfd_ietf_notif_if_rx_bad_packet(struct ospf_interface *oi, struct in_addr
 				       uint8_t packet_type);
 void ospfd_ietf_notif_if_config_error(struct ospf_interface *oi, struct in_addr src,
 				      uint8_t packet_type, const char *error_name);
+void ospfd_ietf_notif_nssa_translator_state_change(struct ospf_area *area);
 
 #endif /* FRR_OSPF_NB_H */

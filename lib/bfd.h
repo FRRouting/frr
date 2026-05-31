@@ -46,8 +46,8 @@ extern const struct frr_yang_module_info ietf_bfd_types_info;
 #define BFD_NAME_SIZE 255
 
 const char *bfd_get_status_str(int status);
-extern int bfd_validate_ietf_interval_us(uint32_t us, const char *leaf,
-					 char *errmsg, size_t errmsg_len);
+extern int bfd_validate_ietf_interval_us(uint32_t us, const char *leaf, char *errmsg,
+					 size_t errmsg_len);
 
 extern void bfd_client_sendmsg(struct zclient *zclient, int command,
 			       vrf_id_t vrf_id);

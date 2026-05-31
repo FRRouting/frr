@@ -27,9 +27,9 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
+from lib import topotest  # noqa: E402
+from lib.topogen import Topogen, TopoRouter, get_topogen  # noqa: E402
+from lib.topolog import logger  # noqa: E402
 
 # Required to instantiate the topology builder class.
 
@@ -301,6 +301,7 @@ def _yang_get_running_config(router, xpath, with_defaults=False):
         )
     )
 
+
 def _yang_xpath_subscription(router, xpath):
     return router.vtysh_cmd("show mgmt yang-xpath-subscription {}".format(xpath))
 
@@ -472,6 +473,7 @@ def test_ospf_yang_operational_data():
     assert "ospfd" in backend_adapters
     assert "ospf6d" in backend_adapters
     xpath_registry = r1.vtysh_cmd("show mgmt backend-yang-xpath-registry oper")
+    assert "/frr-backend:clients" in xpath_registry
     assert (
         "/ietf-routing:routing/control-plane-protocols/control-plane-protocol"
         in xpath_registry
@@ -565,7 +567,8 @@ def test_ospf_yang_mgmtd_predicate_dispatch():
     for protocol_path in (
         "/ietf-routing:routing/control-plane-protocols",
         "/ietf-routing:routing/control-plane-protocols/control-plane-protocol",
-        "/ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/router-id",
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol/ietf-ospf:ospf/router-id",
     ):
         subscription = _yang_xpath_subscription(r1, protocol_path)
         _assert_xpath_client(subscription, "ospfd", True)
@@ -632,6 +635,16 @@ def _mgmt_merge_json_and_commit(router, data):
         "mgmt edit merge / json lock commit {}".format(
             json.dumps(data, separators=(",", ":"))
         )
+    )
+
+
+def _mgmt_merge_json_attempt(router, data):
+    """Run a JSON merge-and-commit attempt and return vty output."""
+    return router.vtysh_cmd(
+        "configure terminal\n"
+        "mgmt edit merge / json lock commit {}\n"
+        "mgmt commit abort".format(json.dumps(data, separators=(",", ":"))),
+        isjson=False,
     )
 
 
@@ -714,7 +727,7 @@ def _set_yang_area_type(
     running = router.vtysh_cmd("show running-config {}".format(daemon))
     assert (
         expect_running_line in running
-    ), "expected '{}' in running-config after YANG area-type set to {}, got:\n{}".format(
+    ), "expected '{}' after YANG area-type set to {}, got:\n{}".format(
         expect_running_line, area_type, running
     )
 
@@ -729,11 +742,12 @@ def _delete_yang_area_type(router, protocol_type, daemon, area_id, absent_line):
     )
 
     running = router.vtysh_cmd("show running-config {}".format(daemon))
-    assert absent_line not in running, (
-        "'{}' should be gone after YANG area-type delete, got:\n{}".format(
-            absent_line, running
-        )
+    assert (
+        absent_line not in running
+    ), "'{}' should be gone after YANG area-type delete, got:\n{}".format(
+        absent_line, running
     )
+
 
 def _clear_yang_area(router, protocol_type, area_id):
     """Remove an area list entry via mgmtd."""
@@ -820,6 +834,7 @@ def test_ospf_yang_area_type_config():
     assert "area 0.0.0.42 stub" not in running, (
         "area 0.0.0.42 should be removed after YANG delete, running:\n" + running
     )
+
 
 def _set_yang_area_attrs(router, protocol_type, area_id, attrs):
     """Set multiple area attrs in one configure-and-commit block.
@@ -1177,9 +1192,7 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
     hello, dead = _ospf_interface_timers(r1, "ospf6d", "r1-eth1")
     assert (hello, dead) == (6, 40), (
         "expected dead-interval to return to the FRR default after "
-        "deleting the explicit dead leaf, got hello={} dead={}".format(
-            hello, dead
-        )
+        "deleting the explicit dead leaf, got hello={} dead={}".format(hello, dead)
     )
     _restore_r1_eth1_fixture_timers(r1, "ietf-ospf:ospfv3")
     running = r1.vtysh_cmd("show running-config ospf6d")
@@ -1240,8 +1253,7 @@ def test_ospf_yang_area_interface_transmit_delay_config():
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "ipv6 ospf6 transmit-delay 19" in running, (
-        "expected 'ipv6 ospf6 transmit-delay 19' in running-config after YANG set, got:\n"
-        + running
+        "expected 'ipv6 ospf6 transmit-delay 19' after YANG set, got:\n" + running
     )
 
     r1.vtysh_cmd(
@@ -1251,9 +1263,57 @@ def test_ospf_yang_area_interface_transmit_delay_config():
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "ipv6 ospf6 transmit-delay" not in running, (
-        "ipv6 ospf6 transmit-delay should be removed after YANG delete, got:\n" + running
+        "ipv6 ospf6 transmit-delay should be removed after YANG delete, got:\n"
+        + running
     )
     _assert_interface_transmit_delay_default(r1, iface_path)
+
+
+def test_ospf_yang_deviated_interface_ranges_rejected():
+    """mgmtd rejects direct writes outside the FRR OSPF CLI ranges."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto in ("ietf-ospf:ospfv2", "ietf-ospf:ospfv3"):
+        iface = (
+            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
+        )
+        for leaf in ("cost", "hello-interval", "dead-interval", "transmit-delay"):
+            out = _mgmt_commit_attempt(
+                r1,
+                "mgmt set-config {}/{} 0".format(iface, leaf),
+            )
+            _assert_mgmt_rejected(out, "{}/{}".format(proto, leaf))
+
+    v3_iface = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/transmit-delay 3601".format(v3_iface),
+    )
+    _assert_mgmt_rejected(out, "ospfv3 transmit-delay 3601")
+
+    v2_iface = (
+        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
+        + "/interfaces/interface[name='r1-eth1']"
+    )
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt set-config {}/transmit-delay 3601\n"
+        "mgmt commit apply".format(v2_iface)
+    )
+    running = r1.vtysh_cmd("show running-config ospfd")
+    assert "ip ospf transmit-delay 3601" in running, running
+    r1.vtysh_cmd(
+        "configure terminal file-lock\n"
+        "mgmt delete-config {}/transmit-delay\n"
+        "mgmt commit apply".format(v2_iface)
+    )
 
 
 def test_ospf_per_iface_cli_routes_through_yang():
@@ -1436,11 +1496,7 @@ def test_ospf_network_dmvpn_falls_back_to_legacy():
         "after legacy CLI set, got:\n" + running
     )
 
-    r1.vtysh_cmd(
-        "configure terminal\n"
-        "interface r1-eth1\n"
-        " no ip ospf network\n"
-    )
+    r1.vtysh_cmd("configure terminal\n" "interface r1-eth1\n" " no ip ospf network\n")
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "ip ospf network" not in running, (
         "ip ospf network should be removed after CLI no form, got:\n" + running
@@ -1472,6 +1528,13 @@ def test_ospf_yang_preference_config():
             + proto
             + "'][name='default']/ietf-ospf:ospf"
         )
+
+        for leaf in ("all", "intra-area", "inter-area", "internal", "external"):
+            out = _mgmt_commit_attempt(
+                r1,
+                "mgmt set-config {}/preference/{} 0".format(instance, leaf),
+            )
+            _assert_mgmt_rejected(out, "{}/preference/{}".format(proto, leaf))
 
         # single-value scope
         r1.vtysh_cmd(
@@ -1653,6 +1716,70 @@ def test_ospf_yang_mpls_ldp_igp_sync_config():
     ), "mpls ldp-sync should be gone after YANG delete, got:\n{}".format(running)
 
 
+def test_ospf_yang_candidate_only_validation_on_atomic_create():
+    """Run candidate-only validation during atomic instance create.
+
+    These checks must not depend on a live daemon instance at VALIDATE time:
+    the instance itself is part of the same candidate transaction.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for protocol_type, name, daemon, command, reason in (
+        (
+            "ietf-ospf:ospfv2",
+            "ghostldp",
+            "ospfd",
+            "mgmt set-config {ospf}/mpls/ldp/igp-sync true",
+            "ldp-sync only runs on DEFAULT VRF",
+        ),
+        (
+            "ietf-ospf:ospfv3",
+            "ghost6paths",
+            "ospf6d",
+            "mgmt set-config {ospf}/spf-control/paths 65535",
+            "maximum-paths exceeds platform max",
+        ),
+        (
+            "ietf-ospf:ospfv2",
+            "ghostnbr",
+            "ospfd",
+            "mgmt set-config {ospf}/areas/area[area-id='0.0.0.0']"
+            "/interfaces/interface[name='r1-eth1']"
+            "/static-neighbors/neighbor[identifier='192.0.2.19']"
+            "/poll-interval 120\n"
+            "mgmt set-config {ospf}/areas/area[area-id='0.0.0.0']"
+            "/interfaces/interface[name='r1-eth2']"
+            "/static-neighbors/neighbor[identifier='192.0.2.19']"
+            "/priority 2",
+            "already configured in this OSPF instance",
+        ),
+        (
+            "ietf-ospf:ospfv2",
+            "ghostbfd",
+            "ospfd",
+            "mgmt set-config {ospf}/areas/area[area-id='0.0.0.0']"
+            "/interfaces/interface[name='r1-eth1']"
+            "/bfd/desired-min-tx-interval 300500",
+            "must be a whole millisecond",
+        ),
+    ):
+        ospf = _yang_protocol_xpath(protocol_type, name) + "/ietf-ospf:ospf"
+        out = _mgmt_commit_attempt(r1, command.format(ospf=ospf))
+        _assert_mgmt_rejected(out, reason)
+
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        router_line = "router ospf6 vrf" if daemon == "ospf6d" else "router ospf vrf"
+        assert (
+            "{} {}".format(router_line, name) not in running
+        ), "candidate-only validation must not create {}, got:\n{}".format(
+            name, running
+        )
+
+
 def test_ospf_yang_auto_cost_reference_bandwidth_config():
     """per-instance /auto-cost/reference-bandwidth round-trip via mgmtd
     on both daemons.  RFC 9129 wraps the leaf in a `when ../enabled
@@ -1686,9 +1813,7 @@ def test_ospf_yang_auto_cost_reference_bandwidth_config():
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
         assert (
             "auto-cost reference-bandwidth 50000" in running
-        ), "expected 'auto-cost reference-bandwidth 50000' after YANG set, got:\n{}".format(
-            running
-        )
+        ), "expected 'auto-cost reference-bandwidth 50000', got:\n{}".format(running)
 
         r1.vtysh_cmd(
             "configure terminal file-lock\n"
@@ -1698,9 +1823,7 @@ def test_ospf_yang_auto_cost_reference_bandwidth_config():
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
         assert (
             "auto-cost reference-bandwidth 50000" not in running
-        ), "'auto-cost reference-bandwidth 50000' should be gone after YANG delete, got:\n{}".format(
-            running
-        )
+        ), "'auto-cost reference-bandwidth 50000' still present:\n{}".format(running)
 
 
 def test_ospf_yang_auto_cost_disable_rejected():
@@ -1741,9 +1864,7 @@ def test_ospf_yang_auto_cost_disable_rejected():
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
         assert (
             "no auto-cost" not in running
-        ), "rejected auto-cost disable must not appear in running-config, got:\n{}".format(
-            running
-        )
+        ), "rejected auto-cost disable appeared in running-config:\n{}".format(running)
 
 
 def test_ospf_auto_cost_cli_routes_through_yang():
@@ -1777,9 +1898,7 @@ def test_ospf_auto_cost_cli_routes_through_yang():
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
         assert (
             "auto-cost reference-bandwidth 25000" not in running
-        ), "'auto-cost reference-bandwidth 25000' should be gone after 'no', got:\n{}".format(
-            running
-        )
+        ), "'auto-cost reference-bandwidth 25000' still present:\n{}".format(running)
 
 
 def test_ospf_yang_mpls_te_router_addr_config():
@@ -1804,11 +1923,7 @@ def test_ospf_yang_mpls_te_router_addr_config():
     )
 
     try:
-        r1.vtysh_cmd(
-            "configure terminal\n"
-            "router ospf\n"
-            " mpls-te on\n"
-        )
+        r1.vtysh_cmd("configure terminal\n" "router ospf\n" " mpls-te on\n")
 
         r1.vtysh_cmd(
             "configure terminal file-lock\n"
@@ -1818,9 +1933,7 @@ def test_ospf_yang_mpls_te_router_addr_config():
         running = r1.vtysh_cmd("show running-config ospfd")
         assert (
             "mpls-te router-address 10.99.0.1" in running
-        ), "expected 'mpls-te router-address 10.99.0.1' after YANG set, got:\n{}".format(
-            running
-        )
+        ), "expected 'mpls-te router-address 10.99.0.1', got:\n{}".format(running)
 
         r1.vtysh_cmd(
             "configure terminal file-lock\n"
@@ -1834,11 +1947,7 @@ def test_ospf_yang_mpls_te_router_addr_config():
             running
         )
     finally:
-        r1.vtysh_cmd(
-            "configure terminal\n"
-            "router ospf\n"
-            " no mpls-te\n"
-        )
+        r1.vtysh_cmd("configure terminal\n" "router ospf\n" " no mpls-te\n")
 
 
 def test_ospf_mpls_te_router_addr_cli_routes_through_yang():
@@ -1869,11 +1978,7 @@ def test_ospf_mpls_te_router_addr_cli_routes_through_yang():
             "mpls-te router-address 10.99.0.2" in running
         ), "expected legacy CLI to land 10.99.0.2, got:\n{}".format(running)
     finally:
-        r1.vtysh_cmd(
-            "configure terminal\n"
-            "router ospf\n"
-            " no mpls-te\n"
-        )
+        r1.vtysh_cmd("configure terminal\n" "router ospf\n" " no mpls-te\n")
 
 
 def test_ospf_yang_graceful_restart_config():
@@ -1929,9 +2034,7 @@ def test_ospf_yang_graceful_restart_config():
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
         assert (
             "graceful-restart\n" in running and "grace-period" not in running
-        ), "expected bare 'graceful-restart' on {} after interval delete, got:\n{}".format(
-            daemon, running
-        )
+        ), "expected bare 'graceful-restart' on {}, got:\n{}".format(daemon, running)
 
         # And tear it all down.
         r1.vtysh_cmd(
@@ -1991,9 +2094,7 @@ def test_ospf_yang_graceful_restart_helper_config():
         assert (
             "lsa-check-disable" in running
             or "no graceful-restart helper strict-lsa-checking" in running
-        ), "expected relaxed strict-lsa-check on {}, got:\n{}".format(
-            daemon, running
-        )
+        ), "expected relaxed strict-lsa-check on {}, got:\n{}".format(daemon, running)
 
         # Drop strict-lsa-checking alone -- helper stays on, strict
         # check restores to FRR's default true (line disappears).
@@ -2040,12 +2141,18 @@ def test_ospf_graceful_restart_helper_cli_routes_through_yang():
     r1 = tgen.gears["r1"]
 
     for router_block, daemon, relax, relax_off in (
-        ("router ospf", "ospfd",
-         "no graceful-restart helper strict-lsa-checking",
-         "graceful-restart helper strict-lsa-checking"),
-        ("router ospf6", "ospf6d",
-         "graceful-restart helper lsa-check-disable",
-         "no graceful-restart helper lsa-check-disable"),
+        (
+            "router ospf",
+            "ospfd",
+            "no graceful-restart helper strict-lsa-checking",
+            "graceful-restart helper strict-lsa-checking",
+        ),
+        (
+            "router ospf6",
+            "ospf6d",
+            "graceful-restart helper lsa-check-disable",
+            "no graceful-restart helper lsa-check-disable",
+        ),
     ):
         try:
             r1.vtysh_cmd(
@@ -2067,9 +2174,7 @@ def test_ospf_graceful_restart_helper_cli_routes_through_yang():
 
             # Restore strict-lsa-check default.
             r1.vtysh_cmd(
-                "configure terminal\n"
-                "{}\n"
-                " {}\n".format(router_block, relax_off)
+                "configure terminal\n" "{}\n" " {}\n".format(router_block, relax_off)
             )
             running = r1.vtysh_cmd("show running-config {}".format(daemon))
             assert (
@@ -2120,9 +2225,7 @@ def test_ospf_graceful_restart_cli_routes_through_yang():
             running = r1.vtysh_cmd("show running-config {}".format(daemon))
             assert (
                 "graceful-restart" not in running
-            ), "'graceful-restart' should be gone on {} after legacy 'no', got:\n{}".format(
-                daemon, running
-            )
+            ), "'graceful-restart' still present on {}:\n{}".format(daemon, running)
         finally:
             r1.vtysh_cmd(
                 "configure terminal\n"
@@ -2187,8 +2290,7 @@ def test_ospf_yang_interface_bfd_config():
         ("ietf-ospf:ospfv3", "ospf6d", "ipv6 ospf6 bfd"),
     ):
         iface = (
-            _yang_area_xpath(proto, "0.0.0.0")
-            + "/interfaces/interface[name='r1-eth1']"
+            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
         )
 
         # Enable BFD with non-default timers.
@@ -2260,10 +2362,10 @@ def test_ospf_yang_interface_bfd_config():
 def test_ospf_yang_interface_bfd_interval_rejection():
     """NB_EV_VALIDATE rejects BFD interval values that are not whole
     milliseconds (multiple of 1000 us) or fall outside FRR's 50..60000
-    ms grammar on both daemons.  The unsupported single-interval BFD
-    form is also rejected by the FRR deviation module.  Uses
-    `_mgmt_commit_attempt` so the rejected candidate is aborted and
-    does not poison subsequent commits.
+    ms grammar on both daemons.  The FRR deviation module also narrows
+    local-multiplier to the OSPF CLI range and rejects the unsupported
+    single-interval BFD form.  Uses `_mgmt_commit_attempt` so the
+    rejected candidate is aborted and does not poison subsequent commits.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -2276,8 +2378,7 @@ def test_ospf_yang_interface_bfd_interval_rejection():
         ("ietf-ospf:ospfv3", "ospf6d", "ipv6 ospf6 bfd"),
     ):
         iface = (
-            _yang_area_xpath(proto, "0.0.0.0")
-            + "/interfaces/interface[name='r1-eth1']"
+            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
         )
         # Parameter leaves can be configured while BFD is disabled, but they
         # do not independently activate BFD.
@@ -2314,6 +2415,18 @@ def test_ospf_yang_interface_bfd_interval_rejection():
             "mgmt commit apply".format(iface)
         )
 
+        out = _mgmt_commit_attempt(
+            r1,
+            "mgmt set-config {}/bfd/local-multiplier 1".format(iface),
+        )
+        _assert_mgmt_rejected(out, "{}/bfd/local-multiplier".format(proto))
+
+        out = _mgmt_commit_attempt(
+            r1,
+            "mgmt set-config {}/bfd/desired-min-tx-interval 60000001".format(iface),
+        )
+        _assert_mgmt_rejected(out, "{}/bfd/desired-min-tx-interval".format(proto))
+
         # Not a multiple of 1000us.
         out = _mgmt_commit_attempt(
             r1,
@@ -2335,16 +2448,13 @@ def test_ospf_yang_interface_bfd_interval_rejection():
             "mgmt set-config {}/bfd/min-interval 300000".format(iface),
         )
         assert (
-            "Failed to edit configuration" in out
-            or "Couldn't apply changes" in out
+            "Failed to edit configuration" in out or "Couldn't apply changes" in out
         ), "expected single-interval rejection on {}, got:\n{}".format(proto, out)
         # Below 50ms.
         out = _mgmt_commit_attempt(
             r1,
             "mgmt set-config {}/bfd/enabled true\n"
-            "mgmt set-config {}/bfd/required-min-rx-interval 1000".format(
-                iface, iface
-            ),
+            "mgmt set-config {}/bfd/required-min-rx-interval 1000".format(iface, iface),
         )
         assert (
             "Failed to edit configuration" in out
@@ -2374,15 +2484,12 @@ def test_ospf_bfd_cli_routes_through_yang():
         ),
     ):
         iface = (
-            _yang_area_xpath(proto, "0.0.0.0")
-            + "/interfaces/interface[name='r1-eth1']"
+            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
         )
 
         try:
             r1.vtysh_cmd(
-                "configure terminal\n"
-                "interface r1-eth1\n"
-                " {}\n".format(cli)
+                "configure terminal\n" "interface r1-eth1\n" " {}\n".format(cli)
             )
             running = r1.vtysh_cmd("show running-config {}".format(daemon))
             assert (
@@ -2408,16 +2515,14 @@ def test_ospf_bfd_cli_routes_through_yang():
             assert expect in running, running
             bfd_data = _yang_get_running_config(r1, "{}/bfd".format(iface))
             bfd_text = json.dumps(bfd_data)
-            assert "5" in bfd_text and "400000" in bfd_text, (
-                "expected non-default BFD values on {}, got:\n{}".format(
-                    daemon, json.dumps(bfd_data, indent=2)
-                )
+            assert (
+                "5" in bfd_text and "400000" in bfd_text
+            ), "expected non-default BFD values on {}, got:\n{}".format(
+                daemon, json.dumps(bfd_data, indent=2)
             )
 
             r1.vtysh_cmd(
-                "configure terminal\n"
-                "interface r1-eth1\n"
-                " no {}\n".format(cli)
+                "configure terminal\n" "interface r1-eth1\n" " no {}\n".format(cli)
             )
             running = r1.vtysh_cmd("show running-config {}".format(daemon))
             assert (
@@ -2438,16 +2543,13 @@ def test_ospf_bfd_cli_routes_through_yang():
                 bfd_state.get("detectionMultiplier")
                 or bfd_state.get("detectMultiplier")
             ) == 3, (
-                "bare BFD enable must not retain stale timers on {}, got:\n{}".format(
-                    daemon, json.dumps(bfd_state, indent=2)
-                )
-            )
+                "bare BFD enable must not retain stale timers on {}, got:\n{}"
+            ).format(daemon, json.dumps(bfd_state, indent=2))
         finally:
             r1.vtysh_cmd(
-                "configure terminal\n"
-                "interface r1-eth1\n"
-                " no {}\n".format(cli)
+                "configure terminal\n" "interface r1-eth1\n" " no {}\n".format(cli)
             )
+
 
 def test_ospf_yang_interface_static_neighbor_config():
     """per-interface /static-neighbors/neighbor round-trip via mgmtd
@@ -2488,9 +2590,7 @@ def test_ospf_yang_interface_static_neighbor_config():
         )
         assert (
             "priority 7" in running
-        ), "expected static neighbour priority after YANG set, got:\n{}".format(
-            running
-        )
+        ), "expected static neighbour priority after YANG set, got:\n{}".format(running)
 
         r1.vtysh_cmd(
             "configure terminal file-lock\n"
@@ -2505,11 +2605,8 @@ def test_ospf_yang_interface_static_neighbor_config():
         )
     finally:
         # Defensive cleanup in case the assert above tripped.
-        r1.vtysh_cmd(
-            "configure terminal\n"
-            "router ospf\n"
-            " no neighbor 192.0.2.7\n"
-        )
+        r1.vtysh_cmd("configure terminal\n" "router ospf\n" " no neighbor 192.0.2.7\n")
+
 
 def test_ospf_yang_static_neighbor_duplicate_rejected():
     """The RFC keys static-neighbors per area/interface, but FRR's NBMA
@@ -2544,6 +2641,7 @@ def test_ospf_yang_static_neighbor_duplicate_rejected():
         or "Configuration failed" in out
         or "commit failed" in out
     ), "expected duplicate static-neighbor rejection, got:\n{}".format(out)
+
 
 def test_ospf_yang_static_neighbor_partial_leaves():
     """Static-neighbor optional leaves default to FRR's NBMA values.
@@ -2592,15 +2690,10 @@ def test_ospf_yang_static_neighbor_partial_leaves():
         ), "expected priority-only static neighbour, got:\n{}".format(running)
         assert (
             "neighbor 192.0.2.10 poll-interval" not in running
-        ), "default static neighbour poll interval should not be written, got:\n{}".format(
-            running
-        )
+        ), "default static neighbour poll interval was written:\n{}".format(running)
     finally:
-        r1.vtysh_cmd(
-            "configure terminal\n"
-            "router ospf\n"
-            " no neighbor 192.0.2.10\n"
-        )
+        r1.vtysh_cmd("configure terminal\n" "router ospf\n" " no neighbor 192.0.2.10\n")
+
 
 def test_ospf_yang_interface_authentication_keychain_config():
     """per-interface /authentication/ospfv2-key-chain (OSPFv2) and
@@ -2626,18 +2719,23 @@ def test_ospf_yang_interface_authentication_keychain_config():
 
     # Set up a real keychain so the YANG leafref resolves.
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "key chain kc-test\n"
-        " key 1\n"
-        "  key-string secret\n"
+        "configure terminal\n" "key chain kc-test\n" " key 1\n" "  key-string secret\n"
     )
 
     try:
         for proto, daemon, leaf, expect in (
-            ("ietf-ospf:ospfv2", "ospfd", "ospfv2-key-chain",
-             "ip ospf authentication key-chain"),
-            ("ietf-ospf:ospfv3", "ospf6d", "ospfv3-key-chain",
-             "ipv6 ospf6 authentication keychain"),
+            (
+                "ietf-ospf:ospfv2",
+                "ospfd",
+                "ospfv2-key-chain",
+                "ip ospf authentication key-chain",
+            ),
+            (
+                "ietf-ospf:ospfv3",
+                "ospf6d",
+                "ospfv3-key-chain",
+                "ipv6 ospf6 authentication keychain",
+            ),
         ):
             iface = (
                 _yang_area_xpath(proto, "0.0.0.0")
@@ -2700,10 +2798,13 @@ def test_ospf_yang_authentication_unsupported_leaves_rejected():
         ("ietf-ospf:ospfv3", "sa", "SA-1"),
         ("ietf-ospf:ospfv3", "ospfv3-sa-id", "1"),
     ):
-        iface = _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
+        iface = (
+            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
+        )
         path = "{}/authentication/{}".format(iface, leaf)
         out = _mgmt_commit_attempt(r1, "mgmt set-config {} {}".format(path, value))
         _assert_mgmt_rejected(out, "unsupported authentication leaf {}".format(leaf))
+
 
 def test_ospf_yang_static_neighbor_cost_rejected():
     """The /static-neighbors/neighbor/cost leaf is marked not-supported
@@ -2724,12 +2825,13 @@ def test_ospf_yang_static_neighbor_cost_rejected():
         r1,
         "mgmt set-config {}/cost 50".format(nbr),
     )
-    assert (
-        "Failed to edit configuration" in out
-        or "Couldn't apply changes" in out
-        or "Configuration failed" in out
-        or "commit failed" in out
-    ), "expected cost rejection, got:\n{}".format(out)
+    _assert_mgmt_rejected(out, "static-neighbor cost")
+
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/poll-interval 0".format(nbr),
+    )
+    _assert_mgmt_rejected(out, "static-neighbor poll-interval 0")
 
 
 def test_ospf_prefix_suppression_cli_routes_through_yang():
@@ -2741,9 +2843,7 @@ def test_ospf_prefix_suppression_cli_routes_through_yang():
 
     r1 = tgen.gears["r1"]
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "interface r1-eth1\n"
-        " ip ospf prefix-suppression\n"
+        "configure terminal\n" "interface r1-eth1\n" " ip ospf prefix-suppression\n"
     )
     running = r1.vtysh_cmd("show running-config ospfd")
     assert (
@@ -2751,14 +2851,14 @@ def test_ospf_prefix_suppression_cli_routes_through_yang():
     ), "expected 'ip ospf prefix-suppression' after CLI set, got:\n{}".format(running)
 
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "interface r1-eth1\n"
-        " no ip ospf prefix-suppression\n"
+        "configure terminal\n" "interface r1-eth1\n" " no ip ospf prefix-suppression\n"
     )
     running = r1.vtysh_cmd("show running-config ospfd")
     assert (
         "ip ospf prefix-suppression" not in running
-    ), "'ip ospf prefix-suppression' should be gone after 'no', got:\n{}".format(running)
+    ), "'ip ospf prefix-suppression' should be gone after 'no', got:\n{}".format(
+        running
+    )
 
 
 def test_ospf_max_metric_router_lsa_admin_cli_routes_through_yang():
@@ -2779,16 +2879,12 @@ def test_ospf_max_metric_router_lsa_admin_cli_routes_through_yang():
     r1 = tgen.gears["r1"]
 
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf\n"
-        " max-metric router-lsa administrative\n"
+        "configure terminal\n" "router ospf\n" " max-metric router-lsa administrative\n"
     )
     running = r1.vtysh_cmd("show running-config ospfd")
     assert (
         "max-metric router-lsa administrative" in running
-    ), "expected 'max-metric router-lsa administrative' in ospfd running-config, got:\n{}".format(
-        running
-    )
+    ), "expected 'max-metric router-lsa administrative', got:\n{}".format(running)
 
     r1.vtysh_cmd(
         "configure terminal\n"
@@ -2798,9 +2894,7 @@ def test_ospf_max_metric_router_lsa_admin_cli_routes_through_yang():
     running = r1.vtysh_cmd("show running-config ospfd")
     assert (
         "max-metric router-lsa administrative" not in running
-    ), "max-metric router-lsa administrative should be gone after 'no ...', got:\n{}".format(
-        running
-    )
+    ), "max-metric router-lsa administrative still present:\n{}".format(running)
 
 
 def test_ospf_mpls_ldp_sync_cli_routes_through_yang():
@@ -3125,8 +3219,7 @@ def test_ospf_yang_deviated_enabled_leaves_rejected():
         _assert_mgmt_rejected(out, "{}/enabled".format(proto))
 
         iface = (
-            _yang_area_xpath(proto, "0.0.0.0")
-            + "/interfaces/interface[name='r1-eth1']"
+            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
         )
         out = _mgmt_commit_attempt(
             r1,
@@ -3137,15 +3230,11 @@ def test_ospf_yang_deviated_enabled_leaves_rejected():
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
         assert (
             "enabled false" not in running
-        ), "rejected enabled leaf must not land on {}, got:\n{}".format(
-            daemon, running
-        )
+        ), "rejected enabled leaf must not land on {}, got:\n{}".format(daemon, running)
 
     out = _mgmt_commit_attempt(
         r1,
-        "mgmt set-config {}/mpls/te-rid/ipv6-router-id 2001:db8::1".format(
-            instance
-        ),
+        "mgmt set-config {}/mpls/te-rid/ipv6-router-id 2001:db8::1".format(instance),
     )
     _assert_mgmt_rejected(out, "ospf/mpls/te-rid/ipv6-router-id")
 
@@ -3189,9 +3278,7 @@ def test_ospf_yang_atomic_instance_create():
                             {
                                 "type": "ietf-ospf:ospfv2",
                                 "name": "ghost",
-                                "ietf-ospf:ospf": {
-                                    "explicit-router-id": "9.9.9.9"
-                                },
+                                "ietf-ospf:ospf": {"explicit-router-id": "9.9.9.9"},
                             }
                         ]
                     }
@@ -3211,9 +3298,7 @@ def test_ospf_yang_atomic_instance_create():
                             {
                                 "type": "ietf-ospf:ospfv3",
                                 "name": "ghost",
-                                "ietf-ospf:ospf": {
-                                    "explicit-router-id": "9.9.9.9"
-                                },
+                                "ietf-ospf:ospf": {"explicit-router-id": "9.9.9.9"},
                             }
                         ]
                     }
@@ -3328,12 +3413,10 @@ def test_ospf_yang_atomic_area_interface_move():
         ("ietf-ospf:ospfv3", "ospf6d", "0.0.0.92", "ipv6 ospf6 area"),
     ):
         old_iface = (
-            _yang_area_xpath(proto, "0.0.0.0")
-            + "/interfaces/interface[name='r1-eth1']"
+            _yang_area_xpath(proto, "0.0.0.0") + "/interfaces/interface[name='r1-eth1']"
         )
         new_iface = (
-            _yang_area_xpath(proto, area_id)
-            + "/interfaces/interface[name='r1-eth1']"
+            _yang_area_xpath(proto, area_id) + "/interfaces/interface[name='r1-eth1']"
         )
         new_area = _yang_area_xpath(proto, area_id)
 
@@ -3410,10 +3493,10 @@ def test_ospf_yang_negative_duplicate_area_interface_new_instance():
         r1.vtysh_cmd("configure terminal\nmgmt commit abort")
 
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
-        assert name not in running, (
-            "duplicate area-interface commit must not create {}, got:\n{}".format(
-                name, running
-            )
+        assert (
+            name not in running
+        ), "duplicate area-interface commit must not create {}, got:\n{}".format(
+            name, running
         )
 
 
@@ -3439,6 +3522,156 @@ def test_ospf_yang_negative_default_cost_on_normal_area():
     assert "default-cost 99" not in running, (
         "default-cost 99 must not appear on the backbone area, got:\n" + running
     )
+
+
+def test_ospf_yang_negative_backbone_stub_nssa_rejected():
+    """The backbone area cannot be configured as stub or NSSA.
+
+    RFC 2328 and RFC 5340 forbid backbone stub/NSSA areas.  The FRR
+    deviation module enforces this at schema validation time so direct
+    mgmtd writes see the same contract as the legacy CLI.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    for proto, daemon in (
+        ("ietf-ospf:ospfv2", "ospfd"),
+        ("ietf-ospf:ospfv3", "ospf6d"),
+    ):
+        area_path = _yang_area_xpath(proto, "0.0.0.0")
+        for area_type in ("stub-area", "nssa-area"):
+            out = _mgmt_commit_attempt(
+                r1,
+                "mgmt set-config {}/area-type {}".format(area_path, area_type),
+            )
+            _assert_mgmt_rejected(out, "{} backbone {}".format(proto, area_type))
+
+        running = r1.vtysh_cmd("show running-config {}".format(daemon))
+        assert (
+            "area 0.0.0.0 stub" not in running
+        ), "backbone area must not become stub on {}, got:\n{}".format(daemon, running)
+        assert (
+            "area 0.0.0.0 nssa" not in running
+        ), "backbone area must not become NSSA on {}, got:\n{}".format(daemon, running)
+
+
+def test_ospf_yang_area_delete_rejects_legacy_virtual_link():
+    """Do not delete a YANG area while legacy virtual links still use it."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r3 = tgen.gears["r3"]
+    area_id = "0.0.0.77"
+    peer_id = "10.0.255.77"
+    area_path = _yang_area_xpath("ietf-ospf:ospfv2", area_id)
+
+    try:
+        _mgmt_set_and_commit(r3, area_path + "/area-type", "ietf-ospf:normal-area")
+        r3.vtysh_cmd(
+            "configure terminal\n"
+            "router ospf\n"
+            " area {} virtual-link {}\n".format(area_id, peer_id)
+        )
+
+        out = _mgmt_commit_attempt(r3, "mgmt delete-config {}".format(area_path))
+        _assert_mgmt_rejected(out, "area delete with active virtual link")
+        assert "has virtual links traversing it" in out, (
+            "area delete must fail for the virtual-link guard, got:\n" + out
+        )
+
+        running = r3.vtysh_cmd("show running-config ospfd")
+        assert "area {} virtual-link {}".format(area_id, peer_id) in running, (
+            "rejected area delete must keep the virtual link, got:\n" + running
+        )
+    finally:
+        r3.vtysh_cmd(
+            "configure terminal\n"
+            "router ospf\n"
+            " no area {} virtual-link {}\n".format(area_id, peer_id)
+        )
+        _mgmt_commit_attempt(r3, "mgmt delete-config {}".format(area_path))
+
+
+def test_ospf_yang_area_delete_rejects_legacy_area_state():
+    """Reject area delete when legacy-only area state would keep daemon state."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r3 = tgen.gears["r3"]
+
+    for proto, daemon, area_id, setup, cleanup, running_line, reason in (
+        (
+            "ietf-ospf:ospfv2",
+            "ospfd",
+            "0.0.0.78",
+            "router ospf\n area {area} shortcut enable\n",
+            "router ospf\n no area {area} shortcut enable\n",
+            "area {area} shortcut enable",
+            "legacy shortcut configuration",
+        ),
+        (
+            "ietf-ospf:ospfv2",
+            "ospfd",
+            "0.0.0.79",
+            "router ospf\n area {area} authentication\n",
+            "router ospf\n no area {area} authentication\n",
+            "area {area} authentication",
+            "legacy area authentication",
+        ),
+        (
+            "ietf-ospf:ospfv2",
+            "ospfd",
+            "0.0.0.80",
+            "router ospf\n area {area} import-list YANGIN\n",
+            "router ospf\n no area {area} import-list YANGIN\n",
+            "area {area} import-list YANGIN",
+            "legacy import/export list configuration",
+        ),
+        (
+            "ietf-ospf:ospfv3",
+            "ospf6d",
+            "0.0.0.81",
+            "router ospf6\n area {area} filter-list prefix YANGPFX in\n",
+            "router ospf6\n no area {area} filter-list prefix YANGPFX in\n",
+            "area {area} filter-list prefix YANGPFX in",
+            "legacy filter-list configuration",
+        ),
+        (
+            "ietf-ospf:ospfv3",
+            "ospf6d",
+            "0.0.0.82",
+            "router ospf6\n area {area} export-list YANGOUT\n",
+            "router ospf6\n no area {area} export-list YANGOUT\n",
+            "area {area} export-list YANGOUT",
+            "legacy import/export list configuration",
+        ),
+    ):
+        area_path = _yang_area_xpath(proto, area_id)
+
+        try:
+            _mgmt_set_and_commit(r3, area_path + "/area-type", "ietf-ospf:normal-area")
+            r3.vtysh_cmd("configure terminal\n" + setup.format(area=area_id))
+
+            out = _mgmt_commit_attempt(r3, "mgmt delete-config {}".format(area_path))
+            _assert_mgmt_rejected(out, "area delete with {}".format(reason))
+            assert reason in out, "area delete must fail for {}, got:\n{}".format(
+                reason, out
+            )
+
+            running = r3.vtysh_cmd("show running-config {}".format(daemon))
+            assert (
+                running_line.format(area=area_id) in running
+            ), "rejected area delete must keep {}, got:\n{}".format(
+                running_line.format(area=area_id), running
+            )
+        finally:
+            r3.vtysh_cmd("configure terminal\n" + cleanup.format(area=area_id))
+            _mgmt_commit_attempt(r3, "mgmt delete-config {}".format(area_path))
 
 
 def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
@@ -3470,10 +3703,6 @@ def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
         "got:\n" + running
     )
 
-    instance_v3 = (
-        "/ietf-routing:routing/control-plane-protocols/"
-        "control-plane-protocol[type='ietf-ospf:ospfv3'][name='default']"
-        "/ietf-ospf:ospf"
     iface_v2_loopback = (
         _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
         + "/interfaces/interface[name='lo']"
@@ -3489,6 +3718,25 @@ def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
         + running
     )
 
+    iface_v3_loopback = (
+        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
+        + "/interfaces/interface[name='lo']"
+    )
+    out = _mgmt_commit_attempt(
+        r1,
+        "mgmt set-config {}/interface-type point-to-point".format(iface_v3_loopback),
+    )
+    _assert_mgmt_rejected(out, "{}/interface-type".format(iface_v3_loopback))
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "ipv6 ospf6 network point-to-point" not in running, (
+        "loopback interface-type rejection must not leave native v3 config, "
+        "got:\n" + running
+    )
+
+    instance_v3 = (
+        "/ietf-routing:routing/control-plane-protocols/"
+        "control-plane-protocol[type='ietf-ospf:ospfv3'][name='default']"
+        "/ietf-ospf:ospf"
     )
     for command, path in (
         (
@@ -3509,9 +3757,7 @@ def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
             "mgmt set-config {}/default-cost 99".format(
                 _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
             ),
-            "{}/default-cost".format(
-                _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
-            ),
+            "{}/default-cost".format(_yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")),
         ),
         (
             "mgmt set-config {}/prefix-suppression true".format(iface_v3),
@@ -3527,10 +3773,30 @@ def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
         out = _mgmt_commit_attempt(r1, command)
         _assert_mgmt_rejected(out, path)
 
+    out = _mgmt_merge_json_attempt(
+        r1,
+        {
+            "ietf-routing:routing": {
+                "control-plane-protocols": {
+                    "control-plane-protocol": [
+                        {
+                            "type": "ietf-ospf:ospfv3",
+                            "name": "default",
+                            "ietf-ospf:ospf": {
+                                "stub-router": {"trigger": {"always": {}}}
+                            },
+                        }
+                    ]
+                }
+            }
+        },
+    )
+    _assert_mgmt_rejected(out, "{}/stub-router/trigger/always".format(instance_v3))
+
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "igp-sync" not in running, running
     assert "192.0.2.9" not in running, running
-    assert "stub-router administrative" not in running, running
+    assert "max-metric router-lsa administrative" not in running, running
 
 
 def test_ospf_yang_area_delete_clears_native_nssa_ranges():
@@ -3562,9 +3828,10 @@ def test_ospf_yang_area_delete_clears_native_nssa_ranges():
     _clear_yang_area(r1, "ietf-ospf:ospfv2", "0.0.0.52")
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "0.0.0.52" not in running, (
-        "area 0.0.0.52 and its NSSA range must be gone after delete, got:\n"
-        + running
+        "area 0.0.0.52 and its NSSA range must be gone after delete, got:\n" + running
     )
+
+
 def test_ospf_yang_area_delete_recreate_cleanup():
     """Delete then recreate an area; per-leaf state must reset cleanly.
 
@@ -3641,10 +3908,10 @@ def _send_ietf_ospf_rpc(router, rpc_xpath, input_json):
     lowered = out.lower()
     bad = ("% ", "can't", "error", "fail", "no backends", "invalid")
     for marker in bad:
-        assert marker not in lowered, (
-            "RPC {} on {} returned an error (matched '{}'):\n{}".format(
-                rpc_xpath, router.name, marker, out
-            )
+        assert (
+            marker not in lowered
+        ), "RPC {} on {} returned an error (matched '{}'):\n{}".format(
+            rpc_xpath, router.name, marker, out
         )
     return out
 
@@ -3684,7 +3951,8 @@ def test_ospf_yang_clear_neighbor_rpc():
     _send_ietf_ospf_rpc(
         r1,
         "/ietf-ospf:clear-neighbor",
-        '{"ietf-ospf:clear-neighbor":{"routing-protocol-name":"default","interface":"r1-eth1"}}',
+        '{"ietf-ospf:clear-neighbor":'
+        '{"routing-protocol-name":"default","interface":"r1-eth1"}}',
     )
 
     _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
@@ -3741,9 +4009,9 @@ def test_ospf_yang_rpc_unknown_instance_silent():
     # r1's v2 neighbor must still be Full -- the RPC did not touch it.
     out = r1.vtysh_cmd("show ip ospf neighbor json", isjson=True)
     nbr = out.get("neighbors", {}).get("10.0.255.2", [])
-    assert nbr and nbr[0].get("converged") == "Full", (
-        "neighbor was disturbed by an RPC against an unknown instance:\n{}".format(out)
-    )
+    assert (
+        nbr and nbr[0].get("converged") == "Full"
+    ), "neighbor was disturbed by an RPC against an unknown instance:\n{}".format(out)
 
 
 def test_ospf_yang_clear_neighbor_rpc_unknown_interface():
@@ -3752,7 +4020,7 @@ def test_ospf_yang_clear_neighbor_rpc_unknown_interface():
 
     r1 has lo (loopback) configured as an interface but it isn't bound into
     the OSPFv2 area, so ospfd's lookup returns NULL and the handler returns
-    # returning NB_ERR_NOT_FOUND surfaces an error in the vty output -- which
+    NB_ERR_NOT_FOUND with the RFC-mandated app-tag.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -3762,15 +4030,16 @@ def test_ospf_yang_clear_neighbor_rpc_unknown_interface():
 
     # lo is not in any OSPF area on r1; ospfd_ietf_lookup_oi returns NULL
     # for it. ospf6d may also error on the same input. Either backend
-    # returning NB_ERR_RESOURCE surfaces an error in the vty output -- which
+    # returning NB_ERR_NOT_FOUND surfaces an error in the vty output -- which
     # is exactly what we want to verify.
     out = r1.vtysh_cmd(
         "configure terminal\nmgmt rpc /ietf-ospf:clear-neighbor json "
-        '{"ietf-ospf:clear-neighbor":{"routing-protocol-name":"default","interface":"lo"}}'
+        '{"ietf-ospf:clear-neighbor":'
+        '{"routing-protocol-name":"default","interface":"lo"}}'
     )
-    assert "ospf-interface-not-found" in out.lower() or "error" in out.lower(), (
-        "expected error for unknown interface, got:\n{}".format(out)
-    )
+    assert (
+        "ospf-interface-not-found" in out.lower() or "error" in out.lower()
+    ), "expected error for unknown interface, got:\n{}".format(out)
 
     # The clear-database RPC above flushed and re-originated r1's LSAs.
     # Adjacencies come back Full quickly but the rest of the area takes
@@ -3850,8 +4119,10 @@ def test_ospf_yang_nbr_state_change_notification():
     def saw_v3_notif():
         hits = _grep_daemon_log(r1, "ospf6d", "OSPF6-NOTIF", marker)
         hits += _grep_daemon_log(
-            r1, "ospf6d",
-            "northbound notification: /ietf-ospf:nbr-state-change", marker,
+            r1,
+            "ospf6d",
+            "northbound notification: /ietf-ospf:nbr-state-change",
+            marker,
         )
         return None if hits else "no v3 nbr-state-change notification log"
 
@@ -3885,9 +4156,7 @@ def test_ospf_yang_if_state_change_notification():
 
     marker = "=== test_ospf_yang_if_state_change_notification BEGIN ==="
     r1.vtysh_cmd("send log level info {}".format(marker))
-    r1.vtysh_cmd(
-        "configure terminal\ndebug northbound notifications\n"
-    )
+    r1.vtysh_cmd("configure terminal\ndebug northbound notifications\n")
 
     # Bounce r1-eth1 to force a v2 ISM transition (Down -> ... back to DR-elect)
     # and a v3 ISM transition (Down -> ... back).  Kernel link toggle inside
@@ -3906,8 +4175,10 @@ def test_ospf_yang_if_state_change_notification():
     def saw_v3_if_notif():
         hits = _grep_daemon_log(r1, "ospf6d", "OSPF6-NOTIF", marker)
         hits += _grep_daemon_log(
-            r1, "ospf6d",
-            "northbound notification: /ietf-ospf:if-state-change", marker,
+            r1,
+            "ospf6d",
+            "northbound notification: /ietf-ospf:if-state-change",
+            marker,
         )
         return None if hits else "no v3 if-state-change notification log"
 
@@ -3959,7 +4230,8 @@ def test_ospf_yang_if_config_error_notification():
 
         def saw_v2_config_error():
             hits = _grep_daemon_log(
-                r1, "ospfd",
+                r1,
+                "ospfd",
                 "northbound notification: /ietf-ospf:if-config-error",
                 marker,
             )
@@ -3972,7 +4244,8 @@ def test_ospf_yang_if_config_error_notification():
 
         def saw_v3_config_error():
             hits = _grep_daemon_log(
-                r1, "ospf6d",
+                r1,
+                "ospf6d",
                 "northbound notification: /ietf-ospf:if-config-error",
                 marker,
             )
@@ -4004,6 +4277,7 @@ def test_ospf_yang_if_config_error_notification():
     _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
     _force_ospf_reconvergence_to_steady_state()
 
+
 def test_ospf_yang_nbr_state_change_lifecycle_down_notification():
     """RFC 9129 /ietf-ospf:nbr-state-change fires on tear-down too.
 
@@ -4028,9 +4302,7 @@ def test_ospf_yang_nbr_state_change_lifecycle_down_notification():
 
     _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
 
-    marker = (
-        "=== test_ospf_yang_nbr_state_change_lifecycle_down_notification BEGIN ==="
-    )
+    marker = "=== test_ospf_yang_nbr_state_change_lifecycle_down_notification BEGIN ==="
     r1.vtysh_cmd("send log level info {}".format(marker))
     r1.vtysh_cmd(
         "configure terminal\n"
@@ -4082,9 +4354,7 @@ def test_ospf6_yang_nbr_state_change_admin_down_notification():
     _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
     _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
 
-    marker = (
-        "=== test_ospf6_yang_nbr_state_change_admin_down_notification BEGIN ==="
-    )
+    marker = "=== test_ospf6_yang_nbr_state_change_admin_down_notification BEGIN ==="
     r1.vtysh_cmd("send log level info {}".format(marker))
     r1.vtysh_cmd(
         "configure terminal\n"
@@ -4100,8 +4370,10 @@ def test_ospf6_yang_nbr_state_change_admin_down_notification():
     def saw_v3_down_notif():
         hits = _grep_daemon_log(r1, "ospf6d", "OSPF6-NOTIF", marker)
         hits += _grep_daemon_log(
-            r1, "ospf6d",
-            "northbound notification: /ietf-ospf:nbr-state-change", marker,
+            r1,
+            "ospf6d",
+            "northbound notification: /ietf-ospf:nbr-state-change",
+            marker,
         )
         return None if hits else "no v3 nbr-state-change on admin-down"
 

@@ -222,8 +222,8 @@ static void ospf_bfd_session_change(struct bfd_session_params *bsp,
 					   IF_NAME(oi), &entry->endpoint);
 		}
 
-		if (oi && entry && oip && oip->bfd_config &&
-		    oip->bfd_config->enabled && oip->bfd_config->quick)
+		if (oi && entry && oip && oip->bfd_config && oip->bfd_config->enabled &&
+		    oip->bfd_config->quick)
 			ospf_qn_add(oi, &entry->endpoint);
 	}
 }
@@ -296,8 +296,7 @@ void ospf_neighbor_bfd_clear(struct ospf_neighbor *nbr)
 		 * IMPORTANT: the neighbor object is being freed, so we must drop
 		 * the weak pointer.
 		 */
-		if (oip && oip->bfd_config && oip->bfd_config->enabled
-		    && oip->bfd_config->quick) {
+		if (oip && oip->bfd_config && oip->bfd_config->enabled && oip->bfd_config->quick) {
 			entry->nbr = NULL;
 			if (entry->bsp)
 				bfd_sess_install(entry->bsp);
@@ -466,8 +465,7 @@ void ospf_interface_disable_bfd(struct interface *ifp,
 	ospf_interface_bfd_config_set_defaults(oip->bfd_config);
 }
 
-void ospf_interface_bfd_free_config(struct interface *ifp,
-				    struct ospf_if_params *oip)
+void ospf_interface_bfd_free_config(struct interface *ifp, struct ospf_if_params *oip)
 {
 	if (!oip->bfd_config)
 		return;
@@ -547,8 +545,7 @@ DEFUN_YANG (ip_ospf_bfd,
 	bool has_quick = (argc >= 4);
 	char xpath[XPATH_MAXLEN];
 
-	if (!has_quick &&
-	    ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/bfd/enabled") == 0) {
+	if (!has_quick && ospf_per_iface_xpath(xpath, sizeof(xpath), ifp, "/bfd/enabled") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -596,19 +593,16 @@ DEFUN(
 	char xpath[XPATH_MAXLEN + 64];
 	char val[32];
 
-	if (!has_quick &&
-	    ospf_per_iface_xpath(xpath_base, sizeof(xpath_base), ifp, "/bfd") == 0) {
+	if (!has_quick && ospf_per_iface_xpath(xpath_base, sizeof(xpath_base), ifp, "/bfd") == 0) {
 		snprintf(xpath, sizeof(xpath), "%s/enabled", xpath_base);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 		snprintf(xpath, sizeof(xpath), "%s/local-multiplier", xpath_base);
 		snprintf(val, sizeof(val), "%u", mult);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
-		snprintf(xpath, sizeof(xpath), "%s/required-min-rx-interval",
-			 xpath_base);
+		snprintf(xpath, sizeof(xpath), "%s/required-min-rx-interval", xpath_base);
 		snprintf(val, sizeof(val), "%u", rx_ms * 1000);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
-		snprintf(xpath, sizeof(xpath), "%s/desired-min-tx-interval",
-			 xpath_base);
+		snprintf(xpath, sizeof(xpath), "%s/desired-min-tx-interval", xpath_base);
 		snprintf(val, sizeof(val), "%u", tx_ms * 1000);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
 		return nb_cli_apply_changes(vty, NULL);

@@ -22,6 +22,7 @@
 
 /* Forward declaration(s). */
 struct ospf6_neighbor;
+struct ospf6_lsa;
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_gr;
@@ -146,8 +147,7 @@ extern int ospf6_gr_restart_support_disable(struct ospf6 *ospf6);
  * Set the graceful-restart grace period.  Refreshes the zebra GR
  * stale-route timer if GR is currently enabled.
  */
-extern void ospf6_gr_set_grace_period(struct ospf6 *ospf6,
-				      uint32_t grace_period);
+extern void ospf6_gr_set_grace_period(struct ospf6 *ospf6, uint32_t grace_period);
 
 /*
  * Toggle global helper-mode support.  Promoted from static to extern so

@@ -53,6 +53,8 @@ DEFINE_HOOK(ospf6_interface_change,
 	    (struct ospf6_interface * oi, int state, int old_state),
 	    (oi, state, old_state));
 
+static bool ospf6_interface_has_area(const struct ospf6_interface *oi);
+
 unsigned char conf_debug_ospf6_interface = 0;
 
 const char *const ospf6_interface_state_str[] = {
@@ -65,6 +67,9 @@ int ospf6_interface_neighbor_count(struct ospf6_interface *oi)
 	int count = 0;
 	struct ospf6_neighbor *nbr = NULL;
 	struct listnode *node;
+
+	if (!oi || !oi->neighbor_list)
+		return 0;
 
 	for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, nbr)) {
 		/* Down state is not shown. */
@@ -95,7 +100,7 @@ static void ospf6_interface_lsdb_hook(struct ospf6_lsa *lsa, unsigned int reason
 {
 	struct ospf6_interface *oi;
 
-	if (lsa == NULL)
+	if (lsa == NULL || lsa->lsdb == NULL || lsa->lsdb->data == NULL)
 		return;
 
 	oi = lsa->lsdb->data;
@@ -103,7 +108,7 @@ static void ospf6_interface_lsdb_hook(struct ospf6_lsa *lsa, unsigned int reason
 	case OSPF6_LSTYPE_LINK:
 		if (oi->state == OSPF6_INTERFACE_DR)
 			OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi);
-		if (oi->area)
+		if (ospf6_interface_has_area(oi))
 			ospf6_spf_schedule(oi->area->ospf6, reason);
 		break;
 
@@ -283,6 +288,23 @@ void ospf6_interface_reset(struct interface *ifp)
 	event_execute(master, interface_up, oi, 0, NULL);
 }
 
+static bool ospf6_interface_has_area(const struct ospf6_interface *oi)
+{
+	return oi && oi->area && oi->area->ospf6;
+}
+
+static void ospf6_interface_delete_neighbor(struct ospf6_interface *oi, struct ospf6_neighbor *on)
+{
+	/*
+	 * The DOWN notification path dereferences oi->area->ospf6. Detached
+	 * interfaces can still carry neighbours during teardown, so skip the
+	 * notification-only state transition when no area is attached.
+	 */
+	if (ospf6_interface_has_area(oi))
+		ospf6_neighbor_force_down(on);
+	ospf6_neighbor_delete(on);
+}
+
 void ospf6_interface_delete(struct ospf6_interface *oi)
 {
 	struct listnode *node, *nnode;
@@ -300,10 +322,8 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	 * transitions to DOWN before delete, so admin-down and interface
 	 * destroy were silent.
 	 */
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		ospf6_neighbor_force_down(on);
-		ospf6_neighbor_delete(on);
-	}
+	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
+		ospf6_interface_delete_neighbor(oi, on);
 
 	list_delete(&oi->neighbor_list);
 
@@ -465,8 +485,8 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	/* reset linklocal pointer */
 	oi->linklocal_addr = ospf6_interface_get_linklocal_address(ifp);
 
-	/* if area is null, do not make connected-route list */
-	if (oi->area == NULL)
+	/* If the interface has no live OSPFv3 owner, skip connected routes. */
+	if (!ospf6_interface_has_area(oi))
 		return;
 
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
@@ -566,7 +586,7 @@ static int ospf6_interface_state_change(uint8_t next_state,
 	if (prev_state == next_state)
 		return -1;
 
-	if (!oi->area)
+	if (!ospf6_interface_has_area(oi))
 		return -1;
 
 	/* log */
@@ -684,12 +704,16 @@ static struct ospf6_neighbor *better_drouter(struct ospf6_neighbor *a,
 
 uint8_t dr_election(struct ospf6_interface *oi)
 {
-	struct ospf6 *ospf6 = oi->area->ospf6;
+	struct ospf6 *ospf6;
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on, *drouter, *bdrouter, myself;
 	struct ospf6_neighbor *best_drouter, *best_bdrouter;
 	uint8_t next_state = 0;
 
+	if (!ospf6_interface_has_area(oi))
+		return OSPF6_INTERFACE_DOWN;
+
+	ospf6 = oi->area->ospf6;
 	drouter = bdrouter = NULL;
 	best_drouter = best_bdrouter = NULL;
 
@@ -855,12 +879,13 @@ void interface_up(struct event *event)
 		return;
 	}
 
-	/* If no area assigned, return */
-	if (oi->area == NULL) {
+	/* If no live OSPFv3 owner is assigned, return. */
+	if (!ospf6_interface_has_area(oi)) {
 		zlog_warn("%s: Not scheduling Hello for %s as there is no area assigned yet",
 			  __func__, oi->interface->name);
 		return;
 	}
+	ospf6 = oi->area->ospf6;
 
 	/*
 	 * RFC 3623 - Section 5 ("Unplanned Outages"):
@@ -869,8 +894,7 @@ void interface_up(struct event *event)
 	 * router has no adjacencies and no knowledge of previous
 	 * adjacencies".
 	 */
-	if (oi->area->ospf6->gr_info.restart_in_progress &&
-	    oi->area->ospf6->gr_info.reason == OSPF6_GR_UNKNOWN_RESTART)
+	if (ospf6->gr_info.restart_in_progress && ospf6->gr_info.reason == OSPF6_GR_UNKNOWN_RESTART)
 		ospf6_gr_unplanned_start_interface(oi);
 
 #ifdef __FreeBSD__
@@ -890,8 +914,6 @@ void interface_up(struct event *event)
 		return;
 	}
 #endif /* __FreeBSD__ */
-
-	ospf6 = oi->area->ospf6;
 
 	/* Join AllSPFRouters */
 	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP,
@@ -1003,7 +1025,7 @@ void interface_down(struct event *event)
 	/* Cease the HELPER role for all the neighbours
 	 * of this interface.
 	 */
-	if (ospf6_interface_neighbor_count(oi)) {
+	if (ospf6_interface_has_area(oi) && ospf6_interface_neighbor_count(oi)) {
 		struct listnode *ln;
 		struct ospf6_neighbor *nbr = NULL;
 
@@ -1017,10 +1039,8 @@ void interface_down(struct event *event)
 	 * Without this, RFC 9129 nbr-state-change subscribers miss
 	 * tear-down events triggered by admin-down / link-down on v3.
 	 */
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		ospf6_neighbor_force_down(on);
-		ospf6_neighbor_delete(on);
-	}
+	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
+		ospf6_interface_delete_neighbor(oi, on);
 
 	list_delete_all_node(oi->neighbor_list);
 
@@ -1029,7 +1049,7 @@ void interface_down(struct event *event)
 	oi->drouter = oi->prev_drouter = htonl(0);
 	oi->bdrouter = oi->prev_bdrouter = htonl(0);
 
-	if (oi->area == NULL)
+	if (!ospf6_interface_has_area(oi))
 		return;
 
 	ospf6 = oi->area->ospf6;
@@ -1888,6 +1908,31 @@ void ospf6_interface_stop(struct ospf6_interface *oi)
 	}
 }
 
+static int ospf6_area_iface_xpath(char *xpath, size_t size, const struct ospf6 *ospf6,
+				  uint32_t area_id, const char *ifname, const char *leaf)
+{
+	char area_id_str[INET_ADDRSTRLEN];
+	struct in_addr addr;
+	int ret;
+
+	if (!ospf6 || !ifname)
+		return -1;
+
+	addr.s_addr = area_id;
+	if (!inet_ntop(AF_INET, &addr, area_id_str, sizeof(area_id_str)))
+		return -1;
+
+	ret = snprintf(xpath, size,
+		       OSPF6D_IETF_ROUTING_PROTOCOL_XPATH
+		       "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
+		       ospf6->name ? ospf6->name : VRF_DEFAULT_NAME, area_id_str, ifname,
+		       leaf ? leaf : "");
+	if (ret < 0 || (size_t)ret >= size)
+		return -1;
+
+	return 0;
+}
+
 /* interface variable set command */
 DEFPY_YANG (ipv6_ospf6_area,
        ipv6_ospf6_area_cmd,
@@ -1903,8 +1948,6 @@ DEFPY_YANG (ipv6_ospf6_area,
 	struct ospf6 *o6;
 	uint32_t area_id_int;
 	int format;
-	struct in_addr area_addr;
-	char area_id_str[INET_ADDRSTRLEN];
 	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
@@ -1934,13 +1977,9 @@ DEFPY_YANG (ipv6_ospf6_area,
 	 */
 	o6 = ospf6_lookup_by_vrf_id(ifp->vrf->vrf_id);
 	if (o6) {
-		area_addr.s_addr = area_id_int;
-		inet_ntop(AF_INET, &area_addr, area_id_str, sizeof(area_id_str));
-		snprintf(xpath, sizeof(xpath),
-			 OSPF6D_IETF_ROUTING_PROTOCOL_XPATH
-			 "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']",
-			 o6->name ? o6->name : VRF_DEFAULT_NAME, area_id_str,
-			 ifp->name);
+		if (ospf6_area_iface_xpath(xpath, sizeof(xpath), o6, area_id_int, ifp->name,
+					   NULL) != 0)
+			return CMD_WARNING_CONFIG_FAILED;
 		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -1965,9 +2004,6 @@ DEFPY_YANG (no_ipv6_ospf6_area,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
-	struct ospf6 *o6;
-	struct in_addr area_addr;
-	char area_id_str[INET_ADDRSTRLEN];
 	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
@@ -1977,15 +2013,7 @@ DEFPY_YANG (no_ipv6_ospf6_area,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	if (oi->area) {
-		o6 = oi->area->ospf6;
-		area_addr.s_addr = oi->area->area_id;
-		inet_ntop(AF_INET, &area_addr, area_id_str, sizeof(area_id_str));
-		snprintf(xpath, sizeof(xpath),
-			 OSPF6D_IETF_ROUTING_PROTOCOL_XPATH
-			 "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']",
-			 o6->name ? o6->name : VRF_DEFAULT_NAME, area_id_str,
-			 ifp->name);
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -2103,39 +2131,23 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 /*
  * Per-interface CLI conversion for ospf6d. v3 commands don't take
  * per-address overrides, so the YANG-dispatch branch only needs to
- * check that the interface is in an ospf6 area; otherwise we fall back
- * to direct mutation. Returns 0 on success and writes the xpath into
+ * check that the interface has a live OSPFv3 owner; otherwise we fall
+ * back to direct mutation. Returns 0 on success and writes the xpath into
  * buf; returns -1 if YANG is not applicable.
  */
-int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
-			  const char *leaf)
+int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp, const char *leaf)
 {
 	const struct ospf6_interface *oi;
 	const struct ospf6 *ospf6;
-	char area_id_str[INET_ADDRSTRLEN];
-	struct in_addr addr;
-	int ret;
 
 	if (!ifp)
 		return -1;
 	oi = (const struct ospf6_interface *)ifp->info;
-	if (!oi || !oi->area)
+	if (!ospf6_interface_has_area(oi))
 		return -1;
 	ospf6 = oi->area->ospf6;
-	if (!ospf6)
-		return -1;
 
-	addr.s_addr = oi->area->area_id;
-	inet_ntop(AF_INET, &addr, area_id_str, sizeof(area_id_str));
-	ret = snprintf(xpath, size,
-		       OSPF6D_IETF_ROUTING_PROTOCOL_XPATH
-		       "/ietf-ospf:ospf/areas/area[area-id='%s']/interfaces/interface[name='%s']%s",
-		       ospf6->name ? ospf6->name : VRF_DEFAULT_NAME, area_id_str, ifp->name,
-		       leaf ? leaf : "");
-	if (ret < 0 || (size_t)ret >= size)
-		return -1;
-
-	return 0;
+	return ospf6_area_iface_xpath(xpath, size, ospf6, oi->area->area_id, ifp->name, leaf);
 }
 
 DEFPY_YANG (ipv6_ospf6_cost,
@@ -2216,8 +2228,8 @@ DEFPY_YANG (auto_cost_reference_bandwidth,
 	VTY_DECLVAR_CONTEXT(ospf6, o);
 	char xpath[XPATH_MAXLEN];
 
-	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
-				     "/auto-cost/reference-bandwidth") != 0)
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/auto-cost/reference-bandwidth") !=
+	    0)
 		return CMD_WARNING_CONFIG_FAILED;
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, refbw_str);
 	return nb_cli_apply_changes(vty, NULL);
@@ -2234,8 +2246,8 @@ DEFPY_YANG (no_auto_cost_reference_bandwidth,
 	VTY_DECLVAR_CONTEXT(ospf6, o);
 	char xpath[XPATH_MAXLEN];
 
-	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o,
-				     "/auto-cost/reference-bandwidth") != 0)
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/auto-cost/reference-bandwidth") !=
+	    0)
 		return CMD_WARNING_CONFIG_FAILED;
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
@@ -2515,8 +2527,7 @@ DEFPY_YANG (ipv6_ospf6_transmitdelay,
 	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
-	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
-				  "/transmit-delay") == 0) {
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/transmit-delay") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, interval_str);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -2543,8 +2554,7 @@ DEFPY_YANG (no_ipv6_ospf6_transmitdelay,
 	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
-	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
-				  "/transmit-delay") == 0) {
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/transmit-delay") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -2571,8 +2581,7 @@ DEFPY_YANG (ipv6_ospf6_retransmitinterval,
 	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
-	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
-				  "/retransmit-interval") == 0) {
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/retransmit-interval") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, interval_str);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -2599,8 +2608,7 @@ DEFPY_YANG (no_ipv6_ospf6_retransmitinterval,
 	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
-	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
-				  "/retransmit-interval") == 0) {
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/retransmit-interval") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -2615,8 +2623,9 @@ DEFPY_YANG (no_ipv6_ospf6_retransmitinterval,
 
 void ospf6_priority_recompute(struct ospf6_interface *oi)
 {
-	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER ||
-			 oi->state == OSPF6_INTERFACE_BDR || oi->state == OSPF6_INTERFACE_DR)) {
+	if (ospf6_interface_has_area(oi) &&
+	    (oi->state == OSPF6_INTERFACE_DROTHER || oi->state == OSPF6_INTERFACE_BDR ||
+	     oi->state == OSPF6_INTERFACE_DR)) {
 		if (ospf6_interface_state_change(dr_election(oi), oi) == -1)
 			OSPF6_LINK_LSA_SCHEDULE(oi);
 	}
@@ -2710,6 +2719,28 @@ ALIAS (ipv6_ospf6_instance,
        "Instance ID for this interface\n"
        "Instance ID value\n")
 
+void ospf6_interface_passive_set(struct ospf6_interface *oi, bool passive)
+{
+	struct listnode *node, *nnode;
+	struct ospf6_neighbor *on;
+
+	if (passive) {
+		SET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
+		event_cancel(&oi->thread_send_hello);
+		event_cancel(&oi->thread_sso);
+		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
+			event_cancel(&on->inactivity_timer);
+			event_add_event(master, inactivity_timer, on, 0, NULL);
+		}
+	} else {
+		UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
+		event_cancel(&oi->thread_send_hello);
+		event_cancel(&oi->thread_sso);
+		if (!if_is_loopback(oi->interface))
+			event_add_timer(master, ospf6_hello_send, oi, 0, &oi->thread_send_hello);
+	}
+}
+
 DEFPY_YANG (ipv6_ospf6_passive,
        ipv6_ospf6_passive_cmd,
        "ipv6 ospf6 passive",
@@ -2720,8 +2751,6 @@ DEFPY_YANG (ipv6_ospf6_passive,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
-	struct listnode *node, *nnode;
-	struct ospf6_neighbor *on;
 	char xpath[XPATH_MAXLEN];
 
 	assert(ifp);
@@ -2735,14 +2764,7 @@ DEFPY_YANG (ipv6_ospf6_passive,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	SET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
-	event_cancel(&oi->thread_send_hello);
-	event_cancel(&oi->thread_sso);
-
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		event_cancel(&on->inactivity_timer);
-		event_add_event(master, inactivity_timer, on, 0, NULL);
-	}
+	ospf6_interface_passive_set(oi, true);
 
 	return CMD_SUCCESS;
 }
@@ -2771,14 +2793,7 @@ DEFPY_YANG (no_ipv6_ospf6_passive,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
-	event_cancel(&oi->thread_send_hello);
-	event_cancel(&oi->thread_sso);
-
-	/* don't send hellos over loopback interface */
-	if (!if_is_loopback(oi->interface))
-		event_add_timer(master, ospf6_hello_send, oi, 0,
-				&oi->thread_send_hello);
+	ospf6_interface_passive_set(oi, false);
 
 	return CMD_SUCCESS;
 }
@@ -2926,8 +2941,7 @@ DEFPY_YANG (ipv6_ospf6_network,
 
 	assert(ifp);
 
-	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
-				  "/interface-type") == 0) {
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/interface-type") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, network);
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -2981,8 +2995,7 @@ DEFPY_YANG (no_ipv6_ospf6_network,
 
 	assert(ifp);
 
-	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp,
-				  "/interface-type") == 0) {
+	if (ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/interface-type") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}

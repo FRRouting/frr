@@ -328,6 +328,12 @@ static unsigned int nb_node_validate_priority(const struct nb_node *nb_node)
 	return 0;
 }
 
+static bool nb_callbacks_have_config_cb(const struct nb_callbacks *cbs)
+{
+	return cbs->create || cbs->modify || cbs->destroy || cbs->move ||
+	       cbs->pre_validate || cbs->apply_finish;
+}
+
 static int nb_node_validate(const struct lysc_node *snode, void *arg)
 {
 	struct nb_node *nb_node = snode->priv;
@@ -2810,13 +2816,11 @@ static void nb_load_callbacks(const struct frr_yang_module_info *module)
 			nb_node->priority = priority;
 
 		/*
-		 * Per-node opt-in to config-callback dispatch lifts the
-		 * module-level ignore_cfg_cbs suppression on this node so
-		 * incremental conversions can expose a subset of writable
-		 * leaves without supplying callbacks for the rest of the
-		 * module's writable schema.
+		 * A node with registered config callbacks participates in
+		 * config dispatch even when the module suppresses unwired
+		 * config nodes for incremental conversion.
 		 */
-		if (module->nodes[i].cfg_opt_in)
+		if (nb_callbacks_have_config_cb(&module->nodes[i].cbs))
 			UNSET_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS);
 	}
 }

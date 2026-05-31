@@ -1886,8 +1886,10 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		return OSPF6_READ_CONTINUE;
 	}
 
-	if (ospf6_rxpacket_examin(oi, oh, len) != MSG_OK)
+	if (ospf6_rxpacket_examin(oi, oh, len) != MSG_OK) {
+		ospf6d_ietf_notif_if_rx_bad_packet(oi, src, oh->type);
 		return OSPF6_READ_CONTINUE;
+	}
 
 	/* Being here means, that no sizing/alignment issues were detected in
 	   the input packet. This renders the additional checks performed below

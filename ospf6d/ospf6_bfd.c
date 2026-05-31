@@ -81,8 +81,7 @@ void ospf6_bfd_trigger_event(struct ospf6_neighbor *on, int old_state,
  *                               zebra for starting/stopping the monitoring of
  *                               the neighbor rechahability.
  */
-void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi,
-				 bool install)
+void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi, bool install)
 {
 	struct ospf6_neighbor *on;
 	struct listnode *node;
@@ -200,8 +199,7 @@ DEFUN_YANG(ipv6_ospf6_bfd, ipv6_ospf6_bfd_cmd,
 	char xpath[XPATH_MAXLEN];
 	assert(ifp);
 
-	if (!has_profile &&
-	    ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/bfd/enabled") == 0) {
+	if (!has_profile && ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/bfd/enabled") == 0) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
 		return nb_cli_apply_changes(vty, NULL);
 	}
@@ -293,12 +291,10 @@ DEFUN(
 		snprintf(xpath, sizeof(xpath), "%s/local-multiplier", xpath_base);
 		snprintf(val, sizeof(val), "%u", mult);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
-		snprintf(xpath, sizeof(xpath), "%s/required-min-rx-interval",
-			 xpath_base);
+		snprintf(xpath, sizeof(xpath), "%s/required-min-rx-interval", xpath_base);
 		snprintf(val, sizeof(val), "%u", rx_ms * 1000);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
-		snprintf(xpath, sizeof(xpath), "%s/desired-min-tx-interval",
-			 xpath_base);
+		snprintf(xpath, sizeof(xpath), "%s/desired-min-tx-interval", xpath_base);
 		snprintf(val, sizeof(val), "%u", tx_ms * 1000);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
 		return nb_cli_apply_changes(vty, NULL);

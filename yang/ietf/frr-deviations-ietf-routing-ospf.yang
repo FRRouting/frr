@@ -53,6 +53,14 @@ module frr-deviations-ietf-routing-ospf {
           + "/ietf-routing:control-plane-protocol"
           + "/ospf:ospf/ospf:areas/ospf:area"
           + "/ospf:interfaces/ospf:interface/ospf:hello-interval" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF hello-interval must be in the range 1..65535";
+        }
+      }
+    }
     deviate add {
       default "10";
     }
@@ -63,6 +71,14 @@ module frr-deviations-ietf-routing-ospf {
           + "/ietf-routing:control-plane-protocol"
           + "/ospf:ospf/ospf:areas/ospf:area"
           + "/ospf:interfaces/ospf:interface/ospf:dead-interval" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF dead-interval must be in the range 1..65535";
+        }
+      }
+    }
     deviate add {
       default "40";
     }
@@ -73,7 +89,26 @@ module frr-deviations-ietf-routing-ospf {
    * defaults unspecified. Advertise those defaults in the schema so
    * northbound clients and daemon callbacks see one default source.
    * Dynamic defaults, such as interface-type, stay in daemon code.
+   * Where FRR's CLI has a stable narrower range than RFC 9129, advertise
+   * that range here too. Build-dependent caps, such as MULTIPATH_NUM, stay
+   * in daemon validation callbacks.
    */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:cost" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF interface cost must be in the range 1..65535";
+        }
+      }
+    }
+  }
+
   deviation "/ietf-routing:routing"
           + "/ietf-routing:control-plane-protocols"
           + "/ietf-routing:control-plane-protocol"
@@ -113,8 +148,104 @@ module frr-deviations-ietf-routing-ospf {
           + "/ospf:ospf/ospf:areas/ospf:area"
           + "/ospf:interfaces/ospf:interface"
           + "/ospf:transmit-delay" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF transmit-delay must be in the range 1..65535";
+        }
+      }
+    }
     deviate add {
       default "1";
+      must "derived-from-or-self(../../../../../../ietf-routing:type, "
+         + "'ospf:ospfv2') or . <= 3600" {
+        error-message
+          "OSPFv3 transmit-delay must be in the range 1..3600";
+      }
+    }
+  }
+
+  /*
+   * FRR exposes OSPF route preference as administrative distance. The
+   * legacy CLIs accept 1..255; zero is FRR's internal "unset" marker and
+   * is reached by deleting the leaf, not by configuring it.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:single-value/ospf:all" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:multi-values/ospf:granularity"
+          + "/ospf:detail/ospf:intra-area" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:multi-values/ospf:granularity"
+          + "/ospf:detail/ospf:inter-area" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:multi-values/ospf:granularity"
+          + "/ospf:coarse/ospf:internal" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:multi-values/ospf:external" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
     }
   }
 
@@ -178,14 +309,31 @@ module frr-deviations-ietf-routing-ospf {
   }
 
   /*
-   * RFC 9129's per-interface BFD container uses
-   * bfd-types:client-cfg-parms, whose default tx/rx intervals are
-   * 1000000 us (1 s).  FRR's compile-time defaults
-   * (BFD_DEF_MIN_TX / BFD_DEF_MIN_RX) are both 300 ms.  Pin the
-   * deviated defaults to FRR's values so an operator who writes
-   * only `/bfd/enabled = true` via mgmtd gets the same end state as
-   * `ip ospf bfd` from the CLI.
+   * RFC 9129's per-interface BFD container uses bfd-types:client-cfg-parms.
+   * FRR OSPF narrows the multiplier to the legacy CLI range 2..255 and the
+   * tx/rx interval leaves to 50..60000 ms, expressed here in microseconds.
+   * The interval callbacks still validate that values are whole milliseconds.
+   * FRR's compile-time defaults (BFD_DEF_MIN_TX / BFD_DEF_MIN_RX) are both
+   * 300 ms, so pin the deviated defaults to FRR's values. An operator who
+   * writes only `/bfd/enabled = true` via mgmtd then gets the same end state
+   * as `ip ospf bfd` from the CLI.
    */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:bfd/ospf:local-multiplier" {
+    deviate replace {
+      type uint8 {
+        range "2..255" {
+          error-message
+            "OSPF BFD local-multiplier must be in the range 2..255";
+        }
+      }
+    }
+  }
+
   deviation "/ietf-routing:routing"
           + "/ietf-routing:control-plane-protocols"
           + "/ietf-routing:control-plane-protocol"
@@ -195,6 +343,13 @@ module frr-deviations-ietf-routing-ospf {
           + "/ospf:tx-rx-intervals"
           + "/ospf:desired-min-tx-interval" {
     deviate replace {
+      type uint32 {
+        range "50000..60000000" {
+          error-message
+            "OSPF BFD desired-min-tx-interval must be in the range "
+          + "50000..60000000 us";
+        }
+      }
       default "300000";
     }
   }
@@ -207,6 +362,13 @@ module frr-deviations-ietf-routing-ospf {
           + "/ospf:tx-rx-intervals"
           + "/ospf:required-min-rx-interval" {
     deviate replace {
+      type uint32 {
+        range "50000..60000000" {
+          error-message
+            "OSPF BFD required-min-rx-interval must be in the range "
+          + "50000..60000000 us";
+        }
+      }
       default "300000";
     }
   }
@@ -242,6 +404,15 @@ module frr-deviations-ietf-routing-ospf {
           + "/ospf:ospf/ospf:areas/ospf:area"
           + "/ospf:interfaces/ospf:interface"
           + "/ospf:static-neighbors/ospf:neighbor/ospf:poll-interval" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF static-neighbor poll-interval must be in the range "
+          + "1..65535";
+        }
+      }
+    }
     deviate add {
       default "60";
     }
@@ -312,6 +483,24 @@ module frr-deviations-ietf-routing-ospf {
     }
   }
 
+  /*
+   * RFC 2328 and RFC 5340 both forbid configuring the backbone area as
+   * stub or NSSA. Enforce the restriction in the schema so CLI, mgmtd,
+   * gRPC, NETCONF and RESTCONF clients see the same contract.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:area-type" {
+    deviate add {
+      must "not(../ospf:area-id = '0.0.0.0' and "
+         + "derived-from-or-self(., 'ospf:stub-nssa-area'))" {
+        error-message
+          "The backbone area cannot be configured as stub or NSSA";
+      }
+    }
+  }
 
   /*
    * mgmtd loads one ietf-ospf context for both backends, so feature

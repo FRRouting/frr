@@ -536,8 +536,7 @@ void ospf_gr_check_adjs(struct ospf *ospf)
 		}
 	}
 
-	ospf_gr_restart_exit(ospf, "all adjacencies were reestablished",
-			     OSPF_GR_HELPER_COMPLETED);
+	ospf_gr_restart_exit(ospf, "all adjacencies were reestablished", OSPF_GR_HELPER_COMPLETED);
 }
 
 /* Handling of grace period expiry. */
@@ -545,8 +544,7 @@ static void ospf_gr_grace_period_expired(struct event *event)
 {
 	struct ospf *ospf = EVENT_ARG(event);
 
-	ospf_gr_restart_exit(ospf, "grace period has expired",
-			     OSPF_GR_HELPER_GRACE_TIMEOUT);
+	ospf_gr_restart_exit(ospf, "grace period has expired", OSPF_GR_HELPER_GRACE_TIMEOUT);
 }
 
 /* Send extra Grace-LSA out the interface (unplanned outages only). */

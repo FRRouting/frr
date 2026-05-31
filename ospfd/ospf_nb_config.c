@@ -76,6 +76,7 @@ int ospfd_ietf_routing_control_plane_protocol_create(struct nb_cb_create_args *a
 {
 	const char *type;
 	const char *name;
+	struct ospf *ospf;
 	bool created = false;
 
 	if (args->event != NB_EV_APPLY)
@@ -89,7 +90,8 @@ int ospfd_ietf_routing_control_plane_protocol_create(struct nb_cb_create_args *a
 	if (!name)
 		name = VRF_DEFAULT_NAME;
 
-	ospf_get(ospf_instance, name, &created);
+	ospf = ospf_get(ospf_instance, name, &created);
+	nb_running_set_entry(args->dnode, ospf);
 
 	return NB_OK;
 }
@@ -97,7 +99,6 @@ int ospfd_ietf_routing_control_plane_protocol_create(struct nb_cb_create_args *a
 int ospfd_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args *args)
 {
 	const char *type;
-	const char *name;
 	struct ospf *ospf;
 
 	if (args->event != NB_EV_APPLY)
@@ -107,13 +108,7 @@ int ospfd_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args 
 	if (!ospfd_ietf_ospf_type_is(type))
 		return NB_OK;
 
-	name = yang_dnode_get_string(args->dnode, "name");
-	if (!name)
-		name = VRF_DEFAULT_NAME;
-
-	ospf = ospfd_ietf_ospf_lookup_instance(name);
-	if (!ospf)
-		return NB_OK;
+	ospf = nb_running_unset_entry(args->dnode);
 
 	if (ospf->gr_info.restart_support)
 		ospf_gr_nvm_delete(ospf);
@@ -123,9 +118,7 @@ int ospfd_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args 
 }
 
 /*
- * Look up the OSPF instance corresponding to an ietf-ospf config dnode.
- * Walks up to the parent control-plane-protocol list entry to read the
- * instance name, then resolves it through the shared helper.
+ * Extract the OSPF instance name from an ietf-ospf config dnode.
  *
  * mgmtd's predicate-aware dispatch (mgmt_be_xpath_prefix) routes only
  * control-plane-protocol[type='ietf-ospf:ospfv2'] entries to ospfd. In
@@ -133,11 +126,9 @@ int ospfd_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args 
  * predicate, so the instance-name check is handled at the dispatch layer
  * and not repeated here.
  *
- * Returns NULL when no FRR-side OSPF instance exists for the named
- * control-plane-protocol. VALIDATE and PREPARE callers tolerate that state so
- * one northbound commit can create the control-plane-protocol list entry and
- * its child config together. APPLY materialises the daemon instance from the
- * same list entry if the parent create callback has not already run.
+ * The live struct ospf is anchored on the parent control-plane-protocol
+ * running node by the create callback. Child callbacks fetch that entry with
+ * nb_running_get_entry().
  */
 static const char *ospfd_ietf_ospf_instance_name_from_dnode(const struct lyd_node *dnode)
 {
@@ -152,64 +143,40 @@ static const char *ospfd_ietf_ospf_instance_name_from_dnode(const struct lyd_nod
 	return name ? name : VRF_DEFAULT_NAME;
 }
 
-static struct ospf *ospfd_ietf_ospf_instance_from_dnode(const struct lyd_node *dnode)
-{
-	const char *name = ospfd_ietf_ospf_instance_name_from_dnode(dnode);
-
-	return name ? ospfd_ietf_ospf_lookup_instance(name) : NULL;
-}
-
-/*
- * Resolve the OSPF instance for create / modify callbacks. Per-leaf callbacks
- * route through this so mgmtd cannot accept a commit whose APPLY phase would
- * be a silent no-op.
- *
- * Returns:
- *   NB_OK + *ospf_out set      -- proceed.
- *   NB_OK + *ospf_out == NULL  -- pre-APPLY tolerance for an instance being
- *                                 created by the same transaction.
- *   NB_ERR_INCONSISTENCY       -- APPLY failed to create the instance.
- */
-static int ospfd_ietf_ospf_resolve_instance(const struct lyd_node *dnode, enum nb_event event,
-					    char *errmsg, size_t errmsg_len, struct ospf **ospf_out)
+static int ospfd_ietf_ospf_validate_default_vrf_only(const struct lyd_node *dnode,
+						     const struct ospf *ospf,
+						     enum nb_event event,
+						     const char *message,
+						     char *errmsg,
+						     size_t errmsg_len)
 {
 	const char *name;
-	const char *errmsg_name;
-	bool created = false;
-	struct ospf *ospf;
 
-	ospf = ospfd_ietf_ospf_instance_from_dnode(dnode);
-	*ospf_out = ospf;
-	if (ospf)
+	if (event != NB_EV_VALIDATE && event != NB_EV_APPLY)
 		return NB_OK;
 
-	if (event == NB_EV_VALIDATE || event == NB_EV_PREPARE)
-		return NB_OK;
-
-	if (event == NB_EV_APPLY) {
-		name = ospfd_ietf_ospf_instance_name_from_dnode(dnode);
-		if (name) {
-			ospf = ospf_get(ospf_instance, name, &created);
-			*ospf_out = ospf;
-			if (ospf)
-				return NB_OK;
-		}
+	if (ospf) {
+		if (ospf->vrf_id == VRF_DEFAULT)
+			return NB_OK;
+		snprintf(errmsg, errmsg_len, "%s", message);
+		return event == NB_EV_VALIDATE ? NB_ERR_VALIDATION
+					       : NB_ERR_INCONSISTENCY;
 	}
 
-	errmsg_name = ospfd_ietf_ospf_instance_name_from_dnode(dnode);
-	snprintf(errmsg, errmsg_len, "OSPF instance '%s' was not created by this transaction",
-		 errmsg_name ? errmsg_name : "?");
-	return NB_ERR_INCONSISTENCY;
-}
+	/*
+	 * In daemon-instance mode the RFC list name is the OSPF instance id,
+	 * not a VRF name.  There is no candidate-only VRF label to inspect, so
+	 * APPLY still checks the materialised ospf->vrf_id before any mutation.
+	 */
+	if (ospf_instance)
+		return NB_OK;
 
-static bool ospfd_ietf_ospf_resolve_destroy_instance(struct nb_cb_destroy_args *args,
-						     struct ospf **ospf)
-{
-	*ospf = NULL;
-	if (args->event == NB_EV_APPLY)
-		*ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
+	name = ospfd_ietf_ospf_instance_name_from_dnode(dnode);
+	if (!name || !strcmp(name, VRF_DEFAULT_NAME))
+		return NB_OK;
 
-	return *ospf != NULL;
+	snprintf(errmsg, errmsg_len, "%s", message);
+	return NB_ERR_VALIDATION;
 }
 
 /*
@@ -218,16 +185,12 @@ static bool ospfd_ietf_ospf_resolve_destroy_instance(struct nb_cb_destroy_args *
 int ospfd_ietf_ospf_explicit_router_id_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct in_addr router_id;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	yang_dnode_get_ipv4(&router_id, args->dnode, NULL);
 	ospf->router_id_static = router_id;
@@ -240,8 +203,10 @@ int ospfd_ietf_ospf_explicit_router_id_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	ospf->router_id_static.s_addr = INADDR_ANY;
 	ospf_router_id_update(ospf);
@@ -272,6 +237,7 @@ static int ospfd_ietf_ospf_area_id_from_dnode(const struct lyd_node *dnode, stru
  * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/areas/area
  *
  * area-id key is an RFC 9129 area-id-type, which serialises as A.B.C.D.
+ * The list create callback materialises the FRR-side ospf_area struct via
  * ospf_area_get (the FRR-internal lookup-or-create). Areas are deliberately
  * not anchored on the running dnode: legacy-compatible cleanup such as
  * deleting area-type can free an otherwise empty area while the YANG area list
@@ -280,17 +246,13 @@ static int ospfd_ietf_ospf_area_id_from_dnode(const struct lyd_node *dnode, stru
 int ospfd_ietf_ospf_areas_area_create(struct nb_cb_create_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct in_addr area_id;
 	const char *area_id_str;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	area_id_str = yang_dnode_get_string(args->dnode, "area-id");
 	if (inet_pton(AF_INET, area_id_str, &area_id) != 1)
@@ -331,25 +293,59 @@ static void ospfd_ietf_ospf_area_ranges_clear(struct ospf *ospf,
 	}
 }
 
+static const char *ospfd_ietf_ospf_area_legacy_config_reason(struct ospf *ospf,
+							     struct ospf_area *area)
+{
+	if (ospf_area_vlink_count(ospf, area))
+		return "virtual links traversing it";
+	if (area->shortcut_configured != OSPF_SHORTCUT_DEFAULT)
+		return "legacy shortcut configuration";
+	if (EXPORT_NAME(area) || IMPORT_NAME(area))
+		return "legacy import/export list configuration";
+	if (area->auth_type != OSPF_AUTH_NULL)
+		return "legacy area authentication";
+
+	return NULL;
+}
+
 int ospfd_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
 	struct in_addr area_id;
 	const char *area_id_str;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
-		return NB_OK;
-
 	area_id_str = yang_dnode_get_string(args->dnode, "area-id");
 	if (inet_pton(AF_INET, area_id_str, &area_id) != 1)
-		return NB_ERR;
+		return ospfd_ietf_ospf_parse_error(args->event);
+
+	if (args->event == NB_EV_VALIDATE) {
+		struct ospf_area *area;
+		const char *reason;
+
+		ospf = nb_running_get_entry(args->dnode, NULL, false);
+		area = ospf ? ospf_area_lookup_by_area_id(ospf, area_id) : NULL;
+		reason = area ? ospfd_ietf_ospf_area_legacy_config_reason(ospf, area) : NULL;
+		if (reason) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "area %pI4 has %s; remove it before deleting the area",
+				 &area_id, reason);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	/*
 	 * Reset every area attr back to FRR defaults so
 	 * ospf_area_check_free's precondition (external_routing == DEFAULT,
-	 * no_summary == 0, default_cost == 1, no ranges) can match. Per-leaf
-	 * destroy is not dispatched for leaves with YANG defaults (area-type
-	 * defaults to normal-area), so we mirror those resets here.
+	 * no_summary == 0, default_cost == 1, no ranges, no legacy-only
+	 * config) can match. Per-leaf destroy is not dispatched for leaves
+	 * with YANG defaults (area-type defaults to normal-area), so we
+	 * mirror those resets here.
 	 */
 	ospf_area_stub_unset(ospf, area_id);
 	ospf_area_nssa_unset(ospf, area_id);
@@ -388,14 +384,8 @@ int ospfd_ietf_ospf_areas_area_destroy(struct nb_cb_destroy_args *args)
 int ospfd_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct in_addr area_id;
 	const char *type;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0) {
 		if (args->event == NB_EV_VALIDATE)
@@ -416,12 +406,14 @@ int ospfd_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
 	 * cannot have virtual links yet so are tolerated by falling through
 	 * to APPLY.
 	 */
-	if (ospf_area_type_is(type, OSPF_AREA_TYPE_STUB) ||
-	    ospf_area_type_is(type, OSPF_AREA_TYPE_NSSA)) {
-		struct ospf_area *area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (args->event == NB_EV_VALIDATE &&
+	    (ospf_area_type_is(type, OSPF_AREA_TYPE_STUB) ||
+	     ospf_area_type_is(type, OSPF_AREA_TYPE_NSSA))) {
+		struct ospf_area *area;
 
-		if (area && ospf_area_vlink_count(ospf, area) &&
-		    args->event == NB_EV_VALIDATE) {
+		ospf = nb_running_get_entry(args->dnode, NULL, false);
+		area = ospf ? ospf_area_lookup_by_area_id(ospf, area_id) : NULL;
+		if (area && ospf_area_vlink_count(ospf, area)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "area %pI4 has virtual links traversing it; remove them before converting to %s",
 				 &area_id, type);
@@ -431,6 +423,8 @@ int ospfd_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	if (ospf_area_type_is(type, OSPF_AREA_TYPE_NORMAL)) {
 		ospf_area_stub_unset(ospf, area_id);
@@ -472,16 +466,12 @@ int ospfd_ietf_ospf_areas_area_type_modify(struct nb_cb_modify_args *args)
 int ospfd_ietf_ospf_areas_area_summary_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct in_addr area_id;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 
@@ -498,8 +488,10 @@ int ospfd_ietf_ospf_areas_area_summary_destroy(struct nb_cb_destroy_args *args)
 	struct ospf *ospf;
 	struct in_addr area_id;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 
@@ -522,7 +514,6 @@ int ospfd_ietf_ospf_areas_area_summary_destroy(struct nb_cb_destroy_args *args)
 int ospfd_ietf_ospf_areas_area_default_cost_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct in_addr area_id;
 	struct ospf_area *area;
 	struct prefix_ipv4 p = {
@@ -530,11 +521,6 @@ int ospfd_ietf_ospf_areas_area_default_cost_modify(struct nb_cb_modify_args *arg
 		.prefix.s_addr = OSPF_DEFAULT_DESTINATION,
 		.prefixlen = 0,
 	};
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0) {
 		if (args->event == NB_EV_VALIDATE)
@@ -544,6 +530,8 @@ int ospfd_ietf_ospf_areas_area_default_cost_modify(struct nb_cb_modify_args *arg
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	/*
 	 * Defer the area-existence and area-type checks to APPLY: at
@@ -735,17 +723,23 @@ static bool ospfd_ietf_ospf_ensure_if_info(struct interface *ifp)
 static int ospfd_ietf_ospf_resolve_config_interface(const struct lyd_node *dnode,
 						    enum nb_event event,
 						    char *errmsg, size_t errmsg_len,
-						    struct ospf **ospf,
-						    struct interface **ifp)
+	struct ospf **ospf,
+	struct interface **ifp)
 {
 	int ret;
 
 	*ospf = NULL;
 	*ifp = NULL;
 
-	ret = ospfd_ietf_ospf_resolve_instance(dnode, event, errmsg, errmsg_len, ospf);
-	if (ret != NB_OK || !*ospf)
-		return ret;
+	if (event == NB_EV_VALIDATE)
+		*ospf = nb_running_get_entry(dnode, NULL, false);
+	else if (event == NB_EV_APPLY)
+		*ospf = nb_running_get_entry(dnode, NULL, true);
+	else
+		return NB_OK;
+
+	if (!*ospf)
+		return NB_OK;
 
 	ret = ospfd_ietf_ospf_resolve_interface(*ospf, dnode, event, errmsg, errmsg_len, ifp);
 	if (ret != NB_OK || !*ifp)
@@ -784,10 +778,7 @@ static bool ospfd_ietf_ospf_resolve_destroy_interface(struct nb_cb_destroy_args 
 	if (args->event != NB_EV_APPLY)
 		return false;
 
-	*ospf = ospfd_ietf_ospf_instance_from_dnode(args->dnode);
-	if (!*ospf)
-		return false;
-
+	*ospf = nb_running_get_entry(args->dnode, NULL, true);
 	*ifp = ospfd_ietf_ospf_interface_from_dnode(*ospf, args->dnode);
 	if (!*ifp)
 		return false;
@@ -875,8 +866,10 @@ int ospfd_ietf_ospf_areas_area_default_cost_destroy(struct nb_cb_destroy_args *a
 		.prefixlen = 0,
 	};
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 
@@ -1161,6 +1154,24 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_modify(
 	return NB_OK;
 }
 
+int ospfd_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (!ospfd_ietf_ospf_resolve_destroy_interface(args, &ospf, &ifp))
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, retransmit_interval);
+	params->retransmit_interval = yang_get_default_uint16(
+		"%s/areas/area/interfaces/interface/retransmit-interval",
+		OSPFD_IETF_OSPF_XPATH);
+	return NB_OK;
+}
+
 /* XPath: .../interface/priority */
 int ospfd_ietf_ospf_areas_area_interfaces_interface_priority_modify(struct nb_cb_modify_args *args)
 {
@@ -1183,6 +1194,25 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_priority_modify(struct nb_cb
 		SET_IF_PARAM(params, priority);
 
 	params->priority = yang_dnode_get_uint8(args->dnode, NULL);
+	ospfd_ietf_ospf_priority_update(ifp);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_priority_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (!ospfd_ietf_ospf_resolve_destroy_interface(args, &ospf, &ifp))
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, priority);
+	params->priority = yang_get_default_uint8(
+		"%s/areas/area/interfaces/interface/priority",
+		OSPFD_IETF_OSPF_XPATH);
 	ospfd_ietf_ospf_priority_update(ifp);
 	return NB_OK;
 }
@@ -1212,6 +1242,26 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_modify(struct nb_
 	return NB_OK;
 }
 
+int ospfd_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (!ospfd_ietf_ospf_resolve_destroy_interface(args, &ospf, &ifp))
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, mtu_ignore);
+	params->mtu_ignore =
+		yang_get_default_bool("%s/areas/area/interfaces/interface/mtu-ignore",
+				      OSPFD_IETF_OSPF_XPATH)
+			? 1
+			: 0;
+	return NB_OK;
+}
+
 /* XPath: .../interface/transmit-delay */
 int ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_modify(
 	struct nb_cb_modify_args *args)
@@ -1235,6 +1285,24 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_modify(
 		SET_IF_PARAM(params, transmit_delay);
 
 	params->transmit_delay = yang_dnode_get_uint16(args->dnode, NULL);
+	return NB_OK;
+}
+
+int ospfd_ietf_ospf_areas_area_interfaces_interface_transmit_delay_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct ospf *ospf;
+	struct interface *ifp;
+	struct ospf_if_params *params;
+
+	if (!ospfd_ietf_ospf_resolve_destroy_interface(args, &ospf, &ifp))
+		return NB_OK;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, transmit_delay);
+	params->transmit_delay = yang_get_default_uint16(
+		"%s/areas/area/interfaces/interface/transmit-delay",
+		OSPFD_IETF_OSPF_XPATH);
 	return NB_OK;
 }
 
@@ -1281,18 +1349,14 @@ static int ospfd_ietf_ospf_range_prefix_from_dnode(const struct lyd_node *dnode,
 int ospfd_ietf_ospf_areas_area_ranges_range_create(struct nb_cb_create_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct ospf_area *area;
 	struct in_addr area_id;
 	struct prefix_ipv4 p;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
@@ -1311,8 +1375,10 @@ int ospfd_ietf_ospf_areas_area_ranges_range_destroy(struct nb_cb_destroy_args *a
 	struct in_addr area_id;
 	struct prefix_ipv4 p;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
@@ -1331,19 +1397,15 @@ int ospfd_ietf_ospf_areas_area_ranges_range_destroy(struct nb_cb_destroy_args *a
 int ospfd_ietf_ospf_areas_area_ranges_range_advertise_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct ospf_area *area;
 	struct in_addr area_id;
 	struct prefix_ipv4 p;
 	int advertise;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
@@ -1364,8 +1426,10 @@ int ospfd_ietf_ospf_areas_area_ranges_range_advertise_destroy(struct nb_cb_destr
 	struct in_addr area_id;
 	struct prefix_ipv4 p;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
@@ -1383,18 +1447,14 @@ int ospfd_ietf_ospf_areas_area_ranges_range_advertise_destroy(struct nb_cb_destr
 int ospfd_ietf_ospf_areas_area_ranges_range_cost_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct ospf_area *area;
 	struct in_addr area_id;
 	struct prefix_ipv4 p;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
@@ -1415,8 +1475,10 @@ int ospfd_ietf_ospf_areas_area_ranges_range_cost_destroy(struct nb_cb_destroy_ar
 	struct in_addr area_id;
 	struct prefix_ipv4 p;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_area_id_from_dnode(args->dnode, &area_id) < 0)
 		return NB_ERR;
 	if (ospfd_ietf_ospf_range_prefix_from_dnode(args->dnode, &p) < 0)
@@ -1516,6 +1578,15 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
 	const char *val;
 	int type;
 
+	val = yang_dnode_get_string(args->dnode, NULL);
+	type = ospf_iftype_from_yang(val);
+	if (type < 0) {
+		if (args->event == NB_EV_VALIDATE)
+			snprintf(args->errmsg, args->errmsg_len,
+				 "unsupported interface-type enum '%s'", val);
+		return ospfd_ietf_ospf_parse_error(args->event);
+	}
+
 	ret = ospfd_ietf_ospf_resolve_modify_interface(args, &ospf, &ifp);
 	if (ret != NB_OK || !ospf || !ifp)
 		return ret;
@@ -1533,15 +1604,6 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_interface_type_modify(
 			snprintf(args->errmsg, args->errmsg_len,
 				 "cannot set interface-type on loopback interface %s", ifp->name);
 		return args->event == NB_EV_VALIDATE ? NB_ERR_VALIDATION : NB_OK;
-	}
-
-	val = yang_dnode_get_string(args->dnode, NULL);
-	type = ospf_iftype_from_yang(val);
-	if (type < 0) {
-		if (args->event == NB_EV_VALIDATE)
-			snprintf(args->errmsg, args->errmsg_len,
-				 "unsupported interface-type enum '%s'", val);
-		return ospfd_ietf_ospf_parse_error(args->event);
 	}
 
 	if (args->event != NB_EV_APPLY)
@@ -1656,16 +1718,12 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_passive_destroy(struct nb_cb
 int ospfd_ietf_ospf_preference_all_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	uint8_t distance;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	distance = yang_dnode_get_uint8(args->dnode, NULL);
 	if (ospf->distance_all == distance)
@@ -1679,8 +1737,10 @@ int ospfd_ietf_ospf_preference_all_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (!ospf->distance_all)
 		return NB_OK;
 	ospf->distance_all = 0;
@@ -1692,16 +1752,12 @@ int ospfd_ietf_ospf_preference_all_destroy(struct nb_cb_destroy_args *args)
 int ospfd_ietf_ospf_preference_intra_area_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	uint8_t distance;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	distance = yang_dnode_get_uint8(args->dnode, NULL);
 	if (ospf->distance_intra == distance)
 		return NB_OK;
@@ -1714,8 +1770,10 @@ int ospfd_ietf_ospf_preference_intra_area_destroy(struct nb_cb_destroy_args *arg
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (!ospf->distance_intra)
 		return NB_OK;
 	ospf->distance_intra = 0;
@@ -1727,16 +1785,12 @@ int ospfd_ietf_ospf_preference_intra_area_destroy(struct nb_cb_destroy_args *arg
 int ospfd_ietf_ospf_preference_inter_area_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	uint8_t distance;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	distance = yang_dnode_get_uint8(args->dnode, NULL);
 	if (ospf->distance_inter == distance)
 		return NB_OK;
@@ -1749,8 +1803,10 @@ int ospfd_ietf_ospf_preference_inter_area_destroy(struct nb_cb_destroy_args *arg
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (!ospf->distance_inter)
 		return NB_OK;
 	ospf->distance_inter = 0;
@@ -1762,16 +1818,12 @@ int ospfd_ietf_ospf_preference_inter_area_destroy(struct nb_cb_destroy_args *arg
 int ospfd_ietf_ospf_preference_internal_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	uint8_t distance;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	distance = yang_dnode_get_uint8(args->dnode, NULL);
 	if (ospf->distance_intra == distance && ospf->distance_inter == distance)
 		return NB_OK;
@@ -1785,8 +1837,10 @@ int ospfd_ietf_ospf_preference_internal_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (!ospf->distance_intra && !ospf->distance_inter)
 		return NB_OK;
 	ospf->distance_intra = 0;
@@ -1799,16 +1853,12 @@ int ospfd_ietf_ospf_preference_internal_destroy(struct nb_cb_destroy_args *args)
 int ospfd_ietf_ospf_preference_external_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	uint8_t distance;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	distance = yang_dnode_get_uint8(args->dnode, NULL);
 	if (ospf->distance_external == distance)
 		return NB_OK;
@@ -1821,8 +1871,10 @@ int ospfd_ietf_ospf_preference_external_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (!ospf->distance_external)
 		return NB_OK;
 	ospf->distance_external = 0;
@@ -1842,13 +1894,7 @@ int ospfd_ietf_ospf_preference_external_destroy(struct nb_cb_destroy_args *args)
 int ospfd_ietf_ospf_spf_control_paths_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	uint16_t paths;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event == NB_EV_VALIDATE) {
 		paths = yang_dnode_get_uint16(args->dnode, NULL);
@@ -1863,6 +1909,8 @@ int ospfd_ietf_ospf_spf_control_paths_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
+
 	paths = yang_dnode_get_uint16(args->dnode, NULL);
 	if (ospf->max_multipath == paths)
 		return NB_OK;
@@ -1875,8 +1923,10 @@ int ospfd_ietf_ospf_spf_control_paths_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospf->max_multipath == MULTIPATH_NUM)
 		return NB_OK;
 	ospf->max_multipath = MULTIPATH_NUM;
@@ -1904,19 +1954,20 @@ int ospfd_ietf_ospf_mpls_ldp_igp_sync_modify(struct nb_cb_modify_args *args)
 	int ret;
 	bool enable;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
+	if (args->event == NB_EV_APPLY)
+		ospf = nb_running_get_entry(args->dnode, NULL, true);
+	else if (args->event == NB_EV_VALIDATE)
+		ospf = nb_running_get_entry(args->dnode, NULL, false);
+	else
+		ospf = NULL;
+	ret = ospfd_ietf_ospf_validate_default_vrf_only(
+		args->dnode, ospf, args->event, "ldp-sync only runs on DEFAULT VRF",
+		args->errmsg, args->errmsg_len);
+	if (ret != NB_OK)
 		return ret;
 
-	if (args->event == NB_EV_VALIDATE) {
-		if (ospf->vrf_id != VRF_DEFAULT) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "ldp-sync only runs on DEFAULT VRF");
-			return NB_ERR_VALIDATION;
-		}
+	if (args->event == NB_EV_VALIDATE)
 		return NB_OK;
-	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -1944,8 +1995,10 @@ int ospfd_ietf_ospf_mpls_ldp_igp_sync_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	ospf_ldp_sync_gbl_exit(ospf, true);
 	return NB_OK;
 }
@@ -1965,17 +2018,13 @@ int ospfd_ietf_ospf_mpls_ldp_igp_sync_destroy(struct nb_cb_destroy_args *args)
 int ospfd_ietf_ospf_stub_router_always_create(struct nb_cb_create_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	struct listnode *ln;
 	struct ospf_area *area;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
 		SET_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
@@ -1992,8 +2041,10 @@ int ospfd_ietf_ospf_stub_router_always_destroy(struct nb_cb_destroy_args *args)
 	struct listnode *ln;
 	struct ospf_area *area;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
 		UNSET_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
@@ -2109,14 +2160,7 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_prefix_suppression_destroy(s
  */
 int ospfd_ietf_ospf_auto_cost_enabled_modify(struct nb_cb_modify_args *args)
 {
-	struct ospf *ospf;
-	int ret;
 	bool enabled;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	enabled = yang_dnode_get_bool(args->dnode, NULL);
 	if (args->event == NB_EV_VALIDATE) {
@@ -2128,6 +2172,7 @@ int ospfd_ietf_ospf_auto_cost_enabled_modify(struct nb_cb_modify_args *args)
 		}
 		return NB_OK;
 	}
+
 	return NB_OK;
 }
 
@@ -2145,16 +2190,12 @@ int ospfd_ietf_ospf_auto_cost_reference_bandwidth_modify(struct nb_cb_modify_arg
 	struct ospf *ospf;
 	struct vrf *vrf;
 	struct interface *ifp;
-	int ret;
 	uint32_t refbw;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	refbw = yang_dnode_get_uint32(args->dnode, NULL);
 	if (ospf->ref_bandwidth == refbw)
@@ -2172,8 +2213,10 @@ int ospfd_ietf_ospf_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_a
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospf->ref_bandwidth == OSPF_DEFAULT_REF_BANDWIDTH)
 		return NB_OK;
 	ospf->ref_bandwidth = OSPF_DEFAULT_REF_BANDWIDTH;
@@ -2199,19 +2242,21 @@ int ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_modify(struct nb_cb_modify_args *
 	struct in_addr value;
 	int ret;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
+	if (args->event == NB_EV_APPLY)
+		ospf = nb_running_get_entry(args->dnode, NULL, true);
+	else if (args->event == NB_EV_VALIDATE)
+		ospf = nb_running_get_entry(args->dnode, NULL, false);
+	else
+		ospf = NULL;
+	ret = ospfd_ietf_ospf_validate_default_vrf_only(
+		args->dnode, ospf, args->event,
+		"mpls-te router-address only runs on DEFAULT VRF",
+		args->errmsg, args->errmsg_len);
+	if (ret != NB_OK)
 		return ret;
 
-	if (args->event == NB_EV_VALIDATE) {
-		if (ospf->vrf_id != VRF_DEFAULT) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "mpls-te router-address only runs on DEFAULT VRF");
-			return NB_ERR_VALIDATION;
-		}
+	if (args->event == NB_EV_VALIDATE)
 		return NB_OK;
-	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -2225,8 +2270,10 @@ int ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_destroy(struct nb_cb_destroy_args
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospf->vrf_id != VRF_DEFAULT)
 		return NB_OK;
 	ospf_mpls_te_clear_router_addr();
@@ -2257,17 +2304,14 @@ static int ospfd_ietf_ospf_gr_validate_not_preparing(struct ospf *ospf, char *er
 int ospfd_ietf_ospf_graceful_restart_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	bool enabled;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	enabled = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (args->event == NB_EV_VALIDATE) {
+		ospf = nb_running_get_entry(args->dnode, NULL, false);
+		if (!ospf)
+			return NB_OK;
 		if (!enabled)
 			return ospfd_ietf_ospf_gr_validate_not_preparing(
 				ospf, args->errmsg, args->errmsg_len);
@@ -2277,6 +2321,7 @@ int ospfd_ietf_ospf_graceful_restart_enabled_modify(struct nb_cb_modify_args *ar
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (enabled)
 		ospf_gr_restart_support_enable(ospf);
 	else
@@ -2287,19 +2332,19 @@ int ospfd_ietf_ospf_graceful_restart_enabled_modify(struct nb_cb_modify_args *ar
 int ospfd_ietf_ospf_graceful_restart_enabled_destroy(struct nb_cb_destroy_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 
 	if (args->event == NB_EV_VALIDATE) {
-		ret = ospfd_ietf_ospf_resolve_instance(
-			args->dnode, args->event, args->errmsg, args->errmsg_len, &ospf);
-		if (ret != NB_OK || !ospf)
-			return ret;
+		ospf = nb_running_get_entry(args->dnode, NULL, false);
+		if (!ospf)
+			return NB_OK;
 		return ospfd_ietf_ospf_gr_validate_not_preparing(
 			ospf, args->errmsg, args->errmsg_len);
 	}
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	(void)ospf_gr_restart_support_disable(ospf);
 	return NB_OK;
 }
@@ -2314,21 +2359,20 @@ int ospfd_ietf_ospf_graceful_restart_enabled_destroy(struct nb_cb_destroy_args *
 int ospfd_ietf_ospf_graceful_restart_restart_interval_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 	uint16_t period;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
-	if (args->event == NB_EV_VALIDATE)
+	if (args->event == NB_EV_VALIDATE) {
+		ospf = nb_running_get_entry(args->dnode, NULL, false);
+		if (!ospf)
+			return NB_OK;
 		return ospfd_ietf_ospf_gr_validate_not_preparing(
 			ospf, args->errmsg, args->errmsg_len);
+	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	period = yang_dnode_get_uint16(args->dnode, NULL);
 	ospf_gr_set_grace_period(ospf, period);
 	return NB_OK;
@@ -2347,15 +2391,11 @@ int ospfd_ietf_ospf_graceful_restart_restart_interval_modify(struct nb_cb_modify
 int ospfd_ietf_ospf_graceful_restart_helper_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	ospf_gr_helper_support_set(ospf, yang_dnode_get_bool(args->dnode, NULL));
 	return NB_OK;
@@ -2365,8 +2405,10 @@ int ospfd_ietf_ospf_graceful_restart_helper_enabled_destroy(struct nb_cb_destroy
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	ospf_gr_helper_support_set(ospf, false);
 	return NB_OK;
 }
@@ -2382,15 +2424,11 @@ int ospfd_ietf_ospf_graceful_restart_helper_enabled_destroy(struct nb_cb_destroy
 int ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_modify(struct nb_cb_modify_args *args)
 {
 	struct ospf *ospf;
-	int ret;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 
 	ospf_gr_helper_lsa_check_set(ospf, yang_dnode_get_bool(args->dnode, NULL));
 	return NB_OK;
@@ -2400,8 +2438,10 @@ int ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_destroy(struct n
 {
 	struct ospf *ospf;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	ospf_gr_helper_lsa_check_set(
 		ospf,
 		yang_get_default_bool(
@@ -2412,12 +2452,12 @@ int ospfd_ietf_ospf_graceful_restart_helper_strict_lsa_checking_destroy(struct n
 
 /*
  * RFC 9129 `bfd-types:client-cfg-parms` uses microsecond units for the
- * timer leaves; FRR stores milliseconds internally (see
- * lib/bfd.c:1120-1125 where bfdd multiplies by 1000 again for the
- * protocol).  Operators expect to write whole-millisecond values via
- * YANG, so reject non-multiples of 1000 microseconds at VALIDATE and
- * convert at APPLY.  Range checks mirror the legacy CLI grammar:
- * 50..60000 ms.
+ * timer leaves, while FRR's OSPF BFD configuration stores the legacy CLI
+ * millisecond values. The CLI shims multiply milliseconds by 1000 before
+ * enqueueing YANG changes, and the NB callbacks divide by 1000 before
+ * materialising OSPF state. Reject non-multiples of 1000 microseconds at
+ * VALIDATE so the stored state cannot lose precision. Range checks mirror
+ * the legacy CLI grammar: 50..60000 ms.
  */
 static uint8_t ospfd_ietf_bfd_default_multiplier(void)
 {
@@ -2485,11 +2525,7 @@ void ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_apply_finish(struct nb_
 	int ret;
 	bool enabled;
 
-	/* apply_finish is APPLY-only; the literal event is intentional. */
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, NB_EV_APPLY, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return;
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, NB_EV_APPLY, args->errmsg,
 						args->errmsg_len, &ifp);
 	if (ret != NB_OK || !ifp)
@@ -2521,14 +2557,8 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify(struct nb
 	struct interface *ifp;
 	int ret;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event,
-						args->errmsg, args->errmsg_len,
-						&ifp);
-	if (ret != NB_OK || !ifp)
+	ret = ospfd_ietf_ospf_resolve_modify_interface(args, &ospf, &ifp);
+	if (ret != NB_OK)
 		return ret;
 
 	/* APPLY is intentionally a no-op; the parent /bfd apply_finish applies. */
@@ -2538,8 +2568,8 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify(struct nb
 /*
  * XPath: .../ospf/areas/area/interfaces/interface/bfd/local-multiplier
  *
- * Maps to `bfd_config->detection_multiplier`.  Type is `multiplier`
- * (uint8 1..255) in ietf-bfd-types; FRR's CLI accepts the same range.
+ * Maps to `bfd_config->detection_multiplier`. The deviation module narrows
+ * the ietf-bfd-types multiplier range to FRR's OSPF CLI range, 2..255.
  * Setting this leaf is permitted regardless of `/bfd/enabled` state.  The
  * value is applied to the running BFD session when BFD is active, or stored
  * in the YANG running datastore for later application when BFD is enabled.
@@ -2550,14 +2580,8 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_modify(
 	struct interface *ifp;
 	int ret;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event,
-						args->errmsg, args->errmsg_len,
-						&ifp);
-	if (ret != NB_OK || !ifp)
+	ret = ospfd_ietf_ospf_resolve_modify_interface(args, &ospf, &ifp);
+	if (ret != NB_OK)
 		return ret;
 
 	/* APPLY is intentionally a no-op; the parent /bfd apply_finish applies. */
@@ -2581,20 +2605,15 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_desired_min_tx_interval_
 	int ret;
 	uint32_t us;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event,
-						args->errmsg, args->errmsg_len,
-						&ifp);
-	if (ret != NB_OK || !ifp)
-		return ret;
-
 	us = yang_dnode_get_uint32(args->dnode, NULL);
 	if (args->event == NB_EV_VALIDATE)
 		return bfd_validate_ietf_interval_us(us, "desired-min-tx-interval",
 						     args->errmsg, args->errmsg_len);
+
+	ret = ospfd_ietf_ospf_resolve_modify_interface(args, &ospf, &ifp);
+	if (ret != NB_OK)
+		return ret;
+
 	/* APPLY is intentionally a no-op; the parent /bfd apply_finish applies. */
 	return NB_OK;
 }
@@ -2618,20 +2637,15 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_bfd_required_min_rx_interval
 	int ret;
 	uint32_t us;
 
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-	ret = ospfd_ietf_ospf_resolve_interface(ospf, args->dnode, args->event,
-						args->errmsg, args->errmsg_len,
-						&ifp);
-	if (ret != NB_OK || !ifp)
-		return ret;
-
 	us = yang_dnode_get_uint32(args->dnode, NULL);
 	if (args->event == NB_EV_VALIDATE)
 		return bfd_validate_ietf_interval_us(us, "required-min-rx-interval",
 						     args->errmsg, args->errmsg_len);
+
+	ret = ospfd_ietf_ospf_resolve_modify_interface(args, &ospf, &ifp);
+	if (ret != NB_OK)
+		return ret;
+
 	/* APPLY is intentionally a no-op; the parent /bfd apply_finish applies. */
 	return NB_OK;
 }
@@ -2711,6 +2725,15 @@ static int ospfd_ietf_ospf_static_neighbor_validate(const struct lyd_node *dnode
 		return NB_ERR_VALIDATION;
 	}
 
+	if (!matches || matches->count == 0) {
+		snprintf(errmsg, errmsg_len,
+			 "static-neighbors/neighbor identifier '%s' is not present in this OSPF instance",
+			 id);
+		if (matches)
+			ly_set_free(matches, NULL);
+		return NB_ERR_VALIDATION;
+	}
+
 	if (matches->count > 1) {
 		snprintf(errmsg, errmsg_len,
 			 "static-neighbors/neighbor identifier '%s' is already configured in this OSPF instance",
@@ -2748,19 +2771,9 @@ static void ospfd_ietf_ospf_static_neighbor_apply(struct ospf *ospf,
  */
 int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_create(struct nb_cb_create_args *args)
 {
-	struct ospf *ospf;
-	int ret;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
 	if (args->event == NB_EV_VALIDATE)
 		return ospfd_ietf_ospf_static_neighbor_validate(args->dnode, args->errmsg,
 								args->errmsg_len);
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 
 	return NB_OK;
 }
@@ -2768,14 +2781,8 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_cr
 void ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct ospf *ospf;
-	int ret;
 
-	/* apply_finish is APPLY-only; the literal event is intentional. */
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, NB_EV_APPLY, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return;
-
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	ospfd_ietf_ospf_static_neighbor_apply(ospf, args->dnode);
 }
 
@@ -2784,8 +2791,10 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_de
 	struct ospf *ospf;
 	struct in_addr addr;
 
-	if (!ospfd_ietf_ospf_resolve_destroy_instance(args, &ospf))
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	ospf = nb_running_get_entry(args->dnode, NULL, true);
 	if (ospfd_ietf_ospf_static_neighbor_addr(args->dnode, &addr) < 0)
 		return NB_OK;
 	(void)ospf_nbr_nbma_unset(ospf, addr);
@@ -2802,19 +2811,9 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_de
  */
 int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_poll_interval_modify(struct nb_cb_modify_args *args)
 {
-	struct ospf *ospf;
-	int ret;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
 	if (args->event == NB_EV_VALIDATE)
 		return ospfd_ietf_ospf_static_neighbor_validate(args->dnode, args->errmsg,
 								args->errmsg_len);
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 
 	return NB_OK;
 }
@@ -2824,19 +2823,9 @@ int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_po
  */
 int ospfd_ietf_ospf_areas_area_interfaces_interface_static_neighbors_neighbor_priority_modify(struct nb_cb_modify_args *args)
 {
-	struct ospf *ospf;
-	int ret;
-
-	ret = ospfd_ietf_ospf_resolve_instance(args->dnode, args->event, args->errmsg,
-					       args->errmsg_len, &ospf);
-	if (ret != NB_OK || !ospf)
-		return ret;
-
 	if (args->event == NB_EV_VALIDATE)
 		return ospfd_ietf_ospf_static_neighbor_validate(args->dnode, args->errmsg,
 								args->errmsg_len);
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
 
 	return NB_OK;
 }
