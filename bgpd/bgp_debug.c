@@ -217,19 +217,22 @@ static struct peer *bgp_find_peer(struct vty *vty, const char *peer_str)
 		return peer_lookup(bgp, &su);
 }
 
-static void bgp_debug_list_free(struct list *list)
+static void bgp_debug_list_free(struct list **list)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
 
-	if (list)
-		for (ALL_LIST_ELEMENTS(list, node, nnode, filter)) {
-			listnode_delete(list, filter);
+	if (*list) {
+		for (ALL_LIST_ELEMENTS(*list, node, nnode, filter)) {
+			listnode_delete(*list, filter);
 			prefix_free(&filter->p);
 			XFREE(MTYPE_BGP_DEBUG_STR, filter->host);
 			XFREE(MTYPE_BGP_DEBUG_STR, filter->plist_name);
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
 		}
+
+		list_delete(list);
+	}
 }
 
 /*
@@ -794,7 +797,7 @@ DEFUN (debug_bgp_neighbor_events,
        BGP_STR
        "BGP Neighbor Events\n")
 {
-	bgp_debug_list_free(bgp_debug_neighbor_events_peers);
+	bgp_debug_list_free(&bgp_debug_neighbor_events_peers);
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_ON(neighbor_events, NEIGHBOR_EVENTS);
@@ -875,7 +878,7 @@ DEFUN (no_debug_bgp_neighbor_events,
        BGP_STR
        "Neighbor Events\n")
 {
-	bgp_debug_list_free(bgp_debug_neighbor_events_peers);
+	bgp_debug_list_free(&bgp_debug_neighbor_events_peers);
 
 	if (vty->node == CONFIG_NODE) {
 		DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS);
@@ -970,7 +973,7 @@ DEFUN (debug_bgp_keepalive,
        BGP_STR
        "BGP keepalives\n")
 {
-	bgp_debug_list_free(bgp_debug_keepalive_peers);
+	bgp_debug_list_free(&bgp_debug_keepalive_peers);
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_ON(keepalive, KEEPALIVE);
@@ -1024,7 +1027,7 @@ DEFUN (no_debug_bgp_keepalive,
        BGP_STR
        "BGP keepalives\n")
 {
-	bgp_debug_list_free(bgp_debug_keepalive_peers);
+	bgp_debug_list_free(&bgp_debug_keepalive_peers);
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_OFF(keepalive, KEEPALIVE);
@@ -1154,7 +1157,7 @@ DEFUN (no_debug_bgp_bestpath,
        BGP_STR
        "BGP bestpath\n")
 {
-	bgp_debug_list_free(bgp_debug_bestpath_prefixes);
+	bgp_debug_list_free(&bgp_debug_bestpath_prefixes);
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_OFF(bestpath, BESTPATH);
@@ -1173,9 +1176,9 @@ DEFUN (debug_bgp_update,
        BGP_STR
        "BGP updates\n")
 {
-	bgp_debug_list_free(bgp_debug_update_in_peers);
-	bgp_debug_list_free(bgp_debug_update_out_peers);
-	bgp_debug_list_free(bgp_debug_update_prefixes);
+	bgp_debug_list_free(&bgp_debug_update_in_peers);
+	bgp_debug_list_free(&bgp_debug_update_out_peers);
+	bgp_debug_list_free(&bgp_debug_update_prefixes);
 
 	if (vty->node == CONFIG_NODE) {
 		DEBUG_ON(update, UPDATE_IN);
@@ -1225,9 +1228,9 @@ DEFUN (debug_bgp_update_direct,
 	int idx_in_out = 3;
 
 	if (strncmp("i", argv[idx_in_out]->arg, 1) == 0)
-		bgp_debug_list_free(bgp_debug_update_in_peers);
+		bgp_debug_list_free(&bgp_debug_update_in_peers);
 	else
-		bgp_debug_list_free(bgp_debug_update_out_peers);
+		bgp_debug_list_free(&bgp_debug_update_out_peers);
 
 	if (vty->node == CONFIG_NODE) {
 		if (strncmp("i", argv[idx_in_out]->arg, 1) == 0)
@@ -1357,7 +1360,7 @@ DEFUN (no_debug_bgp_update_direct,
 {
 	int idx_in_out = 4;
 	if (strncmp("i", argv[idx_in_out]->arg, 1) == 0) {
-		bgp_debug_list_free(bgp_debug_update_in_peers);
+		bgp_debug_list_free(&bgp_debug_update_in_peers);
 
 		if (vty->node == CONFIG_NODE) {
 			DEBUG_OFF(update, UPDATE_IN);
@@ -1367,7 +1370,7 @@ DEFUN (no_debug_bgp_update_direct,
 				"BGP updates debugging is off (inbound)\n");
 		}
 	} else {
-		bgp_debug_list_free(bgp_debug_update_out_peers);
+		bgp_debug_list_free(&bgp_debug_update_out_peers);
 
 		if (vty->node == CONFIG_NODE) {
 			DEBUG_OFF(update, UPDATE_OUT);
@@ -1683,9 +1686,9 @@ DEFUN (no_debug_bgp_update,
 	struct listnode *ln;
 	struct bgp *bgp;
 
-	bgp_debug_list_free(bgp_debug_update_in_peers);
-	bgp_debug_list_free(bgp_debug_update_out_peers);
-	bgp_debug_list_free(bgp_debug_update_prefixes);
+	bgp_debug_list_free(&bgp_debug_update_in_peers);
+	bgp_debug_list_free(&bgp_debug_update_out_peers);
+	bgp_debug_list_free(&bgp_debug_update_prefixes);
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, ln, bgp))
 		bgp_debug_clear_updgrp_update_dbg(bgp);
@@ -1777,7 +1780,7 @@ DEFUN (no_debug_bgp_zebra,
        BGP_STR
        "BGP Zebra messages\n")
 {
-	bgp_debug_list_free(bgp_debug_zebra_prefixes);
+	bgp_debug_list_free(&bgp_debug_zebra_prefixes);
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_OFF(zebra, ZEBRA);
@@ -1867,7 +1870,7 @@ DEFPY (no_debug_bgp_aggregate,
        BGP_STR
        "BGP aggregate\n")
 {
-	bgp_debug_list_free(bgp_debug_aggregate_prefixes);
+	bgp_debug_list_free(&bgp_debug_aggregate_prefixes);
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_OFF(aggregate, AGGREGATE);
@@ -2315,13 +2318,7 @@ DEFUN (no_debug_bgp,
 	struct bgp *bgp;
 	struct listnode *ln;
 
-	bgp_debug_list_free(bgp_debug_neighbor_events_peers);
-	bgp_debug_list_free(bgp_debug_keepalive_peers);
-	bgp_debug_list_free(bgp_debug_update_in_peers);
-	bgp_debug_list_free(bgp_debug_update_out_peers);
-	bgp_debug_list_free(bgp_debug_update_prefixes);
-	bgp_debug_list_free(bgp_debug_bestpath_prefixes);
-	bgp_debug_list_free(bgp_debug_zebra_prefixes);
+	bgp_debug_destroy();
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, ln, bgp))
 		bgp_debug_clear_updgrp_update_dbg(bgp);
@@ -2767,6 +2764,18 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_linkstate_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_linkstate_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_linkstate_cmd);
+}
+
+void bgp_debug_destroy(void)
+{
+	bgp_debug_list_free(&bgp_debug_bestpath_prefixes);
+	bgp_debug_list_free(&bgp_debug_update_in_peers);
+	bgp_debug_list_free(&bgp_debug_update_out_peers);
+	bgp_debug_list_free(&bgp_debug_update_prefixes);
+	bgp_debug_list_free(&bgp_debug_zebra_prefixes);
+	bgp_debug_list_free(&bgp_debug_aggregate_prefixes);
+	bgp_debug_list_free(&bgp_debug_neighbor_events_peers);
+	bgp_debug_list_free(&bgp_debug_keepalive_peers);
 }
 
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug
