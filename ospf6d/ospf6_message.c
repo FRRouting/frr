@@ -39,6 +39,7 @@
 #include "lib/libospf.h"
 #include "lib/keychain.h"
 #include "ospf6_auth_trailer.h"
+#include "ospf6_nb.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_MESSAGE, "OSPF6 message");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PACKET, "OSPF6 packet");
@@ -434,6 +435,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 			oi->interface->vrf->name, oi->interface->name, src,
 			&oh->router_id, oi->hello_interval,
 			ntohs(hello->hello_interval));
+		ospf6d_ietf_notif_if_config_error(oi, *src, oh->type, "hello-interval-mismatch");
 		return;
 	}
 
@@ -444,6 +446,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 			oi->interface->vrf->name, oi->interface->name, src,
 			&oh->router_id, oi->dead_interval,
 			ntohs(hello->dead_interval));
+		ospf6d_ietf_notif_if_config_error(oi, *src, oh->type, "dead-interval-mismatch");
 		return;
 	}
 

@@ -322,6 +322,80 @@ void ospf6d_ietf_notif_nbr_restart_helper_status_change(struct ospf6_neighbor *o
 	     exit_reason);
 	nb_notification_send(xpath, args);
 }
+/*
+ * XPath: /ietf-ospf:if-rx-bad-packet
+ *
+ * Emit when an OSPFv3 packet cannot be parsed on a given interface.
+ * `src` is the source IPv6 address; the packet-type leaf is omitted
+ * when unknown (e.g. truncated header).
+ */
+void ospf6d_ietf_notif_if_rx_bad_packet(struct ospf6_interface *oi, struct in6_addr src,
+					uint8_t packet_type)
+{
+	const char *xpath = "/ietf-ospf:if-rx-bad-packet";
+	struct list *args;
+	char xpath_arg[XPATH_MAXLEN];
+	char buf[INET6_ADDRSTRLEN];
+
+	if (!oi || !oi->interface || !oi->area || !oi->area->ospf6)
+		return;
+
+	args = yang_data_list_new();
+	ospf6d_ietf_notif_add_instance_hdr(args, xpath, oi->area->ospf6);
+	ospf6d_ietf_notif_add_interface_hdr(args, xpath, oi->interface);
+
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/packet-source", xpath);
+	inet_ntop(AF_INET6, &src, buf, sizeof(buf));
+	listnode_add(args, yang_data_new_string(xpath_arg, buf));
+
+	if (packet_type >= 1 && packet_type <= 5) {
+		snprintf(xpath_arg, sizeof(xpath_arg), "%s/packet-type", xpath);
+		listnode_add(args, yang_data_new_enum(xpath_arg, packet_type));
+	}
+
+	_dbg("bad packet on %s from %s type %u", oi->interface->name, buf, packet_type);
+	nb_notification_send(xpath, args);
+}
+
+/*
+ * XPath: /ietf-ospf:if-config-error
+ *
+ * Emit when an OSPFv3 packet's contents diverge from the local
+ * interface configuration.  `error_name` is the RFC enum identifier
+ * string.
+ */
+void ospf6d_ietf_notif_if_config_error(struct ospf6_interface *oi, struct in6_addr src,
+				       uint8_t packet_type, const char *error_name)
+{
+	const char *xpath = "/ietf-ospf:if-config-error";
+	struct list *args;
+	char xpath_arg[XPATH_MAXLEN];
+	char buf[INET6_ADDRSTRLEN];
+
+	if (!oi || !oi->interface || !oi->area || !oi->area->ospf6 || !error_name)
+		return;
+
+	args = yang_data_list_new();
+	ospf6d_ietf_notif_add_instance_hdr(args, xpath, oi->area->ospf6);
+	ospf6d_ietf_notif_add_interface_hdr(args, xpath, oi->interface);
+
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/packet-source", xpath);
+	inet_ntop(AF_INET6, &src, buf, sizeof(buf));
+	listnode_add(args, yang_data_new_string(xpath_arg, buf));
+
+	if (packet_type >= 1 && packet_type <= 5) {
+		snprintf(xpath_arg, sizeof(xpath_arg), "%s/packet-type", xpath);
+		listnode_add(args, yang_data_new_enum(xpath_arg, packet_type));
+	}
+
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/error", xpath);
+	listnode_add(args, yang_data_new_string(xpath_arg, error_name));
+
+	_dbg("config error on %s from %s type %u: %s", oi->interface->name, buf, packet_type,
+	     error_name);
+	nb_notification_send(xpath, args);
+}
+
 void ospf6d_ietf_notif_init(void)
 {
 	hook_register(ospf6_neighbor_change, ospf6d_ietf_nbr_state_change);

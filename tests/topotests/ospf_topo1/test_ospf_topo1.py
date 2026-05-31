@@ -3923,6 +3923,87 @@ def test_ospf_yang_if_state_change_notification():
     _force_ospf_reconvergence_to_steady_state()
 
 
+def test_ospf_yang_if_config_error_notification():
+    """RFC 9129 /ietf-ospf:if-config-error emitted on Hello mismatch.
+
+    The emit sites are in the normal OSPF Hello receive paths.  Change r2's
+    hello interval on the shared segment so r1 rejects the packet and emits
+    if-config-error, then restore the interval and reconverge the topology.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    marker = "=== test_ospf_yang_if_config_error_notification BEGIN ==="
+    r1.vtysh_cmd("send log level info {}".format(marker))
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "debug northbound notifications\n"
+        "do log levels file file:ospfd.log debug\n"
+        "do log levels file file:ospf6d.log debug\n"
+    )
+
+    try:
+        r2.vtysh_cmd(
+            "configure terminal\n"
+            "interface r2-eth1\n"
+            " ip ospf hello-interval 3\n"
+            " ipv6 ospf6 hello-interval 3\n"
+        )
+
+        def saw_v2_config_error():
+            hits = _grep_daemon_log(
+                r1, "ospfd",
+                "northbound notification: /ietf-ospf:if-config-error",
+                marker,
+            )
+            hits += [
+                line
+                for line in _grep_daemon_log(r1, "ospfd", "OSPF-NOTIF", marker)
+                if "if-config-error" in line
+            ]
+            return None if hits else "no v2 if-config-error notification log"
+
+        def saw_v3_config_error():
+            hits = _grep_daemon_log(
+                r1, "ospf6d",
+                "northbound notification: /ietf-ospf:if-config-error",
+                marker,
+            )
+            hits += [
+                line
+                for line in _grep_daemon_log(r1, "ospf6d", "OSPF6-NOTIF", marker)
+                if "if-config-error" in line
+            ]
+            return None if hits else "no v3 if-config-error notification log"
+
+        _, result = topotest.run_and_expect(
+            saw_v2_config_error, None, count=60, wait=0.5
+        )
+        assert result is None, "v2 if-config-error notification was not emitted"
+
+        _, result = topotest.run_and_expect(
+            saw_v3_config_error, None, count=60, wait=0.5
+        )
+        assert result is None, "v3 if-config-error notification was not emitted"
+    finally:
+        r2.vtysh_cmd(
+            "configure terminal\n"
+            "interface r2-eth1\n"
+            " ip ospf hello-interval 2\n"
+            " ipv6 ospf6 hello-interval 2\n"
+        )
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+    _force_ospf_reconvergence_to_steady_state()
+
 def test_ospf_yang_nbr_state_change_lifecycle_down_notification():
     """RFC 9129 /ietf-ospf:nbr-state-change fires on tear-down too.
 

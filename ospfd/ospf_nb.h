@@ -164,9 +164,14 @@ int ospfd_ietf_ospf_clear_database_rpc(struct nb_cb_rpc_args *args);
 
 /* Notification emitters (RFC 9129). */
 struct ospf_neighbor;
+struct ospf_interface;
 void ospfd_ietf_notif_init(void);
 void ospfd_ietf_notif_restart_status_change(struct ospf *ospf, int status, int exit_reason);
 void ospfd_ietf_notif_nbr_restart_helper_status_change(struct ospf_neighbor *nbr, int status,
 						       uint16_t age, int exit_reason);
+void ospfd_ietf_notif_if_rx_bad_packet(struct ospf_interface *oi, struct in_addr src,
+				       uint8_t packet_type);
+void ospfd_ietf_notif_if_config_error(struct ospf_interface *oi, struct in_addr src,
+				      uint8_t packet_type, const char *error_name);
 
 #endif /* FRR_OSPF_NB_H */
