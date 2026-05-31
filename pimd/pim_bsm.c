@@ -509,8 +509,9 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 	 * install the rp from head(if exists) of partial list. List is
 	 * is sorted such that head is the elected RP for the group.
 	 */
-	if (!rn || (prefix_same(&rp_all->group, &bsgrp_node->group) &&
-		    pim_rpf_addr_is_inaddr_any(&rp_all->rp))) {
+	if (!rn || !rp_all ||
+	    (prefix_same(&rp_all->group, &bsgrp_node->group) &&
+	     pim_rpf_addr_is_inaddr_any(&rp_all->rp))) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: Route node doesn't exist", __func__);
 		if (pend)
