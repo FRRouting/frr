@@ -3626,6 +3626,161 @@ def test_ospf_yang_area_delete_recreate_cleanup():
     _force_ospf_reconvergence_to_steady_state()
 
 
+def _send_ietf_ospf_rpc(router, rpc_xpath, input_json):
+    """Issue a mgmt rpc and surface the daemon-side error if any.
+
+    mgmtd reports backend errors as `% <message>` lines in the vty output.
+    Catch any '%' or 'can\\'t' / 'error' / 'fail' / 'no backends' marker so
+    a parse failure or unknown-xpath dispatch doesn't slip past the
+    convergence checks (OSPF was already Full before the RPC, so a no-op
+    RPC would otherwise look like a pass).
+    """
+    out = router.vtysh_cmd(
+        "configure terminal\nmgmt rpc {} json {}".format(rpc_xpath, input_json)
+    )
+    lowered = out.lower()
+    bad = ("% ", "can't", "error", "fail", "no backends", "invalid")
+    for marker in bad:
+        assert marker not in lowered, (
+            "RPC {} on {} returned an error (matched '{}'):\n{}".format(
+                rpc_xpath, router.name, marker, out
+            )
+        )
+    return out
+
+
+def test_ospf_yang_clear_neighbor_rpc():
+    """RFC 9129 /ietf-ospf:clear-neighbor round-trip on both daemons.
+
+    Both ospfd and ospf6d register the same RPC xpath; mgmtd fans the call
+    out to each backend. The daemon that owns the named instance kills its
+    neighbors, the other daemon returns silently. We verify the kill by
+    waiting for OSPF to renegotiate back to Full.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # Pre-state: r1 must already be Full with r2 on both daemons.
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    # Whole-instance reset (no `interface` filter). The libyang RPC parser
+    # expects the input leaves wrapped in the RPC name, namespace-qualified.
+    _send_ietf_ospf_rpc(
+        r1,
+        "/ietf-ospf:clear-neighbor",
+        '{"ietf-ospf:clear-neighbor":{"routing-protocol-name":"default"}}',
+    )
+
+    # The kill drives every neighbor to Down; OSPF must renegotiate.
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    # Per-interface reset using the RFC's optional `interface` input. r1-eth1
+    # is the interface r1 shares with r2 on both v2 and v3.
+    _send_ietf_ospf_rpc(
+        r1,
+        "/ietf-ospf:clear-neighbor",
+        '{"ietf-ospf:clear-neighbor":{"routing-protocol-name":"default","interface":"r1-eth1"}}',
+    )
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+
+def test_ospf_yang_clear_database_rpc():
+    """RFC 9129 /ietf-ospf:clear-database round-trip on both daemons.
+
+    Maps to `ospf_process_reset` / `ospf6_process_reset`. Flushes self-
+    originated LSAs, drops all adjacencies, rebuilds. Verify by waiting
+    for r1 to come back Full with r2 on both daemons.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    _send_ietf_ospf_rpc(
+        r1,
+        "/ietf-ospf:clear-database",
+        '{"ietf-ospf:clear-database":{"routing-protocol-name":"default"}}',
+    )
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+
+def test_ospf_yang_rpc_unknown_instance_silent():
+    """RPC against an instance name no daemon owns must return silently.
+
+    Mirrors the non-owner case: both daemons' handlers look up the named
+    instance and, if not found, return NB_OK. mgmtd surfaces the combined
+    success. No error to the caller, no state change on r1.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+
+    _send_ietf_ospf_rpc(
+        r1,
+        "/ietf-ospf:clear-neighbor",
+        '{"ietf-ospf:clear-neighbor":{"routing-protocol-name":"does-not-exist"}}',
+    )
+
+    # r1's v2 neighbor must still be Full -- the RPC did not touch it.
+    out = r1.vtysh_cmd("show ip ospf neighbor json", isjson=True)
+    nbr = out.get("neighbors", {}).get("10.0.255.2", [])
+    assert nbr and nbr[0].get("converged") == "Full", (
+        "neighbor was disturbed by an RPC against an unknown instance:\n{}".format(out)
+    )
+
+
+def test_ospf_yang_clear_neighbor_rpc_unknown_interface():
+    """clear-neighbor with `interface` for an interface that exists on the
+    box but isn't in the OSPF instance must surface ospf-interface-not-found.
+
+    r1 has lo (loopback) configured as an interface but it isn't bound into
+    the OSPFv2 area, so ospfd's lookup returns NULL and the handler returns
+    # returning NB_ERR_NOT_FOUND surfaces an error in the vty output -- which
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    # lo is not in any OSPF area on r1; ospfd_ietf_lookup_oi returns NULL
+    # for it. ospf6d may also error on the same input. Either backend
+    # returning NB_ERR_RESOURCE surfaces an error in the vty output -- which
+    # is exactly what we want to verify.
+    out = r1.vtysh_cmd(
+        "configure terminal\nmgmt rpc /ietf-ospf:clear-neighbor json "
+        '{"ietf-ospf:clear-neighbor":{"routing-protocol-name":"default","interface":"lo"}}'
+    )
+    assert "ospf-interface-not-found" in out.lower() or "error" in out.lower(), (
+        "expected error for unknown interface, got:\n{}".format(out)
+    )
+
+    # The clear-database RPC above flushed and re-originated r1's LSAs.
+    # Adjacencies come back Full quickly but the rest of the area takes
+    # longer to re-learn the flushed LSAs. Downstream read-only tests
+    # (test_ospf_json, test_ospf_kernel_route) compare full LSDB snapshots
+    # against a stable expected baseline, so force a clean reconvergence
+    # before handing off to them.
+    _force_ospf_reconvergence_to_steady_state()
+
+
 def test_ospf_convergence():
     "Test OSPF daemon convergence"
     tgen = get_topogen()

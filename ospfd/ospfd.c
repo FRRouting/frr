@@ -260,10 +260,21 @@ void ospf_process_reset(struct ospf *ospf)
 	ospf_process_refresh_data(ospf, true);
 }
 
+void ospf_interface_neighbor_reset(struct ospf_interface *oi)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr;
+
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+		if (nbr && nbr != oi->nbr_self)
+			OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+	}
+}
+
 void ospf_neighbor_reset(struct ospf *ospf, struct in_addr nbr_id,
 			const char *nbr_str)
 {
-	struct route_node *rn;
 	struct ospf_neighbor *nbr;
 	struct ospf_interface *oi;
 	struct listnode *node;
@@ -279,13 +290,8 @@ void ospf_neighbor_reset(struct ospf *ospf, struct in_addr nbr_id,
 	}
 
 	/* send Neighbor event KillNbr to all associated neighbors. */
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
-		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
-			nbr = rn->info;
-			if (nbr && (nbr != oi->nbr_self))
-				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
-		}
-	}
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
+		ospf_interface_neighbor_reset(oi);
 }
 
 /* For OSPF area sort by area id. */

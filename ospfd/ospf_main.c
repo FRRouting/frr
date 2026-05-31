@@ -169,6 +169,17 @@ static const char *const ospfd_config_xpaths[] = {
 	OSPFD_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
 };
 
+/*
+ * RFC 9129 puts clear-neighbor / clear-database at the module root rather than
+ * under control-plane-protocol, so both ospfd and ospf6d register the same
+ * xpaths; mgmtd fans the call out and each backend silently returns NB_OK
+ * when the named instance isn't local.
+ */
+static const char *const ospfd_rpc_xpaths[] = {
+	"/ietf-ospf:clear-neighbor",
+	"/ietf-ospf:clear-database",
+};
+
 static char ospfd_instance_xpath[XPATH_MAXLEN];
 static const char *const ospfd_instance_oper_xpaths[] = {
 	ospfd_instance_xpath,
@@ -182,6 +193,8 @@ struct mgmt_be_client_cbs ospfd_be_client_data = {
 	.nconfig_xpaths = array_size(ospfd_config_xpaths),
 	.oper_xpaths = ospfd_oper_xpaths,
 	.noper_xpaths = array_size(ospfd_oper_xpaths),
+	.rpc_xpaths = ospfd_rpc_xpaths,
+	.nrpc_xpaths = array_size(ospfd_rpc_xpaths),
 };
 
 static void ospfd_mgmt_be_init(void)

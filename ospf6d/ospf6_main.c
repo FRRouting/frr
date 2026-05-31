@@ -196,11 +196,24 @@ static const char *const ospf6d_config_xpaths[] = {
 	OSPF6D_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
 };
 
+/*
+ * RFC 9129 places clear-neighbor / clear-database at the module root rather
+ * than under control-plane-protocol, so both daemons register the same xpaths
+ * and mgmtd fans the call out. The handler for the daemon that doesn't own
+ * the named instance returns NB_OK silently.
+ */
+static const char *const ospf6d_rpc_xpaths[] = {
+	"/ietf-ospf:clear-neighbor",
+	"/ietf-ospf:clear-database",
+};
+
 struct mgmt_be_client_cbs ospf6d_be_client_data = {
 	.config_xpaths = ospf6d_config_xpaths,
 	.nconfig_xpaths = array_size(ospf6d_config_xpaths),
 	.oper_xpaths = ospf6d_oper_xpaths,
 	.noper_xpaths = array_size(ospf6d_oper_xpaths),
+	.rpc_xpaths = ospf6d_rpc_xpaths,
+	.nrpc_xpaths = array_size(ospf6d_rpc_xpaths),
 };
 
 /* actual paths filled in main() */

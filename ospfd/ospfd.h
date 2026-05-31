@@ -221,7 +221,7 @@ struct ospf {
 #define DEFAULT_ORIGINATE_NONE		0
 #define DEFAULT_ORIGINATE_ZEBRA		1
 #define DEFAULT_ORIGINATE_ALWAYS	2
-	uint32_t ref_bandwidth;       /* Reference Bandwidth (Kbps). */
+	uint32_t ref_bandwidth;       /* Reference Bandwidth (Mbps). */
 	struct route_table *networks; /* OSPF config networks. */
 	struct list *vlinks;	  /* Configured Virtual-Links. */
 	struct list *areas;	   /* OSPF areas. */
@@ -720,6 +720,7 @@ extern void ospf_finish(struct ospf *ospf);
 extern void ospf_process_refresh_data(struct ospf *ospf, bool reset);
 extern void ospf_router_id_update(struct ospf *ospf);
 extern void ospf_process_reset(struct ospf *ospf);
+extern void ospf_interface_neighbor_reset(struct ospf_interface *oi);
 extern void ospf_neighbor_reset(struct ospf *ospf, struct in_addr nbr_id,
 				const char *nbr_str);
 extern int ospf_network_set(struct ospf *ospf, struct prefix_ipv4 *p,

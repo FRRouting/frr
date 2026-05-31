@@ -444,6 +444,18 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			},
 		},
 		{
+			.xpath = "/ietf-ospf:clear-neighbor",
+			.cbs = {
+				.rpc = ospf6d_ietf_ospf_clear_neighbor_rpc,
+			},
+		},
+		{
+			.xpath = "/ietf-ospf:clear-database",
+			.cbs = {
+				.rpc = ospf6d_ietf_ospf_clear_database_rpc,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	},

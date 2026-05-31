@@ -158,4 +158,8 @@ ospfd_ietf_ospf_areas_area_interfaces_interface_neighbors_neighbor_address_get_e
 struct yang_data *ospfd_ietf_ospf_areas_area_interfaces_interface_neighbors_neighbor_state_get_elem(
 	struct nb_cb_get_elem_args *args);
 
+/* RPC callbacks (RFC 9129). */
+int ospfd_ietf_ospf_clear_neighbor_rpc(struct nb_cb_rpc_args *args);
+int ospfd_ietf_ospf_clear_database_rpc(struct nb_cb_rpc_args *args);
+
 #endif /* FRR_OSPF_NB_H */
