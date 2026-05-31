@@ -33,8 +33,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
-pytestmark = [pytest.mark.tools]
-
 
 def build_topo(tgen):
     r1 = tgen.add_router("r1")
