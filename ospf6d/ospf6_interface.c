@@ -292,8 +292,18 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 
 	ospf6_fifo_free(oi->obuf);
 
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
+	/*
+	 * Walk the neighbour through OSPF6_NEIGHBOR_DOWN before freeing it so
+	 * the ospf6_neighbor_change hook fires.  Subscribers to RFC 9129
+	 * nbr-state-change would otherwise miss every interface-removal
+	 * tear-down: the dead-timer path is the only other site that
+	 * transitions to DOWN before delete, so admin-down and interface
+	 * destroy were silent.
+	 */
+	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
+		ospf6_neighbor_force_down(on);
 		ospf6_neighbor_delete(on);
+	}
 
 	list_delete(&oi->neighbor_list);
 
@@ -1001,8 +1011,16 @@ void interface_down(struct event *event)
 			ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_TOPO_CHG);
 	}
 
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
+	/*
+	 * Walk each neighbour through OSPF6_NEIGHBOR_DOWN so the
+	 * ospf6_neighbor_change hook fires on interface state reset.
+	 * Without this, RFC 9129 nbr-state-change subscribers miss
+	 * tear-down events triggered by admin-down / link-down on v3.
+	 */
+	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
+		ospf6_neighbor_force_down(on);
 		ospf6_neighbor_delete(on);
+	}
 
 	list_delete_all_node(oi->neighbor_list);
 

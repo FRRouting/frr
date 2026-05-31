@@ -162,4 +162,7 @@ struct yang_data *ospfd_ietf_ospf_areas_area_interfaces_interface_neighbors_neig
 int ospfd_ietf_ospf_clear_neighbor_rpc(struct nb_cb_rpc_args *args);
 int ospfd_ietf_ospf_clear_database_rpc(struct nb_cb_rpc_args *args);
 
+/* Notification emitters (RFC 9129). */
+void ospfd_ietf_notif_init(void);
+
 #endif /* FRR_OSPF_NB_H */

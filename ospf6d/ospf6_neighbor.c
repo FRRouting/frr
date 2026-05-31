@@ -285,6 +285,12 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 	ospf6_bfd_trigger_event(on, prev_state, next_state);
 }
 
+void ospf6_neighbor_force_down(struct ospf6_neighbor *on)
+{
+	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_DOWN, on,
+				    OSPF6_NEIGHBOR_EVENT_NO_EVENT);
+}
+
 /* RFC2328 section 10.4 */
 static int need_adjacency(struct ospf6_neighbor *on)
 {

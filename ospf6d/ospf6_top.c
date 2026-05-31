@@ -589,6 +589,9 @@ void ospf6_master_init(struct event_loop *mst)
 	om6 = &ospf6_master;
 	om6->ospf6 = list_new();
 	om6->master = mst;
+
+	/* Hook RFC 9129 ietf-ospf notifications onto the state-change hooks. */
+	ospf6d_ietf_notif_init();
 }
 
 void ospf6_master_delete(void)

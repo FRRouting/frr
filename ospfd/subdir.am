@@ -41,6 +41,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_neighbor.c \
 	ospfd/ospf_nb.c \
 	ospfd/ospf_nb_config.c \
+	ospfd/ospf_nb_notifications.c \
 	ospfd/ospf_nb_rpcs.c \
 	ospfd/ospf_nb_state.c \
 	ospfd/ospf_network.c \

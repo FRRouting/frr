@@ -47,6 +47,7 @@
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_apiserver.h"
+#include "ospf_nb.h"
 
 
 DEFINE_QOBJ_TYPE(ospf);
@@ -2224,6 +2225,9 @@ void ospf_master_init(struct event_loop *mst)
 	om = &ospf_master;
 	om->ospf = list_new();
 	om->master = mst;
+
+	/* Hook RFC 9129 ietf-ospf notifications onto the state-change hooks. */
+	ospfd_ietf_notif_init();
 }
 
 /* Link OSPF instance to VRF. */

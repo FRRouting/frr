@@ -3774,10 +3774,270 @@ def test_ospf_yang_clear_neighbor_rpc_unknown_interface():
 
     # The clear-database RPC above flushed and re-originated r1's LSAs.
     # Adjacencies come back Full quickly but the rest of the area takes
-    # longer to re-learn the flushed LSAs. Downstream read-only tests
+    # longer to re-learn the flushed LSAs.  Downstream read-only tests
     # (test_ospf_json, test_ospf_kernel_route) compare full LSDB snapshots
     # against a stable expected baseline, so force a clean reconvergence
     # before handing off to them.
+    _force_ospf_reconvergence_to_steady_state()
+
+
+def _grep_daemon_log(router, daemon, pattern, since_marker=None):
+    """Return matching lines from the daemon's log under topotest's tmpdir.
+
+    `since_marker` skips everything in the log before the first line containing
+    that string; used to scope the search to the current test window.
+    """
+    log_path = os.path.join(router.logdir, router.name, "{}.log".format(daemon))
+    try:
+        with open(log_path, "r") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return []
+    if since_marker:
+        for i, line in enumerate(lines):
+            if since_marker in line:
+                lines = lines[i:]
+                break
+        else:
+            return []
+    return [ln for ln in lines if pattern in ln]
+
+
+def test_ospf_yang_nbr_state_change_notification():
+    """RFC 9129 /ietf-ospf:nbr-state-change emitted on both daemons.
+
+    The notification handler hooks ospf_nsm_change (v2) / ospf6_neighbor_change
+    (v3) and dispatches a YANG notification with state + neighbour identity.
+    There is no in-test subscriber, but `nb_notification_send` and the
+    handler itself both emit DEBUG log lines that prove the notification
+    fired -- so we enable `debug northbound notifications` on r1, trigger
+    a neighbour reset via the existing clear-neighbor RPC, and grep for
+    the markers.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    # Drop a marker into the log so the grep below ignores anything earlier.
+    marker = "=== test_ospf_yang_nbr_state_change_notification BEGIN ==="
+    r1.vtysh_cmd("send log level info {}".format(marker))
+
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "debug northbound notifications\n"
+        "do log levels file file:ospfd.log debug\n"
+    )
+    r1.vtysh_cmd(
+        "configure terminal\nmgmt rpc /ietf-ospf:clear-neighbor json "
+        '{"ietf-ospf:clear-neighbor":{"routing-protocol-name":"default"}}'
+    )
+
+    def saw_v2_notif():
+        # Either the handler's own _dbg marker or the libfrr-side
+        # "northbound notification: /ietf-ospf:nbr-state-change" line is
+        # sufficient evidence; we accept either.
+        hits = _grep_daemon_log(r1, "ospfd", "OSPF-NOTIF", marker)
+        hits += _grep_daemon_log(
+            r1, "ospfd", "northbound notification: /ietf-ospf:nbr-state-change", marker
+        )
+        return None if hits else "no v2 nbr-state-change notification log"
+
+    def saw_v3_notif():
+        hits = _grep_daemon_log(r1, "ospf6d", "OSPF6-NOTIF", marker)
+        hits += _grep_daemon_log(
+            r1, "ospf6d",
+            "northbound notification: /ietf-ospf:nbr-state-change", marker,
+        )
+        return None if hits else "no v3 nbr-state-change notification log"
+
+    _, result = topotest.run_and_expect(saw_v2_notif, None, count=60, wait=0.5)
+    assert result is None, "v2 nbr-state-change notification was not emitted"
+
+    _, result = topotest.run_and_expect(saw_v3_notif, None, count=60, wait=0.5)
+    assert result is None, "v3 nbr-state-change notification was not emitted"
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    # Restore steady-state so downstream LSDB-snapshot tests stay deterministic.
+    _force_ospf_reconvergence_to_steady_state()
+
+
+def test_ospf_yang_if_state_change_notification():
+    """RFC 9129 /ietf-ospf:if-state-change emitted on both daemons.
+
+    Toggle r1-eth1 down/up to force an ISM transition on both ospfd and
+    ospf6d, then verify both daemon logs show the notification marker.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    marker = "=== test_ospf_yang_if_state_change_notification BEGIN ==="
+    r1.vtysh_cmd("send log level info {}".format(marker))
+    r1.vtysh_cmd(
+        "configure terminal\ndebug northbound notifications\n"
+    )
+
+    # Bounce r1-eth1 to force a v2 ISM transition (Down -> ... back to DR-elect)
+    # and a v3 ISM transition (Down -> ... back).  Kernel link toggle inside
+    # the netns is the most direct trigger.
+    r1.cmd("ip link set dev r1-eth1 down")
+    time.sleep(1)
+    r1.cmd("ip link set dev r1-eth1 up")
+
+    def saw_v2_if_notif():
+        hits = _grep_daemon_log(r1, "ospfd", "OSPF-NOTIF", marker)
+        hits += _grep_daemon_log(
+            r1, "ospfd", "northbound notification: /ietf-ospf:if-state-change", marker
+        )
+        return None if hits else "no v2 if-state-change notification log"
+
+    def saw_v3_if_notif():
+        hits = _grep_daemon_log(r1, "ospf6d", "OSPF6-NOTIF", marker)
+        hits += _grep_daemon_log(
+            r1, "ospf6d",
+            "northbound notification: /ietf-ospf:if-state-change", marker,
+        )
+        return None if hits else "no v3 if-state-change notification log"
+
+    _, result = topotest.run_and_expect(saw_v2_if_notif, None, count=60, wait=0.5)
+    assert result is None, "v2 if-state-change notification was not emitted"
+
+    _, result = topotest.run_and_expect(saw_v3_if_notif, None, count=60, wait=0.5)
+    assert result is None, "v3 if-state-change notification was not emitted"
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    _force_ospf_reconvergence_to_steady_state()
+
+
+def test_ospf_yang_nbr_state_change_lifecycle_down_notification():
+    """RFC 9129 /ietf-ospf:nbr-state-change fires on tear-down too.
+
+    FRR's NSM has two terminal lifecycle states (NSM_DependUpon, NSM_Deleted)
+    that have no protocol existence in RFC 9129's nbr-state-type enum.  The
+    state-map folds both into RFC `down` so every tear-down (KillNbr, dead
+    timer, explicit clear) stays observable.  Without the fold, the v2 hook
+    silently early-returns on those states and the subscriber never sees
+    neighbours leave Full.
+
+    Trigger a clear-neighbor, which walks the v2 NSM through Full ->
+    Deleted -> Init -> ... -> Full.  The handler's OSPF-NOTIF debug line
+    only fires when the state-map produced a valid YANG code, so the
+    presence of an OSPF-NOTIF entry mentioning "Deleted" proves the fold
+    is wired up.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+
+    marker = (
+        "=== test_ospf_yang_nbr_state_change_lifecycle_down_notification BEGIN ==="
+    )
+    r1.vtysh_cmd("send log level info {}".format(marker))
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "debug northbound notifications\n"
+        "do log levels file file:ospfd.log debug\n"
+    )
+    r1.vtysh_cmd(
+        "configure terminal\nmgmt rpc /ietf-ospf:clear-neighbor json "
+        '{"ietf-ospf:clear-neighbor":{"routing-protocol-name":"default"}}'
+    )
+
+    def saw_deleted_notif():
+        hits = _grep_daemon_log(r1, "ospfd", "OSPF-NOTIF", marker)
+        for line in hits:
+            if "Deleted" in line:
+                return None
+        return "no v2 nbr-state-change notification for NSM_Deleted"
+
+    _, result = topotest.run_and_expect(saw_deleted_notif, None, count=60, wait=0.5)
+    assert result is None, (
+        "v2 nbr-state-change was not emitted for tear-down (NSM_Deleted); "
+        "state-map fold may be missing"
+    )
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    _force_ospf_reconvergence_to_steady_state()
+
+
+def test_ospf6_yang_nbr_state_change_admin_down_notification():
+    """RFC 9129 /ietf-ospf:nbr-state-change fires on v3 admin-down tear-down.
+
+    OSPFv3's nbr-state map is total over the enum, but the ospf6d teardown
+    paths in ospf6_interface.c (interface destroy, interface state reset
+    via admin-down) historically called ospf6_neighbor_delete directly
+    without first emitting a state change to OSPF6_NEIGHBOR_DOWN.  The
+    ospf6_neighbor_change hook never fired, so subscribers missed every
+    admin-down event.  Both call sites now walk through DOWN before
+    delete; this test admin-shuts r1-eth1 and asserts the resulting v3
+    nbr-state-change notification reaches the log.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
+    marker = (
+        "=== test_ospf6_yang_nbr_state_change_admin_down_notification BEGIN ==="
+    )
+    r1.vtysh_cmd("send log level info {}".format(marker))
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "debug northbound notifications\n"
+        "do log levels file file:ospf6d.log debug\n"
+    )
+
+    # Admin-down the link.  ospf6_interface_state_change runs the reset
+    # path which deletes neighbours; the new DOWN state transition there
+    # makes the YANG hook fire.
+    r1.cmd("ip link set dev r1-eth1 down")
+
+    def saw_v3_down_notif():
+        hits = _grep_daemon_log(r1, "ospf6d", "OSPF6-NOTIF", marker)
+        hits += _grep_daemon_log(
+            r1, "ospf6d",
+            "northbound notification: /ietf-ospf:nbr-state-change", marker,
+        )
+        return None if hits else "no v3 nbr-state-change on admin-down"
+
+    _, result = topotest.run_and_expect(saw_v3_down_notif, None, count=60, wait=0.5)
+
+    # Restore the link before asserting so a failure does not leave the
+    # topology in a broken state for downstream tests.
+    r1.cmd("ip link set dev r1-eth1 up")
+
+    assert result is None, (
+        "v3 nbr-state-change was not emitted on admin-down; "
+        "ospf6_interface.c tear-down may not be transitioning through DOWN"
+    )
+
+    _expect_ospfv2_neighbor_full("r1", "10.0.255.2")
+    _expect_ospfv3_neighbor_full("r1", "10.0.255.2")
+
     _force_ospf_reconvergence_to_steady_state()
 
 

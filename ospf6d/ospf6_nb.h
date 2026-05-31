@@ -138,4 +138,7 @@ ospf6d_ietf_ospf_areas_area_interfaces_interface_neighbors_neighbor_state_get_el
 int ospf6d_ietf_ospf_clear_neighbor_rpc(struct nb_cb_rpc_args *args);
 int ospf6d_ietf_ospf_clear_database_rpc(struct nb_cb_rpc_args *args);
 
+/* Notification emitters (RFC 9129). */
+void ospf6d_ietf_notif_init(void);
+
 #endif /* FRR_OSPF6_NB_H */

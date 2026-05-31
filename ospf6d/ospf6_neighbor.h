@@ -200,6 +200,16 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 					     struct ospf6_interface *oi);
 void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
+/*
+ * Force the neighbour to OSPF6_NEIGHBOR_DOWN, firing the
+ * ospf6_neighbor_change hook so that YANG nbr-state-change subscribers
+ * observe the tear-down.  Intended for programmatic teardown paths
+ * (interface destroy, interface state reset) that delete neighbours
+ * without going through the inactivity-timer flow.  No-op if the
+ * neighbour is already in DOWN.
+ */
+void ospf6_neighbor_force_down(struct ospf6_neighbor *on);
+
 void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
 			       const struct in6_addr *addr);
 struct ospf6_if_p2xp_neighcfg *ospf6_if_p2xp_find(struct ospf6_interface *oi,
