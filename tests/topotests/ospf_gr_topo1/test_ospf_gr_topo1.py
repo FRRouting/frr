@@ -202,6 +202,39 @@ def expect_grace_lsa(restarting, area, helper):
     assert result is None, assertmsg
 
 
+def _grep_daemon_log(router, daemon, pattern, since_marker=None):
+    log_path = os.path.join(router.logdir, router.name, "{}.log".format(daemon))
+    try:
+        with open(log_path, "r") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return []
+    if since_marker:
+        for i, line in enumerate(lines):
+            if since_marker in line:
+                lines = lines[i:]
+                break
+        else:
+            return []
+    return [line for line in lines if pattern in line]
+
+
+def _expect_ospf_notification(router, xpath, marker):
+    def saw_notification():
+        hits = _grep_daemon_log(
+            router, "ospfd", "northbound notification: {}".format(xpath), marker
+        )
+        hits += [
+            line
+            for line in _grep_daemon_log(router, "ospfd", "OSPF-NOTIF", marker)
+            if xpath in line
+        ]
+        return None if hits else "no {} notification log".format(xpath)
+
+    _, result = topotest.run_and_expect(saw_notification, None, count=60, wait=0.5)
+    assert result is None, result
+
+
 def check_routers(initial_convergence=False, exiting=None, restarting=None):
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
         # Check the RIB first, which should be preserved across restarts in
@@ -293,14 +326,31 @@ def test_gr_rt1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    rt1 = tgen.gears["rt1"]
+    rt2 = tgen.gears["rt2"]
+    marker = "=== test_gr_rt1_yang_notifications BEGIN ==="
+    rt1.vtysh_cmd("send log level info {}".format(marker))
+    rt2.vtysh_cmd("send log level info {}".format(marker))
+    rt1.vtysh_cmd("configure terminal\ndebug northbound notifications\n")
+    rt2.vtysh_cmd("configure terminal\ndebug northbound notifications\n")
+
     tgen.net["rt1"].cmd('vtysh -c "graceful-restart prepare ip ospf"')
     expect_grace_lsa(restarting="1.1.1.1", area="0.0.0.1", helper="rt2")
+    out = rt1.vtysh_cmd("configure terminal\nrouter ospf\nno graceful-restart\n")
+    assert "Graceful Restart preparation in progress" in out, out
+    _expect_ospf_notification(
+        rt2, "/ietf-ospf:nbr-restart-helper-status-change", marker
+    )
     ensure_gr_is_in_zebra("rt1")
     kill_router_daemons(tgen, "rt1", ["ospfd"], save_config=False)
     check_routers(exiting="rt1")
 
     start_router_daemons(tgen, "rt1", ["ospfd"])
     check_routers(restarting="rt1")
+    _expect_ospf_notification(rt1, "/ietf-ospf:restart-status-change", marker)
+    _expect_ospf_notification(
+        rt2, "/ietf-ospf:nbr-restart-helper-status-change", marker
+    )
 
 
 #

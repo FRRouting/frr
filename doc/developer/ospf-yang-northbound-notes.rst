@@ -709,27 +709,20 @@ Remaining Scope).  All other RFC 9129 notifications now have emit wiring on
 at least one daemon.
 
 Live tests cover ``nbr-state-change``, ``if-state-change`` and
-``if-config-error`` by driving the protocol paths that emit them.  Live test
-coverage for ``restart-status-change`` and
-``nbr-restart-helper-status-change`` is deferred because triggering a
-graceful-restart event in topotest requires a staged daemon kill and relaunch
-with grace-LSA timing that the current topo1 setup does not have.  The
-emit-side wiring compiles and links cleanly; ``debug northbound
-notifications`` plus a ``clear ip ospf process`` from a neighbour during its
-grace period is the manual reproduction path.  The companion gRPC Subscribe
-work can close the observation side of this gap by letting a future combined
-topotest assert the notifications as frontend subscriber data.  That test will
-still need OSPF-specific choreography to create the graceful-restart lifecycle
-reliably.
+``if-config-error`` by driving the protocol paths that emit them.  The
+graceful-restart suites for ``ospfd`` and ``ospf6d`` also cover
+``restart-status-change`` and ``nbr-restart-helper-status-change`` by
+triggering a real graceful-restart prepare, helper observation and daemon
+restart in ``ospf_gr_topo1`` and ``ospf6_gr_topo1``.
 
 Live test coverage for ``if-rx-bad-packet`` and
-``nssa-translator-status-change`` is also deferred.  The former needs a
-topotest packet-injection helper that can send malformed OSPF packets safely
-inside a router namespace.  The latter needs an NSSA topology that drives a
-real translator state transition, rather than merely calling the notification
-helper.  Both emit sites are documented in the table above and can be checked
-manually with ``debug northbound notifications`` until those focused tests are
-added.
+``nssa-translator-status-change`` is deferred.  The former needs a topotest
+packet-injection helper that can send malformed OSPF packets safely inside a
+router namespace and drive the daemon receive path.  The latter needs an NSSA
+topology that drives a real translator state transition, rather than merely
+calling the notification helper.  Both emit sites are documented in the table
+above and can be checked manually with ``debug northbound notifications`` until
+those focused tests are added.
 
 Remaining Scope
 ---------------
