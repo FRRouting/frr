@@ -62,6 +62,34 @@ static int ospfd_ietf_nbr_state_yang(int nsm_state)
 	}
 }
 
+/*
+ * Translate FRR's internal ISM state code into RFC 9129's `if-state-type`
+ * enum.  Numeric values agree for Down/Loopback/Waiting/PointToPoint but
+ * diverge for the DR-election trio: FRR orders DROther=5, Backup=6, DR=7
+ * while the RFC orders dr=5, bdr=6, dr-other=7.
+ */
+static int ospfd_ietf_if_state_yang(int ism_state)
+{
+	switch (ism_state) {
+	case ISM_Down:
+		return 1; /* down */
+	case ISM_Loopback:
+		return 2; /* loopback */
+	case ISM_Waiting:
+		return 3; /* waiting */
+	case ISM_PointToPoint:
+		return 4; /* point-to-point */
+	case ISM_DR:
+		return 5; /* dr */
+	case ISM_Backup:
+		return 6; /* bdr */
+	case ISM_DROther:
+		return 7; /* dr-other */
+	default:
+		return -1;
+	}
+}
+
 static void ospfd_ietf_notif_add_instance_hdr(struct list *args, const char *xpath,
 					      const struct ospf *ospf)
 {
@@ -138,7 +166,45 @@ static int ospfd_ietf_nbr_state_change(struct ospf_neighbor *nbr, int next_state
 	return 0;
 }
 
+/*
+ * XPath: /ietf-ospf:if-state-change
+ *
+ * Emitted on every ISM transition.  The OSPFv2 ISM hook fires after the
+ * state has been swapped in.  The `old_state` argument is not part of the
+ * RFC notification so we only consume it to silence the unused-parameter
+ * warning -- it is, however, available for future hooks that may want to
+ * filter on the transition direction.
+ */
+static int ospfd_ietf_if_state_change(struct ospf_interface *oi, int state, int old_state)
+{
+	const char *xpath = "/ietf-ospf:if-state-change";
+	struct list *args;
+	char xpath_arg[XPATH_MAXLEN];
+	int yang_state;
+
+	yang_state = ospfd_ietf_if_state_yang(state);
+	if (yang_state < 0)
+		return 0;
+	(void)old_state;
+
+	if (!oi->ifp || !oi->ospf)
+		return 0;
+
+	args = yang_data_list_new();
+	ospfd_ietf_notif_add_instance_hdr(args, xpath, oi->ospf);
+	ospfd_ietf_notif_add_interface_hdr(args, xpath, oi->ifp);
+
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/state", xpath);
+	listnode_add(args, yang_data_new_enum(xpath_arg, yang_state));
+
+	_dbg("iface %s -> %s", oi->ifp->name, lookup_msg(ospf_ism_state_msg, state, NULL));
+
+	nb_notification_send(xpath, args);
+	return 0;
+}
+
 void ospfd_ietf_notif_init(void)
 {
 	hook_register(ospf_nsm_change, ospfd_ietf_nbr_state_change);
+	hook_register(ospf_ism_change, ospfd_ietf_if_state_change);
 }

@@ -41,6 +41,33 @@ static int ospf6d_ietf_nbr_state_yang(int nsm_state)
 	return -1;
 }
 
+/*
+ * OSPFv3 ISM state codes deviate from RFC 9129's `if-state-type`:
+ * FRR reserves 5 (skipped) and orders DROther=6, BDR=7, DR=8, while the
+ * RFC orders dr=5, bdr=6, dr-other=7.  Translate via switch.
+ */
+static int ospf6d_ietf_if_state_yang(int ism_state)
+{
+	switch (ism_state) {
+	case OSPF6_INTERFACE_DOWN:
+		return 1; /* down */
+	case OSPF6_INTERFACE_LOOPBACK:
+		return 2; /* loopback */
+	case OSPF6_INTERFACE_WAITING:
+		return 3; /* waiting */
+	case OSPF6_INTERFACE_POINTTOPOINT:
+		return 4; /* point-to-point */
+	case OSPF6_INTERFACE_DR:
+		return 5; /* dr */
+	case OSPF6_INTERFACE_BDR:
+		return 6; /* bdr */
+	case OSPF6_INTERFACE_DROTHER:
+		return 7; /* dr-other */
+	default:
+		return -1;
+	}
+}
+
 static void ospf6d_ietf_notif_add_instance_hdr(struct list *args, const char *xpath,
 					       const struct ospf6 *ospf6)
 {
@@ -118,7 +145,43 @@ static int ospf6d_ietf_nbr_state_change(struct ospf6_neighbor *on, int next_stat
 	return 0;
 }
 
+/*
+ * XPath: /ietf-ospf:if-state-change
+ *
+ * Emitted on every OSPFv3 ISM transition.  The hook fires after the state
+ * has been swapped in.  `old_state` is unused by the RFC notification but
+ * passed by the hook caller.
+ */
+static int ospf6d_ietf_if_state_change(struct ospf6_interface *oi, int state, int old_state)
+{
+	const char *xpath = "/ietf-ospf:if-state-change";
+	struct list *args;
+	char xpath_arg[XPATH_MAXLEN];
+	int yang_state;
+
+	yang_state = ospf6d_ietf_if_state_yang(state);
+	if (yang_state < 0)
+		return 0;
+	(void)old_state;
+
+	if (!oi->interface || !oi->area || !oi->area->ospf6)
+		return 0;
+
+	args = yang_data_list_new();
+	ospf6d_ietf_notif_add_instance_hdr(args, xpath, oi->area->ospf6);
+	ospf6d_ietf_notif_add_interface_hdr(args, xpath, oi->interface);
+
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/state", xpath);
+	listnode_add(args, yang_data_new_enum(xpath_arg, yang_state));
+
+	_dbg("iface %s state %d", oi->interface->name, state);
+
+	nb_notification_send(xpath, args);
+	return 0;
+}
+
 void ospf6d_ietf_notif_init(void)
 {
 	hook_register(ospf6_neighbor_change, ospf6d_ietf_nbr_state_change);
+	hook_register(ospf6_interface_change, ospf6d_ietf_if_state_change);
 }
