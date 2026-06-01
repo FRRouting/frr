@@ -258,8 +258,8 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 			return 0;
 
 		/* Set both prefix's head pointer. */
-		np = (const uint8_t *)&n->u.prefix_linkstate.ptr;
-		pp = (const uint8_t *)&p->u.prefix_linkstate.ptr;
+		np = (const uint8_t *)n->u.prefix_linkstate.ptr;
+		pp = (const uint8_t *)p->u.prefix_linkstate.ptr;
 
 		offset = n->prefixlen; /* length is checked above */
 
@@ -495,8 +495,8 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 			if (p1->u.prefix_linkstate.nlri_type !=
 			    p2->u.prefix_linkstate.nlri_type)
 				return 0;
-			if (!memcmp(&p1->u.prefix_linkstate.ptr,
-				    &p2->u.prefix_linkstate.ptr, p2->prefixlen))
+			if (!memcmp((const void *)p1->u.prefix_linkstate.ptr,
+				    (const void *)p2->u.prefix_linkstate.ptr, p2->prefixlen))
 				return 1;
 		}
 		if (p1->family == AF_RTC)
