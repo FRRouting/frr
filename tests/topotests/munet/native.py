@@ -52,6 +52,7 @@ from .config import config_to_dict_with_key
 from .config import find_matching_net_config
 from .config import find_with_kv
 from .config import merge_kind_config
+from .base import lcov_ignore_errors
 from .watchlog import WatchLog
 
 
@@ -3486,6 +3487,7 @@ done"""
         self.logger.info("Gathering coverage data into: %s", data_file)
         commander.cmd_raises(
             f"lcov --directory {gcdadir} --capture --output-file {data_file}"
+            f" --ignore-errors {lcov_ignore_errors(commander)}"
         )
 
         # Get coverage info filtered to a specific set of files
