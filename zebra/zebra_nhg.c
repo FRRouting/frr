@@ -3358,6 +3358,14 @@ static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint16_t curr_ind
 				continue;
 			}
 
+			if (depend->nhg.nexthop &&
+			    !CHECK_FLAG(depend->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG)
+					zlog_debug("%s: Nexthop ID (%u) is inactive, not appending to dataplane install group",
+						   __func__, depend->id);
+				continue;
+			}
+
 			/* Check for duplicate IDs, ignore if found. */
 			for (int j = 0; j < i; j++) {
 				if (depend->id == grp[j].id) {
