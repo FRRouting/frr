@@ -69,8 +69,7 @@ nodist_mgmtd_mgmtd_SOURCES = \
 	yang/ietf/ietf-netconf-with-defaults.yang.c \
 	# nothing
 mgmtd_mgmtd_CFLAGS = $(AM_CFLAGS) -I ./
-mgmtd_mgmtd_LDADD = mgmtd/libmgmtd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)
-mgmtd_mgmtd_LDADD += mgmtd/libmgmt_be_nb.la
+mgmtd_mgmtd_LDADD = mgmtd/libmgmtd.a mgmtd/libmgmt_be_nb.la lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)
 
 
 if STATICD
