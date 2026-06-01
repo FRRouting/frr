@@ -938,6 +938,12 @@ def generate_support_bundle():
         )
         return True
 
+    if getattr(tgen, "topology_stopped", False):
+        logger.warning(
+            "Support bundle skipped: topology %s already torn down", tgen.modname
+        )
+        return True
+
     router_list = tgen.routers()
     test_name = os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
 
