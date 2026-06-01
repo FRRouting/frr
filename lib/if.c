@@ -605,7 +605,7 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		frr_each (if_connected, ifp->connected, c) {
 			if (c->address && (c->address->family == family) &&
-			    prefix_match(CONNECTED_PREFIX(c), &addr) &&
+			    prefix_match_with_family(CONNECTED_PREFIX(c), &addr) &&
 			    (c->address->prefixlen > bestlen)) {
 				bestlen = c->address->prefixlen;
 				match = c;
@@ -1035,10 +1035,9 @@ struct connected *connected_lookup_prefix(struct interface *ifp,
 	match = NULL;
 
 	frr_each (if_connected, ifp->connected, c) {
-		if (c->address && (c->address->family == addr->family)
-		    && prefix_match(CONNECTED_PREFIX(c), addr)
-		    && (!match
-			|| (c->address->prefixlen > match->address->prefixlen)))
+		if (c->address && c->address->family == addr->family
+		    && prefix_match_with_family(CONNECTED_PREFIX(c), addr)
+		    && (!match || (c->address->prefixlen > match->address->prefixlen)))
 			match = c;
 	}
 	return match;

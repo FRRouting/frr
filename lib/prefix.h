@@ -422,6 +422,7 @@ extern const char *prefix2str(union prefixconstptr upfx, char *buffer,
 extern int evpn_type5_prefix_match(const struct prefix *evpn_pfx,
 				   const struct prefix *match_pfx);
 extern int prefix_match(union prefixconstptr unet, union prefixconstptr upfx);
+extern int prefix_match_with_family(union prefixconstptr unet, union prefixconstptr upfx);
 extern int prefix_match_network_statement(union prefixconstptr unet,
 					  union prefixconstptr upfx);
 extern int prefix_same(union prefixconstptr ua, union prefixconstptr ub);

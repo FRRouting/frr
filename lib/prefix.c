@@ -244,6 +244,18 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 
 }
 
+/* Like prefix_match(), but returns 0 when the prefixes differ in family. */
+int prefix_match_with_family(union prefixconstptr unet, union prefixconstptr upfx)
+{
+	const struct prefix *n = unet.p;
+	const struct prefix *p = upfx.p;
+
+	if (n->family != p->family)
+		return 0;
+
+	return prefix_match(unet, upfx);
+}
+
 /*
  * n is a type5 evpn prefix. This function tries to see if there is an
  * ip-prefix within n which matches prefix p
