@@ -977,10 +977,10 @@ static size_t autorp_build_disc_rps(struct pim_autorp *autorp, uint8_t *buf, siz
 
 		grpcnt = pim_autorp_grppfix_count(&rp->grp_pfix_list);
 		rp_sz = sizeof(struct autorp_pkt_rp) + (grpcnt * sizeof(struct autorp_pkt_grp));
-		if (buf_sz < *sz + rp_sz) {
+		if (buf_sz < bsz + rp_sz) {
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Failed to pack AutoRP discovery packet, buffer overrun, (%u < %u)",
-					   __func__, (uint32_t)buf_sz, (uint32_t)(*sz + rp_sz));
+					   __func__, (uint32_t)buf_sz, (uint32_t)(bsz + rp_sz));
 			break;
 		}
 
@@ -1014,7 +1014,7 @@ static size_t autorp_build_disc_rps(struct pim_autorp *autorp, uint8_t *buf, siz
 		}
 
 		/* Update the size with this RP now that it is packed */
-		*sz += bsz;
+		*sz += rp_sz;
 	}
 
 	return rpcnt;
