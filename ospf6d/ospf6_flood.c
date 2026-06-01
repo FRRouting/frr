@@ -1001,8 +1001,23 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		/* in case we have no database copy */
 		ismore_recent = -1;
 
-		/* (a) MinLSArrival check */
-		if (old) {
+		self_originated = (new->header->adv_router ==
+				   from->ospf6_if->area->ospf6->router_id);
+
+		/* After any restart of DUT node, receiving self-originated
+		 * LSAs with MaxAge from peers within 1 second (MinLSArrival,
+		 * default 1000 ms) can make ospf6_lsa_check_min_arrival()
+		 * return true, which prevents ospf6_install_lsa() from being
+		 * called and results in a sequence-number race.  So hardened
+		 * the check accordingly to bypass MinLSArrival only for
+		 * self-originated MaxAge LSAs.  This is in compliance with
+		 * RFC 2328 §13.4.
+		 */
+		if (old && self_originated && OSPF6_LSA_IS_MAXAGE(new)) {
+			if (IS_OSPF6_DEBUG_FLOODING || IS_OSPF6_DEBUG_FLOOD_TYPE(new->header->type))
+				zlog_debug("Bypassing MinLSArrival for self-originated MaxAge LSA %s (RFC 2328 13.4)",
+					   new->name);
+		} else if (old) {
 			if (ospf6_lsa_check_min_arrival(old, from)) {
 				ospf6_lsa_delete(new);
 				return; /* examine next lsa */
@@ -1018,9 +1033,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		/* Remove older copies of this LSA from retx lists */
 		if (old)
 			ospf6_flood_clear(old);
-
-		self_originated = (new->header->adv_router
-				   == from->ospf6_if->area->ospf6->router_id);
 
 		/* Received non-self-originated Grace LSA. */
 		if (IS_GRACE_LSA(new) && !self_originated) {
