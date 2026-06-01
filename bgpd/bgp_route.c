@@ -10353,8 +10353,9 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 			      lcommunity, atomic_aggregate, aggregate);
 }
 
-void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
-			     struct bgp_path_info *pi, afi_t afi, safi_t safi)
+static void bgp_aggregate_adjust_count(struct bgp *bgp, const struct prefix *p,
+				       struct bgp_path_info *pi, afi_t afi, safi_t safi,
+				       bool increment)
 {
 	struct bgp_dest *child;
 	struct bgp_dest *dest;
@@ -10381,11 +10382,11 @@ void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 
 	/* Note: do NOT guard this with bgp_check_advertise() / FIB state.
 	 * Aggregate counting tracks BGP RIB presence, not FIB installation.
-	 * bgp_aggregate_increment() is called from bgp_update() before
-	 * bgp_process() is queued, so BGP_NODE_FIB_INSTALL_PENDING is never
-	 * set yet — a bgp_check_advertise() guard here would be a no-op for
-	 * its intended purpose and could incorrectly skip the count in other
-	 * callers (e.g. NHT, dampening reuse) where the flag may be set.
+	 * This helper is called from bgp_update() before bgp_process() is
+	 * queued, so BGP_NODE_FIB_INSTALL_PENDING is never set yet — a
+	 * bgp_check_advertise() guard here would be a no-op for its intended
+	 * purpose and could incorrectly skip the count in other callers
+	 * (e.g. NHT, dampening reuse) where the flag may be set.
 	 */
 	child = bgp_node_match(table, p);
 	if (!child)
@@ -10397,54 +10398,26 @@ void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 
 		aggregate = bgp_dest_get_bgp_aggregate_info(dest);
 		if (aggregate != NULL && dest_p->prefixlen < p->prefixlen) {
-			bgp_add_route_to_aggregate(bgp, dest_p, pi, afi, safi,
-						   aggregate);
+			if (increment)
+				bgp_add_route_to_aggregate(bgp, dest_p, pi, afi, safi, aggregate);
+			else
+				bgp_remove_route_from_aggregate(bgp, afi, safi, pi, aggregate,
+								dest_p);
 		}
 	}
 	bgp_dest_unlock_node(child);
 }
 
+void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p, struct bgp_path_info *pi,
+			     afi_t afi, safi_t safi)
+{
+	bgp_aggregate_adjust_count(bgp, p, pi, afi, safi, true);
+}
+
 void bgp_aggregate_decrement(struct bgp *bgp, const struct prefix *p,
 			     struct bgp_path_info *del, afi_t afi, safi_t safi)
 {
-	struct bgp_dest *child;
-	struct bgp_dest *dest;
-	struct bgp_aggregate *aggregate;
-	struct bgp_table *table;
-
-	table = bgp->aggregate[afi][safi];
-
-	/* No aggregates configured. */
-	if (bgp_table_top_nolock(table) == NULL)
-		return;
-
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) || (bgp->peer_self == NULL))
-		return;
-
-	if (p->prefixlen == 0)
-		return;
-
-	if (BGP_PATH_HOLDDOWN(del))
-		return;
-
-	if (del->sub_type == BGP_ROUTE_AGGREGATE)
-		return;
-
-	child = bgp_node_match(table, p);
-	if (!child)
-		return;
-
-	/* Aggregate address configuration check. */
-	for (dest = child; dest; dest = bgp_dest_parent_nolock(dest)) {
-		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
-
-		aggregate = bgp_dest_get_bgp_aggregate_info(dest);
-		if (aggregate != NULL && dest_p->prefixlen < p->prefixlen) {
-			bgp_remove_route_from_aggregate(bgp, afi, safi, del,
-							aggregate, dest_p);
-		}
-	}
-	bgp_dest_unlock_node(child);
+	bgp_aggregate_adjust_count(bgp, p, del, afi, safi, false);
 }
 
 /* Aggregate route attribute. */
