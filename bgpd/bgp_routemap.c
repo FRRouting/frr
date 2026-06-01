@@ -2982,7 +2982,6 @@ static enum route_map_cmd_result_t
 route_set_lcommunity_delete(void *rule, const struct prefix *pfx, void *object)
 {
 	struct community_list *list;
-	struct lcommunity *merge;
 	struct lcommunity *new;
 	struct lcommunity *old;
 	struct bgp_path_info *path;
@@ -2997,9 +2996,7 @@ route_set_lcommunity_delete(void *rule, const struct prefix *pfx, void *object)
 	old = bgp_attr_get_lcommunity(path->attr);
 
 	if (list && old) {
-		merge = lcommunity_list_match_delete(lcommunity_dup(old), list);
-		new = lcommunity_uniq_sort(merge);
-		lcommunity_free(&merge);
+		new = lcommunity_list_match_delete(lcommunity_dup(old), list);
 
 		/* HACK: if the old community is not intern'd,
 		 * we should free it here, or all reference to it may be
@@ -3069,7 +3066,6 @@ route_set_community_delete(void *rule, const struct prefix *prefix,
 			   void *object)
 {
 	struct community_list *list;
-	struct community *merge;
 	struct community *new;
 	struct community *old;
 	struct bgp_path_info *path;
@@ -3084,9 +3080,7 @@ route_set_community_delete(void *rule, const struct prefix *prefix,
 	old = bgp_attr_get_community(path->attr);
 
 	if (list && old) {
-		merge = community_list_match_delete(community_dup(old), list);
-		new = community_uniq_sort(merge);
-		community_free(&merge);
+		new = community_list_match_delete(community_dup(old), list);
 
 		/* HACK: if the old community is not intern'd,
 		 * we should free it here, or all reference to it may be
@@ -3153,7 +3147,6 @@ route_set_ecommunity_delete(void *rule, const struct prefix *prefix,
 			   void *object)
 {
 	struct community_list *list;
-	struct ecommunity *merge;
 	struct ecommunity *new;
 	struct ecommunity *old;
 	struct bgp_path_info *path;
@@ -3167,9 +3160,7 @@ route_set_ecommunity_delete(void *rule, const struct prefix *prefix,
 				     EXTCOMMUNITY_LIST_MASTER);
 	old = bgp_attr_get_ecommunity(path->attr);
 	if (list && old) {
-		merge = ecommunity_list_match_delete(ecommunity_dup(old), list);
-		new = ecommunity_uniq_sort(merge);
-		ecommunity_free(&merge);
+		new = ecommunity_list_match_delete(ecommunity_dup(old), list);
 
 		/* HACK: if the old community is not intern'd,
 		 * we should free it here, or all reference to it may be
