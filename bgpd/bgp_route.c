@@ -10237,11 +10237,9 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 			      lcommunity, atomic_aggregate, aggregate);
 }
 
-static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
-					    safi_t safi,
-					    struct bgp_path_info *pi,
-					    struct bgp_aggregate *aggregate,
-					    const struct prefix *aggr_p)
+static void bgp_remove_route_from_aggregate(struct bgp *bgp, const struct prefix *aggr_p,
+					    struct bgp_path_info *pi, afi_t afi, safi_t safi,
+					    struct bgp_aggregate *aggregate)
 {
 	uint8_t origin;
 	struct aspath *aspath = NULL;
@@ -10401,8 +10399,8 @@ static void bgp_aggregate_adjust_count(struct bgp *bgp, const struct prefix *p,
 			if (increment)
 				bgp_add_route_to_aggregate(bgp, dest_p, pi, afi, safi, aggregate);
 			else
-				bgp_remove_route_from_aggregate(bgp, afi, safi, pi, aggregate,
-								dest_p);
+				bgp_remove_route_from_aggregate(bgp, dest_p, pi, afi, safi,
+								aggregate);
 		}
 	}
 	bgp_dest_unlock_node(child);
