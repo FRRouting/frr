@@ -466,15 +466,15 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 		return -1;
 	}
 
-	//pim_ifp->pim_ifstat_bsm_rx++;
+	pim_ifp->pim_ifstat_bsm_rx++;
 	pim = pim_ifp->pim;
-	//pim->bsm_rcvd++;
+	pim->bsm_rcvd++;
 
 	if (!pim_ifp->bsm_enable) {
 		zlog_warn("%s: BSM not enabled on interface %s", __func__,
 			  ifp->name);
-		//pim_ifp->pim_ifstat_bsm_cfg_miss++;
-		//pim->bsm_dropped++;
+		pim_ifp->pim_ifstat_bsm_cfg_miss++;
+		pim->bsm_dropped++;
 		return -1;
 	}
 
@@ -510,7 +510,7 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	ngroups = crp_hdr->prefix_cnt;
 	rpaddr = crp_hdr->rp_addr.addr;
 
-	if (remain < ngroups * sizeof(struct pim_encoded_group_ipv4)) {
+	if (remain < ngroups * sizeof(pim_encoded_group)) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("truncated Candidate-RP advertisement for RP %pPA from %pPA (too short for %zu groups)",
 				   &rpaddr, &src_dst->src, ngroups);
