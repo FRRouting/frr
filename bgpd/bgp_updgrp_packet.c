@@ -527,7 +527,19 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			gnh_modified = 1;
 		}
 
-		if (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg)) {
+		/* IPv4 peer advertising IPv6 prefixes (RFC 4798/4659):
+		 * Synthesize IPv4-mapped IPv6 nexthop from
+		 * the peer's IPv4 address, unless a route-map
+		 * already set the nexthop.
+		 */
+		if (peer->connection->su_local &&
+		    peer->connection->su_local->sa.sa_family == AF_INET &&
+		    peer->nexthop.v4.s_addr != INADDR_ANY &&
+		    !route_map_sets_nh) {
+			ipv4_to_ipv4_mapped_ipv6(&v6nhglobal, peer->nexthop.v4);
+			mod_v6nhg = &v6nhglobal;
+			gnh_modified = 1;
+		} else if (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg)) {
 			if (peer->nexthop.v4.s_addr != INADDR_ANY) {
 				ipv4_to_ipv4_mapped_ipv6(mod_v6nhg,
 							 peer->nexthop.v4);
