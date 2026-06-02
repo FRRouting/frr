@@ -4849,10 +4849,10 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	total = bgp_path_info_mpath_count(bpi->net) * IPV4_MAX_BYTELEN;
 	total += IPV4_MAX_BYTELEN; /* Next-hop BGP ID */
 
-	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_EXTLEN);
 	stream_putc(s, BGP_ATTR_NHC);
 	sizep = stream_get_endp(s);
-	stream_putc(s, 0);
+	stream_putw(s, 0);
 
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -4918,7 +4918,7 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	}
 	/* Other TLVs */
 
-	stream_putc_at(s, sizep, (stream_get_endp(s) - sizep) - 1);
+	stream_putw_at(s, sizep, (stream_get_endp(s) - sizep) - 2);
 }
 
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
