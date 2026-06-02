@@ -419,8 +419,8 @@ extern void prefix_mcast_ip_dump(const char *onfail, const struct ipaddr *addr,
 extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr upfx, char *buffer,
 			      int size);
-extern int evpn_type5_prefix_match(const struct prefix *evpn_pfx,
-				   const struct prefix *match_pfx);
+extern int evpn_type5_prefix_contains(const struct prefix *evpn_network_pfx,
+				      const struct prefix *match_pfx);
 extern int prefix_contains(union prefixconstptr unetwork, union prefixconstptr uprefix);
 extern int prefix_match_network_statement(union prefixconstptr unet,
 					  union prefixconstptr upfx);

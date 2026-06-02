@@ -249,7 +249,7 @@ int prefix_contains(union prefixconstptr unetwork, union prefixconstptr uprefix)
  * ip-prefix within n which matches prefix p
  * If n includes p prefix then return 1 else return 0.
  */
-int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
+int evpn_type5_prefix_contains(const struct prefix *n, const struct prefix *p)
 {
 	int offset;
 	int shift;

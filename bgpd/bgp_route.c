@@ -14973,8 +14973,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp, struct bgp_
 				 * Get prefixlen of the ip-prefix within type5
 				 * evpn route
 				 */
-				if (evpn_type5_prefix_match(rm_p, &match)
-				    && rm->info) {
+				if (evpn_type5_prefix_contains(rm_p, &match) && rm->info) {
 					longest_pfx = rm;
 					int type5_pfxlen =
 						bgp_evpn_get_type5_prefixlen(
