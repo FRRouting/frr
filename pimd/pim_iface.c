@@ -17,6 +17,7 @@
 #include "hash.h"
 #include "ferr.h"
 #include "network.h"
+#include "filter.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -240,9 +241,104 @@ void pim_if_delete(struct interface *ifp)
 
 	XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->nbr_plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->allow_rp_plist);
+	XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->boundary_oil_plist);
+	pim_ifp->boundary_oil_plist_p = NULL;
+	XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->boundary_acl);
+	pim_ifp->boundary_acl_p = NULL;
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
 	ifp->info = NULL;
+}
+
+void pim_boundary_oil_plist_set(struct pim_interface *pim_ifp, const char *name)
+{
+	XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->boundary_oil_plist);
+	pim_ifp->boundary_oil_plist_p = NULL;
+
+	if (!name)
+		return;
+
+	pim_ifp->boundary_oil_plist = XSTRDUP(MTYPE_PIM_PLIST_NAME, name);
+	pim_ifp->boundary_oil_plist_p = prefix_list_lookup(AFI_IP, name);
+}
+
+void pim_boundary_acl_set(struct pim_interface *pim_ifp, const char *name)
+{
+	XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->boundary_acl);
+	pim_ifp->boundary_acl_p = NULL;
+
+	if (!name)
+		return;
+
+	pim_ifp->boundary_acl = XSTRDUP(MTYPE_PIM_PLIST_NAME, name);
+	pim_ifp->boundary_acl_p = access_list_lookup(AFI_IP, name);
+}
+
+static void pim_boundary_prefix_list_update_intf(struct pim_interface *pim_ifp,
+						 struct prefix_list *plist)
+{
+	if (!pim_ifp->boundary_oil_plist)
+		return;
+
+	if (pim_ifp->boundary_oil_plist_p == plist)
+		pim_ifp->boundary_oil_plist_p = NULL;
+
+	if (plist && !strcmp(pim_ifp->boundary_oil_plist, prefix_list_name(plist)))
+		pim_ifp->boundary_oil_plist_p = prefix_list_lookup(AFI_IP,
+								   pim_ifp->boundary_oil_plist);
+}
+
+static void pim_boundary_access_list_update_intf(struct pim_interface *pim_ifp,
+						 struct access_list *access)
+{
+	if (!pim_ifp->boundary_acl)
+		return;
+
+	if (pim_ifp->boundary_acl_p == access)
+		pim_ifp->boundary_acl_p = NULL;
+
+	if (access && !strcmp(pim_ifp->boundary_acl, access->name))
+		pim_ifp->boundary_acl_p = access_list_lookup(AFI_IP, pim_ifp->boundary_acl);
+}
+
+void pim_boundary_prefix_list_update(struct prefix_list *plist)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!vrf->info)
+			continue;
+
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			pim_ifp = ifp->info;
+			if (!pim_ifp)
+				continue;
+
+			pim_boundary_prefix_list_update_intf(pim_ifp, plist);
+		}
+	}
+}
+
+void pim_boundary_access_list_update(struct access_list *access)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!vrf->info)
+			continue;
+
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			pim_ifp = ifp->info;
+			if (!pim_ifp)
+				continue;
+
+			pim_boundary_access_list_update_intf(pim_ifp, access);
+		}
+	}
 }
 
 void pim_if_update_could_assert(struct interface *ifp)
