@@ -892,11 +892,21 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 
 	old_rp_addr = rp_info->rp.rpf_addr;
 	if (!pim_addr_cmp(new_rp_addr, old_rp_addr)) {
-		if (rp_info->rp_src != rp_src_flag) {
+		int old_i_am_rp = rp_info->i_am_rp;
+
+		if (rp_info->rp_src != rp_src_flag)
 			rp_info->rp_src = rp_src_flag;
-			route_unlock_node(rn);
-			return PIM_SUCCESS;
-		}
+
+		/* RP address unchanged: reconcile i_am_rp and return. NHT
+		 * tracking and rp_list updates below apply only when the
+		 * address changes (g2rp refresh and BSM re-confirm both
+		 * call here with the same address).
+		 */
+		pim_rp_check_interfaces(pim, rp_info);
+		if (old_i_am_rp != rp_info->i_am_rp)
+			pim_rp_refresh_group_to_rp_mapping(pim);
+		route_unlock_node(rn);
+		return PIM_SUCCESS;
 	}
 
 	/* Deregister old RP addr with Zebra NHT */
