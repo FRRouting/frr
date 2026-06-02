@@ -4684,6 +4684,7 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	total = bgp_path_info_mpath_count(bpi) * IPV4_MAX_BYTELEN;
 	total += IPV4_MAX_BYTELEN; /* Next-hop BGP ID */
 
+<<<<<<< HEAD
 	/* NHC now supports only draft-wang-idr-next-next-hop-nodes, thus
 	 * do not sent NHC attribute if the path is not multipath or self
 	 * originated.
@@ -4692,9 +4693,12 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 		return;
 
 	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+=======
+	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_EXTLEN);
+>>>>>>> 10995a6d9 (bgpd: Set extended flag for NHC attribute when re-encoding)
 	stream_putc(s, BGP_ATTR_NHC);
 	sizep = stream_get_endp(s);
-	stream_putc(s, 0);
+	stream_putw(s, 0);
 
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -4731,7 +4735,26 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 		stream_put_ipv4(s, exists->peer->remote_id.s_addr);
 	/* End NNHN TLV */
 
+<<<<<<< HEAD
 	stream_putc_at(s, sizep, (stream_get_endp(s) - sizep) - 1);
+=======
+	/* Other TLVs */
+	if (nhc) {
+		struct bgp_nhc_tlv *tlv = NULL;
+
+		for (tlv = nhc->tlvs; tlv; tlv = tlv->next) {
+			if (bgp_debug_update(peer, NULL, NULL, 1))
+				zlog_debug("%pBP: Sending NHC TLV (%u) for %pFX", peer, tlv->code,
+					   prefix);
+			stream_putw(s, tlv->code);
+			stream_putw(s, tlv->length);
+			stream_put(s, tlv->value, tlv->length);
+		}
+	}
+	/* Other TLVs */
+
+	stream_putw_at(s, sizep, (stream_get_endp(s) - sizep) - 2);
+>>>>>>> 10995a6d9 (bgpd: Set extended flag for NHC attribute when re-encoding)
 }
 
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
