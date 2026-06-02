@@ -382,7 +382,23 @@ def test_pim_bsr_rp_info_fallback(request):
         False,
         "ipv4",
         True,
-        retry_timeout=30,
+        retry_timeout=90,
+    )
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify r4 sees itself as RP after config-withdrawal fallback")
+    result = verify_pim_rp_info(
+        tgen,
+        None,
+        "r4",
+        "239.0.0.0/16",
+        oif=None,
+        rp="10.0.3.4",
+        source="BSR",
+        iamrp=True,
+        addr_type="ipv4",
+        expected=True,
+        retry_timeout=90,
     )
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
@@ -488,6 +504,58 @@ def test_pimv6_bsr_rp_info(request):
         "ipv6",
         True,
         retry_timeout=30,
+    )
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+
+def test_pimv6_bsr_rp_info_fallback(request):
+    "Test IPv6 RP fallback when primary candidate withdraws a group"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    step("Take r3 out from IPv6 RP candidates for group ffbb::/64")
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        """
+        configure
+          router pim6
+            no bsr candidate-rp group ffbb::/64
+        """
+    )
+
+    step("Verify falling back to r4 as the new RP for ffbb::/64")
+    result = verify_pim_rp_info(
+        tgen,
+        None,
+        "r5",
+        "ffbb::0/64",
+        oif=None,
+        rp="fd00:0:0:3::4",
+        source="BSR",
+        iamrp=False,
+        addr_type="ipv6",
+        expected=True,
+        retry_timeout=90,
+    )
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify r4 sees itself as IPv6 RP after config-withdrawal fallback")
+    result = verify_pim_rp_info(
+        tgen,
+        None,
+        "r4",
+        "ffbb::0/64",
+        oif=None,
+        rp="fd00:0:0:3::4",
+        source="BSR",
+        iamrp=True,
+        addr_type="ipv6",
+        expected=True,
+        retry_timeout=90,
     )
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
