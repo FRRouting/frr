@@ -4154,8 +4154,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 
 		scope->cand_bsr_prio = yang_dnode_get_uint8(args->dnode, NULL);
 
-		/* FIXME: force prio update */
-		candidate_bsr_addrsel(scope, args->dnode);
+		pim_cand_bsr_apply(scope);
 		break;
 	}
 

@@ -303,6 +303,50 @@ def test_pim_bsr_rp_info(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
 
+def test_pim_bsr_priority_modify(request):
+    "Test PIM BSR candidate-BSR priority-only change"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r2 = tgen.gears["r2"]
+
+    step("Raise r2 candidate-BSR priority above r1")
+    r2.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 250
+        """
+    )
+
+    step("Verify r2 reports the updated candidate-BSR state")
+    expected = {"address": "10.0.0.2", "priority": 250, "elected": True}
+    test_func = partial(
+        topotest.router_json_cmp, r2, "show ip pim bsr candidate-bsr json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+    assertmsg = "r2: candidate bsr priority modify mismatch"
+    assert result is None, assertmsg
+
+    step("Verify r2 is elected as the new BSR")
+    expected = {
+        "bsr": "10.0.0.2",
+        "priority": 250,
+        "state": "BSR_ELECTED",
+    }
+
+    test_func = partial(topotest.router_json_cmp, r2, "show ip pim bsr json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=180, wait=1)
+
+    assertmsg = "r2: failed to become BSR after priority increase"
+    assert result is None, assertmsg
+
+
 def test_pim_bsr_election_fallback_r2(request):
     "Test PIM BSR Election Backup"
     tgen = get_topogen()
@@ -328,16 +372,16 @@ def test_pim_bsr_election_fallback_r2(request):
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip pim bsr candidate-bsr json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
 
     assertmsg = "r1: failed to remove bsr candidate configuration"
     assert result is None, assertmsg
 
     r2 = tgen.gears["r2"]
-    # We should fall back to r2 as the BSR
+    # r2 became BSR earlier after its priority was raised to 250
     expected = {
         "bsr": "10.0.0.2",
-        "priority": 100,
+        "priority": 250,
         "state": "BSR_ELECTED",
     }
 
@@ -426,6 +470,28 @@ def test_pimv6_bsr_election_r1(request):
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = "r2: r1 was not elected, IPv6 bsr election mismatch"
+    assert result is None, assertmsg
+
+
+def test_pimv6_bsr_cand_bsr_r2(request):
+    "Test PIMv6 BSR candidate BSR JSON output"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r2 = tgen.gears["r2"]
+
+    # r2 is a candidate bsr with low priority: elected = False
+    expected = {"address": "fd00::2", "priority": 100, "elected": False}
+    test_func = partial(
+        topotest.router_json_cmp, r2, "show ipv6 pim bsr candidate-bsr json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+    assertmsg = "r2: IPv6 candidate bsr mismatch"
     assert result is None, assertmsg
 
 
