@@ -247,6 +247,122 @@ def test_memory_leak():
     tgen.report_memory_leaks()
 
 
+<<<<<<< HEAD
+=======
+def test_pim_static_mroute():
+    "Test Static routes add/remove cycle"
+    logger.info("Testing static routes")
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    expected = {"239.1.1.1": None}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge initial mroute state"
+
+    # Add ip mroute with iif=r1-eth0 oil=r1-eth1
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nip mroute r1-eth1 239.1.1.1 10.0.0.1")
+
+    # Expect to find oil=[r1-eth1] in ip mroute command
+    expected = {"239.1.1.1": {"10.0.0.1": {"oil": {"r1-eth1": "*", "r1-eth2": None}}}}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge mroute state after adding r1-eth1"
+
+    # Add ip mroute with iif=r1-eth0 oil=r1-eth2
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nip mroute r1-eth2 239.1.1.1 10.0.0.1")
+
+    # Expect to find oil=[r1-eth1,r1-eth2] in ip mroute command
+    expected = {"239.1.1.1": {"10.0.0.1": {"oil": {"r1-eth1": "*", "r1-eth2": "*"}}}}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge mroute state after adding r1-eth2"
+
+    # Remove ip mroute with oil=r1-eth1
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nno ip mroute r1-eth1 239.1.1.1 10.0.0.1")
+    # This assert right here would break back in the day because only one oif was handled by the datamodel
+    expected = {"239.1.1.1": {"10.0.0.1": {"oil": {"r1-eth1": None, "r1-eth2": "*"}}}}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge mroute state after removing r1-eth1"
+
+    r1.vtysh_cmd("conf t\ninterface r1-eth0\nno ip mroute r1-eth2 239.1.1.1 10.0.0.1")
+    # Expect a clean state
+    expected = {"239.1.1.1": None}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to converge final mroute state"
+
+
+def test_pim_static_mroute_deferred():
+    "Static mroutes install once output-interface VIF is ready (#4636)"
+    logger.info("Testing deferred static routes at boot")
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        """
+        conf t
+           interface r1-eth1
+              no ip pim
+    """
+    )
+    r1.vtysh_cmd(
+        """
+        conf t
+           interface r1-eth0
+              ip mroute r1-eth1 239.9.9.9 10.0.0.9
+    """
+    )
+
+    expected = {"239.9.9.9": None}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert result is None, "mroute installed before output VIF was ready"
+
+    r1.vtysh_cmd(
+        """
+        conf t
+           interface r1-eth1
+              ip pim
+    """
+    )
+
+    expected = {"239.9.9.9": {"10.0.0.9": {"oil": {"r1-eth1": "*", "r1-eth2": None}}}}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "deferred static mroute was not installed"
+
+    output = r1.vtysh_cmd("show running-config")
+    assert "ip mroute r1-eth1 239.9.9.9 10.0.0.9" in output
+
+    r1.vtysh_cmd(
+        """
+        conf t
+           interface r1-eth0
+              no ip mroute r1-eth1 239.9.9.9 10.0.0.9
+    """
+    )
+    expected = {"239.9.9.9": None}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to remove deferred static mroute"
+
+    output = r1.vtysh_cmd("show running-config")
+    assert "ip mroute r1-eth1 239.9.9.9 10.0.0.9" not in output
+
+
+>>>>>>> 163e0462e (tests: cover deferred static mroute install and delete)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
