@@ -540,10 +540,13 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 		/* This means we searched and got rp node, needs unlock */
 		route_unlock_node(rn);
 
-		if (active && pend) {
-			if (pim_addr_cmp(active->rp_address, pend->rp_address))
-				pim_rp_change(pim, pend->rp_address,
-					      bsgrp_node->group, RP_SRC_BSR);
+		if (pend) {
+			/* Always install the elected RP from the new BSM.
+			 * Skipping pim_rp_change when active and pend carry
+			 * the same address left i_am_rp stale after RP
+			 * failover (#17588).
+			 */
+			pim_rp_change(pim, pend->rp_address, bsgrp_node->group, RP_SRC_BSR);
 		}
 
 		/* Possible when the first BSM has group with 0 rp count */
