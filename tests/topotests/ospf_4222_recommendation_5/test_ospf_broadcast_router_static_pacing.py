@@ -241,6 +241,20 @@ def test_ospf_broadcast_static_pacing_neighbors_full():
     verify_adjacency_static_pacing(tgen, "r1", r1_if, 1)
     verify_dynamic_adjacency_pacing(tgen, "r1", r1_if2)
 
+    # Wait for full adjacency on both segments before checking interface
+    # states.  With static pacing (limit=1) on s0 and dynamic pacing on s1,
+    # adjacencies form one at a time; DR/BDR election results are only
+    # guaranteed stable once all neighbors have reached Full.
+    wait_for_neighbor_full(tgen, "r1", "1.1.1.2")
+    wait_for_neighbor_full(tgen, "r1", "1.1.1.3")
+    wait_for_neighbor_full(tgen, "r1", "1.1.1.4")
+    wait_for_neighbor_full(tgen, "r1", "1.1.1.5")
+    wait_for_neighbor_full(tgen, "r1", "1.1.1.6")
+    wait_for_neighbor_full(tgen, "r1", "1.1.1.7")
+    wait_for_neighbor_full(tgen, "r2", "1.1.1.1")
+    wait_for_neighbor_full(tgen, "r6", "1.1.1.1")
+    wait_for_neighbor_full(tgen, "r6", "1.1.1.7")
+
     verify_broadcast_interface(
         tgen, "r1", r1_if, "198.51.100.1", "1.1.1.1", 4, 4, state="DR"
     )
@@ -258,15 +272,5 @@ def test_ospf_broadcast_static_pacing_neighbors_full():
         tgen, "r6", r6_if, "198.51.101.2", "1.1.1.6", 2, 2, state="Backup"
     )
     verify_broadcast_interface(tgen, "r7", r7_if, "198.51.101.3", "1.1.1.7", 2, 2)
-
-    wait_for_neighbor_full(tgen, "r1", "1.1.1.2")
-    wait_for_neighbor_full(tgen, "r1", "1.1.1.3")
-    wait_for_neighbor_full(tgen, "r1", "1.1.1.4")
-    wait_for_neighbor_full(tgen, "r1", "1.1.1.5")
-    wait_for_neighbor_full(tgen, "r1", "1.1.1.6")
-    wait_for_neighbor_full(tgen, "r1", "1.1.1.7")
-    wait_for_neighbor_full(tgen, "r2", "1.1.1.1")
-    wait_for_neighbor_full(tgen, "r6", "1.1.1.1")
-    wait_for_neighbor_full(tgen, "r6", "1.1.1.7")
 
     sleep(5)
