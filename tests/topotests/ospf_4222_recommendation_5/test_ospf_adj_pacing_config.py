@@ -10,13 +10,23 @@
 #
 
 """
-test_ospf_adj_pacing_dynamic.py: Test OSPF RFC4222/R5 Dynamic Adjacency Pacing
+test_ospf_adj_pacing_config.py: Test OSPF RFC4222/R5 Adjacency Pacing Configuration
 
-Tests dynamic pacing threshold configuration persistence and functionality:
+Tests static and dynamic pacing configuration persistence and functionality:
+Dynamic:
 1. Config persistence across FRR restart
 2. Config persistence across interface flap
 3. Threshold values used in AIMD algorithm
 4. Config writeback includes thresholds
+
+Static:
+5. Config persistence (write memory / running-config)
+6. Config persistence across FRR restart
+7. Config persistence across interface flap
+8. no-command removes static config
+9. Boundary values (limit=1, limit=65535)
+10. Transition from static to dynamic mode
+11. Transition from dynamic to static mode
 """
 
 import pytest
@@ -407,6 +417,236 @@ def test_adj_pacing_cleanup_on_disable(tgen):
         no ip ospf adjacency-pacing
         end
     """)
+
+
+def test_adj_pacing_static_config_persistence(tgen):
+    """Test that static pacing limit persists in running-config and write memory."""
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing static 4
+        end
+    """)
+
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing static 4" in running_config, \
+        "Static pacing limit not in running config"
+
+    r1.vtysh_cmd("write memory")
+    startup_config = r1.run("cat /etc/frr/frr.conf")
+    assert "ip ospf adjacency-pacing static 4" in startup_config, \
+        "Static pacing limit not saved to frr.conf"
+
+
+def test_adj_pacing_static_frr_restart(tgen):
+    """Test that static pacing limit persists across ospfd restart."""
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing static 3
+        end
+    """)
+    r1.vtysh_cmd("write memory")
+
+    r1.killDaemons(["ospfd"])
+    time.sleep(2)
+    r1.startDaemons(["ospfd"])
+    time.sleep(2)
+    r1.run("vtysh -f /etc/frr/frr.conf")
+    time.sleep(3)
+
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing static 3" in running_config, \
+        "Static pacing limit lost after ospfd restart"
+
+
+def test_adj_pacing_static_interface_flap(tgen):
+    """Test that static pacing limit survives interface shutdown/no shutdown."""
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing static 5
+        end
+    """)
+
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        shutdown
+        end
+    """)
+    time.sleep(2)
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        no shutdown
+        end
+    """)
+    time.sleep(2)
+
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing static 5" in running_config, \
+        "Static pacing limit lost after interface flap"
+
+
+def test_adj_pacing_static_no_command(tgen):
+    """Test that no ip ospf adjacency-pacing removes static config."""
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing static 6
+        end
+    """)
+
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing static 6" in running_config, \
+        "Static pacing not configured"
+
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        no ip ospf adjacency-pacing
+        end
+    """)
+
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing" not in running_config, \
+        "Static pacing config not removed by no-command"
+
+
+def test_adj_pacing_static_boundary_values(tgen):
+    """Test static pacing at minimum (1) and maximum (65535) limit values."""
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Minimum value
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing static 1
+        end
+    """)
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing static 1" in running_config, \
+        "Static pacing minimum value (1) not accepted"
+
+    # Maximum value
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing static 65535
+        end
+    """)
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing static 65535" in running_config, \
+        "Static pacing maximum value (65535) not accepted"
+
+    # Cleanup
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        no ip ospf adjacency-pacing
+        end
+    """)
+
+
+def test_adj_pacing_static_to_dynamic_transition(tgen):
+    """Test switching from static to dynamic mode replaces config cleanly."""
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Start with static
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing static 4
+        end
+    """)
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing static 4" in running_config, \
+        "Static pacing not configured"
+
+    # Switch to dynamic — static config must disappear
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing dynamic
+        ip ospf adjacency-pacing dynamic thresholds 60 6
+        end
+    """)
+
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing static" not in running_config, \
+        "Static pacing config still present after switching to dynamic"
+    assert "ip ospf adjacency-pacing dynamic" in running_config, \
+        "Dynamic pacing not present after transition"
+    assert "ip ospf adjacency-pacing dynamic thresholds 60 6" in running_config, \
+        "Dynamic thresholds not present after transition"
+
+
+def test_adj_pacing_dynamic_to_static_transition(tgen):
+    """Test switching from dynamic to static mode replaces config cleanly."""
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Start with dynamic
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing dynamic
+        ip ospf adjacency-pacing dynamic thresholds 80 8
+        end
+    """)
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing dynamic thresholds 80 8" in running_config, \
+        "Dynamic pacing not configured"
+
+    # Switch to static — dynamic config must disappear
+    r1.vtysh_cmd("""
+        configure terminal
+        interface eth1
+        ip ospf adjacency-pacing static 2
+        end
+    """)
+
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "ip ospf adjacency-pacing dynamic" not in running_config, \
+        "Dynamic pacing config still present after switching to static"
+    assert "ip ospf adjacency-pacing static 2" in running_config, \
+        "Static pacing not present after transition"
 
 
 if __name__ == "__main__":

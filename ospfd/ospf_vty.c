@@ -628,7 +628,8 @@ DEFUN (ip_ospf_adj_pacing_dynamic,
 		if (first_rn->info) {
 			struct ospf_interface *first_oi = first_rn->info;
 
-			vty_out(vty, "%% Dynamic pacing initialized: start_limit=%u max=%u H=%u L=%u\n",
+			vty_out(vty,
+				"%% Dynamic pacing initialized: start_limit=%u max=%u H=%u L=%u\n",
 				OSPF_ADJ_DYN_LIMIT_INITIAL, OSPF_ADJ_DYN_LIMIT_MAX,
 				first_oi->adj_pacing.high_water, first_oi->adj_pacing.low_water);
 		}
