@@ -17,6 +17,9 @@
 #include "pim_pim.h"
 #include "pim_upstream.h"
 
+/* RFC 3973 default originator TTL for State Refresh messages. */
+#define PIM_STATEREFRESH_DEFAULT_TTL 16
+
 int pim_staterefresh_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 			       pim_addr group_addr, pim_addr source_addr, pim_addr originator_addr,
 			       uint32_t metric_preference, uint32_t route_metric,
