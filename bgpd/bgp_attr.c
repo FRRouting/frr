@@ -5342,27 +5342,38 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			stream_put_in_addr(s, &from->remote_id);
 
 		/* Cluster list. */
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
-		stream_putc(s, BGP_ATTR_CLUSTER_LIST);
-
-		if (cluster) {
-			stream_putc(s, cluster->length + 4);
-			/* If this peer configuration's parent BGP has
-			 * cluster_id. */
-			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
-				stream_put_in_addr(s, &bgp->cluster_id);
-			else
-				stream_put_in_addr(s, &bgp->router_id);
-			stream_put(s, cluster->list, cluster->length);
+		/* RFC 4271 4.3 says:
+		 * The fourth high-order bit (bit 3) of the Attribute Flags octet
+		 * is the Extended Length bit. It defines whether the Attribute
+		 * Length is one octet (if set to 0) or two octets (if set to 1).
+		 *
+		 * If the Extended Length bit of the Attribute Flags octet is set
+		 * to 0, the third octet of the Path Attribute contains the length
+		 * of the attribute data in octets.
+		 *
+		 * If the Extended Length bit of the Attribute Flags octet is set
+		 * to 1, the third and fourth octets of the path attribute contain
+		 * the length of the attribute data in octets.
+		 */
+		if (cluster && cluster->length + 4 > 255) {
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_EXTLEN);
+			stream_putc(s, BGP_ATTR_CLUSTER_LIST);
+			stream_putw(s, cluster->length + 4);
 		} else {
-			stream_putc(s, 4);
-			/* If this peer configuration's parent BGP has
-			 * cluster_id. */
-			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
-				stream_put_in_addr(s, &bgp->cluster_id);
-			else
-				stream_put_in_addr(s, &bgp->router_id);
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
+			stream_putc(s, BGP_ATTR_CLUSTER_LIST);
+			stream_putc(s, cluster ? cluster->length + 4 : 4);
 		}
+
+		/* If this peer configuration's parent BGP has
+		 * cluster_id. */
+		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+			stream_put_in_addr(s, &bgp->cluster_id);
+		else
+			stream_put_in_addr(s, &bgp->router_id);
+
+		if (cluster)
+			stream_put(s, cluster->list, cluster->length);
 	}
 
 	/* Extended IPv6/Communities attributes. */
