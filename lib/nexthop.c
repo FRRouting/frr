@@ -162,11 +162,35 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	if (next1->vrf_id > next2->vrf_id)
 		return 1;
 
-	if (next1->type < next2->type)
-		return -1;
+	/*
+	 * When not using ifindex, ignore the type difference
+	 * between resolved and unresolved nexthops.
+	 */
+	if (use_ifindex) {
+		if (next1->type < next2->type)
+			return -1;
 
-	if (next1->type > next2->type)
-		return 1;
+		if (next1->type > next2->type)
+			return 1;
+	} else {
+		enum nexthop_types_t t1 = next1->type;
+		enum nexthop_types_t t2 = next2->type;
+
+		if (t1 == NEXTHOP_TYPE_IPV4_IFINDEX)
+			t1 = NEXTHOP_TYPE_IPV4;
+		if (t2 == NEXTHOP_TYPE_IPV4_IFINDEX)
+			t2 = NEXTHOP_TYPE_IPV4;
+		if (t1 == NEXTHOP_TYPE_IPV6_IFINDEX)
+			t1 = NEXTHOP_TYPE_IPV6;
+		if (t2 == NEXTHOP_TYPE_IPV6_IFINDEX)
+			t2 = NEXTHOP_TYPE_IPV6;
+
+		if (t1 < t2)
+			return -1;
+
+		if (t1 > t2)
+			return 1;
+	}
 
 	if (use_weight) {
 		if (next1->weight < next2->weight)
@@ -461,7 +485,7 @@ bool nexthop_same_no_ifindex(const struct nexthop *nh1, const struct nexthop *nh
 	if (nh1 == nh2)
 		return true;
 
-	return nexthop_cmp_internal(nh1, nh2, true, false);
+	return (nexthop_cmp_internal(nh1, nh2, true, false) == 0);
 }
 
 bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
