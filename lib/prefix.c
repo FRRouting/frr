@@ -209,8 +209,8 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 			return 0;
 
 		/* Set both prefix's head pointer. */
-		np = (const uint8_t *)&n->u.prefix_flowspec.ptr;
-		pp = (const uint8_t *)&p->u.prefix_flowspec.ptr;
+		np = (const uint8_t *)n->u.prefix_flowspec.ptr;
+		pp = (const uint8_t *)p->u.prefix_flowspec.ptr;
 
 		offset = n->u.prefix_flowspec.prefixlen;
 
@@ -434,8 +434,8 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 			if (p1->u.prefix_flowspec.prefixlen !=
 			    p2->u.prefix_flowspec.prefixlen)
 				return 0;
-			if (!memcmp(&p1->u.prefix_flowspec.ptr,
-				    &p2->u.prefix_flowspec.ptr,
+			if (!memcmp((void *)p1->u.prefix_flowspec.ptr,
+				    (void *)p2->u.prefix_flowspec.ptr,
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
