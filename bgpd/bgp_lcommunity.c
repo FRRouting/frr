@@ -179,6 +179,8 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
 		return;
 
 	if (make_json) {
+		if (lcom->json)
+			json_object_put(lcom->json);
 		lcom->json = json_object_new_object();
 		json_lcommunity_list = json_object_new_array();
 	}
