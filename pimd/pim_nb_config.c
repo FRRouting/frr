@@ -2903,6 +2903,7 @@ int lib_interface_pim_address_family_mroute_create(
 	return NB_OK;
 }
 
+<<<<<<< HEAD
 int lib_interface_pim_address_family_mroute_destroy(
 	struct nb_cb_destroy_args *args)
 {
@@ -2924,10 +2925,17 @@ int lib_interface_pim_address_family_mroute_destroy(
 			return NB_ERR_VALIDATION;
 		}
 		break;
+=======
+int lib_interface_pim_address_family_mroute_destroy(struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+>>>>>>> 3db0edca2 (pimd: fix static mroute list destroy NB callback)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		iif = nb_running_get_entry(args->dnode, NULL, true);
 		pim_iifp = iif->info;
 		pim = pim_iifp->pim;
@@ -2951,6 +2959,15 @@ int lib_interface_pim_address_family_mroute_destroy(
 			return NB_ERR_INCONSISTENCY;
 		}
 
+=======
+		/*
+		 * Per-oif cleanup is handled by
+		 * lib_interface_pim_address_family_mroute_oif_destroy().
+		 * This runs when the mroute list entry itself is removed
+		 * (e.g. after the last oif is deleted); do not call
+		 * pim_static_del() here with a non-oif dnode.
+		 */
+>>>>>>> 3db0edca2 (pimd: fix static mroute list destroy NB callback)
 		break;
 	}
 
