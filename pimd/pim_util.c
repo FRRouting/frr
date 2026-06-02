@@ -107,7 +107,7 @@ int pim_is_group_224_0_0_0_24(struct in_addr group_addr)
 	group.u.prefix4 = group_addr;
 	group.prefixlen = IPV4_MAX_BITLEN;
 
-	return prefix_match(&group_224, &group);
+	return prefix_contains(&group_224, &group);
 }
 
 int pim_is_group_224_4(struct in_addr group_addr)
@@ -126,7 +126,7 @@ int pim_is_group_224_4(struct in_addr group_addr)
 	group.u.prefix4 = group_addr;
 	group.prefixlen = IPV4_MAX_BITLEN;
 
-	return prefix_match(&group_all, &group);
+	return prefix_contains(&group_all, &group);
 }
 
 bool pim_is_group_ff00_8(struct in6_addr group_address)
@@ -140,7 +140,7 @@ bool pim_is_group_ff00_8(struct in6_addr group_address)
 	group.u.prefix6 = group_address;
 	group.prefixlen = IPV6_MAX_BITLEN;
 
-	return prefix_match(&group_all, &group);
+	return prefix_contains(&group_all, &group);
 }
 
 static bool pim_cisco_match(const struct filter *filter, const struct in_addr *source,
@@ -175,7 +175,7 @@ static bool pim_acl_prefix_match(const struct filter *filter, const struct prefi
 	if (zfilter->exact && zfilter->prefix.prefixlen != p->prefixlen)
 		return false;
 
-	return prefix_match(&zfilter->prefix, p);
+	return prefix_contains(&zfilter->prefix, p);
 }
 
 enum filter_type pim_access_list_apply(struct access_list *access, const struct in_addr *source,

@@ -5115,8 +5115,7 @@ static struct peer_group *listen_range_exists(struct bgp *bgp,
 			if (exact)
 				match = prefix_same(range, lr);
 			else
-				match = (prefix_match(range, lr)
-					 || prefix_match(lr, range));
+				match = (prefix_contains(range, lr) || prefix_contains(lr, range));
 			if (match)
 				return group;
 		}

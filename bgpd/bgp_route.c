@@ -14041,7 +14041,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 			}
 			if (type == bgp_show_type_prefix_longer) {
 				p = output_arg;
-				if (!prefix_match(p, dest_p))
+				if (!prefix_contains(p, dest_p))
 					continue;
 			}
 			if (type == bgp_show_type_community_all) {

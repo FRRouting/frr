@@ -793,7 +793,7 @@ static void rfapiMonitorMoveLonger(struct agg_node *new_vpn_node)
 		 * If new longest match for monitor prefix is the new
 		 * route's prefix, move monitor to new route's prefix
 		 */
-		if (prefix_match(new_vpn_node_p, &monitor->p)) {
+		if (prefix_contains(new_vpn_node_p, &monitor->p)) {
 			/* detach */
 			if (mlast) {
 				mlast->next = monitor->next;
@@ -4463,12 +4463,10 @@ static void rfapiDeleteRemotePrefixesIt(
 					qpt_valid = 1;
 
 				if (vn) {
-					if (!qpt_valid
-					    || !prefix_match(vn, &qpt)) {
+					if (!qpt_valid || !prefix_contains(vn, &qpt)) {
 #ifdef DEBUG_L2_EXTRA
-						vnc_zlog_debug_verbose(
-							"%s: continue at vn && !qpt_valid || !prefix_match(vn, &qpt)",
-							__func__);
+						vnc_zlog_debug_verbose("%s: continue at vn && !qpt_valid || !prefix_contains(vn, &qpt)",
+								       __func__);
 #endif
 						continue;
 					}
@@ -4478,12 +4476,10 @@ static void rfapiDeleteRemotePrefixesIt(
 					qct_valid = 1;
 
 				if (un) {
-					if (!qct_valid
-					    || !prefix_match(un, &qct)) {
+					if (!qct_valid || !prefix_contains(un, &qct)) {
 #ifdef DEBUG_L2_EXTRA
-						vnc_zlog_debug_verbose(
-							"%s: continue at un && !qct_valid || !prefix_match(un, &qct)",
-							__func__);
+						vnc_zlog_debug_verbose("%s: continue at un && !qct_valid || !prefix_contains(un, &qct)",
+								       __func__);
 #endif
 						continue;
 					}

@@ -1648,7 +1648,7 @@ static struct in_addr ospf_external_lsa_nexthop_get(struct ospf *ospf,
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
 		if (if_is_operative(oi->ifp))
 			if (oi->address->family == AF_INET)
-				if (prefix_match(oi->address, &nh))
+				if (prefix_contains(oi->address, &nh))
 					return nexthop;
 
 	return fwd;

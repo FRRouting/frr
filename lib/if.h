@@ -502,9 +502,9 @@ struct nbr_connected {
 
 /* Identifying address.  We guess that if there's a peer address, but the
    local address is in the same prefix, then the local address may be unique. */
-#define CONNECTED_ID(C)                                                        \
-	((CONNECTED_PEER(C) && !prefix_match((C)->destination, (C)->address))  \
-		 ? (C)->destination                                            \
+#define CONNECTED_ID(C)                                                                           \
+	((CONNECTED_PEER(C) && !prefix_contains((C)->destination, (C)->address))                  \
+		 ? (C)->destination                                                               \
 		 : (C)->address)
 
 /* There are some interface flags which are only supported by some

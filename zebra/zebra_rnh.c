@@ -957,7 +957,7 @@ void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
 	}
 
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
-		if (p && !prefix_match(&rn->p, p))
+		if (p && !prefix_contains(&rn->p, p))
 			continue;
 
 		if (rn->info)

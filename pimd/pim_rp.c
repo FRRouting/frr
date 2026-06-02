@@ -523,7 +523,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		/*
 		 * Barf if group is a non-multicast subnet
 		 */
-		if (!prefix_match(&rp_all->group, &rp_info->group)) {
+		if (!prefix_contains(&rp_all->group, &rp_info->group)) {
 			XFREE(MTYPE_PIM_RP, rp_info);
 			return PIM_GROUP_BAD_ADDRESS;
 		}
@@ -1244,7 +1244,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 		const char *group_type =
 			pim_is_grp_ssm(pim, group) ? "SSM" : "ASM";
 
-		if (range && !prefix_match(&rp_info->group, range))
+		if (range && !prefix_contains(&rp_info->group, range))
 			continue;
 
 		if (rp_info->rp_src == RP_SRC_STATIC)

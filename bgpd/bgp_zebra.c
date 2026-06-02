@@ -635,7 +635,7 @@ struct interface *if_lookup_by_ipv4(struct in_addr *addr, vrf_id_t vrf_id)
 			cp = connected->address;
 
 			if (cp->family == AF_INET)
-				if (prefix_match(cp, (struct prefix *)&p))
+				if (prefix_contains(cp, (struct prefix *)&p))
 					return ifp;
 		}
 	}
@@ -687,7 +687,7 @@ struct interface *if_lookup_by_ipv6(struct in6_addr *addr, ifindex_t ifindex,
 			cp = connected->address;
 
 			if (cp->family == AF_INET6)
-				if (prefix_match(cp, (struct prefix *)&p)) {
+				if (prefix_contains(cp, (struct prefix *)&p)) {
 					if (IN6_IS_ADDR_LINKLOCAL(
 						    &cp->u.prefix6)) {
 						if (ifindex == ifp->ifindex)
@@ -3859,8 +3859,8 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 		tmp_prefix.prefix = sid_addr;
 
-		if (!prefix_match((struct prefix *)&locator_bgp->prefix,
-				  (struct prefix *)&tmp_prefix)) {
+		if (!prefix_contains((struct prefix *)&locator_bgp->prefix,
+				     (struct prefix *)&tmp_prefix)) {
 			/* locator may have changed - release the SID */
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug("SRv6 SID %pI6 %s : locator prefix mismatch (%s), releasing it.",
@@ -4313,7 +4313,8 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 
 	// refresh chunks
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
-		if (prefix_match((struct prefix *)&loc->prefix, (struct prefix *)&chunk->prefix)) {
+		if (prefix_contains((struct prefix *)&loc->prefix,
+				    (struct prefix *)&chunk->prefix)) {
 			listnode_delete(bgp->srv6_locator_chunks, chunk);
 			srv6_locator_chunk_free(&chunk);
 		}
@@ -4323,7 +4324,7 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 		tmp_prefix.family = AF_INET6;
 		tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 		tmp_prefix.prefix = func->sid;
-		if (prefix_match((struct prefix *)&loc->prefix, (struct prefix *)&tmp_prefix)) {
+		if (prefix_contains((struct prefix *)&loc->prefix, (struct prefix *)&tmp_prefix)) {
 			listnode_delete(bgp->srv6_functions, func);
 			srv6_function_free(func);
 		}
@@ -4351,8 +4352,8 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 			tmp_prefix.family = AF_INET6;
 			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefix.prefix = *tovpn_sid;
-			if (prefix_match((struct prefix *)&loc->prefix,
-					 (struct prefix *)&tmp_prefix)) {
+			if (prefix_contains((struct prefix *)&loc->prefix,
+					    (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
 				/* refresh vpnv4 tovpn_sid_locator */
@@ -4367,8 +4368,8 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 			tmp_prefix.family = AF_INET6;
 			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefix.prefix = *tovpn_sid;
-			if (prefix_match((struct prefix *)&loc->prefix,
-					 (struct prefix *)&tmp_prefix)) {
+			if (prefix_contains((struct prefix *)&loc->prefix,
+					    (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
 				/* refresh vpnv6 tovpn_sid_locator */
@@ -4383,8 +4384,8 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 			tmp_prefix.family = AF_INET6;
 			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefix.prefix = *tovpn_sid;
-			if (prefix_match((struct prefix *)&loc->prefix,
-					 (struct prefix *)&tmp_prefix)) {
+			if (prefix_contains((struct prefix *)&loc->prefix,
+					    (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 				/* refresh per-vrf tovpn_sid_locator */
 				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
@@ -4404,7 +4405,7 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 		tmp_prefix.family = AF_INET6;
 		tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 		tmp_prefix.prefix = *unicast_sid;
-		if (!prefix_match((struct prefix *)&loc->prefix, (struct prefix *)&tmp_prefix))
+		if (!prefix_contains((struct prefix *)&loc->prefix, (struct prefix *)&tmp_prefix))
 			continue;
 		bgp_srv6_unicast_withdraw(bgp, afi);
 		bgp_srv6_unicast_sid_withdraw(bgp, afi);

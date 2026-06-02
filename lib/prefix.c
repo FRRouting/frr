@@ -191,11 +191,11 @@ const char *safi2str(safi_t safi)
 	return "DEV ESCAPE";
 }
 
-/* If n includes p prefix then return 1 else return 0. */
-int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
+/* If unetwork includes uprefix then return 1 else return 0. */
+int prefix_contains(union prefixconstptr unetwork, union prefixconstptr uprefix)
 {
-	const struct prefix *n = unet.p;
-	const struct prefix *p = upfx.p;
+	const struct prefix *n = unetwork.p;
+	const struct prefix *p = uprefix.p;
 	int offset;
 	int shift;
 	const uint8_t *np, *pp;

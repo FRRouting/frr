@@ -156,11 +156,11 @@ static int filter_match_zebra(struct filter *mfilter, const struct prefix *p)
 	if (filter->prefix.family == p->family) {
 		if (filter->exact) {
 			if (filter->prefix.prefixlen == p->prefixlen)
-				return prefix_match(&filter->prefix, p);
+				return prefix_contains(&filter->prefix, p);
 			else
 				return 0;
 		} else
-			return prefix_match(&filter->prefix, p);
+			return prefix_contains(&filter->prefix, p);
 	} else
 		return 0;
 }
@@ -253,11 +253,11 @@ static int filter_match_zebra_sadr(struct filter *mfilter, const struct prefix *
 	if (filter->prefix.family == p->family) {
 		if (filter->exact) {
 			if (filter->prefix.prefixlen == p->prefixlen)
-				return prefix_match(&filter->prefix, p);
+				return prefix_contains(&filter->prefix, p);
 			else
 				return 0;
 		} else
-			return prefix_match(&filter->prefix, p);
+			return prefix_contains(&filter->prefix, p);
 	} else
 		return 0;
 }

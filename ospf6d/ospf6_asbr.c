@@ -1432,7 +1432,7 @@ static void ospf6_external_lsa_fwd_addr_set(struct ospf6 *ospf6,
 				continue;
 			if (IN6_IS_ADDR_LINKLOCAL(&connected->address->u.prefix6))
 				continue;
-			if (!prefix_match(connected->address, &nh))
+			if (!prefix_contains(connected->address, &nh))
 				continue;
 
 			*fwd_addr = *nexthop;
