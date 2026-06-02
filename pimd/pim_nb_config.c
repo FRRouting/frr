@@ -3027,19 +3027,27 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 
 		oifname = yang_dnode_get_string(args->dnode, NULL);
 		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
+<<<<<<< HEAD
 		if (!oif) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "No such interface name %s",
 				 oifname);
 			return NB_ERR_INCONSISTENCY;
 		}
+=======
+>>>>>>> de90697f6 (pimd: defer static mroute install until interfaces are ready)
 
 		yang_dnode_get_pimaddr(&source_addr, args->dnode, "../source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
 
+<<<<<<< HEAD
 		if (pim_static_add(pim, iif, oif, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Failed to add static mroute");
+=======
+		if (pim_static_add(pim, iif, oif, oifname, group_addr, source_addr)) {
+			snprintf(args->errmsg, args->errmsg_len, "Failed to add static mroute");
+>>>>>>> de90697f6 (pimd: defer static mroute install until interfaces are ready)
 			return NB_ERR_INCONSISTENCY;
 		}
 
@@ -3057,6 +3065,29 @@ int lib_interface_pim_address_family_mroute_oif_destroy(
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+
+		iif = nb_running_get_entry(if_dnode, NULL, true);
+		if (!iif)
+			return NB_ERR_INCONSISTENCY;
+
+
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, NULL);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
+
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "../source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
+
+		if (pim_static_del(pim, iif, oif, oifname, group_addr, source_addr)) {
+			snprintf(args->errmsg, args->errmsg_len, "Failed to del static mroute");
+			return NB_ERR_INCONSISTENCY;
+		}
+>>>>>>> de90697f6 (pimd: defer static mroute install until interfaces are ready)
 		break;
 	}
 

@@ -19,6 +19,7 @@
 #include "pim_mroute.h"
 #include "pim_autorp.h"
 #include "pim_nht.h"
+#include "pim_static.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
@@ -140,6 +141,8 @@ struct pim_instance {
 
 	// List of static routes;
 	struct list *static_routes;
+	/* Static mroutes waiting for interface/VIF readiness at boot. */
+	struct pim_static_route_cfgs_head static_route_configs;
 
 	// Upstream vrf specific information
 	struct rb_pim_upstream_head upstream_head;
