@@ -19,7 +19,7 @@
 static struct hash *comhash;
 
 /* Allocate a new communities value.  */
-static struct community *community_new(void)
+struct community *community_new(void)
 {
 	return XCALLOC(MTYPE_COMMUNITY, sizeof(struct community));
 }
