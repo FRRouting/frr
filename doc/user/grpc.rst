@@ -7,7 +7,7 @@ Northbound gRPC
 .. program:: configure
 
 *gRPC* provides a combined front end to all FRR daemons using the YANG
-northbound. It is currently disabled by default due its experimental
+northbound. It is currently disabled by default due to its experimental
 stage, but it can be enabled with :option:`--enable-grpc` option in the
 configure script.
 
@@ -21,15 +21,12 @@ Northbound gRPC Features
   into ``mgmtd``, ``Get(CONFIG)`` reads from mgmtd's running datastore. The
   root path, or an omitted path, returns the whole running datastore. A
   non-root config path returns the YANG subtree rooted at that path.
-* Execute YANG RPC calls.
+* Execute YANG RPC calls. When gRPC is loaded into ``mgmtd``, daemon-owned
+  RPCs are routed through mgmtd to the backend daemon that registered the RPC
+  xpath.
 * Lock/unlock configuration.
 * Create/edit/load/update/commit candidate configuration.
 * List/get transactions.
-
-
-.. note::
-
-   There is currently no support for YANG notifications.
 
 
 .. note::
@@ -59,6 +56,8 @@ The *gRPC* module accepts the following run time option:
 To configure FRR daemons to listen to gRPC you need to append the
 following parameter to the daemon's command line: ``-M grpc``
 (optionally ``-M grpc:PORT`` to specify listening port).
+
+For example, ``-M grpc:50051`` listens on port ``50051``.
 
 To do that in production you need to edit the ``/etc/frr/daemons`` file
 so the daemons get started with the command line argument. Example:
