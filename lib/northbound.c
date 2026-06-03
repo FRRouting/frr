@@ -2565,6 +2565,15 @@ done:
 
 DEFINE_HOOK(nb_notification_tree_send,
 	    (const char *xpath, const struct lyd_node *tree), (xpath, tree));
+DEFINE_HOOK(nb_grpc_terminate, (), ());
+
+void nb_grpc_terminate_call(void)
+{
+	hook_call(nb_grpc_terminate);
+}
+
+static nb_notification_data_subscribe_cb notification_data_subscribe_cb;
+static nb_notification_data_unsubscribe_cb notification_data_unsubscribe_cb;
 
 int nb_notification_tree_send(const char *xpath, const struct lyd_node *tree)
 {
@@ -2578,6 +2587,35 @@ int nb_notification_tree_send(const char *xpath, const struct lyd_node *tree)
 	ret = hook_call(nb_notification_tree_send, xpath, tree);
 
 	return ret;
+}
+
+void nb_notification_data_subscribe_set(nb_notification_data_subscribe_cb cb)
+{
+	/* Single owner by design: one frontend owns notification selectors. */
+	notification_data_subscribe_cb = cb;
+}
+
+void nb_notification_data_unsubscribe_set(nb_notification_data_unsubscribe_cb cb)
+{
+	/* Single owner by design: one frontend owns notification selectors. */
+	notification_data_unsubscribe_cb = cb;
+}
+
+int nb_notification_data_subscribe(const char *const *selectors, size_t selector_count,
+				   LYD_FORMAT format, nb_notification_data_cb cb, void *arg,
+				   void **handle, char *errmsg, size_t errmsg_len)
+{
+	if (!notification_data_subscribe_cb)
+		return -EOPNOTSUPP;
+
+	return notification_data_subscribe_cb(selectors, selector_count, format, cb, arg, handle,
+					      errmsg, errmsg_len);
+}
+
+void nb_notification_data_unsubscribe(void *handle)
+{
+	if (notification_data_unsubscribe_cb)
+		notification_data_unsubscribe_cb(handle);
 }
 
 /* Running configuration user pointers management. */
