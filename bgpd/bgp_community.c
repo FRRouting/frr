@@ -201,6 +201,8 @@ static void set_community_string(struct community *com, bool make_json,
 		return;
 
 	if (make_json) {
+		if (com->json)
+			json_object_put(com->json);
 		com->json = json_object_new_object();
 		json_community_list = json_object_new_array();
 	}
