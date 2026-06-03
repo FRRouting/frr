@@ -3319,8 +3319,13 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
 			err = bgp_attr_srv6_service_data(args);
 
-			if (err != BGP_ATTR_PARSE_PROCEED)
+			/* l3service object hasn't been interned yet - must free it */
+			if (err != BGP_ATTR_PARSE_PROCEED) {
+				srv6_l3service = bgp_attr_get_srv6_l3service(attr);
+				bgp_attr_srv6_l3service_free(srv6_l3service);
+				bgp_attr_set_srv6_l3service(attr, NULL);
 				return err;
+			}
 		}
 
 		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
