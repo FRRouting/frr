@@ -169,9 +169,6 @@ static bool pim_acl_prefix_match(const struct filter *filter, const struct prefi
 {
 	const struct filter_zebra *zfilter = &filter->u.zfilter;
 
-	if (zfilter->prefix.family != p->family)
-		return false;
-
 	if (zfilter->exact && zfilter->prefix.prefixlen != p->prefixlen)
 		return false;
 
