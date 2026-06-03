@@ -21,6 +21,7 @@
 #include "json.h"
 
 #include <iostream>
+#include <chrono>
 #include <sstream>
 #include <memory>
 #include <string>
@@ -31,6 +32,10 @@
 #include <vector>
 
 #define GRPC_DEFAULT_PORT 50051
+#define GRPC_SUBSCRIBE_MIN_INTERVAL_MS	   100
+#define GRPC_SUBSCRIBE_DEFAULT_MAX_PENDING 128
+
+
 // ------------------------------------------------------
 //                 File Local Variables
 // ------------------------------------------------------
@@ -47,6 +52,8 @@ static struct event_loop *main_master;
 static struct frr_pthread *fpt;
 
 static bool grpc_running;
+static bool grpc_shutting_down;
+static size_t grpc_subscribe_max_pending = GRPC_SUBSCRIBE_DEFAULT_MAX_PENDING;
 static pthread_mutex_t s_server_lock = PTHREAD_MUTEX_INITIALIZER;
 static grpc::Server *s_server;
 static grpc::ServerCompletionQueue *s_cq;
@@ -60,6 +67,17 @@ static bool grpc_is_running(void)
 	pthread_mutex_unlock(&s_server_lock);
 
 	return running;
+}
+
+static bool grpc_is_shutting_down(void)
+{
+	bool shutting_down;
+
+	pthread_mutex_lock(&s_server_lock);
+	shutting_down = grpc_shutting_down;
+	pthread_mutex_unlock(&s_server_lock);
+
+	return shutting_down;
 }
 
 #define grpc_debug(...)                                                        \
@@ -843,6 +861,948 @@ grpc::Status HandleUnaryCreateCandidate(
 	return grpc::Status::OK;
 }
 
+/*
+ * Subscribe streaming RPC.
+ *
+ * Server-streaming RPC: the client sends one SubscribeRequest, the server
+ * keeps the stream open and writes a SubscribeResponse for every YANG
+ * notification matching the subscribed paths.  This is the gNMI shape; it
+ * works with off-the-shelf tools (gnmic, gNMI Python libraries) that
+ * already expect a server-streaming Subscribe.
+ *
+ * Per-stream state lives in a Subscription owned by SubscribeRpcState.
+ * Notification selector matching is delegated to the daemon-specific
+ * notification-data subscription provider.  In mgmtd this is the same
+ * selector tree used by native frontend clients.
+ *
+ * Thread invariants:
+ *   - run_mainthread(), finish_from_event_thread(), close_subscription(),
+ *     deregister_subscription(), and timer callbacks run on the libfrr main
+ *     thread.
+ *   - handle_cq_error() runs on the gRPC completion-queue pthread.
+ *   - enqueue_notification_for() can be entered while gRPC write completions
+ *     are also flowing.
+ *
+ * Locking:
+ *   - RpcStateBase::cmux protects the SubscribeRpcState::sub pointer and RPC
+ *     state transitions coordinated with the completion-queue pthread.
+ *   - Subscription::mtx protects pending, write_in_flight, timer handles,
+ *     cancelled and the mgmtd unsubscribe handle.
+ *
+ *   gRPC's per-stream Write must be serialised by the caller; that is
+ *   enforced by write_in_flight: the notification callback only posts a new
+ *   Write when write_in_flight is false; the handler only clears
+ *   write_in_flight after the previous Write has completed.
+ *
+ * Modes:
+ *   ON_CHANGE  -- implemented here.
+ *   STREAM     -- send initial operational-state snapshot, then notifications.
+ *   SAMPLE     -- periodically send operational-state snapshots.
+ *   POLL       -- requires a client-streaming request shape; unimplemented.
+ */
+
+struct Subscription;
+
+class SubscribeRpcState : public RpcStateBase {
+      public:
+	typedef void (frr::Northbound::AsyncService::*reqsfunc_t)(
+		::grpc::ServerContext *, frr::SubscribeRequest *,
+		::grpc::ServerAsyncWriter<frr::SubscribeResponse> *, ::grpc::CompletionQueue *,
+		::grpc::ServerCompletionQueue *, void *);
+
+	SubscribeRpcState();
+	~SubscribeRpcState() override;
+
+	void do_request(::frr::Northbound::AsyncService *service,
+			::grpc::ServerCompletionQueue *cq, bool no_copy) override;
+	CallState run_mainthread(struct event *event) override;
+	bool repost_on_finish(void) const override;
+	bool handle_cq_error(void) override;
+	void enqueue_notification(frr::SubscribeResponse &&resp);
+	void enqueue_notification_for(struct Subscription *expected_sub,
+				      frr::SubscribeResponse &&resp);
+	static void deregister_all_from_main(void);
+	static void cancel_cleanup_events_from_main(void);
+
+	frr::SubscribeRequest request;
+	frr::SubscribeResponse response;
+	grpc::ServerAsyncWriter<frr::SubscribeResponse> async_responder;
+
+      private:
+	enum class CqOp { ACCEPT, WRITE, FINISH };
+
+	void finish_from_event_thread(grpc::Status status);
+	void deregister_subscription(void);
+	void close_subscription(grpc::Status status);
+	bool enqueue_response(frr::SubscribeResponse &&resp, bool resets_heartbeat,
+			      grpc::Status *status = NULL);
+	grpc::Status enqueue_state_snapshot(bool sync_response);
+	bool subscription_finish_deferred(void);
+	void schedule_sample_timer(void);
+	void schedule_heartbeat_timer(void);
+	static void sample_timer_event(struct event *event);
+	static void heartbeat_timer_event(struct event *event);
+
+	reqsfunc_t requestsf = &frr::Northbound::AsyncService::RequestSubscribe;
+	::frr::Northbound::AsyncService *service = NULL;
+	::grpc::ServerCompletionQueue *cq = NULL;
+	struct Subscription *sub = NULL;
+	struct Subscription *shutdown_sub = NULL;
+	CqOp op = CqOp::ACCEPT;
+	bool accepted_stream = false;
+};
+
+struct Subscription {
+	pthread_mutex_t mtx;
+
+	/* Set by handler on initial entry; used by notification callback. */
+	SubscribeRpcState *tag;
+	std::list<std::string> selectors;
+	frr::Encoding encoding;
+	LYD_FORMAT lyd_format;
+
+	/* gRPC write-serialisation. */
+	std::deque<frr::SubscribeResponse> pending;
+	bool write_in_flight;
+
+	bool cancelled;
+	bool main_released;
+	bool finish_after_write;
+	grpc::Status finish_status;
+	void *mgmt_notify_handle;
+	struct event *sample_timer;
+	struct event *heartbeat_timer;
+	uint32_t sample_interval_ms;
+	uint32_t heartbeat_interval_ms;
+};
+
+struct SubscribeCleanup;
+static pthread_mutex_t active_subscriptions_mtx = PTHREAD_MUTEX_INITIALIZER;
+static std::list<Subscription *> active_subscriptions;
+static pthread_mutex_t active_subscribe_cleanups_mtx = PTHREAD_MUTEX_INITIALIZER;
+static std::list<SubscribeCleanup *> active_subscribe_cleanups;
+
+struct SubscribeCleanup {
+	pthread_mutex_t mtx;
+	pthread_cond_t cond;
+	struct event *event;
+	bool done;
+	bool waiter;
+	struct Subscription *sub;
+};
+
+static void subscribe_cleanup_free(struct SubscribeCleanup *cleanup);
+
+static std::string notification_data_path(const char *xpath, LYD_FORMAT format, const char *data)
+{
+	struct lyd_node *tree = NULL;
+	struct json_object *json = NULL;
+	struct json_object_iter iter;
+	char path[XPATH_MAXLEN];
+	LY_ERR err;
+	std::string result;
+
+	if (xpath && xpath[0])
+		return xpath;
+	if (!data || !data[0])
+		return "";
+
+	/*
+	 * mgmtd normally derives the notification path before dispatching to
+	 * gRPC. Keep this fallback for daemon-local notification dispatch.
+	 */
+	err = lyd_parse_data_mem(ly_native_ctx, data, format, LYD_PARSE_STRICT | LYD_PARSE_ONLY, 0,
+				 &tree);
+	if (err != LY_SUCCESS || !tree)
+		goto json_fallback;
+
+	if (lyd_path(tree, LYD_PATH_STD, path, sizeof(path)) && path[0]) {
+		result = path;
+	} else if (tree->schema) {
+		result = "/";
+		result += tree->schema->module->name;
+		result += ":";
+		result += tree->schema->name;
+	}
+	lyd_free_all(tree);
+
+	return result;
+
+json_fallback:
+	if (tree)
+		lyd_free_all(tree);
+	if (format != LYD_JSON)
+		return "";
+
+	json = json_tokener_parse(data);
+	if (!json || json_object_get_type(json) != json_type_object)
+		goto done;
+
+	json_object_object_foreachC(json, iter)
+	{
+		result = "/";
+		result += iter.key;
+		break;
+	}
+
+done:
+	if (json)
+		json_object_put(json);
+	return result;
+}
+
+static void subscription_track(struct Subscription *sub)
+{
+	pthread_mutex_lock(&active_subscriptions_mtx);
+	active_subscriptions.push_back(sub);
+	pthread_mutex_unlock(&active_subscriptions_mtx);
+}
+
+static void subscription_untrack(struct Subscription *sub)
+{
+	pthread_mutex_lock(&active_subscriptions_mtx);
+	active_subscriptions.remove(sub);
+	pthread_mutex_unlock(&active_subscriptions_mtx);
+}
+
+static void subscribe_cleanup_track(struct SubscribeCleanup *cleanup)
+{
+	pthread_mutex_lock(&active_subscribe_cleanups_mtx);
+	active_subscribe_cleanups.push_back(cleanup);
+	pthread_mutex_unlock(&active_subscribe_cleanups_mtx);
+}
+
+static void subscribe_cleanup_untrack(struct SubscribeCleanup *cleanup)
+{
+	pthread_mutex_lock(&active_subscribe_cleanups_mtx);
+	active_subscribe_cleanups.remove(cleanup);
+	pthread_mutex_unlock(&active_subscribe_cleanups_mtx);
+}
+
+static void grpc_notification_data_dispatch(const char *xpath, LYD_FORMAT format, const char *data,
+					    void *arg)
+{
+	auto *sub = static_cast<struct Subscription *>(arg);
+	SubscribeRpcState *tag;
+	frr::Encoding encoding;
+	frr::SubscribeResponse resp;
+	auto *update = resp.mutable_update();
+	std::string update_path;
+
+	pthread_mutex_lock(&sub->mtx);
+	tag = sub->tag;
+	encoding = sub->encoding;
+	pthread_mutex_unlock(&sub->mtx);
+
+	if (!tag)
+		return;
+
+	update_path = notification_data_path(xpath, format, data);
+	if (update_path.empty())
+		flog_warn(EC_LIB_GRPC_INIT, "%s: unable to infer notification path", __func__);
+	update->set_encoding(encoding);
+	update->set_path(update_path);
+	update->set_data(data ? data : "");
+	tag->enqueue_notification_for(sub, std::move(resp));
+}
+
+static void subscription_destroy(struct Subscription *sub)
+{
+	pthread_mutex_destroy(&sub->mtx);
+	delete sub;
+}
+
+static void subscription_release_main_resources(struct Subscription *sub)
+{
+	void *mgmt_notify_handle = NULL;
+
+	event_cancel(&sub->sample_timer);
+	event_cancel(&sub->heartbeat_timer);
+	pthread_mutex_lock(&sub->mtx);
+	if (!sub->main_released) {
+		sub->main_released = true;
+		sub->cancelled = true;
+		mgmt_notify_handle = sub->mgmt_notify_handle;
+		sub->mgmt_notify_handle = NULL;
+		if (sub->write_in_flight) {
+			if (sub->pending.size() > 1)
+				sub->pending.erase(std::next(sub->pending.begin()),
+						   sub->pending.end());
+		} else {
+			sub->pending.clear();
+		}
+	}
+	pthread_mutex_unlock(&sub->mtx);
+
+	if (mgmt_notify_handle)
+		nb_notification_data_unsubscribe(mgmt_notify_handle);
+}
+
+static void subscription_deregister(struct Subscription *sub)
+{
+	subscription_untrack(sub);
+	subscription_release_main_resources(sub);
+	subscription_destroy(sub);
+}
+
+void SubscribeRpcState::deregister_all_from_main(void)
+{
+	while (true) {
+		struct Subscription *sub;
+		SubscribeRpcState *tag;
+
+		pthread_mutex_lock(&active_subscriptions_mtx);
+		if (active_subscriptions.empty()) {
+			pthread_mutex_unlock(&active_subscriptions_mtx);
+			return;
+		}
+		sub = active_subscriptions.front();
+		active_subscriptions.pop_front();
+		pthread_mutex_unlock(&active_subscriptions_mtx);
+
+		subscription_release_main_resources(sub);
+
+		pthread_mutex_lock(&sub->mtx);
+		tag = sub->tag;
+		pthread_mutex_unlock(&sub->mtx);
+		if (tag) {
+			pthread_mutex_lock(&tag->cmux);
+			if (tag->sub == sub) {
+				tag->sub = NULL;
+				tag->shutdown_sub = sub;
+			}
+			pthread_mutex_unlock(&tag->cmux);
+		}
+	}
+}
+
+void SubscribeRpcState::cancel_cleanup_events_from_main(void)
+{
+	while (true) {
+		struct SubscribeCleanup *cleanup;
+		struct Subscription *cleanup_sub;
+		bool free_now;
+
+		pthread_mutex_lock(&active_subscribe_cleanups_mtx);
+		if (active_subscribe_cleanups.empty()) {
+			pthread_mutex_unlock(&active_subscribe_cleanups_mtx);
+			return;
+		}
+		cleanup = active_subscribe_cleanups.front();
+		active_subscribe_cleanups.pop_front();
+		pthread_mutex_unlock(&active_subscribe_cleanups_mtx);
+
+		event_cancel(&cleanup->event);
+		pthread_mutex_lock(&cleanup->mtx);
+		cleanup_sub = cleanup->sub;
+		cleanup->sub = NULL;
+		cleanup->done = true;
+		free_now = !cleanup->waiter;
+		if (cleanup->waiter)
+			pthread_cond_signal(&cleanup->cond);
+		pthread_mutex_unlock(&cleanup->mtx);
+
+		if (cleanup_sub) {
+			subscription_untrack(cleanup_sub);
+			subscription_release_main_resources(cleanup_sub);
+			subscription_destroy(cleanup_sub);
+		}
+		if (free_now)
+			subscribe_cleanup_free(cleanup);
+	}
+}
+
+SubscribeRpcState::SubscribeRpcState()
+	: RpcStateBase("Subscribe")
+	, async_responder(&ctx)
+{
+}
+
+SubscribeRpcState::~SubscribeRpcState()
+{
+	pthread_mutex_lock(&cmux);
+	deregister_subscription();
+	pthread_mutex_unlock(&cmux);
+}
+
+void SubscribeRpcState::do_request(::frr::Northbound::AsyncService *svc,
+				   ::grpc::ServerCompletionQueue *queue, bool no_copy)
+{
+	grpc_debug("%s, posting a request for: %s", __func__, name);
+	auto copy = no_copy ? this : new SubscribeRpcState();
+
+	copy->service = svc;
+	copy->cq = queue;
+	copy->op = CqOp::ACCEPT;
+	(svc->*requestsf)(&copy->ctx, &copy->request, &copy->async_responder, queue, queue, copy);
+}
+
+bool SubscribeRpcState::repost_on_finish(void) const
+{
+	return !accepted_stream;
+}
+
+void SubscribeRpcState::finish_from_event_thread(grpc::Status status)
+{
+	/*
+	 * The CQ FINISH completion observes state == FINISH and deletes this
+	 * RPC tag directly, without another run_mainthread() pass.  Release the
+	 * mgmtd subscription before issuing Finish(), including slow-consumer
+	 * paths that close immediately after a Write completion.
+	 */
+	deregister_subscription();
+	state = FINISH;
+	op = CqOp::FINISH;
+	async_responder.Finish(status, this);
+}
+
+void SubscribeRpcState::deregister_subscription(void)
+{
+	/* Caller must hold cmux; sub pointers may be cleared. */
+	if (shutdown_sub) {
+		subscription_destroy(shutdown_sub);
+		shutdown_sub = NULL;
+	}
+
+	if (sub) {
+		subscription_deregister(sub);
+		sub = NULL;
+	}
+}
+
+static void subscribe_cleanup_free(struct SubscribeCleanup *cleanup)
+{
+	if (!cleanup)
+		return;
+
+	pthread_cond_destroy(&cleanup->cond);
+	pthread_mutex_destroy(&cleanup->mtx);
+	delete cleanup;
+}
+
+static void subscribe_cq_error_event(struct event *event)
+{
+	auto *cleanup = static_cast<SubscribeCleanup *>(EVENT_ARG(event));
+	bool free_now;
+
+	subscribe_cleanup_untrack(cleanup);
+	cleanup->event = NULL;
+	if (!cleanup->sub)
+		goto done;
+
+	subscription_deregister(cleanup->sub);
+
+done:
+	pthread_mutex_lock(&cleanup->mtx);
+	cleanup->done = true;
+	free_now = !cleanup->waiter;
+	if (cleanup->waiter)
+		pthread_cond_signal(&cleanup->cond);
+	pthread_mutex_unlock(&cleanup->mtx);
+
+	if (free_now)
+		subscribe_cleanup_free(cleanup);
+}
+
+void SubscribeRpcState::close_subscription(grpc::Status status)
+{
+	void *mgmt_notify_handle = NULL;
+	bool finish_now = false;
+
+	/* Caller must hold cmux; sub is dereferenced and may be cleared. */
+	if (!sub)
+		return;
+
+	event_cancel(&sub->sample_timer);
+	event_cancel(&sub->heartbeat_timer);
+
+	pthread_mutex_lock(&sub->mtx);
+	if (!sub->cancelled) {
+		sub->cancelled = true;
+		mgmt_notify_handle = sub->mgmt_notify_handle;
+		sub->mgmt_notify_handle = NULL;
+	}
+
+	sub->finish_status = status;
+	if (sub->write_in_flight) {
+		sub->finish_after_write = true;
+		if (sub->pending.size() > 1)
+			sub->pending.erase(std::next(sub->pending.begin()), sub->pending.end());
+	} else {
+		sub->pending.clear();
+		finish_now = true;
+	}
+	pthread_mutex_unlock(&sub->mtx);
+
+	if (mgmt_notify_handle)
+		nb_notification_data_unsubscribe(mgmt_notify_handle);
+
+	if (finish_now)
+		finish_from_event_thread(status);
+}
+
+bool SubscribeRpcState::enqueue_response(frr::SubscribeResponse &&resp, bool resets_heartbeat,
+					 grpc::Status *status)
+{
+	bool start_write = false;
+	bool close_slow_consumer = false;
+	grpc::Status close_status;
+
+	/* Caller must hold cmux; sub is dereferenced below. */
+	if (!sub)
+		return false;
+
+	pthread_mutex_lock(&sub->mtx);
+	if (!sub->cancelled) {
+		if (sub->pending.size() >= grpc_subscribe_max_pending) {
+			close_slow_consumer = true;
+		} else {
+			sub->pending.push_back(std::move(resp));
+			if (!sub->write_in_flight) {
+				sub->write_in_flight = true;
+				start_write = true;
+			}
+		}
+	}
+	if (sub->cancelled)
+		close_status = grpc::Status(grpc::StatusCode::CANCELLED,
+					    "Subscribe stream is closed");
+	pthread_mutex_unlock(&sub->mtx);
+
+	if (close_slow_consumer) {
+		close_status = grpc::Status(grpc::StatusCode::OUT_OF_RANGE,
+					    "Subscribe stream pending queue limit exceeded");
+		close_subscription(close_status);
+		if (status)
+			*status = close_status;
+		return false;
+	}
+
+	if (!close_status.ok()) {
+		if (status)
+			*status = close_status;
+		return false;
+	}
+
+	if (resets_heartbeat)
+		schedule_heartbeat_timer();
+
+	if (start_write) {
+		op = CqOp::WRITE;
+		async_responder.Write(sub->pending.front(), this);
+	}
+
+	return true;
+}
+
+grpc::Status SubscribeRpcState::enqueue_state_snapshot(bool sync_response)
+{
+	std::vector<frr::SubscribeResponse> responses;
+
+	/* Caller must hold cmux; sub is dereferenced below. */
+	for (const auto &path : sub->selectors) {
+		frr::SubscribeResponse resp;
+		auto *update = resp.mutable_update();
+
+		update->set_encoding(sub->encoding);
+		update->set_path(path);
+		grpc::Status status = get_state_snapshot_path(update, path, sub->lyd_format, false);
+		if (!status.ok())
+			return status;
+
+		responses.push_back(std::move(resp));
+	}
+
+	for (auto &resp : responses) {
+		grpc::Status status;
+
+		if (!enqueue_response(std::move(resp), true, &status))
+			return status;
+	}
+
+	if (sync_response) {
+		frr::SubscribeResponse sync;
+
+		sync.mutable_sync_response();
+		grpc::Status status;
+
+		if (!enqueue_response(std::move(sync), false, &status))
+			return status;
+	}
+
+	return grpc::Status::OK;
+}
+
+bool SubscribeRpcState::subscription_finish_deferred(void)
+{
+	bool deferred;
+
+	/* Caller must hold cmux; sub is dereferenced below. */
+	if (!sub)
+		return false;
+
+	pthread_mutex_lock(&sub->mtx);
+	deferred = sub->cancelled && sub->finish_after_write;
+	pthread_mutex_unlock(&sub->mtx);
+
+	return deferred;
+}
+
+void SubscribeRpcState::schedule_sample_timer(void)
+{
+	/* Caller must hold cmux; sub is dereferenced below. */
+	if (!sub || !sub->sample_interval_ms)
+		return;
+
+	event_add_timer_msec(main_master, sample_timer_event, this, sub->sample_interval_ms,
+			     &sub->sample_timer);
+}
+
+void SubscribeRpcState::schedule_heartbeat_timer(void)
+{
+	bool cancelled;
+
+	/* Caller must hold cmux; sub is dereferenced below. */
+	if (!sub || !sub->heartbeat_interval_ms)
+		return;
+
+	pthread_mutex_lock(&sub->mtx);
+	cancelled = sub->cancelled;
+	pthread_mutex_unlock(&sub->mtx);
+	if (cancelled)
+		return;
+
+	event_cancel(&sub->heartbeat_timer);
+	event_add_timer_msec(main_master, heartbeat_timer_event, this, sub->heartbeat_interval_ms,
+			     &sub->heartbeat_timer);
+}
+
+void SubscribeRpcState::sample_timer_event(struct event *event)
+{
+	auto *tag = static_cast<SubscribeRpcState *>(EVENT_ARG(event));
+	bool cancelled;
+
+	pthread_mutex_lock(&tag->cmux);
+	if (!tag->sub) {
+		pthread_mutex_unlock(&tag->cmux);
+		return;
+	}
+
+	tag->sub->sample_timer = NULL;
+	pthread_mutex_lock(&tag->sub->mtx);
+	cancelled = tag->sub->cancelled;
+	pthread_mutex_unlock(&tag->sub->mtx);
+	if (!cancelled) {
+		grpc::Status status = tag->enqueue_state_snapshot(false);
+		if (!status.ok()) {
+			if (tag->subscription_finish_deferred()) {
+				pthread_mutex_unlock(&tag->cmux);
+				return;
+			}
+			if (!tag->sub) {
+				pthread_mutex_unlock(&tag->cmux);
+				return;
+			}
+			tag->finish_from_event_thread(status);
+			pthread_mutex_unlock(&tag->cmux);
+			return;
+		}
+	}
+
+	tag->schedule_sample_timer();
+	pthread_mutex_unlock(&tag->cmux);
+}
+
+void SubscribeRpcState::heartbeat_timer_event(struct event *event)
+{
+	auto *tag = static_cast<SubscribeRpcState *>(EVENT_ARG(event));
+	frr::SubscribeResponse resp;
+	bool cancelled;
+
+	pthread_mutex_lock(&tag->cmux);
+	if (!tag->sub) {
+		pthread_mutex_unlock(&tag->cmux);
+		return;
+	}
+
+	tag->sub->heartbeat_timer = NULL;
+	pthread_mutex_lock(&tag->sub->mtx);
+	cancelled = tag->sub->cancelled;
+	pthread_mutex_unlock(&tag->sub->mtx);
+	if (!cancelled) {
+		resp.mutable_heartbeat();
+		tag->enqueue_response(std::move(resp), false);
+	}
+
+	tag->schedule_heartbeat_timer();
+	pthread_mutex_unlock(&tag->cmux);
+}
+
+void SubscribeRpcState::enqueue_notification(frr::SubscribeResponse &&resp)
+{
+	enqueue_response(std::move(resp), true);
+}
+
+void SubscribeRpcState::enqueue_notification_for(struct Subscription *expected_sub,
+						 frr::SubscribeResponse &&resp)
+{
+	pthread_mutex_lock(&cmux);
+	if (sub == expected_sub)
+		enqueue_notification(std::move(resp));
+	pthread_mutex_unlock(&cmux);
+}
+
+CallState SubscribeRpcState::run_mainthread(struct event *event)
+{
+	grpc_debug("%s: entered", __func__);
+
+	if (op == CqOp::FINISH) {
+		deregister_subscription();
+		return FINISH;
+	}
+
+	if (is_initial_process()) {
+		auto mode = request.mode();
+
+		if (mode != frr::SubscribeRequest::ON_CHANGE &&
+		    mode != frr::SubscribeRequest::STREAM &&
+		    mode != frr::SubscribeRequest::SAMPLE) {
+			finish_from_event_thread(
+				grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+					     "POLL requires a client-streaming Subscribe RPC shape"));
+			return FINISH;
+		}
+		if (grpc_is_shutting_down()) {
+			finish_from_event_thread(grpc::Status(grpc::StatusCode::UNAVAILABLE,
+							      "gRPC server is shutting down"));
+			return FINISH;
+		}
+
+		if (request.path_size() == 0) {
+			finish_from_event_thread(
+				grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+					     "At least one subscription path is required"));
+			return FINISH;
+		}
+
+		if (mode == frr::SubscribeRequest::SAMPLE &&
+		    request.sample_interval_ms() < GRPC_SUBSCRIBE_MIN_INTERVAL_MS) {
+			finish_from_event_thread(
+				grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+					     "SAMPLE subscriptions require sample_interval_ms >= 100"));
+			return FINISH;
+		}
+
+		if (request.heartbeat_interval_ms() &&
+		    request.heartbeat_interval_ms() < GRPC_SUBSCRIBE_MIN_INTERVAL_MS) {
+			finish_from_event_thread(
+				grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+					     "heartbeat_interval_ms must be zero or >= 100"));
+			return FINISH;
+		}
+
+		sub = new Subscription();
+		pthread_mutex_init(&sub->mtx, NULL);
+		sub->tag = this;
+		sub->encoding = request.response_encoding();
+		if (!encoding2lyd_format(sub->encoding, &sub->lyd_format)) {
+			pthread_mutex_destroy(&sub->mtx);
+			delete sub;
+			sub = NULL;
+			finish_from_event_thread(
+				invalid_encoding_status(request.response_encoding()));
+			return FINISH;
+		}
+		sub->write_in_flight = false;
+		sub->cancelled = false;
+		sub->main_released = false;
+		sub->finish_after_write = false;
+		sub->mgmt_notify_handle = NULL;
+		sub->sample_timer = NULL;
+		sub->heartbeat_timer = NULL;
+		sub->sample_interval_ms = request.sample_interval_ms();
+		sub->heartbeat_interval_ms = request.heartbeat_interval_ms();
+		for (const auto &p : request.path())
+			sub->selectors.push_back(p);
+
+		if (mode == frr::SubscribeRequest::SAMPLE) {
+			grpc::Status status = enqueue_state_snapshot(false);
+			if (!status.ok()) {
+				if (subscription_finish_deferred()) {
+					accepted_stream = true;
+					do_request(service, cq, false);
+					return MORE;
+				}
+				if (!sub)
+					return FINISH;
+				deregister_subscription();
+				finish_from_event_thread(status);
+				return FINISH;
+			}
+			schedule_sample_timer();
+		} else {
+			std::vector<const char *> selectors;
+			selectors.reserve(sub->selectors.size());
+			for (const auto &p : sub->selectors)
+				selectors.push_back(p.c_str());
+
+			char errmsg[256] = {};
+			int ret = nb_notification_data_subscribe(selectors.data(),
+								 selectors.size(), sub->lyd_format,
+								 grpc_notification_data_dispatch,
+								 sub, &sub->mgmt_notify_handle,
+								 errmsg, sizeof(errmsg));
+			if (ret) {
+				pthread_mutex_destroy(&sub->mtx);
+				delete sub;
+				sub = NULL;
+				grpc::StatusCode code = grpc::StatusCode::INTERNAL;
+				if (ret == -EOPNOTSUPP)
+					code = grpc::StatusCode::UNIMPLEMENTED;
+				else if (ret == -EINVAL)
+					code = grpc::StatusCode::INVALID_ARGUMENT;
+				finish_from_event_thread(grpc::Status(
+					code,
+					errmsg[0]
+						? errmsg
+						: "Could not register notification subscription"));
+				return FINISH;
+			}
+
+			if (mode == frr::SubscribeRequest::STREAM) {
+				grpc::Status status = enqueue_state_snapshot(true);
+				if (!status.ok()) {
+					if (subscription_finish_deferred()) {
+						accepted_stream = true;
+						do_request(service, cq, false);
+						return MORE;
+					}
+					if (!sub)
+						return FINISH;
+					deregister_subscription();
+					finish_from_event_thread(status);
+					return FINISH;
+				}
+			}
+		}
+
+		subscription_track(sub);
+		schedule_heartbeat_timer();
+		accepted_stream = true;
+		do_request(service, cq, false);
+		return MORE;
+	}
+
+	/* A Write just completed.  Pop the message that was just sent and
+	 * issue the next one, if any.
+	 */
+	if (!sub) {
+		/* Shutdown detached the subscription before this CQ event ran. */
+		deregister_subscription();
+		return FINISH;
+	}
+
+	pthread_mutex_lock(&sub->mtx);
+	if (!sub->pending.empty())
+		sub->pending.pop_front();
+
+	if (!sub->pending.empty()) {
+		pthread_mutex_unlock(&sub->mtx);
+		op = CqOp::WRITE;
+		async_responder.Write(sub->pending.front(), this);
+		return MORE;
+	} else {
+		sub->write_in_flight = false;
+	}
+
+	if (sub->finish_after_write) {
+		grpc::Status status = sub->finish_status;
+
+		pthread_mutex_unlock(&sub->mtx);
+		finish_from_event_thread(status);
+		return FINISH;
+	}
+	pthread_mutex_unlock(&sub->mtx);
+
+	return MORE;
+}
+
+bool SubscribeRpcState::handle_cq_error(void)
+{
+	struct SubscribeCleanup *cleanup;
+	pthread_condattr_t condattr;
+	struct timespec wait_until;
+
+	/*
+	 * Normal stream cancellation must unregister the mgmtd selector on the
+	 * main thread.  During module shutdown the main thread is already in
+	 * frr_grpc_finish() waiting for this pthread, so queueing a synchronous
+	 * main-thread cleanup would deadlock.  The queued cleanup context owns
+	 * the Subscription, so the RPC object can still be deleted if shutdown
+	 * interrupts the wait.
+	 */
+	if (!grpc_is_running()) {
+		struct Subscription *cleanup_sub;
+
+		pthread_mutex_lock(&cmux);
+		cleanup_sub = shutdown_sub ? shutdown_sub : sub;
+		shutdown_sub = NULL;
+		sub = NULL;
+		pthread_mutex_unlock(&cmux);
+		if (cleanup_sub)
+			subscription_destroy(cleanup_sub);
+		return true;
+	}
+
+	cleanup = new SubscribeCleanup();
+	pthread_mutex_init(&cleanup->mtx, NULL);
+	pthread_condattr_init(&condattr);
+	pthread_condattr_setclock(&condattr, CLOCK_MONOTONIC);
+	pthread_cond_init(&cleanup->cond, &condattr);
+	pthread_condattr_destroy(&condattr);
+	cleanup->event = NULL;
+	cleanup->done = false;
+	cleanup->waiter = true;
+
+	pthread_mutex_lock(&cmux);
+	cleanup->sub = sub;
+	if (!cleanup->sub) {
+		pthread_mutex_unlock(&cmux);
+		subscribe_cleanup_free(cleanup);
+		return true;
+	}
+	pthread_mutex_lock(&cleanup->sub->mtx);
+	cleanup->sub->tag = NULL;
+	pthread_mutex_unlock(&cleanup->sub->mtx);
+	sub = NULL;
+	subscribe_cleanup_track(cleanup);
+	event_add_event(main_master, subscribe_cq_error_event, cleanup, 0, &cleanup->event);
+	pthread_mutex_unlock(&cmux);
+
+	pthread_mutex_lock(&cleanup->mtx);
+	while (!cleanup->done) {
+		clock_gettime(CLOCK_MONOTONIC, &wait_until);
+		wait_until.tv_nsec += 100 * 1000 * 1000;
+		if (wait_until.tv_nsec >= 1000 * 1000 * 1000) {
+			wait_until.tv_sec++;
+			wait_until.tv_nsec -= 1000 * 1000 * 1000;
+		}
+		pthread_cond_timedwait(&cleanup->cond, &cleanup->mtx, &wait_until);
+		if (!grpc_is_running())
+			break;
+	}
+	if (cleanup->done) {
+		cleanup->waiter = false;
+		pthread_mutex_unlock(&cleanup->mtx);
+		subscribe_cleanup_free(cleanup);
+	} else {
+		cleanup->waiter = false;
+		pthread_mutex_unlock(&cleanup->mtx);
+	}
+
+	return true;
+}
+
 grpc::Status HandleUnaryDeleteCandidate(
 	UnaryRpcState<frr::DeleteCandidateRequest, frr::DeleteCandidateResponse> *tag)
 {
@@ -1568,6 +2528,7 @@ static void *grpc_pthread_start(void *arg)
 	pthread_mutex_lock(&s_server_lock);
 	s_server = server.get();
 	s_cq = cq.get();
+	grpc_shutting_down = false;
 	grpc_running = true;
 	pthread_mutex_unlock(&s_server_lock);
 
@@ -1590,6 +2551,10 @@ static void *grpc_pthread_start(void *arg)
 	/* Schedule streaming RPC handlers */
 	REQUEST_NEWRPC_STREAMING(Get);
 	REQUEST_NEWRPC_STREAMING(ListTransactions);
+	{
+		auto _rpcState = new SubscribeRpcState();
+		_rpcState->do_request(&service, cq.get(), true);
+	}
 
 	zlog_notice("gRPC server listening on %s",
 		    server_address.str().c_str());
@@ -1714,15 +2679,31 @@ static int frr_grpc_finish(void)
 	if (!fpt)
 		return 0;
 
+	pthread_mutex_lock(&s_server_lock);
+	grpc_shutting_down = true;
+	pthread_mutex_unlock(&s_server_lock);
+
+	/*
+	 * Release Subscribe timers and mgmtd notification selectors on the
+	 * main thread before shutting down the completion queue.  CQ shutdown
+	 * errors are handled by the gRPC pthread, which must not call FRR's
+	 * main-thread event and mgmtd frontend cleanup APIs.
+	 */
+	SubscribeRpcState::deregister_all_from_main();
+
+	pthread_mutex_lock(&s_server_lock);
+	grpc_running = false;
+	pthread_mutex_unlock(&s_server_lock);
+	SubscribeRpcState::cancel_cleanup_events_from_main();
+
 	/*
 	 * Shut the server down here in main thread. This will cause the wait on
 	 * the completion queue (cq.Next()) to exit and cleanup everything else.
 	 */
 	pthread_mutex_lock(&s_server_lock);
-	grpc_running = false;
 	if (s_server) {
 		grpc_debug("%s: shutdown server", __func__);
-		s_server->Shutdown();
+		s_server->Shutdown(std::chrono::system_clock::now());
 		s_server = NULL;
 	}
 	if (s_cq) {
@@ -1758,11 +2739,13 @@ static void frr_grpc_module_very_late_init(struct event *event)
 
 	if (args) {
 		std::string spec(args);
+		size_t comma = spec.find(',');
+		std::string port_arg = spec.substr(0, comma);
 		unsigned long parsed_port;
 
-		if (!parse_unsigned_arg(spec, &parsed_port)) {
+		if (!parse_unsigned_arg(port_arg, &parsed_port)) {
 			flog_err(EC_LIB_GRPC_INIT, "%s: invalid gRPC port value: %s", __func__,
-				 spec.c_str());
+				 port_arg.c_str());
 			goto error;
 		}
 		if (parsed_port < 1024 || parsed_port > UINT16_MAX) {
@@ -1772,6 +2755,25 @@ static void frr_grpc_module_very_late_init(struct event *event)
 			goto error;
 		}
 		port = parsed_port;
+
+		if (comma != std::string::npos) {
+			std::string max_pending_arg = spec.substr(comma + 1);
+			unsigned long max_pending;
+
+			if (!parse_unsigned_arg(max_pending_arg, &max_pending)) {
+				flog_err(EC_LIB_GRPC_INIT,
+					 "%s: invalid subscribe pending limit: %s", __func__,
+					 max_pending_arg.c_str());
+				goto error;
+			}
+
+			if (max_pending == 0) {
+				flog_err(EC_LIB_GRPC_INIT,
+					 "%s: subscribe pending limit must be non-zero", __func__);
+				goto error;
+			}
+			grpc_subscribe_max_pending = max_pending;
+		}
 	}
 
 	if (frr_grpc_init(port) < 0)
@@ -1786,6 +2788,7 @@ error:
 static int frr_grpc_module_late_init(struct event_loop *tm)
 {
 	main_master = tm;
+	hook_register(nb_grpc_terminate, frr_grpc_finish);
 	hook_register(frr_fini, frr_grpc_finish);
 	event_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
 	return 0;

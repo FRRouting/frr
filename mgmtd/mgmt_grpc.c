@@ -21,6 +21,7 @@
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_adapter.h"
 #include "mgmtd/mgmt_ds.h"
+#include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_memory.h"
 #include "mgmtd/mgmt_txn.h"
 
@@ -342,6 +343,8 @@ void mgmt_grpc_init(void)
 	nb_config_get_dispatch_set(mgmt_grpc_config_get_dispatch);
 	nb_config_root_borrow_dispatch_set(mgmt_grpc_config_root_borrow_dispatch);
 	nb_rpc_dispatch_async_set(mgmt_grpc_rpc_dispatch_async);
+	nb_notification_data_subscribe_set(mgmt_fe_adapter_notify_subscribe);
+	nb_notification_data_unsubscribe_set(mgmt_fe_adapter_notify_unsubscribe);
 }
 
 void mgmt_grpc_terminate(void)
@@ -366,6 +369,9 @@ void mgmt_grpc_terminate(void)
 		mgmt_grpc_rpc_req_put(req);
 	}
 
+	nb_grpc_terminate_call();
+	nb_notification_data_subscribe_set(NULL);
+	nb_notification_data_unsubscribe_set(NULL);
 	nb_rpc_dispatch_async_set(NULL);
 	nb_config_root_borrow_dispatch_set(NULL);
 	nb_config_get_dispatch_set(NULL);

@@ -40,13 +40,16 @@ extern struct debug mgmt_debug_txn;
  * Synthetic frontend session IDs live high in the uint64_t space, away from
  * normal frontend sessions allocated from MGMT_FE_SESSION_ID_MIN upwards.
  */
-#define MGMT_GRPC_SESSION_ID_BASE (UINT64_MAX / 2)
+#define MGMT_FE_NOTIFY_SUB_ID_BASE (UINT64_MAX / 4)
+#define MGMT_GRPC_SESSION_ID_BASE  (UINT64_MAX / 2)
 
 #define MGMT_BE_CLIENT_TO_SESSION_ID(client_id)	 ((client_id) + 1)
 #define MGMT_FE_SESSION_TO_CLIENT_ID(session_id) (assert((session_id) > 0), ((session_id)-1))
 
-static_assert(MGMT_FE_SESSION_ID_MIN < MGMT_GRPC_SESSION_ID_BASE,
-	      "real frontend and synthetic gRPC session ranges must be disjoint");
+static_assert(MGMT_FE_SESSION_ID_MIN < MGMT_FE_NOTIFY_SUB_ID_BASE,
+	      "real frontend sessions must not overlap synthetic notify subscribers");
+static_assert(MGMT_FE_NOTIFY_SUB_ID_BASE < MGMT_GRPC_SESSION_ID_BASE,
+	      "synthetic notify and gRPC session ranges must be disjoint");
 
 struct mgmt_txn;
 
