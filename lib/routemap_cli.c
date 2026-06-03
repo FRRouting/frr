@@ -1338,15 +1338,34 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				"./rmap-set-action/frr-bgp-route-map:originator-id"));
 	} else if (IS_SET_COMM_LIST_DEL(action)) {
 		acl = NULL;
-		if ((ln = yang_dnode_get(
-				 dnode,
-				 "./rmap-set-action/frr-bgp-route-map:comm-list-name"))
-			!= NULL)
+		if ((ln = yang_dnode_get(dnode,
+					 "./rmap-set-action/frr-bgp-route-map:comm-list-name-delete")) !=
+		    NULL)
 			acl = yang_dnode_get_string(ln, NULL);
 
 		assert(acl);
 
 		vty_out(vty, " set comm-list delete %s\n", acl);
+	} else if (IS_SET_COMM_LIST_ADD(action)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode,
+				    "./rmap-set-action/frr-bgp-route-map:comm-list-name-add");
+		if (ln)
+			acl = yang_dnode_get_string(ln, NULL);
+
+		assert(acl);
+
+		vty_out(vty, " set comm-list add %s\n", acl);
+	} else if (IS_SET_COMM_LIST_REPLACE(action)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode,
+				    "./rmap-set-action/frr-bgp-route-map:comm-list-name-replace");
+		if (ln)
+			acl = yang_dnode_get_string(ln, NULL);
+
+		assert(acl);
+
+		vty_out(vty, " set comm-list replace %s\n", acl);
 	} else if (IS_SET_LCOMM_LIST_DEL(action)) {
 		acl = NULL;
 		if ((ln = yang_dnode_get(
