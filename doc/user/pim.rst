@@ -426,12 +426,6 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
 .. clicmd:: ip pim [sm | dm | sm-dm]
 
-<<<<<<< HEAD
-   Enable pim on this interface. pim will use this interface to form pim neighbors,
-   and start exchaning pim protocol messages with those neighbors. The optional argument
-   determines what mode pim will use this interface for. ``sm`` enables sparse mode,
-   ``dm`` enables dense mode, while ``sm-dm`` enables sparse-dense mode.
-=======
    Enable PIM on this interface. PIM will use this interface to form PIM
    neighborships and start exchaning PIM protocol messages with those
    neighbors.
@@ -455,7 +449,6 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Regardless of the PIM mode, any group matching the SSM range (default 232.0.0.0/8)
    will be forwarded following the PIM-SSM protocol.
->>>>>>> d135bbb6a (doc: Update pim mode user documentation.)
 
    Please note that this command does not enable the reception of IGMP
    reports on the interface. Refer to the next `ip igmp` command for IGMP
