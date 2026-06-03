@@ -18,15 +18,19 @@
 #include "northbound.h"
 #include "northbound_db.h"
 #include "frr_pthread.h"
+#include "json.h"
 
 #include <iostream>
 #include <sstream>
 #include <memory>
 #include <string>
+#include <deque>
+#include <exception>
+#include <iterator>
+#include <list>
+#include <vector>
 
 #define GRPC_DEFAULT_PORT 50051
-
-
 // ------------------------------------------------------
 //                 File Local Variables
 // ------------------------------------------------------
@@ -43,6 +47,20 @@ static struct event_loop *main_master;
 static struct frr_pthread *fpt;
 
 static bool grpc_running;
+static pthread_mutex_t s_server_lock = PTHREAD_MUTEX_INITIALIZER;
+static grpc::Server *s_server;
+static grpc::ServerCompletionQueue *s_cq;
+
+static bool grpc_is_running(void)
+{
+	bool running;
+
+	pthread_mutex_lock(&s_server_lock);
+	running = grpc_running;
+	pthread_mutex_unlock(&s_server_lock);
+
+	return running;
+}
 
 #define grpc_debug(...)                                                        \
 	do {                                                                   \
@@ -132,10 +150,30 @@ class RpcStateBase
 		return state;
 	}
 
+	virtual bool repost_on_finish(void) const
+	{
+		return true;
+	}
+
+	virtual bool handle_cq_error(void)
+	{
+		return true;
+	}
+
+	virtual bool repost_on_cq_error(void) const
+	{
+		return state == CREATE;
+	}
+
 	bool is_initial_process() const
 	{
 		/* Will always be true for Unary */
 		return entered_state == CREATE;
+	}
+
+	bool is_cancelled() const
+	{
+		return ctx.IsCancelled();
 	}
 
 	// Returns "more" status, if false caller can delete
@@ -167,7 +205,7 @@ class RpcStateBase
 		grpc_debug("%s RPC in %s on grpc-io-thread", name,
 			   call_states[this->state]);
 
-		if (this->state == FINISH) {
+		if (this->state == FINISH && this->repost_on_finish()) {
 			/*
 			 * Server is done (FINISH) so prep to receive a new
 			 * request of this type. We could do this earlier but
@@ -323,19 +361,43 @@ class StreamRpcState : public RpcStateBase
 //                    Utility Functions
 // ------------------------------------------------------
 
-static LYD_FORMAT encoding2lyd_format(enum frr::Encoding encoding)
+static bool encoding2lyd_format(enum frr::Encoding encoding, LYD_FORMAT *format)
 {
 	switch (encoding) {
 	case frr::JSON:
-		return LYD_JSON;
+		*format = LYD_JSON;
+		return true;
 	case frr::XML:
-		return LYD_XML;
+		*format = LYD_XML;
+		return true;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT,
-			 "%s: unknown data encoding format (%u)", __func__,
-			 encoding);
-		exit(1);
+		flog_warn(EC_LIB_GRPC_INIT, "%s: unknown data encoding format (%u)", __func__,
+			  encoding);
+		return false;
 	}
+}
+
+static grpc::Status invalid_encoding_status(enum frr::Encoding encoding)
+{
+	return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+			    std::string("Unknown data encoding format: ") +
+				    std::to_string(encoding));
+}
+
+static bool parse_unsigned_arg(const std::string &arg, unsigned long *value)
+{
+	size_t parsed = 0;
+
+	if (arg.empty() || arg[0] == '-' || arg[0] == '+')
+		return false;
+
+	try {
+		*value = std::stoul(arg, &parsed);
+	} catch (const std::exception &) {
+		return false;
+	}
+
+	return parsed == arg.size();
 }
 
 static int yang_dnode_edit(struct lyd_node *dnode, const std::string &path,
@@ -401,9 +463,13 @@ static struct lyd_node *dnode_from_data_tree(const frr::DataTree *dt,
 		opt2 = 0;
 	}
 
-	err = lyd_parse_data_mem(ly_native_ctx, dt->data().c_str(),
-				 encoding2lyd_format(dt->encoding()), options,
-				 opt2, &dnode);
+	LYD_FORMAT lyd_format;
+
+	if (!encoding2lyd_format(dt->encoding(), &lyd_format))
+		return NULL;
+
+	err = lyd_parse_data_mem(ly_native_ctx, dt->data().c_str(), lyd_format, options, opt2,
+				 &dnode);
 	if (err != LY_SUCCESS) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_parse_mem() failed: %s",
 			  __func__, ly_errmsg(ly_native_ctx));
@@ -491,6 +557,32 @@ static struct lyd_node *get_dnode_config(const std::string &path)
 		dnode = dup_single_dnode(dnode);
 
 	return dnode;
+}
+
+static const struct lyd_node *get_execute_dep_tree(void)
+{
+	const struct lyd_node *dnode = NULL;
+	char errmsg[BUFSIZ] = {};
+	int ret;
+
+	ret = nb_config_root_borrow_dispatch(&dnode, errmsg, sizeof(errmsg));
+	if (!ret)
+		return dnode;
+
+	if (ret != -EOPNOTSUPP) {
+		flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE, "%s: failed to fetch running config: %s",
+			  __func__, errmsg);
+		return NULL;
+	}
+
+	/*
+	 * Daemon-local gRPC can lend libyang the in-process running datastore
+	 * while validating RPC input. This assumes the daemon has one running
+	 * config root; a frontend with central state, such as mgmtd, supplies a
+	 * borrowed root through nb_config_root_borrow_dispatch() above so its
+	 * datastore ownership remains inside that frontend.
+	 */
+	return running_config ? running_config->dnode : NULL;
 }
 
 static struct lyd_node *get_dnode_state(const std::string &path)
@@ -628,7 +720,6 @@ have_data:
 	return grpc::Status::OK;
 }
 
-
 // ------------------------------------------------------
 //       RPC Callback Functions: run on main thread
 // ------------------------------------------------------
@@ -690,6 +781,7 @@ bool HandleStreamingGet(
 	int type = tag->request.type();
 	// Request: Encoding encoding = 2;
 	frr::Encoding encoding = tag->request.encoding();
+	LYD_FORMAT lyd_format;
 	// Request: bool with_defaults = 3;
 	bool with_defaults = tag->request.with_defaults();
 
@@ -701,6 +793,12 @@ bool HandleStreamingGet(
 	frr::GetResponse response;
 	grpc::Status status;
 
+	if (!encoding2lyd_format(encoding, &lyd_format)) {
+		tag->async_responder.WriteAndFinish(response, grpc::WriteOptions(),
+						    invalid_encoding_status(encoding), tag);
+		return false;
+	}
+
 	// Response: int64 timestamp = 1;
 	response.set_timestamp(time(NULL));
 
@@ -709,11 +807,10 @@ bool HandleStreamingGet(
 	data->set_encoding(tag->request.encoding());
 	data->set_path(mypathps->back());
 	if (type == frr::GetRequest_DataType_STATE)
-		status = get_state_snapshot_path(data, mypathps->back().c_str(),
-						 encoding2lyd_format(encoding), with_defaults);
+		status = get_state_snapshot_path(data, mypathps->back().c_str(), lyd_format,
+						 with_defaults);
 	else
-		status = get_path(data, mypathps->back().c_str(), type,
-				  encoding2lyd_format(encoding), with_defaults);
+		status = get_path(data, mypathps->back().c_str(), type, lyd_format, with_defaults);
 
 	if (!status.ok()) {
 		tag->async_responder.WriteAndFinish(
@@ -747,8 +844,7 @@ grpc::Status HandleUnaryCreateCandidate(
 }
 
 grpc::Status HandleUnaryDeleteCandidate(
-	UnaryRpcState<frr::DeleteCandidateRequest, frr::DeleteCandidateResponse>
-		*tag)
+	UnaryRpcState<frr::DeleteCandidateRequest, frr::DeleteCandidateResponse> *tag)
 {
 	grpc_debug("%s: entered", __func__);
 
@@ -764,8 +860,7 @@ grpc::Status HandleUnaryDeleteCandidate(
 }
 
 grpc::Status HandleUnaryUpdateCandidate(
-	UnaryRpcState<frr::UpdateCandidateRequest, frr::UpdateCandidateResponse>
-		*tag)
+	UnaryRpcState<frr::UpdateCandidateRequest, frr::UpdateCandidateResponse> *tag)
 {
 	grpc_debug("%s: entered", __func__);
 
@@ -779,9 +874,8 @@ grpc::Status HandleUnaryUpdateCandidate(
 		return grpc::Status(grpc::StatusCode::NOT_FOUND,
 				    "candidate configuration not found");
 	if (candidate->transaction)
-		return grpc::Status(
-			grpc::StatusCode::FAILED_PRECONDITION,
-			"candidate is in the middle of a transaction");
+		return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+				    "candidate is in the middle of a transaction");
 	if (nb_candidate_update(candidate->config) != NB_OK)
 		return grpc::Status(grpc::StatusCode::INTERNAL,
 				    "failed to update candidate configuration");
@@ -789,9 +883,8 @@ grpc::Status HandleUnaryUpdateCandidate(
 	return grpc::Status::OK;
 }
 
-grpc::Status HandleUnaryEditCandidate(
-	UnaryRpcState<frr::EditCandidateRequest, frr::EditCandidateResponse>
-		*tag)
+grpc::Status
+HandleUnaryEditCandidate(UnaryRpcState<frr::EditCandidateRequest, frr::EditCandidateResponse> *tag)
 {
 	grpc_debug("%s: entered", __func__);
 
@@ -808,13 +901,11 @@ grpc::Status HandleUnaryEditCandidate(
 
 	auto pvs = tag->request.update();
 	for (const frr::PathValue &pv : pvs) {
-		if (yang_dnode_edit(candidate_tmp->dnode, pv.path(),
-				    pv.value().c_str()) != 0) {
+		if (yang_dnode_edit(candidate_tmp->dnode, pv.path(), pv.value().c_str()) != 0) {
 			nb_config_free(candidate_tmp);
 
 			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-					    "Failed to update \"" + pv.path() +
-						    "\"");
+					    "Failed to update \"" + pv.path() + "\"");
 		}
 	}
 
@@ -823,8 +914,7 @@ grpc::Status HandleUnaryEditCandidate(
 		if (yang_dnode_delete(candidate_tmp->dnode, pv.path()) != 0) {
 			nb_config_free(candidate_tmp);
 			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-					    "Failed to remove \"" + pv.path() +
-						    "\"");
+					    "Failed to remove \"" + pv.path() + "\"");
 		}
 	}
 
@@ -834,8 +924,7 @@ grpc::Status HandleUnaryEditCandidate(
 }
 
 grpc::Status HandleUnaryLoadToCandidate(
-	UnaryRpcState<frr::LoadToCandidateRequest, frr::LoadToCandidateResponse>
-		*tag)
+	UnaryRpcState<frr::LoadToCandidateRequest, frr::LoadToCandidateResponse> *tag)
 {
 	grpc_debug("%s: entered", __func__);
 
@@ -861,16 +950,41 @@ grpc::Status HandleUnaryLoadToCandidate(
 	struct nb_config *loaded_config = nb_config_new(dnode);
 	if (load_type == frr::LoadToCandidateRequest::REPLACE)
 		nb_config_replace(candidate->config, loaded_config, false);
-	else if (nb_config_merge(candidate->config, loaded_config, false) !=
-		 NB_OK)
+	else if (nb_config_merge(candidate->config, loaded_config, false) != NB_OK)
 		return grpc::Status(grpc::StatusCode::INTERNAL,
 				    "Failed to merge the loaded configuration");
 
 	return grpc::Status::OK;
 }
 
-grpc::Status
-HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
+static grpc::Status status_from_nb_error(enum nb_error error, const char *errmsg)
+{
+	const char *message = errmsg && errmsg[0] ? errmsg : nb_err_name(error);
+
+	switch (error) {
+	case NB_OK:
+		return grpc::Status::OK;
+	case NB_ERR_NO_CHANGES:
+		return grpc::Status(grpc::StatusCode::ABORTED, message);
+	case NB_ERR_NOT_FOUND:
+		return grpc::Status(grpc::StatusCode::NOT_FOUND, message);
+	case NB_ERR_EXISTS:
+		return grpc::Status(grpc::StatusCode::ALREADY_EXISTS, message);
+	case NB_ERR_LOCKED:
+		return grpc::Status(grpc::StatusCode::UNAVAILABLE, message);
+	case NB_ERR_VALIDATION:
+		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, message);
+	case NB_ERR_RESOURCE:
+		return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED, message);
+	case NB_ERR_INCONSISTENCY:
+	case NB_ERR:
+	case NB_YIELD:
+	default:
+		return grpc::Status(grpc::StatusCode::INTERNAL, message);
+	}
+}
+
+grpc::Status HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 {
 	grpc_debug("%s: entered", __func__);
 
@@ -879,7 +993,7 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 
 	grpc_debug("%s(candidate_id: %u)", __func__, candidate_id);
 
-	// Request: Phase phase = 2;
+	// Request: commit phase = 2;
 	int phase = tag->request.phase();
 	// Request: string comment = 3;
 	const std::string comment = tag->request.comment();
@@ -951,31 +1065,7 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 		break;
 	}
 
-	// Map northbound error codes to gRPC status codes.
-	grpc::Status status;
-	switch (ret) {
-	case NB_OK:
-		status = grpc::Status::OK;
-		break;
-	case NB_ERR_NO_CHANGES:
-		status = grpc::Status(grpc::StatusCode::ABORTED, errmsg);
-		break;
-	case NB_ERR_LOCKED:
-		status = grpc::Status(grpc::StatusCode::UNAVAILABLE, errmsg);
-		break;
-	case NB_ERR_VALIDATION:
-		status = grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-				      errmsg);
-		break;
-	case NB_ERR_RESOURCE:
-		status = grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED,
-				      errmsg);
-		break;
-	case NB_ERR:
-	default:
-		status = grpc::Status(grpc::StatusCode::INTERNAL, errmsg);
-		break;
-	}
+	grpc::Status status = status_from_nb_error((enum nb_error)ret, errmsg);
 
 	grpc_debug("`-> Result: %s (message: '%s')",
 		   nb_err_name((enum nb_error)ret), errmsg);
@@ -1082,6 +1172,47 @@ bool HandleStreamingListTransactions(
 	}
 }
 
+static grpc::Status status_from_errno(int error, const char *errmsg)
+{
+	grpc::StatusCode code;
+	int errnum;
+
+	if (!error)
+		return grpc::Status::OK;
+
+	errnum = error < 0 ? -error : error;
+
+	switch (errnum) {
+	case EINVAL:
+		code = grpc::StatusCode::INVALID_ARGUMENT;
+		break;
+	case EOPNOTSUPP:
+		code = grpc::StatusCode::UNIMPLEMENTED;
+		break;
+	case ENOENT:
+		code = grpc::StatusCode::NOT_FOUND;
+		break;
+	case ETIMEDOUT:
+		code = grpc::StatusCode::DEADLINE_EXCEEDED;
+		break;
+	case ENOMEM:
+		code = grpc::StatusCode::RESOURCE_EXHAUSTED;
+		break;
+	case EBUSY:
+	case EINPROGRESS:
+		code = grpc::StatusCode::UNAVAILABLE;
+		break;
+	case ECANCELED:
+		code = grpc::StatusCode::CANCELLED;
+		break;
+	default:
+		code = grpc::StatusCode::INTERNAL;
+		break;
+	}
+
+	return grpc::Status(code, errmsg && errmsg[0] ? errmsg : safe_strerror(errnum));
+}
+
 grpc::Status HandleUnaryGetTransaction(
 	UnaryRpcState<frr::GetTransactionRequest, frr::GetTransactionResponse>
 		*tag)
@@ -1092,6 +1223,7 @@ grpc::Status HandleUnaryGetTransaction(
 	uint32_t transaction_id = tag->request.transaction_id();
 	// Request: Encoding encoding = 2;
 	frr::Encoding encoding = tag->request.encoding();
+	LYD_FORMAT lyd_format;
 	// Request: bool with_defaults = 3;
 	bool with_defaults = tag->request.with_defaults();
 
@@ -1105,15 +1237,17 @@ grpc::Status HandleUnaryGetTransaction(
 	if (!nb_config)
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				    "Transaction not found");
+	if (!encoding2lyd_format(encoding, &lyd_format)) {
+		nb_config_free(nb_config);
+		return invalid_encoding_status(encoding);
+	}
 
 	// Response: DataTree config = 1;
 	auto config = tag->response.mutable_config();
 	config->set_encoding(encoding);
 
 	// Dump data using the requested format.
-	if (data_tree_from_dnode(config, nb_config->dnode,
-				 encoding2lyd_format(encoding), with_defaults)
-	    != 0) {
+	if (data_tree_from_dnode(config, nb_config->dnode, lyd_format, with_defaults) != 0) {
 		nb_config_free(nb_config);
 		return grpc::Status(grpc::StatusCode::INTERNAL,
 				    "Failed to dump data");
@@ -1124,95 +1258,261 @@ grpc::Status HandleUnaryGetTransaction(
 	return grpc::Status::OK;
 }
 
-grpc::Status HandleUnaryExecute(
-	UnaryRpcState<frr::ExecuteRequest, frr::ExecuteResponse> *tag)
+static grpc::Status execute_add_output(frr::ExecuteResponse *response, struct lyd_node *output_tree)
 {
-	grpc_debug("%s: entered", __func__);
-
-	struct nb_node *nb_node;
-	struct lyd_node *input_tree, *output_tree, *child;
-	const char *xpath;
-	char errmsg[BUFSIZ] = {0};
+	struct lyd_node *child;
 	char path[XPATH_MAXLEN];
+
+	if (!output_tree)
+		return grpc::Status::OK;
+
+	LY_LIST_FOR (lyd_child(output_tree), child) {
+		if (child->schema->nodetype != LYS_LEAF && child->schema->nodetype != LYS_LEAFLIST) {
+			grpc::Status status = execute_add_output(response, child);
+
+			if (!status.ok())
+				return status;
+			continue;
+		}
+
+		if (!lyd_path(child, LYD_PATH_STD, path, sizeof(path)))
+			return grpc::Status(grpc::StatusCode::INTERNAL,
+					    "RPC output path is too long");
+
+		const char *value = yang_dnode_get_string(child, NULL);
+		if (!value)
+			return grpc::Status(grpc::StatusCode::INTERNAL,
+					    "RPC output value is not scalar");
+
+		frr::PathValue *pv = response->add_output();
+		pv->set_path(path);
+		pv->set_value(value);
+	}
+
+	return grpc::Status::OK;
+}
+
+static grpc::Status execute_prepare_input(const frr::ExecuteRequest &request,
+					  struct nb_node **nb_node, struct lyd_node **input_tree)
+{
+	const struct lyd_node *dep_tree = NULL;
+	char errmsg[BUFSIZ];
+	const char *xpath;
 	LY_ERR err;
 
-	// Request: string path = 1;
-	xpath = tag->request.path().c_str();
+	xpath = request.path().c_str();
 
 	grpc_debug("%s(path: \"%s\")", __func__, xpath);
 
-	if (tag->request.path().empty())
+	if (request.path().empty())
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				    "Data path is empty");
 
-	nb_node = nb_node_find(xpath);
-	if (!nb_node)
+	*nb_node = nb_node_find(xpath);
+	if (!*nb_node)
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				    "Unknown data path");
 
 	// Create input data tree.
 	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, (LYD_ANYDATA_VALUETYPE)0, 0,
-			     NULL, &input_tree);
+			     NULL, input_tree);
 	if (err != LY_SUCCESS) {
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				    "Invalid data path");
 	}
 
 	// Read input parameters.
-	auto input = tag->request.input();
+	auto input = request.input();
 	for (const frr::PathValue &pv : input) {
 		// Request: repeated PathValue input = 2;
-		err = lyd_new_path(input_tree, ly_native_ctx, pv.path().c_str(),
+		err = lyd_new_path(*input_tree, ly_native_ctx, pv.path().c_str(),
 				   pv.value().c_str(), 0, NULL);
 		if (err != LY_SUCCESS) {
-			lyd_free_tree(input_tree);
-			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-					    "Invalid input data");
+			lyd_free_tree(*input_tree);
+			*input_tree = NULL;
+			snprintf(errmsg, sizeof(errmsg), "Invalid input data: %s",
+				 ly_errmsg(ly_native_ctx));
+			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, errmsg);
 		}
 	}
 
-	// Validate input data.
-	err = lyd_validate_op(input_tree, NULL, LYD_TYPE_RPC_YANG, NULL);
+	dep_tree = get_execute_dep_tree();
+	err = lyd_validate_op(*input_tree, dep_tree, LYD_TYPE_RPC_YANG, NULL);
 	if (err != LY_SUCCESS) {
-		lyd_free_tree(input_tree);
-		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-				    "Invalid input data");
+		lyd_free_tree(*input_tree);
+		*input_tree = NULL;
+		snprintf(errmsg, sizeof(errmsg), "Invalid input data: %s",
+			 ly_errmsg(ly_native_ctx));
+		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, errmsg);
 	}
+
+	return grpc::Status::OK;
+}
+
+static grpc::Status execute_local_rpc(const frr::ExecuteRequest &request, struct nb_node *nb_node,
+				      struct lyd_node *input_tree, frr::ExecuteResponse *response)
+{
+	struct lyd_node *output_tree;
+	const char *xpath = request.path().c_str();
+	char errmsg[BUFSIZ] = { 0 };
+	enum nb_error ret;
+	LY_ERR err;
+
+	if (!nb_node->cbs.rpc)
+		return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+				    "No RPC callback for data path");
 
 	// Create output data tree.
 	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, (LYD_ANYDATA_VALUETYPE)0, 0,
 			     NULL, &output_tree);
-	if (err != LY_SUCCESS) {
-		lyd_free_tree(input_tree);
-		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-				    "Invalid data path");
-	}
+	if (err != LY_SUCCESS)
+		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Invalid data path");
 
 	// Execute callback registered for this XPath.
-	if (nb_callback_rpc(nb_node, xpath, input_tree, output_tree, errmsg,
-			    sizeof(errmsg)) != NB_OK) {
-		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s",
-			  __func__, xpath);
-		lyd_free_tree(input_tree);
+	ret = (enum nb_error)nb_callback_rpc(nb_node, xpath, input_tree, output_tree, errmsg,
+					     sizeof(errmsg));
+	if (ret != NB_OK) {
+		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s", __func__, xpath);
 		lyd_free_tree(output_tree);
-
-		return grpc::Status(grpc::StatusCode::INTERNAL, "RPC failed");
+		return status_from_nb_error(ret, errmsg);
 	}
 
-	// Process output parameters.
-	LY_LIST_FOR (lyd_child(output_tree), child) {
-		// Response: repeated PathValue output = 1;
-		frr::PathValue *pv = tag->response.add_output();
-		pv->set_path(lyd_path(child, LYD_PATH_STD, path, sizeof(path)));
-		pv->set_value(yang_dnode_get_string(child, NULL));
-	}
-
-	// Release memory.
-	lyd_free_tree(input_tree);
+	grpc::Status status = execute_add_output(response, output_tree);
 	lyd_free_tree(output_tree);
-
-	return grpc::Status::OK;
+	return status;
 }
+
+class ExecuteRpcState : public RpcStateBase {
+      public:
+	ExecuteRpcState()
+		: RpcStateBase("Execute")
+		, responder(&ctx){};
+
+	void do_request(::frr::Northbound::AsyncService *service,
+			::grpc::ServerCompletionQueue *cq, bool no_copy) override
+	{
+		grpc_debug("%s, posting a request for: %s", __func__, name);
+		auto copy = no_copy ? this : new ExecuteRpcState();
+
+		copy->service = service;
+		copy->cq = cq;
+		service->RequestExecute(&copy->ctx, &copy->request, &copy->responder, cq, cq, copy);
+	}
+
+	CallState run_mainthread(struct event *event) override
+	{
+		struct nb_node *nb_node;
+		struct lyd_node *input_tree = NULL;
+		char errmsg[BUFSIZ] = { 0 };
+		grpc::Status status;
+		int ret;
+
+		grpc_debug("%s: entered", __func__);
+
+		status = execute_prepare_input(request, &nb_node, &input_tree);
+		if (!status.ok()) {
+			responder.Finish(response, status, this);
+			return FINISH;
+		}
+
+		ret = nb_rpc_dispatch_async(request.path().c_str(), input_tree, async_done, this,
+					    errmsg, sizeof(errmsg));
+		if (!ret) {
+			async_pending = true;
+			lyd_free_tree(input_tree);
+			return MORE;
+		}
+
+		if (ret != -EOPNOTSUPP)
+			status = status_from_errno(ret, errmsg);
+		else
+			status = execute_local_rpc(request, nb_node, input_tree, &response);
+
+		lyd_free_tree(input_tree);
+		responder.Finish(response, status, this);
+		return FINISH;
+	}
+
+	void finish_async(grpc::Status status)
+	{
+		bool delete_now = false;
+		bool repost = false;
+		bool running = grpc_is_running();
+
+		/*
+		 * If the client cancelled while a backend RPC was outstanding,
+		 * handle_cq_error() left this tag alive for async_done().  In
+		 * that case async_done() is the final owner and deletes here.
+		 * If shutdown has already stopped gRPC, there is no live CQ for
+		 * another Finish operation, so async_done() also deletes here.
+		 */
+		pthread_mutex_lock(&cmux);
+		async_pending = false;
+		if (cancelled || !running) {
+			delete_now = true;
+			repost = !reposted && running;
+		} else {
+			state = FINISH;
+			repost = !reposted && running;
+		}
+		if (repost)
+			reposted = true;
+		pthread_mutex_unlock(&cmux);
+
+		if (repost)
+			do_request(service, cq, false);
+
+		if (delete_now) {
+			delete this;
+			return;
+		}
+
+		responder.Finish(response, status, this);
+	}
+
+	bool handle_cq_error(void) override
+	{
+		bool keep_until_async_done = false;
+		bool repost = false;
+
+		pthread_mutex_lock(&cmux);
+		cancelled = true;
+		if (async_pending) {
+			keep_until_async_done = true;
+			repost = !reposted && grpc_is_running();
+			if (repost)
+				reposted = true;
+		}
+		pthread_mutex_unlock(&cmux);
+
+		if (repost)
+			do_request(service, cq, false);
+
+		return !keep_until_async_done;
+	}
+
+	frr::ExecuteRequest request;
+	frr::ExecuteResponse response;
+	grpc::ServerAsyncResponseWriter<frr::ExecuteResponse> responder;
+
+      private:
+	static void async_done(int error, const char *errmsg, struct lyd_node *output, void *arg)
+	{
+		auto tag = static_cast<ExecuteRpcState *>(arg);
+		grpc::Status status = status_from_errno(error, errmsg);
+
+		if (status.ok())
+			status = execute_add_output(&tag->response, output);
+		lyd_free_all(output);
+		tag->finish_async(status);
+	}
+
+	::frr::Northbound::AsyncService *service = NULL;
+	::grpc::ServerCompletionQueue *cq = NULL;
+	bool async_pending = false;
+	bool cancelled = false;
+	bool reposted = false;
+};
 
 // ------------------------------------------------------
 //        Thread Initialization and Run Functions
@@ -1243,10 +1543,6 @@ struct grpc_pthread_attr {
 	unsigned long port;
 };
 
-// Capture these objects so we can try to shut down cleanly
-static pthread_mutex_t s_server_lock = PTHREAD_MUTEX_INITIALIZER;
-static grpc::Server *s_server;
-
 static void *grpc_pthread_start(void *arg)
 {
 	struct frr_pthread *fpt = static_cast<frr_pthread *>(arg);
@@ -1268,11 +1564,12 @@ static void *grpc_pthread_start(void *arg)
 	std::unique_ptr<grpc::ServerCompletionQueue> cq =
 		builder.AddCompletionQueue();
 	std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
-	s_server = server.get();
 
-	pthread_mutex_lock(&s_server_lock); // Make coverity happy
+	pthread_mutex_lock(&s_server_lock);
+	s_server = server.get();
+	s_cq = cq.get();
 	grpc_running = true;
-	pthread_mutex_unlock(&s_server_lock); // Make coverity happy
+	pthread_mutex_unlock(&s_server_lock);
 
 	/* Schedule unary RPC handlers */
 	REQUEST_NEWRPC(GetCapabilities, NULL);
@@ -1285,7 +1582,10 @@ static void *grpc_pthread_start(void *arg)
 	REQUEST_NEWRPC(GetTransaction, NULL);
 	REQUEST_NEWRPC(LockConfig, NULL);
 	REQUEST_NEWRPC(UnlockConfig, NULL);
-	REQUEST_NEWRPC(Execute, NULL);
+	{
+		auto _rpcState = new ExecuteRpcState();
+		_rpcState->do_request(&service, cq.get(), true);
+	}
 
 	/* Schedule streaming RPC handlers */
 	REQUEST_NEWRPC_STREAMING(Get);
@@ -1306,12 +1606,41 @@ static void *grpc_pthread_start(void *arg)
 		grpc_debug("%s: got next from CQ tag: %p ok: %d", __func__, tag,
 			   ok);
 
+		RpcStateBase *rpc = static_cast<RpcStateBase *>(tag);
+
+		/*
+		 * `ok=false` means the individual operation associated with
+		 * this tag completed unsuccessfully -- typically the stream
+		 * was cancelled, the connection dropped, or a Write failed
+		 * because the client has gone away.  It does NOT mean the
+		 * server is shutting down: server shutdown is signalled by
+		 * cq->Next() returning false (handled just above).
+		 *
+		 * The previous behaviour was to delete the tag and break out
+		 * of the loop, which killed mgmtd's whole gRPC service the
+		 * moment any single stream had a Write fail.  Let the RPC type
+		 * clean up any state owned outside the CQ tag, then delete the
+		 * failed tag and continue serving other RPCs.
+		 */
 		if (!ok) {
-			delete static_cast<RpcStateBase *>(tag);
-			break;
+			bool shutting_down = !grpc_is_running();
+
+			bool delete_tag = rpc->handle_cq_error();
+			if (shutting_down || !grpc_is_running()) {
+				grpc_debug("%s RPC tag cancelled during shutdown", rpc->name);
+				if (delete_tag)
+					delete rpc;
+				continue;
+			}
+			if (delete_tag) {
+				if (rpc->repost_on_cq_error())
+					rpc->do_request(&service, cq.get(), false);
+				grpc_debug("%s RPC tag cancelled -> [delete]", rpc->name);
+				delete rpc;
+			}
+			continue;
 		}
 
-		RpcStateBase *rpc = static_cast<RpcStateBase *>(tag);
 		if (rpc->get_state() != FINISH)
 			rpc->run(&service, cq.get());
 		else {
@@ -1328,15 +1657,27 @@ static void *grpc_pthread_start(void *arg)
 		server->Shutdown();
 		s_server = NULL;
 	}
+	if (s_cq) {
+		grpc_debug("%s: shutdown CQ", __func__);
+		cq->Shutdown();
+		s_cq = NULL;
+	}
 	pthread_mutex_unlock(&s_server_lock);
-
-	grpc_debug("%s: shutting down CQ", __func__);
-	cq->Shutdown();
 
 	grpc_debug("%s: draining the CQ", __func__);
 	while (cq->Next(&tag, &ok)) {
+		RpcStateBase *rpc = static_cast<RpcStateBase *>(tag);
+		bool delete_tag;
+
 		grpc_debug("%s: drain tag %p", __func__, tag);
-		delete static_cast<RpcStateBase *>(tag);
+		/*
+		 * mgmtd terminates queued and dispatched backend RPC requests
+		 * before firing the gRPC terminate hook, so Execute tags should
+		 * not still be waiting on async backend completion here.
+		 */
+		delete_tag = rpc->handle_cq_error();
+		if (delete_tag)
+			delete rpc;
 	}
 
 	zlog_info("%s: exiting from grpc pthread", __func__);
@@ -1384,11 +1725,17 @@ static int frr_grpc_finish(void)
 		s_server->Shutdown();
 		s_server = NULL;
 	}
+	if (s_cq) {
+		grpc_debug("%s: shutdown CQ", __func__);
+		s_cq->Shutdown();
+		s_cq = NULL;
+	}
 	pthread_mutex_unlock(&s_server_lock);
 
 	grpc_debug("%s: joining and destroy grpc thread", __func__);
 	pthread_join(fpt->thread, NULL);
 	frr_pthread_destroy(fpt);
+	fpt = NULL;
 
 	// Fix protobuf 'memory leaks' during shutdown.
 	// https://groups.google.com/g/protobuf/c/4y_EmQiCGgs
@@ -1410,13 +1757,21 @@ static void frr_grpc_module_very_late_init(struct event *event)
 	uint port = GRPC_DEFAULT_PORT;
 
 	if (args) {
-		port = std::stoul(args);
-		if (port < 1024 || port > UINT16_MAX) {
+		std::string spec(args);
+		unsigned long parsed_port;
+
+		if (!parse_unsigned_arg(spec, &parsed_port)) {
+			flog_err(EC_LIB_GRPC_INIT, "%s: invalid gRPC port value: %s", __func__,
+				 spec.c_str());
+			goto error;
+		}
+		if (parsed_port < 1024 || parsed_port > UINT16_MAX) {
 			flog_err(EC_LIB_GRPC_INIT,
 				 "%s: port number must be between 1025 and %d",
 				 __func__, UINT16_MAX);
 			goto error;
 		}
+		port = parsed_port;
 	}
 
 	if (frr_grpc_init(port) < 0)

@@ -22,6 +22,15 @@ process-local running configuration.
 ``Get(ALL)`` combines configuration and state when both are present, and can
 return the side that exists when only one side owns the requested path.
 
+When gRPC is loaded into ``mgmtd``, ``Execute`` uses mgmtd's backend RPC
+transaction machinery. The request is matched against the backend RPC xpath
+registry, sent to the daemon that owns the RPC, and the backend reply is
+returned to the gRPC client.
+For RPC input validation, mgmtd exposes its running-configuration root through
+``nb_config_root_borrow_dispatch``.  The gRPC handler borrows that tree
+read-only so cross-tree leafrefs can resolve without copying the whole running
+configuration for each ``Execute`` request.
+
 The minimum version of gRPC known to work is 1.16.1.
 
 .. _grpc-languages-bindings:

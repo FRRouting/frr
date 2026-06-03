@@ -238,6 +238,17 @@ def test_get_vrf_config(tgen):
     assert result is None
 
 
+def test_execute_local_rpc(tgen):
+    r1 = tgen.gears["r1"]
+
+    step("'EXEC' daemon-local logging RPC")
+
+    output = run_grpc_client(
+        r1, GRPCP_STATICD, "EXEC,/frr-logging:clear-cmdline-targets"
+    )
+    assert output.strip() == ""
+
+
 def test_shutdown_checks(tgen):
     # Start a process rnuning that will fetch bunches of data then shut the routers down
     # and check for cores.

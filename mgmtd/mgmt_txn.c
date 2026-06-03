@@ -47,6 +47,8 @@ struct txn_req_rpc {
 	uint8_t result_type;   /* LYD_FORMAT for results */
 	uint8_t restconf;      /* if restconf formatted data */
 	struct lyd_node *client_results; /* result tree from clients */
+	mgmt_txn_rpc_done_cb done;
+	void *done_arg;
 };
 #define as_rpc(txn_req)                                                                           \
 	({                                                                                        \
@@ -439,13 +441,24 @@ static void txn_rpc_done(struct txn_req_rpc *rpc)
 	/* cancel timer and send reply onward */
 	event_cancel(&rpc->req.timeout);
 
-	if (txn_req->err_info)
+	if (rpc->done) {
+		uint64_t txn_id = txn->txn_id;
+
+		/* rpc->done is synchronous: txn_req_free() below releases
+		 * txn_req->err_info and rpc->client_results.
+		 */
+		rpc->done(txn->txn_id, req_id, txn_req->err_info ? txn_req->error ?: -EINVAL : 0,
+			  txn_req->err_info, rpc->result_type, rpc->restconf, rpc->client_results,
+			  rpc->done_arg);
+		mgmt_destroy_txn(&txn_id);
+	} else if (txn_req->err_info) {
 		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, txn_req->error ?: -EINVAL,
 					  txn_req->err_info);
-	else
+	} else {
 		mgmt_fe_adapter_send_rpc_reply(txn->session_id, txn->txn_id, req_id,
 					       rpc->result_type, rpc->restconf,
 					       rpc->client_results);
+	}
 
 	/* we're done with the request */
 	txn_req_free(txn_req);
@@ -468,6 +481,7 @@ static void txn_rpc_handle_error_reply(struct txn_req_rpc *rpc,
 				       const char *errstr)
 {
 	UNSET_IDBIT(rpc->clients_wait, adapter->id);
+	rpc->req.error = error;
 	if (errstr)
 		darr_in_strdup(rpc->req.err_info, errstr);
 	/* check if done */
@@ -522,8 +536,10 @@ void mgmt_txn_handle_rpc_reply(struct mgmt_be_client_adapter *adapter,
 				 adapter->name, txn_id, req_id, ly_strerrcode(err));
 		}
 	}
-	if (err)
+	if (err) {
+		rpc->req.error = -EINVAL;
 		darr_in_strdup(rpc->req.err_info, "Cannot parse result from the backend");
+	}
 
 	UNSET_IDBIT(rpc->clients_wait, id);
 
@@ -532,8 +548,10 @@ void mgmt_txn_handle_rpc_reply(struct mgmt_be_client_adapter *adapter,
 		txn_rpc_done(rpc);
 }
 
-void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_FORMAT result_type,
-		       bool restconf, const char *xpath, const char *data, size_t data_len)
+void mgmt_txn_send_rpc_notify(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+			      LYD_FORMAT result_type, bool restconf, const char *xpath,
+			      const char *data, size_t data_len, mgmt_txn_rpc_done_cb done,
+			      void *arg)
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_txn *txn;
@@ -549,6 +567,8 @@ void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_F
 	rpc->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
 	rpc->result_type = result_type;
 	rpc->restconf = restconf;
+	rpc->done = done;
+	rpc->done_arg = arg;
 
 	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc, 0,
 					MTYPE_MSG_NATIVE_RPC);
@@ -581,6 +601,34 @@ void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_F
 	else
 		event_add_timer(mm->master, txn_rpc_timeout, rpc, MGMTD_TXN_RPC_MAX_DELAY_SEC,
 				&rpc->req.timeout);
+}
+
+bool mgmt_txn_cancel_rpc_notify(uint64_t txn_id, uint64_t req_id, int error, const char *errstr)
+{
+	struct mgmt_txn *txn = txn_lookup(txn_id);
+	struct txn_req *txn_req;
+	struct txn_req_rpc *rpc;
+
+	if (!txn || txn->type != MGMTD_TXN_TYPE_RPC)
+		return false;
+
+	txn_req = txn_txn_req(txn, req_id);
+	if (!txn_req || txn_req->req_type != TXN_REQ_TYPE_RPC)
+		return false;
+
+	rpc = as_rpc(txn_req);
+	rpc->req.error = error;
+	if (errstr)
+		darr_in_strdup(rpc->req.err_info, errstr);
+	txn_rpc_done(rpc);
+	return true;
+}
+
+void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_FORMAT result_type,
+		       bool restconf, const char *xpath, const char *data, size_t data_len)
+{
+	mgmt_txn_send_rpc_notify(txn_id, req_id, clients, result_type, restconf, xpath, data,
+				 data_len, NULL, NULL);
 }
 
 /* =========================== */

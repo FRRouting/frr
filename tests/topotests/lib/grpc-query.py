@@ -7,10 +7,13 @@
 # Copyright (c) 2022, LabN Consulting, L.L.C.
 
 import argparse
+import concurrent.futures
+import json
 import logging
 import os
 import sys
 import tempfile
+import time
 
 import pytest
 
@@ -93,6 +96,226 @@ class GRPCClient:
             return "\n".join(responses)
         return result
 
+    def execute(self, xpath, input_values):
+        request = frr_northbound_pb2.ExecuteRequest()
+        request.path = xpath
+        for path, value in input_values:
+            pv = request.input.add()
+            pv.path = path
+            pv.value = value
+        return self.stub.Execute(request)
+
+    @staticmethod
+    def _execute_request(xpath, input_values):
+        request = frr_northbound_pb2.ExecuteRequest()
+        request.path = xpath
+        for path, value in input_values:
+            pv = request.input.add()
+            pv.path = path
+            pv.value = value
+        return request
+
+    def execute_cancel(self, xpath, input_values, delay, timeout):
+        request = self._execute_request(xpath, input_values)
+        future = self.stub.Execute.future(request, timeout=timeout)
+        time.sleep(delay)
+        future.cancel()
+
+        try:
+            future.result()
+        except grpc.FutureCancelledError:
+            return "CANCELLED"
+        except grpc.RpcError as error:
+            return error.code().name
+
+        return "OK"
+
+    def execute_concurrent(self, xpath, input_values, count, timeout):
+        def run_one():
+            request = self._execute_request(xpath, input_values)
+            try:
+                self.stub.Execute(request, timeout=timeout)
+                return "OK"
+            except grpc.RpcError as error:
+                return error.code().name
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=count) as executor:
+            return json.dumps(list(executor.map(lambda _: run_one(), range(count))))
+
+    def subscribe_listen(self, xpath, encoding, timeout):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.ON_CHANGE
+        request.response_encoding = encoding
+        request.path.append(xpath)
+
+        for response in self.stub.Subscribe(request, timeout=timeout):
+            if response.HasField("update"):
+                return response.update.data
+        return ""
+
+    def subscribe_listen_with_path(self, xpath, encoding, timeout):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.ON_CHANGE
+        request.response_encoding = encoding
+        request.path.append(xpath)
+
+        for response in self.stub.Subscribe(request, timeout=timeout):
+            if response.HasField("update"):
+                return json.dumps(
+                    {
+                        "path": response.update.path,
+                        "data": response.update.data,
+                    }
+                )
+        return ""
+
+    def subscribe_until_sync(self, xpath, encoding, timeout):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.STREAM
+        request.response_encoding = encoding
+        request.path.append(xpath)
+
+        responses = []
+        for response in self.stub.Subscribe(request, timeout=timeout):
+            if response.HasField("update"):
+                responses.append(
+                    {
+                        "update": response.update.data,
+                        "path": response.update.path,
+                    }
+                )
+            elif response.HasField("sync_response"):
+                responses.append({"sync_response": True})
+                return json.dumps(responses)
+        return json.dumps(responses)
+
+    def subscribe_until_heartbeat(self, xpath, heartbeat_ms, encoding, timeout):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.ON_CHANGE
+        request.response_encoding = encoding
+        request.heartbeat_interval_ms = heartbeat_ms
+        request.path.append(xpath)
+
+        for response in self.stub.Subscribe(request, timeout=timeout):
+            if response.HasField("heartbeat"):
+                return "heartbeat"
+        return ""
+
+    def subscribe_cancel(self, xpath, encoding, delay, timeout):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.ON_CHANGE
+        request.response_encoding = encoding
+        request.path.append(xpath)
+
+        call = self.stub.Subscribe(request, timeout=timeout)
+        time.sleep(delay)
+        call.cancel()
+
+        try:
+            list(call)
+        except grpc.RpcError as error:
+            return error.code().name
+
+        return "OK"
+
+    def subscribe_sample_count(self, xpath, interval_ms, count, encoding, timeout):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.SAMPLE
+        request.response_encoding = encoding
+        request.sample_interval_ms = interval_ms
+        request.path.append(xpath)
+
+        responses = []
+        for response in self.stub.Subscribe(request, timeout=timeout):
+            if response.HasField("update"):
+                responses.append(
+                    {
+                        "path": response.update.path,
+                        "data": response.update.data,
+                    }
+                )
+                if len(responses) >= count:
+                    return json.dumps(responses)
+        return json.dumps(responses)
+
+    def subscribe_expect_error(self, mode, xpath, expected, encoding, timeout):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = getattr(frr_northbound_pb2.SubscribeRequest, mode)
+        request.response_encoding = encoding
+        if xpath:
+            request.path.append(xpath)
+        if mode == "SAMPLE":
+            request.sample_interval_ms = 100
+
+        try:
+            list(self.stub.Subscribe(request, timeout=timeout))
+        except grpc.RpcError as error:
+            code = error.code().name
+            if code != expected:
+                raise AssertionError(f"expected {expected}, got {code}") from error
+            return code
+
+        raise AssertionError(f"expected {expected}, got OK")
+
+    def subscribe_invalid_encoding_expect_error(
+        self, mode, xpath, bad_encoding, expected, timeout
+    ):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = getattr(frr_northbound_pb2.SubscribeRequest, mode)
+        request.response_encoding = bad_encoding
+        request.path.append(xpath)
+        if mode == "SAMPLE":
+            request.sample_interval_ms = 100
+
+        try:
+            list(self.stub.Subscribe(request, timeout=timeout))
+        except grpc.RpcError as error:
+            code = error.code().name
+            if code != expected:
+                raise AssertionError(f"expected {expected}, got {code}") from error
+            return code
+
+        raise AssertionError(f"expected {expected}, got OK")
+
+    def subscribe_sample_expect_error(
+        self, xpath, interval_ms, expected, encoding, timeout
+    ):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.SAMPLE
+        request.response_encoding = encoding
+        request.sample_interval_ms = interval_ms
+        if xpath:
+            request.path.append(xpath)
+
+        try:
+            list(self.stub.Subscribe(request, timeout=timeout))
+        except grpc.RpcError as error:
+            code = error.code().name
+            if code != expected:
+                raise AssertionError(f"expected {expected}, got {code}") from error
+            return code
+
+        raise AssertionError(f"expected {expected}, got OK")
+
+    def subscribe_stream_repeat_expect_error(
+        self, xpath, repeat, expected, encoding, timeout
+    ):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.STREAM
+        request.response_encoding = encoding
+        for _ in range(repeat):
+            request.path.append(xpath)
+
+        try:
+            list(self.stub.Subscribe(request, timeout=timeout))
+        except grpc.RpcError as error:
+            code = error.code().name
+            if code != expected:
+                raise AssertionError(f"expected {expected}, got {code}") from error
+            return code
+
+        raise AssertionError(f"expected {expected}, got OK")
+
 
 def next_action(action_list=None):
     "Get next action from list or STDIN"
@@ -138,6 +361,7 @@ def main(*args):
     c = GRPCClient(args.server, args.port)
 
     for action in next_action(args.actions):
+        raw_action = action
         action = action.casefold()
         logging.debug("GOT ACTION: %s", action)
         if action == "getcap":
@@ -179,6 +403,90 @@ def main(*args):
             logging.debug("Get State XPath: %s", xpath)
             print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.STATE))
             # for _ in range(0, 1):
+        elif action.startswith("exec,"):
+            # Execute an RPC. Input arguments are path=value pairs.
+            parts = raw_action.split(",")
+            xpath = parts[1]
+            input_values = []
+            for item in parts[2:]:
+                path, value = item.split("=", 1)
+                input_values.append((path, value))
+            response = c.execute(xpath, input_values)
+            print(response)
+        elif action.startswith("exec-cancel,"):
+            parts = raw_action.split(",")
+            xpath = parts[1]
+            delay = float(parts[2])
+            timeout = float(parts[3])
+            input_values = []
+            for item in parts[4:]:
+                path, value = item.split("=", 1)
+                input_values.append((path, value))
+            print(c.execute_cancel(xpath, input_values, delay, timeout))
+        elif action.startswith("exec-concurrent,"):
+            parts = raw_action.split(",")
+            xpath = parts[1]
+            count = int(parts[2])
+            timeout = float(parts[3])
+            input_values = []
+            for item in parts[4:]:
+                path, value = item.split("=", 1)
+                input_values.append((path, value))
+            print(c.execute_concurrent(xpath, input_values, count, timeout))
+        elif action.startswith("subscribe-listen,"):
+            _, xpath, timeout = raw_action.split(",", 2)
+            print(c.subscribe_listen(xpath, encoding, float(timeout)))
+        elif action.startswith("subscribe-listen-with-path,"):
+            _, xpath, timeout = raw_action.split(",", 2)
+            print(c.subscribe_listen_with_path(xpath, encoding, float(timeout)))
+        elif action.startswith("subscribe-until-sync,"):
+            _, xpath, timeout = raw_action.split(",", 2)
+            print(c.subscribe_until_sync(xpath, encoding, float(timeout)))
+        elif action.startswith("subscribe-until-heartbeat,"):
+            _, xpath, heartbeat_ms, timeout = raw_action.split(",", 3)
+            print(
+                c.subscribe_until_heartbeat(
+                    xpath, int(heartbeat_ms), encoding, float(timeout)
+                )
+            )
+        elif action.startswith("subscribe-cancel,"):
+            _, xpath, delay, timeout = raw_action.split(",", 3)
+            print(c.subscribe_cancel(xpath, encoding, float(delay), float(timeout)))
+        elif action.startswith("subscribe-sample-count,"):
+            _, xpath, interval_ms, count, timeout = raw_action.split(",", 4)
+            print(
+                c.subscribe_sample_count(
+                    xpath, int(interval_ms), int(count), encoding, float(timeout)
+                )
+            )
+        elif action.startswith("subscribe-expect-error,"):
+            _, mode, xpath, expected, timeout = raw_action.split(",", 4)
+            print(
+                c.subscribe_expect_error(
+                    mode, xpath, expected, encoding, float(timeout)
+                )
+            )
+        elif action.startswith("subscribe-sample-expect-error,"):
+            _, xpath, interval_ms, expected, timeout = raw_action.split(",", 4)
+            print(
+                c.subscribe_sample_expect_error(
+                    xpath, int(interval_ms), expected, encoding, float(timeout)
+                )
+            )
+        elif action.startswith("subscribe-invalid-encoding-expect-error,"):
+            _, mode, xpath, bad_encoding, expected, timeout = raw_action.split(",", 5)
+            print(
+                c.subscribe_invalid_encoding_expect_error(
+                    mode, xpath, int(bad_encoding), expected, float(timeout)
+                )
+            )
+        elif action.startswith("subscribe-stream-repeat-expect-error,"):
+            _, xpath, repeat, expected, timeout = raw_action.split(",", 4)
+            print(
+                c.subscribe_stream_repeat_expect_error(
+                    xpath, int(repeat), expected, encoding, float(timeout)
+                )
+            )
 
 
 if __name__ == "__main__":

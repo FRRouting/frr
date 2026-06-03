@@ -62,7 +62,7 @@ void mgmt_init(void)
 	/* Initialize the MGMTD Frontend Adapter Module */
 	mgmt_fe_adapter_init(mm->master);
 
-	/* Let gRPC read mgmtd's central datastores. */
+	/* Let gRPC Execute use mgmtd's backend transaction machinery. */
 	mgmt_grpc_init();
 
 	/*
