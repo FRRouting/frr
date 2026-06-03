@@ -29,6 +29,8 @@ DEFINE_MTYPE_STATIC(LIB, NB_TRANS, "NB transaction");
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
 
+static nb_config_get_dispatch_cb nb_config_get_dispatcher;
+
 /* Hash table of user pointers associated with configuration entries. */
 static struct hash *running_config_entries;
 
@@ -1956,6 +1958,21 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	args.errmsg = errmsg;
 	args.errmsg_len = errmsg_len;
 	return nb_node->cbs.rpc(&args);
+}
+
+void nb_config_get_dispatch_set(nb_config_get_dispatch_cb cb)
+{
+	/* Single owner by design: one frontend owns central config reads. */
+	nb_config_get_dispatcher = cb;
+}
+
+int nb_config_get_dispatch(const char *xpath, struct lyd_node **result, char *errmsg,
+			   size_t errmsg_len)
+{
+	if (!nb_config_get_dispatcher)
+		return -EOPNOTSUPP;
+
+	return nb_config_get_dispatcher(xpath, result, errmsg, errmsg_len);
 }
 
 void nb_callback_notify(const struct nb_node *nb_node, uint8_t op, const char *xpath,

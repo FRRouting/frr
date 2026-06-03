@@ -72,9 +72,7 @@ try:
     import grpc  # noqa: F401
     import grpc_tools  # noqa: F401
 except ImportError:
-    pytest.skip(
-        "skipping; gRPC modules not installed", allow_module_level=True
-    )
+    pytest.skip("skipping; gRPC modules not installed", allow_module_level=True)
 
 if not _frr_grpc_module_available():
     pytest.skip(
@@ -142,7 +140,17 @@ def test_capabilities(tgen):
     logging.debug("grpc output: %s", output)
 
     modules = sorted(re.findall('name: "([^"]+)"', output))
-    expected = ["frr-backend", "frr-host", "frr-interface", "frr-logging", "frr-routing", "frr-staticd", "frr-vrf", "ietf-srv6-types", "ietf-syslog-types"]
+    expected = [
+        "frr-backend",
+        "frr-host",
+        "frr-interface",
+        "frr-logging",
+        "frr-routing",
+        "frr-staticd",
+        "frr-vrf",
+        "ietf-srv6-types",
+        "ietf-syslog-types",
+    ]
     assert modules == expected
 
     encodings = sorted(re.findall("supported_encodings: (.*)", output))
@@ -195,6 +203,11 @@ def test_get_config(tgen):
     )
     result = json_cmp(out_json, expect, exact=False)
     assert result is None
+
+    output = run_grpc_client(r1, GRPCP_ZEBRA, "GET-CONFIG-WITH-PATH,/frr-interface:lib")
+    path, data = output.split("\n", 1)
+    assert path == "/frr-interface:lib"
+    assert '"frr-interface:lib"' in data
 
 
 def test_get_vrf_config(tgen):

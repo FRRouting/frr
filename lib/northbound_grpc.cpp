@@ -411,18 +411,84 @@ static struct lyd_node *dnode_from_data_tree(const frr::DataTree *dt,
 	return dnode;
 }
 
+static bool get_path_is_root(const std::string &path)
+{
+	return path.empty() || path == "/";
+}
+
+static struct lyd_node *dup_single_dnode(const struct lyd_node *dnode)
+{
+	struct lyd_node *dup = NULL;
+	LY_ERR err;
+
+	err = lyd_dup_single(dnode, NULL, LYD_DUP_RECURSIVE | LYD_DUP_WITH_FLAGS, &dup);
+	if (err) {
+		flog_warn(EC_LIB_LIBYANG, "%s: lyd_dup_single() failed: %s", __func__,
+			  ly_errmsg(ly_native_ctx));
+		return NULL;
+	}
+
+	return dup;
+}
+
+static struct lyd_node *select_config_get_result(struct lyd_node *dnode,
+						 const std::string &path)
+{
+	struct lyd_node *target;
+	struct lyd_node *dup;
+
+	if (get_path_is_root(path))
+		return dnode;
+
+	/*
+	 * A frontend dispatcher may return a parent-preserving fragment so the
+	 * selected node can be found in its datastore context. The gRPC response
+	 * already carries the requested path, so serialise the YANG subtree
+	 * rooted at that path.
+	 */
+	target = yang_dnode_get(dnode, path.c_str());
+	if (!target || target == dnode)
+		return dnode;
+
+	dup = dup_single_dnode(target);
+	if (!dup)
+		return dnode;
+
+	yang_dnode_free(dnode);
+
+	return dup;
+}
+
 static struct lyd_node *get_dnode_config(const std::string &path)
 {
 	struct lyd_node *dnode;
+	char errmsg[BUFSIZ] = {};
+	int ret;
 
-	if (!yang_dnode_exists(running_config->dnode,
-			       path.empty() ? NULL : path.c_str()))
+	ret = nb_config_get_dispatch(path.empty() ? NULL : path.c_str(), &dnode, errmsg,
+				     sizeof(errmsg));
+	if (!ret)
+		return select_config_get_result(dnode, path);
+	if (ret == -ENOENT)
+		return NULL;
+	if (ret != -EOPNOTSUPP) {
+		flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE, "%s: failed to fetch config path %s: %s",
+			  __func__, path.c_str(), errmsg);
+		return NULL;
+	}
+
+	if (!running_config)
 		return NULL;
 
-	dnode = yang_dnode_get(running_config->dnode,
-			       path.empty() ? NULL : path.c_str());
+	if (get_path_is_root(path))
+		return yang_dnode_dup(running_config->dnode);
+
+	if (!yang_dnode_exists(running_config->dnode, path.c_str()))
+		return NULL;
+
+	dnode = yang_dnode_get(running_config->dnode, path.c_str());
 	if (dnode)
-		dnode = yang_dnode_dup(dnode);
+		dnode = dup_single_dnode(dnode);
 
 	return dnode;
 }
@@ -436,6 +502,25 @@ static struct lyd_node *get_dnode_state(const std::string &path)
 	return dnode;
 }
 
+static grpc::Status get_state_snapshot_path(frr::DataTree *dt, const std::string &path,
+					    LYD_FORMAT lyd_format, bool with_defaults)
+{
+	struct lyd_node *dnode_state;
+	LY_ERR err;
+
+	dnode_state = get_dnode_state(path);
+	if (!dnode_state)
+		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+				    "Failed to fetch operational data");
+
+	err = data_tree_from_dnode(dt, dnode_state, lyd_format, with_defaults);
+	yang_dnode_free(dnode_state);
+	if (err)
+		return grpc::Status(grpc::StatusCode::INTERNAL, "Failed to dump data");
+
+	return grpc::Status::OK;
+}
+
 static grpc::Status get_path(frr::DataTree *dt, const std::string &path,
 			     int type, LYD_FORMAT lyd_format,
 			     bool with_defaults)
@@ -443,12 +528,13 @@ static grpc::Status get_path(frr::DataTree *dt, const std::string &path,
 	struct lyd_node *dnode_config = NULL;
 	struct lyd_node *dnode_state = NULL;
 	struct lyd_node *dnode_final;
+	bool validate = false;
 
 	// Configuration data.
 	if (type == frr::GetRequest_DataType_ALL
 	    || type == frr::GetRequest_DataType_CONFIG) {
 		dnode_config = get_dnode_config(path);
-		if (!dnode_config)
+		if (!dnode_config && type == frr::GetRequest_DataType_CONFIG)
 			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 					    "Data path not found");
 	}
@@ -458,15 +544,33 @@ static grpc::Status get_path(frr::DataTree *dt, const std::string &path,
 	    || type == frr::GetRequest_DataType_STATE) {
 		dnode_state = get_dnode_state(path);
 		if (!dnode_state) {
+			if (type == frr::GetRequest_DataType_ALL && dnode_config)
+				goto have_data;
 			if (dnode_config)
 				yang_dnode_free(dnode_config);
 			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-					    "Failed to fetch operational data");
+					    type == frr::GetRequest_DataType_ALL
+						    ? "Data path not found"
+						    : "Failed to fetch operational data");
 		}
 	}
 
+	if (!dnode_config && !dnode_state)
+		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Data path not found");
+
+have_data:
 	switch (type) {
 	case frr::GetRequest_DataType_ALL:
+		if (!dnode_config) {
+			dnode_final = dnode_state;
+			validate = false;
+			break;
+		}
+		if (!dnode_state) {
+			dnode_final = dnode_config;
+			validate = get_path_is_root(path);
+			break;
+		}
 		//
 		// Combine configuration and state data into a single
 		// dnode.
@@ -483,24 +587,32 @@ static grpc::Status get_path(frr::DataTree *dt, const std::string &path,
 		}
 
 		dnode_final = dnode_state;
+		validate = get_path_is_root(path);
 		break;
 	case frr::GetRequest_DataType_CONFIG:
 		dnode_final = dnode_config;
+		validate = get_path_is_root(path);
 		break;
 	case frr::GetRequest_DataType_STATE:
 		dnode_final = dnode_state;
 		break;
 	}
 
-	// Validate data to create implicit default nodes if necessary.
+	/*
+	 * Validate complete root reads to create implicit default nodes. A
+	 * path-specific subtree was selected from an already-valid datastore,
+	 * but is not itself a complete datastore: leafrefs may point outside the
+	 * returned fragment.
+	 */
 	int validate_opts = 0;
-	if (type == frr::GetRequest_DataType_CONFIG)
+	if (type == frr::GetRequest_DataType_CONFIG || !dnode_state)
 		validate_opts = LYD_VALIDATE_NO_STATE;
 	else
 		validate_opts = 0;
 
-	LY_ERR err = lyd_validate_all(&dnode_final, ly_native_ctx,
-				      validate_opts, NULL);
+	LY_ERR err = LY_SUCCESS;
+	if (validate)
+		err = lyd_validate_all(&dnode_final, ly_native_ctx, validate_opts, NULL);
 
 	if (err)
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_validate_all() failed: %s",
@@ -570,6 +682,8 @@ bool HandleStreamingGet(
 		for (const std::string &path : paths) {
 			mypathps->push_back(std::string(path));
 		}
+		if (mypathps->empty())
+			mypathps->push_back("/");
 	}
 
 	// Request: DataType type = 1;
@@ -593,8 +707,13 @@ bool HandleStreamingGet(
 	// Response: DataTree data = 2;
 	auto *data = response.mutable_data();
 	data->set_encoding(tag->request.encoding());
-	status = get_path(data, mypathps->back().c_str(), type,
-			  encoding2lyd_format(encoding), with_defaults);
+	data->set_path(mypathps->back());
+	if (type == frr::GetRequest_DataType_STATE)
+		status = get_state_snapshot_path(data, mypathps->back().c_str(),
+						 encoding2lyd_format(encoding), with_defaults);
+	else
+		status = get_path(data, mypathps->back().c_str(), type,
+				  encoding2lyd_format(encoding), with_defaults);
 
 	if (!status.ok()) {
 		tag->async_responder.WriteAndFinish(

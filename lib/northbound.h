@@ -1567,6 +1567,13 @@ extern enum nb_error nb_oper_iterate_legacy(const char *xpath,
 					    uint32_t flags, nb_oper_data_cb cb,
 					    void *arg, struct lyd_node **tree);
 
+typedef int (*nb_config_get_dispatch_cb)(const char *xpath, struct lyd_node **result, char *errmsg,
+					 size_t errmsg_len);
+
+extern void nb_config_get_dispatch_set(nb_config_get_dispatch_cb cb);
+extern int nb_config_get_dispatch(const char *xpath, struct lyd_node **result, char *errmsg,
+				  size_t errmsg_len);
+
 /**
  * nb_oper_walk() - walk the schema building operational state.
  * @xpath: data path of the YANG data we want to iterate over.

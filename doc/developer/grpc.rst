@@ -9,9 +9,18 @@ To enable gRPC support one needs to add `--enable-grpc` when running
 the gRPC module be loaded and which port to bind to. This can be done by adding
 `-M grpc:<port>` to the daemon's CLI arguments.
 
-Currently there is no gRPC "routing" so you will need to bind your gRPC
-`channel` to the particular daemon's gRPC port to interact with that daemon's
-gRPC northbound interface.
+When gRPC is loaded directly into a protocol daemon, the gRPC northbound
+interface is process-local: callbacks registered in that daemon can be invoked
+from that daemon's gRPC port. When gRPC is loaded into ``mgmtd``,
+``Get(CONFIG)`` is served from mgmtd's running datastore through the
+northbound config-get dispatcher. Omitting the path, or requesting the root
+path, returns the whole running datastore; any other config path returns the
+YANG subtree rooted at that path. Daemon-local gRPC keeps using the
+process-local running configuration.
+
+``Get(STATE)`` continues to use the process-local operational-state walk.
+``Get(ALL)`` combines configuration and state when both are present, and can
+return the side that exists when only one side owns the requested path.
 
 The minimum version of gRPC known to work is 1.16.1.
 
