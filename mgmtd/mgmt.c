@@ -62,6 +62,9 @@ void mgmt_init(void)
 	/* Initialize the MGMTD Frontend Adapter Module */
 	mgmt_fe_adapter_init(mm->master);
 
+	/* Let gRPC read mgmtd's central datastores. */
+	mgmt_grpc_init();
+
 	/*
 	 * Initialize the CLI frontend client -- this queues an event for the
 	 * client to short-circuit connect to the server (ourselves).
@@ -90,6 +93,7 @@ void mgmt_init(void)
 
 void mgmt_terminate(void)
 {
+	mgmt_grpc_terminate();
 	mgmt_be_client_destroy(mgmt_be_client);
 	mgmt_txn_destroy();
 	mgmt_fe_adapter_destroy();

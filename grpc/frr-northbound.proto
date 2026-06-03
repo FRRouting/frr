@@ -420,4 +420,8 @@ message PathValue {
 message DataTree {
   Encoding encoding = 1;
   string data = 2;
+  // YANG path represented by this fragment, when the producer has a specific
+  // path to report. Get sets this to the requested path. Other responses may
+  // leave it unset.
+  string path = 3;
 }
