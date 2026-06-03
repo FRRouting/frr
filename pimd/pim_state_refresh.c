@@ -35,6 +35,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 	uint8_t *curr;
 	int curr_size;
 	struct pim_interface *pim_ifp = NULL, *pim_ifp2;
+	struct interface *ifp2;
 	struct pim_ifchannel *ch, *throwaway;
 	struct listnode *neighnode;
 	struct pim_neighbor *neigh;
@@ -155,14 +156,25 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 
 	/* TODO: condition StateRefreshRateLimit(S,G) not implemented yet!! */
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode, neigh)) {
-		if (!neigh->prefix_list)
+	/*
+	 * RFC 3973 4.5.2: forward the State Refresh on every downstream PIM
+	 * dense-mode interface, i.e. all PIM interfaces except the one the
+	 * message arrived on. Iterating the receiving interface's neighbor list
+	 * would only echo it back onto the incoming segment.
+	 */
+	FOR_ALL_INTERFACES (ifp->vrf, ifp2) {
+		pim_ifp2 = ifp2->info;
+
+		if (!pim_ifp2 || !pim_ifp2->pim_enable || ifp2 == ifp)
 			continue;
 
-		pim_ifp2 = neigh->interface->info;
+		if (!HAVE_DENSE_MODE(pim_ifp2->pim_mode))
+			continue;
+
 		if (pim_is_group_filtered(pim_ifp2, &up->sg.grp, &up->sg.src))
 			continue;
-		pim_ifchannel_find(neigh->interface, &up->sg, &ch, &throwaway);
+
+		pim_ifchannel_find(ifp2, &up->sg, &ch, &throwaway);
 		if (!ch)
 			p = 0;
 		else {
@@ -178,17 +190,19 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 		}
 
 		pim_msg_size =
-			pim_staterefresh_build_msg(pim_msg, sizeof(pim_msg), neigh->interface,
-						   up->sg.grp, up->sg.src, pim_ifp2->primary_address,
+			pim_staterefresh_build_msg(pim_msg, sizeof(pim_msg), ifp2, up->sg.grp,
+						   up->sg.src, pim_ifp2->primary_address,
 						   up->rpf.source_nexthop.mrib_metric_preference,
 						   up->rpf.source_nexthop.mrib_route_metric, 0,
-						   IPV4_MAX_BITLEN, header->ttl, p, header->n, 1, 0,
-						   pim_ifp2->pim->staterefresh_time);
+						   IPV4_MAX_BITLEN, header->ttl, p, header->n, 1,
+						   0, pim_ifp2->pim->staterefresh_time);
 
-		if (pim_msg_send(pim_ifp2->pim_sock_fd, pim_ifp2->primary_address,
-				 neigh->source_addr, pim_msg, pim_msg_size, neigh->interface)) {
-			zlog_warn("%s: could not send PIM message on interface %s", __func__,
-				  ifp->name);
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp2->pim_neighbor_list, neighnode, neigh)) {
+			if (pim_msg_send(pim_ifp2->pim_sock_fd, pim_ifp2->primary_address,
+					 neigh->source_addr, pim_msg, pim_msg_size, ifp2)) {
+				zlog_warn("%s: could not send PIM message on interface %s",
+					  __func__, ifp2->name);
+			}
 		}
 	}
 
@@ -321,13 +335,10 @@ void pim_send_staterefresh(struct pim_upstream *up)
 							   0, pim_ifp2->pim->staterefresh_time);
 
 			for (ALL_LIST_ELEMENTS_RO(pim_ifp2->pim_neighbor_list, neighnode, neigh)) {
-				if (!neigh->prefix_list)
-					continue;
-
 				if (pim_msg_send(pim_ifp2->pim_sock_fd, pim_ifp2->primary_address,
 						 neigh->source_addr, pim_msg, pim_msg_size, ifp2)) {
 					zlog_warn("%s: could not send PIM message on interface %s",
-						  __func__, ifp->name);
+						  __func__, ifp2->name);
 				}
 			}
 		}
