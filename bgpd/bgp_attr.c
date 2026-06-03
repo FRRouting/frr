@@ -2214,7 +2214,8 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto aggregator_ignore;
 
-	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV))
+	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) &&
+	    CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV))
 		aggregator_as = stream_getl(peer->curr);
 	else
 		aggregator_as = stream_getw(peer->curr);
