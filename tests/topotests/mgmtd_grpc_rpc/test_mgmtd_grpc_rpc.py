@@ -5,7 +5,7 @@
 #
 
 """
-Test mgmtd gRPC Get and Execute access to backend daemons.
+Test mgmtd gRPC Execute RPC dispatch to backend daemons.
 """
 
 import glob
@@ -20,6 +20,7 @@ from lib.topotest import json_cmp
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 GRPCP_MGMTD = 50057
+GRPCP_BAD_MGMTD = 50059
 script_path = os.path.realpath(os.path.join(CWD, "../lib/grpc-query.py"))
 
 pytestmark = [pytest.mark.ripd, pytest.mark.mgmtd]
@@ -85,7 +86,7 @@ def tgen(request):
         if rname == "r1":
             mgmtd_options = f"-M grpc:{GRPCP_MGMTD}"
         else:
-            mgmtd_options = ""
+            mgmtd_options = f"-M grpc:{GRPCP_BAD_MGMTD},-1"
         router.load_config(TopoRouter.RD_MGMTD, "", mgmtd_options)
 
     tgen.start_router()
@@ -242,6 +243,23 @@ def test_get_config_xml_via_mgmtd_grpc(tgen):
     assert "<interface" in output
     assert "r1-eth0" in output
     assert "192.0.2.1" in output
+
+
+def test_invalid_subscribe_pending_limit_disables_grpc_listener(tgen):
+    r2 = tgen.gears["r2"]
+
+    step("Reject an invalid gRPC Subscribe pending limit")
+    with open(os.path.join(tgen.logdir, "r2", "mgmtd.log"), encoding="utf-8") as log:
+        assert "invalid subscribe pending limit: -1" in log.read()
+
+    assert "ripd" in r2.vtysh_cmd("show mgmt backend-yang-xpath-registry")
+
+    rc, stdout, stderr = run_grpc_client_status(
+        r2, "GET-CONFIG,/", port=GRPCP_BAD_MGMTD
+    )
+    assert rc != 0
+    output = stdout + stderr
+    assert "failed to connect" in output or "UNAVAILABLE" in output
 
 
 def test_get_state_and_all_via_mgmtd_grpc(tgen):

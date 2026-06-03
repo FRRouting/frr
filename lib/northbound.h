@@ -871,6 +871,17 @@ DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments));
 DECLARE_HOOK(nb_notification_tree_send,
 	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
+/* Called before mgmtd destroys frontend state used by northbound clients. */
+DECLARE_HOOK(nb_grpc_terminate, (), ());
+extern void nb_grpc_terminate_call(void);
+
+typedef void (*nb_notification_data_cb)(const char *xpath, LYD_FORMAT format, const char *data,
+					void *arg);
+typedef int (*nb_notification_data_subscribe_cb)(const char *const *selectors,
+						 size_t selector_count, LYD_FORMAT format,
+						 nb_notification_data_cb cb, void *arg,
+						 void **handle, char *errmsg, size_t errmsg_len);
+typedef void (*nb_notification_data_unsubscribe_cb)(void *handle);
 
 /* Northbound debugging records */
 extern struct debug nb_dbg_cbs_config;
@@ -1701,6 +1712,13 @@ extern int nb_notification_send(const char *xpath, struct list *arguments);
  */
 extern int nb_notification_tree_send(const char *xpath,
 				     const struct lyd_node *tree);
+
+extern void nb_notification_data_subscribe_set(nb_notification_data_subscribe_cb cb);
+extern void nb_notification_data_unsubscribe_set(nb_notification_data_unsubscribe_cb cb);
+extern int nb_notification_data_subscribe(const char *const *selectors, size_t selector_count,
+					  LYD_FORMAT format, nb_notification_data_cb cb, void *arg,
+					  void **handle, char *errmsg, size_t errmsg_len);
+extern void nb_notification_data_unsubscribe(void *handle);
 
 /*
  * Associate a user pointer to a configuration node.

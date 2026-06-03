@@ -218,6 +218,19 @@ class GRPCClient:
 
         return "OK"
 
+    def subscribe_expect_shutdown(self, xpath, encoding, timeout):
+        request = frr_northbound_pb2.SubscribeRequest()
+        request.mode = frr_northbound_pb2.SubscribeRequest.ON_CHANGE
+        request.response_encoding = encoding
+        request.path.append(xpath)
+
+        try:
+            list(self.stub.Subscribe(request, timeout=timeout))
+        except grpc.RpcError as error:
+            return error.code().name
+
+        return "OK"
+
     def subscribe_sample_count(self, xpath, interval_ms, count, encoding, timeout):
         request = frr_northbound_pb2.SubscribeRequest()
         request.mode = frr_northbound_pb2.SubscribeRequest.SAMPLE
@@ -452,6 +465,9 @@ def main(*args):
         elif action.startswith("subscribe-cancel,"):
             _, xpath, delay, timeout = raw_action.split(",", 3)
             print(c.subscribe_cancel(xpath, encoding, float(delay), float(timeout)))
+        elif action.startswith("subscribe-expect-shutdown,"):
+            _, xpath, timeout = raw_action.split(",", 2)
+            print(c.subscribe_expect_shutdown(xpath, encoding, float(timeout)))
         elif action.startswith("subscribe-sample-count,"):
             _, xpath, interval_ms, count, timeout = raw_action.split(",", 4)
             print(
