@@ -5,7 +5,7 @@
 #
 
 """
-Test mgmtd gRPC Get access to mgmtd datastores.
+Test mgmtd gRPC Get and Execute access to backend daemons.
 """
 
 import glob
@@ -13,7 +13,7 @@ import json
 import os
 
 import pytest
-from lib.common_config import step
+from lib.common_config import retry, step
 from lib.micronet import commander
 from lib.topogen import Topogen, TopoRouter
 from lib.topotest import json_cmp
@@ -82,7 +82,10 @@ def tgen(request):
 
     for rname, router in tgen.routers().items():
         router.load_frr_config("frr.conf")
-        mgmtd_options = f"-M grpc:{GRPCP_MGMTD}" if rname == "r1" else ""
+        if rname == "r1":
+            mgmtd_options = f"-M grpc:{GRPCP_MGMTD}"
+        else:
+            mgmtd_options = ""
         router.load_config(TopoRouter.RD_MGMTD, "", mgmtd_options)
 
     tgen.start_router()
@@ -94,6 +97,24 @@ def tgen(request):
 def skip_on_failure(tgen):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+
+@retry(retry_timeout=30)
+def check_ripd_rpc_registered(r1):
+    out = r1.vtysh_cmd("show mgmt backend-yang-xpath-registry")
+    return None if "rpc: /frr-ripd: ripd" in out else "missing ripd RPC backend"
+
+
+@retry(retry_timeout=60)
+def check_rip_route_present(r1):
+    out = r1.vtysh_cmd("show ip rip")
+    return None if "203.0.113.0/24" in out else "missing learned RIP route"
+
+
+@retry(retry_timeout=10)
+def check_rip_route_absent(r1):
+    out = r1.vtysh_cmd("show ip rip")
+    return None if "203.0.113.0/24" not in out else "learned RIP route still present"
 
 
 def run_grpc_client(r, commands, extra_args=None):
@@ -269,3 +290,53 @@ def test_get_rejects_missing_paths_via_mgmtd_grpc(tgen):
     output = stdout + stderr
     assert "INVALID_ARGUMENT" in output
     assert "Data path not found" in output
+
+
+def test_execute_rpc_via_mgmtd_grpc(tgen):
+    r1 = tgen.gears["r1"]
+
+    assert check_ripd_rpc_registered(r1) is None
+    assert check_rip_route_present(r1) is None
+
+    output = run_grpc_client(r1, "EXEC,/frr-ripd:clear-rip-route")
+    assert "output" not in output
+    assert check_rip_route_absent(r1) is None
+
+
+def test_execute_cancel_keeps_listener_available(tgen):
+    r1 = tgen.gears["r1"]
+
+    assert check_ripd_rpc_registered(r1) is None
+
+    step("Cancel a gRPC Execute call")
+    output = run_grpc_client(
+        r1, "EXEC-CANCEL,/frr-ripd:clear-rip-route,0,5"
+    ).strip()
+    assert output in {"CANCELLED", "OK"}
+
+    step("Execute still accepts a later request")
+    output = run_grpc_client(r1, "EXEC,/frr-ripd:clear-rip-route")
+    assert "output" not in output
+
+
+def test_concurrent_execute_rpc_via_mgmtd_grpc(tgen):
+    r1 = tgen.gears["r1"]
+
+    assert check_ripd_rpc_registered(r1) is None
+
+    step("Run concurrent gRPC Execute requests through mgmtd")
+    output = run_grpc_client(
+        r1, "EXEC-CONCURRENT,/frr-ripd:clear-rip-route,5,5"
+    )
+    results = json.loads(output)
+    assert results == ["OK"] * 5
+
+
+def test_execute_rejects_unknown_rpc_via_mgmtd_grpc(tgen):
+    r1 = tgen.gears["r1"]
+
+    rc, stdout, stderr = run_grpc_client_status(
+        r1, "EXEC,/frr-ripd:no-such-rpc"
+    )
+    assert rc != 0
+    assert "INVALID_ARGUMENT" in stdout + stderr
