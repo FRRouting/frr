@@ -200,6 +200,9 @@ int prefix_contains(union prefixconstptr unetwork, union prefixconstptr uprefix)
 	int shift;
 	const uint8_t *np, *pp;
 
+	if (n->family != p->family)
+		return 0;
+
 	/* If n's prefix is longer than p's one return 0. */
 	if (n->prefixlen > p->prefixlen)
 		return 0;
