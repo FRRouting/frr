@@ -3135,7 +3135,7 @@ module frr-zebra {
         type identityref {
           base frr-rt:afi-safi-type;
         }
-        must ". = 'frr-routing:ipv4-unicast' or . = 'frr-routing:ipv4-multicast' or . = 'frr-routing:ipv6-unicast' or . = 'frr-routing:ipv6-multicast'" {
+        must ". = 'frr-rt:ipv4-unicast' or . = 'frr-rt:ipv4-multicast' or . = 'frr-rt:ipv6-unicast' or . = 'frr-rt:ipv6-multicast'" {
           error-message "Only IPv4 and IPv6 unicast and multicast import-table entries are supported.";
         }
         description
