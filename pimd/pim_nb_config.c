@@ -3185,6 +3185,27 @@ int lib_interface_pim_address_family_mroute_create(
 	return NB_OK;
 }
 
+int lib_interface_pim_address_family_mroute_destroy(struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/*
+		 * Per-oif cleanup is handled by
+		 * lib_interface_pim_address_family_mroute_oif_destroy().
+		 * This runs when the mroute list entry itself is removed
+		 * (e.g. after the last oif is deleted); do not call
+		 * pim_static_del() here with a non-oif dnode.
+		 */
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/mroute/oif
  */
@@ -3242,16 +3263,11 @@ int lib_interface_pim_address_family_mroute_oif_create(struct nb_cb_create_args 
 
 		oifname = yang_dnode_get_string(args->dnode, NULL);
 		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
-		if (!oif) {
-			snprintf(args->errmsg, args->errmsg_len, "No such interface name %s",
-				 oifname);
-			return NB_ERR_INCONSISTENCY;
-		}
 
 		yang_dnode_get_pimaddr(&source_addr, args->dnode, "../source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
 
-		if (pim_static_add(pim, iif, oif, group_addr, source_addr)) {
+		if (pim_static_add(pim, iif, oif, oifname, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len, "Failed to add static mroute");
 			return NB_ERR_INCONSISTENCY;
 		}
@@ -3298,16 +3314,11 @@ int lib_interface_pim_address_family_mroute_oif_destroy(struct nb_cb_destroy_arg
 
 		oifname = yang_dnode_get_string(args->dnode, NULL);
 		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
-		if (!oif) {
-			snprintf(args->errmsg, args->errmsg_len, "No such interface name %s",
-				 oifname);
-			return NB_ERR_INCONSISTENCY;
-		}
 
 		yang_dnode_get_pimaddr(&source_addr, args->dnode, "../source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
 
-		if (pim_static_del(pim, iif, oif, group_addr, source_addr)) {
+		if (pim_static_del(pim, iif, oif, oifname, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len, "Failed to del static mroute");
 			return NB_ERR_INCONSISTENCY;
 		}

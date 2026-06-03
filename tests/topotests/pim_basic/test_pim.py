@@ -350,6 +350,69 @@ def test_pim_static_mroute():
     assert result is None, "failed to converge final mroute state"
 
 
+def test_pim_static_mroute_deferred():
+    "Static mroutes install once output-interface VIF is ready (#4636)"
+    logger.info("Testing deferred static routes at boot")
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        """
+        conf t
+           interface r1-eth1
+              no ip pim
+    """
+    )
+    r1.vtysh_cmd(
+        """
+        conf t
+           interface r1-eth0
+              ip mroute r1-eth1 239.9.9.9 10.0.0.9
+    """
+    )
+
+    expected = {"239.9.9.9": None}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert result is None, "mroute installed before output VIF was ready"
+
+    r1.vtysh_cmd(
+        """
+        conf t
+           interface r1-eth1
+              ip pim
+    """
+    )
+
+    expected = {"239.9.9.9": {"10.0.0.9": {"oil": {"r1-eth1": "*", "r1-eth2": None}}}}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "deferred static mroute was not installed"
+
+    output = r1.vtysh_cmd("show running-config")
+    assert "ip mroute r1-eth1 239.9.9.9 10.0.0.9" in output
+
+    r1.vtysh_cmd(
+        """
+        conf t
+           interface r1-eth0
+              no ip mroute r1-eth1 239.9.9.9 10.0.0.9
+    """
+    )
+    expected = {"239.9.9.9": None}
+    test_func = partial(topotest.router_json_cmp, r1, "show ip mroute json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "failed to remove deferred static mroute"
+
+    output = r1.vtysh_cmd("show running-config")
+    assert "ip mroute r1-eth1 239.9.9.9 10.0.0.9" not in output
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

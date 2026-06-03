@@ -35,6 +35,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	if (pim->static_routes)
 		list_delete(&pim->static_routes);
+	pim_static_route_configs_fini(pim);
 
 	pim_instance_mlag_terminate(pim);
 
@@ -110,6 +111,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->static_routes = list_new();
 	pim->static_routes->del = (void (*)(void *))pim_static_route_free;
+	pim_static_route_cfgs_init(&pim->static_route_configs);
 
 	pim->send_v6_secondary = 1;
 
