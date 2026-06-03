@@ -17,7 +17,10 @@ configure script.
 Northbound gRPC Features
 ========================
 
-* Get/set configuration using JSON/XML/XPath encodings.
+* Get/set configuration using JSON/XML/XPath encodings. When gRPC is loaded
+  into ``mgmtd``, ``Get(CONFIG)`` reads from mgmtd's running datastore. The
+  root path, or an omitted path, returns the whole running datastore. A
+  non-root config path returns the YANG subtree rooted at that path.
 * Execute YANG RPC calls.
 * Lock/unlock configuration.
 * Create/edit/load/update/commit candidate configuration.

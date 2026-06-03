@@ -21,6 +21,8 @@ if TOPOTESTS_DIR not in sys.path:
 
 tmpdir = None
 commander = None
+proto_dir = os.path.realpath(os.path.join(CWD, "../../../grpc"))
+proto_file = os.path.join(proto_dir, "frr-northbound.proto")
 
 try:
     # Make sure we don't run-into ourselves in parallel operating environment
@@ -34,11 +36,10 @@ try:
 
         import grpc
 
-        commander.cmd_raises(f"cp {CWD}/../../../grpc/frr-northbound.proto .")
         commander.cmd_raises(
             "python3 -m grpc_tools.protoc"
             f" --python_out={tmpdir} --grpc_python_out={tmpdir}"
-            f" -I {CWD}/../../../grpc frr-northbound.proto"
+            f" -I {proto_dir} {proto_file}"
         )
     except Exception as error:
         logging.error("can't create proto definition modules %s", error)
@@ -74,15 +75,22 @@ class GRPCClient:
         logging.debug("GRPC Capabilities: %s", response)
         return response
 
-    def get(self, xpath, encoding, gtype):
+    def get(self, xpath, encoding, gtype, include_path=False):
         request = frr_northbound_pb2.GetRequest()
-        request.path.append(xpath)
+        if xpath is not None:
+            request.path.append(xpath)
         request.type = gtype
         request.encoding = encoding
+        responses = []
         result = ""
         for r in self.stub.Get(request):
             logging.debug('GRPC Get path: "%s" value: %s', request.path, r)
-            result += str(r.data.data)
+            if include_path:
+                responses.append(f"{r.data.path}\n{r.data.data}")
+            else:
+                result += str(r.data.data)
+        if include_path:
+            return "\n".join(responses)
         return result
 
 
@@ -135,6 +143,14 @@ def main(*args):
         if action == "getcap":
             caps = c.get_capabilities()
             print(caps)
+        elif action == "get-config":
+            print(
+                c.get(
+                    None,
+                    encoding,
+                    gtype=frr_northbound_pb2.GetRequest.CONFIG,
+                )
+            )
         elif action.startswith("get,"):
             # Get and print config and state
             _, xpath = action.split(",", 1)
@@ -146,6 +162,17 @@ def main(*args):
             logging.debug("Get Config XPath: %s", xpath)
             print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.CONFIG))
             # for _ in range(0, 1):
+        elif action.startswith("get-config-with-path,"):
+            _, xpath = action.split(",", 1)
+            logging.debug("Get Config XPath: %s", xpath)
+            print(
+                c.get(
+                    xpath,
+                    encoding,
+                    gtype=frr_northbound_pb2.GetRequest.CONFIG,
+                    include_path=True,
+                )
+            )
         elif action.startswith("get-state,"):
             # Get and print state
             _, xpath = action.split(",", 1)
