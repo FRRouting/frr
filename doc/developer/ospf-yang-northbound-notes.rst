@@ -175,6 +175,13 @@ the commit would leave the intended daemon mutation as a silent no-op. The
 interface disappearing after validation, and return ``NB_OK`` where no useful
 recovery exists.
 
+Interface APPLY paths also need to materialise daemon-private interface state
+when the RFC 9129 area/interface entry is valid but the daemon's native
+``if_add`` hook has not populated ``ifp->info`` yet. This can happen during
+batched startup loads. ``ospfd`` creates ``ospf_if_info`` before using
+``IF_DEF_PARAMS(ifp)``; ``ospf6d`` creates ``struct ospf6_interface`` before
+mutating per-interface state.
+
 Aggregate subtrees use container or list-entry ``apply_finish`` callbacks when
 the daemon-side mutation depends on more than one leaf, creates or refreshes a
 daemon aggregate, or would otherwise depend on libyang callback ordering.  For
@@ -183,6 +190,50 @@ settled subtree once per transaction and materialises FRR's per-interface BFD
 state.  For ``static-neighbors/neighbor``, the list-entry callback creates or
 refreshes the FRR NBMA neighbour and then applies the settled
 ``poll-interval`` and ``priority`` values.
+
+RIP-derived northbound conventions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This work deliberately follows the conventions used by the ``ripd``
+northbound conversion and the developer notes that were written around it,
+especially
+``doc/developer/northbound/retrofitting-configuration-commands.rst`` and
+``doc/developer/northbound/yang-module-translator.rst``.  The OSPF code
+applies the same northbound rules directly to RFC 9129 ``ietf-ospf``.
+
+The conventions carried over are:
+
+* The loaded YANG schema describes the supported management surface.  RIP's
+  translator notes use deviations to remove unsupported nodes and to expose
+  FRR-specific defaults.  OSPF follows that model with
+  ``frr-deviations-ietf-routing-ospf.yang``: unsupported RFC 9129 leaves are
+  marked ``not-supported``, and fixed FRR defaults are advertised in the
+  schema.
+* Fixed defaults are read from the loaded model.  The RIP retrofitting notes
+  show daemon state being initialised with ``yang_get_default_*()`` from the
+  YANG model.  OSPF callbacks consume defaulted dnodes or read the same
+  values with ``yang_get_default_*()`` when destroy/defaulted-modify paths
+  restore FRR state.  Dynamic defaults, such as OSPF interface type, stay in
+  daemon code because the value depends on the live interface.
+* CLI commands are northbound clients.  RIP's converted commands enqueue
+  candidate edits with ``nb_cli_enqueue_change()`` and commit them through
+  the northbound layer.  Converted OSPF commands do the same so CLI, mgmtd
+  and future northbound clients share one validation and apply path.
+* Validation belongs in ``NB_EV_VALIDATE`` when accepting the candidate would
+  leave daemon state inconsistent.  ``NB_EV_APPLY`` still tolerates daemon
+  objects disappearing after validation, matching the normal FRR northbound
+  phase split used by RIP callbacks.
+* Aggregate daemon updates use ``apply_finish`` where leaf ordering would
+  matter.  RIP uses this for list or container updates such as redistribute
+  and timers.  OSPF uses the same technique for BFD and static neighbours so
+  the callback reads the settled subtree once per transaction.
+
+OSPF differs from RIP where the model shape requires it.  RIP's FRR-native
+model can attach daemon objects to running dnodes with
+``nb_running_set_entry()`` and fetch them later with ``nb_running_get_entry()``.
+The RFC 9129 OSPF tree sits under ``ietf-routing`` and is implemented by two
+daemons, so OSPF resolves from the ``control-plane-protocol`` keys to the
+owning daemon instance instead of storing a single RIP-style running entry.
 
 .. warning::
 
@@ -248,22 +299,28 @@ The current config-write mapping is:
 |                               | and cost recalculation      | ``NOAUTOCOST`` flag         | cost.                       |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/hello-interval``  | ``params->v_hello``;        | ``oi->hello_interval``      | OSPFv2 mirrors the legacy   |
-|                               | destroy restores default    |                             | implicit dead-interval      |
-|                               | hello behavior              |                             | behavior when dead is unset |
+|                               | delete consumes defaulted   | delete consumes defaulted   | implicit dead-interval      |
+|                               | schema value                | schema value                | behavior when dead is unset |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
-| ``interface/dead-interval``   | ``params->v_wait`` plus     | ``oi->dead_interval``       | Destroy restores daemon     |
-|                               | ``is_v_wait_set``           |                             | defaults.                   |
+| ``interface/dead-interval``   | ``params->v_wait`` plus     | ``oi->dead_interval``       | Delete consumes schema      |
+|                               | ``is_v_wait_set``; delete   | delete consumes defaulted   | default is advertised in    |
+|                               | consumes defaulted value    | schema value                | the deviation module.       |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
-| ``interface/retransmit-``     | ``params->retransmit_``     | ``oi->rxmt_interval``       | Destroy restores daemon     |
-| ``interval``                  | ``interval``                |                             | defaults.                   |
+| ``interface/retransmit-``     | ``params->retransmit_``     | ``oi->rxmt_interval``       | Delete consumes schema      |
+| ``interval``                  | ``interval``; delete        | delete consumes defaulted   | default is advertised in    |
+|                               | consumes defaulted value    | schema value                | the deviation module.       |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/priority``        | ``params->priority`` and    | ``oi->priority``            | OSPFv2 schedules neighbor   |
-|                               | neighbor-change side effect |                             | change when priority moves. |
+|                               | neighbor-change side effect |                             | change when priority moves; |
+|                               | delete consumes defaulted   | delete consumes defaulted   | default is advertised in    |
+|                               | schema value                | schema value                | the deviation module.       |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
-| ``interface/mtu-ignore``      | ``params->mtu_ignore``      | ``oi->mtu_ignore``          | Destroy restores false.     |
+| ``interface/mtu-ignore``      | ``params->mtu_ignore``      | ``oi->mtu_ignore``          | Delete consumes the         |
+|                               |                             |                             | advertised false default.   |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
-| ``interface/transmit-delay``  | ``params->transmit_delay``; | ``oi->transdelay``; destroy | Passive flood-time scalar;  |
-|                               | destroy restores ``1``      | restores ``1``              | no protocol side effects.   |
+| ``interface/transmit-delay``  | ``params->transmit_delay``; | ``oi->transdelay``; delete  | Passive flood-time scalar;  |
+|                               | delete consumes defaulted   | consumes defaulted schema   | no protocol side effects.   |
+|                               | schema value                | value                       |                             |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``interface/interface-type``  | ``params->type`` / OSPF     | ``oi->type`` with           | Loopback and unsupported    |
 |                               | interface type side effects | ``type_cfg`` marker         | enum values are rejected at |
@@ -303,9 +360,9 @@ The current config-write mapping is:
 | ``interface/bfd/``            | ``bfd_config->min_tx`` /    | ``oi->bfd_config.min_tx`` / | RFC unit is microseconds;   |
 | ``desired-min-tx-interval``   | ``->min_rx``; delete        | ``.min_rx``; delete         | FRR stores milliseconds.    |
 | ``interface/bfd/``            | restores defaults through   | restores defaults through   | NB_EV_VALIDATE rejects      |
-| ``required-min-rx-interval``  | ``BFD_DEF_MIN_TX`` /        | ``BFD_DEF_MIN_TX`` /        | non-multiple-of-1000 or     |
-|                               | ``BFD_DEF_MIN_RX``          | ``BFD_DEF_MIN_RX``          | out-of-range (50..60000 ms) |
-|                               |                             |                             | values; the deviations file |
+| ``required-min-rx-interval``  | advertised schema defaults  | advertised schema defaults  | non-multiple-of-1000 or     |
+|                               | read by the parent          | read by the parent          | out-of-range (50..60000 ms) |
+|                               | ``apply_finish``            | ``apply_finish``            | values; the deviations file |
 |                               |                             |                             | pins the RFC default to FRR |
 |                               |                             |                             | 300000 us.  The single-     |
 |                               |                             |                             | interval case is marked     |
@@ -370,7 +427,8 @@ The current config-write mapping is:
 | ``ospf/spf-control/paths``    | ``ospf->max_multipath``;    | ``ospf6->max_multipath``;   | RFC types ``paths`` as      |
 |                               | destroy restores            | destroy restores            | uint16 (1..65535) and FRR's |
 |                               | ``MULTIPATH_NUM``           | ``MULTIPATH_NUM``           | ``MULTIPATH_NUM`` cap stays |
-|                               |                             |                             | enforced in the CLI body.   |
+|                               |                             |                             | enforced in the NB callback |
+|                               |                             |                             | as well as the CLI body.    |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/auto-cost/enabled``    | no-op on modify=true;       | no-op on modify=true;       | FRR has no off-switch for   |
 |                               | NB_EV_VALIDATE rejects      | NB_EV_VALIDATE rejects      | auto-cost.  Deviations file |
@@ -411,10 +469,10 @@ The current config-write mapping is:
 |                               |                             |                             | a separate northbound knob. |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/graceful-restart/``    | ``ospf->gr_info.grace_``    | ``ospf6->gr_info.grace_``   | RFC default is 120s, which  |
-| ``restart-interval``          | ``period``; destroy         | ``period``; destroy         | matches FRR's compile-time  |
-|                               | restores                    | restores                    | default; no deviation       |
-|                               | ``OSPF_DFLT_GRACE_``        | ``OSPF6_DFLT_GRACE_``       | needed.  Modify refreshes   |
-|                               | ``INTERVAL``                | ``INTERVAL``                | the zebra stale-route timer |
+| ``restart-interval``          | ``period``; delete consumes | ``period``; delete consumes | matches FRR's compile-time  |
+|                               | the defaulted schema value  | the defaulted schema value  | default; no deviation       |
+|                               |                             |                             | needed.  Modify refreshes   |
+|                               |                             |                             | the zebra stale-route timer |
 |                               |                             |                             | when GR is enabled.         |
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
 | ``ospf/graceful-restart/``    | ``ospf->is_helper_``        | ``ospf6->ospf6_helper_cfg`` | RFC has no enable-list; the |

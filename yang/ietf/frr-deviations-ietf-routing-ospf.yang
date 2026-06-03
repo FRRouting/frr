@@ -69,6 +69,56 @@ module frr-deviations-ietf-routing-ospf {
   }
 
   /*
+   * The RFC 9129 area-interface grouping leaves several fixed FRR
+   * defaults unspecified. Advertise those defaults in the schema so
+   * northbound clients and daemon callbacks see one default source.
+   * Dynamic defaults, such as interface-type, stay in daemon code.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:retransmit-interval" {
+    deviate add {
+      default "5";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:priority" {
+    deviate add {
+      default "1";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:mtu-ignore" {
+    deviate add {
+      default "false";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:transmit-delay" {
+    deviate add {
+      default "1";
+    }
+  }
+
+  /*
    * RFC 9129 models interface auto-cost as a two-leaf container with a
    * `when "../enabled = 'true'"` constraint on reference-bandwidth.
    * FRR has no on/off switch: it always computes cost from
@@ -180,10 +230,39 @@ module frr-deviations-ietf-routing-ospf {
 
   /*
    * FRR's NBMA neighbour table (struct ospf_nbr_nbma) carries only
-   * `priority` and `v_poll`; there is no `cost` knob.  RFC 9129
-   * exposes `cost` on every static neighbour entry.  Mark it
-   * not-supported so mgmtd rejects writes cleanly rather than
-   * accepting them into the candidate with no callback to fire.
+   * `priority` and `v_poll`.  RFC 9129 leaves both without defaults,
+   * while FRR creates a fresh NBMA neighbour with priority 0 and poll
+   * interval 60 seconds.  Pin those defaults so a YANG client can create
+   * a static neighbour with only an identifier, or with only one optional
+   * leaf, and get the same end state as the legacy CLI.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:static-neighbors/ospf:neighbor/ospf:poll-interval" {
+    deviate add {
+      default "60";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:static-neighbors/ospf:neighbor/ospf:priority" {
+    deviate add {
+      default "0";
+    }
+  }
+
+  /*
+   * FRR has no NBMA neighbour `cost` knob.  RFC 9129 exposes `cost` on
+   * every static neighbour entry.  Mark it not-supported so mgmtd rejects
+   * writes cleanly rather than accepting them into the candidate with no
+   * callback to fire.
    */
   deviation "/ietf-routing:routing"
           + "/ietf-routing:control-plane-protocols"

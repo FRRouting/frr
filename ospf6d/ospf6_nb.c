@@ -155,7 +155,6 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			.xpath = OSPF6D_IETF_OSPF_XPATH "/graceful-restart/restart-interval",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_graceful_restart_restart_interval_modify,
-				.destroy = ospf6d_ietf_ospf_graceful_restart_restart_interval_destroy,
 			},
 			.cfg_opt_in = true,
 		},
@@ -293,7 +292,6 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 				 "/areas/area/interfaces/interface/retransmit-interval",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_modify,
-				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_retransmit_interval_destroy,
 			},
 			.cfg_opt_in = true,
 		},
@@ -302,7 +300,6 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 				 "/areas/area/interfaces/interface/priority",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_priority_modify,
-				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_priority_destroy,
 			},
 			.cfg_opt_in = true,
 		},
@@ -311,7 +308,6 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 				 "/areas/area/interfaces/interface/mtu-ignore",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_modify,
-				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_mtu_ignore_destroy,
 			},
 			.cfg_opt_in = true,
 		},
@@ -320,7 +316,6 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 				 "/areas/area/interfaces/interface/transmit-delay",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_transmit_delay_modify,
-				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_transmit_delay_destroy,
 			},
 			.cfg_opt_in = true,
 		},
@@ -344,6 +339,14 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 		},
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH
+				 "/areas/area/interfaces/interface/bfd",
+			.cbs = {
+				.apply_finish = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_apply_finish,
+			},
+			.cfg_opt_in = true,
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH
 				 "/areas/area/interfaces/interface/bfd/enabled",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_enabled_modify,
@@ -355,7 +358,6 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 				 "/areas/area/interfaces/interface/bfd/local-multiplier",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_modify,
-				.destroy = ospf6d_ietf_ospf_areas_area_interfaces_interface_bfd_local_multiplier_destroy,
 			},
 			.cfg_opt_in = true,
 		},
