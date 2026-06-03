@@ -1158,22 +1158,35 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 	uint8_t sub_type = 0;
 	int str_size;
 	char *str_buf;
+	char encbuf[128];
 
 	if (!ecom || ecom->size == 0)
 		return XCALLOC(MTYPE_ECOMMUNITY_STR, 1);
 
-	/* ecom strlen + space + null term */
-	str_size = (ecom->size * (ECOMMUNITY_STRLEN + 1)) + 1;
-	str_buf = XCALLOC(MTYPE_ECOMMUNITY_STR, str_size);
+	if (index != -1 && (uint32_t)index >= ecom->size)
+		return XCALLOC(MTYPE_ECOMMUNITY_STR, 1);
 
-	char encbuf[128];
+	/* ecom strlen + space + null term */
+	if (index == -1)
+		str_size = (ecom->size * (ECOMMUNITY_STRLEN + 1)) + 1;
+	else
+		str_size = (ECOMMUNITY_STRLEN + 1) + 1;
+
+	str_buf = XCALLOC(MTYPE_ECOMMUNITY_STR, str_size);
 
 	for (i = 0; i < ecom->size; i++) {
 		bool unk_ecom = false;
+
+		/* If we're only formatting one item, stop when we've found it */
+		if (index != -1) {
+			if (i < (uint32_t)index)
+				continue;
+			else if (i > (uint32_t)index)
+				break;
+		}
+
 		memset(encbuf, 0x00, sizeof(encbuf));
 
-		if (index != -1 && (uint32_t)index != i)
-			continue;
 		/* Space between each value.  */
 		if (index == -1 && i > 0)
 			strlcat(str_buf, " ", str_size);
