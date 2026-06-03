@@ -379,7 +379,8 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 
 	if (vrf_id == VRF_DEFAULT) {
 		/* Router-id change for default VRF has to also update all
-		 * views. */
+		 * views.
+		 */
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
 				continue;
@@ -4981,7 +4982,8 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 	}
 
 	/* Mark as dynamic, but also as a "config node" for other things to
-	 * work. */
+	 * work.
+	 */
 	SET_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR);
 
 	return peer;
