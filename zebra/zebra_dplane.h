@@ -106,6 +106,14 @@ enum zebra_dplane_startup_notifications {
 	ZEBRA_DPLANE_ADDRESSES_READ,
 	ZEBRA_DPLANE_FINISHED_READING,
 };
+
+enum zebra_dplane_read_reason {
+	ZEBRA_DPLANE_READ_NONE = 0,
+	ZEBRA_DPLANE_READ_EVPN_DAD_MAC,
+	ZEBRA_DPLANE_READ_EVPN_DAD_NEIGH,
+};
+
+#define ZEBRA_DPLANE_READ_FLAG_EVPN_SYNC_DEL 0x1
 /*
  * API between the zebra dataplane system and the main zebra processing
  * context.
@@ -516,6 +524,9 @@ void dplane_ctx_set_src(struct zebra_dplane_ctx *ctx, const struct prefix *src);
 bool dplane_ctx_is_update(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_seq(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_seq(const struct zebra_dplane_ctx *ctx);
+enum zebra_dplane_read_reason dplane_ctx_get_read_reason(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_read_seq(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_read_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_vrf(struct zebra_dplane_ctx *ctx, vrf_id_t vrf);
 vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx);
 
@@ -914,6 +925,9 @@ bool dplane_ctx_get_macfdb_read_is_vxlan(const struct zebra_dplane_ctx *ctx);
  */
 ifindex_t dplane_ctx_get_neigh_read_ifindex(const struct zebra_dplane_ctx *ctx);
 const struct ipaddr *dplane_ctx_get_neigh_read_ip(const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_get_neigh_read_vni(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_neigh_read_mac_valid(const struct zebra_dplane_ctx *ctx);
+const struct ethaddr *dplane_ctx_get_neigh_read_mac(const struct zebra_dplane_ctx *ctx);
 
 /* Interface netconf info */
 enum dplane_netconf_status_e
@@ -1153,7 +1167,10 @@ enum zebra_dplane_result dplane_fdb_read_mcast_for_vni(struct zebra_ns *zns,
 						       const struct interface *ifp, vni_t vni);
 enum zebra_dplane_result dplane_fdb_read_specific_mac(struct zebra_ns *zns,
 						      const struct interface *br_ifp,
-						      const struct ethaddr *mac, vlanid_t vid);
+						      const struct ethaddr *mac, vlanid_t vid,
+						      vni_t vni,
+						      enum zebra_dplane_read_reason reason,
+						      uint32_t read_seq, uint32_t read_flags);
 
 /*
  * Enqueue EVPN neighbor read requests for the dataplane.
@@ -1162,7 +1179,10 @@ enum zebra_dplane_result dplane_neigh_read_for_vlan(struct zebra_ns *zns,
 						    const struct interface *vlan_ifp);
 enum zebra_dplane_result dplane_neigh_read_specific_ip(struct zebra_ns *zns,
 						       const struct ipaddr *ip,
-						       const struct interface *vlan_ifp);
+						       const struct interface *vlan_ifp, vni_t vni,
+						       const struct ethaddr *mac,
+						       enum zebra_dplane_read_reason reason,
+						       uint32_t read_seq, uint32_t read_flags);
 
 /*
  * Enqueue a traffic control qdisc read request for the dataplane.
