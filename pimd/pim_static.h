@@ -8,9 +8,14 @@
 #define PIM_STATIC_H_
 
 #include <zebra.h>
+
+#include "typesafe.h"
+
 #include "pim_mroute.h"
 #include "pim_oil.h"
 #include "if.h"
+
+PREDECL_DLIST(pim_static_route_cfgs);
 
 struct static_route {
 	/* Each static route is unique by these pair of addresses */
@@ -22,12 +27,31 @@ struct static_route {
 	unsigned char oif_ttls[MAXVIFS];
 };
 
-void pim_static_route_free(struct static_route *s_route);
+/*
+ * Static mroute configuration deferred until both the input and output
+ * interfaces exist and have valid multicast VIF indices (e.g. at boot).
+ * Identified purely by interface name, which is the configuration identity.
+ */
+struct static_route_config {
+	struct pim_static_route_cfgs_item item;
 
-int pim_static_add(struct pim_instance *pim, struct interface *iif,
-		   struct interface *oif, pim_addr group, pim_addr source);
-int pim_static_del(struct pim_instance *pim, struct interface *iif,
-		   struct interface *oif, pim_addr group, pim_addr source);
+	char iifname[IF_NAMESIZE];
+	char oifname[IF_NAMESIZE];
+	pim_addr group;
+	pim_addr source;
+};
+
+DECLARE_DLIST(pim_static_route_cfgs, struct static_route_config, item);
+
+void pim_static_route_free(struct static_route *s_route);
+void pim_static_route_config_free(struct static_route_config *cfg);
+void pim_static_route_configs_fini(struct pim_instance *pim);
+
+int pim_static_add(struct pim_instance *pim, struct interface *iif, struct interface *oif,
+		   const char *oifname, pim_addr group, pim_addr source);
+int pim_static_del(struct pim_instance *pim, struct interface *iif, struct interface *oif,
+		   const char *oifname, pim_addr group, pim_addr source);
+void pim_static_reconcile(struct pim_instance *pim);
 int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty,
 			    struct interface *ifp);
 

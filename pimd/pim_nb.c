@@ -445,7 +445,7 @@ const struct frr_yang_module_info frr_pim_info = {
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/mroute",
 			.cbs = {
 				.create = lib_interface_pim_address_family_mroute_create,
-				.destroy = lib_interface_pim_address_family_mroute_oif_destroy,
+				.destroy = lib_interface_pim_address_family_mroute_destroy,
 			}
 		},
 		{

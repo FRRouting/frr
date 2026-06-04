@@ -38,6 +38,7 @@
 #include "pim_jp_agg.h"
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
+#include "pim_static.h"
 #include "pim_tib.h"
 #include "pim_util.h"
 
@@ -1123,6 +1124,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
+	pim_static_reconcile(pim_ifp->pim);
 	return 0;
 }
 
