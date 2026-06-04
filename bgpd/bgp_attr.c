@@ -4954,7 +4954,17 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			if (attr->mp_nexthop_len == 0)
 				stream_putc(s, 0); /* no nexthop for flowspec */
 			else {
-				stream_putc(s, attr->mp_nexthop_len);
+				/*
+				 * We only ever emit a 4-byte IPv4 next-hop here,
+				 * so the length field MUST be 4 regardless of the
+				 * value received on the wire. Echoing a peer's
+				 * mp_nexthop_len (which bgp_mp_reach_parse()
+				 * accepts as 12/16/24/32/48 without checking the
+				 * SAFI) would advertise an MP_REACH whose declared
+				 * next-hop length does not match its body, leading
+				 * downstream peers to misparse the following NLRI.
+				 */
+				stream_putc(s, BGP_ATTR_NHLEN_IPV4);
 				stream_put_ipv4(s, attr->nexthop.s_addr);
 			}
 			break;
