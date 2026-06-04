@@ -75,19 +75,19 @@ class PrefixBase(RenderHandler):
 
 class Prefix4Handler(PrefixBase):
     argtype = "const struct prefix_ipv4 *"
-    decl = Template("struct prefix_ipv4 $varname = { };")
+    decl = Template("struct prefix_ipv4 $varname = { .family = AF_INET };")
     code = Template("_fail = !str2prefix_ipv4(argv[_i]->arg, &$varname);")
 
 
 class Prefix6Handler(PrefixBase):
     argtype = "const struct prefix_ipv6 *"
-    decl = Template("struct prefix_ipv6 $varname = { };")
+    decl = Template("struct prefix_ipv6 $varname = { .family = AF_INET6 };")
     code = Template("_fail = !str2prefix_ipv6(argv[_i]->arg, &$varname);")
 
 
 class PrefixEthHandler(PrefixBase):
     argtype = "struct prefix_eth *"
-    decl = Template("struct prefix_eth $varname = { };")
+    decl = Template("struct prefix_eth $varname = { .family = AF_ETHERNET };")
     code = Template("_fail = !str2prefix_eth(argv[_i]->arg, &$varname);")
 
 
