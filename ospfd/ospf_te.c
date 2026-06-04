@@ -2870,6 +2870,11 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	}
 
 	/* Initialize TLV browsing */
+	if (len < TLV_HDR_SIZE + EXT_TLV_PREFIX_SIZE + EXT_SUBTLV_PREFIX_SID_SIZE) {
+		ote_debug("  |- Wrong TLV size for PREFIX_SID_SUBTLV: %u", (uint32_t)len);
+		return -1;
+	}
+
 	ls_pref = subnet->ls_pref;
 	pref_sid = (struct ext_subtlv_prefix_sid *)((char *)(ext) + TLV_HDR_SIZE
 						    + EXT_TLV_PREFIX_SIZE);
