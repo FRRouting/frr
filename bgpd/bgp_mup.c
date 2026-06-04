@@ -15,6 +15,202 @@
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_route.h"
 
+/* Add the decomposed MUP NLRI fields to a json object for show output. */
+void bgp_mup_route2json(const struct prefix_mup *pm, struct json_object *json)
+{
+	const struct mup_prefix *mp = &pm->prefix;
+	struct prefix_rd prd = {};
+	int family;
+
+	if (!mp || !json)
+		return;
+
+	json_object_int_add(json, "archType", mp->arch_type);
+	json_object_int_add(json, "routeType", mp->route_type);
+
+	memcpy(prd.val, mp->rd, sizeof(prd.val));
+	json_object_string_addf(json, "rd", "%pRDP", &prd);
+
+	switch (mp->route_type) {
+	case BGP_MUP_ISD_ROUTE:
+		family = IS_IPADDR_V4(&mp->isd_route.ip) ? AF_INET : AF_INET6;
+		json_object_string_add(json, "ipFamily", family == AF_INET ? "ipv4" : "ipv6");
+		json_object_string_addf(json, "ip", "%pIA", &mp->isd_route.ip);
+		json_object_int_add(json, "ipLen", mp->isd_route.ip_prefix_length);
+		break;
+	case BGP_MUP_DSD_ROUTE:
+		family = IS_IPADDR_V4(&mp->dsd_route.ip) ? AF_INET : AF_INET6;
+		json_object_string_add(json, "ipFamily", family == AF_INET ? "ipv4" : "ipv6");
+		json_object_string_addf(json, "ip", "%pIA", &mp->dsd_route.ip);
+		break;
+	case BGP_MUP_T1ST_ROUTE:
+		family = IS_IPADDR_V4(&mp->t1st_route.ip) ? AF_INET : AF_INET6;
+		json_object_string_add(json, "ipFamily", family == AF_INET ? "ipv4" : "ipv6");
+		json_object_string_addf(json, "ip", "%pIA", &mp->t1st_route.ip);
+		json_object_int_add(json, "ipLen", mp->t1st_route.ip_prefix_length);
+		break;
+	case BGP_MUP_T2ST_ROUTE:
+		family = IS_IPADDR_V4(&mp->t2st_route.endpoint_address) ? AF_INET : AF_INET6;
+		json_object_string_add(json, "endpointAddressFamily",
+				       family == AF_INET ? "ipv4" : "ipv6");
+		json_object_string_addf(json, "endpointAddress", "%pIA",
+					&mp->t2st_route.endpoint_address);
+		json_object_int_add(json, "teid", mp->t2st_route.teid);
+		break;
+	}
+}
+
+/* Render the non-key NLRI data kept with a T1ST/T2ST route: for T1ST the
+ * architecture specific fields followed by TLVs, for T2ST the TLVs alone.
+ * TLVs are only decomposed for the route types they apply to (draft 3.1.5);
+ * everything else is shown as type plus raw hex value.
+ */
+void bgp_mup_nlri_data_show(const struct bgp_mup_nlri_data *data, uint16_t route_type,
+			    struct vty *vty, struct json_object *json_path)
+{
+	struct json_object *json_tlvs = NULL;
+	int off = 0;
+
+	if (route_type == BGP_MUP_T1ST_ROUTE) {
+		char buf[INET6_ADDRSTRLEN];
+		uint32_t teid;
+		uint8_t qfi, ep_len, src_len;
+
+		if (data->length <
+		    BGP_MUP_TEID_BYTES + BGP_MUP_QFI_BYTES + 2 * BGP_MUP_ADDR_LEN_BYTES)
+			return;
+		memcpy(&teid, data->val, BGP_MUP_TEID_BYTES);
+		teid = ntohl(teid);
+		off = BGP_MUP_TEID_BYTES;
+		qfi = data->val[off++];
+		ep_len = data->val[off++];
+		if (json_path) {
+			json_object_int_add(json_path, "teid", teid);
+			json_object_int_add(json_path, "qfi", qfi);
+		} else
+			vty_out(vty, "      TEID %u, QFI %u\n", teid, qfi);
+		if (!(ep_len / 8) || off + ep_len / 8 + BGP_MUP_ADDR_LEN_BYTES > data->length)
+			return;
+		inet_ntop(ep_len == IPV4_MAX_BITLEN ? AF_INET : AF_INET6, data->val + off, buf,
+			  sizeof(buf));
+		if (json_path)
+			json_object_string_add(json_path, "endpointAddress", buf);
+		else
+			vty_out(vty, "      Endpoint Address: %s\n", buf);
+		off += ep_len / 8;
+		src_len = data->val[off++];
+		if (src_len / 8) {
+			if (off + src_len / 8 > data->length)
+				return;
+			inet_ntop(src_len == IPV4_MAX_BITLEN ? AF_INET : AF_INET6, data->val + off,
+				  buf, sizeof(buf));
+			if (json_path)
+				json_object_string_add(json_path, "sourceAddress", buf);
+			else
+				vty_out(vty, "      Source Address: %s\n", buf);
+			off += src_len / 8;
+		}
+	}
+
+	if (off >= data->length)
+		return;
+
+	if (json_path)
+		json_tlvs = json_object_new_array();
+	else
+		vty_out(vty, "      MUP TLVs:\n");
+
+	while (off + BGP_MUP_TLV_HDR_BYTES <= data->length) {
+		const uint8_t *val = data->val + off + BGP_MUP_TLV_HDR_BYTES;
+		uint8_t type = data->val[off];
+		uint8_t len = data->val[off + 1];
+		struct json_object *json_tlv = NULL;
+		bool decoded = false;
+
+		if (off + BGP_MUP_TLV_HDR_BYTES + len > data->length)
+			break;
+
+		if (json_path) {
+			json_tlv = json_object_new_object();
+			json_object_int_add(json_tlv, "type", type);
+		}
+
+		if (route_type == BGP_MUP_T2ST_ROUTE) {
+			switch (type) {
+			case BGP_MUP_TLV_SESSION_PARAMS: {
+				uint32_t teid;
+
+				memcpy(&teid, val, BGP_MUP_TEID_BYTES);
+				teid = ntohl(teid);
+				if (json_tlv) {
+					json_object_int_add(json_tlv, "teid", teid);
+					json_object_int_add(json_tlv, "qfi",
+							    val[BGP_MUP_TEID_BYTES]);
+				} else
+					vty_out(vty,
+						"        Session Parameters: TEID %u, QFI %u\n",
+						teid, val[BGP_MUP_TEID_BYTES]);
+				decoded = true;
+				break;
+			}
+			case BGP_MUP_TLV_INTERWORK_ENDPOINT:
+			case BGP_MUP_TLV_SOURCE_ADDRESS: {
+				const char *name = (type == BGP_MUP_TLV_INTERWORK_ENDPOINT)
+							   ? "Interwork Endpoint"
+							   : "Source Address";
+				const char *key = (type == BGP_MUP_TLV_INTERWORK_ENDPOINT)
+							  ? "interworkEndpoint"
+							  : "sourceAddress";
+
+				if (len == IPV4_MAX_BYTELEN) {
+					struct in_addr addr;
+
+					memcpy(&addr, val, sizeof(addr));
+					if (json_tlv)
+						json_object_string_addf(json_tlv, key, "%pI4",
+									&addr);
+					else
+						vty_out(vty, "        %s: %pI4\n", name, &addr);
+					decoded = true;
+				} else if (len == IPV6_MAX_BYTELEN) {
+					struct in6_addr addr;
+
+					memcpy(&addr, val, sizeof(addr));
+					if (json_tlv)
+						json_object_string_addf(json_tlv, key, "%pI6",
+									&addr);
+					else
+						vty_out(vty, "        %s: %pI6\n", name, &addr);
+					decoded = true;
+				}
+				break;
+			}
+			}
+		}
+
+		if (!decoded) {
+			char hex[2 * UINT8_MAX + 1];
+			int i;
+
+			for (i = 0; i < len; i++)
+				snprintf(hex + 2 * i, 3, "%02x", val[i]);
+			hex[2 * len] = '\0';
+			if (json_tlv)
+				json_object_string_add(json_tlv, "value", hex);
+			else
+				vty_out(vty, "        Type %u: %s\n", type, hex);
+		}
+
+		if (json_tlv)
+			json_object_array_add(json_tlvs, json_tlv);
+
+		off += BGP_MUP_TLV_HDR_BYTES + len;
+	}
+
+	if (json_path)
+		json_object_object_add(json_path, "mupTlvs", json_tlvs);
+}
+
 /* On-wire size of one BGP-MUP NLRI: fixed header plus the route body.
  * T1ST/T2ST length excludes the optional TLVs, so reserve the 1-octet
  * Length field maximum for them.

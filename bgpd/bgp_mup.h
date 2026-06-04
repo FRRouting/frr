@@ -44,4 +44,12 @@ extern int bgp_nlri_parse_mup(struct peer *peer, struct attr *attr, struct bgp_n
 /* Validate the optional TLV region of a T1ST/T2ST route body. */
 extern int bgp_mup_parse_tlvs(uint16_t route_type, const uint8_t *buf, int len);
 
+/* Add the decomposed MUP NLRI fields to a json object for show output. */
+extern void bgp_mup_route2json(const struct prefix_mup *pm, struct json_object *json);
+
+/* Render the optional TLVs kept with a T1ST/T2ST route. */
+struct bgp_mup_nlri_data;
+extern void bgp_mup_nlri_data_show(const struct bgp_mup_nlri_data *tlvs, uint16_t route_type,
+				   struct vty *vty, struct json_object *json_path);
+
 #endif /* _FRR_BGP_MUP_H */
