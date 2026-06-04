@@ -5676,7 +5676,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				}
 				/* evpn update with new nexthop: unimport route with old VTEP entry.*/
 				else if (safi == SAFI_EVPN &&
-					 evp->prefix.route_type == BGP_EVPN_AD_ROUTE &&
+					 (evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
+					  evp->prefix.route_type == BGP_EVPN_ES_ROUTE) &&
 					 !bgp_attr_nexthop_same(pi->attr, attr_new, afi)) {
 					bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
 				}
