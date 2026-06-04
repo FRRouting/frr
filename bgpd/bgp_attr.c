@@ -3602,8 +3602,13 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 				args,
 				(size_t)length - BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH);
 
-			if (err != BGP_ATTR_PARSE_PROCEED)
+			/* l3service object hasn't been interned yet - must free it */
+			if (err != BGP_ATTR_PARSE_PROCEED) {
+				srv6_l3service = bgp_attr_get_srv6_l3service(attr);
+				bgp_attr_srv6_l3service_free(srv6_l3service);
+				bgp_attr_set_srv6_l3service(attr, NULL);
 				return err;
+			}
 		}
 
 		bgp_attr_set_srv6_l3service(attr, bgp_attr_srv6_l3service_intern(
