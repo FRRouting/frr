@@ -62,6 +62,7 @@
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_mup.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_rpki.h"
@@ -11131,6 +11132,18 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p, s
 
 			json_object_string_add(json, "nlriStr", nlri_str);
 			json_object_object_add(json, "nlri", json_nlri);
+		}
+	} else if (p->family == AF_MUP) {
+		if (!json) {
+			len = vty_out(vty, "%pFX", p);
+		} else {
+			const struct prefix_mup *pm = (const struct prefix_mup *)p;
+
+			json_object_string_addf(json, "prefix", "%pFX", p);
+			json_object_int_add(json, "prefixLen", p->prefixlen);
+			json_object_string_addf(json, "network", "%pFX", p);
+			json_object_int_add(json, "version", dest->version);
+			bgp_mup_route2json(pm, json);
 		}
 	} else {
 		if (!json)

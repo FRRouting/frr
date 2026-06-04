@@ -35,4 +35,7 @@ extern void bgp_mup_encode_prefix(struct stream *s, afi_t afi, const struct pref
 extern int bgp_nlri_parse_mup(struct peer *peer, struct attr *attr, struct bgp_nlri *packet,
 			      bool withdraw);
 
+/* Add the decomposed MUP NLRI fields to a json object for show output. */
+extern void bgp_mup_route2json(const struct prefix_mup *pm, struct json_object *json);
+
 #endif /* _FRR_BGP_MUP_H */

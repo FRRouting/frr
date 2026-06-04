@@ -15,6 +15,59 @@
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_route.h"
 
+/* Add the decomposed MUP NLRI fields to a json object for show output. */
+void bgp_mup_route2json(const struct prefix_mup *pm, struct json_object *json)
+{
+	const struct mup_prefix *mp = &pm->prefix;
+	struct prefix_rd prd = {};
+	int family;
+
+	if (!mp || !json)
+		return;
+
+	json_object_int_add(json, "archType", mp->arch_type);
+	json_object_int_add(json, "routeType", mp->route_type);
+
+	memcpy(prd.val, mp->rd, sizeof(prd.val));
+	json_object_string_addf(json, "rd", "%pRDP", &prd);
+
+	switch (mp->route_type) {
+	case BGP_MUP_ISD_ROUTE:
+		family = IS_IPADDR_V4(&mp->isd_route.ip) ? AF_INET : AF_INET6;
+		json_object_string_add(json, "ipFamily", family == AF_INET ? "ipv4" : "ipv6");
+		json_object_string_addf(json, "ip", "%pIA", &mp->isd_route.ip);
+		json_object_int_add(json, "ipLen", mp->isd_route.ip_prefix_length);
+		break;
+	case BGP_MUP_DSD_ROUTE:
+		family = IS_IPADDR_V4(&mp->dsd_route.ip) ? AF_INET : AF_INET6;
+		json_object_string_add(json, "ipFamily", family == AF_INET ? "ipv4" : "ipv6");
+		json_object_string_addf(json, "ip", "%pIA", &mp->dsd_route.ip);
+		break;
+	case BGP_MUP_T1ST_ROUTE:
+		family = IS_IPADDR_V4(&mp->t1st_route.ip) ? AF_INET : AF_INET6;
+		json_object_string_add(json, "ipFamily", family == AF_INET ? "ipv4" : "ipv6");
+		json_object_string_addf(json, "ip", "%pIA", &mp->t1st_route.ip);
+		json_object_int_add(json, "ipLen", mp->t1st_route.ip_prefix_length);
+		json_object_int_add(json, "teid", mp->t1st_route.t1st_3gpp_5g.teid);
+		json_object_int_add(json, "qfi", mp->t1st_route.t1st_3gpp_5g.qfi);
+		if (mp->t1st_route.t1st_3gpp_5g.endpoint_address_length)
+			json_object_string_addf(json, "endpointAddress", "%pIA",
+						&mp->t1st_route.t1st_3gpp_5g.endpoint_address);
+		if (mp->t1st_route.t1st_3gpp_5g.source_address_length)
+			json_object_string_addf(json, "sourceAddress", "%pIA",
+						&mp->t1st_route.t1st_3gpp_5g.source_address);
+		break;
+	case BGP_MUP_T2ST_ROUTE:
+		family = IS_IPADDR_V4(&mp->t2st_route.endpoint_address) ? AF_INET : AF_INET6;
+		json_object_string_add(json, "endpointAddressFamily",
+				       family == AF_INET ? "ipv4" : "ipv6");
+		json_object_string_addf(json, "endpointAddress", "%pIA",
+					&mp->t2st_route.endpoint_address);
+		json_object_int_add(json, "teid", mp->t2st_route.teid);
+		break;
+	}
+}
+
 /* On-wire size of one BGP-MUP NLRI: fixed header plus the route body. */
 size_t bgp_mup_prefix_size(const struct prefix *p)
 {
