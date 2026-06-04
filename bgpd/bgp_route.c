@@ -5311,6 +5311,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (evpn && afi == AFI_L2VPN &&
 	    (soft_reconfig || !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))) {
 		bgp_attr_set_evpn_overlay(&new_attr, evpn);
+		evpn = NULL;
 		p_evpn = NULL;
 	}
 
