@@ -29,6 +29,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
@@ -865,7 +866,6 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 done:
 	/* Reset time since last update */
 	(*nhe)->uptime = monotime(NULL);
-
 	return created;
 }
 
@@ -985,6 +985,11 @@ static int nhg_ctx_get_afi(const struct nhg_ctx *ctx)
 	return ctx->afi;
 }
 
+static bool nhg_ctx_get_startup(const struct nhg_ctx *ctx)
+{
+	return ctx->startup;
+}
+
 static struct nexthop *nhg_ctx_get_nh(struct nhg_ctx *ctx)
 {
 	return &ctx->u.nh;
@@ -1038,7 +1043,7 @@ done:
 
 static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 				    vrf_id_t vrf_id, afi_t afi, int type, uint16_t count,
-				    struct nhg_resilience *resilience)
+				    struct nhg_resilience *resilience, bool startup)
 {
 	struct nhg_ctx *ctx = NULL;
 
@@ -1049,6 +1054,7 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh, struct nh_g
 	ctx->afi = afi;
 	ctx->type = type;
 	ctx->count = count;
+	ctx->startup = startup;
 
 	if (resilience)
 		ctx->resilience = *resilience;
@@ -1164,6 +1170,14 @@ static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 static void zebra_nhg_handle_uninstall(struct nhg_hash_entry *nhe)
 {
 	zebra_nhg_release(nhe);
+
+	/* Release bitmap bit only for stale FDB entries read from kernel
+	 * at startup. Normal FDB entries have their bitmap managed by
+	 * the EVPN-MH layer (zebra_evpn_nhid_free).
+	 */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_FDB))
+		zebra_evpn_mh_release_stale_nhid(nhe->id);
+
 	zebra_nhg_free(nhe);
 }
 
@@ -1245,6 +1259,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	vrf_id_t vrf_id = nhg_ctx_get_vrf_id(ctx);
 	int type = nhg_ctx_get_type(ctx);
 	afi_t afi = nhg_ctx_get_afi(ctx);
+	bool startup = nhg_ctx_get_startup(ctx);
 
 	lookup = zebra_nhg_lookup_id(id);
 
@@ -1297,6 +1312,26 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
+	/*
+	 * On startup Zebra is creating the nexthop group cache entry
+	 * after the router has it's startup time set.  This is because
+	 * the process of grabbing routes and nexthops is now *after*
+	 * the dataplane starts up, which is after the routers startup
+	 * time is set.  So let's just cheat a tiny bit on the time
+	 * and set the nexthop group hash entry startup time to be
+	 * slightly before the zrouter.startup_time.  Then graceful
+	 * restart sweeping will work properly for these nexthop entries
+	 */
+	if (startup) {
+		nhe->uptime = zrouter.startup_time - 1;
+		/* tag stale FDB NH/NHG and reserve its bitmap bit; sweep
+		 * releases the bit via zebra_evpn_mh_release_stale_nhid()
+		 */
+		if (zebra_evpn_mh_is_fdb_nh(id)) {
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_FDB);
+			zebra_evpn_mh_reserve_stale_nhid(id);
+		}
+	}
 	return 0;
 }
 
@@ -1405,7 +1440,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp, u
 		 */
 		id_counter = id;
 
-	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count, nhgr);
+	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count, nhgr, startup);
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_NEW);
 
 	/* Under startup conditions, we need to handle them immediately
@@ -1428,7 +1463,7 @@ int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id)
 {
 	struct nhg_ctx *ctx = NULL;
 
-	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0, NULL);
+	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0, NULL, false);
 
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_DEL);
 
@@ -3643,9 +3678,21 @@ static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	 * we haven't gotten an update about it from the proto since startup.
 	 * This means that either the config for it was removed or the daemon
 	 * didn't get started. This handles graceful restart & retain scenario.
+	 *
+	 * zebra_nhg_decrement_ref may trigger KEEP_AROUND which keeps the entry
+	 * in the hash (refcnt reset to 1, timer started) in that case the
+	 * hash is unmodified and the walk can safely continue to process
+	 * remaining proto-owned entries in the same pass.
 	 */
 	if (PROTO_OWNED(nhe) && nhe->refcnt == 1) {
+		uint32_t id = nhe->id;
+
 		zebra_nhg_decrement_ref(nhe);
+		/* Entry still in hash (KEEP_AROUND) safe to continue.
+		 * Entry freed hash may be modified, must abort.
+		 */
+		if (zebra_nhg_lookup_id(id))
+			return HASHWALK_CONTINUE;
 		return HASHWALK_ABORT;
 	}
 

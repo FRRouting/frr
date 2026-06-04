@@ -1278,6 +1278,35 @@ static void zebra_evpn_nhid_free(uint32_t nh_id, struct zebra_evpn_es *es)
 	bf_release_index(zmh_info->nh_id_bitmap, id);
 }
 
+/* Reserve bitmap index for a stale FDB NH/NHG read from kernel at startup,
+ * preventing bf_assign_index() from reusing it before the sweep cleans up.
+ */
+void zebra_evpn_mh_reserve_stale_nhid(uint32_t nh_id)
+{
+	uint32_t id = (nh_id & EVPN_NH_ID_VAL_MASK);
+
+	if (!id || id >= EVPN_NH_ID_MAX || !zmh_info)
+		return;
+
+	bf_set_bit(zmh_info->nh_id_bitmap, id);
+
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
+		zlog_debug("Reserved bitmap index %u for stale fdb-nh 0x%x", id, nh_id);
+}
+
+/* Release bitmap index for a stale FDB NH/NHG during NHE cleanup.
+ * Counterpart to zebra_evpn_mh_reserve_stale_nhid().
+ */
+void zebra_evpn_mh_release_stale_nhid(uint32_t nh_id)
+{
+	uint32_t id = (nh_id & EVPN_NH_ID_VAL_MASK);
+
+	if (!id || id >= EVPN_NH_ID_MAX || !zmh_info)
+		return;
+
+	bf_release_index(zmh_info->nh_id_bitmap, id);
+}
+
 static unsigned int zebra_evpn_nh_ip_hash_keymake(const void *p)
 {
 	const struct zebra_evpn_l2_nh *nh = p;
