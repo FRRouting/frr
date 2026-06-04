@@ -1917,10 +1917,9 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
 		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug("Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s or access-list %s",
 				   &grp.s_addr, from_str, ifp->name,
-				   (pim_ifp->boundary_oil_plist ? pim_ifp->boundary_oil_plist->name
+				   (pim_ifp->boundary_oil_plist ? pim_ifp->boundary_oil_plist
 								: "(not found)"),
-				   (pim_ifp->boundary_acl ? pim_ifp->boundary_acl->name
-							  : "(not found)"));
+				   (pim_ifp->boundary_acl ? pim_ifp->boundary_acl : "(not found)"));
 		}
 		return false;
 	}
@@ -2049,9 +2048,9 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		       sizeof(struct in_addr));
 
 		if (PIM_DEBUG_GM_PACKETS) {
-			zlog_debug("    Recv IGMP report v3 (type %d) from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
-				   rec_type, from_str, ifp->name, i, rec_type, rec_auxdatalen,
-				   rec_num_sources, &rec_group);
+			zlog_debug("    Recv IGMP report v3 (type %d) from %s on %s: record=%d auxdatalen=%d sources=%d group=%pI4",
+				   rec_type, from_str, ifp->name, i, rec_auxdatalen, rec_num_sources,
+				   &rec_group);
 		}
 
 		/* Scan sources */

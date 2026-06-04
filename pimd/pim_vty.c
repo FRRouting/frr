@@ -574,13 +574,12 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	/* boundary */
 	if (pim_ifp->boundary_oil_plist) {
 		vty_out(vty, " " PIM_AF_NAME " multicast boundary oil %s\n",
-			pim_ifp->boundary_oil_plist->name);
+			pim_ifp->boundary_oil_plist);
 		++writes;
 	}
 
 	if (pim_ifp->boundary_acl) {
-		vty_out(vty, " " PIM_AF_NAME " multicast boundary %s\n",
-			pim_ifp->boundary_acl->name);
+		vty_out(vty, " " PIM_AF_NAME " multicast boundary %s\n", pim_ifp->boundary_acl);
 		++writes;
 	}
 
