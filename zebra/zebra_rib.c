@@ -612,7 +612,7 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 		return NULL;
 
 	memset(&p, 0, sizeof(p));
-	p.family = afi;
+	p.family = afi2family(afi);
 	if (afi == AFI_IP) {
 		p.u.prefix4 = addr->ipv4;
 		p.prefixlen = IPV4_MAX_BITLEN;
