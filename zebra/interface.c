@@ -184,6 +184,26 @@ static void if_down_nhg_dependents(const struct interface *ifp)
 
 	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
 		frrtrace(2, frr_zebra, if_down_nhg_dependents, ifp, rb_node_dep->nhe);
+
+		/* Notify FPM of the deletion so it can clean up. */
+		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL) &&
+		    (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
+		     CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_QUEUED))) {
+			switch (dplane_nexthop_delete(rb_node_dep->nhe)) {
+			case ZEBRA_DPLANE_REQUEST_QUEUED:
+				SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_QUEUED);
+				break;
+			case ZEBRA_DPLANE_REQUEST_FAILURE:
+				flog_err(EC_ZEBRA_DP_DELETE_FAIL,
+					 "Failed to send NHG delete to FPM for %pNG",
+					 rb_node_dep->nhe);
+				break;
+			case ZEBRA_DPLANE_REQUEST_SUCCESS:
+				UNSET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INSTALLED);
+				break;
+			}
+		}
+
 		zebra_nhg_check_valid(rb_node_dep->nhe);
 	}
 }
