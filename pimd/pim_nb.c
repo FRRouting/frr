@@ -21,6 +21,9 @@ const struct frr_yang_module_info frr_pim_info = {
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_destroy,
+#if PIM_IPV == 4
+				.apply_finish = routing_control_plane_protocols_control_plane_protocol_pim_address_family_apply_finish,
+#endif
 			}
 		},
 		{
@@ -558,6 +561,14 @@ const struct frr_yang_module_info frr_pim_rp_info = {
 				.modify = pim_embedded_rp_maximum_rps_modify,
 			}
 		},
+#if PIM_IPV == 4
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp",
+			.cbs = {
+				.apply_finish = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_apply_finish,
+			}
+		},
+#endif
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/discovery-enabled",
 			.cbs = {

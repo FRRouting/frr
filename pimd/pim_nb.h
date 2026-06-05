@@ -201,6 +201,12 @@ int pim_embedded_rp_enable_modify(struct nb_cb_modify_args *args);
 int pim_embedded_rp_group_list_modify(struct nb_cb_modify_args *args);
 int pim_embedded_rp_group_list_destroy(struct nb_cb_destroy_args *args);
 int pim_embedded_rp_maximum_rps_modify(struct nb_cb_modify_args *args);
+#if PIM_IPV == 4
+void routing_control_plane_protocols_control_plane_protocol_pim_address_family_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+#endif
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_modify(
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_destroy(
