@@ -819,15 +819,14 @@ struct yang_data *yang_data_new(const char *xpath, const char *value)
 	data = XCALLOC(MTYPE_YANG_DATA, sizeof(*data));
 	strlcpy(data->xpath, xpath, sizeof(data->xpath));
 	if (value)
-		data->value = strdup(value);
+		data->value = XSTRDUP(MTYPE_YANG_DATA, value);
 
 	return data;
 }
 
 void yang_data_free(struct yang_data *data)
 {
-	if (data->value)
-		free(data->value);
+	XFREE(MTYPE_YANG_DATA, data->value);
 	XFREE(MTYPE_YANG_DATA, data);
 }
 
