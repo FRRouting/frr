@@ -18,6 +18,9 @@ from collections import OrderedDict
 
 import xmltodict
 
+# pytest-xdist collection errors use the worker id (e.g. gw5) as @name.
+XDIST_WORKER_RE = re.compile(r"^gw\d+$")
+
 
 def get_range_list(rangestr):
     result = []
@@ -124,6 +127,8 @@ def get_filtered(tfilters, results, args):
             if not fname and not cname:
                 name = testcase.get("@name", "")
                 if not name:
+                    continue
+                if XDIST_WORKER_RE.match(name):
                     continue
                 # If we had a failure at the module level we could be here.
                 fname = name.replace(".", "/") + ".py"

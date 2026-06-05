@@ -9,6 +9,7 @@
 test_basic_grpc.py: Test Basic gRPC.
 """
 
+import glob
 import json
 import logging
 import os
@@ -17,7 +18,6 @@ import sys
 
 import pytest
 from lib.common_config import step
-from lib.micronet import commander
 from lib.topogen import Topogen, TopoRouter
 from lib.topotest import json_cmp
 
@@ -42,11 +42,45 @@ pytestmark = [
 
 script_path = os.path.realpath(os.path.join(CWD, "../lib/grpc-query.py"))
 
+
+def _frr_grpc_module_available():
+    """True when the FRR northbound gRPC module (grpc.so) is installed."""
+    patterns = (
+        "/usr/lib/*/frr/modules/grpc.so",
+        "/usr/lib/frr/modules/grpc.so",
+        "/usr/lib64/*/frr/modules/grpc.so",
+        "/usr/lib64/frr/modules/grpc.so",
+        "/usr/local/lib/*/frr/modules/grpc.so",
+        "/usr/local/lib/frr/modules/grpc.so",
+    )
+    for pattern in patterns:
+        for path in glob.glob(pattern):
+            if os.path.isfile(path):
+                return True
+
+    frr_root = os.path.realpath(os.path.join(CWD, "../../.."))
+    for base in (frr_root, os.environ.get("FRR_BUILD_DIR")):
+        if not base:
+            continue
+        for rel in ("lib/.libs/grpc.so", "lib/grpc.so"):
+            if os.path.isfile(os.path.join(base, rel)):
+                return True
+    return False
+
+
 try:
-    commander.cmd_raises([script_path, "--check"])
-except Exception:
+    import grpc  # noqa: F401
+    import grpc_tools  # noqa: F401
+except ImportError:
     pytest.skip(
-        "skipping; cannot create or import gRPC proto modules", allow_module_level=True
+        "skipping; gRPC modules not installed", allow_module_level=True
+    )
+
+if not _frr_grpc_module_available():
+    pytest.skip(
+        "skipping; FRR gRPC northbound module not installed "
+        "(install frr-grpc or build with --enable-grpc)",
+        allow_module_level=True,
     )
 
 
