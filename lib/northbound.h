@@ -1601,6 +1601,19 @@ typedef int (*nb_config_get_dispatch_cb)(const char *xpath, struct lyd_node **re
 					 size_t errmsg_len);
 typedef int (*nb_config_root_borrow_dispatch_cb)(const struct lyd_node **result, char *errmsg,
 						 size_t errmsg_len);
+enum nb_config_commit_phase {
+	NB_CONFIG_COMMIT_VALIDATE,
+	NB_CONFIG_COMMIT_PREPARE,
+	NB_CONFIG_COMMIT_ABORT,
+	NB_CONFIG_COMMIT_APPLY,
+	NB_CONFIG_COMMIT_ALL,
+};
+typedef void (*nb_config_commit_done_cb)(int error, const char *errmsg, uint32_t transaction_id,
+					 void *arg);
+typedef int (*nb_config_commit_async_cb)(const struct nb_config *candidate,
+					 enum nb_config_commit_phase phase, const char *comment,
+					 nb_config_commit_done_cb done, void *arg, char *errmsg,
+					 size_t errmsg_len);
 
 extern void nb_config_get_dispatch_set(nb_config_get_dispatch_cb cb);
 extern int nb_config_get_dispatch(const char *xpath, struct lyd_node **result, char *errmsg,
@@ -1612,6 +1625,12 @@ extern int nb_config_get_dispatch(const char *xpath, struct lyd_node **result, c
 extern void nb_config_root_borrow_dispatch_set(nb_config_root_borrow_dispatch_cb cb);
 extern int nb_config_root_borrow_dispatch(const struct lyd_node **result, char *errmsg,
 					  size_t errmsg_len);
+extern void nb_config_commit_dispatch_async_set(nb_config_commit_async_cb cb);
+extern bool nb_config_commit_dispatch_async_is_set(void);
+extern int nb_config_commit_dispatch_async(const struct nb_config *candidate,
+					   enum nb_config_commit_phase phase,
+					   const char *comment, nb_config_commit_done_cb done,
+					   void *arg, char *errmsg, size_t errmsg_len);
 
 /**
  * nb_oper_walk() - walk the schema building operational state.

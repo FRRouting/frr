@@ -97,6 +97,7 @@ struct candidate {
 	uint64_t id;
 	struct nb_config *config;
 	struct nb_transaction *transaction;
+	bool commit_pending;
 };
 
 class Candidates
@@ -105,8 +106,8 @@ class Candidates
 	~Candidates(void)
 	{
 		// Delete candidates.
-		for (auto it = _cdb.begin(); it != _cdb.end(); it++)
-			delete_candidate(it->first);
+		while (!_cdb.empty())
+			delete_candidate(_cdb.begin()->first);
 	}
 
 	struct candidate *create_candidate(void)
@@ -118,6 +119,7 @@ class Candidates
 		c->id = id;
 		c->config = nb_config_dup(running_config);
 		c->transaction = NULL;
+		c->commit_pending = false;
 
 		return c;
 	}
@@ -129,14 +131,18 @@ class Candidates
 
 	void delete_candidate(uint64_t candidate_id)
 	{
-		struct candidate *c = &_cdb[candidate_id];
+		auto it = _cdb.find(candidate_id);
+		if (it == _cdb.end())
+			return;
+
+		struct candidate *c = &it->second;
 		char errmsg[BUFSIZ] = {0};
 
 		nb_config_free(c->config);
 		if (c->transaction)
 			nb_candidate_commit_abort(c->transaction, errmsg,
 						  sizeof(errmsg));
-		_cdb.erase(c->id);
+		_cdb.erase(it);
 	}
 
 	struct candidate *get_candidate(uint64_t id)
@@ -469,7 +475,7 @@ static LY_ERR data_tree_from_dnode(frr::DataTree *dt,
 static struct lyd_node *dnode_from_data_tree(const frr::DataTree *dt,
 					     bool config_only)
 {
-	struct lyd_node *dnode;
+	struct lyd_node *dnode = NULL;
 	int options, opt2;
 	LY_ERR err;
 
@@ -1815,6 +1821,9 @@ grpc::Status HandleUnaryDeleteCandidate(
 	if (!tag->cdb->contains(candidate_id))
 		return grpc::Status(grpc::StatusCode::NOT_FOUND,
 				    "candidate configuration not found");
+	if (tag->cdb->get_candidate(candidate_id)->commit_pending)
+		return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+				    "candidate commit is in progress");
 	tag->cdb->delete_candidate(candidate_id);
 	return grpc::Status::OK;
 }
@@ -1836,6 +1845,9 @@ grpc::Status HandleUnaryUpdateCandidate(
 	if (candidate->transaction)
 		return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
 				    "candidate is in the middle of a transaction");
+	if (candidate->commit_pending)
+		return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+				    "candidate commit is in progress");
 	if (nb_candidate_update(candidate->config) != NB_OK)
 		return grpc::Status(grpc::StatusCode::INTERNAL,
 				    "failed to update candidate configuration");
@@ -1856,6 +1868,9 @@ HandleUnaryEditCandidate(UnaryRpcState<frr::EditCandidateRequest, frr::EditCandi
 	if (!candidate)
 		return grpc::Status(grpc::StatusCode::NOT_FOUND,
 				    "candidate configuration not found");
+	if (candidate->transaction || candidate->commit_pending)
+		return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+				    "candidate is in the middle of a transaction");
 
 	struct nb_config *candidate_tmp = nb_config_dup(candidate->config);
 
@@ -1901,6 +1916,9 @@ grpc::Status HandleUnaryLoadToCandidate(
 	if (!candidate)
 		return grpc::Status(grpc::StatusCode::NOT_FOUND,
 				    "candidate configuration not found");
+	if (candidate->transaction || candidate->commit_pending)
+		return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+				    "candidate is in the middle of a transaction");
 
 	struct lyd_node *dnode = dnode_from_data_tree(&config, true);
 	if (!dnode)
@@ -1944,28 +1962,37 @@ static grpc::Status status_from_nb_error(enum nb_error error, const char *errmsg
 	}
 }
 
-grpc::Status HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
+static bool commit_phase_to_nb(int phase, enum nb_config_commit_phase *nb_phase)
 {
-	grpc_debug("%s: entered", __func__);
+	switch (phase) {
+	case frr::CommitRequest::VALIDATE:
+		*nb_phase = NB_CONFIG_COMMIT_VALIDATE;
+		return true;
+	case frr::CommitRequest::PREPARE:
+		*nb_phase = NB_CONFIG_COMMIT_PREPARE;
+		return true;
+	case frr::CommitRequest::ABORT:
+		*nb_phase = NB_CONFIG_COMMIT_ABORT;
+		return true;
+	case frr::CommitRequest::APPLY:
+		*nb_phase = NB_CONFIG_COMMIT_APPLY;
+		return true;
+	case frr::CommitRequest::ALL:
+		*nb_phase = NB_CONFIG_COMMIT_ALL;
+		return true;
+	default:
+		return false;
+	}
+}
 
-	// Request: uint32 candidate_id = 1;
-	uint32_t candidate_id = tag->request.candidate_id();
-
-	grpc_debug("%s(candidate_id: %u)", __func__, candidate_id);
-
-	// Request: commit phase = 2;
-	int phase = tag->request.phase();
-	// Request: string comment = 3;
-	const std::string comment = tag->request.comment();
-
-	// Find candidate configuration.
-	struct candidate *candidate = tag->cdb->get_candidate(candidate_id);
-	if (!candidate)
-		return grpc::Status(grpc::StatusCode::NOT_FOUND,
-				    "candidate configuration not found");
-
+static grpc::Status commit_local_candidate(const frr::CommitRequest &request,
+					   frr::CommitResponse *response,
+					   struct candidate *candidate)
+{
 	int ret = NB_OK;
 	uint32_t transaction_id = 0;
+	int phase = request.phase();
+	const std::string comment = request.comment();
 
 	// Check for misuse of the two-phase commit protocol.
 	switch (phase) {
@@ -2033,10 +2060,10 @@ grpc::Status HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResp
 	if (ret == NB_OK) {
 		// Response: uint32 transaction_id = 1;
 		if (transaction_id)
-			tag->response.set_transaction_id(transaction_id);
+			response->set_transaction_id(transaction_id);
 	}
 	if (strlen(errmsg) > 0)
-		tag->response.set_error_message(errmsg);
+		response->set_error_message(errmsg);
 
 	return status;
 }
@@ -2152,6 +2179,9 @@ static grpc::Status status_from_errno(int error, const char *errmsg)
 	case ENOENT:
 		code = grpc::StatusCode::NOT_FOUND;
 		break;
+	case EALREADY:
+		code = grpc::StatusCode::ABORTED;
+		break;
 	case ETIMEDOUT:
 		code = grpc::StatusCode::DEADLINE_EXCEEDED;
 		break;
@@ -2172,6 +2202,172 @@ static grpc::Status status_from_errno(int error, const char *errmsg)
 
 	return grpc::Status(code, errmsg && errmsg[0] ? errmsg : safe_strerror(errnum));
 }
+
+class CommitRpcState : public RpcStateBase {
+      public:
+	CommitRpcState(Candidates *cdb)
+		: RpcStateBase("Commit")
+		, cdb(cdb)
+		, responder(&ctx){};
+
+	void do_request(::frr::Northbound::AsyncService *service,
+			::grpc::ServerCompletionQueue *cq, bool no_copy) override
+	{
+		grpc_debug("%s, posting a request for: %s", __func__, name);
+		auto copy = no_copy ? this : new CommitRpcState(cdb);
+
+		copy->service = service;
+		copy->cq = cq;
+		service->RequestCommit(&copy->ctx, &copy->request, &copy->responder, cq, cq, copy);
+	}
+
+	CallState run_mainthread(struct event *event) override
+	{
+		enum nb_config_commit_phase nb_phase;
+		uint32_t candidate_id = request.candidate_id();
+		struct candidate *candidate;
+		char errmsg[BUFSIZ] = { 0 };
+		grpc::Status status;
+		int ret;
+
+		grpc_debug("%s: entered", __func__);
+
+		candidate = cdb->get_candidate(candidate_id);
+		if (!candidate) {
+			responder.Finish(response,
+					 grpc::Status(grpc::StatusCode::NOT_FOUND,
+						      "candidate configuration not found"),
+					 this);
+			return FINISH;
+		}
+
+		if (candidate->commit_pending) {
+			responder.Finish(response,
+					 grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+						      "candidate commit is in progress"),
+					 this);
+			return FINISH;
+		}
+
+		if (!nb_config_commit_dispatch_async_is_set()) {
+			status = commit_local_candidate(request, &response, candidate);
+			responder.Finish(response, status, this);
+			return FINISH;
+		}
+
+		if (candidate->transaction) {
+			responder.Finish(response,
+					 grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+						      "candidate is in the middle of a transaction"),
+					 this);
+			return FINISH;
+		}
+
+		if (!commit_phase_to_nb(request.phase(), &nb_phase)) {
+			responder.Finish(response,
+					 grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+						      "unknown commit phase"),
+					 this);
+			return FINISH;
+		}
+
+		candidate->commit_pending = true;
+		pending_candidate = candidate;
+		ret = nb_config_commit_dispatch_async(candidate->config, nb_phase,
+						      request.comment().c_str(), async_done,
+						      this, errmsg, sizeof(errmsg));
+		if (!ret) {
+			async_pending = true;
+			return MORE;
+		}
+
+		pending_candidate->commit_pending = false;
+		pending_candidate = NULL;
+		if (errmsg[0])
+			response.set_error_message(errmsg);
+		responder.Finish(response, status_from_errno(ret, errmsg), this);
+		return FINISH;
+	}
+
+	void finish_async(grpc::Status status)
+	{
+		bool delete_now = false;
+		bool repost = false;
+		bool running = grpc_is_running();
+
+		pthread_mutex_lock(&cmux);
+		async_pending = false;
+		if (pending_candidate) {
+			pending_candidate->commit_pending = false;
+			pending_candidate = NULL;
+		}
+		if (cancelled || !running) {
+			delete_now = true;
+			repost = !reposted && running;
+		} else {
+			state = FINISH;
+			repost = !reposted && running;
+		}
+		if (repost)
+			reposted = true;
+		pthread_mutex_unlock(&cmux);
+
+		if (repost)
+			do_request(service, cq, false);
+
+		if (delete_now) {
+			delete this;
+			return;
+		}
+
+		responder.Finish(response, status, this);
+	}
+
+	bool handle_cq_error(void) override
+	{
+		bool keep_until_async_done = false;
+		bool repost = false;
+
+		pthread_mutex_lock(&cmux);
+		cancelled = true;
+		if (async_pending) {
+			keep_until_async_done = true;
+			repost = !reposted && grpc_is_running();
+			if (repost)
+				reposted = true;
+		}
+		pthread_mutex_unlock(&cmux);
+
+		if (repost)
+			do_request(service, cq, false);
+
+		return !keep_until_async_done;
+	}
+
+	frr::CommitRequest request;
+	frr::CommitResponse response;
+	grpc::ServerAsyncResponseWriter<frr::CommitResponse> responder;
+
+      private:
+	static void async_done(int error, const char *errmsg, uint32_t transaction_id, void *arg)
+	{
+		auto tag = static_cast<CommitRpcState *>(arg);
+
+		if (transaction_id)
+			tag->response.set_transaction_id(transaction_id);
+		if (errmsg && errmsg[0])
+			tag->response.set_error_message(errmsg);
+		tag->finish_async(status_from_errno(error, errmsg));
+	}
+
+	Candidates *cdb;
+	::frr::Northbound::AsyncService *service = NULL;
+	::grpc::ServerCompletionQueue *cq = NULL;
+	struct candidate *pending_candidate = NULL;
+	bool async_pending = false;
+	bool cancelled = false;
+	bool reposted = false;
+};
 
 grpc::Status HandleUnaryGetTransaction(
 	UnaryRpcState<frr::GetTransactionRequest, frr::GetTransactionResponse>
@@ -2539,10 +2735,13 @@ static void *grpc_pthread_start(void *arg)
 	REQUEST_NEWRPC(UpdateCandidate, &candidates);
 	REQUEST_NEWRPC(EditCandidate, &candidates);
 	REQUEST_NEWRPC(LoadToCandidate, &candidates);
-	REQUEST_NEWRPC(Commit, &candidates);
 	REQUEST_NEWRPC(GetTransaction, NULL);
 	REQUEST_NEWRPC(LockConfig, NULL);
 	REQUEST_NEWRPC(UnlockConfig, NULL);
+	{
+		auto _rpcState = new CommitRpcState(&candidates);
+		_rpcState->do_request(&service, cq.get(), true);
+	}
 	{
 		auto _rpcState = new ExecuteRpcState();
 		_rpcState->do_request(&service, cq.get(), true);

@@ -55,6 +55,10 @@ struct txn_req_commit {
 	/* Used for holding changes mgmtd itself is interested in */
 	struct nb_transaction *mgmtd_nb_txn;
 
+	mgmt_txn_commit_done_cb done;
+	void *done_arg;
+	int done_error;
+
 	/*
 	 * Details on all the Backend Clients associated with
 	 * this commit.
@@ -559,6 +563,11 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 		 */
 		mgmt_history_rollback_complete(success);
 		TXN_DECREF(txn);
+	} else if (ccreq->done) {
+		ccreq->done(txn->txn_id, txn_req->req_id,
+			    ccreq->done_error ? ccreq->done_error : mgmt_result_to_error(result),
+			    error_if_any, accept_changes, ccreq->done_arg);
+		TXN_DECREF(txn);
 	} else if (!ccreq->edit) {
 		/*
 		 * This means we are in the mgmtd CLI vty code -- session code
@@ -1005,17 +1014,22 @@ static int txn_get_config_changes(struct txn_req_commit *ccreq, struct nb_config
 }
 
 /**
- * mgmt_txn_send_commit_config_req() - Send a commit config request
- * @txn_id - A config TXN which must exist.
+ * mgmt_txn_send_commit_config_notify() - Send a commit config request.
+ * @txn_id: A config TXN which must exist.
  *
- * Return: -1 on setup failure -- should immediately handle error, Otherwise 0
- * and will reply to session with any downstream error.
+ * The optional callback is called when the mgmtd config transaction reaches
+ * the same completion point that would normally send a frontend reply.
  */
-void mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
-				     struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
-				     struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
-				     bool implicit, bool unlock, struct mgmt_edit_req *edit)
+void mgmt_txn_send_commit_config_notify(uint64_t txn_id, uint64_t req_id,
+					enum mgmt_ds_id src_ds_id,
+					struct mgmt_ds_ctx *src_ds_ctx,
+					enum mgmt_ds_id dst_ds_id,
+					struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only,
+					bool abort, bool implicit, bool unlock,
+					struct mgmt_edit_req *edit,
+					mgmt_txn_commit_done_cb done, void *arg)
 {
+	static struct mgmt_commit_stats dummy_stats = { 0 };
 	struct mgmt_txn *txn;
 	struct txn_req_commit *ccreq;
 	struct nb_config_cbs changes = { 0 };
@@ -1043,13 +1057,45 @@ void mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt
 	ccreq->implicit = implicit;  /* this is only true iff edit */
 	ccreq->unlock_info = unlock; /* this is true for implicit commit in front-end */
 	ccreq->edit = edit;
+	ccreq->done = done;
+	ccreq->done_arg = arg;
 	ccreq->cmt_stats = mgmt_fe_get_session_commit_stats(txn->session_id);
+	if (!ccreq->cmt_stats)
+		ccreq->cmt_stats = &dummy_stats;
 
 	ret = txn_get_config_changes(ccreq, &changes);
 	if (ret == 0)
 		ret = txn_cfg_send_config_changes(ccreq, &changes, 0);
 	if (ret)
 		txn_finish_commit(ccreq, ccreq->req.error, ccreq->req.err_info);
+}
+
+void mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				     struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
+				     struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
+				     bool implicit, bool unlock, struct mgmt_edit_req *edit)
+{
+	mgmt_txn_send_commit_config_notify(txn_id, req_id, src_ds_id, src_ds_ctx, dst_ds_id,
+					   dst_ds_ctx, validate_only, abort, implicit, unlock, edit,
+					   NULL, NULL);
+}
+
+bool mgmt_txn_cancel_commit_config_notify(uint64_t txn_id, uint64_t req_id, int error,
+					  const char *errstr)
+{
+	struct mgmt_txn *txn = txn_lookup(txn_id);
+	struct txn_req_commit *ccreq;
+
+	if (!txn || txn->type != MGMTD_TXN_TYPE_CONFIG)
+		return false;
+
+	ccreq = txn_txn_req_commit(txn);
+	if (!ccreq || (req_id && ccreq->req.req_id != req_id))
+		return false;
+
+	ccreq->done_error = error;
+	txn_finish_commit(ccreq, MGMTD_INTERNAL_ERROR, errstr);
+	return true;
 }
 
 /*
