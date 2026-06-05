@@ -32,6 +32,7 @@ struct nb_config *running_config;
 static nb_rpc_dispatch_async_cb nb_rpc_dispatcher_async;
 static nb_config_get_dispatch_cb nb_config_get_dispatcher;
 static nb_config_root_borrow_dispatch_cb nb_config_root_borrow_dispatcher;
+static nb_config_commit_async_cb nb_config_commit_dispatcher_async;
 
 /* Hash table of user pointers associated with configuration entries. */
 static struct hash *running_config_entries;
@@ -2004,6 +2005,29 @@ int nb_config_root_borrow_dispatch(const struct lyd_node **result, char *errmsg,
 		return -EOPNOTSUPP;
 
 	return nb_config_root_borrow_dispatcher(result, errmsg, errmsg_len);
+}
+
+void nb_config_commit_dispatch_async_set(nb_config_commit_async_cb cb)
+{
+	/* Single owner by design: one frontend owns central config commits. */
+	nb_config_commit_dispatcher_async = cb;
+}
+
+bool nb_config_commit_dispatch_async_is_set(void)
+{
+	return nb_config_commit_dispatcher_async != NULL;
+}
+
+int nb_config_commit_dispatch_async(const struct nb_config *candidate,
+				    enum nb_config_commit_phase phase, const char *comment,
+				    nb_config_commit_done_cb done, void *arg, char *errmsg,
+				    size_t errmsg_len)
+{
+	if (!nb_config_commit_dispatcher_async)
+		return -EOPNOTSUPP;
+
+	return nb_config_commit_dispatcher_async(candidate, phase, comment, done, arg, errmsg,
+						 errmsg_len);
 }
 
 void nb_callback_notify(const struct nb_node *nb_node, uint8_t op, const char *xpath,

@@ -142,6 +142,39 @@ class GRPCClient:
         with concurrent.futures.ThreadPoolExecutor(max_workers=count) as executor:
             return json.dumps(list(executor.map(lambda _: run_one(), range(count))))
 
+    def commit_changes(self, updates, deletes, phase_name):
+        candidate_id = None
+
+        candidate = self.stub.CreateCandidate(
+            frr_northbound_pb2.CreateCandidateRequest()
+        )
+        candidate_id = candidate.candidate_id
+
+        try:
+            edit = frr_northbound_pb2.EditCandidateRequest()
+            edit.candidate_id = candidate_id
+            for path, value in updates:
+                pv = edit.update.add()
+                pv.path = path
+                pv.value = value
+            for path in deletes:
+                pv = edit.delete.add()
+                pv.path = path
+            self.stub.EditCandidate(edit)
+
+            commit = frr_northbound_pb2.CommitRequest()
+            commit.candidate_id = candidate_id
+            commit.phase = getattr(frr_northbound_pb2.CommitRequest, phase_name)
+            return self.stub.Commit(commit)
+        finally:
+            if candidate_id is not None:
+                delete = frr_northbound_pb2.DeleteCandidateRequest()
+                delete.candidate_id = candidate_id
+                try:
+                    self.stub.DeleteCandidate(delete)
+                except grpc.RpcError:
+                    pass
+
     def subscribe_listen(self, xpath, encoding, timeout):
         request = frr_northbound_pb2.SubscribeRequest()
         request.mode = frr_northbound_pb2.SubscribeRequest.ON_CHANGE
@@ -446,6 +479,28 @@ def main(*args):
                 path, value = item.split("=", 1)
                 input_values.append((path, value))
             print(c.execute_concurrent(xpath, input_values, count, timeout))
+        elif action.startswith("commit-set,"):
+            parts = raw_action.split(",")
+            updates = []
+            for item in parts[1:]:
+                path, value = item.rsplit("=", 1)
+                updates.append((path, value))
+            print(c.commit_changes(updates, [], "ALL"))
+        elif action.startswith("commit-delete,"):
+            parts = raw_action.split(",")
+            print(c.commit_changes([], parts[1:], "ALL"))
+        elif action.startswith("commit-phase,"):
+            parts = raw_action.split(",")
+            phase = parts[1]
+            updates = []
+            deletes = []
+            for item in parts[2:]:
+                if "=" in item:
+                    path, value = item.rsplit("=", 1)
+                    updates.append((path, value))
+                else:
+                    deletes.append(item)
+            print(c.commit_changes(updates, deletes, phase))
         elif action.startswith("subscribe-listen,"):
             _, xpath, timeout = raw_action.split(",", 2)
             print(c.subscribe_listen(xpath, encoding, float(timeout)))

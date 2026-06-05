@@ -37,6 +37,8 @@ struct mgmt_master;
 typedef void (*mgmt_txn_rpc_done_cb)(uint64_t txn_id, uint64_t req_id, int error,
 				     const char *errstr, LYD_FORMAT result_type, bool restconf,
 				     const struct lyd_node *result, void *arg);
+typedef void (*mgmt_txn_commit_done_cb)(uint64_t txn_id, uint64_t req_id, int error,
+					const char *errstr, bool running_updated, void *arg);
 
 enum mgmt_txn_type {
 	MGMTD_TXN_TYPE_NONE = 0,
@@ -127,6 +129,14 @@ mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_i
 				struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
 				struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
 				bool implicit, bool unlock, struct mgmt_edit_req *edit);
+extern void
+mgmt_txn_send_commit_config_notify(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				   struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
+				   struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
+				   bool implicit, bool unlock, struct mgmt_edit_req *edit,
+				   mgmt_txn_commit_done_cb done, void *arg);
+extern bool mgmt_txn_cancel_commit_config_notify(uint64_t txn_id, uint64_t req_id, int error,
+						 const char *errstr);
 
 /**
  * mgmt_txn_send_get_tree() - Send get-tree to the backend `clients`.
