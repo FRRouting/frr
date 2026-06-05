@@ -1147,6 +1147,71 @@ def test_pim_dense_pruned_state_persists(request):
         assert result is None, "Pruned state lost on {}: {}".format(dut, result)
 
 
+def verify_state_refresh_received(tgen, router, src, group):
+    """Return None once the router has logged a received State Refresh for (S,G).
+
+    R5/R6 only neighbor R3, so any State Refresh they receive must have been
+    relayed downstream through R2 -> R3. This is exactly the forwarding path that
+    pim_staterefresh_recv() implements, so it confirms the relay works end to end.
+    """
+    logfile = os.path.join(tgen.logdir, router, "pimd.log")
+    try:
+        with open(logfile) as f:
+            log = f.read()
+    except IOError:
+        return "could not open {}".format(logfile)
+
+    for line in log.splitlines():
+        if "pim_staterefresh_recv" not in line:
+            continue
+        # The detailed trace logs "pim_staterefresh_recv: from ... (S,G)=(<src>,<group>)"
+        if src in line and group in line:
+            return None
+    return "no State Refresh for ({},{}) received on {}".format(src, group, router)
+
+
+def test_pim_dense_state_refresh_relay(request):
+    """Verify State Refresh is relayed downstream to multi-hop dense routers.
+
+    R5 and R6 are two/three hops below the FHR (H1 -> R1 -> R2 -> R3 -> R5/R6)
+    and only neighbor R3. They can therefore only see a State Refresh if R2 and
+    R3 each forward it on their downstream interfaces. This exercises the
+    pim_staterefresh_recv() relay path.
+    """
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    stop_all_hosts()
+
+    step("Enable State Refresh tracing on the relay-dependent downstream routers")
+    for dut in ("r5", "r6"):
+        tgen.gears[dut].vtysh_cmd("debug pim trace")
+
+    try:
+        step("Send dense traffic so the FHR (r1) originates State Refresh")
+        result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+        step("Verify State Refresh propagated through r2 -> r3 to r5 and r6")
+        for dut in ("r5", "r6"):
+            test_func = functools.partial(
+                verify_state_refresh_received, tgen, dut, SRC, DENSE_GROUP
+            )
+            _, result = topotest.run_and_expect(test_func, None, count=45, wait=2)
+            assert result is None, "Testcase {} : Failed Error: {}".format(
+                tc_name, result
+            )
+    finally:
+        for dut in ("r5", "r6"):
+            tgen.gears[dut].vtysh_cmd("no debug pim trace")
+
+    stop_all_hosts()
+
+
 def test_pim_sparse_non_rp_upstream_cleanup(request):
     """Verify non-RP sparse upstream cleans up after the last receiver leaves."""
     tgen = get_topogen()
