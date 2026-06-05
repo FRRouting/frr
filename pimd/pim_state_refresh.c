@@ -18,8 +18,6 @@
 #include "pim_macro.h"
 #include "pim_dm.h"
 
-static const uint8_t staterefresh_ttl = 16;
-
 static void on_trace(const char *label, struct interface *ifp, pim_addr src)
 {
 	if (PIM_DEBUG_PIM_TRACE)
@@ -44,7 +42,6 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 	uint8_t p;
 	int pim_msg_size;
 	struct pim_upstream *up;
-	struct interface *ifp2 = NULL;
 
 	pim_ifp = ifp->info;
 
@@ -189,7 +186,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 						   pim_ifp2->pim->staterefresh_time);
 
 		if (pim_msg_send(pim_ifp2->pim_sock_fd, pim_ifp2->primary_address,
-				 neigh->source_addr, pim_msg, pim_msg_size, ifp2)) {
+				 neigh->source_addr, pim_msg, pim_msg_size, neigh->interface)) {
 			zlog_warn("%s: could not send PIM message on interface %s", __func__,
 				  ifp->name);
 		}
@@ -319,9 +316,9 @@ void pim_send_staterefresh(struct pim_upstream *up)
 							   up->rpf.source_nexthop
 								   .mrib_metric_preference,
 							   up->rpf.source_nexthop.mrib_route_metric,
-							   0, IPV4_MAX_BITLEN, staterefresh_ttl, p,
-							   n, 1, 0,
-							   pim_ifp2->pim->staterefresh_time);
+							   0, IPV4_MAX_BITLEN,
+							   PIM_STATEREFRESH_DEFAULT_TTL, p, n, 1,
+							   0, pim_ifp2->pim->staterefresh_time);
 
 			for (ALL_LIST_ELEMENTS_RO(pim_ifp2->pim_neighbor_list, neighnode, neigh)) {
 				if (!neigh->prefix_list)
