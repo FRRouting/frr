@@ -116,6 +116,17 @@ def _set_auth(router, key):
     router.net.cmd_raises("vtysh", stdin=conf)
 
 
+def _commit_auth(router, key):
+    "Set rip authentication string through mgmtd gRPC."
+    path = (
+        "/frr-interface:lib"
+        f"/interface[name='{router.name}-eth0']"
+        "/frr-ripd:rip/authentication-password"
+    )
+    cmd = f"COMMIT-SET,{path}={key}\n"
+    return router.net.cmd_raises([script_path, f"--port={GRPCP_MGMTD}"], stdin=cmd)
+
+
 def _run_listen(r, xpath, timeout=15):
     cmd = f"SUBSCRIBE-LISTEN,{xpath},{timeout}\n"
     return r.net.cmd_raises([script_path, f"--port={GRPCP_MGMTD}"], stdin=cmd)
@@ -239,6 +250,39 @@ def test_subscribe_update_includes_notification_path(tgen):
     }, f"unexpected notification payload: {data}"
 
     _set_auth(r1, "foo")
+
+
+def test_commit_config_then_subscribe_receives_notification(tgen):
+    r1 = tgen.gears["r1"]
+    received = {}
+
+    def listener():
+        received["raw"] = _run_listen_with_path(r1, "/frr-ripd", timeout=30)
+
+    t = threading.Thread(target=listener, daemon=True)
+    t.start()
+    time.sleep(2)
+
+    _commit_auth(r1, "bar")
+
+    t.join(timeout=35)
+    assert not t.is_alive(), "Subscribe listener did not return in time"
+
+    raw = received.get("raw", "").strip()
+    assert raw, "Subscribe stream returned no notification"
+
+    update = json.loads(raw.splitlines()[-1])
+    assert update["path"] in {
+        "/frr-ripd:authentication-failure",
+        "/frr-ripd:authentication-type-failure",
+    }, f"unexpected notification path: {update}"
+    data = json.loads(update["data"])
+    assert set(data) & {
+        "frr-ripd:authentication-failure",
+        "frr-ripd:authentication-type-failure",
+    }, f"unexpected notification payload: {data}"
+
+    _commit_auth(r1, "foo")
 
 
 def test_stream_sends_initial_state_and_sync(tgen):

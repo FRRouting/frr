@@ -245,6 +245,55 @@ def test_get_config_xml_via_mgmtd_grpc(tgen):
     assert "192.0.2.1" in output
 
 
+def test_commit_config_via_mgmtd_grpc(tgen):
+    r1 = tgen.gears["r1"]
+    metric_path = "/frr-ripd:ripd/instance[vrf='default']/default-metric"
+
+    try:
+        step("Commit RIP config through mgmtd gRPC")
+        run_grpc_client(r1, f"COMMIT-SET,{metric_path}=8")
+
+        output = run_grpc_client(
+            r1,
+            "GET-CONFIG,/frr-ripd:ripd/instance[vrf='default']",
+        )
+        out_json = json.loads(output)
+        expect = json.loads(
+            """{
+  "frr-ripd:instance": [
+    {
+      "vrf": "default",
+      "default-metric": 8
+    }
+  ]
+}"""
+        )
+        result = json_cmp(out_json, expect, exact=False)
+        assert result is None
+        assert "default-metric 8" in r1.vtysh_cmd("show running-config")
+
+        step("Validate a candidate without applying it")
+        run_grpc_client(r1, f"COMMIT-PHASE,VALIDATE,{metric_path}=9")
+        output = run_grpc_client(
+            r1,
+            "GET-CONFIG,/frr-ripd:ripd/instance[vrf='default']",
+        )
+        out_json = json.loads(output)
+        result = json_cmp(out_json, expect, exact=False)
+        assert result is None
+        assert "default-metric 9" not in r1.vtysh_cmd("show running-config")
+    finally:
+        try:
+            run_grpc_client(r1, f"COMMIT-DELETE,{metric_path}")
+        except Exception:
+            r1.vtysh_cmd(
+                "configure terminal\n"
+                "router rip\n"
+                "no default-metric\n"
+                "end\n"
+            )
+
+
 def test_invalid_subscribe_pending_limit_disables_grpc_listener(tgen):
     r2 = tgen.gears["r2"]
 
