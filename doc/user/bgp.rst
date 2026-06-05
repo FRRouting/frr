@@ -1508,6 +1508,28 @@ Redistribute routes from a routing table number into BGP.
    instance. Shows which protocols are being redistributed into BGP along with
    their associated metrics, instances, and route-maps if configured.
 
+.. clicmd:: show bgp [<view|vrf> VRFNAME] <ipv4|ipv6> unicast aggregate-address [A.B.C.D/M|X:X::X:X/M] [json]
+
+   Display runtime information for configured aggregate-address entries.
+   When a specific prefix is provided, shows details for that aggregate only.
+   The output includes:
+
+   - Summary-only and AS-set flags
+   - Origin (IGP/EGP/incomplete)
+   - Matching route count and origin breakdown (incomplete, EGP counts)
+   - MED state (match enabled, initialized, mismatched, value)
+   - Route-map and suppress-map names if configured
+   - Aggregated attributes (community, extended community, large community, AS path)
+
+   Example output::
+
+      Aggregate: 192.168.0.0/24
+        Summary-only: yes, AS-set: no
+        Origin: igp
+        Matching routes: 3 (incomplete: 0, egp: 0)
+        MED: match=yes, initialized=yes, mismatched=no, value=100
+        Suppress-map: my-suppress-map
+
 .. clicmd:: bgp update-delay MAX-DELAY
 
 .. clicmd:: bgp update-delay MAX-DELAY ESTABLISH-WAIT
