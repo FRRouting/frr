@@ -2000,10 +2000,12 @@ Configuring Peers
 
    This command specifies a default `weight` value for the neighbor's routes.
 
-.. clicmd:: neighbor PEER maximum-prefix NUMBER [force]
+.. clicmd:: neighbor PEER maximum-prefix NUMBER [force] [include-paths]
 
    Sets a maximum number of prefixes we can receive from a given peer. If this
-   number is exceeded, the BGP session will be destroyed.
+   number is exceeded, the BGP session will be destroyed. By default the limit
+   counts distinct prefixes: under ADD-PATH (:rfc:`7911`) multiple paths
+   received for the same prefix count as one (see ``include-paths`` below).
 
    In practice, it is generally preferable to use a prefix-list to limit what
    prefixes are received from the peer instead of using this knob. Tearing down
@@ -2016,6 +2018,16 @@ Configuring Peers
    accepted only. This is useful for cases where an inbound filter is applied,
    but you want maximum-prefix to act on ALL (including filtered) prefixes. This
    option requires :clicmd:`neighbor PEER soft-reconfiguration inbound` to be enabled for the peer.
+
+   If ``include-paths`` is set, the limit counts received *paths* rather than
+   distinct prefixes, so under ADD-PATH (:rfc:`7911`) every additional path for
+   a prefix counts toward the limit. When the limit is then exceeded the session
+   is torn down with the BGP Cease NOTIFICATION subcode *Maximum Number of Paths
+   Reached* (subcode 11) instead of *Maximum Number of Prefixes Reached*
+   (subcode 1). This implements draft-abraitis-idr-maximum-paths-subcode. For
+   example, with two ADD-PATH paths received for a single prefix,
+   ``maximum-prefix 1`` keeps the session up (one distinct prefix), whereas
+   ``maximum-prefix 1 include-paths`` tears it down (two paths).
 
 .. clicmd:: neighbor PEER soft-reconfiguration inbound
 
