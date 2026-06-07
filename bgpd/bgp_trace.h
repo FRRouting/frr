@@ -323,7 +323,7 @@ TRACEPOINT_LOGLEVEL(frr_bgp, bgp_path_info_free, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_mac_ip_zsend,
-	TP_ARGS(int, add, struct bgpevpn *, vpn,
+	TP_ARGS(int, add, struct bgp_evpn_vba_evi *, vpn,
 		const struct prefix_evpn *, pfx,
 		struct ipaddr *, vtep, esi_t *, esi),
 	TP_FIELDS(
@@ -343,7 +343,7 @@ TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mac_ip_zsend, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_bum_vtep_zsend,
-	TP_ARGS(int, add, struct bgpevpn *, vpn,
+	TP_ARGS(int, add, struct bgp_evpn_vba_evi *, vpn,
 		const struct prefix_evpn *, pfx),
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")

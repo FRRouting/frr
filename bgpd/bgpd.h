@@ -1033,7 +1033,7 @@ struct bgp {
 	/* export rt list for the vrf instance */
 	struct list *vrf_export_rtl;
 
-	/* list of corresponding l2vnis (struct bgpevpn) */
+	/* list of corresponding l2vnis (struct bgp_evpn_vba_evi) */
 	struct list *l2vnis;
 
 	/* route map for advertise ipv4/ipv6 unicast (type-5 routes) */
