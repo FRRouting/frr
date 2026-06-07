@@ -111,7 +111,6 @@ extern void ospf6_process_maxage_grace_lsa(struct ospf6 *ospf,
 					   struct ospf6_neighbor *nbr);
 extern void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6,
 					 struct ospf6_lsa *lsa);
-extern int config_write_ospf6_gr(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_gr_helper(struct vty *vty);
 

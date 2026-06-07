@@ -330,8 +330,8 @@ static unsigned int nb_node_validate_priority(const struct nb_node *nb_node)
 
 static bool nb_callbacks_have_config_cb(const struct nb_callbacks *cbs)
 {
-	return cbs->create || cbs->modify || cbs->destroy || cbs->move ||
-	       cbs->pre_validate || cbs->apply_finish;
+	return cbs->create || cbs->modify || cbs->destroy || cbs->move || cbs->pre_validate ||
+	       cbs->apply_finish;
 }
 
 static int nb_node_validate(const struct lysc_node *snode, void *arg)

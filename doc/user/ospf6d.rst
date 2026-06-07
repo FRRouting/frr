@@ -938,11 +938,12 @@ YANG / NETCONF Support
 
 OSPFv3 operational state and a subset of OSPFv3 configuration are exposed
 through the standard :rfc:`9129` ``ietf-ospf`` YANG model. The OSPFv3
-instance itself remains owned by the legacy ``router ospf6`` CLI, but
-per-area, per-interface and per-instance configuration leaves are routed
-through the mgmtd northbound and can be read, set, and committed through
-NETCONF / RESTCONF / ``vtysh``'s ``mgmt`` subcommands as well as the legacy
-CLI.
+instance can be created either by the legacy ``router ospf6`` CLI or by
+creating the RFC 9129 ``control-plane-protocol`` entry through mgmtd.
+Converted per-area, per-interface and per-instance configuration leaves are
+routed through the mgmtd northbound and can be read, set, and committed
+through NETCONF / RESTCONF / ``vtysh``'s ``mgmt`` subcommands as well as the
+legacy CLI.
 
 The supported set mirrors the OSPFv2 side documented in :ref:`ospfv2`, with
 two v3-specific constraints:

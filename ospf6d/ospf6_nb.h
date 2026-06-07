@@ -25,6 +25,28 @@ extern const struct frr_yang_module_info ospf6d_ietf_routing_info;
 extern const struct frr_yang_module_info ospf6d_ietf_routing_ospf_deviation_info;
 extern const struct frr_yang_module_info ospf6d_ietf_ospf_info;
 
+/* CLI show callbacks. */
+void ospf6d_ietf_ospf_cli_show_config(struct vty *vty,
+				      const struct ospf6 *ospf6);
+void ospf6d_ietf_ospf_explicit_router_id_cli_show(struct vty *vty,
+						  const struct lyd_node *dnode,
+						  bool show_defaults);
+void ospf6d_ietf_ospf_preference_cli_show(struct vty *vty,
+					  const struct lyd_node *dnode,
+					  bool show_defaults);
+void ospf6d_ietf_ospf_spf_control_paths_cli_show(struct vty *vty,
+						 const struct lyd_node *dnode,
+						 bool show_defaults);
+void ospf6d_ietf_ospf_auto_cost_reference_bandwidth_cli_show(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void ospf6d_ietf_ospf_graceful_restart_cli_show(struct vty *vty,
+						const struct lyd_node *dnode,
+						bool show_defaults);
+void ospf6d_ietf_ospf_areas_area_area_type_cli_show(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void ospf6d_ietf_ospf_areas_area_ranges_range_cli_show(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
 /* Shared lookup: find an OSPFv3 instance by the ietf-routing instance name. */
 const char *ospf6d_ietf_ospf_instance_name(const struct ospf6 *ospf6);
 struct ospf6 *ospf6d_ietf_ospf_lookup_instance(const char *name);

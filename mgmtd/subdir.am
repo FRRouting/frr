@@ -17,6 +17,7 @@ clippy_scan += \
 lib_LTLIBRARIES += mgmtd/libmgmt_be_nb.la
 mgmtd_libmgmt_be_nb_la_SOURCES = \
 	mgmtd/mgmt_be_nb.c \
+	mgmtd/mgmt_ospf_cli.c \
 	zebra/zebra_cli.c \
 	# end
 nodist_mgmtd_libmgmt_be_nb_la_SOURCES = \
@@ -46,6 +47,7 @@ noinst_HEADERS += \
 	mgmtd/mgmt_fe_adapter.h \
 	mgmtd/mgmt_history.h \
 	mgmtd/mgmt_memory.h \
+	mgmtd/mgmt_ospf_cli.h \
 	mgmtd/mgmt_txn.h \
 	mgmtd/mgmt_txn_priv.h \
 	zebra/zebra_cli.h \
@@ -106,4 +108,3 @@ nodist_mgmtd_libmgmt_be_nb_la_SOURCES += \
 	staticd/static_vty.c \
 	# end
 endif
-

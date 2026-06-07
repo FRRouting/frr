@@ -302,7 +302,7 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 			clients = init_client_mask;
 		else
 			clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG,
-							     "SEND-CFG");
+							     "SEND-CFG", chg->cb.dnode);
 		if (!clients)
 			_dbg("No backends interested in xpath: %s", xpath);
 

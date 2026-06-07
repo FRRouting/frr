@@ -702,8 +702,6 @@ static int show_ip_ospf_mpls_ldp_interface_common(struct vty *vty,
  */
 void ospf_ldp_sync_write_config(struct vty *vty, struct ospf *ospf)
 {
-	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
-		vty_out(vty, " mpls ldp-sync\n");
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN))
 		vty_out(vty, " mpls ldp-sync holddown %u\n",
 			ospf->ldp_sync_cmd.holddown);

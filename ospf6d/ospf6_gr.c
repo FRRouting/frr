@@ -752,19 +752,6 @@ static int ospf6_gr_neighbor_change(struct ospf6_neighbor *on, int next_state, i
 	return 0;
 }
 
-int config_write_ospf6_gr(struct vty *vty, struct ospf6 *ospf6)
-{
-	if (!ospf6->gr_info.restart_support)
-		return 0;
-
-	if (ospf6->gr_info.grace_period == OSPF6_DFLT_GRACE_INTERVAL)
-		vty_out(vty, " graceful-restart\n");
-	else
-		vty_out(vty, " graceful-restart grace-period %u\n", ospf6->gr_info.grace_period);
-
-	return 0;
-}
-
 DEFPY(ospf6_graceful_restart_prepare, ospf6_graceful_restart_prepare_cmd,
       "graceful-restart prepare ipv6 ospf",
       "Graceful Restart commands\n"

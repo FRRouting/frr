@@ -37,6 +37,35 @@ int ospfd_ietf_routing_protocol_instance_xpath(char *xpath, size_t xpath_len,
 					       unsigned short instance,
 					       const char *name);
 
+/* CLI show callbacks. */
+void ospfd_ietf_ospf_cli_show_config(struct vty *vty, const struct ospf *ospf);
+void ospfd_ietf_ospf_explicit_router_id_cli_show(struct vty *vty,
+						 const struct lyd_node *dnode,
+						 bool show_defaults);
+void ospfd_ietf_ospf_preference_cli_show(struct vty *vty,
+					 const struct lyd_node *dnode,
+					 bool show_defaults);
+void ospfd_ietf_ospf_spf_control_paths_cli_show(struct vty *vty,
+						const struct lyd_node *dnode,
+						bool show_defaults);
+void ospfd_ietf_ospf_mpls_ldp_igp_sync_cli_show(struct vty *vty,
+						const struct lyd_node *dnode,
+						bool show_defaults);
+void ospfd_ietf_ospf_stub_router_always_cli_show(struct vty *vty,
+						 const struct lyd_node *dnode,
+						 bool show_defaults);
+void ospfd_ietf_ospf_auto_cost_reference_bandwidth_cli_show(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void ospfd_ietf_ospf_graceful_restart_cli_show(struct vty *vty,
+					       const struct lyd_node *dnode,
+					       bool show_defaults);
+void ospfd_ietf_ospf_areas_area_area_type_cli_show(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void ospfd_ietf_ospf_areas_area_default_cost_cli_show(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void ospfd_ietf_ospf_areas_area_ranges_range_cli_show(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
 /* Shared lookup: find an OSPF instance by the ietf-routing instance name. */
 struct ospf *ospfd_ietf_ospf_lookup_instance(const char *name);
 

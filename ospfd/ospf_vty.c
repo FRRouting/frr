@@ -11415,8 +11415,6 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 	if (ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
 		vty_out(vty, " max-metric router-lsa on-shutdown %u\n",
 			ospf->stub_router_shutdown_time);
-	if (ospf->stub_router_admin_set == OSPF_STUB_ROUTER_ADMINISTRATIVE_SET)
-		vty_out(vty, " max-metric router-lsa administrative\n");
 
 	return;
 }
@@ -12789,6 +12787,11 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 	int ret = 0;
 	int write = 0;
 
+	/*
+	 * RFC 9129 interface config is managed under the protocol instance, but
+	 * FRR renders these commands in interface context.  The YANG callbacks
+	 * update the native interface params and this writer renders them.
+	 */
 	FOR_ALL_INTERFACES (vrf, ifp) {
 
 		if (memcmp(ifp->name, "VLINK", 5) == 0)
@@ -13153,80 +13156,60 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 				ospf_shortcut_mode_str
 					[area->shortcut_configured]);
 
-		if ((area->external_routing == OSPF_AREA_STUB)
-		    || (area->external_routing == OSPF_AREA_NSSA)) {
-			if (area->external_routing == OSPF_AREA_STUB) {
-				vty_out(vty, " area %s stub", buf);
-				if (area->no_summary)
-					vty_out(vty, " no-summary\n");
-				vty_out(vty, "\n");
-			} else if (area->external_routing == OSPF_AREA_NSSA) {
-				vty_out(vty, " area %s nssa", buf);
+		if (area->external_routing == OSPF_AREA_NSSA) {
+			vty_out(vty, " area %s nssa", buf);
 
-				switch (area->NSSATranslatorRole) {
-				case OSPF_NSSA_ROLE_NEVER:
-					vty_out(vty, " translate-never");
-					break;
-				case OSPF_NSSA_ROLE_ALWAYS:
-					vty_out(vty, " translate-always");
-					break;
-				case OSPF_NSSA_ROLE_CANDIDATE:
-					break;
-				}
-
-				if (area->nssa_default_originate.enabled) {
-					vty_out(vty,
-						" default-information-originate");
-					if (area->nssa_default_originate
-						    .metric_value != -1)
-						vty_out(vty, " metric %d",
-							area->nssa_default_originate
-								.metric_value);
-					if (area->nssa_default_originate
-						    .metric_type !=
-					    DEFAULT_METRIC_TYPE)
-						vty_out(vty, " metric-type 1");
-				}
-
-				if (area->no_summary)
-					vty_out(vty, " no-summary");
-				if (area->suppress_fa)
-					vty_out(vty, " suppress-fa");
-				vty_out(vty, "\n");
-
-				for (rn1 = route_top(area->nssa_ranges); rn1;
-				     rn1 = route_next(rn1)) {
-					struct ospf_area_range *range;
-
-					range = rn1->info;
-					if (!range)
-						continue;
-
-					vty_out(vty, " area %s nssa range %pFX",
-						buf, &rn1->p);
-
-					if (range->cost_config !=
-					    OSPF_AREA_RANGE_COST_UNSPEC)
-						vty_out(vty, " cost %u",
-							range->cost_config);
-
-					if (!CHECK_FLAG(
-						    range->flags,
-						    OSPF_AREA_RANGE_ADVERTISE))
-						vty_out(vty, " not-advertise");
-
-					vty_out(vty, "\n");
-				}
+			switch (area->NSSATranslatorRole) {
+			case OSPF_NSSA_ROLE_NEVER:
+				vty_out(vty, " translate-never");
+				break;
+			case OSPF_NSSA_ROLE_ALWAYS:
+				vty_out(vty, " translate-always");
+				break;
+			case OSPF_NSSA_ROLE_CANDIDATE:
+				break;
 			}
 
-			if (area->default_cost != 1)
-				vty_out(vty, " area %s default-cost %d\n", buf,
-					area->default_cost);
+			if (area->nssa_default_originate.enabled) {
+				vty_out(vty, " default-information-originate");
+				if (area->nssa_default_originate.metric_value != -1)
+					vty_out(vty, " metric %d",
+						area->nssa_default_originate.metric_value);
+				if (area->nssa_default_originate.metric_type != DEFAULT_METRIC_TYPE)
+					vty_out(vty, " metric-type 1");
+			}
+
+			if (area->no_summary)
+				vty_out(vty, " no-summary");
+			if (area->suppress_fa)
+				vty_out(vty, " suppress-fa");
+			vty_out(vty, "\n");
+
+			for (rn1 = route_top(area->nssa_ranges); rn1; rn1 = route_next(rn1)) {
+				struct ospf_area_range *range;
+
+				range = rn1->info;
+				if (!range)
+					continue;
+
+				vty_out(vty, " area %s nssa range %pFX", buf, &rn1->p);
+
+				if (range->cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
+					vty_out(vty, " cost %u", range->cost_config);
+
+				if (!CHECK_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE))
+					vty_out(vty, " not-advertise");
+
+				vty_out(vty, "\n");
+			}
 		}
 
 		for (rn1 = route_top(area->ranges); rn1; rn1 = route_next(rn1))
 			if (rn1->info) {
 				struct ospf_area_range *range = rn1->info;
+
+				if (!CHECK_FLAG(range->flags, OSPF_AREA_RANGE_SUBSTITUTE))
+					continue;
 
 				vty_out(vty, " area %s range %pFX", buf,
 					&rn1->p);
@@ -13277,7 +13260,7 @@ static int config_write_ospf_nbr_nbma(struct vty *vty, struct ospf *ospf)
 	struct ospf_nbr_nbma *nbr_nbma;
 	struct route_node *rn;
 
-	/* Static Neighbor configuration print. */
+	/* RFC static-neighbour config renders from native NBMA state. */
 	for (rn = route_top(ospf->nbr_nbma); rn; rn = route_next(rn))
 		if ((nbr_nbma = rn->info)) {
 			vty_out(vty, " neighbor %pI4", &nbr_nbma->addr);
@@ -13417,27 +13400,8 @@ static int ospf_cfg_write_helper_dis_rtr_walkcb(struct hash_bucket *bucket,
 	return HASHWALK_CONTINUE;
 }
 
-static void config_write_ospf_gr(struct vty *vty, struct ospf *ospf)
-{
-	if (!ospf->gr_info.restart_support)
-		return;
-
-	if (ospf->gr_info.grace_period == OSPF_DFLT_GRACE_INTERVAL)
-		vty_out(vty, " graceful-restart\n");
-	else
-		vty_out(vty, " graceful-restart grace-period %u\n",
-			ospf->gr_info.grace_period);
-}
-
 static int config_write_ospf_gr_helper(struct vty *vty, struct ospf *ospf)
 {
-	if (ospf->is_helper_supported)
-		vty_out(vty, " graceful-restart helper enable\n");
-
-	if (!ospf->strict_lsa_check)
-		vty_out(vty,
-			" no graceful-restart helper strict-lsa-checking\n");
-
 	if (ospf->only_planned_restart)
 		vty_out(vty, " graceful-restart helper planned-only\n");
 
@@ -13534,23 +13498,6 @@ static int config_write_ospf_distance(struct vty *vty, struct ospf *ospf)
 	struct route_node *rn;
 	struct ospf_distance *odistance;
 
-	if (ospf->distance_all)
-		vty_out(vty, " distance %d\n", ospf->distance_all);
-
-	if (ospf->distance_intra || ospf->distance_inter
-	    || ospf->distance_external) {
-		vty_out(vty, " distance ospf");
-
-		if (ospf->distance_intra)
-			vty_out(vty, " intra-area %d", ospf->distance_intra);
-		if (ospf->distance_inter)
-			vty_out(vty, " inter-area %d", ospf->distance_inter);
-		if (ospf->distance_external)
-			vty_out(vty, " external %d", ospf->distance_external);
-
-		vty_out(vty, "\n");
-	}
-
 	for (rn = route_top(ospf->distance_table); rn; rn = route_next(rn))
 		if ((odistance = rn->info) != NULL) {
 			vty_out(vty, " distance %d %pFX %s\n",
@@ -13581,10 +13528,7 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 		return write;
 	}
 
-	/* Router ID print. */
-	if (ospf->router_id_static.s_addr != INADDR_ANY)
-		vty_out(vty, " ospf router-id %pI4\n",
-			&ospf->router_id_static);
+	ospfd_ietf_ospf_cli_show_config(vty, ospf);
 
 	/* zebra opaque attributes configuration. */
 	if (CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
@@ -13610,14 +13554,6 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (CHECK_FLAG(ospf->config, OSPF_RFC1583_COMPATIBLE))
 		vty_out(vty, " compatible rfc1583\n");
 
-	/* auto-cost reference-bandwidth configuration.  */
-	if (ospf->ref_bandwidth != OSPF_DEFAULT_REF_BANDWIDTH) {
-		vty_out(vty,
-			"! Important: ensure reference bandwidth is consistent across all routers\n");
-		vty_out(vty, " auto-cost reference-bandwidth %d\n",
-			ospf->ref_bandwidth);
-	}
-
 	/* SPF timers print. */
 	if (ospf->spf_delay != OSPF_SPF_DELAY_DEFAULT
 	    || ospf->spf_holdtime != OSPF_SPF_HOLDTIME_DEFAULT
@@ -13638,9 +13574,6 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 		vty_out(vty, " ospf write-multiplier %d\n",
 			ospf->write_oi_count);
 
-	if (ospf->max_multipath != MULTIPATH_NUM)
-		vty_out(vty, " maximum-paths %d\n", ospf->max_multipath);
-
 	/* Max-metric router-lsa print */
 	config_write_stub_router(vty, ospf);
 
@@ -13657,8 +13590,6 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	/* Redistribute information print. */
 	config_write_ospf_redistribute(vty, ospf);
 
-	/* Graceful Restart print */
-	config_write_ospf_gr(vty, ospf);
 	config_write_ospf_gr_helper(vty, ospf);
 
 	/* Print external route aggregation. */

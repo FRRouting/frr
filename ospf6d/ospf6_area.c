@@ -644,42 +644,15 @@ void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6)
 	struct ospf6_route *range;
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
-		for (range = ospf6_route_head(oa->range_table); range;
-		     range = ospf6_route_next(range)) {
-			vty_out(vty, " area %s range %pFX", oa->name,
-				&range->prefix);
-
-			if (CHECK_FLAG(range->flag,
-				       OSPF6_ROUTE_DO_NOT_ADVERTISE)) {
-				vty_out(vty, " not-advertise");
-			} else {
-				// "advertise" is the default so we do not
-				// display it
-				if (range->path.u.cost_config
-				    != OSPF_AREA_RANGE_COST_UNSPEC)
-					vty_out(vty, " cost %d",
-						range->path.u.cost_config);
-			}
-			vty_out(vty, "\n");
-		}
-		if (IS_AREA_STUB(oa)) {
-			if (oa->no_summary)
-				vty_out(vty, " area %s stub no-summary\n",
-					oa->name);
-			else
-				vty_out(vty, " area %s stub\n", oa->name);
-		}
 		if (IS_AREA_NSSA(oa)) {
 			vty_out(vty, " area %s nssa", oa->name);
 			if (oa->nssa_default_originate.enabled) {
 				vty_out(vty, " default-information-originate");
-				if (oa->nssa_default_originate.metric_value
-				    != -1)
+				if (oa->nssa_default_originate.metric_value != -1)
 					vty_out(vty, " metric %d",
 						oa->nssa_default_originate
 							.metric_value);
-				if (oa->nssa_default_originate.metric_type
-				    != DEFAULT_METRIC_TYPE)
+				if (oa->nssa_default_originate.metric_type != DEFAULT_METRIC_TYPE)
 					vty_out(vty, " metric-type 1");
 			}
 			if (oa->no_summary)

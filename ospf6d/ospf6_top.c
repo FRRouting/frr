@@ -2137,23 +2137,6 @@ static int ospf6_distance_config_write(struct vty *vty, struct ospf6 *ospf6)
 	struct route_node *rn;
 	struct ospf6_distance *odistance;
 
-	if (ospf6->distance_all)
-		vty_out(vty, " distance %u\n", ospf6->distance_all);
-
-	if (ospf6->distance_intra || ospf6->distance_inter
-	    || ospf6->distance_external) {
-		vty_out(vty, " distance ospf6");
-
-		if (ospf6->distance_intra)
-			vty_out(vty, " intra-area %u", ospf6->distance_intra);
-		if (ospf6->distance_inter)
-			vty_out(vty, " inter-area %u", ospf6->distance_inter);
-		if (ospf6->distance_external)
-			vty_out(vty, " external %u", ospf6->distance_external);
-
-		vty_out(vty, "\n");
-	}
-
 	for (rn = route_top(ospf6->distance_table); rn; rn = route_next(rn))
 		if ((odistance = rn->info) != NULL)
 			vty_out(vty, " distance %u %pFX %s\n",
@@ -2217,9 +2200,7 @@ static int config_write_ospf6(struct vty *vty)
 		else
 			vty_out(vty, "router ospf6\n");
 
-		if (ospf6->router_id_static != 0)
-			vty_out(vty, " ospf6 router-id %pI4\n",
-				&ospf6->router_id_static);
+		ospf6d_ietf_ospf_cli_show_config(vty, ospf6);
 
 		if (CHECK_FLAG(ospf6->config_flags,
 			       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
@@ -2237,10 +2218,6 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " no log-adjacency-changes\n");
 		}
 
-		if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
-			vty_out(vty, " auto-cost reference-bandwidth %d\n",
-				ospf6->ref_bandwidth);
-
 		if (ospf6->write_oi_count
 		    != OSPF6_WRITE_INTERFACE_COUNT_DEFAULT)
 			vty_out(vty, " write-multiplier %d\n",
@@ -2251,11 +2228,6 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " timers lsa min-arrival %d\n",
 				ospf6->lsa_minarrival);
 
-		/* ECMP max path config */
-		if (ospf6->max_multipath != MULTIPATH_NUM)
-			vty_out(vty, " maximum-paths %d\n",
-				ospf6->max_multipath);
-
 		ospf6_stub_router_config_write(vty, ospf6);
 		ospf6_redistribute_config_write(vty, ospf6);
 		ospf6_area_config_write(vty, ospf6);
@@ -2263,7 +2235,6 @@ static int config_write_ospf6(struct vty *vty)
 		ospf6_distance_config_write(vty, ospf6);
 		ospf6_distribute_config_write(vty, ospf6);
 		ospf6_asbr_summary_config_write(vty, ospf6);
-		config_write_ospf6_gr(vty, ospf6);
 		config_write_ospf6_gr_helper(vty, ospf6);
 
 		vty_out(vty, "exit\n");

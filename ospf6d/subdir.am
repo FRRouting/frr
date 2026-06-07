@@ -20,6 +20,7 @@ ospf6d_libospf6_a_SOURCES = \
 	ospf6d/ospf6_routemap_nb.c \
 	ospf6d/ospf6_routemap_nb_config.c \
 	ospf6d/ospf6_bfd.c \
+	ospf6d/ospf6_cli.c \
 	ospf6d/ospf6_flood.c \
 	ospf6d/ospf6_gr.c \
 	ospf6d/ospf6_gr_helper.c \

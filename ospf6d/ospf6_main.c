@@ -168,13 +168,19 @@ struct frr_signal_t ospf6_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
-	&frr_backend_info,	  &frr_filter_info,
+	&frr_backend_info,
+	&frr_filter_info,
 	&frr_interface_info,
-	&frr_route_map_info,	  &frr_vrf_info,
-	&ietf_bfd_types_info,	  &ospf6d_ietf_routing_info,
-	&ospf6d_ietf_ospf_info,	  &ospf6d_ietf_routing_ospf_deviation_info,
-	&frr_ospf_route_map_info, &frr_ospf6_route_map_info,
-	&ietf_key_chain_info,	  &ietf_key_chain_deviation_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
+	&ietf_bfd_types_info,
+	&ospf6d_ietf_routing_info,
+	&ospf6d_ietf_ospf_info,
+	&ospf6d_ietf_routing_ospf_deviation_info,
+	&frr_ospf_route_map_info,
+	&frr_ospf6_route_map_info,
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
 };
 
 /*

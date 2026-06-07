@@ -74,8 +74,15 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH "/explicit-router-id",
 			.cbs = {
+				.cli_show = ospf6d_ietf_ospf_explicit_router_id_cli_show,
 				.modify = ospf6d_ietf_ospf_explicit_router_id_modify,
 				.destroy = ospf6d_ietf_ospf_explicit_router_id_destroy,
+			},
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH "/preference",
+			.cbs = {
+				.cli_show = ospf6d_ietf_ospf_preference_cli_show,
 			},
 		},
 		{
@@ -116,6 +123,7 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH "/spf-control/paths",
 			.cbs = {
+				.cli_show = ospf6d_ietf_ospf_spf_control_paths_cli_show,
 				.modify = ospf6d_ietf_ospf_spf_control_paths_modify,
 				.destroy = ospf6d_ietf_ospf_spf_control_paths_destroy,
 			},
@@ -129,8 +137,15 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 		{
 			.xpath = OSPF6D_IETF_OSPF_XPATH "/auto-cost/reference-bandwidth",
 			.cbs = {
+				.cli_show = ospf6d_ietf_ospf_auto_cost_reference_bandwidth_cli_show,
 				.modify = ospf6d_ietf_ospf_auto_cost_reference_bandwidth_modify,
 				.destroy = ospf6d_ietf_ospf_auto_cost_reference_bandwidth_destroy,
+			},
+		},
+		{
+			.xpath = OSPF6D_IETF_OSPF_XPATH "/graceful-restart",
+			.cbs = {
+				.cli_show = ospf6d_ietf_ospf_graceful_restart_cli_show,
 			},
 		},
 		{
@@ -189,6 +204,8 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			.xpath = OSPF6D_IETF_OSPF_XPATH "/areas/area/area-type",
 			.cbs = {
 				.modify = ospf6d_ietf_ospf_areas_area_type_modify,
+				.cli_show =
+					ospf6d_ietf_ospf_areas_area_area_type_cli_show,
 			},
 		},
 		{
@@ -365,6 +382,8 @@ const struct frr_yang_module_info ospf6d_ietf_ospf_info = {
 			.cbs = {
 				.create = ospf6d_ietf_ospf_areas_area_ranges_range_create,
 				.destroy = ospf6d_ietf_ospf_areas_area_ranges_range_destroy,
+				.cli_show =
+					ospf6d_ietf_ospf_areas_area_ranges_range_cli_show,
 			},
 		},
 		{

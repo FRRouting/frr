@@ -1298,12 +1298,6 @@ static int ospf6_cfg_write_helper_enable_rtr_walkcb(struct hash_bucket *backet, 
 
 int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6)
 {
-	if (ospf6->ospf6_helper_cfg.is_helper_supported)
-		vty_out(vty, " graceful-restart helper enable\n");
-
-	if (!ospf6->ospf6_helper_cfg.strict_lsa_check)
-		vty_out(vty, " graceful-restart helper lsa-check-disable\n");
-
 	if (ospf6->ospf6_helper_cfg.only_planned_restart)
 		vty_out(vty, " graceful-restart helper planned-only\n");
 

@@ -30,6 +30,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest  # noqa: E402
 from lib.topogen import Topogen, TopoRouter, get_topogen  # noqa: E402
 from lib.topolog import logger  # noqa: E402
+from lib.common_config import step  # noqa: E402
 
 # Required to instantiate the topology builder class.
 
@@ -217,6 +218,7 @@ def _expect_ospfv2_lsdb_equal(router, area, expected_lsa_count):
 
 def test_wait_protocol_convergence():
     "Wait for OSPFv2/OSPFv3 to converge"
+    step("Wait for OSPFv2/OSPFv3 to converge")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -291,6 +293,14 @@ def _yang_get_data(router, xpath, datastore="operational"):
 
 
 def _yang_get_running_config(router, xpath, with_defaults=False):
+    """Read a config node from mgmtd's running datastore.
+
+    Transition note: mgmtd holds only configuration committed through mgmtd
+    (``mgmt set-config``). Config entered via the legacy daemon CLI lives in the
+    daemon-local northbound datastore, so this returns nothing for it until
+    mgmtd owns the daemon config (the cli_show / mgmtd CLI-info migration). Do
+    not use it to read back the ``*_cli_routes_through_yang`` tests yet.
+    """
     defaults = " with-defaults all" if with_defaults else ""
 
     return json.loads(
@@ -331,6 +341,15 @@ def _ospf_interface_timers(router, daemon, interface):
         ifdata["timerIntervalsConfigHello"],
         ifdata["timerIntervalsConfigDead"],
     )
+
+
+def _ospf_interface_cost(router, daemon, interface):
+    """Read the operational interface cost the daemon actually installed."""
+    if daemon == "ospfd":
+        cmd = "show ip ospf interface {} json".format(interface)
+        return json.loads(router.vtysh_cmd(cmd))["interfaces"][interface]["cost"]
+    cmd = "show ipv6 ospf6 interface {} json".format(interface)
+    return json.loads(router.vtysh_cmd(cmd))[interface]["cost"]
 
 
 def _assert_interface_default_leaves(router, iface):
@@ -463,6 +482,7 @@ def _yang_ospf_neighbor_state(router, protocol_type, expected_address_prefix):
 
 def test_ospf_yang_operational_data():
     "Verify RFC 9129 OSPF operational data is exposed through YANG callbacks."
+    step("Verify RFC 9129 OSPF operational data is exposed through YANG callbacks")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -521,6 +541,7 @@ def test_ospf_yang_operational_data():
 
 def test_ospf_yang_mgmtd_predicate_dispatch():
     "Verify mgmtd dispatches typed OSPF xpaths to the correct backend."
+    step("Verify mgmtd dispatches typed OSPF xpaths to the correct backend")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -676,6 +697,7 @@ def _set_yang_router_id(router, protocol_type, daemon, running_line, new_value):
 
 def test_ospf_yang_router_id_config():
     "Verify RFC 9129 explicit-router-id is writable via mgmtd."
+    step("Verify RFC 9129 explicit-router-id is writable via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -776,6 +798,7 @@ def _restore_r1_eth1_fixture_timers(router, protocol_type):
 
 def test_ospf_yang_area_type_config():
     "Verify areas/area[area-id]/area-type is writable via mgmtd for both daemons."
+    step("Verify areas/area[area-id]/area-type is writable via mgmtd for both daemons")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -863,6 +886,10 @@ def test_ospf_distance_cli_routes_through_yang():
     The OSPFv3 legacy CLI path also exercises ospf6_restart_spf with a
     populated route table, which covers the ospf6_route_remove_all iterator
     hardening."""
+    step(
+        "Legacy distance / no distance CLI routes through the ietf-ospf "
+        "preference leaves"
+    )
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -921,6 +948,7 @@ def test_ospf_area_cli_routes_through_yang():
     now route through the ietf-ospf YANG layer. Verify by issuing the
     legacy CLI and confirming the daemons running-config reflects the
     change exactly as before."""
+    step("Legacy area stub / nssa / default-cost CLI routes through YANG")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -937,6 +965,7 @@ def test_ospf_area_cli_routes_through_yang():
     )
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "area 0.0.0.51 stub no-summary" in running, running
+    assert running.count("area 0.0.0.51 stub no-summary") == 1, running
     assert "area 0.0.0.51 default-cost 17" in running, running
 
     r1.vtysh_cmd(
@@ -955,12 +984,14 @@ def test_ospf_area_cli_routes_through_yang():
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "0.0.0.51" not in running, running
 
-    r1.vtysh_cmd("configure terminal\nrouter ospf\n area 0.0.0.53 nssa\n")
+    r1.vtysh_cmd("configure terminal\nrouter ospf\n area 0.0.0.53 nssa no-summary\n")
     running = r1.vtysh_cmd("show running-config ospfd")
-    assert "area 0.0.0.53 nssa" in running, running
+    assert "area 0.0.0.53 nssa no-summary" in running, running
+    assert running.count("area 0.0.0.53 nssa no-summary") == 1, running
     r1.vtysh_cmd("configure terminal\nrouter ospf\n no area 0.0.0.53 stub\n")
     running = r1.vtysh_cmd("show running-config ospfd")
-    assert "area 0.0.0.53 nssa" in running, running
+    assert "area 0.0.0.53 nssa no-summary" in running, running
+    assert running.count("area 0.0.0.53 nssa no-summary") == 1, running
     r1.vtysh_cmd("configure terminal\nrouter ospf\n no area 0.0.0.53 nssa\n")
 
     # OSPFv3: same cycle, minus default-cost (no v3 surface).
@@ -969,6 +1000,7 @@ def test_ospf_area_cli_routes_through_yang():
     )
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "area 0.0.0.52 stub no-summary" in running, running
+    assert running.count("area 0.0.0.52 stub no-summary") == 1, running
 
     r1.vtysh_cmd(
         "configure terminal\n" "router ospf6\n" " no area 0.0.0.52 stub no-summary\n"
@@ -981,6 +1013,14 @@ def test_ospf_area_cli_routes_through_yang():
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "0.0.0.52" not in running, running
 
+    r1.vtysh_cmd(
+        "configure terminal\n" "router ospf6\n" " area 0.0.0.54 nssa no-summary\n"
+    )
+    running = r1.vtysh_cmd("show running-config ospf6d")
+    assert "area 0.0.0.54 nssa no-summary" in running, running
+    assert running.count("area 0.0.0.54 nssa no-summary") == 1, running
+    r1.vtysh_cmd("configure terminal\nrouter ospf6\n no area 0.0.0.54 nssa\n")
+
 
 def test_ospf_yang_area_interface_cost_config():
     """areas/area[id]/interfaces/interface[name]/cost via mgmtd.
@@ -992,6 +1032,7 @@ def test_ospf_yang_area_interface_cost_config():
     output-cost-cmd. Then unwinds: deleting cost reverts to default,
     deleting the interface entry detaches it from the area.
     """
+    step("areas/area[id]/interfaces/interface[name]/cost via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1014,6 +1055,9 @@ def test_ospf_yang_area_interface_cost_config():
     assert "ip ospf cost 77" in running, (
         "expected 'ip ospf cost 77' in running-config after YANG set, got:\n" + running
     )
+    assert (
+        _ospf_interface_cost(r1, "ospfd", "r1-eth1") == 77
+    ), "daemon must install cost 77 on r1-eth1 after YANG set"
 
     r1.vtysh_cmd(
         "configure terminal file-lock\n"
@@ -1041,6 +1085,9 @@ def test_ospf_yang_area_interface_cost_config():
         "expected 'ipv6 ospf6 cost 88' in running-config after YANG set, got:\n"
         + running
     )
+    assert (
+        _ospf_interface_cost(r1, "ospf6d", "r1-eth1") == 88
+    ), "daemon must install cost 88 on r1-eth1 after YANG set"
 
     r1.vtysh_cmd(
         "configure terminal file-lock\n"
@@ -1061,6 +1108,7 @@ def test_ospf_yang_area_interface_b3b_leaves_config():
     `show running-config <daemon>`, then deletes them and verifies
     the reverts.
     """
+    step("hello/dead/retransmit/priority/mtu-ignore round-trip")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1208,6 +1256,7 @@ def test_ospf_yang_area_interface_transmit_delay_config():
     via mgmt, verify the line is gone and FRR is back at the
     advertised FRR default of 1 second.
     """
+    step("areas/area[id]/interfaces/interface[name]/transmit-delay via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1269,8 +1318,9 @@ def test_ospf_yang_area_interface_transmit_delay_config():
     _assert_interface_transmit_delay_default(r1, iface_path)
 
 
-def test_ospf_yang_deviated_interface_ranges_rejected():
+def test_ospf_yang_negative_deviated_interface_ranges():
     """mgmtd rejects direct writes outside the FRR OSPF CLI ranges."""
+    step("mgmtd rejects direct writes outside the FRR OSPF CLI ranges")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1331,6 +1381,10 @@ def test_ospf_per_iface_cli_routes_through_yang():
     the routing through the NB callbacks landed in the per-interface
     slices.
     """
+    step(
+        "Legacy per-interface CLI commands route through the ietf-ospf "
+        "interface leaves"
+    )
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1479,6 +1533,7 @@ def test_ospf_network_dmvpn_falls_back_to_legacy():
     test confirms the running-config still shows the dmvpn modifier
     after the conversion.
     """
+    step("Legacy ip ospf network point-to-point dmvpn keeps working on the native path")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1510,6 +1565,7 @@ def test_ospf_yang_preference_config():
     multi-values scope (preference/intra-area, /inter-area, /external).
     For both OSPFv2 and OSPFv3.
     """
+    step("per-instance preference (admin distance) round-trip via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1596,6 +1652,7 @@ def test_ospf_yang_spf_control_paths_config():
     legacy direct-mutation path as a fallback if an instance XPath
     cannot be built; this test covers the direct YANG path.
     """
+    step("per-instance spf-control/paths round-trip via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1636,13 +1693,14 @@ def test_ospf_yang_spf_control_paths_config():
         ), "maximum-paths 7 should be gone after YANG delete, got:\n{}".format(running)
 
 
-def test_ospf_yang_spf_control_paths_platform_limit_rejected():
+def test_ospf_yang_negative_spf_control_paths_platform_limit():
     """Direct mgmtd writes honour FRR's platform ECMP cap.
 
     The RFC 9129 type allows values up to 65535, but FRR must still
     reject anything above MULTIPATH_NUM in the daemon callback so CLI
     and YANG clients observe the same platform limit.
     """
+    step("Direct mgmtd writes honour FRR's platform ECMP cap")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1683,6 +1741,7 @@ def test_ospf_yang_mpls_ldp_igp_sync_config():
     gone. ospf6d has no LDP/IGP sync implementation; the OSPFv3
     callback is intentionally absent.
     """
+    step("per-instance mpls/ldp/igp-sync round-trip via mgmtd (OSPFv2 only)")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1722,6 +1781,7 @@ def test_ospf_yang_candidate_only_validation_on_atomic_create():
     These checks must not depend on a live daemon instance at VALIDATE time:
     the instance itself is part of the same candidate transaction.
     """
+    step("Run candidate-only validation during atomic instance create")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1769,7 +1829,7 @@ def test_ospf_yang_candidate_only_validation_on_atomic_create():
     ):
         ospf = _yang_protocol_xpath(protocol_type, name) + "/ietf-ospf:ospf"
         out = _mgmt_commit_attempt(r1, command.format(ospf=ospf))
-        _assert_mgmt_rejected(out, reason)
+        _assert_mgmt_rejected(out, reason, expect=reason)
 
         running = r1.vtysh_cmd("show running-config {}".format(daemon))
         router_line = "router ospf6 vrf" if daemon == "ospf6d" else "router ospf vrf"
@@ -1788,6 +1848,7 @@ def test_ospf_yang_auto_cost_reference_bandwidth_config():
     enabled.  Setting enabled=false is rejected at NB_EV_VALIDATE
     because FRR has no off-switch for auto-cost; a separate negative
     test exercises that path."""
+    step("per-instance /auto-cost/reference-bandwidth round-trip via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1826,7 +1887,7 @@ def test_ospf_yang_auto_cost_reference_bandwidth_config():
         ), "'auto-cost reference-bandwidth 50000' still present:\n{}".format(running)
 
 
-def test_ospf_yang_auto_cost_disable_rejected():
+def test_ospf_yang_negative_auto_cost_disable():
     """Setting /auto-cost/enabled=false is rejected at NB_EV_VALIDATE on
     both daemons -- FRR has no mechanism to honour an auto-cost
     off-switch; the validate callback returns NB_ERR_VALIDATION with
@@ -1837,6 +1898,7 @@ def test_ospf_yang_auto_cost_disable_rejected():
     survives in the candidate datastore and poisons every subsequent
     mgmt commit in the same test session.
     """
+    step("Reject setting /auto-cost/enabled=false at NB_EV_VALIDATE")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1870,6 +1932,7 @@ def test_ospf_yang_auto_cost_disable_rejected():
 def test_ospf_auto_cost_cli_routes_through_yang():
     """Legacy `auto-cost reference-bandwidth N` / `no ...` on both
     daemons drives the YANG /auto-cost/reference-bandwidth callback."""
+    step("Legacy auto-cost reference-bandwidth CLI routes through YANG on both daemons")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1911,6 +1974,7 @@ def test_ospf_yang_mpls_te_router_addr_config():
     the end.  Cleanup is mandatory: the global `OspfMplsTE` would
     otherwise survive across tests and corrupt later assertions.
     """
+    step("per-instance /mpls/te-rid/ipv4-router-id round-trip via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1960,6 +2024,7 @@ def test_ospf_mpls_te_router_addr_cli_routes_through_yang():
     only available through `mgmt delete-config` and is exercised by
     `test_ospf_yang_mpls_te_router_addr_config`.
     """
+    step("Legacy mpls-te router-address CLI drives the YANG ipv4-router-id leaf")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -1992,6 +2057,10 @@ def test_ospf_yang_graceful_restart_config():
     together (`graceful-restart [grace-period N]`); both behaviours
     are exercised here.
     """
+    step(
+        "per-instance /graceful-restart/{enabled,restart-interval} "
+        "round-trip via mgmtd"
+    )
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2060,6 +2129,7 @@ def test_ospf_yang_graceful_restart_helper_config():
     delete.  Helper-enabled appears in running-config as
     `graceful-restart helper enable` on both daemons.
     """
+    step("per-instance /graceful-restart helper leaves round-trip via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2134,6 +2204,7 @@ def test_ospf_graceful_restart_helper_cli_routes_through_yang():
     confirming the line appears, then dropping it and confirming the
     line is gone.
     """
+    step("Legacy helper CLI on both daemons drives the YANG callbacks")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2194,6 +2265,7 @@ def test_ospf_graceful_restart_helper_cli_routes_through_yang():
 def test_ospf_graceful_restart_cli_routes_through_yang():
     """Legacy `graceful-restart [grace-period N]` / `no graceful-restart`
     on both daemons drive the YANG /graceful-restart callbacks."""
+    step("Legacy graceful-restart / grace-period CLI routes through YANG")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2236,6 +2308,7 @@ def test_ospf_graceful_restart_cli_routes_through_yang():
 
 def test_ospf_yang_prefix_suppression_config():
     """per-interface prefix-suppression round-trip via mgmtd (OSPFv2 only)."""
+    step("per-interface prefix-suppression round-trip via mgmtd (OSPFv2 only)")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2279,6 +2352,7 @@ def test_ospf_yang_interface_bfd_config():
     writes whole-millisecond microsecond values (300000us = 300ms,
     400000us = 400ms).
     """
+    step("per-interface BFD round-trip via mgmtd on both daemons")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2359,7 +2433,7 @@ def test_ospf_yang_interface_bfd_config():
         )
 
 
-def test_ospf_yang_interface_bfd_interval_rejection():
+def test_ospf_yang_negative_interface_bfd_interval():
     """NB_EV_VALIDATE rejects BFD interval values that are not whole
     milliseconds (multiple of 1000 us) or fall outside FRR's 50..60000
     ms grammar on both daemons.  The FRR deviation module also narrows
@@ -2367,6 +2441,7 @@ def test_ospf_yang_interface_bfd_interval_rejection():
     single-interval BFD form.  Uses `_mgmt_commit_attempt` so the
     rejected candidate is aborted and does not poison subsequent commits.
     """
+    step("Reject BFD interval values that are not whole milliseconds at NB_EV_VALIDATE")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2468,6 +2543,7 @@ def test_ospf_bfd_cli_routes_through_yang():
     """Legacy BFD CLI on both daemons drives the YANG callback when
     the interface is in an area. Also confirms legacy `no` removes the
     configured timers so a later bare enable uses FRR default timers."""
+    step("Legacy BFD CLI drives the YANG callback on both daemons")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2544,7 +2620,9 @@ def test_ospf_bfd_cli_routes_through_yang():
                 or bfd_state.get("detectMultiplier")
             ) == 3, (
                 "bare BFD enable must not retain stale timers on {}, got:\n{}"
-            ).format(daemon, json.dumps(bfd_state, indent=2))
+            ).format(
+                daemon, json.dumps(bfd_state, indent=2)
+            )
         finally:
             r1.vtysh_cmd(
                 "configure terminal\n" "interface r1-eth1\n" " no {}\n".format(cli)
@@ -2561,6 +2639,7 @@ def test_ospf_yang_interface_static_neighbor_config():
     create + priority + poll-interval + destroy, then verifies the
     `cost` leaf is rejected by the deviation module.
     """
+    step("per-interface /static-neighbors/neighbor round-trip via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2608,11 +2687,15 @@ def test_ospf_yang_interface_static_neighbor_config():
         r1.vtysh_cmd("configure terminal\n" "router ospf\n" " no neighbor 192.0.2.7\n")
 
 
-def test_ospf_yang_static_neighbor_duplicate_rejected():
+def test_ospf_yang_negative_static_neighbor_duplicate():
     """The RFC keys static-neighbors per area/interface, but FRR's NBMA
     table is per instance and address.  Reject duplicate identifiers
     rather than letting two YANG entries collapse onto one daemon
     neighbour."""
+    step(
+        "Static-neighbor YANG keying maps the RFC per-area/interface model "
+        "onto FRR's NBMA list"
+    )
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2651,6 +2734,7 @@ def test_ospf_yang_static_neighbor_partial_leaves():
     complete settled subtree even when the operator creates a neighbour
     with only one optional leaf.
     """
+    step("Static-neighbor optional leaves default to FRR's NBMA values")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2711,6 +2795,10 @@ def test_ospf_yang_interface_authentication_keychain_config():
     relaxed but matching the YANG semantics is the principled
     behaviour for this slice.
     """
+    step(
+        "per-interface authentication key-chain round-trip via mgmtd "
+        "(OSPFv2 and OSPFv3)"
+    )
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2778,7 +2866,7 @@ def test_ospf_yang_interface_authentication_keychain_config():
         )
 
 
-def test_ospf_yang_authentication_unsupported_leaves_rejected():
+def test_ospf_yang_negative_authentication_unsupported_leaves():
     """Unsupported RFC authentication choices are rejected by deviation.
 
     Only the key-chain case is implemented through YANG. The explicit-key,
@@ -2786,6 +2874,7 @@ def test_ospf_yang_authentication_unsupported_leaves_rejected():
     legacy-CLI-only, so mgmtd must reject YANG writes instead of accepting
     config with no daemon-side effect.
     """
+    step("Unsupported RFC authentication choices are rejected by deviation")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2806,10 +2895,11 @@ def test_ospf_yang_authentication_unsupported_leaves_rejected():
         _assert_mgmt_rejected(out, "unsupported authentication leaf {}".format(leaf))
 
 
-def test_ospf_yang_static_neighbor_cost_rejected():
+def test_ospf_yang_negative_static_neighbor_cost():
     """The /static-neighbors/neighbor/cost leaf is marked not-supported
     in the FRR deviations because FRR has no NBMA cost knob.  mgmtd
     must reject writes against it."""
+    step("The /static-neighbors/neighbor/cost leaf is marked not-supported")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2837,6 +2927,7 @@ def test_ospf_yang_static_neighbor_cost_rejected():
 def test_ospf_prefix_suppression_cli_routes_through_yang():
     """Legacy `ip ospf prefix-suppression` / `no ip ospf prefix-suppression`
     on r1-eth1 (no per-address override) drives the YANG callback."""
+    step("Legacy ip ospf prefix-suppression CLI routes through YANG")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2872,6 +2963,7 @@ def test_ospf_max_metric_router_lsa_admin_cli_routes_through_yang():
     round-trip testing of this leaf has no clean entry point.  The
     legacy CLI invokes the same NB_OP_CREATE / NB_OP_DESTROY
     callbacks the YANG path would, so this test covers both."""
+    step("Legacy max-metric router-lsa administrative CLI routes through YANG")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2900,6 +2992,7 @@ def test_ospf_max_metric_router_lsa_admin_cli_routes_through_yang():
 def test_ospf_mpls_ldp_sync_cli_routes_through_yang():
     """Legacy `mpls ldp-sync` / `no mpls ldp-sync` continues to work
     via vtysh and drives the YANG `/mpls/ldp/igp-sync` callback."""
+    step("Legacy `mpls ldp-sync` / `no mpls ldp-sync` continues to work")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2924,6 +3017,7 @@ def test_ospf_max_multipath_cli_routes_through_yang():
     within RFC 9129's 1..32 range route through the YANG
     `/spf-control/paths` callback, the rest stay on the legacy
     direct-mutation path."""
+    step("Legacy maximum-paths CLI keeps working via vtysh")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -2956,6 +3050,7 @@ def test_ospf_max_multipath_cli_routes_through_yang():
 
 def test_ospf_yang_interface_type_and_passive_config():
     """interface-type and passive leaves round-trip via mgmtd."""
+    step("interface-type and passive leaves round-trip via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3037,6 +3132,7 @@ def test_ospf_yang_area_ranges_config():
     verifies `area X range PREFIX not-advertise` rendering. Then clears
     via per-leaf revert and via list-entry destroy.
     """
+    step("areas/area/ranges/range list + advertise/cost leaves via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3111,6 +3207,7 @@ def test_ospf_yang_area_ranges_config():
 
 def test_ospf_yang_area_summary_default_cost_config():
     "Verify areas/area[]/summary and /default-cost round-trip via mgmtd."
+    step("Verify areas/area[]/summary and /default-cost round-trip via mgmtd")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3177,16 +3274,20 @@ def _mgmt_commit_attempt(router, set_cmd):
     )
 
 
-def _assert_mgmt_rejected(output, what):
+def _assert_mgmt_rejected(output, what, expect=None):
     assert (
         "Failed to edit configuration" in output
         or "Couldn't apply changes" in output
         or "Configuration failed" in output
         or "commit failed" in output.lower()
     ), "expected {} rejection, got:\n{}".format(what, output)
+    if expect is not None:
+        assert expect in output, "expected {} rejection to cite {!r}, got:\n{}".format(
+            what, expect, output
+        )
 
 
-def test_ospf_yang_deviated_enabled_leaves_rejected():
+def test_ospf_yang_negative_deviated_enabled_leaves():
     """The FRR deviation module marks OSPF enable switches not-supported.
 
     FRR has no independent protocol-level or per-interface OSPF
@@ -3196,6 +3297,7 @@ def test_ospf_yang_deviated_enabled_leaves_rejected():
     `interface/enabled` leaves must therefore fail instead of being
     accepted into the candidate with no daemon-side effect.
     """
+    step("The FRR deviation module marks OSPF enable switches not-supported")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3262,6 +3364,7 @@ def test_ospf_yang_atomic_instance_create():
     so child callbacks must tolerate the missing daemon instance before APPLY
     and materialise it from the same list entry during APPLY if needed.
     """
+    step("Create an OSPF instance and child config in one YANG commit")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3332,6 +3435,7 @@ def test_ospf_yang_negative_missing_interface():
     exist in config. The branch's resolve_interface helper restores FRR's live
     interface check inside the callback at NB_EV_VALIDATE.
     """
+    step("Reject per-interface YANG config that names a non-existent interface")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3342,10 +3446,11 @@ def test_ospf_yang_negative_missing_interface():
         _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
         + "/interfaces/interface[name='r1-eth42']/cost"
     )
-    _mgmt_commit_attempt(
+    out = _mgmt_commit_attempt(
         r1,
         "mgmt set-config {} 7".format(bogus_v2),
     )
+    _assert_mgmt_rejected(out, "missing interface r1-eth42")
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "r1-eth42" not in running, (
         "interface r1-eth42 must not appear in running-config, got:\n" + running
@@ -3355,10 +3460,11 @@ def test_ospf_yang_negative_missing_interface():
         _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.0")
         + "/interfaces/interface[name='r1-eth42']/cost"
     )
-    _mgmt_commit_attempt(
+    out = _mgmt_commit_attempt(
         r1,
         "mgmt set-config {} 7".format(bogus_v3),
     )
+    _assert_mgmt_rejected(out, "missing interface r1-eth42")
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "r1-eth42" not in running, (
         "interface r1-eth42 must not appear in v3 running-config, got:\n" + running
@@ -3367,41 +3473,51 @@ def test_ospf_yang_negative_missing_interface():
 
 def test_ospf_yang_negative_duplicate_area_interface():
     """Reject a candidate that attaches one interface to two OSPF areas."""
+    step("Reject a candidate that attaches one interface to two OSPF areas")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
     r1 = tgen.gears["r1"]
 
-    other_v2 = (
-        _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.99")
-        + "/interfaces/interface[name='r1-eth1']/cost"
-    )
-    _mgmt_commit_attempt(
+    # r1-eth1's backbone binding is via a `network` statement, which is not
+    # represented in the ietf-ospf areas subtree, so a single YANG area binding
+    # is not a duplicate.  Bind it into two YANG areas in one candidate to
+    # exercise the validate_interface_area_unique guard.
+    dup_a = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.55")
+    dup_b = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.99")
+    out = _mgmt_commit_attempt(
         r1,
-        "mgmt set-config {} 7".format(other_v2),
+        "mgmt set-config {}/interfaces/interface[name='r1-eth1']/cost 7\n".format(dup_a)
+        + "mgmt set-config {}/interfaces/interface[name='r1-eth1']/cost 8".format(
+            dup_b
+        ),
     )
+    _assert_mgmt_rejected(out, "r1-eth1 attached to two OSPFv2 areas")
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "0.0.0.99" not in running, (
-        "r1-eth1 must not attach to a second OSPFv2 area, got:\n" + running
+        "r1-eth1 must not attach to two OSPFv2 areas, got:\n" + running
     )
 
-    other_v3 = (
-        _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.99")
-        + "/interfaces/interface[name='r1-eth1']/cost"
-    )
-    _mgmt_commit_attempt(
+    dup_a = _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.55")
+    dup_b = _yang_area_xpath("ietf-ospf:ospfv3", "0.0.0.99")
+    out = _mgmt_commit_attempt(
         r1,
-        "mgmt set-config {} 7".format(other_v3),
+        "mgmt set-config {}/interfaces/interface[name='r1-eth1']/cost 7\n".format(dup_a)
+        + "mgmt set-config {}/interfaces/interface[name='r1-eth1']/cost 8".format(
+            dup_b
+        ),
     )
+    _assert_mgmt_rejected(out, "r1-eth1 attached to two OSPFv3 areas")
     running = r1.vtysh_cmd("show running-config ospf6d")
     assert "0.0.0.99" not in running, (
-        "r1-eth1 must not attach to a second OSPFv3 area, got:\n" + running
+        "r1-eth1 must not attach to two OSPFv3 areas, got:\n" + running
     )
 
 
 def test_ospf_yang_atomic_area_interface_move():
     """Allow an interface area move staged in a single YANG commit."""
+    step("Allow an interface area move staged in a single YANG commit")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3442,6 +3558,7 @@ def test_ospf_yang_atomic_area_interface_move():
 
 def test_ospf_yang_negative_duplicate_area_interface_new_instance():
     """Reject duplicate area bindings while creating the OSPF instance."""
+    step("Reject duplicate area bindings while creating the OSPF instance")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3507,6 +3624,7 @@ def test_ospf_yang_negative_default_cost_on_normal_area():
     the callback also rejects at VALIDATE as a defence-in-depth measure.
     Area 0 is the backbone (normal); setting default-cost on it must fail.
     """
+    step("Reject default-cost on a non-stub / non-NSSA area")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3514,23 +3632,25 @@ def test_ospf_yang_negative_default_cost_on_normal_area():
     r1 = tgen.gears["r1"]
 
     area_path = _yang_area_xpath("ietf-ospf:ospfv2", "0.0.0.0")
-    _mgmt_commit_attempt(
+    out = _mgmt_commit_attempt(
         r1,
         "mgmt set-config {}/default-cost 99".format(area_path),
     )
+    _assert_mgmt_rejected(out, "default-cost on backbone area")
     running = r1.vtysh_cmd("show running-config ospfd")
     assert "default-cost 99" not in running, (
         "default-cost 99 must not appear on the backbone area, got:\n" + running
     )
 
 
-def test_ospf_yang_negative_backbone_stub_nssa_rejected():
+def test_ospf_yang_negative_backbone_stub_nssa():
     """The backbone area cannot be configured as stub or NSSA.
 
     RFC 2328 and RFC 5340 forbid backbone stub/NSSA areas.  The FRR
     deviation module enforces this at schema validation time so direct
     mgmtd writes see the same contract as the legacy CLI.
     """
+    step("The backbone area cannot be configured as stub or NSSA")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3560,6 +3680,7 @@ def test_ospf_yang_negative_backbone_stub_nssa_rejected():
 
 def test_ospf_yang_area_delete_rejects_legacy_virtual_link():
     """Do not delete a YANG area while legacy virtual links still use it."""
+    step("Do not delete a YANG area while legacy virtual links still use it")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3598,6 +3719,7 @@ def test_ospf_yang_area_delete_rejects_legacy_virtual_link():
 
 def test_ospf_yang_area_delete_rejects_legacy_area_state():
     """Reject area delete when legacy-only area state would keep daemon state."""
+    step("Reject area delete when legacy-only area state would keep daemon state")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3674,7 +3796,7 @@ def test_ospf_yang_area_delete_rejects_legacy_area_state():
             _mgmt_commit_attempt(r3, "mgmt delete-config {}".format(area_path))
 
 
-def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
+def test_ospf_yang_negative_v3_ospfv2_only_leaves():
     """Reject OSPFv3 writes that the daemon cannot support.
 
     RFC 9129 declares non-broadcast and hybrid; ospf6d only supports
@@ -3683,6 +3805,7 @@ def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
     union of ospfd and ospf6d feature sets, so OSPFv2-only feature leaves
     must not be accepted for an OSPFv3 instance.
     """
+    step("Reject OSPFv3 writes that the daemon cannot support")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3801,6 +3924,7 @@ def test_ospf_yang_negative_v3_ospfv2_only_leaves_rejected():
 
 def test_ospf_yang_area_delete_clears_native_nssa_ranges():
     """Deleting a YANG NSSA area must also clear native NSSA range state."""
+    step("Deleting a YANG NSSA area must also clear native NSSA range state")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3840,6 +3964,7 @@ def test_ospf_yang_area_delete_recreate_cleanup():
     and confirms the previous stub / default-cost state is gone. Catches
     regressions where destroy callbacks leave stale per-leaf state.
     """
+    step("Delete then recreate an area; per-leaf state must reset cleanly")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3924,6 +4049,7 @@ def test_ospf_yang_clear_neighbor_rpc():
     neighbors, the other daemon returns silently. We verify the kill by
     waiting for OSPF to renegotiate back to Full.
     """
+    step("RFC 9129 /ietf-ospf:clear-neighbor round-trip on both daemons")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3966,6 +4092,7 @@ def test_ospf_yang_clear_database_rpc():
     originated LSAs, drops all adjacencies, rebuilds. Verify by waiting
     for r1 to come back Full with r2 on both daemons.
     """
+    step("RFC 9129 /ietf-ospf:clear-database round-trip on both daemons")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -3992,6 +4119,7 @@ def test_ospf_yang_rpc_unknown_instance_silent():
     instance and, if not found, return NB_OK. mgmtd surfaces the combined
     success. No error to the caller, no state change on r1.
     """
+    step("RPC against an instance name no daemon owns must return silently")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -4022,6 +4150,10 @@ def test_ospf_yang_clear_neighbor_rpc_unknown_interface():
     the OSPFv2 area, so ospfd's lookup returns NULL and the handler returns
     NB_ERR_NOT_FOUND with the RFC-mandated app-tag.
     """
+    step(
+        "clear-neighbor for an interface not in the OSPF instance returns "
+        "ospf-interface-not-found"
+    )
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -4038,8 +4170,8 @@ def test_ospf_yang_clear_neighbor_rpc_unknown_interface():
         '{"routing-protocol-name":"default","interface":"lo"}}'
     )
     assert (
-        "ospf-interface-not-found" in out.lower() or "error" in out.lower()
-    ), "expected error for unknown interface, got:\n{}".format(out)
+        "ospf-interface-not-found" in out.lower()
+    ), "expected ospf-interface-not-found app-tag, got:\n{}".format(out)
 
     # The clear-database RPC above flushed and re-originated r1's LSAs.
     # Adjacencies come back Full quickly but the rest of the area takes
@@ -4083,6 +4215,7 @@ def test_ospf_yang_nbr_state_change_notification():
     a neighbour reset via the existing clear-neighbor RPC, and grep for
     the markers.
     """
+    step("RFC 9129 /ietf-ospf:nbr-state-change emitted on both daemons")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -4145,6 +4278,7 @@ def test_ospf_yang_if_state_change_notification():
     Toggle r1-eth1 down/up to force an ISM transition on both ospfd and
     ospf6d, then verify both daemon logs show the notification marker.
     """
+    step("RFC 9129 /ietf-ospf:if-state-change emitted on both daemons")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -4201,6 +4335,7 @@ def test_ospf_yang_if_config_error_notification():
     hello interval on the shared segment so r1 rejects the packet and emits
     if-config-error, then restore the interval and reconverge the topology.
     """
+    step("RFC 9129 /ietf-ospf:if-config-error emitted on Hello mismatch")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -4294,6 +4429,7 @@ def test_ospf_yang_nbr_state_change_lifecycle_down_notification():
     presence of an OSPF-NOTIF entry mentioning "Deleted" proves the fold
     is wired up.
     """
+    step("RFC 9129 /ietf-ospf:nbr-state-change fires on tear-down too")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -4345,6 +4481,7 @@ def test_ospf6_yang_nbr_state_change_admin_down_notification():
     delete; this test admin-shuts r1-eth1 and asserts the resulting v3
     nbr-state-change notification reaches the log.
     """
+    step("RFC 9129 /ietf-ospf:nbr-state-change fires on v3 admin-down tear-down")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")

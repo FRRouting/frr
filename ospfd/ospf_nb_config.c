@@ -109,6 +109,8 @@ int ospfd_ietf_routing_control_plane_protocol_destroy(struct nb_cb_destroy_args 
 		return NB_OK;
 
 	ospf = nb_running_unset_entry(args->dnode);
+	if (!ospf)
+		return NB_OK;
 
 	if (ospf->gr_info.restart_support)
 		ospf_gr_nvm_delete(ospf);

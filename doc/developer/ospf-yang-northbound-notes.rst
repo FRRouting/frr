@@ -134,11 +134,13 @@ dispatches to both daemons so mgmtd can merge the OSPFv2 and OSPFv3 entries.
 Predicate values are compared through the key schema where possible, so
 identityref values are matched by identity rather than by their rendered text.
 This keeps shared IETF lists usable for current OSPF and future protocol
-families without special-casing OSPF in mgmtd. The matcher is deliberately
-tree-free: the same selection code is used for configuration, operational
-state, notifications and RPC dispatch, and the latter three do not have a
-candidate data tree at selection time. Config callbacks still validate against
-the candidate tree once mgmtd has selected the owning backends.
+families without special-casing OSPF in mgmtd. Configuration dispatch first
+uses the same structural prefix walk as other backend maps; when a predicated
+registration has already matched, mgmtd refines that match against the changed
+candidate data node with libyang so identityrefs and other typed key values
+are compared in schema form. Operational state, notification and RPC dispatch
+remain tree-free because those paths do not have candidate data at backend
+selection time.
 
 Configuration write support is intentionally limited to CLI-equivalent RFC
 9129 leaves. The converted leaves are router-id, preference, spf-control paths,
@@ -166,21 +168,63 @@ mutating daemon state.
 Configuration rendering boundary
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The management boundary and the CLI rendering boundary are deliberately
-separate in this stage.  The supported RFC 9129 nodes are committed through the
-schema and northbound callbacks above.  ``write terminal`` and saved
-configuration output still use the existing OSPF and OSPFv3 configuration
-writers because those writers also render native FRR behaviour that is outside
-RFC 9129, including redistribution, virtual links and other FRR-specific
-commands.
+The design rule is that the IETF OSPF model is the management contract, backed
+by native FRR code.  The supported RFC 9129 nodes are committed through the
+schema and northbound callbacks above, and those callbacks update the same FRR
+objects and helper paths used by the legacy CLI.  Router and area configuration
+whose CLI context is already the OSPF router node renders from the datastore
+through ``cli_show``: router ID, distance, maximum paths, auto-cost, graceful
+restart, stub area type and summary, OSPFv2 default-cost and normal area
+ranges.  The daemon-local renderers are used when ``ospfd`` or ``ospf6d`` print
+their own running configuration.  ``mgmtd`` registers a unified renderer for
+the same safe subset and chooses the OSPFv2 or OSPFv3 CLI spelling from the
+``control-plane-protocol`` ``type`` key.
 
-A future ``cli_show`` migration should therefore be a complete CLI rendering
-slice, not a per-leaf clean-up.  The right FRR shape is the RIP, RIPng and
-staticd mgmtd CLI-info pattern: add CLI display callbacks for the supported
-YANG nodes, wire them into mgmtd's rendering path, and keep or replace native
-writers only where the same output is still covered.  A partial migration
-would risk duplicate output for converted leaves or lost output for native-only
-configuration.
+Per-interface OSPF configuration follows the same IETF-to-native rule.  RFC
+9129 places interface configuration below the protocol instance, while the FRR
+CLI renders it below ``interface X``.  A ``cli_show`` callback emits output at
+the current datastore tree position, so a callback on the RFC interface node
+would render interface commands inside ``router ospf``.  The RFC interface
+subtree remains the management surface, the RFC callbacks update the native
+interface structures, and the existing native ``config_write_interface`` path
+renders those structures as interface commands.  This covers interface cost,
+timers, priority, MTU ignore, transmit delay, interface type, passive mode,
+prefix suppression, BFD and key-chain authentication.  Committed interface
+configuration has one native apply path and running-config keeps FRR's
+established ``interface X`` form.
+
+OSPFv2 static neighbours are the same IETF-to-native pattern with a different
+native owner.  RFC 9129 keys them below an area/interface, while FRR stores
+NBMA neighbours per OSPF instance and renders them as ``neighbor`` commands in
+``router ospf`` context.  The callbacks validate the RFC placement and duplicate
+rules, then apply through the native ``ospf_nbr_nbma_*`` helpers.
+
+OSPFv2 MPLS-TE router ID is also IETF-backed native state.  The RFC
+``mpls/te-rid/ipv4-router-id`` leaf maps to FRR's native MPLS-TE router-address
+state, but running-config rendering stays with the native MPLS-TE writer because
+the surrounding ``mpls-te on``, ``mpls-te inter-as`` and ``mpls-te export``
+commands remain FRR-native.
+
+The existing OSPF and OSPFv3 configuration writers also render native FRR
+behaviour outside RFC 9129, including redistribution, virtual links, NSSA
+extensions, OSPFv2 substitute ranges and other FRR-specific commands.  A future
+``frr-interface`` augment, following the isisd pattern, could add a native FRR
+management surface for interface OSPF configuration and make those interface
+commands datastore-renderable through ``cli_show``.  The direct RFC 9129 surface
+would still be backed by the same native objects and helper code.  The mgmtd
+renderer should remain unified for shared ``ietf-ospf`` nodes rather than
+growing separate ``ospfd`` and ``ospf6d`` callback tables.
+
+A consequence for testing during this stage: configuration entered through the
+legacy daemon CLI is held in the daemon-local northbound datastore, not in
+mgmtd, so ``show mgmt get-data ... datastore running`` returns nothing for it.
+The ``*_cli_routes_through_yang`` tests therefore confirm the legacy path via the
+daemon running-config render and operational state, not by reading the value
+back through mgmtd.  These checks confirm the legacy command applies and
+renders, but do not by themselves distinguish a northbound-routed edit from a
+direct CLI write.  A future mgmtd-owned rendering migration can make the
+read-back check authoritative for legacy-CLI edits once those edits land in the
+mgmtd datastore.
 
 The daemons advertise only the RFC 9129 features used by the converted
 surface.  ``ospfd`` enables ``auto-cost``, ``bfd``, ``explicit-router-id``,
@@ -289,8 +333,8 @@ Like RIP, OSPF anchors the daemon instance on the running list entry with
 ``nb_running_set_entry()`` and child callbacks fetch it with
 ``nb_running_get_entry()``.  Unlike RIP, OSPF does not anchor area objects:
 legacy-compatible cleanup can free an empty area while the RFC 9129 area list
-node remains present, so area callbacks re-resolve by protocol name and area ID
-instead of storing a pointer that could outlive the daemon object.
+node remains present, so area callbacks re-resolve the area by area ID instead
+of storing an area pointer that could outlive the daemon object.
 
 .. warning::
 
@@ -506,7 +550,7 @@ The current config-write mapping is:
 | ``ospf/auto-cost/enabled``    | no-op on modify=true;       | no-op on modify=true;       | FRR has no off-switch for   |
 |                               | NB_EV_VALIDATE rejects      | NB_EV_VALIDATE rejects      | auto-cost.  Deviations file |
 |                               | modify=false; destroy       | modify=false; destroy       | pins default to ``true`` so |
-|                               | no-ops                      | no-ops                      |                             |
+|                               | absent                      | absent                      |                             |
 |                               |                             |                             | the ``when`` clause on      |
 |                               |                             |                             | ``reference-bandwidth`` is  |
 |                               |                             |                             | always satisfied.           |
@@ -567,8 +611,8 @@ The current config-write mapping is:
 |                               |                             |                             | The deviation module        |
 |                               |                             |                             | advertises the true default.|
 +-------------------------------+-----------------------------+-----------------------------+-----------------------------+
-| ``ospf/stub-router/always``   | ``OSPF_AREA_ADMIN_STUB_``   | Not implemented: ospf6d     | Presence container          |
-|                               | ``ROUTED`` per area +       | has no stub-router          | (create / destroy           |
+| ``ospf/stub-router/``         | ``OSPF_AREA_ADMIN_STUB_``   | Not implemented: ospf6d     | Presence container          |
+| ``always``                    | ``ROUTED`` per area +       | has no stub-router          | (create / destroy           |
 |                               | ``ospf->stub_router_admin`` | implementation              | callbacks).  RFC 6987       |
 |                               | ``_set``; destroy preserves |                             | unconditional stub router;  |
 |                               | in-flight startup-timer     |                             | per-area LSA reorigination  |

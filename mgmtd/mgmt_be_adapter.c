@@ -349,8 +349,8 @@ static bool mgmt_be_xpath_values_match(const struct lysc_node *key_snode, const 
 	match = strcmp(map_canon, xpath_canon) == 0;
 
 out:
-	free((void *)map_canon);
-	free((void *)xpath_canon);
+	lydict_remove(ly_native_ctx, map_canon);
+	lydict_remove(ly_native_ctx, xpath_canon);
 	return match;
 }
 
@@ -518,12 +518,13 @@ static bool mgmt_be_xpath_segment_predicates_compatible(const char *map_segment,
  * queries still dispatch to every matching backend so the frontend can merge
  * their entries.
  *
- * Keep this matcher tree-free. It is shared by configuration, operational,
- * notification and RPC dispatch, and the last three paths have no candidate data
- * tree at backend-selection time. Per-daemon callbacks perform data-tree
- * validation after mgmtd has selected the backend set.
+ * For configuration changes, mgmtd also has the changed data node available.
+ * The prefix walk is then only a structural pre-filter and a libyang lookup
+ * against the candidate tree refines predicated registrations. Operational,
+ * notification and RPC dispatch remain tree-free because those paths do not
+ * have candidate data at backend-selection time.
  */
-static bool mgmt_be_xpath_prefix(const char *map_path, const char *xpath)
+static bool mgmt_be_xpath_prefix(const char *map_path, const char *xpath, bool check_predicates)
 {
 	const char *map = map_path;
 	const char *path = xpath;
@@ -575,10 +576,12 @@ static bool mgmt_be_xpath_prefix(const char *map_path, const char *xpath)
 		if (!mgmt_be_xpath_append_segment(schema_path, sizeof(schema_path), map,
 						  map_name_len))
 			return false;
-		if (memchr(map + map_name_len, '[', map_end - map_name_len - map))
+		if (check_predicates &&
+		    memchr(map + map_name_len, '[', map_end - map_name_len - map))
 			snode = lys_find_path(ly_native_ctx, NULL, schema_path, 0);
 
-		if (!mgmt_be_xpath_segment_predicates_compatible(map, map_end, path, path_end,
+		if (check_predicates &&
+		    !mgmt_be_xpath_segment_predicates_compatible(map, map_end, path, path_end,
 								 snode))
 			return false;
 
@@ -589,11 +592,76 @@ static bool mgmt_be_xpath_prefix(const char *map_path, const char *xpath)
 	return true;
 }
 
+static const struct lyd_node *mgmt_be_xpath_root_dnode(const struct lyd_node *dnode)
+{
+	while (lyd_parent(dnode))
+		dnode = lyd_parent(dnode);
+
+	return lyd_first_sibling(dnode);
+}
+
+static bool mgmt_be_xpath_dnode_contains(const struct lyd_node *ancestor,
+					 const struct lyd_node *dnode)
+{
+	for (; dnode; dnode = lyd_parent(dnode))
+		if (dnode == ancestor)
+			return true;
+
+	return false;
+}
+
+static bool mgmt_be_xpath_dnodes_overlap(const struct lyd_node *a, const struct lyd_node *b)
+{
+	return mgmt_be_xpath_dnode_contains(a, b) || mgmt_be_xpath_dnode_contains(b, a);
+}
+
+static LY_ERR mgmt_be_lyd_find_xpath3(const struct lyd_node *tree, const char *xpath,
+				      struct ly_set **set)
+{
+#if (LY_VERSION_MAJOR < 3)
+	return lyd_find_xpath3(NULL, tree, xpath, NULL, set);
+#else
+	return lyd_find_xpath3(NULL, tree, xpath, LY_VALUE_JSON, NULL, NULL, set);
+#endif
+}
+
+static bool mgmt_be_xpath_cfg_dnode_matches(const char *map_path, const struct lyd_node *dnode)
+{
+	const struct lyd_node *root;
+	struct ly_set *set = NULL;
+	LY_ERR err;
+	uint32_t i;
+	bool match = false;
+
+	if (!dnode || !strchr(map_path, '['))
+		return true;
+
+	root = mgmt_be_xpath_root_dnode(dnode);
+	err = mgmt_be_lyd_find_xpath3(root, map_path, &set);
+	if (err) {
+		_log_warn("failed to evaluate backend xpath '%s': %s", map_path, ly_last_errmsg());
+		ly_set_free(set, NULL);
+		return true;
+	}
+	if (!set)
+		return false;
+
+	for (i = 0; i < set->count; i++) {
+		if (set->dnodes[i] && mgmt_be_xpath_dnodes_overlap(set->dnodes[i], dnode)) {
+			match = true;
+			break;
+		}
+	}
+
+	ly_set_free(set, NULL);
+	return match;
+}
+
 /*
  * Get the mask of clients interested in an xpath.
  */
 uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr_type type,
-				    const char *dbg_user)
+				    const char *dbg_user, const struct lyd_node *dnode)
 {
 	struct mgmt_be_xpath_map *maps = NULL, *map;
 	uint64_t clients = 0;
@@ -617,11 +685,17 @@ uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr
 	/* wild_root will select all clients that advertise op-state */
 	wild_root = !strcmp(xpath, "/") || !strcmp(xpath, "/*");
 	darr_foreach_p (maps, map) {
-		if (wild_root || mgmt_be_xpath_prefix(map->xpath_prefix, xpath)) {
-			_dbg_nf("%s: xpath: '%s' matched map-prefix: '%s' clients: %pMBM",
-				dbg_user, xpath, map->xpath_prefix, &map->clients);
-			clients |= map->clients;
-		}
+		bool refine_cfg = type == MGMT_BE_XPATH_SUBSCR_TYPE_CFG && dnode;
+
+		if (!wild_root && !mgmt_be_xpath_prefix(map->xpath_prefix, xpath, !refine_cfg))
+			continue;
+		if (!wild_root && refine_cfg &&
+		    !mgmt_be_xpath_cfg_dnode_matches(map->xpath_prefix, dnode))
+			continue;
+
+		_dbg_nf("%s: xpath: '%s' matched map-prefix: '%s' clients: %pMBM", dbg_user, xpath,
+			map->xpath_prefix, &map->clients);
+		clients |= map->clients;
 	}
 
 	if (clients)
@@ -644,7 +718,7 @@ bool mgmt_is_mgmtd_interested(const char *xpath)
 	const char *const *ematch = match + array_size(mgmtd_config_xpaths);
 
 	for (; match < ematch; match++) {
-		if (mgmt_be_xpath_prefix(*match, xpath)) {
+		if (mgmt_be_xpath_prefix(*match, xpath, true)) {
 			_dbg("mgmtd: subscribed to %s", xpath);
 			return true;
 		}
@@ -665,7 +739,7 @@ static bool be_client_wants_cfg(const char *xpath, mgmt_be_client_id_t id)
 
 	darr_foreach_p (be_cfg_xpath_map, map) {
 		if (IS_IDBIT_SET(map->clients, id) &&
-		    mgmt_be_xpath_prefix(map->xpath_prefix, xpath)) {
+		    mgmt_be_xpath_prefix(map->xpath_prefix, xpath, true)) {
 			_dbg_nf("init-config: %pMBI: WANTS: %s", &id, xpath);
 			return true;
 		}
@@ -1059,10 +1133,10 @@ void mgmt_be_adapter_show_xpath_registries(struct vty *vty, const char *xpath)
 	struct mgmt_be_client_adapter *adapter;
 	uint64_t cclients, nclients, oclients, rclients, combined;
 
-	cclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG, "SHOW");
-	oclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER, "SHOW");
-	nclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF, "SHOW");
-	rclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_RPC, "SHOW");
+	cclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG, "SHOW", NULL);
+	oclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER, "SHOW", NULL);
+	nclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF, "SHOW", NULL);
+	rclients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_RPC, "SHOW", NULL);
 	combined = cclients | nclients | oclients | rclients;
 
 	vty_out(vty, "XPath: '%s'\n", xpath);

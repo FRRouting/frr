@@ -142,7 +142,7 @@ static uint64_t ns_string_remove_session(uintptr_t session_id)
 			_dbg("do not notify session-id: %lu on %s", (unsigned long)session_id,
 			     ns->s);
 			clients |= mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
-							      "add-notify-select");
+							      "add-notify-select", NULL);
 			ns_string_del(head, ns);
 			ns_string_free(ns);
 		}
@@ -173,7 +173,7 @@ static uint64_t ns_string_add_string(const char *path, size_t plen, uintptr_t se
 
 	_dbg("notify session-id: %lu on %s", (unsigned long)session_id, ns->s);
 	clients = mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
-					     "add-notify-select");
+					     "add-notify-select", NULL);
 	*all_matched |= clients;
 
 	e = ns_string_add(head, ns);
@@ -256,7 +256,7 @@ static uint64_t fe_session_notify_clients(struct mgmt_fe_session_ctx *session)
 	/* Resolve BE adapters that can serve the session's selector set. */
 	darr_foreach_p (session->periodic_xpaths, sp)
 		clients |= mgmt_be_interested_clients(*sp, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
-						      "periodic-notify-timer");
+						      "periodic-notify-timer", NULL);
 
 	return clients;
 }
@@ -1135,7 +1135,7 @@ static void fe_session_handle_get_data(struct mgmt_fe_session_ctx *session, void
 
 	if (in_oper)
 		clients = mgmt_be_interested_clients(msg->xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
-						     "GET-DATA");
+						     "GET-DATA", NULL);
 
 	if (!clients && !ylib && !CHECK_FLAG(msg->flags, GET_DATA_FLAG_CONFIG)) {
 		_dbg("No backends provide xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
@@ -1589,7 +1589,7 @@ static void fe_session_handle_rpc(struct mgmt_fe_session_ctx *session, void *_ms
 		return;
 	}
 
-	clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_RPC, "RPC");
+	clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_RPC, "RPC", NULL);
 	if (!clients) {
 		_dbg("No backends implement xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
 		     xpath, session->txn_id, session->session_id);

@@ -3215,13 +3215,17 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 	return 0;
 }
 
-/* Configuration write function for ospfd. */
+/* Configuration write function for OSPFv3 interface commands. */
 static int config_write_interface(struct vty *vty)
 {
 	int write = 0;
 	struct vrf *vrf = NULL;
 
-	/* Display all VRF aware OSPF interface configuration */
+	/*
+	 * RFC 9129 interface config is managed under the protocol instance, but
+	 * FRR renders these commands in interface context.  The YANG callbacks
+	 * update the native interface params and this writer renders them.
+	 */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		write += config_write_ospf6_interface(vty, vrf);
 	}

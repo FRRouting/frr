@@ -465,7 +465,7 @@ def test_gr_rt7():
         pytest.skip(tgen.errors)
 
     tgen.net["rt7"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
-    expect_grace_lsa(restarting="6.6.6.6", helper="rt6")
+    expect_grace_lsa(restarting="7.7.7.7", helper="rt6")
     ensure_gr_is_in_zebra("rt7")
     kill_router_daemons(tgen, "rt7", ["ospf6d"], save_config=False)
     check_routers(exiting="rt7")
@@ -607,7 +607,7 @@ def test_unplanned_gr_rt7():
     kill_router_daemons(tgen, "rt7", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt7", ["ospf6d"])
 
-    expect_grace_lsa(restarting="6.6.6.6", helper="rt6")
+    expect_grace_lsa(restarting="7.7.7.7", helper="rt6")
     ensure_gr_is_in_zebra("rt7")
     check_routers(restarting="rt7")
 

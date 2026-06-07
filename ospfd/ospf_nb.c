@@ -137,8 +137,15 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/explicit-router-id",
 			.cbs = {
+				.cli_show = ospfd_ietf_ospf_explicit_router_id_cli_show,
 				.modify = ospfd_ietf_ospf_explicit_router_id_modify,
 				.destroy = ospfd_ietf_ospf_explicit_router_id_destroy,
+			},
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/preference",
+			.cbs = {
+				.cli_show = ospfd_ietf_ospf_preference_cli_show,
 			},
 		},
 		{
@@ -179,6 +186,7 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/spf-control/paths",
 			.cbs = {
+				.cli_show = ospfd_ietf_ospf_spf_control_paths_cli_show,
 				.modify = ospfd_ietf_ospf_spf_control_paths_modify,
 				.destroy = ospfd_ietf_ospf_spf_control_paths_destroy,
 			},
@@ -186,6 +194,7 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/mpls/ldp/igp-sync",
 			.cbs = {
+				.cli_show = ospfd_ietf_ospf_mpls_ldp_igp_sync_cli_show,
 				.modify = ospfd_ietf_ospf_mpls_ldp_igp_sync_modify,
 				.destroy = ospfd_ietf_ospf_mpls_ldp_igp_sync_destroy,
 			},
@@ -193,6 +202,7 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/stub-router/always",
 			.cbs = {
+				.cli_show = ospfd_ietf_ospf_stub_router_always_cli_show,
 				.create = ospfd_ietf_ospf_stub_router_always_create,
 				.destroy = ospfd_ietf_ospf_stub_router_always_destroy,
 			},
@@ -206,6 +216,7 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 		{
 			.xpath = OSPFD_IETF_OSPF_XPATH "/auto-cost/reference-bandwidth",
 			.cbs = {
+				.cli_show = ospfd_ietf_ospf_auto_cost_reference_bandwidth_cli_show,
 				.modify = ospfd_ietf_ospf_auto_cost_reference_bandwidth_modify,
 				.destroy = ospfd_ietf_ospf_auto_cost_reference_bandwidth_destroy,
 			},
@@ -215,6 +226,12 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cbs = {
 				.modify = ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_modify,
 				.destroy = ospfd_ietf_ospf_mpls_te_rid_ipv4_router_id_destroy,
+			},
+		},
+		{
+			.xpath = OSPFD_IETF_OSPF_XPATH "/graceful-restart",
+			.cbs = {
+				.cli_show = ospfd_ietf_ospf_graceful_restart_cli_show,
 			},
 		},
 		{
@@ -273,6 +290,8 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.xpath = OSPFD_IETF_OSPF_XPATH "/areas/area/area-type",
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_type_modify,
+				.cli_show =
+					ospfd_ietf_ospf_areas_area_area_type_cli_show,
 			},
 		},
 		{
@@ -287,6 +306,8 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cbs = {
 				.modify = ospfd_ietf_ospf_areas_area_default_cost_modify,
 				.destroy = ospfd_ietf_ospf_areas_area_default_cost_destroy,
+				.cli_show =
+					ospfd_ietf_ospf_areas_area_default_cost_cli_show,
 			},
 		},
 		{
@@ -487,6 +508,8 @@ const struct frr_yang_module_info ospfd_ietf_ospf_info = {
 			.cbs = {
 				.create = ospfd_ietf_ospf_areas_area_ranges_range_create,
 				.destroy = ospfd_ietf_ospf_areas_area_ranges_range_destroy,
+				.cli_show =
+					ospfd_ietf_ospf_areas_area_ranges_range_cli_show,
 			},
 		},
 		{
