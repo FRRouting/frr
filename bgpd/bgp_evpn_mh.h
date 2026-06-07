@@ -216,7 +216,7 @@ struct bgp_evpn_es_evi {
 	struct bgp_evpn_es *es;
 	/* Only applicableif EVI_LOCAL */
 	struct bgp_evpn_es_frag *es_frag;
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 
 	/* ES-EVI flags */
 	uint32_t flags;
@@ -401,10 +401,10 @@ extern int bgp_evpn_es_route_install_uninstall(struct bgp *bgp,
 		struct bgp_evpn_es *es, afi_t afi, safi_t safi,
 		struct prefix_evpn *evp, struct bgp_path_info *pi,
 		int install);
-extern void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn);
-extern int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn);
+extern void update_type1_routes_for_evi(struct bgp *bgp, struct bgp_evpn_evi *vpn);
+extern int delete_global_ead_evi_routes(struct bgp *bgp, struct bgp_evpn_evi *vpn);
 extern int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
-				    struct bgpevpn *vpn, afi_t afi, safi_t safi,
+				    struct bgp_evpn_evi *vpn, afi_t afi, safi_t safi,
 				    struct bgp_dest *dest, struct attr *attr,
 				    struct bgp_path_info **ri,
 				    int *route_changed);
@@ -420,18 +420,18 @@ extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern enum zclient_send_status
-bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
+bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 			   const struct prefix_evpn *p,
 			   struct bgp_path_info *pi);
 extern enum zclient_send_status
-bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
+bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 			   const struct prefix_evpn *p,
 			   struct bgp_path_info *pi);
 extern void bgp_evpn_mh_init(void);
 extern void bgp_evpn_mh_finish(void);
 extern void bgp_evpn_es_cleanup_routes(struct bgp *bgp);
-void bgp_evpn_vni_es_init(struct bgpevpn *vpn);
-void bgp_evpn_vni_es_cleanup(struct bgpevpn *vpn);
+void bgp_evpn_vni_es_init(struct bgp_evpn_evi *vpn);
+void bgp_evpn_vni_es_cleanup(struct bgp_evpn_evi *vpn);
 void bgp_evpn_es_show_esi(struct vty *vty, esi_t *esi, bool uj);
 void bgp_evpn_es_show(struct vty *vty, bool uj, bool detail);
 void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,

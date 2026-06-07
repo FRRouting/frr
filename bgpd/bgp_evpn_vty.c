@@ -177,7 +177,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 	struct ecommunity_as eas;
 	struct ecommunity_ip eip;
 	struct listnode *node, *nnode;
-	struct bgpevpn *tmp_vpn;
+	struct bgp_evpn_evi *tmp_vpn;
 	json_object *json_rt = NULL;
 	json_object *json_vnis = NULL;
 	char rt_buf[RT_ADDRSTRLEN];
@@ -478,7 +478,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		json_object_object_add(json, "exportRts", json_export_rtl);
 }
 
-static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
+static void display_vni(struct vty *vty, struct bgp_evpn_evi *vpn, json_object *json)
 {
 	char *ecom_str;
 	struct listnode *node, *nnode;
@@ -803,7 +803,7 @@ static void bgp_evpn_show_routes_mac_ip_global_es(struct vty *vty, esi_t *esi,
 	bgp_evpn_show_routes_mac_ip_es(vty, esi, json, detail, true);
 }
 
-static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn,
+static void show_vni_routes(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 			    struct vty *vty, int type, bool mac_table,
 			    struct ipaddr *vtep_ip, json_object *json,
 			    int detail)
@@ -948,7 +948,7 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn,
 
 static void show_vni_routes_hash(struct hash_bucket *bucket, void *arg)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	struct bgp_evpn_evi *vpn = (struct bgp_evpn_evi *)bucket->data;
 	struct vni_walk_ctx *wctx = arg;
 	struct vty *vty = wctx->vty;
 	json_object *json = wctx->json;
@@ -972,7 +972,7 @@ static void show_vni_routes_hash(struct hash_bucket *bucket, void *arg)
 
 static void show_vni_routes_all_hash(struct hash_bucket *bucket, void *arg)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	struct bgp_evpn_evi *vpn = (struct bgp_evpn_evi *)bucket->data;
 	struct vni_walk_ctx *wctx = arg;
 	struct vty *vty = wctx->vty;
 	json_object *json = wctx->json;
@@ -1150,7 +1150,7 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 	json_object *json_vni = NULL;
 	json_object *json_import_rtl = NULL;
 	json_object *json_export_rtl = NULL;
-	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	struct bgp_evpn_evi *vpn = (struct bgp_evpn_evi *)bucket->data;
 	char buf1[10];
 	char rt_buf[25];
 	char *ecom_str;
@@ -2176,12 +2176,12 @@ DEFUN(no_evpnrt5_network,
 			      argv[idx_gwip]->arg, argv[idx_ethtag]->arg, NULL);
 }
 
-static void evpn_import_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)
+static void evpn_import_rt_delete_auto(struct bgp *bgp, struct bgp_evpn_evi *vpn)
 {
 	evpn_rt_delete_auto(bgp, vpn->vni, vpn->import_rtl, false);
 }
 
-static void evpn_export_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)
+static void evpn_export_rt_delete_auto(struct bgp *bgp, struct bgp_evpn_evi *vpn)
 {
 	evpn_rt_delete_auto(bgp, vpn->vni, vpn->export_rtl, false);
 }
@@ -2190,7 +2190,7 @@ static void evpn_export_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)
  * Configure the Import RTs for a VNI (vty handler). Caller expected to
  * check that this is a change.
  */
-static void evpn_configure_import_rt(struct bgp *bgp, struct bgpevpn *vpn,
+static void evpn_configure_import_rt(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 				     struct ecommunity *ecomadd)
 {
 	/* If the VNI is "live", we need to uninstall routes using the current
@@ -2220,7 +2220,7 @@ static void evpn_configure_import_rt(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Unconfigure Import RT(s) for a VNI (vty handler).
  */
-static void evpn_unconfigure_import_rt(struct bgp *bgp, struct bgpevpn *vpn,
+static void evpn_unconfigure_import_rt(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 				       struct ecommunity *ecomdel)
 {
 	struct listnode *node, *nnode, *node_to_del;
@@ -2280,7 +2280,7 @@ static void evpn_unconfigure_import_rt(struct bgp *bgp, struct bgpevpn *vpn,
  * allowed for a VNI and any change to configuration is implemented as
  * a "replace" (similar to other configuration).
  */
-static void evpn_configure_export_rt(struct bgp *bgp, struct bgpevpn *vpn,
+static void evpn_configure_export_rt(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 				     struct ecommunity *ecomadd)
 {
 	/* If the auto route-target is in use we must remove it */
@@ -2296,7 +2296,7 @@ static void evpn_configure_export_rt(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Unconfigure the Export RT for a VNI (vty handler)
  */
-static void evpn_unconfigure_export_rt(struct bgp *bgp, struct bgpevpn *vpn,
+static void evpn_unconfigure_export_rt(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 				       struct ecommunity *ecomdel)
 {
 	struct listnode *node, *nnode, *node_to_del;
@@ -2386,7 +2386,7 @@ static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 /*
  * Configure RD for a VNI (vty handler)
  */
-static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
+static void evpn_configure_rd(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 			      struct prefix_rd *rd, const char *rd_pretty)
 {
 	/* If the VNI is "live", we need to delete and withdraw this VNI's
@@ -2410,7 +2410,7 @@ static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Unconfigure RD for a VNI (vty handler)
  */
-static void evpn_unconfigure_rd(struct bgp *bgp, struct bgpevpn *vpn)
+static void evpn_unconfigure_rd(struct bgp *bgp, struct bgp_evpn_evi *vpn)
 {
 	/* If the VNI is "live", we need to delete and withdraw this VNI's
 	 * local routes with the prior RD first. Then, after resetting RD
@@ -2429,9 +2429,9 @@ static void evpn_unconfigure_rd(struct bgp *bgp, struct bgpevpn *vpn)
 /*
  * Create VNI, if not already present (VTY handler). Mark as configured.
  */
-static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
+static struct bgp_evpn_evi *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 {
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 	struct in_addr mcast_grp = {INADDR_ANY};
 	struct ipaddr orignator_ip = {};
 
@@ -2466,7 +2466,7 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
  * appropriate action) and the VNI marked as unconfigured; the
  * VNI will continue to exist, purely as a "learnt" entity.
  */
-static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
+static void evpn_delete_vni(struct bgp *bgp, struct bgp_evpn_evi *vpn)
 {
 	if (!is_vni_live(vpn)) {
 		bgp_evpn_free(bgp, vpn);
@@ -2602,7 +2602,7 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 					  vni_t vni, struct ipaddr *orig_ip,
 					  json_object *json)
 {
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 	struct prefix_evpn p;
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
@@ -2678,7 +2678,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 				      vni_t vni, struct ethaddr *mac,
 				      struct ipaddr *ip, json_object *json)
 {
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 	struct prefix_evpn p;
 	struct prefix_evpn tmp_p;
 	struct bgp_dest *dest;
@@ -2824,7 +2824,7 @@ static void evpn_show_routes_vni(struct vty *vty, struct bgp *bgp, vni_t vni,
 				 int type, bool mac_table,
 				 const union sockunion *_vtep_ip, json_object *json)
 {
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 	struct ipaddr vtep_ip;
 
 	/* Locate VNI. */
@@ -3600,7 +3600,7 @@ static void evpn_show_vni(struct vty *vty, struct bgp *bgp, vni_t vni,
 			  json_object *json)
 {
 	uint8_t found = 0;
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (vpn) {
@@ -3657,7 +3657,7 @@ static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp,
 /*
  * evpn - enable advertisement of svi MAC-IP
  */
-static void evpn_set_advertise_svi_macip(struct bgp *bgp, struct bgpevpn *vpn,
+static void evpn_set_advertise_svi_macip(struct bgp *bgp, struct bgp_evpn_evi *vpn,
 					 uint32_t set)
 {
 	if (!vpn) {
@@ -3684,7 +3684,7 @@ static void evpn_set_advertise_svi_macip(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * evpn - enable advertisement of default g/w
  */
-static void evpn_set_advertise_default_gw(struct bgp *bgp, struct bgpevpn *vpn)
+static void evpn_set_advertise_default_gw(struct bgp *bgp, struct bgp_evpn_evi *vpn)
 {
 	if (!vpn) {
 		if (bgp->advertise_gw_macip)
@@ -3707,7 +3707,7 @@ static void evpn_set_advertise_default_gw(struct bgp *bgp, struct bgpevpn *vpn)
  * evpn - disable advertisement of default g/w
  */
 static void evpn_unset_advertise_default_gw(struct bgp *bgp,
-					    struct bgpevpn *vpn)
+					    struct bgp_evpn_evi *vpn)
 {
 	if (!vpn) {
 		if (!bgp->advertise_gw_macip)
@@ -3765,7 +3765,7 @@ static void evpn_process_default_originate_cmd(struct bgp *bgp_vrf,
  * evpn - enable advertisement of default g/w
  */
 static void evpn_set_advertise_subnet(struct bgp *bgp,
-				      struct bgpevpn *vpn)
+				      struct bgp_evpn_evi *vpn)
 {
 	if (vpn->advertise_subnet)
 		return;
@@ -3777,7 +3777,7 @@ static void evpn_set_advertise_subnet(struct bgp *bgp,
 /*
  * evpn - disable advertisement of default g/w
  */
-static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
+static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgp_evpn_evi *vpn)
 {
 	if (!vpn->advertise_subnet)
 		return;
@@ -3848,7 +3848,7 @@ static void evpn_unset_advertise_autort_rfc8365(struct bgp *bgp)
 	bgp_evpn_handle_autort_change(bgp);
 }
 
-static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
+static void write_vni_config(struct vty *vty, struct bgp_evpn_evi *vpn)
 {
 	char *ecom_str;
 	struct listnode *node, *nnode;
@@ -3940,7 +3940,7 @@ DEFUN (bgp_evpn_advertise_default_gw_vni,
        "Advertise default g/w mac-ip routes in EVPN for a VNI\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -3957,7 +3957,7 @@ DEFUN (no_bgp_evpn_advertise_default_vni_gw,
        "Withdraw default g/w mac-ip routes from EVPN for a VNI\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -4281,7 +4281,7 @@ DEFPY(bgp_evpn_advertise_svi_ip_vni,
       "Advertise svi mac-ip routes in EVPN for a VNI\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -4353,7 +4353,7 @@ DEFUN_HIDDEN (bgp_evpn_advertise_vni_subnet,
 {
 	struct bgp *bgp_vrf = NULL;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -4373,7 +4373,7 @@ DEFUN_HIDDEN (no_bgp_evpn_advertise_vni_subnet,
 	      "Advertise All local VNIs\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -4774,7 +4774,7 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 
 	if (is_evpn_enabled()) {
 		struct listnode *node = NULL;
-		struct bgpevpn *vpn = NULL;
+		struct bgp_evpn_evi *vpn = NULL;
 
 		/*
 		 * At this point if bgp_evpn is NULL and evpn is enabled
@@ -6497,12 +6497,12 @@ DEFPY(bgp_evpn_flood_control_vni,
       "Do not flood any BUM packets\n"
       "Flood BUM packets using head-end replication\n")
 {
-	struct bgpevpn *evpn = NULL;
+	struct bgp_evpn_evi *evpn = NULL;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	enum vxlan_flood_control flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
 
 	if (vty->node == BGP_EVPN_VNI_NODE)
-		evpn = VTY_GET_CONTEXT_SUB(bgpevpn);
+		evpn = VTY_GET_CONTEXT_SUB(bgp_evpn_evi);
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -6536,7 +6536,7 @@ DEFUN_NOSH (bgp_evpn_vni,
 {
 	vni_t vni;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -6563,7 +6563,7 @@ DEFUN (no_bgp_evpn_vni,
 {
 	vni_t vni;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -6688,7 +6688,7 @@ DEFUN (bgp_evpn_vni_rd,
 {
 	struct prefix_rd prd;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 	int ret;
 
 	if (!bgp)
@@ -6724,7 +6724,7 @@ DEFUN (no_bgp_evpn_vni_rd,
 {
 	struct prefix_rd prd;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 	int ret;
 
 	if (!bgp)
@@ -6765,7 +6765,7 @@ DEFUN (no_bgp_evpn_vni_rd_without_val,
        EVPN_RT_DIST_HELP_STR)
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 
 	if (!bgp)
 		return CMD_WARNING;
@@ -6837,7 +6837,7 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	const char *name = NULL;
 	struct bgp *bgp = NULL;
 	struct listnode *node = NULL;
-	struct bgpevpn *vpn = NULL;
+	struct bgp_evpn_evi *vpn = NULL;
 	struct vrf_route_target *l3rt;
 	json_object *json = NULL;
 	json_object *json_vnis = NULL;
@@ -7375,7 +7375,7 @@ DEFUN (bgp_evpn_vni_rt,
        "Route target (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 	int rt_type;
 	struct ecommunity *ecomadd = NULL;
 
@@ -7451,7 +7451,7 @@ DEFUN (no_bgp_evpn_vni_rt,
        EVPN_ASN_IP_HELP_STR)
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 	int rt_type, found_ecomdel;
 	struct ecommunity *ecomdel = NULL;
 
@@ -7555,7 +7555,7 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
        "export\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_evi, vpn);
 	int rt_type;
 
 	if (!bgp)
@@ -7601,8 +7601,8 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
 
 static int vni_cmp(const void **a, const void **b)
 {
-	const struct bgpevpn *first = *a;
-	const struct bgpevpn *secnd = *b;
+	const struct bgp_evpn_evi *first = *a;
+	const struct bgp_evpn_evi *secnd = *b;
 
 	return secnd->vni - first->vni;
 }
@@ -7619,7 +7619,7 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (hashcount(bgp->vnihash)) {
 		struct list *vnilist = hash_to_list(bgp->vnihash);
 		struct listnode *ln;
-		struct bgpevpn *data;
+		struct bgp_evpn_evi *data;
 
 		list_sort(vnilist, vni_cmp);
 		for (ALL_LIST_ELEMENTS_RO(vnilist, ln, data))

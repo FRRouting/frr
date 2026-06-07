@@ -87,7 +87,7 @@ struct bgp_dest {
 
 	struct bgp_bp_install_node *za_inode;
 	struct bgp_path_info *za_bgp_pi;
-	struct bgpevpn *za_vpn;
+	struct bgp_evpn_evi *za_vpn;
 	bool za_is_sync;
 
 	uint64_t version;
