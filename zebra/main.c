@@ -352,6 +352,12 @@ struct mgmt_be_client_cbs zebra_be_client_data = {
 
 void zebra_main_router_started(void)
 {
+	static bool started;
+
+	if (started)
+		return;
+	started = true;
+
 	/*
 	 * Clean up zebra-originated routes. The requests will be sent to OS
 	 * immediately, so originating PID in notifications from kernel

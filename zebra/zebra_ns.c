@@ -25,6 +25,7 @@
 #include "table_manager.h"
 #include "zebra_errors.h"
 #include "zebra_dplane.h"
+#include "zserv.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -350,6 +351,18 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	kernel_init(zns);
 	zebra_dplane_ns_enable(zns, true);
 	interface_list(zns);
+
+	/* Accept client connections as soon as the namespace is enabled.
+	 * Before a1d86d4ccdce this happened synchronously via the kernel
+	 * dplane startup chain (interface_list -> ADDRESSES_READ ->
+	 * zebra_main_router_started -> zserv_start). That commit moved
+	 * zebra_main_router_started behind the metaQ to fix sweep
+	 * ordering, but zserv_start was collateral: deferring the
+	 * listener lets mgmtd push config to routing daemons before they
+	 * connect to zebra and learn about VRFs/interfaces.
+	 * The call is idempotent (started_p guard in zserv_start).
+	 */
+	zserv_start(NULL);
 
 	return 0;
 }
