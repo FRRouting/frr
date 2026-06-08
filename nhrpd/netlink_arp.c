@@ -93,7 +93,7 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	if (!pkthdr || !in_ndx || !zbuf_used(&pktpl))
 		return;
 
-	ifp = if_lookup_by_index(htonl(*in_ndx), VRF_DEFAULT);
+	ifp = if_lookup_by_index(ntohl(*in_ndx), VRF_DEFAULT);
 	if (!ifp)
 		return;
 
