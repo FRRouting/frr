@@ -590,10 +590,55 @@ have_up:
 	return 0;
 }
 
+/*
+ * pim_upstream_activate_stream - drive FHR upstream state for a newly-seen
+ * (S,G) data flow when the kernel has not delivered IGMPMSG_WRVIFWHOLE.
+ *
+ * Mirrors the FHR activation block in pim_mroute_msg_wrvifwhole() (without
+ * register encapsulation, which requires the packet buffer).  Only called
+ * from pim_mroute_msg_wrongvif() when !mroute_wrvifwhole_supported and
+ * there is no (S,G) ifchannel on the ingress interface (including the
+ * bidirectional case where only a (*,G) ifchannel exists).
+ *
+ * The caller guarantees:
+ *   - ifp and ifp->info are non-NULL and PIM-enabled
+ *   - sg is the (S,G) extracted from the upcall message
+ *   - ifp is source-connected for sg->src
+ */
+static int pim_upstream_activate_stream(struct interface *ifp, pim_sgaddr *sg)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_upstream *up;
+
+	up = pim_upstream_find(pim_ifp->pim, sg);
+	if (!up) {
+		up = pim_upstream_add(pim_ifp->pim, sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __func__,
+				      NULL);
+		if (!up)
+			return -1;
+	}
+
+	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
+	up->channel_oil->cc.pktcnt++;
+
+	if (!pim_is_group_filtered(pim_ifp, &sg->grp, &sg->src) && pim_upstream_could_register(up))
+		pim_register_join(up);
+
+	pim_upstream_inherited_olist(pim_ifp->pim, up);
+
+	if (!up->channel_oil->installed)
+		pim_upstream_mroute_add(up->channel_oil, __func__);
+
+	return 0;
+}
+
 int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_ifchannel *ch, *throwaway;
 	struct pim_interface *pim_ifp;
+	bool sg_channel = false;
+	bool any_channel = false;
 	pim_sgaddr sg;
 
 	memset(&sg, 0, sizeof(sg));
@@ -629,8 +674,12 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 	}
 
 	pim_ifchannel_find(ifp, &sg, &ch, &throwaway);
-	if (!ch) {
+	if (ch) {
+		sg_channel = true;
+		any_channel = true;
+	} else {
 		pim_sgaddr star_g = sg;
+
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
 				"%s: WRONGVIF (S,G)=%pSG could not find channel on interface %s",
@@ -638,14 +687,30 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 
 		star_g.src = PIMADDR_ANY;
 		pim_ifchannel_find(ifp, &star_g, &ch, &throwaway);
-		if (!ch) {
-			if (PIM_DEBUG_MROUTE)
-				zlog_debug(
-					"%s: WRONGVIF (*,G)=%pSG could not find channel on interface %s",
-					__func__, &star_g, ifp->name);
-			return -3;
-		}
+		if (ch)
+			any_channel = true;
+		else if (PIM_DEBUG_MROUTE)
+			zlog_debug("%s: WRONGVIF (*,G)=%pSG could not find channel on interface %s",
+				   __func__, &star_g, ifp->name);
 	}
+
+	if (!mroute_wrvifwhole_supported) {
+		/*
+		 * Old kernels without WRVIFWHOLE: on the source-connected
+		 * interface, WRONGVIF may be the only signal for (S,G) data.
+		 * Mirror the FHR activation that pim_mroute_msg_wrvifwhole()
+		 * would have performed when there is no (S,G) ifchannel --
+		 * including join-before-data (no ifchannel at all) and the
+		 * bidirectional case where only a (*,G) ifchannel exists.
+		 */
+		if (!sg_channel && !pim_iface_grp_dm(pim_ifp, sg.grp) &&
+		    ifp != pim_ifp->pim->regiface && pim_if_connected_to_source(ifp, sg.src) &&
+		    PIM_I_am_DR(pim_ifp))
+			return pim_upstream_activate_stream(ifp, &sg);
+	}
+
+	if (!any_channel)
+		return -3;
 
 	if (pim_iface_grp_dm(pim_ifp, sg.grp)) {
 		if (PIM_DEBUG_PIM_J_P)
