@@ -66,7 +66,7 @@ struct ls_node *ls_node_new(struct ls_node_id adv, struct in_addr rid,
 
 	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_node));
 	new->adv = adv;
-	if (!IPV4_NET0(rid.s_addr)) {
+	if (!IPV4_NET0(ntohl(rid.s_addr))) {
 		new->router_id = rid;
 		SET_FLAG(new->flags, LS_NODE_ROUTER_ID);
 	} else {
@@ -178,7 +178,7 @@ struct ls_attributes *ls_attributes_new(struct ls_node_id adv,
 
 	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_attributes));
 	new->adv = adv;
-	if (!IPV4_NET0(local.s_addr)) {
+	if (!IPV4_NET0(ntohl(local.s_addr))) {
 		new->standard.local = local;
 		SET_FLAG(new->flags, LS_ATTR_LOCAL_ADDR);
 	}
