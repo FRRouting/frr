@@ -1620,7 +1620,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 
 	if (len == sizeof(struct mld_v1_pkt)) {
 		timers.qrv = gm_ifp->cur_qrv;
-		timers.max_resp_ms = hdr->max_resp_code;
+		timers.max_resp_ms = ntohs(hdr->max_resp_code);
 		timers.qqic_ms = gm_ifp->cur_query_intv;
 	} else {
 		timers.qrv = (hdr->flags & 0x7) ?: 8;
