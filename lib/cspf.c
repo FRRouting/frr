@@ -402,7 +402,7 @@ static bool prune_edge(const struct c_path *path, const struct ls_edge *edge,
 
 	/* Check that Edge belongs to the requested Address Family and type */
 	if (csts->family == AF_INET) {
-		if (IPV4_NET0(attr->standard.local.s_addr))
+		if (IPV4_NET0(ntohl(attr->standard.local.s_addr)))
 			return true;
 		if (csts->type == SR_TE)
 			if (!CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID) ||
