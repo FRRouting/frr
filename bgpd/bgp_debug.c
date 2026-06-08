@@ -167,6 +167,7 @@ static const struct message bgp_notify_cease_msg[] = {
 	{BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resources"},
 	{BGP_NOTIFY_CEASE_HARD_RESET, "/Hard Reset"},
 	{BGP_NOTIFY_CEASE_BFD_DOWN, "/BFD Down"},
+	{BGP_NOTIFY_CEASE_MAX_PATHS, "/Maximum Number of Paths Reached"},
 	{0}};
 
 static const struct message bgp_notify_route_refresh_msg[] = {

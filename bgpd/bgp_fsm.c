@@ -674,6 +674,7 @@ const char *const peer_down_str[] = {
 	"Cease: out of resources",
 	"Cease: hard reset",
 	"Cease: subcode unknown",
+	"Reached received path count",
 };
 
 static void bgp_graceful_restart_timer_off(struct peer_connection *connection)
@@ -2639,6 +2640,8 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 			peer_set_last_reset(peer, PEER_DOWN_USER_SHUTDOWN);
 		else if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
 			peer_set_last_reset(peer, PEER_DOWN_USER_SHUTDOWN);
+		else if (CHECK_FLAG(peer->sflags, PEER_STATUS_PATH_OVERFLOW))
+			peer_set_last_reset(peer, PEER_DOWN_CEASE_PATH_COUNT);
 		else if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
 			peer_set_last_reset(peer, PEER_DOWN_PFX_COUNT);
 		return BGP_FSM_FAILURE;

@@ -737,6 +737,33 @@ void bgp_path_info_restore(struct bgp_dest *dest, struct bgp_path_info *pi)
 	SET_FLAG(pi->flags, BGP_PATH_VALID);
 }
 
+/* With ADD-PATH a peer can send several paths for the same prefix, so the
+ * number of paths a peer has (pcount) differs from the number of distinct
+ * prefixes (pcount_prefix). To keep pcount_prefix accurate, bgp_pcount_adjust()
+ * needs to know, when a path is added or removed, whether the peer still has
+ * any OTHER path for that prefix.
+ *
+ * This returns how many counted paths the peer has for the prefix `dest`,
+ * ignoring `exclude` (the path currently being added or removed). `exclude` is
+ * ignored rather than relying on its presence in the list because, while a path
+ * is being added, it may not be linked into the dest yet.
+ *
+ * So: result 0 before an add means "first path for this prefix" (bump
+ * pcount_prefix); result 0 after a remove means "last path is gone" (drop it).
+ */
+static uint32_t bgp_peer_other_counted_paths(struct bgp_dest *dest, struct bgp_path_info *exclude)
+{
+	struct bgp_path_info *pi;
+	uint32_t count = 0;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+		if (pi != exclude && pi->peer == exclude->peer &&
+		    CHECK_FLAG(pi->flags, BGP_PATH_COUNTED))
+			count++;
+
+	return count;
+}
+
 /* Adjust pcount as required */
 static void bgp_pcount_adjust(struct bgp_dest *dest, struct bgp_path_info *pi)
 {
@@ -761,10 +788,21 @@ static void bgp_pcount_adjust(struct bgp_dest *dest, struct bgp_path_info *pi)
 		else
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Asked to decrement 0 prefix count for peer");
+
+		if (bgp_peer_other_counted_paths(dest, pi) == 0) {
+			if (pi->peer->pcount_prefix[table->afi][table->safi])
+				pi->peer->pcount_prefix[table->afi][table->safi]--;
+			else
+				flog_err(EC_LIB_DEVELOPMENT,
+					 "Asked to decrement 0 distinct prefix count for peer");
+		}
 	} else if (BGP_PATH_COUNTABLE(pi)
 		   && !CHECK_FLAG(pi->flags, BGP_PATH_COUNTED)) {
 		SET_FLAG(pi->flags, BGP_PATH_COUNTED);
 		pi->peer->pcount[table->afi][table->safi]++;
+
+		if (bgp_peer_other_counted_paths(dest, pi) == 0)
+			pi->peer->pcount_prefix[table->afi][table->safi]++;
 	}
 }
 
@@ -5288,17 +5326,57 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 	return count;
 }
 
+/* Count the distinct prefixes a peer has sent us, accepted or filtered, by
+ * walking its Adj-RIB-In (retained when `soft-reconfiguration inbound` is
+ * enabled). Each prefix is counted once regardless of how many ADD-PATH paths
+ * arrived for it. Used for the default (prefix-based) maximum-prefix limit with
+ * `force`, where filtered prefixes must be included but the count must stay in
+ * prefix units.
+ */
+static uint32_t bgp_received_prefixes_count(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct bgp_table *table = peer->bgp->rib[afi][safi];
+	struct bgp_dest *dest;
+	uint32_t count = 0;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		struct bgp_adj_in *ain;
+
+		for (ain = dest->adj_in; ain; ain = ain->next)
+			if (ain->peer == peer) {
+				count++; /* count each prefix once */
+				break;
+			}
+	}
+
+	return count;
+}
+
 bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 				 int always)
 {
 	iana_afi_t pkt_afi;
 	iana_safi_t pkt_safi;
-	uint32_t pcount = (CHECK_FLAG(peer->af_flags[afi][safi],
-				      PEER_FLAG_MAX_PREFIX_FORCE))
-				  ? bgp_filtered_routes_count(peer, afi, safi)
-					    + peer->pcount[afi][safi]
-				  : peer->pcount[afi][safi];
+	bool include_paths = CHECK_FLAG(peer->af_flags[afi][safi],
+					PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS);
+	bool force = CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_FORCE);
+	uint32_t pcount;
 	struct peer_connection *connection = peer->connection;
+
+	/*
+	 * `include-paths` bounds the number of received paths; the default
+	 * bounds the number of distinct prefixes (under ADD-PATH, RFC 7911, a
+	 * prefix may contribute more than one path). `force` additionally counts
+	 * filtered routes, not only accepted ones. The filtered addend must be
+	 * expressed in the same unit as the base count to stay consistent: paths
+	 * for `include-paths`, distinct prefixes otherwise.
+	 */
+	if (include_paths)
+		pcount = peer->pcount[afi][safi] +
+			 (force ? bgp_filtered_routes_count(peer, afi, safi) : 0);
+	else
+		pcount = force ? bgp_received_prefixes_count(peer, afi, safi)
+			       : peer->pcount_prefix[afi][safi];
 
 	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
 		return false;
@@ -5309,10 +5387,14 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 		    && !always)
 			return false;
 
-		zlog_info(
-			"%%MAXPFXEXCEED: No. of %s prefix received from %pBP %u exceed, limit %u",
-			get_afi_safi_str(afi, safi, false), peer, pcount,
-			peer->pmax[afi][safi]);
+		if (include_paths)
+			zlog_info("%%MAXPATHEXCEED: No. of %s paths received from %pBP %u exceed, limit %u",
+				  get_afi_safi_str(afi, safi, false), peer, pcount,
+				  peer->pmax[afi][safi]);
+		else
+			zlog_info("%%MAXPFXEXCEED: No. of %s prefix received from %pBP %u exceed, limit %u",
+				  get_afi_safi_str(afi, safi, false), peer, pcount,
+				  peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
@@ -5334,8 +5416,13 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			ndata[6] = (peer->pmax[afi][safi]);
 
 			SET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+			if (include_paths)
+				SET_FLAG(peer->sflags, PEER_STATUS_PATH_OVERFLOW);
+			else
+				UNSET_FLAG(peer->sflags, PEER_STATUS_PATH_OVERFLOW);
 			bgp_notify_send_with_data(connection, BGP_NOTIFY_CEASE,
-						  BGP_NOTIFY_CEASE_MAX_PREFIX,
+						  include_paths ? BGP_NOTIFY_CEASE_MAX_PATHS
+								: BGP_NOTIFY_CEASE_MAX_PREFIX,
 						  ndata, 7);
 		}
 
