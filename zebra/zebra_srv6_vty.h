@@ -12,5 +12,7 @@
 #define ZEBRA_SRV6_FUNCTION_LENGTH 16
 
 extern void zebra_srv6_vty_init(void);
+extern void zebra_srv6_client_act_redirect(struct zserv *client);
+extern bool zebra_srv6_client_act_redirect_is_configured(void);
 
 #endif /* _ZEBRA_SRV6_VTY_H */

@@ -2495,6 +2495,8 @@ void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *
  */
 void bgp_zebra_instance_register(struct bgp *bgp)
 {
+	struct stream *s;
+
 	/* Don't try to register if we're not connected to Zebra */
 	if (!zclient || zclient->sock < 0)
 		return;
@@ -2504,6 +2506,15 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 
 	/* Register for router-id, interfaces, redistributed routes. */
 	zclient_send_reg_requests(zclient, bgp->vrf_id);
+
+	/* We need srv6 redirect vrf information. */
+	if (bgp->vrf_id == VRF_DEFAULT) {
+		s = zclient->obuf;
+		stream_reset(s);
+		zclient_create_header(s, ZEBRA_SRV6_ACT_REDIRECT_GET, bgp->vrf_id);
+		stream_putw_at(s, 0, stream_get_endp(s));
+		zclient_send_message(zclient);
+	}
 
 	/* For EVPN instance, register to learn about VNIs, if appropriate. */
 	if (bgp->advertise_all_vni)

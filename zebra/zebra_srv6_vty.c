@@ -640,6 +640,23 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 	}
 }
 
+bool zebra_srv6_client_act_redirect_is_configured(void)
+{
+	return !!srv6_routing_redirect[0];
+}
+
+/* send ZEBRA_SRV6_ACT_REDIRECT */
+void zebra_srv6_client_act_redirect(struct zserv *client)
+{
+	struct stream *s;
+
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+	zclient_create_header(s, ZEBRA_SRV6_ACT_REDIRECT, VRF_DEFAULT);
+	stream_put(s, srv6_routing_redirect, IFNAMSIZ);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zserv_send_message(client, s);
+}
+
 DEFPY (show_srv6_sid,
        show_srv6_sid_cmd,
        "show segment-routing srv6 [locator NAME$locator_name] sid [X:X::X:X$sid_value] [detail$detail] [json]",
@@ -800,10 +817,8 @@ DEFPY (srv6_dft_redirect,
        "Redirect endpoint behaviors to\n"
        "Specify vrf name\n")
 {
-	struct stream *s;
 	struct zserv *client;
 	struct listnode *node;
-	char name[IFNAMSIZ] = {0};
 
 
 	if (strlen(vrf_name) >= IFNAMSIZ) {
@@ -815,7 +830,7 @@ DEFPY (srv6_dft_redirect,
 		return CMD_SUCCESS;
 
 	if (no) {
-		if (!srv6_routing_redirect[0])
+		if (!zebra_srv6_client_act_redirect_is_configured())
 			return CMD_SUCCESS;
 
 		memset(srv6_routing_redirect, 0, IFNAMSIZ);
@@ -823,14 +838,8 @@ DEFPY (srv6_dft_redirect,
 		strlcpy(srv6_routing_redirect, vrf_name, IFNAMSIZ);
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
-		zclient_create_header(s, ZEBRA_SRV6_ACT_REDIRECT, VRF_DEFAULT);
-		strlcpy(name, srv6_routing_redirect, IFNAMSIZ);
-		stream_put(s, name, IFNAMSIZ);
-		stream_putw_at(s, 0, stream_get_endp(s));
-		zserv_send_message(client, s);
-	}
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+		zebra_srv6_client_act_redirect(client);
 
 	return CMD_SUCCESS;
 }

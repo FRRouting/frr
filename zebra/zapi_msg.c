@@ -54,6 +54,7 @@
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_tracker.h"
 #include "zebra/zebra_pm.h"
+#include "zebra/zebra_srv6_vty.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
@@ -2561,6 +2562,13 @@ stream_failure:
 	return;
 }
 
+/* Register zebra act redirect information. Send configuration if present */
+static void zread_srv6_act_redirect_get(ZAPI_HANDLER_ARGS)
+{
+	if (zebra_srv6_client_act_redirect_is_configured())
+		zebra_srv6_client_act_redirect(client);
+}
+
 /* Unregister zebra server router-id information. */
 static void zread_router_id_delete(ZAPI_HANDLER_ARGS)
 {
@@ -4316,6 +4324,7 @@ static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
 
 void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
+	[ZEBRA_SRV6_ACT_REDIRECT_GET] = zread_srv6_act_redirect_get,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
 	[ZEBRA_INTERFACE_ADD] = zread_interface_add,
 	[ZEBRA_INTERFACE_DELETE] = zread_interface_delete,
