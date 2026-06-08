@@ -149,6 +149,13 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 
 	if (enable) {
 #if defined linux
+		/*
+		 * MRT_PIM value selects the highest PIM upcall type delivered.
+		 * GMMSG_WRVIFWHOLE (4) enables WRONGVIF and WRVIFWHOLE; kernels
+		 * before 4.19 only deliver WRONGVIF.  To test the WRONGVIF
+		 * compensation path on a modern kernel, temporarily use
+		 * GMMSG_WRONGVIF here instead (PIM + assert, no WRVIFWHOLE).
+		 */
 		int upcalls = GMMSG_WRVIFWHOLE;
 		opt = MRT_PIM;
 
