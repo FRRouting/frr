@@ -1237,7 +1237,7 @@ DEFUN (show_sharp_ted,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Vertex from the Link State Database */
-			key = ((uint64_t)ip_addr.s_addr) & 0xffffffff;
+			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
 			vertex = ls_find_vertex_by_key(sg.ted, key);
 			if (!vertex) {
 				vty_out(vty, "No vertex found for ID %pI4\n",
