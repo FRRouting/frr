@@ -308,7 +308,7 @@ static int open_dlpi_dev(struct isis_circuit *circuit)
 		char *cp;
 
 		cp = devpath + strlen(devpath);
-		while (--cp >= devpath && isdigit(*cp))
+		while (--cp >= devpath && isdigit((unsigned char)*cp))
 			;
 		unit = strtol(cp, NULL, 0);
 		*cp = '\0';
