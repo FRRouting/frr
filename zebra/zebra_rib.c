@@ -4414,7 +4414,6 @@ void rib_delnode(struct route_node *rn, struct route_entry *re, bool flag)
 		 */
 		if (re->nhe)
 			prefix_in_pm = zebra_nhg_tracker_prefix_in_pm(re->nhe, rn, re);
-
 		/*
 		 * Find the managing NHE for this deletion: re->nhe if it
 		 * has a tracker, else fall back to an INSTALLED rn-sibling
@@ -4449,16 +4448,6 @@ void rib_delnode(struct route_node *rn, struct route_entry *re, bool flag)
 				       zebra_nhg_tracker_prefix_in_pm(orig_nhe, rn, re);
 			if (flag) {
 				tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
-#ifdef NHG_TRK_VERBOSE_LOG
-				zlog_info("%s: parking node to delete %pRN type %s vrf %s(%u) re_nhe %u orig_nhe %u tracker %u (matched=%u unmatched=%u orig_re=%u)",
-					  __func__, rn, zebra_route_string(re->type),
-					  vrf_id_to_name(re->vrf_id), re->vrf_id,
-					  re->nhe ? re->nhe->id : 0, orig_nhe->id,
-					  tracker ? tracker->nhg_tracker_id : 0,
-					  tracker ? tracker->matched_table.re_count : 0,
-					  tracker ? tracker->unmatched_table.re_count : 0,
-					  tracker ? tracker->orig_re_count : 0);
-#endif
 				if (tracker)
 					zebra_nhg_tracker_flush_if_full(tracker, orig_nhe);
 			}
