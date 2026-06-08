@@ -1945,8 +1945,8 @@ DEFUN (pce_path_scope,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ntohl(pi->pce_scope.header.type) == 0
-	    || scope != pi->pce_scope.value) {
+	if (pi->pce_scope.header.type == 0
+	    || scope != ntohl(pi->pce_scope.value)) {
 		set_pce_path_scope(scope, pi);
 
 		/* Refresh RI LSA if already engaged */
@@ -1998,7 +1998,8 @@ DEFUN (pce_domain,
 
 	/* Check if the domain is not already in the domain list */
 	for (ALL_LIST_ELEMENTS_RO(pce->pce_domain, node, domain)) {
-		if (ntohl(domain->header.type) == 0 && as == domain->value)
+		if (domain->type == htons(PCE_DOMAIN_TYPE_AS) &&
+		    domain->value == htonl(as))
 			return CMD_SUCCESS;
 	}
 
@@ -2066,7 +2067,8 @@ DEFUN (pce_neigbhor,
 
 	/* Check if the domain is not already in the domain list */
 	for (ALL_LIST_ELEMENTS_RO(pce->pce_neighbor, node, neighbor)) {
-		if (ntohl(neighbor->header.type) == 0 && as == neighbor->value)
+		if (neighbor->type == htons(PCE_DOMAIN_TYPE_AS) &&
+		    neighbor->value == htonl(as))
 			return CMD_SUCCESS;
 	}
 
@@ -2129,8 +2131,8 @@ DEFUN (pce_cap_flag,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ntohl(pce->pce_cap_flag.header.type) == 0
-	    || cap != pce->pce_cap_flag.value) {
+	if (pce->pce_cap_flag.header.type == 0
+	    || cap != ntohl(pce->pce_cap_flag.value)) {
 		set_pce_cap_flag(cap, pce);
 
 		/* Refresh RI LSA if already engaged */
