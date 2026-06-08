@@ -45,6 +45,24 @@
 
 static void mroute_read_on(struct pim_instance *pim);
 
+/*
+ * Set when the first IGMPMSG_WRVIFWHOLE upcall is received on this host.
+ * Kernel-wide capability shared by all pim_instance / VRFs in this process.
+ *
+ * On Linux, starts false after every daemon restart; the first WRVIFWHOLE
+ * upcall sets this true and disables compensation.  Until then WRONGVIF may
+ * briefly trigger the compat path on capable kernels (harmless overlap).
+ *
+ * On non-Linux, WRVIFWHOLE is unavailable so initialize true to keep the
+ * original WRONGVIF behavior (no compensation).
+ */
+static bool mroute_wrvifwhole_supported =
+#if defined linux
+	false;
+#else
+	true;
+#endif
+
 int pim_mroute_set(struct pim_instance *pim, int enable)
 {
 	int err;
@@ -695,6 +713,11 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 
 	pim_ifp = ifp->info;
 	pim = pim_ifp->pim;
+
+	if (!mroute_wrvifwhole_supported) {
+		mroute_wrvifwhole_supported = true;
+		zlog_info("pimd: IGMPMSG_WRVIFWHOLE received, kernel supports WRVIFWHOLE upcalls");
+	}
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = IPV_SRC(ip_hdr);
