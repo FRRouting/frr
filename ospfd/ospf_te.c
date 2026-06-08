@@ -1668,8 +1668,8 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_node_id adv,
 	struct ls_attributes *attr;
 
 	/* Check that Link ID and Node ID are valid */
-	if (IPV4_NET0(link_id.s_addr) || IPV4_NET0(adv.id.ip.addr.s_addr) ||
-	    adv.origin != OSPFv2)
+	if (IPV4_NET0(ntohl(link_id.s_addr)) ||
+	    IPV4_NET0(ntohl(adv.id.ip.addr.s_addr)) || adv.origin != OSPFv2)
 		return NULL;
 
 	/* Search Edge that corresponds to the Link ID */
