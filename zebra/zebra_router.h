@@ -168,6 +168,9 @@ struct zebra_nhg_tracker_counters {
 	uint32_t tracker_full_combined_matched_gt;
 	/* Combined full, unmatched count > matched count */
 	uint32_t tracker_full_combined_unmatched_gt;
+	/* Flush slice stats: incremented every time the flush iter cb runs */
+	uint32_t flush_slices_total;
+	uint32_t flush_slices_yielded;
 	/* Circular log of last few flush events */
 	struct tracker_flush_event log[TRACKER_FLUSH_LOG_SIZE];
 	uint32_t log_idx;

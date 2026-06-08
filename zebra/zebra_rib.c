@@ -4411,7 +4411,6 @@ void rib_delnode(struct route_node *rn, struct route_entry *re, bool flag)
 		 */
 		if (re->nhe)
 			prefix_in_pm = zebra_nhg_tracker_prefix_in_pm(re->nhe, rn, re);
-
 		/*
 		 * Find the managing NHE for this deletion: re->nhe if it
 		 * has a tracker, else fall back to an INSTALLED rn-sibling
