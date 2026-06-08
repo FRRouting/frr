@@ -1109,7 +1109,7 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 
 	tlv->type = stream_getw(s);
 	tlv->length = stream_getw(s);
-	tlv->forward.s_addr = stream_getl(s);
+	tlv->forward.s_addr = htonl(stream_getl(s));
 	tlv->metric.delay = stream_getl(s);
 	tlv->metric.bandwidth = stream_getl(s);
 	tlv->metric.mtu[0] = stream_getc(s);
