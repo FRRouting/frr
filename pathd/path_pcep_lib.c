@@ -749,10 +749,10 @@ double_linked_list *pcep_lib_format_path(struct pcep_caps *caps,
 						sid,
 						hop->nai.local_addr.ipaddr_v4
 							.s_addr,
-						hop->nai.local_iface,
+						htonl(hop->nai.local_iface),
 						hop->nai.remote_addr.ipaddr_v4
 							.s_addr,
-						hop->nai.remote_iface);
+						htonl(hop->nai.remote_iface));
 				break;
 			case PCEP_SR_SUBOBJ_NAI_ABSENT:
 			case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
@@ -1234,9 +1234,18 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			memcpy(&hop->nai.local_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
 			n = n->next_node;
+<<<<<<< HEAD
 			assert(n != NULL);
 			assert(n->data != NULL);
 			hop->nai.local_iface = *(uint32_t *)n->data;
+=======
+			if (n == NULL || n->data == NULL) {
+				err_p = true;
+				goto done;
+			}
+
+			hop->nai.local_iface = ntohl(*(uint32_t *)n->data);
+>>>>>>> 844584b32 (pathd: byte-swap SR unnumbered NAI interface IDs to/from the wire)
 			n = n->next_node;
 			assert(n != NULL);
 			assert(n->data != NULL);
@@ -1244,9 +1253,18 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			memcpy(&hop->nai.remote_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
 			n = n->next_node;
+<<<<<<< HEAD
 			assert(n != NULL);
 			assert(n->data != NULL);
 			hop->nai.remote_iface = *(uint32_t *)n->data;
+=======
+			if (n == NULL || n->data == NULL) {
+				err_p = true;
+				goto done;
+			}
+
+			hop->nai.remote_iface = ntohl(*(uint32_t *)n->data);
+>>>>>>> 844584b32 (pathd: byte-swap SR unnumbered NAI interface IDs to/from the wire)
 			break;
 		case PCEP_SR_SUBOBJ_NAI_ABSENT:
 		case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
