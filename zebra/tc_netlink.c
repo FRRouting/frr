@@ -364,7 +364,7 @@ static int netlink_tfilter_flower_put_options(struct nlmsghdr *n, size_t datalen
 {
 	struct inet_prefix addr;
 	uint32_t flags = 0, classid;
-	uint8_t protocol = htons(dplane_ctx_tc_filter_get_eth_proto(ctx));
+	uint16_t protocol = htons(dplane_ctx_tc_filter_get_eth_proto(ctx));
 	uint32_t filter_bm = dplane_ctx_tc_filter_get_filter_bm(ctx);
 
 	if (filter_bm & TC_FLOWER_SRC_IP) {
