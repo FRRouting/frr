@@ -19546,7 +19546,7 @@ DEFUN (bgp_distance_source,
        bgp_distance_source_cmd,
        "distance (1-255) A.B.C.D/M",
        "Define an administrative distance\n"
-       "Administrative distance\n"
+       DISTANCE_STR
        "IP source prefix\n")
 {
 	int idx_number = 1;
@@ -19561,7 +19561,7 @@ DEFUN (no_bgp_distance_source,
        "no distance (1-255) A.B.C.D/M",
        NO_STR
        "Define an administrative distance\n"
-       "Administrative distance\n"
+       DISTANCE_STR
        "IP source prefix\n")
 {
 	int idx_number = 2;
@@ -19575,7 +19575,7 @@ DEFUN (bgp_distance_source_access_list,
        bgp_distance_source_access_list_cmd,
        "distance (1-255) A.B.C.D/M WORD",
        "Define an administrative distance\n"
-       "Administrative distance\n"
+       DISTANCE_STR
        "IP source prefix\n"
        "Access list name\n")
 {
@@ -19592,7 +19592,7 @@ DEFUN (no_bgp_distance_source_access_list,
        "no distance (1-255) A.B.C.D/M WORD",
        NO_STR
        "Define an administrative distance\n"
-       "Administrative distance\n"
+       DISTANCE_STR
        "IP source prefix\n"
        "Access list name\n")
 {
@@ -19608,7 +19608,7 @@ DEFUN (ipv6_bgp_distance_source,
        ipv6_bgp_distance_source_cmd,
        "distance (1-255) X:X::X:X/M",
        "Define an administrative distance\n"
-       "Administrative distance\n"
+       DISTANCE_STR
        "IP source prefix\n")
 {
 	bgp_distance_set(vty, argv[1]->arg, argv[2]->arg, NULL);
@@ -19620,7 +19620,7 @@ DEFUN (no_ipv6_bgp_distance_source,
        "no distance (1-255) X:X::X:X/M",
        NO_STR
        "Define an administrative distance\n"
-       "Administrative distance\n"
+       DISTANCE_STR
        "IP source prefix\n")
 {
 	bgp_distance_unset(vty, argv[2]->arg, argv[3]->arg, NULL);
@@ -19631,7 +19631,7 @@ DEFUN (ipv6_bgp_distance_source_access_list,
        ipv6_bgp_distance_source_access_list_cmd,
        "distance (1-255) X:X::X:X/M WORD",
        "Define an administrative distance\n"
-       "Administrative distance\n"
+       DISTANCE_STR
        "IP source prefix\n"
        "Access list name\n")
 {
@@ -19644,7 +19644,7 @@ DEFUN (no_ipv6_bgp_distance_source_access_list,
        "no distance (1-255) X:X::X:X/M WORD",
        NO_STR
        "Define an administrative distance\n"
-       "Administrative distance\n"
+       DISTANCE_STR
        "IP source prefix\n"
        "Access list name\n")
 {
