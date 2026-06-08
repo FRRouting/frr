@@ -96,12 +96,6 @@ struct gw_family_t {
 	union g_addr gate;
 };
 
-struct buf_req {
-	struct nlmsghdr n;
-	struct nhmsg nhm;
-	char buf[];
-};
-
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 static struct in_addr ipv4_ll;
 
