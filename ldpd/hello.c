@@ -548,6 +548,7 @@ tlv_decode_opt_hello_prms(char *buf, uint16_t len, int *tlvs_rcvd, int af,
 			if (tlv_len != sizeof(uint32_t))
 				return (-1);
 			memcpy(conf_number, buf, sizeof(uint32_t));
+			*conf_number = ntohl(*conf_number);
 			SET_FLAG(*tlvs_rcvd, F_HELLO_TLV_RCVD_CONF);
 			break;
 		case TLV_TYPE_DUALSTACK:
