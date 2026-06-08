@@ -498,7 +498,7 @@ void eigrp_read(struct event *event)
 
 	// Subtract IPv4 header size from EIGRP Packet itself
 	if (iph->ip_v == 4)
-		length = (iph->ip_len) - 20U;
+		length = (iph->ip_len) - (iph->ip_hl << 2);
 
 	srcaddr = iph->ip_src;
 	dstaddr = iph->ip_dst;
