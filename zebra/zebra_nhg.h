@@ -223,15 +223,6 @@ struct nhg_hash_entry {
 	struct event *consolidation_event;
 
 	/*
-	 * NHG ID is stored during tracker flush batch to the parent NHG ID
-	 * that owns the flushing tracker.  Used by the dplane ack path
-	 * to find the flushing tracker when re->nhe changes during
-	 * rib_process (e.g. loser RE resolves to a new NHG).
-	 * Cleared when the tracker flush completes.
-	 */
-	uint32_t tracker_flush_batch_parent_nhg_id;
-
-	/*
 	 * Count of phase-2 winner REs that still need to attach to this NHG.
 	 * Set by tracker_flush_batch_start_phase2 winners released.
 	 * decremented by nexthop_active_update / rib_unlink when a winner
