@@ -13,6 +13,7 @@
 #include "typesafe.h"
 #include "prefix.h"
 #include "memory.h"
+#include "table.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,6 +28,7 @@ struct route_entry;
 struct route_node;
 
 #define NHG_TRACKER_DEFAULT_TIMEOUT_SEC 10
+//#define NHG_TRK_VERBOSE_LOG
 
 enum nhg_tracker_event {
 	NHG_TRACKER_EVENT_INTF_DOWN = 0,
@@ -57,6 +59,36 @@ struct tracker_vrf_table {
 struct nhg_tracker_table {
 	struct tracker_vrf_table *vrf_tables;
 	uint32_t re_count;
+};
+
+/*
+ * Pausable table iterator over ONE nhg_tracker_table: libfrr inner
+ * route_table_iter per VRF + outer cursor over vrf_tables list.
+ */
+struct nhg_tracker_table_iter {
+	struct nhg_tracker_table *table;      /* which of matched/unmatched/deleted */
+	struct tracker_vrf_table *current_vt; /* current entry in vrf_tables list */
+	route_table_iter_t inner;	      /* libfrr layer-1, pausable */
+};
+
+extern void nhg_tracker_table_iter_rn_init(struct nhg_tracker_table_iter *iter,
+					   struct nhg_tracker_table *table);
+extern struct route_node *nhg_tracker_table_iter_rn_next(struct nhg_tracker_table_iter *iter);
+extern void nhg_tracker_table_iter_rn_pause(struct nhg_tracker_table_iter *iter);
+extern void nhg_tracker_table_iter_rn_cleanup(struct nhg_tracker_table_iter *iter);
+
+/*
+ * Per-RN options for tracker_flush_process_rn.
+ */
+struct tracker_flush_rn_opts {
+	/* which table to process */
+	struct nhg_tracker_table *table;
+	uint32_t filter_nhg_id;
+	uint32_t exclude_nhg_id;
+	/* Used to track pending REs for dplane ack tracking */
+	bool track_pending;
+	/* Used to determine if this is the last walk of the table */
+	bool is_last_walk;
 };
 
 /*
@@ -147,17 +179,23 @@ struct nhg_event_tracker {
 	 */
 	struct list *flush_nhg_groups;
 
+	/* Pausable table iterator for the flush */
+	struct nhg_tracker_table_iter iter;
+	struct event *flush_iter_event;
+
 	/*
-	 * Loser NHEs tracked here so we can clear the per-NHE field once when the
-	 * tracker finishes — regardless of how many drained REs shared the same
-	 * NHE.  Without this list, clearing on the first dplane ack
-	 * loses subsequent acks when multiple REs share an incoming NHG.
-	 *
-	 * Each listnode->data is a struct nhg_hash_entry *.  We hold a
-	 * refcount on each so the NHE stays alive until we clear the
-	 * field.
+	 * Phase-2 consumer count accumulator.  Bumped by every winner-
+	 * release in phase 2 across all iter slices and tables.  At the
+	 * end of phase 2 (when all iter tables are exhausted) the
+	 * accumulator drives the tracker flush complete decision.
 	 */
-	struct list *flush_loser_nhes;
+	uint32_t flush_phase2_consumers;
+
+	/*
+	 * Cached silent-RE count from tracker_flush_build_groups.
+	 * Used by start_phase1 to silent RE flush decision.
+	 */
+	uint32_t flush_silent_count;
 };
 
 static inline bool tracker_win_includes_silent(const struct nhg_event_tracker *t)
