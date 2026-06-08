@@ -383,9 +383,10 @@ extern int kernel_interface_set_master(struct interface *master,
 	return 0;
 }
 
-uint32_t kernel_get_speed(struct interface *ifp, int *error)
+void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx)
 {
-	return ifp->speed;
+	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+	dplane_ctx_set_ifp_speed_set(ctx, false);
 }
 
 int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip)

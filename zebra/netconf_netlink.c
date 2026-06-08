@@ -62,7 +62,7 @@ netlink_netconf_dplane_update(ns_id_t ns_id, afi_t afi, ifindex_t ifindex,
 /*
  * Parse and process an incoming netlink netconf update.
  */
-int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	struct netconfmsg *ncm;
 	struct rtattr *tb[NETCONFA_MAX + 1] = {};

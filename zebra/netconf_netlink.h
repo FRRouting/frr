@@ -17,8 +17,7 @@ extern "C" {
 #endif
 
 /* Parse and handle a NETCONF message. */
-extern int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id,
-				  int startup);
+extern int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 /* Request info from the host OS. */
 int netlink_request_netconf(int sockfd);
 

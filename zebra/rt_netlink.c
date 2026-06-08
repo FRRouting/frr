@@ -1385,16 +1385,16 @@ done:
 	return ret;
 }
 
-static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
-					     int startup)
+static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id, int startup,
+					     void *arg)
 {
 	return netlink_route_change_read_unicast_internal(h, ns_id, startup);
 }
 
 static struct mcast_route_data *mroute = NULL;
 
-static int netlink_route_change_read_multicast(struct nlmsghdr *h,
-					       ns_id_t ns_id, int startup)
+static int netlink_route_change_read_multicast(struct nlmsghdr *h, ns_id_t ns_id, int startup,
+					       void *arg)
 {
 	int len;
 	struct rtmsg *rtm;
@@ -1506,7 +1506,7 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	return 0;
 }
 
-int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct rtmsg *rtm;
@@ -1565,7 +1565,7 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (rtm->rtm_type == RTN_MULTICAST)
 		return 0;
 
-	netlink_route_change_read_unicast(h, ns_id, startup);
+	netlink_route_change_read_unicast(h, ns_id, startup, arg);
 	return 0;
 }
 
@@ -1600,8 +1600,8 @@ int netlink_route_read(struct zebra_ns *zns)
 	ret = netlink_request_route(zns, AF_INET, RTM_GETROUTE);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_route_change_read_unicast,
-				 &zns->netlink_cmd, &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_route_change_read_unicast, &zns->netlink_cmd, &dp_info, 0,
+				 true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -1609,8 +1609,8 @@ int netlink_route_read(struct zebra_ns *zns)
 	ret = netlink_request_route(zns, AF_INET6, RTM_GETROUTE);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_route_change_read_unicast,
-				 &zns->netlink_cmd, &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_route_change_read_unicast, &zns->netlink_cmd, &dp_info, 0,
+				 true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -2495,8 +2495,7 @@ static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 				ifp->vrf->vrf_id);
 		}
 	}
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 static bool nexthop_set_src(const struct nexthop *nexthop, int family,
@@ -2980,8 +2979,8 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 		return 0;
 	}
 
-	suc = netlink_talk(netlink_route_change_read_multicast, &req.n,
-			   &zns->netlink_cmd, zns, false);
+	suc = netlink_talk(netlink_route_change_read_multicast, &req.n, &zns->netlink_cmd, zns,
+			   false, NULL, NULL);
 
 	mroute = NULL;
 	return suc;
@@ -3657,7 +3656,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
  *
  * Return:	Result status
  */
-int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	/* nexthop group id */
@@ -3853,8 +3852,8 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 	ret = netlink_request_nexthop(zns, AF_UNSPEC, RTM_GETNEXTHOP);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_nexthop_change, &zns->netlink_cmd,
-				 &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_nexthop_change, &zns->netlink_cmd, &dp_info, 0, true,
+				 NULL, NULL);
 
 	if (!ret)
 		/* If we successfully read in nexthop objects,
@@ -4197,7 +4196,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	return 0;
 }
 
-static int netlink_macfdb_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+static int netlink_macfdb_table(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct ndmsg *ndm;
@@ -4257,7 +4256,7 @@ static int netlink_macfdb_read(struct nlsock *nl, const struct zebra_dplane_info
 		return ret;
 	/* We are reading entire table. */
 	filter_vlan = 0;
-	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, true);
+	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, true, NULL, NULL);
 
 	return ret;
 }
@@ -4283,7 +4282,7 @@ static int netlink_macfdb_read_for_bridge(struct nlsock *nl,
 	if (ret < 0)
 		goto done;
 
-	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, false);
+	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, false, NULL, NULL);
 
 done:
 	/* Reset VLAN filter. */
@@ -4360,7 +4359,7 @@ static int netlink_macfdb_read_specific_mac(struct nlsock *nl,
 	if (ret < 0)
 		return ret;
 
-	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false);
+	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false, NULL, NULL);
 }
 
 static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
@@ -4376,7 +4375,7 @@ static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
 	if (ret < 0)
 		return ret;
 
-	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false);
+	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false, NULL, NULL);
 }
 
 void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
@@ -4659,7 +4658,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	return 0;
 }
 
-static int netlink_neigh_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+static int netlink_neigh_table(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct ndmsg *ndm;
@@ -4769,15 +4768,15 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 	if (ip->ipa_type != IPADDR_NONE) {
 		ret = netlink_request_specific_neigh_in_vlan(nl, RTM_GETNEIGH, ip, ifindex);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 1, false);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 1, false, NULL, NULL);
 	} else if (ifindex) {
 		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, ifindex);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, false);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, false, NULL, NULL);
 	} else {
 		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, 0);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, true);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, true, NULL, NULL);
 	}
 
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
@@ -5195,8 +5194,7 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct ipaddr *vtep_ip)
 	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
 		zlog_debug("Tx %s fdb-nh 0x%x %pIA", nl_msg_type_to_str(cmd), nh_id, vtep_ip);
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 static int netlink_fdb_nh_del(uint32_t nh_id)
@@ -5228,8 +5226,7 @@ static int netlink_fdb_nh_del(uint32_t nh_id)
 			   nl_msg_type_to_str(cmd), nh_id);
 	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
@@ -5287,8 +5284,7 @@ static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
 			   nl_msg_type_to_str(cmd), nhg_id, vtep_str);
 	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 static int netlink_fdb_nhg_del(uint32_t nhg_id)

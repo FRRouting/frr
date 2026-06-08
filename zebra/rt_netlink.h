@@ -61,7 +61,7 @@ extern ssize_t netlink_route_multipath_msg_encode(int cmd,
 extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
 					 void *data, size_t datalen);
 
-extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
+extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 extern int netlink_route_read(struct zebra_ns *zns);
 
 /*
@@ -73,8 +73,7 @@ extern int netlink_route_read(struct zebra_ns *zns);
 int netlink_route_notify_read_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 				  struct zebra_dplane_ctx *ctx);
 
-extern int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id,
-				  int startup);
+extern int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 extern int netlink_nexthop_read(struct zebra_ns *zns);
 extern ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					  const struct zebra_dplane_ctx *ctx,
