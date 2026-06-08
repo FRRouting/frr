@@ -1727,7 +1727,7 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 
 		for (ALL_LIST_ELEMENTS_RO(pce->pce_domain, node, domain)) {
 			if (domain->header.type != 0) {
-				if (domain->type == PCE_DOMAIN_TYPE_AREA) {
+				if (ntohs(domain->type) == PCE_DOMAIN_TYPE_AREA) {
 					tmp.s_addr = domain->value;
 					vty_out(vty, "  pce domain area %pI4\n",
 						&tmp);
@@ -1740,7 +1740,7 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 
 		for (ALL_LIST_ELEMENTS_RO(pce->pce_neighbor, node, neighbor)) {
 			if (neighbor->header.type != 0) {
-				if (neighbor->type == PCE_DOMAIN_TYPE_AREA) {
+				if (ntohs(neighbor->type) == PCE_DOMAIN_TYPE_AREA) {
 					tmp.s_addr = neighbor->value;
 					vty_out(vty,
 						"  pce neighbor area %pI4\n",
