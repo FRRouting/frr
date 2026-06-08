@@ -91,6 +91,50 @@ const size_t cap_modsizes[] = {
 	[CAPABILITY_CODE_PATHS_LIMIT] = 5,
 };
 
+bool bgp_capability_length_check(struct peer_connection *connection, uint8_t code, uint16_t length)
+{
+	struct peer *peer = connection->peer;
+
+	switch (code) {
+	case CAPABILITY_CODE_MP:
+	case CAPABILITY_CODE_REFRESH:
+	case CAPABILITY_CODE_ORF:
+	case CAPABILITY_CODE_RESTART:
+	case CAPABILITY_CODE_AS4:
+	case CAPABILITY_CODE_ADDPATH:
+	case CAPABILITY_CODE_DYNAMIC:
+	case CAPABILITY_CODE_ENHE:
+	case CAPABILITY_CODE_FQDN:
+	case CAPABILITY_CODE_ENHANCED_RR:
+	case CAPABILITY_CODE_EXT_MESSAGE:
+	case CAPABILITY_CODE_ROLE:
+	case CAPABILITY_CODE_SOFT_VERSION:
+	case CAPABILITY_CODE_PATHS_LIMIT:
+	case CAPABILITY_CODE_LLGR:
+		if (length < cap_minsizes[code]) {
+			zlog_info("%pBP: %s Capability length error: got %u, expected at least %u",
+				  peer, lookup_msg(capcode_str, code, NULL), length,
+				  (unsigned int)cap_minsizes[code]);
+			bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR,
+					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+			return false;
+		}
+		if (length && length % cap_modsizes[code] != 0) {
+			zlog_info("%pBP: %s Capability length error: got %u, expected a multiple of %u",
+				  peer, lookup_msg(capcode_str, code, NULL), length,
+				  (unsigned int)cap_modsizes[code]);
+			bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR,
+					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+			return false;
+		}
+		break;
+	default:
+		break;
+	}
+
+	return true;
+}
+
 /* BGP-4 Multiprotocol Extensions lead us to the complex world. We can
    negotiate remote peer supports extensions or not. But if
    remote-peer doesn't supports negotiation process itself.  We would
@@ -1116,53 +1160,8 @@ static int bgp_capability_parse(struct peer_connection *connection, size_t lengt
 				   caphdr.code, caphdr.length);
 
 		/* Length sanity check, type-specific, for known capabilities */
-		switch (caphdr.code) {
-		case CAPABILITY_CODE_MP:
-		case CAPABILITY_CODE_REFRESH:
-		case CAPABILITY_CODE_ORF:
-		case CAPABILITY_CODE_RESTART:
-		case CAPABILITY_CODE_AS4:
-		case CAPABILITY_CODE_ADDPATH:
-		case CAPABILITY_CODE_DYNAMIC:
-		case CAPABILITY_CODE_ENHE:
-		case CAPABILITY_CODE_FQDN:
-		case CAPABILITY_CODE_ENHANCED_RR:
-		case CAPABILITY_CODE_EXT_MESSAGE:
-		case CAPABILITY_CODE_ROLE:
-		case CAPABILITY_CODE_SOFT_VERSION:
-		case CAPABILITY_CODE_PATHS_LIMIT:
-		case CAPABILITY_CODE_LLGR:
-			/* Check length. */
-			if (caphdr.length < cap_minsizes[caphdr.code]) {
-				zlog_info(
-					"%s %s Capability length error: got %u, expected at least %u",
-					peer->host,
-					lookup_msg(capcode_str, caphdr.code,
-						   NULL),
-					caphdr.length,
-					(unsigned)cap_minsizes[caphdr.code]);
-				bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR,
-						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
-				return -1;
-			}
-			if (caphdr.length
-			    && caphdr.length % cap_modsizes[caphdr.code] != 0) {
-				zlog_info(
-					"%s %s Capability length error: got %u, expected a multiple of %u",
-					peer->host,
-					lookup_msg(capcode_str, caphdr.code,
-						   NULL),
-					caphdr.length,
-					(unsigned)cap_modsizes[caphdr.code]);
-				bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR,
-						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
-				return -1;
-			}
-			break;
-		/* we deliberately ignore unknown codes, see below */
-		default:
-			break;
-		}
+		if (!bgp_capability_length_check(connection, caphdr.code, caphdr.length))
+			return -1;
 
 		switch (caphdr.code) {
 		case CAPABILITY_CODE_MP: {
