@@ -1768,7 +1768,6 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, struct in_addr from, str
 				 int rec_type)
 {
 	struct pim_interface *pim_ifp;
-	struct in_addr grp_addr;
 
 	pim_ifp = ifp->info;
 
@@ -1788,10 +1787,7 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, struct in_addr from, str
 	 * If we receive a igmp report with the group in 224.0.0.0/24
 	 * then we should ignore it
 	 */
-
-	grp_addr.s_addr = ntohl(grp.s_addr);
-
-	if (pim_is_group_224_0_0_0_24(grp_addr)) {
+	if (pim_is_group_224_0_0_0_24(grp)) {
 		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug("Ignoring IGMPv3 group record %pI4 from %pI4s on %s group range falls in 224.0.0.0/24",
 				   &grp.s_addr, &from, ifp->name);
