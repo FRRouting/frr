@@ -89,6 +89,7 @@ const size_t cap_modsizes[] = {
 	[CAPABILITY_CODE_ROLE] = 1,
 	[CAPABILITY_CODE_SOFT_VERSION] = 1,
 	[CAPABILITY_CODE_PATHS_LIMIT] = 5,
+	[CAPABILITY_CODE_LINK_LOCAL] = 1,
 };
 
 bool bgp_capability_length_check(struct peer_connection *connection, uint8_t code, uint16_t length)
@@ -111,6 +112,7 @@ bool bgp_capability_length_check(struct peer_connection *connection, uint8_t cod
 	case CAPABILITY_CODE_SOFT_VERSION:
 	case CAPABILITY_CODE_PATHS_LIMIT:
 	case CAPABILITY_CODE_LLGR:
+	case CAPABILITY_CODE_LINK_LOCAL:
 		if (length < cap_minsizes[code]) {
 			zlog_info("%pBP: %s Capability length error: got %u, expected at least %u",
 				  peer, lookup_msg(capcode_str, code, NULL), length,
