@@ -3853,6 +3853,7 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 		case CAPABILITY_CODE_ROLE:
 		case CAPABILITY_CODE_SOFT_VERSION:
 		case CAPABILITY_CODE_PATHS_LIMIT:
+		case CAPABILITY_CODE_LLGR:
 			if (hdr->length < cap_minsizes[hdr->code]) {
 				zlog_info("%pBP: %s Capability length error: got %u, expected at least %u",
 					  peer, capability, hdr->length,
