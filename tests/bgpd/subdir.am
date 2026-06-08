@@ -34,6 +34,16 @@ EXTRA_DIST += tests/bgpd/test_capability.py
 
 
 if BGPD
+check_PROGRAMS += tests/bgpd/test_community
+endif
+tests_bgpd_test_community_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_community_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_community_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_community_SOURCES = tests/bgpd/test_community.c
+EXTRA_DIST += tests/bgpd/test_community.py
+
+
+if BGPD
 check_PROGRAMS += tests/bgpd/test_ecommunity
 endif
 tests_bgpd_test_ecommunity_CFLAGS = $(TESTS_CFLAGS)

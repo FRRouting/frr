@@ -272,9 +272,19 @@ static void set_community_string(struct community *com, bool make_json,
 		case COMMUNITY_NO_PEER:
 			len += strlen(" no-peer");
 			break;
-		default:
-			len = BUFSIZ;
+		default: {
+			char buf[32];
+
+			as = CHECK_FLAG((comval >> 16), 0xFFFF);
+			val = CHECK_FLAG(comval, 0xFFFF);
+
+			snprintf(buf, sizeof(buf), "%u:%d", as, val);
+			const char *com2alias = translate_alias ? bgp_community2alias(buf) : buf;
+
+			/* Plus one for the space separator. */
+			len += strlen(com2alias) + 1;
 			break;
+		}
 		}
 	}
 
