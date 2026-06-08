@@ -1588,6 +1588,24 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_create, TRACE_INFO)
 
+/* Flush iter (re)scheduled: snapshot of flush progress state. */
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker_sched,
+	TP_ARGS(const char *, action, uint32_t, tracker_id, uint32_t, nhg_id, uint32_t, flush_state,
+		uint32_t, routes_pending, uint32_t, phase2_consumers, uint32_t, pending_winners),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, tracker_id, tracker_id)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, flush_state, flush_state)
+		ctf_integer(uint32_t, routes_pending, routes_pending)
+		ctf_integer(uint32_t, phase2_consumers, phase2_consumers)
+		ctf_integer(uint32_t, pending_winners, pending_winners)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_sched, TRACE_INFO)
+
 /* clang-format on */
 #include <lttng/tracepoint-event.h>
 
