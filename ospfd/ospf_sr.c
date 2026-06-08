@@ -1131,6 +1131,12 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh,
 
 		switch (ntohs(sub_tlvh->type)) {
 		case EXT_SUBTLV_PREFIX_SID:
+			if (ntohs(sub_tlvh->length) < EXT_SUBTLV_PREFIX_SID_SIZE) {
+				zlog_warn("SR : Invalid PREFIX_SID subtlv size");
+				XFREE(MTYPE_OSPF_SR_PARAMS, srp);
+				return NULL;
+			}
+
 			psid = (struct ext_subtlv_prefix_sid *)sub_tlvh;
 			if (psid->algorithm != SR_ALGORITHM_SPF) {
 				flog_err(EC_OSPF_INVALID_ALGORITHM,
