@@ -2569,7 +2569,7 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 	char route_type[2];
 
 	prefix2str(&route->prefix, prefix, sizeof(prefix));
-	tmp_id = ntohl(info->id);
+	tmp_id = htonl(info->id);
 	inet_ntop(AF_INET, &tmp_id, id, sizeof(id));
 	if (!IN6_IS_ADDR_UNSPECIFIED(&info->forwarding))
 		inet_ntop(AF_INET6, &info->forwarding, forwarding,
