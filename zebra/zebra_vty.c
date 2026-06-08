@@ -494,6 +494,10 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			if (re->nhe_received)
 				vty_out(vty, "  Received Nexthop Group ID: %u\n",
 					re->nhe_received->id);
+
+			if (re->tracker_parent_nhg_id)
+				vty_out(vty, "  Tracker Parent Nexthop Group ID: %u\n",
+					re->tracker_parent_nhg_id);
 		}
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
@@ -612,6 +616,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 				if (re->nhe_received)
 					json_object_int_add(json_route, "receivedNexthopGroupId",
 							    re->nhe_received->id);
+				if (re->tracker_parent_nhg_id)
+					json_object_int_add(json_route,
+							    "trackerParentNexthopGroupId",
+							    re->tracker_parent_nhg_id);
 
 				if (re->nhe) {
 					json_object_int_add(json_route, "nexthopGroupFlags",
@@ -647,6 +655,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 				if (re->nhe_received)
 					json_object_int_add(json_route, "receivedNexthopGroupId",
 							    re->nhe_received->id);
+				if (re->tracker_parent_nhg_id)
+					json_object_int_add(json_route,
+							    "trackerParentNexthopGroupId",
+							    re->tracker_parent_nhg_id);
 				json_object_int_add(json_route, "rnRefCnt",
 						    route_node_get_lock_count(rn));
 
@@ -1268,9 +1280,6 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		if (nhe->tracker_pending_winners)
 			json_object_int_add(json, "trackerPendingWinners",
 					    nhe->tracker_pending_winners);
-		if (nhe->tracker_flush_batch_parent_nhg_id)
-			json_object_int_add(json, "trackerFlushBatchParentNhgId",
-					    nhe->tracker_flush_batch_parent_nhg_id);
 	} else {
 		/* Text output - use common formatter */
 		char flags_buf[256];
@@ -1281,9 +1290,6 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		if (nhe->tracker_pending_winners)
 			vty_out(vty, "     Tracker Pending Winners: %u\n",
 				nhe->tracker_pending_winners);
-		if (nhe->tracker_flush_batch_parent_nhg_id)
-			vty_out(vty, "     Tracker Flush Batch Parent NHG ID: %u\n",
-				nhe->tracker_flush_batch_parent_nhg_id);
 	}
 	if (nhe->ifp) {
 		if (json)
@@ -4655,6 +4661,10 @@ DEFUN (show_zebra_tracker,
 		json_object_int_add(json, "trackerFullCombinedUnmatchedGt",
 				    zrouter.tracker_counters.tracker_full_combined_unmatched_gt);
 		json_object_int_add(json, "trackerFullTotal", full);
+		json_object_int_add(json, "flushSlicesTotal",
+				    zrouter.tracker_counters.flush_slices_total);
+		json_object_int_add(json, "flushSlicesYielded",
+				    zrouter.tracker_counters.flush_slices_yielded);
 
 		for (uint32_t i = 0; i < count; i++) {
 			uint32_t idx = (start + i) % TRACKER_FLUSH_LOG_SIZE;
@@ -4695,6 +4705,10 @@ DEFUN (show_zebra_tracker,
 		vty_out(vty, "  Combined (unmatched > matched): %" PRIu32 "\n",
 			zrouter.tracker_counters.tracker_full_combined_unmatched_gt);
 		vty_out(vty, "Tracker full events (total): %" PRIu32 "\n", full);
+		vty_out(vty, "Flush iter slices (total): %" PRIu32 "\n",
+			zrouter.tracker_counters.flush_slices_total);
+		vty_out(vty, "Flush iter slices (yielded): %" PRIu32 "\n",
+			zrouter.tracker_counters.flush_slices_yielded);
 
 		for (uint32_t i = 0; i < count; i++) {
 			uint32_t idx = (start + i) % TRACKER_FLUSH_LOG_SIZE;
