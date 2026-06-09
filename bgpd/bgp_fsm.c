@@ -1379,6 +1379,19 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 			continue;
 
 		if (!CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED)) {
+			/*
+			 * Skip peers that do not have this AFI/SAFI
+			 * configured/activated; they cannot have negotiated
+			 * the AF nor send an EOR for it, so waiting for one
+			 * would block GR fast-cancel indefinitely.
+			 */
+			if (!peer->afc[afi][safi]) {
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... Ignoring EOR from %s. %s is not configured",
+						   peer->host, get_afi_safi_str(afi, safi, false));
+				continue;
+			}
+
 			if (!bgp->gr_multihop_peer_exists) {
 				/*
 				 * This instance doesn't have a mix of directly
@@ -1393,13 +1406,6 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 					 peer->host, 1);
 
 				return false;
-			}
-
-			if (!peer->afc[afi][safi]) {
-				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-					zlog_debug(".... Ignoring EOR from %s. %s is not configured",
-						   peer->host, get_afi_safi_str(afi, safi, false));
-				continue;
 			}
 
 			/*
