@@ -1220,7 +1220,7 @@ static struct ls_node *ls_parse_node(struct stream *s)
 		STREAM_GET(node->name, s, len);
 	}
 	if (CHECK_FLAG(node->flags, LS_NODE_ROUTER_ID))
-		node->router_id.s_addr = stream_get_ipv4(s);
+		STREAM_GET(&node->router_id, s, IPV4_MAX_BYTELEN);
 	if (CHECK_FLAG(node->flags, LS_NODE_ROUTER_ID6))
 		STREAM_GET(&node->router_id6, s, IPV6_MAX_BYTELEN);
 	if (CHECK_FLAG(node->flags, LS_NODE_FLAG))
@@ -1302,9 +1302,9 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 		}
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
-		attr->standard.local.s_addr = stream_get_ipv4(s);
+		STREAM_GET(&attr->standard.local, s, IPV4_MAX_BYTELEN);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR))
-		attr->standard.remote.s_addr = stream_get_ipv4(s);
+		STREAM_GET(&attr->standard.remote, s, IPV4_MAX_BYTELEN);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6))
 		STREAM_GET(&attr->standard.local6, s, IPV6_MAX_BYTELEN);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR6))
@@ -1323,7 +1323,7 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_REMOTE_AS))
 		STREAM_GETL(s, attr->standard.remote_as);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_REMOTE_ADDR))
-		attr->standard.remote_addr.s_addr = stream_get_ipv4(s);
+		STREAM_GET(&attr->standard.remote_addr, s, IPV4_MAX_BYTELEN);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_REMOTE_ADDR6))
 		STREAM_GET(&attr->standard.remote_addr6, s, IPV6_MAX_BYTELEN);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_DELAY))
@@ -1346,15 +1346,15 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 		STREAM_GETL(s, attr->adj_sid[ADJ_PRI_IPV4].sid);
 		STREAM_GETC(s, attr->adj_sid[ADJ_PRI_IPV4].flags);
 		STREAM_GETC(s, attr->adj_sid[ADJ_PRI_IPV4].weight);
-		attr->adj_sid[ADJ_PRI_IPV4].neighbor.addr.s_addr =
-			stream_get_ipv4(s);
+		STREAM_GET(&attr->adj_sid[ADJ_PRI_IPV4].neighbor.addr,
+			   s, IPV4_MAX_BYTELEN);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID)) {
 		STREAM_GETL(s, attr->adj_sid[ADJ_BCK_IPV4].sid);
 		STREAM_GETC(s, attr->adj_sid[ADJ_BCK_IPV4].flags);
 		STREAM_GETC(s, attr->adj_sid[ADJ_BCK_IPV4].weight);
-		attr->adj_sid[ADJ_BCK_IPV4].neighbor.addr.s_addr =
-			stream_get_ipv4(s);
+		STREAM_GET(&attr->adj_sid[ADJ_BCK_IPV4].neighbor.addr,
+			   s, IPV4_MAX_BYTELEN);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID6)) {
 		STREAM_GETL(s, attr->adj_sid[ADJ_PRI_IPV6].sid);
