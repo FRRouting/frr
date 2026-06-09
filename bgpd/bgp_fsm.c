@@ -1307,10 +1307,129 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
 			continue;
 
 		if (!CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED)) {
+<<<<<<< HEAD
 			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 				zlog_debug(".... EOR still awaited from this peer for this %s",
 					   get_afi_safi_str(afi, safi, false));
 			return false;
+=======
+			/*
+			 * Skip peers that do not have this AFI/SAFI
+			 * configured/activated; they cannot have negotiated
+			 * the AF nor send an EOR for it, so waiting for one
+			 * would block GR fast-cancel indefinitely.
+			 */
+			if (!peer->afc[afi][safi]) {
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... Ignoring EOR from %s. %s is not configured",
+						   peer->host, get_afi_safi_str(afi, safi, false));
+				continue;
+			}
+
+			if (!bgp->gr_multihop_peer_exists) {
+				/*
+				 * This instance doesn't have a mix of directly
+				 * connected and multihop peers. So we don't
+				 * need to do 2 level deferred bestpath
+				 * calculation.
+				 */
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... EOR still awaited from this peer for %s",
+						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 1);
+
+				return false;
+			}
+
+			/*
+			 * This afi-safi(v4-uni or v6-unicast) has a mix
+			 * of directly connected and multihop peers.
+			 * Since multihop peers could depend on prefixes
+			 * learnt from directly connected peers to form
+			 * the BGP session, BGP needs to do 2 level
+			 * deferred bestpath selection.
+			 *
+			 * 1st level of deferred bestpath selection will
+			 * be done when EORs are received from all the
+			 * directly connected peers, or when the
+			 * select-deferral-timer expires. If the timer
+			 * expired, it means that some of the directly
+			 * connected peers didn't come up at all. So on
+			 * timer expiry, BGP will check to see if
+			 * there's a mix of directly-connected and
+			 * multihop peers for that afi-safi. if yes,
+			 * then BGP will start the tier2-select-deferral
+			 * timer and wait for all the multihop peers to
+			 * come up, send EORs and then do 2nd deferred
+			 * bestpath selection.
+			 *
+			 * After EORs are rcvd from all the directly
+			 * connected peers, BGP will check if there are
+			 * any multihop peers from whom we are yet to
+			 * rcv EORs. If yes, BGP will start
+			 * tier2-select-deferral timer and wait for all
+			 * the multihop peers to come up and send EORs.
+			 *
+			 * If before tier2-select-deferral timer expiry,
+			 * if all multihop peers send EOR then BGP will
+			 * cancel the tier2 timer and do 2nd deferred
+			 * bestpath selection.
+			 *
+			 * Here, even if the peerB has
+			 * disable-connected-check configured, it will
+			 * be treated as directly connected peer. This
+			 * is because, peerB's session coming up
+			 * wouldn't depend on some other BGP session
+			 * coming up and learning prefixes.
+			 */
+			if (PEER_IS_MULTIHOP(peer)) {
+				/*
+				 * If we have not received EOR from a
+				 * multihop peer, start the tier2
+				 * select-deferral-timer only if EORs
+				 * are rcvd from all the directly
+				 * connected peers
+				 */
+				eor_rcvd_from_all_mh_peers = false;
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... EOR still awaited from this multihop peer for %s",
+						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 3);
+			} else {
+				/*
+				 * If EOR from directly connected peer
+				 * is not rcvd even after tier1 timer
+				 * expiry, then we are going to ignore
+				 * this peer since this peer may not
+				 * come up at all.
+				 */
+				if (bgp->gr_info[afi][safi].select_defer_over) {
+					if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+						zlog_debug(".... Ignoring directly connected peer %s. Tier1 GR timer has expired already for %s",
+							   peer->host,
+							   get_afi_safi_str(afi, safi, false));
+					frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi,
+						 safi, peer->host, 2);
+					continue;
+				}
+				/*
+				 * If this is a directly connected peer
+				 * and if we haven't received EOR from
+				 * this peer yet, then we will wait to
+				 * do the 1st round of deferred
+				 * bestpath.
+				 */
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... EOR still awaited from this directly connected peer for %s",
+						   get_afi_safi_str(afi, safi, false));
+				frrtrace(5, frr_bgp, gr_eor_peer, bgp->name_pretty, afi, safi,
+					 peer->host, 5);
+
+				return false;
+			}
+>>>>>>> e6b40baa5 (bgpd: lift !afc check in bgp_gr_check_all_eors)
 		}
 	}
 
