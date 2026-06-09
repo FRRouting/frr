@@ -2332,7 +2332,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
 		struct in6_addr tunn_id = {};
 
-		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL));
+		bgp_attr_set(&attr, BGP_ATTR_PMSI_TUNNEL);
 		bgp_attr_set_pmsi_tnl_type(&attr, PMSI_TNLTYPE_INGR_REPL);
 		if (attr.mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
 			ipv4_to_ipv4_mapped_ipv6(&tunn_id, attr.mp_nexthop_global_in);
@@ -3273,7 +3273,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 			attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
 		} else {
 			attr.nexthop = bre->gw_ip.ipaddr_v4;
-			SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+			bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
 		}
 	} else {
 		if (afi == AFI_IP) {

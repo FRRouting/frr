@@ -642,7 +642,7 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 		INCP;
 	}
 
-	if (bpi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
+	if (bgp_attr_exists(bpi->attr, BGP_ATTR_LOCAL_PREF)) {
 		r = snprintf(p, REMAIN, " LP=%d", bpi->attr->local_pref);
 		INCP;
 	} else {
@@ -1076,7 +1076,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	 */
 	uint32_t local_pref;
 
-	if (bpi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+	if (bgp_attr_exists(bpi->attr, BGP_ATTR_LOCAL_PREF))
 		local_pref = bpi->attr->local_pref;
 	else
 		local_pref = 0;

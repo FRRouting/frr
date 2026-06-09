@@ -2552,8 +2552,8 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 		if (!attribute_len) {
 			afi = AFI_IP;
 			safi = SAFI_UNICAST;
-		} else if (attr.flag & ATTR_FLAG_BIT(BGP_ATTR_MP_UNREACH_NLRI)
-			   && nlris[NLRI_MP_WITHDRAW].length == 0) {
+		} else if (bgp_attr_exists(&attr, BGP_ATTR_MP_UNREACH_NLRI) &&
+			   nlris[NLRI_MP_WITHDRAW].length == 0) {
 			afi = nlris[NLRI_MP_WITHDRAW].afi;
 			safi = nlris[NLRI_MP_WITHDRAW].safi;
 		}

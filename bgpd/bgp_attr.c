@@ -1520,7 +1520,7 @@ struct attr *bgp_attr_aggregate_intern(
 
 	/* Origin attribute. */
 	attr.origin = origin;
-	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN));
+	bgp_attr_set(&attr, BGP_ATTR_ORIGIN);
 
 	/* MED */
 	bgp_attr_set_med(&attr, 0);
@@ -1530,7 +1530,7 @@ struct attr *bgp_attr_aggregate_intern(
 		attr.aspath = aspath_intern(aspath);
 	else
 		attr.aspath = aspath_empty(bgp->asnotation);
-	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+	bgp_attr_set(&attr, BGP_ATTR_AS_PATH);
 
 	if (community) {
 		uint32_t gshut = COMMUNITY_GSHUT;
@@ -1560,8 +1560,8 @@ struct attr *bgp_attr_aggregate_intern(
 	attr.weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
 	if (!aggregate->as_set || atomic_aggregate)
-		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
-	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+		bgp_attr_set(&attr, BGP_ATTR_ATOMIC_AGGREGATE);
+	bgp_attr_set(&attr, BGP_ATTR_AGGREGATOR);
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 		attr.aggregator_as = bgp->confed_id;
 	else
@@ -1579,7 +1579,7 @@ struct attr *bgp_attr_aggregate_intern(
 	 */
 	if (p->family == AF_INET) {
 		/* Next hop attribute.  */
-		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+		bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
 		attr.mp_nexthop_len = IPV4_MAX_BYTELEN;
 	}
 
@@ -2573,13 +2573,11 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 		 * should not send them
 		 */
 		if (BGP_DEBUG(as4, AS4)) {
-			if (CHECK_FLAG(attr->flag,
-				       (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH))))
+			if (bgp_attr_exists(attr, BGP_ATTR_AS4_PATH))
 				zlog_debug("[AS4] %s %s AS4_PATH", peer->host,
 					   "AS4 capable peer, yet it sent");
 
-			if (CHECK_FLAG(attr->flag,
-				       (ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR))))
+			if (bgp_attr_exists(attr, BGP_ATTR_AS4_AGGREGATOR))
 				zlog_debug("[AS4] %s %s AS4_AGGREGATOR",
 					   peer->host,
 					   "AS4 capable peer, yet it sent");
@@ -2591,9 +2589,8 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 	/* We have a asn16 peer.  First, look for AS4_AGGREGATOR
 	 * because that may override AS4_PATH
 	 */
-	if (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR)))) {
-		if (CHECK_FLAG(attr->flag,
-			       (ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_AS4_AGGREGATOR)) {
+		if (bgp_attr_exists(attr, BGP_ATTR_AGGREGATOR)) {
 			/* received both.
 			 * if the as_number in aggregator is not AS_TRANS,
 			 *  then AS4_AGGREGATOR and AS4_PATH shall be ignored
@@ -2633,14 +2630,12 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 			attr->aggregator_as = as4_aggregator;
 			/* sweep it under the carpet and simulate a "good"
 			 * AGGREGATOR */
-			SET_FLAG(attr->flag,
-				 (ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)));
+			bgp_attr_set(attr, BGP_ATTR_AGGREGATOR);
 		}
 	}
 
 	/* need to reconcile NEW_AS_PATH and AS_PATH */
-	if (!ignore_as4_path &&
-	    (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH))))) {
+	if (!ignore_as4_path && bgp_attr_exists(attr, BGP_ATTR_AS4_PATH)) {
 		newpath = aspath_reconcile_as4(attr->aspath, as4_path);
 		if (!newpath)
 			return BGP_ATTR_PARSE_ERROR;
@@ -4781,7 +4776,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 	 * Finally do the checks on the aspath we did not do yet
 	 * because we waited for a potentially synthesized aspath.
 	 */
-	if (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS_PATH)))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_AS_PATH)) {
 		ret = bgp_attr_aspath_check(peer, attr);
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			goto done;
@@ -5772,7 +5767,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 	/* Label index attribute. */
 	if (safi == SAFI_LABELED_UNICAST) {
-		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) {
+		if (bgp_attr_exists(attr, BGP_ATTR_PREFIX_SID)) {
 			uint32_t label_index;
 
 			label_index = attr->label_index;
