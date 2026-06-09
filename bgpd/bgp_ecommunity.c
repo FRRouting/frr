@@ -1439,8 +1439,6 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					ECOMMUNITY_FORMAT_DISPLAY);
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
-				snprintf(encbuf, sizeof(encbuf),
-					 "FS:redirect VRF %s", buf);
 			} else if (type != ECOMMUNITY_ENCODE_TRANS_EXP)
 				unk_ecom = true;
 			else if (sub_type == ECOMMUNITY_TRAFFIC_ACTION) {
