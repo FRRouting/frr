@@ -85,7 +85,7 @@ const size_t cap_modsizes[] = {
 	[CAPABILITY_CODE_FQDN] = 1,
 	[CAPABILITY_CODE_ENHANCED_RR] = 1,
 	[CAPABILITY_CODE_EXT_MESSAGE] = 1,
-	[CAPABILITY_CODE_LLGR] = 1,
+	[CAPABILITY_CODE_LLGR] = 7,
 	[CAPABILITY_CODE_ROLE] = 1,
 	[CAPABILITY_CODE_SOFT_VERSION] = 1,
 	[CAPABILITY_CODE_PATHS_LIMIT] = 5,
@@ -1106,6 +1106,7 @@ static int bgp_capability_parse(struct peer *peer, struct peer_connection *conne
 		case CAPABILITY_CODE_ROLE:
 		case CAPABILITY_CODE_SOFT_VERSION:
 		case CAPABILITY_CODE_PATHS_LIMIT:
+		case CAPABILITY_CODE_LLGR:
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
