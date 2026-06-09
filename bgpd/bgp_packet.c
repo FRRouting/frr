@@ -1770,13 +1770,13 @@ static int bgp_open_receive(struct peer_connection *connection,
 	uint8_t notify_data_remote_as[2];
 	uint8_t notify_data_remote_as4[4];
 	uint8_t notify_data_remote_id[4];
-	uint16_t *holdtime_ptr;
+	uint8_t notify_data_holdtime[2];
 
 	/* Parse open packet. */
 	version = stream_getc(connection->curr);
 	memcpy(notify_data_remote_as, stream_pnt(connection->curr), 2);
 	remote_as = stream_getw(connection->curr);
-	holdtime_ptr = (uint16_t *)stream_pnt(connection->curr);
+	memcpy(notify_data_holdtime, stream_pnt(connection->curr), 2);
 	holdtime = stream_getw(connection->curr);
 	memcpy(notify_data_remote_id, stream_pnt(connection->curr), 4);
 	remote_id.s_addr = stream_get_ipv4(connection->curr);
@@ -2055,7 +2055,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 	if (holdtime < 3 && holdtime != 0) {
 		bgp_notify_send_with_data(connection, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
-					  (uint8_t *)holdtime_ptr, 2);
+					  notify_data_holdtime, 2);
 		return BGP_Stop;
 	}
 
@@ -2065,7 +2065,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 	    && peer->bgp->default_min_holdtime != 0) {
 		bgp_notify_send_with_data(connection, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
-					  (uint8_t *)holdtime_ptr, 2);
+					  notify_data_holdtime, 2);
 		return BGP_Stop;
 	}
 
