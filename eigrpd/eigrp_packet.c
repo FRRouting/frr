@@ -306,7 +306,17 @@ int eigrp_check_sha256_digest(struct stream *s,
 			      struct TLV_SHA256_Authentication_Type *authTLV,
 			      struct eigrp_neighbor *nbr, uint8_t flags)
 {
-	return 1;
+	/*
+	 * Receive-side HMAC-SHA256 verification is not implemented. Until it
+	 * is, fail closed: returning success here would accept any digest and
+	 * silently defeat the authentication the operator configured. Reject
+	 * the packet instead so the misconfiguration is visible rather than
+	 * granting a forgeable, unauthenticated adjacency.
+	 */
+	zlog_warn(
+		"interface %s: HMAC-SHA256 authentication is not supported on receive; rejecting packet",
+		IF_NAME(nbr->ei));
+	return 0;
 }
 
 void eigrp_write(struct event *event)
