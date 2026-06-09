@@ -282,11 +282,11 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 
 	memset(&ctx, 0, sizeof(ctx));
 	buffer[0] = '\n';
-	memcpy(buffer + 1, key, strlen(key->string));
+	memcpy(buffer + 1, key->string, strlen(key->string));
 	memcpy(buffer + 1 + strlen(key->string), source_ip, strlen(source_ip));
 	HMAC__SHA256_Init(&ctx, buffer,
 			  1 + strlen(key->string) + strlen(source_ip));
-	HMAC__SHA256_Update(&ctx, ibuf, strlen(ibuf));
+	HMAC__SHA256_Update(&ctx, ibuf, backup_end);
 	HMAC__SHA256_Final(digest, &ctx);
 
 
