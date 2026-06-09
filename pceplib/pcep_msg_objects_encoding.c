@@ -1584,8 +1584,12 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 		} break;
 
 		case RO_SUBOBJ_TYPE_UNNUM: {
-			/* Validate length */
-			if (subobj_length != 2 + LENGTH_2WORDS) {
+			/*
+			 * Validate length: subobj header + 2 reserved bytes +
+			 * Router ID + Interface ID (see RFC 3477).
+			 */
+			if (subobj_length != OBJECT_RO_SUBOBJ_HEADER_LENGTH + 2
+						     + LENGTH_2WORDS) {
 				pcep_log(LOG_INFO,
 					 "%s: Invalid length ro subobj type [%d] length [%d]",
 					 __func__, subobj_type, subobj_length);
@@ -1602,10 +1606,15 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 				(struct pcep_object_ro_subobj *)unum, flag_l,
 				subobj_type);
 
-			memcpy(&(unum->interface_id), (obj_buf + read_count), LENGTH_1WORD);
-			read_count += LENGTH_1WORD;
-			unum->interface_id = ntohl(unum->interface_id);
+			/*
+			 * Skip the 2 reserved bytes, then read the TE Router ID
+			 * followed by the Interface ID, matching the encoder.
+			 */
+			read_count += 2;
 			memcpy(&(unum->router_id.s_addr), (obj_buf + read_count), LENGTH_1WORD);
+			read_count += LENGTH_1WORD;
+			memcpy(&(unum->interface_id), (obj_buf + read_count), LENGTH_1WORD);
+			unum->interface_id = ntohl(unum->interface_id);
 			read_count += LENGTH_1WORD;
 
 			dll_append(obj->sub_objects, unum);
