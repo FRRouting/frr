@@ -539,44 +539,6 @@ if test "$enable_undefined_sanitizer" = "yes"; then
 fi
 AC_SUBST([SAN_FLAGS])
 
-dnl frr-format.so
-if test "$with_frr_format" != "no" -a "$with_frr_format" != "yes" -a -n "$with_frr_format"; then
-  AC_C_FLAG([-fplugin=${with_frr_format}], [
-    AC_MSG_ERROR([specified frr-format plugin ($with_frr_format) does not work])
-  ],,[
-#ifndef _FRR_ATTRIBUTE_PRINTFRR
-#error plugin not loaded
-#endif
-#if _FRR_ATTRIBUTE_PRINTFRR < 0x10000
-#error plugin too old
-#endif
-  ])
-elif test "$with_frr_format" = "no"; then
-  : #nothing
-else
-  AC_C_FLAG([-fplugin=tools/gcc-plugins/frr-format.so],[
-    AC_C_FLAG([-fplugin=frr-format],[
-      if test "$with_frr_format" = "yes"; then
-        AC_MSG_ERROR([frr-format plugin requested but not found])
-      fi
-    ],,[
-#ifndef _FRR_ATTRIBUTE_PRINTFRR
-#error plugin not loaded
-#endif
-#if _FRR_ATTRIBUTE_PRINTFRR < 0x10000
-#error plugin too old
-#endif
-    ])
-  ],,[
-#ifndef _FRR_ATTRIBUTE_PRINTFRR
-#error plugin not loaded
-#endif
-#if _FRR_ATTRIBUTE_PRINTFRR < 0x10000
-#error plugin too old
-#endif
-  ])
-fi
-
 AC_MSG_CHECKING([whether linker supports __start/stop_section symbols])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdio.h>
@@ -893,8 +855,6 @@ AC_ARG_ENABLE([undefined-sanitizer],
   AS_HELP_STRING([--enable-undefined-sanitizer], [enable UndefinedBehaviorSanitizer support for detecting undefined behavior]))
 AC_ARG_WITH([crypto],
   AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
-AC_ARG_WITH([frr-format],
-  AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
 AC_ARG_ENABLE([version_build_config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))

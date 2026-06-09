@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <sys/types.h>
@@ -31,6 +32,7 @@ int test(unsigned long long ay)
 	long v_long = 0;
 	int v_int = 0;
 	uint64_t v_uint64_t = 0;
+	uint_fast64_t v_uint_fast64_t = 0;
 	mytype v_mytype = 0;
 	mysize v_mysize = 0;
 	pid_t v_pid_t = 0;
@@ -82,6 +84,34 @@ int test(unsigned long long ay)
 	testfn("%Ld", v_mysize);		// WARN
 	testfn("%Ld", v_pid_t);			// WARN
 	testfn("%Ld", v_uint64_t);		// NOWARN
+
+	testfn("%w64u", v_size_t);		// WARN
+	testfn("%w64u", v_long);		// WARN
+	testfn("%w64u", v_int);			// WARN
+	testfn("%w64u", sizeof(v_int));		// NOWARN (integer constant)
+	testfn("%w64u", v_mytype);		// WARN
+	testfn("%w64u", v_mysize);		// WARN
+	testfn("%w64u", v_pid_t);		// WARN
+	testfn("%w64u", v_uint64_t);		// NOWARN
+
+	testfn("%w64d", v_size_t);		// WARN
+	testfn("%w64d", v_long);		// WARN
+	testfn("%w64d", v_int);			// WARN
+	testfn("%w64d", sizeof(v_int));		// NOWARN (integer constant)
+	testfn("%w64d", v_mytype);		// WARN
+	testfn("%w64d", v_mysize);		// WARN
+	testfn("%w64d", v_pid_t);		// WARN
+	testfn("%w64d", v_uint64_t);		// NOWARN
+
+	testfn("%wf64u", v_size_t);		// WARN
+	testfn("%wf64u", v_long);		// WARN
+	testfn("%wf64u", v_int);		// WARN
+	testfn("%wf64u", sizeof(v_int));	// NOWARN (integer constant)
+	testfn("%wf64u", v_mytype);		// WARN
+	testfn("%wf64u", v_mysize);		// WARN
+	testfn("%wf64u", v_pid_t);		// WARN
+	testfn("%wf64u", v_uint64_t);		// WARN
+	testfn("%wf64u", v_uint_fast64_t);	// NOWARN
 
 	/* retain-typeinfo patch */
 	testfn("%zu", (size_t)v_pid_t);         // NOWARN (need retain-typeinfo patch)
