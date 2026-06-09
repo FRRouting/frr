@@ -2305,19 +2305,10 @@ enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 	struct bgp *bgp = peer->bgp;
 
 	if (ipv4_martian(&attr->nexthop) && !bgp->allow_martian) {
-		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
-
 		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %pI4",
 			 &attr->nexthop);
-		data[0] = BGP_ATTR_FLAG_TRANS;
-		data[1] = BGP_ATTR_NEXT_HOP;
-		data[2] = BGP_ATTR_NHLEN_IPV4;
-		memcpy(&data[3], &attr->nexthop.s_addr, BGP_ATTR_NHLEN_IPV4);
-		bgp_notify_send_with_data(peer->connection,
-					  BGP_NOTIFY_UPDATE_ERR,
-					  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
-					  data, 7);
-		return BGP_ATTR_PARSE_ERROR;
+
+		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2468,7 +2459,8 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto aggregator_ignore;
 
-	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV))
+	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) &&
+	    CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV))
 		aggregator_as = stream_getl(connection->curr);
 	else
 		aggregator_as = stream_getw(connection->curr);
@@ -4752,7 +4744,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 	if (bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP) &&
 	    !bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI)) {
 		if (bgp_attr_nexthop_valid(peer, attr) < 0) {
-			ret = BGP_ATTR_PARSE_ERROR;
+			ret = BGP_ATTR_PARSE_WITHDRAW;
 			goto done;
 		}
 	}
