@@ -2955,10 +2955,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * Long-lived Graceful Restart Capability has not been received.
 	 */
 	if (bgp_attr_get_community(attr) &&
-	    community_include(bgp_attr_get_community(attr),
-			      COMMUNITY_LLGR_STALE) &&
-	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_RCV) &&
-	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_ADV))
+	    community_include(bgp_attr_get_community(attr), COMMUNITY_LLGR_STALE) &&
+	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_RCV))
 		return false;
 
 	/* Perform operations that involve memory allocation.
