@@ -1992,6 +1992,9 @@ struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 		break;
 	}
 
+	if (msg->event != LS_MSG_EVENT_DELETE && vertex)
+		msg->data.node = NULL;
+
 	return vertex;
 }
 
@@ -2039,6 +2042,9 @@ struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 		edge = NULL;
 		break;
 	}
+
+	if (msg->event != LS_MSG_EVENT_DELETE && edge)
+		msg->data.attr = NULL;
 
 	return edge;
 }
@@ -2088,6 +2094,9 @@ struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 		break;
 	}
 
+	if (msg->event != LS_MSG_EVENT_DELETE && subnet)
+		msg->data.prefix = NULL;
+
 	return subnet;
 }
 
@@ -2134,18 +2143,16 @@ void ls_delete_msg(struct ls_message *msg)
 	if (msg == NULL)
 		return;
 
-	if (msg->event == LS_MSG_EVENT_DELETE) {
-		switch (msg->type) {
-		case LS_MSG_TYPE_NODE:
-			ls_node_del(msg->data.node);
-			break;
-		case LS_MSG_TYPE_ATTRIBUTES:
-			ls_attributes_del(msg->data.attr);
-			break;
-		case LS_MSG_TYPE_PREFIX:
-			ls_prefix_del(msg->data.prefix);
-			break;
-		}
+	switch (msg->type) {
+	case LS_MSG_TYPE_NODE:
+		ls_node_del(msg->data.node);
+		break;
+	case LS_MSG_TYPE_ATTRIBUTES:
+		ls_attributes_del(msg->data.attr);
+		break;
+	case LS_MSG_TYPE_PREFIX:
+		ls_prefix_del(msg->data.prefix);
+		break;
 	}
 
 	XFREE(MTYPE_LS_DB, msg);
