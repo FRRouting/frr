@@ -6592,7 +6592,6 @@ void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx)
 static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 {
 	char buf[PREFIX_STRLEN];
-	const struct ipaddr *addr;
 
 	switch (dplane_ctx_get_op(ctx)) {
 
@@ -6646,12 +6645,9 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_EVPN_VXLAN_INSTALL:
 	case DPLANE_OP_EVPN_VXLAN_UNINSTALL:
-		addr = dplane_ctx_neigh_get_ipaddr(ctx);
-		zlog_debug("Dplane pw %s: op %s neigh %s, vni %u",
-			   dplane_ctx_get_ifname(ctx),
-			   dplane_op2str(ctx->zd_op),
-			   ipaddr2str(addr, buf, sizeof(buf)),
-			   dplane_ctx_neigh_get_vni(ctx));
+		ipaddr2str(dplane_ctx_neigh_get_ipaddr(ctx), buf, sizeof(buf));
+		zlog_debug("Dplane pw %s: op %s neigh %s, vni %u", dplane_ctx_get_ifname(ctx),
+			   dplane_op2str(ctx->zd_op), buf, dplane_ctx_neigh_get_vni(ctx));
 		break;
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
