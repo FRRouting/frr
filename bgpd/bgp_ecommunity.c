@@ -448,7 +448,7 @@ bool ecommunity_node_target_match(struct ecommunity *ecom,
 	bool match = false;
 
 	if (!ecom || !ecom->size)
-		return NULL;
+		return false;
 
 	for (i = 0; i < ecom->size; i++) {
 		const uint8_t *pnt;
