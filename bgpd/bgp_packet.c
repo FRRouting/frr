@@ -1002,24 +1002,24 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	{
 		struct bgp_notify bgp_notify;
 		int first = 0;
-		int i;
+		size_t i;
 		char c[4];
 
 		bgp_notify.code = code;
 		bgp_notify.subcode = sub_code;
 		bgp_notify.data = NULL;
-		bgp_notify.length = datalen;
+		bgp_notify.length = datalen * 3;
 		bgp_notify.raw_data = data;
 
 		peer->notify.code = bgp_notify.code;
 		peer->notify.subcode = bgp_notify.subcode;
-		peer->notify.length = bgp_notify.length;
+		peer->notify.length = datalen;
 		peer->notify.hard_reset = hard_reset;
 
 		if (bgp_notify.length && data) {
 			bgp_notify.data = XMALLOC(MTYPE_BGP_NOTIFICATION,
-						  bgp_notify.length * 3);
-			for (i = 0; i < bgp_notify.length; i++)
+						  bgp_notify.length);
+			for (i = 0; i < datalen; i++)
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
 						 data[i]);
