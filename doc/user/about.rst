@@ -242,6 +242,14 @@ The indicators have the following semantics:
 Known Kernel Issues
 -------------------
 
+- Linux < 4.19
+
+  PIM-SM (ASM) - Kernels before 4.19 do not deliver the ``IGMPMSG_WRVIFWHOLE``
+  multicast upcall.  *pimd* provides best-effort compensation using
+  ``IGMPMSG_WRONGVIF`` for several ASM scenarios; see :ref:`pim` for details.
+  Kernel 4.19 or newer is recommended for full PIM-SM operation, including
+  register encapsulation of the first data packet on the FHR.
+
 - Linux < 4.11
 
   v6 Route Replacement - Linux kernels before 4.11 can cause issues with v6
