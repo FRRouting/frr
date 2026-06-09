@@ -8296,8 +8296,9 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 
 		if (addpath_capable) {
 
-			/* When packet overflow occurs return immediately. */
-			if (pnt + BGP_ADDPATH_ID_LEN >= lim)
+			/* When packet overflow occurs return immediately.
+			 * Need addpath ID (4 bytes) + at least 1 byte for prefix length. */
+			if (pnt + BGP_ADDPATH_ID_LEN + 1 > lim)
 				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
 			memcpy(&addpath_id, pnt, BGP_ADDPATH_ID_LEN);
