@@ -586,7 +586,7 @@ static bool zebra_gr_process_route_entry(struct route_node *rn,
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
-		rib_delnode(rn, re);
+		rib_delnode(rn, re, false);
 
 		return true;
 	}

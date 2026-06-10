@@ -53,6 +53,7 @@
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
 #include "zebra/zebra_tc.h"
+#include "zebra/zebra_nhg_tracker.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
 
@@ -645,9 +646,10 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 		route_unlock_node(rn);
 
 		dest = rib_dest_from_rnode(rn);
-		if (dest && dest->selected_fib
-		    && !CHECK_FLAG(dest->selected_fib->status,
-				   ROUTE_ENTRY_REMOVED))
+		/* Treat REMOVED+TRACKER as still-alive: tracker-park window. */
+		if (dest && dest->selected_fib &&
+		    (!CHECK_FLAG(dest->selected_fib->status, ROUTE_ENTRY_REMOVED) ||
+		     CHECK_FLAG(dest->selected_fib->status, ROUTE_ENTRY_TRACKER)))
 			match = dest->selected_fib;
 
 		/* If there is no selected route or matched route is EGP, go up
@@ -1319,6 +1321,49 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 	return current;
 }
 
+/*
+ * A parked update for this prefix replaces the installed route when the
+ * tracker flushes, and the flush runs this prefix again. Until then keep the
+ * installed route selected and in the kernel, so that a worse route does not
+ * replace it for a few seconds and then get replaced back.
+ */
+static bool rib_keep_installed_while_parked(struct route_entry *parked,
+					    struct route_entry *old_selected,
+					    struct route_entry *old_fib,
+					    struct route_entry *new_fib)
+{
+	/* Nothing is parked here, so the tracker will not run this prefix again. */
+	if (!parked)
+		return false;
+
+	/* No route is in the kernel, or the kernel route is not the selected one
+	 * (FIB override): there is nothing to keep.
+	 */
+	if (!old_fib || old_fib != old_selected)
+		return false;
+
+	/* A failed install leaves selected_fib set, but that route is not in the
+	 * kernel. rib_link() also parks only against an installed or queued route.
+	 */
+	if (!CHECK_FLAG(old_fib->status, ROUTE_ENTRY_INSTALLED | ROUTE_ENTRY_QUEUED))
+		return false;
+
+	/* Its nexthop group is not valid or not in the kernel, so the route cannot
+	 * forward. Let another route take over.
+	 */
+	if (!zebra_nhg_reusable(old_fib->nhe))
+		return false;
+
+	/* The parked update must replace this route: same protocol and instance,
+	 * the same match rib_link() used to park it.
+	 */
+	if (!rib_compare_routes(parked, old_fib, false))
+		return false;
+
+	/* A better route wins now, as usual. On a tie the installed route stays. */
+	return !new_fib || rib_choose_best(old_fib, new_fib) == old_fib;
+}
+
 /* Core function for processing routing information base. */
 static void rib_process(struct route_node *rn)
 {
@@ -1333,6 +1378,7 @@ static void rib_process(struct route_node *rn)
 	struct zebra_vrf *zvrf = NULL;
 	struct vrf *vrf;
 	struct route_entry *proto_re_changed = NULL;
+	struct route_entry *parked = NULL;
 	vrf_id_t vrf_id = VRF_UNKNOWN;
 	safi_t safi = SAFI_UNICAST;
 
@@ -1396,6 +1442,12 @@ static void rib_process(struct route_node *rn)
 		/* Skip deleted entries from selection */
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
+
+		/* Skip entries parked in an NHG tracker, but remember that one is */
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER)) {
+			parked = re;
+			continue;
+		}
 
 		/*
 		 * If the route entry has changed, verify/resolve
@@ -1512,15 +1564,38 @@ static void rib_process(struct route_node *rn)
 			   (void *)new_fib);
 	}
 
+	bool keep_installed = rib_keep_installed_while_parked(parked, old_selected, old_fib,
+							      new_fib);
+
+	if (keep_installed) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: %pRN keep installed re %p while re %p is parked (best eligible %p)",
+				   __func__, rn, old_fib, parked, new_selected);
+
+		/*
+		 * The best eligible route lost to the installed one. Clear its
+		 * CHANGED flag, as the loop does for any route that loses (the
+		 * tracker skips CHANGED routes when it counts silent routes). Make
+		 * the installed route new_selected, so that the owner of the
+		 * changed route is told below that a better route won.
+		 */
+		if (new_selected) {
+			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
+			new_selected = old_selected;
+		}
+	}
+
 	/* Buffer ROUTE_ENTRY_CHANGED here, because it will get cleared if
 	 * fib == selected */
 	bool selected_changed = new_selected && CHECK_FLAG(new_selected->status,
 							   ROUTE_ENTRY_CHANGED);
 
-	/* If no new_selected and old_selected is parked in a tracker, do not strip
-	 * SELECTED and delete redistribution; tracker flush will re-run rib_process.
+	/* If the installed route is kept, or no new_selected and old_selected is
+	 * parked in a tracker, do not strip SELECTED and delete redistribution;
+	 * tracker flush will re-run rib_process.
 	 */
-	bool park_protected = (new_selected == NULL && old_selected &&
+	bool park_protected = keep_installed ||
+			      (new_selected == NULL && old_selected &&
 			       CHECK_FLAG(old_selected->status, ROUTE_ENTRY_TRACKER));
 
 	/* Update SELECTED entry */
@@ -1582,17 +1657,33 @@ static void rib_process(struct route_node *rn)
 					 info->safi);
 	}
 
-	/* Update fib according to selection results */
+	/*
+	 * The installed route is kept: do not touch the kernel and do not remove
+	 * entries yet. The tracker flush runs this prefix again and does both.
+	 */
+	if (keep_installed)
+		return;
+
+	/* Update fib according to selection results.
+	 * Skip FIB delete if old_fib is parked in a tracker — keep
+	 * the installed route until the tracker completes.
+	 */
 	if (new_fib && old_fib)
 		rib_process_update_fib(zvrf, rn, old_fib, new_fib);
 	else if (new_fib)
 		rib_process_add_fib(zvrf, rn, new_fib);
-	else if (old_fib && !RIB_KERNEL_ROUTE(old_fib))
+	else if (old_fib && !RIB_KERNEL_ROUTE(old_fib) &&
+		 !CHECK_FLAG(old_fib->status, ROUTE_ENTRY_TRACKER))
 		rib_process_del_fib(zvrf, rn, old_fib);
 
 	/* Remove all RE entries queued for removal */
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+			/* Skip if parked in a tracker — keep RE alive in RIB
+			 * until the NHG tracker completes
+			 */
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
+				continue;
 			if (IS_ZEBRA_DEBUG_RIB) {
 				rnode_debug(rn, vrf_id, "rn %p, removing re %p",
 					    (void *)rn, (void *)re);
@@ -1719,8 +1810,7 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 }
 
 /* Route comparison logic, with various special cases. */
-static bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2,
-			       bool replace)
+bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2, bool replace)
 {
 	if (re1->type != re2->type)
 		return false;
@@ -2335,6 +2425,11 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
 
 	zebra_rib_evaluate_mpls(rn);
+
+	/* Tracker flush batch: route completed via dplane */
+	if (re)
+		tracker_flush_batch_route_dplane_ack(re);
+
 done:
 
 	if (rn)
@@ -2655,6 +2750,25 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 
 	rib_process(rnode);
 
+	/*
+	 * Tracker flush batch: decrement routes_pending only for batch REs
+	 * that rib_process did NOT hand to the dplane.  A loser RE that was
+	 * successfully queued carries ROUTE_ENTRY_QUEUED, so it is skipped
+	 * here and its routes_pending is decremented by the real async ack
+	 * in rib_process_result - gating phase 2 on kernel confirmation.
+	 * REs with no in-flight dplane op (synchronous dplane failure,
+	 * inactive nexthops, best-path losers, no-op updates) get drained
+	 * here so phase 1 cannot stall.
+	 */
+	dest = rib_dest_from_rnode(rnode);
+	if (dest) {
+		struct route_entry *batch_re;
+
+		RNODE_FOREACH_RE (rnode, batch_re)
+			if (!CHECK_FLAG(batch_re->status, ROUTE_ENTRY_QUEUED))
+				tracker_flush_batch_route_dplane_ack(batch_re);
+	}
+
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		struct route_entry *re = NULL;
 
@@ -2957,7 +3071,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			}
 		}
 
-		rib_delnode(rn, same);
+		rib_delnode(rn, same, false);
 	}
 
 	/* See if we can remove some RE entries that are queued for
@@ -2967,6 +3081,16 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 			/* If the route was used earlier, must retain it. */
 			if (dest && re == dest->selected_fib)
+				continue;
+
+			/*
+			 * Transient parked REs (TRACKER + CHANGED) that have
+			 * been superseded by a successor RE can be cleaned up.
+			 * At the same time, the old installed RE should be kept alive
+			 * until the tracker completes.
+			 */
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) &&
+			    !CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED))
 				continue;
 
 			if (IS_ZEBRA_DEBUG_RIB)
@@ -3170,9 +3294,33 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		if (ere->fromkernel &&
 		    CHECK_FLAG(ere->re->flags, ZEBRA_FLAG_SELFROUTE) &&
 		    !zrouter.allow_delete) {
-			UNSET_FLAG(same->status, ROUTE_ENTRY_INSTALLED);
-			SET_FLAG(same->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
-			rib_install_kernel(rn, same, NULL);
+			/*
+			 * An RE parked in an NHG tracker is not installable.
+			 * The tracker programs the prefix when its batch flush runs.
+			 */
+			if (!CHECK_FLAG(same->status, ROUTE_ENTRY_TRACKER)) {
+				UNSET_FLAG(same->status, ROUTE_ENTRY_INSTALLED);
+				SET_FLAG(same->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
+				rib_install_kernel(rn, same, NULL);
+			} else {
+				/*
+				 * Drop the fib bookkeeping the kernel just
+				 * invalidated. Leaving it behind makes the
+				 * tracker think it's still installed.
+				 */
+				if (fib) {
+					UNSET_FLAG(fib->status, ROUTE_ENTRY_INSTALLED);
+					for (rtnh = fib->nhe->nhg.nexthop; rtnh; rtnh = rtnh->next)
+						UNSET_FLAG(rtnh->flags, NEXTHOP_FLAG_FIB);
+				}
+				dest->selected_fib = NULL;
+
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: %pRN re %p NHG %u parked in tracker, skipping kernel re-add",
+						   __func__, rn, same,
+						   same->nhe ? same->nhe->id : 0);
+			}
+
 			route_unlock_node(rn);
 
 			early_route_memory_free(ere);
@@ -3206,7 +3354,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		if (RIB_SYSTEM_ROUTE(re))
 			dplane_sys_route_del(rn, same);
 
-		rib_delnode(rn, same);
+		rib_delnode(rn, same, true);
 	}
 
 	route_unlock_node(rn);
@@ -4138,6 +4286,96 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 	return dest;
 }
 
+/*
+ * Decide whether an incoming RE should be parked in (or trigger creation of)
+ * an NHG tracker on an existing installed RE (old_re) for the same prefix.
+ */
+static struct nhg_event_tracker *rib_link_track_ecmp_change(struct route_node *rn,
+							    struct route_entry *re,
+							    struct route_entry *old_re,
+							    struct nhg_hash_entry **orig_nhe_p)
+{
+	struct nhg_hash_entry *orig_nhe = old_re->nhe;
+	struct nhg_event_tracker *tracker = NULL;
+
+	if (!orig_nhe)
+		return NULL;
+
+	if (zebra_nhg_tracker_has_active(orig_nhe)) {
+		/*
+		 * A tracker in flushing state does not count as active for
+		 * parking the REs. When only flushing trackers exist on
+		 * orig_nhe, we create a new tracker if its NHs differ.
+		 */
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: re %p NHG %u old_re %p NHG %u prefix %pRN (existing tracker)",
+				   __func__, re, re->nhe ? re->nhe->id : 0, old_re, orig_nhe->id,
+				   rn);
+		tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
+	} else if (re->nhe && CHECK_FLAG(orig_nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+		   (zebra_nhg_tracker_has_flushing(orig_nhe) ||
+		    !zebra_nhg_tracker_nhgs_equal(re->nhe, orig_nhe, false))) {
+		/*
+		 * No active tracker, and the incoming NH set differs from the
+		 * installed NHG.  Create a tracker for NHG reuse.
+		 *
+		 * Only create the tracker when orig_nhe is actually INSTALLED
+		 * in the kernel — otherwise there is no kernel NHG ID to
+		 * preserve and the tracker would just delay normal rib_process
+		 * convergence with no upside.
+		 *
+		 * Skip tracker creation when the incoming NHG has a different
+		 * shape (singleton vs group) than orig_nhe.  The Linux kernel
+		 * rejects an in-place RTM_NEWNEXTHOP that changes the
+		 * structural form, so orig_nhe cannot be reworked/reused for
+		 * the winner.  Without this gate, the tracker would build,
+		 * flush, trip the struct-change bypass in phase 2 (which leaves
+		 * orig_nhe out of the content hash but still INSTALLED), and
+		 * the next ECMP-change rib_link on the same prefix would create
+		 * another tracker on the now-zombie orig_nhe — cascading until
+		 * refcount drains naturally.  Falling through to regular
+		 * rib_process achieves the same outcome (winner migrates to a
+		 * fresh NHG) without parking any RE.
+		 */
+		if (ZEBRA_NHG_IS_SINGLETON(re->nhe) != ZEBRA_NHG_IS_SINGLETON(orig_nhe)) {
+			/* Shape mismatch (singleton vs group): skip tracker. */
+		} else {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: re %p NHG %u old_re %p NHG %u prefix %pRN (ECMP change, creating tracker)",
+					   __func__, re, re->nhe->id, old_re, orig_nhe->id, rn);
+			if (zebra_nhg_tracker_create(orig_nhe, re->nhe, 0,
+						     NHG_TRACKER_EVENT_ECMP_CHANGE))
+				tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
+		}
+	}
+
+	if (tracker && !CHECK_FLAG(old_re->status, ROUTE_ENTRY_TRACKER)) {
+		/*
+		 * Mark the old installed RE with TRACKER so rib_process skips
+		 * it while the tracker is active.  This keeps the old RE and
+		 * its NHG alive in the RIB/FIB until the tracker flush clears
+		 * the flag and lets rib_process handle the replacement
+		 * normally.
+		 */
+		SET_FLAG(old_re->status, ROUTE_ENTRY_TRACKER);
+
+		/*
+		 * Drop the CHANGED flag left on this installed old RE set by an older
+		 * tracker's silent-fire (within same NHG). It is now superseded by this ECMP
+		 * change. This is required to cancel the in-flight CHANGED on the old RE that
+		 * was fired by the older tracker's silent-fire.
+		 */
+		if (CHECK_FLAG(old_re->status, ROUTE_ENTRY_CHANGED) &&
+		    CHECK_FLAG(old_re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+			UNSET_FLAG(old_re->status, ROUTE_ENTRY_CHANGED);
+	}
+
+	if (tracker)
+		*orig_nhe_p = orig_nhe;
+
+	return tracker;
+}
+
 /* RIB updates are processed via a queue of pointers to route_nodes.
  *
  * The queue length is bounded by the maximal size of the routing table,
@@ -4179,6 +4417,9 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 static void rib_link(struct route_node *rn, struct route_entry *re)
 {
 	rib_dest_t *dest;
+	struct nhg_event_tracker *tracker = NULL;
+	struct nhg_hash_entry *orig_nhe = NULL;
+	struct route_entry *old_re;
 
 	assert(re && rn);
 
@@ -4191,8 +4432,56 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 	}
 
 	re->rn = rn;
+
+	/*
+	 * Check if the existing RE (same protocol) for this prefix has an NHG
+	 * with active trackers, and if so park the incoming RE.
+	 *
+	 * Only unicast table routes are tracked.  Multicast routes on the same
+	 * NHG live in a separate RIB table with different route_nodes; the
+	 * tracker's prefix-based dedup stores one RN per prefix and cannot
+	 * flush REs on a different table's RN.  Example: connected 192.0.2.1/32
+	 * exists in both unicast and multicast tables — parking both would store
+	 * the unicast RN but the multicast RE's TRACKER flag is never cleared.
+	 */
+	if (rib_table_info(rn->table)->safi == SAFI_UNICAST) {
+		RNODE_FOREACH_RE (rn, old_re) {
+			/* Only consider old REs that share protocol/instance with
+			 * the incoming RE -- only those are tracker reuse candidates.
+			 */
+			if (!rib_compare_routes(re, old_re, false))
+				continue;
+			/*
+			 * The tracker is matched against old_re's NHG, so
+			 * old_re must stay on the RN until the tracker
+			 * finishes.  Do not skip old_re even if it is marked
+			 * REMOVED — it may still carry the INSTALLED flag
+			 * and an active tracker on its NHG.
+			 *
+			 * A QUEUED old_re is in flight to the kernel; treat it
+			 * as installed so the incoming RE does not bypass the
+			 * tracker onto a new NHG.
+			 */
+			if (!CHECK_FLAG(old_re->status,
+					ROUTE_ENTRY_INSTALLED | ROUTE_ENTRY_QUEUED))
+				continue;
+
+			tracker = rib_link_track_ecmp_change(rn, re, old_re, &orig_nhe);
+			break;
+		}
+	}
+
 	re_list_add_head(&dest->routes, re);
 
+	/* If this RE's NHG has active trackers, park the RE in one
+	 * of them instead of proceeding to rib_queue_add.
+	 */
+	if (tracker) {
+		zebra_nhg_tracker_flush_if_full(tracker, orig_nhe);
+		return;
+	}
+
+	/* No active trackers: proceed to best-path selection. */
 	rib_queue_add(rn);
 }
 
@@ -4227,6 +4516,18 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	assert(rn && re);
 
+	/* Tracker flush loser drain: route removed without going to dplane */
+	tracker_flush_batch_route_dplane_ack(re);
+
+	/*
+	 * Same for a winner slot.  Only rib_delnode drains it; callers like
+	 * zebra_rtable_node_cleanup free REs outright, so a VRF deleted while
+	 * a flush is mid-yield would strand the tag.  Its parent's
+	 * pending_winners would never fall back to zero, leaving the group
+	 * armed with REUSE and permanently too busy to consolidate.
+	 */
+	tracker_winner_pre_remove(rn, re);
+
 	if (IS_ZEBRA_DEBUG_RIB)
 		rnode_debug(rn, re->vrf_id, "%s: rn %p, re %p nhe %p", __func__, (void *)rn,
 			    (void *)re, re->nhe);
@@ -4244,7 +4545,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	zebra_rib_route_entry_free(re);
 }
 
-void rib_delnode(struct route_node *rn, struct route_entry *re)
+void rib_delnode(struct route_node *rn, struct route_entry *re, bool allow_tracker_park)
 {
 	struct nhg_event_tracker *tracker = NULL;
 	struct nhg_hash_entry *orig_nhe = NULL;
@@ -4256,6 +4557,12 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		route_entry_dump(&rn->p, NULL, re);
+
+	/*
+	 * Drain this RE's WINNER slot from its parent NHG's pending count;
+	 * re->tracker_parent_nhg_id names the parent.
+	 */
+	tracker_winner_pre_remove(rn, re);
 
 	SET_FLAG(re->status, ROUTE_ENTRY_REMOVED);
 
@@ -4306,19 +4613,21 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 			 */
 			prefix_in_pm = prefix_in_pm ||
 				       zebra_nhg_tracker_prefix_in_pm(orig_nhe, rn, re);
-			tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
+			if (allow_tracker_park) {
+				tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
 #ifdef NHG_TRK_VERBOSE_LOG
-			zlog_info("%s: parking node to delete %pRN type %s vrf %s(%u) re_nhe %u orig_nhe %u tracker %u (matched=%u unmatched=%u orig_re=%u)",
-				  __func__, rn, zebra_route_string(re->type),
-				  vrf_id_to_name(re->vrf_id), re->vrf_id,
-				  re->nhe ? re->nhe->id : 0, orig_nhe->id,
-				  tracker ? tracker->nhg_tracker_id : 0,
-				  tracker ? tracker->matched_table.re_count : 0,
-				  tracker ? tracker->unmatched_table.re_count : 0,
-				  tracker ? tracker->orig_re_count : 0);
+				zlog_info("%s: parking node to delete %pRN type %s vrf %s(%u) re_nhe %u orig_nhe %u tracker %u (matched=%u unmatched=%u orig_re=%u)",
+					  __func__, rn, zebra_route_string(re->type),
+					  vrf_id_to_name(re->vrf_id), re->vrf_id,
+					  re->nhe ? re->nhe->id : 0, orig_nhe->id,
+					  tracker ? tracker->nhg_tracker_id : 0,
+					  tracker ? tracker->matched_table.re_count : 0,
+					  tracker ? tracker->unmatched_table.re_count : 0,
+					  tracker ? tracker->orig_re_count : 0);
 #endif
-			if (tracker)
-				zebra_nhg_tracker_flush_if_full(tracker, orig_nhe);
+				if (tracker)
+					zebra_nhg_tracker_flush_if_full(tracker, orig_nhe);
+			}
 		}
 	}
 
@@ -5158,7 +5467,7 @@ void rib_sweep_table(struct route_table *table)
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
 			rib_uninstall_kernel(rn, re);
-			rib_delnode(rn, re);
+			rib_delnode(rn, re, false);
 		}
 	}
 
@@ -5205,7 +5514,7 @@ unsigned long rib_score_proto_table(uint8_t proto, unsigned short instance,
 					continue;
 				if (re->type == proto
 				    && re->instance == instance) {
-					rib_delnode(rn, re);
+					rib_delnode(rn, re, false);
 					n++;
 				}
 			}
