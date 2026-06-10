@@ -1868,6 +1868,7 @@ def test_verify_default_originate_after_shut_no_shut_bgp_neighbor_p1(request):
             "r2",
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
+            retry_timeout=60,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
@@ -2231,7 +2232,6 @@ def test_verify_default_originate_after_shut_no_shut_bgp_neighbor_p1(request):
     routers = ["r1", "r2"]
     for dut in routers:
         for addr_type in ADDR_TYPES:
-
             clear_bgp(tgen, addr_type, dut)
 
             DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
