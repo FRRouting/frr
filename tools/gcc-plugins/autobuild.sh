@@ -82,9 +82,13 @@ else
 	srcdir="${top_srcdir%/}/tools/gcc-plugins"
 fi
 
+# silence warnings if file not found, but try anyway
+exec 4>&2
+test -e "$(g++-${shortver} -print-file-name=plugin)/include/gcc-plugin.h" || exec 4>/dev/null
+
 mkdir -p "$outdir"
 test -e "$outdir/Makefile" \
 	|| ln -s "${srcdir}/Makefile" "$outdir/Makefile"
-make VPATH="${srcdir}" CC=gcc-${shortver} CXX=g++-${shortver} VERSUFFIX="$infohash" -C "$outdir" \
+make VPATH="${srcdir}" CC=gcc-${shortver} CXX=g++-${shortver} VERSUFFIX="$infohash" -s -C "$outdir" 2>&4 \
 	|| strongfail "build for gcc ${fullver} failed"
 ok "enabled (gcc-${fullver}, freshly built)"
