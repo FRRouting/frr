@@ -138,6 +138,42 @@ struct zebra_architectural_values {
 
 };
 
+#define TRACKER_FLUSH_LOG_SIZE 16
+
+struct tracker_flush_event {
+	uint32_t nhg_id;
+	uint32_t tracker_id;
+	uint32_t matched;
+	uint32_t unmatched;
+	uint32_t deleted;
+	uint32_t orig_re_count;
+};
+
+struct zebra_nhg_tracker_counters {
+	uint32_t trackers_allocated;
+	uint32_t trackers_freed;
+	/* Number of times trackers were collapsed due to RE match in older tracker */
+	uint32_t trackers_collapsed_re_match;
+	/* Number of times loop was detected (state matched existing tracker) */
+	uint32_t tracker_loop_detected;
+	/* Number of times tracker timer expired */
+	uint32_t tracker_timer_expired;
+	/* Total tracker full events (sum of matched + unmatched + combined)
+	 * combined = full_combined_matched_gt + full_combined_unmatched_gt
+	 */
+	uint32_t tracker_full;
+	uint32_t tracker_full_matched;
+	uint32_t tracker_full_unmatched;
+	uint32_t tracker_full_combined;
+	/* Combined full, matched count > unmatched count */
+	uint32_t tracker_full_combined_matched_gt;
+	/* Combined full, unmatched count > matched count */
+	uint32_t tracker_full_combined_unmatched_gt;
+	/* Circular log of last few flush events */
+	struct tracker_flush_event log[TRACKER_FLUSH_LOG_SIZE];
+	uint32_t log_idx;
+};
+
 struct zebra_router {
 	atomic_bool in_shutdown;
 
@@ -235,6 +271,10 @@ struct zebra_router {
 
 #define ZEBRA_DEFAULT_NHG_KEEP_TIMER 180
 	uint32_t nhg_keep;
+
+	uint32_t nhg_tracker_timeout;
+
+	struct zebra_nhg_tracker_counters tracker_counters;
 
 	/* Should we allow non FRR processes to delete our routes */
 	bool allow_delete;
