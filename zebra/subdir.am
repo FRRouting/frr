@@ -176,6 +176,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_netns_notify.h \
 	zebra/zebra_nhg.h \
 	zebra/zebra_nhg_private.h \
+	zebra/zebra_nhg_tracker.h \
 	zebra/zebra_ns.h \
 	zebra/zebra_opaque.h \
 	zebra/zebra_pbr.h \
