@@ -216,6 +216,9 @@ extern struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn
  */
 extern bool zebra_nhg_tracker_has_active(struct nhg_hash_entry *nhe);
 
+/* Returns true if a flushing tracker is attached to nhe */
+extern bool zebra_nhg_tracker_has_flushing(struct nhg_hash_entry *nhe);
+
 /*
  * Returns true if the prefix has an entry in nhe's tracker_prefix_map
  */
