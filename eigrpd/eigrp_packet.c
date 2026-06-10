@@ -307,18 +307,12 @@ int eigrp_check_sha256_digest(struct stream *s,
 			      struct eigrp_neighbor *nbr, uint8_t flags)
 {
 	/*
-	 * Receive-side HMAC-SHA256 verification is not implemented. Until it
-	 * is, fail closed: returning success here would accept any digest and
-	 * silently defeat the authentication the operator configured. Reject
-	 * the packet instead so the misconfiguration is visible rather than
-	 * granting a forgeable, unauthenticated adjacency.
+	 * Receive-side HMAC-SHA256 verification is not implemented. The mode
+	 * is refused at configuration time (see eigrp_authentication_mode in
+	 * eigrp_cli.c), so this path should be unreachable; fail closed as a
+	 * defense-in-depth measure. Returning success here would accept any
+	 * digest and grant a forgeable, unauthenticated adjacency.
 	 */
-	if (!nbr->ei->sha256_recv_warned) {
-		nbr->ei->sha256_recv_warned = true;
-		zlog_warn(
-			"interface %s: HMAC-SHA256 authentication is not supported on receive; rejecting packets",
-			IF_NAME(nbr->ei));
-	}
 	return 0;
 }
 

@@ -148,12 +148,6 @@ struct eigrp_interface {
 	/*multicast group refcnts */
 	bool member_allrouters;
 
-	/* Set once we have warned that receive-side HMAC-SHA256 is
-	 * unsupported, so the warning is logged a single time per
-	 * interface rather than on every received packet.
-	 */
-	bool sha256_recv_warned;
-
 	/* This interface's parent eigrp instance. */
 	struct eigrp *eigrp;
 
