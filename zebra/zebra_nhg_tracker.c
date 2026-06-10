@@ -502,6 +502,22 @@ bool zebra_nhg_tracker_has_active(struct nhg_hash_entry *nhe)
 }
 
 /*
+ * Return true if a flushing tracker is attached to nhe.
+ */
+bool zebra_nhg_tracker_has_flushing(struct nhg_hash_entry *nhe)
+{
+	struct nhg_event_tracker *t;
+
+	if (!nhe)
+		return false;
+
+	frr_each (nhg_event_tracker_list, &nhe->tracker_list, t)
+		if (t->flushing)
+			return true;
+	return false;
+}
+
+/*
  * Return true if the prefix is parked in a tracker using tracker_prefix_map
  * (rn->p, re->type, re->instance, re->vrf_id)
  */
