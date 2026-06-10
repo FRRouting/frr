@@ -501,7 +501,7 @@ int pcep_msg_send(int sock_fd, struct pcep_message *msg)
 	if (msg == NULL) {
 		return 0;
 	}
-	int msg_length = ntohs(msg->encoded_message_length);
+	int msg_length = msg->encoded_message_length;
 	if (msg_length > PCEP_MESSAGE_LENGTH) {
 		pcep_log(LOG_ERR, "%s: Not sended, size(% d) exceed max(% d) ",
 			 __func__, msg_length, PCEP_MESSAGE_LENGTH);

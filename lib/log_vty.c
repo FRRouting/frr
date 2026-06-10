@@ -215,12 +215,12 @@ DEFPY(send_log,
 	}
 
 	/* find start of LINE in `buf` */
-	while (*buf && isspace(*buf))
+	while (*buf && isspace((unsigned char)*buf))
 		buf++;
 	for (; *buf && (*argv)->type != VARIABLE_TKN; argv++) {
-		while (*buf && !isspace(*buf))
+		while (*buf && !isspace((unsigned char)*buf))
 			buf++;
-		while (*buf && isspace(*buf))
+		while (*buf && isspace((unsigned char)*buf))
 			buf++;
 	}
 

@@ -3640,7 +3640,8 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 
 		if (tbn[NHA_RES_GROUP_UNBALANCED_TIME]) {
 			rta = tbn[NHA_RES_GROUP_UNBALANCED_TIME];
-			nhgr->unbalanced_time = *(uint64_t *)RTA_DATA(rta);
+			memcpy(&nhgr->unbalanced_time, RTA_DATA(rta),
+			       sizeof(nhgr->unbalanced_time));
 		}
 	}
 

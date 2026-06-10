@@ -1098,7 +1098,7 @@ next_rta:
 		break;
 
 	case RTA_EXPIRES:
-		u64v = *(uint64_t *)RTA_DATA(rta);
+		memcpy(&u64v, RTA_DATA(rta), sizeof(u64v));
 		zlog_debug("      %" PRIu64, u64v);
 		break;
 
@@ -1502,7 +1502,7 @@ next_rta:
 		break;
 
 	case FRA_TUN_ID:
-		u64v = *(uint64_t *)RTA_DATA(rta);
+		memcpy(&u64v, RTA_DATA(rta), sizeof(u64v));
 		zlog_debug("      %" PRIu64, u64v);
 		break;
 

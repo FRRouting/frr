@@ -798,7 +798,7 @@ static void _bfd_dplane_update_session_counters(struct bfddp_message *msg,
 	bs->stats.rx_echo_pkt =
 		be64toh(msg->data.session_counters.echo_input_packets);
 	bs->stats.tx_echo_pkt =
-		be64toh(msg->data.session_counters.echo_output_bytes);
+		be64toh(msg->data.session_counters.echo_output_packets);
 }
 
 /**
