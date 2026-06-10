@@ -313,9 +313,12 @@ int eigrp_check_sha256_digest(struct stream *s,
 	 * the packet instead so the misconfiguration is visible rather than
 	 * granting a forgeable, unauthenticated adjacency.
 	 */
-	zlog_warn(
-		"interface %s: HMAC-SHA256 authentication is not supported on receive; rejecting packet",
-		IF_NAME(nbr->ei));
+	if (!nbr->ei->sha256_recv_warned) {
+		nbr->ei->sha256_recv_warned = true;
+		zlog_warn(
+			"interface %s: HMAC-SHA256 authentication is not supported on receive; rejecting packets",
+			IF_NAME(nbr->ei));
+	}
 	return 0;
 }
 
