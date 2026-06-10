@@ -30,6 +30,16 @@ installed.
    sudo apt-get install libgrpc++-dev protobuf-compiler-grpc
 
 
+PCEPLIB
+^^^^^^^
+
+If you are building/working on pceplib then you must install cunit
+
+.. code-block:: console
+
+   sudo apt-get install libcunit1-dev
+
+
 Config Rollbacks
 ^^^^^^^^^^^^^^^^
 
