@@ -112,6 +112,8 @@ def _router_json_cmp_exact_filter(router, cmd, expected):
                 attr.pop("asPath")
             if "receivedNexthopGroupId" in attr:
                 attr.pop("receivedNexthopGroupId")
+            if "rnRefCnt" in attr:
+                attr.pop("rnRefCnt")
             for nexthop in attr.get("nexthops", []):
                 if "flags" in nexthop:
                     nexthop.pop("flags")
