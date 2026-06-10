@@ -1451,6 +1451,42 @@ class Router(Node):
 
     gdb_emacs_router = None
 
+    # Daemon stop order, mirroring the production init scripts
+    # (tools/frrcommon.sh.in). all_stop() there signals daemons in the reverse
+    # of the $DAEMONS start order, so this is that reversed list. Daemons not
+    # present here (e.g. fpm_listener, snmpd) sort before everything else.
+    # Keep this in sync with $DAEMONS in tools/frrcommon.sh.in.
+    FRR_DAEMON_STOP_ORDER = {
+        name: index
+        for index, name in enumerate(
+            reversed(
+                [
+                    "mgmtd",
+                    "zebra",
+                    "bfdd",
+                    "bgpd",
+                    "ripd",
+                    "ripngd",
+                    "ospfd",
+                    "ospf6d",
+                    "isisd",
+                    "babeld",
+                    "pimd",
+                    "pim6d",
+                    "ldpd",
+                    "nhrpd",
+                    "eigrpd",
+                    "sharpd",
+                    "pbrd",
+                    "staticd",
+                    "fabricd",
+                    "vrrpd",
+                    "pathd",
+                ]
+            )
+        )
+    }
+
     def __init__(self, name, *posargs, **params):
         # Backward compatibility:
         #   Load configuration defaults like topogen.
@@ -1651,8 +1687,19 @@ class Router(Node):
         if not running:
             return ""
 
-        logger.info("%s: stopping %s", self.name, ", ".join([x[0] for x in running]))
-        for name, pid in running:
+        # Shut the daemons down in the same order that the production init
+        # scripts use (tools/frrcommon.sh.in, all_stop()): the daemons are
+        # signalled in the reverse of the $DAEMONS start order and then waited
+        # on together, rather than being stopped one strict group at a time.
+        # FRR_DAEMON_STOP_ORDER below is the reverse of frrcommon.sh.in's
+        # $DAEMONS; keep the two in sync.
+        ordered = sorted(
+            running, key=lambda nv: Router.FRR_DAEMON_STOP_ORDER.get(nv[0], -1)
+        )
+
+        names = ", ".join([x[0] for x in ordered])
+        logger.info("%s: stopping %s", self.name, names)
+        for name, pid in ordered:
             logger.debug("{}: sending SIGTERM to {}".format(self.name, name))
             try:
                 os.kill(pid, signal.SIGTERM)
