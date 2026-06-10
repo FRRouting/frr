@@ -9,15 +9,32 @@
 #define _ZEBRA_BFD_H
 
 #include "lib/zclient.h"
+#include "lib/northbound.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/*
+ * Module info for ietf-bfd-types.  Backend clients that publish data
+ * nodes inheriting from `bfd-types:client-cfg-parms` (e.g. OSPFv2 and
+ * OSPFv3 via RFC 9129's ietf-ospf BFD container) must list this in
+ * their `frr_yang_module_info` table so libyang enables the foreign
+ * module's `client-base-cfg-parms` if-feature.  Without it the
+ * inherited multiplier / tx-rx-interval leaves get elided from the
+ * compiled schema and mgmtd reports "unknown data path" for every
+ * write but `enabled`.  Mirrors the existing `ietf_key_chain_info`
+ * pattern (lib/keychain.h).
+ */
+extern const struct frr_yang_module_info ietf_bfd_types_info;
+
 #define BFD_DEF_MIN_RX 300
 #define BFD_DEF_MIN_TX 300
 #define BFD_DEF_DETECT_MULT 3
 #define BFD_DEF_STRICT_HOLD_TIME 30 /* seconds */
+
+#define BFD_IETF_MIN_INTERVAL_US (50UL * 1000)
+#define BFD_IETF_MAX_INTERVAL_US (60000UL * 1000)
 
 #define BFD_STATUS_UNKNOWN    (1 << 0) /* BFD session status never received */
 #define BFD_STATUS_DOWN       (1 << 1) /* BFD session status is down */
@@ -29,6 +46,8 @@ extern "C" {
 #define BFD_NAME_SIZE 255
 
 const char *bfd_get_status_str(int status);
+extern int bfd_validate_ietf_interval_us(uint32_t us, const char *leaf, char *errmsg,
+					 size_t errmsg_len);
 
 extern void bfd_client_sendmsg(struct zclient *zclient, int command,
 			       vrf_id_t vrf_id);

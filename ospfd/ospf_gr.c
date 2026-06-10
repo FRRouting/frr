@@ -31,13 +31,15 @@
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_vty.h"
+#include "ospf_nb.h"
+#include "northbound_cli.h"
 #include "ospfd/ospf_gr_clippy.c"
 
 static void ospf_gr_grace_period_expired(struct event *event);
 
 /* Lookup self-originated Grace-LSA in the LSDB. */
-static struct ospf_lsa *ospf_gr_lsa_lookup(struct ospf *ospf,
-					   struct ospf_area *area)
+static struct ospf_lsa *ospf_gr_lsa_lookup(struct ospf *ospf, struct ospf_area *area)
 {
 	struct ospf_lsa *lsa;
 	struct in_addr lsa_id;
@@ -45,17 +47,14 @@ static struct ospf_lsa *ospf_gr_lsa_lookup(struct ospf *ospf,
 
 	lsa_id_host_byte_order = SET_OPAQUE_LSID(OPAQUE_TYPE_GRACE_LSA, 0);
 	lsa_id.s_addr = htonl(lsa_id_host_byte_order);
-	lsa = ospf_lsa_lookup(ospf, area, OSPF_OPAQUE_LINK_LSA, lsa_id,
-			      ospf->router_id);
+	lsa = ospf_lsa_lookup(ospf, area, OSPF_OPAQUE_LINK_LSA, lsa_id, ospf->router_id);
 
 	return lsa;
 }
 
 /* Fill in fields of the Grace-LSA that is being originated. */
-static void ospf_gr_lsa_body_set(struct ospf_gr_info *gr_info,
-				 struct ospf_interface *oi,
-				 enum ospf_gr_restart_reason reason,
-				 struct stream *s)
+static void ospf_gr_lsa_body_set(struct ospf_gr_info *gr_info, struct ospf_interface *oi,
+				 enum ospf_gr_restart_reason reason, struct stream *s)
 {
 	struct grace_tlv_graceperiod tlv_period = {};
 	struct grace_tlv_restart_reason tlv_reason = {};
@@ -74,8 +73,8 @@ static void ospf_gr_lsa_body_set(struct ospf_gr_info *gr_info,
 	stream_put(s, &tlv_reason, sizeof(tlv_reason));
 
 	/* Put IP address. */
-	if (oi->type == OSPF_IFTYPE_BROADCAST || oi->type == OSPF_IFTYPE_NBMA
-	    || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+	if (oi->type == OSPF_IFTYPE_BROADCAST || oi->type == OSPF_IFTYPE_NBMA ||
+	    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
 		tlv_address.header.type = htons(RESTARTER_IP_ADDR_TYPE);
 		tlv_address.header.length = htons(RESTARTER_IP_ADDR_LEN);
 		tlv_address.addr = oi->address->u.prefix4;
@@ -122,8 +121,7 @@ static struct ospf_lsa *ospf_gr_lsa_new(struct ospf_interface *oi,
 	new = ospf_lsa_new_and_data(length);
 
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("LSA[Type%d:%pI4]: Create an Opaque-LSA/GR instance",
-			   lsa_type, &lsa_id);
+		zlog_debug("LSA[Type%d:%pI4]: Create an Opaque-LSA/GR instance", lsa_type, &lsa_id);
 
 	new->area = oi->area;
 	new->oi = oi;
@@ -135,8 +133,7 @@ static struct ospf_lsa *ospf_gr_lsa_new(struct ospf_interface *oi,
 }
 
 /* Originate and install Grace-LSA for a given interface. */
-static void ospf_gr_lsa_originate(struct ospf_interface *oi,
-				  enum ospf_gr_restart_reason reason,
+static void ospf_gr_lsa_originate(struct ospf_interface *oi, enum ospf_gr_restart_reason reason,
 				  bool maxage)
 {
 	struct ospf_lsa *lsa, *old;
@@ -207,9 +204,8 @@ static void ospf_gr_flush_grace_lsas(struct ospf *ospf)
 
 		for (ALL_LIST_ELEMENTS_RO(area->oiflist, inode, oi)) {
 			if (IS_DEBUG_OSPF_GR)
-				zlog_debug(
-					"GR: flushing self-originated Grace-LSA [area %pI4] [interface %s]",
-					&area->area_id, oi->ifp->name);
+				zlog_debug("GR: flushing self-originated Grace-LSA [area %pI4] [interface %s]",
+					   &area->area_id, oi->ifp->name);
 
 			ospf_gr_lsa_originate(oi, ospf->gr_info.reason, true);
 		}
@@ -217,7 +213,8 @@ static void ospf_gr_flush_grace_lsas(struct ospf *ospf)
 }
 
 /* Exit from the Graceful Restart mode. */
-static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason)
+static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason,
+				 enum ospf_helper_exit_reason exit_reason)
 {
 	struct ospf_area *area;
 	struct listnode *onode, *anode;
@@ -243,8 +240,7 @@ static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason)
 			if (oi->gr.hello_delay.t_grace_send) {
 				oi->gr.hello_delay.elapsed_seconds = 0;
 				event_cancel(&oi->gr.hello_delay.t_grace_send);
-				OSPF_ISM_TIMER_MSEC_ON(oi->t_hello,
-						       ospf_hello_timer, 1);
+				OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
 			}
 
 			/*
@@ -279,11 +275,15 @@ static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason)
 
 	/* 6) Any grace-LSAs that the router originated should be flushed. */
 	ospf_gr_flush_grace_lsas(ospf);
+
+	/* RFC 9129 ietf-ospf:restart-status-change: now in not-restarting
+	 * (1) state.
+	 */
+	ospfd_ietf_notif_restart_status_change(ospf, 1, exit_reason);
 }
 
 /* Enter the Graceful Restart mode. */
-void ospf_gr_restart_enter(struct ospf *ospf,
-			   enum ospf_gr_restart_reason reason, time_t timestamp)
+void ospf_gr_restart_enter(struct ospf *ospf, enum ospf_gr_restart_reason reason, time_t timestamp)
 {
 	unsigned long remaining_time;
 
@@ -293,17 +293,21 @@ void ospf_gr_restart_enter(struct ospf *ospf,
 	/* Schedule grace period timeout. */
 	remaining_time = timestamp - time(NULL);
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug(
-			"GR: remaining time until grace period expires: %lu(s)",
-			remaining_time);
+		zlog_debug("GR: remaining time until grace period expires: %lu(s)", remaining_time);
 
-	event_add_timer(master, ospf_gr_grace_period_expired, ospf,
-			remaining_time, &ospf->gr_info.t_grace_period);
+	event_add_timer(master, ospf_gr_grace_period_expired, ospf, remaining_time,
+			&ospf->gr_info.t_grace_period);
+
+	/* RFC 9129 ietf-ospf:restart-status-change.  FRR's restart reasons
+	 * are all software-initiated, so they map to RFC `planned-restart`
+	 * (2); the only `unplanned-restart` (3) value would correspond to a
+	 * crash recovery FRR does not currently signal.
+	 */
+	ospfd_ietf_notif_restart_status_change(ospf, 2, OSPF_GR_HELPER_INPROGRESS);
 }
 
 /* Check if a Router-LSA contains a given link. */
-static bool ospf_router_lsa_contains_adj(struct ospf_lsa *lsa,
-					 struct in_addr *id)
+static bool ospf_router_lsa_contains_adj(struct ospf_lsa *lsa, struct in_addr *id)
 {
 	struct router_lsa *rl;
 
@@ -321,8 +325,7 @@ static bool ospf_router_lsa_contains_adj(struct ospf_lsa *lsa,
 	return false;
 }
 
-static bool ospf_gr_check_router_lsa_consistency(struct ospf *ospf,
-						 struct ospf_area *area,
+static bool ospf_gr_check_router_lsa_consistency(struct ospf *ospf, struct ospf_area *area,
 						 struct ospf_lsa *lsa)
 {
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_SELF)) {
@@ -336,26 +339,22 @@ static bool ospf_gr_check_router_lsa_consistency(struct ospf *ospf,
 			if (rl->link[i].type != LSA_LINK_TYPE_POINTOPOINT)
 				continue;
 
-			lsa_adj = ospf_lsa_lookup_by_id(area, OSPF_ROUTER_LSA,
-							*link_id);
+			lsa_adj = ospf_lsa_lookup_by_id(area, OSPF_ROUTER_LSA, *link_id);
 			if (!lsa_adj)
 				continue;
 
-			if (!ospf_router_lsa_contains_adj(lsa_adj,
-							  &lsa_self->data->id))
+			if (!ospf_router_lsa_contains_adj(lsa_adj, &lsa_self->data->id))
 				return false;
 		}
 	} else {
 		struct ospf_lsa *lsa_self;
 
-		lsa_self = ospf_lsa_lookup_by_id(area, OSPF_ROUTER_LSA,
-						 ospf->router_id);
-		if (!lsa_self
-		    || !CHECK_FLAG(lsa_self->flags, OSPF_LSA_RECEIVED))
+		lsa_self = ospf_lsa_lookup_by_id(area, OSPF_ROUTER_LSA, ospf->router_id);
+		if (!lsa_self || !CHECK_FLAG(lsa_self->flags, OSPF_LSA_RECEIVED))
 			return true;
 
-		if (ospf_router_lsa_contains_adj(lsa, &ospf->router_id)
-		    != ospf_router_lsa_contains_adj(lsa_self, &lsa->data->id))
+		if (ospf_router_lsa_contains_adj(lsa, &ospf->router_id) !=
+		    ospf_router_lsa_contains_adj(lsa_self, &lsa->data->id))
 			return false;
 	}
 
@@ -380,9 +379,9 @@ void ospf_gr_check_lsdb_consistency(struct ospf *ospf, struct ospf_area *area)
 			char reason[256];
 
 			snprintfrr(reason, sizeof(reason),
-				   "detected inconsistent LSA[%s] [area %pI4]",
-				   dump_lsa_key(lsa), &area->area_id);
-			ospf_gr_restart_exit(ospf, reason);
+				   "detected inconsistent LSA[%s] [area %pI4]", dump_lsa_key(lsa),
+				   &area->area_id);
+			ospf_gr_restart_exit(ospf, reason, OSPF_GR_HELPER_TOPO_CHG);
 			route_unlock_node(rn);
 			return;
 		}
@@ -390,8 +389,8 @@ void ospf_gr_check_lsdb_consistency(struct ospf *ospf, struct ospf_area *area)
 }
 
 /* Lookup neighbor by address in a given OSPF area. */
-static struct ospf_neighbor *
-ospf_area_nbr_lookup_by_addr(struct ospf_area *area, struct in_addr *addr)
+static struct ospf_neighbor *ospf_area_nbr_lookup_by_addr(struct ospf_area *area,
+							  struct in_addr *addr)
 {
 	struct ospf_interface *oi;
 	struct ospf_neighbor *nbr;
@@ -407,8 +406,8 @@ ospf_area_nbr_lookup_by_addr(struct ospf_area *area, struct in_addr *addr)
 }
 
 /* Lookup neighbor by Router ID in a given OSPF area. */
-static struct ospf_neighbor *
-ospf_area_nbr_lookup_by_routerid(struct ospf_area *area, struct in_addr *id)
+static struct ospf_neighbor *ospf_area_nbr_lookup_by_routerid(struct ospf_area *area,
+							      struct in_addr *id)
 {
 	struct ospf_interface *oi;
 	struct ospf_neighbor *nbr;
@@ -424,24 +423,21 @@ ospf_area_nbr_lookup_by_routerid(struct ospf_area *area, struct in_addr *id)
 }
 
 /* Check if there's a fully formed adjacency with the given neighbor ID. */
-static bool ospf_gr_check_adj_id(struct ospf_area *area,
-				 struct in_addr *nbr_id)
+static bool ospf_gr_check_adj_id(struct ospf_area *area, struct in_addr *nbr_id)
 {
 	struct ospf_neighbor *nbr;
 
 	nbr = ospf_area_nbr_lookup_by_routerid(area, nbr_id);
 	if (!nbr || nbr->state < NSM_Full) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug("GR: missing adjacency to router %pI4",
-				   nbr_id);
+			zlog_debug("GR: missing adjacency to router %pI4", nbr_id);
 		return false;
 	}
 
 	return true;
 }
 
-static bool ospf_gr_check_adjs_lsa_transit(struct ospf_area *area,
-					   struct in_addr *link_id)
+static bool ospf_gr_check_adjs_lsa_transit(struct ospf_area *area, struct in_addr *link_id)
 {
 	struct ospf *ospf = area->ospf;
 	struct ospf_interface *oi;
@@ -485,9 +481,7 @@ static bool ospf_gr_check_adjs_lsa_transit(struct ospf_area *area,
 		nbr = ospf_area_nbr_lookup_by_addr(area, link_id);
 		if (!nbr || nbr->state < NSM_Full) {
 			if (IS_DEBUG_OSPF_GR)
-				zlog_debug(
-					"GR: missing adjacency to DR router %pI4",
-					link_id);
+				zlog_debug("GR: missing adjacency to DR router %pI4", link_id);
 			return false;
 		}
 	}
@@ -533,18 +527,16 @@ void ospf_gr_check_adjs(struct ospf *ospf)
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
 		struct ospf_lsa *lsa_self;
 
-		lsa_self = ospf_lsa_lookup_by_id(area, OSPF_ROUTER_LSA,
-						 ospf->router_id);
+		lsa_self = ospf_lsa_lookup_by_id(area, OSPF_ROUTER_LSA, ospf->router_id);
 		if (!lsa_self || !ospf_gr_check_adjs_lsa(area, lsa_self)) {
 			if (IS_DEBUG_OSPF_GR)
-				zlog_debug(
-					"GR: not all adjacencies were reestablished yet [area %pI4]",
-					&area->area_id);
+				zlog_debug("GR: not all adjacencies were reestablished yet [area %pI4]",
+					   &area->area_id);
 			return;
 		}
 	}
 
-	ospf_gr_restart_exit(ospf, "all adjacencies were reestablished");
+	ospf_gr_restart_exit(ospf, "all adjacencies were reestablished", OSPF_GR_HELPER_COMPLETED);
 }
 
 /* Handling of grace period expiry. */
@@ -552,7 +544,7 @@ static void ospf_gr_grace_period_expired(struct event *event)
 {
 	struct ospf *ospf = EVENT_ARG(event);
 
-	ospf_gr_restart_exit(ospf, "grace period has expired");
+	ospf_gr_restart_exit(ospf, "grace period has expired", OSPF_GR_HELPER_GRACE_TIMEOUT);
 }
 
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
@@ -574,7 +566,7 @@ void ospf_gr_iface_send_grace_lsa(struct event *event)
  * Record in non-volatile memory that the given OSPF instance is attempting to
  * perform a graceful restart.
  */
-static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
+void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
 {
 	const char *inst_name;
 	json_object *json;
@@ -594,12 +586,10 @@ static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
 	json_object_object_get_ex(json_instances, inst_name, &json_instance);
 	if (!json_instance) {
 		json_instance = json_object_new_object();
-		json_object_object_add(json_instances, inst_name,
-				       json_instance);
+		json_object_object_add(json_instances, inst_name, json_instance);
 	}
 
-	json_object_int_add(json_instance, "gracePeriod",
-			    ospf->gr_info.grace_period);
+	json_object_int_add(json_instance, "gracePeriod", ospf->gr_info.grace_period);
 
 	/*
 	 * Record not only the grace period, but also a UNIX timestamp
@@ -666,12 +656,10 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 	json_object_object_get_ex(json_instances, inst_name, &json_instance);
 	if (!json_instance) {
 		json_instance = json_object_new_object();
-		json_object_object_add(json_instances, inst_name,
-				       json_instance);
+		json_object_object_add(json_instances, inst_name, json_instance);
 	}
 
-	json_object_object_get_ex(json_instance, "gracePeriod",
-				  &json_grace_period);
+	json_object_object_get_ex(json_instance, "gracePeriod", &json_grace_period);
 	json_object_object_get_ex(json_instance, "timestamp", &json_timestamp);
 
 	if (json_timestamp) {
@@ -680,12 +668,11 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 		/* Planned GR: check if the grace period has already expired. */
 		now = time(NULL);
 		timestamp = json_object_get_int(json_timestamp);
-		if (now > timestamp) {
-			ospf_gr_restart_exit(
-				ospf, "grace period has expired already");
-		} else
-			ospf_gr_restart_enter(ospf, OSPF_GR_SW_RESTART,
-					      timestamp);
+		if (now > timestamp)
+			ospf_gr_restart_exit(ospf, "grace period has expired already",
+					     OSPF_GR_HELPER_GRACE_TIMEOUT);
+		else
+			ospf_gr_restart_enter(ospf, OSPF_GR_SW_RESTART, timestamp);
 	} else if (json_grace_period) {
 		uint32_t grace_period;
 
@@ -725,32 +712,26 @@ static void ospf_gr_prepare(void)
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, onode, ospf)) {
 		struct listnode *inode;
 
-		if (!ospf->gr_info.restart_support
-		    || ospf->gr_info.prepare_in_progress)
+		if (!ospf->gr_info.restart_support || ospf->gr_info.prepare_in_progress)
 			continue;
 
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug(
-				"GR: preparing to perform a graceful restart [period %u second(s)] [vrf %s]",
-				ospf->gr_info.grace_period,
-				ospf_vrf_id_to_name(ospf->vrf_id));
+			zlog_debug("GR: preparing to perform a graceful restart [period %u second(s)] [vrf %s]",
+				   ospf->gr_info.grace_period, ospf_vrf_id_to_name(ospf->vrf_id));
 
 		if (!CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE)) {
-			zlog_warn(
-				"%s: failed to activate graceful restart: opaque capability not enabled",
-				__func__);
+			zlog_warn("%s: failed to activate graceful restart: opaque capability not enabled",
+				  __func__);
 			continue;
 		}
 
 		/* Send a Grace-LSA to all neighbors. */
 		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, inode, oi)) {
 			if (OSPF_IF_PARAM(oi, opaque_capable))
-				ospf_gr_lsa_originate(oi, OSPF_GR_SW_RESTART,
-						      false);
+				ospf_gr_lsa_originate(oi, OSPF_GR_SW_RESTART, false);
 			else
-				zlog_debug(
-					"GR: skipping grace LSA on interface %s (%s) with opaque capability disabled",
-					IF_NAME(oi), ospf_get_name(oi->ospf));
+				zlog_debug("GR: skipping grace LSA on interface %s (%s) with opaque capability disabled",
+					   IF_NAME(oi), ospf_get_name(oi->ospf));
 		}
 
 		/* Record end of the grace period in non-volatile memory. */
@@ -788,53 +769,94 @@ DEFPY(graceful_restart_prepare, graceful_restart_prepare_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(graceful_restart, graceful_restart_cmd,
+/*
+ * Enable graceful-restart support on `ospf` using its current
+ * `gr_info.grace_period`.  Idempotent: safe to call when GR is already
+ * enabled (e.g. by a YANG modify that only changed restart-interval).
+ * Extracted from the legacy `graceful-restart` DEFUN so the CLI shim
+ * and the RFC 9129 `/graceful-restart/enabled` callback share one
+ * code path.
+ */
+void ospf_gr_restart_support_enable(struct ospf *ospf)
+{
+	if (ospf->gr_info.grace_period == 0)
+		ospf->gr_info.grace_period = OSPF_DFLT_GRACE_INTERVAL;
+	ospf->gr_info.restart_support = true;
+	(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
+	ospf_gr_nvm_update(ospf, false);
+}
+
+/*
+ * Disable graceful-restart support on `ospf`.  Returns -1 if a GR
+ * preparation is already in flight (the legacy CLI rejects the same
+ * way); the caller is responsible for surfacing the rejection.  The
+ * grace_period is left untouched -- the RFC 9129 `restart-interval`
+ * leaf is a separate northbound knob with its own restore path.
+ */
+int ospf_gr_restart_support_disable(struct ospf *ospf)
+{
+	if (!ospf->gr_info.restart_support)
+		return 0;
+	if (ospf->gr_info.prepare_in_progress)
+		return -1;
+	ospf->gr_info.restart_support = false;
+	ospf_gr_nvm_delete(ospf);
+	ospf_zebra_gr_disable(ospf);
+	return 0;
+}
+
+/*
+ * Set the graceful-restart grace period.  If GR is currently enabled,
+ * refresh the zebra GR stale-route timer so the new value takes
+ * effect on the next restart.
+ */
+void ospf_gr_set_grace_period(struct ospf *ospf, uint32_t grace_period)
+{
+	if (ospf->gr_info.grace_period == grace_period)
+		return;
+	ospf->gr_info.grace_period = grace_period;
+	if (ospf->gr_info.restart_support)
+		(void)ospf_zebra_gr_enable(ospf, grace_period);
+}
+
+DEFPY_YANG(graceful_restart, graceful_restart_cmd,
       "graceful-restart [grace-period (1-1800)$grace_period]",
       OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
-	/* Check and get restart period if present. */
-	if (!grace_period_str)
-		grace_period = OSPF_DFLT_GRACE_INTERVAL;
-
-	ospf->gr_info.restart_support = true;
-	ospf->gr_info.grace_period = grace_period;
-
-	/* Freeze OSPF routes in the RIB. */
-	(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
-
-	/* Record that GR is enabled in non-volatile memory. */
-	ospf_gr_nvm_update(ospf, false);
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf, "/graceful-restart/enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	if (grace_period_str) {
+		if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+					    "/graceful-restart/restart-interval") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, grace_period_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_graceful_restart, no_graceful_restart_cmd,
+DEFPY_YANG(no_graceful_restart, no_graceful_restart_cmd,
       "no graceful-restart [grace-period (1-1800)]",
       NO_STR OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	char xpath[XPATH_MAXLEN];
 
-	if (!ospf->gr_info.restart_support)
-		return CMD_SUCCESS;
-
-	if (ospf->gr_info.prepare_in_progress) {
-		vty_out(vty,
-			"%% Error: Graceful Restart preparation in progress\n");
-		return CMD_WARNING;
-	}
-
-	ospf->gr_info.restart_support = false;
-	ospf->gr_info.grace_period = OSPF_DFLT_GRACE_INTERVAL;
-	ospf_gr_nvm_delete(ospf);
-	ospf_zebra_gr_disable(ospf);
-
-	return CMD_SUCCESS;
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf, "/graceful-restart/enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	if (ospf_per_instance_xpath(xpath, sizeof(xpath), ospf,
+				    "/graceful-restart/restart-interval") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void ospf_gr_init(void)

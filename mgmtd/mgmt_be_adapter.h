@@ -23,6 +23,8 @@
 
 typedef uint mgmt_be_client_id_t;
 
+struct lyd_node;
+
 PREDECL_LIST(mgmt_be_adapters);
 
 /**
@@ -161,8 +163,8 @@ enum mgmt_be_xpath_subscr_type {
  *     xpath - the xpath to check for subscription information.
  *     type - type of subscription to check for.
  */
-extern uint64_t mgmt_be_interested_clients(const char *xpath,
-					   enum mgmt_be_xpath_subscr_type type, const char *dbg_user);
+extern uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr_type type,
+					   const char *dbg_user, const struct lyd_node *dnode);
 
 /**
  * mgmt_be_get_notify_conn() - Get the connetion associated with the special session_id.

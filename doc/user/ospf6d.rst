@@ -933,6 +933,66 @@ Showing OSPF6 information
    This command shows the graceful-restart helper details including helper
    configuration parameters.
 
+YANG / NETCONF Support
+----------------------
+
+OSPFv3 operational state and a subset of OSPFv3 configuration are exposed
+through the standard :rfc:`9129` ``ietf-ospf`` YANG model. The OSPFv3
+instance can be created either by the legacy ``router ospf6`` CLI or by
+creating the RFC 9129 ``control-plane-protocol`` entry through mgmtd.
+Converted per-area, per-interface and per-instance configuration leaves are
+routed through the mgmtd northbound and can be read, set, and committed
+through NETCONF / RESTCONF / ``vtysh``'s ``mgmt`` subcommands as well as the
+legacy CLI.
+
+The supported set mirrors the OSPFv2 side documented in :ref:`ospfv2`, with
+two v3-specific constraints:
+
+* ``areas/area/default-cost``: ospf6d has no per-area stub default-cost
+  knob, so this OSPFv2-only leaf is rejected by the deviation module's
+  schema constraints on OSPFv3 instances. The same OSPFv2-only protection
+  applies to ``mpls/ldp/igp-sync``, ``mpls/te-rid/ipv4-router-id``,
+  ``interface/prefix-suppression`` and ``static-neighbors/neighbor``.
+  ``ospf/address-family`` is retained for RFC 9129
+  notification leafrefs and constrained to ``ipv6``.
+* ``interface-type``: RFC 9129 declares ``broadcast``, ``non-broadcast``,
+  ``point-to-multipoint``, ``point-to-point`` and ``hybrid``. ospf6d only
+  accepts ``broadcast``, ``point-to-point`` and ``point-to-multipoint``;
+  the NB callback rejects ``non-broadcast`` and ``hybrid`` at VALIDATE
+  with a clear error.
+
+Otherwise the supported set matches the shared OSPFv2 RFC 9129 surface:
+router-id, preference, spf-control paths, auto-cost, graceful-restart
+enabled, restart-interval, helper-enabled and helper-strict-lsa-checking,
+area lifecycle, area-type, area summary, ranges, per-interface attachment,
+cost, hello-interval, dead-interval, retransmit-interval, priority,
+mtu-ignore, transmit-delay, interface-type, passive, per-interface BFD
+``enabled``, ``local-multiplier``, ``desired-min-tx-interval`` and
+``required-min-rx-interval``, and per-interface
+``authentication/ospfv3-key-chain``.
+
+For per-interface BFD, ``bfd/enabled`` controls activation.  The multiplier
+and interval leaves can be configured while BFD is disabled, but they do not
+create or register BFD sessions until ``bfd/enabled=true`` is committed.  The
+legacy parameterised BFD CLI enqueues that enable leaf before it writes the
+parameter leaves.
+
+Examples
+^^^^^^^^
+
+Retrieve the OSPFv3 instance from the operational datastore:
+
+.. code-block:: shell
+
+   vtysh -c 'show mgmt get-data /ietf-routing:routing/control-plane-protocols/control-plane-protocol[type="ietf-ospf:ospfv3"][name="default"] datastore operational'
+
+Retrieve the merged operational datastore, including the OSPFv3 protocol
+entry and the ``ietf-interfaces`` data used by OSPF interface leafrefs:
+
+.. code-block:: shell
+
+   vtysh -c 'show mgmt get-data /* datastore operational'
+
 .. clicmd:: show debugging ospf6
 
    Show debugging status for OSPFv3.

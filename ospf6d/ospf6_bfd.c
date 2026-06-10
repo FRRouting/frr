@@ -23,11 +23,21 @@
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_interface.h"
+#include "northbound_cli.h"
 #include "ospf6_route.h"
 #include "ospf6_zebra.h"
 #include "ospf6_bfd.h"
 
 unsigned char conf_debug_ospf6_bfd;
+
+static void ospf6_interface_bfd_config_set_defaults(struct ospf6_interface *oi)
+{
+	oi->bfd_config.enabled = false;
+	oi->bfd_config.detection_multiplier = BFD_DEF_DETECT_MULT;
+	oi->bfd_config.min_rx = BFD_DEF_MIN_RX;
+	oi->bfd_config.min_tx = BFD_DEF_MIN_TX;
+	XFREE(MTYPE_TMP, oi->bfd_config.profile);
+}
 
 /*
  * ospf6_bfd_trigger_event - Neighbor is registered/deregistered with BFD when
@@ -71,8 +81,7 @@ void ospf6_bfd_trigger_event(struct ospf6_neighbor *on, int old_state,
  *                               zebra for starting/stopping the monitoring of
  *                               the neighbor rechahability.
  */
-static void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi,
-					bool install)
+void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi, bool install)
 {
 	struct ospf6_neighbor *on;
 	struct listnode *node;
@@ -169,7 +178,14 @@ void ospf6_bfd_write_config(struct vty *vty, struct ospf6_interface *oi)
 			oi->bfd_config.profile);
 }
 
-DEFUN(ipv6_ospf6_bfd, ipv6_ospf6_bfd_cmd,
+/*
+ * `ipv6 ospf6 bfd` maps onto RFC 9129 `/bfd/enabled`.  The
+ * `[profile BFDPROF]` tail has no YANG counterpart (RFC 9129's
+ * client-cfg-parms grouping doesn't expose BFD profiles), so the
+ * shim splits: the bare form routes through YANG when the interface
+ * is in an area; the profile form stays on the legacy direct path.
+ */
+DEFUN_YANG(ipv6_ospf6_bfd, ipv6_ospf6_bfd_cmd,
       "ipv6 ospf6 bfd [profile BFDPROF]",
       IP6_STR OSPF6_STR
       "Enables BFD support\n"
@@ -179,7 +195,14 @@ DEFUN(ipv6_ospf6_bfd, ipv6_ospf6_bfd_cmd,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
 	int prof_idx = 4;
+	bool has_profile = (argc > prof_idx);
+	char xpath[XPATH_MAXLEN];
 	assert(ifp);
+
+	if (!has_profile && ospf6_per_iface_xpath(xpath, sizeof(xpath), ifp, "/bfd/enabled") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
@@ -190,7 +213,7 @@ DEFUN(ipv6_ospf6_bfd, ipv6_ospf6_bfd_cmd,
 	oi->bfd_config.min_rx = BFD_DEF_MIN_RX;
 	oi->bfd_config.min_tx = BFD_DEF_MIN_TX;
 	oi->bfd_config.enabled = true;
-	if (argc > prof_idx) {
+	if (has_profile) {
 		XFREE(MTYPE_TMP, oi->bfd_config.profile);
 		oi->bfd_config.profile =
 			XSTRDUP(MTYPE_TMP, argv[prof_idx]->arg);
@@ -228,6 +251,11 @@ DEFUN(no_ipv6_ospf6_bfd_profile, no_ipv6_ospf6_bfd_profile_cmd,
 	return CMD_SUCCESS;
 }
 
+/*
+ * `ipv6 ospf6 bfd N N N` -- same DEFUN-with-#if-macro shape as the
+ * ospfd companion.  Body routes through YANG when the interface is
+ * in an area.
+ */
 #if HAVE_BFDD > 0
 DEFUN_HIDDEN(
 #else
@@ -248,18 +276,38 @@ DEFUN(
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
 	struct ospf6_interface *oi;
+	uint32_t mult = strtoul(argv[idx_number]->arg, NULL, 10);
+	uint32_t rx_ms = strtoul(argv[idx_number_2]->arg, NULL, 10);
+	uint32_t tx_ms = strtoul(argv[idx_number_3]->arg, NULL, 10);
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN + 64];
+	char val[32];
 
 	assert(ifp);
+
+	if (ospf6_per_iface_xpath(xpath_base, sizeof(xpath_base), ifp, "/bfd") == 0) {
+		snprintf(xpath, sizeof(xpath), "%s/enabled", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+		snprintf(xpath, sizeof(xpath), "%s/local-multiplier", xpath_base);
+		snprintf(val, sizeof(val), "%u", mult);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
+		snprintf(xpath, sizeof(xpath), "%s/required-min-rx-interval", xpath_base);
+		snprintf(val, sizeof(val), "%u", rx_ms * 1000);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
+		snprintf(xpath, sizeof(xpath), "%s/desired-min-tx-interval", xpath_base);
+		snprintf(val, sizeof(val), "%u", tx_ms * 1000);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	oi->bfd_config.detection_multiplier =
-		strtoul(argv[idx_number]->arg, NULL, 10);
-	oi->bfd_config.min_rx = strtoul(argv[idx_number_2]->arg, NULL, 10);
-	oi->bfd_config.min_tx = strtoul(argv[idx_number_3]->arg, NULL, 10);
+	oi->bfd_config.detection_multiplier = mult;
+	oi->bfd_config.min_rx = rx_ms;
+	oi->bfd_config.min_tx = tx_ms;
 	oi->bfd_config.enabled = true;
 
 	ospf6_bfd_reg_dereg_all_nbr(oi, true);
@@ -267,7 +315,7 @@ DEFUN(
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ipv6_ospf6_bfd,
+DEFUN_YANG (no_ipv6_ospf6_bfd,
        no_ipv6_ospf6_bfd_cmd,
        "no ipv6 ospf6 bfd",
        NO_STR
@@ -278,14 +326,28 @@ DEFUN (no_ipv6_ospf6_bfd,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN + 64];
 	assert(ifp);
+
+	if (ospf6_per_iface_xpath(xpath_base, sizeof(xpath_base), ifp, "/bfd") == 0) {
+		snprintf(xpath, sizeof(xpath), "%s/local-multiplier", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		snprintf(xpath, sizeof(xpath), "%s/required-min-rx-interval", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		snprintf(xpath, sizeof(xpath), "%s/desired-min-tx-interval", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		snprintf(xpath, sizeof(xpath), "%s/enabled", xpath_base);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	oi->bfd_config.enabled = false;
+	ospf6_interface_bfd_config_set_defaults(oi);
 	ospf6_bfd_reg_dereg_all_nbr(oi, false);
 
 	return CMD_SUCCESS;

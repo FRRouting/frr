@@ -8,6 +8,7 @@
 
 #include <zebra.h>
 #include "affinitymap.h"
+#include "bfd.h"
 #include "filter.h"
 #include "frr_pthread.h"
 #include "keychain.h"
@@ -16,11 +17,15 @@
 #include "log_vty.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_ds.h"
+#include "mgmtd/mgmt_ospf_cli.h"
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
 #include "routemap.h"
 #include "routing_nb.h"
 #include "srv6.h"
+#ifdef HAVE_STATICD
+#include "staticd/static_nb.h"
+#endif
 #include "zebra/zebra_cli.h"
 
 /* mgmt options, we use GNU getopt library. */
@@ -123,10 +128,6 @@ static struct frr_signal_t mgmt_signals[] = {
 	},
 };
 
-#ifdef HAVE_STATICD
-extern const struct frr_yang_module_info frr_staticd_cli_info;
-#endif
-
 /*
  * These are modules that are only needed by mgmtd and hence not included into
  * the lib and backend daemons.
@@ -144,6 +145,12 @@ const struct frr_yang_module_info ietf_netconf_with_defaults_info = {
  */
 const struct frr_yang_module_info zebra_route_map_info = {
 	.name = "frr-zebra-route-map",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
+static const struct frr_yang_module_info ietf_routing_ospf_deviation_info = {
+	.name = "frr-deviations-ietf-routing-ospf",
 	.ignore_cfg_cbs = true,
 	.nodes = { { .xpath = NULL } },
 };
@@ -180,6 +187,10 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 
 	&frr_zebra_cli_info,
 	&zebra_route_map_info,
+	&ietf_bfd_types_info,
+	&ietf_routing_ospf_cli_info,
+	&ietf_ospf_cli_info,
+	&ietf_routing_ospf_deviation_info,
 	&ietf_key_chain_cli_info,
 	&ietf_key_chain_deviation_info,
 	&ietf_srv6_types_info,

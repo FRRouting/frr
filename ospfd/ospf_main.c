@@ -29,6 +29,7 @@
 #include "routemap.h"
 #include "keychain.h"
 #include "libagentx.h"
+#include "mgmt_be_client.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -42,6 +43,7 @@
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_gr.h"
+#include "ospfd/ospf_nb.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_routemap_nb.h"
@@ -91,6 +93,7 @@ const struct option longopts[] = {
 
 /* Master of threads. */
 struct event_loop *master;
+static struct mgmt_be_client *mgmt_be_client;
 
 /* SIGHUP handler. */
 static void sighup(void)
@@ -103,6 +106,7 @@ static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	bfd_protocol_integration_set_shutdown(true);
+	mgmt_be_client_destroy(mgmt_be_client);
 	ospf_terminate();
 
 	exit(0);
@@ -134,14 +138,73 @@ struct frr_signal_t ospf_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
-	&frr_filter_info,
-	&frr_interface_info,
-	&frr_route_map_info,
-	&frr_vrf_info,
-	&frr_ospf_route_map_info,
-	&ietf_key_chain_info,
-	&ietf_key_chain_deviation_info,
+	&frr_backend_info,	  &frr_filter_info,	 &frr_interface_info,
+	&frr_route_map_info,	  &frr_vrf_info,	 &ietf_bfd_types_info,
+	&ospfd_ietf_routing_info, &ospfd_ietf_ospf_info, &ospfd_ietf_routing_ospf_deviation_info,
+	&frr_ospf_route_map_info, &ietf_key_chain_info,	 &ietf_key_chain_deviation_info,
 };
+
+/*
+ * ospfd and ospf6d both register the RFC 9129 ietf-ospf control-plane-protocol
+ * subtree. Filter on the `type` list-key so mgmtd dispatches each change to
+ * the daemon that owns that protocol family. In ospfd daemon-instance mode,
+ * each process narrows this further to its own `name` key so `ospfd-1` and
+ * `ospfd-2` do not both receive the same YANG edit.
+ *
+ * See the predicate-aware matching in
+ * mgmtd/mgmt_be_adapter.c::mgmt_be_xpath_prefix().
+ */
+static const char *const ospfd_oper_xpaths[] = {
+	"/frr-backend:clients",
+	OSPFD_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
+};
+
+static const char *const ospfd_config_xpaths[] = {
+	OSPFD_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
+};
+
+/*
+ * RFC 9129 puts clear-neighbor / clear-database at the module root rather than
+ * under control-plane-protocol, so both ospfd and ospf6d register the same
+ * xpaths; mgmtd fans the call out and each backend silently returns NB_OK
+ * when the named instance isn't local.
+ */
+static const char *const ospfd_rpc_xpaths[] = {
+	"/ietf-ospf:clear-neighbor",
+	"/ietf-ospf:clear-database",
+};
+
+static char ospfd_instance_xpath[XPATH_MAXLEN];
+static const char *const ospfd_instance_oper_xpaths[] = {
+	"/frr-backend:clients",
+	ospfd_instance_xpath,
+};
+static const char *const ospfd_instance_config_xpaths[] = {
+	ospfd_instance_xpath,
+};
+
+struct mgmt_be_client_cbs ospfd_be_client_data = {
+	.config_xpaths = ospfd_config_xpaths,
+	.nconfig_xpaths = array_size(ospfd_config_xpaths),
+	.oper_xpaths = ospfd_oper_xpaths,
+	.noper_xpaths = array_size(ospfd_oper_xpaths),
+	.rpc_xpaths = ospfd_rpc_xpaths,
+	.nrpc_xpaths = array_size(ospfd_rpc_xpaths),
+};
+
+static void ospfd_mgmt_be_init(void)
+{
+	if (!ospf_instance)
+		return;
+
+	ospfd_ietf_routing_protocol_instance_xpath(ospfd_instance_xpath,
+						   sizeof(ospfd_instance_xpath), ospf_instance,
+						   VRF_DEFAULT_NAME);
+	ospfd_be_client_data.config_xpaths = ospfd_instance_config_xpaths;
+	ospfd_be_client_data.nconfig_xpaths = array_size(ospfd_instance_config_xpaths);
+	ospfd_be_client_data.oper_xpaths = ospfd_instance_oper_xpaths;
+	ospfd_be_client_data.noper_xpaths = array_size(ospfd_instance_oper_xpaths);
+}
 
 /* actual paths filled in main() */
 static char state_path[512];
@@ -264,6 +327,7 @@ int main(int argc, char **argv)
 
 	/* OSPF master init. */
 	ospf_master_init(frr_init());
+	cmd_config_file_batching_set(true);
 
 	/* Initializations. */
 	master = om->master;
@@ -302,6 +366,9 @@ int main(int argc, char **argv)
 
 	/* OSPF errors init */
 	ospf_error_init();
+
+	ospfd_mgmt_be_init();
+	mgmt_be_client = mgmt_be_client_create("ospfd", &ospfd_be_client_data, 0, master);
 
 	frr_config_fork();
 	frr_run(master);

@@ -68,6 +68,23 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 	return count;
 }
 
+void ospf_nbr_timer_update(struct ospf_interface *oi)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr;
+
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+
+		if (!nbr)
+			continue;
+
+		nbr->v_inactivity = OSPF_IF_PARAM(oi, v_wait);
+		nbr->v_db_desc = OSPF_IF_PARAM(oi, retransmit_interval);
+		nbr->v_ls_req = OSPF_IF_PARAM(oi, retransmit_interval);
+		nbr->v_ls_rxmt = OSPF_IF_PARAM(oi, retransmit_interval);
+	}
+}
 
 void ospf_intf_neighbor_filter_apply(struct ospf_interface *oi)
 {
@@ -549,6 +566,10 @@ void ospf_if_stream_unset(struct ospf_interface *oi)
 	ospf_if_reset_stats(oi);
 }
 
+static void ospf_crypt_key_free(void *data)
+{
+	XFREE(MTYPE_OSPF_CRYPT_KEY, data);
+}
 
 static struct ospf_if_params *ospf_new_if_params(void)
 {
@@ -579,6 +600,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, dscp_low_control);
 
 	oip->auth_crypt = list_new();
+	oip->auth_crypt->del = ospf_crypt_key_free;
 
 	oip->network_lsa_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
 	oip->is_v_wait_set = false;
@@ -600,7 +622,7 @@ static void ospf_del_if_params(struct interface *ifp,
 	list_delete(&oip->auth_crypt);
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip->keychain_name);
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip->nbr_filter_name);
-	ospf_interface_disable_bfd(ifp, oip);
+	ospf_interface_bfd_free_config(ifp, oip);
 	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
 }

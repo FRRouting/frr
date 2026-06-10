@@ -22,6 +22,7 @@
 
 /* Forward declaration(s). */
 struct ospf6_neighbor;
+struct ospf6_lsa;
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_gr;
@@ -110,7 +111,6 @@ extern void ospf6_process_maxage_grace_lsa(struct ospf6 *ospf,
 					   struct ospf6_neighbor *nbr);
 extern void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6,
 					 struct ospf6_lsa *lsa);
-extern int config_write_ospf6_gr(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_gr_helper(struct vty *vty);
 
@@ -121,8 +121,47 @@ extern void ospf6_gr_restart_enter(struct ospf6 *ospf6,
 extern void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf,
 					    struct ospf6_area *area);
 extern void ospf6_gr_nvm_read(struct ospf6 *ospf);
+extern void ospf6_gr_nvm_update(struct ospf6 *ospf6, bool prepare);
 extern void ospf6_gr_nvm_delete(struct ospf6 *ospf6);
 extern void ospf6_gr_unplanned_start_interface(struct ospf6_interface *oi);
 extern void ospf6_gr_init(void);
+
+/*
+ * Apply graceful-restart restarter state.  Shared by the legacy
+ * `graceful-restart` CLI and the RFC 9129 `/graceful-restart/enabled`
+ * northbound callback so the two paths produce identical side effects.
+ */
+extern void ospf6_gr_restart_support_enable(struct ospf6 *ospf6);
+
+/*
+ * Disable graceful-restart restarter state.  Returns -1 when a GR
+ * preparation is in flight (the legacy CLI rejects the same way); the
+ * caller surfaces the rejection.  The grace_period is intentionally
+ * left untouched -- the restart-interval leaf has its own restore
+ * path.
+ */
+extern int ospf6_gr_restart_support_disable(struct ospf6 *ospf6);
+
+/*
+ * Set the graceful-restart grace period.  Refreshes the zebra GR
+ * stale-route timer if GR is currently enabled.
+ */
+extern void ospf6_gr_set_grace_period(struct ospf6 *ospf6, uint32_t grace_period);
+
+/*
+ * Toggle global helper-mode support.  Promoted from static to extern so
+ * the RFC 9129 `/graceful-restart/helper-enabled` callback and the
+ * legacy CLI shim can share the same code path.  On transition to
+ * disabled the helper exits the role on every neighbour not pinned by
+ * a per-router-id entry, matching the legacy CLI semantics.
+ */
+extern void ospf6_gr_helper_support_set(struct ospf6 *ospf6, bool support);
+
+/*
+ * Toggle strict LSA-check on the helper.  `enabled = true` enforces
+ * strict checking (matches the FRR default); `false` relaxes it.
+ * Promoted from static to extern for the same reason.
+ */
+extern void ospf6_gr_helper_lsacheck_set(struct ospf6 *ospf6, bool enabled);
 
 #endif /* OSPF6_GR_H */

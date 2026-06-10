@@ -14,6 +14,7 @@
 #include "frrevent.h"
 #include "command.h"
 #include "defaults.h"
+#include "northbound_cli.h"
 #include "lib/json.h"
 #include "lib_errors.h"
 #include "frrdistance.h"
@@ -29,6 +30,7 @@
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_nb.h"
 #include "ospf6_network.h"
 
 #include "ospf6_flood.h"
@@ -421,6 +423,7 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	o->write_oi_count = OSPF6_WRITE_INTERFACE_COUNT_DEFAULT;
 	o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
+	o->gr_info.grace_period = OSPF6_DFLT_GRACE_INTERVAL;
 
 	o->distance_table = route_table_init();
 
@@ -586,6 +589,9 @@ void ospf6_master_init(struct event_loop *mst)
 	om6 = &ospf6_master;
 	om6->ospf6 = list_new();
 	om6->master = mst;
+
+	/* Hook RFC 9129 ietf-ospf notifications onto the state-change hooks. */
+	ospf6d_ietf_notif_init();
 }
 
 void ospf6_master_delete(void)
@@ -675,13 +681,21 @@ bool ospf6_router_id_update(struct ospf6 *ospf6, bool init)
 	return true;
 }
 
+static int ospf6_ietf_routing_protocol_xpath(char *xpath, size_t size, const struct ospf6 *ospf6)
+{
+	return snprintf(xpath, size, OSPF6D_IETF_ROUTING_PROTOCOL_XPATH,
+			ospf6->name ? ospf6->name : VRF_DEFAULT_NAME);
+}
+
 /* start ospf6 */
 DEFUN_NOSH(router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
 	   ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	struct ospf6 *ospf6;
 	const char *vrf_name = VRF_DEFAULT_NAME;
+	char xpath[XPATH_MAXLEN];
 	int idx_vrf = 0;
+	int ret;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
 		vrf_name = argv[idx_vrf + 1]->arg;
@@ -690,6 +704,12 @@ DEFUN_NOSH(router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
 	ospf6 = ospf6_lookup_by_vrf_name(vrf_name);
 	if (ospf6 == NULL)
 		ospf6 = ospf6_instance_create(vrf_name);
+
+	ospf6_ietf_routing_protocol_xpath(xpath, sizeof(xpath), ospf6);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	/* set current ospf point. */
 	VTY_PUSH_CONTEXT(OSPF6_NODE, ospf6);
@@ -703,7 +723,9 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
 {
 	struct ospf6 *ospf6;
 	const char *vrf_name = VRF_DEFAULT_NAME;
+	char xpath[XPATH_MAXLEN];
 	int idx_vrf = 0;
+	int ret = CMD_SUCCESS;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
 		vrf_name = argv[idx_vrf + 1]->arg;
@@ -713,16 +735,15 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
 	if (ospf6 == NULL)
 		vty_out(vty, "OSPFv3 is not configured\n");
 	else {
-		if (ospf6->gr_info.restart_support)
-			ospf6_gr_nvm_delete(ospf6);
-
-		ospf6_delete(&ospf6);
+		ospf6_ietf_routing_protocol_xpath(xpath, sizeof(xpath), ospf6);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		ret = nb_cli_apply_changes_clear_pending(vty, "%s", xpath);
 	}
 
 	/* return to config node . */
 	VTY_PUSH_CONTEXT_NULL(CONFIG_NODE);
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
 static void ospf6_db_clear(struct ospf6 *ospf6)
@@ -757,7 +778,7 @@ static void ospf6_db_clear(struct ospf6 *ospf6)
 	ospf6_route_remove_all(ospf6->brouter_table);
 }
 
-static void ospf6_process_reset(struct ospf6 *ospf6)
+void ospf6_process_reset(struct ospf6 *ospf6)
 {
 	struct interface *ifp;
 	struct vrf *vrf = vrf_lookup_by_id(ospf6->vrf_id);
@@ -798,8 +819,57 @@ DEFPY (clear_router_ospf6,
 	return CMD_SUCCESS;
 }
 
+/*
+ * XPath: /ietf-routing:routing/control-plane-protocols/control-plane-protocol/ietf-ospf:ospf/explicit-router-id
+ *
+ * Build the absolute ietf-ospf explicit-router-id xpath for the given OSPFv3
+ * instance. The `router ospf6` block is not yet converted to YANG, so the
+ * instance keys (type + name) come from the FRR-side context rather than a
+ * vty xpath context push.
+ */
+static int ospf6_router_id_xpath(char *xpath, size_t size, const struct ospf6 *o)
+{
+	return snprintf(xpath, size,
+			OSPF6D_IETF_ROUTING_PROTOCOL_XPATH "/ietf-ospf:ospf/explicit-router-id",
+			o->name ? o->name : VRF_DEFAULT_NAME);
+}
+
+/*
+ * Build an absolute ietf-ospf instance-level leaf xpath for the given OSPFv3
+ * instance. The `router ospf6` block is not yet converted to YANG, so the
+ * instance keys come from FRR-side context rather than a vty xpath push.
+ * Returns -1 on truncation.
+ */
+int ospf6_per_instance_xpath(char *xpath, size_t size, const struct ospf6 *o, const char *leaf)
+{
+	int ret;
+
+	if (!o || !leaf)
+		return -1;
+	ret = snprintf(xpath, size, OSPF6D_IETF_ROUTING_PROTOCOL_XPATH "/ietf-ospf:ospf%s",
+		       o->name ? o->name : VRF_DEFAULT_NAME, leaf);
+	if (ret < 0 || (size_t)ret >= size)
+		return -1;
+	return 0;
+}
+
+/*
+ * Mirror the legacy advisory: if the static value and the runtime router-id
+ * disagree after apply, the change was staged but adjacencies must be cleared
+ * for it to take effect. ospf6_router_id_update() encodes this by returning
+ * false, but the NB callback can't print to vty, so the DEFPY_YANG wrapper
+ * recomputes the condition from the post-apply state.
+ */
+static void ospf6_router_id_change_advise(struct vty *vty, const struct ospf6 *o)
+{
+	if (o->router_id_static == o->router_id)
+		return;
+	vty_out(vty,
+		"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
+}
+
 /* change Router_ID commands. */
-DEFUN(ospf6_router_id,
+DEFPY_YANG (ospf6_router_id,
       ospf6_router_id_cmd,
       "ospf6 router-id A.B.C.D",
       OSPF6_STR
@@ -807,32 +877,20 @@ DEFUN(ospf6_router_id,
       V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	int idx = 0;
+	char xpath[XPATH_MAXLEN];
 	int ret;
-	const char *router_id_str;
-	uint32_t router_id;
 
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	router_id_str = argv[idx]->arg;
+	ospf6_router_id_xpath(xpath, sizeof(xpath), o);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, router_id_str);
 
-	ret = inet_pton(AF_INET, router_id_str, &router_id);
-	if (ret == 0) {
-		vty_out(vty, "malformed OSPF Router-ID: %s\n", router_id_str);
-		return CMD_SUCCESS;
-	}
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf6_router_id_change_advise(vty, o);
 
-	o->router_id_static = router_id;
-
-	if (ospf6_router_id_update(o, false))
-		ospf6_process_reset(o);
-	else
-		vty_out(vty,
-			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFUN(no_ospf6_router_id,
+DEFPY_YANG (no_ospf6_router_id,
       no_ospf6_router_id_cmd,
       "no ospf6 router-id [A.B.C.D]",
       NO_STR OSPF6_STR
@@ -840,17 +898,17 @@ DEFUN(no_ospf6_router_id,
       V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
+	char xpath[XPATH_MAXLEN];
+	int ret;
 
-	o->router_id_static = 0;
+	ospf6_router_id_xpath(xpath, sizeof(xpath), o);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		ospf6_router_id_change_advise(vty, o);
 
-	if (ospf6_router_id_update(o, false))
-		ospf6_process_reset(o);
-	else
-		vty_out(vty,
-			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (ospf6_log_adjacency_changes,
@@ -982,43 +1040,40 @@ DEFUN (no_ospf6_timers_lsa,
 }
 
 
-DEFUN (ospf6_distance,
+DEFPY_YANG (ospf6_distance,
        ospf6_distance_cmd,
-       "distance (1-255)",
+       "distance (1-255)$distance",
        "Administrative distance\n"
        "OSPF6 Administrative distance\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	uint8_t distance;
+	char xpath[XPATH_MAXLEN];
 
-	distance = atoi(argv[1]->arg);
-	if (o->distance_all != distance) {
-		o->distance_all = distance;
-		ospf6_restart_spf(o);
-	}
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/preference/all") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, distance_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf6_distance,
+DEFPY_YANG (no_ospf6_distance,
        no_ospf6_distance_cmd,
-       "no distance (1-255)",
+       "no distance (1-255)$distance",
        NO_STR
        "Administrative distance\n"
        "OSPF6 Administrative distance\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
+	char xpath[XPATH_MAXLEN];
 
-	if (o->distance_all) {
-		o->distance_all = 0;
-		ospf6_restart_spf(o);
-	}
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/preference/all") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ospf6_distance_ospf6,
+DEFPY_YANG (ospf6_distance_ospf6,
        ospf6_distance_ospf6_cmd,
-       "distance ospf6 {intra-area (1-255)|inter-area (1-255)|external (1-255)}",
+       "distance ospf6 {intra-area (1-255)$intra|inter-area (1-255)$inter|external (1-255)$external}",
        "Administrative distance\n"
        "OSPF6 administrative distance\n"
        "Intra-area routes\n"
@@ -1029,27 +1084,35 @@ DEFUN (ospf6_distance_ospf6,
        "Distance for external routes\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	int idx = 0;
+	char xpath[XPATH_MAXLEN];
 
-	o->distance_intra = 0;
-	o->distance_inter = 0;
-	o->distance_external = 0;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/preference/intra-area") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (intra)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, intra_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	if (argv_find(argv, argc, "intra-area", &idx))
-		o->distance_intra = atoi(argv[idx + 1]->arg);
-	idx = 0;
-	if (argv_find(argv, argc, "inter-area", &idx))
-		o->distance_inter = atoi(argv[idx + 1]->arg);
-	idx = 0;
-	if (argv_find(argv, argc, "external", &idx))
-		o->distance_external = atoi(argv[idx + 1]->arg);
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/preference/inter-area") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (inter)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, inter_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/preference/external") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (external)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, external_str);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_ospf6_distance_ospf6,
+DEFPY_YANG (no_ospf6_distance_ospf6,
        no_ospf6_distance_ospf6_cmd,
-       "no distance ospf6 [{intra-area [(1-255)]|inter-area [(1-255)]|external [(1-255)]}]",
+       "no distance ospf6 [{intra-area$intra [(1-255)]|inter-area$inter [(1-255)]|external$external [(1-255)]}]",
        NO_STR
        "Administrative distance\n"
        "OSPF6 distance\n"
@@ -1061,16 +1124,27 @@ DEFUN (no_ospf6_distance_ospf6,
        "Distance for external routes\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	int idx = 0;
+	char xpath[XPATH_MAXLEN];
+	bool all_scopes = (!intra && !inter && !external);
 
-	if (argv_find(argv, argc, "intra-area", &idx) || argc == 3)
-		idx = o->distance_intra = 0;
-	if (argv_find(argv, argc, "inter-area", &idx) || argc == 3)
-		idx = o->distance_inter = 0;
-	if (argv_find(argv, argc, "external", &idx) || argc == 3)
-		o->distance_external = 0;
-
-	return CMD_SUCCESS;
+	if (intra || all_scopes) {
+		if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/preference/intra-area") !=
+		    0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	if (inter || all_scopes) {
+		if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/preference/inter-area") !=
+		    0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	if (external || all_scopes) {
+		if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/preference/external") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ospf6_stub_router_admin,
@@ -1144,33 +1218,54 @@ static void ospf6_maxpath_set(struct ospf6 *ospf6, uint16_t paths)
 	ospf6_restart_spf(ospf6);
 }
 
-/* Ospf Maximum-paths config support */
-DEFUN(ospf6_max_multipath,
+/*
+ * Ospf Maximum-paths config support.
+ *
+ * RFC 9129 models the limit as `/spf-control/paths` (uint16, range
+ * 1..65535), which covers FRR's MULTIPATH_NUM cap for every supported
+ * build.  Routes through the ietf-ospf YANG callback unconditionally;
+ * the legacy direct-mutation path stays only as the fallback when no
+ * OSPFv3 instance owns the xpath context.
+ */
+DEFPY_YANG(ospf6_max_multipath,
       ospf6_max_multipath_cmd,
-      "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+      "maximum-paths (1-65535)$maxpaths",
       "Max no of multiple paths for ECMP support\n"
       "Number of paths\n")
 {
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
-	int idx_number = 1;
-	int maximum_paths = strtol(argv[idx_number]->arg, NULL, 10);
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	char xpath[XPATH_MAXLEN];
 
-	ospf6_maxpath_set(ospf6, maximum_paths);
+	if (maxpaths > MULTIPATH_NUM) {
+		vty_out(vty, "%% maximum-paths exceeds platform max %u\n", MULTIPATH_NUM);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/spf-control/paths") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, maxpaths_str);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	ospf6_maxpath_set(o, (uint16_t)maxpaths);
 	return CMD_SUCCESS;
 }
 
-DEFUN(no_ospf6_max_multipath,
+DEFPY_YANG(no_ospf6_max_multipath,
       no_ospf6_max_multipath_cmd,
-     "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM)"]",
+     "no maximum-paths [(1-65535)]",
       NO_STR
       "Max no of multiple paths for ECMP support\n"
       "Number of paths\n")
 {
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	char xpath[XPATH_MAXLEN];
 
-	ospf6_maxpath_set(ospf6, MULTIPATH_NUM);
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), o, "/spf-control/paths") == 0) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
+	ospf6_maxpath_set(o, MULTIPATH_NUM);
 	return CMD_SUCCESS;
 }
 
@@ -2042,23 +2137,6 @@ static int ospf6_distance_config_write(struct vty *vty, struct ospf6 *ospf6)
 	struct route_node *rn;
 	struct ospf6_distance *odistance;
 
-	if (ospf6->distance_all)
-		vty_out(vty, " distance %u\n", ospf6->distance_all);
-
-	if (ospf6->distance_intra || ospf6->distance_inter
-	    || ospf6->distance_external) {
-		vty_out(vty, " distance ospf6");
-
-		if (ospf6->distance_intra)
-			vty_out(vty, " intra-area %u", ospf6->distance_intra);
-		if (ospf6->distance_inter)
-			vty_out(vty, " inter-area %u", ospf6->distance_inter);
-		if (ospf6->distance_external)
-			vty_out(vty, " external %u", ospf6->distance_external);
-
-		vty_out(vty, "\n");
-	}
-
 	for (rn = route_top(ospf6->distance_table); rn; rn = route_next(rn))
 		if ((odistance = rn->info) != NULL)
 			vty_out(vty, " distance %u %pFX %s\n",
@@ -2122,9 +2200,7 @@ static int config_write_ospf6(struct vty *vty)
 		else
 			vty_out(vty, "router ospf6\n");
 
-		if (ospf6->router_id_static != 0)
-			vty_out(vty, " ospf6 router-id %pI4\n",
-				&ospf6->router_id_static);
+		ospf6d_ietf_ospf_cli_show_config(vty, ospf6);
 
 		if (CHECK_FLAG(ospf6->config_flags,
 			       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
@@ -2142,10 +2218,6 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " no log-adjacency-changes\n");
 		}
 
-		if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
-			vty_out(vty, " auto-cost reference-bandwidth %d\n",
-				ospf6->ref_bandwidth);
-
 		if (ospf6->write_oi_count
 		    != OSPF6_WRITE_INTERFACE_COUNT_DEFAULT)
 			vty_out(vty, " write-multiplier %d\n",
@@ -2156,11 +2228,6 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " timers lsa min-arrival %d\n",
 				ospf6->lsa_minarrival);
 
-		/* ECMP max path config */
-		if (ospf6->max_multipath != MULTIPATH_NUM)
-			vty_out(vty, " maximum-paths %d\n",
-				ospf6->max_multipath);
-
 		ospf6_stub_router_config_write(vty, ospf6);
 		ospf6_redistribute_config_write(vty, ospf6);
 		ospf6_area_config_write(vty, ospf6);
@@ -2168,7 +2235,6 @@ static int config_write_ospf6(struct vty *vty)
 		ospf6_distance_config_write(vty, ospf6);
 		ospf6_distribute_config_write(vty, ospf6);
 		ospf6_asbr_summary_config_write(vty, ospf6);
-		config_write_ospf6_gr(vty, ospf6);
 		config_write_ospf6_gr_helper(vty, ospf6);
 
 		vty_out(vty, "exit\n");

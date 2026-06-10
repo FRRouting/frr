@@ -418,4 +418,20 @@ struct zapi_opaque_reg_info;
  */
 extern int ospf_te_sync_ted(struct zapi_opaque_reg_info dst);
 
+/*
+ * Applies a new MPLS-TE router address and, when MPLS-TE is enabled,
+ * refreshes or reoriginates the affected Opaque Router-Address LSAs.
+ * Shared by the legacy `mpls-te router-address` CLI and the RFC 9129
+ * `/mpls/te-rid/ipv4-router-id` northbound callback.
+ */
+extern void ospf_mpls_te_apply_router_addr(struct in_addr value);
+
+/*
+ * Marks the MPLS-TE router-address as unset (TLV header type back to
+ * zero).  No LSA reorigination: the `mpls-te` config block is gated on
+ * `OspfMplsTE.enabled` and an unset router-address has no meaningful
+ * LSA representation.
+ */
+extern void ospf_mpls_te_clear_router_addr(void);
+
 #endif /* _ZEBRA_OSPF_MPLS_TE_H */

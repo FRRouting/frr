@@ -47,6 +47,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_auth.h"
+#include "ospf_nb.h"
 
 /*
  * OSPF Fragmentation / fragmented writes
@@ -821,6 +822,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 			"Packet %pI4 [Hello:RECV]: RouterDeadInterval mismatch on %s (expected %u, but received %u).",
 			&ospfh->router_id, IF_NAME(oi),
 			OSPF_IF_PARAM(oi, v_wait), ntohl(hello->dead_interval));
+		ospfd_ietf_notif_if_config_error(oi, iph->ip_src, ospfh->type,
+						 "dead-interval-mismatch");
 		return;
 	}
 
@@ -834,6 +837,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 				&ospfh->router_id, IF_NAME(oi),
 				OSPF_IF_PARAM(oi, v_hello),
 				ntohs(hello->hello_interval));
+			ospfd_ietf_notif_if_config_error(oi, iph->ip_src, ospfh->type,
+							 "hello-interval-mismatch");
 			return;
 		}
 	}
@@ -3106,6 +3111,8 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	if (ret < 0) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
 			zlog_debug("ospf_read[%pI4]: Header check failed, dropping.", &srcaddr);
+		/* RFC 9129 ietf-ospf:if-rx-bad-packet. */
+		ospfd_ietf_notif_if_rx_bad_packet(oi, srcaddr, ospfh ? ospfh->type : 0);
 		return OSPF_READ_CONTINUE;
 	}
 

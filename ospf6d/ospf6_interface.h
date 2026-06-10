@@ -12,6 +12,7 @@
 #include "ospf6d.h"
 
 DECLARE_MTYPE(OSPF6_AUTH_MANUAL_KEY);
+DECLARE_MTYPE(OSPF6_AUTH_KEYCHAIN);
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_interface;
@@ -231,7 +232,7 @@ extern const char *const ospf6_interface_state_str[];
 #define OSPF6_INTERFACE_TRANSDELAY     1
 #define OSPF6_INTERFACE_INSTANCE_ID    0
 #define OSPF6_INTERFACE_BANDWIDTH      10000   /* Mbps */
-#define OSPF6_REFERENCE_BANDWIDTH      100000  /* Kbps */
+#define OSPF6_REFERENCE_BANDWIDTH      100000  /* Mbps */
 #define OSPF6_INTERFACE_SSO_RETRY_INT  1
 #define OSPF6_INTERFACE_SSO_RETRY_MAX  5
 
@@ -239,6 +240,10 @@ extern const char *const ospf6_interface_state_str[];
 
 extern void ospf6_interface_start(struct ospf6_interface *oi);
 extern void ospf6_interface_stop(struct ospf6_interface *oi);
+extern void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi);
+extern void ospf6_interface_recalculate_cost(struct ospf6_interface *oi);
+extern void ospf6_hello_reschedule(struct ospf6_interface *oi);
+extern void ospf6_priority_recompute(struct ospf6_interface *oi);
 
 extern struct ospf6_interface *
 ospf6_interface_lookup_by_ifindex(ifindex_t, vrf_id_t vrf_id);
@@ -257,6 +262,7 @@ ospf6_interface_get_global_address(struct interface *ifp);
 /* interface event */
 extern void interface_up(struct event *event);
 extern void interface_down(struct event *event);
+extern uint8_t ospf6_default_iftype(struct interface *ifp);
 extern void wait_timer(struct event *event);
 extern void backup_seen(struct event *event);
 extern void neighbor_change(struct event *event);
@@ -270,10 +276,20 @@ extern int config_write_ospf6_debug_interface(struct vty *vty);
 extern void install_element_ospf6_debug_interface(void);
 extern int ospf6_interface_neighbor_count(struct ospf6_interface *oi);
 extern uint8_t dr_election(struct ospf6_interface *oi);
+extern void ospf6_interface_passive_set(struct ospf6_interface *oi, bool passive);
 
 extern void ospf6_interface_auth_trailer_cmd_init(void);
 extern void ospf6_auth_write_config(struct vty *vty,
 				    struct ospf6_auth_data *at_data);
+
+/*
+ * Build the per-interface RFC 9129 ietf-ospf xpath for `leaf` (must
+ * start with '/').  Returns 0 on success, -1 when the interface is
+ * not yet bound to an OSPFv3 area -- callers should fall back to
+ * direct mutation in that case.
+ */
+extern int ospf6_per_iface_xpath(char *xpath, size_t size, const struct interface *ifp,
+				 const char *leaf);
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
 	     (oi, state, old_state));

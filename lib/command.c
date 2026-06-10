@@ -94,6 +94,12 @@ struct host host;
 /* for vtysh, put together CLI trees only when switching into node */
 static bool defer_cli_tree;
 
+/* Direct daemon config-file loads normally preserve legacy per-line commit
+ * behavior. Daemons with cross-leaf YANG validation can opt in to batching
+ * their file loads into one northbound transaction.
+ */
+static bool batch_config_file;
+
 /*
  * Returns host.name if any, otherwise
  * it returns the system hostname.
@@ -119,6 +125,11 @@ const char *cmd_system_get(void)
 const char *cmd_release_get(void)
 {
 	return host.release;
+}
+
+void cmd_config_file_batching_set(bool enabled)
+{
+	batch_config_file = enabled;
 }
 
 const char *cmd_version_get(void)
@@ -1317,7 +1328,11 @@ int command_config_read_one_line(struct vty *vty,
 int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 {
 	int ret, error_ret = 0;
+	bool saved_pending_allowed = vty->pending_allowed;
+
 	*line_num = 0;
+	if (batch_config_file)
+		vty->pending_allowed = true;
 
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		++(*line_num);
@@ -1334,6 +1349,13 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 
 		if (ret != CMD_SUCCESS && ret != CMD_WARNING
 		    && ret != CMD_ERR_NOTHING_TODO)
+			error_ret = ret;
+	}
+
+	vty->pending_allowed = saved_pending_allowed;
+	if (batch_config_file && !saved_pending_allowed) {
+		ret = nb_cli_pending_commit_check(vty);
+		if (ret != CMD_SUCCESS)
 			error_ret = ret;
 	}
 

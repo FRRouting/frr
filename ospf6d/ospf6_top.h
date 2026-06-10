@@ -168,6 +168,9 @@ struct ospf6 {
 	struct timeval ts_spf_duration; /* Execution time of last SPF */
 	unsigned int last_spf_reason;   /* Last SPF reason */
 
+	uint32_t lsa_originate_count; /* Number of new LSAs originated. */
+	uint32_t rx_lsa_count;	      /* Number of new LSAs received. */
+
 	int fd;
 	/* Threads */
 	struct event *t_spf_calc; /* SPF calculation timer. */
@@ -241,7 +244,10 @@ extern void install_element_ospf6_clear_process(void);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 **o);
 extern bool ospf6_router_id_update(struct ospf6 *ospf6, bool init);
+extern void ospf6_process_reset(struct ospf6 *ospf6);
 void ospf6_restart_spf(struct ospf6 *ospf6);
+extern int ospf6_per_instance_xpath(char *xpath, size_t size, const struct ospf6 *o,
+				    const char *leaf);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
 extern struct ospf6 *ospf6_instance_create(const char *name);

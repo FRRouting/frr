@@ -33,25 +33,32 @@
 #include "ospf6d/ospf6_spf.h"
 #include "ospf6d/ospf6_tlv.h"
 #include "ospf6d/ospf6_gr.h"
+#include "ospf6d/ospf6_top.h"
+#include "ospf6_nb.h"
+#include "northbound_cli.h"
 #include "ospf6d/ospf6_gr_clippy.c"
 
 static void ospf6_gr_grace_period_expired(struct event *event);
 
 /* Originate and install Grace-LSA for a given interface. */
-static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
-				  enum ospf6_gr_restart_reason reason)
+static int ospf6_gr_lsa_originate(struct ospf6_interface *oi, enum ospf6_gr_restart_reason reason)
 {
-	struct ospf6 *ospf6 = oi->area->ospf6;
-	struct ospf6_gr_info *gr_info = &ospf6->gr_info;
+	struct ospf6 *ospf6;
+	struct ospf6_gr_info *gr_info;
 	struct ospf6_lsa_header *lsa_header;
 	struct ospf6_grace_lsa *grace_lsa;
 	struct ospf6_lsa *lsa;
 	uint16_t lsa_length;
 	char buffer[OSPF6_MAX_LSASIZE];
 
+	if (!oi || !oi->interface || !oi->area || !oi->area->ospf6)
+		return -1;
+
+	ospf6 = oi->area->ospf6;
+	gr_info = &ospf6->gr_info;
+
 	if (IS_OSPF6_DEBUG_ORIGINATE(LINK))
-		zlog_debug("Originate Grace-LSA for Interface %s",
-			   oi->interface->name);
+		zlog_debug("Originate Grace-LSA for Interface %s", oi->interface->name);
 
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
@@ -65,8 +72,7 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 
 	/* Put restart reason. */
 	grace_lsa->tlv_reason.header.type = htons(TLV_GRACE_RESTART_REASON_TYPE);
-	grace_lsa->tlv_reason.header.length =
-		htons(TLV_GRACE_RESTART_REASON_LENGTH);
+	grace_lsa->tlv_reason.header.length = htons(TLV_GRACE_RESTART_REASON_LENGTH);
 	grace_lsa->tlv_reason.reason = reason;
 
 	/* Fill LSA Header */
@@ -75,9 +81,8 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 	lsa_header->type = htons(OSPF6_LSTYPE_GRACE_LSA);
 	lsa_header->id = htonl(oi->interface->ifindex);
 	lsa_header->adv_router = ospf6->router_id;
-	lsa_header->seqnum =
-		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
-				    lsa_header->adv_router, oi->lsdb);
+	lsa_header->seqnum = ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
+						 lsa_header->adv_router, oi->lsdb);
 	lsa_header->length = htons(lsa_length);
 
 	/* LSA checksum */
@@ -97,7 +102,7 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 		oh = (struct ospf6_header *)buffer;
 		oh->version = OSPFV3_VERSION;
 		oh->type = OSPF6_MESSAGE_TYPE_LSUPDATE;
-		oh->router_id = oi->area->ospf6->router_id;
+		oh->router_id = ospf6->router_id;
 		oh->area_id = oi->area->area_id;
 		oh->instance_id = oi->instance_id;
 		oh->reserved = 0;
@@ -110,11 +115,10 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 		/* Send packet. */
 		iovector[0].iov_base = lsa_header;
 		iovector[0].iov_len = length;
-		n = ospf6_sendmsg(oi->linklocal_addr, &allspfrouters6,
-				  oi->interface->ifindex, iovector, ospf6->fd);
+		n = ospf6_sendmsg(oi->linklocal_addr, &allspfrouters6, oi->interface->ifindex,
+				  iovector, ospf6->fd);
 		if (n != length)
-			flog_err(EC_LIB_DEVELOPMENT,
-				 "%s: could not send entire message", __func__);
+			flog_err(EC_LIB_DEVELOPMENT, "%s: could not send entire message", __func__);
 	} else {
 		/* Create and install LSA. */
 		lsa = ospf6_lsa_create(lsa_header);
@@ -136,20 +140,16 @@ static void ospf6_gr_flush_grace_lsas(struct ospf6 *ospf6)
 		struct listnode *inode;
 
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug(
-				"GR: flushing self-originated Grace-LSAs [area %pI4]",
-				&area->area_id);
+			zlog_debug("GR: flushing self-originated Grace-LSAs [area %pI4]",
+				   &area->area_id);
 
 		for (ALL_LIST_ELEMENTS_RO(area->if_list, inode, oi)) {
 			lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_GRACE_LSA),
-						htonl(oi->interface->ifindex),
-						oi->area->ospf6->router_id,
+						htonl(oi->interface->ifindex), ospf6->router_id,
 						oi->lsdb);
 			if (!lsa) {
-				zlog_warn(
-					"%s: Grace-LSA not found [interface %s] [area %pI4]",
-					__func__, oi->interface->name,
-					&area->area_id);
+				zlog_warn("%s: Grace-LSA not found [interface %s] [area %pI4]",
+					  __func__, oi->interface->name, &area->area_id);
 				continue;
 			}
 
@@ -159,7 +159,8 @@ static void ospf6_gr_flush_grace_lsas(struct ospf6 *ospf6)
 }
 
 /* Exit from the Graceful Restart mode. */
-static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
+static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason,
+				  enum ospf6_helper_exit_reason exit_reason)
 {
 	struct ospf6_area *area;
 	struct listnode *onode, *anode;
@@ -219,8 +220,7 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 	 */
 	for (route = ospf6_route_head(ospf6->external_table); route;
 	     route = ospf6_route_next(route))
-		ospf6_handle_external_lsa_origination(ospf6, route,
-						      &route->prefix);
+		ospf6_handle_external_lsa_origination(ospf6, route, &route->prefix);
 
 	/*
 	 * 3) The router reruns its OSPF routing calculations, this time
@@ -236,11 +236,13 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 
 	/* 6) Any grace-LSAs that the router originated should be flushed. */
 	ospf6_gr_flush_grace_lsas(ospf6);
+
+	/* RFC 9129 ietf-ospf:restart-status-change: now not-restarting (1). */
+	ospf6d_ietf_notif_restart_status_change(ospf6, 1, exit_reason);
 }
 
 /* Enter the Graceful Restart mode. */
-void ospf6_gr_restart_enter(struct ospf6 *ospf6,
-			    enum ospf6_gr_restart_reason reason,
+void ospf6_gr_restart_enter(struct ospf6 *ospf6, enum ospf6_gr_restart_reason reason,
 			    time_t timestamp)
 {
 	unsigned long remaining_time;
@@ -251,21 +253,23 @@ void ospf6_gr_restart_enter(struct ospf6 *ospf6,
 	/* Schedule grace period timeout. */
 	remaining_time = timestamp - time(NULL);
 	if (IS_DEBUG_OSPF6_GR)
-		zlog_debug(
-			"GR: remaining time until grace period expires: %lu(s)",
-			remaining_time);
+		zlog_debug("GR: remaining time until grace period expires: %lu(s)", remaining_time);
 
-	event_add_timer(master, ospf6_gr_grace_period_expired, ospf6,
-			remaining_time, &ospf6->gr_info.t_grace_period);
+	event_add_timer(master, ospf6_gr_grace_period_expired, ospf6, remaining_time,
+			&ospf6->gr_info.t_grace_period);
+
+	/* RFC 9129 ietf-ospf:restart-status-change.  FRR-known reasons are
+	 * all software-initiated, so map to RFC `planned-restart` (2).
+	 */
+	ospf6d_ietf_notif_restart_status_change(ospf6, 2, OSPF6_GR_HELPER_INPROGRESS);
 }
 
-#define RTR_LSA_MISSING 0
-#define RTR_LSA_ADJ_FOUND 1
+#define RTR_LSA_MISSING	      0
+#define RTR_LSA_ADJ_FOUND     1
 #define RTR_LSA_ADJ_NOT_FOUND 2
 
 /* Check if a Router-LSA exists and if it contains a given link. */
-static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
-					 in_addr_t adv_router,
+static int ospf6_router_lsa_contains_adj(struct ospf6_area *area, in_addr_t adv_router,
 					 in_addr_t neighbor_router_id)
 {
 	uint16_t type;
@@ -278,15 +282,13 @@ static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 		char *start, *end, *current;
 
 		empty = false;
-		router_lsa = (struct ospf6_router_lsa
-				      *)((char *)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
+		router_lsa = (struct ospf6_router_lsa *)((char *)lsa->header +
+							 sizeof(struct ospf6_lsa_header));
 
 		/* Iterate over all interfaces in the Router-LSA. */
 		start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
 		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_router_lsdesc) <= end;
+		for (current = start; current + sizeof(struct ospf6_router_lsdesc) <= end;
 		     current += sizeof(struct ospf6_router_lsdesc)) {
 			struct ospf6_router_lsdesc *lsdesc;
 
@@ -307,23 +309,20 @@ static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 	return RTR_LSA_ADJ_NOT_FOUND;
 }
 
-static bool ospf6_gr_check_router_lsa_consistency(struct ospf6 *ospf6,
-						  struct ospf6_area *area,
+static bool ospf6_gr_check_router_lsa_consistency(struct ospf6 *ospf6, struct ospf6_area *area,
 						  struct ospf6_lsa *lsa)
 {
 	if (lsa->header->adv_router == ospf6->router_id) {
 		struct ospf6_router_lsa *router_lsa;
 		char *start, *end, *current;
 
-		router_lsa = (struct ospf6_router_lsa
-				      *)((char *)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
+		router_lsa = (struct ospf6_router_lsa *)((char *)lsa->header +
+							 sizeof(struct ospf6_lsa_header));
 
 		/* Iterate over all interfaces in the Router-LSA. */
 		start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
 		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_router_lsdesc) <= end;
+		for (current = start; current + sizeof(struct ospf6_router_lsdesc) <= end;
 		     current += sizeof(struct ospf6_router_lsdesc)) {
 			struct ospf6_router_lsdesc *lsdesc;
 
@@ -331,10 +330,9 @@ static bool ospf6_gr_check_router_lsa_consistency(struct ospf6 *ospf6,
 			if (lsdesc->type != OSPF6_ROUTER_LSDESC_POINTTOPOINT)
 				continue;
 
-			if (ospf6_router_lsa_contains_adj(
-				    area, lsdesc->neighbor_router_id,
-				    ospf6->router_id)
-			    == RTR_LSA_ADJ_NOT_FOUND)
+			if (ospf6_router_lsa_contains_adj(area, lsdesc->neighbor_router_id,
+							  ospf6->router_id) ==
+			    RTR_LSA_ADJ_NOT_FOUND)
 				return false;
 		}
 	} else {
@@ -342,11 +340,10 @@ static bool ospf6_gr_check_router_lsa_consistency(struct ospf6 *ospf6,
 
 		adj1 = ospf6_router_lsa_contains_adj(area, ospf6->router_id,
 						     lsa->header->adv_router);
-		adj2 = ospf6_router_lsa_contains_adj(
-			area, lsa->header->adv_router, ospf6->router_id);
-		if ((adj1 == RTR_LSA_ADJ_FOUND && adj2 == RTR_LSA_ADJ_NOT_FOUND)
-		    || (adj1 == RTR_LSA_ADJ_NOT_FOUND
-			&& adj2 == RTR_LSA_ADJ_FOUND))
+		adj2 = ospf6_router_lsa_contains_adj(area, lsa->header->adv_router,
+						     ospf6->router_id);
+		if ((adj1 == RTR_LSA_ADJ_FOUND && adj2 == RTR_LSA_ADJ_NOT_FOUND) ||
+		    (adj1 == RTR_LSA_ADJ_NOT_FOUND && adj2 == RTR_LSA_ADJ_FOUND))
 			return false;
 	}
 
@@ -357,8 +354,7 @@ static bool ospf6_gr_check_router_lsa_consistency(struct ospf6 *ospf6,
  * Check for LSAs that are inconsistent with the pre-restart LSAs, and abort the
  * ongoing graceful restart when that's the case.
  */
-void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf6,
-				     struct ospf6_area *area)
+void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 	uint16_t type;
 	struct ospf6_lsa *lsa;
@@ -369,34 +365,31 @@ void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf6,
 			char reason[256];
 
 			snprintfrr(reason, sizeof(reason),
-				   "detected inconsistent LSA %s [area %pI4]",
-				   lsa->name, &area->area_id);
+				   "detected inconsistent LSA %s [area %pI4]", lsa->name,
+				   &area->area_id);
 			ospf6_lsa_unlock(&lsa);
-			ospf6_gr_restart_exit(ospf6, reason);
+			ospf6_gr_restart_exit(ospf6, reason, OSPF6_GR_HELPER_TOPO_CHG);
 			return;
 		}
 	}
 }
 
 /* Check if there's a fully formed adjacency with the given neighbor ID. */
-static bool ospf6_gr_check_adj_id(struct ospf6_area *area,
-				  in_addr_t neighbor_router_id)
+static bool ospf6_gr_check_adj_id(struct ospf6_area *area, in_addr_t neighbor_router_id)
 {
 	struct ospf6_neighbor *nbr;
 
 	nbr = ospf6_area_neighbor_lookup(area, neighbor_router_id);
 	if (!nbr || nbr->state < OSPF6_NEIGHBOR_FULL) {
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug("GR: missing adjacency to router %pI4",
-				   &neighbor_router_id);
+			zlog_debug("GR: missing adjacency to router %pI4", &neighbor_router_id);
 		return false;
 	}
 
 	return true;
 }
 
-static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
-					    in_addr_t neighbor_router_id,
+static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area, in_addr_t neighbor_router_id,
 					    uint32_t neighbor_interface_id)
 {
 	struct ospf6 *ospf6 = area->ospf6;
@@ -409,20 +402,17 @@ static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 		struct ospf6_network_lsdesc *lsdesc;
 
 		/* Lookup Network LSA corresponding to this interface. */
-		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_NETWORK),
-					neighbor_interface_id,
+		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_NETWORK), neighbor_interface_id,
 					neighbor_router_id, area->lsdb);
 		if (!lsa)
 			return false;
 
 		/* Iterate over all routers present in the network. */
-		network_lsa = (struct ospf6_network_lsa
-				       *)((char *)lsa->header
-					  + sizeof(struct ospf6_lsa_header));
+		network_lsa = (struct ospf6_network_lsa *)((char *)lsa->header +
+							   sizeof(struct ospf6_lsa_header));
 		start = (char *)network_lsa + sizeof(struct ospf6_network_lsa);
 		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_network_lsdesc) <= end;
+		for (current = start; current + sizeof(struct ospf6_network_lsdesc) <= end;
 		     current += sizeof(struct ospf6_network_lsdesc)) {
 			lsdesc = (struct ospf6_network_lsdesc *)current;
 
@@ -444,9 +434,8 @@ static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 		nbr = ospf6_area_neighbor_lookup(area, neighbor_router_id);
 		if (!nbr || nbr->state < OSPF6_NEIGHBOR_FULL) {
 			if (IS_DEBUG_OSPF6_GR)
-				zlog_debug(
-					"GR: missing adjacency to DR router %pI4",
-					&neighbor_router_id);
+				zlog_debug("GR: missing adjacency to DR router %pI4",
+					   &neighbor_router_id);
 			return false;
 		}
 	}
@@ -454,35 +443,30 @@ static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 	return true;
 }
 
-static bool ospf6_gr_check_adjs_lsa(struct ospf6_area *area,
-				    struct ospf6_lsa *lsa)
+static bool ospf6_gr_check_adjs_lsa(struct ospf6_area *area, struct ospf6_lsa *lsa)
 {
 	struct ospf6_router_lsa *router_lsa;
 	char *start, *end, *current;
 
 	router_lsa =
-		(struct ospf6_router_lsa *)((char *)lsa->header
-					    + sizeof(struct ospf6_lsa_header));
+		(struct ospf6_router_lsa *)((char *)lsa->header + sizeof(struct ospf6_lsa_header));
 
 	/* Iterate over all interfaces in the Router-LSA. */
 	start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
 	end = (char *)lsa->header + ntohs(lsa->header->length);
-	for (current = start;
-	     current + sizeof(struct ospf6_router_lsdesc) <= end;
+	for (current = start; current + sizeof(struct ospf6_router_lsdesc) <= end;
 	     current += sizeof(struct ospf6_router_lsdesc)) {
 		struct ospf6_router_lsdesc *lsdesc;
 
 		lsdesc = (struct ospf6_router_lsdesc *)current;
 		switch (lsdesc->type) {
 		case OSPF6_ROUTER_LSDESC_POINTTOPOINT:
-			if (!ospf6_gr_check_adj_id(area,
-						   lsdesc->neighbor_router_id))
+			if (!ospf6_gr_check_adj_id(area, lsdesc->neighbor_router_id))
 				return false;
 			break;
 		case OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK:
-			if (!ospf6_gr_check_adjs_lsa_transit(
-				    area, lsdesc->neighbor_router_id,
-				    lsdesc->neighbor_interface_id))
+			if (!ospf6_gr_check_adjs_lsa_transit(area, lsdesc->neighbor_router_id,
+							     lsdesc->neighbor_interface_id))
 				return false;
 			break;
 		default:
@@ -512,8 +496,7 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 
 		type = ntohs(OSPF6_LSTYPE_ROUTER);
 		router = ospf6->router_id;
-		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, router,
-					   lsa_self)) {
+		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, router, lsa_self)) {
 			found = true;
 			if (!ospf6_gr_check_adjs_lsa(area, lsa_self)) {
 				ospf6_lsa_unlock(&lsa_self);
@@ -532,29 +515,33 @@ static void ospf6_gr_grace_period_expired(struct event *event)
 {
 	struct ospf6 *ospf6 = EVENT_ARG(event);
 
-	ospf6_gr_restart_exit(ospf6, "grace period has expired");
+	ospf6_gr_restart_exit(ospf6, "grace period has expired", OSPF6_GR_HELPER_GRACE_TIMEOUT);
 }
 
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
 void ospf6_gr_iface_send_grace_lsa(struct event *event)
 {
 	struct ospf6_interface *oi = EVENT_ARG(event);
+	struct ospf6 *ospf6;
 
-	ospf6_gr_lsa_originate(oi, oi->area->ospf6->gr_info.reason);
+	if (!oi || !oi->area || !oi->area->ospf6)
+		return;
+
+	ospf6 = oi->area->ospf6;
+	ospf6_gr_lsa_originate(oi, ospf6->gr_info.reason);
 
 	if (++oi->gr.hello_delay.elapsed_seconds < oi->gr.hello_delay.interval)
 		event_add_timer(master, ospf6_gr_iface_send_grace_lsa, oi, 1,
 				&oi->gr.hello_delay.t_grace_send);
 	else
-		event_add_event(master, ospf6_hello_send, oi, 0,
-				&oi->thread_send_hello);
+		event_add_event(master, ospf6_hello_send, oi, 0, &oi->thread_send_hello);
 }
 
 /*
  * Record in non-volatile memory that the given OSPF instance is attempting to
  * perform a graceful restart.
  */
-static void ospf6_gr_nvm_update(struct ospf6 *ospf6, bool prepare)
+void ospf6_gr_nvm_update(struct ospf6 *ospf6, bool prepare)
 {
 	const char *inst_name;
 	json_object *json;
@@ -574,12 +561,10 @@ static void ospf6_gr_nvm_update(struct ospf6 *ospf6, bool prepare)
 	json_object_object_get_ex(json_instances, inst_name, &json_instance);
 	if (!json_instance) {
 		json_instance = json_object_new_object();
-		json_object_object_add(json_instances, inst_name,
-				       json_instance);
+		json_object_object_add(json_instances, inst_name, json_instance);
 	}
 
-	json_object_int_add(json_instance, "gracePeriod",
-			    ospf6->gr_info.grace_period);
+	json_object_int_add(json_instance, "gracePeriod", ospf6->gr_info.grace_period);
 
 	/*
 	 * Record not only the grace period, but also a UNIX timestamp
@@ -646,12 +631,10 @@ void ospf6_gr_nvm_read(struct ospf6 *ospf6)
 	json_object_object_get_ex(json_instances, inst_name, &json_instance);
 	if (!json_instance) {
 		json_instance = json_object_new_object();
-		json_object_object_add(json_instances, inst_name,
-				       json_instance);
+		json_object_object_add(json_instances, inst_name, json_instance);
 	}
 
-	json_object_object_get_ex(json_instance, "gracePeriod",
-				  &json_grace_period);
+	json_object_object_get_ex(json_instance, "gracePeriod", &json_grace_period);
 	json_object_object_get_ex(json_instance, "timestamp", &json_timestamp);
 	if (json_timestamp) {
 		time_t now;
@@ -659,12 +642,11 @@ void ospf6_gr_nvm_read(struct ospf6 *ospf6)
 		/* Planned GR: check if the grace period has already expired. */
 		now = time(NULL);
 		timestamp = json_object_get_int(json_timestamp);
-		if (now > timestamp) {
-			ospf6_gr_restart_exit(
-				ospf6, "grace period has expired already");
-		} else
-			ospf6_gr_restart_enter(ospf6, OSPF6_GR_SW_RESTART,
-					       timestamp);
+		if (now > timestamp)
+			ospf6_gr_restart_exit(ospf6, "grace period has expired already",
+					      OSPF6_GR_HELPER_GRACE_TIMEOUT);
+		else
+			ospf6_gr_restart_enter(ospf6, OSPF6_GR_SW_RESTART, timestamp);
 	} else if (json_grace_period) {
 		uint32_t grace_period;
 
@@ -675,8 +657,7 @@ void ospf6_gr_nvm_read(struct ospf6 *ospf6)
 		grace_period = json_object_get_int(json_grace_period);
 		ospf6->gr_info.grace_period = grace_period;
 		ospf6_gr_restart_enter(ospf6, OSPF6_GR_UNKNOWN_RESTART,
-				       time(NULL) +
-					       ospf6->gr_info.grace_period);
+				       time(NULL) + ospf6->gr_info.grace_period);
 	}
 
 	json_object_object_del(json_instance, "gracePeriod");
@@ -687,6 +668,13 @@ void ospf6_gr_nvm_read(struct ospf6 *ospf6)
 
 void ospf6_gr_unplanned_start_interface(struct ospf6_interface *oi)
 {
+	struct ospf6 *ospf6;
+
+	if (!oi || !oi->area || !oi->area->ospf6)
+		return;
+
+	ospf6 = oi->area->ospf6;
+
 	/*
 	 * Can't check OSPF interface state as the OSPF instance might not be
 	 * enabled yet.
@@ -695,7 +683,7 @@ void ospf6_gr_unplanned_start_interface(struct ospf6_interface *oi)
 		return;
 
 	/* Send Grace-LSA. */
-	ospf6_gr_lsa_originate(oi, oi->area->ospf6->gr_info.reason);
+	ospf6_gr_lsa_originate(oi, ospf6->gr_info.reason);
 
 	/* Start GR hello-delay interval. */
 	oi->gr.hello_delay.elapsed_seconds = 0;
@@ -713,15 +701,13 @@ static void ospf6_gr_prepare(void)
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, onode, ospf6)) {
 		struct ospf6_area *area;
 
-		if (!ospf6->gr_info.restart_support
-		    || ospf6->gr_info.prepare_in_progress)
+		if (!ospf6->gr_info.restart_support || ospf6->gr_info.prepare_in_progress)
 			continue;
 
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug(
-				"GR: preparing to perform a graceful restart [period %u second(s)] [vrf %s]",
-				ospf6->gr_info.grace_period,
-				ospf6_vrf_id_to_name(ospf6->vrf_id));
+			zlog_debug("GR: preparing to perform a graceful restart [period %u second(s)] [vrf %s]",
+				   ospf6->gr_info.grace_period,
+				   ospf6_vrf_id_to_name(ospf6->vrf_id));
 
 		/* Send a Grace-LSA to all neighbors. */
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, anode, area)) {
@@ -744,36 +730,24 @@ static void ospf6_gr_prepare(void)
 	}
 }
 
-static int ospf6_gr_neighbor_change(struct ospf6_neighbor *on, int next_state,
-				    int prev_state)
+static int ospf6_gr_neighbor_change(struct ospf6_neighbor *on, int next_state, int prev_state)
 {
-	struct ospf6 *ospf6 = on->ospf6_if->area->ospf6;
+	struct ospf6 *ospf6;
 
-	if (next_state == OSPF6_NEIGHBOR_FULL
-	    && ospf6->gr_info.restart_in_progress) {
-		if (ospf6_gr_check_adjs(ospf6)) {
-			ospf6_gr_restart_exit(
-				ospf6, "all adjacencies were reestablished");
-		} else {
-			if (IS_DEBUG_OSPF6_GR)
-				zlog_debug(
-					"GR: not all adjacencies were reestablished yet");
-		}
-	}
-
-	return 0;
-}
-
-int config_write_ospf6_gr(struct vty *vty, struct ospf6 *ospf6)
-{
-	if (!ospf6->gr_info.restart_support)
+	if (!on || !on->ospf6_if || !on->ospf6_if->area || !on->ospf6_if->area->ospf6)
 		return 0;
 
-	if (ospf6->gr_info.grace_period == OSPF6_DFLT_GRACE_INTERVAL)
-		vty_out(vty, " graceful-restart\n");
-	else
-		vty_out(vty, " graceful-restart grace-period %u\n",
-			ospf6->gr_info.grace_period);
+	ospf6 = on->ospf6_if->area->ospf6;
+
+	if (next_state == OSPF6_NEIGHBOR_FULL && ospf6->gr_info.restart_in_progress) {
+		if (ospf6_gr_check_adjs(ospf6)) {
+			ospf6_gr_restart_exit(ospf6, "all adjacencies were reestablished",
+					      OSPF6_GR_HELPER_COMPLETED);
+		} else {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug("GR: not all adjacencies were reestablished yet");
+		}
+	}
 
 	return 0;
 }
@@ -789,53 +763,89 @@ DEFPY(ospf6_graceful_restart_prepare, ospf6_graceful_restart_prepare_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(ospf6_graceful_restart, ospf6_graceful_restart_cmd,
+/*
+ * Companion to `ospf_gr_restart_support_enable` in ospfd -- enable GR
+ * on the given ospf6 instance using its current grace_period.
+ * Idempotent.  Shared by the legacy CLI and the RFC 9129 northbound
+ * callback.
+ */
+void ospf6_gr_restart_support_enable(struct ospf6 *ospf6)
+{
+	if (ospf6->gr_info.grace_period == 0)
+		ospf6->gr_info.grace_period = OSPF6_DFLT_GRACE_INTERVAL;
+	ospf6->gr_info.restart_support = true;
+	(void)ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
+	ospf6_gr_nvm_update(ospf6, false);
+}
+
+/*
+ * Disable graceful-restart restarter state.  Returns -1 if a GR
+ * preparation is in flight; the caller surfaces the rejection.  The
+ * grace_period is left untouched -- see the ospfd companion comment.
+ */
+int ospf6_gr_restart_support_disable(struct ospf6 *ospf6)
+{
+	if (!ospf6->gr_info.restart_support)
+		return 0;
+	if (ospf6->gr_info.prepare_in_progress)
+		return -1;
+	ospf6->gr_info.restart_support = false;
+	ospf6_gr_nvm_delete(ospf6);
+	ospf6_zebra_gr_disable(ospf6);
+	return 0;
+}
+
+/*
+ * Set the graceful-restart grace period.  Refresh the zebra GR
+ * stale-route timer if GR is currently enabled.
+ */
+void ospf6_gr_set_grace_period(struct ospf6 *ospf6, uint32_t grace_period)
+{
+	if (ospf6->gr_info.grace_period == grace_period)
+		return;
+	ospf6->gr_info.grace_period = grace_period;
+	if (ospf6->gr_info.restart_support)
+		(void)ospf6_zebra_gr_enable(ospf6, grace_period);
+}
+
+DEFPY_YANG(ospf6_graceful_restart, ospf6_graceful_restart_cmd,
       "graceful-restart [grace-period (1-1800)$grace_period]",
       OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
+	char xpath[XPATH_MAXLEN];
 
-	/* Check and get restart period if present. */
-	if (!grace_period_str)
-		grace_period = OSPF6_DFLT_GRACE_INTERVAL;
-
-	ospf6->gr_info.restart_support = true;
-	ospf6->gr_info.grace_period = grace_period;
-
-	/* Freeze OSPF routes in the RIB. */
-	(void)ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
-
-	/* Record that GR is enabled in non-volatile memory. */
-	ospf6_gr_nvm_update(ospf6, false);
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6, "/graceful-restart/enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+	if (grace_period_str) {
+		if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+					     "/graceful-restart/restart-interval") != 0)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, grace_period_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(ospf6_no_graceful_restart, ospf6_no_graceful_restart_cmd,
+DEFPY_YANG(ospf6_no_graceful_restart, ospf6_no_graceful_restart_cmd,
       "no graceful-restart [period (1-1800)]",
       NO_STR OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf6, ospf6);
+	char xpath[XPATH_MAXLEN];
 
-	if (!ospf6->gr_info.restart_support)
-		return CMD_SUCCESS;
-
-	if (ospf6->gr_info.prepare_in_progress) {
-		vty_out(vty,
-			"%% Error: Graceful Restart preparation in progress\n");
-		return CMD_WARNING;
-	}
-
-	ospf6->gr_info.restart_support = false;
-	ospf6->gr_info.grace_period = OSPF6_DFLT_GRACE_INTERVAL;
-	ospf6_gr_nvm_delete(ospf6);
-	ospf6_zebra_gr_disable(ospf6);
-
-	return CMD_SUCCESS;
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6, "/graceful-restart/enabled") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	if (ospf6_per_instance_xpath(xpath, sizeof(xpath), ospf6,
+				     "/graceful-restart/restart-interval") != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void ospf6_gr_init(void)

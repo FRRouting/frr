@@ -234,6 +234,25 @@ const char *bfd_get_status_str(int status)
 	}
 }
 
+int bfd_validate_ietf_interval_us(uint32_t us, const char *leaf, char *errmsg, size_t errmsg_len)
+{
+	if (us % 1000 != 0) {
+		snprintf(errmsg, errmsg_len,
+			 "FRR BFD %s must be a whole millisecond (multiple of 1000 us); got %u",
+			 leaf, us);
+		return NB_ERR_VALIDATION;
+	}
+
+	if (us < BFD_IETF_MIN_INTERVAL_US || us > BFD_IETF_MAX_INTERVAL_US) {
+		snprintf(errmsg, errmsg_len, "FRR BFD %s must be %u..%u us (50..60000 ms); got %u",
+			 leaf, (unsigned int)BFD_IETF_MIN_INTERVAL_US,
+			 (unsigned int)BFD_IETF_MAX_INTERVAL_US, us);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
 /*
  * bfd_client_sendmsg - Format and send a client register
  *                    command to Zebra to be forwarded to BFD
@@ -1347,3 +1366,24 @@ bool bfd_session_is_admin_down(const struct bfd_session_params *session)
 {
 	return session->bss.state == BSS_ADMIN_DOWN;
 }
+
+/*
+ * Shared ietf-bfd-types loader.  See the header comment in lib/bfd.h
+ * for why backend clients that inherit from `bfd-types:client-cfg-
+ * parms` need this in their `frr_yang_module_info` table.  Wildcard
+ * features enabled so every if-feature in the module (including
+ * `client-base-cfg-parms` which gates the multiplier and tx/rx
+ * intervals) becomes visible in the compiled schema.
+ */
+static const char *const ietf_bfd_types_features[] = { "*", NULL };
+
+const struct frr_yang_module_info ietf_bfd_types_info = {
+	.name = "ietf-bfd-types",
+	.features = (const char **)ietf_bfd_types_features,
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = NULL,
+		},
+	},
+};

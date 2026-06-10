@@ -259,6 +259,39 @@ def ensure_gr_is_in_zebra(rname):
     assert result is True, assertmsg
 
 
+def _grep_daemon_log(router, daemon, pattern, since_marker=None):
+    log_path = os.path.join(router.logdir, router.name, "{}.log".format(daemon))
+    try:
+        with open(log_path, "r") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return []
+    if since_marker:
+        for i, line in enumerate(lines):
+            if since_marker in line:
+                lines = lines[i:]
+                break
+        else:
+            return []
+    return [line for line in lines if pattern in line]
+
+
+def _expect_ospf6_notification(router, xpath, marker):
+    def saw_notification():
+        hits = _grep_daemon_log(
+            router, "ospf6d", "northbound notification: {}".format(xpath), marker
+        )
+        hits += [
+            line
+            for line in _grep_daemon_log(router, "ospf6d", "OSPF6-NOTIF", marker)
+            if xpath in line
+        ]
+        return None if hits else "no {} notification log".format(xpath)
+
+    _, result = topotest.run_and_expect(saw_notification, None, count=60, wait=0.5)
+    assert result is None, result
+
+
 #
 # Test initial network convergence
 #
@@ -284,13 +317,30 @@ def test_gr_rt1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    rt1 = tgen.gears["rt1"]
+    rt2 = tgen.gears["rt2"]
+    marker = "=== test_gr_rt1_yang_notifications BEGIN ==="
+    rt1.vtysh_cmd("send log level info {}".format(marker))
+    rt2.vtysh_cmd("send log level info {}".format(marker))
+    rt1.vtysh_cmd("configure terminal\ndebug northbound notifications\n")
+    rt2.vtysh_cmd("configure terminal\ndebug northbound notifications\n")
+
     tgen.net["rt1"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
     expect_grace_lsa(restarting="1.1.1.1", helper="rt2")
+    out = rt1.vtysh_cmd("configure terminal\nrouter ospf6\nno graceful-restart\n")
+    assert "Graceful Restart preparation in progress" in out, out
+    _expect_ospf6_notification(
+        rt2, "/ietf-ospf:nbr-restart-helper-status-change", marker
+    )
     ensure_gr_is_in_zebra("rt1")
     kill_router_daemons(tgen, "rt1", ["ospf6d"], save_config=False)
     check_routers(exiting="rt1")
     start_router_daemons(tgen, "rt1", ["ospf6d"])
     check_routers(restarting="rt1")
+    _expect_ospf6_notification(rt1, "/ietf-ospf:restart-status-change", marker)
+    _expect_ospf6_notification(
+        rt2, "/ietf-ospf:nbr-restart-helper-status-change", marker
+    )
 
 
 #
@@ -415,7 +465,7 @@ def test_gr_rt7():
         pytest.skip(tgen.errors)
 
     tgen.net["rt7"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
-    expect_grace_lsa(restarting="6.6.6.6", helper="rt6")
+    expect_grace_lsa(restarting="7.7.7.7", helper="rt6")
     ensure_gr_is_in_zebra("rt7")
     kill_router_daemons(tgen, "rt7", ["ospf6d"], save_config=False)
     check_routers(exiting="rt7")
@@ -557,7 +607,7 @@ def test_unplanned_gr_rt7():
     kill_router_daemons(tgen, "rt7", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt7", ["ospf6d"])
 
-    expect_grace_lsa(restarting="6.6.6.6", helper="rt6")
+    expect_grace_lsa(restarting="7.7.7.7", helper="rt6")
     ensure_gr_is_in_zebra("rt7")
     check_routers(restarting="rt7")
 

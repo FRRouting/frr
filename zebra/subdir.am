@@ -70,6 +70,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
 	zebra/zebra_gr.c \
+	zebra/zebra_ietf_interfaces_nb.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_l2_bridge_if.c \
 	zebra/zebra_evpn.c \
@@ -164,6 +165,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_evpn_neigh.h \
 	zebra/zebra_evpn_vxlan.h \
 	zebra/zebra_fpm_private.h \
+	zebra/zebra_ietf_interfaces_nb.h \
 	zebra/zebra_l2.h \
 	zebra/zebra_mlag.h \
 	zebra/zebra_mlag_vty.h \

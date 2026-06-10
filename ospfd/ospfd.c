@@ -47,6 +47,7 @@
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_apiserver.h"
+#include "ospf_nb.h"
 
 
 DEFINE_QOBJ_TYPE(ospf);
@@ -260,10 +261,21 @@ void ospf_process_reset(struct ospf *ospf)
 	ospf_process_refresh_data(ospf, true);
 }
 
+void ospf_interface_neighbor_reset(struct ospf_interface *oi)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr;
+
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+		if (nbr && nbr != oi->nbr_self)
+			OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+	}
+}
+
 void ospf_neighbor_reset(struct ospf *ospf, struct in_addr nbr_id,
 			const char *nbr_str)
 {
-	struct route_node *rn;
 	struct ospf_neighbor *nbr;
 	struct ospf_interface *oi;
 	struct listnode *node;
@@ -279,13 +291,8 @@ void ospf_neighbor_reset(struct ospf *ospf, struct in_addr nbr_id,
 	}
 
 	/* send Neighbor event KillNbr to all associated neighbors. */
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
-		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
-			nbr = rn->info;
-			if (nbr && (nbr != oi->nbr_self))
-				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
-		}
-	}
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
+		ospf_interface_neighbor_reset(oi);
 }
 
 /* For OSPF area sort by area id. */
@@ -399,6 +406,7 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 
 	new->oi_write_q = list_new();
 	new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
+	new->gr_info.grace_period = OSPF_DFLT_GRACE_INTERVAL;
 
 	new->proactive_arp = OSPF_PROACTIVE_ARP_DEFAULT;
 
@@ -1589,7 +1597,7 @@ int ospf_area_shortcut_unset(struct ospf *ospf, struct ospf_area *area)
 	return 1;
 }
 
-static int ospf_area_vlink_count(struct ospf *ospf, struct ospf_area *area)
+int ospf_area_vlink_count(struct ospf *ospf, struct ospf_area *area)
 {
 	struct ospf_vl_data *vl;
 	struct listnode *node;
@@ -1712,7 +1720,10 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 
 	area = ospf_area_lookup_by_area_id(ospf, area_id);
 	if (area == NULL)
-		return 0;
+		return 1;
+
+	if (area->external_routing != OSPF_AREA_NSSA)
+		return 1;
 
 	ospf->anyNSSA--;
 	/* set NSSA area defaults */
@@ -2214,6 +2225,9 @@ void ospf_master_init(struct event_loop *mst)
 	om = &ospf_master;
 	om->ospf = list_new();
 	om->master = mst;
+
+	/* Hook RFC 9129 ietf-ospf notifications onto the state-change hooks. */
+	ospfd_ietf_notif_init();
 }
 
 /* Link OSPF instance to VRF. */

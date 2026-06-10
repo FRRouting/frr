@@ -1,0 +1,648 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-deviations-ietf-routing-ospf {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-deviations-ietf-routing-ospf";
+  prefix frr-deviations-ietf-routing-ospf;
+
+  import ietf-routing {
+    prefix ietf-routing;
+  }
+  import ietf-ospf {
+    prefix ospf;
+  }
+  import ietf-interfaces {
+    prefix if;
+  }
+
+  organization
+    "FRRouting";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "This module defines the ietf-routing and ietf-ospf deviations
+     needed by OSPF daemons using the RFC 9129 ietf-ospf NMDA tree.
+
+     Copyright (C) 2026 Eric Parsonage";
+
+  revision 2026-05-24 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 8349: A YANG Data Model for Routing Management.
+       RFC 9129: YANG Data Model for the OSPF Protocol.";
+  }
+
+  deviation "/ietf-routing:routing-state" {
+    deviate not-supported;
+  }
+
+  /*
+   * FRR's OSPF interface timer defaults are hello-interval 10 seconds and
+   * dead-interval 40 seconds for both ospfd and ospf6d. RFC 9129 leaves the
+   * leaves without defaults, but its dead-interval `must` expression compares
+   * against hello-interval. Without an FRR default, a legacy CLI sequence such
+   * as `ip ospf dead-interval 15` followed by `no ip ospf hello-interval`
+   * cannot be represented: removing the hello leaf makes the still-explicit
+   * dead leaf fail validation even though FRR correctly falls back to hello 10.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:hello-interval" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF hello-interval must be in the range 1..65535";
+        }
+      }
+    }
+    deviate add {
+      default "10";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:dead-interval" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF dead-interval must be in the range 1..65535";
+        }
+      }
+    }
+    deviate add {
+      default "40";
+    }
+  }
+
+  /*
+   * The RFC 9129 area-interface grouping leaves several fixed FRR
+   * defaults unspecified. Advertise those defaults in the schema so
+   * northbound clients and daemon callbacks see one default source.
+   * Dynamic defaults, such as interface-type, stay in daemon code.
+   * Where FRR's CLI has a stable narrower range than RFC 9129, advertise
+   * that range here too. Build-dependent caps, such as MULTIPATH_NUM, stay
+   * in daemon validation callbacks.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:cost" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF interface cost must be in the range 1..65535";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:retransmit-interval" {
+    deviate add {
+      default "5";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:priority" {
+    deviate add {
+      default "1";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:mtu-ignore" {
+    deviate add {
+      default "false";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:transmit-delay" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF transmit-delay must be in the range 1..65535";
+        }
+      }
+    }
+    deviate add {
+      default "1";
+      must "derived-from-or-self(../../../../../../ietf-routing:type, "
+         + "'ospf:ospfv2') or . <= 3600" {
+        error-message
+          "OSPFv3 transmit-delay must be in the range 1..3600";
+      }
+    }
+  }
+
+  /*
+   * FRR exposes OSPF route preference as administrative distance. The
+   * legacy CLIs accept 1..255; zero is FRR's internal "unset" marker and
+   * is reached by deleting the leaf, not by configuring it.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:single-value/ospf:all" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:multi-values/ospf:granularity"
+          + "/ospf:detail/ospf:intra-area" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:multi-values/ospf:granularity"
+          + "/ospf:detail/ospf:inter-area" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:multi-values/ospf:granularity"
+          + "/ospf:coarse/ospf:internal" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:preference/ospf:scope"
+          + "/ospf:multi-values/ospf:external" {
+    deviate replace {
+      type uint8 {
+        range "1..255" {
+          error-message
+            "OSPF administrative distance must be in the range 1..255";
+        }
+      }
+    }
+  }
+
+  /*
+   * RFC 9129 models interface auto-cost as a two-leaf container with a
+   * `when "../enabled = 'true'"` constraint on reference-bandwidth.
+   * FRR has no on/off switch: it always computes cost from
+   * `reference-bandwidth / interface speed` unless the operator sets
+   * an explicit per-interface cost.  Pinning the default to "true"
+   * keeps the when-clause satisfied for every YANG client that wants
+   * to set reference-bandwidth without first toggling enabled, and
+   * matches the FRR runtime semantics exactly.  Setting enabled to
+   * false is rejected by the NB_EV_VALIDATE callback because FRR has
+   * no mechanism to honour it short of dropping all cost computation.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:auto-cost/ospf:enabled" {
+    deviate add {
+      default "true";
+    }
+  }
+
+  /*
+   * FRR enables strict graceful-restart helper LSA checking by default
+   * in both ospfd and ospf6d. RFC 9129 leaves the leaf without a
+   * default, so advertise FRR's default here and let the daemon
+   * callbacks consume the loaded schema value.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:graceful-restart"
+          + "/ospf:helper-strict-lsa-checking" {
+    deviate add {
+      default "true";
+    }
+  }
+
+  /*
+   * RFC 9129 keys areas/area/interfaces/interface by a YANG leafref into
+   * /ietf-interfaces:interfaces/interface/name. In FRR, interfaces are
+   * discovered from the kernel and exposed by zebra as operational state only;
+   * they are never authored via YANG config. Keep the leafref type but make the
+   * instance check non-enforcing, matching the native FRR interface-ref idiom.
+   * The daemon callback then validates the named interface against FRR's live
+   * interface table in the correct VRF.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:name" {
+    deviate replace {
+      type leafref {
+        path "/if:interfaces/if:interface/if:name";
+        require-instance false;
+      }
+    }
+  }
+
+  /*
+   * RFC 9129's per-interface BFD container uses bfd-types:client-cfg-parms.
+   * FRR OSPF narrows the multiplier to the legacy CLI range 2..255 and the
+   * tx/rx interval leaves to 50..60000 ms, expressed here in microseconds.
+   * The interval callbacks still validate that values are whole milliseconds.
+   * FRR's compile-time defaults (BFD_DEF_MIN_TX / BFD_DEF_MIN_RX) are both
+   * 300 ms, so pin the deviated defaults to FRR's values. An operator who
+   * writes only `/bfd/enabled = true` via mgmtd then gets the same end state
+   * as `ip ospf bfd` from the CLI.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:bfd/ospf:local-multiplier" {
+    deviate replace {
+      type uint8 {
+        range "2..255" {
+          error-message
+            "OSPF BFD local-multiplier must be in the range 2..255";
+        }
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:bfd/ospf:interval-config-type"
+          + "/ospf:tx-rx-intervals"
+          + "/ospf:desired-min-tx-interval" {
+    deviate replace {
+      type uint32 {
+        range "50000..60000000" {
+          error-message
+            "OSPF BFD desired-min-tx-interval must be in the range "
+          + "50000..60000000 us";
+        }
+      }
+      default "300000";
+    }
+  }
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:bfd/ospf:interval-config-type"
+          + "/ospf:tx-rx-intervals"
+          + "/ospf:required-min-rx-interval" {
+    deviate replace {
+      type uint32 {
+        range "50000..60000000" {
+          error-message
+            "OSPF BFD required-min-rx-interval must be in the range "
+          + "50000..60000000 us";
+        }
+      }
+      default "300000";
+    }
+  }
+
+  /*
+   * FRR's BFD library exposes only the (tx, rx) interval form, not
+   * the single-interval case from ietf-bfd-types.  Mark its only
+   * writable leaf not-supported so mgmtd rejects writes against it
+   * cleanly instead of letting them silently accumulate in the
+   * candidate datastore with no callback to fire.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:bfd/ospf:interval-config-type"
+          + "/ospf:single-interval/ospf:min-interval" {
+    deviate not-supported;
+  }
+
+  /*
+   * FRR's NBMA neighbour table (struct ospf_nbr_nbma) carries only
+   * `priority` and `v_poll`.  RFC 9129 leaves both without defaults,
+   * while FRR creates a fresh NBMA neighbour with priority 0 and poll
+   * interval 60 seconds.  Pin those defaults so a YANG client can create
+   * a static neighbour with only an identifier, or with only one optional
+   * leaf, and get the same end state as the legacy CLI.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:static-neighbors/ospf:neighbor/ospf:poll-interval" {
+    deviate replace {
+      type uint16 {
+        range "1..65535" {
+          error-message
+            "OSPF static-neighbor poll-interval must be in the range "
+          + "1..65535";
+        }
+      }
+    }
+    deviate add {
+      default "60";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:static-neighbors/ospf:neighbor/ospf:priority" {
+    deviate add {
+      default "0";
+    }
+  }
+
+  /*
+   * FRR has no NBMA neighbour `cost` knob.  RFC 9129 exposes `cost` on
+   * every static neighbour entry.  Mark it not-supported so mgmtd rejects
+   * writes cleanly rather than accepting them into the candidate with no
+   * callback to fire.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:static-neighbors/ospf:neighbor/ospf:cost" {
+    deviate not-supported;
+  }
+
+  /*
+   * FRR has no separate OSPF on/off toggle: the protocol runs whenever
+   * an ospfd / ospf6d instance is configured (control-plane-protocol
+   * create) and on every interface that is bound into an area.  Mark
+   * `ospf/enabled` and per-interface `interface/enabled` not-supported
+   * so mgmtd rejects writes at validate time rather than silently
+   * accepting `enabled=false` with no FRR mutation.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:enabled" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:enabled" {
+    deviate not-supported;
+  }
+
+  /*
+   * RFC 9129 uses ospf/address-family in notification leafrefs, so
+   * the leaf must stay visible where the base model instantiates it.
+   * The base ietf-ospf module exposes the leaf for OSPFv3 only.  FRR
+   * ospf6d is intrinsically IPv6 in this PR, so reject other values in
+   * the model rather than accepting config with no daemon effect.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:address-family" {
+    deviate add {
+      must ". = 'ipv6'";
+    }
+  }
+
+  /*
+   * RFC 2328 and RFC 5340 both forbid configuring the backbone area as
+   * stub or NSSA. Enforce the restriction in the schema so CLI, mgmtd,
+   * gRPC, NETCONF and RESTCONF clients see the same contract.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:area-type" {
+    deviate add {
+      must "not(../ospf:area-id = '0.0.0.0' and "
+         + "derived-from-or-self(., 'ospf:stub-nssa-area'))" {
+        error-message
+          "The backbone area cannot be configured as stub or NSSA";
+      }
+    }
+  }
+
+  /*
+   * mgmtd loads one ietf-ospf context for both backends, so feature
+   * advertisement is necessarily the union of the converted OSPFv2 and
+   * OSPFv3 surfaces. Guard OSPFv2-only converted leaves with a type
+   * constraint so writes to OSPFv3 instances are rejected by the model
+   * instead of being retained in mgmtd with no ospf6d callback.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:default-cost" {
+    deviate add {
+      must "derived-from-or-self(../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:mpls/ospf:te-rid"
+          + "/ospf:ipv4-router-id" {
+    deviate add {
+      must "derived-from-or-self(../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:mpls/ospf:ldp"
+          + "/ospf:igp-sync" {
+    deviate add {
+      must "derived-from-or-self(../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:stub-router"
+          + "/ospf:trigger/ospf:always/ospf:always" {
+    deviate add {
+      must "derived-from-or-self(../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:prefix-suppression" {
+    deviate add {
+      must "derived-from-or-self(../../../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:static-neighbors/ospf:neighbor" {
+    deviate add {
+      must "derived-from-or-self(../../../../../../../ietf-routing:type, "
+         + "'ospf:ospfv2')";
+    }
+  }
+
+  /*
+   * The OSPFv3 instance ID has legacy CLI support, but this PR does
+   * not expose it through the RFC 9129 northbound callbacks.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface/ospf:instance-id" {
+    deviate not-supported;
+  }
+
+  /*
+   * FRR's OSPFv2 TE router-id callback maps the IPv4 Router Address
+   * TLV. The RFC 9129 IPv6 TE router-id leaf is not wired here.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:mpls/ospf:te-rid"
+          + "/ospf:ipv6-router-id" {
+    deviate not-supported;
+  }
+
+  /*
+   * FRR supports OSPFv2 virtual links through the legacy CLI, but this
+   * PR does not wire the RFC 9129 virtual-link subtree into the daemon
+   * northbound callbacks. Keep the advertised YANG surface honest by
+   * hiding the subtree until the timers and authentication leaves below
+   * it are implemented as a coherent unit.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:virtual-links" {
+    deviate not-supported;
+  }
+
+  /*
+   * Only the RFC 9129 authentication key-chain leaves are wired to FRR
+   * today. libyang does not accept not-supported deviation targets for
+   * the nested choice/case leaves here, so reject unsupported explicit-key
+   * alternatives at the authentication container instead.
+   */
+  deviation "/ietf-routing:routing"
+          + "/ietf-routing:control-plane-protocols"
+          + "/ietf-routing:control-plane-protocol"
+          + "/ospf:ospf/ospf:areas/ospf:area"
+          + "/ospf:interfaces/ospf:interface"
+          + "/ospf:authentication" {
+    deviate add {
+      must "not(ospf:ospfv2-key-id or ospf:ospfv2-key or "
+         + "ospf:ospfv2-crypto-algorithm or ospf:ospfv3-sa-id or "
+         + "ospf:ospfv3-key or ospf:ospfv3-crypto-algorithm)" {
+        error-message
+          "Only key-chain authentication is supported by FRR OSPF YANG";
+      }
+    }
+  }
+
+  /*
+   * `ospf/address-family` remains visible for OSPFv3 because RFC 9129
+   * notification headers leafref it. The deviation above constrains the
+   * only reachable FRR value to IPv6 instead of accepting unused
+   * configuration. The base RFC module does not instantiate this leaf
+   * for OSPFv2, so ospfd notifications omit the optional header leaf.
+   */
+}

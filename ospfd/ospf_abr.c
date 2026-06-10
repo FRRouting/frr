@@ -35,6 +35,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_errors.h"
+#include "ospf_nb.h"
 
 static struct ospf_area_range *ospf_area_range_new(struct prefix_ipv4 *p)
 {
@@ -446,6 +447,9 @@ void ospf_abr_nssa_check_status(struct ospf *ospf)
 				 == OSPF_NSSA_TRANSLATE_DISABLED)
 				ospf_asbr_status_update(ospf,
 							--ospf->redistribute);
+
+			/* RFC 9129 ietf-ospf:nssa-translator-status-change. */
+			ospfd_ietf_notif_nssa_translator_state_change(area);
 		}
 	}
 }

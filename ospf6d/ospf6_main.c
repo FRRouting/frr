@@ -25,6 +25,7 @@
 #include "bfd.h"
 #include "libfrr.h"
 #include "libagentx.h"
+#include "mgmt_be_client.h"
 
 #include "ospf6d.h"
 #include "ospf6_top.h"
@@ -34,6 +35,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_interface.h"
 #include "ospf6_zebra.h"
+#include "ospf6_nb.h"
 #include "ospf6_routemap_nb.h"
 
 /* Default configuration file name for ospf6d. */
@@ -69,6 +71,7 @@ struct option longopts[] = {{0}};
 
 /* Master of threads. */
 struct event_loop *master;
+static struct mgmt_be_client *mgmt_be_client;
 
 static void __attribute__((noreturn)) ospf6_exit(int status)
 {
@@ -80,6 +83,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 	frr_early_fini();
 
 	bfd_protocol_integration_set_shutdown(true);
+	mgmt_be_client_destroy(mgmt_be_client);
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
@@ -164,14 +168,54 @@ struct frr_signal_t ospf6_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&ietf_bfd_types_info,
+	&ospf6d_ietf_routing_info,
+	&ospf6d_ietf_ospf_info,
+	&ospf6d_ietf_routing_ospf_deviation_info,
 	&frr_ospf_route_map_info,
 	&frr_ospf6_route_map_info,
 	&ietf_key_chain_info,
 	&ietf_key_chain_deviation_info,
+};
+
+/*
+ * ospfd and ospf6d both register the RFC 9129 ietf-ospf control-plane-protocol
+ * subtree. Filter on the `type` list-key so mgmtd dispatches each change to
+ * the daemon that owns that protocol family. See the predicate-aware matching
+ * in mgmtd/mgmt_be_adapter.c::mgmt_be_xpath_prefix().
+ */
+static const char *const ospf6d_oper_xpaths[] = {
+	"/frr-backend:clients",
+	OSPF6D_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
+};
+
+static const char *const ospf6d_config_xpaths[] = {
+	OSPF6D_IETF_ROUTING_PROTOCOL_TYPE_XPATH,
+};
+
+/*
+ * RFC 9129 places clear-neighbor / clear-database at the module root rather
+ * than under control-plane-protocol, so both daemons register the same xpaths
+ * and mgmtd fans the call out. The handler for the daemon that doesn't own
+ * the named instance returns NB_OK silently.
+ */
+static const char *const ospf6d_rpc_xpaths[] = {
+	"/ietf-ospf:clear-neighbor",
+	"/ietf-ospf:clear-database",
+};
+
+struct mgmt_be_client_cbs ospf6d_be_client_data = {
+	.config_xpaths = ospf6d_config_xpaths,
+	.nconfig_xpaths = array_size(ospf6d_config_xpaths),
+	.oper_xpaths = ospf6d_oper_xpaths,
+	.noper_xpaths = array_size(ospf6d_oper_xpaths),
+	.rpc_xpaths = ospf6d_rpc_xpaths,
+	.nrpc_xpaths = array_size(ospf6d_rpc_xpaths),
 };
 
 /* actual paths filled in main() */
@@ -271,10 +315,13 @@ int main(int argc, char *argv[], char *envp[])
 	prefix_list_init();
 
 	/* initialize ospf6 */
+	cmd_config_file_batching_set(true);
 	ospf6_init(master);
 
 	/* Configuration processing callback initialization. */
 	cmd_init_config_callbacks(ospf6_config_start, ospf6_config_end);
+
+	mgmt_be_client = mgmt_be_client_create("ospf6d", &ospf6d_be_client_data, 0, master);
 
 	frr_config_fork();
 	frr_run(master);
