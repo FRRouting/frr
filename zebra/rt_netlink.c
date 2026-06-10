@@ -69,7 +69,6 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
-#include "zebra/zebra_kernel_capabilities.h"
 #include "lib/srv6.h"
 
 #ifndef AF_MPLS

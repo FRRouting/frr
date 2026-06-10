@@ -56,7 +56,6 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_nhrp.h"
-#include "zebra/zebra_kernel_capabilities.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
