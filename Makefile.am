@@ -1,9 +1,9 @@
 ## Process this file with automake to produce Makefile.in.
 
-#AUTODERP# ifeq (0,$(MAKELEVEL))
+#AUTODERP# ifneq ($(FPLUGIN_DONE),1)
 FPLUGIN := $(shell CC="$(CC)" top_srcdir="$(top_srcdir)" top_builddir="$(top_builddir)" "$(top_srcdir)/tools/gcc-plugins/autobuild.sh" )
 # with the "all"/"all-am" target split, make always runs twice - save the extra check
-AM_MAKEFLAGS := $(AM_MAKEFLAGS) FPLUGIN="$(FPLUGIN)"
+AM_MAKEFLAGS := $(AM_MAKEFLAGS) FPLUGIN="$(FPLUGIN)" FPLUGIN_DONE=1
 #AUTODERP# endif
 
 AUTOMAKE_OPTIONS = subdir-objects 1.12
