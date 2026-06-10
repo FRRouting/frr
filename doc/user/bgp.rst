@@ -4640,6 +4640,67 @@ This makes it possible to separate not only layer 3 networks like VRF-lite netwo
 Also, VRF netns based make possible to separate layer 2 networks on separate VRF
 instances.
 
+.. _bgp-mup:
+
+BGP Mobile User Plane (MUP) SAFI
+--------------------------------
+
+FRR supports the BGP Mobile User Plane SAFI defined in
+`draft-ietf-bess-mup-safi
+<https://datatracker.ietf.org/doc/draft-ietf-bess-mup-safi/>`_,
+which lets BGP advertise the session state required to bridge GTP-U
+and SRv6 forwarding planes in an SRv6 Mobile User Plane deployment.
+The SAFI carries four route types: Type 1 (Interwork Segment
+Discovery), Type 2 (Direct Segment Discovery), Type 3 (Type 1
+Session Transformed) and Type 4 (Type 2 Session Transformed).  The
+routes complement the SRv6 Mobile User Plane endpoint behaviors
+specified in :rfc:`9433`.
+
+The IPv4 and IPv6 sub-AFIs are activated independently on each
+peering:
+
+.. code-block:: frr
+
+   router bgp 65000
+    neighbor 2001:db8::1 remote-as 65000
+    !
+    address-family ipv4 mup
+     neighbor 2001:db8::1 activate
+    exit-address-family
+    !
+    address-family ipv6 mup
+     neighbor 2001:db8::1 activate
+    exit-address-family
+
+Activating these address families causes the local speaker to
+advertise the BGP Multiprotocol Extensions capability for IPv4 and
+IPv6 Mobile User Plane, parse all four route types, and run best-path
+selection and re-advertisement over them, so an FRR speaker can act
+as a route reflector or route server for the SAFI.  The generic
+per-neighbor policy commands such as ``route-map`` and
+``route-reflector-client`` are available under both address families.
+
+Session Transformed routes may carry optional TLVs after their
+mandatory fields.  FRR validates the TLV region on receive — a
+structurally broken region is treated as withdraw per :rfc:`7606` —
+and re-advertises the TLVs unchanged, including types it does not
+recognize.  A Type 1 ST route is keyed on the RD and the UE prefix
+alone, so re-announcing the same prefix with changed session
+parameters (TEID, QFI, addresses) replaces the previous route.  The
+BGP MUP extended community is displayed in all six sub-type forms,
+as ``MUP:direct`` or ``MUP:interwork`` followed by the segment
+identifier.
+
+Received routes are inspected with the following command:
+
+.. clicmd:: show bgp <ipv4|ipv6> mup [all] [json]
+
+   Display the BGP-MUP RIB for the selected sub-AFI.  The detailed
+   per-prefix output decodes the TLVs carried with a route.
+
+Locally originating Mobile User Plane routes and installing
+received routes into the forwarding plane are not yet supported.
+
 .. _bgp-conditional-advertisement:
 
 BGP Conditional Advertisement
@@ -5219,7 +5280,7 @@ incoming/outgoing directions.
 
       Total number of VRFs (including default): 3
 
-.. clicmd:: show bgp [<ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast|flowspec|unreachability> | l2vpn evpn]
+.. clicmd:: show bgp [<ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast|flowspec|unreachability|mup> | l2vpn evpn]
 
    These commands display BGP routes for the specific routing table indicated by
    the selected afi and the selected safi. If no afi and no safi value is given,
