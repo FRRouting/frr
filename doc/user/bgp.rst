@@ -3215,6 +3215,11 @@ BGP Extended Communities in Route Map
    it will install the route with the community that contains it's own
    local BGP Identifier. Otherwise, it's not installed.
 
+.. clicmd:: set extcommunity evpn rmac X:X:X:X:X:X
+
+   This command sets the EVPN Router MAC extended community value in BGP
+   updates. This command is applied only to EVPN type-5 (IP Prefix) routes.
+
 .. clicmd:: set extcommunity soo EXTCOMMUNITY
 
    This command sets Site of Origin value.
