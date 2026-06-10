@@ -1833,6 +1833,18 @@ static int bgp_open_receive(struct peer_connection *connection,
 			optlen = stream_getw(peer->curr);
 			SET_FLAG(peer->sflags,
 				 PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
+		} else {
+			/* RFC 9072: the extended format is in use only when the
+			 * Non-Ext OP Type octet is 255. A one-octet length of
+			 * 255 with any other type is a regular (non-extended)
+			 * OPEN message carrying exactly 255 octets of Optional
+			 * Parameters, and the octet we just read is the Type
+			 * field of the first Optional Parameter (type 255 is
+			 * reserved and never a bona fide parameter type). Rewind
+			 * so it is parsed as part of the Optional Parameters
+			 * rather than being consumed here.
+			 */
+			stream_rewind_getp(connection->curr, 1);
 		}
 	}
 
