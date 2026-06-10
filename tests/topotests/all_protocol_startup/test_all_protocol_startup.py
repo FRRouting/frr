@@ -670,19 +670,35 @@ def test_nexthop_groups():
     net["r1"].cmd(
         "ip link set r1-eth1 up;ip link set r1-eth2 up;ip link set r1-eth3 up;ip link set r1-eth4 up"
     )
-    sleep(5)
 
-    post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
-    post_nhg = re.search(r"nhid\s+(\d+)", post_out)
-    post_nh_show = net["r1"].cmd("ip next show id {}".format(post_nhg.group(1)))
-    post_total_nhs = len(
-        (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+    # Wait for convergence
+    post_state = {"nhg": None, "nhs": 0}
+
+    def _get_post_nhs_count():
+        post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+        nhg = re.search(r"nhid\s+(\d+)", post_out)
+        if not nhg:
+            return -1
+        post_state["nhg"] = nhg.group(1)
+        nh_show = net["r1"].cmd("ip next show id {}".format(post_state["nhg"]))
+        m = re.search(r"group ([\d/]+)", nh_show)
+        if not m:
+            return -1
+        post_state["nhs"] = len(m.group(1).split("/"))
+        return post_state["nhs"]
+
+    test_func = functools.partial(_get_post_nhs_count)
+    _, post_total_nhs = topotest.run_and_expect(
+        test_func, pre_total_nhs, count=20, wait=1
     )
 
     assert (
         post_total_nhs == pre_total_nhs
     ), "Expected same nexthops(pre-{}: post-{}) in NHG (pre-{}:post-{}) after few Interface flaps".format(
-        pre_total_nhs, post_total_nhs, pre_nhg.group(1), post_nhg.group(1)
+        pre_total_nhs,
+        post_total_nhs,
+        pre_nhg.group(1),
+        post_state["nhg"] if post_state["nhg"] else "?",
     )
 
     ## Remove all NHG routes
