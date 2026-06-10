@@ -21,6 +21,7 @@
 #include "termtable.h"
 #include "affinitymap.h"
 #include "frrdistance.h"
+#include "kernel_capabilities.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zserv.h"
@@ -4279,20 +4280,17 @@ DEFPY_HIDDEN(show_zebra_capabilities, show_zebra_capabilities_cmd,
 		json = json_object_new_object();
 
 	if (json) {
-		json_object_boolean_add(
-			json, "capabilitiesSrv6Seg6LocalDt6VrfTableAttribute",
-			zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported());
-		json_object_boolean_add(
-			json, "capabilitiesSrv6Seg6SourceEncapAttribute",
-			zebra_kernel_capabilities_is_srv6_seg6_source_encap_attr_supported());
+		json_object_boolean_add(json, "capabilitiesSrv6Seg6LocalDt6VrfTableAttribute",
+					kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported());
+		json_object_boolean_add(json, "capabilitiesSrv6Seg6SourceEncapAttribute",
+					kernel_capabilities_is_srv6_seg6_source_encap_attr_supported());
 		vty_json(vty, json);
 		return CMD_SUCCESS;
 	}
 	vty_out(vty, "SRv6 seg6local DT6 VRFTABLE attribute: %ssupported\n",
-		zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported() ? ""
-											  : "not ");
+		kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported() ? "" : "not ");
 	vty_out(vty, "SRv6 seg6 ENCAP_SRC attribute: %ssupported\n",
-		zebra_kernel_capabilities_is_srv6_seg6_source_encap_attr_supported() ? "" : "not ");
+		kernel_capabilities_is_srv6_seg6_source_encap_attr_supported() ? "" : "not ");
 	return CMD_SUCCESS;
 }
 #ifdef HAVE_NETLINK

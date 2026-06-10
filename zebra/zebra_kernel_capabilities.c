@@ -19,6 +19,7 @@
 #include <linux/if_addr.h>
 
 #include <lib/ns.h>
+#include <lib/kernel_capabilities.h>
 
 #include <zebra/table_manager.h>
 #include <zebra/rt.h>
@@ -43,9 +44,7 @@
 #define CHECK_SRV6_ATTR_SUPPORTED_FUNC_DELAY_NOTIFY 30
 
 static bool check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress;
-static bool check_srv6_seg6local_dt6_vrftable_attr_supported;
 static bool check_srv6_seg6_source_encap_attr_supported_in_progress;
-static bool check_srv6_seg6_source_encap_attr_supported;
 struct event *check_srv6_attr_supported_func_thread;
 
 static bool configure_fake_l3vrf(struct zebra_ns *zns, bool add_l3vrf)
@@ -168,9 +167,9 @@ next_rta_encap_inspection:
 	if (check_srv6_encap_attr_value &&
 	    (rta_encap->rta_type & NLA_TYPE_MASK) == check_srv6_encap_attr_value) {
 		if (check_srv6_encap_attr_value == SEG6_LOCAL_ACTION)
-			check_srv6_seg6local_dt6_vrftable_attr_supported = true;
+			kernel_capabilities_set_srv6_seg6local_dt6_vrftable_attr_supported(true);
 		else if (check_srv6_encap_attr_value == SEG6_IPTUNNEL_SRC)
-			check_srv6_seg6_source_encap_attr_supported = true;
+			kernel_capabilities_set_srv6_seg6_source_encap_attr_supported(true);
 		return 0;
 	}
 	rta_encap = RTA_NEXT(rta_encap, rta_encap_len);
@@ -370,7 +369,7 @@ static bool handle_fake_srv6_seg6local_route(struct zebra_ns *zns, int type, str
 	if (netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0))
 		goto error_fake_srv6_seg6local_route;
 
-	check_srv6_seg6local_dt6_vrftable_attr_supported = true;
+	kernel_capabilities_set_srv6_seg6local_dt6_vrftable_attr_supported(true);
 	return true;
 
 error_fake_srv6_seg6local_route:
@@ -453,7 +452,7 @@ static int check_srv6_seg6local_dt6_vrftable_attr_supported_func(struct zebra_ns
 	if (!check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress)
 		return 0;
 
-	if (check_srv6_seg6local_dt6_vrftable_attr_supported)
+	if (kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported())
 		return 0;
 
 	check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress = false;
@@ -464,7 +463,7 @@ static int check_srv6_seg6local_dt6_vrftable_attr_supported_func(struct zebra_ns
 	if (!handle_fake_srv6_seg6local_route(zns, RTM_GETROUTE, ifp_dummy))
 		goto netlink_error;
 
-	if (check_srv6_seg6local_dt6_vrftable_attr_supported)
+	if (kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported())
 		LOG_SUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE();
 	else
 		LOG_UNSUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE();
@@ -485,7 +484,7 @@ static int check_srv6_seg6_source_encap_attr_supported_func(struct zebra_ns *zns
 	if (!check_srv6_seg6_source_encap_attr_supported_in_progress)
 		return 0;
 
-	if (check_srv6_seg6_source_encap_attr_supported)
+	if (kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
 		return 0;
 
 	check_srv6_seg6_source_encap_attr_supported_in_progress = false;
@@ -496,7 +495,7 @@ static int check_srv6_seg6_source_encap_attr_supported_func(struct zebra_ns *zns
 	if (!handle_fake_srv6_seg6_route(zns, RTM_GETROUTE, ifp, SEG6_IPTUNNEL_SRC))
 		goto netlink_error;
 
-	if (check_srv6_seg6_source_encap_attr_supported)
+	if (kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
 		LOG_SUPPORTED_SRV6_SEG6_SOURCE_ENCAP();
 	else
 		LOG_UNSUPPORTED_SRV6_SEG6_SOURCE_ENCAP();
@@ -512,12 +511,12 @@ netlink_error:
 
 static void check_srv6_attr_supported_func_notify(struct event *thread)
 {
-	if (check_srv6_seg6local_dt6_vrftable_attr_supported)
+	if (kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported())
 		LOG_SUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE();
 	else
 		LOG_UNSUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE();
 
-	if (check_srv6_seg6_source_encap_attr_supported)
+	if (kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
 		LOG_SUPPORTED_SRV6_SEG6_SOURCE_ENCAP();
 	else
 		LOG_UNSUPPORTED_SRV6_SEG6_SOURCE_ENCAP();
@@ -526,9 +525,9 @@ static void check_srv6_attr_supported_func_notify(struct event *thread)
 void zebra_kernel_capabilities_init(void)
 {
 	check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress = false;
-	check_srv6_seg6local_dt6_vrftable_attr_supported = false;
+	kernel_capabilities_set_srv6_seg6local_dt6_vrftable_attr_supported(false);
 	check_srv6_seg6_source_encap_attr_supported_in_progress = false;
-	check_srv6_seg6_source_encap_attr_supported = false;
+	kernel_capabilities_set_srv6_seg6_source_encap_attr_supported(false);
 
 	/* create the necessary interfaces to start the probing
 	 * for srv6 capabilities check
@@ -581,16 +580,6 @@ netlink_error:
 	check_srv6_interfaces_configured(false);
 }
 
-bool zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported(void)
-{
-	return check_srv6_seg6local_dt6_vrftable_attr_supported;
-}
-
-bool zebra_kernel_capabilities_is_srv6_seg6_source_encap_attr_supported(void)
-{
-	return check_srv6_seg6_source_encap_attr_supported;
-}
-
 #else
 
 bool zebra_kernel_capabilities_configure_interface(struct zebra_ns *zns, const char *ifname,
@@ -605,16 +594,6 @@ void zebra_kernel_capabilities_init(void)
 
 void zebra_kernel_capabilities_interface_created_cb(struct interface *ifp)
 {
-}
-
-bool zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported(void)
-{
-	return false;
-}
-
-bool zebra_kernel_capabilities_is_srv6_seg6_source_encap_attr_supported(void)
-{
-	return false;
 }
 
 #endif /* HAVE_NETLINK */

@@ -48,6 +48,7 @@
 #include "mpls.h"
 #include "vxlan.h"
 #include "printfrr.h"
+#include "kernel_capabilities.h"
 
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_ns.h"
@@ -1767,7 +1768,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 						   SEG6_LOCAL_ACTION_END_DT6))
 					return false;
 				srv6_table_attr =
-					zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported()
+					kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported()
 						? SEG6_LOCAL_VRFTABLE
 						: SEG6_LOCAL_TABLE;
 				if (!nl_attr_put32(nlmsg, req_size, srv6_table_attr, ctx->table))
@@ -3110,7 +3111,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    SEG6_LOCAL_ACTION_END_DT6))
 							return 0;
 						srv6_table_attr =
-							zebra_kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported()
+							kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported()
 								? SEG6_LOCAL_VRFTABLE
 								: SEG6_LOCAL_TABLE;
 						if (!nl_attr_put32(&req->n, buflen, srv6_table_attr,

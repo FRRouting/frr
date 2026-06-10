@@ -149,6 +149,7 @@ lib_libfrr_la_SOURCES = \
 	lib/zbuf.c \
 	lib/znl.c \
 	lib/mempool.c \
+	lib/kernel_capabilities.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -360,6 +361,7 @@ pkginclude_HEADERS += \
 	lib/zbuf.h \
 	lib/znl.h \
 	lib/mempool.h \
+	lib/kernel_capabilities.h \
 	# end
 
 
