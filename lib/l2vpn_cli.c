@@ -597,11 +597,9 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool
 		if (!detail) {
 			RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
 				json_elt = json_object_new_object();
-				json_object_int_add(json_elt, "evi", l2vpn_svc->vsi);
+				json_object_string_add(json_elt, "memberEVPN", l2vpn_svc->ifname);
 				json_object_int_add(json_elt, "localVsi", l2vpn_svc->vsi);
 				json_object_int_add(json_elt, "remoteVsi", l2vpn_svc->remote_vsi);
-				json_object_string_add(json_elt, "memberInterface",
-						       l2vpn_svc->ifname);
 				state = l2vpn_svc->local_status == EVPN_FORWARDING &&
 					l2vpn_svc->remote_status == EVPN_FORWARDING;
 				json_object_string_add(json_elt, "status", state ? "Up" : "Down");
@@ -619,9 +617,8 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool
 			json_elt = json_object_new_object();
 			json_elt2 = json_object_new_object();
 
-			json_object_int_add(json_elt, "evi", l2vpn_svc->vsi);
+			json_object_string_add(json_elt, "memberEVPN", l2vpn_svc->ifname);
 			json_object_int_add(json_elt, "vsi", l2vpn_svc->vsi);
-			json_object_string_add(json_elt, "memberInterface", l2vpn_svc->ifname);
 			json_object_string_add(json_elt, "interface",
 					       l2vpn_svc->local_ac[0] ? l2vpn_svc->local_ac
 								      : "<undefined>");
@@ -657,16 +654,15 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool
 		vty_out(vty, "Virtual Private Wire Service\n");
 
 		if (!detail) {
-			vty_out(vty, "%-19s %-19s %-19s %-19s %-19s\n", "EVI", "Local/Remote VSI",
-				"IFNAME ", "Status", "PROTO");
+			vty_out(vty, "%-19s %-19s %-19s %-19s\n", "EVPN",
+				"Local/Remote VSI", "Status", "PROTO");
 			memset(buf, '-', 19);
-			vty_out(vty, "%s %s %s %s %s\n", buf, buf, buf, buf, buf);
+			vty_out(vty, "%s %s %s %s\n", buf, buf, buf, buf);
 			RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
-				vty_out(vty, "%-19u ", l2vpn_svc->vsi);
+				vty_out(vty, "%-19s ", l2vpn_svc->ifname);
 				snprintf(buf, sizeof(buf), "%u/%u", l2vpn_svc->vsi,
 					 l2vpn_svc->remote_vsi);
 				vty_out(vty, "%-19s ", buf);
-				vty_out(vty, "%-19s ", l2vpn_svc->ifname);
 				state = l2vpn_svc->local_status == EVPN_FORWARDING &&
 					l2vpn_svc->remote_status == EVPN_FORWARDING;
 				vty_out(vty, "%-19s ", state ? "Up" : "Down");
@@ -678,7 +674,7 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool
 		}
 
 		RB_FOREACH (l2vpn_svc, l2vpn_svc_head, &l2vpn->svc_tree) {
-			vty_out(vty, "EVI %u\n", l2vpn_svc->vsi);
+			vty_out(vty, "EVPN %s\n", l2vpn_svc->ifname);
 			state = l2vpn_svc->local_status != EVPN_LOCAL_TX_FAULT;
 			ifp = if_lookup_by_name_all_vrf(l2vpn_svc->local_ac);
 			vty_out(vty, "  AC: %s, state is %s\n",
