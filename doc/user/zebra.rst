@@ -394,6 +394,36 @@ the default route.
    User can get that information as JSON format when ``json`` keyword
    at the end of cli is presented.
 
+Nexthop Group Tracker
+=====================
+
+When an interface used by a nexthop goes down or comes up, zebra starts a
+tracker on each nexthop group that uses that nexthop; when a route update
+changes the ECMP members of a nexthop group, it starts one on that group. The
+tracker parks the updates for the routes that use the group; those routes stay
+installed on their current group meanwhile. It flushes as soon as every route
+that used the group has been updated or deleted, or when its timer expires,
+whichever comes first. On flush, zebra changes the existing group in place to
+the nexthop set that most of those routes moved to, keeping its ID, and moves
+the other routes to other groups, so fewer routes are rewritten in the kernel.
+Nexthop groups owned by a protocol are not tracked. The tracker is enabled by
+default.
+
+``show nexthop-group rib ID tracker routes`` lists the routes parked on a
+nexthop group.
+
+.. clicmd:: zebra nexthop-group tracker (1-3600)
+
+   Set the longest time, in seconds, that a tracker waits before it flushes.
+   The default is 10 seconds. ``no zebra nexthop-group tracker`` restores the
+   default.
+
+.. clicmd:: zebra nexthop-group tracker disable
+
+   Turn the tracker off. Only new events are affected: trackers that are
+   already running still finish. ``no zebra nexthop-group tracker disable``
+   turns the tracker back on.
+
 PBR dataplane programming
 =========================
 
@@ -1847,6 +1877,13 @@ zebra Terminal Mode Commands
    fields (type, refCount, timeToDeletion) and shows a condensed nexthop
    list; groups with dependencies list only ``depends`` and not
    per-nexthop detail.
+
+.. clicmd:: show nexthop-group rib ID <routes|tracker routes> [json]
+
+   ``routes`` lists the routes that use nexthop group ID. ``tracker routes``
+   lists, for each tracker on that group, the routes parked in its matched
+   table (new nexthops as the tracker expects) and its unmatched table (other
+   nexthops).
 
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 
