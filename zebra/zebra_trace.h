@@ -1334,6 +1334,26 @@ TRACEPOINT_EVENT(frr_zebra, gr_evpn_stale_entries_cleanup,
 				   ctf_integer(uint64_t, gr_cleanup_time, gr_cleanup_time)))
 TRACEPOINT_LOGLEVEL(frr_zebra, gr_evpn_stale_entries_cleanup, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker_park_re,
+	TP_ARGS(const char *, action, struct prefix *, p, uint32_t, route_type,
+		uint32_t, tracker_id, uint32_t, orig_nhe_id, uint32_t, matched,
+		uint32_t, unmatched, uint32_t, deleted, uint32_t, orig_re),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_array(unsigned char, prefix, p, sizeof(struct prefix))
+		ctf_integer(uint32_t, route_type, route_type)
+		ctf_integer(uint32_t, tracker_id, tracker_id)
+		ctf_integer(uint32_t, orig_nhe_id, orig_nhe_id)
+		ctf_integer(uint32_t, matched, matched)
+		ctf_integer(uint32_t, unmatched, unmatched)
+		ctf_integer(uint32_t, deleted, deleted)
+		ctf_integer(uint32_t, orig_re, orig_re)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_park_re, TRACE_INFO)
+
 /* clang-format on */
 #include <lttng/tracepoint-event.h>
 
