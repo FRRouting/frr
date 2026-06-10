@@ -113,6 +113,12 @@ struct route_entry {
 	 */
 	uint32_t nhe_installed_id;
 
+	/*
+	 * Parent NHG id of the flushing NHG-event-tracker that drained this
+	 * RE as a phase-1 loser; consumed in tracker_flush_batch_route_dplane_ack.
+	 */
+	uint32_t tracker_parent_nhg_id;
+
 	/* Type of this route. */
 	int type;
 
@@ -148,6 +154,8 @@ struct route_entry {
 #define ROUTE_ENTRY_INSTALLED        0x10
 /* Route has Failed installation into the Data Plane in some manner */
 #define ROUTE_ENTRY_FAILED           0x20
+/* Route Entry is parked in an NHG tracker and should not be processed yet */
+#define ROUTE_ENTRY_TRACKER 0x40
 /*
  * Route entries that are going to the dplane for a Route Replace
  * let's note the fact that this is happening.  This will
@@ -162,6 +170,14 @@ struct route_entry {
  * then addition.
  */
 #define ROUTE_ENTRY_SEND_NHT_REMOVAL 0x100
+/* RE is part of a tracker flush batch phase 1 (awaiting dplane ack) */
+#define ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH 0x200
+/* RE was released by tracker phase 2 as a winner.  Consumed by
+ * nexthop_active_update (or rib_unlink for cleanup), clears the flag,
+ * decrements parent_nhe->tracker_pending_winners, fires consolidation
+ * event when counter reaches 0.
+ */
+#define ROUTE_ENTRY_NHG_TRACKER_WINNER 0x400
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
