@@ -270,6 +270,9 @@ struct zebra_router {
 
 	uint32_t nhg_tracker_timeout;
 
+	/* NHG event tracker is enabled by default */
+	bool nhg_tracker_disabled;
+
 	struct zebra_nhg_tracker_counters tracker_counters;
 
 	/* Should we allow non FRR processes to delete our routes */

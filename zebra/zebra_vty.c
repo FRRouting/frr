@@ -43,6 +43,7 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_nhg.h"
+#include "zebra/zebra_nhg_tracker.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/interface.h"
 #include "northbound_cli.h"
@@ -642,6 +643,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 				if (re->nhe_received)
 					json_object_int_add(json_route, "receivedNexthopGroupId",
 							    re->nhe_received->id);
+				json_object_int_add(json_route, "rnRefCnt",
+						    route_node_get_lock_count(rn));
 
 				json_nexthops = json_object_new_array();
 				for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
@@ -710,7 +713,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 		vty_out(vty, " ECMP/FIB count: %u/%u", nh_ecmp_count, fib_nh_count);
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ||
 		    CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ||
-		    CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED)) {
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ||
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) ||
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH)) {
 			bool first = true;
 
 			vty_out(vty, " Status: ");
@@ -724,8 +729,18 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 				first = false;
 			}
 
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED)) {
 				vty_out(vty, "%sFailed", first ? "" : ",");
+				first = false;
+			}
+
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER)) {
+				vty_out(vty, "%sTracker", first ? "" : ",");
+				first = false;
+			}
+
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+				vty_out(vty, "%sFlush Batch", first ? "" : ",");
 		}
 
 		if (re->nhe && re->nhe->flags) {
@@ -1177,6 +1192,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 						       event_timer_to_hhmmss(time_left,
 									     sizeof(time_left),
 									     nhe->timer));
+			if (event_is_scheduled(nhe->consolidation_event))
+				json_object_boolean_true_add(json, "dupConsolidationPending");
 		}
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
@@ -1194,6 +1211,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				event_timer_to_hhmmss(time_left,
 						      sizeof(time_left),
 						      nhe->timer));
+		if (event_is_scheduled(nhe->consolidation_event))
+			vty_out(vty, " Dup Consolidation: pending");
 		vty_out(vty, "\n");
 
 		vty_out(vty, "     Uptime: %s\n", up_str);
@@ -1225,6 +1244,16 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			json_object_boolean_true_add(json, "keepAround");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM))
 			json_object_boolean_true_add(json, "fpm");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE))
+			json_object_boolean_true_add(json, "trackerReuse");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+			json_object_boolean_true_add(json, "duplicate");
+		if (nhe->tracker_pending_winners)
+			json_object_int_add(json, "trackerPendingWinners",
+					    nhe->tracker_pending_winners);
+		if (nhe->tracker_flush_batch_parent_nhg_id)
+			json_object_int_add(json, "trackerFlushBatchParentNhgId",
+					    nhe->tracker_flush_batch_parent_nhg_id);
 	} else {
 		/* Text output - use common formatter */
 		char flags_buf[256];
@@ -1232,6 +1261,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		dump_nhg_flags(nhe->flags, flags_buf, sizeof(flags_buf));
 		if (flags_buf[0])
 			vty_out(vty, "     %s\n", flags_buf);
+		if (nhe->tracker_pending_winners)
+			vty_out(vty, "     Tracker Pending Winners: %u\n",
+				nhe->tracker_pending_winners);
+		if (nhe->tracker_flush_batch_parent_nhg_id)
+			vty_out(vty, "     Tracker Flush Batch Parent NHG ID: %u\n",
+				nhe->tracker_flush_batch_parent_nhg_id);
 	}
 	if (nhe->ifp) {
 		if (json)
@@ -1413,6 +1448,149 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		}
 	}
 
+	/* Display tracker info if any active trackers exist */
+	if (nhg_event_tracker_list_count(&nhe->tracker_list) > 0) {
+		struct nhg_event_tracker *tracker;
+		char timer_buf[MONOTIME_STRLEN];
+		json_object *json_trackers = NULL;
+
+		if (json)
+			json_trackers = json_object_new_array();
+		else
+			vty_out(vty, "     Trackers: %zu\n",
+				nhg_event_tracker_list_count(&nhe->tracker_list));
+
+		frr_each (nhg_event_tracker_list, &nhe->tracker_list, tracker) {
+			struct interface *ifp;
+			const char *event_str;
+
+			ifp = if_lookup_by_index(tracker->ifindex, nhe->vrf_id);
+			switch (tracker->event) {
+			case NHG_TRACKER_EVENT_INTF_UP:
+				event_str = "UP";
+				break;
+			case NHG_TRACKER_EVENT_INTF_DOWN:
+				event_str = "DOWN";
+				break;
+			case NHG_TRACKER_EVENT_ECMP_CHANGE:
+				event_str = "ECMP_CHANGE";
+				break;
+			default:
+				event_str = "UNKNOWN";
+				break;
+			}
+
+			const char *state_str;
+
+			switch (tracker->flush_state) {
+			case TRACKER_ACTIVE:
+				state_str = "ACTIVE";
+				break;
+			case TRACKER_FLUSH_WAITING:
+				state_str = "FLUSH_WAITING";
+				break;
+			case TRACKER_FLUSH_PHASE1:
+				state_str = "FLUSH_PHASE1";
+				break;
+			case TRACKER_FLUSH_PHASE2:
+				state_str = "FLUSH_PHASE2";
+				break;
+			default:
+				state_str = "UNKNOWN";
+				break;
+			}
+
+			if (json_trackers) {
+				json_object *jt = json_object_new_object();
+
+				json_object_int_add(jt, "trackerId", tracker->nhg_tracker_id);
+				json_object_string_add(jt, "event", event_str);
+				json_object_string_add(jt, "state", state_str);
+				json_object_int_add(jt, "ifindex", tracker->ifindex);
+				if (ifp)
+					json_object_string_add(jt, "interfaceName", ifp->name);
+				json_object_int_add(jt, "matchedRoutes",
+						    tracker->matched_table.re_count);
+				json_object_int_add(jt, "unmatchedRoutes",
+						    tracker->unmatched_table.re_count);
+				json_object_int_add(jt, "deletedRoutes",
+						    tracker->deleted_table.re_count);
+				json_object_int_add(jt, "expectedReCount", tracker->orig_re_count);
+				if (tracker->flushing) {
+					json_object_int_add(jt, "winnerFlags",
+							    tracker->winner_flags);
+					if (tracker->winner_nhg_id)
+						json_object_int_add(jt, "winnerNhgId",
+								    tracker->winner_nhg_id);
+				}
+				if (tracker->flush_state == TRACKER_FLUSH_PHASE1)
+					json_object_int_add(jt, "routesPending",
+							    tracker->routes_pending);
+				if (event_is_scheduled(tracker->timer))
+					json_object_string_add(jt, "timerRemaining",
+							       event_timer_to_hhmmss(timer_buf,
+										     sizeof(timer_buf),
+										     tracker->timer));
+
+				if (tracker->nhg_tracker_snapshot) {
+					json_object *json_snap_nhs = json_object_new_array();
+					struct nexthop *snh;
+
+					json_object_int_add(jt, "snapshotNhgId",
+							    tracker->nhg_tracker_snapshot->id);
+					for (ALL_NEXTHOPS(tracker->nhg_tracker_snapshot->nhg, snh)) {
+						json_object *jsnh = json_object_new_object();
+
+						show_nexthop_json_helper(jsnh, snh, NULL, NULL,
+									 brief);
+						json_object_array_add(json_snap_nhs, jsnh);
+					}
+					json_object_object_add(jt, "snapshotNexthops",
+							       json_snap_nhs);
+				}
+
+				json_object_array_add(json_trackers, jt);
+			} else {
+				vty_out(vty,
+					"       Tracker %u: event=%s state=%s interface=%s(%u) matched=%u unmatched=%u deleted=%u expected_re=%u",
+					tracker->nhg_tracker_id, event_str, state_str,
+					ifp ? ifp->name : "unknown", tracker->ifindex,
+					tracker->matched_table.re_count,
+					tracker->unmatched_table.re_count,
+					tracker->deleted_table.re_count, tracker->orig_re_count);
+
+				if (tracker->flushing) {
+					vty_out(vty, " winner_flags=0x%x", tracker->winner_flags);
+					if (tracker->winner_nhg_id)
+						vty_out(vty, " winner_nhg=%u",
+							tracker->winner_nhg_id);
+				}
+				if (tracker->flush_state == TRACKER_FLUSH_PHASE1)
+					vty_out(vty, " routes_pending=%u", tracker->routes_pending);
+				if (event_is_scheduled(tracker->timer))
+					vty_out(vty, " timer=%s",
+						event_timer_to_hhmmss(timer_buf, sizeof(timer_buf),
+								      tracker->timer));
+				vty_out(vty, "\n");
+
+				if (tracker->nhg_tracker_snapshot) {
+					struct nexthop *snh;
+
+					vty_out(vty, "         Snapshot NHG %u:\n",
+						tracker->nhg_tracker_snapshot->id);
+					for (ALL_NEXTHOPS(tracker->nhg_tracker_snapshot->nhg, snh)) {
+						vty_out(vty, "           ");
+						show_route_nexthop_helper(vty, NULL, NULL, snh);
+						vty_out(vty, "\n");
+					}
+				}
+			}
+		}
+
+		if (json_trackers)
+			json_object_object_add(json, "trackers", json_trackers);
+	}
+
 	if (json_nhe_hdr)
 		json_object_object_addf(json_nhe_hdr, json, "%u", nhe->id);
 }
@@ -1573,12 +1751,174 @@ DEFPY (show_interface_nexthop_group,
 	return CMD_SUCCESS;
 }
 
+/* Helper to display one route entry for tracker display. */
+static void show_nexthop_group_tracker_re_out(struct vty *vty, struct route_entry *re,
+					      json_object *json_routes, bool uj)
+{
+	char buf[PREFIX_STRLEN];
+	const char *proto_name;
+	struct rib_table_info *info;
+
+	if (!re->rn)
+		return;
+
+	info = route_table_get_info(re->rn->table);
+	prefix2str(&re->rn->p, buf, sizeof(buf));
+	proto_name = zebra_route_string(re->type);
+
+	if (uj) {
+		json_object *jre = json_object_new_object();
+
+		json_object_string_add(jre, "prefix", buf);
+		json_object_boolean_add(jre, "installed",
+					CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED));
+		json_object_string_add(jre, "protocol", proto_name);
+		json_object_int_add(jre, "instance", re->instance);
+		json_object_int_add(jre, "flags", re->flags);
+		json_object_int_add(jre, "status", re->status);
+		json_object_int_add(jre, "rnRefCnt", route_node_get_lock_count(re->rn));
+		if (info) {
+			json_object_string_add(jre, "afi", afi2str(info->afi));
+			json_object_string_add(jre, "safi", safi2str(info->safi));
+		} else {
+			json_object_string_add(jre, "afi", "unknown");
+			json_object_string_add(jre, "safi", "unknown");
+		}
+		json_object_array_add(json_routes, jre);
+	} else {
+		char status_buf[16], flags_buf[16];
+
+		snprintf(status_buf, sizeof(status_buf), "0x%x", re->status);
+		snprintf(flags_buf, sizeof(flags_buf), "0x%x", re->flags);
+		vty_out(vty, "  %-30s  %-10s  %-12s  %8u  %-10s  %-7s  %-7s  %u\n", buf, status_buf,
+			proto_name, re->instance, flags_buf, info ? afi2str(info->afi) : "unknown",
+			info ? safi2str(info->safi) : "unknown", route_node_get_lock_count(re->rn));
+	}
+}
+
+/*
+ * Walk one tracker table (matched / unmatched) and emit each parked RE
+ * via show_nexthop_group_tracker_re_out().  Extracted to keep the
+ * caller's per-tracker loop flat.
+ */
+static void show_tracker_table_routes_out(struct vty *vty, struct nhg_tracker_table *table,
+					  json_object *json_arr, bool uj)
+{
+	struct tracker_vrf_table *vt;
+	struct route_node *trn, *rn;
+	struct route_entry *re;
+
+	for (vt = table->vrf_tables; vt; vt = vt->next) {
+		for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
+			rn = trn->info;
+			if (!rn)
+				continue;
+			RNODE_FOREACH_RE (rn, re) {
+				if (!CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER))
+					continue;
+				if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+					continue;
+				show_nexthop_group_tracker_re_out(vty, re, json_arr, uj);
+			}
+		}
+	}
+}
+
+/*
+ * Helper for tracker routes display.
+ */
+static void show_nexthop_group_tracker_routes_out(struct vty *vty, struct nhg_hash_entry *nhe,
+						  uint32_t id, json_object *json)
+{
+	struct nhg_event_tracker *tracker;
+	json_object *json_trackers = NULL;
+	bool uj = (json != NULL);
+
+	if (nhg_event_tracker_list_count(&nhe->tracker_list) == 0) {
+		if (uj)
+			json_object_string_add(json, "warning",
+					       "No trackers on this nexthop group");
+		else
+			vty_out(vty, "No trackers on nexthop group %" PRIu32 "\n", id);
+		return;
+	}
+
+	if (uj) {
+		json_object_int_add(json, "nexthopGroupId", id);
+		json_trackers = json_object_new_array();
+		json_object_object_add(json, "trackers", json_trackers);
+	}
+
+	bool first_tracker = true;
+
+	frr_each (nhg_event_tracker_list, &nhe->tracker_list, tracker) {
+		json_object *jt = NULL;
+		json_object *json_matched = NULL;
+		json_object *json_unmatched = NULL;
+
+		if (uj) {
+			jt = json_object_new_object();
+			json_object_int_add(jt, "trackerId", tracker->nhg_tracker_id);
+			json_object_int_add(jt, "matchedCount", tracker->matched_table.re_count);
+			json_object_int_add(jt, "unmatchedCount",
+					    tracker->unmatched_table.re_count);
+			json_matched = json_object_new_array();
+			json_unmatched = json_object_new_array();
+		} else {
+			if (!first_tracker)
+				vty_out(vty, "\n");
+			first_tracker = false;
+
+			vty_out(vty, "Tracker %u:\n", tracker->nhg_tracker_id);
+			vty_out(vty, "Matched table: %u\n", tracker->matched_table.re_count);
+			if (tracker->matched_table.re_count > 0) {
+				vty_out(vty, "  %-30s  %-10s  %-12s  %8s  %-10s  %-7s  %-7s  %s\n",
+					"Route Entry", "Status", "Protocol", "Instance", "Flags",
+					"AFI", "SAFI", "RnRef");
+				vty_out(vty, "  %-30s  %-10s  %-12s  %-8s  %-10s  %-7s  %-7s  %s\n",
+					"------------------------------", "----------",
+					"----------", "--------", "----------", "-------",
+					"-------", "-----");
+			}
+		}
+
+		show_tracker_table_routes_out(vty, &tracker->matched_table, json_matched, uj);
+
+		if (uj) {
+			json_object_object_add(jt, "matchedRoutes", json_matched);
+		} else {
+			vty_out(vty, "Unmatched table: %u\n", tracker->unmatched_table.re_count);
+			if (tracker->unmatched_table.re_count > 0) {
+				vty_out(vty, "  %-30s  %-10s  %-12s  %8s  %-10s  %-7s  %-7s  %s\n",
+					"Route Entry", "Status", "Protocol", "Instance", "Flags",
+					"AFI", "SAFI", "RnRef");
+				vty_out(vty, "  %-30s  %-10s  %-12s  %-8s  %-10s  %-7s  %-7s  %s\n",
+					"------------------------------", "----------",
+					"----------", "--------", "----------", "-------",
+					"-------", "-----");
+			}
+		}
+
+		show_tracker_table_routes_out(vty, &tracker->unmatched_table, json_unmatched, uj);
+
+		if (uj) {
+			json_object_object_add(jt, "unmatchedRoutes", json_unmatched);
+			json_object_array_add(json_trackers, jt);
+		}
+	}
+
+	if (!uj)
+		vty_out(vty, "\n");
+}
+
 DEFPY(show_nexthop_group, show_nexthop_group_cmd,
-      "show nexthop-group rib <(0-4294967295)$id [routes$routes]|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [json$uj [brief$brief]]",
+      "show nexthop-group rib <(0-4294967295)$id <tracker routes$tracker_routes|[routes$routes]>|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [json$uj [brief$brief]]",
       SHOW_STR
       "Show Nexthop Groups\n"
       "RIB information\n"
       "Nexthop Group ID\n"
+      "Tracker\n"
+      "Show prefixes in tracker matched/unmatched tables\n"
       "Show routes using this nexthop group\n"
       "Show Singleton Nexthop-Groups\n"
       IP_STR
@@ -1604,7 +1944,10 @@ DEFPY(show_nexthop_group, show_nexthop_group_cmd,
 		struct nhg_hash_entry *nhe = zebra_nhg_lookup_id(id);
 
 		if (!nhe) {
-			vty_out(vty, "%% Can't find nexthop group %" PRIu64 "\n", id);
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty, "%% Can't find nexthop group %" PRIu64 "\n", id);
 			return CMD_WARNING;
 		}
 
@@ -1675,6 +2018,14 @@ DEFPY(show_nexthop_group, show_nexthop_group_cmd,
 				}
 			}
 
+			return CMD_SUCCESS;
+		}
+
+		if (tracker_routes) {
+			show_nexthop_group_tracker_routes_out(vty, nhe, (uint32_t)id,
+							      uj ? json : NULL);
+			if (uj)
+				vty_json(vty, json);
 			return CMD_SUCCESS;
 		}
 
@@ -3897,6 +4248,32 @@ DEFPY (zebra_nexthop_group_keep,
 	return CMD_SUCCESS;
 }
 
+DEFPY (zebra_nexthop_group_tracker,
+       zebra_nexthop_group_tracker_cmd,
+       "[no] zebra nexthop-group tracker [disable$disable|(1-3600)]",
+       NO_STR
+       ZEBRA_STR
+       "Nexthop-Group\n"
+       "NHG tracker timeout\n"
+       "Disable NHG tracker functionality\n"
+       "Time in seconds from 1-3600\n")
+{
+	/* 'disable' the tracker functionality. */
+	if (disable) {
+		zrouter.nhg_tracker_disabled = no ? false : true;
+		return CMD_SUCCESS;
+	}
+
+	if (no)
+		zrouter.nhg_tracker_timeout = NHG_TRACKER_DEFAULT_TIMEOUT_SEC;
+	else if (tracker_str)
+		zrouter.nhg_tracker_timeout = tracker;
+	else
+		zrouter.nhg_tracker_timeout = NHG_TRACKER_DEFAULT_TIMEOUT_SEC;
+
+	return CMD_SUCCESS;
+}
+
 static int config_write_protocol(struct vty *vty)
 {
 	if (zrouter.allow_delete)
@@ -3904,6 +4281,12 @@ static int config_write_protocol(struct vty *vty)
 
 	if (zrouter.nhg_keep != ZEBRA_DEFAULT_NHG_KEEP_TIMER)
 		vty_out(vty, "zebra nexthop-group keep %u\n", zrouter.nhg_keep);
+
+	if (zrouter.nhg_tracker_disabled)
+		vty_out(vty, "zebra nexthop-group tracker disable\n");
+
+	if (zrouter.nhg_tracker_timeout != NHG_TRACKER_DEFAULT_TIMEOUT_SEC)
+		vty_out(vty, "zebra nexthop-group tracker %u\n", zrouter.nhg_tracker_timeout);
 
 	if (zrouter.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
 		vty_out(vty, "zebra work-queue %u\n", zrouter.ribq->spec.hold);
@@ -4040,6 +4423,7 @@ DEFUN (show_zebra,
 		       zrouter.default_mc_forwardingv6 ? "On" : "Off");
 	ttable_add_row(table, "Backup Nexthops Installed|%s",
 		       zrouter.backup_nhs_installed ? "Yes" : "No");
+	ttable_add_row(table, "NHG Tracker Timeout|%u seconds", zrouter.nhg_tracker_timeout);
 
 	out = ttable_dump(table, "\n");
 	vty_out(vty, "%s\n", out);
@@ -4194,6 +4578,105 @@ DEFUN (show_zebra_metaq_counters,
 	bool uj = use_json(argc, argv);
 
 	return zebra_show_metaq_counter(vty, uj);
+}
+
+/* Display Zebra NHG tracker counters and states */
+DEFUN (show_zebra_tracker,
+       show_zebra_tracker_cmd,
+       "show zebra tracker-nhg [json]",
+       SHOW_STR
+       ZEBRA_STR
+       "Zebra NHG tracker counters and states\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	uint32_t full = zrouter.tracker_counters.tracker_full;
+	uint32_t count = MIN(full, TRACKER_FLUSH_LOG_SIZE);
+	uint32_t start;
+
+	if (full <= TRACKER_FLUSH_LOG_SIZE)
+		start = 0;
+	else
+		start = zrouter.tracker_counters.log_idx % TRACKER_FLUSH_LOG_SIZE;
+
+	if (uj) {
+		json_object *json = json_object_new_object();
+		json_object *arr = json_object_new_array();
+
+		json_object_int_add(json, "trackersAllocated",
+				    zrouter.tracker_counters.trackers_allocated);
+		json_object_int_add(json, "trackersFreed", zrouter.tracker_counters.trackers_freed);
+		json_object_int_add(json, "trackersCollapsedReMatch",
+				    zrouter.tracker_counters.trackers_collapsed_re_match);
+		json_object_int_add(json, "trackerLoopDetected",
+				    zrouter.tracker_counters.tracker_loop_detected);
+		json_object_int_add(json, "trackerTimerExpired",
+				    zrouter.tracker_counters.tracker_timer_expired);
+		json_object_int_add(json, "trackerFullMatched",
+				    zrouter.tracker_counters.tracker_full_matched);
+		json_object_int_add(json, "trackerFullUnmatched",
+				    zrouter.tracker_counters.tracker_full_unmatched);
+		json_object_int_add(json, "trackerFullCombined",
+				    zrouter.tracker_counters.tracker_full_combined);
+		json_object_int_add(json, "trackerFullCombinedMatchedGt",
+				    zrouter.tracker_counters.tracker_full_combined_matched_gt);
+		json_object_int_add(json, "trackerFullCombinedUnmatchedGt",
+				    zrouter.tracker_counters.tracker_full_combined_unmatched_gt);
+		json_object_int_add(json, "trackerFullTotal", full);
+
+		for (uint32_t i = 0; i < count; i++) {
+			uint32_t idx = (start + i) % TRACKER_FLUSH_LOG_SIZE;
+			struct tracker_flush_event *evt = &zrouter.tracker_counters.log[idx];
+			json_object *jev = json_object_new_object();
+
+			json_object_int_add(jev, "nhgId", evt->nhg_id);
+			json_object_int_add(jev, "trackerId", evt->tracker_id);
+			json_object_int_add(jev, "matched", evt->matched);
+			json_object_int_add(jev, "unmatched", evt->unmatched);
+			json_object_int_add(jev, "deleted", evt->deleted);
+			json_object_int_add(jev, "origReCount", evt->orig_re_count);
+			json_object_array_add(arr, jev);
+		}
+
+		json_object_object_add(json, "flushEvents", arr);
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "NHG Tracker Counters\n");
+		vty_out(vty, "Trackers allocated: %" PRIu32 "\n",
+			zrouter.tracker_counters.trackers_allocated);
+		vty_out(vty, "Trackers freed: %" PRIu32 "\n",
+			zrouter.tracker_counters.trackers_freed);
+		vty_out(vty, "Trackers collapsed (due to RE match in older tracker): %" PRIu32 "\n",
+			zrouter.tracker_counters.trackers_collapsed_re_match);
+		vty_out(vty, "Loop detected: %" PRIu32 "\n",
+			zrouter.tracker_counters.tracker_loop_detected);
+		vty_out(vty, "Timer expired: %" PRIu32 "\n",
+			zrouter.tracker_counters.tracker_timer_expired);
+		vty_out(vty, "Full (matched only): %" PRIu32 "\n",
+			zrouter.tracker_counters.tracker_full_matched);
+		vty_out(vty, "Full (unmatched only): %" PRIu32 "\n",
+			zrouter.tracker_counters.tracker_full_unmatched);
+		vty_out(vty, "Full (combined): %" PRIu32 "\n",
+			zrouter.tracker_counters.tracker_full_combined);
+		vty_out(vty, "  Combined (matched > unmatched): %" PRIu32 "\n",
+			zrouter.tracker_counters.tracker_full_combined_matched_gt);
+		vty_out(vty, "  Combined (unmatched > matched): %" PRIu32 "\n",
+			zrouter.tracker_counters.tracker_full_combined_unmatched_gt);
+		vty_out(vty, "Tracker full events (total): %" PRIu32 "\n", full);
+
+		for (uint32_t i = 0; i < count; i++) {
+			uint32_t idx = (start + i) % TRACKER_FLUSH_LOG_SIZE;
+			struct tracker_flush_event *evt = &zrouter.tracker_counters.log[idx];
+
+			vty_out(vty,
+				"  Event %u: NHG %" PRIu32 " tracker %" PRIu32 " matched=%" PRIu32
+				" unmatched=%" PRIu32 " deleted=%" PRIu32 " orig_re=%" PRIu32 "\n",
+				i, evt->nhg_id, evt->tracker_id, evt->matched, evt->unmatched,
+				evt->deleted, evt->orig_re_count);
+		}
+	}
+
+	return CMD_SUCCESS;
 }
 
 DEFUN_HIDDEN (show_frr,
@@ -4381,6 +4864,7 @@ void zebra_vty_init(void)
 	install_node(&protocol_node);
 
 	install_element(CONFIG_NODE, &zebra_nexthop_group_keep_cmd);
+	install_element(CONFIG_NODE, &zebra_nexthop_group_tracker_cmd);
 	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
 	install_element(CONFIG_NODE, &proto_nexthop_group_only_cmd);
 	install_element(CONFIG_NODE, &backup_nexthop_recursive_use_enable_cmd);
@@ -4454,6 +4938,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
 	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
+	install_element(VIEW_NODE, &show_zebra_tracker_cmd);
 
 #ifdef HAVE_NETLINK
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);

@@ -1689,6 +1689,10 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *parent
 	unsigned long inherit_secs;
 	uint32_t unique_re_count;
 
+	/* NHG tracker disabled via config, skip tracker creation. */
+	if (zrouter.nhg_tracker_disabled)
+		return NULL;
+
 	if (PROTO_OWNED(parent_nhe))
 		return NULL;
 
