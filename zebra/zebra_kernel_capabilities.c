@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include <linux/rtnetlink.h>
 
@@ -28,14 +29,33 @@
 #include <zebra/kernel_netlink.h>
 #include <zebra/zebra_router.h>
 
+static bool kernel_capabilities_logging_enabled;
+
 #define LOG_UNSUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE()                                              \
-	zlog_err("%s: SEG6LOCAL DT6 routes with VRFTABLE is NOT supported", __func__)
-#define LOG_SUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE()                                                \
-	zlog_info("%s: SEG6LOCAL DT6 routes with VRFTABLE is supported", __func__)
+	do {                                                                                       \
+		if (kernel_capabilities_logging_enabled)                                           \
+			zlog_err("%s: SEG6LOCAL DT6 routes with VRFTABLE is NOT supported",        \
+				 __func__);                                                        \
+	} while (0)
+
+#define LOG_SUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE()                                                 \
+	do {                                                                                        \
+		if (kernel_capabilities_logging_enabled)                                            \
+			zlog_info("%s: SEG6LOCAL DT6 routes with VRFTABLE is supported", __func__); \
+	} while (0)
+
 #define LOG_UNSUPPORTED_SRV6_SEG6_SOURCE_ENCAP()                                                   \
-	zlog_err("%s: SEG6 SOURCE ENCAP is NOT supported", __func__)
+	do {                                                                                       \
+		if (kernel_capabilities_logging_enabled)                                           \
+			zlog_err("%s: SEG6 SOURCE ENCAP is NOT supported", __func__);              \
+	} while (0)
+
 #define LOG_SUPPORTED_SRV6_SEG6_SOURCE_ENCAP()                                                     \
-	zlog_info("%s: SEG6 SOURCE ENCAP is supported", __func__)
+	do {                                                                                       \
+		if (kernel_capabilities_logging_enabled)                                           \
+			zlog_info("%s: SEG6 SOURCE ENCAP is supported", __func__);                 \
+	} while (0)
+
 #define CHECK_SRV6_ATTR_L3VRF_TABLE	9999999
 #define CHECK_SRV6_ATTR_L3VRF_INTERFACE "6wsrv6l3vrf"
 #define CHECK_SRV6_ATTR_PREFIX_STR	"2001:db8:efff::"
@@ -522,12 +542,31 @@ static void check_srv6_attr_supported_func_notify(struct event *thread)
 		LOG_UNSUPPORTED_SRV6_SEG6_SOURCE_ENCAP();
 }
 
+static bool check_process_is_in_root_netns(void)
+{
+	struct stat self_netns, root_netns;
+
+	if (stat("/proc/self/ns/net", &self_netns) == -1) {
+		zlog_debug("Erreur stat self");
+		return false;
+	}
+
+	if (stat("/proc/1/ns/net", &root_netns) == -1) {
+		zlog_debug("Erreur stat PID 1");
+		return false;
+	}
+
+	return self_netns.st_ino == root_netns.st_ino;
+}
+
 void zebra_kernel_capabilities_init(void)
 {
 	check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress = false;
 	kernel_capabilities_set_srv6_seg6local_dt6_vrftable_attr_supported(false);
 	check_srv6_seg6_source_encap_attr_supported_in_progress = false;
 	kernel_capabilities_set_srv6_seg6_source_encap_attr_supported(false);
+
+	kernel_capabilities_logging_enabled = check_process_is_in_root_netns();
 
 	/* create the necessary interfaces to start the probing
 	 * for srv6 capabilities check
