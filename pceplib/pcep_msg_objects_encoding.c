@@ -999,7 +999,7 @@ struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf, size_t buf
 	 * and length */
 	pcep_decode_object_hdr(obj_buf, &object_hdr);
 
-	if (object_hdr.encoded_object_length <= OBJECT_HEADER_LENGTH) {
+	if (object_hdr.encoded_object_length < OBJECT_HEADER_LENGTH) {
 		pcep_log(LOG_INFO, "%s: Cannot decode Object: invalid header length %d",
 			 __func__, object_hdr.encoded_object_length);
 		return NULL;
