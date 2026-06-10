@@ -98,8 +98,8 @@ struct txn_req *txn_req_alloc(struct mgmt_txn *txn, uint64_t req_id, enum txn_re
 	TAILQ_INSERT_TAIL(&txn->reqs, txn_req, link);
 	TXN_INCREF(txn);
 
-	_dbg("Added %s txn-req req-id: %Lu txn-id: %Lu session-id: %Lu", txn_req_names[req_type],
-	     req_id, txn->txn_id, txn->session_id);
+	_dbg("Added %s txn-req req-id: %" PRIu64 " txn-id: %" PRIu64 " session-id: %" PRIu64,
+	     txn_req_names[req_type], req_id, txn->txn_id, txn->session_id);
 
 	return txn_req;
 }
@@ -128,8 +128,8 @@ void txn_req_free(struct txn_req *txn_req)
 	uint64_t txn_id = txn->txn_id;
 
 	/* prevent recursion */
-	_dbg("Deleting %s txn-req req-id: %Lu txn-id: %Lu", txn_req_names[txn_req->req_type],
-	     txn_req->req_id, txn_id);
+	_dbg("Deleting %s txn-req req-id: %" PRIu64 " txn-id: %" PRIu64,
+	     txn_req_names[txn_req->req_type], txn_req->req_id, txn_id);
 
 	switch (txn_req->req_type) {
 	case TXN_REQ_TYPE_COMMIT:
@@ -148,7 +148,7 @@ void txn_req_free(struct txn_req *txn_req)
 	}
 
 	TAILQ_REMOVE(&txn->reqs, txn_req, link);
-	_dbg("Removed req-id: %Lu from request-list", txn_req->req_id);
+	_dbg("Removed req-id: %" PRIu64 " from request-list", txn_req->req_id);
 
 	darr_free(txn_req->err_info);
 	TXN_DECREF(txn_req->txn);
@@ -188,7 +188,8 @@ static void txn_get_tree_data_done(struct txn_req_get_tree *get_tree)
 					       get_tree->result_type, get_tree->wd_options, result,
 					       get_tree->partial_error, false);
 	else {
-		_log_err("Error sending the results of GET-TREE for txn-id %Lu req_id %Lu to requested type %u",
+		_log_err("Error sending the results of GET-TREE for txn-id %" PRIu64
+			 " req_id %" PRIu64 " to requested type %u",
 			 txn->txn_id, req_id, get_tree->result_type);
 
 		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false,
@@ -379,7 +380,7 @@ state:
 		err = lyd_merge_siblings(&get_tree->client_results, *ylib, LYD_MERGE_DESTRUCT);
 		*ylib = NULL;
 		if (err) {
-			_log_err("Error merging yang-library result for txn-id: %Lu", txn_id);
+			_log_err("Error merging yang-library result for txn-id: %" PRIu64, txn_id);
 			return NB_ERR;
 		}
 	}
@@ -489,15 +490,15 @@ void mgmt_txn_handle_rpc_reply(struct mgmt_be_client_adapter *adapter,
 	LY_ERR err = LY_SUCCESS;
 
 	if (!txn) {
-		_log_err("RPC reply from %s for a missing txn-id %Lu", adapter->name, txn_id);
+		_log_err("RPC reply from %s for a missing txn-id %" PRIu64, adapter->name, txn_id);
 		return;
 	}
 
 	/* Find the request. */
 	txn_req = txn_txn_req(txn, req_id);
 	if (!txn_req || txn_req->req_type != TXN_REQ_TYPE_RPC) {
-		_log_err("RPC reply from %s for txn-id %Lu missing req_id %Lu", adapter->name,
-			 txn_id, req_id);
+		_log_err("RPC reply from %s for txn-id %" PRIu64 " missing req_id %" PRIu64,
+			 adapter->name, txn_id, req_id);
 		return;
 	}
 	rpc = as_rpc(txn_req);
@@ -656,7 +657,7 @@ void mgmt_txn_handle_error_reply(struct mgmt_be_client_adapter *adapter, uint64_
 
 	txn = txn_lookup(txn_id);
 	if (!txn) {
-		_log_err("Error reply from %s cannot find txn-id %Lu", adapter->name, txn_id);
+		_log_err("Error reply from %s cannot find txn-id %" PRIu64, adapter->name, txn_id);
 		return;
 	}
 
@@ -669,12 +670,13 @@ void mgmt_txn_handle_error_reply(struct mgmt_be_client_adapter *adapter, uint64_
 			break;
 	}
 	if (!txn_req) {
-		_log_err("Error reply from %s for txn-id %Lu cannot find req_id %Lu",
+		_log_err("Error reply from %s for txn-id %" PRIu64 " cannot find req_id %" PRIu64,
 			 adapter->name, txn_id, req_id);
 		return;
 	}
 
-	_log_err("Error reply from %s for txn-id %Lu req_id %Lu", adapter->name, txn_id, req_id);
+	_log_err("Error reply from %s for txn-id %" PRIu64 " req_id %" PRIu64, adapter->name,
+		 txn_id, req_id);
 
 	switch (txn_req->req_type) {
 	case TXN_REQ_TYPE_COMMIT:
@@ -728,7 +730,7 @@ uint64_t mgmt_txn_get_session_id(uint64_t txn_id)
 static void txn_incref(struct mgmt_txn *txn, const char *file, int line)
 {
 	txn->refcount++;
-	_dbg("TXN-INCREF %s txn-id: %Lu refcnt: %d file: %s line: %d)",
+	_dbg("TXN-INCREF %s txn-id: %" PRIu64 " refcnt: %d file: %s line: %d)",
 	     mgmt_txn_type2str(txn->type), txn->txn_id, txn->refcount, file, line);
 }
 
@@ -737,7 +739,7 @@ void txn_decref(struct mgmt_txn *txn, const char *file, int line)
 	assert(txn && txn->refcount);
 
 	txn->refcount--;
-	_dbg("TXN-DECREF %s txn-id: %Lu refcnt: %d file: %s line: %d",
+	_dbg("TXN-DECREF %s txn-id: %" PRIu64 " refcnt: %d file: %s line: %d",
 	     mgmt_txn_type2str(txn->type), txn->txn_id, txn->refcount, file, line);
 	if (!txn->refcount) {
 		if (txn->type == MGMTD_TXN_TYPE_CONFIG)
@@ -746,8 +748,8 @@ void txn_decref(struct mgmt_txn *txn, const char *file, int line)
 		hash_release(txn_id_tab, txn);
 		TAILQ_REMOVE(&txn_txns, txn, link);
 
-		_dbg("Deleted %s txn-id: %Lu session-id: %Lu", mgmt_txn_type2str(txn->type),
-		     txn->txn_id, txn->session_id);
+		_dbg("Deleted %s txn-id: %" PRIu64 " session-id: %" PRIu64,
+		     mgmt_txn_type2str(txn->type), txn->txn_id, txn->session_id);
 
 		XFREE(MTYPE_MGMTD_TXN, txn);
 	}

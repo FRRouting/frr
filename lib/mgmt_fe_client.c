@@ -125,7 +125,7 @@ static int fe_client_push_sent_msg(struct mgmt_fe_client *client, struct mgmt_ms
 	if (msg->refer_id) {
 		session = mgmt_fe_find_session_by_session_id(client, msg->refer_id);
 		if (!session) {
-			log_err_fe_client("No session for sent msg with session-id %Lu",
+			log_err_fe_client("No session for sent msg with session-id %" PRIu64,
 					  msg->refer_id);
 			mgmt_msg_native_free_msg(msg);
 			return -1;
@@ -133,11 +133,13 @@ static int fe_client_push_sent_msg(struct mgmt_fe_client *client, struct mgmt_ms
 	}
 
 	if (session) {
-		debug_fe_client("Push sent message refer-id %Lu req-id %Lu for session-id %Lu of client %s",
+		debug_fe_client("Push sent message refer-id %" PRIu64 " req-id %" PRIu64
+				" for session-id %" PRIu64 " of client %s",
 				msg->refer_id, msg->req_id, session->session_id, client->name);
 		darr_push(session->sent_msgs, msg);
 	} else {
-		debug_fe_client("Push sent message refer-id %Lu req-id %Lu for client %s",
+		debug_fe_client("Push sent message refer-id %" PRIu64 " req-id %" PRIu64
+				" for client %s",
 				msg->refer_id, msg->req_id, client->name);
 		darr_push(client->sent_msgs, msg);
 	}
@@ -161,7 +163,7 @@ static struct mgmt_msg_header *fe_client_pop_sent_msg(struct mgmt_fe_client *cli
 	if (session_id) {
 		session = mgmt_fe_find_session_by_session_id(client, session_id);
 		if (!session) {
-			log_err_fe_client("No session for sent msg with session-id %Lu",
+			log_err_fe_client("No session for sent msg with session-id %" PRIu64,
 					  session_id);
 			return NULL;
 		}
@@ -176,12 +178,14 @@ static struct mgmt_msg_header *fe_client_pop_sent_msg(struct mgmt_fe_client *cli
 		msg = (*sent_msgsp)[i];
 		if (msg->req_id == req_id) {
 			darr_remove(*sent_msgsp, i);
-			debug_fe_client("Popping sent message for client %s session-id %Lu req-id %Lu",
+			debug_fe_client("Popping sent message for client %s session-id %" PRIu64
+					" req-id %" PRIu64,
 					client->name, session_id, req_id);
 			return msg;
 		}
 	}
-	debug_fe_client("No sent message found for client %s session-id %Lu req-id %Lu",
+	debug_fe_client("No sent message found for client %s session-id %" PRIu64
+			" req-id %" PRIu64,
 			client->name, session_id, req_id);
 	return NULL;
 }
@@ -200,11 +204,11 @@ static struct mgmt_msg_header *fe_client_pop_sess_req_msg(struct mgmt_fe_client 
 		if (msg->req_id != req_id)
 			continue;
 		if (msg->code != MGMT_MSG_CODE_SESSION_REQ) {
-			log_err_fe_client("non-session-req sent msg found for client %s req-id %Lu",
+			log_err_fe_client("non-session-req sent msg found for client %s req-id %" PRIu64,
 					  client->name, req_id);
 			return NULL;
 		}
-		debug_fe_client("Popping sent session_req message for client %s req-id %Lu",
+		debug_fe_client("Popping sent session_req message for client %s req-id %" PRIu64,
 				client->name, req_id);
 		darr_remove(client->sent_msgs, i);
 		return msg;
@@ -223,13 +227,14 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client *client,
 	msg->code = MGMT_MSG_CODE_SESSION_REQ;
 	msg->req_id = session->client_id;
 	if (create) {
-		debug_fe_client("Sending SESSION_REQ create message for client-id %Lu",
+		debug_fe_client("Sending SESSION_REQ create message for client-id %" PRIu64,
 				session->client_id);
 		/* we need to queue before sending short-circuit so it's there when replied to */
 		darr_push(client->sent_msgs, (struct mgmt_msg_header *)msg);
 	} else {
 		msg->refer_id = session->session_id;
-		debug_fe_client("Sending SESSION_REQ destroy message for session-id: %Lu client-id %Lu",
+		debug_fe_client("Sending SESSION_REQ destroy message for session-id: %" PRIu64
+				" client-id %" PRIu64,
 				msg->refer_id, msg->req_id);
 		/* we need to queue before sending short-circuit so it's there when replied to */
 		darr_push(session->sent_msgs, (struct mgmt_msg_header *)msg);
@@ -287,7 +292,8 @@ int mgmt_fe_send_commit_req(struct mgmt_fe_client *client, uint64_t session_id, 
 		msg->action = MGMT_MSG_COMMIT_APPLY;
 	msg->unlock = unlock;
 
-	debug_fe_client("Sending COMMIT message for src: %s dst: %s session-id %Lu action: %s unlock: %d",
+	debug_fe_client("Sending COMMIT message for src: %s dst: %s session-id %" PRIu64
+			" action: %s unlock: %d",
 			dsid2name(src_ds_id), dsid2name(dest_ds_id), session_id,
 			msg->action == MGMT_MSG_COMMIT_VALIDATE ? "validate"
 			: msg->action == MGMT_MSG_COMMIT_ABORT	? "abort"
@@ -469,19 +475,20 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 			orig_msg = fe_client_pop_sent_msg(client, msg->refer_id, msg->req_id,
 							  &session);
 
-		debug_fe_client("Got SESSION_REPLY (%s) for client-id %Lu with session-id: %Lu",
+		debug_fe_client("Got SESSION_REPLY (%s) for client-id %" PRIu64
+				" with session-id: %" PRIu64,
 				session_reply->created ? "create" : "destroy", msg->req_id,
 				msg->refer_id);
 		if (session_reply->created) {
 			session = mgmt_fe_find_session_by_client_id(client, msg->req_id);
 			if (!session) {
-				log_err_fe_client("Session create failed for client-id %Lu",
+				log_err_fe_client("Session create failed for client-id %" PRIu64,
 						  msg->req_id);
 				goto done;
 			}
 			session->session_id = msg->refer_id;
 		} else {
-			debug_fe_client("Got SESSION_REPLY (destroy) for session-id %Lu",
+			debug_fe_client("Got SESSION_REPLY (destroy) for session-id %" PRIu64,
 					session_reply->refer_id);
 			session = mgmt_fe_find_session_by_session_id(client, msg->refer_id);
 		}
@@ -497,8 +504,8 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 		assert(msg->code == MGMT_MSG_CODE_ERROR &&
 		       orig_msg->code == MGMT_MSG_CODE_SESSION_REQ);
 
-		debug_fe_client("Error handling session-req client-id %Lu req-id %Lu", msg->req_id,
-				msg->req_id);
+		debug_fe_client("Error handling session-req client-id %" PRIu64 " req-id %" PRIu64,
+				msg->req_id, msg->req_id);
 
 		if (msg->refer_id)
 			session = mgmt_fe_find_session_by_session_id(client, msg->refer_id);
@@ -522,7 +529,7 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 	orig_msg = fe_client_pop_sent_msg(client, msg->refer_id, msg->req_id, &session);
 	orig_code = orig_msg ? orig_msg->code : MGMT_MSG_CODE_ERROR;
 	if (!session || !session->client) {
-		log_err_fe_client("No session for received native msg session-id %Lu",
+		log_err_fe_client("No session for received native msg session-id %" PRIu64,
 				  msg->refer_id);
 		goto done;
 	}
@@ -581,7 +588,8 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 generic_error_handler:
 			err_msg = (typeof(err_msg))msg;
 			if (!orig_msg)
-				log_err_fe_client("No saved message for session-id %Lu req-id %Lu",
+				log_err_fe_client("No saved message for session-id %" PRIu64
+						  " req-id %" PRIu64,
 						  msg->refer_id, msg->req_id);
 			if (session->client->cbs.error_notify)
 				session->client->cbs.error_notify(client, client->user_data,
@@ -590,7 +598,8 @@ generic_error_handler:
 								  err_msg->error, err_msg->errstr);
 			break;
 		default:
-			log_err_fe_client("Unhandled original message code %u for session-id %Lu req-id %Lu",
+			log_err_fe_client("Unhandled original message code %u for session-id %" PRIu64
+					  " req-id %" PRIu64,
 					  orig_code, msg->refer_id, msg->req_id);
 			assert(!"Unhandled error for original message code");
 			break;
