@@ -237,7 +237,7 @@ extern void zebra_nhg_tracker_create_for_event(struct nhg_hash_entry *root_nhe, 
 
 /* Compare two NHGs for tracker semantics (resolution-tolerant). */
 extern bool zebra_nhg_tracker_nhgs_equal(const struct nhg_hash_entry *a,
-					 const struct nhg_hash_entry *b);
+					 const struct nhg_hash_entry *b, bool skip_inactive_old);
 
 extern void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker);
 
