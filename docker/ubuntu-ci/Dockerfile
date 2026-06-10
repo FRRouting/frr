@@ -77,6 +77,7 @@ RUN for i in $(seq 1 ${APT_RETRIES}); do \
         kmod \
         iproute2 \
         iputils-ping \
+        libcunit1-dev \
         liblua5.3-dev \
         libssl-dev \
         lua5.3 \
