@@ -1141,7 +1141,7 @@ pcep_decode_obj_nopath(struct pcep_object_header *hdr, const uint8_t *obj_buf)
 			hdr, sizeof(struct pcep_object_nopath));
 
 	obj->ni = (obj_buf[0] >> 1);
-	obj->flag_c = (obj_buf[0] & OBJECT_NOPATH_FLAG_C);
+	obj->flag_c = (obj_buf[1] & OBJECT_NOPATH_FLAG_C);
 
 	return (struct pcep_object_header *)obj;
 }
