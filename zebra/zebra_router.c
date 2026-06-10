@@ -299,6 +299,9 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
 	zrouter.nhg_tracker_timeout = NHG_TRACKER_DEFAULT_TIMEOUT_SEC;
 
+	/* NHG event tracker functionality is enabled by default. */
+	zrouter.nhg_tracker_disabled = false;
+
 	zrouter.gr_stale_cleanup_time_recorded = false;
 	zrouter.gr_update_pending_time_recorded = false;
 
