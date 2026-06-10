@@ -3325,12 +3325,12 @@ DEFPY(show_bmp,
 				peer_uptime(bmp->t_up.tv_sec, uptime,
 					    sizeof(uptime), false, NULL);
 
-				ttable_add_row(tt, "%s|%s|%Lu|%Lu|%Lu|%Lu|%zu|%zu",
-					       bmp->remote, uptime,
-					       bmp->cnt_update,
-					       bmp->cnt_mirror,
-					       bmp->cnt_mirror_overruns,
-					       total, q, kq);
+				ttable_add_row(tt,
+					       "%s|%s|%" PRIu64 "|%" PRIu64 "|%" PRIu64 "|%" PRIu64
+					       "|%zu|%zu",
+					       bmp->remote, uptime, bmp->cnt_update,
+					       bmp->cnt_mirror, bmp->cnt_mirror_overruns, total, q,
+					       kq);
 			}
 			out = ttable_dump(tt, "\n");
 			vty_out(vty, "%s", out);
