@@ -3185,11 +3185,13 @@ size_t zebra_interface_link_params_write(struct stream *s,
  * :               :
  * |               |
  * +-+-+-+-+-+-+-+-+
- * |    addr_len   |  len of addr. E.g., addr_len = 4 for ipv4 addrs.
+ * |   addr_plen   |  prefixlen of addr.
  * +-+-+-+-+-+-+-+-+
- * |     daddr..   |
+ * |    daddr..    |  (zeroes if no destination/peer prefix)
  * :               :
  * |               |
+ * +-+-+-+-+-+-+-+-+
+ * |   daddr_plen  |  prefixlen of daddr.
  * +-+-+-+-+-+-+-+-+
  */
 
