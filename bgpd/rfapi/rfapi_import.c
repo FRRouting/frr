@@ -1190,7 +1190,7 @@ static int rfapiVpnBiSamePtUn(struct bgp_path_info *bpi1,
 
 uint8_t rfapiRfpCost(struct attr *attr)
 {
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
+	if (bgp_attr_exists(attr, BGP_ATTR_LOCAL_PREF)) {
 		if (attr->local_pref > 255) {
 			return 0;
 		}

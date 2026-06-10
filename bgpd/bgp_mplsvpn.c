@@ -2059,8 +2059,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				 * XXX Leave static_attr.nexthop
 				 * intact for NHT
 				 */
-				static_attr.flag &=
-					~ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+				bgp_attr_unset(&static_attr, BGP_ATTR_NEXT_HOP);
 			}
 		} else {
 			/* Update based on next-hop family to account for
@@ -2075,8 +2074,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 					static_attr.nexthop.s_addr;
 				static_attr.mp_nexthop_len =
 					BGP_ATTR_NHLEN_IPV4;
-				static_attr.flag |=
-					ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+				bgp_attr_set(&static_attr, BGP_ATTR_NEXT_HOP);
 			}
 		}
 		nexthop_self_flag = 1;
@@ -2109,7 +2107,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		encode_label(label_val, &label);
 
 	/* Set originator ID to "me" */
-	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+	bgp_attr_set(&static_attr, BGP_ATTR_ORIGINATOR_ID);
 	static_attr.originator_id = to_bgp->router_id;
 
 	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
@@ -2557,7 +2555,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 			static_attr.mp_nexthop_len =
 				path_vpn->attr->mp_nexthop_len;
 		}
-		static_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		bgp_attr_set(&static_attr, BGP_ATTR_NEXT_HOP);
 		break;
 	case AF_INET6:
 		/* save */

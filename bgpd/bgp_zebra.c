@@ -1679,13 +1679,12 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 		strlcpy(bzo.aspath, info->attr->aspath->str,
 			sizeof(bzo.aspath));
 
-		if (info->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))
+		if (bgp_attr_exists(info->attr, BGP_ATTR_COMMUNITIES))
 			strlcpy(bzo.community,
 				bgp_attr_get_community(info->attr)->str,
 				sizeof(bzo.community));
 
-		if (info->attr->flag
-		    & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))
+		if (bgp_attr_exists(info->attr, BGP_ATTR_LARGE_COMMUNITIES))
 			strlcpy(bzo.lcommunity,
 				bgp_attr_get_lcommunity(info->attr)->str,
 				sizeof(bzo.lcommunity));
