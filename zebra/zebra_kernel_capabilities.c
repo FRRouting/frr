@@ -67,7 +67,8 @@ static bool check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress;
 static bool check_srv6_seg6_source_encap_attr_supported_in_progress;
 struct event *check_srv6_attr_supported_func_thread;
 
-static bool configure_fake_l3vrf(struct zebra_ns *zns, bool add_l3vrf)
+static bool configure_fake_l3vrf(struct zebra_ns *zns,
+				 enum kernel_capabilities_interface_action_type action)
 {
 	int buflen = NL_PKT_BUF_SIZE;
 	struct rtattr *rta_info, *rta_vrf;
@@ -82,21 +83,27 @@ static bool configure_fake_l3vrf(struct zebra_ns *zns, bool add_l3vrf)
 	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
 	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 
-	if (add_l3vrf) {
+	if (action == KERNEL_CAPABILITIES_INTERFACE_ADD ||
+	    action == KERNEL_CAPABILITIES_INTERFACE_SHUTDOWN) {
 		req.n.nlmsg_type = RTM_NEWLINK;
 		req.n.nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
 
-		req.ifi.ifi_change = IFF_UP;
-		req.ifi.ifi_flags = IFF_UP;
-	} else {
+		if (action == KERNEL_CAPABILITIES_INTERFACE_ADD) {
+			req.ifi.ifi_change = IFF_UP;
+			req.ifi.ifi_flags = IFF_UP;
+		} else {
+			req.ifi.ifi_change |= IFF_UP;
+			req.ifi.ifi_flags &= ~IFF_UP;
+		}
+	} else
 		req.n.nlmsg_type = RTM_DELLINK;
-	}
 
 	if (!nl_attr_put(&req.n, buflen, IFLA_IFNAME, CHECK_SRV6_ATTR_L3VRF_INTERFACE,
 			 strlen(CHECK_SRV6_ATTR_L3VRF_INTERFACE) + 1))
 		goto configure_fake_vrf_error;
 
-	if (!add_l3vrf) {
+	if (action == KERNEL_CAPABILITIES_INTERFACE_DEL) {
+		req.n.nlmsg_type = RTM_DELLINK;
 		if (netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0))
 			goto configure_fake_vrf_error;
 		return true;
@@ -123,8 +130,10 @@ static bool configure_fake_l3vrf(struct zebra_ns *zns, bool add_l3vrf)
 	if (netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0))
 		goto configure_fake_vrf_error;
 
-	check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress = true;
-	check_srv6_seg6_source_encap_attr_supported_in_progress = true;
+	if (action == KERNEL_CAPABILITIES_INTERFACE_ADD) {
+		check_srv6_seg6local_dt6_vrftable_attr_supported_in_progress = true;
+		check_srv6_seg6_source_encap_attr_supported_in_progress = true;
+	}
 
 	return true;
 
@@ -396,26 +405,35 @@ error_fake_srv6_seg6local_route:
 	return false;
 }
 
-static bool check_srv6_interfaces_configured(bool create)
+static bool check_srv6_interfaces_configured(enum kernel_capabilities_interface_action_type action)
 {
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 
 	if (!zns || zns->netlink_cmd.sock == -1)
 		return false;
 
-	if (!zebra_kernel_capabilities_configure_interface(zns, CHECK_SRV6_DUMMY_INTERFACE, create))
+	if (action == KERNEL_CAPABILITIES_INTERFACE_DEL) {
+		if (!zebra_kernel_capabilities_configure_interface(zns, CHECK_SRV6_DUMMY_INTERFACE,
+								   KERNEL_CAPABILITIES_INTERFACE_SHUTDOWN))
+			return false;
+	}
+
+	if (!zebra_kernel_capabilities_configure_interface(zns, CHECK_SRV6_DUMMY_INTERFACE, action))
 		return false;
 
-	if (!configure_fake_l3vrf(zns, create) && create) {
+	if (!configure_fake_l3vrf(zns, action) && action == KERNEL_CAPABILITIES_INTERFACE_ADD) {
 		zebra_kernel_capabilities_configure_interface(zns, CHECK_SRV6_DUMMY_INTERFACE,
-							      false);
+							      KERNEL_CAPABILITIES_INTERFACE_SHUTDOWN);
+		zebra_kernel_capabilities_configure_interface(zns, CHECK_SRV6_DUMMY_INTERFACE,
+							      KERNEL_CAPABILITIES_INTERFACE_DEL);
 		return false;
 	}
 	return true;
 }
 
-bool zebra_kernel_capabilities_configure_interface(struct zebra_ns *zns, const char *ifname,
-						   bool add_iface)
+bool zebra_kernel_capabilities_configure_interface(
+	struct zebra_ns *zns, const char *ifname,
+	enum kernel_capabilities_interface_action_type action)
 {
 	int buflen = NL_PKT_BUF_SIZE;
 	struct rtattr *rta_info;
@@ -428,19 +446,24 @@ bool zebra_kernel_capabilities_configure_interface(struct zebra_ns *zns, const c
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
 	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
-	if (add_iface) {
+	if (action == KERNEL_CAPABILITIES_INTERFACE_ADD ||
+	    action == KERNEL_CAPABILITIES_INTERFACE_SHUTDOWN) {
 		req.n.nlmsg_type = RTM_NEWLINK;
 		req.n.nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
-		req.ifi.ifi_change = IFF_UP;
-		req.ifi.ifi_flags = IFF_UP;
-	} else {
+		if (action == KERNEL_CAPABILITIES_INTERFACE_ADD) {
+			req.ifi.ifi_change = IFF_UP;
+			req.ifi.ifi_flags = IFF_UP;
+		} else {
+			req.ifi.ifi_change |= IFF_UP;
+			req.ifi.ifi_flags &= ~IFF_UP;
+		}
+	} else
 		req.n.nlmsg_type = RTM_DELLINK;
-	}
 
 	if (!nl_attr_put(&req.n, buflen, IFLA_IFNAME, ifname, strlen(ifname) + 1))
 		return false;
 
-	if (!add_iface) {
+	if (action == KERNEL_CAPABILITIES_INTERFACE_DEL) {
 		if (netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0))
 			return false;
 		return true;

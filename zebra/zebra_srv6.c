@@ -154,7 +154,8 @@ void zebra_srv6_check_sr0_created(void)
 	if (!zns || zns->netlink_cmd.sock == -1)
 		goto netlink_error;
 
-	if (!zebra_kernel_capabilities_configure_interface(zns, DEFAULT_SRV6_IFNAME, true))
+	if (!zebra_kernel_capabilities_configure_interface(zns, DEFAULT_SRV6_IFNAME,
+							   KERNEL_CAPABILITIES_INTERFACE_ADD))
 		goto netlink_error;
 
 	check_sr0_created_done = true;
