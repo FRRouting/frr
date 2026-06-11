@@ -449,8 +449,8 @@ bool zebra_kernel_capabilities_configure_interface(
 	if (action == KERNEL_CAPABILITIES_INTERFACE_ADD ||
 	    action == KERNEL_CAPABILITIES_INTERFACE_SHUTDOWN) {
 		req.n.nlmsg_type = RTM_NEWLINK;
-		req.n.nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
 		if (action == KERNEL_CAPABILITIES_INTERFACE_ADD) {
+			req.n.nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
 			req.ifi.ifi_change = IFF_UP;
 			req.ifi.ifi_flags = IFF_UP;
 		} else {
@@ -594,7 +594,7 @@ void zebra_kernel_capabilities_init(void)
 	/* create the necessary interfaces to start the probing
 	 * for srv6 capabilities check
 	 */
-	if (!check_srv6_interfaces_configured(true)) {
+	if (!check_srv6_interfaces_configured(KERNEL_CAPABILITIES_INTERFACE_ADD)) {
 		LOG_UNSUPPORTED_SRV6_SEG6LOCAL_DT6_VRFTABLE();
 		LOG_UNSUPPORTED_SRV6_SEG6_SOURCE_ENCAP();
 	}
@@ -639,7 +639,7 @@ void zebra_kernel_capabilities_interface_created_cb(struct interface *ifp)
 
 netlink_error:
 	supported_func_done = true;
-	check_srv6_interfaces_configured(false);
+	check_srv6_interfaces_configured(KERNEL_CAPABILITIES_INTERFACE_DEL);
 }
 
 #else
