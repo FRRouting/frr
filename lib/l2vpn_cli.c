@@ -606,7 +606,7 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool
 				json_object_int_add(json_elt, "remoteVsi", l2vpn_svc->remote_vsi);
 				state = l2vpn_svc->local_status == EVPN_FORWARDING &&
 					l2vpn_svc->remote_status == EVPN_FORWARDING;
-				json_object_string_add(json_elt, "status", state ? "Up" : "Down");
+				json_object_string_add(json_elt, "state", state ? "Up" : "Down");
 				json_object_string_add(json_elt, "protocol", "BGP");
 				json_object_array_add(list, json_elt);
 			}
@@ -671,7 +671,7 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool
 
 		if (!detail) {
 			vty_out(vty, "%-19s %-19s %-29s %-9s %-9s %-9s\n", "EVPN",
-				"Local/Remote VSI", "ESI ", "Status", "Role", "PROTO");
+				"Local/Remote VSI", "ESI ", "State", "Role", "PROTO");
 			memset(buf, '-', 19);
 			memset(buf_esi, '-', ESI_STR_LEN - 1);
 			vty_out(vty, "%s %s %s ", buf, buf, buf_esi);
