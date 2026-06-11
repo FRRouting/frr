@@ -18,6 +18,7 @@
 #include "printfrr.h"
 #include "vrf.h"
 #include "nexthop_group.h"
+#include "kernel_capabilities.h"
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop");
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label");
@@ -1401,7 +1402,8 @@ void nexthop_json_helper(json_object *json_nexthop,
 										 ->encap_behavior,
 									 false));
 			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
-					    &in6addr_any))
+					    &in6addr_any) &&
+			    kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
 				json_object_string_addf(json_nexthop,
 							"srv6EncapSource",
 							"%pI6",
@@ -1430,7 +1432,8 @@ void nexthop_json_helper(json_object *json_nexthop,
 											 ->encap_behavior,
 										 false));
 				if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
-						    &in6addr_any))
+						    &in6addr_any) &&
+				    kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
 					json_object_string_addf(json_nexthop,
 								"srv6EncapSource",
 								"%pI6",
@@ -1582,7 +1585,8 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 									  ->encap_behavior,
 								  false));
 			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
-					    &in6addr_any))
+					    &in6addr_any) &&
+			    kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
 				vty_out(vty, ", encap source %pI6",
 					&nexthop->nh_srv6->seg6_segs->encap_source);
 		}
