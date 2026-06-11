@@ -230,7 +230,7 @@ def check_es_evi_route(router, rd, tag, esi, iplen, vtep, nexthop, ecomm=None, f
 
 
 @retry(retry_timeout=10)
-def check_show_l2vpn_vpws(router, name, vsi, rvsi, iface, status):
+def check_show_l2vpn_vpws(router, name, vsi, rvsi, iface, state):
     res = json.loads(router.vtysh_cmd(f"show l2vpn {name} vpws json"))
 
     if not res:
@@ -247,7 +247,7 @@ def check_show_l2vpn_vpws(router, name, vsi, rvsi, iface, status):
         if vpws["memberEVPN"] != iface:
             continue
 
-        if vpws["status"] != status:
+        if vpws["state"] != state:
             continue
 
         match = vpws
@@ -256,7 +256,7 @@ def check_show_l2vpn_vpws(router, name, vsi, rvsi, iface, status):
     if match is None:
         return f"""
         Can not match VPWS(memberEVPN={iface}, localVsi={vsi},
-        remoteVsi={rvsi}, status={status})
+        remoteVsi={rvsi}, state={state})
         """
 
     return True
@@ -291,7 +291,7 @@ def test_converge_evpn_vpws():
     assert res is True, res
 
     # check EVPN VPWS state is up
-    logger.info("Checking EVPN VPWS status")
+    logger.info("Checking EVPN VPWS state")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Up")
     assert res is True, res
     res = check_show_l2vpn_vpws(pe2, "test", PE2_SVI, PE1_SVI, "vxlan101", "Up")
@@ -307,7 +307,7 @@ def test_ping():
 
 
 def test_rd():
-    "Change RD/RT configs and check EVPN VPWS status"
+    "Change RD/RT configs and check EVPN VPWS state"
 
     tgen = get_topogen()
     pe1 = tgen.gears["PE1"]
@@ -330,7 +330,7 @@ def test_rd():
         pe1, "10.10.10.10:111", PE1_SVI, ESI, 128, "::", "0.0.0.0")
     assert res is True, res
 
-    logger.info("Checking EVPN VPWS status is Down")
+    logger.info("Checking EVPN VPWS state is Down")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Down")
     assert res is True, res
 
@@ -351,7 +351,7 @@ def test_rd():
         pe2, "10.30.30.30:222", PE2_SVI, ESI, 128, "::", "0.0.0.0")
     assert res is True, res
 
-    logger.info("Checking EVPN VPWS status is Up")
+    logger.info("Checking EVPN VPWS state is Up")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Up")
     assert res is True, res
 
@@ -376,7 +376,7 @@ def test_mtu():
         ecomm="MTU 0")
     assert res is True, res
 
-    logger.info("Checking EVPN VPWS status is Up")
+    logger.info("Checking EVPN VPWS state is Up")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Up")
     assert res is True, res
 
@@ -395,14 +395,14 @@ def test_mtu():
         ecomm="MTU 1500")
     assert res is True, res
 
-    logger.info("Checking EVPN VPWS status is Down")
+    logger.info("Checking EVPN VPWS state is Down")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Down")
     assert res is True, res
 
     logger.info("PE1: restore PE1-eth0 mtu to 1500")
     pe1.run("ip link set mtu 1500 PE1-eth0")
 
-    logger.info("Checking EVPN VPWS status is Up")
+    logger.info("Checking EVPN VPWS state is Up")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Up")
     assert res is True, res
 
@@ -416,7 +416,7 @@ def test_setup_changes():
 
     logger.info("PE1: deattach AC interface (PE1-eth0) from the SVI")
     pe1.run("ip link set nomaster PE1-eth0")
-    logger.info("Checking EVPN VPWS status is Down")
+    logger.info("Checking EVPN VPWS state is Down")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Down")
     assert res is True, res
     res = check_show_l2vpn_vpws(pe2, "test", PE2_SVI, PE1_SVI, "vxlan101", "Down")
@@ -424,7 +424,7 @@ def test_setup_changes():
 
     logger.info("PE1: attach AC interface (PE1-eth0) to the SVI")
     pe1.run("ip link set master br101 PE1-eth0")
-    logger.info("Checking EVPN VPWS status is Up")
+    logger.info("Checking EVPN VPWS state is Up")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Up")
     assert res is True, res
     res = check_show_l2vpn_vpws(pe2, "test", PE2_SVI, PE1_SVI, "vxlan101", "Up")
@@ -434,13 +434,13 @@ def test_setup_changes():
     pe1.run("ip link set master br101 dev vlanTest")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Down")
     assert res is True, res
-    logger.info("Checking EVPN VPWS status is Down")
+    logger.info("Checking EVPN VPWS state is Down")
     res = check_show_l2vpn_vpws(pe2, "test", PE2_SVI, PE1_SVI, "vxlan101", "Down")
     assert res is True, res
 
     logger.info("PE1: deattach vlanTest interface from the SVI")
     pe1.run("ip link set nomaster dev vlanTest")
-    logger.info("Checking EVPN VPWS status is Up")
+    logger.info("Checking EVPN VPWS state is Up")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Up")
     assert res is True, res
     res = check_show_l2vpn_vpws(pe2, "test", PE2_SVI, PE1_SVI, "vxlan101", "Up")
@@ -481,7 +481,7 @@ def test_evpn_mix_mode():
     logger.info("Check ping host3 <-> host4")
     check_ping("host3", "10.10.2.4", True, 10, 3)
 
-    logger.info("Checking EVPN VPWS status is Up")
+    logger.info("Checking EVPN VPWS state is Up")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101", "Up")
     assert res is True, res
 
