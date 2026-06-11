@@ -25,7 +25,16 @@ import json
 import platform
 from functools import partial
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
+# Skip entire test suite until kernel patches are merged
+# Requires: RTPROT_HW (value 193) in linux kernel and iproute2 support
+pytestmark = [
+    pytest.mark.bgpd,
+    pytest.mark.pimd,
+    pytest.mark.skip(
+        reason="Requires kernel patches (RTPROT_HW=193) not yet merged. "
+        "Use bgp_evpn_mh_fpm_ext_learn as FPM-based alternative."
+    ),
+]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
