@@ -2440,6 +2440,15 @@ void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 		memset(&attr->mp_nexthop_global_in, 0, BGP_ATTR_NHLEN_IPV4);
 }
 
+static bool ibgp_reflection_check(struct bgp *bgp, struct peer *from, struct peer *peer, afi_t afi,
+				  safi_t safi)
+{
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT)) {
+		return false;
+	}
+	return true;
+}
+
 bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			     struct update_subgroup *subgrp,
 			     const struct prefix *p, struct attr *attr,
@@ -2756,12 +2765,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			 * check
 			 * is already done. So there is nothing to do.
 			 */
-			/* no bgp client-to-client reflection check. */
-			if (CHECK_FLAG(bgp->flags,
-				       BGP_FLAG_NO_CLIENT_TO_CLIENT))
-				if (CHECK_FLAG(peer->af_flags[afi][safi],
-					       PEER_FLAG_REFLECTOR_CLIENT))
+			if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)) {
+				/* checks client-to-client reflection policies */
+				ret = ibgp_reflection_check(bgp, from, peer, afi, safi);
+				if (!ret)
 					return false;
+			}
 		} else {
 			/* A route from a Non-client peer. Reflect to all other
 			   clients. */
