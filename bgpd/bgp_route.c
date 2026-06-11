@@ -5364,7 +5364,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			   PEER_STATUS_PREFIX_LIMIT);
 
 	if (pcount
-	    > (peer->pmax[afi][safi] * peer->pmax_threshold[afi][safi] / 100)) {
+	    > ((uint64_t)peer->pmax[afi][safi] * peer->pmax_threshold[afi][safi] / 100)) {
 		if (CHECK_FLAG(peer->af_sflags[afi][safi],
 			       PEER_STATUS_PREFIX_THRESHOLD)
 		    && !always)
