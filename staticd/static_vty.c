@@ -122,6 +122,9 @@ static struct static_route_args *static_args_copy(struct static_route_args *args
 	if (args->srv6_encap_behavior)
 		run_args->srv6_encap_behavior = XSTRDUP(MTYPE_STATIC_ARGS_ATTR,
 							args->srv6_encap_behavior);
+	if (args->srv6_encap_source)
+		run_args->srv6_encap_source = XSTRDUP(MTYPE_STATIC_ARGS_ATTR,
+							args->srv6_encap_source);
 	run_args->pm = args->pm;
 	run_args->bfd = args->bfd;
 	run_args->bfd_auto_hop = args->bfd_auto_hop;
@@ -203,6 +206,8 @@ static void static_args_update(struct static_route_args *dst_args,
 	static_args_update_string((char **)&dst_args->segs, src_args->segs);
 	static_args_update_string((char **)&dst_args->srv6_encap_behavior,
 				  src_args->srv6_encap_behavior);
+	static_args_update_string((char **)&dst_args->srv6_encap_source,
+				  src_args->srv6_encap_source);
 }
 
 static void static_args_free_arg(void **arg)
@@ -233,6 +238,7 @@ void static_args_free(struct static_route_args *args)
 	static_args_free_arg((void **)&args->bfd_profile);
 	static_args_free_arg((void **)&args->bfd_source);
 	static_args_free_arg((void **)&args->srv6_encap_behavior);
+	static_args_free_arg((void **)&args->srv6_encap_source);
 
 	XFREE(MTYPE_STATIC_ARGS, args);
 }
@@ -850,6 +856,8 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 			else if (strmatch(args->srv6_encap_behavior, "H_Encaps_Red"))
 				snh_seg.encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
 		}
+		if (args->srv6_encap_source)
+			inet_pton(AF_INET6, args->srv6_encap_source, &snh_seg.encap_source);
 		if (args->label) {
 			orig_label = ostr = XSTRDUP(MTYPE_TMP, args->label);
 			for (label_stack_id = 0;
@@ -901,7 +909,10 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 		    (run_args->segs && args->segs && strcmp(run_args->segs, args->segs)) ||
 		    (!!run_args->srv6_encap_behavior != !!args->srv6_encap_behavior) ||
 		    (run_args->srv6_encap_behavior && args->srv6_encap_behavior &&
-		     strcmp(run_args->srv6_encap_behavior, args->srv6_encap_behavior))) {
+		     strcmp(run_args->srv6_encap_behavior, args->srv6_encap_behavior)) ||
+		    (!!run_args->srv6_encap_source != !!args->srv6_encap_source) ||
+		    (run_args->srv6_encap_source && args->srv6_encap_source &&
+		     strcmp(run_args->srv6_encap_source, args->srv6_encap_source))) {
 			/* segments update */
 			memcpy(&run_args->nh->snh_seg, &snh_seg, sizeof(struct static_nh_seg));
 			run_args->nh->state = STATIC_START;
@@ -1015,6 +1026,7 @@ static int static_route_configure(struct vty *vty, struct static_route_args *arg
 	struct prefix p = {};
 	struct static_vrf *svrf;
 	uint8_t distance;
+	struct in6_addr srv6_encap_source;
 
 	if (args->interface_name && (!strcasecmp(args->interface_name, "reject") ||
 				     !strcasecmp(args->interface_name, "blackhole"))) {
@@ -1028,6 +1040,17 @@ static int static_route_configure(struct vty *vty, struct static_route_args *arg
 		    !strmatch(args->srv6_encap_behavior, "H_Encaps_Red")) {
 			vty_out(vty, "%% Unsupported encap behavior: %s\n",
 				args->srv6_encap_behavior);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (args->srv6_encap_source) {
+		if (!inet_pton(AF_INET6, args->srv6_encap_source, &srv6_encap_source) ||
+		    IN6_IS_ADDR_UNSPECIFIED(&srv6_encap_source) ||
+		    IN6_IS_ADDR_LOOPBACK(&srv6_encap_source) ||
+		    IN6_IS_ADDR_MULTICAST(&srv6_encap_source)) {
+			vty_out(vty, "%% Invalid encap source: '%s'\n",
+				args->srv6_encap_source);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
