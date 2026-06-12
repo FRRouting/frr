@@ -564,7 +564,7 @@ void test_pcep_tlv_create_srpag_cp_pref(void)
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
 			(PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE));
-	printf(" encoded length vs sizeof pref (%d) vs (%ld)\n",
+	printf(" encoded length vs sizeof pref (%d) vs (%zu)\n",
 	       tlv->header.encoded_tlv_length, sizeof(preference_default));
 	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length,
 			sizeof(preference_default));
