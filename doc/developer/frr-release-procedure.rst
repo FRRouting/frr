@@ -178,7 +178,7 @@ Stage 2 - Staging
          TAG=X.Y.Z
          git fetch --all
          git checkout frr-$TAG
-         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG --push .
+         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG --push .
          git tag docker/$TAG
          git push origin docker/$TAG
 
