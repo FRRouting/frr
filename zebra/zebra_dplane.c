@@ -49,7 +49,7 @@ DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
  * are made. The minor version (at least) should be updated when new APIs
  * are introduced.
  */
-static uint32_t zdplane_version = MAKE_FRRVERSION(3, 1, 0);
+static uint32_t zdplane_version = MAKE_FRRVERSION(4, 0, 0);
 
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
