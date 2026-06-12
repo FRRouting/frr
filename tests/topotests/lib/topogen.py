@@ -847,8 +847,12 @@ class TopoRouter(TopoGear):
             # Always add zebra
             self.load_config(self.RD_ZEBRA, "")
             for daemon in self.RD:
-                # This will not work for all daemons
-                daemonstr = self.RD.get(daemon).rstrip("d")
+                # Special case for bfdd - search for 'bfd' in config files, not 'bf' which is too generic
+                if daemon == self.RD_BFD:
+                    daemonstr = "bfd"
+                else:
+                    daemonstr = self.RD.get(daemon).rstrip("d")
+
                 if daemonstr == "path":
                     grep_cmd = "grep 'candidate-path' {}".format(source_path)
                 else:
