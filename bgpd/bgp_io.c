@@ -503,7 +503,7 @@ done : {
 	return status;
 }
 
-uint8_t ibuf_scratch[BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX];
+uint8_t ibuf_scratch[BGP_IBUF_WORK_SIZE];
 /*
  * Reads a chunk of data from peer->connection.fd into
  * peer->connection.ibuf_work.

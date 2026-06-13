@@ -1264,6 +1264,7 @@ enum bgp_peer_sub_sort {
 #define BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE 65535
 #define BGP_MAX_PACKET_SIZE BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
 #define BGP_MAX_PACKET_SIZE_OVERFLOW          1024
+#define BGP_IBUF_WORK_SIZE			(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE / 2)
 
 /*
  * Trigger delay for bgp_announce_route().
