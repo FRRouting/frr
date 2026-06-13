@@ -315,6 +315,173 @@ def get_normalized_aggregate_address_line(line):
     return normalized
 
 
+def get_normalized_static_route_line(line):
+    """
+    The optional keywords of "ip route" / "ipv6 route" commands can be entered
+    in any order, but FRR always renders them in a fixed order:
+
+      ip route <prefix> <nexthop> [tag T] [D] [metric M] [label L]
+          [segments S [encap-behavior E]] [nexthop-vrf V] [table TBL]
+          [weight W] [onlink] [color C]
+          [bfd [multi-hop] [source SRC] [profile P]]
+
+    (For ipv6, there's also [from <src-prefix>] after the destination prefix.)
+
+    Reorder a user-supplied line into that canonical order so that a line
+    written with the keywords in a different order is not seen as a change.
+    Otherwise frr-reload deletes and re-adds the route on every reload,
+    briefly creating a routing hole.
+    """
+    match = re.match(r"^(ip|ipv6) route\s+(\S+)\s+(.*)$", line)
+    if not match:
+        return line
+
+    afi = match.group(1)
+    prefix = match.group(2)
+    rest = match.group(3).split()
+
+    src_prefix = None
+    nexthop = []
+    tag = None
+    distance = None
+    metric = None
+    label = None
+    segments = None
+    encap_behavior = None
+    nexthop_vrf = None
+    table = None
+    weight = None
+    onlink = False
+    color = None
+    bfd = False
+    bfd_multi_hop = False
+    bfd_source = None
+    bfd_profile = None
+    vrf = None
+
+    i = 0
+
+    if afi == "ipv6" and i < len(rest) and rest[i] == "from":
+        i += 1
+        if i < len(rest):
+            src_prefix = rest[i]
+            i += 1
+
+    while i < len(rest):
+        tok = rest[i]
+        if tok in ("blackhole", "reject", "Null0"):
+            nexthop.append(tok)
+        elif tok == "tag" and i + 1 < len(rest):
+            i += 1
+            tag = rest[i]
+        elif tok == "metric" and i + 1 < len(rest):
+            i += 1
+            metric = rest[i]
+        elif tok == "label" and i + 1 < len(rest):
+            i += 1
+            label = rest[i]
+        elif tok == "segments" and i + 1 < len(rest):
+            i += 1
+            segments = rest[i]
+        elif segments and tok == "encap-behavior" and i + 1 < len(rest):
+            i += 1
+            encap_behavior = rest[i]
+        elif tok == "nexthop-vrf" and i + 1 < len(rest):
+            i += 1
+            nexthop_vrf = rest[i]
+        elif tok == "table" and i + 1 < len(rest):
+            i += 1
+            table = rest[i]
+        elif tok == "weight" and i + 1 < len(rest):
+            i += 1
+            weight = rest[i]
+        elif tok == "onlink":
+            onlink = True
+        elif tok == "color" and i + 1 < len(rest):
+            i += 1
+            color = rest[i]
+        elif tok == "bfd":
+            bfd = True
+        elif bfd and tok == "multi-hop":
+            bfd_multi_hop = True
+        elif bfd and tok == "source" and i + 1 < len(rest):
+            i += 1
+            bfd_source = rest[i]
+        elif bfd and tok == "profile" and i + 1 < len(rest):
+            i += 1
+            bfd_profile = rest[i]
+        elif tok == "vrf" and i + 1 < len(rest):
+            i += 1
+            vrf = rest[i]
+        elif re.match(r"^\d+$", tok) and int(tok) <= 255:
+            distance = tok
+        elif not nexthop:
+            nexthop.append(tok)
+        elif len(nexthop) == 1 and not any(
+            kw in rest[: i + 1]
+            for kw in [
+                "from",
+                "tag",
+                "metric",
+                "label",
+                "segments",
+                "nexthop-vrf",
+                "table",
+                "weight",
+                "onlink",
+                "color",
+                "bfd",
+            ]
+        ):
+            nexthop.append(tok)
+        else:
+            return line
+        i += 1
+
+    if not nexthop:
+        return line
+
+    normalized = afi + " route " + prefix
+    if src_prefix:
+        normalized += " from " + src_prefix
+    normalized += " " + " ".join(nexthop)
+    if tag:
+        normalized += " tag " + tag
+    if distance:
+        normalized += " " + distance
+    if metric:
+        normalized += " metric " + metric
+    if label:
+        normalized += " label " + label
+    if segments:
+        normalized += " segments " + segments
+        if encap_behavior:
+            normalized += " encap-behavior " + encap_behavior
+    if nexthop_vrf:
+        normalized += " nexthop-vrf " + nexthop_vrf
+    if table:
+        normalized += " table " + table
+    if weight:
+        normalized += " weight " + weight
+    if onlink:
+        normalized += " onlink"
+    if color:
+        normalized += " color " + color
+    if bfd:
+        if bfd_multi_hop:
+            normalized += " bfd multi-hop"
+        else:
+            normalized += " bfd"
+        if bfd_source:
+            normalized += " source " + bfd_source
+        if bfd_profile:
+            normalized += " profile " + bfd_profile
+    if vrf:
+        normalized += " vrf " + vrf
+
+    return normalized
+
+
 # This dictionary contains a tree of all commands that we know start a
 # new multi-line context. All other commands are treated either as
 # commands inside a multi-line context or as single-line contexts. This
@@ -466,6 +633,9 @@ class Config(object):
 
             if line.startswith("aggregate-address "):
                 line = get_normalized_aggregate_address_line(line)
+
+            if line.startswith("ip route ") or line.startswith("ipv6 route "):
+                line = get_normalized_static_route_line(line)
 
             # vrf static routes can be added in two ways. The old way is:
             #
