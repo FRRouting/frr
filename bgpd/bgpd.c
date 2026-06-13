@@ -1395,8 +1395,7 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union s
 	 * bounds checking for every single attribute as we construct an
 	 * UPDATE.
 	 */
-	connection->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE / 2);
+	connection->ibuf_work = ringbuf_new(BGP_IBUF_WORK_SIZE);
 
 	connection->status = Idle;
 	connection->ostatus = Idle;
