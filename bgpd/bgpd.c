@@ -1433,6 +1433,7 @@ static void peer_free(struct peer *peer)
 	event_cancel(&connection->t_pmax_restart);
 	event_cancel(&connection->t_generate_updgrp_packets);
 	event_cancel(&connection->t_stop_with_notify);
+	event_cancel(&peer->t_dynamic_cap);
 
 	event_cancel_event_ready(bm->master, connection);
 	assert(!connection->t_write);

@@ -2264,6 +2264,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	event_cancel(&connection->t_holdtime);
 	event_cancel(&connection->t_routeadv);
 	event_cancel(&connection->t_delayopen);
+	event_cancel(&peer->t_dynamic_cap);
+	peer->dynamic_cap_count = 0;
 
 	/* Clear input and output buffer.  */
 	frr_with_mutex (&connection->io_mtx) {

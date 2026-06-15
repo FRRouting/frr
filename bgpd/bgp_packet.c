@@ -3760,6 +3760,28 @@ static void bgp_dynamic_capability_software_version(uint8_t *pnt, int action,
  * @param size size of the packet
  * @return as in summary
  */
+/*
+ * Throttling of dynamic-capability messages. An established peer can otherwise
+ * repeatedly toggle capabilities (e.g. Multiprotocol SET/UNSET) and drive
+ * unbounded work such as route announce/withdraw churn. The first message arms
+ * t_dynamic_cap for BGP_DYNAMIC_CAPABILITY_THROTTLE seconds and we count every
+ * message received within that window; the counter is reset only when the
+ * window expires. Legitimate operation sends only a few messages, which are
+ * processed normally. A flooding peer is first throttled - messages past
+ * BGP_DYNAMIC_CAPABILITY_SOFT_LIMIT are ignored - and ultimately, past
+ * BGP_DYNAMIC_CAPABILITY_LIMIT, has its session reset with a NOTIFICATION.
+ */
+#define BGP_DYNAMIC_CAPABILITY_THROTTLE	  3  /* seconds */
+#define BGP_DYNAMIC_CAPABILITY_SOFT_LIMIT 16 /* messages */
+#define BGP_DYNAMIC_CAPABILITY_LIMIT	  64 /* messages */
+
+static void bgp_dynamic_capability_throttle_expire(struct event *event)
+{
+	struct peer *peer = EVENT_ARG(event);
+
+	peer->dynamic_cap_count = 0;
+}
+
 static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t *pnt,
 				    bgp_size_t length)
 {
@@ -4005,6 +4027,34 @@ int bgp_capability_receive(struct peer_connection *connection, bgp_size_t size)
 		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
 				bgp_fsm_error_subcode(connection->status));
 		return BGP_Stop;
+	}
+
+	/*
+	 * Throttle dynamic capability messages. The first message arms the
+	 * window; we count every message within it. Legitimate operation sends
+	 * only a few, which are processed normally. A flooding peer is first
+	 * throttled (messages past the soft limit are ignored) and ultimately,
+	 * past the hard limit, has its session reset.
+	 */
+	if (!event_is_scheduled(peer->t_dynamic_cap))
+		event_add_timer(bm->master, bgp_dynamic_capability_throttle_expire, peer,
+				BGP_DYNAMIC_CAPABILITY_THROTTLE, &peer->t_dynamic_cap);
+
+	peer->dynamic_cap_count++;
+
+	if (peer->dynamic_cap_count >= BGP_DYNAMIC_CAPABILITY_LIMIT) {
+		flog_err(EC_BGP_PKT_PROCESS,
+			 "%pBP: too many dynamic capability messages (%u within throttle window), resetting session",
+			 peer, peer->dynamic_cap_count);
+		bgp_notify_send(connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_OUT_OF_RESOURCE);
+		return BGP_Stop;
+	}
+
+	if (peer->dynamic_cap_count > BGP_DYNAMIC_CAPABILITY_SOFT_LIMIT) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP: dynamic capability messages throttled (count %u), ignoring",
+				   peer, peer->dynamic_cap_count);
+		return BGP_PACKET_NOOP;
 	}
 
 	/* Parse packet. */

@@ -1992,6 +1992,17 @@ struct peer {
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_refresh_stalepath;
 
+	/*
+	 * Throttling of dynamic-capability messages, so an established peer
+	 * cannot drive unbounded work (e.g. route announce/clear churn) by
+	 * rapidly toggling capabilities. While t_dynamic_cap is running,
+	 * incoming capability messages are ignored and counted; the count is
+	 * reset only when the timer expires. A peer that floods past the limit
+	 * has its session reset.
+	 */
+	struct event *t_dynamic_cap;
+	uint32_t dynamic_cap_count;
+
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_KEEPALIVES_ON (1U << 0)
