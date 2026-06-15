@@ -137,14 +137,22 @@ extern void ospf_ls_req_send(struct ospf_neighbor *nbr);
 extern void ospf_ls_upd_send_lsa(struct ospf_neighbor *nbr, struct ospf_lsa *lsa, int flag);
 extern void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *lsa_list, int flag,
 			     int send_lsreq_flag);
-extern void ospf_ls_upd_queue_send(struct ospf_interface *oi,
-				   struct list *update, struct in_addr addr,
-				   int send_lsupd_now);
+extern void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
+				   struct in_addr addr, int send_lsupd_now,
+				   struct ospf_neighbor *dst_nbr);
 extern void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr,
 				    struct ospf_lsa *lsa);
 extern void ospf_ls_ack_send_delayed(struct ospf_interface *oi);
 extern void ospf_ls_retransmit(struct ospf_interface *oi, struct ospf_lsa *lsa);
 extern void ospf_ls_req_event(struct ospf_neighbor *nbr);
+
+/* RFC4222 R4: LSA gap pacing helpers. */
+struct ospf_lsdb_linked_node;
+extern bool ospf_oi_any_nbr_gap_pacing(const struct ospf_interface *oi);
+extern void ospf_r4_nbr_init(struct ospf_neighbor *nbr);
+extern void ospf_r4_nbr_cancel(struct ospf_neighbor *nbr);
+extern struct listnode *ospf_r4_nbr_enqueue(struct ospf_neighbor *nbr, struct ospf_lsa *lsa);
+extern void ospf_r4_nbr_dequeue(struct ospf_neighbor *nbr, struct ospf_lsdb_linked_node *node);
 
 extern uint64_t ospf_now_ms(void);
 extern void ospf_ls_rxmt_timer(struct event *event);

@@ -293,9 +293,7 @@ void ospf_adj_pacing_kick(struct ospf_interface *oi)
 	 * waiters get NSM_AdjOK scheduled, then N-limit of them fail the pacing
 	 * check in nsm_adj_ok and are re-enqueued, repeating on every completion.
 	 */
-	available = (oi->adj_pacing.in_progress < limit)
-			    ? (limit - oi->adj_pacing.in_progress)
-			    : 0;
+	available = (oi->adj_pacing.in_progress < limit) ? (limit - oi->adj_pacing.in_progress) : 0;
 
 	while (available > 0) {
 		nbr = ospf_adj_pacing_dequeue(oi);

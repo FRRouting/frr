@@ -628,7 +628,8 @@ DEFUN (ip_ospf_adj_pacing_dynamic,
 		if (first_rn->info) {
 			struct ospf_interface *first_oi = first_rn->info;
 
-			vty_out(vty, "%% Dynamic pacing initialized: start_limit=%u max=%u H=%u L=%u\n",
+			vty_out(vty,
+				"%% Dynamic pacing initialized: start_limit=%u max=%u H=%u L=%u\n",
 				OSPF_ADJ_DYN_LIMIT_INITIAL, OSPF_ADJ_DYN_LIMIT_MAX,
 				first_oi->adj_pacing.high_water, first_oi->adj_pacing.low_water);
 		}
@@ -3727,6 +3728,304 @@ DEFPY (ospf_dead_timer_any_control,
 
 	return CMD_SUCCESS;
 }
+
+/* RFC4222 R4: LSA gap pacing CLI. */
+DEFPY(ospf_gap_pacing_enable,
+      ospf_gap_pacing_enable_cmd,
+      "[no$no] ip ospf lsa-pacing",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "Enable LSA gap pacing on this interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	if (no) {
+		UNSET_IF_PARAM(params, gap_pacing_enable);
+		params->gap_pacing_enable = false;
+	} else {
+		SET_IF_PARAM(params, gap_pacing_enable);
+		params->gap_pacing_enable = true;
+	}
+
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: configure initial inter-LSU pacing gap. */
+DEFPY(ospf_gap_initial,
+      ospf_gap_initial_cmd,
+      "[no$no] ip ospf lsa-pacing initial-gap (1-60000)$gap",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Initial inter-LSU gap in milliseconds\n"
+      "Gap value\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+	uint32_t min_ms = OSPF_IF_PARAM_CONFIGURED(params, gap_min_ms) ? params->gap_min_ms : 1;
+	uint32_t max_ms = OSPF_IF_PARAM_CONFIGURED(params, gap_max_ms) ? params->gap_max_ms : 60000;
+
+	if (no) {
+		UNSET_IF_PARAM(params, gap_initial_ms);
+		params->gap_initial_ms = OSPF_GAP_INITIAL_MS_DEFAULT;
+		ospf_if_update_params_all(ifp);
+		return CMD_SUCCESS;
+	}
+
+	if (gap < min_ms || gap > max_ms) {
+		vty_out(vty, "%% initial-gap (%lld) must be between %u and %u\n", (long long)gap,
+			min_ms, max_ms);
+		return CMD_WARNING;
+	}
+
+	SET_IF_PARAM(params, gap_initial_ms);
+	params->gap_initial_ms = gap;
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: remove configured initial inter-LSU pacing gap. */
+DEFUN(no_ospf_gap_initial,
+      no_ospf_gap_initial_cmd,
+      "no ip ospf lsa-pacing initial-gap",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Initial inter-LSU gap in milliseconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	UNSET_IF_PARAM(params, gap_initial_ms);
+	params->gap_initial_ms = OSPF_GAP_INITIAL_MS_DEFAULT;
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: configure minimum and maximum inter-LSU pacing gap. */
+DEFPY(ospf_gap_min_max,
+      ospf_gap_min_max_cmd,
+      "[no$no] ip ospf lsa-pacing min-gap (1-60000)$min max-gap (1-60000)$max",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Minimum inter-LSU gap\n"
+      "Minimum gap in milliseconds\n"
+      "Maximum inter-LSU gap\n"
+      "Maximum gap in milliseconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	if (no) {
+		UNSET_IF_PARAM(params, gap_min_ms);
+		UNSET_IF_PARAM(params, gap_max_ms);
+		params->gap_min_ms = OSPF_GAP_MIN_MS_DEFAULT;
+		params->gap_max_ms = OSPF_GAP_MAX_MS_DEFAULT;
+		ospf_if_update_params_all(ifp);
+		return CMD_SUCCESS;
+	}
+
+	if (min > max) {
+		vty_out(vty, "%% min (%lld) must be <= max (%lld)\n", (long long)min,
+			(long long)max);
+		return CMD_WARNING;
+	}
+
+	SET_IF_PARAM(params, gap_min_ms);
+	SET_IF_PARAM(params, gap_max_ms);
+	params->gap_min_ms = min;
+	params->gap_max_ms = max;
+	if (params->gap_initial_ms < params->gap_min_ms)
+		params->gap_initial_ms = params->gap_min_ms;
+	if (params->gap_initial_ms > params->gap_max_ms)
+		params->gap_initial_ms = params->gap_max_ms;
+
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: configure multiplicative gap adjustment factor. */
+DEFPY(ospf_gap_factor,
+      ospf_gap_factor_cmd,
+      "[no$no] ip ospf lsa-pacing factor (1-64)$factor",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Multiplicative backoff/recovery factor (F)\n"
+      "Factor value\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	if (no) {
+		UNSET_IF_PARAM(params, gap_factor);
+		params->gap_factor = OSPF_GAP_FACTOR_DEFAULT;
+	} else {
+		SET_IF_PARAM(params, gap_factor);
+		params->gap_factor = factor;
+	}
+
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: remove configured multiplicative gap adjustment factor. */
+DEFUN(no_ospf_gap_factor,
+      no_ospf_gap_factor_cmd,
+      "no ip ospf lsa-pacing factor",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Multiplicative backoff/recovery factor (F)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	UNSET_IF_PARAM(params, gap_factor);
+	params->gap_factor = OSPF_GAP_FACTOR_DEFAULT;
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: configure maximum LSAs per paced update packet. */
+DEFPY(ospf_gap_max_lsas,
+      ospf_gap_max_lsas_cmd,
+      "[no$no] ip ospf lsa-pacing max-lsas-per-update (1-200)$max_lsas",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Maximum LSAs packed into one LSU during paced sends\n"
+      "Number of LSAs\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	if (no) {
+		UNSET_IF_PARAM(params, gap_max_lsas);
+		params->gap_max_lsas = OSPF_GAP_MAX_LSAS_DEFAULT;
+	} else {
+		SET_IF_PARAM(params, gap_max_lsas);
+		params->gap_max_lsas = max_lsas;
+	}
+
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: remove configured maximum LSAs per paced update packet. */
+DEFUN(no_ospf_gap_max_lsas,
+      no_ospf_gap_max_lsas_cmd,
+      "no ip ospf lsa-pacing max-lsas-per-update",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Maximum LSAs packed into one LSU during paced sends\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	UNSET_IF_PARAM(params, gap_max_lsas);
+	params->gap_max_lsas = OSPF_GAP_MAX_LSAS_DEFAULT;
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: configure minimum interval between gap adjustments. */
+DEFPY(ospf_gap_adjust_interval,
+      ospf_gap_adjust_interval_cmd,
+      "[no$no] ip ospf lsa-pacing adjust-interval (1-60000)$adjust_interval",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Minimum time between consecutive gap adjustments (T in ms)\n"
+      "Adjustment interval in milliseconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	if (no) {
+		UNSET_IF_PARAM(params, gap_adjust_int_ms);
+		params->gap_adjust_int_ms = OSPF_GAP_ADJUST_INT_MS_DEFAULT;
+	} else {
+		SET_IF_PARAM(params, gap_adjust_int_ms);
+		params->gap_adjust_int_ms = adjust_interval;
+	}
+
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: remove configured minimum interval between gap adjustments. */
+DEFUN(no_ospf_gap_adjust_interval,
+      no_ospf_gap_adjust_interval_cmd,
+      "no ip ospf lsa-pacing adjust-interval",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Minimum time between consecutive gap adjustments (T in ms)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	UNSET_IF_PARAM(params, gap_adjust_int_ms);
+	params->gap_adjust_int_ms = OSPF_GAP_ADJUST_INT_MS_DEFAULT;
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
+/* RFC4222 R4: configure unacked-LSA low/high watermarks. */
+DEFPY(ospf_gap_watermarks,
+      ospf_gap_watermarks_cmd,
+      "[no$no] ip ospf lsa-pacing low-watermark (0-1000000)$low_water high-watermark (1-1000000)$high_water",
+      NO_STR
+      IP_STR
+      OSPF_STR
+      "LSA gap pacing parameters\n"
+      "Unacked-LSA count below which gap shrinks (L)\n"
+      "Low-watermark value\n"
+      "Unacked-LSA count above which gap grows (H)\n"
+      "High-watermark value\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+
+	if (no) {
+		UNSET_IF_PARAM(params, gap_low_water);
+		UNSET_IF_PARAM(params, gap_high_water);
+		params->gap_low_water = OSPF_GAP_LOW_WATER_DEFAULT;
+		params->gap_high_water = OSPF_GAP_HIGH_WATER_DEFAULT;
+		ospf_if_update_params_all(ifp);
+		return CMD_SUCCESS;
+	}
+
+	if (low_water >= high_water) {
+		vty_out(vty, "%% low-water (%lld) must be < high-water (%lld)\n",
+			(long long)low_water, (long long)high_water);
+		return CMD_WARNING;
+	}
+
+	SET_IF_PARAM(params, gap_low_water);
+	SET_IF_PARAM(params, gap_high_water);
+	params->gap_low_water = low_water;
+	params->gap_high_water = high_water;
+
+	ospf_if_update_params_all(ifp);
+	return CMD_SUCCESS;
+}
+
 
 DEFUN (show_ip_ospf,
        show_ip_ospf_cmd,
@@ -12734,6 +13033,34 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				}
 			}
 
+			/* RFC4222 R4: LSA gap pacing print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, gap_pacing_enable) &&
+			    params->gap_pacing_enable) {
+				vty_out(vty, " ip ospf lsa-pacing\n");
+
+				if (OSPF_IF_PARAM_CONFIGURED(params, gap_initial_ms))
+					vty_out(vty, " ip ospf lsa-pacing initial-gap %u\n",
+						params->gap_initial_ms);
+				if (OSPF_IF_PARAM_CONFIGURED(params, gap_low_water) ||
+				    OSPF_IF_PARAM_CONFIGURED(params, gap_high_water))
+					vty_out(vty,
+						" ip ospf lsa-pacing low-watermark %u high-watermark %u\n",
+						params->gap_low_water, params->gap_high_water);
+				if (OSPF_IF_PARAM_CONFIGURED(params, gap_min_ms) ||
+				    OSPF_IF_PARAM_CONFIGURED(params, gap_max_ms))
+					vty_out(vty, " ip ospf lsa-pacing min-gap %u max-gap %u\n",
+						params->gap_min_ms, params->gap_max_ms);
+				if (OSPF_IF_PARAM_CONFIGURED(params, gap_factor))
+					vty_out(vty, " ip ospf lsa-pacing factor %u\n",
+						params->gap_factor);
+				if (OSPF_IF_PARAM_CONFIGURED(params, gap_adjust_int_ms))
+					vty_out(vty, " ip ospf lsa-pacing adjust-interval %u\n",
+						params->gap_adjust_int_ms);
+				if (OSPF_IF_PARAM_CONFIGURED(params, gap_max_lsas))
+					vty_out(vty, " ip ospf lsa-pacing max-lsas-per-update %u\n",
+						params->gap_max_lsas);
+			}
+
 			/* Retransmit Interval print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params,
 						     retransmit_interval)
@@ -13677,6 +14004,19 @@ static void ospf_vty_if_init(void)
 	install_element(INTERFACE_NODE, &ip_ospf_adj_pacing_dynamic_thresholds_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_adj_pacing_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_adj_pacing_dynamic_thresholds_cmd);
+
+	/* RFC4222 R4: "ip ospf lsa-pacing" commands. */
+	install_element(INTERFACE_NODE, &ospf_gap_pacing_enable_cmd);
+	install_element(INTERFACE_NODE, &ospf_gap_initial_cmd);
+	install_element(INTERFACE_NODE, &no_ospf_gap_initial_cmd);
+	install_element(INTERFACE_NODE, &ospf_gap_min_max_cmd);
+	install_element(INTERFACE_NODE, &ospf_gap_factor_cmd);
+	install_element(INTERFACE_NODE, &no_ospf_gap_factor_cmd);
+	install_element(INTERFACE_NODE, &ospf_gap_adjust_interval_cmd);
+	install_element(INTERFACE_NODE, &no_ospf_gap_adjust_interval_cmd);
+	install_element(INTERFACE_NODE, &ospf_gap_watermarks_cmd);
+	install_element(INTERFACE_NODE, &ospf_gap_max_lsas_cmd);
+	install_element(INTERFACE_NODE, &no_ospf_gap_max_lsas_cmd);
 
 	/* "ip ospf retransmit-interval" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_retransmit_interval_addr_cmd);

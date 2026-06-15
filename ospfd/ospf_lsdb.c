@@ -44,6 +44,7 @@ ospf_lsdb_linked_node_create(route_table_delegate_t *delegate,
 		       sizeof(struct ospf_lsdb_linked_node));
 
 	node->counted_sent = false;
+	node->r4_qnode = NULL;
 
 	return (struct route_node *)node;
 }

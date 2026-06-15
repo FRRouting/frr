@@ -42,6 +42,16 @@
 #define UNSET_IF_PARAM(S, P) ((S)->P##__config) = 0
 #define SET_IF_PARAM(S, P) ((S)->P##__config) = 1
 
+/* RFC4222 R4 defaults (milliseconds unless noted). */
+#define OSPF_GAP_INITIAL_MS_DEFAULT    20
+#define OSPF_GAP_MIN_MS_DEFAULT	       20
+#define OSPF_GAP_MAX_MS_DEFAULT	       1000
+#define OSPF_GAP_FACTOR_DEFAULT	       2
+#define OSPF_GAP_ADJUST_INT_MS_DEFAULT 1000
+#define OSPF_GAP_HIGH_WATER_DEFAULT    100
+#define OSPF_GAP_LOW_WATER_DEFAULT     2
+#define OSPF_GAP_MAX_LSAS_DEFAULT      1
+
 struct ospf_if_params {
 	DECLARE_IF_PARAM(uint32_t, transmit_delay); /* Interface Transmission Delay */
 	DECLARE_IF_PARAM(uint32_t,
@@ -147,6 +157,17 @@ struct ospf_if_params {
 	/* RFC4222 Priority markings */
 	DECLARE_IF_PARAM(uint8_t, dscp_ospf_all);    /* 0–63 */
 	DECLARE_IF_PARAM(uint8_t, dscp_low_control); /* 0–63 */
+
+	/* RFC4222 R4: LSA gap pacing configuration. */
+	DECLARE_IF_PARAM(bool, gap_pacing_enable);
+	DECLARE_IF_PARAM(uint32_t, gap_initial_ms);
+	DECLARE_IF_PARAM(uint32_t, gap_min_ms);
+	DECLARE_IF_PARAM(uint32_t, gap_max_ms);
+	DECLARE_IF_PARAM(uint32_t, gap_factor);
+	DECLARE_IF_PARAM(uint32_t, gap_adjust_int_ms);
+	DECLARE_IF_PARAM(uint32_t, gap_high_water);
+	DECLARE_IF_PARAM(uint32_t, gap_low_water);
+	DECLARE_IF_PARAM(uint32_t, gap_max_lsas);
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -336,6 +357,17 @@ struct ospf_interface {
 
 	/* RFC4222/R5 : Per-interface adjacency pacing */
 	struct ospf_adj_pacing adj_pacing;
+
+	/* RFC4222 R4: effective LSA gap pacing state. */
+	bool rec4_gap_pacing;
+	uint32_t rec4_gap_initial_ms;
+	uint32_t rec4_gap_min_ms;
+	uint32_t rec4_gap_max_ms;
+	uint32_t rec4_gap_factor;
+	uint32_t rec4_gap_adjust_int_ms;
+	uint32_t rec4_high_water;
+	uint32_t rec4_low_water;
+	uint32_t rec4_max_lsas;
 
 	int on_write_q;
 
