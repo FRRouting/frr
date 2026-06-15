@@ -4449,8 +4449,7 @@ void ospf_ls_upd_send_lsa(struct ospf_neighbor *nbr, struct ospf_lsa *lsa,
  * NULL if we can not allocate, eg because LSA is bigger than imposed limit
  * on packet sizes (in which case offending LSA is deleted from update list)
  */
-static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
-						  struct ospf_interface *oi,
+static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update, struct ospf_interface *oi,
 						  struct ospf_neighbor *dst_nbr)
 {
 	struct ospf_lsa *lsa;

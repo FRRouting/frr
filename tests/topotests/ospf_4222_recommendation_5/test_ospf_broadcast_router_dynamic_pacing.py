@@ -6,6 +6,7 @@
 #
 
 import os
+import re
 import sys
 from functools import partial
 import pytest
@@ -76,10 +77,16 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    # Apply network constraints to stress-test dynamic pacing
-    r1 = tgen.gears["r1"]
-    r1.cmd("tc qdisc add dev r1-eth0 root handle 1: tbf rate 10kbit burst 10kb latency 50ms")
-    r1.cmd("tc qdisc add dev r1-eth0 parent 1:1 handle 10: netem loss 1% delay 5ms")
+    # Apply deterministic congestion without starving OSPF control packets.
+    rc, out, err = tgen.net["r1"].cmd_status(
+        "tc qdisc add dev r1-eth0 root handle 1: "
+        "tbf rate 100kbit burst 10kb latency 500ms",
+        warn=False,
+    )
+    assert rc == 0, (
+        "failed to install r1-eth0 TBF: "
+        f"stdout={out.strip()} stderr={err.strip()}"
+    )
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
@@ -175,6 +182,24 @@ def wait_for_neighbor_full(tgen, router, neighbor_id):
     _, result = topotest.run_and_expect(_poll, None, count=60, wait=1)
     assertmsg = f"Neighbor {neighbor_id} not FULL on {router}"
     assert result is None, assertmsg
+
+
+def neighbor_state(tgen, router, neighbor_id):
+    """Return the current OSPF neighbor state without waiting for recovery."""
+    data = tgen.gears[router].vtysh_cmd(
+        f"show ip ospf neighbor {neighbor_id} json", isjson=True
+    )
+    nbr_list = data.get("default", {}).get(neighbor_id)
+    if not nbr_list:
+        return "missing"
+    return nbr_list[0].get("nbrState", "unknown")
+
+
+def read_log_since(path, offset):
+    """Read daemon log data appended after offset."""
+    with open(path, "r", encoding="utf-8", errors="replace") as log_file:
+        log_file.seek(offset)
+        return log_file.read()
 
 
 def verify_broadcast_interface(
@@ -349,6 +374,36 @@ def test_ospf_broadcast_external_lsa_flooding():
     for nbr in ["1.1.1.6", "1.1.1.7"]:
         wait_for_neighbor_full(tgen, "r1", nbr)
 
+    monitored_adjacencies = [
+        ("r1", "1.1.1.2"),
+        ("r1", "1.1.1.3"),
+        ("r1", "1.1.1.4"),
+        ("r1", "1.1.1.5"),
+        ("r1", "1.1.1.6"),
+        ("r1", "1.1.1.7"),
+        ("r2", "1.1.1.1"),
+        ("r6", "1.1.1.1"),
+    ]
+    monitored_neighbors = {
+        "r1": {
+            "1.1.1.2",
+            "1.1.1.3",
+            "1.1.1.4",
+            "1.1.1.5",
+            "1.1.1.6",
+            "1.1.1.7",
+        },
+        "r2": {"1.1.1.1"},
+        "r6": {"1.1.1.1"},
+    }
+    monitored_logs = {
+        router: os.path.join(tgen.logdir, router, "ospfd.log")
+        for router in monitored_neighbors
+    }
+    log_offsets = {
+        router: os.path.getsize(path) for router, path in monitored_logs.items()
+    }
+
     step("Enable redistribute connected on r1 and inject connected prefixes")
     rc, out, err = tgen.net["r1"].cmd_status(
         "vtysh -c 'conf t' -c 'router ospf' -c 'redistribute connected'",
@@ -360,21 +415,28 @@ def test_ospf_broadcast_external_lsa_flooding():
         tgen.net["r1"].cmd(f"ip addr add 198.51.110.{i}/32 dev lo")
         tgen.net["r1"].cmd(f"ip addr add 198.51.111.{i}/32 dev lo")
 
-    # Allow LSAs to originate and flood.
-    time.sleep(3)
+    step("Continuously verify key adjacencies remain FULL during LSA storm")
+    for _ in range(5):
+        for router, nbr in monitored_adjacencies:
+            state = neighbor_state(tgen, router, nbr)
+            assert state.split("/", 1)[0] == "Full", (
+                f"Neighbor {nbr} left FULL on {router} during LSA storm: {state}"
+            )
+        time.sleep(1)
 
-    step("Verify key adjacencies remain FULL during LSA storm")
-    for router, nbr in [
-        ("r1", "1.1.1.2"),
-        ("r1", "1.1.1.3"),
-        ("r1", "1.1.1.4"),
-        ("r1", "1.1.1.5"),
-        ("r1", "1.1.1.6"),
-        ("r1", "1.1.1.7"),
-        ("r2", "1.1.1.1"),
-        ("r6", "1.1.1.1"),
-    ]:
-        wait_for_neighbor_full(tgen, router, nbr)
+    adjacency_failure = re.compile(r"InactivityTimer|1-WayReceived|Full ->")
+    for router, path in monitored_logs.items():
+        new_log = read_log_since(path, log_offsets[router])
+        failures = [
+            line
+            for line in new_log.splitlines()
+            if adjacency_failure.search(line)
+            and any(nbr in line for nbr in monitored_neighbors[router])
+        ]
+        assert not failures, (
+            f"{router} adjacency reset during LSA storm:\n"
+            + "\n".join(failures[-10:])
+        )
 
     # Wait for pacing logic to react
     sleep(5)
@@ -413,7 +475,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     log_path = os.path.join(tgen.logdir, "r1", "ospfd.log")
 
     # Step 1: Remove the tc qdisc bandwidth constraint for this test.
-    # The 10kbit limit causes two problems here:
+    # The constrained baseline causes two problems here:
     #   a) LSA withdrawal from the previous test takes minutes → U never settles
     #   b) Adjacency formation itself is throttled → Full assertion timeout is unreachable
     # This test creates its own congestion via LSA injection, so no tc constraint needed.
@@ -566,10 +628,8 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         tgen.net["r1"].cmd(f"ip addr del 198.51.120.{i}/32 dev lo 2>/dev/null || true")
     tgen.net["r1"].cmd("tc qdisc del dev r1-eth0 root 2>/dev/null || true")
     tgen.net["r1"].cmd(
-        "tc qdisc add dev r1-eth0 root handle 1: tbf rate 10kbit burst 10kb latency 50ms"
-    )
-    tgen.net["r1"].cmd(
-        "tc qdisc add dev r1-eth0 parent 1:1 handle 10: netem loss 1% delay 5ms"
+        "tc qdisc add dev r1-eth0 root handle 1: "
+        "tbf rate 100kbit burst 10kb latency 500ms"
     )
     tgen.net["r2"].cmd("tc qdisc del dev r2-eth0 root 2>/dev/null || true")
     for _rname in ["r3", "r4", "r5"]:
