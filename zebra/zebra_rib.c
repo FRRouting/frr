@@ -2588,8 +2588,8 @@ static void rib_re_nhg_free(struct route_entry *re)
 	if (re->nhe && re->nhe_id) {
 		assert(re->nhe->id == re->nhe_id);
 		route_entry_update_nhe(re, NULL);
-	} else if (re->nhe && re->nhe->nhg.nexthop)
-		nexthops_free(re->nhe->nhg.nexthop);
+	} else if (re->nhe)
+		zebra_nhg_free(re->nhe);
 
 	/*
 	 * Clean up nhe_received if it wasn't already cleared by
