@@ -271,6 +271,23 @@ static void ospf_rec4_recompute_effective(struct ospf_interface *oi)
 		oi->rec4_gap_adjust_int_ms = 1;
 	if (oi->rec4_low_water > oi->rec4_high_water)
 		oi->rec4_low_water = oi->rec4_high_water;
+
+	/* RFC4222 R4: propagate the refreshed gap to neighbors that already
+	 * exist on this interface, so enabling/changing pacing on a live
+	 * interface takes effect immediately instead of only applying to
+	 * neighbors created afterward.
+	 */
+	if (oi->nbrs) {
+		struct route_node *rn;
+
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			struct ospf_neighbor *nbr = rn->info;
+
+			if (!nbr || nbr == oi->nbr_self)
+				continue;
+			ospf_nbr_apply_rec4_params(nbr);
+		}
+	}
 }
 
 struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,

@@ -53,7 +53,7 @@ static void ospf_nbr_key(struct ospf_interface *oi, struct ospf_neighbor *nbr,
 }
 
 /* RFC4222 R4: initialize per-neighbor gap from interface config. */
-static void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr)
+void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi;
 

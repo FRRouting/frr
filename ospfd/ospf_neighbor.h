@@ -120,4 +120,6 @@ extern struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,
 extern struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *nbrs,
 							 struct in_addr *id);
 extern void ospf_renegotiate_optional_capabilities(struct ospf *top);
+/* RFC4222 R4: re-apply interface LSA pacing gap to an existing neighbor. */
+extern void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr);
 #endif /* _ZEBRA_OSPF_NEIGHBOR_H */
