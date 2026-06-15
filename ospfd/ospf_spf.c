@@ -1004,6 +1004,13 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					nh = vertex_nexthop_new();
 					nh->router = vl_data->nexthop.router;
 					nh->lsa_pos = vl_data->nexthop.lsa_pos;
+					/*
+					 * lsa_pos above is relative to the
+					 * transit area and cannot be resolved
+					 * against the backbone, so carry the
+					 * egress interface resolved there.
+					 */
+					nh->ifindex = vl_data->nexthop.ifindex;
 
 					/*
 					 * Since v is the root the nexthop and
