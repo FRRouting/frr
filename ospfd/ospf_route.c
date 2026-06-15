@@ -872,8 +872,20 @@ void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
 		 * Only deal with interface data when we
 		 * don't do a dry run
 		 */
-		if (!area->spf_dry_run)
-			oi = ospf_if_lookup_by_lsa_pos(area, nexthop->lsa_pos);
+		if (!area->spf_dry_run) {
+			/*
+			 * A virtual-link nexthop carries the egress interface
+			 * resolved in the transit area; its lsa_pos is not
+			 * meaningful in the area being populated (e.g. the
+			 * backbone), so resolve by ifindex when one is set.
+			 */
+			if (nexthop->ifindex)
+				oi = ospf_if_lookup_by_ifindex(area->ospf,
+							       nexthop->ifindex);
+			else
+				oi = ospf_if_lookup_by_lsa_pos(
+					area, nexthop->lsa_pos);
+		}
 
 		if ((oi && !ospf_path_exist(to->paths, nexthop->router, oi))
 		    || area->spf_dry_run) {
