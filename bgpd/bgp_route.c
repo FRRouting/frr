@@ -14512,6 +14512,9 @@ skip_nexthop:
 					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 				json_object_string_addf(json_path, "remoteTransposedSid", "%pI6",
 							&sid_transposed);
+				json_object_string_add(json_path, "endpointBehavior",
+						       srv6_endpoint_behavior_codepoint2str(
+							       srv6_l3service->endpoint_behavior));
 				json_sid_attr = json_object_new_object();
 				json_object_object_add(json_path, "remoteSidStructure",
 						       json_sid_attr);
@@ -14531,7 +14534,9 @@ skip_nexthop:
 		} else {
 			vty_out(vty, "      Remote SID: %pI6", sid_tmp);
 			if (srv6_l3service) {
-				vty_out(vty, ", sid structure=[%u %u %u %u %u %u]",
+				vty_out(vty, ", %s, sid structure=[%u %u %u %u %u %u]",
+					srv6_endpoint_behavior_codepoint2str(
+						srv6_l3service->endpoint_behavior),
 					srv6_l3service->loc_block_len,
 					srv6_l3service->loc_node_len, srv6_l3service->func_len,
 					srv6_l3service->arg_len, srv6_l3service->transposition_len,
