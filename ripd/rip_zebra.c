@@ -221,8 +221,18 @@ void rip_zebra_vrf_deregister(struct vrf *vrf)
 
 static void rip_zebra_connected(struct zclient *zclient)
 {
+	struct rip *rip;
+
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
+
+	RB_FOREACH (rip, rip_instance_head, &rip_instances) {
+		if (!rip->enabled || !rip->vrf)
+			continue;
+
+		rip_redistribute_enable(rip);
+		rip_zebra_vrf_register(rip->vrf);
+	}
 }
 
 zclient_handler *const rip_handlers[] = {
