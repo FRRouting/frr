@@ -146,6 +146,13 @@ static inline bool evpn_resolve_overlay_index(void)
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *originator,
 					   const struct prefix *p, struct attr *src_attr,
 					   afi_t afi, safi_t safi, uint32_t addpath_id);
+extern void bgp_evpn_withdraw_type5_route_rd(struct bgp *bgp_vrf,
+					     const struct bgp_path_info *originator,
+					     const struct prefix *p, afi_t afi, safi_t safi,
+					     uint32_t addpath_id, struct prefix_rd *prd);
+void bgp_evpn_unexport_type5_route_rd(struct bgp *bgp, const struct bgp_dest *dest,
+				      const struct bgp_path_info *pi, afi_t afi, safi_t safi,
+				      struct prefix_rd *prd);
 extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
 					  const struct bgp_path_info *originator,
 					  const struct prefix *p, afi_t afi, safi_t safi,
@@ -249,4 +256,10 @@ extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn);
 extern int install_uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn, bool install);
 extern void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr,
 					  struct prefix_evpn *evp, struct ipaddr *vtep_ip);
+extern int update_evpn_type5_route_to_vpn(struct bgp *bgp_vrf, struct prefix_evpn *p,
+					  struct bgp_path_info *pi, struct prefix_rd *prd);
+void bgp_evpn_withdraw_type5_route_vpn(struct bgp *bgp_vrf, const struct bgp_path_info *originator,
+				       const struct prefix *p, afi_t afi, safi_t safi,
+				       uint32_t addpath_id);
+void bgp_evpn_export_type5_routes_to_vpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi);
 #endif /* _QUAGGA_BGP_EVPN_H */
