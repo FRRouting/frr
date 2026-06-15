@@ -13,11 +13,12 @@
 #
 
 import sys
+import os
 import pytest
 import json
 
 from lib.topogen import Topogen, get_topogen, TopoRouter, topotest
-
+from lib.topolog import logger
 
 def _build_topo(tgen):
     "Simple R1-R2 topology"
@@ -222,7 +223,9 @@ interface r1-eth0
 
     # Give OSPF a moment to send some control traffic
     # Flood: add 200 loopbacks on r1 and redistribute connected
-    pcap = "/tmp/r1-ospf-dscp.pcap"
+    pcap = os.path.join(tgen.logdir, "r1-ospf-dscp.pcap")
+    logger.info("PCAP DIR: {}".format(pcap))
+
     _capture_ospf_pcap(r1, "r1-eth0", pcap)
     topotest.sleep(2, "Setup packet capture")
     r1.vtysh_cmd("conf t\nrouter ospf\n redistribute connected\n exit")

@@ -807,7 +807,7 @@ void bgp_path_info_unset_flag(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 static bool use_bgp_med_value(struct attr *attr, struct bgp *bgp)
 {
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC) ||
+	if (bgp_attr_exists(attr, BGP_ATTR_MULTI_EXIT_DISC) ||
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST))
 		return true;
 
@@ -2735,7 +2735,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (from != bgp->peer_self && !transparent &&
 		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED)) {
 			attr->med = 0;
-			UNSET_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)));
+			bgp_attr_unset(attr, BGP_ATTR_MULTI_EXIT_DISC);
 		}
 	}
 
@@ -5615,7 +5615,7 @@ static bool bgp_accept_own(struct peer *peer, afi_t afi, safi_t safi,
 		return false;
 
 	/* The route in question carries the ACCEPT_OWN community */
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES)) {
 		struct community *comm = bgp_attr_get_community(attr);
 
 		if (community_include(comm, COMMUNITY_ACCEPT_OWN))
@@ -6133,7 +6133,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (bgp_attr_get_community(&new_attr) &&
 		    community_include(bgp_attr_get_community(&new_attr),
 				      COMMUNITY_GSHUT)) {
-			SET_FLAG(new_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+			bgp_attr_set(&new_attr, BGP_ATTR_LOCAL_PREF);
 			new_attr.local_pref = BGP_GSHUT_LOCAL_PREF;
 
 			/* If graceful-shutdown is configured globally or
@@ -8513,12 +8513,12 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	bgp_attr_set_med(&attr, bgp_static->igpmetric);
 
 	if (bgp_static->atomic)
-		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+		bgp_attr_set(&attr, BGP_ATTR_ATOMIC_AGGREGATE);
 
 	/* Store label index, if required. */
 	if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX) {
 		attr.label_index = bgp_static->label_index;
-		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+		bgp_attr_set(&attr, BGP_ATTR_PREFIX_SID);
 	}
 
 	if (safi == SAFI_EVPN || safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP) {
@@ -12666,7 +12666,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, ", (suppressed)");
 	}
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_AGGREGATOR)) {
 		if (json_paths) {
 			json_object_int_add(json_path, "aggregatorAs",
 					    attr->aggregator_as);
@@ -12913,7 +12913,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 						&path->peer->connection->su);
 			}
 
-			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
+			if (bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID))
 				vty_out(vty, " (%pI4)", &attr->originator_id);
 			else
 				vty_out(vty, " (%pI4)", &path->peer->remote_id);
@@ -13037,7 +13037,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, ", metric %u", value);
 	}
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_LOCAL_PREF)) {
 		if (json_paths)
 			json_object_int_add(json_path, "locPrf",
 					    attr->local_pref);
@@ -13045,7 +13045,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, ", localpref %u", attr->local_pref);
 	}
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP)) {
 		if (json_paths)
 			json_object_int_add(json_path, "aigpMetric",
 					    bgp_attr_get_aigp_metric(attr));
@@ -13158,7 +13158,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 	}
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_ATOMIC_AGGREGATE)) {
 		if (json_paths)
 			json_object_boolean_true_add(json_path,
 						     "atomicAggregate");
@@ -13166,7 +13166,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, ", atomic-aggregate");
 	}
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_OTC)) {
 		if (json_paths)
 			json_object_int_add(json_path, "otc", bgp_attr_get_otc(attr));
 		else
@@ -13231,7 +13231,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		vty_out(vty, "\n");
 
 	/* Line 4 display Community */
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES)) {
 		if (json_paths) {
 			if (!bgp_attr_get_community(attr)->json)
 				community_str(bgp_attr_get_community(attr),
@@ -13249,7 +13249,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Line 5 display Extended-community */
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
 		if (!bgp_attr_get_ecommunity(attr)->str)
 			ecommunity_str(bgp_attr_get_ecommunity(attr));
 
@@ -13266,7 +13266,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 	}
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
 		if (!bgp_attr_get_ipv6_ecommunity(attr)->str)
 			ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr));
 
@@ -13285,7 +13285,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Line 6 display Large community */
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES)) {
 		if (json_paths) {
 			if (!bgp_attr_get_lcommunity(attr)->json)
 				lcommunity_str(bgp_attr_get_lcommunity(attr),
@@ -13303,9 +13303,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Line 7 display Originator, Cluster-id */
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) ||
-	    CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
-		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID) ||
+	    bgp_attr_exists(attr, BGP_ATTR_CLUSTER_LIST)) {
+		if (bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID)) {
 			if (json_paths)
 				json_object_string_addf(json_path,
 							"originatorId", "%pI4",
@@ -13315,7 +13315,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					&attr->originator_id);
 		}
 
-		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
+		if (bgp_attr_exists(attr, BGP_ATTR_CLUSTER_LIST)) {
 			struct cluster_list *cluster = bgp_attr_get_cluster(attr);
 
 			if (json_paths) {
@@ -13545,7 +13545,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		vty_out(vty, "      Last update: %s", time_to_string(path->uptime, timebuf));
 
 	/* Line 10 display PMSI tunnel attribute, if present */
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_PMSI_TUNNEL)) {
 		msgstr = lookup_msg(bgp_pmsi_tnltype_str, bgp_attr_get_pmsi_tnl_type(attr),
 				    PMSI_TNLTYPE_STR_DEFAULT);
 
@@ -13627,7 +13627,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Display NHC attributes */
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_NHC)) {
 		struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
 		struct bgp_nhc_tlv *tlv = NULL;
 

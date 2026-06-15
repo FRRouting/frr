@@ -42,10 +42,8 @@ uint16_t decode_rd_type(const uint8_t *pnt)
 
 void encode_rd_type(uint16_t v, uint8_t *pnt)
 {
-	uint16_t val = htons(v);
-
-	pnt[0] = (val >> 8) & 0xff;
-	pnt[1] = val & 0xff;
+	pnt[0] = (v >> 8) & 0xff;
+	pnt[1] = v & 0xff;
 }
 
 /* type == RD_TYPE_AS */

@@ -91,7 +91,7 @@ mgmt_be_find_txn_by_id(struct mgmt_be_client *client_ctx, uint64_t txn_id,
 	if (client_ctx->config_txn && client_ctx->config_txn->txn_id == txn_id)
 		return client_ctx->config_txn;
 	if (warn)
-		log_err_be_client("client %s unkonwn txn-id: %Lu", client_ctx->name, txn_id);
+		log_err_be_client("client %s unkonwn txn-id: %" PRIu64, client_ctx->name, txn_id);
 	return NULL;
 }
 
@@ -116,7 +116,7 @@ mgmt_be_txn_create(struct mgmt_be_client *client_ctx, uint64_t txn_id)
 	 */
 	txn->candidate_config = nb_config_dup(client_ctx->running_config);
 	if (!txn->candidate_config) {
-		log_err_be_client("Failed to create candidate config for txn-id: %Lu", txn_id);
+		log_err_be_client("Failed to create candidate config for txn-id: %" PRIu64, txn_id);
 		XFREE(MTYPE_MGMTD_BE_TXN, txn);
 		return NULL;
 	}
@@ -320,7 +320,7 @@ static int mgmt_be_send_cfg_reply(struct mgmt_be_client *client_ctx, uint64_t tx
 	msg->code = MGMT_MSG_CODE_CFG_REPLY;
 	msg->refer_id = txn_id;
 
-	debug_be_client("Sending CFG_REPLY txn-id: %Lu", txn_id);
+	debug_be_client("Sending CFG_REPLY txn-id: %" PRIu64, txn_id);
 
 	ret = be_client_send_native_msg(client_ctx, msg, mgmt_msg_native_get_msg_len(msg), false);
 	mgmt_msg_native_free_msg(msg);
@@ -432,14 +432,15 @@ static bool mgmt_be_txn_cfg_prepare(struct mgmt_be_client *client_ctx, uint64_t 
 	nb_ctx.user = (void *)client_ctx->user_data;
 	err_buf[0] = 0;
 
-	debug_be_client("Creating new txn-id %Lu", txn_id);
+	debug_be_client("Creating new txn-id %" PRIu64, txn_id);
 
 	/*
 	 * First validate there's no other config txn right now. Eventually we
 	 * may want to support multiple CFG_REQ prioer to a CFG_APPLY.
 	 */
 	if (client_ctx->config_txn) {
-		log_err_be_client("Cannot prepare cfg for txn-id: %Lu, another txn-id: %Lu was in progress",
+		log_err_be_client("Cannot prepare cfg for txn-id: %" PRIu64
+				  ", another txn-id: %" PRIu64 " was in progress",
 				  txn_id, client_ctx->config_txn->txn_id);
 		return true;
 	}
@@ -447,7 +448,7 @@ static bool mgmt_be_txn_cfg_prepare(struct mgmt_be_client *client_ctx, uint64_t 
 	/* Create a txn to track the config changes for later apply */
 	txn = mgmt_be_txn_create(client_ctx, txn_id);
 	if (!txn) {
-		log_err_be_client("Failed to create txn for txn_id: %Lu", txn_id);
+		log_err_be_client("Failed to create txn for txn_id: %" PRIu64, txn_id);
 		return true;
 	}
 
@@ -526,7 +527,8 @@ static bool mgmt_be_txn_cfg_prepare(struct mgmt_be_client *client_ctx, uint64_t 
 	disconnect = !!mgmt_be_send_cfg_reply(client_ctx, txn->txn_id, !error,
 					      error ? err_buf : NULL);
 
-	debug_be_client("Avg-nb-edit-duration %Lu uSec, nb-prep-duration %lu (avg: %Lu) uSec, batch size %u",
+	debug_be_client("Avg-nb-edit-duration %" PRIu64
+			" uSec, nb-prep-duration %lu (avg: %" PRIu64 ") uSec, batch size %u",
 			client_ctx->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
 			client_ctx->avg_prep_nb_cfg_tm, (uint32_t)num_processed);
 done:
@@ -547,7 +549,7 @@ static void be_client_handle_cfg(struct mgmt_be_client *client, uint64_t txn_id,
 	struct mgmt_msg_cfg_req *msg = msgbuf;
 	const char **config = NULL;
 
-	debug_be_client("Got CFG_REQ txn-id: %Lu", txn_id);
+	debug_be_client("Got CFG_REQ txn-id: %" PRIu64, txn_id);
 
 	config = mgmt_msg_native_strings_decode(msg, msg_len, msg->config);
 	if (darr_len(config) == 0) {
@@ -626,7 +628,7 @@ static bool mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	disconnect = !!mgmt_be_send_apply_reply(client_ctx, txn->txn_id,
 						err_buf[0] ? err_buf : NULL);
 
-	debug_be_client("Nb-apply-duration %lu (avg: %Lu) uSec", apply_nb_cfg_tm,
+	debug_be_client("Nb-apply-duration %lu (avg: %" PRIu64 ") uSec", apply_nb_cfg_tm,
 			client_ctx->avg_apply_nb_cfg_tm);
 
 	mgmt_be_txn_delete(txn);
@@ -638,12 +640,13 @@ static void be_client_handle_cfg_apply(struct mgmt_be_client *client, uint64_t t
 {
 	struct mgmt_be_txn_ctx *txn = NULL;
 
-	debug_be_client("Got CFG_APPLY_REQ for client %s txn-id %Lu", client->name, txn_id);
+	debug_be_client("Got CFG_APPLY_REQ for client %s txn-id %" PRIu64, client->name, txn_id);
 
 	if (client->config_txn && client->config_txn->txn_id == txn_id)
 		txn = client->config_txn;
 	else
-		log_err_be_client("client %s unkonwn config txn-id: %Lu", client->name, txn_id);
+		log_err_be_client("client %s unkonwn config txn-id: %" PRIu64, client->name,
+				  txn_id);
 
 	if (!txn || mgmt_be_txn_proc_cfgapply(txn))
 		msg_conn_disconnect(&client->client.conn, true);
@@ -657,13 +660,13 @@ static void be_client_handle_txn_req(struct mgmt_be_client *client, uint64_t txn
 {
 	struct mgmt_msg_txn_req *msg = msgbuf;
 
-	debug_be_client("Got TXN_DELETE txn-id: %Lu", txn_id);
+	debug_be_client("Got TXN_DELETE txn-id: %" PRIu64, txn_id);
 	if (msg->create) {
-		log_err_be_client("Unsupported TXN_REQ create for txn-id: %Lu", txn_id);
+		log_err_be_client("Unsupported TXN_REQ create for txn-id: %" PRIu64, txn_id);
 		goto failed;
 	}
 	if (!client->config_txn || client->config_txn->txn_id != txn_id) {
-		debug_be_client("Ignoring TXN_DELETE of removed (or never present) txn-id: %Lu",
+		debug_be_client("Ignoring TXN_DELETE of removed (or never present) txn-id: %" PRIu64,
 				txn_id);
 		return;
 	}
@@ -700,7 +703,8 @@ static enum nb_error be_client_send_tree_data_batch(const struct lyd_node *tree,
 	}
 	if (ret != NB_OK) {
 		if (be_client_send_error(client, args->txn_id, args->req_id, false, -EINVAL,
-					 "BE client %s txn-id %Lu error fetching oper state %d",
+					 "BE client %s txn-id %" PRIu64
+					 " error fetching oper state %d",
 					 client->name, args->txn_id, ret))
 			ret = NB_ERR;
 		else

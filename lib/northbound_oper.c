@@ -297,7 +297,7 @@ static uint nb_op_get_position_predicate(struct nb_op_yield_state *ys, struct nb
 	if (cursor[0] != ']')
 		return 0;
 
-	while (--cursor > ys->xpath && isdigit(cursor[0]))
+	while (--cursor > ys->xpath && isdigit((unsigned char)cursor[0]))
 		;
 
 	if (cursor[0] != '[')

@@ -246,6 +246,75 @@ def get_normalized_ebgp_multihop_line(line):
     return line
 
 
+def get_normalized_aggregate_address_line(line):
+    """
+    The keywords of an "aggregate-address" command can be entered in any
+    order, but FRR always renders them in a fixed order:
+
+      aggregate-address <prefix> [as-set] [summary-only] [route-map NAME]
+          [origin <egp|igp|incomplete>] [matching-MED-only] [suppress-map NAME]
+
+    Reorder a user-supplied line into that canonical order so that a line
+    written with the keywords in a different order is not seen as a change.
+    Otherwise frr-reload deletes and re-adds the aggregate on every reload,
+    briefly withdrawing the aggregate route.
+    """
+    match = re.match(
+        r"^aggregate-address\s+(\S+(?:\s+\d+\.\d+\.\d+\.\d+)?)\s*(.*)$", line
+    )
+    if not match:
+        return line
+
+    prefix = match.group(1)
+    rest = match.group(2).split()
+
+    as_set = False
+    summary_only = False
+    match_med = False
+    route_map = None
+    origin = None
+    suppress_map = None
+
+    i = 0
+    while i < len(rest):
+        tok = rest[i]
+        if tok == "as-set":
+            as_set = True
+        elif tok == "summary-only":
+            summary_only = True
+        elif tok == "matching-MED-only":
+            match_med = True
+        elif tok == "route-map" and i + 1 < len(rest):
+            i += 1
+            route_map = rest[i]
+        elif tok == "origin" and i + 1 < len(rest):
+            i += 1
+            origin = rest[i]
+        elif tok == "suppress-map" and i + 1 < len(rest):
+            i += 1
+            suppress_map = rest[i]
+        else:
+            # Unrecognized token; leave the line untouched.
+            return line
+        i += 1
+
+    normalized = "aggregate-address " + prefix
+    if as_set:
+        normalized += " as-set"
+    if summary_only:
+        normalized += " summary-only"
+    if route_map:
+        normalized += " route-map " + route_map
+    if origin:
+        normalized += " origin " + origin
+    if match_med:
+        normalized += " matching-MED-only"
+    if suppress_map:
+        normalized += " suppress-map " + suppress_map
+
+    return normalized
+
+
 # This dictionary contains a tree of all commands that we know start a
 # new multi-line context. All other commands are treated either as
 # commands inside a multi-line context or as single-line contexts. This
@@ -394,6 +463,9 @@ class Config(object):
 
             if "ebgp-multihop" in line:
                 line = get_normalized_ebgp_multihop_line(line)
+
+            if line.startswith("aggregate-address "):
+                line = get_normalized_aggregate_address_line(line)
 
             # vrf static routes can be added in two ways. The old way is:
             #

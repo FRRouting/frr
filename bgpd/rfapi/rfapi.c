@@ -666,7 +666,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	if (local_pref) {
 		attr.local_pref = *local_pref;
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+		bgp_attr_set(&attr, BGP_ATTR_LOCAL_PREF);
 	}
 
 	if (med)
@@ -690,7 +690,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	 */
 	if (type == ZEBRA_ROUTE_BGP_DIRECT
 	    || type == ZEBRA_ROUTE_BGP_DIRECT_EXT) {
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID);
+		bgp_attr_set(&attr, BGP_ATTR_ORIGINATOR_ID);
 		attr.originator_id = bgp->router_id;
 	}
 

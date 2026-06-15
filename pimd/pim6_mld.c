@@ -1620,7 +1620,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 
 	if (len == sizeof(struct mld_v1_pkt)) {
 		timers.qrv = gm_ifp->cur_qrv;
-		timers.max_resp_ms = hdr->max_resp_code;
+		timers.max_resp_ms = ntohs(hdr->max_resp_code);
 		timers.qqic_ms = gm_ifp->cur_query_intv;
 	} else {
 		timers.qrv = (hdr->flags & 0x7) ?: 8;
@@ -1699,7 +1699,7 @@ static void gm_rx_process(struct gm_if *gm_ifp,
 	struct ipv6_ph ph6 = {
 		.src = pkt_src->sin6_addr,
 		.dst = *pkt_dst,
-		.ulpl = htons(pktlen),
+		.ulpl = htonl(pktlen),
 		.next_hdr = IPPROTO_ICMPV6,
 	};
 
@@ -1929,7 +1929,7 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	};
 	struct ipv6_ph ph6 = {
 		.src = pim_ifp->ll_lowest,
-		.ulpl = htons(sizeof(query)),
+		.ulpl = htonl(sizeof(query)),
 		.next_hdr = IPPROTO_ICMPV6,
 	};
 	union {

@@ -386,7 +386,11 @@ extern "C" {
 /* frr-format plugin is C-only for now, so no point in doing these shenanigans
  * for C++...  (also they can break some C++ stuff...)
  */
-#ifndef __cplusplus
+#ifdef __cplusplus
+/* do nothing */
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+/* do nothing - "%w64u" will be used & should match the original defs */
+#else
 /* these should be typedefs, but might also be #define */
 #ifdef uint64_t
 #undef uint64_t
@@ -418,7 +422,7 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
 
-#if __STDC_VERSION__ >= 202311L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
 /* whohoo, we can start moving towards getting rid of these, since
  * __STDC_VERSION__ >= 202311L also implies printf supports it
  *

@@ -185,7 +185,7 @@ static uint16_t bfd_pkt_checksum(struct udphdr *pkt, size_t pktsize,
 
 		memcpy(&ph.src, ip, sizeof(ph.src));
 		memcpy(&ph.dst, ip, sizeof(ph.dst));
-		ph.ulpl = htons(pktsize);
+		ph.ulpl = htonl(pktsize);
 		ph.next_hdr = IPPROTO_UDP;
 		chksum = in_cksum_with_ph6(&ph, pkt, pktsize);
 	} else {

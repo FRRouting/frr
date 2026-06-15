@@ -1271,10 +1271,10 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 	} else {
 		if (vty != NULL)
 			vty_out(vty, "  Wrong PCE Address type: 0x%x\n",
-				ntohl(top->address.type));
+				ntohs(top->address.type));
 		else
 			zlog_debug("    Wrong PCE Address type: 0x%x",
-				   ntohl(top->address.type));
+				   ntohs(top->address.type));
 	}
 
 	return TLV_SIZE(tlvh);
@@ -1334,10 +1334,10 @@ static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
 	} else {
 		if (vty != NULL)
 			vty_out(vty, "  Wrong PCE Domain type: %d\n",
-				ntohl(top->type));
+				ntohs(top->type));
 		else
 			zlog_debug("    Wrong PCE Domain type: %d",
-				   ntohl(top->type));
+				   ntohs(top->type));
 	}
 
 	return TLV_SIZE(tlvh);
@@ -1379,10 +1379,10 @@ static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
 	} else {
 		if (vty != NULL)
 			vty_out(vty, "  Wrong PCE Neighbor type: %d\n",
-				ntohl(top->type));
+				ntohs(top->type));
 		else
 			zlog_debug("    Wrong PCE Neighbor type: %d",
-				   ntohl(top->type));
+				   ntohs(top->type));
 	}
 
 	return TLV_SIZE(tlvh);
@@ -1727,7 +1727,7 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 
 		for (ALL_LIST_ELEMENTS_RO(pce->pce_domain, node, domain)) {
 			if (domain->header.type != 0) {
-				if (domain->type == PCE_DOMAIN_TYPE_AREA) {
+				if (ntohs(domain->type) == PCE_DOMAIN_TYPE_AREA) {
 					tmp.s_addr = domain->value;
 					vty_out(vty, "  pce domain area %pI4\n",
 						&tmp);
@@ -1740,7 +1740,7 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 
 		for (ALL_LIST_ELEMENTS_RO(pce->pce_neighbor, node, neighbor)) {
 			if (neighbor->header.type != 0) {
-				if (neighbor->type == PCE_DOMAIN_TYPE_AREA) {
+				if (ntohs(neighbor->type) == PCE_DOMAIN_TYPE_AREA) {
 					tmp.s_addr = neighbor->value;
 					vty_out(vty,
 						"  pce neighbor area %pI4\n",

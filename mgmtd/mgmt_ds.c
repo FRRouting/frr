@@ -242,16 +242,18 @@ int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 	assert(ds_ctx);
 
 	if (ds_ctx->locked) {
-		_log_err("LOCK already taken on DS:%s by session-id %Lu (requesting session-id %Lu)",
+		_log_err("LOCK already taken on DS:%s by session-id %" PRIu64
+			 " (requesting session-id %" PRIu64 ")",
 			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id, session_id);
 		return -EBUSY;
 	}
 	if (ds_ctx->txn_locked) {
-		_log_err("LOCK already taken on DS:%s by session-less txn-id %Lu (requesting session-id %Lu)",
+		_log_err("LOCK already taken on DS:%s by session-less txn-id %" PRIu64
+			 " (requesting session-id %" PRIu64 ")",
 			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked, session_id);
 		return -EBUSY;
 	}
-	_dbg("LOCK on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id), session_id);
+	_dbg("LOCK on DS:%s for session-id %" PRIu64, mgmt_ds_id2name(ds_ctx->ds_id), session_id);
 
 	ds_ctx->locked = true;
 	ds_ctx->vty_session_id = session_id;
@@ -262,20 +264,20 @@ void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 {
 	assert(ds_ctx);
 	if (!ds_ctx->locked)
-		_log_err("unlock on unlocked in DS:%s last session-id %Lu",
+		_log_err("unlock on unlocked in DS:%s last session-id %" PRIu64,
 			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
 	else {
 		assert(ds_ctx->vty_session_id == session_id);
-		_dbg("releasing lock on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
-		     ds_ctx->vty_session_id);
+		_dbg("releasing lock on DS:%s for session-id %" PRIu64,
+		     mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
 	}
 
 	ds_ctx->locked = 0;
 	ds_ctx->vty_session_id = MGMTD_SESSION_ID_NONE;
 
 	if (ds_ctx->txn_locked)
-		_dbg("TXN-LOCK remains on DS:%s for txn-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
-		     ds_ctx->txn_locked);
+		_dbg("TXN-LOCK remains on DS:%s for txn-id %" PRIu64,
+		     mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked);
 }
 
 bool mgmt_ds_is_txn_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *txn_id)
@@ -292,17 +294,18 @@ uint64_t mgmt_ds_txn_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t txn_id)
 	assert(ds_ctx);
 
 	if (ds_ctx->txn_locked && ds_ctx->txn_locked != txn_id) {
-		_log_err("TXN-LOCK txn lock held on DS:%s by txn-id: %Lu not txn-id: %Lu",
+		_log_err("TXN-LOCK txn lock held on DS:%s by txn-id: %" PRIu64
+			 " not txn-id: %" PRIu64,
 			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked, txn_id);
 		return ds_ctx->txn_locked;
 	}
 	if (ds_ctx->txn_locked == txn_id) {
-		_log_warn("TXN-LOCK double lock on DS:%s txn-id: %Lu",
+		_log_warn("TXN-LOCK double lock on DS:%s txn-id: %" PRIu64,
 			  mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->txn_locked);
 		return 0;
 	}
-	_dbg("TXN-LOCK on DS:%s session-id: %Lu txn-id: %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
-	     ds_ctx->vty_session_id, txn_id);
+	_dbg("TXN-LOCK on DS:%s session-id: %" PRIu64 " txn-id: %" PRIu64,
+	     mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id, txn_id);
 	ds_ctx->txn_locked = txn_id;
 	return 0;
 }
@@ -311,16 +314,18 @@ void mgmt_ds_txn_unlock(struct mgmt_ds_ctx *ds_ctx, uint64_t txn_id)
 {
 	assert(ds_ctx);
 	if (ds_ctx->txn_locked && ds_ctx->txn_locked != txn_id) {
-		_log_err("TXN-UNLOCK: txn lock held on DS:%s by session-id: %Lu txn-id: %Lu not txn-id: %Lu",
+		_log_err("TXN-UNLOCK: txn lock held on DS:%s by session-id: %" PRIu64
+			 " txn-id: %" PRIu64 " not txn-id: %" PRIu64,
 			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id,
 			 ds_ctx->txn_locked, txn_id);
 		return;
 	}
 	if (!ds_ctx->txn_locked)
-		_log_warn("TXN-UNLOCK of unlocked on DS:%s session-id: %Lu txn-id: %Lu",
+		_log_warn("TXN-UNLOCK of unlocked on DS:%s session-id: %" PRIu64
+			  " txn-id: %" PRIu64,
 			  mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id, txn_id);
 	else
-		_dbg("TXN-UNLOCK on DS:%s session-id: %Lu txn-id: %Lu",
+		_dbg("TXN-UNLOCK on DS:%s session-id: %" PRIu64 " txn-id: %" PRIu64,
 		     mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id, txn_id);
 	ds_ctx->txn_locked = 0;
 }
@@ -599,7 +604,7 @@ void mgmt_ds_status_write_one(struct vty *vty, struct mgmt_ds_ctx *ds_ctx)
 	vty_out(vty, "    DS-Hndl: \t\t\t%p\n", ds_ctx);
 	vty_out(vty, "    Config: \t\t\t%s\n",
 		ds_ctx->config_ds ? "True" : "False");
-	vty_out(vty, "    Locked: \t\t\t%s Session-ID: %Lu Txn-ID: %Lu\n",
+	vty_out(vty, "    Locked: \t\t\t%s Session-ID: %" PRIu64 " Txn-ID: %" PRIu64 "\n",
 		locked ? "True" : "False", session_id, txn_id);
 }
 

@@ -1214,6 +1214,9 @@ static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator
 		sr_debug("SRv6 locator (locator %s, prefix %pFX) set for IS-IS area %s",
 			 locator->name, &locator->prefix, area->area_tag);
 
+		if (area->srv6db.srv6_locator)
+			srv6_locator_free(area->srv6db.srv6_locator);
+
 		/* Store the locator in the IS-IS area */
 		area->srv6db.srv6_locator = srv6_locator_alloc(locator->name);
 		srv6_locator_copy(area->srv6db.srv6_locator, locator);

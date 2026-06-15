@@ -316,7 +316,8 @@ Testing
 The Unit Tests for an individual library are executed with the ``make check``
 command. The Unit Test binary will be written to the project ``build`` directory.
 All Unit Tests are executed with Valgrind, and any memory issues reported by
-Valgrind will cause the Unit Test to fail.
+Valgrind will cause the Unit Test to fail.  This testing will not work without
+installing the cunit development library.
 
 
 PCEPlib PCC API

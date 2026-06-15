@@ -788,7 +788,7 @@ uint16_t pcep_encode_tlv_of_list(struct pcep_object_tlv_header *tlv,
 		}
 
 		uint16_t *uint16_ptr = (uint16_t *)(tlv_body_buf + index);
-		*uint16_ptr = *of_code;
+		*uint16_ptr = htons(*of_code);
 		index += 2;
 
 		node = node->next_node;

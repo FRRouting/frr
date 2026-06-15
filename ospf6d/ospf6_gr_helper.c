@@ -585,9 +585,11 @@ void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 			 * lsas will not be flooded in stub area.
 			 */
 			if (IS_AREA_STUB(oi->area)
-			    && ((lsa->header->type == OSPF6_LSTYPE_AS_EXTERNAL)
-				|| (lsa->header->type == OSPF6_LSTYPE_TYPE_7)
-				|| (lsa->header->type
+			    && ((ntohs(lsa->header->type)
+				 == OSPF6_LSTYPE_AS_EXTERNAL)
+				|| (ntohs(lsa->header->type)
+				    == OSPF6_LSTYPE_TYPE_7)
+				|| (ntohs(lsa->header->type)
 				    == OSPF6_LSTYPE_INTER_ROUTER))) {
 				continue;
 			}
