@@ -4518,6 +4518,7 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefi
 			  bool replace)
 {
 	struct zebra_early_route *ere;
+	int ret;
 
 	if (!re)
 		return -1;
@@ -4536,7 +4537,11 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefi
 	ere->startup = startup;
 	ere->replace = replace;
 
-	return mq_add_handler(ere, rib_meta_queue_early_route_add);
+	ret = mq_add_handler(ere, rib_meta_queue_early_route_add);
+	if (ret == -1)
+		XFREE(MTYPE_WQ_WRAPPER, ere);
+
+	return ret;
 }
 
 /*
@@ -4625,8 +4630,10 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ip
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup, replace);
 
 	/* In error cases, free the route also */
-	if (ret < 0)
+	if (ret < 0) {
+		zebra_nhg_free(n);
 		zebra_rib_route_entry_free(re);
+	}
 
 	return ret;
 }
@@ -4662,7 +4669,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	ere->deletion = true;
 	ere->fromkernel = fromkernel;
 
-	mq_add_handler(ere, rib_meta_queue_early_route_add);
+	if (mq_add_handler(ere, rib_meta_queue_early_route_add) == -1)
+		early_route_memory_free(ere);
 }
 
 
