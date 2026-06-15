@@ -52,6 +52,28 @@ static void ospf_nbr_key(struct ospf_interface *oi, struct ospf_neighbor *nbr,
 	return;
 }
 
+/* RFC4222 R4: initialize per-neighbor gap from interface config. */
+static void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr)
+{
+	struct ospf_interface *oi;
+
+	if (!nbr)
+		return;
+	oi = nbr->oi;
+	if (!oi)
+		return;
+	if (!oi->rec4_gap_pacing)
+		return;
+
+	nbr->lsu_gap_ms = oi->rec4_gap_initial_ms;
+	if (nbr->lsu_gap_ms < oi->rec4_gap_min_ms)
+		nbr->lsu_gap_ms = oi->rec4_gap_min_ms;
+	if (nbr->lsu_gap_ms > oi->rec4_gap_max_ms)
+		nbr->lsu_gap_ms = oi->rec4_gap_max_ms;
+	if (nbr->next_send_ms < ospf_now_ms())
+		nbr->next_send_ms = ospf_now_ms();
+}
+
 struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 {
 	struct ospf_neighbor *nbr;
@@ -97,6 +119,10 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 
 	nbr->ls_rxmt_unacked = 0;
 
+	/* RFC4222 R4: initialize per-neighbor paced LSU queue. */
+	ospf_nbr_apply_rec4_params(nbr);
+	ospf_r4_nbr_init(nbr);
+
 	nbr->dead_timer_resets = 0; /* rfc 4222 rec 2 */
 	return nbr;
 }
@@ -135,6 +161,9 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	event_cancel(&nbr->t_db_desc);
 	event_cancel(&nbr->t_ls_req);
 	event_cancel(&nbr->t_ls_rxmt);
+
+	/* RFC4222 R4: cancel pacing timer and drain queued LSAs before teardown. */
+	ospf_r4_nbr_cancel(nbr);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	event_cancel_event(master, nbr);

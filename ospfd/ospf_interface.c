@@ -248,6 +248,31 @@ static void ospf_delete_from_if(struct interface *ifp,
 	route_unlock_node(rn);
 }
 
+/* RFC4222 R4: recompute effective LSA gap pacing settings. */
+static void ospf_rec4_recompute_effective(struct ospf_interface *oi)
+{
+	oi->rec4_gap_pacing = OSPF_IF_PARAM(oi, gap_pacing_enable);
+	oi->rec4_gap_initial_ms = OSPF_IF_PARAM(oi, gap_initial_ms);
+	oi->rec4_gap_min_ms = OSPF_IF_PARAM(oi, gap_min_ms);
+	oi->rec4_gap_max_ms = OSPF_IF_PARAM(oi, gap_max_ms);
+	oi->rec4_gap_factor = OSPF_IF_PARAM(oi, gap_factor);
+	oi->rec4_gap_adjust_int_ms = OSPF_IF_PARAM(oi, gap_adjust_int_ms);
+	oi->rec4_high_water = OSPF_IF_PARAM(oi, gap_high_water);
+	oi->rec4_low_water = OSPF_IF_PARAM(oi, gap_low_water);
+	oi->rec4_max_lsas = OSPF_IF_PARAM(oi, gap_max_lsas);
+
+	if (oi->rec4_gap_min_ms < 1)
+		oi->rec4_gap_min_ms = 1;
+	if (oi->rec4_gap_max_ms < oi->rec4_gap_min_ms)
+		oi->rec4_gap_max_ms = oi->rec4_gap_min_ms;
+	if (oi->rec4_gap_factor < 1)
+		oi->rec4_gap_factor = 1;
+	if (oi->rec4_gap_adjust_int_ms < 1)
+		oi->rec4_gap_adjust_int_ms = 1;
+	if (oi->rec4_low_water > oi->rec4_high_water)
+		oi->rec4_low_water = oi->rec4_high_water;
+}
+
 struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 				   struct prefix *p)
 {
@@ -322,6 +347,9 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 		oi->adj_pacing.high_water = oi->params->adj_pacing_high_water;
 	if (OSPF_IF_PARAM_CONFIGURED(oi->params, adj_pacing_low_water))
 		oi->adj_pacing.low_water = oi->params->adj_pacing_low_water;
+
+	/* RFC4222 R4: cache effective LSA pacing params for this interface. */
+	ospf_rec4_recompute_effective(oi);
 
 
 	QOBJ_REG(oi, ospf_interface);
@@ -620,6 +648,17 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, dscp_ospf_all);
 	UNSET_IF_PARAM(oip, dscp_low_control);
 
+	/* RFC4222 R4: LSA gap pacing parameters. */
+	UNSET_IF_PARAM(oip, gap_pacing_enable);
+	UNSET_IF_PARAM(oip, gap_initial_ms);
+	UNSET_IF_PARAM(oip, gap_min_ms);
+	UNSET_IF_PARAM(oip, gap_max_ms);
+	UNSET_IF_PARAM(oip, gap_factor);
+	UNSET_IF_PARAM(oip, gap_adjust_int_ms);
+	UNSET_IF_PARAM(oip, gap_high_water);
+	UNSET_IF_PARAM(oip, gap_low_water);
+	UNSET_IF_PARAM(oip, gap_max_lsas);
+
 	oip->auth_crypt = list_new();
 
 	oip->network_lsa_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
@@ -633,6 +672,17 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	/* RFC4222 dscp Priority */
 	oip->dscp_ospf_all = IPTOS_PREC_INTERNETCONTROL >> 2;	 /* upper 6 bits */
 	oip->dscp_low_control = IPTOS_PREC_INTERNETCONTROL >> 2; /* Default feature is off */
+
+	/* RFC4222 R4: defaults used only when LSA pacing is enabled. */
+	oip->gap_pacing_enable = false;
+	oip->gap_initial_ms = OSPF_GAP_INITIAL_MS_DEFAULT;
+	oip->gap_min_ms = OSPF_GAP_MIN_MS_DEFAULT;
+	oip->gap_max_ms = OSPF_GAP_MAX_MS_DEFAULT;
+	oip->gap_factor = OSPF_GAP_FACTOR_DEFAULT;
+	oip->gap_adjust_int_ms = OSPF_GAP_ADJUST_INT_MS_DEFAULT;
+	oip->gap_high_water = OSPF_GAP_HIGH_WATER_DEFAULT;
+	oip->gap_low_water = OSPF_GAP_LOW_WATER_DEFAULT;
+	oip->gap_max_lsas = OSPF_GAP_MAX_LSAS_DEFAULT;
 	return oip;
 }
 
@@ -679,7 +729,17 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    !OSPF_IF_PARAM_CONFIGURED(oip, nbr_filter_name) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, dead_timer_any) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_ospf_all) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_low_control) && listcount(oip->auth_crypt) == 0) {
+	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_low_control) &&
+	    /* RFC4222 R4: keep params while any LSA pacing knob is set. */
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_pacing_enable) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_initial_ms) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_min_ms) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_max_ms) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_factor) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_adjust_int_ms) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_high_water) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_low_water) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_max_lsas) && listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
@@ -740,6 +800,8 @@ void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
 		if (IPV4_ADDR_SAME(&oi->address->u.prefix4, &addr)) {
 			oi->params = ospf_lookup_if_params(
 				ifp, oi->address->u.prefix4);
+			/* RFC4222 R4: refresh effective LSA pacing params. */
+			ospf_rec4_recompute_effective(oi);
 		}
 	}
 }
@@ -754,6 +816,8 @@ void ospf_if_update_params_all(struct interface *ifp)
 			continue;
 
 		oi->params = ospf_lookup_if_params(ifp, oi->address->u.prefix4);
+		/* RFC4222 R4: refresh effective LSA pacing params. */
+		ospf_rec4_recompute_effective(oi);
 	}
 }
 

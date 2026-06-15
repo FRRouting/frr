@@ -83,6 +83,13 @@ struct ospf_neighbor {
 	/* ospf graceful restart HELPER info */
 	struct ospf_helper_info gr_helper_info;
 
+	/* RFC4222 R4: per-neighbor LSA gap pacing runtime. */
+	uint32_t lsu_gap_ms;
+	uint64_t next_send_ms;
+	uint64_t gap_last_change_ms;
+	struct list r4_send_queue;
+	struct event *t_r4_send;
+
 	uint32_t ls_rxmt_unacked; /* count of sent but unacked retransmit LSAs */
 
 	/* RFC4222/R5: linkage for per-interface adjacency pacing queue */

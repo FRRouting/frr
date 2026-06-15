@@ -786,6 +786,57 @@ Interfaces
 
    Disable adjacency pacing on this interface and clear the active pacing mode.
 
+.. clicmd:: ip ospf lsa-pacing
+
+   Enable per-neighbor LSA gap pacing on this interface (:rfc:`4222`
+   recommendation 4). When enabled, outbound LS Updates to each neighbor are
+   metered through a per-neighbor queue rather than sent back-to-back. The
+   inter-packet gap is adjusted adaptively based on the number of
+   unacknowledged LSAs for that neighbor.
+
+.. clicmd:: no ip ospf lsa-pacing
+
+   Disable LSA gap pacing on this interface and restore immediate LS Update
+   delivery.
+
+.. clicmd:: ip ospf lsa-pacing initial-gap (1-60000)
+
+   Set the initial inter-LSU gap in milliseconds applied when a new adjacency
+   becomes Full. The value must fall within the configured ``min-gap`` and
+   ``max-gap`` range. Default: 20 ms.
+
+.. clicmd:: ip ospf lsa-pacing min-gap (1-60000) max-gap (1-60000)
+
+   Set the floor and ceiling for adaptive gap adjustment. The ``min-gap``
+   is the fastest the paced sender will go; ``max-gap`` is the slowest.
+   ``min-gap`` must not exceed ``max-gap``. Defaults: min 20 ms, max 1000 ms.
+
+.. clicmd:: ip ospf lsa-pacing factor (1-64)
+
+   Set the multiplicative adjustment factor F used by the MIMD algorithm.
+   When the unacknowledged LSA count rises above the high-watermark, the gap
+   is multiplied by F (sends slow down). When it falls below the
+   low-watermark, the gap is divided by F (sends speed up). Default: 2.
+
+.. clicmd:: ip ospf lsa-pacing adjust-interval (1-60000)
+
+   Set the minimum time in milliseconds between consecutive gap adjustments.
+   Prevents oscillation during transient bursts. Default: 1000 ms.
+
+.. clicmd:: ip ospf lsa-pacing max-lsas-per-update (1-200)
+
+   Set the maximum number of LSAs packed into a single paced LS Update
+   packet. Default: 1.
+
+.. clicmd:: ip ospf lsa-pacing low-watermark (0-1000000) high-watermark (1-1000000)
+
+   Set the unacknowledged LSA count thresholds used by the adaptive algorithm.
+   When the per-neighbor unacked count falls below ``low-watermark``, the gap
+   is divided by the factor (rate increases). When it rises above
+   ``high-watermark``, the gap is multiplied by the factor (rate decreases).
+   ``low-watermark`` must be strictly less than ``high-watermark``.
+   Defaults: low 2, high 100.
+
 .. clicmd:: ip ospf dscp (all|low-control) (0-63)
 
    Set the DSCP value applied to OSPF control packets. The ``all`` option

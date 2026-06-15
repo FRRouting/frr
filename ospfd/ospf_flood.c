@@ -732,6 +732,15 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 			}
 		}
 
+		/* RFC4222 R4: queue ownership begins at the paced send timer,
+		 * not during flood traversal. Mark that at least one eligible
+		 * neighbor exists and let the later R4 block enqueue the LSA.
+		 */
+		if (oi->rec4_gap_pacing) {
+			retx_flag = 1;
+			continue;
+		}
+
 		/* Add the new LSA to the Link state retransmission list
 		   for the adjacency. The LSA will be retransmitted
 		   at intervals until an acknowledgment is seen from
@@ -795,6 +804,30 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	    IP addresses for these packets are the neighbors' IP
 	    addresses. This behavior is extended to P2MP networks which
 	    don't support broadcast. */
+	/* RFC4222 R4: route flooding through per-neighbor paced queues. */
+	if (oi->rec4_gap_pacing) {
+		struct ospf_neighbor *nbr;
+
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			nbr = rn->info;
+			if (!nbr || nbr == oi->nbr_self)
+				continue;
+			if (nbr->state < NSM_Exchange)
+				continue;
+			if (inbr && IPV4_ADDR_SAME(&inbr->router_id, &nbr->router_id))
+				continue;
+			if (!inbr && IPV4_ADDR_SAME(&lsa->data->adv_router, &nbr->router_id))
+				continue;
+
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+				zlog_debug("RFC4222 R4: flood enqueue LSA [Type%d:%pI4] nbr=%pI4 intf=%s",
+					   lsa->data->type, &lsa->data->id, &nbr->router_id,
+					   IF_NAME(oi));
+			ospf_r4_nbr_enqueue(nbr, lsa);
+		}
+		return 0;
+	}
+
 	if (OSPF_IF_NON_BROADCAST(oi)) {
 		struct ospf_neighbor *nbr;
 

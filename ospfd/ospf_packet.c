@@ -153,12 +153,59 @@ static void ospf_packet_sent_lsas_fini(struct ospf_packet *op)
 	}
 }
 
-extern uint64_t ospf_now_ms(void)
+uint64_t ospf_now_ms(void)
 {
 	struct timeval tv;
 
 	monotime(&tv);
 	return (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)tv.tv_usec / 1000ULL;
+}
+
+/* RFC4222 R4: unlock helper for LSAs held in per-neighbor pacing queues. */
+static void ospf_r4_lsa_unlock_del(void *data)
+{
+	struct ospf_lsa *lsa = data;
+
+	ospf_lsa_unlock(&lsa);
+}
+
+/* RFC4222 R4: adjust per-neighbor LSU gap using unacked LSA watermarks. */
+static inline void pace_maybe_adjust_gap(struct ospf_interface *oi, struct ospf_neighbor *nbr,
+					 uint64_t now_ms)
+{
+	const uint32_t U = nbr->ls_rxmt_unacked;
+	const uint32_t H = oi->rec4_high_water;
+	const uint32_t L = oi->rec4_low_water;
+	const uint32_t F = oi->rec4_gap_factor;
+	const uint32_t T_ms = oi->rec4_gap_adjust_int_ms;
+	const uint32_t Gmin = oi->rec4_gap_min_ms;
+	const uint32_t Gmax = oi->rec4_gap_max_ms;
+	uint32_t G = nbr->lsu_gap_ms;
+
+	if ((now_ms - nbr->gap_last_change_ms) < T_ms)
+		return;
+
+	if (U > H) {
+		uint64_t grown = (uint64_t)G * F;
+
+		G = (grown > Gmax) ? Gmax : (uint32_t)grown;
+	} else if (U == 0) {
+		G = Gmin;
+	} else if (U <= L) {
+		uint32_t shrunk = G / F;
+
+		G = (shrunk < Gmin) ? Gmin : shrunk;
+	} else {
+		return;
+	}
+
+	nbr->lsu_gap_ms = G;
+	nbr->gap_last_change_ms = now_ms;
+	if (nbr->next_send_ms < now_ms)
+		nbr->next_send_ms = now_ms;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+		zlog_debug("RFC4222 R4: nbr=%pI4 U=%u H=%u L=%u G=%u", &nbr->router_id, U, H, L, G);
 }
 
 static inline bool ospf_dst_is_multicast(struct in_addr dst)
@@ -188,7 +235,7 @@ static inline bool ospf_nbr_is_dr_or_bdr(const struct ospf_neighbor *nbr)
 	return false;
 }
 
-/* RFC4222/R5: Track sent LSAs for dynamic adjacency pacing */
+/* RFC4222 R4/R5: track sent LSAs for pacing feedback. */
 static inline void ospf_count_sent_lsa(struct ospf_interface *oi, struct in_addr dst,
 				       struct ospf_lsa *lsa)
 {
@@ -227,6 +274,90 @@ static inline void ospf_count_sent_lsa(struct ospf_interface *oi, struct in_addr
 			nbr->ls_rxmt_unacked++;
 		}
 	}
+}
+
+/* RFC4222 R4: advance pacing gates after an LSU is queued for output. */
+static void lsu_sent_for_dst(struct ospf_interface *oi, struct in_addr dst, uint64_t now_ms,
+			     uint32_t sent_count)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr;
+	const bool mcast = ospf_dst_is_multicast(dst);
+	const bool alldr = ospf_dst_is_alldr(dst);
+
+	if (!oi->rec4_gap_pacing)
+		return;
+
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+		if (!nbr || nbr == oi->nbr_self)
+			continue;
+		if (nbr->state < NSM_Exchange)
+			continue;
+		if (!mcast) {
+			if (nbr->address.u.prefix4.s_addr != dst.s_addr)
+				continue;
+		} else if (alldr && !ospf_nbr_is_dr_or_bdr(nbr)) {
+			continue;
+		}
+
+		nbr->next_send_ms = MAX(nbr->next_send_ms, now_ms) +
+				    ((uint64_t)nbr->lsu_gap_ms * sent_count);
+	}
+}
+
+/* RFC4222 R4: return whether any neighbor has queued paced LSAs. */
+bool ospf_oi_any_nbr_gap_pacing(const struct ospf_interface *oi)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr;
+
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+		if (nbr && listcount(&nbr->r4_send_queue))
+			return true;
+	}
+	return false;
+}
+
+/* RFC4222 R4: forward declaration for per-neighbor paced send timer. */
+static void ospf_r4_nbr_send_timer(struct event *event);
+
+/* RFC4222 R4: initialize per-neighbor paced LSU queue. */
+void ospf_r4_nbr_init(struct ospf_neighbor *nbr)
+{
+	memset(&nbr->r4_send_queue, 0, sizeof(nbr->r4_send_queue));
+	nbr->r4_send_queue.del = ospf_r4_lsa_unlock_del;
+}
+
+/* RFC4222 R4: cancel pacing timer and flush queued LSAs. */
+void ospf_r4_nbr_cancel(struct ospf_neighbor *nbr)
+{
+	event_cancel(&nbr->t_r4_send);
+	list_delete_all_node(&nbr->r4_send_queue);
+}
+
+/* RFC4222 R4: arm per-neighbor paced send timer. */
+static void ospf_r4_nbr_arm_timer(struct ospf_neighbor *nbr)
+{
+	uint64_t now_ms;
+	long delay_ms;
+
+	if (nbr->t_r4_send)
+		return;
+	if (listcount(&nbr->r4_send_queue) == 0)
+		return;
+
+	now_ms = ospf_now_ms();
+	delay_ms = (nbr->next_send_ms > now_ms) ? (long)(nbr->next_send_ms - now_ms) : 0;
+	event_add_timer_msec(master, ospf_r4_nbr_send_timer, nbr, delay_ms, &nbr->t_r4_send);
+}
+
+/* RFC4222 R4: enqueue one LSA for paced unicast transmission to nbr. */
+void ospf_r4_nbr_enqueue(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
+{
+	listnode_add(&nbr->r4_send_queue, ospf_lsa_lock(lsa));
+	ospf_r4_nbr_arm_timer(nbr);
 }
 
 struct ospf_fifo *ospf_fifo_new(void)
@@ -577,7 +708,21 @@ void ospf_ls_rxmt_timer(struct event *event)
 			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 				zlog_debug("RETRANS_SEND_PACKET: Sending %d LSAs to neighbor %pI4",
 					   rxmt_lsa_count, &nbr->router_id);
-			ospf_ls_upd_send_lsahead(nbr, &update);
+
+			/* RFC4222 R4: pace retransmits through the per-neighbor queue. */
+			if (nbr->oi->rec4_gap_pacing) {
+				struct ospf_lsa_list_entry *e;
+
+				frr_each_safe (ospf_lsa_list, &update, e) {
+					ospf_lsa_list_del(&update, e);
+					ospf_r4_nbr_enqueue(nbr, e->lsa);
+					ospf_lsa_unlock(&e->lsa);
+					XFREE(MTYPE_OSPF_LSA_LIST, e);
+				}
+			} else {
+				ospf_ls_upd_send_lsahead(nbr, &update);
+			}
+
 			/* RFC4222/R5: Retransmitting means ACKs aren't arriving - check congestion */
 			if (nbr->oi->adj_pacing.mode == OSPF_ADJ_PACING_DYNAMIC)
 				ospf_adj_dyn_adjust(nbr->oi);
@@ -2439,6 +2584,7 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 			uint16_t size)
 {
 	struct ospf_neighbor *nbr;
+	bool acked_any = false;
 
 	/* increment statistics. */
 	oi->ls_ack_in++;
@@ -2506,6 +2652,7 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 						   &lsa->data->id, ntohl(lsa->data->ls_seqnum),
 						   ospf_ls_retransmit_count(nbr));
 				ospf_ls_retransmit_delete(nbr, lsr);
+				acked_any = true;
 				/* RFC4222/R5: Trigger dynamic adjacency pacing adjustment */
 				if (nbr->oi->adj_pacing.mode == OSPF_ADJ_PACING_DYNAMIC)
 					ospf_adj_dyn_adjust(nbr->oi);
@@ -2527,7 +2674,9 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 		lsa->data = NULL;
 		ospf_lsa_discard(lsa);
 	}
-	//ospf_ls_retransmit_set_timer(nbr);
+	/* RFC4222 R4: ACK feedback may allow the per-neighbor gap to shrink. */
+	if (acked_any && nbr->oi->rec4_gap_pacing)
+		pace_maybe_adjust_gap(nbr->oi, nbr, ospf_now_ms());
 
 	return;
 }
@@ -3814,6 +3963,10 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update, stru
 		}
 		list_delete_node(update, node);
 		ospf_lsa_unlock(&lsa); /* oi->ls_upd_queue */
+
+		/* RFC4222 R4: bound LSAs per paced LSU packet. */
+		if (oi->rec4_gap_pacing && count >= oi->rec4_max_lsas)
+			break;
 	}
 
 	stream_putl_at(s, pp, count);
@@ -4294,8 +4447,8 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 
 static void ospf_ls_upd_send_queue_event(struct event *thread);
 
-void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
-			    struct in_addr addr, int send_lsupd_now)
+void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update, struct in_addr addr,
+			    int send_lsupd_now, struct ospf_neighbor *dst_nbr)
 {
 	struct ospf_packet *op;
 	uint16_t length = OSPF_HEADER_SIZE;
@@ -4340,6 +4493,29 @@ void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
 
 	/* Add packet to the interface output queue. */
 	ospf_packet_add(oi, op);
+
+	/* RFC4222 R4: paced sends attach retransmit ownership to the exact
+	 * neighbor whose queue produced this packet.
+	 */
+	if (oi->rec4_gap_pacing && dst_nbr) {
+		struct ospf_lsa_list_entry *e;
+
+		frr_each (ospf_lsa_list, &op->sent_lsas, e)
+			ospf_ls_retransmit_add(dst_nbr, e->lsa);
+	}
+
+	/* RFC4222 R4: advance the pacing gate for the exact queued neighbor
+	 * when available; fall back to destination-based accounting otherwise.
+	 */
+	if (oi->rec4_gap_pacing && sent_count > 0) {
+		uint64_t now_ms = ospf_now_ms();
+
+		if (dst_nbr)
+			dst_nbr->next_send_ms = MAX(dst_nbr->next_send_ms, now_ms) +
+						((uint64_t)dst_nbr->lsu_gap_ms * sent_count);
+		else
+			lsu_sent_for_dst(oi, addr, now_ms, sent_count);
+	}
 
 	/* Call ospf_write() right away to send ospf packets to neighbors */
 	if (send_lsupd_now) {
@@ -4393,7 +4569,7 @@ static void ospf_ls_upd_send_queue_event(struct event *event)
 
 		update = (struct list *)rn->info;
 
-		ospf_ls_upd_queue_send(oi, update, rn->p.u.prefix4, 0);
+		ospf_ls_upd_queue_send(oi, update, rn->p.u.prefix4, 0, NULL);
 
 		/* list might not be empty. */
 		if (listcount(update) == 0) {
@@ -4414,6 +4590,54 @@ static void ospf_ls_upd_send_queue_event(struct event *event)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s stop", __func__);
+}
+
+/* RFC4222 R4: per-neighbor paced LSU send timer. */
+static void ospf_r4_nbr_send_timer(struct event *event)
+{
+	struct ospf_neighbor *nbr = EVENT_ARG(event);
+	struct ospf_interface *oi;
+	uint64_t now_ms;
+	uint64_t delay_ms;
+
+	nbr->t_r4_send = NULL;
+	if (!nbr->oi)
+		return;
+
+	oi = nbr->oi;
+	if (!oi->rec4_gap_pacing)
+		return;
+	if (listcount(&nbr->r4_send_queue) == 0)
+		return;
+
+	now_ms = ospf_now_ms();
+	if (nbr->next_send_ms > now_ms) {
+		delay_ms = nbr->next_send_ms - now_ms;
+		event_add_timer_msec(master, ospf_r4_nbr_send_timer, nbr, (long)delay_ms,
+				     &nbr->t_r4_send);
+		return;
+	}
+
+	/* RFC4222 R4: local output backpressure; yield the event loop once. */
+	if (oi->on_write_q) {
+		event_add_timer_msec(master, ospf_r4_nbr_send_timer, nbr, 1, &nbr->t_r4_send);
+		return;
+	}
+
+	/* RFC4222 R4: queue pressure is also congestion feedback. */
+	if (listcount(&nbr->r4_send_queue) > oi->rec4_high_water)
+		pace_maybe_adjust_gap(oi, nbr, now_ms);
+
+	ospf_ls_upd_queue_send(oi, &nbr->r4_send_queue, nbr->address.u.prefix4, 0, nbr);
+	pace_maybe_adjust_gap(oi, nbr, ospf_now_ms());
+
+	if (listcount(&nbr->r4_send_queue) > 0) {
+		now_ms = ospf_now_ms();
+		delay_ms = (nbr->next_send_ms > now_ms) ? (nbr->next_send_ms - now_ms)
+							: oi->rec4_gap_min_ms;
+		event_add_timer_msec(master, ospf_r4_nbr_send_timer, nbr, (long)delay_ms,
+				     &nbr->t_r4_send);
+	}
 }
 
 void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
@@ -4477,7 +4701,7 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 			if (!send_update_list || listcount(send_update_list) == 0)
 				continue;
 
-			ospf_ls_upd_queue_send(oi, send_update_list, rn->p.u.prefix4, 1);
+			ospf_ls_upd_queue_send(oi, send_update_list, rn->p.u.prefix4, 1, NULL);
 		}
 	} else {
 		if (!oi->t_ls_upd_event)
