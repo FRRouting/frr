@@ -205,7 +205,8 @@ static inline void pace_maybe_adjust_gap(struct ospf_interface *oi, struct ospf_
 		nbr->next_send_ms = now_ms;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-		zlog_debug("RFC4222 R4: nbr=%pI4 U=%u H=%u L=%u G=%u", &nbr->router_id, U, H, L, G);
+		zlog_debug("OSPF LSA pacing: interface %s neighbor %pI4 effective-gap=%ums (unacknowledged-LSAs=%u high-water=%u low-water=%u)",
+			   IF_NAME(oi), &nbr->router_id, G, U, H, L);
 }
 
 static inline bool ospf_dst_is_multicast(struct in_addr dst)
@@ -720,7 +721,8 @@ void ospf_ls_rxmt_timer(struct event *event)
 								       ls_rxmt_list_entry->lsa);
 				if (ls_rxmt_node && ls_rxmt_node->r4_qnode) {
 					if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-						zlog_debug("RETRANS_QUEUED_LSA: LSA %pI4 still in paced send queue, rescheduling only",
+						zlog_debug("OSPF LSA pacing: neighbor %pI4 LSA %pI4 remains in paced queue; retransmission deferred",
+							   &nbr->router_id,
 							   &ls_rxmt_list_entry->lsa->data->id);
 					ls_rxmt_list_entry->list_entry_time = next_rxmt_time;
 					ospf_lsa_list_del(&nbr->ls_rxmt_list, ls_rxmt_list_entry);
@@ -825,8 +827,8 @@ void ospf_ls_rxmt_timer(struct event *event)
 	/* R5 Dynamic adjacency pacing: retransmit indicates congestion */
 	if (nbr->oi->adj_pacing.mode == OSPF_ADJ_PACING_DYNAMIC && rxmt_lsa_count > 0) {
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5: %s retransmit timer fired for %pI4 (sent %u LSAs), triggering dynamic adjust",
-				   IF_NAME(nbr->oi), &nbr->router_id, rxmt_lsa_count);
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s detected %u LSA retransmissions for neighbor %pI4; scheduling congestion evaluation",
+				   IF_NAME(nbr->oi), rxmt_lsa_count, &nbr->router_id);
 		ospf_adj_dyn_adjust(nbr->oi);
 	}
 
@@ -4449,8 +4451,7 @@ void ospf_ls_upd_send_lsa(struct ospf_neighbor *nbr, struct ospf_lsa *lsa,
  * NULL if we can not allocate, eg because LSA is bigger than imposed limit
  * on packet sizes (in which case offending LSA is deleted from update list)
  */
-static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
-						  struct ospf_interface *oi,
+static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update, struct ospf_interface *oi,
 						  struct ospf_neighbor *dst_nbr)
 {
 	struct ospf_lsa *lsa;

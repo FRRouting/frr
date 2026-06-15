@@ -264,14 +264,16 @@ static void ospf_rec4_recompute_effective(struct ospf_interface *oi)
 	oi->rec4_low_water = OSPF_IF_PARAM(oi, gap_low_water);
 	oi->rec4_max_lsas = OSPF_IF_PARAM(oi, gap_max_lsas);
 
-	if (oi->rec4_gap_min_ms < 1)
-		oi->rec4_gap_min_ms = 1;
+	if (oi->rec4_gap_min_ms < OSPF_GAP_MIN_MS_LOWER_BOUND)
+		oi->rec4_gap_min_ms = OSPF_GAP_MIN_MS_LOWER_BOUND;
 	if (oi->rec4_gap_max_ms < oi->rec4_gap_min_ms)
 		oi->rec4_gap_max_ms = oi->rec4_gap_min_ms;
-	if (oi->rec4_gap_factor < 1)
-		oi->rec4_gap_factor = 1;
-	if (oi->rec4_gap_adjust_int_ms < 1)
-		oi->rec4_gap_adjust_int_ms = 1;
+	if (oi->rec4_gap_factor < OSPF_GAP_FACTOR_LOWER_BOUND)
+		oi->rec4_gap_factor = OSPF_GAP_FACTOR_LOWER_BOUND;
+	if (oi->rec4_gap_adjust_int_ms < OSPF_GAP_ADJUST_INT_MS_LOWER_BOUND)
+		oi->rec4_gap_adjust_int_ms = OSPF_GAP_ADJUST_INT_MS_LOWER_BOUND;
+	if (oi->rec4_max_lsas < OSPF_GAP_MAX_LSAS_LOWER_BOUND)
+		oi->rec4_max_lsas = OSPF_GAP_MAX_LSAS_LOWER_BOUND;
 	if (oi->rec4_low_water > oi->rec4_high_water)
 		oi->rec4_low_water = oi->rec4_high_water;
 
@@ -374,7 +376,7 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	oi->adj_pacing.t_dyn_adjust = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-		zlog_debug("R5: %s adj_pacing initialized: mode=NONE dynamic_limit=%u H=%u L=%u",
+		zlog_debug("OSPF adjacency pacing: interface %s initialized disabled (dynamic initial-limit=%u high-water=%u low-water=%u)",
 			   ifp->name, oi->adj_pacing.dynamic_limit, oi->adj_pacing.high_water,
 			   oi->adj_pacing.low_water);
 

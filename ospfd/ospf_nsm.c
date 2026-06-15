@@ -71,8 +71,8 @@ void ospf_adj_pacing_queue_flush(struct ospf_interface *oi)
 	}
 
 	if (count > 0 && IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-		zlog_debug("R5: %s flushed %d queued neighbors (sent NSM_AdjOK)", IF_NAME(oi),
-			   count);
+		zlog_debug("OSPF adjacency pacing: interface %s released %d queued neighbors (scheduled AdjOK)",
+			   IF_NAME(oi), count);
 }
 
 static void nsm_clear_adj(struct ospf_neighbor *);
@@ -107,8 +107,8 @@ static uint32_t ospf_adj_total_unacked(struct ospf_interface *oi)
 	}
 
 	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS) && total > 0)
-		zlog_debug("R5-DYN: %s total_unacked=%u across %u neighbors", IF_NAME(oi), total,
-			   nbr_count);
+		zlog_debug("OSPF dynamic adjacency pacing: interface %s unacknowledged-LSAs=%u across %u neighbors",
+			   IF_NAME(oi), total, nbr_count);
 
 	return total;
 }
@@ -132,7 +132,8 @@ static void ospf_adj_dyn_adjust_timer(struct event *t)
 	/* Rate limit: skip if adjusted too recently */
 	if (elapsed_ms < OSPF_ADJ_DYN_ADJUST_INT_MS) {
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5-DYN: %s rate-limited (elapsed=%" PRIu64 "ms < %ums)",
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s adjustment deferred (elapsed=%" PRIu64
+				   "ms minimum=%ums)",
 				   IF_NAME(oi), elapsed_ms, OSPF_ADJ_DYN_ADJUST_INT_MS);
 		return;
 	}
@@ -148,24 +149,24 @@ static void ospf_adj_dyn_adjust_timer(struct event *t)
 	new_limit = limit;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-		zlog_debug("R5-DYN: %s checking: U=%u H=%u L=%u limit=%u in_progress=%u",
+		zlog_debug("OSPF dynamic adjacency pacing: interface %s evaluating congestion (unacked=%u high-water=%u low-water=%u limit=%u in-progress=%u)",
 			   IF_NAME(oi), U, H, L, limit, oi->adj_pacing.in_progress);
 
 	if (U > H) {
 		/* Congestion: decrease limit */
 		new_limit = (limit > OSPF_ADJ_DYN_FACTOR) ? (limit / OSPF_ADJ_DYN_FACTOR) : 1;
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5-DYN: %s CONGESTION detected U(%u) > H(%u), decreasing limit %u->%u",
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s CONGESTION detected (unacked=%u high-water=%u); decreasing limit %u->%u",
 				   IF_NAME(oi), U, H, limit, new_limit);
 	} else if (U < L) {
 		/* Uncongested: increase limit */
 		new_limit = (limit < OSPF_ADJ_DYN_LIMIT_MAX) ? (limit + 1) : OSPF_ADJ_DYN_LIMIT_MAX;
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5-DYN: %s UNCONGESTED U(%u) < L(%u), increasing limit %u->%u",
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s congestion cleared (unacked=%u low-water=%u); increasing limit %u->%u",
 				   IF_NAME(oi), U, L, limit, new_limit);
 	} else {
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5-DYN: %s HYSTERESIS L(%u) <= U(%u) <= H(%u), no change",
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s within hysteresis range (low-water=%u unacked=%u high-water=%u); limit unchanged",
 				   IF_NAME(oi), L, U, H);
 	}
 
@@ -174,14 +175,14 @@ static void ospf_adj_dyn_adjust_timer(struct event *t)
 		oi->adj_pacing.last_adjust_ms = now_ms;
 
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5-DYN: %s ADJUSTED limit %u->%u U=%u H=%u L=%u elapsed=%" PRIu64
-				   "ms",
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s adjusted limit %u->%u (unacked=%u high-water=%u low-water=%u elapsed=%" PRIu64
+				   "ms)",
 				   IF_NAME(oi), limit, new_limit, U, H, L, elapsed_ms);
 
 		/* Limit increased: kick queue to fill newly opened slots */
 		if (new_limit > limit && oi->adj_pacing.in_progress < new_limit) {
 			if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-				zlog_debug("R5-DYN: %s limit increased %u->%u, kicking queued adjacencies",
+				zlog_debug("OSPF dynamic adjacency pacing: interface %s increased limit %u->%u; releasing queued adjacencies",
 					   IF_NAME(oi), limit, new_limit);
 			ospf_adj_pacing_kick(oi);
 		}
@@ -199,7 +200,8 @@ void ospf_adj_dyn_adjust(struct ospf_interface *oi)
 		event_add_timer_msec(master, ospf_adj_dyn_adjust_timer, oi, 0,
 				     &oi->adj_pacing.t_dyn_adjust);
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5-DYN: %s scheduled deferred adjustment", IF_NAME(oi));
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s scheduled congestion evaluation",
+				   IF_NAME(oi));
 	}
 }
 
@@ -213,8 +215,8 @@ static uint16_t ospf_adj_pacing_limit(struct ospf_interface *oi)
 		/* Recompute before returning */
 		ospf_adj_dyn_adjust(oi);
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5-DYN: %s returning dynamic_limit=%u", IF_NAME(oi),
-				   oi->adj_pacing.dynamic_limit);
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s current limit=%u",
+				   IF_NAME(oi), oi->adj_pacing.dynamic_limit);
 		return oi->adj_pacing.dynamic_limit;
 	}
 	return 0;
@@ -469,11 +471,14 @@ static int nsm_twoway_received(struct ospf_neighbor *nbr)
 	int adj = nsm_should_adj(nbr);
 
 	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-		zlog_debug("R5: TwoWay recv nbr=%pI4 adj=%d", &nbr->router_id, adj);
+		zlog_debug("OSPF adjacency pacing: interface %s neighbor %pI4 reached TwoWay (adjacency-required=%d)",
+			   IF_NAME(nbr->oi), &nbr->router_id, adj);
 
 	if (adj && !ospf_adj_pacing_allow(nbr->oi)) {
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5: throttling nbr=%pI4", &nbr->router_id);
+			zlog_debug("OSPF adjacency pacing: interface %s delaying adjacency for neighbor %pI4 in TwoWay (in-progress=%u)",
+				   IF_NAME(nbr->oi), &nbr->router_id,
+				   nbr->oi->adj_pacing.in_progress);
 		ospf_adj_pacing_enqueue(nbr);
 		return NSM_TwoWay;
 	}
@@ -482,8 +487,8 @@ static int nsm_twoway_received(struct ospf_neighbor *nbr)
 		ospf_adj_pacing_remove(nbr);
 
 	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-		zlog_debug("R5: TwoWay -> %s nbr=%pI4", adj ? "ExStart" : "TwoWay",
-			   &nbr->router_id);
+		zlog_debug("OSPF adjacency pacing: interface %s neighbor %pI4 TwoWay decision=%s",
+			   IF_NAME(nbr->oi), &nbr->router_id, adj ? "ExStart" : "TwoWay");
 
 	/* Send proactive ARP requests */
 	if (adj)
@@ -626,7 +631,9 @@ static int nsm_adj_ok(struct ospf_neighbor *nbr)
 	if (nbr->state == NSM_TwoWay && adj == 1) {
 		if (!ospf_adj_pacing_allow(nbr->oi)) {
 			if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-				zlog_debug("R5: AdjOK throttling nbr=%pI4", &nbr->router_id);
+				zlog_debug("OSPF adjacency pacing: interface %s delaying AdjOK for neighbor %pI4 (in-progress=%u)",
+					   IF_NAME(nbr->oi), &nbr->router_id,
+					   nbr->oi->adj_pacing.in_progress);
 			ospf_adj_pacing_enqueue(nbr);
 			return NSM_TwoWay;
 		}
@@ -646,8 +653,9 @@ static int nsm_adj_ok(struct ospf_neighbor *nbr)
 		next_state = NSM_ExStart;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-		zlog_debug("R5: AdjOK next_state=%s nbr=%pI4",
-			   lookup_msg(ospf_nsm_state_msg, next_state, NULL), &nbr->router_id);
+		zlog_debug("OSPF adjacency pacing: interface %s neighbor %pI4 AdjOK next-state=%s",
+			   IF_NAME(nbr->oi), &nbr->router_id,
+			   lookup_msg(ospf_nsm_state_msg, next_state, NULL));
 
 	return next_state;
 }
@@ -674,14 +682,16 @@ static void nsm_clear_adj(struct ospf_neighbor *nbr)
 		UNSET_FLAG(nbr->options, OSPF_OPTION_O);
 }
 
-/*RFC4222/R5 changes: remove neighbor from per-interface packing queue when killed*/
+/* RFC4222 Recommendation 5: clean up per-interface adjacency pacing
+ * state when a neighbor is killed.
+ */
 static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi = nbr->oi;
 	struct ospf_neighbor *on;
 	struct route_node *rn;
 
-	/* R5 changes*/
+	/* Prevent neighbor teardown from leaving a stale pacing queue entry. */
 	ospf_adj_pacing_remove(nbr);
 
 	/* killing nbr_self is invalid */
@@ -983,8 +993,9 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 			oi->adj_pacing.in_progress--;
 
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5: %s in-progress=%u limit=%u", IF_NAME(oi),
-				   oi->adj_pacing.in_progress, ospf_adj_pacing_limit(oi));
+			zlog_debug("OSPF adjacency pacing: interface %s formation slot released (in-progress=%u limit=%u)",
+				   IF_NAME(oi), oi->adj_pacing.in_progress,
+				   ospf_adj_pacing_limit(oi));
 
 		/* Only kick if pacing is enabled */
 		if (ospf_adj_pacing_enabled(oi))

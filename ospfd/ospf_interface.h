@@ -52,6 +52,12 @@
 #define OSPF_GAP_LOW_WATER_DEFAULT     2
 #define OSPF_GAP_MAX_LSAS_DEFAULT      1
 
+/* RFC4222 R4 lower bounds. */
+#define OSPF_GAP_MIN_MS_LOWER_BOUND	   1U
+#define OSPF_GAP_FACTOR_LOWER_BOUND	   1U
+#define OSPF_GAP_ADJUST_INT_MS_LOWER_BOUND 1U
+#define OSPF_GAP_MAX_LSAS_LOWER_BOUND	   1U
+
 struct ospf_if_params {
 	DECLARE_IF_PARAM(uint32_t, transmit_delay); /* Interface Transmission Delay */
 	DECLARE_IF_PARAM(uint32_t,

@@ -816,14 +816,9 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 		zlog_debug("%s: DR/BDR sending upd to int %s (%s)", __func__,
 			   IF_NAME(oi), ospf_get_name(oi->ospf));
 
-	/*  RFC2328  Section 13.3
-	    On non-broadcast networks, separate	Link State Update
-	    packets must be sent, as unicasts, to each adjacent	neighbor
-	    (i.e., those in state Exchange or greater).	 The destination
-	    IP addresses for these packets are the neighbors' IP
-	    addresses. This behavior is extended to P2MP networks which
-	    don't support broadcast. */
-	/* RFC4222 R4: route flooding through per-neighbor paced queues. */
+	/* RFC4222 R4: route flooding through per-neighbor paced queues
+	 * for all interface types.
+	 */
 	if (oi->rec4_gap_pacing) {
 		struct ospf_neighbor *nbr;
 
@@ -839,9 +834,9 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 				continue;
 
 			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-				zlog_debug("RFC4222 R4: flood enqueue LSA [Type%d:%pI4] nbr=%pI4 intf=%s",
-					   lsa->data->type, &lsa->data->id, &nbr->router_id,
-					   IF_NAME(oi));
+				zlog_debug("OSPF LSA pacing: interface %s queued Type-%d LSA %pI4 for neighbor %pI4",
+					   IF_NAME(oi), lsa->data->type, &lsa->data->id,
+					   &nbr->router_id);
 
 			/* A superseded instance may still be waiting in the
 			 * paced send queue; drop it. This covers instances
@@ -858,6 +853,13 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 		return 0;
 	}
 
+	/* RFC2328 Section 13.3:
+	 * On non-broadcast networks, separate Link State Update packets
+	 * must be sent as unicasts to each adjacent neighbor (i.e., those
+	 * in state Exchange or greater). The destination IP addresses for
+	 * these packets are the neighbors' IP addresses. This behavior is
+	 * extended to P2MP networks that do not support broadcast.
+	 */
 	if (OSPF_IF_NON_BROADCAST(oi)) {
 		struct ospf_neighbor *nbr;
 

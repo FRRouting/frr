@@ -564,7 +564,7 @@ DEFUN( ip_ospf_adj_pacing_static,
 		oi->adj_pacing.last_adjust_ms = 0;
 
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5: %s static pacing ENABLED via CLI, limit=%u (dynamic state cleared)",
+			zlog_debug("OSPF adjacency pacing: static mode enabled on interface %s (limit=%u)",
 				   IF_NAME(oi), limit);
 
 		/* Kick queue — new limit may open slots for waiting neighbors */
@@ -617,7 +617,7 @@ DEFUN (ip_ospf_adj_pacing_dynamic,
 			oi->adj_pacing.low_water = params->adj_pacing_low_water;
 
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5: %s dynamic pacing ENABLED via CLI, initial limit=%u H=%u L=%u",
+			zlog_debug("OSPF dynamic adjacency pacing: enabled on interface %s (initial-limit=%u high-water=%u low-water=%u)",
 				   IF_NAME(oi), OSPF_ADJ_DYN_LIMIT_INITIAL,
 				   oi->adj_pacing.high_water, oi->adj_pacing.low_water);
 	}
@@ -681,8 +681,8 @@ DEFUN (ip_ospf_adj_pacing_dynamic_thresholds,
 		oi->adj_pacing.low_water = low_water;
 
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5: %s dynamic pacing thresholds set: H=%u L=%u", IF_NAME(oi),
-				   high_water, low_water);
+			zlog_debug("OSPF dynamic adjacency pacing: interface %s thresholds updated (high-water=%u low-water=%u)",
+				   IF_NAME(oi), high_water, low_water);
 	}
 
 	vty_out(vty, "%% Dynamic pacing thresholds: H=%u L=%u\n", high_water, low_water);
@@ -728,7 +728,7 @@ DEFUN (no_ip_ospf_adj_pacing,
 		if (oi->adj_pacing.t_dyn_adjust) {
 			event_cancel(&oi->adj_pacing.t_dyn_adjust);
 			if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-				zlog_debug("R5: %s cancelled pending AIMD adjustment timer",
+				zlog_debug("OSPF dynamic adjacency pacing: interface %s cancelled pending congestion evaluation",
 					   IF_NAME(oi));
 		}
 
@@ -746,7 +746,7 @@ DEFUN (no_ip_ospf_adj_pacing,
 		oi->adj_pacing.low_water = OSPF_ADJ_DYN_LOW_WATER;
 
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
-			zlog_debug("R5: %s adjacency pacing DISABLED (mode=NONE, in_progress=%u)",
+			zlog_debug("OSPF adjacency pacing: disabled on interface %s (in-progress=%u)",
 				   IF_NAME(oi), oi->adj_pacing.in_progress);
 	}
 	return CMD_SUCCESS;
@@ -3766,7 +3766,9 @@ DEFPY(ospf_gap_initial,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
-	uint32_t min_ms = OSPF_IF_PARAM_CONFIGURED(params, gap_min_ms) ? params->gap_min_ms : 1;
+	uint32_t min_ms = OSPF_IF_PARAM_CONFIGURED(params, gap_min_ms)
+				  ? params->gap_min_ms
+				  : OSPF_GAP_MIN_MS_LOWER_BOUND;
 	uint32_t max_ms = OSPF_IF_PARAM_CONFIGURED(params, gap_max_ms) ? params->gap_max_ms : 60000;
 
 	if (no) {
