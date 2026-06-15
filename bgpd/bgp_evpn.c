@@ -5245,6 +5245,69 @@ done:
 	return ret;
 }
 
+void evpn_leak_to_vpn_withdraw(struct bgp *to_bgp,	       /* to */
+			       struct bgp *from_bgp,	       /* from */
+			       struct bgp_path_info *path_vrf, /* route */
+			       struct prefix_rd *prd)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	const struct prefix_evpn *p = (struct prefix_evpn *)bgp_dest_get_prefix(path_vrf->net);
+	afi_t afi = family2afi(p->family);
+	safi_t safi = SAFI_MPLS_VPN;
+	struct bgp_path_info *bpi, *bpi_next;
+	struct bgp_dest *bn;
+
+	if (debug) {
+		zlog_debug("%s: entry: leak-from=%s, p=%pBD, type=%d, sub_type=%d", __func__,
+			   from_bgp->name_pretty, path_vrf->net, path_vrf->type,
+			   path_vrf->sub_type);
+	}
+
+	if (!to_bgp)
+		return;
+
+	if (!afi) {
+		if (debug)
+			zlog_debug("%s: can't get afi of prefix", __func__);
+		return;
+	}
+
+	/* Is this route exportable into the VPN table? */
+	if (!is_route_injectable_into_evpn(path_vrf))
+		return;
+
+	struct prefix pfx;
+	pfx.family = IS_IPADDR_V4(&p->prefix.prefix_addr.ip) ? AF_INET : AF_INET6;
+	afi = IS_IPADDR_V4(&p->prefix.prefix_addr.ip) ? AFI_IP : AFI_IP6;
+	pfx.prefixlen = p->prefix.prefix_addr.ip_prefix_length;
+	if (IS_IPADDR_V4(&p->prefix.prefix_addr.ip))
+		IPV4_ADDR_COPY(&pfx.u.prefix4, &p->prefix.prefix_addr.ip.ipaddr_v4);
+	else
+		IPV6_ADDR_COPY(&pfx.u.prefix6, &p->prefix.prefix_addr.ip.ipaddr_v6);
+
+	bn = bgp_safi_node_lookup(to_bgp->rib[afi][safi], safi, &pfx, prd);
+
+	if (!bn)
+		return;
+	if (debug)
+		zlog_debug("%s: withdrawing (path_vrf=%p)", __func__, path_vrf);
+
+	/*
+	 * vrf -> vpn
+	 * match original bpi imported from
+	 */
+	bpi_next = bgp_dest_get_bgp_path_info(bn);
+	while (bpi_next) {
+		bpi = bpi_next;
+		bpi_next = bpi->next;
+
+		bgp_aggregate_decrement(to_bgp, &pfx, bpi, afi, safi);
+		bgp_path_info_mark_for_delete(bn, bpi);
+		bgp_process(to_bgp, bn, bpi, afi, safi);
+	}
+	bgp_dest_unlock_node(bn);
+}
+
 /*
  * Process received EVPN type-3 route (advertise or withdraw).
  */

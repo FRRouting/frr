@@ -258,6 +258,10 @@ extern void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr
 					  struct prefix_evpn *evp, struct ipaddr *vtep_ip);
 extern int update_evpn_type5_route_to_vpn(struct bgp *bgp_vrf, struct prefix_evpn *p,
 					  struct bgp_path_info *pi, struct prefix_rd *prd);
+void evpn_leak_to_vpn_withdraw(struct bgp *to_bgp,	       /* to */
+			       struct bgp *from_bgp,	       /* from */
+			       struct bgp_path_info *path_vrf, /* route */
+			       struct prefix_rd *prd);
 void bgp_evpn_withdraw_type5_route_vpn(struct bgp *bgp_vrf, const struct bgp_path_info *originator,
 				       const struct prefix *p, afi_t afi, safi_t safi,
 				       uint32_t addpath_id);

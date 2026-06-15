@@ -3942,6 +3942,28 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 		bgp_evpn_withdraw_type5_route(bgp, old_select, p, afi, safi, 0);
 }
 
+static bool bgp_should_update_evpn_type5_route_to_vpn(const struct bgp *bgp,
+						      const struct prefix *p, safi_t safi,
+						      const struct attr *attr,
+						      const struct bgp_path_info *pi)
+{
+	const struct prefix_evpn *evp = (const struct prefix_evpn *)p;
+
+	if (safi != SAFI_EVPN || bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
+		return false;
+
+	if (!p || p->family != AF_EVPN || evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE)
+		return false;
+
+	if (attr && attr->srv6_l3service)
+		return true;
+
+	if (pi && pi->extra && pi->extra->labels)
+		return true;
+
+	return false;
+}
+
 /*
  * Utility to determine whether a particular path_info should use
  * the IMPLICIT_NULL label. This is pretty specialized: it's only called
@@ -6539,6 +6561,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
 			vpn_leak_to_vrf_update(bgp, pi, prd, peer);
 		}
+		if (bgp_should_update_evpn_type5_route_to_vpn(bgp, p, safi, attr, pi))
+			update_evpn_type5_route_to_vpn(bgp, (struct prefix_evpn *)p, pi, prd);
 
 		if (safi == SAFI_UNICAST && bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT &&
 		    bgp->ls_info && bgp->ls_info->enable_distribution)
@@ -6651,6 +6675,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
 		vpn_leak_to_vrf_update(bgp, new, prd, peer);
 	}
+	if (bgp_should_update_evpn_type5_route_to_vpn(bgp, p, safi, attr, new)) {
+		update_evpn_type5_route_to_vpn(bgp, (struct prefix_evpn *)p, new, prd);
+	}
 #ifdef ENABLE_BGP_VNC
 	if (SAFI_MPLS_VPN == safi) {
 		mpls_label_t label_decoded = decode_label(label);
@@ -6710,15 +6737,15 @@ filtered:
 
 		bgp_ls_withdraw_bgp_prefix(bgp, afi, safi, dest, pi);
 
-		if (SAFI_UNICAST == safi
-		    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF
-			|| bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-
+		if (SAFI_UNICAST == safi &&
+		    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+		     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
 			vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
 		}
+		if (bgp_should_update_evpn_type5_route_to_vpn(bgp, p, safi, pi->attr, pi))
+			evpn_leak_to_vpn_withdraw(bgp_get_default(), bgp, pi, prd);
 		if ((SAFI_MPLS_VPN == safi)
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-
 			vpn_leak_to_vrf_withdraw(pi);
 		}
 
@@ -6822,6 +6849,8 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
 		} else if ((SAFI_MPLS_VPN == safi) && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 			vpn_leak_to_vrf_withdraw(pi);
+		else if (bgp_should_update_evpn_type5_route_to_vpn(bgp, p, safi, pi->attr, pi))
+			evpn_leak_to_vpn_withdraw(bgp_get_default(), bgp, pi, prd);
 	} else if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, NULL,
