@@ -4985,6 +4985,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_UNREACH:
 			stream_putc(s, 0); /* no nexthop for unreachability */
 			break;
+		case SAFI_MUP:
+			/* TODO: implemented in subsequent commit */
+			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			assert(!"SAFI's UNSPEC or MAX being specified are a DEV ESCAPE");
@@ -4996,7 +4999,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
-		case SAFI_EVPN: {
+		case SAFI_EVPN:
+		case SAFI_MUP: {
 			if (attr->mp_nexthop_len ==
 			    BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				stream_putc(s,
@@ -5322,6 +5326,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const st
 	case SAFI_ENCAP:
 		assert(!"Please add proper encoding of SAFI_ENCAP");
 		break;
+	case SAFI_MUP:
+		/* TODO: implemented in subsequent commit */
+		break;
 	}
 }
 
@@ -5399,6 +5406,10 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		 * the prefix.
 		 */
 		size += BGP_UNREACH_NLRI_LEN_SIZE + 27;
+		break;
+	case SAFI_MUP:
+		/* TODO: implemented in subsequent commit */
+		size = 0;
 		break;
 	}
 
