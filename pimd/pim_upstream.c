@@ -522,8 +522,14 @@ bool should_limit_prune(struct pim_upstream *up)
 
 void graft_timer_start(struct pim_upstream *up)
 {
+	if (PIM_DEBUG_PIM_EVENTS) {
+		zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s", __func__,
+			   PIM_DEFAULT_GRAFT_RETRY_PERIOD, up->sg_str);
+	}
+
 	event_cancel(&up->t_graft_timer);
-	event_add_timer(router->master, on_graft_timer, up, router->t_periodic, &up->t_graft_timer);
+	event_add_timer(router->master, on_graft_timer, up, PIM_DEFAULT_GRAFT_RETRY_PERIOD,
+			&up->t_graft_timer);
 	pim_jp_agg_upstream_verification(up, true);
 }
 
