@@ -1377,6 +1377,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     save_line = "EMPTY"
                     for ctx_keys_al, add_line in lines_to_add:
                         if ctx_keys_al[0].startswith("router bgp"):
+                            rm_match = None
                             if add_line:
                                 rm_match = re.search(search, add_line)
                             if rm_match:
