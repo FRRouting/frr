@@ -384,6 +384,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 	dest->srv6_unicast->loc_node_len = locator->node_bits_length;
 	dest->srv6_unicast->func_len = locator->function_bits_length;
 	dest->srv6_unicast->arg_len = locator->argument_bits_length;
+	dest->srv6_unicast->type = BGP_PREFIX_SID_SRV6_L3_SERVICE;
 	memcpy(&dest->srv6_unicast->sid, bgp->srv6_unicast[afi].sid,
 	       sizeof(struct in6_addr));
 }

@@ -45,7 +45,9 @@
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL       8+IPV6_MAX_BYTELEN
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ((8+IPV6_MAX_BYTELEN) * 2)
 
-/* Prefix SID types */
+/* Prefix SID types
+ * https://www.iana.org/assignments/bgp-parameters/bgp-parameters.xhtml#bgp-prefix-sid-tlv-types
+ */
 #define BGP_PREFIX_SID_LABEL_INDEX     1
 #define BGP_PREFIX_SID_IPV6            2
 #define BGP_PREFIX_SID_ORIGINATOR_SRGB 3

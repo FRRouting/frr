@@ -885,7 +885,8 @@ static uint32_t srv6_service_hash_key_make(const void *p)
 	key = jhash_3words(service->sid_flags, service->endpoint_behavior, service->loc_block_len,
 			   key);
 	key = jhash_3words(service->loc_node_len, service->func_len, service->arg_len, key);
-	key = jhash_2words(service->transposition_len, service->transposition_offset, key);
+	key = jhash_3words(service->transposition_len, service->transposition_offset,
+			   service->type, key);
 	return key;
 }
 
@@ -902,7 +903,8 @@ static bool srv6_service_hash_cmp(const void *p1, const void *p2)
 	       service1->func_len == service2->func_len &&
 	       service1->arg_len == service2->arg_len &&
 	       service1->transposition_len == service2->transposition_len &&
-	       service1->transposition_offset == service2->transposition_offset;
+	       service1->transposition_offset == service2->transposition_offset &&
+	       service1->type == service2->type;
 }
 
 static bool srv6_service_same(const struct bgp_attr_srv6_service *h1,
@@ -3408,7 +3410,7 @@ encap_ignore:
 
 
 /* SRv6 Service Data Sub-Sub-TLV attribute
- * draft-ietf-bess-srv6-services-07
+ * RFC 9252
  */
 static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args,
 							  size_t remaining)
@@ -3469,14 +3471,15 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
 						  args->total);
 		}
 
+		struct bgp_attr_srv6_service *srv6_service = bgp_attr_get_srv6_service(attr);
+
 		/* Log SRv6 Service Data Sub-Sub-TLV */
-		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL) &&
+		    srv6_service->type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
 			zlog_debug("%s: srv6-l3-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
 				   __func__, loc_block_len, loc_node_len, func_len, arg_len,
 				   transposition_len, transposition_offset);
 		}
-
-		struct bgp_attr_srv6_service *srv6_service = bgp_attr_get_srv6_service(attr);
 
 		srv6_service->loc_block_len = loc_block_len;
 		srv6_service->loc_node_len = loc_node_len;
@@ -3501,10 +3504,10 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
 }
 
 /* SRv6 Service Sub-TLV attribute
- * draft-ietf-bess-srv6-services-07
+ * RFC 9252
  */
 static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args *args,
-						     size_t remaining)
+						     size_t remaining, uint8_t service_type)
 {
 	struct peer_connection *const connection = args->connection;
 	struct peer *const peer = connection->peer;
@@ -3555,7 +3558,8 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 		stream_getc(connection->curr);
 
 		/* Log SRv6 Service Sub-TLV */
-		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL) &&
+		    service_type == BGP_PREFIX_SID_SRV6_L3_SERVICE)
 			zlog_debug("%s: srv6-l3-srv sid %pI6, sid-flags 0x%02x, end-behaviour 0x%04x",
 				   __func__, &ipv6_sid, sid_flags, endpoint_behavior);
 
@@ -3579,6 +3583,7 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 		srv6_service->arg_len = 0;
 		srv6_service->transposition_len = 0;
 		srv6_service->transposition_offset = 0;
+		srv6_service->type = service_type;
 		bgp_attr_set_srv6_service(attr, srv6_service);
 
 		// Sub-Sub-TLV found
@@ -3772,15 +3777,16 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			sid_copy(&vpn->sid, &ipv6_sid);
 			bgp_attr_set_srv6_vpn(attr, srv6_vpn_intern(vpn));
 		}
-	} else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
+	} else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE ||
+		   type == BGP_PREFIX_SID_SRV6_L2_SERVICE) {
 		size_t start;
 		size_t consumed;
 		enum bgp_attr_parse_ret err;
 
 		if (length < 1 || STREAM_READABLE(connection->curr) < 1) {
-			flog_err(
-				EC_BGP_ATTR_LEN,
-				"Prefix SID SRV6 L3 Service not enough data left, it must be at least 1 byte");
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Prefix SID SRV6 L%s Service not enough data left, it must be at least 1 byte",
+				 type == BGP_PREFIX_SID_SRV6_L3_SERVICE ? "3" : "2");
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 				args->total);
@@ -3790,7 +3796,7 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		/* ignore reserved */
 		stream_getc(connection->curr);
 
-		err = bgp_attr_srv6_service(args, (size_t)length - 1);
+		err = bgp_attr_srv6_service(args, (size_t)length - 1, type);
 		if (err != BGP_ATTR_PARSE_PROCEED)
 			return err;
 
@@ -5811,7 +5817,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 					       | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_PREFIX_SID);
 			stream_putc(s, attr_len);
-			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE);
+			stream_putc(s, srv6_service->type);
 			stream_putw(s, tlv_len);
 			stream_putc(s, 0); /* reserved */
 			stream_putc(s, BGP_PREFIX_SID_SRV6_SERVICE_SID_INFO);
