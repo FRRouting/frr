@@ -1784,6 +1784,7 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 		struct bgp_attr_srv6_service *srv6_service =
 			XCALLOC(MTYPE_BGP_SRV6_SERVICE, sizeof(struct bgp_attr_srv6_service));
 
+		srv6_service->type = BGP_PREFIX_SID_SRV6_L3_SERVICE;
 		encode_label(from_bgp->vpn_policy[afi].tovpn_sid_transpose_label, label);
 		srv6_service->sid_flags = 0x00;
 		srv6_service->endpoint_behavior =
@@ -1825,6 +1826,7 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 		struct bgp_attr_srv6_service *srv6_service =
 			XCALLOC(MTYPE_BGP_SRV6_SERVICE, sizeof(struct bgp_attr_srv6_service));
 
+		srv6_service->type = BGP_PREFIX_SID_SRV6_L3_SERVICE;
 		encode_label(from_bgp->tovpn_sid_transpose_label, label);
 		srv6_service->sid_flags = 0x00;
 		srv6_service->endpoint_behavior = CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
