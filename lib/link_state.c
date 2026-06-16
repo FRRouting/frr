@@ -1842,6 +1842,7 @@ int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 
 	return zclient_send_message(zclient);
 }
+
 struct ls_message *ls_vertex2msg(struct ls_message *msg,
 				 struct ls_vertex *vertex)
 {
@@ -1949,17 +1950,26 @@ struct ls_message *ls_subnet2msg(struct ls_message *msg,
 struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 				bool delete)
 {
+	if (!msg || !msg->data.node)
+		return NULL;
+
 	struct ls_node *node = msg->data.node;
-	struct ls_vertex *vertex = NULL;
+	struct ls_vertex *vertex = ls_find_vertex_by_id(ted, node->adv);
 
 	switch (msg->event) {
 	case LS_MSG_EVENT_SYNC:
-		vertex = ls_vertex_add(ted, node);
+		if (vertex)
+			vertex = ls_vertex_update(ted, node);
+		else
+			vertex = ls_vertex_add(ted, node);
 		if (vertex)
 			vertex->status = SYNC;
 		break;
 	case LS_MSG_EVENT_ADD:
-		vertex = ls_vertex_add(ted, node);
+		if (vertex)
+			vertex = ls_vertex_update(ted, node);
+		else
+			vertex = ls_vertex_add(ted, node);
 		if (vertex)
 			vertex->status = NEW;
 		break;
@@ -1969,7 +1979,6 @@ struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 			vertex->status = UPDATE;
 		break;
 	case LS_MSG_EVENT_DELETE:
-		vertex = ls_find_vertex_by_id(ted, node->adv);
 		if (vertex) {
 			if (delete) {
 				ls_vertex_del_all(ted, vertex);
@@ -1989,17 +1998,26 @@ struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 			    bool delete)
 {
+	if (!msg || !msg->data.attr)
+		return NULL;
+
 	struct ls_attributes *attr = msg->data.attr;
-	struct ls_edge *edge = NULL;
+	struct ls_edge *edge = ls_find_edge_by_source(ted, attr);
 
 	switch (msg->event) {
 	case LS_MSG_EVENT_SYNC:
-		edge = ls_edge_add(ted, attr);
+		if (edge)
+			edge = ls_edge_update(ted, attr);
+		else
+			edge = ls_edge_add(ted, attr);
 		if (edge)
 			edge->status = SYNC;
 		break;
 	case LS_MSG_EVENT_ADD:
-		edge = ls_edge_add(ted, attr);
+		if (edge)
+			edge = ls_edge_update(ted, attr);
+		else
+			edge = ls_edge_add(ted, attr);
 		if (edge)
 			edge->status = NEW;
 		break;
@@ -2009,7 +2027,6 @@ struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 			edge->status = UPDATE;
 		break;
 	case LS_MSG_EVENT_DELETE:
-		edge = ls_find_edge_by_source(ted, attr);
 		if (edge) {
 			if (delete) {
 				ls_edge_del_all(ted, edge);
@@ -2029,17 +2046,26 @@ struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 				bool delete)
 {
+	if (!msg || !msg->data.prefix)
+		return NULL;
+
 	struct ls_prefix *pref = msg->data.prefix;
-	struct ls_subnet *subnet = NULL;
+	struct ls_subnet *subnet = ls_find_subnet(ted, &pref->pref);
 
 	switch (msg->event) {
 	case LS_MSG_EVENT_SYNC:
-		subnet = ls_subnet_add(ted, pref);
+		if (subnet)
+			subnet = ls_subnet_update(ted, pref);
+		else
+			subnet = ls_subnet_add(ted, pref);
 		if (subnet)
 			subnet->status = SYNC;
 		break;
 	case LS_MSG_EVENT_ADD:
-		subnet = ls_subnet_add(ted, pref);
+		if (subnet)
+			subnet = ls_subnet_update(ted, pref);
+		else
+			subnet = ls_subnet_add(ted, pref);
 		if (subnet)
 			subnet->status = NEW;
 		break;
@@ -2049,7 +2075,6 @@ struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 			subnet->status = UPDATE;
 		break;
 	case LS_MSG_EVENT_DELETE:
-		subnet = ls_find_subnet(ted, &pref->pref);
 		if (subnet) {
 			if (delete) {
 				ls_subnet_del_all(ted, subnet);
