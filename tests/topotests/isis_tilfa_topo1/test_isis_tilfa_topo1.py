@@ -309,23 +309,13 @@ def regen_data(rname, command, step, file, wait):
 
 
 def router_compare_json_output(rname, command, step, file, count=120, wait=0.5):
-    "Compare router JSON output"
-
     # Regenerate reference data when the REGEN_DATA environment variable is set
     if os.environ.get("REGEN_DATA") is not None:
         regen_data(rname, command, step, file, count * wait)
         return
 
-    tgen = get_topogen()
-    logger.info('Comparing router "%s" "%s" output', rname, command)
-    reference = open("{}/{}/step{}/{}".format(CWD, rname, step, file)).read()
-    expected = json.loads(reference)
-
-    # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
-    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
-    assert diff is None, assertmsg
+    reference = open(f"{CWD}/{rname}/step{step}/{file}").read()
+    topotest.router_compare_json_output_data(rname, command, reference, count, wait)
 
 
 #

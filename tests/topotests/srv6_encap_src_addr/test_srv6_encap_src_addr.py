@@ -64,17 +64,15 @@ def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
         """
         return topotest.json_cmp(json.loads(router.cmd(cmd)), data, exact)
 
-    logger.info('Comparing router "%s" "%s" output', rname, command)
-
-    tgen = get_topogen()
-    filename = "{}/{}/{}".format(CWD, rname, reference)
-    expected = json.loads(open(filename).read())
-
-    # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(_router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
-    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
-    assert diff is None, assertmsg
+    topotest.router_compare_json_output(
+        rname,
+        command,
+        reference,
+        count=count,
+        wait=wait,
+        CWD=CWD,
+        cmp_func=_router_json_cmp,
+    )
 
 
 def test_zebra_srv6_encap_src_addr(tgen):
