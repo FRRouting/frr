@@ -532,7 +532,9 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 	accept_changes = ccreq->phase >= MGMTD_COMMIT_PHASE_APPLY_CFG && apply_op;
 	discard_changes = (result == MGMTD_SUCCESS && ccreq->abort);
 	if (accept_changes) {
-		bool create_cmt_info_rec = (result != MGMTD_NO_CFG_CHANGES && !ccreq->rollback);
+		/* unlock_info == true: per-command implicit commit; skip history. */
+		bool create_cmt_info_rec = (result != MGMTD_NO_CFG_CHANGES && !ccreq->rollback &&
+					    !ccreq->unlock_info);
 
 		mgmt_ds_copy_dss(ccreq->dst_ds_ctx, ccreq->src_ds_ctx, create_cmt_info_rec);
 	}
