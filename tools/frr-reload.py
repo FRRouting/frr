@@ -993,10 +993,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             if ctx_keys[0] in pg_dict:
                 # Find 'neighbor <pg_name> remote-as'
                 re_pg_rmtas = re.search(pg_rmtas, line)
-                if (
-                    re_pg_rmtas
-                    and re_pg_rmtas.group(1) in pg_dict[ctx_keys[0]]
-                ):
+                if re_pg_rmtas and re_pg_rmtas.group(1) in pg_dict[ctx_keys[0]]:
                     pg_dict[ctx_keys[0]][re_pg_rmtas.group(1)]["remoteas"] = True
 
                 # Find 'neighbor <peer> [interface] peer-group <pg_name>'
@@ -1004,9 +1001,12 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
                 if (
                     re_nbr_pg
                     and re_nbr_pg.group(1) in pg_dict[ctx_keys[0]]
-                    and re_nbr_pg.group(2) not in pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]
+                    and re_nbr_pg.group(2)
+                    not in pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]
                 ):
-                    pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]["nbr"].append(re_nbr_pg.group(2))
+                    pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]["nbr"].append(
+                        re_nbr_pg.group(2)
+                    )
 
     # Find any neighbor <nbr> remote-as config line check if the nbr
     # is in the peer group's list of nbrs. Remove 'neighbor <nbr> remote-as <>'
@@ -1449,6 +1449,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     save_line = "EMPTY"
                     for ctx_keys_al, add_line in lines_to_add:
                         if ctx_keys_al[0].startswith("router bgp"):
+                            rm_match = None
                             if add_line:
                                 rm_match = re.search(search, add_line)
                             if rm_match:
@@ -2079,13 +2080,9 @@ def compare_context_objects(newconf, running):
     if len(candidates_to_add) > 0:
         lines_to_add.extend(candidates_to_add)
 
-    (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(
-        lines_to_add, lines_to_del
-    )
-    (lines_to_add, lines_to_del) = delete_move_lines(lines_to_add, lines_to_del)
-    (lines_to_add, lines_to_del) = ignore_unconfigurable_lines(
-        lines_to_add, lines_to_del
-    )
+    lines_to_add, lines_to_del = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
+    lines_to_add, lines_to_del = delete_move_lines(lines_to_add, lines_to_del)
+    lines_to_add, lines_to_del = ignore_unconfigurable_lines(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del)
 
@@ -2353,7 +2350,7 @@ if __name__ == "__main__":
         else:
             running.load_from_show_running(args.daemon)
 
-        (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+        lines_to_add, lines_to_del = compare_context_objects(newconf, running)
 
         if lines_to_del:
             if not args.test_reset:
@@ -2453,7 +2450,7 @@ if __name__ == "__main__":
             running.load_from_show_running(args.daemon)
             log.debug(f"Running Frr Config (Pass #{x})\n{running.get_lines()}")
 
-            (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+            lines_to_add, lines_to_del = compare_context_objects(newconf, running)
 
             if x == 0:
                 lines_to_add_first_pass = lines_to_add
