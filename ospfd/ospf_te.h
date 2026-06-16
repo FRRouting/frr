@@ -195,7 +195,15 @@ struct te_link_subtlv_llri {
 
 /* Inter-RA Export Upward sub-TLV (12) and Inter-RA Export Downward sub-TLV (13)
  * (RFC6827bis) are not yet supported */
-/* SUBTLV 14-16 (RFC4203) are not yet supported */
+/* SUBTLV 14-15 (RFC4203) are not yet supported */
+
+/* RFC4203: Shared Risk Link Group */
+#define TE_LINK_SUBTLV_SRLG		16
+struct te_link_subtlv_srlg {
+	struct tlv_header header;     /* Value length is 4 x N octets. */
+	uint32_t value[LP_MAX_SRLG];  /* List of SRLG values. */
+};
+
 /* Bandwidth Constraints sub-TLV (17) (RFC4124) is not yet supported */
 /* SUBLV 18-20 are for OSPFv3 TE (RFC5329). see ospf6d */
 
@@ -378,6 +386,7 @@ struct mpls_te_link {
 	struct te_link_subtlv_rsc_clsclr rsc_clsclr;
 	/* RFC4203 */
 	struct te_link_subtlv_llri llri;
+	struct te_link_subtlv_srlg srlg;
 	/* RFC5392 */
 	struct te_link_subtlv_ras ras;
 	struct te_link_subtlv_rip rip;
