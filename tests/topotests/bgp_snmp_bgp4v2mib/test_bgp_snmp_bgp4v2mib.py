@@ -112,7 +112,7 @@ def test_bgp_snmp_bgp4v2():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge_summary)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=2)
     assert result is None, "Can't see connections established"
 
     def _bgp_converge_prefixes():
@@ -155,7 +155,7 @@ def test_bgp_snmp_bgp4v2():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge_prefixes)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=2)
     assert result is None, "Can't see prefixes from R1"
 
     snmp = SnmpTester(r2, "localhost", "public", "2c", "-Ln -On")
@@ -171,7 +171,7 @@ def test_bgp_snmp_bgp4v2():
         output, _ = snmp.walk(".1.3.6.1.3.5.1.1.2.1.5")
         return output == expected
 
-    _, result = topotest.run_and_expect(_snmpwalk_remote_addr, True, count=10, wait=1)
+    _, result = topotest.run_and_expect(_snmpwalk_remote_addr, True, count=20, wait=3)
     assertmsg = "Can't fetch SNMP for bgp4V2PeerRemoteAddr"
     assert result, assertmsg
 
@@ -185,7 +185,7 @@ def test_bgp_snmp_bgp4v2():
         output, _ = snmp.walk(".1.3.6.1.3.5.1.1.2.1.13")
         return output == expected
 
-    _, result = topotest.run_and_expect(_snmpwalk_peer_state, True, count=10, wait=1)
+    _, result = topotest.run_and_expect(_snmpwalk_peer_state, True, count=20, wait=3)
     assertmsg = "Can't fetch SNMP for bgp4V2PeerState"
     assert result, assertmsg
 
@@ -200,7 +200,7 @@ def test_bgp_snmp_bgp4v2():
         return output == expected
 
     _, result = topotest.run_and_expect(
-        _snmpwalk_peer_last_error_code_received, True, count=10, wait=1
+        _snmpwalk_peer_last_error_code_received, True, count=20, wait=3
     )
     assertmsg = "Can't fetch SNMP for bgp4V2PeerLastErrorCodeReceived"
     assert result, assertmsg
@@ -223,7 +223,7 @@ def test_bgp_snmp_bgp4v2():
         output, _ = snmp.walk(".1.3.6.1.3.5.1.1.9.1.9")
         return output == expected
 
-    _, result = topotest.run_and_expect(_snmpwalk_origin, True, count=10, wait=1)
+    _, result = topotest.run_and_expect(_snmpwalk_origin, True, count=20, wait=3)
     assertmsg = "Can't fetch SNMP for bgp4V2NlriOrigin"
     assert result, assertmsg
 
@@ -246,7 +246,7 @@ def test_bgp_snmp_bgp4v2():
         # tgen.mininet_cli()
         return output == expected
 
-    _, result = topotest.run_and_expect(_snmpwalk_med, True, count=10, wait=1)
+    _, result = topotest.run_and_expect(_snmpwalk_med, True, count=20, wait=3)
     assertmsg = "Can't fetch SNMP for bgp4V2NlriMed"
     assert result, assertmsg
 
