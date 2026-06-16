@@ -306,7 +306,14 @@ int eigrp_check_sha256_digest(struct stream *s,
 			      struct TLV_SHA256_Authentication_Type *authTLV,
 			      struct eigrp_neighbor *nbr, uint8_t flags)
 {
-	return 1;
+	/*
+	 * Receive-side HMAC-SHA256 verification is not implemented. The mode
+	 * is refused at configuration time (see eigrp_authentication_mode in
+	 * eigrp_cli.c), so this path should be unreachable; fail closed as a
+	 * defense-in-depth measure. Returning success here would accept any
+	 * digest and grant a forgeable, unauthenticated adjacency.
+	 */
+	return 0;
 }
 
 void eigrp_write(struct event *event)
