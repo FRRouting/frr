@@ -5183,18 +5183,14 @@ enum bgp_peer_active peer_active(struct peer_connection *connection)
 		}
 	}
 
-	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP]
-	    || peer->afc[AFI_IP][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_IP6][SAFI_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc[AFI_IP6][SAFI_ENCAP]
-	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
-	    || peer->afc[AFI_BGP_LS][SAFI_BGP_LS])
+	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST] ||
+	    peer->afc[AFI_IP][SAFI_LABELED_UNICAST] || peer->afc[AFI_IP][SAFI_MPLS_VPN] ||
+	    peer->afc[AFI_IP][SAFI_ENCAP] || peer->afc[AFI_IP][SAFI_FLOWSPEC] ||
+	    peer->afc[AFI_IP][SAFI_MUP] || peer->afc[AFI_IP6][SAFI_UNICAST] ||
+	    peer->afc[AFI_IP6][SAFI_MULTICAST] || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST] ||
+	    peer->afc[AFI_IP6][SAFI_MPLS_VPN] || peer->afc[AFI_IP6][SAFI_ENCAP] ||
+	    peer->afc[AFI_IP6][SAFI_FLOWSPEC] || peer->afc[AFI_IP6][SAFI_MUP] ||
+	    peer->afc[AFI_L2VPN][SAFI_EVPN] || peer->afc[AFI_BGP_LS][SAFI_BGP_LS])
 		return BGP_PEER_ACTIVE;
 
 	return BGP_PEER_AF_UNCONFIGURED;
@@ -5203,20 +5199,15 @@ enum bgp_peer_active peer_active(struct peer_connection *connection)
 /* If peer is negotiated at least one address family return 1. */
 bool peer_active_nego(struct peer *peer)
 {
-	if (peer->afc_nego[AFI_IP][SAFI_UNICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_MULTICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
-	    || peer->afc_nego[AFI_IP][SAFI_ENCAP]
-	    || peer->afc_nego[AFI_IP][SAFI_FLOWSPEC]
-	    || peer->afc_nego[AFI_IP6][SAFI_UNICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]
-	    || peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN]
-	    || peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS])
+	if (peer->afc_nego[AFI_IP][SAFI_UNICAST] || peer->afc_nego[AFI_IP][SAFI_MULTICAST] ||
+	    peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST] ||
+	    peer->afc_nego[AFI_IP][SAFI_MPLS_VPN] || peer->afc_nego[AFI_IP][SAFI_ENCAP] ||
+	    peer->afc_nego[AFI_IP][SAFI_FLOWSPEC] || peer->afc_nego[AFI_IP][SAFI_MUP] ||
+	    peer->afc_nego[AFI_IP6][SAFI_UNICAST] || peer->afc_nego[AFI_IP6][SAFI_MULTICAST] ||
+	    peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST] ||
+	    peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN] || peer->afc_nego[AFI_IP6][SAFI_ENCAP] ||
+	    peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC] || peer->afc_nego[AFI_IP6][SAFI_MUP] ||
+	    peer->afc_nego[AFI_L2VPN][SAFI_EVPN] || peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS])
 		return true;
 	return false;
 }

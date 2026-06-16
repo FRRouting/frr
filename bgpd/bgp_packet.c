@@ -330,6 +330,9 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
 	case SAFI_BGP_LS:
 		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
+	case SAFI_MUP:
+		/* TODO: implemented in subsequent commit */
+		return BGP_NLRI_PARSE_ERROR;
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
