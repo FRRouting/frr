@@ -35,7 +35,8 @@ FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 # ORDER MATTERS FOR $DAEMONS!
 # - keep zebra first
 # - watchfrr does NOT belong in this list
-
+# - The topotests attempt to mirror this so if you modify this order
+#   go fix the topotests.
 DAEMONS="mgmtd zebra bfdd bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd fabricd vrrpd pathd"
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
