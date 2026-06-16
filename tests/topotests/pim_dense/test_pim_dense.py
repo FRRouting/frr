@@ -318,6 +318,26 @@ def check_mroute_oil(tgen, router, src, group, iif, oil):
     return None
 
 
+def check_mroute_iif(tgen, router, src, group, iif):
+    """Return None once (S,G) is installed on router with the expected iif.
+
+    Unlike check_mroute_oil(), this does not constrain the OIL; it only confirms
+    the entry exists and resolves RPF to the given incoming interface.
+    """
+    entry = mroute_entry(tgen, router, src, group)
+    if not entry:
+        return "No mroute for ({},{}) on {}".format(src, group, router)
+    if entry.get("installed", 0) == 0:
+        return "mroute ({},{}) not installed on {}".format(src, group, router)
+    if isinstance(iif, str):
+        iif = [iif]
+    if entry.get("iif") not in iif:
+        return "Unexpected iif on {}: {} (expected {})".format(
+            router, entry.get("iif"), iif
+        )
+    return None
+
+
 def _join_entries_for_group(iface_data, group):
     """Return join entry dict for group, tolerating /32 suffix in JSON keys."""
     if group in iface_data:
@@ -1212,6 +1232,94 @@ def test_pim_dense_state_refresh_relay(request):
     stop_all_hosts()
 
 
+def verify_pim_assert_entry(
+    tgen, router, iface, src, group, states=("WINNER", "LOSER")
+):
+    """Return None once (S,G) has active Assert state on iface.
+
+    Dense-mode wrong-interface handling on multi-access links should enter
+    the Assert FSM instead of sending an immediate prune.
+    """
+    output = tgen.gears[router].vtysh_cmd("show ip pim assert")
+    for line in output.splitlines():
+        if iface not in line or src not in line or group not in line:
+            continue
+        for state in states:
+            if state in line:
+                return None
+    return "no Assert state for ({},{}) on {} {}".format(src, group, router, iface)
+
+
+def verify_pim_assert_winner(tgen, router, iface, src, group, winner):
+    """Return None once (S,G) on iface has elected a specific Assert winner.
+
+    Confirms the LAN ran the Assert election (rather than an immediate prune)
+    and that the expected forwarder won the duplicate-traffic arbitration.
+    """
+    output = tgen.gears[router].vtysh_cmd("show ip pim assert")
+    for line in output.splitlines():
+        if iface not in line or src not in line or group not in line:
+            continue
+        if winner in line.split():
+            return None
+    return "no Assert winner {} for ({},{}) on {} {}".format(
+        winner, src, group, router, iface
+    )
+
+
+def test_pim_dense_wrongif_assert(request):
+    """Verify dense-mode WRONGVIF on a multi-access LAN runs Assert, not a prune.
+
+    r3 reaches the source via r3-eth0 (toward r2), but r1 also floods (S,G)
+    directly onto the shared r1<->r3 link (r1-eth2 -> r3-eth3). That duplicate
+    arrives on r3-eth3, which is not r3's RPF interface, so the kernel raises a
+    WRONGVIF/WRVIFWHOLE upcall for r3-eth3. Because the link is multi-access,
+    pim_dm_wrongif() must run the Assert FSM rather than an immediate prune, and
+    r3 must lose the election to the directly connected first-hop router r1
+    (10.1.3.1). A receiver behind r3 keeps the (S,G) tree (and thus r1's Assert)
+    active so the loser state is stable.
+    """
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    stop_all_hosts()
+
+    step("Start dense traffic and a receiver behind r3 to keep the tree active")
+    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+    result = app_helper.run_join("h6", DENSE_GROUP, join_intf="h6-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify r3 has (S,G) state with RPF on r3-eth0 (not the r1<->r3 link)")
+    _, result = topotest.run_and_expect(
+        functools.partial(check_mroute_iif, tgen, "r3", SRC, DENSE_GROUP, "r3-eth0"),
+        None,
+        count=30,
+        wait=2,
+    )
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify WRONGVIF on r3-eth3 entered the Assert FSM (not an immediate prune)")
+    test_func = functools.partial(
+        verify_pim_assert_entry, tgen, "r3", "r3-eth3", SRC, DENSE_GROUP
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=2)
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify r3 lost the LAN Assert to the first-hop router r1 (10.1.3.1)")
+    test_func = functools.partial(
+        verify_pim_assert_winner, tgen, "r3", "r3-eth3", SRC, DENSE_GROUP, "10.1.3.1"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=2)
+    assert result is None, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    stop_all_hosts()
+
+
 def test_pim_sparse_non_rp_upstream_cleanup(request):
     """Verify non-RP sparse upstream cleans up after the last receiver leaves."""
     tgen = get_topogen()
@@ -1265,6 +1373,13 @@ def test_pim_dense_to_sparse_on_rp_add(request):
 
     routers = ["r1", "r2", "r3", "r4", "r5", "r6"]
 
+    # Use a dedicated dense group that no other test touches so r1 builds a
+    # brand-new dense (S,G) for this test. Reusing the shared DENSE_GROUP makes
+    # this test depend on whatever pruned/grafted (S,G) state earlier tests left
+    # behind (kept alive by the keepalive timer), which is not a stable starting
+    # point for exercising the DM->SM transition.
+    group = "239.7.7.7"
+
     step("Reset dynamic RP mapping for dense test group")
     for rname in routers:
         tgen.gears[rname].vtysh_cmd(
@@ -1275,34 +1390,50 @@ def test_pim_dense_to_sparse_on_rp_add(request):
             """
         )
 
-    step("Ensure only source traffic is active for transition check")
-    app_helper.stop_host("h4")
-    app_helper.stop_host("h5")
-    app_helper.stop_host("h6")
-    app_helper.stop_host("h1")
-    result = app_helper.run_traffic("h1", DENSE_GROUP, bind_intf="h1-eth0")
+    step("Bring up the downstream receiver before the source")
+    stop_all_hosts()
+    result = app_helper.run_join("h4", group, join_intf="h4-eth0")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Add downstream receiver before RP add")
-    result = app_helper.run_join("h4", DENSE_GROUP, join_intf="h4-eth0")
+    # Make sure r4 has registered the local membership before the source starts,
+    # so the very first dense flood is never pruned on the r1->r2->r4 branch.
+    def _r4_has_membership():
+        out = tgen.gears["r4"].vtysh_cmd("show ip pim upstream json", isjson=True)
+        if group in out:
+            return None
+        return "r4 has no upstream state for {} yet".format(group)
+
+    _, result = topotest.run_and_expect(_r4_has_membership, None, count=15, wait=2)
+    assert result is None, "Receiver not ready on r4: {}".format(result)
+
+    step("Start the dense source traffic")
+    result = app_helper.run_traffic("h1", group, bind_intf="h1-eth0")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Verify dense (S,G) exists before RP add")
+    step("Verify dense (S,G) is flooding toward r2 before RP add")
 
     def _r1_dense_before_rp():
-        output = tgen.gears["r1"].vtysh_cmd("show ip pim upstream json", isjson=True)
-        group = output.get(DENSE_GROUP, {})
-        if "10.100.0.2" not in group:
-            return "No upstream for 10.100.0.2,{}".format(DENSE_GROUP)
-
-        result = verify_mroutes(
-            tgen, "r1", "10.100.0.2", DENSE_GROUP, "r1-eth1", "r1-eth0"
-        )
-        if result is not True:
-            return result
+        entry = mroute_entry(tgen, "r1", SRC, group)
+        if not entry:
+            return "No mroute for ({},{}) on r1".format(SRC, group)
+        if entry.get("installed", 0) == 0:
+            return "mroute ({},{}) not installed on r1".format(SRC, group)
+        if entry.get("iif") != "r1-eth1":
+            return "Unexpected iif on r1 before RP add: {}".format(entry.get("iif"))
+        flags = entry.get("flags", "")
+        if "S" in flags:
+            return "Unexpected sparse (S) flag on r1 before RP add, got {!r}".format(
+                flags
+            )
+        if "D" not in flags:
+            return "Expected dense (D) flag on r1 before RP add, got {!r}".format(flags)
+        if "r1-eth0" not in mroute_oil_names(entry):
+            return "Expected dense flood OIF r1-eth0 on r1, got {}".format(
+                mroute_oil_names(entry)
+            )
         return None
 
-    _, result = topotest.run_and_expect(_r1_dense_before_rp, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(_r1_dense_before_rp, None, count=30, wait=2)
     assert result is None, "Dense upstream not present before RP add: {}".format(result)
 
     step("Add RP mapping for dense group range")
@@ -1319,11 +1450,11 @@ def test_pim_dense_to_sparse_on_rp_add(request):
 
     def _r1_upstream_sparse():
         output = tgen.gears["r1"].vtysh_cmd(
-            "show ip pim upstream 10.100.0.2 {} json".format(DENSE_GROUP), isjson=True
+            "show ip pim upstream {} {} json".format(SRC, group), isjson=True
         )
-        upstream = output.get(DENSE_GROUP, {}).get("10.100.0.2", {})
+        upstream = output.get(group, {}).get(SRC, {})
         if not upstream:
-            return "No upstream for 10.100.0.2,{}".format(DENSE_GROUP)
+            return "No upstream for {},{}".format(SRC, group)
         if not upstream.get("firstHopRouter"):
             return "Expected FHR upstream on r1 after RP add"
         if upstream.get("rpfAddress") != "10.0.2.1":
@@ -1331,11 +1462,9 @@ def test_pim_dense_to_sparse_on_rp_add(request):
                 upstream.get("rpfAddress")
             )
 
-        mroute = mroute_entry(tgen, "r1", "10.100.0.2", DENSE_GROUP)
+        mroute = mroute_entry(tgen, "r1", SRC, group)
         if not mroute:
-            return "No mroute for (10.100.0.2,{}) on r1 after RP add".format(
-                DENSE_GROUP
-            )
+            return "No mroute for ({},{}) on r1 after RP add".format(SRC, group)
         if mroute.get("iif") != "r1-eth1":
             return "Unexpected IIF on r1 after RP add: {}".format(mroute.get("iif"))
 
@@ -1364,7 +1493,7 @@ def test_pim_dense_to_sparse_on_rp_add(request):
     step("Verify r1 no longer uses dense-mode OIL toward r2")
 
     def _r1_not_dense_oil():
-        mroute = mroute_entry(tgen, "r1", "10.100.0.2", DENSE_GROUP)
+        mroute = mroute_entry(tgen, "r1", SRC, group)
         if not mroute:
             return "No mroute on r1 after RP add"
         oil = mroute_oil_names(mroute)
@@ -1384,6 +1513,8 @@ def test_pim_dense_to_sparse_on_rp_add(request):
                 no rp 10.0.2.1 239.0.0.0/8
             """
         )
+
+    stop_all_hosts()
 
 
 def test_memory_leak():
