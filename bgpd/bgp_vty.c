@@ -13651,6 +13651,195 @@ DEFPY(show_bgp_redistribute,
 	return CMD_SUCCESS;
 }
 
+static void bgp_show_aggregate_one(struct vty *vty, const struct prefix *p,
+				   struct bgp_aggregate *aggregate, json_object *json_aggregates)
+{
+	json_object *json_aggr = NULL;
+
+	if (json_aggregates)
+		json_aggr = json_object_new_object();
+
+	if (json_aggr) {
+		json_object_boolean_add(json_aggr, "summaryOnly", aggregate->summary_only);
+		json_object_boolean_add(json_aggr, "asSet", aggregate->as_set);
+		json_object_string_add(json_aggr, "origin",
+				       aggregate->origin == BGP_ORIGIN_IGP   ? "igp"
+				       : aggregate->origin == BGP_ORIGIN_EGP ? "egp"
+									     : "incomplete");
+		json_object_int_add(json_aggr, "matchingRouteCount", aggregate->count);
+		json_object_int_add(json_aggr, "incompleteOriginCount",
+				    aggregate->incomplete_origin_count);
+		json_object_int_add(json_aggr, "egpOriginCount", aggregate->egp_origin_count);
+		json_object_boolean_add(json_aggr, "matchMed", aggregate->match_med);
+		json_object_boolean_add(json_aggr, "medInitialized", aggregate->med_initialized);
+		json_object_boolean_add(json_aggr, "medMismatched", aggregate->med_mismatched);
+		if (aggregate->med_initialized)
+			json_object_int_add(json_aggr, "medValue", aggregate->med_matched_value);
+		if (aggregate->rmap.name)
+			json_object_string_add(json_aggr, "routeMap", aggregate->rmap.name);
+		if (aggregate->suppress_map_name)
+			json_object_string_add(json_aggr, "suppressMap",
+					       aggregate->suppress_map_name);
+		if (aggregate->community)
+			json_object_string_add(json_aggr, "community",
+					       community_str(aggregate->community, false, false));
+		if (aggregate->ecommunity)
+			json_object_string_add(json_aggr, "extendedCommunity",
+					       ecommunity_str(aggregate->ecommunity));
+		if (aggregate->lcommunity)
+			json_object_string_add(json_aggr, "largeCommunity",
+					       lcommunity_str(aggregate->lcommunity, false, false));
+		if (aggregate->aspath)
+			json_object_string_add(json_aggr, "asPath",
+					       aspath_print(aggregate->aspath));
+
+		json_object_object_addf(json_aggregates, json_aggr, "%pFX", p);
+	} else {
+		vty_out(vty, "\nAggregate: %pFX\n", p);
+		vty_out(vty, "  Summary-only: %s, AS-set: %s\n",
+			aggregate->summary_only ? "yes" : "no", aggregate->as_set ? "yes" : "no");
+		vty_out(vty, "  Origin: %s\n",
+			aggregate->origin == BGP_ORIGIN_IGP   ? "igp"
+			: aggregate->origin == BGP_ORIGIN_EGP ? "egp"
+							      : "incomplete");
+		vty_out(vty, "  Matching routes: %lu (incomplete: %lu, egp: %lu)\n",
+			aggregate->count, aggregate->incomplete_origin_count,
+			aggregate->egp_origin_count);
+		vty_out(vty, "  MED: match=%s, initialized=%s, mismatched=%s",
+			aggregate->match_med ? "yes" : "no",
+			aggregate->med_initialized ? "yes" : "no",
+			aggregate->med_mismatched ? "yes" : "no");
+		if (aggregate->med_initialized)
+			vty_out(vty, ", value=%u", aggregate->med_matched_value);
+		vty_out(vty, "\n");
+		if (aggregate->rmap.name)
+			vty_out(vty, "  Route-map: %s\n", aggregate->rmap.name);
+		if (aggregate->suppress_map_name)
+			vty_out(vty, "  Suppress-map: %s\n", aggregate->suppress_map_name);
+		if (aggregate->community)
+			vty_out(vty, "  Community: %s\n",
+				community_str(aggregate->community, false, false));
+		if (aggregate->ecommunity)
+			vty_out(vty, "  Extended community: %s\n",
+				ecommunity_str(aggregate->ecommunity));
+		if (aggregate->lcommunity)
+			vty_out(vty, "  Large community: %s\n",
+				lcommunity_str(aggregate->lcommunity, false, false));
+		if (aggregate->aspath)
+			vty_out(vty, "  AS path: %s\n", aspath_print(aggregate->aspath));
+	}
+}
+
+DEFPY(show_bgp_aggregate,
+      show_bgp_aggregate_cmd,
+      "show bgp [<view|vrf> VIEWVRFNAME$vrf_name] <ipv4|ipv6>$afi_str unicast aggregate-address [<A.B.C.D/M|X:X::X:X/M>$prefix] [json$uj]",
+      SHOW_STR
+      BGP_STR
+      BGP_INSTANCE_HELP_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_MODIFIER_STR
+      "Display aggregate-address runtime information\n"
+      "IPv4 prefix\n"
+      "IPv6 prefix\n"
+      JSON_STR)
+{
+	afi_t afi;
+	struct bgp *bgp = NULL;
+	struct bgp_dest *dest;
+	struct bgp_aggregate *aggregate;
+	const struct prefix *p;
+	bool found = false;
+	json_object *json = NULL;
+	json_object *json_aggregates = NULL;
+
+	if (strmatch(afi_str, "ipv4"))
+		afi = AFI_IP;
+	else
+		afi = AFI_IP6;
+
+	if (vrf_name) {
+		bgp = bgp_lookup_by_name(vrf_name);
+		if (!bgp) {
+			if (uj)
+				vty_json_empty(vty, NULL);
+			else
+				vty_out(vty, "%% BGP instance not found: %s\n", vrf_name);
+			return CMD_WARNING;
+		}
+	} else {
+		bgp = bgp_get_default();
+		if (!bgp) {
+			if (uj)
+				vty_json_empty(vty, NULL);
+			else
+				vty_out(vty, "%% No default BGP instance\n");
+			return CMD_WARNING;
+		}
+	}
+
+	if (prefix_str) {
+		if ((afi == AFI_IP && prefix->family != AF_INET) ||
+		    (afi == AFI_IP6 && prefix->family != AF_INET6)) {
+			if (uj)
+				vty_json_empty(vty, NULL);
+			else
+				vty_out(vty, "%% Prefix family doesn't match address-family\n");
+			return CMD_WARNING;
+		}
+	}
+
+	if (!bgp->aggregate[afi][SAFI_UNICAST]) {
+		if (uj)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "%% No aggregates configured\n");
+		return CMD_SUCCESS;
+	}
+
+	if (uj) {
+		json = json_object_new_object();
+		json_aggregates = json_object_new_object();
+	}
+
+	if (prefix_str) {
+		/* Exact match lookup for specific prefix */
+		dest = bgp_node_lookup(bgp->aggregate[afi][SAFI_UNICAST], prefix);
+		if (dest) {
+			aggregate = bgp_dest_get_bgp_aggregate_info(dest);
+			if (aggregate) {
+				found = true;
+				bgp_show_aggregate_one(vty, prefix, aggregate, json_aggregates);
+			}
+			bgp_dest_unlock_node(dest);
+		}
+	} else {
+		/* Iterate through all aggregates */
+		for (dest = bgp_table_top(bgp->aggregate[afi][SAFI_UNICAST]); dest;
+		     dest = bgp_route_next(dest)) {
+			aggregate = bgp_dest_get_bgp_aggregate_info(dest);
+			if (!aggregate)
+				continue;
+
+			p = bgp_dest_get_prefix(dest);
+			found = true;
+			bgp_show_aggregate_one(vty, p, aggregate, json_aggregates);
+		}
+	}
+
+	if (uj) {
+		json_object_object_add(json, "aggregates", json_aggregates);
+		vty_json(vty, json);
+	} else if (!found) {
+		if (prefix_str)
+			vty_out(vty, "%% Aggregate %pFX not found\n", prefix);
+		else
+			vty_out(vty, "%% No aggregates found\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_memory,
        show_bgp_memory_cmd,
        "show [ip] bgp memory",
@@ -24516,6 +24705,9 @@ void bgp_vty_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_attr_info_cmd);
 	/* "show [ip] bgp route-leak" command */
 	install_element(VIEW_NODE, &show_ip_bgp_route_leak_cmd);
+
+	/* "show bgp aggregate-address" command */
+	install_element(VIEW_NODE, &show_bgp_aggregate_cmd);
 
 	/* "redistribute" commands.  */
 	install_element(BGP_NODE, &bgp_redistribute_ipv4_hidden_cmd);
