@@ -15937,6 +15937,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_EVPN:
 		return (struct prefix_rd *)(bgp_dest_get_prefix(dest));
 	case SAFI_BGP_LS:
+	case SAFI_MUP:
 	case SAFI_UNSPEC:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
