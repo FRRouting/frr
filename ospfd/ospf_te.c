@@ -324,6 +324,10 @@ static void set_linkparams_link_header(struct mpls_te_link *lp)
 	if (ntohs(lp->llri.header.type) != 0)
 		length += TLV_SIZE(&lp->llri.header);
 
+	/* TE_LINK_SUBTLV_SRLG */
+	if (ntohs(lp->srlg.header.type) != 0)
+		length += TLV_SIZE(&lp->srlg.header);
+
 	/* TE_LINK_SUBTLV_RIP */
 	if (ntohs(lp->rip.header.type) != 0)
 		length += TLV_SIZE(&lp->rip.header);
@@ -514,6 +518,27 @@ void set_linkparams_llri(struct mpls_te_link *lp, uint32_t local,
 	lp->llri.remote = htonl(remote);
 }
 
+static void set_linkparams_srlg(struct mpls_te_link *lp, uint32_t *srlgs,
+				uint8_t num)
+{
+	int i;
+
+	if (num == 0 || srlgs == NULL) {
+		lp->srlg.header.type = htons(0);
+		lp->srlg.header.length = htons(0);
+		return;
+	}
+
+	if (num > LP_MAX_SRLG)
+		num = LP_MAX_SRLG;
+
+	/* Note that TLV-length field is the size of the value array. */
+	lp->srlg.header.type = htons(TE_LINK_SUBTLV_SRLG);
+	lp->srlg.header.length = htons(num * sizeof(uint32_t));
+	for (i = 0; i < num; i++)
+		lp->srlg.value[i] = htonl(srlgs[i]);
+}
+
 void set_linkparams_lrrid(struct mpls_te_link *lp, struct in_addr local,
 			  struct in_addr remote)
 {
@@ -687,6 +712,13 @@ static void update_linkparams(struct mpls_te_link *lp)
 		set_linkparams_use_bw(lp, ifp->link_params->use_bw);
 	else
 		TLV_TYPE(lp->use_bw) = 0;
+
+	/* RFC4203: Shared Risk Link Group */
+	if (IS_PARAM_SET(ifp->link_params, LP_SRLG))
+		set_linkparams_srlg(lp, ifp->link_params->srlgs,
+				    ifp->link_params->srlg_num);
+	else
+		TLV_TYPE(lp->srlg) = 0;
 
 	/* RFC5392 */
 	if (IS_PARAM_SET(ifp->link_params, LP_RMT_AS)) {
@@ -1115,6 +1147,7 @@ static void build_link_tlv(struct stream *s, struct mpls_te_link *lp)
 	build_link_subtlv(s, &lp->rsc_clsclr.header);
 	build_link_subtlv(s, &lp->lrrid.header);
 	build_link_subtlv(s, &lp->llri.header);
+	build_link_subtlv(s, &lp->srlg.header);
 	build_link_subtlv(s, &lp->rip.header);
 	build_link_subtlv(s, &lp->ras.header);
 	build_link_subtlv(s, &lp->av_delay.header);
@@ -3864,6 +3897,40 @@ static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
+static uint16_t show_vty_link_subtlv_srlg(struct vty *vty,
+					  struct tlv_header *tlvh,
+					  json_object *json)
+{
+	struct te_link_subtlv_srlg *top;
+	uint32_t count, i, value;
+	json_object *json_srlg = NULL;
+
+	top = (struct te_link_subtlv_srlg *)tlvh;
+	count = ntohs(tlvh->length) / sizeof(uint32_t);
+	if (count > LP_MAX_SRLG)
+		count = LP_MAX_SRLG;
+
+	if (json) {
+		json_srlg = json_object_new_array();
+		json_object_object_add(json, "sharedRiskLinkGroups", json_srlg);
+	}
+
+	for (i = 0; i < count; i++) {
+		value = (uint32_t)ntohl(top->value[i]);
+		if (vty != NULL)
+			if (!json)
+				vty_out(vty, "  Shared Risk Link Group: %u\n",
+					value);
+			else
+				json_object_array_add(json_srlg,
+						      json_object_new_int64(value));
+		else
+			zlog_debug("    Shared Risk Link Group: %u", value);
+	}
+
+	return TLV_SIZE(tlvh);
+}
+
 static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
 					 struct tlv_header *tlvh,
 					 json_object *json)
@@ -4205,6 +4272,9 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 			break;
 		case TE_LINK_SUBTLV_LLRI:
 			sum += show_vty_link_subtlv_llri(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_SRLG:
+			sum += show_vty_link_subtlv_srlg(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_RIP:
 			sum += show_vty_link_subtlv_rip(vty, tlvh, json);
@@ -4724,6 +4794,8 @@ static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp,
 		if (TLV_TYPE(lp->use_bw) != 0)
 			show_vty_link_subtlv_use_bw(vty, &lp->use_bw.header,
 						    json);
+		if (TLV_TYPE(lp->srlg) != 0)
+			show_vty_link_subtlv_srlg(vty, &lp->srlg.header, json);
 		vty_out(vty, "---------------\n\n");
 	} else {
 		vty_out(vty, "  %s: MPLS-TE is disabled on this interface\n",
