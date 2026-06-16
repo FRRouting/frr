@@ -2024,6 +2024,18 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
 		vty_out(vty, " behavior End.DT46");
 		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2:
+		vty_out(vty, " behavior End.DX2");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2V:
+		vty_out(vty, " behavior End.DX2V");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2U:
+		vty_out(vty, " behavior End.DT2U");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2M:
+		vty_out(vty, " behavior End.DT2M");
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
 		vty_out(vty, " behavior End.B6.Encaps.Red");
 		break;
@@ -2053,6 +2065,18 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
 		vty_out(vty, " behavior uDT46");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2_USID:
+		vty_out(vty, " behavior uDX2");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2V_USID:
+		vty_out(vty, " behavior uDX2V");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2U_USID:
+		vty_out(vty, " behavior uDT2U");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2M_USID:
+		vty_out(vty, " behavior uDT2M");
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
 		vty_out(vty, " behavior uB6.Encaps");
