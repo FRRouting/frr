@@ -190,6 +190,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
+		case SAFI_MUP:
 		case SAFI_MAX:
 			/* not expected */
 			return BGP_IPV4_NODE;
@@ -213,6 +214,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
+		case SAFI_MUP:
 		case SAFI_MAX:
 			/* not expected and the return value seems wrong */
 			return BGP_IPV4_NODE;
@@ -659,6 +661,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv4-unreachability";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
+		case SAFI_MUP:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
 		}
@@ -683,6 +686,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv6-unreachability";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
+		case SAFI_MUP:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
 		}
@@ -699,6 +703,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_LABELED_UNICAST:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
+		case SAFI_MUP:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
@@ -716,6 +721,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_FLOWSPEC:
 		case SAFI_EVPN:
 		case SAFI_UNREACH:
+		case SAFI_MUP:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
