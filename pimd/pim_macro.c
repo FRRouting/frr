@@ -17,6 +17,7 @@
 #include "pim_iface.h"
 #include "pim_ifchannel.h"
 #include "pim_rp.h"
+#include "pim_dm.h"
 
 /*
   DownstreamJPState(S,G,I) is the per-interface state machine for
@@ -218,11 +219,22 @@ int pim_macro_chisin_joins_or_include(const struct pim_ifchannel *ch)
 int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 {
 	struct interface *ifp;
+	struct pim_interface *pim_ifp;
 
 	ifp = ch->interface;
 	if (!ifp) {
 		zlog_warn("%s: (S,G)=%s: null interface", __func__, ch->sg_str);
 		return 0; /* false */
+	}
+
+	pim_ifp = ifp->info;
+	if (pim_ifp && pim_iface_grp_dm(pim_ifp, ch->sg.grp)) {
+		/* RFC 3973 4.6.4: CouldAssert(S,G,I) = (RPF_interface(S) != I).
+		 * Require a resolved RPF interface so a transiently unresolved
+		 * RPF (NULL) does not make every interface assert-eligible.
+		 */
+		return ch->upstream->rpf.source_nexthop.interface != NULL &&
+		       ch->upstream->rpf.source_nexthop.interface != ifp;
 	}
 
 	/* SPTbit(S,G) == true */
