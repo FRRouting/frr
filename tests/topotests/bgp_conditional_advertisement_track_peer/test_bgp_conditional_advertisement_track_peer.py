@@ -108,6 +108,8 @@ def test_bgp_conditional_advertisement_track_peer():
     """
     )
 
+    step("Ensure r2 receives the route")
+
     def _bgp_check_r2_received_exist_route():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast 172.16.255.3/32 json"))
         expected = {"paths": [{"valid": True}]}
@@ -125,15 +127,34 @@ def test_bgp_conditional_advertisement_track_peer():
                 "172.16.255.2/32": [{"valid": True, "nexthops": [{"hostname": "r2"}]}]
             }
         }
+
         return topotest.json_cmp(output, expected)
 
+    step("Ensure 172.16.255.2/32 is received on R1")
     # Verify if R1 received 172.16.255.2/32 from R2. The conditional-advertisement
     # scanner is phase-locked at 5s intervals (see r2/bgpd.conf); after the
     # exist-map route is present, allow up to two full scanner cycles plus UPDATE
     # propagation on loaded CI hosts (see doc/developer/topotests.rst).
     test_func = functools.partial(_bgp_check_conditional_static_routes_from_r2)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert result is None, "R1 SHOULD receive 172.16.255.2/32 from R2"
+
+    step("Ensure 172.16.255.2/32 is installed on R1")
+
+    def _zebra_check_route_installed():
+        output = json.loads(r1.vtysh_cmd("show ip route 172.16.255.2/32 json"))
+        expected = {
+            "172.16.255.2/32": [
+                {"protocol": "bgp", "selected": True, "installed": True}
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_zebra_check_route_installed)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "R1 SHOULD install 172.16.255.2/32 into the zebra RIB"
+
+    step("Ensure that the version number stays the same")
 
     # Once the conditional advertisement has been observed on R1, confirm the
     # route remains stable across at least one conditional-advertisement scanner
@@ -163,9 +184,8 @@ def test_bgp_conditional_advertisement_track_peer():
         # scanner re-arms its own timer at the top of
         # `bgp_conditional_adv_timer()`.
         output = json.loads(r2.vtysh_cmd("show bgp neighbors 192.168.1.1 json"))
-        return (
-            output.get("192.168.1.1", {})
-            .get("bgpTimerUntilConditionalAdvertisementsSec")
+        return output.get("192.168.1.1", {}).get(
+            "bgpTimerUntilConditionalAdvertisementsSec"
         )
 
     initial_version = _r1_prefix_version()
