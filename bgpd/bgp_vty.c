@@ -6306,6 +6306,45 @@ DEFUN (no_neighbor_passive,
 	return peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_PASSIVE);
 }
 
+/* neighbor upa - enable UPA route propagation to this peer */
+DEFUN(neighbor_upa, neighbor_upa_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> upa",
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Send UPA (Unreachable Prefix Announcement) routes to this neighbor\n")
+{
+	int idx_peer = 1;
+	struct peer *peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+	return bgp_vty_return(vty, peer_af_flag_set(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+						    PEER_FLAG_UPA_SEND));
+}
+
+ALIAS_HIDDEN(neighbor_upa, neighbor_upa_hidden_cmd,
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> upa",
+	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Send UPA (Unreachable Prefix Announcement) routes to this neighbor\n")
+
+DEFUN(no_neighbor_upa, no_neighbor_upa_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> upa",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Send UPA (Unreachable Prefix Announcement) routes to this neighbor\n")
+{
+	int idx_peer = 2;
+	struct peer *peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+	return bgp_vty_return(vty, peer_af_flag_unset(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+						      PEER_FLAG_UPA_SEND));
+}
+
+ALIAS_HIDDEN(no_neighbor_upa, no_neighbor_upa_hidden_cmd,
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> upa",
+	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Send UPA (Unreachable Prefix Announcement) routes to this neighbor\n")
+
 /* neighbor shutdown. */
 DEFUN (neighbor_shutdown_msg,
        neighbor_shutdown_msg_cmd,
@@ -21815,6 +21854,10 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "  neighbor %s send-community extended rpki\n", addr);
 	}
 
+	/* UPA (Unreachable Prefix Announcement) */
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_UPA_SEND))
+		vty_out(vty, "  neighbor %s upa\n", addr);
+
 	/* Default information */
 	if (peergroup_af_flag_check(peer, afi, safi,
 				    PEER_FLAG_DEFAULT_ORIGINATE)) {
@@ -22048,6 +22091,14 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if (peer_is_config_node(peer) &&
 		    peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING))
 			bgp_config_write_peer_damp(vty, peer, afi, safi);
+
+	/* Global UPA configuration */
+	if (bgp->upa_enabled[afi][safi])
+		vty_out(vty, " upa originate-all\n");
+	if (bgp->upa_drop[afi][safi])
+		vty_out(vty, " upa drop\n");
+	if (bgp->upa_max_routes[afi][safi] > 0)
+		vty_out(vty, " upa max-routes %u\n", bgp->upa_max_routes[afi][safi]);
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
 		bgp_config_write_peer_af(vty, bgp, group->conf, afi, safi);
@@ -23143,6 +23194,136 @@ static void bgp_vty_if_init(void)
 			&mpls_bgp_l3vpn_multi_domain_switching_cmd);
 }
 
+/* Forward declaration for show_bgp_neighbor_upa_cmd defined after bgp_vty_init */
+static const struct cmd_element show_bgp_neighbor_upa_cmd;
+
+DEFPY(upa_originate_all,
+      upa_originate_all_cmd,
+      "upa originate-all",
+      "Unreachable Prefix Announcement\n"
+      "Originate UPA routes for ALL unreachable prefixes (not just under aggregates)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	/* Only support unicast SAFI for now */
+	if (safi != SAFI_UNICAST) {
+		vty_out(vty, "%% Global UPA origination is only supported for unicast SAFI\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Enable global UPA */
+	bgp->upa_enabled[afi][safi] = true;
+
+	/* Originate UPA routes for all currently unreachable prefixes */
+	bgp_upa_originate_global(bgp, afi, safi);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_upa_originate_all,
+      no_upa_originate_all_cmd,
+      "no upa originate-all",
+      NO_STR
+      "Unreachable Prefix Announcement\n"
+      "Originate UPA routes for ALL unreachable prefixes (not just under aggregates)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	if (!bgp->upa_enabled[afi][safi]) {
+		vty_out(vty, "%% Global UPA origination is not configured\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Withdraw all global UPA routes */
+	bgp_upa_withdraw_global(bgp, afi, safi);
+
+	/* Disable global UPA */
+	bgp->upa_enabled[afi][safi] = false;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(upa_max_routes_global,
+      upa_max_routes_global_cmd,
+      "upa max-routes (1-4294967295)$max",
+      "Unreachable Prefix Announcement\n"
+      "Maximum number of simultaneous global UPA routes\n"
+      "Maximum count\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	bgp->upa_max_routes[afi][safi] = max;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_upa_max_routes_global,
+      no_upa_max_routes_global_cmd,
+      "no upa max-routes [(1-4294967295)]",
+      NO_STR
+      "Unreachable Prefix Announcement\n"
+      "Maximum number of simultaneous global UPA routes\n"
+      "Maximum count\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	/* Reset to unlimited (0) */
+	bgp->upa_max_routes[afi][safi] = 0;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(upa_drop_global,
+      upa_drop_global_cmd,
+      "upa drop",
+      "Unreachable Prefix Announcement\n"
+      "Set D-bit in global UPA Extended Community (receivers install drop/blackhole entry)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	bgp->upa_drop[afi][safi] = true;
+
+	/* If global UPA is already enabled, re-originate with new D-bit setting */
+	if (bgp->upa_enabled[afi][safi]) {
+		bgp_upa_withdraw_global(bgp, afi, safi);
+		bgp_upa_originate_global(bgp, afi, safi);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_upa_drop_global,
+      no_upa_drop_global_cmd,
+      "no upa drop",
+      NO_STR
+      "Unreachable Prefix Announcement\n"
+      "Set D-bit in global UPA Extended Community (receivers install drop/blackhole entry)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	bgp->upa_drop[afi][safi] = false;
+
+	/* If global UPA is already enabled, re-originate with new D-bit setting */
+	if (bgp->upa_enabled[afi][safi]) {
+		bgp_upa_withdraw_global(bgp, afi, safi);
+		bgp_upa_originate_global(bgp, afi, safi);
+	}
+
+	return CMD_SUCCESS;
+}
+
 void bgp_vty_init(void)
 {
 	cmd_variable_handler_register(bgp_var_neighbor);
@@ -24167,6 +24348,23 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_passive_cmd);
 	install_element(BGP_NODE, &no_neighbor_passive_cmd);
 
+	/* "neighbor upa" commands. */
+	install_element(BGP_IPV4_NODE, &neighbor_upa_cmd);
+	install_element(BGP_IPV4_NODE, &no_neighbor_upa_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_upa_cmd);
+	install_element(BGP_IPV4M_NODE, &no_neighbor_upa_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_upa_cmd);
+	install_element(BGP_IPV4L_NODE, &no_neighbor_upa_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_upa_cmd);
+	install_element(BGP_IPV6_NODE, &no_neighbor_upa_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_upa_cmd);
+	install_element(BGP_IPV6M_NODE, &no_neighbor_upa_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_upa_cmd);
+	install_element(BGP_IPV6L_NODE, &no_neighbor_upa_cmd);
+	install_element(BGP_NODE, &neighbor_upa_hidden_cmd);
+	install_element(BGP_NODE, &no_neighbor_upa_hidden_cmd);
+
+	install_element(VIEW_NODE, &show_bgp_neighbor_upa_cmd);
 
 	/* "neighbor shutdown" commands. */
 	install_element(BGP_NODE, &neighbor_shutdown_cmd);
@@ -24856,7 +25054,78 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_ls_remote_link_id_cmd);
 	install_element(BGP_NODE, &no_neighbor_ls_remote_link_id_cmd);
 
+	/* UPA global origination commands - for all prefixes, not just aggregates */
+	install_element(BGP_IPV4_NODE, &upa_originate_all_cmd);
+	install_element(BGP_IPV4_NODE, &no_upa_originate_all_cmd);
+	install_element(BGP_IPV4_NODE, &upa_max_routes_global_cmd);
+	install_element(BGP_IPV4_NODE, &no_upa_max_routes_global_cmd);
+	install_element(BGP_IPV4_NODE, &upa_drop_global_cmd);
+	install_element(BGP_IPV4_NODE, &no_upa_drop_global_cmd);
+	install_element(BGP_IPV6_NODE, &upa_originate_all_cmd);
+	install_element(BGP_IPV6_NODE, &no_upa_originate_all_cmd);
+	install_element(BGP_IPV6_NODE, &upa_max_routes_global_cmd);
+	install_element(BGP_IPV6_NODE, &no_upa_max_routes_global_cmd);
+	install_element(BGP_IPV6_NODE, &upa_drop_global_cmd);
+	install_element(BGP_IPV6_NODE, &no_upa_drop_global_cmd);
+
 	bgp_vty_if_init();
+}
+
+/* Show UPA information for a specific neighbor */
+DEFUN(show_bgp_neighbor_upa, show_bgp_neighbor_upa_cmd,
+      "show bgp [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> upa [json]",
+      SHOW_STR BGP_STR IP_STR IPV6_STR
+      "Address Family modifier\n"
+      "Detailed information on TCP and BGP neighbor connections\n"
+      "Neighbor to display information about\n"
+      "Neighbor to display information about\n"
+      "Neighbor on BGP configured interface\n"
+      "UPA (Unreachable Prefix Announcement) information\n"
+      JSON_STR)
+{
+	struct bgp *bgp;
+	struct peer *peer;
+	bool use_json = false;
+	json_object *json = NULL;
+	int idx = 0;
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+
+	bgp = bgp_get_default();
+	if (!bgp) {
+		vty_out(vty, "No BGP process is configured\n");
+		return CMD_WARNING;
+	}
+
+	if (argv_find(argv, argc, "ipv6", &idx))
+		afi = AFI_IP6;
+	else if (argv_find(argv, argc, "ipv4", &idx))
+		afi = AFI_IP;
+
+	idx = 0;
+	use_json = argv_find(argv, argc, "json", &idx);
+
+	idx = 0;
+	argv_find(argv, argc, "neighbors", &idx);
+	char *peer_str = argv[++idx]->arg;
+
+	peer = peer_lookup_in_view(vty, bgp, peer_str, use_json);
+	if (!peer)
+		return CMD_WARNING;
+
+	if (use_json) {
+		json = json_object_new_object();
+		json_object_string_add(json, "peer", peer->host);
+		json_object_boolean_add(json, "upaSendEnabled",
+					CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND));
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "BGP neighbor %s UPA information:\n\n", peer->host);
+		vty_out(vty, "  UPA send enabled: %s\n",
+			CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND) ? "yes" : "no");
+	}
+
+	return CMD_SUCCESS;
 }
 
 #include "memory.h"

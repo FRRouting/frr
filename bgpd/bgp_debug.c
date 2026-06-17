@@ -63,6 +63,7 @@ unsigned long conf_bgp_debug_bfd;
 unsigned long conf_bgp_debug_cond_adv;
 unsigned long conf_bgp_debug_aggregate;
 unsigned long conf_bgp_debug_linkstate;
+unsigned long conf_bgp_debug_upa;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -85,6 +86,7 @@ unsigned long term_bgp_debug_bfd;
 unsigned long term_bgp_debug_cond_adv;
 unsigned long term_bgp_debug_aggregate;
 unsigned long term_bgp_debug_linkstate;
+unsigned long term_bgp_debug_upa;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -2413,6 +2415,9 @@ DEFUN_NOSH (show_debugging_bgp,
 		bgp_debug_list_print(vty, "  BGP aggregate debugging is on",
 				     bgp_debug_aggregate_prefixes);
 
+	if (BGP_DEBUG(upa, UPA))
+		vty_out(vty, "  BGP UPA debugging is on\n");
+
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		vty_out(vty, "  BGP graceful-restart debugging is on\n");
 
@@ -2609,6 +2614,11 @@ static int bgp_config_write_debug(struct vty *vty)
 		}
 	}
 
+	if (CONF_BGP_DEBUG(upa, UPA)) {
+		vty_out(vty, "debug bgp upa\n");
+		write++;
+	}
+
 	if (hook_call(bgp_hook_config_write_debug, vty, true))
 		write++;
 
@@ -2616,6 +2626,31 @@ static int bgp_config_write_debug(struct vty *vty)
 }
 
 static int bgp_config_write_debug(struct vty *vty);
+/* debug bgp upa */
+DEFPY(debug_bgp_upa, debug_bgp_upa_cmd,
+      "[no] debug bgp upa",
+      NO_STR
+      DEBUG_STR
+      BGP_STR
+      "BGP Unreachable Prefix Announcement (UPA)\n")
+{
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(upa, UPA);
+		else
+			DEBUG_ON(upa, UPA);
+	} else {
+		if (no) {
+			TERM_DEBUG_OFF(upa, UPA);
+			vty_out(vty, "BGP UPA debugging is off\n");
+		} else {
+			TERM_DEBUG_ON(upa, UPA);
+			vty_out(vty, "BGP UPA debugging is on\n");
+		}
+	}
+	return CMD_SUCCESS;
+}
+
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -2693,6 +2728,10 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_aggregate_prefix_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_aggregate_prefix_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_aggregate_prefix_cmd);
+
+	/* debug bgp upa */
+	install_element(ENABLE_NODE, &debug_bgp_upa_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_upa_cmd);
 
 	install_element(ENABLE_NODE, &no_debug_bgp_as4_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_as4_cmd);
