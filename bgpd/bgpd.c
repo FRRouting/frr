@@ -1383,19 +1383,10 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union s
 	connection->obuf = stream_fifo_new();
 	pthread_mutex_init(&connection->io_mtx, NULL);
 
-	/* We use a larger buffer for peer->obuf_work in the event that:
-	 * - We RX a BGP_UPDATE where the attributes alone are just
-	 *   under BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE.
-	 * - The user configures an outbound route-map that does many as-path
-	 *   prepends or adds many communities. At most they can have
-	 *   CMD_ARGC_MAX args in a route-map so there is a finite limit on how
-	 *   large they can make the attributes.
-	 *
-	 * Having a buffer with BGP_MAX_PACKET_SIZE_OVERFLOW allows us to avoid
-	 * bounds checking for every single attribute as we construct an
-	 * UPDATE.
+	/* ibuf_work is allocated on demand in bgp_read() when needed to hold
+	 * partial packets, and freed when drained. This saves ~98KB per peer
+	 * when idle or receiving complete packets.
 	 */
-	connection->ibuf_work = ringbuf_new(BGP_IBUF_WORK_SIZE);
 
 	connection->status = Idle;
 	connection->ostatus = Idle;
