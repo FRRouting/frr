@@ -93,6 +93,32 @@
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
 #define ECOMMUNITY_OPAQUE_SUBTYPE_COLOR	    0x0b
 
+/* UPA subtype — draft-ietf-idr-upa-02 Section 5.1
+ * Existing allocations: 0x0b = COLOR, 0x0c = ENCAP.
+ * Update this value when IANA assigns the permanent subtype.
+ */
+#define ECOMMUNITY_OPAQUE_SUBTYPE_UPA 0x09
+
+/* UPA flags byte — RFC bit-numbering: bit 0 is the MSB.
+ * In a uint8_t, MSB maps to (1 << 7) = 0x80.
+ */
+#define BGP_UPA_FLAG_DROP (1 << 7) /* D-bit (RFC bit 0, MSB): install drop entry */
+
+/* Absolute byte offsets within the 8-byte UPA Extended Community value.
+ * Bytes 0 (type) and 1 (subtype) are already named by ECOMMUNITY_ENCODE_OPAQUE
+ * and ECOMMUNITY_OPAQUE_SUBTYPE_UPA; only the remaining bytes need aliases.
+ */
+#define BGP_UPA_EXTCOM_OFF_FLAGS     2 /* flags byte (BGP_UPA_FLAG_DROP etc.) */
+#define BGP_UPA_EXTCOM_OFF_RSVD	     3 /* reserved, must be 0x00 */
+#define BGP_UPA_EXTCOM_OFF_ROUTER_ID 4 /* first byte of 4-byte Router-ID (network order) */
+
+/* UPA aggregation limits per prefix.
+ * WARN_THRESHOLD: log a warning when a single prefix has this many UPA originators.
+ * MAX_LIMIT: hard cap; log an error and stop adding Router-IDs beyond this count.
+ */
+#define BGP_UPA_EXTCOM_WARN_THRESHOLD 100
+#define BGP_UPA_EXTCOM_MAX_LIMIT      200
+
 /* Extended communities attribute string format.  */
 #define ECOMMUNITY_FORMAT_ROUTE_MAP            0
 #define ECOMMUNITY_FORMAT_COMMUNITY_LIST       1
@@ -453,4 +479,23 @@ extern struct ecommunity *ecommunity_add_node_target(struct in_addr *node_id,
 						     bool non_trans);
 extern bool ecommunity_node_target_match(struct ecommunity *ecomm,
 					 struct in_addr *local_id);
+
+/*
+ * UPA Extended Community — Transitive Opaque (type 0x03,
+ * subtype ECOMMUNITY_OPAQUE_SUBTYPE_UPA).
+ *
+ * Wire layout (8 bytes total):
+ *   [0] type     = 0x03 (ECOMMUNITY_ENCODE_OPAQUE)
+ *   [1] subtype  = ECOMMUNITY_OPAQUE_SUBTYPE_UPA
+ *   [2] flags    = BGP_UPA_FLAG_DROP | reserved
+ *   [3] reserved = 0x00
+ *   [4..7] BGP Router-ID of the originator (network byte order)
+ */
+extern void bgp_upa_extcom_new(struct in_addr router_id, uint8_t flags,
+			       struct ecommunity_val *eval);
+extern bool bgp_upa_extcom_parse(const struct ecommunity_val *eval, uint8_t *flags_out,
+				 struct in_addr *router_id_out);
+extern bool bgp_ecommunity_has_upa(const struct ecommunity *ecom);
+extern struct ecommunity *bgp_upa_extcom_filter(const struct ecommunity *ecom);
+
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */
