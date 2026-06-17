@@ -23,6 +23,7 @@
 #define PIM_DEFAULT_CAN_DISABLE_JOIN_SUPPRESSION (0)    /* boolean */
 #define PIM_DEFAULT_T_PERIODIC                   (60)   /* RFC 4601: 4.11.  Timer Values */
 #define PIM_DEFAULT_T_PRUNE_LIMIT		 (210)	/* RFC 3973 4.8 PIM-DM Timers*/
+#define PIM_DEFAULT_GRAFT_RETRY_PERIOD		 (3)	/* RFC 3973 4.8 Graft_Retry_Period */
 
 
 enum pim_msg_type {
