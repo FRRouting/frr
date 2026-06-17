@@ -5094,8 +5094,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 				"Processing route_map %s(%s:%s) update on advertise type5 route command",
 				rmap_name, afi2str(afi), safi2str(safi));
 
-		if (route_update && (advertise_type5_routes_bestpath(bgp, afi) ||
-				     advertise_type5_routes_multipath(bgp, afi))) {
+		if (route_update &&
+		    (advertise_type5_routes_bestpath(bgp, afi, safi) ||
+		     advertise_type5_routes_multipath(bgp, afi, safi))) {
 			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
 			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
 		}

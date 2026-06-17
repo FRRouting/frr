@@ -377,7 +377,7 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (advertise_type5_routes_multipath(bgp, afi) && safi == SAFI_UNICAST) {
+		if (advertise_type5_routes_multipath(bgp, afi, safi)) {
 			peer_count[afi][safi][BGP_ADDPATH_ALL] += 1;
 			bgp->tx_addpath.total_peercount[afi][safi] += 1;
 		}
