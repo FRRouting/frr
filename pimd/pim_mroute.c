@@ -45,6 +45,24 @@
 
 static void mroute_read_on(struct pim_instance *pim);
 
+/*
+ * Set when the first IGMPMSG_WRVIFWHOLE upcall is received on this host.
+ * Kernel-wide capability shared by all pim_instance / VRFs in this process.
+ *
+ * On Linux, starts false after every daemon restart; the first WRVIFWHOLE
+ * upcall sets this true and disables compensation.  Until then WRONGVIF may
+ * briefly trigger the compat path on capable kernels (harmless overlap).
+ *
+ * On non-Linux, WRVIFWHOLE is unavailable so initialize true to keep the
+ * original WRONGVIF behavior (no compensation).
+ */
+static bool mroute_wrvifwhole_supported =
+#if defined linux
+	false;
+#else
+	true;
+#endif
+
 int pim_mroute_set(struct pim_instance *pim, int enable)
 {
 	int err;
@@ -131,6 +149,13 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 
 	if (enable) {
 #if defined linux
+		/*
+		 * MRT_PIM value selects the highest PIM upcall type delivered.
+		 * GMMSG_WRVIFWHOLE (4) enables WRONGVIF and WRVIFWHOLE; kernels
+		 * before 4.19 only deliver WRONGVIF.  To test the WRONGVIF
+		 * compensation path on a modern kernel, temporarily use
+		 * GMMSG_WRONGVIF here instead (PIM + assert, no WRVIFWHOLE).
+		 */
 		int upcalls = GMMSG_WRVIFWHOLE;
 		opt = MRT_PIM;
 
@@ -572,10 +597,153 @@ have_up:
 	return 0;
 }
 
+/*
+ * pim_upstream_activate_stream - drive FHR upstream state for a newly-seen
+ * (S,G) data flow when the kernel has not delivered IGMPMSG_WRVIFWHOLE.
+ *
+ * Mirrors the FHR activation block in pim_mroute_msg_wrvifwhole() (without
+ * register encapsulation, which requires the packet buffer).  Only called
+ * from pim_mroute_msg_wrongvif() when !mroute_wrvifwhole_supported and
+ * there is no (S,G) ifchannel on the ingress interface (including the
+ * bidirectional case where only a (*,G) ifchannel exists).
+ *
+ * The caller guarantees:
+ *   - ifp and ifp->info are non-NULL and PIM-enabled
+ *   - sg is the (S,G) extracted from the upcall message
+ *   - ifp is source-connected for sg->src
+ */
+static int pim_upstream_activate_stream(struct interface *ifp, pim_sgaddr *sg)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_upstream *up;
+
+	up = pim_upstream_find(pim_ifp->pim, sg);
+	if (!up) {
+		up = pim_upstream_add(pim_ifp->pim, sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __func__,
+				      NULL);
+		if (!up)
+			return -1;
+	} else if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+		/*
+		 * Upstream may already exist from join-before-data without
+		 * FHR (e.g. partial MFC).  Promote once; do not call ref on
+		 * every WRONGVIF as that would inflate ref_count.
+		 */
+		pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_FHR, __func__);
+		PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
+	}
+
+	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
+	up->channel_oil->cc.pktcnt++;
+
+	/* resolve mfcc_parent prior to mroute_add in channel_add_oif */
+	if (up->rpf.source_nexthop.interface && *oil_incoming_vif(up->channel_oil) >= MAXVIFS)
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+
+	if (!pim_is_group_filtered(pim_ifp, &sg->grp, &sg->src) && pim_upstream_could_register(up))
+		pim_register_join(up);
+
+	pim_upstream_inherited_olist(pim_ifp->pim, up);
+
+	if (!up->channel_oil->installed)
+		pim_upstream_mroute_add(up->channel_oil, __func__);
+	else
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+
+	return 0;
+}
+
+/*
+ * pim_upstream_wrongvif_wrvifwhole_compat - mirror pim_mroute_msg_wrvifwhole()
+ * when IGMPMSG_WRVIFWHOLE is unavailable.  Handles LHR / SPT (S,G) state and
+ * MFC reinstall on WRONGVIF where there is no (S,G) ifchannel on ingress.
+ * Register encapsulation is omitted (no packet buffer on WRONGVIF).
+ */
+static int pim_upstream_wrongvif_wrvifwhole_compat(struct interface *ifp, pim_sgaddr *sg)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
+	struct pim_upstream *up;
+	struct pim_upstream *parent;
+	pim_sgaddr star_g;
+
+	up = pim_upstream_find(pim, sg);
+	if (up) {
+		struct pim_nexthop source;
+		struct pim_rpf *rpf = RP(pim, sg->grp);
+		struct pim_interface *rpf_pim_ifp;
+
+		if (!rpf || !rpf->source_nexthop.interface || !rpf->source_nexthop.interface->info)
+			return 0;
+
+		star_g = *sg;
+		star_g.src = PIMADDR_ANY;
+		parent = pim_upstream_find(pim, &star_g);
+		if (parent && parent->rpf.source_nexthop.interface == ifp)
+			return 0;
+
+		rpf_pim_ifp = rpf->source_nexthop.interface->info;
+		memset(&source, 0, sizeof(source));
+
+		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+			if (!pim_addr_is_any(up->upstream_register) &&
+			    pim_nht_lookup(rpf_pim_ifp->pim, &source, up->upstream_register,
+					   up->sg.grp, false)) {
+				pim_register_stop_send(source.interface, sg,
+						       rpf_pim_ifp->primary_address,
+						       up->upstream_register);
+				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+			}
+
+			pim_upstream_inherited_olist(pim, up);
+		} else {
+			if (I_am_RP(rpf_pim_ifp->pim, up->sg.grp)) {
+				if (pim_nht_lookup(rpf_pim_ifp->pim, &source,
+						   up->upstream_register, up->sg.grp, false))
+					pim_register_stop_send(source.interface, sg,
+							       rpf_pim_ifp->primary_address,
+							       up->upstream_register);
+				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+			} else {
+				if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE && up->parent &&
+				    up->rpf.source_nexthop.interface !=
+					    up->parent->rpf.source_nexthop.interface) {
+					up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+					pim_jp_agg_single_upstream_send(&up->parent->rpf,
+									up->parent, true);
+				}
+			}
+			pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+			pim_upstream_inherited_olist(pim, up);
+		}
+
+		if (!up->channel_oil->installed)
+			pim_upstream_mroute_add(up->channel_oil, __func__);
+		else
+			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+
+		return 0;
+	}
+
+	if (pim_if_connected_to_source(ifp, sg->src) && PIM_I_am_DR(pim_ifp))
+		return pim_upstream_activate_stream(ifp, sg);
+
+	up = pim_upstream_add(pim, sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE, __func__, NULL);
+	if (!up)
+		return -1;
+	if (!up->channel_oil->installed)
+		pim_upstream_mroute_add(up->channel_oil, __func__);
+
+	return 0;
+}
+
 int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_ifchannel *ch, *throwaway;
 	struct pim_interface *pim_ifp;
+	bool sg_channel = false;
+	bool any_channel = false;
 	pim_sgaddr sg;
 
 	memset(&sg, 0, sizeof(sg));
@@ -611,8 +779,12 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 	}
 
 	pim_ifchannel_find(ifp, &sg, &ch, &throwaway);
-	if (!ch) {
+	if (ch) {
+		sg_channel = true;
+		any_channel = true;
+	} else {
 		pim_sgaddr star_g = sg;
+
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
 				"%s: WRONGVIF (S,G)=%pSG could not find channel on interface %s",
@@ -620,14 +792,39 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 
 		star_g.src = PIMADDR_ANY;
 		pim_ifchannel_find(ifp, &star_g, &ch, &throwaway);
-		if (!ch) {
-			if (PIM_DEBUG_MROUTE)
-				zlog_debug(
-					"%s: WRONGVIF (*,G)=%pSG could not find channel on interface %s",
-					__func__, &star_g, ifp->name);
-			return -3;
+		if (ch)
+			any_channel = true;
+		else if (PIM_DEBUG_MROUTE)
+			zlog_debug("%s: WRONGVIF (*,G)=%pSG could not find channel on interface %s",
+				   __func__, &star_g, ifp->name);
+	}
+
+	if (!mroute_wrvifwhole_supported) {
+		/*
+		 * Old kernels without WRVIFWHOLE: WRONGVIF may be the only
+		 * upcall.  Mirror pim_mroute_msg_wrvifwhole() when there is no
+		 * (S,G) ifchannel on ingress -- FHR on the source-connected
+		 * interface (join-before-data, bidirectional) and LHR / SPT
+		 * switch on upstream interfaces (e.g. (S,G) MFC reinstall after
+		 * pimd restart).
+		 */
+		if (!sg_channel && !pim_iface_grp_dm(pim_ifp, sg.grp) &&
+		    ifp != pim_ifp->pim->regiface) {
+			/*
+			 * FHR activation requires DR: only the DR originates
+			 * register state on a shared LAN.
+			 * pim_mroute_msg_wrvifwhole() omits this check because
+			 * WRVIFWHOLE carries the packet and the kernel already
+			 * selected this router's VIF.
+			 */
+			if (pim_if_connected_to_source(ifp, sg.src) && PIM_I_am_DR(pim_ifp))
+				return pim_upstream_activate_stream(ifp, &sg);
+			return pim_upstream_wrongvif_wrvifwhole_compat(ifp, &sg);
 		}
 	}
+
+	if (!any_channel)
+		return -3;
 
 	if (pim_iface_grp_dm(pim_ifp, sg.grp)) {
 		if (PIM_DEBUG_PIM_J_P)
@@ -695,6 +892,11 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 
 	pim_ifp = ifp->info;
 	pim = pim_ifp->pim;
+
+	if (!mroute_wrvifwhole_supported) {
+		mroute_wrvifwhole_supported = true;
+		zlog_info("pimd: IGMPMSG_WRVIFWHOLE received, kernel supports WRVIFWHOLE upcalls");
+	}
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = IPV_SRC(ip_hdr);
