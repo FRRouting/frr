@@ -4992,6 +4992,17 @@ void bgp_free(struct bgp *bgp)
 			bgp_table_finish(&bgp->static_routes[afi][safi]);
 		if (bgp->aggregate[afi][safi])
 			bgp_table_finish(&bgp->aggregate[afi][safi]);
+
+		/* Clean up UPA tracking hash */
+		if (bgp->upa_routes[afi][safi].hh.count > 0) {
+			struct bgp_upa_prefix_entry *entry;
+
+			while ((entry = bgp_upa_prefix_hash_pop(&bgp->upa_routes[afi][safi])))
+				XFREE(MTYPE_BGP_AGGREGATE, entry);
+
+			bgp_upa_prefix_hash_fini(&bgp->upa_routes[afi][safi]);
+		}
+
 		if (bgp->rib[afi][safi])
 			bgp_table_finish(&bgp->rib[afi][safi]);
 		rmap = &bgp->table_map[afi][safi];
@@ -5627,6 +5638,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6, 0, peer_change_best_path },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX, 0, peer_change_best_path },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_MPLS, 0, peer_change_best_path },
+	{ PEER_FLAG_UPA_SEND, 1, peer_change_reset_out },
 	{ 0, 0, 0 }
 };
 
