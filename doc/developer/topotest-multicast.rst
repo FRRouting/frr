@@ -96,6 +96,14 @@ The simplest approach uses two separate scripts:
   Demonstrates sending multicast traffic
 - ``tests/topotests/pim_basic/test_pim.py::test_pim_igmp_report()`` -
   Demonstrates IGMP join using mcast-rx.py
+<<<<<<< HEAD
+=======
+- ``tests/topotests/pim_wrongvif_compat/`` -
+  WRONGVIF compensation when ``IGMPMSG_WRVIFWHOLE`` is unavailable (kernels
+  before 4.19); join-before-data, same-LAN FHR, LHR/SPT, and FRR restart cases.
+  Uses ``restart_frr()`` (FRR daemons only on that router) — see
+  :ref:`topotests-restart`.
+>>>>>>> 5904280f6 (doc: document topotest router and daemon restart helpers)
 
 Method 2: Unified Tester Script (mcast-tester.py)
 ---------------------------------------------------
