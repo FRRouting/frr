@@ -1104,20 +1104,24 @@ def start_topology(tgen):
     tgen.start_router()
 
 
-def stop_router(tgen, router):
+def stop_router(tgen, router, save_config=True):
     """
-    Router"s current config would be saved to /tmp/topotest/<suite>/<router> for each daemon
-    and router and its daemons would be stopped.
+    Stop all FRR daemons on a router.
+
+    Despite the name, this does not tear down the mininet namespace — only the
+    FRR processes configured for that router (see ``restart_frr()``).
 
     * `tgen`  : topogen object
-    * `router`: Device under test
+    * `router`: router name (e.g. ``"r1"``)
+    * `save_config`: when True (default), run ``write memory`` before stopping
     """
 
     router_list = tgen.routers()
 
-    # Saving router config to /etc/frr, which will be loaded to router
-    # when it starts
-    router_list[router].vtysh_cmd("write memory")
+    if save_config:
+        # Saving router config to /etc/frr, which will be loaded to router
+        # when it starts
+        router_list[router].vtysh_cmd("write memory")
 
     # Stop router
     router_list[router].stop()
@@ -1125,11 +1129,13 @@ def stop_router(tgen, router):
 
 def start_router(tgen, router):
     """
-    Router will be started and config would be loaded from /tmp/topotest/<suite>/<router> for each
-    daemon
+    Start all FRR daemons on a router.
+
+    Loads configuration from the test log directory for each daemon.  Does not
+    create or destroy the mininet namespace (see ``stop_router()``).
 
     * `tgen`  : topogen object
-    * `router`: Device under test
+    * `router`: router name (e.g. ``"r1"``)
     """
 
     logger.debug("Entering lib API: start_router")
@@ -1151,6 +1157,22 @@ def start_router(tgen, router):
 
     logger.debug("Exiting lib API: start_router()")
     return True
+
+
+def restart_frr(tgen, router, save_config=True):
+    """
+    Stop and start all FRR daemons on a router.
+
+    Equivalent to ``stop_router()`` followed by ``start_router()``.  Only FRR
+    processes are affected; the namespace, interfaces, and non-FRR host
+    processes keep running.
+
+    * `tgen`  : topogen object
+    * `router`: router name (e.g. ``"r1"``)
+    * `save_config`: when True (default), run ``write memory`` before stopping
+    """
+    stop_router(tgen, router, save_config=save_config)
+    return start_router(tgen, router)
 
 
 def number_to_row(routerName):
