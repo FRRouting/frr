@@ -15714,6 +15714,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			json_object_int_add(json_addr, "packetQueueLength",
 					    bpacket_queue_virtual_length(paf));
 		}
+
 		/* weight */
 		if (peergroup_af_flag_check(p, afi, safi, PEER_FLAG_WEIGHT))
 			json_object_int_add(json_addr, "weight", p->weight[afi][safi]);
@@ -15830,15 +15831,14 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					       "overrideASNsInOutboundUpdates",
 					       "ifAspathEqualRemoteAs");
 
+		json_object_boolean_add(json_addr, "routerAlwaysNextHop",
+			CHECK_FLAG(p->af_flags[afi][safi],
+				PEER_FLAG_NEXTHOP_SELF) ||
+			CHECK_FLAG(p->af_flags[afi][safi],
+					PEER_FLAG_FORCE_NEXTHOP_SELF));
 
-		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF))
-			json_object_boolean_true_add(json_addr, "routerAlwaysNextHop");
-		else
-			json_object_boolean_false_add(json_addr, "routerAlwaysNextHop");
-		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF))
-			json_object_boolean_true_add(json_addr, "forceRouterAlwaysNextHop");
-		else
-			json_object_boolean_false_add(json_addr, "forceRouterAlwaysNextHop");
+		json_object_boolean_add(json_addr, "forceRouterAlwaysNextHop",
+			CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF));
 
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_AS_PATH_UNCHANGED))
@@ -16060,7 +16060,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			vty_out(vty, "  Not part of any update group\n");
 		}
 		if (peergroup_af_flag_check(p, afi, safi, PEER_FLAG_WEIGHT))
-			vty_out(vty, "  Weight %d\n", p->weight[afi][safi]);
+			vty_out(vty, "  Weight %lu\n", p->weight[afi][safi]);
 
 		if (CHECK_FLAG(p->af_cap[afi][safi],
 			       PEER_CAP_ORF_PREFIX_SM_ADV) ||
@@ -16160,8 +16160,11 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			vty_out(vty,
 				"  Override ASNs in outbound updates if aspath equals remote-as\n");
 
-		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF))
+		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF)
+			|| CHECK_FLAG(p->af_flags[afi][safi],
+			      PEER_FLAG_FORCE_NEXTHOP_SELF))
 			vty_out(vty, "  NEXT_HOP is always this router\n");
+
 		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF))
 			vty_out(vty, "  NEXT_HOP is always this router (force)\n");
 
@@ -16626,6 +16629,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 	bool show_brief = ((CHECK_FLAG(sh_flags, VTY_BGP_PEER_SHOW_STATE_ESTABLISHED_INFO) ||
 			    CHECK_FLAG(sh_flags, VTY_BGP_PEER_SHOW_STATE_FAILED_INFO) ||
 			    CHECK_FLAG(sh_flags, VTY_BGP_PEER_SHOW_BRIEF_INFO)));
+	bool enhe_enabled = false;
+	bool enforce_first_as = false;
 
 	bgp = p->bgp;
 
@@ -16711,6 +16716,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 		return;
 	}
 
+	if (peergroup_flag_check(p, PEER_FLAG_CAPABILITY_ENHE))
+		enhe_enabled = !(CHECK_FLAG(p->flags_invert, PEER_FLAG_CAPABILITY_ENHE) &&
+				 !p->conf_if);
+
+	enforce_first_as = CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+	if (peergroup_flag_check(p, PEER_FLAG_ENFORCE_FIRST_AS))
+		enforce_first_as = !enforce_first_as;
+
 	if (use_json) {
 		if (p->conf_if && BGP_CONNECTION_SU_UNSPEC(p->connection))
 			json_object_string_add(json_neigh, "bgpNeighborAddr", "none");
@@ -16719,37 +16732,23 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 					       sockunion2str(&p->connection->su, buf,
 							     SU_ADDRSTRLEN));
 
-        /* passive */
-		if (peergroup_flag_check(p, PEER_FLAG_PASSIVE))
-				json_object_boolean_true_add(json_neigh, "passive");
+		/* passive */
+		json_object_boolean_add(json_neigh, "passive",
+			peergroup_flag_check(p, PEER_FLAG_PASSIVE));
+
 		/* disable-connected-check */
-		if (peergroup_flag_check(p, PEER_FLAG_DISABLE_CONNECTED_CHECK))
-				json_object_boolean_true_add(json_neigh, "disableConnectedCheck");
-		else
-				json_object_boolean_false_add(json_neigh, "disableConnectedCheck");
+		json_object_boolean_add(json_neigh, "disableConnectedCheck",
+			peergroup_flag_check(p, PEER_FLAG_DISABLE_CONNECTED_CHECK));
+
 		/* graceful-shutdown */
-		if (peergroup_flag_check(p, PEER_FLAG_GRACEFUL_SHUTDOWN))
-				json_object_boolean_true_add(json_neigh, "gracefulShutdown");
+		json_object_boolean_add(json_neigh, "gracefulShutdown",
+			peergroup_flag_check(p, PEER_FLAG_GRACEFUL_SHUTDOWN));
+
 		/* enforce-first-as */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS)) {
-				/* By default this enforcing is enabled,
-				* thus we need to print it inverted.
-				*/
-				if (peergroup_flag_check(p, PEER_FLAG_ENFORCE_FIRST_AS))
-						json_object_boolean_false_add(json_neigh, "enforceFirstAs");
-		} else {
-				if (peergroup_flag_check(p, PEER_FLAG_ENFORCE_FIRST_AS))
-						json_object_boolean_true_add(json_neigh, "enforceFirstAs");
-		}
+		json_object_boolean_add(json_neigh, "enforceFirstAs", enforce_first_as);
+
 		/* capability extended-nexthop */
-		if (peergroup_flag_check(p, PEER_FLAG_CAPABILITY_ENHE)) {
-				if (CHECK_FLAG(p->flags_invert, PEER_FLAG_CAPABILITY_ENHE) && !p->conf_if)
-						json_object_boolean_false_add(json_neigh,
-														"capabilityExtendedNexthop");
-				else if (!p->conf_if)
-						json_object_boolean_true_add(json_neigh,
-													"capabilityExtendedNexthop");
-		}
+		json_object_boolean_add(json_neigh, "capabilityExtendedNexthop", enhe_enabled);
 
 		if (p->conf_if)
 			json_object_string_addf(json_neigh, "neighborAddr", "%pSU",
@@ -16771,33 +16770,23 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 
 		/* passive */
 		if (peergroup_flag_check(p, PEER_FLAG_PASSIVE))
-			vty_out(vty, " (passive)");
+			vty_out(vty, "passive, ");
+
 		/* disable-connected-check */
 		if (peergroup_flag_check(p, PEER_FLAG_DISABLE_CONNECTED_CHECK))
-			vty_out(vty, " disable-connected-check: on");
-		else
-			vty_out(vty, " disable-connected-check: off");
+			vty_out(vty, "disable connected check, ");
+
 		/* graceful-shutdown */
 		if (peergroup_flag_check(p, PEER_FLAG_GRACEFUL_SHUTDOWN))
-			vty_out(vty, " graceful-shutdown: on\n");
+			vty_out(vty, "graceful shutdown, ");
+
 		/* enforce-first-as */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS)) {
-			/* By default this enforcing is enabled,
-			* thus we need to print it inverted.
-			*/
-			if (peergroup_flag_check(p, PEER_FLAG_ENFORCE_FIRST_AS))
-				vty_out(vty, "  enforce-first-as: off\n");
-		} else {
-			if (peergroup_flag_check(p, PEER_FLAG_ENFORCE_FIRST_AS))
-				vty_out(vty, "  enforce-first-as: on\n");
-		}
+		if (!enforce_first_as)
+			vty_out(vty, "no enforce first as, ");
+
 		/* capability extended-nexthop */
-		if (peergroup_flag_check(p, PEER_FLAG_CAPABILITY_ENHE)) {
-			if (CHECK_FLAG(p->flags_invert, PEER_FLAG_CAPABILITY_ENHE) && !p->conf_if)
-				vty_out(vty, " capability extended-nexthop: off\n");
-			else if (!p->conf_if)
-				vty_out(vty, " capability extended-nexthop: on\n");
-		}
+		if (enhe_enabled)
+			vty_out(vty, "capability extended nexthop, ");
 	}
 
 	if (use_json) {
