@@ -231,6 +231,10 @@ struct vty {
 	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
+	/* Retry state when running DS lock is contended during implicit commit. */
+	char *mgmt_running_lock_retry_xpath;
+	struct event *mgmt_running_lock_retry_ev;
+	uint mgmt_running_lock_retry_count;
 	/* Incremental write/flush limit and current accumulator. When
 	 * producing large outputs, we try to avoid buffering the entire
 	 * output, sending incremental output periodically
