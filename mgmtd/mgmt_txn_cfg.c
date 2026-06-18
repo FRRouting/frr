@@ -542,6 +542,18 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 		mgmt_ds_copy_dss(ccreq->src_ds_ctx, ccreq->dst_ds_ctx, false);
 
 	/*
+	 * Release transaction datastore locks before sending replies to
+	 * front-end clients. Commit replies resume the VTY session immediately
+	 * (short-circuit) and a new CLI command can try to lock running before
+	 * txn_req_free() would otherwise clear txn_lock.
+	 */
+	if (ccreq->txn_lock) {
+		mgmt_ds_txn_unlock(ccreq->src_ds_ctx, txn->txn_id);
+		mgmt_ds_txn_unlock(ccreq->dst_ds_ctx, txn->txn_id);
+		ccreq->txn_lock = false;
+	}
+
+	/*
 	 * For internal txns do lock cleanup, for front-end session send replies.
 	 */
 	if (ccreq->init) {
