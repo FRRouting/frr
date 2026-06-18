@@ -81,4 +81,9 @@ struct isis_route_table_info *isis_route_table_info_alloc(uint8_t algorithm);
 void isis_route_table_info_free(void *info);
 uint8_t isis_route_table_algorithm(const struct route_table *table);
 
+/* Clear ISIS_ROUTE_FLAG_ZEBRA_SYNCED on all routes so they are reinstalled on
+ * the next verify (e.g. after a zebra reconnect).
+ */
+void isis_route_table_clear_synced(struct route_table *table);
+
 #endif /* _ZEBRA_ISIS_ROUTE_H */
