@@ -1362,8 +1362,16 @@ static void really_send_update(struct interface *ifp, const unsigned char *id,
 		return;
 
 	add_metric = output_filter(id, prefix, plen, ifp->ifindex);
-	if (add_metric >= INFINITY)
-		return;
+	if (add_metric >= INFINITY) {
+		/* The outbound filter denies this prefix. Still let an explicit
+		 * retraction (metric infinity) through, so a route that was
+		 * advertised before the filter started denying it is withdrawn
+		 * instead of lingering at neighbors until it times out.
+		 */
+		if (metric < INFINITY)
+			return;
+		add_metric = 0;
+	}
 
 	metric = MIN(metric + add_metric, INFINITY);
 	/* Worst case */
@@ -1694,6 +1702,16 @@ void send_update_resend(struct interface *ifp, const unsigned char *prefix, unsi
 
 	send_update(ifp, 1, prefix, plen);
 	record_resend(RESEND_UPDATE, prefix, plen, 0, NULL, NULL, resend_delay);
+}
+
+void send_retraction(struct interface *ifp, const unsigned char *id, unsigned short seqno,
+		     const unsigned char *prefix, unsigned char plen)
+{
+	if (!if_up(ifp))
+		return;
+
+	really_send_update(ifp, id, prefix, plen, seqno, INFINITY, NULL, -1);
+	schedule_flush_now(ifp);
 }
 
 void send_wildcard_retraction(struct interface *ifp)
