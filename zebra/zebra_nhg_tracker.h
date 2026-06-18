@@ -216,6 +216,13 @@ extern struct nhg_event_tracker *zebra_nhg_tracker_park_re(struct route_node *rn
  */
 extern bool zebra_nhg_tracker_has_active(struct nhg_hash_entry *nhe);
 
+/*
+ * Returns true if the prefix has an entry in nhe's tracker_prefix_map
+ */
+extern bool zebra_nhg_tracker_prefix_in_pm(struct nhg_hash_entry *nhe,
+					   const struct route_node *rn,
+					   const struct route_entry *re);
+
 /* Flush tracker if all expected REs have been parked */
 extern void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker,
 					    struct nhg_hash_entry *nhe);
