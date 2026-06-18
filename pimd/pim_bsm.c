@@ -2086,8 +2086,16 @@ static void pim_cand_bsr_trigger(struct bsm_scope *scope, bool verbose)
 		return;
 	}
 
-	if (!pim_addr_cmp(scope->current_bsr, scope->bsr_addrsel.run_addr))
+	if (!pim_addr_cmp(scope->current_bsr, scope->bsr_addrsel.run_addr)) {
+		/* We are the current BSR. If our priority changed, update and
+		 * regenerate BSM immediately.
+		 */
+		if (scope->state == BSR_ELECTED && scope->current_bsr_prio != scope->cand_bsr_prio) {
+			scope->current_bsr_prio = scope->cand_bsr_prio;
+			pim_bsm_generate(scope);
+		}
 		return;
+	}
 
 	pim_cand_bsr_pending(scope);
 }
