@@ -2357,7 +2357,8 @@ struct bgp_nlri {
 #define BGP_ADMIN_SHUTDOWN_MSG_LEN 255
 
 /* BGP minimum message size.  */
-#define BGP_MSG_OPEN_MIN_SIZE                   (BGP_HEADER_SIZE + 10)
+#define BGP_OPEN_BODY_MIN_SIZE                  10 /* Version(1) + AS(2) + Hold(2) + ID(4) + OptLen(1) */
+#define BGP_MSG_OPEN_MIN_SIZE                   (BGP_HEADER_SIZE + BGP_OPEN_BODY_MIN_SIZE)
 #define BGP_MSG_UPDATE_MIN_SIZE                 (BGP_HEADER_SIZE + 4)
 #define BGP_MSG_NOTIFY_MIN_SIZE                 (BGP_HEADER_SIZE + 2)
 #define BGP_MSG_KEEPALIVE_MIN_SIZE              (BGP_HEADER_SIZE + 0)
