@@ -2037,11 +2037,16 @@ void ospf_abr_nssa_task(struct ospf *ospf) /* called only if any_nssa */
 	if (IS_DEBUG_OSPF_NSSA)
 		zlog_debug("Check for NSSA-ABR Tasks():");
 
-	if (!IS_OSPF_ABR(ospf))
+	if (!IS_OSPF_ABR(ospf) || !ospf->anyNSSA) {
+		/* We can no longer act as an NSSA translator -- either we are
+		 * no longer an ABR, or the last NSSA area was removed. Flush any
+		 * Type-5 LSAs we previously translated; otherwise they linger in
+		 * the global LSDB as stale self-originated translated LSAs.
+		 */
+		ospf_abr_unapprove_translates(ospf);
+		ospf_abr_remove_unapproved_translates(ospf);
 		return;
-
-	if (!ospf->anyNSSA)
-		return;
+	}
 
 	/* Each area must confirm TranslatorRole */
 	if (IS_DEBUG_OSPF_NSSA)
