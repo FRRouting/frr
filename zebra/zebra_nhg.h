@@ -535,7 +535,7 @@ extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
 extern void dump_nhg_flags(uint32_t flags, char *buf, size_t len);
 
 extern bool zebra_nhg_nexthop_compare(const struct nexthop *nhop, const struct nexthop *old_nhop,
-				      const struct route_node *rn, bool skip_active_check);
+				      const struct route_node *rn, bool skip_inactive_old);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)

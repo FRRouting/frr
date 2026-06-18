@@ -407,6 +407,8 @@ struct nhg_hash_entry *zebra_nhg_alloc(void)
 
 	nhe_re_tree_init(&nhe->re_head);
 
+	zebra_nhg_tracker_init(nhe);
+
 	return nhe;
 }
 
@@ -510,8 +512,7 @@ uint32_t zebra_nhg_id_key(const void *arg)
 }
 
 /* Helper with common nhg/nhe nexthop comparison logic */
-static bool nhg_compare_nexthops(const struct nexthop *nh1,
-				 const struct nexthop *nh2)
+bool nhg_compare_nexthops(const struct nexthop *nh1, const struct nexthop *nh2)
 {
 	assert(nh1 != NULL && nh2 != NULL);
 
@@ -1149,6 +1150,15 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 	}
 
 	zebra_nhg_set_valid(nhe, valid);
+
+	/*
+	 * Create tracker now - all the parent NHGs are updated with the valid state.
+	 * Walk transitive dependents - catches recursively-dependent NHGs and
+	 * creates trackers wherever required.
+	 */
+	if (ZEBRA_NHG_IS_SINGLETON(nhe))
+		zebra_nhg_tracker_create_for_event(nhe, nhe->nhg.nexthop->ifindex,
+						   NHG_TRACKER_EVENT_INTF_DOWN);
 }
 
 static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
@@ -1163,10 +1173,477 @@ static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
 	}
 }
 
+/*
+ * Rebuild nhg_depends from the NHE's current nexthop list.
+ * Called after replacing an NHE's nexthop group content in-place
+ * (e.g. during tracker NHG rework).  Releases old dependency edges
+ * and rebuilds them from the new nexthop list.
+ */
+void zebra_nhg_rebuild_depends(struct nhg_hash_entry *nhe)
+{
+	struct nexthop *nh;
+	struct nhg_connected *rb_node_dep;
+	uint32_t i;
+
+	/*
+	 * Drain refcount contributions from old singletons.
+	 * E.g. group with 10 REs: each old singleton got +11 total.
+	 * The loop drains the 10 cascade increments; the subsequent
+	 * depends_decrement_free drains the 1 creation increment.
+	 */
+	uint32_t old_dep_count = nhg_connected_tree_count(&nhe->nhg_depends);
+
+	for (i = 0; i < nhe->refcnt; i++)
+		nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
+
+	zebra_nhg_depends_release(nhe);
+	depends_decrement_free(&nhe->nhg_depends);
+
+	/* Re-init the depends tree (nhg_dependents is NOT touched —
+	 * other NHGs that depend on us must keep their backpointers).
+	 */
+	zebra_nhg_depends_init(nhe);
+
+	nh = nhe->nhg.nexthop;
+	if (!nh)
+		return;
+
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+
+	if (nh->next == NULL && nhe->id < ZEBRA_NHG_PROTO_LOWER) {
+		if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			handle_recursive_depend(&nhe->nhg_depends, nh->resolved, nhe->afi,
+						nhe->type);
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+		}
+	} else {
+		for (ALL_NEXTHOPS(nhe->nhg, nh))
+			depends_find_add(&nhe->nhg_depends, nh, nhe->afi, nhe->type, false);
+	}
+
+	/*
+	 * Wire backpointers from new dependencies to this NHE.
+	 * Note: zebra_nhg_connect_depends() — it reinitializes
+	 * nhg_dependents which would wipe backpointers from other NHGs
+	 * that depend on us.  Instead, manually add backpointers.
+	 */
+	frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep)
+		zebra_nhg_dependents_add(rb_node_dep->nhe, nhe);
+
+	/*
+	 * Fill cascade increments on new singletons.
+	 * depends_find_add already gave each new singleton +1 (via
+	 * depends_add->zebra_nhg_increment_ref) for the creation
+	 * increment. The loop adds nhe->refcnt more to cover the
+	 * cascade contribution (one per RE on this group).
+	 *
+	 * E.g. group with 10 REs: each new singleton needs +11 total
+	 * (+1 creation + 10 cascade).  depends_add gave +1, loop
+	 * gives +10.
+	 */
+	for (i = 0; i < nhe->refcnt; i++)
+		nhg_connected_tree_increment_ref(&nhe->nhg_depends);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: NHG %u (refcnt %d) rebuilt depends: old %u -> new %zu (drained/filled %d+1 per singleton)",
+			   __func__, nhe->id, nhe->refcnt, old_dep_count,
+			   nhg_connected_tree_count(&nhe->nhg_depends), nhe->refcnt);
+
+	frrtrace(6, frr_zebra, nhg_rework, "rebuild-depends", nhe->id, nhe->refcnt, old_dep_count,
+		 nhg_connected_tree_count(&nhe->nhg_depends), 0);
+}
+
+/*
+ * Build backup_nhe->nhg_depends from its nexthop list, creating or referencing
+ * a singleton dep per backup nexthop.  Required after nhg_backup_copy(), which
+ * copies only the nexthop list and leaves the depends tree empty.
+ */
+static void zebra_nhg_backup_build_depends(struct nhg_hash_entry *backup_nhe, afi_t afi)
+{
+	struct nexthop *nh = backup_nhe->nhg.nexthop;
+
+	if (!nh)
+		return;
+
+	if (ZEBRA_NHG_IS_SINGLETON(backup_nhe) && CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+		handle_recursive_depend(&backup_nhe->nhg_depends, nh->resolved, afi,
+					backup_nhe->type);
+		SET_FLAG(backup_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+	} else {
+		for (; nh; nh = nh->next)
+			depends_find_add(&backup_nhe->nhg_depends, nh, afi, backup_nhe->type,
+					 false);
+	}
+
+	frrtrace(6, frr_zebra, nhg_rework, "backup-build-depends", backup_nhe->id, 0, 0,
+		 nhg_connected_tree_count(&backup_nhe->nhg_depends), 0);
+}
+
+/*
+ * Rework in-place: release nhe from the content hash. The id-hash entry is
+ * untouched so nhe's id stays reserved.
+ */
+void zebra_nhg_rework_content_release(struct nhg_hash_entry *nhe)
+{
+	hash_release(zrouter.nhgs, nhe);
+}
+
+/*
+ * Rework in-place: mutate — free nhe's old nexthop list, copy
+ * source_nhe's nexthop list, rebuild nhg_depends, migrate backup_info,
+ * and update the ifp binding for singletons.
+ * Caller must ensure nhe is currently OUT of the content hash.
+ */
+void zebra_nhg_rework_content_mutate(struct nhg_hash_entry *nhe, struct nhg_hash_entry *source_nhe)
+{
+	nexthops_free(nhe->nhg.nexthop);
+	nhe->nhg.nexthop = NULL;
+
+	nexthop_group_copy(&nhe->nhg, &source_nhe->nhg);
+
+	/* Mark duplicate NH here to keep FIB nexthop accounting identical to the
+	 * normal resolution path.
+	 */
+	nexthop_group_mark_duplicates(&nhe->nhg);
+
+	zebra_nhg_rebuild_depends(nhe);
+
+	/* Migrate backup_info to match source_nhe.
+	 * Teardown is just zebra_nhg_backup_free which decrements each old
+	 * backup-dep's refcnt -- no backpointers to clear (none were wired).
+	 */
+	if (nhe->backup_info)
+		zebra_nhg_backup_free(&nhe->backup_info);
+
+	if (source_nhe->backup_info) {
+		/* nhg_backup_copy copies only the nexthop list;
+		 * the depends tree must be built separately using zebra_nhg_backup_build_depends
+		 */
+		nhe->backup_info = nhg_backup_copy(source_nhe->backup_info);
+		zebra_nhg_backup_build_depends(nhe->backup_info->nhe, nhe->afi);
+	}
+
+	/*
+	 * Update interface pointer for singletons.  The new nexthop
+	 * may use a different interface than the old one.  Remove from
+	 * old zif->nhg_dependents and add to new.
+	 */
+	if (!PROTO_OWNED(nhe) && ZEBRA_NHG_IS_SINGLETON(nhe) && nhe->nhg.nexthop->ifindex &&
+	    !CHECK_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) {
+		struct interface *new_ifp;
+
+		new_ifp = if_lookup_by_index(nhe->nhg.nexthop->ifindex, nhe->nhg.nexthop->vrf_id);
+		if (new_ifp && new_ifp != nhe->ifp) {
+			if (nhe->ifp) {
+				struct zebra_if *old_zif = nhe->ifp->info;
+
+				nhg_connected_tree_del_nhe(&old_zif->nhg_dependents, nhe);
+			}
+			zebra_nhg_set_if(nhe, new_ifp);
+		}
+	}
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: NHG %u reworked (refcnt %d flags 0x%x depends %zu backup %s) <- source NHG %u",
+			   __func__, nhe->id, nhe->refcnt, nhe->flags,
+			   nhg_connected_tree_count(&nhe->nhg_depends),
+			   nhe->backup_info ? "yes" : "no", source_nhe->id);
+
+	frrtrace(6, frr_zebra, nhg_rework, "rework-mutate", nhe->id, nhe->refcnt, 0,
+		 nhg_connected_tree_count(&nhe->nhg_depends), source_nhe->id);
+}
+
+/*
+ * Rework in-place: rehash — re-insert nhe into the content hash after
+ * its content has been mutated.
+ */
+void zebra_nhg_rework_content_rehash(struct nhg_hash_entry *nhe)
+{
+	struct nhg_hash_entry *result;
+
+	result = hash_get(zrouter.nhgs, nhe, hash_alloc_intern);
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: input NHG %u (ptr=%p flags=0x%x) -> hash_get NHG %u (ptr=%p flags=0x%x) inserted=%d",
+			   __func__, nhe->id, nhe, nhe->flags, result ? result->id : 0, result,
+			   result ? result->flags : 0, (result == nhe) ? 1 : 0);
+
+	frrtrace(5, frr_zebra, nhg_hash_reinsert, "nhg-tracker-rehash", nhe->id,
+		 result ? result->id : 0, (result == nhe) ? 1 : 0, nhe->flags);
+}
+
+/*
+ * Rework an NHG in-place: replace nhe's content with source_nhe's content.
+ * This is the single-call wrapper; callers that need to keep nhe out
+ * of the content hash across a separate processing window (e.g.during the
+ * tracker flush) should call the three primitives directly.
+ */
+void zebra_nhg_rework_in_place(struct nhg_hash_entry *nhe, struct nhg_hash_entry *source_nhe)
+{
+	zebra_nhg_rework_content_release(nhe);
+	zebra_nhg_rework_content_mutate(nhe, source_nhe);
+	zebra_nhg_rework_content_rehash(nhe);
+}
+
+/*
+ * Hash walk callback: find NHGs whose content matches ctx->target.
+ *
+ * zebra_nhg_hash_equal short-circuits when both IDs are non-zero
+ * (different IDs -> "not equal").  The caller sets target->id = 0
+ * so the comparison falls through to actual content matching.
+ */
+static void nhg_dup_find_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+	struct nhg_dup_walk_ctx *ctx = arg;
+
+	if (nhe == ctx->target)
+		return;
+
+	if (!zebra_nhg_hash_equal(nhe, ctx->target))
+		return;
+
+	if (ctx->count >= ctx->capacity) {
+		ctx->capacity = ctx->capacity ? ctx->capacity * 2 : 8;
+		ctx->dups = XREALLOC(MTYPE_NHG, ctx->dups, ctx->capacity * sizeof(*ctx->dups));
+	}
+	ctx->dups[ctx->count++] = nhe;
+}
+
+/*
+ * Migrate all REs from a loser NHG to the winner.
+ * Iterates the loser's re_head directly.
+ * frr_each_safe pre-fetches the next element, so it is safe even though
+ * route_entry_update_nhe removes the RE from loser->re_head during the loop body.
+ *
+ * For each RE:
+ *  1. route_entry_update_nhe switches re->nhe to the winner (moves
+ *     the RE between re_head trees, updates refcounts).
+ *  2. rib_install_kernel with old=NULL sends RTM_NEWROUTE.
+ * After all REs are migrated, the loser's refcount drops and the
+ * existing keep-around timer cleans it up.
+ */
+static void nhg_consolidate_migrate_loser(struct nhg_hash_entry *loser,
+					  struct nhg_hash_entry *winner)
+{
+	uint32_t migrated = 0;
+	struct route_entry *re;
+
+	frr_each_safe (nhe_re_tree, &loser->re_head, re) {
+		/*
+		 * Skip REs owned by an active tracker — the tracker's
+		 * phase 1/2 ack tracking uses re->nhe and the parent
+		 * NHG ID; switching the NHG now would break it.
+		 */
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER |
+						   ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH |
+						   ROUTE_ENTRY_NHG_TRACKER_WINNER))
+			continue;
+
+		route_entry_update_nhe(re, winner);
+
+		/* Include QUEUED so freshly-released winners (QUEUED but not yet installed)
+		 * still get a fresh ROUTE_INSTALL enqueued on the winner NHG here.
+		 */
+		if (re->rn && CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED | ROUTE_ENTRY_QUEUED)) {
+			rib_install_kernel(re->rn, re, NULL);
+		} else {
+			frrtrace(5, frr_zebra, nhg_migrate, "migrate-skip", loser->id, winner->id,
+				 re->status, 0);
+		}
+
+		migrated++;
+	}
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: NHG %u -> %u: migrated %u routes", __func__, loser->id, winner->id,
+			   migrated);
+
+	frrtrace(5, frr_zebra, nhg_migrate, "migrated", loser->id, winner->id, 0, migrated);
+}
+
+static void zebra_nhg_consolidate_event_handler(struct event *event)
+{
+	struct nhg_hash_entry *nhe = EVENT_ARG(event);
+	struct nhg_dup_walk_ctx ctx = {};
+	struct nhg_hash_entry *winner = NULL;
+	struct nhg_hash_entry *dup;
+	uint32_t winner_re_count = 0;
+	uint32_t saved_id;
+	uint32_t i;
+	uint32_t skipped = 0;
+	uint32_t re_count;
+	bool nhe_busy;
+
+	if (zebra_router_in_shutdown())
+		return;
+
+	saved_id = nhe->id;
+	nhe->id = 0;
+	ctx.target = nhe;
+	hash_iterate(zrouter.nhgs, nhg_dup_find_cb, &ctx);
+	nhe->id = saved_id;
+
+	/*
+	 * If nhe itself is busy, abort this consolidation round entirely.
+	 * nhe keeps its DUPLICATE flag set. pending_winners-hit-zero or
+	 * tracker_flush_batch_finish will re-fire consolidation on this nhe.
+	 */
+	nhe_busy = (nhg_event_tracker_list_count(&nhe->tracker_list) > 0 ||
+		    nhe->tracker_pending_winners > 0);
+
+	if (nhe_busy) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: NHG %u busy (trackers=%zu pending_winners=%u); skipping consolidation, DUPLICATE retained",
+				   __func__, nhe->id,
+				   nhg_event_tracker_list_count(&nhe->tracker_list),
+				   nhe->tracker_pending_winners);
+
+		frrtrace(5, frr_zebra, nhg_consolidate_busy, "consolidate-busy", nhe->id, 0,
+			 (uint32_t)nhg_event_tracker_list_count(&nhe->tracker_list),
+			 nhe->tracker_pending_winners);
+		XFREE(MTYPE_NHG, ctx.dups);
+		return;
+	}
+
+	/* Pick winner among nhe + non-busy dups by re_count
+	 * Busy dups are skipped silently. their own triggers will re-fire later.
+	 */
+	winner = nhe;
+	winner_re_count = nhe_re_tree_count(&nhe->re_head);
+
+	for (i = 0; i < ctx.count; i++) {
+		dup = ctx.dups[i];
+
+		if (nhg_event_tracker_list_count(&dup->tracker_list) > 0 ||
+		    dup->tracker_pending_winners > 0) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: NHG %u skipping busy dup NHG %u (trackers=%zu pending_winners=%u)",
+					   __func__, nhe->id, dup->id,
+					   nhg_event_tracker_list_count(&dup->tracker_list),
+					   dup->tracker_pending_winners);
+
+			frrtrace(5, frr_zebra, nhg_consolidate_busy, "consolidate-skip-dup",
+				 nhe->id, dup->id,
+				 (uint32_t)nhg_event_tracker_list_count(&dup->tracker_list),
+				 dup->tracker_pending_winners);
+			ctx.dups[i] = NULL;
+			skipped++;
+			continue;
+		}
+
+		/* Non-busy: candidate for winner selection. */
+		re_count = nhe_re_tree_count(&dup->re_head);
+		if (re_count > winner_re_count ||
+		    (re_count == winner_re_count && dup->id < winner->id)) {
+			winner = dup;
+			winner_re_count = re_count;
+		}
+	}
+
+	if (ctx.count - skipped == 0) {
+		/*
+		 * No non-busy dups paired with nhe.  Either there are
+		 * genuinely no dups, or all dups are busy.  Either way we
+		 * clear DUPLICATE on nhe — busy dups carry their own
+		 * DUPLICATE + triggers, and will find nhe via hash walk
+		 * when they re-fire.
+		 */
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: NHG %u no mergeable duplicate this round (dups found=%u, busy=%u%s) - clearing DUPLICATE",
+				   __func__, nhe->id, ctx.count, skipped,
+				   ctx.count == 0 ? ", none exist" : "");
+
+		frrtrace(6, frr_zebra, nhg_consolidate, "consolidate-none", nhe->id, 0, ctx.count,
+			 skipped, 0);
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
+		XFREE(MTYPE_NHG, ctx.dups);
+		return;
+	}
+
+	/*
+	 * Migrate each non-busy loser NHG's routes to the winner.
+	 *
+	 * For each installed RE on the loser, switch re->nhe to the
+	 * winner and call rib_install_kernel(rn, re, NULL) to send
+	 * RTM_NEWROUTE with the winner's NHG ID to the kernel.
+	 *
+	 * nhe is migrated separately first since it isn't in ctx.dups[];
+	 * then walk ctx.dups[] for every non-skipped, non-winner dup.
+	 */
+	if (nhe != winner) {
+		zlog_info("%s: migrating NHG %u -> winner NHG %u", __func__, nhe->id, winner->id);
+		nhg_consolidate_migrate_loser(nhe, winner);
+	}
+
+	for (i = 0; i < ctx.count; i++) {
+		if (ctx.dups[i] == NULL || ctx.dups[i] == winner)
+			continue;
+		zlog_info("%s: migrating NHG %u -> winner NHG %u", __func__, ctx.dups[i]->id,
+			  winner->id);
+		nhg_consolidate_migrate_loser(ctx.dups[i], winner);
+	}
+
+	/* Clear DUPLICATE on nhe and the winner. */
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: NHG %u consolidation done: winner NHG %u (dups found=%u skipped busy=%u winner re_count=%u)",
+			   __func__, nhe->id, winner->id, ctx.count, skipped, winner_re_count);
+
+	frrtrace(6, frr_zebra, nhg_consolidate, "consolidate-done", nhe->id, winner->id, ctx.count,
+		 skipped, winner_re_count);
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
+	UNSET_FLAG(winner->flags, NEXTHOP_GROUP_DUPLICATE);
+
+	XFREE(MTYPE_NHG, ctx.dups);
+}
+
+void zebra_nhg_mark_duplicate(struct nhg_hash_entry *nhe)
+{
+	if (!nhe || CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+		return;
+
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: NHG %u has content-duplicate in the hash, consolidation will fire once winners drain",
+			   __func__, nhe->id);
+
+	frrtrace(4, frr_zebra, nhg_state, "mark-duplicate", nhe->id, nhe->flags, nhe->refcnt);
+}
+
+/*
+ * Mark an old/installed NHG as a reuse-target.
+ */
+void zebra_nhg_mark_reuse(struct nhg_hash_entry *nhe)
+{
+	if (!nhe || CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE))
+		return;
+
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE);
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: NHG %u marked as reuse-target", __func__, nhe->id);
+
+	frrtrace(4, frr_zebra, nhg_state, "mark-reuse", nhe->id, nhe->flags, nhe->refcnt);
+}
+
+/* Schedule the consolidation event for nhe */
+void zebra_nhg_schedule_consolidate(struct nhg_hash_entry *nhe)
+{
+	if (!nhe)
+		return;
+#ifdef NHG_TRK_VERBOSE_LOG
+	zlog_info("pw-trk: schedule_consolidate NHG %u (dup=%d pending_winners=%u)", nhe->id,
+		  CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE) ? 1 : 0,
+		  nhe->tracker_pending_winners);
+#endif
+	event_add_event(zrouter.master, zebra_nhg_consolidate_event_handler, nhe, 0,
+			&nhe->consolidation_event);
+}
+
 static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 {
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: nhe %p (%pNG)", __func__, nhe, nhe);
+
+	frrtrace(4, frr_zebra, nhg_state, "nhg-release", nhe->id, nhe->flags, nhe->refcnt);
 
 	zebra_nhg_release_all_deps(nhe);
 
@@ -1210,8 +1687,16 @@ static void nhg_handle_install_one(struct nhg_connected *node)
 				   rb_node_indirect_dep->nhe,
 				   rb_node_indirect_dep->nhe->flags);
 
-		zebra_nhg_install_kernel(rb_node_indirect_dep->nhe,
-					 ZEBRA_ROUTE_MAX);
+		/*
+		 * Defer kernel install if any tracker exists on this NHG.
+		 * The tracker flow handles the install.
+		 */
+		if (nhg_event_tracker_list_count(&rb_node_indirect_dep->nhe->tracker_list) == 0) {
+			frrtrace(4, frr_zebra, nhg_install_dep, "install-indirect-dep",
+				 rb_node_indirect_dep->nhe->id, rb_node_indirect_dep->nhe->flags,
+				 node->nhe->id);
+			zebra_nhg_install_kernel(rb_node_indirect_dep->nhe, ZEBRA_ROUTE_MAX);
+		}
 	}
 
 }
@@ -1235,8 +1720,18 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 					"%s nh id %u (flags 0x%x) associated dependent NHG %pNG install",
 					__func__, nhe->id, nhe->flags,
 					rb_node_dep->nhe);
-			zebra_nhg_install_kernel(rb_node_dep->nhe,
-						 ZEBRA_ROUTE_MAX);
+
+			/*
+			 * Defer kernel install if this dependent has an
+			 * active tracker; the tracker flush will drive
+			 * installation with the reworked NHG state.
+			 */
+			if (nhg_event_tracker_list_count(&rb_node_dep->nhe->tracker_list) > 0) {
+				frrtrace(4, frr_zebra, nhg_install_dep, "reinstall-dep",
+					 rb_node_dep->nhe->id, rb_node_dep->nhe->flags, nhe->id);
+				SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			} else
+				zebra_nhg_install_kernel(rb_node_dep->nhe, ZEBRA_ROUTE_MAX);
 		}
 	}
 }
@@ -1738,6 +2233,8 @@ static void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 	nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
 	nhg_connected_tree_free(&nhe->nhg_depends);
 	nhg_connected_tree_free(&nhe->nhg_dependents);
+
+	zebra_nhg_tracker_fini(nhe);
 }
 
 void zebra_nhg_free(struct nhg_hash_entry *nhe)
@@ -1753,6 +2250,7 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 	}
 
 	event_cancel(&nhe->timer);
+	event_cancel(&nhe->consolidation_event);
 
 	if (nhe->id)
 		frrtrace(1, frr_zebra, zebra_nhg_free_nhe_refcount, nhe);
@@ -2824,6 +3322,8 @@ skip_check:
 				re->vrf_id, rn, nexthop);
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		/* Route-map denied a NH. This RE can no longer reuse the old NHG. */
+		UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
 	}
 	return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 }
@@ -3074,164 +3574,74 @@ void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vrf_id_t 
 }
 
 /*
- * This function takes the start of two comparable nexthops from two different
- * nexthop groups and walks them to see if they can be considered the same
- * or not.  This is being used to determine if zebra should reuse a nhg
- * from the old_re to the new_re, when an interface goes down and the
- * new nhg sent down from the upper level protocol would resolve to it
+ * Compare an incoming (protocol) nexthop list against a reference nexthop
+ * list to decide whether they represent the same NHG, for the NHG tracker.
+ *
+ * Both lists are kept sorted, so the walk is lockstep.  The incoming list is
+ * unresolved (no ACTIVE flags), so gateways are compared with
+ * nexthop_same_no_ifindex() - an unresolved incoming NH (IPV4) still matches
+ * its resolved installed form (IPV4_IFINDEX).
+ *
+ * skip_inactive_old selects the two comparison cases:
+ *   false : reference is an unresolved snapshot (ECMP-change event); compare
+ *           element-wise, any leftover on either side => differ.
+ *   true  : reference is a resolved/installed NHG; skip its inactive members
+ *           (down/unusable) and compare the incoming set against the active
+ *           members only.  A recursive NH's top-level ACTIVE flag already
+ *           summarizes its resolution, so gateway-level compare suffices.
  */
-static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
-				      const struct nexthop *old_nhop,
-				      const struct route_node *rn)
+bool zebra_nhg_nexthop_compare(const struct nexthop *nhop, const struct nexthop *old_nhop,
+			       const struct route_node *rn, bool skip_inactive_old)
 {
 	bool same = true;
 
-	while (nhop && old_nhop) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: %pRN Comparing %pNHvv(%u) ACTIVE: %d to old: %pNHvv(%u) ACTIVE: %d nexthop same: %d",
-				   __func__, rn, nhop, nhop->flags,
-				   CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE), old_nhop,
-				   old_nhop->flags, CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE),
-				   nexthop_same_no_ifindex(nhop, old_nhop));
-		if (!CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE)) {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: %pRN Old is not active going to the next one",
-					   __func__, rn);
+	if (nhop == old_nhop)
+		return true;
 
-			/*
-			 * If the new nexthop is not active and the old nexthop is also not active,
-			 * then we know that we can skip both the old and new nexthops.
-			 */
-			if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE) &&
-			    nexthop_same_no_ifindex(nhop, old_nhop)) {
-				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-					zlog_debug("%s: %pRN new is not active going to the next one",
-						   __func__, rn);
-				nhop = nhop->next;
-			}
+	while (nhop && old_nhop) {
+		/* An inactive installed NH is "extra" - skip it and
+		 * keep the incoming NH for the next comparison.
+		 */
+		if (skip_inactive_old && !CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: %pRN old %pNHvv inactive, skipping", __func__, rn,
+					   old_nhop);
 			old_nhop = old_nhop->next;
 			continue;
 		}
 
-		if (nexthop_same(nhop, old_nhop)) {
-			struct nexthop *new_recursive, *old_recursive;
-
+		if (!nexthop_same_no_ifindex(nhop, old_nhop)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: %pRN New and old are same, continuing search",
-					   __func__, rn);
-
-			new_recursive = nhop->resolved;
-			old_recursive = old_nhop->resolved;
-
-			while (new_recursive && old_recursive) {
-				if (!nexthop_same(new_recursive, old_recursive)) {
-					same = false;
-					break;
-				}
-
-				new_recursive = new_recursive->next;
-				old_recursive = old_recursive->next;
-			}
-
-			if (new_recursive)
-				same = false;
-			else if (old_recursive) {
-				while (old_recursive) {
-					if (CHECK_FLAG(old_recursive->flags,
-						       NEXTHOP_FLAG_ACTIVE))
-						break;
-					old_recursive = old_recursive->next;
-				}
-
-				if (old_recursive)
-					same = false;
-			}
-
-			if (!same)
-				break;
-
-			nhop = nhop->next;
-			old_nhop = old_nhop->next;
-		} else {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s:%pRN They are not the same, stopping using new nexthop entry",
-					   __func__, rn);
+				zlog_debug("%s: %pRN %pNHvv != old %pNHvv, differ", __func__, rn,
+					   nhop, old_nhop);
 			same = false;
 			break;
 		}
+
+		nhop = nhop->next;
+		old_nhop = old_nhop->next;
 	}
 
-	if (nhop)
+	/* Leftover incoming NHs => differ. */
+	if (nhop) {
 		same = false;
-	else if (old_nhop) {
-		while (old_nhop) {
-			if (CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE))
-				break;
-			old_nhop = old_nhop->next;
-		}
-
-		if (old_nhop)
+	} else if (old_nhop) {
+		if (skip_inactive_old) {
+			/* Only leftover ACTIVE old NHs mean the sets differ. */
+			while (old_nhop) {
+				if (CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE)) {
+					same = false;
+					break;
+				}
+				old_nhop = old_nhop->next;
+			}
+		} else {
+			/* Any leftover reference NH means the sets differ. */
 			same = false;
+		}
 	}
 
 	return same;
-}
-
-static struct nhg_hash_entry *zebra_nhg_rib_compare_old_nhe(
-	const struct route_node *rn, const struct route_entry *re,
-	struct nhg_hash_entry *new_nhe, struct nhg_hash_entry *old_nhe)
-{
-	struct nexthop *nhop, *old_nhop;
-	bool same = true;
-	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
-
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
-		char straddr[PREFIX_STRLEN];
-
-		prefix2str(&rn->p, straddr, sizeof(straddr));
-		zlog_debug("%s: %pRN new id: %u old id: %u", __func__, rn,
-			   new_nhe->id, old_nhe->id);
-		zlog_debug("%s: %pRN NEW", __func__, rn);
-		for (ALL_NEXTHOPS(new_nhe->nhg, nhop))
-			route_entry_dump_nh(re, straddr, vrf, nhop);
-
-		zlog_debug("%s: %pRN OLD", __func__, rn);
-		for (ALL_NEXTHOPS(old_nhe->nhg, nhop))
-			route_entry_dump_nh(re, straddr, vrf, nhop);
-	}
-
-	nhop = new_nhe->nhg.nexthop;
-	old_nhop = old_nhe->nhg.nexthop;
-
-	same = zebra_nhg_nexthop_compare(nhop, old_nhop, rn);
-
-	if (same) {
-		struct nexthop_group *bnhg, *old_bnhg;
-
-		bnhg = zebra_nhg_get_backup_nhg(new_nhe);
-		old_bnhg = zebra_nhg_get_backup_nhg(old_nhe);
-
-		if (bnhg || old_bnhg) {
-			if (bnhg && !old_bnhg)
-				same = false;
-			else if (!bnhg && old_bnhg)
-				same = false;
-			else
-				same = zebra_nhg_nexthop_compare(bnhg->nexthop,
-								 old_bnhg->nexthop,
-								 rn);
-		}
-	}
-
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s:%pRN They are %sthe same, using the %s nhg entry",
-			   __func__, rn, same ? "" : "not ",
-			   same ? "old" : "new");
-
-	if (same)
-		return old_nhe;
-	else
-		return new_nhe;
 }
 
 /*
@@ -3244,7 +3654,14 @@ static struct nhg_hash_entry *zebra_nhg_rib_compare_old_nhe(
 int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 			  struct route_entry *old_re)
 {
+	uint16_t resolved_active __attribute__((unused)) = 0;
+	uint16_t incoming_count __attribute__((unused)) = 0;
 	struct nhg_hash_entry *curr_nhe, *remove;
+	struct nhg_hash_entry *parent_nhe = NULL;
+	struct nexthop *nhop;
+	bool is_tracker_winner;
+	bool shape_differs, route_map_ok, reuse_ok;
+	bool first_winner;
 	uint32_t curr_active = 0, backup_active = 0;
 
 	if (PROTO_OWNED(re->nhe) ||
@@ -3264,9 +3681,23 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 		zlog_debug("%s: re %p nhe %p (%pNG), curr_nhe %p", __func__, re,
 			   re->nhe, re->nhe, curr_nhe);
 
-	/* Clear the existing id, if any: this will avoid any confusion
-	 * if the id exists, and will also force the creation
-	 * of a new nhe reflecting the changes we may make in this local copy.
+	/*
+	 * Tracker-winner detection: phase 2 sets ROUTE_ENTRY_NHG_TRACKER_WINNER
+	 * on released winners (and fired silent REs).  parent_nhe is the
+	 * previously-installed NHG carrying the tracker context.
+	 * NHG reuse is done here for all the winner REs coming from tracker,
+	 * and this is driven by the first winner RE.
+	 * is_tracker_winner gates id-lock, counter decrement, and (for the
+	 * first winner RE) the in-place rework + mark_duplicate.
+	 */
+	is_tracker_winner = CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
+	if (is_tracker_winner && old_re && old_re->nhe)
+		parent_nhe = old_re->nhe;
+
+	/*
+	 * Force content-only lookup in zebra_nhg_rib_find_nhe below.  For
+	 * tracker winners we may overwrite this with parent_nhe->id later so
+	 * the lookup lands deterministically on parent_nhe.
 	 */
 	curr_nhe->id = 0;
 
@@ -3274,8 +3705,12 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 	curr_active = nexthop_list_active_update(rn, re, curr_nhe, false);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: re %p curr_active %u", __func__, re,
-			   curr_active);
+		zlog_debug("%s: re %p (%pRN) curr_active %u nhe %u (flags 0x%x) status 0x%x tracker_winner %d parent_nhe %u (flags 0x%x) old_re %p old_nhe %u (flags 0x%x)",
+			   __func__, re, rn, curr_active, re->nhe ? re->nhe->id : 0,
+			   re->nhe ? re->nhe->flags : 0, re->status, is_tracker_winner ? 1 : 0,
+			   parent_nhe ? parent_nhe->id : 0, parent_nhe ? parent_nhe->flags : 0,
+			   old_re, (old_re && old_re->nhe) ? old_re->nhe->id : 0,
+			   (old_re && old_re->nhe) ? old_re->nhe->flags : 0);
 
 	/* If there are no backup nexthops, we are done */
 	if (zebra_nhg_get_backup_nhg(curr_nhe) == NULL)
@@ -3285,10 +3720,161 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 		rn, re, curr_nhe->backup_info->nhe, true /*is_backup*/);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: re %p backup_active %u", __func__, re,
-			   backup_active);
+		zlog_debug("%s: re %p (%pRN) backup_active %u nhe %u (flags 0x%x) status 0x%x parent_nhe %u (flags 0x%x) old_re %p old_nhe %u (flags 0x%x)",
+			   __func__, re, rn, backup_active, re->nhe ? re->nhe->id : 0,
+			   re->nhe ? re->nhe->flags : 0, re->status,
+			   parent_nhe ? parent_nhe->id : 0, parent_nhe ? parent_nhe->flags : 0,
+			   old_re, (old_re && old_re->nhe) ? old_re->nhe->id : 0,
+			   (old_re && old_re->nhe) ? old_re->nhe->flags : 0);
 
 backups_done:
+
+	/*
+	 * Tracker-winner handling.  When this RE was released as a winner
+	 * by tracker phase 2 (ROUTE_ENTRY_NHG_TRACKER_WINNER), the resolver
+	 * runs the following per-RE work:
+	 *
+	 *  - Route-map check against parent_nhe.
+	 *  - For the FIRST winner only (parent_nhe still has TRACKER_REUSE):
+	 *    do the in-place rework so parent_nhe ends up carrying the
+	 *    resolved winner content, and mark_duplicate if another content-
+	 *    equal NHG already exists in the hash.
+	 *  - For ALL winners (first and subsequent): lock curr_nhe->id to
+	 *    parent_nhe->id so the subsequent rib_find_nhe lands on parent_nhe
+	 *    by ID.
+	 *  - Always: clear the WINNER flag, decrement
+	 *    parent_nhe->tracker_pending_winners, and when the counter
+	 *    reaches 0 with DUPLICATE set, schedule the consolidation event.
+	 */
+	if (parent_nhe) {
+		first_winner = CHECK_FLAG(parent_nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE);
+
+		for (nhop = curr_nhe->nhg.nexthop; nhop; nhop = nhop->next) {
+			incoming_count++;
+			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+				resolved_active++;
+		}
+
+		shape_differs = (ZEBRA_NHG_IS_SINGLETON(parent_nhe) !=
+				 ZEBRA_NHG_IS_SINGLETON(curr_nhe));
+		/*
+		 * WINNER survives resolution unless a route-map denied a NH on this RE.
+		 * RE still has WINNER means this RE is eligible to reuse the old NHG.
+		 */
+		route_map_ok = CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
+		reuse_ok = route_map_ok && !shape_differs;
+
+		if (first_winner) {
+			if (!route_map_ok) {
+				/*
+				 * Route-map denied some NHs for this RE only;
+				 * leave REUSE set so another winner (without
+				 * the route-map issue) can still trigger the rework
+				 * todo: logged for testing. remove this log.
+				 */
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: NHG reuse skipped for old NHG %u (active=%u != incoming=%u), route-map mismatch -- leaving REUSE for another winner",
+						   __func__, parent_nhe->id, resolved_active,
+						   incoming_count);
+
+				frrtrace(4, frr_zebra, nhg_reuse, "reuse-skip-rmap",
+					 parent_nhe->id, resolved_active, incoming_count);
+			} else if (shape_differs) {
+				/*
+				 * Kernel rejects in-place RTM_NEWNEXTHOP across
+				 * singleton<->group changes.  Clear REUSE+
+				 * REINSTALL so subsequent winners don't id-lock
+				 * onto a not-yet-reworked parent_nhe.
+				 * todo: remove this check once zebra handles this limitation.
+				 */
+#ifdef NHG_TRK_VERBOSE_LOG
+				zlog_info("%s: NHG reuse skipped for old NHG %u: shape mismatch (parent_singleton=%d curr_singleton=%d)",
+					  __func__, parent_nhe->id,
+					  ZEBRA_NHG_IS_SINGLETON(parent_nhe) ? 1 : 0,
+					  ZEBRA_NHG_IS_SINGLETON(curr_nhe) ? 1 : 0);
+#endif
+				UNSET_FLAG(parent_nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE);
+				UNSET_FLAG(parent_nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			} else {
+				/*
+				 * Look up resolved content in the NHG hash:
+				 *  - found == parent_nhe: fast-path, skip rework.
+				 *  - found == other content-equal NHG: rework
+				 *    parent (preserving its id) + mark_duplicate
+				 *    so consolidation merges them once all
+				 *    winners attach.
+				 *  - found == NULL: rework parent so it becomes
+				 *    the unique carrier of resolved content.
+				 */
+				struct nhg_hash_entry *found = hash_lookup(zrouter.nhgs, curr_nhe);
+
+				if (found == parent_nhe) {
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+						zlog_debug("%s: NHG reuse fast-path: parent NHG %u already holds resolved content (active=%u incoming=%u)",
+							   __func__, parent_nhe->id,
+							   resolved_active, incoming_count);
+
+					frrtrace(4, frr_zebra, nhg_reuse, "reuse-fastpath",
+						 parent_nhe->id, resolved_active, incoming_count);
+					UNSET_FLAG(parent_nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE);
+				} else {
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+						zlog_debug("%s: NHG reuse: copying resolved state onto old NHG %u (active=%u incoming=%u)",
+							   __func__, parent_nhe->id,
+							   resolved_active, incoming_count);
+
+					frrtrace(4, frr_zebra, nhg_reuse, "reuse-copy",
+						 parent_nhe->id, resolved_active, incoming_count);
+					zebra_nhg_rework_in_place(parent_nhe, curr_nhe);
+					UNSET_FLAG(parent_nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE);
+					if (found && found != parent_nhe)
+						zebra_nhg_mark_duplicate(parent_nhe);
+				}
+			}
+		}
+
+		/*
+		 * Id-lock for ALL winners that pass the reuse checks. This makes
+		 * the subsequent rib_find_nhe land on parent_nhe by ID lookup.
+		 */
+		if (reuse_ok)
+			curr_nhe->id = parent_nhe->id;
+
+		/* Counter bookkeeping for ALL winners (including shape/route-map skips). */
+		UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
+		if (parent_nhe->tracker_pending_winners > 0)
+			parent_nhe->tracker_pending_winners--;
+
+		if (parent_nhe->tracker_pending_winners == 0) {
+			/* All winners drained: clear REUSE+REINSTALL and, when
+			 * this NHG is a content-duplicate, schedule consolidation.
+			 */
+			if (CHECK_FLAG(parent_nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE)) {
+				UNSET_FLAG(parent_nhe->flags, NEXTHOP_GROUP_TRACKER_REUSE);
+				UNSET_FLAG(parent_nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			}
+			if (CHECK_FLAG(parent_nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+				zebra_nhg_schedule_consolidate(parent_nhe);
+		}
+
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: winner drained %pRN parent NHG %u -> pending_winners=%u (reuse_ok=%d locked_id=%u dup=%d)",
+				   __func__, rn, parent_nhe->id,
+				   parent_nhe->tracker_pending_winners, reuse_ok ? 1 : 0,
+				   curr_nhe->id,
+				   CHECK_FLAG(parent_nhe->flags, NEXTHOP_GROUP_DUPLICATE) ? 1 : 0);
+
+		frrtrace(6, frr_zebra, nhg_winner, "winner-drained", parent_nhe->id,
+			 parent_nhe->tracker_pending_winners, reuse_ok ? 1 : 0, curr_nhe->id,
+			 CHECK_FLAG(parent_nhe->flags, NEXTHOP_GROUP_DUPLICATE) ? 1 : 0);
+	} else if (is_tracker_winner) {
+		/*
+		 * Winner with no installed peer (old_re NULL): parent_nhe
+		 * unresolved, so pending_winners is not decremented here.
+		 */
+		frrtrace(6, frr_zebra, nhg_re_change, "tracker-winner-no-peer",
+			 re->nhe ? re->nhe->id : 0, 0, re->status, re->nhe ? re->nhe->flags : 0, 0);
+	}
 
 	/*
 	 * Ref or create an nhe that matches the current state of the
@@ -3301,16 +3887,18 @@ backups_done:
 
 		remove = new_nhe;
 
-		if (old_re && old_re->type == re->type && old_re->instance == re->instance &&
-		    new_nhe != old_re->nhe)
-			new_nhe = zebra_nhg_rib_compare_old_nhe(rn, re, new_nhe,
-								old_re->nhe);
-
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: re %p CHANGED: nhe %p (%pNG) flags (0x%x) => new_nhe %p (%pNG) flags (0x%x) rib_find_nhe returned %p (%pNG) flags (0x%x) refcnt: %d",
-				   __func__, re, re->nhe, re->nhe, re->nhe->flags, new_nhe,
-				   new_nhe, new_nhe ? new_nhe->flags : 0, remove, remove,
-				   remove ? remove->flags : 0, remove ? remove->refcnt : 0);
+			zlog_debug("%s: re %p (%pRN) CHANGED status 0x%x tracker_winner %d: old nhe %u (%pNG) flags 0x%x => new_nhe %u (%pNG) flags 0x%x refcnt %d, parent_nhe %u (flags 0x%x)",
+				   __func__, re, rn, re->status, is_tracker_winner ? 1 : 0,
+				   re->nhe ? re->nhe->id : 0, re->nhe,
+				   re->nhe ? re->nhe->flags : 0, new_nhe ? new_nhe->id : 0,
+				   new_nhe, new_nhe ? new_nhe->flags : 0,
+				   new_nhe ? new_nhe->refcnt : 0, parent_nhe ? parent_nhe->id : 0,
+				   parent_nhe ? parent_nhe->flags : 0);
+
+		frrtrace(6, frr_zebra, nhg_re_change, "re-changed", re->nhe ? re->nhe->id : 0,
+			 new_nhe ? new_nhe->id : 0, re->status, re->nhe ? re->nhe->flags : 0,
+			 new_nhe ? new_nhe->flags : 0);
 
 		/*
 		 * if the results from zebra_nhg_rib_find_nhe is being
@@ -3322,7 +3910,6 @@ backups_done:
 
 		route_entry_update_nhe(re, new_nhe);
 	}
-
 
 	/* Walk the NHE depends tree and toggle NEXTHOP_GROUP_VALID
 	 * flag where appropriate.
@@ -4185,13 +4772,22 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					"%s install nhe %pNG nh type %u flags 0x%x",
 					__func__, rb_node_dep->nhe, nh->type,
 					rb_node_dep->nhe->flags);
-			zebra_nhg_install_kernel(rb_node_dep->nhe,
-						 ZEBRA_ROUTE_MAX);
+
+			/*
+			 * If this singleton has an active tracker, defer
+			 * kernel install to the tracker's flush path.
+			 * Set REINSTALL so install_kernel will re-queue it
+			 * when the tracker completes.
+			 */
+			if (nhg_event_tracker_list_count(&rb_node_dep->nhe->tracker_list) > 0)
+				SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			else
+				zebra_nhg_install_kernel(rb_node_dep->nhe, ZEBRA_ROUTE_MAX);
 
 			/* Don't need to modify dependents if installed */
 			if (CHECK_FLAG(rb_node_dep->nhe->flags,
 				       NEXTHOP_GROUP_INSTALLED))
-				continue;
+				goto create_tracker;
 
 			/* mark dependent uninstalled; when interface associated
 			 * singleton is installed, install dependent
@@ -4205,9 +4801,10 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 				while (nhop_dependent && !nexthop_same_no_weight(nhop_dependent, nh))
 					nhop_dependent = nhop_dependent->next;
 
-				if (nhop_dependent)
+				if (nhop_dependent) {
 					SET_FLAG(nhop_dependent->flags,
 						 NEXTHOP_FLAG_ACTIVE);
+				}
 
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 					zlog_debug("%s dependent nhe (%pNG) flags (0x%x) Setting Reinstall flag",
@@ -4220,6 +4817,15 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					 rb_node_dependent->nhe, 2);
 			}
 		}
+
+create_tracker:
+		/*
+		 * Create tracker now - all the parent NHGs are updated with the valid state.
+		 * Walk transitive dependents - catches recursively-dependent NHGs and
+		 * creates trackers wherever required.
+		 */
+		zebra_nhg_tracker_create_for_event(rb_node_dep->nhe, ifp->ifindex,
+						   NHG_TRACKER_EVENT_INTF_UP);
 	}
 }
 
@@ -4289,5 +4895,17 @@ void dump_nhg_flags(uint32_t flags, char *buf, size_t len)
 		if (!first)
 			strlcat(buf, ", ", len);
 		strlcat(buf, "Initial Delay", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_TRACKER_REUSE)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Tracker NHG Reuse", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_DUPLICATE)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Duplicate", len);
 	}
 }

@@ -14,6 +14,7 @@
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
 #include "zebra_nhg.h"
+#include "zebra_nhg_tracker.h"
 #include "zebra_neigh.h"
 #include "zebra/zebra_tc.h"
 #include "debug.h"
@@ -296,6 +297,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
 
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
+	zrouter.nhg_tracker_timeout = NHG_TRACKER_DEFAULT_TIMEOUT_SEC;
 
 	zrouter.gr_stale_cleanup_time_recorded = false;
 	zrouter.gr_update_pending_time_recorded = false;

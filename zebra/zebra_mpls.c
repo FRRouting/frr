@@ -664,8 +664,10 @@ static int nhlfe_nexthop_active_ipv4(struct zebra_nhlfe *nhlfe,
 
 	/* Locate a valid connected route. */
 	RNODE_FOREACH_RE (rn, match) {
-		if (CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED)
-		    || !CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
+		/* Treat REMOVED+TRACKER as still-alive: tracker-park window. */
+		if ((CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED) &&
+		     !CHECK_FLAG(match->status, ROUTE_ENTRY_TRACKER)) ||
+		    !CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
 			continue;
 
 		for (match_nh = match->nhe->nhg.nexthop; match_nh;
@@ -712,11 +714,13 @@ static int nhlfe_nexthop_active_ipv6(struct zebra_nhlfe *nhlfe,
 
 	route_unlock_node(rn);
 
-	/* Locate a valid connected route. */
+	/* Locate a valid connected route.
+	 * Treat REMOVED+TRACKER as still-alive: tracker-park window.
+	 */
 	RNODE_FOREACH_RE (rn, match) {
-		if (((match->type == ZEBRA_ROUTE_CONNECT ||
-		      match->type == ZEBRA_ROUTE_LOCAL)) &&
-		    !CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED) &&
+		if (((match->type == ZEBRA_ROUTE_CONNECT || match->type == ZEBRA_ROUTE_LOCAL)) &&
+		    (!CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED) ||
+		     CHECK_FLAG(match->status, ROUTE_ENTRY_TRACKER)) &&
 		    CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
 			break;
 	}
