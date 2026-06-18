@@ -1082,6 +1082,41 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh, struct nh_g
 	return ctx;
 }
 
+/* Unset all the re's INSTALLED flag which uses the nhe */
+static void zebra_nhg_unset_installed_for_routes(struct nhg_hash_entry *nhe, const char *caller)
+{
+	struct route_entry *re = NULL;
+	struct route_entry *re_dep = NULL;
+	struct nhg_connected *rb_node_dep = NULL;
+
+	frr_each (nhe_re_tree, &nhe->re_head, re) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL && re->rn)
+				zlog_debug("Caller %s: Unsetting INSTALLED flag for route %p (%pFX) using NHG %p (%pNG)",
+					   caller, re, &re->rn->p, nhe, nhe);
+
+			UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+		}
+	}
+
+	frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+		/* Only unset INSTALLED flag if the dependent NHG is invalid */
+		if (!CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID)) {
+			frr_each (nhe_re_tree, &rb_node_dep->nhe->re_head, re_dep) {
+				if (CHECK_FLAG(re_dep->status, ROUTE_ENTRY_INSTALLED)) {
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL && re_dep->rn)
+						zlog_debug("Caller %s: Unsetting INSTALLED flag for route %p (%pFX) using Dependent NHG %p (%pNG) of %p (%pNG)",
+							   caller, re_dep, &re_dep->rn->p,
+							   rb_node_dep->nhe, rb_node_dep->nhe, nhe,
+							   nhe);
+
+					UNSET_FLAG(re_dep->status, ROUTE_ENTRY_INSTALLED);
+				}
+			}
+		}
+	}
+}
+
 static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 {
 	struct nhg_connected *rb_node_dep;
@@ -1095,8 +1130,11 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 		/* If we're in shutdown, this interface event needs to clean
 		 * up installed NHGs, so don't clear that flag directly.
 		 */
-		if (!zebra_router_in_shutdown())
+		if (!zebra_router_in_shutdown()) {
 			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			/* Handles route re-install for quick interface flaps */
+			zebra_nhg_unset_installed_for_routes(nhe, __func__);
+		}
 	}
 
 	/* Update validity of nexthops depending on it */
@@ -1748,6 +1786,9 @@ static void zebra_nhg_handle_kernel_state_change(struct nhg_hash_entry *nhe,
 			EC_ZEBRA_NHG_SYNC,
 			"Kernel %s a nexthop group with ID (%pNG) that we are still using for a route, sending it back down",
 			(is_delete ? "deleted" : "updated"), nhe);
+
+		/* Handles route re-install for ip nexthop del <id>/flush */
+		zebra_nhg_unset_installed_for_routes(nhe, __func__);
 
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 		zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
