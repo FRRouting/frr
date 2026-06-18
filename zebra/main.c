@@ -201,6 +201,13 @@ static void sigint(void)
 	rib_update_finish();
 
 	/*
+	 * Release all tracker-held locks on RIB route_nodes before VRF/table
+	 * teardown.  route_table_free zeroes node->lock, so any tracker freed
+	 * afterwards would hit an assert on route_unlock_node.
+	 */
+	zebra_nhg_tracker_sweep_all();
+
+	/*
 	 * Besides other clean-ups zebra's vrf_disable() also enqueues installed
 	 * routes for removal from the kernel, unless ZEBRA_VRF_RETAIN is set.
 	 */
