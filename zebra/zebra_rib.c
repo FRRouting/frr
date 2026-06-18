@@ -1498,9 +1498,14 @@ static void rib_process(struct route_node *rn)
 	bool selected_changed = new_selected && CHECK_FLAG(new_selected->status,
 							   ROUTE_ENTRY_CHANGED);
 
-	/* Update SELECTED entry */
-	if (old_selected != new_selected || selected_changed) {
+	/* If no new_selected and old_selected is parked in a tracker, do not strip
+	 * SELECTED and delete redistribution; tracker flush will re-run rib_process.
+	 */
+	bool park_protected = (new_selected == NULL && old_selected &&
+			       CHECK_FLAG(old_selected->status, ROUTE_ENTRY_TRACKER));
 
+	/* Update SELECTED entry */
+	if (!park_protected && (old_selected != new_selected || selected_changed)) {
 		if (new_selected && new_selected != new_fib)
 			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
 
@@ -4200,8 +4205,77 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 		route_entry_dump(&rn->p, NULL, re);
 
 	SET_FLAG(re->status, ROUTE_ENTRY_REMOVED);
+	struct nhg_event_tracker *tracker = NULL;
+	struct nhg_hash_entry *orig_nhe = NULL;
+	bool prefix_in_pm = false;
 
-	rib_queue_add(rn);
+	/*
+	 * Do tracker bookkeeping for unicast deletes only, scoped to this RN.
+	 * Unicast and multicast for the same NHG are processed via different
+	 * RIB tables/route-nodes, so this flow keeps tracker ownership and
+	 * flush processing aligned with the current table's RN.
+	 */
+	if (rib_table_info(rn->table)->safi == SAFI_UNICAST) {
+		/*
+		 * Check whether this prefix is already parked in a tracker.
+		 */
+		if (re->nhe)
+			prefix_in_pm = zebra_nhg_tracker_prefix_in_pm(re->nhe, rn, re);
+
+		/*
+		 * Find the managing NHE for this deletion: re->nhe if it
+		 * has a tracker, else fall back to an INSTALLED rn-sibling
+		 * (handles cascading-update churn where re->nhe is a
+		 * transient singleton but the tracker lives on the
+		 * original NHE).
+		 */
+		if (re->nhe && zebra_nhg_tracker_has_active(re->nhe)) {
+			orig_nhe = re->nhe;
+		} else {
+			struct route_entry *peer;
+
+			RNODE_FOREACH_RE (rn, peer) {
+				if (peer == re)
+					continue;
+				if (peer->type != re->type || peer->instance != re->instance)
+					continue;
+				if (!CHECK_FLAG(peer->status, ROUTE_ENTRY_INSTALLED))
+					continue;
+				if (peer->nhe && zebra_nhg_tracker_has_active(peer->nhe)) {
+					orig_nhe = peer->nhe;
+					break;
+				}
+			}
+		}
+
+		if (orig_nhe) {
+			/* Also probe orig_nhe for same-protocol churn where re->nhe is
+			 * transient but parked ownership remains on an installed peer RE's NHE.
+			 */
+			prefix_in_pm = prefix_in_pm ||
+				       zebra_nhg_tracker_prefix_in_pm(orig_nhe, rn, re);
+			tracker = zebra_nhg_tracker_park_re(rn, re, orig_nhe);
+#ifdef NHG_TRK_VERBOSE_LOG
+			zlog_info("%s: parking node to delete %pRN type %s vrf %s(%u) re_nhe %u orig_nhe %u tracker %u (matched=%u unmatched=%u orig_re=%u)",
+				  __func__, rn, zebra_route_string(re->type),
+				  vrf_id_to_name(re->vrf_id), re->vrf_id,
+				  re->nhe ? re->nhe->id : 0, orig_nhe->id,
+				  tracker ? tracker->nhg_tracker_id : 0,
+				  tracker ? tracker->matched_table.re_count : 0,
+				  tracker ? tracker->unmatched_table.re_count : 0,
+				  tracker ? tracker->orig_re_count : 0);
+#endif
+			if (tracker)
+				zebra_nhg_tracker_flush_if_full(tracker, orig_nhe);
+		}
+	}
+
+	/*
+	 * Skip rib_queue_add if the prefix is parked in a tracker.
+	 * prefix_in_pm is required to skip implicit delete REs.
+	 */
+	if (!tracker && !prefix_in_pm)
+		rib_queue_add(rn);
 }
 
 /*
