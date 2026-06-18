@@ -265,6 +265,20 @@ enum nhg_type {
 #define ZEBRA_NHG_IS_SINGLETON(NHE) NHG_IS_SINGLETON(&((NHE)->nhg))
 
 /*
+ * Can a tracker still reuse this group's id?  Only while the kernel holds
+ * it: an interface event clears VALID and INSTALLED together, and locking a
+ * winner to an id the kernel no longer has parks the route on nothing.
+ * QUEUED covers an install still in flight.
+ */
+static inline bool zebra_nhg_reusable(const struct nhg_hash_entry *nhe)
+{
+	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID))
+		return false;
+
+	return CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED | NEXTHOP_GROUP_QUEUED);
+}
+
+/*
  * Backup nexthops: this is a group object itself, so
  * that the backup nexthops can use the same code as a normal object.
  */
@@ -517,6 +531,13 @@ extern void zebra_nhg_mark_reuse(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_schedule_consolidate(struct nhg_hash_entry *nhe);
 
 /*
+ * Common wind-down for the last tracker winner draining off nhe: disarm
+ * reuse, restore nhe to the content hash if no winner reworked it back in,
+ * and schedule consolidation when it is a duplicate.
+ */
+extern void zebra_nhg_tracker_winners_drained(struct nhg_hash_entry *nhe);
+
+/*
  * We are shutting down but the nexthops should be kept
  * as that -r has been specified and we don't want to delete
  * the routes unintentionally
@@ -538,7 +559,7 @@ extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
 extern void dump_nhg_flags(uint32_t flags, char *buf, size_t len);
 
 extern bool zebra_nhg_nexthop_compare(const struct nexthop *nhop, const struct nexthop *old_nhop,
-				      const struct route_node *rn, bool skip_active_check);
+				      const struct route_node *rn, bool skip_inactive_old);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
