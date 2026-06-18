@@ -347,6 +347,55 @@ def test_pim_bsr_priority_modify(request):
     assert result is None, assertmsg
 
 
+def test_pim_elected_bsr_priority_change(request):
+    "Test elected BSR can change its own priority"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r2 = tgen.gears["r2"]
+
+    # r2 is already BSR_ELECTED with priority 250 from test_pim_bsr_priority_modify.
+    # Raise its priority and verify the change takes effect immediately.
+    step("Raise elected BSR r2's priority to 255")
+    r2.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 255
+        """
+    )
+
+    step("Verify r2's BSR priority is updated to 255")
+    expected = {
+        "bsr": "10.0.0.2",
+        "priority": 255,
+        "state": "BSR_ELECTED",
+    }
+
+    test_func = partial(topotest.router_json_cmp, r2, "show ip pim bsr json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+
+    assertmsg = "r2: elected BSR priority change did not take effect"
+    assert result is None, assertmsg
+
+    step("Verify r1 receives BSM with updated priority 255")
+    r1 = tgen.gears["r1"]
+    expected = {
+        "bsr": "10.0.0.2",
+        "priority": 255,
+    }
+
+    test_func = partial(topotest.router_json_cmp, r1, "show ip pim bsr json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+
+    assertmsg = "r1: did not receive BSM with updated priority from r2"
+    assert result is None, assertmsg
+
+
 def test_pim_bsr_election_fallback_r2(request):
     "Test PIM BSR Election Backup"
     tgen = get_topogen()
@@ -378,10 +427,10 @@ def test_pim_bsr_election_fallback_r2(request):
     assert result is None, assertmsg
 
     r2 = tgen.gears["r2"]
-    # r2 became BSR earlier after its priority was raised to 250
+    # r2 became BSR earlier after its priority was raised to 255
     expected = {
         "bsr": "10.0.0.2",
-        "priority": 250,
+        "priority": 255,
         "state": "BSR_ELECTED",
     }
 
