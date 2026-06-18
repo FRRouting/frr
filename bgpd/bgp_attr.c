@@ -3001,8 +3001,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	}
 
 	if (!nlri_len) {
-		zlog_info("%s: %s sent a zero-length NLRI. Hence, treating as a EOR marker",
-			  __func__, peer->host);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent a zero-length MP_REACH_NLRI", __func__,
+			 peer->host);
 
 		mp_update->afi = afi;
 		mp_update->safi = safi;
