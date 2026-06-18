@@ -533,6 +533,19 @@ submit the patch for inclusion into the project. It is an agreement to the
 :ref:`Developer's Certificate of Origin <developers-certificate-of-origin>`.
 Code without a proper ``Signed-off-by`` line cannot and will not be merged.
 
+The ``Signed-off-by`` line must contain your real first name, last name, and a
+valid, real email address, in the form::
+
+   Signed-off-by: First Last <you@example.com>
+
+Anonymous or pseudonymous sign-offs are not acceptable. In particular,
+GitHub's privacy-protecting noreply addresses (``@users.noreply.github.com``)
+are **not** allowed: the email address must be a real one at which you can be
+reached. Configure your identity accordingly before committing::
+
+   git config --global user.name "First Last"
+   git config --global user.email "you@example.com"
+
 If you are unfamiliar with this process, you should read the
 `official policy at kernel.org <https://www.kernel.org/doc/html/latest/process/submitting-patches.html>`_.
 You might also find
