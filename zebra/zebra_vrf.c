@@ -33,6 +33,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf_clippy.c"
 #include "zebra/table_manager.h"
+#include "zebra/zebra_vrf_import.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
@@ -156,6 +157,7 @@ static int zebra_vrf_enable(struct vrf *vrf)
 
 	/* Kick off any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_enable(zvrf);
+	zebra_vrf_import_vrf_enable(zvrf);
 
 	return 0;
 }
@@ -327,8 +329,9 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		otable = otable_pop(&zvrf->other_tables);
 	}
 
-	/* Cleanup EVPN states for vrf */
+	/* Cleanup EVPN/import states for vrf */
 	zebra_vxlan_vrf_delete(zvrf);
+	zebra_vrf_import_vrf_delete(zvrf);
 	zebra_routemap_vrf_delete(zvrf);
 
 	list_delete_all_node(zvrf->rid_all_sorted_list);
@@ -485,6 +488,7 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
 	zebra_pw_init_vrf(zvrf);
+	zebra_vrf_import_init(zvrf);
 	zvrf->table_id = rt_table_main_id;
 	/* by default table ID is default one */
 
