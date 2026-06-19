@@ -1453,6 +1453,182 @@ or using unified config (specifying which daemons to run is optional):
        tgen.stop_topology()
 
 
+<<<<<<< HEAD
+=======
+.. _topotests-restart:
+
+Restarting routers and daemons
+""""""""""""""""""""""""""""""
+
+Many tests need to restart FRR during a testcase — for example to verify state
+recovery after a process crash, graceful restart, or full FRR reload.  The
+helpers live in :file:`tests/topotests/lib/common_config.py` and wrap the
+:file:`TopoRouter` methods in :file:`tests/topotests/lib/topogen.py`.
+
+Naming and scope
+^^^^^^^^^^^^^^^^
+
+Topotest uses **router** for a ``TopoRouter``: a mininet network namespace
+running FRR.  The stop/start helpers operate on **FRR daemons only**
+(``zebra``, ``bgpd``, ``pimd``, and the other daemons configured for that
+router, plus special cases such as ``fpm_listener``).  They do **not**:
+
+- tear down the mininet host or network namespace
+- stop non-FRR processes in that namespace (traffic tools, ExaBGP, etc.)
+- replace ``tgen.stop_topology()`` at teardown
+
+Historical helpers use the **router** suffix — ``stop_router()``,
+``start_router()``, ``kill_router_daemons()``, ``start_router_daemons()`` — even
+though they manage FRR processes, not the whole namespace.  ``restart_frr()``
+follows the more explicit naming: it calls ``stop_router()`` then
+``start_router()`` and restarts the full FRR stack on one router.
+
+Full FRR restart
+^^^^^^^^^^^^^^^^
+
+Use ``stop_router()`` and ``start_router()`` to stop and start **all FRR
+daemons** on one router.  By default ``stop_router()`` runs ``write memory``
+first, so the saved configuration under the test log directory is reloaded on
+start.  Pass ``save_config=False`` when the running config must not be persisted
+(common in graceful-restart tests).  For the common case, use ``restart_frr()``
+which calls both in sequence.
+
+.. code:: py
+
+   from lib.common_config import restart_frr, start_router, stop_router
+
+   restart_frr(tgen, "r1")
+
+   # or explicitly:
+   stop_router(tgen, "r1")
+   start_router(tgen, "r1")
+
+   # do not persist running config before stop/restart:
+   restart_frr(tgen, "r1", save_config=False)
+
+``start_router()`` waits five seconds after starting daemons.
+
+**Examples:**
+
+- :file:`tests/topotests/pim_wrongvif_compat/test_pim_wrongvif_compat.py` —
+  ``restart_frr()`` helper and FRR restart recovery tests
+- :file:`tests/topotests/bgp_gr_restart_retain_routes/test_bgp_gr_per_neighbor_restart_retain_routes.py` —
+  stop FRR on a router, verify neighbors retain routes, then start again
+- :file:`tests/topotests/multicast_pim_uplink_topo1/test_multicast_pim_uplink_topo1.py` —
+  mroute behavior after FRR daemon stop/start
+
+Specific daemon restart
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``kill_router_daemons()`` and ``start_router_daemons()`` when only one or a
+few daemons should be restarted.  ``kill_router_daemons()`` sends **SIGKILL** (a
+hard kill, not a graceful shutdown).  By default it also runs ``write memory``
+before killing; pass ``save_config=False`` when the running config must not be
+persisted (common in graceful-restart tests).
+
+.. code:: py
+
+   from lib.common_config import kill_router_daemons, start_router_daemons
+
+   kill_router_daemons(tgen, "rt1", ["ospfd"], save_config=False)
+   start_router_daemons(tgen, "rt1", ["ospfd"])
+
+Daemon names use the binary name (``"bgpd"``, ``"ospfd"``, ``"pimd"``, etc.).
+
+Some BGP graceful-restart tests kill a daemon, then call ``start_router_daemons()``
+and reapply configuration with ``vtysh -f`` when the on-disk config is not
+enough.  See
+:file:`tests/topotests/bgp_gr_multihop/test_bgp_gr_multihop.py` and
+:file:`tests/topotests/bgp_gr_fib_suppress/test_bgp_gr_fib_suppress.py`.
+
+**Examples:**
+
+- :file:`tests/topotests/ospf_gr_topo1/test_ospf_gr_topo1.py` — prepare GR,
+  kill ``ospfd``, start it again
+- :file:`tests/topotests/bgp_gr_multihop/test_bgp_gr_multihop.py` — kill and
+  restart ``bgpd`` only
+
+Lower-level ``TopoRouter`` methods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The helpers above delegate to ``TopoRouter`` methods in
+:file:`tests/topotests/lib/topogen.py`.  These also affect FRR daemons only;
+call them directly when you already hold a router object:
+
+.. code:: py
+
+   router = tgen.gears["r1"]
+   router.stop()                        # stop all FRR daemons (SIGTERM, then SIGKILL)
+   router.start()                       # start all configured FRR daemons
+   router.disableDaemons(["staticd"])   # omit from router.start()
+   router.enableDaemons(["staticd"])   # mark for router.start() again
+   router.killDaemons(["bgpd"])         # SIGKILL specific daemons
+   router.startDaemons(["staticd"])    # start deferred daemon(s)
+
+``disableDaemons()`` / ``enableDaemons()`` control which daemons
+``start()`` / ``start_router()`` will launch.  They do not start or stop
+running processes; use ``startDaemons()`` / ``killDaemons()`` for that.
+
+Daemon names are plain strings (``"staticd"``, ``"bgpd"``, …), same as
+``startDaemons()`` and ``killDaemons()``.
+
+Defer starting a backend until after mgmtd is up (see
+:file:`tests/topotests/mgmt_startup/test_late_uniconf.py`):
+
+.. code:: py
+
+   router.load_frr_config()
+   router.disableDaemons(["staticd"])
+   tgen.start_router()
+   # ... exercise mgmtd while staticd is still down ...
+   router.startDaemons(["staticd"])
+
+Limit which daemons ``load_frr_config()`` will start, then defer one that
+zebra would otherwise auto-enable:
+
+.. code:: py
+
+   router.load_frr_config("frr.conf", ["mgmtd", "zebra"])
+   router.disableDaemons(["staticd"])
+   tgen.start_router()
+
+Re-enable a daemon before the next full ``start()``:
+
+.. code:: py
+
+   router.disableDaemons(["staticd"])
+   tgen.start_router()
+   # ...
+   router.enableDaemons(["staticd"])
+   router.start()                       # staticd included this time
+
+``tgen.start_router("r1")`` starts all FRR daemons on a single router without
+stopping them first.  ``tgen.stop_topology()`` stops the entire topology,
+including all routers and their namespaces.
+
+Choosing an approach
+^^^^^^^^^^^^^^^^^^^^
+
++---------------------------+-----------------------------------------------+
+| Goal                      | Recommended API                               |
++===========================+===============================================+
+| Full FRR reload on router | ``restart_frr`` (or ``stop_router`` +         |
+|                           | ``start_router``)                             |
++---------------------------+-----------------------------------------------+
+| Simulate daemon crash     | ``kill_router_daemons`` +                     |
+|                           | ``start_router_daemons``                      |
++---------------------------+-----------------------------------------------+
+| Defer daemon startup      | ``disableDaemons`` + ``startDaemons``         |
+| (e.g. late staticd)       |                                               |
++---------------------------+-----------------------------------------------+
+| OSPF graceful restart     | ``graceful-restart prepare`` via ``vtysh``,   |
+|                           | then ``kill_router_daemons(...,                |
+|                           | save_config=False)`` or                       |
+|                           | ``restart_frr(..., save_config=False)``       |
++---------------------------+-----------------------------------------------+
+
+
+>>>>>>> c641540b4 (doc: document TopoRouter enableDaemons/disableDaemons usage)
 Requirements:
 
 - Directory name for a new topotest must not contain hyphen (``-``) characters.
