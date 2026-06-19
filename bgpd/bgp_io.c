@@ -40,6 +40,36 @@ static bool validate_header(struct peer_connection *connection);
 #define BGP_IO_FATAL_ERR (1 << 1) /* some kind of fatal TCP error */
 #define BGP_IO_WORK_FULL_ERR (1 << 2) /* No room in work buffer */
 
+/*
+ * Maximum size of a BGP message we are willing to *receive*, by message type.
+ *
+ * RFC 8654 makes the message-size limit asymmetric: a speaker that has
+ * advertised the Extended Message capability MUST be able to receive messages
+ * of up to 65535 octets; whether the *peer* advertised the capability governs
+ * only what we are allowed to *send*.  FRR advertises the capability
+ * unconditionally (see bgp_open_capability()), so on receive we must accept
+ * extended-size messages.  OPEN and KEEPALIVE are never extended (RFC 8654),
+ * so they stay capped at the standard size.
+ *
+ * This deliberately does NOT use peer->max_packet_size: that field is the
+ * negotiated *send* limit (set to the extended size only when the capability
+ * was both advertised and received, and computed once while parsing the peer's
+ * OPEN).  Reusing it on the receive path wrongly rejects valid extended
+ * messages whenever that value is left at the standard size on this
+ * connection -- notably a passively accepted connection, whose own OPEN is
+ * sent (from bgp_fsm_open()) only after the peer's OPEN has been parsed; the
+ * value is then preserved across connection-collision resolution -- dropping
+ * every >4096 message with NOTIFICATION Message Header Error / Bad Message
+ * Length.
+ */
+static uint16_t bgp_rx_max_packet_size(uint8_t type)
+{
+	if (type == BGP_MSG_OPEN || type == BGP_MSG_KEEPALIVE)
+		return BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
+
+	return BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE;
+}
+
 /* Thread external API ----------------------------------------------------- */
 
 void bgp_writes_on(struct peer_connection *connection)
@@ -178,6 +208,8 @@ static int read_ibuf_work(struct peer_connection *connection)
 	struct ringbuf *ibw = connection->ibuf_work;
 	/* packet size as given by header */
 	uint16_t pktsize = 0;
+	/* packet type as given by header */
+	uint8_t pkttype = 0;
 	struct stream *pkt;
 
 	/* ============================================== */
@@ -199,8 +231,12 @@ static int read_ibuf_work(struct peer_connection *connection)
 
 	pktsize = ntohs(pktsize);
 
+	/* retrieve packet type for the receive-side size limit */
+	ringbuf_peek(ibw, BGP_MARKER_SIZE + sizeof(pktsize), &pkttype,
+		     sizeof(pkttype));
+
 	/* if this fails we are seriously screwed */
-	if (pktsize > connection->peer->max_packet_size)
+	if (pktsize > bgp_rx_max_packet_size(pkttype))
 		return -EBADMSG;
 
 	/*
@@ -626,7 +662,7 @@ static bool validate_header(struct peer_connection *connection)
 	}
 
 	/* Minimum packet length check. */
-	if ((size < BGP_HEADER_SIZE) || (size > peer->max_packet_size)
+	if ((size < BGP_HEADER_SIZE) || (size > bgp_rx_max_packet_size(type))
 	    || (type == BGP_MSG_OPEN && size < BGP_MSG_OPEN_MIN_SIZE)
 	    || (type == BGP_MSG_UPDATE && size < BGP_MSG_UPDATE_MIN_SIZE)
 	    || (type == BGP_MSG_NOTIFY && size < BGP_MSG_NOTIFY_MIN_SIZE)
