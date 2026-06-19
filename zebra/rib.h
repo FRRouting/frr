@@ -166,6 +166,9 @@ struct route_entry {
 	/* Source protocol instance */
 	uint16_t instance;
 
+	/* Source VRF for ZEBRA_ROUTE_VRF_IMPORT routes. */
+	vrf_id_t vrf_import_src_vrf_id;
+
 	/* Distance. */
 	uint8_t distance;
 
