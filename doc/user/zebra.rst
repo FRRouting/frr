@@ -587,6 +587,37 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    the default vrf and default table.  If prefix is specified dump the
    number of prefix routes.
 
+.. _zebra-vrf-route-import:
+
+VRF Route Import
+----------------
+
+Zebra can import unicast routes from one VRF RIB into another VRF RIB.  The
+import is configured under the destination VRF and tracks source route changes;
+when a source route is added, updated, or deleted, the imported route is updated
+or removed in the destination VRF.  Imported routes are shown with protocol
+``vrf-import``.
+
+.. clicmd:: ip import-vrf VRF [route-map RMAP_NAME]
+.. clicmd:: ipv6 import-vrf VRF [route-map RMAP_NAME]
+
+   Import IPv4 or IPv6 unicast routes from source VRF ``VRF`` into the current
+   destination VRF.  The optional route-map can filter imported routes and, when
+   supported by the route-map action, rewrite the imported nexthop.
+
+   Zebra copies eligible gateway nexthops, including ECMP nexthop groups, into
+   the destination VRF.  Interface-only nexthops and IPv6 link-local nexthops
+   are not imported across VRFs.
+
+Example:
+
+.. code-block:: frr
+
+   vrf blue
+    ip import-vrf red
+    ipv6 import-vrf red route-map IMPORT6
+   exit-vrf
+
 .. _zebra-table-allocation:
 
 Table Allocation
