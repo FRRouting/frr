@@ -25,7 +25,8 @@ extern route_map_result_t zebra_import_table_route_map_check(
 extern route_map_result_t zebra_vrf_import_route_map_check(afi_t afi, struct route_entry *re,
 							   const struct prefix *p,
 							   struct nexthop *nexthop,
-							   const char *rmap_name);
+							   const char *rmap_name, afi_t *set_afi,
+							   union g_addr *set_gate);
 extern route_map_result_t zebra_route_map_check(afi_t family,
 						struct route_entry *re,
 						const struct prefix *p,

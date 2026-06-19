@@ -3021,7 +3021,7 @@ module frr-zebra {
         leaf route-map {
           type frr-route-map:route-map-ref;
           description
-            "Optional route-map to filter imported routes.";
+            "Optional route-map to filter or rewrite imported routes.";
         }
       }
 

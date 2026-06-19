@@ -2229,7 +2229,7 @@ DEFPY_YANG (ip_import_vrf,
 	    IP_STR
 	    "Import routes from another VRF\n"
 	    "Source VRF name\n"
-	    "Route map to filter imported routes\n"
+	    "Route map to filter or rewrite imported routes\n"
 	    "Route map name\n")
 {
 	char xpath[XPATH_MAXLEN];
@@ -2258,7 +2258,7 @@ DEFPY_YANG (ipv6_import_vrf,
 	    IPV6_STR
 	    "Import routes from another VRF\n"
 	    "Source VRF name\n"
-	    "Route map to filter imported routes\n"
+	    "Route map to filter or rewrite imported routes\n"
 	    "Route map name\n")
 {
 	char xpath[XPATH_MAXLEN];
