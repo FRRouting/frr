@@ -96,6 +96,9 @@ The simplest approach uses two separate scripts:
   Demonstrates sending multicast traffic
 - ``tests/topotests/pim_basic/test_pim.py::test_pim_igmp_report()`` -
   Demonstrates IGMP join using mcast-rx.py
+- ``tests/topotests/pim_wrongvif_compat/`` -
+  WRONGVIF compensation when ``IGMPMSG_WRVIFWHOLE`` is unavailable (kernels
+  before 4.19); join-before-data, same-LAN FHR, LHR/SPT, and FRR restart cases
 
 Method 2: Unified Tester Script (mcast-tester.py)
 ---------------------------------------------------
@@ -423,6 +426,8 @@ Additional Resources
 ---------------------
 
 - ``tests/topotests/pim_basic/test_pim.py`` - Basic PIM tests using direct scripts
+- ``tests/topotests/pim_wrongvif_compat/test_pim_wrongvif_compat.py`` -
+  WRONGVIF compensation when WRVIFWHOLE upcalls are unavailable
 - ``tests/topotests/multicast_pim_sm_topo1/test_multicast_pim_sm_topo1.py`` -
   Comprehensive multicast tests using McastTesterHelper
 - ``tests/topotests/pim_igmp_vrf/test_pim_vrf.py`` - VRF multicast testing
