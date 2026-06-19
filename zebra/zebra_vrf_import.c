@@ -181,6 +181,27 @@ static struct nexthop_group *zebra_vrf_import_copy_nhg(struct route_entry *src_r
 	return ng;
 }
 
+static struct nexthop_group *zebra_vrf_import_rewrite_nhg(afi_t afi, vrf_id_t dst_vrf_id,
+							  const union g_addr *gate)
+{
+	struct nexthop_group *ng;
+	struct nexthop *nh;
+
+	ng = nexthop_group_new();
+	nh = nexthop_new();
+	nh->vrf_id = dst_vrf_id;
+	if (afi == AFI_IP) {
+		nh->type = NEXTHOP_TYPE_IPV4;
+		nh->gate.ipv4 = gate->ipv4;
+	} else {
+		nh->type = NEXTHOP_TYPE_IPV6;
+		nh->gate.ipv6 = gate->ipv6;
+	}
+	nexthop_group_add_sorted(ng, nh);
+
+	return ng;
+}
+
 /* Find the copy this import already installed for a source prefix, if any. */
 static struct route_entry *zebra_vrf_import_lookup_imported(struct zebra_vrf *dst_zvrf, afi_t afi,
 							    safi_t safi, vrf_id_t src_vrf_id,
@@ -245,6 +266,8 @@ static int zebra_vrf_import_add_route(struct zebra_vrf_import *import, struct ze
 	struct nexthop_group *ng;
 	struct prefix p;
 	route_map_result_t ret = RMAP_PERMITMATCH;
+	union g_addr set_gate = {};
+	afi_t set_afi = AFI_UNSPEC;
 	uint32_t import_flags;
 
 	if (!src_re || CHECK_FLAG(src_re->status, ROUTE_ENTRY_REMOVED))
@@ -257,17 +280,21 @@ static int zebra_vrf_import_add_route(struct zebra_vrf_import *import, struct ze
 		struct nexthop *match_nh = src_re->nhe->nhg.nexthop;
 
 		ret = zebra_vrf_import_route_map_check(import->afi, src_re, &src_rn->p, match_nh,
-						       import->rmap_name);
+						       import->rmap_name, &set_afi, &set_gate);
 	}
 
 	/* Policy leaves nothing importable, so drop any copy from an earlier source. */
-	if (ret != RMAP_PERMITMATCH) {
+	if (ret != RMAP_PERMITMATCH || (set_afi != AFI_UNSPEC && set_afi != import->afi)) {
 		zebra_vrf_import_del_prefix(dst_zvrf, import->afi, import->safi, zvrf_id(src_zvrf),
 					    &src_rn->p);
 		return 0;
 	}
 
-	ng = zebra_vrf_import_copy_nhg(src_re, zvrf_id(dst_zvrf), import->afi);
+	if (set_afi != AFI_UNSPEC)
+		ng = zebra_vrf_import_rewrite_nhg(import->afi, zvrf_id(dst_zvrf), &set_gate);
+	else
+		ng = zebra_vrf_import_copy_nhg(src_re, zvrf_id(dst_zvrf), import->afi);
+
 	/* Nothing importable is left, so drop any copy from an earlier source. */
 	if (!ng) {
 		zebra_vrf_import_del_prefix(dst_zvrf, import->afi, import->safi, zvrf_id(src_zvrf),
