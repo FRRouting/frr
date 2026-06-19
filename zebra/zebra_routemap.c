@@ -25,6 +25,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zebra_vrf_import.h"
 
 #include "zebra/zebra_routemap_clippy.c"
 
@@ -1162,6 +1163,7 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 	zebra_import_table_rm_update(rmap_name);
 	zebra_rib_table_rm_update(rmap_name);
 	zebra_nht_rm_update(rmap_name);
+	zebra_vrf_import_route_map_update(rmap_name);
 }
 
 static void zebra_route_map_update_timer(struct event *event)
@@ -1296,6 +1298,25 @@ route_map_result_t zebra_import_table_route_map_check(int family,
 	}
 
 	return (ret);
+}
+
+route_map_result_t zebra_vrf_import_route_map_check(afi_t afi, struct route_entry *re,
+						    const struct prefix *p,
+						    struct nexthop *nexthop, const char *rmap_name)
+{
+	struct route_map *rmap = NULL;
+	route_map_result_t ret = RMAP_DENYMATCH;
+	struct zebra_rmap_obj rm_obj = {};
+
+	rm_obj.nexthop = nexthop;
+	rm_obj.re = re;
+
+	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX)
+		rmap = route_map_lookup_by_name(rmap_name);
+	if (rmap)
+		ret = route_map_apply(rmap, p, &rm_obj);
+
+	return ret;
 }
 
 route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,

@@ -3031,6 +3031,11 @@ module frr-zebra {
             "The admin distance to use for imported routes. Imported routes
              never keep the distance they had in the source VRF.";
         }
+        leaf route-map {
+          type frr-route-map:route-map-ref;
+          description
+            "Optional route-map to filter imported routes.";
+        }
       }
 
       list filter-nht {

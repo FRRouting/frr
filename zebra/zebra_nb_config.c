@@ -3685,6 +3685,7 @@ static int lib_vrf_zebra_import_vrf_apply(const struct lyd_node *dnode, bool add
 	struct vrf *vrf;
 	const char *afi_safi;
 	const char *src_vrf;
+	const char *rmap = NULL;
 	uint8_t distance;
 	afi_t afi;
 	safi_t safi;
@@ -3701,7 +3702,9 @@ static int lib_vrf_zebra_import_vrf_apply(const struct lyd_node *dnode, bool add
 
 	if (add) {
 		distance = yang_dnode_get_uint8(dnode, "distance");
-		return zebra_vrf_import_add(vrf->info, afi, safi, src_vrf, distance);
+		if (yang_dnode_exists(dnode, "route-map"))
+			rmap = yang_dnode_get_string(dnode, "route-map");
+		return zebra_vrf_import_add(vrf->info, afi, safi, src_vrf, distance, rmap);
 	}
 
 	return zebra_vrf_import_del(vrf->info, afi, safi, src_vrf);
@@ -3758,6 +3761,31 @@ void lib_vrf_zebra_import_vrf_apply_finish(struct nb_cb_apply_finish_args *args)
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/import-vrf/distance
  */
 int lib_vrf_zebra_import_vrf_distance_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (lib_vrf_zebra_import_vrf_apply(args->dnode, true) < 0)
+		return NB_ERR;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/import-vrf/route-map
+ */
+int lib_vrf_zebra_import_vrf_route_map_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (lib_vrf_zebra_import_vrf_apply(args->dnode, true) < 0)
+		return NB_ERR;
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_import_vrf_route_map_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
