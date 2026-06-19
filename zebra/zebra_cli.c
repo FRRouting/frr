@@ -2224,11 +2224,13 @@ static void zebra_vrf_indent_cli_write(struct vty *vty,
 
 DEFPY_YANG (ip_import_vrf,
 	    ip_import_vrf_cmd,
-	    "[no] ip import-vrf WORD$src_vrf",
+	    "[no] ip import-vrf WORD$src_vrf [route-map RMAP_NAME$rmap]",
 	    NO_STR
 	    IP_STR
 	    "Import routes from another VRF\n"
-	    "Source VRF name\n")
+	    "Source VRF name\n"
+	    "Route map to filter imported routes\n"
+	    "Route map name\n")
 {
 	char xpath[XPATH_MAXLEN];
 	const char *afi_safi = yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST);
@@ -2236,18 +2238,28 @@ DEFPY_YANG (ip_import_vrf,
 	snprintf(xpath, sizeof(xpath),
 		 "./frr-zebra:zebra/import-vrf[afi-safi='%s'][source-vrf='%s']", afi_safi, src_vrf);
 
-	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		char xpath_value[XPATH_MAXLEN];
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintfrr(xpath_value, sizeof(xpath_value), "%s/route-map", xpath);
+		nb_cli_enqueue_change(vty, xpath_value, rmap ? NB_OP_MODIFY : NB_OP_DESTROY, rmap);
+	}
 
 	return nb_cli_apply_changes(vty, "%s", VTY_CURR_XPATH);
 }
 
 DEFPY_YANG (ipv6_import_vrf,
 	    ipv6_import_vrf_cmd,
-	    "[no] ipv6 import-vrf WORD$src_vrf",
+	    "[no] ipv6 import-vrf WORD$src_vrf [route-map RMAP_NAME$rmap]",
 	    NO_STR
 	    IPV6_STR
 	    "Import routes from another VRF\n"
-	    "Source VRF name\n")
+	    "Source VRF name\n"
+	    "Route map to filter imported routes\n"
+	    "Route map name\n")
 {
 	char xpath[XPATH_MAXLEN];
 	const char *afi_safi = yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST);
@@ -2255,7 +2267,15 @@ DEFPY_YANG (ipv6_import_vrf,
 	snprintf(xpath, sizeof(xpath),
 		 "./frr-zebra:zebra/import-vrf[afi-safi='%s'][source-vrf='%s']", afi_safi, src_vrf);
 
-	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		char xpath_value[XPATH_MAXLEN];
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintfrr(xpath_value, sizeof(xpath_value), "%s/route-map", xpath);
+		nb_cli_enqueue_change(vty, xpath_value, rmap ? NB_OP_MODIFY : NB_OP_DESTROY, rmap);
+	}
 
 	return nb_cli_apply_changes(vty, "%s", VTY_CURR_XPATH);
 }
@@ -2450,13 +2470,19 @@ static void lib_vrf_zebra_import_vrf_cli_write(struct vty *vty, const struct lyd
 {
 	const char *afi_safi = yang_dnode_get_string(dnode, "afi-safi");
 	const char *src = yang_dnode_get_string(dnode, "source-vrf");
+	const char *rmap = NULL;
 	afi_t afi;
 	safi_t safi;
 
 	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+	if (yang_dnode_exists(dnode, "route-map"))
+		rmap = yang_dnode_get_string(dnode, "route-map");
 
 	zebra_vrf_indent_cli_write(vty, dnode);
-	vty_out(vty, "%s import-vrf %s\n", afi == AFI_IP ? "ip" : "ipv6", src);
+	vty_out(vty, "%s import-vrf %s", afi == AFI_IP ? "ip" : "ipv6", src);
+	if (rmap)
+		vty_out(vty, " route-map %s", rmap);
+	vty_out(vty, "\n");
 }
 
 static void lib_vrf_zebra_filter_protocol_cli_write(struct vty *vty,

@@ -11,11 +11,13 @@
 #include "nexthop.h"
 #include "nexthop_group.h"
 #include "prefix.h"
+#include "routemap.h"
 #include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vrf_import.h"
+#include "zebra/zebra_routemap.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, VRF_IMPORT, "Zebra VRF import config");
 DEFINE_MTYPE_STATIC(ZEBRA, VRF_IMPORT_NAME, "Zebra VRF import name");
@@ -24,6 +26,7 @@ struct zebra_vrf_import {
 	afi_t afi;
 	safi_t safi;
 	char *src_vrf_name;
+	char *rmap_name;
 
 	struct zebra_vrf_imports_item item;
 };
@@ -41,6 +44,7 @@ static void zebra_vrf_import_free(struct zebra_vrf_import *import)
 		return;
 
 	XFREE(MTYPE_VRF_IMPORT_NAME, import->src_vrf_name);
+	XFREE(MTYPE_VRF_IMPORT_NAME, import->rmap_name);
 	XFREE(MTYPE_VRF_IMPORT, import);
 }
 
@@ -178,6 +182,7 @@ static int zebra_vrf_import_add_route(struct zebra_vrf_import *import, struct ze
 	struct route_entry *newre;
 	struct nexthop_group *ng;
 	struct prefix p;
+	route_map_result_t ret = RMAP_PERMITMATCH;
 	uint32_t import_flags;
 
 	if (!src_re || CHECK_FLAG(src_re->status, ROUTE_ENTRY_REMOVED))
@@ -194,6 +199,16 @@ static int zebra_vrf_import_add_route(struct zebra_vrf_import *import, struct ze
 	 */
 	zebra_vrf_import_del_prefix(dst_zvrf, import->afi, import->safi, zvrf_id(src_zvrf),
 				    &src_rn->p);
+
+	if (import->rmap_name) {
+		struct nexthop *match_nh = src_re->nhe->nhg.nexthop;
+
+		ret = zebra_vrf_import_route_map_check(import->afi, src_re, &src_rn->p, match_nh,
+						       import->rmap_name);
+	}
+
+	if (ret != RMAP_PERMITMATCH)
+		return 0;
 
 	ng = zebra_vrf_import_copy_nhg(src_re, zvrf_id(dst_zvrf), import->afi);
 	if (!ng)
@@ -258,7 +273,7 @@ static void zebra_vrf_import_scan(struct zebra_vrf_import *import, struct zebra_
 }
 
 int zebra_vrf_import_add(struct zebra_vrf *dst_zvrf, afi_t afi, safi_t safi,
-			 const char *src_vrf_name)
+			 const char *src_vrf_name, const char *rmap_name)
 {
 	struct zebra_vrf_import *import;
 
@@ -273,6 +288,10 @@ int zebra_vrf_import_add(struct zebra_vrf *dst_zvrf, afi_t afi, safi_t safi,
 		import->src_vrf_name = XSTRDUP(MTYPE_VRF_IMPORT_NAME, src_vrf_name);
 		zebra_vrf_imports_add_tail(&dst_zvrf->vrf_imports, import);
 	}
+
+	XFREE(MTYPE_VRF_IMPORT_NAME, import->rmap_name);
+	if (rmap_name)
+		import->rmap_name = XSTRDUP(MTYPE_VRF_IMPORT_NAME, rmap_name);
 
 	zebra_vrf_import_scan(import, dst_zvrf);
 	return 0;
@@ -367,6 +386,34 @@ void zebra_vrf_import_rib_update(struct route_node *rn, struct route_entry *old_
 	 * otherwise get revisited immediately.
 	 */
 	zebra_vrf_import_rescan_dst(src_zvrf, afi);
+}
+
+void zebra_vrf_import_route_map_update(const char *rmap_name)
+{
+	struct vrf *vrf;
+	struct vrf *src_vrf;
+	struct zebra_vrf *dst_zvrf;
+	struct zebra_vrf_import *import;
+
+	if (!rmap_name)
+		return;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		dst_zvrf = vrf->info;
+		if (!dst_zvrf || !zebra_vrf_imports_count(&dst_zvrf->vrf_imports))
+			continue;
+
+		frr_each_safe (zebra_vrf_imports, &dst_zvrf->vrf_imports, import) {
+			if (!import->rmap_name || !strmatch(import->rmap_name, rmap_name))
+				continue;
+
+			src_vrf = vrf_lookup_by_name(import->src_vrf_name);
+			if (src_vrf)
+				zebra_vrf_import_del_all(dst_zvrf, import->afi, import->safi,
+							 src_vrf->vrf_id);
+			zebra_vrf_import_scan(import, dst_zvrf);
+		}
+	}
 }
 
 void zebra_vrf_import_vrf_enable(struct zebra_vrf *zvrf)
