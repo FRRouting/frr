@@ -1558,8 +1558,47 @@ call them directly when you already hold a router object:
    router = tgen.gears["r1"]
    router.stop()                        # stop all FRR daemons (SIGTERM, then SIGKILL)
    router.start()                       # start all configured FRR daemons
+   router.disableDaemons(["staticd"])   # omit from router.start()
+   router.enableDaemons(["staticd"])   # mark for router.start() again
    router.killDaemons(["bgpd"])         # SIGKILL specific daemons
-   router.startDaemons(["bgpd"])        # start specific daemons
+   router.startDaemons(["staticd"])    # start deferred daemon(s)
+
+``disableDaemons()`` / ``enableDaemons()`` control which daemons
+``start()`` / ``start_router()`` will launch.  They do not start or stop
+running processes; use ``startDaemons()`` / ``killDaemons()`` for that.
+
+Daemon names are plain strings (``"staticd"``, ``"bgpd"``, …), same as
+``startDaemons()`` and ``killDaemons()``.
+
+Defer starting a backend until after mgmtd is up (see
+:file:`tests/topotests/mgmt_startup/test_late_uniconf.py`):
+
+.. code:: py
+
+   router.load_frr_config()
+   router.disableDaemons(["staticd"])
+   tgen.start_router()
+   # ... exercise mgmtd while staticd is still down ...
+   router.startDaemons(["staticd"])
+
+Limit which daemons ``load_frr_config()`` will start, then defer one that
+zebra would otherwise auto-enable:
+
+.. code:: py
+
+   router.load_frr_config("frr.conf", ["mgmtd", "zebra"])
+   router.disableDaemons(["staticd"])
+   tgen.start_router()
+
+Re-enable a daemon before the next full ``start()``:
+
+.. code:: py
+
+   router.disableDaemons(["staticd"])
+   tgen.start_router()
+   # ...
+   router.enableDaemons(["staticd"])
+   router.start()                       # staticd included this time
 
 ``tgen.start_router("r1")`` starts all FRR daemons on a single router without
 stopping them first.  ``tgen.stop_topology()`` stops the entire topology,
@@ -1576,6 +1615,9 @@ Choosing an approach
 +---------------------------+-----------------------------------------------+
 | Simulate daemon crash     | ``kill_router_daemons`` +                     |
 |                           | ``start_router_daemons``                      |
++---------------------------+-----------------------------------------------+
+| Defer daemon startup      | ``disableDaemons`` + ``startDaemons``         |
+| (e.g. late staticd)       |                                               |
 +---------------------------+-----------------------------------------------+
 | OSPF graceful restart     | ``graceful-restart prepare`` via ``vtysh``,   |
 |                           | then ``kill_router_daemons(...,                |
