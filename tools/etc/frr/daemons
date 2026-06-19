@@ -91,6 +91,14 @@ pathd_options="  -A 127.0.0.1"
 # in say BGP.
 #
 #MAX_FDS=1024
+#
+# A per-daemon limit may be specified as MAX_<DAEMON>_FDS (the daemon name in
+# upper case) and, when set, it takes precedence over MAX_FDS for that daemon
+# only.  This allows a single daemon that needs a large number of FD's (for
+# example bgpd with many peers) to be raised without forcing every other
+# daemon to use the same high value.
+#
+#MAX_BGPD_FDS=8192
 
 # Uncomment this option if you want to run FRR as a non-root user. Note that
 # you should know what you are doing since most of the daemons need root
