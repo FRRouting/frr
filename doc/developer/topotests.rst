@@ -1063,8 +1063,7 @@ repository hierarchy looks like this:
    ...
    ./ospf-topo1 # the ospf topology test
    ./ospf-topo1/r1 # router 1 configuration files
-   ./ospf-topo1/r1/zebra.conf # zebra configuration file
-   ./ospf-topo1/r1/ospfd.conf # ospf configuration file
+   ./ospf-topo1/r1/frr.conf # unified FRR configuration (required for new tests)
    ./ospf-topo1/r1/ospfroute.txt # 'show ip ospf' output reference file
    # removed other for shortness sake
    ...
@@ -1191,8 +1190,13 @@ To bootstrap your test topology, do the following steps:
    $ mkdir new-topo/
    $ touch new-topo/__init__.py
    $ cp example-test/test_template.py new-topo/test_new_topo.py
+   $ mkdir new-topo/r1 new-topo/r2
+   $ cp example-test/r1/frr.conf new-topo/r1/
+   $ cp example-test/r2/frr.conf new-topo/r2/
 
-- Modify the template according to your dot file
+- Modify the template according to your dot file.  Use a unified
+  :file:`frr.conf` per router and ``load_frr_config()`` in the test fixture
+  (see :ref:`topotests-load-frr-config`); do not add per-daemon config files.
 
 Here is the template topology described in the previous section in python code:
 
@@ -1265,7 +1269,7 @@ output:
     collected 11 items
 
     [...]
-    unet>
+    munet>
 
 The last line shows us that we are now using the CLI (Command Line
 Interface), from here you can call your router ``vtysh`` or even bash.
@@ -1274,7 +1278,7 @@ Here's the help text:
 
 .. code:: shell
 
-    unet> help
+    munet> help
 
     Commands:
       help                       :: this help
@@ -1287,7 +1291,7 @@ Here are some commands example:
 
 .. code:: shell
 
-    unet> sh r1 ping 10.0.3.1
+    munet> sh r1 ping 10.0.3.1
     PING 10.0.3.1 (10.0.3.1) 56(84) bytes of data.
     64 bytes from 10.0.3.1: icmp_seq=1 ttl=64 time=0.576 ms
     64 bytes from 10.0.3.1: icmp_seq=2 ttl=64 time=0.083 ms
@@ -1297,7 +1301,7 @@ Here are some commands example:
     3 packets transmitted, 3 received, 0% packet loss, time 1998ms
     rtt min/avg/max/mdev = 0.083/0.249/0.576/0.231 ms
 
-    unet> r1 show run
+    munet> r1 show run
     Building configuration...
 
     Current configuration:
@@ -1309,7 +1313,7 @@ Here are some commands example:
     [...]
     end
 
-    unet> show daemons
+    munet> show daemons
     ------ Host: r1 ------
      zebra ospfd ospf6d staticd
     ------- End: r1 ------
@@ -1323,24 +1327,25 @@ Here are some commands example:
      zebra ospfd ospf6d staticd
     ------- End: r4 ------
 
-After you successfully configured your topology, you can obtain the
-configuration files (per-daemon) using the following commands:
+After you successfully configured your topology, you can save the running
+configuration from vtysh (``show running-config``) into each router's
+:file:`frr.conf` for use in the test.  Older tests may still use per-daemon
+files; that layout is deprecated (see :ref:`topotests-load-frr-config`).
 
 .. code:: shell
 
-   unet> sh r3 vtysh -d ospfd
+   munet> sh r3 vtysh
 
    Hello, this is FRRouting (version 3.1-devrzalamena-build).
    Copyright 1996-2005 Kunihiro Ishiguro, et al.
 
-   r1# show running-config
+   r3# show running-config
    Building configuration...
 
    Current configuration:
    !
    frr version 3.1-devrzalamena-build
    frr defaults traditional
-   no service integrated-vtysh-config
    !
    log file ospfd.log
    !
@@ -1356,7 +1361,7 @@ configuration files (per-daemon) using the following commands:
    line vty
    !
    end
-   r1#
+   r3#
 
 You can also login to the node specified by nsenter using bash, etc.
 A pid file for each node will be created in the relevant test dir.
@@ -1364,10 +1369,10 @@ You can run scripts inside the node, or use vtysh's <tab> or <?> feature.
 
 .. code:: shell
 
-  [unet shell]
+  [munet shell]
   # cd tests/topotests/srv6_locator
   # ./test_srv6_locator.py --topology-only
-  unet> r1 show segment-routing srv6 locator
+  munet> r1 show segment-routing srv6 locator
   Locator:
   Name                 ID      Prefix                   Status
   -------------------- ------- ------------------------ -------
@@ -1393,26 +1398,13 @@ Test topologies should always be bootstrapped from
 :file:`tests/topotests/example_test/test_template.py` because it contains
 important boilerplate code that can't be avoided, like:
 
-Example:
+- Loading each router's :file:`frr.conf` with ``load_frr_config()`` (see
+  :ref:`topotests-load-frr-config`).
 
 .. code:: py
 
-       # For all routers arrange for:
-       # - starting zebra using config file from <rtrname>/zebra.conf
-       # - starting ospfd using an empty config file.
-       for rname, router in router_list.items():
-           router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
-           router.load_config(TopoRouter.RD_OSPF)
-
-or using unified config (specifying which daemons to run is optional):
-
-.. code:: py
-
-      for _, (rname, router) in enumerate(router_list.items(), 1):
-         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)), [
-            (TopoRouter.RD_ZEBRA, "-s 90000000"),
-            (TopoRouter.RD_MGMTD, None),
-            (TopoRouter.RD_BGP, None)]
+   for _, router in tgen.routers().items():
+       router.load_frr_config()
 
 - The topology definition or build function
 
@@ -1444,6 +1436,8 @@ or using unified config (specifying which daemons to run is optional):
        ...
 
        # Start and configure the router daemons
+       for _, router in tgen.routers().items():
+           router.load_frr_config()
        tgen.start_router()
 
        # Provide tgen as argument to each test function
@@ -1452,6 +1446,84 @@ or using unified config (specifying which daemons to run is optional):
        # Teardown after last test runs
        tgen.stop_topology()
 
+.. _topotests-load-frr-config:
+
+Loading configuration with ``load_frr_config()``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All **new** tests must use a unified :file:`frr.conf` per router (under
+:file:`<testdir>/<routername>/frr.conf`) and load it with
+``TopoRouter.load_frr_config()``.  Do not add new per-daemon config files
+(``zebra.conf``, ``bgpd.conf``, ``mgmtd.conf``, …) or call
+``load_config(TopoRouter.RD_*, ...)`` in new tests — that style is
+**deprecated** and will be rejected in review.
+
+``load_frr_config()`` copies the unified config into the router namespace and
+selects which daemons ``start_router()`` will launch.  The ``source`` argument
+defaults to ``"frr.conf"``; when given as a bare filename it is looked up under
+:file:`<testdir>/<routername>/` (same as other router config files).
+
+Whenever zebra is loaded, **mgmtd** and **staticd** are also enabled
+automatically (if those binaries are present).  Other daemons are either
+grepped from :file:`frr.conf` or named explicitly.
+
+**Infer daemons from the config file** (most common — zebra, mgmtd, and
+staticd always; others such as ``bgpd`` or ``ospfd`` when their config appears
+in :file:`frr.conf`):
+
+.. code:: py
+
+   router.load_frr_config()
+
+**Add daemons to the inferred set** — ``extra_daemons`` keeps the defaults and
+auto-detection above and appends daemons that inference does not pick up from
+:file:`frr.conf` — for example ``sharpd`` or ``snmpd``.  Only applies when
+``daemons`` is not set (same string/tuple format as ``daemons``):
+
+.. code:: py
+
+   router.load_frr_config(extra_daemons=["sharpd", "snmpd"])
+
+**Explicit daemon list** — replaces inference entirely; use when the test
+needs full control over which daemons start.  Each entry is a daemon name
+string (``"bgpd"``, ``"mgmtd"``, …) or a ``(daemon, param)`` tuple for
+extra command-line options.  Listing ``"zebra"`` still auto-enables
+``mgmtd`` and ``staticd`` as above.
+
+.. code:: py
+
+   router.load_frr_config(daemons=[
+       ("zebra", "-s 90000000"),
+       "mgmtd",
+       "bgpd",
+   ])
+
+**Defer a daemon** — ``staticd`` is enabled whenever zebra is loaded; use
+``disableDaemons()`` when a test starts it manually later (see
+:ref:`topotests-restart`):
+
+.. code:: py
+
+   router.load_frr_config()
+   router.disableDaemons(["staticd"])
+   tgen.start_router()
+   router.startDaemons(["staticd"])
+
+.. _topotests-load-config-deprecated:
+
+Deprecated: per-daemon ``load_config()``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Legacy tests load separate config files per daemon:
+
+.. code:: py
+
+   # DEPRECATED — do not use in new tests
+   router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
+   router.load_config(TopoRouter.RD_OSPF)
+
+Existing tests may keep this until migrated.  New tests must use
+``load_frr_config()`` and a single :file:`frr.conf` instead.
 
 <<<<<<< HEAD
 =======
@@ -1583,12 +1655,12 @@ Defer starting a backend until after mgmtd is up (see
    # ... exercise mgmtd while staticd is still down ...
    router.startDaemons(["staticd"])
 
-Limit which daemons ``load_frr_config()`` will start, then defer one that
-zebra would otherwise auto-enable:
+Limit which daemons ``load_frr_config()`` will start, then defer ``staticd``
+(which zebra would otherwise auto-enable):
 
 .. code:: py
 
-   router.load_frr_config("frr.conf", ["mgmtd", "zebra"])
+   router.load_frr_config(daemons=["mgmtd", "zebra"]) # this will also auto-enable staticd
    router.disableDaemons(["staticd"])
    tgen.start_router()
 
@@ -1647,7 +1719,9 @@ Requirements:
 - Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
   ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
   for documentation;
-- Use unified config (``frr.conf``) for all new tests. See :ref:`writing-tests`.
+- Use unified config (``frr.conf``) and ``load_frr_config()`` for all new
+  tests.  Per-daemon config files and ``load_config(TopoRouter.RD_*, ...)`` are
+  deprecated — see :ref:`topotests-load-frr-config`.
 
 Tips:
 
@@ -1783,7 +1857,7 @@ Example of pdb usage:
    (Pdb) router1.vtysh_cmd('show ip ospf route')
    '============ OSPF network routing table ============\r\nN    10.0.1.0/24           [10] area: 0.0.0.0\r\n                           directly attached to r1-eth0\r\nN    10.0.2.0/24           [20] area: 0.0.0.0\r\n                           via 10.0.3.3, r1-eth1\r\nN    10.0.3.0/24           [10] area: 0.0.0.0\r\n                           directly attached to r1-eth1\r\nN    10.0.10.0/24          [20] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\nN IA 172.16.0.0/24         [20] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\nN IA 172.16.1.0/24         [30] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\n\r\n============ OSPF router routing table =============\r\nR    10.0.255.2            [10] area: 0.0.0.0, ASBR\r\n                           via 10.0.3.3, r1-eth1\r\nR    10.0.255.3            [10] area: 0.0.0.0, ABR, ASBR\r\n                           via 10.0.3.1, r1-eth1\r\nR    10.0.255.4         IA [20] area: 0.0.0.0, ASBR\r\n                           via 10.0.3.1, r1-eth1\r\n\r\n============ OSPF external routing table ===========\r\n\r\n\r\n'
     (Pdb) tgen.cli()
-    unet>
+    munet>
 
 To enable more debug messages in other Topogen subsystems, more
 logging messages can be displayed by modifying the test configuration file
