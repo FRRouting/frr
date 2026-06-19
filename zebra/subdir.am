@@ -109,6 +109,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_tc.c \
 	zebra/zebra_trace.c \
 	zebra/zebra_vrf.c \
+	zebra/zebra_vrf_import.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
 	zebra/zebra_vxlan_if.c \
@@ -191,6 +192,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_tc.h \
 	zebra/zebra_trace.h \
 	zebra/zebra_vrf.h \
+	zebra/zebra_vrf_import.h \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \

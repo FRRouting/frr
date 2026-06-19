@@ -11,6 +11,7 @@
 #include "vrf.h"
 
 #include "zebra/rtadv.h"
+#include "zebra/zebra_vrf_import.h"
 #include "zebra_cli.h"
 #include "zebra/zebra_cli_clippy.c"
 
@@ -2221,6 +2222,44 @@ static void zebra_vrf_indent_cli_write(struct vty *vty,
 		vty_out(vty, " ");
 }
 
+DEFPY_YANG (ip_import_vrf,
+	    ip_import_vrf_cmd,
+	    "[no] ip import-vrf WORD$src_vrf",
+	    NO_STR
+	    IP_STR
+	    "Import routes from another VRF\n"
+	    "Source VRF name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	const char *afi_safi = yang_afi_safi_value2identity(AFI_IP, SAFI_UNICAST);
+
+	snprintf(xpath, sizeof(xpath),
+		 "./frr-zebra:zebra/import-vrf[afi-safi='%s'][source-vrf='%s']", afi_safi, src_vrf);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, "%s", VTY_CURR_XPATH);
+}
+
+DEFPY_YANG (ipv6_import_vrf,
+	    ipv6_import_vrf_cmd,
+	    "[no] ipv6 import-vrf WORD$src_vrf",
+	    NO_STR
+	    IPV6_STR
+	    "Import routes from another VRF\n"
+	    "Source VRF name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	const char *afi_safi = yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST);
+
+	snprintf(xpath, sizeof(xpath),
+		 "./frr-zebra:zebra/import-vrf[afi-safi='%s'][source-vrf='%s']", afi_safi, src_vrf);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, "%s", VTY_CURR_XPATH);
+}
+
 DEFPY_YANG (ip_router_id,
        ip_router_id_cmd,
        "[no] ip router-id A.B.C.D$id vrf NAME",
@@ -2404,6 +2443,20 @@ DEFPY_YANG (ipv6_protocol,
 		vty,
 		"./frr-zebra:zebra/filter-protocol[afi-safi='%s'][protocol='%s']",
 		yang_afi_safi_value2identity(AFI_IP6, SAFI_UNICAST), proto);
+}
+
+static void lib_vrf_zebra_import_vrf_cli_write(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	const char *afi_safi = yang_dnode_get_string(dnode, "afi-safi");
+	const char *src = yang_dnode_get_string(dnode, "source-vrf");
+	afi_t afi;
+	safi_t safi;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	zebra_vrf_indent_cli_write(vty, dnode);
+	vty_out(vty, "%s import-vrf %s\n", afi == AFI_IP ? "ip" : "ipv6", src);
 }
 
 static void lib_vrf_zebra_filter_protocol_cli_write(struct vty *vty,
@@ -3263,6 +3316,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_vrf_zebra_filter_protocol_cli_write,
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/import-vrf",
+			.cbs.cli_show = lib_vrf_zebra_import_vrf_cli_write,
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/filter-nht",
 			.cbs.cli_show = lib_vrf_zebra_filter_nht_cli_write,
 		},
@@ -3375,6 +3432,8 @@ void zebra_cli_init(void)
 	install_element(VRF_NODE, &ip_router_id_in_vrf_cmd);
 	install_element(VRF_NODE, &router_id_in_vrf_cmd);
 	install_element(VRF_NODE, &ipv6_router_id_in_vrf_cmd);
+	install_element(VRF_NODE, &ip_import_vrf_cmd);
+	install_element(VRF_NODE, &ipv6_import_vrf_cmd);
 
 	install_element(CONFIG_NODE, &ip_protocol_cmd);
 	install_element(VRF_NODE, &ip_protocol_cmd);

@@ -29,6 +29,7 @@
 #include "zebra/router-id.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/zebra_vrf_import.h"
 #include "zebra/table_manager.h"
 #include "zebra/ipforward.h"
 
@@ -3554,6 +3555,77 @@ int lib_vrf_zebra_filter_protocol_route_map_modify(struct nb_cb_modify_args *arg
 {
 	/* the update is done in the apply_finish callback */
 	return NB_OK;
+}
+
+static int lib_vrf_zebra_import_vrf_apply(const struct lyd_node *dnode, bool add)
+{
+	struct vrf *vrf;
+	const char *afi_safi;
+	const char *src_vrf;
+	afi_t afi;
+	safi_t safi;
+
+	dnode = yang_dnode_get_parent(dnode, "import-vrf");
+	if (!dnode)
+		return -1;
+
+	afi_safi = yang_dnode_get_string(dnode, "afi-safi");
+	src_vrf = yang_dnode_get_string(dnode, "source-vrf");
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	vrf = nb_running_get_entry(dnode, NULL, true);
+
+	if (add)
+		return zebra_vrf_import_add(vrf->info, afi, safi, src_vrf);
+
+	return zebra_vrf_import_del(vrf->info, afi, safi, src_vrf);
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/import-vrf
+ */
+int lib_vrf_zebra_import_vrf_create(struct nb_cb_create_args *args)
+{
+	const char *afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+	const char *src_vrf = yang_dnode_get_string(args->dnode, "source-vrf");
+	const char *dst_vrf = yang_dnode_get_string(args->dnode, "../../name");
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_VALIDATE)
+		return NB_OK;
+
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+	if ((afi != AFI_IP && afi != AFI_IP6) || safi != SAFI_UNICAST) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "only IPv4/IPv6 unicast VRF import is supported");
+		return NB_ERR_VALIDATION;
+	}
+
+	if (dst_vrf && strmatch(src_vrf, dst_vrf)) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "source VRF must be different from destination VRF");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_import_vrf_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (lib_vrf_zebra_import_vrf_apply(args->dnode, false) < 0)
+		return NB_ERR;
+
+	return NB_OK;
+}
+
+void lib_vrf_zebra_import_vrf_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	if (lib_vrf_zebra_import_vrf_apply(args->dnode, true) < 0)
+		zlog_err("Failed to apply VRF route import");
 }
 
 /*

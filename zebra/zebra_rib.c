@@ -45,6 +45,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zebra_vrf_import.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
@@ -176,6 +177,7 @@ static const struct {
 			      META_QUEUE_OTHER},
 	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, ZEBRA_MAX_DISTANCE_DEFAULT,
 			      META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_VRF_IMPORT] = {ZEBRA_ROUTE_VRF_IMPORT, 0, META_QUEUE_STATIC},
 	[ZEBRA_ROUTE_ALL] = {ZEBRA_ROUTE_ALL, ZEBRA_MAX_DISTANCE_DEFAULT,
 			     META_QUEUE_OTHER},
 	/* Any new route type added to zebra, should be mirrored here */
@@ -1546,6 +1548,9 @@ static void rib_process(struct route_node *rn)
 					 info->safi);
 	}
 
+	if (old_selected != new_selected || selected_changed)
+		zebra_vrf_import_rib_update(rn, old_selected, new_selected);
+
 	/* Update fib according to selection results */
 	if (new_fib && old_fib)
 		rib_process_update_fib(zvrf, rn, old_fib, new_fib);
@@ -1690,6 +1695,10 @@ static bool rib_compare_routes(const struct route_entry *re1, const struct route
 		return false;
 
 	if (re1->instance != re2->instance)
+		return false;
+
+	if (re1->type == ZEBRA_ROUTE_VRF_IMPORT &&
+	    re1->vrf_import_src_vrf_id != re2->vrf_import_src_vrf_id)
 		return false;
 
 	if ((re1->type == ZEBRA_ROUTE_KERNEL || re1->type == ZEBRA_ROUTE_STATIC) &&
