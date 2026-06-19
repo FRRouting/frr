@@ -1033,6 +1033,31 @@ class TopoRouter(TopoGear):
         self.logger.debug("stopping (no assert)")
         return self.net.stopRouter(False)
 
+    def enableDaemons(self, daemons):
+        """
+        Mark daemons to be started on router start().
+
+        Use this to explicitly enable daemons that load_frr_config() /
+        load_config() auto-detection did not select, or to re-enable daemons
+        previously excluded with disableDaemons().
+        """
+        for daemon in daemons:
+            if daemon not in self.net.daemons:
+                raise ValueError('Unknown daemon "{}"'.format(daemon))
+            self.net.daemons[daemon] = 1
+
+    def disableDaemons(self, daemons):
+        """
+        Prevent daemons from being started on router start().
+
+        Typical use: load config that references a daemon, but start it manually
+        later via startDaemons() to control timing.
+        """
+        for daemon in daemons:
+            if daemon not in self.net.daemons:
+                raise ValueError('Unknown daemon "{}"'.format(daemon))
+            self.net.daemons[daemon] = 0
+
     def startDaemons(self, daemons):
         """
         Start Daemons: to start specific daemon(user defined daemon only)
