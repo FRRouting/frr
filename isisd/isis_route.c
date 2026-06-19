@@ -311,33 +311,66 @@ uint8_t isis_route_table_algorithm(const struct route_table *table)
 	return info ? info->algorithm : 0;
 }
 
-static bool isis_sr_psid_info_same(struct isis_sr_psid_info *new, struct isis_sr_psid_info *old)
+static bool isis_sr_psid_info_same(struct isis_sr_psid_info *new, struct isis_sr_psid_info *old,
+				   char *buf, size_t buf_size)
 {
-	if (new->present != old->present)
+	if (new->present != old->present) {
+		snprintf(buf, buf_size, "(present old: %s, new: %s)", old->present ? "yes" : "no",
+			 new->present ? "yes" : "no");
 		return false;
+	}
 
-	if (new->label != old->label)
+	if (new->label != old->label) {
+		snprintf(buf, buf_size, "(label old: %u, new: %u)", old->label, new->label);
 		return false;
+	}
 
-	if (new->sid.flags != old->sid.flags || new->sid.value != old->sid.value)
+	if (new->sid.flags != old->sid.flags) {
+		snprintf(buf, buf_size, "(sid flags old: 0x%x, new: 0x%x)", old->sid.flags,
+			 new->sid.flags);
 		return false;
+	}
 
-	if (new->sid.algorithm != old->sid.algorithm)
+	if (new->sid.value != old->sid.value) {
+		snprintf(buf, buf_size, "(sid value old: %u, new: %u)", old->sid.value,
+			 new->sid.value);
 		return false;
+	}
+
+	if (new->sid.algorithm != old->sid.algorithm) {
+		snprintf(buf, buf_size, "(sid algo old: %u, new: %u)", old->sid.algorithm,
+			 new->sid.algorithm);
+		return false;
+	}
 
 	return true;
 }
 
-static bool isis_label_stack_same(struct mpls_label_stack *new, struct mpls_label_stack *old)
+static bool isis_label_stack_same(struct mpls_label_stack *new, struct mpls_label_stack *old,
+				  char *buf, size_t buf_size)
 {
+	char old_label[32], new_label[32];
+
 	if (!new && !old)
 		return true;
-	if (!new || !old)
+	if (!new || !old) {
+		snprintf(buf, buf_size, "(old %spresent, new %spresent)", old ? "" : "not ",
+			 new ? "" : "not ");
 		return false;
-	if (new->num_labels != old->num_labels)
+	}
+	if (new->num_labels != old->num_labels) {
+		snprintf(buf, buf_size, "(num labels old %u, new %u)", old->num_labels,
+			 new->num_labels);
 		return false;
-	if (memcmp(&new->label, &old->label, sizeof(mpls_label_t) * new->num_labels))
+	}
+	if (memcmp(&new->label, &old->label, sizeof(mpls_label_t) * new->num_labels)) {
+		snprintf(buf, buf_size, "(label val old %s, new %s)",
+			 mpls_label2str(old->num_labels, (const mpls_label_t *)&old->label,
+					old_label, sizeof(old_label), ZEBRA_LSP_NONE, 1),
+			 mpls_label2str(new->num_labels, (const mpls_label_t *)&new->label,
+					new_label, sizeof(new_label), ZEBRA_LSP_NONE, 1));
 		return false;
+	}
 
 	return true;
 }
@@ -347,6 +380,7 @@ static int isis_route_info_same(struct isis_route_info *new, struct isis_route_i
 {
 	struct listnode *node;
 	struct isis_nexthop *new_nh, *old_nh;
+	char change_buf[96];
 
 	if (new->cost != old->cost) {
 		if (buf)
@@ -367,11 +401,10 @@ static int isis_route_info_same(struct isis_route_info *new, struct isis_route_i
 		new_sr_algo = new->sr_algo[i];
 		old_sr_algo = old->sr_algo[i];
 
-		if (!isis_sr_psid_info_same(&new_sr_algo, &old_sr_algo)) {
+		if (!isis_sr_psid_info_same(&new_sr_algo, &old_sr_algo, change_buf,
+					    sizeof(change_buf))) {
 			if (buf)
-				snprintf(buf, buf_size, "SR input label algo-%u (old: %s, new: %s)",
-					 i, old_sr_algo.present ? "yes" : "no",
-					 new_sr_algo.present ? "yes" : "no");
+				snprintf(buf, buf_size, "SR input label algo-%u %s", i, change_buf);
 			return 0;
 		}
 	}
@@ -390,14 +423,16 @@ static int isis_route_info_same(struct isis_route_info *new, struct isis_route_i
 				snprintf(buf, buf_size, "new nhop"); /* TODO: print nhop */
 			return 0;
 		}
-		if (!isis_sr_psid_info_same(&new_nh->sr, &old_nh->sr)) {
+		if (!isis_sr_psid_info_same(&new_nh->sr, &old_nh->sr, change_buf,
+					    sizeof(change_buf))) {
 			if (buf)
-				snprintf(buf, buf_size, "nhop SR label");
+				snprintf(buf, buf_size, "nhop SR label %s", change_buf);
 			return 0;
 		}
-		if (!isis_label_stack_same(new_nh->label_stack, old_nh->label_stack)) {
+		if (!isis_label_stack_same(new_nh->label_stack, old_nh->label_stack, change_buf,
+					   sizeof(change_buf))) {
 			if (buf)
-				snprintf(buf, buf_size, "nhop label stack");
+				snprintf(buf, buf_size, "nhop label stack %s", change_buf);
 			return 0;
 		}
 	}
@@ -421,7 +456,7 @@ struct isis_route_info *isis_route_create(struct prefix *prefix, struct prefix_i
 {
 	struct route_node *route_node;
 	struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
-	char change_buf[64];
+	char change_buf[128];
 
 	if (!table)
 		return NULL;
