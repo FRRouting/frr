@@ -2801,8 +2801,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 #define BGP_MP_REACH_MIN_SIZE 5
 #define LEN_LEFT	(length - (stream_get_getp(s) - start))
 	if ((length > STREAM_READABLE(s)) || (length < BGP_MP_REACH_MIN_SIZE)) {
-		zlog_info("%s: %s sent invalid length, %lu, of MP_REACH_NLRI",
-			  __func__, peer->host, (unsigned long)length);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent invalid length, %lu, of MP_REACH_NLRI",
+			 __func__, peer->host, (unsigned long)length);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -2831,9 +2831,9 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	attr->mp_nexthop_len = stream_getc(s);
 
 	if (LEN_LEFT < attr->mp_nexthop_len) {
-		zlog_info(
-			"%s: %s sent next-hop length, %u, in MP_REACH_NLRI which goes past the end of attribute",
-			__func__, peer->host, attr->mp_nexthop_len);
+		flog_err(EC_BGP_ATTR_LEN,
+			 "%s: %s sent next-hop length, %u, in MP_REACH_NLRI which goes past the end of attribute",
+			 __func__, peer->host, attr->mp_nexthop_len);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -2841,8 +2841,9 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	switch (attr->mp_nexthop_len) {
 	case 0:
 		if (safi != SAFI_FLOWSPEC) {
-			zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
-				  __func__, peer->host, attr->mp_nexthop_len);
+			flog_err(EC_BGP_ATTR_LEN,
+				 "%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
+				 __func__, peer->host, attr->mp_nexthop_len);
 			return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 		}
 		break;
@@ -2970,14 +2971,14 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		}
 		break;
 	default:
-		zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
-			  __func__, peer->host, attr->mp_nexthop_len);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
+			 __func__, peer->host, attr->mp_nexthop_len);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	if (!LEN_LEFT) {
-		zlog_info("%s: %s sent SNPA which couldn't be read",
-			  __func__, peer->host);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent SNPA which couldn't be read", __func__,
+			 peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -2993,14 +2994,14 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	/* must have nrli_len, what is left of the attribute */
 	nlri_len = LEN_LEFT;
 	if (nlri_len > STREAM_READABLE(s)) {
-		zlog_info("%s: %s sent MP_REACH_NLRI which couldn't be read",
-			  __func__, peer->host);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent MP_REACH_NLRI which couldn't be read",
+			 __func__, peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	if (!nlri_len) {
-		zlog_info("%s: %s sent a zero-length NLRI. Hence, treating as a EOR marker",
-			  __func__, peer->host);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent a zero-length MP_REACH_NLRI", __func__,
+			 peer->host);
 
 		mp_update->afi = afi;
 		mp_update->safi = safi;
