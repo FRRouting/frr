@@ -2856,6 +2856,16 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 				char name[BUFSIZ];
 				int ret = CMD_SUCCESS;
 
+				if (!CHECK_FLAG(peer->af_cap[afi][safi],
+						PEER_CAP_ORF_PREFIX_RM_ADV) ||
+				    !CHECK_FLAG(peer->af_cap[afi][safi],
+						PEER_CAP_ORF_PREFIX_SM_RCV)) {
+					flog_err(EC_BGP_NO_CAP,
+						 "%pBP rcvd Prefix ORF for %s/%s, but prefix ORF capability was not negotiated, ignoring",
+						 peer, afi2str(afi), safi2str(safi));
+					return BGP_PACKET_NOOP;
+				}
+
 				if (bgp_debug_neighbor_events(peer)) {
 					zlog_debug(
 						"%pBP rcvd Prefixlist ORF(%d) length %d",
