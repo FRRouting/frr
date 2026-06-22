@@ -1836,7 +1836,8 @@ static enum nb_error _walk(struct nb_op_yield_state *ys, bool is_resume)
 			 */
 
 			if (!node) {
-				err = yang_lyd_new_list(ni[-1].inner, sib, &ni->keys, &node);
+				err = yang_lyd_new_list(ni[-1].inner, sib->module, sib->name,
+							&ni->keys, &node);
 				if (err) {
 					ret = NB_ERR_RESOURCE;
 					goto done;
