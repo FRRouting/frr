@@ -837,6 +837,18 @@ DEFPY_YANG(
 {
 	char xpath[XPATH_MAXLEN], xpath_auth[XPATH_MAXLEN + 64];
 
+	/*
+	 * Receive-side HMAC-SHA256 verification is not implemented, so
+	 * configuring it would silently fail to authenticate peers (every
+	 * received packet is rejected). Refuse the mode here rather than
+	 * letting the operator enable something that cannot work.
+	 */
+	if (strmatch(crypt, "hmac-sha-256")) {
+		vty_out(vty,
+			"%% HMAC-SHA256 authentication is not supported yet\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	snprintf(xpath, sizeof(xpath), "./frr-eigrpd:eigrp/instance[asn='%s']",
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
