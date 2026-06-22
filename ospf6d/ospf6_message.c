@@ -215,11 +215,11 @@ void ospf6_lsupdate_print(struct ospf6_header *oh, int action)
 	     && action == OSPF6_ACTION_RECV)
 	    || (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND)
 		&& action == OSPF6_ACTION_SEND)) {
-		for (p = (char *)((caddr_t)lsupdate +
-				  sizeof(struct ospf6_lsupdate));
-		     p < OSPF6_MESSAGE_END(oh) &&
-		     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <=
-			     OSPF6_MESSAGE_END(oh);
+		for (p = (char *)((caddr_t)lsupdate + sizeof(struct ospf6_lsupdate));
+		     p + sizeof(struct ospf6_lsa_header) <= OSPF6_MESSAGE_END(oh) &&
+		     ospf6_lsa_size((struct ospf6_lsa_header *)p) >=
+			     sizeof(struct ospf6_lsa_header) &&
+		     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <= OSPF6_MESSAGE_END(oh);
 		     p += ospf6_lsa_size((struct ospf6_lsa_header *)p)) {
 			ospf6_lsa_header_print_raw(
 				(struct ospf6_lsa_header *)p);
@@ -1647,9 +1647,9 @@ static void ospf6_lsupdate_recv(struct in6_addr *src, struct in6_addr *dst,
 
 	/* Process LSAs */
 	for (p = (char *)((caddr_t)lsupdate + sizeof(struct ospf6_lsupdate));
-	     p < OSPF6_MESSAGE_END(oh) &&
-	     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <=
-		     OSPF6_MESSAGE_END(oh);
+	     p + sizeof(struct ospf6_lsa_header) <= OSPF6_MESSAGE_END(oh) &&
+	     ospf6_lsa_size((struct ospf6_lsa_header *)p) >= sizeof(struct ospf6_lsa_header) &&
+	     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <= OSPF6_MESSAGE_END(oh);
 	     p += ospf6_lsa_size((struct ospf6_lsa_header *)p)) {
 		ospf6_receive_lsa(on, (struct ospf6_lsa_header *)p);
 	}
