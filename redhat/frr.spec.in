@@ -849,7 +849,18 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Mar 25 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Sun Jun 21 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Sun Jun 21 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.7.0-rc1
+- New upstream release candidate FRR 10.7.0-rc1
+- Major highlights:
+-   BFD authentication with keychain support (cleartext, SHA-1, meticulous)
+-   BGP-LS SRv6 extensions (Capabilities, Locator, SID NLRI, Endpoint Behavior TLVs)
+-   BGP route-map based allowas-in for flexible AS-path loop control
+-   OSPFv2 RFC 4222 control-plane DSCP marking and BFD quick neighbor
+-   PIM IGMP proxy route-map and multicast-source-interface join filtering
+-   PIM dense-mode Assert on multi-access LAN and Auto-RP allow-rp support
+-   Static route per-route metric and nexthop ECMP weight support
 
 * Wed Mar 25 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.6.0
 - New upstream release FRR 10.6.0
