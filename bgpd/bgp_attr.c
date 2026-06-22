@@ -5207,12 +5207,16 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const st
 		bgp_attr_stream_put_labeled_prefix(s, p, label, num_labels, addpath_capable,
 						   addpath_tx_id);
 		break;
-	case SAFI_FLOWSPEC:
-		stream_putc(s, p->u.prefix_flowspec.prefixlen);
-		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
-			   p->u.prefix_flowspec.prefixlen);
-		break;
+	case SAFI_FLOWSPEC: {
+		uint16_t flen = p->u.prefix_flowspec.prefixlen;
 
+		if (flen >= FLOWSPEC_NLRI_SIZELIMIT)
+			stream_putw(s, 0xf000 | flen);
+		else
+			stream_putc(s, flen);
+		stream_put(s, (const void *)p->u.prefix_flowspec.ptr, flen);
+		break;
+	}
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 		bgp_attr_stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
@@ -5258,6 +5262,13 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		break;
 	case SAFI_FLOWSPEC:
 		size = ((struct prefix_fs *)p)->prefix.prefixlen;
+		/*
+		 * Account for the extended length octet used when the NLRI
+		 * length is encoded as 2 bytes (see bgp_packet_mpattr_prefix).
+		 * The caller adds BGP_NLRI_LENGTH for the first length octet.
+		 */
+		if (size >= FLOWSPEC_NLRI_SIZELIMIT)
+			size += 1;
 		break;
 	case SAFI_BGP_LS:
 		/* TODO: add explaination */
