@@ -32,7 +32,7 @@ def tgen(request):
     tgen.gears["r4"].load_frr_config("frr.conf")
 
     # Explicit disable staticd now..
-    tgen.gears["r4"].net.daemons["staticd"] = 0
+    tgen.gears["r4"].disableDaemons(["staticd"])
 
     tgen.start_router()
     yield tgen
