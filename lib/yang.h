@@ -958,8 +958,7 @@ extern LY_ERR yang_new_term_bin(struct lyd_node *parent, const struct lys_module
 	_Pragma("GCC error \"Use yang_new_term_bin() instead of lyd_new_term_bin()\"")
 
 extern LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
-			     const void *value, uint32_t value_size_bits,
-			     LYD_ANYDATA_VALUETYPE value_type, uint32_t options,
+			     const void *value, uint32_t value_size_bytes, uint32_t options,
 			     struct lyd_node **new_parent, struct lyd_node **new_node);
 #define lyd_new_path2(...) _Pragma("GCC error \"Use yang_new_path2() instead of lyd_new_path2()\"")
 
