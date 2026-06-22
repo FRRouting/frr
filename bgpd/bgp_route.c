@@ -6079,6 +6079,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (evpn && afi == AFI_L2VPN &&
 	    (soft_reconfig || !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))) {
 		bgp_attr_set_evpn_overlay(&new_attr, evpn);
+		evpn = NULL;
 		p_evpn = NULL;
 	}
 
@@ -6402,7 +6403,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				}
 				/* evpn update with new nexthop: unimport route with old VTEP entry.*/
 				else if (safi == SAFI_EVPN &&
-					 evp->prefix.route_type == BGP_EVPN_AD_ROUTE &&
+					 (evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
+					  evp->prefix.route_type == BGP_EVPN_ES_ROUTE) &&
 					 !bgp_attr_nexthop_same(pi->attr, attr_new, afi)) {
 					bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
 				}
