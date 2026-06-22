@@ -1536,7 +1536,7 @@ int yang_xpath_pop_node(char *xpath)
  * Safe to remove after libyang v2.1.xxx is required (.144 has a bug so
  * something > .144) https://github.com/CESNET/libyang/issues/2149
  */
-LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
+LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lys_module *module, const char *name,
 			 const struct yang_list_keys *list_keys, struct lyd_node **node)
 {
 #if defined(HAVE_LYD_NEW_LIST3) && 0
@@ -1547,7 +1547,7 @@ LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
 	for (int i = 0; i < list_keys->num; i++)
 		keys[i] = list_keys->key[i];
 
-	err = lyd_new_list3(parent, snode->module, snode->name, keys, NULL, 0, node);
+	err = lyd_new_list3(parent, module, name, keys, NULL, 0, node);
 	return err;
 #else
 	struct lyd_node *pnode = parent;
@@ -1556,36 +1556,28 @@ LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
 	assert(list_keys->num <= 8);
 	switch (list_keys->num) {
 	case 0:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node);
+		return lyd_new_list(pnode, module, name, false, node);
 	case 1:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node, keys[0]);
+		return lyd_new_list(pnode, module, name, false, node, keys[0]);
 	case 2:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node, keys[0], keys[1]);
+		return lyd_new_list(pnode, module, name, false, node, keys[0], keys[1]);
 	case 3:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node, keys[0], keys[1], keys[2]);
+		return lyd_new_list(pnode, module, name, false, node, keys[0], keys[1], keys[2]);
 	case 4:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node, keys[0], keys[1], keys[2], keys[3]);
+		return lyd_new_list(pnode, module, name, false, node, keys[0], keys[1], keys[2],
+				    keys[3]);
 	case 5:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node, keys[0], keys[1], keys[2], keys[3],
-				    keys[4]);
+		return lyd_new_list(pnode, module, name, false, node, keys[0], keys[1], keys[2],
+				    keys[3], keys[4]);
 	case 6:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node, keys[0], keys[1], keys[2], keys[3],
-				    keys[4], keys[5]);
+		return lyd_new_list(pnode, module, name, false, node, keys[0], keys[1], keys[2],
+				    keys[3], keys[4], keys[5]);
 	case 7:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node, keys[0], keys[1], keys[2], keys[3],
-				    keys[4], keys[5], keys[6]);
+		return lyd_new_list(pnode, module, name, false, node, keys[0], keys[1], keys[2],
+				    keys[3], keys[4], keys[5], keys[6]);
 	case 8:
-		return lyd_new_list(pnode, snode->module, snode->name, false,
-				    node, keys[0], keys[1], keys[2], keys[3],
-				    keys[4], keys[5], keys[6], keys[7]);
+		return lyd_new_list(pnode, module, name, false, node, keys[0], keys[1], keys[2],
+				    keys[3], keys[4], keys[5], keys[6], keys[7]);
 	}
 	_Static_assert(LIST_MAXKEYS == 8, "max key mismatch in switch unroll");
 	/*NOTREACHED*/

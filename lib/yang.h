@@ -936,8 +936,9 @@ extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
 /*
  * Libyang future functions
  */
-extern LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
-				const struct yang_list_keys *keys, struct lyd_node **nodes);
+extern LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lys_module *module,
+				const char *name, const struct yang_list_keys *keys,
+				struct lyd_node **nodes);
 extern LY_ERR yang_lyd_trim_xpath(struct lyd_node **rootp, const char *xpath);
 extern LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx,
 				  struct lyd_node *parent, struct ly_in *in,
