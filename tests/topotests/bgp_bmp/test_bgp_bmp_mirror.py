@@ -44,7 +44,7 @@ sys.path.append(os.path.join("../lib/"))
 from lib import topotest
 from lib.bgp import bgp_configure_prefixes
 from lib.bgp import verify_bgp_convergence_from_running_config
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
@@ -73,11 +73,9 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    for rname, router in tgen.routers().items():
-        logger.info("Loading router %s", rname)
+    for router in tgen.routers().values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BGP, "-M bmp")],
+            daemons=["zebra", ("bgpd", "-M bmp")],
         )
 
     tgen.start_router()

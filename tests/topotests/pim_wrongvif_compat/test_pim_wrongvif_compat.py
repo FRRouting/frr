@@ -142,8 +142,8 @@ def setup_module(mod):
 
     app_helper.init(tgen)
 
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
 

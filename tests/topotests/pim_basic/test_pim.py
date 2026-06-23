@@ -25,7 +25,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 
@@ -71,16 +71,11 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    # For all registered routers, load the integrated configuration file
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_PIM, None),
-                (TopoRouter.RD_BGP, None),
-            ],
-        )
+    # For all registered routers, load the integrated configuration file.
+    # Start zebra/pimd/bgp on every router; r2 needs pimd for ssmpingd even
+    # though its frr.conf has no pim stanza.
+    for router in tgen.routers().values():
+        router.load_frr_config(daemons=["zebra", "pimd", "bgpd"])
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()

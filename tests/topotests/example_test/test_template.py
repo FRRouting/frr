@@ -90,7 +90,7 @@ def tgen(request):
     # ospf" block for auto-detection to find.
     router_list = tgen.routers()
 
-    for rname, router in router_list.items():
+    for router in router_list.values():
         router.load_frr_config(extra_daemons=["ospfd"])
 
     # Start and configure the router daemons

@@ -27,11 +27,11 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for _, (rname, router) in enumerate(router_list.items()):
+    for rname, router in router_list.items():
         router.net.add_l3vrf("red", 10)
         router.net.attach_iface_to_l3vrf(rname + "-eth2", "red")
 
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        router.load_frr_config()
 
     tgen.start_router()
 

@@ -60,7 +60,7 @@ def tgen(request):
     tgen.gears["r3"].load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
 
     # configure mgmtd using current mgmtd config file
-    tgen.gears["r4"].load_frr_config("frr.conf")
+    tgen.gears["r4"].load_frr_config()
 
     tgen.start_router()
     yield tgen

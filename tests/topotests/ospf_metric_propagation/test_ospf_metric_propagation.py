@@ -154,9 +154,8 @@ def setup_module(mod):
             "ip link set dev r{}-eth2 vrf green up".format(routern)
         )
 
-    for rname, router in router_list.items():
-        logger.info("Loading router %s" % rname)
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()

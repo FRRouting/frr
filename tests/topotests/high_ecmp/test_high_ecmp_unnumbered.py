@@ -38,7 +38,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
@@ -78,17 +78,12 @@ def setup_module(module):
 
     # This is a sample of configuration loading.
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for router in router_list.values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, "-s 180000000"),
-                (TopoRouter.RD_BGP, None),
-                (TopoRouter.RD_SHARP, None),
-                (TopoRouter.RD_STATIC, None),
-                (TopoRouter.RD_OSPF, None),
-                (TopoRouter.RD_OSPF6, None),
-                (TopoRouter.RD_PIM, None),
+            daemons=[
+                ("zebra", "-s 180000000"),
+                "bgpd",
+                "sharpd",
             ],
         )
 

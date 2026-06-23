@@ -24,7 +24,7 @@ def tgen(request):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for router in router_list.values():
         router.load_frr_config("frr-yanglib.conf")
 
     tgen.start_router()

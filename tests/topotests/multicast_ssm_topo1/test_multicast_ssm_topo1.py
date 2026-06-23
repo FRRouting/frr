@@ -229,7 +229,7 @@ def setup_module(mod):
     tgen.start_topology()
 
     for rname in ("r1", "r2", "r3"):
-        tgen.gears[rname].load_frr_config(os.path.join(CWD, f"{rname}/frr.conf"))
+        tgen.gears[rname].load_frr_config()
     tgen.start_router()
 
 

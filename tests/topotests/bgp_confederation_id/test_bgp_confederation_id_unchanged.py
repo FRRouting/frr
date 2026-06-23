@@ -34,7 +34,7 @@ def setup_module(mod):
 
     for rname in router_list:
         router = tgen.gears[rname]
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        router.load_frr_config()
 
     tgen.start_router()
 

@@ -69,8 +69,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for _, router in router_list.items():
-        router.load_frr_config(os.path.join(CWD, f"{router.name}/frr.conf"))
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.gears["r1"].run("ip link add blue type vrf table 10")
     tgen.gears["r1"].run("ip link set blue up")

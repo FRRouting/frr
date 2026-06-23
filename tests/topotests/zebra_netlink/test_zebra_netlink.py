@@ -40,7 +40,7 @@ def tgen(request):
 
     # Initialize all routers.
     router_list = tgen.routers()
-    for _, router in router_list.items():
+    for router in router_list.values():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_SHARP)
 

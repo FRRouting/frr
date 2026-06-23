@@ -44,7 +44,7 @@ from .bgpbmp import (
     bmp_check_for_peer_message,
     bmp_update_seq,
 )
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
@@ -89,11 +89,9 @@ ip link set vrf1 up
 """
     )
 
-    for _, (rname, router) in enumerate(tgen.routers().items(), 1):
-        logger.info("Loading router %s" % rname)
+    for router in tgen.routers().values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BGP, "-M bmp")],
+            daemons=["zebra", ("bgpd", "-M bmp")],
         )
 
     tgen.start_router()

@@ -49,8 +49,8 @@ def setup_module(mod):
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, f"{rname}/frr.conf"))
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
 

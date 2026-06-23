@@ -63,7 +63,7 @@ def setup_module(module):
 
     # This is a sample of configuration loading.
     r1 = tgen.gears["r1"]
-    r1.load_frr_config(os.path.join(CWD, "r1/frr.conf"))
+    r1.load_frr_config()
 
     tgen.start_router()
 

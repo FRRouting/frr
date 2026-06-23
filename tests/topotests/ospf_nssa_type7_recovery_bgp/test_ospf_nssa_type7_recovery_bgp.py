@@ -72,8 +72,8 @@ def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, rname, "frr.conf"))
+    for router in tgen.routers().values():
+        router.load_frr_config()
     tgen.start_router()
 
 

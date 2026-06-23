@@ -37,7 +37,7 @@ def tgen(request):
         router.net.attach_iface_to_l3vrf("lo-red", "red")
         router.net.attach_iface_to_l3vrf(rname + "-eth2", "red")
         router.net.attach_iface_to_l3vrf(rname + "-eth3", "red")
-        router.load_frr_config("frr.conf")
+        router.load_frr_config()
 
     tgen.start_router()
     yield tgen

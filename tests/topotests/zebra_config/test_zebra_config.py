@@ -32,7 +32,7 @@ def tgen(request):
     tgen.start_topology()
 
     for router in tgen.routers().values():
-        router.load_frr_config("frr.conf")
+        router.load_frr_config()
 
     tgen.start_router()
     yield tgen

@@ -38,11 +38,8 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(
-            os.path.join(CWD, "frr.conf"),
-            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_SHARP, None)],
-        )
+    for router in tgen.routers().values():
+        router.load_frr_config(extra_daemons=["sharpd"])
 
     tgen.start_router()
 

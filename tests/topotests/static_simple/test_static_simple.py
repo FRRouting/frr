@@ -40,7 +40,7 @@ def tgen(request):
         router.net.attach_iface_to_l3vrf("lo-red", "red")
         router.net.attach_iface_to_l3vrf(rname + "-eth1", "red")
         #
-        # router.load_frr_config("frr.conf")
+        # router.load_frr_config()
         # and select daemons to run
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_MGMTD)

@@ -105,7 +105,7 @@ def setup_module(mod):
     # ip link add vxlan100 up master br100 type vxlan id 100 dstport 4789 local 10.0.0.12 nolearning
 
     for name, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, f"{name}/frr.conf"))
+        router.load_frr_config()
     tgen.start_router()
 
 

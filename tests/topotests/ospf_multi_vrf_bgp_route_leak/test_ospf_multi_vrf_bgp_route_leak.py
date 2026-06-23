@@ -128,9 +128,8 @@ def setup_module(mod):
 
     logger.info("Testing OSPF VRF support")
 
-    for rname, router in router_list.items():
-        logger.info("Loading router %s" % rname)
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()

@@ -51,8 +51,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in router_list.values():
+        router.load_frr_config()
 
     # R2 is a router, so accept RA explicitly on both links.
     topotest.sysctl_assure(tgen.net["r2"], "net.ipv6.conf.all.accept_ra", 2)

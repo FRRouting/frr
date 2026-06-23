@@ -42,10 +42,9 @@ def setup_module(mod):
     tgen.start_topology()
     router_list = tgen.routers()
 
-    for _, (rname, router) in enumerate(router_list.items(), 1):
+    for router in router_list.values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [(TopoRouter.RD_ZEBRA, "-s 90000000"), (TopoRouter.RD_MGMTD, None)],
+            daemons=[("zebra", "-s 90000000")],
         )
 
     # Initialize all routers.
