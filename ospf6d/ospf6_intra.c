@@ -892,7 +892,7 @@ void ospf6_intra_prefix_lsa_originate_stub(struct event *event)
 	struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
 	struct ospf6_interface *oi;
 	struct ospf6_neighbor *on;
-	struct ospf6_route *route;
+	struct ospf6_route *route, *alt_route;
 	struct ospf6_prefix *op;
 	struct listnode *i, *j;
 	int full_count = 0;
@@ -981,8 +981,16 @@ void ospf6_intra_prefix_lsa_originate_stub(struct event *event)
 		     route = ospf6_route_best_next(route)) {
 			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
 				zlog_debug("    include %pFX", &route->prefix);
-			ospf6_route_add(ospf6_route_copy(route),
-					route_advertise);
+
+			/* same prefix on different interfaces */
+			alt_route = ospf6_route_lookup(&route->prefix, route_advertise);
+			if (alt_route) {
+				if (ospf6_route_cmp(alt_route, route) > 0) {
+					ospf6_route_remove(alt_route, route_advertise);
+					ospf6_route_add(ospf6_route_copy(route), route_advertise);
+				}
+			} else
+				ospf6_route_add(ospf6_route_copy(route), route_advertise);
 		}
 	}
 
