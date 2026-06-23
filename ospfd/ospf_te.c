@@ -1873,7 +1873,8 @@ static void ospf_te_delete_subnet(struct ls_ted *ted, struct in_addr addr)
  */
 static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 {
-	struct router_lsa *rl;
+	const struct router_lsa *rl;
+	const struct router_link *rlnk;
 	enum ls_node_type type;
 	struct ls_vertex *vertex;
 	int len, links;
@@ -1920,28 +1921,33 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	/* Then, process Link Information */
 	len = lsa->size - OSPF_LSA_HEADER_SIZE - OSPF_ROUTER_LSA_MIN_SIZE;
 	links = ntohs(rl->links);
-	for (int i = 0; i < links && len > 0; len -= 12, i++) {
+	for (int i = 0; i < links && len > 0; i++) {
 		struct prefix p;
 		uint32_t metric;
 
-		switch (rl->link[i].type) {
+		if (i == 0)
+			rlnk = &(rl->link[0]);
+		else
+			rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
+
+		switch (rlnk->type) {
 		case LSA_LINK_TYPE_POINTOPOINT:
-			ospf_te_update_link(ted, vertex, rl->link[i].link_data,
-					    ntohs(rl->link[i].metric));
+			ospf_te_update_link(ted, vertex, rlnk->link_data,
+					    ntohs(rlnk->metric));
 			/* Add corresponding subnet */
 			p.family = AF_INET;
 			p.prefixlen = IPV4_MAX_BITLEN;
-			p.u.prefix4 = rl->link[i].link_data;
-			metric = ntohs(rl->link[i].metric);
+			p.u.prefix4 = rlnk->link_data;
+			metric = ntohs(rlnk->metric);
 			ospf_te_update_subnet(ted, vertex, &p, metric);
 			break;
 		case LSA_LINK_TYPE_STUB:
 			/* Keep only /32 prefix */
-			p.prefixlen = ip_masklen(rl->link[i].link_data);
+			p.prefixlen = ip_masklen(rlnk->link_data);
 			if (p.prefixlen == IPV4_MAX_BITLEN) {
 				p.family = AF_INET;
-				p.u.prefix4 = rl->link[i].link_id;
-				metric = ntohs(rl->link[i].metric);
+				p.u.prefix4 = rlnk->link_id;
+				metric = ntohs(rlnk->metric);
 				ospf_te_update_subnet(ted, vertex, &p, metric);
 			}
 			break;

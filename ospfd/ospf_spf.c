@@ -558,6 +558,7 @@ static int ospf_lsa_has_link(struct lsa_header *w, struct lsa_header *v)
 	unsigned int i, length;
 	struct router_lsa *rl;
 	struct network_lsa *nl;
+	struct router_link *rlnk;
 
 	/* In case of W is Network LSA. */
 	if (w->type == OSPF_NETWORK_LSA) {
@@ -577,37 +578,35 @@ static int ospf_lsa_has_link(struct lsa_header *w, struct lsa_header *v)
 	if (w->type == OSPF_ROUTER_LSA) {
 		rl = (struct router_lsa *)w;
 
-		length = ntohs(w->length);
+		rlnk = &(rl->link[0]);
 
-		for (i = 0; i < ntohs(rl->links)
-			    && length >= sizeof(struct router_lsa);
-		     i++, length -= 12) {
-			switch (rl->link[i].type) {
+		for (i = 0; i < ntohs(rl->links); i++) {
+			switch (rlnk->type) {
 			case LSA_LINK_TYPE_POINTOPOINT:
 			case LSA_LINK_TYPE_VIRTUALLINK:
 				/* Router LSA ID. */
-				if (v->type == OSPF_ROUTER_LSA
-				    && IPV4_ADDR_SAME(&rl->link[i].link_id,
-						      &v->id)) {
+				if (v->type == OSPF_ROUTER_LSA &&
+				    IPV4_ADDR_SAME(&rlnk->link_id, &v->id))
 					return i;
-				}
 				break;
 			case LSA_LINK_TYPE_TRANSIT:
 				/* Network LSA ID. */
-				if (v->type == OSPF_NETWORK_LSA
-				    && IPV4_ADDR_SAME(&rl->link[i].link_id,
-						      &v->id)) {
+				if (v->type == OSPF_NETWORK_LSA &&
+				    IPV4_ADDR_SAME(&rlnk->link_id, &v->id))
 					return i;
-				}
 				break;
 			case LSA_LINK_TYPE_STUB:
 				/* Stub can't lead anywhere, carry on */
-				continue;
+				break;
 			default:
 				break;
 			}
+
+			/* Advance router_link pointer */
+			rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
 		}
 	}
+
 	return -1;
 }
 
