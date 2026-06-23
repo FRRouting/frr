@@ -60,7 +60,7 @@ const char *const ospf6_neighbor_state_str[] = {
 const char *const ospf6_neighbor_event_str[] = {
 	"NoEvent",	"HelloReceived", "2-WayReceived",   "NegotiationDone",
 	"ExchangeDone", "LoadingDone",	 "AdjOK?",	    "SeqNumberMismatch",
-	"BadLSReq",	"1-WayReceived", "InactivityTimer",
+	"BadLSReq",	"1-WayReceived", "KillNbr",	    "InactivityTimer",
 };
 
 int ospf6_neighbor_cmp(void *va, void *vb)
@@ -596,6 +596,26 @@ void oneway_received(struct event *event)
 	event_cancel(&on->thread_adj_ok);
 }
 
+static void ospf6_neighbor_remove(struct ospf6_neighbor *on, int event)
+{
+	on->drouter = on->prev_drouter = 0;
+	on->bdrouter = on->prev_bdrouter = 0;
+
+	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_DOWN, on, event);
+	event_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
+
+	listnode_delete(on->ospf6_if->neighbor_list, on);
+	ospf6_neighbor_delete(on);
+}
+
+void ospf6_neighbor_kill(struct ospf6_neighbor *on)
+{
+	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
+		zlog_debug("Neighbor Event %s: *KillNbr*", on->name);
+
+	ospf6_neighbor_remove(on, OSPF6_NEIGHBOR_EVENT_KILL_NBR);
+}
+
 void inactivity_timer(struct event *event)
 {
 	struct ospf6_neighbor *on;
@@ -606,21 +626,9 @@ void inactivity_timer(struct event *event)
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *InactivityTimer*", on->name);
 
-	on->drouter = on->prev_drouter = 0;
-	on->bdrouter = on->prev_bdrouter = 0;
-
-	if (!OSPF6_GR_IS_ACTIVE_HELPER(on)) {
-		on->drouter = on->prev_drouter = 0;
-		on->bdrouter = on->prev_bdrouter = 0;
-
-		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_DOWN, on,
-					    OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
-		event_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
-
-		listnode_delete(on->ospf6_if->neighbor_list, on);
-		ospf6_neighbor_delete(on);
-
-	} else {
+	if (!OSPF6_GR_IS_ACTIVE_HELPER(on))
+		ospf6_neighbor_remove(on, OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
+	else {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug("%s, Acting as HELPER for this neighbour, So restart the dead timer.",
 				   __PRETTY_FUNCTION__);

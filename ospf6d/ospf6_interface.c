@@ -967,7 +967,7 @@ void neighbor_change(struct event *event)
 void interface_down(struct event *event)
 {
 	struct ospf6_interface *oi;
-	struct listnode *node, *nnode;
+	struct listnode *node;
 	struct ospf6_neighbor *on;
 	struct ospf6 *ospf6;
 
@@ -995,10 +995,10 @@ void interface_down(struct event *event)
 			ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_TOPO_CHG);
 	}
 
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
-		ospf6_neighbor_delete(on);
-
-	list_delete_all_node(oi->neighbor_list);
+	while ((node = listhead(oi->neighbor_list)) != NULL) {
+		on = listgetdata(node);
+		ospf6_neighbor_kill(on);
+	}
 
 	/* When interface state is reset, also reset information about
 	 * DR election, as it is no longer valid. */
