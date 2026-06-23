@@ -1551,6 +1551,9 @@ static void rib_process(struct route_node *rn)
 	if (old_selected != new_selected || selected_changed)
 		zebra_vrf_import_rib_update(rn, old_selected, new_selected);
 
+	if (old_selected && CHECK_FLAG(old_selected->status, ROUTE_ENTRY_REMOVED))
+		zebra_vrf_import_resolver_update(rn, old_selected);
+
 	/* Update fib according to selection results */
 	if (new_fib && old_fib)
 		rib_process_update_fib(zvrf, rn, old_fib, new_fib);
@@ -2249,6 +2252,11 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
 
 	zebra_rib_evaluate_mpls(rn);
+
+	if (status == ZEBRA_DPLANE_REQUEST_SUCCESS &&
+	    (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE ||
+	     op == DPLANE_OP_ROUTE_DELETE))
+		zebra_vrf_import_resolver_update(rn, re ? re : old_re);
 done:
 
 	if (rn)
@@ -2397,6 +2405,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 				       false);
 
 	zebra_rib_evaluate_mpls(rn);
+
+	if (fib_changed)
+		zebra_vrf_import_resolver_update(rn, re);
 
 done:
 	if (rn)

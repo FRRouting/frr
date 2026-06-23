@@ -352,24 +352,37 @@ int zebra_vrf_import_del(struct zebra_vrf *dst_zvrf, afi_t afi, safi_t safi,
 	return 0;
 }
 
-static void zebra_vrf_import_rescan_dst(struct zebra_vrf *dst_zvrf, afi_t afi)
+static void zebra_vrf_import_queue_dst(struct zebra_vrf *dst_zvrf, afi_t afi)
 {
-	struct zebra_vrf_import *import;
-	struct vrf *src_vrf;
+	struct route_table *table;
 
 	if (!dst_zvrf || !zebra_vrf_imports_count(&dst_zvrf->vrf_imports))
 		return;
 
-	frr_each (zebra_vrf_imports, &dst_zvrf->vrf_imports, import) {
-		if (import->afi != afi || import->safi != SAFI_UNICAST)
-			continue;
+	table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf_id(dst_zvrf));
+	if (!table)
+		return;
 
-		src_vrf = vrf_lookup_by_name(import->src_vrf_name);
-		if (src_vrf)
-			zebra_vrf_import_del_all(dst_zvrf, import->afi, import->safi,
-						 src_vrf->vrf_id);
-		zebra_vrf_import_scan(import, dst_zvrf);
-	}
+	rib_update_table(table, RIB_UPDATE_OTHER, ZEBRA_ROUTE_VRF_IMPORT);
+}
+
+void zebra_vrf_import_resolver_update(struct route_node *rn, struct route_entry *re)
+{
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+
+	if (!rn || !re || re->type == ZEBRA_ROUTE_VRF_IMPORT)
+		return;
+
+	afi = family2afi(rn->p.family);
+	if (afi != AFI_IP && afi != AFI_IP6)
+		return;
+
+	zvrf = vrf_info_lookup(re->vrf_id);
+	if (!zvrf)
+		return;
+
+	zebra_vrf_import_queue_dst(zvrf, afi);
 }
 
 void zebra_vrf_import_rib_update(struct route_node *rn, struct route_entry *old_selected,
@@ -411,13 +424,6 @@ void zebra_vrf_import_rib_update(struct route_node *rn, struct route_entry *old_
 							   new_selected);
 		}
 	}
-
-	/* A route in this VRF may have appeared/disappeared as a resolver for
-	 * imported routes.  Force a conservative re-evaluation because VRF-import
-	 * routes created before their destination nexthop was resolvable may not
-	 * otherwise get revisited immediately.
-	 */
-	zebra_vrf_import_rescan_dst(src_zvrf, afi);
 }
 
 void zebra_vrf_import_route_map_update(const char *rmap_name)
