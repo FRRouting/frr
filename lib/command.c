@@ -1576,10 +1576,16 @@ static void print_cmd(struct vty *vty, const char *cmd)
 	j = 0;
 	for (i = 0; i < len; i++) {
 		/* skip varname */
-		if (cmd[i] == '$')
+		if (cmd[i] == '$') {
 			skip = true;
-		else if (strchr(" ()<>[]{}|", cmd[i]))
+		} else if (cmd[i] == '\\' && cmd[i + 1] == '|') {
+			buf[j++] = '|';
+			buf[j++] = ' ';
+			i++;
+			continue;
+		} else if (strchr(" ()<>[]{}|", cmd[i])) {
 			skip = false;
+		}
 
 		if (skip)
 			continue;
