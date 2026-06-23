@@ -167,6 +167,14 @@ struct router_lsa {
 	} link[1];
 };
 
+/* Next link after 'l' in a router_lsa */
+#define OSPF_ROUTER_LINK_NEXT(l)                                               \
+	((void *)((uint8_t *)(l) + OSPF_ROUTER_LSA_LINK_SIZE + ((l)->tos * 4)))
+
+/* Len of router_lsa_link 'l', including variable part */
+#define OSPF_ROUTER_LSA_LINK_LEN(l)                                            \
+	(OSPF_ROUTER_LSA_LINK_SIZE + ((l)->m[0].tos_count * 4))
+
 /* OSPF Network-LSAs structure. */
 #define OSPF_NETWORK_LSA_MIN_SIZE                  8U /* w/1 router-ID */
 struct network_lsa {
