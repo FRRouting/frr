@@ -1160,46 +1160,67 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 			      char **cmd_out)
 {
 	/* look for `|` */
-	char *orig, *working, *token, *u;
-	const char *pipe = strstr(cmd_in, "| ");
+	char *pipe, *orig, *working, *token, *u, *regexp;
 	int ret = 0;
 
+	pipe = strstr(cmd_in, " | ");
 	if (!pipe)
 		return 0;
 
-	/* duplicate string for processing purposes, not including pipe */
-	orig = working = XSTRDUP(MTYPE_TMP, pipe + 2);
+	/*
+	 * duplicate string for processing purposes,
+	 * not including pipe nor space.
+	 */
+	pipe += 3;
+	while (isblank((unsigned char)*pipe))
+		pipe++;
+
+	if (*pipe == '\0') {
+		vty_out(vty, "%% Command incomplete: %s\n", cmd_in);
+		return 1;
+	}
+
+	orig = working = XSTRDUP(MTYPE_TMP, pipe);
 
 	/* retrieve action */
 	token = strsep(&working, " ");
 	assert(token);
 
 	/* match result to known actions */
-	if (strmatch(token, "include")) {
-		/* the remaining text should be a regexp */
-		char *regexp = working;
-
-		if (!regexp) {
-			vty_out(vty, "%% Need a regexp to filter with\n");
-			ret = 1;
-			goto fail;
-		}
-
-		bool succ = vty_set_include(vty, regexp);
-
-		if (!succ) {
-			vty_out(vty, "%% Bad regexp '%s'\n", regexp);
-			ret = 1;
-			goto fail;
-		}
-		*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
-		u = *cmd_out;
-		strsep(&u, "|");
-	} else {
+	if (!strmatch(token, "include")) {
 		vty_out(vty, "%% Unknown action '%s'\n", token);
 		ret = 1;
 		goto fail;
 	}
+
+	if (!working) {
+		vty_out(vty, "%% Command incomplete: %s\n", cmd_in);
+		ret = 1;
+		goto fail;
+	}
+
+	/* ignoring preliminary blank characters */
+	while (isblank((unsigned char)*working))
+		working++;
+
+	/* the remaining text should be a regexp */
+	regexp = working;
+	if (*regexp == '\0') {
+		vty_out(vty, "%% Need a regexp to filter with\n");
+		ret = 1;
+		goto fail;
+	}
+
+	bool succ = vty_set_include(vty, regexp);
+	if (!succ) {
+		vty_out(vty, "%% Bad regexp '%s'\n", regexp);
+		ret = 1;
+		goto fail;
+	}
+
+	*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
+	u = *cmd_out;
+	strsep(&u, "|");
 
 fail:
 	XFREE(MTYPE_TMP, orig);
