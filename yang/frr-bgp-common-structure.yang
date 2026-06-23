@@ -64,6 +64,8 @@ submodule frr-bgp-common-structure {
   revision 2019-12-03 {
     description
       "Initial revision.";
+    reference
+      "FRRouting";
   }
 
   grouping structure-neighbor-group-ebgp-multihop {
@@ -74,6 +76,8 @@ submodule frr-bgp-common-structure {
       description
         "EBGP multi-hop parameters for the BGP group.";
       choice hop-count-choice {
+        description
+          "Choice for EBGP multihop TTL configuration.";
         case default-hop-count {
           leaf enabled {
             type boolean;
@@ -108,7 +112,11 @@ submodule frr-bgp-common-structure {
   }
 
   grouping neighbor-local-as-options {
+    description
+      "Configuration options for local AS number for BGP neighbors.";
     container local-as {
+      description
+        "Local AS number configuration parameters.";
       leaf local-as {
         type inet:as-number;
         description
@@ -137,7 +145,11 @@ submodule frr-bgp-common-structure {
   }
 
   grouping neighbor-bfd-options {
+    description
+      "BFD options for BGP neighbors.";
     container bfd-options {
+      description
+        "BFD configuration parameters.";
       leaf enable {
         type boolean;
         default "false";
@@ -196,7 +208,11 @@ submodule frr-bgp-common-structure {
   }
 
   grouping neighbor-remote-as {
+    description
+      "Configuration for remote AS number for BGP neighbors.";
     container neighbor-remote-as {
+      description
+        "Remote AS number configuration parameters.";
       leaf remote-as-type {
         type frr-bt:as-type;
         description
@@ -222,6 +238,8 @@ submodule frr-bgp-common-structure {
       description
         "Source of routing updates config.";
       choice source {
+        description
+          "Source type for routing updates.";
         case ip-based {
           leaf ip {
             type inet:ip-address;
@@ -272,6 +290,8 @@ submodule frr-bgp-common-structure {
         "AS_PATH manipulation parameters for the BGP neighbor or
          group.";
       choice allowas-in {
+        description
+          "Options for allowing own AS in AS_PATH.";
         case occurence-based {
           leaf allow-own-as {
             type uint8 {
@@ -381,11 +401,15 @@ submodule frr-bgp-common-structure {
   }
 
   grouping structure-neighbor-prefix-limit {
+    description
+      "Configuration for prefix limits for BGP neighbors.";
     container prefix-limit {
       description
         "Parameters relating to the prefix limit for the AFI-SAFI.";
       list direction-list {
         key "direction";
+        description
+          "List of prefix limit directions.";
         leaf direction {
           type frr-bt:direction;
           description
@@ -409,7 +433,11 @@ submodule frr-bgp-common-structure {
 
         container options {
           when "../direction = 'in'";
+          description
+            "Options for prefix limit handling.";
           choice options {
+            description
+              "Prefix limit options.";
             case warning {
               leaf warning-only {
                 type boolean;
@@ -484,6 +512,8 @@ submodule frr-bgp-common-structure {
   }
 
   grouping structure-neighbor-nexthop-self {
+    description
+      "Configuration for nexthop-self for BGP neighbors.";
     container nexthop-self {
       description
         "Parameters relating to the nexthop-self for the AFI-SAFI.";
@@ -506,6 +536,8 @@ submodule frr-bgp-common-structure {
   }
 
   grouping structure-neighbor-private-as {
+    description
+      "Configuration for private AS handling for BGP neighbors.";
     container private-as {
       description
         "Parameters relating to the private-as for the AFI-SAFI.";
@@ -544,6 +576,8 @@ submodule frr-bgp-common-structure {
   }
 
   grouping structure-neighbor-weight {
+    description
+      "Configuration for weight attribute for BGP neighbors.";
     container weight {
       description
         "Parameters relating to the weight for the AFI-SAFI.";
@@ -558,6 +592,8 @@ submodule frr-bgp-common-structure {
   }
 
   grouping structure-neighbor-route-reflector {
+    description
+      "Configuration for route reflector for BGP neighbors.";
     container route-reflector {
       description
         "Parameters relating to the route-reflector for the AFI-SAFI.";
@@ -571,6 +607,8 @@ submodule frr-bgp-common-structure {
   }
 
   grouping structure-neighbor-route-server {
+    description
+      "Configuration for route server for BGP neighbors.";
     container route-server {
       description
         "Parameters relating to the route-server for the AFI-SAFI.";
@@ -584,6 +622,8 @@ submodule frr-bgp-common-structure {
   }
 
   grouping structure-neighbor-send-community {
+    description
+      "Configuration for sending community attributes for BGP neighbors.";
     container send-community {
       description
         "Parameters relating to the send-community for the AFI-SAFI.";
@@ -641,6 +681,8 @@ submodule frr-bgp-common-structure {
       description
         "BGP Graceful restart feature.";
       choice mode {
+        description
+          "Graceful restart mode selection.";
         case graceful-restart-mode {
           leaf enable {
             type boolean;
@@ -726,7 +768,11 @@ submodule frr-bgp-common-structure {
       "Structural grouping used to include orf
        configuration for both BGP neighbors and peer groups.";
     container orf-capability {
+      description
+        "Outbound Route Filtering capability configuration.";
       choice orf-update {
+        description
+          "ORF update direction options.";
         case send {
           leaf orf-send {
             type boolean;
@@ -762,6 +808,8 @@ submodule frr-bgp-common-structure {
       "Structural grouping used to include per neighbor timers
        configuration for both BGP neighbors and peer groups.";
     container timers {
+      description
+        "Timer configuration parameters.";
       leaf advertise-interval {
         type uint16 {
           range "0..600";
