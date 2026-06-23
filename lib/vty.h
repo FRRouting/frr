@@ -52,6 +52,12 @@ enum vty_status {
 	VTY_PASSFD,
 };
 
+enum output_filter {
+	FILTER_AMBIGUOUS = -1,
+	FILTER_NONE,
+	FILTER_INCLUDE
+};
+
 PREDECL_DLIST(vtys);
 
 /* VTY struct. */

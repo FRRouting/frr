@@ -1153,6 +1153,28 @@ DECLARE_KOOH(cmd_execute_done, (struct vty *vty, const char *cmd_exec),
 DEFINE_KOOH(cmd_execute_done, (struct vty *vty, const char *cmd_exec),
 	    (vty, cmd_exec));
 
+static enum output_filter resolve_filter(const char *token)
+{
+	enum output_filter match_filter = FILTER_NONE;
+	size_t token_len = strlen(token);
+	struct {
+		const char *str;
+		enum output_filter flag;
+	} filter[] = {
+		{"include", FILTER_INCLUDE}
+	};
+
+	for (unsigned i = 0; i < sizeof filter / sizeof filter[0]; i++) {
+		if (strnmatch(token, filter[i].str, token_len)) {
+			if (match_filter != FILTER_NONE)
+				return FILTER_AMBIGUOUS;
+			match_filter = filter[i].flag;
+		}
+	}
+
+	return match_filter;
+}
+
 /*
  * cmd_execute hook subscriber to handle `|` actions.
  */
@@ -1161,7 +1183,9 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 {
 	/* look for `|` */
 	char *pipe, *orig, *working, *token, *u, *regexp;
+	enum output_filter filter;
 	int ret = 0;
+	const char *action_err;
 
 	pipe = strstr(cmd_in, " | ");
 	if (!pipe)
@@ -1187,8 +1211,10 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 	assert(token);
 
 	/* match result to known actions */
-	if (!strmatch(token, "include")) {
-		vty_out(vty, "%% Unknown action '%s'\n", token);
+	filter = resolve_filter(token);
+	if (filter == FILTER_NONE || filter == FILTER_AMBIGUOUS) {
+		action_err = filter == FILTER_NONE ? "Unknown" : "Ambiguous";
+		vty_out(vty, "%% %s action '%s'\n", action_err, token);
 		ret = 1;
 		goto fail;
 	}
