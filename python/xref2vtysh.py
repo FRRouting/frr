@@ -152,6 +152,8 @@ class CommandEntry:
         self._registered = False
 
         self.cmd = spec["string"]
+        if self.cmd.startswith("show "):
+            self.inject_output_modifiers()
         self._cmd_normalized = self.normalize_cmd(self.cmd)
 
         self.hidden = "hidden" in spec.get("attrs", [])
@@ -160,6 +162,15 @@ class CommandEntry:
         self.doclines = self._spec["doc"].splitlines(keepends=True)
         if not self.doclines[-1].endswith("\n"):
             self.warn_loc("docstring does not end with \\n")
+
+    def inject_output_modifiers(self):
+        self.cmd += " [\\| include REGEX...]"
+
+        if not self._spec["doc"].endswith("\n"):
+            self._spec["doc"] += "\n"
+        self._spec[
+            "doc"
+        ] += "Output modifiers\nInclude lines that match\nRegular Expression\n"
 
     @staticmethod
     def _warn_loc(name, spec, wtext, nodename=None):

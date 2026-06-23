@@ -41,6 +41,28 @@
 #include "ferr.h"
 #include "sockopt.h"
 
+#define output_modifiers_cmdstr " [\\| include REGEX...]"
+#define output_modifiers_helpstr                                                                  \
+	"Output modifiers\n"                                                                      \
+	"Include lines that match\n"                                                              \
+	"Regular Expression\n"
+
+#ifdef DEFPY
+#undef DEFPY
+#endif
+#define DEFPY(funcname, cmdname, cmdstr, helpstr)                                                 \
+	DEFPY_ATTR(funcname, cmdname,                                                             \
+		   __builtin_choose_expr(IS_SHOW_CMD_##funcname, cmdstr output_modifiers_cmdstr,  \
+					 cmdstr),                                                 \
+		   __builtin_choose_expr(IS_SHOW_CMD_##funcname,                                  \
+					 helpstr output_modifiers_helpstr, helpstr),              \
+		   0)
+
+#ifdef CLIPPY
+/* clippy/clidef can't process the DEFPY below without some value for this */
+#define DAEMONS_LIST "daemon"
+#endif
+
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy");
 
 /* Struct VTY. */
@@ -3159,7 +3181,7 @@ static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 	return ret;
 }
 
-DEFUN (vtysh_show_event_timer,
+DEFPY (vtysh_show_event_timer,
        vtysh_show_event_timer_cmd,
        "show event timers",
        SHOW_STR
@@ -3169,7 +3191,7 @@ DEFUN (vtysh_show_event_timer,
 	return show_per_daemon(vty, argv, argc, "Event timers for %s:\n");
 }
 
-DEFUN (vtysh_show_event_poll,
+DEFPY (vtysh_show_event_poll,
        vtysh_show_event_poll_cmd,
        "show event poll",
        SHOW_STR
@@ -3179,7 +3201,7 @@ DEFUN (vtysh_show_event_poll,
 	return show_per_daemon(vty, argv, argc, "Event statistics for %s:\n");
 }
 
-DEFUN (vtysh_show_event,
+DEFPY (vtysh_show_event,
        vtysh_show_event_cpu_cmd,
        "show event cpu [FILTER]",
        SHOW_STR
@@ -3190,7 +3212,7 @@ DEFUN (vtysh_show_event,
 	return show_per_daemon(vty, argv, argc, "Event statistics for %s:\n");
 }
 
-DEFUN (vtysh_show_work_queues,
+DEFPY (vtysh_show_work_queues,
        vtysh_show_work_queues_cmd,
        "show work-queues",
        SHOW_STR
@@ -3200,7 +3222,7 @@ DEFUN (vtysh_show_work_queues,
 			       "Work queue statistics for %s:\n");
 }
 
-DEFUN (vtysh_show_work_queues_daemon,
+DEFPY (vtysh_show_work_queues_daemon,
        vtysh_show_work_queues_daemon_cmd,
        "show work-queues " DAEMONS_LIST,
        SHOW_STR
@@ -3258,7 +3280,7 @@ DEFUNSH_HIDDEN (0x00,
 	return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_show_debugging,
+DEFPY (vtysh_show_debugging,
        vtysh_show_debugging_cmd,
        "show debugging",
        SHOW_STR
@@ -3267,7 +3289,7 @@ DEFUN (vtysh_show_debugging,
 	return show_per_daemon(vty, argv, argc, "");
 }
 
-DEFUN (vtysh_show_debugging_hashtable,
+DEFPY (vtysh_show_debugging_hashtable,
        vtysh_show_debugging_hashtable_cmd,
        "show debugging hashtable [statistics]",
        SHOW_STR
@@ -3292,7 +3314,7 @@ DEFUN (vtysh_show_debugging_hashtable,
 			       "Hashtable statistics for %s:\n");
 }
 
-DEFUN (vtysh_show_error_code,
+DEFPY (vtysh_show_error_code,
        vtysh_show_error_code_cmd,
        "show error <(1-4294967296)|all> [json]",
        SHOW_STR
@@ -3323,7 +3345,7 @@ DEFUN (vtysh_show_error_code,
 }
 
 /* Northbound. */
-DEFUN (show_config_running,
+DEFPY (show_config_running,
        show_config_running_cmd,
        "show configuration running\
           [<json|xml> [translate WORD]]\
@@ -3341,7 +3363,7 @@ DEFUN (show_config_running,
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
 
-DEFUN (show_yang_operational_data,
+DEFPY (show_yang_operational_data,
        show_yang_operational_data_cmd,
        "show yang operational-data XPATH\
          [{\
@@ -3364,7 +3386,7 @@ DEFUN (show_yang_operational_data,
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
 
-DEFUN(show_yang_module, show_yang_module_cmd,
+DEFPY (show_yang_module, show_yang_module_cmd,
       "show yang module [module-translator WORD] " DAEMONS_LIST,
       SHOW_STR
       "YANG information\n"
@@ -3375,7 +3397,7 @@ DEFUN(show_yang_module, show_yang_module_cmd,
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
 
-DEFUN(show_yang_module_detail, show_yang_module_detail_cmd,
+DEFPY (show_yang_module_detail, show_yang_module_detail_cmd,
       "show yang module\
           [module-translator WORD]\
           WORD <compiled|summary|tree|yang|yin> " DAEMONS_LIST,
@@ -3419,7 +3441,7 @@ DEFUNSH(VTYSH_ALL, debug_nb,
 	return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_show_history,
+DEFPY (vtysh_show_history,
        vtysh_show_history_cmd,
        "show history",
        SHOW_STR
@@ -3476,7 +3498,7 @@ static void show_collate_json_send(const char *daemon, const char *command_line)
 }
 
 /* Memory */
-DEFUN (vtysh_show_memory,
+DEFPY (vtysh_show_memory,
        vtysh_show_memory_cmd,
        "show <memory|rcu> [" DAEMONS_LIST "] [json]",
        SHOW_STR
@@ -3519,7 +3541,7 @@ DEFUN (vtysh_show_memory,
  */
 #ifdef HAVE_TCMALLOC
 
-DEFUN (vtysh_show_tcmalloc_stats,
+DEFPY (vtysh_show_tcmalloc_stats,
        vtysh_show_tcmalloc_stats_cmd,
        "show tcmalloc stats [" DAEMONS_LIST "]",
        SHOW_STR
@@ -3560,7 +3582,7 @@ DEFUN (vtysh_tcmalloc_config,
 
 #endif /* HAVE_TCMALLOC */
 
-DEFUN (vtysh_show_modules,
+DEFPY (vtysh_show_modules,
        vtysh_show_modules_cmd,
        "show modules",
        SHOW_STR
@@ -3570,7 +3592,7 @@ DEFUN (vtysh_show_modules,
 }
 
 /* Logging commands. */
-DEFUN (vtysh_show_logging,
+DEFPY (vtysh_show_logging,
        vtysh_show_logging_cmd,
        "show logging",
        SHOW_STR
@@ -3732,7 +3754,7 @@ DEFUN (vtysh_write_terminal,
 	return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_show_running_config,
+DEFPY (vtysh_show_running_config,
        vtysh_show_running_config_cmd,
        "show running-config ["DAEMONS_LIST"] [no-header]",
        SHOW_STR
@@ -4387,7 +4409,7 @@ ALIAS_DEPRECATED(vtysh_terminal_length,
        NO_STR
        "Set number of lines on a screen\n")
 
-DEFUN (vtysh_show_daemons,
+DEFPY (vtysh_show_daemons,
        vtysh_show_daemons_cmd,
        "show daemons",
        SHOW_STR
@@ -4606,11 +4628,6 @@ static void vtysh_log_read(struct event *event)
 	return;
 }
 
-#ifdef CLIPPY
-/* clippy/clidef can't process the DEFPY below without some value for this */
-#define DAEMONS_LIST "daemon"
-#endif
-
 DEFPY (vtysh_terminal_monitor,
        vtysh_terminal_monitor_cmd,
        "terminal monitor ["DAEMONS_LIST"]$daemon",
@@ -4794,7 +4811,7 @@ DEFPY (vtysh_ping,
 	return CMD_SUCCESS;
 }
 
-DEFUN(vtysh_motd, vtysh_motd_cmd, "show motd", SHOW_STR "Show motd\n")
+DEFPY(vtysh_motd, vtysh_motd_cmd, "show motd", SHOW_STR "Show motd\n")
 {
 	vty_hello(vty);
 	return CMD_SUCCESS;
@@ -5202,12 +5219,14 @@ static char *vtysh_completion_entry_function(const char *ignore,
 void vtysh_readline_init(void)
 {
 	/* readline related settings. */
+	static char custom_word_break_chars[] = " \t\n";
 	char *disable_bracketed_paste =
 		XSTRDUP(MTYPE_TMP, "set enable-bracketed-paste off");
 
 	rl_initialize();
 	rl_parse_and_bind(disable_bracketed_paste);
 	rl_bind_key('?', (rl_command_func_t *)vtysh_rl_describe);
+	rl_completer_word_break_characters = custom_word_break_chars;
 	rl_completion_entry_function = vtysh_completion_entry_function;
 	rl_attempted_completion_function = new_completion;
 
