@@ -91,8 +91,8 @@ struct pim_interface;
 
 #if PIM_IPV == 4
 void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp);
-void pim_igmp_if_reset(struct pim_interface *pim_ifp);
-void pim_igmp_if_fini(struct pim_interface *pim_ifp);
+void pim_gm_if_reset(struct interface *ifp);
+void pim_igmp_if_fini(struct interface *ifp);
 
 struct gm_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 					    struct in_addr ifaddr);
@@ -117,7 +117,7 @@ static inline void pim_igmp_if_init(struct pim_interface *pim_ifp,
 {
 }
 
-static inline void pim_igmp_if_fini(struct pim_interface *pim_ifp)
+static inline void pim_igmp_if_fini(struct interface *ifp)
 {
 }
 
