@@ -632,6 +632,24 @@ struct interface *if_lookup_prefix(const struct prefix *prefix, vrf_id_t vrf_id)
 	return NULL;
 }
 
+/* Lookup loopback interface by prefix */
+struct interface *if_lookup_prefix_lback(const struct prefix *prefix, vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct interface *ifp;
+	struct connected *c;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		frr_each (if_connected, ifp->connected, c) {
+			if (!if_is_loopback(ifp))
+				continue;
+			if (prefix_cmp(c->address, prefix) == 0)
+				return ifp;
+		}
+	}
+	return NULL;
+}
+
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id)
 {
