@@ -1024,6 +1024,8 @@ static enum match_type match_word(struct cmd_token *token, const char *word)
 static enum match_type match_variable(struct cmd_token *token, const char *word)
 {
 	assert(token->type == VARIABLE_TKN);
+	if (word[0] == '|')
+		return no_match;
 	return exact_match;
 }
 
