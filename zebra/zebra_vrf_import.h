@@ -23,6 +23,7 @@ void zebra_vrf_import_rib_update(struct route_node *rn, struct route_entry *old_
 void zebra_vrf_import_resolver_update(struct route_node *rn, struct route_entry *re);
 void zebra_vrf_import_route_map_update(const char *rmap_name);
 void zebra_vrf_import_vrf_delete(struct zebra_vrf *zvrf);
+void zebra_vrf_import_vrf_disable(struct zebra_vrf *zvrf);
 void zebra_vrf_import_vrf_enable(struct zebra_vrf *zvrf);
 
 #ifdef __cplusplus
