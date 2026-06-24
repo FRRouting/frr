@@ -1879,8 +1879,8 @@ struct peer {
 	/* Last update packet sent time */
 	time_t pkt_stime[AFI_MAX][SAFI_MAX];
 
-	/* Peer / peer group route flap dampening configuration */
-	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+	/* Peer / peer group route flap dampening configuration (allocated on demand) */
+	struct bgp_damp_config *damp[AFI_MAX][SAFI_MAX];
 
 	/* Peer Per AF flags */
 	/*
