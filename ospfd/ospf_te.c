@@ -4792,114 +4792,136 @@ DEFUN (show_ip_ospf_mpls_te_db,
        "Verbose output\n"
        JSON_STR)
 {
-	int idx = 0;
+	int idx = 5;
+	int ret = CMD_SUCCESS;
 	struct in_addr ip_addr;
 	struct prefix pref;
-	struct ls_vertex *vertex;
-	struct ls_edge *edge;
-	struct ls_subnet *subnet;
+	struct ls_vertex *vertex = NULL;
+	struct ls_edge *edge = NULL;
+	struct ls_subnet *subnet = NULL;
 	uint64_t key;
 	struct ls_edge_key ekey;
+	enum {
+		SHOW_TED,
+		SHOW_VERTEX,
+		SHOW_EDGE,
+		SHOW_SUBNET
+	} show_type = SHOW_TED;
 	bool verbose = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 
 	if (!OspfMplsTE.enabled || !OspfMplsTE.ted) {
-		vty_out(vty, "MPLS-TE database is not enabled\n");
-		return CMD_WARNING;
+		if (!uj)
+			vty_out(vty, "MPLS-TE database is not enabled\n");
+		ret = CMD_WARNING;
+		goto out;
 	}
 
-	if (uj)
-		json = json_object_new_object();
-
-	if (argv[argc - 1]->arg && strmatch(argv[argc - 1]->text, "verbose"))
-		verbose = true;
-
-	idx = 5;
 	if (argv_find(argv, argc, "vertex", &idx)) {
-		/* Show Vertex */
 		if (argv_find(argv, argc, "self-originate", &idx))
 			vertex = OspfMplsTE.ted->self;
 		else if (argv_find(argv, argc, "adv-router", &idx)) {
 			if (!inet_aton(argv[idx + 1]->arg, &ip_addr)) {
-				vty_out(vty,
-					"Specified Router ID %s is invalid\n",
-					argv[idx + 1]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Specified Router ID %s is invalid\n",
+						argv[idx + 1]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Vertex from the Link State Database */
 			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
 			vertex = ls_find_vertex_by_key(OspfMplsTE.ted, key);
 			if (!vertex) {
-				vty_out(vty, "No vertex found for ID %pI4\n",
-					&ip_addr);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No vertex found for ID %pI4\n", &ip_addr);
+				ret = CMD_WARNING;
+				goto out;
 			}
-		} else
-			vertex = NULL;
-
-		if (vertex)
-			ls_show_vertex(vertex, vty, json, verbose);
-		else
-			ls_show_vertices(OspfMplsTE.ted, vty, json, verbose);
+		}
+		show_type = SHOW_VERTEX;
 
 	} else if (argv_find(argv, argc, "edge", &idx)) {
-		/* Show Edge */
 		if (argv_find(argv, argc, "A.B.C.D", &idx)) {
 			if (!inet_aton(argv[idx]->arg, &ip_addr)) {
-				vty_out(vty,
-					"Specified Edge ID %s is invalid\n",
-					argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Specified Edge ID %s is invalid\n",
+						argv[idx]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Edge from the Link State Database */
 			ekey.family = AF_INET;
 			IPV4_ADDR_COPY(&ekey.k.addr, &ip_addr);
 			edge = ls_find_edge_by_key(OspfMplsTE.ted, ekey);
 			if (!edge) {
-				vty_out(vty, "No edge found for ID %pI4\n",
-					&ip_addr);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No edge found for ID %pI4\n", &ip_addr);
+				ret = CMD_WARNING;
+				goto out;
 			}
-		} else
-			edge = NULL;
-
-		if (edge)
-			ls_show_edge(edge, vty, json, verbose);
-		else
-			ls_show_edges(OspfMplsTE.ted, vty, json, verbose);
+		}
+		show_type = SHOW_EDGE;
 
 	} else if (argv_find(argv, argc, "subnet", &idx)) {
-		/* Show Subnet */
 		if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
 			if (!str2prefix(argv[idx]->arg, &pref)) {
-				vty_out(vty, "Invalid prefix format %s\n",
-					argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Invalid prefix format %s\n", argv[idx]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Subnet from the Link State Database */
 			subnet = ls_find_subnet(OspfMplsTE.ted, &pref);
 			if (!subnet) {
-				vty_out(vty, "No subnet found for ID %pFX\n",
-					&pref);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No subnet found for ID %pFX\n", &pref);
+				ret = CMD_WARNING;
+				goto out;
 			}
-		} else
-			subnet = NULL;
+		}
+		show_type = SHOW_SUBNET;
+	}
 
+	if (argv[argc - 1]->arg && strmatch(argv[argc - 1]->text, "verbose"))
+		verbose = true;
+
+	if (uj)
+		json = json_object_new_object();
+
+	switch (show_type) {
+	case SHOW_VERTEX:
+		if (vertex)
+			ls_show_vertex(vertex, vty, json, verbose);
+		else
+			ls_show_vertices(OspfMplsTE.ted, vty, json, verbose);
+		break;
+	case SHOW_EDGE:
+		if (edge)
+			ls_show_edge(edge, vty, json, verbose);
+		else
+			ls_show_edges(OspfMplsTE.ted, vty, json, verbose);
+		break;
+	case SHOW_SUBNET:
 		if (subnet)
 			ls_show_subnet(subnet, vty, json, verbose);
 		else
 			ls_show_subnets(OspfMplsTE.ted, vty, json, verbose);
-
-	} else {
-		/* Show the complete TED */
+		break;
+	case SHOW_TED:
 		ls_show_ted(OspfMplsTE.ted, vty, json, verbose);
+		break;
 	}
 
-	if (uj)
-		vty_json(vty, json);
-	return CMD_SUCCESS;
+out:
+	if (uj) {
+		if (ret == CMD_SUCCESS)
+			vty_json(vty, json);
+		else
+			vty_json_empty(vty, NULL);
+	}
+
+	return ret;
 }
 
 static void ospf_mpls_te_register_vty(void)
