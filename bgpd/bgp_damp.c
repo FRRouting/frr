@@ -828,8 +828,8 @@ void bgp_peer_damp_enable(struct peer *peer, afi_t afi, safi_t safi, time_t half
 		return;
 
 	bdc = peer->damp[afi][safi];
-	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING)) {
-		if (bdc && bdc->half_life == half && bdc->reuse_limit == reuse &&
+	if (bdc) {
+		if (bdc->half_life == half && bdc->reuse_limit == reuse &&
 		    bdc->suppress_value == suppress && bdc->max_suppress_time == max)
 			return;
 		bgp_peer_damp_disable(peer, afi, safi);
@@ -840,8 +840,6 @@ void bgp_peer_damp_enable(struct peer *peer, afi_t afi, safi_t safi, time_t half
 		peer->damp[afi][safi] = XCALLOC(MTYPE_BGP_DAMP_CONFIG,
 						sizeof(struct bgp_damp_config));
 	bdc = peer->damp[afi][safi];
-
-	SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_DAMPENING);
 	bgp_damp_parameter_set(half, reuse, suppress, max, bdc);
 	bdc->afi = afi;
 	bdc->safi = safi;
@@ -858,9 +856,6 @@ void bgp_peer_damp_disable(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_damp_config *bdc;
 
-	if (!peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING))
-		return;
-	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_DAMPENING);
 	bdc = peer->damp[afi][safi];
 	if (!bdc)
 		return;
@@ -902,10 +897,8 @@ static void bgp_print_peer_dampening_parameters(struct vty *vty,
 
 	if (!peer)
 		return;
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_DAMPENING)) {
-		bdc = peer->damp[afi][safi];
-		if (!bdc)
-			return;
+	bdc = peer->damp[afi][safi];
+	if (bdc) {
 		if (use_json) {
 			json_object_int_add(json, "halfLifeSecs",
 					    bdc->half_life);

@@ -3009,8 +3009,7 @@ int peer_delete(struct peer *peer)
 	 * before removing the peer from peer groups.
 	 */
 	FOREACH_AFI_SAFI (afi, safi)
-		if (peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_CONFIG_DAMPENING))
+		if (peer->damp[afi][safi])
 			bgp_peer_damp_disable(peer, afi, safi);
 
 	/* If this peer belongs to peer group, clear up the
