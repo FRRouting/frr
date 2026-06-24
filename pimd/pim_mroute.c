@@ -205,8 +205,10 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 	/*
 	 * Live RPF lookup honors MRIB static routes (ip mroute PREFIX NEXTHOP)
 	 * instead of stale upstream RPF cached from URIB-only resolution.
+	 * Prefer the kernel ingress interface when it is a valid nexthop (e.g.
+	 * tunnel vs underlying WAN with duplicate addressing).
 	 */
-	if (!pim_nht_lookup_ecmp(pim, &rpf_nh, sg->src, &grp, false)) {
+	if (!pim_nht_lookup_ecmp(pim, &rpf_nh, sg->src, &grp, false, ifp)) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug("%s: %pSG NOCACHE on %s, no RPF route to source", __func__, sg,
 				   ifp->name);
@@ -225,9 +227,7 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 		enum pim_rpf_result rpf_result;
 
 		memset(&old, 0, sizeof(old));
-		rpf_result = pim_rpf_update(pim, up, &old, __func__);
-		if (rpf_result == PIM_RPF_CHANGED)
-			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+		rpf_result = pim_rpf_update(pim, up, &old, ifp, __func__);
 		if (rpf_result == PIM_RPF_CHANGED ||
 		    (rpf_result == PIM_RPF_FAILURE && old.source_nexthop.interface))
 			pim_zebra_upstream_rpf_changed(pim, up, &old);
@@ -252,10 +252,7 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 	if (pim_upstream_kat_start_ok(up))
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 
-	if (!up->channel_oil->installed)
-		pim_upstream_mroute_add(up->channel_oil, __func__);
-	else
-		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+	pim_upstream_mroute_add(up->channel_oil, __func__);
 }
 
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)

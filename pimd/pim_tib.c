@@ -37,7 +37,7 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	up = pim_upstream_find(pim, &sg);
 	if (up) {
 		memcpy(&nexthop, &up->rpf.source_nexthop, sizeof(struct pim_nexthop));
-		if (!pim_nht_lookup_ecmp(pim, &nexthop, vif_source, &grp, false))
+		if (!pim_nht_lookup_ecmp(pim, &nexthop, vif_source, &grp, false, NULL))
 			if (PIM_DEBUG_PIM_NHT_RP)
 				zlog_debug("%s: Nexthop Lookup failed vif_src:%pPA, sg.src:%pPA, sg.grp:%pPA",
 					   __func__, &vif_source, &sg.src, &sg.grp);
