@@ -123,10 +123,12 @@ void pim_nht_upstream_if_update(struct pim_instance *pim, struct interface *ifp)
  * Tries to find in cache first and does a synchronous lookup if not found in the cache.
  * If neighbor_needed is true, then nexthop is only considered valid if it's to a pim
  * neighbor.
- * Providing the group only effects the ECMP decision, if enabled
+ * Providing the group only effects the ECMP decision, if enabled.
+ * When ingress_ifp is non-NULL and listed among valid nexthops, it is
+ * preferred over the default first-fit / ECMP selection.
  */
 bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr src,
-			 struct prefix *grp, bool neighbor_needed);
+			 struct prefix *grp, bool neighbor_needed, struct interface *ingress_ifp);
 
 /* Very similar to pim_nht_lookup_ecmp, but does not check the nht cache and only does
  * a synchronous lookup. No ECMP decision is made.

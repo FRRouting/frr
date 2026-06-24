@@ -53,9 +53,9 @@ enum pim_rpf_lookup_mode {
 			      /* on equal value, MRIB wins for last 2 */
 };
 
-enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
-				   struct pim_upstream *up,
-				   struct pim_rpf *old, const char *caller);
+enum pim_rpf_result pim_rpf_update(struct pim_instance *pim, struct pim_upstream *up,
+				   struct pim_rpf *old, struct interface *ingress_ifp,
+				   const char *caller);
 void pim_upstream_rpf_clear(struct pim_instance *pim,
 			    struct pim_upstream *up);
 int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf);

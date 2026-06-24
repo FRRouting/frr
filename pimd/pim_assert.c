@@ -70,8 +70,8 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 		if (winner_changed) {
 			old_rpf.source_nexthop.interface =
 				ch->upstream->rpf.source_nexthop.interface;
-			rpf_result = pim_rpf_update(pim_ifp->pim, ch->upstream,
-						    &old_rpf, __func__);
+			rpf_result = pim_rpf_update(pim_ifp->pim, ch->upstream, &old_rpf, NULL,
+						    __func__);
 			if (rpf_result == PIM_RPF_CHANGED ||
 			    (rpf_result == PIM_RPF_FAILURE &&
 			     old_rpf.source_nexthop.interface))

@@ -880,7 +880,7 @@ static void pim_upstream_transition_dm_to_sm(struct pim_instance *pim, struct pi
 				 */
 				old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
 				old_rpf.rpf_addr = up->rpf.rpf_addr;
-				rpf_result = pim_rpf_update(pim, up, &old_rpf, __func__);
+				rpf_result = pim_rpf_update(pim, up, &old_rpf, NULL, __func__);
 				if (rpf_result == PIM_RPF_CHANGED ||
 				    (rpf_result == PIM_RPF_FAILURE &&
 				     old_rpf.source_nexthop.interface))
@@ -1268,12 +1268,12 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 			 * Set the right RPF so that future changes will
 			 * be right
 			 */
-			(void)pim_rpf_update(pim, up, NULL, __func__);
+			(void)pim_rpf_update(pim, up, NULL, NULL, __func__);
 			pim_upstream_keep_alive_timer_start(
 				up, pim->keep_alive_time);
 		}
 	} else if (!pim_addr_is_any(up->upstream_addr)) {
-		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
+		rpf_result = pim_rpf_update(pim, up, NULL, NULL, __func__);
 		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			up->channel_oil->oil_inherited_rescan = 1;
@@ -2270,7 +2270,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 					__func__, up->sg_str);
 			old.source_nexthop.interface =
 				up->rpf.source_nexthop.interface;
-			rpf_result = pim_rpf_update(pim, up, &old, __func__);
+			rpf_result = pim_rpf_update(pim, up, &old, NULL, __func__);
 			if (rpf_result == PIM_RPF_CHANGED ||
 					(rpf_result == PIM_RPF_FAILURE &&
 					 old.source_nexthop.interface))

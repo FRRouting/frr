@@ -3023,7 +3023,7 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 	pim_addr_to_prefix(&grp, group);
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	if (!pim_nht_lookup_ecmp(v->info, &nexthop, vif_source, &grp, false)) {
+	if (!pim_nht_lookup_ecmp(v->info, &nexthop, vif_source, &grp, false, NULL)) {
 		vty_out(vty, "(%pPAs, %pPA) --- Nexthop Lookup failed, no usable routes returned.\n",
 			&source, &group);
 		return CMD_SUCCESS;
