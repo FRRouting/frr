@@ -228,6 +228,12 @@ PIMv6 Router
    for IPv4 and IPv6 unicast requests. When it receives one, it responds to a
    well known SSM multicast group which ssmping just have joined.
 
+.. clicmd:: shutdown
+
+   Disable the PIM instance while retaining all configuration and remove
+   all state.
+
+
 .. _pimv6-interface-configuration:
 
 PIMv6 Interface Configuration

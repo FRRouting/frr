@@ -1980,9 +1980,41 @@ static int pim_ifp_create(struct interface *ifp)
 	return 0;
 }
 
+static void pimreg_set_master(struct interface *ifp)
+{
+	struct interface *master;
+	struct vrf *vrf;
+	uint32_t table_id;
+
+	/* Check if we are dealing with a pimreg interface */
+	if (sscanf(ifp->name, "" PIMREG "%" SCNu32, &table_id) != 1)
+		return;
+
+	/*
+	 * Go through all VRFs and make sure the pimreg<NUMBER> belongs to
+	 * the correct VRF.
+	 */
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (table_id != vrf->data.l.table_id)
+			continue;
+		if (ifp->vrf->vrf_id == vrf->vrf_id)
+			continue;
+
+		master = if_lookup_by_name(vrf->name, vrf->vrf_id);
+		if (master == NULL) {
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: Unable to find Master interface for %s", __func__,
+					   vrf->name);
+			return;
+		}
+
+		pim_zebra_interface_set_master(master, ifp);
+		return;
+	}
+}
+
 static int pim_ifp_up(struct interface *ifp)
 {
-	uint32_t table_id;
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 
@@ -1994,9 +2026,30 @@ static int pim_ifp_up(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
+	/*
+	 * If we have a pimreg device callback and it's for a specific
+	 * table set the master appropriately.
+	 *
+	 * This must run before the double-activation guard below: the kernel
+	 * places the pimreg interface in the default VRF initially, so the
+	 * first if_up event arrives while the interface is still in the wrong
+	 * VRF. The guard would otherwise return early and
+	 * `pim_zebra_interface_set_master()` would never be reached,
+	 * leaving pimreg<NUMBER> permanently in default VRF.
+	 */
+	pimreg_set_master(ifp);
+
 	pim = ifp->vrf->info;
 
+	if (pim == NULL || pim->shutdown)
+		return 0;
+
 	pim_ifp = ifp->info;
+
+	/* Avoid enabling the same interface twice */
+	if (pim_ifp && pim_ifp->mroute_vif_index != -1)
+		return 0;
+
 	/*
 	 * If we have a pim_ifp already and this is an if_add
 	 * that means that we probably have a vrf move event
@@ -2018,31 +2071,6 @@ static int pim_ifp_up(struct interface *ifp)
 	if (if_is_operative(ifp) && (!pim->regiface))
 		pim_if_create_pimreg(pim);
 
-	/*
-	 * If we have a pimreg device callback and it's for a specific
-	 * table set the master appropriately
-	 */
-	if (sscanf(ifp->name, "" PIMREG "%" SCNu32, &table_id) == 1) {
-		struct vrf *vrf;
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			if ((table_id == vrf->data.l.table_id)
-			    && (ifp->vrf->vrf_id != vrf->vrf_id)) {
-				struct interface *master = if_lookup_by_name(
-					vrf->name, vrf->vrf_id);
-
-				if (!master) {
-					zlog_debug(
-						"%s: Unable to find Master interface for %s",
-						__func__, vrf->name);
-					return 0;
-				}
-
-				pim_zebra_interface_set_master(master, ifp);
-				break;
-			}
-		}
-	}
-
 #if PIM_IPV == 4
 	pim_autorp_add_ifp(ifp);
 #endif
@@ -2053,6 +2081,9 @@ static int pim_ifp_up(struct interface *ifp)
 
 static int pim_ifp_down(struct interface *ifp)
 {
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim;
+
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
 			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
@@ -2061,8 +2092,15 @@ static int pim_ifp_down(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-	if (!if_is_operative(ifp)) {
+	/* Avoid disabling the same interface twice */
+	if (pim_ifp && pim_ifp->mroute_vif_index == -1)
+		return 0;
+
+	pim = ifp->vrf->info;
+	if (!if_is_operative(ifp) || (pim && pim->shutdown)) {
 		pim_ifchannel_delete_all(ifp);
+		gm_group_delete(ifp);
+
 		/*
 		  pim_if_addr_del_all() suffices for shutting down IGMP,
 		  but not for shutting down PIM
@@ -2217,4 +2255,38 @@ const char *pim_mod_str(enum pim_iface_mode mode)
 	}
 
 	return "";
+}
+
+void pim_vrf_shutdown(struct pim_instance *pim, bool shutdown)
+{
+	struct interface *ifp;
+
+	if (shutdown == pim->shutdown)
+		return;
+
+	pim->shutdown = shutdown;
+
+	if (PIM_DEBUG_ZEBRA) {
+		if (shutdown)
+			zlog_debug("%s: entering admin shutdown on vrf %s", __func__,
+				   VRF_LOGNAME(pim->vrf));
+		else
+			zlog_debug("%s: leaving admin shutdown on vrf %s", __func__,
+				   VRF_LOGNAME(pim->vrf));
+	}
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (pim_ifp == NULL)
+			continue;
+		if (pim->regiface == ifp)
+			/* pimreg stays up, too much breakage otherwise */
+			continue;
+
+		if (shutdown)
+			pim_ifp_down(ifp);
+		else
+			pim_ifp_up(ifp);
+	}
 }

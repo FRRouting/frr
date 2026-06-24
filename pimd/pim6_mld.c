@@ -2314,13 +2314,20 @@ static void gm_start(struct interface *ifp)
 	}
 }
 
-void gm_group_delete(struct gm_if *gm_ifp)
+void gm_group_delete(struct interface *ifp)
 {
 	struct gm_sg *sg;
 	struct gm_packet_state *pkt;
 	struct gm_grp_pending *pend_grp;
 	struct gm_gsq_pending *pend_gsq;
 	struct gm_subscriber *subscriber;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_if *gm_ifp;
+
+	if (pim_ifp == NULL || pim_ifp->mld == NULL)
+		return;
+
+	gm_ifp = pim_ifp->mld;
 
 	while ((pkt = gm_packet_expires_first(gm_ifp->expires)))
 		gm_packet_drop(pkt, false);
@@ -2385,7 +2392,7 @@ void gm_ifp_teardown(struct interface *ifp)
 
 	gm_vrf_socket_decref(gm_ifp->pim);
 
-	gm_group_delete(gm_ifp);
+	gm_group_delete(ifp);
 
 	gm_gsq_pends_fini(gm_ifp->gsq_pends);
 	gm_grp_pends_fini(gm_ifp->grp_pends);

@@ -318,6 +318,12 @@ PIM Routers
    Unreachable routes do not receive special treatment and do not cause
    fallback to a second lookup.
 
+.. clicmd:: shutdown
+
+   Disable the PIM instance while retaining all configuration and remove
+   all state.
+
+
 .. _pim-global-configuration:
 
 Global Multicast

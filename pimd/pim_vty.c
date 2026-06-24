@@ -288,6 +288,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		++writes;
 	}
 
+	if (pim->shutdown) {
+		vty_out(vty, " shutdown\n");
+		++writes;
+	}
+
 	return writes;
 }
 
