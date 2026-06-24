@@ -1450,7 +1450,6 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct bgp_dest *global_dest;
 	struct bgp_path_info *pi;
-	struct prefix_evpn *global_evp;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 
@@ -1468,9 +1467,6 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 				      : "");
 	}
 
-	/* Delete route entry in the VNI route table, caller to remove. */
-	bgp_path_info_mark_for_delete(dest, old_local);
-
 	/* Locate route node in the global EVPN routing table. Note that
 	 * this table is a 2-level tree (RD-level + Prefix-level) similar to
 	 * L3VPN routes.
@@ -1486,16 +1482,13 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
 		 */
-		if (pi) {
+		if (pi)
 			bgp_process(bgp, global_dest, pi, afi, safi);
-			global_evp = (struct prefix_evpn *)bgp_dest_get_prefix(global_dest);
-			if (global_evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
-			    !is_evpn_prefix_ipaddr_none(global_evp))
-				bgp_evpn_unimport_route(bgp, afi, safi,
-							(struct prefix *)global_evp, pi);
-		}
 		bgp_dest_unlock_node(global_dest);
 	}
+
+	/* Delete route entry in the VNI route table, caller to remove. */
+	bgp_path_info_mark_for_delete(dest, old_local);
 }
 
 /*
