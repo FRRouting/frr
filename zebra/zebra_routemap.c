@@ -923,7 +923,7 @@ route_match_source_instance(void *rule, const struct prefix *p, void *object)
 	if (!rm_data)
 		return RMAP_NOMATCH;
 
-	return (rm_data->re->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
+	return route_entry_get_proto_instance(rm_data->re) == *instance ? RMAP_MATCH : RMAP_NOMATCH;
 }
 
 static void *route_match_source_instance_compile(const char *arg)
