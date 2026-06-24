@@ -6236,12 +6236,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			{
 				peer->pcount_dup[afi][safi]++;
 				if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
-					if (!peer->rcvd_attr_printed) {
-						zlog_debug(
-							"%pBP rcvd UPDATE w/ attr: %s",
-							peer,
-							peer->rcvd_attr_str);
-						peer->rcvd_attr_printed = true;
+					if (!bm->rcvd_attr_printed && bm->rcvd_attr_str[0]) {
+						zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
+							   bm->rcvd_attr_str);
+						bm->rcvd_attr_printed = true;
 					}
 
 					bgp_debug_rdpfxpath2str(
@@ -6563,10 +6561,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	/* Received Logging. */
 	if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
-		if (!peer->rcvd_attr_printed) {
-			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
-				   peer->rcvd_attr_str);
-			peer->rcvd_attr_printed = true;
+		if (!bm->rcvd_attr_printed && bm->rcvd_attr_str[0]) {
+			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer, bm->rcvd_attr_str);
+			bm->rcvd_attr_printed = true;
 		}
 
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
@@ -6684,10 +6681,9 @@ filtered:
 	hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
 
 	if (bgp_debug_update(peer, p, NULL, 1)) {
-		if (!peer->rcvd_attr_printed) {
-			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
-				   peer->rcvd_attr_str);
-			peer->rcvd_attr_printed = true;
+		if (!bm->rcvd_attr_printed && bm->rcvd_attr_str[0]) {
+			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer, bm->rcvd_attr_str);
+			bm->rcvd_attr_printed = true;
 		}
 
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,

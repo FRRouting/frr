@@ -2398,8 +2398,8 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
 	memset(&nlris, 0, sizeof(nlris));
-	memset(peer->rcvd_attr_str, 0, BUFSIZ);
-	peer->rcvd_attr_printed = false;
+	bm->rcvd_attr_str[0] = '\0';
+	bm->rcvd_attr_printed = false;
 
 	s = connection->curr;
 	end = stream_pnt(s) + size;
@@ -2494,8 +2494,7 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW ||
 	    attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW_IGNORE || BGP_DEBUG(update, UPDATE_IN) ||
 	    BGP_DEBUG(update, UPDATE_PREFIX)) {
-		ret = bgp_dump_attr(&attr, peer->rcvd_attr_str,
-				    sizeof(peer->rcvd_attr_str));
+		ret = bgp_dump_attr(&attr, bm->rcvd_attr_str, sizeof(bm->rcvd_attr_str));
 
 		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW ||
 		    attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW_IGNORE) {
@@ -2508,9 +2507,8 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 
 		if (ret && bgp_debug_update(peer, NULL, NULL, 1) &&
 		    BGP_DEBUG(update, UPDATE_DETAIL)) {
-			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
-				   peer->rcvd_attr_str);
-			peer->rcvd_attr_printed = true;
+			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer, bm->rcvd_attr_str);
+			bm->rcvd_attr_printed = true;
 		}
 	}
 
@@ -2616,6 +2614,9 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 
 	/* Notify BGP Conditional advertisement scanner process */
 	peer->advmap_table_change = true;
+
+	/* Clear attribute string to prevent stale state from other call paths */
+	bm->rcvd_attr_str[0] = '\0';
 
 	return Receive_UPDATE_message;
 }
