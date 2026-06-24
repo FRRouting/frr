@@ -32,8 +32,9 @@ struct zebra_neigh_ent {
 
 	uint32_t flags;
 #define ZEBRA_NEIGH_ENT_ACTIVE (1 << 0) /* can be used for traffic */
+#define ZEBRA_NEIGH_ENT_ROUTE  (1 << 1) /* installed host-route */
 
-	/* memory used for adding the neigt entry to zneigh_info->es_rb_tree */
+	/* memory used for adding the neigh entry to the internal rb_tree */
 	RB_ENTRY(zebra_neigh_ent) rb_node;
 
 	/* list of pbr rules associated with this neigh */
@@ -43,16 +44,17 @@ RB_HEAD(zebra_neigh_rb_head, zebra_neigh_ent);
 RB_PROTOTYPE(zebra_neigh_rb_head, zebra_neigh_ent, rb_node, zebra_es_rb_cmp);
 
 struct zebra_neigh_info {
-	/* RB tree of neighbor entries  */
+	/* RB tree of neighbor entries */
 	struct zebra_neigh_rb_head neigh_rb_tree;
 };
 
 
 /****************************************************************************/
+/* TODO -- add some const here */
 extern void zebra_neigh_add(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac, uint16_t ndm_state);
 extern void zebra_neigh_del(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip);
-extern void zebra_neigh_del_all(struct interface *ifp);
+extern void zebra_neigh_del_all(const struct interface *ifp);
 extern void zebra_neigh_show(struct vty *vty, enum ipaddr_type_t afi, bool use_json);
 extern void zebra_neigh_init(void);
 extern void zebra_neigh_terminate(void);

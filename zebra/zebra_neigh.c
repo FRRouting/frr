@@ -158,6 +158,7 @@ static struct zebra_neigh_ent *zebra_neigh_new(ns_id_t ns_id, ifindex_t ifindex,
 	return n;
 }
 
+/* When neighbor state changes, update any associated rules */
 static void zebra_neigh_pbr_rules_update(struct zebra_neigh_ent *n)
 {
 	struct zebra_pbr_rule *rule;
@@ -167,17 +168,37 @@ static void zebra_neigh_pbr_rules_update(struct zebra_neigh_ent *n)
 		dplane_pbr_rule_update(rule, rule);
 }
 
-static void zebra_neigh_free(struct zebra_neigh_ent *n)
+static void zebra_neigh_free(struct zebra_neigh_ent *n, const struct interface *ifp,
+			     bool force_p)
 {
-	if (listcount(n->pbr_rule_list)) {
-		/* if rules are still using the neigh mark it as inactive and
-		 * update the dataplane
-		 */
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE)) {
 		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
 		memset(&n->mac, 0, sizeof(n->mac));
-		zebra_neigh_pbr_rules_update(n);
-		return;
 	}
+
+	/* Delete host-route, if configured */
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTE)) {
+		if (ifp == NULL) {
+			ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(n->ns_id),
+							n->ifindex);
+		}
+
+		if (ifp)
+			rib_del_host_route(&n->ip, ifp, 0);
+
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTE);
+	}
+
+	if (listcount(n->pbr_rule_list) > 0) {
+		/* if rules are still using the neigh, mark it as inactive and
+		 * update the dataplane
+		 */
+		zebra_neigh_pbr_rules_update(n);
+
+		if (!force_p)
+			return;
+	}
+
 	if (IS_ZEBRA_DEBUG_NEIGH)
 		zlog_debug("zebra neigh free if %d %pIA %pEA", n->ifindex,
 			   &n->ip, &n->mac);
@@ -202,11 +223,13 @@ void zebra_neigh_del(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip)
 	n = zebra_neigh_find(ns_id, ifp->ifindex, ip);
 	if (!n)
 		return;
-	zebra_neigh_free(n);
+
+	/* Maybe free */
+	zebra_neigh_free(n, ifp, false);
 }
 
 /* kernel neigh delete all for a given interface */
-void zebra_neigh_del_all(struct interface *ifp)
+void zebra_neigh_del_all(const struct interface *ifp)
 {
 	struct zebra_neigh_ent *n, *next;
 	struct zebra_ns *zns = zebra_ns_lookup(ifp->vrf->vrf_id);
@@ -221,7 +244,8 @@ void zebra_neigh_del_all(struct interface *ifp)
 
 		if (n->ifindex == ifp->ifindex) {
 			/* Free the neighbor directly instead of looking it up again */
-			zebra_neigh_free(n);
+			UNSET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
+			zebra_neigh_free(n, ifp, false);
 		}
 	}
 }
@@ -231,6 +255,9 @@ void zebra_neigh_add(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip, st
 		     uint16_t ndm_state)
 {
 	struct zebra_neigh_ent *n;
+	struct zebra_if *zif;
+	int ret;
+	bool changed_p = false;
 
 	if (IS_ZEBRA_DEBUG_NEIGH) {
 		char state_buf[180];
@@ -245,16 +272,36 @@ void zebra_neigh_add(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip, st
 	if (n) {
 		n->neigh_state = ndm_state;
 
-		if (!memcmp(&n->mac, mac, sizeof(*mac)))
-			return;
+		if (memcmp(&n->mac, mac, sizeof(*mac)) != 0) {
+			memcpy(&n->mac, mac, sizeof(*mac));
+			changed_p = true;
+		}
 
-		memcpy(&n->mac, mac, sizeof(*mac));
-		SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE)) {
+			SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
+			changed_p = true;
+		}
 
 		/* update rules linked to the neigh */
 		zebra_neigh_pbr_rules_update(n);
 	} else {
-		zebra_neigh_new(ns_id, ifp->ifindex, ip, mac, ndm_state);
+		/* Allocate new neigh object */
+		n = zebra_neigh_new(ns_id, ifp->ifindex, ip, mac, ndm_state);
+		changed_p = true;
+
+		SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
+	}
+
+	/* Add a host route, if configured */
+	zif = ifp->info;
+	if (zif && CHECK_FLAG(zif->flags, ZIF_FLAG_HOST_ROUTES)) {
+		/* Maybe nothing to do? */
+		if (!changed_p && CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTE))
+			return;
+
+		ret = rib_add_host_route(ip, ifp, 0 /*flags*/);
+		if (ret >= 0)
+			SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTE);
 	}
 }
 
@@ -269,8 +316,10 @@ void zebra_neigh_deref(struct zebra_pbr_rule *rule)
 	rule->action.neigh = NULL;
 	/* remove rule from the list and free if it is inactive */
 	list_delete_node(n->pbr_rule_list, &rule->action.neigh_listnode);
+
+	/* Maybe free */
 	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE))
-		zebra_neigh_free(n);
+		zebra_neigh_free(n, NULL, false);
 }
 
 void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip, struct zebra_pbr_rule *rule)
@@ -297,7 +346,7 @@ void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip, struct zebra
 	listnode_add(n->pbr_rule_list, &rule->action.neigh_listnode);
 }
 
-static void zebra_neigh_show_one(struct vty *vty, struct zebra_neigh_ent *n,
+static void zebra_neigh_show_one(struct vty *vty, const struct zebra_neigh_ent *n,
 				 json_object *json_neigh)
 {
 	char mac_buf[ETHER_ADDR_STRLEN];
@@ -372,7 +421,7 @@ void zebra_neigh_terminate(void)
 
 	RB_FOREACH_SAFE (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree,
 			 next)
-		zebra_neigh_free(n);
+		zebra_neigh_free(n, NULL, true /*force*/);
 	XFREE(MTYPE_ZNEIGH_INFO, zneigh_info);
 }
 

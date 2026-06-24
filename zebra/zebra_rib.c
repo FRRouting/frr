@@ -4471,9 +4471,9 @@ void zebra_rib_route_entry_free(struct route_entry *re)
  *  0 -> Add
  *  1 -> update
  */
-int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ipv6 *src_p,
-			  struct route_entry *re, struct nhg_hash_entry *re_nhe, bool startup,
-			  bool replace)
+int rib_add_multipath_nhe(afi_t afi, safi_t safi, const struct prefix *p,
+			  struct prefix_ipv6 *src_p, struct route_entry *re,
+			  struct nhg_hash_entry *re_nhe, bool startup, bool replace)
 {
 	struct zebra_early_route *ere;
 
@@ -4500,7 +4500,7 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefi
 /*
  * Add a single route.
  */
-int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ipv6 *src_p,
+int rib_add_multipath(afi_t afi, safi_t safi, const struct prefix *p, struct prefix_ipv6 *src_p,
 		      struct route_entry *re, struct nexthop_group *ng, bool startup, bool replace)
 {
 	int ret;
@@ -4620,9 +4620,9 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 
 
 int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, unsigned short instance,
-	    uint32_t flags, struct prefix *p, struct prefix_ipv6 *src_p, const struct nexthop *nh,
-	    uint32_t nhe_id, uint32_t table_id, uint32_t metric, uint32_t mtu, uint8_t distance,
-	    route_tag_t tag, bool startup, bool replace)
+	    uint32_t flags, const struct prefix *p, struct prefix_ipv6 *src_p,
+	    const struct nexthop *nh, uint32_t nhe_id, uint32_t table_id, uint32_t metric,
+	    uint32_t mtu, uint8_t distance, route_tag_t tag, bool startup, bool replace)
 {
 	struct route_entry *re = NULL;
 	struct nexthop nexthop = {};
@@ -4642,6 +4642,132 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, unsigned short in
 	}
 
 	return rib_add_multipath(afi, safi, p, src_p, re, &ng, startup, replace);
+}
+
+static bool is_valid_host_route(const struct ipaddr *ip)
+{
+	/* Skip multicast, ipv6 link-locals, etc. */
+	if (ip->ipa_type != AF_INET && ip->ipa_type != AF_INET6)
+		return false;
+	if (ip->ipa_type == AF_INET6 && !is_ipv6_global_unicast(&(ip->ipaddr_v6)))
+		return false;
+	else if ((ip->ipa_type == AF_INET) && IN_MULTICAST(ip->ipaddr_v4.s_addr))
+		return false;
+
+	return true;
+}
+
+/*
+ * Add a local host-route
+ */
+int rib_add_host_route(const struct ipaddr *ip, const struct interface *ifp,
+		       uint32_t flags)
+{
+	int ret = -1;
+	afi_t afi;
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	struct prefix p = {};
+	struct nexthop nexthop = {};
+	struct nexthop_group nhg = {};
+	struct route_entry *re;
+
+	if (!is_valid_host_route(ip))
+		return 0;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: %pIA, vrf %s, ifp %s", __func__, ip,
+			   ifp->vrf->name, ifp->name);
+
+	/* Set up afi; safi is always UNICAST; set up prefix from ip */
+	p.family = ip->ipa_type;
+	if (p.family == AF_INET) {
+		afi = AFI_IP;
+		p.prefixlen = IPV4_MAX_BITLEN;
+		p.u.prefix4 = ip->ipaddr_v4;
+	} else {
+		afi = AFI_IP6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+		IPV6_ADDR_COPY(&p.u.prefix6, &ip->ipaddr_v6);
+	}
+
+	/* Locate vrf */
+	vrf = ifp->vrf;
+	if (vrf)
+		zvrf = vrf->info;
+	else
+		goto done;
+
+	/* Init nexthop */
+	nexthop.type = NEXTHOP_TYPE_IFINDEX;
+	nexthop.ifindex = ifp->ifindex;
+	nexthop.vrf_id = vrf->vrf_id;
+
+	/* Add nexthop to group. */
+	nexthop_group_add_sorted(&nhg, &nexthop);
+
+	/* Allocate new route_entry structure. */
+	re = zebra_rib_route_entry_new(vrf->vrf_id, ZEBRA_ROUTE_ADJACENCY, 0, flags, 0,
+				       zvrf->table_id, 0, 0, 0, 0);
+	/* Add rib entry */
+	ret = rib_add_multipath(afi, SAFI_UNICAST, &p, NULL, re, &nhg, false, true);
+
+done:
+
+	return ret;
+}
+
+/*
+ * Delete a local host-route
+ */
+int rib_del_host_route(const struct ipaddr *ip, const struct interface *ifp,
+		       uint32_t flags)
+{
+	afi_t afi;
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	struct prefix p = {};
+	struct nexthop nexthop = {};
+	int ret = -1;
+
+	if (!is_valid_host_route(ip))
+		return 0;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: %pIA, vrf %s, ifp %s", __func__, ip,
+			   ifp->vrf->name, ifp->name);
+
+	/* Set up afi; safi is always UNICAST; set up prefix from ip */
+	p.family = ip->ipa_type;
+	if (p.family == AF_INET) {
+		afi = AFI_IP;
+		p.prefixlen = IPV4_MAX_BITLEN;
+		p.u.prefix4 = ip->ipaddr_v4;
+	} else {
+		afi = AFI_IP6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+		IPV6_ADDR_COPY(&p.u.prefix6, &ip->ipaddr_v6);
+	}
+
+	/* Locate vrf */
+	vrf = ifp->vrf;
+	if (vrf)
+		zvrf = vrf->info;
+	else
+		goto done;
+
+	/* Init nexthop */
+	nexthop.type = NEXTHOP_TYPE_IFINDEX;
+	nexthop.ifindex = ifp->ifindex;
+	nexthop.vrf_id = vrf->vrf_id;
+
+	rib_delete(afi, SAFI_UNICAST, vrf->vrf_id, ZEBRA_ROUTE_ADJACENCY, 0, flags, &p,
+		   NULL, &nexthop, 0, zvrf->table_id, 0, 0, false);
+
+	ret = 0;
+
+done:
+	return ret;
 }
 
 static const char *rib_update_event2str(enum rib_update_event event)
