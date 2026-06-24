@@ -3300,6 +3300,8 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 static void bgp_zebra_connected(struct zclient *zclient)
 {
 	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
 
 	zclient_num_connects++; /* increment even if not responding */
 
@@ -3315,6 +3317,17 @@ static void bgp_zebra_connected(struct zclient *zclient)
 		return;
 
 	bgp_zebra_instance_register(bgp);
+
+	/* A restarted zebra has lost any previously installed BGP routes, and a
+	 * stable BGP RIB will not re-select unchanged best paths on its own.
+	 * Replay the selected routes so zebra and the kernel FIB are rebuilt.
+	 */
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!bgp_fibupd_safi(safi))
+			continue;
+
+		bgp_zebra_announce_table(bgp, afi, safi);
+	}
 
 	/* Retry the deferred suppress-fib-pending configuration */
 	bgp_zebra_suppress_fib_pending_config_retry();

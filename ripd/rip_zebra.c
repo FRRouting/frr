@@ -24,8 +24,8 @@
 struct zclient *ripd_zclient = NULL;
 
 /* Send ECMP routes to zebra. */
-static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
-				uint8_t cmd)
+static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp, uint8_t cmd,
+				bool count_change)
 {
 	struct rip_info_list_head *list = rp->info;
 	struct zapi_route api;
@@ -89,19 +89,45 @@ static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
 					   : "Delete from zebra", &rp->p);
 	}
 
-	rip->counters.route_changes++;
+	if (count_change)
+		rip->counters.route_changes++;
 }
 
 /* Add/update ECMP routes to zebra. */
 void rip_zebra_ipv4_add(struct rip *rip, struct route_node *rp)
 {
-	rip_zebra_ipv4_send(rip, rp, ZEBRA_ROUTE_ADD);
+	rip_zebra_ipv4_send(rip, rp, ZEBRA_ROUTE_ADD, true);
 }
 
 /* Delete ECMP routes from zebra. */
 void rip_zebra_ipv4_delete(struct rip *rip, struct route_node *rp)
 {
-	rip_zebra_ipv4_send(rip, rp, ZEBRA_ROUTE_DELETE);
+	rip_zebra_ipv4_send(rip, rp, ZEBRA_ROUTE_DELETE, true);
+}
+
+static void rip_zebra_ipv4_replay(struct rip *rip)
+{
+	struct route_node *rp;
+	struct rip_info *rinfo;
+	struct rip_info_list_head *list;
+
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
+		if (!list || rip_info_list_count(list) == 0)
+			continue;
+
+		rinfo = rip_info_list_first(list);
+		if (!rip_route_rte(rinfo))
+			continue;
+
+		if (rinfo->metric == RIP_METRIC_INFINITY)
+			continue;
+
+		if (!CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
+			continue;
+
+		rip_zebra_ipv4_send(rip, rp, ZEBRA_ROUTE_ADD, false);
+	}
 }
 
 /* Zebra route add and delete treatment. */
@@ -221,8 +247,19 @@ void rip_zebra_vrf_deregister(struct vrf *vrf)
 
 static void rip_zebra_connected(struct zclient *zclient)
 {
+	struct rip *rip;
+
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
+
+	RB_FOREACH (rip, rip_instance_head, &rip_instances) {
+		if (!rip->enabled || !rip->vrf)
+			continue;
+
+		rip_redistribute_enable(rip);
+		rip_zebra_vrf_register(rip->vrf);
+		rip_zebra_ipv4_replay(rip);
+	}
 }
 
 zclient_handler *const rip_handlers[] = {

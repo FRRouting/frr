@@ -863,3 +863,18 @@ void isis_route_switchover_nexthop(struct isis_area *area, struct route_table *t
 		route_unlock_node(rnode);
 	}
 }
+
+void isis_route_table_clear_synced(struct route_table *table)
+{
+	struct route_node *rnode;
+	struct isis_route_info *rinfo;
+
+	if (!table)
+		return;
+
+	for (rnode = route_top(table); rnode; rnode = srcdest_route_next(rnode)) {
+		rinfo = rnode->info;
+		if (rinfo)
+			UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+	}
+}

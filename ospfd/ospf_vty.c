@@ -2276,7 +2276,7 @@ static void ospf_table_reinstall_routes(struct ospf *ospf,
 	}
 }
 
-static void ospf_reinstall_routes(struct ospf *ospf)
+void ospf_reinstall_routes(struct ospf *ospf)
 {
 	ospf_table_reinstall_routes(ospf, ospf->new_table);
 	ospf_table_reinstall_routes(ospf, ospf->new_external_route);
