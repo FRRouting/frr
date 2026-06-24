@@ -1160,11 +1160,9 @@ static enum output_filter resolve_filter(const char *token)
 	struct {
 		const char *str;
 		enum output_filter flag;
-	} filter[] = {
-		{"include", FILTER_INCLUDE}
-	};
+	} filter[] = { { "include", FILTER_INCLUDE } };
 
-	for (unsigned i = 0; i < sizeof filter / sizeof filter[0]; i++) {
+	for (unsigned i = 0; i < sizeof(filter) / sizeof(filter[0]); i++) {
 		if (strnmatch(token, filter[i].str, token_len)) {
 			if (match_filter != FILTER_NONE)
 				return FILTER_AMBIGUOUS;
@@ -1175,6 +1173,63 @@ static enum output_filter resolve_filter(const char *token)
 	return match_filter;
 }
 
+static void extract_pipe_tail(const char *cmd_in, char **cmd_out)
+{
+	char *ptr;
+
+	*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
+	ptr = *cmd_out;
+	strsep(&ptr, "|");
+}
+
+/*
+ * Parses and matches a command string against a node's command graph.
+ */
+static enum matcher_rv match_command_on_node(const char *cmd_str, enum node_type node,
+					     struct list **argv_out)
+{
+	struct graph *cmd_graph;
+	vector command;
+	enum matcher_rv rv;
+	const struct cmd_element *element = NULL;
+
+	*argv_out = NULL;
+
+	command = cmd_make_strvec(cmd_str);
+	if (!command || vector_active(command) == 0) {
+		cmd_free_strvec(command);
+		return MATCHER_NO_MATCH;
+	}
+
+	if (cmd_try_do_shortcut(node, vector_slot(command, 0))) {
+		vector_remove(command, 0);
+		node = ENABLE_NODE;
+	}
+
+	cmd_graph = cmd_node_graph(cmdvec, node);
+	rv = command_match(cmd_graph, command, argv_out, &element);
+
+	cmd_free_strvec(command);
+	return rv;
+}
+
+static enum matcher_rv match_show_command_on_node(const char *cmd_str, enum node_type node)
+{
+	struct cmd_token *token;
+	enum matcher_rv rv;
+	struct list *argv = NULL;
+
+	rv = match_command_on_node(cmd_str, node, &argv);
+	if (rv == MATCHER_OK) {
+		token = listnode_head(argv);
+		if (!token || !strmatch(token->text, "show"))
+			rv = MATCHER_NO_MATCH;
+		list_delete(&argv);
+	}
+
+	return rv;
+}
+
 /*
  * cmd_execute hook subscriber to handle `|` actions.
  */
@@ -1182,14 +1237,27 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 			      char **cmd_out)
 {
 	/* look for `|` */
-	char *pipe, *orig, *working, *token, *u, *regexp;
+	char *pipe, *orig, *working, *token, *regexp;
 	enum output_filter filter;
+	enum matcher_rv rv;
 	int ret = 0;
 	const char *action_err;
 
 	pipe = strstr(cmd_in, " | ");
 	if (!pipe)
 		return 0;
+
+	extract_pipe_tail(cmd_in, cmd_out);
+	rv = match_show_command_on_node(*cmd_out, vty->node);
+	if (MATCHER_ERROR(rv)) {
+		if (rv == MATCHER_NO_MATCH)
+			vty_out(vty, "%% Unknown command: %s\n", cmd_in);
+		else if (rv == MATCHER_INCOMPLETE)
+			vty_out(vty, "%% Incomplete command before pipe\n");
+		else if (rv == MATCHER_AMBIGUOUS)
+			vty_out(vty, "%% Ambiguous command: %s\n", *cmd_out);
+		return 1;
+	}
 
 	/*
 	 * duplicate string for processing purposes,
@@ -1243,10 +1311,6 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 		ret = 1;
 		goto fail;
 	}
-
-	*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
-	u = *cmd_out;
-	strsep(&u, "|");
 
 fail:
 	XFREE(MTYPE_TMP, orig);
