@@ -3998,7 +3998,7 @@ int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 	ctx->zd_vrf_id = re->vrf_id;
 	ctx->u.rinfo.zd_mtu = re->mtu;
 	ctx->u.rinfo.zd_nexthop_mtu = re->nexthop_mtu;
-	ctx->u.rinfo.zd_instance = re->instance;
+	ctx->u.rinfo.zd_instance = route_entry_get_proto_instance(re);
 	ctx->u.rinfo.zd_tag = re->tag;
 	ctx->u.rinfo.zd_old_tag = re->tag;
 	ctx->u.rinfo.zd_distance = re->distance;
@@ -4846,7 +4846,7 @@ dplane_route_update_internal(struct route_node *rn,
 
 			ctx->u.rinfo.zd_old_tag = old_re->tag;
 			ctx->u.rinfo.zd_old_type = old_re->type;
-			ctx->u.rinfo.zd_old_instance = old_re->instance;
+			ctx->u.rinfo.zd_old_instance = route_entry_get_proto_instance(old_re);
 			ctx->u.rinfo.zd_old_distance = old_re->distance;
 			ctx->u.rinfo.zd_old_metric = old_re->metric;
 			ctx->u.rinfo.nhe.old_id = old_re->nhe->id;
