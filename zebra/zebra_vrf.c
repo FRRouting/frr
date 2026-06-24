@@ -239,8 +239,9 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		zlog_debug("VRF %s id %u is now inactive", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
-	/* Stop any VxLAN-EVPN processing. */
+	/* Stop any VxLAN-EVPN/import processing. */
 	zebra_vxlan_vrf_disable(zvrf);
+	zebra_vrf_import_vrf_disable(zvrf);
 
 	rtadv_vrf_terminate(zvrf);
 
