@@ -21,21 +21,152 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, VRF_IMPORT, "Zebra VRF import config");
 DEFINE_MTYPE_STATIC(ZEBRA, VRF_IMPORT_NAME, "Zebra VRF import name");
+DEFINE_MTYPE_STATIC(ZEBRA, VRF_IMPORT_SRC_INDEX, "Zebra VRF import source index");
+
+PREDECL_DLIST(zebra_vrf_import_src_index_imports);
+PREDECL_HASH(zebra_vrf_import_src_index);
 
 struct zebra_vrf_import {
 	afi_t afi;
 	safi_t safi;
+
+	/* Configured source VRF name. This remains authoritative because the
+	 * source VRF may not exist yet, or may be deleted and recreated with a
+	 * different vrf_id.
+	 */
 	char *src_vrf_name;
 	char *rmap_name;
+	struct zebra_vrf *dst_zvrf;
 
+	/* Runtime reverse-index bucket this import is currently linked into.
+	 * NULL means src_vrf_name does not currently resolve to an existing VRF.
+	 */
+	struct zebra_vrf_import_src_index *src_index;
 	struct zebra_vrf_imports_item item;
+	struct zebra_vrf_import_src_index_imports_item src_index_item;
+};
+
+/* Runtime reverse index used by zebra_vrf_import_rib_update(). This maps a
+ * resolved source VRF id plus AFI/SAFI to the import configs interested in
+ * route changes from that source.
+ */
+struct zebra_vrf_import_src_index {
+	vrf_id_t src_vrf_id;
+	afi_t afi;
+	safi_t safi;
+	struct zebra_vrf_import_src_index_imports_head imports;
+	struct zebra_vrf_import_src_index_item hash_item;
 };
 
 DECLARE_DLIST(zebra_vrf_imports, struct zebra_vrf_import, item);
+DECLARE_DLIST(zebra_vrf_import_src_index_imports, struct zebra_vrf_import, src_index_item);
+
+static int zebra_vrf_import_src_index_cmp(const struct zebra_vrf_import_src_index *a,
+					  const struct zebra_vrf_import_src_index *b)
+{
+	if (a->src_vrf_id != b->src_vrf_id)
+		return a->src_vrf_id < b->src_vrf_id ? -1 : 1;
+	if (a->afi != b->afi)
+		return a->afi < b->afi ? -1 : 1;
+	return a->safi - b->safi;
+}
+
+static uint32_t zebra_vrf_import_src_index_hash(const struct zebra_vrf_import_src_index *src_index)
+{
+	return jhash_3words(src_index->src_vrf_id, src_index->afi, src_index->safi, 0);
+}
+
+DECLARE_HASH(zebra_vrf_import_src_index, struct zebra_vrf_import_src_index, hash_item,
+	     zebra_vrf_import_src_index_cmp, zebra_vrf_import_src_index_hash);
+
+static struct zebra_vrf_import_src_index_head zebra_vrf_import_src_index_table;
 
 void zebra_vrf_import_init(struct zebra_vrf *zvrf)
 {
 	zebra_vrf_imports_init(&zvrf->vrf_imports);
+}
+
+static struct zebra_vrf_import_src_index *zebra_vrf_import_src_index_lookup(vrf_id_t src_vrf_id,
+									    afi_t afi, safi_t safi)
+{
+	struct zebra_vrf_import_src_index lookup = {
+		.src_vrf_id = src_vrf_id,
+		.afi = afi,
+		.safi = safi,
+	};
+
+	return zebra_vrf_import_src_index_find(&zebra_vrf_import_src_index_table, &lookup);
+}
+
+static struct zebra_vrf_import_src_index *zebra_vrf_import_src_index_get(vrf_id_t src_vrf_id,
+									 afi_t afi, safi_t safi)
+{
+	struct zebra_vrf_import_src_index *src_index;
+
+	src_index = zebra_vrf_import_src_index_lookup(src_vrf_id, afi, safi);
+	if (src_index)
+		return src_index;
+
+	src_index = XCALLOC(MTYPE_VRF_IMPORT_SRC_INDEX, sizeof(*src_index));
+	src_index->src_vrf_id = src_vrf_id;
+	src_index->afi = afi;
+	src_index->safi = safi;
+	zebra_vrf_import_src_index_imports_init(&src_index->imports);
+	zebra_vrf_import_src_index_add(&zebra_vrf_import_src_index_table, src_index);
+
+	return src_index;
+}
+
+static void zebra_vrf_import_unlink_src_index(struct zebra_vrf_import *import)
+{
+	struct zebra_vrf_import_src_index *src_index;
+
+	if (!import || !import->src_index)
+		return;
+
+	src_index = import->src_index;
+	zebra_vrf_import_src_index_imports_del(&src_index->imports, import);
+	import->src_index = NULL;
+
+	if (zebra_vrf_import_src_index_imports_count(&src_index->imports))
+		return;
+
+	zebra_vrf_import_src_index_del(&zebra_vrf_import_src_index_table, src_index);
+	zebra_vrf_import_src_index_imports_fini(&src_index->imports);
+	XFREE(MTYPE_VRF_IMPORT_SRC_INDEX, src_index);
+}
+
+static void zebra_vrf_import_link_src_index(struct zebra_vrf_import *import, vrf_id_t src_vrf_id)
+{
+	struct zebra_vrf_import_src_index *src_index;
+
+	if (!import)
+		return;
+
+	if (import->src_index && import->src_index->src_vrf_id == src_vrf_id &&
+	    import->src_index->afi == import->afi && import->src_index->safi == import->safi)
+		return;
+
+	zebra_vrf_import_unlink_src_index(import);
+	src_index = zebra_vrf_import_src_index_get(src_vrf_id, import->afi, import->safi);
+	zebra_vrf_import_src_index_imports_add_tail(&src_index->imports, import);
+	import->src_index = src_index;
+}
+
+static void zebra_vrf_import_refresh_src_index(struct zebra_vrf_import *import)
+{
+	struct vrf *src_vrf;
+
+	if (!import)
+		return;
+
+	src_vrf = vrf_lookup_by_name(import->src_vrf_name);
+	if (!zvrf_is_active(import->dst_zvrf) || !src_vrf || !vrf_is_enabled(src_vrf)) {
+		zebra_vrf_import_unlink_src_index(import);
+		return;
+	}
+
+	zebra_vrf_import_link_src_index(import, src_vrf->vrf_id);
 }
 
 static void zebra_vrf_import_free(struct zebra_vrf_import *import)
@@ -43,6 +174,7 @@ static void zebra_vrf_import_free(struct zebra_vrf_import *import)
 	if (!import)
 		return;
 
+	zebra_vrf_import_unlink_src_index(import);
 	XFREE(MTYPE_VRF_IMPORT_NAME, import->src_vrf_name);
 	XFREE(MTYPE_VRF_IMPORT_NAME, import->rmap_name);
 	XFREE(MTYPE_VRF_IMPORT, import);
@@ -289,7 +421,7 @@ static void zebra_vrf_import_scan(struct zebra_vrf_import *import, struct zebra_
 	struct route_entry *re;
 
 	src_vrf = vrf_lookup_by_name(import->src_vrf_name);
-	if (!src_vrf || !src_vrf->info)
+	if (!src_vrf || !vrf_is_enabled(src_vrf) || !src_vrf->info)
 		return;
 	src_zvrf = src_vrf->info;
 
@@ -318,6 +450,7 @@ int zebra_vrf_import_add(struct zebra_vrf *dst_zvrf, afi_t afi, safi_t safi,
 		import->afi = afi;
 		import->safi = safi;
 		import->src_vrf_name = XSTRDUP(MTYPE_VRF_IMPORT_NAME, src_vrf_name);
+		import->dst_zvrf = dst_zvrf;
 		zebra_vrf_imports_add_tail(&dst_zvrf->vrf_imports, import);
 	}
 
@@ -325,6 +458,7 @@ int zebra_vrf_import_add(struct zebra_vrf *dst_zvrf, afi_t afi, safi_t safi,
 	if (rmap_name)
 		import->rmap_name = XSTRDUP(MTYPE_VRF_IMPORT_NAME, rmap_name);
 
+	zebra_vrf_import_refresh_src_index(import);
 	zebra_vrf_import_scan(import, dst_zvrf);
 	return 0;
 }
@@ -390,9 +524,9 @@ void zebra_vrf_import_rib_update(struct route_node *rn, struct route_entry *old_
 {
 	struct route_entry *src_re = new_selected ? new_selected : old_selected;
 	struct zebra_vrf *src_zvrf;
-	struct vrf *vrf;
 	struct zebra_vrf *dst_zvrf;
 	struct zebra_vrf_import *import;
+	struct zebra_vrf_import_src_index *src_index;
 	afi_t afi;
 
 	if (!src_re || src_re->type == ZEBRA_ROUTE_VRF_IMPORT)
@@ -406,23 +540,26 @@ void zebra_vrf_import_rib_update(struct route_node *rn, struct route_entry *old_
 	if (!src_zvrf)
 		return;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		dst_zvrf = vrf->info;
-		if (!dst_zvrf || !zebra_vrf_imports_count(&dst_zvrf->vrf_imports))
+	src_index = zebra_vrf_import_src_index_lookup(zvrf_id(src_zvrf), afi, SAFI_UNICAST);
+	if (!src_index)
+		return;
+
+	frr_each_safe (zebra_vrf_import_src_index_imports, &src_index->imports, import) {
+		/* Be defensive: source VRF IDs can be removed/reused. If an import
+		 * somehow remains in an old ID bucket, never import from a VRF whose
+		 * name does not match the configured source.
+		 */
+		if (!strmatch(import->src_vrf_name, zvrf_name(src_zvrf))) {
+			zebra_vrf_import_unlink_src_index(import);
 			continue;
+		}
 
-		frr_each (zebra_vrf_imports, &dst_zvrf->vrf_imports, import) {
-			if (import->afi != afi || import->safi != SAFI_UNICAST)
-				continue;
-			if (!strmatch(import->src_vrf_name, zvrf_name(src_zvrf)))
-				continue;
-
+		dst_zvrf = import->dst_zvrf;
+		if (new_selected)
+			zebra_vrf_import_add_route(import, dst_zvrf, src_zvrf, rn, new_selected);
+		else
 			zebra_vrf_import_del_prefix(dst_zvrf, import->afi, import->safi,
 						    zvrf_id(src_zvrf), &rn->p);
-			if (new_selected)
-				zebra_vrf_import_add_route(import, dst_zvrf, src_zvrf, rn,
-							   new_selected);
-		}
 	}
 }
 
@@ -460,6 +597,11 @@ void zebra_vrf_import_vrf_enable(struct zebra_vrf *zvrf)
 	struct zebra_vrf *dst_zvrf;
 	struct zebra_vrf_import *import;
 
+	frr_each (zebra_vrf_imports, &zvrf->vrf_imports, import) {
+		zebra_vrf_import_refresh_src_index(import);
+		zebra_vrf_import_scan(import, zvrf);
+	}
+
 	/* Re-scan imports from this source when a VRF appears/enables. */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		dst_zvrf = vrf->info;
@@ -467,36 +609,63 @@ void zebra_vrf_import_vrf_enable(struct zebra_vrf *zvrf)
 			continue;
 
 		frr_each (zebra_vrf_imports, &dst_zvrf->vrf_imports, import) {
-			if (strmatch(import->src_vrf_name, zvrf_name(zvrf)))
-				zebra_vrf_import_scan(import, dst_zvrf);
+			if (!zvrf_is_active(dst_zvrf) ||
+			    !strmatch(import->src_vrf_name, zvrf_name(zvrf)))
+				continue;
+			zebra_vrf_import_link_src_index(import, zvrf_id(zvrf));
+			zebra_vrf_import_scan(import, dst_zvrf);
 		}
 	}
 }
 
-void zebra_vrf_import_vrf_delete(struct zebra_vrf *zvrf)
+static void zebra_vrf_import_src_vrf_down(struct zebra_vrf *zvrf)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *dst_zvrf;
+	struct zebra_vrf_import *import;
+	const char *src_vrf_name = zvrf_name(zvrf);
+	vrf_id_t src_vrf_id = zvrf_id(zvrf);
+
+	/* Remove imported routes and reverse-index entries sourced from this VRF.
+	 * This must run when a VRF is disabled, not just deleted, because its
+	 * numeric vrf_id can be removed or reused while the configured VRF object
+	 * and import config remain.
+	 */
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		dst_zvrf = vrf->info;
+		if (!dst_zvrf || !zebra_vrf_imports_count(&dst_zvrf->vrf_imports))
+			continue;
+
+		frr_each_safe (zebra_vrf_imports, &dst_zvrf->vrf_imports, import) {
+			if (!strmatch(import->src_vrf_name, src_vrf_name))
+				continue;
+			zebra_vrf_import_unlink_src_index(import);
+			zebra_vrf_import_del_all(dst_zvrf, import->afi, import->safi, src_vrf_id);
+		}
+	}
+}
+
+void zebra_vrf_import_vrf_disable(struct zebra_vrf *zvrf)
+{
+	struct zebra_vrf_import *import;
+
+	frr_each_safe (zebra_vrf_imports, &zvrf->vrf_imports, import) {
+		if (import->src_index)
+			zebra_vrf_import_del_all(zvrf, import->afi, import->safi,
+						 import->src_index->src_vrf_id);
+		zebra_vrf_import_unlink_src_index(import);
+	}
+	zebra_vrf_import_src_vrf_down(zvrf);
+}
+
+void zebra_vrf_import_vrf_delete(struct zebra_vrf *zvrf)
+{
 	struct zebra_vrf_import *import;
 
 	/* Remove imports configured in this destination VRF. */
 	while ((import = zebra_vrf_imports_first(&zvrf->vrf_imports)))
 		zebra_vrf_import_del(zvrf, import->afi, import->safi, import->src_vrf_name);
 
-	/* Remove imported routes in other VRFs sourced from this VRF. */
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		dst_zvrf = vrf->info;
-		if (!dst_zvrf || !zebra_vrf_imports_count(&dst_zvrf->vrf_imports) ||
-		    dst_zvrf == zvrf)
-			continue;
-
-		frr_each (zebra_vrf_imports, &dst_zvrf->vrf_imports, import) {
-			if (!strmatch(import->src_vrf_name, zvrf_name(zvrf)))
-				continue;
-			zebra_vrf_import_del_all(dst_zvrf, import->afi, import->safi,
-						 zvrf_id(zvrf));
-		}
-	}
-
+	zebra_vrf_import_src_vrf_down(zvrf);
 	zebra_vrf_imports_fini(&zvrf->vrf_imports);
 }
