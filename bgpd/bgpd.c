@@ -120,6 +120,8 @@ unsigned int bgp_suppress_fib_count;
 
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
+static void peer_ttl_update(struct peer *peer);
+static void peer_ttl_apply(struct peer *peer, bool old_multihop);
 
 static void peer_vpn_change_bestpath(struct peer *peer, afi_t afi);
 
@@ -1929,6 +1931,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 			XSTRDUP(MTYPE_BGP_PEER_IFNAME, peer_src->ifname);
 	}
 	peer_dst->ttl = peer_src->ttl;
+	peer_dst->cfg_ttl = peer_src->cfg_ttl;
 	peer_dst->gtsm_hops = peer_src->gtsm_hops;
 }
 
@@ -2322,15 +2325,10 @@ bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 void peer_as_change(struct peer *peer, as_t as, enum peer_asn_type as_type,
 		    const char *as_str)
 {
-	enum bgp_peer_sort origtype, newtype;
+	enum bgp_peer_sort newtype;
+	bool old_multihop = PEER_IS_MULTIHOP(peer);
+	int old_ttl = peer->ttl;
 
-	/* Stop peer. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_set_last_reset(peer, PEER_DOWN_REMOTE_AS_CHANGE);
-		if (!peer_notify_config_change(peer->connection))
-			bgp_session_reset(peer);
-	}
-	origtype = peer_sort_lookup(peer);
 	peer->as = as;
 	if (as_type == AS_SPECIFIED && as_str) {
 		if (peer->as_pretty)
@@ -2355,11 +2353,22 @@ void peer_as_change(struct peer *peer, as_t as, enum peer_asn_type as_type,
 					   : BGP_DEFAULT_EBGP_ROUTEADV;
 	}
 
-	/* TTL reset */
-	if (newtype == BGP_PEER_IBGP)
-		peer->ttl = MAXTTL;
-	else if (origtype == BGP_PEER_IBGP)
-		peer->ttl = BGP_DEFAULT_TTL;
+	/*
+	 * Re-derive TTL from the new sort before resetting the session so the
+	 * recreated socket uses the correct hop count (and refresh BFD when the
+	 * effective multihop state changes).
+	 */
+	peer_ttl_update(peer);
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		peer_set_last_reset(peer, PEER_DOWN_REMOTE_AS_CHANGE);
+		if (!peer_notify_config_change(peer->connection))
+			bgp_session_reset(peer);
+
+		if (peer->bfd_config &&
+		    (peer->ttl != old_ttl || PEER_IS_MULTIHOP(peer) != old_multihop))
+			bgp_peer_bfd_update_source(peer);
+	}
 
 	/* reflector-client reset */
 	if (newtype != BGP_PEER_IBGP) {
@@ -2467,6 +2476,147 @@ enum asnotation_mode bgp_get_asnotation(struct bgp *bgp)
 	if (!bgp)
 		return ASNOTATION_PLAIN;
 	return bgp->asnotation;
+}
+
+/*
+ * Single source of truth for peer->ttl: iBGP is always MAXTTL, eBGP uses the
+ * configured ebgp-multihop (peer->cfg_ttl, inherited from the group, incl. 255)
+ * or BGP_DEFAULT_TTL. Keeping cfg_ttl separate lets the configured value survive
+ * a local-as/remote-as change that briefly makes the peer iBGP. Also refreshes
+ * the cached peer->sort; call it wherever the sort or cfg_ttl can change.
+ */
+static void peer_ttl_update(struct peer *peer)
+{
+	int cfg_ttl;
+
+	if (peer_sort(peer) == BGP_PEER_IBGP) {
+		peer->ttl = MAXTTL;
+		return;
+	}
+
+	/*
+	 * ttl-security (GTSM) keeps peer->ttl at MAXTTL while enabled; do not
+	 * clobber it, as NHT/BFD and PEER_IS_MULTIHOP key off peer->ttl.
+	 */
+	if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED) {
+		peer->ttl = MAXTTL;
+		return;
+	}
+
+	/* eBGP: own configured ebgp-multihop, else the group's, else default. */
+	cfg_ttl = peer->cfg_ttl;
+	if (!cfg_ttl && peer_group_active(peer))
+		cfg_ttl = peer->group->conf->cfg_ttl;
+
+	peer->ttl = cfg_ttl ? cfg_ttl : BGP_DEFAULT_TTL;
+}
+
+/*
+ * Re-derive peer->ttl from cfg_ttl and, if the effective TTL of a non-iBGP
+ * peer actually changed, reset the session and reconfigure BFD so the new TTL
+ * is applied (mirrors peer_ebgp_multihop_set()/_unset()).
+ *
+ * old_multihop is the PEER_IS_MULTIHOP() state captured by the caller BEFORE
+ * mutating the peer's AS/local-as. It must not be sampled here: callers run
+ * after the sort has already flipped, and PEER_IS_MULTIHOP() recomputes/caches
+ * peer->sort, so an in-function sample would read the new state on both sides
+ * and miss a 255->255 multihop transition (e.g. ebgp-multihop/GTSM eBGP -> iBGP
+ * on a shared network).
+ */
+static void peer_ttl_apply(struct peer *peer, bool old_multihop)
+{
+	int old_ttl = peer->ttl;
+
+	peer_ttl_update(peer);
+
+	/* No session/BFD work for a peer-group template (no connection). */
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return;
+
+	/*
+	 * Act when EITHER the numeric TTL or the effective multihop state
+	 * changed. The latter can flip while peer->ttl stays the same: e.g. an
+	 * eBGP peer with ebgp-multihop/GTSM (ttl == MAXTTL) turned iBGP on a
+	 * shared network by local-as/remote-as is no longer multihop, so BFD
+	 * must move from multihop to single-hop even though the TTL is unchanged.
+	 */
+	if (peer->ttl == old_ttl && PEER_IS_MULTIHOP(peer) == old_multihop)
+		return;
+
+	/*
+	 * Reset the session so an already-open Connect/OpenSent socket is
+	 * recreated with the correct TTL: bgp_set_socket_ttl() only runs at
+	 * socket creation, so without a reset it would keep the stale TTL.
+	 */
+	if (!peer_notify_config_change(peer->connection))
+		bgp_session_reset(peer);
+
+	/* Reprogram BFD with the new hop count / multihop state. */
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
+}
+
+/*
+ * Record the operator-configured ebgp-multihop hop count (0 to clear) as the
+ * source of truth, then re-derive and apply the effective peer->ttl. Called
+ * from peer_ebgp_multihop_set()/_unset() when record_cfg is true; internal
+ * GTSM callers pass record_cfg=false so ttl-security does not look like
+ * configured multihop. For a peer-group the value applies to
+ * all members (mirroring 'neighbor PG ebgp-multihop'), but a member that has its
+ * own configured value (cfg_ttl) is left untouched: setting a group value does
+ * not override a member's own, and clearing the group value must not wipe it.
+ * peer_ttl_update() re-derives members from the group's conf->cfg_ttl anyway.
+ */
+void peer_cfg_ttl_set(struct peer *peer, int cfg_ttl)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	peer->cfg_ttl = cfg_ttl;
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/*
+		 * Mark explicit per-peer ownership with a flag rather than
+		 * inferring it from the cfg_ttl value: a member can legitimately
+		 * be configured with the same hop count as its group, so value
+		 * comparison cannot tell "own" from "inherited". The flag lives
+		 * only on real peers; a group's configured multihop is tracked
+		 * by conf->cfg_ttl.
+		 *
+		 * Always mirror the flag into flags_override so the ownership
+		 * survives a later peer-group bind: peer_group2peer_config_copy()
+		 * clears every non-overridden flag, which would otherwise drop a
+		 * multihop configured before the peer joined the group.
+		 */
+		if (cfg_ttl) {
+			SET_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP);
+			SET_FLAG(peer->flags_override, PEER_FLAG_EBGP_MULTIHOP);
+		} else {
+			UNSET_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP);
+			UNSET_FLAG(peer->flags_override, PEER_FLAG_EBGP_MULTIHOP);
+		}
+		peer_ttl_apply(peer, PEER_IS_MULTIHOP(peer));
+		return;
+	}
+
+	peer_ttl_apply(peer, PEER_IS_MULTIHOP(peer));
+
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/*
+		 * A member that owns its multihop keeps its own cfg_ttl, but its
+		 * effective ttl must still be re-derived: the vty path already
+		 * ran the legacy peer_ebgp_multihop_set()/_unset() over the
+		 * group, stamping this member's peer->ttl to the group value (or
+		 * 1 on clear). peer_ttl_apply() restores it from cfg_ttl.
+		 */
+		if (CHECK_FLAG(member->flags, PEER_FLAG_EBGP_MULTIHOP)) {
+			peer_ttl_apply(member, PEER_IS_MULTIHOP(member));
+			continue;
+		}
+
+		member->cfg_ttl = cfg_ttl;
+		peer_ttl_apply(member, PEER_IS_MULTIHOP(member));
+	}
 }
 
 static void peer_group2peer_config_copy_af(struct peer_group *group,
@@ -3206,12 +3356,22 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_LOCAL_AS))
 		peer->change_local_as = conf->change_local_as;
 
-	/* If peer-group has configured TTL then override it */
-	if (conf->ttl != BGP_DEFAULT_TTL)
-		peer->ttl = conf->ttl;
-
-	/* GTSM hops */
-	peer->gtsm_hops = conf->gtsm_hops;
+	/*
+	 * TTL/GTSM propagation (both are inputs to peer_ttl_update(), so copy
+	 * before deriving). ebgp-multihop and ttl-security are mutually
+	 * exclusive, so a member that owns its ebgp-multihop config
+	 * (PEER_FLAG_EBGP_MULTIHOP) keeps its own cfg_ttl AND must not inherit
+	 * the group's gtsm_hops (which would force MAXTTL and silently override
+	 * the member's multihop). Otherwise the member inherits both from the
+	 * group. Then derive the effective TTL from the now-current sort,
+	 * gtsm_hops and cfg_ttl (the copied remote-as/local-as may have flipped
+	 * the member iBGP<->eBGP, and GTSM forces MAXTTL).
+	 */
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP)) {
+		peer->gtsm_hops = conf->gtsm_hops;
+		peer->cfg_ttl = conf->cfg_ttl;
+	}
+	peer_ttl_update(peer);
 
 	/* peer flags apply */
 	flags_tmp = CHECK_FLAG(conf->flags, ~peer->flags_override);
@@ -3578,6 +3738,8 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	afi_t afi;
 	safi_t safi;
 	enum bgp_peer_sort ptype, gtype;
+	int old_ttl = 0;
+	bool old_multihop = false;
 
 	/* Lookup the peer.  */
 	if (!peer)
@@ -3597,6 +3759,22 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			else
 				return BGP_ERR_PEER_GROUP_CANT_CHANGE;
 		}
+
+		/*
+		 * ebgp-multihop and ttl-security are mutually exclusive. Reject a
+		 * bind that would mix them across peer and group, in EITHER
+		 * direction. Allowing it produces a running-config that cannot be
+		 * reloaded: on reload the bind inherits the group's setting before
+		 * the member's own line is parsed, and the vty conflict check then
+		 * rejects that line. Rejecting the bind keeps config reloadable.
+		 *
+		 * Check BEFORE inheriting the group's remote-as/sort below, so a
+		 * rejected bind leaves the (non-member) peer's AS/sort untouched.
+		 */
+		if ((CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP) &&
+		     group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED) ||
+		    (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && group->conf->cfg_ttl != 0))
+			return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
 		/* The peer has not specified a remote-as, inherit it from the
 		 * peer-group */
@@ -3618,6 +3796,16 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			if (gtype == BGP_PEER_INTERNAL)
 				first_member = 1;
 		}
+
+		/*
+		 * Snapshot the effective TTL/multihop BEFORE the copy: inheriting
+		 * the group's remote-as/local-as/cfg_ttl can flip the member's
+		 * sort and re-derive peer->ttl. The BGP socket is recreated below
+		 * (bgp_session_reset), but an already-configured BFD session is
+		 * not, so refresh it when the bind changes TTL or multihop state.
+		 */
+		old_ttl = peer->ttl;
+		old_multihop = PEER_IS_MULTIHOP(peer);
 
 		peer_group2peer_config_copy(group, peer);
 
@@ -3657,9 +3845,8 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 						: BGP_DEFAULT_EBGP_ROUTEADV;
 			}
 
-			/* ebgp-multihop reset */
-			if (gtype == BGP_PEER_IBGP)
-				group->conf->ttl = MAXTTL;
+			/* re-derive group TTL for the new sort */
+			peer_ttl_update(group->conf);
 		}
 
 		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
@@ -3668,6 +3855,16 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 
 		if (!peer_notify_config_change(peer->connection))
 			bgp_session_reset(peer);
+
+		/*
+		 * The session reset above recreates the BGP socket with the new
+		 * TTL, but BFD is tracked separately: refresh its hop count when
+		 * the bind changed the effective TTL or multihop state, otherwise
+		 * BFD keeps the stale single-hop/multihop value.
+		 */
+		if (peer->bfd_config &&
+		    (old_ttl != peer->ttl || old_multihop != PEER_IS_MULTIHOP(peer)))
+			bgp_peer_bfd_update_source(peer);
 	}
 
 	/* Create a new peer. */
@@ -5983,18 +6180,14 @@ void peer_tx_shutdown_message_unset(struct peer *peer)
 
 
 /* EBGP multihop configuration. */
-int peer_ebgp_multihop_set(struct peer *peer, int ttl)
+int peer_ebgp_multihop_set(struct peer *peer, int ttl, bool record_cfg)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 	struct peer *member;
 
-	if (peer->sort == BGP_PEER_IBGP || peer->conf_if)
-		return 0;
-
-	/* is there anything to do? */
-	if (peer->ttl == ttl)
-		return 0;
+	if (peer->conf_if)
+		return BGP_SUCCESS;
 
 	/* see comment in peer_ttl_security_hops_set() */
 	if (ttl != MAXTTL) {
@@ -6016,6 +6209,18 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 		}
 	}
 
+	if (record_cfg) {
+		peer_cfg_ttl_set(peer, ttl);
+		return BGP_SUCCESS;
+	}
+
+	if (peer->sort == BGP_PEER_IBGP)
+		return BGP_SUCCESS;
+
+	/* is there anything to do? */
+	if (peer->ttl == ttl)
+		return BGP_SUCCESS;
+
 	peer->ttl = ttl;
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -6033,6 +6238,14 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 			if (member->sort == BGP_PEER_IBGP)
 				continue;
 
+			/*
+			 * Members that own their multihop (PEER_FLAG_EBGP_MULTIHOP)
+			 * keep their explicit value; do not flap them on a group
+			 * change. peer_cfg_ttl_set() re-derives their effective ttl.
+			 */
+			if (CHECK_FLAG(member->flags, PEER_FLAG_EBGP_MULTIHOP))
+				continue;
+
 			member->ttl = group->conf->ttl;
 
 			if (!peer_notify_config_change(member->connection))
@@ -6043,58 +6256,44 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 				bgp_peer_bfd_update_source(member);
 		}
 	}
-	return 0;
+	return BGP_SUCCESS;
 }
 
-int peer_ebgp_multihop_unset(struct peer *peer)
+int peer_ebgp_multihop_unset(struct peer *peer, bool record_cfg)
 {
-	struct peer *member;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
 	int ttl;
 
+	if (record_cfg) {
+		peer_cfg_ttl_set(peer, 0);
+		return BGP_SUCCESS;
+	}
+
 	if (peer->sort == BGP_PEER_IBGP)
-		return 0;
+		return BGP_SUCCESS;
 
 	if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && peer->ttl != MAXTTL)
 		return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
-	if (peer_group_active(peer))
-		ttl = peer->group->conf->ttl;
-	else
-		ttl = BGP_DEFAULT_TTL;
+	/*
+	 * Legacy path used when ttl-security is removed (see
+	 * peer_ttl_security_hops_unset()).
+	 */
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return BGP_SUCCESS;
+
+	ttl = peer->ttl;
+	peer_ttl_update(peer);
 
 	if (ttl == peer->ttl)
-		return 0;
+		return BGP_SUCCESS;
 
-	peer->ttl = ttl;
+	if (!peer_notify_config_change(peer->connection))
+		bgp_session_reset(peer);
 
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (!peer_notify_config_change(peer->connection))
-			bgp_session_reset(peer);
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
 
-		/* Reconfigure BFD peer with new TTL. */
-		if (peer->bfd_config)
-			bgp_peer_bfd_update_source(peer);
-	} else {
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
-			if (member->sort == BGP_PEER_IBGP)
-				continue;
-
-			member->ttl = BGP_DEFAULT_TTL;
-
-			if (member->connection->fd >= 0) {
-				if (!peer_notify_config_change(member->connection))
-					bgp_session_reset(member);
-			}
-
-			/* Reconfigure BFD peer with new TTL. */
-			if (member->bfd_config)
-				bgp_peer_bfd_update_source(member);
-		}
-	}
-	return 0;
+	return BGP_SUCCESS;
 }
 
 /* Set Open Policy Role and check its correctness */
@@ -7372,10 +7571,12 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 		      bool replace_as, bool dual_as, const char *as_str)
 {
 	bool old_no_prepend, old_replace_as, old_dual_as;
+	bool local_as_already;
 	struct bgp *bgp = peer->bgp;
 	struct peer *member;
 	struct listnode *node, *nnode;
 	bool same_as_str = false;
+	bool old_multihop = PEER_IS_MULTIHOP(peer);
 
 	if (bgp->as == as)
 		return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS;
@@ -7387,26 +7588,45 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 	old_dual_as = !!CHECK_FLAG(peer->flags, PEER_FLAG_DUAL_AS);
 
-	/* Set flag and configuration on peer. */
-	peer_flag_set(peer, PEER_FLAG_LOCAL_AS);
-	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND, no_prepend);
-	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS, replace_as);
-	peer_flag_modify(peer, PEER_FLAG_DUAL_AS, dual_as);
-
 	same_as_str = as_str && peer->change_local_as_pretty &&
 		      !strcmp(as_str, peer->change_local_as_pretty);
 
 	if (peer->change_local_as == as && old_no_prepend == no_prepend &&
-	    old_replace_as == replace_as && old_dual_as == dual_as && same_as_str)
+	    old_replace_as == replace_as && old_dual_as == dual_as &&
+	    CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS) && same_as_str)
 		return 0;
+
+	local_as_already = CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS);
+
+	/*
+	 * Stamp the override and re-derive peer->ttl before the flag hooks run
+	 * so a peer_flag_set()-driven session reset recreates the socket with
+	 * the correct TTL (e.g. MAXTTL when local-as turns the session iBGP).
+	 */
 	peer->change_local_as = as;
 	if (as_str) {
 		if (peer->change_local_as_pretty)
 			XFREE(MTYPE_BGP_NAME, peer->change_local_as_pretty);
 		peer->change_local_as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_str);
 	}
+	peer_ttl_update(peer);
 
-	(void)peer_sort(peer);
+	if (!local_as_already)
+		peer_flag_set(peer, PEER_FLAG_LOCAL_AS);
+	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND, no_prepend);
+	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS, replace_as);
+	peer_flag_modify(peer, PEER_FLAG_DUAL_AS, dual_as);
+
+	/*
+	 * When local-as was already configured the flag hooks above are no-ops
+	 * and do not reset the session; apply any TTL/multihop delta here.
+	 * Otherwise the flag hooks already reset with the updated peer->ttl, so
+	 * only refresh BFD when the effective multihop state flipped.
+	 */
+	if (local_as_already)
+		peer_ttl_apply(peer, old_multihop);
+	else if (peer->bfd_config && PEER_IS_MULTIHOP(peer) != old_multihop)
+		bgp_peer_bfd_update_source(peer);
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
@@ -7417,6 +7637,8 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		bool member_old_multihop = PEER_IS_MULTIHOP(member);
+
 		/* Skip peers with overridden configuration. */
 		if (CHECK_FLAG(member->flags_override, PEER_FLAG_LOCAL_AS))
 			continue;
@@ -7434,12 +7656,6 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 			continue;
 
 		/* Set flag and configuration on peer-group member. */
-		SET_FLAG(member->flags, PEER_FLAG_LOCAL_AS);
-		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND,
-			  no_prepend);
-		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS,
-			  replace_as);
-		COND_FLAG(member->flags, PEER_FLAG_DUAL_AS, dual_as);
 		member->change_local_as = as;
 		if (as_str) {
 			if (member->change_local_as_pretty)
@@ -7447,6 +7663,15 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 			member->change_local_as_pretty = XSTRDUP(MTYPE_BGP_NAME,
 								 as_str);
 		}
+		peer_ttl_update(member);
+
+		SET_FLAG(member->flags, PEER_FLAG_LOCAL_AS);
+		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND, no_prepend);
+		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS, replace_as);
+		COND_FLAG(member->flags, PEER_FLAG_DUAL_AS, dual_as);
+
+		/* Re-derive the member's TTL and refresh its session/BFD. */
+		peer_ttl_apply(member, member_old_multihop);
 	}
 
 	return 0;
@@ -7477,12 +7702,17 @@ int peer_local_as_unset(struct peer *peer)
 		XFREE(MTYPE_BGP_NAME, peer->change_local_as_pretty);
 	}
 
+	peer_ttl_update(peer);
+
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_set_last_reset(peer, PEER_DOWN_LOCAL_AS_CHANGE);
 		/* Send notification or stop peer depending on state. */
 		if (!peer_notify_config_change(peer->connection))
 			BGP_EVENT_ADD(peer->connection, BGP_Stop);
+
+		if (peer->bfd_config)
+			bgp_peer_bfd_update_source(peer);
 
 		/* Skip peer-group mechanics for regular peers. */
 		return 0;
@@ -7506,9 +7736,14 @@ int peer_local_as_unset(struct peer *peer)
 		XFREE(MTYPE_BGP_NAME, member->change_local_as_pretty);
 		peer_set_last_reset(member, PEER_DOWN_LOCAL_AS_CHANGE);
 
+		peer_ttl_update(member);
+
 		/* Send notification or stop peer depending on state. */
 		if (!peer_notify_config_change(member->connection))
 			bgp_session_reset(member);
+
+		if (member->bfd_config)
+			bgp_peer_bfd_update_source(member);
 	}
 
 	return 0;
@@ -8778,6 +9013,13 @@ int peer_maximum_prefix_out_unset(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
+/*
+ * Effective-multihop predicate used by NHT/BFD (PEER_IS_MULTIHOP): a peer is
+ * multihop if its effective peer->ttl is non-default while eBGP. This is true
+ * for both an operator ebgp-multihop and a ttl-security (GTSM) peer, since both
+ * raise peer->ttl above BGP_DEFAULT_TTL. Keep it ttl-based; the mutual-exclusion
+ * check uses the separate, cfg_ttl-based peer_ebgp_multihop_cfg() below.
+ */
 int is_ebgp_multihop_configured(struct peer *peer)
 {
 	struct peer_group *group;
@@ -8786,19 +9028,72 @@ int is_ebgp_multihop_configured(struct peer *peer)
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		group = peer->group;
-		if ((peer_sort(peer) != BGP_PEER_IBGP)
-		    && (group->conf->ttl != BGP_DEFAULT_TTL))
+		if ((peer_sort(peer) != BGP_PEER_IBGP) && (group->conf->ttl != BGP_DEFAULT_TTL))
 			return 1;
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer1)) {
-			if ((peer_sort(peer1) != BGP_PEER_IBGP)
-			    && (peer1->ttl != BGP_DEFAULT_TTL))
+			if ((peer_sort(peer1) != BGP_PEER_IBGP) && (peer1->ttl != BGP_DEFAULT_TTL))
 				return 1;
 		}
 	} else {
-		if ((peer_sort(peer) != BGP_PEER_IBGP)
-		    && (peer->ttl != BGP_DEFAULT_TTL))
+		if ((peer_sort(peer) != BGP_PEER_IBGP) && (peer->ttl != BGP_DEFAULT_TTL))
 			return 1;
+	}
+	return 0;
+}
+
+/*
+ * Mutual-exclusion predicate for ttl-security: returns true if an operator
+ * ebgp-multihop is configured on the peer/group/any member, keyed off cfg_ttl
+ * (the sort-independent source of truth) so it still fires while a local-as
+ * override has temporarily made the peer iBGP.
+ */
+static int peer_ebgp_multihop_cfg(struct peer *peer)
+{
+	struct peer_group *group;
+	struct listnode *node, *nnode;
+	struct peer *member;
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		group = peer->group;
+		if (group->conf->cfg_ttl != 0)
+			return 1;
+
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member))
+			if (member->cfg_ttl != 0)
+				return 1;
+	} else if (peer->cfg_ttl != 0) {
+		return 1;
+	} else if (peer_group_active(peer) && peer->group->conf->cfg_ttl != 0) {
+		/* Member with no own multihop but inheriting it from the group. */
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * Mirror of peer_ebgp_multihop_cfg() for the other side of the mutual
+ * exclusion: returns true if ttl-security (GTSM) is configured on the
+ * peer/group/any member. Used by the ebgp-multihop vty path to reject the
+ * command on paths peer_ebgp_multihop_set() skips (bare/MAXTTL form, or an
+ * iBGP-sorted group with eBGP members).
+ */
+int peer_gtsm_configured(struct peer *peer)
+{
+	struct peer_group *group;
+	struct listnode *node, *nnode;
+	struct peer *member;
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		group = peer->group;
+		if (group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
+			return 1;
+
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member))
+			if (member->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
+				return 1;
+	} else if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED) {
+		return 1;
 	}
 	return 0;
 }
@@ -8826,11 +9121,16 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 	   mess of this configuration parameter, and OpenBGPD got it right.
 	*/
 
-	if ((peer->gtsm_hops == BGP_GTSM_HOPS_DISABLED)
-	    && (peer->sort != BGP_PEER_IBGP)) {
-		if (is_ebgp_multihop_configured(peer))
-			return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+	/*
+	 * ebgp-multihop and ttl-security are mutually exclusive. Reject here
+	 * even when a local-as override has temporarily made the peer iBGP:
+	 * peer_ebgp_multihop_cfg() keys off cfg_ttl, so a configured (or
+	 * group-inherited) multihop is still detected in that state.
+	 */
+	if (peer->gtsm_hops == BGP_GTSM_HOPS_DISABLED && peer_ebgp_multihop_cfg(peer))
+		return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
+	if ((peer->gtsm_hops == BGP_GTSM_HOPS_DISABLED) && (peer->sort != BGP_PEER_IBGP)) {
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 			peer->gtsm_hops = gtsm_hops;
 
@@ -8839,9 +9139,9 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 			 * min & max ttls on the socket. The return value is
 			 * irrelevant.
 			 */
-			ret = peer_ebgp_multihop_set(peer, MAXTTL);
+			ret = peer_ebgp_multihop_set(peer, MAXTTL, false);
 
-			if (ret != 0)
+			if (ret != BGP_SUCCESS)
 				return ret;
 		} else {
 			group = peer->group;
@@ -8858,7 +9158,7 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				 * value is
 				 * irrelevant.
 				 */
-				peer_ebgp_multihop_set(gpeer, MAXTTL);
+				peer_ebgp_multihop_set(gpeer, MAXTTL, false);
 			}
 		}
 	} else {
@@ -8940,7 +9240,7 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 		 * reset.
 		 */
 		if (peer->sort == BGP_PEER_EBGP)
-			ret = peer_ebgp_multihop_unset(peer);
+			ret = peer_ebgp_multihop_unset(peer, false);
 		else {
 			if (peer->connection->fd >= 0)
 				sockopt_minttl(peer->connection->su.sa.sa_family,
@@ -8958,7 +9258,7 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			peer->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
 			if (peer->sort == BGP_PEER_EBGP)
-				ret = peer_ebgp_multihop_unset(peer);
+				ret = peer_ebgp_multihop_unset(peer, false);
 			else {
 				if (peer->connection->fd >= 0)
 					sockopt_minttl(peer->connection->su.sa

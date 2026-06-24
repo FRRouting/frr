@@ -1627,6 +1627,8 @@ struct peer {
 	struct peer_connection *connection;
 
 	int ttl;	     /* TTL of TCP connection to the peer. */
+	/* configured ebgp-multihop hop count; 0 if none */
+	int cfg_ttl;
 	int rtt;	     /* Estimated round-trip-time from TCP_INFO */
 	int rtt_expected; /* Expected round-trip-time for a peer */
 	uint8_t rtt_keepalive_rcv; /* Received count for RTT shutdown */
@@ -1852,6 +1854,7 @@ struct peer {
 /* BGP-LS per-peer link identifiers configured */
 #define PEER_FLAG_LS_LOCAL_LINK_ID  (1ULL << 49)
 #define PEER_FLAG_LS_REMOTE_LINK_ID (1ULL << 50)
+#define PEER_FLAG_EBGP_MULTIHOP	    (1ULL << 51) /* explicit ebgp-multihop config */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -2813,8 +2816,10 @@ extern void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 extern void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 			       enum peer_change_type type);
 
-extern int peer_ebgp_multihop_set(struct peer *peer, int ttl);
-extern int peer_ebgp_multihop_unset(struct peer *peer);
+extern int peer_ebgp_multihop_set(struct peer *peer, int ttl, bool record_cfg);
+extern int peer_ebgp_multihop_unset(struct peer *peer, bool record_cfg);
+extern void peer_cfg_ttl_set(struct peer *peer, int cfg_ttl);
+extern int peer_gtsm_configured(struct peer *peer);
 extern int is_ebgp_multihop_configured(struct peer *peer);
 
 extern int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode);

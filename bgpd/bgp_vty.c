@@ -7661,6 +7661,7 @@ static int peer_ebgp_multihop_set_vty(struct vty *vty, const char *ip_str,
 {
 	struct peer *peer;
 	unsigned int ttl;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
@@ -7674,18 +7675,33 @@ static int peer_ebgp_multihop_set_vty(struct vty *vty, const char *ip_str,
 	else
 		ttl = strtoul(ttl_str, NULL, 10);
 
-	return bgp_vty_return(vty, peer_ebgp_multihop_set(peer, ttl));
+	/*
+	 * ebgp-multihop and ttl-security are mutually exclusive. Enforce it for
+	 * the whole peer/group/member set here, because peer_ebgp_multihop_set()
+	 * skips the GTSM check on its no-op paths (bare/MAXTTL form, or an
+	 * iBGP-sorted group with eBGP members) - which would otherwise let us
+	 * record cfg_ttl while a member still has ttl-security.
+	 */
+	if (peer_gtsm_configured(peer))
+		return bgp_vty_return(vty, BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK);
+
+	ret = peer_ebgp_multihop_set(peer, ttl, true);
+
+	return bgp_vty_return(vty, ret);
 }
 
 static int peer_ebgp_multihop_unset_vty(struct vty *vty, const char *ip_str)
 {
 	struct peer *peer;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return bgp_vty_return(vty, peer_ebgp_multihop_unset(peer));
+	ret = peer_ebgp_multihop_unset(peer, true);
+
+	return bgp_vty_return(vty, ret);
 }
 
 /* neighbor ebgp-multihop. */
@@ -21380,14 +21396,21 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peergroup_flag_check(peer, PEER_FLAG_PASSIVE))
 		vty_out(vty, " neighbor %s passive\n", addr);
 
-	/* ebgp-multihop */
-	if (peer->sort != BGP_PEER_IBGP && peer->ttl != BGP_DEFAULT_TTL
-	    && !(peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED
-		 && peer->ttl == MAXTTL)) {
-		if (!peer_group_active(peer) || g_peer->ttl != peer->ttl) {
-			if (peer->ttl != MAXTTL)
-				vty_out(vty, " neighbor %s ebgp-multihop %d\n",
-					addr, peer->ttl);
+	/*
+	 * ebgp-multihop. Serialize from peer->cfg_ttl (the operator-configured
+	 * hop count, independent of the current iBGP/eBGP sort) so an explicit
+	 * 'ebgp-multihop' survives a write/reload even while a local-as override
+	 * temporarily makes the peer iBGP. GTSM (ttl-security) drives peer->ttl
+	 * but not cfg_ttl, so it is correctly not emitted here. For a group
+	 * member, emit only when it owns the config (PEER_FLAG_EBGP_MULTIHOP):
+	 * a member with the same value as its group still owns it and must be
+	 * written, while a purely inherited value must not.
+	 */
+	if (peer->cfg_ttl != 0) {
+		if (!peer_group_active(peer) || CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP)) {
+			if (peer->cfg_ttl != MAXTTL)
+				vty_out(vty, " neighbor %s ebgp-multihop %d\n", addr,
+					peer->cfg_ttl);
 			else
 				vty_out(vty, " neighbor %s ebgp-multihop\n",
 					addr);
