@@ -687,9 +687,23 @@ static void pim_bsm_update(struct pim_instance *pim, pim_addr bsr,
 		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
 	pim_nht_bsr_add(pim, bsr);
 
-	pim->global_scope.current_bsr = bsr;
-	pim->global_scope.current_bsr_first_ts = pim_time_monotonic_sec();
-	pim->global_scope.state = ACCEPT_PREFERRED;
+	/*
+	 * Cancel bs_timer when dropping out of BSR_PENDING - the timer has
+	 * pim_cand_bsr_pending_expire callback which asserts state == BSR_PENDING.
+	 * We must start the BS liveness timer after transitioning since
+	 * pim_bsm_process skips pim_bs_timer_restart when in BSR_PENDING.
+	 */
+	if (pim->global_scope.state == BSR_PENDING) {
+		event_cancel(&pim->global_scope.bs_timer);
+		pim->global_scope.current_bsr = bsr;
+		pim->global_scope.current_bsr_first_ts = pim_time_monotonic_sec();
+		pim->global_scope.state = ACCEPT_PREFERRED;
+		pim_bs_timer_start(&pim->global_scope, PIM_BSR_DEFAULT_TIMEOUT);
+	} else {
+		pim->global_scope.current_bsr = bsr;
+		pim->global_scope.current_bsr_first_ts = pim_time_monotonic_sec();
+		pim->global_scope.state = ACCEPT_PREFERRED;
+	}
 
 	pim_cand_rp_trigger(&pim->global_scope);
 }
@@ -1736,8 +1750,12 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	 * Restart BS liveness whenever we accept a preferred BSR's BSM; do not
 	 * tie this to whether payload parsing installs every (G,RP) (capacity
 	 * bounds may drop tuples without invalidating receipt).
+	 *
+	 * But do NOT restart when in BSR_PENDING state - the bs_timer is used
+	 * for the pending-to-elected transition in that state.
 	 */
-	pim_bs_timer_restart(&pim_ifp->pim->global_scope, PIM_BSR_DEFAULT_TIMEOUT);
+	if (pim_ifp->pim->global_scope.state != BSR_PENDING)
+		pim_bs_timer_restart(&pim_ifp->pim->global_scope, PIM_BSR_DEFAULT_TIMEOUT);
 
 	/* Parse Update bsm rp table and install/uninstall rp if required */
 	if (!pim_bsm_parse_install_g2rp(
@@ -2076,8 +2094,10 @@ static void pim_cand_bsr_trigger(struct bsm_scope *scope, bool verbose)
 
 void pim_cand_bsr_apply(struct bsm_scope *scope)
 {
-	if (!cand_addrsel_update(&scope->bsr_addrsel, scope->pim->vrf))
-		return;
+	/* Always call pim_cand_bsr_trigger regardless of address change -
+	 * priority changes need to be processed even if the address stays same.
+	 */
+	cand_addrsel_update(&scope->bsr_addrsel, scope->pim->vrf);
 
 	if (!scope->bsr_addrsel.run) {
 		pim_cand_bsr_stop(scope, true);
@@ -2087,6 +2107,28 @@ void pim_cand_bsr_apply(struct bsm_scope *scope)
 	if (PIM_DEBUG_BSM)
 		zlog_debug("Candidate BSR: %pPA, priority %u",
 			   &scope->bsr_addrsel.run_addr, scope->cand_bsr_prio);
+
+	/*
+	 * Handle the case where our candidacy is now worse than current_bsr.
+	 * This can happen if an operator lowers the priority or the source
+	 * address changes while we're already pending/elected.
+	 *
+	 * For BSR_PENDING: cancel the pending timer (which would assert on
+	 * cand_bsr_prio >= current_bsr_prio) and fall back to ACCEPT_PREFERRED.
+	 *
+	 * For BSR_ELECTED: just return early - we'll continue as elected BSR
+	 * until the next BSM exchange resolves the situation.
+	 */
+	if (scope->current_bsr_prio > scope->cand_bsr_prio ||
+	    (scope->current_bsr_prio == scope->cand_bsr_prio &&
+	     pim_addr_cmp(scope->current_bsr, scope->bsr_addrsel.run_addr) > 0)) {
+		if (scope->state == BSR_PENDING) {
+			event_cancel(&scope->bs_timer);
+			scope->state = ACCEPT_PREFERRED;
+			pim_bs_timer_start(scope, PIM_BSR_DEFAULT_TIMEOUT);
+		}
+		return;
+	}
 
 	pim_cand_bsr_trigger(scope, true);
 }
