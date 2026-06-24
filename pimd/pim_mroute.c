@@ -179,6 +179,58 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 static const char *const gmmsgtype2str[GMMSG_WRVIFWHOLE + 1] = {
 	"<unknown_upcall?>", "NOCACHE", "WRONGVIF", "WHOLEPKT", "WRVIFWHOLE"};
 
+/*
+ * RFC 4601 section 4.2: on NOCACHE, forward using existing (S,G) state when
+ * iif == RPF_interface(S) and local receivers exist.  Register encapsulation
+ * requires DirectlyConnected(S) at the DR and is handled elsewhere.
+ */
+static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgaddr *sg)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
+	struct pim_upstream *up;
+
+	up = pim_upstream_find(pim, sg);
+	if (!up)
+		return;
+
+	if (!up->rpf.source_nexthop.interface ||
+	    up->rpf.source_nexthop.interface->ifindex != ifp->ifindex) {
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: %pSG NOCACHE on %s, RPF interface is %s", __func__, sg,
+				   ifp->name,
+				   up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
+									      .interface->name
+								    : "(none)");
+		return;
+	}
+
+	pim_upstream_inherited_olist_decide(pim, up);
+	if (pim_upstream_empty_inherited_olist(up)) {
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: %pSG NOCACHE on %s, no local receivers", __func__, sg,
+				   ifp->name);
+		return;
+	}
+
+	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
+		pim_upstream_set_sptbit(up, ifp);
+
+	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+	up->channel_oil->cc.pktcnt++;
+
+	if (up->rpf.source_nexthop.interface && *oil_incoming_vif(up->channel_oil) >= MAXVIFS)
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+
+	pim_upstream_update_join_desired(pim, up);
+
+	if (pim_upstream_kat_start_ok(up))
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+
+	if (!up->channel_oil->installed)
+		pim_upstream_mroute_add(up->channel_oil, __func__);
+}
+
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_interface *pim_ifp = ifp->info;
@@ -386,15 +438,12 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 	/* All further processing is for SSM or SM with an RP only */
 
-
-	/*
-	 * If we've received a multicast packet that isn't connected to us
-	 */
 	if (!pim_if_connected_to_source(ifp, msg->msg_im_src)) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
 				"%s: incoming packet to %pSG from non-connected source",
 				ifp->name, &sg);
+		pim_mroute_nocache_forward_existing(ifp, &sg);
 		return 0;
 	}
 

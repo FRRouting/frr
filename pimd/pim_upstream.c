@@ -2362,7 +2362,7 @@ bool pim_upstream_equal(const void *arg1, const void *arg2)
  * set KeepaliveTimer(S,G) to Keepalive_Period
  * }
  */
-static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
+bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 {
 	struct channel_oil *c_oil = up->channel_oil;
 	struct interface *ifp = up->rpf.source_nexthop.interface;
