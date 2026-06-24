@@ -346,6 +346,87 @@ void pim_static_route_configs_fini(struct pim_instance *pim)
  * Called whenever a new VIF becomes available. Walk the deferred queue and
  * install any route whose input and output interfaces are now both ready.
  */
+static struct static_route *pim_static_match(struct pim_instance *pim, ifindex_t iif_vif,
+					     pim_addr group, pim_addr source)
+{
+	struct listnode *node;
+	struct static_route *s_route;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
+		if (s_route->iif != iif_vif)
+			continue;
+		if (pim_addr_cmp(s_route->group, group))
+			continue;
+		if (!pim_addr_is_any(s_route->source) && pim_addr_cmp(s_route->source, source))
+			continue;
+		return s_route;
+	}
+
+	return NULL;
+}
+
+static bool pim_static_config_matches(struct static_route_config *cfg, const char *iifname,
+				      pim_addr group, pim_addr source)
+{
+	if (strcmp(cfg->iifname, iifname))
+		return false;
+	if (pim_addr_cmp(cfg->group, group))
+		return false;
+	if (!pim_addr_is_any(cfg->source) && pim_addr_cmp(cfg->source, source))
+		return false;
+	return true;
+}
+
+/*
+ * Kernel upcall (NOCACHE / WRONGVIF) for traffic matching "ip mroute OIF GROUP
+ * [SOURCE]" configured on the ingress interface.  Re-install the static MFC.
+ *
+ * Returns 0 on successful reinstall, 1 when no static route matches (caller
+ * should continue normal PIM processing), -1 when a static route matched but
+ * reinstall failed (caller should stop without running WRONGVIF assert logic).
+ */
+int pim_static_nocache_resolve(struct pim_instance *pim, struct interface *ifp, pim_sgaddr *sg)
+{
+	struct pim_interface *pim_ifp;
+	struct static_route *s_route;
+	struct static_route_config *cfg;
+	bool deferred_match = false;
+
+	if (!ifp || !ifp->info)
+		return 1;
+
+	pim_ifp = ifp->info;
+	if (pim_ifp->mroute_vif_index <= 0)
+		return 1;
+
+	s_route = pim_static_match(pim, pim_ifp->mroute_vif_index, sg->grp, sg->src);
+	if (!s_route) {
+		frr_each (pim_static_route_cfgs, &pim->static_route_configs, cfg) {
+			if (!pim_static_config_matches(cfg, ifp->name, sg->grp, sg->src))
+				continue;
+			deferred_match = true;
+			break;
+		}
+		if (deferred_match)
+			pim_static_reconcile(pim);
+		s_route = pim_static_match(pim, pim_ifp->mroute_vif_index, sg->grp, sg->src);
+	}
+	if (!s_route)
+		return 1;
+
+	if (pim_static_mroute_add(&s_route->c_oil, __func__)) {
+		if (PIM_DEBUG_MROUTE)
+			zlog_debug("%s: failed to reinstall static mroute %pSG on %s", __func__,
+				   sg, ifp->name);
+		return -1;
+	}
+
+	if (PIM_DEBUG_MROUTE)
+		zlog_debug("%s: reinstalled static mroute %pSG on %s", __func__, sg, ifp->name);
+
+	return 0;
+}
+
 void pim_static_reconcile(struct pim_instance *pim)
 {
 	struct static_route_config *cfg;
