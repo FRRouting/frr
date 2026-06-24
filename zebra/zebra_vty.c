@@ -587,8 +587,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 					       srcdest_rnode2str(rn, buf, sizeof(buf)));
 			json_object_int_add(json_route, "prefixLen", rn->p.prefixlen);
 
-			if (re->instance)
-				json_object_int_add(json_route, "instance", re->instance);
+			if (route_entry_get_proto_instance(re))
+				json_object_int_add(json_route, "instance",
+						    route_entry_get_proto_instance(re));
 
 
 			/* NHG Summary JSON output */
@@ -2373,7 +2374,7 @@ static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table, a
 				srcdest_rnode2str(rn, buf, sizeof(buf)));
 			vty_out(vty, "   protocol: %s\n",
 				zebra_route_string(re->type));
-			vty_out(vty, "   instance: %u\n", re->instance);
+			vty_out(vty, "   instance: %u\n", route_entry_get_proto_instance(re));
 			vty_out(vty, "   VRF ID: %u\n", re->vrf_id);
 			vty_out(vty, "   VRF name: %s\n",
 				vrf_id_to_name(re->vrf_id));
