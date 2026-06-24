@@ -373,7 +373,6 @@ struct bgp_path_info {
  * the actual ecmp path.
  */
 #define BGP_PATH_MULTIPATH_NEW (1 << 20)
-#define BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP (1 << 21)
 #define BGP_PATH_UPA                                                                              \
 	(1 << 22) /* Route has UPA marking (locally originated or received with UPA ExtCom) */
 #define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
