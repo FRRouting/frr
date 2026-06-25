@@ -3877,6 +3877,20 @@ static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 		if (dest && rib_dest_vrf(dest) != zvrf)
 			continue;
 
+		/*
+		 * Clear the per-dest queued bit before unlinking the node from
+		 * the sub-queue.  For a non-default VRF the dest survives the
+		 * disable (the table is retained, see zebra_vrf_disable()), so
+		 * if we leave RIB_ROUTE_QUEUED set here, every subsequent
+		 * rib_meta_queue_add() for this route node is rejected as
+		 * "already queued" and the node is never processed again -
+		 * leaving its routes stuck ROUTE_ENTRY_CHANGED/inactive until
+		 * the daemon is restarted.  process_subq_route() clears this on
+		 * the normal dequeue path; the flush path must do the same.
+		 */
+		if (dest)
+			UNSET_FLAG(dest->flags, MQ_BIT_MASK);
+
 		route_unlock_node(rnode);
 		node->data = NULL;
 		list_delete_node(l, node);
