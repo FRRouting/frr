@@ -1458,7 +1458,29 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 		int oif_index)
 {
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	if (c_oil->up && PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(c_oil->up->flags))
+		return true;
+
+	/* NBMA-mode interfaces (e.g. mGRE on a DMVPN hub) routinely
+	 * carry iif==oif because every spoke sits behind the same
+	 * multipoint interface. The kernel mroute layer has its own
+	 * anti-loop check at forwarding time that skips oifs equal to
+	 * the iif vif -- but it relies on the OIL entry being installed
+	 * in the first place. The default LOOPFREE_MFC rule strips
+	 * iif from the OIL in pim_mroute_copy() before it ever reaches
+	 * the kernel, leaving nhrpd's per-NBMA replication path with
+	 * an empty OIL and nothing to forward. Treat NBMA-mode oifs
+	 * the same way we treat MLAG / VxLAN special cases: keep the
+	 * iif slot populated so nhrpd's PF_PACKET fanout (which
+	 * targets specific peer NBMAs anyway, not the iif itself) can
+	 * see the OIL entry and replicate accordingly.
+	 */
+	ifp = pim_if_find_by_vif_index(c_oil->pim, oif_index);
+	pim_ifp = ifp ? ifp->info : NULL;
+	if (pim_ifp && pim_ifp->pim_nbma_enable)
 		return true;
 
 	return false;
