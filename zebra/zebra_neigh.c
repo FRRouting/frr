@@ -8,24 +8,13 @@
 
 #include <zebra.h>
 
-#include "command.h"
-#include "hash.h"
-#include "if.h"
-#include "lib/json.h"
-#include "jhash.h"
-#include "linklist.h"
 #include "log.h"
-#include "memory.h"
 #include "prefix.h"
-#include "stream.h"
-#include "table.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "zebra/interface.h"
 #include "zebra/rib.h"
-#include "zebra/rt.h"
-#include "zebra/zebra_errors.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_pbr.h"
