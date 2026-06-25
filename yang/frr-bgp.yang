@@ -72,6 +72,8 @@ module frr-bgp {
   revision 2019-12-03 {
     description
       "Initial revision.";
+    reference
+      "FRRouting";
   }
 
   identity bgp {
@@ -81,6 +83,9 @@ module frr-bgp {
   }
 
   grouping mp-afi-unicast-common {
+    description
+      "Common configuration for MP AFI unicast.";
+
     uses global-group-use-multiple-paths;
 
     uses global-redistribute;
@@ -89,6 +94,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
+    description
+      "Augments BGP protocol into routing control-plane-protocol.";
+
     container bgp {
       when "../frr-rt:type = 'frr-bgp:bgp'" {
         description
@@ -212,6 +220,9 @@ module frr-bgp {
           }
 
           container neighbor-remote-as {
+            description
+              "Remote AS configuration for BGP neighbor.";
+
             leaf remote-as-type {
               type frr-bt:as-type;
               mandatory true;
@@ -285,6 +296,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-unicast" {
+    description
+      "Augmentation for global IPv4 unicast AFI-SAFI configuration.";
+
     list network-config {
       key "prefix";
       description
@@ -341,6 +355,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-unicast" {
+    description
+      "Augmentation for global IPv6 unicast AFI-SAFI configuration.";
+
     list network-config {
       key "prefix";
       description
@@ -399,12 +416,18 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast" {
+    description
+      "Augmentation for global IPv4 labeled unicast AFI-SAFI configuration.";
+
     uses global-group-use-multiple-paths;
 
     uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast" {
+    description
+      "Augmentation for global IPv6 labeled unicast AFI-SAFI configuration.";
+
     uses global-group-use-multiple-paths;
 
     uses route-flap-dampening;
@@ -413,6 +436,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-multicast" {
+    description
+      "Augmentation for global IPv4 multicast AFI-SAFI configuration.";
+
     list network-config {
       key "prefix";
       description
@@ -467,6 +493,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-multicast" {
+    description
+      "Augmentation for global IPv6 multicast AFI-SAFI configuration.";
+
     list network-config {
       key "prefix";
       description
@@ -521,34 +550,58 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-flowspec" {
+    description
+      "Augmentation for global IPv4 flowspec AFI-SAFI configuration.";
+
     uses flow-spec-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    description
+      "Augmentation for global L3VPN IPv4 unicast AFI-SAFI configuration.";
+
     uses global-afi-safi-vpn-network-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    description
+      "Augmentation for global L3VPN IPv6 unicast AFI-SAFI configuration.";
+
     uses global-afi-safi-vpn-network-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast" {
+    description
+      "Augmentation for BMP IPv4 unicast AFI-SAFI configuration.";
+
     uses bmp-afi-safi-common-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-multicast" {
+    description
+      "Augmentation for BMP IPv4 multicast AFI-SAFI configuration.";
+
     uses bmp-afi-safi-common-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-unicast" {
+    description
+      "Augmentation for BMP IPv6 unicast AFI-SAFI configuration.";
+
     uses bmp-afi-safi-common-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-multicast" {
+    description
+      "Augmentation for BMP IPv6 multicast AFI-SAFI configuration.";
+
     uses bmp-afi-safi-common-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast" {
+    description
+      "Augmentation for neighbor IPv4 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -579,6 +632,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast" {
+    description
+      "Augmentation for neighbor IPv6 unicast AFI-SAFI configuration.";
+
     leaf nexthop-local-unchanged {
       type boolean;
       default "false";
@@ -618,6 +674,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast" {
+    description
+      "Augmentation for neighbor IPv4 multicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -648,6 +707,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast" {
+    description
+      "Augmentation for neighbor IPv6 multicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -678,6 +740,9 @@ module frr-bgp {
    }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast" {
+    description
+      "Augmentation for neighbor IPv4 labeled unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -708,6 +773,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast" {
+    description
+      "Augmentation for neighbor IPv6 labeled unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -738,6 +806,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    description
+      "Augmentation for neighbor L3VPN IPv4 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -764,6 +835,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    description
+      "Augmentation for neighbor L3VPN IPv6 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -790,6 +864,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn" {
+    description
+      "Augmentation for neighbor L2VPN EVPN AFI-SAFI configuration.";
+
     uses structure-neighbor-group-as-path-options;
 
     uses structure-neighbor-group-attr-unchanged;
@@ -806,6 +883,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-flowspec" {
+    description
+      "Augmentation for neighbor IPv4 flowspec AFI-SAFI configuration.";
+
     uses structure-neighbor-route-reflector;
 
     uses structure-neighbor-route-server;
@@ -816,6 +896,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec" {
+    description
+      "Augmentation for neighbor IPv6 flowspec AFI-SAFI configuration.";
+
     uses structure-neighbor-route-reflector;
 
     uses structure-neighbor-route-server;
@@ -826,6 +909,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast" {
+    description
+      "Augmentation for unnumbered neighbor IPv4 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -856,6 +942,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast" {
+    description
+      "Augmentation for unnumbered neighbor IPv6 unicast AFI-SAFI configuration.";
+
     leaf nexthop-local-unchanged {
       type boolean;
       default "false";
@@ -895,6 +984,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast" {
+    description
+      "Augmentation for unnumbered neighbor IPv4 multicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -925,6 +1017,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast" {
+    description
+      "Augmentation for unnumbered neighbor IPv6 multicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -955,6 +1050,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast" {
+    description
+      "Augmentation for unnumbered neighbor IPv4 labeled unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -985,6 +1083,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast" {
+    description
+      "Augmentation for unnumbered neighbor IPv6 labeled unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1013,6 +1114,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    description
+      "Augmentation for unnumbered neighbor L3VPN IPv4 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1037,6 +1141,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    description
+      "Augmentation for unnumbered neighbor L3VPN IPv6 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1061,6 +1168,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn" {
+    description
+      "Augmentation for unnumbered neighbor L2VPN EVPN AFI-SAFI configuration.";
+
     uses structure-neighbor-group-as-path-options;
 
     uses structure-neighbor-group-attr-unchanged;
@@ -1077,6 +1187,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-flowspec" {
+    description
+      "Augmentation for unnumbered neighbor IPv4 flowspec AFI-SAFI configuration.";
+
     uses structure-neighbor-route-reflector;
 
     uses structure-neighbor-route-server;
@@ -1087,6 +1200,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec" {
+    description
+      "Augmentation for unnumbered neighbor IPv6 flowspec AFI-SAFI configuration.";
+
     uses structure-neighbor-route-reflector;
 
     uses structure-neighbor-route-server;
@@ -1097,6 +1213,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast" {
+    description
+      "Augmentation for peer-group IPv4 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1127,6 +1246,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast" {
+    description
+      "Augmentation for peer-group IPv6 unicast AFI-SAFI configuration.";
+
     leaf nexthop-local-unchanged {
       type boolean;
       default "false";
@@ -1166,6 +1288,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast" {
+    description
+      "Augmentation for peer-group IPv4 multicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1196,6 +1321,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast" {
+    description
+      "Augmentation for peer-group IPv6 multicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1226,6 +1354,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast" {
+    description
+      "Augmentation for peer-group IPv4 labeled unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1256,6 +1387,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast" {
+    description
+      "Augmentation for peer-group IPv6 labeled unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1286,6 +1420,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    description
+      "Augmentation for peer-group L3VPN IPv4 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1312,6 +1449,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    description
+      "Augmentation for peer-group L3VPN IPv6 unicast AFI-SAFI configuration.";
+
     uses structure-neighbor-group-add-paths;
 
     uses structure-neighbor-group-as-path-options;
@@ -1338,6 +1478,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn" {
+    description
+      "Augmentation for peer-group L2VPN EVPN AFI-SAFI configuration.";
+
     uses structure-neighbor-group-as-path-options;
 
     uses structure-neighbor-group-attr-unchanged;
@@ -1354,6 +1497,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-flowspec" {
+    description
+      "Augmentation for peer-group IPv4 flowspec AFI-SAFI configuration.";
+
     uses structure-neighbor-route-reflector;
 
     uses structure-neighbor-route-server;
@@ -1364,6 +1510,9 @@ module frr-bgp {
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec" {
+    description
+      "Augmentation for peer-group IPv6 flowspec AFI-SAFI configuration.";
+
     uses structure-neighbor-route-reflector;
 
     uses structure-neighbor-route-server;
