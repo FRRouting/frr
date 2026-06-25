@@ -20,6 +20,7 @@
 
 #include "pimd.h"
 #include "pim_rpf.h"
+#include "pim_zebra.h"
 #include "pim_mroute.h"
 #include "pim_oil.h"
 #include "pim_str.h"
@@ -41,6 +42,7 @@
 #include "pim_state_refresh.h"
 #include "pim_util.h"
 #include "pim_nht.h"
+#include "pim_static.h"
 #include "pim_upstream.h"
 
 static void mroute_read_on(struct pim_instance *pim);
@@ -179,6 +181,80 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 static const char *const gmmsgtype2str[GMMSG_WRVIFWHOLE + 1] = {
 	"<unknown_upcall?>", "NOCACHE", "WRONGVIF", "WHOLEPKT", "WRVIFWHOLE"};
 
+/*
+ * RFC 4601 section 4.2: on NOCACHE, forward using existing (S,G) state when
+ * iif == RPF_interface(S) and local receivers exist.  Register encapsulation
+ * requires DirectlyConnected(S) at the DR and is handled elsewhere.
+ */
+static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgaddr *sg)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
+	struct pim_upstream *up;
+	struct pim_nexthop rpf_nh;
+	struct prefix grp;
+	struct pim_rpf old;
+
+	up = pim_upstream_find(pim, sg);
+	if (!up)
+		return;
+
+	memset(&rpf_nh, 0, sizeof(rpf_nh));
+	pim_addr_to_prefix(&grp, sg->grp);
+
+	/*
+	 * Live RPF lookup honors MRIB static routes (ip mroute PREFIX NEXTHOP)
+	 * instead of stale upstream RPF cached from URIB-only resolution.
+	 * Prefer the kernel ingress interface when it is a valid nexthop (e.g.
+	 * tunnel vs underlying WAN with duplicate addressing).
+	 */
+	if (!pim_nht_lookup_ecmp(pim, &rpf_nh, sg->src, &grp, false, ifp)) {
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: %pSG NOCACHE on %s, no RPF route to source", __func__, sg,
+				   ifp->name);
+		return;
+	}
+
+	if (!rpf_nh.interface || rpf_nh.interface->ifindex != ifp->ifindex) {
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: %pSG NOCACHE on %s, RPF interface is %s", __func__, sg,
+				   ifp->name, rpf_nh.interface ? rpf_nh.interface->name : "(none)");
+		return;
+	}
+
+	if (up->rpf.source_nexthop.interface != rpf_nh.interface ||
+	    pim_addr_cmp(up->rpf.source_nexthop.mrib_nexthop_addr, rpf_nh.mrib_nexthop_addr)) {
+		enum pim_rpf_result rpf_result;
+
+		memset(&old, 0, sizeof(old));
+		rpf_result = pim_rpf_update(pim, up, &old, ifp, __func__);
+		if (rpf_result == PIM_RPF_CHANGED ||
+		    (rpf_result == PIM_RPF_FAILURE && old.source_nexthop.interface))
+			pim_zebra_upstream_rpf_changed(pim, up, &old);
+	}
+
+	pim_upstream_inherited_olist_decide(pim, up);
+	if (pim_upstream_empty_inherited_olist(up)) {
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: %pSG NOCACHE on %s, no local receivers", __func__, sg,
+				   ifp->name);
+		return;
+	}
+
+	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
+		pim_upstream_set_sptbit(up, ifp);
+
+	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+	up->channel_oil->cc.pktcnt++;
+
+	pim_upstream_update_join_desired(pim, up);
+
+	if (pim_upstream_kat_start_ok(up))
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+
+	pim_upstream_mroute_add(up->channel_oil, __func__);
+}
+
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_interface *pim_ifp = ifp->info;
@@ -205,6 +281,13 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 				&sg);
 		return 0;
 	}
+
+	/*
+	 * "ip mroute OIF GROUP [SOURCE]" on this interface (ingress/IIF).
+	 * Static MFC overrides PIM dense/sparse NOCACHE handling.
+	 */
+	if (pim_static_nocache_resolve(pim_ifp->pim, ifp, &sg) != 1)
+		return 0;
 
 	if (!pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
 		/* for ASM, check that we have enough information (i.e. path
@@ -386,15 +469,12 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 	/* All further processing is for SSM or SM with an RP only */
 
-
-	/*
-	 * If we've received a multicast packet that isn't connected to us
-	 */
 	if (!pim_if_connected_to_source(ifp, msg->msg_im_src)) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
 				"%s: incoming packet to %pSG from non-connected source",
 				ifp->name, &sg);
+		pim_mroute_nocache_forward_existing(ifp, &sg);
 		return 0;
 	}
 
@@ -786,6 +866,9 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 				__func__, &sg, ifp->name);
 		return -2;
 	}
+
+	if (pim_static_nocache_resolve(pim_ifp->pim, ifp, &sg) != 1)
+		return 0;
 
 	pim_ifchannel_find(ifp, &sg, &ch, &throwaway);
 	if (ch) {

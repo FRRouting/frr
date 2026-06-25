@@ -73,9 +73,9 @@ static void pim_rpf_cost_change(struct pim_instance *pim,
 		pim_mlag_up_local_add(pim, up);
 }
 
-enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
-		struct pim_upstream *up, struct pim_rpf *old,
-		const char *caller)
+enum pim_rpf_result pim_rpf_update(struct pim_instance *pim, struct pim_upstream *up,
+				   struct pim_rpf *old, struct interface *ingress_ifp,
+				   const char *caller)
 {
 	struct pim_rpf *rpf = &up->rpf;
 	struct pim_rpf saved;
@@ -109,7 +109,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		neigh_needed = false;
 
 	pim_nht_find_or_track(pim, up->upstream_addr, up, NULL, NULL);
-	if (!pim_nht_lookup_ecmp(pim, &rpf->source_nexthop, src, &grp, neigh_needed)) {
+	if (!pim_nht_lookup_ecmp(pim, &rpf->source_nexthop, src, &grp, neigh_needed, ingress_ifp)) {
 		/* Route is Deleted in Zebra, reset the stored NH data */
 		pim_upstream_rpf_clear(pim, up);
 		pim_rpf_cost_change(pim, up, saved_mrib_route_metric);

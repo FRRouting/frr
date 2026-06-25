@@ -373,6 +373,8 @@ int pim_upstream_inherited_olist(struct pim_instance *pim,
 				 struct pim_upstream *up);
 int pim_upstream_empty_inherited_olist(struct pim_upstream *up);
 
+bool pim_upstream_kat_start_ok(struct pim_upstream *up);
+
 void pim_upstream_find_new_rpf(struct pim_instance *pim);
 
 void pim_upstream_init(struct pim_instance *pim);
