@@ -64,7 +64,7 @@ static void ospf_spf_set_reason(ospf_spf_reason_t reason)
 static int vertex_cmp(const struct vertex *v1, const struct vertex *v2)
 {
 	if (v1->distance != v2->distance)
-		return v1->distance - v2->distance;
+		return (v1->distance > v2->distance) ? 1 : -1;
 
 	if (v1->type != v2->type) {
 		switch (v1->type) {
