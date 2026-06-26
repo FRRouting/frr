@@ -70,9 +70,9 @@ static int ospf6_vertex_cmp(const struct ospf6_vertex *va,
 {
 	/* ascending order */
 	if (va->cost != vb->cost)
-		return (va->cost - vb->cost);
+		return (va->cost > vb->cost) ? 1 : -1;
 	if (va->hops != vb->hops)
-		return (va->hops - vb->hops);
+		return (va->hops > vb->hops) ? 1 : -1;
 	return 0;
 }
 DECLARE_SKIPLIST_NONUNIQ(vertex_pqueue, struct ospf6_vertex, pqi,
