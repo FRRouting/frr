@@ -695,6 +695,18 @@ static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 	(CHECK_FLAG((peer)->flags, PEER_FLAG_AIGP) || ((peer)->sub_sort == BGP_PEER_EBGP_OAD) ||   \
 	 ((peer)->sort != BGP_PEER_EBGP))
 
+/*
+ * Maximum wire size for BGP-LS Link NLRI (RFC 9552 Section 3.3.2.2).
+ * Breakdown:
+ *   - Protocol ID: 1 byte
+ *   - Identifier: 8 bytes
+ *   - Local Node Descriptor: 52 bytes (max)
+ *   - Remote Node Descriptor: 52 bytes (max)
+ *   - Link Descriptor: 94 bytes (max, includes all possible sub-TLVs)
+ * Total: 207 bytes, rounded up to 256 for alignment and safety margin.
+ */
+#define BGP_LS_NLRI_MAX_SIZE 256
+
 static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 {
 	return attr->extra ? attr->extra->aigp_metric : 0;

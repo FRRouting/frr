@@ -5273,8 +5273,7 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		size = ((struct prefix_fs *)p)->prefix.prefixlen;
 		break;
 	case SAFI_BGP_LS:
-		/* TODO: add explaination */
-		size = 0;
+		size = BGP_LS_NLRI_MAX_SIZE;
 		break;
 	}
 
