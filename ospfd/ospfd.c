@@ -97,15 +97,27 @@ static void ospf_free_refresh_queue(struct ospf *ospf)
 
 int p_spaces_compare_func(const struct p_space *a, const struct p_space *b)
 {
-	if (a->protected_resource->type == OSPF_TI_LFA_LINK_PROTECTION
-	    && b->protected_resource->type == OSPF_TI_LFA_LINK_PROTECTION)
-		return (a->protected_resource->link->link_id.s_addr
-			- b->protected_resource->link->link_id.s_addr);
+	if (a->protected_resource->type == OSPF_TI_LFA_LINK_PROTECTION &&
+	    b->protected_resource->type == OSPF_TI_LFA_LINK_PROTECTION) {
+		if (a->protected_resource->link->link_id.s_addr >
+		    b->protected_resource->link->link_id.s_addr)
+			return 1;
+		if (a->protected_resource->link->link_id.s_addr <
+		    b->protected_resource->link->link_id.s_addr)
+			return -1;
+		return 0;
+	}
 
-	if (a->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION
-	    && b->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION)
-		return (a->protected_resource->router_id.s_addr
-			- b->protected_resource->router_id.s_addr);
+	if (a->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION &&
+	    b->protected_resource->type == OSPF_TI_LFA_NODE_PROTECTION) {
+		if (a->protected_resource->router_id.s_addr >
+		    b->protected_resource->router_id.s_addr)
+			return 1;
+		if (a->protected_resource->router_id.s_addr <
+		    b->protected_resource->router_id.s_addr)
+			return -1;
+		return 0;
+	}
 
 	/* This should not happen */
 	return 0;
@@ -113,7 +125,11 @@ int p_spaces_compare_func(const struct p_space *a, const struct p_space *b)
 
 int q_spaces_compare_func(const struct q_space *a, const struct q_space *b)
 {
-	return (a->root->id.s_addr - b->root->id.s_addr);
+	if (a->root->id.s_addr > b->root->id.s_addr)
+		return 1;
+	if (a->root->id.s_addr < b->root->id.s_addr)
+		return -1;
+	return 0;
 }
 
 DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
