@@ -453,9 +453,9 @@ int ospf6_lsa_compare(struct ospf6_lsa *a, struct ospf6_lsa *b)
 		return 1;
 
 	/* Age check */
-	if (agea > ageb && agea - ageb >= OSPF_LSA_MAXAGE_DIFF)
+	if (agea > ageb && agea - ageb > OSPF_LSA_MAXAGE_DIFF)
 		return 1;
-	else if (agea < ageb && ageb - agea >= OSPF_LSA_MAXAGE_DIFF)
+	else if (agea < ageb && ageb - agea > OSPF_LSA_MAXAGE_DIFF)
 		return -1;
 
 	/* neither recent */

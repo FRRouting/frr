@@ -70,3 +70,13 @@ lsa drop 3
 lsa drop 4
 lsa drop 5
 
+lsa set 10 type 1 adv 1.2.3.4 id 0.0.0.9
+lsa set 11 type 1 adv 1.2.3.4 id 0.0.0.9
+lsa compare-age 10 11 ages 900 0
+lsa compare-age 10 11 ages 901 0
+lsa compare-age 10 11 ages 899 0
+lsa compare-age 10 11 ages 0 900
+lsa compare-age 10 11 ages 0 901
+lsa drop 10
+lsa drop 11
+
