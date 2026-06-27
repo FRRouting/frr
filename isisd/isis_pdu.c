@@ -209,15 +209,10 @@ static int process_p2p_hello(struct iih_info *iih)
 
 	else {
 		if (IS_DEBUG_ADJ_PACKETS) {
-			if (IS_DEBUG_ADJ_PACKETS) {
-				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s, cir id %u, length %u",
-					   iih->circuit->area->area_tag,
-					   iih->circuit->interface->name,
-					   circuit_t2string(
-						   iih->circuit->is_type),
-					   iih->circuit->circuit_id,
-					   iih->pdu_len);
-			}
+			zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s, cir id %u, length %u",
+				   iih->circuit->area->area_tag, iih->circuit->interface->name,
+				   circuit_t2string(iih->circuit->is_type),
+				   iih->circuit->circuit_id, iih->pdu_len);
 		}
 		return ISIS_WARNING;
 	}
