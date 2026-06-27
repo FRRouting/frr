@@ -272,7 +272,7 @@ int ospf_ifp_sock_init(struct interface *ifp)
 		return 0;
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		if (rn && rn->info) {
+		if (rn->info) {
 			oi = rn->info;
 			ospf = oi->ospf;
 			break;
