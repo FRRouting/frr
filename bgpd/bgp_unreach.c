@@ -737,6 +737,8 @@ int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct bgp_nlri
 			 *     resumes at the next TLV boundary (Length field);
 			 *   - malformed Reporter TLV: discarded, scanning
 			 *     continues looking for a well-formed one;
+			 *   - Reporter TLV count beyond the implementation
+			 *     limit (Section 4.8): the excess is discarded;
 			 *   - if no well-formed Reporter TLV remains the NLRI
 			 *     is treat-as-withdraw (Section 5.2 / 5.3), never
 			 *     a session reset.
@@ -747,6 +749,7 @@ int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct bgp_nlri
 			 * form to avoid pointer-arithmetic UB on hostile input.
 			 */
 			uint8_t *scan = pnt;
+			uint32_t reporter_count = 0;
 			bool have_reporter = false;
 
 			while ((size_t)(nlri_end - scan) >=
@@ -764,6 +767,24 @@ int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct bgp_nlri
 				 */
 				if ((size_t)(nlri_end - val) < l)
 					break;
+
+				if (t == BGP_UNREACH_TLV_TYPE_REPORTER)
+					reporter_count++;
+
+				/*
+				 * Draft Section 4.8 / 5.3: Reporter TLVs beyond
+				 * the per-route limit are discarded (not a
+				 * session reset); the first well-formed one is
+				 * already retained. The discard is recorded via
+				 * the unreach_tlv_parse_error tracepoint.
+				 */
+				if (reporter_count > BGP_UNREACH_REPORTER_TLV_MAX_PER_ROUTE) {
+					frrtrace(6, frr_bgp, unreach_tlv_parse_error,
+						 UNREACH_TLV_ERR_TOO_MANY_REPORTER_TLVS,
+						 t, l, 0, 0,
+						 BGP_UNREACH_REPORTER_TLV_MAX_PER_ROUTE);
+					break;
+				}
 
 				/*
 				 * Retain the first well-formed Reporter TLV. A

@@ -1533,6 +1533,7 @@ TRACEPOINT_ENUM(
 		ctf_enum_value("INVALID_REASON_CODE_LEN", 11)
 		ctf_enum_value("INVALID_TIMESTAMP_LEN", 12)
 		ctf_enum_value("LENGTH_EXCEEDS_LIMIT", 13)
+		ctf_enum_value("TOO_MANY_REPORTER_TLVS", 14)
 	)
 )
 

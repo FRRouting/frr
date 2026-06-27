@@ -81,6 +81,12 @@ extern const char *bgp_origin_long_str[];
 #define BGP_UNREACH_TLV_MAX_LEN 255 /* Reasonable upper bound for single TLV */
 
 /*
+ * Maximum Reporter TLVs accepted per NLRI (draft Section 4.8, RECOMMENDED
+ * 50) to bound UI-RIB state from a misbehaving or aggregating peer.
+ */
+#define BGP_UNREACH_REPORTER_TLV_MAX_PER_ROUTE 50
+
+/*
  * Reporter TLV parse error identifiers (used by the unreach_tlv_parse_error
  * LTTng tracepoint to label which validation rejected the TLV). Values must
  * match the unreach_tlv_error TRACEPOINT_ENUM in bgpd/bgp_trace.h.
@@ -99,6 +105,7 @@ enum bgp_unreach_tlv_error {
 	UNREACH_TLV_ERR_INVALID_REASON_CODE_LEN = 11,
 	UNREACH_TLV_ERR_INVALID_TIMESTAMP_LEN = 12,
 	UNREACH_TLV_ERR_LENGTH_EXCEEDS_LIMIT = 13,
+	UNREACH_TLV_ERR_TOO_MANY_REPORTER_TLVS = 14,
 };
 
 /*
