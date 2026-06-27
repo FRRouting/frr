@@ -876,6 +876,14 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
 		rn = static_add_route(afi, safi, &prefix, (struct prefix_ipv6 *)src_p, svrf);
+		if (!rn) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
+				  "route %pFX already exists, skipping duplicate create",
+				  &prefix);
+			return NB_OK;
+		}
+
+
 		if (!svrf->vrf || svrf->vrf->vrf_id == VRF_UNKNOWN)
 			snprintf(
 				args->errmsg, args->errmsg_len,

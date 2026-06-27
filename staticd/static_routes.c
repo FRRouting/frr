@@ -84,6 +84,12 @@ struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
 	/* Lookup static route prefix. */
 	rn = srcdest_rnode_get(stable, p, src_p);
 
+	/* Return NULL to signal the caller that no new route was created. */
+	if (rn->info) {
+		route_unlock_node(rn);
+		return NULL;
+	}
+
 	si = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(struct static_route_info));
 
 	si->svrf = svrf;
