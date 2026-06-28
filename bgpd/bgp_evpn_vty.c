@@ -4487,9 +4487,8 @@ DEFUN (bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
-	if (safi != SAFI_UNICAST) {
-		vty_out(vty,
-			"%% Only ipv4 unicast or ipv6 unicast are supported\n");
+	if (safi != SAFI_UNICAST && safi != SAFI_MPLS_VPN) {
+		vty_out(vty, "%% Only unicast and vpn SAFIs are supported\n");
 		return CMD_WARNING;
 	}
 
@@ -4499,19 +4498,40 @@ DEFUN (bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
-	if (afi == AFI_IP) {
-		flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
-		flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP;
-	} else {
-		flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST;
-		flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP;
+	if (safi == SAFI_MPLS_VPN && oly == OVERLAY_INDEX_GATEWAY_IP) {
+		vty_out(vty, "%% gateway-ip overlay index is only supported for unicast SAFI\n");
+		return CMD_WARNING;
 	}
-	suppress_flag = bgp_evpn_suppress_import_from_evpn_flag(afi);
+
+	if (safi == SAFI_MPLS_VPN && suppress_requested) {
+		vty_out(vty, "%% skip-evpn-imported is only supported for unicast SAFI\n");
+		return CMD_WARNING;
+	}
+
+	if (safi == SAFI_UNICAST) {
+		if (afi == AFI_IP) {
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
+			flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP;
+		} else {
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST;
+			flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP;
+		}
+		suppress_flag = bgp_evpn_suppress_import_from_evpn_flag(afi);
+	} else { /* SAFI_MPLS_VPN */
+		if (afi == AFI_IP)
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_VPN;
+		else
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV6_VPN;
+		flag_oi_gw_ip = 0;
+		suppress_flag = 0;
+	}
+
 	has_flag_oi_none = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 	has_flag_oi_gw_ip = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
 	was_advertising = has_flag_oi_none || has_flag_oi_gw_ip;
-	suppress_changed = !!CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag) !=
-			   suppress_requested;
+	suppress_changed = safi == SAFI_UNICAST &&
+			   !!CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag) !=
+				   suppress_requested;
 
 	if (!has_flag_oi_none && !has_flag_oi_gw_ip) {
 		if (oly == OVERLAY_INDEX_GATEWAY_IP)
@@ -4567,10 +4587,12 @@ DEFUN (bgp_evpn_advertise_type5,
 		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
 	}
 
-	if (suppress_requested)
-		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
-	else
-		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
+	if (safi == SAFI_UNICAST) {
+		if (suppress_requested)
+			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
+		else
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
+	}
 
 	if (adv_flag_changed)
 		/* Generate/cleanup addpath ids */
@@ -4631,18 +4653,25 @@ DEFUN (no_bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
-	if (safi != SAFI_UNICAST) {
-		vty_out(vty,
-			"%% Only ipv4 unicast or ipv6 unicast are supported\n");
+	if (safi != SAFI_UNICAST && safi != SAFI_MPLS_VPN) {
+		vty_out(vty, "%% Only unicast and vpn SAFIs are supported\n");
 		return CMD_WARNING;
 	}
 
-	if (afi == AFI_IP) {
-		flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
-		flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP;
-	} else {
-		flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST;
-		flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP;
+	if (safi == SAFI_UNICAST) {
+		if (afi == AFI_IP) {
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
+			flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP;
+		} else {
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST;
+			flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP;
+		}
+	} else { /* SAFI_MPLS_VPN */
+		if (afi == AFI_IP)
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_VPN;
+		else
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV6_VPN;
+		flag_oi_gw_ip = 0;
 	}
 	suppress_flag = bgp_evpn_suppress_import_from_evpn_flag(afi);
 	has_flag_oi_none = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
@@ -4659,7 +4688,8 @@ DEFUN (no_bgp_evpn_advertise_type5,
 		if (has_flag_oi_gw_ip)
 			bgp_addpath_type_changed(bgp_vrf);
 	}
-	UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
+	if (safi == SAFI_UNICAST)
+		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
 
 	/* clear the route-map information for advertise ipv4/ipv6 unicast */
 	if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
@@ -8169,6 +8199,14 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 		vty_out(vty, "\n");
 	}
 
+	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV4_VPN)) {
+		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_MPLS_VPN].name)
+			vty_out(vty, "  advertise ipv4 vpn route-map %s\n",
+				bgp->adv_cmd_rmap[AFI_IP][SAFI_MPLS_VPN].name);
+		else
+			vty_out(vty, "  advertise ipv4 vpn\n");
+	}
+
 	/* EAD ES export route-target */
 	if (listcount(bgp_mh_info->ead_es_export_rtl)) {
 		struct ecommunity *ecom;
@@ -8195,6 +8233,14 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 			       BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN))
 			vty_out(vty, " skip-evpn-imported");
 		vty_out(vty, "\n");
+	}
+
+	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV6_VPN)) {
+		if (bgp->adv_cmd_rmap[AFI_IP6][SAFI_MPLS_VPN].name)
+			vty_out(vty, "  advertise ipv6 vpn route-map %s\n",
+				bgp->adv_cmd_rmap[AFI_IP6][SAFI_MPLS_VPN].name);
+		else
+			vty_out(vty, "  advertise ipv6 vpn\n");
 	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4))
