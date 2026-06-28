@@ -5120,10 +5120,10 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* SRv6 Service Information Attribute. */
-	if ((afi == AFI_IP || afi == AFI_IP6)) {
+	if ((afi == AFI_IP || afi == AFI_IP6 || afi == AFI_L2VPN)) {
 		struct bgp_attr_srv6_l3service *srv6_l3service = NULL;
 
-		if (safi == SAFI_MPLS_VPN && attr->srv6_l3service)
+		if ((safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) && attr->srv6_l3service)
 			srv6_l3service = attr->srv6_l3service;
 		else if (peer_af_flag_check(peer, afi, safi,
 					    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX) ||
