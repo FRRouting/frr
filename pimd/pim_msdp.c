@@ -922,6 +922,44 @@ static void pim_msdp_peer_connect(struct pim_msdp_peer *mp)
 	pim_msdp_peer_cr_timer_setup(mp, true /* start */);
 }
 
+/*
+ * VRF-master interface up notification handler.
+ *
+ * Closes the startup race where pim_msdp_peer_listen() runs during
+ * config-parse with pim->vrf->vrf_id == VRF_UNKNOWN, causing
+ * pim_msdp_sock_listen()'s if_lookup_by_name(name, VRF_UNKNOWN) to
+ * deterministically return NULL.  By the time libvrf activates the
+ * VRF and pim_iface.c notifies us via pim_ifp_create()/pim_ifp_up()
+ * for the VRF-master interface, pim->vrf->vrf_id has been updated
+ * in place to the real id.  We can now retry pim_msdp_sock_listen()
+ * and the if_lookup_by_name() inside it will succeed.
+ */
+void pim_msdp_vrf_iface_up(struct pim_instance *pim)
+{
+	struct pim_msdp_peer *mp;
+	struct listnode *node;
+
+	if (!pim || !pim->msdp.peer_list)
+		return;
+
+	if (pim->msdp.flags & PIM_MSDPF_LISTENER)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
+		if (PIM_MSDP_PEER_IS_LISTENER(mp)) {
+			(void)pim_msdp_sock_listen(pim);
+			/*
+			 * On success PIM_MSDPF_LISTENER is set, so any
+			 * subsequent peer in this loop would be a no-op
+			 * anyway. On failure we still stop after one
+			 * attempt; the iface event will fire again on
+			 * any future VRF master state transition.
+			 */
+			break;
+		}
+	}
+}
+
 /* 11.2.A3: passive peer - just listen for connections */
 static void pim_msdp_peer_listen(struct pim_msdp_peer *mp)
 {
