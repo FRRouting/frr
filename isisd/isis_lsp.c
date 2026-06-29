@@ -776,7 +776,7 @@ void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty,
 			isis_format_tlvs(lsp->tlvs, json);
 		}
 	} else {
-		lsp_print_vty(lsp, vty, dynhost, isis);
+		lsp_print_vty(lsp, vty, false, isis);
 		if (lsp->tlvs)
 			vty_multiline(vty, "  ", "%s",
 				      isis_format_tlvs(lsp->tlvs, NULL));
