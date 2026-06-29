@@ -1441,6 +1441,14 @@ static void peer_free(struct peer *peer)
 			      peer->filter[afi][safi].advmap.cname);
 	}
 
+	/* Safety-net: clean up any surviving damp config pointers */
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (peer->damp[afi][safi]) {
+			bgp_damp_info_clean(peer->bgp, peer->damp[afi][safi], afi, safi);
+			XFREE(MTYPE_BGP_DAMP_CONFIG, peer->damp[afi][safi]);
+		}
+	}
+
 	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
 
 	XFREE(MTYPE_PEER_DESC, peer->desc);
@@ -3001,8 +3009,7 @@ int peer_delete(struct peer *peer)
 	 * before removing the peer from peer groups.
 	 */
 	FOREACH_AFI_SAFI (afi, safi)
-		if (peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_CONFIG_DAMPENING))
+		if (peer->damp[afi][safi])
 			bgp_peer_damp_disable(peer, afi, safi);
 
 	/* If this peer belongs to peer group, clear up the

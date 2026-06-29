@@ -1879,8 +1879,8 @@ struct peer {
 	/* Last update packet sent time */
 	time_t pkt_stime[AFI_MAX][SAFI_MAX];
 
-	/* Peer / peer group route flap dampening configuration */
-	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+	/* Peer / peer group route flap dampening configuration (allocated on demand) */
+	struct bgp_damp_config *damp[AFI_MAX][SAFI_MAX];
 
 	/* Peer Per AF flags */
 	/*
@@ -1923,7 +1923,6 @@ struct peer {
 #define PEER_FLAG_SOO (1ULL << 28)
 #define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
 #define PEER_FLAG_ADDPATH_RX_PATHS_LIMIT (1ULL << 30)
-#define PEER_FLAG_CONFIG_DAMPENING (1ULL << 31)
 #define PEER_FLAG_CONFIG_ENCAPSULATION_SRV6	(1ULL << 32)
 #define PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX (1ULL << 33)
 #define PEER_FLAG_CONFIG_ENCAPSULATION_MPLS	  (1ULL << 34)
