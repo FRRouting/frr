@@ -521,6 +521,10 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			 */
 			mod_v4nh = &peer->nexthop.v4;
 			nh_modified = 1;
+		} else if (safi == SAFI_RTC && peer_af_flag_check(peer, paf->afi, paf->safi,
+								  PEER_FLAG_REFLECTOR_CLIENT)) {
+			mod_v4nh = &peer->nexthop.v4;
+			nh_modified = 1;
 		}
 
 		if (nh_modified) /* allow for VPN RD */
@@ -624,6 +628,10 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			 * an IPv4-mapped IPv6 address as nexthop when
 			 * forwarding UPDATEs.
 			 */
+			mod_v6nhg = &peer->nexthop.v6_global;
+			gnh_modified = 1;
+		} else if (safi == SAFI_RTC && peer_af_flag_check(peer, paf->afi, paf->safi,
+								  PEER_FLAG_REFLECTOR_CLIENT)) {
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
 		}
