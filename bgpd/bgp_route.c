@@ -17519,7 +17519,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t
 	if (use_json) {
 		if (type == bgp_show_adj_route_advertised || type == bgp_show_adj_route_received) {
 			if (header1) {
-				int version = table ? table->version : 0;
+				int version = table->version;
 
 				vty_out(vty, "\"bgpTableVersion\":%d", version);
 				vty_out(vty, ",\"bgpLocalRouterId\":\"%pI4\"", &bgp->router_id);
