@@ -417,12 +417,14 @@ discard.
       received for 00:02:47
       installed in PBR (match0x4d5e6f)
 
-.. note::
+.. warning::
 
-   FRR installs rate-limit rules as redirect actions. Traffic exceeding the
-   specified byte rate is forwarded to a routing table that may blackhole the
-   excess. The precision of rate enforcement depends on the Netfilter
-   configuration of the underlying system.
+   FRR does not enforce the numeric rate value as a shaper. When the rate is
+   positive, FRR redirects **all** matching traffic to an alternate routing
+   table without applying any token-bucket or byte-rate policing (see
+   :ref:`flowspec-known-issues`). The rate-limit action is shown here because
+   it is commonly advertised by external controllers, but on the FRR receiver
+   side the effect is a redirect, not true rate enforcement.
 
 **Dropping traffic from a known source**
 
@@ -470,7 +472,7 @@ verify that rules are received and active.
 
 .. code-block:: shell
 
-   router# show pbr ipset
+   router# show pbr ipset <IPSETNAME>
    router# show pbr iptable
 
 **View the policy-routing table used by redirect rules:**
