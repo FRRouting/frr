@@ -942,20 +942,23 @@ void pim_msdp_vrf_iface_up(struct pim_instance *pim)
 	if (!pim || !pim->msdp.peer_list)
 		return;
 
-	if (pim->msdp.flags & PIM_MSDPF_LISTENER)
-		return;
-
+	/*
+	 * Walk all listener-side peers and retry any socket bind that failed
+	 * during config-parse (when pim->vrf->vrf_id was still VRF_UNKNOWN).
+	 *   - MSDP_AUTH_NONE peers share the global pim_msdp_sock_listen()
+	 *     socket, guarded by PIM_MSDPF_LISTENER (one bind per VRF).
+	 *   - Auth peers each own a per-peer pim_msdp_sock_auth_listen()
+	 *     socket tracked by mp->auth_listen_sock.
+	 */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
-		if (PIM_MSDP_PEER_IS_LISTENER(mp)) {
-			(void)pim_msdp_sock_listen(pim);
-			/*
-			 * On success PIM_MSDPF_LISTENER is set, so any
-			 * subsequent peer in this loop would be a no-op
-			 * anyway. On failure we still stop after one
-			 * attempt; the iface event will fire again on
-			 * any future VRF master state transition.
-			 */
-			break;
+		if (!PIM_MSDP_PEER_IS_LISTENER(mp))
+			continue;
+
+		if (mp->auth_type == MSDP_AUTH_NONE) {
+			if (!(pim->msdp.flags & PIM_MSDPF_LISTENER))
+				(void)pim_msdp_sock_listen(pim);
+		} else if (mp->auth_listen_sock == -1) {
+			(void)pim_msdp_sock_auth_listen(mp);
 		}
 	}
 }
