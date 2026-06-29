@@ -8729,11 +8729,11 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	/* Aggregate address increment. */
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
 
-	/* route_node_get lock */
-	bgp_dest_unlock_node(dest);
-
 	/* Process change. */
 	bgp_process(bgp, dest, new, afi, safi);
+
+	/* route_node_get lock */
+	bgp_dest_unlock_node(dest);
 
 	if (SAFI_UNICAST == safi &&
 	    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
