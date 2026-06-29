@@ -922,6 +922,36 @@ static void pim_msdp_peer_connect(struct pim_msdp_peer *mp)
 	pim_msdp_peer_cr_timer_setup(mp, true /* start */);
 }
 
+void pim_msdp_vrf_iface_up(struct pim_instance *pim)
+{
+	struct pim_msdp_peer *mp;
+	struct listnode *node;
+
+	if (!pim || !pim->msdp.peer_list)
+		return;
+
+	/* Don't re-establish the listener while MSDP is shut down. */
+	if (pim->msdp.shutdown)
+		return;
+
+	if (pim->msdp.flags & PIM_MSDPF_LISTENER)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
+		if (PIM_MSDP_PEER_IS_LISTENER(mp)) {
+			(void)pim_msdp_sock_listen(pim);
+			/*
+			 * On success PIM_MSDPF_LISTENER is set, so any
+			 * subsequent peer in this loop would be a no-op
+			 * anyway. On failure we still stop after one
+			 * attempt; the iface event will fire again on
+			 * any future VRF master state transition.
+			 */
+			break;
+		}
+	}
+}
+
 /* 11.2.A3: passive peer - just listen for connections */
 static void pim_msdp_peer_listen(struct pim_msdp_peer *mp)
 {
