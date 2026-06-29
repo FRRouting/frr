@@ -38,6 +38,9 @@
 #include "pim_jp_agg.h"
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
+#if PIM_IPV == 4
+#include "pim_msdp.h"
+#endif
 #include "pim_static.h"
 #include "pim_tib.h"
 #include "pim_util.h"
@@ -1923,6 +1926,12 @@ static int pim_ifp_create(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
+	if (ifp->vrf->vrf_id != VRF_DEFAULT && strcmp(ifp->name, ifp->vrf->name) == 0) {
+#if PIM_IPV == 4
+		pim_msdp_vrf_iface_up(pim);
+#endif
+	}
+
 	if (if_is_operative(ifp)) {
 		struct pim_interface *pim_ifp;
 
@@ -2043,6 +2052,12 @@ static int pim_ifp_up(struct interface *ifp)
 
 	if (pim == NULL || pim->shutdown)
 		return 0;
+
+	if (ifp->vrf->vrf_id != VRF_DEFAULT && strcmp(ifp->name, ifp->vrf->name) == 0) {
+#if PIM_IPV == 4
+		pim_msdp_vrf_iface_up(pim);
+#endif
+	}
 
 	pim_ifp = ifp->info;
 
