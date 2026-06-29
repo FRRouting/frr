@@ -2987,8 +2987,7 @@ DEFPY(bmp_connect,
 		}
 		/* connection deletion need same hostname port and interface */
 		if (ba->ifsrc || srcif)
-			if ((!ba->ifsrc) || (!srcif) ||
-			    !strcmp(ba->ifsrc, srcif)) {
+			if ((!ba->ifsrc) || (!srcif) || !strmatch(ba->ifsrc, srcif)) {
 				vty_out(vty,
 					"%% No such active connection found\n");
 				return CMD_WARNING;
