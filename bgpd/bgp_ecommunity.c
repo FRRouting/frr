@@ -1390,6 +1390,24 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					 l2mtu);
 			} else
 				unk_ecom = true;
+		} else if (type == ECOMMUNITY_ENCODE_MUP) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_MUP_SUBTYPE_DIRECT_SEG_ID) {
+				/* draft-ietf-bess-mup-safi section 3.2:
+				 * 6-byte segment identifier; display it as a
+				 * uint16:uint32 pair like the "AS:NN" RD form.
+				 */
+				uint16_t sid_hi;
+				uint32_t sid_lo;
+
+				memcpy(&sid_hi, pnt, 2);
+				sid_hi = ntohs(sid_hi);
+				memcpy(&sid_lo, pnt + 2, 4);
+				sid_lo = ntohl(sid_lo);
+				snprintf(encbuf, sizeof(encbuf), "MUP:%u:%u", sid_hi, sid_lo);
+			} else {
+				unk_ecom = true;
+			}
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_REDIRECT_IP_NH) {

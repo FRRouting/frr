@@ -51,6 +51,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_mup.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -330,6 +331,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
 	case SAFI_BGP_LS:
 		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
+	case SAFI_MUP:
+		return bgp_nlri_parse_mup(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
