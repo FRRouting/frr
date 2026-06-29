@@ -1542,6 +1542,15 @@ void bgp_capability_send(struct peer_connection *connection, afi_t afi, safi_t s
 				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_FQDN:
+		/* No hostname configured - nothing to advertise. An empty
+		 * hostname would be rejected by the peer as a malformed FQDN
+		 * capability, so skip sending it (mirrors the OPEN path).
+		 */
+		if (!hostname) {
+			stream_free(s);
+			return;
+		}
+
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_FQDN);
 		cap_len = stream_get_endp(s);
