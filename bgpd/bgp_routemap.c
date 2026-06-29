@@ -3829,13 +3829,16 @@ route_set_aggregator_as(void *rule, const struct prefix *prefix, void *object)
 static void *route_set_aggregator_as_compile(const char *arg)
 {
 	struct aggregator *aggregator;
-	char as[10];
+	char as[ASN_STRING_MAX_SIZE];
 	char address[20];
 	int ret;
 
 	aggregator =
 		XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct aggregator));
-	if (sscanf(arg, "%s %s", as, address) != 2) {
+	/* Bound the conversions to the buffer sizes (size - 1) to avoid
+	 * overflowing the stack buffers above.
+	 */
+	if (sscanf(arg, "%11s %19s", as, address) != 2) {
 		XFREE(MTYPE_ROUTE_MAP_COMPILED, aggregator);
 		return NULL;
 	}
