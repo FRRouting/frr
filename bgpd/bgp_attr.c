@@ -3553,6 +3553,8 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 		stream_getc(connection->curr);
 		stream_get(&ipv6_sid, connection->curr, sizeof(ipv6_sid));
 		sid_flags = stream_getc(connection->curr);
+		/* RFC 9252: Ignore unknown SID flags. */
+		sid_flags &= BGP_PREFIX_SID_SRV6_SERVICE_SID_FLAGS_KNOWN_MASK;
 		endpoint_behavior = stream_getw(connection->curr);
 		stream_getc(connection->curr);
 
