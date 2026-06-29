@@ -7400,7 +7400,11 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	/* Tunnel is newly active.
 	 * Add TIP to tip_hash of the EVPN underlay instance (bgp_get_evpn()).
 	 */
+<<<<<<< HEAD
 	if (bgp_tip_add(bgp, &originator_ip))
+=======
+	if (bgp_tip_add(bgp, originator_ip) && bgp_evpn)
+>>>>>>> fc7ccc32a (bgpd: Check against NULL for bgp_evpn when handling VNI from Zebra)
 		/* The originator_ip was not already present in the
 		 * bgp martian next-hop table as a tunnel-ip, so we
 		 * need to go back and filter routes matching the new
