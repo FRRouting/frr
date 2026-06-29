@@ -3437,6 +3437,9 @@ int peer_group_delete(struct peer_group *group)
 
 	bgp = group->bgp;
 
+	if (group->conf->bfd_config)
+		bgp_peer_remove_bfd_config(group->conf);
+
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 		other = peer->doppelganger;
 
@@ -3461,9 +3464,6 @@ int peer_group_delete(struct peer_group *group)
 
 	XFREE(MTYPE_PEER_GROUP_HOST, group->name);
 	group->name = NULL;
-
-	if (group->conf->bfd_config)
-		bgp_peer_remove_bfd_config(group->conf);
 
 	group->conf->group = NULL;
 	peer_delete(group->conf);

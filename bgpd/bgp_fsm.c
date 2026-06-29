@@ -2166,8 +2166,17 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		peer->dropped++;
 
 		if (peer->bfd_config && (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE ||
-					 peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE))
+					 peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE)) {
+			if (BGP_DEBUG(bfd, BFD_LIB))
+				zlog_debug("%s: deregistering BFD session for peer %pBP due to %s",
+					   __func__, peer,
+					   peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE
+						   ? "update-source change"
+						   : "multihop change");
+			frrtrace(3, frr_bgp, bfd_session_deregister, peer->host, peer->bgp->vrf_id,
+				 peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE ? 2 : 3);
 			bfd_sess_uninstall(peer->bfd_config->session);
+		}
 
 		if (peer->bfd_config)
 			event_cancel(&peer->bfd_config->t_hold_timer);

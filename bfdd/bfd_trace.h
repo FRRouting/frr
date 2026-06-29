@@ -34,8 +34,39 @@
 
 /* clang-format off */
 
+/* BFD session state enum for CTF decoding */
+TRACEPOINT_ENUM(
+	frr_bfd,
+	bfd_state,
+	TP_ENUM_VALUES(
+		ctf_enum_value("ADMIN_DOWN", 0)
+		ctf_enum_value("DOWN", 1)
+		ctf_enum_value("INIT", 2)
+		ctf_enum_value("UP", 3)
+	)
+)
+
+/* BFD diagnostic code enum for CTF decoding */
+TRACEPOINT_ENUM(
+	frr_bfd,
+	bfd_diag,
+	TP_ENUM_VALUES(
+		ctf_enum_value("NO_DIAG", 0)
+		ctf_enum_value("CTRL_DETECT_EXPIRED", 1)
+		ctf_enum_value("ECHO_FAILED", 2)
+		ctf_enum_value("NEIGHBOR_DOWN", 3)
+		ctf_enum_value("FWD_PLANE_RESET", 4)
+		ctf_enum_value("PATH_DOWN", 5)
+		ctf_enum_value("CONCAT_PATH_DOWN", 6)
+		ctf_enum_value("ADMIN_DOWN", 7)
+		ctf_enum_value("REV_CONCAT_PATH_DOWN", 8)
+	)
+)
+
 /*
  * BFD state change tracepoint
+ * old_state, new_state decoded via bfd_state enum
+ * diag decoded via bfd_diag enum
  */
 TRACEPOINT_EVENT(
 	frr_bfd,
@@ -50,11 +81,9 @@ TRACEPOINT_EVENT(
 		ctf_integer(uint32_t, vrf_id, (bs && bs->vrf) ? bs->vrf->vrf_id : VRF_UNKNOWN)
 		ctf_integer(uint32_t, ifindex, (bs && bs->ifp) ? bs->ifp->ifindex : 0)
 		ctf_integer(bool, mhop, bs ? CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) : false)
-		ctf_string(vrfname, (bs && bs->key.vrfname[0]) ? bs->key.vrfname : "")
-		ctf_string(ifname, (bs && bs->key.ifname[0]) ? bs->key.ifname : "")
-		ctf_integer(uint8_t, old_state, old_state)
-		ctf_integer(uint8_t, new_state, new_state)
-		ctf_integer(uint8_t, diag, diag)
+		ctf_enum(frr_bfd, bfd_state, uint8_t, old_state, old_state)
+		ctf_enum(frr_bfd, bfd_state, uint8_t, new_state, new_state)
+		ctf_enum(frr_bfd, bfd_diag, uint8_t, diag, diag)
 	)
 )
 
@@ -153,6 +182,7 @@ TRACEPOINT_EVENT(
 /*
  * BFD control notification tracepoint
  * Includes full session details for debugging
+ * notify_state decoded via bfd_state enum
  */
 TRACEPOINT_EVENT(
 	frr_bfd,
@@ -161,13 +191,13 @@ TRACEPOINT_EVENT(
 	TP_FIELDS(
 		ctf_integer(uint32_t, local_discr, bs ? bs->discrs.my_discr : 0)
 		ctf_integer(uint32_t, remote_discr, bs ? bs->discrs.remote_discr : 0)
-		ctf_integer(uint8_t, notify_state, notify_state)
+		ctf_enum(frr_bfd, bfd_state, uint8_t, notify_state, notify_state)
 		ctf_integer(uint8_t, family, bs ? bs->key.family : 0)
 		ctf_array(uint8_t, local_addr, bs ? (uint8_t *)&bs->key.local : (uint8_t *)"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16)
 		ctf_array(uint8_t, peer_addr, bs ? (uint8_t *)&bs->key.peer : (uint8_t *)"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16)
+		ctf_integer(uint32_t, vrf_id, (bs && bs->vrf) ? bs->vrf->vrf_id : VRF_UNKNOWN)
+		ctf_integer(uint32_t, ifindex, (bs && bs->ifp) ? bs->ifp->ifindex : 0)
 		ctf_integer(bool, mhop, bs ? bs->key.mhop : false)
-		ctf_string(vrfname, bs && bs->key.vrfname[0] ? bs->key.vrfname : "default")
-		ctf_string(ifname, bs && bs->key.ifname[0] ? bs->key.ifname : "")
 	)
 )
 
@@ -473,19 +503,24 @@ TRACEPOINT_EVENT(
  * BFD PTM session event tracepoint
  * action: 1=add, 2=delete
  * For session operations with full session info
+ * diag decoded via bfd_diag enum
  */
 TRACEPOINT_EVENT(
 	frr_bfd,
 	ptm_session_event,
 	TP_ARGS(uint8_t, action, uint32_t, local_discr, uint8_t, diag,
-		uint8_t, family, uint8_t *, local_addr, uint8_t *, peer_addr, uint64_t, refcount),
+		uint8_t, family, uint8_t *, local_addr, uint8_t *, peer_addr,
+		uint32_t, vrf_id, uint32_t, ifindex, const char *, ifname, uint64_t, refcount),
 	TP_FIELDS(
 		ctf_integer(uint8_t, action, action)
 		ctf_integer(uint32_t, local_discr, local_discr)
-		ctf_integer(uint8_t, diag, diag)
+		ctf_enum(frr_bfd, bfd_diag, uint8_t, diag, diag)
 		ctf_integer(uint8_t, family, family)
 		ctf_array(uint8_t, local_addr, local_addr, 16)
 		ctf_array(uint8_t, peer_addr, peer_addr, 16)
+		ctf_integer(uint32_t, vrf_id, vrf_id)
+		ctf_integer(uint32_t, ifindex, ifindex)
+		ctf_string(ifname, ifname ? ifname : "")
 		ctf_integer(uint64_t, refcount, refcount)
 	)
 )

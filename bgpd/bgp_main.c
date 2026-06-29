@@ -51,6 +51,7 @@
 #include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_routemap_nb.h"
 #include "bgpd/bgp_community_alias.h"
+#include "bgpd/bgp_trace.h"
 
 DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
 	    (vty, vrf));
@@ -134,6 +135,7 @@ FRR_NORETURN void sigint(void)
 	bm->terminating = true;	/* global flag that shutting down */
 
 	/* Disable BFD events to avoid wasting processing. */
+	frrtrace(2, frr_bgp, bfd_fast_shutdown, "", false);
 	bfd_protocol_integration_set_shutdown(true);
 
 	bgp_terminate();

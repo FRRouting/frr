@@ -1334,6 +1334,90 @@ TRACEPOINT_EVENT(frr_zebra, gr_evpn_stale_entries_cleanup,
 				   ctf_integer(uint64_t, gr_cleanup_time, gr_cleanup_time)))
 TRACEPOINT_LOGLEVEL(frr_zebra, gr_evpn_stale_entries_cleanup, TRACE_INFO)
 
+/* Zebra route type enum for CTF decoding */
+TRACEPOINT_ENUM(
+	frr_zebra,
+	route_type,
+	TP_ENUM_VALUES(
+		ctf_enum_value("SYSTEM", 0)
+		ctf_enum_value("KERNEL", 1)
+		ctf_enum_value("CONNECT", 2)
+		ctf_enum_value("LOCAL", 3)
+		ctf_enum_value("STATIC", 4)
+		ctf_enum_value("RIP", 5)
+		ctf_enum_value("RIPNG", 6)
+		ctf_enum_value("OSPF", 7)
+		ctf_enum_value("OSPF6", 8)
+		ctf_enum_value("ISIS", 9)
+		ctf_enum_value("BGP", 10)
+		ctf_enum_value("PIM", 11)
+		ctf_enum_value("EIGRP", 12)
+		ctf_enum_value("NHRP", 13)
+		ctf_enum_value("HSLS", 14)
+		ctf_enum_value("OLSR", 15)
+		ctf_enum_value("TABLE", 16)
+		ctf_enum_value("LDP", 17)
+		ctf_enum_value("VNC", 18)
+		ctf_enum_value("VNC_DIRECT", 19)
+		ctf_enum_value("VNC_DIRECT_RH", 20)
+		ctf_enum_value("BGP_DIRECT", 21)
+		ctf_enum_value("BGP_DIRECT_EXT", 22)
+		ctf_enum_value("BABEL", 23)
+		ctf_enum_value("SHARP", 24)
+		ctf_enum_value("PBR", 25)
+		ctf_enum_value("BFD", 26)
+		ctf_enum_value("OPENFABRIC", 27)
+		ctf_enum_value("VRRP", 28)
+		ctf_enum_value("NHG", 29)
+		ctf_enum_value("SRTE", 30)
+		ctf_enum_value("TABLE_DIRECT", 31)
+		ctf_enum_value("FRR", 32)
+		ctf_enum_value("ALL", 33)
+	)
+)
+
+/* BFD action enum for CTF decoding */
+TRACEPOINT_ENUM(
+	frr_zebra,
+	bfd_action,
+	TP_ENUM_VALUES(
+		ctf_enum_value("REGISTER", 1)
+		ctf_enum_value("DEREGISTER", 2)
+	)
+)
+
+/*
+ * BFD destination register message from client
+ * action decoded via bfd_action enum: 1=REGISTER, 2=DEREGISTER
+ * client_proto is decoded via route_type enum
+ */
+TRACEPOINT_EVENT(
+	frr_zebra,
+	bfd_dest_register,
+	TP_ARGS(uint8_t, action, uint8_t, client_proto, uint16_t, msg_len),
+	TP_FIELDS(
+		ctf_enum(frr_zebra, bfd_action, uint8_t, action, action)
+		ctf_enum(frr_zebra, route_type, uint8_t, client_proto, client_proto)
+		ctf_integer(uint16_t, msg_len, msg_len)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, bfd_dest_register, TRACE_INFO)
+
+/*
+ * BFD destination update message from BFDd
+ * client_proto is decoded via route_type enum
+ */
+TRACEPOINT_EVENT(
+	frr_zebra,
+	bfd_dest_update,
+	TP_ARGS(uint8_t, client_proto, uint16_t, msg_len),
+	TP_FIELDS(
+		ctf_enum(frr_zebra, route_type, uint8_t, client_proto, client_proto)
+		ctf_integer(uint16_t, msg_len, msg_len)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, bfd_dest_update, TRACE_INFO)
+
 /* clang-format on */
 #include <lttng/tracepoint-event.h>
 
