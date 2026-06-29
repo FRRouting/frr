@@ -257,7 +257,6 @@ static bool is_l2vpn_vpws_ready(struct bgp *bgp, struct l2vpn *l2vpn, struct l2v
 static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 {
 	bool mh;
-	uint8_t flag;
 	uint16_t mtu;
 	struct bgp *bgp;
 	struct bgpevpn *vpn;
@@ -307,7 +306,6 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 
 			return;
 		}
-		flag = 0;
 	} else {
 		mh = true;
 		local_ifp = if_lookup_by_name(l2vpn_svc->local_ac, bgp->vrf_id);
@@ -325,14 +323,17 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 				zlog_debug("VPWS: multihoming interface %s is not active",
 					   local_ifp->name);
 		}
-		/* TODO  MH*/
+		/* TODO MH: build EVPN Layer 2 Atributes Control Flags then
+		 * encode into EVPN Layer 2 Atributes Extended Community by
+		 * encode_l2attr_extcomm(&veal, mtu, flag).
+		 */
 	}
 
 	if (l2vpn_svc->ignore_mtu_mismatch)
 		mtu = 0;
 	else
 		mtu = l2vpn_svc->mtu;
-	encode_l2attr_extcomm(&eval, mtu, flag);
+	encode_l2attr_extcomm(&eval, mtu, 0);
 	bgp_evpn_local_es_evi_add(bgp, &l2vpn_svc->esi, vpn->vni, l2vpn_svc->vsi, &eval);
 	SET_FLAG(l2vpn_svc->flags, F_EVPN_SEND_REMOTE);
 
