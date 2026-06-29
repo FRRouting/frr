@@ -257,17 +257,7 @@ def test_zebra_netlink_delete_connected_step1(tgen):
 
 
 def test_zebra_netlink_delete_connected_step2(tgen):
-    nexthop_group = False
-    zebra_netlink_delete_connected(tgen, "dummy", nexthop_group)
-
-
-def test_zebra_netlink_delete_connected_step3(tgen):
     nexthop_group = True
-    zebra_netlink_delete_connected(tgen, "vrf", nexthop_group)
-
-
-def test_zebra_netlink_delete_connected_step4(tgen):
-    nexthop_group = False
     zebra_netlink_delete_connected(tgen, "vrf", nexthop_group)
 
 
