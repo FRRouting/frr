@@ -16130,7 +16130,12 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	if (use_json) {
 		if (type == bgp_show_adj_route_advertised || type == bgp_show_adj_route_received) {
 			if (header1) {
+<<<<<<< HEAD
 				int version = table ? table->version : 0;
+=======
+				int version = table->version;
+
+>>>>>>> b0cfdccdb (bgpd: Do not check if table is NULL when showing routes)
 				vty_out(vty, "\"bgpTableVersion\":%d", version);
 				vty_out(vty, ",\"bgpLocalRouterId\":\"%pI4\"", &bgp->router_id);
 				vty_out(vty, ",\"defaultLocPrf\":%u", bgp->default_local_pref);
