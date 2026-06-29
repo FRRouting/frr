@@ -61,7 +61,7 @@
 #include "lib/prefix.h"
 #include "lib/privs.h"
 #include "lib/ptm_lib.h"
-#include "lib/pw.h"
+#include "lib/l2vpn.h"
 #include "lib/qobj.h"
 #include "lib/queue.h"
 #include "lib/ringbuf.h"
