@@ -609,7 +609,7 @@ static void ospf_write(struct event *event)
 
 		/* Set DONTROUTE flag if dst is unicast. */
 		if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-			if (!IN_MULTICAST(htonl(op->dst.s_addr)))
+			if (!IN_MULTICAST(ntohl(op->dst.s_addr)))
 				flags = MSG_DONTROUTE;
 
 		iph.ip_hl = sizeof(struct ip) >> OSPF_WRITE_IPHL_SHIFT;

@@ -1005,7 +1005,7 @@ static int ospf_external_lsa_originate_check(struct ospf *ospf,
 					     struct external_info *ei)
 {
 	/* If prefix is multicast, then do not originate LSA. */
-	if (IN_MULTICAST(htonl(ei->p.prefix.s_addr))) {
+	if (IN_MULTICAST(ntohl(ei->p.prefix.s_addr))) {
 		zlog_info(
 			"LSA[Type5:%pI4]: Not originate AS-external-LSA, Prefix belongs multicast",
 			&ei->p.prefix);
