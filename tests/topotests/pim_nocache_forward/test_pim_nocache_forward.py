@@ -163,7 +163,7 @@ def setup_module(mod):
 
     app_helper.init(tgen)
 
-    for _, router in tgen.routers().items():
+    for router in tgen.routers().values():
         router.load_frr_config()
 
     tgen.start_router()

@@ -85,8 +85,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     # For all registered routers, load the zebra configuration file
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()

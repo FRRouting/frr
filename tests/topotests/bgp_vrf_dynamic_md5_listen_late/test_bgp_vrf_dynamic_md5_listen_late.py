@@ -193,8 +193,8 @@ def setup_module(mod):
     for r in (s1, s2, s3):
         r.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")
 
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, rname, "frr.conf"))
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
 

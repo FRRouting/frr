@@ -95,9 +95,8 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
-    for rname, router in tgen.routers().items():
-        logger.info("Loading router %s" % rname)
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")

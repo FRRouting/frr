@@ -79,10 +79,9 @@ def setup_module(module):
 
     # Starting Routers
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for router in router_list.values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BGP, None)],
+            daemons=["zebra", "bgpd"],
         )
         router.start()
 

@@ -43,7 +43,7 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
         logger.info("Loading router %s" % rname)
-        router.load_frr_config("frr.conf")
+        router.load_frr_config()
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()

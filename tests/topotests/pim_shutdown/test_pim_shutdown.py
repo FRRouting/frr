@@ -46,7 +46,7 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for _, router in router_list.items():
+    for router in router_list.values():
         router.load_frr_config()
 
     tgen.start_router()

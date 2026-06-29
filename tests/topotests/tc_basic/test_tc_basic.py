@@ -73,7 +73,7 @@ def tgen(request):
     # For all routers arrange for:
     # - starting zebra using config file from <rtrname>/zebra.conf
     # - starting ospfd using an empty config file.
-    for _, router in router_list.items():
+    for router in router_list.values():
         router.load_config(TopoRouter.RD_ZEBRA)
         router.load_config(TopoRouter.RD_SHARP)
 

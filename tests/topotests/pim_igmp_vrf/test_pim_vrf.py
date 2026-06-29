@@ -209,9 +209,8 @@ def setup_module(module):
     for cmd in vrf_setup_cmds:
         tgen.net["r1"].cmd(cmd)
 
-    for rname, router in router_list.items():
-        logger.info("Loading router %s" % rname)
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
 

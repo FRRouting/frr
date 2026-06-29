@@ -67,14 +67,13 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, "-M snmp"),
-                (TopoRouter.RD_ISIS, "-M snmp"),
-                (TopoRouter.RD_BGP, "-M snmp"),
-                (TopoRouter.RD_RIP, "-M snmp"),
-                (TopoRouter.RD_OSPF, "-M snmp"),
-                (TopoRouter.RD_OSPF6, "-M snmp"),
+            daemons=[
+                ("zebra", "-M snmp"),
+                ("isisd", "-M snmp"),
+                ("bgpd", "-M snmp"),
+                ("ripd", "-M snmp"),
+                ("ospfd", "-M snmp"),
+                ("ospf6d", "-M snmp"),
             ],
         )
         router.load_config(

@@ -96,7 +96,7 @@ def setup_module(mod):
     # Load FRR configuration for each router
     for rname, router in tgen.routers().items():
         logger.info(f"Loading config to router {rname}")
-        router.load_frr_config(os.path.join(CWD, f"{rname}/frr.conf"))
+        router.load_frr_config()
 
     tgen.start_router()
 

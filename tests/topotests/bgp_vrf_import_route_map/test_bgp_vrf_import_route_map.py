@@ -86,15 +86,15 @@ def setup_module(mod):
 
     # Enable required daemons for all routers
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for router in router_list.values():
         # Enable mgmtd, zebra, and bgpd
         router.load_config(router.RD_MGMTD, "")
         router.load_config(router.RD_ZEBRA, "")
         router.load_config(router.RD_BGP, "")
 
     # Load unified FRR configuration for each router
-    for rname, router in router_list.items():
-        router.load_frr_config(os.path.join(CWD, f"{rname}/frr.conf"))
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Initialize all routers
     tgen.start_router()
@@ -102,7 +102,7 @@ def setup_module(mod):
     # Wait for daemons to start and VRFs to be recognized
     def check_bgp_daemon_ready():
         """Check if BGP daemon is ready on all routers."""
-        for rname, router in router_list.items():
+        for router in router_list.values():
             output = router.vtysh_cmd("show bgp summary json")
             try:
                 bgp_json = json.loads(output)

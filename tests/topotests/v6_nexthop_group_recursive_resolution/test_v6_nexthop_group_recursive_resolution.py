@@ -21,7 +21,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.common_config import step
 
 pytestmark = [pytest.mark.mgmtd, pytest.mark.sharpd, pytest.mark.staticd]
@@ -41,12 +41,8 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for rname, router in router_list.items():
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)),
-                               [(TopoRouter.RD_MGMTD, None),
-                                (TopoRouter.RD_ZEBRA, None),
-                                (TopoRouter.RD_STATIC, None),
-                                (TopoRouter.RD_SHARP, None)])
+    for router in router_list.values():
+        router.load_frr_config(extra_daemons=["sharpd"])
 
     tgen.start_router()
 

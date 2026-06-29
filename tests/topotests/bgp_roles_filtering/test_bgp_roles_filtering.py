@@ -36,7 +36,7 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
-    for _, router in router_list.items():
+    for router in router_list.values():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_BGP, "bgpd.conf")
     tgen.start_router()

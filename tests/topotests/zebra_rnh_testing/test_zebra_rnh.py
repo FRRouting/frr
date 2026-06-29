@@ -24,7 +24,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib import topotest
 
@@ -58,11 +58,8 @@ def setup_module(mod):
 
     # Load integrated configuration for all routers
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            extra_daemons=[(TopoRouter.RD_SHARP, ""), (TopoRouter.RD_STATIC, "")],
-        )
+    for router in router_list.values():
+        router.load_frr_config(extra_daemons=["sharpd"])
 
     # Start routers with zebra, staticd, and sharpd
     tgen.start_router()

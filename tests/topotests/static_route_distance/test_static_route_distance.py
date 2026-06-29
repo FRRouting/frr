@@ -111,15 +111,14 @@ def setup_module(mod):
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
-    for _, router in tgen.routers().items():
+    for router in tgen.routers().values():
         # Start zebra with -e 2 so that zebra_ecmp_count is 2.  This lets
         # test 10 drive the ECMP count limit with the three nexthops available
         # in the topology without needing an impractically large nexthop set.
         # All other tests use at most two nexthops per ECMP group so -e 2 does
         # not affect their correctness.
         router.load_frr_config(
-            os.path.join(CWD, "r1/frr.conf"),
-            daemons=[(TopoRouter.RD_ZEBRA, "-e 2")],
+            daemons=[("zebra", "-e 2")],
         )
 
     tgen.start_router()

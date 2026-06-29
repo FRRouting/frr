@@ -119,7 +119,7 @@ ip link set vxlan-{0} up type bridge_slave learning off flood off mcast_flood of
         logger.info("Loading router %s" % rname)
         if rname == "r1":
             router.use_netns_vrf()
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()

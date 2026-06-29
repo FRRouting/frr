@@ -268,8 +268,8 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # Initialize all routers
-    for rname, router in router_list.items():
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Start routers
     tgen.start_router()

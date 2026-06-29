@@ -458,7 +458,7 @@ class Topogen(object):
         if router is None:
             # pylint: disable=r1704
             # XXX should be hosts?
-            for _, router in self.routers().items():
+            for router in self.routers().values():
                 router.start()
         else:
             if isinstance(router, str):
@@ -900,7 +900,7 @@ class TopoRouter(TopoGear):
         * `source`: unified config file path or name (default: ``frr.conf``)
         * `daemons`: daemon(s) to start.  Each entry is either a daemon name
           string or a ``(daemon, param)`` tuple, e.g.
-          ``(TopoRouter.RD_ZEBRA, "-s 90000000")``.  If None, infer from the
+          ``("zebra", "-s 90000000")``.  If None, infer from the
           config file.
         * `extra_daemons`: additional daemons to start when inferring from the
           config file.  Same format as `daemons`.

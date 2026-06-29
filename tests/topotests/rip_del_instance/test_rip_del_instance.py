@@ -49,10 +49,10 @@ def tgen(request):
     # - starting zebra using config file from <rtrname>/zebra.conf
     # - starting ripd using an empty config file.
     # - loading frr config file from <rtrname>/frr.conf
-    for rname, router in router_list.items():
+    for router in router_list.values():
         router.load_config(TopoRouter.RD_ZEBRA)
         router.load_config(TopoRouter.RD_RIP)
-        router.load_frr_config(os.path.join(CWD, f"{rname}/frr.conf"))
+        router.load_frr_config()
 
     # Start and configure the router daemons
     tgen.start_router()

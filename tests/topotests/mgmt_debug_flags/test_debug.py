@@ -30,8 +30,8 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
-    for _, router in tgen.routers().items():
-        router.load_frr_config("frr.conf")
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
     yield tgen

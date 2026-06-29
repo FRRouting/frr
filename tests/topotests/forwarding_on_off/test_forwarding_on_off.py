@@ -48,8 +48,8 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for _, router in router_list.items():
-        router.load_frr_config("frr.conf")
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
 

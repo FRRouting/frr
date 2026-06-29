@@ -73,7 +73,7 @@ def _tgen(request):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for _, router in router_list.items():
+    for router in router_list.values():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_OSPF, "ospfd.conf")
         router.net.daemons_options["ospfd"] = "--apiserver"

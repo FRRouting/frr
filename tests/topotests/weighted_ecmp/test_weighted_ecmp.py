@@ -53,12 +53,11 @@ def setup_module(module):
 
     # This is a sample of configuration loading.
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for router in router_list.values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, "-s 180000000 --nexthop-weight-16-bit"),
-                (TopoRouter.RD_SHARP, None),
+            daemons=[
+                ("zebra", "-s 180000000 --nexthop-weight-16-bit"),
+                "sharpd",
             ],
         )
 

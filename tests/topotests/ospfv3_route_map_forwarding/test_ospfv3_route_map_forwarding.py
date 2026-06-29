@@ -37,7 +37,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.ospf6d]
@@ -63,14 +63,8 @@ def setup_module(mod):
     logger.info("** %s: Setup Topology" % mod.__name__)
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_OSPF6, None),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
 
