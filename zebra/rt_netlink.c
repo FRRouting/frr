@@ -1705,7 +1705,6 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 	char label_buf[256];
 	struct vrf *vrf;
 	char addrstr[INET6_ADDRSTRLEN];
-	uint32_t srv6_table_attr;
 
 	assert(nexthop);
 
@@ -1782,11 +1781,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 						   SEG6_LOCAL_ACTION,
 						   SEG6_LOCAL_ACTION_END_DT6))
 					return false;
-				srv6_table_attr =
-					kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported()
-						? SEG6_LOCAL_VRFTABLE
-						: SEG6_LOCAL_TABLE;
-				if (!nl_attr_put32(nlmsg, req_size, srv6_table_attr, ctx->table))
+				if (!nl_attr_put32(nlmsg, req_size, SEG6_LOCAL_VRFTABLE, ctx->table))
 					return false;
 				break;
 			case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
@@ -3051,7 +3046,6 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					uint16_t encap;
 					struct rtattr *nest;
 					const struct seg6local_context *ctx;
-					uint32_t srv6_table_attr;
 
 					req->nhm.nh_family = AF_INET6;
 					action = nh->nh_srv6->seg6local_action;
@@ -3130,12 +3124,8 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    SEG6_LOCAL_ACTION,
 						    SEG6_LOCAL_ACTION_END_DT6))
 							return 0;
-						srv6_table_attr =
-							kernel_capabilities_is_srv6_seg6local_dt6_vrftable_attr_supported()
-								? SEG6_LOCAL_VRFTABLE
-								: SEG6_LOCAL_TABLE;
-						if (!nl_attr_put32(&req->n, buflen, srv6_table_attr,
-								   ctx->table))
+						if (!nl_attr_put32(&req->n, buflen,
+								   SEG6_LOCAL_VRFTABLE, ctx->table))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DT4:
