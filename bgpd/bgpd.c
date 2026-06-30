@@ -9015,7 +9015,9 @@ static void peer_reset_message_stats(struct peer *peer)
 static void peer_clear_capabilities(struct peer *peer, afi_t afi, safi_t safi)
 {
 	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_FQDN,
-			    CAPABILITY_ACTION_SET);
+			    CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN)
+				    ? CAPABILITY_ACTION_SET
+				    : CAPABILITY_ACTION_UNSET);
 }
 
 /*
