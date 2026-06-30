@@ -16,7 +16,6 @@
 #include "memory.h"		// for MTYPE_TMP, XCALLOC, XFREE
 #include "network.h"		// for ERRNO_IO_RETRY
 #include "stream.h"		// for stream_get_endp, stream_getw_from, str...
-#include "ringbuf.h"		// for ringbuf_remain, ringbuf_peek, ringbuf_...
 #include "frrevent.h"		// for event, EVENT_ARG, thread...
 
 #include "bgpd/bgp_io.h"
@@ -30,14 +29,20 @@
 
 /* forward declarations */
 static uint16_t bgp_write(struct peer_connection *connection);
-static uint16_t bgp_read(struct peer_connection *connection, int *code_p);
+static uint16_t bgp_read(struct peer_connection *connection, int *code_p, ssize_t *nread_p);
 static void bgp_process_writes(struct event *event);
 static void bgp_process_reads(struct event *event);
-static bool validate_header(struct peer_connection *connection);
+static bool validate_header_from_buf(struct peer_connection *connection, const uint8_t *buf);
+
+/* Global scratch buffer for socket read - defined near bgp_read() */
+static uint8_t ibuf_scratch[BGP_IBUF_WORK_SIZE];
 
 /* generic i/o status codes */
 #define BGP_IO_TRANS_ERR (1 << 0) /* EAGAIN or similar occurred */
 #define BGP_IO_FATAL_ERR (1 << 1) /* some kind of fatal TCP error */
+
+/* extract message length from BGP header */
+#define BGP_MSG_LEN(buf) ((uint16_t)(((buf)[BGP_MARKER_SIZE] << 8) + (buf)[BGP_MARKER_SIZE + 1]))
 
 /* Thread external API ----------------------------------------------------- */
 
@@ -168,55 +173,62 @@ static void bgp_process_writes(struct event *event)
 	}
 }
 
-static int read_ibuf_work(struct peer_connection *connection)
+/*
+ * Process packets from a buffer with in-place parsing.
+ *
+ * Parses complete BGP packets from buf, pushes them to connection->ibuf.
+ *
+ * added_pkt_p: set to true if at least one packet was added
+ * remaining_p: set to number of unprocessed bytes at end of buffer
+ *
+ * Returns:
+ *   0: success (check *remaining_p for partial data)
+ *   -EBADMSG: invalid header
+ */
+static int parse_buffer(struct peer_connection *connection, const uint8_t *buf, size_t len,
+			bool *added_pkt_p, size_t *remaining_p)
 {
-	/* shorter alias to peer's input buffer */
-	struct ringbuf *ibw = connection->ibuf_work;
-	/* packet size as given by header */
-	uint16_t pktsize = 0;
+	size_t offset = 0;
+	uint16_t pktsize;
 	struct stream *pkt;
 
-	/* ibuf_work is allocated on demand; nothing to do if not present */
-	if (!ibw)
-		return 0;
+	*remaining_p = 0;
 
-	/* check that we have enough data for a header */
-	if (ringbuf_remain(ibw) < BGP_HEADER_SIZE)
-		return 0;
+	while (offset < len) {
+		/* need at least a header */
+		if (len - offset < BGP_HEADER_SIZE) {
+			*remaining_p = len - offset;
+			return 0;
+		}
 
-	/* check that header is valid */
-	if (!validate_header(connection))
-		return -EBADMSG;
+		/* validate header */
+		if (!validate_header_from_buf(connection, buf + offset))
+			return -EBADMSG;
 
-	/* header is valid; retrieve packet size */
-	ringbuf_peek(ibw, BGP_MARKER_SIZE, &pktsize, sizeof(pktsize));
+		/* get packet size from header (already validated) */
+		pktsize = BGP_MSG_LEN(buf + offset);
 
-	pktsize = ntohs(pktsize);
+		/* need complete packet */
+		if (len - offset < pktsize) {
+			*remaining_p = len - offset;
+			return 0;
+		}
 
-	/* if this fails we are seriously screwed */
-	if (pktsize > connection->peer->max_packet_size)
-		return -EBADMSG;
+		/* create stream and copy packet */
+		pkt = stream_new(pktsize);
+		memcpy(pkt->data, buf + offset, pktsize);
+		stream_set_endp(pkt, pktsize);
 
-	/*
-	 * If we have that much data, chuck it into its own
-	 * stream and append to input queue for processing.
-	 *
-	 * Otherwise, come back later.
-	 */
-	if (ringbuf_remain(ibw) < pktsize)
-		return 0;
+		frrtrace(2, frr_bgp, packet_read, connection, pkt);
+		frr_with_mutex (&connection->io_mtx) {
+			stream_fifo_push(connection->ibuf, pkt);
+		}
 
-	pkt = stream_new(pktsize);
-	assert(STREAM_WRITEABLE(pkt) == pktsize);
-	assert(ringbuf_get(ibw, pkt->data, pktsize) == pktsize);
-	stream_set_endp(pkt, pktsize);
-
-	frrtrace(2, frr_bgp, packet_read, connection, pkt);
-	frr_with_mutex (&connection->io_mtx) {
-		stream_fifo_push(connection->ibuf, pkt);
+		*added_pkt_p = true;
+		offset += pktsize;
 	}
 
-	return pktsize;
+	return 0;
 }
 
 /*
@@ -237,7 +249,10 @@ static void bgp_process_reads(struct event *event)
 	bool added_pkt = false;         /* whether we pushed onto ->connection.ibuf */
 	int code = 0;                   /* FSM code if error occurred */
 	static bool ibuf_full_logged;   /* Have we logged full already */
-	int ret = 1;
+	int ret = 0;
+	ssize_t nread = 0;
+	size_t remaining = 0;
+	size_t total_len;
 	/* clang-format on */
 
 	peer = connection->peer;
@@ -248,9 +263,10 @@ static void bgp_process_reads(struct event *event)
 	struct frr_pthread *fpt = bgp_pth_io;
 
 	/*
-	 * Soft limit: check queue before reading. This provides TCP
-	 * back-pressure: if we stop reading, the TCP window fills up,
-	 * slowing the sender.
+	 * Soft limit: check queue before reading, not during parsing.
+	 * This allows a single read to exceed the limit (multiple messages
+	 * in one read are all processed), keeping ibuf_work for partial
+	 * packets only. The limit governs when we stop reading, not parsing.
 	 */
 	frr_with_mutex (&connection->io_mtx) {
 		if (connection->ibuf->count >= bm->inq_limit) {
@@ -266,15 +282,10 @@ static void bgp_process_reads(struct event *event)
 	}
 
 	frr_with_mutex (&connection->io_mtx) {
-		status = bgp_read(connection, &code);
+		status = bgp_read(connection, &code, &nread);
 	}
 
 	/* error checking phase */
-	if (CHECK_FLAG(status, BGP_IO_TRANS_ERR)) {
-		/* no problem; just don't process packets */
-		goto done;
-	}
-
 	if (CHECK_FLAG(status, BGP_IO_FATAL_ERR)) {
 		/* problem; tear down session */
 		fatal = true;
@@ -286,13 +297,29 @@ static void bgp_process_reads(struct event *event)
 		goto done;
 	}
 
-	while (true) {
-		ret = read_ibuf_work(connection);
-		if (ret <= 0)
-			break;
-
-		added_pkt = true;
+	if (CHECK_FLAG(status, BGP_IO_TRANS_ERR)) {
+		/* EAGAIN - no data read; ibuf_work (if any) unchanged */
+		goto done;
 	}
+
+	/*
+	 * Parse from ibuf_scratch. Prior partial data was copied there by
+	 * bgp_read().
+	 */
+	total_len = connection->ibuf_data_len + nread;
+	if (total_len > 0)
+		ret = parse_buffer(connection, ibuf_scratch, total_len, &added_pkt, &remaining);
+
+	if (remaining > 0) {
+		/* partial packet remains - save to ibuf_work */
+		if (!connection->ibuf_work)
+			connection->ibuf_work = XMALLOC(MTYPE_BGP_IBUF_WORK, BGP_IBUF_WORK_SIZE);
+		memcpy(connection->ibuf_work, ibuf_scratch + total_len - remaining, remaining);
+	} else if (connection->ibuf_work) {
+		/* no partial data - free ibuf_work */
+		XFREE(MTYPE_BGP_IBUF_WORK, connection->ibuf_work);
+	}
+	connection->ibuf_data_len = remaining;
 
 	if (ret == -EBADMSG)
 		fatal = true;
@@ -302,16 +329,10 @@ done:
 	if (fatal) {
 		/* wipe buffer just in case someone screwed up */
 		if (connection->ibuf_work) {
-			ringbuf_del(connection->ibuf_work);
-			connection->ibuf_work = NULL;
+			XFREE(MTYPE_BGP_IBUF_WORK, connection->ibuf_work);
+			connection->ibuf_data_len = 0;
 		}
 		return;
-	}
-
-	/* Free ibuf_work if empty - it will be reallocated on demand */
-	if (connection->ibuf_work && ringbuf_remain(connection->ibuf_work) == 0) {
-		ringbuf_del(connection->ibuf_work);
-		connection->ibuf_work = NULL;
 	}
 
 	event_add_read(fpt->master, bgp_process_reads, connection, connection->fd,
@@ -508,13 +529,16 @@ done : {
 	return status;
 }
 
-uint8_t ibuf_scratch[BGP_IBUF_WORK_SIZE];
 /*
- * Reads a chunk of data from peer->connection.fd into
- * peer->connection.ibuf_work.
+ * Reads a chunk of data from peer->connection.fd into ibuf_scratch.
+ *
+ * If ibuf_work has partial data, copies it to ibuf_scratch first,
+ * then reads new data after it.
  *
  * code_p
  *    Pointer to location to store FSM event code in case of fatal error.
+ * nread_p
+ *    Pointer to store number of bytes read.
  *
  * @return status flag (see top-of-file)
  *
@@ -522,29 +546,40 @@ uint8_t ibuf_scratch[BGP_IBUF_WORK_SIZE];
  * per peer then we need to rethink the global ibuf_scratch
  * data structure above.
  */
-static uint16_t bgp_read(struct peer_connection *connection, int *code_p)
+static uint16_t bgp_read(struct peer_connection *connection, int *code_p, ssize_t *nread_p)
 {
 	size_t readsize; /* how many bytes we want to read */
 	ssize_t nbytes;  /* how many bytes we actually read */
-	size_t ibuf_work_space; /* space we can read into the work buf */
+	uint8_t *readbuf;
 	uint16_t status = 0;
 
-	if (connection->ibuf_work)
-		ibuf_work_space = ringbuf_space(connection->ibuf_work);
-	else
-		ibuf_work_space = BGP_IBUF_WORK_SIZE;
+	if (nread_p)
+		*nread_p = 0;
 
-	if (ibuf_work_space == 0)
-		return 0;
+	/*
+	 * Always read into ibuf_scratch. If ibuf_work has partial data,
+	 * copy it to ibuf_scratch first so new data lands right after it.
+	 * This wastes a memcpy on EAGAIN but avoids memmove when data arrives.
+	 */
+	if (connection->ibuf_work && connection->ibuf_data_len > 0) {
+		memcpy(ibuf_scratch, connection->ibuf_work, connection->ibuf_data_len);
+		readbuf = ibuf_scratch + connection->ibuf_data_len;
+		readsize = sizeof(ibuf_scratch) - connection->ibuf_data_len;
+	} else {
+		readbuf = ibuf_scratch;
+		readsize = sizeof(ibuf_scratch);
+	}
 
-	readsize = MIN(ibuf_work_space, sizeof(ibuf_scratch));
+	/* ibuf_data_len < BGP_IBUF_WORK_SIZE, so readsize > 0 */
+	assert(readsize > 0);
 
 #ifdef __clang_analyzer__
 	/* clang-SA doesn't want you to call read() while holding a mutex */
+	(void)readbuf;
 	(void)readsize;
 	nbytes = 0;
 #else
-	nbytes = read(connection->fd, ibuf_scratch, readsize);
+	nbytes = read(connection->fd, readbuf, readsize);
 #endif
 
 	/* EAGAIN or EWOULDBLOCK; come back later */
@@ -574,50 +609,37 @@ static uint16_t bgp_read(struct peer_connection *connection, int *code_p)
 
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
 	} else {
-		/* Allocate ibuf_work on demand to hold partial packets */
-		if (!connection->ibuf_work)
-			connection->ibuf_work = ringbuf_new(BGP_IBUF_WORK_SIZE);
-
-		assert(ringbuf_put(connection->ibuf_work, ibuf_scratch,
-				   nbytes) == (size_t)nbytes);
+		if (nread_p)
+			*nread_p = nbytes;
 	}
 
 	return status;
 }
 
 /*
- * Called after we have read a BGP packet header. Validates marker, message
- * type and packet length. If any of these aren't correct, sends a notify.
+ * Validate BGP packet header from a buffer.
  *
- * Assumes that there are at least BGP_HEADER_SIZE readable bytes in the input
- * buffer.
+ * Assumes buf has at least BGP_HEADER_SIZE bytes.
  */
-static bool validate_header(struct peer_connection *connection)
+static bool validate_header_from_buf(struct peer_connection *connection, const uint8_t *buf)
 {
 	struct peer *peer = connection->peer;
 	uint16_t size;
 	uint8_t type;
-	struct ringbuf *pkt = connection->ibuf_work;
 
 	static const uint8_t m_correct[BGP_MARKER_SIZE] = {
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-	uint8_t m_rx[BGP_MARKER_SIZE] = {0x00};
 
-	if (ringbuf_peek(pkt, 0, m_rx, BGP_MARKER_SIZE) != BGP_MARKER_SIZE)
-		return false;
-
-	if (memcmp(m_correct, m_rx, BGP_MARKER_SIZE) != 0) {
+	if (memcmp(m_correct, buf, BGP_MARKER_SIZE) != 0) {
 		bgp_notify_io_invalid(connection, BGP_NOTIFY_HEADER_ERR,
 				      BGP_NOTIFY_HEADER_NOT_SYNC, NULL, 0);
 		return false;
 	}
 
-	/* Get size and type in network byte order. */
-	ringbuf_peek(pkt, BGP_MARKER_SIZE, &size, sizeof(size));
-	ringbuf_peek(pkt, BGP_MARKER_SIZE + 2, &type, sizeof(type));
-
-	size = ntohs(size);
+	/* Get size and type */
+	size = BGP_MSG_LEN(buf);
+	type = buf[BGP_MARKER_SIZE + 2];
 
 	/* BGP type check. */
 	if (type != BGP_MSG_OPEN && type != BGP_MSG_UPDATE
