@@ -364,8 +364,7 @@ int bgp_unreach_tlv_parse(uint8_t *data, uint16_t len, struct bgp_unreach_nlri *
 
 	if ((size_t)(end - pnt) < tlv_len) {
 		flog_err(EC_BGP_UNREACH_PARSE_FAILURE,
-			 "Reporter TLV length %u exceeds remaining %zu", tlv_len,
-			 (size_t)(end - pnt));
+			 "Reporter TLV length %u exceeds remaining %lu", tlv_len, end - pnt);
 		frrtrace(6, frr_bgp, unreach_tlv_parse_error,
 			 UNREACH_TLV_ERR_REPORTER_TLV_OVERFLOW, tlv_type, tlv_len, 0, 0,
 			 (uint16_t)(end - pnt));
@@ -659,8 +658,8 @@ int bgp_nlri_parse_unreach(struct peer *peer, struct attr *attr, struct bgp_nlri
 
 		if ((size_t)(lim - pnt) < nlri_len) {
 			flog_err(EC_BGP_UNREACH_PARSE_FAILURE,
-				 "%s: NLRI Length %u overflows packet (remaining %zu)",
-				 peer->host, nlri_len, (size_t)(lim - pnt));
+				 "%s: NLRI Length %u overflows packet (remaining %lu)", peer->host,
+				 nlri_len, lim - pnt);
 			frrtrace(4, frr_bgp, unreach_nlri_parse_error,
 				 UNREACH_NLRI_ERR_NLRI_LEN_OVERFLOW, peer->host,
 				 peer->bgp->name_pretty, &p);
