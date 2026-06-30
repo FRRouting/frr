@@ -67,10 +67,15 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_conditional_adv.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_unreach.h"
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 #include "bgpd/bgp_ls.h"
+
+extern struct host host;
+
+/* Forward declarations */
 
 FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
 	{
@@ -179,6 +184,8 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_VPNV4_NODE;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV4_NODE;
+		case SAFI_UNREACH:
+			return BGP_IPV4U_NODE;
 		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
@@ -200,6 +207,8 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_VPNV6_NODE;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV6_NODE;
+		case SAFI_UNREACH:
+			return BGP_IPV6U_NODE;
 		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
@@ -238,6 +247,8 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 			return "IPv4 Encap";
 		if (safi == SAFI_FLOWSPEC)
 			return "IPv4 Flowspec";
+		if (safi == SAFI_UNREACH)
+			return "IPv4 Unreachability";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "IPv6 Unicast";
@@ -251,6 +262,8 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 			return "IPv6 Encap";
 		if (safi == SAFI_FLOWSPEC)
 			return "IPv6 Flowspec";
+		if (safi == SAFI_UNREACH)
+			return "IPv6 Unreachability";
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			return "L2VPN EVPN";
@@ -283,6 +296,8 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 			return "ipv4Encap";
 		if (safi == SAFI_FLOWSPEC)
 			return "ipv4Flowspec";
+		if (safi == SAFI_UNREACH)
+			return "ipv4Unreachability";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "ipv6Unicast";
@@ -296,6 +311,8 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 			return "ipv6Encap";
 		if (safi == SAFI_FLOWSPEC)
 			return "ipv6Flowspec";
+		if (safi == SAFI_UNREACH)
+			return "ipv6Unreachability";
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			return "l2VpnEvpn";
@@ -452,6 +469,7 @@ afi_t bgp_node_afi(struct vty *vty)
 	case BGP_IPV6L_NODE:
 	case BGP_VPNV6_NODE:
 	case BGP_FLOWSPECV6_NODE:
+	case BGP_IPV6U_NODE:
 		afi = AFI_IP6;
 		break;
 	case BGP_EVPN_NODE:
@@ -494,6 +512,10 @@ safi_t bgp_node_safi(struct vty *vty)
 		break;
 	case BGP_LS_NODE:
 		safi = SAFI_BGP_LS;
+		break;
+	case BGP_IPV4U_NODE:
+	case BGP_IPV6U_NODE:
+		safi = SAFI_UNREACH;
 		break;
 	default:
 		safi = SAFI_UNICAST;
@@ -559,6 +581,8 @@ safi_t bgp_vty_safi_from_str(const char *safi_str)
 		safi = SAFI_LABELED_UNICAST;
 	else if (strmatch(safi_str, "flowspec"))
 		safi = SAFI_FLOWSPEC;
+	else if (strmatch(safi_str, "unreachability"))
+		safi = SAFI_UNREACH;
 	return safi;
 }
 
@@ -590,6 +614,10 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (safi)
 			*safi = SAFI_FLOWSPEC;
+	} else if (argv_find(argv, argc, "unreachability", index)) {
+		ret = 1;
+		if (safi)
+			*safi = SAFI_UNREACH;
 	}
 	return ret;
 }
@@ -626,6 +654,9 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_FLOWSPEC:
 			return "ipv4-flowspec";
 		case SAFI_BGP_LS:
+			return "ipv4-bgp-ls";
+		case SAFI_UNREACH:
+			return "ipv4-unreachability";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -647,6 +678,9 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_FLOWSPEC:
 			return "ipv6-flowspec";
 		case SAFI_BGP_LS:
+			return "ipv6-bgp-ls";
+		case SAFI_UNREACH:
+			return "ipv6-unreachability";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -664,6 +698,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_ENCAP:
 		case SAFI_LABELED_UNICAST:
 		case SAFI_FLOWSPEC:
+		case SAFI_UNREACH:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
@@ -680,6 +715,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_LABELED_UNICAST:
 		case SAFI_FLOWSPEC:
 		case SAFI_EVPN:
+		case SAFI_UNREACH:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
@@ -2315,6 +2351,18 @@ static int bgp_maxpaths_config_vty(struct vty *vty, int peer_type,
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
+	/*
+	 * Multipath is not meaningful for the informational SAFI_UNREACH
+	 * RIB. bgp_create() pins maxpaths to 1 for SAFI_UNREACH and the
+	 * "maximum-paths 1" line is suppressed in running-config; reject
+	 * any operator attempt to change it so the invariant is enforced.
+	 */
+	if (safi == SAFI_UNREACH) {
+		vty_out(vty,
+			"%% maximum-paths is fixed at 1 for unreachability\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (set) {
 		maxpaths = strtol(mpaths, NULL, 10);
 		if (maxpaths > multipath_num) {
@@ -2946,6 +2994,16 @@ ALIAS_HIDDEN(no_bgp_maxpaths_ibgp, no_bgp_maxpaths_ibgp_hidden_cmd,
 static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 				      afi_t afi, safi_t safi)
 {
+	/*
+	 * SAFI_UNREACH pins maxpaths to 1 in bgp_create() since multipath is
+	 * not meaningful for unreachability information. There is no CLI to
+	 * change it, so suppress the otherwise stray "maximum-paths 1" line
+	 * that would appear in running-config under address-family
+	 * <afi> unreachability.
+	 */
+	if (safi == SAFI_UNREACH)
+		return;
+
 	if (bgp->maxpaths[afi][safi].maxpaths_ebgp != multipath_num) {
 		vty_out(vty, "  maximum-paths %d\n",
 			bgp->maxpaths[afi][safi].maxpaths_ebgp);
@@ -7700,6 +7758,7 @@ static int peer_ebgp_multihop_set_vty(struct vty *vty, const char *ip_str,
 {
 	struct peer *peer;
 	unsigned int ttl;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
@@ -7713,18 +7772,33 @@ static int peer_ebgp_multihop_set_vty(struct vty *vty, const char *ip_str,
 	else
 		ttl = strtoul(ttl_str, NULL, 10);
 
-	return bgp_vty_return(vty, peer_ebgp_multihop_set(peer, ttl));
+	/*
+	 * ebgp-multihop and ttl-security are mutually exclusive. Enforce it for
+	 * the whole peer/group/member set here, because peer_ebgp_multihop_set()
+	 * skips the GTSM check on its no-op paths (bare/MAXTTL form, or an
+	 * iBGP-sorted group with eBGP members) - which would otherwise let us
+	 * record cfg_ttl while a member still has ttl-security.
+	 */
+	if (peer_gtsm_configured(peer))
+		return bgp_vty_return(vty, BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK);
+
+	ret = peer_ebgp_multihop_set(peer, ttl, true);
+
+	return bgp_vty_return(vty, ret);
 }
 
 static int peer_ebgp_multihop_unset_vty(struct vty *vty, const char *ip_str)
 {
 	struct peer *peer;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return bgp_vty_return(vty, peer_ebgp_multihop_unset(peer));
+	ret = peer_ebgp_multihop_unset(peer, true);
+
+	return bgp_vty_return(vty, ret);
 }
 
 /* neighbor ebgp-multihop. */
@@ -11709,12 +11783,9 @@ DEFPY (af_routetarget_import,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (address_family_ipv4_safi,
-	address_family_ipv4_safi_cmd,
-	"address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec>]",
-	"Enter Address Family command mode\n"
-	BGP_AF_STR
-	BGP_SAFI_WITH_LABEL_HELP_STR)
+DEFUN_NOSH(address_family_ipv4_safi, address_family_ipv4_safi_cmd,
+	   "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>]",
+	   "Enter Address Family command mode\n" BGP_AF_STR BGP_SAFI_WITH_LABEL_HELP_STR)
 {
 
 	if (argc == 3) {
@@ -11734,12 +11805,9 @@ DEFUN_NOSH (address_family_ipv4_safi,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (address_family_ipv6_safi,
-	address_family_ipv6_safi_cmd,
-	"address-family ipv6 [<unicast|multicast|vpn|labeled-unicast|flowspec>]",
-	"Enter Address Family command mode\n"
-	BGP_AF_STR
-	BGP_SAFI_WITH_LABEL_HELP_STR)
+DEFUN_NOSH(address_family_ipv6_safi, address_family_ipv6_safi_cmd,
+	   "address-family ipv6 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>]",
+	   "Enter Address Family command mode\n" BGP_AF_STR BGP_SAFI_WITH_LABEL_HELP_STR)
 {
 	if (argc == 3) {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -12045,7 +12113,9 @@ DEFUN_NOSH (exit_address_family,
 	    || vty->node == BGP_EVPN_NODE
 	    || vty->node == BGP_FLOWSPECV4_NODE
 	    || vty->node == BGP_FLOWSPECV6_NODE
-	    || vty->node == BGP_LS_NODE)
+	    || vty->node == BGP_LS_NODE
+	    || vty->node == BGP_IPV4U_NODE
+	    || vty->node == BGP_IPV6U_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
@@ -12135,33 +12205,22 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 }
 
 /* one clear bgp command to rule them all */
-DEFUN (clear_ip_bgp_all,
-       clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|ASNUM|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out|message-stats|capabilities>]",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       BGP_AFI_HELP_STR
-       BGP_AF_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
-       BGP_AF_MODIFIER_STR
-       "Clear all peers\n"
-       "BGP IPv4 neighbor to clear\n"
-       "BGP IPv6 neighbor to clear\n"
-       "BGP neighbor on interface to clear\n"
-       "Clear peers with the AS number in plain or dotted format\n"
-       "Clear all external peers\n"
-       "Clear all members of peer-group\n"
-       "BGP peer-group name\n"
-       BGP_SOFT_STR
-       BGP_SOFT_IN_STR
-       BGP_SOFT_OUT_STR
-       BGP_SOFT_IN_STR
-       "Push out prefix-list ORF and do inbound soft reconfig\n"
-       BGP_SOFT_OUT_STR
-       "Reset message statistics\n"
-       "Resend capabilities\n")
+DEFUN(clear_ip_bgp_all, clear_ip_bgp_all_cmd,
+      "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn|unreachability>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|ASNUM|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out|message-stats|capabilities>]",
+      CLEAR_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR BGP_AF_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR
+      "Address Family modifier\n"
+      "Clear all peers\n"
+      "BGP IPv4 neighbor to clear\n"
+      "BGP IPv6 neighbor to clear\n"
+      "BGP neighbor on interface to clear\n"
+      "Clear peers with the AS number\n"
+      "Clear all external peers\n"
+      "Clear all members of peer-group\n"
+      "BGP peer-group name\n" BGP_SOFT_STR BGP_SOFT_IN_STR BGP_SOFT_OUT_STR BGP_SOFT_IN_STR
+      "Push out prefix-list ORF and do inbound soft reconfig\n" BGP_SOFT_OUT_STR
+      "Reset message statistics\n"
+      "Resend capabilities\n")
 {
 	char *vrf = NULL;
 
@@ -21419,14 +21478,21 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peergroup_flag_check(peer, PEER_FLAG_PASSIVE))
 		vty_out(vty, " neighbor %s passive\n", addr);
 
-	/* ebgp-multihop */
-	if (peer->sort != BGP_PEER_IBGP && peer->ttl != BGP_DEFAULT_TTL
-	    && !(peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED
-		 && peer->ttl == MAXTTL)) {
-		if (!peer_group_active(peer) || g_peer->ttl != peer->ttl) {
-			if (peer->ttl != MAXTTL)
-				vty_out(vty, " neighbor %s ebgp-multihop %d\n",
-					addr, peer->ttl);
+	/*
+	 * ebgp-multihop. Serialize from peer->cfg_ttl (the operator-configured
+	 * hop count, independent of the current iBGP/eBGP sort) so an explicit
+	 * 'ebgp-multihop' survives a write/reload even while a local-as override
+	 * temporarily makes the peer iBGP. GTSM (ttl-security) drives peer->ttl
+	 * but not cfg_ttl, so it is correctly not emitted here. For a group
+	 * member, emit only when it owns the config (PEER_FLAG_EBGP_MULTIHOP):
+	 * a member with the same value as its group still owns it and must be
+	 * written, while a purely inherited value must not.
+	 */
+	if (peer->cfg_ttl != 0) {
+		if (!peer_group_active(peer) || CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP)) {
+			if (peer->cfg_ttl != MAXTTL)
+				vty_out(vty, " neighbor %s ebgp-multihop %d\n", addr,
+					peer->cfg_ttl);
 			else
 				vty_out(vty, " neighbor %s ebgp-multihop\n",
 					addr);
@@ -22040,6 +22106,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_frame(vty, "ipv4 encap");
 		else if (safi == SAFI_FLOWSPEC)
 			vty_frame(vty, "ipv4 flowspec");
+		else if (safi == SAFI_UNREACH)
+			vty_frame(vty, "ipv4 unreachability");
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			vty_frame(vty, "ipv6 unicast");
@@ -22053,6 +22121,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_frame(vty, "ipv6 encap");
 		else if (safi == SAFI_FLOWSPEC)
 			vty_frame(vty, "ipv6 flowspec");
+		else if (safi == SAFI_UNREACH)
+			vty_frame(vty, "ipv6 unreachability");
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			vty_frame(vty, "l2vpn evpn");
@@ -22084,12 +22154,10 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
 		bgp_config_write_damp(vty, bgp, afi, safi);
 	for (ALL_LIST_ELEMENTS_RO(bgp->group, node, group))
-		if (peer_af_flag_check(group->conf, afi, safi,
-				       PEER_FLAG_CONFIG_DAMPENING))
+		if (group->conf->damp[afi][safi])
 			bgp_config_write_peer_damp(vty, group->conf, afi, safi);
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
-		if (peer_is_config_node(peer) &&
-		    peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING))
+		if (peer_is_config_node(peer) && peer->damp[afi][safi])
 			bgp_config_write_peer_damp(vty, peer, afi, safi);
 
 	/* Global UPA configuration */
@@ -22740,6 +22808,9 @@ int bgp_config_write(struct vty *vty)
 		/* FLOWSPEC v4 configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_FLOWSPEC);
 
+		/* IPv4 Unreachability configuration.  */
+		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNREACH);
+
 		/* IPv6 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP6, SAFI_UNICAST);
 
@@ -22758,6 +22829,9 @@ int bgp_config_write(struct vty *vty)
 
 		/* FLOWSPEC v6 configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP6, SAFI_FLOWSPEC);
+
+		/* IPv6 Unreachability configuration.  */
+		bgp_config_write_family(vty, bgp, AFI_IP6, SAFI_UNREACH);
 
 		/* EVPN configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_L2VPN, SAFI_EVPN);
@@ -22879,6 +22953,22 @@ static struct cmd_node bgp_flowspecv6_node = {
 	.node = BGP_FLOWSPECV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af-vpnv6)# ",
+	.no_xpath = true,
+};
+
+static struct cmd_node bgp_ipv4_unreachability_node = {
+	.name = "bgp ipv4 unreachability",
+	.node = BGP_IPV4U_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
+};
+
+static struct cmd_node bgp_ipv6_unreachability_node = {
+	.name = "bgp ipv6 unreachability",
+	.node = BGP_IPV6U_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
 	.no_xpath = true,
 };
 
@@ -23345,6 +23435,8 @@ void bgp_vty_init(void)
 	install_node(&bgp_evpn_vni_node);
 	install_node(&bgp_flowspecv4_node);
 	install_node(&bgp_flowspecv6_node);
+	install_node(&bgp_ipv4_unreachability_node);
+	install_node(&bgp_ipv6_unreachability_node);
 	install_node(&bgp_srv6_node);
 	install_node(&bgp_ls_node);
 
@@ -23360,6 +23452,8 @@ void bgp_vty_init(void)
 	install_default(BGP_VPNV6_NODE);
 	install_default(BGP_FLOWSPECV4_NODE);
 	install_default(BGP_FLOWSPECV6_NODE);
+	install_default(BGP_IPV4U_NODE);
+	install_default(BGP_IPV6U_NODE);
 	install_default(BGP_EVPN_NODE);
 	install_default(BGP_EVPN_VNI_NODE);
 	install_default(BGP_SRV6_NODE);
@@ -23767,6 +23861,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &neighbor_activate_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &neighbor_activate_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_activate_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_activate_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &neighbor_activate_cmd);
 
@@ -23782,6 +23878,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_activate_cmd);
+	install_element(BGP_IPV4U_NODE, &no_neighbor_activate_cmd);
+	install_element(BGP_IPV6U_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &no_neighbor_activate_cmd);
 
@@ -24623,6 +24721,10 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_route_map_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_route_map_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_route_map_cmd);
+	install_element(BGP_IPV4U_NODE, &no_neighbor_route_map_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_route_map_cmd);
+	install_element(BGP_IPV6U_NODE, &no_neighbor_route_map_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_route_map_cmd);
 	install_element(BGP_LS_NODE, &neighbor_route_map_cmd);
@@ -24682,6 +24784,10 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_maximum_prefix_out_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_maximum_prefix_out_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_maximum_prefix_out_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_out_cmd);
+	install_element(BGP_IPV4U_NODE, &no_neighbor_maximum_prefix_out_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_out_cmd);
+	install_element(BGP_IPV6U_NODE, &no_neighbor_maximum_prefix_out_cmd);
 
 	/* "neighbor maximum-prefix" commands. */
 	install_element(BGP_NODE, &neighbor_maximum_prefix_hidden_cmd);
@@ -24766,6 +24872,23 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE,
 			&neighbor_maximum_prefix_threshold_restart_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_maximum_prefix_cmd);
+
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_threshold_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_warning_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_threshold_warning_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_restart_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_threshold_restart_cmd);
+	install_element(BGP_IPV4U_NODE, &no_neighbor_maximum_prefix_cmd);
+
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_threshold_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_warning_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_threshold_warning_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_restart_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_threshold_restart_cmd);
+	install_element(BGP_IPV6U_NODE, &no_neighbor_maximum_prefix_cmd);
+
 	install_element(BGP_EVPN_NODE, &neighbor_maximum_prefix_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_maximum_prefix_threshold_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_maximum_prefix_warning_cmd);
@@ -24797,6 +24920,10 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_allowas_in_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_allowas_in_cmd);
+	install_element(BGP_IPV4U_NODE, &no_neighbor_allowas_in_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_allowas_in_cmd);
+	install_element(BGP_IPV6U_NODE, &no_neighbor_allowas_in_cmd);
 
 	/* neighbor accept-own */
 	install_element(BGP_VPNV4_NODE, &neighbor_accept_own_cmd);
@@ -24861,6 +24988,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &exit_address_family_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &exit_address_family_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &exit_address_family_cmd);
+	install_element(BGP_IPV4U_NODE, &exit_address_family_cmd);
+	install_element(BGP_IPV6U_NODE, &exit_address_family_cmd);
 	install_element(BGP_EVPN_NODE, &exit_address_family_cmd);
 	install_element(BGP_LS_NODE, &exit_address_family_cmd);
 
@@ -25069,6 +25198,8 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &no_upa_drop_global_cmd);
 
 	bgp_vty_if_init();
+
+	bgp_unreach_vty_init();
 }
 
 /* Show UPA information for a specific neighbor */

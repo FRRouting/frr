@@ -55,4 +55,6 @@ void pim_static_reconcile(struct pim_instance *pim);
 int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty,
 			    struct interface *ifp);
 
+int pim_static_nocache_resolve(struct pim_instance *pim, struct interface *ifp, pim_sgaddr *sg);
+
 #endif /* PIM_STATIC_H_ */

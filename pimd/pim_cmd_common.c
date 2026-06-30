@@ -3023,7 +3023,7 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 	pim_addr_to_prefix(&grp, group);
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	if (!pim_nht_lookup_ecmp(v->info, &nexthop, vif_source, &grp, false)) {
+	if (!pim_nht_lookup_ecmp(v->info, &nexthop, vif_source, &grp, false, NULL)) {
 		vty_out(vty, "(%pPAs, %pPA) --- Nexthop Lookup failed, no usable routes returned.\n",
 			&source, &group);
 		return CMD_SUCCESS;
@@ -4481,23 +4481,7 @@ void clear_mroute(struct pim_instance *pim)
 			pim_ifchannel_delete(ch);
 		}
 
-#if PIM_IPV == 4
-		/* clean up all igmp groups */
-		struct gm_group *grp;
-
-		if (pim_ifp->gm_group_list) {
-			while (pim_ifp->gm_group_list->count) {
-				grp = listnode_head(pim_ifp->gm_group_list);
-				igmp_group_delete(grp);
-			}
-		}
-#else
-		struct gm_if *gm_ifp;
-
-		gm_ifp = pim_ifp->mld;
-		if (gm_ifp)
-			gm_group_delete(gm_ifp);
-#endif
+		gm_group_delete(ifp);
 	}
 
 	/* clean up all upstreams*/

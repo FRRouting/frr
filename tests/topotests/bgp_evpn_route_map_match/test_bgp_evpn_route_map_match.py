@@ -53,8 +53,8 @@ ip link set up dev vxlan10"""
 
     router_list = tgen.routers()
 
-    for _, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
 

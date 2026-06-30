@@ -72,6 +72,14 @@
  */
 #define NL_DEFAULT_BATCH_SEND_THRESHOLD (15 * NL_PKT_BUF_SIZE)
 
+/*
+ * RTNLGRP_BIT - Convert an RTNLGRP_* group constant to a bit position
+ * for the nl_groups bitmask. RTNLGRP constants are 1-based bit numbers,
+ * so shift by (group - 1). Only valid for groups with bit positions < 32;
+ * groups >= 32 must use setsockopt(NETLINK_ADD_MEMBERSHIP) via ext_groups.
+ */
+#define FRR_NLGRP_BIT(g) ((uint32_t)1 << ((g)-1))
+
 static const struct message nlmsg_str[] = {
 	{ RTM_NEWROUTE, "RTM_NEWROUTE" },
 	{ RTM_DELROUTE, "RTM_DELROUTE" },
@@ -1616,8 +1624,84 @@ static bool kernel_netlink_nlsock_hash_equal(const void *arg1, const void *arg2)
 	return false;
 }
 
-/* Exported interface function.  This function simply calls
-   netlink_socket (). */
+/*
+ * Set a netlink socket to non-blocking mode for integration with the
+ * event loop. Uses flog_err_sys since this is a kernel/OS-level failure.
+ */
+static void netlink_set_nonblock(struct nlsock *nl)
+{
+	if (fcntl(nl->sock, F_SETFL, O_NONBLOCK) < 0)
+		flog_err_sys(EC_LIB_SOCKET, "Can't set %s socket non-blocking: %s", nl->name,
+			     safe_strerror(errno));
+}
+
+/*
+ * Create, configure, and register a netlink socket. Consolidates the
+ * common 5-step init pattern: format name, mark uncreated, create socket,
+ * log on failure, and insert into the global nlsock hash.
+ *
+ * @name_prefix:    Prefix for socket name (e.g., "netlink-listen")
+ * @groups:         Bitmask of RTMGRP/RTNLGRP groups for nl_groups (< 32)
+ * @ext_groups:     Array of RTNLGRP group IDs >= 32 for setsockopt subscription
+ * @ext_group_size: Number of entries in ext_groups[]
+ * @ns_id:          Network namespace ID
+ * @nl_family:      Netlink protocol family (NETLINK_ROUTE or NETLINK_GENERIC)
+ * @warn_only:      true  -> log warning on failure, return -1 (non-fatal)
+ *                  false -> log error on failure, caller should exit (fatal)
+ *
+ * Returns 0 on success, -1 on failure.
+ */
+static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsigned long groups,
+			      uint32_t ext_groups[], uint8_t ext_group_size, ns_id_t ns_id,
+			      int nl_family, bool warn_only)
+{
+	snprintf(nl->name, sizeof(nl->name), "%s (NS %u)", name_prefix, ns_id);
+	nl->sock = -1;
+
+	if (netlink_socket(nl, groups, ext_groups, ext_group_size, ns_id, nl_family) < 0) {
+		if (warn_only)
+			zlog_warn("Failure to create %s socket", nl->name);
+		else
+			flog_err(EC_LIB_SOCKET, "Failure to create %s socket", nl->name);
+		return -1;
+	}
+
+	kernel_netlink_nlsock_insert(nl);
+	return 0;
+}
+
+#if defined SOL_NETLINK
+/*
+ * Enable extended ACK messages on a netlink socket. Extended ACKs
+ * (Linux 4.2+) provide richer error diagnostics including human-readable
+ * error strings and offset information. Non-fatal on failure.
+ *
+ * @sock: Netlink socket file descriptor
+ * @desc: Short socket description for log messages (e.g., "cmd", "dp")
+ */
+static void netlink_enable_ext_ack(int sock, const char *desc)
+{
+	int one = 1;
+
+	if (setsockopt(sock, SOL_NETLINK, NETLINK_EXT_ACK, &one, sizeof(one)) < 0)
+		zlog_notice("Registration for extended %s ACK failed: %d %s", desc, errno,
+			    safe_strerror(errno));
+}
+#endif /* SOL_NETLINK */
+
+/*
+ * Initialize all netlink sockets and subsystem for a given network namespace.
+ *
+ * Creates five netlink sockets:
+ *   netlink            - Inbound route/rule/nexthop events (main pthread)
+ *   netlink_cmd        - Outbound synchronous commands (main pthread)
+ *   netlink_dplane_out - Outbound dataplane programming (dplane pthread)
+ *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc events (dplane pthread)
+ *   ge_netlink_cmd     - Generic netlink commands (optional, non-fatal)
+ *
+ * Also configures: multicast group subscriptions, extended ACK, non-blocking
+ * mode, receive buffer sizes, BPF self-echo filters, and event loop registration.
+ */
 void kernel_init(struct zebra_ns *zns)
 {
 	uint32_t groups, dplane_groups, ext_groups;
@@ -1625,180 +1709,113 @@ void kernel_init(struct zebra_ns *zns)
 	int one, ret, grp;
 #endif
 
-	/*
-	 * Initialize netlink sockets
-	 *
-	 * If RTMGRP_XXX exists use that, but at some point
-	 * I think the kernel developers realized that
-	 * keeping track of all the different values would
-	 * lead to confusion, so we need to convert the
-	 * RTNLGRP_XXX to a bit position for ourself
-	 *
-	 *
-	 * NOTE: If the bit is >= 32, you must use setsockopt(). Those
-	 * groups are added further below after SOL_NETLINK is verified to
-	 * exist.
+	/* ----------------------------------------------------------------
+	 * Compute multicast group membership bitmasks.
+	 * Groups < 32 go into nl_groups; groups >= 32 use ext_groups
+	 * and are subscribed via setsockopt in netlink_socket().
+	 * ----------------------------------------------------------------
 	 */
+
+	/* Main listener: route, rule, and nexthop change notifications */
 	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
-		 ((uint32_t)1 << (RTNLGRP_IPV4_RULE - 1)) |
-		 ((uint32_t)1 << (RTNLGRP_IPV6_RULE - 1)) | ((uint32_t)1 << (RTNLGRP_NEXTHOP - 1));
+		 FRR_NLGRP_BIT(RTNLGRP_IPV4_RULE) | FRR_NLGRP_BIT(RTNLGRP_IPV6_RULE) |
+		 FRR_NLGRP_BIT(RTNLGRP_NEXTHOP);
 
-	dplane_groups = (RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
-			 ((uint32_t)1 << (RTNLGRP_IPV4_NETCONF - 1)) |
-			 ((uint32_t)1 << (RTNLGRP_IPV6_NETCONF - 1)) |
-			 ((uint32_t)1 << (RTNLGRP_MPLS_NETCONF - 1)) |
-			 ((uint32_t)1 << (RTNLGRP_TC - 1)));
+	/* Dataplane inbound: link, neighbor, address, netconf, TC events */
+	dplane_groups = RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
+			FRR_NLGRP_BIT(RTNLGRP_IPV4_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_IPV6_NETCONF) |
+			FRR_NLGRP_BIT(RTNLGRP_MPLS_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_TC);
 
-	/* Use setsockopt for > 31 group */
+	/* Extended group: bit position >= 32, requires setsockopt */
 	ext_groups = RTNLGRP_TUNNEL;
 
-	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
-		 "netlink-listen (NS %u)", zns->ns_id);
-	zns->netlink.sock = -1;
-	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id,
-			   NETLINK_ROUTE) < 0) {
-		flog_err(EC_LIB_SOCKET, "Failure to create %s socket", zns->netlink.name);
+	/* ----------------------------------------------------------------
+	 * Create netlink sockets. The first four are critical (fatal on
+	 * failure). The generic netlink socket is optional (warn-only).
+	 * ----------------------------------------------------------------
+	 */
+
+	if (kernel_init_nlsock(&zns->netlink, "netlink-listen", groups, &ext_groups, 1, zns->ns_id,
+			       NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
-	}
 
-	kernel_netlink_nlsock_insert(&zns->netlink);
-
-	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
-		 "netlink-cmd (NS %u)", zns->ns_id);
-	zns->netlink_cmd.sock = -1;
-	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id,
-			   NETLINK_ROUTE) < 0) {
-		flog_err(EC_LIB_SOCKET, "Failure to create %s socket", zns->netlink_cmd.name);
+	if (kernel_init_nlsock(&zns->netlink_cmd, "netlink-cmd", 0, NULL, 0, zns->ns_id,
+			       NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
-	}
 
-	kernel_netlink_nlsock_insert(&zns->netlink_cmd);
-
-	/* Outbound socket for dplane programming of the host OS. */
-	snprintf(zns->netlink_dplane_out.name,
-		 sizeof(zns->netlink_dplane_out.name), "netlink-dp (NS %u)",
-		 zns->ns_id);
-	zns->netlink_dplane_out.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id,
-			   NETLINK_ROUTE) < 0) {
-		flog_err(EC_LIB_SOCKET, "Failure to create %s socket",
-			 zns->netlink_dplane_out.name);
+	if (kernel_init_nlsock(&zns->netlink_dplane_out, "netlink-dp", 0, NULL, 0, zns->ns_id,
+			       NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
-	}
 
-	kernel_netlink_nlsock_insert(&zns->netlink_dplane_out);
-
-	/* Inbound socket for OS events coming to the dplane. */
-	snprintf(zns->netlink_dplane_in.name,
-		 sizeof(zns->netlink_dplane_in.name), "netlink-dp-in (NS %u)",
-		 zns->ns_id);
-	zns->netlink_dplane_in.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups, 0, 0,
-			   zns->ns_id, NETLINK_ROUTE) < 0) {
-		flog_err(EC_LIB_SOCKET, "Failure to create %s socket", zns->netlink_dplane_in.name);
+	if (kernel_init_nlsock(&zns->netlink_dplane_in, "netlink-dp-in", dplane_groups, NULL, 0,
+			       zns->ns_id, NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
-	}
 
-	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);
+	/* Generic netlink — non-fatal on failure */
+	kernel_init_nlsock(&zns->ge_netlink_cmd, "generic-netlink-cmd", 0, NULL, 0, zns->ns_id,
+			   NETLINK_GENERIC, true);
 
-	/* Generic Netlink socket. */
-	snprintf(zns->ge_netlink_cmd.name, sizeof(zns->ge_netlink_cmd.name),
-		 "generic-netlink-cmd (NS %u)", zns->ns_id);
-	zns->ge_netlink_cmd.sock = -1;
-	if (netlink_socket(&zns->ge_netlink_cmd, 0, 0, 0, zns->ns_id,
-			   NETLINK_GENERIC) < 0) {
-		zlog_warn("Failure to create %s socket",
-			  zns->ge_netlink_cmd.name);
-	}
-
-	if (zns->ge_netlink_cmd.sock >= 0)
-		kernel_netlink_nlsock_insert(&zns->ge_netlink_cmd);
-
-	/*
-	 * SOL_NETLINK is not available on all platforms yet
-	 * apparently.  It's in bits/socket.h which I am not
-	 * sure that we want to pull into our build system.
+	/* ----------------------------------------------------------------
+	 * Platform-specific socket options (SOL_NETLINK).
+	 * ----------------------------------------------------------------
 	 */
 #if defined SOL_NETLINK
 
-	/*
-	 * setsockopt multicast group subscriptions that don't fit in nl_groups
-	 */
+	/* Subscribe dplane inbound to BRVLAN group (bit >= 32) */
 	grp = RTNLGRP_BRVLAN;
 	ret = setsockopt(zns->netlink_dplane_in.sock, SOL_NETLINK,
 			 NETLINK_ADD_MEMBERSHIP, &grp, sizeof(grp));
-
 	if (ret < 0)
-		zlog_notice(
-			"Registration for RTNLGRP_BRVLAN Membership failed : %d %s",
-			errno, safe_strerror(errno));
-	/*
-	 * Let's tell the kernel that we want to receive extended
-	 * ACKS over our command socket(s)
+		zlog_notice("Registration for RTNLGRP_BRVLAN Membership failed: %d %s", errno,
+			    safe_strerror(errno));
+
+	/* Enable extended ACK on command and dplane output sockets */
+	netlink_enable_ext_ack(zns->netlink_cmd.sock, "cmd");
+	netlink_enable_ext_ack(zns->netlink_dplane_out.sock, "dp");
+
+	/* Enable extended ACK on generic netlink socket (uses flog_err
+	 * per original behavior — protocol-level failures are significant).
 	 */
-	one = 1;
-	ret = setsockopt(zns->netlink_cmd.sock, SOL_NETLINK, NETLINK_EXT_ACK,
-			 &one, sizeof(one));
-
-	if (ret < 0)
-		zlog_notice("Registration for extended cmd ACK failed : %d %s",
-			    errno, safe_strerror(errno));
-
-	one = 1;
-	ret = setsockopt(zns->netlink_dplane_out.sock, SOL_NETLINK,
-			 NETLINK_EXT_ACK, &one, sizeof(one));
-
-	if (ret < 0)
-		zlog_notice("Registration for extended dp ACK failed : %d %s",
-			    errno, safe_strerror(errno));
-
 	if (zns->ge_netlink_cmd.sock >= 0) {
 		one = 1;
+
 		ret = setsockopt(zns->ge_netlink_cmd.sock, SOL_NETLINK,
 				 NETLINK_EXT_ACK, &one, sizeof(one));
 		if (ret < 0)
 			flog_err(EC_ZEBRA_NETLINK_EXT_ACK_FAILED,
-				 "Registration for extended generic netlink cmd ACK failed : %d %s",
+				 "Registration for extended generic netlink cmd ACK failed: %d %s",
 				 errno, safe_strerror(errno));
 	}
 
-	/*
-	 * Trim off the payload of the original netlink message in the
-	 * acknowledgment. This option is available since Linux 4.2, so if
-	 * setsockopt fails, ignore the error.
-	 */
-	one = 1;
-	ret = setsockopt(zns->netlink_dplane_out.sock, SOL_NETLINK,
-			 NETLINK_CAP_ACK, &one, sizeof(one));
-	if (ret < 0)
-		zlog_notice(
-			"Registration for reduced ACK packet size failed, probably running an early kernel");
-#endif
+	/* Enable capped ACK to reduce ACK payload size (Linux 4.2+) */
+	{
+		one = 1;
 
-	/* Register kernel socket. */
-	if (fcntl(zns->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
-		flog_err_sys(EC_LIB_SOCKET, "Can't set %s socket flags: %s",
-			     zns->netlink.name, safe_strerror(errno));
-
-	if (fcntl(zns->netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
-		flog_err(EC_LIB_SOCKET, "Can't set %s socket error: %s(%d)", zns->netlink_cmd.name,
-			 safe_strerror(errno), errno);
-
-	if (fcntl(zns->netlink_dplane_out.sock, F_SETFL, O_NONBLOCK) < 0)
-		flog_err(EC_LIB_SOCKET, "Can't set %s socket error: %s(%d)",
-			 zns->netlink_dplane_out.name, safe_strerror(errno), errno);
-
-	if (fcntl(zns->netlink_dplane_in.sock, F_SETFL, O_NONBLOCK) < 0)
-		flog_err(EC_LIB_SOCKET, "Can't set %s socket error: %s(%d)",
-			 zns->netlink_dplane_in.name, safe_strerror(errno), errno);
-
-	if (zns->ge_netlink_cmd.sock >= 0) {
-		if (fcntl(zns->ge_netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
-			flog_err(EC_LIB_SOCKET, "Can't set %s socket error: %s(%d)",
-				 zns->ge_netlink_cmd.name, safe_strerror(errno), errno);
+		ret = setsockopt(zns->netlink_dplane_out.sock, SOL_NETLINK, NETLINK_CAP_ACK, &one,
+				 sizeof(one));
+		if (ret < 0)
+			zlog_notice(
+				"Registration for reduced ACK packet size failed, probably running an early kernel");
 	}
+#endif /* SOL_NETLINK */
 
-	/* Set receive buffer size if it's set from command line */
+	/* ----------------------------------------------------------------
+	 * Set all sockets to non-blocking mode for event loop integration.
+	 * ----------------------------------------------------------------
+	 */
+	netlink_set_nonblock(&zns->netlink);
+	netlink_set_nonblock(&zns->netlink_cmd);
+	netlink_set_nonblock(&zns->netlink_dplane_out);
+	netlink_set_nonblock(&zns->netlink_dplane_in);
+
+	if (zns->ge_netlink_cmd.sock >= 0)
+		netlink_set_nonblock(&zns->ge_netlink_cmd);
+
+	/* ----------------------------------------------------------------
+	 * Configure receive buffer sizes if specified via CLI.
+	 * Larger buffers prevent message loss during high-volume bursts.
+	 * ----------------------------------------------------------------
+	 */
 	if (rcvbufsize) {
 		netlink_recvbuf(&zns->netlink, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
@@ -1809,23 +1826,26 @@ void kernel_init(struct zebra_ns *zns)
 			netlink_recvbuf(&zns->ge_netlink_cmd, rcvbufsize);
 	}
 
-	/* Set filter for inbound sockets, to exclude events we've generated
-	 * ourselves.
+	/* ----------------------------------------------------------------
+	 * Install BPF filters on inbound sockets to suppress self-generated
+	 * echo messages. Allows through: RTM_NEWADDR, RTM_DELADDR,
+	 * RTM_NEWNETCONF, RTM_DELNETCONF (these must be processed
+	 * regardless of origin to keep state in sync).
+	 * ----------------------------------------------------------------
 	 */
 	netlink_install_filter(zns->netlink.sock, zns->netlink_cmd.snl.nl_pid,
 			       zns->netlink_dplane_out.snl.nl_pid);
-
 	netlink_install_filter(zns->netlink_dplane_in.sock,
 			       zns->netlink_cmd.snl.nl_pid,
 			       zns->netlink_dplane_out.snl.nl_pid);
 
+	/* Register main netlink socket with the event loop */
 	zns->t_netlink = NULL;
-
 	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
 		       &zns->t_netlink);
 
+	/* Initialize route and generic netlink subsystems */
 	rt_netlink_init();
-
 	ge_netlink_init(zns);
 }
 

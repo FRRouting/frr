@@ -1412,6 +1412,22 @@ static struct cmd_node bgp_flowspecv6_node = {
 	.no_xpath = true,
 };
 
+static struct cmd_node bgp_ipv4_unreachability_node = {
+	.name = "bgp ipv4 unreachability",
+	.node = BGP_IPV4U_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
+};
+
+static struct cmd_node bgp_ipv6_unreachability_node = {
+	.name = "bgp ipv6 unreachability",
+	.node = BGP_IPV6U_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
+};
+
 static struct cmd_node bgp_ipv4_node = {
 	.name = "bgp ipv4 unicast",
 	.node = BGP_IPV4_NODE,
@@ -1851,6 +1867,22 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_FLOWSPECV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, address_family_ipv4_unreachability, address_family_ipv4_unreachability_cmd,
+	"address-family ipv4 unreachability",
+	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
+{
+	vty->node = BGP_IPV4U_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, address_family_ipv6_unreachability, address_family_ipv6_unreachability_cmd,
+	"address-family ipv6 unreachability",
+	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
+{
+	vty->node = BGP_IPV6U_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2616,7 +2648,9 @@ DEFUNSH(VTYSH_BGPD, exit_address_family, exit_address_family_cmd,
 	    || vty->node == BGP_EVPN_NODE
 	    || vty->node == BGP_FLOWSPECV4_NODE
 	    || vty->node == BGP_FLOWSPECV6_NODE
-	    || vty->node == BGP_LS_NODE)
+	    || vty->node == BGP_LS_NODE
+	    || vty->node == BGP_IPV4U_NODE
+	    || vty->node == BGP_IPV6U_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
@@ -5369,6 +5403,8 @@ void vtysh_init_vty(void)
 	install_node(&srv6_sid_format_usid_f3216_node);
 	install_node(&srv6_sid_format_usid_f4816_node);
 	install_node(&srv6_sid_format_uncompressed_f4024_node);
+	install_node(&bgp_ipv4_unreachability_node);
+	install_node(&bgp_ipv6_unreachability_node);
 
 	vtysh_init_cmd();
 
@@ -5408,6 +5444,18 @@ void vtysh_init_vty(void)
 	install_element(BGP_FLOWSPECV6_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &exit_address_family_cmd);
+
+	install_element(BGP_NODE, &address_family_ipv4_unreachability_cmd);
+	install_element(BGP_IPV4U_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_IPV4U_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_IPV4U_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_IPV4U_NODE, &exit_address_family_cmd);
+
+	install_element(BGP_NODE, &address_family_ipv6_unreachability_cmd);
+	install_element(BGP_IPV6U_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_IPV6U_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_IPV6U_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_IPV6U_NODE, &exit_address_family_cmd);
 
 	install_element(BGP_NODE, &address_family_ipv4_cmd);
 	install_element(BGP_IPV4_NODE, &vtysh_exit_bgpd_cmd);

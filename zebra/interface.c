@@ -210,6 +210,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 {
 	struct zebra_if *zebra_if;
 	struct zebra_l2info_bond *bond;
+	struct vrf *vrf;
+	struct interface *p_ifp;
 
 	if (ifp->info) {
 		zebra_if = ifp->info;
@@ -262,6 +264,19 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		XFREE(MTYPE_ZINFO, zebra_if);
 	}
 
+	/* walk over all zebra interfaces; unref link pointer */
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		FOR_ALL_INTERFACES (vrf, p_ifp) {
+			if (p_ifp->info == NULL)
+				continue;
+			zebra_if = p_ifp->info;
+			if (zebra_if->link == ifp) {
+				zebra_if->link = NULL;
+				zebra_if->link_ifindex = IFINDEX_INTERNAL;
+				zebra_if->link_nsid = NS_UNKNOWN;
+			}
+		}
+	}
 	return 0;
 }
 

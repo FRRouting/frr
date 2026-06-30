@@ -16,7 +16,7 @@
 import sys
 import pytest
 
-from lib.topogen import Topogen, TopoRouter
+from lib.topogen import Topogen
 from lib.topolog import logger
 
 # TODO: select markers based on daemons used during test
@@ -84,15 +84,14 @@ def tgen(request):
     # ... and here it calls initialization functions.
     tgen.start_topology()
 
-    # This is a sample of configuration loading.
+    # This is a sample of configuration loading: one frr.conf per router
+    # (see doc/developer/topotests.rst).  zebra, mgmtd, and staticd start by
+    # default; extra_daemons adds ospfd because this template has no "router
+    # ospf" block for auto-detection to find.
     router_list = tgen.routers()
 
-    # For all routers arrange for:
-    # - starting zebra using config file from <rtrname>/zebra.conf
-    # - starting ospfd using an empty config file.
-    for rname, router in router_list.items():
-        router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
-        router.load_config(TopoRouter.RD_OSPF)
+    for router in router_list.values():
+        router.load_frr_config(extra_daemons=["ospfd"])
 
     # Start and configure the router daemons
     tgen.start_router()

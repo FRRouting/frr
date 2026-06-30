@@ -290,7 +290,11 @@ static void bsr_crp_reselect(struct bsm_scope *scope,
 	group->deleted_selected = false;
 	group->n_selected = n_selected;
 
-	if (changed)
+	/* Only schedule BSM regeneration when we're the elected BSR.
+	 * This function may be called when processing C-RP messages before
+	 * we become elected, and pim_bsm_generate_sched asserts BSR_ELECTED.
+	 */
+	if (changed && scope->state == BSR_ELECTED)
 		pim_bsm_generate_sched(scope);
 
 	scope->elec_rp_data_changed |= changed;

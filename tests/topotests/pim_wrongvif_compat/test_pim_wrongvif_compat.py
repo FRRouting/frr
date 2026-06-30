@@ -42,9 +42,8 @@ sys.path.append(os.path.join(CWD, "../"))
 
 from lib import topotest
 from lib.common_config import (
-    start_router,
+    restart_frr,
     step,
-    stop_router,
     write_test_footer,
     write_test_header,
 )
@@ -143,8 +142,8 @@ def setup_module(mod):
 
     app_helper.init(tgen)
 
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
 
@@ -168,13 +167,6 @@ def prepare_test(tgen):
 
     app_helper.stop_all_hosts()
     clear_mroute(tgen)
-
-
-def restart_frr(tgen, router):
-    """Stop and start all FRR daemons on a router (proven topotest pattern)."""
-
-    stop_router(tgen, router)
-    start_router(tgen, router)
 
 
 def verify_register_tx(tgen, dut, interface, min_count=1):

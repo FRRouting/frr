@@ -19,7 +19,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topolog import logger
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.checkping import check_ping
 from lib.common_config import step
 
@@ -93,18 +93,8 @@ ip neigh add 192.168.0.{id} lladdr 02:00:00:00:00:{id}{id} dev br100
 
     router_list = tgen.routers()
 
-    for _, (rname, router) in enumerate(router_list.items(), 1):
-        d = [
-            (TopoRouter.RD_ZEBRA, None),
-            (TopoRouter.RD_MGMTD, None),
-        ]
-        if rname.startswith("r"):
-            d.append((TopoRouter.RD_BGP, None))
-
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            d,
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
 

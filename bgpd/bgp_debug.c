@@ -64,6 +64,7 @@ unsigned long conf_bgp_debug_cond_adv;
 unsigned long conf_bgp_debug_aggregate;
 unsigned long conf_bgp_debug_linkstate;
 unsigned long conf_bgp_debug_upa;
+unsigned long conf_bgp_debug_unreachability;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -87,6 +88,7 @@ unsigned long term_bgp_debug_cond_adv;
 unsigned long term_bgp_debug_aggregate;
 unsigned long term_bgp_debug_linkstate;
 unsigned long term_bgp_debug_upa;
+unsigned long term_bgp_debug_unreachability;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -2310,6 +2312,26 @@ DEFPY (no_debug_bgp_linkstate,
 	return CMD_SUCCESS;
 }
 
+DEFPY(debug_bgp_unreachability, debug_bgp_unreachability_cmd, "[no$no] debug bgp unreachability",
+      NO_STR DEBUG_STR BGP_STR "BGP unreachability (SAFI_UNREACH) debugging\n")
+{
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(unreachability, UNREACHABILITY);
+		else
+			DEBUG_ON(unreachability, UNREACHABILITY);
+	} else {
+		if (no) {
+			TERM_DEBUG_OFF(unreachability, UNREACHABILITY);
+			vty_out(vty, "BGP unreachability debugging is off\n");
+		} else {
+			TERM_DEBUG_ON(unreachability, UNREACHABILITY);
+			vty_out(vty, "BGP unreachability debugging is on\n");
+		}
+	}
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_bgp,
        no_debug_bgp_cmd,
        "no debug bgp",
@@ -2350,6 +2372,7 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
 	TERM_DEBUG_OFF(cond_adv, COND_ADV);
 	TERM_DEBUG_OFF(linkstate, LINKSTATE);
+	TERM_DEBUG_OFF(unreachability, UNREACHABILITY);
 
 	vty_out(vty, "All possible debugging has been turned off\n");
 
@@ -2455,6 +2478,9 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	if (BGP_DEBUG(linkstate, LINKSTATE))
 		vty_out(vty, "  BGP Link-State debugging is on\n");
+
+	if (BGP_DEBUG(unreachability, UNREACHABILITY))
+		vty_out(vty, "  BGP unreachability debugging is on\n");
 
 	cmd_show_lib_debugs(vty);
 
@@ -2596,6 +2622,10 @@ static int bgp_config_write_debug(struct vty *vty)
 
 	if (CONF_BGP_DEBUG(cond_adv, COND_ADV)) {
 		vty_out(vty, "debug bgp conditional-advertisement\n");
+		write++;
+	}
+	if (CONF_BGP_DEBUG(unreachability, UNREACHABILITY)) {
+		vty_out(vty, "debug bgp unreachability\n");
 		write++;
 	}
 
@@ -2803,6 +2833,10 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_linkstate_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_linkstate_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_linkstate_cmd);
+
+	/* debug bgp unreachability */
+	install_element(ENABLE_NODE, &debug_bgp_unreachability_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_unreachability_cmd);
 }
 
 void bgp_debug_destroy(void)

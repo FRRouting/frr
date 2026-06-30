@@ -17,7 +17,7 @@ import platform
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.common_config import step, write_test_header
 
@@ -159,15 +159,10 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        logger.info("Loading router %s" % rname)
+    for router in router_list.values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr-import.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_SHARP, None),
-                (TopoRouter.RD_STATIC, None),
-            ],
+            "frr-import.conf",
+            extra_daemons=["sharpd"],
         )
 
     # Initialize all routers.

@@ -241,9 +241,17 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 	switch (new->data->type) {
 	case OSPF_ROUTER_LSA:
 		/* Originate a new instance and schedule flooding */
-		if (area->router_lsa_self)
+		if (area->router_lsa_self) {
 			area->router_lsa_self->data->ls_seqnum =
 				new->data->ls_seqnum;
+			/*
+			 * The LS sequence number is part of the checksummed
+			 * region of the LSA.  Recompute the checksum so the
+			 * stored self LSA stays self-consistent even if it is
+			 * (re)flooded before the re-origination below runs.
+			 */
+			ospf_lsa_checksum(area->router_lsa_self->data);
+		}
 		ospf_router_lsa_update_area(area);
 		return;
 	case OSPF_NETWORK_LSA:
@@ -274,9 +282,20 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 					return;
 				}
 
-				if (oi->network_lsa_self)
+				if (oi->network_lsa_self) {
 					oi->network_lsa_self->data->ls_seqnum =
 						new->data->ls_seqnum;
+					/*
+					 * The LS sequence number is part of the
+					 * checksummed region of the LSA.
+					 * Recompute the checksum so the stored
+					 * self LSA stays self-consistent even if
+					 * it is (re)flooded before the
+					 * re-origination below runs.
+					 */
+					ospf_lsa_checksum(
+						oi->network_lsa_self->data);
+				}
 				/* Schedule network-LSA origination. */
 				ospf_network_lsa_update(oi);
 				return;

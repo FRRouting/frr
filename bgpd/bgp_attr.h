@@ -39,10 +39,10 @@
 
 /* Valid lengths for mp_nexthop_len */
 #define BGP_ATTR_NHLEN_IPV4               IPV4_MAX_BYTELEN
-#define BGP_ATTR_NHLEN_VPNV4              8+IPV4_MAX_BYTELEN
+#define BGP_ATTR_NHLEN_VPNV4              (8 + IPV4_MAX_BYTELEN)
 #define BGP_ATTR_NHLEN_IPV6_GLOBAL        IPV6_MAX_BYTELEN
 #define BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL (IPV6_MAX_BYTELEN * 2)
-#define BGP_ATTR_NHLEN_VPNV6_GLOBAL       8+IPV6_MAX_BYTELEN
+#define BGP_ATTR_NHLEN_VPNV6_GLOBAL       (8 + IPV6_MAX_BYTELEN)
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ((8+IPV6_MAX_BYTELEN) * 2)
 
 /* Prefix SID types */
@@ -487,7 +487,8 @@ extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				     const struct prefix *p, const struct prefix_rd *prd,
 				     mpls_label_t *label, uint8_t num_labels, bool addpath_capable,
 				     uint32_t addpath_tx_id, struct attr *attr,
-				     struct bgp_ls_nlri *ls_nlri);
+				     struct bgp_ls_nlri *ls_nlri,
+				     struct bgp_path_info *path);
 extern size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 					    const struct prefix *p);
 extern void bgp_packet_mpattr_end(struct stream *s, size_t sizep);

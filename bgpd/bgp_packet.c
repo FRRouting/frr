@@ -49,6 +49,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
+#include "bgpd/bgp_unreach.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
 
@@ -330,6 +331,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
 	case SAFI_BGP_LS:
 		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
+	case SAFI_UNREACH:
+		return bgp_nlri_parse_unreach(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
@@ -1002,24 +1005,24 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	{
 		struct bgp_notify bgp_notify;
 		int first = 0;
-		int i;
+		size_t i;
 		char c[4];
 
 		bgp_notify.code = code;
 		bgp_notify.subcode = sub_code;
 		bgp_notify.data = NULL;
-		bgp_notify.length = datalen;
+		bgp_notify.length = datalen * 3;
 		bgp_notify.raw_data = data;
 
 		peer->notify.code = bgp_notify.code;
 		peer->notify.subcode = bgp_notify.subcode;
-		peer->notify.length = bgp_notify.length;
+		peer->notify.length = datalen;
 		peer->notify.hard_reset = hard_reset;
 
 		if (bgp_notify.length && data) {
 			bgp_notify.data = XMALLOC(MTYPE_BGP_NOTIFICATION,
-						  bgp_notify.length * 3);
-			for (i = 0; i < bgp_notify.length; i++)
+						  bgp_notify.length);
+			for (i = 0; i < datalen; i++)
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
 						 data[i]);
@@ -1793,7 +1796,28 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	uint8_t notify_data_remote_id[4];
 	uint8_t notify_data_holdtime[2];
 
+	/*
+	 * RFC 8654: the Extended Message capability never applies to OPEN.
+	 * An OPEN larger than the standard maximum (4096) is malformed and is
+	 * rejected here regardless of any extended size already negotiated on
+	 * this session, so the receive-path guard in bgp_io.c stays type-blind.
+	 */
+	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
+		flog_err(EC_BGP_PKT_OPEN,
+			 "%s: OPEN message size (%u bytes) exceeds the standard maximum",
+			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
+		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		return BGP_Stop;
+	}
+
 	/* Parse open packet. */
+	if (STREAM_READABLE(connection->curr) < BGP_OPEN_BODY_MIN_SIZE) {
+		flog_err(EC_BGP_PKT_OPEN, "%s: OPEN message too short (%zu bytes, need %u)",
+			 peer->host, STREAM_READABLE(connection->curr), BGP_OPEN_BODY_MIN_SIZE);
+		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		return BGP_Stop;
+	}
+
 	version = stream_getc(connection->curr);
 	memcpy(notify_data_remote_as, stream_pnt(connection->curr), 2);
 	remote_as = stream_getw(connection->curr);
@@ -2221,6 +2245,19 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 static int bgp_keepalive_receive(struct peer_connection *connection, bgp_size_t size)
 {
 	struct peer *peer = connection->peer;
+
+	/*
+	 * RFC 8654: the Extended Message capability never applies to KEEPALIVE,
+	 * which stays capped at the standard maximum (4096) even after an
+	 * extended size has been negotiated for this session.
+	 */
+	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
+		flog_err(EC_BGP_KEEP_RCV,
+			 "%s: KEEPALIVE message size (%u bytes) exceeds the standard maximum",
+			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
+		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		return BGP_Stop;
+	}
 
 	if (bgp_debug_keepalive(peer))
 		zlog_debug("%s KEEPALIVE rcvd", peer->host);
@@ -2864,6 +2901,16 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				int psize;
 				char name[BUFSIZ];
 				int ret = CMD_SUCCESS;
+
+				if (!CHECK_FLAG(peer->af_cap[afi][safi],
+						PEER_CAP_ORF_PREFIX_RM_ADV) ||
+				    !CHECK_FLAG(peer->af_cap[afi][safi],
+						PEER_CAP_ORF_PREFIX_SM_RCV)) {
+					flog_err(EC_BGP_NO_CAP,
+						 "%pBP rcvd Prefix ORF for %s/%s, but prefix ORF capability was not negotiated, ignoring",
+						 peer, afi2str(afi), safi2str(safi));
+					return BGP_PACKET_NOOP;
+				}
 
 				if (bgp_debug_neighbor_events(peer)) {
 					zlog_debug(

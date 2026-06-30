@@ -10,7 +10,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.common_config import run_frr_cmd
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.mgmtd]
@@ -30,15 +30,8 @@ def setup_module(mod):
 
     # Load configuration from frr.conf files
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_MGMTD, ""),
-                (TopoRouter.RD_ZEBRA, ""),
-                (TopoRouter.RD_BGP, ""),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Start routers (this starts the daemons)
     tgen.start_router()

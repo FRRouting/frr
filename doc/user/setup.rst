@@ -116,6 +116,16 @@ allow this to happen.
 
 ::
 
+   MAX_BGPD_FDS=8192
+
+A per-daemon limit may be specified as ``MAX_<DAEMON>_FDS`` (the daemon name in
+upper case).  When set, it takes precedence over ``MAX_FDS`` for that daemon
+only, falling back to ``MAX_FDS`` when no per-daemon value is present.  This
+allows a single daemon that needs a large number of file descriptors to be
+raised without forcing every other daemon to use the same high value.
+
+::
+
   FRR_NO_ROOT="yes"
 
 This option allows you to run FRR as a non-root user. Use this option

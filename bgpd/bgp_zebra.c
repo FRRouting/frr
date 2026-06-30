@@ -3306,6 +3306,8 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 static void bgp_zebra_connected(struct zclient *zclient)
 {
 	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
 
 	zclient_num_connects++; /* increment even if not responding */
 
@@ -3321,6 +3323,17 @@ static void bgp_zebra_connected(struct zclient *zclient)
 		return;
 
 	bgp_zebra_instance_register(bgp);
+
+	/* A restarted zebra has lost any previously installed BGP routes, and a
+	 * stable BGP RIB will not re-select unchanged best paths on its own.
+	 * Replay the selected routes so zebra and the kernel FIB are rebuilt.
+	 */
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!bgp_fibupd_safi(safi))
+			continue;
+
+		bgp_zebra_announce_table(bgp, afi, safi);
+	}
 
 	/* Retry the deferred suppress-fib-pending configuration */
 	bgp_zebra_suppress_fib_pending_config_retry();
@@ -4986,6 +4999,19 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: %s afi: %u safi: %u Command %s ignore", __func__,
 				   bgp->name_pretty, afi, safi, zserv_gr_client_cap_string(type));
+
+		return BGP_GR_SUCCESS;
+	}
+
+	/*
+	 * SAFI_UNREACH has no forwarding state (purely control-plane UI-RIB).
+	 * No need to communicate route sync status to zebra.
+	 */
+	if (safi == SAFI_UNREACH) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: %s afi: %u safi: UNREACH Command %s ignore (no FIB)",
+				   __func__, bgp->name_pretty, afi,
+				   zserv_gr_client_cap_string(type));
 
 		return BGP_GR_SUCCESS;
 	}

@@ -98,7 +98,9 @@ The simplest approach uses two separate scripts:
   Demonstrates IGMP join using mcast-rx.py
 - ``tests/topotests/pim_wrongvif_compat/`` -
   WRONGVIF compensation when ``IGMPMSG_WRVIFWHOLE`` is unavailable (kernels
-  before 4.19); join-before-data, same-LAN FHR, LHR/SPT, and FRR restart cases
+  before 4.19); join-before-data, same-LAN FHR, LHR/SPT, and FRR restart cases.
+  Uses ``restart_frr()`` (FRR daemons only on that router) — see
+  :ref:`topotests-restart`.
 
 Method 2: Unified Tester Script (mcast-tester.py)
 ---------------------------------------------------

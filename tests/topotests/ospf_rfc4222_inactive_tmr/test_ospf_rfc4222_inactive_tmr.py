@@ -37,8 +37,8 @@ def tgen(request):
     router_list = tgen.routers()
 
     # Load FRR configs
-    for _, router in router_list.items():
-        router.load_frr_config("frr.conf")
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Start all routers
     tgen.start_router()

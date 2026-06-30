@@ -24,6 +24,7 @@
 #include "pim_assert.h"
 #include "pim_zebra.h"
 #include "pim_ifchannel.h"
+#include "pim_dm.h"
 
 static int assert_action_a3(struct pim_ifchannel *ch);
 static void assert_action_a2(struct pim_ifchannel *ch,
@@ -36,6 +37,7 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 			     struct pim_assert_metric winner_metric)
 {
 	struct pim_interface *pim_ifp = ch->interface->info;
+	enum pim_ifassert_state old_state = ch->ifassert_state;
 	int winner_changed = !!pim_addr_cmp(ch->ifassert_winner, winner);
 	int metric_changed = !pim_assert_metric_match(
 		&ch->ifassert_winner_metric, &winner_metric);
@@ -68,8 +70,8 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 		if (winner_changed) {
 			old_rpf.source_nexthop.interface =
 				ch->upstream->rpf.source_nexthop.interface;
-			rpf_result = pim_rpf_update(pim_ifp->pim, ch->upstream,
-						    &old_rpf, __func__);
+			rpf_result = pim_rpf_update(pim_ifp->pim, ch->upstream, &old_rpf, NULL,
+						    __func__);
 			if (rpf_result == PIM_RPF_CHANGED ||
 			    (rpf_result == PIM_RPF_FAILURE &&
 			     old_rpf.source_nexthop.interface))
@@ -85,6 +87,12 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 		pim_ifchannel_update_could_assert(ch);
 		pim_ifchannel_update_assert_tracking_desired(ch);
 	}
+
+	/* Dense mode manages its OIL directly (not via the SM olist), so the
+	 * Assert loser/winner OIF transitions have to be applied here.
+	 */
+	if (old_state != new_state)
+		pim_dm_assert_state_changed(ch, new_state);
 }
 
 static void on_trace(const char *label, struct interface *ifp, pim_addr src)

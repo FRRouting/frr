@@ -76,10 +76,7 @@ def setup_module(mod):
         r1.net.set_intf_netns(ifname, vrf, up=True)
 
     r1.use_netns_vrf()
-    r1.load_frr_config(
-        os.path.join(CWD, "r1/frr.conf"),
-        [(TopoRouter.RD_ZEBRA, None)],
-    )
+    r1.load_frr_config()
     tgen.start_router()
 
     # Wait for each per-VRF interface to be fully up in zebra (in the correct

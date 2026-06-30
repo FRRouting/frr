@@ -53,7 +53,7 @@ def tgen(request):
     tgen.gears["r1"].load_config(TopoRouter.RD_MGMTD, confpath)
 
     # Explicit disable staticd now..
-    tgen.gears["r1"].net.daemons["staticd"] = 0
+    tgen.gears["r1"].disableDaemons(["staticd"])
 
     tgen.start_router()
     yield tgen

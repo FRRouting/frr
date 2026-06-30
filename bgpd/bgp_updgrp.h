@@ -52,7 +52,14 @@
 	 PEER_FLAG_CONFIG_ENCAPSULATION_SRV6 | PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX |        \
 	 PEER_FLAG_CONFIG_ENCAPSULATION_MPLS | PEER_FLAG_UPA_SEND)
 
-#define PEER_UPDGRP_CAP_FLAGS (PEER_CAP_AS4_RCV)
+/*
+ * PEER_CAP_LLGR_RCV is included so peers that differ in the received Long-Lived
+ * Graceful Restart capability land in separate update groups: an LLGR_STALE-tagged
+ * route is advertised only to peers from which LLGR was received (RFC 9494 Section
+ * 4.3), and that per-subgroup decision must not merge an LLGR and a non-LLGR peer.
+ * Folding it into this mask covers both the hash key and the cmp function.
+ */
+#define PEER_UPDGRP_CAP_FLAGS (PEER_CAP_AS4_RCV | PEER_CAP_LLGR_RCV)
 
 #define PEER_UPDGRP_AF_CAP_FLAGS                                               \
 	(PEER_CAP_ORF_PREFIX_SM_RCV | PEER_CAP_ADDPATH_AF_TX_ADV |             \

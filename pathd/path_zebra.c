@@ -184,9 +184,17 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 	zp.segment_list.type = ZEBRA_LSP_SRTE;
 	zp.segment_list.local_label = policy->binding_sid;
 	zp.segment_list.label_num = 0;
-	RB_FOREACH (segment, srte_segment_entry_head, &segment_list->segments)
+	RB_FOREACH (segment, srte_segment_entry_head, &segment_list->segments) {
+		if (zp.segment_list.label_num >= MPLS_MAX_LABELS) {
+			zlog_warn(
+				"%s: SR-TE policy %s (color %u) segment list exceeds maximum of %d labels, aborting install",
+				__func__, policy->name, policy->color,
+				MPLS_MAX_LABELS);
+			return;
+		}
 		zp.segment_list.labels[zp.segment_list.label_num++] =
 			segment->sid_value;
+	}
 	policy->status = SRTE_POLICY_STATUS_GOING_UP;
 
 	(void)zebra_send_sr_policy(pathd_zclient, ZEBRA_SR_POLICY_SET, &zp);

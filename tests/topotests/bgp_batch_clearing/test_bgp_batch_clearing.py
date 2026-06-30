@@ -24,7 +24,7 @@ import sys
 import pytest
 
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
@@ -48,14 +48,8 @@ def setup_module(module):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_BGP, None),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
 

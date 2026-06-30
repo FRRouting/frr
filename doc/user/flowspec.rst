@@ -318,6 +318,201 @@ present in both ``iptable`` and ``ip rule`` contexts.
 
 This allows us to see where the traffic is forwarded to.
 
+.. _flowspec-ddos-mitigation:
+
+DDoS Mitigation Examples
+------------------------
+
+FRR acts as a FlowSpec client: it receives FlowSpec rules from an external
+BGP speaker (such as a route server, SDN controller, or dedicated mitigation
+platform) and installs them into the local Netfilter pipeline. This section
+provides practical examples of using FlowSpec to mitigate common DDoS attack
+patterns.
+
+.. _flowspec-ddos-router-config:
+
+Router Configuration
+^^^^^^^^^^^^^^^^^^^^
+
+The FRR router must peer with an external controller that originates FlowSpec
+NLRI. Below is a minimal ``bgpd.conf`` that enables both IPv4 and IPv6
+FlowSpec address families and restricts rule installation to the
+Internet-facing interface.
+
+.. code-block:: frr
+
+   router bgp 65001
+    bgp router-id 192.0.2.1
+    neighbor 192.0.2.100 remote-as 65100
+    neighbor 192.0.2.100 description FlowSpec-Controller
+    !
+    address-family ipv4 flowspec
+     neighbor 192.0.2.100 activate
+     local-install eth0
+    exit-address-family
+    !
+    address-family ipv6 flowspec
+     neighbor 192.0.2.100 activate
+     local-install eth0
+    exit-address-family
+   !
+
+Once the session is established, any FlowSpec NLRI advertised by the
+controller is received, validated, and installed into Netfilter automatically.
+
+.. _flowspec-ddos-scenarios:
+
+Common Mitigation Scenarios
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The examples below show what the FRR router receives and installs when the
+upstream controller advertises FlowSpec rules for three common DDoS attack
+types. All addresses use documentation ranges per :rfc:`5737`.
+
+**Dropping UDP amplification traffic**
+
+A UDP amplification attack floods a victim with high-volume UDP responses
+(e.g., DNS, NTP, memcached). The controller advertises a FlowSpec rule that
+matches all UDP traffic destined for the victim prefix and sets the traffic
+rate to zero (discard).
+
+.. code-block:: frr
+
+   router# show bgp ipv4 flowspec detail
+    BGP flowspec entry: (flags 0x418)
+      Destination Address 198.51.100.0/24
+      IP Protocol = 17
+      FS:rate 0.000000
+      received for 00:05:12
+      installed in PBR (match0x1a2b3c)
+
+The resulting Netfilter rules drop all matching packets on ingress:
+
+.. code-block:: frr
+
+   router# show pbr ipset match0x1a2b3c
+    IPset match0x1a2b3c type net
+         to 198.51.100.0/24:proto 17 (1)
+            pkts 0, bytes 0
+
+   router# show pbr iptable
+       IPtable match0x1a2b3c action drop (1)
+         pkts 0, bytes 0
+
+**Rate-limiting TCP SYN floods**
+
+A SYN flood exhausts connection-state resources on the target. The controller
+can advertise a FlowSpec rule that matches TCP traffic (protocol 6) to a
+specific destination and applies a rate-limit action rather than a full
+discard.
+
+.. code-block:: frr
+
+   router# show bgp ipv4 flowspec detail
+    BGP flowspec entry: (flags 0x418)
+      Destination Address 198.51.100.10/32
+      IP Protocol = 6
+      TCP Flags = 0x02
+      FS:rate 1000000.000000
+      received for 00:02:47
+      installed in PBR (match0x4d5e6f)
+
+.. warning::
+
+   FRR does not enforce the numeric rate value as a shaper. When the rate is
+   positive, FRR redirects **all** matching traffic to an alternate routing
+   table without applying any token-bucket or byte-rate policing (see
+   :ref:`flowspec-known-issues`). The rate-limit action is shown here because
+   it is commonly advertised by external controllers, but on the FRR receiver
+   side the effect is a redirect, not true rate enforcement.
+
+**Dropping traffic from a known source**
+
+When the source of an attack is identified, the controller advertises a
+FlowSpec rule matching that source prefix regardless of protocol or
+destination.
+
+.. code-block:: frr
+
+   router# show bgp ipv4 flowspec detail
+    BGP flowspec entry: (flags 0x418)
+      Source Address 203.0.113.0/24
+      FS:rate 0.000000
+      received for 00:08:33
+      installed in PBR (match0x7a8b9c)
+
+.. code-block:: frr
+
+   router# show pbr ipset match0x7a8b9c
+    IPset match0x7a8b9c type net
+         from 203.0.113.0/24 (1)
+            pkts 0, bytes 0
+
+   router# show pbr iptable
+       IPtable match0x7a8b9c action drop (1)
+         pkts 0, bytes 0
+
+.. _flowspec-ddos-verification:
+
+Verification
+^^^^^^^^^^^^
+
+After the controller advertises FlowSpec rules, use the following commands to
+verify that rules are received and active.
+
+**Check BGP FlowSpec RIB:**
+
+.. code-block:: shell
+
+   router# show bgp ipv4 flowspec
+   router# show bgp ipv4 flowspec detail
+   router# show bgp ipv6 flowspec detail
+
+**Inspect Netfilter state:**
+
+.. code-block:: shell
+
+   router# show pbr ipset <IPSETNAME>
+   router# show pbr iptable
+
+**View the policy-routing table used by redirect rules:**
+
+.. code-block:: shell
+
+   router# show ip route table TABLEID
+
+**Enable debug logging when troubleshooting:**
+
+.. code-block:: frr
+
+   debug bgp flowspec
+   debug bgp pbr error
+
+.. _flowspec-ddos-notes:
+
+Operational Notes
+^^^^^^^^^^^^^^^^^
+
+- FRR is a FlowSpec **client only**. Rules cannot be originated from the FRR
+  CLI; they must be advertised by an external BGP speaker.
+
+- FlowSpec rules are translated into ``ipset``, ``iptables`` (mangle table),
+  and ``ip rule`` entries by the *zebra* daemon. If the system is missing the
+  ``ipset`` or ``iptables`` utilities, rule installation will fail silently.
+  Use :clicmd:`debug bgp pbr error` to diagnose.
+
+- Use :clicmd:`local-install <IFNAME | any>` to restrict FlowSpec rules to
+  specific interfaces. Applying rules globally may cause traffic to be
+  filtered or accounted for twice on multi-interface routers.
+
+- If FRR terminates unexpectedly, stale ``ipset``, ``iptables``, and
+  ``ip rule`` entries may remain. These must be cleaned up manually or by
+  restarting the Netfilter subsystem.
+
+- FlowSpec entries that combine multiple complex match criteria (e.g.,
+  simultaneous source port ranges and destination port ranges) may not be
+  installable. See :ref:`flowspec-known-issues` for details.
+
 .. _flowspec-known-issues:
 
 Limitations / Known Issues

@@ -113,6 +113,9 @@ struct pim_instance {
 	// vrf_id_t vrf_id;
 	struct vrf *vrf;
 
+	/* PIM VRF instance shutdown state */
+	bool shutdown;
+
 	struct {
 		enum pim_spt_switchover switchover;
 		char *plist;
@@ -243,5 +246,6 @@ void pim_vrf_terminate(void);
 extern struct pim_router *router;
 
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
+void pim_vrf_shutdown(struct pim_instance *pim, bool shutdown);
 
 #endif

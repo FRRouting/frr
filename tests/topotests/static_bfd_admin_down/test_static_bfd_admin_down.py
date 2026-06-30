@@ -71,7 +71,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.common_config import step
 from munet.watchlog import WatchLog
@@ -90,16 +90,8 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    for _, (rname, router) in enumerate(tgen.routers().items(), 1):
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_MGMTD, None),
-                (TopoRouter.RD_BFD, None),
-                (TopoRouter.RD_STATIC, None),
-            ],
-        )
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
 

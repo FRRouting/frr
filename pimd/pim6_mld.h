@@ -359,7 +359,7 @@ struct gm_if {
 #if PIM_IPV == 6
 extern void gm_ifp_update(struct interface *ifp);
 extern void gm_ifp_teardown(struct interface *ifp);
-extern void gm_group_delete(struct gm_if *gm_ifp);
+extern void gm_group_delete(struct interface *ifp);
 #else
 static inline void gm_ifp_update(struct interface *ifp)
 {
@@ -368,6 +368,7 @@ static inline void gm_ifp_update(struct interface *ifp)
 static inline void gm_ifp_teardown(struct interface *ifp)
 {
 }
+extern void gm_group_delete(struct interface *ifp);
 #endif
 
 extern void gm_cli_init(void);

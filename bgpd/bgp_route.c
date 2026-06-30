@@ -64,6 +64,7 @@
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_unreach.h"
 #include "bgpd/bgp_rpki.h"
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_bfd.h"
@@ -375,6 +376,8 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 
 	if (e->evpn)
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_EVPN, e->evpn);
+	if (e->unreach)
+		XFREE(MTYPE_BGP_ROUTE_EXTRA_UNREACH, e->unreach);
 	if (e->flowspec)
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_FS, e->flowspec);
 	if (e->vrfleak)
@@ -3025,10 +3028,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * Long-lived Graceful Restart Capability has not been received.
 	 */
 	if (bgp_attr_get_community(attr) &&
-	    community_include(bgp_attr_get_community(attr),
-			      COMMUNITY_LLGR_STALE) &&
-	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_RCV) &&
-	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_ADV))
+	    community_include(bgp_attr_get_community(attr), COMMUNITY_LLGR_STALE) &&
+	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_RCV))
 		return false;
 
 	/* Perform operations that involve memory allocation.
@@ -4942,6 +4943,14 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 						   : "NOT done");
 			}
 		}
+	} else if (safi == SAFI_UNREACH && (afi == AFI_IP || afi == AFI_IP6)) {
+		/*
+		 * Process deferred path selection for SAFI_UNREACH routes.
+		 * Even though SAFI_UNREACH has no forwarding state, best path
+		 * selection should still be deferred during GR until EOR is
+		 * received from all helpers.
+		 */
+		bgp_deferred_path_selection(bgp, afi, safi, bgp->rib[afi][safi], cnt, NULL, false);
 	}
 
 	/*
@@ -5534,7 +5543,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			   PEER_STATUS_PREFIX_LIMIT);
 
 	if (pcount
-	    > (peer->pmax[afi][safi] * peer->pmax_threshold[afi][safi] / 100)) {
+	    > ((uint64_t)peer->pmax[afi][safi] * peer->pmax_threshold[afi][safi] / 100)) {
 		if (CHECK_FLAG(peer->af_sflags[afi][safi],
 			       PEER_STATUS_PREFIX_THRESHOLD)
 		    && !always)
@@ -5930,7 +5939,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		struct attr *attr, afi_t afi, safi_t safi, int type,
 		int sub_type, struct prefix_rd *prd, mpls_label_t *label,
 		uint8_t num_labels, int soft_reconfig,
-		struct bgp_route_evpn *evpn)
+		struct bgp_route_evpn *evpn,
+		struct bgp_unreach_nlri *unreach)
 {
 	int ret;
 	struct bgp_dest *dest;
@@ -6251,6 +6261,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (evpn && afi == AFI_L2VPN &&
 	    (soft_reconfig || !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))) {
 		bgp_attr_set_evpn_overlay(&new_attr, evpn);
+		evpn = NULL;
 		p_evpn = NULL;
 	}
 
@@ -6376,6 +6387,34 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		pi->uptime = monotime(NULL);
 		same_attr = attrhash_cmp(pi->attr, attr_new) &&
 			    bgp_path_info_extra_same(pi, &rmap_bpi);
+
+		/*
+		 * For SAFI_UNREACH, compare Reporter TLVs since they live on
+		 * path->extra->unreach and are not part of the interned attr.
+		 * Treat "old path has no TLV bag, new UPDATE carries TLV data"
+		 * symmetrically with a TLV-content change: both mean the path
+		 * state moved and we must not classify the UPDATE as a duplicate.
+		 */
+		if (same_attr && safi == SAFI_UNREACH && unreach) {
+			if (!pi->extra || !pi->extra->unreach) {
+				same_attr = 0;
+			} else {
+				struct bgp_path_info_extra_unreach *old_tlv =
+					pi->extra->unreach;
+				struct bgp_unreach_nlri *new_tlv = unreach;
+
+				if (old_tlv->reason_code != new_tlv->reason_code ||
+				    old_tlv->has_reason_code != new_tlv->has_reason_code ||
+				    old_tlv->timestamp != new_tlv->timestamp ||
+				    old_tlv->has_timestamp != new_tlv->has_timestamp ||
+				    old_tlv->reporter.s_addr != new_tlv->reporter.s_addr ||
+				    old_tlv->has_reporter != new_tlv->has_reporter ||
+				    old_tlv->reporter_as != new_tlv->reporter_as ||
+				    old_tlv->has_reporter_as !=
+					    new_tlv->has_reporter_as)
+					same_attr = 0;
+			}
+		}
 
 		hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
 
@@ -6574,7 +6613,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				}
 				/* evpn update with new nexthop: unimport route with old VTEP entry.*/
 				else if (safi == SAFI_EVPN &&
-					 evp->prefix.route_type == BGP_EVPN_AD_ROUTE &&
+					 (evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
+					  evp->prefix.route_type == BGP_EVPN_ES_ROUTE) &&
 					 !bgp_attr_nexthop_same(pi->attr, attr_new, afi)) {
 					bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
 				}
@@ -6597,6 +6637,30 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * (e.g. "set sr-te color") onto the real path.
 		 */
 		bgp_path_info_extra_propagate(pi, &rmap_bpi);
+
+		/*
+		 * Update SAFI_UNREACH TLV data from the caller-supplied
+		 * Reporter TLV (passed as a parameter rather than attached
+		 * to attr to avoid heap-pointer-on-shared-attr lifetime
+		 * issues).
+		 */
+		if (safi == SAFI_UNREACH && unreach) {
+			struct bgp_path_info_extra *extra =
+				bgp_path_info_extra_get(pi);
+			if (!extra->unreach)
+				extra->unreach = XCALLOC(
+					MTYPE_BGP_ROUTE_EXTRA_UNREACH,
+					sizeof(struct bgp_path_info_extra_unreach));
+			/* Update TLV data from NLRI */
+			extra->unreach->timestamp = unreach->timestamp;
+			extra->unreach->has_timestamp = unreach->has_timestamp;
+			extra->unreach->reason_code = unreach->reason_code;
+			extra->unreach->has_reason_code = unreach->has_reason_code;
+			extra->unreach->reporter = unreach->reporter;
+			extra->unreach->has_reporter = unreach->has_reporter;
+			extra->unreach->reporter_as = unreach->reporter_as;
+			extra->unreach->has_reporter_as = unreach->has_reporter_as;
+		}
 
 #ifdef ENABLE_BGP_VNC
 		if ((afi == AFI_IP || afi == AFI_IP6)
@@ -6776,6 +6840,27 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * (e.g. "set sr-te color") onto the real path.
 	 */
 	bgp_path_info_extra_propagate(new, &rmap_bpi);
+
+	/*
+	 * Store SAFI_UNREACH Reporter TLV data on the new path. The data
+	 * comes from the explicit 'unreach' parameter rather than from
+	 * struct attr to avoid the heap-pointer-on-shared-attr anti-pattern.
+	 */
+	if (safi == SAFI_UNREACH && unreach) {
+		struct bgp_path_info_extra *extra = bgp_path_info_extra_get(new);
+
+		if (!extra->unreach)
+			extra->unreach = XCALLOC(MTYPE_BGP_ROUTE_EXTRA_UNREACH,
+						 sizeof(struct bgp_path_info_extra_unreach));
+		extra->unreach->timestamp = unreach->timestamp;
+		extra->unreach->has_timestamp = unreach->has_timestamp;
+		extra->unreach->reason_code = unreach->reason_code;
+		extra->unreach->has_reason_code = unreach->has_reason_code;
+		extra->unreach->reporter = unreach->reporter;
+		extra->unreach->has_reporter = unreach->has_reporter;
+		extra->unreach->reporter_as = unreach->reporter_as;
+		extra->unreach->has_reporter_as = unreach->has_reporter_as;
+	}
 
 	bgp_update_check_valid_flags(bgp, peer, dest, p, afi, safi, new, attr_new,
 				     bgp_nht_param_prefix, accept_own);
@@ -7177,7 +7262,7 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 
 	bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
 		   ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd,
-		   label_pnt, num_labels, 1, bre);
+		   label_pnt, num_labels, 1, bre, NULL);
 }
 
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
@@ -8579,7 +8664,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		if (attr)
 			bgp_update(peer, &p, addpath_id, attr, afi, safi,
 				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				   NULL, 0, 0, NULL);
+				   NULL, 0, 0, NULL, NULL);
 		else
 			bgp_withdraw(peer, &p, addpath_id, afi, safi,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
@@ -12442,6 +12527,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 					vty_out(vty, "%*s", len, " ");
 			}
 		}
+	} else if (safi == SAFI_UNREACH) {
+		/* Skip nexthop display for SAFI_UNREACH (nexthop length = 0) */
 	} else if ((p->family == AF_INET || safi == SAFI_BGP_LS) &&
 		   !BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)) {
 		if (json_paths) {
@@ -12654,7 +12741,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 					esi_to_str(&attr->esi,
 					esi_buf, sizeof(esi_buf)));
 		}
-		if (safi == SAFI_EVPN && bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
+		if ((safi == SAFI_EVPN || safi == SAFI_UNREACH) &&
+		    bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
 			json_ext_community = json_object_new_object();
 			json_object_string_add(
 				json_ext_community, "string",
@@ -12815,6 +12903,8 @@ void route_vty_out_tmp(struct vty *vty, struct bgp *bgp, struct bgp_dest *dest,
 			json_object_string_add(
 				json_net, "origin",
 				bgp_origin_long_str[attr->origin]);
+		} else if (safi == SAFI_UNREACH) {
+			/* Skip nexthop display for SAFI_UNREACH */
 		} else {
 			if (p->family == AF_INET &&
 			    (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP ||
@@ -12911,9 +13001,11 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 
 	/* Print attribute */
 	attr = path->attr;
-	if (((p->family == AF_INET) && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP))) ||
-	    (safi == SAFI_EVPN && !BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)) ||
-	    (!BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))) {
+	if (safi == SAFI_UNREACH) {
+		/* Skip nexthop display for SAFI_UNREACH */
+	} else if (((p->family == AF_INET) && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP))) ||
+		   (safi == SAFI_EVPN && !BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)) ||
+		   (!BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))) {
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json)
@@ -13597,6 +13689,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		vty_out(vty, "\n");
 
 	/* Line2 display Next-hop, Neighbor, Router-id */
+	/* SAFI_UNREACH has no nexthop; skip the entire nexthop / IGP-cost block. */
+	if (safi == SAFI_UNREACH)
+		goto skip_nexthop;
 	/* Display the nexthop */
 
 	if ((p->family == AF_INET || p->family == AF_ETHERNET || p->family == AF_EVPN) &&
@@ -13727,6 +13822,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 						     "accessible");
 	}
 
+skip_nexthop:
 	/* Display peer "from" output */
 	/* This path was originated locally */
 	if (path->peer == bgp->peer_self) {
@@ -14406,6 +14502,48 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		} else {
 			if (!first) {
 				vty_out(vty, "\n");
+			}
+		}
+	}
+
+	if (safi == SAFI_UNREACH && path->extra && path->extra->unreach) {
+		struct bgp_path_info_extra_unreach *unreach = path->extra->unreach;
+		char reporter[INET_ADDRSTRLEN];
+
+		inet_ntop(AF_INET, &unreach->reporter, reporter, sizeof(reporter));
+
+		if (json_paths) {
+			bgp_unreach_reporters_to_json(unreach, json_path, false, true);
+			if (path->peer && path->peer->sort == BGP_PEER_IBGP)
+				json_object_string_add(json_path, "pathFrom", "internal");
+			else if (path->peer && path->peer->sort == BGP_PEER_EBGP)
+				json_object_string_add(json_path, "pathFrom", "external");
+		} else {
+			vty_out(vty, "      Reporter: %s AS %u\n", reporter,
+				unreach->reporter_as);
+
+			if (unreach->has_reason_code) {
+				const char *reason_str =
+					bgp_unreach_reason_str(unreach->reason_code);
+
+				vty_out(vty, "        Reason Code: %u (%s)\n",
+					unreach->reason_code, reason_str);
+			}
+
+			if (unreach->has_timestamp) {
+				time_t ts = (time_t)unreach->timestamp;
+				char ts_buf[64];
+				char *time_str = ctime_r(&ts, ts_buf);
+
+				if (time_str) {
+					size_t len = strlen(time_str);
+
+					if (len > 0 && time_str[len - 1] == '\n')
+						time_str[len - 1] = '\0';
+					vty_out(vty, "        Timestamp: %s\n", time_str);
+				} else {
+					vty_out(vty, "        Timestamp: <invalid>\n");
+				}
 			}
 		}
 	}
@@ -15330,6 +15468,13 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	if (safi == SAFI_EVPN)
 		return bgp_evpn_show_all_routes(vty, bgp, type, use_json, 0);
 
+	if (safi == SAFI_UNREACH) {
+		bool detail = (type == bgp_show_type_detail);
+
+		bgp_unreach_show(vty, bgp, afi, NULL, use_json, detail, type, output_arg);
+		return CMD_SUCCESS;
+	}
+
 	return bgp_show_table(vty, bgp, afi, safi, table, type, output_arg, NULL, 1, NULL, NULL,
 			      &json_header_depth, show_flags, rpki_target_state, brief);
 }
@@ -15764,6 +15909,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_MULTICAST:
 	case SAFI_LABELED_UNICAST:
 	case SAFI_FLOWSPEC:
+	case SAFI_UNREACH:
 	case SAFI_MAX:
 		return NULL;
 	}
@@ -17513,8 +17659,10 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 		json_loop = json_object_new_object();
 	}
 
-	if (!peer || !peer->bgp || !peer->afc[afi][safi]
-	    || !peer->bgp->rib[afi][safi]) {
+	/* AFI/SAFI must be activated locally and the RIB must exist. */
+	bool afi_safi_active = peer && peer->bgp && peer->afc[afi][safi] &&
+			       peer->bgp->rib[afi][safi];
+	if (!afi_safi_active) {
 		if (use_json) {
 			json_object_string_add(
 				json, "warning",
@@ -18340,7 +18488,10 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t
 		json_ar = json_object_new_object();
 	}
 
-	if (!peer || !peer->afc[afi][safi]) {
+	/* AFI/SAFI must be activated locally for the peer. */
+	bool afi_safi_active = peer && peer->afc[afi][safi];
+
+	if (!peer || !afi_safi_active) {
 		if (use_json) {
 			if (type == bgp_show_adj_route_advertised ||
 			    type == bgp_show_adj_route_received) {
@@ -18362,6 +18513,24 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t
 				vty_out(vty, "%% %s is not enabled for this neighbor\n",
 					get_afi_safi_str(afi, safi, false));
 		}
+
+		return CMD_WARNING;
+	}
+
+	/* received-routes and filtered-routes are not supported for SAFI_UNREACH
+	 * since soft-reconfiguration is not available for this SAFI
+	 */
+	if (safi == SAFI_UNREACH &&
+	    (type == bgp_show_adj_route_received || type == bgp_show_adj_route_filtered)) {
+		if (use_json) {
+			json_object_string_add(json, "warning",
+				"Inbound soft reconfiguration is not supported for unreachability SAFI");
+			vty_out(vty, "%s\n", json_object_to_json_string(json));
+			json_object_free(json);
+			json_object_free(json_ar);
+		} else
+			vty_out(vty,
+				"%% Inbound soft reconfiguration is not supported for unreachability SAFI\n");
 
 		return CMD_WARNING;
 	}
@@ -18792,7 +18961,10 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer, afi_t afi
 	if (use_json)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 
-	if (!peer || !peer->afc[afi][safi]) {
+	/* AFI/SAFI must be activated locally for the peer. */
+	bool afi_safi_active = peer && peer->afc[afi][safi];
+
+	if (!peer || !afi_safi_active) {
 		if (use_json) {
 			json_object *json_no = NULL;
 			json_no = json_object_new_object();

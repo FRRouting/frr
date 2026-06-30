@@ -4111,6 +4111,20 @@ DEFPY_ATTR(no_ip_pim_packets,
 	return ret;
 }
 
+DEFPY_YANG(pim_shutdown,
+	   pim_shutdown_cmd,
+	   "[no] shutdown",
+	   NO_STR
+	   "Disable PIM operation\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./shutdown");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG (ip_igmp_group_watermark,
 	    ip_igmp_group_watermark_cmd,
 	    "ip igmp watermark-warn (1-65535)$limit",
@@ -9358,6 +9372,7 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &no_pim_rp_keep_alive_cmd);
 	install_element(PIM_NODE, &pim_packets_cmd);
 	install_element(PIM_NODE, &no_pim_packets_cmd);
+	install_element(PIM_NODE, &pim_shutdown_cmd);
 	install_element(PIM_NODE, &pim_v6_secondary_cmd);
 	install_element(PIM_NODE, &no_pim_v6_secondary_cmd);
 	install_element(PIM_NODE, &pim_ecmp_cmd);

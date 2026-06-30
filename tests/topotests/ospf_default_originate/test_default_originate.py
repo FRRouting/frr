@@ -15,7 +15,6 @@ test_ospf_default_information.py: Test OSPF default information.
 
 import os
 import sys
-from functools import partial
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -42,8 +41,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(f"{CWD}/{rname}/frr.conf")
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
 
@@ -54,32 +53,13 @@ def teardown_module():
     tgen.stop_topology()
 
 
-def expect_ospf_neighbor(router, neighbor):
-    tgen = get_topogen()
-
-    expected = {
-        "neighbors": {
-            neighbor: [{
-                "converged": "Full"
-            }]
-        }
-    }
-    test_func = partial(
-        topotest.router_json_cmp,
-        tgen.gears[router],
-        "show ip ospf neighbor json",
-        expected)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert result is None, f"Router {router} failed to converge"
-
-
 def test_ospf_neighbor_convergence():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    expect_ospf_neighbor("r1", "192.168.0.2")
-    expect_ospf_neighbor("r2", "192.168.0.1")
+    tgen.gears["r1"].expect_ospfv2_neighbor("192.168.0.2")
+    tgen.gears["r2"].expect_ospfv2_neighbor("192.168.0.1")
 
 
 def expect_router_ospf_lsa(router, lsa, missing=False):

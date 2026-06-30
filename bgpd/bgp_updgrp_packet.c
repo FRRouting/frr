@@ -904,7 +904,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 			bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd, label_pnt,
 						 num_labels, addpath_capable, addpath_tx_id,
-						 adv->baa->attr, ls_nlri);
+						 adv->baa->attr, ls_nlri, path);
 		}
 
 		num_pfx++;
@@ -1163,7 +1163,8 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 
 		num_pfx++;
 
-		if (bgp_debug_update(NULL, dest_p, subgrp->update_group, 0)) {
+		if (bgp_debug_update(NULL, dest_p, subgrp->update_group, 0) ||
+		    BGP_DEBUG(unreachability, UNREACHABILITY)) {
 			char pfx_buf[BGP_PRD_PATH_STRLEN];
 
 			bgp_debug_rdpfxpath2str(afi, safi, prd, dest_p, NULL, 0,

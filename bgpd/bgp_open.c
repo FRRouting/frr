@@ -219,6 +219,11 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 							       "capabilityErrorMultiProtocolSafi",
 							       "BGP-LS");
 					break;
+				case SAFI_UNREACH:
+					json_object_string_add(json_cap,
+							       "capabilityErrorMultiProtocolSafi",
+							       "unreachability");
+					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
 					json_object_int_add(
@@ -273,6 +278,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 					break;
 				case SAFI_BGP_LS:
 					vty_out(vty, "SAFI BGP-LS");
+					break;
+				case SAFI_UNREACH:
+					vty_out(vty, "SAFI Unreachability");
 					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
@@ -343,9 +351,9 @@ static int bgp_capability_mp(struct peer_connection *connection, struct capabili
 	bgp_capability_mp_data(s, &mpc);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s",
+		zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s (AFI=%u, SAFI=%u)",
 			   peer->host, lookup_msg(capcode_str, hdr->code, NULL),
-			   iana_afi2str(mpc.afi), iana_safi2str(mpc.safi));
+			   iana_afi2str(mpc.afi), iana_safi2str(mpc.safi), mpc.afi, mpc.safi);
 
 	/* Convert AFI, SAFI to internal values, check. */
 	if (bgp_map_afi_safi_iana2int(mpc.afi, mpc.safi, &afi, &safi))
@@ -1415,6 +1423,30 @@ end:
 	return as4;
 }
 
+/*
+ * (Re)compute the maximum BGP message size for this peer from the negotiated
+ * Extended Message capability (RFC 8654).  The extended size (65535) is used
+ * only when we have advertised the capability *and* received it from the peer;
+ * otherwise the standard size (4096) applies.
+ *
+ * This must be recomputed whenever either half of that condition can change:
+ * when we parse the peer's OPEN (sets the RCV flag) and when we build our own
+ * OPEN (sets the ADV flag).  On a passively accepted connection our OPEN is
+ * sent only after the peer's OPEN has already been parsed, so computing this
+ * solely at OPEN-parse time would leave it at the standard size -- and the
+ * stale value is then carried across connection-collision resolution by
+ * peer_xfer_conn() -- even though both speakers support the capability.  It is
+ * reset to the standard size when the peer's capabilities are cleared on
+ * connection reset.
+ */
+void bgp_peer_set_max_packet_size(struct peer *peer)
+{
+	peer->max_packet_size = (CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV) &&
+				 CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV))
+					? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
+					: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
+}
+
 /**
  * Parse open option.
  *
@@ -1530,11 +1562,7 @@ int bgp_open_option_parse(struct peer_connection *connection, uint16_t length, i
 	}
 
 	/* Extended Message Support */
-	peer->max_packet_size =
-		(CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV)
-		 && CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV))
-			? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
-			: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
+	bgp_peer_set_max_packet_size(peer);
 
 	/* Check that roles are corresponding to each other */
 	if (bgp_role_violation(connection))
@@ -1713,7 +1741,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer_connection
 			stream_putw(s, pkt_afi);
 			stream_putc(s, pkt_safi);
 
-			f_bit = bgp_gr_is_forwarding_preserved(bgp);
+			f_bit = bgp_gr_is_forwarding_preserved_for_safi(bgp, afi, safi);
 
 			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 				zlog_debug("... F-bit %s for %s",
@@ -1764,6 +1792,9 @@ static void bgp_peer_send_llgr_capability(struct stream *s, struct peer_connecti
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (!peer->afc[afi][safi])
+			continue;
+
+		if (safi == SAFI_UNREACH)
 			continue;
 
 		bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -1840,6 +1871,11 @@ uint16_t bgp_open_capability(struct stream *s, struct peer_connection *connectio
 			stream_putc(s, 0);
 			stream_putc(s, pkt_safi);
 
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s sending OPEN MP capability for afi/safi: %s/%s (AFI=%u, SAFI=%u)",
+					   peer->host, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi), pkt_afi, pkt_safi);
+
 			/* Extended nexthop capability - currently
 			 * supporting RFC-5549 for
 			 * Link-Local peering only
@@ -1907,6 +1943,12 @@ uint16_t bgp_open_capability(struct stream *s, struct peer_connection *connectio
 
 	/* Extended Message Support */
 	SET_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV);
+	/*
+	 * We have now advertised the capability; refresh the receive/send size
+	 * limit so a passively accepted connection (whose OPEN is built only
+	 * after the peer's OPEN was parsed) is not left at the standard size.
+	 */
+	bgp_peer_set_max_packet_size(peer);
 	stream_putc(s, BGP_OPEN_OPT_CAP);
 	ext_opt_params ? stream_putw(s, CAPABILITY_CODE_EXT_MESSAGE_LEN + 2)
 		       : stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE_LEN + 2);

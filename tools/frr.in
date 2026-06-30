@@ -110,11 +110,18 @@ check_daemon()
 # The Frr daemons creates the pidfile when starting.
 start()
 {
-	local dmn inst
+	local dmn inst dmn_max_fds dmn_uc
 	dmn="$1"
 	inst="$2"
 
-	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
+	# Allow a per-daemon MAX_<DAEMON>_FDS to override the global MAX_FDS so
+	# that daemons needing a large number of FDs do not force every other
+	# daemon to use an equally high value.  The daemon name is upper cased,
+	# e.g. bgpd uses MAX_BGPD_FDS.
+	dmn_uc="`echo "$dmn" | tr '[:lower:]' '[:upper:]'`"
+	eval dmn_max_fds="\$MAX_${dmn_uc}_FDS"
+	[ "$dmn_max_fds" = "" ] && dmn_max_fds="$MAX_FDS"
+	ulimit -n $dmn_max_fds > /dev/null 2> /dev/null
 	if [ "$dmn" = "watchfrr" ]; then
 
 		# We may need to restart watchfrr if new daemons are added and/or

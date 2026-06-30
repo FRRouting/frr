@@ -72,7 +72,7 @@ def setup_module(mod):
 
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_frr_config("frr.conf")
+        router.load_frr_config()
 
     tgen.start_router()
 

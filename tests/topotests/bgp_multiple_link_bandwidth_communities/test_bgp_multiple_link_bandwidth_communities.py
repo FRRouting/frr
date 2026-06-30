@@ -38,7 +38,7 @@ def setup_module(mod):
     tgen.start_topology()
 
     router = tgen.gears["r1"]
-    router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format("r1")))
+    router.load_frr_config()
     router.start()
 
     peer = tgen.gears["peer1"]

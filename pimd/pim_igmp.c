@@ -29,6 +29,7 @@
 #include "pim_tib.h"
 #include "pim_pim.h"
 #include "pim_dm.h"
+#include "pim6_mld.h"
 
 static void group_timer_off(struct gm_group *group);
 static void pim_igmp_general_query(struct event *t);
@@ -1561,5 +1562,19 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 			sizeof(query_buf), 0 /* num_sources */, dst_addr,
 			group_addr, pim_ifp->gm_query_max_response_time_dsec,
 			1 /* s_flag: always set for general queries */, igmp);
+	}
+}
+
+void gm_group_delete(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_group *grp;
+
+	if (pim_ifp == NULL || pim_ifp->gm_group_list == NULL)
+		return;
+
+	while (pim_ifp->gm_group_list->count) {
+		grp = listnode_head(pim_ifp->gm_group_list);
+		igmp_group_delete(grp);
 	}
 }

@@ -69,9 +69,8 @@ def setup_module(mod):
             output = router.cmd_raises(formatted)
             logger.info("result: " + output)
 
-    for rname, router in tgen.routers().items():
-        logger.info("Loading router %s" % rname)
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
 

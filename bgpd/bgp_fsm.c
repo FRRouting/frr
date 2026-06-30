@@ -2272,8 +2272,10 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		if (connection->obuf)
 			stream_fifo_clean(connection->obuf);
 
-		if (connection->ibuf_work)
-			ringbuf_wipe(connection->ibuf_work);
+		if (connection->ibuf_work) {
+			ringbuf_del(connection->ibuf_work);
+			connection->ibuf_work = NULL;
+		}
 
 		if (connection->curr) {
 			stream_free(connection->curr);
@@ -2290,6 +2292,9 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 	/* Reset capabilities. */
 	peer->cap = 0;
+
+	/* Capabilities are gone: revert the message-size limit to standard. */
+	bgp_peer_set_max_packet_size(peer);
 
 	/* Resetting neighbor role to the default value */
 	peer->remote_role = ROLE_UNDEFINED;
@@ -2656,6 +2661,9 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	/* Clear peer capability flag. */
 	peer->cap = 0;
 
+	/* Capabilities are gone: revert the message-size limit to standard. */
+	bgp_peer_set_max_packet_size(peer);
+
 	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT) &&
 	    !bgp_rpki_cache_connected(peer->bgp)) {
 		if (bgp_debug_neighbor_events(peer))
@@ -2862,9 +2870,16 @@ static void bgp_peer_process_gr_cap_clear_stale(struct peer *peer)
 			 * safi). However, if the peer didn't adv
 			 * the F-bit, any previous (stale) routes
 			 * should be flushed.
+			 *
+			 * Exception: SAFI_UNREACH has no forwarding state,
+			 * so F-bit has no defined semantics. Per RFC draft,
+			 * stale entries must be retained until EOR or
+			 * Restart Time expiry, regardless of F-bit.
 			 */
 			if (peer->nsf[afi][safi] &&
-			    !CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV))
+			    !CHECK_FLAG(peer->af_cap[afi][safi],
+					PEER_CAP_RESTART_AF_PRESERVE_RCV) &&
+			    safi != SAFI_UNREACH)
 				bgp_clear_stale_route(peer, afi, safi);
 
 			peer->nsf[afi][safi] = 1;

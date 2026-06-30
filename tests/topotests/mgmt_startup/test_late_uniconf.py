@@ -29,10 +29,10 @@ def tgen(request):
     tgen.start_topology()
 
     # configure mgmtd using current mgmtd config file
-    tgen.gears["r4"].load_frr_config("frr.conf")
+    tgen.gears["r4"].load_frr_config()
 
     # Explicit disable staticd now..
-    tgen.gears["r4"].net.daemons["staticd"] = 0
+    tgen.gears["r4"].disableDaemons(["staticd"])
 
     tgen.start_router()
     yield tgen

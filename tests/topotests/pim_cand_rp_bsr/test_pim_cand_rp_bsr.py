@@ -115,9 +115,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        logger.info("Loading router %s" % rname)
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()
@@ -347,6 +346,238 @@ def test_pim_bsr_priority_modify(request):
     assert result is None, assertmsg
 
 
+def test_pim_elected_bsr_priority_change(request):
+    "Test elected BSR can change its own priority"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r2 = tgen.gears["r2"]
+
+    # r2 is already BSR_ELECTED with priority 250 from test_pim_bsr_priority_modify.
+    # Raise its priority and verify the change takes effect immediately.
+    step("Raise elected BSR r2's priority to 255")
+    r2.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 255
+        """
+    )
+
+    step("Verify r2's BSR priority is updated to 255")
+    expected = {
+        "bsr": "10.0.0.2",
+        "priority": 255,
+        "state": "BSR_ELECTED",
+    }
+
+    test_func = partial(topotest.router_json_cmp, r2, "show ip pim bsr json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+
+    assertmsg = "r2: elected BSR priority change did not take effect"
+    assert result is None, assertmsg
+
+    step("Verify r1 receives BSM with updated priority 255")
+    r1 = tgen.gears["r1"]
+    expected = {
+        "bsr": "10.0.0.2",
+        "priority": 255,
+    }
+
+    test_func = partial(topotest.router_json_cmp, r1, "show ip pim bsr json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+
+    assertmsg = "r1: did not receive BSM with updated priority from r2"
+    assert result is None, assertmsg
+
+
+def test_pim_bsr_pending_timer_race(request):
+    "Test BSR_PENDING timer is not overwritten by BSM reception"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # This test triggers a race condition that was previously flaky (~10%):
+    # 1. Temporarily remove r1 as BSR candidate (stops its BSM sends)
+    # 2. Lower r2's priority so it needs to re-enter BSR_PENDING
+    # 3. Raise r2's priority again (r2 enters BSR_PENDING with ~5s timer)
+    # 4. Wait 1 second (r2 is now in BSR_PENDING)
+    # 5. Re-add r1 as BSR candidate (triggers BSM send during r2's PENDING)
+    #
+    # Without the fix, the BSM from r1 overwrites r2's BSR_PENDING timer
+    # with the 130-second BS liveness timer, causing election to stall.
+
+    step("Temporarily remove r1 as BSR candidate")
+    r1.vtysh_cmd(
+        """
+        configure
+          router pim
+            no bsr candidate-bsr priority 200 source address 10.0.0.1
+        """
+    )
+
+    step("Lower r2 priority to force re-entering BSR_PENDING")
+    r2.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 240
+        """
+    )
+
+    sleep(1)
+
+    step("Raise r2 candidate-BSR priority to trigger BSR_PENDING")
+    r2.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 255
+        """
+    )
+
+    step("Wait for r2 to enter BSR_PENDING state")
+    sleep(1)
+
+    step("Re-add r1 as BSR candidate to trigger BSM during r2's PENDING window")
+    r1.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 200 source address 10.0.0.1
+        """
+    )
+
+    # r2 should become BSR_ELECTED within ~5-6 seconds (bs_rand_override timer).
+    # Use a 10-second timeout - sufficient for the fix but fails without it
+    # (where the timer would be overwritten by the 130-second BS liveness timer).
+    step("Verify r2 reports the updated candidate-BSR state")
+    expected = {"address": "10.0.0.2", "priority": 255, "elected": True}
+    test_func = partial(
+        topotest.router_json_cmp, r2, "show ip pim bsr candidate-bsr json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+
+    assertmsg = "r2: BSR_PENDING timer race - election delayed or failed"
+    assert result is None, assertmsg
+
+    step("Verify r2 is elected as the new BSR")
+    expected = {
+        "bsr": "10.0.0.2",
+        "priority": 255,
+        "state": "BSR_ELECTED",
+    }
+
+    test_func = partial(topotest.router_json_cmp, r2, "show ip pim bsr json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+
+    assertmsg = "r2: failed to become BSR - BSR_PENDING timer race"
+    assert result is None, assertmsg
+
+
+def test_pim_crp_during_bsr_pending(request):
+    "Test C-RP processing during BSR_PENDING state doesn't crash"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+
+    # This test triggers a scenario where bsr_crp_reselect() is called
+    # while the router is in BSR_PENDING state (not yet BSR_ELECTED).
+    # Without the fix, pim_bsm_generate_sched() would assert on state != BSR_ELECTED.
+    #
+    # 1. Remove r1 as BSR candidate
+    # 2. Lower r2's priority so it falls back to ACCEPT_PREFERRED
+    # 3. Raise r2's priority (enters BSR_PENDING)
+    # 4. Immediately change r3's C-RP priority (triggers C-RP advertisement)
+    # 5. Verify r2 becomes BSR_ELECTED without crashing
+
+    step("Remove r1 as BSR candidate")
+    r1.vtysh_cmd(
+        """
+        configure
+          router pim
+            no bsr candidate-bsr priority 200 source address 10.0.0.1
+        """
+    )
+
+    step("Lower r2 priority to fall back to ACCEPT_PREFERRED")
+    r2.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 100
+        """
+    )
+
+    sleep(1)
+
+    step("Raise r2 priority to enter BSR_PENDING")
+    r2.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 255
+        """
+    )
+
+    step("Immediately change r3 C-RP priority to trigger C-RP advertisement")
+    r3.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-rp priority 15
+        """
+    )
+
+    step("Verify r2 becomes BSR_ELECTED")
+    expected = {
+        "bsr": "10.0.0.2",
+        "priority": 255,
+        "state": "BSR_ELECTED",
+    }
+
+    test_func = partial(topotest.router_json_cmp, r2, "show ip pim bsr json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+
+    assertmsg = "r2: failed to become BSR_ELECTED after C-RP during PENDING"
+    assert result is None, assertmsg
+
+    step("Restore r3 C-RP priority")
+    r3.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-rp priority 10
+        """
+    )
+
+    step("Restore r1 as BSR candidate")
+    r1.vtysh_cmd(
+        """
+        configure
+          router pim
+            bsr candidate-bsr priority 200 source address 10.0.0.1
+        """
+    )
+
+
 def test_pim_bsr_election_fallback_r2(request):
     "Test PIM BSR Election Backup"
     tgen = get_topogen()
@@ -378,10 +609,10 @@ def test_pim_bsr_election_fallback_r2(request):
     assert result is None, assertmsg
 
     r2 = tgen.gears["r2"]
-    # r2 became BSR earlier after its priority was raised to 250
+    # r2 became BSR earlier after its priority was raised to 255
     expected = {
         "bsr": "10.0.0.2",
-        "priority": 250,
+        "priority": 255,
         "state": "BSR_ELECTED",
     }
 

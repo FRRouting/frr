@@ -812,7 +812,7 @@ def tgen_and_ip_version(request):
     # CRITICAL: Enable IPv6 and disable DAD BEFORE starting daemons
     # This must be done before zebra tries to configure IPv6 addresses
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for router in router_list.values():
         # Enable IPv6 forwarding first
         router.run("sysctl -w net.ipv6.conf.all.forwarding=1")
         router.run("sysctl -w net.ipv6.conf.default.forwarding=1")

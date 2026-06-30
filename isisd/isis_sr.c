@@ -80,16 +80,28 @@ DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry, sr_prefix_sid_
  */
 struct isis_sr_block *isis_sr_find_srgb(struct lspdb_head *lspdb, const uint8_t *sysid)
 {
-	struct isis_lsp *lsp;
+	struct listnode *node;
+	struct isis_lsp *lsp0, *lsp;
 
-	lsp = isis_root_system_lsp(lspdb, sysid);
-	if (!lsp)
+	lsp0 = isis_root_system_lsp(lspdb, sysid);
+	if (!lsp0)
 		return NULL;
 
-	if (!lsp->tlvs->router_cap || lsp->tlvs->router_cap->srgb.range_size == 0)
+	if (lsp0->tlvs && lsp0->tlvs->router_cap && lsp0->tlvs->router_cap->srgb.range_size)
+		return &lsp0->tlvs->router_cap->srgb;
+
+	if (!lsp0->lspu.frags)
 		return NULL;
 
-	return &lsp->tlvs->router_cap->srgb;
+	for (ALL_LIST_ELEMENTS_RO(lsp0->lspu.frags, node, lsp)) {
+		if (!lsp->tlvs || !lsp->tlvs->router_cap ||
+		    lsp->tlvs->router_cap->srgb.range_size == 0)
+			continue;
+
+		return &lsp->tlvs->router_cap->srgb;
+	}
+
+	return NULL;
 }
 
 /**

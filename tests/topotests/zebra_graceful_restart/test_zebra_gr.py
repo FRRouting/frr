@@ -38,7 +38,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 from lib import topotest
 from lib.common_config import kill_router_daemons, start_router_daemons, step
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.sharpd, pytest.mark.staticd]
@@ -56,14 +56,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            extra_daemons=[
-                (TopoRouter.RD_SHARP, ""),
-                (TopoRouter.RD_STATIC, ""),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config(extra_daemons=["sharpd"])
 
     tgen.start_router()
 
