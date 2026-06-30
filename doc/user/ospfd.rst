@@ -337,6 +337,15 @@ To start OSPF process you have to specify the OSPF router.
 
    This feature is enabled by default.
 
+.. clicmd:: shutdown
+
+   Disables the OSPF instance. This command is useful when it's desired
+   to disable the OSPF instance while retaining its configuration,
+   making it easier to reenable it later.
+
+   It can be used in conjunction with graceful restart to continue forwarding
+   traffic while shutting down.
+
 .. clicmd:: clear ip ospf [(1-65535)] process
 
    This command can be used to clear the ospf process data structures. This

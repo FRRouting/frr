@@ -113,6 +113,15 @@ Configuration Commands
    of packets to process before returning. The default value of this parameter
    is 20.
 
+.. clicmd:: shutdown
+
+   Disables the OSPF instance. This command is useful when it's desired
+   to disable the OSPF instance while retaining its configuration,
+   making it easier to reenable it later.
+
+   It can be used in conjunction with graceful restart to continue forwarding
+   traffic while shutting down.
+
 .. clicmd:: clear ipv6 ospf6 process [vrf NAME]
 
    This command clears up the database and routing tables and resets the
