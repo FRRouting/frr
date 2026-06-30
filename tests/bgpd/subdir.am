@@ -89,3 +89,11 @@ tests_bgpd_test_attr_parse_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_bgpd_test_attr_parse_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_attr_parse_SOURCES = tests/bgpd/test_attr_parse.c
 EXTRA_DIST += tests/bgpd/test_attr_parse.py
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_ibuf_work
+endif
+tests_bgpd_test_ibuf_work_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_ibuf_work_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_ibuf_work_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_ibuf_work_SOURCES = tests/bgpd/test_ibuf_work.c
