@@ -1495,7 +1495,8 @@ struct peer_connection {
 	struct stream_fifo *ibuf; // packets waiting to be processed
 	struct stream_fifo *obuf; // packets waiting to be written
 
-	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
+	uint8_t *ibuf_work;   // partial packet buffer (allocated on demand)
+	size_t ibuf_data_len; // bytes in ibuf_work
 
 	struct event *t_read;
 	struct event *t_write;
