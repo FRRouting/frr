@@ -103,6 +103,10 @@ bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr);
 void pim_nht_delete_tracked(struct pim_instance *pim, pim_addr addr, struct pim_upstream *up,
 			    struct rp_info *rp);
 
+/* Delete a tracked upstream from the NHT entry for addr */
+void pim_nht_delete_tracked_upstream(struct pim_instance *pim, pim_addr addr,
+				     struct pim_upstream *up);
+
 /* Delete a tracked addr and decrement BSR count, if no-one else is interested, stop tracking */
 void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
 
