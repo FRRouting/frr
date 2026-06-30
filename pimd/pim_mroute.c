@@ -1464,6 +1464,9 @@ int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
 	vifi_t iif;
 	char buf[1000];
 
+	if (!c_oil)
+		return 0;
+
 	iif = pim_upstream_get_mroute_iif(c_oil, name);
 	if (*oil_incoming_vif(c_oil) == iif) {
 		/* no change */
