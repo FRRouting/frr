@@ -8814,11 +8814,11 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	/* Aggregate address increment. */
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
 
-	/* route_node_get lock */
-	bgp_dest_unlock_node(dest);
-
 	/* Process change. */
 	bgp_process(bgp, dest, new, afi, safi);
+
+	/* route_node_get lock */
+	bgp_dest_unlock_node(dest);
 
 	if (SAFI_UNICAST == safi &&
 	    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
@@ -17688,7 +17688,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t
 	if (use_json) {
 		if (type == bgp_show_adj_route_advertised || type == bgp_show_adj_route_received) {
 			if (header1) {
-				int version = table ? table->version : 0;
+				int version = table->version;
 
 				vty_out(vty, "\"bgpTableVersion\":%d", version);
 				vty_out(vty, ",\"bgpLocalRouterId\":\"%pI4\"", &bgp->router_id);
