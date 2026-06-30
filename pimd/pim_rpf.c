@@ -212,7 +212,8 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 		up->rpf.source_nexthop.mrib_route_metric =
 			router->infinite_assert_metric.route_metric;
 		up->rpf.rpf_addr = PIMADDR_ANY;
-		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+		if (up->channel_oil)
+			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 }
 
