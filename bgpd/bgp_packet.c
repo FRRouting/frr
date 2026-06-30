@@ -1542,13 +1542,18 @@ void bgp_capability_send(struct peer_connection *connection, afi_t afi, safi_t s
 				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_FQDN:
-		/* No hostname configured - nothing to advertise. An empty
-		 * hostname would be rejected by the peer as a malformed FQDN
-		 * capability, so skip sending it (mirrors the OPEN path).
+		/* No hostname configured. If we never advertised one there is
+		 * nothing to do. If we advertised one before (e.g. the hostname
+		 * was later removed with `no hostname`), withdraw it so the peer
+		 * drops the stale value instead of sending an empty FQDN that
+		 * would be rejected as malformed.
 		 */
 		if (!hostname) {
-			stream_free(s);
-			return;
+			if (!CHECK_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV)) {
+				stream_free(s);
+				return;
+			}
+			action = CAPABILITY_ACTION_UNSET;
 		}
 
 		stream_putc(s, action);
@@ -1556,22 +1561,30 @@ void bgp_capability_send(struct peer_connection *connection, afi_t afi, safi_t s
 		cap_len = stream_get_endp(s);
 		stream_putc(s, 0); /* Capability Length */
 
-		len = strlen(hostname);
-		if (len > BGP_MAX_HOSTNAME)
-			len = BGP_MAX_HOSTNAME;
-
-		stream_putc(s, len);
-		stream_put(s, hostname, len);
-
-		if (domainname) {
-			len = strlen(domainname);
+		if (action == CAPABILITY_ACTION_SET) {
+			len = strlen(hostname);
 			if (len > BGP_MAX_HOSTNAME)
 				len = BGP_MAX_HOSTNAME;
 
 			stream_putc(s, len);
-			stream_put(s, domainname, len);
-		} else
+			stream_put(s, hostname, len);
+
+			if (domainname) {
+				len = strlen(domainname);
+				if (len > BGP_MAX_HOSTNAME)
+					len = BGP_MAX_HOSTNAME;
+
+				stream_putc(s, len);
+				stream_put(s, domainname, len);
+			} else
+				stream_putc(s, 0);
+		} else {
+			/* CAPABILITY_CODE_MIN_FQDN_LEN is 2 bytes, so just to make
+			 * sure we don't miss that at the receiving end...
+			 */
 			stream_putc(s, 0);
+			stream_putc(s, 0);
+		}
 
 		len = stream_get_endp(s) - cap_len - 1;
 		stream_putc_at(s, cap_len, len);
