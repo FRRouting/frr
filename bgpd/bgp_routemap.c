@@ -3843,7 +3843,11 @@ static void *route_set_aggregator_as_compile(const char *arg)
 		return NULL;
 	}
 
-	aggregator->as = strtoul(as, NULL, 10);
+	if (!asn_str2asn(as, &aggregator->as)) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, aggregator);
+		return NULL;
+	}
+
 	ret = inet_aton(address, &aggregator->address);
 	if (ret == 0) {
 		XFREE(MTYPE_ROUTE_MAP_COMPILED, aggregator);
