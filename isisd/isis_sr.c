@@ -83,11 +83,18 @@ struct isis_sr_block *isis_sr_find_srgb(struct lspdb_head *lspdb, const uint8_t 
 	struct isis_lsp *lsp;
 
 	lsp = isis_root_system_lsp(lspdb, sysid);
-	if (!lsp)
+	if (!lsp) {
+		sr_debug("%s: LSP not found for node %pSY", __func__, sysid);
 		return NULL;
-
-	if (!lsp->tlvs->router_cap || lsp->tlvs->router_cap->srgb.range_size == 0)
+	}
+	if (!lsp->tlvs->router_cap || lsp->tlvs->router_cap->srgb.range_size == 0) {
+		if (lsp->tlvs->router_cap)
+			sr_debug("%s: Router capability found with SRGB range size of 0 for node %pSY",
+				 __func__, sysid);
+		else
+			sr_debug("%s: No Router capability found for node %pSY", __func__, sysid);
 		return NULL;
+	}
 
 	return &lsp->tlvs->router_cap->srgb;
 }
@@ -169,16 +176,21 @@ mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family, struct is
 
 	/* Check that SID index falls inside the SRGB */
 	nh_srgb = isis_sr_find_srgb(lspdb, nh_sysid);
-	if (!nh_srgb)
+	if (!nh_srgb) {
+		zlog_warn("%s(): no SRGB received for %pSY", __func__, nh_sysid);
 		return MPLS_INVALID_LABEL;
+	}
 
 	/*
 	 * Check if the nexthop can handle SR-MPLS encapsulated IPv4 or
 	 * IPv6 packets.
 	 */
 	if ((family == AF_INET && !IS_SR_IPV4(nh_srgb)) ||
-	    (family == AF_INET6 && !IS_SR_IPV6(nh_srgb)))
+	    (family == AF_INET6 && !IS_SR_IPV6(nh_srgb))) {
+		zlog_warn("%s(): SRGB received for %pSY, but IPv%d disabled", __func__, nh_sysid,
+			  family == AF_INET ? 4 : 6);
 		return MPLS_INVALID_LABEL;
+	}
 
 	if (psid->value >= nh_srgb->range_size) {
 		flog_warn(EC_ISIS_SID_OVERFLOW, "%s: SID index %u falls outside remote SRGB range",
