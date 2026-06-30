@@ -170,6 +170,8 @@ enum node_type {
 			  connections.*/
 	BGP_FLOWSPECV4_NODE,	/* BGP IPv4 FLOWSPEC Address-Family */
 	BGP_FLOWSPECV6_NODE,	/* BGP IPv6 FLOWSPEC Address-Family */
+	BGP_IPV4U_NODE,		/* BGP IPv4 unreachability address family. */
+	BGP_IPV6U_NODE,		/* BGP IPv6 unreachability address family. */
 	BFD_NODE,		 /* BFD protocol mode. */
 	BFD_PEER_NODE,		 /* BFD peer configuration mode. */
 	BFD_PROFILE_NODE,	 /* BFD profile configuration mode. */

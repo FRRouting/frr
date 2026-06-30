@@ -905,7 +905,7 @@ int bgp_nlri_parse_ls(struct peer *peer, struct attr *attr, struct bgp_nlri *pac
 			dest->ls_nlri = ls_entry;
 
 			bgp_update(peer, &p, 0, attr, packet->afi, packet->safi, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, NULL, NULL, 0, 0, NULL);
+				   BGP_ROUTE_NORMAL, NULL, NULL, 0, 0, NULL, NULL);
 
 			bgp_dest_unlock_node(dest);
 		} else

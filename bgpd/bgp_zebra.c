@@ -4997,6 +4997,19 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 		return BGP_GR_SUCCESS;
 	}
 
+	/*
+	 * SAFI_UNREACH has no forwarding state (purely control-plane UI-RIB).
+	 * No need to communicate route sync status to zebra.
+	 */
+	if (safi == SAFI_UNREACH) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: %s afi: %u safi: UNREACH Command %s ignore (no FIB)",
+				   __func__, bgp->name_pretty, afi,
+				   zserv_gr_client_cap_string(type));
+
+		return BGP_GR_SUCCESS;
+	}
+
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: %s afi: %u safi: %u Command %s", __func__,
 			   bgp->name_pretty, afi, safi,

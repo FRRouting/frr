@@ -2870,9 +2870,16 @@ static void bgp_peer_process_gr_cap_clear_stale(struct peer *peer)
 			 * safi). However, if the peer didn't adv
 			 * the F-bit, any previous (stale) routes
 			 * should be flushed.
+			 *
+			 * Exception: SAFI_UNREACH has no forwarding state,
+			 * so F-bit has no defined semantics. Per RFC draft,
+			 * stale entries must be retained until EOR or
+			 * Restart Time expiry, regardless of F-bit.
 			 */
 			if (peer->nsf[afi][safi] &&
-			    !CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV))
+			    !CHECK_FLAG(peer->af_cap[afi][safi],
+					PEER_CAP_RESTART_AF_PRESERVE_RCV) &&
+			    safi != SAFI_UNREACH)
 				bgp_clear_stale_route(peer, afi, safi);
 
 			peer->nsf[afi][safi] = 1;

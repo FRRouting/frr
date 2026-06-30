@@ -576,6 +576,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Check that BGP-LS peer is sending valid packets per RFC 9552. May indicate interoperability issue or malformed data.",
 	},
 	{
+		.code = EC_BGP_UNREACH_PARSE_FAILURE,
+		.title = "SAFI_UNREACH NLRI parse failure",
+		.description = "Failed to parse an Unreachability Information SAFI (SAFI 81) NLRI received from a peer. The NLRI may have been truncated, contained malformed TLVs, or violated the wire format described in draft-tantsura-idr-unreachability-safi.",
+		.suggestion = "Verify the sending peer implements draft-tantsura-idr-unreachability-safi correctly. Note that error logs for this EC are rate-limited to prevent log flooding from malicious or misbehaving peers.",
+	},
+	{
 		.code = END_FERR,
 	}
 };
