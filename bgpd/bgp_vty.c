@@ -17438,10 +17438,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 								"recieved"); /* misspelled for compatibility */
 						}
 					}
-					json_object_object_add(
-						json_cap,
-						"extendedNexthopFamililesByPeer",
-						json_nxt);
+					json_object_object_add(json_cap,
+							       "extendedNexthopFamiliesByPeer",
+							       json_nxt);
 				}
 			}
 
