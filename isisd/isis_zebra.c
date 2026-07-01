@@ -1341,8 +1341,8 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		/* Free the SRv6 locator chunks */
 		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node,
 				       nnode, chunk)) {
-			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&chunk->prefix)) {
+			if (prefix_contains((struct prefix *)&loc.prefix,
+					    (struct prefix *)&chunk->prefix)) {
 				listnode_delete(
 					area->srv6db.srv6_locator_chunks,
 					chunk);
@@ -1511,8 +1511,8 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefix.prefix = sid_addr;
 
-			if (!prefix_match((struct prefix *)&locator->prefix,
-					  (struct prefix *)&tmp_prefix)) {
+			if (!prefix_contains((struct prefix *)&locator->prefix,
+					     (struct prefix *)&tmp_prefix)) {
 				sr_debug("%s : ignoring SRv6 SID notify: locator (area %s) does not match",
 					 __func__, area->area_tag);
 				continue;

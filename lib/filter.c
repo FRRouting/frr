@@ -153,16 +153,12 @@ static int filter_match_zebra(struct filter *mfilter, const struct prefix *p)
 
 	filter = &mfilter->u.zfilter;
 
-	if (filter->prefix.family == p->family) {
-		if (filter->exact) {
-			if (filter->prefix.prefixlen == p->prefixlen)
-				return prefix_match(&filter->prefix, p);
-			else
-				return 0;
-		} else
-			return prefix_match(&filter->prefix, p);
-	} else
+	if (filter->exact) {
+		if (filter->prefix.prefixlen == p->prefixlen)
+			return prefix_contains(&filter->prefix, p);
 		return 0;
+	}
+	return prefix_contains(&filter->prefix, p);
 }
 
 static int filter_match_cisco_sadr4(struct filter *mfilter, const struct prefix *src,
@@ -250,16 +246,12 @@ static int filter_match_zebra_sadr(struct filter *mfilter, const struct prefix *
 
 	filter = &mfilter->u.zfilter;
 
-	if (filter->prefix.family == p->family) {
-		if (filter->exact) {
-			if (filter->prefix.prefixlen == p->prefixlen)
-				return prefix_match(&filter->prefix, p);
-			else
-				return 0;
-		} else
-			return prefix_match(&filter->prefix, p);
-	} else
+	if (filter->exact) {
+		if (filter->prefix.prefixlen == p->prefixlen)
+			return prefix_contains(&filter->prefix, p);
 		return 0;
+	}
+	return prefix_contains(&filter->prefix, p);
 }
 
 /* Allocate new access list structure. */

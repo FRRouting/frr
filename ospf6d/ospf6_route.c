@@ -1040,8 +1040,7 @@ struct ospf6_route *ospf6_route_match_head(struct prefix *prefix,
 
 	/* Walk down tree. */
 	node = table->table->top;
-	while (node && node->p.prefixlen < prefix->prefixlen
-	       && prefix_match(&node->p, prefix))
+	while (node && node->p.prefixlen < prefix->prefixlen && prefix_contains(&node->p, prefix))
 		node = node->link[prefix_bit(&prefix->u.prefix,
 					     node->p.prefixlen)];
 
@@ -1053,7 +1052,7 @@ struct ospf6_route *ospf6_route_match_head(struct prefix *prefix,
 		return NULL;
 	route_unlock_node(node);
 
-	if (!prefix_match(prefix, &node->p))
+	if (!prefix_contains(prefix, &node->p))
 		return NULL;
 
 	route = node->info;
@@ -1067,7 +1066,7 @@ struct ospf6_route *ospf6_route_match_next(struct prefix *prefix,
 	struct ospf6_route *next;
 
 	next = ospf6_route_next(route);
-	if (next && !prefix_match(prefix, &next->prefix)) {
+	if (next && !prefix_contains(prefix, &next->prefix)) {
 		ospf6_route_unlock(next);
 		next = NULL;
 	}

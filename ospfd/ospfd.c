@@ -2060,8 +2060,7 @@ void ospf_nbr_nbma_if_update(struct ospf *ospf, struct ospf_interface *oi)
 				p.prefix = nbr_nbma->addr;
 				p.prefixlen = IPV4_MAX_BITLEN;
 
-				if (prefix_match(oi->address,
-						 (struct prefix *)&p))
+				if (prefix_contains(oi->address, (struct prefix *)&p))
 					ospf_nbr_nbma_add(nbr_nbma, oi);
 			}
 }
@@ -2110,7 +2109,7 @@ int ospf_nbr_nbma_set(struct ospf *ospf, struct in_addr nbr_addr)
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
 		if (OSPF_IF_NON_BROADCAST(oi))
-			if (prefix_match(oi->address, (struct prefix *)&p)) {
+			if (prefix_contains(oi->address, (struct prefix *)&p)) {
 				ospf_nbr_nbma_add(nbr_nbma, oi);
 				break;
 			}

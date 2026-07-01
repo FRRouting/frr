@@ -3717,7 +3717,7 @@ int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
 			continue;
 
 		if (sockunion2hostprefix(&peer->connection->su, &prefix2) &&
-		    prefix_match(prefix, &prefix2)) {
+		    prefix_contains(prefix, &prefix2)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"Deleting dynamic neighbor %s group %s upon delete of listen range %pFX",
@@ -5200,7 +5200,7 @@ peer_group_lookup_dynamic_neighbor_range(struct peer_group *group,
 	if (group->listen_range[afi])
 		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode,
 				       range))
-			if (prefix_match(range, prefix))
+			if (prefix_contains(range, prefix))
 				return range;
 
 	return NULL;
