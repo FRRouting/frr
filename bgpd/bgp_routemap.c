@@ -3569,10 +3569,12 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		bgp_attr_set_ipv6_ecommunity(path->attr, new_ecom);
 	} else {
 		struct ecommunity_val lb_eval;
+		bool disable_ieee_floating;
 
+		disable_ieee_floating = CHECK_FLAG(
+			peer->flags, PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
 		encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval,
-				  CHECK_FLAG(peer->flags,
-					     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+				  disable_ieee_floating);
 
 		old_ecom = bgp_attr_get_ecommunity(path->attr);
 		if (old_ecom) {
@@ -3586,6 +3588,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 			ecom_lb.val = (uint8_t *)lb_eval.val;
 			new_ecom = ecommunity_dup(&ecom_lb);
 		}
+		new_ecom->disable_ieee_floating = disable_ieee_floating;
 
 		bgp_attr_set_ecommunity(path->attr, new_ecom);
 	}
