@@ -400,12 +400,10 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				PIM_IGMP_LMQT_MSEC(pim_ifp->gm_specific_query_max_response_time_dsec,
 						   if_gm_last_member_query_count(pim_ifp));
 
-			ohpi_msec =
-				PIM_IGMP_OHPI_DSEC(
-					igmp->querier_robustness_variable,
-					igmp->querier_query_interval,
-					pim_ifp->gm_query_max_response_time_dsec) *
-				100;
+			ohpi_msec = PIM_IGMP_OHPI_DSEC(igmp->querier_robustness_variable,
+						       igmp->querier_query_interval,
+						       pim_ifp->gm_query_max_response_time_dsec) *
+				    100L;
 
 			qri_msec = pim_ifp->gm_query_max_response_time_dsec * 100L;
 			lmqc = if_gm_last_member_query_count(pim_ifp);
