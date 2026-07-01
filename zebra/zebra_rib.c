@@ -50,6 +50,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
 #include "zebra/zebra_tc.h"
@@ -5341,6 +5342,8 @@ static void rib_process_dplane_results(struct event *event)
 
 			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_NEIGH_READ:
+				zebra_evpn_dplane_read_complete(ctx);
+				break;
 			case DPLANE_OP_TC_QDISC_READ:
 				break;
 			} /* Dispatch by op code */

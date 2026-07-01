@@ -76,6 +76,8 @@ struct zebra_mac {
 #define ZEBRA_MAC_LOCAL_INACTIVE 0x800
 /* The MAC entry was created because of advertise_svi_mac */
 #define ZEBRA_MAC_SVI 0x1000
+/* DAD freeze delete is waiting for a dplane kernel read completion. */
+#define ZEBRA_MAC_DAD_READ_PENDING 0x2000
 
 #define ZEBRA_MAC_ALL_LOCAL_FLAGS (ZEBRA_MAC_LOCAL | ZEBRA_MAC_LOCAL_INACTIVE)
 #define ZEBRA_MAC_ALL_PEER_FLAGS                                               \
@@ -124,6 +126,7 @@ struct zebra_mac {
 
 	/* Duplicate mac detection */
 	uint32_t dad_count;
+	uint32_t dad_read_seq;
 
 	struct event *dad_mac_auto_recovery_timer;
 
@@ -214,6 +217,12 @@ static inline bool zebra_evpn_mac_in_use(struct zebra_mac *mac)
 {
 	return !list_isempty(mac->neigh_list)
 	       || CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI);
+}
+
+static inline void zebra_evpn_mac_clear_dad_read_pending(struct zebra_mac *mac)
+{
+	UNSET_FLAG(mac->flags, ZEBRA_MAC_DAD_READ_PENDING);
+	mac->dad_read_seq = 0;
 }
 
 struct hash *zebra_mac_db_create(const char *desc);

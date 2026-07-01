@@ -1607,20 +1607,104 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t
 		if (zvrf->dad_freeze
 		    && CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)
 		    && CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+			enum zebra_dplane_result dplane_res;
+			uint32_t read_flags = 0;
+			uint32_t read_seq;
+
+			if (!ipa_len)
+				read_flags |= ZEBRA_DPLANE_READ_FLAG_EVPN_SYNC_DEL;
+
+			read_seq = zebra_router_get_next_sequence();
+			SET_FLAG(mac->flags, ZEBRA_MAC_DAD_READ_PENDING);
+			mac->dad_read_seq = read_seq;
+
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"%s: MAC %pEA (flags 0x%x) is remote and duplicate, read kernel for local entry",
-					__func__, macaddr, mac->flags);
-			dplane_fdb_read_specific_mac(zns, zif->brslave_info.br_if, macaddr,
-						     vnip->access_vlan);
+				zlog_debug("%s: MAC %pEA (flags 0x%x) is remote and duplicate, queue dplane read for local entry seq %u",
+					   __func__, macaddr, mac->flags, read_seq);
+
+			dplane_res = dplane_fdb_read_specific_mac(zns, zif->brslave_info.br_if,
+								  macaddr, vnip->access_vlan, vni,
+								  ZEBRA_DPLANE_READ_EVPN_DAD_MAC,
+								  read_seq, read_flags);
+			if (dplane_res == ZEBRA_DPLANE_REQUEST_QUEUED)
+				return;
+
+			zebra_evpn_mac_clear_dad_read_pending(mac);
 		}
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
 			if (!ipa_len)
 				zebra_evpn_sync_mac_del(mac);
-		} else if (CHECK_FLAG(mac->flags, ZEBRA_NEIGH_REMOTE)) {
+		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			zebra_evpn_rem_mac_del(zevpn, mac);
 		}
+	}
+}
+
+static void zebra_evpn_dad_mac_read_process(struct zebra_evpn *zevpn, struct zebra_mac *mac,
+					    uint32_t read_seq, uint32_t read_flags)
+{
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_DAD_READ_PENDING) || mac->dad_read_seq != read_seq)
+		return;
+
+	zebra_evpn_mac_clear_dad_read_pending(mac);
+
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
+		if (read_flags & ZEBRA_DPLANE_READ_FLAG_EVPN_SYNC_DEL) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s: MAC %pEA VNI %u became local after dplane read seq %u, suppress remote delete and sync-del",
+					   __func__, &mac->macaddr, zevpn->vni, read_seq);
+			zebra_evpn_sync_mac_del(mac);
+		} else {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s: MAC %pEA VNI %u became local after dplane read seq %u, suppress remote delete",
+					   __func__, &mac->macaddr, zevpn->vni, read_seq);
+		}
+		return;
+	}
+
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: MAC %pEA VNI %u stayed remote after dplane read seq %u, delete remote entry",
+				   __func__, &mac->macaddr, zevpn->vni, read_seq);
+		zebra_evpn_rem_mac_del(zevpn, mac);
+	}
+}
+
+static void zebra_evpn_dad_mac_read_complete(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_evpn *zevpn;
+	struct zebra_mac *mac;
+	const struct ethaddr *macaddr;
+	uint32_t read_seq;
+	vni_t vni;
+
+	vni = dplane_ctx_get_macfdb_read_vni(ctx);
+	read_seq = dplane_ctx_get_read_seq(ctx);
+	macaddr = dplane_ctx_get_macfdb_read_mac(ctx);
+
+	zevpn = zebra_evpn_lookup(vni);
+	if (!zevpn)
+		return;
+
+	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (!mac)
+		return;
+
+	zebra_evpn_dad_mac_read_process(zevpn, mac, read_seq, dplane_ctx_get_read_flags(ctx));
+}
+
+void zebra_evpn_dplane_read_complete(struct zebra_dplane_ctx *ctx)
+{
+	switch (dplane_ctx_get_read_reason(ctx)) {
+	case ZEBRA_DPLANE_READ_EVPN_DAD_MAC:
+		zebra_evpn_dad_mac_read_complete(ctx);
+		break;
+	case ZEBRA_DPLANE_READ_EVPN_DAD_NEIGH:
+		zebra_evpn_dad_neigh_read_complete(ctx);
+		break;
+	case ZEBRA_DPLANE_READ_NONE:
+		break;
 	}
 }
 
