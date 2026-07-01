@@ -1127,6 +1127,13 @@ static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 	frrtrace(3, frr_zebra, netlink_route_change_read_unicast, h, ns_id,
 		 startup);
 
+	/* Check if kernel routes should be ignored */
+	if (zrouter.ignore_kernel_routes) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: ignoring kernel route event (minimal kernel mode enabled)", __func__);
+		return 0;
+	}
+
 	rtm = NLMSG_DATA(h);
 
 	if (startup && h->nlmsg_type != RTM_NEWROUTE)
@@ -4787,6 +4794,13 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 {
 	int len;
 	struct ndmsg *ndm;
+
+	/* Check if kernel neighbor events should be ignored */
+	if (zrouter.ignore_kernel_neigh) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: ignoring kernel neighbor event (minimal kernel mode enabled)", __func__);
+		return 0;
+	}
 
 	if (!(h->nlmsg_type == RTM_NEWNEIGH || h->nlmsg_type == RTM_DELNEIGH
 	      || h->nlmsg_type == RTM_GETNEIGH))

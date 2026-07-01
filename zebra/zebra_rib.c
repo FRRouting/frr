@@ -4626,6 +4626,13 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, unsigned short in
 	struct nexthop nexthop = {};
 	struct nexthop_group ng = {};
 
+	/* Check if NHT should be disabled for kernel routes */
+	if (type == ZEBRA_ROUTE_KERNEL && zrouter.ignore_kernel_nht) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("%s: ignoring NHT for kernel route (minimal kernel mode enabled)", __func__);
+		return 0;
+	}
+
 	/* Allocate new route_entry structure. */
 	re = zebra_rib_route_entry_new(vrf_id, type, instance, flags, nhe_id,
 				       table_id, metric, mtu, distance, tag);

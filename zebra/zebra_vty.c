@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <regex.h>
 
 #include "memory.h"
 #include "if.h"
@@ -3817,6 +3818,9 @@ DEFPY (zebra_nexthop_group_keep,
 	return CMD_SUCCESS;
 }
 
+/* Forward declaration for minimal kernel mode config write function */
+static int zebra_ignore_netlink_config_write(struct vty *vty);
+
 static int config_write_protocol(struct vty *vty)
 {
 	if (zrouter.allow_delete)
@@ -3860,6 +3864,9 @@ static int config_write_protocol(struct vty *vty)
 	/* Include netlink info */
 	netlink_config_write_helper(vty);
 #endif /* HAVE_NETLINK */
+
+	/* Write minimal kernel mode configuration */
+	zebra_ignore_netlink_config_write(vty);
 
 	return 1;
 }
@@ -4266,6 +4273,226 @@ DEFUN(zebra_on_rib_process_script, zebra_on_rib_process_script_cmd,
 
 #endif /* HAVE_SCRIPTING */
 
+/* Minimal kernel mode filtering commands */
+/* Interface regex configuration */
+DEFUN(zebra_ignore_netlink_if_regex,
+      zebra_ignore_netlink_if_regex_cmd,
+      "zebra ignore-netlink interface-regex WORD",
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Interface name regex pattern\n"
+      "Regular expression pattern\n")
+{
+	int idx = 0;
+	const char *pattern = argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+
+	if (!pattern) {
+		vty_out(vty, "%% Pattern required\n");
+		return CMD_WARNING;
+	}
+
+	/* Check if we've reached the maximum */
+	if (zrouter.ignore_regex_count >= ZEBRA_MAX_IGNORE_REGEX) {
+		vty_out(vty, "%% Maximum number of regex patterns (%d) reached\n",
+			ZEBRA_MAX_IGNORE_REGEX);
+		return CMD_WARNING;
+	}
+
+	/* Check for duplicates */
+	for (uint32_t i = 0; i < zrouter.ignore_regex_count; i++) {
+		if (strcmp(zrouter.ignore_regex[i].pattern, pattern) == 0) {
+			vty_out(vty, "%% Pattern already exists\n");
+			return CMD_WARNING;
+		}
+	}
+
+	/* Compile the regex */
+	struct zebra_if_ignore_regex *entry = &zrouter.ignore_regex[zrouter.ignore_regex_count];
+
+	strlcpy(entry->pattern, pattern, sizeof(entry->pattern));
+
+	int ret = regcomp(&entry->regex, pattern, REG_EXTENDED | REG_NOSUB);
+
+	if (ret != 0) {
+		char errbuf[256];
+
+		regerror(ret, &entry->regex, errbuf, sizeof(errbuf));
+		vty_out(vty, "%% Invalid regex pattern: %s\n", errbuf);
+		return CMD_WARNING;
+	}
+
+	entry->compiled = true;
+	zrouter.ignore_regex_count++;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_zebra_ignore_netlink_if_regex,
+      no_zebra_ignore_netlink_if_regex_cmd,
+      "no zebra ignore-netlink interface-regex WORD",
+      NO_STR
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Interface name regex pattern\n"
+      "Regular expression pattern\n")
+{
+	int idx = 0;
+	const char *pattern = argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+
+	if (!pattern) {
+		vty_out(vty, "%% Pattern required\n");
+		return CMD_WARNING;
+	}
+
+	/* Find and remove the pattern */
+	for (uint32_t i = 0; i < zrouter.ignore_regex_count; i++) {
+		if (strcmp(zrouter.ignore_regex[i].pattern, pattern) == 0) {
+			/* Free the compiled regex */
+			if (zrouter.ignore_regex[i].compiled)
+				regfree(&zrouter.ignore_regex[i].regex);
+
+			/* Shift remaining entries */
+			for (uint32_t j = i; j < zrouter.ignore_regex_count - 1; j++)
+				zrouter.ignore_regex[j] = zrouter.ignore_regex[j + 1];
+
+			zrouter.ignore_regex_count--;
+			return CMD_SUCCESS;
+		}
+	}
+
+	vty_out(vty, "%% Pattern not found\n");
+	return CMD_WARNING;
+}
+
+/* Boolean flag commands */
+DEFUN(zebra_ignore_netlink_kernel_routes,
+      zebra_ignore_netlink_kernel_routes_cmd,
+      "zebra ignore-netlink kernel-routes",
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Ignore kernel route events\n")
+{
+	zrouter.ignore_kernel_routes = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_zebra_ignore_netlink_kernel_routes,
+      no_zebra_ignore_netlink_kernel_routes_cmd,
+      "no zebra ignore-netlink kernel-routes",
+      NO_STR
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Ignore kernel route events\n")
+{
+	zrouter.ignore_kernel_routes = false;
+	return CMD_SUCCESS;
+}
+
+DEFUN(zebra_ignore_netlink_kernel_address,
+      zebra_ignore_netlink_kernel_address_cmd,
+      "zebra ignore-netlink kernel-address",
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Ignore kernel address events\n")
+{
+	zrouter.ignore_kernel_addr = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_zebra_ignore_netlink_kernel_address,
+      no_zebra_ignore_netlink_kernel_address_cmd,
+      "no zebra ignore-netlink kernel-address",
+      NO_STR
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Ignore kernel address events\n")
+{
+	zrouter.ignore_kernel_addr = false;
+	return CMD_SUCCESS;
+}
+
+DEFUN(zebra_ignore_netlink_kernel_neighbor,
+      zebra_ignore_netlink_kernel_neighbor_cmd,
+      "zebra ignore-netlink kernel-neighbor",
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Ignore kernel neighbor events\n")
+{
+	zrouter.ignore_kernel_neigh = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_zebra_ignore_netlink_kernel_neighbor,
+      no_zebra_ignore_netlink_kernel_neighbor_cmd,
+      "no zebra ignore-netlink kernel-neighbor",
+      NO_STR
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Ignore kernel neighbor events\n")
+{
+	zrouter.ignore_kernel_neigh = false;
+	return CMD_SUCCESS;
+}
+
+DEFUN(zebra_ignore_netlink_kernel_nht,
+      zebra_ignore_netlink_kernel_nht_cmd,
+      "zebra ignore-netlink kernel-nht",
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Ignore kernel route nexthop tracking\n")
+{
+	zrouter.ignore_kernel_nht = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_zebra_ignore_netlink_kernel_nht,
+      no_zebra_ignore_netlink_kernel_nht_cmd,
+      "no zebra ignore-netlink kernel-nht",
+      NO_STR
+      "Zebra configuration\n"
+      "Ignore netlink events\n"
+      "Ignore kernel route nexthop tracking\n")
+{
+	zrouter.ignore_kernel_nht = false;
+	return CMD_SUCCESS;
+}
+
+/* Configuration write function */
+static int zebra_ignore_netlink_config_write(struct vty *vty)
+{
+	int written = 0;
+
+	/* Write regex patterns */
+	for (uint32_t i = 0; i < zrouter.ignore_regex_count; i++) {
+		vty_out(vty, "zebra ignore-netlink interface-regex %s\n",
+			zrouter.ignore_regex[i].pattern);
+		written++;
+	}
+
+	/* Write boolean flags */
+	if (zrouter.ignore_kernel_routes) {
+		vty_out(vty, "zebra ignore-netlink kernel-routes\n");
+		written++;
+	}
+
+	if (zrouter.ignore_kernel_addr) {
+		vty_out(vty, "zebra ignore-netlink kernel-address\n");
+		written++;
+	}
+
+	if (zrouter.ignore_kernel_neigh) {
+		vty_out(vty, "zebra ignore-netlink kernel-neighbor\n");
+		written++;
+	}
+
+	if (zrouter.ignore_kernel_nht) {
+		vty_out(vty, "zebra ignore-netlink kernel-nht\n");
+		written++;
+	}
+
+	return written;
+}
+
 /* IP node for static routes. */
 static int zebra_ip_config(struct vty *vty);
 static struct cmd_node ip_node = {
@@ -4374,6 +4601,18 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
 	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
+
+	/* Install minimal kernel mode commands */
+	install_element(CONFIG_NODE, &zebra_ignore_netlink_if_regex_cmd);
+	install_element(CONFIG_NODE, &no_zebra_ignore_netlink_if_regex_cmd);
+	install_element(CONFIG_NODE, &zebra_ignore_netlink_kernel_routes_cmd);
+	install_element(CONFIG_NODE, &no_zebra_ignore_netlink_kernel_routes_cmd);
+	install_element(CONFIG_NODE, &zebra_ignore_netlink_kernel_address_cmd);
+	install_element(CONFIG_NODE, &no_zebra_ignore_netlink_kernel_address_cmd);
+	install_element(CONFIG_NODE, &zebra_ignore_netlink_kernel_neighbor_cmd);
+	install_element(CONFIG_NODE, &no_zebra_ignore_netlink_kernel_neighbor_cmd);
+	install_element(CONFIG_NODE, &zebra_ignore_netlink_kernel_nht_cmd);
+	install_element(CONFIG_NODE, &no_zebra_ignore_netlink_kernel_nht_cmd);
 
 #ifdef HAVE_NETLINK
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);
