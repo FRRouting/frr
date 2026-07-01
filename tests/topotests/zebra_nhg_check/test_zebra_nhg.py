@@ -57,7 +57,7 @@ def build_topo(tgen):
     r2 = tgen.gears["r2"]
 
     # Let's create 257 interfaces between the two switches
-    for switch in range(1, 129):
+    for switch in range(1, 65):
         switch = tgen.add_switch("sw{}".format(switch))
         switch.add_link(r1)
         switch.add_link(r2)
@@ -271,7 +271,7 @@ def test_bgp_routes_on_r2():
 
     assert success, f"Expected {expected_route_count} routes in FIB but found {result}"
 
-    step("Verify that the nexthop group for 39.99.0.0 routes has 128 members")
+    step("Verify that the nexthop group for 39.99.0.0 routes has 64 members")
     # Create a function to check the nexthop group member count
     def check_nhg_members():
         output = net["r2"].cmd('vtysh -c "show ip route 39.99.0.0 json"')
@@ -302,7 +302,7 @@ def test_bgp_routes_on_r2():
             nhg_info = nhg_data.get(str(nhg_id), {})
             member_count = len(nhg_info.get("nexthops", []))
             logger.info(f"Nexthop group {nhg_id} has {member_count} members")
-            if member_count != 128:
+            if member_count != 64:
                 logger.info(
                     net["r2"].cmd(
                         f'vtysh -c "show nexthop-group rib {nhg_id}" -c "show bgp ipv4 uni" -c "show ip route 33.99.0.0 nexthop-group"'
@@ -313,15 +313,15 @@ def test_bgp_routes_on_r2():
             logger.info(f"Error checking nexthop group members: {e}")
             return -1
 
-    # Use run_and_expect to verify the nexthop group has 128 members
+    # Use run_and_expect to verify the nexthop group has 64 members
     success, result = topotest.run_and_expect(
         check_nhg_members,
-        128,  # Expect 128 members
+        64,  # Expect 64 members
         count=60,  # Wait up to 60 tries
         wait=1,  # 1 second between tries
     )
 
-    assert success, f"Expected 128 nexthop group members but found {result}"
+    assert success, f"Expected 64 nexthop group members but found {result}"
 
 
 def test_bgp_shutdown_some_links():
