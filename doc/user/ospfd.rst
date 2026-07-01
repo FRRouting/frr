@@ -757,6 +757,44 @@ Interfaces
    Recommendation 2 from RFC 4222 to improve adjacency robustness under
    congestion.
 
+.. clicmd:: ip ospf adjacency-pacing static (1-65535)
+
+   Limit the number of adjacencies that may be formed concurrently on this
+   interface. The configured value is the maximum number of neighbors that may
+   be in ``ExStart``, ``Exchange``, or ``Loading`` at the same time.
+
+   When the limit is reached, additional neighbors that need adjacency
+   formation are queued until one of the active exchanges completes or
+   regresses.
+
+.. clicmd:: ip ospf adjacency-pacing dynamic
+
+   Enable adaptive adjacency pacing on this interface. In dynamic mode, OSPF
+   starts conservatively and adjusts the allowed number of concurrent
+   adjacencies according to retransmission pressure on the interface.
+
+   The current limit starts at 1 and is adjusted using the total number of
+   unacknowledged LSAs (``U``) across all neighbors on the interface. This
+   command is independent of whether explicit thresholds have been configured:
+   if :clicmd:`ip ospf adjacency-pacing dynamic thresholds` has not been issued,
+   the built-in defaults of high-water 100 and low-water 2 are used.
+
+.. clicmd:: ip ospf adjacency-pacing dynamic thresholds (1-1000) (1-1000)
+
+   Configure the dynamic pacing high-water and low-water thresholds used by the
+   adaptive algorithm. The second value must be lower than the first.
+
+   If the total number of unacknowledged LSAs rises above the high-water mark,
+   OSPF reduces the current adjacency limit. If it falls below the low-water
+   mark, OSPF increases the limit. Values between the two thresholds leave the
+   current limit unchanged.
+
+   The default thresholds are high-water 100 and low-water 2.
+
+.. clicmd:: no ip ospf adjacency-pacing
+
+   Disable adjacency pacing on this interface and clear the active pacing mode.
+
 .. clicmd:: ip ospf dscp (all|low-control) (0-63)
 
    Set the DSCP value applied to OSPF control packets. The ``all`` option

@@ -293,6 +293,37 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	oi->ospf = ospf;
 
+	/* RFC4222/R5 : Per-interface adjacency pacing */
+	oi->adj_pacing.mode = OSPF_ADJ_PACING_NONE;
+	oi->adj_pacing.static_limit = 0;
+	oi->adj_pacing.in_progress = 0;
+	ospf_adj_pacing_queue_init(&oi->adj_pacing);
+	oi->adj_pacing.dynamic_limit = OSPF_ADJ_DYN_LIMIT_INITIAL;
+	oi->adj_pacing.last_adjust_ms = 0;
+	oi->adj_pacing.high_water = OSPF_ADJ_DYN_HIGH_WATER;
+	oi->adj_pacing.low_water = OSPF_ADJ_DYN_LOW_WATER;
+	oi->adj_pacing.t_dyn_adjust = NULL;
+
+	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
+		zlog_debug("R5: %s adj_pacing initialized: mode=NONE dynamic_limit=%u H=%u L=%u",
+			   ifp->name, oi->adj_pacing.dynamic_limit, oi->adj_pacing.high_water,
+			   oi->adj_pacing.low_water);
+
+	/* Attach params and apply adjacency pacing config if present */
+	oi->params = ospf_lookup_if_params(ifp, oi->address->u.prefix4);
+	if (!oi->params)
+		oi->params = IF_DEF_PARAMS(ifp);
+	if (OSPF_IF_PARAM_CONFIGURED(oi->params, adj_pacing_mode)) {
+		oi->adj_pacing.mode = oi->params->adj_pacing_mode;
+		oi->adj_pacing.static_limit = oi->params->adj_pacing_static_limit;
+	}
+	/* Apply configured dynamic thresholds if present */
+	if (OSPF_IF_PARAM_CONFIGURED(oi->params, adj_pacing_high_water))
+		oi->adj_pacing.high_water = oi->params->adj_pacing_high_water;
+	if (OSPF_IF_PARAM_CONFIGURED(oi->params, adj_pacing_low_water))
+		oi->adj_pacing.low_water = oi->params->adj_pacing_low_water;
+
+
 	QOBJ_REG(oi, ospf_interface);
 
 	/* If first oi, check per-intf write socket */
@@ -360,6 +391,14 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 
 	oi->crypt_seqnum = 0;
 
+
+	/* Stop any pending LSU drain event before we free its data */
+	event_cancel(&oi->t_ls_upd_event);
+
+	/*RFC4222/R5 Changes*/
+	/* Cancel any pending dynamic adjustment timer */
+	event_cancel(&oi->adj_pacing.t_dyn_adjust);
+
 	/* Empty link state update queue */
 	ospf_ls_upd_queue_empty(oi);
 
@@ -407,11 +446,14 @@ void ospf_if_free(struct ospf_interface *oi)
 	listnode_delete(oi->ospf->oiflist, oi);
 	listnode_delete(oi->area->oiflist, oi);
 
-	event_cancel_event(master, oi);
+	/* RFC4222/R5 : Per-interface adjacency pacing */
+	ospf_adj_pacing_queue_fini(&oi->adj_pacing);
 
 	/* If last oi, close per-interface socket */
 	if (ospf_oi_count(ifp) == 0)
 		ospf_ifp_sock_close(ifp);
+
+	event_cancel_event(master, oi);
 
 	memset(oi, 0, sizeof(*oi));
 	XFREE(MTYPE_OSPF_IF, oi);
@@ -605,6 +647,7 @@ static void ospf_del_if_params(struct interface *ifp,
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
 }
 
+
 void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 {
 	struct ospf_if_params *oip;
@@ -684,6 +727,7 @@ struct ospf_if_params *ospf_get_if_params(struct interface *ifp,
 	return rn->info;
 }
 
+
 void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
 {
 	struct route_node *rn;
@@ -693,11 +737,26 @@ void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
 		if ((oi = rn->info) == NULL)
 			continue;
 
-		if (IPV4_ADDR_SAME(&oi->address->u.prefix4, &addr))
+		if (IPV4_ADDR_SAME(&oi->address->u.prefix4, &addr)) {
 			oi->params = ospf_lookup_if_params(
 				ifp, oi->address->u.prefix4);
+		}
 	}
 }
+void ospf_if_update_params_all(struct interface *ifp)
+{
+	struct route_node *rn;
+	struct ospf_interface *oi;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+		if (!oi)
+			continue;
+
+		oi->params = ospf_lookup_if_params(ifp, oi->address->u.prefix4);
+	}
+}
+
 
 int ospf_if_new_hook(struct interface *ifp)
 {
@@ -724,6 +783,8 @@ int ospf_if_new_hook(struct interface *ifp)
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), priority);
 	IF_DEF_PARAMS(ifp)->priority = OSPF_ROUTER_PRIORITY_DEFAULT;
+	IF_DEF_PARAMS(ifp)->adj_pacing_mode = OSPF_ADJ_PACING_NONE;
+	IF_DEF_PARAMS(ifp)->adj_pacing_static_limit = 0;
 
 	IF_DEF_PARAMS(ifp)->mtu_ignore = OSPF_MTU_IGNORE_DEFAULT;
 
