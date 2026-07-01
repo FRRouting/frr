@@ -1,0 +1,19 @@
+{
+    "2600:1000::101/128": [
+        {
+            "prefix": "2600:1000::101/128",
+            "protocol": "bgp",
+            "installed": true,
+            "nexthops": [
+                {
+                    "fib": true,
+                    "active": true,
+                    "seg6": {
+                        "segs": "2001:db8:3:1::"
+                    },
+                    "srv6EncapBehavior": "H.Encaps"
+                }
+            ]
+        }
+    ]
+}
