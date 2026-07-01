@@ -1520,6 +1520,182 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 
 		(*valid_nh_count)++;
 	}
+
+	/* Process backup paths - iterate through non-selected paths.
+	 * Bail early when the feature is off so the body that follows can
+	 * stay un-nested (avoids checkpatch "too many leading tabs" inside
+	 * the SRv6 transposition path).
+	 */
+	if (!CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH) || !info->net)
+		return;
+
+	struct bgp_path_info *backup_path;
+	unsigned int backup_nh_count = 0;
+	struct bgp_dest *dest = info->net;
+
+	/* Iterate through all paths to find potential backups */
+	for (backup_path = bgp_dest_get_bgp_path_info(dest);
+	     backup_path && backup_nh_count < NEXTHOP_MAX_BACKUPS;
+	     backup_path = backup_path->next) {
+		uint64_t nh_weight;
+		bool is_evpn;
+		bool is_parent_evpn;
+		struct zapi_nexthop *backup_api_nh;
+		struct bgp_path_info backup_local_info;
+		struct bgp_path_info *backup_mpinfo_cp = &backup_local_info;
+
+		/* Only process paths marked as backup */
+		if (!CHECK_FLAG(backup_path->flags, BGP_PATH_BACKUP))
+			continue;
+
+		*backup_mpinfo_cp = *backup_path;
+		nh_weight = 0;
+
+		/* Get nexthop address-family */
+		if (p->family == AF_INET && !BGP_ATTR_MP_NEXTHOP_LEN_IP6(backup_mpinfo_cp->attr))
+			nh_family = AF_INET;
+		else if (p->family == AF_INET6 ||
+			 (p->family == AF_INET &&
+			  BGP_ATTR_MP_NEXTHOP_LEN_IP6(backup_mpinfo_cp->attr)))
+			nh_family = AF_INET6;
+		else
+			continue;
+
+		/* If processing for weighted ECMP, determine the next hop's
+		 * weight. Based on user setting, we may skip the next hop
+		 * in some situations.
+		 */
+		if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_LINK_BW) {
+			if (!bgp_zebra_use_nhop_weighted(bgp, backup_path, &nh_weight))
+				continue;
+		} else if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_NNHN_COUNT) {
+			if (bgp_attr_exists(backup_path->attr, BGP_ATTR_NHC))
+				nh_weight = bgp_nhc_nnhn_count(bgp_attr_get_nhc(backup_path->attr));
+		}
+
+		backup_api_nh = &api->backup_nexthops[backup_nh_count];
+
+		zapi_nexthop_init(backup_api_nh);
+
+		backup_api_nh->srte_color = bgp_path_info_get_srte_color(info);
+
+		BGP_ORIGINAL_UPDATE(bgp_orig, backup_path, bgp);
+
+		is_parent_evpn = is_route_parent_evpn(backup_path);
+
+		if (nh_family == AF_INET) {
+			nh_updated =
+				update_ipv4nh_for_route_install(nh_othervrf, bgp_orig,
+								&backup_mpinfo_cp->attr->nexthop,
+								backup_mpinfo_cp->attr,
+								is_parent_evpn, backup_api_nh);
+		} else {
+			ifindex_t ifindex = IFINDEX_INTERNAL;
+			struct in6_addr *nexthop;
+
+			nexthop = bgp_path_info_to_ipv6_nexthop(backup_mpinfo_cp, &ifindex);
+
+			if (!nexthop)
+				nh_updated =
+					update_ipv4nh_for_route_install(nh_othervrf, bgp_orig,
+									&backup_mpinfo_cp->attr
+										 ->nexthop,
+									backup_mpinfo_cp->attr,
+									is_parent_evpn,
+									backup_api_nh);
+			else
+				nh_updated = update_ipv6nh_for_route_install(nh_othervrf, bgp_orig,
+									     nexthop, ifindex,
+									     backup_path, info,
+									     is_parent_evpn,
+									     backup_api_nh);
+		}
+
+		is_evpn = !!CHECK_FLAG(backup_api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN);
+		bre = bgp_attr_get_evpn_overlay(backup_path->attr);
+
+		/* Did we get proper nexthop info to update zebra? */
+		if (!nh_updated)
+			continue;
+
+		num_labels = BGP_PATH_INFO_NUM_LABELS(backup_path);
+		labels = num_labels ? backup_path->extra->labels->label : NULL;
+
+		if (num_labels && (is_evpn || bgp_is_valid_label(&labels[0]))) {
+			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
+
+			if (is_evpn) {
+				nh_label = *bgp_evpn_path_info_labels_get_l3vni(labels, num_labels);
+				nh_label_type = ZEBRA_LSP_EVPN;
+			} else {
+				mpls_lse_decode(labels[0], &nh_label, &ttl, &exp, &bos);
+			}
+
+			SET_FLAG(backup_api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
+			backup_api_nh->label_num = 1;
+			backup_api_nh->label_type = nh_label_type;
+			backup_api_nh->labels[0] = nh_label;
+		}
+
+		if (is_evpn && !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP))
+			memcpy(&backup_api_nh->rmac, &(backup_path->attr->rmac),
+			       sizeof(struct ethaddr));
+
+		backup_api_nh->weight = nh_weight;
+
+		struct bgp_attr_srv6_vpn *backup_vpn_tmp = bgp_attr_get_srv6_vpn(backup_path->attr);
+		struct bgp_attr_srv6_l3service *backup_srv6_l3service =
+			bgp_attr_get_srv6_l3service(backup_path->attr);
+
+		if (((backup_srv6_l3service && !sid_zero_ipv6(&backup_srv6_l3service->sid)) ||
+		     (backup_vpn_tmp && !sid_zero_ipv6(&backup_vpn_tmp->sid))) &&
+		    !is_evpn && bgp_is_valid_label(&labels[0])) {
+			struct in6_addr *sid_tmp = backup_srv6_l3service
+							   ? (&backup_srv6_l3service->sid)
+							   : (&backup_vpn_tmp->sid);
+
+			memcpy(&backup_api_nh->seg6_segs[0], sid_tmp,
+			       sizeof(backup_api_nh->seg6_segs[0]));
+			backup_api_nh->srv6_encap_behavior = bgp_orig->srv6_encap_behavior;
+
+			if (backup_srv6_l3service && backup_srv6_l3service->transposition_len != 0) {
+				mpls_lse_decode(labels[0], &nh_label, &ttl, &exp, &bos);
+
+				if (nh_label < MPLS_LABEL_UNRESERVED_MIN) {
+					if (bgp_debug_zebra(&api->prefix))
+						zlog_debug(
+							"skip invalid SRv6 backup routes: transposition scheme is used, but label is too small");
+					continue;
+				}
+
+				transpose_sid(&backup_api_nh->seg6_segs[0], nh_label,
+					      backup_srv6_l3service->transposition_offset,
+					      backup_srv6_l3service->transposition_len,
+					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
+			}
+
+			backup_api_nh->seg_num = 1;
+			SET_FLAG(backup_api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+		}
+
+		backup_nh_count++;
+	}
+
+	/* Set backup nexthop information if we found any valid backups.
+	 * PIC-Local uses the route-level "all-primaries-down" semantic:
+	 * the backup_nexthops[] array stands alone as a route-scope pool;
+	 * primaries are not annotated with HAS_BACKUP / backup_idx[].
+	 */
+	if (backup_nh_count > 0) {
+		api->backup_nexthop_num = backup_nh_count;
+		SET_FLAG(api->message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+		SET_FLAG(api->message, ZAPI_MESSAGE_BACKUP_ALL_PRIMARIES_DOWN);
+
+		if (bgp_debug_zebra(&api->prefix)) {
+			zlog_debug("%s: %pFX: added %d backup nexthops (all-primaries-down)",
+				   __func__, p, backup_nh_count);
+		}
+	}
 }
 
 static void bgp_debug_zebra_nh(struct zapi_route *api)

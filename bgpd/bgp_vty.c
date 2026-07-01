@@ -5576,6 +5576,38 @@ DEFUN(no_bgp_fast_convergence, no_bgp_fast_convergence_cmd,
 	return CMD_SUCCESS;
 }
 
+/* When enabled, BGP installs backup paths so the FIB can fast-fail over
+ * without waiting for BGP convergence. With "ecmp" the backup set may
+ * contain multiple equal-cost paths bounded by maximum-paths.
+ */
+DEFPY(af_install_backup_path, af_install_backup_path_cmd,
+      "[no] install backup-path [ecmp$ecmp]",
+      NO_STR
+      "Install backup path for fast failover\n"
+      "Backup path\n"
+      "Allow multiple equal-cost backup paths\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	if (no) {
+		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH);
+		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP);
+		bgp_schedule_backup_path_flush(bgp, afi, safi);
+	} else {
+		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH);
+		if (ecmp)
+			SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP);
+		else
+			UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP);
+	}
+
+	bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (bgp_ipv6_auto_ra,
        bgp_ipv6_auto_ra_cmd,
        "[no] bgp ipv6-auto-ra",
@@ -22110,6 +22142,15 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	/* BGP flag dampening. */
 	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
 		bgp_config_write_damp(vty, bgp, afi, safi);
+
+	/* BGP backup path. */
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH)) {
+		if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP))
+			vty_out(vty, "  install backup-path ecmp\n");
+		else
+			vty_out(vty, "  install backup-path\n");
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(bgp->group, node, group))
 		if (group->conf->damp[afi][safi])
 			bgp_config_write_peer_damp(vty, group->conf, afi, safi);
@@ -23447,6 +23488,10 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
 	install_element(BGP_IPV6L_NODE, &no_bgp_maxpaths_ibgp_cmd);
+
+	/* "install backup-path" commands. */
+	install_element(BGP_IPV4_NODE, &af_install_backup_path_cmd);
+	install_element(BGP_IPV6_NODE, &af_install_backup_path_cmd);
 
 	/* "timers bgp" commands. */
 	install_element(BGP_NODE, &bgp_timers_cmd);

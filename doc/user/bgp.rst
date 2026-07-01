@@ -6364,3 +6364,42 @@ is applied to all the neighbors configured in that bgp instance.
    address-family ipv6 unicast
     neighbor fd00::2 activate
    exit-address-family
+
+.. _bgp-backup-path:
+
+BGP Install Backup Path
+=======================
+
+This feature enables sub-second failover for BGP routes. When enabled, BGP programs
+routes with primary paths and backup paths, allowing the forwarding plane to
+perform immediate failover when a primary path fails, without waiting for BGP
+convergence.
+
+.. clicmd:: install backup-path
+
+   Enable backup path for fast failover. When this command is configured, BGP will
+   identify backup paths and send them to the forwarding plane.
+   During normal operation, traffic flows only through primary paths.
+   When a primary path fails, the forwarding plane can immediately switch to the
+   backup path while BGP recalculates the best path in the background.
+
+   This configuration is available per address-family and must be configured
+   within the address-family submode.
+
+.. code-block:: frr
+
+   router bgp 65000
+    neighbor 10.0.0.1 remote-as 65001
+    neighbor 10.0.0.2 remote-as 65001
+    neighbor 10.0.0.3 remote-as 65002
+   !
+   address-family ipv4 unicast
+    install backup-path
+    maximum-paths 4
+    neighbor 10.0.0.1 activate
+    neighbor 10.0.0.2 activate
+    neighbor 10.0.0.3 activate
+   exit-address-family
+
+In this example, if paths via 10.0.0.1 and 10.0.0.2 are selected as primary
+(multipath), the path via 10.0.0.3 may be selected as a backup path.

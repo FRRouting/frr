@@ -61,10 +61,10 @@ enum bgp_show_adj_route_type {
 };
 
 
-#define BGP_SHOW_SCODE_HEADER                                                  \
-	"Status codes:  s suppressed, d damped, "                              \
-	"h history, u unsorted, * valid, > best, = multipath,\n"               \
-	"               i internal, r RIB-failure, S Stale, R Removed\n"
+#define BGP_SHOW_SCODE_HEADER                                                                     \
+	"Status codes:  s suppressed, d damped, "                                                 \
+	"h history, u unsorted, * valid, > best, = multipath,\n"                                  \
+	"               i internal, r RIB-failure, S Stale, R Removed, B Backup\n"
 #define BGP_SHOW_OCODE_HEADER                                                  \
 	"Origin codes:  i - IGP, e - EGP, ? - incomplete\n"
 #define BGP_SHOW_NCODE_HEADER "Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self\n"
@@ -374,6 +374,13 @@ struct bgp_path_info {
  */
 #define BGP_PATH_MULTIPATH_NEW (1 << 20)
 #define BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP (1 << 21)
+/*
+ * BGP_PATH_BACKUP is set on a path that is selected as a backup path.
+ * The backup path is chosen from paths that are not part of the multipath
+ * set.
+ */
+#define BGP_PATH_BACKUP	    (1 << 22)
+#define BGP_PATH_BACKUP_CHG (1 << 23)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -823,6 +830,7 @@ DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, b
 extern void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 			   struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_process_queue_init(struct bgp *bgp);
+extern void bgp_schedule_backup_path_flush(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_route_init(void);
 extern void bgp_route_finish(void);
 extern void bgp_cleanup_routes(struct bgp *bgp);
@@ -980,15 +988,13 @@ extern struct bgp_path_info *info_make(int type, int sub_type,
 				       struct bgp_dest *dest);
 
 extern void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info *path,
-			  int display, struct attr *attr, safi_t safi, json_object *json_paths,
-			  bool wide, char *rd_str);
-extern void route_vty_out_tag(struct vty *vty, const struct prefix *p,
-			      struct bgp_path_info *path, int display,
-			      safi_t safi, json_object *json);
-extern void route_vty_out_tmp(struct vty *vty, struct bgp *bgp,
-			      struct bgp_dest *dest, const struct prefix *p,
-			      struct attr *attr, safi_t safi, bool use_json,
-			      json_object *json_ar, bool wide);
+			  int display, struct attr *attr, afi_t afi, safi_t safi,
+			  json_object *json_paths, bool wide, char *rd_str);
+extern void route_vty_out_tag(struct vty *vty, const struct prefix *p, struct bgp_path_info *path,
+			      int display, afi_t afi, safi_t safi, json_object *json);
+extern void route_vty_out_tmp(struct vty *vty, struct bgp *bgp, struct bgp_dest *dest,
+			      const struct prefix *p, struct attr *attr, afi_t afi, safi_t safi,
+			      bool use_json, json_object *json_ar, bool wide);
 extern void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 				  struct bgp_path_info *path, int display,
 				  json_object *json);
