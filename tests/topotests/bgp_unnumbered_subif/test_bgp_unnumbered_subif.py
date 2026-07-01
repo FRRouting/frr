@@ -126,7 +126,7 @@ def _bgp_summary_check(router, expected_peers, expected_state="Established"):
         if peer_intf not in peers:
             return "Peer {} not found in BGP summary".format(peer_intf)
         state = peers[peer_intf].get("state", "")
-        if expected_state == "Established" and state != "Established":
+        if state != expected_state:
             return "Peer {} state is '{}', expected '{}'".format(
                 peer_intf, state, expected_state
             )
