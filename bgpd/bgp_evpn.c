@@ -3087,6 +3087,9 @@ static int bgp_evpn_mcast_grp_change(struct bgp *bgp, struct bgpevpn *vpn,
      - Updates originator_ip
  * Note: Route re-advertisement happens elsewhere after other processing
  * other changes.
+ *
+ * bgp_evpn: BGP instance whose tip_hash is updated (L3VNI: bgp_get_evpn();
+ * L2VNI: the VNI's bgp from bgp_evpn_local_vni_add).
  */
 static void handle_tunnel_ip_change(struct bgp *bgp_vrf, struct bgp *bgp_evpn,
 				    struct bgpevpn *vpn,
@@ -7722,7 +7725,6 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
-	struct bgp *bgp_evpn = bgp_get_evpn();
 
 	/* Lookup VNI. If present and no change, exit. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -7816,8 +7818,8 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	/* Mark as "live" */
 	SET_FLAG(vpn->flags, VNI_FLAG_LIVE);
 
-	/* Tunnel is newly active.
-	 * Add TIP to tip_hash of the EVPN underlay instance (bgp_get_evpn()).
+	/* Tunnel is newly active: TIP lives on this bgp (same instance as
+	 * bgp_tip_add); filter EVPN RIB on that instance, not bm->bgp_evpn.
 	 */
 	if (bgp_tip_add(bgp, originator_ip) && bgp_evpn)
 		/* The originator_ip was not already present in the
@@ -7825,7 +7827,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		 * need to go back and filter routes matching the new
 		 * martian next-hop.
 		 */
-		bgp_filter_evpn_routes_upon_martian_change(bgp_evpn,
+		bgp_filter_evpn_routes_upon_martian_change(bgp,
 							   BGP_MARTIAN_TUN_IP);
 
 	/*
