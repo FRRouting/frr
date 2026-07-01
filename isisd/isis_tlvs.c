@@ -6273,6 +6273,8 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_object *json,
 			int indent)
 {
+	format_tlv_dynamic_hostname(tlvs->hostname, buf, json, indent);
+
 	format_tlv_protocols_supported(&tlvs->protocols_supported, buf, json, indent);
 
 	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth, buf, json, indent);
@@ -6300,7 +6302,6 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 
 	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_LSP_ENTRY, &tlvs->lsp_entries, buf, json, indent);
 
-	format_tlv_dynamic_hostname(tlvs->hostname, buf, json, indent);
 	format_tlv_te_router_id(tlvs->te_router_id, buf, json, indent);
 	format_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6, buf, json, indent);
 	if (json)
