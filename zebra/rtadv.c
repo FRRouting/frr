@@ -1433,9 +1433,6 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 				     &zif->icmpv6_join_timer);
 	}
 
-	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
-		rtadv_event(zvrf, RTADV_START, 0);
-
 	rtadv_send_packet(zvrf->rtadv.sock, zif->ifp, RA_ENABLE);
 	wheel_add_item(zrouter.ra_wheel, zif->ifp);
 }
@@ -2016,7 +2013,6 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 		break;
 	case RTADV_STOP:
 		event_cancel(&rtadv->ra_timer);
-		event_cancel(&rtadv->ra_read);
 		break;
 	case RTADV_TIMER:
 		event_add_timer(zrouter.master, rtadv_timer, zvrf, val,
@@ -2121,6 +2117,9 @@ void rtadv_vrf_init(struct zebra_vrf *zvrf)
 		return;
 
 	zvrf->rtadv.sock = rtadv_make_socket(zvrf->zns->ns_id);
+
+	if (zvrf->rtadv.sock >= 0)
+		rtadv_event(zvrf, RTADV_START, 0);
 }
 
 void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
@@ -2129,6 +2128,7 @@ void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
 		return;
 
 	rtadv_event(zvrf, RTADV_STOP, 0);
+	event_cancel(&zvrf->rtadv.ra_read);
 	if (zvrf->rtadv.sock >= 0) {
 		close(zvrf->rtadv.sock);
 		zvrf->rtadv.sock = -1;
