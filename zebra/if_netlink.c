@@ -329,7 +329,6 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	if (!gre_info)
 		return 0;
 
-	req->ifi.ifi_change = 0xFFFFFFFF;
 	link_idx = dplane_ctx_gre_get_link_ifindex(ctx);
 	mtu = dplane_ctx_gre_get_mtu(ctx);
 
@@ -369,13 +368,19 @@ netlink_gre_set_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 			 sizeof(struct in6_addr)))
 		return 0;
 
-	if (gre_info->ikey &&
-	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_IKEY,
-			   gre_info->ikey))
+	if (!nl_attr_put16(&req->n, buflen, IFLA_GRE_IFLAGS, gre_info->iflags))
 		return 0;
-	if (gre_info->okey &&
-	    !nl_attr_put32(&req->n, buflen, IFLA_GRE_OKEY,
-			   gre_info->okey))
+	if (!nl_attr_put16(&req->n, buflen, IFLA_GRE_OFLAGS, gre_info->oflags))
+		return 0;
+
+	if (!nl_attr_put32(&req->n, buflen, IFLA_GRE_IKEY, gre_info->ikey))
+		return 0;
+	if (!nl_attr_put32(&req->n, buflen, IFLA_GRE_OKEY, gre_info->okey))
+		return 0;
+
+	if (!nl_attr_put8(&req->n, buflen, IFLA_GRE_TTL, gre_info->ttl))
+		return 0;
+	if (!nl_attr_put8(&req->n, buflen, IFLA_GRE_TOS, gre_info->tos))
 		return 0;
 
 	if (gre_info->encap_flags &&
@@ -478,8 +483,16 @@ static int netlink_extract_gre_info(struct rtattr *link_data, struct zebra_l2inf
 		gre_info->ikey = *(uint32_t *)RTA_DATA(attr[IFLA_GRE_IKEY]);
 	if (attr[IFLA_GRE_OKEY])
 		gre_info->okey = *(uint32_t *)RTA_DATA(attr[IFLA_GRE_OKEY]);
+	if (attr[IFLA_GRE_IFLAGS])
+		gre_info->iflags = *(uint16_t *)RTA_DATA(attr[IFLA_GRE_IFLAGS]);
+	if (attr[IFLA_GRE_OFLAGS])
+		gre_info->oflags = *(uint16_t *)RTA_DATA(attr[IFLA_GRE_OFLAGS]);
 	if (attr[IFLA_GRE_ENCAP_FLAGS])
 		gre_info->encap_flags = *(uint16_t *)RTA_DATA(attr[IFLA_GRE_ENCAP_FLAGS]);
+	if (attr[IFLA_GRE_TTL])
+		gre_info->ttl = *(uint8_t *)RTA_DATA(attr[IFLA_GRE_TTL]);
+	if (attr[IFLA_GRE_TOS])
+		gre_info->tos = *(uint8_t *)RTA_DATA(attr[IFLA_GRE_TOS]);
 	return 0;
 }
 
