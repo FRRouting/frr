@@ -344,6 +344,53 @@ def test_ip_pe2_learn():
     # tgen.mininet_cli()
 
 
+def test_evpn_route_rd_brief_json():
+    """
+    Test show bgp l2vpn evpn route rd <rd> json brief output format
+    (brief is only valid with json).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe2 = tgen.gears["PE2"]
+    rd, _oip, _soo = get_bgp_l2vni_fields(pe2, 101)
+
+    step(f"Verify 'show bgp l2vpn evpn route rd {rd} json brief' structure")
+    out = pe2.vtysh_cmd(f"show bgp l2vpn evpn route rd {rd} json brief", isjson=True)
+    assert rd in out, f"json brief missing RD key '{rd}'"
+    rd_obj = out[rd]
+    assert "numPrefixes" in rd_obj
+    assert isinstance(rd_obj["numPrefixes"], int)
+    assert "prefixes" in rd_obj and isinstance(
+        rd_obj["prefixes"], dict
+    ), f"RD '{rd}' missing 'prefixes' sub-object"
+    assert rd_obj["numPrefixes"] == len(rd_obj["prefixes"]), (
+        f"RD '{rd}' numPrefixes ({rd_obj['numPrefixes']}) does not match "
+        f"len(prefixes) ({len(rd_obj['prefixes'])})"
+    )
+    for key, val in rd_obj["prefixes"].items():
+        assert isinstance(val, dict), f"prefix '{key}' should be object"
+        assert "pathCount" in val, f"prefix '{key}' missing pathCount"
+        assert "multiPathCount" in val, f"prefix '{key}' missing multiPathCount"
+        assert "flags" in val and isinstance(val["flags"], dict)
+        assert "bestPathExists" in val["flags"]
+
+    step(f"Verify 'show bgp l2vpn evpn route rd {rd} type 3 json brief'")
+    out_type3 = pe2.vtysh_cmd(
+        f"show bgp l2vpn evpn route rd {rd} type 3 json brief",
+        isjson=True,
+    )
+    assert rd in out_type3
+    rd_obj3 = out_type3[rd]
+    assert "numPrefixes" in rd_obj3
+    assert "prefixes" in rd_obj3 and isinstance(rd_obj3["prefixes"], dict)
+    assert rd_obj3["numPrefixes"] == len(rd_obj3["prefixes"])
+    for key, val in rd_obj3["prefixes"].items():
+        assert "pathCount" in val and "multiPathCount" in val and "flags" in val
+        assert "bestPathExists" in val["flags"]
+
+
 def is_installed(json_paths, soo):
     """
     check if any path has been selected as best.
