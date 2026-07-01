@@ -1230,8 +1230,12 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 			return NULL;
 	}
 
-	/* Get BFD session storage with its defaults. */
-	bfd = bfd_session_new(BFD_MODE_TYPE_BFD);
+	/*
+	 * honour the BFD session mode supplied via the ZAPI
+	 * register payload. Defaulting to classical BFD when the caller
+	 * left the field at zero preserves pre-existing behaviour.
+	 */
+	bfd = bfd_session_new(bpc->bfd_mode ? bpc->bfd_mode : BFD_MODE_TYPE_BFD);
 
 	/*
 	 * Store interface/VRF name in case we need to delay session
@@ -1283,6 +1287,34 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	}
 
 	bfd->key.mhop = bpc->bpc_mhop;
+
+	/*
+	 * propagate the rest of the SBFD/SRv6 tail onto the new
+	 * session *before* `bs_registrate` runs. `bs_registrate` invokes
+	 * `bfd_session_enable`, which depends on `bs->bfd_mode`,
+	 * `bs->segnum`, `bs->out_sip6`, `bs->seg_list[]` and on the key
+	 * hash containing `bfd_name` — so a post-`bs_registrate` copy
+	 * would race past the SBFD socket-open and hash-insertion paths.
+	 *
+	 * Gating is on the wire-format flag bits in `bpc->bfd_regext_flags`,
+	 * so a caller explicitly setting `remote_discr == 0` (legitimate for
+	 * `sbfd_init` before the responder is learned) is honoured rather
+	 * than skipped.
+	 */
+	if (bpc->bfd_regext_flags & BFD_REGEXT_FLAG_BFD_NAME) {
+		strlcpy(bfd->bfd_name, bpc->bfd_name, sizeof(bfd->bfd_name));
+		strlcpy(bfd->key.bfdname, bpc->bfd_name, sizeof(bfd->key.bfdname));
+	}
+	if (bpc->bfd_regext_flags & BFD_REGEXT_FLAG_SRV6_SOURCE)
+		memcpy(&bfd->out_sip6, &bpc->srv6_source_ipv6, sizeof(bfd->out_sip6));
+	if (bpc->bfd_regext_flags & BFD_REGEXT_FLAG_SEG_LIST) {
+		bfd->segnum = bpc->seg_num;
+		if (bpc->seg_num > 0)
+			memcpy(bfd->seg_list, bpc->seg_list,
+			       sizeof(struct in6_addr) * bpc->seg_num);
+	}
+	if (bpc->bfd_regext_flags & BFD_REGEXT_FLAG_REMOTE_DISCR)
+		bfd->discrs.remote_discr = bpc->remote_discr;
 
 	if (bs_registrate(bfd) == NULL)
 		return NULL;
