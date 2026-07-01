@@ -2834,8 +2834,10 @@ static bool zebra_nhg_set_valid_if_active(struct nhg_hash_entry *nhe)
 
 		if (!ifp || !if_is_operative(ifp))
 			valid = false;
-		else
+		else {
+			UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_LINKDOWN);
 			valid = true;
+		}
 	}
 
 done:
