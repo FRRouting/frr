@@ -146,17 +146,6 @@ def _check_route_present(router, prefix):
     return "Prefix {} not found in BGP table".format(prefix)
 
 
-def _check_route_absent(router, prefix):
-    """
-    Return None if the prefix is NOT present in the IPv4 unicast BGP table.
-    """
-    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
-    routes = output.get("routes", {})
-    if prefix not in routes:
-        return None
-    return "Prefix {} still present in BGP table".format(prefix)
-
-
 # ---------------------------------------------------------------------------
 # Test cases
 # ---------------------------------------------------------------------------
@@ -181,7 +170,7 @@ def test_bgp_unnumbered_subif_sessions():
         )
 
     test_func = functools.partial(_check_r1)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R1 BGP sessions did not converge: {}".format(result)
 
     step("Verify BGP sessions on R2 subinterfaces reach Established")
@@ -192,7 +181,7 @@ def test_bgp_unnumbered_subif_sessions():
         )
 
     test_func = functools.partial(_check_r2)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R2 BGP sessions did not converge: {}".format(result)
 
 
@@ -212,7 +201,7 @@ def test_bgp_unnumbered_subif_routes():
         return _check_route_present(tgen.gears["r1"], "10.10.10.2/32")
 
     test_func = functools.partial(_check_r1_route)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R1 did not learn 10.10.10.2/32: {}".format(result)
 
     step("Verify R2 learns R1 loopback prefix 10.10.10.1/32")
@@ -221,7 +210,7 @@ def test_bgp_unnumbered_subif_routes():
         return _check_route_present(tgen.gears["r2"], "10.10.10.1/32")
 
     test_func = functools.partial(_check_r2_route)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R2 did not learn 10.10.10.1/32: {}".format(result)
 
 
@@ -266,7 +255,7 @@ def test_bgp_unnumbered_subif_link_down():
         return None
 
     test_func = functools.partial(_check_r1_partial)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "Session state mismatch after shutdown: {}".format(result)
 
     step("Verify R2 peer on r2-eth0.100 also goes down")
@@ -281,7 +270,7 @@ def test_bgp_unnumbered_subif_link_down():
         return None
 
     test_func = functools.partial(_check_r2_100_down)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R2 peer r2-eth0.100 did not go down: {}".format(result)
 
 
@@ -312,7 +301,7 @@ def test_bgp_unnumbered_subif_link_restore():
         )
 
     test_func = functools.partial(_check_r1)
-    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
     assert result is None, "R1 BGP sessions did not recover: {}".format(result)
 
     step("Verify routes are re-learned after session restoration")
@@ -321,7 +310,7 @@ def test_bgp_unnumbered_subif_link_restore():
         return _check_route_present(tgen.gears["r1"], "10.10.10.2/32")
 
     test_func = functools.partial(_check_r1_route)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R1 did not re-learn 10.10.10.2/32: {}".format(result)
 
 
@@ -364,7 +353,7 @@ def test_bgp_unnumbered_subif_peer_removal():
         return None
 
     test_func = functools.partial(_check_r1_single)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Peer removal issue: {}".format(result)
 
     step("Verify R1 routes are still present (10.10.10.2/32 via remaining peer)")
@@ -373,7 +362,7 @@ def test_bgp_unnumbered_subif_peer_removal():
         return _check_route_present(tgen.gears["r1"], "10.10.10.2/32")
 
     test_func = functools.partial(_check_r1_route)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "R1 lost routes after peer removal: {}".format(result)
 
 
