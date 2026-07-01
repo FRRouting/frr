@@ -3990,9 +3990,7 @@ static enum bgp_attr_parse_ret bgp_attr_aigp(struct bgp_attr_parser_args *args)
 	 * sessions between members of the same BGP Confederation,
 	 * the default value of AIGP_SESSION SHOULD be "enabled".
 	 */
-	if (peer->sort == BGP_PEER_EBGP &&
-	    (!CHECK_FLAG(peer->flags, PEER_FLAG_AIGP) ||
-	     peer->sub_sort != BGP_PEER_EBGP_OAD)) {
+	if (!AIGP_TRANSMIT_ALLOWED(peer)) {
 		zlog_warn(
 			"%pBP received AIGP attribute, but eBGP peer do not support it",
 			peer);
