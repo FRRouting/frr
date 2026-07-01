@@ -1211,6 +1211,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			json_object_boolean_true_add(json, "reInstall");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED))
 			json_object_boolean_true_add(json, "installed");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED_FPM_ONLY))
+			json_object_boolean_true_add(json, "installedFpmOnly");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
 			json_object_boolean_true_add(json, "initialDelay");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED))
@@ -3938,6 +3940,8 @@ DEFUN (show_zebra,
 
 	ttable_add_row(table, "Kernel NHG|%s",
 		       zrouter.zav.supports_nhgs ? "Available" : "Unavailable");
+
+	ttable_add_row(table, "NHG FIB mode|%s", zebra_nhg_fib_enabled ? "On" : "Off");
 
 	ttable_add_row(table, "Allow Non FRR route deletion|%s",
 		       zrouter.allow_delete ? "No" : "Yes");
