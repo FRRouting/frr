@@ -436,6 +436,29 @@ struct ospf_interface *ospf_if_lookup_by_lsa_pos(struct ospf_area *area,
 	return NULL;
 }
 
+/*
+ * Look up the (non virtual-link) interface owning the given ifindex.
+ *
+ * Used to resolve the egress interface for a nexthop whose lsa_pos is not
+ * meaningful in the area being populated, e.g. a virtual-link nexthop whose
+ * position was resolved in the transit area.  Unlike lsa_pos, ifindex is not
+ * area-relative, so this lookup spans the whole instance.
+ */
+struct ospf_interface *ospf_if_lookup_by_ifindex(struct ospf *ospf,
+						 ifindex_t ifindex)
+{
+	struct listnode *node;
+	struct ospf_interface *oi;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+			continue;
+		if (oi->ifp && oi->ifp->ifindex == ifindex)
+			return oi;
+	}
+	return NULL;
+}
+
 struct ospf_interface *ospf_if_lookup_by_local_addr(struct ospf *ospf,
 						    struct interface *ifp,
 						    struct in_addr address)
@@ -1175,6 +1198,7 @@ static int ospf_vl_set_params(struct ospf_area *area,
 	for (ALL_LIST_ELEMENTS_RO(v->parents, node, vp)) {
 		vl_data->nexthop.lsa_pos = vp->nexthop->lsa_pos;
 		vl_data->nexthop.router = vp->nexthop->router;
+		vl_data->nexthop.ifindex = 0;
 
 		/*
 		 * Only deal with interface data when the local
@@ -1183,6 +1207,16 @@ static int ospf_vl_set_params(struct ospf_area *area,
 		if (!area->spf_dry_run) {
 			oi = ospf_if_lookup_by_lsa_pos(
 				area, vl_data->nexthop.lsa_pos);
+
+			/*
+			 * Record the egress interface resolved here, in the
+			 * transit area where lsa_pos is valid.  The backbone
+			 * route calculation inherits this nexthop but its
+			 * lsa_pos is meaningless against the backbone's own
+			 * interfaces, so it relies on this ifindex instead.
+			 */
+			if (oi)
+				vl_data->nexthop.ifindex = oi->ifp->ifindex;
 
 			if (!IPV4_ADDR_SAME(&voi->address->u.prefix4,
 					    &oi->address->u.prefix4))
