@@ -119,6 +119,162 @@ static void parse_test(struct test_segment *t)
 	ecommunity_unintern(&ecom);
 }
 
+static bool keep_non_route_targets(uint8_t *val, uint8_t size, void *arg)
+{
+	(void)size;
+	(void)arg;
+
+	return val[1] != ECOMMUNITY_ROUTE_TARGET;
+}
+
+static void filter_disable_ieee_test(void)
+{
+	const uint64_t expected_bw = 125000000;
+	struct ecommunity *source = ecommunity_new();
+	struct ecommunity *filtered;
+	struct ecommunity_val rt = {};
+	struct ecommunity_val lb = {};
+	uint64_t decoded_bw = 0;
+	bool distinct;
+	bool has_lb;
+	bool mode_preserved;
+
+	printf("filter-disable-ieee: preserve link-bandwidth encoding mode\n");
+	source->disable_ieee_floating = true;
+	encode_route_target_as(65000, 100, &rt, true);
+	encode_lb_extcomm(65000, expected_bw, false, &lb, true);
+	ecommunity_add_val(source, &rt, false, false);
+	ecommunity_add_val(source, &lb, false, false);
+
+	filtered = ecommunity_filter(source, keep_non_route_targets, NULL);
+	distinct = filtered && filtered != source;
+	has_lb = filtered && ecommunity_linkbw_present(filtered, &decoded_bw);
+	mode_preserved = filtered && filtered->disable_ieee_floating;
+	if (distinct && filtered->size == 1 && has_lb && mode_preserved &&
+	    decoded_bw == expected_bw)
+		printf("OK\n\n");
+	else {
+		printf("failed (distinct=%d size=%u mode=%d bandwidth=%" PRIu64 ")\n\n", distinct,
+		       filtered ? filtered->size : 0, mode_preserved, decoded_bw);
+		failed++;
+	}
+
+	if (filtered != source)
+		ecommunity_free(&filtered);
+	ecommunity_free(&source);
+}
+
+static void intern_disable_ieee_test(void)
+{
+	const uint64_t expected_bw = 125000000;
+	struct ecommunity *legacy = ecommunity_new();
+	struct ecommunity *ieee = ecommunity_new();
+	struct ecommunity_val lb = {};
+	uint64_t legacy_bw = 0;
+	uint64_t ieee_bw = 0;
+	bool legacy_has_lb;
+	bool ieee_has_lb;
+
+	printf("intern-disable-ieee: preserve encoding mode identity\n");
+	encode_lb_extcomm(65000, expected_bw, false, &lb, true);
+	legacy->disable_ieee_floating = true;
+	ieee->disable_ieee_floating = false;
+	ecommunity_add_val(legacy, &lb, false, false);
+	ecommunity_add_val(ieee, &lb, false, false);
+
+	legacy = ecommunity_intern(legacy);
+	ieee = ecommunity_intern(ieee);
+	legacy_has_lb = ecommunity_linkbw_present(legacy, &legacy_bw);
+	ieee_has_lb = ecommunity_linkbw_present(ieee, &ieee_bw);
+	if (legacy != ieee && !ecommunity_cmp(legacy, ieee) &&
+	    legacy->disable_ieee_floating && !ieee->disable_ieee_floating &&
+	    legacy_has_lb && ieee_has_lb && legacy_bw == expected_bw &&
+	    ieee_bw != expected_bw) {
+		printf("OK\n\n");
+	} else {
+		printf("failed (distinct=%d legacy-mode=%d ieee-mode=%d)\n\n",
+		       legacy != ieee, legacy->disable_ieee_floating,
+		       ieee->disable_ieee_floating);
+		failed++;
+	}
+
+	ecommunity_unintern(&legacy);
+	ecommunity_unintern(&ieee);
+}
+
+static void dup_disable_ieee_test(void)
+{
+	const uint64_t expected_bw = 125000000;
+	struct ecommunity *source = ecommunity_new();
+	struct ecommunity *duplicate;
+	struct ecommunity_val lb = {};
+	uint64_t decoded_bw = 0;
+	bool has_lb;
+
+	printf("dup-disable-ieee: preserve encoding mode\n");
+	encode_lb_extcomm(65000, expected_bw, false, &lb, true);
+	source->disable_ieee_floating = true;
+	ecommunity_add_val(source, &lb, false, false);
+
+	duplicate = ecommunity_dup(source);
+	has_lb = ecommunity_linkbw_present(duplicate, &decoded_bw);
+	if (duplicate->disable_ieee_floating && has_lb &&
+	    decoded_bw == expected_bw) {
+		printf("OK\n\n");
+	} else {
+		printf("failed (mode=%d)\n\n",
+		       duplicate->disable_ieee_floating);
+		failed++;
+	}
+
+	ecommunity_free(&duplicate);
+	ecommunity_free(&source);
+}
+
+static bool replace_linkbw_mode_case(bool source_mode, bool target_mode)
+{
+	const uint64_t source_bw = 125000000;
+	const uint64_t target_bw = 250000000;
+	struct ecommunity *source = ecommunity_new();
+	struct ecommunity *replacement;
+	struct ecommunity_val lb = {};
+	uint64_t decoded_bw = 0;
+	bool passed;
+
+	encode_lb_extcomm(65000, source_bw, false, &lb, source_mode);
+	source->disable_ieee_floating = source_mode;
+	ecommunity_add_val(source, &lb, false, false);
+
+	replacement = ecommunity_replace_linkbw(65000, source, target_bw,
+						target_mode, false);
+	passed = replacement != source &&
+		 replacement->disable_ieee_floating == target_mode &&
+		 ecommunity_linkbw_present(replacement, &decoded_bw) &&
+		 decoded_bw == target_bw;
+
+	if (replacement != source)
+		ecommunity_free(&replacement);
+	ecommunity_free(&source);
+
+	return passed;
+}
+
+static void replace_linkbw_mode_test(void)
+{
+	bool legacy_to_ieee;
+	bool ieee_to_legacy;
+
+	printf("replace-linkbw-mode: use replacement encoding mode\n");
+	legacy_to_ieee = replace_linkbw_mode_case(true, false);
+	ieee_to_legacy = replace_linkbw_mode_case(false, true);
+	if (legacy_to_ieee && ieee_to_legacy) {
+		printf("OK\n\n");
+	} else {
+		printf("failed (legacy-to-ieee=%d ieee-to-legacy=%d)\n\n",
+		       legacy_to_ieee, ieee_to_legacy);
+		failed++;
+	}
+}
 
 int main(void)
 {
@@ -126,6 +282,10 @@ int main(void)
 	ecommunity_init();
 	while (test_segments[i].name)
 		parse_test(&test_segments[i++]);
+	filter_disable_ieee_test();
+	intern_disable_ieee_test();
+	dup_disable_ieee_test();
+	replace_linkbw_mode_test();
 
 	printf("failures: %d\n", failed);
 	// printf ("aspath count: %ld\n", aspath_count());
