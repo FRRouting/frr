@@ -17,7 +17,7 @@ extern void bgp_ethernetvpn_init(void);
 #define VNI_ALL_HELP_STR "All VNIs\n"
 #define DETAIL_HELP_STR "Print Detailed Output\n"
 #define VTEP_HELP_STR "Remote VTEP\n"
-#define VTEP_IP_HELP_STR "Remote VTEP IPv4 address\n"
+#define VTEP_IP_HELP_STR      "Remote VTEP address\n"
 #define VTEP_IPV6_HELP_STR "Remote VTEP IPv6 address\n"
 
 extern int argv_find_and_parse_oly_idx(struct cmd_token **argv, int argc,
