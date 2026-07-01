@@ -4899,8 +4899,10 @@ The following command is available in ``config`` mode as well as in the
 
 .. clicmd:: bgp input-queue-limit (1-4294967295)
 
-   Set the BGP Input Queue limit for all peers when messaging parsing. Increase
-   this only if you have the memory to handle large queues of messages at once.
+   Set the BGP Input Queue limit for all peers. The limit is checked
+   before reading from the socket; messages from a single read are all
+   processed even if temporarily exceeding the limit. Increase this only
+   if you have the memory to handle large queues of messages at once.
 
 .. clicmd:: bgp output-queue-limit (1-4294967295)
 
