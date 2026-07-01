@@ -6,8 +6,16 @@ Northbound gRPC
 
 To enable gRPC support one needs to add `--enable-grpc` when running
 `configure`. Additionally, when launching each daemon one needs to request
-the gRPC module be loaded and which port to bind to. This can be done by adding
-`-M grpc:<port>` to the daemon's CLI arguments.
+the gRPC module be loaded and which address and port to bind to. This can be
+done by adding `-M grpc:<host>:<port>` or `-M grpc:<port>` to the daemon's CLI
+arguments. If only the port is specified, the default host `0.0.0.0` is used.
+The format `-M grpc::<port>` (with empty host) also defaults to `0.0.0.0`.
+
+.. note::
+
+   - Only IPv4 numeric addresses are supported (no hostnames or IPv6)
+   - Port range: 1024-65535
+   - Empty host (`:port` or `::port`) defaults to `0.0.0.0`
 
 Currently there is no gRPC "routing" so you will need to bind your gRPC
 `channel` to the particular daemon's gRPC port to interact with that daemon's
