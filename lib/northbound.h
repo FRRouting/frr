@@ -871,6 +871,17 @@ DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments));
 DECLARE_HOOK(nb_notification_tree_send,
 	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
+/* Called before mgmtd destroys frontend state used by northbound clients. */
+DECLARE_HOOK(nb_grpc_terminate, (), ());
+extern void nb_grpc_terminate_call(void);
+
+typedef void (*nb_notification_data_cb)(const char *xpath, LYD_FORMAT format, const char *data,
+					void *arg);
+typedef int (*nb_notification_data_subscribe_cb)(const char *const *selectors,
+						 size_t selector_count, LYD_FORMAT format,
+						 nb_notification_data_cb cb, void *arg,
+						 void **handle, char *errmsg, size_t errmsg_len);
+typedef void (*nb_notification_data_unsubscribe_cb)(void *handle);
 
 /* Northbound debugging records */
 extern struct debug nb_dbg_cbs_config;
@@ -913,6 +924,25 @@ extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 			   char *errmsg, size_t errmsg_len);
 extern void nb_callback_notify(const struct nb_node *nb_node, uint8_t op, const char *xpath,
 			       struct lyd_node *dnode);
+
+/*
+ * Optional global RPC dispatch hooks.
+ *
+ * These hooks are for northbound frontends that need to route RPC/action
+ * execution through an external dispatcher instead of a local nb_node callback.
+ * The input tree is borrowed for the duration of the call.  The asynchronous
+ * dispatcher must complete after it returns and must eventually invoke done
+ * once; the output tree passed to done is owned by the done callback.
+ */
+typedef void (*nb_rpc_dispatch_done_cb)(int error, const char *errmsg, struct lyd_node *output,
+					void *arg);
+typedef int (*nb_rpc_dispatch_async_cb)(const char *xpath, const struct lyd_node *input,
+					nb_rpc_dispatch_done_cb done, void *arg, char *errmsg,
+					size_t errmsg_len);
+extern void nb_rpc_dispatch_async_set(nb_rpc_dispatch_async_cb cb);
+extern int nb_rpc_dispatch_async(const char *xpath, const struct lyd_node *input,
+				 nb_rpc_dispatch_done_cb done, void *arg, char *errmsg,
+				 size_t errmsg_len);
 
 /*
  * Create a northbound node for all YANG schema nodes.
@@ -1567,6 +1597,41 @@ extern enum nb_error nb_oper_iterate_legacy(const char *xpath,
 					    uint32_t flags, nb_oper_data_cb cb,
 					    void *arg, struct lyd_node **tree);
 
+typedef int (*nb_config_get_dispatch_cb)(const char *xpath, struct lyd_node **result, char *errmsg,
+					 size_t errmsg_len);
+typedef int (*nb_config_root_borrow_dispatch_cb)(const struct lyd_node **result, char *errmsg,
+						 size_t errmsg_len);
+enum nb_config_commit_phase {
+	NB_CONFIG_COMMIT_VALIDATE,
+	NB_CONFIG_COMMIT_PREPARE,
+	NB_CONFIG_COMMIT_ABORT,
+	NB_CONFIG_COMMIT_APPLY,
+	NB_CONFIG_COMMIT_ALL,
+};
+typedef void (*nb_config_commit_done_cb)(int error, const char *errmsg, uint32_t transaction_id,
+					 void *arg);
+typedef int (*nb_config_commit_async_cb)(const struct nb_config *candidate,
+					 enum nb_config_commit_phase phase, const char *comment,
+					 nb_config_commit_done_cb done, void *arg, char *errmsg,
+					 size_t errmsg_len);
+
+extern void nb_config_get_dispatch_set(nb_config_get_dispatch_cb cb);
+extern int nb_config_get_dispatch(const char *xpath, struct lyd_node **result, char *errmsg,
+				  size_t errmsg_len);
+/*
+ * Borrow the running configuration root for read-only validation.  The caller
+ * must not modify or free the returned tree.
+ */
+extern void nb_config_root_borrow_dispatch_set(nb_config_root_borrow_dispatch_cb cb);
+extern int nb_config_root_borrow_dispatch(const struct lyd_node **result, char *errmsg,
+					  size_t errmsg_len);
+extern void nb_config_commit_dispatch_async_set(nb_config_commit_async_cb cb);
+extern bool nb_config_commit_dispatch_async_is_set(void);
+extern int nb_config_commit_dispatch_async(const struct nb_config *candidate,
+					   enum nb_config_commit_phase phase,
+					   const char *comment, nb_config_commit_done_cb done,
+					   void *arg, char *errmsg, size_t errmsg_len);
+
 /**
  * nb_oper_walk() - walk the schema building operational state.
  * @xpath: data path of the YANG data we want to iterate over.
@@ -1666,6 +1731,13 @@ extern int nb_notification_send(const char *xpath, struct list *arguments);
  */
 extern int nb_notification_tree_send(const char *xpath,
 				     const struct lyd_node *tree);
+
+extern void nb_notification_data_subscribe_set(nb_notification_data_subscribe_cb cb);
+extern void nb_notification_data_unsubscribe_set(nb_notification_data_unsubscribe_cb cb);
+extern int nb_notification_data_subscribe(const char *const *selectors, size_t selector_count,
+					  LYD_FORMAT format, nb_notification_data_cb cb, void *arg,
+					  void **handle, char *errmsg, size_t errmsg_len);
+extern void nb_notification_data_unsubscribe(void *handle);
 
 /*
  * Associate a user pointer to a configuration node.

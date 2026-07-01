@@ -31,6 +31,7 @@ mgmtd_libmgmtd_a_SOURCES = \
 	mgmtd/mgmt_ds.c \
 	mgmtd/mgmt_be_adapter.c \
 	mgmtd/mgmt_fe_adapter.c \
+	mgmtd/mgmt_grpc.c \
 	mgmtd/mgmt_history.c \
 	mgmtd/mgmt_memory.c \
 	mgmtd/mgmt_txn.c \
@@ -106,4 +107,3 @@ nodist_mgmtd_libmgmt_be_nb_la_SOURCES += \
 	staticd/static_vty.c \
 	# end
 endif
-

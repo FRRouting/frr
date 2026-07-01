@@ -62,6 +62,26 @@ struct mgmt_fe_client_adapter {
 	struct mgmt_commit_stats cmt_stats;
 };
 
+PREDECL_HASH(fe_notify_sub_hash);
+
+struct mgmt_fe_notify_sub {
+	uint64_t session_id;
+	LYD_FORMAT format;
+	nb_notification_data_cb cb;
+	void *arg;
+	const char **selectors;
+
+	struct fe_notify_sub_hash_item hash;
+
+	LIST_ENTRY(mgmt_fe_notify_sub) link;
+};
+
+static int fe_notify_sub_hash_cmp(const struct mgmt_fe_notify_sub *sub1,
+				  const struct mgmt_fe_notify_sub *sub2);
+static uint32_t fe_notify_sub_hash_key(const struct mgmt_fe_notify_sub *sub);
+DECLARE_HASH(fe_notify_sub_hash, struct mgmt_fe_notify_sub, hash, fe_notify_sub_hash_cmp,
+	     fe_notify_sub_hash_key);
+
 /*
  * A tree for storing unique notify-select strings.
  */
@@ -79,6 +99,9 @@ DECLARE_RBTREE_UNIQ(ns_string, struct ns_string, link, ns_string_compare);
 /* ---------- */
 
 static struct msg_conn *fe_adapter_create(int conn_fd, union sockunion *from);
+static void ns_string_add_session_notify(uint64_t req_id, const char **selectors,
+					 uint64_t session_id, bool replaced, uint64_t upd_clients,
+					 bool request_initial_dump);
 static void fe_session_compute_commit_timers(struct mgmt_commit_stats *cmt_stats);
 static void fe_session_update_periodic_notify_timer(struct mgmt_fe_session_ctx *session);
 
@@ -90,11 +113,14 @@ static struct event_loop *mgmt_loop;
 static struct msg_server mgmt_fe_server = {.fd = -1};
 
 LIST_HEAD(fe_adapter_list_head, mgmt_fe_client_adapter) fe_adapters;
+LIST_HEAD(fe_notify_sub_list_head, mgmt_fe_notify_sub) fe_notify_subs;
 
 static struct hash *mgmt_fe_sessions;
+static struct fe_notify_sub_hash_head fe_notify_subs_by_id;
 
 static uint64_t fe_session_next_id = MGMT_FE_SESSION_ID_MIN;
 static bool fe_session_id_wrapped;
+static uint64_t fe_notify_sub_next_id = MGMT_FE_NOTIFY_SUB_ID_BASE;
 
 /* ======================= */
 /* Notify Selector Strings */
@@ -201,6 +227,13 @@ static uint64_t ns_string_add_string(const char *path, size_t plen, uintptr_t se
 static void ns_string_add_session(uint64_t req_id, const char **selectors, uint64_t session_id,
 				  bool replaced, uint64_t upd_clients)
 {
+	ns_string_add_session_notify(req_id, selectors, session_id, replaced, upd_clients, true);
+}
+
+static void ns_string_add_session_notify(uint64_t req_id, const char **selectors,
+					 uint64_t session_id, bool replaced, uint64_t upd_clients,
+					 bool request_initial_dump)
+{
 	const char **sp;
 	uint64_t all_clients = 0;
 	uint64_t clients = 0;
@@ -232,7 +265,7 @@ static void ns_string_add_session(uint64_t req_id, const char **selectors, uint6
 					       (clients | upd_clients), false,
 					       replaced ? NULL : selectors);
 
-	if (!all_clients || !selectors)
+	if (!request_initial_dump || !all_clients || !selectors)
 		return;
 
 	_dbg("Creating new data-push for session-id: %" PRIu64, session_id);
@@ -246,6 +279,121 @@ void mgmt_fe_ns_string_add_be_client(uint client_id, const char **selectors)
 	uint64_t session_id = MGMT_BE_CLIENT_TO_SESSION_ID(client_id);
 
 	ns_string_add_session(0, selectors, session_id, false, 0);
+}
+
+static uint32_t fe_notify_sub_hash_key(const struct mgmt_fe_notify_sub *sub)
+{
+	return jhash2((uint32_t *)&sub->session_id, sizeof(sub->session_id) / sizeof(uint32_t), 0);
+}
+
+static int fe_notify_sub_hash_cmp(const struct mgmt_fe_notify_sub *sub1,
+				  const struct mgmt_fe_notify_sub *sub2)
+{
+	if (sub1->session_id < sub2->session_id)
+		return -1;
+	if (sub1->session_id > sub2->session_id)
+		return 1;
+
+	return 0;
+}
+
+static struct mgmt_fe_notify_sub *fe_notify_sub_lookup(uint64_t session_id)
+{
+	struct mgmt_fe_notify_sub key = {};
+
+	key.session_id = session_id;
+	return fe_notify_sub_hash_find(&fe_notify_subs_by_id, &key);
+}
+
+static bool notify_selector_valid(const char *selector)
+{
+	struct nb_node **nb_nodes;
+	const struct lys_module *module;
+	const char *name;
+
+	nb_nodes = nb_nodes_find(selector);
+	if (nb_nodes) {
+		darr_free(nb_nodes);
+		return true;
+	}
+
+	/*
+	 * mgmtd notification selectors also accept a module-root shorthand,
+	 * such as "/frr-ripd", to subscribe to all notifications below the
+	 * module.  That string is not itself an nb_node, so validate it
+	 * against the loaded YANG modules.
+	 */
+	if (selector[0] != '/' || strchr(selector + 1, '/') || strchr(selector + 1, ':'))
+		return false;
+
+	name = selector + 1;
+	module = ly_ctx_get_module_implemented(ly_native_ctx, name);
+	return module != NULL;
+}
+
+int mgmt_fe_adapter_notify_subscribe(const char *const *selectors, size_t selector_count,
+				     LYD_FORMAT format, nb_notification_data_cb cb, void *arg,
+				     void **handle, char *errmsg, size_t errmsg_len)
+{
+	struct mgmt_fe_notify_sub *sub;
+	size_t i;
+
+	if (!selector_count || !cb || !handle)
+		return -EINVAL;
+
+	sub = XCALLOC(MTYPE_MGMTD_FE_NOTIFY_SUB, sizeof(*sub));
+	/* Wrap is not expected in practice for synthetic notify sessions. */
+	sub->session_id = fe_notify_sub_next_id++;
+	sub->format = format;
+	sub->cb = cb;
+	sub->arg = arg;
+
+	for (i = 0; i < selector_count; i++) {
+		if (!selectors[i] || !selectors[i][0]) {
+			darr_free_free(sub->selectors);
+			XFREE(MTYPE_MGMTD_FE_NOTIFY_SUB, sub);
+			if (errmsg_len)
+				snprintf(errmsg, errmsg_len,
+					 "notification selector cannot be empty");
+			return -EINVAL;
+		}
+
+		if (!notify_selector_valid(selectors[i])) {
+			darr_free_free(sub->selectors);
+			XFREE(MTYPE_MGMTD_FE_NOTIFY_SUB, sub);
+			if (errmsg_len)
+				snprintf(errmsg, errmsg_len,
+					 "Selector doesn't resolve to a node: %s", selectors[i]);
+			return -EINVAL;
+		}
+
+		*darr_append(sub->selectors) = darr_strdup(selectors[i]);
+	}
+
+	LIST_INSERT_HEAD(&fe_notify_subs, sub, link);
+	fe_notify_sub_hash_add(&fe_notify_subs_by_id, sub);
+	ns_string_add_session_notify(0, sub->selectors, sub->session_id, false, 0, false);
+	*handle = sub;
+
+	return 0;
+}
+
+void mgmt_fe_adapter_notify_unsubscribe(void *handle)
+{
+	struct mgmt_fe_notify_sub *sub = handle;
+	uint64_t rm_clients;
+
+	if (!sub)
+		return;
+
+	rm_clients = ns_string_remove_session(sub->session_id);
+	if (rm_clients && !mm->terminating)
+		mgmt_txn_send_notify_selectors(0, MGMTD_SESSION_ID_NONE, rm_clients, false, NULL);
+
+	LIST_REMOVE(sub, link);
+	fe_notify_sub_hash_del(&fe_notify_subs_by_id, sub);
+	darr_free_free(sub->selectors);
+	XFREE(MTYPE_MGMTD_FE_NOTIFY_SUB, sub);
 }
 
 static uint64_t fe_session_notify_clients(struct mgmt_fe_session_ctx *session)
@@ -1834,6 +1982,37 @@ static void fe_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 /* Async Notification Processing */
 /* ============================= */
 
+static const char *assure_notify_msg_tree(const struct mgmt_msg_notify_data *msg, size_t msglen,
+					  struct lyd_node **tree, const char **data)
+{
+	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
+	const char *decoded_data = NULL;
+	const char *xpath;
+	LY_ERR err;
+
+	xpath = mgmt_msg_native_xpath_data_decode(msg, msglen, decoded_data);
+	if (!xpath || !decoded_data)
+		return NULL;
+	if (data)
+		*data = decoded_data;
+
+	if (*tree)
+		return xpath;
+
+#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
+	if (msg->result_type == LYD_LYB)
+		parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
+#endif
+	err = lyd_parse_data_mem(ly_native_ctx, decoded_data, msg->result_type, parse_options, 0,
+				 tree);
+	if (err != LY_SUCCESS) {
+		_log_err("failed to parse notification data: %s", ly_errmsg(ly_native_ctx));
+		return NULL;
+	}
+
+	return xpath;
+}
+
 static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_msg_notify_data *msg,
 							    size_t msglen, struct lyd_node **tree,
 							    uint8_t format,
@@ -1841,7 +2020,6 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 							    size_t *send_msglen)
 
 {
-	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
 	struct mgmt_msg_notify_data *new_msg;
 	const struct lyd_node *root;
 	uint8_t **darrp = NULL;
@@ -1858,17 +2036,10 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 
 	_dbg("creating notify msg cache for format %u", format);
 
-	xpath = mgmt_msg_native_xpath_data_decode(msg, msglen, data);
-
-	/* Get a libyang data tree if we haven't yet */
-	if (!*tree) {
-#ifdef LYD_PARSE_LYB_SKIP_CTX_CHECK
-		if (msg->result_type == LYD_LYB)
-			parse_options |= LYD_PARSE_LYB_SKIP_CTX_CHECK;
-#endif
-		err = lyd_parse_data_mem(ly_native_ctx, data, msg->result_type, parse_options, 0,
-					 tree);
-		assert(err == LY_SUCCESS);
+	xpath = assure_notify_msg_tree(msg, msglen, tree, &data);
+	if (!xpath) {
+		_log_err("failed to derive notification xpath");
+		return NULL;
 	}
 
 	root = *tree;
@@ -1888,12 +2059,20 @@ static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_ms
 	/* For JSON result top node starts at the xpath target */
 	if (format == LYD_JSON) {
 		root = yang_dnode_get(*tree, xpath);
-		assert(root);
+		if (!root) {
+			_log_err("notification xpath does not resolve: %s", xpath);
+			mgmt_msg_native_free_msg(new_msg);
+			return NULL;
+		}
 	}
 
 	darrp = mgmt_msg_native_get_darrp(new_msg);
 	err = yang_print_tree_append(darrp, root, format, LYD_PRINT_WITHSIBLINGS);
-	assert(err == LY_SUCCESS);
+	if (err != LY_SUCCESS) {
+		_log_err("failed to encode notification data: %s", ly_errmsg(ly_native_ctx));
+		mgmt_msg_native_free_msg(new_msg);
+		return NULL;
+	}
 
 	cache[format] = new_msg;
 	*send_msglen = mgmt_msg_native_get_msg_len(new_msg);
@@ -1944,6 +2123,7 @@ void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
 	uint64_t *session_ids = NULL;
 	size_t send_len;
 	const char *notif;
+	char notif_buf[XPATH_MAXLEN];
 	uint i;
 
 	cache[msg->result_type] = msg;
@@ -1952,6 +2132,24 @@ void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
 	if (!notif) {
 		_log_err("Corrupt notify msg");
 		return;
+	}
+
+	if (!notif[0]) {
+		notif = assure_notify_msg_tree(msg, msglen, &tree, NULL);
+		if (!notif) {
+			_log_err("Corrupt notify data");
+			return;
+		}
+
+		notif = lyd_path(tree, LYD_PATH_STD, notif_buf, sizeof(notif_buf));
+		if (!notif) {
+			_log_err("Unable to derive notification path");
+			goto done;
+		}
+		if (!notif[0])
+			snprintf(notif_buf, sizeof(notif_buf), "/%s:%s",
+				 tree->schema->module->name, tree->schema->name);
+		notif = notif_buf;
 	}
 
 	/* We don't support root level notifications, no backend should send this */
@@ -1964,7 +2162,7 @@ void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
 	nb_node = nb_node_find(notif);
 	if (!nb_node) {
 		_log_err("No schema found for notification: %s", notif);
-		return;
+		goto done;
 	}
 
 	/*
@@ -1981,6 +2179,8 @@ void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
 			return;
 		}
 		send_msg = assure_notify_msg_cache(msg, msglen, &tree, format, cache, &send_len);
+		if (!send_msg)
+			goto done;
 		msg_conn_send_msg(conn, MGMT_MSG_VERSION_NATIVE, send_msg, send_len, NULL, false);
 		goto done;
 	}
@@ -1988,6 +2188,25 @@ void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
 	/* Send to all interested sessions/clients */
 	session_ids = mgmt_fe_ns_string_select(nb_node, notif);
 	darr_foreach_i (session_ids, i) {
+		struct mgmt_fe_notify_sub *sub;
+		const char *data = NULL;
+		const char *decoded_notif;
+
+		sub = fe_notify_sub_lookup(session_ids[i]);
+		if (sub) {
+			send_msg = assure_notify_msg_cache(msg, msglen, &tree, sub->format, cache,
+							   &send_len);
+			if (!send_msg)
+				continue;
+			decoded_notif = mgmt_msg_native_xpath_data_decode(send_msg, send_len, data);
+			if (!decoded_notif) {
+				_log_err("Corrupt notify data msg for %s", notif);
+				continue;
+			}
+			sub->cb(notif, sub->format, data, sub->arg);
+			continue;
+		}
+
 		conn = _get_notify_conn(session_ids[i], &format);
 		if (!conn) {
 			_log_err("No session or client (id: %" PRIu64 ") exists to send notify: %s",
@@ -1996,6 +2215,8 @@ void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
 		}
 		/* See if session has selectors and if so if any match */
 		send_msg = assure_notify_msg_cache(msg, msglen, &tree, format, cache, &send_len);
+		if (!send_msg)
+			continue;
 		send_msg->refer_id = session_ids[i];
 		msg_conn_send_msg(conn, MGMT_MSG_VERSION_NATIVE, send_msg, send_len, NULL, false);
 	}
@@ -2013,11 +2234,14 @@ void mgmt_fe_adapter_send_notify(uint from_id, struct mgmt_msg_notify_data *msg,
 				send_msg = assure_notify_msg_cache(msg, msglen, &tree,
 								   session->notify_format, cache,
 								   &send_len);
+				if (!send_msg)
+					continue;
 				send_msg->refer_id = session->session_id;
 				(void)fe_adapter_send_msg(adapter, send_msg, send_len, false);
 			}
 		}
 	}
+
 done:
 	darr_free(session_ids);
 	cleanup_notify_msg_cache(msg, &tree, cache);
@@ -2270,6 +2494,8 @@ void mgmt_fe_adapter_init(struct event_loop *tm)
 	mgmt_fe_sessions = hash_create(fe_session_hash_key, fe_session_hash_cmp,
 				       "MGMT Frontend Sessions");
 
+	fe_notify_sub_hash_init(&fe_notify_subs_by_id);
+
 	ns_string_init(&mgmt_fe_ns_strings);
 
 	snprintf(server_path, sizeof(server_path), MGMTD_FE_SOCK_NAME);
@@ -2287,9 +2513,12 @@ void mgmt_fe_adapter_init(struct event_loop *tm)
 void mgmt_fe_adapter_destroy(void)
 {
 	struct mgmt_fe_client_adapter *adapter, *next;
+	struct mgmt_fe_notify_sub *sub, *sub_next;
 
 	msg_server_cleanup(&mgmt_fe_server);
 
+	LIST_FOREACH_SAFE (sub, &fe_notify_subs, link, sub_next)
+		mgmt_fe_adapter_notify_unsubscribe(sub);
 
 	/* Deleting the adapters will delete all the sessions */
 	LIST_FOREACH_SAFE (adapter, &fe_adapters, link, next)
@@ -2298,4 +2527,5 @@ void mgmt_fe_adapter_destroy(void)
 	ns_string_free_all(&mgmt_fe_ns_strings);
 
 	hash_clean_and_free(&mgmt_fe_sessions, NULL);
+	fe_notify_sub_hash_fini(&fe_notify_subs_by_id);
 }
