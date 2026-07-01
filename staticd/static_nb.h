@@ -88,6 +88,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_destroy(
 	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_ua_nexthop_learn_mode_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_ua_nexthop_learn_mode_destroy(
+	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_destroy(
@@ -182,6 +186,8 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_STATIC_SRV6_STATIC_SIDS_XPATH                                                          \
 	FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \
 	"/static-sids"
+
+#define FRR_STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_XPATH "/ua-nexthop-learn-mode"
 
 #define FRR_STATIC_SRV6_SID_KEY_XPATH                                                              \
 	FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \

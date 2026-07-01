@@ -1412,6 +1412,26 @@ DEFUN_YANG (no_static_srv6, no_static_srv6_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
+DEFPY_YANG(static_srv6_ua_nexthop_learn_mode,
+		static_srv6_ua_nexthop_learn_mode_cmd,
+		"[no] uA nexthop-learn-mode <radv$radv|ndisc$ndisc>",
+		NO_STR
+		"uA behavior\n"
+		"Select uA nexthop learning source\n"
+		"Learn uA nexthop through Router Advertisements\n"
+		"Learn uA nexthop through Neighbor Discovery\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_STATIC_SRV6_INFO_KEY_XPATH, "frr-staticd:staticd",
+		 "staticd", VRF_DEFAULT_NAME);
+	strlcat(xpath, FRR_STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_XPATH, sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_MODIFY,
+			      no ? NULL : (radv ? "radv" : "ndisc"));
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
 DEFPY_YANG_NOSH (static_srv6_sids, static_srv6_sids_cmd,
       "[no] static-sids",
 	  NO_STR
@@ -1961,7 +1981,15 @@ static void static_segment_routing_cli_show_end(struct vty *vty, const struct ly
 
 static void static_srv6_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
+	const char *mode;
+
 	vty_out(vty, " srv6\n");
+
+	if (yang_dnode_exists(dnode, "ua-nexthop-learn-mode")) {
+		mode = yang_dnode_get_string(dnode, "ua-nexthop-learn-mode");
+		if (show_defaults || !strmatch(mode, "ndisc"))
+			vty_out(vty, "  uA nexthop-learn-mode %s\n", mode);
+	}
 }
 
 static void static_srv6_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
@@ -2716,6 +2744,7 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &static_segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &static_srv6_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &no_static_srv6_cmd);
+	install_element(SRV6_NODE, &static_srv6_ua_nexthop_learn_mode_cmd);
 	install_element(SRV6_NODE, &static_srv6_sids_cmd);
 	install_element(SRV6_SIDS_NODE, &srv6_sid_cmd);
 	install_element(SRV6_SIDS_NODE, &no_srv6_sid_cmd);

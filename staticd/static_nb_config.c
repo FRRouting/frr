@@ -1387,6 +1387,39 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/ua-nexthop-learn-mode
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_ua_nexthop_learn_mode_modify(
+	struct nb_cb_modify_args *args)
+{
+	const char *mode;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	mode = yang_dnode_get_string(args->dnode, NULL);
+	if (strmatch(mode, "radv"))
+		static_srv6_ua_nexthop_learn_mode_set(STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_RA);
+	else
+		static_srv6_ua_nexthop_learn_mode_set(STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_ND);
+
+	static_zebra_request_srv6_sids();
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_ua_nexthop_learn_mode_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	static_srv6_ua_nexthop_learn_mode_set(STATIC_SRV6_UA_NEXTHOP_LEARN_MODE_ND);
+	static_zebra_request_srv6_sids();
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/static-sids
  */
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_create(
@@ -1482,6 +1515,7 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 		}
 	} else {
 		/* This is a SID that does not require nexthop resolution - disable nexthop resolution */
+		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_DEFERRED);
 		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION)) {
 			DEBUGD(&static_dbg_srv6, "%s: Disabling nexthop resolution for SID %pFX",
 			       __func__, &sid->addr);
