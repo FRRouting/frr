@@ -2506,16 +2506,15 @@ static void rip_update_process(struct rip *rip, int route_type)
 			continue;
 		}
 
-		/* If unicast is used, but `network X.Y.Z.W` is not defined
-		 * for this interface, we SHOULD NOT send an update to this
+		/*
+		 * If unicast is used, but RIP is not enabled on this
+		 * interface (via `network A.B.C.D/M`, `network IFNAME`
+		 * or `ip rip`), we SHOULD NOT send an update to this
 		 * neighbor.
-		 * If RIP is configured on such an interface, the redistribution
-		 * of route(s) from another routing protocol into RIP, received
-		 * through that interface, does not work.
 		 */
-		if (rip_enable_network_lookup2(connected) < 0) {
+		if (!rip_interface_is_enabled(connected)) {
 			if (RIP_DEBUG_SEND)
-				zlog_debug("Neighbor %pI4 is not in any `network` statement!",
+				zlog_debug("Neighbor %pI4 is not on a RIP-enabled interface!",
 					   &p->u.prefix4);
 			continue;
 		}
@@ -3208,7 +3207,7 @@ DEFUN (show_ip_rip_status,
 		if (!ri->running)
 			continue;
 
-		if (ri->enable_network || ri->enable_interface) {
+		if (ri->working) {
 			if (ri->ri_send == RI_RIP_UNSPEC)
 				send_version =
 					lookup_msg(ri_version_msg,
@@ -3238,8 +3237,7 @@ DEFUN (show_ip_rip_status,
 	FOR_ALL_INTERFACES (rip->vrf, ifp) {
 		ri = ifp->info;
 
-		if ((ri->enable_network || ri->enable_interface) &&
-		    ri->passive) {
+		if (ri->working && ri->passive) {
 			if (!found_passive) {
 				vty_out(vty, "  Passive Interface(s):\n");
 				found_passive = 1;

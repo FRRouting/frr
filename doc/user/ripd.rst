@@ -173,6 +173,15 @@ RIP Configuration
 
    Controls the toggle of the RIP peer discovery / disappearance messages.
 
+In order to enable RIP functionality in the interfaces the following interface
+configuration is available:
+
+.. clicmd:: ip rip
+
+   Enables the RIP reception and sending of packets with other RIP router
+   neighbors.
+
+
 .. _rip-version-control:
 
 RIP Version Control
