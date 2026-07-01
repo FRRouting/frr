@@ -541,6 +541,13 @@ void tlvs_add_mt_bcast(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 
 	tlvs_add_mt_set(circuit->area, tlvs, mt_count, mt_set, id, metric,
 			circuit->ext);
+
+	if (circuit->interface && circuit->interface->link_params &&
+	    IS_PARAM_SET(circuit->interface->link_params, LP_SRLG))
+		isis_tlvs_add_srlg(tlvs, id,
+				   circuit->interface->link_params->srlgs,
+				   circuit->interface->link_params->srlg_num,
+				   circuit->ext);
 }
 
 void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
@@ -550,6 +557,13 @@ void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 
 	tlvs_add_mt_set(circuit->area, tlvs, adj->mt_count, adj->mt_set, id,
 			metric, circuit->ext);
+
+	if (circuit->interface && circuit->interface->link_params &&
+	    IS_PARAM_SET(circuit->interface->link_params, LP_SRLG))
+		isis_tlvs_add_srlg(tlvs, id,
+				   circuit->interface->link_params->srlgs,
+				   circuit->interface->link_params->srlg_num,
+				   circuit->ext);
 }
 
 void mt_init(void)
