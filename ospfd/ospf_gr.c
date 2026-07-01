@@ -176,7 +176,7 @@ static void ospf_gr_lsa_originate(struct ospf_interface *oi,
 		update = list_new();
 		listnode_add(update, lsa);
 		addr.s_addr = htonl(OSPF_ALLSPFROUTERS);
-		ospf_ls_upd_queue_send(oi, update, addr, true);
+		ospf_ls_upd_queue_send(oi, update, addr, true, NULL);
 		list_delete(&update);
 		ospf_lsa_discard(lsa);
 	} else {

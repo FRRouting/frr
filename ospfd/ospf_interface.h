@@ -14,6 +14,7 @@
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_spf.h"
 #include <ospfd/ospf_flood.h>
+#include <ospfd/ospf_nsm.h>
 
 #define IF_OSPF_IF_INFO(I) ((struct ospf_if_info *)((I)->info))
 #define IF_DEF_PARAMS(I) (IF_OSPF_IF_INFO (I)->def_params)
@@ -41,6 +42,16 @@
 #define UNSET_IF_PARAM(S, P) ((S)->P##__config) = 0
 #define SET_IF_PARAM(S, P) ((S)->P##__config) = 1
 
+/* RFC4222 R4 defaults (milliseconds unless noted). */
+#define OSPF_GAP_INITIAL_MS_DEFAULT    20
+#define OSPF_GAP_MIN_MS_DEFAULT	       20
+#define OSPF_GAP_MAX_MS_DEFAULT	       1000
+#define OSPF_GAP_FACTOR_DEFAULT	       2
+#define OSPF_GAP_ADJUST_INT_MS_DEFAULT 1000
+#define OSPF_GAP_HIGH_WATER_DEFAULT    100
+#define OSPF_GAP_LOW_WATER_DEFAULT     2
+#define OSPF_GAP_MAX_LSAS_DEFAULT      1
+
 struct ospf_if_params {
 	DECLARE_IF_PARAM(uint32_t, transmit_delay); /* Interface Transmission Delay */
 	DECLARE_IF_PARAM(uint32_t,
@@ -55,6 +66,14 @@ struct ospf_if_params {
 							join multicast groups)
 							*/
 	DECLARE_IF_PARAM(uint8_t, priority); /* OSPF Interface priority */
+	/* RFC4222/R5: adjacency pacing configuration */
+	DECLARE_IF_PARAM(uint8_t, adj_pacing_mode);
+	DECLARE_IF_PARAM(uint16_t, adj_pacing_static_limit);
+
+	/* RFC4222/R5: Add dynamic pacing thresholds */
+	DECLARE_IF_PARAM(uint32_t, adj_pacing_high_water);
+	DECLARE_IF_PARAM(uint32_t, adj_pacing_low_water);
+
 	/* Enable OSPF on this interface with area if_area */
 	DECLARE_IF_PARAM(struct in_addr, if_area);
 	uint32_t if_area_id_fmt;
@@ -138,6 +157,17 @@ struct ospf_if_params {
 	/* RFC4222 Priority markings */
 	DECLARE_IF_PARAM(uint8_t, dscp_ospf_all);    /* 0–63 */
 	DECLARE_IF_PARAM(uint8_t, dscp_low_control); /* 0–63 */
+
+	/* RFC4222 R4: LSA gap pacing configuration. */
+	DECLARE_IF_PARAM(bool, gap_pacing_enable);
+	DECLARE_IF_PARAM(uint32_t, gap_initial_ms);
+	DECLARE_IF_PARAM(uint32_t, gap_min_ms);
+	DECLARE_IF_PARAM(uint32_t, gap_max_ms);
+	DECLARE_IF_PARAM(uint32_t, gap_factor);
+	DECLARE_IF_PARAM(uint32_t, gap_adjust_int_ms);
+	DECLARE_IF_PARAM(uint32_t, gap_high_water);
+	DECLARE_IF_PARAM(uint32_t, gap_low_water);
+	DECLARE_IF_PARAM(uint32_t, gap_max_lsas);
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -168,6 +198,36 @@ struct ospf_vl_data {
 	struct vertex_nexthop nexthop; /* Nexthop router and oi to use */
 	struct in_addr peer_addr;      /* Address used to reach the peer */
 	uint8_t flags;
+};
+
+/* RFC4222/R5 : Per-interface adjacency pacing */
+enum ospf_adj_pacing_mode {
+	OSPF_ADJ_PACING_NONE = 0, /* inherit router default or disabled */
+	OSPF_ADJ_PACING_STATIC,	  /* fixed N*/
+	OSPF_ADJ_PACING_DYNAMIC,  /* adaptive*/
+};
+
+/* RFC4222/R5: Dynamic adjacency pacing defaults */
+#define OSPF_ADJ_DYN_LIMIT_INITIAL 1	/* start conservative */
+#define OSPF_ADJ_DYN_LIMIT_MAX	   50	/* upper bound */
+#define OSPF_ADJ_DYN_FACTOR	   2	/* F for divide when congested */
+#define OSPF_ADJ_DYN_ADJUST_INT_MS 1000 /* min ms between adjustments (1 sec to slow ramp-up) */
+#define OSPF_ADJ_DYN_HIGH_WATER	   100	/* default H threshold */
+#define OSPF_ADJ_DYN_LOW_WATER	   2	/* default L threshold */
+
+/* RFC4222/R5 implementation */
+struct ospf_adj_pacing {
+	enum ospf_adj_pacing_mode mode;
+	uint16_t static_limit;		     /*N for static mode*/
+	uint16_t in_progress;		     /* neighbors in ExStart/Exchange/Loading on this oi*/
+	struct ospf_pacing_queue_head queue; /* FCFS queue of struct ospf_neighbor */
+
+	/* Dynamic pacing state */
+	uint16_t dynamic_limit;	    /* current computed limit (starts at 1) */
+	uint64_t last_adjust_ms;    /* timestamp of last limit adjustment */
+	uint32_t high_water;	    /* H: upper threshold for U(t) */
+	uint32_t low_water;	    /* L: lower threshold for U(t) */
+	struct event *t_dyn_adjust; /* timer to schedule deferred adjustment */
 };
 
 
@@ -295,6 +355,20 @@ struct ospf_interface {
 	struct event *t_ls_upd_event;	 /* event */
 	struct event *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
 
+	/* RFC4222/R5 : Per-interface adjacency pacing */
+	struct ospf_adj_pacing adj_pacing;
+
+	/* RFC4222 R4: effective LSA gap pacing state. */
+	bool rec4_gap_pacing;
+	uint32_t rec4_gap_initial_ms;
+	uint32_t rec4_gap_min_ms;
+	uint32_t rec4_gap_max_ms;
+	uint32_t rec4_gap_factor;
+	uint32_t rec4_gap_adjust_int_ms;
+	uint32_t rec4_high_water;
+	uint32_t rec4_low_water;
+	uint32_t rec4_max_lsas;
+
 	int on_write_q;
 
 	/* Statistics fields. */
@@ -354,6 +428,8 @@ extern struct ospf_if_params *ospf_get_if_params(struct interface *ifp,
 						 struct in_addr addr);
 extern void ospf_free_if_params(struct interface *ifp, struct in_addr addr);
 extern void ospf_if_update_params(struct interface *ifp, struct in_addr addr);
+
+extern void ospf_if_update_params_all(struct interface *ifp);
 
 extern int ospf_if_new_hook(struct interface *ifp);
 extern void ospf_if_init(void);

@@ -7,6 +7,8 @@
 #ifndef _ZEBRA_OSPF_PACKET_H
 #define _ZEBRA_OSPF_PACKET_H
 
+#include <ospfd/ospf_flood.h>
+
 #define OSPF_HEADER_SIZE         24U
 #define OSPF_AUTH_SIMPLE_SIZE     8U
 #define OSPF_AUTH_MD5_SIZE       16U
@@ -45,6 +47,9 @@ struct ospf_packet {
 
 	/* OSPF packet length. */
 	uint16_t length;
+	/* RFC4222/R5: LSAs serialized into this packet (locked), for ACK tracking */
+	struct ospf_lsa_list_head sent_lsas;
+	struct ospf_interface *sent_oi; /* optional: convenience for logging */
 };
 
 /* OSPF packet queue structure. */
@@ -132,15 +137,22 @@ extern void ospf_ls_req_send(struct ospf_neighbor *nbr);
 extern void ospf_ls_upd_send_lsa(struct ospf_neighbor *nbr, struct ospf_lsa *lsa, int flag);
 extern void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *lsa_list, int flag,
 			     int send_lsreq_flag);
-extern void ospf_ls_upd_queue_send(struct ospf_interface *oi,
-				   struct list *update, struct in_addr addr,
-				   int send_lsupd_now);
+extern void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
+				   struct in_addr addr, int send_lsupd_now,
+				   struct ospf_neighbor *dst_nbr);
 extern void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr,
 				    struct ospf_lsa *lsa);
 extern void ospf_ls_ack_send_delayed(struct ospf_interface *oi);
 extern void ospf_ls_retransmit(struct ospf_interface *oi, struct ospf_lsa *lsa);
 extern void ospf_ls_req_event(struct ospf_neighbor *nbr);
 
+/* RFC4222 R4: LSA gap pacing helpers. */
+extern bool ospf_oi_any_nbr_gap_pacing(const struct ospf_interface *oi);
+extern void ospf_r4_nbr_init(struct ospf_neighbor *nbr);
+extern void ospf_r4_nbr_cancel(struct ospf_neighbor *nbr);
+extern void ospf_r4_nbr_enqueue(struct ospf_neighbor *nbr, struct ospf_lsa *lsa);
+
+extern uint64_t ospf_now_ms(void);
 extern void ospf_ls_rxmt_timer(struct event *event);
 extern void ospf_ls_ack_delayed_timer(struct event *event);
 extern void ospf_poll_timer(struct event *event);
