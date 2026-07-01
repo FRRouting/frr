@@ -795,6 +795,7 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 				pim_addr_to_prefix(&grp, up->sg.grp);
 				trp_info = pim_rp_find_match_group(pim, &grp);
 				if (trp_info == rp_all) {
+					pim_nht_delete_tracked_upstream(pim, rpf_addr, up);
 					pim_upstream_rpf_clear(pim, up);
 					up->upstream_addr = PIMADDR_ANY;
 				}
@@ -845,6 +846,7 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 
 			/* RP not found for the group grp */
 			if (!trp_info || pim_rpf_addr_is_inaddr_any(&trp_info->rp)) {
+				pim_nht_delete_tracked_upstream(pim, rpf_addr, up);
 				pim_upstream_rpf_clear(pim, up);
 				pim_rp_set_upstream_addr(
 					pim, &up->upstream_addr, up->sg.src,
