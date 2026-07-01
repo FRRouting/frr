@@ -195,6 +195,23 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 				break;
 			}
 		}
+		if (adj->ll_ipv6_count)
+			break;
+		for (unsigned int i = 0; i < adj->global_ipv6_count; i++) {
+			ip.ipv6 = adj->global_ipv6_addrs[i];
+
+			if (!nexthoplookup(nexthops, AF_INET6, &ip,
+					   adj->circuit->interface->ifindex)) {
+				nh = isis_nexthop_create(AF_INET6, &ip,
+							 adj->circuit->interface->ifindex);
+				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
+				if (sr)
+					nh->sr = *sr;
+				nh->label_stack = label_stack;
+				listnode_add(nexthops, nh);
+				break;
+			}
+		}
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: unknown address family [%d]", __func__, family);

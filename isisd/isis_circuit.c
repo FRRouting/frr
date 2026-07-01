@@ -1703,6 +1703,59 @@ void isis_reset_hello_timer(struct isis_circuit *circuit)
 	}
 }
 
+/*
+ * Return all IP-Addresses defined on this circuit. If there are no
+ * addresses defined (unnumbered interface) search for other addresses
+ * on the loopback interface.
+ */
+struct list *isis_circuit_ip_addrs(struct isis_circuit *circuit)
+{
+	if (listcount(circuit->ip_addrs))
+		return circuit->ip_addrs;
+
+	if (!circuit->area)
+		return NULL;
+
+	struct isis_circuit *c;
+
+	frr_each (isis_circuit_list, &circuit->area->circuit_list, c) {
+		if (c->circ_type != CIRCUIT_T_LOOPBACK)
+			continue;
+
+		if (listcount(c->ip_addrs))
+			return c->ip_addrs;
+	}
+
+	return NULL;
+}
+
+/*
+ * Return all IPv6 global addresses defined on this circuit. If there are no
+ * addresses defined (unnumbered interface) search for other addresses
+ * on the loopback interface.
+ */
+struct list *isis_circuit_ipv6_non_link_addrs(struct isis_circuit *circuit)
+{
+	if (listcount(circuit->ipv6_non_link))
+		return circuit->ipv6_non_link;
+
+	if (!circuit->area)
+		return NULL;
+
+	struct isis_circuit *c;
+
+	frr_each (isis_circuit_list, &circuit->area->circuit_list, c) {
+		if (c->circ_type != CIRCUIT_T_LOOPBACK)
+			continue;
+
+		if (listcount(c->ipv6_non_link))
+			return c->ipv6_non_link;
+
+	}
+
+	return NULL;
+}
+
 void isis_circuit_init(void)
 {
 	/* Initialize Zebra interface data structure */
