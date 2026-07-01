@@ -147,7 +147,8 @@ extern "C" {
 /* Zebra route's types are defined in route_types.h */
 #include "lib/route_types.h"
 
-#define strmatch(a,b) (!strcmp((a), (b)))
+#define strmatch(a, b)	   (!strcmp((a), (b)))
+#define strnmatch(a, b, n) (!strncmp((a), (b), (n)))
 
 #if BYTE_ORDER == LITTLE_ENDIAN
 #define htonll(x) (((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
