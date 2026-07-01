@@ -26,19 +26,21 @@
 #define IGMP_GRP_REC_TYPE_BLOCK_OLD_SOURCES      (6)
 
 /* GMI: Group Membership Interval */
-#define PIM_IGMP_GMI_MSEC(qrv,qqi,qri_dsec) ((qrv) * (1000 * (qqi)) + 100 * (qri_dsec))
+#define PIM_IGMP_GMI_MSEC(qrv, qqi, qri_dsec)                                                     \
+	((int64_t)(qrv) * 1000 * (qqi) + (int64_t)100 * (qri_dsec))
 
 /* OQPI: Other Querier Present Interval */
-#define PIM_IGMP_OQPI_MSEC(qrv,qqi,qri_dsec) ((qrv) * (1000 * (qqi)) + 100 * ((qri_dsec) >> 1))
+#define PIM_IGMP_OQPI_MSEC(qrv, qqi, qri_dsec)                                                    \
+	((int64_t)(qrv) * 1000 * (qqi) + (int64_t)100 * ((qri_dsec) >> 1))
 
 /* SQI: Startup Query Interval */
 #define PIM_IGMP_SQI(qi) (((qi) < 4) ? 1 : ((qi) >> 2))
 
 /* LMQT: Last Member Query Time */
-#define PIM_IGMP_LMQT_MSEC(lmqi_dsec, lmqc) ((lmqc) * (100 * (lmqi_dsec)))
+#define PIM_IGMP_LMQT_MSEC(lmqi_dsec, lmqc) ((int64_t)(lmqc) * 100 * (lmqi_dsec))
 
 /* OHPI: Older Host Present Interval */
-#define PIM_IGMP_OHPI_DSEC(qrv,qqi,qri_dsec) ((qrv) * (10 * (qqi)) + (qri_dsec))
+#define PIM_IGMP_OHPI_DSEC(qrv, qqi, qri_dsec) ((int64_t)(qrv) * 10 * (qqi) + (qri_dsec))
 
 #if PIM_IPV == 4
 void igmp_group_reset_gmi(struct gm_group *group);

@@ -1453,7 +1453,7 @@ void igmp_group_timer_lower_to_lmqt(struct gm_group *group)
 	char *ifname;
 	int lmqi_dsec; /* Last Member Query Interval */
 	int lmqc;      /* Last Member Query Count */
-	int lmqt_msec; /* Last Member Query Time */
+	long lmqt_msec; /* Last Member Query Time */
 
 	/*
 	  RFC 3376: 6.2.2. Definition of Group Timers
@@ -1478,7 +1478,7 @@ void igmp_group_timer_lower_to_lmqt(struct gm_group *group)
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
 	if (PIM_DEBUG_GM_TRACE) {
-		zlog_debug("%s: group %pI4s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec", __func__,
+		zlog_debug("%s: group %pI4s on %s: LMQC=%d LMQI=%d dsec LMQT=%ld msec", __func__,
 			   &group->group_addr, ifname, lmqc, lmqi_dsec, lmqt_msec);
 	}
 
@@ -1495,7 +1495,7 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 	char *ifname;
 	int lmqi_dsec; /* Last Member Query Interval */
 	int lmqc;      /* Last Member Query Count */
-	int lmqt_msec; /* Last Member Query Time */
+	long lmqt_msec; /* Last Member Query Time */
 
 	group = source->source_group;
 	ifp = group->interface;
@@ -1510,7 +1510,7 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
 	if (PIM_DEBUG_GM_TRACE) {
-		zlog_debug("%s: group %pI4s source %pI4s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
+		zlog_debug("%s: group %pI4s source %pI4s on %s: LMQC=%d LMQI=%d dsec LMQT=%ld msec",
 			   __func__, &group->group_addr, &source->source_addr, ifname, lmqc,
 			   lmqi_dsec, lmqt_msec);
 	}
