@@ -41,7 +41,6 @@
 #include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn_mh.h"
-#include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
 
 static unsigned int zebra_l2_bridge_vlan_hash_keymake(const void *p)
