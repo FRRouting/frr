@@ -235,6 +235,10 @@ struct bgp_master {
 
 	bool v6_with_v4_nexthops;
 
+	/* Debug buffer for received UPDATE attributes (single-threaded) */
+	char rcvd_attr_str[BUFSIZ];
+	bool rcvd_attr_printed;
+
 	/* To preserve ordering of installations into zebra across all Vrfs */
 	struct zebra_announce_head zebra_announce_head;
 	struct zebra_announce_head zebra_announce_early_head;
@@ -2102,19 +2106,6 @@ struct peer {
 
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
-
-	/* Text description of last attribute rcvd */
-	char rcvd_attr_str[BUFSIZ];
-
-	/*
-	 * Track if we printed the attribute in debugs
-	 *
-	 * These two rcvd_attr_str and rcvd_attr_printed are going to
-	 * be fun in the long term when we want to break up parsing
-	 * of data from the nlri in multiple pthreads or really
-	 * if we ever change order of things this will just break
-	 */
-	bool rcvd_attr_printed;
 
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
