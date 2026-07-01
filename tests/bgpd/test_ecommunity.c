@@ -119,6 +119,50 @@ static void parse_test(struct test_segment *t)
 	ecommunity_unintern(&ecom);
 }
 
+static bool keep_non_route_targets(uint8_t *val, uint8_t size, void *arg)
+{
+	(void)size;
+	(void)arg;
+
+	return val[1] != ECOMMUNITY_ROUTE_TARGET;
+}
+
+static void filter_disable_ieee_test(void)
+{
+	const uint64_t expected_bw = 125000000;
+	struct ecommunity *source = ecommunity_new();
+	struct ecommunity *filtered;
+	struct ecommunity_val rt = {};
+	struct ecommunity_val lb = {};
+	uint64_t decoded_bw = 0;
+	bool distinct;
+	bool has_lb;
+	bool mode_preserved;
+
+	printf("filter-disable-ieee: preserve link-bandwidth encoding mode\n");
+	source->disable_ieee_floating = true;
+	encode_route_target_as(65000, 100, &rt, true);
+	encode_lb_extcomm(65000, expected_bw, false, &lb, true);
+	ecommunity_add_val(source, &rt, false, false);
+	ecommunity_add_val(source, &lb, false, false);
+
+	filtered = ecommunity_filter(source, keep_non_route_targets, NULL);
+	distinct = filtered && filtered != source;
+	has_lb = filtered && ecommunity_linkbw_present(filtered, &decoded_bw);
+	mode_preserved = filtered && filtered->disable_ieee_floating;
+	if (distinct && filtered->size == 1 && has_lb && mode_preserved &&
+	    decoded_bw == expected_bw)
+		printf("OK\n\n");
+	else {
+		printf("failed (distinct=%d size=%u mode=%d bandwidth=%" PRIu64 ")\n\n", distinct,
+		       filtered ? filtered->size : 0, mode_preserved, decoded_bw);
+		failed++;
+	}
+
+	if (filtered != source)
+		ecommunity_free(&filtered);
+	ecommunity_free(&source);
+}
 
 int main(void)
 {
@@ -126,6 +170,7 @@ int main(void)
 	ecommunity_init();
 	while (test_segments[i].name)
 		parse_test(&test_segments[i++]);
+	filter_disable_ieee_test();
 
 	printf("failures: %d\n", failed);
 	// printf ("aspath count: %ld\n", aspath_count());

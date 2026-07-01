@@ -1767,6 +1767,7 @@ struct ecommunity *ecommunity_filter(struct ecommunity *ecom,
 	new = XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
 	new->size = new_size;
 	new->unit_size = ecom->unit_size;
+	new->disable_ieee_floating = ecom->disable_ieee_floating;
 	new->val = new_val;
 
 	return new;
