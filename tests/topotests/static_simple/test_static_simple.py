@@ -99,11 +99,32 @@ def check_kernel(r1, super_prefix, src_prefix, count, add, is_blackhole, vrf, ma
 
         if is_blackhole:
             route = f"blackhole {netfull}(?: dev lo)? proto (static|196) metric 20"
+            assert re.search(
+                route, kernel
+            ), f"Failed to find \n'{route}'\n in \n'{kernel}'"
         else:
-            route = (
+            # The kernel renders a route differently depending on whether the
+            # nexthop id refers to a singleton (NHA_GATEWAY) or a group
+            # (NHA_GROUP):
+            #
+            #   singleton: "<prefix> nhid <X> via <gw> dev <if> proto static metric 20"
+            #   group of one: "<prefix> nhid <X> proto static metric 20 pref medium
+            #                       nexthop via <gw> dev <if> weight 1"
+            #
+            # Zebra now wraps every route's nexthop set in a kernel NHA_GROUP
+            # so that ECMP membership changes can be expressed as in-place
+            # NLM_F_REPLACE on the same id, so accept either rendering.
+            singleton = (
                 f"{netfull}(?: nhid [0-9]+)? {matchvia} proto (static|196) metric 20"
             )
-        assert re.search(route, kernel), f"Failed to find \n'{route}'\n in \n'{kernel}'"
+            group_header = (
+                f"{netfull}(?: nhid [0-9]+)? proto (static|196) metric 20 pref medium"
+            )
+            group_member = rf"\s*nexthop {matchvia} weight [0-9]+"
+            group = group_header + r"\n" + group_member
+            assert re.search(singleton, kernel) or re.search(
+                group, kernel
+            ), f"Failed to find \n'{singleton}'\n or \n'{group}'\n in \n'{kernel}'"
 
 
 def do_config_inner(

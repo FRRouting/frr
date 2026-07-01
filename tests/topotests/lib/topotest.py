@@ -641,6 +641,83 @@ def get_textdiff(text1, text2, title1="", title2="", **opts):
     return diff
 
 
+def normalize_iproute_nhg_output(output):
+    """Canonicalize ``ip [-4|-6] route`` output for comparison across
+    NHA_GATEWAY (singleton) and NHA_GROUP (group-of-one) renderings.
+
+    The Linux kernel renders a route differently depending on whether the
+    route's nexthop id refers to a singleton (NHA_GATEWAY/NHA_OIF) or a
+    group (NHA_GROUP):
+
+        singleton:
+            <prefix> nhid <X> via <gw> dev <if> proto <P> metric <M>[ pref medium]
+
+        group of one:
+            <prefix> nhid <X> proto <P> metric <M> pref medium
+                    nexthop via <gw> dev <if> weight 1
+
+    Zebra now wraps every route's nexthop set in a kernel NHA_GROUP so
+    that ECMP membership changes can be expressed as in-place
+    NLM_F_REPLACE on the same id.  That means routes that used to render
+    in singleton form now render in group-of-one form.  This helper
+    collapses the latter back into the former so existing reference
+    tables (which were captured with singleton renderings) keep matching.
+
+    Multi-nh group entries (more than one ``nexthop`` line) are passed
+    through unchanged.
+    """
+    lines = output.splitlines()
+    out = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # Look for a header that has nhid but no inline "via"/"dev" -- those
+        # are the group-form headers that the kernel emits for routes whose
+        # nhid points at an NHA_GROUP.
+        if re.search(r"\bnhid\b", line) and " via " not in line and " dev " not in line:
+            # Collect any indented nexthop lines that immediately follow.
+            members = []
+            j = i + 1
+            while j < len(lines) and re.match(r"\s+nexthop\b", lines[j]):
+                members.append(lines[j])
+                j += 1
+            if len(members) == 1:
+                # Group-of-one: fold the single member back into the header
+                # so the route looks like the singleton form.
+                m = re.match(
+                    r"\s*nexthop\s+(.*?)\s+weight\s+\d+\s*$",
+                    members[0],
+                )
+                if m:
+                    nh = m.group(1)
+                    # Insert "<nh>" after the nhid token. Header looks like
+                    #   "<prefix> nhid <X> proto <P> metric <M> pref medium"
+                    # so split after "nhid <X>".
+                    header = re.sub(
+                        r"(\bnhid\s+\S+)\s+",
+                        r"\1 " + nh + " ",
+                        line,
+                        count=1,
+                    )
+                    # Some refs were captured without "pref medium" trailing
+                    # the singleton -- leave any existing trailing tokens
+                    # untouched, the ref-vs-actual comparison just needs the
+                    # via/dev tokens to be on the same line.
+                    out.append(header)
+                    i = j
+                    continue
+            # Either no members or multi-nh group: keep header + members
+            # exactly as they were.
+            out.append(line)
+            for m in members:
+                out.append(m)
+            i = j
+            continue
+        out.append(line)
+        i += 1
+    return "\n".join(out)
+
+
 def difflines(text1, text2, title1="", title2="", **opts):
     "Wrapper for get_textdiff to avoid string transformations."
     text1 = ("\n".join(text1.rstrip().splitlines()) + "\n").splitlines(1)
@@ -947,7 +1024,8 @@ def ip4_route(node):
         }
     }
     """
-    output = normalize_text(node.run("ip route")).splitlines()
+    raw = normalize_iproute_nhg_output(normalize_text(node.run("ip route")))
+    output = raw.splitlines()
     result = {}
     for line in output:
         columns = line.split(" ")
@@ -1031,7 +1109,8 @@ def ip6_route(node):
         }
     }
     """
-    output = normalize_text(node.run("ip -6 route")).splitlines()
+    raw = normalize_iproute_nhg_output(normalize_text(node.run("ip -6 route")))
+    output = raw.splitlines()
     result = {}
     for line in output:
         columns = line.split(" ")
@@ -1071,9 +1150,10 @@ def ip6_vrf_route(node):
         }
     }
     """
-    output = normalize_text(
-        node.run("ip -6 route show vrf {0}-cust1".format(node.name))
-    ).splitlines()
+    raw = normalize_iproute_nhg_output(
+        normalize_text(node.run("ip -6 route show vrf {0}-cust1".format(node.name)))
+    )
+    output = raw.splitlines()
     result = {}
     for line in output:
         columns = line.split(" ")
