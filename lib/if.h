@@ -621,15 +621,15 @@ extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
 /* Connected address functions. */
 extern struct connected *connected_new(void);
 extern void connected_free(struct connected **connected);
-extern struct connected *connected_add_by_prefix(struct interface *ifp,
-						 struct prefix *p,
-						 struct prefix *dest);
-extern struct connected *connected_delete_by_prefix(struct interface *ifp,
-						    struct prefix *p);
+extern struct connected *connected_add_by_prefix(struct interface *ifp, const struct prefix *p,
+						 const struct prefix *dest);
+extern struct connected *connected_delete_by_prefix(struct interface *ifp, const struct prefix *p,
+						    const struct prefix *dest);
 extern struct connected *connected_lookup_prefix(struct interface *ifp,
 						 const struct prefix *p);
 extern struct connected *connected_lookup_prefix_exact(struct interface *ifp,
-						       const struct prefix *p);
+						       const struct prefix *p,
+						       const struct prefix *dest);
 extern bool if_has_connected_with_family(struct interface *ifp, int family);
 extern unsigned int connected_count_by_family(struct interface *ifp, int family);
 extern struct nbr_connected *nbr_connected_new(void);
