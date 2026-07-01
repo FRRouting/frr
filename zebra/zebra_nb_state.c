@@ -303,13 +303,13 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 		afi = AFI_IP;
 		safi = SAFI_UNICAST;
 
-		zrt = zebra_router_find_zrt(zvrf, zvrf->table_id, afi, safi);
+		zrt = zebra_router_find_zrt(zvrf, zvrf_table_id(zvrf), afi, safi);
 		if (zrt == NULL)
 			return NULL;
 	} else {
 		zrt = RB_NEXT(zebra_router_table_head, zrt);
 		/* vrf_id/ns_id do not match, only walk for the given VRF */
-		while (zrt && (zrt->tableid != zvrf->table_id ||
+		while (zrt && (zrt->tableid != zvrf_table_id(zvrf) ||
 			       zrt->ns_id != zvrf->zns->ns_id))
 			zrt = RB_NEXT(zebra_router_table_head, zrt);
 	}
@@ -348,7 +348,7 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	table_id = yang_str2uint32(args->keys->key[1]);
 	/* table_id 0 assume vrf's table_id. */
 	if (!table_id)
-		table_id = zvrf->table_id;
+		table_id = zvrf_table_id(zvrf);
 
 	return zebra_router_find_zrt(zvrf, table_id, afi, safi);
 }
@@ -370,7 +370,7 @@ lib_vrf_zebra_ribs_rib_lookup_next(struct nb_cb_lookup_entry_args *args)
 	table_id = yang_str2uint32(args->keys->key[1]);
 	/* table_id 0 assume vrf's table_id. */
 	if (!table_id)
-		table_id = zvrf->table_id;
+		table_id = zvrf_table_id(zvrf);
 
 	return zebra_router_find_next_zrt(zvrf, table_id, afi, safi);
 }

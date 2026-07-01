@@ -102,7 +102,7 @@ static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 	const char *netns_name = zvrf_ns_name(zvrf);
 
 	memset(&data, 0, sizeof(data));
-	data.l.table_id = zvrf->table_id;
+	data.l.table_id = zvrf_table_id(zvrf);
 
 	if (netns_name)
 		strlcpy(data.l.netns_name, basename((char *)netns_name),
@@ -2176,7 +2176,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	/* Allocate new route. */
 	re = zebra_rib_route_entry_new(
 		vrf_id, api.type, api.instance, api.flags, api.nhgid,
-		api.tableid ? api.tableid : zvrf->table_id, api.metric, api.mtu,
+		api.tableid ? api.tableid : zvrf_table_id(zvrf), api.metric, api.mtu,
 		api.distance, api.tag);
 
 	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG)
@@ -2329,7 +2329,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	if (api.tableid)
 		table_id = api.tableid;
 	else
-		table_id = zvrf->table_id;
+		table_id = zvrf_table_id(zvrf);
 
 	if (IS_ZEBRA_DEBUG_RECV)
 		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",

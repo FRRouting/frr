@@ -174,7 +174,7 @@ static bool zebra_redistribute_is_table_direct(const struct route_entry *re)
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
-	if (re->vrf_id == VRF_DEFAULT && zvrf->table_id != re->table)
+	if (re->vrf_id == VRF_DEFAULT && zvrf_table_id(zvrf) != re->table)
 		return true;
 	return false;
 }
@@ -196,7 +196,7 @@ static bool zebra_redistribute_check(const struct route_node *rn,
 
 	afi = family2afi(rn->p.family);
 	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
-	if (zvrf->table_id != re->table) {
+	if (zvrf_table_id(zvrf) != re->table) {
 		/*
 		 * Routes with table ID different from VRFs can be used as
 		 * `table-direct` if enabled.
@@ -777,7 +777,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct rou
 	UNSET_FLAG(import_flags, ZEBRA_FLAG_RR_USE_DISTANCE);
 
 	newre = zebra_rib_route_entry_new(0, ZEBRA_ROUTE_TABLE, re->table, import_flags,
-					  re->nhe_id, zvrf->table_id, re->metric, re->mtu,
+					  re->nhe_id, zvrf_table_id(zvrf), re->metric, re->mtu,
 					  zebra_import_table_distance[afi][safi][re->table],
 					  re->tag);
 
@@ -800,7 +800,7 @@ int zebra_del_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct rou
 	prefix_copy(&p, &rn->p);
 
 	rib_delete(afi, safi, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE, re->table, re->flags, &p, NULL,
-		   re->nhe->nhg.nexthop, re->nhe_id, zvrf->table_id, re->metric, re->distance,
+		   re->nhe->nhg.nexthop, re->nhe_id, zvrf_table_id(zvrf), re->metric, re->distance,
 		   false);
 
 	return 0;

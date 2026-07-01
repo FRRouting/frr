@@ -2960,7 +2960,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	 * the zvrf table_id for the default table as RT_TABLE_MAIN
 	 * which is what the normal routing table for ip routing is.
 	 * This change caused this to break our lookups of sg data
-	 * because prior to this change the zvrf->table_id was 0
+	 * because prior to this change the zvrf_table_id(zvrf) was 0
 	 * and when the pim multicast kernel code saw a 0,
 	 * it was auto-translated to RT_TABLE_DEFAULT.  But since
 	 * we are now passing in RT_TABLE_MAIN there is no auto-translation
@@ -2968,11 +2968,11 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	 * are trying to give me.  So now we have this little hack.
 	 */
 	if (mroute->family == AF_INET)
-		actual_table = (zvrf->table_id == rt_table_main_id)
+		actual_table = (zvrf_table_id(zvrf) == rt_table_main_id)
 				       ? RT_TABLE_DEFAULT
-				       : zvrf->table_id;
+				       : zvrf_table_id(zvrf);
 	else
-		actual_table = zvrf->table_id;
+		actual_table = zvrf_table_id(zvrf);
 
 	if (!nl_attr_put32(&req.n, sizeof(req), RTA_TABLE, actual_table)) {
 		zlog_err("%s: Failed to put RTA_TABLE nl attribute", __func__);

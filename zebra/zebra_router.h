@@ -240,6 +240,10 @@ struct zebra_router {
 	uint64_t nexthop_weight_scale_value;
 
 	bool backup_nhs_installed;
+	/*
+	 * VRF table ID hash table (typesafe)
+	 */
+	struct zvrf_table_id_hash_head vrf_table_hash;
 };
 
 #define GRACEFUL_RESTART_TIME 60

@@ -1964,7 +1964,7 @@ static void rib_process_result_import_table_del(const struct zebra_dplane_ctx *c
 			continue;
 
 		rib_delete(afi, safi, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE, table_id, flags, p,
-			   NULL, nhg ? nhg->nexthop : NULL, nhe_id, zvrf->table_id, metric,
+			   NULL, nhg ? nhg->nexthop : NULL, nhe_id, zvrf_table_id(zvrf), metric,
 			   distance, false);
 	}
 }
@@ -4559,7 +4559,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ip
 			 * no matter what.  Since FRR will not have connected routes
 			 * in them.
 			 */
-			if (re->table == zvrf->table_id || re->table == RT_TABLE_MAIN) {
+			if (re->table == zvrf_table_id(zvrf) || re->table == RT_TABLE_MAIN) {
 				if (connected &&
 				    !CHECK_FLAG(connected->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
 					zebra_nhg_free(n);
@@ -4782,7 +4782,7 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 			   table->info ? afi2str(
 				   ((struct rib_table_info *)table->info)->afi)
 				       : "Unknown",
-			   VRF_LOGNAME(vrf), zvrf ? zvrf->table_id : 0,
+			   VRF_LOGNAME(vrf), zvrf ? zvrf_table_id(zvrf) : 0,
 			   rib_update_event2str(event), zebra_route_string(rtype));
 	}
 

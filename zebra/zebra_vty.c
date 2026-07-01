@@ -2767,7 +2767,7 @@ DEFUN (show_vrf,
 				zvrf_ns_name(zvrf));
 		else
 			vty_out(vty, "id %u table %u", zvrf_id(zvrf),
-				zvrf->table_id);
+				zvrf_table_id(zvrf));
 		if (vrf_is_user_cfged(vrf))
 			vty_out(vty, " (configured)");
 		vty_out(vty, "\n");
