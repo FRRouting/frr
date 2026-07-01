@@ -801,6 +801,12 @@ DEFUN_NOSH (srv6_locator,
 {
 	struct srv6_locator *locator = NULL;
 
+	if (strlen(argv[1]->arg) >= SRV6_LOCNAME_SIZE) {
+		vty_out(vty, "%% Invalid locator name: maximum length is %u characters\n",
+			SRV6_LOCNAME_SIZE - 1);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	locator = zebra_srv6_locator_lookup(argv[1]->arg);
 	if (locator) {
 		VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
@@ -826,9 +832,16 @@ DEFUN (no_srv6_locator,
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_block *block;
 	struct zebra_srv6_sid_ctx *ctx;
-	struct srv6_locator *locator = zebra_srv6_locator_lookup(argv[2]->arg);
+	struct srv6_locator *locator;
 	struct zebra_srv6_sid_entry *entry;
 
+	if (strlen(argv[2]->arg) >= SRV6_LOCNAME_SIZE) {
+		vty_out(vty, "%% Invalid locator name: maximum length is %u characters\n",
+			SRV6_LOCNAME_SIZE - 1);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	locator = zebra_srv6_locator_lookup(argv[2]->arg);
 	if (!locator) {
 		vty_out(vty, "%% Can't find SRv6 locator\n");
 		return CMD_WARNING_CONFIG_FAILED;
