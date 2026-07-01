@@ -45,6 +45,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zebra_vrf_import.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
@@ -176,6 +177,7 @@ static const struct {
 			      META_QUEUE_OTHER},
 	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, ZEBRA_MAX_DISTANCE_DEFAULT,
 			      META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_VRF_IMPORT] = {ZEBRA_ROUTE_VRF_IMPORT, 0, META_QUEUE_STATIC},
 	[ZEBRA_ROUTE_ALL] = {ZEBRA_ROUTE_ALL, ZEBRA_MAX_DISTANCE_DEFAULT,
 			     META_QUEUE_OTHER},
 	/* Any new route type added to zebra, should be mirrored here */
@@ -1546,6 +1548,12 @@ static void rib_process(struct route_node *rn)
 					 info->safi);
 	}
 
+	if (old_selected != new_selected || selected_changed)
+		zebra_vrf_import_rib_update(rn, old_selected, new_selected);
+
+	if (old_selected && CHECK_FLAG(old_selected->status, ROUTE_ENTRY_REMOVED))
+		zebra_vrf_import_resolver_update(rn, old_selected);
+
 	/* Update fib according to selection results */
 	if (new_fib && old_fib)
 		rib_process_update_fib(zvrf, rn, old_fib, new_fib);
@@ -1604,7 +1612,7 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 		 * 'old' route
 		 */
 		if ((re->type == dplane_ctx_get_old_type(ctx)) &&
-		    (re->instance == dplane_ctx_get_old_instance(ctx))) {
+		    (route_entry_get_proto_instance(re) == dplane_ctx_get_old_instance(ctx))) {
 			result = true;
 
 			/* We use an extra test for statics, and another for
@@ -1631,7 +1639,7 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 		}
 
 		if ((re->type == dplane_ctx_get_type(ctx)) &&
-		    (re->instance == dplane_ctx_get_instance(ctx))) {
+		    (route_entry_get_proto_instance(re) == dplane_ctx_get_instance(ctx))) {
 			result = true;
 
 			/* We use an extra test for statics, and another for
@@ -1689,8 +1697,12 @@ static bool rib_compare_routes(const struct route_entry *re1, const struct route
 	if (re1->type != re2->type)
 		return false;
 
-	if (re1->instance != re2->instance)
+	if (re1->type == ZEBRA_ROUTE_VRF_IMPORT) {
+		if (re1->vrf_import_src_vrf_id != re2->vrf_import_src_vrf_id)
+			return false;
+	} else if (re1->instance != re2->instance) {
 		return false;
+	}
 
 	if ((re1->type == ZEBRA_ROUTE_KERNEL || re1->type == ZEBRA_ROUTE_STATIC) &&
 	    re1->metric != re2->metric)
@@ -2240,6 +2252,11 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
 
 	zebra_rib_evaluate_mpls(rn);
+
+	if (status == ZEBRA_DPLANE_REQUEST_SUCCESS &&
+	    (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE ||
+	     op == DPLANE_OP_ROUTE_DELETE))
+		zebra_vrf_import_resolver_update(rn, re ? re : old_re);
 done:
 
 	if (rn)
@@ -2388,6 +2405,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 				       false);
 
 	zebra_rib_evaluate_mpls(rn);
+
+	if (fib_changed)
+		zebra_vrf_import_resolver_update(rn, re);
 
 done:
 	if (rn)
@@ -2952,8 +2972,12 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 
 		if (re->type != ere->re->type)
 			continue;
-		if (re->instance != ere->re->instance)
+		if (re->type == ZEBRA_ROUTE_VRF_IMPORT) {
+			if (re->vrf_import_src_vrf_id != ere->re->vrf_import_src_vrf_id)
+				continue;
+		} else if (re->instance != ere->re->instance) {
 			continue;
+		}
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
 		    ere->re->distance != re->distance)
 			continue;
@@ -3900,7 +3924,7 @@ static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 
 static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 					const struct zebra_vrf *zvrf,
-					uint8_t proto, uint8_t instance)
+					uint8_t proto, uint16_t instance)
 {
 	struct zebra_early_route *ere;
 	struct listnode *node, *nnode;
@@ -3910,7 +3934,7 @@ static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 			continue;
 
 		if (proto != ZEBRA_ROUTE_ALL &&
-		    (proto != ere->re->type && instance != ere->re->instance))
+		    (proto != ere->re->type || instance != route_entry_get_proto_instance(ere->re)))
 			continue;
 
 		early_route_memory_free(ere);
@@ -4262,7 +4286,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   VRF_LOGNAME(vrf), re->vrf_id);
 	zlog_debug("%s(%s): uptime == %lu, type == %u, instance == %d, table == %d",
 		   straddr, VRF_LOGNAME(vrf), (unsigned long)re->uptime,
-		   re->type, re->instance, re->table);
+		   re->type, route_entry_get_proto_instance(re), re->table);
 	zlog_debug("%s(%s): metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
 		   straddr, VRF_LOGNAME(vrf), re->metric, re->mtu, re->distance,
 		   zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf)),
@@ -4735,8 +4759,9 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 		srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
 
 		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id,
-			   re->type, re->instance, re->flags, p, src_p, NULL, 0,
-			   re->table, re->metric, re->distance, true);
+			   re->type, route_entry_get_proto_instance(re), re->flags, p,
+			   src_p, NULL, 0, re->table, re->metric, re->distance,
+			   true);
 	}
 }
 
@@ -5011,8 +5036,8 @@ unsigned long rib_score_proto_table(uint8_t proto, unsigned short instance,
 			RNODE_FOREACH_RE_SAFE (rn, re, next) {
 				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 					continue;
-				if (re->type == proto
-				    && re->instance == instance) {
+				if (re->type == proto &&
+				    route_entry_get_proto_instance(re) == instance) {
 					rib_delnode(rn, re);
 					n++;
 				}
