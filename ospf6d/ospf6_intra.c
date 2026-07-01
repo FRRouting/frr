@@ -1069,6 +1069,11 @@ void ospf6_intra_prefix_lsa_originate_stub(struct event *event)
 		op->prefix_length = route->prefix.prefixlen;
 		op->prefix_options = route->prefix_options;
 		op->prefix_metric = htons(route->path.cost);
+
+		if (if_lookup_prefix_lback(&route->prefix, oa->ospf6->vrf_id))
+			/* set correct path cost for a loopback interface*/
+			op->prefix_metric = 0;
+
 		memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
 		       OSPF6_PREFIX_SPACE(op->prefix_length));
 		prefix_num++;
@@ -1722,6 +1727,9 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		}
 
 		if (ifp) {
+			/* set correct path cost if one is loopback interface */
+			if (if_lookup_prefix_lback(&route->prefix, oa->ospf6->vrf_id))
+				route->path.cost = 0;
 			/* Nexthop interface found */
 			ospf6_route_add_nexthop(route, ifp->ifindex, NULL);
 		} else {

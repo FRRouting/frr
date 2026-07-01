@@ -565,6 +565,7 @@ extern struct connected *if_lookup_address(const void *matchaddr, int family,
 					   vrf_id_t vrf_id);
 extern struct interface *if_lookup_prefix(const struct prefix *prefix,
 					  vrf_id_t vrf_id);
+extern struct interface *if_lookup_prefix_lback(const struct prefix *prefix, vrf_id_t vrf_id);
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id);
 
