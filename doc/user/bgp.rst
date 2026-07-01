@@ -3007,13 +3007,28 @@ The following commands can be used in route maps:
 
    It is not possible to set an expanded community list.
 
-.. clicmd:: set comm-list WORD delete
 
-   This command remove communities value from BGP communities attribute.  The
-   ``word`` is community list name. When BGP route's communities value matches
-   to the community list ``word``, the communities value is removed. When all
-   of communities value is removed eventually, the BGP update's communities
-   attribute is completely removed.
+.. clicmd:: set comm-list <delete|add|replace> WORD
+
+   This command modifies the BGP communities attribute using a specified 
+   standard community list name (``WORD``). 
+   The following operations are available:
+
+   * ``delete``: Removes communities from the BGP communities attribute that 
+                 match the specified community list.
+   * ``add``: Appends the communities defined in the community list to the 
+              existing BGP communities attribute of the route.
+   * ``replace``: Overwrites the existing BGP communities attribute entirely 
+                  with the communities defined in the community list.
+
+.. clicmd:: set extended-comm-list delete <EXTCOMMUNITY_LIST_NAME>
+
+   Set BGP extended community list for deletion.
+
+.. clicmd:: set large-comm-list delete <LCOMMUNITY_LIST_NAME>
+
+   Set BGP large community list for deletion.
+
 
 .. _bgp-communities-example:
 
@@ -3128,7 +3143,7 @@ community-list is used. ``deny`` community-list is ignored.
    bgp community-list standard DEL permit 100:1 100:2
    !
    route-map RMAP permit 10
-    set comm-list DEL delete
+    set comm-list delete DEL
 
 
 .. _bgp-extended-communities-attribute:

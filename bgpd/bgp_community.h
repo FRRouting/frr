@@ -54,6 +54,7 @@ struct community {
 #define com_nthval(X,n)  ((X)->val + (n))
 
 /* Prototypes of communities attribute functions.  */
+extern struct community *community_new(void);
 extern void community_init(void);
 extern void community_finish(void);
 extern void community_free(struct community **comm);

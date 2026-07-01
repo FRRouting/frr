@@ -380,10 +380,11 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:originator-id"))
 #define IS_SET_COMM_LIST_DEL(A)                                                \
 	(strmatch(A, "frr-bgp-route-map:comm-list-delete"))
+#define IS_SET_COMM_LIST_ADD(A)	    (strmatch(A, "frr-bgp-route-map:comm-list-add"))
+#define IS_SET_COMM_LIST_REPLACE(A) (strmatch(A, "frr-bgp-route-map:comm-list-replace"))
 #define IS_SET_LCOMM_LIST_DEL(A)                                               \
 	(strmatch(A, "frr-bgp-route-map:large-comm-list-delete"))
-#define IS_SET_EXTCOMM_LIST_DEL(A)                                                \
-	(strmatch(A, "frr-bgp-route-map:extended-comm-list-delete"))
+#define IS_SET_EXTCOMM_LIST_DEL(A) (strmatch(A, "frr-bgp-route-map:extended-comm-list-delete"))
 #define IS_SET_LCOMMUNITY(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:set-large-community"))
 #define IS_SET_COMMUNITY(A)                                                    \
