@@ -206,19 +206,19 @@ extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
 					     safi_t safi);
 
 extern enum zclient_send_status evpn_zebra_install(struct bgp *bgp,
-						   struct bgpevpn *vpn,
+						   struct bgp_evpn_vba_evi *vpn,
 						   const struct prefix_evpn *p,
 						   struct bgp_path_info *pi);
 extern enum zclient_send_status
-evpn_zebra_uninstall(struct bgp *bgp, struct bgpevpn *vpn,
+evpn_zebra_uninstall(struct bgp *bgp, struct bgp_evpn_vba_evi *vpn,
 		     const struct prefix_evpn *p, struct bgp_path_info *pi,
 		     bool is_sync);
 bool bgp_evpn_skip_vrf_import_of_local_es(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
 					  struct bgp_path_info *pi, int install);
 int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
 				      struct bgp_path_info *parent_pi);
-extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn);
-extern int install_uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn, bool install);
+extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgp_evpn_vba_evi *vpn);
+extern int install_uninstall_routes_for_vni(struct bgp *bgp, struct bgp_evpn_vba_evi *vpn, bool install);
 extern void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr,
 					  struct prefix_evpn *evp, struct ipaddr *vtep_ip);
 #endif /* _QUAGGA_BGP_EVPN_H */
