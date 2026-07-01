@@ -341,7 +341,7 @@ def test_topology_setup():
     def check_leaf1_routes():
         route_count = (
             net["leaf1"]
-            .cmd('vtysh -c "show bgp ipv4 unicast" | grep "*>" | grep "39\\.99" | wc -l')
+            .cmd('vtysh -c "show bgp ipv4 unicast" | grep "*" | grep "39\\.99" | wc -l')
             .rstrip()
         )
         try:
@@ -742,7 +742,7 @@ def cleanup_sharp_routes():
             def check_routes_removed():
                 route_count = (
                     net["leaf1"]
-                    .cmd('vtysh -c "show bgp ipv4 unicast" | grep "*>" | grep "39\\.99" | wc -l')
+                    .cmd('vtysh -c "show bgp ipv4 unicast" | grep "*" | grep "39\\.99" | wc -l')
                     .rstrip()
                 )
                 try:
