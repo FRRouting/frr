@@ -152,6 +152,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 
 	pim_ifp->pim_enable = pim;
 	pim_ifp->pim_mode = PIM_MODE_SPARSE;
+	pim_ifp->pim_nbma_enable = false;
 	pim_ifp->gm_enable = gm;
 	pim_ifp->gm_proxy = false;
 

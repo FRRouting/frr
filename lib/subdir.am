@@ -277,6 +277,7 @@ nobase_pkginclude_HEADERS += \
 	lib/ns.h \
 	lib/openbsd-queue.h \
 	lib/openbsd-tree.h \
+	lib/pim_nbma_sync.h \
 	lib/plist.h \
 	lib/prefix.h \
 	lib/printfrr.h \

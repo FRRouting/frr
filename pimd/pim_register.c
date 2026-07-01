@@ -725,10 +725,33 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 			}
 		}
 
+		/* RP-side (S,G) OIL inheritance refresh.
+		 *
+		 * The Register-Stop short-circuit below used to be the *only*
+		 * place that recomputed inherited_olist(S,G) at the RP -- and
+		 * only on the first Register, when sptbit was still FALSE and
+		 * the && in the third clause reached the side-effecting call.
+		 * On subsequent Registers (sptbit just flipped TRUE inside the
+		 * else-branch above) the first || term short-circuits and the
+		 * inherited OIL is never refreshed. Any (*,G) Joins that
+		 * arrived between Register #1 and Register #2 -- common when
+		 * receivers and source come up close together -- never make
+		 * it into the (S,G) MFC, leaving Oifs={} and post-decap
+		 * traffic dropped at the kernel mroute lookup.
+		 *
+		 * Always recompute at the RP: the function is idempotent
+		 * (skips OIFs already present) and its return is a count, not
+		 * a delta, so we can use it directly in the existing
+		 * Register-Stop test below.
+		 */
+		int output_intf = 0;
+
+		if (i_am_rp)
+			output_intf = pim_upstream_inherited_olist(pim, upstream);
+
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 		    (PIM_UPSTREAM_FLAG_TEST_FHR(upstream->flags) && i_am_rp) ||
-		    ((SwitchToSptDesiredOnRp(pim, &sg)) &&
-		     pim_upstream_inherited_olist(pim, upstream) == 0)) {
+		    (SwitchToSptDesiredOnRp(pim, &sg) && output_intf == 0)) {
 			if (PIM_DEBUG_PIM_REG)
 				zlog_debug("sending pim register stop message :  %s ",
 					   upstream->sg_str);

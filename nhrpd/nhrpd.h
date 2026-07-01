@@ -317,6 +317,15 @@ struct nhrp_interface {
 	struct zbuf *auth_token;
 	unsigned enabled : 1;
 
+	/* PIM NBMA-mode. When set, the multicast replication filter
+	 * in nhrp_multicast_forward_cache() is fail-closed: a data
+	 * multicast packet with no OIL entry for (S, G, ifp) is dropped
+	 * rather than fanned out. Mirrors Cisco "ip pim nbma-mode". The
+	 * flag is set from the NHRP CLI or via an interface-level config
+	 * hook; see nhrp_vty.c.
+	 */
+	unsigned nbma_mode_enabled : 1;
+
 	char *ipsec_profile, *ipsec_fallback_profile, *source;
 	union sockunion nbma;
 	union sockunion nat_nbma;
