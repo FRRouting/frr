@@ -196,6 +196,7 @@ ecommunity_uniq_sort_internal(struct ecommunity *ecom,
 	return new;
 }
 
+
 /* This function takes pointer to Extended Communities structure then
  * create a new Extended Communities structure by uniq and sort each
  * Extended Communities value.
@@ -1260,6 +1261,16 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 			} else if (*pnt == ECOMMUNITY_COLOR) {
 				ecommunity_color_str(encbuf, sizeof(encbuf),
 						     pnt);
+			} else if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_UPA) {
+				struct in_addr rid = {};
+				uint8_t flags = data[BGP_UPA_EXTCOM_OFF_FLAGS];
+				const char *dbit_str = CHECK_FLAG(flags, BGP_UPA_FLAG_DROP)
+							       ? "drop"
+							       : "no-drop";
+
+				memcpy(&rid.s_addr, data + BGP_UPA_EXTCOM_OFF_ROUTER_ID,
+				       sizeof(rid.s_addr));
+				snprintfrr(encbuf, sizeof(encbuf), "upa:%pI4:%s", &rid, dbit_str);
 			} else {
 				unk_ecom = true;
 			}
@@ -1493,6 +1504,16 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 				color = ntohl(color);
 				snprintf(encbuf, sizeof(encbuf), "Color:%d%d:%u",
 					 (color_type & 0x2) >> 1, color_type & 0x1, color);
+			} else if (sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_UPA) {
+				struct in_addr router_id;
+				uint8_t flags = *pnt;
+				const char *dbit_str = CHECK_FLAG(flags, BGP_UPA_FLAG_DROP)
+							       ? "drop"
+							       : "no-drop";
+
+				memcpy(&router_id.s_addr, pnt + 2, 4);
+				snprintfrr(encbuf, sizeof(encbuf), "upa:%pI4:%s", &router_id,
+					   dbit_str);
 			} else
 				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
@@ -2168,4 +2189,87 @@ bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo)
 			return true;
 	}
 	return false;
+}
+void bgp_upa_extcom_new(struct in_addr router_id, uint8_t flags, struct ecommunity_val *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE;
+	eval->val[1] = ECOMMUNITY_OPAQUE_SUBTYPE_UPA;
+	eval->val[BGP_UPA_EXTCOM_OFF_FLAGS] = flags;
+	eval->val[BGP_UPA_EXTCOM_OFF_RSVD] = 0x00;
+	memcpy(&eval->val[BGP_UPA_EXTCOM_OFF_ROUTER_ID], &router_id.s_addr,
+	       sizeof(router_id.s_addr));
+}
+
+bool bgp_upa_extcom_parse(const struct ecommunity_val *eval, uint8_t *flags_out,
+			  struct in_addr *router_id_out)
+{
+	if (eval->val[0] != ECOMMUNITY_ENCODE_OPAQUE)
+		return false;
+	if (eval->val[1] != ECOMMUNITY_OPAQUE_SUBTYPE_UPA)
+		return false;
+
+	if (flags_out)
+		*flags_out = eval->val[BGP_UPA_EXTCOM_OFF_FLAGS];
+	if (router_id_out)
+		memcpy(&router_id_out->s_addr, &eval->val[BGP_UPA_EXTCOM_OFF_ROUTER_ID],
+		       sizeof(router_id_out->s_addr));
+	return true;
+}
+
+bool bgp_ecommunity_has_upa(const struct ecommunity *ecom)
+{
+	uint8_t *p;
+	uint32_t i;
+
+	if (!ecom || !ecom->val)
+		return false;
+
+	for (i = 0; i < ecom->size; i++) {
+		p = ecom->val + (i * ecom->unit_size);
+		if (p[0] == ECOMMUNITY_ENCODE_OPAQUE && p[1] == ECOMMUNITY_OPAQUE_SUBTYPE_UPA)
+			return true;
+	}
+	return false;
+}
+
+struct ecommunity *bgp_upa_extcom_filter(const struct ecommunity *ecom)
+{
+	uint8_t *p;
+	uint32_t i;
+	struct ecommunity *new;
+
+	if (!ecom || !ecom->val)
+		return NULL;
+
+	new = ecommunity_new();
+	new->unit_size = ecom->unit_size;
+
+	for (i = 0; i < ecom->size; i++) {
+		p = ecom->val + (i * ecom->unit_size);
+
+		if (ecom->unit_size == ECOMMUNITY_SIZE && p[0] == ECOMMUNITY_ENCODE_OPAQUE &&
+		    p[1] == ECOMMUNITY_OPAQUE_SUBTYPE_UPA)
+			continue;
+
+		if (ecom->unit_size == IPV6_ECOMMUNITY_SIZE) {
+			struct ecommunity_val_ipv6 eval6 = {};
+
+			memcpy(eval6.val, p, IPV6_ECOMMUNITY_SIZE);
+			ecommunity_add_val_internal(new, &eval6, false, false,
+						    IPV6_ECOMMUNITY_SIZE);
+		} else if (ecom->unit_size == ECOMMUNITY_SIZE) {
+			struct ecommunity_val eval = {};
+
+			memcpy(eval.val, p, ECOMMUNITY_SIZE);
+			ecommunity_add_val(new, &eval, false, false);
+		}
+	}
+
+	if (new->size == 0) {
+		ecommunity_free(&new);
+		return NULL;
+	}
+
+	return new;
 }

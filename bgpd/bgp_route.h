@@ -374,6 +374,9 @@ struct bgp_path_info {
  */
 #define BGP_PATH_MULTIPATH_NEW (1 << 20)
 #define BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP (1 << 21)
+#define BGP_PATH_UPA                                                                              \
+	(1 << 22) /* Route has UPA marking (locally originated or received with UPA ExtCom) */
+#define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -545,6 +548,22 @@ struct bgp_aggregate {
 	char *suppress_map_name;
 	/** Suppress map route map pointer. */
 	struct route_map *suppress_map;
+
+	/* UPA (Unreachable Prefix Announcement) state for this aggregate.
+	 *
+	 * upa_enabled  true when "aggregate-address ... upa" is configured.
+	 * upa_drop     true when the D-bit should be set on originated UPAs.
+	 * upa_max_routes  per-aggregate cap on simultaneous UPA entries (0=unlimited).
+	 * upa_routes   typesafe hash of prefixes currently announced as UPA under this
+	 *              aggregate; keyed by prefix, cleaned up in bgp_free_aggregate_info().
+	 *
+	 * bgp_aggregate_new() uses XCALLOC so all fields default to
+	 * false/0/NULL without explicit initialisation.
+	 */
+	bool upa_enabled;
+	bool upa_drop;
+	uint32_t upa_max_routes;
+	struct bgp_upa_prefix_hash_head upa_routes;
 };
 
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \
@@ -805,6 +824,14 @@ extern int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path
 extern uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi);
 
 DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, bgp_pi_hash_hashfn);
+
+/* UPA prefix hash - for tracking unreachable prefixes */
+extern int bgp_upa_prefix_cmp(const struct bgp_upa_prefix_entry *e1,
+			      const struct bgp_upa_prefix_entry *e2);
+extern uint32_t bgp_upa_prefix_hashfn(const struct bgp_upa_prefix_entry *entry);
+
+DECLARE_HASH(bgp_upa_prefix_hash, struct bgp_upa_prefix_entry, hash_link, bgp_upa_prefix_cmp,
+	     bgp_upa_prefix_hashfn);
 
 /* BGP show options */
 #define BGP_SHOW_OPT_JSON (1 << 0)
@@ -1072,6 +1099,19 @@ extern void bgp_path_info_add_with_caller(const char *caller,
 					  struct bgp_dest *dest,
 					  struct bgp_path_info *pi);
 extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
+
+/* UPA (Unreachable Prefix Announcement) functions */
+extern void bgp_upa_originate_all(struct bgp *bgp, const struct prefix *aggr_p, afi_t afi,
+				  safi_t safi, struct bgp_aggregate *aggregate);
+extern void bgp_upa_withdraw_all(struct bgp *bgp, const struct prefix *aggr_p, afi_t afi,
+				 safi_t safi);
+extern void bgp_upa_originate_global(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_upa_withdraw_global(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_upa_check_prefix_global(struct bgp *bgp, const struct prefix *p, afi_t afi,
+					safi_t safi);
+extern bool bgp_upa_has_extcomm(struct bgp_path_info *pi);
+extern bool bgp_upa_get_dbit(struct bgp_path_info *pi);
+
 extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     struct bgp_path_info *exist, int *paths_eq,
 			     struct bgp_maxpaths_cfg *mpath_cfg, bool debug,

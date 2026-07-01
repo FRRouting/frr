@@ -687,6 +687,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	mpls_label_t labels[BGP_MAX_LABELS] = { MPLS_INVALID_LABEL };
 	uint8_t num_labels = 0;
 	struct bgp_ls_nlri *ls_nlri = NULL;
+	int packet_is_upa = -1; /* -1=unknown, 0=non-UPA packet, 1=UPA packet */
 
 	if (!subgrp)
 		return NULL;
@@ -727,6 +728,30 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		/* When remaining space can't include NLRI and it's length.  */
 		if (space_remaining < space_needed)
 			break;
+
+		/* UPA-only UPDATE rule (draft-ietf-idr-upa-02 Section 5):
+		 * UPDATE messages with UPA ExtCom MUST contain only UPA prefixes.
+		 * Only apply this rule for UPA-capable subgroups.
+		 */
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND)) {
+			bool prefix_has_upa = bgp_upa_has_extcomm(path);
+
+			if (stream_empty(s)) {
+				/* First prefix in packet - set packet type */
+				packet_is_upa = prefix_has_upa ? 1 : 0;
+			} else {
+				/* Subsequent prefix - check if it matches packet type */
+				if ((packet_is_upa == 1 && !prefix_has_upa) ||
+				    (packet_is_upa == 0 && prefix_has_upa)) {
+					if (BGP_DEBUG(update, UPDATE_OUT))
+						zlog_debug("u%" PRIu64 ":s%" PRIu64
+							   " UPA-only rule: breaking packet (packet_is_upa=%d, prefix_has_upa=%d)",
+							   subgrp->update_group->id, subgrp->id,
+							   packet_is_upa, prefix_has_upa);
+					break;
+				}
+			}
+		}
 
 		/* If packet is empty, set attribute. */
 		if (stream_empty(s)) {
