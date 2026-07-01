@@ -10,6 +10,10 @@ Test if local-preference is passed between different EBGP peers when
 EBGP-OAD is configured.
 
 Also check if no-export community is passed to the EBGP-OAD peer.
+
+Also check that the (optional non-transitive) AIGP attribute is propagated
+across EBGP-OAD sessions (r3 -> r2 -> r1), but stripped towards a regular
+EBGP peer (r1 -> r4).
 """
 
 import os
@@ -153,6 +157,31 @@ def test_bgp_oad():
     assert (
         result is None
     ), "10.10.10.20/32 should NOT be received at r5 with non-transitive extended community"
+
+    def _bgp_check_aigp(router, arg=None):
+        if arg is None:
+            arg = {"aigpMetric": 50}
+        output = json.loads(
+            router.vtysh_cmd("show bgp ipv4 unicast 10.10.10.20/32 json")
+        )
+        expected = {"paths": [arg]}
+        return topotest.json_cmp(output, expected)
+
+    # AIGP must be propagated across the EBGP-OAD domain (r3 -> r2 -> r1).
+    test_func = functools.partial(_bgp_check_aigp, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "10.10.10.20/32 should be received at r2 with aigp-metric"
+
+    test_func = functools.partial(_bgp_check_aigp, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "10.10.10.20/32 should be received at r1 with aigp-metric"
+
+    # AIGP must NOT leak towards a regular EBGP peer (r1 -> r4).
+    test_func = functools.partial(_bgp_check_aigp, r4, {"aigpMetric": None})
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "10.10.10.20/32 should NOT be received at r4 with aigp-metric (not OAD peer)"
 
 
 if __name__ == "__main__":
