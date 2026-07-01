@@ -160,6 +160,14 @@ tests_lib_test_atomlist_SOURCES = tests/lib/test_atomlist.c
 EXTRA_DIST += tests/lib/test_atomlist.py
 
 
+check_PROGRAMS += tests/lib/test_atomhash
+tests_lib_test_atomhash_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_atomhash_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_atomhash_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_atomhash_SOURCES = tests/lib/test_atomhash.c tests/helpers/c/prng.c
+#EXTRA_DIST += tests/lib/test_atomlist.py
+
+
 check_PROGRAMS += tests/lib/test_buffer
 tests_lib_test_buffer_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_buffer_CPPFLAGS = $(TESTS_CPPFLAGS)
