@@ -927,6 +927,7 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 		memcpy(copy->backup_idx, nexthop->backup_idx, copy->backup_num);
 
 	copy->srte_color = nexthop->srte_color;
+	copy->resolved_via = nexthop->resolved_via;
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
@@ -1457,6 +1458,10 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 			}
 		}
 	}
+
+	if (nexthop->resolved_via > 0)
+		json_object_int_add(json_nexthop, "resolvedVia",
+				    nexthop->resolved_via);
 }
 
 /*
