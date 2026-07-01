@@ -1160,9 +1160,11 @@ static int ospf_vl_set_params(struct ospf_area *area,
 	struct ospf_interface *voi;
 	struct listnode *node;
 	struct vertex_parent *vp = NULL;
-	unsigned int i;
+	int i;
 	struct router_lsa *rl;
 	struct ospf_interface *oi;
+	const struct router_link *rlnk;
+	bool found_p;
 
 	voi = vl_data->vl_oi;
 
@@ -1196,24 +1198,42 @@ static int ospf_vl_set_params(struct ospf_area *area,
 	}
 
 	rl = (struct router_lsa *)v->lsa;
+	rlnk = NULL;
 
 	/* use SPF determined backlink index in struct vertex
 	 * for virtual link destination address
 	 */
 	if (vp && vp->backlink >= 0) {
-		if (!IPV4_ADDR_SAME(&vl_data->peer_addr,
-				    &rl->link[vp->backlink].link_data))
-			changed = 1;
-		vl_data->peer_addr = rl->link[vp->backlink].link_data;
-	} else {
+		/* Note that the links may have a variable-length area, so we cannot
+		 * just index into an array.
+		 */
+		for (i = 0; i < ntohs(rl->links); i++) {
+			if (i == 0)
+				rlnk = &(rl->link[0]);
+			else
+				rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
+
+			if (i == vp->backlink)
+				break;
+		}
+	}
+
+	if (rlnk == NULL) {
 		/* This is highly odd, there is no backlink index
 		 * there should be due to the ospf_spf_has_link() check
 		 * in SPF. Lets warn and try pick a link anyway.
 		 */
 		zlog_info("ospf_vl_set_params: No backlink for %s!",
 			  vl_data->vl_oi->ifp->name);
+
+		found_p = false;
 		for (i = 0; i < ntohs(rl->links); i++) {
-			switch (rl->link[i].type) {
+			if (i == 0)
+				rlnk = &(rl->link[0]);
+			else
+				rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
+
+			switch (rlnk->type) {
 			case LSA_LINK_TYPE_VIRTUALLINK:
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
@@ -1221,12 +1241,19 @@ static int ospf_vl_set_params(struct ospf_area *area,
 				fallthrough;
 			case LSA_LINK_TYPE_TRANSIT:
 			case LSA_LINK_TYPE_POINTOPOINT:
-				if (!IPV4_ADDR_SAME(&vl_data->peer_addr,
-						    &rl->link[i].link_data))
-					changed = 1;
-				vl_data->peer_addr = rl->link[i].link_data;
+				found_p = true;
+				break;
 			}
+
+			if (found_p)
+				break;
 		}
+	}
+
+	if (rlnk) {
+		if (!IPV4_ADDR_SAME(&vl_data->peer_addr, &rlnk->link_data))
+			changed = 1;
+		vl_data->peer_addr = rlnk->link_data;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)

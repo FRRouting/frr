@@ -297,7 +297,7 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 	char buf[BUFSIZ];
 	struct router_lsa *rl;
 	struct router_link *rlnk;
-	int i, len, sum;
+	int i;
 
 	rl = (struct router_lsa *)stream_pnt(s);
 
@@ -306,15 +306,15 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 		   ospf_router_lsa_flags_dump(rl->flags, buf, BUFSIZ));
 	zlog_debug("    # links %d", ntohs(rl->links));
 
-	len = length - OSPF_LSA_HEADER_SIZE - 4;
 	rlnk = &rl->link[0];
-	sum = 0;
-	for (i = 0; sum < len && rlnk; sum += 12, rlnk = &rl->link[++i]) {
+	for (i = 0; i < ntohs(rl->links); i++) {
 		zlog_debug("    Link ID %pI4", &rlnk->link_id);
 		zlog_debug("    Link Data %pI4", &rlnk->link_data);
 		zlog_debug("    Type %d", (uint8_t)rlnk->type);
 		zlog_debug("    TOS %d", (uint8_t)rlnk->tos);
 		zlog_debug("    metric %d", ntohs(rlnk->metric));
+
+		rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
 	}
 }
 

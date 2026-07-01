@@ -331,7 +331,7 @@ int ospf_nbr_count_opaque_capable(struct ospf_interface *oi)
  * with virtual link and PointToPoint neighbours
  */
 struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,
-					      struct in_addr *addr)
+					      const struct in_addr *addr)
 {
 	struct prefix p;
 	struct route_node *rn;
@@ -360,7 +360,7 @@ struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,
 }
 
 struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *nbrs,
-						  struct in_addr *id)
+						  const struct in_addr *id)
 {
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
