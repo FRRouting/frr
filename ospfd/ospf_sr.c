@@ -1428,10 +1428,10 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 {
 	struct sr_node *srn;
 	struct tlv_header *tlvh;
-	struct lsa_header *lsah = lsa->data;
+	struct lsa_header *lsah;
 	struct ri_sr_tlv_sid_label_range *ri_srgb = NULL;
 	struct ri_sr_tlv_sid_label_range *ri_srlb = NULL;
-	struct sr_block srgb;
+	struct sr_block srgb = { 0, 0 };
 	uint32_t length = 0, sum = 0;
 	uint8_t msd = 0;
 	bool error_p = false;
@@ -1448,13 +1448,14 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		return;
 	}
 
-	osr_debug("SR (%s): Process Router Information LSA 4.0.0.%u from %pI4",
-		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-		  &lsah->adv_router);
+	lsah = lsa->data;
 
-	/* Sanity check */
+	/* Skip self-originated RI LSA — our own SR info is managed locally */
 	if (IS_LSA_SELF(lsa))
 		return;
+
+	osr_debug("SR (%s): Process Router Information LSA 4.0.0.%u from %pI4", __func__,
+		  GET_OPAQUE_ID(ntohl(lsah->id.s_addr)), &lsah->adv_router);
 
 	if (OspfSR.neighbors == NULL) {
 		flog_err(EC_OSPF_SR_INVALID_DB,
@@ -1475,9 +1476,6 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		return;
 	}
 
-	srgb.range_size = 0;
-	srgb.lower_bound = 0;
-
 	for (tlvh = TLV_HDR_TOP(lsah); (sum < length) && (tlvh != NULL);) {
 		uint32_t tlv_size = TLV_SIZE(tlvh);
 
@@ -1489,31 +1487,28 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		}
 
 		switch (ntohs(tlvh->type)) {
-		case RI_SR_TLV_SR_ALGORITHM:
-			/* Validate sub-TLV length: variable-length, in octets */
-			i = ntohs(tlvh->length);
-			if (i < 1 || i > ALGORITHM_COUNT) {
+		case RI_SR_TLV_SR_ALGORITHM: {
+			/* RFC 8665 sec. 3.1: variable-length list of algorithm bytes */
+			uint16_t algo_len = ntohs(tlvh->length);
+
+			if (algo_len < 1 || algo_len > ALGORITHM_COUNT) {
 				error_p = true;
 				break;
 			}
 
-			/* Must only use first TLV, if multiple are present */
+			/* As Per RFC, only the first SR-Algorithm TLV must be used */
 			if (algo.length > 0)
 				break;
 
-			/* Init algo octets */
-			for (i = 0; i < ALGORITHM_COUNT; i++)
-				algo.value[i] = SR_ALGORITHM_UNSET;
-
-			/* Copy octets from TLV to local buffer. Note that length is
-			 * in host-order.
-			 */
+			/* Initialize all slots to UNSET, then overlay TLV data */
+			memset(algo.value, SR_ALGORITHM_UNSET, ALGORITHM_COUNT);
 			p = TLV_DATA(tlvh);
-			algo.length = ntohs(tlvh->length);
-			for (i = 0; i < algo.length; i++)
-				algo.value[i] = *(p + i);
+			algo.length = algo_len;
+			for (int j = 0; j < algo_len; j++)
+				algo.value[j] = p[j];
 
 			break;
+		}
 		case RI_SR_TLV_SRGB_LABEL_RANGE:
 			/* Validate sub-TLV length */
 			if (TLV_BODY_SIZE(tlvh) < RI_SR_TLV_LABEL_RANGE_SIZE) {
