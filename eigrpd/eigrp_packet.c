@@ -388,7 +388,7 @@ void eigrp_write(struct event *event)
 	sa_dst.sin_port = htons(0);
 
 	/* Set DONTROUTE flag if dst is unicast. */
-	if (!IN_MULTICAST(htonl(ep->dst.s_addr)))
+	if (!IN_MULTICAST(ntohl(ep->dst.s_addr)))
 		flags = MSG_DONTROUTE;
 
 	iph.ip_hl = sizeof(struct ip) >> EIGRP_WRITE_IPHL_SHIFT;
