@@ -147,6 +147,20 @@ To start OSPF process you have to specify the OSPF router.
 
    This command should NOT be set normally.
 
+.. clicmd:: compatible rfc7474
+
+   Controls strict :rfc:`7474` sequence number validation for OSPFv2
+   cryptographic authentication (MD5 and HMAC-SHA). When enabled (the
+   default), received packets must have a strictly increasing sequence
+   number. When disabled with ``no compatible rfc7474``, packets with
+   equal sequence numbers are also accepted.
+
+   Disable this for interoperability with implementations that may
+   reuse sequence numbers, such as Cisco NXOS.
+
+   This can also be controlled per-interface with
+   :clicmd:`ip ospf compatible rfc7474`.
+
 .. clicmd:: log-adjacency-changes [detail]
    :daemon: ospfd
 
@@ -713,6 +727,16 @@ Interfaces
       r1(config)#int eth0
       r1(config-if)#ip ospf authentication key-chain temp
       r1(config-if)#ip ospf area 0
+
+.. clicmd:: ip ospf compatible rfc7474 [A.B.C.D]
+
+.. clicmd:: no ip ospf compatible rfc7474 [A.B.C.D]
+
+   Override the global :clicmd:`compatible rfc7474` setting for this
+   interface. The positive form forces strict RFC 7474 validation; the
+   ``no`` form forces legacy (relaxed) validation. Either form overrides
+   the global setting. The optional address ``A.B.C.D`` scopes the
+   override to a specific address on multi-address interfaces.
 
 .. clicmd:: ip ospf cost (1-65535)
 
