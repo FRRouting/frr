@@ -699,6 +699,38 @@ bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip)
 	return true;
 }
 
+/* Decode a length-counted, NULL-terminated string into caller's buffer 'buf' */
+bool stream_get_str(struct stream *s, char *buf, size_t buflen)
+{
+	uint16_t len;
+	bool ret = false;
+
+	STREAM_VERIFY_SANE(s);
+
+	len = stream_getw(s);
+	if (len == 0)
+		goto done;
+
+	/* Validate len value */
+	if (STREAM_READABLE(s) < len) {
+		STREAM_BOUND_WARN2(s, "get str ");
+		goto done;
+	}
+
+	/* Check caller's buffer size */
+	if (len <= buflen) {
+		ret = stream_get2(buf, s, len);
+		if (ret)
+			buf[len - 1] = 0; /* Ensure NULL-termination */
+	} else {
+		/* Advance forward */
+		stream_forward_getp(s, len);
+	}
+
+done:
+	return ret;
+}
+
 float stream_getf(struct stream *s)
 {
 	union {
@@ -1072,6 +1104,32 @@ int stream_put_prefix(struct stream *s, const struct prefix *p)
 	s->endp += psize;
 
 	return psize;
+}
+
+/*
+ * Encode a length-counted c-string, including a terminating NULL
+ */
+int stream_put_str(struct stream *s, const char *str)
+{
+	size_t slen, len;
+
+	slen = strlen(str);
+	len = slen + 1; /* Add NULL octet */
+
+	if (STREAM_WRITEABLE(s) < (len + sizeof(uint16_t))) {
+		if (s->allow_expansion) {
+			stream_expand(s, STREAM_EXPAND_SIZE(s, len + sizeof(uint16_t)));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
+	}
+
+	stream_putw(s, len);
+	stream_put(s, str, slen);
+	s->data[s->endp++] = 0;
+
+	return len + sizeof(uint16_t);
 }
 
 /* Read size from fd. */
