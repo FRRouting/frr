@@ -547,6 +547,7 @@ void isis_redist_unset(struct isis_area *area, int level, int family, int type,
 		return;
 
 	redist->redist = 0;
+	isis_redist_routemap_set(redist, NULL);
 
 	redist_list = area->redist_settings[protocol][type][level - 1];
 	listnode_delete(redist_list, redist);
@@ -605,8 +606,7 @@ void isis_redist_area_finish(struct isis_area *area)
 				for (ALL_LIST_ELEMENTS(redist_list, node, nnode,
 						       redist)) {
 					redist->redist = 0;
-					XFREE(MTYPE_ISIS_RMAP_NAME,
-					      redist->map_name);
+					isis_redist_routemap_set(redist, NULL);
 					isis_zebra_redistribute_unset(
 						afi_for_redist_protocol(protocol),
 						type, area->isis->vrf_id,
