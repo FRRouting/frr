@@ -1225,6 +1225,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			json_object_boolean_true_add(json, "keepAround");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM))
 			json_object_boolean_true_add(json, "fpm");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSION_REQ))
+			json_object_boolean_true_add(json, "reqRecurs");
 	} else {
 		/* Text output - use common formatter */
 		char flags_buf[256];
