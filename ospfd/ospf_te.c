@@ -4793,6 +4793,7 @@ DEFUN (show_ip_ospf_mpls_te_db,
        JSON_STR)
 {
 	int idx = 0;
+	int ret = CMD_SUCCESS;
 	struct in_addr ip_addr;
 	struct prefix pref;
 	struct ls_vertex *vertex;
@@ -4825,7 +4826,8 @@ DEFUN (show_ip_ospf_mpls_te_db,
 				vty_out(vty,
 					"Specified Router ID %s is invalid\n",
 					argv[idx + 1]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Vertex from the Link State Database */
 			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
@@ -4833,7 +4835,8 @@ DEFUN (show_ip_ospf_mpls_te_db,
 			if (!vertex) {
 				vty_out(vty, "No vertex found for ID %pI4\n",
 					&ip_addr);
-				return CMD_WARNING;
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else
 			vertex = NULL;
@@ -4850,7 +4853,8 @@ DEFUN (show_ip_ospf_mpls_te_db,
 				vty_out(vty,
 					"Specified Edge ID %s is invalid\n",
 					argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Edge from the Link State Database */
 			ekey.family = AF_INET;
@@ -4859,7 +4863,8 @@ DEFUN (show_ip_ospf_mpls_te_db,
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI4\n",
 					&ip_addr);
-				return CMD_WARNING;
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else
 			edge = NULL;
@@ -4875,14 +4880,16 @@ DEFUN (show_ip_ospf_mpls_te_db,
 			if (!str2prefix(argv[idx]->arg, &pref)) {
 				vty_out(vty, "Invalid prefix format %s\n",
 					argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Subnet from the Link State Database */
 			subnet = ls_find_subnet(OspfMplsTE.ted, &pref);
 			if (!subnet) {
 				vty_out(vty, "No subnet found for ID %pFX\n",
 					&pref);
-				return CMD_WARNING;
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else
 			subnet = NULL;
@@ -4897,9 +4904,14 @@ DEFUN (show_ip_ospf_mpls_te_db,
 		ls_show_ted(OspfMplsTE.ted, vty, json, verbose);
 	}
 
-	if (uj)
-		vty_json(vty, json);
-	return CMD_SUCCESS;
+out:
+	if (uj) {
+		if (ret == CMD_SUCCESS)
+			vty_json(vty, json);
+		else
+			json_object_free(json);
+	}
+	return ret;
 }
 
 static void ospf_mpls_te_register_vty(void)
