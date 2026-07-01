@@ -304,7 +304,7 @@ void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi)
 
 void bgp_srv6_unicast_unregister_route(struct bgp_dest *dest)
 {
-	XFREE(MTYPE_BGP_SRV6_L3SERVICE, dest->srv6_unicast);
+	XFREE(MTYPE_BGP_SRV6_SERVICE, dest->srv6_unicast);
 	dest->srv6_unicast = NULL;
 }
 
@@ -325,7 +325,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 		return;
 	}
 
-	if (bgp_attr_get_srv6_l3service(bpi->attr))
+	if (bgp_attr_get_srv6_service(bpi->attr))
 		return;
 
 	if (!bgp->srv6_unicast[afi].sid_locator)
@@ -376,8 +376,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 		bgp_srv6_unicast_unregister_route(dest);
 
 	locator = bgp->srv6_unicast[afi].sid_locator;
-	dest->srv6_unicast = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
-				     sizeof(struct bgp_attr_srv6_l3service));
+	dest->srv6_unicast = XCALLOC(MTYPE_BGP_SRV6_SERVICE, sizeof(struct bgp_attr_srv6_service));
 	dest->srv6_unicast->sid_flags = 0x00;
 	dest->srv6_unicast->endpoint_behavior =
 		bgp_srv6_unicast_endpoint_behavior_codepoint(bgp, afi, locator);
@@ -385,6 +384,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 	dest->srv6_unicast->loc_node_len = locator->node_bits_length;
 	dest->srv6_unicast->func_len = locator->function_bits_length;
 	dest->srv6_unicast->arg_len = locator->argument_bits_length;
+	dest->srv6_unicast->type = BGP_PREFIX_SID_SRV6_L3_SERVICE;
 	memcpy(&dest->srv6_unicast->sid, bgp->srv6_unicast[afi].sid,
 	       sizeof(struct in6_addr));
 }
@@ -405,7 +405,7 @@ void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
 			if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
 				continue;
 
-			if (bgp_attr_get_srv6_l3service(bpi->attr))
+			if (bgp_attr_get_srv6_service(bpi->attr))
 				continue;
 
 			bgp_srv6_unicast_register_route(bgp, afi, pdest, bpi);

@@ -188,7 +188,7 @@ struct srv6_locator_chunk {
 
 /*
  * SRv6 Endpoint Behavior codepoints, as defined by IANA in
- * https://www.iana.org/assignments/segment-routing/segment-routing.xhtml
+ * https://www.iana.org/assignments/segment-routing/segment-routing.xhtml#srv6-endpoint-behaviors
  */
 enum srv6_endpoint_behavior_codepoint {
 	SRV6_ENDPOINT_BEHAVIOR_RESERVED         = 0x0000,
@@ -200,6 +200,10 @@ enum srv6_endpoint_behavior_codepoint {
 	SRV6_ENDPOINT_BEHAVIOR_END_DT6          = 0x0012,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT4          = 0x0013,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT46         = 0x0014,
+	SRV6_ENDPOINT_BEHAVIOR_END_DX2         = 0x0015,
+	SRV6_ENDPOINT_BEHAVIOR_END_DX2V        = 0x0016,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT2U         = 0x0017,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT2M         = 0x0018,
 	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED = 0x001B,
 	SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD      = 0x001D,
 	SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD    = 0x0021,
@@ -212,6 +216,10 @@ enum srv6_endpoint_behavior_codepoint {
 	SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID     = 0x003E,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID     = 0x003F,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID    = 0x0040,
+	SRV6_ENDPOINT_BEHAVIOR_END_DX2_USID    = 0x0041,
+	SRV6_ENDPOINT_BEHAVIOR_END_DX2V_USID    = 0x0042,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT2U_USID    = 0x0043,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT2M_USID    = 0x0044,
 	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID = 0x005D,
 	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID = 0x005E,
 	SRV6_ENDPOINT_BEHAVIOR_OPAQUE           = 0xFFFF,
@@ -276,6 +284,14 @@ srv6_endpoint_behavior_codepoint2str(enum srv6_endpoint_behavior_codepoint behav
 		return "End.DT4";
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
 		return "End.DT46";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2:
+		return "End.DX2";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2V:
+		return "End.DX2V";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2U:
+		return "End.DT2U";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2M:
+		return "End.DT2M";
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
 		return "End.B6.Encaps.Red";
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
@@ -296,6 +312,14 @@ srv6_endpoint_behavior_codepoint2str(enum srv6_endpoint_behavior_codepoint behav
 		return "uDT4";
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
 		return "uDT46";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2_USID:
+		return "uDX2";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2V_USID:
+		return "uDX2V";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2U_USID:
+		return "uDT2U";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2M_USID:
+		return "uDT2M";
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
 		return "uB6.Encaps";
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
