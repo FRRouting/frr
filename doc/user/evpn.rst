@@ -908,6 +908,86 @@ from the non-anycast configuration are:
 This approach is recommended for most EVPN deployments as it simplifies
 configuration management and improves host mobility.
 
+EVPN MH ARP/ND Redirect Failover
+--------------------------------
+
+In EVPN multihoming deployments, zebra can redirect ARP/ND packets when the
+destination MAC maps to a local Ethernet Segment (ES) that is not operationally
+up. This helps preserve host reachability during ES failover windows by sending
+the packet to a valid peer VTEP.
+
+This mechanism is focused on ARP/ND control traffic and does not replace full
+kernel dataplane failover for all bridged traffic classes.
+
+The ARP/ND redirect path is tied to EVPN MH state and is enabled automatically
+when EVPN MH is active and at least one local ES is present.
+
+Redirect scope and behavior:
+
+* Redirect is intended for ARP/ND control packets used during failover
+  convergence (for example ARP replies and IPv6 neighbor discovery traffic).
+* Redirect is attempted only when destination MAC lookup resolves to a local ES
+  that is currently non-operational.
+* If redirect preconditions are not met (missing VNI/MAC/nexthop, interface
+  context not usable, ES still operational), packets are not redirected and are
+  counted in the corresponding skip bucket.
+* When redirect is successful, zebra encapsulates and sends the packet toward a
+  peer VTEP selected from EVPN MH nexthop state.
+* Redirect forwarding is performed via zebra userspace packet handling.
+
+.. clicmd:: [no] evpn mh redirect-off
+
+   Disable (or re-enable) EVPN MH ARP/ND redirect failover handling.
+
+   - ``evpn mh redirect-off`` disables redirect handling.
+   - ``no evpn mh redirect-off`` enables redirect handling (subject to EVPN MH
+     state).
+
+.. clicmd:: show evpn arp-nd-redirect [json]
+
+   Display ARP/ND redirect operational state and counters.
+
+   This output is intended for failover triage and validation:
+
+   - ``IPv4 ARP`` and ``IPv6 neighbor discovery`` show how many packets were
+     observed by the redirect path.
+   - ``Redirected packets`` shows packets that were successfully redirected to
+     a peer VTEP.
+   - ``Skipped packets`` explains why eligible-looking traffic was not
+     redirected.
+
+   The command reports total ARP and ND packets observed, redirected packets,
+   and categorized skip reasons, including:
+
+   - ``Not ready``: redirect path not ready to process packets.
+   - ``Interface down or no bridge``: ingress interface is down or lacks bridge
+     context.
+   - ``VNI missing``: VNI resolution failed for ingress packet context.
+   - ``MAC missing``: destination MAC was not found in EVPN state.
+   - ``Dest is not local ES``: destination MAC is not tied to a local ES.
+   - ``Dest ES oper-up``: destination ES is operational, so no redirect is
+     needed.
+   - ``Nexthop missing``: no valid peer nexthop was available for redirect.
+
+   Example:
+
+   .. code-block:: text
+
+      # show evpn arp-nd-redirect
+      EVPN ARP-reply/NA redirect: enabled
+      Stats:
+        IPv4 ARP: 303
+        IPv6 neighbor discovery: 109
+        Redirected packets: 100
+        Skipped packets:
+          Not ready: 0
+          Interface down or no bridge: 0
+          VNI missing: 0
+          MAC missing: 4
+          Dest is not local ES: 108
+          Dest ES oper-up: 200
+          Nexthop missing: 0
+
 Displaying EVPN information
 ---------------------------
 

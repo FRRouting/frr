@@ -43,6 +43,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_evpn_arp_nd.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZL3VNI, "L3 VNI hash");
@@ -6073,6 +6074,12 @@ void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf)
 {
 	struct zebra_vrf *evpn_zvrf = zebra_vrf_get_evpn();
 
+	if (!zvrf)
+		return;
+
+	if (zvrf == evpn_zvrf)
+		zebra_evpn_arp_nd_failover_disable();
+
 	hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all, zvrf);
 	zebra_vxlan_cleanup_sg_table(zvrf);
 
@@ -6083,8 +6090,14 @@ void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf)
 /* Close all EVPN handling */
 void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 {
+	struct zebra_vrf *evpn_zvrf = zebra_vrf_get_evpn();
+
 	if (!zvrf)
 		return;
+
+	if (zvrf == evpn_zvrf)
+		zebra_evpn_arp_nd_failover_disable();
+
 	hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all, zvrf);
 	hash_clean_and_free(&zvrf->evpn_table, NULL);
 	if (zvrf->vxlan_sg_table) {
