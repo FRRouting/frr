@@ -297,6 +297,32 @@ void cmd_defer_tree(bool val)
 	defer_cli_tree = val;
 }
 
+/**
+ * Applies a command element to the specified command graph.
+ *
+ * This function constructs a temporary graph representation of the provided
+ * command element and merges it into the main target graph.
+ *
+ * @param cmd_graph	The target command graph to be modified.
+ * @param cmd		The command element to parse and apply.
+ * @param is_appending	If true, the parsed command graph is appended to `cmd_graph`.
+ * 			If false, the parsed command graph is removed from `cmd_graph`.
+ */
+static void apply_cmd_to_graph(struct graph *cmd_graph, const struct cmd_element *cmd,
+			       bool is_appending)
+{
+	struct graph *graph = graph_new();
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
+
+	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
+
+	cmd_graph_parse(graph, cmd);
+	cmd_graph_names(graph);
+	cmd_graph_merge(cmd_graph, graph, is_appending ? +1 : -1);
+
+	graph_delete_graph(graph);
+}
+
 /* Install a command into a node. */
 void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 {
@@ -332,17 +358,7 @@ void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 	(void)hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern);
 
 	if (cnode->graph_built || !defer_cli_tree) {
-		struct graph *graph = graph_new();
-		struct cmd_token *token =
-			cmd_token_new(START_TKN, 0, NULL, NULL);
-		graph_new_node(graph, token,
-			       (void (*)(void *)) & cmd_token_del);
-
-		cmd_graph_parse(graph, cmd);
-		cmd_graph_names(graph);
-		cmd_graph_merge(cnode->cmdgraph, graph, +1);
-		graph_delete_graph(graph);
-
+		apply_cmd_to_graph(cnode->cmdgraph, cmd, true);
 		cnode->graph_built = true;
 	}
 
@@ -356,15 +372,8 @@ static void cmd_finalize_iter(struct hash_bucket *hb, void *arg)
 {
 	struct cmd_node *cnode = arg;
 	const struct cmd_element *cmd = hb->data;
-	struct graph *graph = graph_new();
-	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 
-	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
-
-	cmd_graph_parse(graph, cmd);
-	cmd_graph_names(graph);
-	cmd_graph_merge(cnode->cmdgraph, graph, +1);
-	graph_delete_graph(graph);
+	apply_cmd_to_graph(cnode->cmdgraph, cmd, true);
 }
 
 void cmd_finalize_node(struct cmd_node *cnode)
@@ -409,18 +418,8 @@ void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 
 	vector_unset_value(cnode->cmd_vector, (void *)cmd);
 
-	if (cnode->graph_built) {
-		struct graph *graph = graph_new();
-		struct cmd_token *token =
-			cmd_token_new(START_TKN, 0, NULL, NULL);
-		graph_new_node(graph, token,
-			       (void (*)(void *)) & cmd_token_del);
-
-		cmd_graph_parse(graph, cmd);
-		cmd_graph_names(graph);
-		cmd_graph_merge(cnode->cmdgraph, graph, -1);
-		graph_delete_graph(graph);
-	}
+	if (cnode->graph_built)
+		apply_cmd_to_graph(cnode->cmdgraph, cmd, false);
 
 	if (ntype == VIEW_NODE)
 		uninstall_element(ENABLE_NODE, cmd);
