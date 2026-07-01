@@ -2588,8 +2588,8 @@ static void rib_re_nhg_free(struct route_entry *re)
 	if (re->nhe && re->nhe_id) {
 		assert(re->nhe->id == re->nhe_id);
 		route_entry_update_nhe(re, NULL);
-	} else if (re->nhe && re->nhe->nhg.nexthop)
-		nexthops_free(re->nhe->nhg.nexthop);
+	} else if (re->nhe)
+		zebra_nhg_free(re->nhe);
 
 	/*
 	 * Clean up nhe_received if it wasn't already cleared by
@@ -4462,10 +4462,11 @@ void zebra_rib_route_entry_free(struct route_entry *re)
  * Internal route-add implementation; there are a couple of different public
  * signatures. Callers in this path are responsible for the memory they
  * allocate: if they allocate a nexthop_group or backup nexthop info, they
- * must free those objects. If this returns < 0, an error has occurred and the
- * route_entry 're' has not been captured; the caller should free that also.
+ * must free those objects. On mq_add_handler() failure (-1), this function
+ * frees re (and re_nhe) via early_route_memory_free(); callers must not
+ * free re after -1.
  *
- * -1 -> error
+ * -1 -> error (re already freed on enqueue failure)
  *  0 -> Add
  *  1 -> update
  */
@@ -4474,6 +4475,7 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefi
 			  bool replace)
 {
 	struct zebra_early_route *ere;
+	int ret;
 
 	if (!re)
 		return -1;
@@ -4492,7 +4494,11 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefi
 	ere->startup = startup;
 	ere->replace = replace;
 
-	return mq_add_handler(ere, rib_meta_queue_early_route_add);
+	ret = mq_add_handler(ere, rib_meta_queue_early_route_add);
+	if (ret == -1)
+		early_route_memory_free(ere);
+
+	return ret;
 }
 
 /*
@@ -4575,10 +4581,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ip
 
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup, replace);
 
-	/* In error cases, free the route also */
-	if (ret < 0)
-		zebra_rib_route_entry_free(re);
-
 	return ret;
 }
 
@@ -4613,7 +4615,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	ere->deletion = true;
 	ere->fromkernel = fromkernel;
 
-	mq_add_handler(ere, rib_meta_queue_early_route_add);
+	if (mq_add_handler(ere, rib_meta_queue_early_route_add) == -1)
+		early_route_memory_free(ere);
 }
 
 
