@@ -1155,10 +1155,20 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	if (bgp_nexthop->vrf_id == VRF_UNKNOWN)
 		return false;
 
-	/* The nexthop is invalid if its VRF interface is down*/
-	ifp = if_get_vrf_loopback(bgp_nexthop->vrf_id);
-	if (ifp && !if_is_up(ifp))
-		return false;
+	/* The nexthop is invalid if its VRF interface is down.
+	 *
+	 * The default VRF is an exception: the up/down state of its loopback
+	 * (lo) does not reflect the availability of the default VRF (vrf-lite),
+	 * and lo coming up does not re-trigger a leak re-evaluation (see commit
+	 * c21c597d5d). Gating on lo there can leave a freshly imported VPN route
+	 * permanently invalid if lo is momentarily down when the route is
+	 * imported at startup.
+	 */
+	if (bgp_nexthop->vrf_id != VRF_DEFAULT) {
+		ifp = if_get_vrf_loopback(bgp_nexthop->vrf_id);
+		if (ifp && !if_is_up(ifp))
+			return false;
+	}
 
 	/*
 	 * No nexthop tracking for redistributed routes, for
