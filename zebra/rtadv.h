@@ -457,6 +457,7 @@ void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval);
 
 extern void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS);
 extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);
+extern void zebra_rtadv_disable_per_interface(struct zebra_if *zif);
 
 extern uint32_t rtadv_get_interfaces_configured_from_bgp(void);
 extern bool rtadv_compiled_in(void);
