@@ -1433,10 +1433,9 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	struct ri_sr_tlv_sid_label_range *ri_srlb = NULL;
 	struct sr_block srgb = { 0, 0 };
 	uint32_t length = 0, sum = 0;
+	uint32_t lsa_id; /* cached host-byte-order LSA ID */
 	uint8_t msd = 0;
 	bool error_p = false;
-	int i;
-	uint8_t *p;
 	/* Temp struct to copy flex-algo values from a TLV */
 	struct algo_s {
 		uint16_t length;
@@ -1454,8 +1453,11 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	if (IS_LSA_SELF(lsa))
 		return;
 
+	/* Cache the 32-bit opaque LSA-ID in host byte order for reuse */
+	lsa_id = ntohl(lsah->id.s_addr);
+
 	osr_debug("SR (%s): Process Router Information LSA 4.0.0.%u from %pI4", __func__,
-		  GET_OPAQUE_ID(ntohl(lsah->id.s_addr)), &lsah->adv_router);
+		  GET_OPAQUE_ID(lsa_id), &lsah->adv_router);
 
 	if (OspfSR.neighbors == NULL) {
 		flog_err(EC_OSPF_SR_INVALID_DB,
@@ -1500,13 +1502,13 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 			if (algo.length > 0)
 				break;
 
-			/* Initialize all slots to UNSET, then overlay TLV data */
+			/*
+			 * Initialize all slots to UNSET, then copy TLV
+			 * data in bulk.
+			 */
 			memset(algo.value, SR_ALGORITHM_UNSET, ALGORITHM_COUNT);
-			p = TLV_DATA(tlvh);
+			memcpy(algo.value, TLV_DATA(tlvh), algo_len);
 			algo.length = algo_len;
-			for (int j = 0; j < algo_len; j++)
-				algo.value[j] = p[j];
-
 			break;
 		}
 		case RI_SR_TLV_SRGB_LABEL_RANGE:
@@ -1557,14 +1559,18 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 
 	/* Check if Segment Routing Capabilities has been found */
 	if (ri_srgb == NULL) {
-		/* Skip Router Information without SR capabilities
-		 * advertise by a non SR Node */
+		/*
+		 * Skip Router Information without SR capabilities
+		 * advertise by a non SR Node
+		 */
 		if (srn == NULL) {
 			return;
 		} else {
-			/* Remove SR Node that advertise Router Information
+			/*
+			 * Remove SR Node that advertise Router Information
 			 * without SR capabilities. This could correspond to a
-			 * Node stopping Segment Routing */
+			 * Node stopping Segment Routing
+			 */
 			hash_release(OspfSR.neighbors, &(srn->adv_router));
 			sr_node_del(srn);
 			return;
@@ -1572,12 +1578,10 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	}
 
 	/* Check that RI LSA belongs to the correct SR Node */
-	if ((srn != NULL) && (srn->instance != 0)
-	    && (srn->instance != ntohl(lsah->id.s_addr))) {
+	if ((srn != NULL) && (srn->instance != 0) && (srn->instance != lsa_id)) {
 		flog_err(EC_OSPF_SR_INVALID_LSA_ID,
-			 "SR (%s): Abort! Wrong LSA ID 4.0.0.%u for SR node %pI4/%u",
-			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-			 &lsah->adv_router, srn->instance);
+			 "SR (%s): Abort! Wrong LSA ID 4.0.0.%u for SR node %pI4/%u", __func__,
+			 GET_OPAQUE_ID(lsa_id), &lsah->adv_router, srn->instance);
 		return;
 	}
 
@@ -1585,25 +1589,45 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	srgb.range_size = GET_RANGE_SIZE(ntohl(ri_srgb->size));
 	srgb.lower_bound = GET_LABEL(ntohl(ri_srgb->lower.value));
 
+	/*
+	 * Validate that the SRGB lower bound falls within the valid
+	 * MPLS label space.  A zero range_size is acceptable (indicates
+	 * the node has no SRGB), but a non-zero size with an out-of-range
+	 * lower_bound is malformed.
+	 */
+	if (srgb.range_size > 0 &&
+	    (srgb.lower_bound < MPLS_LABEL_UNRESERVED_MIN || srgb.lower_bound > MPLS_LABEL_MAX)) {
+		zlog_warn("SR (%s): Invalid SRGB lower_bound %u for SR node %pI4", __func__,
+			  srgb.lower_bound, &lsah->adv_router);
+		/*
+		 * Mark the SRGB as invalid so we skip storing it and skip
+		 * NHLFE propagation below, but still process the Algorithm,
+		 * SRLB, and MSD updates that were carried in the same LSA.
+		 */
+		srgb.range_size = 0;
+		srgb.lower_bound = 0;
+	}
+
 	/* Check if it is a new SR Node or not */
 	if (srn == NULL) {
-		/* Get a new SR Node in hash table from Router ID */
+		/*
+		 * Insert a new SR Node into the hash, keyed by Router ID.
+		 * sr_node_new() zeroes srgb/srlb/msd and sets algo to
+		 * SR_ALGORITHM_UNSET, so the unified SRGB change-check
+		 * below will correctly detect the "change" from {0,0}.
+		 */
 		srn = (struct sr_node *)hash_get(OspfSR.neighbors,
 						 &lsah->adv_router,
 						 (void *)sr_node_new);
-		/* update LSA ID */
-		srn->instance = ntohl(lsah->id.s_addr);
-		/* Copy SRGB */
-		srn->srgb.range_size = srgb.range_size;
-		srn->srgb.lower_bound = srgb.lower_bound;
+		srn->instance = lsa_id;
 	}
 
 	/* Update Algorithm, SRLB and MSD if present */
 	if (algo.length > 0) {
-		for (i = 0; i < algo.length && i < ALGORITHM_COUNT; i++)
-			srn->algo[i] = algo.value[i];
-		for (; i < ALGORITHM_COUNT; i++)
-			srn->algo[i] = SR_ALGORITHM_UNSET;
+		memcpy(srn->algo, algo.value, algo.length);
+		if (algo.length < ALGORITHM_COUNT)
+			memset(&srn->algo[algo.length], SR_ALGORITHM_UNSET,
+			       ALGORITHM_COUNT - algo.length);
 	} else {
 		srn->algo[0] = SR_ALGORITHM_SPF;
 	}
@@ -1614,12 +1638,17 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		srn->srlb.lower_bound = GET_LABEL(ntohl(ri_srlb->lower.value));
 	}
 
-	/* Check if SRGB has changed */
+	/*
+	 * Check if SRGB has changed.  If the SRGB was zeroed out above due to
+	 * an invalid lower_bound, and the stored SRGB is also {0,0} (e.g. for
+	 * a new node or a node that never had a valid SRGB), this check will
+	 * correctly short-circuit and skip NHLFE propagation.
+	 */
 	if ((srn->srgb.range_size == srgb.range_size)
 	    && (srn->srgb.lower_bound == srgb.lower_bound))
 		return;
 
-	/* Copy SRGB */
+	/* Store the new (possibly zeroed) SRGB */
 	srn->srgb.range_size = srgb.range_size;
 	srn->srgb.lower_bound = srgb.lower_bound;
 
@@ -1759,8 +1788,10 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 		if (srl->instance == instance)
 			break;
 
-	/* Remove Segment Link if found. Note that for Neighbors, only Global
-	 * Adj/Lan-Adj SID are stored in the SR-DB */
+	/*
+	 * Remove Segment Link if found. Note that for Neighbors, only Global
+	 * Adj/Lan-Adj SID are stored in the SR-DB
+	 */
 	if ((srl != NULL) && (srl->instance == instance)) {
 		del_adj_sid(srl->nhlfe[0]);
 		del_adj_sid(srl->nhlfe[1]);
