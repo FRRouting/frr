@@ -2766,13 +2766,18 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto cluster_list_ignore;
 
-	bgp_attr_set_cluster(attr, cluster_parse((struct in_addr *)stream_pnt(connection->curr),
-						 length));
+	struct in_addr *cluster_buf = XMALLOC(MTYPE_TMP, length);
 
-	/* XXX: Fix cluster_parse to use stream API and then remove this */
-	stream_forward_getp(connection->curr, length);
+	STREAM_GET(cluster_buf, connection->curr, length);
+	bgp_attr_set_cluster(attr, cluster_parse(cluster_buf, length));
+	XFREE(MTYPE_TMP, cluster_buf);
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+stream_failure:
+	XFREE(MTYPE_TMP, cluster_buf);
+	return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				  args->total);
 
 cluster_list_ignore:
 	stream_forward_getp(connection->curr, length);
