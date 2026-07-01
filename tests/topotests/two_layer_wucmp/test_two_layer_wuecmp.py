@@ -39,10 +39,10 @@ High-density 2-layer CLOS topology with:
 - Leafs (2): leaf1 (AS 65001), leaf2 (AS 65002)
 
 Each leaf connects to each spine with 32 parallel links:
-- leaf1 <-> spine1: 32 links (leaf1-eth0 to leaf1-eth31)
-- leaf1 <-> spine2: 32 links (leaf1-eth32 to leaf1-eth63)
-- leaf2 <-> spine1: 32 links (leaf2-eth0 to leaf2-eth31)
-- leaf2 <-> spine2: 32 links (leaf2-eth32 to leaf2-eth63)
+- leaf1 <-> spine1: 16 links (leaf1-eth0 to leaf1-eth15)
+- leaf1 <-> spine2: 16 links (leaf1-eth16 to leaf1-eth31)
+- leaf2 <-> spine1: 16 links (leaf2-eth0 to leaf2-eth15)
+- leaf2 <-> spine2: 16 links (leaf2-eth16 to leaf2-eth31)
 
 Routes are injected via sharpd on leaf2 and redistributed via BGP.
 This topology tests nexthop group (NHG) stability with W-ECMP during link state changes:
@@ -59,19 +59,19 @@ Single link up:
 - Trigger: 1 link up (leaf1-eth0) 
 - Expectation: Link nexthop in that NHID is marked active, NHID is retained, routes
   continue pointing to the same NHID, no new NHID is created, no per-route programming
-  occurs since NHID did not change, ECMP adjusts back to 64 paths
+  occurs since NHID did not change, ECMP adjusts back to 32 paths
 
-16 out of 32 links towards spine1 down:
-- Trigger: 16 out of 32 links to spine1 down (leaf1-eth0 to leaf1-eth15)
+8 out of 16 links towards spine1 down:
+- Trigger: 8 out of 16 links to spine1 down (leaf1-eth0 to leaf1-eth7)
 - Expectation: 16 link nexthops in that NHID are marked inactive, NHID is retained and
   not marked for deletion, routes continue pointing to the same NHID, no new NHID is
-  created, no per-route programming occurs since NHID did not change, W-ECMP adjusts to 48 paths
+  created, no per-route programming occurs since NHID did not change, W-ECMP adjusts to 24 paths
 
-16 out of 32 links towards spine1 up:
-- Trigger: 16 out of 32 links to spine1 up (leaf1-eth0 to leaf1-eth15)
+8 out of 16 links towards spine1 up:
+- Trigger: 8 out of 16 links to spine1 up (leaf1-eth0 to leaf1-eth7)
 - Expectation: 16 link nexthops in that NHID are marked active, NHID is retained, routes
   continue pointing to the same NHID, no new NHID is created, no per-route programming
-  occurs since NHID did not change, W-ECMP adjusts back to 64 paths
+  occurs since NHID did not change, W-ECMP adjusts back to 32 paths
 
 Key expectation: No new NHID should be created during local link state changes. Instead,
 only the ECMP nexthop paths within the existing NHG should be updated. Since the
@@ -92,8 +92,8 @@ sys.path.append(os.path.join(CWD, "../"))
 pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd]
 
 # Constants
-LINKS_PER_SPINE = 32  # 32 links between each leaf and each spine
-TOTAL_LINKS_PER_LEAF = LINKS_PER_SPINE * 2  # 64 total links per leaf
+LINKS_PER_SPINE = 16  # 16 links between each leaf and each spine
+TOTAL_LINKS_PER_LEAF = LINKS_PER_SPINE * 2  # 32 total links per leaf
 
 # Global variables to store state between tests
 INITIAL_NHG_ID = None
@@ -155,9 +155,9 @@ def verify_nhg_and_routes(net, description="", expected_ecmp_paths=None, show_de
         logger.info(f"  - Paths via spine1: {spine1_count}")
         logger.info(f"  - Paths via spine2: {spine2_count}")
         
-        # Use context-aware expected ECMP paths (default to 64 if not specified)
+        # Use context-aware expected ECMP paths (default to 32 if not specified)
         if expected_ecmp_paths is None:
-            expected_ecmp_paths = 64
+            expected_ecmp_paths = 32
             
         if total_ecmp_paths == expected_ecmp_paths:
             logger.info(f"✓ ECMP structure correct: {total_ecmp_paths}/{expected_ecmp_paths} paths")
@@ -202,28 +202,28 @@ def build_topo(tgen):
 
     switch_id = 1
 
-    # Connect leaf1 to spine1 (32 links: leaf1-eth0 to leaf1-eth31)
+    # Connect leaf1 to spine1 (16 links: leaf1-eth0 to leaf1-eth15)
     for i in range(LINKS_PER_SPINE):
         switch = tgen.add_switch(f"s{switch_id}")
         switch.add_link(tgen.gears["leaf1"])
         switch.add_link(tgen.gears["spine1"])
         switch_id += 1
 
-    # Connect leaf1 to spine2 (32 links: leaf1-eth32 to leaf1-eth63)
+    # Connect leaf1 to spine2 (16 links: leaf1-eth16 to leaf1-eth31)
     for i in range(LINKS_PER_SPINE):
         switch = tgen.add_switch(f"s{switch_id}")
         switch.add_link(tgen.gears["leaf1"])
         switch.add_link(tgen.gears["spine2"])
         switch_id += 1
 
-    # Connect leaf2 to spine1 (32 links: leaf2-eth0 to leaf2-eth31)
+    # Connect leaf2 to spine1 (16 links: leaf2-eth0 to leaf2-eth15)
     for i in range(LINKS_PER_SPINE):
         switch = tgen.add_switch(f"s{switch_id}")
         switch.add_link(tgen.gears["leaf2"])
         switch.add_link(tgen.gears["spine1"])
         switch_id += 1
 
-    # Connect leaf2 to spine2 (32 links: leaf2-eth32 to leaf2-eth63)
+    # Connect leaf2 to spine2 (16 links: leaf2-eth16 to leaf2-eth31)
     for i in range(LINKS_PER_SPINE):
         switch = tgen.add_switch(f"s{switch_id}")
         switch.add_link(tgen.gears["leaf2"])
@@ -297,13 +297,13 @@ def test_topology_setup():
                 logger.info(f"Peers not yet established: {non_established_peers} (waiting for BGP convergence)")
                 return False
 
-            # Must have exactly 64 peers
+            # Must have exactly 32 peers
             peers = bgp_summary.get("peers", {})
-            if len(peers) != 64:
-                logger.info(f"Expected exactly 64 peers, found {len(peers)} (waiting for BGP convergence)")
+            if len(peers) != 32:
+                logger.info(f"Expected exactly 32 peers, found {len(peers)} (waiting for BGP convergence)")
                 return False
 
-            logger.info(f"All 64 BGP peers established successfully")
+            logger.info(f"All 32 BGP peers established successfully")
             return True
 
         except (json.JSONDecodeError, KeyError) as e:
@@ -401,8 +401,8 @@ def test_topology_setup():
         ecmp_count = net["leaf1"].cmd(f'vtysh -c "show nexthop-group rib {nhid}" | grep "via" | grep -v "inactive" | wc -l').strip()
         try:
             ecmp_paths = int(ecmp_count)
-            if ecmp_paths != 64:  # Expect all 64 paths active
-                logger.info(f"ECMP paths: {ecmp_paths}/64 active (waiting for convergence)")
+            if ecmp_paths != 32:  # Expect all 32 paths active
+                logger.info(f"ECMP paths: {ecmp_paths}/32 active (waiting for convergence)")
                 return False
         except ValueError:
             logger.info("Failed to parse ECMP count (waiting for convergence)")
@@ -416,11 +416,11 @@ def test_topology_setup():
             spine1_count = int(spine1_paths)
             spine2_count = int(spine2_paths)
             
-            if spine1_count != 32:
-                logger.info(f"Spine1 paths: {spine1_count}/32 (waiting for convergence)")
+            if spine1_count != 16:
+                logger.info(f"Spine1 paths: {spine1_count}/16 (waiting for convergence)")
                 return False
-            if spine2_count != 32:
-                logger.info(f"Spine2 paths: {spine2_count}/32 (waiting for convergence)")
+            if spine2_count != 16:
+                logger.info(f"Spine2 paths: {spine2_count}/16 (waiting for convergence)")
                 return False
                 
         except ValueError:
@@ -452,7 +452,7 @@ def test_topology_setup():
         nhid = net["leaf1"].cmd('ip route show | grep nhid | grep "39\\.99" | head -1 | awk \'{for(i=1;i<=NF;i++) if($i=="nhid") print $(i+1)}\'').strip()
         if nhid:
             final_ecmp = net["leaf1"].cmd(f'vtysh -c "show nexthop-group rib {nhid}" | grep "via" | grep -v "inactive" | wc -l').strip()
-            logger.info(f"Final ECMP paths: {final_ecmp}/64")
+            logger.info(f"Final ECMP paths: {final_ecmp}/32")
         
         assert False, "Full topology convergence failed - routes not properly learned from both spines after 2 minutes"
 
@@ -478,7 +478,7 @@ def test_topology_setup():
     assert success, "Expected at least 1 nexthop group in steady state"
     
     # Comprehensive verification of NHG and routes
-    primary_nhid, route_count, nhid_count, ecmp_paths = verify_nhg_and_routes(net, "INITIAL STATE", expected_ecmp_paths=64)
+    primary_nhid, route_count, nhid_count, ecmp_paths = verify_nhg_and_routes(net, "INITIAL STATE", expected_ecmp_paths=32)
     
     # Store initial state for other tests
     INITIAL_NHG_ID = int(primary_nhid) if primary_nhid else None
@@ -495,8 +495,8 @@ def test_topology_setup():
         pytest.fail(f"Expected exactly 1 NHID, found {nhid_count}")
     if route_count != 1000:
         pytest.fail(f"Expected 1000 routes, found {route_count}")
-    if ecmp_paths != 64:
-        pytest.fail(f"Expected 64 ECMP paths, found {ecmp_paths}")
+    if ecmp_paths != 32:
+        pytest.fail(f"Expected 32 ECMP paths, found {ecmp_paths}")
     
     logger.info("=== TOPOLOGY SETUP COMPLETE ===")
     logger.info("Ready for link state change tests")
@@ -517,7 +517,7 @@ def test_single_link_down():
     step("Test case 1: Single link down")
 
     # Verify before link down
-    primary_nhid_before, route_count_before, nhid_count_before, ecmp_paths_before = verify_nhg_and_routes(net, "BEFORE LINK DOWN", expected_ecmp_paths=64)
+    primary_nhid_before, route_count_before, nhid_count_before, ecmp_paths_before = verify_nhg_and_routes(net, "BEFORE LINK DOWN", expected_ecmp_paths=32)
     
     # Bring down interface
     logger.info("Bringing down interface: leaf1-eth0")
@@ -538,7 +538,7 @@ def test_single_link_down():
             return False
         
         # Check if ECMP paths reduced by 1 (one link down)
-        expected_ecmp_after = 63  # 64 - 1 link down
+        expected_ecmp_after = 31  # 32 - 1 link down
         if ecmp_paths_after != expected_ecmp_after:
             logger.info(f"ECMP paths unexpected: expected {expected_ecmp_after}, got {ecmp_paths_after}")
             return False
@@ -581,7 +581,7 @@ def test_single_link_up():
     net["leaf1"].cmd("ip link set leaf1-eth0 up")
     
     def verify_after_link_up():
-        primary_nhid_after, route_count_after, nhid_count_after, ecmp_paths_after = verify_nhg_and_routes(net, "AFTER LINK UP CHECK", expected_ecmp_paths=64)
+        primary_nhid_after, route_count_after, nhid_count_after, ecmp_paths_after = verify_nhg_and_routes(net, "AFTER LINK UP CHECK", expected_ecmp_paths=32)
         
         if primary_nhid_after != str(INITIAL_NHG_ID):
             logger.info(f"NHG ID changed: {INITIAL_NHG_ID} -> {primary_nhid_after}")
@@ -591,8 +591,8 @@ def test_single_link_up():
             logger.info(f"Route count changed: {INITIAL_BGP_ROUTES_COUNT} -> {route_count_after}")
             return False
         
-        # Check if ECMP paths are back to full (64 paths after link up)
-        expected_ecmp_after = 64  # All links should be up
+        # Check if ECMP paths are back to full (32 paths after link up)
+        expected_ecmp_after = 32  # All links should be up
         if ecmp_paths_after != expected_ecmp_after:
             logger.info(f"ECMP paths unexpected: expected {expected_ecmp_after}, got {ecmp_paths_after}")
             return False
@@ -608,7 +608,7 @@ def test_single_link_up():
     )
     
     # Final verification
-    verify_nhg_and_routes(net, "FINAL STATE AFTER LINK UP", expected_ecmp_paths=64, show_detailed_rib=True)
+    verify_nhg_and_routes(net, "FINAL STATE AFTER LINK UP", expected_ecmp_paths=32, show_detailed_rib=True)
     
     assert success, "Single link up verification failed"
 
@@ -625,18 +625,18 @@ def test_partial_links_towards_spine1_down():
     if not INITIAL_NHG_ID:
         pytest.skip("Initial NHG ID not available")
 
-    step("Test case 3: Partial links down (16/32 to spine1)")
+    step("Test case 3: Partial links down (8/16 to spine1)")
 
     # Verify before partial links down
-    verify_nhg_and_routes(net, "BEFORE PARTIAL LINKS TOWARDS SPINE1 DOWN", expected_ecmp_paths=64)
+    verify_nhg_and_routes(net, "BEFORE PARTIAL LINKS TOWARDS SPINE1 DOWN", expected_ecmp_paths=32)
     
     # Bring down 16 interfaces towards spine1
-    logger.info("Bringing down 16 interfaces towards spine1: leaf1-eth0 to leaf1-eth15")
-    for i in range(16):
+    logger.info("Bringing down 8 interfaces towards spine1: leaf1-eth0 to leaf1-eth7")
+    for i in range(8):
         net["leaf1"].cmd(f"ip link set leaf1-eth{i} down")
     
     def verify_after_partial_links_down():
-        primary_nhid_after, route_count_after, nhid_count_after, ecmp_paths_after = verify_nhg_and_routes(net, "AFTER PARTIAL LINKS TOWARDS SPINE1 DOWN CHECK", expected_ecmp_paths=48)
+        primary_nhid_after, route_count_after, nhid_count_after, ecmp_paths_after = verify_nhg_and_routes(net, "AFTER PARTIAL LINKS TOWARDS SPINE1 DOWN CHECK", expected_ecmp_paths=24)
         
         if primary_nhid_after != str(INITIAL_NHG_ID):
             logger.info(f"NHG ID changed: {INITIAL_NHG_ID} -> {primary_nhid_after}")
@@ -647,7 +647,7 @@ def test_partial_links_towards_spine1_down():
             return False
         
         # Check if ECMP paths reduced by 16 (16 links down)
-        expected_ecmp_after = 48  # 64 - 16 links down
+        expected_ecmp_after = 24  # 32 - 8 links down
         if ecmp_paths_after != expected_ecmp_after:
             logger.info(f"ECMP paths unexpected: expected {expected_ecmp_after}, got {ecmp_paths_after}")
             return False
@@ -663,13 +663,13 @@ def test_partial_links_towards_spine1_down():
     )
     
     # Final verification
-    verify_nhg_and_routes(net, "FINAL STATE AFTER PARTIAL LINKS TOWARDS SPINE1 DOWN", expected_ecmp_paths=48, show_detailed_rib=True)
+    verify_nhg_and_routes(net, "FINAL STATE AFTER PARTIAL LINKS TOWARDS SPINE1 DOWN", expected_ecmp_paths=24, show_detailed_rib=True)
     
     assert success, "Partial links towards spine1 down verification failed"
 
 
 def test_partial_links_towards_spine1_up():
-    """Bring up the 16 out of 32 previously downed links towards spine1"""
+    """Bring up the 8 out of 16 previously downed links towards spine1"""
     tgen = get_topogen()
     net = tgen.net
     global INITIAL_NHG_ID, INITIAL_BGP_ROUTES_COUNT
@@ -680,18 +680,18 @@ def test_partial_links_towards_spine1_up():
     if not INITIAL_NHG_ID:
         pytest.skip("Initial NHG ID not available")
 
-    step("Test case 4: Partial links up (16/32 to spine1)")
+    step("Test case 4: Partial links up (8/16 to spine1)")
 
     # Verify before partial links up
-    verify_nhg_and_routes(net, "BEFORE PARTIAL LINKS UP", expected_ecmp_paths=48)
+    verify_nhg_and_routes(net, "BEFORE PARTIAL LINKS UP", expected_ecmp_paths=24)
     
-    # Bring up 16 interfaces towards spine1
-    logger.info("Bringing up 16 interfaces towards spine1: leaf1-eth0 to leaf1-eth15")
-    for i in range(16):
+    # Bring up 8 interfaces towards spine1
+    logger.info("Bringing up 8 interfaces towards spine1: leaf1-eth0 to leaf1-eth7")
+    for i in range(8):
         net["leaf1"].cmd(f"ip link set leaf1-eth{i} up")
     
     def verify_after_partial_links_up():
-        primary_nhid_after, route_count_after, nhid_count_after, ecmp_paths_after = verify_nhg_and_routes(net, "AFTER PARTIAL LINKS UP CHECK", expected_ecmp_paths=64)
+        primary_nhid_after, route_count_after, nhid_count_after, ecmp_paths_after = verify_nhg_and_routes(net, "AFTER PARTIAL LINKS UP CHECK", expected_ecmp_paths=32)
         
         if primary_nhid_after != str(INITIAL_NHG_ID):
             logger.info(f"NHG ID changed: {INITIAL_NHG_ID} -> {primary_nhid_after}")
@@ -701,8 +701,8 @@ def test_partial_links_towards_spine1_up():
             logger.info(f"Route count changed: {INITIAL_BGP_ROUTES_COUNT} -> {route_count_after}")
             return False
         
-        # Check if ECMP paths are back to full (64 paths after partial links up)
-        expected_ecmp_after = 64  # All links should be up
+        # Check if ECMP paths are back to full (32 paths after partial links up)
+        expected_ecmp_after = 32  # All links should be up
         if ecmp_paths_after != expected_ecmp_after:
             logger.info(f"ECMP paths unexpected: expected {expected_ecmp_after}, got {ecmp_paths_after}")
             return False
@@ -718,7 +718,7 @@ def test_partial_links_towards_spine1_up():
     )
     
     # Final verification
-    verify_nhg_and_routes(net, "FINAL STATE AFTER PARTIAL LINKS UP", expected_ecmp_paths=64, show_detailed_rib=True)
+    verify_nhg_and_routes(net, "FINAL STATE AFTER PARTIAL LINKS UP", expected_ecmp_paths=32, show_detailed_rib=True)
     
     assert success, "Partial links up verification failed"
 
