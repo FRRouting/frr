@@ -49,6 +49,7 @@
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
 #include "isisd/isis_ldp_sync.h"
+#include "isisd/isis_spf.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_CIRCUIT, "ISIS circuit");
 
@@ -386,9 +387,14 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		if (ip) {
 			listnode_delete(circuit->ip_addrs, ip);
 			prefix_ipv4_free(&ip);
-			if (circuit->area)
+			if (circuit->area) {
 				lsp_regenerate_schedule(circuit->area,
 							circuit->is_type, 0);
+				if (circuit->is_type & IS_LEVEL_1)
+					isis_spf_schedule(circuit->area, IS_LEVEL_1);
+				if (circuit->is_type & IS_LEVEL_2)
+					isis_spf_schedule(circuit->area, IS_LEVEL_2);
+			}
 		} else {
 			zlog_warn(
 				"Nonexistent ip address %pFX removal attempt from circuit %s",
@@ -449,9 +455,14 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 						  ip6))
 				zlog_warn("  %pFX", (struct prefix *)ip6);
 			zlog_warn("End of addresses");
-		} else if (circuit->area)
+		} else if (circuit->area) {
 			lsp_regenerate_schedule(circuit->area, circuit->is_type,
 						0);
+			if (circuit->is_type & IS_LEVEL_1)
+				isis_spf_schedule(circuit->area, IS_LEVEL_1);
+			if (circuit->is_type & IS_LEVEL_2)
+				isis_spf_schedule(circuit->area, IS_LEVEL_2);
+		}
 
 		prefix_ipv6_free(&ipv6);
 	}
