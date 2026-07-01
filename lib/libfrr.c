@@ -1228,7 +1228,7 @@ void frr_run(struct event_loop *loop)
 				       daemon_ctl_sock, &daemon_ctl_thread);
 		}
 	} else if (di->daemon_mode) {
-		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
+		int nullfd = open("/dev/null", O_RDWR | O_NOCTTY);
 		if (nullfd == -1) {
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "%s: failed to open /dev/null: %s",
