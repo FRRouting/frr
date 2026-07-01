@@ -24,7 +24,7 @@ extern "C" {
  */
 extern void static_nht_update(const struct prefix *sp, const struct prefix *ssrc_p,
 			      struct prefix *nhp, uint32_t nh_num, afi_t afi, safi_t safi,
-			      vrf_id_t vrf_id);
+			      vrf_id_t vrf_id, struct zapi_nexthop *nexthops);
 
 /*
  * For the given tracked nexthop, nhp, mark all routes that use
