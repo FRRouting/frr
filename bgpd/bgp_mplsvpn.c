@@ -1469,6 +1469,11 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 		zlog_debug("%s: ->%s: %pBD: Added new route", __func__,
 			   to_bgp->name_pretty, bn);
 
+	/* Type 5 route export */
+	if (advertise_type5_routes_bestpath(to_bgp, afi, SAFI_MPLS_VPN) &&
+	    is_route_injectable_into_evpn(new))
+		bgp_evpn_export_type5_route(to_bgp, bn, new, afi, safi);
+
 	bgp_dest_unlock_node(bn);
 
 	return new;
@@ -2208,6 +2213,11 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 		/* withdraw from looped vrfs as well */
 		vpn_leak_to_vrf_withdraw(bpi);
 
+		if (advertise_type5_routes_bestpath(to_bgp, afi, SAFI_MPLS_VPN) &&
+		    is_route_injectable_into_evpn(bpi))
+			bgp_evpn_unexport_type5_route_rd(
+				to_bgp, bn, bpi, afi, safi,
+				&(from_bgp->vpn_policy[afi].tovpn_rd));
 		bgp_aggregate_decrement(to_bgp, p, bpi, afi, safi);
 		bgp_path_info_mark_for_delete(bn, bpi);
 		bgp_process(to_bgp, bn, bpi, afi, safi);
@@ -2263,6 +2273,13 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 							   __func__);
 					/* withdraw from leak-to vrfs as well */
 					vpn_leak_to_vrf_withdraw(bpi);
+					if (advertise_type5_routes_bestpath(
+						    to_bgp, afi, SAFI_MPLS_VPN) &&
+					    is_route_injectable_into_evpn(bpi))
+						bgp_evpn_unexport_type5_route_rd(
+							to_bgp, bn, bpi, afi,
+							safi,
+							&(from_bgp->vpn_policy[afi].tovpn_rd));
 					bgp_aggregate_decrement(
 						to_bgp, bgp_dest_get_prefix(bn),
 						bpi, afi, safi);
