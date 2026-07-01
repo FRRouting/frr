@@ -1913,6 +1913,7 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 static int pim_ifp_create(struct interface *ifp)
 {
 	struct pim_instance *pim;
+	struct pim_interface *pim_ifp;
 
 	pim = ifp->vrf->info;
 	if (PIM_DEBUG_ZEBRA) {
@@ -1923,17 +1924,20 @@ static int pim_ifp_create(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-	if (if_is_operative(ifp)) {
-		struct pim_interface *pim_ifp;
+	/*
+	 * If we have a pim_ifp already and this is an if_add
+	 * that means that we probably have a vrf move event
+	 * If that is the case, set the proper vrfness.
+	 * This should be done irrespective of the interface's
+	 * operational state, otherwise a VRF move while the
+	 * interface is DOWN would leave pim_ifp->pim stale,
+	 * causing a use-after-free at shutdown.
+	 */
+	pim_ifp = ifp->info;
+	if (pim_ifp)
+		pim_ifp->pim = pim;
 
-		pim_ifp = ifp->info;
-		/*
-		 * If we have a pim_ifp already and this is an if_add
-		 * that means that we probably have a vrf move event
-		 * If that is the case, set the proper vrfness.
-		 */
-		if (pim_ifp)
-			pim_ifp->pim = pim;
+	if (if_is_operative(ifp)) {
 		pim_if_addr_add_all(ifp);
 
 		/*
@@ -1955,8 +1959,6 @@ static int pim_ifp_create(struct interface *ifp)
 	 * for pim or not.
 	 */
 	if (pim_if_is_vrf_device(ifp)) {
-		struct pim_interface *pim_ifp;
-
 		if (!ifp->info) {
 			pim_ifp = pim_if_new(ifp, false, false, false,
 					     false /*vxlan_term*/);
