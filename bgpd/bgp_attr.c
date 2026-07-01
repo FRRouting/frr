@@ -4244,21 +4244,68 @@ otc_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
+/* Get Protocol-ID from NLRIs, if both present they should have equal Protocol-ID */
+static enum bgp_ls_protocol_id get_nlri_protocol_id(struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw)
+{
+	int ret;
+	enum bgp_ls_protocol_id protocol_id_update;
+	enum bgp_ls_protocol_id protocol_id_withdraw;
+
+	if (mp_update->nlri) {
+		ret = bgp_ls_decode_nlri_protocol_id(mp_update, &protocol_id_update);
+		if (ret == -1) {
+			zlog_warn("%s: couldn't decode protocol id of UPDATE, setting reserved",
+				  __func__);
+			return BGP_LS_PROTO_RESERVED;
+		}
+	}
+
+	if (mp_withdraw->nlri) {
+		ret = bgp_ls_decode_nlri_protocol_id(mp_withdraw, &protocol_id_withdraw);
+		if (ret == -1) {
+			zlog_warn("%s: couldn't decode protocol id of WITHDRAW, setting reserved",
+				  __func__);
+			return BGP_LS_PROTO_RESERVED;
+		}
+	}
+
+	if (mp_update->nlri && mp_withdraw->nlri) {
+		if (protocol_id_update != protocol_id_withdraw) {
+			zlog_warn("%s: different protocol ids in UPDATE and WITHDRAW, setting reserved",
+				  __func__);
+			return BGP_LS_PROTO_RESERVED;
+		}
+		return protocol_id_update;
+	}
+
+	if (mp_update->nlri)
+		return protocol_id_update;
+
+	if (mp_withdraw->nlri)
+		return protocol_id_withdraw;
+
+	return BGP_LS_PROTO_RESERVED;
+}
+
 /* BGP-LS attribute (rfc9552) */
-static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
+static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args,
+					   struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw)
 {
 	struct peer_connection *const connection = args->connection;
 	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	int ret;
 	struct bgp_ls_attr *ls_attr;
+	enum bgp_ls_protocol_id protocol_id;
 
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto ls_attr_ignore;
 
+	protocol_id = get_nlri_protocol_id(mp_update, mp_withdraw);
+
 	ls_attr = bgp_ls_attr_alloc();
 
-	ret = bgp_ls_parse_attr(connection->curr, args->length, ls_attr);
+	ret = bgp_ls_parse_attr(connection->curr, args->length, protocol_id, ls_attr);
 	if (ret != 0) {
 		bgp_ls_attr_free(ls_attr);
 		/*
@@ -4662,7 +4709,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 			ret = bgp_attr_nhc(&attr_args);
 			break;
 		case BGP_ATTR_LINK_STATE:
-			ret = bgp_attr_ls(&attr_args);
+			ret = bgp_attr_ls(&attr_args, mp_update, mp_withdraw);
 			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);
@@ -5149,7 +5196,7 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 }
 
 static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct attr *attr,
-				    struct bgp_path_info *bpi)
+				    struct bgp_path_info *bpi, enum bgp_ls_protocol_id protocol_id)
 {
 	struct bgp_ls_attr *ls_attr = bgp_attr_get_ls_attr(attr);
 	size_t attr_start, len_pos, attr_len;
@@ -5162,7 +5209,7 @@ static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct at
 	len_pos = stream_get_endp(s);
 	stream_putw(s, 0); /* Placeholder for extended length */
 
-	ret = bgp_ls_encode_attr(s, ls_attr);
+	ret = bgp_ls_encode_attr(s, ls_attr, protocol_id);
 
 	if (ret < 0) {
 		/* No attributes or encoding failed - rollback the stream */
@@ -6086,7 +6133,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
 	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_attr_get_ls_attr(attr))
-		bgp_packet_ls_attribute(s, bgp, attr, bpi);
+		bgp_packet_ls_attribute(s, bgp, attr, bpi, bgp_ls_nlri_protocol_id(ls_nlri));
 
 	/* draft-ietf-idr-entropy-label */
 	if (peergroup_flag_check(peer, PEER_FLAG_SEND_NHC_ATTRIBUTE))
