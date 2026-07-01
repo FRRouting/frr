@@ -8,6 +8,7 @@
 
 #include "lib/mlag.h"
 #include "lib/hook.h"
+#include "lib/nexthop_group.h"
 
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
@@ -223,6 +224,9 @@ struct zebra_router {
 	 */
 	struct hash *nhgs;
 	struct hash *nhgs_id;
+
+	/* Resilience applied to zebra-created multipath groups, if buckets != 0 */
+	struct nhg_resilience nhg_resilience;
 
 	bool all_mc_forwardingv4, default_mc_forwardingv4;
 	bool all_mc_forwardingv6, default_mc_forwardingv6;

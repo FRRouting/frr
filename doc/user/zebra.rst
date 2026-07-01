@@ -350,6 +350,15 @@ the default route.
    before removing it from the system if the nexthop group is no longer
    being used.  The default time is 180 seconds.
 
+.. clicmd:: zebra nexthop-group resilience buckets (1-256) idle-timer (1-4294967295) unbalanced-timer (1-4294967295)
+
+   Make every multipath nexthop group that zebra itself creates a resilient
+   nexthop group, using the specified number of buckets, idle timer and
+   unbalanced timer.  This applies the same resilient hashing parameters that
+   can be configured per group under ``nexthop-group NAME`` to all zebra-owned
+   groups.  A nexthop group that an upper level protocol has already requested
+   to be resilient keeps its own parameters and is not overridden.
+
 .. clicmd:: ip nht resolve-via-default
 
    Allow IPv4 nexthop tracking to resolve via the default route. This parameter

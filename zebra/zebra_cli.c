@@ -152,6 +152,17 @@ static void zebra_workqueue_hold_timer_cli_write(struct vty *vty, const struct l
 	vty_out(vty, "zebra work-queue %u\n", timer);
 }
 
+static void zebra_nexthop_group_resilience_cli_write(struct vty *vty,
+						     const struct lyd_node *dnode,
+						     bool show_defaults)
+{
+	vty_out(vty,
+		"zebra nexthop-group resilience buckets %u idle-timer %u unbalanced-timer %u\n",
+		yang_dnode_get_uint16(dnode, "buckets"),
+		yang_dnode_get_uint32(dnode, "idle-timer"),
+		yang_dnode_get_uint32(dnode, "unbalanced-timer"));
+}
+
 static void zebra_import_kernel_table_xpath(char *xpath, size_t xpath_len, afi_t afi, safi_t safi,
 					    const char *table_id)
 {
@@ -256,6 +267,39 @@ DEFPY_YANG_HIDDEN (zebra_workqueue_timer,
 	else
 		nb_cli_enqueue_change(vty, "/frr-zebra:zebra/workqueue-hold-timer", NB_OP_DESTROY,
 				      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (zebra_nexthop_group_resilience,
+	    zebra_nexthop_group_resilience_cmd,
+	    "[no] zebra nexthop-group resilience ![buckets (1-256)$buckets idle-timer (1-4294967295)$idle_timer unbalanced-timer (1-4294967295)$unbalanced_timer]",
+	    NO_STR
+	    ZEBRA_STR
+	    "Nexthop-group configuration\n"
+	    "Create every zebra nexthop group as resilient\n"
+	    "Buckets in the hash for each group\n"
+	    "Number of buckets\n"
+	    "The idle timer for each resilient nexthop group in seconds\n"
+	    "Number of seconds of idle time\n"
+	    "The length of time that the nexthop group can be unbalanced\n"
+	    "Number of seconds of unbalanced time\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty,
+				      "/frr-zebra:zebra/nexthop-group/resilience",
+				      NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty,
+				      "/frr-zebra:zebra/nexthop-group/resilience/buckets",
+				      NB_OP_MODIFY, buckets_str);
+		nb_cli_enqueue_change(vty,
+				      "/frr-zebra:zebra/nexthop-group/resilience/idle-timer",
+				      NB_OP_MODIFY, idle_timer_str);
+		nb_cli_enqueue_change(vty,
+				      "/frr-zebra:zebra/nexthop-group/resilience/unbalanced-timer",
+				      NB_OP_MODIFY, unbalanced_timer_str);
+	}
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3040,6 +3084,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = zebra_dplane_queue_limit_cli_write,
 		},
 		{
+			.xpath = "/frr-zebra:zebra/nexthop-group/resilience",
+			.cbs.cli_show = zebra_nexthop_group_resilience_cli_write,
+		},
+		{
 			.xpath = "/frr-zebra:zebra/zapi-packets",
 			.cbs.cli_show = zebra_zapi_packets_cli_write,
 		},
@@ -3387,6 +3435,7 @@ void zebra_cli_init(void)
 	install_element(CONFIG_NODE, &zebra_route_map_timer_cmd);
 	install_element(CONFIG_NODE, &allow_external_route_update_cmd);
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
+	install_element(CONFIG_NODE, &zebra_nexthop_group_resilience_cmd);
 	install_element(CONFIG_NODE, &zebra_zapi_packets_cmd);
 	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
 	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);

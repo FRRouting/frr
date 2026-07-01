@@ -107,6 +107,32 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.modify = zebra_dplane_queue_limit_modify,
 			}
 		},
+		{
+			.xpath = "/frr-zebra:zebra/nexthop-group/resilience",
+			.cbs = {
+				.create = zebra_nexthop_group_resilience_create,
+				.destroy = zebra_nexthop_group_resilience_destroy,
+				.apply_finish = zebra_nexthop_group_resilience_apply_finish,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/nexthop-group/resilience/buckets",
+			.cbs = {
+				.modify = zebra_nexthop_group_resilience_buckets_modify,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/nexthop-group/resilience/idle-timer",
+			.cbs = {
+				.modify = zebra_nexthop_group_resilience_idle_timer_modify,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/nexthop-group/resilience/unbalanced-timer",
+			.cbs = {
+				.modify = zebra_nexthop_group_resilience_unbalanced_timer_modify,
+			}
+		},
 #if HAVE_BFDD == 0
 		{
 			.xpath = "/frr-zebra:zebra/ptm-enable",
