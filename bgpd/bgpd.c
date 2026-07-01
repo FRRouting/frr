@@ -2669,8 +2669,11 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 		PEER_ATTR_INHERIT(peer, group, allowas_in[afi][safi]);
 
 	/* soo */
-	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_SOO))
-		PEER_ATTR_INHERIT(peer, group, soo[afi][safi]);
+	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_SOO)) {
+		ecommunity_free(&peer->soo[afi][safi]);
+		if (group->conf->soo[afi][safi])
+			peer->soo[afi][safi] = ecommunity_dup(group->conf->soo[afi][safi]);
+	}
 
 	/* weight */
 	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_WEIGHT))
@@ -3080,6 +3083,7 @@ void peer_nsf_stop(struct peer *peer)
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		peer->nsf[afi][safi] = 0;
 		event_cancel(&peer->t_llgr_stale[afi][safi]);
+		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_LLGR_WAIT);
 	}
 
 	if (event_is_scheduled(peer->connection->t_gr_restart)) {
