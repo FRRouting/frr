@@ -656,6 +656,12 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 	uint16_t	off = 0;
 	uint8_t		pw_len, twcard_len;
 
+	/* Must have at least one octet */
+	if (len < 1) {
+		session_shutdown(nbr, S_BAD_TLV_LEN, msg->id, msg->type);
+		return (-1);
+	}
+
 	map->type = *buf;
 	off += sizeof(uint8_t);
 
