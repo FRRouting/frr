@@ -89,6 +89,17 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (nh1->nh_srv6->seg6_segs && !nh2->nh_srv6->seg6_segs)
 		return 1;
 
+	if (nh1->nh_srv6->seg6_segs->encap_behavior > nh2->nh_srv6->seg6_segs->encap_behavior)
+		return 1;
+
+	if (nh1->nh_srv6->seg6_segs->encap_behavior < nh2->nh_srv6->seg6_segs->encap_behavior)
+		return -1;
+
+	ret = IPV6_ADDR_CMP(&nh1->nh_srv6->seg6_segs->encap_source,
+			    &nh2->nh_srv6->seg6_segs->encap_source);
+	if (ret != 0)
+		return ret;
+
 	if (nh1->nh_srv6->seg6_segs->num_segs !=
 	    nh2->nh_srv6->seg6_segs->num_segs)
 		return -1;
@@ -100,12 +111,6 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 		if (ret != 0)
 			break;
 	}
-
-	if (nh1->nh_srv6->seg6_segs->encap_behavior > nh2->nh_srv6->seg6_segs->encap_behavior)
-		return 1;
-
-	if (nh1->nh_srv6->seg6_segs->encap_behavior < nh2->nh_srv6->seg6_segs->encap_behavior)
-		return -1;
 
 	return ret;
 }
@@ -715,7 +720,8 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 }
 
 void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs, int num_segs,
-			   enum srv6_headend_behavior encap_behavior)
+			   enum srv6_headend_behavior encap_behavior,
+			   const struct in6_addr *encap_source)
 {
 	int i;
 
@@ -744,6 +750,9 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
 		       sizeof(struct in6_addr));
 
 	nexthop->nh_srv6->seg6_segs->encap_behavior = encap_behavior;
+
+	if (encap_source)
+		nexthop->nh_srv6->seg6_segs->encap_source = *encap_source;
 }
 
 void nexthop_del_srv6_seg6(struct nexthop *nexthop)
@@ -904,6 +913,8 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 					i += 1;
 				}
 				key = jhash_1word(nexthop->nh_srv6->seg6_segs->encap_behavior, key);
+				key = jhash(&nexthop->nh_srv6->seg6_segs->encap_source,
+					    sizeof(struct in6_addr), key);
 			}
 		}
 	}
@@ -948,7 +959,8 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 		    !sid_zero(nexthop->nh_srv6->seg6_segs))
 			nexthop_add_srv6_seg6(copy, &nexthop->nh_srv6->seg6_segs->seg[0],
 					      nexthop->nh_srv6->seg6_segs->num_segs,
-					      nexthop->nh_srv6->seg6_segs->encap_behavior);
+					      nexthop->nh_srv6->seg6_segs->encap_behavior,
+					      &nexthop->nh_srv6->seg6_segs->encap_source);
 	}
 }
 
@@ -1433,6 +1445,10 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 					       srv6_headend_behavior2str(nexthop->nh_srv6->seg6_segs
 										 ->encap_behavior,
 									 false));
+			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+					    &in6addr_any))
+				json_object_string_addf(json_nexthop, "srv6EncapSource", "%pI6",
+							&nexthop->nh_srv6->seg6_segs->encap_source);
 		} else {
 			if (nexthop->nh_srv6->seg6_segs) {
 				json_segs = json_object_new_array();
@@ -1454,6 +1470,12 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 											 ->seg6_segs
 											 ->encap_behavior,
 										 false));
+				if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+						    &in6addr_any))
+					json_object_string_addf(json_nexthop, "srv6EncapSource",
+								"%pI6",
+								&nexthop->nh_srv6->seg6_segs
+									 ->encap_source);
 			}
 		}
 	}
@@ -1593,6 +1615,10 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 					srv6_headend_behavior2str(nexthop->nh_srv6->seg6_segs
 									  ->encap_behavior,
 								  false));
+			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+					    &in6addr_any))
+				vty_out(vty, ", encap source %pI6",
+					&nexthop->nh_srv6->seg6_segs->encap_source);
 		}
 	}
 

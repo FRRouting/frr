@@ -29,6 +29,20 @@ const struct frr_yang_module_info frr_zebra_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_ipv4_next_hop_seg6_prefix_list_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_ipv4_next_hop_seg6_prefix_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_ipv6_next_hop_seg6_prefix_list_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_ipv6_next_hop_seg6_prefix_list_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-zebra-route-map:source-instance",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_source_instance_modify,
@@ -54,6 +68,13 @@ const struct frr_yang_module_info frr_zebra_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_ipv6_src_address_modify,
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_ipv6_src_address_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-zebra-route-map:srv6-encap-source",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_srv6_encap_source_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_srv6_encap_source_destroy,
 			}
 		},
 		{
