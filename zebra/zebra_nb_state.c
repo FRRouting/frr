@@ -411,14 +411,9 @@ lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args)
 		rn = route_top(zrt->table);
 	else
 		rn = srcdest_route_next(rn);
-	/* Optimization: skip empty route nodes. */
+	/* Skip empty route nodes. */
 	while (rn && rn->info == NULL)
 		rn = route_next(rn);
-
-	/* Skip link-local routes. */
-	if (rn && rn->p.family == AF_INET6
-	    && IN6_IS_ADDR_LINKLOCAL(&rn->p.u.prefix6))
-		return NULL;
 
 	return rn;
 }
@@ -466,8 +461,14 @@ lib_vrf_zebra_ribs_rib_route_lookup_next(struct nb_cb_lookup_entry_args *args)
 	if (!rn)
 		return NULL;
 
-	route_unlock_node(rn);
-
+	/*
+	 * Unlike lib_vrf_zebra_ribs_rib_route_lookup_entry() (a self-contained
+	 * point lookup), this function seeds the get_next iteration: the
+	 * returned node is carried as args->list_entry into
+	 * lib_vrf_zebra_ribs_rib_route_get_next() -> srcdest_route_next() ->
+	 * route_next(), which unlocks its input node. The node returned by
+	 * route_table_get_next() must therefore keep the lock it carries.
+	 */
 	return rn;
 }
 
