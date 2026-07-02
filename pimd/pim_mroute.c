@@ -487,8 +487,21 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
 				src_pim_ifp = src_conn->ifp->info;
 
 			if (src_conn != NULL && src_pim_ifp && src_pim_ifp->pim_enable) {
-				up = pim_upstream_add(pim_ifp->pim, &sg, src_conn->ifp,
-						      PIM_UPSTREAM_FLAG_MASK_FHR, __func__, NULL);
+				/*
+				 * Same rationale as pim_mroute_msg_wrvifwhole():
+				 * only the DR on the source-connected interface is
+				 * the FHR. On a non-DR, install as SRC_NOCACHE to
+				 * avoid setting the FHR flag, which would later
+				 * cause pim_upstream_switch() to silently attach
+				 * pimreg to the OIF and CPU-punt every packet.
+				 */
+				int up_flags = PIM_UPSTREAM_FLAG_MASK_FHR;
+
+				if (!PIM_I_am_DR(src_pim_ifp))
+					up_flags = PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE;
+
+				up = pim_upstream_add(pim_ifp->pim, &sg, src_conn->ifp, up_flags,
+						      __func__, NULL);
 				PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 				pim_upstream_keep_alive_timer_start(up,
 								    pim_ifp->pim->keep_alive_time);
@@ -832,9 +845,21 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 
 	pim_ifp = ifp->info;
 	if (pim_if_connected_to_source(ifp, sg.src)) {
-		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
-				      PIM_UPSTREAM_FLAG_MASK_FHR, __func__,
-				      NULL);
+		/*
+		 * Per RFC 7761 only the DR on the incoming interface is the
+		 * FHR for a directly-connected source. On a non-DR (e.g.
+		 * MLAG active-active peer, or any shared-LAN neighbor), an
+		 * FHR-flagged upstream would later trip pim_upstream_switch()
+		 * into silently adding pimreg to the channel_oil OIF, causing
+		 * every data packet on the (S,G) to be CPU-punted forever.
+		 * Install as SRC_NOCACHE (self-aging blackhole) instead.
+		 */
+		int up_flags = PIM_UPSTREAM_FLAG_MASK_FHR;
+
+		if (!PIM_I_am_DR(pim_ifp))
+			up_flags = PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE;
+
+		up = pim_upstream_add(pim_ifp->pim, &sg, ifp, up_flags, __func__, NULL);
 		if (!up) {
 			if (PIM_DEBUG_MROUTE)
 				zlog_debug(
