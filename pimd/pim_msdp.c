@@ -1573,7 +1573,19 @@ void pim_msdp_exit(struct pim_instance *pim)
 
 	pim_msdp_sa_adv_timer_setup(pim, false);
 
-	/* Stop listener and delete all peer sessions */
+	/*
+	 * Tear down the listener first; otherwise every VRF delete leaks the
+	 * listener fd and leaves a libevent watcher pointing at the
+	 * about-to-be-freed pim_instance.
+	 */
+	if (pim->msdp.flags & PIM_MSDPF_LISTENER) {
+		event_cancel(&pim->msdp.listener.event);
+		close(pim->msdp.listener.fd);
+		pim->msdp.listener.fd = -1;
+		pim->msdp.flags &= ~PIM_MSDPF_LISTENER;
+	}
+
+	/* Delete all peer sessions */
 	while ((mg = SLIST_FIRST(&pim->msdp.mglist)) != NULL)
 		pim_msdp_mg_free(pim, &mg);
 
