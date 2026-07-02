@@ -1387,6 +1387,30 @@ end:
 	return as4;
 }
 
+/*
+ * (Re)compute the maximum BGP message size for this peer from the negotiated
+ * Extended Message capability (RFC 8654).  The extended size (65535) is used
+ * only when we have advertised the capability *and* received it from the peer;
+ * otherwise the standard size (4096) applies.
+ *
+ * This must be recomputed whenever either half of that condition can change:
+ * when we parse the peer's OPEN (sets the RCV flag) and when we build our own
+ * OPEN (sets the ADV flag).  On a passively accepted connection our OPEN is
+ * sent only after the peer's OPEN has already been parsed, so computing this
+ * solely at OPEN-parse time would leave it at the standard size -- and the
+ * stale value is then carried across connection-collision resolution by
+ * peer_xfer_conn() -- even though both speakers support the capability.  It is
+ * reset to the standard size when the peer's capabilities are cleared on
+ * connection reset.
+ */
+void bgp_peer_set_max_packet_size(struct peer *peer)
+{
+	peer->max_packet_size = (CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV) &&
+				 CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV))
+					? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
+					: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
+}
+
 /**
  * Parse open option.
  *
@@ -1506,11 +1530,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 	}
 
 	/* Extended Message Support */
-	peer->max_packet_size =
-		(CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV)
-		 && CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV))
-			? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
-			: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
+	bgp_peer_set_max_packet_size(peer);
 
 	/* Check that roles are corresponding to each other */
 	if (bgp_role_violation(peer))
@@ -1878,6 +1898,12 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 
 	/* Extended Message Support */
 	SET_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV);
+	/*
+	 * We have now advertised the capability; refresh the receive/send size
+	 * limit so a passively accepted connection (whose OPEN is built only
+	 * after the peer's OPEN was parsed) is not left at the standard size.
+	 */
+	bgp_peer_set_max_packet_size(peer);
 	stream_putc(s, BGP_OPEN_OPT_CAP);
 	ext_opt_params ? stream_putw(s, CAPABILITY_CODE_EXT_MESSAGE_LEN + 2)
 		       : stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE_LEN + 2);
