@@ -1099,6 +1099,7 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 	struct zserv *client;
 	struct stream *s;
 	ifindex_t svi_index;
+	struct ipaddr local_vtep_ip;
 	int rc;
 
 	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
@@ -1112,7 +1113,12 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 
 	zclient_create_header(s, ZEBRA_VNI_ADD, zebra_vrf_get_evpn_id());
 	stream_putl(s, zevpn->vni);
-	stream_put_ipaddr(s, &zevpn->local_vtep_ip);
+	local_vtep_ip = zevpn->local_vtep_ip;
+	if (IS_IPADDR_NONE(&local_vtep_ip)) {
+		SET_IPADDR_V4(&local_vtep_ip);
+		local_vtep_ip.ipaddr_v4.s_addr = INADDR_ANY;
+	}
+	stream_put_ipaddr(s, &local_vtep_ip);
 	stream_put(s, &zevpn->vrf_id, sizeof(vrf_id_t)); /* tenant vrf */
 	stream_put_in_addr(s, &zevpn->mcast_grp);
 	stream_put(s, &svi_index, sizeof(ifindex_t));
@@ -1122,7 +1128,7 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Send EVPN_ADD %u %pIA tenant vrf %s(%u) SVI index %u to %s", zevpn->vni,
-			   &zevpn->local_vtep_ip, vrf_id_to_name(zevpn->vrf_id), zevpn->vrf_id,
+			   &local_vtep_ip, vrf_id_to_name(zevpn->vrf_id), zevpn->vrf_id,
 			   (zevpn->svi_if ? zevpn->svi_if->ifindex : 0),
 			   zebra_route_string(client->proto));
 

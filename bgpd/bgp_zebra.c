@@ -3540,9 +3540,16 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 			vrf_id_to_name(vrf_id), vni,
 			vrf_id_to_name(tenant_vrf_id), svi_ifindex);
 
-	if (ipaddr_is_zero(&vtep_ip)) {
+	/* Preserve legacy behavior for VXLAN devices with no explicit local
+	 * address: treat IPv4/IPv6 zero as unspecified and use the router-id as
+	 * the EVPN VTEP/originator IP.
+	 */
+	if (cmd == ZEBRA_VNI_ADD && ipaddr_is_zero(&vtep_ip)) {
 		SET_IPADDR_V4(&vtep_ip);
 		vtep_ip.ipaddr_v4 = bgp->router_id;
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Rx VNI add with unspecified VTEP IP, using router-id %pIA",
+				   &vtep_ip);
 	}
 
 	if (cmd == ZEBRA_VNI_ADD) {
