@@ -1772,6 +1772,20 @@ static int bgp_open_receive(struct peer_connection *connection,
 	uint8_t notify_data_remote_id[4];
 	uint8_t notify_data_holdtime[2];
 
+	/*
+	 * RFC 8654: the Extended Message capability never applies to OPEN.
+	 * An OPEN larger than the standard maximum (4096) is malformed and is
+	 * rejected here regardless of any extended size already negotiated on
+	 * this session, so the receive-path guard in bgp_io.c stays type-blind.
+	 */
+	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
+		flog_err(EC_BGP_PKT_OPEN,
+			 "%s: OPEN message size (%u bytes) exceeds the standard maximum",
+			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
+		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		return BGP_Stop;
+	}
+
 	/* Parse open packet. */
 	version = stream_getc(connection->curr);
 	memcpy(notify_data_remote_as, stream_pnt(connection->curr), 2);
@@ -2198,6 +2212,19 @@ static int bgp_open_receive(struct peer_connection *connection,
 static int bgp_keepalive_receive(struct peer_connection *connection,
 				 struct peer *peer, bgp_size_t size)
 {
+	/*
+	 * RFC 8654: the Extended Message capability never applies to KEEPALIVE,
+	 * which stays capped at the standard maximum (4096) even after an
+	 * extended size has been negotiated for this session.
+	 */
+	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
+		flog_err(EC_BGP_KEEP_RCV,
+			 "%s: KEEPALIVE message size (%u bytes) exceeds the standard maximum",
+			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
+		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		return BGP_Stop;
+	}
+
 	if (bgp_debug_keepalive(peer))
 		zlog_debug("%s KEEPALIVE rcvd", peer->host);
 

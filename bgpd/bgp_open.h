@@ -106,6 +106,7 @@ struct graceful_restart_af {
 
 extern int bgp_open_option_parse(struct peer *peer, struct peer_connection *connection,
 				 uint16_t length, int *mp_capability);
+extern void bgp_peer_set_max_packet_size(struct peer *peer);
 extern uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 				    struct peer_connection *connection, bool ext_opt_params);
 extern void bgp_capability_vty_out(struct vty *vty, struct peer *peer,

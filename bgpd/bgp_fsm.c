@@ -2152,6 +2152,9 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	/* Reset capabilities. */
 	peer->cap = 0;
 
+	/* Capabilities are gone: revert the message-size limit to standard. */
+	bgp_peer_set_max_packet_size(peer);
+
 	/* Resetting neighbor role to the default value */
 	peer->remote_role = ROLE_UNDEFINED;
 
@@ -2517,6 +2520,9 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 
 	/* Clear peer capability flag. */
 	peer->cap = 0;
+
+	/* Capabilities are gone: revert the message-size limit to standard. */
+	bgp_peer_set_max_packet_size(peer);
 
 	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT) &&
 	    !bgp_rpki_cache_connected(peer->bgp)) {
