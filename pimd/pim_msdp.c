@@ -922,6 +922,47 @@ static void pim_msdp_peer_connect(struct pim_msdp_peer *mp)
 	pim_msdp_peer_cr_timer_setup(mp, true /* start */);
 }
 
+/*
+ * VRF-master interface up notification handler.
+ *
+ * Closes the startup race where pim_msdp_peer_listen() runs during
+ * config-parse with pim->vrf->vrf_id == VRF_UNKNOWN, causing
+ * pim_msdp_sock_listen()'s if_lookup_by_name(name, VRF_UNKNOWN) to
+ * deterministically return NULL.  By the time libvrf activates the
+ * VRF and pim_iface.c notifies us via pim_ifp_create()/pim_ifp_up()
+ * for the VRF-master interface, pim->vrf->vrf_id has been updated
+ * in place to the real id.  We can now retry pim_msdp_sock_listen()
+ * and the if_lookup_by_name() inside it will succeed.
+ */
+void pim_msdp_vrf_iface_up(struct pim_instance *pim)
+{
+	struct pim_msdp_peer *mp;
+	struct listnode *node;
+
+	if (!pim || !pim->msdp.peer_list)
+		return;
+
+	/*
+	 * Walk all listener-side peers and retry any socket bind that failed
+	 * during config-parse (when pim->vrf->vrf_id was still VRF_UNKNOWN).
+	 *   - MSDP_AUTH_NONE peers share the global pim_msdp_sock_listen()
+	 *     socket, guarded by PIM_MSDPF_LISTENER (one bind per VRF).
+	 *   - Auth peers each own a per-peer pim_msdp_sock_auth_listen()
+	 *     socket tracked by mp->auth_listen_sock.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
+		if (!PIM_MSDP_PEER_IS_LISTENER(mp))
+			continue;
+
+		if (mp->auth_type == MSDP_AUTH_NONE) {
+			if (!(pim->msdp.flags & PIM_MSDPF_LISTENER))
+				(void)pim_msdp_sock_listen(pim);
+		} else if (mp->auth_listen_sock == -1) {
+			(void)pim_msdp_sock_auth_listen(mp);
+		}
+	}
+}
+
 /* 11.2.A3: passive peer - just listen for connections */
 static void pim_msdp_peer_listen(struct pim_msdp_peer *mp)
 {
@@ -1573,7 +1614,19 @@ void pim_msdp_exit(struct pim_instance *pim)
 
 	pim_msdp_sa_adv_timer_setup(pim, false);
 
-	/* Stop listener and delete all peer sessions */
+	/*
+	 * Tear down the listener first; otherwise every VRF delete leaks the
+	 * listener fd and leaves a libevent watcher pointing at the
+	 * about-to-be-freed pim_instance.
+	 */
+	if (pim->msdp.flags & PIM_MSDPF_LISTENER) {
+		event_cancel(&pim->msdp.listener.event);
+		close(pim->msdp.listener.fd);
+		pim->msdp.listener.fd = -1;
+		pim->msdp.flags &= ~PIM_MSDPF_LISTENER;
+	}
+
+	/* Delete all peer sessions */
 	while ((mg = SLIST_FIRST(&pim->msdp.mglist)) != NULL)
 		pim_msdp_mg_free(pim, &mg);
 
