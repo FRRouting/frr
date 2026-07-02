@@ -2712,7 +2712,7 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	rip->vrf_name = XSTRDUP(MTYPE_RIP_VRF_NAME, vrf_name);
 
 	/* Set initial value. */
-	rip->ecmp = yang_get_default_uint8("%s/allow-ecmp", RIP_INSTANCE);
+	rip->ecmp = yang_get_default_uint16("%s/allow-ecmp", RIP_INSTANCE);
 	rip->default_metric =
 		yang_get_default_uint8("%s/default-metric", RIP_INSTANCE);
 	rip->distance =

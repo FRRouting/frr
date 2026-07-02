@@ -136,7 +136,7 @@ struct ripng {
 	struct event *t_triggered_interval;
 
 	/* RIPng ECMP flag */
-	uint8_t ecmp;
+	uint16_t ecmp;
 
 	/* RIPng redistribute configuration. */
 	struct {

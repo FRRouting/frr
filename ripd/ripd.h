@@ -150,7 +150,7 @@ struct rip {
 	struct route_table *distance_table;
 
 	/* RIP ECMP flag */
-	uint8_t ecmp;
+	uint16_t ecmp;
 
 	/* Are we in passive-interface default mode? */
 	bool passive_default;

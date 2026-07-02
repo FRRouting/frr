@@ -125,9 +125,9 @@ DEFUN_YANG (no_rip_allow_ecmp,
 void cli_show_rip_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
-	uint8_t paths;
+	uint16_t paths;
 
-	paths = yang_dnode_get_uint8(dnode, NULL);
+	paths = yang_dnode_get_uint16(dnode, NULL);
 
 	if (!paths)
 		vty_out(vty, " no allow-ecmp\n");
