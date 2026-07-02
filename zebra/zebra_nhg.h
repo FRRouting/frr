@@ -9,6 +9,7 @@
 
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
+#include "zebra/zebra_nhg_tracker.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,6 +27,7 @@ struct nh_grp {
 };
 
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
+PREDECL_RBTREE_UNIQ(nhe_re_tree);
 
 /*
  * Hashtables containing nhg entries is in `zebra_router`.
@@ -90,6 +92,18 @@ struct nhg_hash_entry {
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
 	struct event *timer;
+
+	/* NHG event trackers: deferred activation after interface up/down */
+	struct nhg_event_tracker_list_head tracker_list;
+
+	/* Per-NHG prefix-to-tracker lookup hash.
+	 * Key: (prefix, type, instance).
+	 * The key uniquely identifies one RE.  Two REs for the same
+	 * prefix but different protocols are separate entries.
+	 * Value: struct nhg_event_tracker *tracker -- the tracker
+	 * that currently owns this (prefix, type, instance).
+	 */
+	struct tracker_prefix_map_head tracker_prefix_map;
 
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
@@ -178,6 +192,47 @@ struct nhg_hash_entry {
  * by the NHG layer, not the EVPN-MH layer.
  */
 #define NEXTHOP_GROUP_STALE_FDB (1 << 11)
+/*
+ * Set by the tracker on the installed NHG to indicate that
+ * the tracker has decided to reuse this NHG as part of an ECMP change
+ * It is meaningful only for the installed NHG. i.e. what appears as
+ * old_re->nhe inside nexthop_active_update.
+ *
+ * When nexthop_active_update sees this flag on old_re->nhe it will do
+ * the reuse of the NHG.
+ * The flag is cleared by the first RE that performs the rework.
+ * Subsequent REs in the same batch find the already-reworked
+ * NHG via normal content-hash lookup.
+ */
+#define NEXTHOP_GROUP_TRACKER_REUSE (1 << 12)
+
+/*
+ * After tracker NHG rework, the reworked NHG may end up with content identical
+ * to a pre-existing NHG (different ID, same nexthops).  This flag marks
+ * the reworked NHG so the consolidation event can find and merge them.
+ */
+#define NEXTHOP_GROUP_DUPLICATE (1 << 13)
+
+	/*
+	 * Pending consolidation event handle: scheduled when this NHG is
+	 * marked DUPLICATE and all converged REs have attached.  The handler walks
+	 * the NHG hash to find all content-duplicates, picks the winner
+	 * (most REs), and migrates loser REs to the winner so duplicate NHGs
+	 * can be freed.
+	 */
+	struct event *consolidation_event;
+
+	/*
+	 * Count of phase-2 winner REs that still need to attach to this NHG.
+	 * Set by tracker_flush_batch_start_phase2 winners released.
+	 * decremented by nexthop_active_update / rib_unlink when a winner
+	 * RE is consumed.  When this drops to 0 and DUPLICATE is set, the
+	 * consumer schedules the consolidation event.
+	 */
+	uint32_t tracker_pending_winners;
+
+	/* Head of rb_tree of route_entries(re's)*/
+	struct nhe_re_tree_head re_head;
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -404,6 +459,47 @@ extern void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx);
 /* Sweep the nhg hash tables for old entries on restart */
 extern void zebra_nhg_sweep_table(struct hash *hash, bool stale_sweep);
 
+/* Rebuild nhg_depends from the NHE's current nexthop list (after in-place rework) */
+extern void zebra_nhg_rebuild_depends(struct nhg_hash_entry *nhe);
+
+/* Rework an NHG in-place: replace nexthop list, rebuild depends, rehash */
+extern void zebra_nhg_rework_in_place(struct nhg_hash_entry *nhe,
+				      struct nhg_hash_entry *source_nhe);
+
+/*
+ * Three-step variant of zebra_nhg_rework_in_place used by the tracker
+ * flush path.  The steps bracket the phase-1 "drain losers" window so
+ * that no loser RE can content-hash-lookup its way back onto the NHG
+ * being reworked.
+ */
+extern void zebra_nhg_rework_content_release(struct nhg_hash_entry *nhe);
+extern void zebra_nhg_rework_content_mutate(struct nhg_hash_entry *nhe,
+					    struct nhg_hash_entry *source_nhe);
+extern void zebra_nhg_rework_content_rehash(struct nhg_hash_entry *nhe);
+
+/* NHG duplicate consolidation context — used by hash walk callback */
+struct nhg_dup_walk_ctx {
+	struct nhg_hash_entry *target;
+	struct nhg_hash_entry **dups;
+	uint32_t count;
+	uint32_t capacity;
+};
+
+/*
+ * Mark NHG as having a content-duplicate; schedule deferred consolidation.
+ */
+extern void zebra_nhg_mark_duplicate(struct nhg_hash_entry *nhe);
+
+/*
+ * Mark an old/installed NHG as reuse-target for the tracker.
+ * nexthop_active_update will copy the resolved state of an incoming RE
+ * onto this NHG in-place so its ID is preserved across an ECMP change.
+ */
+extern void zebra_nhg_mark_reuse(struct nhg_hash_entry *nhe);
+
+/* Schedule the duplicate consolidation event for nhe */
+extern void zebra_nhg_schedule_consolidate(struct nhg_hash_entry *nhe);
+
 /*
  * We are shutting down but the nexthops should be kept
  * as that -r has been specified and we don't want to delete
@@ -417,10 +513,16 @@ extern void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vr
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 				 struct route_entry *old_re);
 
+/* Compare two nexthops including ACTIVE flag state */
+extern bool nhg_compare_nexthops(const struct nexthop *nh1, const struct nexthop *nh2);
+
 extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
 
 /* Format NHG flags into a comma-separated string for display */
 extern void dump_nhg_flags(uint32_t flags, char *buf, size_t len);
+
+extern bool zebra_nhg_nexthop_compare(const struct nexthop *nhop, const struct nexthop *old_nhop,
+				      const struct route_node *rn, bool skip_inactive_old);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)

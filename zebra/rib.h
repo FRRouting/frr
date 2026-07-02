@@ -85,6 +85,9 @@ struct route_entry {
 	/* Link list. */
 	struct re_list_item next;
 
+	/* Back pointer to route node */
+	struct route_node *rn;
+
 	/* Nexthop group, shared/refcounted, based on the nexthop(s)
 	 * provided by the owner of the route
 	 */
@@ -109,6 +112,12 @@ struct route_entry {
 	 * for more details on how to setup this situation.
 	 */
 	uint32_t nhe_installed_id;
+
+	/*
+	 * Parent NHG id of the flushing NHG-event-tracker that drained this
+	 * RE as a phase-1 loser; consumed in tracker_flush_batch_route_dplane_ack.
+	 */
+	uint32_t tracker_parent_nhg_id;
 
 	/* Type of this route. */
 	int type;
@@ -145,6 +154,8 @@ struct route_entry {
 #define ROUTE_ENTRY_INSTALLED        0x10
 /* Route has Failed installation into the Data Plane in some manner */
 #define ROUTE_ENTRY_FAILED           0x20
+/* Route Entry is parked in an NHG tracker and should not be processed yet */
+#define ROUTE_ENTRY_TRACKER 0x40
 /*
  * Route entries that are going to the dplane for a Route Replace
  * let's note the fact that this is happening.  This will
@@ -159,6 +170,14 @@ struct route_entry {
  * then addition.
  */
 #define ROUTE_ENTRY_SEND_NHT_REMOVAL 0x100
+/* RE is part of a tracker flush batch phase 1 (awaiting dplane ack) */
+#define ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH 0x200
+/* RE was released by tracker phase 2 as a winner.  Consumed by
+ * nexthop_active_update (or rib_unlink for cleanup), clears the flag,
+ * decrements parent_nhe->tracker_pending_winners, fires consolidation
+ * event when counter reaches 0.
+ */
+#define ROUTE_ENTRY_NHG_TRACKER_WINNER 0x400
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
@@ -176,7 +195,22 @@ struct route_entry {
 	time_t uptime;
 
 	struct re_opaque *opaque;
+
+	/* Selected re using an nhe are in its re RB tree */
+	struct nhe_re_tree_item re_item;
 };
+
+static int route_entry_cmp(const struct route_entry *re1, const struct route_entry *re2)
+{
+	if ((uintptr_t)re1 > (uintptr_t)re2)
+		return 1;
+	else if ((uintptr_t)re1 < (uintptr_t)re2)
+		return -1;
+
+	return 0;
+}
+
+DECLARE_RBTREE_UNIQ(nhe_re_tree, struct route_entry, re_item, route_entry_cmp);
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
 
@@ -388,7 +422,7 @@ extern int is_zebra_valid_kernel_table(uint32_t table_id);
 extern int is_zebra_main_routing_table(uint32_t table_id);
 extern int zebra_check_addr(const struct prefix *p);
 
-extern void rib_delnode(struct route_node *rn, struct route_entry *re);
+extern void rib_delnode(struct route_node *rn, struct route_entry *re, bool flag);
 extern void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			       struct route_entry *old);
 extern void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
@@ -439,6 +473,9 @@ extern unsigned long rib_score_proto_table(uint8_t proto,
 					   struct route_table *table);
 
 extern int rib_queue_add(struct route_node *rn);
+
+extern bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2,
+			       bool replace);
 
 struct nhg_ctx; /* Forward declaration */
 
@@ -635,6 +672,9 @@ extern uint32_t zebra_rib_dplane_results_max(void);
 extern pid_t zebra_pid;
 
 extern uint32_t rt_table_main_id;
+
+extern void nhe_add_or_del_re_tree(struct nhg_hash_entry *nhe, struct route_entry *re_to_oper,
+				   const char *caller, bool is_del);
 
 void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 			 const struct vrf *re_vrf,

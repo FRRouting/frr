@@ -350,6 +350,14 @@ the default route.
    before removing it from the system if the nexthop group is no longer
    being used.  The default time is 180 seconds.
 
+.. clicmd:: [no] zebra nexthop-group tracker [(1-3600)]
+
+   Set the timeout in seconds that zebra will use for tracking nexthop group
+   up/down events. When a nexthop group changes state, zebra waits for this
+   duration before acting on the event, allowing transient flaps to settle.
+   The default value is 60 seconds. The ``no`` form resets the timeout back
+   to the default.
+
 .. clicmd:: ip nht resolve-via-default
 
    Allow IPv4 nexthop tracking to resolve via the default route. This parameter
