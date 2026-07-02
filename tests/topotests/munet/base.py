@@ -53,8 +53,8 @@ def get_docker_container_id():
     """Detect if running inside Docker and return container ID.
 
     Returns the Docker container ID if running inside a container, None otherwise.
-    This is used to prepend 'docker exec' to commands that need to run inside
-    the container from the host (e.g., tmux panes).
+    Used with TOPOTESTS_USE_HOST_TMUX to prepend 'docker exec' when host tmux
+    panes run outside this container but namespaces live inside it.
     """
     try:
         # Try cgroup v1 format first - check any cgroup subsystem, not just cpuset
@@ -1537,17 +1537,21 @@ class Commander:  # pylint: disable=R0904
                 + cmd
             )
 
-            # If running inside Docker, prepend docker exec to run the command inside the container
-            # This is needed because tmux runs on the host but the namespaces are inside the container
-            container_id = get_docker_container_id()
-            if container_id:
-                # Try to find docker or podman on the host
-                docker_path = get_exec_path_host(["docker", "podman"])
-                if not docker_path:
-                    # Fallback to common paths
-                    docker_path = "/usr/bin/docker"
-                # Use -it flags for interactive terminal
-                nscmd = f"{docker_path} exec -it {container_id} {nscmd}"
+            # Host tmux panes run outside the container; wrap so nsenter reaches
+            # namespaces inside. Opt-in via TOPOTESTS_USE_HOST_TMUX (set by
+            # frr-topotests.sh when launched from host tmux).
+            if os.environ.get("TOPOTESTS_USE_HOST_TMUX"):
+                container_id = get_docker_container_id()
+                if container_id:
+                    docker_path = get_exec_path_host(["docker", "podman"])
+                    if not docker_path:
+                        docker_path = "/usr/bin/docker"
+                    nscmd = f"{docker_path} exec -it {container_id} {nscmd}"
+                else:
+                    logging.warning(
+                        "TOPOTESTS_USE_HOST_TMUX is set but container ID "
+                        "was not detected; tmux pane commands may fail"
+                    )
 
         if "TMUX" in os.environ and not forcex:
             cmd = [get_exec_path_host("tmux")]
