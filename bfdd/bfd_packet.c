@@ -2885,6 +2885,11 @@ static int bp_raw_sbfd_red_send(int sd, uint8_t *data, size_t datalen, uint16_t 
 	struct sockaddr_in6 dst_sin6 = { 0 };
 	char buf_addr[INET6_ADDRSTRLEN] = { 0 };
 
+	if (seg_num > SRV6_MAX_SEGS) {
+		zlog_err("%s: seg_num %u exceeds SRV6_MAX_SEGS", __func__, seg_num);
+		return -1;
+	}
+
 	memset(sendbuf, 0, sizeof(sendbuf));
 	int total_len = 0;
 
@@ -2940,6 +2945,11 @@ static int bp_raw_sbfd_red_send(int sd, uint8_t *data, size_t datalen, uint16_t 
 	}
 
 	/* BFD payload*/
+	if ((size_t)total_len + datalen > sizeof(sendbuf)) {
+		zlog_err("%s: packet too large (%d + %zu > %zu)",
+			 __func__, total_len, datalen, sizeof(sendbuf));
+		return -1;
+	}
 	payload = (uint8_t *)(sendbuf + total_len);
 	memcpy(payload, data, datalen);
 	total_len += datalen;
