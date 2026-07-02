@@ -98,7 +98,7 @@ DEFUN_YANG (rip_allow_ecmp,
        "Number of paths\n")
 {
 	int idx_number = 0;
-	char mpaths[3] = {};
+	char mpaths[sizeof(STRINGIFY(MULTIPATH_NUM))] = {};
 	uint32_t paths = MULTIPATH_NUM;
 
 	if (argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx_number))
