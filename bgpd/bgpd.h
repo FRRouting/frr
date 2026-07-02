@@ -123,6 +123,9 @@ extern struct frr_pthread *bgp_pth_ka;
 /* FIFO list for peer connections */
 PREDECL_LIST(peer_connection_fifo);
 
+/* List of per-neighbor clusters, per bgp instance */
+PREDECL_DLIST(per_neighbor_cluster_list);
+
 /* BGP master for system wide configurations and variables.  */
 struct bgp_master {
 	/* BGP instance list.  */
@@ -635,8 +638,10 @@ struct bgp {
 	struct in_addr router_id_static;
 	struct in_addr router_id_zebra;
 
-	/* BGP route reflector cluster ID.  */
+	/* BGP route reflector global cluster ID.  */
 	struct in_addr cluster_id;
+
+	struct per_neighbor_cluster_list_head per_neighbor_clusters;
 
 	/* BGP confederation information.  */
 	as_t confed_id;
@@ -761,6 +766,10 @@ struct bgp {
 #define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW (1ULL << 45)
 #define BGP_FLAG_USE_RECURSIVE_WEIGHT (1ULL << 46)
+#define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER	    (1ULL << 47)
+#define BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED (1ULL << 48)
+#define BGP_FLAG_PREFER_GLOBAL_CLUSTER			    (1ULL << 49)
+#define BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK		    (1ULL << 50)
 
 /* Use current (imported) path's attributes instead of source path's attributes
  * for bestpath comparison of imported paths.
@@ -1933,9 +1942,16 @@ struct peer {
 #define PEER_FLAG_CONFIG_ENCAPSULATION_MPLS	  (1ULL << 34)
 #define PEER_FLAG_BGP_LS_IPV4			  (1ULL << 35)
 #define PEER_FLAG_BGP_LS_IPV6			  (1ULL << 36)
+#define PEER_FLAG_CLUSTER_ID			  (1ULL << 37)
+#define PEER_CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED (1ULL << 38)
+#define PEER_CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER	    (1ULL << 39)
+#define PEER_CLUSTER_FLAG_GLOBAL		  (1ULL << 40)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
+
+	/* cluster-id for each AFI-SAFI */
+	struct in_addr cluster[AFI_MAX][SAFI_MAX];
 
 	/* MD5 password */
 	char *password;
@@ -2351,6 +2367,30 @@ struct bgp_nlri {
 	uint8_t *nlri;
 };
 
+/* This structure contains information about a per-neighbor cluster */
+struct cluster {
+	/* cluster-id */
+	struct in_addr cluster_id;
+
+	uint8_t flags;
+	/*both CLUSTER_FLAG_CLIENT_TO_CLIENT act as one ternary flag
+	 *with states:
+	 *always, never and not configured
+	 */
+#define CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED (1 << 0)
+#define CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER	       (1 << 1)
+#define CLUSTER_FLAG_GLOBAL				       (1 << 2)
+
+	/* count the number of times the cluster is referenced during
+	 * configuration + the number of pointers toward it (one per member afi safi)
+	 */
+	int refcnt;
+	struct per_neighbor_cluster_list_item cluster_link;
+};
+
+/* List of per-neighbor clusters, per bgp instance */
+DECLARE_DLIST(per_neighbor_cluster_list, struct cluster, cluster_link);
+
 /* BGP versions.  */
 #define BGP_VERSION_4		                 4
 
@@ -2746,8 +2786,22 @@ extern void bm_wait_for_fib_set(bool set, uint16_t adv_delay);
 extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set,
 					  uint16_t adv_delay);
 extern uint16_t bgp_suppress_fib_get_adv_delay(struct bgp *bgp);
+extern struct cluster *per_neighbor_cluster_lookup(struct bgp *bgp,
+						   const struct in_addr *cluster_id);
+extern void per_neighbor_cluster_update_global_marking(struct bgp *bgp, bool modified_cluster_id);
+extern struct cluster *bgp_per_neighbor_cluster_id_add(struct bgp *bgp, struct in_addr *cluster_id);
+extern void bgp_per_neighbor_cluster_id_delete(struct bgp *bgp, struct in_addr *cluster_id);
 extern void bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id);
 extern void bgp_cluster_id_unset(struct bgp *bgp);
+extern void bgp_neighbor_cluster_id_unset(struct bgp *bgp, struct peer *peer, afi_t afi,
+					  safi_t safi);
+extern void bgp_neighbor_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id,
+					struct peer *peer, afi_t afi, safi_t safi);
+extern void bgp_cluster_client_to_client_unset(struct bgp *bgp, const char *per_neighbor,
+					       struct in_addr *cluster_id);
+extern void bgp_cluster_client_to_client_set(struct bgp *bgp, const char *per_neighbor,
+					     struct in_addr *cluster_id, const char *configuration);
+
 
 extern void bgp_confederation_id_set(struct bgp *bgp, as_t as,
 				     const char *as_str);

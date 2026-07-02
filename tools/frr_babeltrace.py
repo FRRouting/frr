@@ -1444,6 +1444,7 @@ def parse_frr_update_prefix_filter(event):
             1: "Originator-id same as remote router id",
             2: "Filtered via ORF",
             3: "Output Filter",
+            4: "Cluster list contains remote cluster id",
         }.get(x, f"Unknown prefix filter reason {x}")
     }
     parse_event(event, field_parsers)
