@@ -1015,10 +1015,11 @@ struct ospf6_route *ospf6_route_best_next(struct ospf6_route *route)
 	struct route_node *rnode;
 	struct ospf6_route *next;
 
+	rnode = route->rnode;
+	assert(rnode);
+	route_lock_node(rnode);
 	ospf6_route_unlock(route);
 
-	rnode = route->rnode;
-	route_lock_node(rnode);
 	rnode = route_next(rnode);
 	while (rnode && rnode->info == NULL)
 		rnode = route_next(rnode);
