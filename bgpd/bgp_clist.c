@@ -866,6 +866,39 @@ struct community *community_list_match_delete(struct community *com,
 	return com;
 }
 
+/*
+ * Adds the communities defined in a community_list to an existing community structure.
+ * @param com   The initial community structure of the route (can be NULL).
+ * @param list  The configured community list (containing permit/deny rules).
+ * @return      A pointer to the NEW allocated community structure.
+ */
+struct community *community_list_add(struct community *com, struct community_list *list)
+{
+	struct community_entry *entry;
+
+	if (!list)
+		return com;
+
+	/*  Iterate over all entries in the community list */
+	for (entry = list->head; entry; entry = entry->next) {
+		/* Ignore "deny" clauses, we only want to add "permit" entries */
+		if (entry->direct == COMMUNITY_DENY)
+			continue;
+
+		/* Ensure it's a standard list (no regex) and the community
+		 * attribute exists within the entry.
+		 */
+		if (entry->style == COMMUNITY_LIST_STANDARD && entry->u.com) {
+			if (com)
+				com = community_merge(com, entry->u.com);
+			else
+				com = community_dup(entry->u.com);
+		}
+	}
+
+	return com;
+}
+
 /* To avoid duplicated entry in the community-list, this function
    compares specified entry to existing entry.  */
 static bool community_list_dup_check(struct community_list *list,

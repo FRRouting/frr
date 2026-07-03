@@ -2564,11 +2564,8 @@ def create_route_maps(tgen, input_dict, build=False):
                         if large_comm_list:
                             comm_id = large_comm_list.setdefault("id", None)
                             del_comm = large_comm_list.setdefault("delete", None)
-                            if comm_id:
-                                cmd = "set large-comm-list {}".format(comm_id)
-                                if del_comm:
-                                    cmd = "{} delete".format(cmd)
-
+                            if comm_id and del_comm:
+                                cmd = "set large-comm-list delete {}".format(comm_id)
                                 rmap_data.append(cmd)
                             else:
                                 logger.error("In large_comm_list 'id' not" " provided")

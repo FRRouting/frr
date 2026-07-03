@@ -371,10 +371,22 @@ identity set-extcommunity-color {
       "Set the BGP aggregator attribute";
   }
 
+  identity comm-list-add {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP community list (for addition)";
+  }
+
   identity comm-list-delete {
     base frr-route-map:rmap-set-type;
     description
       "Set BGP community list (for deletion)";
+  }
+
+  identity comm-list-replace {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP community list (for setting )";
   }
 
   identity large-comm-list-delete {
@@ -1377,17 +1389,46 @@ identity set-extcommunity-color {
     }
 
     case comm-list-name {
-      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:comm-list-delete') or "
-        + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:large-comm-list-delete') or "
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:large-comm-list-delete') or "
         + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:extended-comm-list-delete')";
+      leaf comm-list-name {
+        type bgp-filter:bgp-list-name;
+      }
+    }
+
+    case comm-list-name-delete {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:comm-list-delete')";
+      description
+	"Set the community list name";
+      leaf comm-list-name-delete {
+        type bgp-filter:bgp-list-name;
+	description
+	  "Set the community list name value";
+      }
+    }
+
+    case comm-list-name-add {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:comm-list-add')";
       description
         "Set the community list name";
-      leaf comm-list-name {
+      leaf comm-list-name-add {
+        type bgp-filter:bgp-list-name;
+	description
+	  "Set the community list name value";
+      }
+    }
+
+    case comm-list-name-replace {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:comm-list-replace')";
+      description
+        "Set the community list name";
+      leaf comm-list-name-replace {
         type bgp-filter:bgp-list-name;
         description
           "Set the community list name value";
       }
     }
+
     case evpn-gateway-ip-ipv4 {
       when
       "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-evpn-gateway-ip-ipv4')";

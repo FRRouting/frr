@@ -10,7 +10,7 @@ bgp_extcomm_list-delete.py:
 
 Test the following commands:
 route-map test permit 10
-  set extended-comm-list <arg> delete
+  set extended-comm-list delete <arg>
 """
 
 import functools
@@ -94,7 +94,7 @@ def _set_extcomm_list(gear, ecom_t, ecom):
         "con t\n",
         f"bgp extcommunity-list standard r1-{ecom_t} permit {ecom_t} {ecom}\n",
         f"route-map r1-in permit 10\n",
-        f"set extended-comm-list r1-{ecom_t} delete\n",
+        f"set extended-comm-list delete r1-{ecom_t}\n",
     ]
     gear.vtysh_cmd("".join(cmd))
 
@@ -107,7 +107,7 @@ def _unset_extcomm_list(gear, ecom_t, ecom):
         configure t
          no bgp extcommunity-list standard r1-{ecom_t} permit {ecom_t} {ecom}
          route-map r1-in permit 10
-          no set extended-comm-list r1-{ecom_t} delete
+          no set extended-comm-list delete r1-{ecom_t}
         """
     )
 
@@ -120,7 +120,7 @@ def _set_extcomm_list_regex(gear, ecom_t, ecom):
          configure t
           bgp extcommunity-list expanded r1-{ecom_t} permit {ecom}
           route-map r1-in permit 10
-           set extended-comm-list r1-{ecom_t} delete
+           set extended-comm-list delete r1-{ecom_t}
          """
     )
 
