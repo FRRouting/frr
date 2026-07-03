@@ -6010,11 +6010,11 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 		/* Note BUM handling */
 		zvrf->vxlan_flood_ctrl = flood_ctrl;
 
-		/* Replay all ESs */
-		zebra_evpn_es_send_all_to_client(true /* add */);
-
 		/* Build EVPN hash table and inform BGP. */
 		zevpn_build_hash_table();
+
+		/* Replay ESs after VNIs so ES-EVIs can resolve their VNI. */
+		zebra_evpn_es_send_all_to_client(true /* add */);
 
 		/* Add all SVI (L3 GW) MACs to BGP*/
 		hash_iterate(zvrf->evpn_table,
