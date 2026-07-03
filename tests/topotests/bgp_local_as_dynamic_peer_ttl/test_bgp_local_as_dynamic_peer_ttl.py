@@ -204,13 +204,20 @@ def test_bgp_listen_range_local_as_replace_as_session_established():
     )
 
     step("Cross-check from r3 side")
-    out = json.loads(
-        tgen.gears["r3"].vtysh_cmd("show bgp neighbors {} json".format(R1_LO))
-    )
-    state = out.get(R1_LO, {}).get("bgpState")
-    assert state == "Established", (
+
+    def _r3_session_up():
+        out = json.loads(
+            tgen.gears["r3"].vtysh_cmd("show bgp neighbors {} json".format(R1_LO))
+        )
+        state = out.get(R1_LO, {}).get("bgpState")
+        return None if state == "Established" else out
+
+    _, res = topotest.run_and_expect(_r3_session_up, None, count=120, wait=0.5)
+    assert res is None, (
         "r3 view of session to {} is {} (expected Established). "
-        "Full output: {}".format(R1_LO, state, json.dumps(out, indent=2)[:1000])
+        "Full output: {}".format(
+            R1_LO, res.get(R1_LO, {}).get("bgpState"), json.dumps(res, indent=2)[:1000]
+        )
     )
 
 
