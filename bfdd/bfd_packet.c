@@ -588,6 +588,13 @@ static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8
 		return -1;
 	}
 
+	/* Validate read size: must have the headers */
+	if (mlen < (int)(sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr))) {
+		if (bglobal.debug_network)
+			zlog_debug("%s: invalid read: len %zd too short", __func__, mlen);
+		return -1;
+	}
+
 	ip = (struct iphdr *)(msgbuf + sizeof(struct ethhdr));
 
 	/* verify ip checksum */
@@ -619,6 +626,15 @@ static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8
 	/* verify udp checksum */
 	uh = (struct udphdr *)(msgbuf + sizeof(struct iphdr) +
 			       sizeof(struct ethhdr));
+
+	/* Validate read size: UDP header length */
+	if ((mlen < (ssize_t)(sizeof(struct ethhdr) + sizeof(struct iphdr) + ntohs(uh->len)))) {
+		if (bglobal.debug_network)
+			zlog_debug("%s: invalid UDP len %d overflows recv len %zd ",
+				   __func__, ntohs(uh->len), mlen);
+		return -1;
+	}
+
 	recv_checksum = uh->check;
 	uh->check = 0;
 	checksum = bfd_pkt_checksum(uh, ntohs(uh->len),
