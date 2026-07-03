@@ -100,7 +100,7 @@ int ripd_instance_allow_ecmp_modify(struct nb_cb_modify_args *args)
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	rip->ecmp =
-		MIN(yang_dnode_get_uint8(args->dnode, NULL), zebra_ecmp_count);
+		MIN(yang_dnode_get_uint16(args->dnode, NULL), zebra_ecmp_count);
 	if (!rip->ecmp) {
 		rip_ecmp_disable(rip);
 		return NB_OK;

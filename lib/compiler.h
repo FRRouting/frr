@@ -485,6 +485,10 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 /* Wrapper for the 'noreturn' metadata */
 #define FRR_NORETURN __attribute__((noreturn))
 
+/* Stringify a macro's *expansion* rather than its name. */
+#define _STRINGIFY(x) #x
+#define STRINGIFY(x) _STRINGIFY(x)
+
 #ifdef __cplusplus
 }
 #endif

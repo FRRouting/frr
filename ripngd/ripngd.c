@@ -1889,7 +1889,7 @@ struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf, int socket)
 		"%s/timers/flush-interval", RIPNG_INSTANCE);
 	ripng->default_metric =
 		yang_get_default_uint8("%s/default-metric", RIPNG_INSTANCE);
-	ripng->ecmp = yang_get_default_uint8("%s/allow-ecmp", RIPNG_INSTANCE);
+	ripng->ecmp = yang_get_default_uint16("%s/allow-ecmp", RIPNG_INSTANCE);
 
 	/* Make buffer.  */
 	ripng->ibuf = stream_new(RIPNG_MAX_PACKET_SIZE * 5);
