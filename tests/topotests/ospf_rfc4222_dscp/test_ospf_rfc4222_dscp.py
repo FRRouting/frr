@@ -232,7 +232,7 @@ interface r1-eth0
     for i in range(1, 10):
         r1.cmd(f"ip addr add 198.51.100.{i}/32 dev lo")
     # Capture packets on R1's interface
-    topotest.sleep(3, "Gathering Packets")
+    topotest.sleep(10, "Gathering Packets")
     _stop_ospf_capture(r1, "r1-eth0", pcap)
 
     tuples = _tshark_dscp_and_type(r1, pcap)
