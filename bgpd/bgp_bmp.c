@@ -965,6 +965,51 @@ static int bmp_outgoing_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 	return 0;
 }
 
+/* true if any bmp_targets performs pre-policy monitoring of the given bgp
+ * instance for afi/safi, either directly or through bmp import-vrf-view.
+ * "skip" excludes one bmp_targets from consideration (used while its own
+ * configuration is being changed); pass NULL to consider all.
+ */
+static bool bmp_prepolicy_covers(struct bgp *bgp, afi_t afi, safi_t safi, struct bmp_targets *skip)
+{
+	struct bgp *bgp_vrf;
+	struct listnode *node;
+	struct bmp_bgp *bmpbgp;
+	struct bmp_targets *bt;
+
+	/* cheap early-out for the common case of no BMP configuration */
+	if (!bmp_bgph_count(&bmp_bgph))
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		bmpbgp = bmp_bgp_find(bgp_vrf);
+		if (!bmpbgp)
+			continue;
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			if (bt == skip)
+				continue;
+			if (!CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY))
+				continue;
+			if (bgp_vrf != bgp && !bmp_imported_bgp_find(bt, bgp->name))
+				continue;
+			return true;
+		}
+	}
+	return false;
+}
+
+/* bgp_adj_in_needed hook: pre-policy monitoring reads from Adj-RIB-In, so
+ * bgpd must maintain it for every peer the monitoring covers.
+ */
+static int bmp_adj_in_needed(struct peer *peer, afi_t afi, safi_t safi)
+{
+	/* labeled-unicast routes live in the unicast table */
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
+
+	return bmp_prepolicy_covers(peer->bgp, afi, safi, NULL);
+}
+
 /*
  * BMP pre-policy monitoring reads exclusively from Adj-RIB-In, which bgpd
  * only maintains under PEER_FLAG_SOFT_RECONFIG.  Without it, the affected
@@ -1794,7 +1839,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 	}
 
 	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_PREPOLICY) &&
-	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)) {
+	    bgp_adj_in_needed(peer, afi, safi)) {
 		struct bgp_adj_in *adjin;
 
 		for (adjin = bn ? bn->adj_in : NULL; adjin;
@@ -3784,6 +3829,7 @@ static int bgp_bmp_module_init(void)
 	hook_register(peer_status_changed, bmp_peer_status_changed);
 	hook_register(peer_backward_transition, bmp_peer_backward);
 	hook_register(bgp_process, bmp_process);
+	hook_register(bgp_adj_in_needed, bmp_adj_in_needed);
 	hook_register(bgp_nht_path_update, bmp_nht_path_valid);
 	hook_register(bgp_inst_config_write, bmp_config_write);
 	hook_register(bgp_inst_delete, bmp_bgp_del);

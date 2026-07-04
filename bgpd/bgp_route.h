@@ -795,6 +795,11 @@ DECLARE_HOOK(bgp_process,
 	      struct peer *peer, bool withdraw),
 	     (bgp, afi, safi, bn, peer, withdraw));
 
+/* whether a component other than soft-reconfiguration inbound needs the
+ * peer's Adj-RIB-In to be maintained (e.g. BMP pre-policy monitoring)
+ */
+DECLARE_HOOK(bgp_adj_in_needed, (struct peer *peer, afi_t afi, safi_t safi), (peer, afi, safi));
+
 /* called when a route is updated in the rib */
 DECLARE_HOOK(bgp_route_update,
 	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
@@ -848,6 +853,7 @@ extern bool bgp_clear_node_queue_drain(struct peer *peer);
 /* Clear routes for a batch of peers */
 void bgp_clear_route_batch(struct bgp_clearing_info *cinfo);
 
+extern bool bgp_adj_in_needed(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi);
