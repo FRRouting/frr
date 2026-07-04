@@ -21,7 +21,7 @@ static inline int is_evpn_enabled(void)
 	return bgp ? EVPN_ENABLED(bgp) : 0;
 }
 
-static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi)
+static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 {
 	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
 
@@ -36,7 +36,8 @@ static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi
 	return 0;
 }
 
-static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi)
+static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi,
+						   safi_t safi)
 {
 	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
 
