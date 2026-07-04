@@ -1747,7 +1747,8 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 		written = true;
 	}
 
-	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_PREPOLICY)) {
+	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_PREPOLICY) &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)) {
 		struct bgp_adj_in *adjin;
 
 		for (adjin = bn ? bn->adj_in : NULL; adjin;
