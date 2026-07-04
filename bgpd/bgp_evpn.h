@@ -21,11 +21,11 @@ static inline int is_evpn_enabled(void)
 	return bgp ? EVPN_ENABLED(bgp) : 0;
 }
 
-static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi)
+static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 {
 	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
 
-	if (!bgp_vrf->l3vni)
+	if (safi != SAFI_UNICAST || !bgp_vrf->l3vni)
 		return 0;
 
 	if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_UNICAST))
@@ -36,11 +36,12 @@ static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi
 	return 0;
 }
 
-static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi)
+static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi,
+						   safi_t safi)
 {
 	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
 
-	if (!bgp_vrf->l3vni)
+	if (safi != SAFI_UNICAST || !bgp_vrf->l3vni)
 		return 0;
 
 	if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP))

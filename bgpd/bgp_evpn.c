@@ -4668,8 +4668,8 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 							 false);
 
 	/* delete all ipv4 routes and withdraw from peers */
-	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP) ||
-	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP))
+	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP, SAFI_UNICAST) ||
+	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP, SAFI_UNICAST))
 		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
 
 	/* Delete ipv6 default route and withdraw from peers */
@@ -4678,8 +4678,8 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 							 false);
 
 	/* delete all ipv6 routes and withdraw from peers */
-	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6) ||
-	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP6))
+	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6, SAFI_UNICAST) ||
+	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP6, SAFI_UNICAST))
 		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
 }
 
@@ -4699,8 +4699,8 @@ void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 		return; /* Nothing to do if no l3vni */
 
 	/* update all ipv4 routes */
-	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP) ||
-	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP))
+	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP, SAFI_UNICAST) ||
+	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP, SAFI_UNICAST))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
 
 	/* update ipv4 default route and withdraw from peers */
@@ -4708,8 +4708,8 @@ void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP, SAFI_UNICAST, NULL, true);
 
 	/* update all ipv6 routes */
-	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6) ||
-	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP6))
+	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6, SAFI_UNICAST) ||
+	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP6, SAFI_UNICAST))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
 
 	/* update ipv6 default route and withdraw from peers */
@@ -5723,7 +5723,7 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 			bgp_evpn_withdraw_type5_route(bgp_vrf, pi, bgp_dest_get_prefix(dest), afi,
 						      safi, addpath_id);
 
-			if (advertise_type5_routes_bestpath(bgp_vrf, afi))
+			if (advertise_type5_routes_bestpath(bgp_vrf, afi, safi))
 				break;
 		}
 	}
@@ -5797,7 +5797,7 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 
 			bgp_evpn_export_type5_route(bgp_vrf, dest, pi, afi, safi);
 
-			if (advertise_type5_routes_bestpath(bgp_vrf, afi))
+			if (advertise_type5_routes_bestpath(bgp_vrf, afi, safi))
 				break;
 		}
 	}
@@ -8578,8 +8578,8 @@ void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi, safi_t safi)
 	struct bgp_path_info *pi;
 	uint32_t addpath_id;
 
-	if (!bgp_get_evpn() || !(advertise_type5_routes_bestpath(bgp, afi) ||
-				 advertise_type5_routes_multipath(bgp, afi)))
+	if (!bgp_get_evpn() || !(advertise_type5_routes_bestpath(bgp, afi, safi) ||
+				 advertise_type5_routes_multipath(bgp, afi, safi)))
 		return;
 
 	/* Aggregate-address table walk. */
@@ -8637,7 +8637,7 @@ static uint32_t bgp_evpn_addpath_id_for_path(const struct bgp *bgp, const struct
 		return 0;
 	if (afi != AFI_IP && afi != AFI_IP6)
 		return 0;
-	if (!advertise_type5_routes_multipath(bgp, afi))
+	if (!advertise_type5_routes_multipath(bgp, afi, SAFI_UNICAST))
 		return 0;
 
 	return pi->tx_addpath.addpath_tx_id[BGP_ADDPATH_ALL];
