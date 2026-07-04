@@ -1010,47 +1010,74 @@ static int bmp_adj_in_needed(struct peer *peer, afi_t afi, safi_t safi)
 	return bmp_prepolicy_covers(peer->bgp, afi, safi, NULL);
 }
 
-/*
- * BMP pre-policy monitoring reads exclusively from Adj-RIB-In, which bgpd
- * only maintains under PEER_FLAG_SOFT_RECONFIG.  Without it, the affected
- * peer's routes are simply absent from the pre-policy feed.  Warn about
- * this dependency instead of leaving operators to notice a silently empty
- * feed.
+/* enable path: peers newly covered by pre-policy monitoring have their
+ * Adj-RIB-In repopulated through a route refresh (or a session reset for
+ * peers without the refresh capability), like enabling soft-reconfiguration
+ * inbound does.
  */
-static void bmp_prepolicy_softreconfig_warn(struct vty *vty, struct peer *peer, afi_t afi,
-					    safi_t safi)
+static void bmp_adj_in_refresh_bgp(struct bgp *bgp, afi_t afi, safi_t safi)
 {
-	if (vty)
-		vty_out(vty,
-			"%% peer %s has no Adj-RIB-In for %s %s (soft-reconfiguration inbound is not configured); pre-policy monitoring will not report its routes until soft-reconfiguration inbound is enabled\n",
-			peer->host, afi2str_lower(afi), safi2str(safi));
-	else
-		zlog_warn("bmp: peer %s has no Adj-RIB-In for %s %s (soft-reconfiguration inbound is not configured); pre-policy monitoring will not report its routes until soft-reconfiguration inbound is enabled",
-			  peer->host, afi2str_lower(afi), safi2str(safi));
+	struct listnode *node;
+	struct peer *peer;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (peer->afc_nego[afi][safi] &&
+		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+			peer_change_action(peer, afi, safi, peer_change_reset_in);
+
+		/* labeled-unicast routes live in the unicast table */
+		if (safi == SAFI_UNICAST && peer->afc_nego[afi][SAFI_LABELED_UNICAST] &&
+		    !CHECK_FLAG(peer->af_flags[afi][SAFI_LABELED_UNICAST], PEER_FLAG_SOFT_RECONFIG))
+			peer_change_action(peer, afi, SAFI_LABELED_UNICAST, peer_change_reset_in);
+	}
 }
 
-static void bmp_peer_up_warn_prepolicy(struct peer *peer)
+/* disable path: free the Adj-RIB-In of peers no consumer needs it for */
+static void bmp_adj_in_release_bgp(struct bgp *bgp, afi_t afi, safi_t safi)
 {
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
-	struct bmp_targets *bt;
-	afi_t afi;
-	safi_t safi;
+	struct listnode *node;
+	struct peer *peer;
 
-	if (!bmpbgp)
-		return;
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!peer->afc_nego[afi][safi])
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (bgp_adj_in_needed(peer, afi, safi))
 			continue;
-		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+		/* labeled-unicast adj-in entries share the unicast table */
+		if (safi == SAFI_UNICAST && bgp_adj_in_needed(peer, afi, SAFI_LABELED_UNICAST))
 			continue;
+		bgp_clear_adj_in(peer, afi, safi);
+	}
+}
 
-		frr_each (bmp_targets, &bmpbgp->targets, bt) {
-			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY)) {
-				bmp_prepolicy_softreconfig_warn(NULL, peer, afi, safi);
-				break;
-			}
-		}
+static void bmp_adj_in_ensure(struct bmp_targets *bt, afi_t afi, safi_t safi)
+{
+	struct bmp_imported_bgp *bib;
+	struct bgp *bgp;
+
+	if (bt->bgp && !bmp_prepolicy_covers(bt->bgp, afi, safi, bt))
+		bmp_adj_in_refresh_bgp(bt->bgp, afi, safi);
+
+	frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
+		bgp = bgp_lookup_by_name(bib->name);
+		if (!bgp)
+			continue;
+		if (!bmp_prepolicy_covers(bgp, afi, safi, bt))
+			bmp_adj_in_refresh_bgp(bgp, afi, safi);
+	}
+}
+
+static void bmp_adj_in_release(struct bmp_targets *bt, afi_t afi, safi_t safi)
+{
+	struct bmp_imported_bgp *bib;
+	struct bgp *bgp;
+
+	if (bt->bgp)
+		bmp_adj_in_release_bgp(bt->bgp, afi, safi);
+
+	frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
+		bgp = bgp_lookup_by_name(bib->name);
+		if (!bgp)
+			continue;
+		bmp_adj_in_release_bgp(bgp, afi, safi);
 	}
 }
 
@@ -1075,8 +1102,6 @@ static int bmp_peer_status_changed(struct peer *peer)
 	if ((peer->connection->ostatus != OpenConfirm) ||
 	    !(peer_established(peer->connection)))
 		return 0;
-
-	bmp_peer_up_warn_prepolicy(peer);
 
 	if (peer->doppelganger &&
 	    (peer->doppelganger->connection->status != Deleted)) {
@@ -2479,6 +2504,8 @@ static void bmp_targets_put(struct bmp_targets *bt)
 	struct bmp *bmp;
 	struct bmp_active *ba;
 	struct bmp_imported_bgp *bib;
+	afi_t afi;
+	safi_t safi;
 
 	event_cancel(&bt->t_stats);
 
@@ -2492,6 +2519,14 @@ static void bmp_targets_put(struct bmp_targets *bt)
 
 	bmp_targets_del(&bt->bmpbgp->targets, bt);
 	QOBJ_UNREG(bt);
+
+	/* this target no longer drives Adj-RIB-In maintenance; free what no
+	 * other consumer needs
+	 */
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY))
+			bmp_adj_in_release(bt, afi, safi);
+	}
 
 	frr_each_safe (bmp_imported_bgps, &bt->imported_bgps, bib)
 		bmp_imported_bgp_free(bib);
@@ -3000,6 +3035,10 @@ DEFPY(bmp_import_vrf,
 			return CMD_WARNING;
 		bmp_send_peerdown_vrf_per_instance(bt, bgp);
 		bmp_imported_bgp_put(bt, bib);
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY))
+				bmp_adj_in_release_bgp(bgp, afi, safi);
+		}
 		return CMD_SUCCESS;
 	}
 	bib = bmp_imported_bgp_find(bt, (char *)vrfname);
@@ -3010,6 +3049,13 @@ DEFPY(bmp_import_vrf,
 	bgp = bgp_lookup_by_name(bib->name);
 	if (!bgp)
 		return CMD_SUCCESS;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY))
+			continue;
+		if (!bmp_prepolicy_covers(bgp, afi, safi, bt))
+			bmp_adj_in_refresh_bgp(bgp, afi, safi);
+	}
 
 	frr_each (bmp_session, &bt->sessions, bmp) {
 		if (bmp->state != BMP_PeerUp && bmp->state != BMP_Run)
@@ -3191,21 +3237,6 @@ DEFPY(bmp_stats_send_experimental,
 #define BMP_POLICY_IS_LOCRIB(str) ((str)[0] == 'l') /* __l__oc-rib */
 #define BMP_POLICY_IS_PRE(str) ((str)[1] == 'r')    /* p__r__e-policy */
 
-static void bmp_monitor_cfg_warn_prepolicy(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
-{
-	struct peer *peer;
-	struct listnode *node;
-
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!peer->afc[afi][safi])
-			continue;
-		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
-			continue;
-
-		bmp_prepolicy_softreconfig_warn(vty, peer, afi, safi);
-	}
-}
-
 DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
       "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn|vpn> <pre-policy|post-policy|loc-rib>$policy",
       NO_STR BMP_STR
@@ -3239,11 +3270,15 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	else
 		SET_FLAG(bt->afimon[afi][safi], flag);
 
-	if (!no && flag == BMP_MON_PREPOLICY)
-		bmp_monitor_cfg_warn_prepolicy(vty, bt->bgp, afi, safi);
-
 	if (prev == bt->afimon[afi][safi])
 		return CMD_SUCCESS;
+
+	if (flag == BMP_MON_PREPOLICY) {
+		if (no)
+			bmp_adj_in_release(bt, afi, safi);
+		else
+			bmp_adj_in_ensure(bt, afi, safi);
+	}
 
 	frr_each (bmp_session, &bt->sessions, bmp) {
 		bmp_update_syncro(bmp, afi, safi, NULL);
