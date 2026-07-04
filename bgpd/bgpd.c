@@ -6077,9 +6077,13 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	/* Execute action when peer is established.  */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) &&
 	    peer_established(peer->connection)) {
-		if (!set && flag == PEER_FLAG_SOFT_RECONFIG)
-			bgp_clear_adj_in(peer, afi, safi);
-		else {
+		if (!set && flag == PEER_FLAG_SOFT_RECONFIG) {
+			/* keep the Adj-RIB-In while another consumer (BMP
+			 * pre-policy monitoring) still needs it
+			 */
+			if (!bgp_adj_in_needed(peer, afi, safi))
+				bgp_clear_adj_in(peer, afi, safi);
+		} else {
 			if (flag == PEER_FLAG_REFLECTOR_CLIENT)
 				peer_set_last_reset(peer, PEER_DOWN_RR_CLIENT_CHANGE);
 			else if (flag == PEER_FLAG_RSERVER_CLIENT)
@@ -6140,9 +6144,14 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 
 			/* Execute flag action on peer-group member. */
 			if (peer_established(member->connection)) {
-				if (!set && flag == PEER_FLAG_SOFT_RECONFIG)
-					bgp_clear_adj_in(member, afi, safi);
-				else {
+				if (!set && flag == PEER_FLAG_SOFT_RECONFIG) {
+					/* keep the Adj-RIB-In while another
+					 * consumer (BMP pre-policy monitoring)
+					 * still needs it
+					 */
+					if (!bgp_adj_in_needed(member, afi, safi))
+						bgp_clear_adj_in(member, afi, safi);
+				} else {
 					if (flag == PEER_FLAG_REFLECTOR_CLIENT)
 						peer_set_last_reset(member,
 								    PEER_DOWN_RR_CLIENT_CHANGE);
