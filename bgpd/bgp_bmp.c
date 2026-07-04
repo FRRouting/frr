@@ -2973,6 +2973,10 @@ DEFPY(bmp_import_vrf,
 		bmp_send_peerup_vrf_per_instance(bmp, &bib->vrf_state, bgp);
 		FOREACH_AFI_SAFI (afi, safi)
 			bmp_update_syncro(bmp, afi, safi, bgp);
+		/* wake the session's write loop, otherwise the requested
+		 * table sync only starts when unrelated traffic does it
+		 */
+		pullwr_bump(bmp->pullwr);
 	}
 	return CMD_SUCCESS;
 }
@@ -3196,8 +3200,13 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	if (prev == bt->afimon[afi][safi])
 		return CMD_SUCCESS;
 
-	frr_each (bmp_session, &bt->sessions, bmp)
+	frr_each (bmp_session, &bt->sessions, bmp) {
 		bmp_update_syncro(bmp, afi, safi, NULL);
+		/* wake the session's write loop, otherwise the requested
+		 * table sync only starts when unrelated traffic does it
+		 */
+		pullwr_bump(bmp->pullwr);
+	}
 
 	return CMD_SUCCESS;
 }
