@@ -15,14 +15,27 @@ neighbor that does NOT have ``soft-reconfiguration inbound``.
     |          |            |          |               |          |
     +----------+            +----------+               +----------+
 
-Without ``soft-reconfiguration inbound`` bgpd keeps no Adj-RIB-In for the
-peer.  BMP pre-policy monitoring reads exclusively from Adj-RIB-In, so an
-announcement from r2nosr must NOT be turned into a fabricated pre-policy
-*withdrawal* towards the BMP collector (FRRouting/frr issue #10240).
-Post-policy monitoring, which reads the main RIB, must stay correct.
+BMP pre-policy monitoring reads from Adj-RIB-In, which bgpd maintains
+whenever pre-policy monitoring covers the peer -- no user-visible
+``soft-reconfiguration inbound`` is required (FRRouting/frr issue #10240).
+
+Checks, in order:
+
+* announcements from r2nosr produce pre-policy updates (and no fabricated
+  pre-policy withdrawals);
+* no "no Adj-RIB-In" warning is logged;
+* a fresh table sync carries the initial pre-policy dump before the
+  pre-policy End-of-RIB;
+* genuine withdrawals produce pre-policy withdrawals -- and only those;
+* a peer bounce re-announces the full pre-policy feed;
+* disabling pre-policy monitoring at runtime frees the Adj-RIB-In memory;
+* re-enabling it repopulates Adj-RIB-In via route refresh;
+* ``show bgp ... received-routes`` still requires the user-visible
+  soft-reconfiguration flag.
 """
 
 import os
+import re
 import sys
 import pytest
 from functools import partial
@@ -45,10 +58,12 @@ pytestmark = [pytest.mark.bgpd]
 
 # Prefix whose BMP treatment we assert on, plus a sentinel prefix announced
 # afterwards.  Once the sentinel's post-policy update is logged, any message
-# bgpd fabricated while processing WATCHED_PREFIX is already in the log, so
-# the "no fabricated pre-policy withdrawal" assertion has no timing race.
+# bgpd emitted while processing WATCHED_PREFIX is already in the log, so the
+# assertions on WATCHED_PREFIX have no timing race.
 WATCHED_PREFIX = "203.0.113.1/32"
 SENTINEL_PREFIX = "203.0.113.254/32"
+
+ADJ_RIB_IN_WARNING = "has no Adj-RIB-In for"
 
 bmp_seq_context = BMPSequenceContext()
 
@@ -109,9 +124,52 @@ def _route_messages(policy, bmp_log_type, prefix):
     ]
 
 
-def _r1nosr_bgpd_log_path():
+def _prepolicy_eor_seq():
+    """
+    Return the seq of the first pre-policy End-of-RIB logged beyond the
+    recorded baseline, or None.  An EoR is a route-monitoring message (an
+    empty BGP UPDATE) carrying neither an NLRI nor withdrawn routes, so the
+    collector logs it as an "update" without an "ip_prefix" field.
+    """
     tgen = get_topogen()
-    return os.path.join(tgen.logdir, "r1nosr", "bgpd.log")
+    baseline = bmp_seq_context.get_seq()
+    messages = get_bmp_messages(tgen.gears["bmp1nosr"], _bmp_log_file())
+    for m in messages:
+        if (
+            m.get("seq", 0) > baseline
+            and m.get("policy") == "pre-policy"
+            and m.get("bmp_log_type") == "update"
+            and "ip_prefix" not in m
+        ):
+            return m["seq"]
+    return None
+
+
+def _r1nosr_bgpd_log():
+    tgen = get_topogen()
+    path = os.path.join(tgen.logdir, "r1nosr", "bgpd.log")
+    return tgen.gears["r1nosr"].run("cat {}".format(path))
+
+
+def _adj_in_count():
+    """
+    r1nosr's Adj-RIB-In entry count, from bgpd's MTYPE_BGP_ADJ_IN allocation
+    counter in ``show memory``.  Returns None if the counter has never been
+    non-zero (bgpd omits such lines).
+    """
+    tgen = get_topogen()
+    out = tgen.gears["r1nosr"].vtysh_cmd("show memory")
+    m = re.search(r"BGP adj in\s*:\s*(\d+)", out)
+    if m is None:
+        return None
+    return int(m.group(1))
+
+
+def _r1nosr_bmp_targets_config(*lines):
+    tgen = get_topogen()
+    cmd = "configure terminal\nrouter bgp 65501\nbmp targets bmp1nosr\n"
+    cmd += "\n".join(lines) + "\n"
+    return tgen.gears["r1nosr"].vtysh_cmd(cmd)
 
 
 def test_bgp_convergence():
@@ -139,13 +197,16 @@ def test_bmp_server_logging():
     assert success, "The BMP server is not logging"
 
 
-def test_no_fabricated_prepolicy_withdrawal():
+def test_prepolicy_feed_announce():
     """
-    Announce a prefix from r2nosr (which r1nosr does not keep an Adj-RIB-In
-    for) and assert that:
+    Announce a prefix from r2nosr (whose session has no soft-reconfiguration
+    inbound) and assert that:
 
+    * a pre-policy update is emitted for it (BMP pre-policy monitoring keeps
+      Adj-RIB-In by itself);
     * a post-policy update is emitted for it (control: the RIB path is fine);
-    * no pre-policy *withdrawal* is fabricated for it (the bug).
+    * no pre-policy *withdrawal* is fabricated for it (the original
+      FRRouting/frr issue #10240 bug).
     """
     tgen = get_topogen()
 
@@ -194,14 +255,215 @@ def test_no_fabricated_prepolicy_withdrawal():
         )
     )
 
-    # The bug: with no Adj-RIB-In, bgpd fabricated a pre-policy withdrawal for
-    # a prefix that was only ever announced.  There must be none.
+    # The fix: pre-policy monitoring maintains Adj-RIB-In itself, so the
+    # announcement must show up in the pre-policy feed even without
+    # soft-reconfiguration inbound.
+    def _prepolicy_update_seen():
+        if _route_messages("pre-policy", "update", WATCHED_PREFIX):
+            return True
+        return "pre-policy update not logged yet"
+
+    success, res = topotest.run_and_expect(_prepolicy_update_seen, True, count=30, wait=1)
+    assert success, (
+        "expected a pre-policy update for {} (no soft-reconfiguration "
+        "inbound, adj-in driven by BMP pre-policy monitoring): {}".format(
+            WATCHED_PREFIX, res
+        )
+    )
+
+    # The original bug: with no Adj-RIB-In, bgpd fabricated a pre-policy
+    # withdrawal for a prefix that was only ever announced.  Must stay fixed.
     fabricated = _route_messages("pre-policy", "withdraw", WATCHED_PREFIX)
     assert not fabricated, (
         "bgpd fabricated {} pre-policy withdrawal(s) for {} that was only "
-        "announced (no soft-reconfiguration inbound -> no Adj-RIB-In): {}".format(
-            len(fabricated), WATCHED_PREFIX, fabricated
+        "announced: {}".format(len(fabricated), WATCHED_PREFIX, fabricated)
+    )
+
+
+def test_no_adj_rib_in_warning():
+    """
+    Pre-policy monitoring drives Adj-RIB-In maintenance itself, so bgpd must
+    NOT warn about a missing Adj-RIB-In -- neither at peer-up nor at
+    configuration time.
+    """
+    out = _r1nosr_bgpd_log()
+
+    # Positive control: make sure we are looking at a live bgpd log before
+    # asserting on the absence of the warning.
+    assert "ADJCHANGE" in out, (
+        "r1nosr's bgpd.log looks empty or unreadable; cannot assert on it"
+    )
+
+    assert ADJ_RIB_IN_WARNING not in out, (
+        "bgpd warned about a missing Adj-RIB-In although BMP pre-policy "
+        "monitoring maintains it"
+    )
+
+
+def test_prepolicy_initial_dump():
+    """
+    Force a fresh table sync on the live BMP session (any monitor flag
+    change re-triggers it; the test collector only accepts a single TCP
+    session, so the BMP session itself cannot be bounced) and verify that
+    the pre-policy routes are dumped from Adj-RIB-In before the pre-policy
+    End-of-RIB.
+    """
+    tgen = get_topogen()
+
+    bmp_update_seq(tgen.gears["bmp1nosr"], _bmp_log_file(), bmp_seq_context)
+
+    _r1nosr_bmp_targets_config("no bmp monitor ipv4 unicast post-policy")
+
+    def _eor_seen():
+        if _prepolicy_eor_seq() is not None:
+            return True
+        return "pre-policy EoR not logged yet"
+
+    success, res = topotest.run_and_expect(_eor_seen, True, count=60, wait=1)
+    assert success, "no pre-policy EoR after the forced table sync: {}".format(res)
+
+    eor_seq = _prepolicy_eor_seq()
+    for prefix in (WATCHED_PREFIX, SENTINEL_PREFIX):
+        updates = _route_messages("pre-policy", "update", prefix)
+        assert updates, (
+            "expected {} in the initial pre-policy dump of the new BMP "
+            "session but it was never logged".format(prefix)
         )
+        assert min(m["seq"] for m in updates) < eor_seq, (
+            "{} was logged only after the pre-policy EoR (seq {}); it must "
+            "be part of the initial table dump".format(prefix, eor_seq)
+        )
+
+    # Restore the configuration for the remaining tests.
+    _r1nosr_bmp_targets_config("bmp monitor ipv4 unicast post-policy")
+
+
+def test_prepolicy_genuine_withdraw():
+    """
+    Withdraw the watched prefix on r2nosr: the pre-policy feed must carry a
+    withdrawal for it -- and no withdrawal for the still-announced sentinel.
+    """
+    tgen = get_topogen()
+
+    bmp_update_seq(tgen.gears["bmp1nosr"], _bmp_log_file(), bmp_seq_context)
+
+    bgp_configure_prefixes(
+        tgen.gears["r2nosr"], 65502, "unicast", [WATCHED_PREFIX], update=False
+    )
+
+    def _withdraw_seen():
+        if _route_messages("pre-policy", "withdraw", WATCHED_PREFIX):
+            return True
+        return "pre-policy withdraw not logged yet"
+
+    success, res = topotest.run_and_expect(_withdraw_seen, True, count=30, wait=1)
+    assert success, (
+        "expected a pre-policy withdrawal for the genuinely withdrawn "
+        "{}: {}".format(WATCHED_PREFIX, res)
+    )
+
+    fabricated = _route_messages("pre-policy", "withdraw", SENTINEL_PREFIX)
+    assert not fabricated, (
+        "pre-policy withdrawal(s) logged for {} which was never "
+        "withdrawn: {}".format(SENTINEL_PREFIX, fabricated)
+    )
+
+
+def test_prepolicy_peer_bounce():
+    """
+    Hard-clear the BGP session on r1nosr.  After re-establishment the peer
+    re-announces its routes, and the pre-policy feed must carry them again.
+    """
+    tgen = get_topogen()
+
+    bmp_update_seq(tgen.gears["bmp1nosr"], _bmp_log_file(), bmp_seq_context)
+
+    tgen.gears["r1nosr"].vtysh_cmd("clear ip bgp 192.168.0.2")
+
+    def _reannounced():
+        if _route_messages("pre-policy", "update", SENTINEL_PREFIX):
+            return True
+        return "pre-policy update not re-logged yet"
+
+    success, res = topotest.run_and_expect(_reannounced, True, count=60, wait=1)
+    assert success, (
+        "expected a pre-policy update for {} after the peer bounce: "
+        "{}".format(SENTINEL_PREFIX, res)
+    )
+
+
+def test_prepolicy_disable_frees_adj_in():
+    """
+    Disabling pre-policy monitoring at runtime must free the Adj-RIB-In
+    entries bgpd only kept on its behalf (observable through the
+    MTYPE_BGP_ADJ_IN allocation count in ``show memory``).
+    """
+    count = _adj_in_count()
+    assert count is not None and count > 0, (
+        "expected a non-zero Adj-RIB-In entry count while BMP pre-policy "
+        "monitoring is enabled, got {}".format(count)
+    )
+
+    _r1nosr_bmp_targets_config("no bmp monitor ipv4 unicast pre-policy")
+
+    def _adj_in_freed():
+        count = _adj_in_count()
+        if count == 0:
+            return True
+        return "Adj-RIB-In count still {}".format(count)
+
+    success, res = topotest.run_and_expect(_adj_in_freed, True, count=30, wait=1)
+    assert success, (
+        "Adj-RIB-In was not freed after disabling pre-policy "
+        "monitoring: {}".format(res)
+    )
+
+
+def test_prepolicy_reenable_repopulates_adj_in():
+    """
+    Re-enabling pre-policy monitoring must repopulate Adj-RIB-In via route
+    refresh (the peer stays established) and resume the pre-policy feed,
+    without any warning on the configuration terminal.
+    """
+    tgen = get_topogen()
+
+    bmp_update_seq(tgen.gears["bmp1nosr"], _bmp_log_file(), bmp_seq_context)
+
+    out = _r1nosr_bmp_targets_config("bmp monitor ipv4 unicast pre-policy")
+    assert ADJ_RIB_IN_WARNING not in out, (
+        "enabling pre-policy monitoring warned about a missing Adj-RIB-In "
+        "although bgpd now maintains it: {}".format(out)
+    )
+
+    def _repopulated():
+        count = _adj_in_count()
+        if not count:
+            return "Adj-RIB-In count is {}".format(count)
+        if not _route_messages("pre-policy", "update", SENTINEL_PREFIX):
+            return "pre-policy update not logged yet"
+        return True
+
+    success, res = topotest.run_and_expect(_repopulated, True, count=60, wait=1)
+    assert success, (
+        "Adj-RIB-In was not repopulated or the pre-policy feed did not "
+        "resume after re-enabling pre-policy monitoring: {}".format(res)
+    )
+
+
+def test_received_routes_still_refused():
+    """
+    ``show bgp ... received-routes`` remains gated on the user-visible
+    soft-reconfiguration flag, even while BMP pre-policy monitoring keeps
+    an Adj-RIB-In for the peer.
+    """
+    tgen = get_topogen()
+
+    out = tgen.gears["r1nosr"].vtysh_cmd(
+        "show bgp ipv4 unicast neighbors 192.168.0.2 received-routes"
+    )
+    assert "Inbound soft reconfiguration not enabled" in out, (
+        "received-routes must still require soft-reconfiguration inbound, "
+        "got: {}".format(out)
     )
 
 
