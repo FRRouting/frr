@@ -109,6 +109,11 @@ def _route_messages(policy, bmp_log_type, prefix):
     ]
 
 
+def _r1nosr_bgpd_log_path():
+    tgen = get_topogen()
+    return os.path.join(tgen.logdir, "r1nosr", "bgpd.log")
+
+
 def test_bgp_convergence():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -116,6 +121,33 @@ def test_bgp_convergence():
 
     result = verify_bgp_convergence_from_running_config(tgen, dut="r1nosr")
     assert result is True, "BGP is not converging"
+
+
+def test_prepolicy_no_softreconfig_warning():
+    """
+    r1nosr has ``bmp monitor ipv4 unicast pre-policy`` configured, but its
+    neighbor 192.168.0.2 (r2nosr) has no ``soft-reconfiguration inbound``
+    and therefore no Adj-RIB-In.  bgpd must warn about this at peer-up
+    instead of silently omitting the peer's routes from the pre-policy
+    feed.
+    """
+    tgen = get_topogen()
+
+    def _warning_logged():
+        out = tgen.gears["r1nosr"].run("cat {}".format(_r1nosr_bgpd_log_path()))
+        needle = (
+            "peer 192.168.0.2 has no Adj-RIB-In for ipv4 unicast "
+            "(soft-reconfiguration inbound is not configured)"
+        )
+        if needle in out:
+            return True
+        return "warning not logged yet"
+
+    success, res = topotest.run_and_expect(_warning_logged, True, count=30, wait=1)
+    assert success, (
+        "expected r1nosr's bgpd.log to warn that 192.168.0.2 has no "
+        "Adj-RIB-In for pre-policy monitoring: {}".format(res)
+    )
 
 
 def test_bmp_server_logging():
