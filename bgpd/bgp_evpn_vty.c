@@ -4524,8 +4524,8 @@ DEFUN (bgp_evpn_advertise_type5,
 	}
 
 	/* advertise type-5 routes */
-	if (advertise_type5_routes_bestpath(bgp_vrf, afi) ||
-	    advertise_type5_routes_multipath(bgp_vrf, afi))
+	if (advertise_type5_routes_bestpath(bgp_vrf, afi, safi) ||
+	    advertise_type5_routes_multipath(bgp_vrf, afi, safi))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
 	return CMD_SUCCESS;
 }
