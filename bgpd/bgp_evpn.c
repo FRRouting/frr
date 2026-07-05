@@ -1950,8 +1950,15 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 		/* Type-5 routes advertise the L3-VNI */
 		bgp_evpn_path_info_extra_get(pi);
 		pi->extra->evpn->type5_originator = originator;
-		vni2label(bgp_vrf->l3vni, &bgp_labels.label[0]);
-		bgp_labels.num_labels = 1;
+		if (originator && is_pi_family_vpn(originator)) {
+			if (BGP_PATH_INFO_NUM_LABELS(originator)) {
+				bgp_labels.label[0] = originator->extra->labels->label[0];
+				bgp_labels.num_labels = 1;
+			}
+		} else {
+			vni2label(bgp_vrf->l3vni, &bgp_labels.label[0]);
+			bgp_labels.num_labels = 1;
+		}
 		if (!bgp_path_info_labels_same(pi, &bgp_labels.label[0],
 					       bgp_labels.num_labels)) {
 			bgp_labels_unintern(&pi->extra->labels);
@@ -2020,6 +2027,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	int route_changed = 0;
 	struct bgp_path_info *pi = NULL;
 	struct ipaddr vtep_ip;
+	struct prefix_rd *prd = &bgp_vrf->vrf_prd;
+	bgp_encap_types tnl_type = BGP_ENCAP_TYPE_VXLAN;
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
@@ -2049,7 +2058,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 
 	frrtrace(4, frr_bgp, evpn_advertise_type5, bgp_vrf->vrf_id, evp, &attr.rmac, &vtep_ip);
 
-	if (src_afi == AFI_IP6 &&
+	if (src_safi != SAFI_MPLS_VPN && src_afi == AFI_IP6 &&
 	    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 		       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)) {
 		if (src_attr &&
@@ -2065,7 +2074,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 			       sizeof(struct in6_addr));
 			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
-	} else if (src_afi == AFI_IP &&
+	} else if (src_safi != SAFI_MPLS_VPN && src_afi == AFI_IP &&
 		   CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 			      BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)) {
 		if (src_attr && src_attr->nexthop.s_addr != 0) {
@@ -2081,12 +2090,24 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 		}
 	}
 
+	if (src_safi == SAFI_MPLS_VPN) {
+		/* Set tnl_type to BGP_ENCAP_TYPE_RESERVED for VPN routes so
+		 * build_evpn_type5_route_extcomm() does not add a Tunnel
+		 * Encapsulation Extended Community.
+		 *
+		 * MPLS and SRv6 VPN routes do not need that extended community
+		 * because the VPN label or SRv6 L3 service attribute already
+		 * carries the forwarding information.
+		 */
+		tnl_type = BGP_ENCAP_TYPE_RESERVED;
+		prd = (struct prefix_rd *)bgp_dest_get_prefix(originator->net->pdest);
+	}
+
 	/* Setup RT and encap extended community */
-	build_evpn_type5_route_extcomm(bgp_vrf, &attr, BGP_ENCAP_TYPE_VXLAN);
+	build_evpn_type5_route_extcomm(bgp_vrf, &attr, tnl_type);
 
 	/* get the route node in global table */
-	dest = bgp_evpn_global_node_get(bgp_evpn->rib[afi][safi], afi, safi,
-					evp, &bgp_vrf->vrf_prd, NULL);
+	dest = bgp_evpn_global_node_get(bgp_evpn->rib[afi][safi], afi, safi, evp, prd, NULL);
 	assert(dest);
 
 	/* create or update the route entry within the route node */
@@ -2736,14 +2757,17 @@ static int delete_evpn_type5_route(struct bgp *bgp_vrf, const struct bgp_path_in
 	struct bgp_dest *dest = NULL;
 	struct bgp_path_info *pi = NULL;
 	struct bgp *bgp_evpn = NULL; /* evpn bgp instance */
+	struct prefix_rd *prd = &bgp_vrf->vrf_prd;
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
 		return 0;
 
+	if (originator && is_pi_family_vpn(originator))
+		prd = (struct prefix_rd *)bgp_dest_get_prefix(originator->net->pdest);
+
 	/* locate the global route entry for this type-5 prefix */
-	dest = bgp_evpn_global_node_lookup(bgp_evpn->rib[afi][safi], safi, evp,
-					   &bgp_vrf->vrf_prd, NULL);
+	dest = bgp_evpn_global_node_lookup(bgp_evpn->rib[afi][safi], safi, evp, prd, NULL);
 	if (!dest)
 		return 0;
 
@@ -4872,6 +4896,12 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6, SAFI_UNICAST) ||
 	    advertise_type5_routes_multipath(bgp_vrf, AFI_IP6, SAFI_UNICAST))
 		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
+
+	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP, SAFI_MPLS_VPN))
+		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP, SAFI_MPLS_VPN);
+
+	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6, SAFI_MPLS_VPN))
+		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP6, SAFI_MPLS_VPN);
 }
 
 /*
@@ -4885,6 +4915,12 @@ void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
 		return;
+
+	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP, SAFI_MPLS_VPN))
+		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP, SAFI_MPLS_VPN);
+
+	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6, SAFI_MPLS_VPN))
+		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP6, SAFI_MPLS_VPN);
 
 	if (!is_l3vni_live(bgp_vrf))
 		return; /* Nothing to do if no l3vni */
@@ -6190,6 +6226,35 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 	uint32_t addpath_id;
 
 	table = bgp_vrf->rib[afi][safi];
+	if (!table)
+		return;
+
+	if (safi == SAFI_MPLS_VPN) {
+		struct bgp_dest *pdest;
+
+		for (pdest = bgp_table_top(table); pdest; pdest = bgp_route_next(pdest)) {
+			struct bgp_table *rd_table;
+
+			/* This is the per-RD table of prefixes. */
+			rd_table = bgp_dest_get_bgp_table_info(pdest);
+			if (!rd_table)
+				continue;
+
+			for (dest = bgp_table_top(rd_table); dest; dest = bgp_route_next(dest)) {
+				for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+					if (!is_route_injectable_into_evpn(bgp_vrf, afi, safi, pi))
+						continue;
+
+					bgp_evpn_withdraw_type5_route(bgp_vrf, pi,
+								      bgp_dest_get_prefix(dest),
+								      afi, safi, 0);
+					break;
+				}
+			}
+		}
+		return;
+	}
+
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		/* Use _non_supp variant: withdraw must not skip suppressed
 		 * routes. A route may have been advertised while unsuppressed
@@ -6290,9 +6355,8 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *o
 			 bgp_vrf->vrf_id, p);
 }
 
-/* Inject all prefixes of a particular address-family (currently, IPv4 or
- * IPv6 unicast) into EVPN as type-5 routes. This is invoked when the
- * advertisement is enabled.
+/* Inject all IPv4/IPv6 prefixes into EVPN as type-5 routes.
+ * This is invoked when the advertisement is enabled.
  */
 void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 				     safi_t safi)
@@ -6302,6 +6366,38 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 	struct bgp_path_info *pi;
 
 	table = bgp_vrf->rib[afi][safi];
+	if (!table || !table->route_table)
+		return;
+
+	if (safi == SAFI_MPLS_VPN) {
+		struct bgp_dest *pdest;
+
+		for (pdest = bgp_table_top(table); pdest; pdest = bgp_route_next(pdest)) {
+			struct bgp_table *rd_table;
+
+			/* This is the per-RD table of prefixes. */
+			rd_table = bgp_dest_get_bgp_table_info(pdest);
+			if (!rd_table)
+				continue;
+
+			for (dest = bgp_table_top(rd_table); dest; dest = bgp_route_next(dest)) {
+				for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+					if (!is_route_injectable_into_evpn(bgp_vrf, afi, safi, pi))
+						continue;
+
+					if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) ||
+					    (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+					     !CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH)))
+						continue;
+
+					bgp_evpn_export_type5_route(bgp_vrf, dest, pi, afi, safi);
+					break;
+				}
+			}
+		}
+		return;
+	}
+
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		/* Need to identify the "selected" route entry to use its
 		 * attribute. Also, ensure that the route is injectable
@@ -7510,7 +7606,7 @@ int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 }
 
 /*
- * Export IPv[46] unicast route from VRF to global table
+ * Export IPv[46] unicast or VPN route as EVPN type-5 route.
  */
 void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct bgp_path_info *pi,
 				 afi_t afi, safi_t safi)
@@ -7530,7 +7626,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 	 */
 	bgp_addpath_update_ids(bgp, dest, afi, safi);
 
-	addpath_id = bgp_evpn_addpath_id_for_path(bgp, pi, afi);
+	addpath_id = safi == SAFI_MPLS_VPN ? 0 : bgp_evpn_addpath_id_for_path(bgp, pi, afi);
 	if (!bgp->adv_cmd_rmap[afi][safi].map) {
 		bgp_evpn_advertise_type5_route(bgp, pi, prefix, pi->attr, afi, safi, addpath_id);
 		return;
@@ -7552,7 +7648,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 }
 
 /*
- * Unexport IPv[46] unicast route from VRF to global table
+ * Unexport IPv[46] unicast or VPN route from EVPN.
  */
 void bgp_evpn_unexport_type5_route(struct bgp *bgp, const struct bgp_dest *dest,
 				   const struct bgp_path_info *pi, afi_t afi, safi_t safi)
@@ -7560,7 +7656,7 @@ void bgp_evpn_unexport_type5_route(struct bgp *bgp, const struct bgp_dest *dest,
 	const struct prefix *prefix = bgp_dest_get_prefix(dest);
 	uint32_t addpath_id;
 
-	addpath_id = bgp_evpn_addpath_id_for_path(bgp, pi, afi);
+	addpath_id = safi == SAFI_MPLS_VPN ? 0 : bgp_evpn_addpath_id_for_path(bgp, pi, afi);
 	bgp_evpn_withdraw_type5_route(bgp, pi, prefix, afi, safi, addpath_id);
 }
 
