@@ -1859,11 +1859,10 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 
 	/*
 	 * Note: even if Zebra is capable of programming all the SRv6
-	 * Headend Behaviors defined in RFC 8986, FRR daemons support
+	 * Headend Behaviors defined in RFC 8986, FRR daemons may support
 	 * only a subset of them.
-	 * Currently, STATIC currently supports H.Encaps and H.Encaps.Red.
-	 * BGP supports only H.Encaps.
-	 * Daemons need to be extended to support other behaviors.
+	 * Daemons need to be extended individually to support additional
+	 * behaviors.
 	 */
 	switch (segs->encap_behavior) {
 	case SRV6_HEADEND_BEHAVIOR_H_INSERT:
