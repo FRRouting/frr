@@ -1063,13 +1063,12 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Build extended communities for EVPN prefix route.
  */
-static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
-					   struct attr *attr)
+static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *attr,
+					   bgp_encap_types tnl_type)
 {
 	struct ecommunity ecom_encap;
 	struct ecommunity_val eval;
 	struct ecommunity_val eval_rmac;
-	bgp_encap_types tnl_type;
 	struct listnode *node, *nnode;
 	struct vrf_route_target *l3rt;
 	struct ecommunity *old_ecom;
@@ -1077,26 +1076,34 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 	struct list *vrf_export_rtl = NULL;
 
 	/* Encap */
-	tnl_type = BGP_ENCAP_TYPE_VXLAN;
-	memset(&ecom_encap, 0, sizeof(ecom_encap));
-	encode_encap_extcomm(tnl_type, &eval);
-	ecom_encap.size = 1;
-	ecom_encap.unit_size = ECOMMUNITY_SIZE;
-	ecom_encap.val = (uint8_t *)eval.val;
+	if (tnl_type == BGP_ENCAP_TYPE_VXLAN) {
+		memset(&ecom_encap, 0, sizeof(ecom_encap));
+		encode_encap_extcomm(tnl_type, &eval);
+		ecom_encap.size = 1;
+		ecom_encap.unit_size = ECOMMUNITY_SIZE;
+		ecom_encap.val = (uint8_t *)eval.val;
 
-	/* Add Encap */
-	if (bgp_attr_get_ecommunity(attr)) {
-		old_ecom = bgp_attr_get_ecommunity(attr);
-		ecom = ecommunity_merge(ecommunity_dup(old_ecom), &ecom_encap);
-		if (!old_ecom->refcnt)
-			ecommunity_free(&old_ecom);
-	} else
-		ecom = ecommunity_dup(&ecom_encap);
-	bgp_attr_set_ecommunity(attr, ecom);
-	attr->encap_tunneltype = tnl_type;
+		/* Add Encap */
+		if (bgp_attr_get_ecommunity(attr)) {
+			old_ecom = bgp_attr_get_ecommunity(attr);
+			ecom = ecommunity_merge(ecommunity_dup(old_ecom), &ecom_encap);
+			if (!old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		} else
+			ecom = ecommunity_dup(&ecom_encap);
+		bgp_attr_set_ecommunity(attr, ecom);
+		attr->encap_tunneltype = tnl_type;
+	}
 
 	/* Add the export RTs for L3VNI/VRF */
 	vrf_export_rtl = bgp_vrf->vrf_export_rtl;
+	if ((vrf_export_rtl && !list_isempty(vrf_export_rtl)) || !is_zero_mac(&attr->rmac)) {
+		old_ecom = bgp_attr_get_ecommunity(attr);
+		if (!old_ecom)
+			bgp_attr_set_ecommunity(attr, ecommunity_new());
+		else if (old_ecom->refcnt)
+			bgp_attr_set_ecommunity(attr, ecommunity_dup(old_ecom));
+	}
 	for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, l3rt))
 		bgp_attr_set_ecommunity(
 			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
@@ -1860,7 +1867,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	}
 
 	/* Setup RT and encap extended community */
-	build_evpn_type5_route_extcomm(bgp_vrf, &attr);
+	build_evpn_type5_route_extcomm(bgp_vrf, &attr, BGP_ENCAP_TYPE_VXLAN);
 
 	/* get the route node in global table */
 	dest = bgp_evpn_global_node_get(bgp_evpn->rib[afi][safi], afi, safi,
