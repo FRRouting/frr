@@ -725,6 +725,9 @@ struct bgp {
 #define BGP_CONFIG_SRV6_UNICAST_SID_AUTO (1 << 13)
 #define BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN (1 << 14)
 #define BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN (1 << 15)
+/* EVPN VPN route advertisement flags */
+#define BGP_L2VPN_EVPN_ADV_IPV4_VPN (1 << 16)
+#define BGP_L2VPN_EVPN_ADV_IPV6_VPN (1 << 17)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
