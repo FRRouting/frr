@@ -1327,10 +1327,10 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Build extended communities for EVPN prefix route.
  */
-static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *attr)
+static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *attr,
+					   bgp_encap_types tnl_type)
 {
 	struct ecommunity_val eval_tmp;
-	bgp_encap_types tnl_type;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
 	struct ecommunity *old_ecom;
 	struct ecommunity *ecom;
@@ -1347,10 +1347,11 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *att
 		ecom = ecommunity_new();
 
 	/* Encap */
-	tnl_type = BGP_ENCAP_TYPE_VXLAN;
-	encode_encap_extcomm(tnl_type, &eval_tmp);
-	ecommunity_append_val_unchecked(ecom, &eval_tmp);
-	attr->encap_tunneltype = tnl_type;
+	if (tnl_type == BGP_ENCAP_TYPE_VXLAN) {
+		encode_encap_extcomm(tnl_type, &eval_tmp);
+		ecommunity_append_val_unchecked(ecom, &eval_tmp);
+		attr->encap_tunneltype = tnl_type;
+	}
 
 	/* Add the export RTs for L3VNI/VRF (the effective export list is
 	 * sorted and duplicate free)
@@ -2081,7 +2082,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	}
 
 	/* Setup RT and encap extended community */
-	build_evpn_type5_route_extcomm(bgp_vrf, &attr);
+	build_evpn_type5_route_extcomm(bgp_vrf, &attr, BGP_ENCAP_TYPE_VXLAN);
 
 	/* get the route node in global table */
 	dest = bgp_evpn_global_node_get(bgp_evpn->rib[afi][safi], afi, safi,
