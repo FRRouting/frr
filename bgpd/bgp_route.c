@@ -3898,7 +3898,7 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 {
 	const struct prefix *p = bgp_dest_get_prefix(dest);
 
-	if ((afi != AFI_IP && afi != AFI_IP6) || (safi != SAFI_UNICAST))
+	if ((afi != AFI_IP && afi != AFI_IP6) || (safi != SAFI_UNICAST && safi != SAFI_MPLS_VPN))
 		return;
 
 

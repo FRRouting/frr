@@ -813,6 +813,9 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 /* vpnvx retain flag */
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
+/* EVPN VPN route advertisement flags */
+#define BGP_L2VPN_EVPN_ADV_IPV4_VPN (1 << 12)
+#define BGP_L2VPN_EVPN_ADV_IPV6_VPN (1 << 13)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
