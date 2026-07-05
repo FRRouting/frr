@@ -4173,6 +4173,18 @@ of the corresponding type-5 paths.
 Note that EVPN will still perform its own bestpath selection for each EVPN
 prefix, and addpath must be properly configured in EVPN to enable multipathing.
 
+VPN routes can also be advertised as EVPN type-5 routes:
+
+.. clicmd:: advertise <ipv4|ipv6> vpn [route-map RMAP_NAME]
+
+When this CLI is configured under the L2VPN EVPN address family, selected
+IPv4/IPv6 VPN routes are exported to EVPN as type-5 routes. EVPN export route
+targets are attached according to the IP-VRF route-target configuration.
+If the VPN route carries an SRv6 L3 service attribute, the SRv6 SID is
+propagated to the EVPN type-5 route. The ``gateway-ip`` overlay index is only
+supported with ``advertise <ipv4|ipv6> unicast`` and cannot be used with the
+``vpn`` form.
+
 2. Add gateway IP to EVPN type-5 route using a route-map:
 
 .. clicmd:: set evpn gateway-ip <ipv4|ipv6> <addr>
