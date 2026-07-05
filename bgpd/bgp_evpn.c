@@ -77,6 +77,8 @@ static void bgp_evpn_remote_ip_hash_link_nexthop(struct hash_bucket *bucket,
 						 void *args);
 static void bgp_evpn_remote_ip_hash_unlink_nexthop(struct hash_bucket *bucket,
 						   void *args);
+static bool bgp_evpn_type5_route_is_vpn(const struct prefix_evpn *evp,
+					const struct bgp_path_info *pi);
 static struct ipaddr zero_vtep_ip = {
 	.ipa_type = IPADDR_V4,
 	.ip = {
@@ -3233,6 +3235,20 @@ static bool bgp_evpn_filter_ecommunity(uint8_t *val, uint8_t size, void *arg)
 	return true;
 }
 
+static bool bgp_evpn_filter_vpn_ecommunity(uint8_t *val, uint8_t size, void *arg)
+{
+	switch (val[0]) {
+	case ECOMMUNITY_ENCODE_OPAQUE:
+	case ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS:
+		if (val[1] == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP)
+			return false;
+		break;
+	case ECOMMUNITY_ENCODE_EVPN:
+		return false;
+	}
+	return true;
+}
+
 /*
  * Install route entry into the VRF routing table and invoke route selection.
  */
@@ -4526,6 +4542,165 @@ static int install_uninstall_route_in_vnis(struct bgp *bgp, afi_t afi,
 	return 0;
 }
 
+static bool bgp_evpn_type5_route_has_tunnel_encap(const struct bgp_path_info *pi)
+{
+	struct ecommunity *ecom;
+	uint32_t i;
+
+	ecom = bgp_attr_get_ecommunity(pi->attr);
+	if (!ecom)
+		return false;
+
+	for (i = 0; i < ecom->size; i++) {
+		bgp_encap_types tnl_type;
+
+		if (ecommunity_tunnel_type(ecom, i, &tnl_type))
+			return true;
+	}
+
+	return false;
+}
+
+static bool bgp_evpn_type5_route_is_vpn(const struct prefix_evpn *evp,
+					const struct bgp_path_info *pi)
+{
+	if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE)
+		return false;
+
+	if (!(is_evpn_prefix_ipaddr_v4(evp) || is_evpn_prefix_ipaddr_v6(evp)))
+		return false;
+
+	if (bgp_evpn_type5_route_has_tunnel_encap(pi))
+		return false;
+
+	return bgp_attr_get_srv6_l3service(pi->attr) || BGP_PATH_INFO_NUM_LABELS(pi);
+}
+
+static bool install_uninstall_type5_route_in_vpn_rib(struct bgp *bgp, struct prefix_evpn *evp,
+						     struct bgp_path_info *pi, int install)
+{
+	struct attr attr;
+	struct attr *attr_new;
+	struct bgp *bgp_vpn = bgp_get_default();
+	struct bgp_dest *dest;
+	struct bgp_path_info *vpn_pi;
+	struct ecommunity *ecom;
+	struct prefix_rd *prd;
+	struct prefix p = {};
+	const mpls_label_t *labels;
+	uint8_t num_labels;
+	afi_t afi;
+
+	if (!bgp_evpn_type5_route_is_vpn(evp, pi))
+		return false;
+
+	if (bgp_evpn_is_path_local(bgp, pi))
+		return true;
+
+	if (!pi->net || !pi->net->pdest)
+		return false;
+
+	ip_prefix_from_evpn_prefix(evp, &p);
+	if (is_evpn_prefix_ipaddr_v4(evp))
+		afi = AFI_IP;
+	else
+		afi = AFI_IP6;
+
+	if (!bgp_vpn->rib[afi][SAFI_MPLS_VPN])
+		return false;
+
+	if (install &&
+	    !CHECK_FLAG(bgp_vpn->af_flags[afi][SAFI_MPLS_VPN], BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL) &&
+	    vpn_leak_to_vrf_no_retain_filter_check(bgp_vpn, pi->attr, afi))
+		return true;
+
+	prd = (struct prefix_rd *)bgp_dest_get_prefix(pi->net->pdest);
+	if (install) {
+		dest = bgp_afi_node_get(bgp_vpn->rib[afi][SAFI_MPLS_VPN], afi, SAFI_MPLS_VPN, &p,
+					prd);
+		if (!dest)
+			return false;
+	} else {
+		dest = bgp_safi_node_lookup(bgp_vpn->rib[afi][SAFI_MPLS_VPN], SAFI_MPLS_VPN, &p,
+					    prd);
+		if (!dest)
+			return true;
+	}
+
+	for (vpn_pi = bgp_dest_get_bgp_path_info(dest); vpn_pi; vpn_pi = vpn_pi->next)
+		if (vpn_pi->extra && vpn_pi->extra->evpn &&
+		    vpn_pi->extra->evpn->type5_originator == pi)
+			break;
+
+	if (!install) {
+		if (vpn_pi) {
+			vpn_leak_to_vrf_withdraw(vpn_pi);
+			bgp_rib_remove(dest, vpn_pi, vpn_pi->peer, afi, SAFI_MPLS_VPN);
+		}
+		bgp_dest_unlock_node(dest);
+		return true;
+	}
+
+	num_labels = BGP_PATH_INFO_NUM_LABELS(pi);
+	labels = num_labels ? pi->extra->labels->label : NULL;
+
+	bgp_attr_dup_into(&attr, pi->attr);
+	ecom = ecommunity_filter(bgp_attr_get_ecommunity(&attr), bgp_evpn_filter_vpn_ecommunity,
+				 NULL);
+	bgp_attr_set_ecommunity(&attr, ecom);
+	attr.encap_tunneltype = BGP_ENCAP_TYPE_RESERVED;
+	memset(&attr.rmac, 0, sizeof(attr.rmac));
+
+	if (!vpn_pi) {
+		attr_new = bgp_attr_intern(&attr);
+		vpn_pi = info_make(pi->type, BGP_ROUTE_IMPORTED, 0, pi->peer, attr_new, dest);
+		SET_FLAG(vpn_pi->flags, BGP_PATH_VALID);
+		bgp_evpn_path_info_extra_get(vpn_pi);
+		vpn_pi->extra->evpn->type5_originator = pi;
+
+		if (num_labels)
+			vpn_pi->extra->labels = bgp_labels_intern(pi->extra->labels);
+
+		bgp_path_info_add(dest, vpn_pi);
+	} else {
+		if (!CHECK_FLAG(vpn_pi->flags, BGP_PATH_REMOVED) &&
+		    attrhash_cmp(vpn_pi->attr, &attr) &&
+		    bgp_path_info_labels_same(vpn_pi, labels, num_labels)) {
+			bgp_dest_unlock_node(dest);
+			bgp_attr_flush(&attr);
+			return true;
+		}
+
+		attr_new = bgp_attr_intern(&attr);
+
+		if (CHECK_FLAG(vpn_pi->flags, BGP_PATH_REMOVED))
+			bgp_path_info_restore(dest, vpn_pi);
+		else
+			bgp_aggregate_decrement(bgp_vpn, bgp_dest_get_prefix(dest), vpn_pi, afi,
+						SAFI_MPLS_VPN);
+
+		bgp_path_info_set_flag(dest, vpn_pi, BGP_PATH_ATTR_CHANGED);
+		bgp_attr_unintern(&vpn_pi->attr);
+		vpn_pi->attr = attr_new;
+		vpn_pi->uptime = monotime(NULL);
+
+		if (!bgp_path_info_labels_same(vpn_pi, labels, num_labels)) {
+			bgp_path_info_extra_get(vpn_pi);
+			bgp_labels_unintern(&vpn_pi->extra->labels);
+			if (num_labels)
+				vpn_pi->extra->labels = bgp_labels_intern(pi->extra->labels);
+		}
+	}
+
+	bgp_aggregate_increment(bgp_vpn, bgp_dest_get_prefix(dest), vpn_pi, afi, SAFI_MPLS_VPN);
+	bgp_process(bgp_vpn, dest, vpn_pi, afi, SAFI_MPLS_VPN);
+	bgp_dest_unlock_node(dest);
+	vpn_leak_to_vrf_update(bgp_vpn, vpn_pi, prd, vpn_pi->peer);
+	bgp_attr_flush(&attr);
+
+	return true;
+}
+
 /*
  * Install or uninstall route for appropriate VNIs/ESIs.
  */
@@ -4570,6 +4745,9 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 	 */
 	if (import && bgp_evpn_route_matches_macvrf_soo(pi, evp))
 		return 0;
+
+	if (bgp_evpn_type5_route_is_vpn(evp, pi))
+		return install_uninstall_type5_route_in_vpn_rib(bgp, evp, pi, import) ? 0 : -1;
 
 	/* An EVPN route belongs to a VNI or a VRF or an ESI based on the RTs
 	 * attached to the route */
