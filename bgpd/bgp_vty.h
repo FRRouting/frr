@@ -199,4 +199,21 @@ extern bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
 				    uint64_t flag);
 extern void bgp_init_ipv6_nexthop_prefer_global(struct bgp *bgp);
 
+/* EVPN-context SRv6 show helpers (used by `show bgp segment-routing srv6
+ * evpn` in bgp_vty.c and by `show bgp l2vpn evpn srv6` in bgp_evpn_vty.c).
+ */
+struct srv6_locator;
+extern bool bgp_has_srv6_evpn_state(const struct bgp *bgp);
+extern void show_srv6_evpn_sid_row(struct vty *vty, const char *label, const struct in6_addr *sid,
+				   const char *mode, const struct srv6_locator *locator,
+				   const char *behavior, const char *oif_ifname);
+extern void show_srv6_evpn_render_class(struct vty *vty, const char *label,
+					const struct in6_addr *sid, uint32_t idx,
+					const struct in6_addr *explicit_sid,
+					const struct srv6_locator *locator, bool is_auto,
+					bool is_explicit, const char *behavior,
+					const char *oif_ifname);
+extern void bgp_show_srv6_evpn_instance(struct vty *vty, struct bgp *bgp);
+extern void bgp_show_srv6_evpn(struct vty *vty);
+
 #endif /* _QUAGGA_BGP_VTY_H */

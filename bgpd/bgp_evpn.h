@@ -128,6 +128,10 @@ extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					    safi_t safi);
 extern void bgp_evpn_vrf_delete(struct bgp *bgp_vrf);
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
+/* Per-EVI End.DT2U/End.DT2M SID table for `show bgp segment-routing srv6
+ * evpn` (defined in bgp_evpn_vty.c; needs private bgpevpn internals).
+ */
+extern void bgp_evpn_show_srv6_evi_sids(struct vty *vty, struct bgp *bgp);
 extern char *bgp_evpn_label2str(mpls_label_t *label, uint8_t num_labels,
 				char *buf, int len);
 extern void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json);
@@ -200,6 +204,19 @@ extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
 extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
+
+/* Re-advertise every locally-originated Type-2 (MAC/IP) route on every L2VNI.
+ * Called by the EVPN encap-mode CLI handler so that a late `encapsulation
+ * srv6` / `encapsulation vxlan` flip immediately rebuilds the outbound
+ * attribute set on existing Type-2 routes (in particular: attach / strip the
+ * RFC 9252 SRv6 L2 service SID).  flood_control_change() only re-walks
+ * Type-3 (IMET) routes - this helper covers the Type-2 gap.
+ */
+extern void bgp_evpn_re_advertise_all_type2_routes(struct bgp *bgp);
+extern void bgp_evpn_re_advertise_all_type3_routes(struct bgp *bgp);
+extern void bgp_evpn_program_srv6_ipv6_route(struct bgp *bgp, const struct in6_addr *sid,
+					     const struct attr *attr, struct peer *peer, bool add);
+
 extern bool is_route_injectable_into_evpn(struct bgp_path_info *pi);
 extern bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi);
 extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
@@ -219,6 +236,10 @@ int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_e
 				      struct bgp_path_info *parent_pi);
 extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn);
 extern int install_uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn, bool install);
+/* Returns @usid_codepoint, warning once that the self-assigned uSID L2 EVPN
+ * behavior codepoints (0x0041-0x0043) are experimental pending IANA.
+ */
+extern uint16_t bgp_evpn_srv6_l2_usid_behavior(uint16_t usid_codepoint);
 extern void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr,
 					  struct prefix_evpn *evp, struct ipaddr *vtep_ip);
 #endif /* _QUAGGA_BGP_EVPN_H */
