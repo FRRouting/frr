@@ -1838,6 +1838,48 @@ stream_failure:
 	return -1;
 }
 
+int zapi_vpws_local_encode(uint8_t cmd, struct stream *s, const struct zapi_vpws_local *api)
+{
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_put(s, api->instance_name, sizeof(api->instance_name));
+	stream_put(s, api->ac_ifname, sizeof(api->ac_ifname));
+	stream_put(s, &api->local_sid, sizeof(api->local_sid));
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return 0;
+}
+
+int zapi_vpws_local_decode(struct stream *s, struct zapi_vpws_local *api)
+{
+	memset(api, 0, sizeof(*api));
+	STREAM_GET(api->instance_name, s, sizeof(api->instance_name));
+	STREAM_GET(api->ac_ifname, s, sizeof(api->ac_ifname));
+	STREAM_GET(&api->local_sid, s, sizeof(api->local_sid));
+	return 0;
+stream_failure:
+	return -1;
+}
+
+int zapi_vpws_remote_encode(uint8_t cmd, struct stream *s, const struct zapi_vpws_remote *api)
+{
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_put(s, api->instance_name, sizeof(api->instance_name));
+	stream_put(s, &api->peer_sid, sizeof(api->peer_sid));
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return 0;
+}
+
+int zapi_vpws_remote_decode(struct stream *s, struct zapi_vpws_remote *api)
+{
+	memset(api, 0, sizeof(*api));
+	STREAM_GET(api->instance_name, s, sizeof(api->instance_name));
+	STREAM_GET(&api->peer_sid, s, sizeof(api->peer_sid));
+	return 0;
+stream_failure:
+	return -1;
+}
+
 static void zapi_encode_prefix(struct stream *s, struct prefix *p,
 			       uint8_t family)
 {

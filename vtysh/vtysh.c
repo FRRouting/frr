@@ -1366,6 +1366,20 @@ static struct cmd_node srv6_sid_format_uncompressed_f4024_node = {
 	.prompt = "%s(config-srv6-format)# "
 };
 
+static struct cmd_node srv6_l2evpn_node = {
+	.name = "srv6-l2-evpn",
+	.node = SRV6_L2EVPN_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-l2-evpn)# ",
+};
+
+static struct cmd_node srv6_l2evpn_evi_node = {
+	.name = "srv6-l2-evpn-evi",
+	.node = SRV6_L2EVPN_EVI_NODE,
+	.parent_node = SRV6_L2EVPN_NODE,
+	.prompt = "%s(config-srv6-l2-evpn-evi)# ",
+};
+
 static struct cmd_node pbr_map_node = {
 	.name = "pbr-map",
 	.node = PBRMAP_NODE,
@@ -1481,6 +1495,14 @@ static struct cmd_node bgp_evpn_vni_node = {
 	.node = BGP_EVPN_VNI_NODE,
 	.parent_node = BGP_EVPN_NODE,
 	.prompt = "%s(config-router-af-vni)# ",
+};
+
+static struct cmd_node bgp_evpn_vpws_node = {
+	.name = "bgp evpn vpws",
+	.node = BGP_EVPN_VPWS_NODE,
+	.parent_node = BGP_EVPN_NODE,
+	.prompt = "%s(config-router-af-vpws)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6l_node = {
@@ -1803,6 +1825,26 @@ DEFUNSH(VTYSH_ZEBRA, srv6_sid_format_f4024_uncompressed, srv6_sid_format_f4024_u
 	return CMD_SUCCESS;
 }
 
+DEFUNSH(VTYSH_ZEBRA, srv6_l2evpn, srv6_l2evpn_cmd, "l2-evpn",
+	"Segment Routing SRv6 L2 EVPN (VLAN-to-EVI mapping)\n")
+{
+	vty->node = SRV6_L2EVPN_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, srv6_l2evpn_evi, srv6_l2evpn_evi_cmd,
+	"evi (1-16777215) [locator WORD] [bridge IFNAME]",
+	"EVPN Virtual Instance\n"
+	"EVI / VNI value\n"
+	"SRv6 locator for this EVI's SIDs\n"
+	"Locator name\n"
+	"VLAN-aware bridge carrying the member VLANs\n"
+	"Bridge interface name\n")
+{
+	vty->node = SRV6_L2EVPN_EVI_NODE;
+	return CMD_SUCCESS;
+}
+
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 	"router bgp [ASNUM [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]",
@@ -2041,6 +2083,23 @@ DEFUNSH(VTYSH_BGPD, address_family_link_state, address_family_link_state_cmd,
 	"Link-State Subsequent Address Family\n")
 {
 	vty->node = BGP_LS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, bgp_evpn_evi, bgp_evpn_evi_cmd, "evi " CMD_VNI_RANGE,
+	"EVPN Virtual Instance (SRv6 L2 EVPN; alias of vni)\n"
+	"EVI / VNI number\n")
+{
+	vty->node = BGP_EVPN_VNI_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, bgp_evpn_vpws_instance, bgp_evpn_vpws_instance_cmd,
+	"vpws-instance WORD",
+	"EVPN-VPWS service\n"
+	"Service instance name\n")
+{
+	vty->node = BGP_EVPN_VPWS_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2662,6 +2721,23 @@ DEFUNSH(VTYSH_BGPD, exit_vni, exit_vni_cmd, "exit-vni", "Exit from VNI mode\n")
 	return CMD_SUCCESS;
 }
 
+DEFUNSH(VTYSH_BGPD, exit_evi, exit_evi_cmd, "exit-evi",
+	"Exit from EVI mode (SRv6 L2 EVPN)\n")
+{
+	if (vty->node == BGP_EVPN_VNI_NODE)
+		vty->node = BGP_EVPN_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, exit_vpws_instance, exit_vpws_instance_cmd,
+	"exit-vpws-instance",
+	"Exit from VPWS instance configuration mode\n")
+{
+	if (vty->node == BGP_EVPN_VPWS_NODE)
+		vty->node = BGP_EVPN_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_BGPD, rpki_exit, rpki_exit_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
@@ -2734,6 +2810,22 @@ DEFUNSH(VTYSH_ZEBRA, exit_srv6_encap, exit_srv6_encap_cmd, "exit",
 {
 	if (vty->node == SRV6_ENCAP_NODE)
 		vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, exit_srv6_l2evpn, exit_srv6_l2evpn_cmd, "exit",
+	"Exit from SRv6 L2 EVPN configuration mode\n")
+{
+	if (vty->node == SRV6_L2EVPN_NODE)
+		vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, exit_srv6_l2evpn_evi, exit_srv6_l2evpn_evi_cmd, "exit",
+	"Exit from SRv6 L2 EVPN EVI configuration mode\n")
+{
+	if (vty->node == SRV6_L2EVPN_EVI_NODE)
+		vty->node = SRV6_L2EVPN_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -5347,6 +5439,7 @@ void vtysh_init_vty(void)
 	install_node(&bgp_vnc_l2_group_node);
 	install_node(&bgp_evpn_node);
 	install_node(&bgp_evpn_vni_node);
+	install_node(&bgp_evpn_vpws_node);
 	install_node(&rpki_node);
 	install_node(&bmp_node);
 	install_node(&bgp_srv6_node);
@@ -5403,6 +5496,8 @@ void vtysh_init_vty(void)
 	install_node(&srv6_sid_format_usid_f3216_node);
 	install_node(&srv6_sid_format_usid_f4816_node);
 	install_node(&srv6_sid_format_uncompressed_f4024_node);
+	install_node(&srv6_l2evpn_node);
+	install_node(&srv6_l2evpn_evi_node);
 	install_node(&bgp_ipv4_unreachability_node);
 	install_node(&bgp_ipv6_unreachability_node);
 
@@ -5526,10 +5621,14 @@ void vtysh_init_vty(void)
 	install_element(BGP_EVPN_NODE, &exit_address_family_cmd);
 
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_evi_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_vpws_instance_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &exit_vni_cmd);
+	install_element(BGP_EVPN_VNI_NODE, &exit_evi_cmd);
+	install_element(BGP_EVPN_VPWS_NODE, &exit_vpws_instance_cmd);
 
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(RPKI_NODE, &rpki_exit_cmd);
@@ -5865,6 +5964,14 @@ void vtysh_init_vty(void)
 	install_element(SRV6_NODE, &srv6_encap_cmd);
 	install_element(SRV6_NODE, &srv6_sids_cmd);
 	install_element(SRV6_NODE, &no_srv6_sids_cmd);
+	install_element(SRV6_NODE, &srv6_l2evpn_cmd);
+
+	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_evi_cmd);
+	install_element(SRV6_L2EVPN_NODE, &exit_srv6_l2evpn_cmd);
+	install_element(SRV6_L2EVPN_NODE, &vtysh_end_all_cmd);
+
+	install_element(SRV6_L2EVPN_EVI_NODE, &exit_srv6_l2evpn_evi_cmd);
+	install_element(SRV6_L2EVPN_EVI_NODE, &vtysh_end_all_cmd);
 
 	install_element(SRV6_SIDS_NODE, &exit_srv6_sids_config_cmd);
 	install_element(SRV6_SIDS_NODE, &vtysh_end_all_cmd);

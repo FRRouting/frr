@@ -162,6 +162,8 @@ enum node_type {
 	SRV6_SID_FORMAT_USID_F3216_NODE,		 /* SRv6 uSID f3216 format config node */
 	SRV6_SID_FORMAT_USID_F4816_NODE,		 /* SRv6 uSID f4816 format config node */
 	SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,		 /* SRv6 uncompressed f4024 format config node */
+	SRV6_L2EVPN_NODE,	 /* SRv6 L2 EVPN (VLAN-to-EVI) config node */
+	SRV6_L2EVPN_EVI_NODE,	 /* SRv6 L2 EVPN per-EVI config node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
@@ -184,6 +186,7 @@ enum node_type {
 	RPKI_VRF_NODE,  /* RPKI node for VRF */
 	PIM_NODE,		 /* PIM protocol mode */
 	PIM6_NODE,		 /* PIM protocol for IPv6 mode */
+	BGP_EVPN_VPWS_NODE, /* BGP EVPN VPWS service instance node */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */
