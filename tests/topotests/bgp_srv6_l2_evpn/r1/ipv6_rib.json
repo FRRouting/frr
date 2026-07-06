@@ -1,0 +1,36 @@
+{
+	"fcbb:bbbb:1:2::/128": [
+		{
+			"prefix": "fcbb:bbbb:1:2::/128",
+			"protocol": "bgp",
+			"selected": true,
+			"installed": true,
+			"nexthops": [
+				{
+					"fib": true,
+					"interfaceName": "bum-sr6-1",
+					"active": true,
+					"seg6local": {
+						"action": "End.DT2U"
+					}
+				}
+			]
+		}
+	],
+	"fcbb:bbbb:2::/48": [
+		{
+			"prefix": "fcbb:bbbb:2::/48",
+			"protocol": "static",
+			"selected": true,
+			"installed": true,
+			"nexthops": [
+				{
+					"fib": true,
+					"ip": "2001:db8:20::2",
+					"interfaceName": "eth0",
+					"active": true
+				}
+			]
+		}
+	]
+}
