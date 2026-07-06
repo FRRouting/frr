@@ -1,0 +1,13 @@
+{
+	"as": 65002,
+	"peers": {
+		"2001:db8:20::1": {
+			"remoteAs": 65001,
+			"localAs": 65002,
+			"state": "Established",
+			"peerState": "OK"
+		}
+	},
+	"failedPeers": 0,
+	"totalPeers": 1
+}
