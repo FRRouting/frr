@@ -933,3 +933,198 @@ Displaying EVPN information
       tor2# show vrf sym_1 vni
       VRF                                   VNI        VxLAN IF             L3-SVI               State Rmac
       sym_1                                 9288       vxlan21              vlan210_l3           Up    44:38:36:ff:ff:20
+
+.. _evpn-srv6-l2:
+
+SRv6 L2 EVPN (VXLAN-decoupled)
+==============================
+
+FRR can deliver L2 EVPN services over an SRv6 dataplane instead of VXLAN, as
+described in :rfc:`9252` (BGP Overlay Services Based on SRv6) using the SRv6
+endpoint behaviors of :rfc:`8986`. In this model an EVPN Instance (EVI) is
+*decoupled* from any VXLAN device: it is anchored on a VLAN-aware Linux bridge
+and a set of per-EVI SRv6 service SIDs, and EVPN routes carry those SIDs instead
+of a VXLAN VNI. Binding of vlan to EVPN Instance (EVI) is implemented as per
+:rfc:`7432`
+
+Two L2 services are supported:
+
+* **L2 EVPN** (broadcast domain) using EVPN Type-2 (MAC/IP) and Type-3 (IMET)
+  routes. Each EVI is allocated an ``End.DT2U`` SID (bridge-domain unicast
+  lookup + decap) and an ``End.DT2M`` SID (BUM flooding decap).
+* **SRv6 VPWS / E-Line** using EVPN Type-1 (EAD/EVI) routes, with an
+  ``End.DX2`` SID per attachment circuit (point-to-point cross-connect).
+
+The EVI id reuses the BGP VNI value space (e.g. ``50000``); there is no VXLAN
+netdev for an SRv6 EVI. Service SIDs are carved from the EVI's SRv6 locator
+(legacy or micro-SID / uSID format) using the SRv6 SID manager, and zebra
+installs the matching ``seg6local`` decap bound to a dedicated bridge-slave
+(``srl2``) so decapsulated traffic is delivered into the correct bridge-domain.
+
+.. note::
+
+   The SRv6 backend is selected per BGP instance in this revision via
+   ``encapsulation srv6`` under ``address-family l2vpn evpn``. The base VXLAN
+   EVPN path is unchanged. Per-EVI encapsulation (VXLAN and SRv6 EVIs coexisting
+   in one instance) is planned as a follow-up.
+
+.. note::
+
+   The Linux kernel must support ``seg6local`` ``End.DT2U``/``End.DT2M``/
+   ``End.DX2`` and VLAN-aware bridging, and must carry the upstream linux
+   ``End.DT2U`` fix . Without that fix ``End.DT2U`` unicast decap does not
+   deliver into the bridge.
+
+Configuring SRv6 L2 EVPN
+------------------------
+
+Define an SRv6 locator, create one or more EVIs referencing it, enable the
+SRv6 encapsulation for the EVPN address-family.
+
+.. code-block:: frr
+
+   segment-routing
+    srv6
+     locators
+      locator LOC-R
+       prefix 2001:db8:1::/48 block-len 32 node-len 16
+     l2-evpn
+      evi 50000 locator LOC-R bridge br10
+       service-type vlan-based
+       vlan 10
+   !
+   router bgp 65001
+    address-family l2vpn evpn
+     encapsulation srv6
+     evi 50000
+      rd 65001:50000
+      route-target both 65000:50000
+      exit-evi$
+     vpws-instance V2
+      vpws-id source 200 target 100
+      vpws-evi 1000
+      rd 65002:1000
+      route-target both 65000:1000
+      interface cust0-vpws sid auto
+      locator LOC-N1
+     exit-vpws-instance
+
+.. clicmd:: evi (1-16777215) locator NAME bridge NAME
+
+   Under ``segment-routing srv6 l2-evpn``, create an SRv6 L2 EVI. ``locator``
+   selects the SRv6 locator from which the per-EVI service SIDs are carved, and
+   ``bridge`` binds the EVI to a VLAN-aware Linux bridge. Changing the locator
+   of an existing EVI triggers reallocation of its service SIDs and reinstall of
+   the decap routes.
+
+.. clicmd:: service-type <vlan-based|vlan-aware-bundle>
+
+   Under an ``evi``, select the EVPN service interface type. ``vlan-based`` maps
+   a single VLAN to the EVI; ``vlan-bundle`` associates a set of VLANs.
+
+.. clicmd:: vlan (1-4094)
+
+   Under an ``evi``, bind a VLAN to the EVI.
+
+.. clicmd:: encapsulation srv6
+
+   Under ``address-family l2vpn evpn``, select SRv6 as the EVPN encapsulation
+   for this BGP instance. EVPN routes are originated with SRv6 service SIDs
+   rather than a VXLAN VNI. The default remains VXLAN when this is not
+   configured.
+
+.. clicmd:: evi (1-16777215)
+
+   Under ``address-family l2-vpn evpn``, associate SRv6 L2 EVI. This triggers
+   allocation of its service SIDs(End.DT2U,End.DT2M) and install of the decap
+   routes.
+
+.. clicmd:: exit-evi
+
+   Under ``address-family l2-vpn evpn evi`` Leaves the evi sub-mode and
+   returns to `` address-family l2vpn evpn``.
+
+.. clicmd:: vpws-instance NAME
+
+   Under ``address-family l2-vpn evpn``, create a EVPN VPWS(E-Line) instance
+   with a NAME. This is used to create a point to point connection and use
+   SRV6 End.DX2 functionality in dataplane.
+
+.. clicmd:: vpws-id source (1-4294967295) target (1-4294967295)
+
+   Under ``address-family l2-vpn evpn vpws-instance``, sets the attachment
+   circuit identifier (AC-IDs) that connects the two ends of pseudowire
+   as per RFC 8214. The Peer PE should mirror the similar configuration with
+   source and destination value interchaned for connection to be established.
+
+.. clicmd:: vpws-evi (1-16777215)
+
+   Under ``address-family l2-vpn evpn vpws-instance``, sets the EVPN$
+   instance identifier for VPWS service.It ties together the EAD-per-EVI
+   route set for this instance and is part of the route key. Both PEs use
+   the same vpws-evi.
+
+.. clicmd:: rd nn:nn
+
+   Under ``address-family l2-vpn evpn vpws-instance``,``address-family
+   l2-vpn evpn evi `` sets the Route Distinguisher for the EVPN routes
+   this instance originates. Typically each PE uses its own RD.
+
+.. clicmd:: route-target both nn:nn
+
+   Under ``address-family l2-vpn evpn vpws-instance``,``address-family
+   l2-vpn evpn evi `` sets the import/export Route Target(s) for the
+   instance. both applies the same RT to both directions.Both ends must
+   share the RT (65000:3000) for their routes to be mutually imported and
+   the pseudowire to form.
+
+.. clicmd:: interface <ifname> sid auto
+
+   Under ``address-family l2-vpn evpn vpws-instance`` associates the
+   customer facing attachment circuit interface and specifies the mode
+   with which SID for End.DX2 will be allocated. Currently dynamic allocation
+   of SID is supported.
+
+.. clicmd:: locator VPWS-NAME
+
+   Under ``address-family l2-vpn evpn vpws-instance`` Binds a per-instance SRv6
+   locator that this VPWS's End.DX2 SID is carved from, overriding the BGP
+   instance-wide locator. If omitted, the instance falls back to the BGP-wide
+   SRv6 locator. no locator reverts to instance-wide.
+
+.. clicmd:: exit-vpws-instance
+
+   Under ``address-family l2-vpn evpn vpws-instance`` Leaves the instance
+   sub-mode and returns to `` address-family l2vpn evpn``.
+
+Displaying SRv6 L2 EVPN information
+-----------------------------------
+
+.. clicmd:: show evpn evi [detail] [json]
+
+   Display the SRv6 EVIs known to zebra (SRv6-backed EVIs only). Columns are
+   EVI, Type, number of MACs, number of ARP/ND entries, tenant VRF, VLAN and
+   bridge. ``detail`` adds per-EVI detail; ``json`` emits JSON.
+
+.. clicmd:: show segment-routing srv6 sid
+
+   The per-EVI ``End.DT2U``/``End.DT2M`` service SIDs are listed with their EVI
+   context ("EVI <id>"). SIDs without an EVI binding are not shown.
+
+.. clicmd:: show bgp l2vpn evpn srv6
+
+   Display the per-EVI SRv6 SID bindings advertised/received by bgpd, including
+   the EVI, service-type, locator, and the ``End.DT2U``/``End.DT2M`` SIDs.
+
+.. clicmd:: show bgp l2vpn evpn vpws
+
+   Display the per-EVPN VPWS SRv6 SID bindings advertised/received by bgpd, including
+   the EVI, AC-ID, locator, and the ``End.DX2`` SIDs for local and peer.
+
+.. clicmd:: show segment-routing srv6 sid counters
+
+   Display the per SID RX,TX statistics (packet,byte count) with role information
+   (encap,decap)
+
+The BGP SRv6 SID/locator state (``show bgp segment-routing srv6``) additionally
+reports the SRv6 EVPN service-type and EVI information for these EVIs.
