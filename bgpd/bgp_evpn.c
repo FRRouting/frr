@@ -1622,6 +1622,21 @@ void bgp_evpn_program_srv6_ipv6_route(struct bgp *bgp, const struct in6_addr *si
 		}
 	}
 
+	/*
+	 * A vpws-instance may draw its End.DX2 SID from a per-instance locator
+	 * (LOC-R2/LOC-R3/...) different from the BGP-wide locator checked above.
+	 * Installing an underlay /128 for such a SID - which is still OUR own -
+	 * masks the local seg6local End.DX2 decap (metric 1024) with a /128 via
+	 * the peer (metric 20), so packets for our own decap SID are forwarded
+	 * back to the peer and bounce (NS1<->NS2 loop).  Suppress it.
+	 */
+	if (bgp_evpn_vpws_sid_is_local(bgp, sid)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: SID %pI6 is a local VPWS SID - skipping underlay install",
+				   __func__, sid);
+		return;
+	}
+
 	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return;
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
