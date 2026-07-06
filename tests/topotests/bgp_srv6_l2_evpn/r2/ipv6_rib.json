@@ -1,0 +1,68 @@
+{
+	"fc00:0:2:2::/128": [
+		{
+			"prefix": "fc00:0:2:2::/128",
+			"protocol": "bgp",
+			"selected": true,
+			"installed": true,
+			"nexthops": [
+				{
+					"fib": true,
+					"interfaceName": "bum-srl2-1",
+					"active": true,
+					"seg6local": {
+						"action": "End.DT2U"
+					}
+				}
+			]
+		}
+	],
+	"fc00:0:1:1::/128": [
+		{
+			"prefix": "fc00:0:1:1::/128",
+			"protocol": "bgp",
+			"selected": true,
+			"installed": true,
+			"nexthops": [
+				{
+					"fib": true,
+					"ip": "2001:db8:20::1",
+					"interfaceName": "eth0",
+					"active": true
+				}
+			]
+		}
+	],
+	"fc00:0:1:2::/128": [
+		{
+			"prefix": "fc00:0:1:2::/128",
+			"protocol": "bgp",
+			"selected": true,
+			"installed": true,
+			"nexthops": [
+				{
+					"fib": true,
+					"ip": "2001:db8:20::1",
+					"interfaceName": "eth0",
+					"active": true
+				}
+			]
+		}
+	],
+	"fc00:0:1:3::/128": [
+		{
+			"prefix": "fc00:0:1:3::/128",
+			"protocol": "bgp",
+			"selected": true,
+			"installed": true,
+			"nexthops": [
+				{
+					"fib": true,
+					"ip": "2001:db8:20::1",
+					"interfaceName": "eth0",
+					"active": true
+				}
+			]
+		}
+	]
+}
