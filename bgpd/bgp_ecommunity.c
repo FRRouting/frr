@@ -65,6 +65,42 @@ static void ecommunity_hash_free(struct ecommunity *ecom)
 	ecommunity_free(&ecom);
 }
 
+static bool ecommunity_type_match(uint8_t existing_type, uint8_t new_type)
+{
+	uint8_t existing_base = existing_type & ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
+	uint8_t new_base = new_type & ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
+
+	return existing_base == new_base;
+}
+
+/*
+ * Decide whether an existing extended community entry matches a candidate
+ * for unique/overwrite insertion in ecommunity_add_val_internal().
+ *
+ * RFC 4360 treats transitive (e.g. 0x00) and non-transitive (e.g. 0x40)
+ * as distinct type bytes; two communities are equal only when all eight
+ * octets match.  That strict model is preserved for every subtype except
+ * Link Bandwidth.
+ *
+ * Link Bandwidth is different: route-map "set extcommunity bandwidth" adds
+ * a new EC via ecommunity_add_val(..., unique, overwrite).  When the path
+ * already carries a non-transitive Link Bandwidth EC, the type bytes differ
+ * and the old logic appended a second entry instead of replacing the first
+ * (RFC 10005 Section 7.1).  Match Link Bandwidth subtypes on the base type,
+ * ignoring the non-transitive bit, so overwrite replaces the existing EC.
+ *
+ * Other subtypes (route-target, origin-validation, etc.) keep exact type-byte
+ * matching because callers rely on RFC 4360 byte identity.
+ */
+static bool ecommunity_unique_type_match(uint8_t existing_type,
+					 uint8_t new_type, uint8_t subtype)
+{
+	if (subtype == ECOMMUNITY_LINK_BANDWIDTH ||
+	    subtype == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
+		return ecommunity_type_match(existing_type, new_type);
+
+	return existing_type == new_type;
+}
 
 /* Add a new Extended Communities value to Extended Communities
    Attribute structure.  When the value is already exists in the
@@ -104,7 +140,8 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom,
 	     p += ecom_size, c++) {
 		if (unique) {
 			if (ecom_size == ECOMMUNITY_SIZE) {
-				if (p[0] == eval4->val[0] &&
+				if (ecommunity_unique_type_match(
+					    p[0], eval4->val[0], eval4->val[1]) &&
 				    p[1] == eval4->val[1]) {
 					if (overwrite) {
 						memcpy(p, eval4->val,
@@ -114,7 +151,8 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom,
 					return false;
 				}
 			} else {
-				if (p[0] == eval6->val[0] &&
+				if (ecommunity_unique_type_match(
+					    p[0], eval6->val[0], eval6->val[1]) &&
 				    p[1] == eval6->val[1]) {
 					if (overwrite) {
 						memcpy(p, eval6->val,
