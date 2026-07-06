@@ -17,12 +17,26 @@
 #include <net/if_arp.h>
 #include <linux/lwtunnel.h>
 #include <linux/mpls_iptunnel.h>
+#include <linux/seg6.h>
 #include <linux/seg6_iptunnel.h>
 #include <linux/seg6_local.h>
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 #include <linux/nexthop.h>
 #include <string.h>
+
+/*
+ * End.DT2U (RFC 8986 Section 4.1.12) and End.DT2M (RFC 8986 Section 4.1.13) are not yet
+ * in the mainline Linux kernel seg6_local.h.  Define fallback values so FRR
+ * can programme them on kernels that carry forward-ported support.
+ * Values follow the natural extension of SEG6_LOCAL_ACTION_END_BPF (16).
+ */
+#ifndef SEG6_LOCAL_ACTION_END_DT2U
+#define SEG6_LOCAL_ACTION_END_DT2U 17
+#endif
+#ifndef SEG6_LOCAL_ACTION_END_DT2M
+#define SEG6_LOCAL_ACTION_END_DT2M 18
+#endif
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
@@ -69,6 +83,9 @@
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
 #include "lib/srv6.h"
+#include "zebra/zebra_srl2.h"
+#include "zebra/zebra_dplane.h"
+#include "zebra/zebra_srv6_sid_stats.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -79,6 +96,25 @@
 #ifndef _UAPI_LINUX_IF_BRIDGE_H
 #define BR_SPH_LIST_SIZE 10
 #endif
+
+/* Bridge-port VLAN programming bits (from <linux/if_bridge.h>), redefined here
+ * for the same reason — used by netlink_srl2_bridge_vlan_add() to bind the SRv6
+ * EVI VLAN onto srl2 / bum-srl2 bridge ports.
+ */
+#ifndef IFLA_BRIDGE_VLAN_INFO
+#define IFLA_BRIDGE_VLAN_INFO 2
+#endif
+#ifndef BRIDGE_VLAN_INFO_PVID
+#define BRIDGE_VLAN_INFO_PVID (1 << 1)
+#endif
+#ifndef BRIDGE_VLAN_INFO_UNTAGGED
+#define BRIDGE_VLAN_INFO_UNTAGGED (1 << 2)
+#endif
+/* wire layout of struct bridge_vlan_info: { __u16 flags; __u16 vid; } */
+struct srl2_bridge_vlan_info {
+	uint16_t flags;
+	uint16_t vid;
+};
 
 DEFINE_MTYPE_STATIC(LIB, NH_SRV6, "Nexthop srv6");
 
@@ -101,6 +137,22 @@ static struct in_addr ipv4_ll;
 
 static int netlink_nexthop_msg_encode_end_b6_encaps(struct nlmsghdr *nlmsg,
 						    const struct nexthop *nh, size_t buflen);
+
+static bool netlink_seg6local_add_counters(struct nlmsghdr *n, size_t maxlen)
+{
+	struct rtattr *nest;
+	uint64_t zero = 0;
+
+	nest = nl_attr_nest(n, maxlen, SEG6_LOCAL_COUNTERS);
+	if (!nest)
+		return false;
+	if (!nl_attr_put(n, maxlen, SEG6_LOCAL_CNT_PACKETS, &zero, sizeof(zero)) ||
+	    !nl_attr_put(n, maxlen, SEG6_LOCAL_CNT_BYTES, &zero, sizeof(zero)) ||
+	    !nl_attr_put(n, maxlen, SEG6_LOCAL_CNT_ERRORS, &zero, sizeof(zero)))
+		return false;
+	nl_attr_nest_end(n, nest);
+	return true;
+}
 
 /* Is this a ipv4 over ipv6 route? */
 static bool is_route_v4_over_v6(unsigned char rtm_family,
@@ -2031,6 +2083,36 @@ static bool _netlink_nexthop_encode_seg6local_info(const struct nexthop *nexthop
 			return false;
 		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DX2))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_OIF, ctx->oif))
+			return false;
+		break;
+	/* RFC 8986 Section 4.1.12 - bridge-domain unicast MAC lookup.
+	 * Kernel attribute SEG6_LOCAL_L2DEV (NOT SEG6_LOCAL_OIF): the kernel
+	 * resolves the bridge via netdev_master_upper_dev_get(l2dev) and runs
+	 * the FDB lookup on the inner dst MAC; l2dev's xmit() is never called,
+	 * so pointing at an srl2-* encap port is loop-safe.
+	 */
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DT2U))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_L2DEV, ctx->oif))
+			return false;
+		if (ctx->dt2_vni &&
+		    !nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_VRFTABLE, ctx->dt2_vni))
+			return false;
+		break;
+	/* RFC 8986 Section 4.1.13 - bridge-domain BUM flooding. */
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DT2M))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_L2DEV, ctx->oif))
+			return false;
+		if (ctx->dt2_vni &&
+		    !nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_VRFTABLE, ctx->dt2_vni))
+			return false;
+		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
@@ -2042,6 +2124,20 @@ static bool _netlink_nexthop_encode_seg6local_info(const struct nexthop *nexthop
 			 nexthop->nh_srv6->seg6local_action);
 		return false;
 	}
+
+	/*
+	 * SEG6_LOCAL_COUNTERS (Linux >= 5.3) is emitted ONLY for the SRv6 L2 EVPN
+	 * behaviors this feature introduces (End.DX2 / End.DT2U / End.DT2M).
+	 * Adding it to the pre-existing behaviors (End, End.X, End.T, End.DX4/6,
+	 * End.DT4/6/46) would make their seg6local route installs fail with EINVAL
+	 * on kernels < 5.3 that do not know the attribute - a silent regression for
+	 * existing SRv6 deployments on older kernels.
+	 */
+	if ((nexthop->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END_DX2 ||
+	     nexthop->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END_DT2U ||
+	     nexthop->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END_DT2M) &&
+	    !netlink_seg6local_add_counters(nlmsg, buflen))
+		return false;
 
 	if (!_netlink_nexthop_encode_seg6local_flavor(nexthop, nlmsg, buflen))
 		return false;
@@ -2541,6 +2637,27 @@ static bool nexthop_set_src(const struct nexthop *nexthop, int family,
 }
 
 /*
+ * Returns true if any non-recursive, active nexthop in @ng carries a
+ * seg6local encapsulation action.
+ *
+ * The Linux kernel rejects LWTUNNEL_ENCAP_SEG6_LOCAL inside nexthop-group
+ * objects (RTM_NEWNEXTHOP).  Routes with such nexthops must therefore be
+ * installed using inline nexthops in RTM_NEWROUTE, not via RTA_NH_ID.
+ */
+static bool nexthop_group_has_seg6local(const struct nexthop_group *ng)
+{
+	const struct nexthop *nh;
+
+	for (ALL_NEXTHOPS_PTR(ng, nh)) {
+		if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+		if (nh->nh_srv6 && nh->nh_srv6->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			return true;
+	}
+	return false;
+}
+
+/*
  * Routing table change via netlink interface, using a dataplane context object
  *
  * Returns -1 on failure, 0 when the msg doesn't fit entirely in the buffer
@@ -2714,7 +2831,9 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 
 	if ((!fpm && kernel_nexthops_supported() &&
 	     (!proto_nexthops_only() || is_proto_nhg(dplane_ctx_get_nhe_id(ctx), 0)) &&
-	     (!src_p || !src_p->prefixlen)) ||
+	     (!src_p || !src_p->prefixlen) &&
+	     /* seg6local encap is not supported inside kernel NHG objects */
+	     !nexthop_group_has_seg6local(dplane_ctx_get_ng(ctx))) ||
 	    (fpm && force_nhg)) {
 		/* Kernel supports nexthop objects */
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -4428,6 +4547,10 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 }
 
+/* Forward declaration - defined in the srl2 section at the bottom of the file. */
+static ssize_t netlink_srl2_macfdb_encode(const struct zebra_dplane_ctx *ctx, int cmd, void *data,
+					  size_t datalen);
+
 /*
  * Netlink-specific handler for MAC updates using dataplane context object.
  */
@@ -4445,6 +4568,15 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	bool nfy = false;
 	uint8_t nfy_flags = 0;
 	int proto = RTPROT_ZEBRA;
+
+	/*
+	 * srl2 path: the outgoing port is an srl2 interface that has the SID
+	 * bound to it.The FDB entry just names the interface - no NDA_DST.
+	 */
+	if (dplane_ctx_mac_has_srl2_if(ctx)) {
+		cmd = dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL ? RTM_NEWNEIGH : RTM_DELNEIGH;
+		return netlink_srl2_macfdb_encode(ctx, cmd, data, datalen);
+	}
 
 	if (dplane_ctx_get_type(ctx) != 0)
 		proto = zebra2proto(dplane_ctx_get_type(ctx));
@@ -5330,6 +5462,652 @@ int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
 int kernel_del_mac_nhg(uint32_t nhg_id)
 {
 	return netlink_fdb_nhg_del(nhg_id);
+}
+
+/* -------------------------------------------------------------------------- */
+/* SRv6 SR-L2 (srl2) interface management via netlink.                        */
+/*                                                                             */
+/* An srl2 interface performs RFC 8986 H.Encaps.L2.Red: it wraps an outgoing  */
+/* Ethernet frame in an outer IPv6 header whose DA is the SID bound to the    */
+/* interface.  No Segment Routing Header is inserted when a single segment is  */
+/* used (reduced encapsulation).                                               */
+/*                                                                             */
+/* IFLA_INFO_DATA attributes for type=srl2 interfaces.                        */
+/* These must match the kernel driver's uapi header.                           */
+/* -------------------------------------------------------------------------- */
+
+enum {
+	IFLA_SRL2_UNSPEC,
+	IFLA_SRL2_SEGS, /* struct ipv6_sr_hdr + segment array (RFC 8754) */
+	__IFLA_SRL2_MAX,
+};
+
+/*
+ * Build the IFLA_SRL2_SEGS payload: a complete Segment Routing Header
+ * (RFC 8754) for a single segment.
+ *
+ * The kernel srl2 driver validates the attribute with seg6_validate_srh(),
+ * which requires:
+ *   len >= sizeof(struct ipv6_sr_hdr)           [8 bytes]
+ *   len >= (hdrlen + 1) * 8                     [= 24 bytes for 1 segment]
+ *
+ * Layout (24 bytes for one segment):
+ *   [0]  nexthdr      = 0
+ *   [1]  hdrlen       = 2  ((8 + 1*16)/8 - 1 = 2)
+ *   [2]  type         = 4  (Segment Routing Header)
+ *   [3]  segments_left= 0  (already at the active segment, head-end)
+ *   [4]  first_segment= 0
+ *   [5]  flags        = 0
+ *   [6-7]tag          = 0
+ *   [8-23]segments[0] = SID
+ */
+static void srl2_build_srh(uint8_t *buf, const struct in6_addr *sid)
+{
+	struct ipv6_sr_hdr *srh = (struct ipv6_sr_hdr *)buf;
+
+	memset(buf, 0, sizeof(struct ipv6_sr_hdr) + sizeof(struct in6_addr));
+	srh->nexthdr = 0;
+	srh->hdrlen = 2; /* (8 + 16) / 8 - 1 */
+	srh->type = 4;	 /* RFC 8754 SRH type */
+	srh->segments_left = 0;
+	srh->first_segment = 0;
+	srh->flags = 0;
+	srh->tag = 0;
+	memcpy(&srh->segments[0], sid, sizeof(struct in6_addr));
+}
+
+/*
+ * Netlink callback used by netlink_srl2_if_add() to capture the ifindex of
+ * the newly created srl2 interface from the NLM_F_ECHO RTM_NEWLINK reply.
+ *
+ * NLM_F_ECHO causes the kernel to echo the RTM_NEWLINK message back on the
+ * same synchronous socket *before* sending the NLMSG_ERROR(0) ACK.
+ * netlink_parse_info() calls this filter for the echo, then returns normally
+ * when it sees the ACK - so there is no async race with Zebra's event socket.
+ */
+static ifindex_t srl2_echo_ifindex; /* captured by the callback below */
+
+static int srl2_newlink_echo_cb(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
+{
+	struct ifinfomsg *ifi;
+
+	if (h->nlmsg_type != RTM_NEWLINK)
+		return 0;
+	if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifinfomsg)))
+		return 0;
+
+	ifi = NLMSG_DATA(h);
+	if (ifi->ifi_index > 0)
+		srl2_echo_ifindex = (ifindex_t)ifi->ifi_index;
+
+	return 0;
+}
+
+/*
+ * Create a new srl2 interface in the default namespace.
+ * Returns the kernel ifindex on success, -1 on failure.
+ *
+ * NLM_F_ECHO is set so the kernel echoes the created RTM_NEWLINK message back
+ * on the command socket.  srl2_newlink_echo_cb() extracts ifi_index from that
+ * echo, avoiding the async race that would occur if we used if_lookup_by_name()
+ * (which relies on Zebra's event-socket processing the RTM_NEWLINK notification
+ * - an event that may not have arrived yet).
+ */
+/*
+ * Set IFLA_INET6_ADDR_GEN_MODE = none on an existing interface via RTM_SETLINK.
+ * Must be done while the interface is DOWN (before any link-local is generated)
+ * to keep these L2-encap ports free of IPv6 (no link-local, no DAD NS, no MLD,
+ * which would otherwise be H.Encaps-wrapped toward the peer SID).  Best-effort:
+ * returns 0 on success, -1 on failure (caller proceeds regardless).
+ */
+static int srl2_set_addr_gen_mode_none(struct zebra_ns *zns, ifindex_t ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[64];
+	} req;
+	struct rtattr *afspec, *afinet6;
+	uint8_t mode_none = 1; /* IN6_ADDR_GEN_MODE_NONE (linux/if_link.h) */
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.ifi.ifi_family = AF_UNSPEC;
+	req.ifi.ifi_index = ifindex;
+
+	afspec = nl_attr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
+	if (!afspec)
+		return -1;
+	afinet6 = nl_attr_nest(&req.n, sizeof(req), AF_INET6);
+	if (!afinet6)
+		return -1;
+	if (!nl_attr_put8(&req.n, sizeof(req), IFLA_INET6_ADDR_GEN_MODE, mode_none))
+		return -1;
+	nl_attr_nest_end(&req.n, afinet6);
+	nl_attr_nest_end(&req.n, afspec);
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
+}
+
+/* Bring an srl2 interface administratively UP via RTM_SETLINK.  Public so
+ * zebra_srl2_get_or_create() can bring the port up only AFTER it has been
+ * enslaved and had its EVI VLAN bound.
+ */
+int netlink_srl2_if_up(ifindex_t ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[32];
+	} req;
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+	if (!zns || ifindex <= 0)
+		return -1;
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.ifi.ifi_family = AF_UNSPEC;
+	req.ifi.ifi_index = ifindex;
+	req.ifi.ifi_flags = IFF_UP;
+	req.ifi.ifi_change = IFF_UP;
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
+}
+
+ifindex_t netlink_srl2_if_add(const char *ifname, const struct in6_addr *sid)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[512];
+	} req;
+	/* 8-byte SRH fixed header + one 16-byte segment = 24 bytes */
+	uint8_t srh_buf[sizeof(struct ipv6_sr_hdr) + sizeof(struct in6_addr)];
+	struct rtattr *linkinfo, *infodata;
+	struct zebra_ns *zns;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	if (!zns)
+		return -1;
+
+	/* Construct the SRH payload the kernel expects. */
+	srl2_build_srh(srh_buf, sid);
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	/*
+	 * NLM_F_ECHO: kernel echoes the created RTM_NEWLINK (with ifi_index)
+	 * back on the command socket before sending NLMSG_ERROR(0).
+	 * This lets us read ifi_index synchronously in srl2_newlink_echo_cb().
+	 */
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK | NLM_F_ECHO;
+	req.n.nlmsg_type = RTM_NEWLINK;
+	req.ifi.ifi_family = AF_UNSPEC;
+	/*
+	 * Create the interface DOWN (no IFF_UP).  We then disable IPv6
+	 * address autoconfiguration (addr_gen_mode=none) while it is still
+	 * down — so no link-local is ever generated — and only afterwards
+	 * bring it up.  Setting addr_gen_mode in the create RTM_NEWLINK itself
+	 * is rejected by the kernel (EAFNOSUPPORT) when combined with the
+	 * custom link-kind, so it must be a separate RTM_SETLINK.
+	 */
+	req.ifi.ifi_flags = 0;
+	req.ifi.ifi_change = 0;
+
+	if (!nl_attr_put(&req.n, sizeof(req), IFLA_IFNAME, ifname, strlen(ifname) + 1))
+		return -1;
+
+	linkinfo = nl_attr_nest(&req.n, sizeof(req), IFLA_LINKINFO);
+	if (!linkinfo)
+		return -1;
+
+	if (!nl_attr_put(&req.n, sizeof(req), IFLA_INFO_KIND, "srl2", 5))
+		return -1;
+
+	infodata = nl_attr_nest(&req.n, sizeof(req), IFLA_INFO_DATA);
+	if (!infodata)
+		return -1;
+
+	/* Pass the full SRH (24 bytes for 1 segment) - NOT a raw IPv6 addr. */
+	if (!nl_attr_put(&req.n, sizeof(req), IFLA_SRL2_SEGS, srh_buf, sizeof(srh_buf)))
+		return -1;
+
+	nl_attr_nest_end(&req.n, infodata);
+	nl_attr_nest_end(&req.n, linkinfo);
+
+	srl2_echo_ifindex = -1;
+	if (netlink_talk(srl2_newlink_echo_cb, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL) <
+	    0)
+		return -1;
+
+	if (srl2_echo_ifindex <= 0) {
+		zlog_warn("%s: srl2 interface %s: RTM_NEWLINK echo did not return ifindex",
+			  __func__, ifname);
+		return -1;
+	}
+
+	/*
+	 * Interface was created DOWN and is LEFT DOWN here.  Disable IPv6 addr
+	 * autoconf now (must be done before the interface goes up so no
+	 * link-local is generated).  The caller (zebra_srl2_get_or_create)
+	 * enslaves it to the bridge, sets brport flags, binds the EVI VLAN, and
+	 * only THEN brings it up via netlink_srl2_if_up() — the canonical
+	 * `ip link add down; set master; bridge vlan add; set up` order.  If we
+	 * brought it up here (before enslave + vlan bind) the port loses its
+	 * EVI-VLAN membership.
+	 */
+	if (srl2_set_addr_gen_mode_none(zns, srl2_echo_ifindex) < 0)
+		zlog_warn("%s: srl2 %s: could not set addr_gen_mode=none (IPv6 may be enabled)",
+			  __func__, ifname);
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: srl2 interface %s created with ifindex %u", __func__, ifname,
+			   srl2_echo_ifindex);
+
+	return srl2_echo_ifindex;
+}
+
+/*
+ * Reprogram an EXISTING srl2 interface's encap SID in place (RTM_NEWLINK
+ * changelink on the kernel srl2 driver), keeping the same ifindex.  Used when a
+ * peer re-advertises its EVPN BUM/MAC SID with a new value: updating in place
+ * keeps the kernel interface (and therefore any local seg6local decap route
+ * that uses it as l2dev) stable, instead of delete+recreate which would orphan
+ * those routes.  Returns 0 on success, -1 on failure (caller may fall back to
+ * delete+recreate).
+ */
+int netlink_srl2_if_update_sid(ifindex_t srl2_ifindex, const struct in6_addr *sid)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[512];
+	} req;
+	uint8_t srh_buf[sizeof(struct ipv6_sr_hdr) + sizeof(struct in6_addr)];
+	struct rtattr *linkinfo, *infodata;
+	struct zebra_ns *zns;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	if (!zns || srl2_ifindex <= 0)
+		return -1;
+
+	srl2_build_srh(srh_buf, sid);
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	/* No NLM_F_CREATE/EXCL: target the existing ifindex -> changelink. */
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_NEWLINK;
+	req.ifi.ifi_family = AF_UNSPEC;
+	req.ifi.ifi_index = srl2_ifindex;
+
+	linkinfo = nl_attr_nest(&req.n, sizeof(req), IFLA_LINKINFO);
+	if (!linkinfo)
+		return -1;
+
+	if (!nl_attr_put(&req.n, sizeof(req), IFLA_INFO_KIND, "srl2", 5))
+		return -1;
+
+	infodata = nl_attr_nest(&req.n, sizeof(req), IFLA_INFO_DATA);
+	if (!infodata)
+		return -1;
+
+	if (!nl_attr_put(&req.n, sizeof(req), IFLA_SRL2_SEGS, srh_buf, sizeof(srh_buf)))
+		return -1;
+
+	nl_attr_nest_end(&req.n, infodata);
+	nl_attr_nest_end(&req.n, linkinfo);
+
+	if (netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL) <
+	    0)
+		return -1;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: srl2 ifindex %u SID updated to %pI6", __func__, srl2_ifindex, sid);
+
+	return 0;
+}
+
+/*
+ * Add srl2 interface to a bridge as a slave.
+ * Equivalent to: ip link set srl2-N master br<VNI>
+ */
+int netlink_srl2_if_set_master(ifindex_t srl2_ifindex, ifindex_t bridge_ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[128];
+	} req;
+	struct zebra_ns *zns;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	if (!zns)
+		return -1;
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.ifi.ifi_family = AF_UNSPEC;
+	req.ifi.ifi_index = srl2_ifindex;
+
+	if (!nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, bridge_ifindex))
+		return -1;
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
+}
+
+/*
+ * Disable bridge LEARNING and UNICAST_FLOOD on an srl2 bridge slave.
+ *
+ * Why: srl2-N is not a normal bridge port.  It is (a) a per-remote-SID
+ * encap egress, used only for explicit FDB entries pointing to it, and
+ * (b) a decap-feed ingress that injects frames already advertised in
+ * BGP from the remote VTEP.  If the bridge MAC-learns on those decap'd
+ * ingress frames, the local side ends up "owning" the remote MAC,
+ * triggering EVPN duplicate-address detection and Type-2 announce/
+ * withdraw oscillation.  Unicast flood is also turned off because encap
+ * toward a remote SID is per-FDB-entry, never flooded.
+ *
+ * Equivalent of: bridge link set dev <srl2-N> learning off flood off
+ */
+int netlink_srl2_if_set_brport_flags(ifindex_t ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[256];
+	} req = {};
+	struct rtattr *protinfo;
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+	if (ifindex <= 0)
+		return -1;
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.ifi.ifi_family = AF_BRIDGE;
+	req.ifi.ifi_index = ifindex;
+
+	/* Bridge port attributes go in the IFLA_PROTINFO nest. */
+	protinfo = nl_attr_nest(&req.n, sizeof(req), IFLA_PROTINFO | NLA_F_NESTED);
+	if (!protinfo)
+		return -1;
+
+	if (!nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_LEARNING, 0))
+		return -1;
+	if (!nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_UNICAST_FLOOD, 0))
+		return -1;
+	if (!nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_MCAST_FLOOD, 0))
+		return -1;
+	if (!nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_BCAST_FLOOD, 0))
+		return -1;
+	/*
+	 * EVPN split-horizon: isolate all overlay (srl2/bum-srl2) ports.  A
+	 * Linux bridge forwards from an isolated port ONLY to non-isolated
+	 * ports, so a frame decapsulated from the overlay (injected via this
+	 * srl2) reaches local access ports (cust*) but is never flooded back
+	 * out another overlay port → no PE-to-PE re-flood loop.  The customer
+	 * access port stays non-isolated, so customer BUM still reaches the
+	 * overlay flood ports.
+	 */
+	if (!nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_ISOLATED, 1))
+		return -1;
+
+	nl_attr_nest_end(&req.n, protinfo);
+
+	if (netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL) <
+	    0) {
+		zlog_warn("%s: failed to set learning=off / flood=off on srl2 ifindex %u",
+			  __func__, ifindex);
+		return -1;
+	}
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: srl2 ifindex %u: bridge learning=off, unicast_flood=off", __func__,
+			   ifindex);
+
+	return 0;
+}
+
+/*
+ * Bridge-port flag profile for BUM-purpose srl2 interfaces.
+ *
+ * Unlike a per-MAC unicast srl2 (learning off / flood off - bridge forwards
+ * to it ONLY via explicit FDB entries), a BUM srl2 IS the flood-target port.
+ * The bridge must send broadcast / unknown-unicast / multicast OUT of it so
+ * the srl2 driver can wrap them in H.Encaps.L2.Red destined to the remote
+ * VTEP's DT2M SID.
+ *
+ *   IFLA_BRPORT_LEARNING        = 0   bridge MUST NOT learn on this port
+ *                                     (decap'd remote-source frames already
+ *                                     have a remote MAC; learning here
+ *                                     creates duplicate FDB entries and the
+ *                                     DAD-flap loops we hit earlier)
+ *   IFLA_BRPORT_UNICAST_FLOOD   = 1   unknown-unicast flood target
+ *   IFLA_BRPORT_MCAST_FLOOD     = 1   multicast flood target
+ *   IFLA_BRPORT_BCAST_FLOOD     = 1   broadcast flood target
+ */
+int netlink_srl2_if_set_brport_bum_flags(ifindex_t ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[256];
+	} req = {};
+	struct rtattr *protinfo;
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+	if (ifindex <= 0)
+		return -1;
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.ifi.ifi_family = AF_BRIDGE;
+	req.ifi.ifi_index = ifindex;
+
+	protinfo = nl_attr_nest(&req.n, sizeof(req), IFLA_PROTINFO | NLA_F_NESTED);
+	if (!protinfo)
+		return -1;
+
+	if (!nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_LEARNING, 0) ||
+	    !nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_UNICAST_FLOOD, 1) ||
+	    !nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_MCAST_FLOOD, 1) ||
+	    !nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_BCAST_FLOOD, 1) ||
+	    /* EVPN split-horizon: isolate overlay ports so BUM decapsulated
+	     * from the core is not re-flooded out another overlay port (see
+	     * netlink_srl2_if_set_brport_flags for the full rationale).
+	     */
+	    !nl_attr_put8(&req.n, sizeof(req), IFLA_BRPORT_ISOLATED, 1))
+		return -1;
+
+	nl_attr_nest_end(&req.n, protinfo);
+
+	if (netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL) <
+	    0) {
+		zlog_warn("%s: failed to set BUM brport flags on srl2 ifindex %u", __func__,
+			  ifindex);
+		return -1;
+	}
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: srl2 ifindex %u: BUM brport flags set (learning=off, flood=on, mcast_flood=on, bcast_flood=on)",
+			   __func__, ifindex);
+	return 0;
+}
+
+/*
+ * Add a VLAN membership to a bridge port (srl2 / bum-srl2) on a vlan-aware
+ * bridge.  Equivalent of:
+ *   bridge vlan add dev <port> vid <vid> [pvid] [untagged]
+ *
+ * For SRv6 L2 EVPN vlan-based service the EVI's VLAN must be present on the
+ * overlay ports (tagged trunk) so the vlan-aware bridge forwards that VLAN's
+ * frames to/from the srl2 encap ports.  Without this they default to PVID 1
+ * and the EVI's VLAN traffic never reaches the overlay.
+ */
+int netlink_srl2_bridge_vlan_add(ifindex_t ifindex, vlanid_t vid, bool untagged, bool pvid)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[128];
+	} req = {};
+	struct rtattr *afspec;
+	struct srl2_bridge_vlan_info vinfo = {};
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+	if (ifindex <= 0 || vid == 0 || !zns)
+		return -1;
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.ifi.ifi_family = AF_BRIDGE;
+	req.ifi.ifi_index = ifindex;
+
+	afspec = nl_attr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
+	if (!afspec)
+		return -1;
+
+	vinfo.vid = vid;
+	if (untagged)
+		vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+	if (pvid)
+		vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
+
+	if (!nl_attr_put(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo, sizeof(vinfo)))
+		return -1;
+
+	nl_attr_nest_end(&req.n, afspec);
+
+	if (netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL) <
+	    0) {
+		zlog_warn("%s: failed to add vlan %u to bridge port %u", __func__, vid, ifindex);
+		return -1;
+	}
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: bridge port %u: added vlan %u (flags 0x%x)", __func__, ifindex,
+			   vid, vinfo.flags);
+	return 0;
+}
+
+/*
+ * Delete an srl2 interface.
+ * Equivalent to: ip link del srl2-N
+ */
+int netlink_srl2_if_del(ifindex_t srl2_ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[64];
+	} req;
+	struct zebra_ns *zns;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	if (!zns)
+		return -1;
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_DELLINK;
+	req.ifi.ifi_family = AF_UNSPEC;
+	req.ifi.ifi_index = srl2_ifindex;
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
+}
+
+/*
+ * Build a bridge FDB message that uses an srl2 interface as the outgoing port.
+ * Unlike the NDA_DST-based approach for VXLAN/SRv6, the SID is implicit in
+ * the srl2 interface itself - no destination address attribute is needed.
+ *
+ * Kernel equivalent of:
+ *   bridge fdb add <mac> dev srl2-N [permanent]
+ */
+static ssize_t netlink_srl2_macfdb_encode(const struct zebra_dplane_ctx *ctx, int cmd, void *data,
+					  size_t datalen)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ndmsg ndm;
+		char buf[256];
+	} *req = data;
+	const struct ethaddr *mac = dplane_ctx_mac_get_addr(ctx);
+	ifindex_t srl2_ifindex = dplane_ctx_mac_get_srl2_ifindex(ctx);
+	/*
+	 * Flag shape MUST match what zebra's L2VNI MAC watcher considers
+	 * a remote BGP-installed entry:
+	 *
+	 *   NTF_MASTER       - bridge-master FDB (NTF_SELF is rejected by the
+	 *                      srl2 driver, which has no ndo_fdb_add).
+	 *   NTF_EXT_LEARNED  - programmed by an external control plane (BGP).
+	 *   NTF_STICKY       - pin the entry; never let the bridge re-learn or
+	 *                      age it.  THIS is what makes `bridge fdb show`
+	 *                      print the entry with the `static` keyword and,
+	 *                      crucially, what causes zebra_evpn_mac.c to
+	 *                      classify the FDB notification as a REMOTE MAC
+	 *                      instead of a locally-learned one.  Without it,
+	 *                      both VTEPs flip the peer's MAC to "local",
+	 *                      both sides re-announce it via Type-2, EVPN
+	 *                      duplicate-detection or the import re-eval
+	 *                      tears down the IPv6 underlay route, and the
+	 *                      seg6 dataplane never converges.
+	 *   NUD_NOARP        - paired with NTF_STICKY: kernel must not initiate
+	 *                      neighbor resolution for the entry.
+	 */
+	uint8_t flags = NTF_MASTER | NTF_EXT_LEARNED | NTF_STICKY;
+	uint16_t state = NUD_REACHABLE | NUD_NOARP;
+	uint8_t protocol = RTPROT_ZEBRA;
+	vlanid_t vid;
+	int proto = RTPROT_ZEBRA;
+
+	if (dplane_ctx_get_type(ctx) != 0)
+		proto = zebra2proto(dplane_ctx_get_type(ctx));
+	protocol = proto;
+
+	if (dplane_ctx_mac_is_sticky(ctx)) {
+		state |= NUD_NOARP;
+		flags = (flags & ~NTF_EXT_LEARNED) | NTF_STICKY;
+	}
+
+	if (datalen < sizeof(*req))
+		return 0;
+
+	memset(req, 0, sizeof(*req));
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	if (cmd == RTM_NEWNEIGH)
+		req->n.nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
+	req->n.nlmsg_type = cmd;
+
+	req->ndm.ndm_family = AF_BRIDGE;
+	req->ndm.ndm_ifindex = srl2_ifindex;
+	req->ndm.ndm_flags = flags;
+	req->ndm.ndm_state = state;
+
+	if (!nl_attr_put(&req->n, datalen, NDA_PROTOCOL, &protocol, sizeof(protocol)))
+		return 0;
+	if (!nl_attr_put(&req->n, datalen, NDA_LLADDR, mac->octet, ETH_ALEN))
+		return 0;
+
+	vid = dplane_ctx_mac_get_vlan(ctx);
+	if (vid > 0)
+		if (!nl_attr_put16(&req->n, datalen, NDA_VLAN, vid))
+			return 0;
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
 #endif /* HAVE_NETLINK */
