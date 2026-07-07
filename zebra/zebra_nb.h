@@ -49,6 +49,16 @@ int zebra_import_kernel_table_route_map_destroy(
 int zebra_allow_external_route_update_create(struct nb_cb_create_args *args);
 int zebra_allow_external_route_update_destroy(struct nb_cb_destroy_args *args);
 int zebra_dplane_queue_limit_modify(struct nb_cb_modify_args *args);
+int zebra_nexthop_group_resilience_create(struct nb_cb_create_args *args);
+int zebra_nexthop_group_resilience_destroy(struct nb_cb_destroy_args *args);
+void zebra_nexthop_group_resilience_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+int zebra_nexthop_group_resilience_buckets_modify(
+	struct nb_cb_modify_args *args);
+int zebra_nexthop_group_resilience_idle_timer_modify(
+	struct nb_cb_modify_args *args);
+int zebra_nexthop_group_resilience_unbalanced_timer_modify(
+	struct nb_cb_modify_args *args);
 #if HAVE_BFDD == 0
 int zebra_ptm_enable_modify(struct nb_cb_modify_args *args);
 #endif

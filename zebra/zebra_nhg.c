@@ -712,6 +712,15 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	struct nhg_hash_entry *newnhe, *backup_nhe;
 	struct nexthop *nh = NULL;
 
+	/*
+	 * Apply the global resilience to zebra-owned multipath groups, before
+	 * the lookup since resilience is part of the hash key. Skip dataplane
+	 * and proto-owned groups, and never override existing resilience.
+	 */
+	if (!from_dplane && lookup->id < ZEBRA_NHG_PROTO_LOWER &&
+	    zrouter.nhg_resilience.buckets && lookup->nhg.nhgr.buckets == 0 &&
+	    (nhg_depends || (lookup->nhg.nexthop && lookup->nhg.nexthop->next)))
+		lookup->nhg.nhgr = zrouter.nhg_resilience;
 
 	if (lookup->id)
 		(*nhe) = zebra_nhg_lookup_id(lookup->id);
@@ -3796,6 +3805,15 @@ void zebra_nhg_set_proto_nexthops_only(bool set)
 bool zebra_nhg_proto_nexthops_only(void)
 {
 	return proto_nexthops_only;
+}
+
+/* Global control to make zebra-created multipath groups resilient. */
+void zebra_nhg_set_resilience(uint16_t buckets, uint32_t idle_timer,
+			      uint32_t unbalanced_timer)
+{
+	zrouter.nhg_resilience.buckets = buckets;
+	zrouter.nhg_resilience.idle_timer = idle_timer;
+	zrouter.nhg_resilience.unbalanced_timer = unbalanced_timer;
 }
 
 /* Add NHE from upper level proto */

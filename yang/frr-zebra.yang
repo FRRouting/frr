@@ -3171,6 +3171,47 @@ module frr-zebra {
       description
         "Limit on the number of updates queued to the dataplane subsystem.";
     }
+    container nexthop-group {
+      description
+        "Global nexthop group configuration.";
+      container resilience {
+        presence
+          "Create every zebra-owned multipath nexthop group as a
+           resilient nexthop group using the parameters below. A
+           nexthop group that an upper level protocol has already
+           configured as resilient is left unchanged.";
+        description
+          "Resilient hashing parameters applied to every zebra-owned
+           multipath nexthop group.";
+        leaf buckets {
+          type uint16 {
+            range "1..256";
+          }
+          mandatory true;
+          description
+            "Number of buckets in the resilient hash for each group.";
+        }
+        leaf idle-timer {
+          type uint32 {
+            range "1..4294967295";
+          }
+          units "seconds";
+          mandatory true;
+          description
+            "The idle timer for each resilient nexthop group, in seconds.";
+        }
+        leaf unbalanced-timer {
+          type uint32 {
+            range "1..4294967295";
+          }
+          units "seconds";
+          mandatory true;
+          description
+            "The length of time that the nexthop group can be
+             unbalanced, in seconds.";
+        }
+      }
+    }
     leaf ptm-enable {
       if-feature ptm-bfd;
       type boolean;
