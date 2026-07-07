@@ -344,7 +344,8 @@ kif_redistribute(const char *ifname)
 
 		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
-			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
+			if (if_is_operative(ifp))
+				main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
 	}
 }
@@ -455,7 +456,8 @@ ldp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	    log_addr(ka.af, &ka.addr), ka.prefixlen, ifp->name);
 
 	/* notify ldpe about new address */
-	main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
+	if (if_is_operative(ifp))
+	    main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 
 	return (0);
 }
