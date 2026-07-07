@@ -33,6 +33,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import kill_router_daemons, start_router_daemons
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -545,6 +546,100 @@ def check_one_es(dut, esi, down_vteps):
     return result
 
 
+def parse_es_detail(output):
+    sections = {}
+    esi = None
+
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        if line.startswith("ESI:"):
+            esi = line.split(":", 1)[1].strip()
+            sections[esi] = {}
+            continue
+
+        if esi and ":" in line:
+            key, value = line.split(":", 1)
+            sections[esi][key.strip()] = value.strip()
+
+    return sections
+
+
+def check_local_es_evi_count(dut, expected_esis):
+    zebra_es = parse_es_detail(dut.vtysh_cmd("show evpn es detail"))
+    bgp_es = {
+        es["esi"]: es
+        for es in json.loads(dut.vtysh_cmd("show bgp l2vpn evpn es detail json"))
+    }
+
+    for esi in expected_esis:
+        zebra_detail = zebra_es.get(esi)
+        if zebra_detail is None:
+            return "zebra missing local ES %s" % esi
+
+        zebra_type = zebra_detail.get("Type", "")
+        if "Local" not in zebra_type:
+            return "zebra ES %s is not local: %s" % (esi, zebra_type)
+
+        ready = zebra_detail.get("Ready for BGP", "")
+        if ready != "yes":
+            return "zebra ES %s is not ready for BGP: %s" % (esi, ready)
+
+        zebra_vni_count = int(zebra_detail.get("VNI Count", "0"))
+        if zebra_vni_count == 0:
+            return "zebra ES %s has zero VNI count" % esi
+
+        bgp_detail = bgp_es.get(esi)
+        if bgp_detail is None:
+            return "bgpd missing local ES %s" % esi
+
+        bgp_type = bgp_detail.get("type", [])
+        if "local" not in bgp_type:
+            return "bgpd ES %s is not local: %s" % (esi, bgp_type)
+
+        bgp_vni_count = bgp_detail.get("vniCount", 0)
+        if bgp_vni_count != zebra_vni_count:
+            return (
+                "ES %s VNI count mismatch: zebra %s bgpd %s"
+                % (esi, zebra_vni_count, bgp_vni_count)
+            )
+
+        bgp_rd = bgp_detail.get("rd")
+        local_frag = None
+        for frag in bgp_detail.get("fragments", []):
+            if frag.get("rd") == bgp_rd:
+                local_frag = frag
+                break
+
+        if local_frag is None:
+            return "bgpd ES %s missing local fragment %s" % (esi, bgp_rd)
+
+        bgp_evi_count = local_frag.get("eviCount", 0)
+        if bgp_evi_count != zebra_vni_count:
+            return (
+                "ES %s local EVI count mismatch: zebra VNI %s bgpd local EVI %s"
+                % (esi, zebra_vni_count, bgp_evi_count)
+            )
+
+    return None
+
+
+def check_type1_routes(peer, origin_name, expected_esis):
+    origin_vtep = tor_ips[origin_name]
+    out = peer.vtysh_cmd("show bgp l2vpn evpn route type 1")
+
+    if origin_vtep not in out:
+        return "%s type-1 routes missing origin VTEP %s" % (peer.name, origin_vtep)
+
+    for esi in expected_esis:
+        if esi not in out:
+            return "%s type-1 routes missing ESI %s" % (peer.name, esi)
+
+    return None
+
+
 def test_evpn_es():
     """
     Two ES are setup on each rack. This test checks if -
@@ -565,6 +660,54 @@ def test_evpn_es():
     assertmsg = '"{}" ES content incorrect'.format(dut_name)
     assert result is None, assertmsg
     # tgen.mininet_cli()
+
+
+def test_evpn_mh_bgpd_restart_replays_local_es_evi():
+    """
+    Restart bgpd on one ToR and verify zebra's replay restores local ES-EVI
+    state after the L2VNI exists in bgpd.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut_name = "torm11"
+    dut = tgen.gears[dut_name]
+    peer = tgen.gears["torm12"]
+    local_esis = [host_es_map["hostd11"], host_es_map["hostd12"]]
+
+    test_fn = partial(check_local_es_evi_count, dut, local_esis)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = '"{}" local ES-EVI count incorrect before bgpd restart'.format(
+        dut_name
+    )
+    assert result is None, assertmsg
+
+    test_fn = partial(check_type1_routes, peer, dut_name, local_esis)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = '"{}" did not advertise Type-1/EAD before bgpd restart'.format(
+        dut_name
+    )
+    assert result is None, assertmsg
+
+    kill_router_daemons(tgen, dut_name, ["bgpd"])
+    start_router_daemons(tgen, dut_name, ["bgpd"])
+
+    test_fn = partial(check_local_es_evi_count, dut, local_esis)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+    assertmsg = (
+        '"{}" bgpd did not recover local ES-EVI count after restart: {}'
+    ).format(dut_name, result)
+    assert result is None, assertmsg
+
+    test_fn = partial(check_type1_routes, peer, dut_name, local_esis)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+    assertmsg = '"{}" Type-1 routes missing after bgpd restart: {}'.format(
+        dut_name, result
+    )
+    assert result is None, assertmsg
 
 
 def test_evpn_ead_update():
