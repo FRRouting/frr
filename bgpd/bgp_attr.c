@@ -3521,6 +3521,7 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	uint8_t type;
 	uint16_t length;
 	size_t headersz = sizeof(type) + sizeof(length);
+	size_t tlv_total_len;
 	size_t psid_parsed_length = 0;
 
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
@@ -3539,6 +3540,7 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 				args->total);
 		}
 
+<<<<<<< HEAD
 		type = stream_getc(peer->curr);
 		length = stream_getw(peer->curr);
 
@@ -3547,27 +3549,28 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 				EC_BGP_ATTR_LEN,
 				"Malformed Prefix SID attribute - insufficient data (need %hu for attribute body, have %zu remaining in UPDATE)",
 				length, STREAM_READABLE(peer->curr));
+=======
+		type = stream_getc(connection->curr);
+		length = stream_getw(connection->curr);
+		tlv_total_len = headersz + length;
+
+		if ((tlv_total_len + psid_parsed_length > (size_t)args->length) ||
+		    STREAM_READABLE(connection->curr) < length) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Malformed Prefix SID attribute - insufficient data (need %hu for attribute body, have %zu remaining in UPDATE)",
+				 length, STREAM_READABLE(connection->curr));
+>>>>>>> 07ba73a08 (bgpd: Move Prefix-SID TLV length accounting)
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 						  args->total);
 		}
 
+		psid_parsed_length += tlv_total_len;
+
 		ret = bgp_attr_psid_sub(type, length, args);
 
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			return ret;
-
-		psid_parsed_length += length + headersz;
-
-		if (psid_parsed_length > args->length) {
-			flog_err(
-				EC_BGP_ATTR_LEN,
-				"Malformed Prefix SID attribute - TLV overflow by attribute (need %zu for TLV length, have %zu overflowed in UPDATE)",
-				length + headersz, psid_parsed_length - (length + headersz));
-			return bgp_attr_malformed(
-				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-				args->total);
-		}
 	}
 
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
