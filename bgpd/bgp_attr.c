@@ -3840,6 +3840,7 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	size_t headersz = sizeof(type) + sizeof(length);
 	size_t tlv_total_len;
 	size_t psid_parsed_length = 0;
+	bool srv6_l3_service_tlv_seen = false;
 
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto prefix_sid_ignore;
@@ -3869,6 +3870,19 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 		}
 
 		psid_parsed_length += tlv_total_len;
+
+		if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
+			if (srv6_l3_service_tlv_seen) {
+				/*
+				 * RFC 9252 Section 7: ignore all but the first
+				 * SRv6 L3 Service TLV instance.
+				 */
+				stream_forward_getp(connection->curr, length);
+				continue;
+			}
+
+			srv6_l3_service_tlv_seen = true;
+		}
 
 		ret = bgp_attr_psid_sub(type, length, args);
 
