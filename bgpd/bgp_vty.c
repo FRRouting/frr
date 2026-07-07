@@ -11336,11 +11336,17 @@ DEFPY (af_rt_vpn_imexport,
 						&bgp->vpn_policy[afi].rtlist[dir]);
 			bgp->vpn_policy[afi].rtlist[dir] =
 				ecommunity_dup(ecom);
+			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
+				SET_FLAG(bgp->vpn_policy[afi].flags,
+					 BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
 		} else {
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);
 			bgp->vpn_policy[afi].rtlist[dir] = NULL;
+			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
+				UNSET_FLAG(bgp->vpn_policy[afi].flags,
+					   BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
 		}
 
 		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
