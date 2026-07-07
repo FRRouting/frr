@@ -1877,6 +1877,19 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 			rb_find_or_add_host(&nh->host_rb, host_prefix);
 			return 0;
 		}
+
+		/*
+		 * The VTEP-IP is advertising a different RMAC.  If this VTEP
+		 * serves multiple L3VNIs/VRFs, the per-VTEP kernel neighbor
+		 * entry can only hold one RMAC, so this update may overwrite
+		 * the RMAC installed by another VRF, blackholing its traffic.
+		 * Warn so the operator can investigate; a single shared system
+		 * MAC per VTEP avoids this entirely.
+		 */
+		flog_warn(EC_ZEBRA_EVPN_RMAC_CONFLICT,
+			  "L3VNI %u: VTEP %pIA changed RMAC (old %pEA, new %pEA) for prefix %pFX; if this VTEP serves multiple L3VNIs/VRFs, the per-VTEP kernel neighbor entry can only hold one RMAC and traffic for other VRF(s) may be blackholed. Use a single shared system MAC per VTEP.",
+			  zl3vni->vni, vtep_ip, &nh->emac, rmac, host_prefix);
+
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"L3VNI %u RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX",
@@ -1941,6 +1954,17 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 	} else if (memcmp(&nh->emac, rmac, ETH_ALEN) != 0) {
 		if (is_zero_mac(rmac))
 			return 0;
+
+		/*
+		 * The same VTEP-IP is advertising a different RMAC for a
+		 * different L3VNI/VRF.  The SVD neighbor table is also keyed
+		 * by VTEP-IP and can only hold a single RMAC per VTEP-IP.
+		 * Warn so the operator knows to use a single shared system
+		 * MAC per VTEP.
+		 */
+		flog_warn(EC_ZEBRA_EVPN_RMAC_CONFLICT,
+			  "SVD L3VNI %u: VTEP %pIA advertised conflicting RMAC (old %pEA, new %pEA) for prefix %pFX; per-VTEP neighbor table can only store one RMAC, cross-VRF routed traffic may be blackholed. Use a single shared system MAC per VTEP.",
+			  zl3vni->vni, vtep_ip, &nh->emac, rmac, host_prefix);
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX refcnt %u",

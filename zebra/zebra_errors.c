@@ -806,6 +806,12 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion = "Ignore this error.",
 	},
 	{
+		.code = EC_ZEBRA_EVPN_RMAC_CONFLICT,
+		.title = "EVPN remote RMAC conflict for VTEP",
+		.description = "A remote VTEP advertised conflicting router-MACs (RMACs) for different L3VNIs/VRFs. Zebra's per-VTEP neighbor table can only store a single RMAC per VTEP-IP, so the last-received RMAC overwrites the previous one. Cross-VTEP routed traffic for the affected VRF(s) may be silently blackholed.",
+		.suggestion = "Configure a single shared system MAC address on all L3VNI SVIs (bridge devices) on the advertising VTEP. Using per-VRF SVI MACs on the same VTEP is not supported with symmetric IRB.",
+	},
+	{
 		.code = EC_ZEBRA_FPM_ENCODE_FAIL,
 		.title = "FPM message encoding failed",
 		.description = "Zebra FPM module failed to encode netlink message for forwarding plane (route multipath, MAC FDB, nexthop, LSP, or prefix encoding)",
