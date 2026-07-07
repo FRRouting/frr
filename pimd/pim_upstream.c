@@ -1096,10 +1096,14 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		 * In FHR pimreg interface is needed all the time
 		 * inorder to send register packets.
 		 * Only for ASM (Any Source Multicast) groups, NOT for SSM or Dense mode.
+		 *
+		 * pimreg addition to channel_oil is not valid in non-DR
+		 * cases; handle the same by pim_upstream_could_register()
+		 * check.
 		 */
 		if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) && up->reg_state == PIM_REG_NOINFO &&
 		    pim->regiface->configured && !pim_is_grp_ssm(pim, up->sg.grp) &&
-		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags)) {
+		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) && pim_upstream_could_register(up)) {
 			pim_channel_add_oif(up->channel_oil, pim->regiface, PIM_OIF_FLAG_PROTO_PIM,
 					    __func__);
 		}
