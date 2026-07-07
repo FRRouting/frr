@@ -954,6 +954,43 @@ static struct test_segment mp_prefix_sid[] = {
 		.len = 21,
 		.parses = SHOULD_PARSE,
 	},
+	{
+		.name = "PREFIX-SID-SRv6-L3-Service-duplicate",
+		.desc = "PREFIX-SID ignores duplicate SRv6 L3 Service TLVs",
+		.data = {
+			/* TLV[0] SRv6 L3 Service TLV */
+			0x05,       /* Type 0x05: SRv6 L3 Service */
+			0x00, 0x19, /* Length */
+			0x00,       /* Reserved */
+			0x01,       /* Sub-TLV type: SID Information */
+			0x00, 0x15, /* Sub-TLV length */
+			0x00,       /* Reserved */
+			0xfc, 0xbb, 0xbb, 0xbb, /* SID fcbb:bbbb:1:e000:: */
+			0x00, 0x01, 0xe0, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00,       /* SID flags */
+			0x00, 0x40, /* Endpoint behavior */
+			0x00,       /* Reserved */
+
+			/* TLV[1] duplicate SRv6 L3 Service TLV */
+			0x05,       /* Type 0x05: SRv6 L3 Service */
+			0x00, 0x19, /* Length */
+			0x00,       /* Reserved */
+			0x01,       /* Sub-TLV type: SID Information */
+			0x00, 0x15, /* Sub-TLV length */
+			0x00,       /* Reserved */
+			0xfc, 0xbb, 0xbb, 0xbb, /* SID fcbb:bbbb:1:e001:: */
+			0x00, 0x01, 0xe0, 0x01,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00,       /* SID flags */
+			0x00, 0x3e, /* Endpoint behavior */
+			0x00,       /* Reserved */
+		},
+		.len = 56,
+		.parses = SHOULD_PARSE,
+	},
 	{NULL, NULL, { 0 }, 0, 0},
 };
 
@@ -1048,6 +1085,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, true);
 	}
 	handle_result(peer, t, parse_ret, nlri_ret);
+	bgp_attr_unintern_sub(&attr);
 }
 
 static struct bgp *bgp;
