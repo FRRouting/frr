@@ -52,6 +52,7 @@
 #include "bgpd/bgp_unreach.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_crypto_routes.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -333,6 +334,9 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
 	case SAFI_UNREACH:
 		return bgp_nlri_parse_unreach(peer, attr, packet, mp_withdraw);
+	case SAFI_CRYPTO_ROUTES:
+		return bgp_nlri_parse_crypto_routes(peer, attr, packet,
+						    mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
@@ -2221,6 +2225,10 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 			peer->afc[AFI_L2VPN][SAFI_EVPN];
 		peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC] =
 			peer->afc[AFI_IP6][SAFI_FLOWSPEC];
+		peer->afc_nego[AFI_IP][SAFI_CRYPTO_ROUTES] =
+			peer->afc[AFI_IP][SAFI_CRYPTO_ROUTES];
+		peer->afc_nego[AFI_IP6][SAFI_CRYPTO_ROUTES] =
+			peer->afc[AFI_IP6][SAFI_CRYPTO_ROUTES];
 	}
 
 	/* Verify valid local address present based on negotiated

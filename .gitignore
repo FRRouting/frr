@@ -119,3 +119,4 @@ refix
 pceplib/test/*.log
 pceplib/test/*.trs
 /tests/topotests/lib/mgmt_pb2.py
+.DS_Store

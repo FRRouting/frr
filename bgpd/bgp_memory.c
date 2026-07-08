@@ -145,3 +145,17 @@ DEFINE_MTYPE(BGPD, BGP_NHC, "BGP NHC");
 DEFINE_MTYPE(BGPD, BGP_NHC_TLV, "BGP NHC TLV");
 DEFINE_MTYPE(BGPD, BGP_NHC_TLV_VAL, "BGP NHC TLV value");
 DEFINE_MTYPE(BGPD, BGP_BP_INSTALL_NODE, "BGP BP install node");
+
+/*
+ * crypto-routes: Phase 1 additions.
+ *
+ * BGP_ROUTE_EXTRA_CRYPTO: allocated per received SAFI_CRYPTO_ROUTES path
+ * to hold the decoded Crypto Signature TLV fields and the verification
+ * result (sig_state).  NULL for all other SAFIs — zero overhead.
+ *
+ * BGP_CRYPTO_PUBKEY: one entry per operator-provisioned public key in the
+ * global key cache (bgp_crypto_key_cache).  Each entry holds an EVP_PKEY*
+ * and the ASN it is authorised for.
+ */
+DEFINE_MTYPE(BGPD, BGP_ROUTE_EXTRA_CRYPTO, "BGP extra info for crypto-routes");
+DEFINE_MTYPE(BGPD, BGP_CRYPTO_PUBKEY, "BGP crypto-routes public key entry");

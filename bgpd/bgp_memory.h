@@ -147,4 +147,12 @@ DECLARE_MTYPE(BGP_BP_INSTALL_NODE);
 
 DECLARE_MTYPE(CLEARING_BATCH);
 
+/*
+ * crypto-routes: Phase 1 additions.
+ * BGP_ROUTE_EXTRA_CRYPTO: per-path bgp_path_info_extra_crypto structs.
+ * BGP_CRYPTO_PUBKEY:      key-cache entries (bgp_crypto_pubkey_entry).
+ */
+DECLARE_MTYPE(BGP_ROUTE_EXTRA_CRYPTO);
+DECLARE_MTYPE(BGP_CRYPTO_PUBKEY);
+
 #endif /* _QUAGGA_BGP_MEMORY_H */

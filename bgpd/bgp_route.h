@@ -280,6 +280,20 @@ struct bgp_path_info_extra {
 	/* For vrf leaking*/
 	struct bgp_path_info_extra_vrfleak *vrfleak;
 
+	/*
+	 * SAFI_CRYPTO_ROUTES per-path signature metadata.
+	 *
+	 * NULL for all non-crypto-routes paths — no memory overhead for
+	 * existing SAFIs.  Lazily allocated in bgp_nlri_parse_crypto_routes()
+	 * when a SAFI=200 NLRI is received and freed in
+	 * bgp_path_info_extra_free().
+	 *
+	 * Phase 1: contains decoded TLV fields (key_id, sig, seq_no) and
+	 * the verification result (sig_state).  Only paths with
+	 * sig_state == BGP_CRYPTO_SIG_VERIFIED are installed into the FIB.
+	 */
+	struct bgp_path_info_extra_crypto *crypto;
+
 	/* SR-TE Color (set by route-map 'set sr-te color' or derived from
 	 * the Color Extended Community via bgp_path_info_get_srte_color()).
 	 */

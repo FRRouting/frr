@@ -183,9 +183,10 @@ typedef enum {
 	SAFI_EVPN = 5,
 	SAFI_LABELED_UNICAST = 6,
 	SAFI_FLOWSPEC = 7,
-	SAFI_BGP_LS = 8, /* BGP-LS (RFC 9552) */
+	SAFI_BGP_LS = 8,   /* BGP-LS (RFC 9552) */
 	SAFI_UNREACH = 9,
-	SAFI_MAX = 10
+	SAFI_CRYPTO_ROUTES = 10, /* Crypto-Routes: BGP-advertised cryptographically-authenticated prefix SAFI */
+	SAFI_MAX = 11
 } safi_t;
 
 #define FOREACH_AFI_SAFI(afi, safi)                                            \

@@ -50,6 +50,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_unreach.h"
+#include "bgpd/bgp_crypto_routes.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -4923,6 +4924,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	switch (nh_afi) {
 	case AFI_IP:
 		switch (safi) {
+		case SAFI_CRYPTO_ROUTES:
+			/* crypto_routes uses a standard 4-byte IPv4 nexthop */
+			fallthrough;
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4973,6 +4977,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		break;
 	case AFI_IP6:
 		switch (safi) {
+		case SAFI_CRYPTO_ROUTES:
+			/* crypto_routes uses a standard 16/32-byte IPv6 nexthop */
+			fallthrough;
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -5299,6 +5306,16 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const st
 	case SAFI_MULTICAST:
 		bgp_attr_stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
 		break;
+	case SAFI_CRYPTO_ROUTES:
+		/*
+		 * Crypto-routes NLRI = standard prefix bytes followed by
+		 * the Crypto-SIG TLV trailer (type 0xCE | key_id | algo |
+		 * sig_len | sig | seq_no).  The prefix portion is identical
+		 * to SAFI_UNICAST; the trailer is appended by the helper.
+		 */
+		bgp_attr_stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
+		bgp_crypto_routes_encode_nlri_trailer(s, path);
+		break;
 	case SAFI_ENCAP:
 		assert(!"Please add proper encoding of SAFI_ENCAP");
 		break;
@@ -5317,6 +5334,16 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		break;
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
+		break;
+	case SAFI_CRYPTO_ROUTES:
+		/*
+		 * Reserve headroom for the Crypto-SIG TLV trailer.
+		 * BGP_CRYPTO_SIG_TLV_MAX_SIZE = 1(type) + 4(key_id) +
+		 * 1(algo) + 2(sig_len) + 72(P-256 DER sig) + 4(seq_no) = 84
+		 * bytes.  Under-estimating here would cause a stream-overflow
+		 * assert in bgp_packet_mpattr_prefix().
+		 */
+		size += BGP_CRYPTO_SIG_TLV_MAX_SIZE;
 		break;
 	case SAFI_MPLS_VPN:
 		size += 88;

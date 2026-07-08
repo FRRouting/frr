@@ -72,6 +72,7 @@
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_crypto_routes.h"
 
 extern struct host host;
 
@@ -186,6 +187,8 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_FLOWSPECV4_NODE;
 		case SAFI_UNREACH:
 			return BGP_IPV4U_NODE;
+		case SAFI_CRYPTO_ROUTES:
+			return BGP_CRYPTO_ROUTES_NODE;
 		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
@@ -209,6 +212,8 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_FLOWSPECV6_NODE;
 		case SAFI_UNREACH:
 			return BGP_IPV6U_NODE;
+		case SAFI_CRYPTO_ROUTES:
+			return BGP_CRYPTO_ROUTES_NODE;
 		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
@@ -249,6 +254,8 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 			return "IPv4 Flowspec";
 		if (safi == SAFI_UNREACH)
 			return "IPv4 Unreachability";
+		if (safi == SAFI_CRYPTO_ROUTES)
+			return "IPv4 Crypto-Routes";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "IPv6 Unicast";
@@ -264,6 +271,8 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 			return "IPv6 Flowspec";
 		if (safi == SAFI_UNREACH)
 			return "IPv6 Unreachability";
+		if (safi == SAFI_CRYPTO_ROUTES)
+			return "IPv6 Crypto-Routes";
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			return "L2VPN EVPN";
@@ -298,6 +307,8 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 			return "ipv4Flowspec";
 		if (safi == SAFI_UNREACH)
 			return "ipv4Unreachability";
+		if (safi == SAFI_CRYPTO_ROUTES)
+			return "ipv4CryptoRoutes";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "ipv6Unicast";
@@ -313,6 +324,8 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 			return "ipv6Flowspec";
 		if (safi == SAFI_UNREACH)
 			return "ipv6Unreachability";
+		if (safi == SAFI_CRYPTO_ROUTES)
+			return "ipv6CryptoRoutes";
 	} else if (afi == AFI_L2VPN) {
 		if (safi == SAFI_EVPN)
 			return "l2VpnEvpn";
@@ -478,6 +491,15 @@ afi_t bgp_node_afi(struct vty *vty)
 	case BGP_LS_NODE:
 		afi = AFI_BGP_LS;
 		break;
+	case BGP_CRYPTO_ROUTES_NODE:
+		/*
+		 * Both "address-family crypto-routes" (IPv4) and
+		 * "address-family ipv6 crypto-routes" share the same node.
+		 * The entry commands store the actual AFI in vty->xpath_index
+		 * so we can recover it here without a separate node per AFI.
+		 */
+		afi = (afi_t)vty->xpath_index;
+		break;
 	default:
 		afi = AFI_IP;
 		break;
@@ -516,6 +538,9 @@ safi_t bgp_node_safi(struct vty *vty)
 	case BGP_IPV4U_NODE:
 	case BGP_IPV6U_NODE:
 		safi = SAFI_UNREACH;
+		break;
+	case BGP_CRYPTO_ROUTES_NODE:
+		safi = SAFI_CRYPTO_ROUTES;
 		break;
 	default:
 		safi = SAFI_UNICAST;
@@ -565,7 +590,7 @@ int argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index,
 	return ret;
 }
 
-/* supports <unicast|multicast|vpn|labeled-unicast> */
+/* supports <unicast|multicast|vpn|labeled-unicast|flowspec|crypto-routes> */
 safi_t bgp_vty_safi_from_str(const char *safi_str)
 {
 	safi_t safi = SAFI_MAX; /* unknown */
@@ -583,6 +608,8 @@ safi_t bgp_vty_safi_from_str(const char *safi_str)
 		safi = SAFI_FLOWSPEC;
 	else if (strmatch(safi_str, "unreachability"))
 		safi = SAFI_UNREACH;
+	else if (strmatch(safi_str, "crypto-routes"))
+		safi = SAFI_CRYPTO_ROUTES;
 	return safi;
 }
 
@@ -618,6 +645,10 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (safi)
 			*safi = SAFI_UNREACH;
+	} else if (argv_find(argv, argc, "crypto-routes", index)) {
+		ret = 1;
+		if (safi)
+			*safi = SAFI_CRYPTO_ROUTES;
 	}
 	return ret;
 }
@@ -657,6 +688,8 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv4-bgp-ls";
 		case SAFI_UNREACH:
 			return "ipv4-unreachability";
+		case SAFI_CRYPTO_ROUTES:
+			return "ipv4-crypto-routes";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -681,6 +714,8 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv6-bgp-ls";
 		case SAFI_UNREACH:
 			return "ipv6-unreachability";
+		case SAFI_CRYPTO_ROUTES:
+			return "ipv6-crypto-routes";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -699,6 +734,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_LABELED_UNICAST:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
@@ -716,6 +752,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_FLOWSPEC:
 		case SAFI_EVPN:
 		case SAFI_UNREACH:
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
@@ -11835,6 +11872,226 @@ DEFUN_NOSH(address_family_link_state,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH(address_family_crypto_routes,
+	address_family_crypto_routes_cmd,
+	"address-family ipv4 crypto-routes",
+	"Enter Address Family command mode\n"
+	"IPv4 Address Family\n"
+	"Crypto-Routes: cryptographically-authenticated BGP prefix SAFI\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	/*
+	 * Store the AFI on the vty context so bgp_node_afi() can distinguish
+	 * between the IPv4 and IPv6 variants of this shared node.
+	 */
+	vty->xpath_index = AFI_IP; /* reuse xpath_index as afi hint */
+	vty->node = BGP_CRYPTO_ROUTES_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH(address_family_crypto_routes_ipv6,
+	address_family_crypto_routes_ipv6_cmd,
+	"address-family ipv6 crypto-routes",
+	"Enter Address Family command mode\n"
+	"IPv6 Address Family\n"
+	"Crypto-Routes: cryptographically-authenticated BGP prefix SAFI\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	vty->xpath_index = AFI_IP6; /* reuse xpath_index as afi hint */
+	vty->node = BGP_CRYPTO_ROUTES_NODE;
+	return CMD_SUCCESS;
+}
+
+/*
+ * bgp crypto-routes pubkey <asn> <pem-path>
+ *
+ * Load an ECDSA P-256 public key from a PEM file into the crypto-routes key
+ * cache.  The key is indexed by the 4-byte SHA-256 truncation of its DER
+ * encoding (key_id).  Only prefixes signed by this key AND originating from
+ * <asn> will pass verification.
+ *
+ * This command is the sole operator interface for Method 1 (static) key
+ * provisioning.  It is idempotent: re-issuing it with the same ASN replaces
+ * the key and re-verifies all SIG_NO_PUBKEY paths for that key-id.
+ *
+ * Reasoning: placing the command under BGP_CRYPTO_ROUTES_NODE keeps it
+ * inside the address-family block, which is consistent with how other
+ * SAFI-specific configuration (e.g. bgp-ls instance-id, flowspec rule)
+ * is scoped in FRR.
+ */
+DEFUN(bgp_crypto_pubkey,
+      bgp_crypto_pubkey_cmd,
+      "bgp crypto-routes pubkey (1-4294967295) FILENAME",
+      BGP_STR
+      "Crypto-Routes address family configuration\n"
+      "Provision a public key for signature verification\n"
+      "Origin AS number whose prefixes this key authenticates\n"
+      "Path to PEM-encoded public key file (SubjectPublicKeyInfo format)\n")
+{
+	int idx_asn = 3;
+	int idx_path = 4;
+	as_t asn;
+	uint32_t key_id;
+	int rc;
+
+	asn = strtoul(argv[idx_asn]->arg, NULL, 10);
+	if (asn == 0 || asn > 4294967295UL) {
+		vty_out(vty, "%% Invalid AS number '%s'\n",
+			argv[idx_asn]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	rc = bgp_crypto_pubkey_load(asn, argv[idx_path]->arg, &key_id);
+	switch (rc) {
+	case 0:
+		vty_out(vty,
+			"Key loaded for AS%u from '%s' (key-id 0x%08X)\n",
+			asn, argv[idx_path]->arg, key_id);
+		return CMD_SUCCESS;
+	case -2:
+		vty_out(vty,
+			"%% key-id collision: this key-id is already registered for a different AS\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	default:
+		vty_out(vty,
+			"%% Failed to load public key from '%s' — check file path and PEM format\n",
+			argv[idx_path]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+}
+
+DEFUN(no_bgp_crypto_pubkey,
+      no_bgp_crypto_pubkey_cmd,
+      "no bgp crypto-routes pubkey (1-4294967295)",
+      NO_STR
+      BGP_STR
+      "Crypto-Routes address family configuration\n"
+      "Remove a provisioned public key\n"
+      "Origin AS number of the key to remove\n")
+{
+	int idx_asn = 4;
+	as_t asn;
+
+	asn = strtoul(argv[idx_asn]->arg, NULL, 10);
+
+	if (bgp_crypto_pubkey_unload(asn) != 0) {
+		vty_out(vty, "%% No public key registered for AS%u\n", asn);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	vty_out(vty, "Removed public key for AS%u\n", asn);
+	return CMD_SUCCESS;
+}
+
+/*
+ * show bgp ipv4 crypto-routes
+ * show bgp ipv6 crypto-routes
+ *
+ * Display the Loc-RIB for SAFI_CRYPTO_ROUTES with per-prefix signature state.
+ * The [detail] option adds key_id, algo, and sig_len per path.
+ *
+ * Reasoning: operators MUST be able to see which prefixes are VERIFIED vs
+ * INVALID vs NO_PUBKEY to diagnose mis-configuration and security events.
+ */
+DEFUN(show_bgp_crypto_routes,
+      show_bgp_crypto_routes_cmd,
+      "show bgp <ipv4|ipv6> crypto-routes [detail] [json]",
+      SHOW_STR
+      BGP_STR
+      "IPv4 address family\n"
+      "IPv6 address family\n"
+      "Crypto-Routes SAFI\n"
+      "Show detailed per-path TLV information\n"
+      JSON_STR)
+{
+	int idx_afi = 2;
+	bool detail = false;
+	bool uj = use_json(argc, argv);
+	afi_t afi;
+	struct bgp *bgp;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	json_object *json = NULL;
+
+	afi = strmatch(argv[idx_afi]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+
+	if (argv_find(argv, argc, "detail", &idx_afi))
+		detail = true;
+
+	bgp = bgp_get_default();
+	if (!bgp) {
+		vty_out(vty, "%% No BGP instance found\n");
+		return CMD_WARNING;
+	}
+
+	if (uj)
+		json = json_object_new_object();
+
+	table = bgp->rib[afi][SAFI_CRYPTO_ROUTES];
+	if (!table) {
+		if (!uj)
+			vty_out(vty,
+				"%% No crypto-routes RIB for %s\n",
+				afi == AFI_IP ? "IPv4" : "IPv6");
+		if (json)
+			vty_json(vty, json);
+		return CMD_SUCCESS;
+	}
+
+	if (!uj)
+		vty_out(vty, "BGP %s crypto-routes table\n",
+			afi == AFI_IP ? "IPv4" : "IPv6");
+
+	for (dest = bgp_table_top(table); dest;
+	     dest = bgp_route_next(dest)) {
+		const struct prefix *p = bgp_dest_get_prefix(dest);
+
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+		     pi = pi->next) {
+			const struct bgp_path_info_extra_crypto *crypto =
+				(pi->extra) ? pi->extra->crypto : NULL;
+
+			if (!uj) {
+				vty_out(vty, "  %pFX", p);
+				vty_out(vty, " via %pI4",
+					&pi->attr->nexthop);
+				vty_out(vty, "\n");
+				bgp_crypto_show_path(vty, crypto, detail);
+			}
+		}
+	}
+
+	if (uj)
+		vty_json(vty, json);
+
+	return CMD_SUCCESS;
+}
+
+/*
+ * show bgp crypto-routes pubkeys
+ *
+ * Display all public keys currently loaded in the key cache.
+ */
+DEFUN(show_bgp_crypto_pubkeys,
+      show_bgp_crypto_pubkeys_cmd,
+      "show bgp crypto-routes pubkeys [json]",
+      SHOW_STR
+      BGP_STR
+      "Crypto-Routes SAFI\n"
+      "Show provisioned public keys\n"
+      JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = uj ? json_object_new_object() : NULL;
+
+	bgp_crypto_show_pubkeys(vty, uj, json);
+
+	if (uj)
+		vty_json(vty, json);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (bgp_segment_routing_srv6,
             bgp_segment_routing_srv6_cmd,
             "segment-routing srv6",
@@ -22936,6 +23193,14 @@ static struct cmd_node bgp_ls_node = {
 	.no_xpath = true,
 };
 
+static struct cmd_node bgp_crypto_routes_node = {
+	.name = "bgp crypto-routes",
+	.node = BGP_CRYPTO_ROUTES_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
+};
+
 static void community_list_vty(void);
 
 static void bgp_ac_peergroup(vector comps, struct cmd_token *token)
@@ -23258,6 +23523,7 @@ void bgp_vty_init(void)
 	install_node(&bgp_ipv6_unreachability_node);
 	install_node(&bgp_srv6_node);
 	install_node(&bgp_ls_node);
+	install_node(&bgp_crypto_routes_node);
 
 	/* Install default VTY commands to new nodes.  */
 	install_default(BGP_NODE);
@@ -23277,6 +23543,7 @@ void bgp_vty_init(void)
 	install_default(BGP_EVPN_VNI_NODE);
 	install_default(BGP_SRV6_NODE);
 	install_default(BGP_LS_NODE);
+	install_default(BGP_CRYPTO_ROUTES_NODE);
 
 	/* "global bgp inq-limit command */
 	install_element(CONFIG_NODE, &bgp_inq_limit_cmd);
@@ -23684,6 +23951,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &neighbor_activate_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &neighbor_activate_cmd);
 
 	/* "no neighbor activate" commands. */
 	install_element(BGP_NODE, &no_neighbor_activate_hidden_cmd);
@@ -23701,6 +23969,24 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &no_neighbor_activate_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &no_neighbor_activate_cmd);
+
+	/*
+	 * crypto-routes Phase 3: public key provisioning and show commands.
+	 *
+	 * bgp_crypto_pubkey_cmd / no_bgp_crypto_pubkey_cmd:
+	 *   Operator provisions the originator public key under the
+	 *   address-family crypto-routes block.  Scoped to
+	 *   BGP_CRYPTO_ROUTES_NODE so it cannot be entered outside the AF.
+	 *
+	 * show_bgp_crypto_routes_cmd / show_bgp_crypto_pubkeys_cmd:
+	 *   VIEW_NODE so they are accessible without entering config mode.
+	 */
+	install_element(BGP_CRYPTO_ROUTES_NODE, &bgp_crypto_pubkey_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &no_bgp_crypto_pubkey_cmd);
+
+	install_element(VIEW_NODE, &show_bgp_crypto_routes_cmd);
+	install_element(VIEW_NODE, &show_bgp_crypto_pubkeys_cmd);
 
 	/* "neighbor peer-group" set commands. */
 	install_element(BGP_NODE, &neighbor_set_peer_group_cmd);

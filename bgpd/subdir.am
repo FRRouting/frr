@@ -48,6 +48,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_fsm.c \
 	bgpd/bgp_unreach.c \
 	bgpd/bgp_unreach_vty.c \
+	bgpd/bgp_crypto_routes.c \
 	bgpd/bgp_io.c \
 	bgpd/bgp_keepalives.c \
 	bgpd/bgp_label.c \

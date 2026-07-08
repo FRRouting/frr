@@ -36,10 +36,11 @@ typedef enum {
 	IANA_SAFI_LABELED_UNICAST = 4,
 	IANA_SAFI_ENCAP = 7,
 	IANA_SAFI_EVPN = 70,
-	IANA_SAFI_BGP_LS = 71, /* BGP-LS per RFC 9552 */
+	IANA_SAFI_BGP_LS = 71,           /* BGP-LS per RFC 9552 */
 	IANA_SAFI_UNREACH = 81,
 	IANA_SAFI_MPLS_VPN = 128,
-	IANA_SAFI_FLOWSPEC = 133
+	IANA_SAFI_FLOWSPEC = 133,
+	IANA_SAFI_CRYPTO_ROUTES = 200    /* Crypto-Routes (private/experimental use range) */
 } iana_safi_t;
 
 static inline afi_t afi_iana2int(iana_afi_t afi)
@@ -105,6 +106,8 @@ static inline safi_t safi_iana2int(iana_safi_t safi)
 		return SAFI_FLOWSPEC;
 	case IANA_SAFI_BGP_LS:
 		return SAFI_BGP_LS;
+	case IANA_SAFI_CRYPTO_ROUTES:
+		return SAFI_CRYPTO_ROUTES;
 	case IANA_SAFI_RESERVED:
 		return SAFI_MAX;
 	}
@@ -133,6 +136,8 @@ static inline iana_safi_t safi_int2iana(safi_t safi)
 		return IANA_SAFI_FLOWSPEC;
 	case SAFI_BGP_LS:
 		return IANA_SAFI_BGP_LS;
+	case SAFI_CRYPTO_ROUTES:
+		return IANA_SAFI_CRYPTO_ROUTES;
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return IANA_SAFI_RESERVED;

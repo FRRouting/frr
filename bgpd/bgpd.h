@@ -109,6 +109,21 @@ enum bgp_af_index {
 	BGP_AF_BGP_LS,
 	BGP_AF_IPV4_UNREACH,
 	BGP_AF_IPV6_UNREACH,
+	/*
+	 * crypto-routes: Phase 1 addition.
+	 *
+	 * These two slots are required so that the update-group machinery
+	 * (update_groups[BGP_AF_MAX] in struct bgp) has dedicated entries for
+	 * SAFI_CRYPTO_ROUTES.  Without them, outbound UPDATE batching for this
+	 * SAFI silently has no slot and all crypto-routes advertisements would
+	 * be dropped on the send path.
+	 *
+	 * BGP_AF_MAX increments from 16 to 18; all [AFI_MAX][SAFI_MAX] arrays
+	 * in struct bgp and struct peer automatically gain the new SAFI slot
+	 * via SAFI_CRYPTO_ROUTES=10 / SAFI_MAX=11 in lib/zebra.h.
+	 */
+	BGP_AF_IPV4_CRYPTO_ROUTES,
+	BGP_AF_IPV6_CRYPTO_ROUTES,
 	BGP_AF_MAX
 };
 
@@ -3022,6 +3037,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_BGP_LS;
 		case SAFI_UNREACH:
 			return BGP_AF_IPV4_UNREACH;
+		case SAFI_CRYPTO_ROUTES:
+			return BGP_AF_IPV4_CRYPTO_ROUTES;
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -3046,6 +3063,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_BGP_LS;
 		case SAFI_UNREACH:
 			return BGP_AF_IPV6_UNREACH;
+		case SAFI_CRYPTO_ROUTES:
+			return BGP_AF_IPV6_CRYPTO_ROUTES;
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -3064,6 +3083,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 		case SAFI_ENCAP:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return BGP_AF_MAX;
@@ -3081,6 +3101,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 		case SAFI_EVPN:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return BGP_AF_MAX;
