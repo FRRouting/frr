@@ -7736,11 +7736,13 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 
 		/*
 		 * A previous provider plugin may have asked to skip the
-		 * kernel update.
+		 * kernel update. Route through work_list so the FIFO order
+		 * (and therefore NHG dependency order) is preserved when
+		 * the ctx is forwarded to downstream providers like FPM.
 		 */
 		if (dplane_ctx_is_skip_kernel(ctx)) {
 			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
-			dplane_provider_enqueue_out_ctx(prov, ctx);
+			dplane_ctx_list_add_tail(&work_list, ctx);
 			continue;
 		}
 

@@ -1550,6 +1550,19 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		if (ctx == NULL)
 			break;
 
+		/*
+		 * Skip-kernel ctxs are routed through work_list to preserve
+		 * FIFO ordering for downstream providers. Ride them along in
+		 * the batch's ordered ctx_list without encoding a netlink
+		 * message: curlen/msgcnt stay untouched so batching efficiency
+		 * is preserved, and the ctx is moved to handled_list in its
+		 * correct FIFO position when the batch is drained.
+		 */
+		if (dplane_ctx_is_skip_kernel(ctx)) {
+			dplane_ctx_enqueue_tail(&(batch.ctx_list), ctx);
+			continue;
+		}
+
 		if (batch.zns != NULL
 		    && batch.zns->ns_id != dplane_ctx_get_ns(ctx)->ns_id)
 			nl_batch_send(&batch);
