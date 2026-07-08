@@ -339,24 +339,8 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 	struct srv6_sid_ctx ctx = {};
 
 	/* withdraw srv6 unicast and refresh srv6 unicast sid locator */
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-		if (is_srv6_unicast_enabled(bgp, AFI_IP)) {
-			bgp_srv6_unicast_withdraw(bgp, AFI_IP);
-			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP);
-			/* locator deleted after this call, free the sid */
-			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP].sid);
-			srv6_locator_free(bgp->srv6_unicast[AFI_IP].sid_locator);
-			bgp->srv6_unicast[AFI_IP].sid_locator = NULL;
-		}
-		if (is_srv6_unicast_enabled(bgp, AFI_IP6)) {
-			bgp_srv6_unicast_withdraw(bgp, AFI_IP6);
-			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP6);
-			/* locator deleted after this call, free the sid */
-			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP6].sid);
-			srv6_locator_free(bgp->srv6_unicast[AFI_IP6].sid_locator);
-			bgp->srv6_unicast[AFI_IP6].sid_locator = NULL;
-		}
-	}
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		bgp_srv6_unicast_sids_unset(bgp);
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)

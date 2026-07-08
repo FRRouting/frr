@@ -880,3 +880,24 @@ void bgp_srv6_route_map_update(struct bgp *bgp, afi_t afi, const char *rmap_name
 
 	bgp_srv6_unicast_announce(bgp, afi);
 }
+
+void bgp_srv6_unicast_sids_unset(struct bgp *bgp)
+{
+	/* withdraw srv6 unicast and refresh srv6 unicast sid locator */
+	if (is_srv6_unicast_enabled(bgp, AFI_IP)) {
+		bgp_srv6_unicast_withdraw(bgp, AFI_IP);
+		bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP);
+		/* locator deleted after this call, free the sid */
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP].sid);
+		srv6_locator_free(bgp->srv6_unicast[AFI_IP].sid_locator);
+		bgp->srv6_unicast[AFI_IP].sid_locator = NULL;
+	}
+	if (is_srv6_unicast_enabled(bgp, AFI_IP6)) {
+		bgp_srv6_unicast_withdraw(bgp, AFI_IP6);
+		bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP6);
+		/* locator deleted after this call, free the sid */
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP6].sid);
+		srv6_locator_free(bgp->srv6_unicast[AFI_IP6].sid_locator);
+		bgp->srv6_unicast[AFI_IP6].sid_locator = NULL;
+	}
+}

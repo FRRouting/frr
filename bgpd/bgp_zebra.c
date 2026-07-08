@@ -4377,6 +4377,9 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 		if (!strmatch(tovpn_sid_locator->name, loc->name))
 			continue;
 
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			bgp_srv6_unicast_sids_unset(bgp);
+
 		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator)
 			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
 					   bgp_vrf);
