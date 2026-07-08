@@ -91,5 +91,6 @@ void bgp_srv6_vpn_path_withdraw(struct bgp *bgp, const struct prefix *p, afi_t a
 				struct srv6_locator *locator);
 void bgp_srv6_per_locator_cache_ensure_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc);
 void bgp_srv6_per_locator_cache_vrf_sid_update(struct bgp_srv6_per_locator_cache *bslc);
+void bgp_srv6_route_map_update(struct bgp *bgp, afi_t afi, const char *rmap_name);
 
 #endif /* _BGP_SRV6_H_ */

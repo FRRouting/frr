@@ -5090,6 +5090,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
 		}
 	}
+
+	bgp_srv6_route_map_update(bgp, AFI_IP, rmap_name);
+	bgp_srv6_route_map_update(bgp, AFI_IP6, rmap_name);
 }
 
 static void bgp_route_map_process_update_cb(char *rmap_name)

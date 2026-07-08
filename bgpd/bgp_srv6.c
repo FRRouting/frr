@@ -860,3 +860,17 @@ void bgp_srv6_per_locator_cache_vrf_sid_update(struct bgp_srv6_per_locator_cache
 		XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_zebra_sid_last_sent);
 	bslc->sid_policy.tovpn_zebra_sid_last_sent = tovpn_sid_ls;
 }
+
+void bgp_srv6_route_map_update(struct bgp *bgp, afi_t afi, const char *rmap_name)
+{
+	if (!is_srv6_unicast_enabled(bgp, afi))
+		return;
+
+	if (!bgp->srv6_unicast[afi].rmap_name)
+		return;
+
+	if (!strmatch(bgp->srv6_unicast[afi].rmap_name, rmap_name))
+		return;
+
+	bgp_srv6_unicast_announce(bgp, afi);
+}
