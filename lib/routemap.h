@@ -340,6 +340,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-pim-route-map:ipv6-multicast-group-prefix-list"))
 #define IS_MATCH_MULTICAST_INTERFACE(C) \
 	(strmatch(C, "frr-pim-route-map:multicast-interface"))
+#define IS_MATCH_MULTICAST_SOURCE_INTERFACE(C) \
+	(strmatch(C, "frr-pim-route-map:multicast-source-interface"))
 
 /* Route-map set actions */
 #define IS_SET_IPv4_NH(A)                                                      \
