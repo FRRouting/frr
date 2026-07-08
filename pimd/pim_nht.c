@@ -664,6 +664,39 @@ static void pim_nht_drop_maybe(struct pim_instance *pim, struct pim_nexthop_cach
 	}
 }
 
+void pim_nht_delete_tracked_upstream(struct pim_instance *pim, pim_addr addr,
+				     struct pim_upstream *up)
+{
+	struct pim_nexthop_cache *pnc = NULL;
+	struct pim_nexthop_cache lookup;
+
+	if (!up || pim_addr_is_any(addr))
+		return;
+
+	lookup.addr = addr;
+	pnc = hash_lookup(pim->nht_hash, &lookup);
+	if (!pnc) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug("%s: NHT %pPA(%s) not found for upstream %s; nothing to release",
+				   __func__, &addr, pim->vrf->name, up->sg_str);
+		return;
+	}
+
+	/* Remove the upstream from its old NHT bucket before upstream_addr
+	 * is changed to ANY.
+	 */
+	if (hash_release(pnc->upstream_hash, up)) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug("%s: released upstream %s from NHT %pPA(%s); remaining upstream count:%ld",
+				   __func__, up->sg_str, &addr, pim->vrf->name,
+				   pnc->upstream_hash->count);
+		pim_nht_drop_maybe(pim, pnc);
+	} else if (PIM_DEBUG_PIM_NHT) {
+		zlog_debug("%s: upstream %s not in NHT %pPA(%s) bucket; redundant cleanup",
+			   __func__, up->sg_str, &addr, pim->vrf->name);
+	}
+}
+
 void pim_nht_delete_tracked(struct pim_instance *pim, pim_addr addr, struct pim_upstream *up,
 			    struct rp_info *rp)
 {
@@ -959,7 +992,7 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 	 * RPF nbr is now unreachable the MFC has already been updated
 	 * by pim_rpf_clear
 	 */
-	if (rpf_result == PIM_RPF_CHANGED)
+	if (rpf_result == PIM_RPF_CHANGED && up->channel_oil)
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
 	if (rpf_result == PIM_RPF_CHANGED ||
