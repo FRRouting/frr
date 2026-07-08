@@ -422,7 +422,10 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 
 	ospf_asbr_external_aggregator_init(new);
 
-	SET_FLAG(new->config, OSPF_OPAQUE_CAPABLE);
+	/* Opaque LSA capability is only supported in the default VRF. */
+	if (new->vrf_id == VRF_DEFAULT)
+		SET_FLAG(new->config, OSPF_OPAQUE_CAPABLE);
+
 	ospf_opaque_type11_lsa_init(new);
 
 	QOBJ_REG(new, ospf);
