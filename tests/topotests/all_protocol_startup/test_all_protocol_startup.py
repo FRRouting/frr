@@ -408,22 +408,22 @@ def test_converge_protocols():
         assert failures == 0, "IPv6 Routing table failed for r{}\n{}".format(i, diff)
 
 
-def route_get_nhg_id(route_str):
+def route_get_nhg_id(route_str, require_installed=True):
     global fatal_error
 
-    def get_func(route_str):
+    def get_func(route_str, require_installed):
         net = get_topogen().net
         output = net["r1"].cmd(
             'vtysh -c "show ip route {} nexthop-group"'.format(route_str)
         )
         match = re.search(r"Nexthop Group ID: (\d+)", output)
-        if match is not None:
-            nhg_id = int(match.group(1))
-            return nhg_id
-        else:
+        if match is None:
             return None
+        if require_installed and re.search(r"Status: Installed", output) is None:
+            return None
+        return int(match.group(1))
 
-    test_func = functools.partial(get_func, route_str)
+    test_func = functools.partial(get_func, route_str, require_installed)
     _, nhg_id = topotest.run_and_expect_type(test_func, int, count=30, wait=1)
     if nhg_id is None:
         fatal_error = "Nexthop Group ID not found for route {}".format(route_str)
@@ -1586,7 +1586,7 @@ def test_nexthop_groups_with_route_maps():
         'vtysh -c "sharp install routes {} nexthop-group test 1"'.format(deny_route_str)
     )
 
-    nhg_id = route_get_nhg_id(deny_route_str)
+    nhg_id = route_get_nhg_id(deny_route_str, require_installed=False)
     output = net["r1"].cmd('vtysh -c "show nexthop-group rib {}"'.format(nhg_id))
 
     match = re.search(r"Valid", output)
