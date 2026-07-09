@@ -174,6 +174,16 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+	if (PIM_DEBUG_GRAFT) {
+		vty_out(vty, "debug pim graft\n");
+		++writes;
+	}
+
+	if (PIM_DEBUG_STATE_REFRESH) {
+		vty_out(vty, "debug pim state-refresh\n");
+		++writes;
+	}
+
 	return writes;
 }
 
