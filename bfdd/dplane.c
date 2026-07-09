@@ -987,7 +987,7 @@ static void bfd_dplane_client_init(const struct sockaddr *sa, socklen_t salen)
 	bdc = bfd_dplane_ctx_new(-1);
 	if (salen <= sizeof(bdc->addr)) {
 		memcpy(&bdc->addr, sa, salen);
-		bdc->addrlen = sizeof(bdc->addr);
+		bdc->addrlen = salen;
 	} else {
 		memcpy(&bdc->addr, sa, sizeof(bdc->addr));
 		bdc->addrlen = sizeof(bdc->addr);
