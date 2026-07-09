@@ -912,6 +912,11 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-pim-route-map:multicast-interface"));
+	} else if (IS_MATCH_MULTICAST_SOURCE_INTERFACE(condition)) {
+		vty_out(vty, " match multicast-source-interface %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:multicast-source-interface"));
 	}
 }
 
