@@ -7778,7 +7778,8 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 							buf, sizeof(buf)));
 				}
 				vty_out(vty, "\n");
-			}
+			} else
+				vty_out(vty, "  advertise-pip\n");
 		}
 	}
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))
