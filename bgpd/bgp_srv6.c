@@ -118,7 +118,8 @@ void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
 	ctx.argument_len = bgp->srv6_unicast[afi].sid_locator->argument_bits_length;
 
 	if (install) {
-		if (CHECK_FLAG(bgp->srv6_unicast[afi].sid_locator->flags, SRV6_LOCATOR_USID))
+		if (CHECK_FLAG(bgp->srv6_unicast[afi].sid_locator->flags,
+			       SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216))
 			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		ctx.table = ifp->vrf->data.l.table_id;
 		act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4 :
@@ -340,12 +341,12 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 				     sizeof(struct bgp_attr_srv6_l3service));
 	dest->srv6_unicast->sid_flags = 0x00;
 	dest->srv6_unicast->endpoint_behavior =
-			afi == AFI_IP ? (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
-						 ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
-						 : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
-				      : (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
-						 ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
-						 : SRV6_ENDPOINT_BEHAVIOR_END_DT6);
+		afi == AFI_IP ? (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216)
+					 ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
+					 : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
+			      : (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216)
+					 ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
+					 : SRV6_ENDPOINT_BEHAVIOR_END_DT6);
 	dest->srv6_unicast->loc_block_len = locator->block_bits_length;
 	dest->srv6_unicast->loc_node_len = locator->node_bits_length;
 	dest->srv6_unicast->func_len = locator->function_bits_length;
@@ -850,7 +851,8 @@ void bgp_srv6_per_locator_cache_vrf_sid_update(struct bgp_srv6_per_locator_cache
 		ctx.node_len = bslc->sid_policy.tovpn_sid_locator->node_bits_length;
 		ctx.function_len = bslc->sid_policy.tovpn_sid_locator->function_bits_length;
 		ctx.argument_len = bslc->sid_policy.tovpn_sid_locator->argument_bits_length;
-		if (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags, SRV6_LOCATOR_USID))
+		if (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags,
+			       SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216))
 			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	}
 	ctx.table = vrf->data.l.table_id;

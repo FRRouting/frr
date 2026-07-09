@@ -322,7 +322,7 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	if (circuit->ext == NULL)
 		circuit->ext = isis_alloc_ext_subtlvs();
 
-	behavior = (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+	behavior = (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216))
 			   ? SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID
 			   : SRV6_ENDPOINT_BEHAVIOR_END_X;
 

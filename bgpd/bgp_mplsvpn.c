@@ -372,7 +372,8 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 		ctx.function_len =
 			bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
 		ctx.argument_len = bgp->vpn_policy[afi].tovpn_sid_locator->argument_bits_length;
-		if (CHECK_FLAG(bgp->vpn_policy[afi].tovpn_sid_locator->flags, SRV6_LOCATOR_USID))
+		if (CHECK_FLAG(bgp->vpn_policy[afi].tovpn_sid_locator->flags,
+			       SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216))
 			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	}
 	ctx.table = vrf->data.l.table_id;
@@ -437,7 +438,8 @@ void vpn_leak_zebra_vrf_sid_update_per_vrf(struct bgp *bgp)
 		ctx.node_len = bgp->tovpn_sid_locator->node_bits_length;
 		ctx.function_len = bgp->tovpn_sid_locator->function_bits_length;
 		ctx.argument_len = bgp->tovpn_sid_locator->argument_bits_length;
-		if (CHECK_FLAG(bgp->tovpn_sid_locator->flags, SRV6_LOCATOR_USID))
+		if (CHECK_FLAG(bgp->tovpn_sid_locator->flags,
+			       SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216))
 			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	}
 	ctx.table = vrf->data.l.table_id;
@@ -1754,11 +1756,11 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 			attr, from_bgp->vpn_policy[afi].tovpn_sid_locator,
 			afi == AFI_IP
 				? (CHECK_FLAG(from_bgp->vpn_policy[afi].tovpn_sid_locator->flags,
-					      SRV6_LOCATOR_USID)
+					      SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216)
 					   ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
 					   : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
 				: (CHECK_FLAG(from_bgp->vpn_policy[afi].tovpn_sid_locator->flags,
-					      SRV6_LOCATOR_USID)
+					      SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216)
 					   ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
 					   : SRV6_ENDPOINT_BEHAVIOR_END_DT6),
 			from_bgp->vpn_policy[afi].tovpn_sid);
@@ -1768,7 +1770,7 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 		encode_label(from_bgp->tovpn_sid_transpose_label, label);
 		vpn_leak_fill_srv6_from_locator(attr, from_bgp->tovpn_sid_locator,
 						CHECK_FLAG(from_bgp->tovpn_sid_locator->flags,
-							   SRV6_LOCATOR_USID)
+							   SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216)
 							? SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID
 							: SRV6_ENDPOINT_BEHAVIOR_END_DT46,
 						from_bgp->tovpn_sid);
@@ -2115,11 +2117,11 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				&static_attr, bslc->sid_policy.tovpn_sid_locator,
 				afi == AFI_IP
 					? (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags,
-						      SRV6_LOCATOR_USID)
+						      SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216)
 						   ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
 						   : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
 					: (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags,
-						      SRV6_LOCATOR_USID)
+						      SRV6_LOCATOR_USID | SRV6_LOCATOR_F3216)
 						   ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
 						   : SRV6_ENDPOINT_BEHAVIOR_END_DT6),
 				bslc->sid_policy.tovpn_sid);
