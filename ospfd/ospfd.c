@@ -135,6 +135,21 @@ int q_spaces_compare_func(const struct q_space *a, const struct q_space *b)
 DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
 		    p_spaces_compare_func);
 
+/* Does the interface run a DR election (i.e. is it broadcast or NBMA)? */
+static bool ospf_ifp_elects_dr(struct interface *ifp)
+{
+	struct route_node *rn;
+	struct ospf_interface *oi;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+		if (oi && (oi->type == OSPF_IFTYPE_BROADCAST
+			   || oi->type == OSPF_IFTYPE_NBMA))
+			return true;
+	}
+	return false;
+}
+
 void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 {
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
@@ -250,7 +265,22 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 
 		/* update ospf_interface's */
 		FOR_ALL_INTERFACES (vrf, ifp) {
-			if (reset)
+			/*
+			 * A change of the router-id (as opposed to the initial
+			 * assignment) invalidates the per-interface self
+			 * neighbor, including the cached DR/BDR. Reset the
+			 * interface state machine so the DR is re-elected and
+			 * the Network-LSA is re-originated; otherwise a
+			 * broadcast interface keeps a DR of 0.0.0.0 and stops
+			 * originating a valid Network-LSA. Only DR-electing
+			 * interfaces (broadcast/NBMA) need this; point-to-point
+			 * and other types keep the soft update so their
+			 * adjacencies are not flapped.
+			 */
+			if (reset
+			    || (rid_change
+				&& router_id_old.s_addr != INADDR_ANY
+				&& ospf_ifp_elects_dr(ifp)))
 				ospf_if_reset(ifp);
 			else
 				ospf_if_update(ospf, ifp);
