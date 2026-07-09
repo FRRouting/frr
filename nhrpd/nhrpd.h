@@ -315,6 +315,7 @@ struct nhrp_interface {
 	struct interface *ifp;
 
 	struct zbuf *auth_token;
+	afi_t auth_afi;
 	unsigned enabled : 1;
 
 	char *ipsec_profile, *ipsec_fallback_profile, *source;
