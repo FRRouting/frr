@@ -703,12 +703,16 @@ void bfd_cli_show_multi_hop_peer(struct vty *vty, const struct lyd_node *dnode,
 
 void bfd_cli_show_sbfd_echo_peer(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	_bfd_cli_show_peer(vty, dnode, show_defaults, false, BFD_MODE_TYPE_SBFD_ECHO);
+	bool mhop = yang_dnode_exists(dnode, "multi-hop");
+
+	_bfd_cli_show_peer(vty, dnode, show_defaults, mhop, BFD_MODE_TYPE_SBFD_ECHO);
 }
 
 void bfd_cli_show_sbfd_init_peer(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	_bfd_cli_show_peer(vty, dnode, show_defaults, true, BFD_MODE_TYPE_SBFD_INIT);
+	bool mhop = yang_dnode_exists(dnode, "multi-hop");
+
+	_bfd_cli_show_peer(vty, dnode, show_defaults, mhop, BFD_MODE_TYPE_SBFD_INIT);
 }
 
 void bfd_cli_show_peer_end(struct vty *vty, const struct lyd_node *dnode
