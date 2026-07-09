@@ -840,6 +840,124 @@ static int pim_upstream_wrongvif_wrvifwhole_compat(struct interface *ifp, pim_sg
 	return 0;
 }
 
+/*
+ * On WRONGVIF, realign upstream RPF and MFC iif with the kernel ingress
+ * interface when it is a valid nexthop (e.g. passive GRE tunnel vs parent
+ * with duplicate addressing).  Mirrors pim_mroute_nocache_forward_existing().
+ *
+ * Returns 0 when (S,G) state was updated and MFC iif was reconciled, -1
+ * when nothing was done (no upstream, ingress not valid RPF, etc.).
+ */
+static int pim_mroute_wrongvif_prefer_ingress(struct interface *ifp, pim_sgaddr *sg)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
+	struct pim_upstream *up;
+	struct pim_nexthop rpf_nh;
+	struct prefix grp;
+	struct pim_rpf old;
+	vifi_t ingress_vif;
+	bool force_connected_ingress = false;
+
+	up = pim_upstream_find(pim, sg);
+	if (!up)
+		return -1;
+
+	memset(&rpf_nh, 0, sizeof(rpf_nh));
+	pim_addr_to_prefix(&grp, sg->grp);
+
+	/*
+	 * Live RPF lookup with ingress preference (neighbor_needed=false so
+	 * passive receive interfaces are accepted when routing selects them).
+	 */
+	if (!pim_nht_lookup_ecmp(pim, &rpf_nh, sg->src, &grp, false, ifp)) {
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: %pSG WRONGVIF on %s, no RPF route to source", __func__, sg,
+				   ifp->name);
+		return -1;
+	}
+
+	if (!rpf_nh.interface || rpf_nh.interface->ifindex != ifp->ifindex) {
+		/*
+		 * Overlapping connected prefixes (e.g. parent secondary vs
+		 * PIM-passive tunnel covering the same source): zebra may
+		 * still select the parent as RPF while data arrives on the
+		 * tunnel.  If the kernel ingress is itself connected to S,
+		 * force RPF/MFC iif onto that ingress so WRONGVIF can clear.
+		 */
+		if (pim_if_connected_to_source(ifp, sg->src)) {
+			force_connected_ingress = true;
+			if (PIM_DEBUG_MROUTE_DETAIL)
+				zlog_debug("%s: %pSG WRONGVIF on %s, forcing connected ingress (RPF is %s)",
+					   __func__, sg, ifp->name,
+					   rpf_nh.interface ? rpf_nh.interface->name : "(none)");
+		} else {
+			if (PIM_DEBUG_MROUTE_DETAIL)
+				zlog_debug("%s: %pSG WRONGVIF on %s, ingress is not RPF interface (RPF is %s)",
+					   __func__, sg, ifp->name,
+					   rpf_nh.interface ? rpf_nh.interface->name : "(none)");
+			return -1;
+		}
+	}
+
+	ingress_vif = pim_ifp->mroute_vif_index;
+	if (up->channel_oil->installed && up->rpf.source_nexthop.interface == ifp &&
+	    *oil_incoming_vif(up->channel_oil) == ingress_vif)
+		return -1;
+
+	if (force_connected_ingress) {
+		memset(&old, 0, sizeof(old));
+		old = up->rpf;
+		pim_upstream_fill_static_iif(up, ifp);
+		if (old.source_nexthop.interface != ifp)
+			pim_zebra_upstream_rpf_changed(pim, up, &old);
+	} else if (up->rpf.source_nexthop.interface != rpf_nh.interface ||
+		   pim_addr_cmp(up->rpf.source_nexthop.mrib_nexthop_addr,
+				rpf_nh.mrib_nexthop_addr)) {
+		enum pim_rpf_result rpf_result;
+
+		memset(&old, 0, sizeof(old));
+		rpf_result = pim_rpf_update(pim, up, &old, ifp, __func__);
+		if (rpf_result == PIM_RPF_CHANGED ||
+		    (rpf_result == PIM_RPF_FAILURE && old.source_nexthop.interface))
+			pim_zebra_upstream_rpf_changed(pim, up, &old);
+	}
+
+	pim_upstream_inherited_olist_decide(pim, up);
+	if (pim_upstream_empty_inherited_olist(up)) {
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: %pSG WRONGVIF on %s, no local receivers", __func__, sg,
+				   ifp->name);
+		/*
+		 * Handled: do not fall through to WRVIFWHOLE compat, which can
+		 * install/update MFC without this empty-OIL guard.
+		 */
+		return 0;
+	}
+
+	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
+		pim_upstream_set_sptbit(up, ifp);
+
+	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+	up->channel_oil->cc.pktcnt++;
+
+	pim_upstream_update_join_desired(pim, up);
+
+	if (pim_upstream_kat_start_ok(up))
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+
+	if (!up->channel_oil->installed)
+		pim_upstream_mroute_add(up->channel_oil, __func__);
+	else
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+
+	if (PIM_DEBUG_MROUTE)
+		zlog_debug("%s: %pSG WRONGVIF on %s, realigned MFC iif to ingress%s", __func__, sg,
+			   ifp->name, force_connected_ingress ? " (connected)" : "");
+
+	return 0;
+}
+
 int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_ifchannel *ch, *throwaway;
@@ -904,17 +1022,25 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 				   __func__, &star_g, ifp->name);
 	}
 
-	if (!mroute_wrvifwhole_supported) {
+	if (!sg_channel && !pim_iface_grp_dm(pim_ifp, sg.grp) && ifp != pim_ifp->pim->regiface) {
 		/*
-		 * Old kernels without WRVIFWHOLE: WRONGVIF may be the only
-		 * upcall.  Mirror pim_mroute_msg_wrvifwhole() when there is no
-		 * (S,G) ifchannel on ingress -- FHR on the source-connected
-		 * interface (join-before-data, bidirectional) and LHR / SPT
-		 * switch on upstream interfaces (e.g. (S,G) MFC reinstall after
-		 * pimd restart).
+		 * Prefer kernel ingress only when there is no ifchannel on
+		 * ingress (neither (S,G) nor (*,G)).  A (*,G)-only channel
+		 * must fall through to the Assert state machine below.
 		 */
-		if (!sg_channel && !pim_iface_grp_dm(pim_ifp, sg.grp) &&
-		    ifp != pim_ifp->pim->regiface) {
+		if (!any_channel && pim_mroute_wrongvif_prefer_ingress(ifp, &sg) == 0)
+			return 0;
+
+		if (!mroute_wrvifwhole_supported) {
+			/*
+			 * Old kernels without WRVIFWHOLE: WRONGVIF may be the
+			 * only upcall.  Mirror pim_mroute_msg_wrvifwhole()
+			 * when there is no (S,G) ifchannel on ingress -- FHR on
+			 * the source-connected interface (join-before-data,
+			 * bidirectional) and LHR / SPT switch on upstream
+			 * interfaces (e.g. (S,G) MFC reinstall after pimd
+			 * restart).
+			 */
 			/*
 			 * FHR activation requires DR: only the DR originates
 			 * register state on a shared LAN.
