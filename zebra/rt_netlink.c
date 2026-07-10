@@ -492,7 +492,8 @@ parse_encap_seg6local(struct rtattr *tb,
 }
 
 static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs,
-			    enum srv6_headend_behavior *encap_behavior)
+			    enum srv6_headend_behavior *encap_behavior,
+			    struct in6_addr *encap_source)
 {
 	struct rtattr *tb_encap[SEG6_IPTUNNEL_MAX + 1] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
@@ -521,6 +522,14 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs,
 			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED;
 			break;
 		}
+
+		if (tb_encap[SEG6_IPTUNNEL_SRC]) {
+			memcpy(encap_source, RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRC]),
+			       sizeof(struct in6_addr));
+		} else {
+			memset(encap_source, 0, sizeof(struct in6_addr));
+		}
+
 		ind_seg6 = ipt->srh[0].first_segment;
 		if (ind_seg6 >= SRV6_MAX_SIDS) {
 			ind_seg6 = SRV6_MAX_SIDS - 1;
@@ -554,6 +563,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
 	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	struct in6_addr srv6_encap_source = {};
 
 	vrf_id_t nh_vrf_id = vrf_id;
 	size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -601,7 +611,8 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
 	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
 		       == LWTUNNEL_ENCAP_SEG6) {
-		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs, &srv6_encap_behavior);
+		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs, &srv6_encap_behavior,
+					    &srv6_encap_source);
 	}
 
 	if (rtm->rtm_flags & RTNH_F_ONLINK)
@@ -627,7 +638,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
 
 	if (num_segs)
-		nexthop_add_srv6_seg6(&nh, segs, num_segs, srv6_encap_behavior);
+		nexthop_add_srv6_seg6(&nh, segs, num_segs, srv6_encap_behavior, &srv6_encap_source);
 
 	return nh;
 }
@@ -648,6 +659,7 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 	int num_segs = 0;
 	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
+	struct in6_addr srv6_encap_source = {};
 
 	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
 	vrf_id_t nh_vrf_id = vrf_id;
@@ -701,7 +713,8 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
 				       == LWTUNNEL_ENCAP_SEG6) {
 				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP], segs,
-							    &srv6_encap_behavior);
+							    &srv6_encap_behavior,
+							    &srv6_encap_source);
 			}
 		}
 
@@ -744,7 +757,8 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 							   &seg6l_ctx);
 
 			if (num_segs)
-				nexthop_add_srv6_seg6(nh, segs, num_segs, srv6_encap_behavior);
+				nexthop_add_srv6_seg6(nh, segs, num_segs, srv6_encap_behavior,
+						      &srv6_encap_source);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
@@ -1906,6 +1920,11 @@ static bool _netlink_nexthop_encode_seg6_info(struct nlmsghdr *nlmsg, size_t buf
 	if (tun_len < 0)
 		return false;
 	if (!nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRH, tun_buf, tun_len))
+		return false;
+
+	if (!sid_zero_ipv6(&segs->encap_source) &&
+	    !nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRC, &segs->encap_source,
+			 sizeof(struct in6_addr)))
 		return false;
 
 	return true;
