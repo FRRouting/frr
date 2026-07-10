@@ -340,7 +340,7 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 
 	/* withdraw srv6 unicast and refresh srv6 unicast sid locator */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-		bgp_srv6_unicast_sids_unset(bgp);
+		bgp_srv6_unicast_sids_unset(bgp, AFI_UNSPEC);
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
@@ -9781,7 +9781,7 @@ DEFPY(sid_export,
 		bgp->srv6_unicast[afi].sid_index = 0;
 		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
 
-		bgp_srv6_unicast_sid_withdraw(bgp, afi);
+		bgp_srv6_unicast_sids_unset(bgp, afi);
 
 		return CMD_SUCCESS;
 	}

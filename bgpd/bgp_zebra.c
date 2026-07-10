@@ -3870,12 +3870,10 @@ static int bgp_zebra_srv6_sid_control_locator(struct srv6_sid_ctx *ctx,
 		break;
 	case ZAPI_SRV6_SID_RELEASED:
 		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6 &&
-		    !sid_same(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid, sid_addr) &&
-		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, sid_addr))
+		    !sid_same(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid, sid_addr))
 			return -1;
 		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
-		    !sid_same(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid, sid_addr) &&
-		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, sid_addr))
+		    !sid_same(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid, sid_addr))
 			return -1;
 		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
 		    !sid_same(bgp_vrf->tovpn_sid, sid_addr))
@@ -3883,8 +3881,6 @@ static int bgp_zebra_srv6_sid_control_locator(struct srv6_sid_ctx *ctx,
 
 		/* Export VPN to VRF routes*/
 		vpn_leak_postchange_all(true);
-		if (afi != AFI_UNSPEC)
-			bgp_srv6_unicast_withdraw(bgp_vrf, afi);
 		break;
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
 		break;
@@ -4024,17 +4020,12 @@ static void bgp_zebra_srv6_sid_notify_locator(struct srv6_sid_ctx *ctx,
 			if (bgp_vrf->vpn_policy[afi].tovpn_sid_locator) {
 				srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
 				bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
-			} else if (bgp_vrf->srv6_unicast[afi].sid_locator) {
-				srv6_locator_free(bgp_vrf->srv6_unicast[afi].sid_locator);
-				bgp_vrf->srv6_unicast[afi].sid_locator = NULL;
 			}
 			bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = 0;
 
 			/* Unregister the SID */
 			sid_unregister(bgp, bgp_vrf->vpn_policy[afi].tovpn_sid);
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
-			sid_unregister(bgp_vrf, bgp_vrf->srv6_unicast[afi].sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[afi].sid);
 		} else if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
 			if (bgp_vrf->tovpn_sid_locator) {
 				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
@@ -4378,7 +4369,7 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 			continue;
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			bgp_srv6_unicast_sids_unset(bgp);
+			bgp_srv6_unicast_sids_unset(bgp, AFI_UNSPEC);
 
 		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator)
 			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
