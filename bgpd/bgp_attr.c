@@ -3835,7 +3835,9 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	uint8_t type;
 	uint16_t length;
 	size_t headersz = sizeof(type) + sizeof(length);
+	size_t tlv_total_len;
 	size_t psid_parsed_length = 0;
+	bool srv6_l3_service_tlv_seen = false;
 
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto prefix_sid_ignore;
@@ -3852,8 +3854,9 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 
 		type = stream_getc(connection->curr);
 		length = stream_getw(connection->curr);
+		tlv_total_len = headersz + length;
 
-		if (((size_t)length + headersz + psid_parsed_length > (size_t)args->length) ||
+		if ((tlv_total_len + psid_parsed_length > (size_t)args->length) ||
 		    STREAM_READABLE(connection->curr) < length) {
 			flog_err(EC_BGP_ATTR_LEN,
 				 "Malformed Prefix SID attribute - insufficient data (need %hu for attribute body, have %zu remaining in UPDATE)",
@@ -3863,22 +3866,25 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 						  args->total);
 		}
 
+		psid_parsed_length += tlv_total_len;
+
+		if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
+			if (srv6_l3_service_tlv_seen) {
+				/*
+				 * RFC 9252 Section 7: ignore all but the first
+				 * SRv6 L3 Service TLV instance.
+				 */
+				stream_forward_getp(connection->curr, length);
+				continue;
+			}
+
+			srv6_l3_service_tlv_seen = true;
+		}
+
 		ret = bgp_attr_psid_sub(type, length, args);
 
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			return ret;
-
-		psid_parsed_length += length + headersz;
-
-		if (psid_parsed_length > args->length) {
-			flog_err(
-				EC_BGP_ATTR_LEN,
-				"Malformed Prefix SID attribute - TLV overflow by attribute (need %zu for TLV length, have %zu overflowed in UPDATE)",
-				length + headersz, psid_parsed_length - (length + headersz));
-			return bgp_attr_malformed(
-				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-				args->total);
-		}
 	}
 
 	bgp_attr_set(attr, BGP_ATTR_PREFIX_SID);
