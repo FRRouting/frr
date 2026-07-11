@@ -22,9 +22,9 @@ Following tests are covered to test pim igmp proxy:
 8. TC:7 Verify 'match multicast-source-interface' filters by source iface
 9. TC:8 Verify leave on one downstream interface does not prune proxy
         while another downstream interface still has receivers for the
-        same group
-9. TC:9 Verify filtered downstream interest does not block proxy prune
-10. TC:10 Verify (S,G) static-group covered by (*,G) is pruned when that
+        same group (and show ip igmp proxy lists downstream ifaces)
+10. TC:9 Verify filtered downstream interest does not block proxy prune
+11. TC:10 Verify (S,G) static-group covered by (*,G) is pruned when that
         (*,G) later leaves
 """
 
@@ -124,21 +124,25 @@ def test_pim_igmp_proxy_config():
                     "source": "*",
                     "group": "225.4.4.4",
                     "primaryAddr": "10.0.30.1",
+                    "downstreamInterfaces": ["r1-eth2"],
                 },
                 {
                     "source": "*",
                     "group": "225.3.3.3",
                     "primaryAddr": "10.0.30.1",
+                    "downstreamInterfaces": ["r1-eth2"],
                 },
                 {
                     "source": "*",
                     "group": "225.2.2.2",
                     "primaryAddr": "10.0.30.1",
+                    "downstreamInterfaces": ["r1-eth0"],
                 },
                 {
                     "source": "*",
                     "group": "225.1.1.1",
                     "primaryAddr": "10.0.30.1",
+                    "downstreamInterfaces": ["r1-eth0"],
                 },
             ],
         },
@@ -695,6 +699,26 @@ conf
     result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
     assert result is True, "Error: {}".format(result)
 
+    def proxy_downstream_for(group_addr):
+        out = r1.vtysh_cmd("show ip igmp proxy json", isjson=True)
+        for g in out.get("r1-eth1", {}).get("groups", []):
+            if g.get("group") == group_addr:
+                return g.get("downstreamInterfaces")
+        return None
+
+    def expect_downstream(want):
+        got = proxy_downstream_for(group)
+        if got is None:
+            return "group {} not in proxy json".format(group)
+        if sorted(got) != sorted(want):
+            return "downstreamInterfaces={!r}, want {!r}".format(got, want)
+        return None
+
+    _, result = topotest.run_and_expect(
+        lambda: expect_downstream(["r1-eth0", "r1-eth2"]), None, count=30, wait=1
+    )
+    assert result is None, result
+
     r1.vtysh_cmd(
         f"""
 conf
@@ -707,6 +731,11 @@ conf
     assert result is True, "Error: proxy pruned while r1-eth2 still joined: {}".format(
         result
     )
+
+    _, result = topotest.run_and_expect(
+        lambda: expect_downstream(["r1-eth2"]), None, count=30, wait=1
+    )
+    assert result is None, result
 
     r1.vtysh_cmd(
         f"""
