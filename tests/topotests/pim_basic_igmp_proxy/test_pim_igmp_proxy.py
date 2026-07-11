@@ -12,14 +12,15 @@
 Following tests are covered to test pim igmp proxy:
 
 1. TC:1 Verify correct joins were read from the config and proxied
-2. TC:2 Verify joins from another interface are proxied
-3. TC:3 Verify correct proxy disable on 'no ip igmp proxy'
-4. TC:4 Verify that proper proxy joins are set up on run-time enable
-5. TC:5 Verify igmp drops/timeouts from another interface cause
+2. TC:1b Verify show ip igmp interface reports operational state
+3. TC:2 Verify joins from another interface are proxied
+4. TC:3 Verify correct proxy disable on 'no ip igmp proxy'
+5. TC:4 Verify that proper proxy joins are set up on run-time enable
+6. TC:5 Verify igmp drops/timeouts from another interface cause
         proxy join removal
-6. TC:6 Verify that 'ip igmp proxy route-map' filters proxied groups
-7. TC:7 Verify 'match multicast-source-interface' filters by source iface
-8. TC:8 Verify leave on one downstream interface does not prune proxy
+7. TC:6 Verify that 'ip igmp proxy route-map' filters proxied groups
+8. TC:7 Verify 'match multicast-source-interface' filters by source iface
+9. TC:8 Verify leave on one downstream interface does not prune proxy
         while another downstream interface still has receivers for the
         same group
 9. TC:9 Verify filtered downstream interest does not block proxy prune
@@ -150,6 +151,62 @@ def test_pim_igmp_proxy_config():
     assertmsg = '"{}" JSON output mismatches'.format(r1.name)
     assert result is None, assertmsg
     # tgen.mininet_cli()
+
+
+def test_pim_igmp_interface_state():
+    """
+    TC:1b - Verify show ip igmp interface JSON includes operational state.
+
+    After TC:1, r1-eth1 is the proxy upstream with four proxied groups;
+    r1-eth0/r1-eth2 are receiver-facing with static join-groups only.
+    """
+    logger.info("Verify show ip igmp interface operational state")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+
+    expected = {
+        "r1-eth0": {
+            "igmpEnabled": True,
+            "proxy": False,
+            "immediateLeave": False,
+            "requireRouterAlert": False,
+            "joinEntryCount": 2,
+            "joinGroupCount": 2,
+            "proxyJoinCount": 0,
+        },
+        "r1-eth1": {
+            "igmpEnabled": True,
+            "proxy": True,
+            "immediateLeave": False,
+            "requireRouterAlert": False,
+            "maxSources": None,
+            "maxGroups": None,
+            "joinEntryCount": 4,
+            "joinGroupCount": 0,
+            "proxyJoinCount": 4,
+        },
+        "r1-eth2": {
+            "igmpEnabled": True,
+            "proxy": False,
+            "joinEntryCount": 2,
+            "joinGroupCount": 2,
+            "proxyJoinCount": 0,
+        },
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip igmp interface json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" IGMP interface state JSON mismatches'.format(r1.name)
+    assert result is None, assertmsg
+
+    # proxyRouteMap is omitted when unset
+    out = r1.vtysh_cmd("show ip igmp interface r1-eth1 json", isjson=True)
+    assert "proxyRouteMap" not in out.get("r1-eth1", {}), (
+        "proxyRouteMap present without proxy route-map configured: %s" % out
+    )
 
 
 def test_pim_igmp_proxy_learn():
@@ -389,6 +446,25 @@ int r1-eth1
     assertmsg = '"r1" proxy groups mismatch after route-map filter applied'
     assert result is None, assertmsg
 
+    # Interface state should reflect the active proxy route-map and filtered count
+    expected_iface = {
+        "r1-eth1": {
+            "proxy": True,
+            "proxyRouteMap": "PROXY_FILTER",
+            "proxyJoinCount": 2,
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip igmp interface r1-eth1 json",
+        expected_iface,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), '"r1" IGMP interface state mismatch with proxy route-map applied'
+
     # Step 5: add a new join that the route-map denies (225.9.9.9) — must NOT appear
     r2.vtysh_cmd(
         """
@@ -463,6 +539,12 @@ int r1-eth1
     running = r1.vtysh_cmd("show running-config")
     assert "ip igmp proxy route-map" not in running, (
         "running-config still has 'ip igmp proxy route-map' after removal:\n" + running
+    )
+
+    # And not in IGMP interface operational state
+    out = r1.vtysh_cmd("show ip igmp interface r1-eth1 json", isjson=True)
+    assert "proxyRouteMap" not in out.get("r1-eth1", {}), (
+        "proxyRouteMap still present after route-map removal: %s" % out
     )
 
     # cleanup route-map config
