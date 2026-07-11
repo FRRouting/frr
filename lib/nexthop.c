@@ -70,7 +70,7 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (nh1->nh_srv6->seg6local_action > nh2->nh_srv6->seg6local_action)
 		return 1;
 
-	if (nh2->nh_srv6->seg6local_action < nh1->nh_srv6->seg6local_action)
+	if (nh1->nh_srv6->seg6local_action < nh2->nh_srv6->seg6local_action)
 		return -1;
 
 	ret = memcmp(&nh1->nh_srv6->seg6local_ctx,
