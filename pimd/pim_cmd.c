@@ -247,6 +247,91 @@ static void pim_show_assert_winner_metric(struct pim_instance *pim,
 	}
 }
 
+static unsigned int igmp_join_type_count(struct pim_interface *pim_ifp, enum gm_join_type join_type)
+{
+	struct listnode *node;
+	struct gm_join *ij;
+	unsigned int count = 0;
+
+	if (!pim_ifp->gm_join_list)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+		if (ij->join_type == join_type || ij->join_type == GM_JOIN_BOTH)
+			count++;
+	}
+
+	return count;
+}
+
+/* IGMP interface operational state for show ip igmp interface [detail]. */
+static void igmp_show_ifp_state_json(json_object *json_row, struct pim_interface *pim_ifp)
+{
+	json_object_boolean_add(json_row, "igmpEnabled", pim_ifp->gm_enable);
+	json_object_boolean_add(json_row, "proxy", pim_ifp->gm_proxy);
+	json_object_boolean_add(json_row, "immediateLeave", pim_ifp->gmp_immediate_leave);
+	json_object_boolean_add(json_row, "requireRouterAlert", pim_ifp->gmp_require_ra);
+
+	if (pim_ifp->gm_proxy_filter.rmapname)
+		json_object_string_add(json_row, "proxyRouteMap",
+				       pim_ifp->gm_proxy_filter.rmapname);
+	if (pim_ifp->gmp_filter.rmapname)
+		json_object_string_add(json_row, "routeMap", pim_ifp->gmp_filter.rmapname);
+	if (pim_ifp->gmp_filter.alistname)
+		json_object_string_add(json_row, "accessList", pim_ifp->gmp_filter.alistname);
+
+	if (pim_ifp->gm_source_limit != UINT32_MAX)
+		json_object_int_add(json_row, "maxSources", pim_ifp->gm_source_limit);
+
+	if (pim_ifp->gm_group_limit != UINT32_MAX)
+		json_object_int_add(json_row, "maxGroups", pim_ifp->gm_group_limit);
+
+	json_object_int_add(json_row, "joinEntryCount",
+			    pim_ifp->gm_join_list ? listcount(pim_ifp->gm_join_list) : 0);
+	json_object_int_add(json_row, "joinGroupCount",
+			    igmp_join_type_count(pim_ifp, GM_JOIN_STATIC));
+	json_object_int_add(json_row, "proxyJoinCount",
+			    igmp_join_type_count(pim_ifp, GM_JOIN_PROXY));
+	json_object_int_add(json_row, "staticGroupCount",
+			    pim_ifp->static_group_list ? listcount(pim_ifp->static_group_list) : 0);
+	json_object_int_add(json_row, "groupCount",
+			    pim_ifp->gm_group_list ? listcount(pim_ifp->gm_group_list) : 0);
+}
+
+static void igmp_show_ifp_state(struct vty *vty, struct pim_interface *pim_ifp)
+{
+	vty_out(vty, "IGMP State\n");
+	vty_out(vty, "----------\n");
+	vty_out(vty, "Enabled              : %s\n", pim_ifp->gm_enable ? "yes" : "no");
+	vty_out(vty, "Proxy                : %s\n", pim_ifp->gm_proxy ? "yes" : "no");
+	vty_out(vty, "Proxy route-map      : %s\n",
+		pim_ifp->gm_proxy_filter.rmapname ? pim_ifp->gm_proxy_filter.rmapname : "none");
+	vty_out(vty, "Route-map            : %s\n",
+		pim_ifp->gmp_filter.rmapname ? pim_ifp->gmp_filter.rmapname : "none");
+	vty_out(vty, "Access-list          : %s\n",
+		pim_ifp->gmp_filter.alistname ? pim_ifp->gmp_filter.alistname : "none");
+	vty_out(vty, "Immediate leave      : %s\n", pim_ifp->gmp_immediate_leave ? "yes" : "no");
+	vty_out(vty, "Require router-alert : %s\n", pim_ifp->gmp_require_ra ? "yes" : "no");
+	if (pim_ifp->gm_source_limit != UINT32_MAX)
+		vty_out(vty, "Max sources          : %u\n", pim_ifp->gm_source_limit);
+	else
+		vty_out(vty, "Max sources          : unlimited\n");
+	if (pim_ifp->gm_group_limit != UINT32_MAX)
+		vty_out(vty, "Max groups           : %u\n", pim_ifp->gm_group_limit);
+	else
+		vty_out(vty, "Max groups           : unlimited\n");
+	vty_out(vty, "Join entries         : %u\n",
+		pim_ifp->gm_join_list ? listcount(pim_ifp->gm_join_list) : 0);
+	vty_out(vty, "Join-groups          : %u\n", igmp_join_type_count(pim_ifp, GM_JOIN_STATIC));
+	vty_out(vty, "Proxy joins          : %u\n", igmp_join_type_count(pim_ifp, GM_JOIN_PROXY));
+	vty_out(vty, "Static groups        : %u\n",
+		pim_ifp->static_group_list ? listcount(pim_ifp->static_group_list) : 0);
+	vty_out(vty, "Groups               : %u\n",
+		pim_ifp->gm_group_list ? listcount(pim_ifp->gm_group_list) : 0);
+	vty_out(vty, "\n");
+	vty_out(vty, "\n");
+}
+
 static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				 bool uj)
 {
@@ -262,7 +347,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"Interface         State          Address  V  Querier          QuerierIp  Query Timer    Uptime\n");
+			"Interface         State          Address  V  Querier          QuerierIp  Query Timer    Uptime   Proxy\n");
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -292,6 +377,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 						       uptime);
 				json_object_int_add(json_row, "version",
 						    pim_ifp->igmp_version);
+				igmp_show_ifp_state_json(json_row, pim_ifp);
 
 				if (event_is_scheduled(igmp->t_igmp_query_timer)) {
 					json_object_boolean_true_add(json_row,
@@ -312,20 +398,15 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 						json_row, "mtraceOnly");
 				}
 			} else {
-				vty_out(vty,
-					"%-16s  %5s  %15s  %d  %7s  %17pI4  %11s  %8s\n",
+				vty_out(vty, "%-16s  %5s  %15s  %d  %7s  %17pI4  %11s  %8s  %5s\n",
 					ifp->name,
-					if_is_up(ifp)
-						? (igmp->mtrace_only ? "mtrc"
-								     : "up")
-						: "down",
-					inet_ntop(AF_INET, &igmp->ifaddr, buf,
-						  sizeof(buf)),
+					if_is_up(ifp) ? (igmp->mtrace_only ? "mtrc" : "up")
+						      : "down",
+					inet_ntop(AF_INET, &igmp->ifaddr, buf, sizeof(buf)),
 					pim_ifp->igmp_version,
-					igmp->t_igmp_query_timer ? "local"
-								 : "other",
-					&igmp->querier_addr, query_hhmmss,
-					uptime);
+					igmp->t_igmp_query_timer ? "local" : "other",
+					&igmp->querier_addr, query_hhmmss, uptime,
+					pim_ifp->gm_proxy ? "yes" : "no");
 			}
 		}
 	}
@@ -461,6 +542,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				json_object_int_add(json_row,
 						    "timerStartupQueryInterval",
 						    sqi);
+				igmp_show_ifp_state_json(json_row, pim_ifp);
 
 				json_object_object_add(json, ifp->name,
 						       json_row);
@@ -538,6 +620,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				vty_out(vty, "\n");
 				vty_out(vty, "\n");
 
+				igmp_show_ifp_state(vty, pim_ifp);
 				pim_print_ifp_flags(vty, ifp);
 			}
 		}
