@@ -263,6 +263,31 @@ static void tib_sg_proxy_prune_uncovered_sources(struct pim_instance *pim, pim_a
 	}
 }
 
+void tib_sg_downstream_ifaces_foreach(struct pim_instance *pim, pim_sgaddr sg,
+				      struct interface *proxy_ifp, struct interface *skip_ifp,
+				      void (*cb)(struct interface *ifp, void *arg), void *arg)
+{
+	struct pim_interface *pim_proxy;
+	struct prefix_sg pfx;
+	struct interface *ifp;
+
+	if (!proxy_ifp || !proxy_ifp->info)
+		return;
+
+	pim_proxy = proxy_ifp->info;
+	pim_sg_to_prefix(&sg, &pfx);
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		if (ifp == skip_ifp || ifp == proxy_ifp)
+			continue;
+		if (!tib_sg_ifp_has_downstream_interest(ifp, sg))
+			continue;
+		if (!pim_filter_match(&pim_proxy->gm_proxy_filter, &pfx, proxy_ifp, ifp))
+			continue;
+		cb(ifp, arg);
+	}
+}
+
 void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 				   struct interface *oif, bool join)
 {

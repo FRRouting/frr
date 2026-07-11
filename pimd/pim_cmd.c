@@ -56,6 +56,7 @@
 #include "pim_nb.h"
 #include "pim_addr.h"
 #include "pim_cmd_common.h"
+#include "pim_tib.h"
 
 #include "pimd/pim_cmd_clippy.c"
 
@@ -632,6 +633,31 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 		vty_out(vty, "%% No such interface\n");
 }
 
+struct igmp_proxy_ds_ctx {
+	char text[256];
+	size_t len;
+	unsigned int count;
+	json_object *json_arr;
+};
+
+static void igmp_proxy_ds_cb(struct interface *ifp, void *arg)
+{
+	struct igmp_proxy_ds_ctx *ctx = arg;
+
+	if (ctx->json_arr)
+		json_object_array_add(ctx->json_arr, json_object_new_string(ifp->name));
+
+	if (ctx->count) {
+		if (ctx->len + 1 < sizeof(ctx->text)) {
+			ctx->text[ctx->len++] = ',';
+			ctx->text[ctx->len] = '\0';
+		}
+	}
+	(void)strlcat(ctx->text, ifp->name, sizeof(ctx->text));
+	ctx->len = strlen(ctx->text);
+	ctx->count++;
+}
+
 static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 				     bool uj, enum gm_join_type join_type)
 {
@@ -641,6 +667,7 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 	json_object *json_iface = NULL;
 	json_object *json_grp = NULL;
 	json_object *json_grp_arr = NULL;
+	bool show_downstream = (join_type == GM_JOIN_PROXY);
 
 	now = pim_time_monotonic_sec();
 
@@ -648,6 +675,9 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(pim->vrf->vrf_id));
+	} else if (show_downstream) {
+		vty_out(vty,
+			"Interface        Address         Source          Group           Socket Uptime   Downstream\n");
 	} else {
 		vty_out(vty,
 			"Interface        Address         Source          Group           Socket Uptime  \n");
@@ -671,12 +701,23 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, join_node, ij)) {
 			char uptime[10];
+			struct igmp_proxy_ds_ctx ds = {};
+			pim_sgaddr sg;
 
 			if (ij->join_type != join_type &&
 			    ij->join_type != GM_JOIN_BOTH)
 				continue;
 
 			pim_time_uptime(uptime, sizeof(uptime), now - ij->sock_creation);
+
+			if (show_downstream) {
+				sg.src = ij->source_addr;
+				sg.grp = ij->group_addr;
+				if (uj)
+					ds.json_arr = json_object_new_array();
+				tib_sg_downstream_ifaces_foreach(pim, sg, ifp, NULL,
+								 igmp_proxy_ds_cb, &ds);
+			}
 
 			if (uj) {
 				json_object_object_get_ex(json, ifp->name,
@@ -705,7 +746,14 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 						    ij->sock_fd);
 				json_object_string_add(json_grp, "upTime",
 						       uptime);
+				if (show_downstream)
+					json_object_object_add(json_grp, "downstreamInterfaces",
+							       ds.json_arr);
 				json_object_array_add(json_grp_arr, json_grp);
+			} else if (show_downstream) {
+				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s %6d %8s %s\n",
+					ifp->name, &pri_addr, &ij->source_addr, &ij->group_addr,
+					ij->sock_fd, uptime, ds.count ? ds.text : "-");
 			} else {
 				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s %6d %8s\n",
 					ifp->name, &pri_addr, &ij->source_addr, &ij->group_addr,
