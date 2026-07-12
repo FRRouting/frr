@@ -66,32 +66,35 @@ static void ecommunity_hash_free(struct ecommunity *ecom)
 }
 
 
-/* Add a new Extended Communities value to Extended Communities
-   Attribute structure.  When the value is already exists in the
-   structure, we don't add the value.  Newly added value is sorted by
-   numerical order.  When the value is added to the structure return 1
-   else return 0.
-   The additional parameters 'unique' and 'overwrite' ensure a particular
-   extended community (based on type and sub-type) is present only
-   once and whether the new value should replace what is existing or
-   not.
-*/
-static bool ecommunity_add_val_internal(struct ecommunity *ecom,
-					const void *eval,
-					bool unique, bool overwrite,
-					uint8_t ecom_size)
+/*
+ * Add the extended community value eval to the ecommunity ecom, keeping ecom's
+ * values sorted in numerical order. eval must be eval_unit_size octets long,
+ * matching ecom's unit_size!
+ *
+ * If eval is already present in ecom, it is not added again. With 'unique', an
+ * existing value sharing eval's type and sub-type also counts as present, and
+ * 'overwrite' then decides whether eval replaces that existing value.
+ *
+ * Returns true if ecom was modified (eval added or overwritten), false
+ * otherwise.
+ */
+static bool ecommunity_add_val_internal(struct ecommunity *ecom, const void *eval, bool unique,
+					bool overwrite, uint8_t eval_unit_size)
 {
 	uint32_t c, ins_idx;
 	const struct ecommunity_val *eval4 = (struct ecommunity_val *)eval;
-	const struct ecommunity_val_ipv6 *eval6 =
-		(struct ecommunity_val_ipv6 *)eval;
+	const struct ecommunity_val_ipv6 *eval6 = (struct ecommunity_val_ipv6 *)eval;
 
-	/* When this is fist value, just add it. */
+	/* Mixing values of different sizes within the same extended
+	 * community is not supported.
+	 */
+	assert(ecom->unit_size == eval_unit_size);
+
+	/* If this is the first value, just add it. */
 	if (ecom->val == NULL) {
 		ecom->size = 1;
-		ecom->val = XMALLOC(MTYPE_ECOMMUNITY_VAL,
-				    ecom_length_size(ecom, ecom_size));
-		memcpy(ecom->val, eval, ecom_size);
+		ecom->val = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom_val_size(ecom));
+		memcpy(ecom->val, eval, eval_unit_size);
 		return true;
 	}
 
@@ -100,32 +103,27 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom,
 	c = 0;
 
 	ins_idx = UINT32_MAX;
-	for (uint8_t *p = ecom->val; c < ecom->size;
-	     p += ecom_size, c++) {
+	for (uint8_t *p = ecom->val; c < ecom->size; p += eval_unit_size, c++) {
 		if (unique) {
-			if (ecom_size == ECOMMUNITY_SIZE) {
-				if (p[0] == eval4->val[0] &&
-				    p[1] == eval4->val[1]) {
+			if (eval_unit_size == ECOMMUNITY_SIZE) {
+				if (p[0] == eval4->val[0] && p[1] == eval4->val[1]) {
 					if (overwrite) {
-						memcpy(p, eval4->val,
-						       ecom_size);
+						memcpy(p, eval4->val, eval_unit_size);
 						return true;
 					}
 					return false;
 				}
 			} else {
-				if (p[0] == eval6->val[0] &&
-				    p[1] == eval6->val[1]) {
+				if (p[0] == eval6->val[0] && p[1] == eval6->val[1]) {
 					if (overwrite) {
-						memcpy(p, eval6->val,
-						       ecom_size);
+						memcpy(p, eval6->val, eval_unit_size);
 						return true;
 					}
 					return false;
 				}
 			}
 		}
-		int ret = memcmp(p, eval, ecom_size);
+		int ret = memcmp(p, eval, eval_unit_size);
 		if (ret == 0)
 			return false;
 		if (ret > 0) {
@@ -141,37 +139,53 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom,
 
 	/* Add the value to the structure with numerical sorting.  */
 	ecom->size++;
-	ecom->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom->val,
-			 ecom_length_size(ecom, ecom_size));
+	ecom->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom->val, ecom_val_size(ecom));
 
-	memmove(ecom->val + ((ins_idx + 1) * ecom_size),
-		ecom->val + (ins_idx * ecom_size),
-		(ecom->size - 1 - ins_idx) * ecom_size);
-	memcpy(ecom->val + (ins_idx * ecom_size),
-	       eval, ecom_size);
+	memmove(ecom->val + ((ins_idx + 1) * eval_unit_size),
+		ecom->val + (ins_idx * eval_unit_size),
+		(ecom->size - 1 - ins_idx) * eval_unit_size);
+	memcpy(ecom->val + (ins_idx * eval_unit_size), eval, eval_unit_size);
 
 	return true;
 }
 
-/* Add a new Extended Communities value to Extended Communities
- * Attribute structure.  When the value is already exists in the
- * structure, we don't add the value.  Newly added value is sorted by
- * numerical order.  When the value is added to the structure return 1
- * else return 0.
+/*
+ * Add the 8-octet extended community value eval to the ecommunity ecom.
+ * Thin wrapper around ecommunity_add_val_internal(); see there for the meaning
+ * of eval, ecom, unique and overwrite and for the return value.
  */
-bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval,
-		       bool unique, bool overwrite)
+bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval, bool unique,
+			bool overwrite)
 {
-	return ecommunity_add_val_internal(ecom, (const void *)eval, unique,
-					   overwrite, ECOMMUNITY_SIZE);
+	return ecommunity_add_val_internal(ecom, (const void *)eval, unique, overwrite,
+					   ECOMMUNITY_SIZE);
 }
 
-bool ecommunity_add_val_ipv6(struct ecommunity *ecom,
-			     struct ecommunity_val_ipv6 *eval,
+/* Append a value to an Extended Communities Attribute structure without
+ * any duplicate check or sorting; the caller guarantees uniqueness and
+ * ordering of the appended values. Replacement for ecommunity_merge based
+ * workflows
+ */
+void ecommunity_append_val_unchecked(struct ecommunity *ecom, const struct ecommunity_val *eval)
+{
+	assert(ecom->unit_size == ECOMMUNITY_SIZE);
+
+	ecom->size++;
+	/* XREALLOC is safe even for NULL pointers */
+	ecom->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom->val, ecom_val_size(ecom));
+	memcpy(ecom->val + ((ecom->size - 1) * ECOMMUNITY_SIZE), eval, ECOMMUNITY_SIZE);
+}
+
+/*
+ * Add the 20-octet IPv6 extended community value eval to the ecommunity ecom.
+ * Thin wrapper around ecommunity_add_val_internal(); see there for the meaning
+ * of eval, ecom, unique and overwrite and for the return value.
+ */
+bool ecommunity_add_val_ipv6(struct ecommunity *ecom, struct ecommunity_val_ipv6 *eval,
 			     bool unique, bool overwrite)
 {
-	return ecommunity_add_val_internal(ecom, (const void *)eval, unique,
-					   overwrite, IPV6_ECOMMUNITY_SIZE);
+	return ecommunity_add_val_internal(ecom, (const void *)eval, unique, overwrite,
+					   IPV6_ECOMMUNITY_SIZE);
 }
 
 static struct ecommunity *
@@ -278,6 +292,9 @@ const char *ecommunity_str(struct ecommunity *ecom)
 struct ecommunity *ecommunity_merge(struct ecommunity *ecom1,
 				    struct ecommunity *ecom2)
 {
+	/* Extended communities with different unit sizes cannot be merged */
+	assert(ecom1->unit_size == ecom2->unit_size);
+
 	ecom1->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom1->val,
 			      (size_t)(ecom1->size + ecom2->size)
 				      * (size_t)ecom1->unit_size);
