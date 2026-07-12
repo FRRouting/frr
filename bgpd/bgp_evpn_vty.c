@@ -3530,8 +3530,7 @@ static void evpn_show_vni(struct vty *vty, struct bgp *bgp, vni_t vni,
 /*
  * Display a VNI (upon user query).
  */
-static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp,
-			       json_object *json)
+static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp, json_object *json)
 {
 	void *args[2];
 	struct bgp *bgp_temp = NULL;
@@ -3540,19 +3539,18 @@ static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp,
 
 	if (!json) {
 		vty_out(vty, "Flags: * - Kernel\n");
-		vty_out(vty, "  %-10s %-4s %-21s %-25s %-25s %-25s %-37s\n",
-			"VNI", "Type", "RD", "Import RT", "Export RT",
-			"MAC-VRF Site-of-Origin", "Tenant VRF");
+		vty_out(vty, "  %-10s %-4s %-21s %-25s %-25s %-25s %-37s\n", "VNI", "Type", "RD",
+			"Import RT", "Export RT", "MAC-VRF Site-of-Origin", "Tenant VRF");
 	}
-
-	/* print all L2 VNIS */
-	args[0] = vty;
-	args[1] = json;
-	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *, void *))show_l2vni_entry, args);
 
 	/* print all L3 VNIs */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_temp))
 		show_l3vni_entry(vty, bgp_temp, json);
+
+	/* print all L2 VNIs */
+	args[0] = vty;
+	args[1] = json;
+	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *, void *))show_l2vni_entry, args);
 }
 
 /*
