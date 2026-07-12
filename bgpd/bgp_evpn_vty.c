@@ -3710,7 +3710,7 @@ DEFPY(bgp_evpn_flood_control,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_default_gw_vni,
+DEFPY (bgp_evpn_advertise_default_gw_vni,
        bgp_evpn_advertise_default_gw_vni_cmd,
        "advertise-default-gw",
        "Advertise default g/w mac-ip routes in EVPN for a VNI\n")
@@ -3726,7 +3726,7 @@ DEFUN (bgp_evpn_advertise_default_gw_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_default_vni_gw,
+DEFPY (no_bgp_evpn_advertise_default_vni_gw,
        no_bgp_evpn_advertise_default_gw_vni_cmd,
        "no advertise-default-gw",
        NO_STR
@@ -3744,7 +3744,7 @@ DEFUN (no_bgp_evpn_advertise_default_vni_gw,
 }
 
 
-DEFUN (bgp_evpn_advertise_default_gw,
+DEFPY (bgp_evpn_advertise_default_gw,
        bgp_evpn_advertise_default_gw_cmd,
        "advertise-default-gw",
        "Advertise All default g/w mac-ip routes in EVPN\n")
@@ -3765,7 +3765,7 @@ DEFUN (bgp_evpn_advertise_default_gw,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_default_gw,
+DEFPY (no_bgp_evpn_advertise_default_gw,
        no_bgp_evpn_advertise_default_gw_cmd,
        "no advertise-default-gw",
        NO_STR
@@ -3781,7 +3781,7 @@ DEFUN (no_bgp_evpn_advertise_default_gw,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_all_vni,
+DEFPY (bgp_evpn_advertise_all_vni,
        bgp_evpn_advertise_all_vni_cmd,
        "advertise-all-vni",
        "Advertise All local VNIs\n")
@@ -3803,7 +3803,7 @@ DEFUN (bgp_evpn_advertise_all_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_all_vni,
+DEFPY (no_bgp_evpn_advertise_all_vni,
        no_bgp_evpn_advertise_all_vni_cmd,
        "no advertise-all-vni",
        NO_STR
@@ -3817,7 +3817,7 @@ DEFUN (no_bgp_evpn_advertise_all_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_autort_rfc8365,
+DEFPY (bgp_evpn_advertise_autort_rfc8365,
        bgp_evpn_advertise_autort_rfc8365_cmd,
        "autort rfc8365-compatible",
        "Auto-derivation of RT\n"
@@ -3831,7 +3831,7 @@ DEFUN (bgp_evpn_advertise_autort_rfc8365,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_autort_rfc8365,
+DEFPY (no_bgp_evpn_advertise_autort_rfc8365,
        no_bgp_evpn_advertise_autort_rfc8365_cmd,
        "no autort rfc8365-compatible",
        NO_STR
@@ -3846,39 +3846,35 @@ DEFUN (no_bgp_evpn_advertise_autort_rfc8365,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_default_originate,
+DEFPY (bgp_evpn_default_originate,
        bgp_evpn_default_originate_cmd,
-       "default-originate <ipv4 | ipv6>",
+       "default-originate <ipv4$ipv4 | ipv6$ipv6>",
        "originate a default route\n"
        "ipv4 address family\n"
        "ipv6 address family\n")
 {
-	afi_t afi = 0;
-	int idx_afi = 0;
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp);
 
 	if (!bgp_vrf)
 		return CMD_WARNING;
-	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
 	evpn_process_default_originate_cmd(bgp_vrf, afi, true);
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_default_originate,
+DEFPY (no_bgp_evpn_default_originate,
        no_bgp_evpn_default_originate_cmd,
-       "no default-originate <ipv4 | ipv6>",
+       "no default-originate <ipv4$ipv4 | ipv6$ipv6>",
        NO_STR
        "withdraw a default route\n"
        "ipv4 address family\n"
        "ipv6 address family\n")
 {
-	afi_t afi = 0;
-	int idx_afi = 0;
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp);
 
 	if (!bgp_vrf)
 		return CMD_WARNING;
-	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
 	evpn_process_default_originate_cmd(bgp_vrf, afi, false);
 	return CMD_SUCCESS;
 }
@@ -4574,9 +4570,9 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 /*
  * Display VNI information - for all or a specific VNI
  */
-DEFUN(show_bgp_l2vpn_evpn_vni,
+DEFPY(show_bgp_l2vpn_evpn_vni,
       show_bgp_l2vpn_evpn_vni_cmd,
-      "show bgp l2vpn evpn vni [" CMD_VNI_RANGE "] [json]",
+      "show bgp l2vpn evpn vni [" CMD_VNI_RANGE "$vni] [json$uj]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -4586,9 +4582,6 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
       JSON_STR)
 {
 	struct bgp *bgp_evpn;
-	vni_t vni;
-	int idx = 0;
-	bool uj = false;
 	json_object *json = NULL;
 	uint32_t num_l2vnis = 0;
 	uint32_t num_l3vnis = 0;
@@ -4596,20 +4589,14 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 	struct listnode *node = NULL;
 	struct bgp *bgp_temp = NULL;
 
-	uj = use_json(argc, argv);
-
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
-		return CMD_WARNING;
-
-	if (!argv_find(argv, argc, "evpn", &idx))
 		return CMD_WARNING;
 
 	if (uj)
 		json = json_object_new_object();
 
-	if ((uj && argc == ((idx + 1) + 2)) || (!uj && argc == (idx + 1) + 1)) {
-
+	if (!vni_str) {
 		num_l2vnis = hashcount(bgp_evpn->vnihash);
 
 		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_temp)) {
@@ -4667,15 +4654,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 		}
 		evpn_show_all_vnis(vty, bgp_evpn, json);
 	} else {
-		int vni_idx = 0;
-
-		if (!argv_find(argv, argc, "vni", &vni_idx)) {
-			json_object_free(json);
-			return CMD_WARNING;
-		}
-
 		/* Display specific VNI */
-		vni = strtoul(argv[vni_idx + 1]->arg, NULL, 10);
 		evpn_show_vni(vty, bgp_evpn, vni, json);
 	}
 
@@ -4829,8 +4808,8 @@ DEFPY(show_bgp_l2vpn_evpn_nh,
 /*
  * Display EVPN neighbor summary.
  */
-DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
-      "show bgp [vrf VRFNAME] l2vpn evpn summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <(1-4294967295)|internal|external>>] [terse] [wide] [json]",
+DEFPY(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
+      "show bgp [vrf VRFNAME] l2vpn evpn summary [established$established|failed$failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor|remote-as <ASNUM$asnum|internal$internal|external$external>>] [terse$terse] [wide$wide] [json$uj]",
       SHOW_STR BGP_STR
       "bgp vrf\n"
       "vrf name\n" L2VPN_HELP_STR EVPN_HELP_STR
@@ -4848,47 +4827,33 @@ DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
       "Shorten the information on BGP instances\n"
       "Increase table width for longer output\n" JSON_STR)
 {
-	int idx_vrf = 0;
-	int idx = 0;
-	char *vrf = NULL;
-	char *neighbor = NULL;
 	as_t as = 0; /* 0 means AS filter not set */
 	enum peer_asn_type as_type = AS_UNSPECIFIED;
 	uint16_t show_flags = 0;
 
-	if (argv_find(argv, argc, "vrf", &idx_vrf))
-		vrf = argv[++idx_vrf]->arg;
-
-	if (argv_find(argv, argc, "failed", &idx))
+	if (failed)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_FAILED);
-
-	if (argv_find(argv, argc, "established", &idx))
+	else if (established)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_ESTABLISHED);
 
+	if (asnum_str)
+		as = asnum;
+	else if (internal)
+		as_type = AS_INTERNAL;
+	else if (external)
+		as_type = AS_EXTERNAL;
 
-	if (argv_find(argv, argc, "neighbor", &idx))
-		neighbor = argv[idx + 1]->arg;
-
-	if (argv_find(argv, argc, "remote-as", &idx)) {
-		if (argv[idx + 1]->arg[0] == 'i')
-			as_type = AS_INTERNAL;
-		else if (argv[idx + 1]->arg[0] == 'e')
-			as_type = AS_EXTERNAL;
-		else
-			as = (as_t)atoi(argv[idx + 1]->arg);
-	}
-
-	if (argv_find(argv, argc, "terse", &idx))
+	if (terse)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_TERSE);
 
-	if (argv_find(argv, argc, "wide", &idx))
+	if (wide)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
 
-	if (use_json(argc, argv))
+	if (uj)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 
-	return bgp_show_summary_vty(vty, vrf, AFI_L2VPN, SAFI_EVPN, neighbor,
-				    as_type, as, show_flags);
+	return bgp_show_summary_vty(vty, vrfname, AFI_L2VPN, SAFI_EVPN, neighbor, as_type, as,
+				    show_flags);
 }
 
 static int bgp_evpn_cli_parse_type_cmp(int *type, const char *type_str)
