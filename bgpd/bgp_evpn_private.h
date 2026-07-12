@@ -58,8 +58,10 @@ struct bgpevpn {
 #define VNI_FLAG_CFGD              0x1  /* VNI is user configured */
 #define VNI_FLAG_LIVE              0x2  /* VNI is "live" */
 #define VNI_FLAG_RD_CFGD           0x4  /* RD is user configured. */
-#define VNI_FLAG_IMPRT_CFGD        0x8  /* Import RT is user configured */
-#define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
+/* Bits 0x8 and 0x10 are unused. They used to be the
+ * VNI_FLAG_{IMPRT,EXPRT}_CFGD flags, which are superseded by the
+ * rt_config structure.
+ */
 /* Attach both L2-VNI and L3-VNI if needed for this VPN */
 #define VNI_FLAG_USE_TWO_LABELS 0x20
 #define VNI_FLAG_ADD		0x40 /* L2VNI Add */
@@ -92,9 +94,15 @@ struct bgpevpn {
 	/* PIM-SM MDT group for BUM flooding */
 	struct in_addr mcast_grp;
 
-	/* Import and Export RTs. */
-	struct list *import_rtl;
-	struct list *export_rtl;
+	/* User route-target configuration of this L2VNI */
+	struct bgp_evpn_rt_config *rt_config;
+
+	/* Derived route targets: wildcard import (match local admin only),
+	 * fully qualified import, fully qualified export
+	 */
+	struct bgp_evpn_effective_wildcard_rt_slu_head effective_wildcard_import_rts;
+	struct bgp_evpn_effective_fq_rt_slu_head effective_fq_import_rts;
+	struct bgp_evpn_effective_fq_rt_slu_head effective_fq_export_rts;
 
 	/*
 	 * EVPN route that uses gateway IP overlay index as its nexthop
@@ -501,14 +509,20 @@ static inline int bgp_evpn_rd_matches_existing(struct bgpevpn *vpn,
 	return (memcmp(&vpn->prd.val, prd->val, ECOMMUNITY_SIZE) == 0);
 }
 
-static inline int is_import_rt_configured(struct bgpevpn *vpn)
+/* Is at least one manual (non-auto) import route target configured for
+ * the L2VNI?
+ */
+static inline int bgp_evpn_l2vni_has_manual_import_rt_cfgd(struct bgpevpn *vpn)
 {
-	return (CHECK_FLAG(vpn->flags, VNI_FLAG_IMPRT_CFGD));
+	return bgp_evpn_cfgd_rt_slu_count(&vpn->rt_config->cfgd_import);
 }
 
-static inline int is_export_rt_configured(struct bgpevpn *vpn)
+/* Is at least one manual (non-auto) export route target configured for
+ * the L2VNI?
+ */
+static inline int bgp_evpn_l2vni_has_manual_export_rt_cfgd(struct bgpevpn *vpn)
 {
-	return (CHECK_FLAG(vpn->flags, VNI_FLAG_EXPRT_CFGD));
+	return bgp_evpn_cfgd_rt_slu_count(&vpn->rt_config->cfgd_export);
 }
 
 static inline void encode_es_rt_extcomm(struct ecommunity_val *eval,
@@ -906,7 +920,8 @@ static inline bool bgp_evpn_is_path_local(struct bgp *bgp,
 
 extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 						     struct bgp_path_info *originator, bool add);
-extern void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl);
+extern void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, struct bgpevpn *vpn);
+extern void bgp_evpn_l2vni_regenerate_effective_export_rts(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);

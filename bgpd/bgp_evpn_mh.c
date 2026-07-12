@@ -992,9 +992,8 @@ static int bgp_evpn_type4_remote_routes_import(struct bgp *bgp,
  */
 
 /* Extended communities associated with EAD-per-ES */
-static void
-bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
-				      struct attr *attr)
+static void bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
+						  struct attr *attr)
 {
 	struct ecommunity ecom_encap;
 	struct ecommunity ecom_esi_label;
@@ -1003,6 +1002,8 @@ bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
 	bgp_encap_types tnl_type;
 	struct listnode *evi_node, *rt_node;
 	struct ecommunity *ecom;
+	struct ecommunity *ecom_vni_export;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
 	struct bgp_evpn_es_evi *es_evi;
 
 	/* Encap */
@@ -1015,47 +1016,47 @@ bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
 	bgp_attr_set_ecommunity(attr, ecommunity_dup(&ecom_encap));
 
 	/* ESI label */
-	encode_esi_label_extcomm(&eval_esi_label,
-			false /*single_active*/);
+	encode_esi_label_extcomm(&eval_esi_label, false /*single_active*/);
 	ecom_esi_label.size = 1;
 	ecom_esi_label.unit_size = ECOMMUNITY_SIZE;
 	ecom_esi_label.val = (uint8_t *)eval_esi_label.val;
 	bgp_attr_set_ecommunity(attr,
-				ecommunity_merge(bgp_attr_get_ecommunity(attr),
-						 &ecom_esi_label));
+				ecommunity_merge(bgp_attr_get_ecommunity(attr), &ecom_esi_label));
 
 	/* Add export RTs for all L2-VNIs associated with this ES */
 	/* XXX - suppress EAD-ES advertisement if there are no EVIs associated
 	 * with it.
 	 */
 	if (listcount(bgp_mh_info->ead_es_export_rtl)) {
-		for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->ead_es_export_rtl,
-					  rt_node, ecom))
-			bgp_attr_set_ecommunity(
-				attr, ecommunity_merge(attr->ecommunity, ecom));
+		for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->ead_es_export_rtl, rt_node, ecom))
+			bgp_attr_set_ecommunity(attr, ecommunity_merge(attr->ecommunity, ecom));
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(es_frag->es_evi_frag_list, evi_node,
-					  es_evi)) {
+		for (ALL_LIST_ELEMENTS_RO(es_frag->es_evi_frag_list, evi_node, es_evi)) {
 			if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
 				continue;
-			for (ALL_LIST_ELEMENTS_RO(es_evi->vpn->export_rtl,
-						  rt_node, ecom))
-				bgp_attr_set_ecommunity(
-					attr, ecommunity_merge(attr->ecommunity,
-							       ecom));
+			if (!bgp_evpn_effective_fq_rt_slu_count(
+				    &es_evi->vpn->effective_fq_export_rts))
+				continue;
+			ecom_vni_export = ecommunity_new();
+			frr_each (bgp_evpn_effective_fq_rt_slu,
+				  &es_evi->vpn->effective_fq_export_rts, fq_rt)
+				ecommunity_append_val_unchecked(ecom_vni_export, &fq_rt->ecom_val);
+			bgp_attr_set_ecommunity(attr, ecommunity_merge(attr->ecommunity,
+								       ecom_vni_export));
+			ecommunity_free(&ecom_vni_export);
 		}
 	}
 }
 
 /* Extended communities associated with EAD-per-EVI */
-static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
-		struct bgpevpn *vpn, struct attr *attr)
+static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es, struct bgpevpn *vpn,
+						   struct attr *attr)
 {
 	struct ecommunity ecom_encap;
 	struct ecommunity_val eval;
 	bgp_encap_types tnl_type;
-	struct listnode *rt_node;
-	struct ecommunity *ecom;
+	struct ecommunity *ecom_vni_export;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
 
 	/* Encap */
 	tnl_type = BGP_ENCAP_TYPE_VXLAN;
@@ -1067,10 +1068,14 @@ static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
 	bgp_attr_set_ecommunity(attr, ecommunity_dup(&ecom_encap));
 
 	/* Add export RTs for the L2-VNI */
-	for (ALL_LIST_ELEMENTS_RO(vpn->export_rtl, rt_node, ecom))
-		bgp_attr_set_ecommunity(
-			attr,
-			ecommunity_merge(bgp_attr_get_ecommunity(attr), ecom));
+	if (bgp_evpn_effective_fq_rt_slu_count(&vpn->effective_fq_export_rts)) {
+		ecom_vni_export = ecommunity_new();
+		frr_each (bgp_evpn_effective_fq_rt_slu, &vpn->effective_fq_export_rts, fq_rt)
+			ecommunity_append_val_unchecked(ecom_vni_export, &fq_rt->ecom_val);
+		bgp_attr_set_ecommunity(attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
+							       ecom_vni_export));
+		ecommunity_free(&ecom_vni_export);
+	}
 }
 
 /* Update EVPN EAD (type-1) route -
