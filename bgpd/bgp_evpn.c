@@ -51,6 +51,8 @@ DEFINE_QOBJ_TYPE(bgp_evpn_es);
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
 DEFINE_MTYPE_STATIC(BGPD, VRF_ROUTE_TARGET, "L3 Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_RT_CONFIG, "BGP EVPN Route Target Config");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_CFGD_RT, "BGP EVPN Configured Route Target");
 
 /*
  * Static function declarations
@@ -106,6 +108,360 @@ static const char *vxlan_flood_control_str(enum vxlan_flood_control flood_ctrl)
 /*
  * Private functions.
  */
+
+/* Allocate a user configured route target */
+static struct bgp_evpn_cfgd_rt *bgp_evpn_cfgd_rt_new(void)
+{
+	return XCALLOC(MTYPE_BGP_EVPN_CFGD_RT, sizeof(struct bgp_evpn_cfgd_rt));
+}
+
+/* Free a user configured route target */
+void bgp_evpn_cfgd_rt_free(struct bgp_evpn_cfgd_rt *cfgd_rt)
+{
+	if (!cfgd_rt)
+		return;
+
+	XFREE(MTYPE_BGP_EVPN_CFGD_RT, cfgd_rt);
+}
+
+/*
+ * Convert a single-entry ecommunity to a newly allocated bgp_evpn_cfgd_rt.
+ * is_wildcard must be set when the original route target string used '*'
+ * as the global admin (the caller replaces '*' with '0' before parsing,
+ * so the ecommunity itself carries AS=0 and is indistinguishable from a
+ * real AS=0 route target). Returns NULL on any validation failure.
+ */
+struct bgp_evpn_cfgd_rt *bgp_evpn_cfgd_rt_from_ecom(const struct ecommunity *ecom, bool is_wildcard)
+{
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	const uint8_t *ecom_val;
+	uint8_t type, sub_type;
+
+	if (!ecom || ecom->size != 1 || ecom->unit_size != ECOMMUNITY_SIZE)
+		return NULL;
+
+	ecom_val = ecom->val;
+	type = ecom_val[0];
+	sub_type = ecom_val[1];
+
+	if (sub_type != ECOMMUNITY_ROUTE_TARGET)
+		return NULL;
+
+	if (is_wildcard) {
+		/* Wildcard parsing uses AS 0, so the ecommunity must be an
+		 * AS2 type route target.
+		 */
+		if (type != ECOMMUNITY_ENCODE_AS)
+			return NULL;
+
+		cfgd_rt = bgp_evpn_cfgd_rt_new();
+		cfgd_rt->type = BGP_EVPN_CFGD_RT_TYPE_WILDCARD;
+		ptr_get_be32(ecom_val + 4, &cfgd_rt->payload.wildcard_rt.local_admin);
+
+		return cfgd_rt;
+	}
+
+	switch (type) {
+	case ECOMMUNITY_ENCODE_AS:
+		cfgd_rt = bgp_evpn_cfgd_rt_new();
+		cfgd_rt->type = BGP_EVPN_CFGD_RT_TYPE_AS2;
+		ptr_get_be16(ecom_val + 2, &cfgd_rt->payload.as2_rt.as);
+		ptr_get_be32(ecom_val + 4, &cfgd_rt->payload.as2_rt.local_admin);
+
+		return cfgd_rt;
+	case ECOMMUNITY_ENCODE_IP:
+		cfgd_rt = bgp_evpn_cfgd_rt_new();
+		cfgd_rt->type = BGP_EVPN_CFGD_RT_TYPE_IP4;
+		memcpy(&cfgd_rt->payload.ip4_rt.ip, ecom_val + 2, sizeof(struct in_addr));
+		ptr_get_be16(ecom_val + 6, &cfgd_rt->payload.ip4_rt.local_admin);
+
+		return cfgd_rt;
+	case ECOMMUNITY_ENCODE_AS4:
+		cfgd_rt = bgp_evpn_cfgd_rt_new();
+		cfgd_rt->type = BGP_EVPN_CFGD_RT_TYPE_AS4;
+		ptr_get_be32(ecom_val + 2, &cfgd_rt->payload.as4_rt.as);
+		ptr_get_be16(ecom_val + 6, &cfgd_rt->payload.as4_rt.local_admin);
+
+		return cfgd_rt;
+	default:
+		return NULL;
+	}
+}
+
+/*
+ * Comparison function for user configured route targets. Sort order:
+ * 1) by type, in order of enum bgp_evpn_cfgd_rt_type
+ * 2) within a type by AS number/IP address (ascending), then by local
+ *    admin (ascending)
+ */
+int bgp_evpn_cfgd_rt_cmp(const struct bgp_evpn_cfgd_rt *rt1, const struct bgp_evpn_cfgd_rt *rt2)
+{
+	if (rt1->type != rt2->type)
+		return rt1->type < rt2->type ? -1 : 1;
+
+	switch (rt1->type) {
+	case BGP_EVPN_CFGD_RT_TYPE_WILDCARD:
+		if (rt1->payload.wildcard_rt.local_admin != rt2->payload.wildcard_rt.local_admin)
+			return rt1->payload.wildcard_rt.local_admin <
+					       rt2->payload.wildcard_rt.local_admin
+				       ? -1
+				       : 1;
+
+		return 0;
+
+	case BGP_EVPN_CFGD_RT_TYPE_AS2:
+		if (rt1->payload.as2_rt.as != rt2->payload.as2_rt.as)
+			return rt1->payload.as2_rt.as < rt2->payload.as2_rt.as ? -1 : 1;
+
+		if (rt1->payload.as2_rt.local_admin != rt2->payload.as2_rt.local_admin)
+			return rt1->payload.as2_rt.local_admin < rt2->payload.as2_rt.local_admin
+				       ? -1
+				       : 1;
+
+		return 0;
+
+	case BGP_EVPN_CFGD_RT_TYPE_IP4:
+		if (rt1->payload.ip4_rt.ip.s_addr != rt2->payload.ip4_rt.ip.s_addr)
+			return ntohl(rt1->payload.ip4_rt.ip.s_addr) <
+					       ntohl(rt2->payload.ip4_rt.ip.s_addr)
+				       ? -1
+				       : 1;
+
+		if (rt1->payload.ip4_rt.local_admin != rt2->payload.ip4_rt.local_admin)
+			return rt1->payload.ip4_rt.local_admin < rt2->payload.ip4_rt.local_admin
+				       ? -1
+				       : 1;
+
+		return 0;
+
+	case BGP_EVPN_CFGD_RT_TYPE_AS4:
+		if (rt1->payload.as4_rt.as != rt2->payload.as4_rt.as)
+			return rt1->payload.as4_rt.as < rt2->payload.as4_rt.as ? -1 : 1;
+
+		if (rt1->payload.as4_rt.local_admin != rt2->payload.as4_rt.local_admin)
+			return rt1->payload.as4_rt.local_admin < rt2->payload.as4_rt.local_admin
+				       ? -1
+				       : 1;
+
+		return 0;
+
+	default:
+		/* Should not happen, only valid types are constructed */
+		return memcmp(&rt1->payload, &rt2->payload, sizeof(rt1->payload));
+	}
+}
+
+int bgp_evpn_effective_wildcard_rt_cmp(const struct bgp_evpn_effective_wildcard_rt *rt1,
+				       const struct bgp_evpn_effective_wildcard_rt *rt2)
+{
+	if (rt1->local_admin_nbo != rt2->local_admin_nbo)
+		return rt1->local_admin_nbo < rt2->local_admin_nbo ? -1 : 1;
+
+	return 0;
+}
+
+/*
+ * Comparison function for effective fully qualified route targets.
+ * Sorts by ecommunity type (AS2 before IP4 before AS4), then by AS
+ * number/IP address, then by local admin, each ascending.
+ */
+int bgp_evpn_effective_fq_rt_cmp(const struct bgp_evpn_effective_fq_rt *rt1,
+				 const struct bgp_evpn_effective_fq_rt *rt2)
+{
+	uint8_t rt1_type = rt1->ecom_val.val[0];
+	uint8_t rt2_type = rt2->ecom_val.val[0];
+	uint8_t rt1_sub_type = rt1->ecom_val.val[1];
+	uint8_t rt2_sub_type = rt2->ecom_val.val[1];
+
+	/* Only ECOMMUNITY_ROUTE_TARGET should ever be stored here */
+	if (rt1_sub_type != rt2_sub_type)
+		return rt1_sub_type < rt2_sub_type ? -1 : 1;
+
+	if (rt1_type != rt2_type)
+		return rt1_type < rt2_type ? -1 : 1;
+
+	switch (rt1_type) {
+	case ECOMMUNITY_ENCODE_AS: {
+		uint16_t rt1_as, rt2_as;
+		uint32_t rt1_local_admin, rt2_local_admin;
+
+		ptr_get_be16(rt1->ecom_val.val + 2, &rt1_as);
+		ptr_get_be16(rt2->ecom_val.val + 2, &rt2_as);
+
+		if (rt1_as != rt2_as)
+			return rt1_as < rt2_as ? -1 : 1;
+
+		ptr_get_be32(rt1->ecom_val.val + 4, &rt1_local_admin);
+		ptr_get_be32(rt2->ecom_val.val + 4, &rt2_local_admin);
+
+		if (rt1_local_admin != rt2_local_admin)
+			return rt1_local_admin < rt2_local_admin ? -1 : 1;
+
+		return 0;
+	}
+	case ECOMMUNITY_ENCODE_IP: {
+		uint16_t rt1_local_admin, rt2_local_admin;
+		int ip_cmp;
+
+		ip_cmp = memcmp(rt1->ecom_val.val + 2, rt2->ecom_val.val + 2,
+				sizeof(struct in_addr));
+		if (ip_cmp != 0)
+			return ip_cmp;
+
+		ptr_get_be16(rt1->ecom_val.val + 6, &rt1_local_admin);
+		ptr_get_be16(rt2->ecom_val.val + 6, &rt2_local_admin);
+
+		if (rt1_local_admin != rt2_local_admin)
+			return rt1_local_admin < rt2_local_admin ? -1 : 1;
+
+		return 0;
+	}
+	case ECOMMUNITY_ENCODE_AS4: {
+		uint32_t rt1_as, rt2_as;
+		uint16_t rt1_local_admin, rt2_local_admin;
+
+		ptr_get_be32(rt1->ecom_val.val + 2, &rt1_as);
+		ptr_get_be32(rt2->ecom_val.val + 2, &rt2_as);
+
+		if (rt1_as != rt2_as)
+			return rt1_as < rt2_as ? -1 : 1;
+
+		ptr_get_be16(rt1->ecom_val.val + 6, &rt1_local_admin);
+		ptr_get_be16(rt2->ecom_val.val + 6, &rt2_local_admin);
+
+		if (rt1_local_admin != rt2_local_admin)
+			return rt1_local_admin < rt2_local_admin ? -1 : 1;
+
+		return 0;
+	}
+	default:
+		/* Should not happen, only route targets are stored here */
+		return memcmp(&rt1->ecom_val.val, &rt2->ecom_val.val, sizeof(rt1->ecom_val.val));
+	}
+}
+
+struct bgp_evpn_rt_config *bgp_evpn_rt_config_new(void)
+{
+	struct bgp_evpn_rt_config *rt_config;
+
+	rt_config = XCALLOC(MTYPE_BGP_EVPN_RT_CONFIG, sizeof(struct bgp_evpn_rt_config));
+
+	bgp_evpn_cfgd_rt_slu_init(&rt_config->cfgd_import);
+	bgp_evpn_cfgd_rt_slu_init(&rt_config->cfgd_export);
+
+	return rt_config;
+}
+
+void bgp_evpn_rt_config_free(struct bgp_evpn_rt_config *rt_config)
+{
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+
+	if (!rt_config)
+		return;
+
+	while ((cfgd_rt = bgp_evpn_cfgd_rt_slu_pop(&rt_config->cfgd_import)))
+		bgp_evpn_cfgd_rt_free(cfgd_rt);
+	bgp_evpn_cfgd_rt_slu_fini(&rt_config->cfgd_import);
+
+	while ((cfgd_rt = bgp_evpn_cfgd_rt_slu_pop(&rt_config->cfgd_export)))
+		bgp_evpn_cfgd_rt_free(cfgd_rt);
+	bgp_evpn_cfgd_rt_slu_fini(&rt_config->cfgd_export);
+
+	XFREE(MTYPE_BGP_EVPN_RT_CONFIG, rt_config);
+}
+
+static void bgp_evpn_format_wildcard_rt(char *buf, size_t buflen, uint32_t local_admin)
+{
+	snprintf(buf, buflen, "*:%u", local_admin);
+}
+
+static void bgp_evpn_format_as2_rt(char *buf, size_t buflen, uint16_t as, uint32_t local_admin)
+{
+	snprintf(buf, buflen, "%u:%u", as, local_admin);
+}
+
+static void bgp_evpn_format_ip4_rt(char *buf, size_t buflen, struct in_addr ip,
+				   uint16_t local_admin)
+{
+	snprintfrr(buf, buflen, "%pI4:%u", &ip, local_admin);
+}
+
+static void bgp_evpn_format_as4_rt(char *buf, size_t buflen, uint32_t as, uint16_t local_admin)
+{
+	snprintf(buf, buflen, "%u:%u", as, local_admin);
+}
+
+void bgp_evpn_format_wildcard_rt_local_admin(char *buf, size_t buflen, uint32_t local_admin_nbo)
+{
+	bgp_evpn_format_wildcard_rt(buf, buflen, ntohl(local_admin_nbo));
+}
+
+void bgp_evpn_format_fq_rt_ecom_val(char *buf, size_t buflen, const struct ecommunity_val *eval)
+{
+	uint8_t sub_type = eval->val[1];
+
+	if (sub_type != ECOMMUNITY_ROUTE_TARGET) {
+		snprintf(buf, buflen, "(Invalid RT, wrong subtype)");
+		return;
+	}
+
+	switch (eval->val[0]) {
+	case ECOMMUNITY_ENCODE_AS: {
+		uint16_t as2;
+		uint32_t local_admin;
+
+		ptr_get_be16(eval->val + 2, &as2);
+		ptr_get_be32(eval->val + 4, &local_admin);
+		bgp_evpn_format_as2_rt(buf, buflen, as2, local_admin);
+		break;
+	}
+	case ECOMMUNITY_ENCODE_IP: {
+		struct in_addr ip;
+		uint16_t local_admin;
+
+		memcpy(&ip, eval->val + 2, sizeof(struct in_addr));
+		ptr_get_be16(eval->val + 6, &local_admin);
+		bgp_evpn_format_ip4_rt(buf, buflen, ip, local_admin);
+		break;
+	}
+	case ECOMMUNITY_ENCODE_AS4: {
+		uint32_t as4;
+		uint16_t local_admin;
+
+		ptr_get_be32(eval->val + 2, &as4);
+		ptr_get_be16(eval->val + 6, &local_admin);
+		bgp_evpn_format_as4_rt(buf, buflen, as4, local_admin);
+		break;
+	}
+	default:
+		snprintf(buf, buflen, "(Invalid RT, wrong type)");
+		break;
+	}
+}
+
+void bgp_evpn_format_cfgd_rt(char *buf, size_t buflen, const struct bgp_evpn_cfgd_rt *cfgd_rt)
+{
+	switch (cfgd_rt->type) {
+	case BGP_EVPN_CFGD_RT_TYPE_WILDCARD:
+		bgp_evpn_format_wildcard_rt(buf, buflen, cfgd_rt->payload.wildcard_rt.local_admin);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_AS2:
+		bgp_evpn_format_as2_rt(buf, buflen, cfgd_rt->payload.as2_rt.as,
+				       cfgd_rt->payload.as2_rt.local_admin);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_IP4:
+		bgp_evpn_format_ip4_rt(buf, buflen, cfgd_rt->payload.ip4_rt.ip,
+				       cfgd_rt->payload.ip4_rt.local_admin);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_AS4:
+		bgp_evpn_format_as4_rt(buf, buflen, cfgd_rt->payload.as4_rt.as,
+				       cfgd_rt->payload.as4_rt.local_admin);
+		break;
+	default:
+		snprintf(buf, buflen, "(Invalid RT, unknown type)");
+		break;
+	}
+}
 
 /*
  * Make vni hash key.

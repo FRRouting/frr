@@ -156,6 +156,145 @@ struct vrf_irt_node {
 #define RT_TYPE_EXPORT 2
 #define RT_TYPE_BOTH   3
 
+/* Type discriminator for user configured route targets */
+enum bgp_evpn_cfgd_rt_type {
+	/* Wildcard route target, *:<uint32>, e.g. *:98765432 */
+	BGP_EVPN_CFGD_RT_TYPE_WILDCARD = 1,
+	/* 2-byte AS route target, <AS2>:<uint32>, e.g. 64496:98765432,
+	 * BGP extended community type 0x00
+	 */
+	BGP_EVPN_CFGD_RT_TYPE_AS2 = 2,
+	/* IPv4 route target, <IPv4>:<uint16>, e.g. 192.0.2.255:12345,
+	 * BGP extended community type 0x01
+	 */
+	BGP_EVPN_CFGD_RT_TYPE_IP4 = 3,
+	/* 4-byte AS route target, <AS4>:<uint16>, e.g. 4200000000:12345,
+	 * BGP extended community type 0x02
+	 */
+	BGP_EVPN_CFGD_RT_TYPE_AS4 = 4,
+};
+
+/* User configured wildcard route target */
+struct bgp_evpn_cfgd_wildcard_rt {
+	uint32_t local_admin;
+};
+
+/* User configured 2-byte AS route target */
+struct bgp_evpn_cfgd_as2_rt {
+	uint16_t as;
+	uint32_t local_admin;
+};
+
+/* User configured IPv4 route target */
+struct bgp_evpn_cfgd_ip4_rt {
+	struct in_addr ip;
+	uint16_t local_admin;
+};
+
+/* User configured 4-byte AS route target */
+struct bgp_evpn_cfgd_as4_rt {
+	uint32_t as;
+	uint16_t local_admin;
+};
+
+PREDECL_SORTLIST_UNIQ(bgp_evpn_cfgd_rt_slu);
+
+/* User configured route target, kept in the exact shape the user
+ * entered it so that the configuration can be written back verbatim.
+ * Used for both L3VNI VRFs and L2VNIs (strictly speaking an L2VNI is
+ * an EVI; FRR historically uses the two terms interchangeably).
+ */
+struct bgp_evpn_cfgd_rt {
+	enum bgp_evpn_cfgd_rt_type type;
+	union {
+		struct bgp_evpn_cfgd_wildcard_rt wildcard_rt;
+		struct bgp_evpn_cfgd_as2_rt as2_rt;
+		struct bgp_evpn_cfgd_ip4_rt ip4_rt;
+		struct bgp_evpn_cfgd_as4_rt as4_rt;
+	} payload;
+
+	struct bgp_evpn_cfgd_rt_slu_item slu_item;
+};
+
+extern int bgp_evpn_cfgd_rt_cmp(const struct bgp_evpn_cfgd_rt *rt1,
+				const struct bgp_evpn_cfgd_rt *rt2);
+extern struct bgp_evpn_cfgd_rt *bgp_evpn_cfgd_rt_from_ecom(const struct ecommunity *ecom,
+							   bool is_wildcard);
+extern void bgp_evpn_cfgd_rt_free(struct bgp_evpn_cfgd_rt *cfgd_rt);
+
+DECLARE_SORTLIST_UNIQ(bgp_evpn_cfgd_rt_slu, struct bgp_evpn_cfgd_rt, slu_item,
+		      bgp_evpn_cfgd_rt_cmp);
+
+/* Auto route target configuration of one direction */
+enum bgp_evpn_autort_cfgd {
+	BGP_EVPN_AUTORT_NOT_CFGD = 0, /* default: add if no manual RT */
+	BGP_EVPN_AUTORT_ADD_ALWAYS = 1,
+};
+
+/* User route target configuration of a L3VNI VRF or L2VNI.
+ *
+ * "route-target both" is a plain alias for configuring the same route
+ * target as import and export at the same time, so only import and
+ * export are stored.
+ *
+ * Wildcard route targets are only valid for import (an advertised route
+ * must carry fully qualified route targets), so cfgd_export never
+ * contains wildcard entries.
+ */
+struct bgp_evpn_rt_config {
+	enum bgp_evpn_autort_cfgd autort_cfgd_import;
+	enum bgp_evpn_autort_cfgd autort_cfgd_export;
+
+	struct bgp_evpn_cfgd_rt_slu_head cfgd_import;
+	struct bgp_evpn_cfgd_rt_slu_head cfgd_export;
+};
+
+PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_wildcard_rt_slu);
+
+/* Effective (derived) wildcard import route target. Matches routes
+ * carrying any route target with this local admin value, regardless of
+ * the global admin field.
+ */
+struct bgp_evpn_effective_wildcard_rt {
+	/* local admin value in network byte order (parallel to how it is
+	 * laid out in an ecommunity_val)
+	 */
+	uint32_t local_admin_nbo;
+
+	struct bgp_evpn_effective_wildcard_rt_slu_item slu_item;
+};
+
+extern int bgp_evpn_effective_wildcard_rt_cmp(const struct bgp_evpn_effective_wildcard_rt *rt1,
+					      const struct bgp_evpn_effective_wildcard_rt *rt2);
+
+DECLARE_SORTLIST_UNIQ(bgp_evpn_effective_wildcard_rt_slu, struct bgp_evpn_effective_wildcard_rt,
+		      slu_item, bgp_evpn_effective_wildcard_rt_cmp);
+
+PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_fq_rt_slu);
+
+/* Effective (derived) fully qualified route target */
+struct bgp_evpn_effective_fq_rt {
+	struct ecommunity_val ecom_val;
+
+	struct bgp_evpn_effective_fq_rt_slu_item slu_item;
+};
+
+extern int bgp_evpn_effective_fq_rt_cmp(const struct bgp_evpn_effective_fq_rt *rt1,
+					const struct bgp_evpn_effective_fq_rt *rt2);
+
+DECLARE_SORTLIST_UNIQ(bgp_evpn_effective_fq_rt_slu, struct bgp_evpn_effective_fq_rt, slu_item,
+		      bgp_evpn_effective_fq_rt_cmp);
+
+extern struct bgp_evpn_rt_config *bgp_evpn_rt_config_new(void);
+extern void bgp_evpn_rt_config_free(struct bgp_evpn_rt_config *rt_config);
+
+extern void bgp_evpn_format_cfgd_rt(char *buf, size_t buflen,
+				    const struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void bgp_evpn_format_wildcard_rt_local_admin(char *buf, size_t buflen,
+						    uint32_t local_admin_nbo);
+extern void bgp_evpn_format_fq_rt_ecom_val(char *buf, size_t buflen,
+					   const struct ecommunity_val *eval);
+
 #define EVPN_DAD_DEFAULT_TIME 180 /* secs */
 #define EVPN_DAD_DEFAULT_MAX_MOVES 5 /* default from RFC 7432 */
 #define EVPN_DAD_DEFAULT_AUTO_RECOVERY_TIME 1800 /* secs */
