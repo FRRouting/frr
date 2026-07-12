@@ -384,7 +384,10 @@ static void display_rt_list(struct vty *vty, json_object *json, const char *json
  */
 static void evpn_l3vni_fill_json(json_object *json_vni, struct bgp *bgp_vrf)
 {
-	json_object_int_add(json_vni, "vni", bgp_vrf->l3vni);
+	if (bgp_vrf->l3vni)
+		json_object_string_addf(json_vni, "vni", "%u", bgp_vrf->l3vni);
+	else
+		json_object_string_add(json_vni, "vni", "N/A");
 	json_object_string_add(json_vni, "type", "L3");
 	json_object_string_add(json_vni, "inKernel", is_l3vni_live(bgp_vrf) ? "True" : "False");
 	json_object_string_addf(json_vni, "rd", BGP_RD_AS_FORMAT(bgp_vrf->asnotation),
@@ -411,7 +414,7 @@ static void evpn_l3vni_fill_json(json_object *json_vni, struct bgp *bgp_vrf)
 static void evpn_l2vni_fill_json(json_object *json_vni, struct bgpevpn *vpn, struct bgp *bgp_evpn,
 				 enum asnotation_mode asnotation)
 {
-	json_object_int_add(json_vni, "vni", vpn->vni);
+	json_object_string_addf(json_vni, "vni", "%u", vpn->vni);
 	json_object_string_add(json_vni, "type", "L2");
 	json_object_string_add(json_vni, "inKernel", is_vni_live(vpn) ? "True" : "False");
 	json_object_string_addf(json_vni, "rd", BGP_RD_AS_FORMAT(asnotation), &vpn->prd);
