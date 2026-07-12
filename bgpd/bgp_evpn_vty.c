@@ -436,10 +436,15 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf, json_object *jso
 {
 	char *soo_str = NULL;
 	struct bgp *bgp_evpn = NULL;
+	struct listnode *node = NULL;
+	struct bgpevpn *vpn = NULL;
 	const char *gw_macip_state = bgp_vrf->advertise_gw_macip ? "Active" : "Disabled";
 	const char *svi_macip_state =
 		(bgp_vrf->evpn_info && bgp_vrf->evpn_info->advertise_svi_macip) ? "Active"
 										: "Disabled";
+	const char *vni_filter = CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY)
+					 ? "prefix-routes-only"
+					 : "none";
 
 	bgp_evpn = bgp_get_evpn();
 
@@ -451,6 +456,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf, json_object *jso
 		evpn_l3vni_fill_json(json, bgp_vrf);
 		if (soo_str)
 			json_object_string_add(json, "siteOfOrigin", soo_str);
+		json_object_string_add(json, "vniFilter", vni_filter);
 	} else {
 		vty_out(vty, "VNI: %d", bgp_vrf->l3vni);
 		if (is_l3vni_live(bgp_vrf))
@@ -480,6 +486,21 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf, json_object *jso
 			&bgp_vrf->effective_wildcard_import_rts, &bgp_vrf->effective_fq_import_rts);
 	display_rt_list(vty, json, "exportRts", "Export Route Target", NULL,
 			&bgp_vrf->effective_fq_export_rts);
+
+	if (json) {
+		json_object *json_l2vnis = json_object_new_array();
+
+		for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
+			json_object_array_add(json_l2vnis, json_object_new_int(vpn->vni));
+		json_object_object_add(json, "l2Vnis", json_l2vnis);
+	} else {
+		vty_out(vty, "  L3VNI Usage Filter: %s\n", vni_filter);
+		vty_out(vty, "  L2-VNI List:\n");
+		vty_out(vty, "    ");
+		for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
+			vty_out(vty, "%u  ", vpn->vni);
+		vty_out(vty, "\n");
+	}
 
 	ecommunity_strfree(&soo_str);
 }
@@ -6718,9 +6739,6 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
 	json_object *json = NULL;
-	json_object *json_vnis = NULL;
-	json_object *json_export_rts = NULL;
-	json_object *json_import_rts = NULL;
 	bool uj = use_json(argc, argv);
 
 	if (uj)
@@ -6740,12 +6758,6 @@ DEFUN (show_bgp_vrf_l3vni_info,
 			json_object_free(json);
 		}
 		return CMD_WARNING;
-	}
-
-	if (uj) {
-		json_vnis = json_object_new_array();
-		json_export_rts = json_object_new_array();
-		json_import_rts = json_object_new_array();
 	}
 
 	if (!json) {
@@ -6786,49 +6798,8 @@ DEFUN (show_bgp_vrf_l3vni_info,
 		vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation), &bgp->vrf_prd);
 		vty_out(vty, "\n");
 	} else {
-		json_object_string_add(json, "vrf", name);
-		json_object_string_addf(json, "local-ip", "%pIA", &bgp->originator_ip);
-		json_object_int_add(json, "l3vni", bgp->l3vni);
-		json_object_string_add(json, "rmac", prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
-		json_object_string_add(json, "vniFilter",
-				       CHECK_FLAG(bgp->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY)
-					       ? "prefix-routes-only"
-					       : "none");
-		/* list of l2vnis */
-		for (ALL_LIST_ELEMENTS_RO(bgp->l2vnis, node, vpn))
-			json_object_array_add(json_vnis, json_object_new_int(vpn->vni));
-		json_object_object_add(json, "l2vnis", json_vnis);
-
-		/* export rts */
-		frr_each (bgp_evpn_effective_fq_rt_slu, &bgp->effective_fq_export_rts, fq_rt) {
-			char rt_str[RT_ADDRSTRLEN + 3];
-
-			bgp_evpn_format_fq_rt_ecom_val(rt_buf, sizeof(rt_buf), &fq_rt->ecom_val);
-			snprintf(rt_str, sizeof(rt_str), "RT:%s", rt_buf);
-			json_object_array_add(json_export_rts, json_object_new_string(rt_str));
-		}
-		json_object_object_add(json, "export-rts", json_export_rts);
-
-		/* import rts */
-		frr_each (bgp_evpn_effective_wildcard_rt_slu, &bgp->effective_wildcard_import_rts,
-			  wildcard_rt) {
-			char rt_str[RT_ADDRSTRLEN + 3];
-
-			bgp_evpn_format_wildcard_rt_local_admin(rt_buf, sizeof(rt_buf),
-								wildcard_rt->local_admin_nbo);
-			snprintf(rt_str, sizeof(rt_str), "RT:%s", rt_buf);
-			json_object_array_add(json_import_rts, json_object_new_string(rt_str));
-		}
-		frr_each (bgp_evpn_effective_fq_rt_slu, &bgp->effective_fq_import_rts, fq_rt) {
-			char rt_str[RT_ADDRSTRLEN + 3];
-
-			bgp_evpn_format_fq_rt_ecom_val(rt_buf, sizeof(rt_buf), &fq_rt->ecom_val);
-			snprintf(rt_str, sizeof(rt_str), "RT:%s", rt_buf);
-			json_object_array_add(json_import_rts, json_object_new_string(rt_str));
-		}
-		json_object_object_add(json, "import-rts", json_import_rts);
-		json_object_string_addf(json, "rd", BGP_RD_AS_FORMAT(bgp->asnotation),
-					&bgp->vrf_prd);
+		/* Emit the common L3VNI schema */
+		display_l3vni(vty, bgp, json);
 	}
 
 	if (uj)
