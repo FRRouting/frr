@@ -136,7 +136,7 @@ def _check_vni_rts(router, vni, vni_type, import_rts, export_rts):
     a partial for run_and_expect.
     """
     expected = {
-        "vni": vni,
+        "vni": str(vni),
         "type": vni_type,
         "importRts": import_rts,
         "exportRts": export_rts,
@@ -277,7 +277,7 @@ router bgp 65002 vrf vrf-101
     assert result is None, result
 
     # ... the auto export RT must be unaffected ...
-    expected = {"vni": 101, "exportRts": ["65002:101"]}
+    expected = {"vni": "101", "exportRts": ["65002:101"]}
     test_func = partial(
         topotest.router_json_cmp,
         r2,
@@ -342,7 +342,7 @@ router bgp 65002
     # The wildcard RT must show up in the import RTs of the VNI next to
     # the retained auto RT (both displayed as wildcards, like they
     # match) ...
-    expected = {"vni": 201, "importRts": ["*:201", "*:202"]}
+    expected = {"vni": "201", "importRts": ["*:201", "*:202"]}
     test_func = partial(
         topotest.router_json_cmp,
         r2,
@@ -408,7 +408,7 @@ router bgp 65002
    route-target both 65099:99
 """)
 
-    expected = {"vni": 201, "importRts": ["65099:99"], "exportRts": ["65099:99"]}
+    expected = {"vni": "201", "importRts": ["65099:99"], "exportRts": ["65099:99"]}
     test_func = partial(
         topotest.router_json_cmp,
         r2,
