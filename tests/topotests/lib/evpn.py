@@ -815,7 +815,7 @@ def evpn_verify_bgp_vni_state(
         if bgp_vni is None:
             return f"VNI {vni}: Field 'vni' not found in BGP output"
 
-        if int(bgp_vni) != vni:
+        if str(bgp_vni) != str(vni):
             return (
                 f"VNI {vni}: VNI number mismatch in BGP. "
                 f"Expected: {vni}, Found: {bgp_vni}"
@@ -1126,10 +1126,8 @@ def evpn_verify_no_remote_vtep_in_l3vni(router, l3vni_list):
             except ValueError:
                 continue
         if found_vtep_ips:
-            return (
-                "VNI {}: expected no remote VTEPs, found {}".format(
-                    vni, sorted(found_vtep_ips)
-                )
+            return "VNI {}: expected no remote VTEPs, found {}".format(
+                vni, sorted(found_vtep_ips)
             )
     return None
 
