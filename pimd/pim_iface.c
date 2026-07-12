@@ -47,6 +47,7 @@
 
 static void pim_if_gm_join_del_all(struct interface *ifp);
 static void pim_if_static_group_del_all(struct interface *ifp);
+static void pim_if_gm_join_replay(struct interface *ifp);
 
 static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			pim_addr group_addr, pim_addr source_addr,
@@ -664,29 +665,8 @@ void pim_if_addr_add(struct connected *ifc)
 				pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp, false);
 			}
 
-			/* Replay Static IGMP groups */
-			if (pim_ifp->gm_join_list) {
-				struct listnode *node;
-				struct listnode *nextnode;
-				struct gm_join *ij;
-				int join_fd;
-
-				for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
-					/* Close socket and reopen with Source and Group
-					 */
-					close(ij->sock_fd);
-					join_fd = gm_join_sock(ifp->name, ifp->ifindex,
-							       ij->group_addr, ij->source_addr,
-							       pim_ifp);
-					if (join_fd < 0) {
-						zlog_warn("%s: gm_join_sock() failure for IGMP group %pI4s source %pI4s on interface %s",
-							  __func__, &ij->group_addr,
-							  &ij->source_addr, ifp->name);
-						/* warning only */
-					} else
-						ij->sock_fd = join_fd;
-				}
-			}
+			/* Replay join-group socket joins */
+			pim_if_gm_join_replay(ifp);
 		} /* igmp */
 		else {
 			struct gm_sock *igmp;
@@ -700,6 +680,14 @@ void pim_if_addr_add(struct connected *ifc)
 					  true);
 		} /* igmp mtrace only */
 	}
+#else
+	/* Replay static MLD join-groups.  IPv4 replays inside the gm_enable
+	 * branch above; without this, a join deferred from startup config
+	 * (no ifindex from zebra yet) or issued against a stale ifindex
+	 * would never be (re)joined for IPv6.
+	 */
+	if (pim_ifp->gm_enable)
+		pim_if_gm_join_replay(ifp);
 #endif
 
 	if (pim_ifp->pim_enable) {
@@ -1419,13 +1407,24 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	join_fd = gm_join_sock(ifp->name, ifp->ifindex, group_addr, source_addr,
-			       pim_ifp);
-	if (join_fd < 0) {
-		zlog_warn("%s: gm_join_sock() failure for " GM
-			  " group %pPAs source %pPAs on interface %s",
-			  __func__, &group_addr, &source_addr, ifp->name);
-		return 0;
+	if (ifp->ifindex == IFINDEX_INTERNAL) {
+		/* The interface has no ifindex yet -- startup config is
+		 * read before zebra delivers interfaces.  Issuing the join
+		 * now would not just fail: with gsr_interface == 0 the
+		 * kernel resolves the interface through a route lookup and
+		 * silently subscribes on whatever device that returns.
+		 * Defer instead; pim_if_gm_join_replay() issues the join
+		 * once the interface has an address (and gm is enabled).
+		 */
+		join_fd = -1;
+	} else {
+		join_fd = gm_join_sock(ifp->name, ifp->ifindex, group_addr, source_addr, pim_ifp);
+		if (join_fd < 0) {
+			zlog_warn("%s: gm_join_sock() failure for " GM
+				  " group %pPAs source %pPAs on interface %s",
+				  __func__, &group_addr, &source_addr, ifp->name);
+			return 0;
+		}
 	}
 
 	ij = XCALLOC(MTYPE_PIM_IGMP_JOIN, sizeof(*ij));
@@ -1439,6 +1438,50 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	listnode_add(pim_ifp->gm_join_list, ij);
 
 	return ij;
+}
+
+/* (Re)issue the kernel socket joins for every configured join-group on
+ * the interface, against its current ifindex.  This is what makes
+ * deferred joins (sock_fd == -1, created while the interface had no
+ * ifindex) real, and what re-targets existing joins when the interface
+ * is recreated under a new ifindex.  Entries that fail here keep their
+ * previous socket (or stay deferred) and are retried on the next
+ * replay.
+ */
+static void pim_if_gm_join_replay(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct listnode *nextnode;
+	struct gm_join *ij;
+	int join_fd;
+
+	if (!pim_ifp || !pim_ifp->gm_join_list)
+		return;
+
+	if (ifp->ifindex == IFINDEX_INTERNAL)
+		return;
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
+		/* Open the replacement join before dropping any existing
+		 * membership, so a failed reopen keeps whatever the old
+		 * socket still holds (the kernel refcounts the interface's
+		 * group membership across sockets, so both briefly
+		 * coexisting is fine).
+		 */
+		join_fd = gm_join_sock(ifp->name, ifp->ifindex, ij->group_addr, ij->source_addr,
+				       pim_ifp);
+		if (join_fd < 0) {
+			zlog_warn("%s: gm_join_sock() failure for " GM
+				  " group %pPAs source %pPAs on interface %s",
+				  __func__, &ij->group_addr, &ij->source_addr, ifp->name);
+			/* warning only; keep the existing socket, if any */
+			continue;
+		}
+		if (ij->sock_fd >= 0)
+			close(ij->sock_fd);
+		ij->sock_fd = join_fd;
+	}
 }
 
 static struct static_group *static_group_new(struct interface *ifp,
@@ -1553,7 +1596,7 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		return 0;
 	}
 
-	if (close(ij->sock_fd)) {
+	if (ij->sock_fd >= 0 && close(ij->sock_fd)) {
 		zlog_warn(
 			"%s: failure closing sock_fd=%d for " GM
 			" group %pPAs source %pPAs on interface %s: errno=%d: %s",
