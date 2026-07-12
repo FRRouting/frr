@@ -181,7 +181,7 @@ static uint16_t pnt_decode16(uint8_t **pnt)
 {
 	uint16_t data;
 
-	*pnt = ptr_get_be16(*pnt, &data);
+	*pnt = (uint8_t *)ptr_get_be16(*pnt, &data);
 
 	return data;
 }
