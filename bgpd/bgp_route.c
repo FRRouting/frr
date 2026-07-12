@@ -246,6 +246,12 @@ bool bgp_path_suppressed(struct bgp_path_info *pi)
 	return listcount(pi->extra->aggr_suppressors) > 0;
 }
 
+/* Return (creating if needed) the destination node for the given prefix.
+ * SAFI_MPLS_VPN, SAFI_ENCAP and SAFI_EVPN use a two-level table: the top
+ * level is keyed by the Route Distinguisher and each of its nodes holds
+ * another table containing the actual prefixes, whose nodes point back
+ * to the RD node via dest->pdest.
+ */
 struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, const struct prefix *p,
 				  struct prefix_rd *prd)
