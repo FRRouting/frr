@@ -59,83 +59,80 @@ int argv_find_and_parse_oly_idx(struct cmd_token **argv, int argc, int *oly_idx,
 	return 1;
 }
 
-static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
-				  json_object *json)
+/*
+ * Decode a route-target extended community into its display form.
+ * Returns false if the value is not a displayable route-target.
+ */
+static bool evpn_format_rt(const struct ecommunity_val *rt, char *rt_buf, size_t rt_buf_size)
 {
 	const uint8_t *pnt;
 	uint8_t type, sub_type;
-	struct ecommunity_as eas;
-	struct ecommunity_ip eip;
+
+	pnt = (const uint8_t *)&rt->val;
+	type = *pnt++;
+	sub_type = *pnt++;
+	if (sub_type != ECOMMUNITY_ROUTE_TARGET)
+		return false;
+
+	switch (type) {
+	case ECOMMUNITY_ENCODE_AS: {
+		uint16_t as;
+		uint32_t val;
+
+		pnt = ptr_get_be16(pnt, &as);
+		ptr_get_be32(pnt, &val);
+
+		snprintf(rt_buf, rt_buf_size, "%u:%u", as, val);
+		break;
+	}
+
+	case ECOMMUNITY_ENCODE_IP: {
+		struct in_addr ip;
+		uint16_t val;
+
+		memcpy(&ip, pnt, sizeof(ip));
+		pnt += sizeof(ip);
+		ptr_get_be16(pnt, &val);
+
+		snprintfrr(rt_buf, rt_buf_size, "%pI4:%u", &ip, val);
+		break;
+	}
+
+	case ECOMMUNITY_ENCODE_AS4: {
+		uint32_t as;
+		uint16_t val;
+
+		pnt = ptr_get_be32(pnt, &as);
+		ptr_get_be16(pnt, &val);
+
+		snprintf(rt_buf, rt_buf_size, "%u:%u", as, val);
+		break;
+	}
+
+	default:
+		return false;
+	}
+
+	return true;
+}
+
+static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt, json_object *json)
+{
 	struct listnode *node, *nnode;
 	struct bgp *tmp_bgp_vrf = NULL;
 	json_object *json_rt = NULL;
 	json_object *json_vrfs = NULL;
 	char rt_buf[RT_ADDRSTRLEN];
 
-	pnt = (uint8_t *)&irt->rt.val;
-	type = *pnt++;
-	sub_type = *pnt++;
-	if (sub_type != ECOMMUNITY_ROUTE_TARGET)
+	if (!evpn_format_rt(&irt->rt, rt_buf, sizeof(rt_buf)))
 		return;
 
 	if (json) {
 		json_rt = json_object_new_object();
 		json_vrfs = json_object_new_array();
-	}
-
-	memset(&eas, 0, sizeof(eas));
-	switch (type) {
-	case ECOMMUNITY_ENCODE_AS:
-		eas.as = (*pnt++ << 8);
-		eas.as |= (*pnt++);
-		ptr_get_be32(pnt, &eas.val);
-
-		snprintf(rt_buf, sizeof(rt_buf), "%u:%u", eas.as, eas.val);
-
-		if (json)
-			json_object_string_add(json_rt, "rt", rt_buf);
-		else
-			vty_out(vty, "Route-target: %s", rt_buf);
-
-		break;
-
-	case ECOMMUNITY_ENCODE_IP:
-		memcpy(&eip.ip, pnt, 4);
-		pnt += 4;
-		eip.val = (*pnt++ << 8);
-		eip.val |= (*pnt++);
-
-		snprintfrr(rt_buf, sizeof(rt_buf), "%pI4:%u", &eip.ip, eip.val);
-
-		if (json)
-			json_object_string_add(json_rt, "rt", rt_buf);
-		else
-			vty_out(vty, "Route-target: %s", rt_buf);
-
-		break;
-
-	case ECOMMUNITY_ENCODE_AS4:
-		pnt = ptr_get_be32(pnt, &eas.as);
-		eas.val = (*pnt++ << 8);
-		eas.val |= (*pnt++);
-
-		snprintf(rt_buf, sizeof(rt_buf), "%u:%u", eas.as, eas.val);
-
-		if (json)
-			json_object_string_add(json_rt, "rt", rt_buf);
-		else
-			vty_out(vty, "Route-target: %s", rt_buf);
-
-		break;
-
-	default:
-		/* Clean up */
-		json_object_free(json_rt);
-		json_object_free(json_vrfs);
-		return;
-	}
-
-	if (!json) {
+		json_object_string_add(json_rt, "rt", rt_buf);
+	} else {
+		vty_out(vty, "Route-target: %s", rt_buf);
 		vty_out(vty,
 			"\nList of VRFs importing routes with this route-target:\n");
 	}
@@ -169,84 +166,23 @@ static void show_vrf_import_rt_entry(struct hash_bucket *bucket, void *args[])
 	display_vrf_import_rt(vty, irt, json);
 }
 
-static void display_import_rt(struct vty *vty, struct irt_node *irt,
-			      json_object *json)
+static void display_import_rt(struct vty *vty, struct irt_node *irt, json_object *json)
 {
-	const uint8_t *pnt;
-	uint8_t type, sub_type;
-	struct ecommunity_as eas;
-	struct ecommunity_ip eip;
 	struct listnode *node, *nnode;
 	struct bgpevpn *tmp_vpn;
 	json_object *json_rt = NULL;
 	json_object *json_vnis = NULL;
 	char rt_buf[RT_ADDRSTRLEN];
 
-	/* TODO: This needs to go into a function */
-
-	pnt = (uint8_t *)&irt->rt.val;
-	type = *pnt++;
-	sub_type = *pnt++;
-	if (sub_type != ECOMMUNITY_ROUTE_TARGET)
+	if (!evpn_format_rt(&irt->rt, rt_buf, sizeof(rt_buf)))
 		return;
 
 	if (json) {
 		json_rt = json_object_new_object();
 		json_vnis = json_object_new_array();
-	}
-
-	memset(&eas, 0, sizeof(eas));
-	switch (type) {
-	case ECOMMUNITY_ENCODE_AS:
-		eas.as = (*pnt++ << 8);
-		eas.as |= (*pnt++);
-		ptr_get_be32(pnt, &eas.val);
-
-		snprintf(rt_buf, sizeof(rt_buf), "%u:%u", eas.as, eas.val);
-
-		if (json)
-			json_object_string_add(json_rt, "rt", rt_buf);
-		else
-			vty_out(vty, "Route-target: %s", rt_buf);
-
-		break;
-
-	case ECOMMUNITY_ENCODE_IP:
-		memcpy(&eip.ip, pnt, 4);
-		pnt += 4;
-		eip.val = (*pnt++ << 8);
-		eip.val |= (*pnt++);
-
-		snprintfrr(rt_buf, sizeof(rt_buf), "%pI4:%u", &eip.ip, eip.val);
-
-		if (json)
-			json_object_string_add(json_rt, "rt", rt_buf);
-		else
-			vty_out(vty, "Route-target: %s", rt_buf);
-
-		break;
-
-	case ECOMMUNITY_ENCODE_AS4:
-		pnt = ptr_get_be32(pnt, &eas.as);
-		eas.val = (*pnt++ << 8);
-		eas.val |= (*pnt++);
-
-		snprintf(rt_buf, sizeof(rt_buf), "%u:%u", eas.as, eas.val);
-
-		if (json)
-			json_object_string_add(json_rt, "rt", rt_buf);
-		else
-			vty_out(vty, "Route-target: %s", rt_buf);
-
-		break;
-
-	default:
-		json_object_free(json_vnis);
-		json_object_free(json_rt);
-		return;
-	}
-
-	if (!json) {
+		json_object_string_add(json_rt, "rt", rt_buf);
+	} else {
+		vty_out(vty, "Route-target: %s", rt_buf);
 		vty_out(vty,
 			"\nList of VNIs importing routes with this route-target:\n");
 	}
