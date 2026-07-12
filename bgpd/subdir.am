@@ -32,6 +32,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_community.c \
 	bgpd/bgp_community_alias.c \
 	bgpd/bgp_conditional_adv.c \
+	bgpd/bgp_crypto.c \
 	bgpd/bgp_damp.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_dump.c \

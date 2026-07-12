@@ -20,6 +20,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix");
 DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec");
+DEFINE_MTYPE_STATIC(LIB, PREFIX_CRYPTO, "Prefix Crypto");
 
 /* Maskbit. */
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
@@ -81,6 +82,8 @@ int str2family(const char *string)
 		return AF_ETHERNET;
 	else if (!strcmp("evpn", string))
 		return AF_EVPN;
+	else if (!strcmp("crypto", string))
+		return AF_CRYPTO;
 	return -1;
 }
 
@@ -95,6 +98,8 @@ const char *family2str(int family)
 		return "Ethernet";
 	case AF_EVPN:
 		return "Evpn";
+	case AF_CRYPTO:
+		return "Crypto";
 	}
 	return "?";
 }
@@ -108,6 +113,8 @@ int afi2family(afi_t afi)
 		return AF_INET6;
 	else if (afi == AFI_L2VPN)
 		return AF_ETHERNET;
+	else if (afi == AFI_CRYPTO)
+		return AF_CRYPTO;
 	/* NOTE: EVPN code should NOT use this interface. */
 	return 0;
 }
@@ -120,6 +127,8 @@ afi_t family2afi(int family)
 		return AFI_IP6;
 	else if (family == AF_ETHERNET || family == AF_EVPN)
 		return AFI_L2VPN;
+	else if (family == AF_CRYPTO)
+		return AFI_CRYPTO;
 	return 0;
 }
 
@@ -134,6 +143,8 @@ const char *afi2str_lower(afi_t afi)
 		return "l2vpn";
 	case AFI_BGP_LS:
 		return "bgp-ls";
+	case AFI_CRYPTO:
+		return "crypto";
 	case AFI_MAX:
 	case AFI_UNSPEC:
 		return "bad-value";
@@ -154,6 +165,8 @@ const char *afi2str(afi_t afi)
 		return "l2vpn";
 	case AFI_BGP_LS:
 		return "BGP-LS";
+	case AFI_CRYPTO:
+		return "Crypto";
 	case AFI_MAX:
 	case AFI_UNSPEC:
 		return "bad-value";
@@ -184,6 +197,8 @@ const char *safi2str(safi_t safi)
 		return "bgp-ls";
 	case SAFI_UNREACH:
 		return "unreachability";
+	case SAFI_CRYPTO_ROUTES:
+		return "crypto-routes";
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return "unknown";
@@ -358,6 +373,18 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
+	} else if (src->family == AF_CRYPTO) {
+		void *temp;
+		uint16_t len;
+
+		len = src->u.prefix_crypto.prefixlen;
+		dest->u.prefix_crypto.prefixlen = len;
+		dest->family = src->family;
+		temp = XCALLOC(MTYPE_PREFIX_CRYPTO, len ? len : 1);
+		dest->u.prefix_crypto.ptr = (uintptr_t)temp;
+		if (len)
+			memcpy((void *)dest->u.prefix_crypto.ptr,
+			       (void *)src->u.prefix_crypto.ptr, len);
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
@@ -447,6 +474,15 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
+		if (p1->family == AF_CRYPTO) {
+			if (p1->u.prefix_crypto.prefixlen !=
+			    p2->u.prefix_crypto.prefixlen)
+				return 0;
+			if (!memcmp((void *)p1->u.prefix_crypto.ptr,
+				    (void *)p2->u.prefix_crypto.ptr,
+				    p2->u.prefix_crypto.prefixlen))
+				return 1;
+		}
 	}
 	return 0;
 }
@@ -494,6 +530,16 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 			if (pp1[offset] != pp2[offset])
 				return numcmp(pp1[offset], pp2[offset]);
 		return 0;
+	}
+	if (p1->family == AF_CRYPTO) {
+		pp1 = (const uint8_t *)p1->u.prefix_crypto.ptr;
+		pp2 = (const uint8_t *)p2->u.prefix_crypto.ptr;
+
+		if (p1->u.prefix_crypto.prefixlen != p2->u.prefix_crypto.prefixlen)
+			return numcmp(p1->u.prefix_crypto.prefixlen,
+				      p2->u.prefix_crypto.prefixlen);
+
+		return memcmp(pp1, pp2, p1->u.prefix_crypto.prefixlen);
 	}
 	pp1 = p1->u.val;
 	pp2 = p2->u.val;
@@ -547,6 +593,8 @@ int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub)
 		length = ETH_ALEN;
 	if (p1->family == AF_EVPN)
 		length = 8 * sizeof(struct evpn_addr);
+	if (p1->family == AF_CRYPTO)
+		length = p1->u.prefix_crypto.prefixlen;
 
 	if (p1->family != p2->family || !length)
 		return -1;
@@ -578,6 +626,8 @@ const char *prefix_family_str(union prefixconstptr pu)
 		return "ether";
 	if (p->family == AF_EVPN)
 		return "evpn";
+	if (p->family == AF_CRYPTO)
+		return "crypto";
 	return "unspec";
 }
 
@@ -954,6 +1004,8 @@ int prefix_blen(union prefixconstptr pu)
 		return IPV6_MAX_BYTELEN;
 	case AF_ETHERNET:
 		return ETH_ALEN;
+	case AF_CRYPTO:
+		return p->u.prefix_crypto.prefixlen;
 	}
 	return 0;
 }
@@ -1248,6 +1300,36 @@ void prefix_flowspec_ptr_free(struct prefix *p)
 	p->u.prefix_flowspec.ptr = (uintptr_t)NULL;
 }
 
+void prefix_crypto_set(struct prefix *p, const void *key, uint16_t len)
+{
+	void *buf;
+
+	assert(p);
+	assert(key || len == 0);
+
+	memset(p, 0, sizeof(*p));
+	p->family = AF_CRYPTO;
+	p->prefixlen = len * 8;
+	p->u.prefix_crypto.prefixlen = len;
+	buf = XCALLOC(MTYPE_PREFIX_CRYPTO, len ? len : 1);
+	if (len)
+		memcpy(buf, key, len);
+	p->u.prefix_crypto.ptr = (uintptr_t)buf;
+}
+
+void prefix_crypto_ptr_free(struct prefix *p)
+{
+	void *temp;
+
+	if (!p || p->family != AF_CRYPTO || !p->u.prefix_crypto.ptr)
+		return;
+
+	temp = (void *)p->u.prefix_crypto.ptr;
+	XFREE(MTYPE_PREFIX_CRYPTO, temp);
+	p->u.prefix_crypto.ptr = (uintptr_t)NULL;
+	p->u.prefix_crypto.prefixlen = 0;
+}
+
 struct prefix *prefix_new(void)
 {
 	struct prefix *p;
@@ -1411,6 +1493,17 @@ unsigned prefix_hash_key(const void *pp)
 			    copy.u.prefix_flowspec.prefixlen,
 			    0x55aa5a5a);
 		prefix_flowspec_ptr_free(&copy);
+		return len;
+	}
+	if (((struct prefix *)pp)->family == AF_CRYPTO) {
+		uint32_t len;
+
+		memset(&copy, 0, sizeof(copy));
+		prefix_copy(&copy, (struct prefix *)pp);
+		len = jhash((void *)copy.u.prefix_crypto.ptr,
+			    copy.u.prefix_crypto.prefixlen,
+			    0x55aa5a5a);
+		prefix_crypto_ptr_free(&copy);
 		return len;
 	}
 	/* make sure *all* unused bits are zero, particularly including

@@ -1428,6 +1428,14 @@ static struct cmd_node bgp_ipv6_unreachability_node = {
 	.no_xpath = true,
 };
 
+static struct cmd_node bgp_crypto_routes_node = {
+    .name = "bgp crypto-routes",
+    .node = BGP_CRYPTO_ROUTES_NODE,
+    .parent_node = BGP_NODE,
+    .prompt = "%s(config-router-af)# ",
+    .no_xpath = true,
+};
+
 static struct cmd_node bgp_ipv4_node = {
 	.name = "bgp ipv4 unicast",
 	.node = BGP_IPV4_NODE,
@@ -1883,6 +1891,15 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_unreachability, address_family_ipv6_unre
 	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6U_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, address_family_crypto_routes, address_family_crypto_routes_cmd,
+	"address-family crypto-routes",
+	"Enter Address Family command mode\n"
+	"Experimental crypto metadata routes\n")
+{
+	vty->node = BGP_CRYPTO_ROUTES_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2650,7 +2667,8 @@ DEFUNSH(VTYSH_BGPD, exit_address_family, exit_address_family_cmd,
 	    || vty->node == BGP_FLOWSPECV6_NODE
 	    || vty->node == BGP_LS_NODE
 	    || vty->node == BGP_IPV4U_NODE
-	    || vty->node == BGP_IPV6U_NODE)
+	    || vty->node == BGP_IPV6U_NODE
+        || vty->node == BGP_CRYPTO_ROUTES_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
@@ -5405,7 +5423,7 @@ void vtysh_init_vty(void)
 	install_node(&srv6_sid_format_uncompressed_f4024_node);
 	install_node(&bgp_ipv4_unreachability_node);
 	install_node(&bgp_ipv6_unreachability_node);
-
+    install_node(&bgp_crypto_routes_node);
 	vtysh_init_cmd();
 
 	/* bgpd */
@@ -5462,6 +5480,12 @@ void vtysh_init_vty(void)
 	install_element(BGP_IPV4_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_IPV4_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_IPV4_NODE, &exit_address_family_cmd);
+
+    install_element(BGP_NODE, &address_family_crypto_routes_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &exit_address_family_cmd);
 
 	install_element(BGP_NODE, &address_family_ipv4_multicast_cmd);
 	install_element(BGP_IPV4M_NODE, &vtysh_exit_bgpd_cmd);

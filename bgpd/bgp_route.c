@@ -376,6 +376,8 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_EVPN, e->evpn);
 	if (e->unreach)
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_UNREACH, e->unreach);
+	if (e->crypto)
+		XFREE(MTYPE_BGP_ROUTE_EXTRA_CRYPTO, e->crypto);
 	if (e->flowspec)
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_FS, e->flowspec);
 	if (e->vrfleak)

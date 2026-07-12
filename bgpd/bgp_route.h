@@ -188,6 +188,21 @@ struct bgp_path_info_extra_unreach {
 	bool has_timestamp;
 };
 
+#define BGP_CRYPTO_PEER_ID_MAX        64
+#define BGP_CRYPTO_ALGORITHM_MAX      32
+#define BGP_CRYPTO_CERT_ID_MAX        128
+#define BGP_CRYPTO_PUBLIC_KEY_ID_MAX  128
+
+struct bgp_path_info_extra_crypto {
+	char peer_id[BGP_CRYPTO_PEER_ID_MAX];
+	char algorithm[BGP_CRYPTO_ALGORITHM_MAX];
+	char certificate_id[BGP_CRYPTO_CERT_ID_MAX];
+	char public_key_id[BGP_CRYPTO_PUBLIC_KEY_ID_MAX];
+	uint64_t capability_bitmap;
+	uint8_t trust_level;
+	uint16_t version;
+};
+
 /* new structure for vrfleak*/
 struct bgp_path_info_extra_vrfleak {
 	void *parent; /* parent from global table */
@@ -276,6 +291,9 @@ struct bgp_path_info_extra {
 
 	/* SAFI_UNREACH per-path Reporter TLV storage. */
 	struct bgp_path_info_extra_unreach *unreach;
+
+	/* SAFI_CRYPTO_ROUTES per-path metadata storage. */
+	struct bgp_path_info_extra_crypto *crypto;
 
 	/* For vrf leaking*/
 	struct bgp_path_info_extra_vrfleak *vrfleak;

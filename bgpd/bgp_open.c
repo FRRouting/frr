@@ -163,6 +163,11 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 							       "capabilityErrorMultiProtocolAfi",
 							       "BGP-LS");
 					break;
+				case AFI_CRYPTO:
+					json_object_string_add(json_cap,
+							       "capabilityErrorMultiProtocolAfi",
+							       "Crypto");
+					break;
 				case AFI_UNSPEC:
 				case AFI_MAX:
 					json_object_int_add(
@@ -224,6 +229,11 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 							       "capabilityErrorMultiProtocolSafi",
 							       "unreachability");
 					break;
+				case SAFI_CRYPTO_ROUTES:
+					json_object_string_add(json_cap,
+							       "capabilityErrorMultiProtocolSafi",
+							       "crypto-routes");
+					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
 					json_object_int_add(
@@ -247,6 +257,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 					break;
 				case AFI_BGP_LS:
 					vty_out(vty, "AFI BGP-LS, ");
+					break;
+				case AFI_CRYPTO:
+					vty_out(vty, "AFI Crypto, ");
 					break;
 				case AFI_UNSPEC:
 				case AFI_MAX:
@@ -281,6 +294,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 					break;
 				case SAFI_UNREACH:
 					vty_out(vty, "SAFI Unreachability");
+					break;
+				case SAFI_CRYPTO_ROUTES:
+					vty_out(vty, "SAFI Crypto-routes");
 					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
@@ -1585,7 +1601,8 @@ int bgp_open_option_parse(struct peer_connection *connection, uint16_t length, i
 		    && !peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 		    && !peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
 		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]
-		    && !peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS]) {
+		    && !peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS]
+		    && !peer->afc_nego[AFI_CRYPTO][SAFI_CRYPTO_ROUTES]) {
 			flog_err(EC_BGP_PKT_OPEN,
 				 "%s [Error] Configured AFI/SAFIs do not overlap with received MP capabilities",
 				 peer->host);
@@ -1794,7 +1811,7 @@ static void bgp_peer_send_llgr_capability(struct stream *s, struct peer_connecti
 		if (!peer->afc[afi][safi])
 			continue;
 
-		if (safi == SAFI_UNREACH)
+		if (safi == SAFI_UNREACH || safi == SAFI_CRYPTO_ROUTES)
 			continue;
 
 		bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -1967,6 +1984,8 @@ uint16_t bgp_open_capability(struct stream *s, struct peer_connection *connectio
 
 	/* AddPath */
 	FOREACH_AFI_SAFI (afi, safi) {
+		if (safi == SAFI_CRYPTO_ROUTES)
+			continue;
 		if (peer->afc[afi][safi]) {
 			afi_safi_count++;
 
@@ -1988,79 +2007,88 @@ uint16_t bgp_open_capability(struct stream *s, struct peer_connection *connectio
 		}
 	}
 
-	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_ADV);
-	stream_putc(s, BGP_OPEN_OPT_CAP);
-	ext_opt_params
-		? stream_putw(s, (CAPABILITY_CODE_ADDPATH_LEN * afi_safi_count)
-					 + 2)
-		: stream_putc(s, (CAPABILITY_CODE_ADDPATH_LEN * afi_safi_count)
-					 + 2);
-	stream_putc(s, CAPABILITY_CODE_ADDPATH);
-	stream_putc(s, CAPABILITY_CODE_ADDPATH_LEN * afi_safi_count);
+	if (afi_safi_count) {
+		SET_FLAG(peer->cap, PEER_CAP_ADDPATH_ADV);
+		stream_putc(s, BGP_OPEN_OPT_CAP);
+		ext_opt_params
+			? stream_putw(s, (CAPABILITY_CODE_ADDPATH_LEN *
+					  afi_safi_count) + 2)
+			: stream_putc(s, (CAPABILITY_CODE_ADDPATH_LEN *
+					  afi_safi_count) + 2);
+		stream_putc(s, CAPABILITY_CODE_ADDPATH);
+		stream_putc(s, CAPABILITY_CODE_ADDPATH_LEN * afi_safi_count);
 
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (peer->afc[afi][safi]) {
-			bool adv_addpath_rx =
-				!CHECK_FLAG(peer->af_flags[afi][safi],
-					    PEER_FLAG_DISABLE_ADDPATH_RX);
-			uint8_t flags = 0;
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (safi == SAFI_CRYPTO_ROUTES)
+				continue;
+			if (peer->afc[afi][safi]) {
+				bool adv_addpath_rx =
+					!CHECK_FLAG(peer->af_flags[afi][safi],
+						    PEER_FLAG_DISABLE_ADDPATH_RX);
+				uint8_t flags = 0;
 
-			/* Convert AFI, SAFI to values for packet. */
+				/* Convert AFI, SAFI to values for packet. */
+				bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi,
+							  &pkt_safi);
+
+				stream_putw(s, pkt_afi);
+				stream_putc(s, pkt_safi);
+
+				if (adv_addpath_rx) {
+					SET_FLAG(flags, BGP_ADDPATH_RX);
+					SET_FLAG(peer->af_cap[afi][safi],
+						 PEER_CAP_ADDPATH_AF_RX_ADV);
+				} else {
+					UNSET_FLAG(peer->af_cap[afi][safi],
+						   PEER_CAP_ADDPATH_AF_RX_ADV);
+				}
+
+				if (adv_addpath_tx) {
+					SET_FLAG(flags, BGP_ADDPATH_TX);
+					SET_FLAG(peer->af_cap[afi][safi],
+						 PEER_CAP_ADDPATH_AF_TX_ADV);
+					if (safi == SAFI_LABELED_UNICAST)
+						SET_FLAG(peer->af_cap[afi][SAFI_UNICAST],
+							 PEER_CAP_ADDPATH_AF_TX_ADV);
+				} else {
+					UNSET_FLAG(peer->af_cap[afi][safi],
+						   PEER_CAP_ADDPATH_AF_TX_ADV);
+				}
+
+				stream_putc(s, flags);
+			}
+		}
+	}
+
+	/* Paths-Limit capability */
+	if (afi_safi_count) {
+		SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_ADV);
+		stream_putc(s, BGP_OPEN_OPT_CAP);
+		ext_opt_params ? stream_putw(s, (CAPABILITY_CODE_PATHS_LIMIT_LEN *
+						 afi_safi_count) +
+							2)
+			       : stream_putc(s, (CAPABILITY_CODE_PATHS_LIMIT_LEN *
+						 afi_safi_count) +
+							2);
+		stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT);
+		stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT_LEN * afi_safi_count);
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (safi == SAFI_CRYPTO_ROUTES)
+				continue;
+			if (!peer->afc[afi][safi])
+				continue;
+
 			bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi,
 						  &pkt_safi);
 
 			stream_putw(s, pkt_afi);
 			stream_putc(s, pkt_safi);
+			stream_putw(s, peer->addpath_paths_limit[afi][safi].send);
 
-			if (adv_addpath_rx) {
-				SET_FLAG(flags, BGP_ADDPATH_RX);
-				SET_FLAG(peer->af_cap[afi][safi],
-					 PEER_CAP_ADDPATH_AF_RX_ADV);
-			} else {
-				UNSET_FLAG(peer->af_cap[afi][safi],
-					   PEER_CAP_ADDPATH_AF_RX_ADV);
-			}
-
-			if (adv_addpath_tx) {
-				SET_FLAG(flags, BGP_ADDPATH_TX);
-				SET_FLAG(peer->af_cap[afi][safi],
-					 PEER_CAP_ADDPATH_AF_TX_ADV);
-				if (safi == SAFI_LABELED_UNICAST)
-					SET_FLAG(
-						peer->af_cap[afi][SAFI_UNICAST],
-						PEER_CAP_ADDPATH_AF_TX_ADV);
-			} else {
-				UNSET_FLAG(peer->af_cap[afi][safi],
-					   PEER_CAP_ADDPATH_AF_TX_ADV);
-			}
-
-			stream_putc(s, flags);
+			SET_FLAG(peer->af_cap[afi][safi],
+				 PEER_CAP_PATHS_LIMIT_AF_ADV);
 		}
-	}
-
-	/* Paths-Limit capability */
-	SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_ADV);
-	stream_putc(s, BGP_OPEN_OPT_CAP);
-	ext_opt_params ? stream_putw(s, (CAPABILITY_CODE_PATHS_LIMIT_LEN *
-					 afi_safi_count) +
-						2)
-		       : stream_putc(s, (CAPABILITY_CODE_PATHS_LIMIT_LEN *
-					 afi_safi_count) +
-						2);
-	stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT);
-	stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT_LEN * afi_safi_count);
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!peer->afc[afi][safi])
-			continue;
-
-		bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
-
-		stream_putw(s, pkt_afi);
-		stream_putc(s, pkt_safi);
-		stream_putw(s, peer->addpath_paths_limit[afi][safi].send);
-
-		SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_ADV);
 	}
 
 	/* ORF capability. */
