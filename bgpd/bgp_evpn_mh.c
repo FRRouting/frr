@@ -752,6 +752,7 @@ static void bgp_evpn_type4_route_extcomm_build(struct bgp_evpn_es *es,
 	memset(&ecom_df, 0, sizeof(ecom_df));
 	encode_df_elect_extcomm(&eval_df, es->df_pref);
 	ecom_df.size = 1;
+	ecom_df.unit_size = ECOMMUNITY_SIZE;
 	ecom_df.val = (uint8_t *)eval_df.val;
 	bgp_attr_set_ecommunity(
 		attr,
