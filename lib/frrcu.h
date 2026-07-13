@@ -42,7 +42,10 @@ struct rcu_thread;
 
 /* sets up rcu thread info
  *
- * return value must be passed into the thread's call to rcu_thread_start()
+ * arg is normally the creating thread's rcu_thread (from rcu_thread_prepare),
+ * or NULL when an external thread self-registers (e.g. non-FRR / Tokio
+ * workers).  return value must be passed into the thread's call to
+ * rcu_thread_start().
  */
 extern struct rcu_thread *rcu_thread_new(void *arg);
 
@@ -54,7 +57,17 @@ extern struct rcu_thread *rcu_thread_new(void *arg);
  */
 extern struct rcu_thread *rcu_thread_prepare(void);
 
-/* cleanup in case pthread_create() fails */
+/* Unregister an RCU thread.
+ *
+ * - After rcu_thread_prepare(), if pthread_create() fails, pass the pointer
+ *   returned by prepare (thread never started).
+ * - After rcu_thread_start(), pass that same pointer, or NULL to unregister
+ *   the calling thread (useful from external thread-stop hooks).
+ *
+ * Safe to call at most once per registration.  Clears thread-local state so
+ * the pthread_key destructor will not double-free.  Thread exit still cleans
+ * up automatically if this is never called.
+ */
 extern void rcu_thread_unprepare(struct rcu_thread *rcu_thread);
 
 /* called early in the new thread, with the return value from the above.
@@ -64,7 +77,9 @@ extern void rcu_thread_unprepare(struct rcu_thread *rcu_thread);
  */
 extern void rcu_thread_start(struct rcu_thread *rcu_thread);
 
-/* thread exit is handled through pthread_key_create's destructor function */
+/* thread exit is handled through pthread_key_create's destructor, or
+ * explicitly via rcu_thread_unprepare() / rcu_thread_unprepare(NULL)
+ */
 
 /* global RCU shutdown - must be called with only 1 active thread left.  waits
  * until remaining RCU actions are done & RCU thread has exited.

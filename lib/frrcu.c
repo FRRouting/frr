@@ -157,9 +157,18 @@ struct rcu_thread *rcu_thread_new(void *arg)
 {
 	struct rcu_thread *rt, *cur = arg;
 
+	/* Ensure the sweeper exists so deferred frees from thread teardown
+	 * (and any RCU use on the new thread) actually complete.
+	 */
+	if (!rcu_active)
+		rcu_start();
+
 	/* new thread always starts with rcu_read_lock held at depth 1, and
 	 * holding the same epoch as the parent (this makes it possible to
-	 * use RCU for things passed into the thread through its arg)
+	 * use RCU for things passed into the thread through its arg).
+	 *
+	 * When arg is NULL (external / non-FRR thread self-registering),
+	 * hold the current global epoch instead.
 	 */
 	rt = XCALLOC(MTYPE_RCU_THREAD, sizeof(*rt));
 	rt->depth = 1;
@@ -167,6 +176,8 @@ struct rcu_thread *rcu_thread_new(void *arg)
 	seqlock_init(&rt->rcu);
 	if (cur)
 		seqlock_acquire(&rt->rcu, &cur->rcu);
+	else
+		seqlock_acquire(&rt->rcu, &rcu_seq);
 
 	rcu_threads_add_tail(&rcu_threads, rt);
 
@@ -182,9 +193,6 @@ struct rcu_thread *rcu_thread_prepare(void)
 
 	rcu_assert_read_locked();
 
-	if (!rcu_active)
-		rcu_start();
-
 	cur = rcu_self();
 	assert(cur->depth);
 
@@ -198,8 +206,20 @@ void rcu_thread_start(struct rcu_thread *rt)
 
 void rcu_thread_unprepare(struct rcu_thread *rt)
 {
-	if (rt == &rcu_thread_rcu)
+	/* NULL => unregister the calling thread (for external thread stop
+	 * callbacks).  Already-unregistered threads are a no-op.
+	 */
+	if (!rt)
+		rt = rcu_self();
+	if (!rt || rt == &rcu_thread_rcu)
 		return;
+
+	/* Drop TLS before freeing so the pthread_key destructor (and any
+	 * second explicit unprepare) cannot run cleanup twice.
+	 * pthread_setspecific(NULL) does not invoke the destructor.
+	 */
+	if (rcu_self() == rt)
+		pthread_setspecific(rcu_thread_key, NULL);
 
 	rt->depth = 1;
 	seqlock_acquire(&rt->rcu, &rcu_seq);
@@ -215,8 +235,8 @@ void rcu_thread_unprepare(struct rcu_thread *rt)
 
 static void rcu_thread_end(void *rtvoid)
 {
-	struct rcu_thread *rt = rtvoid;
-	rcu_thread_unprepare(rt);
+	/* key already cleared by pthread before destructor runs */
+	rcu_thread_unprepare(rtvoid);
 }
 
 /*
