@@ -1941,7 +1941,8 @@ static struct nexthop *nexthop_set_resolved(afi_t afi, const struct nexthop *new
 	resolved_hop = nexthop_new();
 	SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 
-	resolved_hop->vrf_id = nexthop->vrf_id;
+	/* Use newhop's VRF - it reflects where the egress interface lives. */
+	resolved_hop->vrf_id = newhop->vrf_id;
 
 	/* Using weighted ECMP, we should respect the weight and use
 	 * the same value for non-recursive next-hop.
