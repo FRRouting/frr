@@ -294,6 +294,7 @@ struct ecommunity *ecommunity_dup(struct ecommunity *ecom)
 	new = XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
 	new->size = ecom->size;
 	new->unit_size = ecom->unit_size;
+	new->disable_ieee_floating = ecom->disable_ieee_floating;
 	if (new->size) {
 		new->val = XMALLOC(MTYPE_ECOMMUNITY_VAL,
 				   ecom->size * ecom->unit_size);
@@ -2191,6 +2192,7 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 		encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw,
 				  false, &lb_eval, disable_ieee_floating);
 		new = ecommunity_dup(ecom);
+		new->disable_ieee_floating = disable_ieee_floating;
 		ecommunity_add_val(new, &lb_eval, true, true);
 	}
 
