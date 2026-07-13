@@ -19,6 +19,12 @@ Following tests are covered to test pim igmp proxy:
         proxy join removal
 6. TC:6 Verify that 'ip igmp proxy route-map' filters proxied groups
 7. TC:7 Verify 'match multicast-source-interface' filters by source iface
+8. TC:8 Verify leave on one downstream interface does not prune proxy
+        while another downstream interface still has receivers for the
+        same group
+9. TC:9 Verify filtered downstream interest does not block proxy prune
+10. TC:10 Verify (S,G) static-group covered by (*,G) is pruned when that
+        (*,G) later leaves
 """
 
 import os
@@ -410,9 +416,9 @@ int r2-eth0
     _, result = topotest.run_and_expect(
         step5_join_seen_proxy_omits_denied, True, count=30, wait=1
     )
-    assert result is True, (
-        "Timed out waiting for r2 IGMP join while r1 proxy omits denied groups"
-    )
+    assert (
+        result is True
+    ), "Timed out waiting for r2 IGMP join while r1 proxy omits denied groups"
 
     # Step 6: remove the route-map and cycle proxy — all groups should return
     r2.vtysh_cmd(
@@ -573,6 +579,209 @@ conf
 no route-map PROXY_SRC_IFC
 """
     )
+
+
+def test_pim_igmp_proxy_multi_downstream_leave():
+    """
+    TC:8 - Leave on one downstream must not proxy-prune while another still wants G.
+
+    Topology reminder:
+      r1-eth0 <-> r2   (downstream)
+      r1-eth1 <-> rp   (upstream / igmp proxy)
+      r1-eth2 <-> r3   (downstream)
+
+    Join the same group on both downstream interfaces, leave on eth0 only, and
+    confirm the upstream proxy join remains until the last downstream receiver
+    leaves.
+    """
+    logger.info("Verify multi-downstream leave does not prune remaining proxy join")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+    group = "239.0.0.1"
+
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  ip igmp join {group}
+ interface r1-eth2
+  ip igmp join {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
+    assert result is True, "Error: {}".format(result)
+
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  no ip igmp join {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
+    assert result is True, "Error: proxy pruned while r1-eth2 still joined: {}".format(
+        result
+    )
+
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth2
+  no ip igmp join {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [], [group])
+    assert (
+        result is True
+    ), "Error: proxy join remained after last downstream leave: {}".format(result)
+
+
+def test_pim_igmp_proxy_filtered_downstream_leave():
+    """
+    TC:9 - Filtered downstream interest must not keep the upstream proxy join.
+
+    Join the same group on eth0 (permitted) and eth2 (denied by source-interface
+    route-map).  Leaving eth0 must proxy-prune even though eth2 still has a join.
+    """
+    logger.info("Verify filtered downstream does not block proxy prune on leave")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+    group = "239.0.0.2"
+
+    r1.vtysh_cmd(
+        f"""
+conf
+route-map PROXY_LEAVE_FILTER permit 10
+ match multicast-source-interface r1-eth0
+!
+interface r1-eth0
+ ip igmp join {group}
+interface r1-eth2
+ ip igmp join {group}
+interface r1-eth1
+ ip igmp proxy route-map PROXY_LEAVE_FILTER
+ no ip igmp proxy
+ ip igmp proxy
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
+    assert result is True, "Error: {}".format(result)
+
+    # Leave the only unfiltered downstream; eth2 still joined but denied by rmap.
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  no ip igmp join {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [], [group])
+    assert result is True, (
+        "Error: proxy join remained after last unfiltered downstream leave "
+        "(filtered eth2 still joined): {}".format(result)
+    )
+
+    # cleanup
+    r1.vtysh_cmd(
+        f"""
+conf
+interface r1-eth2
+ no ip igmp join {group}
+interface r1-eth1
+ no ip igmp proxy route-map
+no route-map PROXY_LEAVE_FILTER
+"""
+    )
+
+
+def test_pim_igmp_proxy_starg_covers_sg_leave():
+    """
+    TC:10 - (S,G) kept by covering (*,G) must prune when that (*,G) later leaves.
+
+    This is an ASM static-group edge case: join-group cannot install proxied
+    (S,G) in ASM (igmp_source_forward_start refuses ASM+source), and SSM
+    cannot hold covering (*,G).  static-group is the way to create (S,G) on
+    an ASM group that also has (*,G) interest.
+
+    Sequence:
+      1. eth0 static-group (S,G) -> proxy adds (S,G)
+      2. eth2 static-group (*,G) -> proxy adds (*,G)
+      3. eth0 removes (S,G) -> skip (S,G) prune because eth2 (*,G) covers it
+      4. eth2 removes (*,G) -> prune (*,G) and also the uncovered (S,G)
+    """
+    logger.info("Verify (S,G) proxy covered by (*,G) is not stranded on (*,G) leave")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+    group = "239.0.0.3"
+    source = "10.1.1.10"
+
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  ip igmp static-group {group} {source}
+ interface r1-eth2
+  ip igmp static-group {group}
+"""
+    )
+
+    expected_both = {
+        "r1-eth1": {
+            "groups": [
+                {
+                    "source": source,
+                    "group": group,
+                },
+                {
+                    "source": "*",
+                    "group": group,
+                },
+            ],
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip igmp proxy json", expected_both
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "expected both (S,G) and (*,G) proxy joins: {}".format(
+        r1.vtysh_cmd("show ip igmp proxy json")
+    )
+
+    # Remove (S,G); (*,G) on eth2 must keep coverage (and may keep (S,G) proxy).
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  no ip igmp static-group {group} {source}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
+    assert result is True, "Error: proxy pruned while eth2 still has (*,G): {}".format(
+        result
+    )
+
+    # Remove covering (*,G); uncovered (S,G) proxy must go with it.
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth2
+  no ip igmp static-group {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [], [group])
+    assert (
+        result is True
+    ), "Error: (S,G) proxy join stranded after covering (*,G) leave: {}".format(result)
 
 
 def test_memory_leak():
