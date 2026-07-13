@@ -138,9 +138,12 @@ void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 	/* Remove previous schedule if any. */
 	bfd_xmttimer_delete(bs);
 
-	/* Don't add event if peer is deactivated. */
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) || bs->sock == -1) {
-		bs->xmt_TO_actual = 0; /* Timer not scheduled */
+	/* Skip if inactive; allow scheduling while AdminDown. */
+	if (bs->sock == -1
+	    || (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN)
+		&& bs->ses_state != PTM_BFD_ADM_DOWN)) {
+		bs->xmt_TO_actual = 0; /* Unscheduled */
+		frrtrace(4, frr_bfd, xmttimer_schedule, bs, jitter, false);
 		return;
 	}
 
@@ -148,6 +151,7 @@ void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 
 	event_add_timer_tv(master, bfd_xmt_cb, bs, &tv, &bs->xmttimer_ev);
 	event_set_tardy_threshold(bs->xmttimer_ev, bs->xmt_TO / 2);
+	frrtrace(4, frr_bfd, xmttimer_schedule, bs, jitter, true);
 }
 
 void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)

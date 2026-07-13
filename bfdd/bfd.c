@@ -1792,7 +1792,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 		bs->local_diag = BD_ADMIN_DOWN;
 
-		/* Handle data plane shutdown case. */
+		/* Offloaded sessions must also keep sending AdminDown. */
 		if (bs->bdc) {
 			bs->ses_state = PTM_BFD_ADM_DOWN;
 			bfd_dplane_update_session(bs);
@@ -1800,19 +1800,21 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			return;
 		}
 
-		/* Disable all events. */
+		/* Stop receive/echo timers, but keep transmitting AdminDown. */
 		bfd_recvtimer_delete(bs);
 		bfd_echo_recvtimer_delete(bs);
-		bfd_xmttimer_delete(bs);
 		bfd_echo_xmttimer_delete(bs);
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
 		ptm_bfd_notify(bs, bs->ses_state);
 
-		/* Don't try to send packets with a disabled session. */
-		if (bs->sock != -1)
+		/* Advertise AdminDown at slow rate while shut. */
+		if (bs->sock != -1) {
+			bs_set_slow_timers(bs);
 			ptm_bfd_snd(bs, 0);
+			ptm_bfd_start_xmt_timer(bs, false);
+		}
 	} else {
 		/* Already working. */
 		if (!is_shutdown)
