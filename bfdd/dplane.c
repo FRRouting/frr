@@ -417,6 +417,25 @@ static int bfd_dplane_enqueue(struct bfd_dplane_ctx *bdc, const void *buf,
 	if (bdc->client && bdc->sock == -1)
 		return -1;
 
+	/*
+	 * Not enough space: the buffer may simply not have been drained
+	 * yet, e.g. the initial session registration burst enqueues all
+	 * sessions before the write event ever runs. Try flushing
+	 * synchronously before giving up: the socket is normally
+	 * writable. Skip clients still connecting (flush would spin on
+	 * EAGAIN until the connection finishes).
+	 */
+	if (buflen > STREAM_WRITEABLE(bdc->outbuf) &&
+	    !(bdc->client && bdc->connecting)) {
+		/*
+		 * On socket failure or close the context is freed by
+		 * the flush. The buffer is non empty here, so a zero
+		 * return means exactly that: don't touch `bdc` again.
+		 */
+		if (bfd_dplane_flush(bdc) == 0)
+			return -1;
+	}
+
 	/* Not enough space. */
 	if (buflen > STREAM_WRITEABLE(bdc->outbuf)) {
 		bdc->out_fullev++;
