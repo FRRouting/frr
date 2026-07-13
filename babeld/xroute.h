@@ -19,6 +19,7 @@ struct xroute_stream;
 
 struct xroute *find_xroute(const unsigned char *prefix, unsigned char plen);
 void flush_xroute(struct xroute *xroute);
+void flush_xroutes_by_type(int afi, int proto);
 int babel_route_add(struct zapi_route *api);
 int babel_route_delete(struct zapi_route *api);
 int xroutes_estimate(void);
