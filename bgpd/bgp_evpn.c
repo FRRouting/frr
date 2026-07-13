@@ -1332,52 +1332,46 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
  */
 static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *attr)
 {
-	struct ecommunity ecom_encap;
-	struct ecommunity_val eval;
-	struct ecommunity_val eval_rmac;
+	struct ecommunity_val eval_tmp;
 	bgp_encap_types tnl_type;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
 	struct ecommunity *old_ecom;
 	struct ecommunity *ecom;
-	struct ecommunity *ecom_vrf_export;
 
-	/* Encap */
-	tnl_type = BGP_ENCAP_TYPE_VXLAN;
-	memset(&ecom_encap, 0, sizeof(ecom_encap));
-	encode_encap_extcomm(tnl_type, &eval);
-	ecom_encap.size = 1;
-	ecom_encap.unit_size = ECOMMUNITY_SIZE;
-	ecom_encap.val = (uint8_t *)eval.val;
-
-	/* Add Encap */
+	/* Build the extended community locally, starting from the attribute's
+	 * existing one (if any); the encap community is the first addition.
+	 */
 	if (bgp_attr_get_ecommunity(attr)) {
 		old_ecom = bgp_attr_get_ecommunity(attr);
-		ecom = ecommunity_merge(ecommunity_dup(old_ecom), &ecom_encap);
+		ecom = ecommunity_dup(old_ecom);
 		if (!old_ecom->refcnt)
 			ecommunity_free(&old_ecom);
 	} else
-		ecom = ecommunity_dup(&ecom_encap);
-	bgp_attr_set_ecommunity(attr, ecom);
+		ecom = ecommunity_new();
+
+	/* Encap */
+	tnl_type = BGP_ENCAP_TYPE_VXLAN;
+	encode_encap_extcomm(tnl_type, &eval_tmp);
+	ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	attr->encap_tunneltype = tnl_type;
 
 	/* Add the export RTs for L3VNI/VRF (the effective export list is
 	 * sorted and duplicate free)
 	 */
-	if (bgp_evpn_effective_fq_rt_slu_count(&bgp_vrf->effective_fq_export_rts)) {
-		ecom_vrf_export = ecommunity_new();
-		frr_each (bgp_evpn_effective_fq_rt_slu, &bgp_vrf->effective_fq_export_rts, fq_rt)
-			ecommunity_append_val_unchecked(ecom_vrf_export, &fq_rt->ecom_val);
-
-		bgp_attr_set_ecommunity(attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
-							       ecom_vrf_export));
-		ecommunity_free(&ecom_vrf_export);
-	}
+	frr_each (bgp_evpn_effective_fq_rt_slu, &bgp_vrf->effective_fq_export_rts, fq_rt)
+		ecommunity_append_val_unchecked(ecom, &fq_rt->ecom_val);
 
 	/* add the router mac extended community */
 	if (!is_zero_mac(&attr->rmac)) {
-		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecommunity_add_val(bgp_attr_get_ecommunity(attr), &eval_rmac, true, true);
+		encode_rmac_extcomm(&eval_tmp, &attr->rmac);
+		ecommunity_add_val(ecom, &eval_tmp, true, true);
 	}
+
+	/* Attach the extended community last: bgp_attr_set_ecommunity()
+	 * derives the EXT_COMMUNITIES attribute flag from the community size,
+	 * so it must see the fully built (non-empty) community.
+	 */
+	bgp_attr_set_ecommunity(attr, ecom);
 }
 
 /*
@@ -1393,106 +1387,74 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *att
 static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr, int add_l3_ecomm,
 				     struct ecommunity *macvrf_soo)
 {
-	struct ecommunity ecom_encap;
-	struct ecommunity ecom_sticky;
-	struct ecommunity ecom_default_gw;
-	struct ecommunity ecom_na;
-	struct ecommunity_val eval;
-	struct ecommunity_val eval_sticky;
-	struct ecommunity_val eval_default_gw;
-	struct ecommunity_val eval_rmac;
-	struct ecommunity_val eval_na;
+	struct ecommunity_val eval_tmp;
 	bool proxy;
 
 	bgp_encap_types tnl_type;
-	struct ecommunity *ecom_vni_export;
-	struct ecommunity *ecom_vrf_export;
+	struct ecommunity *ecom;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
 	struct bgp_evpn_effective_fq_rt_slu_head *vrf_export_rtl = NULL;
 	uint32_t seqnum;
 
-	/* Encap */
-	tnl_type = BGP_ENCAP_TYPE_VXLAN;
-	memset(&ecom_encap, 0, sizeof(ecom_encap));
-	encode_encap_extcomm(tnl_type, &eval);
-	ecom_encap.size = 1;
-	ecom_encap.unit_size = ECOMMUNITY_SIZE;
-	ecom_encap.val = (uint8_t *)eval.val;
+	ecom = ecommunity_new();
 
-	/* Add Encap */
-	bgp_attr_set_ecommunity(attr, ecommunity_dup(&ecom_encap));
+	/* Encap. This is the first community; the ones below extend it. */
+	tnl_type = BGP_ENCAP_TYPE_VXLAN;
+	encode_encap_extcomm(tnl_type, &eval_tmp);
+	ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	attr->encap_tunneltype = tnl_type;
 
 	/* Add the export RTs for L2VNI (the effective export list is
 	 * sorted and duplicate free)
 	 */
-	if (bgp_evpn_effective_fq_rt_slu_count(&vpn->effective_fq_export_rts)) {
-		ecom_vni_export = ecommunity_new();
-		frr_each (bgp_evpn_effective_fq_rt_slu, &vpn->effective_fq_export_rts, fq_rt)
-			ecommunity_append_val_unchecked(ecom_vni_export, &fq_rt->ecom_val);
-		bgp_attr_set_ecommunity(attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
-							       ecom_vni_export));
-		ecommunity_free(&ecom_vni_export);
-	}
+	frr_each (bgp_evpn_effective_fq_rt_slu, &vpn->effective_fq_export_rts, fq_rt)
+		ecommunity_append_val_unchecked(ecom, &fq_rt->ecom_val);
 
 	/* Add the export RTs for L3VNI if told to - caller determines
 	 * when this should be done.
 	 */
 	if (add_l3_ecomm) {
 		vrf_export_rtl = bgpevpn_get_vrf_export_rtl(vpn);
-		if (vrf_export_rtl && bgp_evpn_effective_fq_rt_slu_count(vrf_export_rtl)) {
-			ecom_vrf_export = ecommunity_new();
+		if (vrf_export_rtl)
 			frr_each (bgp_evpn_effective_fq_rt_slu, vrf_export_rtl, fq_rt)
-				ecommunity_append_val_unchecked(ecom_vrf_export, &fq_rt->ecom_val);
-
-			bgp_attr_set_ecommunity(attr,
-						ecommunity_merge(bgp_attr_get_ecommunity(attr),
-								 ecom_vrf_export));
-			ecommunity_free(&ecom_vrf_export);
-		}
+				ecommunity_append_val_unchecked(ecom, &fq_rt->ecom_val);
 	}
 
 	/* Add MAC mobility (sticky) if needed. */
 	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY)) {
 		seqnum = 0;
-		encode_mac_mobility_extcomm(1, seqnum, &eval_sticky);
-		ecom_sticky.size = 1;
-		ecom_sticky.unit_size = ECOMMUNITY_SIZE;
-		ecom_sticky.val = (uint8_t *)eval_sticky.val;
-		bgp_attr_set_ecommunity(attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
-							       &ecom_sticky));
+		encode_mac_mobility_extcomm(1, seqnum, &eval_tmp);
+		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	}
 
 	/* Add RMAC, if told to. */
 	if (add_l3_ecomm) {
-		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecommunity_add_val(bgp_attr_get_ecommunity(attr), &eval_rmac, true, true);
+		encode_rmac_extcomm(&eval_tmp, &attr->rmac);
+		ecommunity_add_val(ecom, &eval_tmp, true, true);
 	}
 
 	/* Add default gateway, if needed. */
 	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
-		encode_default_gw_extcomm(&eval_default_gw);
-		ecom_default_gw.size = 1;
-		ecom_default_gw.unit_size = ECOMMUNITY_SIZE;
-		ecom_default_gw.val = (uint8_t *)eval_default_gw.val;
-		bgp_attr_set_ecommunity(attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
-							       &ecom_default_gw));
+		encode_default_gw_extcomm(&eval_tmp);
+		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	}
 
 	proxy = !!(attr->es_flags & ATTR_ES_PROXY_ADVERT);
 	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER) || proxy) {
-		encode_na_flag_extcomm(&eval_na,
+		encode_na_flag_extcomm(&eval_tmp,
 				       CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER), proxy);
-		ecom_na.size = 1;
-		ecom_na.unit_size = ECOMMUNITY_SIZE;
-		ecom_na.val = (uint8_t *)eval_na.val;
-		bgp_attr_set_ecommunity(attr,
-					ecommunity_merge(bgp_attr_get_ecommunity(attr), &ecom_na));
+		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	}
 
 	/* Add MAC-VRF SoO, if configured */
 	if (macvrf_soo)
-		bgp_attr_set_ecommunity(attr, ecommunity_merge(attr->ecommunity, macvrf_soo));
+		ecommunity_merge(ecom, macvrf_soo);
+
+	/* Attach the extended community last: bgp_attr_set_ecommunity()
+	 * derives the EXT_COMMUNITIES attribute flag from the community size,
+	 * so it must see the fully built (non-empty) community.
+	 */
+	bgp_attr_set_ecommunity(attr, ecom);
 }
 
 /*
