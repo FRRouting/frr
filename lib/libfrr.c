@@ -1528,7 +1528,6 @@ static struct event *t_mem_release_event;
 
 #ifdef HAVE_TCMALLOC
 
-#define FRR_MEM_RELEASE_MB_DEFAULT 1 /* In MB/sec */
 #define FRR_MEM_RELEASE_THRESHOLD  20 * 1024 * 1024
 #define FRR_MEM_RELEASE_TIMEOUT    10 /* Seconds */
 
@@ -1572,6 +1571,11 @@ void frr_mem_release_config(uint32_t rate)
 				&t_mem_release_event);
 }
 
+uint32_t frr_mem_release_rate_get(void)
+{
+	return mem_release_mb;
+}
+
 static int frr_tcmalloc_lib_init(struct event_loop *loop)
 {
 	/* Using tcmalloc memory-release functions: configure periodic
@@ -1593,6 +1597,11 @@ static int frr_tcmalloc_lib_init(struct event_loop *loop)
 void frr_mem_release_config(uint32_t rate)
 {
 	/* No-op */
+}
+
+uint32_t frr_mem_release_rate_get(void)
+{
+	return FRR_MEM_RELEASE_MB_DEFAULT;
 }
 
 #endif /* HAVE_TCMALLOC */

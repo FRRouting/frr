@@ -495,6 +495,7 @@ DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
 		       nifp->auth_token->buf;
 	auth->type = htonl(NHRP_AUTHENTICATION_PLAINTEXT);
 	memcpy(auth->secret, password, pass_len);
+	nifp->auth_afi = cmd_to_afi(argv[0]);
 
 	return CMD_SUCCESS;
 }
@@ -1219,9 +1220,12 @@ static int interface_config_write(struct vty *vty)
 			vty_out(vty, " tunnel source %s\n", nifp->source);
 
 		if (nifp->auth_token) {
+			aficmd =
+				afi_to_cmd(IS_VALID_AFI(nifp->auth_afi) ? nifp->auth_afi : AFI_IP);
+
 			auth = (struct nhrp_cisco_authentication_extension *)
 				       nifp->auth_token->buf;
-			vty_out(vty, " ip nhrp authentication %s\n", auth->secret);
+			vty_out(vty, " %s nhrp authentication %s\n", aficmd, auth->secret);
 		}
 
 		for (afi = 0; afi < AFI_MAX; afi++) {
