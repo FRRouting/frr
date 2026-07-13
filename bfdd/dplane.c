@@ -659,7 +659,19 @@ static void _bfd_session_register_dplane(struct hash_bucket *hb, void *arg)
 	bfd_session_disable(bs);
 
 	/* Move session to data plane. */
-	_bfd_dplane_add_session(bdc, bs);
+	if (_bfd_dplane_add_session(bdc, bs) != 0) {
+		/*
+		 * The data plane didn't take the session (e.g. output
+		 * buffer full): return it to the software
+		 * implementation instead of leaving it implemented by
+		 * neither. Same recovery as data plane detach
+		 * (`_bfd_session_unregister_dplane`).
+		 */
+		zlog_warn(
+			"%s: failed to register session with data plane, keeping it in software",
+			__func__);
+		bfd_session_enable(bs);
+	}
 }
 
 static struct bfd_dplane_ctx *bfd_dplane_ctx_new(int sock)
