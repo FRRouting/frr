@@ -33,13 +33,13 @@ int babel_route_add(struct zapi_route *api)
 		inaddr_to_uchar(uchar_prefix, &api->prefix.u.prefix4);
 		debugf(BABEL_DEBUG_ROUTE, "Adding new ipv4 route coming from Zebra.");
 		xroute_add_new_route(uchar_prefix, api->prefix.prefixlen + 96, api->metric,
-				     api->nexthops[0].ifindex, 0, 1);
+				     api->nexthops[0].ifindex, api->type, 1);
 		break;
 	case AF_INET6:
 		in6addr_to_uchar(uchar_prefix, &api->prefix.u.prefix6);
 		debugf(BABEL_DEBUG_ROUTE, "Adding new ipv6 route coming from Zebra.");
 		xroute_add_new_route(uchar_prefix, api->prefix.prefixlen, api->metric,
-				     api->nexthops[0].ifindex, 0, 1);
+				     api->nexthops[0].ifindex, api->type, 1);
 		break;
 	}
 
@@ -72,6 +72,43 @@ int babel_route_delete(struct zapi_route *api)
 	}
 
 	return 0;
+}
+
+/*
+ * Flush every redistributed xroute matching the given afi and route type, and
+ * withdraw it from our neighbours. This is used when "no redistribute" is
+ * configured: zebra stops sending us the routes but does not withdraw the ones
+ * it already handed out, so babeld has to drop them and retract them itself.
+ */
+void flush_xroutes_by_type(int afi, int proto)
+{
+	int i = 0;
+
+	while (i < numxroutes) {
+		struct xroute *xroute = &xroutes[i];
+		unsigned char prefix[16];
+		unsigned char plen;
+		int xroute_afi = AFI_IP6;
+
+		if (xroute->plen >= 96 && v4mapped(xroute->prefix))
+			xroute_afi = AFI_IP;
+
+		if (xroute->proto != proto || xroute_afi != afi) {
+			i++;
+			continue;
+		}
+
+		memcpy(prefix, xroute->prefix, 16);
+		plen = xroute->plen;
+		flush_xroute(xroute);
+		/*
+		 * With the xroute gone (and no better route), the buffered
+		 * update goes out as an INFINITY retraction so neighbours drop
+		 * it promptly. flush_xroute() moved the last entry into slot i,
+		 * so re-examine slot i without advancing.
+		 */
+		send_update(NULL, 0, prefix, plen);
+	}
 }
 
 struct xroute *find_xroute(const unsigned char *prefix, unsigned char plen)
@@ -118,7 +155,14 @@ static int add_xroute(unsigned char prefix[16], unsigned char plen, unsigned sho
 	if (xroute) {
 		if (xroute->metric <= metric)
 			return 0;
+		/*
+		 * A better route won this prefix: keep the source (proto and
+		 * ifindex) in sync with the metric so a later "no redistribute"
+		 * flushes the right advertisement.
+		 */
 		xroute->metric = metric;
+		xroute->ifindex = ifindex;
+		xroute->proto = proto;
 		return 1;
 	}
 
