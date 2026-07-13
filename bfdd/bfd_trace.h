@@ -319,6 +319,21 @@ TRACEPOINT_EVENT(
 	)
 )
 
+/* BFD transmit timer scheduling tracepoint. */
+TRACEPOINT_EVENT(
+	frr_bfd,
+	xmttimer_schedule,
+	TP_ARGS(struct bfd_session *, bs, uint64_t, jitter, bool, scheduled),
+	TP_FIELDS(
+		ctf_integer(uint32_t, local_discr, bs ? bs->discrs.my_discr : 0)
+		ctf_integer(uint8_t, state, bs ? bs->ses_state : 0)
+		ctf_integer(bool, shutdown, bs ? CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) : false)
+		ctf_integer(int, socket_fd, bs ? bs->sock : -1)
+		ctf_integer(uint64_t, jitter_us, jitter)
+		ctf_integer(bool, scheduled, scheduled)
+	)
+)
+
 /*
  * BFD control client event tracepoint
  * is_connect: true=connect, false=disconnect
@@ -678,6 +693,7 @@ TRACEPOINT_LOGLEVEL(frr_bfd, packet_remote_discr_zero, TRACE_WARNING)
 TRACEPOINT_LOGLEVEL(frr_bfd, packet_ttl_exceeded, TRACE_WARNING)
 TRACEPOINT_LOGLEVEL(frr_bfd, echo_packet_error, TRACE_WARNING)
 TRACEPOINT_LOGLEVEL(frr_bfd, timer_negotiation, TRACE_INFO)
+TRACEPOINT_LOGLEVEL(frr_bfd, xmttimer_schedule, TRACE_INFO)
 TRACEPOINT_LOGLEVEL(frr_bfd, control_client_event, TRACE_INFO)
 TRACEPOINT_LOGLEVEL(frr_bfd, echo_mode_change, TRACE_INFO)
 TRACEPOINT_LOGLEVEL(frr_bfd, dplane_session_not_found, TRACE_WARNING)
