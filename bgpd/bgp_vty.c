@@ -22317,6 +22317,9 @@ int bgp_config_write(struct vty *vty)
 				vty_out(vty,
 					" bgp graceful-restart preserve-fw-state\n");
 
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR))
+			vty_out(vty, " bgp graceful-restart disable-eor\n");
+
 		/* BGP TCP keepalive */
 		bgp_config_tcp_keepalive(vty, bgp);
 

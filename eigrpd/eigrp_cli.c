@@ -192,7 +192,10 @@ void eigrp_cli_show_active_time(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *timer = yang_dnode_get_string(dnode, NULL);
 
-	vty_out(vty, " timers active-time %s\n", timer);
+	if (!strcmp(timer, "0"))
+		vty_out(vty, " timers active-time disabled\n");
+	else
+		vty_out(vty, " timers active-time %s\n", timer);
 }
 
 /*

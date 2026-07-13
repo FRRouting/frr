@@ -525,6 +525,9 @@ static int config_write_host(struct vty *vty)
 			vty_out(vty, "banner motd line %s\n", host.motd);
 		else if (!host.motd)
 			vty_out(vty, "no banner motd\n");
+
+		if (frr_mem_release_rate_get() != FRR_MEM_RELEASE_MB_DEFAULT)
+			vty_out(vty, "memory release rate %u\n", frr_mem_release_rate_get());
 	}
 
 	if (debug_memstats_at_exit)
