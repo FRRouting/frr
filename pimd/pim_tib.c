@@ -15,6 +15,13 @@
 #include "pim_oil.h"
 #include "pim_nht.h"
 #include "pim_dm.h"
+<<<<<<< HEAD
+=======
+#include "pim_routemap.h"
+#if PIM_IPV == 6
+#include "pim6_mld.h"
+#endif
+>>>>>>> 9e11c0d68 (pimd: do not proxy IGMP leave while other downstream receivers remain)
 
 static struct channel_oil *
 tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
@@ -79,6 +86,187 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	return pim_channel_oil_add(pim, &sg, __func__);
 }
 
+/*
+ * True when some interface other than leave_oif still has downstream interest
+ * in sg that would be accepted by proxy_ifp's proxy route-map.  Used so a leave
+ * on one downstream interface does not proxy-prune upstream while other
+ * unfiltered downstream interfaces still have receivers for the same group.
+ *
+ * Remaining (*,G) interest covers a specific (S,G) leave: IGMPv2 / EXCLUDE
+ * and group-only static/manual joins keep upstream flow for every source in G.
+ *
+ * Downstream interest that fails the proxy route-map (e.g. match
+ * multicast-source-interface) must not keep the upstream proxy join: that
+ * interface could not have created the join and must not block its prune.
+ */
+static bool tib_sg_interest_covers(pim_addr interest_src, pim_addr leave_src)
+{
+	if (!pim_addr_cmp(interest_src, leave_src))
+		return true;
+
+	/* Wildcard (*,G) covers any specific source leave. */
+	return pim_addr_is_any(interest_src);
+}
+
+static bool tib_sg_ifp_has_downstream_interest(struct interface *ifp, pim_sgaddr sg)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+
+	if (!pim_ifp)
+		return false;
+
+	/* Proxy interfaces are upstream outputs, not downstream sources. */
+	if (pim_ifp->gm_proxy)
+		return false;
+
+#if PIM_IPV == 4
+	if (pim_ifp->gm_group_list) {
+		struct gm_group *group;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, node, group)) {
+			struct listnode *srcnode;
+			struct gm_source *src;
+
+			if (pim_addr_cmp(group->group_addr, sg.grp))
+				continue;
+
+			/*
+			 * IGMPv2 / IGMPv3 EXCLUDE {empty} is (*,G) interest.
+			 * Steady-state usually has a forwarding * source from
+			 * igmp_anysource_forward_start(), but that can fail or
+			 * briefly be absent — still treat the group as joined.
+			 */
+			if (group->group_filtermode_isexcl &&
+			    listcount(group->group_source_list) < 1)
+				return true;
+
+			for (ALL_LIST_ELEMENTS_RO(group->group_source_list, srcnode, src)) {
+				if (!tib_sg_interest_covers(src->source_addr, sg.src))
+					continue;
+				if (IGMP_SOURCE_TEST_FORWARDING(src->source_flags))
+					return true;
+			}
+		}
+	}
+#else
+	if (pim_ifp->mld) {
+		struct gm_sg *mlsg, ref = {};
+
+		ref.sgaddr = sg;
+		mlsg = gm_sgs_find(pim_ifp->mld->sgs, &ref);
+		if (mlsg && mlsg->tib_joined)
+			return true;
+
+		/* (*,G) covers a specific (S,G) leave. */
+		if (!pim_addr_is_any(sg.src)) {
+			ref.sgaddr.src = PIMADDR_ANY;
+			mlsg = gm_sgs_find(pim_ifp->mld->sgs, &ref);
+			if (mlsg && mlsg->tib_joined)
+				return true;
+		}
+	}
+#endif
+
+	if (pim_ifp->static_group_list) {
+		struct static_group *stgrp;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
+			if (!pim_addr_cmp(stgrp->group_addr, sg.grp) &&
+			    tib_sg_interest_covers(stgrp->source_addr, sg.src))
+				return true;
+		}
+	}
+
+	if (pim_ifp->gm_join_list) {
+		struct gm_join *ij;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+			if (ij->join_type == GM_JOIN_PROXY)
+				continue;
+			if (!pim_addr_cmp(ij->group_addr, sg.grp) &&
+			    tib_sg_interest_covers(ij->source_addr, sg.src))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static bool tib_sg_downstream_receivers_remain(struct pim_instance *pim, pim_sgaddr sg,
+					       struct interface *leave_oif,
+					       struct interface *proxy_ifp)
+{
+	struct pim_interface *pim_proxy = proxy_ifp->info;
+	struct prefix_sg pfx;
+	struct interface *ifp;
+
+	if (!pim_proxy)
+		return false;
+
+	pim_sg_to_prefix(&sg, &pfx);
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		if (ifp == leave_oif || ifp == proxy_ifp)
+			continue;
+		if (!tib_sg_ifp_has_downstream_interest(ifp, sg))
+			continue;
+		/* Same filter path used when creating the proxy join. */
+		if (!pim_filter_match(&pim_proxy->gm_proxy_filter, &pfx, proxy_ifp, ifp))
+			continue;
+		return true;
+	}
+
+	return false;
+}
+
+/*
+ * After the last (*,G) proxy interest is pruned, drop any specific (S,G)
+ * proxy joins for the same group that were only kept alive earlier because
+ * tib_sg_interest_covers() treated remaining (*,G) as covering that (S,G).
+ *
+ * That mix is an ASM static-group edge case: join-group will not install
+ * proxied (S,G) in ASM, but static-group can, alongside (*,G) interest.
+ * Without this cleanup those (S,G) entries stay in gm_join_list until the
+ * proxy interface is cycled.
+ */
+static void tib_sg_proxy_prune_uncovered_sources(struct pim_instance *pim, pim_addr group,
+						 struct interface *leave_oif,
+						 struct interface *proxy_ifp)
+{
+	struct pim_interface *pim_ifp = proxy_ifp->info;
+	struct listnode *node, *nextnode;
+	struct gm_join *ij;
+
+	if (!pim_ifp || !pim_ifp->gm_join_list)
+		return;
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
+		pim_sgaddr check;
+
+		if (ij->join_type != GM_JOIN_PROXY && ij->join_type != GM_JOIN_BOTH)
+			continue;
+		if (pim_addr_cmp(ij->group_addr, group))
+			continue;
+		/* Exact (*,G) was already handled by the caller. */
+		if (pim_addr_is_any(ij->source_addr))
+			continue;
+
+		memset(&check, 0, sizeof(check));
+		check.src = ij->source_addr;
+		check.grp = group;
+
+		if (tib_sg_downstream_receivers_remain(pim, check, leave_oif, proxy_ifp))
+			continue;
+
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("%s: prune uncovered proxy %pSG on %s after (*,G) leave on %s",
+				   __func__, &check, proxy_ifp->name, leave_oif->name);
+
+		pim_if_gm_join_del(proxy_ifp, group, ij->source_addr, GM_JOIN_PROXY);
+	}
+}
+
 void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 				   struct interface *oif, bool join)
 {
@@ -94,12 +282,50 @@ void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 			continue;
 
 		if (pim_ifp->gm_enable && pim_ifp->gm_proxy) {
+<<<<<<< HEAD
 			if (join)
 				pim_if_gm_join_add(ifp, sg.grp, sg.src,
 						   GM_JOIN_PROXY);
 			else
 				pim_if_gm_join_del(ifp, sg.grp, sg.src,
 						   GM_JOIN_PROXY);
+=======
+			struct prefix_sg pfx;
+
+			pim_sg_to_prefix(&sg, &pfx);
+			/*
+			 * Apply the proxy route-map only to joins.  Prunes must
+			 * always run so tightening the filter without cycling
+			 * the proxy cannot strand proxy (*,G)/(S,G) state after
+			 * the last host leaves.
+			 *
+			 * On leave, only skip the prune when another downstream
+			 * interface still has interest that this proxy iface's
+			 * route-map would accept.
+			 */
+			if (join) {
+				if (!pim_filter_match(&pim_ifp->gm_proxy_filter, &pfx, ifp, oif)) {
+					if (PIM_DEBUG_GM_TRACE)
+						zlog_debug("%s: proxy join for SG%pPSG from %s to %s filtered due to route-map",
+							   __func__, &pfx, oif->name, ifp->name);
+					continue;
+				}
+				pim_if_gm_join_add(ifp, sg.grp, sg.src, GM_JOIN_PROXY);
+			} else if (tib_sg_downstream_receivers_remain(pim, sg, oif, ifp)) {
+				if (PIM_DEBUG_GM_TRACE)
+					zlog_debug("%s: skip proxy prune for %pSG after leave on %s; other unfiltered receivers remain for %s",
+						   __func__, &sg, oif->name, ifp->name);
+			} else {
+				pim_if_gm_join_del(ifp, sg.grp, sg.src, GM_JOIN_PROXY);
+				/*
+				 * (*,G) coverage can have deferred (S,G) proxy
+				 * prunes; re-evaluate those when (*,G) itself
+				 * finally leaves.
+				 */
+				if (pim_addr_is_any(sg.src))
+					tib_sg_proxy_prune_uncovered_sources(pim, sg.grp, oif, ifp);
+			}
+>>>>>>> 9e11c0d68 (pimd: do not proxy IGMP leave while other downstream receivers remain)
 		}
 	} /* scan interfaces */
 }
