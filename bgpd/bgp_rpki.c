@@ -326,7 +326,7 @@ static struct rpki_vrf *find_rpki_vrf_from_ident(const char *ident)
 	size_t host_len;
 	char *endptr;
 	char *host;
-	char *ptr;
+	const char *ptr;
 	char *buf;
 
 	/* extract the <SOCKET> */
