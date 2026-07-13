@@ -310,6 +310,8 @@ DECLARE_SORTLIST_UNIQ(bgp_evpn_cfgd_rt_slu, struct bgp_evpn_cfgd_rt, slu_item,
 enum bgp_evpn_autort_cfgd {
 	BGP_EVPN_AUTORT_NOT_CFGD = 0, /* default: add if no manual RT */
 	BGP_EVPN_AUTORT_ADD_ALWAYS = 1,
+	BGP_EVPN_AUTORT_ADD_NEVER = 2,
+	BGP_EVPN_AUTORT_ADD_IF_NO_MANUAL = 3, /* explicit default, round-trips in config */
 };
 
 /* User route target configuration of a L3VNI VRF or L2VNI.
@@ -479,8 +481,9 @@ static inline bool bgp_evpn_vrf_has_manual_export_rt_cfgd(struct bgp *bgp_vrf)
 	return bgp_evpn_cfgd_rt_slu_count(&rt_config->cfgd_export);
 }
 
-/* Is the auto import route target explicitly configured for the VRF,
- * e.g. via "route-target import auto"?
+/* Is the auto import route target explicitly forced on for the VRF
+ * ("auto-route-target import add-always", or its deprecated spelling
+ * "route-target import auto")?
  */
 static inline bool bgp_evpn_vrf_has_auto_import_rt_cfgd(struct bgp *bgp_vrf)
 {
@@ -489,8 +492,9 @@ static inline bool bgp_evpn_vrf_has_auto_import_rt_cfgd(struct bgp *bgp_vrf)
 	return rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_ALWAYS;
 }
 
-/* Is the auto export route target explicitly configured for the VRF,
- * e.g. via "route-target export auto"?
+/* Is the auto export route target explicitly forced on for the VRF
+ * ("auto-route-target export add-always", or its deprecated spelling
+ * "route-target export auto")?
  */
 static inline bool bgp_evpn_vrf_has_auto_export_rt_cfgd(struct bgp *bgp_vrf)
 {
@@ -993,13 +997,15 @@ extern void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, stru
 extern void bgp_evpn_l2vni_regenerate_effective_export_rts(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct bgp_evpn_cfgd_rt *cfgd_rt);
-extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
+extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf,
+						      enum bgp_evpn_autort_cfgd autort);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						   const struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_unconfigure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct bgp_evpn_cfgd_rt *cfgd_rt);
-extern void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
+extern void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf,
+						      enum bgp_evpn_autort_cfgd autort);
 extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 						   const struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
