@@ -4041,9 +4041,9 @@ EVPN MAC-VRF / L2VNI Route Targets
    terms are equivalent for FRR, because FRR uses the "VLAN-Based Service Interface" model,
    as defined in :rfc:`9135`)
 
-   RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN)``. Note that it is currently
-   not possible to manually define wildcard imports like for IP-VRFs, and there is also no explicit
-   ``auto`` option like for IP-VRFs.
+   RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)``
+   where ``*`` indicates wildcard matching for the AS number
+   (match any AS number). Note that wildcards are only applicable to ``import``.
 
    This command can only be executed in the BGP underlay (IP-)VRF
    (i.e. the VRF that has ``advertise-all-vni`` configured).
@@ -4066,6 +4066,22 @@ EVPN MAC-VRF / L2VNI Route Targets
         exit-vni
        exit-address-family
       exit
+
+.. clicmd:: auto-route-target <import|export|both> <add-always|add-never|add-if-no-manual>
+
+   Control the automatically derived route target (``AS:VNI``) for the
+   given direction(s) of the MAC-VRF / L2VNI:
+
+   - ``add-always``: always add the automatic route target, even when
+     manual route targets are configured for the direction.
+   - ``add-never``: never add the automatic route target, so the
+     direction only uses manually configured route targets.
+   - ``add-if-no-manual``: add the automatic route target only when no
+     manual route target is configured for the direction. This is the
+     default behavior; configuring it explicitly makes the default
+     visible in the running configuration.
+
+   ``both`` applies the setting to import and export.
 
 
 .. _bgp-evpn-advertise-pip:

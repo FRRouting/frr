@@ -2119,6 +2119,100 @@ static void evpn_unconfigure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn
 }
 
 /*
+ * Configure the auto import RT state for an L2VNI (vty handler).
+ */
+static void evpn_configure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+						    enum bgp_evpn_autort_cfgd autort)
+{
+	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
+
+	if (rt_config->autort_cfgd_import == autort)
+		return; /* Already configured */
+
+	if (is_vni_live(vpn))
+		bgp_evpn_uninstall_routes(bgp, vpn);
+
+	/* Cleanup the RT to VNI mapping */
+	bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
+
+	rt_config->autort_cfgd_import = autort;
+
+	/* Rebuild the effective RTs and the RT to VNI mapping */
+	bgp_evpn_l2vni_regenerate_effective_import_rts(bgp, vpn);
+	bgp_evpn_map_vni_to_its_rts(bgp, vpn);
+
+	/* Install routes that match new import RT */
+	if (is_vni_live(vpn))
+		bgp_evpn_install_routes(bgp, vpn);
+}
+
+/*
+ * Unconfigure the auto import RT state for an L2VNI (vty handler).
+ */
+static void evpn_unconfigure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
+
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_NOT_CFGD)
+		return; /* Already un-configured */
+
+	if (is_vni_live(vpn))
+		bgp_evpn_uninstall_routes(bgp, vpn);
+
+	/* Cleanup the RT to VNI mapping */
+	bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
+
+	rt_config->autort_cfgd_import = BGP_EVPN_AUTORT_NOT_CFGD;
+
+	/* Rebuild the effective RTs and the RT to VNI mapping */
+	bgp_evpn_l2vni_regenerate_effective_import_rts(bgp, vpn);
+	bgp_evpn_map_vni_to_its_rts(bgp, vpn);
+
+	/* Install routes that match new import RT */
+	if (is_vni_live(vpn))
+		bgp_evpn_install_routes(bgp, vpn);
+}
+
+/*
+ * Configure the auto export RT state for an L2VNI (vty handler).
+ */
+static void evpn_configure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+						    enum bgp_evpn_autort_cfgd autort)
+{
+	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
+
+	if (rt_config->autort_cfgd_export == autort)
+		return; /* Already configured */
+
+	rt_config->autort_cfgd_export = autort;
+
+	/* Rebuild the effective RTs */
+	bgp_evpn_l2vni_regenerate_effective_export_rts(bgp, vpn);
+
+	if (is_vni_live(vpn))
+		bgp_evpn_handle_export_rt_change(bgp, vpn);
+}
+
+/*
+ * Unconfigure the auto export RT state for an L2VNI (vty handler).
+ */
+static void evpn_unconfigure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
+
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_NOT_CFGD)
+		return; /* Already un-configured */
+
+	rt_config->autort_cfgd_export = BGP_EVPN_AUTORT_NOT_CFGD;
+
+	/* Rebuild the effective RTs */
+	bgp_evpn_l2vni_regenerate_effective_export_rts(bgp, vpn);
+
+	if (is_vni_live(vpn))
+		bgp_evpn_handle_export_rt_change(bgp, vpn);
+}
+
+/*
  * Configure RD for VRF
  */
 static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd,
@@ -2260,7 +2354,13 @@ static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 	 */
 	UNSET_FLAG(vpn->flags, VNI_FLAG_CFGD);
 
-	/* First, deal with the export side - RD and export RT changes. */
+	/* Clear any explicit auto route-target configuration. */
+	if (vpn->rt_config->autort_cfgd_export != BGP_EVPN_AUTORT_NOT_CFGD)
+		evpn_unconfigure_export_auto_rt_for_l2vni(bgp, vpn);
+	if (vpn->rt_config->autort_cfgd_import != BGP_EVPN_AUTORT_NOT_CFGD)
+		evpn_unconfigure_import_auto_rt_for_l2vni(bgp, vpn);
+
+	/* Deal with the export side - RD and export RT changes. */
 	if (is_rd_configured(vpn))
 		evpn_unconfigure_rd(bgp, vpn);
 	if (bgp_evpn_l2vni_has_manual_export_rt_cfgd(vpn))
@@ -3626,8 +3726,8 @@ static void evpn_unset_advertise_autort_rfc8365(struct bgp *bgp)
 }
 
 /* The add-mode keyword written back for an auto route-target setting, or
- * NULL when nothing should be written (implicit default). Used by the
- * VRF configuration writer.
+ * NULL when nothing should be written (implicit default). Shared by the
+ * VRF and per-VNI configuration writers.
  */
 static const char *bgp_evpn_autort_mode_str(enum bgp_evpn_autort_cfgd autort)
 {
@@ -3649,6 +3749,7 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	const char *autort_mode_str;
 	char rt_buf[RT_ADDRSTRLEN];
 
 	if (is_vni_configured(vpn)) {
@@ -3669,10 +3770,18 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 			vty_out(vty, "   route-target import %s\n", rt_buf);
 		}
 
+		autort_mode_str = bgp_evpn_autort_mode_str(rt_config->autort_cfgd_import);
+		if (autort_mode_str)
+			vty_out(vty, "   auto-route-target import %s\n", autort_mode_str);
+
 		frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_export, cfgd_rt) {
 			bgp_evpn_format_cfgd_rt(rt_buf, sizeof(rt_buf), cfgd_rt);
 			vty_out(vty, "   route-target export %s\n", rt_buf);
 		}
+
+		autort_mode_str = bgp_evpn_autort_mode_str(rt_config->autort_cfgd_export);
+		if (autort_mode_str)
+			vty_out(vty, "   auto-route-target export %s\n", autort_mode_str);
 
 		if (vpn->advertise_gw_macip)
 			vty_out(vty, "   advertise-default-gw\n");
@@ -7468,7 +7577,7 @@ DEFPY (bgp_evpn_vni_rt,
        "import and export\n"
        "import\n"
        "export\n"
-       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
@@ -7507,18 +7616,11 @@ DEFPY (bgp_evpn_vni_rt,
 	int n_rts = argc - 2;
 	struct cmd_token **rt_argv = argv + 2;
 
-	/* No wildcard route targets at the L2VNI level. */
-	for (int i = 0; i < n_rts; i++) {
-		if ((rt_argv[i]->arg)[0] == '*') {
-			vty_out(vty, "%% Wildcard '*' is not supported for a VNI: %s\n",
-				rt_argv[i]->arg);
-			return CMD_WARNING;
-		}
-	}
-
 	cfgd_rts = XCALLOC(MTYPE_TMP, n_rts * sizeof(*cfgd_rts));
 
-	int parse_ret = evpn_parse_rtlist(vty, rt_argv, n_rts, false, cfgd_rts);
+	/* Wildcard '*' route-targets are only valid for import. */
+	bool wildcard_ok = (rt_direction == RT_TYPE_IMPORT);
+	int parse_ret = evpn_parse_rtlist(vty, rt_argv, n_rts, wildcard_ok, cfgd_rts);
 
 	if (parse_ret != 0) {
 		XFREE(MTYPE_TMP, cfgd_rts);
@@ -7539,7 +7641,7 @@ DEFPY (no_bgp_evpn_vni_rt,
        "import and export\n"
        "import\n"
        "export\n"
-       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
@@ -7578,21 +7680,13 @@ DEFPY (no_bgp_evpn_vni_rt,
 	int n_rts = argc - 3;
 	struct cmd_token **rt_argv = argv + 3;
 
-	/* No wildcard route targets at the L2VNI level. */
-	for (int i = 0; i < n_rts; i++) {
-		if ((rt_argv[i]->arg)[0] == '*') {
-			vty_out(vty, "%% Wildcard '*' is not supported for a VNI: %s\n",
-				rt_argv[i]->arg);
-			return CMD_WARNING;
-		}
-	}
-
 	cfgd_rts = XCALLOC(MTYPE_TMP, n_rts * sizeof(*cfgd_rts));
 
-	/* Unconfigured RTs (not currently present) are reported per-entry by
-	 * l2vni_process_rtlist_del().
+	/* Wildcard '*' route-targets are only valid for import. Unconfigured RTs
+	 * (not currently present) are reported per-entry by l2vni_process_rtlist_del().
 	 */
-	int parse_ret = evpn_parse_rtlist(vty, rt_argv, n_rts, false, cfgd_rts);
+	bool wildcard_ok = (rt_direction == RT_TYPE_IMPORT);
+	int parse_ret = evpn_parse_rtlist(vty, rt_argv, n_rts, wildcard_ok, cfgd_rts);
 
 	if (parse_ret != 0) {
 		XFREE(MTYPE_TMP, cfgd_rts);
@@ -7651,6 +7745,110 @@ DEFPY (no_bgp_evpn_vni_rt_without_val,
 		}
 		evpn_unconfigure_export_rt_for_l2vni(bgp, vpn, NULL);
 	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_evpn_vni_auto_rt,
+       bgp_evpn_vni_auto_rt_cmd,
+       "auto-route-target <both|import|export>$type <add-always|add-never|add-if-no-manual>$mode",
+       "Automatic route-target configuration\n"
+       "Import and export\n"
+       "Import\n"
+       "Export\n"
+       "Always add the automatic route-target, even when manual route-targets are configured\n"
+       "Never add the automatic route-target\n"
+       "Add the automatic route-target only when no manual route-target is configured (default)\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	enum bgp_evpn_autort_cfgd autort;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (!EVPN_ENABLED(bgp)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING;
+	}
+
+	autort = bgp_evpn_autort_mode_from_str(mode);
+
+	/* "both" is an alias for import plus export */
+	if (strmatch(type, "import") || strmatch(type, "both"))
+		evpn_configure_import_auto_rt_for_l2vni(bgp, vpn, autort);
+	if (strmatch(type, "export") || strmatch(type, "both"))
+		evpn_configure_export_auto_rt_for_l2vni(bgp, vpn, autort);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_evpn_vni_auto_rt,
+       no_bgp_evpn_vni_auto_rt_cmd,
+       "no auto-route-target [<both|import|export>$type [<add-always|add-never|add-if-no-manual>$mode]]",
+       NO_STR
+       "Automatic route-target configuration\n"
+       "Import and export\n"
+       "Import\n"
+       "Export\n"
+       "Always add the automatic route-target, even when manual route-targets are configured\n"
+       "Never add the automatic route-target\n"
+       "Add the automatic route-target only when no manual route-target is configured (default)\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+	struct bgp_evpn_rt_config *rt_config;
+	bool do_import, do_export;
+	bool clear_import, clear_export;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (!EVPN_ENABLED(bgp)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING;
+	}
+
+	rt_config = vpn->rt_config;
+
+	/* A missing direction means both; "both" is an alias for both too. */
+	do_import = !type || strmatch(type, "import") || strmatch(type, "both");
+	do_export = !type || strmatch(type, "export") || strmatch(type, "both");
+
+	if (mode) {
+		/* With an explicit mode the configured state must match it
+		 * exactly, otherwise nothing is changed.
+		 */
+		enum bgp_evpn_autort_cfgd autort = bgp_evpn_autort_mode_from_str(mode);
+
+		clear_import = do_import && rt_config->autort_cfgd_import == autort;
+		clear_export = do_export && rt_config->autort_cfgd_export == autort;
+
+		if (!clear_import && !clear_export) {
+			vty_out(vty,
+				"%% Automatic route-target \"%s\" is not configured for this VNI\n",
+				mode);
+			return CMD_WARNING;
+		}
+	} else {
+		/* Without a mode, clear whatever is configured for the
+		 * direction(s).
+		 */
+		clear_import = do_import &&
+			       rt_config->autort_cfgd_import != BGP_EVPN_AUTORT_NOT_CFGD;
+		clear_export = do_export &&
+			       rt_config->autort_cfgd_export != BGP_EVPN_AUTORT_NOT_CFGD;
+
+		if (!clear_import && !clear_export) {
+			vty_out(vty, "%% Automatic route-target is not configured for this VNI\n");
+			return CMD_WARNING;
+		}
+	}
+
+	if (clear_import)
+		evpn_unconfigure_import_auto_rt_for_l2vni(bgp, vpn);
+	if (clear_export)
+		evpn_unconfigure_export_auto_rt_for_l2vni(bgp, vpn);
 
 	return CMD_SUCCESS;
 }
@@ -7959,6 +8157,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_rt_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_without_val_cmd);
+	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_auto_rt_cmd);
+	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_auto_rt_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rd_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rd_cmd);
 	install_element(BGP_NODE, &no_bgp_evpn_vrf_rd_without_val_cmd);

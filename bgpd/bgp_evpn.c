@@ -5994,23 +5994,25 @@ static void bgp_evpn_vrf_regenerate_effective_export_rts(struct bgp *bgp_vrf)
 
 /*
  * Should the auto import RT be part of the effective import route
- * targets of the L2VNI? No CLI sets the L2VNI auto route-target
- * configuration yet, so only the implicit branch is reachable; the
- * ADD_ALWAYS check keeps parity with the VRF variant sharing the
- * config type.
+ * targets of the L2VNI?
  */
 static bool bgp_evpn_l2vni_should_generate_import_auto_rt(struct bgpevpn *vpn)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 
-	/* Explicitly configured by the user; retained even when manual
-	 * route targets are configured as well
+	/* Never add the auto route target */
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_NEVER)
+		return false;
+
+	/* Always add the auto route target, even when manual route targets
+	 * are configured as well
 	 */
 	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_ALWAYS)
 		return true;
 
-	/* Implicit auto route target, unless manual route targets are
-	 * configured
+	/* NOT_CFGD and ADD_IF_NO_MANUAL only differ in the configuration
+	 * round-trip: add the auto route target unless a manual route
+	 * target is configured for this direction.
 	 */
 	return !bgp_evpn_l2vni_has_manual_import_rt_cfgd(vpn);
 }
@@ -6023,14 +6025,19 @@ static bool bgp_evpn_l2vni_should_generate_export_auto_rt(struct bgpevpn *vpn)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 
-	/* Explicitly configured by the user; retained even when manual
-	 * route targets are configured as well
+	/* Never add the auto route target */
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_NEVER)
+		return false;
+
+	/* Always add the auto route target, even when manual route targets
+	 * are configured as well
 	 */
 	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_ALWAYS)
 		return true;
 
-	/* Implicit auto route target, unless manual route targets are
-	 * configured
+	/* NOT_CFGD and ADD_IF_NO_MANUAL only differ in the configuration
+	 * round-trip: add the auto route target unless a manual route
+	 * target is configured for this direction.
 	 */
 	return !bgp_evpn_l2vni_has_manual_export_rt_cfgd(vpn);
 }
@@ -6055,17 +6062,28 @@ static void bgp_evpn_l2vni_form_auto_rt_eval(struct bgp *bgp, struct bgpevpn *vp
 	encode_route_target_as((bgp->as & 0xFFFF), vni, eval, true);
 }
 
+/* Add an effective wildcard import route target to the L2VNI */
+static void bgp_evpn_l2vni_add_effective_wildcard_import_rt(struct bgpevpn *vpn,
+							    uint32_t local_admin_nbo)
+{
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+
+	wildcard_rt = bgp_evpn_effective_wildcard_rt_new(local_admin_nbo);
+	if (bgp_evpn_effective_wildcard_rt_slu_add(&vpn->effective_wildcard_import_rts,
+						   wildcard_rt))
+		bgp_evpn_effective_wildcard_rt_free(wildcard_rt); /* duplicate */
+}
+
 /*
  * Recompute the effective import route targets of the L2VNI from its
- * route-target configuration. Wildcard route targets cannot be
- * configured at the VNI level, so the only wildcard entry is the auto
- * import route target: it matches any route target carrying the VNI as
- * local admin value, regardless of the AS.
+ * route-target configuration. The wildcard entries are the manually
+ * configured wildcard route targets and the auto import route target
+ * (which matches any route target carrying the VNI as local admin
+ * value, regardless of the AS).
  */
 void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
-	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
 	struct bgp_evpn_cfgd_rt *cfgd_rt;
 	struct ecommunity_val eval;
@@ -6079,13 +6097,17 @@ void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, struct bgpe
 		if (bgp->advertise_autort_rfc8365)
 			SET_FLAG(vni, EVPN_AUTORT_VXLAN);
 
-		wildcard_rt = bgp_evpn_effective_wildcard_rt_new(htonl(vni));
-		if (bgp_evpn_effective_wildcard_rt_slu_add(&vpn->effective_wildcard_import_rts,
-							   wildcard_rt))
-			bgp_evpn_effective_wildcard_rt_free(wildcard_rt);
+		bgp_evpn_l2vni_add_effective_wildcard_import_rt(vpn, htonl(vni));
 	}
 
 	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_import, cfgd_rt) {
+		if (cfgd_rt->type == BGP_EVPN_CFGD_RT_TYPE_WILDCARD) {
+			uint32_t local_admin = cfgd_rt->payload.wildcard_rt.local_admin;
+
+			bgp_evpn_l2vni_add_effective_wildcard_import_rt(vpn, htonl(local_admin));
+			continue;
+		}
+
 		bgp_evpn_cfgd_rt_to_eval(cfgd_rt, &eval);
 		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
 		if (bgp_evpn_effective_fq_rt_slu_add(&vpn->effective_fq_import_rts, fq_rt))
