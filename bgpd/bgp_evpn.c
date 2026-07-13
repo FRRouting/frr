@@ -5814,14 +5814,19 @@ static bool bgp_evpn_vrf_should_generate_import_auto_rt(struct bgp *bgp_vrf)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
-	/* Explicitly configured by the user; retained even when manual
-	 * route targets are configured as well
+	/* Never add the auto route target */
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_NEVER)
+		return false;
+
+	/* Always add the auto route target, even when manual route targets
+	 * are configured as well
 	 */
 	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_ALWAYS)
 		return true;
 
-	/* Implicit auto route target, unless manual route targets are
-	 * configured
+	/* NOT_CFGD and ADD_IF_NO_MANUAL only differ in the configuration
+	 * round-trip: add the auto route target unless a manual route
+	 * target is configured for this direction.
 	 */
 	return !bgp_evpn_vrf_has_manual_import_rt_cfgd(bgp_vrf);
 }
@@ -5834,14 +5839,19 @@ static bool bgp_evpn_vrf_should_generate_export_auto_rt(struct bgp *bgp_vrf)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
-	/* Explicitly configured by the user; retained even when manual
-	 * route targets are configured as well
+	/* Never add the auto route target */
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_NEVER)
+		return false;
+
+	/* Always add the auto route target, even when manual route targets
+	 * are configured as well
 	 */
 	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_ALWAYS)
 		return true;
 
-	/* Implicit auto route target, unless manual route targets are
-	 * configured
+	/* NOT_CFGD and ADD_IF_NO_MANUAL only differ in the configuration
+	 * round-trip: add the auto route target unless a manual route
+	 * target is configured for this direction.
 	 */
 	return !bgp_evpn_vrf_has_manual_export_rt_cfgd(bgp_vrf);
 }
@@ -6371,14 +6381,15 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf, struct bgp_evpn_c
 	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
-void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf)
+void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf,
+					       enum bgp_evpn_autort_cfgd autort)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
-	if (bgp_evpn_vrf_has_auto_import_rt_cfgd(bgp_vrf))
+	if (rt_config->autort_cfgd_import == autort)
 		return; /* Already configured */
 
-	rt_config->autort_cfgd_import = BGP_EVPN_AUTORT_ADD_ALWAYS;
+	rt_config->autort_cfgd_import = autort;
 
 	if (!is_l3vni_live(bgp_vrf))
 		return; /* Wait for VNI before adding rts */
@@ -6414,7 +6425,7 @@ void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
-	if (rt_config->autort_cfgd_import != BGP_EVPN_AUTORT_ADD_ALWAYS)
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_NOT_CFGD)
 		return; /* Already un-configured */
 
 	rt_config->autort_cfgd_import = BGP_EVPN_AUTORT_NOT_CFGD;
@@ -6439,14 +6450,15 @@ void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf, struct bgp_evpn_c
 		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
-void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf)
+void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf,
+					       enum bgp_evpn_autort_cfgd autort)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
-	if (bgp_evpn_vrf_has_auto_export_rt_cfgd(bgp_vrf))
+	if (rt_config->autort_cfgd_export == autort)
 		return; /* Already configured */
 
-	rt_config->autort_cfgd_export = BGP_EVPN_AUTORT_ADD_ALWAYS;
+	rt_config->autort_cfgd_export = autort;
 
 	if (!is_l3vni_live(bgp_vrf))
 		return; /* Wait for VNI before adding rts */
@@ -6479,7 +6491,7 @@ void bgp_evpn_unconfigure_export_auto_rt_for_vrf(struct bgp *bgp_vrf)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
-	if (rt_config->autort_cfgd_export != BGP_EVPN_AUTORT_ADD_ALWAYS)
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_NOT_CFGD)
 		return; /* Already un-configured */
 
 	rt_config->autort_cfgd_export = BGP_EVPN_AUTORT_NOT_CFGD;

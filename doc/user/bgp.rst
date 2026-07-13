@@ -3965,7 +3965,7 @@ for the dataplane and will not work with traditional VXLAN devices.
 EVPN IP-VRF Route Targets
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. clicmd:: route-target <import|export|both> <RTLIST|auto>
+.. clicmd:: route-target <import|export|both> RTLIST
 
    Configure the route-target set for EVPN for a specific IP-VRF.
    RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)``
@@ -3974,7 +3974,9 @@ EVPN IP-VRF Route Targets
    Wildcards are particularly useful in eBGP-datacenter deployments, where each leaf
    has a unique AS number and thus uses a unique export-RT, but you want to import all routes
    from all leaves.
-   ``auto`` is used to retain the autoconfigure that is default behavior for L3 RTs.
+
+   The automatic route-target that is derived by default is controlled
+   separately with :clicmd:`auto-route-target <import|export|both> <add-always|add-never|add-if-no-manual>`.
 
    Route Targets allow building flexible VPN topologies by controlling the leaking of
    routes between different IP-VRFs. For EVPN, the Downstream VNI feature makes this easy.
@@ -4001,6 +4003,32 @@ EVPN IP-VRF Route Targets
         route-target export 64496:12344
        exit-address-family
       exit
+
+.. clicmd:: auto-route-target <import|export|both> <add-always|add-never|add-if-no-manual>
+
+   Control the automatic route-target of the given direction(s). An
+   automatic route-target of the form ``AS:VNI`` is derived for an
+   IP-VRF that has an L3VNI. The mode selects when it is added to the
+   effective route-targets:
+
+   - ``add-always``: always add the automatic route-target, even when
+     manual route-targets are configured for the direction.
+   - ``add-never``: never add the automatic route-target, so the
+     direction only uses manually configured route-targets. With
+     ``add-never`` and no manual route-targets, no EVPN VPN routes are
+     imported into (``import``) or advertised with a route-target from
+     (``export``) the IP-VRF.
+   - ``add-if-no-manual``: add the automatic route-target only when no
+     manual route-target is configured for the direction. This is the
+     default behavior; configuring it explicitly makes the default
+     visible in the running configuration.
+
+   ``both`` applies the setting to import and export.
+
+   .. deprecated:: 10.8
+      ``route-target <import|export|both> auto`` is the previous spelling
+      of ``auto-route-target <import|export|both> add-always`` and is
+      still accepted as a hidden alias.
 
 .. _bgp-evpn-mac-vrf-l2vni-route-targets:
 
