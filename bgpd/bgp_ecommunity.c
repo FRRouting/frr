@@ -67,10 +67,8 @@ static void ecommunity_hash_free(struct ecommunity *ecom)
 
 static bool ecommunity_type_match(uint8_t existing_type, uint8_t new_type)
 {
-	uint8_t existing_base = existing_type & ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
-	uint8_t new_base = new_type & ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
-
-	return existing_base == new_base;
+	return CHECK_FLAG(existing_type, ~ECOMMUNITY_FLAG_NON_TRANSITIVE) ==
+	       CHECK_FLAG(new_type, ~ECOMMUNITY_FLAG_NON_TRANSITIVE);
 }
 
 /*
@@ -95,17 +93,14 @@ static bool ecommunity_type_match(uint8_t existing_type, uint8_t new_type)
  * Other subtypes (route-target, origin-validation, etc.) keep exact type-byte
  * matching because callers rely on RFC 4360 byte identity.
  */
-static bool ecommunity_unique_type_match(uint8_t existing_type,
-					 uint8_t new_type, uint8_t subtype)
+static bool ecommunity_unique_type_match(uint8_t existing_type, uint8_t new_type, uint8_t subtype)
 {
-	uint8_t new_base = new_type & ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
-
 	if (subtype == ECOMMUNITY_LINK_BANDWIDTH &&
-	    new_base == ECOMMUNITY_ENCODE_AS)
+	    CHECK_FLAG(new_type, ~ECOMMUNITY_FLAG_NON_TRANSITIVE) == ECOMMUNITY_ENCODE_AS)
 		return ecommunity_type_match(existing_type, new_type);
 
 	if (subtype == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH &&
-	    new_base == ECOMMUNITY_ENCODE_AS4)
+	    CHECK_FLAG(new_type, ~ECOMMUNITY_FLAG_NON_TRANSITIVE) == ECOMMUNITY_ENCODE_AS4)
 		return ecommunity_type_match(existing_type, new_type);
 
 	return existing_type == new_type;
@@ -149,8 +144,8 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom,
 	     p += ecom_size, c++) {
 		if (unique) {
 			if (ecom_size == ECOMMUNITY_SIZE) {
-				if (ecommunity_unique_type_match(
-					    p[0], eval4->val[0], eval4->val[1]) &&
+				if (ecommunity_unique_type_match(p[0], eval4->val[0],
+								 eval4->val[1]) &&
 				    p[1] == eval4->val[1]) {
 					if (overwrite) {
 						memcpy(p, eval4->val,
@@ -160,8 +155,8 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom,
 					return false;
 				}
 			} else {
-				if (ecommunity_unique_type_match(
-					    p[0], eval6->val[0], eval6->val[1]) &&
+				if (ecommunity_unique_type_match(p[0], eval6->val[0],
+								 eval6->val[1]) &&
 				    p[1] == eval6->val[1]) {
 					if (overwrite) {
 						memcpy(p, eval6->val,
