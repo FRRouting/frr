@@ -388,9 +388,15 @@ struct bpacket_attr_vec_arr;
 /* Prototypes. */
 extern void bgp_attr_init(void);
 extern void bgp_attr_finish(void);
+<<<<<<< HEAD
 extern enum bgp_attr_parse_ret
 bgp_attr_parse(struct peer *peer, struct attr *attr, bgp_size_t size,
 	       struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw);
+=======
+extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struct attr *attr,
+					      bgp_size_t size, struct bgp_nlri *mp_update,
+					      struct bgp_nlri *mp_withdraw, bool has_nlri);
+>>>>>>> 69b624dc7 (bgpd: Validate NEXT_HOP attribute if we have NLRIs and MP_REACH_ATTR)
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern struct bgp_attr_srv6_l3service *
 bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_l3service *vpn);
