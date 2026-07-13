@@ -946,3 +946,28 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 	assert(!"Reached end of function where we are not expecting to");
 	return -1;
 }
+
+/*
+ * Compute (fresh, never cached) whether this adjacency currently has a
+ * usable IPv4/IPv6 nexthop: the local circuit must have an address in
+ * that address family, and the neighbor must have advertised one too.
+ */
+bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
+{
+	struct isis_circuit *circuit = adj->circuit;
+
+	if (!circuit)
+		return false;
+
+	return (fabricd_ip_addrs(circuit) && adj->ipv4_address_count);
+}
+
+bool isis_adj_ipv6_usable(const struct isis_adjacency *adj)
+{
+	struct isis_circuit *circuit = adj->circuit;
+
+	if (!circuit)
+		return false;
+
+	return (listcount(circuit->ipv6_link) && adj->ll_ipv6_count);
+}
