@@ -3441,6 +3441,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		} else {
 			ecom_lb.size = 1;
 			ecom_lb.unit_size = IPV6_ECOMMUNITY_SIZE;
+			ecom_lb.disable_ieee_floating = false;
 			ecom_lb.val = (uint8_t *)lb_eval.val;
 			new_ecom = ecommunity_dup(&ecom_lb);
 		}
@@ -3456,12 +3457,16 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		old_ecom = bgp_attr_get_ecommunity(path->attr);
 		if (old_ecom) {
 			new_ecom = ecommunity_dup(old_ecom);
+			new_ecom->disable_ieee_floating =
+				CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
 			ecommunity_add_val(new_ecom, &lb_eval, true, true);
 			if (!old_ecom->refcnt)
 				ecommunity_free(&old_ecom);
 		} else {
 			ecom_lb.size = 1;
 			ecom_lb.unit_size = ECOMMUNITY_SIZE;
+			ecom_lb.disable_ieee_floating =
+				CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
 			ecom_lb.val = (uint8_t *)lb_eval.val;
 			new_ecom = ecommunity_dup(&ecom_lb);
 		}
