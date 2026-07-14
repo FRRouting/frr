@@ -303,6 +303,14 @@ tests_lib_test_seqlock_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_seqlock_SOURCES = tests/lib/test_seqlock.c
 
 
+check_PROGRAMS += tests/lib/test_rcu
+tests_lib_test_rcu_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_rcu_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_rcu_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_rcu_SOURCES = tests/lib/test_rcu.c
+EXTRA_DIST += tests/lib/test_rcu.py
+
+
 check_PROGRAMS += tests/lib/test_sig
 tests_lib_test_sig_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_sig_CPPFLAGS = $(TESTS_CPPFLAGS)
