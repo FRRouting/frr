@@ -38,6 +38,13 @@ const struct frr_yang_module_info frr_ospf6_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-ospf6-route-map:metric-type",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_metric_type_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_metric_type_destroy,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}
