@@ -341,7 +341,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	vpn_handle_router_id_update(bgp, true, is_config);
 
-	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		bgp_ls_withdraw_all(bgp);
 
 	hook_call(bgp_routerid_update, bgp, true);
@@ -363,7 +363,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	vpn_handle_router_id_update(bgp, false, is_config);
 
-	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		bgp_ls_export_bgp_topology(bgp);
 
 	hook_call(bgp_routerid_update, bgp, false);
