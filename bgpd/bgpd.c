@@ -4174,7 +4174,7 @@ peer_init:
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
 	bgp_clearing_info_init(&bgp->clearing_list);
 
-	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		bgp_ls_originate_bgp_node(bgp);
 
 	return bgp;
