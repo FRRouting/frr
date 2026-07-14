@@ -216,6 +216,8 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 					"Mtrace response block of wrong length");
 
 		responses = responses / sizeof(struct igmp_mtrace_rsp);
+		if (responses > MTRACE_MAX_HOPS)
+			responses = MTRACE_MAX_HOPS;
 
 		for (i = 0; i < responses; i++)
 			mtrace_rsp_debug(mtracep->qry_id, i, &mtracep->rsp[i]);
@@ -560,7 +562,7 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 			     char *igmp_msg, int igmp_msg_len)
 {
 	static uint32_t qry_id, qry_src;
-	char mtrace_buf[MTRACE_HDR_SIZE + MTRACE_MAX_HOPS * MTRACE_RSP_SIZE];
+	char mtrace_buf[MTRACE_MAX_MSG_LEN];
 	struct interface *ifp;
 	struct interface *out_ifp = NULL;
 	struct pim_interface *pim_ifp;
@@ -591,12 +593,22 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 					 pim->vrf->vrf_id))
 			return mtrace_forward_packet(pim, ip_hdr);
 
-	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
+	/*
+	 * Sanitize packet-derived length before using it as an offset /
+	 * memcpy length. Cap matches mtrace_buf.
+	 */
+	if (igmp_msg_len < (int)MTRACE_HDR_SIZE || igmp_msg_len > (int)MTRACE_MAX_MSG_LEN) {
 		if (PIM_DEBUG_MTRACE)
+<<<<<<< HEAD
 			zlog_debug(
 				"Recv mtrace packet from %s on %s: too short, len=%d, min=%zu",
 				from_str, ifp->name, igmp_msg_len,
 				sizeof(struct igmp_mtrace));
+=======
+			zlog_debug("Recv mtrace packet from %pI4s on %s: invalid length %d (min=%zu max=%zu)",
+				   &from, ifp->name, igmp_msg_len, MTRACE_HDR_SIZE,
+				   MTRACE_MAX_MSG_LEN);
+>>>>>>> 3ccc7ffae (pimd: bound mtrace message length before offset use)
 		return -1;
 	}
 
@@ -806,12 +818,18 @@ int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 	pim_ifp = ifp->info;
 	pim = pim_ifp->pim;
 
-	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
+	if (igmp_msg_len < (int)MTRACE_HDR_SIZE || igmp_msg_len > (int)MTRACE_MAX_MSG_LEN) {
 		if (PIM_DEBUG_MTRACE)
+<<<<<<< HEAD
 			zlog_debug(
 				"Recv mtrace packet from %s on %s: too short, len=%d, min=%zu",
 				from_str, ifp->name, igmp_msg_len,
 				sizeof(struct igmp_mtrace));
+=======
+			zlog_debug("Recv mtrace response from %pI4s on %s: invalid length %d (min=%zu max=%zu)",
+				   &from, ifp->name, igmp_msg_len, MTRACE_HDR_SIZE,
+				   MTRACE_MAX_MSG_LEN);
+>>>>>>> 3ccc7ffae (pimd: bound mtrace message length before offset use)
 		return -1;
 	}
 
