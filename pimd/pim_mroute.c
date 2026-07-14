@@ -1826,9 +1826,9 @@ static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
 		} else {
 			ifp = up->rpf.source_nexthop.interface;
 		}
-		if (ifp) {
-			pim_ifp = (struct pim_interface *)ifp->info;
-			if (pim_ifp)
+		if (ifp && !PIM_IF_IS_DELETED(ifp) && ifp->info) {
+			pim_ifp = ifp->info;
+			if (pim_ifp->pim == c_oil->pim)
 				iif = pim_ifp->mroute_vif_index;
 		}
 	}
