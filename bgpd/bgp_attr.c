@@ -3487,6 +3487,8 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
 
 		struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(attr);
 
+		assert(srv6_l3service);
+
 		srv6_l3service->loc_block_len = loc_block_len;
 		srv6_l3service->loc_node_len = loc_node_len;
 		srv6_l3service->func_len = func_len;
