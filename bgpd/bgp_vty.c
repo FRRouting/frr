@@ -21630,11 +21630,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
 			vty_out(vty, " no neighbor %s capability link-local\n", addr);
 	} else {
-		if (!peer->conf_if && peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
 			vty_out(vty, " neighbor %s capability link-local\n", addr);
-		else if (peer->conf_if &&
-			 !peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
-			vty_out(vty, " no neighbor %s capability link-local\n", addr);
 	}
 
 	/* dont-capability-negotiation */
