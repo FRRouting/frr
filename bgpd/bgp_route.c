@@ -11072,7 +11072,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 		    is_route_injectable_into_evpn(new))
 			bgp_evpn_export_type5_route(bgp, bn, new, afi, SAFI_UNICAST);
 
-		if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		if (bgp->ls_info && bgp->ls_info->enable_distribution)
 			bgp_ls_originate_bgp_prefix(bgp, afi, SAFI_UNICAST, bn, new);
 	}
 
