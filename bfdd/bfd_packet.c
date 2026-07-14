@@ -999,13 +999,6 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 		return false;
 	}
 
-	if (expected_auth_type == BFD_AUTH_TYPE_RESERVED) {
-		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
-			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
-			 "Auth: local type not available");
-		return false;
-	}
-
 	if (received_auth_type != expected_auth_type) {
 		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
 			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
