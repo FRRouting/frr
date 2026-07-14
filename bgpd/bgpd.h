@@ -577,6 +577,12 @@ struct bgp_evpn_rt_config;
 PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_wildcard_rt_slu);
 PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_fq_rt_slu);
 
+/* EVPN import route-target hash tables (see bgp_evpn_private.h) */
+PREDECL_HASH(bgp_evpn_l2vni_fq_irt);
+PREDECL_HASH(bgp_evpn_l2vni_wildcard_irt);
+PREDECL_HASH(bgp_evpn_vrf_fq_irt);
+PREDECL_HASH(bgp_evpn_vrf_wildcard_irt);
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -981,11 +987,15 @@ struct bgp {
 	 */
 	enum vxlan_flood_control vxlan_flood_ctrl;
 
-	/* Hash table of Import RTs to EVIs */
-	struct hash *import_rt_hash;
+	/* Hash tables of fully qualified and wildcard import RTs to VNIs */
+	struct bgp_evpn_l2vni_fq_irt_head l2vni_fq_irt_nodes;
+	struct bgp_evpn_l2vni_wildcard_irt_head l2vni_wildcard_irt_nodes;
 
-	/* Hash table of VRF import RTs to VRFs */
-	struct hash *vrf_import_rt_hash;
+	/* Hash tables of fully qualified and wildcard VRF import RTs to
+	 * VRFs
+	 */
+	struct bgp_evpn_vrf_fq_irt_head vrf_fq_irt_nodes;
+	struct bgp_evpn_vrf_wildcard_irt_head vrf_wildcard_irt_nodes;
 
 	/* L3-VNI corresponding to this vrf */
 	vni_t l3vni;

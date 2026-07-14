@@ -135,29 +135,92 @@ DECLARE_QOBJ_TYPE(bgpevpn);
 
 DECLARE_LIST(zebra_l2_vni, struct bgpevpn, zl2vni);
 
-/* Mapping of Import RT to VNIs.
- * The Import RTs of all VNIs are maintained in a hash table with each
- * RT linking to all VNIs that will import routes matching this RT.
+/* Mapping of a fully qualified Import RT to VNIs.
+ * The fully qualified import RTs of all VNIs are maintained in a hash
+ * table with each RT linking to all VNIs that will import routes
+ * carrying exactly this RT.
  */
-struct irt_node {
+struct bgp_evpn_l2vni_fq_irt_node {
 	/* RT */
 	struct ecommunity_val rt;
 
-	/* List of VNIs importing routes matching this RT. */
+	/* List of VNIs (struct bgpevpn) importing routes matching this RT. */
 	struct list *vnis;
+
+	struct bgp_evpn_l2vni_fq_irt_item item;
 };
 
-/* Mapping of Import RT to VRFs.
- * The Import RTs of all VRFss are maintained in a hash table with each
- * RT linking to all VRFs that will import routes matching this RT.
+extern int bgp_evpn_l2vni_fq_irt_cmp(const struct bgp_evpn_l2vni_fq_irt_node *irt1,
+				     const struct bgp_evpn_l2vni_fq_irt_node *irt2);
+extern uint32_t bgp_evpn_l2vni_fq_irt_hash(const struct bgp_evpn_l2vni_fq_irt_node *irt);
+
+DECLARE_HASH(bgp_evpn_l2vni_fq_irt, struct bgp_evpn_l2vni_fq_irt_node, item,
+	     bgp_evpn_l2vni_fq_irt_cmp, bgp_evpn_l2vni_fq_irt_hash);
+
+/* Mapping of a wildcard Import RT to VNIs.
+ * The wildcard import RTs of all VNIs are maintained in a hash table
+ * keyed on the local admin value alone, with each entry linking to all
+ * VNIs that will import routes carrying a route target with this local
+ * admin value, regardless of the global admin field.
  */
-struct vrf_irt_node {
+struct bgp_evpn_l2vni_wildcard_irt_node {
+	/* local admin value in network byte order */
+	uint32_t local_admin_nbo;
+
+	/* List of VNIs (struct bgpevpn) importing routes matching this RT. */
+	struct list *vnis;
+
+	struct bgp_evpn_l2vni_wildcard_irt_item item;
+};
+
+extern int bgp_evpn_l2vni_wildcard_irt_cmp(const struct bgp_evpn_l2vni_wildcard_irt_node *irt1,
+					   const struct bgp_evpn_l2vni_wildcard_irt_node *irt2);
+extern uint32_t bgp_evpn_l2vni_wildcard_irt_hash(const struct bgp_evpn_l2vni_wildcard_irt_node *irt);
+
+DECLARE_HASH(bgp_evpn_l2vni_wildcard_irt, struct bgp_evpn_l2vni_wildcard_irt_node, item,
+	     bgp_evpn_l2vni_wildcard_irt_cmp, bgp_evpn_l2vni_wildcard_irt_hash);
+
+/* Mapping of a fully qualified Import RT to VRFs.
+ * The fully qualified import RTs of all VRFs are maintained in a hash
+ * table with each RT linking to all VRFs that will import routes
+ * carrying exactly this RT.
+ */
+struct bgp_evpn_vrf_fq_irt_node {
 	/* RT */
 	struct ecommunity_val rt;
 
-	/* List of VNIs importing routes matching this RT. */
+	/* List of VRFs (struct bgp) importing routes matching this RT. */
 	struct list *vrfs;
+
+	struct bgp_evpn_vrf_fq_irt_item item;
 };
+
+extern int bgp_evpn_vrf_fq_irt_cmp(const struct bgp_evpn_vrf_fq_irt_node *irt1,
+				   const struct bgp_evpn_vrf_fq_irt_node *irt2);
+extern uint32_t bgp_evpn_vrf_fq_irt_hash(const struct bgp_evpn_vrf_fq_irt_node *irt);
+
+DECLARE_HASH(bgp_evpn_vrf_fq_irt, struct bgp_evpn_vrf_fq_irt_node, item, bgp_evpn_vrf_fq_irt_cmp,
+	     bgp_evpn_vrf_fq_irt_hash);
+
+/* Mapping of a wildcard Import RT to VRFs. See the VNI variant above
+ * for the wildcard matching semantics.
+ */
+struct bgp_evpn_vrf_wildcard_irt_node {
+	/* local admin value in network byte order */
+	uint32_t local_admin_nbo;
+
+	/* List of VRFs (struct bgp) importing routes matching this RT. */
+	struct list *vrfs;
+
+	struct bgp_evpn_vrf_wildcard_irt_item item;
+};
+
+extern int bgp_evpn_vrf_wildcard_irt_cmp(const struct bgp_evpn_vrf_wildcard_irt_node *irt1,
+					 const struct bgp_evpn_vrf_wildcard_irt_node *irt2);
+extern uint32_t bgp_evpn_vrf_wildcard_irt_hash(const struct bgp_evpn_vrf_wildcard_irt_node *irt);
+
+DECLARE_HASH(bgp_evpn_vrf_wildcard_irt, struct bgp_evpn_vrf_wildcard_irt_node, item,
+	     bgp_evpn_vrf_wildcard_irt_cmp, bgp_evpn_vrf_wildcard_irt_hash);
 
 
 /* Direction(s) of a configured EVPN route target. */

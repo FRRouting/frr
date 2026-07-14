@@ -116,16 +116,16 @@ static bool evpn_format_rt(const struct ecommunity_val *rt, char *rt_buf, size_t
 	return true;
 }
 
-static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt, json_object *json)
+/* Display the list of VRFs importing routes matching one route-target,
+ * with the route-target already rendered into rt_buf by the caller.
+ */
+static void display_import_rt_vrfs(struct vty *vty, struct list *vrfs, const char *rt_buf,
+				   json_object *json)
 {
 	struct listnode *node, *nnode;
 	struct bgp *tmp_bgp_vrf = NULL;
 	json_object *json_rt = NULL;
 	json_object *json_vrfs = NULL;
-	char rt_buf[RT_ADDRSTRLEN];
-
-	if (!evpn_format_rt(&irt->rt, rt_buf, sizeof(rt_buf)))
-		return;
 
 	if (json) {
 		json_rt = json_object_new_object();
@@ -133,19 +133,15 @@ static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt, jso
 		json_object_string_add(json_rt, "rt", rt_buf);
 	} else {
 		vty_out(vty, "Route-target: %s", rt_buf);
-		vty_out(vty,
-			"\nList of VRFs importing routes with this route-target:\n");
+		vty_out(vty, "\nList of VRFs importing routes with this route-target:\n");
 	}
 
-	for (ALL_LIST_ELEMENTS(irt->vrfs, node, nnode, tmp_bgp_vrf)) {
+	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, tmp_bgp_vrf)) {
 		if (json)
-			json_object_array_add(
-				json_vrfs,
-				json_object_new_string(
-					vrf_id_to_name(tmp_bgp_vrf->vrf_id)));
+			json_object_array_add(json_vrfs, json_object_new_string(vrf_id_to_name(
+								 tmp_bgp_vrf->vrf_id)));
 		else
-			vty_out(vty, "  %s\n",
-				vrf_id_to_name(tmp_bgp_vrf->vrf_id));
+			vty_out(vty, "  %s\n", vrf_id_to_name(tmp_bgp_vrf->vrf_id));
 	}
 
 	if (json) {
@@ -154,28 +150,44 @@ static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt, jso
 	}
 }
 
-static void show_vrf_import_rt_entry(struct hash_bucket *bucket, void *args[])
+/* Display one fully-qualified VRF (L3VNI) import route-target and the VRFs
+ * importing routes that match it.
+ */
+static void display_vrf_import_rt(struct vty *vty, struct bgp_evpn_vrf_fq_irt_node *irt,
+				  json_object *json)
 {
-	json_object *json = NULL;
-	struct vty *vty = NULL;
-	struct vrf_irt_node *irt = (struct vrf_irt_node *)bucket->data;
+	char rt_buf[RT_ADDRSTRLEN];
 
-	vty = (struct vty *)args[0];
-	json = (struct json_object *)args[1];
+	if (!evpn_format_rt(&irt->rt, rt_buf, sizeof(rt_buf)))
+		return;
 
-	display_vrf_import_rt(vty, irt, json);
+	display_import_rt_vrfs(vty, irt->vrfs, rt_buf, json);
 }
 
-static void display_import_rt(struct vty *vty, struct irt_node *irt, json_object *json)
+/* Display one wildcard VRF (L3VNI) import route-target (matched on local-admin
+ * only) and the VRFs importing routes that match it.
+ */
+static void display_vrf_wildcard_import_rt(struct vty *vty,
+					   struct bgp_evpn_vrf_wildcard_irt_node *irt,
+					   json_object *json)
+{
+	char rt_buf[RT_ADDRSTRLEN];
+
+	bgp_evpn_format_wildcard_rt_local_admin(rt_buf, sizeof(rt_buf), irt->local_admin_nbo);
+
+	display_import_rt_vrfs(vty, irt->vrfs, rt_buf, json);
+}
+
+/* Display the list of VNIs importing routes matching one route-target,
+ * with the route-target already rendered into rt_buf by the caller.
+ */
+static void display_import_rt_l2vnis(struct vty *vty, struct list *vnis, const char *rt_buf,
+				     json_object *json)
 {
 	struct listnode *node, *nnode;
 	struct bgpevpn *tmp_vpn;
 	json_object *json_rt = NULL;
 	json_object *json_vnis = NULL;
-	char rt_buf[RT_ADDRSTRLEN];
-
-	if (!evpn_format_rt(&irt->rt, rt_buf, sizeof(rt_buf)))
-		return;
 
 	if (json) {
 		json_rt = json_object_new_object();
@@ -183,14 +195,12 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt, json_object
 		json_object_string_add(json_rt, "rt", rt_buf);
 	} else {
 		vty_out(vty, "Route-target: %s", rt_buf);
-		vty_out(vty,
-			"\nList of VNIs importing routes with this route-target:\n");
+		vty_out(vty, "\nList of VNIs importing routes with this route-target:\n");
 	}
 
-	for (ALL_LIST_ELEMENTS(irt->vnis, node, nnode, tmp_vpn)) {
+	for (ALL_LIST_ELEMENTS(vnis, node, nnode, tmp_vpn)) {
 		if (json)
-			json_object_array_add(
-				json_vnis, json_object_new_int(tmp_vpn->vni));
+			json_object_array_add(json_vnis, json_object_new_int(tmp_vpn->vni));
 		else
 			vty_out(vty, "  %u\n", tmp_vpn->vni);
 	}
@@ -201,18 +211,32 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt, json_object
 	}
 }
 
-static void show_import_rt_entry(struct hash_bucket *bucket, void *args[])
+/* Display one fully-qualified L2VNI import route-target and the VNIs importing
+ * routes that match it.
+ */
+static void display_l2vni_import_rt(struct vty *vty, struct bgp_evpn_l2vni_fq_irt_node *irt,
+				    json_object *json)
 {
-	json_object *json = NULL;
-	struct vty *vty = NULL;
-	struct irt_node *irt = (struct irt_node *)bucket->data;
+	char rt_buf[RT_ADDRSTRLEN];
 
-	vty = args[0];
-	json = args[1];
+	if (!evpn_format_rt(&irt->rt, rt_buf, sizeof(rt_buf)))
+		return;
 
-	display_import_rt(vty, irt, json);
+	display_import_rt_l2vnis(vty, irt->vnis, rt_buf, json);
+}
 
-	return;
+/* Display one wildcard L2VNI import route-target (matched on local-admin only)
+ * and the VNIs importing routes that match it.
+ */
+static void display_l2vni_wildcard_import_rt(struct vty *vty,
+					     struct bgp_evpn_l2vni_wildcard_irt_node *irt,
+					     json_object *json)
+{
+	char rt_buf[RT_ADDRSTRLEN];
+
+	bgp_evpn_format_wildcard_rt_local_admin(rt_buf, sizeof(rt_buf), irt->local_admin_nbo);
+
+	display_import_rt_l2vnis(vty, irt->vnis, rt_buf, json);
 }
 
 static void bgp_evpn_show_route_rd_header(struct vty *vty,
@@ -2251,35 +2275,33 @@ static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
  * Display import RT mapping to VRFs (vty handler)
  * bgp_evpn: evpn bgp instance
  */
-static void evpn_show_vrf_import_rts(struct vty *vty, struct bgp *bgp_evpn,
-				     json_object *json)
+static void evpn_show_vrf_import_rts(struct vty *vty, struct bgp *bgp_evpn, json_object *json)
 {
-	void *args[2];
+	struct bgp_evpn_vrf_fq_irt_node *fq_irt;
+	struct bgp_evpn_vrf_wildcard_irt_node *wildcard_irt;
 
-	args[0] = vty;
-	args[1] = json;
+	/* Wildcard import RTs are shown before the fully-qualified ones. */
+	frr_each (bgp_evpn_vrf_wildcard_irt, &bgp_evpn->vrf_wildcard_irt_nodes, wildcard_irt)
+		display_vrf_wildcard_import_rt(vty, wildcard_irt, json);
 
-	hash_iterate(bgp_evpn->vrf_import_rt_hash,
-		     (void (*)(struct hash_bucket *,
-			       void *))show_vrf_import_rt_entry,
-		     args);
+	frr_each (bgp_evpn_vrf_fq_irt, &bgp_evpn->vrf_fq_irt_nodes, fq_irt)
+		display_vrf_import_rt(vty, fq_irt, json);
 }
 
 /*
  * Display import RT mapping to VNIs (vty handler)
  */
-static void evpn_show_import_rts(struct vty *vty, struct bgp *bgp,
-				 json_object *json)
+static void evpn_show_l2vni_import_rts(struct vty *vty, struct bgp *bgp, json_object *json)
 {
-	void *args[2];
+	struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
+	struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
 
-	args[0] = vty;
-	args[1] = json;
+	/* Wildcard import RTs are shown before the fully-qualified ones. */
+	frr_each (bgp_evpn_l2vni_wildcard_irt, &bgp->l2vni_wildcard_irt_nodes, wildcard_irt)
+		display_l2vni_wildcard_import_rt(vty, wildcard_irt, json);
 
-	hash_iterate(
-		bgp->import_rt_hash,
-		(void (*)(struct hash_bucket *, void *))show_import_rt_entry,
-		args);
+	frr_each (bgp_evpn_l2vni_fq_irt, &bgp->l2vni_fq_irt_nodes, fq_irt)
+		display_l2vni_import_rt(vty, fq_irt, json);
 }
 
 /*
@@ -5983,7 +6005,7 @@ DEFUN(show_bgp_l2vpn_evpn_import_rt,
 	if (uj)
 		json = json_object_new_object();
 
-	evpn_show_import_rts(vty, bgp, json);
+	evpn_show_l2vni_import_rts(vty, bgp, json);
 
 	if (uj)
 		vty_json(vty, json);
