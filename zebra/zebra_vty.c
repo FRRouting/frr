@@ -955,6 +955,9 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		vty_json_close(vty, first_json);
 }
 
+/*
+ * Show all route tables in 'zvrf'
+ */
 static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi, safi_t safi,
 				 bool use_fib, bool use_json, route_tag_t tag,
 				 const struct prefix *longer_prefix_p, bool supernets_only,
@@ -964,6 +967,8 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 {
 	struct zebra_router_table *zrt;
 	struct rib_table_info *info;
+	bool first_table = true;
+	char idbuf[20];
 
 	RB_FOREACH (zrt, zebra_router_table_head,
 		    &zrouter.tables) {
@@ -974,11 +979,19 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 		if (zrt->afi != afi || zrt->safi != safi)
 			continue;
 
+		if (use_json) {
+			snprintf(idbuf, sizeof(idbuf), "%u", info->table_id);
+			vty_json_key(vty, idbuf, &first_table);
+		}
+
 		do_show_ip_route(vty, zvrf_name(zvrf), afi, safi, use_fib, use_json, tag,
 				 longer_prefix_p, supernets_only, type, ospf_instance_id,
 				 zrt->tableid, show_ng, show_nhg_summary, ecmp_gt, ecmp_lt,
 				 ecmp_eq, ecmp_count, failed_only, ctx);
 	}
+
+	if (use_json)
+		vty_json_close(vty, first_table);
 }
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
