@@ -51,6 +51,176 @@ If an L2VNI does not have an SVI or its SVI is not enslaved to a VRF, the L2VNI
 will be associated with the "default" VRF. If an L2VNI has an SVI whose master
 device is a VRF, then that L2VNI will be associated with its master VRF.
 
+.. _evpn-route-targets:
+
+EVPN Route Targets
+==================
+
+EVPN uses Route Targets (BGP extended communities, :rfc:`4360`) to describe
+which IP-VRFs and which EVIs / L2VNIs participate in which virtual
+network. Route Targets consist of a global administrator and a local
+administrator, they are commonly written as ``<global-admin>:<local-admin>``.
+
+
+Every EVPN route is advertised with the export Route Targets of the
+IP-VRF or EVI it originates from (one exception are Ethernet Segment
+routes, which carry an ES-Import Route Target derived from the ESI instead).
+Every receiving router imports routes into exactly those IP-VRFs and
+EVIs whose import Route Targets match a Route Target carried by the
+route.
+
+The single most important rule for reasoning about EVPN route exchange is:
+
+.. important::
+
+   IP-VRFs and EVIs are identified by Route Targets, never by
+   labels (VNIs or MPLS labels). The Route Targets alone determine into
+   which IP-VRF or EVI a received route is imported. The label carried
+   in a route (e.g. in the MPLS Label1 field) is never used to determine
+   the import destination.
+
+The VNI or MPLS label carried in an EVPN route is purely dataplane
+information. It tells the ingress VTEP (VTEP that encapsulates traffic
+and then forwards the encapsulated traffic to the egress VTEP) which
+label to put on the wire so that the egress VTEP (VTEP that receives
+encapsulated traffic from the ingress VTEP, decapsulates it and then forwards the
+decapsulated traffic) can map received packets to the right VRF or bridge
+domain (see :ref:`bgp-evpn-downstream-vni`). Labels do not have to match
+between different peers for routes to be imported.
+Consequently, a Route Target mismatch shows up as routes missing from the
+receiving IP-VRFs / EVIs, while a label (VNI / MPLS Label) problem shows
+up as imported routes whose traffic is dropped or misdelivered by the dataplane.
+
+Route Targets can be configured manually, derived automatically, and for
+the import direction, matched with wildcards. The concepts are described in
+the next two sections. The configuration commands are documented in
+:ref:`bgp-evpn-route-target-configuration`.
+
+
+.. _evpn-wildcard-route-targets:
+
+Wildcard Route Targets
+----------------------
+
+We discern between **fully qualified Route Targets**
+(``AS2:N``, ``AS4:N``, ``A.B.C.D:N``) and **wildcard Route Targets** (``*:N``).
+Wildcard Route Targets are not standardised, they are a convenience
+feature of FRR. Fully qualified Route Targets are normal Route Targets according
+to :rfc:`4360`.
+
+Wildcard Route Targets ``*:N`` match any fully qualified Route Target
+whose local administrator is ``N``, regardless of the global administrator
+(AS number ``AS2:N`` / ``AS4:N`` or IPv4 address ``A.B.C.D:N``).
+
+In EVPN environments, the local administrator is typically the IP-VRF's or EVI's
+VNI. This assumes that the administrator configures all peers to use the same VNI
+for the same IP-VRF or EVI. If you make (excessive) use of the Downstream-VNI
+feature, you likely have to configure Route Targets manually.
+
+2-byte-AS Route Targets (``AS2:N``) have a 4-byte local administrator and
+the full four bytes of the local administrator value are compared against ``N``.
+4-byte-AS (``AS4:N``) and IPv4-address (``A.B.C.D:N``) Route Targets have
+only a 2-byte local administrator. When the 2-byte local administrator is
+compared against ``N``, there must be an exact match.
+
+Therefore ``route-target import *:52`` matches e.g. ``64496:52``,
+``4200000000:52`` and ``192.0.2.1:52``, while ``route-target import
+*:70000`` can only match 2-byte-AS Route Targets such as ``64496:70000``,
+because 70000 does not fit in the 2-byte local administrator of the other
+types.
+
+Wildcard Route Targets are particularly useful in eBGP fabrics, where each
+leaf has a unique AS number and thus **by default** uses a unique ``AS:VNI``
+Route Target. As a consequence those leafs originate routes with **different
+Route Targets for the same IP-VRFs or EVIs**. Because without explicitly
+importing every other leaf's Route Targets, there would be **no or limited
+connectivity**, you typically want to import routes from **all Leafs**.
+
+Without Wildcard Route Targets, there would be a huge overhead,
+both operationally (adding one leaf requires you to update the configuration
+on all other leafs) and in terms of configuration size (every leaf would have
+to list every other leaf's Route Target).
+
+Wildcard Route Targets solve this problem: **A single wildcard import Route Target
+imports routes from all other leafs without having to list every leaf AS**
+
+Note that you can override the automatic export Route Targets and e.g.
+use the same ``<Manual AS>:VNI`` Route Target on all leafs.
+
+.. _evpn-automatic-route-targets:
+
+Automatic Route Targets
+-----------------------
+
+By default FRR derives one automatic Route Target per direction (import and
+export) for every IP-VRF with an L3VNI and for every EVI / L2VNI, unless a manual
+Route Target is configured for a respective direction. This allows EVPN to
+mostly work out of the box without any manual route-target configuration.
+
+.. important::
+   Automatic import Route Targets for IP-VRFs with L3VNI and EVIs / L2VNIs
+   are wildcard Route Targets and derived as ``*:VNI``, i.e. the 
+   local administrator value used for matching incoming routes is the VNI.
+   See :ref:`evpn-wildcard-route-targets` for more details about why and how.
+
+.. important::
+   Automatic export Route Targets for IP-VRFs with L3VNI and EVIs / L2VNIs
+   are fully qualified 2-byte-AS Route Targets (type ``0x00``, :rfc:`4360` section 3.1)
+   and derived as ``(AS & 0xFFFF):VNI``.
+   The global administrator value ``(AS & 0xFFFF)`` is the low order 2 bytes
+   of the AS number of the originating BGP instance and the local administrator
+   value is the VNI.
+
+
+Because Route Targets only offer 48 bits of payload, it is not possible to encode
+a full 4-byte AS number or 4-byte IPv4 address together with a 24-bit / 3-byte VNI.
+Therefore, the automatic export Route Target uses only the
+low order 2 bytes of the AS number.
+
+The low order 2 bytes of an AS number can easily be derived from its asdot+ notation,
+because they are simply the last of the two integers. :rfc:`5396` defines asdot+ as
+
+.. code-block:: none
+
+   a syntax scheme of representing all AS numbers using a notation of two integer
+   values joined by a period character:
+   <high order 16-bit value in decimal>.<low order 16-bit value in decimal>
+   Using asdot+ notation, an AS number of value 65526 would be represented as
+   the string "0.65526" and an AS number of value 65546 would be represented as
+   the string "1.10".
+
+As a neat side-effect, this allows using and allocating blocks of AS numbers
+for different purposes in an intuitive way, e.g. assigning a block of AS numbers
+``123.<low order 2 bytes>`` to a pod.
+``123`` becomes kind of a prefix, conceptually similar to IP prefixes.
+With this example, all leafs within a pod would originate their routes with different
+Route Targets, which can be useful e.g. for debugging.
+The opposite is also possible, e.g. defining a block as ``<low order 2 bytes>.123``,
+to have all leafs within a pod originate their routes with the same Route Target.
+
+Whether the automatic Route Target is used at all is controlled per
+direction with the ``auto-route-target`` command (available for both
+IP-VRFs and per EVI / L2VNI). The default mode, ``add-if-no-manual``,
+adds the automatic Route Target only as long as no manual Route Target
+is configured for that direction, and configuring a manual Route Target
+will "remove" the automatic Route Target. The other two modes,
+``add-always`` and ``add-never`` force the automatic Route Target on or off
+independently of manual configuration.
+
+Note that the configuration syntax is deliberately verbose: Automatic Route
+Targets do not override, they are additive and simply appended to the list of
+effective (operationally active) Route Targets.
+See :ref:`bgp-evpn-route-target-configuration` for the exact syntax.
+
+
+For interoperability with implementations that follow :rfc:`8365` section
+5.1.2.1, ``auto-route-target <import|export|both> rfc8365-compatible``
+changes the encoding of the automatic Route Target: the VXLAN encapsulation
+type is encoded in the upper byte of the local administrator field, in
+front of the VNI. On the import side the wildcard then matches this RFC
+8365 encoded local administrator value instead.
+
+
 .. _evpn-linux-vxlan-dataplane:
 
 The Linux (VXLAN) Dataplane
