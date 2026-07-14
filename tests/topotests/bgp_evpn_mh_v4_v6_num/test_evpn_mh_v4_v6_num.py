@@ -1112,6 +1112,40 @@ def check_one_es(dut, esi, down_vteps):
     return result
 
 
+def wait_for_es_peer_set_ready(dut, esi, down_vteps, count=45, wait=1):
+    """
+    Poll ES state until peer set converges or timeout expires.
+    Returns None when ready, otherwise the last mismatch from check_one_es().
+    """
+    test_fn = partial(check_one_es, dut, esi, down_vteps)
+    _, result = topotest.run_and_expect(test_fn, None, count=count, wait=wait)
+    return result
+
+
+def check_link_oper_down(node, intf):
+    out = node.run(
+        "ip -o link show dev {} | awk -F'[<>]' '{{print $2}}'".format(intf)
+    ).strip()
+    if not out:
+        return "interface {} not found".format(intf)
+    flags = set(flag for flag in out.split(",") if flag)
+    if "LOWER_UP" in flags:
+        return "{} still LOWER_UP ({})".format(intf, out)
+    return None
+
+
+def check_port_vlan_pvid(node, intf, expected_vlan):
+    out = node.run("bridge vlan show dev {}".format(intf))
+    if not out:
+        return "no bridge vlan output for {}".format(intf)
+
+    pat = r"{}\s+{}\s+PVID".format(re.escape(intf), expected_vlan)
+    if re.search(pat, out, flags=re.MULTILINE):
+        return None
+
+    return "expected {} PVID on {} but got:\n{}".format(expected_vlan, intf, out)
+
+
 def test_evpn_es(tgen_and_ip_version):
     """
     Two ES are setup on each rack. This test checks if -
@@ -1196,6 +1230,257 @@ def ping_anycast_gw(tgen):
             host.logger.debug(
                 "%s: ping6 on %s for %s returned: %s", name, intf, ipaddr, stdout
             )
+
+
+def get_arp_nd_redirect_stats(dut):
+    """
+    Parse `show evpn arp-nd-redirect` text output into integer counters.
+    """
+    out = dut.vtysh_cmd("show evpn arp-nd-redirect")
+
+    patterns = {
+        "ipv4_arp": r"IPv4 ARP:\s+(\d+)",
+        "ipv6_nd": r"IPv6 neighbor discovery:\s+(\d+)",
+        "redirected": r"Redirected packets:\s+(\d+)",
+        "not_ready": r"Not ready:\s+(\d+)",
+        "if_down_or_no_bridge": r"Interface down or no bridge:\s+(\d+)",
+        "vni_missing": r"VNI missing:\s+(\d+)",
+        "mac_missing": r"MAC missing:\s+(\d+)",
+        "dest_not_local_es": r"Dest is not local ES:\s+(\d+)",
+        "dest_es_oper_up": r"Dest ES oper-up:\s+(\d+)",
+    }
+
+    stats = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, out)
+        stats[key] = int(match.group(1)) if match else 0
+
+    return stats
+
+
+def check_arp_nd_redirect_counter_progress(dut, before):
+    """
+    Verify ARP-ND redirect accounting path is active by expecting one of:
+    - IPv6 ND packets increased, or
+    - redirect packets increased, or
+    - skip counters increased.
+    """
+    after = get_arp_nd_redirect_stats(dut)
+
+    if (
+        after["ipv6_nd"] > before["ipv6_nd"]
+        or after["redirected"] > before["redirected"]
+        or after["mac_missing"] > before["mac_missing"]
+        or after["dest_not_local_es"] > before["dest_not_local_es"]
+        or after["dest_es_oper_up"] > before["dest_es_oper_up"]
+    ):
+        return None
+
+    return "ARP-ND redirect counters did not progress: before={} after={}".format(
+        before, after
+    )
+
+
+def check_arp_nd_redirect_counter_progress_any(duts_before):
+    """
+    Return success if redirect accounting progresses on any DUT.
+    This topology can ingress on either rack-1 ToR depending on hashing.
+    """
+    details = {}
+    for dut, before in duts_before:
+        after = get_arp_nd_redirect_stats(dut)
+        details[dut.name] = {"before": before, "after": after}
+
+        if (
+            after["ipv6_nd"] > before["ipv6_nd"]
+            or after["redirected"] > before["redirected"]
+            or after["mac_missing"] > before["mac_missing"]
+            or after["dest_not_local_es"] > before["dest_not_local_es"]
+            or after["dest_es_oper_up"] > before["dest_es_oper_up"]
+        ):
+            return None
+
+    return "ARP-ND redirect counters did not progress on any DUT: {}".format(details)
+
+
+def check_redirected_counter_progress_any(duts_before):
+    """
+    Return success only if redirected counter progresses on any DUT.
+    """
+    details = {}
+    for dut, before in duts_before:
+        after = get_arp_nd_redirect_stats(dut)
+        details[dut.name] = {"before": before, "after": after}
+        if after["redirected"] > before["redirected"]:
+            return None
+
+    return "Redirected counter did not progress on any DUT: {}".format(details)
+
+
+def check_arp_redirect_progress_any(duts_before):
+    """
+    Return success only if both IPv4 ARP accounting and redirected counter
+    progress on any DUT.
+    """
+    details = {}
+    for dut, before in duts_before:
+        after = get_arp_nd_redirect_stats(dut)
+        details[dut.name] = {"before": before, "after": after}
+        if (
+            after["ipv4_arp"] > before["ipv4_arp"]
+            and after["redirected"] > before["redirected"]
+        ):
+            return None
+
+    return "ARP redirect counters did not progress on any DUT: {}".format(details)
+
+
+def _detect_host_bond_if(host):
+    """
+    Return the host bond interface name used by this topology.
+    """
+    out = host.run("ip -o link show | awk -F': ' '{print $2}'")
+    interfaces = [line.strip() for line in out.splitlines() if line.strip()]
+    for candidate in ("torbond", "torbond_1", "torbond1"):
+        if candidate in interfaces:
+            return candidate
+    return "torbond"
+
+
+def _get_global_ipv6_on_intf(host, intf):
+    out = host.run(
+        "ip -6 -o addr show dev {} scope global | awk '{{print $4}}' | head -n1".format(
+            intf
+        )
+    ).strip()
+    if not out:
+        return None
+    return out.split("/")[0]
+
+
+def _get_global_ipv4_on_intf(host, intf):
+    out = host.run(
+        "ip -4 -o addr show dev {} scope global | awk '{{print $4}}' | head -n1".format(
+            intf
+        )
+    ).strip()
+    if not out:
+        return None
+    return out.split("/")[0]
+
+
+def _fallback_host_ipv4(host_name):
+    """
+    Build deterministic IPv4 host address used by this topology (VLAN1000).
+    """
+    host_id = host_name.split("hostd")[1]
+    return "45.0.0.{}".format(host_id)
+
+
+def _send_unicast_na(host, intf, src_ip, dst_ip, dst_mac, vlan=None):
+    """
+    Send unicast NA frames (ICMPv6 type 136) to match zebra's unicast ND snoop path.
+    When vlan is set, send an 802.1Q-tagged frame.
+    """
+    if vlan is None:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,IPv6,ICMPv6ND_NA,ICMPv6NDOptDstLLAddr,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{dst_ip}')/"
+            "ICMPv6ND_NA(tgt='{src_ip}',S=1,O=1)/ICMPv6NDOptDstLLAddr(lladdr=srcmac);"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac)
+    else:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,Dot1Q,IPv6,ICMPv6ND_NA,ICMPv6NDOptDstLLAddr,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/Dot1Q(vlan={vlan})/"
+            "IPv6(src='{src_ip}',dst='{dst_ip}')/"
+            "ICMPv6ND_NA(tgt='{src_ip}',S=1,O=1)/ICMPv6NDOptDstLLAddr(lladdr=srcmac);"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac, vlan=vlan)
+    host.run(cmd)
+
+
+def _send_unicast_ns(host, intf, src_ip, target_ip, dst_mac, vlan=None):
+    """
+    Send unicast NS frames (ICMPv6 type 135) to match zebra's unicast ND snoop path.
+    When vlan is set, send an 802.1Q-tagged frame.
+    """
+    if vlan is None:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,IPv6,ICMPv6ND_NS,ICMPv6NDOptSrcLLAddr,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/IPv6(src='{src_ip}',dst='{target_ip}')/"
+            "ICMPv6ND_NS(tgt='{target_ip}')/ICMPv6NDOptSrcLLAddr(lladdr=srcmac);"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, target_ip=target_ip, dst_mac=dst_mac)
+    else:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,Dot1Q,IPv6,ICMPv6ND_NS,ICMPv6NDOptSrcLLAddr,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/Dot1Q(vlan={vlan})/"
+            "IPv6(src='{src_ip}',dst='{target_ip}')/"
+            "ICMPv6ND_NS(tgt='{target_ip}')/ICMPv6NDOptSrcLLAddr(lladdr=srcmac);"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(
+            intf=intf,
+            src_ip=src_ip,
+            target_ip=target_ip,
+            dst_mac=dst_mac,
+            vlan=vlan,
+        )
+    host.run(cmd)
+
+
+def _send_unicast_arp_reply(host, intf, src_ip, dst_ip, dst_mac, vlan=None):
+    """
+    Send unicast ARP reply frames to exercise ARP redirect path.
+    When vlan is set, send an 802.1Q-tagged frame.
+    """
+    if vlan is None:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,ARP,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/"
+            "ARP(op=2,hwsrc=srcmac,psrc='{src_ip}',hwdst='{dst_mac}',pdst='{dst_ip}');"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac)
+    else:
+        cmd = (
+            'python3 -c "from scapy.all import Ether,Dot1Q,ARP,sendp;'
+            "srcmac=open('/sys/class/net/{intf}/address').read().strip();"
+            "pkt=Ether(src=srcmac,dst='{dst_mac}')/Dot1Q(vlan={vlan})/"
+            "ARP(op=2,hwsrc=srcmac,psrc='{src_ip}',hwdst='{dst_mac}',pdst='{dst_ip}');"
+            "sendp(pkt,iface='{intf}',count=3,inter=0.05,verbose=False)\" >/dev/null 2>&1 || true"
+        ).format(intf=intf, src_ip=src_ip, dst_ip=dst_ip, dst_mac=dst_mac, vlan=vlan)
+    host.run(cmd)
+
+
+def get_link_rx_packets(dut, ifname):
+    """
+    Return RX packet counter for an interface from `ip -s link`.
+    """
+    out = dut.run("ip -s link show dev {}".format(ifname))
+    # Typical block:
+    # RX: bytes  packets errors dropped ...
+    #      <bytes> <packets> ...
+    match = re.search(r"RX:\s+[^\n]*\n\s*\d+\s+(\d+)\b", out, flags=re.MULTILINE)
+    if match:
+        return int(match.group(1))
+    return 0
+
+
+def check_link_rx_progress(dut, ifname, before):
+    """
+    Return success when RX packet counter on interface increases.
+    """
+    after = get_link_rx_packets(dut, ifname)
+    if after > before:
+        return None
+    return "{}: {} RX packets did not increase (before={}, after={})".format(
+        dut.name, ifname, before, after
+    )
 
 
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):

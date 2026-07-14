@@ -990,10 +990,18 @@ def test_evpn_vtep_change():
     # 1. Add secondary loopback address on torm21
     remote_tor.run(f"ip addr add {secondary_vtep}/32 dev lo")
 
-    # 2. Verify primary VTEP is present initially
+    # 2. Verify unrelated loopback add does not change ES VTEP selection
     test_fn = partial(check_remote_es_vtep_present, dut, esi, primary_vtep)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = f"torm11: primary VTEP {primary_vtep} not found in ES {esi} initially"
+    assert result is None, assertmsg
+
+    test_fn = partial(check_remote_es_vtep_absent, dut, esi, secondary_vtep)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = (
+        f"torm11: unexpected ES {esi} VTEP switch to {secondary_vtep} "
+        "after loopback add only"
+    )
     assert result is None, assertmsg
 
     # 3. Switch VTEP from primary to secondary (vxlan local IP change

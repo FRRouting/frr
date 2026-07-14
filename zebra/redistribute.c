@@ -17,6 +17,7 @@
 #include "vrf.h"
 #include "srcdest_table.h"
 #include "frrdistance.h"
+#include "if.h"
 
 #include "zebra/rib.h"
 #include "zebra/zebra_router.h"
@@ -30,6 +31,8 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_evpn_arp_nd.h"
+#include "zebra/zebra_evpn_mh.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -37,6 +40,26 @@
 /* bit AFI is set if that AFI is redistributing routes from this table */
 static int zebra_import_table_used[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 static uint32_t zebra_import_table_distance[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+
+static bool zebra_evpn_mh_originator_addr_match(const struct connected *ifc)
+{
+	struct ipaddr ifc_ip = {.ipa_type = IPADDR_NONE};
+
+	if (!ifc || !ifc->address || !zmh_info)
+		return false;
+
+	if (ifc->address->family == AF_INET) {
+		SET_IPADDR_V4(&ifc_ip);
+		ifc_ip.ipaddr_v4 = ifc->address->u.prefix4;
+	} else if (ifc->address->family == AF_INET6) {
+		SET_IPADDR_V6(&ifc_ip);
+		ifc_ip.ipaddr_v6 = ifc->address->u.prefix6;
+	} else {
+		return false;
+	}
+
+	return ipaddr_is_same(&ifc_ip, &zmh_info->es_originator_ip);
+}
 
 int is_zebra_import_table_enabled(afi_t afi, safi_t safi, vrf_id_t vrf_id, uint32_t table_id)
 {
@@ -624,6 +647,10 @@ void zebra_interface_address_add_update(struct interface *ifp,
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 1);
 
 	router_id_add_address(ifc);
+
+	if (if_is_loopback(ifp) &&
+	    zebra_evpn_mh_originator_addr_match(ifc))
+		zebra_evpn_arp_nd_failover_enable();
 
 	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		/* Do not send unsolicited messages to synchronous clients. */
