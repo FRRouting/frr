@@ -4004,12 +4004,12 @@ EVPN IP-VRF Route Targets
        exit-address-family
       exit
 
-.. clicmd:: auto-route-target <import|export|both> <add-always|add-never|add-if-no-manual>
+.. clicmd:: auto-route-target <import|export|both> <add-always|add-never|add-if-no-manual|rfc8365-compatible>
 
    Control the automatic route-target of the given direction(s). An
    automatic route-target of the form ``AS:VNI`` is derived for an
-   IP-VRF that has an L3VNI. The mode selects when it is added to the
-   effective route-targets:
+   IP-VRF that has an L3VNI. The add-mode selects when it is added to
+   the effective route-targets:
 
    - ``add-always``: always add the automatic route-target, even when
      manual route-targets are configured for the direction.
@@ -4023,12 +4023,22 @@ EVPN IP-VRF Route Targets
      default behavior; configuring it explicitly makes the default
      visible in the running configuration.
 
+   ``rfc8365-compatible`` is an orthogonal per-direction setting (a
+   separate statement, kept independently of the add-mode): it encodes
+   the automatic route-target with the VXLAN encapsulation bits set in
+   the local admin field, as described in :rfc:`8365`. It is off by
+   default, configured at the instance level (the tenant VRF for the
+   L3VNI, the EVPN underlay VRF for all its L2VNIs) and cannot be set
+   per-L2VNI.
+
    ``both`` applies the setting to import and export.
 
    .. deprecated:: 10.8
       ``route-target <import|export|both> auto`` is the previous spelling
-      of ``auto-route-target <import|export|both> add-always`` and is
-      still accepted as a hidden alias.
+      of ``auto-route-target <import|export|both> add-always``, and
+      ``autort rfc8365-compatible`` is the previous spelling of
+      ``auto-route-target both rfc8365-compatible``. Both are still
+      accepted as hidden aliases.
 
 .. _bgp-evpn-mac-vrf-l2vni-route-targets:
 

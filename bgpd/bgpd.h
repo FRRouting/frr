@@ -979,8 +979,9 @@ struct bgp {
 
 	struct bgp_evpn_info *evpn_info;
 
-	/* EVPN - use RFC 8365 to auto-derive RT */
-	int advertise_autort_rfc8365;
+	/* EVPN - use RFC 8365 to auto-derive RT, per direction */
+	bool autort_rfc8365_import;
+	bool autort_rfc8365_export;
 
 	/*
 	 * Flooding mechanism for BUM packets for VxLAN-EVPN.

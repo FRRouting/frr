@@ -5869,7 +5869,7 @@ static void bgp_evpn_vrf_form_auto_rt_eval(struct bgp *bgp_vrf, struct ecommunit
 {
 	vni_t vni = bgp_vrf->l3vni;
 
-	if (bgp_vrf->advertise_autort_rfc8365)
+	if (bgp_vrf->autort_rfc8365_export)
 		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
 	encode_route_target_as((bgp_vrf->as & 0xFFFF), vni, eval, true);
 }
@@ -5937,7 +5937,7 @@ static void bgp_evpn_vrf_regenerate_effective_import_rts(struct bgp *bgp_vrf)
 	if (bgp_vrf->l3vni && bgp_evpn_vrf_should_generate_import_auto_rt(bgp_vrf)) {
 		vni_t vni = bgp_vrf->l3vni;
 
-		if (bgp_vrf->advertise_autort_rfc8365)
+		if (bgp_vrf->autort_rfc8365_import)
 			SET_FLAG(vni, EVPN_AUTORT_VXLAN);
 
 		/* The auto import route target is a wildcard route
@@ -6044,9 +6044,10 @@ static bool bgp_evpn_l2vni_should_generate_export_auto_rt(struct bgpevpn *vpn)
 
 /*
  * Create the auto export RT extended community value for the L2VNI, of
- * the form AS:VNI. The AS and the RFC 8365 knob are taken from the EVPN
- * instance. Only the export direction uses this fully qualified form;
- * the auto import route target is a wildcard route target.
+ * the form AS:VNI. The AS and the RFC 8365 export setting are taken
+ * from the EVPN instance. Only the export direction uses this fully
+ * qualified form; the auto import route target is a wildcard route
+ * target.
  * NOTE: We use only the lower 16 bits of the AS. This is sufficient as
  * the need is to get a RT value that will be unique across different
  * VNIs but the same across routers (in the same AS) for a particular
@@ -6057,7 +6058,7 @@ static void bgp_evpn_l2vni_form_auto_rt_eval(struct bgp *bgp, struct bgpevpn *vp
 {
 	vni_t vni = vpn->vni;
 
-	if (bgp->advertise_autort_rfc8365)
+	if (bgp->autort_rfc8365_export)
 		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
 	encode_route_target_as((bgp->as & 0xFFFF), vni, eval, true);
 }
@@ -6094,7 +6095,7 @@ void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, struct bgpe
 	if (bgp_evpn_l2vni_should_generate_import_auto_rt(vpn)) {
 		vni_t vni = vpn->vni;
 
-		if (bgp->advertise_autort_rfc8365)
+		if (bgp->autort_rfc8365_import)
 			SET_FLAG(vni, EVPN_AUTORT_VXLAN);
 
 		bgp_evpn_l2vni_add_effective_wildcard_import_rt(vpn, htonl(vni));
@@ -6168,7 +6169,11 @@ static void update_autort_vni(struct hash_bucket *bucket, struct bgp *bgp)
 {
 	struct bgpevpn *vpn = bucket->data;
 
-	if (!bgp_evpn_l2vni_has_manual_import_rt_cfgd(vpn)) {
+	/* Re-derive whenever the direction has an auto route target in
+	 * effect - with "add-always" that includes directions that also
+	 * have manual route targets.
+	 */
+	if (bgp_evpn_l2vni_should_generate_import_auto_rt(vpn)) {
 		if (is_vni_live(vpn))
 			bgp_evpn_uninstall_routes(bgp, vpn);
 		bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
@@ -6176,7 +6181,7 @@ static void update_autort_vni(struct hash_bucket *bucket, struct bgp *bgp)
 		if (is_vni_live(vpn))
 			bgp_evpn_install_routes(bgp, vpn);
 	}
-	if (!bgp_evpn_l2vni_has_manual_export_rt_cfgd(vpn)) {
+	if (bgp_evpn_l2vni_should_generate_export_auto_rt(vpn)) {
 		bgp_evpn_derive_auto_rt_export(bgp, vpn);
 		if (is_vni_live(vpn))
 			bgp_evpn_handle_export_rt_change(bgp, vpn);
@@ -6188,15 +6193,17 @@ static void update_autort_vni(struct hash_bucket *bucket, struct bgp *bgp)
  */
 static void update_autort_l3vni(struct bgp *bgp)
 {
-	/* Nothing to do when manual RTs are configured for both directions
-	 * (note: explicitly configured auto RTs are not regenerated then,
-	 * preserving long-standing behavior)
+	bool import_auto = bgp_evpn_vrf_should_generate_import_auto_rt(bgp);
+	bool export_auto = bgp_evpn_vrf_should_generate_export_auto_rt(bgp);
+
+	/* Re-derive whenever the direction has an auto route target in
+	 * effect - with "add-always" that includes directions that also
+	 * have manual route targets.
 	 */
-	if (bgp_evpn_vrf_has_manual_import_rt_cfgd(bgp) &&
-	    bgp_evpn_vrf_has_manual_export_rt_cfgd(bgp))
+	if (!import_auto && !export_auto)
 		return;
 
-	if (!bgp_evpn_vrf_has_manual_import_rt_cfgd(bgp)) {
+	if (import_auto) {
 		if (is_l3vni_live(bgp))
 			uninstall_routes_for_vrf(bgp);
 
@@ -6210,7 +6217,7 @@ static void update_autort_l3vni(struct bgp *bgp)
 		bgp_evpn_map_vrf_to_its_rts(bgp);
 	}
 
-	if (!bgp_evpn_vrf_has_manual_export_rt_cfgd(bgp)) {
+	if (export_auto) {
 		bgp_evpn_vrf_regenerate_effective_export_rts(bgp);
 
 		if (is_l3vni_live(bgp))
