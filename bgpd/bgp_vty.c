@@ -12501,9 +12501,10 @@ static void print_bgp_vrfs_timers(struct vty *vty, struct bgp *bgp, json_object 
 	}
 }
 
-static void print_bgp_vrfs_route_targets(struct vty *vty, struct bgp *bgp,
-					 json_object *json)
+static void print_bgp_vrfs_route_targets(struct vty *vty, struct bgp *bgp, json_object *json)
 {
+	struct bgp_evpn_rt_config *rt_config = bgp->vrf_route_target_config;
+
 	/* import and export route-target info */
 	if (json) {
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))
@@ -12531,44 +12532,19 @@ static void print_bgp_vrfs_route_targets(struct vty *vty, struct bgp *bgp,
 						       bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name);
 		}
 
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
-			char *ecom_str;
-			struct listnode *node, *nnode;
-			struct vrf_route_target *l3rt;
+		if (bgp_evpn_vrf_has_manual_import_rt_cfgd(bgp)) {
+			char rt_buf[RT_ADDRSTRLEN];
+			struct bgp_evpn_cfgd_rt *cfgd_rt;
 			json_object *json_import_rt_list = NULL;
 
 			json_import_rt_list = json_object_new_array();
-			for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode, l3rt)) {
-				if (CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO))
-					continue;
-
-				ecom_str = ecommunity_ecom2str(l3rt->ecom,
-							       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-
-				if (CHECK_FLAG(l3rt->flags, BGP_VRF_RT_WILD)) {
-					char *vni_str = NULL;
-					char rt_str[32];
-
-					vni_str = strchr(ecom_str, ':');
-					if (!vni_str) {
-						XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
-						continue;
-					}
-
-					/* Move pointer to vni */
-					vni_str += 1;
-
-					snprintf(rt_str, sizeof(rt_str), "*:%s", vni_str);
-					json_object_array_add(json_import_rt_list,
-							      json_object_new_string(rt_str));
-				} else
-					json_object_array_add(json_import_rt_list,
-							      json_object_new_string(ecom_str));
-
-				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_import, cfgd_rt) {
+				bgp_evpn_format_cfgd_rt(rt_buf, sizeof(rt_buf), cfgd_rt);
+				json_object_array_add(json_import_rt_list,
+						      json_object_new_string(rt_buf));
 			}
 			/* import route-target auto */
-			if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD)) {
+			if (bgp_evpn_vrf_has_auto_import_rt_cfgd(bgp)) {
 				json_object_array_add(json_import_rt_list,
 						      json_object_new_string("auto"));
 			}
@@ -12576,25 +12552,19 @@ static void print_bgp_vrfs_route_targets(struct vty *vty, struct bgp *bgp,
 		}
 
 		/* export route-target */
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
-			char *ecom_str;
-			struct listnode *node, *nnode;
-			struct vrf_route_target *l3rt;
+		if (bgp_evpn_vrf_has_manual_export_rt_cfgd(bgp)) {
+			char rt_buf[RT_ADDRSTRLEN];
+			struct bgp_evpn_cfgd_rt *cfgd_rt;
 			json_object *json_export_rt_list = NULL;
 
 			json_export_rt_list = json_object_new_array();
-			for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode, l3rt)) {
-				if (CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO))
-					continue;
-
-				ecom_str = ecommunity_ecom2str(l3rt->ecom,
-							       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_export, cfgd_rt) {
+				bgp_evpn_format_cfgd_rt(rt_buf, sizeof(rt_buf), cfgd_rt);
 				json_object_array_add(json_export_rt_list,
-						      json_object_new_string(ecom_str));
-				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+						      json_object_new_string(rt_buf));
 			}
 			/* export route-target auto */
-			if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD)) {
+			if (bgp_evpn_vrf_has_auto_export_rt_cfgd(bgp)) {
 				json_object_array_add(json_export_rt_list,
 						      json_object_new_string("auto"));
 			}
@@ -12626,61 +12596,33 @@ static void print_bgp_vrfs_route_targets(struct vty *vty, struct bgp *bgp,
 					bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name);
 		}
 
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
-			char *ecom_str;
-			struct listnode *node, *nnode;
-			struct vrf_route_target *l3rt;
+		if (bgp_evpn_vrf_has_manual_import_rt_cfgd(bgp)) {
+			char rt_buf[RT_ADDRSTRLEN];
+			struct bgp_evpn_cfgd_rt *cfgd_rt;
 
 			vty_out(vty, "Route Target Import\n");
-			for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode, l3rt)) {
-				if (CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO))
-					continue;
-
-				ecom_str = ecommunity_ecom2str(l3rt->ecom,
-							       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-
-				if (CHECK_FLAG(l3rt->flags, BGP_VRF_RT_WILD)) {
-					char *vni_str = NULL;
-
-					vni_str = strchr(ecom_str, ':');
-					if (!vni_str) {
-						XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
-						continue;
-					}
-
-					/* Move pointer to vni */
-					vni_str += 1;
-
-					vty_out(vty, "   *:%s\n", vni_str);
-				} else
-					vty_out(vty, "   %s\n", ecom_str);
-
-				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_import, cfgd_rt) {
+				bgp_evpn_format_cfgd_rt(rt_buf, sizeof(rt_buf), cfgd_rt);
+				vty_out(vty, "   %s\n", rt_buf);
 			}
 		}
 		/* import route-target auto */
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
+		if (bgp_evpn_vrf_has_auto_import_rt_cfgd(bgp))
 			vty_out(vty, "   auto\n");
 
 		/* export route-target info */
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
-			char *ecom_str;
-			struct listnode *node, *nnode;
-			struct vrf_route_target *l3rt;
+		if (bgp_evpn_vrf_has_manual_export_rt_cfgd(bgp)) {
+			char rt_buf[RT_ADDRSTRLEN];
+			struct bgp_evpn_cfgd_rt *cfgd_rt;
 
 			vty_out(vty, "Route Target Export\n");
-			for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode, l3rt)) {
-				if (CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO))
-					continue;
-
-				ecom_str = ecommunity_ecom2str(l3rt->ecom,
-							       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-				vty_out(vty, "   %s\n", ecom_str);
-				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_export, cfgd_rt) {
+				bgp_evpn_format_cfgd_rt(rt_buf, sizeof(rt_buf), cfgd_rt);
+				vty_out(vty, "   %s\n", rt_buf);
 			}
 		}
 		/* export route-target auto */
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
+		if (bgp_evpn_vrf_has_auto_export_rt_cfgd(bgp))
 			vty_out(vty, "   auto\n");
 	}
 }

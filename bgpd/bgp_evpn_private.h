@@ -152,9 +152,12 @@ struct vrf_irt_node {
 };
 
 
-#define RT_TYPE_IMPORT 1
-#define RT_TYPE_EXPORT 2
-#define RT_TYPE_BOTH   3
+/* Direction(s) of a configured EVPN route target. */
+enum bgp_evpn_rt_direction {
+	RT_TYPE_IMPORT = 1,
+	RT_TYPE_EXPORT = 2,
+	RT_TYPE_BOTH = 3,
+};
 
 /* Type discriminator for user configured route targets */
 enum bgp_evpn_cfgd_rt_type {
@@ -220,6 +223,7 @@ extern int bgp_evpn_cfgd_rt_cmp(const struct bgp_evpn_cfgd_rt *rt1,
 				const struct bgp_evpn_cfgd_rt *rt2);
 extern struct bgp_evpn_cfgd_rt *bgp_evpn_cfgd_rt_from_ecom(const struct ecommunity *ecom,
 							   bool is_wildcard);
+extern struct bgp_evpn_cfgd_rt *bgp_evpn_cfgd_rt_dup(const struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_cfgd_rt_free(struct bgp_evpn_cfgd_rt *cfgd_rt);
 
 DECLARE_SORTLIST_UNIQ(bgp_evpn_cfgd_rt_slu, struct bgp_evpn_cfgd_rt, slu_item,
@@ -249,8 +253,6 @@ struct bgp_evpn_rt_config {
 	struct bgp_evpn_cfgd_rt_slu_head cfgd_export;
 };
 
-PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_wildcard_rt_slu);
-
 /* Effective (derived) wildcard import route target. Matches routes
  * carrying any route target with this local admin value, regardless of
  * the global admin field.
@@ -269,8 +271,6 @@ extern int bgp_evpn_effective_wildcard_rt_cmp(const struct bgp_evpn_effective_wi
 
 DECLARE_SORTLIST_UNIQ(bgp_evpn_effective_wildcard_rt_slu, struct bgp_evpn_effective_wildcard_rt,
 		      slu_item, bgp_evpn_effective_wildcard_rt_cmp);
-
-PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_fq_rt_slu);
 
 /* Effective (derived) fully qualified route target */
 struct bgp_evpn_effective_fq_rt {
@@ -340,18 +340,6 @@ struct evpn_remote_ip {
 	struct list *macip_path_list;
 };
 
-/*
- * Wrapper struct for l3 RT's
- */
-struct vrf_route_target {
-	/* flags based on config to determine how RTs are handled */
-	uint8_t flags;
-#define BGP_VRF_RT_AUTO (1 << 0)
-#define BGP_VRF_RT_WILD (1 << 1)
-
-	struct ecommunity *ecom;
-};
-
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
 {
 	return (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD));
@@ -376,20 +364,62 @@ static inline void bgpevpn_get_rmac(struct bgpevpn *vpn, struct ethaddr *rmac)
 	memcpy(rmac, &vpn->bgp_vrf->rmac, sizeof(struct ethaddr));
 }
 
-static inline struct list *bgpevpn_get_vrf_export_rtl(struct bgpevpn *vpn)
+static inline struct bgp_evpn_effective_fq_rt_slu_head *
+bgpevpn_get_vrf_export_rtl(struct bgpevpn *vpn)
 {
 	if (!vpn->bgp_vrf)
 		return NULL;
 
-	return vpn->bgp_vrf->vrf_export_rtl;
+	return &vpn->bgp_vrf->effective_fq_export_rts;
 }
 
-static inline struct list *bgpevpn_get_vrf_import_rtl(struct bgpevpn *vpn)
+static inline struct bgp_evpn_effective_fq_rt_slu_head *
+bgpevpn_get_vrf_import_rtl(struct bgpevpn *vpn)
 {
 	if (!vpn->bgp_vrf)
 		return NULL;
 
-	return vpn->bgp_vrf->vrf_import_rtl;
+	return &vpn->bgp_vrf->effective_fq_import_rts;
+}
+
+/* Is at least one manual (non-auto) import route target configured for
+ * the VRF?
+ */
+static inline bool bgp_evpn_vrf_has_manual_import_rt_cfgd(struct bgp *bgp_vrf)
+{
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	return bgp_evpn_cfgd_rt_slu_count(&rt_config->cfgd_import);
+}
+
+/* Is at least one manual (non-auto) export route target configured for
+ * the VRF?
+ */
+static inline bool bgp_evpn_vrf_has_manual_export_rt_cfgd(struct bgp *bgp_vrf)
+{
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	return bgp_evpn_cfgd_rt_slu_count(&rt_config->cfgd_export);
+}
+
+/* Is the auto import route target explicitly configured for the VRF,
+ * e.g. via "route-target import auto"?
+ */
+static inline bool bgp_evpn_vrf_has_auto_import_rt_cfgd(struct bgp *bgp_vrf)
+{
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	return rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_ALWAYS;
+}
+
+/* Is the auto export route target explicitly configured for the VRF,
+ * e.g. via "route-target export auto"?
+ */
+static inline bool bgp_evpn_vrf_has_auto_export_rt_cfgd(struct bgp *bgp_vrf)
+{
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	return rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_ALWAYS;
 }
 
 extern void bgp_evpn_es_evi_vrf_ref(struct bgpevpn *vpn);
@@ -876,20 +906,18 @@ static inline bool bgp_evpn_is_path_local(struct bgp *bgp,
 
 extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 						     struct bgp_path_info *originator, bool add);
-extern void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
-				bool is_l3);
+extern void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
-						 struct ecommunity *ecomadd);
+						 struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
-						   struct ecommunity *ecomdel);
+						   const struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_unconfigure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
-						 struct ecommunity *ecomadd,
-						 bool is_wildcard);
+						 struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
-						   struct ecommunity *ecomdel);
+						   const struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern int bgp_evpn_handle_export_rt_change(struct bgp *bgp,
 					    struct bgpevpn *vpn);

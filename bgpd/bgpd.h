@@ -572,6 +572,11 @@ struct bgp_clearing_info {
 #define BGP_IPV6_SAFI_SUPPORTS_NEXTHOP_PREFER_GLOBAL(safi)                                        \
 	((safi) == SAFI_UNICAST || (safi) == SAFI_MULTICAST || (safi) == SAFI_LABELED_UNICAST)
 
+/* EVPN route-target configuration (see bgp_evpn_private.h) */
+struct bgp_evpn_rt_config;
+PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_wildcard_rt_slu);
+PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_fq_rt_slu);
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -1012,10 +1017,10 @@ struct bgp {
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)
-#define BGP_VRF_IMPORT_RT_CFGD              (1 << 1)
-#define BGP_VRF_EXPORT_RT_CFGD              (1 << 2)
-#define BGP_VRF_IMPORT_AUTO_RT_CFGD         (1 << 3) /* retain auto when cfgd */
-#define BGP_VRF_EXPORT_AUTO_RT_CFGD         (1 << 4) /* retain auto when cfgd */
+/* Bits (1 << 1) through (1 << 4) are unused. They used to be the
+ * BGP_VRF_{IMPORT,EXPORT}[_AUTO]_RT_CFGD flags, which are superseded by
+ * the vrf_route_target_config structure.
+ */
 #define BGP_VRF_RD_CFGD                     (1 << 5)
 #define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 6)
 /* per-VRF toVPN SID */
@@ -1033,11 +1038,15 @@ struct bgp {
 	struct prefix_rd vrf_prd;
 	char *vrf_prd_pretty;
 
-	/* import rt list for the vrf instance */
-	struct list *vrf_import_rtl;
+	/* User route-target configuration of this L3VNI VRF */
+	struct bgp_evpn_rt_config *vrf_route_target_config;
 
-	/* export rt list for the vrf instance */
-	struct list *vrf_export_rtl;
+	/* Derived route targets: wildcard import (match local admin only),
+	 * fully qualified import, fully qualified export
+	 */
+	struct bgp_evpn_effective_wildcard_rt_slu_head effective_wildcard_import_rts;
+	struct bgp_evpn_effective_fq_rt_slu_head effective_fq_import_rts;
+	struct bgp_evpn_effective_fq_rt_slu_head effective_fq_export_rts;
 
 	/* list of corresponding l2vnis (struct bgpevpn) */
 	struct list *l2vnis;
