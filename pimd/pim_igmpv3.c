@@ -1688,18 +1688,23 @@ void igmp_v3_recv_query(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 			group = find_group_by_addr(igmp, group_addr);
 			if (group) {
 				uint16_t recv_num_sources_n;
-				size_t expected_msg_len;
+				size_t max_sources;
 				int recv_num_sources;
 
 				memcpy(&recv_num_sources_n, igmp_msg + IGMP_V3_NUMSOURCES_OFFSET,
 				       sizeof(recv_num_sources_n));
 				recv_num_sources = ntohs(recv_num_sources_n);
-				expected_msg_len =
-					IGMP_V3_SOURCES_OFFSET +
-					((size_t)recv_num_sources * sizeof(struct in_addr));
-				if ((size_t)igmp_msg_len < expected_msg_len) {
-					zlog_warn("IGMP query v3 from %pI4s on %s truncated source list: len=%d expected=%zu",
-						  &from, ifp->name, igmp_msg_len, expected_msg_len);
+				/*
+				 * Sanitize packet Number of Sources against the
+				 * bytes remaining in the message before using it
+				 * as a loop bound.
+				 */
+				max_sources = ((size_t)igmp_msg_len - IGMP_V3_SOURCES_OFFSET) /
+					      sizeof(struct in_addr);
+				if ((size_t)recv_num_sources > max_sources) {
+					zlog_warn("IGMP query v3 from %pI4s on %s truncated source list: sources=%d max=%zu len=%d",
+						  &from, ifp->name, recv_num_sources, max_sources,
+						  igmp_msg_len);
 					return;
 				}
 
