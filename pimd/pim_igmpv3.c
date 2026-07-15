@@ -1806,6 +1806,7 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, struct in_addr from, str
 int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from, char *igmp_msg, int igmp_msg_len)
 {
 	int num_groups;
+	size_t max_groups;
 	uint8_t *group_record;
 	uint8_t *report_pastend = (uint8_t *)igmp_msg + igmp_msg_len;
 	struct interface *ifp = igmp->interface;
@@ -1845,6 +1846,19 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 		return -1;
 	}
 
+	/*
+	 * Sanitize Number of Group Records against remaining bytes before using
+	 * it as a loop bound (minimum-sized records; larger records are still
+	 * rejected by the per-record checks below).
+	 */
+	max_groups = ((size_t)igmp_msg_len - IGMP_V3_REPORT_GROUPPRECORD_OFFSET) /
+		     IGMP_V3_GROUP_RECORD_MIN_SIZE;
+	if ((size_t)num_groups > max_groups) {
+		zlog_warn("Recv IGMP report v3 from %pI4s on %s: too many group records: groups=%d max=%zu len=%d",
+			  &from, ifp->name, num_groups, max_groups, igmp_msg_len);
+		return -1;
+	}
+
 	if (PIM_DEBUG_GM_PACKETS) {
 		zlog_debug("Recv IGMP report v3 from %pI4s on %s: size=%d groups=%d", &from,
 			   ifp->name, igmp_msg_len, num_groups);
@@ -1860,6 +1874,8 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 		int rec_type;
 		int rec_auxdatalen;
 		int rec_num_sources;
+		size_t max_sources;
+		size_t record_len;
 		int j;
 
 		if ((group_record + IGMP_V3_GROUP_RECORD_MIN_SIZE)
@@ -1889,15 +1905,26 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 		/* Scan sources */
 
 		sources = group_record + IGMP_V3_GROUP_RECORD_SOURCE_OFFSET;
+		/*
+		 * Sanitize Number of Sources against remaining bytes before
+		 * using it as a loop bound.
+		 */
+		max_sources = (size_t)(report_pastend - sources) / sizeof(struct in_addr);
+		if ((size_t)rec_num_sources > max_sources) {
+			zlog_warn("Recv IGMP report v3 from %pI4s on %s: truncated group source list: sources=%d max=%zu",
+				  &from, ifp->name, rec_num_sources, max_sources);
+			return -1;
+		}
+
+		record_len = IGMP_V3_GROUP_RECORD_MIN_SIZE + ((size_t)rec_num_sources << 2) +
+			     ((size_t)rec_auxdatalen << 2);
+		if (group_record + record_len > report_pastend) {
+			zlog_warn("Recv IGMP report v3 from %pI4s on %s: group record beyond report end",
+				  &from, ifp->name);
+			return -1;
+		}
 
 		for (j = 0, src = sources; j < rec_num_sources; ++j, src += 4) {
-
-			if ((src + 4) > report_pastend) {
-				zlog_warn("Recv IGMP report v3 from %pI4s on %s: group source beyond report end",
-					  &from, ifp->name);
-				return -1;
-			}
-
 			if (PIM_DEBUG_GM_PACKETS) {
 				char src_str[200];
 
@@ -1949,8 +1976,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 					  &from, ifp->name, rec_type);
 			}
 
-		group_record +=
-			8 + (rec_num_sources << 2) + (rec_auxdatalen << 2);
+		group_record += record_len;
 
 	} /* for (group records) */
 
