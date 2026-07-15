@@ -4115,7 +4115,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 	 * ~                Characteristic Value (variable)                ~
 	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 */
-	while (length && STREAM_READABLE(s) >= BGP_NHC_TLV_MIN_LEN) {
+	while (length >= BGP_NHC_TLV_MIN_LEN) {
 		struct bgp_nhc_tlv *found;
 
 		tlv_code = stream_getw(s);
@@ -4188,6 +4188,15 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 			bgp_nhc_tlv_free(tlv);
 
 		length -= tlv_length + BGP_NHC_TLV_MIN_LEN;
+	}
+
+	/* post-TLVs processing sanity check to avoid session reset */
+	if (length != 0) {
+		zlog_err("%pBP rcvd BGP NHC with %d trailing byte(s), smaller than a TLV header",
+			 peer, length);
+		bgp_nhc_free(nhc);
+		bgp_attr_set_nhc(attr, NULL);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
 	}
 
 	/*
