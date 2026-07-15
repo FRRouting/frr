@@ -447,7 +447,13 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp, pim_sgaddr *sg)
 	if (!pim_ifp) {
 		zlog_warn("%s: (S,G)=%pSG: multicast not enabled on interface %s",
 			  __func__, sg, ifp->name);
+<<<<<<< HEAD
 		return NULL;
+=======
+		*ch = NULL;
+		*chrpt = NULL;
+		return;
+>>>>>>> e6c820376 (pimd: return early from pim_ifchannel_find when PIM is disabled)
 	}
 
 	lookup.sg = *sg;
