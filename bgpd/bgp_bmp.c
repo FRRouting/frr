@@ -965,6 +965,50 @@ static int bmp_outgoing_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 	return 0;
 }
 
+/*
+ * BMP pre-policy monitoring reads exclusively from Adj-RIB-In, which bgpd
+ * only maintains under PEER_FLAG_SOFT_RECONFIG.  Without it, the affected
+ * peer's routes are simply absent from the pre-policy feed.  Warn about
+ * this dependency instead of leaving operators to notice a silently empty
+ * feed.
+ */
+static void bmp_prepolicy_softreconfig_warn(struct vty *vty, struct peer *peer, afi_t afi,
+					    safi_t safi)
+{
+	if (vty)
+		vty_out(vty,
+			"%% peer %s has no Adj-RIB-In for %s %s (soft-reconfiguration inbound is not configured); pre-policy monitoring will not report its routes until soft-reconfiguration inbound is enabled\n",
+			peer->host, afi2str_lower(afi), safi2str(safi));
+	else
+		zlog_warn("bmp: peer %s has no Adj-RIB-In for %s %s (soft-reconfiguration inbound is not configured); pre-policy monitoring will not report its routes until soft-reconfiguration inbound is enabled",
+			  peer->host, afi2str_lower(afi), safi2str(safi));
+}
+
+static void bmp_peer_up_warn_prepolicy(struct peer *peer)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
+	struct bmp_targets *bt;
+	afi_t afi;
+	safi_t safi;
+
+	if (!bmpbgp)
+		return;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!peer->afc_nego[afi][safi])
+			continue;
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+			continue;
+
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY)) {
+				bmp_prepolicy_softreconfig_warn(NULL, peer, afi, safi);
+				break;
+			}
+		}
+	}
+}
+
 static int bmp_peer_status_changed(struct peer *peer)
 {
 	struct bmp_bgp_peer *bbpeer, *bbdopp;
@@ -986,6 +1030,8 @@ static int bmp_peer_status_changed(struct peer *peer)
 	if ((peer->connection->ostatus != OpenConfirm) ||
 	    !(peer_established(peer->connection)))
 		return 0;
+
+	bmp_peer_up_warn_prepolicy(peer);
 
 	if (peer->doppelganger &&
 	    (peer->doppelganger->connection->status != Deleted)) {
@@ -1747,7 +1793,8 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 		written = true;
 	}
 
-	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_PREPOLICY)) {
+	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_PREPOLICY) &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)) {
 		struct bgp_adj_in *adjin;
 
 		for (adjin = bn ? bn->adj_in : NULL; adjin;
@@ -3095,6 +3142,21 @@ DEFPY(bmp_stats_send_experimental,
 #define BMP_POLICY_IS_LOCRIB(str) ((str)[0] == 'l') /* __l__oc-rib */
 #define BMP_POLICY_IS_PRE(str) ((str)[1] == 'r')    /* p__r__e-policy */
 
+static void bmp_monitor_cfg_warn_prepolicy(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct peer *peer;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (!peer->afc[afi][safi])
+			continue;
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+			continue;
+
+		bmp_prepolicy_softreconfig_warn(vty, peer, afi, safi);
+	}
+}
+
 DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
       "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn|vpn> <pre-policy|post-policy|loc-rib>$policy",
       NO_STR BMP_STR
@@ -3127,6 +3189,9 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 		UNSET_FLAG(bt->afimon[afi][safi], flag);
 	else
 		SET_FLAG(bt->afimon[afi][safi], flag);
+
+	if (!no && flag == BMP_MON_PREPOLICY)
+		bmp_monitor_cfg_warn_prepolicy(vty, bt->bgp, afi, safi);
 
 	if (prev == bt->afimon[afi][safi])
 		return CMD_SUCCESS;
