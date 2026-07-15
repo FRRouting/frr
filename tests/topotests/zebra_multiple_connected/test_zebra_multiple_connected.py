@@ -19,6 +19,7 @@ import sys
 import pytest
 import json
 from functools import partial
+from lib.common_config import step
 from lib.topolog import logger
 
 # Save the Current Working Directory to find configuration files.
@@ -412,6 +413,109 @@ def test_zebra_kernel_last_ipv4_address_deleted():
         router,
         "Expected zebra to delete kernel routes after last address deletion:\n{}",
     )
+
+
+def _get_early_route_metaq_current(router):
+    """Return Early Route Processing count from 'show zebra metaq json'."""
+    try:
+        output = router.vtysh_cmd("show zebra metaq json")
+        metaq = json.loads(output)
+        for subqueue in metaq["subqueues"]:
+            if subqueue["SubQ"] == "Early Route Processing":
+                return subqueue["Current"]
+    except (KeyError, json.JSONDecodeError, TypeError) as err:
+        logger.info("Failed to parse metaq json: %s", err)
+    return None
+
+
+def test_zebra_metaq_early_route_table_discriminator():
+    "Local route must not remove a same-prefix kernel route in another table"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    ifname = "dummy0"
+    prefix = "192.0.2.99/32"
+    table_id = 198
+
+    step("Create dummy0")
+    router.run(f"ip link del dev {ifname} >/dev/null 2>&1 || true")
+    router.run(f"ip link add {ifname} type dummy")
+    router.run(f"ip link set {ifname} up")
+
+    step("Plug the meta queue so early routes remain visible")
+    router.vtysh_cmd("zebra test metaq disable")
+
+    step("Add the table-198 kernel route")
+    router.run(f"ip route add {prefix} dev {ifname} table {table_id}")
+
+    step("Wait for the kernel route to land on the early-route metaQ")
+
+    def _kernel_on_early_metaq():
+        count = _get_early_route_metaq_current(router)
+        if count != 1:
+            return "expected 1 early-route entry after kernel add, got {}".format(count)
+        return None
+
+    _, result = topotest.run_and_expect(_kernel_on_early_metaq, None, count=20, wait=1)
+    assert result is None, result
+
+    step("Immediately add the same /32 as a local address on dummy0")
+    router.run(f"ip address add {prefix} dev {ifname}")
+
+    step("Verify the table-198 kernel route stayed on the early-route metaQ")
+
+    def _kernel_still_on_early_metaq():
+        count = _get_early_route_metaq_current(router)
+        # kernel(table 198) + connected(unicast+multicast) + local(unicast+multicast)
+        if count != 5:
+            return (
+                "expected 5 early-route entries after local add "
+                "(kernel + connected + local, each in unicast and multicast), got {}".format(
+                    count
+                )
+            )
+        return None
+
+    _, result = topotest.run_and_expect(
+        _kernel_still_on_early_metaq, None, count=20, wait=1
+    )
+    assert (
+        result is None
+    ), "connected_up removed the wrong kernel route from early-route metaQ: {}".format(
+        result
+    )
+
+    step("Unplug the meta queue and verify both routes install")
+    router.vtysh_cmd("no zebra test metaq disable")
+
+    kernel = "{}/r1/ip_route_table198_kernel.json".format(CWD)
+    expected = json.loads(open(kernel).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip route table {} {} json".format(table_id, prefix),
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert (
+        result is None
+    ), "Kernel route missing from table {} after metaQ drain".format(table_id)
+
+    def _check_local_installed():
+        local_output = json.loads(
+            router.vtysh_cmd("show ip route {} json".format(prefix))
+        )
+        if prefix not in local_output:
+            return "local route {} missing from main table".format(prefix)
+        if not any(e.get("protocol") == "local" for e in local_output[prefix]):
+            return "expected local route for {} in main table".format(prefix)
+        return None
+
+    _, result = topotest.run_and_expect(_check_local_installed, None, count=20, wait=1)
+    assert result is None, result
 
 
 def test_zebra_kernel_last_ipv6_address_deleted():
