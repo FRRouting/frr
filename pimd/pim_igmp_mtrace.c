@@ -334,12 +334,28 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	int fd;
 	int sent;
 	uint16_t checksum;
+	uint16_t pkt_len;
+	uint16_t ip_hlen;
+
+	pkt_len = ntohs(ip_hdr->ip_len);
+	ip_hlen = ip_hdr->ip_hl << 2;
+	/*
+	 * Sanitize packet-derived IP length before sendto(). Payload must fit
+	 * the mtrace maximum; header length must be consistent.
+	 */
+	if (ip_hlen < sizeof(struct ip) || pkt_len < ip_hlen ||
+	    (size_t)(pkt_len - ip_hlen) > MTRACE_MAX_MSG_LEN) {
+		if (PIM_DEBUG_MTRACE)
+			zlog_debug("Dropping mtrace packet with invalid length %u (ihl=%u max_payload=%zu)",
+				   pkt_len, ip_hlen, MTRACE_MAX_MSG_LEN);
+		return -1;
+	}
 
 	checksum = ip_hdr->ip_sum;
 
 	ip_hdr->ip_sum = 0;
 
-	if (checksum != in_cksum(ip_hdr, ip_hdr->ip_hl * 4))
+	if (checksum != in_cksum(ip_hdr, ip_hlen))
 		return -1;
 
 	if (ip_hdr->ip_ttl-- <= 1)
@@ -360,7 +376,7 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 		if_out = interface;
 	}
 
-	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hdr->ip_hl * 4);
+	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hlen);
 
 	fd = pim_socket_raw(IPPROTO_RAW);
 
@@ -381,8 +397,7 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	to.sin_addr = ip_hdr->ip_dst;
 	tolen = sizeof(to);
 
-	sent = sendto(fd, ip_hdr, ntohs(ip_hdr->ip_len), 0,
-		      (struct sockaddr *)&to, tolen);
+	sent = sendto(fd, ip_hdr, pkt_len, 0, (struct sockaddr *)&to, tolen);
 
 	close(fd);
 
@@ -397,8 +412,8 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	if (PIM_DEBUG_MTRACE) {
 		struct in_addr dstaddr = ip_hdr->ip_dst;
 
-		zlog_debug("Fwd mtrace packet len=%u to %pI4 ttl=%u", ntohs(ip_hdr->ip_len),
-			   &dstaddr, ip_hdr->ip_ttl);
+		zlog_debug("Fwd mtrace packet len=%u to %pI4 ttl=%u", pkt_len, &dstaddr,
+			   ip_hdr->ip_ttl);
 	}
 
 	return 0;
