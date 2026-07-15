@@ -185,7 +185,11 @@ static int zclient_read_nexthop(struct zclient_next_hop_args *args)
 		}
 	}
 
-	stream_get_ipaddr(s, &raddr);
+	if (!stream_get_ipaddr(s, &raddr)) {
+		flog_err(EC_LIB_ZAPI_MISSMATCH, "%s: stream_get_ipaddr() failed", __func__);
+		zclient_lookup_failed(args->zlookup);
+		return -1;
+	}
 
 	if (raddr.ipa_type != PIM_IPADDR || pim_addr_cmp(raddr.ipaddr_pim, args->address)) {
 		zlog_warn("%s: address mismatch: addr=%pPA(%s) raddr=%pIA", __func__,
