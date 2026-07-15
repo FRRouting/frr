@@ -34,6 +34,7 @@
 #include "pim_time.h"
 #include "pim_ssmpingd.h"
 #include "pim_rp.h"
+#include "pim_rpf.h"
 #include "pim_nht.h"
 #include "pim_jp_agg.h"
 #include "pim_igmp_join.h"
@@ -205,6 +206,9 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
+
+	pim_upstream_rpf_interface_del(ifp);
+
 	if (pim_ifp->gm_join_list) {
 		pim_if_gm_join_del_all(ifp);
 		/*
@@ -776,6 +780,8 @@ static void pim_if_addr_del_pim(struct connected *ifc)
 		return;
 	}
 
+	pim_upstream_rpf_interface_del(ifc->ifp);
+
 	/*
 	  pim_sock_delete() closes the socket, stops read and timer threads,
 	  and kills all neighbors.
@@ -1117,6 +1123,8 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 int pim_if_del_vif(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
+
+	pim_upstream_rpf_interface_del(ifp);
 
 	if (pim_ifp->mroute_vif_index < 1) {
 		zlog_warn("%s: vif_index=%d < 1 on interface %s ifindex=%d",
@@ -2145,6 +2153,9 @@ static int pim_ifp_destroy(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
+	if (ifp->info)
+		pim_upstream_rpf_interface_del(ifp);
+
 	if (!if_is_operative(ifp))
 		pim_if_addr_del_all(ifp);
 
@@ -2204,6 +2215,8 @@ void pim_pim_interface_delete(struct interface *ifp)
 		return;
 
 	pim_ifp->pim_enable = false;
+
+	pim_upstream_rpf_interface_del(ifp);
 
 #if PIM_IPV == 4
 	pim_autorp_rm_ifp(ifp);
