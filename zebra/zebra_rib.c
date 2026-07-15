@@ -4341,7 +4341,7 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 }
 
 void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_t safi,
-					vrf_id_t vrf_id, int route_type)
+					vrf_id_t vrf_id, uint32_t table, int route_type)
 {
 	struct listnode *node, *nnode;
 	struct zebra_early_route *ere;
@@ -4350,7 +4350,7 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_
 	for (ALL_LIST_ELEMENTS(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node, nnode, ere)) {
 		/* Check if this entry matches the prefix and route type */
 		if (prefix_same(&ere->p, p) && ere->re->type == route_type && ere->afi == afi &&
-		    ere->safi == safi && ere->re->vrf_id == vrf_id) {
+		    ere->safi == safi && ere->re->vrf_id == vrf_id && ere->re->table == table) {
 			/* Remove from the list */
 			list_delete_node(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node);
 
@@ -4364,9 +4364,10 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
 
-				zlog_debug("Route %pFX(%s:%s) type %s(%d) removed from early route queue",
+				zlog_debug("Route %pFX(%s:%s) type %s(%d) table %u removed from early route queue",
 					   p, VRF_LOGNAME(vrf), safi2str(ere->safi),
-					   zebra_route_string(route_type), route_type);
+					   zebra_route_string(route_type), route_type,
+					   ere->re->table);
 			}
 
 			/* Free the early route memory */
