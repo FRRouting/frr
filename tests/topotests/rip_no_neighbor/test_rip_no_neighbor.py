@@ -9,7 +9,11 @@
 #
 
 r"""
-test_rip_no_neighbor.py: Test to verify that disabling a rip neighbor via the "no neighbor" command works correctly.
+test_rip_no_neighbor.py: Test to verify that disabling a RIP neighbor via the
+"no neighbor" command works correctly.
+
+The sender uses `network IFNAME` on a passive interface so the neighbor unicast
+path is also covered for interface-name based RIP enablement.
 """
 
 import os
@@ -83,7 +87,10 @@ def test_rip_no_neighbor(tgen):
 
         return topotest.json_cmp(output, expected, exact=exact)
 
-    step("verify r1 has 192.168.105.0/24 in routing table as a rip route")
+    step(
+        "verify r1 has 192.168.105.0/24 from r2's "
+        "ifname-enabled RIP interface"
+    )
 
     expected = {
         "192.168.105.0/24": [
