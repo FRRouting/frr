@@ -50,7 +50,20 @@ DEFINE_QOBJ_TYPE(bgpevpn);
 DEFINE_QOBJ_TYPE(bgp_evpn_es);
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
-DEFINE_MTYPE_STATIC(BGPD, VRF_ROUTE_TARGET, "L3 Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_RT_CONFIG, "BGP EVPN Route Target Config");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_CFGD_RT, "BGP EVPN Configured Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_EFFECTIVE_WILDCARD_RT,
+		    "BGP EVPN Effective Wildcard Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_EFFECTIVE_FQ_RT,
+		    "BGP EVPN Effective Fully Qualified Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_L2VNI_FQ_IRT_NODE,
+		    "BGP EVPN L2VNI Fully Qualified Import Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_L2VNI_WILDCARD_IRT_NODE,
+		    "BGP EVPN L2VNI Wildcard Import Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_VRF_FQ_IRT_NODE,
+		    "BGP EVPN VRF Fully Qualified Import Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_VRF_WILDCARD_IRT_NODE,
+		    "BGP EVPN VRF Wildcard Import Route Target");
 
 /*
  * Static function declarations
@@ -107,6 +120,432 @@ static const char *vxlan_flood_control_str(enum vxlan_flood_control flood_ctrl)
  * Private functions.
  */
 
+/* Allocate a user configured route target */
+static struct bgp_evpn_cfgd_rt *bgp_evpn_cfgd_rt_new(void)
+{
+	return XCALLOC(MTYPE_BGP_EVPN_CFGD_RT, sizeof(struct bgp_evpn_cfgd_rt));
+}
+
+/* Free a user configured route target */
+void bgp_evpn_cfgd_rt_free(struct bgp_evpn_cfgd_rt *cfgd_rt)
+{
+	if (!cfgd_rt)
+		return;
+
+	XFREE(MTYPE_BGP_EVPN_CFGD_RT, cfgd_rt);
+}
+
+/* Duplicate a user configured route target. Needed by "route-target
+ * both", which is an alias for import plus export and thus stores two
+ * copies, one per direction.
+ */
+struct bgp_evpn_cfgd_rt *bgp_evpn_cfgd_rt_dup(const struct bgp_evpn_cfgd_rt *cfgd_rt)
+{
+	struct bgp_evpn_cfgd_rt *new_rt = bgp_evpn_cfgd_rt_new();
+
+	new_rt->type = cfgd_rt->type;
+	new_rt->payload = cfgd_rt->payload;
+
+	return new_rt;
+}
+
+/*
+ * Convert a single-entry ecommunity to a newly allocated bgp_evpn_cfgd_rt.
+ * is_wildcard must be set when the original route target string used '*'
+ * as the global admin (the caller replaces '*' with '0' before parsing,
+ * so the ecommunity itself carries AS=0 and is indistinguishable from a
+ * real AS=0 route target). Returns NULL on any validation failure.
+ */
+struct bgp_evpn_cfgd_rt *bgp_evpn_cfgd_rt_from_ecom(const struct ecommunity *ecom, bool is_wildcard)
+{
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	const uint8_t *ecom_val;
+	uint8_t type, sub_type;
+
+	if (!ecom || ecom->size != 1 || ecom->unit_size != ECOMMUNITY_SIZE)
+		return NULL;
+
+	ecom_val = ecom->val;
+	type = ecom_val[0];
+	sub_type = ecom_val[1];
+
+	if (sub_type != ECOMMUNITY_ROUTE_TARGET)
+		return NULL;
+
+	if (is_wildcard) {
+		/* Wildcard parsing uses AS 0, so the ecommunity must be an
+		 * AS2 type route target.
+		 */
+		if (type != ECOMMUNITY_ENCODE_AS)
+			return NULL;
+
+		cfgd_rt = bgp_evpn_cfgd_rt_new();
+		cfgd_rt->type = BGP_EVPN_CFGD_RT_TYPE_WILDCARD;
+		ptr_get_be32(ecom_val + 4, &cfgd_rt->payload.wildcard_rt.local_admin);
+
+		return cfgd_rt;
+	}
+
+	switch (type) {
+	case ECOMMUNITY_ENCODE_AS:
+		cfgd_rt = bgp_evpn_cfgd_rt_new();
+		cfgd_rt->type = BGP_EVPN_CFGD_RT_TYPE_AS2;
+		ptr_get_be16(ecom_val + 2, &cfgd_rt->payload.as2_rt.as);
+		ptr_get_be32(ecom_val + 4, &cfgd_rt->payload.as2_rt.local_admin);
+
+		return cfgd_rt;
+	case ECOMMUNITY_ENCODE_IP:
+		cfgd_rt = bgp_evpn_cfgd_rt_new();
+		cfgd_rt->type = BGP_EVPN_CFGD_RT_TYPE_IP4;
+		memcpy(&cfgd_rt->payload.ip4_rt.ip, ecom_val + 2, sizeof(struct in_addr));
+		ptr_get_be16(ecom_val + 6, &cfgd_rt->payload.ip4_rt.local_admin);
+
+		return cfgd_rt;
+	case ECOMMUNITY_ENCODE_AS4:
+		cfgd_rt = bgp_evpn_cfgd_rt_new();
+		cfgd_rt->type = BGP_EVPN_CFGD_RT_TYPE_AS4;
+		ptr_get_be32(ecom_val + 2, &cfgd_rt->payload.as4_rt.as);
+		ptr_get_be16(ecom_val + 6, &cfgd_rt->payload.as4_rt.local_admin);
+
+		return cfgd_rt;
+	default:
+		return NULL;
+	}
+}
+
+/*
+ * Comparison function for user configured route targets. Sort order:
+ * 1) by type, in order of enum bgp_evpn_cfgd_rt_type
+ * 2) within a type by AS number/IP address (ascending), then by local
+ *    admin (ascending)
+ */
+int bgp_evpn_cfgd_rt_cmp(const struct bgp_evpn_cfgd_rt *rt1, const struct bgp_evpn_cfgd_rt *rt2)
+{
+	if (rt1->type != rt2->type)
+		return rt1->type < rt2->type ? -1 : 1;
+
+	switch (rt1->type) {
+	case BGP_EVPN_CFGD_RT_TYPE_WILDCARD:
+		if (rt1->payload.wildcard_rt.local_admin != rt2->payload.wildcard_rt.local_admin)
+			return rt1->payload.wildcard_rt.local_admin <
+					       rt2->payload.wildcard_rt.local_admin
+				       ? -1
+				       : 1;
+
+		return 0;
+
+	case BGP_EVPN_CFGD_RT_TYPE_AS2:
+		if (rt1->payload.as2_rt.as != rt2->payload.as2_rt.as)
+			return rt1->payload.as2_rt.as < rt2->payload.as2_rt.as ? -1 : 1;
+
+		if (rt1->payload.as2_rt.local_admin != rt2->payload.as2_rt.local_admin)
+			return rt1->payload.as2_rt.local_admin < rt2->payload.as2_rt.local_admin
+				       ? -1
+				       : 1;
+
+		return 0;
+
+	case BGP_EVPN_CFGD_RT_TYPE_IP4:
+		if (rt1->payload.ip4_rt.ip.s_addr != rt2->payload.ip4_rt.ip.s_addr)
+			return ntohl(rt1->payload.ip4_rt.ip.s_addr) <
+					       ntohl(rt2->payload.ip4_rt.ip.s_addr)
+				       ? -1
+				       : 1;
+
+		if (rt1->payload.ip4_rt.local_admin != rt2->payload.ip4_rt.local_admin)
+			return rt1->payload.ip4_rt.local_admin < rt2->payload.ip4_rt.local_admin
+				       ? -1
+				       : 1;
+
+		return 0;
+
+	case BGP_EVPN_CFGD_RT_TYPE_AS4:
+		if (rt1->payload.as4_rt.as != rt2->payload.as4_rt.as)
+			return rt1->payload.as4_rt.as < rt2->payload.as4_rt.as ? -1 : 1;
+
+		if (rt1->payload.as4_rt.local_admin != rt2->payload.as4_rt.local_admin)
+			return rt1->payload.as4_rt.local_admin < rt2->payload.as4_rt.local_admin
+				       ? -1
+				       : 1;
+
+		return 0;
+
+	default:
+		/* Should not happen, only valid types are constructed */
+		return memcmp(&rt1->payload, &rt2->payload, sizeof(rt1->payload));
+	}
+}
+
+int bgp_evpn_effective_wildcard_rt_cmp(const struct bgp_evpn_effective_wildcard_rt *rt1,
+				       const struct bgp_evpn_effective_wildcard_rt *rt2)
+{
+	if (rt1->local_admin_nbo != rt2->local_admin_nbo)
+		return rt1->local_admin_nbo < rt2->local_admin_nbo ? -1 : 1;
+
+	return 0;
+}
+
+/*
+ * Comparison function for effective fully qualified route targets.
+ * Sorts by ecommunity type (AS2 before IP4 before AS4), then by AS
+ * number/IP address, then by local admin, each ascending.
+ */
+int bgp_evpn_effective_fq_rt_cmp(const struct bgp_evpn_effective_fq_rt *rt1,
+				 const struct bgp_evpn_effective_fq_rt *rt2)
+{
+	uint8_t rt1_type = rt1->ecom_val.val[0];
+	uint8_t rt2_type = rt2->ecom_val.val[0];
+	uint8_t rt1_sub_type = rt1->ecom_val.val[1];
+	uint8_t rt2_sub_type = rt2->ecom_val.val[1];
+
+	/* Only ECOMMUNITY_ROUTE_TARGET should ever be stored here */
+	if (rt1_sub_type != rt2_sub_type)
+		return rt1_sub_type < rt2_sub_type ? -1 : 1;
+
+	if (rt1_type != rt2_type)
+		return rt1_type < rt2_type ? -1 : 1;
+
+	switch (rt1_type) {
+	case ECOMMUNITY_ENCODE_AS: {
+		uint16_t rt1_as, rt2_as;
+		uint32_t rt1_local_admin, rt2_local_admin;
+
+		ptr_get_be16(rt1->ecom_val.val + 2, &rt1_as);
+		ptr_get_be16(rt2->ecom_val.val + 2, &rt2_as);
+
+		if (rt1_as != rt2_as)
+			return rt1_as < rt2_as ? -1 : 1;
+
+		ptr_get_be32(rt1->ecom_val.val + 4, &rt1_local_admin);
+		ptr_get_be32(rt2->ecom_val.val + 4, &rt2_local_admin);
+
+		if (rt1_local_admin != rt2_local_admin)
+			return rt1_local_admin < rt2_local_admin ? -1 : 1;
+
+		return 0;
+	}
+	case ECOMMUNITY_ENCODE_IP: {
+		uint16_t rt1_local_admin, rt2_local_admin;
+		int ip_cmp;
+
+		ip_cmp = memcmp(rt1->ecom_val.val + 2, rt2->ecom_val.val + 2,
+				sizeof(struct in_addr));
+		if (ip_cmp != 0)
+			return ip_cmp;
+
+		ptr_get_be16(rt1->ecom_val.val + 6, &rt1_local_admin);
+		ptr_get_be16(rt2->ecom_val.val + 6, &rt2_local_admin);
+
+		if (rt1_local_admin != rt2_local_admin)
+			return rt1_local_admin < rt2_local_admin ? -1 : 1;
+
+		return 0;
+	}
+	case ECOMMUNITY_ENCODE_AS4: {
+		uint32_t rt1_as, rt2_as;
+		uint16_t rt1_local_admin, rt2_local_admin;
+
+		ptr_get_be32(rt1->ecom_val.val + 2, &rt1_as);
+		ptr_get_be32(rt2->ecom_val.val + 2, &rt2_as);
+
+		if (rt1_as != rt2_as)
+			return rt1_as < rt2_as ? -1 : 1;
+
+		ptr_get_be16(rt1->ecom_val.val + 6, &rt1_local_admin);
+		ptr_get_be16(rt2->ecom_val.val + 6, &rt2_local_admin);
+
+		if (rt1_local_admin != rt2_local_admin)
+			return rt1_local_admin < rt2_local_admin ? -1 : 1;
+
+		return 0;
+	}
+	default:
+		/* Should not happen, only route targets are stored here */
+		return memcmp(&rt1->ecom_val.val, &rt2->ecom_val.val, sizeof(rt1->ecom_val.val));
+	}
+}
+
+struct bgp_evpn_rt_config *bgp_evpn_rt_config_new(void)
+{
+	struct bgp_evpn_rt_config *rt_config;
+
+	rt_config = XCALLOC(MTYPE_BGP_EVPN_RT_CONFIG, sizeof(struct bgp_evpn_rt_config));
+
+	bgp_evpn_cfgd_rt_slu_init(&rt_config->cfgd_import);
+	bgp_evpn_cfgd_rt_slu_init(&rt_config->cfgd_export);
+
+	return rt_config;
+}
+
+void bgp_evpn_rt_config_free(struct bgp_evpn_rt_config *rt_config)
+{
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+
+	if (!rt_config)
+		return;
+
+	while ((cfgd_rt = bgp_evpn_cfgd_rt_slu_pop(&rt_config->cfgd_import)))
+		bgp_evpn_cfgd_rt_free(cfgd_rt);
+	bgp_evpn_cfgd_rt_slu_fini(&rt_config->cfgd_import);
+
+	while ((cfgd_rt = bgp_evpn_cfgd_rt_slu_pop(&rt_config->cfgd_export)))
+		bgp_evpn_cfgd_rt_free(cfgd_rt);
+	bgp_evpn_cfgd_rt_slu_fini(&rt_config->cfgd_export);
+
+	XFREE(MTYPE_BGP_EVPN_RT_CONFIG, rt_config);
+}
+
+static void bgp_evpn_format_wildcard_rt(char *buf, size_t buflen, uint32_t local_admin)
+{
+	snprintf(buf, buflen, "*:%u", local_admin);
+}
+
+static void bgp_evpn_format_as2_rt(char *buf, size_t buflen, uint16_t as, uint32_t local_admin)
+{
+	snprintf(buf, buflen, "%u:%u", as, local_admin);
+}
+
+static void bgp_evpn_format_ip4_rt(char *buf, size_t buflen, struct in_addr ip,
+				   uint16_t local_admin)
+{
+	snprintfrr(buf, buflen, "%pI4:%u", &ip, local_admin);
+}
+
+static void bgp_evpn_format_as4_rt(char *buf, size_t buflen, uint32_t as, uint16_t local_admin)
+{
+	snprintf(buf, buflen, "%u:%u", as, local_admin);
+}
+
+void bgp_evpn_format_wildcard_rt_local_admin(char *buf, size_t buflen, uint32_t local_admin_nbo)
+{
+	bgp_evpn_format_wildcard_rt(buf, buflen, ntohl(local_admin_nbo));
+}
+
+void bgp_evpn_format_fq_rt_ecom_val(char *buf, size_t buflen, const struct ecommunity_val *eval)
+{
+	uint8_t sub_type = eval->val[1];
+
+	if (sub_type != ECOMMUNITY_ROUTE_TARGET) {
+		snprintf(buf, buflen, "(Invalid RT, wrong subtype)");
+		return;
+	}
+
+	switch (eval->val[0]) {
+	case ECOMMUNITY_ENCODE_AS: {
+		uint16_t as2;
+		uint32_t local_admin;
+
+		ptr_get_be16(eval->val + 2, &as2);
+		ptr_get_be32(eval->val + 4, &local_admin);
+		bgp_evpn_format_as2_rt(buf, buflen, as2, local_admin);
+		break;
+	}
+	case ECOMMUNITY_ENCODE_IP: {
+		struct in_addr ip;
+		uint16_t local_admin;
+
+		memcpy(&ip, eval->val + 2, sizeof(struct in_addr));
+		ptr_get_be16(eval->val + 6, &local_admin);
+		bgp_evpn_format_ip4_rt(buf, buflen, ip, local_admin);
+		break;
+	}
+	case ECOMMUNITY_ENCODE_AS4: {
+		uint32_t as4;
+		uint16_t local_admin;
+
+		ptr_get_be32(eval->val + 2, &as4);
+		ptr_get_be16(eval->val + 6, &local_admin);
+		bgp_evpn_format_as4_rt(buf, buflen, as4, local_admin);
+		break;
+	}
+	default:
+		snprintf(buf, buflen, "(Invalid RT, wrong type)");
+		break;
+	}
+}
+
+void bgp_evpn_format_cfgd_rt(char *buf, size_t buflen, const struct bgp_evpn_cfgd_rt *cfgd_rt)
+{
+	switch (cfgd_rt->type) {
+	case BGP_EVPN_CFGD_RT_TYPE_WILDCARD:
+		bgp_evpn_format_wildcard_rt(buf, buflen, cfgd_rt->payload.wildcard_rt.local_admin);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_AS2:
+		bgp_evpn_format_as2_rt(buf, buflen, cfgd_rt->payload.as2_rt.as,
+				       cfgd_rt->payload.as2_rt.local_admin);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_IP4:
+		bgp_evpn_format_ip4_rt(buf, buflen, cfgd_rt->payload.ip4_rt.ip,
+				       cfgd_rt->payload.ip4_rt.local_admin);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_AS4:
+		bgp_evpn_format_as4_rt(buf, buflen, cfgd_rt->payload.as4_rt.as,
+				       cfgd_rt->payload.as4_rt.local_admin);
+		break;
+	default:
+		snprintf(buf, buflen, "(Invalid RT, unknown type)");
+		break;
+	}
+}
+
+/* Allocate an effective wildcard route target */
+static struct bgp_evpn_effective_wildcard_rt *
+bgp_evpn_effective_wildcard_rt_new(uint32_t local_admin_nbo)
+{
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+
+	wildcard_rt = XCALLOC(MTYPE_BGP_EVPN_EFFECTIVE_WILDCARD_RT,
+			      sizeof(struct bgp_evpn_effective_wildcard_rt));
+	wildcard_rt->local_admin_nbo = local_admin_nbo;
+
+	return wildcard_rt;
+}
+
+/* Free an effective wildcard route target */
+static void bgp_evpn_effective_wildcard_rt_free(struct bgp_evpn_effective_wildcard_rt *wildcard_rt)
+{
+	XFREE(MTYPE_BGP_EVPN_EFFECTIVE_WILDCARD_RT, wildcard_rt);
+}
+
+/* Allocate an effective fully qualified route target */
+static struct bgp_evpn_effective_fq_rt *
+bgp_evpn_effective_fq_rt_new(const struct ecommunity_val *eval)
+{
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+
+	fq_rt = XCALLOC(MTYPE_BGP_EVPN_EFFECTIVE_FQ_RT, sizeof(struct bgp_evpn_effective_fq_rt));
+	memcpy(&fq_rt->ecom_val, eval, ECOMMUNITY_SIZE);
+
+	return fq_rt;
+}
+
+/* Free an effective fully qualified route target */
+static void bgp_evpn_effective_fq_rt_free(struct bgp_evpn_effective_fq_rt *fq_rt)
+{
+	XFREE(MTYPE_BGP_EVPN_EFFECTIVE_FQ_RT, fq_rt);
+}
+
+/* Remove and free all entries of an effective wildcard route target list */
+static void
+bgp_evpn_effective_wildcard_rt_list_flush(struct bgp_evpn_effective_wildcard_rt_slu_head *head)
+{
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+
+	while ((wildcard_rt = bgp_evpn_effective_wildcard_rt_slu_pop(head)))
+		bgp_evpn_effective_wildcard_rt_free(wildcard_rt);
+}
+
+/* Remove and free all entries of an effective fully qualified route
+ * target list
+ */
+static void bgp_evpn_effective_fq_rt_list_flush(struct bgp_evpn_effective_fq_rt_slu_head *head)
+{
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+
+	while ((fq_rt = bgp_evpn_effective_fq_rt_slu_pop(head)))
+		bgp_evpn_effective_fq_rt_free(fq_rt);
+}
+
 /*
  * Make vni hash key.
  */
@@ -136,203 +575,264 @@ int vni_list_cmp(void *p1, void *p2)
 }
 
 /*
- * Make vrf import route target hash key.
+ * Comparison and hash key functions for the vrf import rt hashes
  */
-static unsigned int vrf_import_rt_hash_key_make(const void *p)
+int bgp_evpn_vrf_fq_irt_cmp(const struct bgp_evpn_vrf_fq_irt_node *irt1,
+			    const struct bgp_evpn_vrf_fq_irt_node *irt2)
 {
-	const struct vrf_irt_node *irt = p;
-	const uint8_t *pnt = irt->rt.val;
+	return memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE);
+}
 
-	return jhash(pnt, 8, 0x5abc1234);
+uint32_t bgp_evpn_vrf_fq_irt_hash(const struct bgp_evpn_vrf_fq_irt_node *irt)
+{
+	return jhash(irt->rt.val, ECOMMUNITY_SIZE, 0x5abc1234);
+}
+
+int bgp_evpn_vrf_wildcard_irt_cmp(const struct bgp_evpn_vrf_wildcard_irt_node *irt1,
+				  const struct bgp_evpn_vrf_wildcard_irt_node *irt2)
+{
+	if (irt1->local_admin_nbo != irt2->local_admin_nbo)
+		return irt1->local_admin_nbo < irt2->local_admin_nbo ? -1 : 1;
+
+	return 0;
+}
+
+uint32_t bgp_evpn_vrf_wildcard_irt_hash(const struct bgp_evpn_vrf_wildcard_irt_node *irt)
+{
+	return jhash_1word(irt->local_admin_nbo, 0x5abc1234);
 }
 
 /*
- * Comparison function for vrf import rt hash
+ * Create a new fully qualified vrf import rt node in the evpn instance
  */
-static bool vrf_import_rt_hash_cmp(const void *p1, const void *p2)
+static struct bgp_evpn_vrf_fq_irt_node *
+bgp_evpn_vrf_fq_irt_node_new(struct bgp *bgp_evpn, const struct ecommunity_val *rt)
 {
-	const struct vrf_irt_node *irt1 = p1;
-	const struct vrf_irt_node *irt2 = p2;
+	struct bgp_evpn_vrf_fq_irt_node *irt;
 
-	return (memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE) == 0);
-}
+	irt = XCALLOC(MTYPE_BGP_EVPN_VRF_FQ_IRT_NODE, sizeof(struct bgp_evpn_vrf_fq_irt_node));
 
-/*
- * Create a new vrf import_rt in evpn instance
- */
-static struct vrf_irt_node *vrf_import_rt_new(struct ecommunity_val *rt)
-{
-	struct bgp *bgp_evpn = NULL;
-	struct vrf_irt_node *irt;
-
-	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "vrf import rt new - evpn instance not created yet");
-		return NULL;
-	}
-
-	irt = XCALLOC(MTYPE_BGP_EVPN_VRF_IMPORT_RT,
-		      sizeof(struct vrf_irt_node));
-
-	irt->rt = *rt;
+	memcpy(&irt->rt, rt, ECOMMUNITY_SIZE);
 	irt->vrfs = list_new();
 
-	/* Add to hash */
-	(void)hash_get(bgp_evpn->vrf_import_rt_hash, irt, hash_alloc_intern);
+	bgp_evpn_vrf_fq_irt_add(&bgp_evpn->vrf_fq_irt_nodes, irt);
 
 	return irt;
 }
 
 /*
- * Free the vrf import rt node
+ * Free a fully qualified vrf import rt node
  */
-static void vrf_import_rt_free(struct vrf_irt_node *irt)
+static void bgp_evpn_vrf_fq_irt_node_free(struct bgp *bgp_evpn,
+					  struct bgp_evpn_vrf_fq_irt_node *irt)
 {
-	struct bgp *bgp_evpn = NULL;
-
-	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "vrf import rt free - evpn instance not created yet");
-		return;
-	}
-
-	hash_release(bgp_evpn->vrf_import_rt_hash, irt);
+	bgp_evpn_vrf_fq_irt_del(&bgp_evpn->vrf_fq_irt_nodes, irt);
 	list_delete(&irt->vrfs);
-	XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
-}
-
-static void hash_vrf_import_rt_free(struct vrf_irt_node *irt)
-{
-	XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
+	XFREE(MTYPE_BGP_EVPN_VRF_FQ_IRT_NODE, irt);
 }
 
 /*
- * Function to lookup Import RT node - used to map a RT to set of
- * VNIs importing routes with that RT.
+ * Lookup a fully qualified vrf import rt node by exact RT value
  */
-static struct vrf_irt_node *lookup_vrf_import_rt(struct ecommunity_val *rt)
+static struct bgp_evpn_vrf_fq_irt_node *
+bgp_evpn_lookup_vrf_fq_irt_node(struct bgp *bgp_evpn, const struct ecommunity_val *rt)
 {
-	struct bgp *bgp_evpn = NULL;
-	struct vrf_irt_node *irt;
-	struct vrf_irt_node tmp;
+	struct bgp_evpn_vrf_fq_irt_node tmp = {};
 
-	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
-		flog_err(
-			EC_BGP_NO_DFLT,
-			"vrf import rt lookup - evpn instance not created yet");
-		return NULL;
-	}
-
-	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.rt, rt, ECOMMUNITY_SIZE);
-	irt = hash_lookup(bgp_evpn->vrf_import_rt_hash, &tmp);
+
+	return bgp_evpn_vrf_fq_irt_find(&bgp_evpn->vrf_fq_irt_nodes, &tmp);
+}
+
+/*
+ * Create a new wildcard vrf import rt node in the evpn instance
+ */
+static struct bgp_evpn_vrf_wildcard_irt_node *
+bgp_evpn_vrf_wildcard_irt_node_new(struct bgp *bgp_evpn, uint32_t local_admin_nbo)
+{
+	struct bgp_evpn_vrf_wildcard_irt_node *irt;
+
+	irt = XCALLOC(MTYPE_BGP_EVPN_VRF_WILDCARD_IRT_NODE,
+		      sizeof(struct bgp_evpn_vrf_wildcard_irt_node));
+
+	irt->local_admin_nbo = local_admin_nbo;
+	irt->vrfs = list_new();
+
+	bgp_evpn_vrf_wildcard_irt_add(&bgp_evpn->vrf_wildcard_irt_nodes, irt);
+
 	return irt;
 }
 
 /*
- * Is specified VRF present on the RT's list of "importing" VRFs?
+ * Free a wildcard vrf import rt node
  */
-static int is_vrf_present_in_irt_vrfs(struct list *vrfs, struct bgp *bgp_vrf)
+static void bgp_evpn_vrf_wildcard_irt_node_free(struct bgp *bgp_evpn,
+						struct bgp_evpn_vrf_wildcard_irt_node *irt)
 {
-	struct listnode *node = NULL, *nnode = NULL;
-	struct bgp *tmp_bgp_vrf = NULL;
+	bgp_evpn_vrf_wildcard_irt_del(&bgp_evpn->vrf_wildcard_irt_nodes, irt);
+	list_delete(&irt->vrfs);
+	XFREE(MTYPE_BGP_EVPN_VRF_WILDCARD_IRT_NODE, irt);
+}
 
-	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, tmp_bgp_vrf)) {
-		if (tmp_bgp_vrf == bgp_vrf)
-			return 1;
-	}
+/*
+ * Lookup a wildcard vrf import rt node by local admin value
+ */
+static struct bgp_evpn_vrf_wildcard_irt_node *
+bgp_evpn_lookup_vrf_wildcard_irt_node(struct bgp *bgp_evpn, uint32_t local_admin_nbo)
+{
+	struct bgp_evpn_vrf_wildcard_irt_node tmp = {};
+
+	tmp.local_admin_nbo = local_admin_nbo;
+
+	return bgp_evpn_vrf_wildcard_irt_find(&bgp_evpn->vrf_wildcard_irt_nodes, &tmp);
+}
+
+/*
+ * Comparison and hash key functions for the l2vni import rt tables
+ */
+int bgp_evpn_l2vni_fq_irt_cmp(const struct bgp_evpn_l2vni_fq_irt_node *irt1,
+			      const struct bgp_evpn_l2vni_fq_irt_node *irt2)
+{
+	return memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE);
+}
+
+uint32_t bgp_evpn_l2vni_fq_irt_hash(const struct bgp_evpn_l2vni_fq_irt_node *irt)
+{
+	return jhash(irt->rt.val, ECOMMUNITY_SIZE, 0xdeadbeef);
+}
+
+int bgp_evpn_l2vni_wildcard_irt_cmp(const struct bgp_evpn_l2vni_wildcard_irt_node *irt1,
+				    const struct bgp_evpn_l2vni_wildcard_irt_node *irt2)
+{
+	if (irt1->local_admin_nbo != irt2->local_admin_nbo)
+		return irt1->local_admin_nbo < irt2->local_admin_nbo ? -1 : 1;
+
 	return 0;
 }
 
-/*
- * Make import route target hash key.
- */
-static unsigned int import_rt_hash_key_make(const void *p)
+uint32_t bgp_evpn_l2vni_wildcard_irt_hash(const struct bgp_evpn_l2vni_wildcard_irt_node *irt)
 {
-	const struct irt_node *irt = p;
-	const uint8_t *pnt = irt->rt.val;
-
-	return jhash(pnt, 8, 0xdeadbeef);
+	return jhash_1word(irt->local_admin_nbo, 0xdeadbeef);
 }
 
 /*
- * Comparison function for import rt hash
+ * Create a new fully qualified l2vni import rt node
  */
-static bool import_rt_hash_cmp(const void *p1, const void *p2)
+static struct bgp_evpn_l2vni_fq_irt_node *
+bgp_evpn_l2vni_fq_irt_node_new(struct bgp *bgp, const struct ecommunity_val *rt)
 {
-	const struct irt_node *irt1 = p1;
-	const struct irt_node *irt2 = p2;
+	struct bgp_evpn_l2vni_fq_irt_node *irt;
 
-	return (memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE) == 0);
-}
+	irt = XCALLOC(MTYPE_BGP_EVPN_L2VNI_FQ_IRT_NODE, sizeof(struct bgp_evpn_l2vni_fq_irt_node));
 
-/*
- * Create a new import_rt
- */
-static struct irt_node *import_rt_new(struct bgp *bgp,
-				      struct ecommunity_val *rt)
-{
-	struct irt_node *irt;
-
-	irt = XCALLOC(MTYPE_BGP_EVPN_IMPORT_RT, sizeof(struct irt_node));
-
-	irt->rt = *rt;
+	memcpy(&irt->rt, rt, ECOMMUNITY_SIZE);
 	irt->vnis = list_new();
 
-	/* Add to hash */
-	(void)hash_get(bgp->import_rt_hash, irt, hash_alloc_intern);
+	bgp_evpn_l2vni_fq_irt_add(&bgp->l2vni_fq_irt_nodes, irt);
 
 	return irt;
 }
 
 /*
- * Free the import rt node
+ * Free a fully qualified l2vni import rt node
  */
-static void import_rt_free(struct bgp *bgp, struct irt_node *irt)
+static void bgp_evpn_l2vni_fq_irt_node_free(struct bgp *bgp, struct bgp_evpn_l2vni_fq_irt_node *irt)
 {
-	hash_release(bgp->import_rt_hash, irt);
+	bgp_evpn_l2vni_fq_irt_del(&bgp->l2vni_fq_irt_nodes, irt);
 	list_delete(&irt->vnis);
-	XFREE(MTYPE_BGP_EVPN_IMPORT_RT, irt);
-}
-
-static void hash_import_rt_free(struct irt_node *irt)
-{
-	XFREE(MTYPE_BGP_EVPN_IMPORT_RT, irt);
+	XFREE(MTYPE_BGP_EVPN_L2VNI_FQ_IRT_NODE, irt);
 }
 
 /*
- * Function to lookup Import RT node - used to map a RT to set of
- * VNIs importing routes with that RT.
+ * Lookup a fully qualified l2vni import rt node by exact RT value
  */
-static struct irt_node *lookup_import_rt(struct bgp *bgp,
-					 struct ecommunity_val *rt)
+static struct bgp_evpn_l2vni_fq_irt_node *
+bgp_evpn_lookup_l2vni_fq_irt_node(struct bgp *bgp, const struct ecommunity_val *rt)
 {
-	struct irt_node *irt;
-	struct irt_node tmp;
+	struct bgp_evpn_l2vni_fq_irt_node tmp = {};
 
-	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.rt, rt, ECOMMUNITY_SIZE);
-	irt = hash_lookup(bgp->import_rt_hash, &tmp);
+
+	return bgp_evpn_l2vni_fq_irt_find(&bgp->l2vni_fq_irt_nodes, &tmp);
+}
+
+/*
+ * Create a new wildcard l2vni import rt node
+ */
+static struct bgp_evpn_l2vni_wildcard_irt_node *
+bgp_evpn_l2vni_wildcard_irt_node_new(struct bgp *bgp, uint32_t local_admin_nbo)
+{
+	struct bgp_evpn_l2vni_wildcard_irt_node *irt;
+
+	irt = XCALLOC(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IRT_NODE,
+		      sizeof(struct bgp_evpn_l2vni_wildcard_irt_node));
+
+	irt->local_admin_nbo = local_admin_nbo;
+	irt->vnis = list_new();
+
+	bgp_evpn_l2vni_wildcard_irt_add(&bgp->l2vni_wildcard_irt_nodes, irt);
+
 	return irt;
 }
 
 /*
- * Is specified VNI present on the RT's list of "importing" VNIs?
+ * Free a wildcard l2vni import rt node
  */
-static int is_vni_present_in_irt_vnis(struct list *vnis, struct bgpevpn *vpn)
+static void bgp_evpn_l2vni_wildcard_irt_node_free(struct bgp *bgp,
+						  struct bgp_evpn_l2vni_wildcard_irt_node *irt)
 {
-	struct listnode *node, *nnode;
-	struct bgpevpn *tmp_vpn;
+	bgp_evpn_l2vni_wildcard_irt_del(&bgp->l2vni_wildcard_irt_nodes, irt);
+	list_delete(&irt->vnis);
+	XFREE(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IRT_NODE, irt);
+}
 
-	for (ALL_LIST_ELEMENTS(vnis, node, nnode, tmp_vpn)) {
-		if (tmp_vpn == vpn)
-			return 1;
+/*
+ * Lookup a wildcard l2vni import rt node by local admin value
+ */
+static struct bgp_evpn_l2vni_wildcard_irt_node *
+bgp_evpn_lookup_l2vni_wildcard_irt_node(struct bgp *bgp, uint32_t local_admin_nbo)
+{
+	struct bgp_evpn_l2vni_wildcard_irt_node tmp = {};
+
+	tmp.local_admin_nbo = local_admin_nbo;
+
+	return bgp_evpn_l2vni_wildcard_irt_find(&bgp->l2vni_wildcard_irt_nodes, &tmp);
+}
+
+/*
+ * Extract the local admin value used for wildcard import RT matching
+ * from a route target extended community value, in network byte order.
+ * Returns false for types that cannot be matched against wildcard
+ * import RTs.
+ *
+ * NOTE: this must stay bit-identical with how the former
+ * mask_ecom_global_admin() built the masked hash keys: for AS2-typed
+ * values the full 4-byte local admin (bytes 4-7) is used, while for
+ * AS4- and IPv4-typed values only the 2-byte local admin (bytes 6-7)
+ * is kept and the two leading bytes are zero. Wildcard table entries
+ * are keyed the same way (the 4-byte local admin of an AS2-typed RT).
+ */
+static bool bgp_evpn_wildcard_rt_local_admin_from_eval(uint8_t type,
+						       const struct ecommunity_val *eval,
+						       uint32_t *local_admin_nbo)
+{
+	uint8_t raw[sizeof(*local_admin_nbo)] = { 0, 0, 0, 0 };
+
+	switch (type) {
+	case ECOMMUNITY_ENCODE_AS:
+		memcpy(raw, eval->val + 4, sizeof(raw));
+		break;
+	case ECOMMUNITY_ENCODE_AS4:
+	case ECOMMUNITY_ENCODE_IP:
+		memcpy(raw + 2, eval->val + 6, 2);
+		break;
+	default:
+		return false;
 	}
 
-	return 0;
+	memcpy(local_admin_nbo, raw, sizeof(*local_admin_nbo));
+
+	return true;
 }
 
 /* Flag if the route is injectable into EVPN.
@@ -407,191 +907,10 @@ int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
 	return strcmp(ecom1->str, ecom2->str);
 }
 
-/*
- * Compare L3 Route Targets.
- */
-static int evpn_vrf_route_target_cmp(struct vrf_route_target *rt1,
-				     struct vrf_route_target *rt2)
-{
-	return bgp_evpn_route_target_cmp(rt1->ecom, rt2->ecom);
-}
-
 void bgp_evpn_xxport_delete_ecomm(void *val)
 {
 	struct ecommunity *ecomm = val;
 	ecommunity_free(&ecomm);
-}
-
-/*
- * Delete l3 Route Target.
- */
-static void evpn_vrf_rt_del(void *val)
-{
-	struct vrf_route_target *l3rt = val;
-
-	ecommunity_free(&l3rt->ecom);
-
-	XFREE(MTYPE_VRF_ROUTE_TARGET, l3rt);
-}
-
-/*
- * Allocate a new l3 Route Target.
- */
-static struct vrf_route_target *evpn_vrf_rt_new(struct ecommunity *ecom)
-{
-	struct vrf_route_target *l3rt;
-
-	l3rt = XCALLOC(MTYPE_VRF_ROUTE_TARGET, sizeof(struct vrf_route_target));
-
-	l3rt->ecom = ecom;
-
-	return l3rt;
-}
-
-/*
- * Mask off global-admin field of specified extended community (RT),
- * just retain the local-admin field.
- */
-static inline void mask_ecom_global_admin(struct ecommunity_val *dst,
-					  const struct ecommunity_val *src)
-{
-	uint8_t type;
-
-	type = src->val[0];
-	dst->val[0] = 0;
-	if (type == ECOMMUNITY_ENCODE_AS) {
-		dst->val[2] = dst->val[3] = 0;
-	} else if (type == ECOMMUNITY_ENCODE_AS4
-		   || type == ECOMMUNITY_ENCODE_IP) {
-		dst->val[2] = dst->val[3] = 0;
-		dst->val[4] = dst->val[5] = 0;
-	}
-}
-
-/*
- * Converts the RT to Ecommunity Value and adjusts masking based
- * on flags set for RT.
- */
-static void vrf_rt2ecom_val(struct ecommunity_val *to_eval,
-			    const struct vrf_route_target *l3rt, int iter)
-{
-	const struct ecommunity_val *eval;
-
-	eval = (const struct ecommunity_val *)(l3rt->ecom->val +
-					       (iter * ECOMMUNITY_SIZE));
-	/* If using "automatic" or "wildcard *" RT,
-	 * we only care about the local-admin sub-field.
-	 * This is to facilitate using L3VNI(VRF-VNI)
-	 * as the RT for EBGP peering too and simplify
-	 * configurations by allowing any ASN via '*'.
-	 */
-	memcpy(to_eval, eval, ECOMMUNITY_SIZE);
-
-	if (CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO) ||
-	    CHECK_FLAG(l3rt->flags, BGP_VRF_RT_WILD))
-		mask_ecom_global_admin(to_eval, eval);
-}
-
-/*
- * Map one RT to specified VRF.
- * bgp_vrf = BGP vrf instance
- */
-static void map_vrf_to_rt(struct bgp *bgp_vrf, struct vrf_route_target *l3rt)
-{
-	uint32_t i = 0;
-
-	for (i = 0; i < l3rt->ecom->size; i++) {
-		struct vrf_irt_node *irt = NULL;
-		struct ecommunity_val eval_tmp;
-
-		/* Adjust masking for value */
-		vrf_rt2ecom_val(&eval_tmp, l3rt, i);
-
-		irt = lookup_vrf_import_rt(&eval_tmp);
-
-		if (irt && is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
-			return; /* Already mapped. */
-
-		if (!irt)
-			irt = vrf_import_rt_new(&eval_tmp);
-
-		/* Add VRF to the list for this RT. */
-		listnode_add(irt->vrfs, bgp_vrf);
-	}
-}
-
-/*
- * Unmap specified VRF from specified RT. If there are no other
- * VRFs for this RT, then the RT hash is deleted.
- * bgp_vrf: BGP VRF specific instance
- */
-static void unmap_vrf_from_rt(struct bgp *bgp_vrf,
-			      struct vrf_route_target *l3rt)
-{
-	uint32_t i;
-
-	for (i = 0; i < l3rt->ecom->size; i++) {
-		struct vrf_irt_node *irt;
-		struct ecommunity_val eval_tmp;
-
-		/* Adjust masking for value */
-		vrf_rt2ecom_val(&eval_tmp, l3rt, i);
-
-		irt = lookup_vrf_import_rt(&eval_tmp);
-
-		if (!irt)
-			return; /* Not mapped */
-
-		/* Delete VRF from list for this RT. */
-		listnode_delete(irt->vrfs, bgp_vrf);
-
-		if (!listnode_head(irt->vrfs))
-			vrf_import_rt_free(irt);
-	}
-}
-
-/*
- * Map one RT to specified VNI.
- */
-static void map_vni_to_rt(struct bgp *bgp, struct bgpevpn *vpn,
-			  struct ecommunity_val *eval)
-{
-	struct irt_node *irt;
-	struct ecommunity_val eval_tmp;
-
-	/* If using "automatic" RT, we only care about the local-admin
-	 * sub-field.
-	 * This is to facilitate using VNI as the RT for EBGP peering too.
-	 */
-	memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
-	if (!is_import_rt_configured(vpn))
-		mask_ecom_global_admin(&eval_tmp, eval);
-
-	irt = lookup_import_rt(bgp, &eval_tmp);
-	if (irt)
-		if (is_vni_present_in_irt_vnis(irt->vnis, vpn))
-			/* Already mapped. */
-			return;
-
-	if (!irt)
-		irt = import_rt_new(bgp, &eval_tmp);
-
-	/* Add VNI to the hash list for this RT. */
-	listnode_add(irt->vnis, vpn);
-}
-
-/*
- * Unmap specified VNI from specified RT. If there are no other
- * VNIs for this RT, then the RT hash is deleted.
- */
-static void unmap_vni_from_rt(struct bgp *bgp, struct bgpevpn *vpn,
-			      struct irt_node *irt)
-{
-	/* Delete VNI from hash list for this RT. */
-	listnode_delete(irt->vnis, vpn);
-	if (!listnode_head(irt->vnis)) {
-		import_rt_free(bgp, irt);
-	}
 }
 
 static void bgp_evpn_get_rmac_nexthop(struct bgpevpn *vpn,
@@ -624,58 +943,6 @@ static void bgp_evpn_get_rmac_nexthop(struct bgpevpn *vpn,
 		attr->mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
 	} else
 		memcpy(&attr->rmac, &bgp_vrf->rmac, ETH_ALEN);
-}
-
-/*
- * Create RT extended community automatically from passed information:
- * of the form AS:VNI.
- * NOTE: We use only the lower 16 bits of the AS. This is sufficient as
- * the need is to get a RT value that will be unique across different
- * VNIs but the same across routers (in the same AS) for a particular
- * VNI.
- */
-static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl,
-			 bool is_l3)
-{
-	struct ecommunity_val eval;
-	struct ecommunity *ecomadd;
-	struct ecommunity *ecom;
-	struct vrf_route_target *l3rt;
-	struct vrf_route_target *newrt;
-	bool ecom_found = false;
-	struct listnode *node;
-
-	if (bgp->advertise_autort_rfc8365)
-		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
-	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
-
-	ecomadd = ecommunity_new();
-	ecommunity_add_val(ecomadd, &eval, false, false);
-
-	if (is_l3) {
-		for (ALL_LIST_ELEMENTS_RO(rtl, node, l3rt))
-			if (ecommunity_cmp(ecomadd, l3rt->ecom)) {
-				ecom_found = true;
-				break;
-			}
-	} else {
-		for (ALL_LIST_ELEMENTS_RO(rtl, node, ecom))
-			if (ecommunity_cmp(ecomadd, ecom)) {
-				ecom_found = true;
-				break;
-			}
-	}
-
-	if (!ecom_found) {
-		if (is_l3) {
-			newrt = evpn_vrf_rt_new(ecomadd);
-			/* Label it as autoderived */
-			SET_FLAG(newrt->flags, BGP_VRF_RT_AUTO);
-			listnode_add_sort(rtl, newrt);
-		} else
-			listnode_add_sort(rtl, ecomadd);
-	} else
-		ecommunity_free(&ecomadd);
 }
 
 /*
@@ -1063,51 +1330,48 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Build extended communities for EVPN prefix route.
  */
-static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
-					   struct attr *attr)
+static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *attr)
 {
-	struct ecommunity ecom_encap;
-	struct ecommunity_val eval;
-	struct ecommunity_val eval_rmac;
+	struct ecommunity_val eval_tmp;
 	bgp_encap_types tnl_type;
-	struct listnode *node, *nnode;
-	struct vrf_route_target *l3rt;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
 	struct ecommunity *old_ecom;
 	struct ecommunity *ecom;
-	struct list *vrf_export_rtl = NULL;
 
-	/* Encap */
-	tnl_type = BGP_ENCAP_TYPE_VXLAN;
-	memset(&ecom_encap, 0, sizeof(ecom_encap));
-	encode_encap_extcomm(tnl_type, &eval);
-	ecom_encap.size = 1;
-	ecom_encap.unit_size = ECOMMUNITY_SIZE;
-	ecom_encap.val = (uint8_t *)eval.val;
-
-	/* Add Encap */
+	/* Build the extended community locally, starting from the attribute's
+	 * existing one (if any); the encap community is the first addition.
+	 */
 	if (bgp_attr_get_ecommunity(attr)) {
 		old_ecom = bgp_attr_get_ecommunity(attr);
-		ecom = ecommunity_merge(ecommunity_dup(old_ecom), &ecom_encap);
+		ecom = ecommunity_dup(old_ecom);
 		if (!old_ecom->refcnt)
 			ecommunity_free(&old_ecom);
 	} else
-		ecom = ecommunity_dup(&ecom_encap);
-	bgp_attr_set_ecommunity(attr, ecom);
+		ecom = ecommunity_new();
+
+	/* Encap */
+	tnl_type = BGP_ENCAP_TYPE_VXLAN;
+	encode_encap_extcomm(tnl_type, &eval_tmp);
+	ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	attr->encap_tunneltype = tnl_type;
 
-	/* Add the export RTs for L3VNI/VRF */
-	vrf_export_rtl = bgp_vrf->vrf_export_rtl;
-	for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, l3rt))
-		bgp_attr_set_ecommunity(
-			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
-					       l3rt->ecom));
+	/* Add the export RTs for L3VNI/VRF (the effective export list is
+	 * sorted and duplicate free)
+	 */
+	frr_each (bgp_evpn_effective_fq_rt_slu, &bgp_vrf->effective_fq_export_rts, fq_rt)
+		ecommunity_append_val_unchecked(ecom, &fq_rt->ecom_val);
 
 	/* add the router mac extended community */
 	if (!is_zero_mac(&attr->rmac)) {
-		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecommunity_add_val(bgp_attr_get_ecommunity(attr), &eval_rmac,
-				   true, true);
+		encode_rmac_extcomm(&eval_tmp, &attr->rmac);
+		ecommunity_add_val(ecom, &eval_tmp, true, true);
 	}
+
+	/* Attach the extended community last: bgp_attr_set_ecommunity()
+	 * derives the EXT_COMMUNITIES attribute flag from the community size,
+	 * so it must see the fully built (non-empty) community.
+	 */
+	bgp_attr_set_ecommunity(attr, ecom);
 }
 
 /*
@@ -1120,110 +1384,77 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
  * added, if present, based on passed settings - only for non-link-local
  * type-2 routes.
  */
-static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
-				     int add_l3_ecomm,
+static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr, int add_l3_ecomm,
 				     struct ecommunity *macvrf_soo)
 {
-	struct ecommunity ecom_encap;
-	struct ecommunity ecom_sticky;
-	struct ecommunity ecom_default_gw;
-	struct ecommunity ecom_na;
-	struct ecommunity_val eval;
-	struct ecommunity_val eval_sticky;
-	struct ecommunity_val eval_default_gw;
-	struct ecommunity_val eval_rmac;
-	struct ecommunity_val eval_na;
+	struct ecommunity_val eval_tmp;
 	bool proxy;
 
 	bgp_encap_types tnl_type;
-	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
-	struct vrf_route_target *l3rt;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_effective_fq_rt_slu_head *vrf_export_rtl = NULL;
 	uint32_t seqnum;
-	struct list *vrf_export_rtl = NULL;
 
-	/* Encap */
+	ecom = ecommunity_new();
+
+	/* Encap. This is the first community; the ones below extend it. */
 	tnl_type = BGP_ENCAP_TYPE_VXLAN;
-	memset(&ecom_encap, 0, sizeof(ecom_encap));
-	encode_encap_extcomm(tnl_type, &eval);
-	ecom_encap.size = 1;
-	ecom_encap.unit_size = ECOMMUNITY_SIZE;
-	ecom_encap.val = (uint8_t *)eval.val;
-
-	/* Add Encap */
-	bgp_attr_set_ecommunity(attr, ecommunity_dup(&ecom_encap));
+	encode_encap_extcomm(tnl_type, &eval_tmp);
+	ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	attr->encap_tunneltype = tnl_type;
 
-	/* Add the export RTs for L2VNI */
-	for (ALL_LIST_ELEMENTS(vpn->export_rtl, node, nnode, ecom))
-		bgp_attr_set_ecommunity(
-			attr,
-			ecommunity_merge(bgp_attr_get_ecommunity(attr), ecom));
+	/* Add the export RTs for L2VNI (the effective export list is
+	 * sorted and duplicate free)
+	 */
+	frr_each (bgp_evpn_effective_fq_rt_slu, &vpn->effective_fq_export_rts, fq_rt)
+		ecommunity_append_val_unchecked(ecom, &fq_rt->ecom_val);
 
 	/* Add the export RTs for L3VNI if told to - caller determines
 	 * when this should be done.
 	 */
 	if (add_l3_ecomm) {
 		vrf_export_rtl = bgpevpn_get_vrf_export_rtl(vpn);
-		if (vrf_export_rtl && !list_isempty(vrf_export_rtl)) {
-			for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode,
-					       l3rt))
-				bgp_attr_set_ecommunity(
-					attr,
-					ecommunity_merge(
-						bgp_attr_get_ecommunity(attr),
-						l3rt->ecom));
-		}
+		if (vrf_export_rtl)
+			frr_each (bgp_evpn_effective_fq_rt_slu, vrf_export_rtl, fq_rt)
+				ecommunity_append_val_unchecked(ecom, &fq_rt->ecom_val);
 	}
 
 	/* Add MAC mobility (sticky) if needed. */
 	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY)) {
 		seqnum = 0;
-		encode_mac_mobility_extcomm(1, seqnum, &eval_sticky);
-		ecom_sticky.size = 1;
-		ecom_sticky.unit_size = ECOMMUNITY_SIZE;
-		ecom_sticky.val = (uint8_t *)eval_sticky.val;
-		bgp_attr_set_ecommunity(
-			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
-					       &ecom_sticky));
+		encode_mac_mobility_extcomm(1, seqnum, &eval_tmp);
+		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	}
 
 	/* Add RMAC, if told to. */
 	if (add_l3_ecomm) {
-		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecommunity_add_val(bgp_attr_get_ecommunity(attr), &eval_rmac,
-				   true, true);
+		encode_rmac_extcomm(&eval_tmp, &attr->rmac);
+		ecommunity_add_val(ecom, &eval_tmp, true, true);
 	}
 
 	/* Add default gateway, if needed. */
 	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
-		encode_default_gw_extcomm(&eval_default_gw);
-		ecom_default_gw.size = 1;
-		ecom_default_gw.unit_size = ECOMMUNITY_SIZE;
-		ecom_default_gw.val = (uint8_t *)eval_default_gw.val;
-		bgp_attr_set_ecommunity(
-			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
-					       &ecom_default_gw));
+		encode_default_gw_extcomm(&eval_tmp);
+		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	}
 
 	proxy = !!(attr->es_flags & ATTR_ES_PROXY_ADVERT);
 	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER) || proxy) {
-		encode_na_flag_extcomm(&eval_na,
-				       CHECK_FLAG(attr->evpn_flags,
-						  ATTR_EVPN_FLAG_ROUTER),
-				       proxy);
-		ecom_na.size = 1;
-		ecom_na.unit_size = ECOMMUNITY_SIZE;
-		ecom_na.val = (uint8_t *)eval_na.val;
-		bgp_attr_set_ecommunity(
-			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
-					       &ecom_na));
+		encode_na_flag_extcomm(&eval_tmp,
+				       CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER), proxy);
+		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	}
 
 	/* Add MAC-VRF SoO, if configured */
 	if (macvrf_soo)
-		bgp_attr_set_ecommunity(
-			attr, ecommunity_merge(attr->ecommunity, macvrf_soo));
+		ecommunity_merge(ecom, macvrf_soo);
+
+	/* Attach the extended community last: bgp_attr_set_ecommunity()
+	 * derives the EXT_COMMUNITIES attribute flag from the community size,
+	 * so it must see the fully built (non-empty) community.
+	 */
+	bgp_attr_set_ecommunity(attr, ecom);
 }
 
 /*
@@ -3861,11 +4092,11 @@ static int uninstall_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
  * Given a route entry and a VRF, see if this route entry should be
  * imported into the VRF i.e., RTs match + Site-of-Origin check passes.
  */
-static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
-				     struct bgp_path_info *pi)
+static int is_route_matching_for_vrf(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 {
 	struct attr *attr = pi->attr;
 	struct ecommunity *ecom;
+	struct bgp *bgp_evpn;
 	uint32_t i;
 
 	assert(attr);
@@ -3877,6 +4108,12 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
 	if (!ecom || !ecom->size)
 		return 0;
 
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn) {
+		flog_err(EC_BGP_NO_DFLT, "vrf import rt lookup - evpn instance not created yet");
+		return 0;
+	}
+
 	/* For each extended community RT, see if it matches this VNI. If any RT
 	 * matches, we're done.
 	 */
@@ -3884,41 +4121,33 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
 		uint8_t *pnt;
 		uint8_t type, sub_type;
 		struct ecommunity_val *eval;
-		struct ecommunity_val eval_tmp;
-		struct vrf_irt_node *irt;
+		uint32_t local_admin_nbo;
+		struct bgp_evpn_vrf_fq_irt_node *fq_irt;
+		struct bgp_evpn_vrf_wildcard_irt_node *wildcard_irt;
 
 		/* Only deal with RTs */
 		pnt = (ecom->val + (i * ecom->unit_size));
-		eval = (struct ecommunity_val *)(ecom->val
-						 + (i * ecom->unit_size));
+		eval = (struct ecommunity_val *)(ecom->val + (i * ecom->unit_size));
 		type = *pnt++;
 		sub_type = *pnt++;
 		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
 			continue;
 
 		/* See if this RT matches specified VNIs import RTs */
-		irt = lookup_vrf_import_rt(eval);
-		if (irt)
-			if (is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
-				return 1;
+		fq_irt = bgp_evpn_lookup_vrf_fq_irt_node(bgp_evpn, eval);
+		if (fq_irt && listnode_lookup(fq_irt->vrfs, bgp_vrf))
+			return 1;
 
-		/* Also check for non-exact match. In this, we mask out the AS
-		 * and
-		 * only check on the local-admin sub-field. This is to
-		 * facilitate using
+		/* Also check for a wildcard (non-exact) match, on the
+		 * local-admin sub-field alone. This is to facilitate using
 		 * VNI as the RT for EBGP peering too.
 		 */
-		irt = NULL;
-		if (type == ECOMMUNITY_ENCODE_AS
-		    || type == ECOMMUNITY_ENCODE_AS4
-		    || type == ECOMMUNITY_ENCODE_IP) {
-			memcpy(&eval_tmp, eval, ecom->unit_size);
-			mask_ecom_global_admin(&eval_tmp, eval);
-			irt = lookup_vrf_import_rt(&eval_tmp);
-		}
-		if (irt)
-			if (is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
+		if (bgp_evpn_wildcard_rt_local_admin_from_eval(type, eval, &local_admin_nbo)) {
+			wildcard_irt = bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_evpn,
+									     local_admin_nbo);
+			if (wildcard_irt && listnode_lookup(wildcard_irt->vrfs, bgp_vrf))
 				return 1;
+		}
 	}
 
 	return 0;
@@ -3928,8 +4157,7 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
  * Given a route entry and a VNI, see if this route entry should be
  * imported into the VNI i.e., RTs match.
  */
-static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
-				     struct bgp_path_info *pi)
+static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn, struct bgp_path_info *pi)
 {
 	struct attr *attr = pi->attr;
 	struct ecommunity *ecom;
@@ -3951,41 +4179,32 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 		uint8_t *pnt;
 		uint8_t type, sub_type;
 		struct ecommunity_val *eval;
-		struct ecommunity_val eval_tmp;
-		struct irt_node *irt;
+		uint32_t local_admin_nbo;
+		struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
+		struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
 
 		/* Only deal with RTs */
 		pnt = (ecom->val + (i * ecom->unit_size));
-		eval = (struct ecommunity_val *)(ecom->val
-						 + (i * ecom->unit_size));
+		eval = (struct ecommunity_val *)(ecom->val + (i * ecom->unit_size));
 		type = *pnt++;
 		sub_type = *pnt++;
 		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
 			continue;
 
 		/* See if this RT matches specified VNIs import RTs */
-		irt = lookup_import_rt(bgp, eval);
-		if (irt)
-			if (is_vni_present_in_irt_vnis(irt->vnis, vpn))
-				return 1;
+		fq_irt = bgp_evpn_lookup_l2vni_fq_irt_node(bgp, eval);
+		if (fq_irt && listnode_lookup(fq_irt->vnis, vpn))
+			return 1;
 
-		/* Also check for non-exact match. In this, we mask out the AS
-		 * and
-		 * only check on the local-admin sub-field. This is to
-		 * facilitate using
+		/* Also check for a wildcard (non-exact) match, on the
+		 * local-admin sub-field alone. This is to facilitate using
 		 * VNI as the RT for EBGP peering too.
 		 */
-		irt = NULL;
-		if (type == ECOMMUNITY_ENCODE_AS
-		    || type == ECOMMUNITY_ENCODE_AS4
-		    || type == ECOMMUNITY_ENCODE_IP) {
-			memcpy(&eval_tmp, eval, ecom->unit_size);
-			mask_ecom_global_admin(&eval_tmp, eval);
-			irt = lookup_import_rt(bgp, &eval_tmp);
-		}
-		if (irt)
-			if (is_vni_present_in_irt_vnis(irt->vnis, vpn))
+		if (bgp_evpn_wildcard_rt_local_admin_from_eval(type, eval, &local_admin_nbo)) {
+			wildcard_irt = bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp, local_admin_nbo);
+			if (wildcard_irt && listnode_lookup(wildcard_irt->vnis, vpn))
 				return 1;
+		}
 	}
 
 	return 0;
@@ -4494,11 +4713,9 @@ static int install_uninstall_route_in_vnis(struct bgp *bgp, afi_t afi,
 /*
  * Install or uninstall route for appropriate VNIs/ESIs.
  */
-static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
-					    safi_t safi, const struct prefix *p,
-					    struct bgp_path_info *pi,
-					    int import, bool in_vni_rt,
-					    bool in_vrf_rt)
+static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t safi,
+					    const struct prefix *p, struct bgp_path_info *pi,
+					    int import, bool in_vni_rt, bool in_vrf_rt)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
 	struct attr *attr = pi->attr;
@@ -4509,11 +4726,11 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 	assert(attr);
 
 	/* Only EVPN route-types 1-5 are supported currently */
-	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-	      || evp->prefix.route_type == BGP_EVPN_IMET_ROUTE
-	      || evp->prefix.route_type == BGP_EVPN_ES_ROUTE
-	      || evp->prefix.route_type == BGP_EVPN_AD_ROUTE
-	      || evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
+	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
+	      evp->prefix.route_type == BGP_EVPN_IMET_ROUTE ||
+	      evp->prefix.route_type == BGP_EVPN_ES_ROUTE ||
+	      evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
+	      evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
 		return 0;
 
 	/* If we don't have Route Target, nothing much to do. */
@@ -4542,15 +4759,18 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 		uint8_t *pnt;
 		uint8_t type, sub_type;
 		struct ecommunity_val *eval;
-		struct ecommunity_val eval_tmp;
-		struct irt_node *irt;	 /* import rt for l2vni */
-		struct vrf_irt_node *vrf_irt; /* import rt for l3vni */
+		uint32_t local_admin_nbo;
+		/* import rts for l2vni */
+		struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
+		struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
+		/* import rts for l3vni */
+		struct bgp_evpn_vrf_fq_irt_node *vrf_fq_irt;
+		struct bgp_evpn_vrf_wildcard_irt_node *vrf_wildcard_irt;
 		struct bgp_evpn_es *es;
 
 		/* Only deal with RTs */
 		pnt = (ecom->val + (i * ecom->unit_size));
-		eval = (struct ecommunity_val *)(ecom->val
-						 + (i * ecom->unit_size));
+		eval = (struct ecommunity_val *)(ecom->val + (i * ecom->unit_size));
 		type = *pnt++;
 		sub_type = *pnt++;
 		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
@@ -4560,8 +4780,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 		 * to the destination ES
 		 */
 		if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
-			bgp_evpn_path_es_link(pi, 0,
-					      bgp_evpn_attr_get_esi(pi->attr));
+			bgp_evpn_path_es_link(pi, 0, bgp_evpn_attr_get_esi(pi->attr));
 
 		/*
 		 * AD/IMET routes (type-1/3) are imported into VNI table.
@@ -4573,60 +4792,63 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 		    evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
 		    evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 			if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE) {
-				irt = in_vni_rt ? lookup_import_rt(bgp, eval) : NULL;
-				if (irt)
+				fq_irt = in_vni_rt ? bgp_evpn_lookup_l2vni_fq_irt_node(bgp, eval)
+						   : NULL;
+				if (fq_irt)
 					install_uninstall_route_in_vnis(bgp, afi, safi, evp, pi,
-									irt->vnis, import);
+									fq_irt->vnis, import);
 			}
 
 			if (evp->prefix.route_type != BGP_EVPN_AD_ROUTE &&
 			    evp->prefix.route_type != BGP_EVPN_IMET_ROUTE) {
-				vrf_irt = in_vrf_rt ? lookup_vrf_import_rt(eval) : NULL;
-				if (vrf_irt)
+				/* The VRF import RT tables live on the EVPN
+				 * instance, which is not necessarily the
+				 * owner of the table this route sits in.
+				 */
+				vrf_fq_irt = in_vrf_rt ? bgp_evpn_lookup_vrf_fq_irt_node(bgp_get_evpn(),
+											 eval)
+						       : NULL;
+				if (vrf_fq_irt)
 					install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
-									vrf_irt->vrfs, import);
+									vrf_fq_irt->vrfs, import);
 			}
 
-			/* Also check for non-exact match.
-			 * In this, we mask out the AS and
-			 * only check on the local-admin sub-field.
-			 * This is to facilitate using
-			 * VNI as the RT for EBGP peering too.
+			/* Also check for a wildcard (non-exact) match, on
+			 * the local-admin sub-field alone. This is to
+			 * facilitate using VNI as the RT for EBGP peering
+			 * too.
 			 */
-			irt = NULL;
-			vrf_irt = NULL;
-			if (type == ECOMMUNITY_ENCODE_AS
-			    || type == ECOMMUNITY_ENCODE_AS4
-			    || type == ECOMMUNITY_ENCODE_IP) {
-				memcpy(&eval_tmp, eval, ecom->unit_size);
-				mask_ecom_global_admin(&eval_tmp, eval);
+			wildcard_irt = NULL;
+			vrf_wildcard_irt = NULL;
+			if (bgp_evpn_wildcard_rt_local_admin_from_eval(type, eval,
+								       &local_admin_nbo)) {
 				if (in_vni_rt)
-					irt = lookup_import_rt(bgp, &eval_tmp);
+					wildcard_irt =
+						bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp,
+										      local_admin_nbo);
 				if (in_vrf_rt)
-					vrf_irt =
-						lookup_vrf_import_rt(&eval_tmp);
+					vrf_wildcard_irt =
+						bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_get_evpn(),
+										      local_admin_nbo);
 			}
 
-			if (irt)
-				install_uninstall_route_in_vnis(
-					bgp, afi, safi, evp, pi, irt->vnis,
-					import);
-			if (vrf_irt)
-				install_uninstall_route_in_vrfs(
-					bgp, afi, safi, evp, pi, vrf_irt->vrfs,
-					import);
+			if (wildcard_irt)
+				install_uninstall_route_in_vnis(bgp, afi, safi, evp, pi,
+								wildcard_irt->vnis, import);
+			if (vrf_wildcard_irt)
+				install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
+								vrf_wildcard_irt->vrfs, import);
 		}
 
 		/* es route is imported into the es table */
 		if (evp->prefix.route_type == BGP_EVPN_ES_ROUTE) {
-
 			/* we will match based on the entire esi to avoid
 			 * import of an es route for esi2 into esi1
 			 */
 			es = bgp_evpn_es_find(&evp->prefix.es_addr.esi);
 			if (es && bgp_evpn_is_es_local(es))
-				bgp_evpn_es_route_install_uninstall(
-					bgp, es, afi, safi, evp, pi, import);
+				bgp_evpn_es_route_install_uninstall(bgp, es, afi, safi, evp, pi,
+								    import);
 		}
 	}
 
@@ -5547,47 +5769,341 @@ void bgp_evpn_cleanup_per_vni_routes(struct bgp *bgp)
 }
 
 /*
- * Derive AUTO import RT for BGP VRF - L3VNI
+ * Should the auto import RT be part of the effective import route
+ * targets of the VRF?
  */
-static void evpn_auto_rt_import_add_for_vrf(struct bgp *bgp_vrf)
+static bool bgp_evpn_vrf_should_generate_import_auto_rt(struct bgp *bgp_vrf)
 {
-	struct bgp *bgp_evpn = NULL;
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
-	form_auto_rt(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_import_rtl, true);
+	/* Never add the auto route target */
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_NEVER)
+		return false;
 
-	/* Map RT to VRF */
-	bgp_evpn = bgp_get_evpn();
+	/* Always add the auto route target, even when manual route targets
+	 * are configured as well
+	 */
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_ALWAYS)
+		return true;
 
-	if (!bgp_evpn)
-		return;
-
-	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+	/* NOT_CFGD and ADD_IF_NO_MANUAL only differ in the configuration
+	 * round-trip: add the auto route target unless a manual route
+	 * target is configured for this direction.
+	 */
+	return !bgp_evpn_vrf_has_manual_import_rt_cfgd(bgp_vrf);
 }
 
 /*
- * Delete AUTO import RT from BGP VRF - L3VNI
+ * Should the auto export RT be part of the effective export route
+ * targets of the VRF?
  */
-static void evpn_auto_rt_import_delete_for_vrf(struct bgp *bgp_vrf)
+static bool bgp_evpn_vrf_should_generate_export_auto_rt(struct bgp *bgp_vrf)
 {
-	evpn_rt_delete_auto(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_import_rtl,
-			    true);
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	/* Never add the auto route target */
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_NEVER)
+		return false;
+
+	/* Always add the auto route target, even when manual route targets
+	 * are configured as well
+	 */
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_ALWAYS)
+		return true;
+
+	/* NOT_CFGD and ADD_IF_NO_MANUAL only differ in the configuration
+	 * round-trip: add the auto route target unless a manual route
+	 * target is configured for this direction.
+	 */
+	return !bgp_evpn_vrf_has_manual_export_rt_cfgd(bgp_vrf);
 }
 
 /*
- * Derive AUTO export RT for BGP VRF - L3VNI
+ * Create the auto export RT extended community value for the VRF, of
+ * the form AS:VNI. Only the export direction uses this fully qualified
+ * form; the auto import route target is a wildcard route target.
+ * NOTE: We use only the lower 16 bits of the AS. This is sufficient as
+ * the need is to get a RT value that will be unique across different
+ * VNIs but the same across routers (in the same AS) for a particular
+ * VNI.
  */
-static void evpn_auto_rt_export_add_for_vrf(struct bgp *bgp_vrf)
+static void bgp_evpn_vrf_form_auto_rt_eval(struct bgp *bgp_vrf, struct ecommunity_val *eval)
 {
-	form_auto_rt(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_export_rtl, true);
+	vni_t vni = bgp_vrf->l3vni;
+
+	if (bgp_vrf->autort_rfc8365_export)
+		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
+	encode_route_target_as((bgp_vrf->as & 0xFFFF), vni, eval, true);
+}
+
+/* Encode a fully qualified user configured route target into an
+ * extended community value. Must not be called for wildcard route
+ * targets (they have no fully qualified form).
+ */
+static void bgp_evpn_cfgd_rt_to_eval(const struct bgp_evpn_cfgd_rt *cfgd_rt,
+				     struct ecommunity_val *eval)
+{
+	switch (cfgd_rt->type) {
+	case BGP_EVPN_CFGD_RT_TYPE_AS2:
+		encode_route_target_as(cfgd_rt->payload.as2_rt.as,
+				       cfgd_rt->payload.as2_rt.local_admin, eval, true);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_IP4:
+		encode_route_target_ip(&cfgd_rt->payload.ip4_rt.ip,
+				       cfgd_rt->payload.ip4_rt.local_admin, eval, true);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_AS4:
+		encode_route_target_as4(cfgd_rt->payload.as4_rt.as,
+					cfgd_rt->payload.as4_rt.local_admin, eval, true);
+		break;
+	case BGP_EVPN_CFGD_RT_TYPE_WILDCARD:
+	default:
+		/* Should not happen, callers handle wildcards themselves */
+		memset(eval, 0, sizeof(*eval));
+		break;
+	}
+}
+
+/* Add an effective wildcard import route target to the VRF */
+static void bgp_evpn_vrf_add_effective_wildcard_import_rt(struct bgp *bgp_vrf,
+							  uint32_t local_admin_nbo)
+{
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+
+	wildcard_rt = bgp_evpn_effective_wildcard_rt_new(local_admin_nbo);
+	if (bgp_evpn_effective_wildcard_rt_slu_add(&bgp_vrf->effective_wildcard_import_rts,
+						   wildcard_rt))
+		bgp_evpn_effective_wildcard_rt_free(wildcard_rt); /* duplicate */
 }
 
 /*
- * Delete AUTO export RT from BGP VRF - L3VNI
+ * Recompute the effective import route targets of the VRF from its
+ * route-target configuration.
+ *
+ * Auto route target generation is gated on l3vni != 0: the auto route
+ * target encodes the VNI, so there is nothing to derive without one.
+ * This matches the previous behavior where the auto route target was
+ * only formed from the L3VNI add path and from configuration changes
+ * guarded by is_l3vni_live().
  */
-static void evpn_auto_rt_export_delete_for_vrf(struct bgp *bgp_vrf)
+static void bgp_evpn_vrf_regenerate_effective_import_rts(struct bgp *bgp_vrf)
 {
-	evpn_rt_delete_auto(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_export_rtl,
-			    true);
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	struct ecommunity_val eval;
+
+	bgp_evpn_effective_wildcard_rt_list_flush(&bgp_vrf->effective_wildcard_import_rts);
+	bgp_evpn_effective_fq_rt_list_flush(&bgp_vrf->effective_fq_import_rts);
+
+	if (bgp_vrf->l3vni && bgp_evpn_vrf_should_generate_import_auto_rt(bgp_vrf)) {
+		vni_t vni = bgp_vrf->l3vni;
+
+		if (bgp_vrf->autort_rfc8365_import)
+			SET_FLAG(vni, EVPN_AUTORT_VXLAN);
+
+		/* The auto import route target is a wildcard route
+		 * target: it matches any route target carrying the VNI
+		 * as local admin value, regardless of the AS.
+		 */
+		bgp_evpn_vrf_add_effective_wildcard_import_rt(bgp_vrf, htonl(vni));
+	}
+
+	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_import, cfgd_rt) {
+		if (cfgd_rt->type == BGP_EVPN_CFGD_RT_TYPE_WILDCARD) {
+			uint32_t local_admin = cfgd_rt->payload.wildcard_rt.local_admin;
+
+			bgp_evpn_vrf_add_effective_wildcard_import_rt(bgp_vrf, htonl(local_admin));
+			continue;
+		}
+
+		bgp_evpn_cfgd_rt_to_eval(cfgd_rt, &eval);
+		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
+		if (bgp_evpn_effective_fq_rt_slu_add(&bgp_vrf->effective_fq_import_rts, fq_rt))
+			bgp_evpn_effective_fq_rt_free(fq_rt); /* duplicate */
+	}
+}
+
+/*
+ * Recompute the effective export route targets of the VRF from its
+ * route-target configuration. See the import variant above for the
+ * l3vni gating of the auto route target. Wildcard route targets never
+ * occur here (rejected for export by the CLI).
+ */
+static void bgp_evpn_vrf_regenerate_effective_export_rts(struct bgp *bgp_vrf)
+{
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	struct ecommunity_val eval;
+
+	bgp_evpn_effective_fq_rt_list_flush(&bgp_vrf->effective_fq_export_rts);
+
+	if (bgp_vrf->l3vni && bgp_evpn_vrf_should_generate_export_auto_rt(bgp_vrf)) {
+		bgp_evpn_vrf_form_auto_rt_eval(bgp_vrf, &eval);
+		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
+		if (bgp_evpn_effective_fq_rt_slu_add(&bgp_vrf->effective_fq_export_rts, fq_rt))
+			bgp_evpn_effective_fq_rt_free(fq_rt); /* duplicate */
+	}
+
+	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_export, cfgd_rt) {
+		bgp_evpn_cfgd_rt_to_eval(cfgd_rt, &eval);
+		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
+		if (bgp_evpn_effective_fq_rt_slu_add(&bgp_vrf->effective_fq_export_rts, fq_rt))
+			bgp_evpn_effective_fq_rt_free(fq_rt); /* duplicate */
+	}
+}
+
+/*
+ * Should the auto import RT be part of the effective import route
+ * targets of the L2VNI?
+ */
+static bool bgp_evpn_l2vni_should_generate_import_auto_rt(struct bgpevpn *vpn)
+{
+	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
+
+	/* Never add the auto route target */
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_NEVER)
+		return false;
+
+	/* Always add the auto route target, even when manual route targets
+	 * are configured as well
+	 */
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_ADD_ALWAYS)
+		return true;
+
+	/* NOT_CFGD and ADD_IF_NO_MANUAL only differ in the configuration
+	 * round-trip: add the auto route target unless a manual route
+	 * target is configured for this direction.
+	 */
+	return !bgp_evpn_l2vni_has_manual_import_rt_cfgd(vpn);
+}
+
+/*
+ * Should the auto export RT be part of the effective export route
+ * targets of the L2VNI? See the import variant above.
+ */
+static bool bgp_evpn_l2vni_should_generate_export_auto_rt(struct bgpevpn *vpn)
+{
+	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
+
+	/* Never add the auto route target */
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_NEVER)
+		return false;
+
+	/* Always add the auto route target, even when manual route targets
+	 * are configured as well
+	 */
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_ADD_ALWAYS)
+		return true;
+
+	/* NOT_CFGD and ADD_IF_NO_MANUAL only differ in the configuration
+	 * round-trip: add the auto route target unless a manual route
+	 * target is configured for this direction.
+	 */
+	return !bgp_evpn_l2vni_has_manual_export_rt_cfgd(vpn);
+}
+
+/*
+ * Create the auto export RT extended community value for the L2VNI, of
+ * the form AS:VNI. The AS and the RFC 8365 export setting are taken
+ * from the EVPN instance. Only the export direction uses this fully
+ * qualified form; the auto import route target is a wildcard route
+ * target.
+ * NOTE: We use only the lower 16 bits of the AS. This is sufficient as
+ * the need is to get a RT value that will be unique across different
+ * VNIs but the same across routers (in the same AS) for a particular
+ * VNI.
+ */
+static void bgp_evpn_l2vni_form_auto_rt_eval(struct bgp *bgp, struct bgpevpn *vpn,
+					     struct ecommunity_val *eval)
+{
+	vni_t vni = vpn->vni;
+
+	if (bgp->autort_rfc8365_export)
+		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
+	encode_route_target_as((bgp->as & 0xFFFF), vni, eval, true);
+}
+
+/* Add an effective wildcard import route target to the L2VNI */
+static void bgp_evpn_l2vni_add_effective_wildcard_import_rt(struct bgpevpn *vpn,
+							    uint32_t local_admin_nbo)
+{
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+
+	wildcard_rt = bgp_evpn_effective_wildcard_rt_new(local_admin_nbo);
+	if (bgp_evpn_effective_wildcard_rt_slu_add(&vpn->effective_wildcard_import_rts,
+						   wildcard_rt))
+		bgp_evpn_effective_wildcard_rt_free(wildcard_rt); /* duplicate */
+}
+
+/*
+ * Recompute the effective import route targets of the L2VNI from its
+ * route-target configuration. The wildcard entries are the manually
+ * configured wildcard route targets and the auto import route target
+ * (which matches any route target carrying the VNI as local admin
+ * value, regardless of the AS).
+ */
+void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	struct ecommunity_val eval;
+
+	bgp_evpn_effective_wildcard_rt_list_flush(&vpn->effective_wildcard_import_rts);
+	bgp_evpn_effective_fq_rt_list_flush(&vpn->effective_fq_import_rts);
+
+	if (bgp_evpn_l2vni_should_generate_import_auto_rt(vpn)) {
+		vni_t vni = vpn->vni;
+
+		if (bgp->autort_rfc8365_import)
+			SET_FLAG(vni, EVPN_AUTORT_VXLAN);
+
+		bgp_evpn_l2vni_add_effective_wildcard_import_rt(vpn, htonl(vni));
+	}
+
+	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_import, cfgd_rt) {
+		if (cfgd_rt->type == BGP_EVPN_CFGD_RT_TYPE_WILDCARD) {
+			uint32_t local_admin = cfgd_rt->payload.wildcard_rt.local_admin;
+
+			bgp_evpn_l2vni_add_effective_wildcard_import_rt(vpn, htonl(local_admin));
+			continue;
+		}
+
+		bgp_evpn_cfgd_rt_to_eval(cfgd_rt, &eval);
+		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
+		if (bgp_evpn_effective_fq_rt_slu_add(&vpn->effective_fq_import_rts, fq_rt))
+			bgp_evpn_effective_fq_rt_free(fq_rt); /* duplicate */
+	}
+}
+
+/*
+ * Recompute the effective export route targets of the L2VNI from its
+ * route-target configuration.
+ */
+void bgp_evpn_l2vni_regenerate_effective_export_rts(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	struct ecommunity_val eval;
+
+	bgp_evpn_effective_fq_rt_list_flush(&vpn->effective_fq_export_rts);
+
+	if (bgp_evpn_l2vni_should_generate_export_auto_rt(vpn)) {
+		bgp_evpn_l2vni_form_auto_rt_eval(bgp, vpn, &eval);
+		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
+		if (bgp_evpn_effective_fq_rt_slu_add(&vpn->effective_fq_export_rts, fq_rt))
+			bgp_evpn_effective_fq_rt_free(fq_rt);
+	}
+
+	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_export, cfgd_rt) {
+		bgp_evpn_cfgd_rt_to_eval(cfgd_rt, &eval);
+		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
+		if (bgp_evpn_effective_fq_rt_slu_add(&vpn->effective_fq_export_rts, fq_rt))
+			bgp_evpn_effective_fq_rt_free(fq_rt); /* duplicate */
+	}
 }
 
 static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
@@ -5615,17 +6131,19 @@ static void update_autort_vni(struct hash_bucket *bucket, struct bgp *bgp)
 {
 	struct bgpevpn *vpn = bucket->data;
 
-	if (!is_import_rt_configured(vpn)) {
+	/* Re-derive whenever the direction has an auto route target in
+	 * effect - with "add-always" that includes directions that also
+	 * have manual route targets.
+	 */
+	if (bgp_evpn_l2vni_should_generate_import_auto_rt(vpn)) {
 		if (is_vni_live(vpn))
 			bgp_evpn_uninstall_routes(bgp, vpn);
 		bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
-		list_delete_all_node(vpn->import_rtl);
 		bgp_evpn_derive_auto_rt_import(bgp, vpn);
 		if (is_vni_live(vpn))
 			bgp_evpn_install_routes(bgp, vpn);
 	}
-	if (!is_export_rt_configured(vpn)) {
-		list_delete_all_node(vpn->export_rtl);
+	if (bgp_evpn_l2vni_should_generate_export_auto_rt(vpn)) {
 		bgp_evpn_derive_auto_rt_export(bgp, vpn);
 		if (is_vni_live(vpn))
 			bgp_evpn_handle_export_rt_change(bgp, vpn);
@@ -5637,32 +6155,32 @@ static void update_autort_vni(struct hash_bucket *bucket, struct bgp *bgp)
  */
 static void update_autort_l3vni(struct bgp *bgp)
 {
-	if ((CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD))
-	    && (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)))
+	bool import_auto = bgp_evpn_vrf_should_generate_import_auto_rt(bgp);
+	bool export_auto = bgp_evpn_vrf_should_generate_export_auto_rt(bgp);
+
+	/* Re-derive whenever the direction has an auto route target in
+	 * effect - with "add-always" that includes directions that also
+	 * have manual route targets.
+	 */
+	if (!import_auto && !export_auto)
 		return;
 
-	if (!CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
+	if (import_auto) {
 		if (is_l3vni_live(bgp))
 			uninstall_routes_for_vrf(bgp);
 
 		/* Cleanup the RT to VRF mapping */
 		bgp_evpn_unmap_vrf_from_its_rts(bgp);
 
-		/* Remove auto generated RT */
-		evpn_auto_rt_import_delete_for_vrf(bgp);
+		/* Rederive the auto RT */
+		bgp_evpn_vrf_regenerate_effective_import_rts(bgp);
 
-		list_delete_all_node(bgp->vrf_import_rtl);
-
-		/* Map auto derive or configured RTs */
-		evpn_auto_rt_import_add_for_vrf(bgp);
+		/* Map auto derived RTs */
+		bgp_evpn_map_vrf_to_its_rts(bgp);
 	}
 
-	if (!CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
-		list_delete_all_node(bgp->vrf_export_rtl);
-
-		evpn_auto_rt_export_delete_for_vrf(bgp);
-
-		evpn_auto_rt_export_add_for_vrf(bgp);
+	if (export_auto) {
+		bgp_evpn_vrf_regenerate_effective_export_rts(bgp);
 
 		if (is_l3vni_live(bgp))
 			bgp_evpn_map_vrf_to_its_rts(bgp);
@@ -5803,60 +6321,6 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 	}
 }
 
-static void rt_list_remove_node(struct list *rt_list, struct ecommunity *ecomdel, bool is_l3,
-				bool auto_only)
-{
-	struct listnode *node = NULL, *nnode = NULL, *node_to_del = NULL;
-	struct vrf_route_target *l3rt = NULL;
-	struct ecommunity *ecom = NULL;
-
-	if (is_l3) {
-		for (ALL_LIST_ELEMENTS(rt_list, node, nnode, l3rt)) {
-			if (auto_only && !CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO))
-				continue;
-
-			if (ecommunity_match(l3rt->ecom, ecomdel)) {
-				evpn_vrf_rt_del(l3rt);
-				node_to_del = node;
-				break;
-			}
-		}
-	} else {
-		for (ALL_LIST_ELEMENTS(rt_list, node, nnode, ecom)) {
-			if (ecommunity_match(ecom, ecomdel)) {
-				ecommunity_free(&ecom);
-				node_to_del = node;
-				break;
-			}
-		}
-	}
-
-	if (node_to_del)
-		list_delete_node(rt_list, node_to_del);
-}
-
-void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
-			 bool is_l3)
-{
-	struct ecommunity *ecom_auto;
-	struct ecommunity_val eval;
-
-	if (bgp->advertise_autort_rfc8365)
-		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
-
-	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
-
-	ecom_auto = ecommunity_new();
-	ecommunity_add_val(ecom_auto, &eval, false, false);
-
-	/* L3 RTs carry flags; when deleting an auto-derived L3 RT, do not
-	 * remove a user-configured RT with the same value.
-	 */
-	rt_list_remove_node(rtl, ecom_auto, is_l3, is_l3);
-
-	ecommunity_free(&ecom_auto);
-}
-
 static void evpn_vrf_rt_routes_map(struct bgp *bgp_vrf)
 {
 	/* map VRFs to its RTs and install routes matching this new RT */
@@ -5876,195 +6340,157 @@ static void evpn_vrf_rt_routes_unmap(struct bgp *bgp_vrf)
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 }
 
-static bool rt_list_has_cfgd_rt(struct list *rt_list)
+/* Remove a route target from a configured route target list and free it */
+static void cfgd_rt_list_del(struct bgp_evpn_cfgd_rt_slu_head *head,
+			     struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
-	struct listnode *node = NULL, *nnode = NULL;
-	struct vrf_route_target *l3rt = NULL;
-
-	for (ALL_LIST_ELEMENTS(rt_list, node, nnode, l3rt)) {
-		if (!CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO))
-			return true;
-	}
-
-	return false;
+	bgp_evpn_cfgd_rt_slu_del(head, cfgd_rt);
+	bgp_evpn_cfgd_rt_free(cfgd_rt);
 }
 
-static void unconfigure_import_rt_for_vrf_fini(struct bgp *bgp_vrf)
+/* Insert a route target into a configured route target list, taking
+ * ownership. Duplicates (normally caught by the CLI) are freed.
+ */
+static void cfgd_rt_list_add(struct bgp_evpn_cfgd_rt_slu_head *head,
+			     struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
-	if (!bgp_vrf->vrf_import_rtl)
-		return; /* this should never fail */
-
-	if (!is_l3vni_live(bgp_vrf))
-		return; /* Nothing to do if no vni */
-
-	/* fall back to auto-generated RT if this was the last RT */
-	if (list_isempty(bgp_vrf->vrf_import_rtl))
-		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
+	if (bgp_evpn_cfgd_rt_slu_add(head, cfgd_rt))
+		bgp_evpn_cfgd_rt_free(cfgd_rt);
 }
 
-static void unconfigure_export_rt_for_vrf_fini(struct bgp *bgp_vrf)
+void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf, struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
-
-	if (!bgp_vrf->vrf_export_rtl)
-		return; /* this should never fail */
-
-	if (!is_l3vni_live(bgp_vrf))
-		return; /* Nothing to do if no vni */
-
-	/* fall back to auto-generated RT if this was the last RT */
-	if (list_isempty(bgp_vrf->vrf_export_rtl))
-		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
-
-	bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
-}
-
-void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
-					  struct ecommunity *ecomadd,
-					  bool is_wildcard)
-{
-	struct vrf_route_target *newrt;
-
-	newrt = evpn_vrf_rt_new(ecomadd);
-
-	if (is_wildcard)
-		SET_FLAG(newrt->flags, BGP_VRF_RT_WILD);
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
 	evpn_vrf_rt_routes_unmap(bgp_vrf);
 
-	/* Remove the implicit auto-generated RT when transitioning to
-	 * configured RTs. If configured RTs already exist, the implicit auto
-	 * RT has already been removed.
-	 */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD) &&
-	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
-		evpn_auto_rt_import_delete_for_vrf(bgp_vrf);
+	cfgd_rt_list_add(&rt_config->cfgd_import, cfgd_rt);
 
-	/* Add the newly configured RT to RT list */
-	listnode_add_sort(bgp_vrf->vrf_import_rtl, newrt);
-
-	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
+	/* This also removes the implicit auto RT, if there was one */
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
 
 	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
-void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf)
+void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf,
+					       enum bgp_evpn_autort_cfgd autort)
 {
-	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	if (rt_config->autort_cfgd_import == autort)
 		return; /* Already configured */
 
-	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD);
+	rt_config->autort_cfgd_import = autort;
 
 	if (!is_l3vni_live(bgp_vrf))
 		return; /* Wait for VNI before adding rts */
 
 	evpn_vrf_rt_routes_unmap(bgp_vrf);
 
-	evpn_auto_rt_import_add_for_vrf(bgp_vrf);
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
 
 	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
 void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
-					    struct ecommunity *ecomdel)
+					    const struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD))
-		return; /* Already un-configured */
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+	struct bgp_evpn_cfgd_rt *existing;
 
 	evpn_vrf_rt_routes_unmap(bgp_vrf);
 
-	/* Remove rt */
-	rt_list_remove_node(bgp_vrf->vrf_import_rtl, ecomdel, true, false);
+	existing = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt);
+	if (existing)
+		cfgd_rt_list_del(&rt_config->cfgd_import, existing);
 
-	if (!rt_list_has_cfgd_rt(bgp_vrf->vrf_import_rtl))
-		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
-
-	unconfigure_import_rt_for_vrf_fini(bgp_vrf);
+	/* This also restores the implicit auto RT if the last manual import
+	 * RT was removed
+	 */
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
 
 	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
 void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf)
 {
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	if (rt_config->autort_cfgd_import == BGP_EVPN_AUTORT_NOT_CFGD)
 		return; /* Already un-configured */
+
+	rt_config->autort_cfgd_import = BGP_EVPN_AUTORT_NOT_CFGD;
 
 	evpn_vrf_rt_routes_unmap(bgp_vrf);
 
-	/* remove auto-generated RT */
-	evpn_auto_rt_import_delete_for_vrf(bgp_vrf);
-
-	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD);
-
-	unconfigure_import_rt_for_vrf_fini(bgp_vrf);
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
 
 	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
-void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
-					  struct ecommunity *ecomadd)
+void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf, struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
-	struct vrf_route_target *newrt;
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
-	newrt = evpn_vrf_rt_new(ecomadd);
+	cfgd_rt_list_add(&rt_config->cfgd_export, cfgd_rt);
 
-	/* Remove the implicit auto-generated RT when transitioning to
-	 * configured RTs. If configured RTs already exist, the implicit auto
-	 * RT has already been removed.
-	 */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD) &&
-	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
-		evpn_auto_rt_export_delete_for_vrf(bgp_vrf);
-
-	/* Add the new RT to the RT list */
-	listnode_add_sort(bgp_vrf->vrf_export_rtl, newrt);
-
-	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
+	/* This also removes the implicit auto RT, if there was one */
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
 
 	if (is_l3vni_live(bgp_vrf))
 		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
-void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf)
+void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf,
+					       enum bgp_evpn_autort_cfgd autort)
 {
-	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	if (rt_config->autort_cfgd_export == autort)
 		return; /* Already configured */
 
-	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD);
+	rt_config->autort_cfgd_export = autort;
 
 	if (!is_l3vni_live(bgp_vrf))
 		return; /* Wait for VNI before adding rts */
 
-	evpn_auto_rt_export_add_for_vrf(bgp_vrf);
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
 
 	bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
 void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
-					    struct ecommunity *ecomdel)
+					    const struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD))
-		return; /* Already un-configured */
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+	struct bgp_evpn_cfgd_rt *existing;
 
-	/* Remove rt */
-	rt_list_remove_node(bgp_vrf->vrf_export_rtl, ecomdel, true, false);
+	existing = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt);
+	if (existing)
+		cfgd_rt_list_del(&rt_config->cfgd_export, existing);
 
-	if (!rt_list_has_cfgd_rt(bgp_vrf->vrf_export_rtl))
-		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
+	/* This also restores the implicit auto RT if the last manual export
+	 * RT was removed
+	 */
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
 
-	unconfigure_export_rt_for_vrf_fini(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
 void bgp_evpn_unconfigure_export_auto_rt_for_vrf(struct bgp *bgp_vrf)
 {
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	if (rt_config->autort_cfgd_export == BGP_EVPN_AUTORT_NOT_CFGD)
 		return; /* Already un-configured */
 
-	/* remove auto-generated RT */
-	evpn_auto_rt_export_delete_for_vrf(bgp_vrf);
+	rt_config->autort_cfgd_export = BGP_EVPN_AUTORT_NOT_CFGD;
 
-	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD);
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
 
-	unconfigure_export_rt_for_vrf_fini(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
 /*
@@ -6681,23 +7107,96 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
  */
 void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf)
 {
-	struct listnode *node, *nnode;
-	struct vrf_route_target *l3rt;
+	struct bgp *bgp_evpn;
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_vrf_wildcard_irt_node *wildcard_irt;
+	struct bgp_evpn_vrf_fq_irt_node *fq_irt;
 
-	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_import_rtl, node, nnode, l3rt))
-		map_vrf_to_rt(bgp_vrf, l3rt);
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn) {
+		flog_err(EC_BGP_NO_DFLT, "vrf import rt map - evpn instance not created yet");
+		return;
+	}
+
+	frr_each (bgp_evpn_effective_wildcard_rt_slu, &bgp_vrf->effective_wildcard_import_rts,
+		  wildcard_rt) {
+		/* Wildcard route targets are matched on the local admin
+		 * value alone.
+		 */
+		wildcard_irt = bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_evpn,
+								     wildcard_rt->local_admin_nbo);
+		if (wildcard_irt && listnode_lookup(wildcard_irt->vrfs, bgp_vrf))
+			continue; /* Already mapped. */
+
+		if (!wildcard_irt)
+			wildcard_irt =
+				bgp_evpn_vrf_wildcard_irt_node_new(bgp_evpn,
+								   wildcard_rt->local_admin_nbo);
+
+		/* Add VRF to the list for this RT. */
+		listnode_add(wildcard_irt->vrfs, bgp_vrf);
+	}
+
+	frr_each (bgp_evpn_effective_fq_rt_slu, &bgp_vrf->effective_fq_import_rts, fq_rt) {
+		fq_irt = bgp_evpn_lookup_vrf_fq_irt_node(bgp_evpn, &fq_rt->ecom_val);
+		if (fq_irt && listnode_lookup(fq_irt->vrfs, bgp_vrf))
+			continue; /* Already mapped. */
+
+		if (!fq_irt)
+			fq_irt = bgp_evpn_vrf_fq_irt_node_new(bgp_evpn, &fq_rt->ecom_val);
+
+		/* Add VRF to the list for this RT. */
+		listnode_add(fq_irt->vrfs, bgp_vrf);
+	}
 }
 
 /*
  * Unmap the RTs (configured or automatically derived) of a VRF from the VRF.
+ * If there are no other VRFs for a RT, then the RT hash entry is deleted.
  */
 void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *bgp_vrf)
 {
-	struct listnode *node, *nnode;
-	struct vrf_route_target *l3rt;
+	struct bgp *bgp_evpn;
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_vrf_wildcard_irt_node *wildcard_irt;
+	struct bgp_evpn_vrf_fq_irt_node *fq_irt;
 
-	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_import_rtl, node, nnode, l3rt))
-		unmap_vrf_from_rt(bgp_vrf, l3rt);
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn) {
+		flog_err(EC_BGP_NO_DFLT, "vrf import rt unmap - evpn instance not created yet");
+		return;
+	}
+
+	frr_each (bgp_evpn_effective_wildcard_rt_slu, &bgp_vrf->effective_wildcard_import_rts,
+		  wildcard_rt) {
+		/* Wildcard route targets are matched on the local admin
+		 * value alone.
+		 */
+		wildcard_irt = bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_evpn,
+								     wildcard_rt->local_admin_nbo);
+		if (!wildcard_irt)
+			continue; /* Not mapped */
+
+		/* Delete VRF from list for this RT. */
+		listnode_delete(wildcard_irt->vrfs, bgp_vrf);
+
+		if (!listnode_head(wildcard_irt->vrfs))
+			bgp_evpn_vrf_wildcard_irt_node_free(bgp_evpn, wildcard_irt);
+	}
+
+	frr_each (bgp_evpn_effective_fq_rt_slu, &bgp_vrf->effective_fq_import_rts, fq_rt) {
+		fq_irt = bgp_evpn_lookup_vrf_fq_irt_node(bgp_evpn, &fq_rt->ecom_val);
+		if (!fq_irt)
+			continue; /* Not mapped */
+
+		/* Delete VRF from list for this RT. */
+		listnode_delete(fq_irt->vrfs, bgp_vrf);
+
+		if (!listnode_head(fq_irt->vrfs))
+			bgp_evpn_vrf_fq_irt_node_free(bgp_evpn, fq_irt);
+	}
 }
 
 /*
@@ -6706,52 +7205,82 @@ void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *bgp_vrf)
  */
 void bgp_evpn_map_vni_to_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	uint32_t i;
-	struct ecommunity_val *eval;
-	struct listnode *node, *nnode;
-	struct ecommunity *ecom;
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
+	struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
 
-	for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom)) {
-		for (i = 0; i < ecom->size; i++) {
-			eval = (struct ecommunity_val *)(ecom->val
-							 + (i
-							    * ECOMMUNITY_SIZE));
-			map_vni_to_rt(bgp, vpn, eval);
-		}
+	frr_each (bgp_evpn_effective_wildcard_rt_slu, &vpn->effective_wildcard_import_rts,
+		  wildcard_rt) {
+		/* Wildcard route targets are matched on the local admin
+		 * value alone. This is to facilitate using VNI as the RT
+		 * for EBGP peering too.
+		 */
+		wildcard_irt = bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp,
+								     wildcard_rt->local_admin_nbo);
+		if (wildcard_irt && listnode_lookup(wildcard_irt->vnis, vpn))
+			continue; /* Already mapped. */
+
+		if (!wildcard_irt)
+			wildcard_irt =
+				bgp_evpn_l2vni_wildcard_irt_node_new(bgp,
+								     wildcard_rt->local_admin_nbo);
+
+		/* Add VNI to the hash list for this RT. */
+		listnode_add(wildcard_irt->vnis, vpn);
+	}
+
+	frr_each (bgp_evpn_effective_fq_rt_slu, &vpn->effective_fq_import_rts, fq_rt) {
+		fq_irt = bgp_evpn_lookup_l2vni_fq_irt_node(bgp, &fq_rt->ecom_val);
+		if (fq_irt && listnode_lookup(fq_irt->vnis, vpn))
+			continue; /* Already mapped. */
+
+		if (!fq_irt)
+			fq_irt = bgp_evpn_l2vni_fq_irt_node_new(bgp, &fq_rt->ecom_val);
+
+		/* Add VNI to the hash list for this RT. */
+		listnode_add(fq_irt->vnis, vpn);
 	}
 }
 
 /*
  * Unmap the RTs (configured or automatically derived) of a VNI from the VNI.
+ * If there are no other VNIs for a RT, then the RT hash entry is deleted.
  */
 void bgp_evpn_unmap_vni_from_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	uint32_t i;
-	struct ecommunity_val *eval;
-	struct listnode *node, *nnode;
-	struct ecommunity *ecom;
+	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
+	struct bgp_evpn_effective_fq_rt *fq_rt;
+	struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
+	struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
 
-	for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom)) {
-		for (i = 0; i < ecom->size; i++) {
-			struct irt_node *irt;
-			struct ecommunity_val eval_tmp;
+	frr_each (bgp_evpn_effective_wildcard_rt_slu, &vpn->effective_wildcard_import_rts,
+		  wildcard_rt) {
+		/* Wildcard route targets are matched on the local admin
+		 * value alone.
+		 */
+		wildcard_irt = bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp,
+								     wildcard_rt->local_admin_nbo);
+		if (!wildcard_irt)
+			continue; /* Not mapped */
 
-			eval = (struct ecommunity_val *)(ecom->val
-							 + (i
-							    * ECOMMUNITY_SIZE));
-			/* If using "automatic" RT, we only care about the
-			 * local-admin sub-field.
-			 * This is to facilitate using VNI as the RT for EBGP
-			 * peering too.
-			 */
-			memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
-			if (!is_import_rt_configured(vpn))
-				mask_ecom_global_admin(&eval_tmp, eval);
+		/* Delete VNI from list for this RT. */
+		listnode_delete(wildcard_irt->vnis, vpn);
 
-			irt = lookup_import_rt(bgp, &eval_tmp);
-			if (irt)
-				unmap_vni_from_rt(bgp, vpn, irt);
-		}
+		if (!listnode_head(wildcard_irt->vnis))
+			bgp_evpn_l2vni_wildcard_irt_node_free(bgp, wildcard_irt);
+	}
+
+	frr_each (bgp_evpn_effective_fq_rt_slu, &vpn->effective_fq_import_rts, fq_rt) {
+		fq_irt = bgp_evpn_lookup_l2vni_fq_irt_node(bgp, &fq_rt->ecom_val);
+		if (!fq_irt)
+			continue; /* Not mapped */
+
+		/* Delete VNI from list for this RT. */
+		listnode_delete(fq_irt->vnis, vpn);
+
+		if (!listnode_head(fq_irt->vnis))
+			bgp_evpn_l2vni_fq_irt_node_free(bgp, fq_irt);
 	}
 }
 
@@ -6761,8 +7290,7 @@ void bgp_evpn_unmap_vni_from_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
  */
 void bgp_evpn_derive_auto_rt_import(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	form_auto_rt(bgp, vpn->vni, vpn->import_rtl, false);
-	UNSET_FLAG(vpn->flags, VNI_FLAG_IMPRT_CFGD);
+	bgp_evpn_l2vni_regenerate_effective_import_rts(bgp, vpn);
 
 	/* Map RT to VNI */
 	bgp_evpn_map_vni_to_its_rts(bgp, vpn);
@@ -6773,8 +7301,7 @@ void bgp_evpn_derive_auto_rt_import(struct bgp *bgp, struct bgpevpn *vpn)
  */
 void bgp_evpn_derive_auto_rt_export(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	form_auto_rt(bgp, vpn->vni, vpn->export_rtl, false);
-	UNSET_FLAG(vpn->flags, VNI_FLAG_EXPRT_CFGD);
+	bgp_evpn_l2vni_regenerate_effective_export_rts(bgp, vpn);
 }
 
 /*
@@ -6840,11 +7367,9 @@ struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni)
 /*
  * Create a new vpn - invoked upon configuration or zebra notification.
  */
-struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-		struct ipaddr *originator_ip,
-		vrf_id_t tenant_vrf_id,
-		struct in_addr mcast_grp,
-		ifindex_t svi_ifindex)
+struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni, struct ipaddr *originator_ip,
+			     vrf_id_t tenant_vrf_id, struct in_addr mcast_grp,
+			     ifindex_t svi_ifindex)
 {
 	struct bgpevpn *vpn;
 
@@ -6858,15 +7383,11 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->svi_ifindex = svi_ifindex;
 	vpn->vxlan_flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
 
-	/* Initialize route-target import and export lists */
-	vpn->import_rtl = list_new();
-	vpn->import_rtl->cmp =
-		(int (*)(void *, void *))bgp_evpn_route_target_cmp;
-	vpn->import_rtl->del = bgp_evpn_xxport_delete_ecomm;
-	vpn->export_rtl = list_new();
-	vpn->export_rtl->cmp =
-		(int (*)(void *, void *))bgp_evpn_route_target_cmp;
-	vpn->export_rtl->del = bgp_evpn_xxport_delete_ecomm;
+	/* Initialize the route-target configuration and effective lists */
+	vpn->rt_config = bgp_evpn_rt_config_new();
+	bgp_evpn_effective_wildcard_rt_slu_init(&vpn->effective_wildcard_import_rts);
+	bgp_evpn_effective_fq_rt_slu_init(&vpn->effective_fq_import_rts);
+	bgp_evpn_effective_fq_rt_slu_init(&vpn->effective_fq_export_rts);
 	bf_assign_index(bm->rd_idspace, vpn->rd_id);
 	derive_rd_rt_for_vni(bgp, vpn);
 
@@ -6903,8 +7424,14 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	bgp_table_unlock(vpn->ip_table);
 	bgp_table_unlock(vpn->mac_table);
 	bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
-	list_delete(&vpn->import_rtl);
-	list_delete(&vpn->export_rtl);
+	bgp_evpn_rt_config_free(vpn->rt_config);
+	vpn->rt_config = NULL;
+	bgp_evpn_effective_wildcard_rt_list_flush(&vpn->effective_wildcard_import_rts);
+	bgp_evpn_effective_wildcard_rt_slu_fini(&vpn->effective_wildcard_import_rts);
+	bgp_evpn_effective_fq_rt_list_flush(&vpn->effective_fq_import_rts);
+	bgp_evpn_effective_fq_rt_slu_fini(&vpn->effective_fq_import_rts);
+	bgp_evpn_effective_fq_rt_list_flush(&vpn->effective_fq_export_rts);
+	bgp_evpn_effective_fq_rt_slu_fini(&vpn->effective_fq_export_rts);
 	bf_release_index(bm->rd_idspace, vpn->rd_id);
 	hash_release(bgp->vni_svi_hash, vpn);
 	hash_release(bgp->vnihash, vpn);
@@ -7365,14 +7892,11 @@ static void link_l2vni_hash_to_l3vni(struct hash_bucket *bucket,
 		bgpevpn_link_to_l3vni(vpn);
 }
 
-int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
-			     struct ethaddr *svi_rmac,
-			     struct ethaddr *vrr_rmac,
-			     struct ipaddr *originator_ip, int filter,
-			     ifindex_t svi_ifindex,
-			     bool is_anycast_mac)
+int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_rmac,
+			     struct ethaddr *vrr_rmac, struct ipaddr *originator_ip, int filter,
+			     ifindex_t svi_ifindex, bool is_anycast_mac)
 {
-	struct bgp *bgp_vrf = NULL; /* bgp VRF instance */
+	struct bgp *bgp_vrf = NULL;  /* bgp VRF instance */
 	struct bgp *bgp_evpn = NULL; /* EVPN bgp instance */
 	struct listnode *node = NULL;
 	struct bgpevpn *vpn = NULL;
@@ -7383,17 +7907,14 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 	 */
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn) {
-		flog_err(
-			EC_BGP_NO_DFLT,
-			"Cannot process L3VNI  %u ADD - EVPN BGP instance not yet created",
-			l3vni);
+		flog_err(EC_BGP_NO_DFLT,
+			 "Cannot process L3VNI  %u ADD - EVPN BGP instance not yet created", l3vni);
 		return -1;
 	}
 
 	if (CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		flog_err(EC_BGP_NO_DFLT,
-			  "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down",
-			  l3vni);
+			 "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down", l3vni);
 		return -1;
 	}
 
@@ -7402,23 +7923,19 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 	/* if the BGP vrf instance doesn't exist - create one */
 	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp_vrf) {
-
 		int ret = 0;
 
 		ret = bgp_get_vty(&bgp_vrf, &as, vrf_id_to_name(vrf_id),
-				  vrf_id == VRF_DEFAULT
-					  ? BGP_INSTANCE_TYPE_DEFAULT
-					  : BGP_INSTANCE_TYPE_VRF,
+				  vrf_id == VRF_DEFAULT ? BGP_INSTANCE_TYPE_DEFAULT
+							: BGP_INSTANCE_TYPE_VRF,
 				  NULL, ASNOTATION_UNDEFINED);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,
-				 "BGP instance is already running; AS is %s",
-				 bgp_vrf->as_pretty);
+				 "BGP instance is already running; AS is %s", bgp_vrf->as_pretty);
 			return -1;
 		case BGP_ERR_INSTANCE_MISMATCH:
-			flog_err(EC_BGP_EVPN_INSTANCE_MISMATCH,
-				 "BGP instance type mismatch");
+			flog_err(EC_BGP_EVPN_INSTANCE_MISMATCH, "BGP instance type mismatch");
 			return -1;
 		}
 
@@ -7481,12 +7998,10 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 		 * that explicitly.
 		 */
 	} else {
-		UNSET_FLAG(bgp_vrf->vrf_flags,
-			   BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);
+		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);
 
 		for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn)) {
 			if (!CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)) {
-
 				/*
 				 * If we are flapping VNI_FLAG_USE_TWO_LABELS
 				 * flag, update all MACIP routes in this VNI
@@ -7497,25 +8012,20 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 		}
 	}
 
-	/* Map auto derive or configured RTs */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD) ||
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
-		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
-	else
-		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
-
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD) ||
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
-		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
+	/* Derive the effective RTs (this includes the auto RT, unless
+	 * suppressed by manual RT configuration) and map the VRF to its
+	 * import RTs
+	 */
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
+	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
 
 	/* auto derive RD */
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 
 	/* link all corresponding l2vnis */
 	hash_iterate(bgp_evpn->vnihash,
-		     (void (*)(struct hash_bucket *,
-			       void *))link_l2vni_hash_to_l3vni,
-		     bgp_vrf);
+		     (void (*)(struct hash_bucket *, void *))link_l2vni_hash_to_l3vni, bgp_vrf);
 
 	/* Only update all corresponding type-2 routes if we are advertising two
 	 * labels along with type-2 routes
@@ -7587,18 +8097,13 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	    !is_zero_mac(&bgp_vrf->evpn_info->pip_rmac))
 		memset(&bgp_vrf->evpn_info->pip_rmac, 0, ETH_ALEN);
 
-	/* remove default import RT or Unmap non-default import RT */
-	if (!list_isempty(bgp_vrf->vrf_import_rtl)) {
-		bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
-		if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD))
-			list_delete_all_node(bgp_vrf->vrf_import_rtl);
-	}
-
-	/* remove default export RT */
-	if (!list_isempty(bgp_vrf->vrf_export_rtl) &&
-	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
-		list_delete_all_node(bgp_vrf->vrf_export_rtl);
-	}
+	/* Unmap the VRF from its import RTs and rederive the effective RTs;
+	 * with the L3VNI gone this removes the auto RTs, while manually
+	 * configured RTs remain
+	 */
+	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
 
 	/* update all corresponding local mac-ip routes */
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY)) {
@@ -7894,22 +8399,43 @@ void bgp_evpn_cleanup_on_disable(struct bgp *bgp)
  */
 void bgp_evpn_cleanup(struct bgp *bgp)
 {
+	struct bgp_evpn_l2vni_fq_irt_node *l2vni_fq_irt;
+	struct bgp_evpn_l2vni_wildcard_irt_node *l2vni_wildcard_irt;
+	struct bgp_evpn_vrf_fq_irt_node *vrf_fq_irt;
+	struct bgp_evpn_vrf_wildcard_irt_node *vrf_wildcard_irt;
+
 	/* Guard against double-call during termination */
 	if (!bgp->vnihash)
 		return;
 
-	hash_iterate(bgp->vnihash,
-		     (void (*)(struct hash_bucket *, void *))free_vni_entry,
-		     bgp);
+	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *, void *))free_vni_entry, bgp);
 
-	hash_clean_and_free(&bgp->import_rt_hash,
-			    (void (*)(void *))hash_import_rt_free);
+	while ((l2vni_fq_irt = bgp_evpn_l2vni_fq_irt_pop(&bgp->l2vni_fq_irt_nodes))) {
+		list_delete(&l2vni_fq_irt->vnis);
+		XFREE(MTYPE_BGP_EVPN_L2VNI_FQ_IRT_NODE, l2vni_fq_irt);
+	}
+	bgp_evpn_l2vni_fq_irt_fini(&bgp->l2vni_fq_irt_nodes);
 
-	hash_clean_and_free(&bgp->vrf_import_rt_hash,
-			    (void (*)(void *))hash_vrf_import_rt_free);
+	while ((l2vni_wildcard_irt =
+			bgp_evpn_l2vni_wildcard_irt_pop(&bgp->l2vni_wildcard_irt_nodes))) {
+		list_delete(&l2vni_wildcard_irt->vnis);
+		XFREE(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IRT_NODE, l2vni_wildcard_irt);
+	}
+	bgp_evpn_l2vni_wildcard_irt_fini(&bgp->l2vni_wildcard_irt_nodes);
 
-	hash_clean_and_free(&bgp->vni_svi_hash,
-			    (void (*)(void *))hash_evpn_free);
+	while ((vrf_fq_irt = bgp_evpn_vrf_fq_irt_pop(&bgp->vrf_fq_irt_nodes))) {
+		list_delete(&vrf_fq_irt->vrfs);
+		XFREE(MTYPE_BGP_EVPN_VRF_FQ_IRT_NODE, vrf_fq_irt);
+	}
+	bgp_evpn_vrf_fq_irt_fini(&bgp->vrf_fq_irt_nodes);
+
+	while ((vrf_wildcard_irt = bgp_evpn_vrf_wildcard_irt_pop(&bgp->vrf_wildcard_irt_nodes))) {
+		list_delete(&vrf_wildcard_irt->vrfs);
+		XFREE(MTYPE_BGP_EVPN_VRF_WILDCARD_IRT_NODE, vrf_wildcard_irt);
+	}
+	bgp_evpn_vrf_wildcard_irt_fini(&bgp->vrf_wildcard_irt_nodes);
+
+	hash_clean_and_free(&bgp->vni_svi_hash, (void (*)(void *))hash_evpn_free);
 
 	/*
 	 * Why is the vnihash freed at the top of this function and
@@ -7917,8 +8443,16 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	 */
 	hash_clean_and_free(&bgp->vnihash, NULL);
 
-	list_delete(&bgp->vrf_import_rtl);
-	list_delete(&bgp->vrf_export_rtl);
+	bgp_evpn_rt_config_free(bgp->vrf_route_target_config);
+	bgp->vrf_route_target_config = NULL;
+
+	bgp_evpn_effective_wildcard_rt_list_flush(&bgp->effective_wildcard_import_rts);
+	bgp_evpn_effective_wildcard_rt_slu_fini(&bgp->effective_wildcard_import_rts);
+	bgp_evpn_effective_fq_rt_list_flush(&bgp->effective_fq_import_rts);
+	bgp_evpn_effective_fq_rt_slu_fini(&bgp->effective_fq_import_rts);
+	bgp_evpn_effective_fq_rt_list_flush(&bgp->effective_fq_export_rts);
+	bgp_evpn_effective_fq_rt_slu_fini(&bgp->effective_fq_export_rts);
+
 	list_delete(&bgp->l2vnis);
 
 	if (bgp->evpn_info) {
@@ -7938,29 +8472,20 @@ void bgp_evpn_cleanup(struct bgp *bgp)
  */
 void bgp_evpn_init(struct bgp *bgp)
 {
-	bgp->vnihash =
-		hash_create(vni_hash_key_make, vni_hash_cmp, "BGP VNI Hash");
-	bgp->vni_svi_hash =
-		hash_create(vni_svi_hash_key_make, vni_svi_hash_cmp,
-			    "BGP VNI hash based on SVI ifindex");
-	bgp->import_rt_hash =
-		hash_create(import_rt_hash_key_make, import_rt_hash_cmp,
-			    "BGP Import RT Hash");
-	bgp->vrf_import_rt_hash =
-		hash_create(vrf_import_rt_hash_key_make, vrf_import_rt_hash_cmp,
-			    "BGP VRF Import RT Hash");
-	bgp->vrf_import_rtl = list_new();
-	bgp->vrf_import_rtl->cmp =
-		(int (*)(void *, void *))evpn_vrf_route_target_cmp;
-	bgp->vrf_import_rtl->del = evpn_vrf_rt_del;
-	bgp->vrf_export_rtl = list_new();
-	bgp->vrf_export_rtl->cmp =
-		(int (*)(void *, void *))evpn_vrf_route_target_cmp;
-	bgp->vrf_export_rtl->del = evpn_vrf_rt_del;
+	bgp->vnihash = hash_create(vni_hash_key_make, vni_hash_cmp, "BGP VNI Hash");
+	bgp->vni_svi_hash = hash_create(vni_svi_hash_key_make, vni_svi_hash_cmp,
+					"BGP VNI hash based on SVI ifindex");
+	bgp_evpn_l2vni_fq_irt_init(&bgp->l2vni_fq_irt_nodes);
+	bgp_evpn_l2vni_wildcard_irt_init(&bgp->l2vni_wildcard_irt_nodes);
+	bgp_evpn_vrf_fq_irt_init(&bgp->vrf_fq_irt_nodes);
+	bgp_evpn_vrf_wildcard_irt_init(&bgp->vrf_wildcard_irt_nodes);
+	bgp->vrf_route_target_config = bgp_evpn_rt_config_new();
+	bgp_evpn_effective_wildcard_rt_slu_init(&bgp->effective_wildcard_import_rts);
+	bgp_evpn_effective_fq_rt_slu_init(&bgp->effective_fq_import_rts);
+	bgp_evpn_effective_fq_rt_slu_init(&bgp->effective_fq_export_rts);
 	bgp->l2vnis = list_new();
 	bgp->l2vnis->cmp = vni_list_cmp;
-	bgp->evpn_info =
-		XCALLOC(MTYPE_BGP_EVPN_INFO, sizeof(struct bgp_evpn_info));
+	bgp->evpn_info = XCALLOC(MTYPE_BGP_EVPN_INFO, sizeof(struct bgp_evpn_info));
 	/* By default Duplicate Address Detection is enabled.
 	 * Max-moves (N) 5, detection time (M) 180
 	 * default action is warning-only

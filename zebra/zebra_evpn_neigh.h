@@ -67,6 +67,9 @@ struct zebra_neigh {
 #define ZEBRA_NEIGH_LOCAL 0x01
 #define ZEBRA_NEIGH_REMOTE 0x02
 #define ZEBRA_NEIGH_REMOTE_NH 0x04 /* neigh entry for remote vtep */
+/* Neighbor is an EVPN default gateway (SVI IP); it is advertised with
+ * the Default Gateway extended community.
+ */
 #define ZEBRA_NEIGH_DEF_GW 0x08
 #define ZEBRA_NEIGH_ROUTER_FLAG 0x10
 #define ZEBRA_NEIGH_DUPLICATE 0x20
