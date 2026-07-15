@@ -966,6 +966,9 @@ def test_evpn_vtep_change():
     Test that changing the originator VTEP IP on a remote TOR removes the
     stale VTEP from ES tables on the receiver.
 
+    Also verifies that local Type-4 (ESR) routes are properly updated when
+    VXLAN tunnel IP changes, preventing stale Type-4 routes.
+
     torm21 has two loopback addresses: 192.168.100.17 (primary) and
     192.168.100.117 (secondary). The VTEP is switched from primary to
     secondary and back to verify stale VTEP cleanup.
@@ -996,17 +999,37 @@ def test_evpn_vtep_change():
     assertmsg = f"torm11: primary VTEP {primary_vtep} not found in ES {esi} initially"
     assert result is None, assertmsg
 
+    # Helper to check that NO Type-4 (ES) route with the given IP exists.
+    # Returns None if no Type-4 prefix contains stale_ip, error string otherwise.
+    def check_type4_ip_not_present(node, stale_ip):
+        output = node.vtysh_cmd("show bgp l2vpn evpn route type es json")
+        data = json.loads(output)
+        for rd_key, rd_data in data.items():
+            if not isinstance(rd_data, dict):
+                continue
+            for key in rd_data.keys():
+                if key.startswith("[4]:") and stale_ip in key:
+                    return f"Type-4 route with stale IP {stale_ip} still present: {key}"
+        return None
+
     # 3. Switch VTEP from primary to secondary (vxlan local IP change
     #    triggers zebra to update ES originator IP and BGP re-advertises)
     remote_tor.run(f"ip link set dev vx-1000 type vxlan local {secondary_vtep}")
 
-    # 4. Verify new VTEP appears and old VTEP is removed
+    # 4.1 Verify new VTEP appears and old VTEP is removed
     test_fn = partial(check_remote_es_vtep_present, dut, esi, secondary_vtep)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
     assertmsg = (
         f"torm11: secondary VTEP {secondary_vtep} not found in ES {esi} after switch"
     )
     assert result is None, assertmsg
+
+    # 4.2 Verify Type-4 route with old(primary IP) is gone on dut
+    test_fn = partial(check_type4_ip_not_present, dut, primary_vtep)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assert (
+        result is None
+    ), f"torm11: {result} (stale Type-4 with primary IP after tunnel IP change)"
 
     test_fn = partial(check_remote_es_vtep_absent, dut, esi, primary_vtep)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
@@ -1021,6 +1044,13 @@ def test_evpn_vtep_change():
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
     assertmsg = f"torm11: primary VTEP {primary_vtep} not restored in ES {esi}"
     assert result is None, assertmsg
+
+    # Verify Type-4 route with old(secondary IP) is gone on dut after restore
+    test_fn = partial(check_type4_ip_not_present, dut, secondary_vtep)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assert (
+        result is None
+    ), f"torm11: {result} (stale Type-4 with secondary IP after restore)"
 
     test_fn = partial(check_remote_es_vtep_absent, dut, esi, secondary_vtep)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
