@@ -486,11 +486,17 @@ void pim_forward_stop(struct pim_ifchannel *ch)
 {
 	struct pim_upstream *up = ch->upstream;
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug("%s: (S,G)=%s oif=%s installed: %d",
 			   __func__, ch->sg_str, ch->interface->name,
 			   up->channel_oil->installed);
 	}
+=======
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: (S,G)=%s oif=%s installed: %d", __func__, origch->sg_str,
+			   origch->interface->name, up->channel_oil->installed);
+>>>>>>> da1b96f62 (pimd: drop redundant null check in pim_forward_stop)
 
 	/*
 	 * If a channel is being removed, check to see if we still need
