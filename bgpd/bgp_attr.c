@@ -1920,6 +1920,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_ATOMIC_AGGREGATE:
 	case BGP_ATTR_PREFIX_SID:
 	case BGP_ATTR_NHC:
+	case BGP_ATTR_LINK_STATE:
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* Core attributes, particularly ones which may influence route
@@ -1939,7 +1940,6 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_CLUSTER_LIST:
 	case BGP_ATTR_PMSI_TUNNEL:
 	case BGP_ATTR_ENCAP:
-	case BGP_ATTR_LINK_STATE:
 	case BGP_ATTR_OTC:
 		return BGP_ATTR_PARSE_WITHDRAW;
 	case BGP_ATTR_MP_REACH_NLRI:
@@ -4260,6 +4260,7 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
 	struct peer_connection *const connection = args->connection;
 	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
+	const size_t attr_startp = stream_get_getp(connection->curr);
 	int ret;
 	struct bgp_ls_attr *ls_attr;
 
@@ -4271,12 +4272,10 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
 	ret = bgp_ls_parse_attr(connection->curr, args->length, ls_attr);
 	if (ret != 0) {
 		bgp_ls_attr_free(ls_attr);
-		/*
-		 * RFC 9552 §5.1 + RFC 7606 §5.4: a malformed BGP-LS TLV
-		 * requires NLRI discard (treat-as-withdraw) while the BGP
-		 * session itself continues.
-		 */
-		return BGP_ATTR_PARSE_WITHDRAW;
+		flog_warn(EC_BGP_LS_PACKET, "%s: malformed BGP-LS Attribute, discarding attribute",
+			  peer->host);
+		stream_set_getp(connection->curr, attr_startp + args->length);
+		return BGP_ATTR_PARSE_PROCEED;
 	}
 
 	bgp_attr_set_ls_attr(attr, bgp_ls_attr_intern(ls_attr));
