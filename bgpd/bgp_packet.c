@@ -484,10 +484,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 		return;
 	}
 
-	/* If a GR restarter, we have to wait till path-selection
-	 * is complete.
-	 */
-	if (!peer->bgp->gr_multihop_peer_exists && bgp_in_graceful_restart()) {
+	/* If a GR restarter, we have to wait till path-selection is complete. */
+	if (!peer->bgp->gr_multihop_peer_exists && peer->bgp->gr_route_sync_pending) {
 		UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
 		return;
 	}
@@ -514,7 +512,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 			if (safi != SAFI_UNICAST && bgp_in_graceful_restart())
 				continue;
 
-			if (peer->bgp->gr_multihop_peer_exists && bgp_in_graceful_restart() &&
+			if (peer->bgp->gr_multihop_peer_exists &&
+			    peer->bgp->gr_route_sync_pending &&
 			    peer->bgp->gr_info[afi][safi].af_enabled &&
 			    !peer->bgp->gr_info[afi][safi].route_sync)
 				continue;
