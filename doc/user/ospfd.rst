@@ -873,6 +873,14 @@ Interfaces
 
       Example:
 
+.. clicmd:: ip ospf weight (1-16777214)
+
+   Configure relative weight for next-hops via this interface associated with
+   multipath routes. The weight is relative and will be used to calculate
+   the actual next-hop weight when compared to all other next-hops for the
+   same route. Kernel next-hop weights will be between 1 and 255. This value
+   is local only and not distributed as part of the OSPF protocol.
+
 .. code-block:: frr
 
    !
