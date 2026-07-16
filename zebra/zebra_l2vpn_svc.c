@@ -464,6 +464,7 @@ static void zebra_evpn_bgp_vni_check(struct zebra_l2vpn_svc *svc)
 
 		goto out;
 	}
+	SET_FLAG(zevpn->flags, ZEVPN_VPWS);
 
 	if (strcmp(svc->ifname, zevpn->vxlan_if->name)) {
 		if (IS_ZEBRA_DEBUG_PW)
@@ -702,6 +703,48 @@ static int zebra_l2vpn_svc_client_close(struct zserv *client)
 static void zebra_l2vpn_svc_init(void)
 {
 	hook_register(zserv_client_close, zebra_l2vpn_svc_client_close);
+}
+
+
+void zebra_l2vpn_svc_vni_add(struct interface *vxlan_if, vni_t vni)
+{
+	struct zebra_vrf *zvrf;
+	struct zebra_l2vpn_svc *svc;
+	struct interface *svc_vxlan_if;
+
+	zvrf = vxlan_if->vrf->info;
+	RB_FOREACH (svc, zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree) {
+		if (svc->data.bgp.vni)
+			continue;
+
+		svc_vxlan_if = if_lookup_by_name(svc->ifname, svc->vrf_id);
+		if (vxlan_if != svc_vxlan_if)
+			continue;
+
+		svc->data.bgp.vni = vni;
+		zebra_evpn_bgp_vni_check(svc);
+
+		return;
+	}
+}
+
+void zebra_l2vpn_svc_vni_del(struct interface *vxlan_if, vni_t vni)
+{
+	struct zebra_vrf *zvrf;
+	struct zebra_l2vpn_svc *svc;
+
+	zvrf = vxlan_if->vrf->info;
+	RB_FOREACH (svc, zebra_l2vpn_svc_head, &zvrf->l2vpn_svc_tree) {
+		if (svc->data.bgp.vni != vni)
+			continue;
+
+		svc->data.bgp.vni = 0;
+		/* Dataplane is uninstall as the nexthop is gone.
+		 * Resend the status to update the vni */
+		zebra_l2vpn_svc_update_status(svc, EVPN_LOCAL_TX_FAULT);
+
+		return;
+	}
 }
 
 void zebra_l2vpn_svc_init_vrf(struct zebra_vrf *zvrf)

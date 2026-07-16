@@ -39,6 +39,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_l2vpn_svc.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN, "VNI hash");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_VTEP, "VNI remote VTEP");
@@ -1212,6 +1213,10 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 		 */
 		zebra_evpn_update_all_es(zevpn);
 	}
+
+	/* update L2VPN VPWS status, if any */
+	zebra_l2vpn_svc_vni_add(zevpn->vxlan_if, zevpn->vni);
+
 	return rc;
 }
 
@@ -1248,6 +1253,13 @@ int zebra_evpn_send_del_to_client(struct zebra_evpn *zevpn)
 			   zebra_route_string(client->proto));
 
 	client->vnidel_cnt++;
+
+	/* update L2VPN VPWS status */
+	if (CHECK_FLAG(zevpn->flags, ZEVPN_VPWS)) {
+	    zebra_l2vpn_svc_vni_del(zevpn->vxlan_if, zevpn->vni);
+	    UNSET_FLAG(zevpn->flags, ZEVPN_VPWS);
+	}
+
 	return zserv_send_message(client, s);
 }
 

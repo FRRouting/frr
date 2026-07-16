@@ -67,6 +67,7 @@ struct zebra_evpn {
 	/* ES flags */
 	uint32_t flags;
 #define ZEVPN_READY_FOR_BGP (1 << 0) /* ready to be sent to BGP */
+#define ZEVPN_VPWS          (1 << 1) /* EVPN VPWS instance */
 
 	/* Corresponding Bridge information */
 	vlanid_t vid;

@@ -201,8 +201,6 @@ void bgp_l2vpn_init(void)
 static bool is_l2vpn_vpws_ready(struct bgp *bgp, struct l2vpn *l2vpn, struct l2vpn_svc *l2vpn_svc,
 				char *errmsg, size_t len)
 {
-	struct interface *ifp;
-
 	if (!l2vpn_svc->enabled) {
 		snprintf(errmsg, len, "status disabled");
 		return false;
@@ -222,13 +220,6 @@ static bool is_l2vpn_vpws_ready(struct bgp *bgp, struct l2vpn *l2vpn, struct l2v
 		snprintf(errmsg, len, "BGP EVPN VNI %u is a L3VNI", l2vpn_svc->vni);
 		return false;
 	}
-
-	ifp = if_lookup_by_name(l2vpn_svc->ifname, bgp->vrf_id);
-	if (!ifp) {
-		snprintf(errmsg, len, "EVPN VPWS interface %s not found", l2vpn_svc->ifname);
-		return false;
-	}
-	l2vpn_svc->ifindex = ifp->ifindex;
 
 	return true;
 }
@@ -438,6 +429,7 @@ bool bgp_l2vpn_vpws_es_add(esi_t esi)
  *  - evpn vpws local status switching from EVPN_LOCAL_TX_FAULT to EVPN_NOT_FORWARDING.
  *  - evpn vpws local status is fell back to EVPN_LOCAL_TX_FAULT.
  *  - local attachment circuit's mtu changed.
+ *  - vni changed
  */
 void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 {
@@ -508,17 +500,32 @@ void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 		    zapi->status == EVPN_NOT_FORWARDING)
 			update_needed = true;
 
+		/* handle vni change */
+		if (l2vpn_svc->vni != zapi->vni) {
+			ifp = if_lookup_by_name(l2vpn_svc->ifname, bgp->vrf_id);
+			if (ifp)
+				l2vpn_svc->ifindex = ifp->ifindex;
+			else
+				l2vpn_svc->ifindex = IFINDEX_INTERNAL;
+
+			update_needed = true;
+		}
+
 		l2vpn_svc->local_status = zapi->status;
 		if (update_needed) {
 			/* send eventual withdraw RT1 */
 			if (CHECK_FLAG(l2vpn_svc->flags, F_EVPN_SEND_REMOTE)) {
 				vpn = bgp_evpn_lookup_vni(bgp, l2vpn_svc->vni);
 				bgp_l2vpn_vpws_local_withdraw(bgp, l2vpn_svc, vpn);
+				l2vpn_svc->remote_status = EVPN_NOT_FORWARDING;
+				l2vpn_svc->lsr_id.s_addr = INADDR_ANY;
+				l2vpn_svc->addr.ipv4.s_addr = INADDR_ANY;
 			}
 
 			/* send update RT1 */
 			l2vpn_svc->vni = zapi->vni;
-			bgp_l2vpn_vpws_run(l2vpn_svc);
+			if (l2vpn_svc->vni)
+				bgp_l2vpn_vpws_run(l2vpn_svc);
 		}
 
 		break;

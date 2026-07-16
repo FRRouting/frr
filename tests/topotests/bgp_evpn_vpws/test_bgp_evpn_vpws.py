@@ -489,6 +489,34 @@ def test_evpn_mix_mode():
     check_ping("host1", "10.10.1.56", True, 10, 3)
 
 
+def test_vni_changes():
+    "Check EVPN VPWS VNI changes"
+
+    tgen = get_topogen()
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+    logger.info("Removing Vxlan101 interface")
+    pe1.run("ip link del vxlan101")
+    pe2.run("ip link del vxlan101")
+    logger.info("Checking EVPN VPWS state is Down")
+    res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101",
+                                "Down")
+    logger.info("Adding Vxlan101 VNI 200 interface")
+    pe1.run("ip link add vxlan101 type vxlan id 200 dstport 4789")
+    pe1.run("ip link set master br101 dev vxlan101")
+    pe1.run("ip link set up dev vxlan101")
+    pe2.run("ip link add vxlan101 type vxlan id 200 dstport 4789")
+    pe2.run("ip link set master br101 dev vxlan101")
+    pe2.run("ip link set up dev vxlan101")
+
+    logger.info("Checking EVPN VPWS VNI 200 state is Up")
+    res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101",
+                                "Up")
+
+    logger.info("Check ping host1 <-> host2")
+    check_ping("host1", "10.10.1.56", True, 10, 3)
+
+
 def _memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
