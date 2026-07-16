@@ -26,6 +26,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib import topotest
+from lib.topolog import logger
 
 
 pytestmark = [pytest.mark.bgpd]
@@ -141,45 +142,102 @@ def _set_expanded_extcomm_list_entries(gear, name, regexes):
     gear.vtysh_cmd("".join(cmd))
 
 
+def _get_route_extcomm_string(gear, prefix):
+    """Return extendedCommunity.string for the best path of prefix."""
+    output = json.loads(gear.vtysh_cmd(f"show ip bgp {prefix} json"))
+    paths = output.get("paths", [])
+    if not paths:
+        return None
+    return paths[0].get("extendedCommunity", {}).get("string")
+
+
 def _bgp_extcomm_list_del_check(gear, prefix, ecom):
     """
     Check the non-presense of the extended community for the given prefix.
     """
-    # get the extended community list attribute for the given prefix
-    output = json.loads(gear.vtysh_cmd(f"show ip bgp {prefix} json"))
-    ecoms = output.get("paths", [])[0].get("extendedCommunity", {})
-    ecoms = ecoms.get("string")
+    ecoms = _get_route_extcomm_string(gear, prefix)
 
     # ecoms might be None at the first time
     if not ecoms:
+        logger.debug("%s: no extendedCommunity yet", prefix)
         return False
-    return re.search(ecom, ecoms) is None
+    if re.search(ecom, ecoms) is not None:
+        logger.debug(
+            "%s: extended community %r still present in %r", prefix, ecom, ecoms
+        )
+        return False
+
+    logger.debug(
+        "%s: extended community %r stripped, remaining %r", prefix, ecom, ecoms
+    )
+    return True
 
 
 def _bgp_extcomm_deleted_and_preserved_check(gear, prefix, deleted, preserved):
     """
     Check one extended community was deleted while another one remains.
     """
-    output = json.loads(gear.vtysh_cmd(f"show ip bgp {prefix} json"))
-    ecoms = output.get("paths", [])[0].get("extendedCommunity", {})
-    ecoms = ecoms.get("string")
+    ecoms = _get_route_extcomm_string(gear, prefix)
 
     if not ecoms:
+        logger.debug("%s: no extendedCommunity yet", prefix)
         return False
-    return re.search(deleted, ecoms) is None and re.search(preserved, ecoms) is not None
+    if re.search(deleted, ecoms) is not None:
+        logger.debug(
+            "%s: extended community %r still present in %r", prefix, deleted, ecoms
+        )
+        return False
+    if re.search(preserved, ecoms) is None:
+        logger.debug(
+            "%s: extended community %r was stripped but %r was not preserved (%r)",
+            prefix,
+            deleted,
+            preserved,
+            ecoms,
+        )
+        return False
+
+    logger.debug(
+        "%s: extended community %r stripped, %r preserved in %r",
+        prefix,
+        deleted,
+        preserved,
+        ecoms,
+    )
+    return True
 
 
 def _bgp_extcomm_list_all_del_check(gear, prefix, ecoms):
     """
     Check the absence of all listed extended communities for the given prefix.
     """
-    output = json.loads(gear.vtysh_cmd(f"show ip bgp {prefix} json"))
-    route_ecoms = output.get("paths", [])[0].get("extendedCommunity", {})
-    route_ecoms = route_ecoms.get("string")
+    route_ecoms = _get_route_extcomm_string(gear, prefix)
 
     if not route_ecoms:
+        logger.debug("%s: all extended communities stripped", prefix)
         return True
-    return all(re.search(ecom, route_ecoms) is None for ecom in ecoms)
+
+    still_present = [ecom for ecom in ecoms if re.search(ecom, route_ecoms)]
+    if still_present:
+        logger.debug(
+            "%s: extended communit%s %r still present in %r",
+            prefix,
+            "y" if len(still_present) == 1 else "ies",
+            still_present,
+            route_ecoms,
+        )
+        return False
+
+    logger.debug("%s: extended communities %r stripped", prefix, ecoms)
+    return True
+
+
+def _assert_extcomm_stripped(test_func, err_msg):
+    """Poll test_func and log an error if the extended community was not stripped."""
+    ok, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    if not ok:
+        logger.error(err_msg)
+    assert result, err_msg
 
 
 def test_rt_extcomm_list_delete():
@@ -190,11 +248,12 @@ def test_rt_extcomm_list_delete():
     _set_extcomm_list(r2, "rt", "1.1.1.1:1")
 
     # check for the deletion of the extended community
-    test_func = functools.partial(
-        _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1"
+    _assert_extcomm_stripped(
+        functools.partial(
+            _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1"
+        ),
+        "RT extended community 1.1.1.1:1 was not stripped.",
     )
-    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
-    assert result, "RT extended community 1.1.1.1:1 was not stripped."
 
 
 def test_soo_extcomm_list_delete():
@@ -205,11 +264,12 @@ def test_soo_extcomm_list_delete():
     _set_extcomm_list(r2, "soo", "2.2.2.2:2")
 
     # check for the deletion of the extended community
-    test_func = functools.partial(
-        _bgp_extcomm_list_del_check, r2, "10.10.10.2/32", r"2.2.2.2:2"
+    _assert_extcomm_stripped(
+        functools.partial(
+            _bgp_extcomm_list_del_check, r2, "10.10.10.2/32", r"2.2.2.2:2"
+        ),
+        "SoO extended community 2.2.2.2:2 was not stripped.",
     )
-    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
-    assert result, "SoO extended community 2.2.2.2:2 was not stripped."
 
 
 def test_nt_extcomm_list_delete():
@@ -220,11 +280,10 @@ def test_nt_extcomm_list_delete():
     _set_extcomm_list(r2, "nt", "3.3.3.3:0")
 
     # check for the deletion of the extended community
-    test_func = functools.partial(
-        _bgp_extcomm_list_del_check, r2, "10.10.10.3/32", r"3.3.3.3"
+    _assert_extcomm_stripped(
+        functools.partial(_bgp_extcomm_list_del_check, r2, "10.10.10.3/32", r"3.3.3.3"),
+        "NT extended community 3.3.3.3:0 was not stripped.",
     )
-    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
-    assert result, "NT extended community 3.3.3.3:0 was not stripped."
 
 
 def test_rt_extcomm_list_expanded_delete():
@@ -238,11 +297,12 @@ def test_rt_extcomm_list_expanded_delete():
     _set_extcomm_list_regex(r2, "rt", "1.1.1.[1-2]:1")
 
     # check for the deletion of the extended community
-    test_func = functools.partial(
-        _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1"
+    _assert_extcomm_stripped(
+        functools.partial(
+            _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1"
+        ),
+        "RT extended community 1.1.1.1:1 was not stripped.",
     )
-    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
-    assert result, "RT extended community 1.1.1.1:1 was not stripped."
 
 
 def test_expanded_soo_extcomm_list_delete_preserves_lb():
@@ -255,15 +315,16 @@ def test_expanded_soo_extcomm_list_delete_preserves_lb():
         r2, "r1-expanded-soo", [r"SoO:51\.1\.1\.1:[0-9]+"]
     )
 
-    test_func = functools.partial(
-        _bgp_extcomm_deleted_and_preserved_check,
-        r2,
-        "10.10.10.4/32",
-        r"SoO:51\.1\.1\.1:11",
-        r"LB:",
+    _assert_extcomm_stripped(
+        functools.partial(
+            _bgp_extcomm_deleted_and_preserved_check,
+            r2,
+            "10.10.10.4/32",
+            r"SoO:51\.1\.1\.1:11",
+            r"LB:",
+        ),
+        "Expanded SoO delete stripped LB or left the matching SoO.",
     )
-    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
-    assert result, "Expanded SoO delete stripped LB or left the matching SoO."
 
 
 def test_expanded_soo_and_lb_extcomm_list_delete():
@@ -276,14 +337,15 @@ def test_expanded_soo_and_lb_extcomm_list_delete():
         [r"LB:.*", r"SoO:([0-9]{1,3}[.]){3}[0-9]{1,3}:[0-9]+"],
     )
 
-    test_func = functools.partial(
-        _bgp_extcomm_list_all_del_check,
-        r2,
-        "10.10.10.5/32",
-        [r"LB:", r"SoO:51\.1\.1\.1:11"],
+    _assert_extcomm_stripped(
+        functools.partial(
+            _bgp_extcomm_list_all_del_check,
+            r2,
+            "10.10.10.5/32",
+            [r"LB:", r"SoO:51\.1\.1\.1:11"],
+        ),
+        "Expanded wildcard delete left LB or the matching SoO.",
     )
-    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
-    assert result, "Expanded wildcard delete left LB or the matching SoO."
 
 
 if __name__ == "__main__":
