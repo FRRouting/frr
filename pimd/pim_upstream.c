@@ -235,6 +235,8 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	prune_timer_stop(up);
 	join_timer_stop(up);
+
+	pim_jp_agg_remove_upstream(pim, up);
 	pim_jp_agg_upstream_verification(up, false);
 	up->rpf.source_nexthop.interface = NULL;
 
