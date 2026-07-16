@@ -849,10 +849,33 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Mon Nov 17 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Wed Jul 15 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
-* Mon Nov 17 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.6.0-dev
-- FRR Development 10.6.0
+* Wed Jul 15 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.8.0-dev
+- FRR Development 10.8.0
+
+* Tue Jul 14 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.7.0
+- New upstream release FRR 10.7.0
+- Major highlights:
+-   BFD authentication with keychain support (cleartext, SHA-1, meticulous)
+-   BGP-LS SRv6 extensions (Capabilities, Locator, SID NLRI, Endpoint Behavior TLVs)
+-   BGP route-map based allowas-in for flexible AS-path loop control
+-   OSPFv2 RFC 4222 control-plane DSCP marking and BFD quick neighbor
+-   PIM IGMP proxy route-map and multicast-source-interface join filtering
+-   PIM dense-mode Assert on multi-access LAN and Auto-RP allow-rp support
+-   Static route per-route metric and nexthop ECMP weight support
+
+* Wed Mar 25 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.6.0
+- New upstream release FRR 10.6.0
+- Major highlights:
+-   EVPN Graceful Restart support and EVPNv6/IPv6 VTEP improvements
+-   BGP labeled-unicast multiple MPLS labels support
+-   BGP software-version capability latest-encoding option
+-   BGP underlay-weight and nexthop-characteristic based ECMP weighting
+-   OSPFv2 forwarding-address-self command
+-   PIM/PIMv6 IGMP/MLD join filtering support
+-   16-bit nexthop weight support and BFD LTTng tracing
+-   Packaging/build defaults moved to libyang3
 
 * Sun Nov 09 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.5.0
 - New upstream release FRR 10.5.0
