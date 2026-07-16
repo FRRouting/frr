@@ -28,6 +28,7 @@ int pim_jp_agg_group_list_cmp(void *arg1, void *arg2);
 void pim_jp_agg_clear_group(struct list *group);
 void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
 		struct pim_neighbor *nbr);
+void pim_jp_agg_remove_upstream(struct pim_instance *pim, struct pim_upstream *up);
 
 void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 		bool is_join, struct pim_neighbor *nbr);
