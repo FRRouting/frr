@@ -76,7 +76,7 @@ def test_bgp_convergence():
                 "bgpState": "Established",
                 "addressFamilyInfo": {
                     "ipv4Unicast": {
-                        "acceptedPrefixCounter": 4,
+                        "acceptedPrefixCounter": 6,
                     }
                 },
             }
@@ -125,6 +125,22 @@ def _set_extcomm_list_regex(gear, ecom_t, ecom):
     )
 
 
+def _set_expanded_extcomm_list_entries(gear, name, regexes):
+    "Set expanded extended community-list entries for deletion."
+    cmd = ["con t\n"]
+    for seq, regex in enumerate(regexes, 1):
+        cmd.append(
+            f"bgp extcommunity-list expanded {name} seq {seq * 5} permit {regex}\n"
+        )
+    cmd.extend(
+        [
+            "route-map r1-in permit 10\n",
+            f"set extended-comm-list delete {name}\n",
+        ]
+    )
+    gear.vtysh_cmd("".join(cmd))
+
+
 def _bgp_extcomm_list_del_check(gear, prefix, ecom):
     """
     Check the non-presense of the extended community for the given prefix.
@@ -138,6 +154,32 @@ def _bgp_extcomm_list_del_check(gear, prefix, ecom):
     if not ecoms:
         return False
     return re.search(ecom, ecoms) is None
+
+
+def _bgp_extcomm_deleted_and_preserved_check(gear, prefix, deleted, preserved):
+    """
+    Check one extended community was deleted while another one remains.
+    """
+    output = json.loads(gear.vtysh_cmd(f"show ip bgp {prefix} json"))
+    ecoms = output.get("paths", [])[0].get("extendedCommunity", {})
+    ecoms = ecoms.get("string")
+
+    if not ecoms:
+        return False
+    return re.search(deleted, ecoms) is None and re.search(preserved, ecoms) is not None
+
+
+def _bgp_extcomm_list_all_del_check(gear, prefix, ecoms):
+    """
+    Check the absence of all listed extended communities for the given prefix.
+    """
+    output = json.loads(gear.vtysh_cmd(f"show ip bgp {prefix} json"))
+    route_ecoms = output.get("paths", [])[0].get("extendedCommunity", {})
+    route_ecoms = route_ecoms.get("string")
+
+    if not route_ecoms:
+        return True
+    return all(re.search(ecom, route_ecoms) is None for ecom in ecoms)
 
 
 def test_rt_extcomm_list_delete():
@@ -201,6 +243,47 @@ def test_rt_extcomm_list_expanded_delete():
     )
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
     assert result, "RT extended community 1.1.1.1:1 was not stripped."
+
+
+def test_expanded_soo_extcomm_list_delete_preserves_lb():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    # Delete the matching SoO with an expanded regex. Other extended
+    # communities on the same route, such as link-bandwidth, must remain.
+    _set_expanded_extcomm_list_entries(
+        r2, "r1-expanded-soo", [r"SoO:51\.1\.1\.1:[0-9]+"]
+    )
+
+    test_func = functools.partial(
+        _bgp_extcomm_deleted_and_preserved_check,
+        r2,
+        "10.10.10.4/32",
+        r"SoO:51\.1\.1\.1:11",
+        r"LB:",
+    )
+    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    assert result, "Expanded SoO delete stripped LB or left the matching SoO."
+
+
+def test_expanded_soo_and_lb_extcomm_list_delete():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    _set_expanded_extcomm_list_entries(
+        r2,
+        "r1-expanded-soo-lb",
+        [r"LB:.*", r"SoO:([0-9]{1,3}[.]){3}[0-9]{1,3}:[0-9]+"],
+    )
+
+    test_func = functools.partial(
+        _bgp_extcomm_list_all_del_check,
+        r2,
+        "10.10.10.5/32",
+        [r"LB:", r"SoO:51\.1\.1\.1:11"],
+    )
+    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    assert result, "Expanded wildcard delete left LB or the matching SoO."
 
 
 if __name__ == "__main__":
