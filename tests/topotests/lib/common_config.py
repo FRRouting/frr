@@ -2078,6 +2078,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     "network",
                     "priority",
                     "cost",
+                    "weight",
                     "mtu_ignore",
                 ]
                 if "ospf" in data:
