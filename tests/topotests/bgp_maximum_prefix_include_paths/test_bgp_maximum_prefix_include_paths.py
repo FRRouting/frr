@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: ISC
 
 """
-Test `maximum-prefix NUMBER include-paths` under ADD-PATH.
+Test `maximum-prefix NUMBER include-additional-paths` under ADD-PATH.
 
 The DUT (r1) receives multiple paths for a *single* prefix (172.16.16.254/32)
 via ADD-PATH: r3 and r4 both originate it, and r2 reflects both paths to r1
 using `addpath-tx-all-paths`. So r1 sees 1 prefix but 2 paths.
 
-With `maximum-prefix 1 include-paths`, the limit is exceeded by the *path*
+With `maximum-prefix 1 include-additional-paths`, the limit is exceeded by the *path*
 count (2 > 1) even though there is only 1 prefix (a prefix-based limit of 1
 would be satisfied). The session is therefore torn down with the Cease
 NOTIFICATION subcode "Maximum Number of Paths Reached" (subcode 11), which
@@ -97,7 +97,7 @@ def test_bgp_maximum_prefix_include_paths():
     assert result is None, "r1 did not receive 2 ADD-PATH paths for the prefix"
 
     step(
-        "Set maximum-prefix 1 (no include-paths): 1 distinct prefix <= 1, both paths kept"
+        "Set maximum-prefix 1 (no include-additional-paths): 1 distinct prefix <= 1, both paths kept"
     )
     r1.vtysh_cmd(
         """
@@ -123,21 +123,21 @@ def test_bgp_maximum_prefix_include_paths():
         "(it must count distinct prefixes, not paths)"
     )
 
-    step("Set maximum-prefix 1 include-paths on r1 (1 prefix, but 2 paths -> exceeds)")
+    step("Set maximum-prefix 1 include-additional-paths on r1 (1 prefix, but 2 paths -> exceeds)")
     r1.vtysh_cmd(
         """
         configure terminal
         router bgp 65001
          address-family ipv4 unicast
-          neighbor 192.168.1.2 maximum-prefix 1 include-paths
+          neighbor 192.168.1.2 maximum-prefix 1 include-additional-paths
         """
     )
 
-    step("Verify include-paths round-trips through running-config")
+    step("Verify include-additional-paths round-trips through running-config")
 
     def _check_running_config():
         output = r1.vtysh_cmd("show running-config")
-        if "neighbor 192.168.1.2 maximum-prefix 1 include-paths" in output:
+        if "neighbor 192.168.1.2 maximum-prefix 1 include-additional-paths" in output:
             return None
         return output
 
@@ -145,7 +145,7 @@ def test_bgp_maximum_prefix_include_paths():
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assert (
         result is None
-    ), "include-paths keyword did not round-trip through running-config"
+    ), "include-additional-paths keyword did not round-trip through running-config"
 
     step("Verify the session is torn down with the path-count Cease reason")
 
@@ -162,13 +162,13 @@ def test_bgp_maximum_prefix_include_paths():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Session was not reset due to received path count"
 
-    step("Raise limit to maximum-prefix 2 include-paths (>= 2 paths) -> recovers")
+    step("Raise limit to maximum-prefix 2 include-additional-paths (>= 2 paths) -> recovers")
     r1.vtysh_cmd(
         """
         configure terminal
         router bgp 65001
          address-family ipv4 unicast
-          neighbor 192.168.1.2 maximum-prefix 2 include-paths
+          neighbor 192.168.1.2 maximum-prefix 2 include-additional-paths
         """
     )
 

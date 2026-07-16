@@ -5373,12 +5373,12 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 	struct peer_connection *connection = peer->connection;
 
 	/*
-	 * `include-paths` bounds the number of received paths; the default
+	 * `include-additional-paths` bounds the number of received paths; the default
 	 * bounds the number of distinct prefixes (under ADD-PATH, RFC 7911, a
 	 * prefix may contribute more than one path). `force` additionally counts
 	 * filtered routes, not only accepted ones. The filtered addend must be
 	 * expressed in the same unit as the base count to stay consistent: paths
-	 * for `include-paths`, distinct prefixes otherwise.
+	 * for `include-additional-paths`, distinct prefixes otherwise.
 	 */
 	if (include_paths)
 		pcount = peer->pcount[afi][safi] +

@@ -1962,7 +1962,8 @@ struct peer {
 #define PEER_STATUS_EXT_OPT_PARAMS_LENGTH	 (1U << 5)
 #define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 6) /* BFD strict hold time expired */
 #define PEER_STATUS_COND_ADV_PENDING		 (1U << 7) /* conditional advertisement pending */
-#define PEER_STATUS_PATH_OVERFLOW		 (1U << 8) /* path-overflow (maximum-prefix include-paths) */
+/* paths-overflow (e.g. maximum-prefix include-additional-paths) */
+#define PEER_STATUS_PATH_OVERFLOW (1U << 8)
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];
@@ -2114,7 +2115,7 @@ struct peer {
 
 	/* Accepted distinct prefix count (counts each prefix once regardless of
 	 * how many ADD-PATH paths were received for it). Used by maximum-prefix
-	 * unless `include-paths` is configured.
+	 * unless `include-additional-paths` is configured.
 	 */
 	uint32_t pcount_prefix[AFI_MAX][SAFI_MAX];
 

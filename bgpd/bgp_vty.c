@@ -9462,7 +9462,7 @@ DEFUN(no_neighbor_maximum_prefix_out,
    each peer configuration. */
 DEFUN (neighbor_maximum_prefix,
        neighbor_maximum_prefix_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) [force] [include-paths]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) [force] [include-additional-paths]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -9479,7 +9479,7 @@ DEFUN (neighbor_maximum_prefix,
 
 	if (argv_find(argv, argc, "force", &idx_force))
 		force = argv[idx_force]->arg;
-	if (argv_find(argv, argc, "include-paths", &idx_include_paths))
+	if (argv_find(argv, argc, "include-additional-paths", &idx_include_paths))
 		include_paths = argv[idx_include_paths]->arg;
 
 	return peer_maximum_prefix_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
@@ -9488,7 +9488,7 @@ DEFUN (neighbor_maximum_prefix,
 }
 
 ALIAS_HIDDEN(neighbor_maximum_prefix, neighbor_maximum_prefix_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) [force] [include-paths]",
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) [force] [include-additional-paths]",
 	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Maximum number of prefix accept from this peer\n"
 	     "maximum no. of prefix limit\n"
@@ -9497,7 +9497,7 @@ ALIAS_HIDDEN(neighbor_maximum_prefix, neighbor_maximum_prefix_hidden_cmd,
 
 DEFUN (neighbor_maximum_prefix_threshold,
        neighbor_maximum_prefix_threshold_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) [force] [include-paths]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) [force] [include-additional-paths]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -9516,7 +9516,7 @@ DEFUN (neighbor_maximum_prefix_threshold,
 
 	if (argv_find(argv, argc, "force", &idx_force))
 		force = argv[idx_force]->arg;
-	if (argv_find(argv, argc, "include-paths", &idx_include_paths))
+	if (argv_find(argv, argc, "include-additional-paths", &idx_include_paths))
 		include_paths = argv[idx_include_paths]->arg;
 
 	return peer_maximum_prefix_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
@@ -9527,7 +9527,7 @@ DEFUN (neighbor_maximum_prefix_threshold,
 ALIAS_HIDDEN(
 	neighbor_maximum_prefix_threshold,
 	neighbor_maximum_prefix_threshold_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) [force] [include-paths]",
+	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) [force] [include-additional-paths]",
 	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Maximum number of prefix accept from this peer\n"
 	"maximum no. of prefix limit\n"
@@ -9537,7 +9537,7 @@ ALIAS_HIDDEN(
 
 DEFUN (neighbor_maximum_prefix_warning,
        neighbor_maximum_prefix_warning_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only [force] [include-paths]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only [force] [include-additional-paths]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -9555,7 +9555,7 @@ DEFUN (neighbor_maximum_prefix_warning,
 
 	if (argv_find(argv, argc, "force", &idx_force))
 		force = argv[idx_force]->arg;
-	if (argv_find(argv, argc, "include-paths", &idx_include_paths))
+	if (argv_find(argv, argc, "include-additional-paths", &idx_include_paths))
 		include_paths = argv[idx_include_paths]->arg;
 
 	return peer_maximum_prefix_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
@@ -9566,7 +9566,7 @@ DEFUN (neighbor_maximum_prefix_warning,
 ALIAS_HIDDEN(
 	neighbor_maximum_prefix_warning,
 	neighbor_maximum_prefix_warning_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only [force] [include-paths]",
+	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only [force] [include-additional-paths]",
 	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Maximum number of prefix accept from this peer\n"
 	"maximum no. of prefix limit\n"
@@ -9576,7 +9576,7 @@ ALIAS_HIDDEN(
 
 DEFUN (neighbor_maximum_prefix_threshold_warning,
        neighbor_maximum_prefix_threshold_warning_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) warning-only [force] [include-paths]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) warning-only [force] [include-additional-paths]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -9596,7 +9596,7 @@ DEFUN (neighbor_maximum_prefix_threshold_warning,
 
 	if (argv_find(argv, argc, "force", &idx_force))
 		force = argv[idx_force]->arg;
-	if (argv_find(argv, argc, "include-paths", &idx_include_paths))
+	if (argv_find(argv, argc, "include-additional-paths", &idx_include_paths))
 		include_paths = argv[idx_include_paths]->arg;
 
 	return peer_maximum_prefix_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
@@ -9607,7 +9607,7 @@ DEFUN (neighbor_maximum_prefix_threshold_warning,
 ALIAS_HIDDEN(
 	neighbor_maximum_prefix_threshold_warning,
 	neighbor_maximum_prefix_threshold_warning_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) warning-only [force] [include-paths]",
+	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) warning-only [force] [include-additional-paths]",
 	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Maximum number of prefix accept from this peer\n"
 	"maximum no. of prefix limit\n"
@@ -9618,7 +9618,7 @@ ALIAS_HIDDEN(
 
 DEFUN (neighbor_maximum_prefix_restart,
        neighbor_maximum_prefix_restart_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535) [force] [include-paths]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535) [force] [include-additional-paths]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -9638,7 +9638,7 @@ DEFUN (neighbor_maximum_prefix_restart,
 
 	if (argv_find(argv, argc, "force", &idx_force))
 		force = argv[idx_force]->arg;
-	if (argv_find(argv, argc, "include-paths", &idx_include_paths))
+	if (argv_find(argv, argc, "include-additional-paths", &idx_include_paths))
 		include_paths = argv[idx_include_paths]->arg;
 
 	return peer_maximum_prefix_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
@@ -9649,7 +9649,7 @@ DEFUN (neighbor_maximum_prefix_restart,
 ALIAS_HIDDEN(
 	neighbor_maximum_prefix_restart,
 	neighbor_maximum_prefix_restart_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535) [force] [include-paths]",
+	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535) [force] [include-additional-paths]",
 	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Maximum number of prefix accept from this peer\n"
 	"maximum no. of prefix limit\n"
@@ -9660,7 +9660,7 @@ ALIAS_HIDDEN(
 
 DEFUN (neighbor_maximum_prefix_threshold_restart,
        neighbor_maximum_prefix_threshold_restart_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535) [force] [include-paths]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535) [force] [include-additional-paths]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefixes to accept from this peer\n"
@@ -9682,7 +9682,7 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
 
 	if (argv_find(argv, argc, "force", &idx_force))
 		force = argv[idx_force]->arg;
-	if (argv_find(argv, argc, "include-paths", &idx_include_paths))
+	if (argv_find(argv, argc, "include-additional-paths", &idx_include_paths))
 		include_paths = argv[idx_include_paths]->arg;
 
 	return peer_maximum_prefix_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
@@ -9694,7 +9694,7 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
 ALIAS_HIDDEN(
 	neighbor_maximum_prefix_threshold_restart,
 	neighbor_maximum_prefix_threshold_restart_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535) [force] [include-paths]",
+	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535) [force] [include-additional-paths]",
 	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Maximum number of prefixes to accept from this peer\n"
 	"maximum no. of prefix limit\n"
@@ -21948,7 +21948,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 				       PEER_FLAG_MAX_PREFIX_FORCE))
 			vty_out(vty, " force");
 		if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS))
-			vty_out(vty, " include-paths");
+			vty_out(vty, " include-additional-paths");
 
 		vty_out(vty, "\n");
 	}
