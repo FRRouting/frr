@@ -49,6 +49,7 @@
 static void pim_if_gm_join_del_all(struct interface *ifp);
 static void pim_if_static_group_del_all(struct interface *ifp);
 static void pim_if_gm_join_replay(struct interface *ifp);
+static void pim_if_static_group_replay(struct interface *ifp);
 
 static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			pim_addr group_addr, pim_addr source_addr,
@@ -724,6 +725,7 @@ void pim_if_addr_add(struct connected *ifc)
 		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
 		pim_if_add_vif(ifp, false, vxlan_term);
 	}
+	pim_if_static_group_replay(ifp);
 	gm_ifp_update(ifp);
 	pim_ifchannel_scan_forward_start(ifp);
 }
@@ -1117,6 +1119,8 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
 	pim_static_reconcile(pim_ifp->pim);
+	if (!ispimreg)
+		pim_if_static_group_replay(ifp);
 	return 0;
 }
 
@@ -1492,13 +1496,54 @@ static void pim_if_gm_join_replay(struct interface *ifp)
 	}
 }
 
+static bool static_group_activate(struct interface *ifp, struct static_group *stgrp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	pim_sgaddr sg;
+
+	if (!pim_ifp || pim_ifp->mroute_vif_index < 0)
+		return false;
+
+	if (stgrp->oilp)
+		return true;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = stgrp->source_addr;
+	sg.grp = stgrp->group_addr;
+
+	if (!tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp))) {
+		zlog_warn("%s: activation failed for static group (S,G)=(%pPA,%pPA) on interface %s",
+			  __func__, &stgrp->source_addr, &stgrp->group_addr, ifp->name);
+		return false;
+	}
+
+	return true;
+}
+
+static void pim_if_static_group_replay(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct static_group *stgrp;
+
+	if (!pim_ifp || !pim_ifp->static_group_list)
+		return;
+
+	if (pim_ifp->mroute_vif_index < 0)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
+		if (!stgrp->oilp)
+			static_group_activate(ifp, stgrp);
+	}
+}
+
 static struct static_group *static_group_new(struct interface *ifp,
 					     pim_addr group_addr,
 					     pim_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
 	struct static_group *stgrp;
-	pim_sgaddr sg;
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
@@ -1509,13 +1554,9 @@ static struct static_group *static_group_new(struct interface *ifp,
 	stgrp->source_addr = source_addr;
 	stgrp->oilp = NULL;
 
-	memset(&sg, 0, sizeof(sg));
-	sg.src = source_addr;
-	sg.grp = group_addr;
-
-	tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
-
 	listnode_add(pim_ifp->static_group_list, stgrp);
+
+	static_group_activate(ifp, stgrp);
 
 	return stgrp;
 }
