@@ -70,7 +70,6 @@ struct l2vpn_svc {
 	/* EVPN flags */
 #define F_EVPN_SEND_REMOTE F_PW_SEND_REMOTE
 #define F_EVPN_NBR_ADDR         (1 << 6) /* EVPN neighbor configured */
-#define F_EVPN_VNI              (1 << 7) /* EVPN VNI configured */
 	uint8_t	 flags;
 
 	/* L2VPN reason code */

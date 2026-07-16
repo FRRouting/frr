@@ -147,14 +147,6 @@ module frr-l2vpn {
             "L2VPN EVPN interface name.";
         }
 
-        leaf vni {
-          must "../../type = 'vpws'";
-          type uint32 {
-            range "0..16777215";
-          }
-          description "The VNI indentifier for BGP EVPN.";
-        }
-
         leaf ignore-mtu-mismatch {
           type boolean;
           default true;

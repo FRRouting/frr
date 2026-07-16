@@ -4559,6 +4559,7 @@ static int bgp_zebra_read_evpn_status_update(ZAPI_CALLBACK_ARGS)
 	stream_get(&evpn_status.esi, zclient->ibuf, sizeof(esi_t));
 	stream_get(evpn_status.local_ac, zclient->ibuf, IFNAMSIZ);
 	evpn_status.mtu = stream_getl(zclient->ibuf);
+	evpn_status.vni = stream_getl(zclient->ibuf);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("%s: EVPN %s status 0x%x local_ac %s mtu %d",

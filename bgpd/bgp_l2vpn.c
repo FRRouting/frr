@@ -77,7 +77,6 @@ static void bgp_l2vpn_entry_deleted(const char *l2vpn_name)
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/local-vsi
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/neighbor-evpn/remote-vsi
- * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/vni
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/ignore-mtu-mismatch
  */
 static void bgp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
@@ -127,15 +126,8 @@ static void bgp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
 
 	vpn = bgp_evpn_lookup_vni(bgp, l2vpn_svc->vni);
 	bgp_l2vpn_vpws_zebra_add(l2vpn_svc, false);
-	if (vpn) {
+	if (vpn)
 		bgp_l2vpn_vpws_local_withdraw(bgp, l2vpn_svc, vpn);
-
-		if (!CHECK_FLAG(l2vpn_svc->flags, F_EVPN_VNI)) {
-			UNSET_FLAG(vpn->flags, VNI_FLAG_VPWS);
-			/* Set down the vpn to be re-evaluated by VNI ADD */
-			UNSET_FLAG(vpn->flags, VNI_FLAG_LIVE);
-		}
-	}
 }
 
 void bgp_l2vpn_vpws_zebra_set(struct bgp *bgp, struct l2vpn_svc *l2vpn_svc, bool on)
@@ -209,7 +201,6 @@ void bgp_l2vpn_init(void)
 static bool is_l2vpn_vpws_ready(struct bgp *bgp, struct l2vpn *l2vpn, struct l2vpn_svc *l2vpn_svc,
 				char *errmsg, size_t len)
 {
-	struct bgpevpn *vpn;
 	struct interface *ifp;
 
 	if (!l2vpn_svc->enabled) {
@@ -227,22 +218,10 @@ static bool is_l2vpn_vpws_ready(struct bgp *bgp, struct l2vpn *l2vpn, struct l2v
 		return false;
 	}
 
-	if (!l2vpn_svc->vni) {
-		snprintf(errmsg, len, "Missing BGP EVPN VNI config");
-		return false;
-	}
-
-	if (l2vpn_svc->vni == bgp->l3vni) {
+	if (l2vpn_svc->vni && l2vpn_svc->vni == bgp->l3vni) {
 		snprintf(errmsg, len, "BGP EVPN VNI %u is a L3VNI", l2vpn_svc->vni);
 		return false;
 	}
-
-	vpn = bgp_evpn_lookup_vni(bgp, l2vpn_svc->vni);
-	if (!vpn) {
-		snprintf(errmsg, len, "Can not find VPN for vni");
-		return false;
-	}
-	l2vpn->br_ifindex = vpn->svi_ifindex;
 
 	ifp = if_lookup_by_name(l2vpn_svc->ifname, bgp->vrf_id);
 	if (!ifp) {
@@ -275,6 +254,7 @@ static void bgp_l2vpn_vpws_run(struct l2vpn_svc *l2vpn_svc)
 
 	bgp = bgp_get_evpn();
 	vpn = bgp_evpn_lookup_vni(bgp, l2vpn_svc->vni);
+	l2vpn_svc->l2vpn->br_ifindex = vpn->svi_ifindex;
 
 	if (!CHECK_FLAG(vpn->flags, VNI_FLAG_VPWS)) {
 		delete_routes_for_vni(bgp, vpn);
@@ -605,6 +585,7 @@ void bgp_l2vpn_svc_update_status(struct zapi_l2vpn_status *zapi)
 			}
 
 			/* send update RT1 */
+			l2vpn_svc->vni = zapi->vni;
 			bgp_l2vpn_vpws_run(l2vpn_svc);
 		}
 

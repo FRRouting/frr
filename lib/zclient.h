@@ -711,6 +711,7 @@ struct zapi_l2vpn_status {
 	uint32_t status;
 	esi_t esi;
 	uint16_t mtu;
+	vni_t vni;
 };
 
 /* IGP instance data associated to a RLFA. */

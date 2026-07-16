@@ -334,22 +334,6 @@ DEFPY_YANG(
 }
 
 DEFPY_YANG(
-	l2vpn_evpn_vni,
-	l2vpn_evpn_vni_cmd,
-	"[no] vni (1-16777215)$vni",
-	NO_STR
-	"When EVPN over vxlan, specify BGP EVPN vni used for this VPWS\n"
-	"BGP EVPN vni value\n")
-{
-	if (no)
-		nb_cli_enqueue_change(vty, "./vni", NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, "./vni", NB_OP_MODIFY, vni_str);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY_YANG(
 	l2vpn_evpn_neighbor,
 	l2vpn_evpn_neighbor_cmd,
 	"[no] neighbor evpn local-vsi (1-16777215)$vsi remote-vsi (1-16777215)$rvsi",
@@ -441,7 +425,6 @@ void l2vpn_cli_init(void)
 	install_element(L2VPN_PSEUDOWIRE_NODE, &l2vpn_pw_id_cmd);
 
 	install_element(L2VPN_EVPN_NODE, &l2vpn_evpn_neighbor_cmd);
-	install_element(L2VPN_EVPN_NODE, &l2vpn_evpn_vni_cmd);
 	install_element(L2VPN_EVPN_NODE, &l2vpn_evpn_ignore_mtu_mismatch_cmd);
 }
 
@@ -539,15 +522,10 @@ static void l2vpn_instance_member_interface_show(struct vty *vty, const struct l
 static void l2vpn_instance_member_evpn_show(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults)
 {
-	uint32_t vni, vsi;
+	uint32_t vsi;
 	const char *name = yang_dnode_get_string(dnode, "./interface");
 
 	vty_out(vty, " member evpn %s\n", name);
-
-	if (yang_dnode_exists(dnode, "./vni")) {
-		vni = yang_dnode_get_uint32(dnode, "./vni");
-		vty_out(vty, "  vni %u\n", vni);
-	}
 
 	if (!yang_dnode_exists(dnode, "./neighbor-evpn/local-vsi"))
 		return;
@@ -624,6 +602,7 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool
 
 			json_object_string_add(json_elt, "memberEVPN", l2vpn_svc->ifname);
 			json_object_int_add(json_elt, "vsi", l2vpn_svc->vsi);
+			json_object_int_add(json_elt, "vni", l2vpn_svc->vni);
 			json_object_string_add(json_elt, "interface",
 					       l2vpn_svc->local_ac[0] ? l2vpn_svc->local_ac
 								      : "<undefined>");
@@ -702,6 +681,7 @@ static void show_l2vpn_vpws(struct vty *vty, const char *name, bool detail, bool
 			vty_out(vty, " AC: %s, state is %s\n",
 				l2vpn_svc->local_ac[0] ? l2vpn_svc->local_ac : "<undefined>",
 				ifp && if_is_operative(ifp) ? "Up" : "Down");
+			vty_out(vty, "     VNI %u\n", l2vpn_svc->vni);
 			vty_out(vty, "     VSI %u\n", l2vpn_svc->vsi);
 			vty_out(vty, "     ESI: %s\n",
 				esi_to_str(&l2vpn_svc->esi, buf_esi, sizeof(buf_esi)));

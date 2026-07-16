@@ -869,68 +869,6 @@ static int l2vpn_instance_member_evpn_neigh_evpn_remote_vsi_destroy(struct nb_cb
 }
 
 /*
- * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/vni
- */
-static int l2vpn_instance_member_evpn_vni_modify(struct nb_cb_modify_args *args)
-{
-	vni_t vni;
-	struct l2vpn_svc *l2vpn_svc;
-
-	vni = yang_dnode_get_uint32(args->dnode, NULL);
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		/* NOTHING */
-		break;
-	case NB_EV_APPLY:
-		l2vpn_svc = nb_running_get_entry(args->dnode, NULL, true);
-		if (l2vpn_svc->vni && l2vpn_svc->vni != vni) {
-			if (l2vpn_lib_master.event_hook) {
-				l2vpn_svc->enabled = false;
-				(*l2vpn_lib_master.event_hook)(l2vpn_svc);
-				l2vpn_svc->enabled = true;
-			}
-		}
-
-		SET_FLAG(l2vpn_svc->flags, F_EVPN_VNI);
-		l2vpn_svc->vni = vni;
-		if (l2vpn_lib_master.event_hook)
-			(*l2vpn_lib_master.event_hook)(l2vpn_svc);
-
-		break;
-	}
-
-	return NB_OK;
-}
-
-static int l2vpn_instance_member_evpn_vni_destroy(struct nb_cb_destroy_args *args)
-{
-	struct l2vpn_svc *l2vpn_svc;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		/* NOTHING */
-		break;
-	case NB_EV_APPLY:
-		l2vpn_svc = nb_running_get_entry(args->dnode, NULL, true);
-		if (l2vpn_lib_master.event_hook) {
-			UNSET_FLAG(l2vpn_svc->flags, F_EVPN_VNI);
-			l2vpn_svc->enabled = false;
-			(*l2vpn_lib_master.event_hook)(l2vpn_svc);
-			l2vpn_svc->enabled = true;
-		}
-
-		l2vpn_svc->vni = 0;
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/ignore-mtu-mismatch
  */
 static int l2vpn_instance_evpn_ignore_mtu_mismatch_modify(struct nb_cb_modify_args *args)
@@ -1067,13 +1005,6 @@ const struct frr_yang_module_info frr_l2vpn = {
 			.cbs = {
 				.modify = l2vpn_instance_member_evpn_neigh_evpn_remote_vsi_modify,
 				.destroy = l2vpn_instance_member_evpn_neigh_evpn_remote_vsi_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-evpn/vni",
-			.cbs = {
-				.modify = l2vpn_instance_member_evpn_vni_modify,
-				.destroy = l2vpn_instance_member_evpn_vni_destroy,
 			}
 		},
 		{

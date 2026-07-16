@@ -77,10 +77,7 @@ struct zebra_l2vpn_svc *zebra_l2vpn_svc_add(struct zebra_vrf *zvrf, const char *
 
 	if (svc->protocol == ZEBRA_ROUTE_BGP) {
 		svc->status = EVPN_NOT_FORWARDING;
-		if (!data.bgp.vni)
-			return svc;
-
-		svc->data.bgp.vni = data.bgp.vni;
+		strlcpy(svc->data.bgp.vpn_name, data.bgp.vpn_name, sizeof(svc->data.bgp.vpn_name));
 		zebra_evpn_bgp_vni_check(svc);
 	}
 
@@ -374,18 +371,88 @@ void zebra_l2vpn_ac_updated(struct interface *ifp, ifindex_t old_bridge_ifindex)
 	}
 }
 
+static int zevpn_find_vni_from_vxlan_if(struct hash_bucket *bucket, void **args)
+{
+	vni_t *vni;
+	struct zebra_evpn *zevpn;
+	struct interface *vxlan_if;
+
+	zevpn = (struct zebra_evpn *)bucket->data;
+	vxlan_if = args[0];
+	vni = (vni_t *)args[1];
+
+	if (zevpn->vxlan_if != vxlan_if)
+		return HASHWALK_CONTINUE;
+
+	*vni = zevpn->vni;
+
+	return HASHWALK_ABORT;
+}
+
+static void zebra_evpn_svc_find_vni(struct zebra_l2vpn_svc *svc)
+{
+	vni_t vni;
+	void *args[2];
+	struct zebra_vrf *zvrf;
+	struct interface *vxlan_if;
+
+	vxlan_if = if_lookup_by_name(svc->ifname, svc->vrf_id);
+
+	if (!vxlan_if) {
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("L2VPN %s VPWS: Fail to get VNI from interface %s",
+				   svc->data.bgp.vpn_name, svc->ifname);
+
+		return;
+	}
+
+	zvrf = zebra_vrf_get_evpn();
+	if (zvrf->vrf->vrf_id != svc->vrf_id) {
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("L2VPN %s VPWS: zebra EVPN VRF id %u, SVC VRF id %u",
+				   svc->data.bgp.vpn_name, zvrf->vrf->vrf_id, svc->vrf_id);
+
+		return;
+	}
+
+	args[0] = vxlan_if;
+	vni = 0;
+	args[1] = &vni;
+	hash_walk(zvrf->evpn_table,
+		     (int (*)(struct hash_bucket *, void *)) zevpn_find_vni_from_vxlan_if, args);
+
+	if (!vni)
+		return;
+
+	svc->data.bgp.vni = vni;
+	if (IS_ZEBRA_DEBUG_PW)
+		zlog_debug("L2VPN %s VPWS: VXLAN interface %s uses VNI %u ",
+			   svc->data.bgp.vpn_name, svc->ifname, vni);
+}
+
 static void zebra_evpn_bgp_vni_check(struct zebra_l2vpn_svc *svc)
 {
+	vni_t vni;
 	int status;
 	struct vrf *vrf;
 	struct zebra_if *zif;
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 	struct zebra_evpn *zevpn;
-	vni_t vni = svc->data.bgp.vni;
 	struct zebra_l2info_brslave *br_slave;
 	struct interface *br_if, *ifp, *ifp_match = NULL;
 
+	if (!svc->data.bgp.vni) {
+		zebra_evpn_svc_find_vni(svc);
+		if (!svc->data.bgp.vni) {
+			if (IS_ZEBRA_DEBUG_PW)
+				zlog_debug("VPWS VXLAN: no VNI for VXLAN interface %s", svc->ifname);
+
+			return;
+		}
+	}
+
+	vni = svc->data.bgp.vni;
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug("VPWS VXLAN: validating reachability for VNI %u", vni);
 
