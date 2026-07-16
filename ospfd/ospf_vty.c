@@ -4113,6 +4113,16 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		else
 			vty_out(vty, "  LSA retransmissions: %u\n",
 				oi->ls_rxmt_lsa);
+
+		/* Interface multipath weight */
+		if (OSPF_IF_PARAM(oi, weight)) {
+			if (use_json)
+				json_object_int_add(json_interface_sub, "weight",
+						    OSPF_IF_PARAM(oi, weight));
+			else
+				vty_out(vty, "  Weight: %llu\n",
+					(unsigned long long)OSPF_IF_PARAM(oi, weight));
+		}
 	}
 }
 
@@ -8142,6 +8152,43 @@ DEFUN_HIDDEN (no_ospf_cost,
               "Address of interface\n")
 {
 	return no_ip_ospf_cost(self, vty, argc, argv);
+}
+
+DEFPY (ip_ospf_weight,
+       ip_ospf_weight_cmd,
+       "[no] ip ospf weight ![(1-16777214)]$weight", NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Interface weight for multipath\n"
+       "Weight\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int change = 0;
+	struct ospf_if_params *params;
+	struct route_node *rn;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	if (!!no)
+		weight = 0;
+
+	if ((unsigned long long)params->weight != (unsigned long long)weight)
+		change = 1;
+	SET_IF_PARAM(params, weight);
+	params->weight = weight;
+
+	if (change) {
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			struct ospf_interface *oi = rn->info;
+
+			if (oi == NULL)
+				continue;
+			ospf_restart_spf(oi->ospf);
+			break;
+		}
+	}
+
+	return CMD_SUCCESS;
 }
 
 static void ospf_nbr_timer_update(struct ospf_interface *oi)
@@ -12396,6 +12443,11 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+			/* Interface Output Weight print. */
+			if (params && params->weight)
+				vty_out(vty, " ip ospf weight %llu\n",
+					(unsigned long long)params->weight);
+
 			/* Hello Interval print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, v_hello)
 			    && params->v_hello != OSPF_HELLO_INTERVAL_DEFAULT) {
@@ -13366,6 +13418,9 @@ static void ospf_vty_if_init(void)
 	/* "ip ospf cost" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_cost_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_cost_cmd);
+
+	/* "ip ospf weight" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_weight_cmd);
 
 	/* "ip ospf mtu-ignore" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_mtu_ignore_addr_cmd);
