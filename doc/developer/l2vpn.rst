@@ -32,9 +32,8 @@ command:
 
 .. code-block:: frr
 
-   l2vpn test vpws
+   l2vpn test type vpws
     member evpn vxlan1
-     vni 1
      neighbor evpn local-vsi 1 remote-vsi 2
 
 These commands are dispatched by the ``VTYSH_L2VPN`` daemons, defined in
@@ -82,6 +81,8 @@ legacy Pseudowires and modern EVPN-based Services.
 
 The ZEBRA L2VPN Service is responsible for the following functions:
 
+* Dynamic VNI updates: Find/Update the vni for the vxlan interface. SDV mode is
+  not supported.
 * Validation: Ensuring the correct setup and parameter consistency for a given
   service.
 * Dataplane: Managing the underlying dataplane installation, ensuring that the
@@ -107,8 +108,9 @@ Service Operational Status
 In the context of EVPN, a service can exist in one of three states:
 
 * ``EVPN_LOCAL_TX_FAULT``: Indicates the service setup is incorrect. This can
-  occur for multiple reasons, such as the local attachment interface being down
-  or not found.
+  occur for two reasons:
+        - the local attachment interface being down or not found.
+        - the vxlan interface being down or not found.
 * ``EVPN_NOT_FORWARDING``: Indicates that while the configuration may be valid,
   the control plane is not yet ready.
 * ``EVPN_FORWARDING``: Indicates that both the control plane and the dataplane
@@ -153,7 +155,6 @@ step. Below is the configuration of BGP EVPN VPWS VXLAN:
    exit
    l2vpn test type vpws
     member evpn vxlan101
-     vni 101
      neighbor evpn local-vsi 111 remote-vsi 222
 
 Let's now check the service status by `show l2vpn <l2vpn_name>`:
@@ -162,11 +163,39 @@ Let's now check the service status by `show l2vpn <l2vpn_name>`:
 
    PE1# show l2vpn test
    Virtual Private Wire Service
-   EVI                 Local/Remote VSI    IFNAME              Status              PROTO
-   ------------------- ------------------- ------------------- ------------------- -------------------
+   EVPN                Local/Remote VSI    ESI                           State     Role      PROTO
+   ------------------- ------------------- ----------------------------- --------- --------- ---------
+   vxlan101            111/222             00:00:00:00:00:00:00:00:00:00 Down      Primary   BGP
 
-The service remains unregistered because VNI 101 and the associated SVI have not
-yet been configured in the system. Let's proceed with the Linux configuration:
+The service is registered to zebra, but remains down. Let's analyse the service
+in detail:
+
+.. code-block:: frr
+
+   PE1# show l2vpn test detail
+   Virtual Private Wire Service
+   EVPN vxlan101
+    AC: <undefined>, state is Down
+        VNI 0
+        VSI 111
+        ESI: 00:00:00:00:00:00:00:00:00:00
+        Status: evpn_local_tx_fault (4)
+        Mode: single-homed
+        Role: Primary
+    Remote VSI 222:
+     neighbor 0.0.0.0, state is Down:
+      Status: [0]
+      MTU: 0
+      Encapsulation VXLAN, VNI 0
+      Ignore MTU mismatch: true
+      Nexthop: 0.0.0.0
+
+The `show l2vpn <l2vpn_name> detail` displays in detail the status of the local
+and the remote. As we can see, the local status is in `evpn_local_tx_fault`,
+referring the reason in the "Service Operational Status" section, the local
+attachment and vni are respectively `<undefined>` and `0`. Actually, the vxlan
+interface and the local attachment have not yet been configured in the system.
+Let's proceed with the Linux configuration:
 
 .. code-block:: console
 
@@ -175,58 +204,39 @@ yet been configured in the system. Let's proceed with the Linux configuration:
    ip link add br101 type bridge
    ip link set br101 master vrf1 addrgenmode none
    ip link set dev br101 up
-   ip link add vxlan102 type vxlan id 101 dstport 4789 local 10.10.10.10 nolearning
+   ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.10.10.10 nolearning
    ip link set dev vxlan101 master br101 addrgenmode none
    ip link set vxlan101 type bridge_slave neigh_suppress on learning off
-
-Let's view more detailed information, use `show l2vpn <l2vpn_name> detail`:
-
-.. code-block:: frr
-
-   PE1# show l2vpn test detail
-   Virtual Private Wire Service
-   EVI 111
-     AC: <undefined>, state is Down
-         VSI 111
-         Status: evpn_local_tx_fault (4)
-     EVPN: neighbor 0.0.0.0, VSI 222, state is Down
-         Status: No Error
-         MTU: 0
-         Encapsulation VXLAN, VNI 101
-         Ignore MTU mismatch: true
-         Nexthop: 0.0.0.0
-
-The output shows that local status is `evpn_local_tx_fault` indicating a setup
-issue, as the local attachment remains undetected by the `zebra`.
-
-Let's attach a physical interface to the bridge `br101`:
-
-.. code-block:: console
-
-   ip link add PE1-eth0 master br101
+   ip link set up dev vxlan101
+   ip link set master br101 dev PE1-eth0
    ip link set up PE1-eth0
 
-Let's check again the service status:
+Let's check again the status of the service in detail:
 
 .. code-block:: frr
 
    PE1# show l2vpn test detail
    Virtual Private Wire Service
-   EVI 111
-     AC: PE1-eth0, state is Up
-         VSI 111
-         Status: evpn_not_forwarding (1)
-     EVPN: neighbor 0.0.0.0, VSI 222, state is Down
-         Status: missing remote EAD-per-EVI
-         MTU: 0
-         Encapsulation VXLAN, VNI 101
-         Ignore MTU mismatch: true
-         Nexthop: 0.0.0.0
+   EVPN vxlan101
+    AC: PE1-eth0, state is Up
+        VNI 101
+        VSI 111
+        ESI: 00:00:00:00:00:00:00:00:00:00
+        Status: evpn_not_forwarding (1)
+        Mode: single-homed
+        Role: Primary
+    Remote VSI 222:
+     neighbor 0.0.0.0, state is Down:
+      Status: missing remote EAD-per-EVI
+      MTU: 0
+      Encapsulation VXLAN, VNI 0
+      Ignore MTU mismatch: true
+      Nexthop: 0.0.0.0
 
-System changes are detected by `zebra`, the bridge `br101` now includes
-`vxlan101` and `PE1-eth0` slaves, the EVPN VPWS requirements are met. `zebra`
+System changes are detected by `zebra`, the bridge `br101` includes `vxlan101`
+and `PE1-eth0` slaves, the EVPN VPWS requirements are met. `zebra`
 then transitions the instance status to `EVPN_NOT_FORWARDING`, which is
-propagated to `bgpd`. This indicates taht BGP is ready to begin its signaling
+propagated to `bgpd`. This indicates that BGP is ready to begin its signaling
 process.
 
 .. note::
@@ -244,10 +254,10 @@ BGP now is ready to originate EAD-per-EVI route to its peer:
    PE1# show bgp l2vpn evpn neighbors 10.30.30.30 advertised-routes
    ...
    Route Distinguisher: 10.10.10.10:1
-    *> [1]:[100]:[00:00:00:00:00:00:00:00:00:00]:[128]:[::]:[0]
+    *> [1]:[111]:[00:00:00:00:00:00:00:00:00:00]:[128]:[::]:[0]
                                   100  32768 i
 
-However, the service is not yet established, the remote peer status is down. As
+However, the service is not yet established, the remote peer state is down. As
 indicated by the status ``missing remote EAD-per-EVI``, the remote peer has not
 yet sent its EAD-per-EVI route.
 
@@ -258,7 +268,7 @@ Once the remote peer is configured to match the EVPN VPWS VXLAN:
    PE1# show bgp l2vpn evpn neighbors 10.30.30.30 routes
    ...
    Route Distinguisher: 10.30.30.30:1
-    *>i [1]:[100]:[00:00:00:00:00:00:00:00:00:00]:[32]:[0.0.0.0]:[0]
+    *>i [1]:[222]:[00:00:00:00:00:00:00:00:00:00]:[32]:[0.0.0.0]:[0]
                         10.30.30.30                   100      0 i
                     RT:65000:1 ET:8 L2: Cflags none, MTU 0
 
@@ -269,16 +279,21 @@ for this instance. The service should now transition to forwarding status:
 
    PE1# show l2vpn test detail
    Virtual Private Wire Service
-   EVI 111
-   AC: PE1-eth0, state is Up
-       VSI 111
-       Status: evpn_forwarding (0)
-   EVPN: neighbor 10.30.30.30, VSI 222, state is Up
-       Status: No Error
-       MTU: 0
-       Encapsulation VXLAN, VNI 101
-       Ignore MTU mismatch: true
-       Nexthop: 10.30.30.30
+   EVPN vxlan101
+    AC: PE1-eth0, state is Up
+        VNI 101
+        VSI 111
+        ESI: 00:00:00:00:00:00:00:00:00:00
+        Status: evpn_not_forwarding (1)
+        Mode: single-homed
+        Role: Primary
+    Remote VSI 222:
+     neighbor 10.30.30.30, state is Up:
+      Status: No Error
+      MTU: 0
+      Encapsulation VXLAN, VNI 101
+      Ignore MTU mismatch: true
+      Nexthop: 10.30.30.30
 
 The local status is in `EVPN_FORWARDING` status, which indicates that a
 default FDB entry has been sucessfully installed by `zebra`, to steer traffic
