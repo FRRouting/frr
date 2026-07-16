@@ -46,6 +46,11 @@
 
 static void pim_if_gm_join_del_all(struct interface *ifp);
 static void pim_if_static_group_del_all(struct interface *ifp);
+<<<<<<< HEAD
+=======
+static void pim_if_gm_join_replay(struct interface *ifp);
+static void pim_if_static_group_replay(struct interface *ifp);
+>>>>>>> c4f34eb62 (pimd: Prevent crash with static groups when ip address is not yet configured)
 
 static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			pim_addr group_addr, pim_addr source_addr,
@@ -734,6 +739,7 @@ void pim_if_addr_add(struct connected *ifc)
 		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
 		pim_if_add_vif(ifp, false, vxlan_term);
 	}
+	pim_if_static_group_replay(ifp);
 	gm_ifp_update(ifp);
 	pim_ifchannel_scan_forward_start(ifp);
 }
@@ -1125,6 +1131,8 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
 	pim_static_reconcile(pim_ifp->pim);
+	if (!ispimreg)
+		pim_if_static_group_replay(ifp);
 	return 0;
 }
 
@@ -1443,13 +1451,101 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	return ij;
 }
 
+<<<<<<< HEAD
+=======
+/* (Re)issue the kernel socket joins for every configured join-group on
+ * the interface, against its current ifindex.  This is what makes
+ * deferred joins (sock_fd == -1, created while the interface had no
+ * ifindex) real, and what re-targets existing joins when the interface
+ * is recreated under a new ifindex.  Entries that fail here keep their
+ * previous socket (or stay deferred) and are retried on the next
+ * replay.
+ */
+static void pim_if_gm_join_replay(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct listnode *nextnode;
+	struct gm_join *ij;
+	int join_fd;
+
+	if (!pim_ifp || !pim_ifp->gm_join_list)
+		return;
+
+	if (ifp->ifindex == IFINDEX_INTERNAL)
+		return;
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
+		/* Open the replacement join before dropping any existing
+		 * membership, so a failed reopen keeps whatever the old
+		 * socket still holds (the kernel refcounts the interface's
+		 * group membership across sockets, so both briefly
+		 * coexisting is fine).
+		 */
+		join_fd = gm_join_sock(ifp->name, ifp->ifindex, ij->group_addr, ij->source_addr,
+				       pim_ifp);
+		if (join_fd < 0) {
+			zlog_warn("%s: gm_join_sock() failure for " GM
+				  " group %pPAs source %pPAs on interface %s",
+				  __func__, &ij->group_addr, &ij->source_addr, ifp->name);
+			/* warning only; keep the existing socket, if any */
+			continue;
+		}
+		if (ij->sock_fd >= 0)
+			close(ij->sock_fd);
+		ij->sock_fd = join_fd;
+	}
+}
+
+static bool static_group_activate(struct interface *ifp, struct static_group *stgrp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	pim_sgaddr sg;
+
+	if (!pim_ifp || pim_ifp->mroute_vif_index < 0)
+		return false;
+
+	if (stgrp->oilp)
+		return true;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = stgrp->source_addr;
+	sg.grp = stgrp->group_addr;
+
+	if (!tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp))) {
+		zlog_warn("%s: activation failed for static group (S,G)=(%pPA,%pPA) on interface %s",
+			  __func__, &stgrp->source_addr, &stgrp->group_addr, ifp->name);
+		return false;
+	}
+
+	return true;
+}
+
+static void pim_if_static_group_replay(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct static_group *stgrp;
+
+	if (!pim_ifp || !pim_ifp->static_group_list)
+		return;
+
+	if (pim_ifp->mroute_vif_index < 0)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
+		if (!stgrp->oilp)
+			static_group_activate(ifp, stgrp);
+	}
+}
+
+>>>>>>> c4f34eb62 (pimd: Prevent crash with static groups when ip address is not yet configured)
 static struct static_group *static_group_new(struct interface *ifp,
 					     pim_addr group_addr,
 					     pim_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
 	struct static_group *stgrp;
-	pim_sgaddr sg;
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
@@ -1460,13 +1556,9 @@ static struct static_group *static_group_new(struct interface *ifp,
 	stgrp->source_addr = source_addr;
 	stgrp->oilp = NULL;
 
-	memset(&sg, 0, sizeof(sg));
-	sg.src = source_addr;
-	sg.grp = group_addr;
-
-	tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
-
 	listnode_add(pim_ifp->static_group_list, stgrp);
+
+	static_group_activate(ifp, stgrp);
 
 	return stgrp;
 }
