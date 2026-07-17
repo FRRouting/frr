@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: ISC
 
+# Copyright (c) 2026 by
+# Donatas Abraitis <donatas@opensourcerouting.org>
+#
+
 """
 Test `maximum-prefix NUMBER include-additional-paths` under ADD-PATH.
 
@@ -32,7 +36,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.common_config import step
 
 pytestmark = [pytest.mark.bgpd]
@@ -102,7 +106,7 @@ def test_bgp_maximum_prefix_include_paths():
     r1.vtysh_cmd(
         """
         configure terminal
-        router bgp 65001
+        router bgp
          address-family ipv4 unicast
           neighbor 192.168.1.2 maximum-prefix 1
         """
@@ -127,7 +131,7 @@ def test_bgp_maximum_prefix_include_paths():
     r1.vtysh_cmd(
         """
         configure terminal
-        router bgp 65001
+        router bgp
          address-family ipv4 unicast
           neighbor 192.168.1.2 maximum-prefix 1 include-additional-paths
         """
@@ -166,7 +170,7 @@ def test_bgp_maximum_prefix_include_paths():
     r1.vtysh_cmd(
         """
         configure terminal
-        router bgp 65001
+        router bgp
          address-family ipv4 unicast
           neighbor 192.168.1.2 maximum-prefix 2 include-additional-paths
         """
