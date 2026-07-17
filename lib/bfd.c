@@ -20,6 +20,7 @@
 #include "lib/json.h"
 #include "bfd.h"
 #include "bfdd/bfd.h"
+#include "libfrr_trace.h"
 
 DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
 DEFINE_MTYPE_STATIC(LIB, BFD_SOURCE, "BFD source cache");
@@ -478,6 +479,10 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 	if (!bsp->args.mhop && bsp->args.family == AF_INET6 &&
 	    IN6_IS_ADDR_LINKLOCAL(&bsp->args.dst) &&
 	    bsp->args.ifnamelen == 0) {
+		frrtrace(5, frr_libfrr, bfd_sess_defer_linklocal_without_intf,
+			 (void *)bsp, (uint32_t)bsp->args.vrf_id,
+			 (uint8_t)bsp->args.family,
+			 &bsp->args.dst, &bsp->args.src);
 		if (bsglobal.debugging)
 			zlog_debug("%s: single-hop link-local session without interface; deferring install",
 				   __func__);
@@ -510,8 +515,18 @@ static void _bfd_sess_send(struct event *t)
 		bsp->args.command = ZEBRA_BFD_DEST_DEREGISTER;
 
 	/* If not installed and asked for uninstall, do nothing. */
-	if (!bsp->installed && bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER)
+	if (!bsp->installed && bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER) {
+		frrtrace(10, frr_libfrr, bfd_sess_send,
+			 (void *)bsp,
+			 bsp->args.ifnamelen ? bsp->args.ifname : NULL,
+			 (uint32_t)bsp->args.vrf_id,
+			 (uint8_t)bsp->args.family,
+			 &bsp->args.dst, &bsp->args.src,
+			 (uint8_t)bsp->lastev,
+			 (int32_t)0, (int)0,
+			 bsp->installed);
 		return;
+	}
 
 	rv = zclient_bfd_command(bsglobal.zc, &bsp->args);
 	/* Command was sent successfully. */
@@ -541,10 +556,29 @@ static void _bfd_sess_send(struct event *t)
 		if (bsp->lastev == BSE_INSTALL)
 			bsp->lastev = BSE_VALID_FOR_INSTALL;
 	}
+
+	frrtrace(10, frr_libfrr, bfd_sess_send,
+		 (void *)bsp,
+		 bsp->args.ifnamelen ? bsp->args.ifname : NULL,
+		 (uint32_t)bsp->args.vrf_id,
+		 (uint8_t)bsp->args.family,
+		 &bsp->args.dst, &bsp->args.src,
+		 (uint8_t)bsp->lastev,
+		 (int32_t)bsp->args.command, rv,
+		 bsp->installed);
 }
 
 static void _bfd_sess_remove(struct bfd_session_params *bsp)
 {
+	frrtrace(7, frr_libfrr, bfd_sess_remove,
+		 bsp,
+		 bsp->args.ifnamelen ? bsp->args.ifname : NULL,
+		 (uint32_t)bsp->args.vrf_id,
+		 (uint8_t)bsp->args.family,
+		 &bsp->args.dst,
+		 bsp->installed,
+		 bsp->installev != NULL);
+
 	/* Cancel any pending installation request. */
 	event_cancel(&bsp->installev);
 
