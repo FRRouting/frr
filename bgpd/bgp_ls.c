@@ -1533,28 +1533,28 @@ static int bgp_ls_originate_bgp_link_internal(struct bgp *bgp, struct peer *peer
 	SET_FLAG(nlri->nlri_data.link.link_desc.present_tlvs, BGP_LS_LINK_DESC_LINK_ID_BIT);
 
 	/* Link Descriptor: IPv4 Neighbor Address (TLV 260) */
-	if (connection && connection->su.sa.sa_family == AF_INET) {
+	if (connection->su.sa.sa_family == AF_INET) {
 		nlri->nlri_data.link.link_desc.ipv4_neigh_addr = connection->su.sin.sin_addr;
 		SET_FLAG(nlri->nlri_data.link.link_desc.present_tlvs,
 			 BGP_LS_LINK_DESC_IPV4_NEIGH_BIT);
 	}
 
 	/* Link Descriptor: IPv6 Neighbor Address (TLV 262) */
-	if (connection && connection->su.sa.sa_family == AF_INET6) {
+	if (connection->su.sa.sa_family == AF_INET6) {
 		nlri->nlri_data.link.link_desc.ipv6_neigh_addr = connection->su.sin6.sin6_addr;
 		SET_FLAG(nlri->nlri_data.link.link_desc.present_tlvs,
 			 BGP_LS_LINK_DESC_IPV6_NEIGH_BIT);
 	}
 
 	/* Link Descriptor: IPv4 Interface Address (TLV 259) */
-	if (connection && connection->su_local && connection->su_local->sa.sa_family == AF_INET) {
+	if (connection->su_local && connection->su_local->sa.sa_family == AF_INET) {
 		nlri->nlri_data.link.link_desc.ipv4_intf_addr = connection->su_local->sin.sin_addr;
 		SET_FLAG(nlri->nlri_data.link.link_desc.present_tlvs,
 			 BGP_LS_LINK_DESC_IPV4_INTF_BIT);
 	}
 
 	/* Link Descriptor: IPv6 Interface Address (TLV 261) */
-	if (connection && connection->su_local && connection->su_local->sa.sa_family == AF_INET6) {
+	if (connection->su_local && connection->su_local->sa.sa_family == AF_INET6) {
 		nlri->nlri_data.link.link_desc.ipv6_intf_addr =
 			connection->su_local->sin6.sin6_addr;
 		SET_FLAG(nlri->nlri_data.link.link_desc.present_tlvs,

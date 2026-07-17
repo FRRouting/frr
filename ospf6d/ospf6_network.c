@@ -41,7 +41,9 @@ static void ospf6_set_pktinfo(int ospf6_sock)
 
 static void ospf6_set_hoplimit(int ospf6_sock)
 {
-	setsockopt_ipv6_hoplimit(ospf6_sock, 1);
+	if (setsockopt_ipv6_hoplimit(ospf6_sock, 1) == -1)
+		zlog_warn("Network: Setting fd %d hoplimit to 1 failed: %s(%d)", ospf6_sock,
+			  safe_strerror(errno), errno);
 }
 
 static void ospf6_set_transport_class(int ospf6_sock)

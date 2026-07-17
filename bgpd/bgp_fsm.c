@@ -2237,7 +2237,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		update_group_remove_peer_afs(peer);
 
 		/* Withdraw Link NLRI for BGP session (local -> peer) */
-		if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		if (bgp->ls_info && bgp->ls_info->enable_distribution)
 			if (bgp_ls_withdraw_bgp_link(bgp, peer) != 0)
 				zlog_warn("BGP-LS: Failed to withdraw link NLRI for peer %s",
 					  peer->host);
@@ -3028,7 +3028,7 @@ bgp_establish(struct peer_connection *connection)
 	}
 
 	/* Generate Link NLRI for BGP session (local -> peer) */
-	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		if (bgp_ls_originate_bgp_link(bgp, peer) != 0)
 			zlog_warn("BGP-LS: Failed to originate link NLRI for peer %s", peer->host);
 

@@ -5745,8 +5745,7 @@ enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp)
 	else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_intf_speed_get_errors, 1,
 					  memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 
 	return result;
