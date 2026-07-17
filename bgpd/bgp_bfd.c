@@ -28,6 +28,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_trace.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_bfd_clippy.c"
 #endif
@@ -504,6 +505,13 @@ void bgp_peer_bfd_update_source(struct peer *p)
 	/* Nothing to do for groups. */
 	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
 		return;
+
+	frrtrace(6, frr_bgp, bfd_update_source_enter,
+		 p->host, p->bgp->vrf_id,
+		 p->connection->su_local != NULL,
+		 (uint8_t)p->connection->status,
+		 peer_established(p->connection),
+		 p->nexthop.ifp != NULL);
 
 	if (bgp_peer_bfd_sync(p) || p->bfd_config->install_pending)
 		bgp_peer_bfd_install(p);
