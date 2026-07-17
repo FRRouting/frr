@@ -800,6 +800,11 @@ def zapi_bfd_command2str(field_val):
     }.get(field_val, f"ZEBRA_CMD_{field_val}")
 
 
+def getsockname_status2str(field_val):
+    """bgp_getsockname() outcome: 0=SUCCESS, -1=FAILURE."""
+    return {0: "SUCCESS", -1: "FAILURE"}.get(field_val, f"UNKNOWN({field_val})")
+
+
 def parse_frr_libfrr_bfd_sess_send(event):
     """Parse BFD client-lib session send events (lib/bfd.c)."""
     family = event.get("family", 0)
@@ -839,6 +844,25 @@ def parse_frr_libfrr_bfd_sess_defer_linklocal_without_intf(event):
                             else f"AF_{x}",
         "dst": lambda x: print_bfd_addr(x, family) if family else "N/A",
         "src": lambda x: print_bfd_addr(x, family) if family else "N/A",
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bfd_update_source_enter(event):
+    """Parse entry to bgp_peer_bfd_update_source() (bgpd/bgp_bfd.c)."""
+    field_parsers = {
+        "fsm_status": bgp_status_to_string,
+        "su_local_present": lambda x: "true" if x else "false",
+        "established": lambda x: "true" if x else "false",
+        "nexthop_ifp_set": lambda x: "true" if x else "false",
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_getsockname_result(event):
+    """Parse bgp_getsockname() result (bgpd/bgp_network.c)."""
+    field_parsers = {
+        "status": getsockname_status2str,
     }
     parse_event(event, field_parsers)
 
@@ -2065,6 +2089,8 @@ def main():
         "frr_libfrr:bfd_sess_remove": parse_frr_libfrr_bfd_sess_remove,
         "frr_libfrr:bfd_sess_defer_linklocal_without_intf":
             parse_frr_libfrr_bfd_sess_defer_linklocal_without_intf,
+        "frr_bgp:bfd_update_source_enter": parse_frr_bgp_bfd_update_source_enter,
+        "frr_bgp:bgp_getsockname_result": parse_frr_bgp_bgp_getsockname_result,
     }
 
     # get the trace path from the first command line argument
