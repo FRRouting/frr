@@ -460,6 +460,30 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 		return false;
 	}
 
+	/*
+	 * Single-hop IPv6 link-local sessions require an outgoing interface.
+	 *
+	 * A link-local (fe80::/10) peer/local pair is not globally unique: on a
+	 * box with many single-hop unnumbered neighbours (e.g. one BGP peer per
+	 * VLAN sub-interface towards the same remote box) every session shares
+	 * the identical link-local src/dst, so the interface (ifindex) is the
+	 * only key that distinguishes them in bfdd.  Sending a REGISTER (or
+	 * DEREGISTER) before the egress interface is known collapses all of
+	 * those sessions onto a single ifindex-less key, and siblings then tear
+	 * each other down - leaving most BFD sessions stuck Down even though BGP
+	 * is Established.  Treat such a session as not-yet-valid and defer the
+	 * install; the client re-drives us (bgp_peer_bfd_update_source) once the
+	 * nexthop interface is resolved.
+	 */
+	if (!bsp->args.mhop && bsp->args.family == AF_INET6 &&
+	    IN6_IS_ADDR_LINKLOCAL(&bsp->args.dst) &&
+	    bsp->args.ifnamelen == 0) {
+		if (bsglobal.debugging)
+			zlog_debug("%s: single-hop link-local session without interface; deferring install",
+				   __func__);
+		return false;
+	}
+
 	/* Check VRF ID. */
 	if (bsp->args.vrf_id == VRF_UNKNOWN) {
 		if (bsglobal.debugging)
