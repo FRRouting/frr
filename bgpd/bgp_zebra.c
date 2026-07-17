@@ -1708,7 +1708,13 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 	 */
 	if (info->sub_type == BGP_ROUTE_AGGREGATE)
 		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
-	else
+	/* UPA routes with D-bit set get blackhole nexthop */
+	else if (CHECK_FLAG(info->flags, BGP_PATH_UPA) &&
+		 CHECK_FLAG(info->flags, BGP_PATH_UPA_DROP)) {
+		if (BGP_DEBUG(upa, UPA))
+			zlog_debug("UPA route %pFX: setting blackhole nexthop (D-bit=1)", p);
+		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
+	} else
 		api.nexthop_num = valid_nh_count;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);

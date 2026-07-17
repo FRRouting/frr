@@ -24,12 +24,23 @@ extern struct zclient *bgp_zclient;
 
 /*
  * Check if the path is eligible for announcing to zebra.
+ * UPA routes are only eligible if D-bit is set (blackhole route).
  */
 static inline bool bgp_zebra_announce_eligible(struct bgp_path_info *pi)
 {
-	return (pi->type == ZEBRA_ROUTE_BGP) &&
-	       ((pi->sub_type == BGP_ROUTE_NORMAL) || (pi->sub_type == BGP_ROUTE_AGGREGATE) ||
-		(pi->sub_type == BGP_ROUTE_IMPORTED));
+	bool subtype_ok = (pi->sub_type == BGP_ROUTE_NORMAL ||
+			   pi->sub_type == BGP_ROUTE_AGGREGATE ||
+			   pi->sub_type == BGP_ROUTE_IMPORTED);
+
+	/* UPA routes (locally originated or received) are only eligible if D-bit is set.
+	 * BGP_PATH_UPA_DROP flag mirrors the D-bit set in the UPA extended community.
+	 */
+	if (CHECK_FLAG(pi->flags, BGP_PATH_UPA))
+		return (pi->type == ZEBRA_ROUTE_BGP) && subtype_ok &&
+		       CHECK_FLAG(pi->flags, BGP_PATH_UPA_DROP);
+
+	/* Keep selective table announce behavior scoped to key subtypes. */
+	return (pi->type == ZEBRA_ROUTE_BGP) && subtype_ok;
 }
 
 extern void bgp_zebra_init(struct event_loop *master, unsigned short instance);

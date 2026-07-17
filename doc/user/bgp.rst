@@ -1389,6 +1389,22 @@ Route Aggregation-IPv4 Address Family
    Similar to `summary-only`, but will only suppress more specific routes that
    are matched by the selected route-map.
 
+.. clicmd:: aggregate-address A.B.C.D/M upa [drop] [max-routes (1-4294967295)]
+
+   Enable Unreachable Prefix Announcement (UPA) for this aggregate. When component
+   routes are withdrawn or become unreachable, UPA routes are originated with
+   the UPA extended community (type 0x03, subtype 0x09) instead of withdrawing
+   the aggregate.
+
+   The optional ``drop`` keyword sets the D-bit in the UPA extended community,
+   signaling to receivers that they should install a blackhole/drop entry for
+   the prefix.
+
+   The ``max-routes`` parameter specifies a cap on the number of simultaneous
+   UPA routes that can be originated for this aggregate (0 = unlimited).
+
+   See :ref:`bgp-upa` for detailed information about UPA configuration and behavior.
+
 
    This configuration example sets up an ``aggregate-address`` under the ipv4
    address-family.
@@ -1442,6 +1458,22 @@ Route Aggregation-IPv6 Address Family
    Similar to `summary-only`, but will only suppress more specific routes that
    are matched by the selected route-map.
 
+.. clicmd:: aggregate-address X:X::X:X/M upa [drop] [max-routes (1-4294967295)]
+
+   Enable Unreachable Prefix Announcement (UPA) for this aggregate. When component
+   routes are withdrawn or become unreachable, UPA routes are originated with
+   the UPA extended community (type 0x03, subtype 0x09) instead of withdrawing
+   the aggregate.
+
+   The optional ``drop`` keyword sets the D-bit in the UPA extended community,
+   signaling to receivers that they should install a blackhole/drop entry for
+   the prefix.
+
+   The ``max-routes`` parameter specifies a cap on the number of simultaneous
+   UPA routes that can be originated for this aggregate (0 = unlimited).
+
+   See :ref:`bgp-upa` for detailed information about UPA configuration and behavior.
+
 
    This configuration example sets up an ``aggregate-address`` under the ipv6
    address-family.
@@ -1456,6 +1488,126 @@ Route Aggregation-IPv6 Address Family
         aggregate-address 50::0/64 route-map aggr-rmap
        exit-address-family
 
+
+.. _bgp-upa:
+
+Unreachable Prefix Announcement (UPA)
+--------------------------------------
+
+Unreachable Prefix Announcement (UPA) is a BGP mechanism defined in
+``draft-ietf-idr-upa-02`` that allows routers to signal that a prefix is
+unreachable without withdrawing the route entirely. This enables downstream
+routers to take appropriate action (such as blackholing traffic) while
+maintaining route presence in the BGP table.
+
+UPA Overview
+^^^^^^^^^^^^
+
+Traditionally, when all component routes of an aggregate disappear, the
+aggregate itself must be withdrawn. UPA solves this by advertising the
+aggregate with a special **UPA Extended Community** (type 0x03, subtype 0x09)
+that contains:
+
+- **Router ID**: The originating router's BGP router ID (4 bytes)
+- **D-bit (Drop flag)**: Whether receivers should install a blackhole entry
+
+When peers receive a route with the UPA extended community, they can:
+
+- Install a blackhole route to drop traffic immediately (D-bit)
+- Apply special policies (rate limiting, diversion to scrubbing centers, etc.)
+- Log/alert on unreachable prefixes
+
+UPA Configuration
+^^^^^^^^^^^^^^^^^
+
+UPA must be enabled on both the aggregate and the BGP neighbor.
+
+**On the aggregate:**
+
+.. code-block:: frr
+
+   router bgp 65001
+    address-family ipv4 unicast
+     aggregate-address 10.0.0.0/8 upa drop max-routes 100
+    exit-address-family
+
+This enables UPA for the aggregate 10.0.0.0/8. When component routes become
+unreachable, UPA routes are originated up to the max-routes limit.
+
+**On the neighbor:**
+
+.. code-block:: frr
+
+   router bgp 65001
+    neighbor 192.0.2.1 remote-as 65002
+    address-family ipv4 unicast
+     neighbor 192.0.2.1 activate
+     neighbor 192.0.2.1 upa
+    exit-address-family
+
+Only neighbors configured with ``neighbor X upa`` will receive UPA-tagged routes;
+others receive normal route withdrawals, maintaining backward compatibility.
+The ``neighbor X upa`` command is documented in :ref:`bgp-peers`.
+
+Global UPA Origination
+^^^^^^^^^^^^^^^^^^^^^^^
+
+In addition to per-aggregate UPA, UPA origination can be enabled globally for an
+address-family. This originates UPA routes for any prefix that becomes
+unreachable, independent of aggregate configuration.
+
+.. clicmd:: upa originate-all
+
+   Enable global UPA origination for the address-family. When any prefix becomes
+   unreachable, a UPA route is originated instead of a plain withdrawal.
+
+.. clicmd:: upa drop
+
+   Set the D-bit in globally originated UPA Extended Communities, signaling
+   receivers to install a blackhole/drop entry.
+
+.. clicmd:: upa max-routes (1-4294967295)
+
+   Limit the maximum number of simultaneous global UPA routes that can be
+   originated for the address-family. The default is ``0`` (unlimited).
+
+UPA Behavior
+^^^^^^^^^^^^
+
+- Aggregate is advertised normally when component routes are present
+- When components are withdrawn, UPA routes are originated with the UPA ExtCom
+- If ``drop`` is configured, the D-bit is set in the UPA extended community,
+  signaling receivers to install a blackhole/drop entry
+- When components become reachable again, UPA routes are automatically withdrawn
+- Multiple UPA originators' Router-IDs are aggregated in a single UPDATE
+  (up to 200 per prefix; a warning is logged above 100)
+- UPA routes always lose best-path selection to non-UPA routes
+
+UPA Show Commands
+^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] [unicast] upa [json]
+
+   Display UPA routes in the BGP routing table. Shows all routes that have
+   the UPA extended community set.
+
+.. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] [unicast] upa statistics [json]
+
+   Display UPA statistics including global UPA configuration state, number of
+   tracked UPA routes, and active UPA route count.
+
+.. clicmd:: show bgp [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> upa [json]
+
+   Display per-neighbor UPA information, including whether UPA sending is
+   enabled for the neighbor.
+
+UPA Debugging
+^^^^^^^^^^^^^
+
+.. clicmd:: debug bgp upa
+
+   Enable debugging of UPA origination, withdrawal, and Extended Community
+   processing.
 
 .. _bgp-redistribute-to-bgp:
 
@@ -1993,6 +2145,22 @@ Configuring Peers
 
    Send the extended RPKI communities to the peer. RPKI extended community
    can be send only to iBGP and eBGP-OAD peers.
+
+   Default: disabled.
+
+.. clicmd:: neighbor PEER upa
+
+   Enable sending UPA (Unreachable Prefix Announcement) routes to this peer.
+   When configured, locally originated UPA routes and received routes carrying
+   the UPA extended community (type 0x03, subtype 0x09) are announced to
+   this neighbor.
+
+   Neighbors without this capability will receive standard route withdrawals
+   when aggregates become unreachable, maintaining backward compatibility.
+
+   This capability must be configured together with the aggregate-address
+   ``upa`` option on the originating router.
+   See :ref:`bgp-upa` for detailed information.
 
    Default: disabled.
 
