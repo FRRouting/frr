@@ -1929,6 +1929,7 @@ struct peer {
 #define PEER_FLAG_MAX_PREFIX_OUT (1ULL << 25)
 #define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 26)
 #define PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS	  (1ULL << 37)
+#define PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS	  (1ULL << 38)
 #define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 27)
 #define PEER_FLAG_SOO (1ULL << 28)
 #define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
@@ -2126,6 +2127,7 @@ struct peer {
 	uint32_t pmax[AFI_MAX][SAFI_MAX];
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];
 	uint16_t pmax_restart[AFI_MAX][SAFI_MAX];
+	uint32_t pmax_additional_paths[AFI_MAX][SAFI_MAX];
 #define MAXIMUM_PREFIX_THRESHOLD_DEFAULT 75
 
 	/* Send prefix count. */
@@ -2913,7 +2915,7 @@ extern int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 
 extern int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t max,
 				   uint8_t threshold, int warning, uint16_t restart, bool force,
-				   bool include_paths);
+				   bool include_paths, uint32_t max_additional_paths);
 extern int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi);
 
 extern void peer_maximum_prefix_out_refresh_routes(struct peer *peer, afi_t afi,

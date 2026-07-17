@@ -5613,6 +5613,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{ PEER_FLAG_MAX_PREFIX_WARNING, 0, peer_change_none },
 	{ PEER_FLAG_MAX_PREFIX_FORCE, 0, peer_change_none },
 	{ PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS, 0, peer_change_none },
+	{ PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS, 0, peer_change_none },
 	{ PEER_FLAG_MAX_PREFIX_OUT, 0, peer_change_none },
 	{ PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED, 0, peer_change_reset_out },
 	{ PEER_FLAG_FORCE_NEXTHOP_SELF, 1, peer_change_reset_out },
@@ -8800,7 +8801,7 @@ static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
 
 int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t max,
 			    uint8_t threshold, int warning, uint16_t restart, bool force,
-			    bool include_paths)
+			    bool include_paths, uint32_t max_additional_paths)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
@@ -8818,6 +8819,14 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t 
 	else
 		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS);
 
+	if (max_additional_paths) {
+		peer_af_flag_set(peer, afi, safi, PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS);
+		peer->pmax_additional_paths[afi][safi] = max_additional_paths;
+	} else {
+		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS);
+		peer->pmax_additional_paths[afi][safi] = 0;
+	}
+
 	if (warning)
 		peer_af_flag_set(peer, afi, safi, PEER_FLAG_MAX_PREFIX_WARNING);
 	else
@@ -8831,10 +8840,10 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		/* Re-check if peer violates maximum-prefix. */
-		if ((peer_established(peer->connection)) &&
-		    (peer->afc[afi][safi]))
-			bgp_maximum_prefix_overflow(peer, afi, safi, 1);
-		else if (!peer_established(peer->connection))
+		if ((peer_established(peer->connection)) && (peer->afc[afi][safi])) {
+			if (!bgp_maximum_prefix_overflow(peer, afi, safi, 1))
+				bgp_maximum_paths_per_prefix_reevaluate(peer, afi, safi);
+		} else if (!peer_established(peer->connection))
 			peer_maximum_prefix_clear_overflow(peer);
 
 		/* Skip peer-group mechanics for regular peers. */
@@ -8868,6 +8877,16 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t 
 		else
 			UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS);
 
+		if (max_additional_paths) {
+			SET_FLAG(member->af_flags[afi][safi],
+				 PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS);
+			member->pmax_additional_paths[afi][safi] = max_additional_paths;
+		} else {
+			UNSET_FLAG(member->af_flags[afi][safi],
+				   PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS);
+			member->pmax_additional_paths[afi][safi] = 0;
+		}
+
 		if (warning)
 			SET_FLAG(member->af_flags[afi][safi],
 				 PEER_FLAG_MAX_PREFIX_WARNING);
@@ -8876,10 +8895,10 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t 
 				   PEER_FLAG_MAX_PREFIX_WARNING);
 
 		/* Re-check if peer violates maximum-prefix. */
-		if ((peer_established(member->connection)) &&
-		    (member->afc[afi][safi]))
-			bgp_maximum_prefix_overflow(member, afi, safi, 1);
-		else if (!peer_established(member->connection))
+		if ((peer_established(member->connection)) && (member->afc[afi][safi])) {
+			if (!bgp_maximum_prefix_overflow(member, afi, safi, 1))
+				bgp_maximum_paths_per_prefix_reevaluate(member, afi, safi);
+		} else if (!peer_established(member->connection))
 			peer_maximum_prefix_clear_overflow(member);
 	}
 
@@ -8896,6 +8915,8 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 		peer_af_flag_inherit(peer, afi, safi,
 				     PEER_FLAG_MAX_PREFIX_WARNING);
 		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS);
+		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS);
+		PEER_ATTR_INHERIT(peer, peer->group, pmax_additional_paths[afi][safi]);
 		PEER_ATTR_INHERIT(peer, peer->group, pmax[afi][safi]);
 		PEER_ATTR_INHERIT(peer, peer->group, pmax_threshold[afi][safi]);
 		PEER_ATTR_INHERIT(peer, peer->group, pmax_restart[afi][safi]);
@@ -8911,6 +8932,8 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_FORCE);
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_WARNING);
 	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS);
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS);
+	peer->pmax_additional_paths[afi][safi] = 0;
 	peer->pmax[afi][safi] = 0;
 	peer->pmax_threshold[afi][safi] = 0;
 	peer->pmax_restart[afi][safi] = 0;
@@ -8938,6 +8961,9 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 			UNSET_FLAG(member->af_flags[afi][safi],
 				   PEER_FLAG_MAX_PREFIX_WARNING);
 			UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS);
+			UNSET_FLAG(member->af_flags[afi][safi],
+				   PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS);
+			member->pmax_additional_paths[afi][safi] = 0;
 			member->pmax[afi][safi] = 0;
 			member->pmax_threshold[afi][safi] = 0;
 			member->pmax_restart[afi][safi] = 0;

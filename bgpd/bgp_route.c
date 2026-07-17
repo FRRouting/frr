@@ -5361,11 +5361,36 @@ static uint32_t bgp_received_prefixes_count(struct peer *peer, afi_t afi, safi_t
 	return count;
 }
 
+static void bgp_maximum_prefix_send_notify(struct peer *peer, afi_t afi, safi_t safi,
+					   uint32_t limit, bool include_paths)
+{
+	iana_afi_t pkt_afi = afi_int2iana(afi);
+	iana_safi_t pkt_safi = safi_int2iana(safi);
+	uint8_t ndata[7];
+
+	ndata[0] = (pkt_afi >> 8);
+	ndata[1] = pkt_afi;
+	ndata[2] = pkt_safi;
+	ndata[3] = (limit >> 24);
+	ndata[4] = (limit >> 16);
+	ndata[5] = (limit >> 8);
+	ndata[6] = limit;
+
+	SET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+	if (include_paths)
+		SET_FLAG(peer->sflags, PEER_STATUS_PATH_OVERFLOW);
+	else
+		UNSET_FLAG(peer->sflags, PEER_STATUS_PATH_OVERFLOW);
+
+	bgp_notify_send_with_data(peer->connection, BGP_NOTIFY_CEASE,
+				  include_paths ? BGP_NOTIFY_CEASE_MAX_PATHS
+						: BGP_NOTIFY_CEASE_MAX_PREFIX,
+				  ndata, 7);
+}
+
 bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 				 int always)
 {
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
 	bool include_paths = CHECK_FLAG(peer->af_flags[afi][safi],
 					PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS);
 	bool force = CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_FORCE);
@@ -5410,30 +5435,8 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			       PEER_FLAG_MAX_PREFIX_WARNING))
 			return false;
 
-		/* Convert AFI, SAFI to values for packet. */
-		pkt_afi = afi_int2iana(afi);
-		pkt_safi = safi_int2iana(safi);
-		{
-			uint8_t ndata[7];
-
-			ndata[0] = (pkt_afi >> 8);
-			ndata[1] = pkt_afi;
-			ndata[2] = pkt_safi;
-			ndata[3] = (peer->pmax[afi][safi] >> 24);
-			ndata[4] = (peer->pmax[afi][safi] >> 16);
-			ndata[5] = (peer->pmax[afi][safi] >> 8);
-			ndata[6] = (peer->pmax[afi][safi]);
-
-			SET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-			if (include_paths)
-				SET_FLAG(peer->sflags, PEER_STATUS_PATH_OVERFLOW);
-			else
-				UNSET_FLAG(peer->sflags, PEER_STATUS_PATH_OVERFLOW);
-			bgp_notify_send_with_data(connection, BGP_NOTIFY_CEASE,
-						  include_paths ? BGP_NOTIFY_CEASE_MAX_PATHS
-								: BGP_NOTIFY_CEASE_MAX_PREFIX,
-						  ndata, 7);
-		}
+		bgp_maximum_prefix_send_notify(peer, afi, safi, peer->pmax[afi][safi],
+					       include_paths);
 
 		/* Dynamic peers will just close their connection. */
 		if (peer_dynamic_neighbor(peer))
@@ -5476,6 +5479,56 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 		UNSET_FLAG(peer->af_sflags[afi][safi],
 			   PEER_STATUS_PREFIX_THRESHOLD);
 	return false;
+}
+
+bool bgp_maximum_paths_per_prefix_overflow(struct peer *peer, struct bgp_dest *dest,
+					   struct bgp_path_info *new, afi_t afi, safi_t safi)
+{
+	struct peer_connection *connection = peer->connection;
+	uint32_t limit;
+	uint32_t existing;
+
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
+		return false;
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS))
+		return false;
+
+	limit = peer->pmax_additional_paths[afi][safi] + 1;
+	existing = bgp_peer_other_counted_paths(dest, new);
+
+	/* Installing `new` yields existing + 1 counted paths for this prefix. */
+	if (existing + 1 <= limit)
+		return false;
+
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING)) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%%MAXPATHPERPFX: %s prefix %pBD from %pBP exceeds per-prefix path limit %u, rejecting extra path",
+				   get_afi_safi_str(afi, safi, false), dest, peer, limit);
+		return true;
+	}
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+		return true;
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%%MAXPATHPERPFX: %s prefix %pBD from %pBP has %u paths, per-prefix limit %u",
+			   get_afi_safi_str(afi, safi, false), dest, peer, existing + 1, limit);
+
+	bgp_maximum_prefix_send_notify(peer, afi, safi, limit, true);
+
+	if (peer_dynamic_neighbor(peer))
+		return true;
+
+	if (peer->pmax_restart[afi][safi]) {
+		peer->v_pmax_restart = peer->pmax_restart[afi][safi] * 60;
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP Maximum-prefix restart timer started for %d secs", peer,
+				   peer->v_pmax_restart);
+		BGP_TIMER_ON(connection->t_pmax_restart, bgp_maximum_prefix_restart_timer,
+			     peer->v_pmax_restart);
+	}
+
+	return true;
 }
 
 /* Unconditionally remove the route from the RIB, without taking
@@ -5569,6 +5622,76 @@ static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, stru
 	bgp_ls_withdraw_bgp_prefix(peer->bgp, afi, safi, dest, pi);
 
 	bgp_rib_remove(dest, pi, peer, afi, safi);
+}
+
+void bgp_maximum_paths_per_prefix_reevaluate(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct peer_connection *connection = peer->connection;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+	uint32_t limit;
+	bool warning;
+
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
+		return;
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS))
+		return;
+	if (!peer_established(connection) || !peer->afc[afi][safi])
+		return;
+
+	limit = peer->pmax_additional_paths[afi][safi] + 1;
+	warning = CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
+	table = peer->bgp->rib[afi][safi];
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		struct bgp_path_info *pi, *next;
+		const struct prefix *p;
+		uint32_t count = 0;
+		uint32_t kept;
+
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+			if (pi->peer == peer && CHECK_FLAG(pi->flags, BGP_PATH_COUNTED))
+				count++;
+
+		if (count <= limit)
+			continue;
+
+		p = bgp_dest_get_prefix(dest);
+
+		if (!warning) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%%MAXPATHPERPFX: %s prefix %pBD from %pBP has %u paths, per-prefix limit %u",
+					   get_afi_safi_str(afi, safi, false), dest, peer, count,
+					   limit);
+			bgp_maximum_prefix_send_notify(peer, afi, safi, limit, true);
+			if (!peer_dynamic_neighbor(peer) && peer->pmax_restart[afi][safi]) {
+				peer->v_pmax_restart = peer->pmax_restart[afi][safi] * 60;
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%pBP Maximum-prefix restart timer started for %d secs",
+						   peer, peer->v_pmax_restart);
+				BGP_TIMER_ON(connection->t_pmax_restart,
+					     bgp_maximum_prefix_restart_timer,
+					     peer->v_pmax_restart);
+			}
+			bgp_dest_unlock_node(dest);
+			return;
+		}
+
+		kept = 0;
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = next) {
+			next = pi->next;
+			if (pi->peer != peer || !CHECK_FLAG(pi->flags, BGP_PATH_COUNTED))
+				continue;
+			if (kept < limit) {
+				kept++;
+				continue;
+			}
+			bgp_rib_withdraw(p, dest, pi, peer, afi, safi, NULL);
+		}
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%%MAXPATHPERPFX: %s prefix %pBD from %pBP capped to %u paths (per-prefix limit)",
+				   get_afi_safi_str(afi, safi, false), dest, peer, limit);
+	}
 }
 
 struct bgp_path_info *info_make(int type, int sub_type, unsigned short instance,
@@ -6763,6 +6886,15 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 */
 	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
 		reason = "maximum-prefix overflow";
+		bgp_attr_flush(&new_attr);
+		goto filtered;
+	}
+
+	/* Per-prefix path cap (maximum-additional-paths). `new` carries `peer`
+	 * (set by info_make above) and is not yet linked into `dest`.
+	 */
+	if (bgp_maximum_paths_per_prefix_overflow(peer, dest, new, afi, safi)) {
+		reason = "maximum-additional-paths overflow";
 		bgp_attr_flush(&new_attr);
 		goto filtered;
 	}
