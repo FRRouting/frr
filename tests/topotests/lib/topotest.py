@@ -1988,49 +1988,6 @@ class Router(Node):
         if g_pytest_config.name_in_option_list(self.name, "--vtysh"):
             self.run_in_window("vtysh", title="vt-%s" % self.name)
 
-        if self.unified_config:
-            # Check that none of the datastores are locked before proceeding
-            def check_datastores_unlocked():
-                """Check that all datastores are unlocked"""
-                try:
-                    logger.info("Checking datastores on router %s", self.name)
-                    output = self.cmd("vtysh -c 'show mgmt datastore all'")
-                    # Check if any datastore is locked
-                    for line in output.splitlines():
-                        logger.info("Line: %s", line)
-                        if "Locked:" in line and "True" in line:
-                            logger.info("Datastore is locked on router %s", self.name)
-                            return False
-                    logger.info("Datastores are unlocked on router %s", self.name)
-                    return True
-                except Exception:
-                    # If command fails, assume datastores are unlocked
-                    return True
-
-            # Use run_and_expect to wait for datastores to be unlocked
-            result, _ = run_and_expect(
-                check_datastores_unlocked, True, count=30, wait=1
-            )
-            if not result:
-                logger.error(
-                    "Datastores are still locked on router %s, cannot proceed with config load",
-                    self.name,
-                )
-                return "Datastores are locked, cannot proceed with config load"
-
-            # By default, render frr.conf into the running config via vtysh.
-            # Tests that want to drive config via frr-reload.py (or other
-            # mechanisms) can set skip_unified_vtysh = True on the router
-            # instance before calling start_router().
-            if not self.skip_unified_vtysh:
-                self.cmd("vtysh -f /etc/frr/frr.conf")
-            else:
-                logger.info(
-                    "%s: skipping initial 'vtysh -f /etc/frr/frr.conf'; "
-                    "config will be applied externally (e.g., via frr-reload.py)",
-                    self.name,
-                )
-
         return status
 
     def getStdErr(self, daemon):
@@ -2632,6 +2589,54 @@ class Router(Node):
 
         for tailf in tail_log_files:
             self.run_in_window("tail -n10000 -F " + tailf, title=tailf, background=True)
+
+        if self.unified_config:
+            # Check that none of the datastores are locked before proceeding
+            def check_datastores_unlocked():
+                """Check that all datastores are unlocked"""
+                try:
+                    logger.info("Checking datastores on router %s", self.name)
+                    output = self.cmd("vtysh -c 'show mgmt datastore all'")
+                    # Check if any datastore is locked
+                    for line in output.splitlines():
+                        logger.info("Line: %s", line)
+                        if "Locked:" in line and "True" in line:
+                            logger.info("Datastore is locked on router %s", self.name)
+                            return False
+                    logger.info("Datastores are unlocked on router %s", self.name)
+                    return True
+                except Exception:
+                    # If command fails, assume datastores are unlocked
+                    return True
+
+            # Use run_and_expect to wait for datastores to be unlocked
+            result, _ = run_and_expect(
+                check_datastores_unlocked, True, count=30, wait=1
+            )
+            if not result:
+                logger.error(
+                    "Datastores are still locked on router %s, cannot proceed with config load",
+                    self.name,
+                )
+                return "Datastores are locked, cannot proceed with config load"
+
+            # By default, render frr.conf into the running config via vtysh.
+            # This also (re-)applies configuration for daemons that were
+            # just (re-)started individually, e.g. after a single daemon is
+            # killed and restarted with startDaemons()/kill_router_daemons(),
+            # since such daemons don't read /etc/frr/frr.conf on their own in
+            # unified-config mode.
+            # Tests that want to drive config via frr-reload.py (or other
+            # mechanisms) can set skip_unified_vtysh = True on the router
+            # instance before calling start_router().
+            if not self.skip_unified_vtysh:
+                self.cmd("vtysh -f /etc/frr/frr.conf")
+            else:
+                logger.info(
+                    "%s: skipping 'vtysh -f /etc/frr/frr.conf'; "
+                    "config will be applied externally (e.g., via frr-reload.py)",
+                    self.name,
+                )
 
         return ""
 
