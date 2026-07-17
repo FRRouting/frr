@@ -2000,7 +2000,7 @@ Configuring Peers
 
    This command specifies a default `weight` value for the neighbor's routes.
 
-.. clicmd:: neighbor PEER maximum-prefix NUMBER [force] [include-additional-paths]
+.. clicmd:: neighbor PEER maximum-prefix NUMBER [force] [<include-additional-paths|maximum-additional-paths (1-65535)>]
 
    Sets a maximum number of prefixes we can receive from a given peer. If this
    number is exceeded, the BGP session will be destroyed. By default the limit
@@ -2028,6 +2028,23 @@ Configuring Peers
    example, with two ADD-PATH paths received for a single prefix,
    ``maximum-prefix 1`` keeps the session up (one distinct prefix), whereas
    ``maximum-prefix 1 include-additional-paths`` tears it down (two paths).
+
+   If ``maximum-additional-paths`` is set, it additionally bounds the number of
+   paths accepted for a *single* prefix from this peer to ``Z + 1`` (the best 
+   path plus ``Z`` additional paths). This is only meaningful under ADD-PATH
+   (:rfc:`7911`). When ``warning-only`` is configured, exceeding the per-prefix
+   limit rejects only the excess path(s) for that prefix and the session is
+   preserved; otherwise the session is torn down with the Cease NOTIFICATION
+   subcode "Maximum Number of Paths Reached". ``maximum-additional-paths`` and
+   ``include-additional-paths`` are mutually exclusive.
+
+   .. note::
+
+      The per-prefix cap rejects paths in arrival order: a better path arriving
+      after the cap is reached is rejected rather than displacing an
+      already-installed worse path. When the limit is (re)configured on an
+      established session, the cap is instead applied by keeping the most
+      preferred paths for each prefix and withdrawing the surplus.
 
 .. clicmd:: neighbor PEER soft-reconfiguration inbound
 
