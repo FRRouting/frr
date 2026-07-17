@@ -83,7 +83,7 @@ RUN apt update -y && apt upgrade -y && \
     python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0' && \
     python3 -m pip install 'scapy>=2.4.5' && \
     python3 -m pip install xmltodict && \
-    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
+    python3 -m pip install 'exabgp>=4.2.25'
 
 # Install FRR built packages
 RUN mkdir -p /etc/apt/keyrings && \
