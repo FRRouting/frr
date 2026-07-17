@@ -428,6 +428,202 @@ def _gr_r_bit_set(router: TopoRouter, neighbor_ip: str) -> bool:
     return False
 
 
+def _parse_state_file(router, path):
+    """Read an RD state file and return a dict of name/vni -> rd_id."""
+    output = router.cmd(f"cat {path} 2>/dev/null").strip()
+    result = {}
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            result[parts[0]] = int(parts[1])
+    return result
+
+
+def _get_vni_rds(router, vnis):
+    """Fetch RD for each VNI via 'show bgp l2vpn evpn vni <vni> json'."""
+    rds = {}
+    for vni in vnis:
+        output = router.vtysh_cmd(f"show bgp l2vpn evpn vni {vni} json")
+        try:
+            data = json.loads(output)
+            rd = data.get("rd")
+            if rd:
+                rds[vni] = rd
+        except Exception:
+            pass
+    return rds
+
+
+def test_bgp_evpn_rd_state_files_created():
+    """After startup, verify RD state files exist with correct entries."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    logger.info("STEP 1: Wait for EVPN session to be established")
+    test_func = functools.partial(_evpn_peer_established, pe1, "10.0.1.2")
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert result, "PE1 EVPN session with PE2 not established"
+
+    logger.info("STEP 2: Wait for EVPN VNI routes to be present")
+    test_func = functools.partial(_evpn_any_prefixes, pe1)
+    result, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert result, "No EVPN routes present on PE1"
+
+    logger.info("STEP 3: Verify VRF RD state file exists and has entries")
+    vrf_state = _parse_state_file(pe1, "/var/lib/frr/.bgp_vrf_rd.txt")
+    assert len(vrf_state) > 0, "VRF RD state file is empty or missing"
+    assert "default" in vrf_state, "default VRF not found in VRF RD state file"
+    logger.info(f"VRF RD state file contents: {vrf_state}")
+
+    logger.info("STEP 4: Verify VNI RD state file exists and has entries")
+    vni_state = _parse_state_file(pe1, "/var/lib/frr/.bgp_vni_rd.txt")
+    assert len(vni_state) > 0, "VNI RD state file is empty or missing"
+    logger.info(f"VNI RD state file contents: {vni_state}")
+
+    assert "100" in vni_state, "L2VNI 100 not found in VNI RD state file"
+
+
+def test_bgp_evpn_rd_persistence_across_restart():
+    """Kill and restart bgpd on PE1; verify RD values remain the same."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    logger.info("STEP 1: Wait for EVPN session and routes to be present")
+    test_func = functools.partial(_evpn_peer_established, pe1, "10.0.1.2")
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert result, "PE1 EVPN session with PE2 not established"
+
+    test_func = functools.partial(_evpn_any_prefixes, pe1)
+    result, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert result, "No EVPN routes present on PE1"
+
+    logger.info("STEP 2: Record RD values before restart")
+    rds_before = _get_vni_rds(pe1, [100])
+    vrf_state_before = _parse_state_file(pe1, "/var/lib/frr/.bgp_vrf_rd.txt")
+    vni_state_before = _parse_state_file(pe1, "/var/lib/frr/.bgp_vni_rd.txt")
+    logger.info(f"RDs before restart: {rds_before}")
+    logger.info(f"VRF state before: {vrf_state_before}")
+    logger.info(f"VNI state before: {vni_state_before}")
+    assert len(rds_before) >= 1, "Expected RD for L2VNI 100 before restart"
+
+    logger.info("STEP 3: Kill bgpd on PE1")
+    kill_router_daemons(tgen, "PE1", ["bgpd"])
+
+    logger.info("STEP 4: Restart bgpd on PE1")
+    source_config = os.path.join(CWD, "PE1/frr.conf")
+    start_router_daemons(tgen, "PE1", ["bgpd"])
+    pe1.cmd(f"vtysh -f {source_config}")
+
+    logger.info("STEP 5: Wait for EVPN session to re-establish")
+    test_func = functools.partial(_evpn_peer_established, pe1, "10.0.1.2")
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert result, "PE1 EVPN session with PE2 not re-established after restart"
+
+    test_func = functools.partial(_evpn_any_prefixes, pe1)
+    result, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert result, "No EVPN routes on PE1 after restart"
+
+    logger.info("STEP 6: Verify RD values are identical after restart")
+    rds_after = _get_vni_rds(pe1, [100])
+    logger.info(f"RDs after restart: {rds_after}")
+    assert (
+        rds_before == rds_after
+    ), f"RDs changed after restart! Before: {rds_before}, After: {rds_after}"
+
+    logger.info("STEP 7: Verify state files are consistent after restart")
+    vrf_state_after = _parse_state_file(pe1, "/var/lib/frr/.bgp_vrf_rd.txt")
+    vni_state_after = _parse_state_file(pe1, "/var/lib/frr/.bgp_vni_rd.txt")
+    logger.info(f"VRF state after: {vrf_state_after}")
+    logger.info(f"VNI state after: {vni_state_after}")
+    assert (
+        vrf_state_before == vrf_state_after
+    ), f"VRF state file changed! Before: {vrf_state_before}, After: {vrf_state_after}"
+    assert (
+        vni_state_before == vni_state_after
+    ), f"VNI state file changed! Before: {vni_state_before}, After: {vni_state_after}"
+
+
+def test_bgp_evpn_rd_orphan_cleanup():
+    """Remove VRF from config, restart bgpd, verify orphan entry is cleaned."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    logger.info("STEP 1: Wait for EVPN session to be established")
+    test_func = functools.partial(_evpn_peer_established, pe1, "10.0.1.2")
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert result, "PE1 EVPN session with PE2 not established"
+
+    logger.info("STEP 2: Record state files before VRF removal")
+    vrf_state_before = _parse_state_file(pe1, "/var/lib/frr/.bgp_vrf_rd.txt")
+    logger.info(f"VRF state before removal: {vrf_state_before}")
+    assert "default" in vrf_state_before, "default VRF missing before test"
+
+    vrf_blue_present = "vrf-blue" in vrf_state_before
+    logger.info(f"vrf-blue in state file: {vrf_blue_present}")
+
+    logger.info("STEP 3: Kill bgpd on PE1 (without saving config)")
+    kill_router_daemons(tgen, "PE1", ["bgpd"], save_config=False)
+
+    logger.info("STEP 4: Remove kernel VRF so bgpd won't auto-discover it")
+    pe1.cmd("ip link del vrf-blue")
+
+    logger.info("STEP 5: Write minimal config without VRF and restart bgpd")
+    minimal_conf = (
+        "log file bgpd.log\n"
+        "!\n"
+        "router bgp 101\n"
+        " bgp router-id 10.100.0.1\n"
+        " no bgp ebgp-requires-policy\n"
+        " no bgp network import-check\n"
+        " neighbor 10.0.1.2 remote-as 102\n"
+        " !\n"
+        " address-family l2vpn evpn\n"
+        "  neighbor 10.0.1.2 activate\n"
+        "  advertise-all-vni\n"
+        " exit-address-family\n"
+        "!\n"
+    )
+    minimal_conf_path = os.path.join(CWD, "PE1_minimal.conf")
+    with open(minimal_conf_path, "w") as f:
+        f.write(minimal_conf)
+
+    start_router_daemons(tgen, "PE1", ["bgpd"])
+    pe1.cmd(f"vtysh -f {minimal_conf_path}")
+
+    logger.info("STEP 6: Wait for config to settle")
+    test_func = functools.partial(_evpn_peer_established, pe1, "10.0.1.2")
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert result, "PE1 EVPN session not established after minimal config"
+
+    logger.info("STEP 7: Verify orphan VRF entry is cleaned from state file")
+    vrf_state_after = _parse_state_file(pe1, "/var/lib/frr/.bgp_vrf_rd.txt")
+    logger.info(f"VRF state after orphan cleanup: {vrf_state_after}")
+
+    if vrf_blue_present:
+        assert (
+            "vrf-blue" not in vrf_state_after
+        ), "vrf-blue still present in state file after being removed from config"
+
+    logger.info("STEP 8: Restore kernel VRF and full config for subsequent tests")
+    kill_router_daemons(tgen, "PE1", ["bgpd"], save_config=False)
+    pe1.cmd("ip link add vrf-blue type vrf table 10")
+    pe1.cmd("ip link set dev vrf-blue up")
+    pe1.cmd("ip link set dev br100 master vrf-blue")
+    pe1.cmd("ip link set dev br1000 master vrf-blue")
+    start_router_daemons(tgen, "PE1", ["bgpd"])
+    source_config = os.path.join(CWD, "PE1/frr.conf")
+    pe1.cmd(f"vtysh -f {source_config}")
+
+
 def test_bgp_evpn_gr_stale_and_recovery():
     tgen = get_topogen()
     pe1 = tgen.gears["PE1"]
