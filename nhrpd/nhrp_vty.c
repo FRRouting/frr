@@ -649,30 +649,37 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 }
 
 DEFUN(if_nhrp_map_multicast, if_nhrp_map_multicast_cmd,
-	AFI_CMD " nhrp map multicast <A.B.C.D|X:X::X:X|dynamic>",
+	AFI_CMD " nhrp map multicast <A.B.C.D|X:X::X:X|dynamic|nhs>",
 	AFI_STR
 	NHRP_STR
 	"Multicast NBMA Configuration\n"
 	"Use this NBMA mapping for multicasts\n"
 	"IPv4 NBMA address\n"
 	"IPv6 NBMA address\n"
-	"Dynamically learn destinations from client registrations on hub\n")
+	"Dynamically learn destinations from client registrations on hub\n"
+	"Send to active NHS server\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[0]);
 	union sockunion nbma_addr;
 	int ret;
+	enum nhrp_cache_type type = NHRP_CACHE_STATIC;
 
-	if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)
+	if (str2sockunion(argv[4]->arg, &nbma_addr) < 0) {
 		sockunion_family(&nbma_addr) = AF_UNSPEC;
+		if (argv[4]->text[0] == 'd')
+			type = NHRP_CACHE_DYNAMIC;
+		else if (argv[4]->text[0] == 'n')
+			type = NHRP_CACHE_NHS;
+	}
 
-	ret = nhrp_multicast_add(ifp, afi, &nbma_addr);
+	ret = nhrp_multicast_add(ifp, afi, &nbma_addr, type);
 
 	return nhrp_vty_return(vty, ret);
 }
 
 DEFUN(if_no_nhrp_map_multicast, if_no_nhrp_map_multicast_cmd,
-	"no " AFI_CMD " nhrp map multicast <A.B.C.D|X:X::X:X|dynamic>",
+	"no " AFI_CMD " nhrp map multicast <A.B.C.D|X:X::X:X|dynamic|nhs>",
 	NO_STR
 	AFI_STR
 	NHRP_STR
@@ -680,23 +687,30 @@ DEFUN(if_no_nhrp_map_multicast, if_no_nhrp_map_multicast_cmd,
 	"Use this NBMA mapping for multicasts\n"
 	"IPv4 NBMA address\n"
 	"IPv6 NBMA address\n"
-	"Dynamically learn destinations from client registrations on hub\n")
+	"Dynamically learn destinations from client registrations on hub\n"
+	"Send to active NHS server\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[1]);
 	union sockunion nbma_addr;
 	int ret;
+	enum nhrp_cache_type type = NHRP_CACHE_STATIC;
 
-	if (str2sockunion(argv[5]->arg, &nbma_addr) < 0)
+	if (str2sockunion(argv[5]->arg, &nbma_addr) < 0) {
 		sockunion_family(&nbma_addr) = AF_UNSPEC;
+		if (argv[5]->text[0] == 'd')
+			type = NHRP_CACHE_DYNAMIC;
+		else if (argv[5]->text[0] == 'n')
+			type = NHRP_CACHE_NHS;
+	}
 
-	ret = nhrp_multicast_del(ifp, afi, &nbma_addr);
+	ret = nhrp_multicast_del(ifp, afi, &nbma_addr, type);
 
 	return nhrp_vty_return(vty, ret);
 }
 
 DEFUN(if_nhrp_nhs, if_nhrp_nhs_cmd,
-	AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN>",
+	AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN> [priority (0-255)]",
 	AFI_STR
 	NHRP_STR
 	"Nexthop Server configuration\n"
@@ -705,17 +719,23 @@ DEFUN(if_nhrp_nhs, if_nhrp_nhs_cmd,
 	"Automatic detection of protocol address\n"
 	"NBMA address\n"
 	"IPv4 NBMA address\n"
-	"Fully qualified domain name for NBMA address(es)\n")
+	"Fully qualified domain name for NBMA address(es)\n"
+	"NHS priority\n"
+        "priority\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[0]);
 	union sockunion proto_addr;
 	int ret;
+	uint8_t priority = 0;
 
 	if (str2sockunion(argv[3]->arg, &proto_addr) < 0)
 		sockunion_family(&proto_addr) = AF_UNSPEC;
 
-	ret = nhrp_nhs_add(ifp, afi, &proto_addr, argv[5]->arg);
+	if (argc > 7)
+		priority = (uint8_t)strtoul(argv[7]->arg, NULL, 0);
+
+	ret = nhrp_nhs_add(ifp, afi, &proto_addr, argv[5]->arg, priority);
 	return nhrp_vty_return(vty, ret);
 }
 
@@ -763,9 +783,8 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 
 
 	if (!ctx->count && !ctx->json) {
-		vty_out(vty, "%-8s %-8s %-24s %-24s %-24s %-6s %s\n", "Iface",
-			"Type", "Protocol", "NBMA", "Claimed NBMA", "Flags",
-			"Identity");
+		vty_out(vty, "%-16s %-8s %-24s %-24s %-24s %-6s %s\n", "Iface", "Type", "Protocol",
+			"NBMA", "Claimed NBMA", "Flags", "Identity");
 	}
 	ctx->count++;
 
@@ -833,12 +852,9 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		json_object_array_add(ctx->json, json);
 		return;
 	}
-	vty_out(ctx->vty, "%-8s %-8s %-24s %-24s %-24s %c%c%c    %s\n",
-		c->ifp->name,
-		nhrp_cache_type_str[c->cur.type],
-		buf[0], buf[1], buf[2],
-		c->used ? 'U' : ' ', c->t_timeout ? 'T' : ' ',
-		c->t_auth ? 'A' : ' ',
+	vty_out(ctx->vty, "%-16s %-8s %-24s %-24s %-24s %c%c%c    %s\n", c->ifp->name,
+		nhrp_cache_type_str[c->cur.type], buf[0], buf[1], buf[2], c->used ? 'U' : ' ',
+		c->t_timeout ? 'T' : ' ', c->t_auth ? 'A' : ' ',
 		c->cur.peer ? c->cur.peer->vc->remote.id : "-");
 }
 
@@ -851,8 +867,8 @@ static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg,
 	struct json_object *json = NULL;
 
 	if (!ctx->count && !ctx->json) {
-		vty_out(vty, "%-8s %-24s %-16s %-16s\n", "Iface", "FQDN",
-			"NBMA", "Protocol");
+		vty_out(vty, "%-16s %-24s %-16s %-16s %3s  %s\n", "Iface", "FQDN", "NBMA",
+			"Protocol", "Pri", "Reachable");
 	}
 	ctx->count++;
 
@@ -870,13 +886,14 @@ static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg,
 		json_object_string_add(json, "fqdn", n->nbma_fqdn);
 		json_object_string_add(json, "nbma", buf[0]);
 		json_object_string_add(json, "protocol", buf[1]);
+		json_object_int_add(json, "priority", n->priority);
 
 		json_object_array_add(ctx->json, json);
 		return;
 	}
 
-	vty_out(vty, "%-8s %-24s %-16s %-16s\n", n->ifp->name, n->nbma_fqdn,
-		buf[0], buf[1]);
+	vty_out(vty, "%-16s %-24s %-16s %-16s %3hhu  %s\n", n->ifp->name, n->nbma_fqdn, buf[0],
+		buf[1], n->priority, n->unreachable >= NHRP_UNREACHABLE_COUNT ? "N" : "Y");
 }
 
 static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
@@ -1269,15 +1286,20 @@ static int interface_config_write(struct vty *vty)
 					vty_out(vty, "dynamic");
 				else
 					vty_out(vty, "%pSU", &nhs->proto_addr);
-				vty_out(vty, " nbma %s\n", nhs->nbma_fqdn);
+				vty_out(vty, " nbma %s", nhs->nbma_fqdn);
+				if (nhs->priority)
+					vty_out(vty, " priority %hhu", nhs->priority);
+				vty_out(vty, "\n");
 			}
 
 			frr_each (nhrp_mcastlist, &ad->mcastlist_head, mcast) {
 				vty_out(vty, " %s nhrp map multicast ", aficmd);
-				if (sockunion_family(&mcast->nbma_addr)
-				   == AF_UNSPEC)
-					vty_out(vty, "dynamic\n");
-				else
+				if (sockunion_family(&mcast->nbma_addr) == AF_UNSPEC) {
+					if (mcast->type == NHRP_CACHE_DYNAMIC)
+						vty_out(vty, "dynamic\n");
+					else if (mcast->type == NHRP_CACHE_NHS)
+						vty_out(vty, "nhs\n");
+				} else
 					vty_out(vty, "%pSU\n",
 						&mcast->nbma_addr);
 			}
