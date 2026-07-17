@@ -239,6 +239,20 @@ DEFINE_HOOK(bgp_process,
 	     struct peer *peer, bool withdraw),
 	    (bgp, afi, safi, bn, peer, withdraw));
 
+DEFINE_HOOK(bgp_adj_in_needed, (struct peer *peer, afi_t afi, safi_t safi), (peer, afi, safi));
+
+/* The peer's Adj-RIB-In is maintained when soft-reconfiguration inbound is
+ * configured, or when another component consuming it (BMP pre-policy
+ * monitoring) claims it through the bgp_adj_in_needed hook.
+ */
+bool bgp_adj_in_needed(struct peer *peer, afi_t afi, safi_t safi)
+{
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+		return true;
+
+	return hook_call(bgp_adj_in_needed, peer, afi, safi) > 0;
+}
+
 /** Test if path is suppressed. */
 bool bgp_path_suppressed(struct bgp_path_info *pi)
 {
@@ -5989,14 +6003,15 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_labels.label[i] = label[i];
 	}
 
-	/* When peer's soft reconfiguration enabled.  Record input packet in
-	   Adj-RIBs-In.  */
-	if (!soft_reconfig && CHECK_FLAG(peer->af_flags[afi][orig_safi], PEER_FLAG_SOFT_RECONFIG) &&
-	    peer != bgp->peer_self) {
+	/*
+	 * When the peer's Adj-RIB-In is maintained (soft reconfiguration or
+	 * BMP pre-policy monitoring), record the input route in it.
+	 */
+	if (!soft_reconfig && bgp_adj_in_needed(peer, afi, orig_safi) && peer != bgp->peer_self) {
 		/*
-		 * If the trigger is not from soft_reconfig and if
-		 * PEER_FLAG_SOFT_RECONFIG is enabled for the peer, then attr
-		 * will not be interned. In which case, it is ok to update the
+		 * If the trigger is not from soft_reconfig and if the
+		 * Adj-RIB-In is maintained for the peer, then attr will not
+		 * be interned. In which case, it is ok to update the
 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
 		 */
 		if (evpn && afi == AFI_L2VPN) {
@@ -6258,8 +6273,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * attr->evpn_overlay with evpn directly. Instead memcpy
 	 * evpn to new_atr.evpn_overlay before it is interned.
 	 */
-	if (evpn && afi == AFI_L2VPN &&
-	    (soft_reconfig || !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))) {
+	if (evpn && afi == AFI_L2VPN && (soft_reconfig || !bgp_adj_in_needed(peer, afi, safi))) {
 		bgp_attr_set_evpn_overlay(&new_attr, evpn);
 		evpn = NULL;
 		p_evpn = NULL;
@@ -7049,8 +7063,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 	/* Lookup node. */
 	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
-	/* If peer is soft reconfiguration enabled.  Record input packet for
-	 * further calculation.
+	/* If the peer's Adj-RIB-In is maintained, drop the route from it.
 	 *
 	 * Cisco IOS 12.4(24)T4 on session establishment sends withdraws for all
 	 * routes that are filtered.  This tanks out Quagga RS pretty badly due
@@ -7060,8 +7073,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 	 * and
 	 * if there was no entry, we don't need to do anything more.
 	 */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
-	    && peer != bgp->peer_self)
+	if (bgp_adj_in_needed(peer, afi, safi) && peer != bgp->peer_self)
 		if (!bgp_adj_in_unset(&dest, peer, addpath_id)) {
 			assert(dest);
 			peer->stat_pfx_dup_withdraw++;
