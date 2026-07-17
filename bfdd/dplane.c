@@ -710,6 +710,49 @@ static void _bfd_session_unregister_dplane(struct hash_bucket *hb, void *arg)
 	bfd_session_enable(bs);
 }
 
+/*
+ * Best-effort synchronous drain of the output buffer during shutdown.
+ *
+ * At shutdown every session enqueues a `DP_DELETE_SESSION` message, but
+ * the event loop never runs again to service the write event, so anything
+ * still buffered when the context is freed would be silently lost. Write
+ * it out here with a bounded retry so the data plane learns about all
+ * teardowns.
+ *
+ * This must not call `bfd_dplane_flush()`: its error path frees the
+ * context, and we are called from inside `bfd_dplane_ctx_free()`.
+ */
+static void bfd_dplane_ctx_shutdown_drain(struct bfd_dplane_ctx *bdc)
+{
+	size_t remaining;
+	ssize_t rv;
+
+	/* Nothing to write or nowhere to write it. */
+	if (bdc->sock == -1 || bdc->connecting)
+		return;
+
+	/*
+	 * Best-effort flush of the queued session deletions. The event
+	 * loop is already gone at shutdown and the socket is owned by the
+	 * frrevent machinery, so we do not re-arm a write event or block
+	 * waiting on it: a single pass writing whatever the socket will
+	 * take, and if it would block or errors we give up. Any unsent
+	 * deletions are simply timed out by the data plane instead.
+	 */
+	while ((remaining = STREAM_READABLE(bdc->outbuf)) > 0) {
+		rv = write(bdc->sock, stream_pnt(bdc->outbuf), remaining);
+		if (rv <= 0)
+			break;
+		bdc->out_bytes += (uint64_t)rv;
+		stream_forward_getp(bdc->outbuf, (size_t)rv);
+	}
+
+	remaining = STREAM_READABLE(bdc->outbuf);
+	if (remaining)
+		zlog_warn("%s: %zu bytes of data plane messages lost on shutdown", __func__,
+			  remaining);
+}
+
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
 {
 	if (bglobal.debug_dplane)
@@ -741,6 +784,10 @@ free_resources:
 	/* Detach all associated sessions. */
 	if (bglobal.bg_shutdown == false)
 		bfd_key_iterate(_bfd_session_unregister_dplane, bdc);
+
+	/* Deliver pending messages (e.g. session deletions) on shutdown. */
+	if (bglobal.bg_shutdown)
+		bfd_dplane_ctx_shutdown_drain(bdc);
 
 	/* Free resources. */
 	socket_close(&bdc->sock);
