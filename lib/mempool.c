@@ -19,7 +19,7 @@
 #define IS_IN_USE(a)	  (((a)->size & CUR_IN_USE) == CUR_IN_USE)
 #define IS_FREE(a)	  (((a)->size & CUR_IN_USE) == 0)
 #define IS_PREV_IN_USE(a) ((a)->prev_size & PREV_IN_USE)
-#define IS_PREV_FREE(a)	  (((a)->prev_size) & PREV_IN_USE) == 0)
+#define IS_PREV_FREE(a)	  (((a)->prev_size & PREV_IN_USE) == 0)
 
 /* Chunk Metadata Access */
 #define PREV_CHUNK(a) ((struct mpchunk *)((char *)(a)-SZ((a)->prev_size)))
@@ -203,6 +203,7 @@ static void mpchunkmergewithnext(struct mpblock *block, struct mpchunk *chunk,
 {
 	struct mpchunk *next_next_chunk;
 	char *ptr = (char *)next_chunk;
+	size_t original_chunk_size = SZ(chunk->size);
 
 	next_next_chunk = (struct mpchunk *)(ptr + SZ(next_chunk->size));
 
@@ -224,8 +225,8 @@ static void mpchunkmergewithnext(struct mpblock *block, struct mpchunk *chunk,
 	 * 1 chunks removed
 	 * allocated chunk freed, header also free for use
 	 */
-	block->totalused -= SZ(chunk->size) - CHUNK_HDR_SIZE;
-	block->totalfree += SZ(chunk->size);
+	block->totalused -=  original_chunk_size - CHUNK_HDR_SIZE;
+	block->totalfree +=  original_chunk_size;
 	block->totalmgm -= CHUNK_HDR_SIZE;
 
 	return;
@@ -243,7 +244,6 @@ static void mpchunkmergewithnext(struct mpblock *block, struct mpchunk *chunk,
 static void mpchunkmergeprevnextfree(struct mpblock *block, struct mpchunk *chunk,
 				     struct mpchunk *prev_chunk, struct mpchunk *next_chunk)
 {
-
 	struct mpchunk *nextnext_chunk;
 	char *ptr = (char *)next_chunk;
 
@@ -269,6 +269,7 @@ static void mpchunkmergeprevnextfree(struct mpblock *block, struct mpchunk *chun
 	block->totalused -= SZ(chunk->size) - CHUNK_HDR_SIZE;
 	block->totalfree += SZ(chunk->size) + CHUNK_HDR_SIZE;
 	block->totalmgm -= 2 * CHUNK_HDR_SIZE;
+	block->n_free_chunk--;
 
 	return;
 }
@@ -361,7 +362,7 @@ static uint32_t freempchunk(struct mpblock *block, struct mpchunk *chunk)
  */
 static struct mpchunk *mpgetfreesizechunk(struct mpblock *block, size_t size)
 {
-	size_t needed_size = (((size >> ALIGN) + 1) << ALIGN);
+	size_t needed_size = (((size >> ALIGN) + 1) << ALIGN) + CHUNK_HDR_SIZE;
 	uint32_t i = 0;
 
 
