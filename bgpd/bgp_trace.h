@@ -1694,6 +1694,50 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, unreach_vty_delete, TRACE_INFO)
 
+/*
+ * Entry tracepoint for bgp_peer_bfd_update_source().
+ *   su_local_present  : peer->su_local was non-NULL at entry
+ *   fsm_status        : peer->connection->status (BGP FSM state number)
+ *   established       : peer_established(peer->connection) result
+ *   nexthop_ifp_set   : peer->nexthop.ifp was non-NULL
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bfd_update_source_enter,
+	TP_ARGS(const char *, peer_host, vrf_id_t, vrf_id,
+		bool, su_local_present, uint8_t, fsm_status,
+		bool, established, bool, nexthop_ifp_set),
+	TP_FIELDS(
+		ctf_string(peer, peer_host)
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
+		ctf_integer(bool, su_local_present, su_local_present)
+		ctf_integer(uint8_t, fsm_status, fsm_status)
+		ctf_integer(bool, established, established)
+		ctf_integer(bool, nexthop_ifp_set, nexthop_ifp_set)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bfd_update_source_enter, TRACE_INFO)
+
+/*
+ * bgp_getsockname() failure: bgp_zebra_nexthop_set() failed, so peer->su_local
+ * is left unset - this is the path that drives the #5131052 race. Emitted only
+ * on failure to avoid tracing every successful session establishment.
+ *   status : -1 = bgp_zebra_nexthop_set() failed
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_getsockname_result,
+	TP_ARGS(const char *, peer_host, vrf_id_t, vrf_id,
+		int, fd, int, status),
+	TP_FIELDS(
+		ctf_string(peer, peer_host)
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
+		ctf_integer(int, fd, fd)
+		ctf_integer(int, status, status)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_getsockname_result, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>

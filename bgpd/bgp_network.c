@@ -986,6 +986,9 @@ int bgp_getsockname(struct peer_connection *connection)
 			 peer->host, connection->su_local, connection->su_remote,
 			 peer->update_if ? peer->update_if : "(None)",
 			 peer->nexthop.ifp ? peer->nexthop.ifp->name : "(Unknown)");
+		frrtrace(4, frr_bgp, bgp_getsockname_result,
+			 peer->host, peer->bgp->vrf_id,
+			 connection->fd, -1);
 		return -1;
 	}
 	return 0;
