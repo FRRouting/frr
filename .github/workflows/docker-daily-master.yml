@@ -35,7 +35,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Login to Docker Hub
+      - name: Login to Quay.io
         uses: docker/login-action@v2
         with:
           registry: quay.io
@@ -51,3 +51,14 @@ jobs:
           tags: quay.io/frrouting/frr:master
           build-args: PKGVER=${{ steps.vars.outputs.date }}
           platforms: linux/amd64,linux/arm64,linux/arm/v7
+
+      - name: Build and push slim
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./docker/alpine/Dockerfile
+          push: true
+          tags: quay.io/frrouting/frr:master-slim
+          build-args: PKGVER=${{ steps.vars.outputs.date }}
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          target: alpine-slim
