@@ -546,6 +546,16 @@ static int bfd_dplane_expect(struct bfd_dplane_ctx *bdc, uint16_t id,
 	ssize_t rv;
 
 	/*
+	 * Reclaim space consumed by previous calls. Synchronous callers
+	 * (e.g. the counters request) consume one message per call, so the
+	 * `reads`-based pulldown below never runs for them and consumed
+	 * bytes would otherwise accumulate until the buffer artificially
+	 * fills mid-message and a zero-length read is misdiagnosed as the
+	 * peer closing the connection.
+	 */
+	stream_pulldown(bdc->inbuf);
+
+	/*
 	 * Don't attempt to read if buffer is full, otherwise we'll get a
 	 * bogus 'connection closed' signal (rv == 0).
 	 */
@@ -553,6 +563,29 @@ static int bfd_dplane_expect(struct bfd_dplane_ctx *bdc, uint16_t id,
 		goto skip_read;
 
 read_again:
+	/*
+	 * Never issue a zero-length read: `read()` returns 0 and would be
+	 * misdiagnosed below as the peer closing the connection. If there
+	 * is no headroom, reclaim consumed space first; a buffer that is
+	 * still full after that holds a message larger than the buffer,
+	 * which is a protocol violation.
+	 */
+	if (STREAM_WRITEABLE(bdc->inbuf) == 0) {
+		stream_pulldown(bdc->inbuf);
+		if (STREAM_WRITEABLE(bdc->inbuf) == 0) {
+			/*
+			 * A single message larger than the whole buffer:
+			 * protocol violation, this peer cannot be parsed.
+			 * Tear the connection down like the other fatal
+			 * paths do.
+			 */
+			zlog_err("%s: input buffer full with incomplete message",
+				 __func__);
+			bfd_dplane_ctx_free(bdc);
+			return -1;
+		}
+	}
+
 	/* Attempt to read message from client. */
 	rv = stream_read_try(bdc->inbuf, bdc->sock,
 			     STREAM_WRITEABLE(bdc->inbuf));
