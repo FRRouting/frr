@@ -118,6 +118,16 @@ def check_backend_xpath_registry(r1, repath):
     return None
 
 
+def check_running_datastore_unlocked(r1):
+    output = r1.cmd_raises('vtysh -c "show mgmt datastore all"')
+    m = re.search(r"DS: running.*?Locked:\s+(True|False)", output, re.DOTALL)
+    if not m:
+        return "running datastore status not found in output"
+    if m.group(1) == "True":
+        return "running datastore is locked"
+    return None
+
+
 def test_frontend_datastore_notification(tgen):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -300,6 +310,13 @@ def test_backend_datastore_router_id(tgen):
             "/frr-vrf:lib/vrf/frr-zebra:zebra/router-id",
             js4_init,
         )
+        ok, result = topotest.run_and_expect(
+            lambda: check_running_datastore_unlocked(r1),
+            None,
+            count=30,
+            wait=1,
+        )
+        assert ok, result
         r1.cmd_raises('vtysh -c "conf t" -c "router-id 1.2.3.4"')
         wait_op_json(
             p.stdout,
