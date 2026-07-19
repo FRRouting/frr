@@ -18956,6 +18956,52 @@ DEFPY(show_ip_bgp_neighbors, show_ip_bgp_neighbors_cmd,
 	return bgp_show_neighbor_vty(vty, vrf, sh_type, sh_arg, peer_show_flags, use_json);
 }
 
+/* "show [ip] bgp neighbors <peer> orf-prefix-list" command */
+DEFPY (show_bgp_neighbor_orf_prefix_list,
+       show_bgp_neighbor_orf_prefix_list_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD>$neighbor orf-prefix-list [json$uj]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on BGP configured interface\n"
+       "Display the ORF prefix-list received from this neighbor\n"
+       JSON_STR)
+{
+	int idx = 0;
+	struct bgp *bgp = NULL;
+	struct peer *peer;
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+	char orf_name[BUFSIZ];
+	bool use_json = !!uj;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi, &bgp, use_json);
+	if (!idx)
+		return CMD_WARNING;
+
+	peer = peer_lookup_in_view(vty, bgp, neighbor, use_json);
+	if (!peer)
+		return CMD_WARNING;
+
+	snprintf(orf_name, sizeof(orf_name), "%s.%d.%d", peer->host, afi, safi);
+	if (!prefix_bgp_show_prefix_list(NULL, afi, orf_name, use_json)) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "%% No ORF prefix-list received from %s\n", neighbor);
+		return CMD_SUCCESS;
+	}
+
+	prefix_bgp_show_prefix_list(vty, afi, orf_name, use_json);
+	return CMD_SUCCESS;
+}
+
 /* Show BGP's AS paths internal data.  There are both `show [ip] bgp
    paths' and `show ip mbgp paths'.  Those functions results are the
    same.*/
@@ -24997,6 +25043,7 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp neighbors" commands. */
 	install_element(VIEW_NODE, &show_ip_bgp_neighbors_cmd);
+	install_element(VIEW_NODE, &show_bgp_neighbor_orf_prefix_list_cmd);
 
 	/* "show [ip] bgp peer-group" commands. */
 	install_element(VIEW_NODE, &show_ip_bgp_peer_groups_cmd);
