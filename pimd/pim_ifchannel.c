@@ -451,6 +451,7 @@ void pim_ifchannel_find(struct interface *ifp, pim_sgaddr *sg, struct pim_ifchan
 			  __func__, sg, ifp->name);
 		*ch = NULL;
 		*chrpt = NULL;
+		return;
 	}
 
 	lookup.sg = *sg;
