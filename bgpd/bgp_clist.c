@@ -691,6 +691,26 @@ static bool ecommunity_regexp_match(struct ecommunity *ecom, struct frregex *reg
 	return false;
 }
 
+/* Like ecommunity_regexp_match(), but recomputes the display string on every
+ * call instead of using the cached ecom->str.  Required when matching a reused
+ * ecommunity whose ->val is repointed per iteration (e.g. the delete path),
+ * where a stale cached ->str would match the wrong community.
+ */
+static bool ecommunity_regexp_match_uncached(struct ecommunity *ecom, struct frregex *reg)
+{
+	char *str;
+	bool match;
+
+	if (ecom == NULL || ecom->size == 0)
+		return regexec(&reg->real, "", 0, NULL, 0) == 0;
+
+	str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
+	match = regexec(&reg->real, str, 0, NULL, 0) == 0;
+	XFREE(MTYPE_ECOMMUNITY_STR, str);
+
+	return match;
+}
+
 /* When given community attribute matches to the community-list return
    1 else return 0.  */
 bool community_list_match(struct community *com, struct community_list *list)
@@ -1138,7 +1158,7 @@ struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
 	uint8_t *ptr;
 	uint32_t delete_index = 0;
 	uint32_t i;
-	struct ecommunity local_ecom = {.size = 1};
+	struct ecommunity local_ecom = { .size = 1, .unit_size = ECOMMUNITY_SIZE };
 	struct ecommunity_val local_eval = {0};
 
 	local_ecom.unit_size = ecom->unit_size;
@@ -1149,7 +1169,7 @@ struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
 			if (((entry->style == EXTCOMMUNITY_LIST_STANDARD) &&
 			     ecommunity_include(entry->u.ecom, &local_ecom)) ||
 			    ((entry->style == EXTCOMMUNITY_LIST_EXPANDED) &&
-			     ecommunity_regexp_match(&local_ecom, entry->reg))) {
+			     ecommunity_regexp_match_uncached(&local_ecom, entry->reg))) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
