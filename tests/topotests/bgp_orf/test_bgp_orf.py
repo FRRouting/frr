@@ -12,6 +12,9 @@ prefix-list.
 Initially advertise 10.10.10.1/32 from R1 to R2. Add new prefix
 10.10.10.2/32 to r1 prefix list on R2. Test if we updated ORF
 prefix-list correctly.
+
+Also verify that 'show bgp neighbors <peer> orf-prefix-list' correctly
+displays the ORF prefix-list entries received from the peer.
 """
 
 import os
@@ -75,6 +78,23 @@ def test_bgp_orf():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Can't apply ORF from R1 to R2"
 
+    # Verify 'show bgp neighbors <peer> orf-prefix-list' displays the
+    # ORF prefix-list entries received from R2.
+    def _bgp_orf_prefix_list_r1():
+        output = r1.vtysh_cmd(
+            "show bgp ipv4 unicast neighbors 192.168.1.2 orf-prefix-list"
+        )
+        # Should contain the prefix-list entry for 10.10.10.1/32
+        if "10.10.10.1/32" not in output:
+            return "ORF prefix-list entry 10.10.10.1/32 not found"
+        if "permit" not in output:
+            return "ORF prefix-list 'permit' action not found"
+        return None
+
+    test_func = functools.partial(_bgp_orf_prefix_list_r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't display ORF prefix-list on R1"
+
     def _bgp_converge_r2():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast summary json"))
         expected = {
@@ -113,6 +133,21 @@ def test_bgp_orf():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Can't apply new ORF from R1 to R2"
 
+    # Verify 'show bgp neighbors <peer> orf-prefix-list' now shows both entries.
+    def _bgp_orf_prefix_list_extended_r1():
+        output = r1.vtysh_cmd(
+            "show bgp ipv4 unicast neighbors 192.168.1.2 orf-prefix-list"
+        )
+        if "10.10.10.1/32" not in output:
+            return "ORF prefix-list entry 10.10.10.1/32 not found"
+        if "10.10.10.2/32" not in output:
+            return "ORF prefix-list entry 10.10.10.2/32 not found"
+        return None
+
+    test_func = functools.partial(_bgp_orf_prefix_list_extended_r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't display extended ORF prefix-list on R1"
+
     def _bgp_orf_changed_r2():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json"))
         expected = {
@@ -137,6 +172,21 @@ def test_bgp_orf():
     test_func = functools.partial(_bgp_converge_r1)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Can't apply initial ORF from R1 to R2"
+
+    # Verify 'show bgp neighbors <peer> orf-prefix-list' reverts to single entry.
+    def _bgp_orf_prefix_list_reverted_r1():
+        output = r1.vtysh_cmd(
+            "show bgp ipv4 unicast neighbors 192.168.1.2 orf-prefix-list"
+        )
+        if "10.10.10.1/32" not in output:
+            return "ORF prefix-list entry 10.10.10.1/32 not found"
+        if "10.10.10.2/32" in output:
+            return "ORF prefix-list entry 10.10.10.2/32 should have been removed"
+        return None
+
+    test_func = functools.partial(_bgp_orf_prefix_list_reverted_r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't display reverted ORF prefix-list on R1"
 
 
 if __name__ == "__main__":
