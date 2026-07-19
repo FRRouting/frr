@@ -4364,9 +4364,10 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 }
 
 /* Well-known attribute check. */
-static int bgp_attr_check(struct peer *peer, struct attr *attr, bgp_size_t length, bool has_nlri)
+static int bgp_attr_check(struct peer *peer, struct attr *attr,
+			  bgp_size_t length)
 {
-	uint8_t missing_attr = 0;
+	uint8_t type = 0;
 
 	/* BGP Graceful-Restart End-of-RIB for IPv4 unicast is signaled as an
 	 * empty UPDATE. Treat-as-withdraw, otherwise if we just ignore it,
@@ -4378,24 +4379,21 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr, bgp_size_t lengt
 		return BGP_ATTR_PARSE_WITHDRAW;
 
 	if (!bgp_attr_exists(attr, BGP_ATTR_ORIGIN))
-		missing_attr = BGP_ATTR_ORIGIN;
+		type = BGP_ATTR_ORIGIN;
 
 	if (!bgp_attr_exists(attr, BGP_ATTR_AS_PATH))
-		missing_attr = BGP_ATTR_AS_PATH;
+		type = BGP_ATTR_AS_PATH;
 
-	/* NEXT_HOP is a well-known mandatory attribute for IPv4 unicast
-	 * carried in the NLRI field of the UPDATE message.
-	 * RFC 4760 relaxes this when the message carries no NLRI other than
-	 * the one encoded in MP_REACH_NLRI. A message that additionally
-	 * carries IPv4 unicast NLRI in the NLRI field still requires NEXT_HOP
-	 * for those prefixes, regardless of MP_REACH_NLRI being present.
+	/* RFC 2858 makes Next-Hop optional/ignored, if MP_REACH_NLRI is present
+	 * and
+	 * NLRI is empty. We can't easily check NLRI empty here though.
 	 */
 	if (!bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP) &&
-	    (has_nlri || !bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI)))
-		missing_attr = BGP_ATTR_NEXT_HOP;
+	    !bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI))
+		type = BGP_ATTR_NEXT_HOP;
 
 	if (peer->sort == BGP_PEER_IBGP && !bgp_attr_exists(attr, BGP_ATTR_LOCAL_PREF))
-		missing_attr = BGP_ATTR_LOCAL_PREF;
+		type = BGP_ATTR_LOCAL_PREF;
 
 	/* An UPDATE message that contains the MP_UNREACH_NLRI is not required
 	 * to carry any other path attributes. Though if MP_REACH_NLRI or NLRI
@@ -4404,20 +4402,16 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr, bgp_size_t lengt
 	 */
 	if (!bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI) &&
 	    bgp_attr_exists(attr, BGP_ATTR_MP_UNREACH_NLRI))
-		return missing_attr ? BGP_ATTR_PARSE_MISSING_MANDATORY : BGP_ATTR_PARSE_PROCEED;
+		return type ? BGP_ATTR_PARSE_MISSING_MANDATORY
+			    : BGP_ATTR_PARSE_PROCEED;
 
 	/* If any of the well-known mandatory attributes are not present
 	 * in an UPDATE message, then "treat-as-withdraw" MUST be used.
-	 * Except for the case of MP_REACH_NLRI being present together with
-	 * "plain" IPv4 NLRIs (and NEXT_HOP is missing), in which case
-	 * "missing mandatory" should be used.
 	 */
-	if (missing_attr) {
-		flog_warn(EC_BGP_MISSING_ATTRIBUTE, "%s Missing well-known attribute %s.",
-			  peer->host, lookup_msg(attr_str, missing_attr, NULL));
-		if (missing_attr == BGP_ATTR_NEXT_HOP && has_nlri &&
-		    bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI))
-			return BGP_ATTR_PARSE_MISSING_MANDATORY;
+	if (type) {
+		flog_warn(EC_BGP_MISSING_ATTRIBUTE,
+			  "%s Missing well-known attribute %s.", peer->host,
+			  lookup_msg(attr_str, type, NULL));
 		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 	return BGP_ATTR_PARSE_PROCEED;
@@ -4427,7 +4421,7 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr, bgp_size_t lengt
    bgp_update_receive() in bgp_packet.c.  */
 enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struct attr *attr,
 				       bgp_size_t size, struct bgp_nlri *mp_update,
-				       struct bgp_nlri *mp_withdraw, bool has_nlri)
+				       struct bgp_nlri *mp_withdraw)
 {
 	struct peer *peer = connection->peer;
 	enum bgp_attr_parse_ret ret;
@@ -4774,7 +4768,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 	}
 
 	/* Check all mandatory well-known attributes are present */
-	ret = bgp_attr_check(peer, attr, length, has_nlri);
+	ret = bgp_attr_check(peer, attr, length);
 	if (ret < 0)
 		goto done;
 

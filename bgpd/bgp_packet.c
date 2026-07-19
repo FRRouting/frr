@@ -2505,13 +2505,10 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 		 ? &attr                                                                          \
 		 : NULL)
 
-	update_len = end - stream_pnt(s) - attribute_len;
-
 	/* Parse attribute when it exists. */
 	if (attribute_len) {
 		attr_parse_ret = bgp_attr_parse(connection, &attr, attribute_len,
-						&nlris[NLRI_MP_UPDATE], &nlris[NLRI_MP_WITHDRAW],
-						update_len > 0);
+						&nlris[NLRI_MP_UPDATE], &nlris[NLRI_MP_WITHDRAW]);
 		if (attr_parse_ret == BGP_ATTR_PARSE_ERROR) {
 			bgp_attr_unintern_sub(&attr);
 			return BGP_Stop;
@@ -2539,6 +2536,9 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 			bm->rcvd_attr_printed = true;
 		}
 	}
+
+	/* Network Layer Reachability Information. */
+	update_len = end - stream_pnt(s);
 
 	/* If we received MP_UNREACH_NLRI attribute, but also NLRIs, then
 	 * NLRIs should be handled as a new data. Though, if we received
