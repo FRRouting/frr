@@ -4407,17 +4407,12 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr, bgp_size_t lengt
 		return missing_attr ? BGP_ATTR_PARSE_MISSING_MANDATORY : BGP_ATTR_PARSE_PROCEED;
 
 	/* If any of the well-known mandatory attributes are not present
-	 * in an UPDATE message, then "treat-as-withdraw" MUST be used.
-	 * Except for the case of MP_REACH_NLRI being present together with
-	 * "plain" IPv4 NLRIs (and NEXT_HOP is missing), in which case
-	 * "missing mandatory" should be used.
+	 * in an UPDATE message, then "treat-as-withdraw" MUST be used
+	 * (RFC 7606).
 	 */
 	if (missing_attr) {
 		flog_warn(EC_BGP_MISSING_ATTRIBUTE, "%s Missing well-known attribute %s.",
 			  peer->host, lookup_msg(attr_str, missing_attr, NULL));
-		if (missing_attr == BGP_ATTR_NEXT_HOP && has_nlri &&
-		    bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI))
-			return BGP_ATTR_PARSE_MISSING_MANDATORY;
 		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 	return BGP_ATTR_PARSE_PROCEED;
