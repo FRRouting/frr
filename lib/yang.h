@@ -454,8 +454,11 @@ uint32_t yang_dnode_count(const struct lyd_node *dnode, const char *xpath_fmt,
 			  ...) PRINTFRR(2, 3);
 
 /*
- * Check if the libyang data node contains a default value. Non-presence
- * containers are assumed to always contain a default value.
+ * Check if the libyang data node is an implicit default, i.e. was never
+ * explicitly configured. A leaf explicitly set to its default value is NOT
+ * considered default here (RFC 7950 7.6.1 treats explicit and implicit
+ * presence as distinct). Non-presence containers are assumed to always
+ * contain a default value.
  *
  * dnode
  *    Base libyang data node to operate on.
@@ -465,7 +468,7 @@ uint32_t yang_dnode_count(const struct lyd_node *dnode, const char *xpath_fmt,
  *    data node to operate on in the same data tree.
  *
  * Returns:
- *    true if the data node contains the default value, false otherwise.
+ *    true if the data node is an implicit default, false otherwise.
  */
 extern bool yang_dnode_is_default(const struct lyd_node *dnode,
 				  const char *xpath);

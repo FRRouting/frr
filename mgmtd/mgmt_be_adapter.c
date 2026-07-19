@@ -280,16 +280,26 @@ struct nb_config_cbs mgmt_be_adapter_get_config(struct mgmt_be_client_adapter *a
 
 	LY_LIST_FOR (running_config->dnode, root) {
 		LYD_TREE_DFS_BEGIN (root, dnode) {
-			if (lysc_is_key(dnode->schema))
-				goto walk_cont;
-
-			xpath = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
-			if (be_client_wants_cfg(xpath, adapter->id))
-				nb_config_diff_add_change(&changes, NB_CB_CREATE, &seq, dnode);
-			else
-				LYD_TREE_DFS_continue = 1; /* skip any subtree */
-			free(xpath);
-walk_cont:
+			/*
+			 * Implicit defaults are not configuration: the backend
+			 * re-materializes them from the schema on validation.
+			 * Pushing them would make every default-valued leaf
+			 * explicitly set on the backend side. An implicit node
+			 * can only carry implicit descendants (libyang clears
+			 * the parent's default flag when an explicit child is
+			 * inserted), so the whole subtree can be skipped.
+			 */
+			if (CHECK_FLAG(dnode->flags, LYD_DEFAULT)) {
+				LYD_TREE_DFS_continue = 1;
+			} else if (!lysc_is_key(dnode->schema)) {
+				xpath = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
+				if (be_client_wants_cfg(xpath, adapter->id))
+					nb_config_diff_add_change(&changes, NB_CB_CREATE, &seq,
+								  dnode);
+				else
+					LYD_TREE_DFS_continue = 1; /* skip any subtree */
+				free(xpath);
+			}
 			LYD_TREE_DFS_END(root, dnode);
 		}
 	}
