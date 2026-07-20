@@ -26,7 +26,7 @@ from lib.pim import (
 from lib.common_config import step, write_test_header
 
 """
-test_pim_mrib.py: Test PIM MRIB overrides and RPF modes
+test_pim6_mrib.py: Test PIM6 MRIB overrides and RPF modes
 """
 
 TOPOLOGY = """
@@ -34,21 +34,21 @@ TOPOLOGY = """
      Static routes installed that uses R2 to get between R1 and R4.
      Tests will install MRIB override through R3
 
-            +---+---+                      +---+---+
-            |       |     fd75:b195:fa74::/48      |       |
-            +  R1   +----------------------+  R2   |
-            |       | .1                .2 |       |
-            +---+---+ r1-eth0      r2-eth0 +---+---+
-             .1 | r1-eth1              r2-eth1 | .2
-                |                              |
-   fdd6:b518:3bf5::/48  |                              |  fdb7:03b1:9f3a::/48
-                |                              |
-             .3 | r3-eth0              r4-eth0 | .4
-            +---+---+ r3-eth1      r4-eth1 +---+---+
-            |       | .3                .4 |       |
-            +  R3   +----------------------+  R4   |---r4-dum0 fd44:78e3:9162::/48
-            |       |      fdab:94cb:f56c::/48     |       |
-            +---+---+                      +---+---+
+                    +---+---+                              +---+---+
+                    |       |     fd75:b195:fa74::/48      |       |
+                    +  R1   +------------------------------+  R2   |
+                    |       | .1                        .2 |       |
+                    +---+---+ r1-eth0              r2-eth0 +---+---+
+                     .1 | r1-eth1                      r2-eth1 | .2
+                        |                                      |
+   fdd6:b518:3bf5::/48  |                                      |  fdb7:03b1:9f3a::/48
+                        |                                      |
+                     .3 | r3-eth0                      r4-eth0 | .4
+                    +---+---+ r3-eth1              r4-eth1 +---+---+
+                    |       | .3                        .4 |       |
+                    +  R3   +------------------------------+  R4   |---r4-dum0 fd44:78e3:9162::/48
+                    |       |         fdab:94cb:f56c::/48  |       |
+                    +---+---+                              +---+---+
 """
 
 # Save the Current Working Directory to find configuration files.
