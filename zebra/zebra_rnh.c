@@ -31,6 +31,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/interface.h"
@@ -790,6 +791,12 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					 struct route_entry *re)
 {
 	int state_changed = 0;
+	uint32_t prev_nhg_id = 0;
+	struct prefix prev_resolved;
+
+	/* Cache previous state BEFORE copy_state() updates rnh. */
+	prev_nhg_id = rnh->resolved_nhg_id;
+	prefix_copy(&prev_resolved, &rnh->resolved_route);
 
 	/* If we're resolving over a different route, resolution has changed or
 	 * the resolving route has some change (e.g., metric), there is a state
@@ -826,6 +833,32 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			rnh_empty.state = NULL;
 			zebra_rnh_notify_protocol_clients(zvrf, afi, nrn, &rnh_empty, prn, NULL);
 		}
+
+		/* Enqueue an NHT event update to the dplane for FPM consumers. */
+		if (state_changed || (re && CHECK_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL))) {
+			struct prefix curr_resolved;
+			uint32_t curr_nhg_id;
+			enum zebra_dplane_result dplane_res;
+
+			if (state_changed) {
+				prefix_copy(&curr_resolved, &rnh->resolved_route);
+				curr_nhg_id = rnh->resolved_nhg_id;
+			} else {
+				memset(&curr_resolved, 0, sizeof(struct prefix));
+				curr_nhg_id = 0;
+			}
+
+			if (IS_ZEBRA_DEBUG_NHT)
+				zlog_debug("NHT event: rnh=%pFX prev_nhg=%u curr_nhg=%u", &nrn->p,
+					   prev_nhg_id, curr_nhg_id);
+
+			dplane_res = dplane_nht_event_update(&nrn->p, &prev_resolved, prev_nhg_id,
+							     &curr_resolved, curr_nhg_id);
+			if (dplane_res != ZEBRA_DPLANE_REQUEST_QUEUED)
+				zlog_warn("NHT event enqueue failed for rnh=%pFX: result=%d",
+					  &nrn->p, dplane_res);
+		}
+
 		/* NOTE: Use the "copy" of resolving route stored in 'rnh' i.e.,
 		 * rnh->state.
 		 */
@@ -1026,6 +1059,7 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		free_state(rnh->vrf_id, rnh->state, rn);
 		rnh->state = NULL;
 	}
+	rnh->resolved_nhg_id = 0;
 
 	if (!re)
 		return;
@@ -1038,6 +1072,7 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 	state->status = re->status;
 
 	state->nhe = zebra_nhe_copy(re->nhe, 0);
+	rnh->resolved_nhg_id = re->nhe->id;
 
 	rnh->state = state;
 }
