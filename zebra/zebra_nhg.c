@@ -3286,7 +3286,7 @@ backups_done:
 		remove = new_nhe;
 
 		if (old_re && old_re->type == re->type && old_re->instance == re->instance &&
-		    new_nhe != old_re->nhe)
+		    new_nhe != old_re->nhe && !CHECK_FLAG(old_re->status, ROUTE_ENTRY_REMOVED))
 			new_nhe = zebra_nhg_rib_compare_old_nhe(rn, re, new_nhe,
 								old_re->nhe);
 
