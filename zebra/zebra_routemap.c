@@ -1077,7 +1077,7 @@ route_set_srv6_encap_source(void *rule, const struct prefix *prefix, void *objec
 	    rm_data->nexthop->nh_srv6->seg6_segs->num_segs == 0)
 		return RMAP_OKAY;
 
-	rm_data->nexthop->nh_srv6->seg6_segs->encap_source = *(struct in6_addr *)rule;
+	rm_data->nexthop->nh_srv6->seg6_segs->rmap_encap_source = *(struct in6_addr *)rule;
 	return RMAP_OKAY;
 }
 
