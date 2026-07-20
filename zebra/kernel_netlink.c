@@ -874,14 +874,12 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	 * Deal with errors that occur because of races in link handling
 	 * or types are not supported in kernel.
 	 */
-	if (is_cmd &&
-	    ((msg_type == RTM_DELROUTE &&
-	      (-errnum == ENODEV || -errnum == ESRCH)) ||
-	     (msg_type == RTM_NEWROUTE &&
-	      (-errnum == ENETDOWN || -errnum == EEXIST)) ||
-	     ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
-	       msg_type == RTM_GETTUNNEL) &&
-	      (-errnum == EOPNOTSUPP)))) {
+	if (is_cmd && ((msg_type == RTM_DELROUTE && (-errnum == ENODEV || -errnum == ESRCH)) ||
+		       (msg_type == RTM_NEWROUTE && (-errnum == ENETDOWN || -errnum == EEXIST)) ||
+		       (msg_type == RTM_DELNEXTHOP && (-errnum == ENOENT || -errnum == ESRCH)) ||
+		       ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
+			 msg_type == RTM_GETTUNNEL) &&
+			(-errnum == EOPNOTSUPP)))) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u",
 				   nl->name, safe_strerror(-errnum),
@@ -1498,6 +1496,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_NEIGH_READ:
 	case DPLANE_OP_TC_QDISC_READ:
 	case DPLANE_OP_TC_QDISC_NOTIFY:
+	case DPLANE_OP_NHT_EVENT_UPDATE:
 		return FRR_NETLINK_ERROR;
 
 	case DPLANE_OP_GRE_SET:

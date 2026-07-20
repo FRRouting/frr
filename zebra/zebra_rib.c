@@ -5336,6 +5336,9 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_vlan_dplane_result(ctx);
 				break;
 
+			case DPLANE_OP_NHT_EVENT_UPDATE:
+				break;
+
 			case DPLANE_OP_NEIGH_IP_INSTALL:
 			case DPLANE_OP_NEIGH_IP_DELETE:
 			case DPLANE_OP_NEIGH_INSTALL:
