@@ -11,6 +11,8 @@ vtysh [ -b ]
 
 vtysh [ -E ] [ -d *daemon* ] [ -c *command* ]
 
+vtysh [ -E ] [ -d *daemon* ] [ -B ]
+
 DESCRIPTION
 ===========
 vtysh is an integrated shell for the FRRouting suite of protocol daemons.
@@ -28,6 +30,12 @@ OPTIONS available for the vtysh command:
    Specify command to be executed under batch mode. It behaves like -c option in any other shell - command is executed and vtysh exits.
 
    It's useful for gathering info from FRRouting daemons or reconfiguring daemons from inside shell scripts, etc. Note that multiple commands may be executed by using more than one -c option and/or embedding linefeed characters inside the command string.
+
+.. option:: -B, --batch
+
+   Read commands from stdin, one command per line, and execute each one as it is read, in the same way as commands given with -c. vtysh keeps waiting for further input until stdin is closed, then exits.
+
+   This makes it possible to keep a single long-lived vtysh attached to the daemons and feed it commands through a pipe as they become available, avoiding the startup cost of invoking vtysh once per command. The -E flag echoes each command prior to its results, and unless -n is given, vtysh exits with a non-zero status as soon as a command fails. vtysh flushes its output after every command, so all of a command's output is written to the pipe before the next command is read. A driving program that needs to delimit the output of consecutive commands can combine this with -E, using the echoed prompt and command line as a separator. As in the other non-interactive modes, -n redirects standard output to /dev/null, so no command output is produced in that combination.
 
 .. option:: -d, --daemon daemon_name
 

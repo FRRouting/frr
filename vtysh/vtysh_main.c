@@ -71,6 +71,12 @@ struct event_loop *master;
 /* Command logging */
 FILE *logfile;
 
+/* -E option: echo command before printing its output */
+static int echo_command;
+
+/* -n option: ignore errors for purposes of exit code */
+static int no_error;
+
 static struct event *ev_exec_timeout;
 uint32_t vtysh_exec_timeout;
 
@@ -234,6 +240,7 @@ static FRR_NORETURN void usage(int status)
 		       "-c, --command            Execute argument as command\n"
 		       "-d, --daemon             Connect only to the specified daemon\n"
 		       "-f, --inputfile          Execute commands from specific file and exit\n"
+		       "-B, --batch              Execute commands from stdin, one per line, until EOF\n"
 		       "-E, --echo               Echo prompt and command in -c mode\n"
 		       "-C, --dryrun             Check configuration for validity and exit\n"
 		       "-m, --markfile           Mark input file with context end\n"
@@ -270,6 +277,7 @@ struct option longopts[] = {
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"config_dir", required_argument, NULL, OPTION_CONFDIR},
 	{"inputfile", required_argument, NULL, 'f'},
+	{"batch", no_argument, NULL, 'B'},
 	{"histfile", required_argument, NULL, 'H'},
 	{"echo", no_argument, NULL, 'E'},
 	{"dryrun", no_argument, NULL, 'C'},
@@ -338,6 +346,45 @@ static void log_it(const char *line)
 	strftime(tod, sizeof(tod), "%Y%m%d-%H:%M.%S", &tmp);
 
 	fprintf(logfile, "%s:%s %s\n", tod, user, line);
+}
+
+/*
+ * Execute a single non-interactive command line (-c argument or line
+ * read in batch mode), honoring the -E and -n options, and exit on a
+ * failed command unless -n was given.
+ */
+static int vtysh_execute_command_line(char *line, bool use_history,
+				      bool question_mark)
+{
+	int ret;
+
+	if (use_history) {
+		add_history(line);
+		append_history(1, history_file);
+	}
+
+	if (echo_command)
+		printf("%s%s\n", vtysh_prompt(), line);
+
+	if (logfile)
+		log_it(line);
+
+	/*
+	 * Parsing logic for regular commands will be different than for
+	 * those commands requiring further processing, such as cli
+	 * instructions terminating with question-mark character.
+	 */
+	if (question_mark && !vtysh_execute_command_questionmark(line))
+		ret = CMD_SUCCESS;
+	else
+		ret = vtysh_execute_no_pager(line);
+
+	if (!no_error
+	    && !(ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON
+		 || ret == CMD_WARNING))
+		exit(1);
+
+	return ret;
 }
 
 static int flock_fd;
@@ -410,10 +457,9 @@ int main(int argc, char **argv, char **env)
 		struct cmd_rec *next;
 	} *cmd = NULL;
 	struct cmd_rec *tail = NULL;
-	int echo_command = 0;
-	int no_error = 0;
 	int markfile = 0;
 	int writeconfig = 0;
+	int batch_mode = 0;
 	int ret = 0;
 	char *homedir = NULL;
 	int ditch_suid = 0;
@@ -447,7 +493,7 @@ int main(int argc, char **argv, char **env)
 
 	/* Option handling. */
 	while (1) {
-		opt = getopt_long(argc, argv, "be:c:d:nf:H:mEhCwN:ut", longopts,
+		opt = getopt_long(argc, argv, "be:c:d:nf:BH:mEhCwN:ut", longopts,
 				  0);
 
 		if (opt == EOF)
@@ -496,6 +542,9 @@ int main(int argc, char **argv, char **env)
 			break;
 		case 'f':
 			inputfile = optarg;
+			break;
+		case 'B':
+			batch_mode = 1;
 			break;
 		case 'm':
 			markfile = 1;
@@ -549,6 +598,13 @@ int main(int argc, char **argv, char **env)
 	if (markfile + writeconfig + dryrun + boot_flag > 1) {
 		fprintf(stderr,
 			"Invalid combination of arguments.  Please specify at most one of:\n\t-b, -C, -m, -w\n");
+		return 1;
+	}
+	if (batch_mode &&
+	    (cmd || inputfile || markfile || writeconfig || dryrun ||
+	     boot_flag)) {
+		fprintf(stderr,
+			"Invalid combination of arguments.  The -B option cannot be combined with:\n\t-b, -c, -C, -f, -m, -w\n");
 		return 1;
 	}
 	if (inputfile && (writeconfig || boot_flag)) {
@@ -625,16 +681,8 @@ int main(int argc, char **argv, char **env)
 				if (next)
 					*next++ = '\0';
 
-				if (echo_command)
-					printf("%s%s\n", vtysh_prompt(),
-					       cmdnow);
-
-				ret = vtysh_execute_no_pager(cmdnow);
-				if (!no_error
-				    && !(ret == CMD_SUCCESS
-					 || ret == CMD_SUCCESS_DAEMON
-					 || ret == CMD_WARNING))
-					exit(1);
+				ret = vtysh_execute_command_line(cmdnow, false,
+								 false);
 			} while ((cmdnow = next) != NULL);
 
 			cr = cmd;
@@ -741,6 +789,36 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+	/* If batch mode: execute commands from stdin, one per line, blocking
+	 * for further input until it is closed.  Command semantics are the
+	 * same as for -c, but the daemon connections are set up only once.
+	 */
+	if (batch_mode) {
+		char line[VTY_BUFSIZ];
+
+		/* Enter into enable node. */
+		if (!user_mode)
+			vtysh_execute("enable");
+
+		vtysh_add_timestamp = ts_flag;
+
+		while (fgets(line, sizeof(line), stdin) != NULL) {
+			char *eol = strchr(line, '\n');
+
+			if (eol)
+				*eol = '\0';
+
+			vtysh_execute_command_line(line, false, true);
+
+			/* Make each command's output visible to a consumer of
+			 * our stdout as soon as it completed.
+			 */
+			fflush(stdout);
+		}
+
+		exit(0);
+	}
+
 	/* If eval mode. */
 	if (cmd && cmd->line) {
 		/* Enter into enable node. */
@@ -755,50 +833,13 @@ int main(int argc, char **argv, char **env)
 			while ((eol = strchr(cmd->line, '\n')) != NULL) {
 				*eol = '\0';
 
-				add_history(cmd->line);
-				append_history(1, history_file);
-
-				if (echo_command)
-					printf("%s%s\n", vtysh_prompt(),
-					       cmd->line);
-
-				if (logfile)
-					log_it(cmd->line);
-
-				ret = vtysh_execute_no_pager(cmd->line);
-				if (!no_error
-				    && !(ret == CMD_SUCCESS
-					 || ret == CMD_SUCCESS_DAEMON
-					 || ret == CMD_WARNING))
-					exit(1);
+				ret = vtysh_execute_command_line(cmd->line,
+								 true, false);
 
 				cmd->line = eol + 1;
 			}
 
-			add_history(cmd->line);
-			append_history(1, history_file);
-
-			if (echo_command)
-				printf("%s%s\n", vtysh_prompt(), cmd->line);
-
-			if (logfile)
-				log_it(cmd->line);
-
-			/*
-			 * Parsing logic for regular commands will be different
-			 * than for those commands requiring further
-			 * processing, such as cli instructions terminating
-			 * with question-mark character.
-			 */
-			if (!vtysh_execute_command_questionmark(cmd->line))
-				ret = CMD_SUCCESS;
-			else
-				ret = vtysh_execute_no_pager(cmd->line);
-
-			if (!no_error
-			    && !(ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON
-				 || ret == CMD_WARNING))
-				exit(1);
+			ret = vtysh_execute_command_line(cmd->line, true, true);
 
 			{
 				struct cmd_rec *cr;
