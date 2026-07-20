@@ -718,6 +718,9 @@ void connected_delete_ipv6(struct interface *ifp,
 	/* Delete global ipv6 address from RA prefix list */
 	if (!IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
 		rtadv_delete_prefix(ifp->info, &p);
+	else
+		/* LL removed (e.g. MAC change): retract the default from it. */
+		rtadv_retract_router(ifp->info, &p.u.prefix6);
 
 	if (dest) {
 		memset(&d, 0, sizeof(d));

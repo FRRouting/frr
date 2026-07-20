@@ -212,6 +212,9 @@ struct rtadvconf {
 #define RTADV_FAST_REXMIT_PERIOD 1 /* 1 sec */
 #define RTADV_NUM_FAST_REXMITS 4   /* Fast Rexmit RA 4 times on certain events \
 				    */
+
+	/* LL pending default-router withdrawal (removed while link was down). */
+	struct in6_addr retract_ll;
 };
 
 struct rtadv_rdnss {
@@ -410,6 +413,7 @@ extern void rtadv_if_up(struct zebra_if *zif);
 extern void rtadv_if_fini(struct zebra_if *zif);
 extern void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p);
 extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
+extern void rtadv_retract_router(struct zebra_if *zif, const struct in6_addr *lladdr);
 
 /* returns created prefix */
 struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
