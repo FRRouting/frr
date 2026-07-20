@@ -256,6 +256,7 @@ void pim_msdp_exit(struct pim_instance *pim);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
 struct pim_msdp_peer *pim_msdp_peer_find(const struct pim_instance *pim, struct in_addr peer_addr);
+void pim_msdp_vrf_iface_up(struct pim_instance *pim);
 void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
