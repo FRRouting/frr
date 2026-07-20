@@ -4273,9 +4273,18 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), &(nhe->nhg));
 
-	/* If this is a group, convert it to a grp array of ids */
-	if (!zebra_nhg_depends_is_empty(nhe)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+	/*
+	 * If the NHE has any depends (a multi-nh group, a zebra-owned
+	 * single-nh wrapped as a group of one, or a recursive parent
+	 * with a resolved depend), build the child-id array.
+	 * zebra_nhg_nhe2grp -> zebra_nhg_nhe2grp_internal will resolve
+	 * a recursive depend to the resolved nhe's id, so recursive
+	 * parents emit NHA_GROUP { resolved_id } rather than a flattened
+	 * singleton -- this keeps every zebra-built kernel NHE in
+	 * group form so future ECMP grow/shrink can reuse the same
+	 * parent id via NLM_F_REPLACE.
+	 */
+	if (!zebra_nhg_depends_is_empty(nhe))
 		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
 			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
 
