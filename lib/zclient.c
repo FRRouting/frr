@@ -2524,7 +2524,11 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				       &nh->nh_srv6->seg6_segs->seg[i],
 				       sizeof(struct in6_addr));
 			znh->srv6_encap_behavior = nh->nh_srv6->seg6_segs->encap_behavior;
-			znh->srv6_encap_source = nh->nh_srv6->seg6_segs->encap_source;
+
+			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->nh_srv6->seg6_segs->rmap_encap_source))
+				znh->srv6_encap_source = nh->nh_srv6->seg6_segs->rmap_encap_source;
+			else
+				znh->srv6_encap_source = nh->nh_srv6->seg6_segs->encap_source;
 		}
 	}
 
