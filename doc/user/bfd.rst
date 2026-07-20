@@ -79,6 +79,12 @@ may also be specified (:ref:`common-invocation-options`).
    When using UNIX sockets don't forget to check the file permissions
    before attempting to use it.
 
+.. warning::
+
+   This is an internal, trusted interface.  Using UNIX sockets (with
+   restrictive permissions) is strongly recommended.  When using IP sockets,
+   you must ensure only the intended BFD data plane entity can connect.
+
 .. option:: --vrfs <vrf-list>
 
    Configure which VRFs the BFD daemon will listen. By default BFD
