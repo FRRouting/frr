@@ -123,6 +123,9 @@ void pim_nht_rp_del(struct rp_info *rp_info);
 /* Walk the NH cache and update every nexthop that uses the given interface */
 void pim_nht_upstream_if_update(struct pim_instance *pim, struct interface *ifp);
 
+/* Re-send ZEBRA_NEXTHOP_REGISTER once vrf_id is resolved. */
+void pim_nht_reregister_all(struct pim_instance *pim);
+
 /* Lookup nexthop information for src, returned in nexthop when function returns true.
  * Tries to find in cache first and does a synchronous lookup if not found in the cache.
  * If neighbor_needed is true, then nexthop is only considered valid if it's to a pim
