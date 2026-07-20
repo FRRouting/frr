@@ -1943,11 +1943,14 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 						   &nexthop->nh_srv6
 							    ->seg6local_ctx,
 						   NULL, 0);
-		if (nexthop->nh_srv6->seg6_segs)
+		if (nexthop->nh_srv6->seg6_segs) {
 			nexthop_add_srv6_seg6(resolved_hop, &nexthop->nh_srv6->seg6_segs->seg[0],
 					      nexthop->nh_srv6->seg6_segs->num_segs,
 					      nexthop->nh_srv6->seg6_segs->encap_behavior,
 					      &nexthop->nh_srv6->seg6_segs->encap_source);
+			resolved_hop->nh_srv6->seg6_segs->rmap_encap_source =
+				nexthop->nh_srv6->seg6_segs->rmap_encap_source;
+		}
 	}
 
 	resolved_hop->rparent = nexthop;
@@ -2780,6 +2783,9 @@ skip_check:
 
 	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
+	if (nexthop->nh_srv6 && nexthop->nh_srv6->seg6_segs)
+		memset(&nexthop->nh_srv6->seg6_segs->rmap_encap_source, 0, sizeof(struct in6_addr));
+
 	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
@@ -2897,6 +2903,7 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 	struct nexthop *nexthop;
 	struct nexthop_group *nhg = &nhe->nhg;
 	bool vni_removed = false;
+	struct in6_addr prev_srv6_encap_source;
 
 	nexthop = nhg->nexthop;
 
@@ -2915,6 +2922,10 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 		prev_src = nexthop->rmap_src;
 		prev_active = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		prev_index = nexthop->ifindex;
+		if (nexthop->nh_srv6 && nexthop->nh_srv6->seg6_segs)
+			prev_srv6_encap_source = nexthop->nh_srv6->seg6_segs->rmap_encap_source;
+		else
+			memset(&prev_srv6_encap_source, 0, sizeof(struct in6_addr));
 
 		/* Include the containing nhe for primary nexthops: if there's
 		 * recursive resolution, we capture the backup info also.
@@ -2952,6 +2963,9 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 		      nexthop->type < NEXTHOP_TYPE_BLACKHOLE) &&
 		     !(IPV6_ADDR_SAME(&prev_src.ipv6,
 				      &nexthop->rmap_src.ipv6))) ||
+		    (nexthop->nh_srv6 && nexthop->nh_srv6->seg6_segs &&
+		     !(IPV6_ADDR_SAME(&prev_srv6_encap_source,
+				      &nexthop->nh_srv6->seg6_segs->rmap_encap_source))) ||
 		    CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED) ||
 		    vni_removed)
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);

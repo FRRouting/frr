@@ -1844,11 +1844,17 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 			if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH,
 					 tun_buf, tun_len))
 				return false;
-			if (!sid_zero_ipv6(&nexthop->nh_srv6->seg6_segs->encap_source) &&
-			    !nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRC,
-					 &nexthop->nh_srv6->seg6_segs->encap_source,
-					 sizeof(struct in6_addr)))
-				return false;
+			if (!sid_zero_ipv6(&nexthop->nh_srv6->seg6_segs->rmap_encap_source)) {
+				if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRC,
+						 &nexthop->nh_srv6->seg6_segs->rmap_encap_source,
+						 sizeof(struct in6_addr)))
+					return false;
+			} else if (!sid_zero_ipv6(&nexthop->nh_srv6->seg6_segs->encap_source)) {
+				if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRC,
+						 &nexthop->nh_srv6->seg6_segs->encap_source,
+						 sizeof(struct in6_addr)))
+					return false;
+			}
 			nl_attr_nest_end(nlmsg, nest);
 		}
 	}
@@ -3193,11 +3199,21 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							 SEG6_IPTUNNEL_SRH,
 							 tun_buf, tun_len))
 						return 0;
-					if (!sid_zero_ipv6(&nh->nh_srv6->seg6_segs->encap_source) &&
-					    !nl_attr_put(&req->n, buflen, SEG6_IPTUNNEL_SRC,
-							 &nh->nh_srv6->seg6_segs->encap_source,
-							 sizeof(struct in6_addr)))
-						return 0;
+					if (!sid_zero_ipv6(&nh->nh_srv6->seg6_segs
+									->rmap_encap_source)) {
+						if (!nl_attr_put(&req->n, buflen, SEG6_IPTUNNEL_SRC,
+								 &nh->nh_srv6->seg6_segs
+										->rmap_encap_source,
+								 sizeof(struct in6_addr)))
+							return 0;
+					} else if (!sid_zero_ipv6(&nh->nh_srv6->seg6_segs
+										->encap_source)) {
+						if (!nl_attr_put(&req->n, buflen, SEG6_IPTUNNEL_SRC,
+								 &nh->nh_srv6->seg6_segs
+										->encap_source,
+								 sizeof(struct in6_addr)))
+							return 0;
+					}
 					nl_attr_nest_end(&req->n, nest);
 				}
 			}
