@@ -38,6 +38,10 @@ from lib.topojson import build_config_from_json
 from lib.ospf import (
     verify_ospf_neighbor,
     verify_ospf_gr_helper,
+    verify_ospf_gr_helper_fast,
+    verify_ospf_gr_helper_no_pending,
+    verify_ospf_topology_stable,
+    bump_grace_lsa_seq,
     create_router_ospf,
 )
 
@@ -208,9 +212,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     )
 
     step("Configure graceful restart in the DUT")
-    ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
-    }
+    ospf_gr_r0 = {"r0": {"ospf": {"graceful-restart": {"helper enable": []}}}}
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -225,21 +227,32 @@ def test_ospf_gr_helper_tc1_p0(request):
     result = verify_ospf_gr_helper(tgen, topo, dut, input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
-    }
+    ospf_gr_r1 = {"r1": {"ospf": {"graceful-restart": {"helper enable": []}}}}
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Perform GR in RR.")
     step("Verify that DUT does enter helper mode upon receiving  the grace lsa.")
+
     input_dict = {"activeRestarterCnt": 1}
     gracelsa_sent = False
     repeat = 0
+    grace_seq_bump = 0
     dut = "r0"
     while not gracelsa_sent and repeat < Iters:
-        gracelsa_sent = scapy_send_raw_packet(tgen, topo, "r1", intf1, pkt)
-        result = verify_ospf_gr_helper(tgen, topo, dut, input_dict)
+        result = verify_ospf_gr_helper_no_pending(tgen, dut, "1.1.1.1")
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+        result = verify_ospf_topology_stable(tgen, dut)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        grace_pkt = bump_grace_lsa_seq(pkt, grace_seq_bump)
+        grace_seq_bump += 1
+        gracelsa_sent = scapy_send_raw_packet(tgen, topo, "r1", intf1, grace_pkt)
+        result = verify_ospf_gr_helper_fast(tgen, topo, dut, input_dict)
         if isinstance(result, str):
             repeat += 1
             gracelsa_sent = False
@@ -252,7 +265,6 @@ def test_ospf_gr_helper_tc1_p0(request):
             "ospf": {
                 "graceful-restart": {
                     "helper enable": [],
-                    "opaque": True,
                     "delete": True,
                 }
             }
@@ -267,22 +279,36 @@ def test_ospf_gr_helper_tc1_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure gr helper using the router id")
-    ospf_gr_r0 = {
-        "r0": {
-            "ospf": {"graceful-restart": {"helper enable": ["1.1.1.1"], "opaque": True}}
-        }
-    }
+    ospf_gr_r0 = {"r0": {"ospf": {"graceful-restart": {"helper enable": ["1.1.1.1"]}}}}
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify that DUT does enter helper mode upon receiving  the grace lsa.")
+
     input_dict = {"activeRestarterCnt": 1}
     gracelsa_sent = False
     repeat = 0
     dut = "r0"
     while not gracelsa_sent and repeat < Iters:
-        gracelsa_sent = scapy_send_raw_packet(tgen, topo, "r1", intf1, pkt)
-        result = verify_ospf_gr_helper(tgen, topo, dut, input_dict)
+        result = verify_ospf_gr_helper_no_pending(tgen, dut, "1.1.1.1")
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+        result = verify_ospf_topology_stable(tgen, dut)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        # NOTE: grace_seq_bump intentionally keeps counting up from the
+        # previous while loop above (not reset to 0): the Grace-LSA
+        # sent there is still in the DUT's LSDB, so resending a
+        # lower-or-equal LS Sequence Number here would be seen as a
+        # stale/duplicate instance and silently dropped without ever
+        # reaching the helper-mode processing again.
+        grace_pkt = bump_grace_lsa_seq(pkt, grace_seq_bump)
+        grace_seq_bump += 1
+        gracelsa_sent = scapy_send_raw_packet(tgen, topo, "r1", intf1, grace_pkt)
+        result = verify_ospf_gr_helper_fast(tgen, topo, dut, input_dict)
         if isinstance(result, str):
             repeat += 1
             gracelsa_sent = False
@@ -295,7 +321,6 @@ def test_ospf_gr_helper_tc1_p0(request):
             "ospf": {
                 "graceful-restart": {
                     "helper enable": ["1.1.1.1"],
-                    "opaque": True,
                     "delete": True,
                 }
             }
@@ -342,15 +367,11 @@ def test_ospf_gr_helper_tc2_p0(request):
     assert (
         ospf_covergence is True
     ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
-    ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
-    }
+    ospf_gr_r0 = {"r0": {"ospf": {"graceful-restart": {"helper enable": []}}}}
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
-    }
+    ospf_gr_r1 = {"r1": {"ospf": {"graceful-restart": {"helper enable": []}}}}
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -361,8 +382,18 @@ def test_ospf_gr_helper_tc2_p0(request):
     repeat = 0
     dut = "r0"
     while not gracelsa_sent and repeat < Iters:
-        gracelsa_sent = scapy_send_raw_packet(tgen, topo, "r1", intf1, pkt)
-        result = verify_ospf_gr_helper(tgen, topo, dut, input_dict)
+        result = verify_ospf_gr_helper_no_pending(tgen, dut, "1.1.1.1")
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+        result = verify_ospf_topology_stable(tgen, dut)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        grace_pkt = bump_grace_lsa_seq(pkt, repeat)
+        gracelsa_sent = scapy_send_raw_packet(tgen, topo, "r1", intf1, grace_pkt)
+        result = verify_ospf_gr_helper_fast(tgen, topo, dut, input_dict)
         if isinstance(result, str):
             repeat += 1
             gracelsa_sent = False

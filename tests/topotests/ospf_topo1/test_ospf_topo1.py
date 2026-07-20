@@ -76,17 +76,8 @@ def setup_module(mod):
 
     ospf6_config = "ospf6d.conf"
 
-    router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF6, os.path.join(CWD, "{}/{}".format(rname, ospf6_config))
-        )
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()

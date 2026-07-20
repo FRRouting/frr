@@ -2475,30 +2475,9 @@ def config_ospf6_interface(
     return result
 
 
-@retry(retry_timeout=20)
-def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
-    """
-    This API is used to vreify gr helper using command
-    show ip ospf graceful-restart helper
+def _verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
+    "Helper function to avoid duplicated code"
 
-    Parameters
-    ----------
-    * `tgen` : Topogen object
-    * `topo` : topology descriptions
-    * 'dut' : router
-    * 'input_dict' - values to be verified
-
-    Usage:
-    -------
-    input_dict = {
-                    "helperSupport":"Disabled",
-                    "strictLsaCheck":"Enabled",
-                    "restartSupport":"Planned and Unplanned Restarts",
-                    "supportedGracePeriod":1800
-                }
-    result = verify_ospf_gr_helper(tgen, topo, dut, input_dict)
-
-    """
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
 
@@ -2541,6 +2520,191 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
+
+
+@retry(retry_timeout=20)
+def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
+    """
+    This API is used to vreify gr helper using command
+    show ip ospf graceful-restart helper
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `topo` : topology descriptions
+    * 'dut' : router
+    * 'input_dict' - values to be verified
+
+    Usage:
+    -------
+    input_dict = {
+                    "helperSupport":"Disabled",
+                    "strictLsaCheck":"Enabled",
+                    "restartSupport":"Planned and Unplanned Restarts",
+                    "supportedGracePeriod":1800
+                }
+    result = verify_ospf_gr_helper(tgen, topo, dut, input_dict)
+
+    """
+    return _verify_ospf_gr_helper(tgen, topo, dut, input_dict)
+
+
+@retry(retry_timeout=30, retry_sleep=0.2)
+def verify_ospf_gr_helper_fast(tgen, topo, dut, input_dict=None):
+    """
+    Poll "show ip ospf graceful-restart helper json" at a fast, fixed
+    interval right after injecting a Grace-LSA.
+
+    When the "restarting" neighbor's adjacency was never actually
+    disrupted (as is the case when simulating a restart by injecting a
+    crafted Grace-LSA only, without flapping the neighbor's interface),
+    ospfd can recognize the neighbor as already fully synced (or flag
+    ongoing LSA activity as a topology change) and exit GR helper mode
+    again within about a second or two.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `topo` : topology descriptions
+    * `dut` : DUT router name
+    * `input_dict` : keys/values expected in the "show ip ospf
+      graceful-restart helper json" output (e.g. {"activeRestarterCnt": 1})
+
+    Returns
+    -------
+    True or an error message string.
+    """
+    return _verify_ospf_gr_helper(tgen, topo, dut, input_dict)
+
+
+def bump_grace_lsa_seq(pkt_hex, bump=0):
+    """
+    Return a copy of a hex-encoded Grace-LSA packet with its LS Sequence
+    Number advanced by `bump` (and its LSA/OSPF checksums recomputed to
+    match).
+
+    The Grace-LSA blobs used by these tests are static, pre-crafted raw
+    packets with a fixed LS Sequence Number. Resending the exact same
+    bytes on a retry is not a fresh LSA instance as far as ospfd is
+    concerned: once the first injection has been installed in the DUT's
+    LSDB, RFC 2328 SS13.4 treats a byte-identical redelivery as a
+    duplicate and implicitly acknowledges it without ever reaching the
+    Grace-LSA/helper-mode processing again. Without a bump, every retry
+    after the first is therefore guaranteed to be a no-op.
+
+    Parameters
+    ----------
+    * `pkt_hex` : hex-encoded Ethernet frame carrying the Grace-LSA
+    * `bump` : amount to add to the embedded LS Sequence Number
+      (0 returns `pkt_hex` unchanged)
+
+    Returns
+    -------
+    hex-encoded Ethernet frame
+    """
+    if not bump:
+        return pkt_hex
+
+    from scapy.contrib.ospf import OSPF_Hdr
+    from scapy.layers.l2 import Ether
+    from scapy.layers.inet import IP
+
+    eth = Ether(bytes.fromhex(pkt_hex))
+    ip = eth.payload
+    ospf_hdr = OSPF_Hdr(bytes(ip.payload))
+
+    lsa = ospf_hdr.payload.lsalist[0]
+    lsa.seq += bump
+    lsa.chksum = None
+    ospf_hdr.chksum = None
+
+    new_eth = (
+        Ether(dst=eth.dst, src=eth.src)
+        / IP(src=ip.src, dst=ip.dst, tos=ip.tos, ttl=ip.ttl, id=ip.id, proto=ip.proto)
+        / bytes(ospf_hdr)
+    )
+    return bytes(new_eth).hex()
+
+
+@retry(retry_timeout=60)
+def verify_ospf_gr_helper_no_pending(tgen, dut, router_id):
+    """
+    Verify that no LSA retransmission is pending towards the given neighbor.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `dut` : DUT router name
+    * `router_id` : neighbor router id
+
+    Returns
+    -------
+    True or an error message string.
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    neighbor_output = tgen.gears[dut].vtysh_cmd(
+        "show ip ospf neighbor detail json", isjson=True
+    )
+
+    neighbor = neighbor_output.get("neighbors", {}).get(router_id)
+    if not neighbor:
+        return f"[DUT: {dut}] neighbor {router_id} not found"
+
+    for neighbor_detail in neighbor:
+        if neighbor_detail.get("threadLinkStateUpdateRetransmission"):
+            return f"[DUT: {dut}] LSA retransmission still pending towards {router_id}"
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+@retry(retry_timeout=60)
+def verify_ospf_topology_stable(tgen, dut):
+    """
+    Verify that OSPF's SPF calculation has been stable (nothing
+    currently scheduled, and none ran recently) for at least
+    `min_stable_msecs`.
+
+    This is used to avoid injecting a Grace-LSA while other routers in
+    the topology are still re-converging (e.g. right after a
+    system-wide "clear ip ospf neighbor"/config reset): any
+    topology-affecting LSA (Router/Network/Summary/External) installed
+    while the DUT is acting as a GR helper immediately kicks it out of
+    helper mode, citing a "Topology Change" -- even when that LSA has
+    nothing to do with the neighbor whose restart is being helped
+    (e.g. some other router's own Router-LSA refresh arriving a moment
+    later). verify_ospf_gr_helper_no_pending() only guards against
+    pending retransmissions towards one specific neighbor, so it
+    doesn't catch this case.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `dut` : DUT router name
+
+    Returns
+    -------
+    True or an error message string.
+    """
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    show_ospf_json = tgen.gears[dut].vtysh_cmd("show ip ospf json", isjson=True)
+    if "spfTimerDueInMsecs" in show_ospf_json:
+        return "[DUT: {}] SPF calculation is currently scheduled".format(dut)
+
+    # How long since the last SPF run before topology is considered stable
+    min_stable_msecs = 3000
+
+    last_spf_msecs = show_ospf_json.get("spfLastExecutedMsecs")
+    if last_spf_msecs is not None and last_spf_msecs < min_stable_msecs:
+        return "[DUT: {}] SPF ran {}ms ago, waiting for {}ms of stability".format(
+            dut, last_spf_msecs, min_stable_msecs
+        )
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
 
 
 def get_ospf_database(tgen, topo, dut, input_dict, vrf=None, lsatype=None, rid=None):
