@@ -58,8 +58,8 @@ sys.path.append(os.path.join(CWD, "../"))
 # Required to instantiate the topology builder class.
 pytestmark = [pytest.mark.pimd]
 
-GROUP1 = "239.1.1.1"
-GROUP2 = "239.2.2.2"
+GROUP1 = "ff3e::8001:1"
+GROUP2 = "ff3e::8002:2"
 
 
 def build_topo(tgen):
@@ -860,7 +860,7 @@ def test_pim_mrib_rpf_lookup_group_list(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
         # Reset back to mrib then urib mode
-        # Also add mode using GRPPLIST(239.1.1.1) and GRPPLIST2(239.2.2.2)
+        # Also add mode using GRPPLIST(ff3e::8001:1) and GRPPLIST2(ff3e::8002:2)
         # And do an igmp join to both groups on r4-eth2
         tgen.routers()["r4"].vtysh_cmd(
             """
@@ -1056,7 +1056,7 @@ def test_pim_mrib_rpf_lookup_source_group_lists(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
         # Reset back to mrib then urib mode
-        # Also add mode using GRPPLIST(239.1.1.1) and GRPPLIST2(239.2.2.2), both using SRCPLIST2
+        # Also add mode using GRPPLIST(ff3e::8001:1) and GRPPLIST2(ff3e::8002:2), both using SRCPLIST2
         # And do an igmp join to both groups on r4-eth2
         tgen.routers()["r4"].vtysh_cmd(
             """
