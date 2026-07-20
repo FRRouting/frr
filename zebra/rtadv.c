@@ -262,6 +262,14 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	/* Fetch interface information. */
 	zif = ifp->info;
 
+	/* Flush a deferred LL retraction (link is up now). */
+	if (!IN6_IS_ADDR_UNSPECIFIED(&zif->rtadv.retract_ll)) {
+		struct in6_addr ll = zif->rtadv.retract_ll;
+
+		memset(&zif->rtadv.retract_ll, 0, sizeof(ll));
+		rtadv_retract_router(zif, &ll);
+	}
+
 	/* Make router advertisement message. */
 	rtadv = (struct nd_router_advert *)buf;
 
@@ -547,6 +555,116 @@ no_more_opts:
 			     safe_strerror(errno));
 	} else
 		zif->ra_sent++;
+}
+
+/* RFC 4861 6.2.5: send up to MAX_FINAL_RTR_ADVERTISEMENTS (3) final RAs. */
+#define RTADV_MAX_FINAL_RTR_ADVERTS 3
+
+/*
+ * Withdraw the default router we advertised from a just-removed link-local
+ * (e.g. MAC changed to the anycast gateway): send final Router-Lifetime-0 RAs
+ * sourced from the old LL (RFC 4861 6.2.5). The LL is already gone, so the send
+ * needs FREEBIND + a bind to the egress interface, done on a throwaway socket
+ * so it cannot disturb the shared RA socket / normal RAs on other ports.
+ */
+void rtadv_retract_router(struct zebra_if *zif, const struct in6_addr *lladdr)
+{
+	struct interface *ifp = zif->ifp;
+	struct nd_router_advert ra = {};
+	struct sockaddr_in6 addr = {};
+	struct in6_pktinfo *pkt;
+	struct msghdr msg = {};
+	struct cmsghdr *cmsgptr;
+	struct iovec iov;
+	char adata[RTADV_ADATA_SIZE] = { 0 };
+	uint8_t all_nodes_addr[] = { 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+	int sock = -1;
+	int err = 0;
+	int txerr = 0;
+	int sent = 0;
+	int i;
+
+	/* Only interfaces advertising a router send RAs (RFC 4861 6). */
+	if (!zif->rtadv.AdvSendAdvertisements)
+		return;
+
+	/* Link down (mid MAC-flip): defer to the next RA once it is up. */
+	if (!if_is_operative(ifp)) {
+		zif->rtadv.retract_ll = *lladdr;
+		return;
+	}
+
+	/* Throwaway socket: keep FREEBIND + bind off the shared RA socket. */
+	frr_with_privs (&zserv_privs) {
+		sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+		err = errno;
+		if (sock >= 0) {
+			setsockopt_ipv6_multicast_hops(sock, 255);
+			setsockopt_ipv6_multicast_loop(sock, 0);
+			setsockopt_ipv6_freebind(sock, 1);
+			setsockopt_so_bindtodevice(sock, ifp->name);
+		}
+	}
+	if (sock < 0) {
+		flog_err_sys(EC_LIB_SOCKET, "%s(%u): retract RA socket: %s", ifp->name,
+			     ifp->ifindex, safe_strerror(err));
+		return;
+	}
+
+	ra.nd_ra_type = ND_ROUTER_ADVERT;
+	ra.nd_ra_curhoplimit = zif->rtadv.AdvCurHopLimit;
+	ra.nd_ra_router_lifetime = htons(0);
+
+	addr.sin6_family = AF_INET6;
+	addr.sin6_port = htons(IPPROTO_ICMPV6);
+	IPV6_ADDR_COPY(&addr.sin6_addr, all_nodes_addr);
+
+	iov.iov_base = &ra;
+	iov.iov_len = sizeof(ra);
+	msg.msg_name = &addr;
+	msg.msg_namelen = sizeof(addr);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = adata;
+	msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
+
+	cmsgptr = CMSG_FIRSTHDR(&msg);
+	cmsgptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+	cmsgptr->cmsg_level = IPPROTO_IPV6;
+	cmsgptr->cmsg_type = IPV6_PKTINFO;
+	pkt = (struct in6_pktinfo *)CMSG_DATA(cmsgptr);
+	IPV6_ADDR_COPY(&pkt->ipi6_addr, lladdr); /* source = the removed LL */
+	pkt->ipi6_ifindex = ifp->ifindex;
+
+	/*
+	 * The three finals are independent (RFC 4861 6.2.5), so a failed send
+	 * is no reason to skip the ones after it.
+	 */
+	for (i = 0; i < RTADV_MAX_FINAL_RTR_ADVERTS; i++) {
+		if (sendmsg(sock, &msg, 0) < 0)
+			txerr = errno;
+		else
+			sent++;
+	}
+	if (sent == 0) {
+		/*
+		 * Retry anything transient. Abandoning a retraction is only
+		 * right for a programming error, and that set is closed.
+		 */
+		if (txerr != EINVAL && txerr != EBADF && txerr != EAFNOSUPPORT) {
+			zif->rtadv.retract_ll = *lladdr;
+			if (IS_ZEBRA_DEBUG_PACKET)
+				zlog_debug("%s(%u): retract RA deferred (%s), will retry",
+					   ifp->name, ifp->ifindex, safe_strerror(txerr));
+		} else
+			flog_err_sys(EC_LIB_SOCKET,
+				     "%s(%u): Tx retract RA (lifetime 0) src %pI6 failed: %s",
+				     ifp->name, ifp->ifindex, lladdr, safe_strerror(txerr));
+	} else if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s(%u): Tx %d retract RA (lifetime 0) src %pI6", ifp->name,
+			   ifp->ifindex, sent, lladdr);
+
+	close(sock);
 }
 
 static void start_icmpv6_join_timer(struct event *event)
