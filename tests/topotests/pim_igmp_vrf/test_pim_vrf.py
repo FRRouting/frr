@@ -607,6 +607,103 @@ def test_pim6_interface_removal():
     )
 
 
+def test_pim_vrf_uaf_on_shutdown():
+    """
+    Regression test for use-after-free in pimd shutdown after a VRF move.
+
+    Steps:
+      a) Enable PIM on one interface per VRF.
+      b) Flush addresses and bring interfaces DOWN before VRF deletion,
+         so the back-pointer resync is not triggered on re-parent.
+      c) Delete both non-default VRFs from the kernel.
+      d) Teardown sends SIGINT to pimd; Valgrind should report no errors
+         with the fix applied.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # (a) Re-enable PIM on one interface per VRF.
+    logger.info("UAF step-a: enabling PIM on r1-eth1 (blue) and r1-eth3 (red)")
+    r1.vtysh_cmd(
+        """
+        conf
+        interface r1-eth1
+          ip pim
+        interface r1-eth3
+          ip pim
+        """
+    )
+    topotest.sleep(1, "let pimd register PIM-enabled interfaces")
+
+    blue_ifaces = r1.vtysh_cmd("show ip pim vrf blue interface json", isjson=True)
+    red_ifaces = r1.vtysh_cmd("show ip pim vrf red interface json", isjson=True)
+    assert (
+        "r1-eth1" in blue_ifaces
+    ), "r1-eth1 not visible to pimd in VRF blue after ip pim re-enable"
+    assert (
+        "r1-eth3" in red_ifaces
+    ), "r1-eth3 not visible to pimd in VRF red after ip pim re-enable"
+
+    # (b) Flush addresses and bring interfaces DOWN before deleting VRFs.
+    # Flushing addresses prevents pim_if_addr_update from resyncing the
+    # back-pointer when the interface is re-parented to the default VRF.
+    # Bringing the interface DOWN prevents pim_ifp_create from resyncing
+    # since it only does so when if_is_operative() is true.
+    logger.info("UAF step-b: flushing addresses and bringing interfaces DOWN")
+    for cmd in (
+        "ip addr flush dev r1-eth1",
+        "ip addr flush dev r1-eth3",
+    ):
+        tgen.net["r1"].cmd(cmd)
+    topotest.sleep(1, "let pimd process address-delete events")
+
+    blue_ifaces2 = r1.vtysh_cmd("show ip pim vrf blue interface json", isjson=True)
+    red_ifaces2 = r1.vtysh_cmd("show ip pim vrf red interface json", isjson=True)
+    assert "r1-eth1" in blue_ifaces2, "r1-eth1 disappeared from pimd after addr flush"
+    assert "r1-eth3" in red_ifaces2, "r1-eth3 disappeared from pimd after addr flush"
+
+    for cmd in (
+        "ip link set dev r1-eth1 down",
+        "ip link set dev r1-eth3 down",
+    ):
+        tgen.net["r1"].cmd(cmd)
+    topotest.sleep(1, "let pimd process interface-down events")
+
+    eth1_state = tgen.net["r1"].cmd("ip -o link show dev r1-eth1")
+    eth3_state = tgen.net["r1"].cmd("ip -o link show dev r1-eth3")
+    assert "state DOWN" in eth1_state or "NO-CARRIER" in eth1_state, (
+        "r1-eth1 did not go DOWN as expected: " + eth1_state
+    )
+    assert "state DOWN" in eth3_state or "NO-CARRIER" in eth3_state, (
+        "r1-eth3 did not go DOWN as expected: " + eth3_state
+    )
+
+    # (c) Delete both non-default VRFs from the kernel.
+    # The kernel re-parents the interfaces to the default VRF; since they
+    # are DOWN and have no addresses, the back-pointer resync is skipped,
+    # leaving pim_ifp->pim pointing at the freed pim_instance.
+    logger.info("UAF step-c: deleting VRFs blue and red from kernel")
+    for cmd in (
+        "ip link del blue",
+        "ip link del red",
+    ):
+        tgen.net["r1"].cmd(cmd)
+    topotest.sleep(3, "let pimd process VRF delete and interface re-parent events")
+
+    vrf_list = tgen.net["r1"].cmd("ip -o link show type vrf")
+    assert "blue" not in vrf_list, "VRF blue still present in kernel after ip link del"
+    assert "red" not in vrf_list, "VRF red still present in kernel after ip link del"
+
+    # (d) Teardown will send SIGINT to pimd triggering shutdown.
+    # Without the fix a use-after-free occurs here; with the fix
+    # Valgrind should report zero errors.
+    logger.info("UAF step-d: setup complete, teardown will trigger pimd shutdown")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
