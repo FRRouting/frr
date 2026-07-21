@@ -278,6 +278,13 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/rmap-delay-time",
+			.cbs = {
+				.modify = bgp_nb_rmap_delay_time_modify,
+				.cli_show = bgp_nb_cli_show_rmap_delay_time,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/update-delay-time",
 			.cbs = {
 				.modify = bgp_nb_update_delay_time_modify,
@@ -2117,6 +2124,21 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.cli_show = bgp_nb_cli_show_peer_shutdown_message,
 			},
 		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown/rtt",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_rtt_modify,
+				.destroy = bgp_nb_peer_shutdown_rtt_destroy,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_rtt,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown/rtt-count",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_rtt_count_modify,
+				.destroy = bgp_nb_peer_shutdown_rtt_count_destroy,
+			},
+		},
 		/* Shared session leaves: unnumbered */
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/password",
@@ -2179,6 +2201,21 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.cli_show = bgp_nb_cli_show_peer_shutdown_message,
 			},
 		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown/rtt",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_rtt_modify,
+				.destroy = bgp_nb_peer_shutdown_rtt_destroy,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_rtt,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown/rtt-count",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_rtt_count_modify,
+				.destroy = bgp_nb_peer_shutdown_rtt_count_destroy,
+			},
+		},
 		/* Shared session leaves: peer-group */
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/password",
@@ -2239,6 +2276,21 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.modify = bgp_nb_peer_shutdown_message_modify,
 				.destroy = bgp_nb_peer_shutdown_message_destroy,
 				.cli_show = bgp_nb_cli_show_peer_shutdown_message,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown/rtt",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_rtt_modify,
+				.destroy = bgp_nb_peer_shutdown_rtt_destroy,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_rtt,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown/rtt-count",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_rtt_count_modify,
+				.destroy = bgp_nb_peer_shutdown_rtt_count_destroy,
 			},
 		},
 		{

@@ -1342,6 +1342,32 @@ DEFUN_YANG(no_bgp_update_delay_yang, no_bgp_update_delay_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_rmap_delay_timer_yang, bgp_rmap_delay_timer_yang_cmd,
+	   "[no] bgp route-map delay-timer [(0-600)$timer]",
+	   NO_STR BGP_STR
+	   "BGP route-map delay timer\n"
+	   "Time in secs to wait before processing route-map changes\n"
+	   "0 disables the timer, no route updates happen when route-maps change\n")
+{
+	char buf[16];
+
+	if (no) {
+		nb_cli_enqueue_change(vty, "./global/global-config-timers/rmap-delay-time",
+				      NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (!timer_str) {
+		vty_out(vty, "%% Incomplete command\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintfrr(buf, sizeof(buf), "%" PRId64, timer);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/rmap-delay-time", NB_OP_MODIFY,
+			      buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_advertisement_delay_yang, bgp_advertisement_delay_yang_cmd,
 	   "advertisement-delay (1-3600)$delay",
 	   "Hold route advertisements to peers for configured seconds after first peer establishes\n"
@@ -2819,6 +2845,49 @@ DEFPY_YANG(no_neighbor_shutdown_msg_yang, no_neighbor_shutdown_msg_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(neighbor_shutdown_rtt_yang, neighbor_shutdown_rtt_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor shutdown rtt [(1-65535)$rtt [count (1-255)$count]]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Administratively shut down this neighbor\n"
+	   "Shutdown if round-trip-time is higher than expected\n"
+	   "Round-trip-time in milliseconds\n"
+	   "Specify the number of keepalives before shutdown\n"
+	   "The number of keepalives with higher RTT to shutdown\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/rtt", xpath);
+	if (no) {
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/rtt-count", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (!rtt_str) {
+		vty_out(vty, "%% Incomplete command\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintfrr(buf, sizeof(buf), "%" PRId64, rtt);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/rtt-count", xpath);
+	if (count_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, count);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	} else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 DEFPY_YANG(neighbor_update_source_yang, neighbor_update_source_yang_cmd,
 	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor update-source <A.B.C.D|X:X::X:X|WORD>$source",
@@ -7265,6 +7334,7 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_maxmed_onstartup_yang_cmd);
 	install_element(BGP_NODE, &bgp_update_delay_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_update_delay_yang_cmd);
+	install_element(BGP_NODE, &bgp_rmap_delay_timer_yang_cmd);
 	install_element(BGP_NODE, &bgp_advertisement_delay_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_advertisement_delay_yang_cmd);
 
@@ -7340,6 +7410,7 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_shutdown_yang_cmd);
 	install_element(BGP_NODE, &neighbor_shutdown_msg_yang_cmd);
 	install_element(BGP_NODE, &no_neighbor_shutdown_msg_yang_cmd);
+	install_element(BGP_NODE, &neighbor_shutdown_rtt_yang_cmd);
 	install_element(BGP_NODE, &neighbor_update_source_yang_cmd);
 	install_element(BGP_NODE, &no_neighbor_update_source_yang_cmd);
 	install_element(BGP_NODE, &neighbor_ebgp_multihop_yang_cmd);
