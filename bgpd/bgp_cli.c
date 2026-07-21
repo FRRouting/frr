@@ -2996,6 +2996,222 @@ DEFPY_YANG(neighbor_enforce_first_as_yang, neighbor_enforce_first_as_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFPY_YANG(neighbor_capability_software_version_yang,
+	   neighbor_capability_software_version_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version [latest-encoding$latest_encoding]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Advertise capability to the peer\n"
+	   "Advertise Software Version capability to the peer\n"
+	   "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *val;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		val = "disabled";
+	else if (latest_encoding)
+		val = "latest-encoding";
+	else
+		val = "old-encoding";
+
+	snprintfrr(leaf, sizeof(leaf), "%s/capability-options/software-version-capability", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_capability_link_local_yang,
+	   neighbor_capability_link_local_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability link-local",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Advertise capability to the peer\n"
+	   "Advertise Link-Local Next Hop capability to the peer\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/capability-options/link-local-capability", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_override_capability_yang,
+	   neighbor_override_capability_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor override-capability",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Override capability negotiation result\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/capability-options/override-capability", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_strict_capability_yang,
+	   neighbor_strict_capability_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor strict-capability-match",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Strict capability negotiation match\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/capability-options/strict-capability", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_tcp_mss_yang, neighbor_tcp_mss_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor tcp-mss [(1-65535)$mss]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "TCP max segment size\n"
+	   "TCP MSS value\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/tcp-mss", xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!mss_str) {
+			vty_out(vty, "%% Incomplete command\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		snprintfrr(buf, sizeof(buf), "%" PRId64, mss);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	vty_out(vty, " Warning: Reset BGP session for tcp-mss value to take effect\n");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_ip_transparent_yang, neighbor_ip_transparent_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor ip-transparent",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Enable IP_TRANSPARENT on the BGP TCP socket\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/ip-transparent", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_rpki_strict_yang, neighbor_rpki_strict_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor rpki strict",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "RPKI configuration\n"
+	   "Strict mode\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/rpki-strict", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_local_role_yang, neighbor_local_role_yang_cmd,
+	   "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor local-role <provider|rs-server|rs-client|customer|peer>$role [strict-mode$strict]",
+	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Set session role\n"
+	   "Local speaker provides transit to the remote peer\n"
+	   "Local speaker is a route server for the remote peer\n"
+	   "Local speaker is a route server client\n"
+	   "Local speaker receives transit from the remote peer\n"
+	   "Local speaker and remote peer have a lateral peering relationship\n"
+	   "Use additional restriction on peer\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/local-role/role", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, role);
+	snprintfrr(leaf, sizeof(leaf), "%s/local-role/strict-mode", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, strict ? "true" : "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_neighbor_local_role_yang, no_neighbor_local_role_yang_cmd,
+	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor local-role <provider|rs-server|rs-client|customer|peer> [strict-mode]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Set session role\n"
+	   "Local speaker provides transit to the remote peer\n"
+	   "Local speaker is a route server for the remote peer\n"
+	   "Local speaker is a route server client\n"
+	   "Local speaker receives transit from the remote peer\n"
+	   "Local speaker and remote peer have a lateral peering relationship\n"
+	   "Use additional restriction on peer\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/local-role/strict-mode", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/local-role/role", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -3160,4 +3376,13 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_dont_capability_negotiate_yang_cmd);
 	install_element(BGP_NODE, &neighbor_capability_fqdn_yang_cmd);
 	install_element(BGP_NODE, &neighbor_enforce_first_as_yang_cmd);
+	install_element(BGP_NODE, &neighbor_capability_software_version_yang_cmd);
+	install_element(BGP_NODE, &neighbor_capability_link_local_yang_cmd);
+	install_element(BGP_NODE, &neighbor_override_capability_yang_cmd);
+	install_element(BGP_NODE, &neighbor_strict_capability_yang_cmd);
+	install_element(BGP_NODE, &neighbor_tcp_mss_yang_cmd);
+	install_element(BGP_NODE, &neighbor_ip_transparent_yang_cmd);
+	install_element(BGP_NODE, &neighbor_rpki_strict_yang_cmd);
+	install_element(BGP_NODE, &neighbor_local_role_yang_cmd);
+	install_element(BGP_NODE, &no_neighbor_local_role_yang_cmd);
 }

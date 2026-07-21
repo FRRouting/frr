@@ -3749,87 +3749,6 @@ static void bgp_vty_capability_send_dynamic_peer_group(struct peer *peer, afi_t 
 	}
 }
 
-/* neighbor capability software-version */
-DEFPY(neighbor_capability_software_version,
-      neighbor_capability_software_version_cmd,
-      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version [latest-encoding$latest_encoding]",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Advertise capability to the peer\n"
-      "Advertise Software Version capability to the peer\n"
-      "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
-{
-	struct peer *peer;
-	int ret;
-	uint64_t encoding = latest_encoding ? PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW
-					    : PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor, encoding);
-	else
-		ret = peer_flag_set_vty(vty, neighbor, encoding);
-
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_SOFT_VERSION,
-			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
-
-	return ret;
-}
-
-/* neighbor capability link-local */
-DEFPY(neighbor_capability_link_local,
-      neighbor_capability_link_local_cmd,
-      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability link-local",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Advertise capability to the peer\n"
-      "Advertise Link-Local Next Hop capability to the peer\n")
-{
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor, PEER_FLAG_CAPABILITY_LINK_LOCAL);
-	else
-		ret = peer_flag_set_vty(vty, neighbor, PEER_FLAG_CAPABILITY_LINK_LOCAL);
-
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LINK_LOCAL,
-			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
-
-	return ret;
-}
-
-/* RPKI strict mode */
-DEFPY(neighbor_rpki_strict,
-      neighbor_rpki_strict_cmd,
-      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor rpki strict",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "RPKI configuration\n"
-      "Strict mode\n")
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		return peer_flag_unset(peer, PEER_FLAG_RPKI_STRICT);
-
-	return peer_flag_set(peer, PEER_FLAG_RPKI_STRICT);
-}
-
 static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,
 				   afi_t afi, safi_t safi, uint64_t flag,
 				   int set)
@@ -4831,26 +4750,8 @@ DEFPY (neighbor_aigp,
 		return peer_flag_set_vty(vty, neighbor, PEER_FLAG_AIGP);
 }
 
-static bool get_role_by_name(const char *role_str, uint8_t *role)
-{
-	if (strncmp(role_str, "peer", 2) == 0)
-		*role = ROLE_PEER;
-	else if (strncmp(role_str, "provider", 2) == 0)
-		*role = ROLE_PROVIDER;
-	else if (strncmp(role_str, "customer", 2) == 0)
-		*role = ROLE_CUSTOMER;
-	else if (strncmp(role_str, "rs-server", 4) == 0)
-		*role = ROLE_RS_SERVER;
-	else if (strncmp(role_str, "rs-client", 4) == 0)
-		*role = ROLE_RS_CLIENT;
-	else
-		return false;
-
-	return true;
-}
-
 /* Re-evaluate routes when the role changes */
-static void bgp_vty_role_update(struct peer *peer, int action)
+void bgp_vty_role_update(struct peer *peer, int action)
 {
 	struct listnode *node;
 	struct peer *member;
@@ -4869,89 +4770,6 @@ static void bgp_vty_role_update(struct peer *peer, int action)
 
 	peer_clear_soft(peer, AFI_IP, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
 	peer_clear_soft(peer, AFI_IP6, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
-}
-
-static int peer_role_set_vty(struct vty *vty, struct peer *peer,
-			     const char *role_str, bool strict_mode)
-{
-	uint8_t role;
-
-	if (!get_role_by_name(role_str, &role))
-		return bgp_vty_return(vty, BGP_ERR_INVALID_ROLE_NAME);
-	return bgp_vty_return(vty, peer_role_set(peer, role, strict_mode));
-}
-
-DEFPY(neighbor_role,
-      neighbor_role_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor local-role <provider|rs-server|rs-client|customer|peer>$role",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Set session role\n"
-      ROLE_STR)
-{
-	int ret;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_role_set_vty(vty, peer, role, false);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
-
-	return ret;
-}
-
-DEFPY(neighbor_role_strict,
-      neighbor_role_strict_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor local-role <provider|rs-server|rs-client|customer|peer>$role strict-mode",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Set session role\n"
-      ROLE_STR
-      "Use additional restriction on peer\n")
-{
-	int ret;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_role_set_vty(vty, peer, role, true);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
-
-	return ret;
-}
-
-DEFPY(no_neighbor_role,
-      no_neighbor_role_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor local-role <provider|rs-server|rs-client|customer|peer> [strict-mode]",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Set session role\n"
-      ROLE_STR
-      "Use additional restriction on peer\n")
-{
-	int ret;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = bgp_vty_return(vty, peer_role_unset(peer));
-
-	bgp_vty_role_update(peer, CAPABILITY_ACTION_UNSET);
-
-	return ret;
 }
 
 DEFPY (neighbor_oad,
@@ -5285,59 +5103,6 @@ ALIAS_HIDDEN(no_neighbor_weight, no_neighbor_weight_hidden_cmd,
 	     "Set default weight for routes from this neighbor\n"
 	     "default weight\n")
 
-
-/* Override capability negotiation. */
-DEFUN (neighbor_override_capability,
-       neighbor_override_capability_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> override-capability",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Override capability negotiation result\n")
-{
-	int idx_peer = 1;
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_OVERRIDE_CAPABILITY);
-}
-
-DEFUN (no_neighbor_override_capability,
-       no_neighbor_override_capability_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> override-capability",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Override capability negotiation result\n")
-{
-	int idx_peer = 2;
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_OVERRIDE_CAPABILITY);
-}
-
-DEFUN (neighbor_strict_capability,
-       neighbor_strict_capability_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Strict capability negotiation match\n")
-{
-	int idx_peer = 1;
-
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_STRICT_CAP_MATCH);
-}
-
-DEFUN (no_neighbor_strict_capability,
-       no_neighbor_strict_capability_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Strict capability negotiation match\n")
-{
-	int idx_peer = 2;
-
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_STRICT_CAP_MATCH);
-}
 
 
 
@@ -17419,83 +17184,6 @@ DEFUN (no_bgp_redistribute_ipv6,
 	return CMD_SUCCESS;
 }
 
-/* Neighbor update tcp-mss. */
-static int peer_tcp_mss_vty(struct vty *vty, const char *peer_str,
-			    const char *tcp_mss_str)
-{
-	struct peer *peer;
-	uint32_t tcp_mss_val = 0;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (tcp_mss_str) {
-		tcp_mss_val = strtoul(tcp_mss_str, NULL, 10);
-		peer_tcp_mss_set(peer, tcp_mss_val);
-	} else {
-		peer_tcp_mss_unset(peer);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(neighbor_tcp_mss, neighbor_tcp_mss_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> tcp-mss (1-65535)",
-      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "TCP max segment size\n"
-      "TCP MSS value\n")
-{
-	int peer_index = 1;
-	int mss_index = 3;
-
-	vty_out(vty,
-		" Warning: Reset BGP session for tcp-mss value to take effect\n");
-	return peer_tcp_mss_vty(vty, argv[peer_index]->arg,
-				argv[mss_index]->arg);
-}
-
-DEFUN(no_neighbor_tcp_mss, no_neighbor_tcp_mss_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> tcp-mss [(1-65535)]",
-      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "TCP max segment size\n"
-      "TCP MSS value\n")
-{
-	int peer_index = 2;
-
-	vty_out(vty,
-		" Warning: Reset BGP session for tcp-mss value to take effect\n");
-	return peer_tcp_mss_vty(vty, argv[peer_index]->arg, NULL);
-}
-
-DEFPY(neighbor_ip_transparent,
-      neighbor_ip_transparent_cmd,
-      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor ip-transparent",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Enable IP_TRANSPARENT on the BGP TCP socket\n")
-{
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!no && !peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
-		vty_out(vty, "%% Missing update-source\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor, PEER_FLAG_IP_TRANSPARENT);
-	else
-		ret = peer_flag_set_vty(vty, neighbor, PEER_FLAG_IP_TRANSPARENT);
-
-	return bgp_vty_return(vty, ret);
-}
-
 DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
       "[no$no] bgp retain route-target all",
       NO_STR BGP_STR
@@ -20329,9 +20017,6 @@ void bgp_vty_init(void)
 	/* bgp max-med — YANG: bgp_cli_init() */
 
 	/* "neighbor role" commands. */
-	install_element(BGP_NODE, &neighbor_role_cmd);
-	install_element(BGP_NODE, &neighbor_role_strict_cmd);
-	install_element(BGP_NODE, &no_neighbor_role_cmd);
 
 	/* "neighbor oad" commands. */
 	install_element(BGP_NODE, &neighbor_oad_cmd);
@@ -21114,13 +20799,10 @@ void bgp_vty_init(void)
 	/* "neighbor capability extended-nexthop" commands.*/
 
 	/* "neighbor capability software-version" commands.*/
-	install_element(BGP_NODE, &neighbor_capability_software_version_cmd);
 
 	/* "neighbor capability link-local" commands.*/
-	install_element(BGP_NODE, &neighbor_capability_link_local_cmd);
 
 	/* neighbor rpki ... commands. */
-	install_element(BGP_NODE, &neighbor_rpki_strict_cmd);
 
 	/* "neighbor capability orf prefix-list" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_orf_prefix_hidden_cmd);
@@ -21223,12 +20905,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &neighbor_encapsulation_srv6_or_mpls_cmd);
 
 	/* "neighbor override-capability" commands. */
-	install_element(BGP_NODE, &neighbor_override_capability_cmd);
-	install_element(BGP_NODE, &no_neighbor_override_capability_cmd);
 
 	/* "neighbor strict-capability-match" commands. */
-	install_element(BGP_NODE, &neighbor_strict_capability_cmd);
-	install_element(BGP_NODE, &no_neighbor_strict_capability_cmd);
 
 	/* "neighbor timers" commands. */
 
@@ -21768,10 +21446,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_no_import_vrf_route_map_cmd);
 
 	/* tcp-mss command */
-	install_element(BGP_NODE, &neighbor_tcp_mss_cmd);
-	install_element(BGP_NODE, &no_neighbor_tcp_mss_cmd);
 
-	install_element(BGP_NODE, &neighbor_ip_transparent_cmd);
 
 	/* srv6 commands */
 	install_element(VIEW_NODE, &show_bgp_srv6_cmd);

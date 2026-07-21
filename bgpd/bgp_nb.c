@@ -1276,6 +1276,198 @@ const struct frr_yang_module_info frr_bgp_info = {
 		},
 
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/software-version-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_soft_version_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_soft_version,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/link-local-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_link_local_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_link_local,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/override-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_override_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_override,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/strict-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/tcp-mss",
+			.cbs = {
+				.modify = bgp_nb_peer_tcp_mss_modify,
+				.destroy = bgp_nb_peer_tcp_mss_destroy,
+				.cli_show = bgp_nb_cli_show_peer_tcp_mss,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ip-transparent",
+			.cbs = {
+				.modify = bgp_nb_peer_ip_transparent_modify,
+				.cli_show = bgp_nb_cli_show_peer_ip_transparent,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/rpki-strict",
+			.cbs = {
+				.modify = bgp_nb_peer_rpki_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_rpki_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-role/role",
+			.cbs = {
+				.modify = bgp_nb_peer_local_role_modify,
+				.destroy = bgp_nb_peer_local_role_destroy,
+				.cli_show = bgp_nb_cli_show_peer_local_role,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-role/strict-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_local_role_strict_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/software-version-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_soft_version_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_soft_version,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/link-local-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_link_local_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_link_local,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/override-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_override_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_override,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/strict-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/tcp-mss",
+			.cbs = {
+				.modify = bgp_nb_peer_tcp_mss_modify,
+				.destroy = bgp_nb_peer_tcp_mss_destroy,
+				.cli_show = bgp_nb_cli_show_peer_tcp_mss,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ip-transparent",
+			.cbs = {
+				.modify = bgp_nb_peer_ip_transparent_modify,
+				.cli_show = bgp_nb_cli_show_peer_ip_transparent,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/rpki-strict",
+			.cbs = {
+				.modify = bgp_nb_peer_rpki_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_rpki_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-role/role",
+			.cbs = {
+				.modify = bgp_nb_peer_local_role_modify,
+				.destroy = bgp_nb_peer_local_role_destroy,
+				.cli_show = bgp_nb_cli_show_peer_local_role,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-role/strict-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_local_role_strict_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/software-version-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_soft_version_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_soft_version,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/link-local-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_link_local_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_link_local,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/override-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_override_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_override,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/strict-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/tcp-mss",
+			.cbs = {
+				.modify = bgp_nb_peer_tcp_mss_modify,
+				.destroy = bgp_nb_peer_tcp_mss_destroy,
+				.cli_show = bgp_nb_cli_show_peer_tcp_mss,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ip-transparent",
+			.cbs = {
+				.modify = bgp_nb_peer_ip_transparent_modify,
+				.cli_show = bgp_nb_cli_show_peer_ip_transparent,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/rpki-strict",
+			.cbs = {
+				.modify = bgp_nb_peer_rpki_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_rpki_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-role/role",
+			.cbs = {
+				.modify = bgp_nb_peer_local_role_modify,
+				.destroy = bgp_nb_peer_local_role_destroy,
+				.cli_show = bgp_nb_cli_show_peer_local_role,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-role/strict-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_local_role_strict_modify,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}
