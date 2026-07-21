@@ -10,6 +10,7 @@
 #include "northbound_cli.h"
 #include "vrf.h"
 #include "asn.h"
+#include "frrstr.h"
 #include "bfd.h"
 #include "routing_nb.h"
 
@@ -3280,6 +3281,315 @@ DEFPY_YANG(neighbor_bfd_strict_hold_yang, neighbor_bfd_strict_hold_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+static void bgp_cli_path_attr_release(char **attributes, int num_attributes)
+{
+	int i;
+
+	if (!attributes)
+		return;
+	for (i = 0; i < num_attributes; i++)
+		XFREE(MTYPE_TMP, attributes[i]);
+	XFREE(MTYPE_TMP, attributes);
+}
+
+/*
+ * nb_cli_enqueue_change() stores the value pointer and does not copy it.
+ * Split tokens handed to NB_OP_CREATE must stay alive until apply returns.
+ * The lookup xpath is absolute: base is relative (./neighbors/...), and
+ * prefixing only VTY_CURR_XPATH looks up the BGP instance instead of the peer.
+ */
+static void bgp_cli_path_attr_enqueue_replace(struct vty *vty, const char *base,
+					      const char *leaf_name, const char *attrs, bool set,
+					      char ***held, int *nheld)
+{
+	char leaf[XPATH_MAXLEN + 256];
+	char check[XPATH_MAXLEN + 256];
+	char **attributes = NULL;
+	int num_attributes = 0;
+	int i;
+
+	if (held)
+		*held = NULL;
+	if (nheld)
+		*nheld = 0;
+
+	if (base[0] == '.')
+		snprintfrr(check, sizeof(check), "%s%s/path-attribute/%s", VTY_CURR_XPATH, base + 1,
+			   leaf_name);
+	else
+		snprintfrr(check, sizeof(check), "%s/path-attribute/%s", base, leaf_name);
+	/* Replace semantics on set: clear existing entries first. */
+	if (set || !attrs) {
+		const struct lyd_node *dnode = yang_dnode_get(vty->candidate_config->dnode, check);
+		const struct lyd_node *parent, *child, *next;
+
+		if (dnode) {
+			parent = lyd_parent(dnode);
+			for (child = lyd_child(parent); child; child = next) {
+				next = child->next;
+				if (child->schema->nodetype != LYS_LEAFLIST)
+					continue;
+				if (!strmatch(child->schema->name, leaf_name))
+					continue;
+				snprintfrr(leaf, sizeof(leaf), "%s/path-attribute/%s[.='%s']",
+					   base, leaf_name, yang_dnode_get_string(child, NULL));
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			}
+		}
+	}
+
+	if (!attrs)
+		return;
+
+	frrstr_split(attrs, " ", &attributes, &num_attributes);
+	for (i = 0; i < num_attributes; i++) {
+		snprintfrr(leaf, sizeof(leaf), "%s/path-attribute/%s[.='%s']", base, leaf_name,
+			   attributes[i]);
+		if (set)
+			nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, attributes[i]);
+		else
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+	if (held && nheld) {
+		*held = attributes;
+		*nheld = num_attributes;
+	} else
+		bgp_cli_path_attr_release(attributes, num_attributes);
+}
+
+DEFPY_YANG(neighbor_path_attribute_discard_yang,
+	   neighbor_path_attribute_discard_yang_cmd,
+	   "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute discard (1-255)...",
+	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Manipulate path attributes from incoming UPDATE messages\n"
+	   "Drop specified attributes from incoming UPDATE messages\n"
+	   "Attribute number\n")
+{
+	char xpath[XPATH_MAXLEN];
+	bool is_pg = false;
+	char *attrs;
+	char **held = NULL;
+	int nheld = 0;
+	int idx = 0;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	attrs = idx ? argv_concat(argv, argc, idx) : NULL;
+	bgp_cli_path_attr_enqueue_replace(vty, xpath, "discard", attrs, true, &held, &nheld);
+	XFREE(MTYPE_TMP, attrs);
+	ret = nb_cli_apply_changes(vty, NULL);
+	bgp_cli_path_attr_release(held, nheld);
+	return ret;
+}
+
+DEFPY_YANG(no_neighbor_path_attribute_discard_yang,
+	   no_neighbor_path_attribute_discard_yang_cmd,
+	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute discard [(1-255)]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Manipulate path attributes from incoming UPDATE messages\n"
+	   "Drop specified attributes from incoming UPDATE messages\n"
+	   "Attribute number\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int idx = 0;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	if (idx) {
+		snprintfrr(leaf, sizeof(leaf), "%s/path-attribute/discard[.='%s']", xpath,
+			   argv[idx]->arg);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	} else
+		bgp_cli_path_attr_enqueue_replace(vty, xpath, "discard", NULL, false, NULL, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_path_attribute_withdraw_yang,
+	   neighbor_path_attribute_withdraw_yang_cmd,
+	   "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute treat-as-withdraw (1-255)...",
+	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Manipulate path attributes from incoming UPDATE messages\n"
+	   "Treat-as-withdraw any incoming BGP UPDATE messages that contain the specified attribute\n"
+	   "Attribute number\n")
+{
+	char xpath[XPATH_MAXLEN];
+	bool is_pg = false;
+	char *attrs;
+	char **held = NULL;
+	int nheld = 0;
+	int idx = 0;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	attrs = idx ? argv_concat(argv, argc, idx) : NULL;
+	bgp_cli_path_attr_enqueue_replace(vty, xpath, "treat-as-withdraw", attrs, true, &held,
+					  &nheld);
+	XFREE(MTYPE_TMP, attrs);
+	ret = nb_cli_apply_changes(vty, NULL);
+	bgp_cli_path_attr_release(held, nheld);
+	return ret;
+}
+
+DEFPY_YANG(no_neighbor_path_attribute_withdraw_yang,
+	   no_neighbor_path_attribute_withdraw_yang_cmd,
+	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute treat-as-withdraw (1-255)...",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Manipulate path attributes from incoming UPDATE messages\n"
+	   "Treat-as-withdraw any incoming BGP UPDATE messages that contain the specified attribute\n"
+	   "Attribute number\n")
+{
+	char xpath[XPATH_MAXLEN];
+	bool is_pg = false;
+	char *attrs;
+	char **held = NULL;
+	int nheld = 0;
+	int idx = 0;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	attrs = idx ? argv_concat(argv, argc, idx) : NULL;
+	bgp_cli_path_attr_enqueue_replace(vty, xpath, "treat-as-withdraw", attrs, false, &held,
+					  &nheld);
+	XFREE(MTYPE_TMP, attrs);
+	ret = nb_cli_apply_changes(vty, NULL);
+	bgp_cli_path_attr_release(held, nheld);
+	return ret;
+}
+
+static int bgp_cli_peer_gr_mode(struct vty *vty, const char *neighbor, const char *mode_leaf,
+				bool enable)
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/* Choice: clear other modes when enabling one. */
+	snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/enable", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/graceful-restart-helper", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/graceful-restart-disable", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	if (enable) {
+		snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/%s", xpath, mode_leaf);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	}
+
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset this peer to take effect\n");
+	return ret;
+}
+
+DEFPY_YANG(neighbor_graceful_restart_yang, neighbor_graceful_restart_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor graceful-restart",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Graceful restart capability on this neighbor\n")
+{
+	return bgp_cli_peer_gr_mode(vty, neighbor, "enable", !no);
+}
+
+DEFPY_YANG(neighbor_graceful_restart_helper_yang,
+	   neighbor_graceful_restart_helper_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor graceful-restart-helper",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Graceful restart helper mode capability on this neighbor\n")
+{
+	return bgp_cli_peer_gr_mode(vty, neighbor, "graceful-restart-helper", !no);
+}
+
+DEFPY_YANG(neighbor_graceful_restart_disable_yang,
+	   neighbor_graceful_restart_disable_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor graceful-restart-disable",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Disable graceful restart and helper mode on this neighbor\n")
+{
+	return bgp_cli_peer_gr_mode(vty, neighbor, "graceful-restart-disable", !no);
+}
+
+DEFPY_YANG(neighbor_aigp_yang, neighbor_aigp_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor aigp",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Enable send and receive of the AIGP attribute per neighbor\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/aigp", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_oad_yang, neighbor_oad_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor oad",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Set peering session type to EBGP-OAD\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/oad", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_graceful_shutdown_yang, neighbor_graceful_shutdown_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor graceful-shutdown",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Graceful shutdown\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/graceful-shutdown", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -3459,4 +3769,14 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_bfd_cbit_yang_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_strict_yang_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_strict_hold_yang_cmd);
+	install_element(BGP_NODE, &neighbor_path_attribute_discard_yang_cmd);
+	install_element(BGP_NODE, &no_neighbor_path_attribute_discard_yang_cmd);
+	install_element(BGP_NODE, &neighbor_path_attribute_withdraw_yang_cmd);
+	install_element(BGP_NODE, &no_neighbor_path_attribute_withdraw_yang_cmd);
+	install_element(BGP_NODE, &neighbor_graceful_restart_yang_cmd);
+	install_element(BGP_NODE, &neighbor_graceful_restart_helper_yang_cmd);
+	install_element(BGP_NODE, &neighbor_graceful_restart_disable_yang_cmd);
+	install_element(BGP_NODE, &neighbor_aigp_yang_cmd);
+	install_element(BGP_NODE, &neighbor_oad_yang_cmd);
+	install_element(BGP_NODE, &neighbor_graceful_shutdown_yang_cmd);
 }
