@@ -293,7 +293,7 @@ def test_pim_autorp_selective_group_joins(request):
         conf
          router pim
           autorp announce 10.0.0.2 224.0.0.0/4
-          autorp announce scope 31 interval 1 holdtime 5
+          autorp announce scope 31 interval 1 holdtime 15
         """
     )
 
@@ -314,7 +314,7 @@ def test_pim_autorp_selective_group_joins(request):
         conf
          router pim
           autorp send-rp-discovery source interface r1-eth0
-          autorp send-rp-discovery scope 31 interval 1 holdtime 5
+          autorp send-rp-discovery scope 31 interval 1 holdtime 15
         """
     )
 
@@ -411,7 +411,7 @@ def test_pim_autorp_no_mapping_agent_rp(request):
         conf
          router pim
           autorp announce 10.0.0.2 224.0.0.0/4
-          autorp announce scope 31 interval 1 holdtime 5
+          autorp announce scope 31 interval 1 holdtime 15
         """
     )
 
@@ -450,7 +450,7 @@ def test_pim_autorp_no_mapping_agent_rp(request):
               "enabled":true,
               "scope":31,
               "interval":1,
-              "holdtime":5,
+              "holdtime":15,
               "rpList":[
                 {
                   "rpAddress":"10.0.0.2",
@@ -486,7 +486,7 @@ def test_pim_autorp_discovery_rp(request):
         conf
          router pim
           autorp send-rp-discovery source interface r1-eth0
-          autorp send-rp-discovery scope 31 interval 1 holdtime 5
+          autorp send-rp-discovery scope 31 interval 1 holdtime 15
         """
     )
 
@@ -532,7 +532,7 @@ def test_pim_autorp_discovery_rp(request):
             "active":true,
             "scope":31,
             "interval":1,
-            "holdtime":5,
+            "holdtime":15,
             "source":"interface",
             "interface":"r1-eth0",
             "address":"10.0.0.1",
@@ -565,7 +565,7 @@ def test_pim_autorp_discovery_rp(request):
             "rpList":{
               "10.0.0.2":{
                 "rpAddress":"10.0.0.2",
-                "holdtime":5,
+                "holdtime":15,
                 "groupRanges":[
                   {
                     "negative":false,
@@ -604,7 +604,7 @@ def test_pim_autorp_discovery_disable_purge_rp(request):
         conf
          router pim
           autorp announce 10.0.0.2 224.0.0.0/4
-          autorp announce scope 31 interval 1 holdtime 5
+          autorp announce scope 31 interval 1 holdtime 15
         """
     )
     tgen.routers()["r1"].vtysh_cmd(
@@ -612,7 +612,7 @@ def test_pim_autorp_discovery_disable_purge_rp(request):
         conf
          router pim
           autorp send-rp-discovery source interface r1-eth0
-          autorp send-rp-discovery scope 31 interval 1 holdtime 5
+          autorp send-rp-discovery scope 31 interval 1 holdtime 15
         """
     )
 
@@ -688,7 +688,7 @@ def test_pim_autorp_discovery_disable_purge_rp(request):
         """
         conf
          router pim
-          autorp send-rp-discovery scope 31 interval 1 holdtime 5
+          autorp send-rp-discovery scope 31 interval 1 holdtime 15
         """
     )
 
@@ -708,7 +708,7 @@ def test_pim_autorp_discovery_multiple_rp_same(request):
         conf
          router pim
           autorp announce 10.0.1.3 224.0.0.0/4
-          autorp announce scope 31 interval 1 holdtime 5
+          autorp announce scope 31 interval 1 holdtime 15
         """
     )
 
@@ -753,7 +753,7 @@ def test_pim_autorp_discovery_multiple_rp_same(request):
             "rpList":{
               "10.0.1.3":{
                 "rpAddress":"10.0.1.3",
-                "holdtime":5,
+                "holdtime":15,
                 "groupRanges":[
                   {
                     "negative":false,
@@ -846,7 +846,7 @@ def test_pim_autorp_discovery_multiple_rp_different(request):
             "rpList":{
               "10.0.0.2":{
                 "rpAddress":"10.0.0.2",
-                "holdtime":5,
+                "holdtime":15,
                 "groupRanges":[
                   {
                     "negative":false,
@@ -856,7 +856,7 @@ def test_pim_autorp_discovery_multiple_rp_different(request):
               },
               "10.0.1.3":{
                 "rpAddress":"10.0.1.3",
-                "holdtime":5,
+                "holdtime":15,
                 "groupRanges":[
                   {
                     "negative":false,
@@ -950,7 +950,7 @@ def test_pim_autorp_discovery_neg_prefixes(request):
             "rpList":{
               "10.0.0.2":{
                 "rpAddress":"10.0.0.2",
-                "holdtime":5,
+                "holdtime":15,
                 "groupRanges":[
                   {
                     "negative":false,
@@ -960,7 +960,7 @@ def test_pim_autorp_discovery_neg_prefixes(request):
               },
               "10.0.1.3":{
                 "rpAddress":"10.0.1.3",
-                "holdtime":5,
+                "holdtime":15,
                 "groupRanges":[
                   {
                     "negative":false,
