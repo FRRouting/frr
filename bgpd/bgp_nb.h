@@ -785,6 +785,16 @@ int bgp_nb_network_label_index_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_network_rmap_modify(struct nb_cb_modify_args *args);
 int bgp_nb_network_rmap_destroy(struct nb_cb_destroy_args *args);
 
+int bgp_nb_vpn_network_rd_create(struct nb_cb_create_args *args);
+int bgp_nb_vpn_network_rd_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_vpn_network_prefix_create(struct nb_cb_create_args *args);
+int bgp_nb_vpn_network_prefix_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_vpn_network_prefix(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+int bgp_nb_vpn_network_label_modify(struct nb_cb_modify_args *args);
+int bgp_nb_vpn_network_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_nb_vpn_network_rmap_destroy(struct nb_cb_destroy_args *args);
+
 
 void bgp_cli_init(void);
 

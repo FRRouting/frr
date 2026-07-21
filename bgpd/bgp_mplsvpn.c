@@ -4137,12 +4137,7 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
 
 void bgp_mplsvpn_init(void)
 {
-	install_element(BGP_VPNV4_NODE, &vpnv4_network_cmd);
-	install_element(BGP_VPNV4_NODE, &vpnv4_network_route_map_cmd);
-	install_element(BGP_VPNV4_NODE, &no_vpnv4_network_cmd);
-
-	install_element(BGP_VPNV6_NODE, &vpnv6_network_cmd);
-	install_element(BGP_VPNV6_NODE, &no_vpnv6_network_cmd);
+	/* vpnv4/vpnv6 network — YANG: bgp_cli_init() */
 
 	install_element(VIEW_NODE, &show_bgp_ip_vpn_all_rd_cmd);
 	install_element(VIEW_NODE, &show_bgp_ip_vpn_rd_cmd);
