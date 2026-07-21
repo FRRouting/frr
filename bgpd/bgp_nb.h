@@ -466,6 +466,35 @@ int bgp_nb_peer_enforce_first_as_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 
+
+int bgp_nb_peer_cap_soft_version_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_peer_cap_link_local_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_cap_link_local(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_peer_cap_override_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_cap_override(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+int bgp_nb_peer_cap_strict_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_cap_strict(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+int bgp_nb_peer_tcp_mss_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_tcp_mss_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_tcp_mss(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+int bgp_nb_peer_ip_transparent_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_ip_transparent(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_peer_rpki_strict_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_rpki_strict(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+int bgp_nb_peer_local_role_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_local_role_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_local_role(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+int bgp_nb_peer_local_role_strict_modify(struct nb_cb_modify_args *args);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

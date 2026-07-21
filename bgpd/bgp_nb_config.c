@@ -4358,3 +4358,330 @@ void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_nod
 	} else
 		vty_out(vty, " no neighbor %s enforce-first-as\n", bgp_nb_config_peer_name(dnode));
 }
+
+int bgp_nb_peer_cap_soft_version_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	const char *val;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	val = yang_dnode_get_string(args->dnode, NULL);
+	peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD |
+				      PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+	if (strmatch(val, "old-encoding"))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
+	else if (strmatch(val, "latest-encoding"))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	const char *val = yang_dnode_get_string(dnode, NULL);
+
+	if (strmatch(val, "old-encoding"))
+		vty_out(vty, " neighbor %s capability software-version\n",
+			bgp_nb_config_peer_name(dnode));
+	else if (strmatch(val, "latest-encoding"))
+		vty_out(vty, " neighbor %s capability software-version latest-encoding\n",
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s capability software-version\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_cap_link_local_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
+	else
+		peer_flag_unset(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_link_local(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s capability link-local\n",
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s capability link-local\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_cap_override_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_OVERRIDE_CAPABILITY);
+	else
+		peer_flag_unset(peer, PEER_FLAG_OVERRIDE_CAPABILITY);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_override(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s override-capability\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s override-capability\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_cap_strict_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_STRICT_CAP_MATCH);
+	else
+		peer_flag_unset(peer, PEER_FLAG_STRICT_CAP_MATCH);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_strict(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s strict-capability-match\n",
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s strict-capability-match\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_tcp_mss_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer_tcp_mss_set(peer, yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_peer_tcp_mss_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_tcp_mss_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_tcp_mss(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " neighbor %s tcp-mss %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_peer_ip_transparent_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!peer)
+			return NB_ERR_VALIDATION;
+		if (yang_dnode_get_bool(args->dnode, NULL) &&
+		    !peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "ip-transparent requires update-source");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_IP_TRANSPARENT);
+	else
+		peer_flag_unset(peer, PEER_FLAG_IP_TRANSPARENT);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_ip_transparent(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s ip-transparent\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s ip-transparent\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_rpki_strict_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_RPKI_STRICT);
+	else
+		peer_flag_unset(peer, PEER_FLAG_RPKI_STRICT);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_rpki_strict(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s rpki strict\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s rpki strict\n", bgp_nb_config_peer_name(dnode));
+}
+
+static bool bgp_nb_role_from_str(const char *role_str, uint8_t *role)
+{
+	if (strmatch(role_str, "provider"))
+		*role = ROLE_PROVIDER;
+	else if (strmatch(role_str, "rs-server"))
+		*role = ROLE_RS_SERVER;
+	else if (strmatch(role_str, "rs-client"))
+		*role = ROLE_RS_CLIENT;
+	else if (strmatch(role_str, "customer"))
+		*role = ROLE_CUSTOMER;
+	else if (strmatch(role_str, "peer"))
+		*role = ROLE_PEER;
+	else
+		return false;
+
+	return true;
+}
+
+static void bgp_nb_peer_local_role_apply(struct peer *peer, const struct lyd_node *dnode)
+{
+	const struct lyd_node *lr;
+	const char *role_str;
+	bool strict = false;
+	uint8_t role;
+
+	lr = yang_dnode_get_parent(dnode, "local-role");
+	if (!lr || !yang_dnode_exists(lr, "./role"))
+		return;
+
+	role_str = yang_dnode_get_string(lr, "./role");
+	if (!bgp_nb_role_from_str(role_str, &role))
+		return;
+
+	if (yang_dnode_exists(lr, "./strict-mode"))
+		strict = yang_dnode_get_bool(lr, "./strict-mode");
+
+	if (peer_role_set(peer, role, strict) != CMD_SUCCESS)
+		return;
+
+	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
+}
+
+int bgp_nb_peer_local_role_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_nb_peer_local_role_apply(peer, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_peer_local_role_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	peer_role_unset(peer);
+	bgp_vty_role_update(peer, CAPABILITY_ACTION_UNSET);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_local_role(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	const struct lyd_node *lr = yang_dnode_get_parent(dnode, "local-role");
+	bool strict = lr && yang_dnode_exists(lr, "./strict-mode") &&
+		      yang_dnode_get_bool(lr, "./strict-mode");
+
+	vty_out(vty, " neighbor %s local-role %s%s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL), strict ? " strict-mode" : "");
+}
+
+int bgp_nb_peer_local_role_strict_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_nb_peer_local_role_apply(peer, args->dnode);
+	return NB_OK;
+}
