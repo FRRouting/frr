@@ -297,6 +297,15 @@ submodule frr-bgp-common {
            Maps to: bgp bestpath use-imported-attributes.";
       }
 
+      leaf prefer-mpls-over-srv6 {
+        type boolean;
+        default "false";
+        description
+          "Prefer the MPLS path over the SRv6 path when both are imported
+           for the same parent route.
+           Maps to: bgp bestpath prefer-mpls-over-srv6.";
+      }
+
       leaf peer-type-multipath-relax {
         type boolean;
         default "false";
