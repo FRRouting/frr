@@ -612,6 +612,54 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor",
+			.cbs = {
+				.create = bgp_nb_neighbor_create,
+				.destroy = bgp_nb_neighbor_destroy,
+				.cli_show = bgp_nb_cli_show_neighbor,
+				.cli_show_end = bgp_nb_cli_show_neighbor_end,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/neighbor-remote-as/remote-as-type",
+			.cbs = {
+				.modify = bgp_nb_neighbor_remote_as_type_modify,
+				.destroy = bgp_nb_neighbor_remote_as_type_destroy,
+				.cli_show = bgp_nb_cli_show_neighbor_remote_as_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/neighbor-remote-as/remote-as",
+			.cbs = {
+				.modify = bgp_nb_neighbor_remote_as_modify,
+				.destroy = bgp_nb_neighbor_remote_as_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group",
+			.cbs = {
+				.create = bgp_nb_peer_group_create,
+				.destroy = bgp_nb_peer_group_destroy,
+				.cli_show = bgp_nb_cli_show_peer_group,
+				.cli_show_end = bgp_nb_cli_show_peer_group_end,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/neighbor-remote-as/remote-as-type",
+			.cbs = {
+				.modify = bgp_nb_peer_group_remote_as_type_modify,
+				.destroy = bgp_nb_peer_group_remote_as_type_destroy,
+				.cli_show = bgp_nb_cli_show_peer_group_remote_as_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/neighbor-remote-as/remote-as",
+			.cbs = {
+				.modify = bgp_nb_peer_group_remote_as_modify,
+				.destroy = bgp_nb_peer_group_remote_as_destroy,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

@@ -943,7 +943,7 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 	return *idx;
 }
 
-static bool peer_address_self_check(struct bgp *bgp, union sockunion *su)
+bool peer_address_self_check(struct bgp *bgp, union sockunion *su)
 {
 	struct interface *ifp = NULL;
 	struct listnode *node;
@@ -1616,6 +1616,11 @@ static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
 		vrf = bgp_vrf_lookup_by_instance_type(bgp);
 		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
 	}
+}
+
+void bgp_nb_need_listening(struct bgp *bgp)
+{
+	bgp_need_listening(bgp, NULL);
 }
 
 #include "bgpd/bgp_vty_clippy.c"
@@ -3283,6 +3288,11 @@ static void bgp_listen_range_warn_group(struct vty *vty, const struct peer_group
 			bgp_listen_range_warn(vty, group, range);
 }
 
+void bgp_nb_may_stop_listening(struct bgp *bgp)
+{
+	bgp_may_stop_listening(bgp, NULL);
+}
+
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
        "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
@@ -3440,86 +3450,6 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 }
 
 
-
-static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
-			      const char *as_str)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
-	as_t as = 0;
-	enum peer_asn_type as_type = AS_SPECIFIED;
-	union sockunion su;
-
-	if (as_str[0] == 'i') {
-		as = 0;
-		as_type = AS_INTERNAL;
-	} else if (as_str[0] == 'e') {
-		as = 0;
-		as_type = AS_EXTERNAL;
-	} else if (as_str[0] == 'a') {
-		as = 0;
-		as_type = AS_AUTO;
-	} else if (!asn_str2asn(as_str, &as))
-		as_type = AS_UNSPECIFIED;
-
-	if (as_type == AS_UNSPECIFIED) {
-		vty_out(vty, "%% Invalid peer AS: %s\n", as_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	/* If peer is peer group or interface peer, call proper function. */
-	ret = str2sockunion(peer_str, &su);
-	if (ret < 0) {
-		struct peer *peer;
-
-		/* Check if existing interface peer */
-		peer = peer_lookup_by_conf_if(bgp, peer_str);
-
-		ret = peer_remote_as(bgp, NULL, peer_str, &as, as_type, as_str);
-
-		/* if not interface peer, check peer-group settings */
-		if (ret < 0 && !peer) {
-			ret = peer_group_remote_as(bgp, peer_str, &as, as_type,
-						   as_str);
-			if (ret < 0) {
-				vty_out(vty,
-					"%% Create the peer-group or interface first\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			/* if need start listening */
-			bgp_need_listening(bgp, vty);
-			return CMD_SUCCESS;
-		}
-	} else {
-		if (peer_address_self_check(bgp, &su)) {
-			vty_out(vty,
-				"%% Can not configure the local system as neighbor\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		/* if need start listening */
-		bgp_need_listening(bgp, vty);
-		ret = peer_remote_as(bgp, &su, NULL, &as, as_type, as_str);
-	}
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (neighbor_remote_as,
-       neighbor_remote_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <ASNUM|internal|external|auto>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Specify a BGP neighbor\n"
-       AS_STR
-       "Internal BGP peer\n"
-       "External BGP peer\n"
-       "Automatically detect remote ASN\n")
-{
-	int idx_peer = 1;
-	int idx_remote_as = 3;
-	return peer_remote_as_vty(vty, argv[idx_peer]->arg,
-				  argv[idx_remote_as]->arg);
-}
 
 DEFPY (bgp_ipv6_auto_ra,
        bgp_ipv6_auto_ra_cmd,
@@ -3720,121 +3650,6 @@ DEFUN (neighbor_interface_v6only_config_remote_as,
 				       argv[idx_remote_as]->arg);
 }
 
-DEFUN (neighbor_peer_group,
-       neighbor_peer_group_cmd,
-       "neighbor WORD peer-group",
-       NEIGHBOR_STR
-       "Interface name or neighbor tag\n"
-       "Configure peer-group\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_word = 1;
-	struct peer *peer;
-	struct peer_group *group;
-
-	peer = peer_lookup_by_conf_if(bgp, argv[idx_word]->arg);
-	if (peer) {
-		vty_out(vty, "%% Name conflict with interface: \n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	group = peer_group_get(bgp, argv[idx_word]->arg);
-	if (!group) {
-		vty_out(vty, "%% BGP failed to find or create peer-group\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_neighbor,
-       no_neighbor_cmd,
-       "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <ASNUM|internal|external|auto>]>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Specify a BGP neighbor\n"
-       AS_STR
-       "Internal BGP peer\n"
-       "External BGP peer\n"
-       "Automatically detect remote ASN\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_peer = 2;
-	int ret;
-	union sockunion su;
-	struct peer_group *group;
-	struct peer *peer;
-	struct peer *other;
-	afi_t afi;
-	int lr_count;
-
-	ret = str2sockunion(argv[idx_peer]->arg, &su);
-	if (ret < 0) {
-		/* look up for neighbor by interface name config. */
-		peer = peer_lookup_by_conf_if(bgp, argv[idx_peer]->arg);
-		if (peer) {
-			/* Request zebra to terminate IPv6 RAs on this
-			 * interface. */
-			if (peer->ifp)
-				bgp_zebra_terminate_radv(peer->bgp, peer);
-			other = peer->doppelganger;
-			peer_notify_unconfig(peer->connection);
-			peer_delete(peer);
-			if (other && other->connection->status != Deleted) {
-				peer_notify_unconfig(other->connection);
-				peer_delete(other);
-			}
-			return CMD_SUCCESS;
-		}
-
-		group = peer_group_lookup(bgp, argv[idx_peer]->arg);
-		if (group) {
-			for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-				lr_count = listcount(group->listen_range[afi]);
-				if (lr_count) {
-					vty_out(vty,
-						"%%Peer-group %s is attached to %d listen-range(s), delete them first\n",
-						group->name, lr_count);
-					return CMD_WARNING_CONFIG_FAILED;
-				}
-			}
-			peer_group_notify_unconfig(group);
-			peer_group_delete(group);
-		} else {
-			vty_out(vty, "%% Create the peer-group first\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else {
-		peer = peer_lookup(bgp, &su);
-		if (peer) {
-			if (peer_dynamic_neighbor(peer)) {
-				vty_out(vty,
-					"%% Operation not allowed on a dynamic neighbor\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-
-			other = peer->doppelganger;
-
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-				bgp_zebra_terminate_radv(peer->bgp, peer);
-
-			peer_notify_unconfig(peer->connection);
-			peer_delete(peer);
-			if (other && other->connection->status != Deleted) {
-				peer_notify_unconfig(other->connection);
-				peer_delete(other);
-			}
-		}
-	}
-
-	/*
-	 * if need stop listening
-	 */
-	bgp_may_stop_listening(bgp, vty);
-	return CMD_SUCCESS;
-}
-
 DEFUN (no_neighbor_interface_config,
        no_neighbor_interface_config_cmd,
        "no neighbor WORD interface [v6only] [peer-group PGNAME] [remote-as <ASNUM|internal|external|auto>]",
@@ -3870,78 +3685,6 @@ DEFUN (no_neighbor_interface_config,
 		}
 	} else {
 		vty_out(vty, "%% Create the bgp interface first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_neighbor_peer_group,
-       no_neighbor_peer_group_cmd,
-       "no neighbor WORD peer-group",
-       NO_STR
-       NEIGHBOR_STR
-       "Neighbor tag\n"
-       "Configure peer-group\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_word = 2;
-	struct peer_group *group;
-	afi_t afi;
-	int lr_count;
-
-	group = peer_group_lookup(bgp, argv[idx_word]->arg);
-	if (group) {
-		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-			lr_count = listcount(group->listen_range[afi]);
-			if (lr_count) {
-				vty_out(vty,
-					"%%Peer-group %s is attached to %d listen-range(s), delete them first\n",
-					group->name, lr_count);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-		}
-		peer_group_notify_unconfig(group);
-		peer_group_delete(group);
-		/*
-		 * if need stop listening
-		 */
-		bgp_may_stop_listening(bgp, vty);
-	} else {
-		vty_out(vty, "%% Create the peer-group first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_neighbor_interface_peer_group_remote_as,
-       no_neighbor_interface_peer_group_remote_as_cmd,
-       "no neighbor WORD remote-as <ASNUM|internal|external|auto>",
-       NO_STR
-       NEIGHBOR_STR
-       "Interface name or neighbor tag\n"
-       "Specify a BGP neighbor\n"
-       AS_STR
-       "Internal BGP peer\n"
-       "External BGP peer\n"
-       "Automatically detect remote ASN\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_word = 2;
-	struct peer_group *group;
-	struct peer *peer;
-
-	/* look up for neighbor by interface name config. */
-	peer = peer_lookup_by_conf_if(bgp, argv[idx_word]->arg);
-	if (peer) {
-		peer_as_change(peer, 0, AS_UNSPECIFIED, NULL);
-		return CMD_SUCCESS;
-	}
-
-	group = peer_group_lookup(bgp, argv[idx_word]->arg);
-	if (group)
-		peer_group_remote_as_delete(group);
-	else {
-		vty_out(vty, "%% Create the peer-group or interface first\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	return CMD_SUCCESS;
@@ -21922,21 +21665,15 @@ void bgp_vty_init(void)
 
 	/* "bgp default shutdown" / "bgp shutdown" — YANG: bgp_cli_init() */
 
-	/* "neighbor remote-as" commands. */
-	install_element(BGP_NODE, &neighbor_remote_as_cmd);
+	/* "neighbor remote-as" / "no neighbor" — YANG: bgp_cli_init() */
 	install_element(BGP_NODE, &neighbor_interface_config_cmd);
 	install_element(BGP_NODE, &neighbor_interface_config_v6only_cmd);
 	install_element(BGP_NODE, &neighbor_interface_config_remote_as_cmd);
 	install_element(BGP_NODE,
 			&neighbor_interface_v6only_config_remote_as_cmd);
-	install_element(BGP_NODE, &no_neighbor_cmd);
 	install_element(BGP_NODE, &no_neighbor_interface_config_cmd);
 
-	/* "neighbor peer-group" commands. */
-	install_element(BGP_NODE, &neighbor_peer_group_cmd);
-	install_element(BGP_NODE, &no_neighbor_peer_group_cmd);
-	install_element(BGP_NODE,
-			&no_neighbor_interface_peer_group_remote_as_cmd);
+	/* "neighbor peer-group" — YANG: bgp_cli_init() */
 
 	/* "neighbor local-as" commands. */
 	install_element(BGP_NODE, &neighbor_local_as_cmd);
