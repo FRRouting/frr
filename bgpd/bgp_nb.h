@@ -823,4 +823,16 @@ int bgp_nb_dampening_param_modify(struct nb_cb_modify_args *args);
 int bgp_nb_dampening_param_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_dampening(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
+int bgp_nb_upa_originate_modify(struct nb_cb_modify_args *args);
+int bgp_nb_upa_originate_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_upa_originate(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_upa_max_routes_modify(struct nb_cb_modify_args *args);
+int bgp_nb_upa_max_routes_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_upa_max_routes(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+int bgp_nb_upa_drop_modify(struct nb_cb_modify_args *args);
+int bgp_nb_upa_drop_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_upa_drop(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */

@@ -6694,6 +6694,166 @@ void bgp_nb_cli_show_dampening(struct vty *vty, const struct lyd_node *dnode, bo
 		vty_out(vty, "  bgp dampening %u %u %u %u\n", half_min, reuse, suppress, max_min);
 }
 
+/*
+ * AF-level UPA (upa originate-all / max-routes / drop)
+ */
+int bgp_nb_upa_originate_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+	if (safi != SAFI_UNICAST)
+		return NB_ERR_VALIDATION;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	if (enable == bgp->upa_enabled[afi][safi])
+		return NB_OK;
+
+	if (enable) {
+		bgp->upa_enabled[afi][safi] = true;
+		bgp_upa_originate_global(bgp, afi, safi);
+	} else {
+		bgp_upa_withdraw_global(bgp, afi, safi);
+		bgp->upa_enabled[afi][safi] = false;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_upa_originate_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	if (!bgp->upa_enabled[afi][safi])
+		return NB_OK;
+
+	bgp_upa_withdraw_global(bgp, afi, safi);
+	bgp->upa_enabled[afi][safi] = false;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_upa_originate(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) || show_defaults)
+		vty_out(vty, "  upa originate-all\n");
+}
+
+int bgp_nb_upa_max_routes_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	bgp->upa_max_routes[afi][safi] = yang_dnode_get_uint32(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_upa_max_routes_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	bgp->upa_max_routes[afi][safi] = 0;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_upa_max_routes(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	uint32_t max = yang_dnode_get_uint32(dnode, NULL);
+
+	if (max || show_defaults)
+		vty_out(vty, "  upa max-routes %u\n", max);
+}
+
+int bgp_nb_upa_drop_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	bool drop;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	drop = yang_dnode_get_bool(args->dnode, NULL);
+	if (drop == bgp->upa_drop[afi][safi])
+		return NB_OK;
+
+	bgp->upa_drop[afi][safi] = drop;
+	if (bgp->upa_enabled[afi][safi]) {
+		bgp_upa_withdraw_global(bgp, afi, safi);
+		bgp_upa_originate_global(bgp, afi, safi);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_upa_drop_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	if (!bgp->upa_drop[afi][safi])
+		return NB_OK;
+
+	bgp->upa_drop[afi][safi] = false;
+	if (bgp->upa_enabled[afi][safi]) {
+		bgp_upa_withdraw_global(bgp, afi, safi);
+		bgp_upa_originate_global(bgp, afi, safi);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_upa_drop(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) || show_defaults)
+		vty_out(vty, "  upa drop\n");
+}
+
 
 static int bgp_nb_peer_af_flag_modify(struct nb_cb_modify_args *args, uint64_t flag)
 {
