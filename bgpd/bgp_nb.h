@@ -641,6 +641,42 @@ int bgp_nb_peer_af_default_originate_rmap_modify(struct nb_cb_modify_args *args)
 int bgp_nb_peer_af_default_originate_rmap_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_af_default_originate_rmap(struct vty *vty, const struct lyd_node *dnode,
 						    bool show_defaults);
+int bgp_nb_peer_af_plist_import_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_plist_import_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_plist_import(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+int bgp_nb_peer_af_plist_export_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_plist_export_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_plist_export(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+int bgp_nb_peer_af_access_list_import_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_access_list_import_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_access_list_import(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+int bgp_nb_peer_af_access_list_export_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_access_list_export_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_access_list_export(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+int bgp_nb_peer_af_aspath_filter_import_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_aspath_filter_import_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_aspath_filter_import(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+int bgp_nb_peer_af_aspath_filter_export_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_aspath_filter_export_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_aspath_filter_export(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+int bgp_nb_peer_af_rmap_import_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_rmap_import_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_rmap_import(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_peer_af_rmap_export_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_rmap_export_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_rmap_export(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_peer_af_unsuppress_map_export_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_unsuppress_map_export_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_unsuppress_map_export(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
 
 
 void bgp_cli_init(void);
