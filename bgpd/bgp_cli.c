@@ -5121,6 +5121,33 @@ DEFPY_YANG(af_rt_vpn_yang, af_rt_vpn_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_import_vrf_yang, bgp_import_vrf_yang_cmd,
+	   "[no] import vrf VIEWVRFNAME$import_name",
+	   NO_STR
+	   "Import routes from another VRF\n"
+	   "VRF to import from\n"
+	   "The name of the VRF\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char list_xpath[XPATH_MAXLEN + 256];
+
+	if (!import_name) {
+		vty_out(vty, "%% Missing import name\n");
+		return CMD_WARNING;
+	}
+	if (strmatch(import_name, "route-map")) {
+		vty_out(vty, "%% Must include route-map name\n");
+		return CMD_WARNING;
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(list_xpath, sizeof(list_xpath), "%s/vpn-config/import-vrf-list[vrf='%s']",
+		   af_xpath, import_name);
+	nb_cli_enqueue_change(vty, list_xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6891,6 +6918,8 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_yang_cmd);
+	install_element(BGP_IPV4_NODE, &bgp_import_vrf_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_import_vrf_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }

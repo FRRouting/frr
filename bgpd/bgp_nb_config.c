@@ -25,6 +25,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_open.h"
+#include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_conditional_adv.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_route.h"
@@ -8240,6 +8241,123 @@ void bgp_nb_cli_show_vpn_rt_export(struct vty *vty, const struct lyd_node *dnode
 	if (imp)
 		ecommunity_free(&imp);
 	ecommunity_free(&exp);
+}
+
+/*
+ * AF-level import vrf NAME
+ */
+static int bgp_nb_vpn_import_vrf_validate(struct bgp *bgp, afi_t afi, safi_t safi,
+					  const char *import_name, char *errmsg, size_t errmsg_len)
+{
+	if (safi != SAFI_UNICAST || (afi != AFI_IP && afi != AFI_IP6)) {
+		snprintfrr(errmsg, errmsg_len, "import vrf valid only for unicast ipv4|ipv6");
+		return NB_ERR_VALIDATION;
+	}
+
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
+	    CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
+		snprintfrr(errmsg, errmsg_len,
+			   "Please unconfigure vpn to vrf commands before using import vrf commands");
+		return NB_ERR_VALIDATION;
+	}
+
+	if (((bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) &&
+	     strmatch(import_name, VRF_DEFAULT_NAME)) ||
+	    (bgp->name && strmatch(import_name, bgp->name))) {
+		snprintfrr(errmsg, errmsg_len, "Cannot import vrf %s into itself", import_name);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+static struct bgp *bgp_nb_vpn_ensure_default(void)
+{
+	struct bgp *bgp_default = bgp_get_default();
+	as_t as = BGP_AS_ZERO;
+	int ret;
+
+	if (bgp_default)
+		return bgp_default;
+
+	ret = bgp_get_vty(&bgp_default, &as, NULL, BGP_INSTANCE_TYPE_DEFAULT, NULL,
+			  ASNOTATION_UNDEFINED);
+	if (ret)
+		return NULL;
+
+	SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
+	return bgp_default;
+}
+
+int bgp_nb_vpn_import_vrf_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp, *vrf_bgp, *bgp_default;
+	afi_t afi;
+	safi_t safi;
+	const char *import_name;
+
+	import_name = yang_dnode_get_string(args->dnode, "./vrf");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_import_vrf_validate(bgp, afi, safi, import_name, args->errmsg,
+						      args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	bgp_default = bgp_nb_vpn_ensure_default();
+	if (!bgp_default)
+		return NB_ERR_RESOURCE;
+
+	if (strmatch(import_name, VRF_DEFAULT_NAME))
+		vrf_bgp = bgp_default;
+	else
+		vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
+
+	vrf_import_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_import_vrf_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp, *vrf_bgp, *bgp_default;
+	afi_t afi;
+	safi_t safi;
+	const char *import_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	import_name = yang_dnode_get_string(args->dnode, "./vrf");
+	bgp_default = bgp_get_default();
+	if (strmatch(import_name, VRF_DEFAULT_NAME))
+		vrf_bgp = bgp_default;
+	else
+		vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
+
+	vrf_unimport_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_vpn_import_vrf(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	vty_out(vty, "  import vrf %s\n", yang_dnode_get_string(dnode, "./vrf"));
 }
 
 
