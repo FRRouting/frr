@@ -1477,6 +1477,22 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ipv4-listen-range",
+			.cbs = {
+				.create = bgp_nb_peer_group_listen_range_create,
+				.destroy = bgp_nb_peer_group_listen_range_destroy,
+				.cli_show = bgp_nb_cli_show_peer_group_listen_range,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ipv6-listen-range",
+			.cbs = {
+				.create = bgp_nb_peer_group_listen_range_create,
+				.destroy = bgp_nb_peer_group_listen_range_destroy,
+				.cli_show = bgp_nb_cli_show_peer_group_listen_range,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor",
 			.cbs = {
 				.create = bgp_nb_unnumbered_neighbor_create,

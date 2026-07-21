@@ -3245,6 +3245,110 @@ int bgp_nb_peer_group_remote_as_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * peer-group listen-range leaf-lists
+ */
+static int bgp_nb_listen_range_parse(const struct lyd_node *dnode, struct prefix *range,
+				     char *errmsg, size_t errmsg_len)
+{
+	if (!str2prefix(yang_dnode_get_string(dnode, NULL), range)) {
+		if (errmsg)
+			snprintfrr(errmsg, errmsg_len, "Malformed listen range");
+		return -1;
+	}
+	apply_mask(range);
+
+	if (range->family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&range->u.prefix6)) {
+		if (errmsg)
+			snprintfrr(errmsg, errmsg_len,
+				   "Malformed listen range (link-local address)");
+		return -1;
+	}
+	return 0;
+}
+
+int bgp_nb_peer_group_listen_range_create(struct nb_cb_create_args *args)
+{
+	struct peer_group *group;
+	struct peer_group *existing;
+	struct prefix range;
+	int ret;
+
+	if (bgp_nb_listen_range_parse(args->dnode, &range, args->errmsg, args->errmsg_len) < 0)
+		return NB_ERR_VALIDATION;
+
+	group = nb_running_get_entry(yang_dnode_get_parent(args->dnode, "peer-group"), NULL,
+				     args->event == NB_EV_APPLY);
+
+	if (args->event == NB_EV_VALIDATE) {
+		struct bgp *bgp;
+
+		if (!group)
+			return NB_OK;
+		bgp = group->bgp;
+		existing = bgp_listen_range_lookup(bgp, &range, true);
+		if (existing && existing != group) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Same listen range is attached to peer-group %s",
+				   existing->name);
+			return NB_ERR_VALIDATION;
+		}
+		existing = bgp_listen_range_lookup(bgp, &range, false);
+		if (existing && existing != group) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Listen range overlaps with existing listen range");
+			return NB_ERR_VALIDATION;
+		}
+		if (group->conf->as_type == AS_UNSPECIFIED) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "peer-group %s has no remote-as", group->name);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!group)
+		return NB_ERR_NOT_FOUND;
+
+	ret = peer_group_listen_range_add(group, &range);
+	if (ret != 0)
+		return NB_ERR_RESOURCE;
+
+	bgp_nb_need_listening(group->bgp);
+	return NB_OK;
+}
+
+int bgp_nb_peer_group_listen_range_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer_group *group;
+	struct prefix range;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (bgp_nb_listen_range_parse(args->dnode, &range, NULL, 0) < 0)
+		return NB_OK;
+
+	group = nb_running_get_entry(yang_dnode_get_parent(args->dnode, "peer-group"), NULL, true);
+	if (!group)
+		return NB_OK;
+
+	peer_group_listen_range_del(group, &range);
+	bgp_nb_may_stop_listening(group->bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_group_listen_range(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	const char *pg = yang_dnode_get_string(dnode, "../peer-group-name");
+
+	vty_out(vty, " bgp listen range %s peer-group %s\n", yang_dnode_get_string(dnode, NULL),
+		pg);
+}
+
+/*
  * Resolve config peer from neighbor, unnumbered-neighbor, or peer-group.
  */
 static struct peer *bgp_nb_config_peer(const struct lyd_node *dnode)

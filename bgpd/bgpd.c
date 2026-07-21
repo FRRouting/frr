@@ -3751,6 +3751,30 @@ int peer_group_listen_range_add(struct peer_group *group, struct prefix *range)
 	return 0;
 }
 
+struct peer_group *bgp_listen_range_lookup(struct bgp *bgp, struct prefix *range, bool exact)
+{
+	struct listnode *node, *nnode;
+	struct listnode *node1, *nnode1;
+	struct peer_group *group;
+	struct prefix *lr;
+	afi_t afi;
+	int match;
+
+	afi = family2afi(range->family);
+	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node1, nnode1, lr)) {
+			if (exact)
+				match = prefix_same(range, lr);
+			else
+				match = (prefix_match(range, lr) || prefix_match(lr, range));
+			if (match)
+				return group;
+		}
+	}
+
+	return NULL;
+}
+
 int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
 {
 	struct prefix *prefix, prefix2;

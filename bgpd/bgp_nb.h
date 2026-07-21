@@ -367,6 +367,11 @@ void bgp_nb_cli_show_peer_group_remote_as_type(struct vty *vty, const struct lyd
 int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_group_remote_as_destroy(struct nb_cb_destroy_args *args);
 
+int bgp_nb_peer_group_listen_range_create(struct nb_cb_create_args *args);
+int bgp_nb_peer_group_listen_range_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_group_listen_range(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+
 /* Unnumbered neighbors */
 int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args);
 int bgp_nb_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args);
