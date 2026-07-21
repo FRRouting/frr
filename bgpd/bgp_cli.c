@@ -7206,7 +7206,6 @@ ALIAS_ATTR(
 					       "Maximum duration to suppress a stable route\n",
 	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
-
 ALIAS_ATTR(no_neighbor_dampening_yang, no_neighbor_dampening_yang_hidden_cmd,
 	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor dampening [HALF [REUSE SUPPRESS MAX]]",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
@@ -7215,6 +7214,12 @@ ALIAS_ATTR(no_neighbor_dampening_yang, no_neighbor_dampening_yang_hidden_cmd,
 	   "Value to start reusing a route\n"
 	   "Value to start suppressing a route\n"
 	   "Maximum duration to suppress a stable route\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_set_peer_group_yang, neighbor_set_peer_group_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor peer-group PGNAME$pgname",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Member of the peer-group\n"
+						  "Peer-group name\n",
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
 static void bgp_cli_install_af_neighbor(void)
@@ -7241,6 +7246,8 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_soft_reconfiguration_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_activate_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	/* Link-state: activate only (no soft-reconfiguration leaf yet). */
+	install_element(BGP_LS_NODE, &neighbor_activate_yang_cmd);
 
 	/* Hidden at BGP_NODE: defaults to ipv4-unicast like classic. */
 	install_element(BGP_NODE, &neighbor_activate_yang_hidden_cmd);
@@ -7772,6 +7779,17 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_set_peer_group_yang_cmd);
 	install_element(BGP_NODE, &neighbor_port_yang_cmd);
 	install_element(BGP_NODE, &neighbor_local_interface_yang_cmd);
+
+	/* Hidden peer-group membership under AF nodes (classic parity). */
+	install_element(BGP_IPV4_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
 
 	/* network statements: unicast/multicast (labeled stays classic) */
 	install_element(BGP_IPV4_NODE, &bgp_network_yang_cmd);
