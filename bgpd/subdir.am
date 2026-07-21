@@ -74,6 +74,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_routemap_nb_config.c \
 	bgpd/bgp_nb.c \
 	bgpd/bgp_nb_config.c \
+	bgpd/bgp_rpki_nb.c \
 	bgpd/bgp_cli.c \
 	bgpd/bgp_script.c \
 	bgpd/bgp_table.c \
@@ -164,6 +165,7 @@ noinst_HEADERS += \
 	bgpd/bgp_regex.h \
 	bgpd/bgp_rpki.h \
 	bgpd/bgp_rpki_compat.h \
+	bgpd/bgp_rpki_nb.h \
 	bgpd/bgp_route.h \
 	bgpd/bgp_routemap_nb.h \
 	bgpd/bgp_nb.h \

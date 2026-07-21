@@ -41,6 +41,9 @@
 #include "filter.h"
 #include "bfd.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_community_alias.h"
+#include "bgpd/bgp_community.h"
+#include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_updgrp.h"
@@ -16001,4 +16004,100 @@ void bgp_nb_cli_show_daemon_advertisement_delay(struct vty *vty, const struct ly
 						bool show_defaults)
 {
 	vty_out(vty, "bgp advertisement-delay %u\n", yang_dnode_get_uint16(dnode, NULL));
+}
+
+
+static int bgp_nb_daemon_community_alias_validate_format(const char *community, char *errmsg,
+							 size_t errmsg_len)
+{
+	struct community *comm;
+	struct lcommunity *lcomm;
+	uint8_t invalid = 0;
+
+	/* Value shape only — uniqueness is YANG unique "alias". */
+	comm = community_str2com(community);
+	if (!comm)
+		invalid++;
+	community_free(&comm);
+	lcomm = lcommunity_str2com(community);
+	if (!lcomm)
+		invalid++;
+	lcommunity_free(&lcomm);
+	if (invalid > 1) {
+		snprintfrr(errmsg, errmsg_len, "Invalid community format");
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_community_alias_create(struct nb_cb_create_args *args)
+{
+	const char *community;
+
+	if (args->event == NB_EV_VALIDATE) {
+		community = yang_dnode_get_string(args->dnode, "./community");
+		return bgp_nb_daemon_community_alias_validate_format(community, args->errmsg,
+								     args->errmsg_len);
+	}
+
+	/* Runtime hashes are updated when the mandatory alias leaf is set. */
+	return NB_OK;
+}
+
+int bgp_nb_daemon_community_alias_destroy(struct nb_cb_destroy_args *args)
+{
+	struct community_alias ca = {};
+	const char *community;
+	const char *alias;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	community = yang_dnode_get_string(args->dnode, "./community");
+	alias = yang_dnode_exists(args->dnode, "./alias")
+			? yang_dnode_get_string(args->dnode, "./alias")
+			: "";
+	strlcpy(ca.community, community, sizeof(ca.community));
+	strlcpy(ca.alias, alias, sizeof(ca.alias));
+	bgp_ca_alias_delete(&ca);
+	bgp_ca_community_delete(&ca);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_community_alias(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	vty_out(vty, "bgp community alias %s %s\n", yang_dnode_get_string(dnode, "./community"),
+		yang_dnode_get_string(dnode, "./alias"));
+}
+
+int bgp_nb_daemon_community_alias_name_modify(struct nb_cb_modify_args *args)
+{
+	struct community_alias ca = {};
+	struct community_alias *old;
+	const struct lyd_node *parent;
+	const char *community;
+	const char *alias;
+
+	parent = yang_dnode_get_parent(args->dnode, "community-alias");
+	community = yang_dnode_get_string(parent, "./community");
+	alias = yang_dnode_get_string(args->dnode, NULL);
+
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_daemon_community_alias_validate_format(community, args->errmsg,
+								     args->errmsg_len);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	strlcpy(ca.community, community, sizeof(ca.community));
+	old = bgp_ca_community_lookup(&ca);
+	if (old) {
+		bgp_ca_alias_delete(old);
+		bgp_ca_community_delete(old);
+	}
+	strlcpy(ca.alias, alias, sizeof(ca.alias));
+	bgp_ca_alias_insert(&ca);
+	bgp_ca_community_insert(&ca);
+	return NB_OK;
 }

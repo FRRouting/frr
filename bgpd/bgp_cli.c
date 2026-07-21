@@ -1559,6 +1559,28 @@ DEFUN_YANG(no_bgp_daemon_advertisement_delay_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_daemon_community_alias_yang,
+	   bgp_daemon_community_alias_yang_cmd,
+	   "[no$no] bgp community alias WORD$community ALIAS_NAME$alias_name",
+	   NO_STR BGP_STR
+	   "Add community specific parameters\n"
+	   "Create an alias for a community\n"
+	   "Community (AA:BB or AA:BB:CC)\n"
+	   "Alias name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "/frr-bgp:bgp-daemon/community-alias[community='%s']",
+		   community);
+	if (no) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./alias", NB_OP_MODIFY, alias_name);
+	}
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
 DEFPY_YANG(bgp_condadv_period_yang, bgp_condadv_period_yang_cmd,
 	   "[no$no] bgp conditional-advertisement timer (5-240)$period",
 	   NO_STR BGP_STR
@@ -9129,6 +9151,7 @@ void bgp_cli_init(void)
 	install_element(CONFIG_NODE, &no_bgp_daemon_update_delay_yang_cmd);
 	install_element(CONFIG_NODE, &bgp_daemon_advertisement_delay_yang_cmd);
 	install_element(CONFIG_NODE, &no_bgp_daemon_advertisement_delay_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_community_alias_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);

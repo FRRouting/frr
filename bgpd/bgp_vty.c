@@ -14794,8 +14794,7 @@ void community_alias_vty(void)
 {
 	install_node(&community_alias_node);
 
-	/* Community-list.  */
-	install_element(CONFIG_NODE, &bgp_community_alias_cmd);
+	/* Community alias — YANG: bgp_cli_init() */
 
 	bgp_community_alias_command_completion_setup();
 }
