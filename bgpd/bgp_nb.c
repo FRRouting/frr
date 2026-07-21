@@ -9272,6 +9272,23 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/link-state/filter-config/rmap-import",
+			.cbs = {
+				.modify = bgp_nb_peer_af_rmap_import_modify,
+				.destroy = bgp_nb_peer_af_rmap_import_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_rmap_import,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/link-state/filter-config/rmap-export",
+			.cbs = {
+				.modify = bgp_nb_peer_af_rmap_export_modify,
+				.destroy = bgp_nb_peer_af_rmap_export_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_rmap_export,
+			},
+		},
+
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/filter-config/plist-import",
 			.cbs = {
 				.modify = bgp_nb_peer_af_plist_import_modify,
@@ -10064,6 +10081,23 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/link-state/filter-config/rmap-import",
+			.cbs = {
+				.modify = bgp_nb_peer_af_rmap_import_modify,
+				.destroy = bgp_nb_peer_af_rmap_import_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_rmap_import,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/link-state/filter-config/rmap-export",
+			.cbs = {
+				.modify = bgp_nb_peer_af_rmap_export_modify,
+				.destroy = bgp_nb_peer_af_rmap_export_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_rmap_export,
+			},
+		},
+
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/filter-config/plist-import",
 			.cbs = {
 				.modify = bgp_nb_peer_af_plist_import_modify,
@@ -10855,6 +10889,23 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.cli_show = bgp_nb_cli_show_peer_af_unsuppress_map_export,
 			},
 		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/link-state/filter-config/rmap-import",
+			.cbs = {
+				.modify = bgp_nb_peer_af_rmap_import_modify,
+				.destroy = bgp_nb_peer_af_rmap_import_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_rmap_import,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/link-state/filter-config/rmap-export",
+			.cbs = {
+				.modify = bgp_nb_peer_af_rmap_export_modify,
+				.destroy = bgp_nb_peer_af_rmap_export_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_rmap_export,
+			},
+		},
+
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list",
 			.cbs = {

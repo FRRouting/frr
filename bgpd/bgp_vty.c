@@ -14209,13 +14209,11 @@ void bgp_vty_init(void)
 
 	/* "neighbor filter-list" commands. */
 
-	/* "neighbor route-map" commands. */
+	/* "neighbor route-map" — UPA remains classic; LS → YANG bgp_cli_init() */
 	install_element(BGP_IPV4U_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_IPV4U_NODE, &no_neighbor_route_map_cmd);
 	install_element(BGP_IPV6U_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_IPV6U_NODE, &no_neighbor_route_map_cmd);
-	install_element(BGP_LS_NODE, &neighbor_route_map_cmd);
-	install_element(BGP_LS_NODE, &no_neighbor_route_map_cmd);
 
 	/* "neighbor unsuppress-map" commands. */
 
