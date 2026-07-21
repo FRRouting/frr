@@ -16,6 +16,8 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_nb.h"
 
+#include "bgpd/bgp_cli_clippy.c"
+
 /*
  * control-plane-protocol keys: type, name, vrf
  * BGP container is under frr-bgp:bgp
@@ -542,6 +544,164 @@ DEFUN_YANG(no_bgp_reject_as_sets_yang, no_bgp_reject_as_sets_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_enforce_first_as_yang, bgp_enforce_first_as_yang_cmd,
+	   "[no] bgp enforce-first-as",
+	   NO_STR BGP_STR
+	   "Enforce the first AS for EBGP routes\n")
+{
+	nb_cli_enqueue_change(vty, "./global/enforce-first-as", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_disable_connected_route_check_yang,
+	   bgp_disable_connected_route_check_yang_cmd,
+	   "bgp disable-ebgp-connected-route-check",
+	   BGP_STR
+	   "Disable checking if nexthop is connected on ebgp sessions\n")
+{
+	nb_cli_enqueue_change(vty, "./global/ebgp-multihop-connected-route-check", NB_OP_MODIFY,
+			      "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_disable_connected_route_check_yang,
+	   no_bgp_disable_connected_route_check_yang_cmd,
+	   "no bgp disable-ebgp-connected-route-check",
+	   NO_STR BGP_STR
+	   "Disable checking if nexthop is connected on ebgp sessions\n")
+{
+	nb_cli_enqueue_change(vty, "./global/ebgp-multihop-connected-route-check", NB_OP_MODIFY,
+			      "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_rr_allow_outbound_policy_yang,
+	   bgp_rr_allow_outbound_policy_yang_cmd,
+	   "bgp route-reflector allow-outbound-policy",
+	   BGP_STR
+	   "Allow modifications made by out route-map\n"
+	   "on ibgp neighbors\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-reflector/allow-outbound-policy", NB_OP_MODIFY,
+			      "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_rr_allow_outbound_policy_yang,
+	   no_bgp_rr_allow_outbound_policy_yang_cmd,
+	   "no bgp route-reflector allow-outbound-policy",
+	   NO_STR BGP_STR
+	   "Allow modifications made by out route-map\n"
+	   "on ibgp neighbors\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-reflector/allow-outbound-policy", NB_OP_MODIFY,
+			      "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_administrative_reset_yang, bgp_administrative_reset_yang_cmd,
+	   "[no] bgp hard-administrative-reset",
+	   NO_STR BGP_STR
+	   "Send Hard Reset CEASE Notification for 'Administrative Reset'\n")
+{
+	nb_cli_enqueue_change(vty, "./global/hard-administrative-reset", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_default_show_hostname_yang, bgp_default_show_hostname_yang_cmd,
+	   "bgp default show-hostname",
+	   BGP_STR
+	   "Configure BGP defaults\n"
+	   "Show hostname in certain command outputs\n")
+{
+	nb_cli_enqueue_change(vty, "./global/show-hostname", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_default_show_hostname_yang,
+	   no_bgp_default_show_hostname_yang_cmd,
+	   "no bgp default show-hostname",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "Show hostname in certain command outputs\n")
+{
+	nb_cli_enqueue_change(vty, "./global/show-hostname", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_default_show_nexthop_hostname_yang,
+	   bgp_default_show_nexthop_hostname_yang_cmd,
+	   "bgp default show-nexthop-hostname",
+	   BGP_STR
+	   "Configure BGP defaults\n"
+	   "Show hostname for nexthop in certain command outputs\n")
+{
+	nb_cli_enqueue_change(vty, "./global/show-nexthop-hostname", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_default_show_nexthop_hostname_yang,
+	   no_bgp_default_show_nexthop_hostname_yang_cmd,
+	   "no bgp default show-nexthop-hostname",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "Show hostname for nexthop in certain command outputs\n")
+{
+	nb_cli_enqueue_change(vty, "./global/show-nexthop-hostname", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_bestpath_compare_router_id_yang,
+	   bgp_bestpath_compare_router_id_yang_cmd,
+	   "bgp bestpath compare-routerid",
+	   BGP_STR
+	   "Change the default bestpath selection\n"
+	   "Compare router-id for identical EBGP paths\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/external-compare-router-id",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_bestpath_compare_router_id_yang,
+	   no_bgp_bestpath_compare_router_id_yang_cmd,
+	   "no bgp bestpath compare-routerid",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "Compare router-id for identical EBGP paths\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/external-compare-router-id",
+			      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_bestpath_aspath_ignore_yang, bgp_bestpath_aspath_ignore_yang_cmd,
+	   "bgp bestpath as-path ignore",
+	   BGP_STR
+	   "Change the default bestpath selection\n"
+	   "AS-path attribute\n"
+	   "Ignore as-path length in selecting a route\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/ignore-as-path-length",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_bestpath_aspath_ignore_yang,
+	   no_bgp_bestpath_aspath_ignore_yang_cmd,
+	   "no bgp bestpath as-path ignore",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "AS-path attribute\n"
+	   "Ignore as-path length in selecting a route\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/ignore-as-path-length",
+			      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -574,4 +734,19 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_graceful_shutdown_yang_cmd);
 	install_element(BGP_NODE, &bgp_reject_as_sets_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_reject_as_sets_yang_cmd);
+
+	install_element(BGP_NODE, &bgp_enforce_first_as_yang_cmd);
+	install_element(BGP_NODE, &bgp_disable_connected_route_check_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_disable_connected_route_check_yang_cmd);
+	install_element(BGP_NODE, &bgp_rr_allow_outbound_policy_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_rr_allow_outbound_policy_yang_cmd);
+	install_element(BGP_NODE, &bgp_administrative_reset_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_show_hostname_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_default_show_hostname_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_show_nexthop_hostname_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_default_show_nexthop_hostname_yang_cmd);
+	install_element(BGP_NODE, &bgp_bestpath_compare_router_id_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_bestpath_compare_router_id_yang_cmd);
+	install_element(BGP_NODE, &bgp_bestpath_aspath_ignore_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_bestpath_aspath_ignore_yang_cmd);
 }

@@ -80,6 +80,38 @@ int bgp_nb_reject_as_sets_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_reject_as_sets(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults);
 
+int bgp_nb_enforce_first_as_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_enforce_first_as(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_connected_route_check_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_connected_route_check(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
+int bgp_nb_allow_outbound_policy_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_allow_outbound_policy(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
+int bgp_nb_hard_admin_reset_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_hard_admin_reset(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_show_hostname_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_show_hostname(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+
+int bgp_nb_show_nexthop_hostname_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_show_nexthop_hostname(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
+int bgp_nb_external_compare_router_id_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_external_compare_router_id(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+
+int bgp_nb_ignore_as_path_length_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_ignore_as_path_length(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus
