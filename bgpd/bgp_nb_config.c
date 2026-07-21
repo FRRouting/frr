@@ -5704,6 +5704,53 @@ void bgp_nb_cli_show_neighbor_local_port(struct vty *vty, const struct lyd_node 
 	vty_out(vty, " neighbor %s port %u\n", bgp_nb_config_peer_name(dnode), port);
 }
 
+int bgp_nb_neighbor_local_interface_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (peer && peer->conf_if) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "interface not valid for unnumbered peer");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer_interface_set(peer, yang_dnode_get_string(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_neighbor_local_interface_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_interface_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_neighbor_local_interface(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	vty_out(vty, " neighbor %s interface %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+}
 
 /*
  * Neighbor AFI/SAFI helpers and callbacks

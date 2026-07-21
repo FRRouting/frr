@@ -4197,6 +4197,29 @@ DEFPY_YANG(neighbor_port_yang, neighbor_port_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(neighbor_local_interface_yang, neighbor_local_interface_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X>$neighbor interface WORD$ifname",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR
+	   "Interface\n"
+	   "Interface name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor_str, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/local-interface", xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, ifname);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_fs_local_install_yang, bgp_fs_local_install_yang_cmd,
 	   "[no] local-install INTERFACE$ifname",
 	   NO_STR
@@ -7461,6 +7484,7 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_graceful_shutdown_yang_cmd);
 	install_element(BGP_NODE, &neighbor_set_peer_group_yang_cmd);
 	install_element(BGP_NODE, &neighbor_port_yang_cmd);
+	install_element(BGP_NODE, &neighbor_local_interface_yang_cmd);
 
 	/* network statements: unicast/multicast (labeled stays classic) */
 	install_element(BGP_IPV4_NODE, &bgp_network_yang_cmd);

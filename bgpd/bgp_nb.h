@@ -583,6 +583,10 @@ int bgp_nb_neighbor_local_port_modify(struct nb_cb_modify_args *args);
 int bgp_nb_neighbor_local_port_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_neighbor_local_port(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults);
+int bgp_nb_neighbor_local_interface_modify(struct nb_cb_modify_args *args);
+int bgp_nb_neighbor_local_interface_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_neighbor_local_interface(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
 
 
 int bgp_nb_peer_afi_safi_create(struct nb_cb_create_args *args);

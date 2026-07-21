@@ -3395,6 +3395,14 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-interface",
+			.cbs = {
+				.modify = bgp_nb_neighbor_local_interface_modify,
+				.destroy = bgp_nb_neighbor_local_interface_destroy,
+				.cli_show = bgp_nb_cli_show_neighbor_local_interface,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi",
 			.cbs = {
 				.create = bgp_nb_peer_afi_safi_create,
