@@ -6338,6 +6338,155 @@ DEFPY_YANG(vpn_network_yang, vpn_network_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/*
+ * BMP
+ */
+#ifndef BMP_STR
+#define BMP_STR "BGP Monitoring Protocol\n"
+#endif
+
+DEFPY_YANG(bmp_mirror_limit_yang, bmp_mirror_limit_yang_cmd,
+	   "[no] bmp mirror buffer-limit [(0-4294967294)$limit]",
+	   NO_STR
+	   BMP_STR
+	   "Route Mirroring settings\n"
+	   "Configure maximum memory used for buffered mirroring messages\n"
+	   "Limit in bytes\n")
+{
+	char leaf[XPATH_MAXLEN];
+	char buf[16];
+
+	snprintfrr(leaf, sizeof(leaf), "./global/bmp-config/mirror-buffer-limit");
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!limit_str)
+			return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(buf, sizeof(buf), "%" PRId64, limit);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG_NOSH(bmp_targets_yang, bmp_targets_yang_cmd,
+		"bmp targets BMPTARGETS$name",
+		BMP_STR
+		"Create BMP target group\n"
+		"Name of the BMP target group\n")
+{
+	char abs[XPATH_MAXLEN + 256];
+	int ret;
+
+	/*
+	 * Pure YANG enter: create the target-list entry in the candidate and
+	 * push its xpath.  Do not call into the BMP module or consult BGP
+	 * operational objects — nb_cli_apply_changes() already runs
+	 * northbound validation/apply (or candidate edit in transactional
+	 * mode).  Matching bfdd/isisd/ripd DEFPY_YANG_NOSH enter commands.
+	 */
+	if (vty->xpath_index == 0) {
+		vty_out(vty, "%% Missing BGP YANG context\n");
+		return CMD_WARNING;
+	}
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, "./global/bmp-config/target-list[target-name='%s']", name);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	snprintfrr(abs, sizeof(abs), "%s/global/bmp-config/target-list[target-name='%s']",
+		   VTY_CURR_XPATH, name);
+	VTY_PUSH_XPATH(BMP_NODE, abs);
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(no_bmp_targets_yang, no_bmp_targets_yang_cmd,
+	   "no bmp targets BMPTARGETS$name",
+	   NO_STR
+	   BMP_STR
+	   "Delete BMP target group\n"
+	   "Name of the BMP target group\n")
+{
+	char abs[XPATH_MAXLEN + 256];
+
+	if (vty->xpath_index == 0) {
+		vty_out(vty, "%% Missing BGP YANG context\n");
+		return CMD_WARNING;
+	}
+
+	/* Existence from candidate YANG state, not operational bmp_targets. */
+	snprintfrr(abs, sizeof(abs), "%s/global/bmp-config/target-list[target-name='%s']",
+		   VTY_CURR_XPATH, name);
+	if (!yang_dnode_exists(vty->candidate_config->dnode, abs)) {
+		vty_out(vty, "%% BMP target group not found\n");
+		return CMD_WARNING;
+	}
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, "./global/bmp-config/target-list[target-name='%s']", name);
+}
+
+DEFPY_YANG(bmp_mirror_yang, bmp_mirror_yang_cmd, "[no] bmp mirror",
+	   NO_STR BMP_STR "Send BMP route mirroring messages\n")
+{
+	nb_cli_enqueue_change(vty, "./mirror", NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bmp_stats_yang, bmp_stats_yang_cmd,
+	   "[no] bmp stats [interval (100-86400000)$interval]",
+	   NO_STR
+	   BMP_STR
+	   "Send BMP statistics messages\n"
+	   "Specify BMP stats interval\n"
+	   "Interval (milliseconds) to send BMP Stats in\n")
+{
+	char buf[16];
+
+	if (no) {
+		nb_cli_enqueue_change(vty, "./stats-time", NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (interval_str)
+		snprintfrr(buf, sizeof(buf), "%" PRId64, interval);
+	else
+		/* Classic default (BMP_STAT_DEFAULT_TIMER); avoid BMP module. */
+		snprintfrr(buf, sizeof(buf), "%u", 60000U);
+	nb_cli_enqueue_change(vty, "./stats-time", NB_OP_MODIFY, buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bmp_stats_experimental_yang, bmp_stats_experimental_yang_cmd,
+	   "[no] bmp stats send-experimental",
+	   NO_STR
+	   BMP_STR
+	   "Send BMP statistics messages\n"
+	   "Send experimental BMP stats [65531-65534]\n")
+{
+	nb_cli_enqueue_change(vty, "./stats-send-experimental", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bmp_acl_yang, bmp_acl_yang_cmd,
+	   "[no] <ip|ipv6>$af access-list ACCESSLIST_NAME$access_list",
+	   NO_STR
+	   IP_STR
+	   IPV6_STR
+	   "Access list to restrict BMP sessions\n"
+	   "Access list name\n")
+{
+	const char *leaf;
+
+	leaf = strmatch(af, "ipv6") ? "./ipv6-access-list" : "./ipv4-access-list";
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, access_list);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(af_routetarget_redirect_yang, af_routetarget_redirect_yang_cmd,
 	   "[no] <rt|route-target|route-target6|rt6>$rt_kw redirect import RTLIST...",
 	   NO_STR
@@ -8701,10 +8850,24 @@ void bgp_cli_init(void)
 	install_element(BGP_VPNV4_NODE, &vpn_network_v4_yang_cmd);
 	install_element(BGP_VPNV6_NODE, &vpn_network_v6_yang_cmd);
 
+	/* BMP under BGP_NODE (BMP_NODE installs wait for bgp_cli_bmp_init) */
+	install_element(BGP_NODE, &bmp_mirror_limit_yang_cmd);
+	install_element(BGP_NODE, &bmp_targets_yang_cmd);
+	install_element(BGP_NODE, &no_bmp_targets_yang_cmd);
+
 	install_element(BGP_IPV4_NODE, &sid_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &sid_export_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
+}
+
+/* Called from bgp_bmp_init() after BMP_NODE is installed. */
+void bgp_cli_bmp_init(void)
+{
+	install_element(BMP_NODE, &bmp_mirror_yang_cmd);
+	install_element(BMP_NODE, &bmp_stats_yang_cmd);
+	install_element(BMP_NODE, &bmp_stats_experimental_yang_cmd);
+	install_element(BMP_NODE, &bmp_acl_yang_cmd);
 }

@@ -50,14 +50,14 @@ submodule frr-bgp-bmp {
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2026-07-21 {
-    description
-      "Add BMP import-vrf and experimental stats knobs to match CLI.
-       Default stats-send-experimental to true to match classic.
-       Constrain max-retry-time >= min-retry-time via YANG must.
-       Add source-interface on outbound sessions and loc-rib monitor.";
-    reference
-      "FRRouting.";
-  }
+      description
+        "Add BMP import-vrf and experimental stats knobs to match CLI.
+         Default stats-send-experimental to true to match classic.
+         Constrain max-retry-time >= min-retry-time via YANG must.
+         Add source-interface on outbound sessions and loc-rib monitor.";
+      reference
+        "FRRouting.";
+    }
 
   revision 2019-12-03 {
     description

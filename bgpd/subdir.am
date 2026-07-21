@@ -126,6 +126,7 @@ noinst_HEADERS += \
 	bgpd/bgp_debug.h \
 	bgpd/bgp_dump.h \
 	bgpd/bgp_bmp.h \
+	bgpd/bgp_bmp_nb.h \
 	bgpd/bgp_ecommunity.h \
 	bgpd/bgp_encap_tlv.h \
 	bgpd/bgp_encap_types.h \

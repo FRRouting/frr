@@ -47,6 +47,7 @@
 #include "bgpd/bgp_damp.h"
 #include "frrdistance.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_bmp_nb.h"
 #include "srv6.h"
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_pbr.h"
@@ -14961,4 +14962,287 @@ void bgp_nb_cli_show_peer_ls_remote_link_id(struct vty *vty, const struct lyd_no
 {
 	vty_out(vty, " neighbor %s remote-link-id %u\n", bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint32(dnode, NULL));
+}
+
+/*
+ * BMP — global/bmp-config
+ *
+ * Configuration legality belongs in NB_EV_VALIDATE (and YANG must/when),
+ * using the candidate dnode tree only.  APPLY dispatches through bmp_nb_cb
+ * (filled by bgpd_bmp.so); core never calls bmp_* module symbols.
+ */
+struct bmp_nb_ops *bmp_nb_cb;
+
+int bgp_nb_bmp_mirror_buffer_limit_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		/* Range enforced by YANG (0..4294967294). */
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	if (!bmp_nb_cb || !bmp_nb_cb->mirror_buffer_limit_set)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	return bmp_nb_cb->mirror_buffer_limit_set(bgp, yang_dnode_get_uint32(args->dnode, NULL));
+}
+
+int bgp_nb_bmp_mirror_buffer_limit_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	if (!bmp_nb_cb || !bmp_nb_cb->mirror_buffer_limit_unset)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	return bmp_nb_cb->mirror_buffer_limit_unset(bgp);
+}
+
+void bgp_nb_cli_show_bmp_mirror_buffer_limit(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	vty_out(vty, " !\n bmp mirror buffer-limit %u\n", yang_dnode_get_uint32(dnode, NULL));
+}
+
+int bgp_nb_bmp_target_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	const char *name;
+	void *bt;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		/*
+		 * Target identity is the YANG list key.  Cross-leaf constraints
+		 * for children (retry bounds, self-import, …) live on those
+		 * nodes / YANG must statements — not via operational BMP.
+		 */
+		name = yang_dnode_get_string(args->dnode, "./target-name");
+		if (!name || !name[0]) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "BMP target name must not be empty");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_get)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	name = yang_dnode_get_string(args->dnode, "./target-name");
+	bt = bmp_nb_cb->target_get(bgp, name);
+	if (!bt)
+		return NB_ERR_RESOURCE;
+
+	nb_running_set_entry(args->dnode, bt);
+	return NB_OK;
+}
+
+int bgp_nb_bmp_target_destroy(struct nb_cb_destroy_args *args)
+{
+	void *bt;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bt = nb_running_unset_entry(args->dnode);
+	if (bt && bmp_nb_cb && bmp_nb_cb->target_put)
+		bmp_nb_cb->target_put(bt);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_bmp_target(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " !\n bmp targets %s\n", yang_dnode_get_string(dnode, "./target-name"));
+}
+
+void bgp_nb_cli_show_bmp_target_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, " exit\n");
+}
+
+int bgp_nb_bmp_target_mirror_modify(struct nb_cb_modify_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_mirror_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	bmp_nb_cb->target_mirror_set(bt, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_bmp_target_mirror(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  bmp mirror\n");
+}
+
+int bgp_nb_bmp_target_stats_time_modify(struct nb_cb_modify_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_stats_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	bmp_nb_cb->target_stats_set(bt, yang_dnode_get_uint32(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_bmp_target_stats_time_destroy(struct nb_cb_destroy_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_stats_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_OK;
+
+	bmp_nb_cb->target_stats_set(bt, 0);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_bmp_target_stats_time(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_out(vty, "  bmp stats interval %u\n", yang_dnode_get_uint32(dnode, NULL));
+}
+
+int bgp_nb_bmp_target_stats_experimental_modify(struct nb_cb_modify_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_stats_experimental_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	bmp_nb_cb->target_stats_experimental_set(bt, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_bmp_target_stats_experimental(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  no bmp stats send-experimental\n");
+	else if (show_defaults)
+		vty_out(vty, "  bmp stats send-experimental\n");
+}
+
+static bool bgp_nb_bmp_acl_is_v6(const struct lyd_node *dnode)
+{
+	return strmatch(dnode->schema->name, "ipv6-access-list");
+}
+
+int bgp_nb_bmp_target_acl_modify(struct nb_cb_modify_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_acl_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	bmp_nb_cb->target_acl_set(bt, bgp_nb_bmp_acl_is_v6(args->dnode),
+				  yang_dnode_get_string(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_bmp_target_acl_destroy(struct nb_cb_destroy_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_acl_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_OK;
+
+	bmp_nb_cb->target_acl_set(bt, bgp_nb_bmp_acl_is_v6(args->dnode), NULL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_bmp_target_acl_v4(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	vty_out(vty, "  ip access-list %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+void bgp_nb_cli_show_bmp_target_acl_v6(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	vty_out(vty, "  ipv6 access-list %s\n", yang_dnode_get_string(dnode, NULL));
 }

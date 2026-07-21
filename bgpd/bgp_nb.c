@@ -130,6 +130,61 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/mirror-buffer-limit",
+			.cbs = {
+				.modify = bgp_nb_bmp_mirror_buffer_limit_modify,
+				.destroy = bgp_nb_bmp_mirror_buffer_limit_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_mirror_buffer_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list",
+			.cbs = {
+				.create = bgp_nb_bmp_target_create,
+				.destroy = bgp_nb_bmp_target_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_target,
+				.cli_show_end = bgp_nb_cli_show_bmp_target_end,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/mirror",
+			.cbs = {
+				.modify = bgp_nb_bmp_target_mirror_modify,
+				.cli_show = bgp_nb_cli_show_bmp_target_mirror,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/stats-time",
+			.cbs = {
+				.modify = bgp_nb_bmp_target_stats_time_modify,
+				.destroy = bgp_nb_bmp_target_stats_time_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_target_stats_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/stats-send-experimental",
+			.cbs = {
+				.modify = bgp_nb_bmp_target_stats_experimental_modify,
+				.cli_show = bgp_nb_cli_show_bmp_target_stats_experimental,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/ipv4-access-list",
+			.cbs = {
+				.modify = bgp_nb_bmp_target_acl_modify,
+				.destroy = bgp_nb_bmp_target_acl_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_target_acl_v4,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/ipv6-access-list",
+			.cbs = {
+				.modify = bgp_nb_bmp_target_acl_modify,
+				.destroy = bgp_nb_bmp_target_acl_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_target_acl_v6,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/reject-as-sets",
 			.cbs = {
 				.modify = bgp_nb_reject_as_sets_modify,
