@@ -4174,6 +4174,16 @@ peer_init:
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
 	bgp_clearing_info_init(&bgp->clearing_list);
 
+	/*
+	 * The non-hidden path above records the first default instance as the
+	 * EVPN instance (bm->bgp_evpn). That block is skipped on the hidden
+	 * revival path ("goto peer_init"), and bgp_delete() cleared
+	 * bm->bgp_evpn when the instance was tombstoned. Re-record the revived
+	 * default so bgp_get_evpn() keeps returning it.
+	 */
+	if (hidden && inst_type == BGP_INSTANCE_TYPE_DEFAULT && !bgp_get_evpn())
+		bgp_set_evpn(bgp);
+
 	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		bgp_ls_originate_bgp_node(bgp);
 
