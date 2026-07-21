@@ -189,6 +189,130 @@ def test_bgp_orf():
     assert result is None, "Can't display reverted ORF prefix-list on R1"
 
 
+def test_bgp_orf_remove_neighbor_plist():
+    """
+    Remove r2's 'neighbor ... prefix-list ... in' configuration.
+    This should trigger a REMOVE_ALL ORF to r1, clearing the filter
+    so r1 advertises all routes to r2.
+
+    This tests the fix where peer_on_policy_change() now uses
+    peer_clear_soft(BGP_CLEAR_SOFT_IN_ORF_PREFIX) to properly send
+    ORF messages when the inbound prefix-list is removed.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # Remove the inbound prefix-list config from r2.
+    r2.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65002
+          address-family ipv4 unicast
+           no neighbor 192.168.1.1 prefix-list r1 in
+          exit-address-family
+        """
+    )
+
+    # r1 should now advertise both prefixes to r2 (ORF filter cleared).
+    def _r1_advertised_all():
+        output = json.loads(
+            r1.vtysh_cmd(
+                "show bgp ipv4 unicast neighbor 192.168.1.2 advertised-routes json"
+            )
+        )
+        expected = {"advertisedRoutes": {"10.10.10.1/32": {}, "10.10.10.2/32": {}}}
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_r1_advertised_all)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert (
+        result is None
+    ), "r1 did not clear ORF filter after neighbor prefix-list removal"
+
+    # r2 should receive both prefixes.
+    def _r2_receives_all():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json"))
+        expected = {
+            "routes": {
+                "10.10.10.1/32": [{"valid": True}],
+                "10.10.10.2/32": [{"valid": True}],
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_r2_receives_all)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "r2 did not receive all prefixes after ORF removal"
+
+
+def test_bgp_orf_reattach_neighbor_plist():
+    """
+    Re-attach r2's 'neighbor ... prefix-list ... in' configuration after
+    it was removed in test_bgp_orf_remove_neighbor_plist.
+
+    This should trigger an ORF ADD to r1, re-installing the filter so
+    r1 filters outbound routes to r2 again.
+
+    This tests the fix where peer_on_policy_change() now uses
+    peer_clear_soft(BGP_CLEAR_SOFT_IN_ORF_PREFIX) to properly send
+    ORF messages when the inbound prefix-list is re-added.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # Re-attach the inbound prefix-list config on r2.
+    r2.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65002
+          address-family ipv4 unicast
+           neighbor 192.168.1.1 prefix-list r1 in
+          exit-address-family
+        """
+    )
+
+    # r1 should now advertise only 10.10.10.1/32 to r2 (ORF filter re-installed).
+    def _r1_advertised_filtered():
+        output = json.loads(
+            r1.vtysh_cmd(
+                "show bgp ipv4 unicast neighbor 192.168.1.2 advertised-routes json"
+            )
+        )
+        expected = {"advertisedRoutes": {"10.10.10.1/32": {}, "10.10.10.2/32": None}}
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_r1_advertised_filtered)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert (
+        result is None
+    ), "r1 did not re-install ORF filter after neighbor prefix-list re-attach"
+
+    # r2 should receive only 10.10.10.1/32.
+    def _r2_receives_filtered():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json"))
+        expected = {
+            "routes": {
+                "10.10.10.1/32": [{"valid": True}],
+                "10.10.10.2/32": None,
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_r2_receives_filtered)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "r2 did not receive filtered routes after ORF re-attach"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
