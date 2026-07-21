@@ -50,6 +50,12 @@ extern void bgp_peer_config_apply(struct peer *p, struct peer_group *pg);
 extern void bgp_peer_configure_bfd(struct peer *p, bool manual);
 
 /**
+ * Enable BFD on a peer or peer-group template. Allocates configuration if
+ * needed (group vs peer paths). Call `bgp_peer_config_apply` afterwards.
+ */
+extern void bgp_bfd_enable(struct peer *p);
+
+/**
  * Removes BFD configuration from either peer or peer group.
  */
 extern void bgp_peer_remove_bfd_config(struct peer *p);

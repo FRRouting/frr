@@ -1468,6 +1468,171 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/enable",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_enable_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_enable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/detect-multiplier",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_detect_mult_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/required-min-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_min_rx_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/desired-min-tx",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_min_tx_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/check-cp-failure",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_cbit_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_cbit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/profile",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_profile_modify,
+				.destroy = bgp_nb_peer_bfd_profile_destroy,
+				.cli_show = bgp_nb_cli_show_peer_bfd_profile,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/strict-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/bfd-options/strict-hold-time",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_strict_hold_modify,
+				.destroy = bgp_nb_peer_bfd_strict_hold_destroy,
+				.cli_show = bgp_nb_cli_show_peer_bfd_strict_hold,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/enable",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_enable_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_enable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/detect-multiplier",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_detect_mult_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/required-min-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_min_rx_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/desired-min-tx",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_min_tx_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/check-cp-failure",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_cbit_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_cbit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/profile",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_profile_modify,
+				.destroy = bgp_nb_peer_bfd_profile_destroy,
+				.cli_show = bgp_nb_cli_show_peer_bfd_profile,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/strict-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/bfd-options/strict-hold-time",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_strict_hold_modify,
+				.destroy = bgp_nb_peer_bfd_strict_hold_destroy,
+				.cli_show = bgp_nb_cli_show_peer_bfd_strict_hold,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/enable",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_enable_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_enable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/detect-multiplier",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_detect_mult_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/required-min-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_min_rx_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/desired-min-tx",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_min_tx_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/check-cp-failure",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_cbit_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_cbit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/profile",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_profile_modify,
+				.destroy = bgp_nb_peer_bfd_profile_destroy,
+				.cli_show = bgp_nb_cli_show_peer_bfd_profile,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/strict-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_strict_modify,
+				.cli_show = bgp_nb_cli_show_peer_bfd_strict,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/bfd-options/strict-hold-time",
+			.cbs = {
+				.modify = bgp_nb_peer_bfd_strict_hold_modify,
+				.destroy = bgp_nb_peer_bfd_strict_hold_destroy,
+				.cli_show = bgp_nb_cli_show_peer_bfd_strict_hold,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

@@ -625,6 +625,14 @@ static void bgp_group_configure_bfd(struct peer *p)
 		bgp_peer_configure_bfd(pn, false);
 }
 
+void bgp_bfd_enable(struct peer *p)
+{
+	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
+		bgp_group_configure_bfd(p);
+	else
+		bgp_peer_configure_bfd(p, true);
+}
+
 static void bgp_group_remove_bfd(struct peer *p)
 {
 	struct listnode *n;
@@ -1026,19 +1034,7 @@ DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
 
 void bgp_bfd_init(struct event_loop *tm)
 {
-	/* Initialize BFD client functions */
 	bfd_protocol_integration_init(bgp_zclient, tm);
 
-	/* "neighbor bfd" commands. */
-	install_element(BGP_NODE, &neighbor_bfd_cmd);
-	install_element(BGP_NODE, &neighbor_bfd_param_cmd);
-	install_element(BGP_NODE, &neighbor_bfd_check_controlplane_failure_cmd);
-	install_element(BGP_NODE, &neighbor_bfd_strict_cmd);
-	install_element(BGP_NODE, &neighbor_bfd_strict_hold_time_cmd);
-	install_element(BGP_NODE, &no_neighbor_bfd_cmd);
-
-#if HAVE_BFDD > 0
-	install_element(BGP_NODE, &neighbor_bfd_profile_cmd);
-	install_element(BGP_NODE, &no_neighbor_bfd_profile_cmd);
-#endif /* HAVE_BFDD */
+	/* neighbor bfd* CLI installed via bgp_cli_init() (YANG). */
 }
