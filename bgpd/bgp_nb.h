@@ -591,6 +591,30 @@ void bgp_nb_cli_show_peer_af_nexthop_unchanged(struct vty *vty, const struct lyd
 int bgp_nb_peer_af_med_unchanged_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_peer_af_med_unchanged(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
+int bgp_nb_peer_af_as_override_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_as_override(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_peer_af_remove_private_as_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_remove_private_as(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+int bgp_nb_peer_af_remove_private_as_all_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_remove_private_as_all(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+int bgp_nb_peer_af_remove_private_as_replace_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_remove_private_as_replace(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults);
+int bgp_nb_peer_af_remove_private_as_all_replace_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_remove_private_as_all_replace(struct vty *vty,
+							   const struct lyd_node *dnode,
+							   bool show_defaults);
+int bgp_nb_peer_af_reflector_client_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_reflector_client(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+int bgp_nb_peer_af_rserver_client_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_rserver_client(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+
 
 void bgp_cli_init(void);
 

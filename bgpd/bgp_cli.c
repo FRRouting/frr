@@ -3988,6 +3988,113 @@ DEFPY_YANG(neighbor_attr_unchanged_yang, neighbor_attr_unchanged_yang_cmd,
 }
 
 
+static int bgp_cli_peer_af_bool(struct vty *vty, const char *neighbor, const char *relpath, bool no)
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/%s", xpath, af, relpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_as_override_yang, neighbor_as_override_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor as-override",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Override ASNs in outbound updates if aspath equals remote-as\n")
+{
+	return bgp_cli_peer_af_bool(vty, neighbor, "as-path-options/replace-peer-as", !!no);
+}
+
+DEFPY_YANG(neighbor_remove_private_as_yang,
+	   neighbor_remove_private_as_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor remove-private-AS [all$all] [replace-AS$replace]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Remove private ASNs in outbound updates\n"
+	   "Apply to all AS numbers\n"
+	   "Replace private ASNs with our ASN in outbound updates\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	const char *active;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (all && replace)
+		active = "private-as/remove-private-as-all-replace";
+	else if (all)
+		active = "private-as/remove-private-as-all";
+	else if (replace)
+		active = "private-as/remove-private-as-replace";
+	else
+		active = "private-as/remove-private-as";
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/%s", xpath, af, active);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_route_reflector_client_yang,
+	   neighbor_route_reflector_client_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor route-reflector-client",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Configure a neighbor as Route Reflector client\n")
+{
+	return bgp_cli_peer_af_bool(vty, neighbor, "route-reflector/route-reflector-client", !!no);
+}
+
+DEFPY_YANG(neighbor_route_server_client_yang,
+	   neighbor_route_server_client_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor route-server-client",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Configure a neighbor as Route Server client\n")
+{
+	return bgp_cli_peer_af_bool(vty, neighbor, "route-server/route-server-client", !!no);
+}
+
+ALIAS_ATTR(neighbor_as_override_yang, neighbor_as_override_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor as-override",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Override ASNs in outbound updates if aspath equals remote-as\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_remove_private_as_yang, neighbor_remove_private_as_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor remove-private-AS [all$all] [replace-AS$replace]",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Remove private ASNs in outbound updates\n"
+	"Apply to all AS numbers\n"
+	"Replace private ASNs with our ASN in outbound updates\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_route_reflector_client_yang, neighbor_route_reflector_client_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor route-reflector-client",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Configure a neighbor as Route Reflector client\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_route_server_client_yang, neighbor_route_server_client_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor route-server-client",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Configure a neighbor as Route Server client\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 ALIAS_ATTR(neighbor_activate_yang, neighbor_activate_yang_hidden_cmd,
 	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor activate",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Enable the Address Family for this Neighbor\n",
@@ -4071,6 +4178,52 @@ static void bgp_cli_install_af_neighbor(void)
 
 	install_element(BGP_NODE, &neighbor_nexthop_self_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_attr_unchanged_yang_hidden_cmd);
+
+	/* as-override / remove-private-AS: unicast-family set */
+	install_element(BGP_IPV4_NODE, &neighbor_as_override_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_remove_private_as_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_as_override_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_remove_private_as_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_as_override_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_remove_private_as_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_as_override_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_remove_private_as_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_as_override_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_remove_private_as_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_as_override_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_remove_private_as_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_as_override_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_remove_private_as_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_as_override_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_remove_private_as_yang_cmd);
+	install_element(BGP_NODE, &neighbor_as_override_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_remove_private_as_yang_hidden_cmd);
+
+	/* RR / RS clients: include EVPN + flowspec */
+	install_element(BGP_IPV4_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_reflector_client_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_server_client_yang_cmd);
+	install_element(BGP_NODE, &neighbor_route_reflector_client_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_route_server_client_yang_hidden_cmd);
 }
 
 void bgp_cli_init(void)
