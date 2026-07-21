@@ -1556,6 +1556,29 @@ void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi)
 	bgp_clear(NULL, bgp, afi, safi, clear_all, BGP_CLEAR_SOFT_IN, NULL);
 }
 
+void bgp_clear_soft_out(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	bgp_clear(NULL, bgp, afi, safi, clear_all, BGP_CLEAR_SOFT_OUT, NULL);
+}
+
+void bgp_clear_all_soft_in(struct bgp *bgp)
+{
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_clear_soft_in(bgp, afi, safi);
+}
+
+void bgp_clear_all_soft_out(struct bgp *bgp)
+{
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_clear_soft_out(bgp, afi, safi);
+}
+
 static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
 				uint64_t flag, int set)
 {
@@ -1854,56 +1877,6 @@ DEFPY (bgp_suppress_fib_pending,
 		adv_delay = delay;
 
 	bgp_suppress_fib_pending_set(bgp, !no, adv_delay);
-	return CMD_SUCCESS;
-}
-
-/* BGP Cluster ID.  */
-DEFUN (bgp_cluster_id,
-       bgp_cluster_id_cmd,
-       "bgp cluster-id <A.B.C.D|(1-4294967295)>",
-       BGP_STR
-       "Configure Route-Reflector Cluster-id\n"
-       "Route-Reflector Cluster-id in IP address format\n"
-       "Route-Reflector Cluster-id as 32 bit quantity\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_ipv4 = 2;
-	int ret;
-	struct in_addr cluster;
-
-	ret = inet_aton(argv[idx_ipv4]->arg, &cluster);
-	if (!ret) {
-		vty_out(vty, "%% Malformed bgp cluster identifier\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID) &&
-	    IPV4_ADDR_SAME(&bgp->cluster_id, &cluster))
-		return CMD_SUCCESS;
-
-	bgp_cluster_id_set(bgp, &cluster);
-	bgp_clear_star_soft_out(vty, bgp->name);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_cluster_id,
-       no_bgp_cluster_id_cmd,
-       "no bgp cluster-id [<A.B.C.D|(1-4294967295)>]",
-       NO_STR
-       BGP_STR
-       "Configure Route-Reflector Cluster-id\n"
-       "Route-Reflector Cluster-id in IP address format\n"
-       "Route-Reflector Cluster-id as 32 bit quantity\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (!CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
-		return CMD_SUCCESS;
-
-	bgp_cluster_id_unset(bgp);
-	bgp_clear_star_soft_out(vty, bgp->name);
-
 	return CMD_SUCCESS;
 }
 
@@ -2872,69 +2845,6 @@ DEFPY(no_bgp_tcp_keepalive, no_bgp_tcp_keepalive_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_client_to_client_reflection,
-       bgp_client_to_client_reflection_cmd,
-       "bgp client-to-client reflection",
-       BGP_STR
-       "Configure client to client route reflection\n"
-       "reflection of routes allowed\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
-		return CMD_SUCCESS;
-
-	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
-	bgp_clear_star_soft_out(vty, bgp->name);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_client_to_client_reflection,
-       no_bgp_client_to_client_reflection_cmd,
-       "no bgp client-to-client reflection",
-       NO_STR
-       BGP_STR
-       "Configure client to client route reflection\n"
-       "reflection of routes allowed\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
-		return CMD_SUCCESS;
-
-	SET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
-	bgp_clear_star_soft_out(vty, bgp->name);
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp always-compare-med" configuration. */
-DEFUN (bgp_always_compare_med,
-       bgp_always_compare_med_cmd,
-       "bgp always-compare-med",
-       BGP_STR
-       "Allow comparing MED from different neighbors\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_always_compare_med,
-       no_bgp_always_compare_med_cmd,
-       "no bgp always-compare-med",
-       NO_STR
-       BGP_STR
-       "Allow comparing MED from different neighbors\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
 
 DEFPY(bgp_enforce_first_as,
       bgp_enforce_first_as_cmd,
@@ -2989,131 +2899,6 @@ DEFPY(bgp_lu_uses_explicit_null, bgp_lu_uses_explicit_null_cmd,
 		UNSET_FLAG(bgp->flags, label_mode);
 	else
 		SET_FLAG(bgp->flags, label_mode);
-	return CMD_SUCCESS;
-}
-
-DEFUN(bgp_suppress_duplicates, bgp_suppress_duplicates_cmd,
-      "bgp suppress-duplicates",
-      BGP_STR
-      "Suppress duplicate updates if the route actually not changed\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_bgp_suppress_duplicates, no_bgp_suppress_duplicates_cmd,
-      "no bgp suppress-duplicates",
-      NO_STR
-      BGP_STR
-      "Suppress duplicate updates if the route actually not changed\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
-	return CMD_SUCCESS;
-}
-
-DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
-      "bgp reject-as-sets",
-      BGP_STR
-      "Reject routes with AS_SET or AS_CONFED_SET flag\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct listnode *node, *nnode;
-	struct peer *peer;
-
-	bgp->reject_as_sets = true;
-
-	/* Reset existing BGP sessions to reject routes
-	 * with aspath containing AS_SET or AS_CONFED_SET.
-	 */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		peer_set_last_reset(peer, PEER_DOWN_AS_SETS_REJECT);
-		peer_notify_config_change(peer->connection);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
-      "no bgp reject-as-sets",
-      NO_STR
-      BGP_STR
-      "Reject routes with AS_SET or AS_CONFED_SET flag\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct listnode *node, *nnode;
-	struct peer *peer;
-
-	bgp->reject_as_sets = false;
-
-	/* Reset existing BGP sessions to reject routes
-	 * with aspath containing AS_SET or AS_CONFED_SET.
-	 */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		peer_set_last_reset(peer, PEER_DOWN_AS_SETS_REJECT);
-		peer_notify_config_change(peer->connection);
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp deterministic-med" configuration. */
-DEFUN (bgp_deterministic_med,
-       bgp_deterministic_med_cmd,
-       "bgp deterministic-med",
-       BGP_STR
-       "Pick the best-MED path among paths advertised from the neighboring AS\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
-		SET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
-		bgp_recalculate_all_bestpaths(bgp);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_deterministic_med,
-       no_bgp_deterministic_med_cmd,
-       "no bgp deterministic-med",
-       NO_STR
-       BGP_STR
-       "Pick the best-MED path among paths advertised from the neighboring AS\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int bestpath_per_as_used;
-	afi_t afi;
-	safi_t safi;
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
-		bestpath_per_as_used = 0;
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi)
-				if (bgp_addpath_dmed_required(
-					peer->addpath_type[afi][safi])) {
-					bestpath_per_as_used = 1;
-					break;
-				}
-
-			if (bestpath_per_as_used)
-				break;
-		}
-
-		if (bestpath_per_as_used) {
-			vty_out(vty,
-				"bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		} else {
-			UNSET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
-			bgp_recalculate_all_bestpaths(bgp);
-		}
-	}
-
 	return CMD_SUCCESS;
 }
 
@@ -4008,13 +3793,12 @@ DEFUN(no_bgp_llgr_stalepath_time, no_bgp_llgr_stalepath_time_cmd,
 	return CMD_SUCCESS;
 }
 
-static inline void bgp_initiate_graceful_shut_unshut(struct vty *vty,
-						     struct bgp *bgp)
+void bgp_initiate_graceful_shut_unshut(struct bgp *bgp)
 {
 	bgp_static_redo_import_check(bgp);
 	bgp_redistribute_redo(bgp);
-	bgp_clear_star_soft_out(vty, bgp->name);
-	bgp_clear_star_soft_in(vty, bgp->name);
+	bgp_clear_all_soft_out(bgp);
+	bgp_clear_all_soft_in(bgp);
 }
 
 static int bgp_global_graceful_shutdown_config_vty(struct vty *vty)
@@ -4048,7 +3832,7 @@ static int bgp_global_graceful_shutdown_config_vty(struct vty *vty)
 
 	/* Initiate processing for all BGP instances. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		bgp_initiate_graceful_shut_unshut(vty, bgp);
+		bgp_initiate_graceful_shut_unshut(bgp);
 
 	return CMD_SUCCESS;
 }
@@ -4066,7 +3850,7 @@ static int bgp_global_graceful_shutdown_deconfig_vty(struct vty *vty)
 
 	/* Initiate processing for all BGP instances. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		bgp_initiate_graceful_shut_unshut(vty, bgp);
+		bgp_initiate_graceful_shut_unshut(bgp);
 
 	return CMD_SUCCESS;
 }
@@ -4092,7 +3876,7 @@ DEFUN (bgp_graceful_shutdown,
 
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
 		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
-		bgp_initiate_graceful_shut_unshut(vty, bgp);
+		bgp_initiate_graceful_shut_unshut(bgp);
 	}
 
 	return CMD_SUCCESS;
@@ -4119,33 +3903,9 @@ DEFUN (no_bgp_graceful_shutdown,
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
 		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
-		bgp_initiate_graceful_shut_unshut(vty, bgp);
+		bgp_initiate_graceful_shut_unshut(bgp);
 	}
 
-	return CMD_SUCCESS;
-}
-
-/* "bgp fast-external-failover" configuration. */
-DEFUN (bgp_fast_external_failover,
-       bgp_fast_external_failover_cmd,
-       "bgp fast-external-failover",
-       BGP_STR
-       "Immediately reset session if a link to a directly connected external peer goes down\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_fast_external_failover,
-       no_bgp_fast_external_failover_cmd,
-       "no bgp fast-external-failover",
-       NO_STR
-       BGP_STR
-       "Immediately reset session if a link to a directly connected external peer goes down\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
 	return CMD_SUCCESS;
 }
 
@@ -4676,47 +4436,6 @@ DEFPY (bgp_default_dynamic_capability,
 		UNSET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
 	else
 		SET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (bgp_default_local_preference,
-       bgp_default_local_preference_cmd,
-       "bgp default local-preference (0-4294967295)",
-       BGP_STR
-       "Configure BGP defaults\n"
-       "local preference (higher=more preferred)\n"
-       "Configure default local preference value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 3;
-	uint32_t local_pref;
-
-	local_pref = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (bgp->default_local_pref == local_pref)
-		return CMD_SUCCESS;
-
-	bgp_default_local_preference_set(bgp, local_pref);
-	bgp_clear_star_soft_in(vty, bgp->name);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_default_local_preference,
-       no_bgp_default_local_preference_cmd,
-       "no bgp default local-preference [(0-4294967295)]",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "local preference (higher=more preferred)\n"
-       "Configure default local preference value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (bgp->default_local_pref == BGP_DEFAULT_LOCAL_PREF)
-		return CMD_SUCCESS;
-
-	bgp_default_local_preference_unset(bgp);
-	bgp_clear_star_soft_in(vty, bgp->name);
 
 	return CMD_SUCCESS;
 }
@@ -23527,9 +23246,7 @@ void bgp_vty_init(void)
 	/* "bgp suppress-fib-pending" command */
 	install_element(BGP_NODE, &bgp_suppress_fib_pending_cmd);
 
-	/* "bgp cluster-id" commands. */
-	install_element(BGP_NODE, &bgp_cluster_id_cmd);
-	install_element(BGP_NODE, &no_bgp_cluster_id_cmd);
+	/* "bgp cluster-id" — YANG: bgp_cli_init() */
 
 	/* "bgp no-rib" commands. */
 	install_element(CONFIG_NODE, &bgp_norib_cmd);
@@ -23632,13 +23349,9 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_set_route_map_delay_timer_cmd);
 	install_element(BGP_NODE, &no_bgp_set_route_map_delay_timer_cmd);
 
-	/* "bgp client-to-client reflection" commands */
-	install_element(BGP_NODE, &no_bgp_client_to_client_reflection_cmd);
-	install_element(BGP_NODE, &bgp_client_to_client_reflection_cmd);
+	/* "bgp client-to-client reflection" — YANG: bgp_cli_init() */
 
-	/* "bgp always-compare-med" commands */
-	install_element(BGP_NODE, &bgp_always_compare_med_cmd);
-	install_element(BGP_NODE, &no_bgp_always_compare_med_cmd);
+	/* "bgp always-compare-med" — YANG: bgp_cli_init() */
 
 	/* bgp ebgp-requires-policy — YANG: bgp_cli_init() */
 
@@ -23648,17 +23361,11 @@ void bgp_vty_init(void)
 	/* bgp labeled-unicast explicit-null */
 	install_element(BGP_NODE, &bgp_lu_uses_explicit_null_cmd);
 
-	/* bgp suppress-duplicates */
-	install_element(BGP_NODE, &bgp_suppress_duplicates_cmd);
-	install_element(BGP_NODE, &no_bgp_suppress_duplicates_cmd);
+	/* bgp suppress-duplicates — YANG: bgp_cli_init() */
 
-	/* bgp reject-as-sets */
-	install_element(BGP_NODE, &bgp_reject_as_sets_cmd);
-	install_element(BGP_NODE, &no_bgp_reject_as_sets_cmd);
+	/* bgp reject-as-sets — YANG: bgp_cli_init() */
 
-	/* "bgp deterministic-med" commands */
-	install_element(BGP_NODE, &bgp_deterministic_med_cmd);
-	install_element(BGP_NODE, &no_bgp_deterministic_med_cmd);
+	/* "bgp deterministic-med" — YANG: bgp_cli_init() */
 
 	/* "bgp default-originate set-only-unconditional" command */
 	install_element(BGP_NODE, &bgp_default_originate_setonly_empty_table_cmd);
@@ -23703,9 +23410,9 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_graceful_restart_rib_stale_time_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_rib_stale_time_cmd);
 
-	/* "bgp graceful-shutdown" commands */
-	install_element(BGP_NODE, &bgp_graceful_shutdown_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_shutdown_cmd);
+	/* "bgp graceful-shutdown" — BGP_NODE YANG: bgp_cli_init();
+	 * CONFIG_NODE remains classic (daemon-wide).
+	 */
 
 	/* "bgp hard-administrative-reset" commands */
 	install_element(BGP_NODE, &bgp_administrative_reset_cmd);
@@ -23714,9 +23421,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_llgr_stalepath_time_cmd);
 	install_element(BGP_NODE, &no_bgp_llgr_stalepath_time_cmd);
 
-	/* "bgp fast-external-failover" commands */
-	install_element(BGP_NODE, &bgp_fast_external_failover_cmd);
-	install_element(BGP_NODE, &no_bgp_fast_external_failover_cmd);
+	/* "bgp fast-external-failover" — YANG: bgp_cli_init() */
 
 	/* "bgp bestpath aigp" commands */
 	install_element(BGP_NODE, &bgp_bestpath_aigp_cmd);
@@ -23762,9 +23467,7 @@ void bgp_vty_init(void)
 
 	/* "bgp network import-check" — YANG: bgp_cli_init() */
 
-	/* "bgp default local-preference" commands. */
-	install_element(BGP_NODE, &bgp_default_local_preference_cmd);
-	install_element(BGP_NODE, &no_bgp_default_local_preference_cmd);
+	/* "bgp default local-preference" — YANG: bgp_cli_init() */
 
 	/* bgp default show-hostname */
 	install_element(BGP_NODE, &bgp_default_show_hostname_cmd);
