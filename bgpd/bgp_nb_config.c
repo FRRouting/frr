@@ -5620,6 +5620,97 @@ void bgp_nb_cli_show_peer_af_med_unchanged(struct vty *vty, const struct lyd_nod
 	bgp_nb_cli_show_attr_unchanged(vty, dnode, "med");
 }
 
+int bgp_nb_peer_af_as_override_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_AS_OVERRIDE);
+}
+
+void bgp_nb_cli_show_peer_af_as_override(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s as-override\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_remove_private_as_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_REMOVE_PRIVATE_AS);
+}
+
+void bgp_nb_cli_show_peer_af_remove_private_as(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s remove-private-AS\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_remove_private_as_all_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL);
+}
+
+void bgp_nb_cli_show_peer_af_remove_private_as_all(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s remove-private-AS all\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_remove_private_as_replace_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
+}
+
+void bgp_nb_cli_show_peer_af_remove_private_as_replace(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s remove-private-AS replace-AS\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_remove_private_as_all_replace_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE);
+}
+
+void bgp_nb_cli_show_peer_af_remove_private_as_all_replace(struct vty *vty,
+							   const struct lyd_node *dnode,
+							   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s remove-private-AS all replace-AS\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_reflector_client_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_REFLECTOR_CLIENT);
+}
+
+void bgp_nb_cli_show_peer_af_reflector_client(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s route-reflector-client\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_rserver_client_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_RSERVER_CLIENT);
+}
+
+void bgp_nb_cli_show_peer_af_rserver_client(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s route-server-client\n", bgp_nb_config_peer_name(dnode));
+}
+
+
 static bool bgp_nb_path_attr_forbidden(uint8_t attr_num, struct peer *peer, char *errmsg,
 				       size_t errmsg_len)
 {
