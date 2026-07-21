@@ -1198,6 +1198,48 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/advertise-all-vni",
+			.cbs = {
+				.modify = bgp_nb_evpn_advertise_all_vni_modify,
+				.cli_show = bgp_nb_cli_show_evpn_advertise_all_vni,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/autort-rfc8365-compatible",
+			.cbs = {
+				.modify = bgp_nb_evpn_autort_rfc8365_modify,
+				.cli_show = bgp_nb_cli_show_evpn_autort_rfc8365,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/advertise-default-gateway",
+			.cbs = {
+				.modify = bgp_nb_evpn_advertise_default_gw_modify,
+				.cli_show = bgp_nb_cli_show_evpn_advertise_default_gw,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/advertise-svi-ip",
+			.cbs = {
+				.modify = bgp_nb_evpn_advertise_svi_ip_modify,
+				.cli_show = bgp_nb_cli_show_evpn_advertise_svi_ip,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/enable-resolve-overlay-index",
+			.cbs = {
+				.modify = bgp_nb_evpn_resolve_overlay_modify,
+				.cli_show = bgp_nb_cli_show_evpn_resolve_overlay,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/flooding",
+			.cbs = {
+				.modify = bgp_nb_evpn_flooding_modify,
+				.cli_show = bgp_nb_cli_show_evpn_flooding,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/enable",
 			.cbs = {
 				.modify = bgp_nb_dampening_enable_modify,
