@@ -758,8 +758,8 @@ static void if_delete_connected(struct interface *ifp)
 /* Handle an interface delete event */
 void if_delete_update(struct interface **pifp)
 {
-	struct zebra_if *zif;
 	struct interface *ifp = *pifp;
+	struct zebra_if *zif = ifp->info;
 
 	if (if_is_up(ifp)) {
 		flog_err(
@@ -800,6 +800,10 @@ void if_delete_update(struct interface **pifp)
 
 	zebra_ns_unlink_ifp(ifp);
 
+	if (zif && ifp->ifindex != IFINDEX_INTERNAL &&
+	    zif->rtadv.AdvSendAdvertisements)
+		rtadv_stop_ra(ifp, true);
+
 	/* Update ifindex after distributing the delete message.  This is in
 	   case any client needs to have the old value of ifindex available
 	   while processing the deletion.  Each client daemon is responsible
@@ -810,7 +814,6 @@ void if_delete_update(struct interface **pifp)
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
 	/* Reset some zebra interface params to default values. */
-	zif = ifp->info;
 	if (zif) {
 		zebra_evpn_if_cleanup(zif);
 		zif->zif_type = ZEBRA_IF_OTHER;
@@ -1623,6 +1626,8 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 			struct zebra_ns *zns)
 {
 	struct interface *oifp;
+	struct zebra_if *zif = ifp->info;
+	bool ifindex_changed = ifp->ifindex != ifi_index;
 
 	oifp = if_lookup_by_index_per_ns(zns, ifi_index);
 	if ((oifp != NULL) && (oifp != ifp)) {
@@ -1644,7 +1649,16 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 			if_delete_update(&oifp);
 		}
 	}
+
+	if (zif && ifindex_changed && ifp->ifindex != IFINDEX_INTERNAL &&
+	    zif->rtadv.AdvSendAdvertisements)
+		rtadv_stop_ra(ifp, true);
+
 	if_set_index(ifp, ifi_index);
+
+	if (zif && ifindex_changed && ifp->ifindex != IFINDEX_INTERNAL &&
+	    zif->rtadv.AdvSendAdvertisements)
+		rtadv_if_up(zif);
 }
 
 static inline void zebra_if_set_ziftype(struct interface *ifp,
