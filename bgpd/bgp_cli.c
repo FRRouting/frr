@@ -4981,6 +4981,69 @@ DEFPY_YANG(bgp_import_vrf_yang, bgp_import_vrf_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_retain_route_target_yang, bgp_retain_route_target_yang_cmd,
+	   "[no] bgp retain route-target all",
+	   NO_STR BGP_STR
+	   "Retain BGP updates\n"
+	   "Retain BGP updates based on route-target values\n"
+	   "Retain all BGP updates\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/retain-route-target-all", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(af_routetarget_redirect_yang, af_routetarget_redirect_yang_cmd,
+	   "[no] <rt|route-target|route-target6|rt6>$rt_kw redirect import RTLIST...",
+	   NO_STR
+	   "Specify route target list\n"
+	   "Specify route target list\n"
+	   "Specify route target list\n"
+	   "Specify route target list\n"
+	   "Flow-spec redirect type route target\n"
+	   "Import routes to this address-family\n"
+	   "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN|IPV6:MN)\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char ipv6_leaf[XPATH_MAXLEN + 256];
+	char *rts = NULL;
+	int idx = 0;
+	int ret;
+	bool ipv6 = false;
+
+	if (!strcmp(rt_kw, "rt6") || !strcmp(rt_kw, "route-target6"))
+		ipv6 = true;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/redirect-rt", af_xpath);
+	snprintfrr(ipv6_leaf, sizeof(ipv6_leaf), "%s/vpn-config/redirect-rt-ipv6", af_xpath);
+
+	argv_find(argv, argc, "RTLIST", &idx);
+	if (no) {
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ipv6_leaf, NB_OP_DESTROY, NULL);
+	} else {
+		if (!idx) {
+			vty_out(vty, "%% Missing RTLIST\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		rts = argv_concat(argv, argc, idx);
+		nb_cli_enqueue_change(vty, ipv6_leaf, NB_OP_MODIFY, ipv6 ? "true" : "false");
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rts);
+	}
+	/* rts is the stored value pointer; free it only after apply copies it. */
+	ret = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, rts);
+	return ret;
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6789,6 +6852,10 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &bgp_import_vrf_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_import_vrf_route_map_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_routetarget_redirect_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_routetarget_redirect_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &bgp_retain_route_target_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }

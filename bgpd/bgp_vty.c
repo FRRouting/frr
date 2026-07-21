@@ -4496,69 +4496,6 @@ ALIAS (bgp_sid_vpn_export,
        "sid per-VRF (both IPv4 and IPv6 address families)\n"
        "For routes leaked from current vrf to vpn\n")
 
-DEFPY (af_routetarget_import,
-       af_routetarget_import_cmd,
-       "[no] <rt|route-target|route-target6|rt6> redirect import RTLIST...",
-       NO_STR
-       "Specify route target list\n"
-       "Specify route target list\n"
-       "Specify route target list\n"
-       "Specify route target list\n"
-       "Flow-spec redirect type route target\n"
-       "Import routes to this address-family\n"
-       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN|IPV6:MN)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
-	struct ecommunity *ecom = NULL;
-	afi_t afi;
-	int idx = 0, idx_unused = 0;
-	bool yes = true;
-	bool rt6 = false;
-
-	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
-
-	if (argv_find(argv, argc, "rt6", &idx_unused) ||
-	    argv_find(argv, argc, "route-target6", &idx_unused))
-		rt6 = true;
-
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (rt6 && afi != AFI_IP6)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (yes) {
-		if (!argv_find(argv, argc, "RTLIST", &idx)) {
-			vty_out(vty, "%% Missing RTLIST\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		ret = set_ecom_list(vty, argc - idx, argv + idx, &ecom, rt6);
-		if (ret != CMD_SUCCESS)
-			return ret;
-	}
-
-	if (yes) {
-		if (bgp->vpn_policy[afi].import_redirect_rtlist)
-			ecommunity_free(&bgp->vpn_policy[afi]
-					.import_redirect_rtlist);
-		bgp->vpn_policy[afi].import_redirect_rtlist =
-			ecommunity_dup(ecom);
-	} else {
-		if (bgp->vpn_policy[afi].import_redirect_rtlist)
-			ecommunity_free(&bgp->vpn_policy[afi]
-					.import_redirect_rtlist);
-		bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
-	}
-
-	if (ecom)
-		ecommunity_free(&ecom);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN_NOSH(address_family_ipv4_safi, address_family_ipv4_safi_cmd,
 	   "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>]",
 	   "Enter Address Family command mode\n" BGP_AF_STR BGP_SAFI_WITH_LABEL_HELP_STR)
@@ -12809,37 +12746,6 @@ DEFUN(show_ip_bgp_peer_groups, show_ip_bgp_peer_groups_cmd,
 
 /* Redistribute VTY commands.  */
 
-DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
-      "[no$no] bgp retain route-target all",
-      NO_STR BGP_STR
-      "Retain BGP updates\n"
-      "Retain BGP updates based on route-target values\n"
-      "Retain all BGP updates\n")
-{
-	bool check;
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-
-	if (!bgp)
-		return CMD_WARNING;
-
-	check = CHECK_FLAG(bgp->af_flags[bgp_node_afi(vty)][bgp_node_safi(vty)],
-			   BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
-	if (check != !no) {
-		if (!no)
-			SET_FLAG(bgp->af_flags[bgp_node_afi(vty)]
-					      [bgp_node_safi(vty)],
-				 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
-		else
-			UNSET_FLAG(bgp->af_flags[bgp_node_afi(vty)]
-						[bgp_node_safi(vty)],
-				   BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
-		/* trigger a flush to re-sync with ADJ-RIB-in */
-		bgp_clear(vty, bgp, bgp_node_afi(vty), bgp_node_safi(vty),
-			  clear_all, BGP_CLEAR_SOFT_IN, NULL);
-	}
-	return CMD_SUCCESS;
-}
-
 DEFPY(bgp_ls_distribute_bgp_fabric,
       bgp_ls_distribute_bgp_fabric_cmd,
       "distribute bgp-fabric-link-state [instance-id WORD$instance_id_str]",
@@ -15891,8 +15797,7 @@ void bgp_vty_init(void)
 	install_element(BGP_LS_NODE, &exit_address_family_cmd);
 
 	/* BGP retain all route-target */
-	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_cmd);
-	install_element(BGP_VPNV6_NODE, &bgp_retain_route_target_cmd);
+	/* bgp retain route-target — YANG: bgp_cli_init() */
 
 #ifdef DEV_BUILD
 	/* "bgp test" commands */
@@ -15981,8 +15886,7 @@ void bgp_vty_init(void)
 	/* rd / label / nexthop / rt vpn — YANG: bgp_cli_init() */
 	/* route-map vpn / import vrf route-map — YANG: bgp_cli_init() */
 
-	install_element(BGP_IPV4_NODE, &af_routetarget_import_cmd);
-	install_element(BGP_IPV6_NODE, &af_routetarget_import_cmd);
+	/* rt redirect import — YANG: bgp_cli_init() */
 
 	/* no rd / label / rt vpn — YANG: bgp_cli_init() */
 	/* no route-map vpn / import vrf route-map — YANG: bgp_cli_init() */
