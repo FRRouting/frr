@@ -8439,9 +8439,9 @@ void bgp_ethernetvpn_init(void)
 	/* advertise-all-vni / autort / default-gw / svi-ip / flooding /
 	 * resolve-overlay-index / mac-vrf soo / dup-addr-detection /
 	 * use-es-l3nhg / disable-ead-evi-* / ead-es-frag /
-	 * default-originate / advertise ipv4|ipv6 unicast — YANG: bgp_cli_init()
+	 * default-originate / advertise ipv4|ipv6 unicast /
+	 * advertise-pip — YANG: bgp_cli_init()
 	 */
-	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_pip_ip_mac_cmd);
 
 	/* test commands */
 	install_element(BGP_EVPN_NODE, &test_es_add_cmd);
