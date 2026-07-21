@@ -7283,6 +7283,69 @@ void bgp_nb_cli_show_upa_drop(struct vty *vty, const struct lyd_node *dnode, boo
 }
 
 /*
+ * ipv6 nexthop prefer-global
+ */
+int bgp_nb_nexthop_prefer_global_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (afi != AFI_IP6 || !BGP_IPV6_SAFI_SUPPORTS_NEXTHOP_PREFER_GLOBAL(safi))
+		return NB_ERR_VALIDATION;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	if (bgp->nexthop_prefer_global[afi][safi] == enable)
+		return NB_OK;
+
+	bgp->nexthop_prefer_global[afi][safi] = enable;
+	bgp_clear_soft_in(bgp, afi, safi);
+	return NB_OK;
+}
+
+int bgp_nb_nexthop_prefer_global_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	if (afi != AFI_IP6 || !BGP_IPV6_SAFI_SUPPORTS_NEXTHOP_PREFER_GLOBAL(safi))
+		return NB_OK;
+
+	/* Restore YANG default (false). */
+	if (!bgp->nexthop_prefer_global[afi][safi])
+		return NB_OK;
+
+	bgp->nexthop_prefer_global[afi][safi] = false;
+	bgp_clear_soft_in(bgp, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_nexthop_prefer_global(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  nexthop prefer-global\n");
+	else if (show_defaults)
+		vty_out(vty, "  no nexthop prefer-global\n");
+}
+
+/*
  * AF-level import|export vpn
  */
 static int bgp_nb_vpn_imexport_validate(struct bgp *bgp, afi_t afi, safi_t safi, bool enable,

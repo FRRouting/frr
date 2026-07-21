@@ -2114,34 +2114,6 @@ static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 	}
 }
 
-/*
- * nexthop prefer-global configuration command handler.
- * Enables or disables preferring global IPv6 addresses over link-local
- * addresses when both are available as nexthops.
- */
-DEFPY (bgp_af_nexthop_prefer_global,
-       bgp_af_nexthop_prefer_global_cmd,
-       "[no] nexthop prefer-global",
-       NO_STR
-       "Nexthop\n"
-       "Prefer global over link-local if both exist\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	bool enable = !no;
-
-	if (!bgp || !bgp_nexthop_prefer_global_supported(afi, safi))
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (bgp->nexthop_prefer_global[afi][safi] != enable) {
-		bgp->nexthop_prefer_global[afi][safi] = enable;
-		bgp_clear_soft_in(bgp, afi, safi);
-	}
-
-	return CMD_SUCCESS;
-}
-
 /* BGP timers.  */
 
 /* BGP minimum holdtime.  */
@@ -14479,10 +14451,7 @@ void bgp_vty_init(void)
 
 	/* write/read-quanta, coalesce-time, use-underlays — YANG: bgp_cli_init() */
 
-	/* "nexthop prefer-global" commands */
-	install_element(BGP_IPV6_NODE, &bgp_af_nexthop_prefer_global_cmd);
-	install_element(BGP_IPV6M_NODE, &bgp_af_nexthop_prefer_global_cmd);
-	install_element(BGP_IPV6L_NODE, &bgp_af_nexthop_prefer_global_cmd);
+	/* "nexthop prefer-global" — YANG: bgp_cli_init() */
 
 	/* "maximum-paths" commands. */
 
