@@ -4496,55 +4496,6 @@ ALIAS (bgp_sid_vpn_export,
        "sid per-VRF (both IPv4 and IPv6 address families)\n"
        "For routes leaked from current vrf to vpn\n")
 
-DEFPY (af_nexthop_vpn_export,
-       af_nexthop_vpn_export_cmd,
-       "[no] nexthop vpn export [<A.B.C.D|X:X::X:X>$nexthop_su]",
-       NO_STR
-       "Specify next hop to use for VRF advertised prefixes\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi;
-	struct prefix p;
-
-	if (!no) {
-		if (!nexthop_su) {
-			vty_out(vty, "%% Nexthop required\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (!sockunion2hostprefix(nexthop_su, &p))
-			return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	/*
-	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-	 */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			   bgp_get_default(), bgp);
-
-	if (!no) {
-		bgp->vpn_policy[afi].tovpn_nexthop = p;
-		SET_FLAG(bgp->vpn_policy[afi].flags,
-			 BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
-	} else {
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
-	}
-
-	/* post-change: re-export vpn routes */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			    bgp_get_default(), bgp);
-
-	return CMD_SUCCESS;
-}
-
 static int vpn_policy_getdirs(struct vty *vty, const char *dstr, int *dodir)
 {
 	if (!strcmp(dstr, "import")) {
@@ -16305,9 +16256,7 @@ void bgp_vty_init(void)
 	community_alias_vty();
 
 	/* vpn-policy commands */
-	/* rd / label vpn export — YANG: bgp_cli_init() */
-	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_cmd);
-	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_cmd);
+	/* rd / label / nexthop vpn export — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_imexport_cmd);
 	/* route-map vpn — YANG: bgp_cli_init() */

@@ -4808,6 +4808,31 @@ DEFPY_YANG(af_label_vpn_alloc_mode_yang, af_label_vpn_alloc_mode_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(af_nexthop_vpn_export_yang, af_nexthop_vpn_export_yang_cmd,
+	   "[no] nexthop vpn export [<A.B.C.D|X:X::X:X>$nexthop]",
+	   NO_STR
+	   "Specify next hop to use for VRF advertised prefixes\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from current address-family to vpn\n"
+	   "IPv4 prefix\n"
+	   "IPv6 prefix\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/nexthop", af_xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!nexthop_str)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, nexthop_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6608,6 +6633,8 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &af_label_vpn_export_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_label_vpn_alloc_mode_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_label_vpn_alloc_mode_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
