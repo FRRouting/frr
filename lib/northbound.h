@@ -884,6 +884,13 @@ extern struct debug nb_dbg_libyang;
 /* Global running configuration. */
 extern struct nb_config *running_config;
 
+/*
+ * Candidate data tree of the transaction whose callbacks are running.
+ * NULL outside nb_transaction_process(). Destroy callbacks are handed
+ * the running tree; this is the tree the commit will install.
+ */
+extern const struct lyd_node *nb_transaction_candidate_dnode(void);
+
 /* Global notification filters */
 extern const char **nb_notif_filters;
 

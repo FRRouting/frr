@@ -11817,36 +11817,32 @@ static const char *bgp_aspa_validation2str(enum aspa_states v_state)
 	return "ERROR";
 }
 
-static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
-			       afi_t afi, safi_t safi)
+int bgp_aggregate_config_unset(struct bgp *bgp, const char *prefix_str, afi_t afi, safi_t safi,
+			       char *errmsg, size_t errmsg_len)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	struct prefix p;
 	struct bgp_dest *dest;
 	struct bgp_aggregate *aggregate;
 
-	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
 	if (!ret) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(errmsg, errmsg_len, "Malformed prefix");
+		return -1;
 	}
 	apply_mask(&p);
 
-	/* Old configuration check. */
 	dest = bgp_node_lookup(bgp->aggregate[afi][safi], &p);
 	if (!dest) {
-		vty_out(vty,
-			"%% There is no aggregate-address configuration.\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(errmsg, errmsg_len, "There is no aggregate-address configuration");
+		return -1;
 	}
 
 	aggregate = bgp_dest_get_bgp_aggregate_info(dest);
 	if (!aggregate) {
-		vty_out(vty, "%% There is no aggregate-address configuration.\n");
+		snprintfrr(errmsg, errmsg_len, "There is no aggregate-address configuration");
 		bgp_dest_unlock_node(dest);
-		return CMD_WARNING_CONFIG_FAILED;
+		return -1;
 	}
 
 	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
@@ -11858,10 +11854,8 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	 */
 	aggregate->count = 0;
 
-	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL,
-			      NULL, NULL,  0, aggregate);
+	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL, NULL, NULL, 0, aggregate);
 
-	/* Unlock aggregate address configuration. */
 	bgp_dest_set_bgp_aggregate_info(dest, NULL);
 
 	bgp_free_aggregate_info(aggregate);
@@ -11869,6 +11863,18 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	assert(dest);
 	bgp_dest_unlock_node(dest);
 
+	return 0;
+}
+
+static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str, afi_t afi, safi_t safi)
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	char err[256];
+
+	if (bgp_aggregate_config_unset(bgp, prefix_str, afi, safi, err, sizeof(err)) < 0) {
+		vty_out(vty, "%% %s\n", err);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	return CMD_SUCCESS;
 }
 
@@ -11896,61 +11902,60 @@ static bool bgp_aggregate_cmp_params(struct bgp_aggregate *aggregate, const char
 	return true;
 }
 
-static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi, safi_t safi,
+int bgp_aggregate_config_set(struct bgp *bgp, const char *prefix_str, afi_t afi, safi_t safi,
 			     const char *rmap, uint8_t summary_only, uint8_t as_set,
 			     uint8_t origin, bool match_med, const char *suppress_map,
-			     bool upa_enabled, bool upa_drop, uint32_t upa_max_routes)
+			     bool upa_enabled, bool upa_drop, uint32_t upa_max_routes,
+			     char *errmsg, size_t errmsg_len)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	struct prefix p;
 	struct bgp_dest *dest;
 	struct bgp_aggregate *aggregate;
 	bool old_upa_enabled = false;
+	char err[256];
 
 	if (suppress_map && summary_only) {
-		vty_out(vty,
-			"'summary-only' and 'suppress-map' can't be used at the same time\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(errmsg, errmsg_len,
+			   "'summary-only' and 'suppress-map' can't be used at the same time");
+		return -1;
 	}
 
-	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
 	if (!ret) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(errmsg, errmsg_len, "Malformed prefix");
+		return -1;
 	}
 	apply_mask(&p);
 
 	if ((afi == AFI_IP && p.prefixlen == IPV4_MAX_BITLEN) ||
 	    (afi == AFI_IP6 && p.prefixlen == IPV6_MAX_BITLEN)) {
-		vty_out(vty, "Specified prefix: %s will not result in any useful aggregation, disallowing\n",
-			prefix_str);
-		return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(errmsg, errmsg_len,
+			   "Specified prefix: %s will not result in any useful aggregation, disallowing",
+			   prefix_str);
+		return -1;
 	}
 
-	/* Old configuration check. */
 	dest = bgp_node_get(bgp->aggregate[afi][safi], &p);
 	aggregate = bgp_dest_get_bgp_aggregate_info(dest);
 
 	if (aggregate) {
 		old_upa_enabled = aggregate->upa_enabled;
 
-		/* Check for duplicate configs */
 		if (bgp_aggregate_cmp_params(aggregate, rmap, summary_only, as_set, origin,
 					     match_med, suppress_map, upa_enabled, upa_drop,
 					     upa_max_routes)) {
 			bgp_dest_unlock_node(dest);
-			return CMD_SUCCESS;
+			return 0;
 		}
 
-		vty_out(vty, "There is already same aggregate network.\n");
-		/* try to remove the old entry */
-		ret = bgp_aggregate_unset(vty, prefix_str, afi, safi);
-		if (ret) {
-			vty_out(vty, "Error deleting aggregate.\n");
+		/* Replace existing aggregate with new parameters.
+		 * unset drops its own lookup refs but leaves this get() lock.
+		 */
+		if (bgp_aggregate_config_unset(bgp, prefix_str, afi, safi, err, sizeof(err)) < 0) {
+			snprintfrr(errmsg, errmsg_len, "Error deleting aggregate");
 			bgp_dest_unlock_node(dest);
-			return CMD_WARNING_CONFIG_FAILED;
+			return -1;
 		}
 	}
 
@@ -11969,11 +11974,8 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	 */
 	if (bgp->reject_as_sets) {
 		if (as_set == AGGREGATE_AS_SET) {
-			zlog_warn(
-				"%s: Ignoring as-set because `bgp reject-as-sets` is enabled.",
-				__func__);
-			vty_out(vty,
-				"Ignoring as-set because `bgp reject-as-sets` is enabled.\n");
+			zlog_warn("%s: Ignoring as-set because `bgp reject-as-sets` is enabled.",
+				  __func__);
 		}
 	}
 
@@ -12041,6 +12043,23 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		bgp_upa_withdraw_all(bgp, &p, afi, safi);
 	}
 
+	return 0;
+}
+
+static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi, safi_t safi,
+			     const char *rmap, uint8_t summary_only, uint8_t as_set,
+			     uint8_t origin, bool match_med, const char *suppress_map,
+			     bool upa_enabled, bool upa_drop, uint32_t upa_max_routes)
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	char err[256];
+
+	if (bgp_aggregate_config_set(bgp, prefix_str, afi, safi, rmap, summary_only, as_set,
+				     origin, match_med, suppress_map, upa_enabled, upa_drop,
+				     upa_max_routes, err, sizeof(err)) != 0) {
+		vty_out(vty, "%% %s\n", err);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	return CMD_SUCCESS;
 }
 
@@ -20978,19 +20997,15 @@ void bgp_route_init(void)
 	install_element(BGP_NODE, &bgp_table_map_cmd);
 	install_element(BGP_NODE, &no_bgp_table_map_cmd);
 
-	install_element(BGP_NODE, &aggregate_addressv4_cmd);
 
 	/* IPv4 unicast configuration.  */
 	install_element(BGP_IPV4_NODE, &bgp_table_map_cmd);
 	install_element(BGP_IPV4_NODE, &no_bgp_table_map_cmd);
 
-	install_element(BGP_IPV4_NODE, &aggregate_addressv4_cmd);
 
 	/* IPv4 multicast configuration.  */
 	install_element(BGP_IPV4M_NODE, &bgp_table_map_cmd);
 	install_element(BGP_IPV4M_NODE, &no_bgp_table_map_cmd);
-	install_element(BGP_IPV4M_NODE, &aggregate_addressv4_cmd);
-
 	/* IPv4 labeled-unicast configuration.  */
 	install_element(BGP_IPV4L_NODE, &bgp_network_cmd);
 	install_element(BGP_IPV4L_NODE, &aggregate_addressv4_cmd);
@@ -21037,9 +21052,6 @@ void bgp_route_init(void)
 	/* New config IPv6 BGP commands.  */
 	install_element(BGP_IPV6_NODE, &bgp_table_map_cmd);
 	install_element(BGP_IPV6_NODE, &no_bgp_table_map_cmd);
-
-	install_element(BGP_IPV6_NODE, &aggregate_addressv6_cmd);
-
 
 	/* IPv6 labeled unicast address family. */
 	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);

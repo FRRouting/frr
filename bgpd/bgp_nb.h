@@ -763,4 +763,17 @@ void bgp_cli_init(void);
 }
 #endif
 
+
+int bgp_nb_aggregate_create(struct nb_cb_create_args *args);
+int bgp_nb_aggregate_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_aggregate(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+int bgp_nb_aggregate_bool_modify(struct nb_cb_modify_args *args);
+int bgp_nb_aggregate_origin_modify(struct nb_cb_modify_args *args);
+int bgp_nb_aggregate_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_nb_aggregate_rmap_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_aggregate_suppress_modify(struct nb_cb_modify_args *args);
+int bgp_nb_aggregate_suppress_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_aggregate_upa_max_modify(struct nb_cb_modify_args *args);
+int bgp_nb_aggregate_upa_max_destroy(struct nb_cb_destroy_args *args);
+
 #endif /* _FRR_BGP_NB_H_ */

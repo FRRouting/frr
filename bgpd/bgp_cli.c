@@ -3854,6 +3854,222 @@ ALIAS_ATTR(
 	       "Specify a BGP backdoor route\n",
 	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
+DEFPY_YANG(aggregate_addressv4_yang, aggregate_addressv4_yang_cmd,
+	   "[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> [{"
+	   "as-set$as_set_s"
+	   "|summary-only$summary_only"
+	   "|route-map RMAP_NAME$rmap_name"
+	   "|origin <egp|igp|incomplete>$origin_s"
+	   "|matching-MED-only$match_med"
+	   "|suppress-map RMAP_NAME$suppress_map"
+	   "|upa$upa [drop$upa_drop] [max-routes (1-65535)$upa_max_routes]"
+	   "}]",
+	   NO_STR
+	   "Configure BGP aggregate entries\n"
+	   "Aggregate prefix\n"
+	   "Aggregate address\n"
+	   "Aggregate mask\n"
+	   "Generate AS set path information\n"
+	   "Filter more specific routes from updates\n"
+	   "Apply route map to aggregate network\n"
+	   "Route map name\n"
+	   "BGP origin code\n"
+	   "Remote EGP\n"
+	   "Local IGP\n"
+	   "Unknown heritage\n"
+	   "Only aggregate routes with matching MED\n"
+	   "Suppress the selected more specific routes\n"
+	   "Route map with the route selectors\n"
+	   "Originate UPA (Unreachable Prefix Announcement) for unreachable prefixes\n"
+	   "Set D-bit in UPA Extended Community (receivers install drop entry)\n"
+	   "Cap simultaneous UPA routes for this aggregate\n"
+	   "Maximum number of UPA routes\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char agg_xpath[XPATH_MAXLEN * 10];
+	char leaf[XPATH_MAXLEN * 11];
+	char prefix_buf[BUFSIZ];
+	const char *pfx;
+	char buf[16];
+
+	if (addr_str) {
+		if (!netmask_str2prefix_str(addr_str, mask_str, prefix_buf, sizeof(prefix_buf))) {
+			vty_out(vty, "%% Inconsistent address and mask\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		pfx = prefix_buf;
+	} else
+		pfx = prefix_str;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(agg_xpath, sizeof(agg_xpath), "%s/aggregate-route[prefix='%s']", af_xpath, pfx);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, agg_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, agg_xpath, NB_OP_CREATE, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/as-set", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_set_s ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/summary-only", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, summary_only ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/match-med", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, match_med ? "true" : "false");
+
+	snprintfrr(leaf, sizeof(leaf), "%s/origin", agg_xpath);
+	if (origin_s)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, origin_s);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "unspecified");
+
+	snprintfrr(leaf, sizeof(leaf), "%s/rmap-policy-export", agg_xpath);
+	if (rmap_name)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_name);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/suppress-map", agg_xpath);
+	if (suppress_map)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, suppress_map);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/upa", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY,
+			      (upa || upa_drop || upa_max_routes_str) ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/upa-drop", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, upa_drop ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/upa-max-routes", agg_xpath);
+	if (upa_max_routes_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, upa_max_routes);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	} else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(aggregate_addressv6_yang, aggregate_addressv6_yang_cmd,
+	   "[no] aggregate-address X:X::X:X/M$prefix [{"
+	   "as-set$as_set_s"
+	   "|summary-only$summary_only"
+	   "|route-map RMAP_NAME$rmap_name"
+	   "|origin <egp|igp|incomplete>$origin_s"
+	   "|matching-MED-only$match_med"
+	   "|suppress-map RMAP_NAME$suppress_map"
+	   "|upa$upa [drop$upa_drop] [max-routes (1-65535)$upa_max_routes]"
+	   "}]",
+	   NO_STR
+	   "Configure BGP aggregate entries\n"
+	   "Aggregate prefix\n"
+	   "Generate AS set path information\n"
+	   "Filter more specific routes from updates\n"
+	   "Apply route map to aggregate network\n"
+	   "Route map name\n"
+	   "BGP origin code\n"
+	   "Remote EGP\n"
+	   "Local IGP\n"
+	   "Unknown heritage\n"
+	   "Only aggregate routes with matching MED\n"
+	   "Suppress the selected more specific routes\n"
+	   "Route map with the route selectors\n"
+	   "Originate UPA (Unreachable Prefix Announcement) for unreachable prefixes\n"
+	   "Set D-bit in UPA Extended Community (receivers install drop entry)\n"
+	   "Cap simultaneous UPA routes for this aggregate\n"
+	   "Maximum number of UPA routes\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char agg_xpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 512];
+	char buf[16];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(agg_xpath, sizeof(agg_xpath), "%s/aggregate-route[prefix='%s']", af_xpath,
+		   prefix_str);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, agg_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, agg_xpath, NB_OP_CREATE, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/as-set", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_set_s ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/summary-only", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, summary_only ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/match-med", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, match_med ? "true" : "false");
+
+	snprintfrr(leaf, sizeof(leaf), "%s/origin", agg_xpath);
+	if (origin_s)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, origin_s);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "unspecified");
+
+	snprintfrr(leaf, sizeof(leaf), "%s/rmap-policy-export", agg_xpath);
+	if (rmap_name)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_name);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/suppress-map", agg_xpath);
+	if (suppress_map)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, suppress_map);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/upa", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY,
+			      (upa || upa_drop || upa_max_routes_str) ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/upa-drop", agg_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, upa_drop ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/upa-max-routes", agg_xpath);
+	if (upa_max_routes_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, upa_max_routes);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	} else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(aggregate_addressv4_yang, aggregate_addressv4_yang_hidden_cmd,
+	   "[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> [{"
+	   "as-set$as_set_s"
+	   "|summary-only$summary_only"
+	   "|route-map RMAP_NAME$rmap_name"
+	   "|origin <egp|igp|incomplete>$origin_s"
+	   "|matching-MED-only$match_med"
+	   "|suppress-map RMAP_NAME$suppress_map"
+	   "|upa$upa [drop$upa_drop] [max-routes (1-65535)$upa_max_routes]"
+	   "}]",
+	   NO_STR "Configure BGP aggregate entries\n"
+		  "Aggregate prefix\n"
+		  "Aggregate address\n"
+		  "Aggregate mask\n"
+		  "Generate AS set path information\n"
+		  "Filter more specific routes from updates\n"
+		  "Apply route map to aggregate network\n"
+		  "Route map name\n"
+		  "BGP origin code\n"
+		  "Remote EGP\n"
+		  "Local IGP\n"
+		  "Unknown heritage\n"
+		  "Only aggregate routes with matching MED\n"
+		  "Suppress the selected more specific routes\n"
+		  "Route map with the route selectors\n"
+		  "Originate UPA (Unreachable Prefix Announcement) for unreachable prefixes\n"
+		  "Set D-bit in UPA Extended Community (receivers install drop entry)\n"
+		  "Cap simultaneous UPA routes for this aggregate\n"
+		  "Maximum number of UPA routes\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
 {
@@ -5583,6 +5799,12 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &ipv6_bgp_network_yang_cmd);
 	install_element(BGP_IPV6M_NODE, &ipv6_bgp_network_yang_cmd);
 	install_element(BGP_NODE, &bgp_network_yang_hidden_cmd);
+
+	/* aggregate-address: unicast/multicast (labeled stays classic) */
+	install_element(BGP_IPV4_NODE, &aggregate_addressv4_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &aggregate_addressv4_yang_cmd);
+	install_element(BGP_IPV6_NODE, &aggregate_addressv6_yang_cmd);
+	install_element(BGP_NODE, &aggregate_addressv4_yang_hidden_cmd);
 
 	bgp_cli_install_af_neighbor();
 }

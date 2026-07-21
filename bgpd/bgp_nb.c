@@ -435,6 +435,266 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route",
+			.cbs = {
+				.create = bgp_nb_aggregate_create,
+				.destroy = bgp_nb_aggregate_destroy,
+				.cli_show = bgp_nb_cli_show_aggregate,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/as-set",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/summary-only",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/match-med",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/upa",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/upa-drop",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/origin",
+			.cbs = {
+				.modify = bgp_nb_aggregate_origin_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_aggregate_rmap_modify,
+				.destroy = bgp_nb_aggregate_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/suppress-map",
+			.cbs = {
+				.modify = bgp_nb_aggregate_suppress_modify,
+				.destroy = bgp_nb_aggregate_suppress_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/aggregate-route/upa-max-routes",
+			.cbs = {
+				.modify = bgp_nb_aggregate_upa_max_modify,
+				.destroy = bgp_nb_aggregate_upa_max_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route",
+			.cbs = {
+				.create = bgp_nb_aggregate_create,
+				.destroy = bgp_nb_aggregate_destroy,
+				.cli_show = bgp_nb_cli_show_aggregate,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/as-set",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/summary-only",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/match-med",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/upa",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/upa-drop",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/origin",
+			.cbs = {
+				.modify = bgp_nb_aggregate_origin_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_aggregate_rmap_modify,
+				.destroy = bgp_nb_aggregate_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/suppress-map",
+			.cbs = {
+				.modify = bgp_nb_aggregate_suppress_modify,
+				.destroy = bgp_nb_aggregate_suppress_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/aggregate-route/upa-max-routes",
+			.cbs = {
+				.modify = bgp_nb_aggregate_upa_max_modify,
+				.destroy = bgp_nb_aggregate_upa_max_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route",
+			.cbs = {
+				.create = bgp_nb_aggregate_create,
+				.destroy = bgp_nb_aggregate_destroy,
+				.cli_show = bgp_nb_cli_show_aggregate,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/as-set",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/summary-only",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/match-med",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/upa",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/upa-drop",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/origin",
+			.cbs = {
+				.modify = bgp_nb_aggregate_origin_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_aggregate_rmap_modify,
+				.destroy = bgp_nb_aggregate_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/suppress-map",
+			.cbs = {
+				.modify = bgp_nb_aggregate_suppress_modify,
+				.destroy = bgp_nb_aggregate_suppress_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/aggregate-route/upa-max-routes",
+			.cbs = {
+				.modify = bgp_nb_aggregate_upa_max_modify,
+				.destroy = bgp_nb_aggregate_upa_max_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route",
+			.cbs = {
+				.create = bgp_nb_aggregate_create,
+				.destroy = bgp_nb_aggregate_destroy,
+				.cli_show = bgp_nb_cli_show_aggregate,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/as-set",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/summary-only",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/match-med",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/upa",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/upa-drop",
+			.cbs = {
+				.modify = bgp_nb_aggregate_bool_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/origin",
+			.cbs = {
+				.modify = bgp_nb_aggregate_origin_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_aggregate_rmap_modify,
+				.destroy = bgp_nb_aggregate_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/suppress-map",
+			.cbs = {
+				.modify = bgp_nb_aggregate_suppress_modify,
+				.destroy = bgp_nb_aggregate_suppress_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/aggregate-route/upa-max-routes",
+			.cbs = {
+				.modify = bgp_nb_aggregate_upa_max_modify,
+				.destroy = bgp_nb_aggregate_upa_max_destroy,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,
