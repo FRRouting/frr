@@ -33,11 +33,11 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_zebra.h"
 #include "routemap.h"
 #include "filter.h"
 #include "bfd.h"
-#include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_io.h"
@@ -7613,6 +7613,330 @@ void bgp_nb_cli_show_evpn_macvrf_soo(struct vty *vty, const struct lyd_node *dno
 				     bool show_defaults)
 {
 	vty_out(vty, "  mac-vrf soo %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * EVPN duplicate-address-detection
+ */
+static int bgp_nb_evpn_dad_apply(const struct lyd_node *dnode)
+{
+	struct bgp *bgp;
+	const struct lyd_node *dad;
+	bool enable;
+	uint16_t max_moves, time_s;
+
+	dad = yang_dnode_get_parent(dnode, "duplicate-address-detection");
+	if (!dad)
+		dad = dnode;
+
+	bgp = nb_running_get_entry(dad, NULL, true);
+	if (!bgp || !bgp->evpn_info)
+		return NB_ERR_NOT_FOUND;
+
+	enable = !yang_dnode_exists(dad, "./enable") || yang_dnode_get_bool(dad, "./enable");
+	max_moves = yang_dnode_exists(dad, "./max-moves")
+			    ? yang_dnode_get_uint16(dad, "./max-moves")
+			    : EVPN_DAD_DEFAULT_MAX_MOVES;
+	time_s = yang_dnode_exists(dad, "./time") ? yang_dnode_get_uint16(dad, "./time")
+						  : EVPN_DAD_DEFAULT_TIME;
+
+	bgp->evpn_info->dup_addr_detect = enable;
+	bgp->evpn_info->dad_max_moves = max_moves;
+	bgp->evpn_info->dad_time = time_s;
+
+	if (yang_dnode_exists(dad, "./freeze-permanent")) {
+		bgp->evpn_info->dad_freeze = true;
+		bgp->evpn_info->dad_freeze_time = 0;
+	} else if (yang_dnode_exists(dad, "./freeze-time")) {
+		bgp->evpn_info->dad_freeze = true;
+		bgp->evpn_info->dad_freeze_time = yang_dnode_get_uint16(dad, "./freeze-time");
+	} else {
+		bgp->evpn_info->dad_freeze = false;
+		bgp->evpn_info->dad_freeze_time = 0;
+	}
+
+	bgp_zebra_dup_addr_detection(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_dad_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event == NB_EV_VALIDATE) {
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp || !EVPN_ENABLED(bgp)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under the EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_dad_apply(args->dnode);
+}
+
+int bgp_nb_evpn_dad_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_dad_apply(args->dnode);
+}
+
+int bgp_nb_evpn_dad_param_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event == NB_EV_VALIDATE) {
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp || !EVPN_ENABLED(bgp)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under the EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_dad_apply(args->dnode);
+}
+
+int bgp_nb_evpn_dad_param_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_dad_apply(args->dnode);
+}
+
+void bgp_nb_cli_show_evpn_dad_enable(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  no dup-addr-detection\n");
+}
+
+void bgp_nb_cli_show_evpn_dad_max_moves(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	const struct lyd_node *dad = yang_dnode_get_parent(dnode, "duplicate-address-detection");
+	uint16_t max_moves, time_s;
+
+	if (!dad)
+		return;
+	if (yang_dnode_exists(dad, "./enable") && !yang_dnode_get_bool(dad, "./enable"))
+		return;
+
+	max_moves = yang_dnode_get_uint16(dnode, NULL);
+	time_s = yang_dnode_exists(dad, "./time") ? yang_dnode_get_uint16(dad, "./time")
+						  : EVPN_DAD_DEFAULT_TIME;
+	if (max_moves == EVPN_DAD_DEFAULT_MAX_MOVES && time_s == EVPN_DAD_DEFAULT_TIME)
+		return;
+
+	vty_out(vty, "  dup-addr-detection max-moves %u time %u\n", max_moves, time_s);
+}
+
+void bgp_nb_cli_show_evpn_dad_time(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const struct lyd_node *dad = yang_dnode_get_parent(dnode, "duplicate-address-detection");
+	uint16_t time_s;
+
+	if (!dad)
+		return;
+	/*
+	 * max-moves owns the combined line when its callback runs. A default
+	 * max-moves is skipped, so a changed time has to be printed here.
+	 * show_defaults still visits max-moves, and that callback prints.
+	 */
+	if (yang_dnode_exists(dad, "./max-moves")) {
+		const struct lyd_node *moves = yang_dnode_get(dad, "./max-moves");
+
+		if (show_defaults || (moves && !yang_dnode_is_default(moves, NULL)))
+			return;
+	}
+	if (yang_dnode_exists(dad, "./enable") && !yang_dnode_get_bool(dad, "./enable"))
+		return;
+
+	time_s = yang_dnode_get_uint16(dnode, NULL);
+	if (time_s == EVPN_DAD_DEFAULT_TIME)
+		return;
+
+	vty_out(vty, "  dup-addr-detection max-moves %u time %u\n", EVPN_DAD_DEFAULT_MAX_MOVES,
+		time_s);
+}
+
+void bgp_nb_cli_show_evpn_dad_freeze_time(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	vty_out(vty, "  dup-addr-detection freeze %u\n", yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_evpn_dad_freeze_permanent_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event == NB_EV_VALIDATE) {
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp || !EVPN_ENABLED(bgp)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under the EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_dad_apply(args->dnode);
+}
+
+int bgp_nb_evpn_dad_freeze_permanent_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_dad_apply(args->dnode);
+}
+
+void bgp_nb_cli_show_evpn_dad_freeze_permanent(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	vty_out(vty, "  dup-addr-detection freeze permanent\n");
+}
+
+/*
+ * EVPN multihoming knobs (process-wide via bgp_mh_info)
+ */
+int bgp_nb_evpn_use_es_l3nhg_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp_mh_info->host_routes_use_l3nhg = yang_dnode_get_bool(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_use_es_l3nhg_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp_mh_info->host_routes_use_l3nhg = BGP_EVPN_MH_USE_ES_L3NHG_DEF;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_use_es_l3nhg(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	bool enable = yang_dnode_get_bool(dnode, NULL);
+
+	if (enable == BGP_EVPN_MH_USE_ES_L3NHG_DEF && !show_defaults)
+		return;
+	if (enable)
+		vty_out(vty, "  use-es-l3nhg\n");
+	else
+		vty_out(vty, "  no use-es-l3nhg\n");
+}
+
+int bgp_nb_evpn_disable_ead_evi_rx_modify(struct nb_cb_modify_args *args)
+{
+	bool enable_rx;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	enable_rx = !yang_dnode_get_bool(args->dnode, NULL);
+	if (enable_rx != bgp_mh_info->enable_ead_evi_rx) {
+		bgp_mh_info->enable_ead_evi_rx = enable_rx;
+		bgp_evpn_switch_ead_evi_rx();
+	}
+	return NB_OK;
+}
+
+int bgp_nb_evpn_disable_ead_evi_rx_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (bgp_mh_info->enable_ead_evi_rx != BGP_EVPN_MH_EAD_EVI_RX_DEF) {
+		bgp_mh_info->enable_ead_evi_rx = BGP_EVPN_MH_EAD_EVI_RX_DEF;
+		bgp_evpn_switch_ead_evi_rx();
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_disable_ead_evi_rx(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	bool disable = yang_dnode_get_bool(dnode, NULL);
+
+	if (!disable && !show_defaults)
+		return;
+	if (disable)
+		vty_out(vty, "  disable-ead-evi-rx\n");
+	else
+		vty_out(vty, "  no disable-ead-evi-rx\n");
+}
+
+int bgp_nb_evpn_disable_ead_evi_tx_modify(struct nb_cb_modify_args *args)
+{
+	bool enable_tx;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	enable_tx = !yang_dnode_get_bool(args->dnode, NULL);
+	if (enable_tx != bgp_mh_info->enable_ead_evi_tx) {
+		bgp_mh_info->enable_ead_evi_tx = enable_tx;
+		bgp_evpn_switch_ead_evi_tx();
+	}
+	return NB_OK;
+}
+
+int bgp_nb_evpn_disable_ead_evi_tx_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	if (bgp_mh_info->enable_ead_evi_tx != BGP_EVPN_MH_EAD_EVI_TX_DEF) {
+		bgp_mh_info->enable_ead_evi_tx = BGP_EVPN_MH_EAD_EVI_TX_DEF;
+		bgp_evpn_switch_ead_evi_tx();
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_disable_ead_evi_tx(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	bool disable = yang_dnode_get_bool(dnode, NULL);
+
+	if (!disable && !show_defaults)
+		return;
+	if (disable)
+		vty_out(vty, "  disable-ead-evi-tx\n");
+	else
+		vty_out(vty, "  no disable-ead-evi-tx\n");
+}
+
+int bgp_nb_evpn_ead_es_frag_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp_mh_info->evi_per_es_frag = yang_dnode_get_uint16(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_ead_es_frag_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp_mh_info->evi_per_es_frag = BGP_EVPN_MAX_EVI_PER_ES_FRAG;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_ead_es_frag(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	uint16_t limit = yang_dnode_get_uint16(dnode, NULL);
+
+	if (limit == BGP_EVPN_MAX_EVI_PER_ES_FRAG && !show_defaults)
+		return;
+	vty_out(vty, "  ead-es-frag evi-limit %u\n", limit);
 }
 
 /*

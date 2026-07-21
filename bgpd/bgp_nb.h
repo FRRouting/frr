@@ -902,6 +902,40 @@ int bgp_nb_evpn_macvrf_soo_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_evpn_macvrf_soo(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
 
+int bgp_nb_evpn_dad_enable_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_dad_enable_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_evpn_dad_param_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_dad_param_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_evpn_dad_freeze_permanent_create(struct nb_cb_create_args *args);
+int bgp_nb_evpn_dad_freeze_permanent_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_dad_enable(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+void bgp_nb_cli_show_evpn_dad_max_moves(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+void bgp_nb_cli_show_evpn_dad_time(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+void bgp_nb_cli_show_evpn_dad_freeze_time(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+void bgp_nb_cli_show_evpn_dad_freeze_permanent(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+
+int bgp_nb_evpn_use_es_l3nhg_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_use_es_l3nhg_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_use_es_l3nhg(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+int bgp_nb_evpn_disable_ead_evi_rx_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_disable_ead_evi_rx_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_disable_ead_evi_rx(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+int bgp_nb_evpn_disable_ead_evi_tx_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_disable_ead_evi_tx_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_disable_ead_evi_tx(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+int bgp_nb_evpn_ead_es_frag_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_ead_es_frag_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_ead_es_frag(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
 int bgp_nb_vpn_import_modify(struct nb_cb_modify_args *args);
 int bgp_nb_vpn_import_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_vpn_import(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
