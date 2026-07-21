@@ -1202,6 +1202,12 @@ const char *yang_afi_safi_value2identity(afi_t afi, safi_t safi)
 		return "frr-routing:ipv4-flowspec";
 	if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
 		return "frr-routing:ipv6-flowspec";
+	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS)
+		return "frr-routing:link-state";
+	if (afi == AFI_IP && safi == SAFI_UNREACH)
+		return "frr-routing:ipv4-unreachability";
+	if (afi == AFI_IP6 && safi == SAFI_UNREACH)
+		return "frr-routing:ipv6-unreachability";
 
 	return NULL;
 }
@@ -1241,6 +1247,15 @@ void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi)
 	} else if (strmatch(key, "frr-routing:ipv6-flowspec")) {
 		*afi = AFI_IP6;
 		*safi = SAFI_FLOWSPEC;
+	} else if (strmatch(key, "frr-routing:link-state")) {
+		*afi = AFI_BGP_LS;
+		*safi = SAFI_BGP_LS;
+	} else if (strmatch(key, "frr-routing:ipv4-unreachability")) {
+		*afi = AFI_IP;
+		*safi = SAFI_UNREACH;
+	} else if (strmatch(key, "frr-routing:ipv6-unreachability")) {
+		*afi = AFI_IP6;
+		*safi = SAFI_UNREACH;
 	} else {
 		*afi = AFI_UNSPEC;
 		*safi = SAFI_UNSPEC;
