@@ -1909,93 +1909,6 @@ DEFPY (no_bgp_send_extra_data,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_confederation_identifier,
-       bgp_confederation_identifier_cmd,
-       "bgp confederation identifier ASNUM",
-       BGP_STR
-       "AS confederation parameters\n"
-       "Set routing domain confederation AS\n"
-       AS_STR)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 3;
-	as_t as = 0;
-
-	if (!asn_str2asn(argv[idx_number]->arg, &as)) {
-		vty_out(vty, "%% BGP: No such AS %s\n", argv[idx_number]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bgp_confederation_id_set(bgp, as, argv[idx_number]->arg);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_confederation_identifier,
-       no_bgp_confederation_identifier_cmd,
-       "no bgp confederation identifier [ASNUM]",
-       NO_STR
-       BGP_STR
-       "AS confederation parameters\n"
-       "Set routing domain confederation AS\n"
-       AS_STR)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_confederation_id_unset(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (bgp_confederation_peers,
-       bgp_confederation_peers_cmd,
-       "bgp confederation peers ASNUM...",
-       BGP_STR
-       "AS confederation parameters\n"
-       "Peer ASs in BGP confederation\n"
-       AS_STR)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_asn = 3;
-	as_t as = 0;
-	int i;
-
-	for (i = idx_asn; i < argc; i++) {
-		if (!asn_str2asn(argv[i]->arg, &as)) {
-			vty_out(vty, "%% Invalid confed peer AS value: %s\n",
-				argv[i]->arg);
-			continue;
-		}
-
-		bgp_confederation_peers_add(bgp, as, argv[i]->arg);
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_confederation_peers,
-       no_bgp_confederation_peers_cmd,
-       "no bgp confederation peers ASNUM...",
-       NO_STR
-       BGP_STR
-       "AS confederation parameters\n"
-       "Peer ASs in BGP confederation\n"
-       AS_STR)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_asn = 4;
-	as_t as = 0;
-	int i;
-
-	for (i = idx_asn; i < argc; i++) {
-		if (!asn_str2asn(argv[i]->arg, &as)) {
-			vty_out(vty, "%% Invalid confed peer AS value: %s\n",
-				argv[i]->arg);
-			continue;
-		}
-		bgp_confederation_peers_remove(bgp, as);
-	}
-	return CMD_SUCCESS;
-}
-
 /**
  * Central routine for maximum-paths configuration.
  * @peer_type: BGP_PEER_EBGP or BGP_PEER_IBGP
@@ -2049,109 +1962,6 @@ static int bgp_maxpaths_config_vty(struct vty *vty, int peer_type,
 	}
 
 	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (bgp_maxmed_admin,
-       bgp_maxmed_admin_cmd,
-       "bgp max-med administrative ",
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Administratively applied, for an indefinite period\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp->v_maxmed_admin = 1;
-	bgp->maxmed_admin_value = BGP_MAXMED_VALUE_DEFAULT;
-
-	bgp_maxmed_update(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (bgp_maxmed_admin_medv,
-       bgp_maxmed_admin_medv_cmd,
-       "bgp max-med administrative (0-4294967295)",
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Administratively applied, for an indefinite period\n"
-       "Max MED value to be used\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 3;
-
-	bgp->v_maxmed_admin = 1;
-	bgp->maxmed_admin_value = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	bgp_maxmed_update(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_maxmed_admin,
-       no_bgp_maxmed_admin_cmd,
-       "no bgp max-med administrative [(0-4294967295)]",
-       NO_STR
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Administratively applied, for an indefinite period\n"
-       "Max MED value to be used\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp->v_maxmed_admin = BGP_MAXMED_ADMIN_UNCONFIGURED;
-	bgp->maxmed_admin_value = BGP_MAXMED_VALUE_DEFAULT;
-	bgp_maxmed_update(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (bgp_maxmed_onstartup,
-       bgp_maxmed_onstartup_cmd,
-       "bgp max-med on-startup (5-86400) [(0-4294967295)]",
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Effective on a startup\n"
-       "Time (seconds) period for max-med\n"
-       "Max MED value to be used\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx = 0;
-
-	if (argv_find(argv, argc, "(5-86400)", &idx))
-		bgp->v_maxmed_onstartup = strtoul(argv[idx]->arg, NULL, 10);
-	if (argv_find(argv, argc, "(0-4294967295)", &idx))
-		bgp->maxmed_onstartup_value = strtoul(argv[idx]->arg, NULL, 10);
-	else
-		bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
-
-	bgp_maxmed_update(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_maxmed_onstartup,
-       no_bgp_maxmed_onstartup_cmd,
-       "no bgp max-med on-startup [(5-86400) [(0-4294967295)]]",
-       NO_STR
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Effective on a startup\n"
-       "Time (seconds) period for max-med\n"
-       "Max MED value to be used\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	/* Cancel max-med onstartup if its on */
-	if (event_is_scheduled(bgp->t_maxmed_onstartup)) {
-		event_cancel(&bgp->t_maxmed_onstartup);
-		bgp->maxmed_onstartup_over = 1;
-	}
-
-	bgp->v_maxmed_onstartup = BGP_MAXMED_ONSTARTUP_UNCONFIGURED;
-	bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
-
-	bgp_maxmed_update(bgp);
 
 	return CMD_SUCCESS;
 }
@@ -2227,55 +2037,6 @@ static int bgp_global_update_delay_deconfig_vty(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
-static int bgp_update_delay_config_vty(struct vty *vty, uint16_t update_delay,
-				       uint16_t establish_wait)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	/* if configured globally, per-instance config is not allowed */
-	if (bm->v_update_delay) {
-		vty_out(vty,
-			"%%Failed: per-vrf update-delay config not permitted with global update-delay\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-
-	if (!establish_wait) /* update-delay <delay> */
-	{
-		bgp->v_update_delay = update_delay;
-		bgp->v_establish_wait = bgp->v_update_delay;
-		return CMD_SUCCESS;
-	}
-
-	/* update-delay <delay> <establish-wait> */
-	if (update_delay < establish_wait) {
-		vty_out(vty,
-			"%%Failed: update-delay less than the establish-wait!\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bgp->v_update_delay = update_delay;
-	bgp->v_establish_wait = establish_wait;
-
-	return CMD_SUCCESS;
-}
-
-static int bgp_update_delay_deconfig_vty(struct vty *vty)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	/* If configured globally, cannot remove from one bgp instance */
-	if (bm->v_update_delay) {
-		vty_out(vty,
-			"%%Failed: bgp update-delay configured globally. Delete per-vrf not permitted\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	bgp->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
-	bgp->v_establish_wait = bgp->v_update_delay;
-
-	return CMD_SUCCESS;
-}
-
 void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp)
 {
 	/* If configured globally, no need to display per-instance value */
@@ -2320,28 +2081,6 @@ DEFPY (no_bgp_global_update_delay,
 }
 
 /* Update-delay configuration */
-
-DEFPY (bgp_update_delay,
-       bgp_update_delay_cmd,
-       "update-delay (0-3600)$delay [(1-3600)$wait]",
-       "Force initial delay for best-path and updates\n"
-       "Max delay in seconds\n"
-       "Establish wait in seconds\n")
-{
-	return bgp_update_delay_config_vty(vty, delay, wait);
-}
-
-/* Update-delay deconfiguration */
-DEFPY (no_bgp_update_delay,
-       no_bgp_update_delay_cmd,
-       "no update-delay [(0-3600) [(1-3600)]]",
-       NO_STR
-       "Force initial delay for best-path and updates\n"
-       "Max delay in seconds\n"
-       "Establish wait in seconds\n")
-{
-	return bgp_update_delay_deconfig_vty(vty);
-}
 
 /* Global advertisement-delay configuration */
 DEFPY(bgp_global_advertisement_delay, bgp_global_advertisement_delay_cmd,
@@ -2388,45 +2127,6 @@ DEFPY(no_bgp_global_advertisement_delay, no_bgp_global_advertisement_delay_cmd,
 			bgp->advertisement_delay_started = 0;
 			bgp->advertisement_delay_over = 0;
 		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* Per-instance advertisement-delay configuration */
-DEFPY(bgp_advertisement_delay, bgp_advertisement_delay_cmd, "advertisement-delay (1-3600)$delay",
-      "Hold route advertisements to peers for configured seconds after first peer establishes\n"
-      "Delay in seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp->v_advertisement_delay = delay;
-
-	return CMD_SUCCESS;
-}
-
-/* Per-instance advertisement-delay deconfiguration */
-DEFPY(no_bgp_advertisement_delay, no_bgp_advertisement_delay_cmd,
-      "no advertisement-delay [(1-3600)]",
-      NO_STR
-      "Hold route advertisements to peers for configured seconds after first peer establishes\n"
-      "Delay in seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
-	if (bgp->advertisement_delay_started && !bgp->advertisement_delay_over) {
-		event_cancel(&bgp->t_advertisement_delay);
-		bgp->advertisement_delay_started = 0;
-		bgp->advertisement_delay_over = 0;
-		if (!bgp_update_delay_active(bgp) && !bgp->main_zebra_update_hold) {
-			bgp->main_peers_update_hold = 0;
-			bgp_start_routeadv(bgp);
-		}
-	} else {
-		event_cancel(&bgp->t_advertisement_delay);
-		bgp->advertisement_delay_started = 0;
-		bgp->advertisement_delay_over = 0;
 	}
 
 	return CMD_SUCCESS;
@@ -2712,84 +2412,7 @@ DEFPY (bgp_af_nexthop_prefer_global,
 
 /* BGP timers.  */
 
-DEFUN (bgp_timers,
-       bgp_timers_cmd,
-       "timers bgp (0-65535) (0-65535)",
-       "Adjust routing timers\n"
-       "BGP timers\n"
-       "Keepalive interval\n"
-       "Holdtime\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 2;
-	int idx_number_2 = 3;
-	unsigned long keepalive = 0;
-	unsigned long holdtime = 0;
-
-	keepalive = strtoul(argv[idx_number]->arg, NULL, 10);
-	holdtime = strtoul(argv[idx_number_2]->arg, NULL, 10);
-
-	/* Holdtime value check. */
-	if (holdtime < 3 && holdtime != 0) {
-		vty_out(vty,
-			"%% hold time value must be either 0 or greater than 3\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bgp_timers_set(vty, bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY,
-		       BGP_DEFAULT_DELAYOPEN);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_timers,
-       no_bgp_timers_cmd,
-       "no timers bgp [(0-65535) (0-65535)]",
-       NO_STR
-       "Adjust routing timers\n"
-       "BGP timers\n"
-       "Keepalive interval\n"
-       "Holdtime\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_timers_set(vty, bgp, DFLT_BGP_KEEPALIVE, DFLT_BGP_HOLDTIME,
-		       DFLT_BGP_CONNECT_RETRY, BGP_DEFAULT_DELAYOPEN);
-
-	return CMD_SUCCESS;
-}
-
 /* BGP minimum holdtime.  */
-
-DEFUN(bgp_minimum_holdtime, bgp_minimum_holdtime_cmd,
-      "bgp minimum-holdtime (1-65535)",
-      "BGP specific commands\n"
-      "BGP minimum holdtime\n"
-      "Seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 2;
-	unsigned long min_holdtime;
-
-	min_holdtime = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	bgp->default_min_holdtime = min_holdtime;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_bgp_minimum_holdtime, no_bgp_minimum_holdtime_cmd,
-      "no bgp minimum-holdtime [(1-65535)]",
-      NO_STR
-      "BGP specific commands\n"
-      "BGP minimum holdtime\n"
-      "Seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp->default_min_holdtime = 0;
-
-	return CMD_SUCCESS;
-}
 
 DEFPY(bgp_tcp_keepalive, bgp_tcp_keepalive_cmd,
       "bgp tcp-keepalive (1-65535)$idle (1-65535)$intvl (1-30)$probes",
@@ -22709,20 +22332,11 @@ void bgp_vty_init(void)
 
 	install_element(CONFIG_NODE, &no_bgp_send_extra_data_cmd);
 
-	/* "bgp confederation" commands. */
-	install_element(BGP_NODE, &bgp_confederation_identifier_cmd);
-	install_element(BGP_NODE, &no_bgp_confederation_identifier_cmd);
+	/* "bgp confederation" — YANG: bgp_cli_init() */
 
-	/* "bgp confederation peers" commands. */
-	install_element(BGP_NODE, &bgp_confederation_peers_cmd);
-	install_element(BGP_NODE, &no_bgp_confederation_peers_cmd);
+	/* "bgp confederation peers" — YANG: bgp_cli_init() */
 
-	/* bgp max-med command */
-	install_element(BGP_NODE, &bgp_maxmed_admin_cmd);
-	install_element(BGP_NODE, &no_bgp_maxmed_admin_cmd);
-	install_element(BGP_NODE, &bgp_maxmed_admin_medv_cmd);
-	install_element(BGP_NODE, &bgp_maxmed_onstartup_cmd);
-	install_element(BGP_NODE, &no_bgp_maxmed_onstartup_cmd);
+	/* bgp max-med — YANG: bgp_cli_init() */
 
 	/* "neighbor role" commands. */
 	install_element(BGP_NODE, &neighbor_role_cmd);
@@ -22740,13 +22354,7 @@ void bgp_vty_init(void)
 
 	/* bgp disable-ebgp-connected-nh-check — YANG: bgp_cli_init() */
 
-	/* bgp update-delay command */
-	install_element(BGP_NODE, &bgp_update_delay_cmd);
-	install_element(BGP_NODE, &no_bgp_update_delay_cmd);
-
-	/* bgp advertisement-delay command */
-	install_element(BGP_NODE, &bgp_advertisement_delay_cmd);
-	install_element(BGP_NODE, &no_bgp_advertisement_delay_cmd);
+	/* update-delay / advertisement-delay — YANG: bgp_cli_init() */
 
 	install_element(BGP_NODE, &bgp_wpkt_quanta_cmd);
 	install_element(BGP_NODE, &bgp_rpkt_quanta_cmd);
@@ -22789,13 +22397,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
 	install_element(BGP_IPV6L_NODE, &no_bgp_maxpaths_ibgp_cmd);
 
-	/* "timers bgp" commands. */
-	install_element(BGP_NODE, &bgp_timers_cmd);
-	install_element(BGP_NODE, &no_bgp_timers_cmd);
-
-	/* "minimum-holdtime" commands. */
-	install_element(BGP_NODE, &bgp_minimum_holdtime_cmd);
-	install_element(BGP_NODE, &no_bgp_minimum_holdtime_cmd);
+	/* "timers bgp" / minimum-holdtime — YANG: bgp_cli_init() */
 
 	/* route-map delay-timer commands - per instance for backwards compat.
 	 */

@@ -868,6 +868,255 @@ DEFPY_YANG(no_bgp_bestpath_bw_yang, no_bgp_bestpath_bw_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFUN_YANG(bgp_timers_yang, bgp_timers_yang_cmd,
+	   "timers bgp (0-65535) (0-65535)",
+	   "Adjust routing timers\n"
+	   "BGP timers\n"
+	   "Keepalive interval\n"
+	   "Holdtime\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive", NB_OP_MODIFY,
+			      argv[2]->arg);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time", NB_OP_MODIFY,
+			      argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_timers_yang, no_bgp_timers_yang_cmd,
+	   "no timers bgp [(0-65535) (0-65535)]",
+	   NO_STR
+	   "Adjust routing timers\n"
+	   "BGP timers\n"
+	   "Keepalive interval\n"
+	   "Holdtime\n")
+{
+	char keepalive[16];
+	char holdtime[16];
+
+	snprintfrr(keepalive, sizeof(keepalive), "%lu", DFLT_BGP_KEEPALIVE);
+	snprintfrr(holdtime, sizeof(holdtime), "%lu", DFLT_BGP_HOLDTIME);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive", NB_OP_MODIFY,
+			      keepalive);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time", NB_OP_MODIFY,
+			      holdtime);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_minimum_holdtime_yang, bgp_minimum_holdtime_yang_cmd,
+	   "bgp minimum-holdtime (1-65535)",
+	   "BGP specific commands\n"
+	   "BGP minimum holdtime\n"
+	   "Seconds\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/minimum-holdtime", NB_OP_MODIFY,
+			      argv[2]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_minimum_holdtime_yang, no_bgp_minimum_holdtime_yang_cmd,
+	   "no bgp minimum-holdtime [(1-65535)]",
+	   NO_STR
+	   "BGP specific commands\n"
+	   "BGP minimum holdtime\n"
+	   "Seconds\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/minimum-holdtime", NB_OP_DESTROY,
+			      NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_confederation_identifier_yang,
+	   bgp_confederation_identifier_yang_cmd,
+	   "bgp confederation identifier ASNUM",
+	   BGP_STR
+	   "AS confederation parameters\n"
+	   "Set routing domain confederation AS\n"
+	   AS_STR)
+{
+	nb_cli_enqueue_change(vty, "./global/confederation/identifier", NB_OP_MODIFY, argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_confederation_identifier_yang,
+	   no_bgp_confederation_identifier_yang_cmd,
+	   "no bgp confederation identifier [ASNUM]",
+	   NO_STR BGP_STR
+	   "AS confederation parameters\n"
+	   "Set routing domain confederation AS\n"
+	   AS_STR)
+{
+	nb_cli_enqueue_change(vty, "./global/confederation/identifier", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_confederation_peers_yang, bgp_confederation_peers_yang_cmd,
+	   "bgp confederation peers ASNUM...",
+	   BGP_STR
+	   "AS confederation parameters\n"
+	   "Peer ASs in BGP confederation\n"
+	   AS_STR)
+{
+	int i;
+	char xpath[XPATH_MAXLEN];
+
+	for (i = 3; i < argc; i++) {
+		snprintfrr(xpath, sizeof(xpath), "./global/confederation/member-as[.='%s']",
+			   argv[i]->arg);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_confederation_peers_yang, no_bgp_confederation_peers_yang_cmd,
+	   "no bgp confederation peers ASNUM...",
+	   NO_STR BGP_STR
+	   "AS confederation parameters\n"
+	   "Peer ASs in BGP confederation\n"
+	   AS_STR)
+{
+	int i;
+	char xpath[XPATH_MAXLEN];
+
+	for (i = 4; i < argc; i++) {
+		snprintfrr(xpath, sizeof(xpath), "./global/confederation/member-as[.='%s']",
+			   argv[i]->arg);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_maxmed_admin_yang, bgp_maxmed_admin_yang_cmd,
+	   "bgp max-med administrative",
+	   BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Administratively applied, for an indefinite period\n")
+{
+	char value[16];
+
+	snprintfrr(value, sizeof(value), "%lu", BGP_MAXMED_VALUE_DEFAULT);
+	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin", NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin", NB_OP_MODIFY, value);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_maxmed_admin_medv_yang, bgp_maxmed_admin_medv_yang_cmd,
+	   "bgp max-med administrative (0-4294967295)",
+	   BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Administratively applied, for an indefinite period\n"
+	   "Max MED value to be used\n")
+{
+	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin", NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin", NB_OP_MODIFY, argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_maxmed_admin_yang, no_bgp_maxmed_admin_yang_cmd,
+	   "no bgp max-med administrative [(0-4294967295)]",
+	   NO_STR BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Administratively applied, for an indefinite period\n"
+	   "Max MED value to be used\n")
+{
+	char value[16];
+
+	snprintfrr(value, sizeof(value), "%lu", BGP_MAXMED_VALUE_DEFAULT);
+	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin", NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin", NB_OP_MODIFY, value);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_maxmed_onstartup_yang, bgp_maxmed_onstartup_yang_cmd,
+	   "bgp max-med on-startup (5-86400) [(0-4294967295)]",
+	   BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Effective on a startup\n"
+	   "Time (seconds) period for max-med\n"
+	   "Max MED value to be used\n")
+{
+	int idx = 0;
+	char value[16];
+
+	argv_find(argv, argc, "(5-86400)", &idx);
+	nb_cli_enqueue_change(vty, "./global/med-config/max-med-onstart-up-time", NB_OP_MODIFY,
+			      argv[idx]->arg);
+	idx = 0;
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		nb_cli_enqueue_change(vty, "./global/med-config/max-med-onstart-up-value",
+				      NB_OP_MODIFY, argv[idx]->arg);
+	else {
+		snprintfrr(value, sizeof(value), "%lu", BGP_MAXMED_VALUE_DEFAULT);
+		nb_cli_enqueue_change(vty, "./global/med-config/max-med-onstart-up-value",
+				      NB_OP_MODIFY, value);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_maxmed_onstartup_yang, no_bgp_maxmed_onstartup_yang_cmd,
+	   "no bgp max-med on-startup [(5-86400) [(0-4294967295)]]",
+	   NO_STR BGP_STR
+	   "Advertise routes with max-med\n"
+	   "Effective on a startup\n"
+	   "Time (seconds) period for max-med\n"
+	   "Max MED value to be used\n")
+{
+	nb_cli_enqueue_change(vty, "./global/med-config/max-med-onstart-up-time", NB_OP_DESTROY,
+			      NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_update_delay_yang, bgp_update_delay_yang_cmd,
+	   "update-delay (0-3600)$delay [(1-3600)$wait]",
+	   "Force initial delay for best-path and updates\n"
+	   "Max delay in seconds\n"
+	   "Establish wait in seconds\n")
+{
+	char wstr[16];
+
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/update-delay-time", NB_OP_MODIFY,
+			      delay_str);
+	snprintfrr(wstr, sizeof(wstr), "%" PRId64, wait ? wait : delay);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/establish-wait-time",
+			      NB_OP_MODIFY, wstr);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_update_delay_yang, no_bgp_update_delay_yang_cmd,
+	   "no update-delay [(0-3600) [(1-3600)]]",
+	   NO_STR
+	   "Force initial delay for best-path and updates\n"
+	   "Max delay in seconds\n"
+	   "Establish wait in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/update-delay-time",
+			      NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/establish-wait-time",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_advertisement_delay_yang, bgp_advertisement_delay_yang_cmd,
+	   "advertisement-delay (1-3600)$delay",
+	   "Hold route advertisements to peers for configured seconds after first peer establishes\n"
+	   "Delay in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/advertisement-delay-time",
+			      NB_OP_MODIFY, delay_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_advertisement_delay_yang, no_bgp_advertisement_delay_yang_cmd,
+	   "no advertisement-delay [(1-3600)]",
+	   NO_STR
+	   "Hold route advertisements to peers for configured seconds after first peer establishes\n"
+	   "Delay in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/advertisement-delay-time",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -928,4 +1177,22 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_bestpath_med_yang_cmd);
 	install_element(BGP_NODE, &bgp_bestpath_bw_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_bestpath_bw_yang_cmd);
+
+	install_element(BGP_NODE, &bgp_timers_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_timers_yang_cmd);
+	install_element(BGP_NODE, &bgp_minimum_holdtime_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_minimum_holdtime_yang_cmd);
+	install_element(BGP_NODE, &bgp_confederation_identifier_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_confederation_identifier_yang_cmd);
+	install_element(BGP_NODE, &bgp_confederation_peers_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_confederation_peers_yang_cmd);
+	install_element(BGP_NODE, &bgp_maxmed_admin_yang_cmd);
+	install_element(BGP_NODE, &bgp_maxmed_admin_medv_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_maxmed_admin_yang_cmd);
+	install_element(BGP_NODE, &bgp_maxmed_onstartup_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_maxmed_onstartup_yang_cmd);
+	install_element(BGP_NODE, &bgp_update_delay_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_update_delay_yang_cmd);
+	install_element(BGP_NODE, &bgp_advertisement_delay_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_advertisement_delay_yang_cmd);
 }

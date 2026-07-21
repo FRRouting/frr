@@ -147,6 +147,54 @@ int bgp_nb_bandwidth_handling_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_bandwidth_handling(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults);
 
+int bgp_nb_keepalive_modify(struct nb_cb_modify_args *args);
+int bgp_nb_hold_time_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_keepalive(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bgp_nb_cli_show_holdtime(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_minimum_holdtime_modify(struct nb_cb_modify_args *args);
+int bgp_nb_minimum_holdtime_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_minimum_holdtime(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_confederation_identifier_modify(struct nb_cb_modify_args *args);
+int bgp_nb_confederation_identifier_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_confederation_identifier(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+
+int bgp_nb_confederation_member_as_create(struct nb_cb_create_args *args);
+int bgp_nb_confederation_member_as_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_confederation_member_as(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+
+int bgp_nb_enable_med_admin_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_enable_med_admin(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_max_med_admin_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_max_med_admin(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+
+int bgp_nb_max_med_onstartup_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_max_med_onstartup_time_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_max_med_onstartup_time(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+
+int bgp_nb_max_med_onstartup_value_modify(struct nb_cb_modify_args *args);
+
+int bgp_nb_update_delay_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_update_delay_time_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_update_delay_time(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_establish_wait_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_establish_wait_time_destroy(struct nb_cb_destroy_args *args);
+
+int bgp_nb_advertisement_delay_modify(struct nb_cb_modify_args *args);
+int bgp_nb_advertisement_delay_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus
