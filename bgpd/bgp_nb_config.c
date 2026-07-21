@@ -10139,6 +10139,139 @@ void bgp_nb_cli_show_peer_af_soft_reconfig(struct vty *vty, const struct lyd_nod
 			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
+static void bgp_nb_peer_af_encap_clear(struct peer *peer, afi_t afi, safi_t safi)
+{
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6);
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX);
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS);
+}
+
+static uint64_t bgp_nb_peer_af_encap_flag(const char *val)
+{
+	if (strmatch(val, "mpls"))
+		return PEER_FLAG_CONFIG_ENCAPSULATION_MPLS;
+	if (strmatch(val, "srv6-relax"))
+		return PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX;
+	return PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
+}
+
+int bgp_nb_peer_af_encapsulation_create(struct nb_cb_create_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const char *val;
+	uint64_t flag;
+	const struct lyd_node *encap, *entry;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE: {
+		bool has_srv6 = false, has_relax = false;
+
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+
+		encap = yang_dnode_get_parent(args->dnode, "encapsulation");
+		if (encap) {
+			LY_LIST_FOR (lyd_child(encap), entry) {
+				const char *v;
+
+				if (!strmatch(entry->schema->name, "type"))
+					continue;
+				v = yang_dnode_get_string(entry, NULL);
+				if (strmatch(v, "srv6"))
+					has_srv6 = true;
+				else if (strmatch(v, "srv6-relax"))
+					has_relax = true;
+			}
+		}
+
+		/*
+		 * Unicast CLI treats srv6 and srv6-relax as mutually exclusive
+		 * and requires unconfigure before switching. Candidate may
+		 * already contain both during a bad edit — reject.
+		 */
+		if (safi == SAFI_UNICAST && has_srv6 && has_relax) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Peer is already configured, unset it first");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	val = yang_dnode_get_string(args->dnode, NULL);
+	flag = bgp_nb_peer_af_encap_flag(val);
+
+	if (peergroup_af_flag_check(peer, afi, safi, flag))
+		return NB_OK;
+
+	/* srv6 and srv6-relax replace each other; mpls is independent. */
+	if (flag == PEER_FLAG_CONFIG_ENCAPSULATION_SRV6)
+		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX);
+	else if (flag == PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX)
+		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6);
+
+	if (peer_af_flag_set(peer, afi, safi, flag) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_encapsulation_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const char *val;
+	uint64_t flag;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	/*
+	 * Leaf-list destroy removes one value. Container/list destroy of the
+	 * parent may still call us without a typed value — clear all.
+	 */
+	if (args->dnode->schema->nodetype == LYS_LEAFLIST) {
+		val = yang_dnode_get_string(args->dnode, NULL);
+		flag = bgp_nb_peer_af_encap_flag(val);
+		peer_af_flag_unset(peer, afi, safi, flag);
+	} else
+		bgp_nb_peer_af_encap_clear(peer, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_encapsulation(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	const char *val = yang_dnode_get_string(dnode, NULL);
+	const char *cli;
+
+	if (strmatch(val, "mpls"))
+		cli = "encapsulation-mpls";
+	else if (strmatch(val, "srv6-relax"))
+		cli = "encapsulation-srv6-relax";
+	else
+		cli = "encapsulation-srv6";
+
+	vty_out(vty, "%sneighbor %s %s\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), cli);
+}
+
 int bgp_nb_peer_af_nexthop_self_modify(struct nb_cb_modify_args *args)
 {
 	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_NEXTHOP_SELF);
