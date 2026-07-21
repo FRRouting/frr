@@ -834,6 +834,90 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/external",
+			.cbs = {
+				.modify = bgp_nb_distance_bgp_modify,
+				.cli_show = bgp_nb_cli_show_distance_bgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/internal",
+			.cbs = {
+				.modify = bgp_nb_distance_bgp_modify,
+				.cli_show = bgp_nb_cli_show_distance_bgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance/local",
+			.cbs = {
+				.modify = bgp_nb_distance_bgp_modify,
+				.cli_show = bgp_nb_cli_show_distance_bgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/external",
+			.cbs = {
+				.modify = bgp_nb_distance_bgp_modify,
+				.cli_show = bgp_nb_cli_show_distance_bgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/internal",
+			.cbs = {
+				.modify = bgp_nb_distance_bgp_modify,
+				.cli_show = bgp_nb_cli_show_distance_bgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance/local",
+			.cbs = {
+				.modify = bgp_nb_distance_bgp_modify,
+				.cli_show = bgp_nb_cli_show_distance_bgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route",
+			.cbs = {
+				.create = bgp_nb_distance_route_create,
+				.destroy = bgp_nb_distance_route_destroy,
+				.cli_show = bgp_nb_cli_show_distance_route,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route/distance",
+			.cbs = {
+				.modify = bgp_nb_distance_route_distance_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/admin-distance-route/access-list",
+			.cbs = {
+				.modify = bgp_nb_distance_route_acl_modify,
+				.destroy = bgp_nb_distance_route_acl_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route",
+			.cbs = {
+				.create = bgp_nb_distance_route_create,
+				.destroy = bgp_nb_distance_route_destroy,
+				.cli_show = bgp_nb_cli_show_distance_route,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route/distance",
+			.cbs = {
+				.modify = bgp_nb_distance_route_distance_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/admin-distance-route/access-list",
+			.cbs = {
+				.modify = bgp_nb_distance_route_acl_modify,
+				.destroy = bgp_nb_distance_route_acl_destroy,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,

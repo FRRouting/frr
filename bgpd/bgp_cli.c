@@ -4404,6 +4404,195 @@ ALIAS_ATTR(
 	       "Pointer to route-map entries\n",
 	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
+/*
+ * distance (ipv4/ipv6 unicast; multicast remains classic)
+ */
+DEFPY_YANG(bgp_distance_yang, bgp_distance_yang_cmd,
+	   "[no] distance bgp [(1-255)$ext (1-255)$internal (1-255)$local]",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "BGP distance\n"
+	   "Distance for routes external to the AS\n"
+	   "Distance for routes internal to the AS\n"
+	   "Distance for local routes\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char ext_buf[8], int_buf[8], local_buf[8];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	if (no) {
+		snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/external", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/internal", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/local", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (!ext_str || !internal_str || !local_str)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/*
+	 * Distinct buffers: nb_cli_enqueue_change stores the value pointer
+	 * until apply; reusing one buf made all three leaves the last value.
+	 */
+	snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/external", af_xpath);
+	snprintfrr(ext_buf, sizeof(ext_buf), "%" PRId64, ext);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, ext_buf);
+	snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/internal", af_xpath);
+	snprintfrr(int_buf, sizeof(int_buf), "%" PRId64, internal);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, int_buf);
+	snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/local", af_xpath);
+	snprintfrr(local_buf, sizeof(local_buf), "%" PRId64, local);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, local_buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void bgp_cli_distance_source_enqueue_destroy_all(struct vty *vty, const char *af_xpath,
+							const char *prefix_str)
+{
+	const struct lyd_node *cpps, *cpp;
+	const char *rel_af = !strncmp(af_xpath, "./", 2) ? af_xpath + 2 : af_xpath;
+	char rel_route[XPATH_MAXLEN + 256];
+	char abs_route[XPATH_MAXLEN + 512];
+
+	snprintfrr(rel_route, sizeof(rel_route), "frr-bgp:bgp/%s/admin-distance-route[prefix='%s']",
+		   rel_af, prefix_str);
+
+	cpps = yang_dnode_get(vty->candidate_config->dnode,
+			      "/frr-routing:routing/control-plane-protocols");
+	if (!cpps)
+		return;
+
+	LY_LIST_FOR (lyd_child(cpps), cpp) {
+		const char *type, *name, *vrf;
+
+		if (!strmatch(cpp->schema->name, "control-plane-protocol"))
+			continue;
+		type = yang_dnode_get_string(cpp, "./type");
+		if (!strmatch(type, "frr-bgp:bgp"))
+			continue;
+		if (!yang_dnode_exists(cpp, rel_route))
+			continue;
+		name = yang_dnode_get_string(cpp, "./name");
+		vrf = yang_dnode_get_string(cpp, "./vrf");
+		snprintfrr(abs_route, sizeof(abs_route),
+			   "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-bgp:bgp'][name='%s'][vrf='%s']/%s",
+			   name, vrf, rel_route);
+		nb_cli_enqueue_change(vty, abs_route, NB_OP_DESTROY, NULL);
+	}
+}
+
+DEFPY_YANG(bgp_distance_source_yang, bgp_distance_source_yang_cmd,
+	   "[no] distance (1-255)$distance A.B.C.D/M$prefix [WORD$acl]",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n"
+	   "Access list name\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char route_xpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 512];
+	char buf[8];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	snprintfrr(route_xpath, sizeof(route_xpath), "%s/admin-distance-route[prefix='%s']",
+		   af_xpath, prefix_str);
+
+	if (no) {
+		char err[256];
+
+		if (bgp_distance_source_check_unset(bgp_node_afi(vty), bgp_node_safi(vty),
+						    distance, prefix_str, err, sizeof(err)) < 0) {
+			vty_out(vty, "%s\n", err);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		bgp_cli_distance_source_enqueue_destroy_all(vty, af_xpath, prefix_str);
+		nb_cli_enqueue_change(vty, route_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	nb_cli_enqueue_change(vty, route_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/distance", route_xpath);
+	snprintfrr(buf, sizeof(buf), "%" PRId64, distance);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(leaf, sizeof(leaf), "%s/access-list", route_xpath);
+	if (acl)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, acl);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_distance_source_v6_yang, bgp_distance_source_v6_yang_cmd,
+	   "[no] distance (1-255)$distance X:X::X:X/M$prefix [WORD$acl]",
+	   NO_STR
+	   "Define an administrative distance\n"
+	   "Administrative distance\n"
+	   "IP source prefix\n"
+	   "Access list name\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char route_xpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 512];
+	char buf[8];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	snprintfrr(route_xpath, sizeof(route_xpath), "%s/admin-distance-route[prefix='%s']",
+		   af_xpath, prefix_str);
+
+	if (no) {
+		char err[256];
+
+		if (bgp_distance_source_check_unset(bgp_node_afi(vty), bgp_node_safi(vty),
+						    distance, prefix_str, err, sizeof(err)) < 0) {
+			vty_out(vty, "%s\n", err);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		bgp_cli_distance_source_enqueue_destroy_all(vty, af_xpath, prefix_str);
+		nb_cli_enqueue_change(vty, route_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	nb_cli_enqueue_change(vty, route_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/distance", route_xpath);
+	snprintfrr(buf, sizeof(buf), "%" PRId64, distance);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(leaf, sizeof(leaf), "%s/access-list", route_xpath);
+	if (acl)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, acl);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(bgp_distance_yang, bgp_distance_yang_hidden_cmd,
+	   "[no] distance bgp [(1-255)$ext (1-255)$internal (1-255)$local]",
+	   NO_STR "Define an administrative distance\n"
+		  "BGP distance\n"
+		  "Distance for routes external to the AS\n"
+		  "Distance for routes internal to the AS\n"
+		  "Distance for local routes\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(bgp_distance_source_yang, bgp_distance_source_yang_hidden_cmd,
+	   "[no] distance (1-255)$distance A.B.C.D/M$prefix [WORD$acl]",
+	   NO_STR "Define an administrative distance\n"
+		  "Administrative distance\n"
+		  "IP source prefix\n"
+		  "Access list name\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
 {
@@ -6125,6 +6314,14 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &bgp_redistribute_ipv6_table_yang_cmd);
 	install_element(BGP_NODE, &bgp_redistribute_ipv4_yang_hidden_cmd);
 	install_element(BGP_NODE, &bgp_redistribute_ipv4_instance_yang_hidden_cmd);
+
+	/* distance: ipv4/ipv6 unicast (multicast stays classic) */
+	install_element(BGP_IPV4_NODE, &bgp_distance_yang_cmd);
+	install_element(BGP_IPV4_NODE, &bgp_distance_source_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_distance_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_distance_source_v6_yang_cmd);
+	install_element(BGP_NODE, &bgp_distance_yang_hidden_cmd);
+	install_element(BGP_NODE, &bgp_distance_source_yang_hidden_cmd);
 
 	bgp_cli_install_af_neighbor();
 }

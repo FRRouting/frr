@@ -39,6 +39,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_updgrp.h"
+#include "frrdistance.h"
 
 /*
  * XPath: .../frr-bgp:bgp
@@ -6621,6 +6622,195 @@ int bgp_nb_redistribute_rmap_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	return bgp_nb_redistribute_unset_leaf(args->dnode, false, true);
+}
+
+/*
+ * admin-distance / admin-distance-route (unicast)
+ */
+static int bgp_nb_distance_bgp_apply(const struct lyd_node *leaf)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *admin;
+	uint8_t ebgp, ibgp, local;
+
+	admin = yang_dnode_get_parent(leaf, "admin-distance");
+	if (!admin)
+		return NB_ERR_NOT_FOUND;
+
+	bgp = nb_running_get_entry(admin, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(admin, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if ((!yang_dnode_exists(admin, "./external") ||
+	     yang_dnode_is_default(admin, "./external")) &&
+	    (!yang_dnode_exists(admin, "./internal") ||
+	     yang_dnode_is_default(admin, "./internal")) &&
+	    (!yang_dnode_exists(admin, "./local") ||
+	     yang_dnode_is_default(admin, "./local"))) {
+		bgp_distance_bgp_unset(bgp, afi, safi);
+		return NB_OK;
+	}
+
+	ebgp = yang_dnode_exists(admin, "./external") ? yang_dnode_get_uint8(admin, "./external")
+						      : ZEBRA_EBGP_DISTANCE_DEFAULT;
+	ibgp = yang_dnode_exists(admin, "./internal") ? yang_dnode_get_uint8(admin, "./internal")
+						      : ZEBRA_IBGP_DISTANCE_DEFAULT;
+	local = yang_dnode_exists(admin, "./local") ? yang_dnode_get_uint8(admin, "./local")
+						    : ZEBRA_IBGP_DISTANCE_DEFAULT;
+
+	bgp_distance_bgp_set(bgp, afi, safi, ebgp, ibgp, local);
+	return NB_OK;
+}
+
+int bgp_nb_distance_bgp_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_distance_bgp_apply(args->dnode);
+}
+
+int bgp_nb_distance_bgp_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_distance_bgp_apply(args->dnode);
+}
+
+void bgp_nb_cli_show_distance_bgp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const struct lyd_node *admin = yang_dnode_get_parent(dnode, "admin-distance");
+	const struct lyd_node *earlier;
+	const char *leaf = dnode->schema->name;
+	uint8_t ebgp, ibgp, local;
+
+	if (!admin)
+		return;
+
+	/*
+	 * external owns the line when nb_cli_show visits it. internal and local
+	 * print only when every earlier distance leaf stays at its default, so
+	 * "distance bgp 20 50 200" is not dropped.
+	 */
+	if (strmatch(leaf, "internal") || strmatch(leaf, "local")) {
+		if (yang_dnode_exists(admin, "./external")) {
+			earlier = yang_dnode_get(admin, "./external");
+			if (show_defaults || !yang_dnode_is_default(earlier, NULL))
+				return;
+		}
+	}
+	if (strmatch(leaf, "local")) {
+		if (yang_dnode_exists(admin, "./internal")) {
+			earlier = yang_dnode_get(admin, "./internal");
+			if (show_defaults || !yang_dnode_is_default(earlier, NULL))
+				return;
+		}
+	}
+
+	ebgp = yang_dnode_exists(admin, "./external") ? yang_dnode_get_uint8(admin, "./external")
+						      : ZEBRA_EBGP_DISTANCE_DEFAULT;
+	ibgp = yang_dnode_exists(admin, "./internal") ? yang_dnode_get_uint8(admin, "./internal")
+						      : ZEBRA_IBGP_DISTANCE_DEFAULT;
+	local = yang_dnode_exists(admin, "./local") ? yang_dnode_get_uint8(admin, "./local")
+						    : ZEBRA_IBGP_DISTANCE_DEFAULT;
+
+	if (!show_defaults && ebgp == ZEBRA_EBGP_DISTANCE_DEFAULT &&
+	    ibgp == ZEBRA_IBGP_DISTANCE_DEFAULT && local == ZEBRA_IBGP_DISTANCE_DEFAULT)
+		return;
+
+	vty_out(vty, "  distance bgp %u %u %u\n", ebgp, ibgp, local);
+}
+
+static int bgp_nb_distance_route_apply(const struct lyd_node *dnode)
+{
+	afi_t afi;
+	safi_t safi;
+	const char *prefix;
+	const char *acl = NULL;
+	uint8_t distance;
+	char err[256];
+
+	if (!bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	prefix = yang_dnode_get_string(dnode, "./prefix");
+	distance = yang_dnode_get_uint8(dnode, "./distance");
+	if (yang_dnode_exists(dnode, "./access-list"))
+		acl = yang_dnode_get_string(dnode, "./access-list");
+
+	if (bgp_distance_source_set(afi, safi, distance, prefix, acl, err, sizeof(err)) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_distance_route_create(struct nb_cb_create_args *args)
+{
+	struct prefix p;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!str2prefix(yang_dnode_get_string(args->dnode, "./prefix"), &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed prefix");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_distance_route_apply(args->dnode);
+}
+
+int bgp_nb_distance_route_destroy(struct nb_cb_destroy_args *args)
+{
+	afi_t afi;
+	safi_t safi;
+	const char *prefix;
+	uint8_t distance;
+	char err[256];
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	prefix = yang_dnode_get_string(args->dnode, "./prefix");
+	distance = yang_dnode_get_uint8(args->dnode, "./distance");
+	bgp_distance_source_unset(afi, safi, distance, prefix, err, sizeof(err));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_distance_route(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	/*
+	 * Distance source entries are process-global (bgp_distance_table) and
+	 * printed under every instance by bgp_config_write_distance_source().
+	 */
+}
+
+int bgp_nb_distance_route_distance_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_distance_route_apply(
+		yang_dnode_get_parent(args->dnode, "admin-distance-route"));
+}
+
+int bgp_nb_distance_route_acl_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_distance_route_apply(
+		yang_dnode_get_parent(args->dnode, "admin-distance-route"));
+}
+
+int bgp_nb_distance_route_acl_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_distance_route_apply(
+		yang_dnode_get_parent(args->dnode, "admin-distance-route"));
 }
 
 
