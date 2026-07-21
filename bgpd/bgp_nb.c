@@ -1263,6 +1263,52 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/label",
+			.cbs = {
+				.modify = bgp_nb_vpn_label_modify,
+				.destroy = bgp_nb_vpn_label_destroy,
+				.cli_show = bgp_nb_cli_show_vpn_label,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/label-auto",
+			.cbs = {
+				.modify = bgp_nb_vpn_label_auto_modify,
+				.destroy = bgp_nb_vpn_label_auto_destroy,
+				.cli_show = bgp_nb_cli_show_vpn_label_auto,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/export-allocation-mode",
+			.cbs = {
+				.modify = bgp_nb_vpn_label_alloc_mode_modify,
+				.cli_show = bgp_nb_cli_show_vpn_label_alloc_mode,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/label",
+			.cbs = {
+				.modify = bgp_nb_vpn_label_modify,
+				.destroy = bgp_nb_vpn_label_destroy,
+				.cli_show = bgp_nb_cli_show_vpn_label,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/label-auto",
+			.cbs = {
+				.modify = bgp_nb_vpn_label_auto_modify,
+				.destroy = bgp_nb_vpn_label_auto_destroy,
+				.cli_show = bgp_nb_cli_show_vpn_label_auto,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/export-allocation-mode",
+			.cbs = {
+				.modify = bgp_nb_vpn_label_alloc_mode_modify,
+				.cli_show = bgp_nb_cli_show_vpn_label_alloc_mode,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,

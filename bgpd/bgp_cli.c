@@ -4723,6 +4723,91 @@ DEFPY_YANG(af_rd_vpn_export_yang, af_rd_vpn_export_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(af_label_vpn_export_yang, af_label_vpn_export_yang_cmd,
+	   "[no] label vpn export [<(0-1048575)$label_val|auto$label_auto>]",
+	   NO_STR
+	   "label value for VRF\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from current address-family to vpn\n"
+	   "Label Value <0-1048575>\n"
+	   "Automatically assign a label\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char label_xpath[XPATH_MAXLEN + 256];
+	char auto_xpath[XPATH_MAXLEN + 256];
+	char buf[16];
+	//struct bgp *bgp;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(label_xpath, sizeof(label_xpath), "%s/vpn-config/label", af_xpath);
+	snprintfrr(auto_xpath, sizeof(auto_xpath), "%s/vpn-config/label-auto", af_xpath);
+
+	if (no) {
+		if (label_auto) {
+			//		if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			//				BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+			//			return CMD_WARNING_CONFIG_FAILED;
+			nb_cli_enqueue_change(vty, auto_xpath, NB_OP_DESTROY, NULL);
+		} else if (label_val_str) {
+			//		if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			//			       BGP_VPN_POLICY_TOVPN_LABEL_AUTO) ||
+			//		    (mpls_label_t)label_val !=
+			//			    bgp->vpn_policy[afi].tovpn_label)
+			//			return CMD_WARNING_CONFIG_FAILED;
+			nb_cli_enqueue_change(vty, label_xpath, NB_OP_DESTROY, NULL);
+		} else {
+			nb_cli_enqueue_change(vty, label_xpath, NB_OP_DESTROY, NULL);
+			nb_cli_enqueue_change(vty, auto_xpath, NB_OP_DESTROY, NULL);
+		}
+	} else if (label_auto) {
+		nb_cli_enqueue_change(vty, label_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, auto_xpath, NB_OP_MODIFY, "true");
+	} else if (label_val_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, label_val);
+		nb_cli_enqueue_change(vty, auto_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, label_xpath, NB_OP_MODIFY, buf);
+	} else
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(af_label_vpn_alloc_mode_yang, af_label_vpn_alloc_mode_yang_cmd,
+	   "[no$no] label vpn export allocation-mode <per-vrf$label_per_vrf|per-nexthop$label_per_nh>",
+	   NO_STR
+	   "label value for VRF\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from current address-family to vpn\n"
+	   "Label allocation mode\n"
+	   "Allocate one label for all BGP updates of the VRF\n"
+	   "Allocate a label per connected next-hop in the VRF\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	//bool old_per_nexthop;
+
+	//old_per_nexthop = !!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+	//			      BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+
+	if (no) {
+		//if (!old_per_nexthop && label_per_nh)
+		//	return CMD_ERR_NO_MATCH;
+		//if (old_per_nexthop && label_per_vrf)
+		//	return CMD_ERR_NO_MATCH;
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/export-allocation-mode", af_xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY,
+				      label_per_nh ? "per-nexthop" : "per-vrf");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6519,6 +6604,10 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &af_route_map_vpn_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_rd_vpn_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_rd_vpn_export_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_label_vpn_export_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_label_vpn_export_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_label_vpn_alloc_mode_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_label_vpn_alloc_mode_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
