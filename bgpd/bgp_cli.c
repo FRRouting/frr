@@ -3860,6 +3860,129 @@ static const char *bgp_cli_afi_safi_name(int node)
 	}
 }
 
+/*
+ * Global AF network statements
+ * (unicast/multicast only; labeled-unicast remains classic until YANG grows)
+ */
+static int bgp_cli_global_af_xpath(struct vty *vty, char *xpath, size_t xpath_len)
+{
+	const char *af = bgp_cli_afi_safi_name(vty->node);
+
+	snprintfrr(xpath, xpath_len, "./global/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']",
+		   af);
+	return 0;
+}
+
+DEFPY_YANG(bgp_network_yang, bgp_network_yang_cmd,
+	   "[no] network <A.B.C.D/M$prefix|A.B.C.D$address [mask A.B.C.D$netmask]> [{route-map RMAP_NAME$map_name|label-index (0-1048560)$label_index|backdoor$backdoor}]",
+	   NO_STR
+	   "Specify a network to announce via BGP\n"
+	   "IPv4 prefix\n"
+	   "Network number\n"
+	   "Network mask\n"
+	   "Network mask\n"
+	   "Route-map to modify the attributes\n"
+	   "Name of the route map\n"
+	   "Label index to associate with the prefix\n"
+	   "Label index value\n"
+	   "Specify a BGP backdoor route\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char net_xpath[XPATH_MAXLEN * 10];
+	char leaf[XPATH_MAXLEN * 12];
+	char addr_prefix_str[BUFSIZ];
+	const char *pfx;
+	char buf[16];
+
+	if (address_str) {
+		if (!netmask_str2prefix_str(address_str, netmask_str, addr_prefix_str,
+					    sizeof(addr_prefix_str))) {
+			vty_out(vty, "%% Inconsistent address and mask\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		pfx = addr_prefix_str;
+	} else
+		pfx = prefix_str;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(net_xpath, sizeof(net_xpath), "%s/network-config[prefix='%s']", af_xpath, pfx);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, net_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, net_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/backdoor", net_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, backdoor ? "true" : "false");
+	snprintfrr(leaf, sizeof(leaf), "%s/rmap-policy-export", net_xpath);
+	if (map_name)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, map_name);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/label-index", net_xpath);
+	if (label_index_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, label_index);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(ipv6_bgp_network_yang, ipv6_bgp_network_yang_cmd,
+	   "[no] network X:X::X:X/M$prefix [{route-map RMAP_NAME$map_name|label-index (0-1048560)$label_index}]",
+	   NO_STR
+	   "Specify a network to announce via BGP\n"
+	   "IPv6 prefix\n"
+	   "Route-map to modify the attributes\n"
+	   "Name of the route map\n"
+	   "Label index to associate with the prefix\n"
+	   "Label index value\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char net_xpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 512];
+	char buf[16];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(net_xpath, sizeof(net_xpath), "%s/network-config[prefix='%s']", af_xpath,
+		   prefix_str);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, net_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, net_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/rmap-policy-export", net_xpath);
+	if (map_name)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, map_name);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/label-index", net_xpath);
+	if (label_index_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, label_index);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(
+	bgp_network_yang, bgp_network_yang_hidden_cmd,
+	"[no] network <A.B.C.D/M$prefix|A.B.C.D$address [mask A.B.C.D$netmask]> [{route-map RMAP_NAME$map_name|label-index (0-1048560)$label_index|backdoor$backdoor}]",
+	NO_STR "Specify a network to announce via BGP\n"
+	       "IPv4 prefix\n"
+	       "Network number\n"
+	       "Network mask\n"
+	       "Network mask\n"
+	       "Route-map to modify the attributes\n"
+	       "Name of the route map\n"
+	       "Label index to associate with the prefix\n"
+	       "Label index value\n"
+	       "Specify a BGP backdoor route\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
 {
@@ -5548,5 +5671,13 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_graceful_shutdown_yang_cmd);
 	install_element(BGP_NODE, &neighbor_set_peer_group_yang_cmd);
 	install_element(BGP_NODE, &neighbor_port_yang_cmd);
+
+	/* network statements: unicast/multicast (labeled stays classic) */
+	install_element(BGP_IPV4_NODE, &bgp_network_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &bgp_network_yang_cmd);
+	install_element(BGP_IPV6_NODE, &ipv6_bgp_network_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &ipv6_bgp_network_yang_cmd);
+	install_element(BGP_NODE, &bgp_network_yang_hidden_cmd);
+
 	bgp_cli_install_af_neighbor();
 }

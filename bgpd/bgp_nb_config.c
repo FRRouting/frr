@@ -5054,39 +5054,7 @@ static bool bgp_nb_role_from_str(const char *role_str, uint8_t *role)
 	return true;
 }
 
-static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnode)
-{
-	const struct lyd_node *nbr, *bgp_node;
-	const char *as_type;
-	as_t local_as, remote_as;
-
-	nbr = yang_dnode_get_parent(dnode, "neighbor");
-	if (!nbr)
-		nbr = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
-	if (!nbr)
-		nbr = yang_dnode_get_parent(dnode, "peer-group");
-	if (!nbr || !yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type"))
-		return BGP_PEER_INTERNAL;
-
-	as_type = yang_dnode_get_string(nbr, "neighbor-remote-as/remote-as-type");
-	if (strmatch(as_type, "internal"))
-		return BGP_PEER_IBGP;
-	if (strmatch(as_type, "external"))
-		return BGP_PEER_EBGP;
-	if (!strmatch(as_type, "as-specified") ||
-	    !yang_dnode_exists(nbr, "neighbor-remote-as/remote-as"))
-		return BGP_PEER_INTERNAL;
-
-	remote_as = yang_dnode_get_uint32(nbr, "neighbor-remote-as/remote-as");
-	bgp_node = yang_dnode_get_parent(dnode, "bgp");
-	if (!bgp_node || !yang_dnode_exists(bgp_node, "global/local-as"))
-		return BGP_PEER_INTERNAL;
-	local_as = yang_dnode_get_uint32(bgp_node, "global/local-as");
-	if (!local_as)
-		return BGP_PEER_INTERNAL;
-
-	return local_as == remote_as ? BGP_PEER_IBGP : BGP_PEER_EBGP;
-}
+static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnode);
 
 static int bgp_nb_peer_local_role_validate(const struct lyd_node *dnode, char *errmsg,
 					   size_t errmsg_len)
@@ -5920,26 +5888,264 @@ static bool bgp_nb_dnode_afi_safi(const struct lyd_node *dnode, afi_t *afi, safi
 	return true;
 }
 
+/*
+ * Global AFI/SAFI + network-config
+ */
+int bgp_nb_global_afi_safi_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int bgp_nb_global_afi_safi_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+static int bgp_nb_network_apply(const struct lyd_node *dnode, bool clear_rmap)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const char *prefix;
+	const char *rmap = NULL;
+	bool backdoor = false;
+	uint32_t label_index = BGP_INVALID_LABEL_INDEX;
+	struct prefix p;
+	struct bgp_dest *dest;
+	struct bgp_static *bgp_static;
+	char err[256];
+
+	bgp = nb_running_get_entry(dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	prefix = yang_dnode_get_string(dnode, "./prefix");
+	if (yang_dnode_exists(dnode, "./backdoor"))
+		backdoor = yang_dnode_get_bool(dnode, "./backdoor");
+	/*
+	 * Destroy callbacks are handed the running-tree node, so the leaf
+	 * being deleted is still visible. clear_rmap forces it absent.
+	 */
+	if (!clear_rmap && yang_dnode_exists(dnode, "./rmap-policy-export"))
+		rmap = yang_dnode_get_string(dnode, "./rmap-policy-export");
+	if (yang_dnode_exists(dnode, "./label-index"))
+		label_index = yang_dnode_get_uint32(dnode, "./label-index");
+	else if (str2prefix(prefix, &p)) {
+		/* label-index is immutable once set; preserve existing. */
+		apply_mask(&p);
+		dest = bgp_node_lookup(bgp->static_routes[afi][safi], &p);
+		if (dest) {
+			bgp_static = bgp_dest_get_bgp_static_info(dest);
+			if (bgp_static)
+				label_index = bgp_static->label_index;
+			bgp_dest_unlock_node(dest);
+		}
+	}
+
+	if (bgp_network_set(bgp, afi, safi, prefix, rmap, backdoor ? 1 : 0, label_index, err,
+			    sizeof(err)) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_network_create(struct nb_cb_create_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		struct prefix p;
+		const char *prefix = yang_dnode_get_string(args->dnode, "./prefix");
+
+		if (!str2prefix(prefix, &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed network prefix");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	return bgp_nb_network_apply(args->dnode, false);
+}
+
+int bgp_nb_network_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const char *prefix;
+	char err[256];
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	prefix = yang_dnode_get_string(args->dnode, "./prefix");
+	if (bgp_network_unset(bgp, afi, safi, prefix, NULL, BGP_INVALID_LABEL_INDEX, err,
+			      sizeof(err)) < 0)
+		return NB_OK; /* already gone */
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_network(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  network %s", yang_dnode_get_string(dnode, "./prefix"));
+	if (yang_dnode_exists(dnode, "./label-index"))
+		vty_out(vty, " label-index %u", yang_dnode_get_uint32(dnode, "./label-index"));
+	if (yang_dnode_exists(dnode, "./rmap-policy-export"))
+		vty_out(vty, " route-map %s", yang_dnode_get_string(dnode, "./rmap-policy-export"));
+	if (yang_dnode_exists(dnode, "./backdoor") && yang_dnode_get_bool(dnode, "./backdoor"))
+		vty_out(vty, " backdoor");
+	vty_out(vty, "\n");
+}
+
+int bgp_nb_network_backdoor_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+}
+
+int bgp_nb_network_label_index_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+}
+
+int bgp_nb_network_label_index_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+}
+
+int bgp_nb_network_rmap_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+}
+
+int bgp_nb_network_rmap_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), true);
+}
+
+
+/*
+ * Sort implied by the candidate remote-as, not the running peer. A
+ * peer-group with no remote-as (and no members yet) is INTERNAL: the
+ * flag is stored and inherited when a member is bound.
+ */
+static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnode)
+{
+	const struct lyd_node *nbr, *bgp_node;
+	const char *as_type;
+	as_t local_as, remote_as;
+
+	nbr = yang_dnode_get_parent(dnode, "neighbor");
+	if (!nbr)
+		nbr = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
+	if (!nbr)
+		nbr = yang_dnode_get_parent(dnode, "peer-group");
+	if (!nbr || !yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type"))
+		return BGP_PEER_INTERNAL;
+
+	as_type = yang_dnode_get_string(nbr, "neighbor-remote-as/remote-as-type");
+	if (strmatch(as_type, "internal"))
+		return BGP_PEER_IBGP;
+	if (strmatch(as_type, "external"))
+		return BGP_PEER_EBGP;
+	if (!strmatch(as_type, "as-specified") ||
+	    !yang_dnode_exists(nbr, "neighbor-remote-as/remote-as"))
+		return BGP_PEER_INTERNAL;
+
+	remote_as = yang_dnode_get_uint32(nbr, "neighbor-remote-as/remote-as");
+	bgp_node = yang_dnode_get_parent(dnode, "bgp");
+	if (!bgp_node || !yang_dnode_exists(bgp_node, "global/local-as"))
+		return BGP_PEER_INTERNAL;
+	local_as = yang_dnode_get_uint32(bgp_node, "global/local-as");
+	if (!local_as)
+		return BGP_PEER_INTERNAL;
+
+	return local_as == remote_as ? BGP_PEER_IBGP : BGP_PEER_EBGP;
+}
+
+static enum bgp_peer_sort bgp_nb_af_flag_sort(const struct lyd_node *dnode)
+{
+	struct peer *peer;
+	enum bgp_peer_sort sort;
+
+	sort = bgp_nb_candidate_peer_sort(dnode);
+	if (sort != BGP_PEER_INTERNAL)
+		return sort;
+
+	peer = bgp_nb_config_peer(dnode);
+	if (!peer)
+		return BGP_PEER_INTERNAL;
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) && peer_sort(peer) == BGP_PEER_INTERNAL)
+		return BGP_PEER_INTERNAL;
+	return peer_sort(peer);
+}
+
+static int bgp_nb_peer_af_flag_validate(struct nb_cb_modify_args *args, uint64_t flag)
+{
+	enum bgp_peer_sort sort;
+
+	sort = bgp_nb_af_flag_sort(args->dnode);
+	if (sort == BGP_PEER_INTERNAL || sort == BGP_PEER_UNSPECIFIED)
+		return NB_OK;
+
+	if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT) && sort != BGP_PEER_IBGP) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "Invalid command. Not an internal neighbor");
+		return NB_ERR_VALIDATION;
+	}
+	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS) && sort == BGP_PEER_IBGP) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "remove-private-AS cannot be configured for IBGP peers");
+		return NB_ERR_VALIDATION;
+	}
+	if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE) && sort == BGP_PEER_IBGP) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "as-override cannot be configured for IBGP peers");
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
 static int bgp_nb_peer_af_flag_modify(struct nb_cb_modify_args *args, uint64_t flag)
 {
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
+	int ret;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		return bgp_nb_peer_af_flag_validate(args, flag);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
 		return NB_ERR_NOT_FOUND;
 
-	if (yang_dnode_get_bool(args->dnode, NULL)) {
-		if (peer_af_flag_set(peer, afi, safi, flag) < 0)
-			return NB_ERR_RESOURCE;
-	} else {
-		if (peer_af_flag_unset(peer, afi, safi, flag) < 0)
-			return NB_ERR_RESOURCE;
-	}
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		ret = peer_af_flag_set(peer, afi, safi, flag);
+	else
+		ret = peer_af_flag_unset(peer, afi, safi, flag);
+	if (ret < 0)
+		zlog_warn("%s: flag 0x%" PRIx64 " was not applied (%d)", __func__, flag, ret);
 	return NB_OK;
 }
 

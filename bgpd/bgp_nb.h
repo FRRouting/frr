@@ -748,6 +748,18 @@ int bgp_nb_peer_af_nexthop_local_unchanged_modify(struct nb_cb_modify_args *args
 void bgp_nb_cli_show_peer_af_nexthop_local_unchanged(struct vty *vty, const struct lyd_node *dnode,
 						     bool show_defaults);
 
+int bgp_nb_global_afi_safi_create(struct nb_cb_create_args *args);
+int bgp_nb_global_afi_safi_destroy(struct nb_cb_destroy_args *args);
+
+int bgp_nb_network_create(struct nb_cb_create_args *args);
+int bgp_nb_network_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_network(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+int bgp_nb_network_backdoor_modify(struct nb_cb_modify_args *args);
+int bgp_nb_network_label_index_modify(struct nb_cb_modify_args *args);
+int bgp_nb_network_label_index_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_network_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_nb_network_rmap_destroy(struct nb_cb_destroy_args *args);
+
 
 void bgp_cli_init(void);
 
