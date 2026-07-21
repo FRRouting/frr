@@ -4655,6 +4655,175 @@ DEFPY_YANG(neighbor_local_interface_yang, neighbor_local_interface_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/*
+ * Enter an address-family mode: create the global afi-safi list entry and
+ * switch vty->node. Do not push an AF xpath — YANG AF commands resolve
+ * relative to the BGP instance xpath using vty->node.
+ */
+static bool bgp_cli_yang_is_non_default_instance(struct vty *vty)
+{
+	const struct lyd_node *bgp_dnode, *cpp;
+	const char *vrf;
+
+	if (vty->xpath_index == 0)
+		return false;
+
+	bgp_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!bgp_dnode)
+		return false;
+
+	if (yang_dnode_exists(bgp_dnode, "./global/instance-type-view") &&
+	    yang_dnode_get_bool(bgp_dnode, "./global/instance-type-view"))
+		return true;
+
+	cpp = yang_dnode_get_parent(bgp_dnode, "control-plane-protocol");
+	if (!cpp)
+		return false;
+	vrf = yang_dnode_get_string(cpp, "vrf");
+	return vrf && !strmatch(vrf, VRF_DEFAULT_NAME);
+}
+
+static int bgp_cli_af_enter(struct vty *vty, int node, safi_t safi)
+{
+	char af_xpath[XPATH_MAXLEN];
+	int saved_node = vty->node;
+	int ret;
+
+	if (bgp_cli_yang_is_non_default_instance(vty) && safi != SAFI_UNICAST &&
+	    safi != SAFI_MULTICAST && safi != SAFI_EVPN) {
+		vty_out(vty,
+			"Only Unicast/Multicast/EVPN SAFIs supported in non-core instances.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Temporarily set node so bgp_cli_global_af_xpath() resolves correctly. */
+	vty->node = node;
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		vty->node = saved_node;
+	return ret;
+}
+
+DEFPY_YANG_NOSH(address_family_ipv4_yang, address_family_ipv4_yang_cmd,
+		"address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>$safi]",
+		"Enter Address Family command mode\n" BGP_AF_STR
+			BGP_SAFI_WITH_LABEL_HELP_STR)
+{
+	int node;
+	safi_t s;
+
+	if (!safi || strmatch(safi, "unicast")) {
+		node = BGP_IPV4_NODE;
+		s = SAFI_UNICAST;
+	} else if (strmatch(safi, "multicast")) {
+		node = BGP_IPV4M_NODE;
+		s = SAFI_MULTICAST;
+	} else if (strmatch(safi, "vpn")) {
+		node = BGP_VPNV4_NODE;
+		s = SAFI_MPLS_VPN;
+	} else if (strmatch(safi, "labeled-unicast")) {
+		node = BGP_IPV4L_NODE;
+		s = SAFI_LABELED_UNICAST;
+	} else if (strmatch(safi, "flowspec")) {
+		node = BGP_FLOWSPECV4_NODE;
+		s = SAFI_FLOWSPEC;
+	} else if (strmatch(safi, "unreachability")) {
+		node = BGP_IPV4U_NODE;
+		s = SAFI_UNREACH;
+	} else {
+		vty_out(vty, "%% Unknown SAFI %s\n", safi);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return bgp_cli_af_enter(vty, node, s);
+}
+
+DEFPY_YANG_NOSH(address_family_ipv6_yang, address_family_ipv6_yang_cmd,
+		"address-family ipv6 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>$safi]",
+		"Enter Address Family command mode\n" BGP_AF_STR
+			BGP_SAFI_WITH_LABEL_HELP_STR)
+{
+	int node;
+	safi_t s;
+
+	if (!safi || strmatch(safi, "unicast")) {
+		node = BGP_IPV6_NODE;
+		s = SAFI_UNICAST;
+	} else if (strmatch(safi, "multicast")) {
+		node = BGP_IPV6M_NODE;
+		s = SAFI_MULTICAST;
+	} else if (strmatch(safi, "vpn")) {
+		node = BGP_VPNV6_NODE;
+		s = SAFI_MPLS_VPN;
+	} else if (strmatch(safi, "labeled-unicast")) {
+		node = BGP_IPV6L_NODE;
+		s = SAFI_LABELED_UNICAST;
+	} else if (strmatch(safi, "flowspec")) {
+		node = BGP_FLOWSPECV6_NODE;
+		s = SAFI_FLOWSPEC;
+	} else if (strmatch(safi, "unreachability")) {
+		node = BGP_IPV6U_NODE;
+		s = SAFI_UNREACH;
+	} else {
+		vty_out(vty, "%% Unknown SAFI %s\n", safi);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return bgp_cli_af_enter(vty, node, s);
+}
+
+#ifdef KEEP_OLD_VPN_COMMANDS
+DEFPY_YANG_NOSH(address_family_vpnv4_yang, address_family_vpnv4_yang_cmd,
+		"address-family vpnv4 [unicast]",
+		"Enter Address Family command mode\n" BGP_AF_STR
+			BGP_AF_MODIFIER_STR)
+{
+	return bgp_cli_af_enter(vty, BGP_VPNV4_NODE, SAFI_MPLS_VPN);
+}
+
+DEFPY_YANG_NOSH(address_family_vpnv6_yang, address_family_vpnv6_yang_cmd,
+		"address-family vpnv6 [unicast]",
+		"Enter Address Family command mode\n" BGP_AF_STR
+			BGP_AF_MODIFIER_STR)
+{
+	return bgp_cli_af_enter(vty, BGP_VPNV6_NODE, SAFI_MPLS_VPN);
+}
+#endif /* KEEP_OLD_VPN_COMMANDS */
+
+DEFPY_YANG_NOSH(address_family_evpn_yang, address_family_evpn_yang_cmd,
+		"address-family l2vpn evpn",
+		"Enter Address Family command mode\n" BGP_AF_STR
+			BGP_AF_MODIFIER_STR)
+{
+	return bgp_cli_af_enter(vty, BGP_EVPN_NODE, SAFI_EVPN);
+}
+
+DEFPY_YANG_NOSH(address_family_link_state_yang,
+		address_family_link_state_yang_cmd,
+		"address-family link-state [link-state]",
+		"Enter Address Family command mode\n"
+		"Link-State Address Family\n"
+		"Link-State Subsequent Address Family\n")
+{
+	/*
+	 * Classic enter did not check instance type; mirror that. Create the
+	 * afi-safi entry and switch node only on success.
+	 */
+	char af_xpath[XPATH_MAXLEN];
+	int saved_node = vty->node;
+	int ret;
+
+	vty->node = BGP_LS_NODE;
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		vty->node = saved_node;
+	return ret;
+}
+
 DEFPY_YANG(bgp_fs_local_install_yang, bgp_fs_local_install_yang_cmd,
 	   "[no] local-install INTERFACE$ifname",
 	   NO_STR
@@ -9044,6 +9213,16 @@ void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
 	install_element(CONFIG_NODE, &no_router_bgp_yang_cmd);
+
+	/* address-family enter — creates global afi-safi list entry */
+	install_element(BGP_NODE, &address_family_ipv4_yang_cmd);
+	install_element(BGP_NODE, &address_family_ipv6_yang_cmd);
+#ifdef KEEP_OLD_VPN_COMMANDS
+	install_element(BGP_NODE, &address_family_vpnv4_yang_cmd);
+	install_element(BGP_NODE, &address_family_vpnv6_yang_cmd);
+#endif /* KEEP_OLD_VPN_COMMANDS */
+	install_element(BGP_NODE, &address_family_evpn_yang_cmd);
+	install_element(BGP_NODE, &address_family_link_state_yang_cmd);
 
 	install_element(BGP_NODE, &bgp_segment_routing_srv6_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_yang_cmd);
