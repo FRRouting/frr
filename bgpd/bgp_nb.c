@@ -106,6 +106,78 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-bgp:bgp-daemon/send-extra-data",
+			.cbs = {
+				.modify = bgp_nb_daemon_send_extra_data_modify,
+				.cli_show = bgp_nb_cli_show_daemon_send_extra_data,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/rmap-delay-time",
+			.cbs = {
+				.modify = bgp_nb_daemon_rmap_delay_time_modify,
+				.cli_show = bgp_nb_cli_show_daemon_rmap_delay_time,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/enabled",
+			.cbs = {
+				.modify = bgp_nb_daemon_gr_enabled_modify,
+				.destroy = bgp_nb_daemon_gr_enabled_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_gr_enabled,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable",
+			.cbs = {
+				.modify = bgp_nb_daemon_gr_disable_modify,
+				.destroy = bgp_nb_daemon_gr_disable_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_gr_disable,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/stale-routes-time",
+			.cbs = {
+				.modify = bgp_nb_daemon_gr_stale_routes_time_modify,
+				.cli_show = bgp_nb_cli_show_daemon_gr_stale_routes_time,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/restart-time",
+			.cbs = {
+				.modify = bgp_nb_daemon_gr_restart_time_modify,
+				.cli_show = bgp_nb_cli_show_daemon_gr_restart_time,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/selection-deferral-time",
+			.cbs = {
+				.modify = bgp_nb_daemon_gr_select_defer_time_modify,
+				.cli_show = bgp_nb_cli_show_daemon_gr_select_defer_time,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/rib-stale-time",
+			.cbs = {
+				.modify = bgp_nb_daemon_gr_rib_stale_time_modify,
+				.cli_show = bgp_nb_cli_show_daemon_gr_rib_stale_time,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/preserve-fw-entry",
+			.cbs = {
+				.modify = bgp_nb_daemon_gr_preserve_fw_modify,
+				.cli_show = bgp_nb_cli_show_daemon_gr_preserve_fw,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/graceful-shutdown/enable",
+			.cbs = {
+				.modify = bgp_nb_daemon_graceful_shutdown_modify,
+				.cli_show = bgp_nb_cli_show_daemon_graceful_shutdown,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp",
 			.cbs = {
 				.create = bgp_nb_bgp_create,

@@ -150,6 +150,8 @@ extern void bgp_initiate_graceful_shut_unshut(struct bgp *bgp);
 extern void bgp_update_graceful_restart_capability(struct peer *peer);
 extern void bgp_vty_role_update(struct peer *peer, int action);
 extern int bgp_inst_gr_config(struct bgp *bgp, bool on, bool disable);
+extern int bgp_global_gr_config(bool on, bool disable, char *errmsg, size_t errmsg_len);
+extern int bgp_global_graceful_shutdown_set(bool enable, char *errmsg, size_t errmsg_len);
 
 /* Peer show flags */
 /* Value of 0 means show all information */
