@@ -4496,110 +4496,6 @@ ALIAS (bgp_sid_vpn_export,
        "sid per-VRF (both IPv4 and IPv6 address families)\n"
        "For routes leaked from current vrf to vpn\n")
 
-static int vpn_policy_getdirs(struct vty *vty, const char *dstr, int *dodir)
-{
-	if (!strcmp(dstr, "import")) {
-		dodir[BGP_VPN_POLICY_DIR_FROMVPN] = 1;
-	} else if (!strcmp(dstr, "export")) {
-		dodir[BGP_VPN_POLICY_DIR_TOVPN] = 1;
-	} else if (!strcmp(dstr, "both")) {
-		dodir[BGP_VPN_POLICY_DIR_FROMVPN] = 1;
-		dodir[BGP_VPN_POLICY_DIR_TOVPN] = 1;
-	} else {
-		vty_out(vty, "%% direction parse error\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
-}
-
-DEFPY (af_rt_vpn_imexport,
-       af_rt_vpn_imexport_cmd,
-       "[no] <rt|route-target> vpn <import|export|both>$direction_str RTLIST...",
-       NO_STR
-       "Specify route target list\n"
-       "Specify route target list\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from vpn to current address-family: match any\n"
-       "For routes leaked from current address-family to vpn: set\n"
-       "both import: match any and export: set\n"
-       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
-	struct ecommunity *ecom = NULL;
-	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	enum vpn_policy_direction dir;
-	afi_t afi;
-	int idx = 0;
-	bool yes = true;
-
-	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
-
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = vpn_policy_getdirs(vty, direction_str, dodir);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	if (yes) {
-		if (!argv_find(argv, argc, "RTLIST", &idx)) {
-			vty_out(vty, "%% Missing RTLIST\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		ret = set_ecom_list(vty, argc - idx, argv + idx, &ecom, false);
-		if (ret != CMD_SUCCESS) {
-			return ret;
-		}
-	}
-
-	for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
-		if (!dodir[dir])
-			continue;
-
-		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
-
-		if (yes) {
-			if (bgp->vpn_policy[afi].rtlist[dir])
-				ecommunity_free(
-						&bgp->vpn_policy[afi].rtlist[dir]);
-			bgp->vpn_policy[afi].rtlist[dir] =
-				ecommunity_dup(ecom);
-			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
-				SET_FLAG(bgp->vpn_policy[afi].flags,
-					 BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
-		} else {
-			if (bgp->vpn_policy[afi].rtlist[dir])
-				ecommunity_free(
-						&bgp->vpn_policy[afi].rtlist[dir]);
-			bgp->vpn_policy[afi].rtlist[dir] = NULL;
-			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
-				UNSET_FLAG(bgp->vpn_policy[afi].flags,
-					   BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
-		}
-
-		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
-	}
-
-	if (ecom)
-		ecommunity_free(&ecom);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS (af_rt_vpn_imexport,
-       af_no_rt_vpn_imexport_cmd,
-       "no <rt|route-target> vpn <import|export|both>$direction_str",
-       NO_STR
-       "Specify route target list\n"
-       "Specify route target list\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from vpn to current address-family\n"
-       "For routes leaked from current address-family to vpn\n"
-       "both import and export\n")
-
 DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
       "import vrf route-map RMAP$rmap_str",
       "Import routes from another VRF\n"
@@ -16256,9 +16152,7 @@ void bgp_vty_init(void)
 	community_alias_vty();
 
 	/* vpn-policy commands */
-	/* rd / label / nexthop vpn export — YANG: bgp_cli_init() */
-	install_element(BGP_IPV4_NODE, &af_rt_vpn_imexport_cmd);
-	install_element(BGP_IPV6_NODE, &af_rt_vpn_imexport_cmd);
+	/* rd / label / nexthop / rt vpn — YANG: bgp_cli_init() */
 	/* route-map vpn — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_cmd);
 	install_element(BGP_IPV6_NODE, &af_import_vrf_route_map_cmd);
@@ -16266,9 +16160,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV4_NODE, &af_routetarget_import_cmd);
 	install_element(BGP_IPV6_NODE, &af_routetarget_import_cmd);
 
-	/* no rd / label vpn export — YANG: bgp_cli_init() */
-	install_element(BGP_IPV4_NODE, &af_no_rt_vpn_imexport_cmd);
-	install_element(BGP_IPV6_NODE, &af_no_rt_vpn_imexport_cmd);
+	/* no rd / label / rt vpn — YANG: bgp_cli_init() */
 	/* no route-map vpn — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_no_import_vrf_route_map_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_import_vrf_route_map_cmd);
