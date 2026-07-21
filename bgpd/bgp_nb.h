@@ -776,4 +776,15 @@ int bgp_nb_aggregate_suppress_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_aggregate_upa_max_modify(struct nb_cb_modify_args *args);
 int bgp_nb_aggregate_upa_max_destroy(struct nb_cb_destroy_args *args);
 
+
+int bgp_nb_maxpaths_ebgp_modify(struct nb_cb_modify_args *args);
+int bgp_nb_maxpaths_ebgp_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_maxpaths_ebgp(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_maxpaths_ibgp_modify(struct nb_cb_modify_args *args);
+int bgp_nb_maxpaths_ibgp_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_maxpaths_ibgp(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_maxpaths_ibgp_cluster_modify(struct nb_cb_modify_args *args);
+
 #endif /* _FRR_BGP_NB_H_ */

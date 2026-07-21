@@ -24,6 +24,7 @@
 #include "bgpd/bgp_conditional_adv.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "routemap.h"
@@ -5867,6 +5868,134 @@ int bgp_nb_aggregate_upa_max_destroy(struct nb_cb_destroy_args *args)
 	if (!agg)
 		return NB_OK;
 	return bgp_nb_aggregate_apply(agg);
+}
+
+/*
+ * maximum-paths
+ */
+static int bgp_nb_maxpaths_apply(const struct lyd_node *dnode, int peer_type, bool unset)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	uint16_t maxpaths = 0;
+	bool same_clusterlen = false;
+	const struct lyd_node *ibgp;
+	int ret;
+
+	bgp = nb_running_get_entry(dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (safi == SAFI_UNREACH)
+		return NB_ERR_VALIDATION;
+
+	if (unset) {
+		if (bgp_maximum_paths_unset(bgp, afi, safi, peer_type) < 0)
+			return NB_ERR_RESOURCE;
+		bgp_recalculate_all_bestpaths(bgp);
+		return NB_OK;
+	}
+
+	maxpaths = yang_dnode_get_uint16(dnode, NULL);
+	if (maxpaths > multipath_num)
+		return NB_ERR_VALIDATION;
+
+	if (peer_type == BGP_PEER_IBGP) {
+		ibgp = yang_dnode_get_parent(dnode, "ibgp");
+		if (ibgp && yang_dnode_exists(ibgp, "./cluster-length-list") &&
+		    yang_dnode_get_bool(ibgp, "./cluster-length-list"))
+			same_clusterlen = true;
+	}
+
+	ret = bgp_maximum_paths_set(bgp, afi, safi, peer_type, maxpaths, same_clusterlen);
+	if (ret < 0)
+		return NB_ERR_RESOURCE;
+	bgp_recalculate_all_bestpaths(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_maxpaths_ebgp_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		if (yang_dnode_get_uint16(args->dnode, NULL) > multipath_num) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "maximum-paths exceeds multipath-num %u", multipath_num);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_maxpaths_apply(args->dnode, BGP_PEER_EBGP, false);
+}
+
+int bgp_nb_maxpaths_ebgp_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_maxpaths_apply(args->dnode, BGP_PEER_EBGP, true);
+}
+
+void bgp_nb_cli_show_maxpaths_ebgp(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	uint16_t maxpaths = yang_dnode_get_uint16(dnode, NULL);
+
+	if (maxpaths != multipath_num || show_defaults)
+		vty_out(vty, "  maximum-paths %u\n", maxpaths);
+}
+
+int bgp_nb_maxpaths_ibgp_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		if (yang_dnode_get_uint16(args->dnode, NULL) > multipath_num) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "maximum-paths exceeds multipath-num %u", multipath_num);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_maxpaths_apply(args->dnode, BGP_PEER_IBGP, false);
+}
+
+int bgp_nb_maxpaths_ibgp_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_maxpaths_apply(args->dnode, BGP_PEER_IBGP, true);
+}
+
+void bgp_nb_cli_show_maxpaths_ibgp(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const struct lyd_node *ibgp = yang_dnode_get_parent(dnode, "ibgp");
+	uint16_t maxpaths = yang_dnode_get_uint16(dnode, NULL);
+	bool cluster = ibgp && yang_dnode_exists(ibgp, "./cluster-length-list") &&
+		       yang_dnode_get_bool(ibgp, "./cluster-length-list");
+
+	if (maxpaths != multipath_num || cluster || show_defaults) {
+		vty_out(vty, "  maximum-paths ibgp %u", maxpaths);
+		if (cluster)
+			vty_out(vty, " equal-cluster-length");
+		vty_out(vty, "\n");
+	}
+}
+
+int bgp_nb_maxpaths_ibgp_cluster_modify(struct nb_cb_modify_args *args)
+{
+	const struct lyd_node *ibgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ibgp = yang_dnode_get_parent(args->dnode, "ibgp");
+	if (!ibgp || !yang_dnode_exists(ibgp, "./maximum-paths"))
+		return NB_OK;
+
+	return bgp_nb_maxpaths_apply(yang_dnode_get(ibgp, "./maximum-paths"), BGP_PEER_IBGP, false);
 }
 
 

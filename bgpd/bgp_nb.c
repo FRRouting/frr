@@ -695,6 +695,94 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ebgp/maximum-paths",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ebgp_modify,
+				.destroy = bgp_nb_maxpaths_ebgp_destroy,
+				.cli_show = bgp_nb_cli_show_maxpaths_ebgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ibgp/maximum-paths",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ibgp_modify,
+				.destroy = bgp_nb_maxpaths_ibgp_destroy,
+				.cli_show = bgp_nb_cli_show_maxpaths_ibgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/use-multiple-paths/ibgp/cluster-length-list",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ibgp_cluster_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/use-multiple-paths/ebgp/maximum-paths",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ebgp_modify,
+				.destroy = bgp_nb_maxpaths_ebgp_destroy,
+				.cli_show = bgp_nb_cli_show_maxpaths_ebgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/use-multiple-paths/ibgp/maximum-paths",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ibgp_modify,
+				.destroy = bgp_nb_maxpaths_ibgp_destroy,
+				.cli_show = bgp_nb_cli_show_maxpaths_ibgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/use-multiple-paths/ibgp/cluster-length-list",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ibgp_cluster_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/use-multiple-paths/ebgp/maximum-paths",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ebgp_modify,
+				.destroy = bgp_nb_maxpaths_ebgp_destroy,
+				.cli_show = bgp_nb_cli_show_maxpaths_ebgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/use-multiple-paths/ibgp/maximum-paths",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ibgp_modify,
+				.destroy = bgp_nb_maxpaths_ibgp_destroy,
+				.cli_show = bgp_nb_cli_show_maxpaths_ibgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/use-multiple-paths/ibgp/cluster-length-list",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ibgp_cluster_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/use-multiple-paths/ebgp/maximum-paths",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ebgp_modify,
+				.destroy = bgp_nb_maxpaths_ebgp_destroy,
+				.cli_show = bgp_nb_cli_show_maxpaths_ebgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/use-multiple-paths/ibgp/maximum-paths",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ibgp_modify,
+				.destroy = bgp_nb_maxpaths_ibgp_destroy,
+				.cli_show = bgp_nb_cli_show_maxpaths_ibgp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/use-multiple-paths/ibgp/cluster-length-list",
+			.cbs = {
+				.modify = bgp_nb_maxpaths_ibgp_cluster_modify,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,
