@@ -678,6 +678,14 @@ def test_pim_autorp_discovery_disable_purge_rp(request):
     assert result is None, "r2 did not purge learned AutoRP RP after disable"
 
     step("Restore AutoRP state for following tests")
+    # Remove the temporary r3 candidate so later tests are not polluted
+    tgen.routers()["r3"].vtysh_cmd(
+        """
+        conf
+         router pim
+          no autorp announce 10.0.0.2
+        """
+    )
     tgen.routers()["r2"].vtysh_cmd(
         """
         conf
