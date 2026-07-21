@@ -5033,6 +5033,94 @@ DEFPY_YANG(af_nexthop_vpn_export_yang, af_nexthop_vpn_export_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static void bgp_cli_vpn_rt_clear(struct vty *vty, const char *af_xpath, const char *list_name)
+{
+	char check[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 256];
+	const struct lyd_node *dnode, *parent, *child, *next;
+
+	snprintfrr(check, sizeof(check), "%s%s/vpn-config/%s", VTY_CURR_XPATH, af_xpath + 1,
+		   list_name);
+	dnode = yang_dnode_get(vty->candidate_config->dnode, check);
+	if (!dnode)
+		return;
+
+	parent = lyd_parent(dnode);
+	for (child = lyd_child(parent); child; child = next) {
+		next = child->next;
+		if (child->schema->nodetype != LYS_LEAFLIST)
+			continue;
+		if (!strmatch(child->schema->name, list_name))
+			continue;
+		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/%s[.='%s']", af_xpath, list_name,
+			   yang_dnode_get_string(child, NULL));
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+}
+
+static void bgp_cli_vpn_rt_set(struct vty *vty, const char *af_xpath, const char *list_name,
+			       int argc, struct cmd_token **argv)
+{
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_vpn_rt_clear(vty, af_xpath, list_name);
+	for (; argc; --argc, ++argv) {
+		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/%s[.='%s']", af_xpath, list_name,
+			   argv[0]->arg);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, NULL);
+	}
+}
+
+DEFPY_YANG(af_rt_vpn_yang, af_rt_vpn_yang_cmd,
+	   "[no] <rt|route-target> vpn <import|export|both>$direction_str [RTLIST]",
+	   NO_STR
+	   "Specify route target list\n"
+	   "Specify route target list\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from vpn to current address-family: match any\n"
+	   "For routes leaked from current address-family to vpn: set\n"
+	   "both import: match any and export: set\n"
+	   "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	int idx = 0;
+	bool do_import = false;
+	bool do_export = false;
+
+	if (!strcmp(direction_str, "import"))
+		do_import = true;
+	else if (!strcmp(direction_str, "export"))
+		do_export = true;
+	else if (!strcmp(direction_str, "both")) {
+		do_import = true;
+		do_export = true;
+	} else {
+		vty_out(vty, "%% direction parse error\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	argv_find(argv, argc, "RTLIST", &idx);
+	if (no) {
+		if (do_import)
+			bgp_cli_vpn_rt_clear(vty, af_xpath, "import-rt-list");
+		if (do_export)
+			bgp_cli_vpn_rt_clear(vty, af_xpath, "export-rt-list");
+	} else {
+		if (!idx) {
+			vty_out(vty, "%% Missing RTLIST\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (do_import)
+			bgp_cli_vpn_rt_set(vty, af_xpath, "import-rt-list", argc - idx, argv + idx);
+		if (do_export)
+			bgp_cli_vpn_rt_set(vty, af_xpath, "export-rt-list", argc - idx, argv + idx);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6801,6 +6889,8 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &af_label_vpn_alloc_mode_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_rt_vpn_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_rt_vpn_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }

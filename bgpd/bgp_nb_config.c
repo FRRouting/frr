@@ -7982,6 +7982,266 @@ void bgp_nb_cli_show_vpn_nexthop(struct vty *vty, const struct lyd_node *dnode, 
 	vty_out(vty, "  nexthop vpn export %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * AF-level rt vpn import|export|both
+ */
+static int bgp_nb_vpn_rt_parse(const char *rt_str, struct ecommunity **ecom, char *errmsg,
+			       size_t errmsg_len)
+{
+	*ecom = ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+	if (!*ecom) {
+		if (errmsg)
+			snprintfrr(errmsg, errmsg_len, "Malformed community-list value");
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+static int bgp_nb_vpn_rt_add(struct bgp *bgp, afi_t afi, enum vpn_policy_direction dir,
+			     struct ecommunity *add)
+{
+	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+
+	if (bgp->vpn_policy[afi].rtlist[dir]) {
+		ecommunity_merge(bgp->vpn_policy[afi].rtlist[dir], add);
+		ecommunity_free(&add);
+	} else
+		bgp->vpn_policy[afi].rtlist[dir] = add;
+
+	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+static int bgp_nb_vpn_rt_del(struct bgp *bgp, afi_t afi, enum vpn_policy_direction dir,
+			     struct ecommunity *tmp)
+{
+	struct ecommunity_val eval;
+
+	if (!bgp->vpn_policy[afi].rtlist[dir] || !tmp || !tmp->size)
+		return NB_OK;
+
+	memcpy(eval.val, tmp->val, tmp->unit_size);
+
+	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+
+	ecommunity_del_val(bgp->vpn_policy[afi].rtlist[dir], &eval);
+	if (!bgp->vpn_policy[afi].rtlist[dir]->size)
+		ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+
+	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+static bool bgp_nb_vpn_rt_is_first(const struct lyd_node *dnode)
+{
+	const struct lyd_node *parent = lyd_parent(dnode);
+	const struct lyd_node *child;
+
+	LY_LIST_FOR (lyd_child(parent), child) {
+		if (child->schema->nodetype != LYS_LEAFLIST)
+			continue;
+		if (!strmatch(child->schema->name, dnode->schema->name))
+			continue;
+		return child == dnode;
+	}
+	return true;
+}
+
+static struct ecommunity *bgp_nb_vpn_rt_ecom_from_parent(const struct lyd_node *parent,
+							 const char *list_name)
+{
+	struct ecommunity *ecom = NULL, *add;
+	const struct lyd_node *child;
+
+	LY_LIST_FOR (lyd_child(parent), child) {
+		if (child->schema->nodetype != LYS_LEAFLIST)
+			continue;
+		if (!strmatch(child->schema->name, list_name))
+			continue;
+		add = ecommunity_str2com(yang_dnode_get_string(child, NULL),
+					 ECOMMUNITY_ROUTE_TARGET, 0);
+		if (!add)
+			continue;
+		if (ecom) {
+			ecommunity_merge(ecom, add);
+			ecommunity_free(&add);
+		} else
+			ecom = add;
+	}
+	return ecom;
+}
+
+int bgp_nb_vpn_rt_import_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct ecommunity *ecom;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (bgp_nb_vpn_rt_parse(yang_dnode_get_string(args->dnode, NULL), &ecom,
+					args->errmsg, args->errmsg_len) != NB_OK)
+			return NB_ERR_VALIDATION;
+		ecommunity_free(&ecom);
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+	if (bgp_nb_vpn_rt_parse(yang_dnode_get_string(args->dnode, NULL), &ecom, NULL, 0) != NB_OK)
+		return NB_ERR_VALIDATION;
+
+	return bgp_nb_vpn_rt_add(bgp, afi, BGP_VPN_POLICY_DIR_FROMVPN, ecom);
+}
+
+int bgp_nb_vpn_rt_import_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct ecommunity *ecom;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+	if (bgp_nb_vpn_rt_parse(yang_dnode_get_string(args->dnode, NULL), &ecom, NULL, 0) != NB_OK)
+		return NB_OK;
+
+	bgp_nb_vpn_rt_del(bgp, afi, BGP_VPN_POLICY_DIR_FROMVPN, ecom);
+	ecommunity_free(&ecom);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_vpn_rt_import(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const struct lyd_node *parent;
+	struct ecommunity *imp, *exp;
+	char *b;
+
+	if (!bgp_nb_vpn_rt_is_first(dnode))
+		return;
+
+	parent = lyd_parent(dnode);
+	imp = bgp_nb_vpn_rt_ecom_from_parent(parent, "import-rt-list");
+	exp = bgp_nb_vpn_rt_ecom_from_parent(parent, "export-rt-list");
+	if (!imp) {
+		if (exp)
+			ecommunity_free(&exp);
+		return;
+	}
+
+	b = ecommunity_ecom2str(imp, ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
+	if (exp && ecommunity_cmp(imp, exp))
+		vty_out(vty, "  rt vpn both %s\n", b);
+	else
+		vty_out(vty, "  rt vpn import %s\n", b);
+	XFREE(MTYPE_ECOMMUNITY_STR, b);
+	ecommunity_free(&imp);
+	if (exp)
+		ecommunity_free(&exp);
+}
+
+int bgp_nb_vpn_rt_export_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct ecommunity *ecom;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (bgp_nb_vpn_rt_parse(yang_dnode_get_string(args->dnode, NULL), &ecom,
+					args->errmsg, args->errmsg_len) != NB_OK)
+			return NB_ERR_VALIDATION;
+		ecommunity_free(&ecom);
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+	if (bgp_nb_vpn_rt_parse(yang_dnode_get_string(args->dnode, NULL), &ecom, NULL, 0) != NB_OK)
+		return NB_ERR_VALIDATION;
+
+	return bgp_nb_vpn_rt_add(bgp, afi, BGP_VPN_POLICY_DIR_TOVPN, ecom);
+}
+
+int bgp_nb_vpn_rt_export_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct ecommunity *ecom;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+	if (bgp_nb_vpn_rt_parse(yang_dnode_get_string(args->dnode, NULL), &ecom, NULL, 0) != NB_OK)
+		return NB_OK;
+
+	bgp_nb_vpn_rt_del(bgp, afi, BGP_VPN_POLICY_DIR_TOVPN, ecom);
+	ecommunity_free(&ecom);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_vpn_rt_export(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const struct lyd_node *parent;
+	struct ecommunity *imp, *exp;
+	char *b;
+
+	if (!bgp_nb_vpn_rt_is_first(dnode))
+		return;
+
+	parent = lyd_parent(dnode);
+	imp = bgp_nb_vpn_rt_ecom_from_parent(parent, "import-rt-list");
+	exp = bgp_nb_vpn_rt_ecom_from_parent(parent, "export-rt-list");
+	if (!exp) {
+		if (imp)
+			ecommunity_free(&imp);
+		return;
+	}
+
+	if (imp && ecommunity_cmp(imp, exp)) {
+		ecommunity_free(&imp);
+		ecommunity_free(&exp);
+		return;
+	}
+
+	b = ecommunity_ecom2str(exp, ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
+	vty_out(vty, "  rt vpn export %s\n", b);
+	XFREE(MTYPE_ECOMMUNITY_STR, b);
+	if (imp)
+		ecommunity_free(&imp);
+	ecommunity_free(&exp);
+}
+
 
 /*
  * Sort implied by the candidate remote-as, not the running peer. A
