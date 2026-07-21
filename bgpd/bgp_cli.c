@@ -1188,6 +1188,253 @@ DEFUN_YANG(no_bgp_advertisement_delay_yang, no_bgp_advertisement_delay_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFUN_YANG(bgp_listen_limit_yang, bgp_listen_limit_yang_cmd,
+	   "bgp listen limit (1-65535)",
+	   BGP_STR
+	   "BGP Dynamic Neighbors listen commands\n"
+	   "Maximum number of BGP Dynamic Neighbors that can be created\n"
+	   "Configure Dynamic Neighbors listen limit value\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-neighbor-config/dynamic-neighbors-limit",
+			      NB_OP_MODIFY, argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_listen_limit_yang, no_bgp_listen_limit_yang_cmd,
+	   "no bgp listen limit [(1-65535)]",
+	   NO_STR BGP_STR
+	   "BGP Dynamic Neighbors listen commands\n"
+	   "Maximum number of BGP Dynamic Neighbors that can be created\n"
+	   "Configure Dynamic Neighbors listen limit value\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-neighbor-config/dynamic-neighbors-limit",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_default_afi_safi_yang, bgp_default_afi_safi_yang_cmd,
+	   "[no] bgp default <ipv4-unicast|ipv4-multicast|ipv4-vpn|ipv4-labeled-unicast|ipv4-flowspec|ipv6-unicast|ipv6-multicast|ipv6-vpn|ipv6-labeled-unicast|ipv6-flowspec|l2vpn-evpn>$afi_safi",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "Activate ipv4-unicast for a peer by default\n"
+	   "Activate ipv4-multicast for a peer by default\n"
+	   "Activate ipv4-vpn for a peer by default\n"
+	   "Activate ipv4-labeled-unicast for a peer by default\n"
+	   "Activate ipv4-flowspec for a peer by default\n"
+	   "Activate ipv6-unicast for a peer by default\n"
+	   "Activate ipv6-multicast for a peer by default\n"
+	   "Activate ipv6-vpn for a peer by default\n"
+	   "Activate ipv6-labeled-unicast for a peer by default\n"
+	   "Activate ipv6-flowspec for a peer by default\n"
+	   "Activate l2vpn-evpn for a peer by default\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./global/default-afi-safi[.='%s']", afi_safi);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_graceful_restart_stalepath_time_yang,
+	   bgp_graceful_restart_stalepath_time_yang_cmd,
+	   "bgp graceful-restart stalepath-time (1-4095)",
+	   BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Set the max time to hold onto restarting peer's stale paths\n"
+	   "Delay value (seconds)\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/stale-routes-time", NB_OP_MODIFY,
+			      argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_restart_stalepath_time_yang,
+	   no_bgp_graceful_restart_stalepath_time_yang_cmd,
+	   "no bgp graceful-restart stalepath-time [(1-4095)]",
+	   NO_STR BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Set the max time to hold onto restarting peer's stale paths\n"
+	   "Delay value (seconds)\n")
+{
+	char val[16];
+
+	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_STALEPATH_TIME);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/stale-routes-time", NB_OP_MODIFY,
+			      val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_graceful_restart_restart_time_yang,
+	   bgp_graceful_restart_restart_time_yang_cmd,
+	   "bgp graceful-restart restart-time (0-4095)",
+	   BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Set the time to wait to delete stale routes before a BGP open message is received\n"
+	   "Delay value (seconds)\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/restart-time", NB_OP_MODIFY,
+			      argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_restart_restart_time_yang,
+	   no_bgp_graceful_restart_restart_time_yang_cmd,
+	   "no bgp graceful-restart restart-time [(0-4095)]",
+	   NO_STR BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Set the time to wait to delete stale routes before a BGP open message is received\n"
+	   "Delay value (seconds)\n")
+{
+	char val[16];
+
+	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_RESTART_TIME);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/restart-time", NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_graceful_restart_select_defer_time_yang,
+	   bgp_graceful_restart_select_defer_time_yang_cmd,
+	   "bgp graceful-restart select-defer-time (0-3600)",
+	   BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Set the time to defer the BGP route selection after restart\n"
+	   "Delay value (seconds, 0 - disable)\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/selection-deferral-time",
+			      NB_OP_MODIFY, argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_restart_select_defer_time_yang,
+	   no_bgp_graceful_restart_select_defer_time_yang_cmd,
+	   "no bgp graceful-restart select-defer-time [(0-3600)]",
+	   NO_STR BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Set the time to defer the BGP route selection after restart\n"
+	   "Delay value (seconds, 0 - disable)\n")
+{
+	char val[16];
+
+	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_SELECT_DEFERRAL_TIME);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/selection-deferral-time",
+			      NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_graceful_restart_rib_stale_time_yang,
+	   bgp_graceful_restart_rib_stale_time_yang_cmd,
+	   "bgp graceful-restart rib-stale-time (1-3600)",
+	   BGP_STR
+	   "Graceful restart configuration parameters\n"
+	   "Specify the stale route removal timer in rib\n"
+	   "Delay value (seconds)\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/rib-stale-time", NB_OP_MODIFY,
+			      argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_restart_rib_stale_time_yang,
+	   no_bgp_graceful_restart_rib_stale_time_yang_cmd,
+	   "no bgp graceful-restart rib-stale-time [(1-3600)]",
+	   NO_STR BGP_STR
+	   "Graceful restart configuration parameters\n"
+	   "Specify the stale route removal timer in rib\n"
+	   "Delay value (seconds)\n")
+{
+	char val[16];
+
+	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_RIB_STALE_TIME);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/rib-stale-time", NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_graceful_restart_preserve_fw_yang,
+	   bgp_graceful_restart_preserve_fw_yang_cmd,
+	   "bgp graceful-restart preserve-fw-state",
+	   BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Sets F-bit indication that fib is preserved while doing Graceful Restart\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/preserve-fw-entry", NB_OP_MODIFY,
+			      "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_restart_preserve_fw_yang,
+	   no_bgp_graceful_restart_preserve_fw_yang_cmd,
+	   "no bgp graceful-restart preserve-fw-state",
+	   NO_STR BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Sets F-bit indication that fib is preserved while doing Graceful Restart\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/preserve-fw-entry", NB_OP_MODIFY,
+			      "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_graceful_restart_notification_yang,
+	   bgp_graceful_restart_notification_yang_cmd,
+	   "[no] bgp graceful-restart notification",
+	   NO_STR BGP_STR
+	   "Graceful restart capability parameters\n"
+	   "Indicate Graceful Restart support for BGP NOTIFICATION messages\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/notification", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_graceful_restart_disable_eor_yang,
+	   bgp_graceful_restart_disable_eor_yang_cmd,
+	   "bgp graceful-restart disable-eor",
+	   BGP_STR
+	   "Graceful restart configuration parameters\n"
+	   "Disable EOR Check\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/disable-eor", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_restart_disable_eor_yang,
+	   no_bgp_graceful_restart_disable_eor_yang_cmd,
+	   "no bgp graceful-restart disable-eor",
+	   NO_STR BGP_STR
+	   "Graceful restart configuration parameters\n"
+	   "Disable EOR Check\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/disable-eor", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_llgr_stalepath_time_yang, bgp_llgr_stalepath_time_yang_cmd,
+	   "bgp long-lived-graceful-restart stale-time (1-16777215)",
+	   BGP_STR
+	   "Enable Long-lived Graceful Restart\n"
+	   "Specifies maximum time to wait before purging long-lived stale routes\n"
+	   "Stale time value (seconds)\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/long-lived-stale-time", NB_OP_MODIFY,
+			      argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_llgr_stalepath_time_yang, no_bgp_llgr_stalepath_time_yang_cmd,
+	   "no bgp long-lived-graceful-restart stale-time [(1-16777215)]",
+	   NO_STR BGP_STR
+	   "Enable Long-lived Graceful Restart\n"
+	   "Specifies maximum time to wait before purging long-lived stale routes\n"
+	   "Stale time value (seconds)\n")
+{
+	char val[16];
+
+	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_LLGR_STALE_TIME);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/long-lived-stale-time", NB_OP_MODIFY,
+			      val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -1267,4 +1514,23 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_update_delay_yang_cmd);
 	install_element(BGP_NODE, &bgp_advertisement_delay_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_advertisement_delay_yang_cmd);
+
+	install_element(BGP_NODE, &bgp_listen_limit_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_listen_limit_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_afi_safi_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_stalepath_time_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_stalepath_time_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_restart_time_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_restart_time_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_select_defer_time_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_select_defer_time_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_rib_stale_time_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_rib_stale_time_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_preserve_fw_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_preserve_fw_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_notification_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_disable_eor_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_eor_yang_cmd);
+	install_element(BGP_NODE, &bgp_llgr_stalepath_time_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_llgr_stalepath_time_yang_cmd);
 }

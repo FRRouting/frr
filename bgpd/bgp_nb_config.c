@@ -15,6 +15,7 @@
 #include "routing_nb.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_open.h"
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mplsvpn.h"
@@ -23,6 +24,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_packet.h"
 
 /*
  * XPath: .../frr-bgp:bgp
@@ -1815,4 +1817,380 @@ void bgp_nb_cli_show_advertisement_delay(struct vty *vty, const struct lyd_node 
 					 bool show_defaults)
 {
 	vty_out(vty, " advertisement-delay %u\n", yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_dynamic_neighbors_limit_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_listen_limit_set(bgp, yang_dnode_get_uint32(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_dynamic_neighbors_limit_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_listen_limit_unset(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_dynamic_neighbors_limit(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	uint32_t limit = yang_dnode_get_uint32(dnode, NULL);
+
+	if (limit != BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT || show_defaults)
+		vty_out(vty, " bgp listen limit %u\n", limit);
+}
+
+static int bgp_nb_parse_default_afi_safi(const char *afi_safi, afi_t *afi, safi_t *safi,
+					 char *errmsg, size_t errmsg_len)
+{
+	char buf[64];
+	char *tok = NULL;
+	char *afi_str;
+	char *safi_str;
+
+	strlcpy(buf, afi_safi, sizeof(buf));
+	afi_str = strtok_r(buf, "-", &tok);
+	safi_str = strtok_r(NULL, "-", &tok);
+	if (!afi_str || !safi_str) {
+		snprintfrr(errmsg, errmsg_len, "Invalid AFI/SAFI %s", afi_safi);
+		return NB_ERR_VALIDATION;
+	}
+
+	*afi = bgp_vty_afi_from_str(afi_str);
+	if (*afi == AFI_MAX) {
+		snprintfrr(errmsg, errmsg_len, "Invalid AFI in %s", afi_safi);
+		return NB_ERR_VALIDATION;
+	}
+
+	if (strmatch(safi_str, "labeled"))
+		*safi = bgp_vty_safi_from_str("labeled-unicast");
+	else
+		*safi = bgp_vty_safi_from_str(safi_str);
+
+	if (*safi == SAFI_MAX) {
+		snprintfrr(errmsg, errmsg_len, "Invalid SAFI in %s", afi_safi);
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_default_afi_safi_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	ret = bgp_nb_parse_default_afi_safi(yang_dnode_get_string(args->dnode, NULL), &afi, &safi,
+					    args->errmsg, args->errmsg_len);
+	if (ret != NB_OK)
+		return ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE: {
+		const char *conflict = NULL;
+
+		if (afi == AFI_IP && safi == SAFI_UNICAST)
+			conflict = "../default-afi-safi[.='ipv4-labeled-unicast']";
+		else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
+			conflict = "../default-afi-safi[.='ipv4-unicast']";
+		else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+			conflict = "../default-afi-safi[.='ipv6-labeled-unicast']";
+		else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
+			conflict = "../default-afi-safi[.='ipv6-unicast']";
+
+		if (conflict && yang_dnode_exists(args->dnode, conflict)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Cannot activate both unicast and labeled-unicast by default");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->default_af[afi][safi] = true;
+	return NB_OK;
+}
+
+int bgp_nb_default_afi_safi_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	ret = bgp_nb_parse_default_afi_safi(yang_dnode_get_string(args->dnode, NULL), &afi, &safi,
+					    args->errmsg, args->errmsg_len);
+	if (ret != NB_OK)
+		return ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->default_af[afi][safi] = false;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_default_afi_safi(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	const char *afi_safi = yang_dnode_get_string(dnode, NULL);
+
+	/*
+	 * ipv4-unicast is seeded as the implicit C default on new instances.
+	 * Omit from show running unless showing defaults (classic behavior).
+	 */
+	if (!show_defaults && strmatch(afi_safi, "ipv4-unicast"))
+		return;
+
+	vty_out(vty, " bgp default %s\n", afi_safi);
+}
+
+int bgp_nb_gr_stale_routes_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->stalepath_time = yang_dnode_get_uint16(args->dnode, NULL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_stale_routes_time(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+
+	if (val != BGP_DEFAULT_STALEPATH_TIME || show_defaults)
+		vty_out(vty, " bgp graceful-restart stalepath-time %u\n", val);
+}
+
+static void bgp_nb_gr_restart_time_peers(struct bgp *bgp, bool unset)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+		    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+			bgp_update_graceful_restart_capability(peer);
+		else
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART,
+					    unset ? CAPABILITY_ACTION_UNSET
+						  : CAPABILITY_ACTION_SET);
+	}
+}
+
+int bgp_nb_gr_restart_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->restart_time = yang_dnode_get_uint16(args->dnode, NULL);
+	bgp_nb_gr_restart_time_peers(bgp, false);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_restart_time(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+
+	if (val != BGP_DEFAULT_RESTART_TIME || show_defaults)
+		vty_out(vty, " bgp graceful-restart restart-time %u\n", val);
+}
+
+int bgp_nb_gr_select_defer_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	uint16_t defer_time;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	defer_time = yang_dnode_get_uint16(args->dnode, NULL);
+	bgp->select_defer_time = defer_time;
+	if (defer_time == 0)
+		SET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_select_defer_time(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+
+	if (val != BGP_DEFAULT_SELECT_DEFERRAL_TIME || show_defaults)
+		vty_out(vty, " bgp graceful-restart select-defer-time %u\n", val);
+}
+
+int bgp_nb_gr_rib_stale_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->rib_stale_time = yang_dnode_get_uint16(args->dnode, NULL);
+	bgp_zebra_stale_timer_update(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_rib_stale_time(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+
+	if (val != BGP_DEFAULT_RIB_STALE_TIME || show_defaults)
+		vty_out(vty, " bgp graceful-restart rib-stale-time %u\n", val);
+}
+
+int bgp_nb_gr_preserve_fw_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_preserve_fw(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp graceful-restart preserve-fw-state\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp graceful-restart preserve-fw-state\n");
+}
+
+int bgp_nb_gr_notification_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
+	return NB_OK;
+}
+
+int bgp_nb_gr_notification_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_notification(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp graceful-restart notification\n");
+	else
+		vty_out(vty, " no bgp graceful-restart notification\n");
+}
+
+int bgp_nb_gr_disable_eor_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_disable_eor(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp graceful-restart disable-eor\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp graceful-restart disable-eor\n");
+}
+
+int bgp_nb_gr_llgr_stale_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->llgr_stale_time = yang_dnode_get_uint32(args->dnode, NULL);
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
+				    CAPABILITY_ACTION_SET);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_llgr_stale_time(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	uint32_t val = yang_dnode_get_uint32(dnode, NULL);
+
+	if (val != BGP_DEFAULT_LLGR_STALE_TIME || show_defaults)
+		vty_out(vty, " bgp long-lived-graceful-restart stale-time %u\n", val);
 }
