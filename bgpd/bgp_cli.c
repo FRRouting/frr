@@ -27,6 +27,8 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_damp.h"
+#include "bgpd/bgp_community.h"
+#include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_rd.h"
@@ -1628,6 +1630,72 @@ DEFUN_YANG(no_bgp_daemon_advertisement_delay_yang,
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/advertisement-delay-time", NB_OP_DESTROY,
 			      NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_community_alias_yang,
+	   bgp_daemon_community_alias_yang_cmd,
+	   "[no$no] bgp community alias WORD$community ALIAS_NAME$alias_name",
+	   NO_STR BGP_STR
+	   "Add community specific parameters\n"
+	   "Create an alias for a community\n"
+	   "Community (AA:BB or AA:BB:CC)\n"
+	   "Alias name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char alias_xpath[XPATH_MAXLEN];
+	struct community *comm;
+	struct lcommunity *lcomm;
+	uint8_t invalid = 0;
+
+	comm = community_str2com(community);
+	if (!comm)
+		invalid++;
+	community_free(&comm);
+
+	lcomm = lcommunity_str2com(community);
+	if (!lcomm)
+		invalid++;
+	lcommunity_free(&lcomm);
+
+	if (invalid > 1) {
+		vty_out(vty, "Invalid community format\n");
+		return CMD_WARNING;
+	}
+
+	snprintfrr(xpath, sizeof(xpath), "/frr-bgp:bgp-daemon/community-alias[community='%s']",
+		   community);
+	if (no) {
+		const struct lyd_node *entry;
+
+		entry = yang_dnode_get(vty->candidate_config->dnode, xpath);
+		if (!entry || !yang_dnode_exists(entry, "./alias") ||
+		    !strmatch(yang_dnode_get_string(entry, "./alias"), alias_name))
+			return CMD_SUCCESS;
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	} else {
+		const struct lyd_node *existing;
+
+		snprintfrr(alias_xpath, sizeof(alias_xpath),
+			   "/frr-bgp:bgp-daemon/community-alias[alias='%s']", alias_name);
+		existing = yang_dnode_get(vty->candidate_config->dnode, alias_xpath);
+		if (existing) {
+			vty_out(vty, "community (%s) already has this alias (%s)\n",
+				yang_dnode_get_string(existing, "./community"), alias_name);
+			return CMD_WARNING;
+		}
+
+		existing = yang_dnode_get(vty->candidate_config->dnode, xpath);
+		if (existing && yang_dnode_exists(existing, "./alias")) {
+			vty_out(vty, "alias (%s) already has this community (%s)\n",
+				yang_dnode_get_string(existing, "./alias"), community);
+			return CMD_WARNING;
+		}
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./alias", NB_OP_MODIFY, alias_name);
+	}
+	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
 DEFPY_YANG(bgp_condadv_period_yang, bgp_condadv_period_yang_cmd,
@@ -9376,6 +9444,7 @@ void bgp_cli_init(void)
 	install_element(CONFIG_NODE, &no_bgp_daemon_update_delay_yang_cmd);
 	install_element(CONFIG_NODE, &bgp_daemon_advertisement_delay_yang_cmd);
 	install_element(CONFIG_NODE, &no_bgp_daemon_advertisement_delay_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_community_alias_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);

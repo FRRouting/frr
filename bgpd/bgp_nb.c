@@ -92,6 +92,20 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-bgp:bgp-daemon/community-alias",
+			.cbs = {
+				.create = bgp_nb_daemon_community_alias_create,
+				.destroy = bgp_nb_daemon_community_alias_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_community_alias,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/community-alias/alias",
+			.cbs = {
+				.modify = bgp_nb_daemon_community_alias_name_modify,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp",
 			.cbs = {
 				.create = bgp_nb_bgp_create,

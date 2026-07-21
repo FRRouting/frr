@@ -1273,5 +1273,10 @@ int bgp_nb_daemon_advertisement_delay_modify(struct nb_cb_modify_args *args);
 int bgp_nb_daemon_advertisement_delay_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_daemon_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
 						bool show_defaults);
+int bgp_nb_daemon_community_alias_create(struct nb_cb_create_args *args);
+int bgp_nb_daemon_community_alias_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_community_alias(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+int bgp_nb_daemon_community_alias_name_modify(struct nb_cb_modify_args *args);
 
 #endif /* _FRR_BGP_NB_H_ */
