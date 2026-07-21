@@ -3797,97 +3797,6 @@ DEFUN(no_neighbor_extended_optional_parameters,
 
 
 
-static int peer_default_originate_set_vty(struct vty *vty, const char *peer_str,
-					  afi_t afi, safi_t safi,
-					  const char *rmap, int set)
-{
-	int ret;
-	struct peer *peer;
-	struct route_map *route_map = NULL;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (set) {
-		if (rmap)
-			route_map = route_map_lookup_warn_noexist(vty, rmap);
-		ret = peer_default_originate_set(peer, afi, safi,
-						 rmap, route_map);
-	} else
-		ret = peer_default_originate_unset(peer, afi, safi);
-
-	return bgp_vty_return(vty, ret);
-}
-
-/* neighbor default-originate. */
-DEFUN (neighbor_default_originate,
-       neighbor_default_originate_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> default-originate",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Originate default route to this neighbor\n")
-{
-	int idx_peer = 1;
-	return peer_default_originate_set_vty(vty, argv[idx_peer]->arg,
-					      bgp_node_afi(vty),
-					      bgp_node_safi(vty), NULL, 1);
-}
-
-ALIAS_HIDDEN(neighbor_default_originate, neighbor_default_originate_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> default-originate",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Originate default route to this neighbor\n")
-
-DEFUN (neighbor_default_originate_rmap,
-       neighbor_default_originate_rmap_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> default-originate route-map RMAP_NAME",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Originate default route to this neighbor\n"
-       "Route-map to specify criteria to originate default\n"
-       "route-map name\n")
-{
-	int idx_peer = 1;
-	int idx_word = 4;
-	return peer_default_originate_set_vty(
-		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
-		argv[idx_word]->arg, 1);
-}
-
-ALIAS_HIDDEN(
-	neighbor_default_originate_rmap,
-	neighbor_default_originate_rmap_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> default-originate route-map RMAP_NAME",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Originate default route to this neighbor\n"
-	"Route-map to specify criteria to originate default\n"
-	"route-map name\n")
-
-DEFUN (no_neighbor_default_originate,
-       no_neighbor_default_originate_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> default-originate [route-map RMAP_NAME]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Originate default route to this neighbor\n"
-       "Route-map to specify criteria to originate default\n"
-       "route-map name\n")
-{
-	int idx_peer = 2;
-	return peer_default_originate_set_vty(vty, argv[idx_peer]->arg,
-					      bgp_node_afi(vty),
-					      bgp_node_safi(vty), NULL, 0);
-}
-
-ALIAS_HIDDEN(
-	no_neighbor_default_originate, no_neighbor_default_originate_hidden_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> default-originate [route-map RMAP_NAME]",
-	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Originate default route to this neighbor\n"
-	"Route-map to specify criteria to originate default\n"
-	"route-map name\n")
-
 
 
 
@@ -5008,16 +4917,6 @@ DEFPY (neighbor_allowas_in,
 	return bgp_vty_return(vty, ret);
 }
 
-ALIAS_HIDDEN(
-	neighbor_allowas_in, neighbor_allowas_in_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map RMAP_NAME$rmap_name] [<(1-10)$allow_num|origin$origin_kw>]",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Accept as-path with my AS present in it\n"
-	"Filter routes using route-map\n"
-	"Name of route-map\n"
-	"Number of occurrences of AS number\n"
-	"Only accept my AS in the as-path if the route was originated in my AS\n")
-
 DEFPY (no_neighbor_allowas_in,
        no_neighbor_allowas_in_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map [RMAP_NAME]] [<(1-10)|origin>]",
@@ -5042,16 +4941,6 @@ DEFPY (no_neighbor_allowas_in,
 
 	return bgp_vty_return(vty, ret);
 }
-
-ALIAS_HIDDEN(
-	no_neighbor_allowas_in, no_neighbor_allowas_in_hidden_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map [RMAP_NAME]] [<(1-10)|origin>]",
-	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"allow local ASN appears in aspath attribute\n"
-	"Filter routes using route-map\n"
-	"Name of route-map\n"
-	"Number of occurrences of AS number\n"
-	"Only accept my AS in the as-path if the route was originated in my AS\n")
 
 /* "neighbor encapsulation-srv6|encapsulation-mpls" */
 DEFPY (neighbor_encapsulation_srv6_or_mpls,
@@ -19128,27 +19017,6 @@ void bgp_vty_init(void)
 	/* "neighbor update-source" commands. "*/
 
 	/* "neighbor default-originate" commands. */
-	install_element(BGP_NODE, &neighbor_default_originate_hidden_cmd);
-	install_element(BGP_NODE, &neighbor_default_originate_rmap_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_default_originate_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_default_originate_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_default_originate_rmap_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_default_originate_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_default_originate_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_default_originate_rmap_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_default_originate_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_default_originate_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_default_originate_rmap_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_default_originate_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_default_originate_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_default_originate_rmap_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_default_originate_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_default_originate_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_default_originate_rmap_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_default_originate_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_default_originate_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_default_originate_rmap_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_default_originate_cmd);
 
 	/* "neighbor port" commands. */
 
@@ -19445,26 +19313,6 @@ void bgp_vty_init(void)
 	install_element(BGP_EVPN_NODE, &no_neighbor_maximum_prefix_cmd);
 
 	/* "neighbor allowas-in" */
-	install_element(BGP_NODE, &neighbor_allowas_in_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_allowas_in_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_allowas_in_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_allowas_in_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_allowas_in_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_allowas_in_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_allowas_in_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_allowas_in_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_allowas_in_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_allowas_in_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_allowas_in_cmd);
 	install_element(BGP_IPV4U_NODE, &neighbor_allowas_in_cmd);
 	install_element(BGP_IPV4U_NODE, &no_neighbor_allowas_in_cmd);
 	install_element(BGP_IPV6U_NODE, &neighbor_allowas_in_cmd);
