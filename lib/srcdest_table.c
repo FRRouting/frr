@@ -97,8 +97,18 @@ static void srcdest_srcnode_destroy(route_table_delegate_t *delegate,
 		 * permitted IF table->count is 0!  see lib/table.c
 		 * route_node_delete()
 		 * for details */
-		route_table_finish(srn->src_table);
+
+		/* Null the pointer before calling route_table_finish to ensure
+		 * srn->src_table is never a dangling pointer.  route_table_finish
+		 * may call back into srcdest_srcnode_destroy for remaining nodes;
+		 * any such re-entrant read of srn->src_table must see NULL, not a
+		 * pointer to memory that is in the process of being freed.  This
+		 * mirrors the same pattern used in srcdest_rnode_destroy().
+		 */
+		struct route_table *src_table = srn->src_table;
+
 		srn->src_table = NULL;
+		route_table_finish(src_table);
 
 		/* drop the ref we're holding in srcdest_node_get().  there
 		 * might be
