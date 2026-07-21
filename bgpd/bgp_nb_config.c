@@ -6399,6 +6399,48 @@ int bgp_nb_distance_route_acl_destroy(struct nb_cb_destroy_args *args)
 		yang_dnode_get_parent(args->dnode, "admin-distance-route"));
 }
 
+/*
+ * table-map → filter-config/rmap-export
+ */
+int bgp_nb_table_map_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	bgp_table_map_set(bgp, afi, safi, yang_dnode_get_string(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_table_map_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	bgp_table_map_unset(bgp, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_table_map(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  table-map %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 
 static int bgp_nb_peer_af_flag_modify(struct nb_cb_modify_args *args, uint64_t flag)
 {

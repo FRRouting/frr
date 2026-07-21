@@ -1021,6 +1021,9 @@ extern void bgp_config_write_table_map(struct vty *vty, struct bgp *bgp, afi_t a
 extern void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
 
+extern int bgp_table_map_set(struct bgp *bgp, afi_t afi, safi_t safi, const char *rmap_name);
+extern int bgp_table_map_unset(struct bgp *bgp, afi_t afi, safi_t safi);
+
 extern void bgp_distance_bgp_set(struct bgp *bgp, afi_t afi, safi_t safi, uint8_t distance_ebgp,
 				 uint8_t distance_ibgp, uint8_t distance_local);
 extern void bgp_distance_bgp_unset(struct bgp *bgp, afi_t afi, safi_t safi);

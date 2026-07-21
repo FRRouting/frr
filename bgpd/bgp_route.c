@@ -9959,10 +9959,8 @@ void bgp_purge_static_redist_routes(struct bgp *bgp)
 		bgp_purge_af_static_redist_routes(bgp, afi, safi);
 }
 
-static int bgp_table_map_set(struct vty *vty, afi_t afi, safi_t safi,
-			     const char *rmap_name)
+int bgp_table_map_set(struct bgp *bgp, afi_t afi, safi_t safi, const char *rmap_name)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct bgp_rmap *rmap;
 
 	rmap = &bgp->table_map[afi][safi];
@@ -9981,13 +9979,11 @@ static int bgp_table_map_set(struct vty *vty, afi_t afi, safi_t safi,
 	if (bgp_fibupd_safi(safi))
 		bgp_zebra_announce_table(bgp, afi, safi);
 
-	return CMD_SUCCESS;
+	return 0;
 }
 
-static int bgp_table_map_unset(struct vty *vty, afi_t afi, safi_t safi,
-			       const char *rmap_name)
+int bgp_table_map_unset(struct bgp *bgp, afi_t afi, safi_t safi)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct bgp_rmap *rmap;
 
 	rmap = &bgp->table_map[afi][safi];
@@ -9998,7 +9994,7 @@ static int bgp_table_map_unset(struct vty *vty, afi_t afi, safi_t safi,
 	if (bgp_fibupd_safi(safi))
 		bgp_zebra_announce_table(bgp, afi, safi);
 
-	return CMD_SUCCESS;
+	return 0;
 }
 
 void bgp_config_write_table_map(struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -10016,9 +10012,11 @@ DEFUN (bgp_table_map,
        "BGP table to RIB route download filter\n"
        "Name of the route map\n")
 {
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_word = 1;
-	return bgp_table_map_set(vty, bgp_node_afi(vty), bgp_node_safi(vty),
-				 argv[idx_word]->arg);
+
+	bgp_table_map_set(bgp, bgp_node_afi(vty), bgp_node_safi(vty), argv[idx_word]->arg);
+	return CMD_SUCCESS;
 }
 DEFUN (no_bgp_table_map,
        no_bgp_table_map_cmd,
@@ -10027,9 +10025,10 @@ DEFUN (no_bgp_table_map,
        "BGP table to RIB route download filter\n"
        "Name of the route map\n")
 {
-	int idx_word = 2;
-	return bgp_table_map_unset(vty, bgp_node_afi(vty), bgp_node_safi(vty),
-				   argv[idx_word]->arg);
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_table_map_unset(bgp, bgp_node_afi(vty), bgp_node_safi(vty));
+	return CMD_SUCCESS;
 }
 
 DEFPY(bgp_network,
@@ -21023,18 +21022,14 @@ void bgp_route_init(void)
 		bgp_distance_table[afi][safi] = bgp_table_init(NULL, afi, safi);
 
 	/* IPv4 BGP commands. */
-	install_element(BGP_NODE, &bgp_table_map_cmd);
-	install_element(BGP_NODE, &no_bgp_table_map_cmd);
-
+	/* table-map — YANG: bgp_cli_init() */
 
 	/* IPv4 unicast configuration.  */
-	install_element(BGP_IPV4_NODE, &bgp_table_map_cmd);
-	install_element(BGP_IPV4_NODE, &no_bgp_table_map_cmd);
-
+	/* table-map — YANG: bgp_cli_init() */
 
 	/* IPv4 multicast configuration.  */
-	install_element(BGP_IPV4M_NODE, &bgp_table_map_cmd);
-	install_element(BGP_IPV4M_NODE, &no_bgp_table_map_cmd);
+	/* table-map — YANG: bgp_cli_init() */
+
 	/* IPv4 labeled-unicast configuration.  */
 	install_element(BGP_IPV4L_NODE, &bgp_network_cmd);
 	install_element(BGP_IPV4L_NODE, &aggregate_addressv4_cmd);
@@ -21079,8 +21074,7 @@ void bgp_route_init(void)
 #endif /* KEEP_OLD_VPN_COMMANDS */
 
 	/* New config IPv6 BGP commands.  */
-	install_element(BGP_IPV6_NODE, &bgp_table_map_cmd);
-	install_element(BGP_IPV6_NODE, &no_bgp_table_map_cmd);
+	/* table-map — YANG: bgp_cli_init() */
 
 	/* IPv6 labeled unicast address family. */
 	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);

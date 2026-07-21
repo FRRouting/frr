@@ -4405,6 +4405,30 @@ ALIAS_ATTR(bgp_distance_source_yang, bgp_distance_source_yang_hidden_cmd,
 		  "Access list name\n",
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
+DEFPY_YANG(bgp_table_map_yang, bgp_table_map_yang_cmd,
+	   "[no] table-map RMAP_NAME$name",
+	   NO_STR
+	   "BGP table to RIB route download filter\n"
+	   "Name of the route map\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/filter-config/rmap-export", af_xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(bgp_table_map_yang, bgp_table_map_yang_hidden_cmd, "[no] table-map RMAP_NAME$name",
+	   NO_STR "BGP table to RIB route download filter\n"
+		  "Name of the route map\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6169,6 +6193,12 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &bgp_distance_source_v6_yang_cmd);
 	install_element(BGP_NODE, &bgp_distance_yang_hidden_cmd);
 	install_element(BGP_NODE, &bgp_distance_source_yang_hidden_cmd);
+
+	/* table-map: unicast + ipv4 multicast */
+	install_element(BGP_IPV4_NODE, &bgp_table_map_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &bgp_table_map_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_table_map_yang_cmd);
+	install_element(BGP_NODE, &bgp_table_map_yang_hidden_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
