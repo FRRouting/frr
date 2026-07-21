@@ -3266,8 +3266,8 @@ static void bgp_may_stop_listening(struct bgp *bgp, struct vty *vty)
 	UNSET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
 }
 
-static void bgp_listen_range_warn(struct vty *vty, const struct peer_group *group,
-				  const struct prefix *range)
+void bgp_listen_range_warn(struct vty *vty, const struct peer_group *group,
+			   const struct prefix *range)
 {
 	if (range->prefixlen || group->conf->password)
 		return;
@@ -3277,7 +3277,7 @@ static void bgp_listen_range_warn(struct vty *vty, const struct peer_group *grou
 		range, group->name);
 }
 
-static void bgp_listen_range_warn_group(struct vty *vty, const struct peer_group *group)
+void bgp_listen_range_warn_group(struct vty *vty, const struct peer_group *group)
 {
 	struct listnode *node;
 	struct prefix *range;
@@ -3472,223 +3472,6 @@ DEFPY (bgp_ipv6_auto_ra,
 	return CMD_SUCCESS;
 }
 
-static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
-				   int v6only,
-				   const char *peer_group_name,
-				   const char *as_str)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	as_t as = 0;
-	enum peer_asn_type as_type = AS_UNSPECIFIED;
-	struct peer *peer;
-	struct peer_group *group;
-	int ret = 0;
-
-	group = peer_group_lookup(bgp, conf_if);
-
-	if (group) {
-		vty_out(vty, "%% Name conflict with peer-group \n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (as_str) {
-		if (as_str[0] == 'i') {
-			as_type = AS_INTERNAL;
-		} else if (as_str[0] == 'e') {
-			as_type = AS_EXTERNAL;
-		} else if (as_str[0] == 'a') {
-			as_type = AS_AUTO;
-		} else {
-			/* Get AS number.  */
-			if (asn_str2asn(as_str, &as))
-				as_type = AS_SPECIFIED;
-		}
-	}
-
-	peer = peer_lookup_by_conf_if(bgp, conf_if);
-	if (peer) {
-		if (as_str)
-			ret = peer_remote_as(bgp, NULL, conf_if, &as, as_type,
-					     as_str);
-	} else {
-		peer = peer_create(NULL, conf_if, bgp, bgp->as, as, as_type, NULL, true, as_str,
-				   CONNECTION_OUTGOING);
-
-		if (!peer) {
-			vty_out(vty, "%% BGP failed to create peer\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		if (v6only)
-			peer_flag_set(peer, PEER_FLAG_IFPEER_V6ONLY);
-
-		/* Request zebra to initiate IPv6 RAs on this interface. We do
-		 * this
-		 * any unnumbered peer in order to not worry about run-time
-		 * transitions
-		 * (e.g., peering is initially IPv4, but the IPv4 /30 or /31
-		 * address
-		 * gets deleted later etc.)
-		 */
-		if (peer->ifp)
-			bgp_zebra_initiate_radv(bgp, peer);
-	}
-
-	if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
-	    || (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))) {
-		if (v6only)
-			peer_flag_set(peer, PEER_FLAG_IFPEER_V6ONLY);
-		else
-			peer_flag_unset(peer, PEER_FLAG_IFPEER_V6ONLY);
-
-		peer_set_last_reset(peer, PEER_DOWN_V6ONLY_CHANGE);
-
-		/* v6only flag changed. Reset bgp seession */
-		if (!peer_notify_config_change(peer->connection))
-			bgp_session_reset(peer);
-	}
-
-	if (!CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE)) {
-		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
-		SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
-		SET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
-	}
-
-	if (peer_group_name) {
-		group = peer_group_lookup(bgp, peer_group_name);
-		if (!group) {
-			vty_out(vty, "%% Configure the peer-group first\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		ret = peer_group_bind(bgp, NULL, peer, group, &as);
-	}
-
-	/* if need start listening */
-	bgp_need_listening(bgp, vty);
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (neighbor_interface_config,
-       neighbor_interface_config_cmd,
-       "neighbor WORD interface [peer-group PGNAME]",
-       NEIGHBOR_STR
-       "Interface name or neighbor tag\n"
-       "Enable BGP on interface\n"
-       "Member of the peer-group\n"
-       "Peer-group name\n")
-{
-	int idx_word = 1;
-	int idx_peer_group_word = 4;
-
-	if (argc > idx_peer_group_word)
-		return peer_conf_interface_get(
-			vty, argv[idx_word]->arg, 0,
-			argv[idx_peer_group_word]->arg, NULL);
-	else
-		return peer_conf_interface_get(vty, argv[idx_word]->arg, 0,
-					       NULL, NULL);
-}
-
-DEFUN (neighbor_interface_config_v6only,
-       neighbor_interface_config_v6only_cmd,
-       "neighbor WORD interface v6only [peer-group PGNAME]",
-       NEIGHBOR_STR
-       "Interface name or neighbor tag\n"
-       "Enable BGP on interface\n"
-       "Enable BGP with v6 link-local only\n"
-       "Member of the peer-group\n"
-       "Peer-group name\n")
-{
-	int idx_word = 1;
-	int idx_peer_group_word = 5;
-
-	if (argc > idx_peer_group_word)
-		return peer_conf_interface_get(
-			vty, argv[idx_word]->arg, 1,
-			argv[idx_peer_group_word]->arg, NULL);
-
-	return peer_conf_interface_get(vty, argv[idx_word]->arg, 1, NULL, NULL);
-}
-
-
-DEFUN (neighbor_interface_config_remote_as,
-       neighbor_interface_config_remote_as_cmd,
-       "neighbor WORD interface remote-as <ASNUM|internal|external|auto>",
-       NEIGHBOR_STR
-       "Interface name or neighbor tag\n"
-       "Enable BGP on interface\n"
-       "Specify a BGP neighbor\n"
-       AS_STR
-       "Internal BGP peer\n"
-       "External BGP peer\n"
-       "Automatically detect remote ASN\n")
-{
-	int idx_word = 1;
-	int idx_remote_as = 4;
-	return peer_conf_interface_get(vty, argv[idx_word]->arg, 0, NULL,
-				       argv[idx_remote_as]->arg);
-}
-
-DEFUN (neighbor_interface_v6only_config_remote_as,
-       neighbor_interface_v6only_config_remote_as_cmd,
-       "neighbor WORD interface v6only remote-as <ASNUM|internal|external|auto>",
-       NEIGHBOR_STR
-       "Interface name or neighbor tag\n"
-       "Enable BGP with v6 link-local only\n"
-       "Enable BGP on interface\n"
-       "Specify a BGP neighbor\n"
-       AS_STR
-       "Internal BGP peer\n"
-       "External BGP peer\n"
-       "Automatically detect remote ASN\n")
-{
-	int idx_word = 1;
-	int idx_remote_as = 5;
-	return peer_conf_interface_get(vty, argv[idx_word]->arg, 1, NULL,
-				       argv[idx_remote_as]->arg);
-}
-
-DEFUN (no_neighbor_interface_config,
-       no_neighbor_interface_config_cmd,
-       "no neighbor WORD interface [v6only] [peer-group PGNAME] [remote-as <ASNUM|internal|external|auto>]",
-       NO_STR
-       NEIGHBOR_STR
-       "Interface name\n"
-       "Configure BGP on interface\n"
-       "Enable BGP with v6 link-local only\n"
-       "Member of the peer-group\n"
-       "Peer-group name\n"
-       "Specify a BGP neighbor\n"
-       AS_STR
-       "Internal BGP peer\n"
-       "External BGP peer\n"
-       "Automatically detect remote ASN\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_word = 2;
-	struct peer *peer, *other;
-
-	/* look up for neighbor by interface name config. */
-	peer = peer_lookup_by_conf_if(bgp, argv[idx_word]->arg);
-	if (peer) {
-		/* Request zebra to terminate IPv6 RAs on this interface. */
-		if (peer->ifp)
-			bgp_zebra_terminate_radv(peer->bgp, peer);
-		other = peer->doppelganger;
-		peer_notify_unconfig(peer->connection);
-		peer_delete(peer);
-		if (other && other->connection->status != Deleted) {
-			peer_notify_unconfig(other->connection);
-			peer_delete(other);
-		}
-	} else {
-		vty_out(vty, "%% Create the bgp interface first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
-}
 
 DEFUN (neighbor_local_as,
        neighbor_local_as_cmd,
@@ -3802,91 +3585,6 @@ DEFUN (no_neighbor_local_as,
 	return bgp_vty_return(vty, ret);
 }
 
-
-DEFUN (neighbor_solo,
-       neighbor_solo_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> solo",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Solo peer - part of its own update group\n")
-{
-	int idx_peer = 1;
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = update_group_adjust_soloness(peer, 1);
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (no_neighbor_solo,
-       no_neighbor_solo_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> solo",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Solo peer - part of its own update group\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = update_group_adjust_soloness(peer, 0);
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (neighbor_password,
-       neighbor_password_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> password LINE",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Set a password\n"
-       "The password\n")
-{
-	int idx_peer = 1;
-	int idx_line = 3;
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_password_set(peer, argv[idx_line]->arg);
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (no_neighbor_password,
-       no_neighbor_password_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> password [LINE]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Set a password\n"
-       "The password\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_password_unset(peer);
-	if (!ret && peer->group && CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) &&
-	    !bgp_config_inprocess())
-		bgp_listen_range_warn_group(vty, peer->group);
-
-	return bgp_vty_return(vty, ret);
-}
 
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
@@ -4050,30 +3748,6 @@ ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
 	     "Member of the peer-group\n"
 	     "Peer-group name\n")
 
-/* neighbor passive. */
-DEFUN (neighbor_passive,
-       neighbor_passive_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> passive",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Don't send open messages to this neighbor\n")
-{
-	int idx_peer = 1;
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg, PEER_FLAG_PASSIVE);
-}
-
-DEFUN (no_neighbor_passive,
-       no_neighbor_passive_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> passive",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Don't send open messages to this neighbor\n")
-{
-	int idx_peer = 2;
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_PASSIVE);
-}
-
 /* neighbor upa - enable UPA (send routes to, and honor the D-bit received
  * from, this peer)
  */
@@ -4101,59 +3775,6 @@ ALIAS_HIDDEN(neighbor_upa, neighbor_upa_hidden_cmd,
 	     NO_STR
 	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Enable UPA (Unreachable Prefix Announcement) with this neighbor (send and honor D-bit)\n")
-
-/* neighbor shutdown. */
-DEFUN (neighbor_shutdown_msg,
-       neighbor_shutdown_msg_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown message MSG...",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Administratively shut down this neighbor\n"
-       "Add a shutdown message (RFC 8203)\n"
-       "Shutdown message\n")
-{
-	int idx_peer = 1;
-
-	if (argc >= 5) {
-		struct peer *peer =
-			peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-		char *message;
-
-		if (!peer)
-			return CMD_WARNING_CONFIG_FAILED;
-		message = argv_concat(argv, argc, 4);
-		peer_tx_shutdown_message_set(peer, message);
-		XFREE(MTYPE_TMP, message);
-	}
-
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
-}
-
-ALIAS(neighbor_shutdown_msg, neighbor_shutdown_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
-      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Administratively shut down this neighbor\n")
-
-DEFUN (no_neighbor_shutdown_msg,
-       no_neighbor_shutdown_msg_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown message MSG...",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Administratively shut down this neighbor\n"
-       "Remove a shutdown message (RFC 8203)\n"
-       "Shutdown message\n")
-{
-	int idx_peer = 2;
-
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_SHUTDOWN);
-}
-
-ALIAS(no_neighbor_shutdown_msg, no_neighbor_shutdown_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
-      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Administratively shut down this neighbor\n")
 
 DEFUN(neighbor_shutdown_rtt,
       neighbor_shutdown_rtt_cmd,
@@ -5850,58 +5471,6 @@ DEFUN (no_neighbor_enforce_first_as,
 				   PEER_FLAG_ENFORCE_FIRST_AS);
 }
 
-
-DEFUN (neighbor_description,
-       neighbor_description_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> description LINE...",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Neighbor specific description\n"
-       "Up to 80 characters describing this neighbor\n")
-{
-	int idx_peer = 1;
-	int idx_line = 3;
-	struct peer *peer;
-	char *str;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	str = argv_concat(argv, argc, idx_line);
-
-	peer_description_set(peer, str);
-
-	XFREE(MTYPE_TMP, str);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_neighbor_description,
-       no_neighbor_description_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> description",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Neighbor specific description\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	peer_description_unset(peer);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS(no_neighbor_description, no_neighbor_description_comment_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> description LINE...",
-      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Neighbor specific description\n"
-      "Up to 80 characters describing this neighbor\n")
 
 /* Neighbor update-source. */
 static int peer_update_source_vty(struct vty *vty, const char *peer_str,
@@ -21668,13 +21237,7 @@ void bgp_vty_init(void)
 
 	/* "bgp default shutdown" / "bgp shutdown" — YANG: bgp_cli_init() */
 
-	/* "neighbor remote-as" / "no neighbor" — YANG: bgp_cli_init() */
-	install_element(BGP_NODE, &neighbor_interface_config_cmd);
-	install_element(BGP_NODE, &neighbor_interface_config_v6only_cmd);
-	install_element(BGP_NODE, &neighbor_interface_config_remote_as_cmd);
-	install_element(BGP_NODE,
-			&neighbor_interface_v6only_config_remote_as_cmd);
-	install_element(BGP_NODE, &no_neighbor_interface_config_cmd);
+	/* "neighbor remote-as" / "no neighbor" / interface — YANG: bgp_cli_init() */
 
 	/* "neighbor peer-group" — YANG: bgp_cli_init() */
 
@@ -21684,13 +21247,9 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_local_as_no_prepend_replace_as_cmd);
 	install_element(BGP_NODE, &no_neighbor_local_as_cmd);
 
-	/* "neighbor solo" commands. */
-	install_element(BGP_NODE, &neighbor_solo_cmd);
-	install_element(BGP_NODE, &no_neighbor_solo_cmd);
+	/* "neighbor solo" — YANG: bgp_cli_init() */
 
-	/* "neighbor password" commands. */
-	install_element(BGP_NODE, &neighbor_password_cmd);
-	install_element(BGP_NODE, &no_neighbor_password_cmd);
+	/* "neighbor password" — YANG: bgp_cli_init() */
 
 	/* "neighbor activate" commands. */
 	install_element(BGP_NODE, &neighbor_activate_hidden_cmd);
@@ -22285,9 +21844,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE,
 			&no_neighbor_path_attribute_treat_as_withdraw_cmd);
 
-	/* "neighbor passive" commands. */
-	install_element(BGP_NODE, &neighbor_passive_cmd);
-	install_element(BGP_NODE, &no_neighbor_passive_cmd);
+	/* "neighbor passive" — YANG: bgp_cli_init() */
 
 	/* "neighbor upa" commands. */
 	install_element(BGP_IPV4_NODE, &neighbor_upa_cmd);
@@ -22300,11 +21857,9 @@ void bgp_vty_init(void)
 
 	install_element(VIEW_NODE, &show_bgp_neighbor_upa_cmd);
 
-	/* "neighbor shutdown" commands. */
-	install_element(BGP_NODE, &neighbor_shutdown_cmd);
-	install_element(BGP_NODE, &no_neighbor_shutdown_cmd);
-	install_element(BGP_NODE, &neighbor_shutdown_msg_cmd);
-	install_element(BGP_NODE, &no_neighbor_shutdown_msg_cmd);
+	/* "neighbor shutdown" — YANG: bgp_cli_init();
+	 * shutdown rtt remains classic for now.
+	 */
 	install_element(BGP_NODE, &neighbor_shutdown_rtt_cmd);
 	install_element(BGP_NODE, &no_neighbor_shutdown_rtt_cmd);
 
@@ -22377,10 +21932,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_enforce_first_as_cmd);
 	install_element(BGP_NODE, &no_neighbor_enforce_first_as_cmd);
 
-	/* "neighbor description" commands. */
-	install_element(BGP_NODE, &neighbor_description_cmd);
-	install_element(BGP_NODE, &no_neighbor_description_cmd);
-	install_element(BGP_NODE, &no_neighbor_description_comment_cmd);
+	/* "neighbor description" — YANG: bgp_cli_init() */
 
 	/* "neighbor update-source" commands. "*/
 	install_element(BGP_NODE, &neighbor_update_source_cmd);

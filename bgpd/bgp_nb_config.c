@@ -26,7 +26,7 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_io.h"
-#include "bgpd/bgp_io.h"
+#include "bgpd/bgp_updgrp.h"
 
 /*
  * XPath: .../frr-bgp:bgp
@@ -2887,20 +2887,55 @@ int bgp_nb_neighbor_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_node *dnode,
 					     bool show_defaults)
 {
-	const char *addr = yang_dnode_get_string(dnode, "../../remote-address");
+	const struct lyd_node *parent;
+	const char *name = NULL;
 	const char *type = yang_dnode_get_string(dnode, NULL);
+	bool v6only;
+
+	parent = yang_dnode_get_parent(dnode, "neighbor");
+	if (parent)
+		name = yang_dnode_get_string(parent, "./remote-address");
+	else {
+		parent = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
+		if (parent) {
+			/* Combined line printed by peer-group cli_show. */
+			if (yang_dnode_exists(parent, "./peer-group"))
+				return;
+			name = yang_dnode_get_string(parent, "./interface");
+			v6only = yang_dnode_exists(parent, "./v6only") &&
+				 yang_dnode_get_bool(parent, "./v6only");
+			if (strmatch(type, "as-specified")) {
+				if (!yang_dnode_exists(dnode, "../remote-as"))
+					return;
+				vty_out(vty, " neighbor %s interface%s remote-as %s\n", name,
+					v6only ? " v6only" : "",
+					yang_dnode_get_string(dnode, "../remote-as"));
+			} else if (strmatch(type, "internal"))
+				vty_out(vty, " neighbor %s interface%s remote-as internal\n", name,
+					v6only ? " v6only" : "");
+			else if (strmatch(type, "external"))
+				vty_out(vty, " neighbor %s interface%s remote-as external\n", name,
+					v6only ? " v6only" : "");
+			else if (strmatch(type, "auto"))
+				vty_out(vty, " neighbor %s interface%s remote-as auto\n", name,
+					v6only ? " v6only" : "");
+			return;
+		}
+	}
+	if (!name)
+		return;
 
 	if (strmatch(type, "as-specified")) {
 		if (!yang_dnode_exists(dnode, "../remote-as"))
 			return;
-		vty_out(vty, " neighbor %s remote-as %s\n", addr,
+		vty_out(vty, " neighbor %s remote-as %s\n", name,
 			yang_dnode_get_string(dnode, "../remote-as"));
 	} else if (strmatch(type, "internal"))
-		vty_out(vty, " neighbor %s remote-as internal\n", addr);
+		vty_out(vty, " neighbor %s remote-as internal\n", name);
 	else if (strmatch(type, "external"))
-		vty_out(vty, " neighbor %s remote-as external\n", addr);
+		vty_out(vty, " neighbor %s remote-as external\n", name);
 	else if (strmatch(type, "auto"))
-		vty_out(vty, " neighbor %s remote-as auto\n", addr);
+		vty_out(vty, " neighbor %s remote-as auto\n", name);
 }
 
 int bgp_nb_neighbor_remote_as_modify(struct nb_cb_modify_args *args)
@@ -3114,4 +3149,457 @@ int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args)
 int bgp_nb_peer_group_remote_as_destroy(struct nb_cb_destroy_args *args)
 {
 	return NB_OK;
+}
+
+/*
+ * Resolve config peer from neighbor, unnumbered-neighbor, or peer-group.
+ */
+static struct peer *bgp_nb_config_peer(const struct lyd_node *dnode)
+{
+	const struct lyd_node *list;
+	struct peer_group *group;
+
+	list = yang_dnode_get_parent(dnode, "neighbor");
+	if (list)
+		return nb_running_get_entry(list, NULL, true);
+
+	list = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
+	if (list)
+		return nb_running_get_entry(list, NULL, true);
+
+	list = yang_dnode_get_parent(dnode, "peer-group");
+	if (list) {
+		group = nb_running_get_entry(list, NULL, true);
+		return group ? group->conf : NULL;
+	}
+
+	return NULL;
+}
+
+static const char *bgp_nb_config_peer_name(const struct lyd_node *dnode)
+{
+	const struct lyd_node *list;
+
+	list = yang_dnode_get_parent(dnode, "neighbor");
+	if (list)
+		return yang_dnode_get_string(list, "./remote-address");
+
+	list = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
+	if (list)
+		return yang_dnode_get_string(list, "./interface");
+
+	list = yang_dnode_get_parent(dnode, "peer-group");
+	if (list)
+		return yang_dnode_get_string(list, "./peer-group-name");
+
+	return "?";
+}
+
+/*
+ * Unnumbered neighbors
+ */
+int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	const char *ifname;
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+		ifname = yang_dnode_get_string(args->dnode, "./interface");
+		if (peer_group_lookup(bgp, ifname)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "name conflict with peer-group");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	ifname = yang_dnode_get_string(args->dnode, "./interface");
+
+	peer = peer_lookup_by_conf_if(bgp, ifname);
+	if (!peer) {
+		peer = peer_create(NULL, ifname, bgp, bgp->as, 0, AS_UNSPECIFIED, NULL, true, NULL,
+				   CONNECTION_OUTGOING);
+		if (!peer)
+			return NB_ERR_RESOURCE;
+
+		bgp_zebra_initiate_radv(bgp, peer);
+
+		if (!CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE)) {
+			SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
+			SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
+			SET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
+		}
+	}
+
+	nb_running_set_entry(args->dnode, peer);
+	bgp_nb_need_listening(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer, *other;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = nb_running_unset_entry(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	bgp = peer->bgp;
+	other = peer->doppelganger;
+	if (peer->ifp || CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+		bgp_zebra_terminate_radv(bgp, peer);
+	peer_notify_unconfig(peer->connection);
+	peer_delete(peer);
+	if (other && other->connection->status != Deleted) {
+		peer_notify_unconfig(other->connection);
+		peer_delete(other);
+	}
+	bgp_nb_may_stop_listening(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_unnumbered_neighbor(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	const char *ifname = yang_dnode_get_string(dnode, "./interface");
+	bool v6only = yang_dnode_exists(dnode, "./v6only") &&
+		      yang_dnode_get_bool(dnode, "./v6only");
+
+	/*
+	 * Full line (v6only / peer-group / remote-as) is composed from child
+	 * cli_show callbacks; emit the base create form when nothing else
+	 * prints a complete interface line. Prefer printing here only the
+	 * bare interface create when no remote-as is present.
+	 */
+	if (!yang_dnode_exists(dnode, "./neighbor-remote-as/remote-as-type") &&
+	    !yang_dnode_exists(dnode, "./peer-group")) {
+		if (v6only)
+			vty_out(vty, " neighbor %s interface v6only\n", ifname);
+		else
+			vty_out(vty, " neighbor %s interface\n", ifname);
+	}
+}
+
+void bgp_nb_cli_show_unnumbered_neighbor_end(struct vty *vty, const struct lyd_node *dnode)
+{
+}
+
+int bgp_nb_unnumbered_v6only_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	bool v6only;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = nb_running_get_entry(args->dnode, NULL, true);
+	v6only = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (v6only == !!CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
+		return NB_OK;
+
+	if (v6only)
+		peer_flag_set(peer, PEER_FLAG_IFPEER_V6ONLY);
+	else
+		peer_flag_unset(peer, PEER_FLAG_IFPEER_V6ONLY);
+
+	peer_set_last_reset(peer, PEER_DOWN_V6ONLY_CHANGE);
+	if (!peer_notify_config_change(peer->connection))
+		bgp_session_reset(peer);
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_unnumbered_v6only(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	/* Printed with interface / peer-group / remote-as composition. */
+}
+
+int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	struct peer_group *group;
+	const char *group_name;
+	as_t as;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = nb_running_get_entry(args->dnode, NULL, true);
+	group_name = yang_dnode_get_string(args->dnode, NULL);
+	group = peer_group_lookup(peer->bgp, group_name);
+	if (!group)
+		return NB_ERR_NOT_FOUND;
+
+	as = peer->as;
+	ret = peer_group_bind(peer->bgp, NULL, peer, group, &as);
+	if (ret != 0)
+		return NB_ERR_RESOURCE;
+
+	return NB_OK;
+}
+
+int bgp_nb_unnumbered_peer_group_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = nb_running_get_entry(args->dnode, NULL, true);
+	if (!peer || !peer->group)
+		return NB_OK;
+
+	if (peer_group_unbind(peer->bgp, peer, peer->group) != 0)
+		return NB_ERR_RESOURCE;
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_unnumbered_peer_group(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	const char *ifname = yang_dnode_get_string(dnode, "../interface");
+	const char *pg = yang_dnode_get_string(dnode, NULL);
+	bool v6only = yang_dnode_exists(dnode, "../v6only") &&
+		      yang_dnode_get_bool(dnode, "../v6only");
+	const char *type = NULL;
+
+	if (yang_dnode_exists(dnode, "../neighbor-remote-as/remote-as-type"))
+		type = yang_dnode_get_string(dnode, "../neighbor-remote-as/remote-as-type");
+
+	/*
+	 * Prefer a single combined line when peer-group is set. Remote-as
+	 * child cli_show also prints; suppress bare remote-as when we print
+	 * here with peer-group. Simpler: print interface+v6only+peer-group
+	 * and let remote-as cli_show print remote-as separately (classic
+	 * write often splits). Match classic: one line with all options.
+	 */
+	vty_out(vty, " neighbor %s interface%s peer-group %s", ifname, v6only ? " v6only" : "", pg);
+	if (type) {
+		if (strmatch(type, "as-specified") &&
+		    yang_dnode_exists(dnode, "../neighbor-remote-as/remote-as"))
+			vty_out(vty, " remote-as %s",
+				yang_dnode_get_string(dnode, "../neighbor-remote-as/remote-as"));
+		else if (strmatch(type, "internal"))
+			vty_out(vty, " remote-as internal");
+		else if (strmatch(type, "external"))
+			vty_out(vty, " remote-as external");
+		else if (strmatch(type, "auto"))
+			vty_out(vty, " remote-as auto");
+	}
+	vty_out(vty, "\n");
+}
+
+/*
+ * Shared session leaves
+ */
+int bgp_nb_peer_password_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	ret = peer_password_set(peer, yang_dnode_get_string(args->dnode, NULL));
+	return ret ? NB_ERR_RESOURCE : NB_OK;
+}
+
+int bgp_nb_peer_password_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	peer_password_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_password(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	vty_out(vty, " neighbor %s password %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_peer_description_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer_description_set(peer, yang_dnode_get_string(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_peer_description_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	peer_description_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_description(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " neighbor %s description %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_peer_passive_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_PASSIVE);
+	else
+		peer_flag_unset(peer, PEER_FLAG_PASSIVE);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_passive(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s passive\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s passive\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_solo_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	update_group_adjust_soloness(peer, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_solo(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s solo\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s solo\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_shutdown_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
+	else {
+		peer_tx_shutdown_message_unset(peer);
+		peer_flag_unset(peer, PEER_FLAG_SHUTDOWN);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_shutdown_enable(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	const struct lyd_node *shut = yang_dnode_get_parent(dnode, "admin-shutdown");
+
+	/* Message leaf prints the combined form when present. */
+	if (shut && yang_dnode_exists(shut, "./message"))
+		return;
+
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s shutdown\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s shutdown\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_shutdown_message_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer_tx_shutdown_message_set(peer, yang_dnode_get_string(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_peer_shutdown_message_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	peer_tx_shutdown_message_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_shutdown_message(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_out(vty, " neighbor %s shutdown message %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
 }
