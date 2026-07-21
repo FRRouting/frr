@@ -155,11 +155,32 @@ module frr-bgp {
               "Confederation identifier for the autonomous system.";
           }
 
+          leaf identifier-pretty {
+            type string;
+            description
+              "Original textual representation of the confederation
+               identifier as entered by the operator.";
+          }
+
           leaf-list member-as {
             type inet:as-number;
             description
               "Remote autonomous systems that are to be treated
                as part of the local confederation.";
+          }
+
+          list member-as-pretty {
+            key "as";
+            description
+              "Original textual representation of each confederation
+               peer AS as entered by the operator.";
+            leaf as {
+              type inet:as-number;
+            }
+            leaf as-pretty {
+              type string;
+              mandatory true;
+            }
           }
         }
 

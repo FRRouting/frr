@@ -22,6 +22,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_fsm.h"
 
 /*
  * XPath: .../frr-bgp:bgp
@@ -1204,4 +1205,614 @@ void bgp_nb_cli_show_bandwidth_handling(struct vty *vty, const struct lyd_node *
 		return;
 	}
 	vty_out(vty, " bgp bestpath bandwidth %s\n", val);
+}
+
+static void bgp_nb_apply_global_timers(struct bgp *bgp, const struct lyd_node *dnode)
+{
+	const struct lyd_node *timers;
+	uint32_t keepalive;
+	uint32_t holdtime;
+
+	timers = yang_dnode_get_parent(dnode, "global-config-timers");
+	keepalive = yang_dnode_get_uint16(timers, "keepalive");
+	holdtime = yang_dnode_get_uint16(timers, "hold-time");
+	bgp_timers_set(NULL, bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY,
+		       BGP_DEFAULT_DELAYOPEN);
+}
+
+int bgp_nb_keepalive_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_apply_global_timers(bgp, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_hold_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE: {
+		uint16_t holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+
+		if (holdtime < 3 && holdtime != 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "hold time value must be either 0 or at least 3");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_apply_global_timers(bgp, args->dnode);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_keepalive(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "global-config-timers");
+	uint16_t keepalive = yang_dnode_get_uint16(dnode, NULL);
+	uint16_t holdtime = yang_dnode_get_uint16(timers, "hold-time");
+
+	if (keepalive != DFLT_BGP_KEEPALIVE || holdtime != DFLT_BGP_HOLDTIME || show_defaults)
+		vty_out(vty, " timers bgp %u %u\n", keepalive, holdtime);
+}
+
+void bgp_nb_cli_show_holdtime(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "global-config-timers");
+	const struct lyd_node *ka;
+	uint16_t keepalive, holdtime;
+
+	/*
+	 * Keepalive owns this line when nb_cli_show will visit it. A default
+	 * keepalive is skipped, which dropped "timers bgp 60 <hold>".
+	 */
+	ka = timers ? yang_dnode_get(timers, "keepalive") : NULL;
+	if (ka && (show_defaults || !yang_dnode_is_default(ka, NULL)))
+		return;
+
+	keepalive = ka ? yang_dnode_get_uint16(ka, NULL) : DFLT_BGP_KEEPALIVE;
+	holdtime = yang_dnode_get_uint16(dnode, NULL);
+	if (keepalive != DFLT_BGP_KEEPALIVE || holdtime != DFLT_BGP_HOLDTIME || show_defaults)
+		vty_out(vty, " timers bgp %u %u\n", keepalive, holdtime);
+}
+
+int bgp_nb_minimum_holdtime_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->default_min_holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_minimum_holdtime_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->default_min_holdtime = 0;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_minimum_holdtime(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " bgp minimum-holdtime %u\n", yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_confederation_identifier_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *confed;
+	const char *pretty;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	confed = yang_dnode_get_parent(args->dnode, "confederation");
+	pretty = (confed && yang_dnode_exists(confed, "identifier-pretty"))
+			 ? yang_dnode_get_string(confed, "identifier-pretty")
+			 : yang_dnode_get_string(args->dnode, NULL);
+	bgp_confederation_id_set(bgp, yang_dnode_get_uint32(args->dnode, NULL), pretty);
+	return NB_OK;
+}
+
+int bgp_nb_confederation_identifier_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_confederation_id_unset(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_confederation_identifier_pretty_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *pretty;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp->confed_id)
+		return NB_OK;
+	pretty = yang_dnode_get_string(args->dnode, NULL);
+	if (bgp->confed_id_pretty && strmatch(bgp->confed_id_pretty, pretty))
+		return NB_OK;
+	XFREE(MTYPE_BGP_NAME, bgp->confed_id_pretty);
+	bgp->confed_id_pretty = XSTRDUP(MTYPE_BGP_NAME, pretty);
+	return NB_OK;
+}
+
+int bgp_nb_confederation_identifier_pretty_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp->confed_id)
+		return NB_OK;
+	XFREE(MTYPE_BGP_NAME, bgp->confed_id_pretty);
+	bgp->confed_id_pretty = XSTRDUP(MTYPE_BGP_NAME, asn_asn2asplain(bgp->confed_id));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_confederation_identifier(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	const struct lyd_node *confed = yang_dnode_get_parent(dnode, "confederation");
+	const char *pretty = (confed && yang_dnode_exists(confed, "identifier-pretty"))
+				     ? yang_dnode_get_string(confed, "identifier-pretty")
+				     : yang_dnode_get_string(dnode, NULL);
+
+	vty_out(vty, " bgp confederation identifier %s\n", pretty);
+}
+
+int bgp_nb_confederation_member_as_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *confed;
+	as_t as;
+	char xpath[96];
+	const char *pretty;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	as = yang_dnode_get_uint32(args->dnode, NULL);
+	confed = yang_dnode_get_parent(args->dnode, "confederation");
+	snprintfrr(xpath, sizeof(xpath), "./member-as-pretty[as='%u']/as-pretty", as);
+	pretty = (confed && yang_dnode_exists(confed, xpath))
+			 ? yang_dnode_get_string(confed, "./member-as-pretty[as='%u']/as-pretty",
+						 as)
+			 : yang_dnode_get_string(args->dnode, NULL);
+	bgp_confederation_peers_add(bgp, as, pretty);
+	return NB_OK;
+}
+
+int bgp_nb_confederation_member_as_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_confederation_peers_remove(bgp, yang_dnode_get_uint32(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_confederation_member_as_pretty_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int bgp_nb_confederation_member_as_pretty_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+int bgp_nb_confederation_member_as_pretty_val_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	as_t as;
+	const char *pretty;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	as = yang_dnode_get_uint32(args->dnode, "../as");
+	pretty = yang_dnode_get_string(args->dnode, NULL);
+	for (int i = 0; i < bgp->confed_peers_cnt; i++) {
+		if (bgp->confed_peers[i].as != as)
+			continue;
+		if (bgp->confed_peers[i].as_pretty &&
+		    strmatch(bgp->confed_peers[i].as_pretty, pretty))
+			break;
+		XFREE(MTYPE_BGP_NAME, bgp->confed_peers[i].as_pretty);
+		bgp->confed_peers[i].as_pretty = XSTRDUP(MTYPE_BGP_NAME, pretty);
+		break;
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_confederation_member_as(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	const struct lyd_node *confed = yang_dnode_get_parent(dnode, "confederation");
+	const struct lyd_node *child;
+	char xpath[96];
+
+	if (!confed)
+		return;
+
+	/* Emit all confederation peers on a single line from the first entry. */
+	LY_LIST_FOR (lyd_child(confed), child) {
+		if (strmatch(child->schema->name, "member-as"))
+			break;
+	}
+	if (child != dnode)
+		return;
+
+	vty_out(vty, " bgp confederation peers");
+	LY_LIST_FOR (lyd_child(confed), child) {
+		as_t as;
+		const char *pretty;
+
+		if (!strmatch(child->schema->name, "member-as"))
+			continue;
+		as = yang_dnode_get_uint32(child, NULL);
+		snprintfrr(xpath, sizeof(xpath), "./member-as-pretty[as='%u']/as-pretty", as);
+		pretty = yang_dnode_exists(confed, xpath)
+				 ? yang_dnode_get_string(confed,
+							 "./member-as-pretty[as='%u']/as-pretty",
+							 as)
+				 : yang_dnode_get_string(child, NULL);
+		vty_out(vty, " %s", pretty);
+	}
+	vty_out(vty, "\n");
+}
+
+int bgp_nb_enable_med_admin_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *med;
+	uint32_t value;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		med = yang_dnode_get_parent(args->dnode, "med-config");
+		value = (med && yang_dnode_exists(med, "max-med-admin"))
+				? yang_dnode_get_uint32(med, "max-med-admin")
+				: BGP_MAXMED_VALUE_DEFAULT;
+		bgp->v_maxmed_admin = 1;
+		bgp->maxmed_admin_value = value;
+	} else {
+		bgp->v_maxmed_admin = BGP_MAXMED_ADMIN_UNCONFIGURED;
+		bgp->maxmed_admin_value = BGP_MAXMED_VALUE_DEFAULT;
+	}
+	bgp_maxmed_update(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_enable_med_admin(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	const struct lyd_node *med = yang_dnode_get_parent(dnode, "med-config");
+	uint32_t value;
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	/*
+	 * This leaf is false by default, so the callback runs whenever
+	 * administrative max-med is on. max-med-admin itself is skipped when
+	 * it stays at the default, which dropped the bare command.
+	 */
+	value = (med && yang_dnode_exists(med, "max-med-admin"))
+			? yang_dnode_get_uint32(med, "max-med-admin")
+			: BGP_MAXMED_VALUE_DEFAULT;
+	if (value == BGP_MAXMED_VALUE_DEFAULT)
+		vty_out(vty, " bgp max-med administrative\n");
+	else
+		vty_out(vty, " bgp max-med administrative %u\n", value);
+}
+
+int bgp_nb_max_med_admin_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *med;
+	uint32_t value;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	med = yang_dnode_get_parent(args->dnode, "med-config");
+	if (!yang_dnode_get_bool(med, "enable-med-admin"))
+		return NB_OK;
+
+	value = yang_dnode_get_uint32(args->dnode, NULL);
+	if (bgp->v_maxmed_admin == 1 && bgp->maxmed_admin_value == value)
+		return NB_OK;
+
+	bgp->maxmed_admin_value = value;
+	bgp_maxmed_update(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_max_med_admin(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	/*
+	 * Printed by bgp_nb_cli_show_enable_med_admin. enable-med-admin is not a
+	 * default whenever the command is configured, including when this value
+	 * stays at BGP_MAXMED_VALUE_DEFAULT.
+	 */
+}
+
+int bgp_nb_max_med_onstartup_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *med;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	med = yang_dnode_get_parent(args->dnode, "med-config");
+	bgp->v_maxmed_onstartup = yang_dnode_get_uint32(args->dnode, NULL);
+	if (yang_dnode_exists(med, "max-med-onstart-up-value"))
+		bgp->maxmed_onstartup_value = yang_dnode_get_uint32(med,
+								    "max-med-onstart-up-value");
+	else
+		bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
+	bgp_maxmed_update(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_max_med_onstartup_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (event_is_scheduled(bgp->t_maxmed_onstartup)) {
+		event_cancel(&bgp->t_maxmed_onstartup);
+		bgp->maxmed_onstartup_over = 1;
+	}
+	bgp->v_maxmed_onstartup = BGP_MAXMED_ONSTARTUP_UNCONFIGURED;
+	bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
+	bgp_maxmed_update(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_max_med_onstartup_time(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	const struct lyd_node *med = yang_dnode_get_parent(dnode, "med-config");
+	uint32_t time = yang_dnode_get_uint32(dnode, NULL);
+	uint32_t value = BGP_MAXMED_VALUE_DEFAULT;
+
+	if (yang_dnode_exists(med, "max-med-onstart-up-value"))
+		value = yang_dnode_get_uint32(med, "max-med-onstart-up-value");
+
+	if (value == BGP_MAXMED_VALUE_DEFAULT)
+		vty_out(vty, " bgp max-med on-startup %u\n", time);
+	else
+		vty_out(vty, " bgp max-med on-startup %u %u\n", time, value);
+}
+
+int bgp_nb_max_med_onstartup_value_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *med;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	med = yang_dnode_get_parent(args->dnode, "med-config");
+	if (!yang_dnode_exists(med, "max-med-onstart-up-time"))
+		return NB_OK;
+
+	bgp->maxmed_onstartup_value = yang_dnode_get_uint32(args->dnode, NULL);
+	bgp_maxmed_update(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_update_delay_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *timers;
+	uint16_t delay;
+	uint16_t wait;
+
+	delay = yang_dnode_get_uint16(args->dnode, NULL);
+	timers = yang_dnode_get_parent(args->dnode, "global-config-timers");
+	if (yang_dnode_exists(timers, "establish-wait-time"))
+		wait = yang_dnode_get_uint16(timers, "establish-wait-time");
+	else
+		wait = delay;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (bm->v_update_delay) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "per-vrf update-delay not permitted with global update-delay");
+			return NB_ERR_VALIDATION;
+		}
+		if (delay < wait) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "update-delay less than the establish-wait");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->v_update_delay = delay;
+	bgp->v_establish_wait = wait;
+	return NB_OK;
+}
+
+int bgp_nb_update_delay_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (bm->v_update_delay) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "cannot remove per-vrf update-delay while global update-delay is set");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
+	bgp->v_establish_wait = BGP_UPDATE_DELAY_DEFAULT;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_update_delay_time(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "global-config-timers");
+	uint16_t delay = yang_dnode_get_uint16(dnode, NULL);
+	uint16_t wait = delay;
+
+	if (yang_dnode_exists(timers, "establish-wait-time"))
+		wait = yang_dnode_get_uint16(timers, "establish-wait-time");
+
+	if (wait != delay)
+		vty_out(vty, " update-delay %u %u\n", delay, wait);
+	else
+		vty_out(vty, " update-delay %u\n", delay);
+}
+
+int bgp_nb_establish_wait_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *timers;
+	uint16_t delay;
+	uint16_t wait;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	timers = yang_dnode_get_parent(args->dnode, "global-config-timers");
+	if (!yang_dnode_exists(timers, "update-delay-time"))
+		return NB_OK;
+
+	delay = yang_dnode_get_uint16(timers, "update-delay-time");
+	wait = yang_dnode_get_uint16(args->dnode, NULL);
+	bgp->v_update_delay = delay;
+	bgp->v_establish_wait = wait;
+	return NB_OK;
+}
+
+int bgp_nb_establish_wait_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *timers;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	timers = yang_dnode_get_parent(args->dnode, "global-config-timers");
+	if (yang_dnode_exists(timers, "update-delay-time"))
+		bgp->v_establish_wait = yang_dnode_get_uint16(timers, "update-delay-time");
+	else
+		bgp->v_establish_wait = BGP_UPDATE_DELAY_DEFAULT;
+	return NB_OK;
+}
+
+int bgp_nb_advertisement_delay_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->v_advertisement_delay = yang_dnode_get_uint16(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_advertisement_delay_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
+	if (bgp->advertisement_delay_started && !bgp->advertisement_delay_over) {
+		event_cancel(&bgp->t_advertisement_delay);
+		bgp->advertisement_delay_started = 0;
+		bgp->advertisement_delay_over = 0;
+		if (!bgp_update_delay_active(bgp) && !bgp->main_zebra_update_hold) {
+			bgp->main_peers_update_hold = 0;
+			bgp_start_routeadv(bgp);
+		}
+	} else {
+		event_cancel(&bgp->t_advertisement_delay);
+		bgp->advertisement_delay_started = 0;
+		bgp->advertisement_delay_over = 0;
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	vty_out(vty, " advertisement-delay %u\n", yang_dnode_get_uint16(dnode, NULL));
 }

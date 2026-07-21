@@ -263,6 +263,115 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/keepalive",
+			.cbs = {
+				.modify = bgp_nb_keepalive_modify,
+				.cli_show = bgp_nb_cli_show_keepalive,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/hold-time",
+			.cbs = {
+				.modify = bgp_nb_hold_time_modify,
+				.cli_show = bgp_nb_cli_show_holdtime,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/minimum-holdtime",
+			.cbs = {
+				.modify = bgp_nb_minimum_holdtime_modify,
+				.destroy = bgp_nb_minimum_holdtime_destroy,
+				.cli_show = bgp_nb_cli_show_minimum_holdtime,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/update-delay-time",
+			.cbs = {
+				.modify = bgp_nb_update_delay_time_modify,
+				.destroy = bgp_nb_update_delay_time_destroy,
+				.cli_show = bgp_nb_cli_show_update_delay_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/establish-wait-time",
+			.cbs = {
+				.modify = bgp_nb_establish_wait_time_modify,
+				.destroy = bgp_nb_establish_wait_time_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/advertisement-delay-time",
+			.cbs = {
+				.modify = bgp_nb_advertisement_delay_modify,
+				.destroy = bgp_nb_advertisement_delay_destroy,
+				.cli_show = bgp_nb_cli_show_advertisement_delay,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
+			.cbs = {
+				.modify = bgp_nb_confederation_identifier_modify,
+				.destroy = bgp_nb_confederation_identifier_destroy,
+				.cli_show = bgp_nb_cli_show_confederation_identifier,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier-pretty",
+			.cbs = {
+				.modify = bgp_nb_confederation_identifier_pretty_modify,
+				.destroy = bgp_nb_confederation_identifier_pretty_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/member-as",
+			.cbs = {
+				.create = bgp_nb_confederation_member_as_create,
+				.destroy = bgp_nb_confederation_member_as_destroy,
+				.cli_show = bgp_nb_cli_show_confederation_member_as,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/member-as-pretty",
+			.cbs = {
+				.create = bgp_nb_confederation_member_as_pretty_create,
+				.destroy = bgp_nb_confederation_member_as_pretty_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/member-as-pretty/as-pretty",
+			.cbs = {
+				.modify = bgp_nb_confederation_member_as_pretty_val_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config/enable-med-admin",
+			.cbs = {
+				.modify = bgp_nb_enable_med_admin_modify,
+				.cli_show = bgp_nb_cli_show_enable_med_admin,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config/max-med-admin",
+			.cbs = {
+				.modify = bgp_nb_max_med_admin_modify,
+				.cli_show = bgp_nb_cli_show_max_med_admin,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config/max-med-onstart-up-time",
+			.cbs = {
+				.modify = bgp_nb_max_med_onstartup_time_modify,
+				.destroy = bgp_nb_max_med_onstartup_time_destroy,
+				.cli_show = bgp_nb_cli_show_max_med_onstartup_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/med-config/max-med-onstart-up-value",
+			.cbs = {
+				.modify = bgp_nb_max_med_onstartup_value_modify,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}
