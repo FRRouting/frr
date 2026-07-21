@@ -3138,96 +3138,6 @@ void bgp_vty_role_update(struct peer *peer, int action)
 	peer_clear_soft(peer, AFI_IP6, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
 }
 
-DEFPY(neighbor_extended_link_bw,
-      neighbor_extended_link_bw_cmd,
-      "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor extended-link-bandwidth",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Send Extended (64-bit) version of encoding for Link-Bandwidth\n")
-{
-	int ret;
-
-	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor,
-					  PEER_FLAG_EXTENDED_LINK_BANDWIDTH);
-	else
-		ret = peer_flag_set_vty(vty, neighbor,
-					PEER_FLAG_EXTENDED_LINK_BANDWIDTH);
-
-	return ret;
-}
-
-DEFPY(neighbor_nhc_attribute,
-      neighbor_nhc_attribute_cmd,
-      "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-nexthop-characteristics",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Send BGP Next Hop Dependent Characteristics Attribute\n")
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_SEND_NHC_ATTRIBUTE);
-
-	return peer_flag_set_vty(vty, neighbor, PEER_FLAG_SEND_NHC_ATTRIBUTE);
-}
-
-/* disable-link-bw-encoding-ieee */
-DEFUN(neighbor_disable_link_bw_encoding_ieee,
-      neighbor_disable_link_bw_encoding_ieee_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> disable-link-bw-encoding-ieee",
-      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Disable IEEE floating-point encoding for extended community bandwidth\n")
-{
-	int idx_peer = 1;
-
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
-}
-
-DEFUN(no_neighbor_disable_link_bw_encoding_ieee,
-      no_neighbor_disable_link_bw_encoding_ieee_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> disable-link-bw-encoding-ieee",
-      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Disable IEEE floating-point encoding for extended community bandwidth\n")
-{
-	int idx_peer = 2;
-
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
-}
-
-/* extended-optional-parameters */
-DEFUN(neighbor_extended_optional_parameters,
-      neighbor_extended_optional_parameters_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> extended-optional-parameters",
-      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Force the extended optional parameters format for OPEN messages\n")
-{
-	int idx_peer = 1;
-
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_EXTENDED_OPT_PARAMS);
-}
-
-DEFUN(no_neighbor_extended_optional_parameters,
-      no_neighbor_extended_optional_parameters_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> extended-optional-parameters",
-      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Force the extended optional parameters format for OPEN messages\n")
-{
-	int idx_peer = 2;
-
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_EXTENDED_OPT_PARAMS);
-}
-
 
 
 
@@ -3744,28 +3654,6 @@ DEFPY (no_neighbor_allowas_in,
 				    bgp_node_safi(vty));
 
 	return bgp_vty_return(vty, ret);
-}
-
-DEFPY(
-	neighbor_aspath_loop_detection, neighbor_aspath_loop_detection_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor sender-as-path-loop-detection",
-	NEIGHBOR_STR
-	NEIGHBOR_ADDR_STR2
-	"Detect AS loops before sending to neighbor\n")
-{
-	return peer_flag_set_vty(vty, neighbor, PEER_FLAG_AS_LOOP_DETECTION);
-}
-
-DEFPY(
-	no_neighbor_aspath_loop_detection,
-	no_neighbor_aspath_loop_detection_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor sender-as-path-loop-detection",
-	NO_STR
-	NEIGHBOR_STR
-	NEIGHBOR_ADDR_STR2
-	"Detect AS loops before sending to neighbor\n")
-{
-	return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_AS_LOOP_DETECTION);
 }
 
 DEFPY(neighbor_damp,
@@ -14630,9 +14518,7 @@ void bgp_vty_init(void)
 
 	/* "neighbor addpath-rx-paths-limit" commands.*/
 
-	/* "neighbor sender-as-path-loop-detection" commands. */
-	install_element(BGP_NODE, &neighbor_aspath_loop_detection_cmd);
-	install_element(BGP_NODE, &no_neighbor_aspath_loop_detection_cmd);
+	/* "neighbor sender-as-path-loop-detection" — YANG: bgp_cli_init() */
 
 	/* "neighbor path-attribute discard" commands. */
 
@@ -14670,20 +14556,10 @@ void bgp_vty_init(void)
 
 	/* "neighbor disable-connected-check" commands.  */
 
-	/* "neighbor disable-link-bw-encoding-ieee" commands.  */
-	install_element(BGP_NODE, &neighbor_disable_link_bw_encoding_ieee_cmd);
-	install_element(BGP_NODE,
-			&no_neighbor_disable_link_bw_encoding_ieee_cmd);
-
-
-	install_element(BGP_NODE, &neighbor_extended_link_bw_cmd);
-
-	install_element(BGP_NODE, &neighbor_nhc_attribute_cmd);
-
-	/* "neighbor extended-optional-parameters" commands.  */
-	install_element(BGP_NODE, &neighbor_extended_optional_parameters_cmd);
-	install_element(BGP_NODE,
-			&no_neighbor_extended_optional_parameters_cmd);
+	/* neighbor disable-link-bw-encoding-ieee / extended-link-bandwidth /
+	 * send-nexthop-characteristics / extended-optional-parameters —
+	 * YANG: bgp_cli_init()
+	 */
 
 	/* "neighbor enforce-first-as" commands. */
 
