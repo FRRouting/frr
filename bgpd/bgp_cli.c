@@ -1521,6 +1521,7 @@ DEFPY_YANG(bgp_daemon_update_delay_yang, bgp_daemon_update_delay_yang_cmd,
 			      delay_str);
 	snprintfrr(wstr, sizeof(wstr), "%" PRId64, wait ? wait : delay);
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/establish-wait-time", NB_OP_MODIFY, wstr);
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -4822,6 +4823,30 @@ DEFPY_YANG_NOSH(address_family_link_state_yang,
 	if (ret != CMD_SUCCESS)
 		vty->node = saved_node;
 	return ret;
+}
+
+/*
+ * Interface MPLS BGP knobs (INTERFACE_NODE; xpath from if_cmd_init).
+ */
+DEFPY_YANG(mpls_bgp_forwarding_yang, mpls_bgp_forwarding_yang_cmd,
+	   "[no$no] mpls bgp forwarding",
+	   NO_STR MPLS_STR BGP_STR
+	   "Enable MPLS forwarding for eBGP directly connected peers\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-bgp:mpls-bgp-forwarding", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(mpls_bgp_l3vpn_multi_domain_switching_yang,
+	   mpls_bgp_l3vpn_multi_domain_switching_yang_cmd,
+	   "[no$no] mpls bgp l3vpn-multi-domain-switching",
+	   NO_STR MPLS_STR BGP_STR
+	   "Bind a local MPLS label to incoming L3VPN updates\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-bgp:mpls-l3vpn-multi-domain-switching", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(bgp_fs_local_install_yang, bgp_fs_local_install_yang_cmd,
@@ -9213,6 +9238,9 @@ void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
 	install_element(CONFIG_NODE, &no_router_bgp_yang_cmd);
+
+	install_element(INTERFACE_NODE, &mpls_bgp_forwarding_yang_cmd);
+	install_element(INTERFACE_NODE, &mpls_bgp_l3vpn_multi_domain_switching_yang_cmd);
 
 	/* address-family enter — creates global afi-safi list entry */
 	install_element(BGP_NODE, &address_family_ipv4_yang_cmd);

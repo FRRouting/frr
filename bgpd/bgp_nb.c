@@ -17514,6 +17514,20 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-interface:lib/frr-interface:interface/frr-bgp:mpls-bgp-forwarding",
+			.cbs = {
+				.modify = lib_interface_mpls_bgp_forwarding_modify,
+				.cli_show = bgp_nb_cli_show_mpls_bgp_forwarding,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/frr-interface:interface/frr-bgp:mpls-l3vpn-multi-domain-switching",
+			.cbs = {
+				.modify = lib_interface_mpls_l3vpn_multi_domain_switching_modify,
+				.cli_show = bgp_nb_cli_show_mpls_l3vpn_multi_domain_switching,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

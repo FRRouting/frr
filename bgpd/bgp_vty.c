@@ -12318,64 +12318,6 @@ static int config_write_interface(struct vty *vty)
 	return write;
 }
 
-DEFPY(mpls_bgp_forwarding, mpls_bgp_forwarding_cmd,
-      "[no$no] mpls bgp forwarding",
-      NO_STR MPLS_STR BGP_STR
-      "Enable MPLS forwarding for eBGP directly connected peers\n")
-{
-	bool check;
-	struct bgp_interface *iifp;
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	iifp = ifp->info;
-	if (!iifp) {
-		vty_out(vty, "Interface %s not available\n", ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	check = CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_BGP_FORWARDING);
-	if (check != !no) {
-		if (no)
-			UNSET_FLAG(iifp->flags,
-				   BGP_INTERFACE_MPLS_BGP_FORWARDING);
-		else
-			SET_FLAG(iifp->flags,
-				 BGP_INTERFACE_MPLS_BGP_FORWARDING);
-		/* trigger a nht update on eBGP sessions */
-		if (if_is_operative(ifp))
-			bgp_nht_ifp_up(ifp);
-	}
-	return CMD_SUCCESS;
-}
-
-DEFPY(mpls_bgp_l3vpn_multi_domain_switching,
-      mpls_bgp_l3vpn_multi_domain_switching_cmd,
-      "[no$no] mpls bgp l3vpn-multi-domain-switching",
-      NO_STR MPLS_STR BGP_STR
-      "Bind a local MPLS label to incoming L3VPN updates\n")
-{
-	bool check;
-	struct bgp_interface *iifp;
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	iifp = ifp->info;
-	if (!iifp) {
-		vty_out(vty, "Interface %s not available\n", ifp->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	check = CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
-	if (check == !no)
-		return CMD_SUCCESS;
-	if (no)
-		UNSET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
-	else
-		SET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
-	/* trigger a nht update on eBGP sessions */
-	if (if_is_operative(ifp))
-		bgp_nht_ifp_up(ifp);
-
-	return CMD_SUCCESS;
-}
-
 
 /* Initialization of BGP interface. */
 static void bgp_vty_if_init(void)
@@ -12383,10 +12325,7 @@ static void bgp_vty_if_init(void)
 	/* Install interface node. */
 	if_cmd_init(config_write_interface);
 
-	/* "mpls bgp forwarding" commands. */
-	install_element(INTERFACE_NODE, &mpls_bgp_forwarding_cmd);
-	install_element(INTERFACE_NODE,
-			&mpls_bgp_l3vpn_multi_domain_switching_cmd);
+	/* mpls bgp forwarding / l3vpn-multi-domain-switching — YANG: bgp_cli_init() */
 }
 
 /* Forward declaration for show_bgp_neighbor_upa_cmd defined after bgp_vty_init */

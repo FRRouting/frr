@@ -47,6 +47,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_damp.h"
 #include "frrdistance.h"
 #include "bgpd/bgp_srv6.h"
@@ -16457,4 +16458,99 @@ void bgp_nb_cli_show_daemon_graceful_shutdown(struct vty *vty, const struct lyd_
 		vty_out(vty, "bgp graceful-shutdown\n");
 	else if (show_defaults)
 		vty_out(vty, "no bgp graceful-shutdown\n");
+}
+
+/*
+ * XPath: /frr-interface:lib/frr-interface:interface/frr-bgp:mpls-bgp-forwarding
+ */
+int lib_interface_mpls_bgp_forwarding_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct bgp_interface *iifp;
+	bool enable;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!ifp)
+			return NB_ERR_NOT_FOUND;
+
+		iifp = ifp->info;
+		if (!iifp)
+			return NB_OK;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+		if (enable == !!CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_BGP_FORWARDING))
+			break;
+
+		if (enable)
+			SET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_BGP_FORWARDING);
+		else
+			UNSET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_BGP_FORWARDING);
+
+		if (if_is_operative(ifp))
+			bgp_nht_ifp_up(ifp);
+		break;
+	}
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_mpls_bgp_forwarding(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " mpls bgp forwarding\n");
+}
+
+/*
+ * XPath: /frr-interface:lib/frr-interface:interface/frr-bgp:mpls-l3vpn-multi-domain-switching
+ */
+int lib_interface_mpls_l3vpn_multi_domain_switching_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct bgp_interface *iifp;
+	bool enable;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!ifp)
+			return NB_ERR_NOT_FOUND;
+
+		iifp = ifp->info;
+		if (!iifp)
+			return NB_OK;
+
+		enable = yang_dnode_get_bool(args->dnode, NULL);
+		if (enable == !!CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING))
+			break;
+
+		if (enable)
+			SET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
+		else
+			UNSET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
+
+		if (if_is_operative(ifp))
+			bgp_nht_ifp_up(ifp);
+		break;
+	}
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_mpls_l3vpn_multi_domain_switching(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " mpls bgp l3vpn-multi-domain-switching\n");
 }
