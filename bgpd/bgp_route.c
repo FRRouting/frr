@@ -21080,22 +21080,7 @@ void bgp_route_init(void)
 	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);
 	install_element(BGP_IPV6L_NODE, &aggregate_addressv6_cmd);
 
-	install_element(BGP_IPV4M_NODE, &bgp_distance_cmd);
-	install_element(BGP_IPV4M_NODE, &no_bgp_distance_cmd);
-	install_element(BGP_IPV4M_NODE, &bgp_distance_source_cmd);
-	install_element(BGP_IPV4M_NODE, &no_bgp_distance_source_cmd);
-	install_element(BGP_IPV4M_NODE, &bgp_distance_source_access_list_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&no_bgp_distance_source_access_list_cmd);
-	/* ipv4/ipv6 unicast distance — YANG: bgp_cli_init() */
-	install_element(BGP_IPV6M_NODE, &bgp_distance_cmd);
-	install_element(BGP_IPV6M_NODE, &no_bgp_distance_cmd);
-	install_element(BGP_IPV6M_NODE, &ipv6_bgp_distance_source_cmd);
-	install_element(BGP_IPV6M_NODE, &no_ipv6_bgp_distance_source_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&ipv6_bgp_distance_source_access_list_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&no_ipv6_bgp_distance_source_access_list_cmd);
+	/* ipv4/ipv6 unicast + multicast distance — YANG: bgp_cli_init() */
 
 	/* BGP dampening — YANG: bgp_cli_init() */
 

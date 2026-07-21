@@ -8528,11 +8528,15 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &bgp_redistribute_ipv4_yang_hidden_cmd);
 	install_element(BGP_NODE, &bgp_redistribute_ipv4_instance_yang_hidden_cmd);
 
-	/* distance: ipv4/ipv6 unicast (multicast stays classic) */
+	/* distance: ipv4/ipv6 unicast + multicast */
 	install_element(BGP_IPV4_NODE, &bgp_distance_yang_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_distance_source_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &bgp_distance_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &bgp_distance_source_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_distance_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_distance_source_v6_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_distance_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_distance_source_v6_yang_cmd);
 	install_element(BGP_NODE, &bgp_distance_yang_hidden_cmd);
 	install_element(BGP_NODE, &bgp_distance_source_yang_hidden_cmd);
 

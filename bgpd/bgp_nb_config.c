@@ -6504,7 +6504,7 @@ int bgp_nb_redistribute_rmap_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * admin-distance / admin-distance-route (unicast)
+ * admin-distance / admin-distance-route (unicast + multicast)
  */
 static int bgp_nb_distance_bgp_apply(const struct lyd_node *leaf)
 {
