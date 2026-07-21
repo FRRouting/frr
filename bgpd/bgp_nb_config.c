@@ -7910,6 +7910,78 @@ void bgp_nb_cli_show_vpn_label_alloc_mode(struct vty *vty, const struct lyd_node
 		vty_out(vty, "  label vpn export allocation-mode %s\n", mode);
 }
 
+/*
+ * AF-level nexthop vpn export
+ */
+int bgp_nb_vpn_nexthop_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	union sockunion su;
+	struct prefix p;
+	const char *nh_str;
+
+	nh_str = yang_dnode_get_string(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (str2sockunion(nh_str, &su) < 0 || !sockunion2hostprefix(&su, &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Invalid nexthop");
+			return NB_ERR_VALIDATION;
+		}
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (str2sockunion(nh_str, &su) < 0 || !sockunion2hostprefix(&su, &p))
+		return NB_ERR_VALIDATION;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	bgp->vpn_policy[afi].tovpn_nexthop = p;
+	SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_nexthop_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_NEXTHOP_SET))
+		return NB_OK;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_vpn_nexthop(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  nexthop vpn export %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 
 /*
  * Sort implied by the candidate remote-as, not the running peer. A
