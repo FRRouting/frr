@@ -7282,6 +7282,7 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_filter_list_yang_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_map_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_LS_NODE, &neighbor_route_map_yang_cmd);
 
 	install_element(BGP_NODE, &neighbor_distribute_list_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_prefix_list_yang_hidden_cmd);
