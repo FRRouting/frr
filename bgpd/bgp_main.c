@@ -50,7 +50,9 @@
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_routemap_nb.h"
+#include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_community_alias.h"
+#include "routing_nb.h"
 
 DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
 	    (vty, vrf));
@@ -400,6 +402,8 @@ static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+	&frr_routing_info,
+	&frr_bgp_info,
 	&frr_bgp_route_map_info,
 };
 
@@ -531,6 +535,8 @@ CPP_NOTICE("Remove `--no_zebra` option as that it is deprecated")
 
 	/* BGP master init. */
 	bgp_master_init(frr_init(), buffer_size, addresses);
+
+	hook_register(routing_destroy, bgp_nb_routing_destroy);
 
 	bm->startup_time = monotime(NULL);
 	bm->port = bgp_port;
