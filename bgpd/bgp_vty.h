@@ -143,6 +143,10 @@ FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
 	} while (0)
 
 extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_clear_soft_out(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_clear_all_soft_in(struct bgp *bgp);
+extern void bgp_clear_all_soft_out(struct bgp *bgp);
+extern void bgp_initiate_graceful_shut_unshut(struct bgp *bgp);
 
 /* Peer show flags */
 /* Value of 0 means show all information */

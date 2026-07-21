@@ -44,6 +44,42 @@ int bgp_nb_import_check_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_import_check(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
 
+
+int bgp_nb_cluster_id_modify(struct nb_cb_modify_args *args);
+int bgp_nb_cluster_id_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_cluster_id(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_no_client_reflect_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_no_client_reflect(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_always_compare_med_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_always_compare_med(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+
+int bgp_nb_deterministic_med_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_deterministic_med(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_local_pref_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_local_pref(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_fast_external_failover_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_fast_external_failover(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+
+int bgp_nb_suppress_duplicates_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_suppress_duplicates(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+
+int bgp_nb_graceful_shutdown_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_graceful_shutdown(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_reject_as_sets_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_reject_as_sets(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

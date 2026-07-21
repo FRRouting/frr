@@ -343,6 +343,188 @@ DEFUN_YANG(no_bgp_network_import_check_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFUN_YANG(bgp_cluster_id_yang, bgp_cluster_id_yang_cmd,
+	   "bgp cluster-id <A.B.C.D|(1-4294967295)>",
+	   BGP_STR
+	   "Configure Route-Reflector Cluster-id\n"
+	   "Route-Reflector Cluster-id in IP address format\n"
+	   "Route-Reflector Cluster-id as 32 bit quantity\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-reflector/route-reflector-cluster-id",
+			      NB_OP_MODIFY, argv[2]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_cluster_id_yang, no_bgp_cluster_id_yang_cmd,
+	   "no bgp cluster-id [<A.B.C.D|(1-4294967295)>]",
+	   NO_STR BGP_STR
+	   "Configure Route-Reflector Cluster-id\n"
+	   "Route-Reflector Cluster-id in IP address format\n"
+	   "Route-Reflector Cluster-id as 32 bit quantity\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-reflector/route-reflector-cluster-id",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_client_to_client_reflection_yang,
+	   bgp_client_to_client_reflection_yang_cmd,
+	   "bgp client-to-client reflection",
+	   BGP_STR
+	   "Configure client to client route reflection\n"
+	   "reflection of routes allowed\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-reflector/no-client-reflect", NB_OP_MODIFY,
+			      "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_client_to_client_reflection_yang,
+	   no_bgp_client_to_client_reflection_yang_cmd,
+	   "no bgp client-to-client reflection",
+	   NO_STR BGP_STR
+	   "Configure client to client route reflection\n"
+	   "reflection of routes allowed\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-reflector/no-client-reflect", NB_OP_MODIFY,
+			      "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_always_compare_med_yang, bgp_always_compare_med_yang_cmd,
+	   "bgp always-compare-med",
+	   BGP_STR "Allow comparing MED from different neighbors\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/always-compare-med",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_always_compare_med_yang, no_bgp_always_compare_med_yang_cmd,
+	   "no bgp always-compare-med",
+	   NO_STR BGP_STR
+	   "Allow comparing MED from different neighbors\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/always-compare-med",
+			      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_deterministic_med_yang, bgp_deterministic_med_yang_cmd,
+	   "bgp deterministic-med",
+	   BGP_STR
+	   "Pick the best-MED path among paths advertised from the neighboring AS\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/deterministic-med",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_deterministic_med_yang, no_bgp_deterministic_med_yang_cmd,
+	   "no bgp deterministic-med",
+	   NO_STR BGP_STR
+	   "Pick the best-MED path among paths advertised from the neighboring AS\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/deterministic-med",
+			      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_default_local_preference_yang,
+	   bgp_default_local_preference_yang_cmd,
+	   "bgp default local-preference (0-4294967295)",
+	   BGP_STR
+	   "Configure BGP defaults\n"
+	   "local preference (higher=more preferred)\n"
+	   "Configure default local preference value\n")
+{
+	nb_cli_enqueue_change(vty, "./global/local-pref", NB_OP_MODIFY, argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_default_local_preference_yang,
+	   no_bgp_default_local_preference_yang_cmd,
+	   "no bgp default local-preference [(0-4294967295)]",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "local preference (higher=more preferred)\n"
+	   "Configure default local preference value\n")
+{
+	nb_cli_enqueue_change(vty, "./global/local-pref", NB_OP_MODIFY, "100");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_fast_external_failover_yang, bgp_fast_external_failover_yang_cmd,
+	   "bgp fast-external-failover",
+	   BGP_STR
+	   "Immediately reset session if a link to a directly connected external peer goes down\n")
+{
+	nb_cli_enqueue_change(vty, "./global/fast-external-failover", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_fast_external_failover_yang,
+	   no_bgp_fast_external_failover_yang_cmd,
+	   "no bgp fast-external-failover",
+	   NO_STR BGP_STR
+	   "Immediately reset session if a link to a directly connected external peer goes down\n")
+{
+	nb_cli_enqueue_change(vty, "./global/fast-external-failover", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_suppress_duplicates_yang, bgp_suppress_duplicates_yang_cmd,
+	   "bgp suppress-duplicates",
+	   BGP_STR
+	   "Suppress duplicate updates if the route actually not changed\n")
+{
+	nb_cli_enqueue_change(vty, "./global/suppress-duplicates", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_suppress_duplicates_yang,
+	   no_bgp_suppress_duplicates_yang_cmd,
+	   "no bgp suppress-duplicates",
+	   NO_STR BGP_STR
+	   "Suppress duplicate updates if the route actually not changed\n")
+{
+	nb_cli_enqueue_change(vty, "./global/suppress-duplicates", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_graceful_shutdown_yang, bgp_graceful_shutdown_yang_cmd,
+	   "bgp graceful-shutdown", BGP_STR "Graceful shutdown parameters\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-shutdown/enable", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_shutdown_yang, no_bgp_graceful_shutdown_yang_cmd,
+	   "no bgp graceful-shutdown",
+	   NO_STR BGP_STR "Graceful shutdown parameters\n")
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-shutdown/enable", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_reject_as_sets_yang, bgp_reject_as_sets_yang_cmd,
+	   "bgp reject-as-sets",
+	   BGP_STR
+	   "Reject routes with AS_SET or AS_CONFED_SET flag\n")
+{
+	nb_cli_enqueue_change(vty, "./global/reject-as-sets", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_reject_as_sets_yang, no_bgp_reject_as_sets_yang_cmd,
+	   "no bgp reject-as-sets",
+	   NO_STR BGP_STR
+	   "Reject routes with AS_SET or AS_CONFED_SET flag\n")
+{
+	nb_cli_enqueue_change(vty, "./global/reject-as-sets", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -356,4 +538,23 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_ebgp_requires_policy_yang_cmd);
 	install_element(BGP_NODE, &bgp_network_import_check_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_network_import_check_yang_cmd);
+
+	install_element(BGP_NODE, &bgp_cluster_id_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_cluster_id_yang_cmd);
+	install_element(BGP_NODE, &bgp_client_to_client_reflection_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_client_to_client_reflection_yang_cmd);
+	install_element(BGP_NODE, &bgp_always_compare_med_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_always_compare_med_yang_cmd);
+	install_element(BGP_NODE, &bgp_deterministic_med_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_deterministic_med_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_local_preference_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_default_local_preference_yang_cmd);
+	install_element(BGP_NODE, &bgp_fast_external_failover_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_fast_external_failover_yang_cmd);
+	install_element(BGP_NODE, &bgp_suppress_duplicates_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_suppress_duplicates_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_shutdown_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_shutdown_yang_cmd);
+	install_element(BGP_NODE, &bgp_reject_as_sets_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_reject_as_sets_yang_cmd);
 }

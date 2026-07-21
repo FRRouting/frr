@@ -18,6 +18,7 @@
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_addpath.h"
 
 /*
  * XPath: .../frr-bgp:bgp
@@ -321,4 +322,309 @@ void bgp_nb_cli_show_import_check(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " bgp network import-check\n");
 	else
 		vty_out(vty, " no bgp network import-check\n");
+}
+
+int bgp_nb_cluster_id_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct in_addr cluster;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!inet_aton(yang_dnode_get_string(args->dnode, NULL), &cluster)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Malformed bgp cluster identifier");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	inet_aton(yang_dnode_get_string(args->dnode, NULL), &cluster);
+	bgp_cluster_id_set(bgp, &cluster);
+	bgp_clear_all_soft_out(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_cluster_id_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_cluster_id_unset(bgp);
+	bgp_clear_all_soft_out(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_cluster_id(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " bgp cluster-id %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_no_client_reflect_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
+	bgp_clear_all_soft_out(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_no_client_reflect(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no bgp client-to-client reflection\n");
+	else if (show_defaults)
+		vty_out(vty, " bgp client-to-client reflection\n");
+}
+
+int bgp_nb_always_compare_med_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
+	bgp_recalculate_all_bestpaths(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_always_compare_med(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp always-compare-med\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp always-compare-med\n");
+}
+
+int bgp_nb_deterministic_med_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct peer *peer;
+	struct listnode *node, *nnode;
+	afi_t afi;
+	safi_t safi;
+	bool enable;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (enable)
+			return NB_OK;
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED))
+			return NB_OK;
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (bgp_addpath_dmed_required(peer->addpath_type[afi][safi])) {
+					snprintfrr(args->errmsg, args->errmsg_len,
+						   "bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use");
+					return NB_ERR_VALIDATION;
+				}
+			}
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (enable) {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
+			SET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
+			bgp_recalculate_all_bestpaths(bgp);
+		}
+	} else if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
+		bgp_recalculate_all_bestpaths(bgp);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_deterministic_med(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp deterministic-med\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp deterministic-med\n");
+}
+
+int bgp_nb_local_pref_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_default_local_preference_set(bgp, yang_dnode_get_uint32(args->dnode, NULL));
+	bgp_clear_all_soft_in(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_local_pref(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t pref = yang_dnode_get_uint32(dnode, NULL);
+
+	if (pref != 100 || show_defaults)
+		vty_out(vty, " bgp default local-preference %u\n", pref);
+}
+
+int bgp_nb_fast_external_failover_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	bool enabled;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	/* YANG true => feature enabled => clear NO_FAST flag */
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+	if (enabled)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_fast_external_failover(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no bgp fast-external-failover\n");
+	else if (show_defaults)
+		vty_out(vty, " bgp fast-external-failover\n");
+}
+
+int bgp_nb_suppress_duplicates_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_suppress_duplicates(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		if (show_defaults)
+			vty_out(vty, " bgp suppress-duplicates\n");
+	} else
+		vty_out(vty, " no bgp suppress-duplicates\n");
+}
+
+int bgp_nb_graceful_shutdown_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	bool enable;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "per-vrf graceful-shutdown not permitted with global graceful-shutdown");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (enable) {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+			SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
+			bgp_initiate_graceful_shut_unshut(bgp);
+		}
+	} else if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
+		bgp_initiate_graceful_shut_unshut(bgp);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_graceful_shutdown(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp graceful-shutdown\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp graceful-shutdown\n");
+}
+
+int bgp_nb_reject_as_sets_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node, *nnode;
+	struct peer *peer;
+	bool reject;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	reject = yang_dnode_get_bool(args->dnode, NULL);
+	if (bgp->reject_as_sets == reject)
+		return NB_OK;
+
+	bgp->reject_as_sets = reject;
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		peer_set_last_reset(peer, PEER_DOWN_AS_SETS_REJECT);
+		peer_notify_config_change(peer->connection);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_reject_as_sets(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	/* Default is true; only emit "no" when disabled. */
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		if (show_defaults)
+			vty_out(vty, " bgp reject-as-sets\n");
+	} else
+		vty_out(vty, " no bgp reject-as-sets\n");
 }
