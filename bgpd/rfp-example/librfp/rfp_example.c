@@ -27,7 +27,7 @@ struct rfp_instance_t
 /***********************************************************************
  * Sample VTY / internal function
  **********************************************************************/
-#define RFP_SHOW_STR "RFP information\n"
+#define RFP_SHOW_STR "RFP configuration\n"
 DEFUN (rfp_example_config_value,
        rfp_example_config_value_cmd,
        "rfp example-config-value VALUE",
@@ -50,8 +50,8 @@ DEFUN (rfp_holddown_factor,
        rfp_holddown_factor_cmd,
        "rfp holddown-factor (0-4294967295)",
        RFP_SHOW_STR
-       "Set Hold-Down Factor as a percentage of registration lifetime.\n"
-       "Percentage of registration lifetime\n")
+       "Holddown factor\n"
+       "Holddown factor value\n")
 {
 	struct rfp_instance_t *rfi;
 	uint32_t value = 0;
@@ -72,9 +72,9 @@ DEFUN (rfp_full_table_download,
        rfp_full_table_download_cmd,
        "rfp full-table-download <on|off>",
        RFP_SHOW_STR
-       "RFP full table download support (default=on)\n"
-       "Enable RFP full table download\n"
-       "Disable RFP full table download\n")
+       "Full table download\n"
+       "Enable full table download\n"
+       "Disable full table download\n")
 {
 	struct rfp_instance_t *rfi;
 	rfapi_rfp_download_type old;

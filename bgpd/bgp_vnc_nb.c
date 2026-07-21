@@ -1,0 +1,1117 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * BGP VNC/RFAPI northbound callbacks
+ * Copyright (C) 2026 FRRouting
+ */
+
+#include <zebra.h>
+
+#if ENABLE_BGP_VNC
+
+#include "northbound.h"
+#include "libfrr.h"
+#include "prefix.h"
+
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_rd.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_vnc_nb.h"
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi_import.h"
+#include "bgpd/rfapi/vnc_import_bgp.h"
+#include "bgpd/rfapi/vnc_export_bgp.h"
+#include "bgpd/rfapi/vnc_export_bgp_p.h"
+#include "bgpd/rfapi/vnc_zebra.h"
+#include "lib/agg_table.h"
+
+/*
+ * ===================================================================
+ * VNC (Virtual Network Control / RFAPI) NB callbacks
+ * ===================================================================
+ */
+
+/*
+ * Helper: walk parents until a BGP running entry is found.
+ * VNC nodes live under .../frr-bgp:bgp/frr-bgp-vnc:vnc/...
+ */
+static struct bgp *bgp_nb_vnc_get_bgp(const struct lyd_node *dnode)
+{
+	const struct lyd_node *dn = dnode;
+	struct bgp *bgp;
+
+	while (dn) {
+		bgp = nb_running_get_entry(dn, NULL, false);
+		if (bgp)
+			return bgp;
+		dn = lyd_parent(dn);
+	}
+	return NULL;
+}
+
+
+/*
+ * Helper: parse RD string including auto:vn:NN and auto:nh:NN formats.
+ */
+static int vnc_nb_parse_rd(const char *rd_str, struct prefix_rd *prd, bool is_vrf_policy)
+{
+	memset(prd, 0, sizeof(*prd));
+
+	if (is_vrf_policy && !strncmp(rd_str, "auto:nh:", 8)) {
+		uint16_t nn = atoi(rd_str + 8);
+
+		prd->family = AF_UNIX;
+		prd->prefixlen = 64;
+		prd->val[0] = (RD_TYPE_IP >> 8) & 0x0ff;
+		prd->val[1] = RD_TYPE_IP & 0x0ff;
+		prd->val[6] = (nn >> 8) & 0x0ff;
+		prd->val[7] = nn & 0x0ff;
+		return 0;
+	}
+
+	if (!strncmp(rd_str, "auto:vn:", 8)) {
+		uint16_t nn = atoi(rd_str + 8);
+
+		prd->family = AF_UNIX;
+		prd->prefixlen = 64;
+		prd->val[0] = (RD_TYPE_IP >> 8) & 0x0ff;
+		prd->val[1] = RD_TYPE_IP & 0x0ff;
+		prd->val[6] = (nn >> 8) & 0x0ff;
+		prd->val[7] = nn & 0x0ff;
+		return 0;
+	}
+
+	if (str2prefix_rd(rd_str, prd))
+		return 0;
+
+	return -1;
+}
+
+int bgp_global_vnc_create(struct nb_cb_create_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return NB_OK;
+}
+
+int bgp_global_vnc_rfp_holddown_factor_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	bgp->rfapi_cfg->rfp_cfg.holddown_factor = yang_dnode_get_uint32(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_global_vnc_rfp_full_table_download_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	const char *mode = yang_dnode_get_string(args->dnode, NULL);
+
+	bgp->rfapi_cfg->rfp_cfg.download_type = !strcmp(mode, "on") ? RFAPI_RFP_DOWNLOAD_FULL
+								    : RFAPI_RFP_DOWNLOAD_PARTIAL;
+	return NB_OK;
+}
+
+int bgp_global_vnc_defaults_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int bgp_global_vnc_defaults_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+int bgp_global_vnc_defaults_rd_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct prefix_rd prd;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	if (vnc_nb_parse_rd(yang_dnode_get_string(args->dnode, NULL), &prd, false))
+		return NB_ERR_INCONSISTENCY;
+
+	bgp->rfapi_cfg->default_rd = prd;
+	return NB_OK;
+}
+
+int bgp_global_vnc_defaults_response_lifetime_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	const char *val = yang_dnode_get_string(args->dnode, NULL);
+
+	if (!strcmp(val, "infinite"))
+		bgp->rfapi_cfg->default_response_lifetime = RFAPI_INFINITE_LIFETIME;
+	else
+		bgp->rfapi_cfg->default_response_lifetime = strtoul(val, NULL, 10);
+	return NB_OK;
+}
+
+int bgp_global_vnc_defaults_rt_import_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL),
+				&bgp->rfapi_cfg->default_rt_import_list);
+	return NB_OK;
+}
+
+int bgp_global_vnc_defaults_rt_export_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL),
+				&bgp->rfapi_cfg->default_rt_export_list);
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	struct rfapi_nve_group_cfg *rfg;
+	const char *name;
+	const struct lyd_node *defaults;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	name = yang_dnode_get_string(args->dnode, "name");
+	rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_NVE);
+	if (!rfg) {
+		rfg = rfapi_group_new(bgp, RFAPI_GROUP_CFG_NVE, name);
+
+		/*
+		 * Read defaults from YANG dnode (not C struct) to handle
+		 * NB commit ordering: CREATEs fire before MODIFYs, so the
+		 * C struct defaults may not be set yet. The YANG dnode tree
+		 * already has the final committed state.
+		 */
+		defaults = yang_dnode_get(args->dnode, "../defaults");
+		if (defaults) {
+			if (yang_dnode_exists(defaults, "rd")) {
+				vnc_nb_parse_rd(yang_dnode_get_string(defaults, "rd"), &rfg->rd,
+						false);
+			}
+			if (yang_dnode_exists(defaults, "response-lifetime")) {
+				const char *val = yang_dnode_get_string(defaults,
+									"response-lifetime");
+				if (!strcmp(val, "infinite"))
+					rfg->response_lifetime = RFAPI_INFINITE_LIFETIME;
+				else
+					rfg->response_lifetime = strtoul(val, NULL, 10);
+			} else {
+				rfg->response_lifetime = BGP_VNC_DEFAULT_RESPONSE_LIFETIME_DEFAULT;
+			}
+			if (yang_dnode_exists(defaults, "rt-export")) {
+				rfapi_set_ecom_from_str(yang_dnode_get_string(defaults,
+									      "rt-export"),
+							&rfg->rt_export_list);
+			}
+			if (yang_dnode_exists(defaults, "rt-import")) {
+				rfapi_set_ecom_from_str(yang_dnode_get_string(defaults,
+									      "rt-import"),
+							&rfg->rt_import_list);
+				if (rfg->rt_import_list)
+					rfg->rfapi_import_table =
+						rfapiImportTableRefAdd(bgp, rfg->rt_import_list,
+								       rfg);
+			}
+		} else {
+			rfg->response_lifetime = BGP_VNC_DEFAULT_RESPONSE_LIFETIME_DEFAULT;
+		}
+
+		/* Link to redist group if name matches (baseline side effect) */
+		if (!bgp->rfapi_cfg->rfg_redist && bgp->rfapi_cfg->rfg_redist_name &&
+		    !strcmp(bgp->rfapi_cfg->rfg_redist_name, rfg->name)) {
+			vnc_redistribute_prechange(bgp);
+			bgp->rfapi_cfg->rfg_redist = rfg;
+			vnc_redistribute_postchange(bgp);
+		}
+
+		/*
+		 * Export-group name entries are created before the NVE group
+		 * exists. Attach the backpointer the way bgp_rfapi_cfg_group_new()
+		 * does, or vnc export never sees this group.
+		 */
+		if (bgp->rfapi_cfg->rfg_export_direct_bgp_l) {
+			struct listnode *node, *nnode;
+			struct rfapi_rfg_name *rfgn;
+
+			for (ALL_LIST_ELEMENTS(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node, nnode,
+					       rfgn)) {
+				if (strcmp(rfgn->name, rfg->name))
+					continue;
+				rfgn->rfg = rfg;
+				vnc_direct_bgp_add_group(bgp, rfg);
+				break;
+			}
+		}
+		if (bgp->rfapi_cfg->rfg_export_zebra_l) {
+			struct listnode *node, *nnode;
+			struct rfapi_rfg_name *rfgn;
+
+			for (ALL_LIST_ELEMENTS(bgp->rfapi_cfg->rfg_export_zebra_l, node, nnode,
+					       rfgn)) {
+				if (strcmp(rfgn->name, rfg->name))
+					continue;
+				rfgn->rfg = rfg;
+				vnc_zebra_add_group(bgp, rfg);
+				break;
+			}
+		}
+	}
+
+	nb_running_set_entry(args->dnode, rfg);
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	nb_running_unset_entry(args->dnode);
+	return NB_OK;
+}
+
+/*
+ * Another group in this candidate already owns the prefix. Two creates in
+ * one commit are not in the agg table yet, so the live tree is not enough.
+ * A prefix still installed for a different group is rejected the same way
+ * the classic "prefix vn|un" handler rejects rn->info.
+ */
+static int bgp_vnc_nve_prefix_validate(const struct lyd_node *group, const struct prefix *p, bool un,
+				       char *errmsg, size_t errmsg_len)
+{
+	const struct lyd_node *parent, *sib;
+	const char *leaf = un ? "prefix-un" : "prefix-vn";
+	const char *which = un ? "un" : "vn";
+	struct bgp *bgp;
+	struct rfapi_nve_group_cfg *rfg;
+	afi_t afi;
+	struct agg_table *rt;
+	struct agg_node *an;
+
+	parent = lyd_parent(group);
+	if (parent) {
+		LY_LIST_FOR (lyd_child(parent), sib) {
+			struct prefix op;
+
+			if (sib == group || !strmatch(sib->schema->name, "nve-group"))
+				continue;
+			if (!yang_dnode_exists(sib, leaf))
+				continue;
+			if (!str2prefix(yang_dnode_get_string(sib, "%s", leaf), &op) || !prefix_same(&op, p))
+				continue;
+			snprintfrr(errmsg, errmsg_len, "nve group \"%s\" already has \"%s\" prefix %pFX",
+				   yang_dnode_get_string(sib, "name"), which, p);
+			return NB_ERR_VALIDATION;
+		}
+	}
+
+	bgp = bgp_nb_vnc_get_bgp(group);
+	rfg = nb_running_get_entry(group, NULL, false);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_OK;
+
+	afi = family2afi(p->family);
+	if (!afi)
+		return NB_OK;
+	rt = un ? bgp->rfapi_cfg->nve_groups_un[afi] : bgp->rfapi_cfg->nve_groups_vn[afi];
+	if (!rt)
+		return NB_OK;
+
+	an = agg_node_lookup(rt, p);
+	if (!an)
+		return NB_OK;
+	if (an->info && an->info != rfg) {
+		snprintfrr(errmsg, errmsg_len, "nve group \"%s\" already has \"%s\" prefix %pFX",
+			   ((struct rfapi_nve_group_cfg *)an->info)->name, which, p);
+		agg_unlock_node(an);
+		return NB_ERR_VALIDATION;
+	}
+	agg_unlock_node(an);
+	return NB_OK;
+}
+
+static int bgp_vnc_nve_prefix_apply(const struct lyd_node *dnode, bool un)
+{
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+	struct prefix p;
+	afi_t afi;
+	struct agg_table *rt;
+	struct agg_node *rn;
+	struct agg_node **backref;
+
+	rfg = nb_running_get_entry(lyd_parent(dnode), NULL, true);
+	bgp = bgp_nb_vnc_get_bgp(dnode);
+	if (!rfg || !bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	if (!str2prefix(yang_dnode_get_string(dnode, NULL), &p))
+		return NB_ERR_INCONSISTENCY;
+
+	afi = family2afi(p.family);
+	if (!afi)
+		return NB_ERR_INCONSISTENCY;
+	rt = un ? bgp->rfapi_cfg->nve_groups_un[afi] : bgp->rfapi_cfg->nve_groups_vn[afi];
+	if (!rt)
+		return NB_ERR_INCONSISTENCY;
+
+	rn = agg_node_get(rt, &p);
+	if (rn->info) {
+		agg_unlock_node(rn);
+		if (rn->info != rfg)
+			return NB_ERR_INCONSISTENCY;
+		return NB_OK;
+	}
+
+	/*
+	 * Drop the old node before unlocking it. A node with children stays
+	 * in the tree, and a later group delete would free this group while
+	 * the old node still pointed at it.
+	 */
+	backref = un ? &rfg->un_node : &rfg->vn_node;
+	if (*backref) {
+		(*backref)->info = NULL;
+		agg_unlock_node(*backref);
+		*backref = NULL;
+	}
+	*backref = rn;
+	if (un)
+		rfg->un_prefix = p;
+	else
+		rfg->vn_prefix = p;
+	rn->info = rfg;
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_prefix_vn_modify(struct nb_cb_modify_args *args)
+{
+	struct prefix p;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!str2prefix(yang_dnode_get_string(args->dnode, NULL), &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed prefix");
+			return NB_ERR_VALIDATION;
+		}
+		if (!family2afi(p.family)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Unsupported address family");
+			return NB_ERR_VALIDATION;
+		}
+		return bgp_vnc_nve_prefix_validate(lyd_parent(args->dnode), &p, false, args->errmsg,
+						   args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_vnc_nve_prefix_apply(args->dnode, false);
+	}
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_prefix_un_modify(struct nb_cb_modify_args *args)
+{
+	struct prefix p;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!str2prefix(yang_dnode_get_string(args->dnode, NULL), &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed prefix");
+			return NB_ERR_VALIDATION;
+		}
+		if (!family2afi(p.family)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Unsupported address family");
+			return NB_ERR_VALIDATION;
+		}
+		return bgp_vnc_nve_prefix_validate(lyd_parent(args->dnode), &p, true, args->errmsg,
+						   args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		return bgp_vnc_nve_prefix_apply(args->dnode, true);
+	}
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_rd_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+	vnc_nb_parse_rd(yang_dnode_get_string(args->dnode, NULL), &rfg->rd, false);
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_response_lifetime_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+	const char *val = yang_dnode_get_string(args->dnode, NULL);
+
+	if (!strcmp(val, "infinite"))
+		rfg->response_lifetime = RFAPI_INFINITE_LIFETIME;
+	else
+		rfg->response_lifetime = strtoul(val, NULL, 10);
+	SET_FLAG(rfg->flags, RFAPI_RFG_RESPONSE_LIFETIME);
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_rt_import_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!rfg || !bgp)
+		return NB_ERR_INCONSISTENCY;
+	if (rfg->rt_import_list && rfg->rfapi_import_table)
+		rfapiImportTableRefDelByIt(bgp, rfg->rfapi_import_table);
+	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL), &rfg->rt_import_list);
+	if (rfg->rt_import_list)
+		rfg->rfapi_import_table = rfapiImportTableRefAdd(bgp, rfg->rt_import_list, rfg);
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_rt_export_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL), &rfg->rt_export_list);
+	return NB_OK;
+}
+
+int bgp_global_vnc_vrf_policy_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	struct rfapi_nve_group_cfg *rfg;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	name = yang_dnode_get_string(args->dnode, "name");
+	rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_VRF);
+	if (!rfg)
+		rfg = rfapi_group_new(bgp, RFAPI_GROUP_CFG_VRF, name);
+	nb_running_set_entry(args->dnode, rfg);
+	return NB_OK;
+}
+
+int bgp_global_vnc_vrf_policy_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	nb_running_unset_entry(args->dnode);
+	return NB_OK;
+}
+
+int bgp_global_vnc_vrf_policy_label_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!rfg || !bgp)
+		return NB_ERR_INCONSISTENCY;
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_prechange(bgp);
+	rfg->label = yang_dnode_get_uint32(args->dnode, NULL);
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_postchange(bgp);
+	return NB_OK;
+}
+
+int bgp_global_vnc_vrf_policy_label_destroy(struct nb_cb_destroy_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!rfg || !bgp)
+		return NB_ERR_INCONSISTENCY;
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_prechange(bgp);
+	rfg->label = MPLS_LABEL_NONE;
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_postchange(bgp);
+	return NB_OK;
+}
+
+int bgp_global_vnc_vrf_policy_rd_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!rfg || !bgp)
+		return NB_ERR_INCONSISTENCY;
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_prechange(bgp);
+	vnc_nb_parse_rd(yang_dnode_get_string(args->dnode, NULL), &rfg->rd, true);
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_postchange(bgp);
+	return NB_OK;
+}
+
+int bgp_global_vnc_vrf_policy_rt_import_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!rfg || !bgp)
+		return NB_ERR_INCONSISTENCY;
+	if (rfg->rt_import_list && rfg->rfapi_import_table)
+		rfapiImportTableRefDelByIt(bgp, rfg->rfapi_import_table);
+	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL), &rfg->rt_import_list);
+	if (rfg->rt_import_list)
+		rfg->rfapi_import_table = rfapiImportTableRefAdd(bgp, rfg->rt_import_list, rfg);
+	return NB_OK;
+}
+
+int bgp_global_vnc_vrf_policy_rt_export_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL), &rfg->rt_export_list);
+	return NB_OK;
+}
+
+int bgp_global_vnc_vrf_policy_nexthop_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+	struct prefix p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!rfg || !bgp)
+		return NB_ERR_INCONSISTENCY;
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_prechange(bgp);
+	const char *nh = yang_dnode_get_string(args->dnode, NULL);
+
+	if (!strcmp(nh, "self") || !str2prefix(nh, &p)) {
+		SET_FLAG(rfg->flags, RFAPI_RFG_VPN_NH_SELF);
+		memset(&rfg->vn_prefix, 0, sizeof(rfg->vn_prefix));
+	} else {
+		UNSET_FLAG(rfg->flags, RFAPI_RFG_VPN_NH_SELF);
+		rfg->vn_prefix = p;
+		rfg->un_prefix = p;
+	}
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_postchange(bgp);
+	return NB_OK;
+}
+
+int bgp_global_vnc_export_bgp_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	vnc_export_bgp_prechange(bgp);
+	const char *mode = yang_dnode_get_string(args->dnode, NULL);
+
+	bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_EXPORT_BGP_MODE_BITS;
+	if (!strcmp(mode, "group-nve"))
+		bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_EXPORT_BGP_MODE_GRP;
+	else if (!strcmp(mode, "registering-nve"))
+		bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_EXPORT_BGP_MODE_RH;
+	else if (!strcmp(mode, "ce"))
+		bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_EXPORT_BGP_MODE_CE;
+	vnc_export_bgp_postchange(bgp);
+	return NB_OK;
+}
+
+int bgp_global_vnc_export_bgp_group_nve_group_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	struct rfapi_rfg_name *rfgn;
+	struct rfapi_nve_group_cfg *rfg;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	name = lyd_get_value(args->dnode);
+	rfgn = XCALLOC(MTYPE_RFAPI_RFG_NAME, sizeof(struct rfapi_rfg_name));
+	rfgn->name = XSTRDUP(MTYPE_RFAPI_RFG_NAME, name);
+	rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_NVE);
+	if (!rfg)
+		rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_VRF);
+	rfgn->rfg = rfg;
+	if (!bgp->rfapi_cfg->rfg_export_direct_bgp_l)
+		bgp->rfapi_cfg->rfg_export_direct_bgp_l = list_new();
+	listnode_add(bgp->rfapi_cfg->rfg_export_direct_bgp_l, rfgn);
+	if (rfg && (bgp->rfapi_cfg->flags & BGP_VNC_CONFIG_EXPORT_BGP_MODE_GRP))
+		vnc_direct_bgp_add_group(bgp, rfg);
+	return NB_OK;
+}
+
+int bgp_global_vnc_export_bgp_group_nve_group_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return NB_OK;
+}
+
+int bgp_global_vnc_redistribute_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	vnc_redistribute_prechange(bgp);
+	const char *mode = yang_dnode_get_string(args->dnode, NULL);
+
+	if (!strcmp(mode, "nve-group"))
+		bgp->rfapi_cfg->redist_mode = VNC_REDIST_MODE_RFG;
+	else if (!strcmp(mode, "resolve-nve"))
+		bgp->rfapi_cfg->redist_mode = VNC_REDIST_MODE_RESOLVE_NVE;
+	else
+		bgp->rfapi_cfg->redist_mode = VNC_REDIST_MODE_PLAIN;
+	vnc_redistribute_postchange(bgp);
+	return NB_OK;
+}
+
+int bgp_global_vnc_redistribute_ipv4_source_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	int type;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	const char *source = lyd_get_value(args->dnode);
+
+	if (rfapi_str2route_type("ipv4", source, &afi, &type))
+		return NB_ERR_INCONSISTENCY;
+	if (bgp->rfapi_cfg->redist[afi][type])
+		return NB_OK;
+	switch (type) {
+	case ZEBRA_ROUTE_BGP_DIRECT:
+		vnc_import_bgp_redist_enable(bgp, afi);
+		break;
+	case ZEBRA_ROUTE_BGP_DIRECT_EXT:
+		vnc_import_bgp_exterior_redist_enable(bgp, afi);
+		break;
+	default:
+		if (type < ZEBRA_ROUTE_MAX)
+			vnc_redistribute_set(bgp, afi, type);
+		break;
+	}
+	return NB_OK;
+}
+
+int bgp_global_vnc_redistribute_ipv4_source_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	int type;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	const char *source = lyd_get_value(args->dnode);
+
+	if (rfapi_str2route_type("ipv4", source, &afi, &type))
+		return NB_ERR_INCONSISTENCY;
+	switch (type) {
+	case ZEBRA_ROUTE_BGP_DIRECT:
+		vnc_import_bgp_redist_disable(bgp, afi);
+		break;
+	case ZEBRA_ROUTE_BGP_DIRECT_EXT:
+		vnc_import_bgp_exterior_redist_disable(bgp, afi);
+		break;
+	default:
+		if (type < ZEBRA_ROUTE_MAX)
+			vnc_redistribute_unset(bgp, afi, type);
+		break;
+	}
+	return NB_OK;
+}
+
+int bgp_global_vnc_redistribute_ipv6_source_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	int type;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	const char *source = lyd_get_value(args->dnode);
+
+	if (rfapi_str2route_type("ipv6", source, &afi, &type))
+		return NB_ERR_INCONSISTENCY;
+	if (bgp->rfapi_cfg->redist[afi][type])
+		return NB_OK;
+	switch (type) {
+	case ZEBRA_ROUTE_BGP_DIRECT:
+		vnc_import_bgp_redist_enable(bgp, afi);
+		break;
+	case ZEBRA_ROUTE_BGP_DIRECT_EXT:
+		vnc_import_bgp_exterior_redist_enable(bgp, afi);
+		break;
+	default:
+		if (type < ZEBRA_ROUTE_MAX)
+			vnc_redistribute_set(bgp, afi, type);
+		break;
+	}
+	return NB_OK;
+}
+
+int bgp_global_vnc_redistribute_ipv6_source_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	int type;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	const char *source = lyd_get_value(args->dnode);
+
+	if (rfapi_str2route_type("ipv6", source, &afi, &type))
+		return NB_ERR_INCONSISTENCY;
+	switch (type) {
+	case ZEBRA_ROUTE_BGP_DIRECT:
+		vnc_import_bgp_redist_disable(bgp, afi);
+		break;
+	case ZEBRA_ROUTE_BGP_DIRECT_EXT:
+		vnc_import_bgp_exterior_redist_disable(bgp, afi);
+		break;
+	default:
+		if (type < ZEBRA_ROUTE_MAX)
+			vnc_redistribute_unset(bgp, afi, type);
+		break;
+	}
+	return NB_OK;
+}
+
+
+int bgp_global_vnc_noop_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/* clang-format off */
+const struct frr_yang_module_info frr_bgp_vnc_info = {
+	.name = "frr-bgp-vnc",
+	.nodes = {
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc",
+			.cbs = {
+				.cli_show = vnc_cli_show,
+				.create = bgp_global_vnc_create,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/rfp",
+			.cbs = {
+				.cli_show = vnc_rfp_cli_show,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/rfp/holddown-factor",
+			.cbs = {
+				.modify = bgp_global_vnc_rfp_holddown_factor_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/rfp/full-table-download",
+			.cbs = {
+				.modify = bgp_global_vnc_rfp_full_table_download_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/defaults",
+			.cbs = {
+				.cli_show = vnc_defaults_cli_show,
+				.cli_show_end = vnc_defaults_cli_show_end,
+				.create = bgp_global_vnc_defaults_create,
+				.destroy = bgp_global_vnc_defaults_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/defaults/rd",
+			.cbs = {
+				.modify = bgp_global_vnc_defaults_rd_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/defaults/response-lifetime",
+			.cbs = {
+				.modify = bgp_global_vnc_defaults_response_lifetime_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/defaults/rt-import",
+			.cbs = {
+				.modify = bgp_global_vnc_defaults_rt_import_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/defaults/rt-export",
+			.cbs = {
+				.modify = bgp_global_vnc_defaults_rt_export_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group",
+			.cbs = {
+				.cli_show = vnc_nve_group_cli_show,
+				.cli_show_end = vnc_nve_group_cli_show_end,
+				.create = bgp_global_vnc_nve_group_create,
+				.destroy = bgp_global_vnc_nve_group_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group/prefix-vn",
+			.cbs = {
+				.modify = bgp_global_vnc_nve_group_prefix_vn_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group/prefix-un",
+			.cbs = {
+				.modify = bgp_global_vnc_nve_group_prefix_un_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group/rd",
+			.cbs = {
+				.modify = bgp_global_vnc_nve_group_rd_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group/response-lifetime",
+			.cbs = {
+				.modify = bgp_global_vnc_nve_group_response_lifetime_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group/rt-import",
+			.cbs = {
+				.modify = bgp_global_vnc_nve_group_rt_import_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group/rt-export",
+			.cbs = {
+				.modify = bgp_global_vnc_nve_group_rt_export_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/vrf-policy",
+			.cbs = {
+				.cli_show = vnc_vrf_policy_cli_show,
+				.cli_show_end = vnc_vrf_policy_cli_show_end,
+				.create = bgp_global_vnc_vrf_policy_create,
+				.destroy = bgp_global_vnc_vrf_policy_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/vrf-policy/label",
+			.cbs = {
+				.modify = bgp_global_vnc_vrf_policy_label_modify,
+				.destroy = bgp_global_vnc_vrf_policy_label_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/vrf-policy/rd",
+			.cbs = {
+				.modify = bgp_global_vnc_vrf_policy_rd_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/vrf-policy/rt-import",
+			.cbs = {
+				.modify = bgp_global_vnc_vrf_policy_rt_import_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/vrf-policy/rt-export",
+			.cbs = {
+				.modify = bgp_global_vnc_vrf_policy_rt_export_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/vrf-policy/nexthop",
+			.cbs = {
+				.modify = bgp_global_vnc_vrf_policy_nexthop_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/export/bgp",
+			.cbs = {
+				.cli_show = vnc_export_bgp_cli_show,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/export/bgp/mode",
+			.cbs = {
+				.modify = bgp_global_vnc_export_bgp_mode_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/export/bgp/group-nve-group",
+			.cbs = {
+				.create = bgp_global_vnc_export_bgp_group_nve_group_create,
+				.destroy = bgp_global_vnc_export_bgp_group_nve_group_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/redistribute",
+			.cbs = {
+				.cli_show = vnc_redistribute_cli_show,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/redistribute/mode",
+			.cbs = {
+				.modify = bgp_global_vnc_redistribute_mode_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/redistribute/ipv4-source",
+			.cbs = {
+				.create = bgp_global_vnc_redistribute_ipv4_source_create,
+				.destroy = bgp_global_vnc_redistribute_ipv4_source_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/redistribute/ipv6-source",
+			.cbs = {
+				.create = bgp_global_vnc_redistribute_ipv6_source_create,
+				.destroy = bgp_global_vnc_redistribute_ipv6_source_destroy,
+			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+/* clang-format on */
+
+#endif /* ENABLE_BGP_VNC */

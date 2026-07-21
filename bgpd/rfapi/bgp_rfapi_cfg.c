@@ -296,6 +296,52 @@ DEFUN_NOSH (vnc_defaults,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Parse a space-separated RT string (e.g. "1000:1 1000:2") into
+ * an ecommunity, replacing any existing value in *list.
+ * Returns 0 on success.
+ */
+int rfapi_set_ecom_from_str(const char *rt_str, struct ecommunity **list)
+{
+	struct ecommunity *ecom = NULL;
+	struct ecommunity *ecomadd;
+	char *str_copy, *token, *saveptr;
+
+	if (!rt_str || !rt_str[0]) {
+		if (*list)
+			ecommunity_free(list);
+		return 0;
+	}
+
+	str_copy = XSTRDUP(MTYPE_TMP, rt_str);
+
+	for (token = strtok_r(str_copy, " ", &saveptr); token;
+	     token = strtok_r(NULL, " ", &saveptr)) {
+		ecomadd = ecommunity_str2com(token, ECOMMUNITY_ROUTE_TARGET, 0);
+		if (!ecomadd) {
+			if (ecom)
+				ecommunity_free(&ecom);
+			XFREE(MTYPE_TMP, str_copy);
+			return -1;
+		}
+
+		if (ecom) {
+			ecommunity_merge(ecom, ecomadd);
+			ecommunity_free(&ecomadd);
+		} else {
+			ecom = ecomadd;
+		}
+	}
+
+	XFREE(MTYPE_TMP, str_copy);
+
+	if (*list)
+		ecommunity_free(list);
+	*list = ecom;
+
+	return 0;
+}
+
 DEFUN (vnc_defaults_rt_import,
        vnc_defaults_rt_import_cmd,
        "rt import RTLIST...",
@@ -489,8 +535,8 @@ bgp_rfapi_cfg_match_byname(struct bgp *bgp, const char *name,
 	return NULL;
 }
 
-static struct rfapi_nve_group_cfg *
-rfapi_group_new(struct bgp *bgp, rfapi_group_cfg_type_t type, const char *name)
+struct rfapi_nve_group_cfg *rfapi_group_new(struct bgp *bgp, rfapi_group_cfg_type_t type,
+					    const char *name)
 {
 	struct rfapi_nve_group_cfg *rfg;
 
@@ -539,8 +585,7 @@ static void rfapi_l2_group_del(struct rfapi_l2_group_cfg *rfg)
 	XFREE(MTYPE_RFAPI_L2_CFG, rfg);
 }
 
-static int rfapi_str2route_type(const char *l3str, const char *pstr, afi_t *afi,
-				int *type)
+int rfapi_str2route_type(const char *l3str, const char *pstr, afi_t *afi, int *type)
 {
 	if (!l3str || !pstr)
 		return EINVAL;
@@ -634,7 +679,7 @@ static int rfapi_str2route_type(const char *l3str, const char *pstr, afi_t *afi,
 
 static uint8_t redist_was_enabled[AFI_MAX][ZEBRA_ROUTE_MAX];
 
-static void vnc_redistribute_prechange(struct bgp *bgp)
+void vnc_redistribute_prechange(struct bgp *bgp)
 {
 	afi_t afi;
 	int type;
@@ -659,7 +704,7 @@ static void vnc_redistribute_prechange(struct bgp *bgp)
 	vnc_zlog_debug_verbose("%s: return", __func__);
 }
 
-static void vnc_redistribute_postchange(struct bgp *bgp)
+void vnc_redistribute_postchange(struct bgp *bgp)
 {
 	afi_t afi;
 	int type;
@@ -3641,35 +3686,33 @@ void bgp_rfapi_cfg_init(void)
 	install_default(BGP_VNC_L2_GROUP_NODE);
 
 	/*
-	 * Add commands
+	 * Add commands.
+	 *
+	 * Commands marked "installed via bgp_vnc_cli_init()" have been
+	 * migrated to YANG/NB CLI. Their install_element calls live in
+	 * bgp_vnc_cli.c. Installing them here too creates command conflicts.
 	 */
-	install_element(BGP_NODE, &vnc_defaults_cmd);
-	install_element(BGP_NODE, &vnc_nve_group_cmd);
-	install_element(BGP_NODE, &vnc_no_nve_group_cmd);
-	install_element(BGP_NODE, &vnc_vrf_policy_cmd);
-	install_element(BGP_NODE, &vnc_no_vrf_policy_cmd);
+
+	/* BGP_NODE — migrated to bgp_vnc_cli_init() */
+	/* vnc_defaults_cmd, vnc_nve_group_cmd, vnc_no_nve_group_cmd */
+	/* vnc_vrf_policy_cmd, vnc_no_vrf_policy_cmd */
+	/* vnc_redistribute_mode_cmd, vnc_redistribute_protocol_cmd */
+	/* vnc_export_mode_cmd (bgp path), vnc_export_nvegroup_cmd */
+
+	/* BGP_NODE — still classic */
 	install_element(BGP_NODE, &vnc_l2_group_cmd);
 	install_element(BGP_NODE, &vnc_no_l2_group_cmd);
 	install_element(BGP_NODE, &vnc_advertise_un_method_cmd);
-	install_element(BGP_NODE, &vnc_export_mode_cmd);
 
-	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_rt_import_cmd);
-	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_rt_export_cmd);
-	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_rt_both_cmd);
-	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_rd_cmd);
+	/* BGP_VNC_DEFAULTS_NODE — migrated: rt/rd/response-lifetime/exit-vnc */
 	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_l2rd_cmd);
 	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_no_l2rd_cmd);
-	install_element(BGP_VNC_DEFAULTS_NODE,
-			&vnc_defaults_responselifetime_cmd);
-	install_element(BGP_VNC_DEFAULTS_NODE, &exit_vnc_cmd);
 
-	install_element(BGP_NODE, &vnc_redistribute_protocol_cmd);
-	install_element(BGP_NODE, &vnc_no_redistribute_protocol_cmd);
+	/* BGP_NODE — still classic (redistribute sub-config) */
 	install_element(BGP_NODE, &vnc_redistribute_nvegroup_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_no_nvegroup_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_lifetime_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_rh_roo_localadmin_cmd);
-	install_element(BGP_NODE, &vnc_redistribute_mode_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_bgp_exterior_cmd);
 
 	install_element(BGP_NODE, &vnc_redist_bgpdirect_no_prefixlist_cmd);
@@ -3686,22 +3729,14 @@ void bgp_rfapi_cfg_init(void)
 	install_element(BGP_VNC_NVE_GROUP_NODE,
 			&vnc_nve_group_redist_bgpdirect_routemap_cmd);
 
-	install_element(BGP_NODE, &vnc_export_nvegroup_cmd);
-	install_element(BGP_NODE, &vnc_no_export_nvegroup_cmd);
 	install_element(BGP_NODE, &vnc_nve_export_prefixlist_cmd);
 	install_element(BGP_NODE, &vnc_nve_export_routemap_cmd);
 	install_element(BGP_NODE, &vnc_nve_export_no_prefixlist_cmd);
 	install_element(BGP_NODE, &vnc_nve_export_no_routemap_cmd);
 
+	/* BGP_VNC_NVE_GROUP_NODE — migrated: rt/rd/prefix/lifetime/exit-vnc */
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_l2rd_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_no_l2rd_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_prefix_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_rt_import_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_rt_export_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_rt_both_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_rd_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_responselifetime_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE,
 			&vnc_nve_group_export_prefixlist_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE,
@@ -3710,16 +3745,8 @@ void bgp_rfapi_cfg_init(void)
 			&vnc_nve_group_export_no_prefixlist_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE,
 			&vnc_nve_group_export_no_routemap_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE, &exit_vnc_cmd);
 
-	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_label_cmd);
-	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_no_label_cmd);
-	// Re-enable to support VRF controller use case and testing
-	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_nexthop_cmd);
-	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rt_import_cmd);
-	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rt_export_cmd);
-	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rt_both_cmd);
-	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rd_cmd);
+	/* BGP_VRF_POLICY_NODE — migrated: rt/rd/label/nexthop/exit */
 	install_element(BGP_VRF_POLICY_NODE,
 			&vnc_vrf_policy_export_prefixlist_cmd);
 	install_element(BGP_VRF_POLICY_NODE,
@@ -3728,7 +3755,6 @@ void bgp_rfapi_cfg_init(void)
 			&vnc_vrf_policy_export_no_prefixlist_cmd);
 	install_element(BGP_VRF_POLICY_NODE,
 			&vnc_vrf_policy_export_no_routemap_cmd);
-	install_element(BGP_VRF_POLICY_NODE, &exit_vrf_policy_cmd);
 
 	install_element(BGP_VNC_L2_GROUP_NODE, &vnc_l2_group_lni_cmd);
 	install_element(BGP_VNC_L2_GROUP_NODE, &vnc_l2_group_labels_cmd);

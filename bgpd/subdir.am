@@ -110,6 +110,8 @@ bgpd_libbgp_a_SOURCES += \
 	bgpd/rfapi/vnc_export_table.c \
 	bgpd/rfapi/vnc_import_bgp.c \
 	bgpd/rfapi/vnc_zebra.c \
+	bgpd/bgp_vnc_nb.c \
+	bgpd/bgp_vnc_cli.c \
 	# end
 endif
 
@@ -208,6 +210,7 @@ noinst_HEADERS += \
 	bgpd/rfapi/vnc_export_bgp_p.h \
 	bgpd/rfapi/vnc_import_bgp_p.h \
 	bgpd/bgp_vnc_types.h \
+	bgpd/bgp_vnc_nb.h \
 	bgpd/bgp_nhc.h \
 	# end
 
@@ -243,6 +246,7 @@ clippy_scan += \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_rpki.c \
 	bgpd/bgp_unreach_vty.c \
+	bgpd/bgp_vnc_cli.c \
 	bgpd/bgp_vty.c \
         bgpd/bgp_nexthop.c \
 	bgpd/bgp_snmp.c \
