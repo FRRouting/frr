@@ -1629,6 +1629,150 @@ DEFPY_YANG(bgp_use_underlying_nexthop_weight_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_suppress_fib_pending_yang, bgp_suppress_fib_pending_yang_cmd,
+	   "[no] bgp suppress-fib-pending [(0-10000)$delay]",
+	   NO_STR BGP_STR
+	   "Advertise only routes that are programmed in kernel to peers\n"
+	   "Advertisement delay in milliseconds after FIB installation (default 1000)\n")
+{
+	char val[16];
+
+	if (no) {
+		nb_cli_enqueue_change(vty, "./global/suppress-fib-pending-delay", NB_OP_DESTROY,
+				      NULL);
+		nb_cli_enqueue_change(vty, "./global/suppress-fib-pending", NB_OP_MODIFY, "false");
+	} else {
+		snprintfrr(val, sizeof(val), "%ld",
+			   delay_str ? delay : (long)BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY);
+		nb_cli_enqueue_change(vty, "./global/suppress-fib-pending", NB_OP_MODIFY, "true");
+		nb_cli_enqueue_change(vty, "./global/suppress-fib-pending-delay", NB_OP_MODIFY,
+				      val);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_fast_convergence_yang, bgp_fast_convergence_yang_cmd,
+	   "bgp fast-convergence",
+	   BGP_STR "Fast convergence for bgp sessions\n")
+{
+	nb_cli_enqueue_change(vty, "./global/fast-convergence", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_fast_convergence_yang, no_bgp_fast_convergence_yang_cmd,
+	   "no bgp fast-convergence",
+	   NO_STR BGP_STR "Fast convergence for bgp sessions\n")
+{
+	nb_cli_enqueue_change(vty, "./global/fast-convergence", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_ipv6_auto_ra_yang, bgp_ipv6_auto_ra_yang_cmd,
+	   "[no] bgp ipv6-auto-ra",
+	   NO_STR BGP_STR "Allow enabling IPv6 ND RA sending\n")
+{
+	nb_cli_enqueue_change(vty, "./global/ipv6-auto-ra", NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_lu_uses_explicit_null_yang, bgp_lu_uses_explicit_null_yang_cmd,
+	   "[no] bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>$value",
+	   NO_STR BGP_STR
+	   "BGP Labeled-unicast options\n"
+	   "Use explicit-null label values for all local prefixes\n"
+	   "Use the IPv4 explicit-null label value for IPv4 local prefixes\n"
+	   "Use the IPv6 explicit-null label value for IPv6 local prefixes\n")
+{
+	const char *val = value;
+
+	if (no) {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		uint64_t remain = bgp->flags & (BGP_FLAG_LU_IPV4_EXPLICIT_NULL |
+						BGP_FLAG_LU_IPV6_EXPLICIT_NULL);
+
+		if (strmatch(value, "ipv4-explicit-null"))
+			remain &= ~BGP_FLAG_LU_IPV4_EXPLICIT_NULL;
+		else if (strmatch(value, "ipv6-explicit-null"))
+			remain &= ~BGP_FLAG_LU_IPV6_EXPLICIT_NULL;
+		else
+			remain = 0;
+
+		if (CHECK_FLAG(remain, BGP_FLAG_LU_IPV4_EXPLICIT_NULL) &&
+		    CHECK_FLAG(remain, BGP_FLAG_LU_IPV6_EXPLICIT_NULL))
+			val = "explicit-null";
+		else if (CHECK_FLAG(remain, BGP_FLAG_LU_IPV4_EXPLICIT_NULL))
+			val = "ipv4-explicit-null";
+		else if (CHECK_FLAG(remain, BGP_FLAG_LU_IPV6_EXPLICIT_NULL))
+			val = "ipv6-explicit-null";
+		else
+			val = "none";
+	}
+
+	nb_cli_enqueue_change(vty, "./global/labeled-unicast-explicit-null", NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_default_dynamic_capability_yang,
+	   bgp_default_dynamic_capability_yang_cmd,
+	   "[no] bgp default dynamic-capability",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "Advertise dynamic capability for all neighbors\n")
+{
+	nb_cli_enqueue_change(vty, "./global/default-dynamic-capability", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_default_link_local_capability_yang,
+	   bgp_default_link_local_capability_yang_cmd,
+	   "[no] bgp default link-local-capability",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "Advertise Link-Local Next Hop capability for all neighbors\n")
+{
+	nb_cli_enqueue_change(vty, "./global/default-link-local-capability", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_default_software_version_capability_yang,
+	   bgp_default_software_version_capability_yang_cmd,
+	   "[no] bgp default software-version-capability [latest-encoding$latest_encoding]",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "Advertise software version capability for all neighbors\n"
+	   "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
+{
+	const char *val;
+
+	if (no) {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		bool old = CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD);
+		bool latest = CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
+
+		if (latest_encoding)
+			latest = false;
+		else
+			old = false;
+
+		if (latest)
+			val = "latest-encoding";
+		else if (old)
+			val = "old-encoding";
+		else
+			val = "disabled";
+	} else if (latest_encoding) {
+		val = "latest-encoding";
+	} else {
+		val = "old-encoding";
+	}
+
+	nb_cli_enqueue_change(vty, "./global/default-software-version-capability", NB_OP_MODIFY,
+			      val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -1748,4 +1892,13 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_shutdown_no_notify_yang_cmd);
 	install_element(BGP_NODE, &bgp_allow_martian_yang_cmd);
 	install_element(BGP_NODE, &bgp_use_underlying_nexthop_weight_yang_cmd);
+
+	install_element(BGP_NODE, &bgp_suppress_fib_pending_yang_cmd);
+	install_element(BGP_NODE, &bgp_fast_convergence_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_fast_convergence_yang_cmd);
+	install_element(BGP_NODE, &bgp_ipv6_auto_ra_yang_cmd);
+	install_element(BGP_NODE, &bgp_lu_uses_explicit_null_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_dynamic_capability_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_link_local_capability_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_software_version_capability_yang_cmd);
 }
