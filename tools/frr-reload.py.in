@@ -2624,8 +2624,69 @@ def delete_via_vtysh_file(ctx_keys, line):
     # Batch-delete complete [no] network commands
     if ctx_keys[0].startswith("router bgp") and line.lstrip().startswith("network "):
         return True
+    # Neighbor lines. lines_to_config() opens a fresh "router bgp" (and
+    # address-family) for every leaf, and each of those reapplies the BGP
+    # instance to the candidate. A few thousand of those reapplies is what
+    # frr_reload_bgp_scale measures. emit_batch_deletes() keeps
+    # address-family leaves ahead of the remote-as line, which removes the
+    # neighbor.
+    if is_bgp_neighbor_line(ctx_keys, line):
+        return True
 
     return False
+
+
+_BGP_REMOTE_AS_RE = re.compile(r"neighbor \S+ .*remote-as ")
+
+
+def is_bgp_neighbor_line(ctx_keys, line):
+    """True for a 'neighbor ...' leaf under 'router bgp' (any AF depth)."""
+    if not line or not ctx_keys:
+        return False
+    if not ctx_keys[0].startswith("router bgp"):
+        return False
+    return line.lstrip().startswith("neighbor ")
+
+
+def emit_bgp_neighbor_deletes(entries):
+    """One stanza per context, with the neighbor-removing line last.
+
+    'no neighbor A.B.C.D remote-as ...' deletes the neighbor. Address-family
+    leaves and the other router leaves have to be edited while it still
+    exists, so they are emitted first. The blocks stay inside one vtysh -f
+    file, so "router bgp" is entered per context rather than per leaf.
+    """
+    af_lines = []
+    router_lines = []
+    remote_as = []
+    for ctx_keys, line in entries:
+        if len(ctx_keys) > 1:
+            af_lines.append((ctx_keys, line))
+        elif line and _BGP_REMOTE_AS_RE.search(line.lstrip()):
+            remote_as.append((ctx_keys, line))
+        else:
+            router_lines.append((ctx_keys, line))
+
+    blocks = []
+    for group in (af_lines, router_lines, remote_as):
+        if not group:
+            continue
+        for ctx_keys, lines in group_ctx_lines(group).items():
+            cmd = emit_ctx_block(ctx_keys, lines, True)
+            blocks.append("\n".join(cmd) + "\n")
+    return blocks
+
+
+def emit_batch_deletes(entries):
+    """Grouped delete file. Neighbor lines are ordered ahead of the rest."""
+    neighbors = []
+    rest = []
+    for entry in entries:
+        if is_bgp_neighbor_line(*entry):
+            neighbors.append(entry)
+        else:
+            rest.append(entry)
+    return emit_bgp_neighbor_deletes(neighbors) + emit_grouped_config(rest, True)
 
 
 def write_and_exec_batch_deletes(vtysh, rundir, entries):
@@ -2634,7 +2695,7 @@ def write_and_exec_batch_deletes(vtysh, rundir, entries):
     if not entries:
         return None
 
-    batch_del_cmds = emit_grouped_config(entries, True)
+    batch_del_cmds = emit_batch_deletes(entries)
     random_string = "".join(
         random.SystemRandom().choice(string.ascii_uppercase + string.digits)
         for _ in range(6)
@@ -2875,6 +2936,7 @@ def emit_add_config(entries):
       route-target import 60005:1 60005:2 60005:3
     """
     rt_by_ctx = OrderedDict()
+    nbr_by_ctx = OrderedDict()
     slots = []
     for ctx_keys, line in entries:
         if line == "!":
@@ -2885,6 +2947,15 @@ def emit_add_config(entries):
                 rt_by_ctx[key] = []
                 slots.append(("rt", key))
             rt_by_ctx[key].append(line)
+        elif is_bgp_neighbor_line(ctx_keys, line):
+            # One stanza per context, in the order the lines were produced
+            # (remote-as before the other leaves, router context before the
+            # address-family). Same reason as the delete path: a separate
+            # "router bgp" per line reapplies the instance to the candidate.
+            if key not in nbr_by_ctx:
+                nbr_by_ctx[key] = []
+                slots.append(("nbr", key))
+            nbr_by_ctx[key].append(line)
         else:
             # Everything that is not a packable VRF EVPN RT: one stanza,
             # via lines_to_config (including line is None = context-only).
@@ -2898,6 +2969,9 @@ def emit_add_config(entries):
     for slot in slots:
         if slot[0] == "rt":
             cmd = emit_ctx_block(slot[1], rt_by_ctx[slot[1]], False)
+            cmds.append("\n".join(cmd) + "\n")
+        elif slot[0] == "nbr":
+            cmd = emit_ctx_block(slot[1], nbr_by_ctx[slot[1]], False)
             cmds.append("\n".join(cmd) + "\n")
         else:
             _, ctx_keys, line = slot
