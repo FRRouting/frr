@@ -1137,6 +1137,15 @@ extern void bgp_path_info_free_with_caller(const char *caller,
 extern void bgp_path_info_add_with_caller(const char *caller,
 					  struct bgp_dest *dest,
 					  struct bgp_path_info *pi);
+
+extern int bgp_aggregate_config_set(struct bgp *bgp, const char *prefix_str, afi_t afi,
+				    safi_t safi, const char *rmap, uint8_t summary_only,
+				    uint8_t as_set, uint8_t origin, bool match_med,
+				    const char *suppress_map, bool upa_enabled, bool upa_drop,
+				    uint32_t upa_max_routes, char *errmsg, size_t errmsg_len);
+extern int bgp_aggregate_config_unset(struct bgp *bgp, const char *prefix_str, afi_t afi,
+				      safi_t safi, char *errmsg, size_t errmsg_len);
+
 extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
 
 /* UPA (Unreachable Prefix Announcement) functions */

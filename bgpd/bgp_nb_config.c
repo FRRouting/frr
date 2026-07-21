@@ -6036,6 +6036,250 @@ int bgp_nb_network_rmap_destroy(struct nb_cb_destroy_args *args)
 	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), true);
 }
 
+/*
+ * Aggregate-address
+ */
+#define AGGREGATE_AS_SET_NB   1
+#define AGGREGATE_AS_UNSET_NB 0
+
+static uint8_t bgp_nb_aggregate_origin_from_str(const char *s)
+{
+	if (!s || strmatch(s, "unspecified"))
+		return BGP_ORIGIN_UNSPECIFIED;
+	if (strmatch(s, "igp"))
+		return BGP_ORIGIN_IGP;
+	if (strmatch(s, "egp"))
+		return BGP_ORIGIN_EGP;
+	if (strmatch(s, "incomplete"))
+		return BGP_ORIGIN_INCOMPLETE;
+	return BGP_ORIGIN_UNSPECIFIED;
+}
+
+static int bgp_nb_aggregate_apply(const struct lyd_node *dnode)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const char *prefix;
+	const char *rmap = NULL;
+	const char *suppress = NULL;
+	uint8_t summary_only = 0;
+	uint8_t as_set = AGGREGATE_AS_UNSET_NB;
+	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
+	bool match_med = false;
+	bool upa = false;
+	bool upa_drop = false;
+	uint32_t upa_max = 0;
+	char err[256];
+
+	bgp = nb_running_get_entry(dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	prefix = yang_dnode_get_string(dnode, "./prefix");
+	if (yang_dnode_exists(dnode, "./summary-only") &&
+	    yang_dnode_get_bool(dnode, "./summary-only"))
+		summary_only = 1;
+	if (yang_dnode_exists(dnode, "./as-set") && yang_dnode_get_bool(dnode, "./as-set"))
+		as_set = AGGREGATE_AS_SET_NB;
+	if (yang_dnode_exists(dnode, "./match-med") && yang_dnode_get_bool(dnode, "./match-med"))
+		match_med = true;
+	if (yang_dnode_exists(dnode, "./origin"))
+		origin = bgp_nb_aggregate_origin_from_str(yang_dnode_get_string(dnode, "./origin"));
+	if (yang_dnode_exists(dnode, "./rmap-policy-export"))
+		rmap = yang_dnode_get_string(dnode, "./rmap-policy-export");
+	if (yang_dnode_exists(dnode, "./suppress-map"))
+		suppress = yang_dnode_get_string(dnode, "./suppress-map");
+	if (yang_dnode_exists(dnode, "./upa") && yang_dnode_get_bool(dnode, "./upa"))
+		upa = true;
+	if (yang_dnode_exists(dnode, "./upa-drop") && yang_dnode_get_bool(dnode, "./upa-drop")) {
+		upa_drop = true;
+		upa = true;
+	}
+	if (yang_dnode_exists(dnode, "./upa-max-routes")) {
+		upa_max = yang_dnode_get_uint16(dnode, "./upa-max-routes");
+		upa = true;
+	}
+
+	if (bgp_aggregate_config_set(bgp, prefix, afi, safi, rmap, summary_only, as_set, origin,
+				     match_med, suppress, upa, upa_drop, upa_max, err,
+				     sizeof(err)) != 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_aggregate_create(struct nb_cb_create_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		struct prefix p;
+		const char *prefix = yang_dnode_get_string(args->dnode, "./prefix");
+
+		if (!str2prefix(prefix, &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed aggregate prefix");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(args->dnode);
+}
+
+int bgp_nb_aggregate_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const char *prefix;
+	char err[256];
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	prefix = yang_dnode_get_string(args->dnode, "./prefix");
+	bgp_aggregate_config_unset(bgp, prefix, afi, safi, err, sizeof(err));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_aggregate(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *origin;
+
+	vty_out(vty, "  aggregate-address %s", yang_dnode_get_string(dnode, "./prefix"));
+	if (yang_dnode_exists(dnode, "./as-set") && yang_dnode_get_bool(dnode, "./as-set"))
+		vty_out(vty, " as-set");
+	if (yang_dnode_exists(dnode, "./summary-only") &&
+	    yang_dnode_get_bool(dnode, "./summary-only"))
+		vty_out(vty, " summary-only");
+	if (yang_dnode_exists(dnode, "./rmap-policy-export"))
+		vty_out(vty, " route-map %s", yang_dnode_get_string(dnode, "./rmap-policy-export"));
+	if (yang_dnode_exists(dnode, "./origin")) {
+		origin = yang_dnode_get_string(dnode, "./origin");
+		if (!strmatch(origin, "unspecified"))
+			vty_out(vty, " origin %s", origin);
+	}
+	if (yang_dnode_exists(dnode, "./match-med") && yang_dnode_get_bool(dnode, "./match-med"))
+		vty_out(vty, " matching-MED-only");
+	if (yang_dnode_exists(dnode, "./suppress-map"))
+		vty_out(vty, " suppress-map %s", yang_dnode_get_string(dnode, "./suppress-map"));
+	if ((yang_dnode_exists(dnode, "./upa") && yang_dnode_get_bool(dnode, "./upa")) ||
+	    (yang_dnode_exists(dnode, "./upa-drop") && yang_dnode_get_bool(dnode, "./upa-drop")) ||
+	    yang_dnode_exists(dnode, "./upa-max-routes")) {
+		vty_out(vty, " upa");
+		if (yang_dnode_exists(dnode, "./upa-drop") &&
+		    yang_dnode_get_bool(dnode, "./upa-drop"))
+			vty_out(vty, " drop");
+		if (yang_dnode_exists(dnode, "./upa-max-routes"))
+			vty_out(vty, " max-routes %u",
+				yang_dnode_get_uint16(dnode, "./upa-max-routes"));
+	}
+	vty_out(vty, "\n");
+}
+
+int bgp_nb_aggregate_bool_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+}
+
+int bgp_nb_aggregate_origin_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+}
+
+int bgp_nb_aggregate_rmap_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+}
+
+/*
+ * Destroy callbacks are handed the running tree, so a deleted leaf is still
+ * visible there. Return the same node from the transaction candidate, or
+ * NULL when that node is being removed in this commit.
+ */
+static const struct lyd_node *bgp_nb_candidate_match(const struct lyd_node *old)
+{
+	const struct lyd_node *root;
+	char path[XPATH_MAXLEN];
+
+	if (!old)
+		return NULL;
+
+	root = nb_transaction_candidate_dnode();
+	if (!root || !yang_dnode_get_path(old, path, sizeof(path)))
+		return NULL;
+	if (!yang_dnode_exists(root, path))
+		return NULL;
+	return yang_dnode_get(root, path);
+}
+
+int bgp_nb_aggregate_rmap_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *agg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/*
+	 * Destroy runs on the running tree, which still contains the leaf
+	 * this callback is removing. Apply the candidate aggregate so a
+	 * deleted route-map, suppress-map, or upa-max is not put back.
+	 */
+	agg = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+	if (!agg)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(agg);
+}
+
+int bgp_nb_aggregate_suppress_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+}
+
+int bgp_nb_aggregate_suppress_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *agg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	agg = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+	if (!agg)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(agg);
+}
+
+int bgp_nb_aggregate_upa_max_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+}
+
+int bgp_nb_aggregate_upa_max_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *agg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	agg = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+	if (!agg)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(agg);
+}
+
 
 /*
  * Sort implied by the candidate remote-as, not the running peer. A
