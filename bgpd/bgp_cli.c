@@ -5392,6 +5392,49 @@ DEFPY_YANG(bgp_evpn_flooding_yang, bgp_evpn_flooding_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_evpn_macvrf_soo_yang, bgp_evpn_macvrf_soo_yang_cmd,
+	   "[no] mac-vrf soo [ASN:NN_OR_IP-ADDRESS:NN$soo]",
+	   NO_STR
+	   "EVPN MAC-VRF\n"
+	   "Site-of-Origin extended community\n"
+	   "VPN extended community\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	snprintfrr(leaf, sizeof(leaf), "%s/mac-vrf-site-of-origin", af_xpath);
+
+	if (no) {
+		struct bgp *bgp_evpn = bgp_get_evpn();
+
+		if (bgp_evpn && bgp_evpn->evpn_info) {
+			const char *inst_name = bgp_evpn->name ? bgp_evpn->name : VRF_DEFAULT_NAME;
+			const char *vrf_name = (bgp_evpn->inst_type == BGP_INSTANCE_TYPE_VRF &&
+						bgp_evpn->name)
+						       ? bgp_evpn->name
+						       : VRF_DEFAULT_NAME;
+			char evpn_leaf[XPATH_MAXLEN + 256];
+
+			snprintfrr(evpn_leaf, sizeof(evpn_leaf),
+				   "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-bgp:bgp'][name='%s'][vrf='%s']/frr-bgp:bgp/global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/mac-vrf-site-of-origin",
+				   inst_name, vrf_name);
+			if (yang_dnode_exists(vty->candidate_config->dnode, evpn_leaf))
+				nb_cli_enqueue_change(vty, evpn_leaf, NB_OP_DESTROY, NULL);
+		}
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (!soo) {
+		vty_out(vty, "%% Incomplete command\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, soo);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	   "[no] <import|export>$direction_str vpn",
 	   NO_STR
@@ -7995,6 +8038,7 @@ void bgp_cli_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_resolve_overlay_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_flooding_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_macvrf_soo_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);
