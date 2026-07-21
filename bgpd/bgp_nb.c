@@ -918,6 +918,30 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/filter-config/rmap-export",
+			.cbs = {
+				.modify = bgp_nb_table_map_modify,
+				.destroy = bgp_nb_table_map_destroy,
+				.cli_show = bgp_nb_cli_show_table_map,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/filter-config/rmap-export",
+			.cbs = {
+				.modify = bgp_nb_table_map_modify,
+				.destroy = bgp_nb_table_map_destroy,
+				.cli_show = bgp_nb_cli_show_table_map,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/filter-config/rmap-export",
+			.cbs = {
+				.modify = bgp_nb_table_map_modify,
+				.destroy = bgp_nb_table_map_destroy,
+				.cli_show = bgp_nb_cli_show_table_map,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,
