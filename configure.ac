@@ -1043,6 +1043,7 @@ case "${enable_multipath}" in
 esac
 
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
+AC_DEFINE_UNQUOTED([MULTIPATH_NUM_STR], ["$MPATH_NUM"], [Maximum number of paths for a route as a string])
 AC_SUBST([MULTIPATH_NUM], [$MPATH_NUM])
 
 case "${with_log_timestamp_precision}" in
