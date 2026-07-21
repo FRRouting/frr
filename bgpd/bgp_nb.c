@@ -1441,6 +1441,107 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/ip-vrf/rd",
+			.cbs = {
+				.modify = bgp_nb_evpn_vrf_rd_modify,
+				.destroy = bgp_nb_evpn_vrf_rd_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vrf_rd,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/ip-vrf/import-route-target",
+			.cbs = {
+				.create = bgp_nb_evpn_vrf_rt_create,
+				.destroy = bgp_nb_evpn_vrf_rt_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vrf_rt_import,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/ip-vrf/export-route-target",
+			.cbs = {
+				.create = bgp_nb_evpn_vrf_rt_create,
+				.destroy = bgp_nb_evpn_vrf_rt_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vrf_rt_export,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/ip-vrf/import-route-target-auto",
+			.cbs = {
+				.modify = bgp_nb_evpn_vrf_rt_auto_modify,
+				.destroy = bgp_nb_evpn_vrf_rt_auto_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vrf_rt_auto,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/ip-vrf/export-route-target-auto",
+			.cbs = {
+				.modify = bgp_nb_evpn_vrf_rt_auto_modify,
+				.destroy = bgp_nb_evpn_vrf_rt_auto_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vrf_rt_auto,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/vni",
+			.cbs = {
+				.create = bgp_nb_evpn_vni_create,
+				.destroy = bgp_nb_evpn_vni_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vni,
+				.cli_show_end = bgp_nb_cli_show_evpn_vni_end,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/vni/rd",
+			.cbs = {
+				.modify = bgp_nb_evpn_vni_rd_modify,
+				.destroy = bgp_nb_evpn_vni_rd_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vni_rd,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/vni/import-route-target",
+			.cbs = {
+				.create = bgp_nb_evpn_vni_rt_create,
+				.destroy = bgp_nb_evpn_vni_rt_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vni_rt_import,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/vni/export-route-target",
+			.cbs = {
+				.create = bgp_nb_evpn_vni_rt_create,
+				.destroy = bgp_nb_evpn_vni_rt_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_vni_rt_export,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/vni/advertise-default-gateway",
+			.cbs = {
+				.modify = bgp_nb_evpn_vni_advertise_default_gw_modify,
+				.cli_show = bgp_nb_cli_show_evpn_vni_advertise_default_gw,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/vni/advertise-svi-ip",
+			.cbs = {
+				.modify = bgp_nb_evpn_vni_advertise_svi_ip_modify,
+				.cli_show = bgp_nb_cli_show_evpn_vni_advertise_svi_ip,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/vni/advertise-subnet",
+			.cbs = {
+				.modify = bgp_nb_evpn_vni_advertise_subnet_modify,
+				.cli_show = bgp_nb_cli_show_evpn_vni_advertise_subnet,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/vni/flooding",
+			.cbs = {
+				.modify = bgp_nb_evpn_vni_flooding_modify,
+				.cli_show = bgp_nb_cli_show_evpn_vni_flooding,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/enable",
 			.cbs = {
 				.modify = bgp_nb_dampening_enable_modify,

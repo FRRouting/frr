@@ -995,6 +995,14 @@ extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t 
 						     struct bgp_path_info *originator, bool add);
 extern void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_l2vni_regenerate_effective_export_rts(struct bgp *bgp, struct bgpevpn *vpn);
+extern void evpn_configure_import_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+					       struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void evpn_unconfigure_import_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+						 const struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void evpn_configure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+					       struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void evpn_unconfigure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+						 const struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_configure_export_rts_for_vrf_batch(struct bgp *bgp_vrf,
 							struct bgp_evpn_cfgd_rt_slu_head *cfgd_rts);
 extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf,

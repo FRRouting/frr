@@ -1968,8 +1968,8 @@ static void evpn_l2vni_cfgd_rt_list_add(struct bgp_evpn_cfgd_rt_slu_head *head,
  * Configure an import route target for an L2VNI (vty handler). Caller expected to
  * check that this is a change. Takes ownership of cfgd_rt.
  */
-static void evpn_configure_import_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
-					       struct bgp_evpn_cfgd_rt *cfgd_rt)
+void evpn_configure_import_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+					struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
 	/* If the VNI is "live", we need to uninstall routes using the current
 	 * import RT(s) first before we update the import RT, and subsequently
@@ -1998,8 +1998,8 @@ static void evpn_configure_import_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *
  * Unconfigure import route target(s) of an L2VNI (vty handler). cfgd_rt is NULL
  * when all import route targets should be removed.
  */
-static void evpn_unconfigure_import_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
-						 const struct bgp_evpn_cfgd_rt *cfgd_rt)
+void evpn_unconfigure_import_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+					  const struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 	struct bgp_evpn_cfgd_rt *existing;
@@ -2042,8 +2042,8 @@ static void evpn_unconfigure_import_rt_for_l2vni(struct bgp *bgp, struct bgpevpn
  * Configure an export route target for an L2VNI (vty handler). Caller expected to
  * check that this is a change. Takes ownership of cfgd_rt.
  */
-static void evpn_configure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
-					       struct bgp_evpn_cfgd_rt *cfgd_rt)
+void evpn_configure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+					struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
 	evpn_l2vni_cfgd_rt_list_add(&vpn->rt_config->cfgd_export, cfgd_rt);
 
@@ -2060,8 +2060,8 @@ static void evpn_configure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *
  * Unconfigure export route target(s) of an L2VNI (vty handler). cfgd_rt is NULL
  * when all export route targets should be removed.
  */
-static void evpn_unconfigure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
-						 const struct bgp_evpn_cfgd_rt *cfgd_rt)
+void evpn_unconfigure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+					  const struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 	struct bgp_evpn_cfgd_rt *existing;
@@ -2185,8 +2185,7 @@ static void evpn_unconfigure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bg
 /*
  * Configure RD for VRF
  */
-static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd,
-				  const char *rd_pretty)
+void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd, const char *rd_pretty)
 {
 	/* If we have already advertise type-5 routes with a different RD, we
 	 * have to delete and withdraw them first
@@ -2210,7 +2209,7 @@ static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd,
 /*
  * Unconfigure RD for VRF
  */
-static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
+void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 {
 	/* If we have already advertise type-5 routes with a different RD, we
 	 * have to delete and withdraw them first
@@ -2231,8 +2230,8 @@ static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 /*
  * Configure RD for a VNI (vty handler)
  */
-static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
-			      struct prefix_rd *rd, const char *rd_pretty)
+void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn, struct prefix_rd *rd,
+		       const char *rd_pretty)
 {
 	/* If the VNI is "live", we need to delete and withdraw this VNI's
 	 * local routes with the prior RD first. Then, after updating RD,
@@ -2255,7 +2254,7 @@ static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Unconfigure RD for a VNI (vty handler)
  */
-static void evpn_unconfigure_rd(struct bgp *bgp, struct bgpevpn *vpn)
+void evpn_unconfigure_rd(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	/* If the VNI is "live", we need to delete and withdraw this VNI's
 	 * local routes with the prior RD first. Then, after resetting RD
@@ -2274,7 +2273,7 @@ static void evpn_unconfigure_rd(struct bgp *bgp, struct bgpevpn *vpn)
 /*
  * Create VNI, if not already present (VTY handler). Mark as configured.
  */
-static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
+struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 {
 	struct bgpevpn *vpn;
 	struct in_addr mcast_grp = {INADDR_ANY};
@@ -2310,7 +2309,7 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
  * appropriate action) and the VNI marked as unconfigured; the
  * VNI will continue to exist, purely as a "learnt" entity.
  */
-static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
+void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	if (!is_vni_live(vpn)) {
 		bgp_evpn_free(bgp, vpn);
@@ -3643,8 +3642,7 @@ void evpn_process_default_originate_cmd(struct bgp *bgp_vrf, afi_t afi, bool add
 /*
  * evpn - enable advertisement of default g/w
  */
-static void evpn_set_advertise_subnet(struct bgp *bgp,
-				      struct bgpevpn *vpn)
+void evpn_set_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	if (vpn->advertise_subnet)
 		return;
@@ -3656,7 +3654,7 @@ static void evpn_set_advertise_subnet(struct bgp *bgp,
 /*
  * evpn - disable advertisement of default g/w
  */
-static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
+void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	if (!vpn->advertise_subnet)
 		return;
@@ -8505,34 +8503,9 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_com_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_rt_cmd);
 
-	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vni_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &exit_vni_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_flood_control_vni_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_rd_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rd_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rd_without_val_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_rt_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_without_val_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_auto_rt_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_auto_rt_cmd);
-	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rd_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rd_cmd);
-	install_element(BGP_NODE, &no_bgp_evpn_vrf_rd_without_val_cmd);
-	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rt_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_auto_rt_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_auto_rt_cmd);
-	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rt_auto_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_auto_cmd);
-	/* ead-es-route-target / ead-es-frag — YANG: bgp_cli_init() */
-	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_advertise_svi_ip_vni_cmd);
-	install_element(BGP_EVPN_VNI_NODE,
-			&bgp_evpn_advertise_default_gw_vni_cmd);
-	install_element(BGP_EVPN_VNI_NODE,
-			&no_bgp_evpn_advertise_default_gw_vni_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_advertise_vni_subnet_cmd);
-	install_element(BGP_EVPN_VNI_NODE,
-			&no_bgp_evpn_advertise_vni_subnet_cmd);
+	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_auto_rt_cmd);
+	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_auto_rt_cmd);
+	/* vrf rd/rt and vni / exit-vni / vni rd|rt|advertise*|flooding — YANG: bgp_cli_init() */
 }
