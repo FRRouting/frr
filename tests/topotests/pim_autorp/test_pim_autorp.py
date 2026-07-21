@@ -949,6 +949,56 @@ def test_pim_autorp_discovery_neg_prefixes(request):
         _, result = topotest.run_and_expect(test_func, None)
         assert result is None, "{} does not have correct rp-info".format(rtr)
 
+    # Wait for the mapping agent to advertise negatives before checking leaves.
+    # Under ASAN, r4 can miss discovery refreshes during the brief update window.
+    step("Verify mapping agent has negative prefixes")
+    expected = json.loads(
+        """
+        {
+          "mapping-agent":{
+            "enabled":true,
+            "active":true,
+            "rpList":{
+              "10.0.0.2":{
+                "rpAddress":"10.0.0.2",
+                "groupRanges":[
+                  {
+                    "negative":false,
+                    "prefix":"224.0.0.0/4"
+                  }
+                ]
+              },
+              "10.0.1.3":{
+                "rpAddress":"10.0.1.3",
+                "groupRanges":[
+                  {
+                    "negative":false,
+                    "prefix":"225.0.0.0/8"
+                  },
+                  {
+                    "negative":false,
+                    "prefix":"226.0.0.0/8"
+                  },
+                  {
+                    "negative":true,
+                    "prefix":"225.1.0.0/16"
+                  },
+                  {
+                    "negative":true,
+                    "prefix":"226.1.0.0/16"
+                  }
+                ]
+              }
+            }
+          }
+        }"""
+    )
+    test_func = partial(
+        topotest.router_json_cmp, tgen.gears["r1"], "show ip pim autorp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r1 mapping agent does not have negative prefixes"
+
     step("Verify AutoRP discovery RP's")
     expected = json.loads(
         """
