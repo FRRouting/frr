@@ -1124,6 +1124,40 @@ DEFUN_YANG(no_bgp_advertisement_delay_yang, no_bgp_advertisement_delay_yang_cmd,
 }
 
 
+DEFPY_YANG(bgp_condadv_period_yang, bgp_condadv_period_yang_cmd,
+	   "[no$no] bgp conditional-advertisement timer (5-240)$period",
+	   NO_STR BGP_STR
+	   "Conditional advertisement settings\n"
+	   "Set period to rescan BGP table to check if condition is met\n"
+	   "Period between BGP table scans, in seconds; default 60\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty,
+				      "./global/global-config-timers/conditional-advertisement-timer",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./global/global-config-timers/conditional-advertisement-timer",
+				      NB_OP_MODIFY, period_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_def_originate_eval_yang, bgp_def_originate_eval_yang_cmd,
+	   "[no$no] bgp default-originate timer (0-65535)$timer",
+	   NO_STR BGP_STR
+	   "Control default-originate\n"
+	   "Set period to rescan BGP table to check if default-originate condition is met\n"
+	   "Period between BGP table scans, in seconds; default 5\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./global/global-config-timers/default-originate-timer",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./global/global-config-timers/default-originate-timer",
+				      NB_OP_MODIFY, timer_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG(bgp_listen_limit_yang, bgp_listen_limit_yang_cmd,
 	   "bgp listen limit (1-65535)",
 	   BGP_STR
@@ -5307,6 +5341,8 @@ void bgp_cli_init(void)
 
 	install_element(BGP_NODE, &bgp_listen_limit_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_listen_limit_yang_cmd);
+	install_element(BGP_NODE, &bgp_condadv_period_yang_cmd);
+	install_element(BGP_NODE, &bgp_def_originate_eval_yang_cmd);
 	install_element(BGP_NODE, &bgp_default_afi_safi_yang_cmd);
 	install_element(BGP_NODE, &bgp_graceful_restart_stalepath_time_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_stalepath_time_yang_cmd);

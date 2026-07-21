@@ -3711,53 +3711,6 @@ DEFUN (no_neighbor_interface,
 	return peer_interface_vty(vty, argv[idx_peer]->arg, NULL);
 }
 
-DEFPY (bgp_condadv_period,
-       bgp_condadv_period_cmd,
-       "[no$no] bgp conditional-advertisement timer (5-240)$period",
-       NO_STR
-       BGP_STR
-       "Conditional advertisement settings\n"
-       "Set period to rescan BGP table to check if condition is met\n"
-       "Period between BGP table scans, in seconds; default 60\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	struct listnode *node, *nnode = NULL;
-	struct peer *peer = NULL;
-
-	if (no) {
-		if (bgp->condition_check_period == DEFAULT_CONDITIONAL_ROUTES_POLL_TIME)
-			return CMD_SUCCESS;
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
-
-		bgp_conditional_adv_period_set(bgp, DEFAULT_CONDITIONAL_ROUTES_POLL_TIME);
-	} else {
-		bgp_conditional_adv_period_set(bgp, period);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_def_originate_eval,
-       bgp_def_originate_eval_cmd,
-       "[no$no] bgp default-originate timer (0-65535)$timer",
-       NO_STR
-       BGP_STR
-       "Control default-originate\n"
-       "Set period to rescan BGP table to check if default-originate condition is met\n"
-       "Period between BGP table scans, in seconds; default 5\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp->rmap_def_originate_eval_timer = no ? 0 : timer;
-
-	event_cancel(&bgp->t_rmap_def_originate_eval);
-
-	return CMD_SUCCESS;
-}
-
 /* Set route-map to the peer. */
 static int peer_route_map_set_vty(struct vty *vty, const char *ip_str,
 				  afi_t afi, safi_t safi, const char *name_str,
@@ -17875,10 +17828,8 @@ void bgp_vty_init(void)
 	/* "neighbor unsuppress-map" commands. */
 
 	/* "neighbor advertise-map" commands. */
-	install_element(BGP_NODE, &bgp_condadv_period_cmd);
 
 	/* bgp default-originate timer */
-	install_element(BGP_NODE, &bgp_def_originate_eval_cmd);
 
 	/* neighbor maximum-prefix-out commands. */
 	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_out_cmd);
