@@ -4762,6 +4762,81 @@ ALIAS_ATTR(bgp_dampening_yang, bgp_dampening_yang_hidden_cmd,
 		  "Maximum duration to suppress a stable route\n",
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
+DEFPY_YANG(upa_originate_all_yang, upa_originate_all_yang_cmd,
+	   "[no] upa originate-all",
+	   NO_STR
+	   "Unreachable Prefix Announcement\n"
+	   "Originate UPA routes for ALL unreachable prefixes (not just under aggregates)\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	if (bgp_node_safi(vty) != SAFI_UNICAST) {
+		vty_out(vty, "%% Global UPA origination is only supported for unicast SAFI\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	snprintfrr(leaf, sizeof(leaf), "%s/upa/originate-all", af_xpath);
+	if (no) {
+		char full_xpath[XPATH_MAXLEN + 256];
+
+		snprintfrr(full_xpath, sizeof(full_xpath), "%s/%s", VTY_CURR_XPATH,
+			   !strncmp(leaf, "./", 2) ? leaf + 2 : leaf);
+		if (!yang_dnode_exists(vty->candidate_config->dnode, full_xpath) ||
+		    !yang_dnode_get_bool(vty->candidate_config->dnode, "%s", full_xpath)) {
+			vty_out(vty, "%% Global UPA origination is not configured\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
+		return nb_cli_apply_changes(vty, NULL);
+	}
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(upa_max_routes_yang, upa_max_routes_yang_cmd,
+	   "[no] upa max-routes [(1-4294967295)$max]",
+	   NO_STR
+	   "Unreachable Prefix Announcement\n"
+	   "Maximum number of simultaneous global UPA routes\n"
+	   "Maximum count\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/upa/max-routes", af_xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!max_str)
+			return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(buf, sizeof(buf), "%" PRId64, max);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(upa_drop_yang, upa_drop_yang_cmd,
+	   "[no] upa drop",
+	   NO_STR
+	   "Unreachable Prefix Announcement\n"
+	   "Set D-bit in global UPA Extended Community (receivers install drop/blackhole entry)\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/upa/drop", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6339,6 +6414,7 @@ void bgp_cli_init(void)
 
 	install_element(BGP_NODE, &bgp_listen_limit_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_listen_limit_yang_cmd);
+	install_element(BGP_NODE, &bgp_listen_range_yang_cmd);
 	install_element(BGP_NODE, &bgp_condadv_period_yang_cmd);
 	install_element(BGP_NODE, &bgp_def_originate_eval_yang_cmd);
 	install_element(BGP_NODE, &bgp_default_afi_safi_yang_cmd);
@@ -6507,6 +6583,14 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV4L_NODE, &bgp_dampening_yang_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_dampening_yang_cmd);
 	install_element(BGP_NODE, &bgp_dampening_yang_hidden_cmd);
+
+	/* AF-level UPA (unicast) */
+	install_element(BGP_IPV4_NODE, &upa_originate_all_yang_cmd);
+	install_element(BGP_IPV4_NODE, &upa_max_routes_yang_cmd);
+	install_element(BGP_IPV4_NODE, &upa_drop_yang_cmd);
+	install_element(BGP_IPV6_NODE, &upa_originate_all_yang_cmd);
+	install_element(BGP_IPV6_NODE, &upa_max_routes_yang_cmd);
+	install_element(BGP_IPV6_NODE, &upa_drop_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
