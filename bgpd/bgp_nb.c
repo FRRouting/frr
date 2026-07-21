@@ -316,6 +316,125 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi",
+			.cbs = {
+				.create = bgp_nb_global_afi_safi_create,
+				.destroy = bgp_nb_global_afi_safi_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config",
+			.cbs = {
+				.create = bgp_nb_network_create,
+				.destroy = bgp_nb_network_destroy,
+				.cli_show = bgp_nb_cli_show_network,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config/backdoor",
+			.cbs = {
+				.modify = bgp_nb_network_backdoor_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config/label-index",
+			.cbs = {
+				.modify = bgp_nb_network_label_index_modify,
+				.destroy = bgp_nb_network_label_index_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/network-config/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_network_rmap_modify,
+				.destroy = bgp_nb_network_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/network-config",
+			.cbs = {
+				.create = bgp_nb_network_create,
+				.destroy = bgp_nb_network_destroy,
+				.cli_show = bgp_nb_cli_show_network,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/network-config/backdoor",
+			.cbs = {
+				.modify = bgp_nb_network_backdoor_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/network-config/label-index",
+			.cbs = {
+				.modify = bgp_nb_network_label_index_modify,
+				.destroy = bgp_nb_network_label_index_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/network-config/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_network_rmap_modify,
+				.destroy = bgp_nb_network_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/network-config",
+			.cbs = {
+				.create = bgp_nb_network_create,
+				.destroy = bgp_nb_network_destroy,
+				.cli_show = bgp_nb_cli_show_network,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/network-config/backdoor",
+			.cbs = {
+				.modify = bgp_nb_network_backdoor_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/network-config/label-index",
+			.cbs = {
+				.modify = bgp_nb_network_label_index_modify,
+				.destroy = bgp_nb_network_label_index_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/network-config/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_network_rmap_modify,
+				.destroy = bgp_nb_network_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/network-config",
+			.cbs = {
+				.create = bgp_nb_network_create,
+				.destroy = bgp_nb_network_destroy,
+				.cli_show = bgp_nb_cli_show_network,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/network-config/backdoor",
+			.cbs = {
+				.modify = bgp_nb_network_backdoor_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/network-config/label-index",
+			.cbs = {
+				.modify = bgp_nb_network_label_index_modify,
+				.destroy = bgp_nb_network_label_index_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/network-config/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_network_rmap_modify,
+				.destroy = bgp_nb_network_rmap_destroy,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,

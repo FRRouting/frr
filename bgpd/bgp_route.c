@@ -9364,6 +9364,136 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 /* Configure static BGP network.  When user don't run zebra, static
    route should be installed as valid.  */
+
+int bgp_network_set(struct bgp *bgp, afi_t afi, safi_t safi, const char *ip_str, const char *rmap,
+		    int backdoor, uint32_t label_index, char *errmsg, size_t errmsg_len)
+{
+	struct prefix p;
+	struct bgp_static *bgp_static;
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	uint8_t need_update = 0;
+	int ret;
+
+	ret = str2prefix(ip_str, &p);
+	if (!ret) {
+		snprintfrr(errmsg, errmsg_len, "Malformed prefix");
+		return -1;
+	}
+	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
+		snprintfrr(errmsg, errmsg_len, "Malformed prefix (link-local address)");
+		return -1;
+	}
+
+	apply_mask(&p);
+	table = bgp->static_routes[afi][safi];
+	dest = bgp_node_get(table, &p);
+
+	bgp_static = bgp_dest_get_bgp_static_info(dest);
+	if (bgp_static) {
+		if (bgp_static->label_index != label_index) {
+			snprintfrr(errmsg, errmsg_len, "cannot change label-index");
+			bgp_dest_unlock_node(dest);
+			return -1;
+		}
+
+		if (bgp_static->valid && bgp_static->backdoor != backdoor)
+			need_update = 1;
+
+		bgp_static->backdoor = backdoor;
+
+		if (rmap) {
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+			route_map_counter_decrement(bgp_static->rmap.map);
+			bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+			bgp_static->rmap.map = route_map_lookup_by_name(rmap);
+			route_map_counter_increment(bgp_static->rmap.map);
+		} else {
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+			route_map_counter_decrement(bgp_static->rmap.map);
+			bgp_static->rmap.map = NULL;
+			bgp_static->valid = 0;
+		}
+		bgp_dest_unlock_node(dest);
+	} else {
+		bgp_static = bgp_static_new();
+		bgp_static->backdoor = backdoor;
+		bgp_static->valid = 0;
+		bgp_static->igpmetric = 0;
+		bgp_static->igpnexthop.s_addr = INADDR_ANY;
+		bgp_static->label_index = label_index;
+		bgp_static->label = MPLS_INVALID_LABEL;
+
+		if (rmap) {
+			bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+			bgp_static->rmap.map = route_map_lookup_by_name(rmap);
+			route_map_counter_increment(bgp_static->rmap.map);
+		}
+
+		bgp_dest_set_bgp_static_info(dest, bgp_static);
+	}
+
+	bgp_static->valid = 1;
+	if (need_update)
+		bgp_static_withdraw(bgp, &p, afi, safi, NULL);
+
+	if (!bgp_static->backdoor)
+		bgp_static_update(bgp, &p, bgp_static, afi, safi);
+
+	return 0;
+}
+
+int bgp_network_unset(struct bgp *bgp, afi_t afi, safi_t safi, const char *ip_str,
+		      const char *rmap, uint32_t label_index, char *errmsg, size_t errmsg_len)
+{
+	struct prefix p;
+	struct bgp_static *bgp_static;
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	int ret;
+
+	ret = str2prefix(ip_str, &p);
+	if (!ret) {
+		snprintfrr(errmsg, errmsg_len, "Malformed prefix");
+		return -1;
+	}
+
+	apply_mask(&p);
+	table = bgp->static_routes[afi][safi];
+	dest = bgp_node_lookup(table, &p);
+	if (!dest) {
+		snprintfrr(errmsg, errmsg_len, "Can't find static route specified");
+		return -1;
+	}
+
+	bgp_static = bgp_dest_get_bgp_static_info(dest);
+	if (bgp_static) {
+		if ((label_index != BGP_INVALID_LABEL_INDEX) &&
+		    (label_index != bgp_static->label_index)) {
+			snprintfrr(errmsg, errmsg_len, "label-index doesn't match static route");
+			bgp_dest_unlock_node(dest);
+			return -1;
+		}
+
+		if ((rmap && bgp_static->rmap.name) && strcmp(rmap, bgp_static->rmap.name)) {
+			snprintfrr(errmsg, errmsg_len, "route-map name doesn't match static route");
+			bgp_dest_unlock_node(dest);
+			return -1;
+		}
+
+		if (!bgp_static->backdoor)
+			bgp_static_withdraw(bgp, &p, afi, safi, NULL);
+
+		bgp_static_free(bgp_static);
+	}
+
+	bgp_dest_set_bgp_static_info(dest, NULL);
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
+	bgp_dest_unlock_node(dest);
+	return 0;
+}
+
 int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 		   const char *rd_str, const char *label_str, afi_t afi,
 		   safi_t safi, const char *rmap, int backdoor,
@@ -9460,6 +9590,23 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 		table = bgp_dest_get_bgp_table_info(pdest);
 	} else {
 		table = bgp->static_routes[afi][safi];
+	}
+
+	if (safi != SAFI_MPLS_VPN && safi != SAFI_EVPN) {
+		char err[256];
+		int rc;
+
+		if (negate)
+			rc = bgp_network_unset(bgp, afi, safi, ip_str, rmap, label_index, err,
+					       sizeof(err));
+		else
+			rc = bgp_network_set(bgp, afi, safi, ip_str, rmap, backdoor, label_index,
+					     err, sizeof(err));
+		if (rc < 0) {
+			vty_out(vty, "%% %s\n", err);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		return CMD_SUCCESS;
 	}
 
 	if (negate) {
@@ -20829,21 +20976,18 @@ void bgp_route_init(void)
 
 	/* IPv4 BGP commands. */
 	install_element(BGP_NODE, &bgp_table_map_cmd);
-	install_element(BGP_NODE, &bgp_network_cmd);
 	install_element(BGP_NODE, &no_bgp_table_map_cmd);
 
 	install_element(BGP_NODE, &aggregate_addressv4_cmd);
 
 	/* IPv4 unicast configuration.  */
 	install_element(BGP_IPV4_NODE, &bgp_table_map_cmd);
-	install_element(BGP_IPV4_NODE, &bgp_network_cmd);
 	install_element(BGP_IPV4_NODE, &no_bgp_table_map_cmd);
 
 	install_element(BGP_IPV4_NODE, &aggregate_addressv4_cmd);
 
 	/* IPv4 multicast configuration.  */
 	install_element(BGP_IPV4M_NODE, &bgp_table_map_cmd);
-	install_element(BGP_IPV4M_NODE, &bgp_network_cmd);
 	install_element(BGP_IPV4M_NODE, &no_bgp_table_map_cmd);
 	install_element(BGP_IPV4M_NODE, &aggregate_addressv4_cmd);
 
@@ -20892,12 +21036,10 @@ void bgp_route_init(void)
 
 	/* New config IPv6 BGP commands.  */
 	install_element(BGP_IPV6_NODE, &bgp_table_map_cmd);
-	install_element(BGP_IPV6_NODE, &ipv6_bgp_network_cmd);
 	install_element(BGP_IPV6_NODE, &no_bgp_table_map_cmd);
 
 	install_element(BGP_IPV6_NODE, &aggregate_addressv6_cmd);
 
-	install_element(BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
 
 	/* IPv6 labeled unicast address family. */
 	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);

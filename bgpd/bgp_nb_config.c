@@ -5477,6 +5477,155 @@ static bool bgp_nb_dnode_afi_safi(const struct lyd_node *dnode, afi_t *afi, safi
 	return true;
 }
 
+/*
+ * Global AFI/SAFI + network-config
+ */
+int bgp_nb_global_afi_safi_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int bgp_nb_global_afi_safi_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+static int bgp_nb_network_apply(const struct lyd_node *dnode, bool clear_rmap)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const char *prefix;
+	const char *rmap = NULL;
+	bool backdoor = false;
+	uint32_t label_index = BGP_INVALID_LABEL_INDEX;
+	struct prefix p;
+	struct bgp_dest *dest;
+	struct bgp_static *bgp_static;
+	char err[256];
+
+	bgp = nb_running_get_entry(dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	prefix = yang_dnode_get_string(dnode, "./prefix");
+	if (yang_dnode_exists(dnode, "./backdoor"))
+		backdoor = yang_dnode_get_bool(dnode, "./backdoor");
+	/*
+	 * Destroy callbacks are handed the running-tree node, so the leaf
+	 * being deleted is still visible. clear_rmap forces it absent.
+	 */
+	if (!clear_rmap && yang_dnode_exists(dnode, "./rmap-policy-export"))
+		rmap = yang_dnode_get_string(dnode, "./rmap-policy-export");
+	if (yang_dnode_exists(dnode, "./label-index"))
+		label_index = yang_dnode_get_uint32(dnode, "./label-index");
+	else if (str2prefix(prefix, &p)) {
+		/* label-index is immutable once set; preserve existing. */
+		apply_mask(&p);
+		dest = bgp_node_lookup(bgp->static_routes[afi][safi], &p);
+		if (dest) {
+			bgp_static = bgp_dest_get_bgp_static_info(dest);
+			if (bgp_static)
+				label_index = bgp_static->label_index;
+			bgp_dest_unlock_node(dest);
+		}
+	}
+
+	if (bgp_network_set(bgp, afi, safi, prefix, rmap, backdoor ? 1 : 0, label_index, err,
+			    sizeof(err)) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_network_create(struct nb_cb_create_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		struct prefix p;
+		const char *prefix = yang_dnode_get_string(args->dnode, "./prefix");
+
+		if (!str2prefix(prefix, &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed network prefix");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	return bgp_nb_network_apply(args->dnode, false);
+}
+
+int bgp_nb_network_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const char *prefix;
+	char err[256];
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	prefix = yang_dnode_get_string(args->dnode, "./prefix");
+	if (bgp_network_unset(bgp, afi, safi, prefix, NULL, BGP_INVALID_LABEL_INDEX, err,
+			      sizeof(err)) < 0)
+		return NB_OK; /* already gone */
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_network(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  network %s", yang_dnode_get_string(dnode, "./prefix"));
+	if (yang_dnode_exists(dnode, "./label-index"))
+		vty_out(vty, " label-index %u", yang_dnode_get_uint32(dnode, "./label-index"));
+	if (yang_dnode_exists(dnode, "./rmap-policy-export"))
+		vty_out(vty, " route-map %s", yang_dnode_get_string(dnode, "./rmap-policy-export"));
+	if (yang_dnode_exists(dnode, "./backdoor") && yang_dnode_get_bool(dnode, "./backdoor"))
+		vty_out(vty, " backdoor");
+	vty_out(vty, "\n");
+}
+
+int bgp_nb_network_backdoor_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+}
+
+int bgp_nb_network_label_index_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+}
+
+int bgp_nb_network_label_index_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+}
+
+int bgp_nb_network_rmap_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+}
+
+int bgp_nb_network_rmap_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), true);
+}
+
+
 static int bgp_nb_peer_af_flag_modify(struct nb_cb_modify_args *args, uint64_t flag)
 {
 	struct peer *peer;
