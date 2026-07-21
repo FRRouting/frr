@@ -4890,75 +4890,6 @@ ALIAS (af_rt_vpn_imexport,
        "For routes leaked from current address-family to vpn\n"
        "both import and export\n")
 
-DEFPY (af_route_map_vpn_imexport,
-       af_route_map_vpn_imexport_cmd,
-/* future: "route-map <vpn|evpn|vrf NAME> <import|export> RMAP" */
-       "[no] route-map vpn <import|export>$direction_str RMAP$rmap_str",
-       NO_STR
-       "Specify route map\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from vpn to current address-family\n"
-       "For routes leaked from current address-family to vpn\n"
-       "name of route-map\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
-	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	enum vpn_policy_direction dir;
-	afi_t afi;
-	int idx = 0;
-	bool yes = true;
-
-	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
-
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = vpn_policy_getdirs(vty, direction_str, dodir);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
-		if (!dodir[dir])
-			continue;
-
-		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
-
-		if (yes) {
-			if (bgp->vpn_policy[afi].rmap_name[dir])
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      bgp->vpn_policy[afi].rmap_name[dir]);
-			bgp->vpn_policy[afi].rmap_name[dir] = XSTRDUP(
-								      MTYPE_ROUTE_MAP_NAME, rmap_str);
-			bgp->vpn_policy[afi].rmap[dir] =
-				route_map_lookup_warn_noexist(vty, rmap_str);
-			if (!bgp->vpn_policy[afi].rmap[dir])
-				return CMD_SUCCESS;
-		} else {
-			if (bgp->vpn_policy[afi].rmap_name[dir])
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      bgp->vpn_policy[afi].rmap_name[dir]);
-			bgp->vpn_policy[afi].rmap_name[dir] = NULL;
-			bgp->vpn_policy[afi].rmap[dir] = NULL;
-		}
-
-		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
-	}
-
-	return CMD_SUCCESS;
-}
-
-ALIAS (af_route_map_vpn_imexport,
-       af_no_route_map_vpn_imexport_cmd,
-       "no route-map vpn <import|export>$direction_str",
-       NO_STR
-       "Specify route map\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from vpn to current address-family\n"
-       "For routes leaked from current address-family to vpn\n")
-
 DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
       "import vrf route-map RMAP$rmap_str",
       "Import routes from another VRF\n"
@@ -16627,8 +16558,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_imexport_cmd);
-	install_element(BGP_IPV4_NODE, &af_route_map_vpn_imexport_cmd);
-	install_element(BGP_IPV6_NODE, &af_route_map_vpn_imexport_cmd);
+	/* route-map vpn — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_cmd);
 	install_element(BGP_IPV6_NODE, &af_import_vrf_route_map_cmd);
 
@@ -16641,8 +16571,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_no_label_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_rt_vpn_imexport_cmd);
-	install_element(BGP_IPV4_NODE, &af_no_route_map_vpn_imexport_cmd);
-	install_element(BGP_IPV6_NODE, &af_no_route_map_vpn_imexport_cmd);
+	/* no route-map vpn — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_no_import_vrf_route_map_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_import_vrf_route_map_cmd);
 

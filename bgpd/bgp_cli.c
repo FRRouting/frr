@@ -4664,6 +4664,41 @@ DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(af_route_map_vpn_yang, af_route_map_vpn_yang_cmd,
+	   "[no] route-map vpn <import|export>$direction_str [RMAP$rmap_str]",
+	   NO_STR
+	   "Specify route map\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from vpn to current address-family\n"
+	   "For routes leaked from current address-family to vpn\n"
+	   "name of route-map\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	const char *leafname;
+
+	if (!strcmp(direction_str, "import"))
+		leafname = "rmap-import";
+	else if (!strcmp(direction_str, "export"))
+		leafname = "rmap-export";
+	else {
+		vty_out(vty, "%% direction parse error\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/%s", af_xpath, leafname);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!rmap_str)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6456,6 +6491,8 @@ void bgp_cli_init(void)
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_imexport_vpn_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_route_map_vpn_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_route_map_vpn_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
