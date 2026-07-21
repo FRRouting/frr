@@ -25,6 +25,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_damp.h"
 
 #include "bgpd/bgp_cli_clippy.c"
 
@@ -4429,6 +4430,80 @@ ALIAS_ATTR(bgp_table_map_yang, bgp_table_map_yang_hidden_cmd, "[no] table-map RM
 		  "Name of the route map\n",
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
+DEFPY_YANG(bgp_dampening_yang, bgp_dampening_yang_cmd,
+	   "[no] bgp dampening [(1-45)$half [(1-20000)$reuse (1-50000)$suppress (1-255)$max]]",
+	   NO_STR
+	   "BGP Specific commands\n"
+	   "Enable route-flap dampening\n"
+	   "Half-life time for the penalty\n"
+	   "Value to start reusing a route\n"
+	   "Value to start suppressing a route\n"
+	   "Maximum duration to suppress a stable route\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+	unsigned int half_min, reuse_val, suppress_val, max_min;
+
+	if (!no && suppress_str && reuse_str && (unsigned int)suppress < (unsigned int)reuse) {
+		vty_out(vty, "Suppress value cannot be less than reuse value\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	if (no) {
+		snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/enable", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/reach-decay", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/reuse-above", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/suppress-above", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/unreach-decay", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	half_min = half_str ? (unsigned int)half : DEFAULT_HALF_LIFE;
+	reuse_val = reuse_str ? (unsigned int)reuse : DEFAULT_REUSE;
+	suppress_val = suppress_str ? (unsigned int)suppress : DEFAULT_SUPPRESS;
+	max_min = max_str ? (unsigned int)max : (4 * half_min);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/enable", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+
+	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/reach-decay", af_xpath);
+	snprintfrr(buf, sizeof(buf), "%u", half_min);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/reuse-above", af_xpath);
+	snprintfrr(buf, sizeof(buf), "%u", reuse_val);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/suppress-above", af_xpath);
+	snprintfrr(buf, sizeof(buf), "%u", suppress_val);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/unreach-decay", af_xpath);
+	snprintfrr(buf, sizeof(buf), "%u", max_min);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(bgp_dampening_yang, bgp_dampening_yang_hidden_cmd,
+	   "[no] bgp dampening [(1-45)$half [(1-20000)$reuse (1-50000)$suppress (1-255)$max]]",
+	   NO_STR "BGP Specific commands\n"
+		  "Enable route-flap dampening\n"
+		  "Half-life time for the penalty\n"
+		  "Value to start reusing a route\n"
+		  "Value to start suppressing a route\n"
+		  "Maximum duration to suppress a stable route\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6199,6 +6274,15 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV4M_NODE, &bgp_table_map_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_table_map_yang_cmd);
 	install_element(BGP_NODE, &bgp_table_map_yang_hidden_cmd);
+
+	/* bgp dampening: unicast/multicast/labeled */
+	install_element(BGP_IPV4_NODE, &bgp_dampening_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_dampening_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &bgp_dampening_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_dampening_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_dampening_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_dampening_yang_cmd);
+	install_element(BGP_NODE, &bgp_dampening_yang_hidden_cmd);
 
 	bgp_cli_install_af_neighbor();
 }

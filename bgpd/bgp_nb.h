@@ -812,4 +812,10 @@ int bgp_nb_table_map_modify(struct nb_cb_modify_args *args);
 int bgp_nb_table_map_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_table_map(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
+int bgp_nb_dampening_enable_modify(struct nb_cb_modify_args *args);
+int bgp_nb_dampening_enable_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_dampening_param_modify(struct nb_cb_modify_args *args);
+int bgp_nb_dampening_param_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_dampening(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */

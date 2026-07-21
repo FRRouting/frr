@@ -39,6 +39,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_damp.h"
 #include "frrdistance.h"
 
 /*
@@ -6439,6 +6440,154 @@ int bgp_nb_table_map_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_table_map(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	vty_out(vty, "  table-map %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * route-flap-dampening → bgp dampening
+ */
+static int bgp_nb_dampening_apply(const struct lyd_node *dnode)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *damp;
+	uint8_t half_min;
+	uint16_t reuse, suppress;
+	uint8_t max_min;
+
+	damp = yang_dnode_get_parent(dnode, "route-flap-dampening");
+	if (!damp)
+		damp = dnode;
+
+	bgp = nb_running_get_entry(damp, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(damp, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!yang_dnode_exists(damp, "./enable") || !yang_dnode_get_bool(damp, "./enable")) {
+		bgp_damp_disable(bgp, afi, safi);
+		return NB_OK;
+	}
+
+	half_min = yang_dnode_exists(damp, "./reach-decay")
+			   ? yang_dnode_get_uint8(damp, "./reach-decay")
+			   : DEFAULT_HALF_LIFE;
+	reuse = yang_dnode_exists(damp, "./reuse-above")
+			? yang_dnode_get_uint16(damp, "./reuse-above")
+			: DEFAULT_REUSE;
+	suppress = yang_dnode_exists(damp, "./suppress-above")
+			   ? yang_dnode_get_uint16(damp, "./suppress-above")
+			   : DEFAULT_SUPPRESS;
+	max_min = yang_dnode_exists(damp, "./unreach-decay")
+			  ? yang_dnode_get_uint8(damp, "./unreach-decay")
+			  : (uint8_t)(4 * half_min);
+
+	if (suppress < reuse)
+		return NB_ERR_VALIDATION;
+
+	bgp_damp_enable(bgp, afi, safi, (time_t)half_min * 60, reuse, suppress,
+			(time_t)max_min * 60);
+	return NB_OK;
+}
+
+int bgp_nb_dampening_enable_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *damp;
+		uint16_t reuse, suppress;
+
+		if (!yang_dnode_get_bool(args->dnode, NULL))
+			return NB_OK;
+		damp = yang_dnode_get_parent(args->dnode, "route-flap-dampening");
+		if (!damp)
+			return NB_OK;
+		reuse = yang_dnode_exists(damp, "./reuse-above")
+				? yang_dnode_get_uint16(damp, "./reuse-above")
+				: DEFAULT_REUSE;
+		suppress = yang_dnode_exists(damp, "./suppress-above")
+				   ? yang_dnode_get_uint16(damp, "./suppress-above")
+				   : DEFAULT_SUPPRESS;
+		if (suppress < reuse) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Suppress value cannot be less than reuse value");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_dampening_apply(args->dnode);
+}
+
+int bgp_nb_dampening_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_dampening_apply(args->dnode);
+}
+
+int bgp_nb_dampening_param_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *damp;
+		uint16_t reuse, suppress;
+
+		damp = yang_dnode_get_parent(args->dnode, "route-flap-dampening");
+		if (!damp)
+			return NB_OK;
+		reuse = yang_dnode_exists(damp, "./reuse-above")
+				? yang_dnode_get_uint16(damp, "./reuse-above")
+				: DEFAULT_REUSE;
+		suppress = yang_dnode_exists(damp, "./suppress-above")
+				   ? yang_dnode_get_uint16(damp, "./suppress-above")
+				   : DEFAULT_SUPPRESS;
+		if (suppress < reuse) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Suppress value cannot be less than reuse value");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_dampening_apply(args->dnode);
+}
+
+int bgp_nb_dampening_param_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_dampening_apply(args->dnode);
+}
+
+void bgp_nb_cli_show_dampening(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const struct lyd_node *damp = yang_dnode_get_parent(dnode, "route-flap-dampening");
+	uint8_t half_min, max_min;
+	uint16_t reuse, suppress;
+
+	if (!damp || !yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	half_min = yang_dnode_exists(damp, "./reach-decay")
+			   ? yang_dnode_get_uint8(damp, "./reach-decay")
+			   : DEFAULT_HALF_LIFE;
+	reuse = yang_dnode_exists(damp, "./reuse-above")
+			? yang_dnode_get_uint16(damp, "./reuse-above")
+			: DEFAULT_REUSE;
+	suppress = yang_dnode_exists(damp, "./suppress-above")
+			   ? yang_dnode_get_uint16(damp, "./suppress-above")
+			   : DEFAULT_SUPPRESS;
+	max_min = yang_dnode_exists(damp, "./unreach-decay")
+			  ? yang_dnode_get_uint8(damp, "./unreach-decay")
+			  : (uint8_t)(4 * half_min);
+
+	if (half_min == DEFAULT_HALF_LIFE && reuse == DEFAULT_REUSE &&
+	    suppress == DEFAULT_SUPPRESS && max_min == 4 * half_min)
+		vty_out(vty, "  bgp dampening\n");
+	else if (reuse == DEFAULT_REUSE && suppress == DEFAULT_SUPPRESS && max_min == 4 * half_min)
+		vty_out(vty, "  bgp dampening %u\n", half_min);
+	else
+		vty_out(vty, "  bgp dampening %u %u %u %u\n", half_min, reuse, suppress, max_min);
 }
 
 
