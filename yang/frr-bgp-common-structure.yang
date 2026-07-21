@@ -1148,35 +1148,18 @@ submodule frr-bgp-common-structure {
     container orf-capability {
       description
         "Outbound Route Filtering capability configuration.";
-      choice orf-update {
+      leaf orf-send {
+        type boolean;
+        default "false";
         description
-          "ORF update direction options.";
-        case send {
-          leaf orf-send {
-            type boolean;
-            default "false";
-            description
-              "Setting to 'true' advertises the ORF capability.";
-          }
-        }
+          "Setting to 'true' advertises the ORF capability.";
+      }
 
-        case receive {
-          leaf orf-receive {
-            type boolean;
-            default "false";
-            description
-              "When set to 'true' it receives the orf capability.";
-          }
-        }
-
-        case both {
-          leaf orf-both {
-            type boolean;
-            default "false";
-            description
-              "When set to 'true' it advertises/receives the orf capability.";
-          }
-        }
+      leaf orf-receive {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' it receives the orf capability.";
       }
     }
   }

@@ -710,6 +710,29 @@ int bgp_nb_peer_af_addpath_rx_limit_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_af_addpath_rx_limit_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_af_addpath_rx_limit(struct vty *vty, const struct lyd_node *dnode,
 					      bool show_defaults);
+int bgp_nb_peer_af_advertise_map_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_advertise_map_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_advertise_map(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_peer_af_advertise_cond_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_advertise_cond_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_advertise_map_cond(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+int bgp_nb_peer_af_accept_own_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_accept_own(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+int bgp_nb_peer_af_soo_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_soo_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_soo(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+int bgp_nb_peer_af_upa_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_upa(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bgp_nb_peer_af_orf_apply_finish(struct nb_cb_apply_finish_args *args);
+int bgp_nb_peer_af_orf_send_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_orf_send(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+int bgp_nb_peer_af_orf_receive_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_orf_receive(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
 
 
 void bgp_cli_init(void);

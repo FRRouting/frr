@@ -3379,34 +3379,6 @@ ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
 	     "Member of the peer-group\n"
 	     "Peer-group name\n")
 
-/* neighbor upa - enable UPA (send routes to, and honor the D-bit received
- * from, this peer)
- */
-DEFPY(neighbor_upa, neighbor_upa_cmd,
-      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor upa",
-      NO_STR
-      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Enable UPA (Unreachable Prefix Announcement) with this neighbor (send and honor D-bit)\n")
-{
-	struct peer *peer = peer_and_group_lookup_vty(vty, neighbor);
-
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		return bgp_vty_return(vty, peer_af_flag_unset(peer, bgp_node_afi(vty),
-							      bgp_node_safi(vty), PEER_FLAG_UPA));
-
-	return bgp_vty_return(vty, peer_af_flag_set(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-						    PEER_FLAG_UPA));
-}
-
-ALIAS_HIDDEN(neighbor_upa, neighbor_upa_hidden_cmd,
-	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor upa",
-	     NO_STR
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Enable UPA (Unreachable Prefix Announcement) with this neighbor (send and honor D-bit)\n")
-
 DEFUN(neighbor_shutdown_rtt,
       neighbor_shutdown_rtt_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown rtt (1-65535) [count (1-255)]",
@@ -3522,136 +3494,6 @@ static int peer_af_flag_unset_vty(struct vty *vty, const char *peer_str,
 {
 	return peer_af_flag_modify_vty(vty, peer_str, afi, safi, flag, 0);
 }
-
-/* neighbor capability orf prefix-list. */
-DEFUN (neighbor_capability_orf_prefix,
-       neighbor_capability_orf_prefix_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> capability orf prefix-list <both|send|receive>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise ORF capability to the peer\n"
-       "Advertise prefixlist ORF capability to this neighbor\n"
-       "Capability to SEND and RECEIVE the ORF to/from this neighbor\n"
-       "Capability to RECEIVE the ORF from this neighbor\n"
-       "Capability to SEND the ORF to this neighbor\n")
-{
-	int idx_send_recv = 5;
-	char *peer_str = argv[1]->arg;
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (strmatch(argv[idx_send_recv]->text, "send")) {
-		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					   PEER_FLAG_ORF_PREFIX_SM);
-		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
-				    CAPABILITY_ACTION_SET);
-		return ret;
-	}
-
-	if (strmatch(argv[idx_send_recv]->text, "receive")) {
-		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					   PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
-				    CAPABILITY_ACTION_SET);
-		return ret;
-	}
-
-	if (strmatch(argv[idx_send_recv]->text, "both")) {
-		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					   PEER_FLAG_ORF_PREFIX_SM) |
-		      peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					   PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
-				    CAPABILITY_ACTION_SET);
-		return ret;
-	}
-
-	return CMD_WARNING_CONFIG_FAILED;
-}
-
-ALIAS_HIDDEN(
-	neighbor_capability_orf_prefix,
-	neighbor_capability_orf_prefix_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> capability orf prefix-list <both|send|receive>",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Advertise capability to the peer\n"
-	"Advertise ORF capability to the peer\n"
-	"Advertise prefixlist ORF capability to this neighbor\n"
-	"Capability to SEND and RECEIVE the ORF to/from this neighbor\n"
-	"Capability to RECEIVE the ORF from this neighbor\n"
-	"Capability to SEND the ORF to this neighbor\n")
-
-DEFUN (no_neighbor_capability_orf_prefix,
-       no_neighbor_capability_orf_prefix_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> capability orf prefix-list <both|send|receive>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise ORF capability to the peer\n"
-       "Advertise prefixlist ORF capability to this neighbor\n"
-       "Capability to SEND and RECEIVE the ORF to/from this neighbor\n"
-       "Capability to RECEIVE the ORF from this neighbor\n"
-       "Capability to SEND the ORF to this neighbor\n")
-{
-	int idx_send_recv = 6;
-	char *peer_str = argv[2]->arg;
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (strmatch(argv[idx_send_recv]->text, "send")) {
-		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					     PEER_FLAG_ORF_PREFIX_SM);
-		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
-				    CAPABILITY_ACTION_UNSET);
-		return ret;
-	}
-
-	if (strmatch(argv[idx_send_recv]->text, "receive")) {
-		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					     PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
-				    CAPABILITY_ACTION_UNSET);
-		return ret;
-	}
-
-	if (strmatch(argv[idx_send_recv]->text, "both")) {
-		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					     PEER_FLAG_ORF_PREFIX_SM) |
-		      peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					     PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
-				    CAPABILITY_ACTION_UNSET);
-		return ret;
-	}
-
-	return CMD_WARNING_CONFIG_FAILED;
-}
-
-ALIAS_HIDDEN(
-	no_neighbor_capability_orf_prefix,
-	no_neighbor_capability_orf_prefix_hidden_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> capability orf prefix-list <both|send|receive>",
-	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Advertise capability to the peer\n"
-	"Advertise ORF capability to the peer\n"
-	"Advertise prefixlist ORF capability to this neighbor\n"
-	"Capability to SEND and RECEIVE the ORF to/from this neighbor\n"
-	"Capability to RECEIVE the ORF from this neighbor\n"
-	"Capability to SEND the ORF to this neighbor\n")
 
 
 DEFUN (neighbor_nexthop_local_unchanged,
@@ -3898,37 +3740,6 @@ DEFUN (no_neighbor_interface,
 	return peer_interface_vty(vty, argv[idx_peer]->arg, NULL);
 }
 
-/* Set advertise-map to the peer. */
-static int peer_advertise_map_set_vty(struct vty *vty, const char *ip_str,
-				      afi_t afi, safi_t safi,
-				      const char *advertise_str,
-				      const char *condition_str, bool condition,
-				      bool set)
-{
-	int ret = CMD_WARNING_CONFIG_FAILED;
-	struct peer *peer;
-	struct route_map *advertise_map;
-	struct route_map *condition_map;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return ret;
-
-	condition_map = route_map_lookup_warn_noexist(vty, condition_str);
-	advertise_map = route_map_lookup_warn_noexist(vty, advertise_str);
-
-	if (set)
-		ret = peer_advertise_map_set(peer, afi, safi, advertise_str,
-					     advertise_map, condition_str,
-					     condition_map, condition);
-	else
-		ret = peer_advertise_map_unset(peer, afi, safi, advertise_str,
-					       advertise_map, condition_str,
-					       condition_map, condition);
-
-	return bgp_vty_return(vty, ret);
-}
-
 DEFPY (bgp_condadv_period,
        bgp_condadv_period_cmd,
        "[no$no] bgp conditional-advertisement timer (5-240)$period",
@@ -3975,37 +3786,6 @@ DEFPY (bgp_def_originate_eval,
 
 	return CMD_SUCCESS;
 }
-
-DEFPY (neighbor_advertise_map,
-       neighbor_advertise_map_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Route-map to conditionally advertise routes\n"
-       "Name of advertise map\n"
-       "Advertise routes only if prefixes in exist-map are installed in BGP table\n"
-       "Advertise routes only if prefixes in non-exist-map are not installed in BGP table\n"
-       "Name of the exist or non exist map\n")
-{
-	bool condition = CONDITION_EXIST;
-
-	if (!strcmp(exist, "non-exist-map"))
-		condition = CONDITION_NON_EXIST;
-
-	return peer_advertise_map_set_vty(vty, neighbor, bgp_node_afi(vty),
-					  bgp_node_safi(vty), advertise_str,
-					  condition_str, condition, !no);
-}
-
-ALIAS_HIDDEN(neighbor_advertise_map, neighbor_advertise_map_hidden_cmd,
-	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Route-map to conditionally advertise routes\n"
-	     "Name of advertise map\n"
-	     "Advertise routes only if prefixes in exist-map are installed in BGP table\n"
-	     "Advertise routes only if prefixes in non-exist-map are not installed in BGP table\n"
-	     "Name of the exist or non exist map\n")
 
 /* Set route-map to the peer. */
 static int peer_route_map_set_vty(struct vty *vty, const char *ip_str,
@@ -4361,84 +4141,6 @@ DEFUN (no_neighbor_maximum_prefix,
 	return peer_maximum_prefix_unset_vty(vty, argv[idx_peer]->arg,
 					     bgp_node_afi(vty),
 					     bgp_node_safi(vty));
-}
-
-/* "neighbor accept-own" */
-DEFPY (neighbor_accept_own,
-       neighbor_accept_own_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor accept-own",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Enable handling of self-originated VPN routes containing ACCEPT_OWN community\n")
-{
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		ret = peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ACCEPT_OWN);
-	else
-		ret = peer_af_flag_set(peer, afi, safi, PEER_FLAG_ACCEPT_OWN);
-
-	return bgp_vty_return(vty, ret);
-}
-
-/* "neighbor soo" */
-DEFPY (neighbor_soo,
-       neighbor_soo_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor soo ASN:NN_OR_IP-ADDRESS:NN$soo",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Set the Site-of-Origin (SoO) extended community\n"
-       "VPN extended community\n")
-{
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	struct ecommunity *ecomm_soo;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ecomm_soo = ecommunity_str2com(soo, ECOMMUNITY_SITE_ORIGIN, 0);
-	if (!ecomm_soo) {
-		vty_out(vty, "%% Malformed SoO extended community\n");
-		return CMD_WARNING;
-	}
-	ecommunity_str(ecomm_soo);
-
-	ret = peer_soo_set(peer, afi, safi, ecomm_soo);
-	ecommunity_free(&ecomm_soo);
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFPY (no_neighbor_soo,
-       no_neighbor_soo_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor soo [ASN:NN_OR_IP-ADDRESS:NN$soo]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Set the Site-of-Origin (SoO) extended community\n"
-       "VPN extended community\n")
-{
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	return bgp_vty_return(vty, peer_soo_unset(peer, afi, safi));
 }
 
 /* "neighbor allowas-in" */
@@ -18108,13 +17810,6 @@ void bgp_vty_init(void)
 	/* "neighbor passive" — YANG: bgp_cli_init() */
 
 	/* "neighbor upa" commands. */
-	install_element(BGP_IPV4_NODE, &neighbor_upa_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_upa_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_upa_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_upa_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_upa_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_upa_cmd);
-	install_element(BGP_NODE, &neighbor_upa_hidden_cmd);
 
 	install_element(VIEW_NODE, &show_bgp_neighbor_upa_cmd);
 
@@ -18133,21 +17828,6 @@ void bgp_vty_init(void)
 	/* neighbor rpki ... commands. */
 
 	/* "neighbor capability orf prefix-list" commands.*/
-	install_element(BGP_NODE, &neighbor_capability_orf_prefix_hidden_cmd);
-	install_element(BGP_NODE,
-			&no_neighbor_capability_orf_prefix_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_capability_orf_prefix_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_capability_orf_prefix_cmd);
 
 	/* "neighbor capability dynamic" commands.*/
 
@@ -18225,15 +17905,6 @@ void bgp_vty_init(void)
 
 	/* "neighbor advertise-map" commands. */
 	install_element(BGP_NODE, &bgp_condadv_period_cmd);
-	install_element(BGP_NODE, &neighbor_advertise_map_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_advertise_map_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_advertise_map_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_advertise_map_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_advertise_map_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_advertise_map_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_advertise_map_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_advertise_map_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_advertise_map_cmd);
 
 	/* bgp default-originate timer */
 	install_element(BGP_NODE, &bgp_def_originate_eval_cmd);
@@ -18270,28 +17941,8 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &no_neighbor_allowas_in_cmd);
 
 	/* neighbor accept-own */
-	install_element(BGP_VPNV4_NODE, &neighbor_accept_own_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_accept_own_cmd);
 
 	/* "neighbor soo" */
-	install_element(BGP_IPV4_NODE, &neighbor_soo_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_soo_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_soo_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_soo_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_soo_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_soo_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_soo_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_soo_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_soo_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_soo_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_soo_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_soo_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_soo_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_soo_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_soo_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_soo_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_soo_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_soo_cmd);
 
 	/* "neighbor dampening" commands. */
 	install_element(BGP_NODE, &neighbor_damp_cmd);
