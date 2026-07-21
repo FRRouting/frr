@@ -2132,28 +2132,6 @@ DEFPY(no_bgp_global_advertisement_delay, no_bgp_global_advertisement_delay_cmd,
 	return CMD_SUCCESS;
 }
 
-static int bgp_wpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
-				      bool set)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	quanta = set ? quanta : BGP_WRITE_PACKET_MAX;
-	atomic_store_explicit(&bgp->wpkt_quanta, quanta, memory_order_relaxed);
-
-	return CMD_SUCCESS;
-}
-
-static int bgp_rpkt_quanta_config_vty(struct vty *vty, uint32_t quanta,
-				      bool set)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	quanta = set ? quanta : BGP_READ_PACKET_MAX;
-	atomic_store_explicit(&bgp->rpkt_quanta, quanta, memory_order_relaxed);
-
-	return CMD_SUCCESS;
-}
-
 void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp)
 {
 	uint32_t quanta =
@@ -2170,34 +2148,6 @@ void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
 		vty_out(vty, " read-quanta %d\n", quanta);
 }
 
-/* Packet quanta configuration
- *
- * XXX: The value set here controls the size of a stack buffer in the IO
- * thread. When changing these limits be careful to prevent stack overflow.
- *
- * Furthermore, the maximums used here should correspond to
- * BGP_WRITE_PACKET_MAX and BGP_READ_PACKET_MAX.
- */
-DEFPY (bgp_wpkt_quanta,
-       bgp_wpkt_quanta_cmd,
-       "[no] write-quanta (1-64)$quanta",
-       NO_STR
-       "How many packets to write to peer socket per run\n"
-       "Number of packets\n")
-{
-	return bgp_wpkt_quanta_config_vty(vty, quanta, !no);
-}
-
-DEFPY (bgp_rpkt_quanta,
-       bgp_rpkt_quanta_cmd,
-       "[no] read-quanta (1-10)$quanta",
-       NO_STR
-       "How many packets to read from peer socket per I/O cycle\n"
-       "Number of packets\n")
-{
-	return bgp_rpkt_quanta_config_vty(vty, quanta, !no);
-}
-
 void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
 {
 	if (!bgp->heuristic_coalesce)
@@ -2212,54 +2162,6 @@ static void bgp_config_tcp_keepalive(struct vty *vty, struct bgp *bgp)
 			bgp->tcp_keepalive_idle, bgp->tcp_keepalive_intvl,
 			bgp->tcp_keepalive_probes);
 	}
-}
-
-DEFUN (bgp_coalesce_time,
-       bgp_coalesce_time_cmd,
-       "coalesce-time (0-4294967295)",
-       "Subgroup coalesce timer\n"
-       "Subgroup coalesce timer value (in ms)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	int idx = 0;
-
-	bgp->heuristic_coalesce = false;
-
-	if (argv_find(argv, argc, "(0-4294967295)", &idx))
-		bgp->coalesce_time = strtoul(argv[idx]->arg, NULL, 10);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_coalesce_time,
-       no_bgp_coalesce_time_cmd,
-       "no coalesce-time (0-4294967295)",
-       NO_STR
-       "Subgroup coalesce timer\n"
-       "Subgroup coalesce timer value (in ms)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp->heuristic_coalesce = true;
-	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_use_underlying_nexthop_weight,
-       bgp_use_underlying_nexthop_weight_cmd,
-       "[no] use-underlays-nexthop-weight",
-       NO_STR
-       "Tell Zebra when resolving a route to use the underlays nexthop weight for when nexthops are resolved\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_USE_RECURSIVE_WEIGHT);
-	else
-		SET_FLAG(bgp->flags, BGP_FLAG_USE_RECURSIVE_WEIGHT);
-
-	return CMD_SUCCESS;
 }
 
 /* Maximum-paths configuration */
@@ -2414,38 +2316,6 @@ DEFPY (bgp_af_nexthop_prefer_global,
 
 /* BGP minimum holdtime.  */
 
-DEFPY(bgp_tcp_keepalive, bgp_tcp_keepalive_cmd,
-      "bgp tcp-keepalive (1-65535)$idle (1-65535)$intvl (1-30)$probes",
-      BGP_STR
-      "TCP keepalive parameters\n"
-      "TCP keepalive idle time (seconds)\n"
-      "TCP keepalive interval (seconds)\n"
-      "TCP keepalive maximum probes\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp_tcp_keepalive_set(bgp, (uint16_t)idle, (uint16_t)intvl,
-			      (uint16_t)probes);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_bgp_tcp_keepalive, no_bgp_tcp_keepalive_cmd,
-      "no bgp tcp-keepalive [(1-65535) (1-65535) (1-30)]",
-      NO_STR
-      BGP_STR
-      "TCP keepalive parameters\n"
-      "TCP keepalive idle time (seconds)\n"
-      "TCP keepalive interval (seconds)\n"
-      "TCP keepalive maximum probes\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp_tcp_keepalive_unset(bgp);
-
-	return CMD_SUCCESS;
-}
-
 
 DEFPY(bgp_lu_uses_explicit_null, bgp_lu_uses_explicit_null_cmd,
       "[no] bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>$value",
@@ -2494,8 +2364,7 @@ DEFPY (bgp_default_originate_setonly_empty_table,
 	return CMD_SUCCESS;
 }
 
-static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on,
-				  bool disable)
+int bgp_inst_gr_config(struct bgp *bgp, bool on, bool disable)
 {
 	int ret = BGP_GR_FAILURE;
 
@@ -2521,6 +2390,11 @@ static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on,
 	VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer,
 							      ret);
 	return ret;
+}
+
+static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on, bool disable)
+{
+	return bgp_inst_gr_config(bgp, on, disable);
 }
 
 static int bgp_global_gr_config_vty(struct vty *vty, bool on, bool disable)
@@ -3252,49 +3126,6 @@ DEFUN (no_bgp_graceful_restart_rib_stale_time,
 	return CMD_SUCCESS;
 }
 
-DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
-      "bgp long-lived-graceful-restart stale-time (1-16777215)",
-      BGP_STR
-      "Enable Long-lived Graceful Restart\n"
-      "Specifies maximum time to wait before purging long-lived stale routes\n"
-      "Stale time value (seconds)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	uint32_t llgr_stale_time;
-	struct listnode *node, *nnode;
-	struct peer *peer;
-
-	llgr_stale_time = strtoul(argv[3]->arg, NULL, 10);
-	bgp->llgr_stale_time = llgr_stale_time;
-
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
-				    CAPABILITY_ACTION_SET);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_bgp_llgr_stalepath_time, no_bgp_llgr_stalepath_time_cmd,
-      "no bgp long-lived-graceful-restart stale-time [(1-16777215)]",
-      NO_STR BGP_STR
-      "Enable Long-lived Graceful Restart\n"
-      "Specifies maximum time to wait before purging long-lived stale routes\n"
-      "Stale time value (seconds)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct listnode *node, *nnode;
-	struct peer *peer;
-
-	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
-
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
-				    CAPABILITY_ACTION_UNSET);
-
-	return CMD_SUCCESS;
-}
-
 void bgp_initiate_graceful_shut_unshut(struct bgp *bgp)
 {
 	bgp_static_redo_import_check(bgp);
@@ -3411,69 +3242,6 @@ DEFUN (no_bgp_graceful_shutdown,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
-      "[no] bgp default <ipv4-unicast|"
-      "ipv4-multicast|"
-      "ipv4-vpn|"
-      "ipv4-labeled-unicast|"
-      "ipv4-flowspec|"
-      "ipv6-unicast|"
-      "ipv6-multicast|"
-      "ipv6-vpn|"
-      "ipv6-labeled-unicast|"
-      "ipv6-flowspec|"
-      "l2vpn-evpn>$afi_safi",
-      NO_STR
-      BGP_STR
-      "Configure BGP defaults\n"
-      "Activate ipv4-unicast for a peer by default\n"
-      "Activate ipv4-multicast for a peer by default\n"
-      "Activate ipv4-vpn for a peer by default\n"
-      "Activate ipv4-labeled-unicast for a peer by default\n"
-      "Activate ipv4-flowspec for a peer by default\n"
-      "Activate ipv6-unicast for a peer by default\n"
-      "Activate ipv6-multicast for a peer by default\n"
-      "Activate ipv6-vpn for a peer by default\n"
-      "Activate ipv6-labeled-unicast for a peer by default\n"
-      "Activate ipv6-flowspec for a peer by default\n"
-      "Activate l2vpn-evpn for a peer by default\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	char afi_safi_str[strlen(afi_safi) + 1];
-	char *afi_safi_str_tok;
-
-	strlcpy(afi_safi_str, afi_safi, sizeof(afi_safi_str));
-	char *afi_str = strtok_r(afi_safi_str, "-", &afi_safi_str_tok);
-	char *safi_str = strtok_r(NULL, "-", &afi_safi_str_tok);
-	afi_t afi = bgp_vty_afi_from_str(afi_str);
-	safi_t safi;
-
-	/*
-	 * Impossible situation but making coverity happy
-	 */
-	assert(afi != AFI_MAX);
-
-	if (strmatch(safi_str, "labeled"))
-		safi = bgp_vty_safi_from_str("labeled-unicast");
-	else
-		safi = bgp_vty_safi_from_str(safi_str);
-
-	assert(safi != SAFI_MAX);
-	if (no)
-		bgp->default_af[afi][safi] = false;
-	else {
-		if ((safi == SAFI_LABELED_UNICAST
-		     && bgp->default_af[afi][SAFI_UNICAST])
-		    || (safi == SAFI_UNICAST
-			&& bgp->default_af[afi][SAFI_LABELED_UNICAST]))
-			bgp_vty_return(vty, BGP_ERR_PEER_SAFI_CONFLICT);
-		else
-			bgp->default_af[afi][safi] = true;
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFPY (bgp_default_software_version_capability,
        bgp_default_software_version_capability_cmd,
        "[no] bgp default software-version-capability [latest-encoding$latest_encoding]",
@@ -3533,72 +3301,6 @@ DEFPY (bgp_default_dynamic_capability,
 }
 
 
-DEFUN (bgp_default_subgroup_pkt_queue_max,
-       bgp_default_subgroup_pkt_queue_max_cmd,
-       "bgp default subgroup-pkt-queue-max (20-100)",
-       BGP_STR
-       "Configure BGP defaults\n"
-       "subgroup-pkt-queue-max\n"
-       "Configure subgroup packet queue max\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 3;
-	uint32_t max_size;
-
-	max_size = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	bgp_default_subgroup_pkt_queue_max_set(bgp, max_size);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_default_subgroup_pkt_queue_max,
-       no_bgp_default_subgroup_pkt_queue_max_cmd,
-       "no bgp default subgroup-pkt-queue-max [(20-100)]",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "subgroup-pkt-queue-max\n"
-       "Configure subgroup packet queue max\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_default_subgroup_pkt_queue_max_unset(bgp);
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (bgp_listen_limit,
-       bgp_listen_limit_cmd,
-       "bgp listen limit (1-65535)",
-       BGP_STR
-       "BGP Dynamic Neighbors listen commands\n"
-       "Maximum number of BGP Dynamic Neighbors that can be created\n"
-       "Configure Dynamic Neighbors listen limit value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_number = 3;
-	int listen_limit;
-
-	listen_limit = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	bgp_listen_limit_set(bgp, listen_limit);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_listen_limit,
-       no_bgp_listen_limit_cmd,
-       "no bgp listen limit [(1-65535)]",
-       NO_STR
-       BGP_STR
-       "BGP Dynamic Neighbors listen commands\n"
-       "Maximum number of BGP Dynamic Neighbors that can be created\n"
-       "Configure Dynamic Neighbors listen limit value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_listen_limit_unset(bgp);
-	return CMD_SUCCESS;
-}
 
 
 /*
@@ -3903,86 +3605,6 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	return bgp_vty_return(vty, ret);
 }
 
-DEFUN (bgp_default_shutdown,
-       bgp_default_shutdown_cmd,
-       "[no] bgp default shutdown",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Apply administrative shutdown to newly configured peers\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp->autoshutdown = !strmatch(argv[0]->text, "no");
-	return CMD_SUCCESS;
-}
-
-DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
-      BGP_STR
-      "Administrative shutdown of the BGP instance\n"
-      "Add a shutdown message (RFC 8203)\n"
-      "Shutdown message\n")
-{
-	char *msgstr = NULL;
-
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (argc > 3)
-		msgstr = argv_concat(argv, argc, 3);
-
-	if (msgstr && strlen(msgstr) > BGP_ADMIN_SHUTDOWN_MSG_LEN) {
-		vty_out(vty, "%% Shutdown message size exceeded %d\n",
-			BGP_ADMIN_SHUTDOWN_MSG_LEN);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bgp_shutdown_enable(bgp, msgstr, true);
-	XFREE(MTYPE_TMP, msgstr);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(bgp_shutdown, bgp_shutdown_cmd, "bgp shutdown",
-      BGP_STR "Administrative shutdown of the BGP instance\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp_shutdown_enable(bgp, NULL, true);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(bgp_shutdown_no_notify, bgp_shutdown_no_notify_cmd, "bgp shutdown no-notify",
-      BGP_STR
-      "Administrative shutdown of the BGP instance\n"
-      "Do not send BGP notification (for HA standby transition)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp_shutdown_enable(bgp, NULL, false);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_bgp_shutdown, no_bgp_shutdown_cmd, "no bgp shutdown",
-      NO_STR BGP_STR "Administrative shutdown of the BGP instance\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp_shutdown_disable(bgp);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS(no_bgp_shutdown, no_bgp_shutdown_msg_cmd,
-      "no bgp shutdown message MSG...", NO_STR BGP_STR
-      "Administrative shutdown of the BGP instance\n"
-      "Add a shutdown message (RFC 8203)\n" "Shutdown message\n")
-
-ALIAS(no_bgp_shutdown, no_bgp_shutdown_no_notify_cmd,
-      "no bgp shutdown no-notify", NO_STR BGP_STR
-      "Administrative shutdown of the BGP instance\n"
-      "Do not send BGP notification (for HA standby transition)\n")
-
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <ASNUM|internal|external|auto>",
@@ -3998,23 +3620,6 @@ DEFUN (neighbor_remote_as,
 	int idx_remote_as = 3;
 	return peer_remote_as_vty(vty, argv[idx_peer]->arg,
 				  argv[idx_remote_as]->arg);
-}
-
-DEFPY (bgp_allow_martian,
-       bgp_allow_martian_cmd,
-       "[no]$no bgp allow-martian-nexthop",
-       NO_STR
-       BGP_STR
-       "Allow Martian nexthops to be received in the NLRI from a peer\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (no)
-		bgp->allow_martian = false;
-	else
-		bgp->allow_martian = true;
-
-	return CMD_SUCCESS;
 }
 
 /* Enable fast convergence of bgp sessions. If this is enabled, bgp
@@ -22218,7 +21823,7 @@ void bgp_vty_init(void)
 	install_element(CONFIG_NODE, &bgp_set_route_map_delay_timer_cmd);
 	install_element(CONFIG_NODE, &no_bgp_set_route_map_delay_timer_cmd);
 
-	install_element(BGP_NODE, &bgp_allow_martian_cmd);
+	/* bgp allow-martian-nexthop — YANG: bgp_cli_init() */
 
 	/* bgp fast-convergence command */
 	install_element(BGP_NODE, &bgp_fast_convergence_cmd);
@@ -22305,13 +21910,7 @@ void bgp_vty_init(void)
 
 	/* update-delay / advertisement-delay — YANG: bgp_cli_init() */
 
-	install_element(BGP_NODE, &bgp_wpkt_quanta_cmd);
-	install_element(BGP_NODE, &bgp_rpkt_quanta_cmd);
-
-	install_element(BGP_NODE, &bgp_coalesce_time_cmd);
-	install_element(BGP_NODE, &no_bgp_coalesce_time_cmd);
-
-	install_element(BGP_NODE, &bgp_use_underlying_nexthop_weight_cmd);
+	/* write/read-quanta, coalesce-time, use-underlays — YANG: bgp_cli_init() */
 
 	/* "nexthop prefer-global" commands */
 	install_element(BGP_IPV6_NODE, &bgp_af_nexthop_prefer_global_cmd);
@@ -22373,7 +21972,9 @@ void bgp_vty_init(void)
 	/* "bgp default-originate set-only-unconditional" command */
 	install_element(BGP_NODE, &bgp_default_originate_setonly_empty_table_cmd);
 
-	/* GR mode enable/disable remain classic (CONFIG+BGP shared). */
+	/* GR mode enable/disable — YANG: bgp_cli_init();
+	 * CONFIG_NODE remains classic.
+	 */
 
 	/* "neighbor a:b:c:d graceful-restart" command */
 	install_element(BGP_NODE, &bgp_neighbor_graceful_restart_set_cmd);
@@ -22395,21 +21996,13 @@ void bgp_vty_init(void)
 	 * CONFIG_NODE remains classic where installed.
 	 */
 
-	/* Keep classic BGP_NODE installs for GR enable/disable */
-	install_element(BGP_NODE, &bgp_graceful_restart_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_cmd);
-	install_element(BGP_NODE, &bgp_graceful_restart_disable_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_cmd);
-
 	/* "bgp graceful-shutdown" — BGP_NODE YANG: bgp_cli_init();
 	 * CONFIG_NODE remains classic (daemon-wide).
 	 */
 
 	/* "bgp hard-administrative-reset" — YANG: bgp_cli_init() */
 
-	/* "bgp long-lived-graceful-restart" commands */
-	install_element(BGP_NODE, &bgp_llgr_stalepath_time_cmd);
-	install_element(BGP_NODE, &no_bgp_llgr_stalepath_time_cmd);
+	/* "bgp long-lived-graceful-restart" — YANG: bgp_cli_init() */
 
 	/* "bgp fast-external-failover" — YANG: bgp_cli_init() */
 
@@ -22433,8 +22026,7 @@ void bgp_vty_init(void)
 
 	/* "bgp bestpath bandwidth" — YANG: bgp_cli_init() */
 
-	/* "no bgp default <afi>-<safi>" commands. */
-	install_element(BGP_NODE, &bgp_default_afi_safi_cmd);
+	/* "bgp default <afi>-<safi>" — YANG: bgp_cli_init() */
 
 	/* "bgp network import-check" — YANG: bgp_cli_init() */
 
@@ -22453,30 +22045,17 @@ void bgp_vty_init(void)
 	/* bgp default dynamic-capability */
 	install_element(BGP_NODE, &bgp_default_dynamic_capability_cmd);
 
-	/* "bgp default subgroup-pkt-queue-max" commands. */
-	install_element(BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);
-	install_element(BGP_NODE, &no_bgp_default_subgroup_pkt_queue_max_cmd);
+	/* "bgp default subgroup-pkt-queue-max" — YANG: bgp_cli_init() */
 
 	/* bgp route-reflector allow-outbound-policy — YANG: bgp_cli_init() */
 
-	/* "bgp listen limit" commands. */
-	install_element(BGP_NODE, &bgp_listen_limit_cmd);
-	install_element(BGP_NODE, &no_bgp_listen_limit_cmd);
+	/* "bgp listen limit" — YANG: bgp_cli_init() */
 
 	/* "bgp listen range" commands. */
 	install_element(BGP_NODE, &bgp_listen_range_cmd);
 	install_element(BGP_NODE, &no_bgp_listen_range_cmd);
 
-	/* "bgp default shutdown" command */
-	install_element(BGP_NODE, &bgp_default_shutdown_cmd);
-
-	/* "bgp shutdown" commands */
-	install_element(BGP_NODE, &bgp_shutdown_cmd);
-	install_element(BGP_NODE, &bgp_shutdown_msg_cmd);
-	install_element(BGP_NODE, &bgp_shutdown_no_notify_cmd);
-	install_element(BGP_NODE, &no_bgp_shutdown_cmd);
-	install_element(BGP_NODE, &no_bgp_shutdown_msg_cmd);
-	install_element(BGP_NODE, &no_bgp_shutdown_no_notify_cmd);
+	/* "bgp default shutdown" / "bgp shutdown" — YANG: bgp_cli_init() */
 
 	/* "neighbor remote-as" commands. */
 	install_element(BGP_NODE, &neighbor_remote_as_cmd);
@@ -23750,9 +23329,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_ttl_security_cmd);
 	install_element(BGP_NODE, &no_neighbor_ttl_security_cmd);
 
-	/* "bgp tcp-keepalive" commands */
-	install_element(BGP_NODE, &bgp_tcp_keepalive_cmd);
-	install_element(BGP_NODE, &no_bgp_tcp_keepalive_cmd);
+	/* "bgp tcp-keepalive" — YANG: bgp_cli_init() */
 
 	/* "show [ip] bgp memory" commands. */
 	install_element(VIEW_NODE, &show_bgp_memory_cmd);

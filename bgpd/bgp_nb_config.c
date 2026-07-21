@@ -25,6 +25,8 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_io.h"
+#include "bgpd/bgp_io.h"
 
 /*
  * XPath: .../frr-bgp:bgp
@@ -1986,4 +1988,501 @@ void bgp_nb_cli_show_gr_llgr_stale_time(struct vty *vty, const struct lyd_node *
 
 	if (val != BGP_DEFAULT_LLGR_STALE_TIME || show_defaults)
 		vty_out(vty, " bgp long-lived-graceful-restart stale-time %u\n", val);
+}
+
+int bgp_nb_gr_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	int ret;
+
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	ret = bgp_inst_gr_config(bgp, enable, false);
+	if (ret != BGP_GR_SUCCESS) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   enable ? "Failed to enable graceful-restart"
+				  : "Failed to disable graceful-restart");
+		return NB_ERR;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_gr_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	ret = bgp_inst_gr_config(bgp, false, false);
+	if (ret != BGP_GR_SUCCESS) {
+		snprintfrr(args->errmsg, args->errmsg_len, "Failed to disable graceful-restart");
+		return NB_ERR;
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_enabled(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp graceful-restart\n");
+}
+
+int bgp_nb_gr_disable_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node, *nnode;
+	struct peer *peer;
+	int ret;
+
+	bool disable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	disable = yang_dnode_get_bool(args->dnode, NULL);
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!disable) {
+		ret = bgp_inst_gr_config(bgp, false, true);
+		if (ret != BGP_GR_SUCCESS) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Failed to clear graceful-restart-disable");
+			return NB_ERR;
+		}
+		return NB_OK;
+	}
+
+	ret = bgp_inst_gr_config(bgp, true, true);
+	if (ret != BGP_GR_SUCCESS) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "Failed to disable graceful-restart globally");
+		return NB_ERR;
+	}
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_UNSET);
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
+				    CAPABILITY_ACTION_UNSET);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_gr_disable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	ret = bgp_inst_gr_config(bgp, false, true);
+	if (ret != BGP_GR_SUCCESS) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "Failed to clear graceful-restart-disable");
+		return NB_ERR;
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_gr_disable(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp graceful-restart-disable\n");
+}
+
+static void bgp_nb_tcp_keepalive_apply(struct bgp *bgp, const struct lyd_node *dnode)
+{
+	const struct lyd_node *ka = yang_dnode_get_parent(dnode, "tcp-keepalive");
+
+	if (!yang_dnode_exists(ka, "idle") || !yang_dnode_exists(ka, "interval") ||
+	    !yang_dnode_exists(ka, "probes"))
+		return;
+
+	bgp_tcp_keepalive_set(bgp, yang_dnode_get_uint16(ka, "idle"),
+			      yang_dnode_get_uint16(ka, "interval"),
+			      yang_dnode_get_uint8(ka, "probes"));
+}
+
+static void bgp_nb_tcp_keepalive_clear_if_empty(struct bgp *bgp, const struct lyd_node *dnode)
+{
+	const struct lyd_node *ka = yang_dnode_get_parent(dnode, "tcp-keepalive");
+
+	if (yang_dnode_exists(ka, "idle") || yang_dnode_exists(ka, "interval") ||
+	    yang_dnode_exists(ka, "probes"))
+		return;
+
+	bgp_tcp_keepalive_unset(bgp);
+}
+
+int bgp_nb_tcp_keepalive_idle_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_tcp_keepalive_apply(bgp, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_tcp_keepalive_idle_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_tcp_keepalive_clear_if_empty(bgp, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_tcp_keepalive_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_tcp_keepalive_apply(bgp, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_tcp_keepalive_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_tcp_keepalive_clear_if_empty(bgp, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_tcp_keepalive_probes_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_tcp_keepalive_apply(bgp, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_tcp_keepalive_probes_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_tcp_keepalive_clear_if_empty(bgp, args->dnode);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_tcp_keepalive_idle(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	const struct lyd_node *ka = yang_dnode_get_parent(dnode, "tcp-keepalive");
+
+	if (!yang_dnode_exists(ka, "interval") || !yang_dnode_exists(ka, "probes"))
+		return;
+
+	vty_out(vty, " bgp tcp-keepalive %u %u %u\n", yang_dnode_get_uint16(dnode, NULL),
+		yang_dnode_get_uint16(ka, "interval"), yang_dnode_get_uint8(ka, "probes"));
+}
+
+int bgp_nb_wpkt_quanta_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	atomic_store_explicit(&bgp->wpkt_quanta, yang_dnode_get_uint32(args->dnode, NULL),
+			      memory_order_relaxed);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_wpkt_quanta(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t quanta = yang_dnode_get_uint32(dnode, NULL);
+
+	if (quanta != BGP_WRITE_PACKET_MAX || show_defaults)
+		vty_out(vty, " write-quanta %u\n", quanta);
+}
+
+int bgp_nb_rpkt_quanta_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	atomic_store_explicit(&bgp->rpkt_quanta, yang_dnode_get_uint32(args->dnode, NULL),
+			      memory_order_relaxed);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_rpkt_quanta(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t quanta = yang_dnode_get_uint32(dnode, NULL);
+
+	if (quanta != BGP_READ_PACKET_MAX || show_defaults)
+		vty_out(vty, " read-quanta %u\n", quanta);
+}
+
+int bgp_nb_coalesce_time_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	uint32_t value;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	value = yang_dnode_get_uint32(args->dnode, NULL);
+	if (value == BGP_DEFAULT_SUBGROUP_COALESCE_TIME) {
+		bgp->heuristic_coalesce = true;
+		bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
+	} else {
+		bgp->heuristic_coalesce = false;
+		bgp->coalesce_time = value;
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_coalesce_time(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
+
+	if (value != BGP_DEFAULT_SUBGROUP_COALESCE_TIME || show_defaults)
+		vty_out(vty, " coalesce-time %u\n", value);
+}
+
+int bgp_nb_subgroup_pkt_queue_size_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	uint32_t value;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	value = yang_dnode_get_uint32(args->dnode, NULL);
+	if (value == BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
+		bgp_default_subgroup_pkt_queue_max_unset(bgp);
+	else
+		bgp_default_subgroup_pkt_queue_max_set(bgp, value);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_subgroup_pkt_queue_size(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
+
+	if (value != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX || show_defaults)
+		vty_out(vty, " bgp default subgroup-pkt-queue-max %u\n", value);
+}
+
+int bgp_nb_default_shutdown_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->autoshutdown = yang_dnode_get_bool(args->dnode, NULL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_default_shutdown(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp default shutdown\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp default shutdown\n");
+}
+
+/* Whether administrative shutdown should send BGP NOTIFICATION messages. */
+static bool bgp_nb_shutdown_send_notify(const struct lyd_node *global)
+{
+	if (yang_dnode_exists(global, "shutdown-no-notify") &&
+	    yang_dnode_get_bool(global, "shutdown-no-notify"))
+		return false;
+	return true;
+}
+
+int bgp_nb_shutdown_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *global;
+	const char *msg = NULL;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	global = yang_dnode_get_parent(args->dnode, "global");
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		if (yang_dnode_exists(global, "shutdown-message"))
+			msg = yang_dnode_get_string(global, "shutdown-message");
+		bgp_shutdown_enable(bgp, msg, bgp_nb_shutdown_send_notify(global));
+	} else
+		bgp_shutdown_disable(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_shutdown(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const struct lyd_node *global = yang_dnode_get_parent(dnode, "global");
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+	if (yang_dnode_exists(global, "shutdown-message"))
+		return; /* shown by shutdown-message */
+	if (!bgp_nb_shutdown_send_notify(global))
+		return; /* shown by shutdown-no-notify */
+	vty_out(vty, " bgp shutdown\n");
+}
+
+int bgp_nb_shutdown_message_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *global;
+	const char *msg;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		msg = yang_dnode_get_string(args->dnode, NULL);
+		if (strlen(msg) > BGP_ADMIN_SHUTDOWN_MSG_LEN) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Shutdown message size exceeded %d", BGP_ADMIN_SHUTDOWN_MSG_LEN);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	global = yang_dnode_get_parent(args->dnode, "global");
+	bgp_shutdown_enable(bgp, yang_dnode_get_string(args->dnode, NULL),
+			    bgp_nb_shutdown_send_notify(global));
+	return NB_OK;
+}
+
+int bgp_nb_shutdown_message_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *global;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	global = yang_dnode_get_parent(args->dnode, "global");
+	if (yang_dnode_exists(global, "shutdown") && yang_dnode_get_bool(global, "shutdown"))
+		bgp_shutdown_enable(bgp, NULL, bgp_nb_shutdown_send_notify(global));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_shutdown_message(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " bgp shutdown message %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * "bgp shutdown no-notify": the value is consumed by the shutdown /
+ * shutdown-message callbacks when the instance is shut down, so there is
+ * nothing to do here other than accept the configuration.
+ */
+int bgp_nb_shutdown_no_notify_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+int bgp_nb_shutdown_no_notify_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_shutdown_no_notify(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	const struct lyd_node *global = yang_dnode_get_parent(dnode, "global");
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+	if (yang_dnode_exists(global, "shutdown") && yang_dnode_get_bool(global, "shutdown"))
+		vty_out(vty, " bgp shutdown no-notify\n");
+}
+
+int bgp_nb_allow_martian_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->allow_martian = yang_dnode_get_bool(args->dnode, NULL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_allow_martian(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp allow-martian-nexthop\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp allow-martian-nexthop\n");
+}
+
+int bgp_nb_use_underlays_nexthop_weight_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_USE_RECURSIVE_WEIGHT);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_USE_RECURSIVE_WEIGHT);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_use_underlays_nexthop_weight(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " use-underlays-nexthop-weight\n");
+	else if (show_defaults)
+		vty_out(vty, " no use-underlays-nexthop-weight\n");
 }
