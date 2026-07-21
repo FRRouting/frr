@@ -787,4 +787,13 @@ void bgp_nb_cli_show_maxpaths_ibgp(struct vty *vty, const struct lyd_node *dnode
 				   bool show_defaults);
 int bgp_nb_maxpaths_ibgp_cluster_modify(struct nb_cb_modify_args *args);
 
+int bgp_nb_redistribute_create(struct nb_cb_create_args *args);
+int bgp_nb_redistribute_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_redistribute(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+int bgp_nb_redistribute_metric_modify(struct nb_cb_modify_args *args);
+int bgp_nb_redistribute_metric_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_redistribute_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_nb_redistribute_rmap_destroy(struct nb_cb_destroy_args *args);
+
 #endif /* _FRR_BGP_NB_H_ */

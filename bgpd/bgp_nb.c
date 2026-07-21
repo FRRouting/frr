@@ -783,6 +783,50 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/redistribution-list",
+			.cbs = {
+				.create = bgp_nb_redistribute_create,
+				.destroy = bgp_nb_redistribute_destroy,
+				.cli_show = bgp_nb_cli_show_redistribute,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/redistribution-list/metric",
+			.cbs = {
+				.modify = bgp_nb_redistribute_metric_modify,
+				.destroy = bgp_nb_redistribute_metric_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/redistribution-list/rmap-policy-import",
+			.cbs = {
+				.modify = bgp_nb_redistribute_rmap_modify,
+				.destroy = bgp_nb_redistribute_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/redistribution-list",
+			.cbs = {
+				.create = bgp_nb_redistribute_create,
+				.destroy = bgp_nb_redistribute_destroy,
+				.cli_show = bgp_nb_cli_show_redistribute,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/redistribution-list/metric",
+			.cbs = {
+				.modify = bgp_nb_redistribute_metric_modify,
+				.destroy = bgp_nb_redistribute_metric_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/redistribution-list/rmap-policy-import",
+			.cbs = {
+				.modify = bgp_nb_redistribute_rmap_modify,
+				.destroy = bgp_nb_redistribute_rmap_destroy,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,
