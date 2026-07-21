@@ -4269,6 +4269,133 @@ DEFPY_YANG(neighbor_default_originate_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+static int bgp_cli_peer_af_filter_leaf(struct vty *vty, const char *neighbor, const char *leaf_rel,
+				       const char *name, bool no)
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/filter-config/%s", xpath, af, leaf_rel);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_prefix_list_yang, neighbor_prefix_list_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor prefix-list WORD$name <in|out>$dir",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Filter updates to/from this neighbor\n"
+	   "Name of a prefix list\n"
+	   "Filter incoming updates\n"
+	   "Filter outgoing updates\n")
+{
+	const char *leaf = strmatch(dir, "in") ? "plist-import" : "plist-export";
+
+	return bgp_cli_peer_af_filter_leaf(vty, neighbor, leaf, name, !!no);
+}
+
+DEFPY_YANG(neighbor_distribute_list_yang, neighbor_distribute_list_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor distribute-list ACCESSLIST_NAME$name <in|out>$dir",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Filter updates to/from this neighbor\n"
+	   "IP Access-list name\n"
+	   "Filter incoming updates\n"
+	   "Filter outgoing updates\n")
+{
+	const char *leaf = strmatch(dir, "in") ? "access-list-import" : "access-list-export";
+
+	return bgp_cli_peer_af_filter_leaf(vty, neighbor, leaf, name, !!no);
+}
+
+DEFPY_YANG(neighbor_filter_list_yang, neighbor_filter_list_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor filter-list AS_PATH_FILTER_NAME$name <in|out>$dir",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Establish BGP filters\n"
+	   "AS path access-list name\n"
+	   "Filter incoming routes\n"
+	   "Filter outgoing routes\n")
+{
+	const char *leaf = strmatch(dir, "in") ? "as-path-filter-list-import"
+					       : "as-path-filter-list-export";
+
+	return bgp_cli_peer_af_filter_leaf(vty, neighbor, leaf, name, !!no);
+}
+
+DEFPY_YANG(neighbor_route_map_yang, neighbor_route_map_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor route-map RMAP_NAME$name <in|out>$dir",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Apply route map to neighbor\n"
+	   "Name of route map\n"
+	   "Apply map to incoming routes\n"
+	   "Apply map to outbound routes\n")
+{
+	const char *leaf = strmatch(dir, "in") ? "rmap-import" : "rmap-export";
+
+	return bgp_cli_peer_af_filter_leaf(vty, neighbor, leaf, name, !!no);
+}
+
+DEFPY_YANG(neighbor_unsuppress_map_yang, neighbor_unsuppress_map_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor unsuppress-map RMAP_NAME$name",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Route-map to selectively unsuppress suppressed routes\n"
+	   "Name of route map\n")
+{
+	return bgp_cli_peer_af_filter_leaf(vty, neighbor, "unsuppress-map-export", name, !!no);
+}
+
+ALIAS_ATTR(neighbor_prefix_list_yang, neighbor_prefix_list_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor prefix-list WORD$name <in|out>$dir",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Filter updates to/from this neighbor\n"
+						  "Name of a prefix list\n"
+						  "Filter incoming updates\n"
+						  "Filter outgoing updates\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_distribute_list_yang, neighbor_distribute_list_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor distribute-list ACCESSLIST_NAME$name <in|out>$dir",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Filter updates to/from this neighbor\n"
+					       "IP Access-list name\n"
+					       "Filter incoming updates\n"
+					       "Filter outgoing updates\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_filter_list_yang, neighbor_filter_list_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor filter-list AS_PATH_FILTER_NAME$name <in|out>$dir",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Establish BGP filters\n"
+					       "AS path access-list name\n"
+					       "Filter incoming routes\n"
+					       "Filter outgoing routes\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_route_map_yang, neighbor_route_map_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor route-map RMAP_NAME$name <in|out>$dir",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Apply route map to neighbor\n"
+						  "Name of route map\n"
+						  "Apply map to incoming routes\n"
+						  "Apply map to outbound routes\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_unsuppress_map_yang, neighbor_unsuppress_map_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor unsuppress-map RMAP_NAME$name",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Route-map to selectively unsuppress suppressed routes\n"
+	   "Name of route map\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 ALIAS_ATTR(
 	neighbor_allowas_in_yang, neighbor_allowas_in_yang_hidden_cmd,
 	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map ![RMAP_NAME$rmap_name]] [<(1-10)$allow_num|origin$origin_kw>]",
@@ -4520,6 +4647,61 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_VPNV6_NODE, &neighbor_allowas_in_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_yang_cmd);
 	install_element(BGP_NODE, &neighbor_allowas_in_yang_hidden_cmd);
+
+	/* filter policy */
+	install_element(BGP_IPV4_NODE, &neighbor_distribute_list_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_unsuppress_map_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_distribute_list_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_unsuppress_map_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_distribute_list_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_unsuppress_map_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_distribute_list_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_unsuppress_map_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_distribute_list_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_unsuppress_map_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_distribute_list_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_unsuppress_map_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_distribute_list_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_unsuppress_map_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_distribute_list_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_unsuppress_map_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_prefix_list_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_filter_list_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_route_map_yang_cmd);
+
+	install_element(BGP_NODE, &neighbor_distribute_list_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_prefix_list_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_filter_list_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_route_map_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_unsuppress_map_yang_hidden_cmd);
 }
 
 void bgp_cli_init(void)
