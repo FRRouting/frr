@@ -328,6 +328,34 @@ void bgp_nb_cli_show_default_software_version_capability(struct vty *vty,
 							 const struct lyd_node *dnode,
 							 bool show_defaults);
 
+/* Numbered neighbors */
+int bgp_nb_neighbor_create(struct nb_cb_create_args *args);
+int bgp_nb_neighbor_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_neighbor(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bgp_nb_cli_show_neighbor_end(struct vty *vty, const struct lyd_node *dnode);
+
+int bgp_nb_neighbor_remote_as_type_modify(struct nb_cb_modify_args *args);
+int bgp_nb_neighbor_remote_as_type_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+
+int bgp_nb_neighbor_remote_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_neighbor_remote_as_destroy(struct nb_cb_destroy_args *args);
+
+/* Peer-groups */
+int bgp_nb_peer_group_create(struct nb_cb_create_args *args);
+int bgp_nb_peer_group_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_group(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bgp_nb_cli_show_peer_group_end(struct vty *vty, const struct lyd_node *dnode);
+
+int bgp_nb_peer_group_remote_as_type_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_group_remote_as_type_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_group_remote_as_type(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+
+int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_group_remote_as_destroy(struct nb_cb_destroy_args *args);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

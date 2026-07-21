@@ -179,6 +179,10 @@ extern bool bgp_config_inprocess(void);
 extern struct peer *peer_and_group_lookup_vty(struct vty *vty,
 					      const char *peer_str);
 
+extern bool peer_address_self_check(struct bgp *bgp, union sockunion *su);
+extern void bgp_nb_need_listening(struct bgp *bgp);
+extern void bgp_nb_may_stop_listening(struct bgp *bgp);
+
 extern afi_t bgp_vty_afi_from_str(const char *afi_str);
 
 extern safi_t bgp_vty_safi_from_str(const char *safi_str);

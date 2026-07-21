@@ -18,6 +18,7 @@
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_zebra.h"
 
 #include "bgpd/bgp_cli_clippy.c"
 
@@ -1773,6 +1774,387 @@ DEFPY_YANG(bgp_default_software_version_capability_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/*
+ * Neighbor / peer-group xpath helper.
+ * Returns 0 on success. For WORD, prefers an existing unnumbered neighbor
+ * in the candidate, otherwise peer-group (which must already exist for
+ * remote-as — matching classic "create the peer-group first").
+ */
+static int bgp_cli_neighbor_base_xpath(struct vty *vty, const char *neighbor, char *xpath,
+				       size_t xpath_len, bool *is_peer_group)
+{
+	char check[XPATH_MAXLEN + 256];
+	union sockunion su;
+
+	*is_peer_group = false;
+
+	if (str2sockunion(neighbor, &su) >= 0) {
+		snprintfrr(xpath, xpath_len, "./neighbors/neighbor[remote-address='%s']", neighbor);
+		return 0;
+	}
+
+	snprintfrr(check, sizeof(check), "%s/neighbors/unnumbered-neighbor[interface='%s']",
+		   VTY_CURR_XPATH, neighbor);
+	if (yang_dnode_exists(vty->candidate_config->dnode, check)) {
+		snprintfrr(xpath, xpath_len, "./neighbors/unnumbered-neighbor[interface='%s']",
+			   neighbor);
+		return 0;
+	}
+
+	snprintfrr(check, sizeof(check), "%s/peer-groups/peer-group[peer-group-name='%s']",
+		   VTY_CURR_XPATH, neighbor);
+	if (!yang_dnode_exists(vty->candidate_config->dnode, check)) {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+		/* Interface peers still classic — fall back for remote-as. */
+		if (peer_lookup_by_conf_if(bgp, neighbor))
+			return 1;
+
+		vty_out(vty, "%% Create the peer-group or interface first\n");
+		return -1;
+	}
+
+	snprintfrr(xpath, xpath_len, "./peer-groups/peer-group[peer-group-name='%s']", neighbor);
+	*is_peer_group = true;
+	return 0;
+}
+
+static int bgp_cli_enqueue_remote_as(struct vty *vty, const char *base_xpath, const char *as_str,
+				     bool internal, bool external, bool as_auto)
+{
+	char leaf[XPATH_MAXLEN + 256];
+	const char *as_type;
+
+	if (as_str) {
+		as_t as_num;
+
+		if (!asn_str2asn(as_str, &as_num)) {
+			vty_out(vty, "%% Invalid AS number: %s\n", as_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		as_type = "as-specified";
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", base_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_type);
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", base_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, asn_asn2asplain(as_num));
+	} else if (internal) {
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", base_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "internal");
+	} else if (as_auto) {
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", base_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "auto");
+	} else {
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", base_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "external");
+	}
+	return CMD_SUCCESS;
+}
+
+struct bgp_cli_pg_member {
+	struct bgp_cli_pg_member *next;
+	bool unnumbered;
+	char *id;
+};
+
+static void bgp_cli_pg_members_free(struct bgp_cli_pg_member *member)
+{
+	struct bgp_cli_pg_member *next;
+
+	while (member) {
+		next = member->next;
+		XFREE(MTYPE_TMP, member->id);
+		XFREE(MTYPE_TMP, member);
+		member = next;
+	}
+}
+
+static void bgp_cli_pg_member_note(struct bgp_cli_pg_member **head, bool unnumbered, const char *id)
+{
+	struct bgp_cli_pg_member *member;
+
+	member = XCALLOC(MTYPE_TMP, sizeof(*member));
+	member->unnumbered = unnumbered;
+	member->id = XSTRDUP(MTYPE_TMP, id);
+	member->next = *head;
+	*head = member;
+}
+
+/* Configured neighbors whose peer-group leaf names this group. */
+static struct bgp_cli_pg_member *bgp_cli_peer_group_members(struct vty *vty, const char *pg)
+{
+	struct bgp_cli_pg_member *head = NULL;
+	const struct lyd_node *nbrs, *nbr;
+	char check[XPATH_MAXLEN + 64];
+
+	snprintfrr(check, sizeof(check), "%s/neighbors", VTY_CURR_XPATH);
+	nbrs = yang_dnode_get(vty->candidate_config->dnode, check);
+	if (!nbrs)
+		return NULL;
+
+	for (nbr = lyd_child(nbrs); nbr; nbr = nbr->next) {
+		bool unnumbered;
+		const char *bound, *id;
+
+		if (nbr->schema->nodetype != LYS_LIST)
+			continue;
+		if (strmatch(nbr->schema->name, "neighbor"))
+			unnumbered = false;
+		else if (strmatch(nbr->schema->name, "unnumbered-neighbor"))
+			unnumbered = true;
+		else
+			continue;
+		if (!yang_dnode_exists(nbr, "./peer-group"))
+			continue;
+		bound = yang_dnode_get_string(nbr, "./peer-group");
+		if (!bound || !strmatch(bound, pg))
+			continue;
+		id = yang_dnode_get_string(nbr, unnumbered ? "./interface" : "./remote-address");
+		if (id)
+			bgp_cli_pg_member_note(&head, unnumbered, id);
+	}
+	return head;
+}
+
+static uint32_t bgp_cli_peer_group_listen_ranges(struct vty *vty, const char *pg)
+{
+	const struct lyd_node *group, *child;
+	char check[XPATH_MAXLEN + 256];
+	uint32_t count = 0;
+
+	snprintfrr(check, sizeof(check), "%s/peer-groups/peer-group[peer-group-name='%s']",
+		   VTY_CURR_XPATH, pg);
+	group = yang_dnode_get(vty->candidate_config->dnode, check);
+	if (!group)
+		return 0;
+
+	for (child = lyd_child(group); child; child = child->next) {
+		if (child->schema->nodetype != LYS_LEAFLIST)
+			continue;
+		if (strmatch(child->schema->name, "ipv4-listen-range") ||
+		    strmatch(child->schema->name, "ipv6-listen-range"))
+			count++;
+	}
+	return count;
+}
+
+/*
+ * Queue one destroy. Apply a full batch first so a peer-group with many
+ * members still fits; those member deletes are valid while the group remains.
+ */
+static int bgp_cli_enqueue_destroy(struct vty *vty, const char *xpath)
+{
+	int ret;
+
+	if (vty->num_cfg_changes >= VTY_MAXCFGCHANGES) {
+		ret = nb_cli_apply_changes(vty, NULL);
+		vty->num_cfg_changes = 0;
+		if (ret != CMD_SUCCESS)
+			return ret;
+	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return CMD_SUCCESS;
+}
+
+/*
+ * Classic "no neighbor PG peer-group" deletes the group and every member.
+ * Each member peer-group leaf is a leafref, so deleting only the group is
+ * rejected before the runtime destroy callback runs.
+ */
+static int bgp_cli_enqueue_peer_group_delete(struct vty *vty, const char *pg)
+{
+	struct bgp_cli_pg_member *members, *member;
+	char xpath[XPATH_MAXLEN];
+	uint32_t nlisten;
+	int ret;
+
+	nlisten = bgp_cli_peer_group_listen_ranges(vty, pg);
+	if (nlisten) {
+		vty_out(vty,
+			"%%Peer-group %s is attached to %u listen-range(s), delete them first\n",
+			pg, nlisten);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	members = bgp_cli_peer_group_members(vty, pg);
+	for (member = members; member; member = member->next) {
+		if (member->unnumbered)
+			snprintfrr(xpath, sizeof(xpath),
+				   "./neighbors/unnumbered-neighbor[interface='%s']", member->id);
+		else
+			snprintfrr(xpath, sizeof(xpath),
+				   "./neighbors/neighbor[remote-address='%s']", member->id);
+		ret = bgp_cli_enqueue_destroy(vty, xpath);
+		if (ret != CMD_SUCCESS) {
+			bgp_cli_pg_members_free(members);
+			return ret;
+		}
+	}
+	bgp_cli_pg_members_free(members);
+
+	snprintfrr(xpath, sizeof(xpath), "./peer-groups/peer-group[peer-group-name='%s']", pg);
+	return bgp_cli_enqueue_destroy(vty, xpath);
+}
+
+DEFPY_YANG(neighbor_peer_group_yang, neighbor_peer_group_yang_cmd,
+	   "[no] neighbor WORD$pg peer-group",
+	   NO_STR NEIGHBOR_STR
+	   "Neighbor tag\n"
+	   "Configure peer-group\n")
+{
+	if (no) {
+		int ret;
+
+		ret = bgp_cli_enqueue_peer_group_delete(vty, pg);
+		if (ret != CMD_SUCCESS)
+			return ret;
+	} else {
+		char xpath[XPATH_MAXLEN];
+
+		snprintfrr(xpath, sizeof(xpath), "./peer-groups/peer-group[peer-group-name='%s']",
+			   pg);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_remote_as_yang, neighbor_remote_as_yang_cmd,
+	   "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor remote-as <ASNUM$as|internal$internal|external$external|auto$as_auto>",
+	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Specify a BGP neighbor\n"
+	   AS_STR
+	   "Internal BGP peer\n"
+	   "External BGP peer\n"
+	   "Automatically detect remote ASN\n")
+{
+	char xpath[XPATH_MAXLEN];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (ret > 0) {
+		/* Classic interface peer path until unnumbered is converted. */
+		const char *as_arg = as_str	? as_str
+				     : internal ? "internal"
+				     : as_auto	? "auto"
+						: "external";
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		as_t as1 = 0;
+		enum peer_asn_type as_type = AS_SPECIFIED;
+		int pret;
+
+		if (as_arg[0] == 'i')
+			as_type = AS_INTERNAL;
+		else if (as_arg[0] == 'e')
+			as_type = AS_EXTERNAL;
+		else if (as_arg[0] == 'a')
+			as_type = AS_AUTO;
+		else if (!asn_str2asn(as_arg, &as)) {
+			vty_out(vty, "%% Invalid peer AS: %s\n", as_arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		pret = peer_remote_as(bgp, NULL, neighbor, &as1, as_type, as_arg);
+		return bgp_vty_return(vty, pret);
+	}
+
+	/* Numbered neighbors are created by remote-as; peer-groups must exist. */
+	if (!is_pg)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	ret = bgp_cli_enqueue_remote_as(vty, xpath, as_str, !!internal, !!external, !!as_auto);
+	if (ret != CMD_SUCCESS)
+		return ret;
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_neighbor_yang, no_neighbor_yang_cmd,
+	   "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <ASNUM|internal|external|auto>]>",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Specify a BGP neighbor\n"
+	   AS_STR
+	   "Internal BGP peer\n"
+	   "External BGP peer\n"
+	   "Automatically detect remote ASN\n")
+{
+	char xpath[XPATH_MAXLEN];
+	bool is_pg = false;
+	int ret;
+	const char *peer_str = argv[2]->arg;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, peer_str, xpath, sizeof(xpath), &is_pg);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (ret > 0) {
+		/* Interface peer still classic. */
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		struct peer *peer = peer_lookup_by_conf_if(bgp, peer_str);
+
+		if (peer) {
+			if (peer->ifp)
+				bgp_zebra_terminate_radv(peer->bgp, peer);
+			peer_notify_unconfig(peer->connection);
+			peer_delete(peer);
+			bgp_nb_may_stop_listening(bgp);
+			return CMD_SUCCESS;
+		}
+		vty_out(vty, "%% Create the peer-group or interface first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/*
+	 * "no neighbor PG" is the other classic way to delete a peer-group,
+	 * and it removed the members too. Same leafref constraint as
+	 * "no neighbor PG peer-group".
+	 */
+	if (is_pg) {
+		ret = bgp_cli_enqueue_peer_group_delete(vty, peer_str);
+		if (ret != CMD_SUCCESS)
+			return ret;
+	} else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_neighbor_remote_as_yang, no_neighbor_remote_as_yang_cmd,
+	   "no neighbor WORD$neighbor remote-as <ASNUM|internal|external|auto>",
+	   NO_STR NEIGHBOR_STR
+	   "Interface name or neighbor tag\n"
+	   "Specify a BGP neighbor\n"
+	   AS_STR
+	   "Internal BGP peer\n"
+	   "External BGP peer\n"
+	   "Automatically detect remote ASN\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (ret > 0) {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		struct peer *peer = peer_lookup_by_conf_if(bgp, neighbor);
+
+		if (peer) {
+			peer_as_change(peer, 0, AS_UNSPECIFIED, NULL);
+			return CMD_SUCCESS;
+		}
+		vty_out(vty, "%% Create the peer-group or interface first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -1901,4 +2283,9 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &bgp_default_dynamic_capability_yang_cmd);
 	install_element(BGP_NODE, &bgp_default_link_local_capability_yang_cmd);
 	install_element(BGP_NODE, &bgp_default_software_version_capability_yang_cmd);
+
+	install_element(BGP_NODE, &neighbor_peer_group_yang_cmd);
+	install_element(BGP_NODE, &neighbor_remote_as_yang_cmd);
+	install_element(BGP_NODE, &no_neighbor_yang_cmd);
+	install_element(BGP_NODE, &no_neighbor_remote_as_yang_cmd);
 }
