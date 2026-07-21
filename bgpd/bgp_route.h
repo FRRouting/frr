@@ -973,6 +973,11 @@ extern int bgp_network_unset(struct bgp *bgp, afi_t afi, safi_t safi, const char
 			     const char *rmap, uint32_t label_index, char *errmsg,
 			     size_t errmsg_len);
 
+/* L3VPN static network statements (also used by northbound). */
+extern int bgp_vpn_network_set(struct bgp *bgp, bool negate, const char *ip_str,
+			       const char *rd_str, const char *label_str, afi_t afi,
+			       const char *rmap, char *errmsg, size_t errmsg_len);
+
 extern int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			  const char *rd_str, const char *label_str, afi_t afi,
 			  safi_t safi, const char *rmap, int backdoor,

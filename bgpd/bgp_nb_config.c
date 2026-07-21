@@ -5922,6 +5922,180 @@ int bgp_nb_network_rmap_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * L3VPN network-config[rd]/prefix-list[prefix] — YANG "label-index" stores
+ * the MPLS VPN label (classic CLI "label|tag").
+ */
+static int bgp_nb_vpn_network_apply(const struct lyd_node *prefix_dnode)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *rd_dnode;
+	const char *rd_str;
+	const char *prefix;
+	const char *rmap = NULL;
+	char label_buf[16];
+	char err[256];
+
+	rd_dnode = yang_dnode_get_parent(prefix_dnode, "network-config");
+	if (!rd_dnode)
+		return NB_ERR_NOT_FOUND;
+
+	bgp = nb_running_get_entry(rd_dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(rd_dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	rd_str = yang_dnode_get_string(rd_dnode, "./rd");
+	prefix = yang_dnode_get_string(prefix_dnode, "./prefix");
+	if (!yang_dnode_exists(prefix_dnode, "./label-index"))
+		return NB_ERR_VALIDATION;
+
+	snprintfrr(label_buf, sizeof(label_buf), "%u",
+		   yang_dnode_get_uint32(prefix_dnode, "./label-index"));
+	if (yang_dnode_exists(prefix_dnode, "./rmap-policy-export"))
+		rmap = yang_dnode_get_string(prefix_dnode, "./rmap-policy-export");
+
+	if (bgp_vpn_network_set(bgp, false, prefix, rd_str, label_buf, afi, rmap, err,
+				sizeof(err)) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_vpn_network_rd_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	struct prefix_rd prd;
+	const struct lyd_node *af;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!str2prefix_rd(yang_dnode_get_string(args->dnode, "./rd"), &prd)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed Route Distinguisher");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	af = yang_dnode_get_parent(args->dnode, "afi-safi");
+	bgp = nb_running_get_entry(af ? af : args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	nb_running_set_entry(args->dnode, bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_network_rd_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Prefix children are destroyed first and withdraw routes. */
+	nb_running_unset_entry(args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_network_prefix_create(struct nb_cb_create_args *args)
+{
+	struct prefix p;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!str2prefix(yang_dnode_get_string(args->dnode, "./prefix"), &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed network prefix");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* label-index is mandatory; may be applied in same changeset. */
+	if (!yang_dnode_exists(args->dnode, "./label-index"))
+		return NB_OK;
+	return bgp_nb_vpn_network_apply(args->dnode);
+}
+
+int bgp_nb_vpn_network_prefix_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *rd_dnode;
+	const char *rd_str;
+	const char *prefix;
+	char err[256];
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rd_dnode = yang_dnode_get_parent(args->dnode, "network-config");
+	if (!rd_dnode)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(rd_dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(rd_dnode, &afi, &safi))
+		return NB_OK;
+
+	rd_str = yang_dnode_get_string(rd_dnode, "./rd");
+	prefix = yang_dnode_get_string(args->dnode, "./prefix");
+	bgp_vpn_network_set(bgp, true, prefix, rd_str, NULL, afi, NULL, err, sizeof(err));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_vpn_network_prefix(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	const struct lyd_node *rd_dnode;
+
+	rd_dnode = yang_dnode_get_parent(dnode, "network-config");
+	if (!rd_dnode)
+		return;
+
+	vty_out(vty, "  network %s rd %s label %u", yang_dnode_get_string(dnode, "./prefix"),
+		yang_dnode_get_string(rd_dnode, "./rd"),
+		yang_dnode_get_uint32(dnode, "./label-index"));
+	if (yang_dnode_exists(dnode, "./rmap-policy-export"))
+		vty_out(vty, " route-map %s", yang_dnode_get_string(dnode, "./rmap-policy-export"));
+	vty_out(vty, "\n");
+}
+
+int bgp_nb_vpn_network_label_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_vpn_network_apply(yang_dnode_get_parent(args->dnode, "prefix-list"));
+}
+
+int bgp_nb_vpn_network_rmap_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_vpn_network_apply(yang_dnode_get_parent(args->dnode, "prefix-list"));
+}
+
+static const struct lyd_node *bgp_nb_candidate_match(const struct lyd_node *old);
+
+int bgp_nb_vpn_network_rmap_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *pfx;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/*
+	 * The running tree still has the route-map being deleted. Rebuild
+	 * from the candidate so the withdrawn leaf is not applied again.
+	 * A missing prefix means the network itself is going away; its
+	 * destroy withdraws the route.
+	 */
+	pfx = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "prefix-list"));
+	if (!pfx)
+		return NB_OK;
+	return bgp_nb_vpn_network_apply(pfx);
+}
+
+/*
  * Aggregate-address
  */
 #define AGGREGATE_AS_SET_NB   1

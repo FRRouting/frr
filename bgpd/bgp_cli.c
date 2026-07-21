@@ -6290,6 +6290,54 @@ DEFPY_YANG(bgp_retain_route_target_yang, bgp_retain_route_target_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(vpn_network_yang, vpn_network_yang_cmd,
+	   "[no] network <A.B.C.D/M$prefix4|X:X::X:X/M$prefix6> rd ASN:NN_OR_IP-ADDRESS:NN$rd <tag|label> (0-1048575)$label [route-map RMAP_NAME$map_name]",
+	   NO_STR
+	   "Specify a network to announce via BGP\n"
+	   "IPv4 prefix\n"
+	   "IPv6 prefix\n"
+	   "Specify Route Distinguisher\n"
+	   "VPN Route Distinguisher\n"
+	   "VPN NLRI label (tag)\n"
+	   "VPN NLRI label (tag)\n"
+	   "Label value\n"
+	   "Route map\n"
+	   "Route map name\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char rd_xpath[XPATH_MAXLEN + 256];
+	char pfx_xpath[XPATH_MAXLEN + 512];
+	char leaf[XPATH_MAXLEN + 768];
+	char buf[16];
+	const char *pfx;
+
+	pfx = prefix4_str ? prefix4_str : prefix6_str;
+	if (!pfx)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(rd_xpath, sizeof(rd_xpath), "%s/network-config[rd='%s']", af_xpath, rd);
+	snprintfrr(pfx_xpath, sizeof(pfx_xpath), "%s/prefix-list[prefix='%s']", rd_xpath, pfx);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, pfx_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, rd_xpath, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, pfx_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/label-index", pfx_xpath);
+	snprintfrr(buf, sizeof(buf), "%" PRId64, label);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(leaf, sizeof(leaf), "%s/rmap-policy-export", pfx_xpath);
+	if (map_name)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, map_name);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(af_routetarget_redirect_yang, af_routetarget_redirect_yang_cmd,
 	   "[no] <rt|route-target|route-target6|rt6>$rt_kw redirect import RTLIST...",
 	   NO_STR
@@ -8268,6 +8316,35 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_IPV6_NODE, &neighbor_nexthop_local_unchanged_yang_cmd);
 }
 
+
+ALIAS_ATTR(vpn_network_yang, vpn_network_v4_yang_cmd,
+	   "[no] network A.B.C.D/M$prefix4 rd ASN:NN_OR_IP-ADDRESS:NN$rd <tag|label> (0-1048575)$label [route-map RMAP_NAME$map_name]",
+	   NO_STR
+	   "Specify a network to announce via BGP\n"
+	   "IPv4 prefix\n"
+	   "Specify Route Distinguisher\n"
+	   "VPN Route Distinguisher\n"
+	   "VPN NLRI label (tag)\n"
+	   "VPN NLRI label (tag)\n"
+	   "Label value\n"
+	   "Route map\n"
+	   "Route map name\n",
+	   CMD_ATTR_YANG);
+
+ALIAS_ATTR(vpn_network_yang, vpn_network_v6_yang_cmd,
+	   "[no] network X:X::X:X/M$prefix6 rd ASN:NN_OR_IP-ADDRESS:NN$rd <tag|label> (0-1048575)$label [route-map RMAP_NAME$map_name]",
+	   NO_STR
+	   "Specify a network to announce via BGP\n"
+	   "IPv6 prefix\n"
+	   "Specify Route Distinguisher\n"
+	   "VPN Route Distinguisher\n"
+	   "VPN NLRI label (tag)\n"
+	   "VPN NLRI label (tag)\n"
+	   "Label value\n"
+	   "Route map\n"
+	   "Route map name\n",
+	   CMD_ATTR_YANG);
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -8621,6 +8698,9 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &af_routetarget_redirect_yang_cmd);
 	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_yang_cmd);
 	install_element(BGP_VPNV6_NODE, &bgp_retain_route_target_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &vpn_network_v4_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &vpn_network_v6_yang_cmd);
+
 	install_element(BGP_IPV4_NODE, &sid_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &sid_export_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_yang_cmd);

@@ -1940,6 +1940,64 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/network-config",
+			.cbs = {
+				.create = bgp_nb_vpn_network_rd_create,
+				.destroy = bgp_nb_vpn_network_rd_destroy,
+				.flags = F_NB_CB_DESTROY_RECURSE,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/network-config/prefix-list",
+			.cbs = {
+				.create = bgp_nb_vpn_network_prefix_create,
+				.destroy = bgp_nb_vpn_network_prefix_destroy,
+				.cli_show = bgp_nb_cli_show_vpn_network_prefix,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/network-config/prefix-list/label-index",
+			.cbs = {
+				.modify = bgp_nb_vpn_network_label_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/network-config/prefix-list/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_vpn_network_rmap_modify,
+				.destroy = bgp_nb_vpn_network_rmap_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/network-config",
+			.cbs = {
+				.create = bgp_nb_vpn_network_rd_create,
+				.destroy = bgp_nb_vpn_network_rd_destroy,
+				.flags = F_NB_CB_DESTROY_RECURSE,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/network-config/prefix-list",
+			.cbs = {
+				.create = bgp_nb_vpn_network_prefix_create,
+				.destroy = bgp_nb_vpn_network_prefix_destroy,
+				.cli_show = bgp_nb_cli_show_vpn_network_prefix,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/network-config/prefix-list/label-index",
+			.cbs = {
+				.modify = bgp_nb_vpn_network_label_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/network-config/prefix-list/rmap-policy-export",
+			.cbs = {
+				.modify = bgp_nb_vpn_network_rmap_modify,
+				.destroy = bgp_nb_vpn_network_rmap_destroy,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/retain-route-target-all",
 			.cbs = {
 				.modify = bgp_nb_vpn_retain_rt_modify,

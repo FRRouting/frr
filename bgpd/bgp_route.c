@@ -9494,6 +9494,132 @@ int bgp_network_unset(struct bgp *bgp, afi_t afi, safi_t safi, const char *ip_st
 	return 0;
 }
 
+/*
+ * L3VPN (SAFI_MPLS_VPN) static network statements.
+ * YANG maps the mandatory "label-index" leaf to the MPLS VPN label.
+ */
+int bgp_vpn_network_set(struct bgp *bgp, bool negate, const char *ip_str, const char *rd_str,
+			const char *label_str, afi_t afi, const char *rmap, char *errmsg,
+			size_t errmsg_len)
+{
+	int ret;
+	struct prefix p;
+	struct bgp_static *bgp_static;
+	struct prefix_rd prd = {};
+	struct bgp_dest *pdest;
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	mpls_label_t label = MPLS_INVALID_LABEL;
+	safi_t safi = SAFI_MPLS_VPN;
+
+	ret = str2prefix(ip_str, &p);
+	if (!ret) {
+		snprintfrr(errmsg, errmsg_len, "Malformed prefix");
+		return -1;
+	}
+	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
+		snprintfrr(errmsg, errmsg_len, "Malformed prefix (link-local address)");
+		return -1;
+	}
+	apply_mask(&p);
+
+	if (!rd_str || !str2prefix_rd(rd_str, &prd)) {
+		snprintfrr(errmsg, errmsg_len, "Malformed rd");
+		return -1;
+	}
+
+	if (label_str) {
+		unsigned long label_val;
+
+		label_val = strtoul(label_str, NULL, 10);
+		encode_label(label_val, &label);
+	}
+
+	pdest = bgp_node_lookup(bgp->static_routes[afi][safi], (struct prefix *)&prd);
+	if (!negate) {
+		if (!pdest)
+			pdest = bgp_node_get(bgp->static_routes[afi][safi], (struct prefix *)&prd);
+		if (!bgp_dest_has_bgp_path_info_data(pdest))
+			bgp_dest_set_bgp_table_info(pdest, bgp_table_init(bgp, afi, safi));
+	} else if (!pdest) {
+		snprintfrr(errmsg, errmsg_len, "Can't find static route RD specified %s", rd_str);
+		return -1;
+	}
+	table = bgp_dest_get_bgp_table_info(pdest);
+
+	if (negate) {
+		dest = bgp_node_lookup(table, &p);
+		if (!dest) {
+			snprintfrr(errmsg, errmsg_len, "Can't find static route specified");
+			return -1;
+		}
+
+		bgp_static = bgp_dest_get_bgp_static_info(dest);
+		if (bgp_static) {
+			if ((rmap && bgp_static->rmap.name) && strcmp(rmap, bgp_static->rmap.name)) {
+				snprintfrr(errmsg, errmsg_len,
+					   "route-map name doesn't match static route");
+				bgp_dest_unlock_node(dest);
+				return -1;
+			}
+
+			if (!bgp_static->backdoor)
+				bgp_static_withdraw(bgp, &p, afi, safi, &prd);
+
+			bgp_static_free(bgp_static);
+		}
+
+		bgp_dest_set_bgp_static_info(dest, NULL);
+		dest = bgp_dest_unlock_node(dest);
+		assert(dest);
+		bgp_dest_unlock_node(dest);
+		return 0;
+	}
+
+	dest = bgp_node_get(table, &p);
+	bgp_static = bgp_dest_get_bgp_static_info(dest);
+	if (bgp_static) {
+		if (rmap) {
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+			route_map_counter_decrement(bgp_static->rmap.map);
+			bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+			bgp_static->rmap.map = route_map_lookup_by_name(rmap);
+			route_map_counter_increment(bgp_static->rmap.map);
+		} else {
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+			route_map_counter_decrement(bgp_static->rmap.map);
+			bgp_static->rmap.map = NULL;
+			bgp_static->valid = 0;
+		}
+		bgp_static->label = label;
+		bgp_dest_unlock_node(dest);
+	} else {
+		bgp_static = bgp_static_new();
+		bgp_static->backdoor = 0;
+		bgp_static->valid = 0;
+		bgp_static->igpmetric = 0;
+		bgp_static->igpnexthop.s_addr = INADDR_ANY;
+		bgp_static->label_index = BGP_INVALID_LABEL_INDEX;
+		bgp_static->label = label;
+		bgp_static->prd = prd;
+		bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP_NAME, rd_str);
+
+		if (rmap) {
+			bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+			bgp_static->rmap.map = route_map_lookup_by_name(rmap);
+			route_map_counter_increment(bgp_static->rmap.map);
+		}
+
+		bgp_dest_set_bgp_static_info(dest, bgp_static);
+	}
+
+	bgp_static->valid = 1;
+	if (!bgp_static->backdoor)
+		bgp_static_update(bgp, &p, bgp_static, afi, safi);
+
+	return 0;
+}
+
 int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 		   const char *rd_str, const char *label_str, afi_t afi,
 		   safi_t safi, const char *rmap, int backdoor,
@@ -9545,6 +9671,19 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			label_val = strtoul(label_str, NULL, 10);
 			encode_label(label_val, &label);
 		}
+	}
+
+	if (safi == SAFI_MPLS_VPN) {
+		char err[256];
+		int rc;
+
+		rc = bgp_vpn_network_set(bgp, negate, ip_str, rd_str, label_str, afi, rmap, err,
+					 sizeof(err));
+		if (rc < 0) {
+			vty_out(vty, "%% %s\n", err);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		return CMD_SUCCESS;
 	}
 
 	if (safi == SAFI_EVPN) {
