@@ -6704,6 +6704,167 @@ DEFPY_YANG(bmp_acl_yang, bmp_acl_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bmp_listener_yang, bmp_listener_yang_cmd,
+	   "[no] bmp listener <A.B.C.D|X:X::X:X>$addr port (1-65535)$port",
+	   NO_STR
+	   BMP_STR
+	   "Listen for inbound BMP connections\n"
+	   "IPv4 address to listen on\n"
+	   "IPv6 address to listen on\n"
+	   "TCP Port number\n"
+	   "TCP Port number\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char su_buf[SU_ADDRSTRLEN];
+
+	sockunion2str(addr, su_buf, sizeof(su_buf));
+
+	if (no) {
+		char abs_xpath[XPATH_MAXLEN];
+
+		snprintfrr(abs_xpath, sizeof(abs_xpath),
+			   "%s/incoming-session/session-list[address='%s'][tcp-port='%" PRId64 "']",
+			   VTY_CURR_XPATH, su_buf, port);
+		if (!yang_dnode_exists(vty->candidate_config->dnode, abs_xpath)) {
+			vty_out(vty, "%% BMP listener not found\n");
+			return CMD_WARNING;
+		}
+	}
+
+	snprintfrr(xpath, sizeof(xpath),
+		   "./incoming-session/session-list[address='%s'][tcp-port='%" PRId64 "']",
+		   su_buf, port);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bmp_connect_yang, bmp_connect_yang_cmd,
+	   "[no] bmp connect HOSTNAME$host port (1-65535)$port {min-retry (100-86400000)$min_retry|max-retry (100-86400000)$max_retry} [source-interface WORD$srcif]",
+	   NO_STR
+	   BMP_STR
+	   "Actively establish connection to monitoring station\n"
+	   "Monitoring station hostname or address\n"
+	   "TCP port\n"
+	   "TCP port\n"
+	   "Minimum connection retry interval\n"
+	   "Minimum connection retry interval (milliseconds)\n"
+	   "Maximum connection retry interval\n"
+	   "Maximum connection retry interval (milliseconds)\n"
+	   "Source interface to use\n"
+	   "Interface name\n")
+{
+	char sess[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char min_buf[16], max_buf[16];
+
+	snprintfrr(sess, sizeof(sess),
+		   "./outgoing-session/session-list[hostname='%s'][tcp-port='%" PRId64 "']", host,
+		   port);
+
+	if (no) {
+		char abs_sess[XPATH_MAXLEN];
+		const struct lyd_node *sess_dnode;
+		const char *cur_srcif = NULL;
+
+		snprintfrr(abs_sess, sizeof(abs_sess),
+			   "%s/outgoing-session/session-list[hostname='%s'][tcp-port='%" PRId64 "']",
+			   VTY_CURR_XPATH, host, port);
+		sess_dnode = yang_dnode_get(vty->candidate_config->dnode, abs_sess);
+		if (!sess_dnode) {
+			vty_out(vty, "%% No such active connection found\n");
+			return CMD_WARNING;
+		}
+		if (yang_dnode_exists(sess_dnode, "./source-interface"))
+			cur_srcif = yang_dnode_get_string(sess_dnode, "./source-interface");
+		if (cur_srcif || srcif) {
+			if (!cur_srcif || !srcif || !strmatch(cur_srcif, srcif)) {
+				vty_out(vty, "%% No such active connection found\n");
+				return CMD_WARNING;
+			}
+		}
+		nb_cli_enqueue_change(vty, sess, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, sess, NB_OP_CREATE, NULL);
+	if (min_retry_str) {
+		snprintfrr(leaf, sizeof(leaf), "%s/min-retry-time", sess);
+		snprintfrr(min_buf, sizeof(min_buf), "%" PRId64, min_retry);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, min_buf);
+	}
+	if (max_retry_str) {
+		snprintfrr(leaf, sizeof(leaf), "%s/max-retry-time", sess);
+		snprintfrr(max_buf, sizeof(max_buf), "%" PRId64, max_retry);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, max_buf);
+	}
+	if (srcif) {
+		snprintfrr(leaf, sizeof(leaf), "%s/source-interface", sess);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, srcif);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bmp_import_vrf_yang, bmp_import_vrf_yang_cmd,
+	   "[no] bmp import-vrf-view VRFNAME$vrfname",
+	   NO_STR
+	   BMP_STR
+	   "Import BMP information from another VRF\n"
+	   "Specify the VRF or view instance name\n")
+{
+	char leaf[XPATH_MAXLEN];
+
+	snprintfrr(leaf, sizeof(leaf), "./import-vrf[.='%s']", vrfname);
+	nb_cli_enqueue_change(vty, leaf, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bmp_monitor_yang, bmp_monitor_yang_cmd,
+	   "[no] bmp monitor <ipv4|ipv6|l2vpn>$afi_str <unicast|multicast|evpn|vpn>$safi_str <pre-policy|post-policy|loc-rib>$policy",
+	   NO_STR
+	   BMP_STR
+	   "Send BMP route monitoring messages\n"
+	   BGP_AF_STR BGP_AF_STR BGP_AF_STR
+	   BGP_AF_STR BGP_AF_STR BGP_AF_STR BGP_AF_STR
+	   "Send state before policy and filter processing\n"
+	   "Send state with policy and filters applied\n"
+	   "Send state after decision process is applied\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	const char *ident;
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+
+	if (strmatch(afi_str, "ipv6"))
+		afi = AFI_IP6;
+	else if (strmatch(afi_str, "l2vpn"))
+		afi = AFI_L2VPN;
+
+	if (strmatch(safi_str, "multicast"))
+		safi = SAFI_MULTICAST;
+	else if (strmatch(safi_str, "vpn"))
+		safi = SAFI_MPLS_VPN;
+	else if (strmatch(safi_str, "evpn"))
+		safi = SAFI_EVPN;
+
+	ident = yang_afi_safi_value2identity(afi, safi);
+	if (ident) {
+		/* ident is "frr-routing:<af>"; BMP common-config lives under <af>/. */
+		const char *af_cont = strchr(ident, ':');
+
+		af_cont = af_cont ? af_cont + 1 : ident;
+		snprintfrr(af_xpath, sizeof(af_xpath),
+			   "./afi-safis/afi-safi[afi-safi-name='%s']/%s", ident, af_cont);
+	} else {
+		snprintfrr(af_xpath, sizeof(af_xpath),
+			   "./afi-safis/afi-safi-extra[afi='%s'][safi='%s']", afi_str, safi_str);
+	}
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/common-config/%s", af_xpath, policy);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(af_routetarget_redirect_yang, af_routetarget_redirect_yang_cmd,
 	   "[no] <rt|route-target|route-target6|rt6>$rt_kw redirect import RTLIST...",
 	   NO_STR
@@ -9029,11 +9190,6 @@ void bgp_cli_init(void)
 	install_element(BGP_VPNV4_NODE, &vpn_network_v4_yang_cmd);
 	install_element(BGP_VPNV6_NODE, &vpn_network_v6_yang_cmd);
 
-	/* BMP under BGP_NODE (BMP_NODE installs wait for bgp_cli_bmp_init) */
-	install_element(BGP_NODE, &bmp_mirror_limit_yang_cmd);
-	install_element(BGP_NODE, &bmp_targets_yang_cmd);
-	install_element(BGP_NODE, &no_bmp_targets_yang_cmd);
-
 	install_element(BGP_IPV4_NODE, &sid_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &sid_export_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_yang_cmd);
@@ -9042,11 +9198,19 @@ void bgp_cli_init(void)
 	bgp_cli_install_af_neighbor();
 }
 
-/* Called from bgp_bmp_init() after BMP_NODE is installed. */
+/* Called from bgp_bmp_init() once bgpd_bmp is loaded and BMP_NODE is installed. */
 void bgp_cli_bmp_init(void)
 {
+	install_element(BGP_NODE, &bmp_mirror_limit_yang_cmd);
+	install_element(BGP_NODE, &bmp_targets_yang_cmd);
+	install_element(BGP_NODE, &no_bmp_targets_yang_cmd);
+
 	install_element(BMP_NODE, &bmp_mirror_yang_cmd);
 	install_element(BMP_NODE, &bmp_stats_yang_cmd);
 	install_element(BMP_NODE, &bmp_stats_experimental_yang_cmd);
 	install_element(BMP_NODE, &bmp_acl_yang_cmd);
+	install_element(BMP_NODE, &bmp_listener_yang_cmd);
+	install_element(BMP_NODE, &bmp_connect_yang_cmd);
+	install_element(BMP_NODE, &bmp_import_vrf_yang_cmd);
+	install_element(BMP_NODE, &bmp_monitor_yang_cmd);
 }

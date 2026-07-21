@@ -15952,3 +15952,476 @@ void bgp_nb_cli_show_bmp_target_acl_v6(struct vty *vty, const struct lyd_node *d
 {
 	vty_out(vty, "  ipv6 access-list %s\n", yang_dnode_get_string(dnode, NULL));
 }
+
+static int bgp_nb_bmp_port_check(uint32_t port, char *errmsg, size_t errmsg_len)
+{
+	if (port < 1 || port > 65535) {
+		snprintfrr(errmsg, errmsg_len, "BMP tcp-port %" PRIu32 " is outside 1..65535",
+			   port);
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_bmp_listener_create(struct nb_cb_create_args *args)
+{
+	union sockunion su;
+	const char *addr;
+	uint32_t port32;
+	uint16_t port;
+	void *bt;
+
+	addr = yang_dnode_get_string(args->dnode, "./address");
+	port32 = yang_dnode_get_uint32(args->dnode, "./tcp-port");
+	port = port32;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (bgp_nb_bmp_port_check(port32, args->errmsg, args->errmsg_len) != NB_OK)
+			return NB_ERR_VALIDATION;
+		if (str2sockunion(addr, &su) < 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Malformed BMP listener address");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	if (!bmp_nb_cb || !bmp_nb_cb->listener_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	return bmp_nb_cb->listener_set(bt, addr, port);
+}
+
+int bgp_nb_bmp_listener_destroy(struct nb_cb_destroy_args *args)
+{
+	union sockunion su;
+	const char *addr;
+	uint32_t port32;
+	uint16_t port;
+	void *bt;
+
+	addr = yang_dnode_get_string(args->dnode, "./address");
+	port32 = yang_dnode_get_uint32(args->dnode, "./tcp-port");
+	port = port32;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (bgp_nb_bmp_port_check(port32, args->errmsg, args->errmsg_len) != NB_OK)
+			return NB_ERR_VALIDATION;
+		if (str2sockunion(addr, &su) < 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Malformed BMP listener address");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	if (!bmp_nb_cb || !bmp_nb_cb->listener_unset)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_OK;
+
+	return bmp_nb_cb->listener_unset(bt, addr, port);
+}
+
+void bgp_nb_cli_show_bmp_listener(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "   bmp listener %s port %u\n", yang_dnode_get_string(dnode, "./address"),
+		yang_dnode_get_uint32(dnode, "./tcp-port"));
+}
+
+/* YANG defaults for outbound session retry (frr-bgp-bmp.yang). */
+#define BGP_NB_BMP_DFLT_MINRETRY 30000U
+#define BGP_NB_BMP_DFLT_MAXRETRY 720000U
+
+static int bgp_nb_bmp_connect_validate(const struct lyd_node *dnode, char *errmsg,
+				       size_t errmsg_len)
+{
+	uint32_t minretry = BGP_NB_BMP_DFLT_MINRETRY;
+	uint32_t maxretry = BGP_NB_BMP_DFLT_MAXRETRY;
+	uint32_t port = yang_dnode_get_uint32(dnode, "./tcp-port");
+
+	if (bgp_nb_bmp_port_check(port, errmsg, errmsg_len) != NB_OK)
+		return NB_ERR_VALIDATION;
+
+	if (yang_dnode_exists(dnode, "./min-retry-time"))
+		minretry = yang_dnode_get_uint32(dnode, "./min-retry-time");
+	if (yang_dnode_exists(dnode, "./max-retry-time"))
+		maxretry = yang_dnode_get_uint32(dnode, "./max-retry-time");
+	if (maxretry < minretry) {
+		snprintfrr(errmsg, errmsg_len, "BMP max-retry-time must be >= min-retry-time");
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+static int bgp_nb_bmp_connect_apply(const struct lyd_node *dnode)
+{
+	const char *hostname;
+	const char *srcif = NULL;
+	uint16_t port;
+	uint32_t minretry = BGP_NB_BMP_DFLT_MINRETRY;
+	uint32_t maxretry = BGP_NB_BMP_DFLT_MAXRETRY;
+	void *bt;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->connect_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	hostname = yang_dnode_get_string(dnode, "./hostname");
+	port = yang_dnode_get_uint32(dnode, "./tcp-port");
+	if (yang_dnode_exists(dnode, "./min-retry-time"))
+		minretry = yang_dnode_get_uint32(dnode, "./min-retry-time");
+	if (yang_dnode_exists(dnode, "./max-retry-time"))
+		maxretry = yang_dnode_get_uint32(dnode, "./max-retry-time");
+	if (yang_dnode_exists(dnode, "./source-interface"))
+		srcif = yang_dnode_get_string(dnode, "./source-interface");
+
+	return bmp_nb_cb->connect_set(bt, hostname, port, minretry, maxretry, srcif);
+}
+
+int bgp_nb_bmp_connect_create(struct nb_cb_create_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		return bgp_nb_bmp_connect_validate(args->dnode, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+	return bgp_nb_bmp_connect_apply(args->dnode);
+}
+
+int bgp_nb_bmp_connect_destroy(struct nb_cb_destroy_args *args)
+{
+	const char *hostname;
+	const char *srcif = NULL;
+	uint16_t port;
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->connect_unset)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_OK;
+
+	hostname = yang_dnode_get_string(args->dnode, "./hostname");
+	port = yang_dnode_get_uint32(args->dnode, "./tcp-port");
+	if (yang_dnode_exists(args->dnode, "./source-interface"))
+		srcif = yang_dnode_get_string(args->dnode, "./source-interface");
+
+	return bmp_nb_cb->connect_unset(bt, hostname, port, srcif);
+}
+
+void bgp_nb_cli_show_bmp_connect(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t minretry = BGP_NB_BMP_DFLT_MINRETRY;
+	uint32_t maxretry = BGP_NB_BMP_DFLT_MAXRETRY;
+
+	if (yang_dnode_exists(dnode, "./min-retry-time"))
+		minretry = yang_dnode_get_uint32(dnode, "./min-retry-time");
+	if (yang_dnode_exists(dnode, "./max-retry-time"))
+		maxretry = yang_dnode_get_uint32(dnode, "./max-retry-time");
+
+	vty_out(vty, "  bmp connect %s port %u min-retry %u max-retry %u",
+		yang_dnode_get_string(dnode, "./hostname"),
+		yang_dnode_get_uint32(dnode, "./tcp-port"), minretry, maxretry);
+	if (yang_dnode_exists(dnode, "./source-interface"))
+		vty_out(vty, " source-interface %s",
+			yang_dnode_get_string(dnode, "./source-interface"));
+	vty_out(vty, "\n");
+}
+
+int bgp_nb_bmp_connect_leaf_modify(struct nb_cb_modify_args *args)
+{
+	const struct lyd_node *sess;
+
+	sess = yang_dnode_get_parent(args->dnode, "session-list");
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		return bgp_nb_bmp_connect_validate(sess, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+	return bgp_nb_bmp_connect_apply(sess);
+}
+
+int bgp_nb_bmp_connect_leaf_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *sess;
+
+	/*
+	 * The destroyed leaf is still present on the running session node.
+	 * Validate and apply the candidate session, which no longer has it.
+	 * If the session itself is being deleted, its destroy drops the
+	 * connection and there is nothing to reapply.
+	 */
+	sess = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "session-list"));
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!sess)
+			return NB_OK;
+		return bgp_nb_bmp_connect_validate(sess, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+	if (!sess)
+		return NB_OK;
+	return bgp_nb_bmp_connect_apply(sess);
+}
+
+int bgp_nb_bmp_import_vrf_create(struct nb_cb_create_args *args)
+{
+	const struct lyd_node *cpp;
+	const char *vrfname;
+	const char *inst_name;
+	void *bt;
+
+	vrfname = yang_dnode_get_string(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		/*
+		 * Self-import check from YANG instance identity only — never
+		 * from operational bt->bgp.
+		 */
+		cpp = yang_dnode_get_parent(args->dnode, "control-plane-protocol");
+		if (!cpp) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "BMP target BGP instance not found in YANG");
+			return NB_ERR_VALIDATION;
+		}
+		inst_name = yang_dnode_get_string(cpp, "./name");
+		if (strmatch(inst_name, vrfname)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "BMP target, can not import our own BGP instance");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	if (!bmp_nb_cb || !bmp_nb_cb->import_vrf_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	return bmp_nb_cb->import_vrf_set(bt, vrfname);
+}
+
+int bgp_nb_bmp_import_vrf_destroy(struct nb_cb_destroy_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->import_vrf_unset)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_OK;
+
+	return bmp_nb_cb->import_vrf_unset(bt, yang_dnode_get_string(args->dnode, NULL));
+}
+
+void bgp_nb_cli_show_bmp_import_vrf(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	vty_out(vty, "  bmp import-vrf-view %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_bmp_monitor_modify(struct nb_cb_modify_args *args)
+{
+	const struct lyd_node *af;
+	const char *name;
+	afi_t afi;
+	safi_t safi;
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->monitor_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	af = yang_dnode_get_parent(args->dnode, "afi-safi");
+	if (!af)
+		return NB_ERR_NOT_FOUND;
+
+	name = yang_dnode_get_string(af, "./afi-safi-name");
+	yang_afi_safi_identity2value(name, &afi, &safi);
+	bmp_nb_cb->monitor_set(bt, afi, safi, args->dnode->schema->name,
+			       yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_bmp_monitor_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *af;
+	const char *name;
+	afi_t afi;
+	safi_t safi;
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->monitor_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_OK;
+
+	af = yang_dnode_get_parent(args->dnode, "afi-safi");
+	if (!af)
+		return NB_OK;
+
+	name = yang_dnode_get_string(af, "./afi-safi-name");
+	yang_afi_safi_identity2value(name, &afi, &safi);
+	bmp_nb_cb->monitor_set(bt, afi, safi, args->dnode->schema->name, false);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_bmp_monitor(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const struct lyd_node *af;
+	const char *name;
+	afi_t afi;
+	safi_t safi;
+	const char *policy;
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	af = yang_dnode_get_parent(dnode, "afi-safi");
+	if (!af)
+		return;
+
+	name = yang_dnode_get_string(af, "./afi-safi-name");
+	yang_afi_safi_identity2value(name, &afi, &safi);
+
+	if (strmatch(dnode->schema->name, "pre-policy"))
+		policy = "pre-policy";
+	else if (strmatch(dnode->schema->name, "post-policy"))
+		policy = "post-policy";
+	else
+		policy = "loc-rib";
+
+	vty_out(vty, "  bmp monitor %s %s %s\n", afi2str_lower(afi), safi2str(safi), policy);
+}
+static afi_t bgp_nb_bmp_str2afi(const char *str)
+{
+	if (strmatch(str, "ipv6"))
+		return AFI_IP6;
+	if (strmatch(str, "l2vpn"))
+		return AFI_L2VPN;
+	return AFI_IP;
+}
+
+static safi_t bgp_nb_bmp_str2safi(const char *str)
+{
+	if (strmatch(str, "multicast"))
+		return SAFI_MULTICAST;
+	if (strmatch(str, "evpn"))
+		return SAFI_EVPN;
+	if (strmatch(str, "vpn"))
+		return SAFI_MPLS_VPN;
+	return SAFI_UNICAST;
+}
+
+int bgp_nb_bmp_monitor_extra_modify(struct nb_cb_modify_args *args)
+{
+	const struct lyd_node *af;
+	afi_t afi;
+	safi_t safi;
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->monitor_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	af = yang_dnode_get_parent(args->dnode, "afi-safi-extra");
+	if (!af)
+		return NB_ERR_NOT_FOUND;
+
+	afi = bgp_nb_bmp_str2afi(yang_dnode_get_string(af, "./afi"));
+	safi = bgp_nb_bmp_str2safi(yang_dnode_get_string(af, "./safi"));
+	bmp_nb_cb->monitor_set(bt, afi, safi, args->dnode->schema->name,
+			       yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_bmp_monitor_extra(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	const struct lyd_node *af;
+	const char *policy;
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	af = yang_dnode_get_parent(dnode, "afi-safi-extra");
+	if (!af)
+		return;
+
+	if (strmatch(dnode->schema->name, "pre-policy"))
+		policy = "pre-policy";
+	else if (strmatch(dnode->schema->name, "post-policy"))
+		policy = "post-policy";
+	else
+		policy = "loc-rib";
+
+	vty_out(vty, "  bmp monitor %s %s %s\n", yang_dnode_get_string(af, "./afi"),
+		yang_dnode_get_string(af, "./safi"), policy);
+}

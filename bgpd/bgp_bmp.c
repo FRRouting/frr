@@ -55,11 +55,16 @@ static struct bmp_bgp_peer *bmp_bgp_peer_get(struct peer *peer);
 static bool bmp_bgp_peer_addr_in_use(struct peer *peer);
 static void bmp_active_disconnected(struct bmp_active *ba);
 static void bmp_active_put(struct bmp_active *ba);
+static struct bmp_active *bmp_active_find(struct bmp_targets *bt, const char *hostname, int port);
+static struct bmp_active *bmp_active_get(struct bmp_targets *bt, const char *hostname, int port);
+static void bmp_active_setup(struct bmp_active *ba);
 static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t safi,
 				   struct bgp_dest *bn, struct bgp_path_info *old_route,
 				   struct bgp_path_info *new_route);
 static void bmp_send_all_bgp(struct peer *peer, bool down);
 static struct bmp_imported_bgp *bmp_imported_bgp_find(struct bmp_targets *bt, char *name);
+static struct bmp_imported_bgp *bmp_imported_bgp_get(struct bmp_targets *bt, char *name);
+static void bmp_imported_bgp_put(struct bmp_targets *bt, struct bmp_imported_bgp *bib);
 static void bmp_stats_per_instance(struct bgp *bgp, struct bmp_targets *bt);
 static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp);
 
@@ -2962,6 +2967,183 @@ static void bmp_listener_stop(struct bmp_listener *bl)
 	bl->sock = -1;
 }
 
+static int bmp_targets_listener_set(struct bmp_targets *bt, const union sockunion *su,
+				    uint16_t port)
+{
+	struct bmp_listener *bl;
+
+	bl = bmp_listener_get(bt, su, port);
+	if (bl->sock == -1)
+		bmp_listener_start(bl);
+	return 0;
+}
+
+static int bmp_targets_listener_unset(struct bmp_targets *bt, const union sockunion *su,
+				      uint16_t port, char *errmsg, size_t errmsg_len)
+{
+	struct bmp_listener *bl;
+
+	bl = bmp_listener_find(bt, su, port);
+	if (!bl) {
+		snprintfrr(errmsg, errmsg_len, "BMP listener not found");
+		return -1;
+	}
+	bmp_listener_stop(bl);
+	bmp_listener_put(bl);
+	return 0;
+}
+
+static const char *bmp_import_vrf_key(const char *vrfname)
+{
+	if (!vrfname || strmatch(vrfname, VRF_DEFAULT_NAME))
+		return NULL;
+	return vrfname;
+}
+
+static int bmp_targets_connect_set(struct bmp_targets *bt, const char *hostname, uint16_t port,
+				   unsigned int minretry, unsigned int maxretry, bool set_min,
+				   bool set_max, const char *srcif)
+{
+	struct bmp_active *ba;
+
+	ba = bmp_active_get(bt, hostname, port);
+	if (srcif) {
+		XFREE(MTYPE_TMP, ba->ifsrc);
+		ba->ifsrc = XSTRDUP(MTYPE_TMP, srcif);
+	} else if (ba->ifsrc) {
+		XFREE(MTYPE_TMP, ba->ifsrc);
+		ba->ifsrc = NULL;
+	}
+	if (set_min)
+		ba->minretry = minretry;
+	if (set_max)
+		ba->maxretry = maxretry;
+	ba->curretry = ba->minretry;
+	bmp_active_setup(ba);
+	return 0;
+}
+
+static int bmp_targets_connect_unset(struct bmp_targets *bt, const char *hostname, uint16_t port,
+				     const char *srcif, char *errmsg, size_t errmsg_len)
+{
+	struct bmp_active *ba;
+
+	ba = bmp_active_find(bt, hostname, port);
+	if (!ba) {
+		snprintfrr(errmsg, errmsg_len, "No such active connection found");
+		return -1;
+	}
+	if (ba->ifsrc || srcif) {
+		if (!ba->ifsrc || !srcif || !strmatch(ba->ifsrc, srcif)) {
+			snprintfrr(errmsg, errmsg_len, "No such active connection found");
+			return -1;
+		}
+	}
+	bmp_active_put(ba);
+	return 0;
+}
+
+static int bmp_targets_import_vrf_set(struct bmp_targets *bt, const char *vrfname, char *errmsg,
+				      size_t errmsg_len)
+{
+	struct bmp_imported_bgp *bib;
+	struct bgp *bgp;
+	struct bmp *bmp;
+	afi_t afi;
+	safi_t safi;
+	char *key = (char *)bmp_import_vrf_key(vrfname);
+
+	if (!bt->bgp) {
+		snprintfrr(errmsg, errmsg_len, "BMP target, BGP instance not found");
+		return -1;
+	}
+	if ((bt->bgp->name == NULL && key == NULL) ||
+	    (bt->bgp->name && key && strmatch(key, bt->bgp->name))) {
+		snprintfrr(errmsg, errmsg_len, "BMP target, can not import our own BGP instance");
+		return -1;
+	}
+
+	bib = bmp_imported_bgp_find(bt, key);
+	if (bib)
+		return 0;
+
+	bib = bmp_imported_bgp_get(bt, key);
+	bgp = bgp_lookup_by_name(bib->name);
+	if (!bgp)
+		return 0;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY))
+			continue;
+		if (!bmp_prepolicy_covers(bgp, afi, safi, bt))
+			bmp_adj_in_refresh_bgp(bgp, afi, safi);
+	}
+
+	frr_each (bmp_session, &bt->sessions, bmp) {
+		if (bmp->state != BMP_PeerUp && bmp->state != BMP_Run)
+			continue;
+		bmp_send_peerup_per_instance(bmp, bgp);
+		bmp_send_peerup_vrf_per_instance(bmp, &bib->vrf_state, bgp);
+		FOREACH_AFI_SAFI (afi, safi)
+			bmp_update_syncro(bmp, afi, safi, bgp);
+		pullwr_bump(bmp->pullwr);
+	}
+	return 0;
+}
+
+static int bmp_targets_import_vrf_unset(struct bmp_targets *bt, const char *vrfname, char *errmsg,
+					size_t errmsg_len)
+{
+	struct bmp_imported_bgp *bib;
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	char *key = (char *)bmp_import_vrf_key(vrfname);
+
+	bib = bmp_imported_bgp_find(bt, key);
+	if (!bib) {
+		snprintfrr(errmsg, errmsg_len, "BMP imported BGP instance not found");
+		return -1;
+	}
+	bgp = bgp_lookup_by_name(bib->name);
+	if (!bgp)
+		return -1;
+	bmp_send_peerdown_vrf_per_instance(bt, bgp);
+	bmp_imported_bgp_put(bt, bib);
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY))
+			bmp_adj_in_release_bgp(bgp, afi, safi);
+	}
+	return 0;
+}
+
+static void bmp_targets_monitor_set(struct bmp_targets *bt, afi_t afi, safi_t safi, uint8_t flag,
+				    bool enable)
+{
+	struct bmp *bmp;
+	uint8_t prev = bt->afimon[afi][safi];
+
+	if (enable)
+		SET_FLAG(bt->afimon[afi][safi], flag);
+	else
+		UNSET_FLAG(bt->afimon[afi][safi], flag);
+
+	if (prev == bt->afimon[afi][safi])
+		return;
+
+	if (flag == BMP_MON_PREPOLICY) {
+		if (!enable)
+			bmp_adj_in_release(bt, afi, safi);
+		else
+			bmp_adj_in_ensure(bt, afi, safi);
+	}
+
+	frr_each (bmp_session, &bt->sessions, bmp) {
+		bmp_update_syncro(bmp, afi, safi, NULL);
+		pullwr_bump(bmp->pullwr);
+	}
+}
+
 static struct bmp_active *bmp_active_find(struct bmp_targets *bt,
 					  const char *hostname, int port)
 {
@@ -3012,8 +3194,6 @@ static void bmp_active_put(struct bmp_active *ba)
 	XFREE(MTYPE_TMP, ba->hostname);
 	XFREE(MTYPE_BMP_ACTIVE, ba);
 }
-
-static void bmp_active_setup(struct bmp_active *ba);
 
 static void bmp_active_connect(struct bmp_active *ba)
 {
@@ -3296,65 +3476,16 @@ DEFPY(bmp_import_vrf,
       "Specify the VRF or view instance name\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
-	struct bmp_imported_bgp *bib;
-	struct bgp *bgp;
-	struct bmp *bmp;
-	afi_t afi;
-	safi_t safi;
+	char err[256];
+	int rc;
 
-	if (!bt->bgp) {
-		vty_out(vty, "%% BMP target, BGP instance not found\n");
+	if (no)
+		rc = bmp_targets_import_vrf_unset(bt, vrfname, err, sizeof(err));
+	else
+		rc = bmp_targets_import_vrf_set(bt, vrfname, err, sizeof(err));
+	if (rc < 0) {
+		vty_out(vty, "%% %s\n", err);
 		return CMD_WARNING;
-	}
-	if ((bt->bgp->name == NULL && vrfname == NULL) ||
-	    (bt->bgp->name && vrfname && strmatch(vrfname, bt->bgp->name))) {
-		vty_out(vty, "%% BMP target, can not import our own BGP instance\n");
-		return CMD_WARNING;
-	}
-	if (no) {
-		bib = bmp_imported_bgp_find(bt, (char *)vrfname);
-		if (!bib) {
-			vty_out(vty, "%% BMP imported BGP instance not found\n");
-			return CMD_WARNING;
-		}
-		bgp = bgp_lookup_by_name(bib->name);
-		if (!bgp)
-			return CMD_WARNING;
-		bmp_send_peerdown_vrf_per_instance(bt, bgp);
-		bmp_imported_bgp_put(bt, bib);
-		FOREACH_AFI_SAFI (afi, safi) {
-			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY))
-				bmp_adj_in_release_bgp(bgp, afi, safi);
-		}
-		return CMD_SUCCESS;
-	}
-	bib = bmp_imported_bgp_find(bt, (char *)vrfname);
-	if (bib)
-		return CMD_SUCCESS;
-
-	bib = bmp_imported_bgp_get(bt, (char *)vrfname);
-	bgp = bgp_lookup_by_name(bib->name);
-	if (!bgp)
-		return CMD_SUCCESS;
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_PREPOLICY))
-			continue;
-		if (!bmp_prepolicy_covers(bgp, afi, safi, bt))
-			bmp_adj_in_refresh_bgp(bgp, afi, safi);
-	}
-
-	frr_each (bmp_session, &bt->sessions, bmp) {
-		if (bmp->state != BMP_PeerUp && bmp->state != BMP_Run)
-			continue;
-		bmp_send_peerup_per_instance(bmp, bgp);
-		bmp_send_peerup_vrf_per_instance(bmp, &bib->vrf_state, bgp);
-		FOREACH_AFI_SAFI (afi, safi)
-			bmp_update_syncro(bmp, afi, safi, bgp);
-		/* wake the session's write loop, otherwise the requested
-		 * table sync only starts when unrelated traffic does it
-		 */
-		pullwr_bump(bmp->pullwr);
 	}
 	return CMD_SUCCESS;
 }
@@ -3370,12 +3501,8 @@ DEFPY(bmp_listener_main,
       "TCP Port number\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
-	struct bmp_listener *bl;
 
-	bl = bmp_listener_get(bt, listener, port);
-	if (bl->sock == -1)
-		bmp_listener_start(bl);
-
+	bmp_targets_listener_set(bt, listener, port);
 	return CMD_SUCCESS;
 }
 
@@ -3391,15 +3518,12 @@ DEFPY(no_bmp_listener_main,
       "TCP Port number\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
-	struct bmp_listener *bl;
+	char err[256];
 
-	bl = bmp_listener_find(bt, listener, port);
-	if (!bl) {
-		vty_out(vty, "%% BMP listener not found\n");
+	if (bmp_targets_listener_unset(bt, listener, port, err, sizeof(err)) < 0) {
+		vty_out(vty, "%% %s\n", err);
 		return CMD_WARNING;
 	}
-	bmp_listener_stop(bl);
-	bmp_listener_put(bl);
 	return CMD_SUCCESS;
 }
 
@@ -3420,38 +3544,18 @@ DEFPY(bmp_connect,
       "Define an interface\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
-	struct bmp_active *ba;
+	char err[256];
 
 	if (no) {
-		ba = bmp_active_find(bt, hostname, port);
-		if (!ba) {
-			vty_out(vty, "%% No such active connection found\n");
+		if (bmp_targets_connect_unset(bt, hostname, port, srcif, err, sizeof(err)) < 0) {
+			vty_out(vty, "%% %s\n", err);
 			return CMD_WARNING;
 		}
-		/* connection deletion need same hostname port and interface */
-		if (ba->ifsrc || srcif)
-			if ((!ba->ifsrc) || (!srcif) || !strmatch(ba->ifsrc, srcif)) {
-				vty_out(vty,
-					"%% No such active connection found\n");
-				return CMD_WARNING;
-			}
-		bmp_active_put(ba);
 		return CMD_SUCCESS;
 	}
 
-	ba = bmp_active_get(bt, hostname, port);
-	if (srcif) {
-		if (ba->ifsrc)
-			XFREE(MTYPE_TMP, ba->ifsrc);
-		ba->ifsrc = XSTRDUP(MTYPE_TMP, srcif);
-	}
-	if (min_retry_str)
-		ba->minretry = min_retry;
-	if (max_retry_str)
-		ba->maxretry = max_retry;
-	ba->curretry = ba->minretry;
-	bmp_active_setup(ba);
-
+	bmp_targets_connect_set(bt, hostname, port, min_retry, max_retry, !!min_retry_str,
+				!!max_retry_str, srcif);
 	return CMD_SUCCESS;
 }
 
@@ -3586,12 +3690,11 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
       "Send state after decision process is applied\n")
 {
 	int index = 0;
-	uint8_t flag, prev;
+	uint8_t flag;
 	afi_t afi;
 	safi_t safi;
 
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
-	struct bmp *bmp;
 
 	argv_find_and_parse_afi(argv, argc, &index, &afi);
 	argv_find_and_parse_safi(argv, argc, &index, &safi);
@@ -3603,30 +3706,7 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	else
 		flag = BMP_MON_POSTPOLICY;
 
-	prev = bt->afimon[afi][safi];
-	if (no)
-		UNSET_FLAG(bt->afimon[afi][safi], flag);
-	else
-		SET_FLAG(bt->afimon[afi][safi], flag);
-
-	if (prev == bt->afimon[afi][safi])
-		return CMD_SUCCESS;
-
-	if (flag == BMP_MON_PREPOLICY) {
-		if (no)
-			bmp_adj_in_release(bt, afi, safi);
-		else
-			bmp_adj_in_ensure(bt, afi, safi);
-	}
-
-	frr_each (bmp_session, &bt->sessions, bmp) {
-		bmp_update_syncro(bmp, afi, safi, NULL);
-		/* wake the session's write loop, otherwise the requested
-		 * table sync only starts when unrelated traffic does it
-		 */
-		pullwr_bump(bmp->pullwr);
-	}
-
+	bmp_targets_monitor_set(bt, afi, safi, flag, !no);
 	return CMD_SUCCESS;
 }
 
@@ -3911,19 +3991,12 @@ static int bgp_bmp_init(struct event_loop *tm)
 
 	cmd_variable_handler_register(bmp_targets_var_handlers);
 
-	/* bmp targets / mirror buffer-limit on BGP_NODE — YANG: bgp_cli_init()
-	 * BMP_NODE knobs installed here after the node exists.
-	 */
+	/* Install BMP commands on BGP_NODE and BMP_NODE once the module loads. */
 	bgp_cli_bmp_init();
 
-	install_element(BMP_NODE, &bmp_listener_cmd);
-	install_element(BMP_NODE, &no_bmp_listener_cmd);
-	install_element(BMP_NODE, &bmp_connect_cmd);
 	install_element(BMP_NODE, &bmp_initiation_cmd);
 	install_element(BMP_NODE, &no_bmp_initiation_cmd);
 	install_element(BMP_NODE, &no_bmp_initiation_line_cmd);
-	install_element(BMP_NODE, &bmp_monitor_cmd);
-	install_element(BMP_NODE, &bmp_import_vrf_cmd);
 
 	install_element(VIEW_NODE, &show_bmp_cmd);
 
@@ -4244,6 +4317,75 @@ static void bmp_nb_target_acl_set(void *bt, bool ipv6, const char *access_list)
 	bmp_targets_acl_set(bt, ipv6, access_list);
 }
 
+static int bmp_nb_listener_set(void *bt, const char *addr, uint16_t port)
+{
+	union sockunion su;
+
+	if (str2sockunion(addr, &su) < 0)
+		return NB_ERR_VALIDATION;
+	bmp_targets_listener_set(bt, &su, port);
+	return NB_OK;
+}
+
+static int bmp_nb_listener_unset(void *bt, const char *addr, uint16_t port)
+{
+	union sockunion su;
+	char err[256];
+
+	if (str2sockunion(addr, &su) < 0)
+		return NB_OK;
+	/* Missing runtime listener is idempotent for YANG destroy. */
+	bmp_targets_listener_unset(bt, &su, port, err, sizeof(err));
+	return NB_OK;
+}
+
+static int bmp_nb_connect_set(void *bt, const char *hostname, uint16_t port, uint32_t minretry,
+			      uint32_t maxretry, const char *srcif)
+{
+	bmp_targets_connect_set(bt, hostname, port, minretry, maxretry, true, true, srcif);
+	return NB_OK;
+}
+
+static int bmp_nb_connect_unset(void *bt, const char *hostname, uint16_t port, const char *srcif)
+{
+	char err[256];
+
+	/* Missing runtime session is idempotent for YANG destroy. */
+	bmp_targets_connect_unset(bt, hostname, port, srcif, err, sizeof(err));
+	return NB_OK;
+}
+
+static int bmp_nb_import_vrf_set(void *bt, const char *vrfname)
+{
+	char err[256];
+
+	if (bmp_targets_import_vrf_set(bt, vrfname, err, sizeof(err)) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+static int bmp_nb_import_vrf_unset(void *bt, const char *vrfname)
+{
+	char err[256];
+
+	bmp_targets_import_vrf_unset(bt, vrfname, err, sizeof(err));
+	return NB_OK;
+}
+
+static void bmp_nb_monitor_set(void *bt, afi_t afi, safi_t safi, const char *policy, bool enable)
+{
+	uint8_t flag;
+
+	if (strmatch(policy, "pre-policy"))
+		flag = BMP_MON_PREPOLICY;
+	else if (strmatch(policy, "post-policy"))
+		flag = BMP_MON_POSTPOLICY;
+	else
+		flag = BMP_MON_LOC_RIB;
+
+	bmp_targets_monitor_set(bt, afi, safi, flag, enable);
+}
+
 static int bgp_bmp_module_init(void)
 {
 	static struct bmp_nb_ops bmp_nb_ops_impl = {
@@ -4255,6 +4397,13 @@ static int bgp_bmp_module_init(void)
 		.target_stats_set = bmp_nb_target_stats_set,
 		.target_stats_experimental_set = bmp_nb_target_stats_experimental_set,
 		.target_acl_set = bmp_nb_target_acl_set,
+		.listener_set = bmp_nb_listener_set,
+		.listener_unset = bmp_nb_listener_unset,
+		.connect_set = bmp_nb_connect_set,
+		.connect_unset = bmp_nb_connect_unset,
+		.import_vrf_set = bmp_nb_import_vrf_set,
+		.import_vrf_unset = bmp_nb_import_vrf_unset,
+		.monitor_set = bmp_nb_monitor_set,
 	};
 
 	bmp_nb_cb = &bmp_nb_ops_impl;
