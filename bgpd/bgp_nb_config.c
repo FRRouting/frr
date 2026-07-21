@@ -45,6 +45,7 @@
 #include "bgpd/bgp_srv6.h"
 #include "srv6.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_pbr.h"
 
 DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
@@ -12591,7 +12592,300 @@ void bgp_nb_cli_show_peer_graceful_shutdown(struct vty *vty, const struct lyd_no
 					    bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s graceful-shutdown\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s graceful-shutdown\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s graceful-shutdown\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s graceful-shutdown\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+}
+
+/*
+ * flowspec local-install
+ */
+static bool bgp_nb_fs_local_install_heads(struct bgp *bgp, afi_t afi,
+					  struct bgp_pbr_interface_head **head, bool **any)
+{
+	if (!bgp->bgp_pbr_cfg || (afi != AFI_IP && afi != AFI_IP6))
+		return false;
+
+	if (afi == AFI_IP) {
+		*head = &bgp->bgp_pbr_cfg->ifaces_by_name_ipv4;
+		*any = &bgp->bgp_pbr_cfg->pbr_interface_any_ipv4;
+	} else {
+		*head = &bgp->bgp_pbr_cfg->ifaces_by_name_ipv6;
+		*any = &bgp->bgp_pbr_cfg->pbr_interface_any_ipv6;
+	}
+	return true;
+}
+
+static int bgp_nb_fs_apply_enable(struct bgp *bgp, afi_t afi, bool enable, bool has_interfaces)
+{
+	struct bgp_pbr_interface_head *head;
+	bool *any;
+
+	if (!bgp_nb_fs_local_install_heads(bgp, afi, &head, &any))
+		return NB_OK;
+
+	if (!enable) {
+		bgp_pbr_reset(bgp, afi);
+		*any = false;
+		return NB_OK;
+	}
+
+	if (!has_interfaces) {
+		bgp_pbr_reset(bgp, afi);
+		*any = true;
+	} else
+		*any = false;
+
+	return NB_OK;
+}
+
+int bgp_nb_fs_local_install_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *li;
+	bool enable;
+	bool has_interfaces;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	li = yang_dnode_get_parent(args->dnode, "local-install");
+	has_interfaces = li && yang_dnode_exists(li, "./interface");
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+
+	return bgp_nb_fs_apply_enable(bgp, afi, enable, has_interfaces);
+}
+
+int bgp_nb_fs_local_install_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *li;
+	bool has_interfaces;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	/* Destroy restores YANG default enable=true. */
+	li = yang_dnode_get_parent(args->dnode, "local-install");
+	has_interfaces = li && yang_dnode_exists(li, "./interface");
+
+	return bgp_nb_fs_apply_enable(bgp, afi, true, has_interfaces);
+}
+
+int bgp_nb_fs_local_install_interface_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_pbr_interface_head *head;
+	bool *any;
+	struct bgp_pbr_interface *pbr_if;
+	const char *ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+	if (!bgp_nb_fs_local_install_heads(bgp, afi, &head, &any))
+		return NB_OK;
+
+	ifname = yang_dnode_get_string(args->dnode, NULL);
+	pbr_if = bgp_pbr_interface_lookup(ifname, head);
+	if (pbr_if)
+		return NB_OK;
+
+	pbr_if = XCALLOC(MTYPE_TMP, sizeof(struct bgp_pbr_interface));
+	strlcpy(pbr_if->name, ifname, IFNAMSIZ);
+	RB_INSERT(bgp_pbr_interface_head, head, pbr_if);
+	*any = false;
+	return NB_OK;
+}
+
+int bgp_nb_fs_local_install_interface_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_pbr_interface_head *head;
+	bool *any;
+	struct bgp_pbr_interface *pbr_if;
+	const char *ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+	if (!bgp_nb_fs_local_install_heads(bgp, afi, &head, &any))
+		return NB_OK;
+
+	ifname = yang_dnode_get_string(args->dnode, NULL);
+	pbr_if = bgp_pbr_interface_lookup(ifname, head);
+	if (!pbr_if)
+		return NB_OK;
+
+	RB_REMOVE(bgp_pbr_interface_head, head, pbr_if);
+	XFREE(MTYPE_TMP, pbr_if);
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_fs_local_install_interface(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	vty_out(vty, "  local-install %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * neighbor LS local/remote-link-id
+ */
+int bgp_nb_peer_ls_local_link_id_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	struct bgp *bgp;
+	uint32_t link_id;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp = peer->bgp;
+	link_id = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID) &&
+	    peer->ls_local_link_id == link_id)
+		return NB_OK;
+
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_bgp_link(bgp, peer);
+
+	peer->ls_local_link_id = link_id;
+	SET_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID);
+
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_link(bgp, peer);
+
+	return NB_OK;
+}
+
+int bgp_nb_peer_ls_local_link_id_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID))
+		return NB_OK;
+
+	bgp = peer->bgp;
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_bgp_link(bgp, peer);
+
+	peer->ls_local_link_id = 0;
+	UNSET_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID);
+
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_link(bgp, peer);
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_ls_local_link_id(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_out(vty, "%sneighbor %s local-link-id %u\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint32(dnode, NULL));
+}
+
+int bgp_nb_peer_ls_remote_link_id_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	struct bgp *bgp;
+	uint32_t link_id;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp = peer->bgp;
+	link_id = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID) &&
+	    peer->ls_remote_link_id == link_id)
+		return NB_OK;
+
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_bgp_link(bgp, peer);
+
+	peer->ls_remote_link_id = link_id;
+	SET_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID);
+
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_link(bgp, peer);
+
+	return NB_OK;
+}
+
+int bgp_nb_peer_ls_remote_link_id_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID))
+		return NB_OK;
+
+	bgp = peer->bgp;
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_withdraw_bgp_link(bgp, peer);
+
+	peer->ls_remote_link_id = 0;
+	UNSET_FLAG(peer->flags, PEER_FLAG_LS_REMOTE_LINK_ID);
+
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
+		bgp_ls_originate_bgp_link(bgp, peer);
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_ls_remote_link_id(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	vty_out(vty, " neighbor %s remote-link-id %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint32(dnode, NULL));
 }

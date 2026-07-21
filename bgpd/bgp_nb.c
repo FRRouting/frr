@@ -390,6 +390,34 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-flowspec/flow-spec-config/local-install/enable",
+			.cbs = {
+				.modify = bgp_nb_fs_local_install_enable_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-flowspec/flow-spec-config/local-install/interface",
+			.cbs = {
+				.create = bgp_nb_fs_local_install_interface_create,
+				.destroy = bgp_nb_fs_local_install_interface_destroy,
+				.cli_show = bgp_nb_cli_show_fs_local_install_interface,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-flowspec/flow-spec-config/local-install/enable",
+			.cbs = {
+				.modify = bgp_nb_fs_local_install_enable_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-flowspec/flow-spec-config/local-install/interface",
+			.cbs = {
+				.create = bgp_nb_fs_local_install_interface_create,
+				.destroy = bgp_nb_fs_local_install_interface_destroy,
+				.cli_show = bgp_nb_cli_show_fs_local_install_interface,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi",
 			.cbs = {
 				.create = bgp_nb_global_afi_safi_create,
@@ -2051,6 +2079,22 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-link-id",
+			.cbs = {
+				.modify = bgp_nb_peer_ls_local_link_id_modify,
+				.destroy = bgp_nb_peer_ls_local_link_id_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ls_local_link_id,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/remote-link-id",
+			.cbs = {
+				.modify = bgp_nb_peer_ls_remote_link_id_modify,
+				.destroy = bgp_nb_peer_ls_remote_link_id_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ls_remote_link_id,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/passive-mode",
 			.cbs = {
 				.modify = bgp_nb_peer_passive_modify,
@@ -2097,6 +2141,22 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-link-id",
+			.cbs = {
+				.modify = bgp_nb_peer_ls_local_link_id_modify,
+				.destroy = bgp_nb_peer_ls_local_link_id_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ls_local_link_id,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/remote-link-id",
+			.cbs = {
+				.modify = bgp_nb_peer_ls_remote_link_id_modify,
+				.destroy = bgp_nb_peer_ls_remote_link_id_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ls_remote_link_id,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/passive-mode",
 			.cbs = {
 				.modify = bgp_nb_peer_passive_modify,
@@ -2140,6 +2200,22 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.modify = bgp_nb_peer_description_modify,
 				.destroy = bgp_nb_peer_description_destroy,
 				.cli_show = bgp_nb_cli_show_peer_description,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-link-id",
+			.cbs = {
+				.modify = bgp_nb_peer_ls_local_link_id_modify,
+				.destroy = bgp_nb_peer_ls_local_link_id_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ls_local_link_id,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/remote-link-id",
+			.cbs = {
+				.modify = bgp_nb_peer_ls_remote_link_id_modify,
+				.destroy = bgp_nb_peer_ls_remote_link_id_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ls_remote_link_id,
 			},
 		},
 		{
