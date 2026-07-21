@@ -6,6 +6,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h> //RT_TABLE_XXX
+#endif
+
 #include "command.h"
 #include "northbound_cli.h"
 #include "vrf.h"
@@ -4266,6 +4270,139 @@ ALIAS_ATTR(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_hidden_cmd,
 		  "Match the cluster length\n",
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
+/*
+ * redistribute (ipv4/ipv6 unicast)
+ */
+static int bgp_cli_redistribute(struct vty *vty, const char *proto, unsigned short instance,
+				bool no, const char *metric_str, const char *rmap)
+{
+	char af_xpath[XPATH_MAXLEN];
+	char red_xpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 512];
+	struct bgp *bgp;
+
+	if (strmatch(proto, "table-direct")) {
+		bgp = VTY_GET_CONTEXT(bgp);
+		if (!bgp)
+			return CMD_WARNING_CONFIG_FAILED;
+		if (instance == RT_TABLE_MAIN || instance == RT_TABLE_LOCAL) {
+			vty_out(vty, "%% 'table-direct', can not use %u routing table\n", instance);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (vty->node == BGP_IPV6_NODE && bgp->vrf_id != VRF_DEFAULT) {
+			vty_out(vty, "%% Only default BGP instance can use 'table-direct'\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(red_xpath, sizeof(red_xpath),
+		   "%s/redistribution-list[route-type='%s'][route-instance='%u']", af_xpath, proto,
+		   instance);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, red_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, red_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/metric", red_xpath);
+	if (metric_str)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, metric_str);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/rmap-policy-import", red_xpath);
+	if (rmap) {
+		route_map_lookup_warn_noexist(vty, rmap);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap);
+	} else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_redistribute_ipv4_yang, bgp_redistribute_ipv4_yang_cmd,
+	   "[no] redistribute " FRR_IP_REDIST_STR_BGPD "$proto [{metric (0-4294967295)$metric|route-map RMAP_NAME$rmap}]",
+	   NO_STR
+	   "Redistribute information from another routing protocol\n"
+	   FRR_IP_REDIST_HELP_STR_BGPD
+	   "Metric for redistributed routes\n"
+	   "Default metric\n"
+	   "Route map reference\n"
+	   "Pointer to route-map entries\n")
+{
+	return bgp_cli_redistribute(vty, proto, 0, !!no, metric_str, rmap);
+}
+
+DEFPY_YANG(bgp_redistribute_ipv4_instance_yang,
+	   bgp_redistribute_ipv4_instance_yang_cmd,
+	   "[no] redistribute <ospf|table|table-direct>$proto (1-65535)$instance [{metric (0-4294967295)$metric|route-map RMAP_NAME$rmap}]",
+	   NO_STR
+	   "Redistribute information from another routing protocol\n"
+	   "Open Shortest Path First (OSPFv2)\n"
+	   "Non-main Kernel Routing Table\n"
+	   "Non-main Kernel Routing Table - Direct\n"
+	   "Instance ID/Table ID\n"
+	   "Metric for redistributed routes\n"
+	   "Default metric\n"
+	   "Route map reference\n"
+	   "Pointer to route-map entries\n")
+{
+	return bgp_cli_redistribute(vty, proto, instance, !!no, metric_str, rmap);
+}
+
+DEFPY_YANG(bgp_redistribute_ipv6_yang, bgp_redistribute_ipv6_yang_cmd,
+	   "[no] redistribute " FRR_IP6_REDIST_STR_BGPD "$proto [{metric (0-4294967295)$metric|route-map RMAP_NAME$rmap}]",
+	   NO_STR
+	   "Redistribute information from another routing protocol\n"
+	   FRR_IP6_REDIST_HELP_STR_BGPD
+	   "Metric for redistributed routes\n"
+	   "Default metric\n"
+	   "Route map reference\n"
+	   "Pointer to route-map entries\n")
+{
+	return bgp_cli_redistribute(vty, proto, 0, !!no, metric_str, rmap);
+}
+
+DEFPY_YANG(bgp_redistribute_ipv6_table_yang,
+	   bgp_redistribute_ipv6_table_yang_cmd,
+	   "[no] redistribute table-direct (1-65535)$instance [{metric (0-4294967295)$metric|route-map RMAP_NAME$rmap}]",
+	   NO_STR
+	   "Redistribute information from another routing protocol\n"
+	   "Non-main Kernel Routing Table - Direct\n"
+	   "Table ID\n"
+	   "Metric for redistributed routes\n"
+	   "Default metric\n"
+	   "Route map reference\n"
+	   "Pointer to route-map entries\n")
+{
+	return bgp_cli_redistribute(vty, "table-direct", instance, !!no, metric_str, rmap);
+}
+
+ALIAS_ATTR(bgp_redistribute_ipv4_yang, bgp_redistribute_ipv4_yang_hidden_cmd,
+	   "[no] redistribute " FRR_IP_REDIST_STR_BGPD
+	   "$proto [{metric (0-4294967295)$metric|route-map RMAP_NAME$rmap}]",
+	   NO_STR
+	   "Redistribute information from another routing protocol\n" FRR_IP_REDIST_HELP_STR_BGPD
+	   "Metric for redistributed routes\n"
+	   "Default metric\n"
+	   "Route map reference\n"
+	   "Pointer to route-map entries\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	bgp_redistribute_ipv4_instance_yang, bgp_redistribute_ipv4_instance_yang_hidden_cmd,
+	"[no] redistribute <ospf|table|table-direct>$proto (1-65535)$instance [{metric (0-4294967295)$metric|route-map RMAP_NAME$rmap}]",
+	NO_STR "Redistribute information from another routing protocol\n"
+	       "Open Shortest Path First (OSPFv2)\n"
+	       "Non-main Kernel Routing Table\n"
+	       "Non-main Kernel Routing Table - Direct\n"
+	       "Instance ID/Table ID\n"
+	       "Metric for redistributed routes\n"
+	       "Default metric\n"
+	       "Route map reference\n"
+	       "Pointer to route-map entries\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -5980,6 +6117,14 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_yang_cmd);
 	install_element(BGP_NODE, &bgp_maxpaths_yang_hidden_cmd);
 	install_element(BGP_NODE, &bgp_maxpaths_ibgp_yang_hidden_cmd);
+
+	/* redistribute: ipv4/ipv6 unicast */
+	install_element(BGP_IPV4_NODE, &bgp_redistribute_ipv4_yang_cmd);
+	install_element(BGP_IPV4_NODE, &bgp_redistribute_ipv4_instance_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_redistribute_ipv6_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_redistribute_ipv6_table_yang_cmd);
+	install_element(BGP_NODE, &bgp_redistribute_ipv4_yang_hidden_cmd);
+	install_element(BGP_NODE, &bgp_redistribute_ipv4_instance_yang_hidden_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
