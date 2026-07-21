@@ -15417,7 +15417,7 @@ void bgp_vty_init(void)
 	/* segment-routing srv6 — YANG: bgp_cli_init() */
 	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
 	/* sid vpn export (AF) — YANG: bgp_cli_init() */
-	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
+	/* sid vpn per-vrf export — YANG: bgp_cli_init() */
 	/* sid export — YANG: bgp_cli_init() */
 	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);

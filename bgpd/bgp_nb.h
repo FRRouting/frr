@@ -915,6 +915,15 @@ int bgp_nb_sid_vpn_export_explicit_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_sid_vpn_export(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults);
 
+int bgp_nb_sid_vpn_per_vrf_index_modify(struct nb_cb_modify_args *args);
+int bgp_nb_sid_vpn_per_vrf_index_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_sid_vpn_per_vrf_auto_create(struct nb_cb_create_args *args);
+int bgp_nb_sid_vpn_per_vrf_auto_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_sid_vpn_per_vrf_explicit_modify(struct nb_cb_modify_args *args);
+int bgp_nb_sid_vpn_per_vrf_explicit_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_sid_vpn_per_vrf(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+
 int bgp_nb_sid_export_index_modify(struct nb_cb_modify_args *args);
 int bgp_nb_sid_export_index_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_sid_export_auto_create(struct nb_cb_create_args *args);

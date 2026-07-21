@@ -351,6 +351,62 @@ DEFPY_YANG(bgp_srv6_only_yang, bgp_srv6_only_yang_cmd, "[no] srv6-only",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static void bgp_cli_sid_vpn_per_vrf_clear(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-index", NB_OP_DESTROY,
+			      NULL);
+	nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-auto", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-explicit", NB_OP_DESTROY,
+			      NULL);
+}
+
+DEFPY_YANG(bgp_sid_vpn_export_yang, bgp_sid_vpn_export_yang_cmd,
+	   "[no] sid vpn per-vrf export [<(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>]",
+	   NO_STR
+	   "sid value for VRF\n"
+	   "Between current vrf and vpn\n"
+	   "sid per-VRF (both IPv4 and IPv6 address families)\n"
+	   "For routes leaked from current vrf to vpn\n"
+	   "Sid allocation index\n"
+	   "Automatically assign a label\n"
+	   "Explicitly assign a sid value\n"
+	   "Sid value\n")
+{
+	char buf[16];
+
+	if (no) {
+		bgp_cli_sid_vpn_per_vrf_clear(vty);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (!sid_idx_str && !sid_auto && !sid_explicit)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!sid_auto)
+		nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-auto",
+				      NB_OP_DESTROY, NULL);
+	if (!sid_explicit)
+		nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-explicit",
+				      NB_OP_DESTROY, NULL);
+	if (!sid_idx_str)
+		nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-index",
+				      NB_OP_DESTROY, NULL);
+
+	if (sid_auto)
+		nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-auto",
+				      NB_OP_CREATE, NULL);
+	else if (sid_explicit)
+		nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-explicit",
+				      NB_OP_MODIFY, sid_value_str);
+	else {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, sid_idx);
+		nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-index",
+				      NB_OP_MODIFY, buf);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG(bgp_router_id_yang, bgp_router_id_yang_cmd,
 	   "bgp router-id A.B.C.D",
 	   BGP_STR
@@ -6990,6 +7046,7 @@ void bgp_cli_init(void)
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_yang_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_only_yang_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_yang_cmd);
+	install_element(BGP_NODE, &bgp_sid_vpn_export_yang_cmd);
 
 	install_element(BGP_NODE, &bgp_router_id_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_router_id_yang_cmd);
