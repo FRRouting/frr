@@ -408,6 +408,73 @@ int bgp_nb_peer_shutdown_message_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_shutdown_message(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 
+
+int bgp_nb_peer_update_source_ip_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_update_source_ip_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_update_source_ip(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_peer_update_source_if_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_update_source_if_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_update_source_if(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_peer_ebgp_mh_enabled_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_ebgp_mh_enabled_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_ebgp_mh_enabled(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+int bgp_nb_peer_ebgp_mh_ttl_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_ebgp_mh_ttl_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_ebgp_mh_ttl(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+int bgp_nb_peer_disable_connected_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_disable_connected(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+int bgp_nb_peer_ttl_security_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_ttl_security_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_ttl_security(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+int bgp_nb_peer_local_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_local_as_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_local_as(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_peer_local_as_no_prepend_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_local_as_replace_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_local_as_dual_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_timers_keepalive_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_timers_keepalive_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_timers_keepalive(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+void bgp_nb_cli_show_peer_timers_holdtime(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+int bgp_nb_peer_timers_holdtime_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_timers_holdtime_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_timers_connect_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_timers_connect_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_timers_connect(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_peer_timers_delayopen_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_timers_delayopen_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_timers_delayopen(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_peer_advertise_interval_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_advertise_interval_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_advertise_interval(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+int bgp_nb_peer_cap_dynamic_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_cap_dynamic(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+int bgp_nb_peer_cap_enhe_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_cap_enhe(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_peer_cap_negotiate_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_cap_negotiate(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+int bgp_nb_peer_cap_fqdn_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_cap_fqdn(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_peer_enforce_first_as_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

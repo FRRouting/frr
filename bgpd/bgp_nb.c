@@ -837,6 +837,445 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/update-source/ip",
+			.cbs = {
+				.modify = bgp_nb_peer_update_source_ip_modify,
+				.destroy = bgp_nb_peer_update_source_ip_destroy,
+				.cli_show = bgp_nb_cli_show_peer_update_source_ip,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/update-source/interface",
+			.cbs = {
+				.modify = bgp_nb_peer_update_source_if_modify,
+				.destroy = bgp_nb_peer_update_source_if_destroy,
+				.cli_show = bgp_nb_cli_show_peer_update_source_if,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ebgp-multihop/enabled",
+			.cbs = {
+				.modify = bgp_nb_peer_ebgp_mh_enabled_modify,
+				.destroy = bgp_nb_peer_ebgp_mh_enabled_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ebgp_mh_enabled,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ebgp-multihop/multihop-ttl",
+			.cbs = {
+				.modify = bgp_nb_peer_ebgp_mh_ttl_modify,
+				.destroy = bgp_nb_peer_ebgp_mh_ttl_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ebgp_mh_ttl,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ebgp-multihop/disable-connected-check",
+			.cbs = {
+				.modify = bgp_nb_peer_disable_connected_modify,
+				.cli_show = bgp_nb_cli_show_peer_disable_connected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/ttl-security",
+			.cbs = {
+				.modify = bgp_nb_peer_ttl_security_modify,
+				.destroy = bgp_nb_peer_ttl_security_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ttl_security,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/local-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_modify,
+				.destroy = bgp_nb_peer_local_as_destroy,
+				.cli_show = bgp_nb_cli_show_peer_local_as,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/no-prepend",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_no_prepend_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/replace-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_replace_as_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/dual-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_dual_as_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/keepalive",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_keepalive_modify,
+				.cli_show = bgp_nb_cli_show_peer_timers_keepalive,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/hold-time",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_holdtime_modify,
+				.cli_show = bgp_nb_cli_show_peer_timers_holdtime,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/connect-time",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_connect_modify,
+				.destroy = bgp_nb_peer_timers_connect_destroy,
+				.cli_show = bgp_nb_cli_show_peer_timers_connect,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/delayopen",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_delayopen_modify,
+				.destroy = bgp_nb_peer_timers_delayopen_destroy,
+				.cli_show = bgp_nb_cli_show_peer_timers_delayopen,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/advertise-interval",
+			.cbs = {
+				.modify = bgp_nb_peer_advertise_interval_modify,
+				.destroy = bgp_nb_peer_advertise_interval_destroy,
+				.cli_show = bgp_nb_cli_show_peer_advertise_interval,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/dynamic-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_dynamic_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_dynamic,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/extended-nexthop-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_enhe_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_enhe,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/capability-negotiate",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_negotiate_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_negotiate,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/fqdn-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_fqdn_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_fqdn,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/enforce-first-as",
+			.cbs = {
+				.modify = bgp_nb_peer_enforce_first_as_modify,
+				.cli_show = bgp_nb_cli_show_peer_enforce_first_as,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/update-source/ip",
+			.cbs = {
+				.modify = bgp_nb_peer_update_source_ip_modify,
+				.destroy = bgp_nb_peer_update_source_ip_destroy,
+				.cli_show = bgp_nb_cli_show_peer_update_source_ip,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/update-source/interface",
+			.cbs = {
+				.modify = bgp_nb_peer_update_source_if_modify,
+				.destroy = bgp_nb_peer_update_source_if_destroy,
+				.cli_show = bgp_nb_cli_show_peer_update_source_if,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/enabled",
+			.cbs = {
+				.modify = bgp_nb_peer_ebgp_mh_enabled_modify,
+				.destroy = bgp_nb_peer_ebgp_mh_enabled_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ebgp_mh_enabled,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/multihop-ttl",
+			.cbs = {
+				.modify = bgp_nb_peer_ebgp_mh_ttl_modify,
+				.destroy = bgp_nb_peer_ebgp_mh_ttl_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ebgp_mh_ttl,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ebgp-multihop/disable-connected-check",
+			.cbs = {
+				.modify = bgp_nb_peer_disable_connected_modify,
+				.cli_show = bgp_nb_cli_show_peer_disable_connected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/ttl-security",
+			.cbs = {
+				.modify = bgp_nb_peer_ttl_security_modify,
+				.destroy = bgp_nb_peer_ttl_security_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ttl_security,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/local-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_modify,
+				.destroy = bgp_nb_peer_local_as_destroy,
+				.cli_show = bgp_nb_cli_show_peer_local_as,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/no-prepend",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_no_prepend_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/replace-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_replace_as_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/dual-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_dual_as_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/keepalive",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_keepalive_modify,
+				.cli_show = bgp_nb_cli_show_peer_timers_keepalive,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/hold-time",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_holdtime_modify,
+				.cli_show = bgp_nb_cli_show_peer_timers_holdtime,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/connect-time",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_connect_modify,
+				.destroy = bgp_nb_peer_timers_connect_destroy,
+				.cli_show = bgp_nb_cli_show_peer_timers_connect,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/delayopen",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_delayopen_modify,
+				.destroy = bgp_nb_peer_timers_delayopen_destroy,
+				.cli_show = bgp_nb_cli_show_peer_timers_delayopen,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/advertise-interval",
+			.cbs = {
+				.modify = bgp_nb_peer_advertise_interval_modify,
+				.destroy = bgp_nb_peer_advertise_interval_destroy,
+				.cli_show = bgp_nb_cli_show_peer_advertise_interval,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/dynamic-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_dynamic_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_dynamic,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/extended-nexthop-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_enhe_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_enhe,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/capability-negotiate",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_negotiate_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_negotiate,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/fqdn-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_fqdn_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_fqdn,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/enforce-first-as",
+			.cbs = {
+				.modify = bgp_nb_peer_enforce_first_as_modify,
+				.cli_show = bgp_nb_cli_show_peer_enforce_first_as,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/update-source/ip",
+			.cbs = {
+				.modify = bgp_nb_peer_update_source_ip_modify,
+				.destroy = bgp_nb_peer_update_source_ip_destroy,
+				.cli_show = bgp_nb_cli_show_peer_update_source_ip,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/update-source/interface",
+			.cbs = {
+				.modify = bgp_nb_peer_update_source_if_modify,
+				.destroy = bgp_nb_peer_update_source_if_destroy,
+				.cli_show = bgp_nb_cli_show_peer_update_source_if,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ebgp-multihop/enabled",
+			.cbs = {
+				.modify = bgp_nb_peer_ebgp_mh_enabled_modify,
+				.destroy = bgp_nb_peer_ebgp_mh_enabled_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ebgp_mh_enabled,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ebgp-multihop/multihop-ttl",
+			.cbs = {
+				.modify = bgp_nb_peer_ebgp_mh_ttl_modify,
+				.destroy = bgp_nb_peer_ebgp_mh_ttl_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ebgp_mh_ttl,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ebgp-multihop/disable-connected-check",
+			.cbs = {
+				.modify = bgp_nb_peer_disable_connected_modify,
+				.cli_show = bgp_nb_cli_show_peer_disable_connected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ttl-security",
+			.cbs = {
+				.modify = bgp_nb_peer_ttl_security_modify,
+				.destroy = bgp_nb_peer_ttl_security_destroy,
+				.cli_show = bgp_nb_cli_show_peer_ttl_security,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/local-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_modify,
+				.destroy = bgp_nb_peer_local_as_destroy,
+				.cli_show = bgp_nb_cli_show_peer_local_as,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/no-prepend",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_no_prepend_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/replace-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_replace_as_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/dual-as",
+			.cbs = {
+				.modify = bgp_nb_peer_local_as_dual_as_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/keepalive",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_keepalive_modify,
+				.cli_show = bgp_nb_cli_show_peer_timers_keepalive,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/hold-time",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_holdtime_modify,
+				.cli_show = bgp_nb_cli_show_peer_timers_holdtime,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/connect-time",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_connect_modify,
+				.destroy = bgp_nb_peer_timers_connect_destroy,
+				.cli_show = bgp_nb_cli_show_peer_timers_connect,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/delayopen",
+			.cbs = {
+				.modify = bgp_nb_peer_timers_delayopen_modify,
+				.destroy = bgp_nb_peer_timers_delayopen_destroy,
+				.cli_show = bgp_nb_cli_show_peer_timers_delayopen,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/advertise-interval",
+			.cbs = {
+				.modify = bgp_nb_peer_advertise_interval_modify,
+				.destroy = bgp_nb_peer_advertise_interval_destroy,
+				.cli_show = bgp_nb_cli_show_peer_advertise_interval,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/dynamic-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_dynamic_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_dynamic,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/extended-nexthop-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_enhe_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_enhe,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/capability-negotiate",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_negotiate_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_negotiate,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/fqdn-capability",
+			.cbs = {
+				.modify = bgp_nb_peer_cap_fqdn_modify,
+				.cli_show = bgp_nb_cli_show_peer_cap_fqdn,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/enforce-first-as",
+			.cbs = {
+				.modify = bgp_nb_peer_enforce_first_as_modify,
+				.cli_show = bgp_nb_cli_show_peer_enforce_first_as,
+			},
+		},
+
+		{
 			.xpath = NULL,
 		},
 	}

@@ -3473,118 +3473,6 @@ DEFPY (bgp_ipv6_auto_ra,
 }
 
 
-DEFUN (neighbor_local_as,
-       neighbor_local_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as ASNUM",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Specify a local-as number\n"
-       "AS number expressed in dotted or plain format used as local AS\n")
-{
-	int idx_peer = 1;
-	int idx_number = 3;
-	struct peer *peer;
-	int ret;
-	as_t as = 0;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!asn_str2asn(argv[idx_number]->arg, &as)) {
-		vty_out(vty, "%% Invalid neighbor local-as value: %s\n",
-			argv[idx_number]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = peer_local_as_set(peer, as, 0, 0, 0, argv[idx_number]->arg);
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (neighbor_local_as_no_prepend,
-       neighbor_local_as_no_prepend_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as ASNUM no-prepend",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Specify a local-as number\n"
-       "AS number expressed in dotted or plain format used as local AS\n"
-       "Do not prepend local-as to updates from ebgp peers\n")
-{
-	int idx_peer = 1;
-	int idx_number = 3;
-	struct peer *peer;
-	int ret;
-	as_t as = 0;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!asn_str2asn(argv[idx_number]->arg, &as)) {
-		vty_out(vty, "%% Invalid neighbor local-as value: %s\n",
-			argv[idx_number]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = peer_local_as_set(peer, as, 1, 0, 0, argv[idx_number]->arg);
-	return bgp_vty_return(vty, ret);
-}
-
-DEFPY (neighbor_local_as_no_prepend_replace_as,
-       neighbor_local_as_no_prepend_replace_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as ASNUM no-prepend replace-as [dual-as$dual_as]",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Specify a local-as number\n"
-       "AS number expressed in dotted or plain format used as local AS\n"
-       "Do not prepend local-as to updates from ebgp peers\n"
-       "Do not prepend local-as to updates from ibgp peers\n"
-       "Allow peering with a global AS number or local-as number\n")
-{
-	int idx_peer = 1;
-	int idx_number = 3;
-	struct peer *peer;
-	int ret;
-	as_t as = 0;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!asn_str2asn(argv[idx_number]->arg, &as)) {
-		vty_out(vty, "%% Invalid neighbor local-as value: %s\n",
-			argv[idx_number]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = peer_local_as_set(peer, as, 1, 1, dual_as, argv[idx_number]->arg);
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (no_neighbor_local_as,
-       no_neighbor_local_as_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as [ASNUM [no-prepend [replace-as] [dual-as]]]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Specify a local-as number\n"
-       "AS number expressed in dotted or plain format used as local AS\n"
-       "Do not prepend local-as to updates from ebgp peers\n"
-       "Do not prepend local-as to updates from ibgp peers\n"
-       "Allow peering with a global AS number or local-as number\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_local_as_unset(peer);
-	return bgp_vty_return(vty, ret);
-}
-
 
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
@@ -3834,90 +3722,6 @@ DEFUN(no_neighbor_shutdown_rtt,
 				   PEER_FLAG_RTT_SHUTDOWN);
 }
 
-/* neighbor capability dynamic. */
-DEFUN (neighbor_capability_dynamic,
-       neighbor_capability_dynamic_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> capability dynamic",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise dynamic capability to this neighbor\n")
-{
-	int idx_peer = 1;
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_DYNAMIC_CAPABILITY);
-}
-
-DEFUN (no_neighbor_capability_dynamic,
-       no_neighbor_capability_dynamic_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> capability dynamic",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise dynamic capability to this neighbor\n")
-{
-	int idx_peer = 2;
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_DYNAMIC_CAPABILITY);
-}
-
-/* neighbor dont-capability-negotiate */
-DEFUN (neighbor_dont_capability_negotiate,
-       neighbor_dont_capability_negotiate_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> dont-capability-negotiate",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Do not perform capability negotiation\n")
-{
-	int idx_peer = 1;
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_DONT_CAPABILITY);
-}
-
-DEFUN (no_neighbor_dont_capability_negotiate,
-       no_neighbor_dont_capability_negotiate_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> dont-capability-negotiate",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Do not perform capability negotiation\n")
-{
-	int idx_peer = 2;
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_DONT_CAPABILITY);
-}
-
-/* neighbor capability fqdn */
-DEFPY (neighbor_capability_fqdn,
-       neighbor_capability_fqdn_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability fqdn",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise fqdn capability to the peer\n")
-{
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor,
-					  PEER_FLAG_CAPABILITY_FQDN);
-	else
-		ret = peer_flag_set_vty(vty, neighbor,
-					PEER_FLAG_CAPABILITY_FQDN);
-
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_FQDN,
-			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
-
-	return ret;
-}
-
 /*
  * Send dynamic capability on the peer(s) that own the TCP BGP session.
  * The peer-group template (PEER_STATUS_GROUP) stays Idle; members in
@@ -3943,71 +3747,6 @@ static void bgp_vty_capability_send_dynamic_peer_group(struct peer *peer, afi_t 
 	} else {
 		bgp_capability_send(peer->connection, afi, safi, capability_code, action);
 	}
-}
-
-/* neighbor capability extended next hop encoding */
-DEFUN (neighbor_capability_enhe,
-       neighbor_capability_enhe_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> capability extended-nexthop",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise extended next-hop capability to the peer\n")
-{
-	int idx_peer = 1;
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (peer && peer->conf_if)
-		return CMD_SUCCESS;
-
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_flag_set_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
-
-	bgp_vty_capability_send_dynamic_peer_group(peer, AFI_IP, SAFI_UNICAST,
-						   CAPABILITY_CODE_ENHE, CAPABILITY_ACTION_SET);
-
-	return ret;
-}
-
-DEFUN (no_neighbor_capability_enhe,
-       no_neighbor_capability_enhe_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> capability extended-nexthop",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise extended next-hop capability to the peer\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (peer && peer->conf_if) {
-		vty_out(vty,
-			"Peer %s cannot have capability extended-nexthop turned off\n",
-			argv[idx_peer]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	/*
-	 * Send dynamic UNSET while PEER_FLAG_CAPABILITY_ENHE is still set.
-	 * bgp_capability_send() only encodes ENHE TLVs when that flag is set;
-	 * peer_flag_unset_vty clears it on members first.
-	 */
-	bgp_vty_capability_send_dynamic_peer_group(peer, AFI_IP, SAFI_UNICAST,
-						   CAPABILITY_CODE_ENHE, CAPABILITY_ACTION_UNSET);
-
-	ret = peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
-
-	return ret;
 }
 
 /* neighbor capability software-version */
@@ -5072,94 +4811,6 @@ ALIAS_HIDDEN(
 	"Nexthop attribute\n"
 	"Med attribute\n")
 
-/* EBGP multihop configuration. */
-static int peer_ebgp_multihop_set_vty(struct vty *vty, const char *ip_str,
-				      const char *ttl_str)
-{
-	struct peer *peer;
-	unsigned int ttl;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (peer->conf_if)
-		return bgp_vty_return(vty, BGP_ERR_INVALID_FOR_DIRECT_PEER);
-
-	if (!ttl_str)
-		ttl = MAXTTL;
-	else
-		ttl = strtoul(ttl_str, NULL, 10);
-
-	/*
-	 * ebgp-multihop and ttl-security are mutually exclusive. Enforce it for
-	 * the whole peer/group/member set here, because peer_ebgp_multihop_set()
-	 * skips the GTSM check on its no-op paths (bare/MAXTTL form, or an
-	 * iBGP-sorted group with eBGP members) - which would otherwise let us
-	 * record cfg_ttl while a member still has ttl-security.
-	 */
-	if (peer_gtsm_configured(peer))
-		return bgp_vty_return(vty, BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK);
-
-	ret = peer_ebgp_multihop_set(peer, ttl, true);
-
-	return bgp_vty_return(vty, ret);
-}
-
-static int peer_ebgp_multihop_unset_vty(struct vty *vty, const char *ip_str)
-{
-	struct peer *peer;
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_ebgp_multihop_unset(peer, true);
-
-	return bgp_vty_return(vty, ret);
-}
-
-/* neighbor ebgp-multihop. */
-DEFUN (neighbor_ebgp_multihop,
-       neighbor_ebgp_multihop_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Allow EBGP neighbors not on directly connected networks\n")
-{
-	int idx_peer = 1;
-	return peer_ebgp_multihop_set_vty(vty, argv[idx_peer]->arg, NULL);
-}
-
-DEFUN (neighbor_ebgp_multihop_ttl,
-       neighbor_ebgp_multihop_ttl_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop (1-255)",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Allow EBGP neighbors not on directly connected networks\n"
-       "maximum hop count\n")
-{
-	int idx_peer = 1;
-	int idx_number = 3;
-	return peer_ebgp_multihop_set_vty(vty, argv[idx_peer]->arg,
-					  argv[idx_number]->arg);
-}
-
-DEFUN (no_neighbor_ebgp_multihop,
-       no_neighbor_ebgp_multihop_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop [(1-255)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Allow EBGP neighbors not on directly connected networks\n"
-       "maximum hop count\n")
-{
-	int idx_peer = 2;
-	return peer_ebgp_multihop_unset_vty(vty, argv[idx_peer]->arg);
-}
-
 DEFPY (neighbor_aigp,
        neighbor_aigp_cmd,
        "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor aigp",
@@ -5325,34 +4976,6 @@ DEFPY (neighbor_oad,
 	return CMD_SUCCESS;
 }
 
-/* disable-connected-check */
-DEFUN (neighbor_disable_connected_check,
-       neighbor_disable_connected_check_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> <disable-connected-check|enforce-multihop>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "one-hop away EBGP peer using loopback address\n"
-       "Enforce EBGP neighbors perform multihop\n")
-{
-	int idx_peer = 1;
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_DISABLE_CONNECTED_CHECK);
-}
-
-DEFUN (no_neighbor_disable_connected_check,
-       no_neighbor_disable_connected_check_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> <disable-connected-check|enforce-multihop>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "one-hop away EBGP peer using loopback address\n"
-       "Enforce EBGP neighbors perform multihop\n")
-{
-	int idx_peer = 2;
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_DISABLE_CONNECTED_CHECK);
-}
-
 DEFPY(neighbor_extended_link_bw,
       neighbor_extended_link_bw_cmd,
       "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor extended-link-bandwidth",
@@ -5443,98 +5066,7 @@ DEFUN(no_neighbor_extended_optional_parameters,
 				   PEER_FLAG_EXTENDED_OPT_PARAMS);
 }
 
-/* enforce-first-as */
-DEFUN (neighbor_enforce_first_as,
-       neighbor_enforce_first_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> enforce-first-as",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Enforce the first AS for EBGP routes\n")
-{
-	int idx_peer = 1;
 
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_ENFORCE_FIRST_AS);
-}
-
-DEFUN (no_neighbor_enforce_first_as,
-       no_neighbor_enforce_first_as_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> enforce-first-as",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Enforce the first AS for EBGP routes\n")
-{
-	int idx_peer = 2;
-
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_ENFORCE_FIRST_AS);
-}
-
-
-/* Neighbor update-source. */
-static int peer_update_source_vty(struct vty *vty, const char *peer_str,
-				  const char *source_str)
-{
-	struct peer *peer;
-	struct prefix p;
-	union sockunion su;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (peer->conf_if)
-		return CMD_WARNING;
-
-	if (source_str) {
-		if (str2sockunion(source_str, &su) == 0)
-			peer_update_source_addr_set(peer, &su);
-		else {
-			if (str2prefix(source_str, &p)) {
-				vty_out(vty,
-					"%% Invalid update-source, remove prefix length \n");
-				return CMD_WARNING_CONFIG_FAILED;
-			} else
-				peer_update_source_if_set(peer, source_str);
-		}
-	} else
-		peer_update_source_unset(peer);
-
-	return CMD_SUCCESS;
-}
-
-#define BGP_UPDATE_SOURCE_HELP_STR                                             \
-	"IPv4 address\n"                                                       \
-	"IPv6 address\n"                                                       \
-	"Interface name (requires zebra to be running)\n"
-
-DEFUN (neighbor_update_source,
-       neighbor_update_source_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> update-source <A.B.C.D|X:X::X:X|WORD>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Source of routing updates\n"
-       BGP_UPDATE_SOURCE_HELP_STR)
-{
-	int idx_peer = 1;
-	int idx_peer_2 = 3;
-	return peer_update_source_vty(vty, argv[idx_peer]->arg,
-				      argv[idx_peer_2]->arg);
-}
-
-DEFUN (no_neighbor_update_source,
-       no_neighbor_update_source_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> update-source [<A.B.C.D|X:X::X:X|WORD>]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Source of routing updates\n"
-       BGP_UPDATE_SOURCE_HELP_STR)
-{
-	int idx_peer = 2;
-	return peer_update_source_vty(vty, argv[idx_peer]->arg, NULL);
-}
 
 static int peer_default_originate_set_vty(struct vty *vty, const char *peer_str,
 					  afi_t afi, safi_t safi,
@@ -5807,229 +5339,6 @@ DEFUN (no_neighbor_strict_capability,
 				   PEER_FLAG_STRICT_CAP_MATCH);
 }
 
-static int peer_timers_set_vty(struct vty *vty, const char *ip_str,
-			       const char *keep_str, const char *hold_str)
-{
-	int ret;
-	struct peer *peer;
-	uint32_t keepalive;
-	uint32_t holdtime;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	keepalive = strtoul(keep_str, NULL, 10);
-	holdtime = strtoul(hold_str, NULL, 10);
-
-	ret = peer_timers_set(peer, keepalive, holdtime);
-
-	return bgp_vty_return(vty, ret);
-}
-
-static int peer_timers_unset_vty(struct vty *vty, const char *ip_str)
-{
-	int ret;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_timers_unset(peer);
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (neighbor_timers,
-       neighbor_timers_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> timers (0-65535) (0-65535)",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP per neighbor timers\n"
-       "Keepalive interval\n"
-       "Holdtime\n")
-{
-	int idx_peer = 1;
-	int idx_number = 3;
-	int idx_number_2 = 4;
-	return peer_timers_set_vty(vty, argv[idx_peer]->arg,
-				   argv[idx_number]->arg,
-				   argv[idx_number_2]->arg);
-}
-
-DEFUN (no_neighbor_timers,
-       no_neighbor_timers_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> timers [(0-65535) (0-65535)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP per neighbor timers\n"
-       "Keepalive interval\n"
-       "Holdtime\n")
-{
-	int idx_peer = 2;
-	return peer_timers_unset_vty(vty, argv[idx_peer]->arg);
-}
-
-
-static int peer_timers_connect_set_vty(struct vty *vty, const char *ip_str,
-				       const char *time_str)
-{
-	int ret;
-	struct peer *peer;
-	uint32_t connect;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	connect = strtoul(time_str, NULL, 10);
-
-	ret = peer_timers_connect_set(peer, connect);
-
-	return bgp_vty_return(vty, ret);
-}
-
-static int peer_timers_connect_unset_vty(struct vty *vty, const char *ip_str)
-{
-	int ret;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_timers_connect_unset(peer);
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (neighbor_timers_connect,
-       neighbor_timers_connect_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> timers connect (1-65535)",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP per neighbor timers\n"
-       "BGP connect timer\n"
-       "Connect timer\n")
-{
-	int idx_peer = 1;
-	int idx_number = 4;
-	return peer_timers_connect_set_vty(vty, argv[idx_peer]->arg,
-					   argv[idx_number]->arg);
-}
-
-DEFUN (no_neighbor_timers_connect,
-       no_neighbor_timers_connect_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> timers connect [(1-65535)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP per neighbor timers\n"
-       "BGP connect timer\n"
-       "Connect timer\n")
-{
-	int idx_peer = 2;
-	return peer_timers_connect_unset_vty(vty, argv[idx_peer]->arg);
-}
-
-DEFPY (neighbor_timers_delayopen,
-       neighbor_timers_delayopen_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor timers delayopen (1-240)$interval",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP per neighbor timers\n"
-       "RFC 4271 DelayOpenTimer\n"
-       "DelayOpenTime timer interval\n")
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!interval) {
-		if (peer_timers_delayopen_unset(peer))
-			return CMD_WARNING_CONFIG_FAILED;
-	} else {
-		if (peer_timers_delayopen_set(peer, interval))
-			return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_neighbor_timers_delayopen,
-       no_neighbor_timers_delayopen_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor timers delayopen [(0-65535)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP per neighbor timers\n"
-       "RFC 4271 DelayOpenTimer\n"
-       "DelayOpenTime timer interval\n")
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (peer_timers_delayopen_unset(peer))
-		return CMD_WARNING_CONFIG_FAILED;
-
-	return CMD_SUCCESS;
-}
-
-static int peer_advertise_interval_vty(struct vty *vty, const char *ip_str,
-				       const char *time_str, int set)
-{
-	int ret;
-	struct peer *peer;
-	uint32_t routeadv = 0;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (time_str)
-		routeadv = strtoul(time_str, NULL, 10);
-
-	if (set)
-		ret = peer_advertise_interval_set(peer, routeadv);
-	else
-		ret = peer_advertise_interval_unset(peer);
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (neighbor_advertise_interval,
-       neighbor_advertise_interval_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> advertisement-interval (0-600)",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Minimum interval between sending BGP routing updates\n"
-       "time in seconds\n")
-{
-	int idx_peer = 1;
-	int idx_number = 3;
-	return peer_advertise_interval_vty(vty, argv[idx_peer]->arg,
-					   argv[idx_number]->arg, 1);
-}
-
-DEFUN (no_neighbor_advertise_interval,
-       no_neighbor_advertise_interval_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> advertisement-interval [(0-600)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Minimum interval between sending BGP routing updates\n"
-       "time in seconds\n")
-{
-	int idx_peer = 2;
-	return peer_advertise_interval_vty(vty, argv[idx_peer]->arg, NULL, 0);
-}
 
 
 /* Time to wait before processing route-map updates */
@@ -7191,60 +6500,6 @@ ALIAS_HIDDEN(
 	"Name of route-map\n"
 	"Number of occurrences of AS number\n"
 	"Only accept my AS in the as-path if the route was originated in my AS\n")
-
-DEFUN (neighbor_ttl_security,
-       neighbor_ttl_security_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP ttl-security parameters\n"
-       "Specify the maximum number of hops to the BGP peer\n"
-       "Number of hops to BGP peer\n")
-{
-	int idx_peer = 1;
-	int idx_number = 4;
-	struct peer *peer;
-	int gtsm_hops;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	gtsm_hops = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	/*
-	 * If 'neighbor swpX', then this is for directly connected peers,
-	 * we should not accept a ttl-security hops value greater than 1.
-	 */
-	if (peer->conf_if && (gtsm_hops > BGP_GTSM_HOPS_CONNECTED)) {
-		vty_out(vty,
-			"%s is directly connected peer, hops cannot exceed 1\n",
-			argv[idx_peer]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return bgp_vty_return(vty, peer_ttl_security_hops_set(peer, gtsm_hops));
-}
-
-DEFUN (no_neighbor_ttl_security,
-       no_neighbor_ttl_security_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP ttl-security parameters\n"
-       "Specify the maximum number of hops to the BGP peer\n"
-       "Number of hops to BGP peer\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	return bgp_vty_return(vty, peer_ttl_security_hops_unset(peer));
-}
 
 /* "neighbor encapsulation-srv6|encapsulation-mpls" */
 DEFPY (neighbor_encapsulation_srv6_or_mpls,
@@ -21239,10 +20494,6 @@ void bgp_vty_init(void)
 	/* "neighbor peer-group" — YANG: bgp_cli_init() */
 
 	/* "neighbor local-as" commands. */
-	install_element(BGP_NODE, &neighbor_local_as_cmd);
-	install_element(BGP_NODE, &neighbor_local_as_no_prepend_cmd);
-	install_element(BGP_NODE, &neighbor_local_as_no_prepend_replace_as_cmd);
-	install_element(BGP_NODE, &no_neighbor_local_as_cmd);
 
 	/* "neighbor solo" — YANG: bgp_cli_init() */
 
@@ -21861,8 +21112,6 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_neighbor_shutdown_rtt_cmd);
 
 	/* "neighbor capability extended-nexthop" commands.*/
-	install_element(BGP_NODE, &neighbor_capability_enhe_cmd);
-	install_element(BGP_NODE, &no_neighbor_capability_enhe_cmd);
 
 	/* "neighbor capability software-version" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_software_version_cmd);
@@ -21891,24 +21140,14 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &no_neighbor_capability_orf_prefix_cmd);
 
 	/* "neighbor capability dynamic" commands.*/
-	install_element(BGP_NODE, &neighbor_capability_dynamic_cmd);
-	install_element(BGP_NODE, &no_neighbor_capability_dynamic_cmd);
 
 	/* "neighbor dont-capability-negotiate" commands. */
-	install_element(BGP_NODE, &neighbor_dont_capability_negotiate_cmd);
-	install_element(BGP_NODE, &no_neighbor_dont_capability_negotiate_cmd);
 
 	/* "neighbor capability fqdn" command. */
-	install_element(BGP_NODE, &neighbor_capability_fqdn_cmd);
 
 	/* "neighbor ebgp-multihop" commands. */
-	install_element(BGP_NODE, &neighbor_ebgp_multihop_cmd);
-	install_element(BGP_NODE, &neighbor_ebgp_multihop_ttl_cmd);
-	install_element(BGP_NODE, &no_neighbor_ebgp_multihop_cmd);
 
 	/* "neighbor disable-connected-check" commands.  */
-	install_element(BGP_NODE, &neighbor_disable_connected_check_cmd);
-	install_element(BGP_NODE, &no_neighbor_disable_connected_check_cmd);
 
 	/* "neighbor disable-link-bw-encoding-ieee" commands.  */
 	install_element(BGP_NODE, &neighbor_disable_link_bw_encoding_ieee_cmd);
@@ -21926,14 +21165,10 @@ void bgp_vty_init(void)
 			&no_neighbor_extended_optional_parameters_cmd);
 
 	/* "neighbor enforce-first-as" commands. */
-	install_element(BGP_NODE, &neighbor_enforce_first_as_cmd);
-	install_element(BGP_NODE, &no_neighbor_enforce_first_as_cmd);
 
 	/* "neighbor description" — YANG: bgp_cli_init() */
 
 	/* "neighbor update-source" commands. "*/
-	install_element(BGP_NODE, &neighbor_update_source_cmd);
-	install_element(BGP_NODE, &no_neighbor_update_source_cmd);
 
 	/* "neighbor default-originate" commands. */
 	install_element(BGP_NODE, &neighbor_default_originate_hidden_cmd);
@@ -21996,20 +21231,12 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_neighbor_strict_capability_cmd);
 
 	/* "neighbor timers" commands. */
-	install_element(BGP_NODE, &neighbor_timers_cmd);
-	install_element(BGP_NODE, &no_neighbor_timers_cmd);
 
 	/* "neighbor timers connect" commands. */
-	install_element(BGP_NODE, &neighbor_timers_connect_cmd);
-	install_element(BGP_NODE, &no_neighbor_timers_connect_cmd);
 
 	/* "neighbor timers delayopen" commands. */
-	install_element(BGP_NODE, &neighbor_timers_delayopen_cmd);
-	install_element(BGP_NODE, &no_neighbor_timers_delayopen_cmd);
 
 	/* "neighbor advertisement-interval" commands. */
-	install_element(BGP_NODE, &neighbor_advertise_interval_cmd);
-	install_element(BGP_NODE, &no_neighbor_advertise_interval_cmd);
 
 	/* "neighbor interface" commands. */
 	install_element(BGP_NODE, &neighbor_interface_cmd);
@@ -22480,8 +21707,6 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &bgp_imexport_vrf_cmd);
 
 	/* ttl_security commands */
-	install_element(BGP_NODE, &neighbor_ttl_security_cmd);
-	install_element(BGP_NODE, &no_neighbor_ttl_security_cmd);
 
 	/* "bgp tcp-keepalive" — YANG: bgp_cli_init() */
 
