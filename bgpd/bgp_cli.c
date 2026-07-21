@@ -1258,6 +1258,77 @@ DEFUN_YANG(no_bgp_listen_limit_yang, no_bgp_listen_limit_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_listen_range_yang, bgp_listen_range_yang_cmd,
+	   "[no] bgp listen range <A.B.C.D/M|X:X::X:X/M>$prefix peer-group WORD$pg",
+	   NO_STR BGP_STR
+	   "Configure BGP dynamic neighbors listen range\n"
+	   "Configure BGP dynamic neighbors listen range\n"
+	   NEIGHBOR_ADDR_STR
+	   "Member of the peer-group\n"
+	   "Peer-group name\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct peer_group *group, *existing;
+	struct prefix range;
+	char pfx[PREFIX_STRLEN];
+	char xpath[XPATH_MAXLEN];
+	const char *leaf;
+	int ret;
+
+	if (prefix->family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&prefix->u.prefix6)) {
+		vty_out(vty, "%% Malformed listen range (link-local address)\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	range = *prefix;
+	apply_mask(&range);
+
+	group = peer_group_lookup(bgp, pg);
+	if (!group) {
+		vty_out(vty, no ? "%% Peer-group does not exist\n"
+				: "%% Configure the peer-group first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!no) {
+		existing = bgp_listen_range_lookup(bgp, &range, true);
+		if (existing) {
+			if (strmatch(existing->name, pg))
+				return CMD_SUCCESS;
+			vty_out(vty, "%% Same listen range is attached to peer-group %s\n",
+				existing->name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (bgp_listen_range_lookup(bgp, &range, false)) {
+			vty_out(vty, "%% Listen range overlaps with existing listen range\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	leaf = (range.family == AF_INET) ? "ipv4-listen-range" : "ipv6-listen-range";
+	snprintfrr(xpath, sizeof(xpath),
+		   "./peer-groups/peer-group[peer-group-name='%s']/%s[.='%s']", pg, leaf, pfx);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	/*
+	 * Warn about an open (0.0.0.0/0 or ::/0) listen range without a
+	 * password (db1ca25485). Skip it while frr.conf is loading: the
+	 * password may be configured later in the file.
+	 */
+	if (ret == CMD_SUCCESS && !no && !bgp_config_inprocess()) {
+		struct listnode *node;
+		struct prefix *lr;
+
+		for (ALL_LIST_ELEMENTS_RO(group->listen_range[range.family == AF_INET ? AFI_IP
+										      : AFI_IP6],
+					  node, lr))
+			if (prefix_same(lr, &range))
+				bgp_listen_range_warn(vty, group, lr);
+	}
+
+	return ret;
+}
+
 DEFPY_YANG(bgp_default_afi_safi_yang, bgp_default_afi_safi_yang_cmd,
 	   "[no] bgp default <ipv4-unicast|ipv4-multicast|ipv4-vpn|ipv4-labeled-unicast|ipv4-flowspec|ipv6-unicast|ipv6-multicast|ipv6-vpn|ipv6-labeled-unicast|ipv6-flowspec|l2vpn-evpn>$afi_safi",
 	   NO_STR BGP_STR

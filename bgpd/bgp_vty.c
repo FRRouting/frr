@@ -164,8 +164,6 @@ DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
 	    (bgp, afi, preconfig));
 
-static struct peer_group *listen_range_exists(struct bgp *bgp,
-					      struct prefix *range, int exact);
 
 /* Show BGP peer's information. */
 enum show_type {
@@ -2812,37 +2810,6 @@ DEFUN (no_bgp_graceful_shutdown,
 
 
 /*
- * Check if this listen range is already configured. Check for exact
- * match or overlap based on input.
- */
-static struct peer_group *listen_range_exists(struct bgp *bgp,
-					      struct prefix *range, int exact)
-{
-	struct listnode *node, *nnode;
-	struct listnode *node1, *nnode1;
-	struct peer_group *group;
-	struct prefix *lr;
-	afi_t afi;
-	int match;
-
-	afi = family2afi(range->family);
-	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node1, nnode1,
-				       lr)) {
-			if (exact)
-				match = prefix_same(range, lr);
-			else
-				match = (prefix_match(range, lr)
-					 || prefix_match(lr, range));
-			if (match)
-				return group;
-		}
-	}
-
-	return NULL;
-}
-
-/*
  * Check if there is no neighbors nor listening range on bgp
  */
 static void bgp_may_stop_listening(struct bgp *bgp, struct vty *vty)
@@ -2895,139 +2862,6 @@ void bgp_listen_range_warn_group(struct vty *vty, const struct peer_group *group
 void bgp_nb_may_stop_listening(struct bgp *bgp)
 {
 	bgp_may_stop_listening(bgp, NULL);
-}
-
-DEFUN (bgp_listen_range,
-       bgp_listen_range_cmd,
-       "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
-       BGP_STR
-       "Configure BGP dynamic neighbors listen range\n"
-       "Configure BGP dynamic neighbors listen range\n"
-       NEIGHBOR_ADDR_STR
-       "Member of the peer-group\n"
-       "Peer-group name\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct prefix range;
-	struct peer_group *group, *existing_group;
-	afi_t afi;
-	int ret;
-	int idx = 0;
-
-	argv_find(argv, argc, "A.B.C.D/M", &idx);
-	argv_find(argv, argc, "X:X::X:X/M", &idx);
-	char *prefix = argv[idx]->arg;
-	argv_find(argv, argc, "PGNAME", &idx);
-	char *peergroup = argv[idx]->arg;
-
-	/* Convert IP prefix string to struct prefix. */
-	ret = str2prefix(prefix, &range);
-	if (!ret) {
-		vty_out(vty, "%% Malformed listen range\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	afi = family2afi(range.family);
-
-	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&range.u.prefix6)) {
-		vty_out(vty,
-			"%% Malformed listen range (link-local address)\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	apply_mask(&range);
-
-	/* Check if same listen range is already configured. */
-	existing_group = listen_range_exists(bgp, &range, 1);
-	if (existing_group) {
-		if (strcmp(existing_group->name, peergroup) == 0)
-			return CMD_SUCCESS;
-		else {
-			vty_out(vty,
-				"%% Same listen range is attached to peer-group %s\n",
-				existing_group->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	/* Check if an overlapping listen range exists. */
-	if (listen_range_exists(bgp, &range, 0)) {
-		vty_out(vty,
-			"%% Listen range overlaps with existing listen range\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	group = peer_group_lookup(bgp, peergroup);
-	if (!group) {
-		vty_out(vty, "%% Configure the peer-group first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* if need start listening */
-	bgp_need_listening(bgp, vty);
-
-	ret = peer_group_listen_range_add(group, &range);
-	if (!ret && !bgp_config_inprocess())
-		bgp_listen_range_warn(vty, group, &range);
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (no_bgp_listen_range,
-       no_bgp_listen_range_cmd,
-       "no bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
-       NO_STR
-       BGP_STR
-       "Unconfigure BGP dynamic neighbors listen range\n"
-       "Unconfigure BGP dynamic neighbors listen range\n"
-       NEIGHBOR_ADDR_STR
-       "Member of the peer-group\n"
-       "Peer-group name\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct prefix range;
-	struct peer_group *group;
-	afi_t afi;
-	int ret;
-	int idx = 0;
-
-	argv_find(argv, argc, "A.B.C.D/M", &idx);
-	argv_find(argv, argc, "X:X::X:X/M", &idx);
-	char *prefix = argv[idx]->arg;
-	argv_find(argv, argc, "PGNAME", &idx);
-	char *peergroup = argv[idx]->arg;
-
-	/* Convert IP prefix string to struct prefix. */
-	ret = str2prefix(prefix, &range);
-	if (!ret) {
-		vty_out(vty, "%% Malformed listen range\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	afi = family2afi(range.family);
-
-	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&range.u.prefix6)) {
-		vty_out(vty,
-			"%% Malformed listen range (link-local address)\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	apply_mask(&range);
-
-	group = peer_group_lookup(bgp, peergroup);
-	if (!group) {
-		vty_out(vty, "%% Peer-group does not exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = peer_group_listen_range_del(group, &range);
-
-	/*
-	 * if need stop listening
-	 */
-	bgp_may_stop_listening(bgp, vty);
-
-	return bgp_vty_return(vty, ret);
 }
 
 void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
@@ -16625,11 +16459,7 @@ void bgp_vty_init(void)
 
 	/* bgp route-reflector allow-outbound-policy — YANG: bgp_cli_init() */
 
-	/* "bgp listen limit" — YANG: bgp_cli_init() */
-
-	/* "bgp listen range" commands. */
-	install_element(BGP_NODE, &bgp_listen_range_cmd);
-	install_element(BGP_NODE, &no_bgp_listen_range_cmd);
+	/* "bgp listen limit" / "bgp listen range" — YANG: bgp_cli_init() */
 
 	/* "bgp default shutdown" / "bgp shutdown" — YANG: bgp_cli_init() */
 

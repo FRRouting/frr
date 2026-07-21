@@ -2870,6 +2870,8 @@ extern bool peer_notify_config_change(struct peer_connection *connection);
 extern int peer_group_delete(struct peer_group *group);
 extern int peer_group_remote_as_delete(struct peer_group *group);
 extern int peer_group_listen_range_add(struct peer_group *group, struct prefix *range);
+extern struct peer_group *bgp_listen_range_lookup(struct bgp *bgp, struct prefix *range,
+						  bool exact);
 extern void peer_group_notify_unconfig(struct peer_group *group);
 
 extern void bgp_zebra_suppress_fib_pending_config_retry(void);
