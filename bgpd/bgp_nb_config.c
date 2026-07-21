@@ -21,12 +21,14 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_open.h"
+#include "bgpd/bgp_conditional_adv.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_route.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "routemap.h"
 #include "filter.h"
 #include "bfd.h"
-#include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_packet.h"
@@ -6804,6 +6806,384 @@ void bgp_nb_cli_show_peer_af_addpath_rx_limit(struct vty *vty, const struct lyd_
 {
 	vty_out(vty, " neighbor %s addpath-rx-paths-limit %u\n", bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL));
+}
+
+static int bgp_nb_peer_af_advertise_map_apply(const struct lyd_node *cond)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const char *aname, *cname;
+	struct route_map *amap, *cmap;
+	bool condition;
+
+	peer = bgp_nb_config_peer(cond);
+	if (!peer || !bgp_nb_dnode_afi_safi(cond, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!yang_dnode_exists(cond, "./advertise-map"))
+		return NB_OK;
+
+	aname = yang_dnode_get_string(cond, "./advertise-map");
+	if (yang_dnode_exists(cond, "./exist-map")) {
+		cname = yang_dnode_get_string(cond, "./exist-map");
+		condition = CONDITION_EXIST;
+	} else if (yang_dnode_exists(cond, "./non-exist-map")) {
+		cname = yang_dnode_get_string(cond, "./non-exist-map");
+		condition = CONDITION_NON_EXIST;
+	} else
+		return NB_OK;
+
+	amap = route_map_lookup_by_name(aname);
+	cmap = route_map_lookup_by_name(cname);
+	if (peer_advertise_map_set(peer, afi, safi, aname, amap, cname, cmap, condition) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+static int bgp_nb_peer_af_advertise_map_clear(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct bgp_filter *filter = &peer->filter[afi][safi];
+
+	if (!filter->advmap.aname)
+		return NB_OK;
+
+	if (peer_advertise_map_unset(peer, afi, safi, filter->advmap.aname, filter->advmap.amap,
+				     filter->advmap.cname, filter->advmap.cmap,
+				     filter->advmap.condition) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_advertise_map_modify(struct nb_cb_modify_args *args)
+{
+	const struct lyd_node *cond;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	cond = yang_dnode_get_parent(args->dnode, "conditional-advertisement");
+	if (!cond)
+		return NB_ERR_NOT_FOUND;
+	return bgp_nb_peer_af_advertise_map_apply(cond);
+}
+
+int bgp_nb_peer_af_advertise_map_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	return bgp_nb_peer_af_advertise_map_clear(peer, afi, safi);
+}
+
+void bgp_nb_cli_show_peer_af_advertise_map(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	const struct lyd_node *cond = yang_dnode_get_parent(dnode, "conditional-advertisement");
+	const char *cname;
+	const char *kind;
+
+	if (!cond)
+		return;
+	if (yang_dnode_exists(cond, "./exist-map")) {
+		cname = yang_dnode_get_string(cond, "./exist-map");
+		kind = "exist-map";
+	} else if (yang_dnode_exists(cond, "./non-exist-map")) {
+		cname = yang_dnode_get_string(cond, "./non-exist-map");
+		kind = "non-exist-map";
+	} else
+		return;
+
+	vty_out(vty, " neighbor %s advertise-map %s %s %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL), kind, cname);
+}
+
+void bgp_nb_cli_show_peer_af_advertise_map_cond(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	/* Rendered with advertise-map cli_show. */
+}
+
+
+int bgp_nb_peer_af_advertise_cond_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_advertise_map_modify(args);
+}
+
+int bgp_nb_peer_af_advertise_cond_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *cond;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	cond = yang_dnode_get_parent(args->dnode, "conditional-advertisement");
+	if (!cond)
+		return NB_OK;
+
+	if (yang_dnode_exists(cond, "./advertise-map") &&
+	    (yang_dnode_exists(cond, "./exist-map") || yang_dnode_exists(cond, "./non-exist-map")))
+		return bgp_nb_peer_af_advertise_map_apply(cond);
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+	return bgp_nb_peer_af_advertise_map_clear(peer, afi, safi);
+}
+
+int bgp_nb_peer_af_accept_own_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_ACCEPT_OWN);
+}
+
+void bgp_nb_cli_show_peer_af_accept_own(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s accept-own\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_soo_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	struct ecommunity *ecomm_soo;
+	const char *soo;
+
+	if (args->event == NB_EV_VALIDATE) {
+		soo = yang_dnode_get_string(args->dnode, NULL);
+		ecomm_soo = ecommunity_str2com(soo, ECOMMUNITY_SITE_ORIGIN, 0);
+		if (!ecomm_soo) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Malformed SoO extended community");
+			return NB_ERR_VALIDATION;
+		}
+		ecommunity_free(&ecomm_soo);
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	soo = yang_dnode_get_string(args->dnode, NULL);
+	ecomm_soo = ecommunity_str2com(soo, ECOMMUNITY_SITE_ORIGIN, 0);
+	if (!ecomm_soo)
+		return NB_ERR_VALIDATION;
+	ecommunity_str(ecomm_soo);
+
+	/*
+	 * peer_soo_set copies the value onto group members that are not
+	 * overriding, and records the override on a member.
+	 */
+	if (peer_soo_set(peer, afi, safi, ecomm_soo) < 0) {
+		ecommunity_free(&ecomm_soo);
+		return NB_ERR_RESOURCE;
+	}
+	ecommunity_free(&ecomm_soo);
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_soo_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	/* Drop the override and inherit the peer-group value when bound. */
+	peer_soo_unset(peer, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_soo(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " neighbor %s soo %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_peer_af_upa_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_UPA);
+}
+
+void bgp_nb_cli_show_peer_af_upa(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s upa\n", bgp_nb_config_peer_name(dnode));
+}
+
+static int bgp_nb_peer_af_orf_apply(struct peer *peer, afi_t afi, safi_t safi, bool send,
+				    bool recv, bool set)
+{
+	int ret = 0;
+
+	if (send) {
+		if (set)
+			ret |= peer_af_flag_set(peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM);
+		else
+			ret |= peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM);
+	}
+	if (recv) {
+		if (set)
+			ret |= peer_af_flag_set(peer, afi, safi, PEER_FLAG_ORF_PREFIX_RM);
+		else
+			ret |= peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ORF_PREFIX_RM);
+	}
+
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
+			    set ? CAPABILITY_ACTION_SET : CAPABILITY_ACTION_UNSET);
+	return ret < 0 ? NB_ERR_RESOURCE : NB_OK;
+}
+
+int bgp_nb_peer_af_orf_send_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ORF_PREFIX_RM);
+		return bgp_nb_peer_af_orf_apply(peer, afi, safi, true, false, true);
+	}
+	return bgp_nb_peer_af_orf_apply(peer, afi, safi, true, false, false);
+}
+
+int bgp_nb_peer_af_orf_send_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	return bgp_nb_peer_af_orf_apply(peer, afi, safi, true, false, false);
+}
+
+void bgp_nb_cli_show_peer_af_orf_send(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s capability orf prefix-list send\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_orf_receive_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM);
+		return bgp_nb_peer_af_orf_apply(peer, afi, safi, false, true, true);
+	}
+	return bgp_nb_peer_af_orf_apply(peer, afi, safi, false, true, false);
+}
+
+int bgp_nb_peer_af_orf_receive_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	return bgp_nb_peer_af_orf_apply(peer, afi, safi, false, true, false);
+}
+
+void bgp_nb_cli_show_peer_af_orf_receive(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s capability orf prefix-list receive\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_orf_both_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	return bgp_nb_peer_af_orf_apply(peer, afi, safi, true, true,
+					yang_dnode_get_bool(args->dnode, NULL));
+}
+
+int bgp_nb_peer_af_orf_both_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	return bgp_nb_peer_af_orf_apply(peer, afi, safi, true, true, false);
+}
+
+void bgp_nb_cli_show_peer_af_orf_both(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s capability orf prefix-list both\n",
+			bgp_nb_config_peer_name(dnode));
 }
 
 static bool bgp_nb_path_attr_forbidden(uint8_t attr_num, struct peer *peer, char *errmsg,

@@ -4506,6 +4506,186 @@ DEFPY_YANG(neighbor_addpath_rx_paths_limit_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(neighbor_advertise_map_yang, neighbor_advertise_map_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Route-map to conditionally advertise routes\n"
+	   "Name of advertise map\n"
+	   "Advertise routes only if prefixes in exist-map are installed in BGP table\n"
+	   "Advertise routes only if prefixes in non-exist-map are not installed in BGP table\n"
+	   "Name of the exist or non exist map\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (no) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/advertise-map",
+			   xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/exist-map", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/non-exist-map",
+			   xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/advertise-map", xpath, af);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, advertise_str);
+
+	if (strmatch(exist, "exist-map")) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/non-exist-map",
+			   xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/exist-map", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, condition_str);
+	} else {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/exist-map", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/non-exist-map",
+			   xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, condition_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_accept_own_yang, neighbor_accept_own_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor accept-own",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Enable handling of self-originated VPN routes containing ACCEPT_OWN community\n")
+{
+	return bgp_cli_peer_af_bool(vty, neighbor, "accept-own", !!no);
+}
+
+DEFPY_YANG(neighbor_soo_yang, neighbor_soo_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor soo [ASN:NN_OR_IP-ADDRESS:NN$soo]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Set the Site-of-Origin (SoO) extended community\n"
+	   "VPN extended community\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/soo", xpath, af);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!soo)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, soo);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_upa_yang, neighbor_upa_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor upa",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Send UPA (Unreachable Prefix Announcement) routes to this neighbor\n")
+{
+	return bgp_cli_peer_af_bool(vty, neighbor, "upa", !!no);
+}
+
+DEFPY_YANG(neighbor_capability_orf_yang, neighbor_capability_orf_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability orf prefix-list <both|send|receive>$dir",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Advertise capability to the peer\n"
+	   "Advertise ORF capability to the peer\n"
+	   "Advertise prefixlist ORF capability to this neighbor\n"
+	   "Capability to SEND and RECEIVE the ORF to/from this neighbor\n"
+	   "Capability to SEND the ORF to this neighbor\n"
+	   "Capability to RECEIVE the ORF from this neighbor\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	const char *active;
+	static const char *const variants[] = {
+		"orf-capability/orf-send",
+		"orf-capability/orf-receive",
+		"orf-capability/orf-both",
+	};
+	size_t i;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (strmatch(dir, "send"))
+		active = variants[0];
+	else if (strmatch(dir, "receive"))
+		active = variants[1];
+	else
+		active = variants[2];
+
+	for (i = 0; i < array_size(variants); i++) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/%s", xpath, af, variants[i]);
+		if (no) {
+			if (variants[i] == active)
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		} else if (variants[i] == active)
+			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+		else
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(
+	neighbor_advertise_map_yang, neighbor_advertise_map_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Route-map to conditionally advertise routes\n"
+	"Name of advertise map\n"
+	"Advertise routes only if prefixes in exist-map are installed in BGP table\n"
+	"Advertise routes only if prefixes in non-exist-map are not installed in BGP table\n"
+	"Name of the exist or non exist map\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_upa_yang, neighbor_upa_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor upa",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Send UPA (Unreachable Prefix Announcement) routes to this neighbor\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_capability_orf_yang, neighbor_capability_orf_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability orf prefix-list <both|send|receive>$dir",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Advertise capability to the peer\n"
+	"Advertise ORF capability to the peer\n"
+	"Advertise prefixlist ORF capability to this neighbor\n"
+	"Capability to SEND and RECEIVE the ORF to/from this neighbor\n"
+	"Capability to SEND the ORF to this neighbor\n"
+	"Capability to RECEIVE the ORF from this neighbor\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 ALIAS_ATTR(
 	neighbor_maximum_prefix_yang, neighbor_maximum_prefix_yang_hidden_cmd,
 	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix (1-4294967295)$max [(1-100)$threshold] [<warning-only$warn|restart (1-65535)$restart>] [force$force]",
@@ -4985,6 +5165,45 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_NODE, &neighbor_maximum_prefix_out_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_addpath_tx_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_addpath_rx_paths_limit_yang_hidden_cmd);
+
+	/* advertise-map / soo / upa / orf / accept-own */
+	install_element(BGP_IPV4_NODE, &neighbor_advertise_map_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_advertise_map_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_advertise_map_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_advertise_map_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_advertise_map_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_advertise_map_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_advertise_map_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_advertise_map_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_soo_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_accept_own_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_accept_own_yang_cmd);
+
+	/* upa + orf: unicast/mcast/labeled only (not VPN) */
+	install_element(BGP_IPV4_NODE, &neighbor_upa_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_capability_orf_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_upa_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_capability_orf_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_upa_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_capability_orf_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_upa_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_capability_orf_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_upa_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_capability_orf_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_upa_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_capability_orf_yang_cmd);
+
+	install_element(BGP_NODE, &neighbor_advertise_map_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_upa_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_capability_orf_yang_hidden_cmd);
 }
 
 void bgp_cli_init(void)
