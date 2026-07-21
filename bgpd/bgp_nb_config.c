@@ -7547,6 +7547,74 @@ void bgp_nb_cli_show_evpn_flooding(struct vty *vty, const struct lyd_node *dnode
 		vty_out(vty, "  flooding head-end-replication\n");
 }
 
+int bgp_nb_evpn_macvrf_soo_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct bgp *bgp_evpn;
+	struct ecommunity *ecomm_soo;
+	const char *soo;
+
+	if (args->event == NB_EV_VALIDATE) {
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		bgp_evpn = bgp_get_evpn();
+		if (!bgp || !bgp_evpn || !bgp_evpn->evpn_info) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "EVPN underlay is not configured");
+			return NB_ERR_VALIDATION;
+		}
+		if (bgp != bgp_evpn) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Please configure MAC-VRF SoO in the EVPN underlay: %s",
+				   bgp_evpn->name_pretty);
+			return NB_ERR_VALIDATION;
+		}
+		soo = yang_dnode_get_string(args->dnode, NULL);
+		ecomm_soo = ecommunity_str2com(soo, ECOMMUNITY_SITE_ORIGIN, 0);
+		if (!ecomm_soo) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Malformed SoO extended community");
+			return NB_ERR_VALIDATION;
+		}
+		ecommunity_free(&ecomm_soo);
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn || !bgp_evpn->evpn_info)
+		return NB_ERR_NOT_FOUND;
+
+	soo = yang_dnode_get_string(args->dnode, NULL);
+	ecomm_soo = ecommunity_str2com(soo, ECOMMUNITY_SITE_ORIGIN, 0);
+	if (!ecomm_soo)
+		return NB_ERR_VALIDATION;
+	ecommunity_str(ecomm_soo);
+	bgp_evpn_handle_global_macvrf_soo_change(bgp_evpn, ecomm_soo);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_macvrf_soo_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp_evpn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn || !bgp_evpn->evpn_info)
+		return NB_OK;
+
+	bgp_evpn_handle_global_macvrf_soo_change(bgp_evpn, NULL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_macvrf_soo(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	vty_out(vty, "  mac-vrf soo %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 /*
  * AF-level import|export vpn
  */

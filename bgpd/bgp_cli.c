@@ -5186,6 +5186,32 @@ DEFPY_YANG(bgp_evpn_flooding_yang, bgp_evpn_flooding_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_evpn_macvrf_soo_yang, bgp_evpn_macvrf_soo_yang_cmd,
+	   "[no] mac-vrf soo [ASN:NN_OR_IP-ADDRESS:NN$soo]",
+	   NO_STR
+	   "EVPN MAC-VRF\n"
+	   "Site-of-Origin extended community\n"
+	   "VPN extended community\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/mac-vrf-site-of-origin", af_xpath);
+
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!soo) {
+			vty_out(vty, "%% Incomplete command\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, soo);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	   "[no] <import|export>$direction_str vpn",
 	   NO_STR
@@ -7827,6 +7853,7 @@ void bgp_cli_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_resolve_overlay_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_flooding_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_macvrf_soo_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);

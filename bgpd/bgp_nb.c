@@ -1240,6 +1240,14 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/mac-vrf-site-of-origin",
+			.cbs = {
+				.modify = bgp_nb_evpn_macvrf_soo_modify,
+				.destroy = bgp_nb_evpn_macvrf_soo_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_macvrf_soo,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/enable",
 			.cbs = {
 				.modify = bgp_nb_dampening_enable_modify,

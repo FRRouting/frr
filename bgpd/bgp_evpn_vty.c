@@ -8438,10 +8438,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &no_evpnrt5_network_cmd);
 	install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
 	/* advertise-all-vni / autort / default-gw / svi-ip / flooding /
-	 * resolve-overlay-index — YANG: bgp_cli_init()
+	 * resolve-overlay-index / mac-vrf soo — YANG: bgp_cli_init()
 	 */
-	install_element(BGP_EVPN_NODE, &macvrf_soo_global_cmd);
-	install_element(BGP_EVPN_NODE, &no_macvrf_soo_global_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_cmd);
