@@ -5818,6 +5818,257 @@ void bgp_nb_cli_show_neighbor_local_port(struct vty *vty, const struct lyd_node 
 	vty_out(vty, " neighbor %s port %u\n", bgp_nb_config_peer_name(dnode), port);
 }
 
+
+/*
+ * Neighbor AFI/SAFI helpers and callbacks
+ */
+static bool bgp_nb_dnode_afi_safi(const struct lyd_node *dnode, afi_t *afi, safi_t *safi)
+{
+	const struct lyd_node *af;
+	const char *name;
+
+	af = yang_dnode_get_parent(dnode, "afi-safi");
+	if (!af)
+		return false;
+
+	name = yang_dnode_get_string(af, "./afi-safi-name");
+	yang_afi_safi_identity2value(name, afi, safi);
+	return true;
+}
+
+static int bgp_nb_peer_af_flag_modify(struct nb_cb_modify_args *args, uint64_t flag)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		if (peer_af_flag_set(peer, afi, safi, flag) < 0)
+			return NB_ERR_RESOURCE;
+	} else {
+		if (peer_af_flag_unset(peer, afi, safi, flag) < 0)
+			return NB_ERR_RESOURCE;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_peer_afi_safi_create(struct nb_cb_create_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	name = yang_dnode_get_string(args->dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(name, &afi, &safi);
+
+	if (yang_dnode_exists(args->dnode, "./enabled") &&
+	    yang_dnode_get_bool(args->dnode, "./enabled"))
+		peer_activate(peer, afi, safi);
+
+	return NB_OK;
+}
+
+int bgp_nb_peer_afi_safi_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	name = yang_dnode_get_string(args->dnode, "./afi-safi-name");
+	yang_afi_safi_identity2value(name, &afi, &safi);
+	peer_deactivate(peer, afi, safi);
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		if (peer_activate(peer, afi, safi) < 0)
+			return NB_ERR_RESOURCE;
+	} else {
+		if (peer_deactivate(peer, afi, safi) < 0)
+			return NB_ERR_RESOURCE;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	peer_deactivate(peer, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_enabled(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s activate\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, "%sno neighbor %s activate\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_soft_reconfig_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_SOFT_RECONFIG);
+}
+
+void bgp_nb_cli_show_peer_af_soft_reconfig(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s soft-reconfiguration inbound\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, "%sno neighbor %s soft-reconfiguration inbound\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_nexthop_self_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_NEXTHOP_SELF);
+}
+
+void bgp_nb_cli_show_peer_af_nexthop_self(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s next-hop-self\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, "%sno neighbor %s next-hop-self\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_nexthop_self_force_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_FORCE_NEXTHOP_SELF);
+}
+
+void bgp_nb_cli_show_peer_af_nexthop_self_force(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s next-hop-self force\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, "%sno neighbor %s next-hop-self force\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_aspath_unchanged_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_AS_PATH_UNCHANGED);
+}
+
+static void bgp_nb_cli_show_attr_unchanged(struct vty *vty, const struct lyd_node *dnode,
+					   const char *self)
+{
+	const struct lyd_node *parent;
+	bool aspath, nexthop, med;
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	parent = yang_dnode_get_parent(dnode, "attr-unchanged");
+	if (!parent)
+		return;
+
+	aspath = yang_dnode_exists(parent, "as-path-unchanged") &&
+		 yang_dnode_get_bool(parent, "as-path-unchanged");
+	nexthop = yang_dnode_exists(parent, "next-hop-unchanged") &&
+		  yang_dnode_get_bool(parent, "next-hop-unchanged");
+	med = yang_dnode_exists(parent, "med-unchanged") &&
+	      yang_dnode_get_bool(parent, "med-unchanged");
+
+	/*
+	 * The three leaves are one CLI command. Emit it once, from the last
+	 * enabled keyword, so frr-reload does not keep only the last line.
+	 */
+	if (strmatch(self, "as-path") && (nexthop || med))
+		return;
+	if (strmatch(self, "next-hop") && med)
+		return;
+
+	vty_out(vty, "%sneighbor %s attribute-unchanged%s%s%s\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), aspath ? " as-path" : "",
+		nexthop ? " next-hop" : "", med ? " med" : "");
+}
+
+void bgp_nb_cli_show_peer_af_aspath_unchanged(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	bgp_nb_cli_show_attr_unchanged(vty, dnode, "as-path");
+}
+
+int bgp_nb_peer_af_nexthop_unchanged_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_NEXTHOP_UNCHANGED);
+}
+
+void bgp_nb_cli_show_peer_af_nexthop_unchanged(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	bgp_nb_cli_show_attr_unchanged(vty, dnode, "next-hop");
+}
+
+int bgp_nb_peer_af_med_unchanged_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_MED_UNCHANGED);
+}
+
+void bgp_nb_cli_show_peer_af_med_unchanged(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	bgp_nb_cli_show_attr_unchanged(vty, dnode, "med");
+}
+
 static bool bgp_nb_path_attr_forbidden(uint8_t attr_num, struct peer *peer, char *errmsg,
 				       size_t errmsg_len)
 {

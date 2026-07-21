@@ -566,6 +566,32 @@ int bgp_nb_neighbor_local_port_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_neighbor_local_port(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults);
 
+
+int bgp_nb_peer_afi_safi_create(struct nb_cb_create_args *args);
+int bgp_nb_peer_afi_safi_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_af_enabled_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_enabled_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_enabled(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+int bgp_nb_peer_af_soft_reconfig_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_soft_reconfig(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_peer_af_nexthop_self_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_nexthop_self(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+int bgp_nb_peer_af_nexthop_self_force_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_nexthop_self_force(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+int bgp_nb_peer_af_aspath_unchanged_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_aspath_unchanged(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+int bgp_nb_peer_af_nexthop_unchanged_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_nexthop_unchanged(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+int bgp_nb_peer_af_med_unchanged_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_med_unchanged(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

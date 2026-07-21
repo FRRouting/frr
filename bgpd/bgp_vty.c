@@ -3246,11 +3246,6 @@ DEFUN (neighbor_activate,
 	return bgp_vty_return(vty, ret);
 }
 
-ALIAS_HIDDEN(neighbor_activate, neighbor_activate_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> activate",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Enable the Address Family for this Neighbor\n")
-
 DEFUN (no_neighbor_activate,
        no_neighbor_activate_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> activate",
@@ -3271,11 +3266,6 @@ DEFUN (no_neighbor_activate,
 	ret = peer_deactivate(peer, bgp_node_afi(vty), bgp_node_safi(vty));
 	return bgp_vty_return(vty, ret);
 }
-
-ALIAS_HIDDEN(no_neighbor_activate, no_neighbor_activate_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> activate",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Enable the Address Family for this Neighbor\n")
 
 DEFUN (neighbor_set_peer_group,
        neighbor_set_peer_group_cmd,
@@ -3662,101 +3652,6 @@ ALIAS_HIDDEN(
 	"Capability to SEND and RECEIVE the ORF to/from this neighbor\n"
 	"Capability to RECEIVE the ORF from this neighbor\n"
 	"Capability to SEND the ORF to this neighbor\n")
-
-/* neighbor next-hop-self. */
-DEFUN (neighbor_nexthop_self,
-       neighbor_nexthop_self_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Disable the next hop calculation for this neighbor\n")
-{
-	int idx_peer = 1;
-	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-				    bgp_node_safi(vty), PEER_FLAG_NEXTHOP_SELF);
-}
-
-ALIAS_HIDDEN(neighbor_nexthop_self, neighbor_nexthop_self_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Disable the next hop calculation for this neighbor\n")
-
-/* neighbor next-hop-self. */
-DEFUN (neighbor_nexthop_self_force,
-       neighbor_nexthop_self_force_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self force",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Disable the next hop calculation for this neighbor\n"
-       "Set the next hop to self for reflected routes\n")
-{
-	int idx_peer = 1;
-	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-				    bgp_node_safi(vty),
-				    PEER_FLAG_FORCE_NEXTHOP_SELF);
-}
-
-ALIAS_HIDDEN(neighbor_nexthop_self_force,
-	     neighbor_nexthop_self_force_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self force",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Disable the next hop calculation for this neighbor\n"
-	     "Set the next hop to self for reflected routes\n")
-
-ALIAS_HIDDEN(neighbor_nexthop_self_force,
-	     neighbor_nexthop_self_all_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self all",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Disable the next hop calculation for this neighbor\n"
-	     "Set the next hop to self for reflected routes\n")
-
-DEFUN (no_neighbor_nexthop_self,
-       no_neighbor_nexthop_self_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Disable the next hop calculation for this neighbor\n")
-{
-	int idx_peer = 2;
-	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
-				      bgp_node_afi(vty), bgp_node_safi(vty),
-				      PEER_FLAG_NEXTHOP_SELF);
-}
-
-ALIAS_HIDDEN(no_neighbor_nexthop_self, no_neighbor_nexthop_self_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Disable the next hop calculation for this neighbor\n")
-
-DEFUN (no_neighbor_nexthop_self_force,
-       no_neighbor_nexthop_self_force_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self force",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Disable the next hop calculation for this neighbor\n"
-       "Set the next hop to self for reflected routes\n")
-{
-	int idx_peer = 2;
-	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
-				      bgp_node_afi(vty), bgp_node_safi(vty),
-				      PEER_FLAG_FORCE_NEXTHOP_SELF);
-}
-
-ALIAS_HIDDEN(no_neighbor_nexthop_self_force,
-	     no_neighbor_nexthop_self_force_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self force",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Disable the next hop calculation for this neighbor\n"
-	     "Set the next hop to self for reflected routes\n")
-
-ALIAS_HIDDEN(no_neighbor_nexthop_self_force,
-	     no_neighbor_nexthop_self_all_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self all",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Disable the next hop calculation for this neighbor\n"
-	     "Set the next hop to self for reflected routes\n")
 
 /* neighbor as-override */
 DEFUN (neighbor_as_override,
@@ -4159,50 +4054,6 @@ DEFPY (neighbor_ecommunity_rpki,
 					    PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
 }
 
-/* neighbor soft-reconfig. */
-DEFUN (neighbor_soft_reconfiguration,
-       neighbor_soft_reconfiguration_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> soft-reconfiguration inbound",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Per neighbor soft reconfiguration\n"
-       "Allow inbound soft reconfiguration for this neighbor\n")
-{
-	int idx_peer = 1;
-	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-				    bgp_node_safi(vty),
-				    PEER_FLAG_SOFT_RECONFIG);
-}
-
-ALIAS_HIDDEN(neighbor_soft_reconfiguration,
-	     neighbor_soft_reconfiguration_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> soft-reconfiguration inbound",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Per neighbor soft reconfiguration\n"
-	     "Allow inbound soft reconfiguration for this neighbor\n")
-
-DEFUN (no_neighbor_soft_reconfiguration,
-       no_neighbor_soft_reconfiguration_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> soft-reconfiguration inbound",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Per neighbor soft reconfiguration\n"
-       "Allow inbound soft reconfiguration for this neighbor\n")
-{
-	int idx_peer = 2;
-	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
-				      bgp_node_afi(vty), bgp_node_safi(vty),
-				      PEER_FLAG_SOFT_RECONFIG);
-}
-
-ALIAS_HIDDEN(no_neighbor_soft_reconfiguration,
-	     no_neighbor_soft_reconfiguration_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> soft-reconfiguration inbound",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Per neighbor soft reconfiguration\n"
-	     "Allow inbound soft reconfiguration for this neighbor\n")
-
 DEFUN (neighbor_route_reflector_client,
        neighbor_route_reflector_client_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> route-reflector-client",
@@ -4322,166 +4173,6 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
 				      bgp_node_afi(vty), bgp_node_safi(vty),
 				      PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED);
 }
-
-DEFUN (neighbor_attr_unchanged,
-       neighbor_attr_unchanged_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
-       "As-path attribute\n"
-       "Nexthop attribute\n"
-       "Med attribute\n")
-{
-	int idx = 0;
-	char *peer_str = argv[1]->arg;
-	struct peer *peer;
-	bool aspath = false;
-	bool nexthop = false;
-	bool med = false;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	int ret = 0;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (argv_find(argv, argc, "as-path", &idx))
-		aspath = true;
-
-	idx = 0;
-	if (argv_find(argv, argc, "next-hop", &idx))
-		nexthop = true;
-
-	idx = 0;
-	if (argv_find(argv, argc, "med", &idx))
-		med = true;
-
-	/* no flags means all of them! */
-	if (!aspath && !nexthop && !med) {
-		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					   PEER_FLAG_AS_PATH_UNCHANGED);
-		ret |= peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					    PEER_FLAG_NEXTHOP_UNCHANGED);
-		ret |= peer_af_flag_set_vty(vty, peer_str, afi, safi,
-					    PEER_FLAG_MED_UNCHANGED);
-	} else {
-		if (!aspath) {
-			if (peer_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_AS_PATH_UNCHANGED)) {
-				ret |= peer_af_flag_unset_vty(
-					vty, peer_str, afi, safi,
-					PEER_FLAG_AS_PATH_UNCHANGED);
-			}
-		} else
-			ret |= peer_af_flag_set_vty(
-				vty, peer_str, afi, safi,
-				PEER_FLAG_AS_PATH_UNCHANGED);
-
-		if (!nexthop) {
-			if (peer_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_NEXTHOP_UNCHANGED)) {
-				ret |= peer_af_flag_unset_vty(
-					vty, peer_str, afi, safi,
-					PEER_FLAG_NEXTHOP_UNCHANGED);
-			}
-		} else
-			ret |= peer_af_flag_set_vty(
-				vty, peer_str, afi, safi,
-				PEER_FLAG_NEXTHOP_UNCHANGED);
-
-		if (!med) {
-			if (peer_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_MED_UNCHANGED)) {
-				ret |= peer_af_flag_unset_vty(
-					vty, peer_str, afi, safi,
-					PEER_FLAG_MED_UNCHANGED);
-			}
-		} else
-			ret |= peer_af_flag_set_vty(vty, peer_str, afi, safi,
-						    PEER_FLAG_MED_UNCHANGED);
-	}
-
-	return ret;
-}
-
-ALIAS_HIDDEN(
-	neighbor_attr_unchanged, neighbor_attr_unchanged_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"BGP attribute is propagated unchanged to this neighbor\n"
-	"As-path attribute\n"
-	"Nexthop attribute\n"
-	"Med attribute\n")
-
-DEFUN (no_neighbor_attr_unchanged,
-       no_neighbor_attr_unchanged_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
-       "As-path attribute\n"
-       "Nexthop attribute\n"
-       "Med attribute\n")
-{
-	int idx = 0;
-	char *peer_str = argv[2]->arg;
-	struct peer *peer;
-	bool aspath = false;
-	bool nexthop = false;
-	bool med = false;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	int ret = 0;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (argv_find(argv, argc, "as-path", &idx))
-		aspath = true;
-
-	idx = 0;
-	if (argv_find(argv, argc, "next-hop", &idx))
-		nexthop = true;
-
-	idx = 0;
-	if (argv_find(argv, argc, "med", &idx))
-		med = true;
-
-	if (!aspath && !nexthop && !med) // no flags means all of them!
-		return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					      PEER_FLAG_AS_PATH_UNCHANGED)
-		       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-						PEER_FLAG_NEXTHOP_UNCHANGED)
-		       | peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-						PEER_FLAG_MED_UNCHANGED);
-
-	if (aspath)
-		ret |= peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					      PEER_FLAG_AS_PATH_UNCHANGED);
-
-	if (nexthop)
-		ret |= peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					      PEER_FLAG_NEXTHOP_UNCHANGED);
-
-	if (med)
-		ret |= peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-					      PEER_FLAG_MED_UNCHANGED);
-
-	return ret;
-}
-
-ALIAS_HIDDEN(
-	no_neighbor_attr_unchanged, no_neighbor_attr_unchanged_hidden_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
-	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"BGP attribute is propagated unchanged to this neighbor\n"
-	"As-path attribute\n"
-	"Nexthop attribute\n"
-	"Med attribute\n")
 
 /* Re-evaluate routes when the role changes */
 void bgp_vty_role_update(struct peer *peer, int action)
@@ -19717,37 +19408,13 @@ void bgp_vty_init(void)
 	/* "neighbor password" — YANG: bgp_cli_init() */
 
 	/* "neighbor activate" commands. */
-	install_element(BGP_NODE, &neighbor_activate_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_activate_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_activate_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_activate_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_activate_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_activate_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_activate_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_activate_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_activate_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &neighbor_activate_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &neighbor_activate_cmd);
 	install_element(BGP_IPV4U_NODE, &neighbor_activate_cmd);
 	install_element(BGP_IPV6U_NODE, &neighbor_activate_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &neighbor_activate_cmd);
 
 	/* "no neighbor activate" commands. */
-	install_element(BGP_NODE, &no_neighbor_activate_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_IPV4U_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_IPV6U_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &no_neighbor_activate_cmd);
 
 	/* "neighbor peer-group" set commands. */
@@ -19777,62 +19444,9 @@ void bgp_vty_init(void)
 			&no_neighbor_set_peer_group_hidden_cmd);
 
 	/* "neighbor softreconfiguration inbound" commands.*/
-	install_element(BGP_NODE, &neighbor_soft_reconfiguration_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_soft_reconfiguration_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_FLOWSPECV4_NODE,
-			&neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_FLOWSPECV4_NODE,
-			&no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_FLOWSPECV6_NODE,
-			&neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_FLOWSPECV6_NODE,
-			&no_neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_soft_reconfiguration_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_soft_reconfiguration_cmd);
 
 	/* "neighbor attribute-unchanged" commands.  */
-	install_element(BGP_NODE, &neighbor_attr_unchanged_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_attr_unchanged_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_attr_unchanged_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_attr_unchanged_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_attr_unchanged_cmd);
 
-	install_element(BGP_EVPN_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_attr_unchanged_cmd);
-
-	install_element(BGP_FLOWSPECV4_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_attr_unchanged_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &neighbor_attr_unchanged_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_attr_unchanged_cmd);
 
 	/* "nexthop-local unchanged" commands */
 	install_element(BGP_IPV6_NODE, &neighbor_nexthop_local_unchanged_cmd);
@@ -19840,74 +19454,8 @@ void bgp_vty_init(void)
 			&no_neighbor_nexthop_local_unchanged_cmd);
 
 	/* "neighbor next-hop-self" commands. */
-	install_element(BGP_NODE, &neighbor_nexthop_self_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_nexthop_self_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_nexthop_self_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_nexthop_self_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_nexthop_self_cmd);
 
 	/* "neighbor next-hop-self force" commands. */
-	install_element(BGP_NODE, &neighbor_nexthop_self_force_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_nexthop_self_force_hidden_cmd);
-	install_element(BGP_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV4_NODE,
-			&no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV4L_NODE,
-			&no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV6_NODE,
-			&no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_nexthop_self_force_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_IPV6L_NODE,
-			&no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_nexthop_self_force_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_VPNV4_NODE,
-			&no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_nexthop_self_force_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_VPNV6_NODE,
-			&no_neighbor_nexthop_self_all_hidden_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_nexthop_self_force_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_nexthop_self_force_cmd);
 
 	/* "neighbor as-override" commands. */
 	install_element(BGP_NODE, &neighbor_as_override_hidden_cmd);

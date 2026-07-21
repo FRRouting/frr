@@ -3791,6 +3791,288 @@ DEFPY_YANG(neighbor_port_yang, neighbor_port_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+/*
+ * Address-family CLI helpers (classic AF nodes keep vty->node; BGP YANG
+ * xpath remains on the stack from router bgp).
+ */
+static const char *bgp_cli_afi_safi_name(int node)
+{
+	switch (node) {
+	case BGP_IPV4_NODE:
+		return "ipv4-unicast";
+	case BGP_IPV4M_NODE:
+		return "ipv4-multicast";
+	case BGP_IPV4L_NODE:
+		return "ipv4-labeled-unicast";
+	case BGP_IPV6_NODE:
+		return "ipv6-unicast";
+	case BGP_IPV6M_NODE:
+		return "ipv6-multicast";
+	case BGP_IPV6L_NODE:
+		return "ipv6-labeled-unicast";
+	case BGP_VPNV4_NODE:
+		return "l3vpn-ipv4-unicast";
+	case BGP_VPNV6_NODE:
+		return "l3vpn-ipv6-unicast";
+	case BGP_EVPN_NODE:
+		return "l2vpn-evpn";
+	case BGP_FLOWSPECV4_NODE:
+		return "ipv4-flowspec";
+	case BGP_FLOWSPECV6_NODE:
+		return "ipv6-flowspec";
+	default:
+		return "ipv4-unicast";
+	}
+}
+
+static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
+				 size_t xpath_len, bool *is_pg)
+{
+	char base[XPATH_MAXLEN];
+	const char *afi_safi;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, base, sizeof(base), is_pg);
+	if (ret != 0)
+		return ret;
+
+	afi_safi = bgp_cli_afi_safi_name(vty->node);
+	snprintfrr(xpath, xpath_len, "%s/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']", base,
+		   afi_safi);
+	return 0;
+}
+
+DEFPY_YANG(neighbor_activate_yang, neighbor_activate_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor activate",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Enable the Address Family for this Neighbor\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/enabled", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_soft_reconfiguration_yang,
+	   neighbor_soft_reconfiguration_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor soft-reconfiguration inbound",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Per neighbor soft reconfiguration\n"
+	   "Allow inbound soft reconfiguration for this neighbor\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/soft-reconfiguration", xpath, af);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_nexthop_self_yang, neighbor_nexthop_self_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor next-hop-self [<force|all>$force]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Disable the next hop calculation for this neighbor\n"
+	   "Set the next hop to self for reflected routes\n"
+	   "Set the next hop to self for reflected routes\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (force) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/nexthop-self/next-hop-self-force", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	} else {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/nexthop-self/next-hop-self", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/* EVPN never had the "all" keyword. force and all share one handler. */
+ALIAS_ATTR(neighbor_nexthop_self_yang, neighbor_nexthop_self_evpn_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor next-hop-self [force$force]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Disable the next hop calculation for this neighbor\n"
+	   "Set the next hop to self for reflected routes\n",
+	   CMD_ATTR_YANG);
+
+DEFPY_YANG(neighbor_attr_unchanged_yang, neighbor_attr_unchanged_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor attribute-unchanged [{as-path$aspath|next-hop$nexthop|med$med}]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "BGP attribute is propagated unchanged to this neighbor\n"
+	   "As-path attribute\n"
+	   "Nexthop attribute\n"
+	   "Med attribute\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	const char *val;
+	bool all;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	all = !aspath && !nexthop && !med;
+	val = no ? "false" : "true";
+
+	if (all || aspath) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/attr-unchanged/as-path-unchanged", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	}
+	if (all || nexthop) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/attr-unchanged/next-hop-unchanged", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	}
+	if (all || med) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/attr-unchanged/med-unchanged", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	}
+
+	/* Classic sets unspecified flags off when a subset is given. */
+	if (!no && !all) {
+		if (!aspath) {
+			snprintfrr(leaf, sizeof(leaf), "%s/%s/attr-unchanged/as-path-unchanged",
+				   xpath, af);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
+		}
+		if (!nexthop) {
+			snprintfrr(leaf, sizeof(leaf), "%s/%s/attr-unchanged/next-hop-unchanged",
+				   xpath, af);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
+		}
+		if (!med) {
+			snprintfrr(leaf, sizeof(leaf), "%s/%s/attr-unchanged/med-unchanged", xpath,
+				   af);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+ALIAS_ATTR(neighbor_activate_yang, neighbor_activate_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor activate",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Enable the Address Family for this Neighbor\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_soft_reconfiguration_yang, neighbor_soft_reconfiguration_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor soft-reconfiguration inbound",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Per neighbor soft reconfiguration\n"
+	   "Allow inbound soft reconfiguration for this neighbor\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_nexthop_self_yang, neighbor_nexthop_self_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor next-hop-self [<force|all>$force]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Disable the next hop calculation for this neighbor\n"
+	   "Set the next hop to self for reflected routes\n"
+	   "Set the next hop to self for reflected routes\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_attr_unchanged_yang, neighbor_attr_unchanged_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor attribute-unchanged [{as-path$aspath|next-hop$nexthop|med$med}]",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"BGP attribute is propagated unchanged to this neighbor\n"
+	"As-path attribute\n"
+	"Nexthop attribute\n"
+	"Med attribute\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+static void bgp_cli_install_af_neighbor(void)
+{
+	install_element(BGP_IPV4_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_soft_reconfiguration_yang_cmd);
+
+	/* Hidden at BGP_NODE: defaults to ipv4-unicast like classic. */
+	install_element(BGP_NODE, &neighbor_activate_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_soft_reconfiguration_yang_hidden_cmd);
+
+	/* nexthop-self / attr-unchanged: not on flowspec */
+	install_element(BGP_IPV4_NODE, &neighbor_nexthop_self_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_nexthop_self_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_nexthop_self_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_nexthop_self_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_nexthop_self_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_nexthop_self_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_nexthop_self_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_nexthop_self_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_nexthop_self_evpn_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &neighbor_attr_unchanged_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &neighbor_attr_unchanged_yang_cmd);
+
+	install_element(BGP_NODE, &neighbor_nexthop_self_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_attr_unchanged_yang_hidden_cmd);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -3983,4 +4265,5 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_graceful_shutdown_yang_cmd);
 	install_element(BGP_NODE, &neighbor_set_peer_group_yang_cmd);
 	install_element(BGP_NODE, &neighbor_port_yang_cmd);
+	bgp_cli_install_af_neighbor();
 }
