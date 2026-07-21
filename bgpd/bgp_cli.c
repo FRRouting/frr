@@ -5402,6 +5402,104 @@ DEFPY_YANG(neighbor_soft_reconfiguration_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(neighbor_encap_srv6_yang, neighbor_encap_srv6_yang_cmd,
+	   "[no] neighbor <X:X::X:X|WORD>$neighbor <encapsulation-srv6|encapsulation-srv6-relax>$encap",
+	   NO_STR NEIGHBOR_STR
+	   "Neighbor IPv6 address\n"
+	   "Neighbor tag\n"
+	   "Advertise routes with SRv6 prefix SID to the neighbor\n"
+	   "Advertise routes with and without SRv6 prefix SID the neighbor\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	const char *yang_val;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi = SAFI_UNICAST;
+	uint64_t flag;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/encapsulation/type", xpath, af);
+
+	yang_val = strmatch(encap, "encapsulation-srv6-relax") ? "srv6-relax" : "srv6";
+	flag = strmatch(encap, "encapsulation-srv6-relax")
+		       ? PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX
+		       : PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
+
+	if (no) {
+		peer = peer_and_group_lookup_vty(vty, neighbor);
+		if (!peer)
+			return CMD_WARNING_CONFIG_FAILED;
+		afi = bgp_node_afi(vty);
+		if (!peergroup_af_flag_check(peer, afi, safi, flag)) {
+			vty_out(vty, "%% Peer is not configured.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	} else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, yang_val);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_encapsulation_srv6_or_mpls_yang,
+	   neighbor_encapsulation_srv6_or_mpls_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str <encapsulation-srv6$srv6|encapsulation-mpls$mpls>",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Distribute L3VPN updates with SRv6 prefix SID\n"
+	   "Distribute L3VPN updates with MPLS prefix SID\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	uint64_t flag, other;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, peer_str, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/encapsulation/type", xpath, af);
+
+	if (no) {
+		peer = peer_and_group_lookup_vty(vty, peer_str);
+		if (!peer)
+			return CMD_WARNING_CONFIG_FAILED;
+		afi = bgp_node_afi(vty);
+		safi = bgp_node_safi(vty);
+		flag = srv6 ? PEER_FLAG_CONFIG_ENCAPSULATION_SRV6
+			    : PEER_FLAG_CONFIG_ENCAPSULATION_MPLS;
+		other = srv6 ? PEER_FLAG_CONFIG_ENCAPSULATION_MPLS
+			     : PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
+
+		if (!peergroup_af_flag_check(peer, afi, safi, flag))
+			return CMD_SUCCESS;
+
+		/* Keep the other encapsulation if still configured. */
+		if (peergroup_af_flag_check(peer, afi, safi, other))
+			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, srv6 ? "mpls" : "srv6");
+		else
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	} else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, srv6 ? "srv6" : "mpls");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(neighbor_nexthop_self_yang, neighbor_nexthop_self_yang_cmd,
 	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor next-hop-self [<force|all>$force]",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
@@ -6605,6 +6703,11 @@ static void bgp_cli_install_af_neighbor(void)
 
 	install_element(BGP_NODE, &neighbor_nexthop_self_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_attr_unchanged_yang_hidden_cmd);
+
+	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_encapsulation_srv6_or_mpls_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_encapsulation_srv6_or_mpls_yang_cmd);
 
 	/* as-override / remove-private-AS: unicast-family set */
 	install_element(BGP_IPV4_NODE, &neighbor_as_override_yang_cmd);

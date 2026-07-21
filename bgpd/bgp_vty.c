@@ -3143,37 +3143,6 @@ static void bgp_vty_capability_send_dynamic_peer_group(struct peer *peer, afi_t 
 	}
 }
 
-static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,
-				   afi_t afi, safi_t safi, uint64_t flag,
-				   int set)
-{
-	int ret;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (set)
-		ret = peer_af_flag_set(peer, afi, safi, flag);
-	else
-		ret = peer_af_flag_unset(peer, afi, safi, flag);
-
-	return bgp_vty_return(vty, ret);
-}
-
-static int peer_af_flag_set_vty(struct vty *vty, const char *peer_str,
-				afi_t afi, safi_t safi, uint64_t flag)
-{
-	return peer_af_flag_modify_vty(vty, peer_str, afi, safi, flag, 1);
-}
-
-static int peer_af_flag_unset_vty(struct vty *vty, const char *peer_str,
-				  afi_t afi, safi_t safi, uint64_t flag)
-{
-	return peer_af_flag_modify_vty(vty, peer_str, afi, safi, flag, 0);
-}
-
 
 /* Re-evaluate routes when the role changes */
 void bgp_vty_role_update(struct peer *peer, int action)
@@ -3805,46 +3774,6 @@ DEFPY (no_neighbor_allowas_in,
 	return bgp_vty_return(vty, ret);
 }
 
-/* "neighbor encapsulation-srv6|encapsulation-mpls" */
-DEFPY (neighbor_encapsulation_srv6_or_mpls,
-       neighbor_encapsulation_srv6_or_mpls_cmd,
-       "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str <encapsulation-srv6$srv6|encapsulation-mpls$mpls>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Distribute L3VPN updates with SRv6 prefix SID\n"
-       "Distribute L3VPN updates with MPLS prefix SID\n")
-{
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (srv6) {
-		if (no)
-			ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-						     PEER_FLAG_CONFIG_ENCAPSULATION_SRV6);
-		else
-			ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
-						   PEER_FLAG_CONFIG_ENCAPSULATION_SRV6);
-		return ret;
-	}
-	if (mpls) {
-		if (no)
-			ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
-						     PEER_FLAG_CONFIG_ENCAPSULATION_MPLS);
-		else
-			ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
-						   PEER_FLAG_CONFIG_ENCAPSULATION_MPLS);
-		return ret;
-	}
-	return CMD_WARNING_CONFIG_FAILED;
-}
-
 DEFPY(
 	neighbor_aspath_loop_detection, neighbor_aspath_loop_detection_cmd,
 	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor sender-as-path-loop-detection",
@@ -3865,58 +3794,6 @@ DEFPY(
 	"Detect AS loops before sending to neighbor\n")
 {
 	return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_AS_LOOP_DETECTION);
-}
-
-DEFPY(neighbor_encap_srv6,
-      neighbor_encap_srv6_cmd,
-      "[no] neighbor <X:X::X:X|WORD>$neighbor <encapsulation-srv6|encapsulation-srv6-relax>$encap",
-      NO_STR
-      NEIGHBOR_STR
-      "Neighbor IPv6 address\n"
-      "Neighbor tag\n"
-      "Advertise routes with SRv6 prefix SID to the neighbor\n"
-      "Advertise routes with and without SRv6 prefix SID the neighbor\n")
-{
-	int ret;
-	afi_t afi;
-	uint64_t flag;
-	struct peer *peer;
-	safi_t safi = SAFI_UNICAST;
-
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	afi = bgp_node_afi(vty);
-	if (strncmp(encap, "encapsulation-srv6-relax", 25))
-		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
-	else
-		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX;
-
-	if (no) {
-		if (!peergroup_af_flag_check(peer, afi, safi, flag)) {
-			vty_out(vty, "%% Peer is not configured.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		ret = peer_af_flag_unset_vty(vty, neighbor, afi, safi, flag);
-
-		return ret;
-	}
-
-	if (peergroup_af_flag_check(peer, afi, safi, flag))
-		return CMD_SUCCESS;
-
-	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
-	    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX)) {
-		vty_out(vty, "%% Peer is already configured, unset it first.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = peer_af_flag_set_vty(vty, neighbor, afi, safi, flag);
-
-	return ret;
 }
 
 DEFPY(neighbor_damp,
@@ -15084,9 +14961,7 @@ void bgp_vty_init(void)
 	/* "neighbor weight" commands. */
 
 
-	/* "neighbor encapsulation-srv6|encapsulation-mpls" commands. */
-	install_element(BGP_VPNV4_NODE, &neighbor_encapsulation_srv6_or_mpls_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_encapsulation_srv6_or_mpls_cmd);
+	/* neighbor encapsulation-srv6|mpls — YANG: bgp_cli_init() */
 
 	/* "neighbor override-capability" commands. */
 
@@ -15307,8 +15182,7 @@ void bgp_vty_init(void)
 	/* sid vpn export (AF) — YANG: bgp_cli_init() */
 	/* sid vpn per-vrf export — YANG: bgp_cli_init() */
 	/* sid export — YANG: bgp_cli_init() */
-	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
+	/* neighbor encapsulation-srv6 — YANG: bgp_cli_init() */
 
 	/* BGP-LS commands */
 	install_element(BGP_LS_NODE, &bgp_ls_distribute_bgp_fabric_cmd);
