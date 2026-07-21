@@ -4241,6 +4241,333 @@ DEFPY_YANG(neighbor_unsuppress_map_yang, neighbor_unsuppress_map_yang_cmd,
 	return bgp_cli_peer_af_filter_leaf(vty, neighbor, "unsuppress-map-export", name, !!no);
 }
 
+
+static void bgp_cli_clear_prefix_limit_options(struct vty *vty, const char *base)
+{
+	char leaf[XPATH_MAXLEN + 256];
+	static const char *const opts[] = {
+		"options/warning-only",		  "options/restart-timer",
+		"options/shutdown-threshold-pct", "options/tr-shutdown-threshold-pct",
+		"options/tr-restart-timer",	  "options/tw-shutdown-threshold-pct",
+		"options/tw-warning-only",
+	};
+	size_t i;
+
+	for (i = 0; i < array_size(opts); i++) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s", base, opts[i]);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+}
+
+DEFPY_YANG(neighbor_maximum_prefix_yang, neighbor_maximum_prefix_yang_cmd,
+	   "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix (1-4294967295)$max [(1-100)$threshold] [<warning-only$warn|restart (1-65535)$restart>] [force$force]",
+	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Maximum number of prefix accept from this peer\n"
+	   "maximum no. of prefix limit\n"
+	   "Threshold value (%) at which to generate a warning msg\n"
+	   "Only give warning message when limit is exceeded\n"
+	   "Restart bgp connection after limit is exceeded\n"
+	   "Restart interval in minutes\n"
+	   "Force checking all received routes not only accepted\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char dirpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 512];
+	bool is_pg = false;
+	const char *af;
+	char buf[16];
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(dirpath, sizeof(dirpath), "%s/%s/prefix-limit/direction-list[direction='in']",
+		   xpath, af);
+
+	nb_cli_enqueue_change(vty, dirpath, NB_OP_CREATE, NULL);
+	snprintfrr(buf, sizeof(buf), "%" PRId64, max);
+	snprintfrr(leaf, sizeof(leaf), "%s/max-prefixes", dirpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/force-check", dirpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, force ? "true" : "false");
+
+	bgp_cli_clear_prefix_limit_options(vty, dirpath);
+
+	if (threshold_str && warn) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, threshold);
+		snprintfrr(leaf, sizeof(leaf), "%s/options/tw-shutdown-threshold-pct", dirpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		snprintfrr(leaf, sizeof(leaf), "%s/options/tw-warning-only", dirpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	} else if (threshold_str && restart_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, threshold);
+		snprintfrr(leaf, sizeof(leaf), "%s/options/tr-shutdown-threshold-pct", dirpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		snprintfrr(buf, sizeof(buf), "%" PRId64, restart);
+		snprintfrr(leaf, sizeof(leaf), "%s/options/tr-restart-timer", dirpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	} else if (threshold_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, threshold);
+		snprintfrr(leaf, sizeof(leaf), "%s/options/shutdown-threshold-pct", dirpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	} else if (warn) {
+		snprintfrr(leaf, sizeof(leaf), "%s/options/warning-only", dirpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	} else if (restart_str) {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, restart);
+		snprintfrr(leaf, sizeof(leaf), "%s/options/restart-timer", dirpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+DEFPY_YANG(no_neighbor_maximum_prefix_yang, no_neighbor_maximum_prefix_yang_cmd,
+	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only] [force]]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Maximum number of prefix accept from this peer\n"
+	   "maximum no. of prefix limit\n"
+	   "Threshold value (%) at which to generate a warning msg\n"
+	   "Restart bgp connection after limit is exceeded\n"
+	   "Restart interval in minutes\n"
+	   "Only give warning message when limit is exceeded\n"
+	   "Force checking all received routes not only accepted\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char dirpath[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	snprintfrr(dirpath, sizeof(dirpath), "%s/%s/prefix-limit/direction-list[direction='in']",
+		   xpath, af);
+	nb_cli_enqueue_change(vty, dirpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_maximum_prefix_out_yang,
+	   neighbor_maximum_prefix_out_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix-out [(1-4294967295)$max]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Maximum number of prefixes to be sent to this peer\n"
+	   "Maximum no. of prefix limit\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char dirpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 512];
+	bool is_pg = false;
+	const char *af;
+	char buf[16];
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(dirpath, sizeof(dirpath), "%s/%s/prefix-limit/direction-list[direction='out']",
+		   xpath, af);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, dirpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+	if (!max_str)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(vty, dirpath, NB_OP_CREATE, NULL);
+	snprintfrr(buf, sizeof(buf), "%" PRId64, max);
+	snprintfrr(leaf, sizeof(leaf), "%s/max-prefixes", dirpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_addpath_tx_yang, neighbor_addpath_tx_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor <addpath-tx-all-paths$all|addpath-tx-bestpath-per-AS$peras>",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Use addpath to advertise all paths to a neighbor\n"
+	   "Use addpath to advertise the bestpath per each neighboring AS\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	const char *type;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/add-paths/best-selected-paths", xpath, af);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/add-paths/path-type", xpath, af);
+	if (no)
+		type = "none";
+	else if (all)
+		type = "all";
+	else
+		type = "per-as";
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, type);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_addpath_tx_best_selected_yang,
+	   neighbor_addpath_tx_best_selected_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-best-selected [(1-6)$paths]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Use addpath to advertise best selected paths to a neighbor\n"
+	   "The number of best paths\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	char buf[8];
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/add-paths/path-type", xpath, af);
+	if (no) {
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "none");
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/add-paths/best-selected-paths", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+	if (!paths_str)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "best-selected");
+	snprintfrr(buf, sizeof(buf), "%" PRId64, paths);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/add-paths/best-selected-paths", xpath, af);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_disable_addpath_rx_yang,
+	   neighbor_disable_addpath_rx_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor disable-addpath-rx",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Do not accept additional paths\n")
+{
+	return bgp_cli_peer_af_bool(vty, neighbor, "add-paths/disable-addpath-rx", !!no);
+}
+
+DEFPY_YANG(neighbor_addpath_rx_paths_limit_yang,
+	   neighbor_addpath_rx_paths_limit_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-rx-paths-limit [(1-65535)$paths_limit]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Paths Limit for Addpath to receive from the peer\n"
+	   "Maximum number of paths\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	char buf[16];
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/add-paths/addpath-rx-paths-limit", xpath, af);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!paths_limit_str)
+			return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(buf, sizeof(buf), "%" PRId64, paths_limit);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(
+	neighbor_maximum_prefix_yang, neighbor_maximum_prefix_yang_hidden_cmd,
+	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix (1-4294967295)$max [(1-100)$threshold] [<warning-only$warn|restart (1-65535)$restart>] [force$force]",
+	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Maximum number of prefix accept from this peer\n"
+	"maximum no. of prefix limit\n"
+	"Threshold value (%) at which to generate a warning msg\n"
+	"Only give warning message when limit is exceeded\n"
+	"Restart bgp connection after limit is exceeded\n"
+	"Restart interval in minutes\n"
+	"Force checking all received routes not only accepted\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+
+ALIAS_ATTR(no_neighbor_maximum_prefix_yang, no_neighbor_maximum_prefix_yang_hidden_cmd,
+	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only] [force]]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Maximum number of prefix accept from this peer\n"
+	   "maximum no. of prefix limit\n"
+	   "Threshold value (%) at which to generate a warning msg\n"
+	   "Restart bgp connection after limit is exceeded\n"
+	   "Restart interval in minutes\n"
+	   "Only give warning message when limit is exceeded\n"
+	   "Force checking all received routes not only accepted\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_maximum_prefix_out_yang, neighbor_maximum_prefix_out_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix-out [(1-4294967295)$max]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Maximum number of prefixes to be sent to this peer\n"
+	   "Maximum no. of prefix limit\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_addpath_tx_yang, neighbor_addpath_tx_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor <addpath-tx-all-paths$all|addpath-tx-bestpath-per-AS$peras>",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR
+	"Use addpath to advertise all paths to a neighbor\n"
+	"Use addpath to advertise the bestpath per each neighboring AS\n"
+	"Use addpath to advertise best selected paths to a neighbor\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_addpath_tx_best_selected_yang,
+	   neighbor_addpath_tx_best_selected_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-best-selected [(1-6)$paths]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Use addpath to advertise best selected paths to a neighbor\n"
+	   "The number of best paths\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_disable_addpath_rx_yang, neighbor_disable_addpath_rx_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor disable-addpath-rx",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Do not accept additional paths\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_addpath_rx_paths_limit_yang, neighbor_addpath_rx_paths_limit_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-rx-paths-limit [(1-65535)$paths_limit]",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Paths Limit for Addpath to receive from the peer\n"
+					       "Maximum number of paths\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 ALIAS_ATTR(neighbor_prefix_list_yang, neighbor_prefix_list_yang_hidden_cmd,
 	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor prefix-list WORD$name <in|out>$dir",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Filter updates to/from this neighbor\n"
@@ -4588,6 +4915,76 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_NODE, &neighbor_filter_list_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_route_map_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_unsuppress_map_yang_hidden_cmd);
+
+	/* maximum-prefix / addpath */
+	install_element(BGP_IPV4_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV4_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV6_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_disable_addpath_rx_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	/* maximum-prefix-out also on as_nodes without EVPN already covered */
+	install_element(BGP_NODE, &neighbor_maximum_prefix_yang_hidden_cmd);
+	install_element(BGP_NODE, &no_neighbor_maximum_prefix_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_maximum_prefix_out_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_addpath_tx_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_addpath_rx_paths_limit_yang_hidden_cmd);
 }
 
 void bgp_cli_init(void)
