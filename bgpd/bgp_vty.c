@@ -4043,121 +4043,6 @@ int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv, struct eco
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_sid_vpn_export,
-       bgp_sid_vpn_export_cmd,
-       "[no] sid vpn per-vrf export <(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
-       NO_STR
-       "sid value for VRF\n"
-       "Between current vrf and vpn\n"
-       "sid per-VRF (both IPv4 and IPv6 address families)\n"
-       "For routes leaked from current vrf to vpn\n"
-       "Sid allocation index\n"
-       "Automatically assign a label\n"
-       "Explicitly assign a sid value\n"
-       "Sid value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int debug;
-	struct in6_addr *tovpn_sid_explicit = NULL;
-
-	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
-		 BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
-
-	if (no) {
-		/* when per-VRF SID is not set, do nothing */
-		if (!is_srv6_vpn_vrf_enabled(bgp))
-			return CMD_SUCCESS;
-
-		sid_idx = 0;
-		sid_auto = false;
-		sid_explicit = false;
-		bgp->tovpn_sid_index = 0;
-		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
-		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
-	}
-
-	if (is_srv6_vpn_afi_enabled(bgp, AFI_IP) || is_srv6_vpn_afi_enabled(bgp, AFI_IP6)) {
-		vty_out(vty,
-			"per-vrf sid and per-af sid are mutually exclusive\n"
-			"Failed: per-af sid is configured. Remove per-af sid before configuring per-vrf sid\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (is_srv6_unicast_enabled(bgp, AFI_IP) || is_srv6_unicast_enabled(bgp, AFI_IP6)) {
-		vty_out(vty, "sid export is configured on unicast\n"
-			     "Remove it before configuring sid vpn");
-
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* skip when it's already configured */
-	if ((sid_idx != 0 && bgp->tovpn_sid_index != 0) ||
-	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
-	    (sid_explicit && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)))
-		return CMD_SUCCESS;
-
-	/*
-	 * mode change among sid_idx, sid_auto and sid_explicit isn't supported.
-	 * user must negate sid vpn export when they want to change the mode
-	 */
-	if ((sid_auto || sid_explicit) && bgp->tovpn_sid_index != 0) {
-		vty_out(vty, "it's already configured as idx-mode.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if ((sid_auto || sid_idx != 0) && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
-		vty_out(vty, "it's already configured as explicit-mode.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if ((sid_idx != 0 || sid_explicit) && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) {
-		vty_out(vty, "it's already configured as auto-mode.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* pre-change */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
-			   bgp);
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
-			   bgp);
-
-	if (sid_auto) {
-		/* SID allocation auto-mode */
-		if (debug)
-			zlog_debug("%s: auto per-vrf sid alloc.", __func__);
-		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
-	} else if (sid_idx != 0) {
-		/* SID allocation index-mode */
-		if (debug)
-			zlog_debug("%s: idx %" PRId64 " per-vrf sid alloc.", __func__, sid_idx);
-		bgp->tovpn_sid_index = sid_idx;
-	} else if (sid_explicit) {
-		/* SID allocation explicit-mode */
-		tovpn_sid_explicit = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-		memcpy(tovpn_sid_explicit, &sid_value, sizeof(struct in6_addr));
-		bgp->tovpn_sid_explicit = tovpn_sid_explicit;
-
-		if (debug)
-			zlog_debug("%s: explicit per-vrf sid alloc.", __func__);
-		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
-	}
-
-	/* post-change */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
-			    bgp);
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6,
-			    bgp_get_default(), bgp);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS (bgp_sid_vpn_export,
-       no_bgp_sid_vpn_export_cmd,
-       "no$no sid vpn per-vrf export",
-       NO_STR
-       "sid value for VRF\n"
-       "Between current vrf and vpn\n"
-       "sid per-VRF (both IPv4 and IPv6 address families)\n"
-       "For routes leaked from current vrf to vpn\n")
-
 DEFUN_NOSH(address_family_ipv4_safi, address_family_ipv4_safi_cmd,
 	   "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>]",
 	   "Enter Address Family command mode\n" BGP_AF_STR BGP_SAFI_WITH_LABEL_HELP_STR)
@@ -15421,7 +15306,6 @@ void bgp_vty_init(void)
 	/* sid export — YANG: bgp_cli_init() */
 	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
-	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
 
 	/* BGP-LS commands */
 	install_element(BGP_LS_NODE, &bgp_ls_distribute_bgp_fabric_cmd);
