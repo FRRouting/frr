@@ -4,6 +4,7 @@
  * Copyright (C) 2026 FRRouting
  */
 #include <zebra.h>
+#include "typesafe.h"
 
 #ifdef GNU_LINUX
 #include <linux/rtnetlink.h> //RT_TABLE_XXX
@@ -8909,6 +8910,188 @@ void bgp_nb_cli_show_evpn_advertise_pip_enable(struct vty *vty, const struct lyd
 	}
 
 	/* Plain "advertise-pip" is the default and is not written. */
+}
+
+/*
+ * EVPN ead-es-route-target export (leaf-list)
+ *
+ * The export list is process-global. Two EVPN VRFs may configure the same
+ * RT; the second create finds it already present. Reference-count those
+ * owners so destroying one VRF does not remove the RT, and so a destroy of
+ * an RT that is already gone does not hit the assert in
+ * bgp_evpn_mh_config_ead_export_rt().
+ */
+PREDECL_HASH(bgp_nb_ead_rt_ref);
+
+struct bgp_nb_ead_rt_ref {
+	struct bgp_nb_ead_rt_ref_item item;
+	char *rt;
+	unsigned int refs;
+};
+
+static int bgp_nb_ead_rt_ref_cmp(const struct bgp_nb_ead_rt_ref *a,
+				 const struct bgp_nb_ead_rt_ref *b)
+{
+	return strcmp(a->rt, b->rt);
+}
+
+static uint32_t bgp_nb_ead_rt_ref_hashfn(const struct bgp_nb_ead_rt_ref *a)
+{
+	uint32_t h = 5381;
+	const char *s;
+
+	for (s = a->rt; *s; s++)
+		h = ((h << 5) + h) + (uint8_t)*s;
+	return h;
+}
+
+DECLARE_HASH(bgp_nb_ead_rt_ref, struct bgp_nb_ead_rt_ref, item, bgp_nb_ead_rt_ref_cmp,
+	     bgp_nb_ead_rt_ref_hashfn);
+
+static struct bgp_nb_ead_rt_ref_head bgp_nb_ead_rt_refs;
+
+static bool bgp_nb_ead_rt_in_list(struct ecommunity *ecom)
+{
+	struct listnode *node;
+	struct ecommunity *exist;
+
+	if (!bgp_mh_info || !bgp_mh_info->ead_es_export_rtl || !ecom)
+		return false;
+	for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->ead_es_export_rtl, node, exist)) {
+		if (ecommunity_match(exist, ecom))
+			return true;
+	}
+	return false;
+}
+
+static void bgp_nb_ead_rt_ref_bump(const char *rt)
+{
+	struct bgp_nb_ead_rt_ref key = { .rt = (char *)rt };
+	struct bgp_nb_ead_rt_ref *found;
+
+	found = bgp_nb_ead_rt_ref_find(&bgp_nb_ead_rt_refs, &key);
+	if (!found) {
+		found = XCALLOC(MTYPE_TMP, sizeof(*found));
+		found->rt = XSTRDUP(MTYPE_TMP, rt);
+		bgp_nb_ead_rt_ref_add(&bgp_nb_ead_rt_refs, found);
+	}
+	found->refs++;
+}
+
+/* Remaining owners after this destroy. 0 means the global RT may go. */
+static unsigned int bgp_nb_ead_rt_ref_drop(const char *rt)
+{
+	struct bgp_nb_ead_rt_ref key = { .rt = (char *)rt };
+	struct bgp_nb_ead_rt_ref *found;
+
+	found = bgp_nb_ead_rt_ref_find(&bgp_nb_ead_rt_refs, &key);
+	if (!found)
+		return 0;
+	if (found->refs)
+		found->refs--;
+	if (found->refs)
+		return found->refs;
+	bgp_nb_ead_rt_ref_del(&bgp_nb_ead_rt_refs, found);
+	XFREE(MTYPE_TMP, found->rt);
+	XFREE(MTYPE_TMP, found);
+	return 0;
+}
+
+int bgp_nb_evpn_ead_es_rt_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	struct ecommunity *ecom;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp || !EVPN_ENABLED(bgp)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
+		ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL),
+					  ECOMMUNITY_ROUTE_TARGET, 0);
+		if (!ecom) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed Route Target list");
+			return NB_ERR_VALIDATION;
+		}
+		ecommunity_free(&ecom);
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL),
+				  ECOMMUNITY_ROUTE_TARGET, 0);
+	if (!ecom)
+		return NB_ERR_VALIDATION;
+	ecommunity_str(ecom);
+
+	/*
+	 * Another EVPN VRF already installed this RT. Count this owner and
+	 * keep the single global entry.
+	 */
+	if (bgp_nb_ead_rt_in_list(ecom)) {
+		bgp_nb_ead_rt_ref_bump(yang_dnode_get_string(args->dnode, NULL));
+		ecommunity_free(&ecom);
+		return NB_OK;
+	}
+
+	bgp_nb_ead_rt_ref_bump(yang_dnode_get_string(args->dnode, NULL));
+	bgp_evpn_mh_config_ead_export_rt(bgp, ecom, false);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_ead_es_rt_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	struct ecommunity *ecom;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL),
+				  ECOMMUNITY_ROUTE_TARGET, 0);
+	if (!ecom)
+		return NB_OK;
+	ecommunity_str(ecom);
+
+	/*
+	 * Missing from the global list: nothing to delete. Do not call the
+	 * MH helper, which asserts when the RT is absent. If other EVPN
+	 * VRFs still own the RT, leave the single global entry in place.
+	 */
+	if (!bgp_nb_ead_rt_in_list(ecom)) {
+		bgp_nb_ead_rt_ref_drop(yang_dnode_get_string(args->dnode, NULL));
+		ecommunity_free(&ecom);
+		return NB_OK;
+	}
+	if (bgp_nb_ead_rt_ref_drop(yang_dnode_get_string(args->dnode, NULL)) > 0) {
+		ecommunity_free(&ecom);
+		return NB_OK;
+	}
+
+	bgp_evpn_mh_config_ead_export_rt(bgp, ecom, true);
+	ecommunity_free(&ecom);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_ead_es_rt(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	vty_out(vty, "  ead-es-route-target export %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 /*

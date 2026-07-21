@@ -5761,6 +5761,29 @@ DEFPY_YANG(bgp_evpn_advertise_pip_yang, bgp_evpn_advertise_pip_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_evpn_ead_es_rt_yang, bgp_evpn_ead_es_rt_yang_cmd,
+	   "[no] ead-es-route-target export RT$rt",
+	   NO_STR
+	   "EAD ES Route Target\n"
+	   "export\n"
+	   "Route target (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/ead-es-export-route-target[.='%s']",
+		   af_xpath, rt);
+
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	   "[no] <import|export>$direction_str vpn",
 	   NO_STR
