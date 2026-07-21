@@ -33,6 +33,9 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_filter_cli.h"
+#ifdef ENABLE_BGP_VNC
+#include "bgpd/bgp_vnc_nb.h"
+#endif
 
 #include "bgpd/bgp_cli_clippy.c"
 
@@ -9959,6 +9962,9 @@ void bgp_cli_init(void)
 	bgp_cli_install_af_neighbor();
 
 	bgp_filter_cli_init();
+#ifdef ENABLE_BGP_VNC
+	bgp_vnc_cli_init();
+#endif
 }
 
 /* Called from bgp_bmp_init() once bgpd_bmp is loaded and BMP_NODE is installed. */
