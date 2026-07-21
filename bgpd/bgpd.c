@@ -4169,8 +4169,18 @@ peer_init:
 	memset(&bgp->ebgprequirespolicywarning, 0,
 	       sizeof(bgp->ebgprequirespolicywarning));
 
-	/* Init peer connection error info */
-	pthread_mutex_init(&bgp->peer_errs_mtx, NULL);
+	/*
+	 * Init peer connection error info.  On the hidden revival path the
+	 * tombstoned instance was never freed: bgp_free(), the only place
+	 * peer_errs_mtx is destroyed, is not reached because bgp_delete()
+	 * keeps the initial reference (skips bgp_unlock()) for a hidden
+	 * instance.  The mutex is therefore still initialized, and
+	 * re-initializing it would be a double pthread_mutex_init() on a live
+	 * mutex - undefined behavior per POSIX, and a leak where
+	 * pthread_mutex_t is heap-allocated (e.g. FreeBSD libthr).
+	 */
+	if (!hidden)
+		pthread_mutex_init(&bgp->peer_errs_mtx, NULL);
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
 	bgp_clearing_info_init(&bgp->clearing_list);
 
