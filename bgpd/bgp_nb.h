@@ -843,6 +843,13 @@ int bgp_nb_dampening_param_modify(struct nb_cb_modify_args *args);
 int bgp_nb_dampening_param_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_dampening(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
+int bgp_nb_peer_dampening_enable_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_dampening_enable_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_dampening_param_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_dampening_param_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_dampening(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+
 int bgp_nb_upa_originate_modify(struct nb_cb_modify_args *args);
 int bgp_nb_upa_originate_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_upa_originate(struct vty *vty, const struct lyd_node *dnode,

@@ -3092,54 +3092,6 @@ DEFUN (no_bgp_set_route_map_delay_timer,
 	return CMD_SUCCESS;
 }
 
-/* neighbor interface */
-static int peer_interface_vty(struct vty *vty, const char *ip_str,
-			      const char *str)
-{
-	struct peer *peer;
-
-	peer = peer_lookup_vty(vty, ip_str);
-	if (!peer || peer->conf_if) {
-		vty_out(vty, "%% BGP invalid peer %s\n", ip_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (str)
-		peer_interface_set(peer, str);
-	else
-		peer_interface_unset(peer);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (neighbor_interface,
-       neighbor_interface_cmd,
-       "neighbor <A.B.C.D|X:X::X:X> interface WORD",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
-       "Interface\n"
-       "Interface name\n")
-{
-	int idx_ip = 1;
-	int idx_word = 3;
-
-	return peer_interface_vty(vty, argv[idx_ip]->arg, argv[idx_word]->arg);
-}
-
-DEFUN (no_neighbor_interface,
-       no_neighbor_interface_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X> interface WORD",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
-       "Interface\n"
-       "Interface name\n")
-{
-	int idx_peer = 2;
-
-	return peer_interface_vty(vty, argv[idx_peer]->arg, NULL);
-}
-
 /* Set route-map to the peer. */
 static int peer_route_map_set_vty(struct vty *vty, const char *ip_str,
 				  afi_t afi, safi_t safi, const char *name_str,
@@ -3553,57 +3505,6 @@ DEFPY (no_neighbor_allowas_in,
 				    bgp_node_safi(vty));
 
 	return bgp_vty_return(vty, ret);
-}
-
-DEFPY(neighbor_damp,
-      neighbor_damp_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor dampening [(1-45)$half [(1-20000)$reuse (1-20000)$suppress (1-255)$max]]",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Enable neighbor route-flap dampening\n"
-      "Half-life time for the penalty\n"
-      "Value to start reusing a route\n"
-      "Value to start suppressing a route\n"
-      "Maximum duration to suppress a stable route\n")
-{
-	struct peer *peer = peer_and_group_lookup_vty(vty, neighbor);
-
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-	if (!half)
-		half = DEFAULT_HALF_LIFE;
-	if (!reuse) {
-		reuse = DEFAULT_REUSE;
-		suppress = DEFAULT_SUPPRESS;
-		max = half * 4;
-	}
-	if (suppress < reuse) {
-		vty_out(vty, "Suppress value cannot be less than reuse value\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	bgp_peer_damp_enable(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-			     half * 60, reuse, suppress, max * 60);
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_neighbor_damp,
-      no_neighbor_damp_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor dampening [HALF [REUSE SUPPRESS MAX]]",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Enable neighbor route-flap dampening\n"
-      "Half-life time for the penalty\n"
-      "Value to start reusing a route\n"
-      "Value to start suppressing a route\n"
-      "Maximum duration to suppress a stable route\n")
-{
-	struct peer *peer = peer_and_group_lookup_vty(vty, neighbor);
-
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-	bgp_peer_damp_disable(peer, bgp_node_afi(vty), bgp_node_safi(vty));
-	return CMD_SUCCESS;
 }
 
 DEFPY (show_ip_bgp_neighbor_damp_param,
@@ -14484,9 +14385,7 @@ void bgp_vty_init(void)
 
 	/* "neighbor advertisement-interval" commands. */
 
-	/* "neighbor interface" commands. */
-	install_element(BGP_NODE, &neighbor_interface_cmd);
-	install_element(BGP_NODE, &no_neighbor_interface_cmd);
+	/* "neighbor interface" — YANG: bgp_cli_init() */
 
 	/* "neighbor distribute" commands. */
 
@@ -14544,20 +14443,7 @@ void bgp_vty_init(void)
 	/* "neighbor soo" */
 
 	/* "neighbor dampening" commands. */
-	install_element(BGP_NODE, &neighbor_damp_cmd);
-	install_element(BGP_NODE, &no_neighbor_damp_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_damp_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_damp_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_damp_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_damp_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_damp_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_damp_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_damp_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_damp_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_damp_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_damp_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_damp_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_damp_cmd);
+	/* neighbor dampening: YANG in bgp_cli.c */
 	install_element(VIEW_NODE, &show_ip_bgp_neighbor_damp_param_cmd);
 
 	/* address-family commands. */
