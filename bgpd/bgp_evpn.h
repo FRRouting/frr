@@ -221,6 +221,16 @@ extern void evpn_unset_advertise_default_gw(struct bgp *bgp, struct bgpevpn *vpn
 extern void evpn_set_advertise_svi_macip(struct bgp *bgp, struct bgpevpn *vpn, uint32_t set);
 extern void bgp_evpn_set_unset_resolve_overlay_index(struct bgp *bgp, bool set);
 extern void evpn_process_default_originate_cmd(struct bgp *bgp_vrf, afi_t afi, bool add);
+extern void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd, const char *rd_pretty);
+extern void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf);
+extern struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni);
+extern void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn);
+extern struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni);
+extern void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn, struct prefix_rd *rd,
+			      const char *rd_pretty);
+extern void evpn_unconfigure_rd(struct bgp *bgp, struct bgpevpn *vpn);
+extern void evpn_set_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn);
+extern void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_handle_global_macvrf_soo_change(struct bgp *bgp, struct ecommunity *new_soo);
 extern void bgp_evpn_cleanup_per_vni_routes(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);
