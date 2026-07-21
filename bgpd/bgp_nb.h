@@ -846,4 +846,13 @@ int bgp_nb_vpn_export_modify(struct nb_cb_modify_args *args);
 int bgp_nb_vpn_export_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_vpn_export(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
+int bgp_nb_vpn_rmap_import_modify(struct nb_cb_modify_args *args);
+int bgp_nb_vpn_rmap_import_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_vpn_rmap_import(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+int bgp_nb_vpn_rmap_export_modify(struct nb_cb_modify_args *args);
+int bgp_nb_vpn_rmap_export_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_vpn_rmap_export(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */

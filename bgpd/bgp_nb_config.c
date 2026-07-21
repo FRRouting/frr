@@ -7433,6 +7433,145 @@ void bgp_nb_cli_show_vpn_export(struct vty *vty, const struct lyd_node *dnode, b
 		vty_out(vty, "  export vpn\n");
 }
 
+/*
+ * AF-level route-map vpn import|export
+ */
+static int bgp_nb_vpn_rmap_validate(struct bgp *bgp, afi_t afi, safi_t safi, char *errmsg,
+				    size_t errmsg_len)
+{
+	if (safi != SAFI_UNICAST || (afi != AFI_IP && afi != AFI_IP6)) {
+		snprintfrr(errmsg, errmsg_len, "route-map vpn valid only for unicast ipv4|ipv6");
+		return NB_ERR_VALIDATION;
+	}
+
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_VRF_IMPORT) ||
+	    CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
+		snprintfrr(errmsg, errmsg_len,
+			   "Please unconfigure import vrf commands before using vpn commands");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+static int bgp_nb_vpn_rmap_apply(struct bgp *bgp, afi_t afi, enum vpn_policy_direction dir,
+				 const char *rmap_name)
+{
+	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+
+	if (bgp->vpn_policy[afi].rmap_name[dir])
+		XFREE(MTYPE_ROUTE_MAP_NAME, bgp->vpn_policy[afi].rmap_name[dir]);
+
+	if (rmap_name) {
+		bgp->vpn_policy[afi].rmap_name[dir] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
+		bgp->vpn_policy[afi].rmap[dir] = route_map_lookup_by_name(rmap_name);
+	} else {
+		bgp->vpn_policy[afi].rmap_name[dir] = NULL;
+		bgp->vpn_policy[afi].rmap[dir] = NULL;
+	}
+
+	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_rmap_import_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	return bgp_nb_vpn_rmap_apply(bgp, afi, BGP_VPN_POLICY_DIR_FROMVPN,
+				     yang_dnode_get_string(args->dnode, NULL));
+}
+
+int bgp_nb_vpn_rmap_import_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	return bgp_nb_vpn_rmap_apply(bgp, afi, BGP_VPN_POLICY_DIR_FROMVPN, NULL);
+}
+
+void bgp_nb_cli_show_vpn_rmap_import(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	vty_out(vty, "  route-map vpn import %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_vpn_rmap_export_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	return bgp_nb_vpn_rmap_apply(bgp, afi, BGP_VPN_POLICY_DIR_TOVPN,
+				     yang_dnode_get_string(args->dnode, NULL));
+}
+
+int bgp_nb_vpn_rmap_export_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	return bgp_nb_vpn_rmap_apply(bgp, afi, BGP_VPN_POLICY_DIR_TOVPN, NULL);
+}
+
+void bgp_nb_cli_show_vpn_rmap_export(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	vty_out(vty, "  route-map vpn export %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 
 /*
  * Sort implied by the candidate remote-as, not the running peer. A
