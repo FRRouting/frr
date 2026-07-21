@@ -16,6 +16,82 @@ const struct frr_yang_module_info frr_bgp_info = {
 	.name = "frr-bgp",
 	.nodes = {
 		{
+			.xpath = "/frr-bgp:bgp-daemon/no-rib",
+			.cbs = {
+				.modify = bgp_nb_daemon_no_rib_modify,
+				.cli_show = bgp_nb_cli_show_daemon_no_rib,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/session-dscp",
+			.cbs = {
+				.modify = bgp_nb_daemon_session_dscp_modify,
+				.destroy = bgp_nb_daemon_session_dscp_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_session_dscp,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/input-queue-limit",
+			.cbs = {
+				.modify = bgp_nb_daemon_inq_limit_modify,
+				.destroy = bgp_nb_daemon_inq_limit_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_inq_limit,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/output-queue-limit",
+			.cbs = {
+				.modify = bgp_nb_daemon_outq_limit_modify,
+				.destroy = bgp_nb_daemon_outq_limit_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_outq_limit,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/suppress-fib-pending",
+			.cbs = {
+				.modify = bgp_nb_daemon_suppress_fib_modify,
+				.cli_show = bgp_nb_cli_show_daemon_suppress_fib,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/suppress-fib-pending-delay",
+			.cbs = {
+				.modify = bgp_nb_daemon_suppress_fib_delay_modify,
+				.destroy = bgp_nb_daemon_suppress_fib_delay_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_suppress_fib_delay,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/ipv6-auto-ra",
+			.cbs = {
+				.modify = bgp_nb_daemon_ipv6_auto_ra_modify,
+				.cli_show = bgp_nb_cli_show_daemon_ipv6_auto_ra,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/update-delay-time",
+			.cbs = {
+				.modify = bgp_nb_daemon_update_delay_modify,
+				.destroy = bgp_nb_daemon_update_delay_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_update_delay,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/establish-wait-time",
+			.cbs = {
+				.modify = bgp_nb_daemon_establish_wait_modify,
+				.destroy = bgp_nb_daemon_establish_wait_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/advertisement-delay-time",
+			.cbs = {
+				.modify = bgp_nb_daemon_advertisement_delay_modify,
+				.destroy = bgp_nb_daemon_advertisement_delay_destroy,
+				.cli_show = bgp_nb_cli_show_daemon_advertisement_delay,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp",
 			.cbs = {
 				.create = bgp_nb_bgp_create,

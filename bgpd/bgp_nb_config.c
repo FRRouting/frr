@@ -1703,14 +1703,14 @@ int bgp_nb_update_delay_time_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (bm->v_update_delay) {
+		/*
+		 * Mutual exclusion vs daemon-wide update-delay from candidate
+		 * YANG only — never bm->v_update_delay operational state.
+		 * delay vs establish-wait is constrained by YANG must.
+		 */
+		if (yang_dnode_exists(args->dnode, "/frr-bgp:bgp-daemon/update-delay-time")) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "per-vrf update-delay not permitted with global update-delay");
-			return NB_ERR_VALIDATION;
-		}
-		if (delay < wait) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "update-delay less than the establish-wait");
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
@@ -1733,7 +1733,7 @@ int bgp_nb_update_delay_time_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (bm->v_update_delay) {
+		if (yang_dnode_exists(args->dnode, "/frr-bgp:bgp-daemon/update-delay-time")) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "cannot remove per-vrf update-delay while global update-delay is set");
 			return NB_ERR_VALIDATION;
@@ -2958,10 +2958,12 @@ int bgp_nb_ipv6_auto_ra_modify(struct nb_cb_modify_args *args)
 
 void bgp_nb_cli_show_ipv6_auto_ra(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " no bgp ipv6-auto-ra\n");
-	else if (show_defaults)
-		vty_out(vty, " bgp ipv6-auto-ra\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool global_enabled = !CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA);
+
+	if (!show_defaults && (!global_enabled || enabled == global_enabled))
+		return;
+	vty_out(vty, " %sbgp ipv6-auto-ra\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_labeled_unicast_explicit_null_modify(struct nb_cb_modify_args *args)
@@ -16354,6 +16356,7 @@ void bgp_nb_cli_show_bmp_monitor(struct vty *vty, const struct lyd_node *dnode, 
 
 	vty_out(vty, "  bmp monitor %s %s %s\n", afi2str_lower(afi), safi2str(safi), policy);
 }
+
 static afi_t bgp_nb_bmp_str2afi(const char *str)
 {
 	if (strmatch(str, "ipv6"))
@@ -16424,4 +16427,359 @@ void bgp_nb_cli_show_bmp_monitor_extra(struct vty *vty, const struct lyd_node *d
 
 	vty_out(vty, "  bmp monitor %s %s %s\n", yang_dnode_get_string(af, "./afi"),
 		yang_dnode_get_string(af, "./safi"), policy);
+}
+
+
+/* Daemon-wide (/frr-bgp:bgp-daemon) CONFIG_NODE callbacks */
+
+int bgp_nb_daemon_no_rib_modify(struct nb_cb_modify_args *args)
+{
+	bool set;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	set = yang_dnode_get_bool(args->dnode, NULL);
+	if (set)
+		bgp_option_norib_set_runtime();
+	else
+		bgp_option_norib_unset_runtime();
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_no_rib(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "bgp no-rib\n");
+	else if (show_defaults)
+		vty_out(vty, "no bgp no-rib\n");
+}
+
+int bgp_nb_daemon_session_dscp_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->ip_tos = yang_dnode_get_uint8(args->dnode, NULL) << 2;
+	return NB_OK;
+}
+
+int bgp_nb_daemon_session_dscp_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->ip_tos = IPTOS_PREC_INTERNETCONTROL;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_session_dscp(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	vty_out(vty, "bgp session-dscp %u\n", yang_dnode_get_uint8(dnode, NULL));
+}
+
+int bgp_nb_daemon_inq_limit_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->inq_limit = yang_dnode_get_uint32(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_daemon_inq_limit_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_inq_limit(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, "bgp input-queue-limit %u\n", yang_dnode_get_uint32(dnode, NULL));
+}
+
+int bgp_nb_daemon_outq_limit_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->outq_limit = yang_dnode_get_uint32(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_daemon_outq_limit_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_outq_limit(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	vty_out(vty, "bgp output-queue-limit %u\n", yang_dnode_get_uint32(dnode, NULL));
+}
+
+int bgp_nb_daemon_suppress_fib_modify(struct nb_cb_modify_args *args)
+{
+	bool set;
+	uint16_t delay = BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	set = yang_dnode_get_bool(args->dnode, NULL);
+	if (set && yang_dnode_exists(args->dnode, "../suppress-fib-pending-delay"))
+		delay = yang_dnode_get_uint16(args->dnode, "../suppress-fib-pending-delay");
+	else if (set)
+		delay = bm->suppress_fib_adv_delay;
+
+	bm_wait_for_fib_set(set, delay);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_suppress_fib(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	/* Printed with suppress-fib-pending-delay when enabled. */
+	if (!yang_dnode_get_bool(dnode, NULL) && show_defaults)
+		vty_out(vty, "no bgp suppress-fib-pending\n");
+}
+
+int bgp_nb_daemon_suppress_fib_delay_modify(struct nb_cb_modify_args *args)
+{
+	uint16_t delay;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	delay = yang_dnode_get_uint16(args->dnode, NULL);
+	if (bm->wait_for_fib)
+		bm_wait_for_fib_set(true, delay);
+	else
+		bm->suppress_fib_adv_delay = delay;
+	return NB_OK;
+}
+
+int bgp_nb_daemon_suppress_fib_delay_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->suppress_fib_adv_delay = BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_suppress_fib_delay(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	uint16_t delay;
+	const struct lyd_node *parent;
+
+	parent = yang_dnode_get_parent(dnode, "bgp-daemon");
+	if (!parent || !yang_dnode_get_bool(parent, "suppress-fib-pending"))
+		return;
+
+	delay = yang_dnode_get_uint16(dnode, NULL);
+	if (delay != BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY)
+		vty_out(vty, "bgp suppress-fib-pending %u\n", delay);
+	else
+		vty_out(vty, "bgp suppress-fib-pending\n");
+}
+
+int bgp_nb_daemon_ipv6_auto_ra_modify(struct nb_cb_modify_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	bool allow;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	allow = yang_dnode_get_bool(args->dnode, NULL);
+	COND_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA, !allow);
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		COND_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA, !allow);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_ipv6_auto_ra(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "no bgp ipv6-auto-ra\n");
+	else if (show_defaults)
+		vty_out(vty, "bgp ipv6-auto-ra\n");
+}
+
+static int bgp_nb_daemon_update_delay_apply(struct nb_cb_modify_args *args, uint16_t delay,
+					    uint16_t wait)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event == NB_EV_VALIDATE) {
+		/*
+		 * Reject if any BGP instance has per-vrf update-delay in the
+		 * candidate tree. delay vs establish-wait is YANG must.
+		 */
+		if (yang_dnode_exists(
+			    args->dnode,
+			    "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/update-delay-time")) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "global update-delay not permitted with per-vrf update-delay");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->v_update_delay = delay;
+	bm->v_establish_wait = wait;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->v_update_delay = delay;
+		bgp->v_establish_wait = wait;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_update_delay_modify(struct nb_cb_modify_args *args)
+{
+	uint16_t delay, wait;
+	const struct lyd_node *parent;
+
+	delay = yang_dnode_get_uint16(args->dnode, NULL);
+	parent = yang_dnode_get_parent(args->dnode, "bgp-daemon");
+	if (parent && yang_dnode_exists(parent, "establish-wait-time"))
+		wait = yang_dnode_get_uint16(parent, "establish-wait-time");
+	else
+		wait = delay;
+
+	return bgp_nb_daemon_update_delay_apply(args, delay, wait);
+}
+
+int bgp_nb_daemon_update_delay_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
+	bm->v_establish_wait = bm->v_update_delay;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->v_update_delay = bm->v_update_delay;
+		bgp->v_establish_wait = bm->v_establish_wait;
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_update_delay(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	uint16_t delay, wait;
+	const struct lyd_node *parent;
+
+	delay = yang_dnode_get_uint16(dnode, NULL);
+	parent = yang_dnode_get_parent(dnode, "bgp-daemon");
+	if (parent && yang_dnode_exists(parent, "establish-wait-time"))
+		wait = yang_dnode_get_uint16(parent, "establish-wait-time");
+	else
+		wait = delay;
+
+	if (delay != wait)
+		vty_out(vty, "bgp update-delay %u %u\n", delay, wait);
+	else
+		vty_out(vty, "bgp update-delay %u\n", delay);
+}
+
+int bgp_nb_daemon_establish_wait_modify(struct nb_cb_modify_args *args)
+{
+	uint16_t delay, wait;
+	const struct lyd_node *parent;
+
+	wait = yang_dnode_get_uint16(args->dnode, NULL);
+	parent = yang_dnode_get_parent(args->dnode, "bgp-daemon");
+	if (parent && yang_dnode_exists(parent, "update-delay-time"))
+		delay = yang_dnode_get_uint16(parent, "update-delay-time");
+	else
+		delay = wait;
+
+	return bgp_nb_daemon_update_delay_apply(args, delay, wait);
+}
+
+int bgp_nb_daemon_establish_wait_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* update-delay destroy resets both; keep establish-wait aligned. */
+	bm->v_establish_wait = bm->v_update_delay;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		bgp->v_establish_wait = bm->v_establish_wait;
+	return NB_OK;
+}
+
+int bgp_nb_daemon_advertisement_delay_modify(struct nb_cb_modify_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	uint16_t delay;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	delay = yang_dnode_get_uint16(args->dnode, NULL);
+	bm->v_advertisement_delay = delay;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		bgp->v_advertisement_delay = delay;
+	return NB_OK;
+}
+
+int bgp_nb_daemon_advertisement_delay_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
+		if (bgp->advertisement_delay_started && !bgp->advertisement_delay_over) {
+			event_cancel(&bgp->t_advertisement_delay);
+			bgp->advertisement_delay_started = 0;
+			bgp->advertisement_delay_over = 0;
+			if (!bgp_update_delay_active(bgp) && !bgp->main_zebra_update_hold) {
+				bgp->main_peers_update_hold = 0;
+				bgp_start_routeadv(bgp);
+			}
+		} else {
+			event_cancel(&bgp->t_advertisement_delay);
+			bgp->advertisement_delay_started = 0;
+			bgp->advertisement_delay_over = 0;
+		}
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	vty_out(vty, "bgp advertisement-delay %u\n", yang_dnode_get_uint16(dnode, NULL));
 }

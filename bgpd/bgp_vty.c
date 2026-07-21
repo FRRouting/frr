@@ -1615,31 +1615,6 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 
 /* bgp session-dscp */
 
-DEFPY (bgp_session_dscp,
-       bgp_session_dscp_cmd,
-       "bgp session-dscp (0-63)$dscp",
-       BGP_STR
-       "Override default (CS6) DSCP for BGP connections\n"
-       "Manually configured DSCP value\n")
-{
-	bm->ip_tos = dscp << 2;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_bgp_session_dscp,
-       no_bgp_session_dscp_cmd,
-       "no bgp session-dscp [(0-63)]",
-       NO_STR
-       BGP_STR
-       "Override default (CS6) DSCP for BGP connections\n"
-       "Manually configured DSCP value\n")
-{
-	bm->ip_tos = IPTOS_PREC_INTERNETCONTROL;
-
-	return CMD_SUCCESS;
-}
-
 /* BGP router-id.  */
 
 DEFPY (bgp_router_id,
@@ -1733,59 +1708,6 @@ DEFPY(bgp_community_alias, bgp_community_alias_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_global_suppress_fib_pending,
-       bgp_global_suppress_fib_pending_cmd,
-       "[no] bgp suppress-fib-pending [(0-10000)$delay]",
-       NO_STR
-       BGP_STR
-       "Advertise only routes that are programmed in kernel to peers globally\n"
-       "Advertisement delay in milliseconds after FIB installation (default 1000)\n")
-{
-	uint16_t adv_delay = BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
-
-	if (!no && delay_str)
-		adv_delay = delay;
-
-	bm_wait_for_fib_set(!no, adv_delay);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_norib,
-       bgp_norib_cmd,
-       "bgp no-rib",
-       BGP_STR
-       "Disable BGP route installation to RIB (Zebra)\n")
-{
-	if (bgp_option_check(BGP_OPT_NO_FIB)) {
-		vty_out(vty,
-			"%% No-RIB option is already set, nothing to do here.\n");
-		return CMD_SUCCESS;
-	}
-
-	bgp_option_norib_set_runtime();
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_bgp_norib,
-       no_bgp_norib_cmd,
-       "no bgp no-rib",
-       NO_STR
-       BGP_STR
-       "Disable BGP route installation to RIB (Zebra)\n")
-{
-	if (!bgp_option_check(BGP_OPT_NO_FIB)) {
-		vty_out(vty,
-			"%% No-RIB option is not set, nothing to do here.\n");
-		return CMD_SUCCESS;
-	}
-
-	bgp_option_norib_unset_runtime();
-
-	return CMD_SUCCESS;
-}
-
 DEFPY (no_bgp_send_extra_data,
        no_bgp_send_extra_data_cmd,
        "[no] bgp send-extra-data zebra",
@@ -1798,77 +1720,6 @@ DEFPY (no_bgp_send_extra_data,
 		UNSET_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA);
 	else
 		SET_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA);
-
-	return CMD_SUCCESS;
-}
-
-static int bgp_global_update_delay_config_vty(struct vty *vty,
-					      uint16_t update_delay,
-					      uint16_t establish_wait)
-{
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-	bool vrf_cfg = false;
-
-	/*
-	 * See if update-delay is set per-vrf and warn user to delete it
-	 * Note that we only need to check this if this is the first time
-	 * setting the global config.
-	 */
-	if (bm->v_update_delay == BGP_UPDATE_DELAY_DEFAULT) {
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			if (bgp->v_update_delay != BGP_UPDATE_DELAY_DEFAULT) {
-				vty_out(vty,
-					"%% update-delay configuration found in vrf %s\n",
-					bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-						? VRF_DEFAULT_NAME
-						: bgp->name);
-				vrf_cfg = true;
-			}
-		}
-	}
-
-	if (vrf_cfg) {
-		vty_out(vty,
-			"%%Failed: global update-delay config not permitted\n");
-		return CMD_WARNING;
-	}
-
-	if (!establish_wait) { /* update-delay <delay> */
-		bm->v_update_delay = update_delay;
-		bm->v_establish_wait = bm->v_update_delay;
-	} else {
-		/* update-delay <delay> <establish-wait> */
-		if (update_delay < establish_wait) {
-			vty_out(vty,
-				"%%Failed: update-delay less than the establish-wait!\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		bm->v_update_delay = update_delay;
-		bm->v_establish_wait = establish_wait;
-	}
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		bgp->v_update_delay = bm->v_update_delay;
-		bgp->v_establish_wait = bm->v_establish_wait;
-	}
-
-	return CMD_SUCCESS;
-}
-
-static int bgp_global_update_delay_deconfig_vty(struct vty *vty)
-{
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-
-	bm->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
-	bm->v_establish_wait = bm->v_update_delay;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		bgp->v_update_delay = bm->v_update_delay;
-		bgp->v_establish_wait = bm->v_establish_wait;
-	}
 
 	return CMD_SUCCESS;
 }
@@ -1891,82 +1742,7 @@ void bgp_config_write_advertisement_delay(struct vty *vty, struct bgp *bgp)
 		vty_out(vty, " advertisement-delay %d\n", bgp->v_advertisement_delay);
 }
 
-/* Global update-delay configuration */
-DEFPY (bgp_global_update_delay,
-       bgp_global_update_delay_cmd,
-       "bgp update-delay (0-3600)$delay [(1-3600)$wait]",
-       BGP_STR
-       "Force initial delay for best-path and updates for all bgp instances\n"
-       "Max delay in seconds\n"
-       "Establish wait in seconds\n")
-{
-	return bgp_global_update_delay_config_vty(vty, delay, wait);
-}
-
-/* Global update-delay deconfiguration */
-DEFPY (no_bgp_global_update_delay,
-       no_bgp_global_update_delay_cmd,
-       "no bgp update-delay [(0-3600) [(1-3600)]]",
-       NO_STR
-       BGP_STR
-       "Force initial delay for best-path and updates\n"
-       "Max delay in seconds\n"
-       "Establish wait in seconds\n")
-{
-	return bgp_global_update_delay_deconfig_vty(vty);
-}
-
 /* Update-delay configuration */
-
-/* Global advertisement-delay configuration */
-DEFPY(bgp_global_advertisement_delay, bgp_global_advertisement_delay_cmd,
-      "bgp advertisement-delay (1-3600)$delay",
-      BGP_STR
-      "Hold route advertisements to peers for configured seconds after first peer establishes\n"
-      "Delay in seconds\n")
-{
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-
-	bm->v_advertisement_delay = delay;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		bgp->v_advertisement_delay = bm->v_advertisement_delay;
-
-	return CMD_SUCCESS;
-}
-
-/* Global advertisement-delay deconfiguration */
-DEFPY(no_bgp_global_advertisement_delay, no_bgp_global_advertisement_delay_cmd,
-      "no bgp advertisement-delay [(1-3600)]",
-      NO_STR BGP_STR
-      "Hold route advertisements to peers for configured seconds after first peer establishes\n"
-      "Delay in seconds\n")
-{
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-
-	bm->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		bgp->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
-		if (bgp->advertisement_delay_started && !bgp->advertisement_delay_over) {
-			event_cancel(&bgp->t_advertisement_delay);
-			bgp->advertisement_delay_started = 0;
-			bgp->advertisement_delay_over = 0;
-			if (!bgp_update_delay_active(bgp) && !bgp->main_zebra_update_hold) {
-				bgp->main_peers_update_hold = 0;
-				bgp_start_routeadv(bgp);
-			}
-		} else {
-			event_cancel(&bgp->t_advertisement_delay);
-			bgp->advertisement_delay_started = 0;
-			bgp->advertisement_delay_over = 0;
-		}
-	}
-
-	return CMD_SUCCESS;
-}
 
 void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp)
 {
@@ -2768,27 +2544,6 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 }
 
 
-
-DEFPY (bgp_ipv6_auto_ra,
-       bgp_ipv6_auto_ra_cmd,
-       "[no] bgp ipv6-auto-ra",
-       NO_STR
-       BGP_STR
-       "Allow enabling IPv6 ND RA sending\n")
-{
-	if (vty->node == CONFIG_NODE) {
-		struct listnode *node, *nnode;
-		struct bgp *bgp;
-
-		COND_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA, no);
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-			COND_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA, no);
-	} else {
-		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		COND_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA, no);
-	}
-	return CMD_SUCCESS;
-}
 
 
 
@@ -13320,56 +13075,6 @@ DEFPY(mpls_bgp_l3vpn_multi_domain_switching,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_inq_limit,
-       bgp_inq_limit_cmd,
-       "bgp input-queue-limit (1-4294967295)$limit",
-       BGP_STR
-       "Set the BGP Input Queue limit for all peers when message parsing\n"
-       "Input-Queue limit\n")
-{
-	bm->inq_limit = limit;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_bgp_inq_limit,
-       no_bgp_inq_limit_cmd,
-       "no bgp input-queue-limit [(1-4294967295)$limit]",
-       NO_STR
-       BGP_STR
-       "Set the BGP Input Queue limit for all peers when message parsing\n"
-       "Input-Queue limit\n")
-{
-	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_outq_limit,
-       bgp_outq_limit_cmd,
-       "bgp output-queue-limit (1-4294967295)$limit",
-       BGP_STR
-       "Set the BGP Output Queue limit for all peers when message parsing\n"
-       "Output-Queue limit\n")
-{
-	bm->outq_limit = limit;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_bgp_outq_limit,
-       no_bgp_outq_limit_cmd,
-       "no bgp output-queue-limit [(1-4294967295)$limit]",
-       NO_STR
-       BGP_STR
-       "Set the BGP Output Queue limit for all peers when message parsing\n"
-       "Output-Queue limit\n")
-{
-	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
-
-	return CMD_SUCCESS;
-}
-
 
 /* Initialization of BGP interface. */
 static void bgp_vty_if_init(void)
@@ -13431,18 +13136,13 @@ void bgp_vty_init(void)
 	install_default(BGP_SRV6_NODE);
 	install_default(BGP_LS_NODE);
 
-	/* "global bgp inq-limit command */
-	install_element(CONFIG_NODE, &bgp_inq_limit_cmd);
-	install_element(CONFIG_NODE, &no_bgp_inq_limit_cmd);
-	install_element(CONFIG_NODE, &bgp_outq_limit_cmd);
-	install_element(CONFIG_NODE, &no_bgp_outq_limit_cmd);
+	/* global bgp inq-limit / outq-limit — YANG: bgp_cli_init() */
 
 	/* "bgp local-mac" hidden commands. */
 	install_element(CONFIG_NODE, &bgp_local_mac_cmd);
 	install_element(CONFIG_NODE, &no_bgp_local_mac_cmd);
 
-	/* "bgp suppress-fib-pending" global */
-	install_element(CONFIG_NODE, &bgp_global_suppress_fib_pending_cmd);
+	/* "bgp suppress-fib-pending" global — YANG: bgp_cli_init() */
 
 	/* bgp route-map delay-timer commands. */
 	install_element(CONFIG_NODE, &bgp_set_route_map_delay_timer_cmd);
@@ -13452,18 +13152,13 @@ void bgp_vty_init(void)
 
 	/* bgp fast-convergence — YANG: bgp_cli_init() */
 
-	/* global bgp ipv6-auto-ra command */
-	install_element(CONFIG_NODE, &bgp_ipv6_auto_ra_cmd);
+	/* global bgp ipv6-auto-ra — YANG: bgp_cli_init() */
 
 	/* bgp ipv6-auto-ra (BGP_NODE) — YANG: bgp_cli_init() */
 
-	/* global bgp update-delay command */
-	install_element(CONFIG_NODE, &bgp_global_update_delay_cmd);
-	install_element(CONFIG_NODE, &no_bgp_global_update_delay_cmd);
+	/* global bgp update-delay — YANG: bgp_cli_init() */
 
-	/* global bgp advertisement-delay command */
-	install_element(CONFIG_NODE, &bgp_global_advertisement_delay_cmd);
-	install_element(CONFIG_NODE, &no_bgp_global_advertisement_delay_cmd);
+	/* global bgp advertisement-delay — YANG: bgp_cli_init() */
 
 	/* global bgp graceful-shutdown command */
 	install_element(CONFIG_NODE, &bgp_graceful_shutdown_cmd);
@@ -13491,21 +13186,15 @@ void bgp_vty_init(void)
 
 	/* "router bgp" / globals converted to YANG — see bgp_cli_init(). */
 
-	/* "bgp session-dscp command */
-	install_element(CONFIG_NODE, &bgp_session_dscp_cmd);
-	install_element(CONFIG_NODE, &no_bgp_session_dscp_cmd);
+	/* bgp session-dscp — YANG: bgp_cli_init() */
 
 	/* "bgp router-id" — YANG: bgp_cli_init() */
 
-	/* "bgp suppress-fib-pending" — YANG: bgp_cli_init();
-	 * CONFIG_NODE remains classic.
-	 */
+	/* "bgp suppress-fib-pending" — YANG: bgp_cli_init() */
 
 	/* "bgp cluster-id" — YANG: bgp_cli_init() */
 
-	/* "bgp no-rib" commands. */
-	install_element(CONFIG_NODE, &bgp_norib_cmd);
-	install_element(CONFIG_NODE, &no_bgp_norib_cmd);
+	/* "bgp no-rib" — YANG: bgp_cli_init() */
 
 	install_element(CONFIG_NODE, &no_bgp_send_extra_data_cmd);
 

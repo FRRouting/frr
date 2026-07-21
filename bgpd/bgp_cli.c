@@ -1465,6 +1465,170 @@ DEFUN_YANG(no_bgp_advertisement_delay_yang, no_bgp_advertisement_delay_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/* Daemon-wide (CONFIG_NODE) /frr-bgp:bgp-daemon knobs */
+
+DEFUN_YANG(bgp_daemon_norib_yang, bgp_daemon_norib_yang_cmd,
+	   "bgp no-rib",
+	   BGP_STR
+	   "Disable BGP route installation to RIB (Zebra)\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/no-rib", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_daemon_norib_yang, no_bgp_daemon_norib_yang_cmd,
+	   "no bgp no-rib",
+	   NO_STR BGP_STR
+	   "Disable BGP route installation to RIB (Zebra)\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/no-rib", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_session_dscp_yang, bgp_daemon_session_dscp_yang_cmd,
+	   "bgp session-dscp (0-63)$dscp",
+	   BGP_STR
+	   "Override default (CS6) DSCP for BGP connections\n"
+	   "Manually configured DSCP value\n")
+{
+	char buf[8];
+
+	snprintfrr(buf, sizeof(buf), "%" PRId64, dscp);
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/session-dscp", NB_OP_MODIFY, buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_daemon_session_dscp_yang, no_bgp_daemon_session_dscp_yang_cmd,
+	   "no bgp session-dscp [(0-63)]",
+	   NO_STR BGP_STR
+	   "Override default (CS6) DSCP for BGP connections\n"
+	   "Manually configured DSCP value\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/session-dscp", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_inq_limit_yang, bgp_daemon_inq_limit_yang_cmd,
+	   "bgp input-queue-limit (1-4294967295)$limit",
+	   BGP_STR
+	   "Set the BGP Input Queue limit for all peers when message parsing\n"
+	   "Input-Queue limit\n")
+{
+	char buf[16];
+
+	snprintfrr(buf, sizeof(buf), "%" PRId64, limit);
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/input-queue-limit", NB_OP_MODIFY, buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_daemon_inq_limit_yang, no_bgp_daemon_inq_limit_yang_cmd,
+	   "no bgp input-queue-limit [(1-4294967295)]",
+	   NO_STR BGP_STR
+	   "Set the BGP Input Queue limit for all peers when message parsing\n"
+	   "Input-Queue limit\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/input-queue-limit", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_outq_limit_yang, bgp_daemon_outq_limit_yang_cmd,
+	   "bgp output-queue-limit (1-4294967295)$limit",
+	   BGP_STR
+	   "Set the BGP Output Queue limit for all peers when message parsing\n"
+	   "Output-Queue limit\n")
+{
+	char buf[16];
+
+	snprintfrr(buf, sizeof(buf), "%" PRId64, limit);
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/output-queue-limit", NB_OP_MODIFY, buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_daemon_outq_limit_yang, no_bgp_daemon_outq_limit_yang_cmd,
+	   "no bgp output-queue-limit [(1-4294967295)]",
+	   NO_STR BGP_STR
+	   "Set the BGP Output Queue limit for all peers when message parsing\n"
+	   "Output-Queue limit\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/output-queue-limit", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_suppress_fib_yang, bgp_daemon_suppress_fib_yang_cmd,
+	   "[no] bgp suppress-fib-pending [(0-10000)$delay]",
+	   NO_STR BGP_STR
+	   "Advertise only routes that are programmed in kernel to peers globally\n"
+	   "Advertisement delay in milliseconds after FIB installation (default 1000)\n")
+{
+	char val[16];
+	int64_t adv_delay = delay_str ? delay : BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
+
+	if (no) {
+		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/suppress-fib-pending-delay",
+				      NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/suppress-fib-pending",
+				      NB_OP_MODIFY, "false");
+	} else {
+		snprintfrr(val, sizeof(val), "%" PRId64, adv_delay);
+		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/suppress-fib-pending",
+				      NB_OP_MODIFY, "true");
+		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/suppress-fib-pending-delay",
+				      NB_OP_MODIFY, val);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_update_delay_yang, bgp_daemon_update_delay_yang_cmd,
+	   "bgp update-delay (0-3600)$delay [(1-3600)$wait]",
+	   BGP_STR
+	   "Force initial delay for best-path and updates for all bgp instances\n"
+	   "Max delay in seconds\n"
+	   "Establish wait in seconds\n")
+{
+	char wstr[16];
+
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/update-delay-time", NB_OP_MODIFY,
+			      delay_str);
+	snprintfrr(wstr, sizeof(wstr), "%" PRId64, wait ? wait : delay);
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/establish-wait-time", NB_OP_MODIFY, wstr);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_daemon_update_delay_yang, no_bgp_daemon_update_delay_yang_cmd,
+	   "no bgp update-delay [(0-3600) [(1-3600)]]",
+	   NO_STR BGP_STR
+	   "Force initial delay for best-path and updates\n"
+	   "Max delay in seconds\n"
+	   "Establish wait in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/update-delay-time", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/establish-wait-time", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_advertisement_delay_yang,
+	   bgp_daemon_advertisement_delay_yang_cmd,
+	   "bgp advertisement-delay (1-3600)$delay",
+	   BGP_STR
+	   "Hold route advertisements to peers for configured seconds after first peer establishes\n"
+	   "Delay in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/advertisement-delay-time", NB_OP_MODIFY,
+			      delay_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_daemon_advertisement_delay_yang,
+	   no_bgp_daemon_advertisement_delay_yang_cmd,
+	   "no bgp advertisement-delay [(1-3600)]",
+	   NO_STR BGP_STR
+	   "Hold route advertisements to peers for configured seconds after first peer establishes\n"
+	   "Delay in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/advertisement-delay-time", NB_OP_DESTROY,
+			      NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 DEFPY_YANG(bgp_condadv_period_yang, bgp_condadv_period_yang_cmd,
 	   "[no$no] bgp conditional-advertisement timer (5-240)$period",
@@ -2123,6 +2287,38 @@ DEFPY_YANG(bgp_ipv6_auto_ra_yang, bgp_ipv6_auto_ra_yang_cmd,
 	   "[no] bgp ipv6-auto-ra",
 	   NO_STR BGP_STR "Allow enabling IPv6 ND RA sending\n")
 {
+	if (vty->node == CONFIG_NODE) {
+		const struct lyd_node *cpps, *cpp;
+
+		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/ipv6-auto-ra", NB_OP_MODIFY,
+				      no ? "false" : "true");
+		/*
+		 * Classic global [no] bgp ipv6-auto-ra overrides every existing
+		 * instance's flag. Clear per-instance YANG overrides so running-config
+		 * does not keep stale per-instance lines contradicting the global setting.
+		 */
+		cpps = yang_dnode_get(vty->candidate_config->dnode,
+				      "/frr-routing:routing/control-plane-protocols");
+		if (cpps) {
+			LY_LIST_FOR (lyd_child(cpps), cpp) {
+				char inst_xpath[XPATH_MAXLEN];
+
+				if (!strmatch(cpp->schema->name, "control-plane-protocol"))
+					continue;
+				if (!strmatch(yang_dnode_get_string(cpp, "./type"), "frr-bgp:bgp"))
+					continue;
+				if (!yang_dnode_exists(cpp, "frr-bgp:bgp/global/ipv6-auto-ra"))
+					continue;
+				snprintfrr(inst_xpath, sizeof(inst_xpath),
+					   "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-bgp:bgp'][name='%s'][vrf='%s']/frr-bgp:bgp/global/ipv6-auto-ra",
+					   yang_dnode_get_string(cpp, "./name"),
+					   yang_dnode_get_string(cpp, "./vrf"));
+				nb_cli_enqueue_change(vty, inst_xpath, NB_OP_DESTROY, NULL);
+			}
+		}
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
 	nb_cli_enqueue_change(vty, "./global/ipv6-auto-ra", NB_OP_MODIFY, no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -9164,6 +9360,22 @@ void bgp_cli_init(void)
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_advertise_svi_ip_yang_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_advertise_subnet_yang_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_flooding_yang_cmd);
+
+	/* Daemon-wide CONFIG_NODE (/frr-bgp:bgp-daemon) */
+	install_element(CONFIG_NODE, &bgp_daemon_norib_yang_cmd);
+	install_element(CONFIG_NODE, &no_bgp_daemon_norib_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_session_dscp_yang_cmd);
+	install_element(CONFIG_NODE, &no_bgp_daemon_session_dscp_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_inq_limit_yang_cmd);
+	install_element(CONFIG_NODE, &no_bgp_daemon_inq_limit_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_outq_limit_yang_cmd);
+	install_element(CONFIG_NODE, &no_bgp_daemon_outq_limit_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_suppress_fib_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_ipv6_auto_ra_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_update_delay_yang_cmd);
+	install_element(CONFIG_NODE, &no_bgp_daemon_update_delay_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_advertisement_delay_yang_cmd);
+	install_element(CONFIG_NODE, &no_bgp_daemon_advertisement_delay_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);

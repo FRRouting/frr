@@ -1237,4 +1237,41 @@ int bgp_nb_peer_as_loop_detection_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_peer_as_loop_detection(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults);
 
+/* Daemon-wide (/frr-bgp:bgp-daemon) CONFIG_NODE knobs */
+int bgp_nb_daemon_no_rib_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_daemon_no_rib(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_daemon_session_dscp_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_session_dscp_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_session_dscp(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_daemon_inq_limit_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_inq_limit_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_inq_limit(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+int bgp_nb_daemon_outq_limit_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_outq_limit_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_outq_limit(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+int bgp_nb_daemon_suppress_fib_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_daemon_suppress_fib(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_daemon_suppress_fib_delay_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_suppress_fib_delay_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_suppress_fib_delay(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+int bgp_nb_daemon_ipv6_auto_ra_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_daemon_ipv6_auto_ra(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_daemon_update_delay_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_update_delay_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_update_delay(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_daemon_establish_wait_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_establish_wait_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_daemon_advertisement_delay_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_advertisement_delay_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */
