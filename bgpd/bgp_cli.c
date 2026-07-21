@@ -60,6 +60,10 @@ static const char *bgp_cli_afi_safi_name(int node)
 		return "ipv6-flowspec";
 	case BGP_LS_NODE:
 		return "link-state";
+	case BGP_IPV4U_NODE:
+		return "ipv4-unreachability";
+	case BGP_IPV6U_NODE:
+		return "ipv6-unreachability";
 	default:
 		return "ipv4-unicast";
 	}
@@ -7085,8 +7089,10 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_soft_reconfiguration_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_activate_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_soft_reconfiguration_yang_cmd);
-	/* Link-state: activate only (no soft-reconfiguration leaf yet). */
+	/* Link-state / unreachability: activate only (no soft-reconfiguration). */
 	install_element(BGP_LS_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_activate_yang_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_activate_yang_cmd);
 
 	/* Hidden at BGP_NODE: defaults to ipv4-unicast like classic. */
 	install_element(BGP_NODE, &neighbor_activate_yang_hidden_cmd);
@@ -7232,6 +7238,8 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_VPNV4_NODE, &neighbor_allowas_in_yang_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_allowas_in_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_allowas_in_yang_cmd);
 	install_element(BGP_NODE, &neighbor_allowas_in_yang_hidden_cmd);
 
 	/* filter policy */
@@ -7283,6 +7291,8 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_map_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_route_map_yang_cmd);
 	install_element(BGP_LS_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_route_map_yang_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_route_map_yang_cmd);
 
 	install_element(BGP_NODE, &neighbor_distribute_list_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_prefix_list_yang_hidden_cmd);
@@ -7353,6 +7363,12 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_best_selected_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_disable_addpath_rx_yang_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_addpath_rx_paths_limit_yang_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV4U_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_out_yang_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV6U_NODE, &no_neighbor_maximum_prefix_yang_cmd);
+	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_out_yang_cmd);
 	/* maximum-prefix-out also on as_nodes without EVPN already covered */
 	install_element(BGP_NODE, &neighbor_maximum_prefix_yang_hidden_cmd);
 	install_element(BGP_NODE, &no_neighbor_maximum_prefix_yang_hidden_cmd);

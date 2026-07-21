@@ -1726,7 +1726,6 @@ module frr-bgp {
     uses structure-neighbor-group-filter-config;
   }
 
-<<<<<<< HEAD
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unreachability" {
     description
       "Augmentation for unnumbered neighbor IPv4 unreachability AFI-SAFI configuration.";
@@ -1749,8 +1748,6 @@ module frr-bgp {
     uses structure-neighbor-group-filter-config;
   }
 
-=======
->>>>>>> 96f7fb90ab (bgp: yang: convert link-state neighbor route-map)
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast" {
     description
       "Augmentation for peer-group IPv4 unicast AFI-SAFI configuration.";
@@ -2113,7 +2110,6 @@ module frr-bgp {
 
     uses structure-neighbor-group-filter-config;
   }
-<<<<<<< HEAD
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unreachability" {
     description
@@ -2156,6 +2152,4 @@ module frr-bgp {
          interface.";
     }
   }
-=======
->>>>>>> 96f7fb90ab (bgp: yang: convert link-state neighbor route-map)
 }
