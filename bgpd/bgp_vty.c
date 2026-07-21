@@ -1840,24 +1840,6 @@ DEFPY (bgp_global_suppress_fib_pending,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_suppress_fib_pending,
-       bgp_suppress_fib_pending_cmd,
-       "[no] bgp suppress-fib-pending [(0-10000)$delay]",
-       NO_STR
-       BGP_STR
-       "Advertise only routes that are programmed in kernel to peers\n"
-       "Advertisement delay in milliseconds after FIB installation (default 1000)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	uint16_t adv_delay = BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
-
-	if (!no && delay_str)
-		adv_delay = delay;
-
-	bgp_suppress_fib_pending_set(bgp, !no, adv_delay);
-	return CMD_SUCCESS;
-}
-
 DEFPY (bgp_norib,
        bgp_norib_cmd,
        "bgp no-rib",
@@ -2316,31 +2298,6 @@ DEFPY (bgp_af_nexthop_prefer_global,
 
 /* BGP minimum holdtime.  */
 
-
-DEFPY(bgp_lu_uses_explicit_null, bgp_lu_uses_explicit_null_cmd,
-      "[no] bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>$value",
-      NO_STR BGP_STR
-      "BGP Labeled-unicast options\n"
-      "Use explicit-null label values for all local prefixes\n"
-      "Use the IPv4 explicit-null label value for IPv4 local prefixes\n"
-      "Use the IPv6 explicit-null label value for IPv6 local prefixes\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	uint64_t label_mode;
-
-	if (strmatch(value, "ipv4-explicit-null"))
-		label_mode = BGP_FLAG_LU_IPV4_EXPLICIT_NULL;
-	else if (strmatch(value, "ipv6-explicit-null"))
-		label_mode = BGP_FLAG_LU_IPV6_EXPLICIT_NULL;
-	else
-		label_mode = BGP_FLAG_LU_IPV4_EXPLICIT_NULL |
-			     BGP_FLAG_LU_IPV6_EXPLICIT_NULL;
-	if (no)
-		UNSET_FLAG(bgp->flags, label_mode);
-	else
-		SET_FLAG(bgp->flags, label_mode);
-	return CMD_SUCCESS;
-}
 
 #if CONFDATE > 20271101
 CPP_NOTICE("Flip default and deprecate `bgp default-originate set-only-unconditional` knob")
@@ -3242,64 +3199,6 @@ DEFUN (no_bgp_graceful_shutdown,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_default_software_version_capability,
-       bgp_default_software_version_capability_cmd,
-       "[no] bgp default software-version-capability [latest-encoding$latest_encoding]",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Advertise software version capability for all neighbors\n"
-       "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	uint64_t encoding = latest_encoding ? BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW
-					    : BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD;
-
-	if (no)
-		UNSET_FLAG(bgp->flags, encoding);
-	else
-		SET_FLAG(bgp->flags, encoding);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_default_link_local_capability,
-       bgp_default_link_local_capability_cmd,
-       "[no] bgp default link-local-capability",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Advertise Link-Local Next Hop capability for all neighbors\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
-	else
-		SET_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_default_dynamic_capability,
-       bgp_default_dynamic_capability_cmd,
-       "[no] bgp default dynamic-capability",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Advertise dynamic capability for all neighbors\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
-	else
-		SET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
-
-	return CMD_SUCCESS;
-}
-
 
 
 
@@ -3620,29 +3519,6 @@ DEFUN (neighbor_remote_as,
 	int idx_remote_as = 3;
 	return peer_remote_as_vty(vty, argv[idx_peer]->arg,
 				  argv[idx_remote_as]->arg);
-}
-
-/* Enable fast convergence of bgp sessions. If this is enabled, bgp
- * sessions do not wait for hold timer expiry to bring down the sessions
- * when nexthop becomes unreachable
- */
-DEFUN(bgp_fast_convergence, bgp_fast_convergence_cmd, "bgp fast-convergence",
-      BGP_STR "Fast convergence for bgp sessions\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp->fast_convergence = true;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_bgp_fast_convergence, no_bgp_fast_convergence_cmd,
-      "no bgp fast-convergence",
-      NO_STR BGP_STR "Fast convergence for bgp sessions\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp->fast_convergence = false;
-
-	return CMD_SUCCESS;
 }
 
 DEFPY (bgp_ipv6_auto_ra,
@@ -21820,15 +21696,12 @@ void bgp_vty_init(void)
 
 	/* bgp allow-martian-nexthop — YANG: bgp_cli_init() */
 
-	/* bgp fast-convergence command */
-	install_element(BGP_NODE, &bgp_fast_convergence_cmd);
-	install_element(BGP_NODE, &no_bgp_fast_convergence_cmd);
+	/* bgp fast-convergence — YANG: bgp_cli_init() */
 
 	/* global bgp ipv6-auto-ra command */
 	install_element(CONFIG_NODE, &bgp_ipv6_auto_ra_cmd);
 
-	/* bgp ipv6-auto-ra command */
-	install_element(BGP_NODE, &bgp_ipv6_auto_ra_cmd);
+	/* bgp ipv6-auto-ra (BGP_NODE) — YANG: bgp_cli_init() */
 
 	/* global bgp update-delay command */
 	install_element(CONFIG_NODE, &bgp_global_update_delay_cmd);
@@ -21870,8 +21743,9 @@ void bgp_vty_init(void)
 
 	/* "bgp router-id" — YANG: bgp_cli_init() */
 
-	/* "bgp suppress-fib-pending" command */
-	install_element(BGP_NODE, &bgp_suppress_fib_pending_cmd);
+	/* "bgp suppress-fib-pending" — YANG: bgp_cli_init();
+	 * CONFIG_NODE remains classic.
+	 */
 
 	/* "bgp cluster-id" — YANG: bgp_cli_init() */
 
@@ -21955,8 +21829,7 @@ void bgp_vty_init(void)
 
 	/* bgp enforce-first-as — YANG: bgp_cli_init() */
 
-	/* bgp labeled-unicast explicit-null */
-	install_element(BGP_NODE, &bgp_lu_uses_explicit_null_cmd);
+	/* bgp labeled-unicast explicit-null — YANG: bgp_cli_init() */
 
 	/* bgp suppress-duplicates — YANG: bgp_cli_init() */
 
@@ -22033,14 +21906,9 @@ void bgp_vty_init(void)
 
 	/* bgp default show-nexthop-hostname — YANG: bgp_cli_init() */
 
-	/* bgp default software-version-capability */
-	install_element(BGP_NODE, &bgp_default_software_version_capability_cmd);
-
-	/* bgp default link-local-capability */
-	install_element(BGP_NODE, &bgp_default_link_local_capability_cmd);
-
-	/* bgp default dynamic-capability */
-	install_element(BGP_NODE, &bgp_default_dynamic_capability_cmd);
+	/* bgp default software-version / link-local / dynamic-capability —
+	 * YANG: bgp_cli_init()
+	 */
 
 	/* "bgp default subgroup-pkt-queue-max" — YANG: bgp_cli_init() */
 

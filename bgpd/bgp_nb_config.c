@@ -2712,3 +2712,229 @@ void bgp_nb_cli_show_use_underlays_nexthop_weight(struct vty *vty, const struct 
 	else if (show_defaults)
 		vty_out(vty, " no use-underlays-nexthop-weight\n");
 }
+
+int bgp_nb_suppress_fib_pending_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	bool set;
+	uint16_t delay = BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	set = yang_dnode_get_bool(args->dnode, NULL);
+	if (set && yang_dnode_exists(args->dnode, "../suppress-fib-pending-delay"))
+		delay = yang_dnode_get_uint16(args->dnode, "../suppress-fib-pending-delay");
+	else if (set)
+		delay = bgp->suppress_fib_adv_delay;
+
+	bgp_suppress_fib_pending_set(bgp, set, delay);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_suppress_fib_pending(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	/* Printed with suppress-fib-pending-delay when enabled. */
+	if (!yang_dnode_get_bool(dnode, NULL) && show_defaults)
+		vty_out(vty, " no bgp suppress-fib-pending\n");
+}
+
+int bgp_nb_suppress_fib_pending_delay_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	uint16_t delay;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	delay = yang_dnode_get_uint16(args->dnode, NULL);
+	bgp_suppress_fib_pending_set(bgp, true, delay);
+	return NB_OK;
+}
+
+int bgp_nb_suppress_fib_pending_delay_destroy(struct nb_cb_destroy_args *args)
+{
+	/* Cleared via suppress-fib-pending = false. */
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_suppress_fib_pending_delay(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	uint16_t delay = yang_dnode_get_uint16(dnode, NULL);
+
+	if (delay != BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY)
+		vty_out(vty, " bgp suppress-fib-pending %u\n", delay);
+	else
+		vty_out(vty, " bgp suppress-fib-pending\n");
+}
+
+int bgp_nb_fast_convergence_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->fast_convergence = yang_dnode_get_bool(args->dnode, NULL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_fast_convergence(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp fast-convergence\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp fast-convergence\n");
+}
+
+int bgp_nb_ipv6_auto_ra_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	/* YANG true => allow RA; C flag is inverted (NO_AUTO_RA). */
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		UNSET_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_ipv6_auto_ra(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no bgp ipv6-auto-ra\n");
+	else if (show_defaults)
+		vty_out(vty, " bgp ipv6-auto-ra\n");
+}
+
+int bgp_nb_labeled_unicast_explicit_null_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *val;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	val = yang_dnode_get_string(args->dnode, NULL);
+
+	UNSET_FLAG(bgp->flags, BGP_FLAG_LU_IPV4_EXPLICIT_NULL | BGP_FLAG_LU_IPV6_EXPLICIT_NULL);
+
+	if (strmatch(val, "explicit-null"))
+		SET_FLAG(bgp->flags,
+			 BGP_FLAG_LU_IPV4_EXPLICIT_NULL | BGP_FLAG_LU_IPV6_EXPLICIT_NULL);
+	else if (strmatch(val, "ipv4-explicit-null"))
+		SET_FLAG(bgp->flags, BGP_FLAG_LU_IPV4_EXPLICIT_NULL);
+	else if (strmatch(val, "ipv6-explicit-null"))
+		SET_FLAG(bgp->flags, BGP_FLAG_LU_IPV6_EXPLICIT_NULL);
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_labeled_unicast_explicit_null(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults)
+{
+	const char *val = yang_dnode_get_string(dnode, NULL);
+
+	if (strmatch(val, "none")) {
+		if (show_defaults)
+			vty_out(vty, " no bgp labeled-unicast explicit-null\n");
+		return;
+	}
+
+	vty_out(vty, " bgp labeled-unicast %s\n", val);
+}
+
+int bgp_nb_default_dynamic_capability_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_default_dynamic_capability(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp default dynamic-capability\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp default dynamic-capability\n");
+}
+
+int bgp_nb_default_link_local_capability_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_default_link_local_capability(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp default link-local-capability\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp default link-local-capability\n");
+}
+
+int bgp_nb_default_software_version_capability_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *val;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	val = yang_dnode_get_string(args->dnode, NULL);
+
+	UNSET_FLAG(bgp->flags,
+		   BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD | BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
+
+	if (strmatch(val, "old-encoding"))
+		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD);
+	else if (strmatch(val, "latest-encoding"))
+		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
+
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_default_software_version_capability(struct vty *vty,
+							 const struct lyd_node *dnode,
+							 bool show_defaults)
+{
+	const char *val = yang_dnode_get_string(dnode, NULL);
+
+	if (strmatch(val, "old-encoding"))
+		vty_out(vty, " bgp default software-version-capability\n");
+	else if (strmatch(val, "latest-encoding"))
+		vty_out(vty, " bgp default software-version-capability latest-encoding\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp default software-version-capability\n");
+}

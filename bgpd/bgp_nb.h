@@ -303,6 +303,40 @@ int bgp_nb_use_underlays_nexthop_weight_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_use_underlays_nexthop_weight(struct vty *vty, const struct lyd_node *dnode,
 						  bool show_defaults);
 
+int bgp_nb_suppress_fib_pending_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_suppress_fib_pending(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+
+int bgp_nb_suppress_fib_pending_delay_modify(struct nb_cb_modify_args *args);
+int bgp_nb_suppress_fib_pending_delay_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_suppress_fib_pending_delay(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+
+int bgp_nb_fast_convergence_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_fast_convergence(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_ipv6_auto_ra_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_ipv6_auto_ra(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+
+int bgp_nb_labeled_unicast_explicit_null_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_labeled_unicast_explicit_null(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+
+int bgp_nb_default_dynamic_capability_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_default_dynamic_capability(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+
+int bgp_nb_default_link_local_capability_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_default_link_local_capability(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+
+int bgp_nb_default_software_version_capability_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_default_software_version_capability(struct vty *vty,
+							 const struct lyd_node *dnode,
+							 bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

@@ -555,6 +555,63 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/suppress-fib-pending",
+			.cbs = {
+				.modify = bgp_nb_suppress_fib_pending_modify,
+				.cli_show = bgp_nb_cli_show_suppress_fib_pending,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/suppress-fib-pending-delay",
+			.cbs = {
+				.modify = bgp_nb_suppress_fib_pending_delay_modify,
+				.destroy = bgp_nb_suppress_fib_pending_delay_destroy,
+				.cli_show = bgp_nb_cli_show_suppress_fib_pending_delay,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/fast-convergence",
+			.cbs = {
+				.modify = bgp_nb_fast_convergence_modify,
+				.cli_show = bgp_nb_cli_show_fast_convergence,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/ipv6-auto-ra",
+			.cbs = {
+				.modify = bgp_nb_ipv6_auto_ra_modify,
+				.cli_show = bgp_nb_cli_show_ipv6_auto_ra,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/labeled-unicast-explicit-null",
+			.cbs = {
+				.modify = bgp_nb_labeled_unicast_explicit_null_modify,
+				.cli_show = bgp_nb_cli_show_labeled_unicast_explicit_null,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-dynamic-capability",
+			.cbs = {
+				.modify = bgp_nb_default_dynamic_capability_modify,
+				.cli_show = bgp_nb_cli_show_default_dynamic_capability,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-link-local-capability",
+			.cbs = {
+				.modify = bgp_nb_default_link_local_capability_modify,
+				.cli_show = bgp_nb_cli_show_default_link_local_capability,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-software-version-capability",
+			.cbs = {
+				.modify = bgp_nb_default_software_version_capability_modify,
+				.cli_show = bgp_nb_cli_show_default_software_version_capability,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}
