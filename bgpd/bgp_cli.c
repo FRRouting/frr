@@ -5416,6 +5416,74 @@ DEFPY_YANG(sid_export_yang, sid_export_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static void bgp_cli_sid_vpn_export_clear(struct vty *vty, const char *af_xpath)
+{
+	char leaf[XPATH_MAXLEN + 256];
+
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-index", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-auto", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-explicit", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+}
+
+DEFPY_YANG(af_sid_vpn_export_yang, af_sid_vpn_export_yang_cmd,
+	   "[no] sid vpn export [<(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>]",
+	   NO_STR
+	   "sid value for VRF\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from current address-family to vpn\n"
+	   "Sid allocation index\n"
+	   "Automatically assign a label\n"
+	   "Explicitly assign a sid value\n"
+	   "Sid value\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	if (no) {
+		bgp_cli_sid_vpn_export_clear(vty, af_xpath);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (!sid_idx_str && !sid_auto && !sid_explicit)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!sid_auto) {
+		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-auto", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+	if (!sid_explicit) {
+		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-explicit",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+	if (!sid_idx_str) {
+		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-index", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+
+	if (sid_auto) {
+		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-auto", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, NULL);
+	} else if (sid_explicit) {
+		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-explicit",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, sid_value_str);
+	} else {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, sid_idx);
+		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-index", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -7203,6 +7271,8 @@ void bgp_cli_init(void)
 	install_element(BGP_VPNV6_NODE, &bgp_retain_route_target_yang_cmd);
 	install_element(BGP_IPV4_NODE, &sid_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &sid_export_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
