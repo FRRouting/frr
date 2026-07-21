@@ -12023,104 +12023,6 @@ DEFUN(show_ip_bgp_peer_groups, show_ip_bgp_peer_groups_cmd,
 
 /* Redistribute VTY commands.  */
 
-DEFPY(bgp_ls_distribute_bgp_fabric,
-      bgp_ls_distribute_bgp_fabric_cmd,
-      "distribute bgp-fabric-link-state [instance-id WORD$instance_id_str]",
-      "Distribute BGP link-state topology information\n"
-      "Enable BGP fabric link-state topology distribution\n"
-      "BGP-LS instance identifier\n"
-      "Instance ID value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	uint64_t instance_id = 0;
-	char *endp = NULL;
-
-	if (!bgp->ls_info) {
-		vty_out(vty, "%% BGP-LS not initialized\n");
-		return CMD_WARNING;
-	}
-
-	if (instance_id_str) {
-		errno = 0;
-		instance_id = strtoull(instance_id_str, &endp, 10);
-		if (errno == ERANGE || endp == instance_id_str || *endp != '\0') {
-			vty_out(vty, "%% Invalid instance-id\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	if (bgp->ls_info->enable_distribution && bgp->ls_info->instance_id == instance_id)
-		return CMD_SUCCESS;
-
-	/*
-	 * If already enabled with a different instance-id, withdraw all
-	 * existing NLRIs before re-exporting with the new instance-id.
-	 */
-	if (bgp->ls_info->enable_distribution && bgp->ls_info->instance_id != instance_id)
-		bgp_ls_withdraw_all(bgp);
-
-	bgp->ls_info->instance_id = instance_id;
-	bgp->ls_info->enable_distribution = true;
-
-	bgp_redist_add(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0);
-	if (bgp_redistribute_set(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0, false) != CMD_SUCCESS)
-		zlog_warn("%s: failed to subscribe to IPv6 ZEBRA_ROUTE_ALL redistribution",
-			  __func__);
-
-	if (bgp_zclient && bgp_zclient->sock >= 0)
-		bgp_zebra_srv6_manager_get_locator(NULL);
-
-	if (bgp_ls_export_bgp_topology(bgp) != 0) {
-		vty_out(vty, "%% Failed to export BGP topology\n");
-		return CMD_WARNING;
-	}
-
-	if (BGP_DEBUG(linkstate, LINKSTATE))
-		vty_out(vty,
-			"BGP-LS: BGP fabric topology export enabled (instance-id %" PRIu64 ")\n",
-			instance_id);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_bgp_ls_distribute_bgp_fabric,
-      no_bgp_ls_distribute_bgp_fabric_cmd,
-      "no distribute bgp-fabric-link-state [instance-id WORD$instance_id_str]",
-      NO_STR
-      "Distribute BGP link-state topology information\n"
-      "Disable BGP fabric link-state topology distribution\n"
-      "BGP-LS instance identifier\n"
-      "Instance ID value\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	char *endp = NULL;
-
-	if (instance_id_str) {
-		errno = 0;
-		strtoull(instance_id_str, &endp, 10);
-		if (errno == ERANGE || endp == instance_id_str || *endp != '\0') {
-			vty_out(vty, "%% Invalid instance-id\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	if (bgp->ls_info) {
-		if (!bgp->ls_info->enable_distribution)
-			return CMD_SUCCESS;
-
-		bgp_redistribute_unset(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0);
-
-		bgp->ls_info->enable_distribution = false;
-		bgp->ls_info->instance_id = 0;
-		bgp_ls_withdraw_all(bgp);
-	}
-
-	if (BGP_DEBUG(linkstate, LINKSTATE))
-		vty_out(vty, "BGP-LS: BGP fabric topology export disabled\n");
-
-	return CMD_SUCCESS;
-}
-
 DEFPY(neighbor_ls_local_link_id,
       neighbor_ls_local_link_id_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str local-link-id (1-4294967295)$link_id",
@@ -15182,8 +15084,7 @@ void bgp_vty_init(void)
 	/* neighbor encapsulation-srv6 — YANG: bgp_cli_init() */
 
 	/* BGP-LS commands */
-	install_element(BGP_LS_NODE, &bgp_ls_distribute_bgp_fabric_cmd);
-	install_element(BGP_LS_NODE, &no_bgp_ls_distribute_bgp_fabric_cmd);
+	/* distribute bgp-fabric-link-state — YANG: bgp_cli_init() */
 	install_element(BGP_NODE, &neighbor_ls_local_link_id_cmd);
 	install_element(BGP_NODE, &no_neighbor_ls_local_link_id_cmd);
 	install_element(BGP_NODE, &neighbor_ls_remote_link_id_cmd);
