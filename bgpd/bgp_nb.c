@@ -1170,6 +1170,27 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/prefer-global",
+			.cbs = {
+				.modify = bgp_nb_nexthop_prefer_global_modify,
+				.cli_show = bgp_nb_cli_show_nexthop_prefer_global,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/prefer-global",
+			.cbs = {
+				.modify = bgp_nb_nexthop_prefer_global_modify,
+				.cli_show = bgp_nb_cli_show_nexthop_prefer_global,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/prefer-global",
+			.cbs = {
+				.modify = bgp_nb_nexthop_prefer_global_modify,
+				.cli_show = bgp_nb_cli_show_nexthop_prefer_global,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/enable",
 			.cbs = {
 				.modify = bgp_nb_dampening_enable_modify,
