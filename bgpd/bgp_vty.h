@@ -148,6 +148,7 @@ extern void bgp_clear_all_soft_in(struct bgp *bgp);
 extern void bgp_clear_all_soft_out(struct bgp *bgp);
 extern void bgp_initiate_graceful_shut_unshut(struct bgp *bgp);
 extern void bgp_update_graceful_restart_capability(struct peer *peer);
+extern int bgp_inst_gr_config(struct bgp *bgp, bool on, bool disable);
 
 /* Peer show flags */
 /* Value of 0 means show all information */

@@ -13,8 +13,11 @@
 #include "routing_nb.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_route.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_nb.h"
+#include "bgpd/bgp_io.h"
+#include "bgpd/bgp_updgrp.h"
 
 #include "bgpd/bgp_cli_clippy.c"
 
@@ -1435,6 +1438,270 @@ DEFUN_YANG(no_bgp_llgr_stalepath_time_yang, no_bgp_llgr_stalepath_time_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFUN_YANG(bgp_graceful_restart_yang, bgp_graceful_restart_yang_cmd,
+	   "bgp graceful-restart", BGP_STR GR_CMD)
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/graceful-restart-disable",
+			      NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/enabled", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_restart_yang, no_bgp_graceful_restart_yang_cmd,
+	   "no bgp graceful-restart", NO_STR BGP_STR NO_GR_CMD)
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/enabled", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_graceful_restart_disable_yang,
+	   bgp_graceful_restart_disable_yang_cmd,
+	   "bgp graceful-restart-disable", BGP_STR GR_DISABLE)
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/enabled", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/graceful-restart-disable",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_graceful_restart_disable_yang,
+	   no_bgp_graceful_restart_disable_yang_cmd,
+	   "no bgp graceful-restart-disable", NO_STR BGP_STR NO_GR_DISABLE)
+{
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/graceful-restart-disable",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_tcp_keepalive_yang, bgp_tcp_keepalive_yang_cmd,
+	   "bgp tcp-keepalive (1-65535)$idle (1-65535)$intvl (1-30)$probes",
+	   BGP_STR
+	   "TCP keepalive parameters\n"
+	   "TCP keepalive idle time (seconds)\n"
+	   "TCP keepalive interval (seconds)\n"
+	   "TCP keepalive maximum probes\n")
+{
+	char idle_s[16], intvl_s[16], probes_s[16];
+
+	snprintfrr(idle_s, sizeof(idle_s), "%" PRId64, idle);
+	snprintfrr(intvl_s, sizeof(intvl_s), "%" PRId64, intvl);
+	snprintfrr(probes_s, sizeof(probes_s), "%" PRId64, probes);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/tcp-keepalive/idle",
+			      NB_OP_MODIFY, idle_s);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/tcp-keepalive/interval",
+			      NB_OP_MODIFY, intvl_s);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/tcp-keepalive/probes",
+			      NB_OP_MODIFY, probes_s);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_tcp_keepalive_yang, no_bgp_tcp_keepalive_yang_cmd,
+	   "no bgp tcp-keepalive [(1-65535) (1-65535) (1-30)]",
+	   NO_STR BGP_STR
+	   "TCP keepalive parameters\n"
+	   "TCP keepalive idle time (seconds)\n"
+	   "TCP keepalive interval (seconds)\n"
+	   "TCP keepalive maximum probes\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/tcp-keepalive/idle",
+			      NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/tcp-keepalive/interval",
+			      NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/tcp-keepalive/probes",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_wpkt_quanta_yang, bgp_wpkt_quanta_yang_cmd,
+	   "[no] write-quanta (1-64)$quanta",
+	   NO_STR
+	   "How many packets to write to peer socket per run\n"
+	   "Number of packets\n")
+{
+	char val[16];
+	int64_t value = no ? BGP_WRITE_PACKET_MAX : quanta;
+
+	snprintfrr(val, sizeof(val), "%" PRId64, value);
+	nb_cli_enqueue_change(vty,
+			      "./global/global-neighbor-config/packet-quanta-config/wpkt-quanta",
+			      NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_rpkt_quanta_yang, bgp_rpkt_quanta_yang_cmd,
+	   "[no] read-quanta (1-10)$quanta",
+	   NO_STR
+	   "How many packets to read from peer socket per I/O cycle\n"
+	   "Number of packets\n")
+{
+	char val[16];
+	int64_t value = no ? BGP_READ_PACKET_MAX : quanta;
+
+	snprintfrr(val, sizeof(val), "%" PRId64, value);
+	nb_cli_enqueue_change(vty,
+			      "./global/global-neighbor-config/packet-quanta-config/rpkt-quanta",
+			      NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_coalesce_time_yang, bgp_coalesce_time_yang_cmd,
+	   "coalesce-time (0-4294967295)",
+	   "Subgroup coalesce timer\n"
+	   "Subgroup coalesce timer value (in ms)\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-update-group-config/coalesce-time",
+			      NB_OP_MODIFY, argv[1]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_coalesce_time_yang, no_bgp_coalesce_time_yang_cmd,
+	   "no coalesce-time [(0-4294967295)]",
+	   NO_STR
+	   "Subgroup coalesce timer\n"
+	   "Subgroup coalesce timer value (in ms)\n")
+{
+	char val[16];
+
+	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_SUBGROUP_COALESCE_TIME);
+	nb_cli_enqueue_change(vty, "./global/global-update-group-config/coalesce-time",
+			      NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_default_subgroup_pkt_queue_max_yang,
+	   bgp_default_subgroup_pkt_queue_max_yang_cmd,
+	   "bgp default subgroup-pkt-queue-max (20-100)",
+	   BGP_STR
+	   "Configure BGP defaults\n"
+	   "subgroup-pkt-queue-max\n"
+	   "Configure subgroup packet queue max\n")
+{
+	nb_cli_enqueue_change(vty, "./global/global-update-group-config/subgroup-pkt-queue-size",
+			      NB_OP_MODIFY, argv[3]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_default_subgroup_pkt_queue_max_yang,
+	   no_bgp_default_subgroup_pkt_queue_max_yang_cmd,
+	   "no bgp default subgroup-pkt-queue-max [(20-100)]",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "subgroup-pkt-queue-max\n"
+	   "Configure subgroup packet queue max\n")
+{
+	char val[16];
+
+	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX);
+	nb_cli_enqueue_change(vty, "./global/global-update-group-config/subgroup-pkt-queue-size",
+			      NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_default_shutdown_yang, bgp_default_shutdown_yang_cmd,
+	   "[no] bgp default shutdown",
+	   NO_STR BGP_STR
+	   "Configure BGP defaults\n"
+	   "Apply administrative shutdown to newly configured peers\n")
+{
+	nb_cli_enqueue_change(vty, "./global/default-shutdown", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_shutdown_yang, bgp_shutdown_yang_cmd, "bgp shutdown",
+	   BGP_STR "Administrative shutdown of the BGP instance\n")
+{
+	nb_cli_enqueue_change(vty, "./global/shutdown-message", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown-no-notify", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_shutdown_no_notify_yang, bgp_shutdown_no_notify_yang_cmd,
+	   "bgp shutdown no-notify",
+	   BGP_STR
+	   "Administrative shutdown of the BGP instance\n"
+	   "Do not send BGP notification (for HA standby transition)\n")
+{
+	nb_cli_enqueue_change(vty, "./global/shutdown-message", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown", NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./global/shutdown-no-notify", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_shutdown_msg_yang, bgp_shutdown_msg_yang_cmd,
+	   "bgp shutdown message MSG...",
+	   BGP_STR
+	   "Administrative shutdown of the BGP instance\n"
+	   "Add a shutdown message (RFC 8203)\n"
+	   "Shutdown message\n")
+{
+	char *msgstr;
+
+	msgstr = argv_concat(argv, argc, 3);
+	nb_cli_enqueue_change(vty, "./global/shutdown-no-notify", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown", NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./global/shutdown-message", NB_OP_MODIFY, msgstr);
+	XFREE(MTYPE_TMP, msgstr);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_shutdown_yang, no_bgp_shutdown_yang_cmd, "no bgp shutdown",
+	   NO_STR BGP_STR "Administrative shutdown of the BGP instance\n")
+{
+	nb_cli_enqueue_change(vty, "./global/shutdown-message", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown-no-notify", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_shutdown_msg_yang, no_bgp_shutdown_msg_yang_cmd,
+	   "no bgp shutdown message MSG...",
+	   NO_STR BGP_STR
+	   "Administrative shutdown of the BGP instance\n"
+	   "Add a shutdown message (RFC 8203)\n"
+	   "Shutdown message\n")
+{
+	nb_cli_enqueue_change(vty, "./global/shutdown-message", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown-no-notify", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_shutdown_no_notify_yang, no_bgp_shutdown_no_notify_yang_cmd,
+	   "no bgp shutdown no-notify",
+	   NO_STR BGP_STR
+	   "Administrative shutdown of the BGP instance\n"
+	   "Do not send BGP notification (for HA standby transition)\n")
+{
+	nb_cli_enqueue_change(vty, "./global/shutdown-message", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown-no-notify", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/shutdown", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_allow_martian_yang, bgp_allow_martian_yang_cmd,
+	   "[no] bgp allow-martian-nexthop",
+	   NO_STR BGP_STR
+	   "Allow Martian nexthops to be received in the NLRI from a peer\n")
+{
+	nb_cli_enqueue_change(vty, "./global/allow-martian-nexthop", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_use_underlying_nexthop_weight_yang,
+	   bgp_use_underlying_nexthop_weight_yang_cmd,
+	   "[no] use-underlays-nexthop-weight",
+	   NO_STR
+	   "Tell Zebra when resolving a route to use the underlays nexthop weight for when nexthops are resolved\n")
+{
+	nb_cli_enqueue_change(vty, "./global/use-underlays-nexthop-weight", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -1533,4 +1800,26 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_eor_yang_cmd);
 	install_element(BGP_NODE, &bgp_llgr_stalepath_time_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_llgr_stalepath_time_yang_cmd);
+
+	install_element(BGP_NODE, &bgp_graceful_restart_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_yang_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_disable_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_yang_cmd);
+	install_element(BGP_NODE, &bgp_tcp_keepalive_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_tcp_keepalive_yang_cmd);
+	install_element(BGP_NODE, &bgp_wpkt_quanta_yang_cmd);
+	install_element(BGP_NODE, &bgp_rpkt_quanta_yang_cmd);
+	install_element(BGP_NODE, &bgp_coalesce_time_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_coalesce_time_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_subgroup_pkt_queue_max_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_default_subgroup_pkt_queue_max_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_shutdown_yang_cmd);
+	install_element(BGP_NODE, &bgp_shutdown_yang_cmd);
+	install_element(BGP_NODE, &bgp_shutdown_msg_yang_cmd);
+	install_element(BGP_NODE, &bgp_shutdown_no_notify_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_shutdown_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_shutdown_msg_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_shutdown_no_notify_yang_cmd);
+	install_element(BGP_NODE, &bgp_allow_martian_yang_cmd);
+	install_element(BGP_NODE, &bgp_use_underlying_nexthop_weight_yang_cmd);
 }

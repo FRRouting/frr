@@ -445,6 +445,116 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/enabled",
+			.cbs = {
+				.modify = bgp_nb_gr_enabled_modify,
+				.destroy = bgp_nb_gr_enabled_destroy,
+				.cli_show = bgp_nb_cli_show_gr_enabled,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/graceful-restart-disable",
+			.cbs = {
+				.modify = bgp_nb_gr_disable_modify,
+				.destroy = bgp_nb_gr_disable_destroy,
+				.cli_show = bgp_nb_cli_show_gr_disable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/tcp-keepalive/idle",
+			.cbs = {
+				.modify = bgp_nb_tcp_keepalive_idle_modify,
+				.destroy = bgp_nb_tcp_keepalive_idle_destroy,
+				.cli_show = bgp_nb_cli_show_tcp_keepalive_idle,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/tcp-keepalive/interval",
+			.cbs = {
+				.modify = bgp_nb_tcp_keepalive_interval_modify,
+				.destroy = bgp_nb_tcp_keepalive_interval_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/tcp-keepalive/probes",
+			.cbs = {
+				.modify = bgp_nb_tcp_keepalive_probes_modify,
+				.destroy = bgp_nb_tcp_keepalive_probes_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config/packet-quanta-config/wpkt-quanta",
+			.cbs = {
+				.modify = bgp_nb_wpkt_quanta_modify,
+				.cli_show = bgp_nb_cli_show_wpkt_quanta,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config/packet-quanta-config/rpkt-quanta",
+			.cbs = {
+				.modify = bgp_nb_rpkt_quanta_modify,
+				.cli_show = bgp_nb_cli_show_rpkt_quanta,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-update-group-config/coalesce-time",
+			.cbs = {
+				.modify = bgp_nb_coalesce_time_modify,
+				.cli_show = bgp_nb_cli_show_coalesce_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-update-group-config/subgroup-pkt-queue-size",
+			.cbs = {
+				.modify = bgp_nb_subgroup_pkt_queue_size_modify,
+				.cli_show = bgp_nb_cli_show_subgroup_pkt_queue_size,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-shutdown",
+			.cbs = {
+				.modify = bgp_nb_default_shutdown_modify,
+				.cli_show = bgp_nb_cli_show_default_shutdown,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/shutdown",
+			.cbs = {
+				.modify = bgp_nb_shutdown_modify,
+				.cli_show = bgp_nb_cli_show_shutdown,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/shutdown-message",
+			.cbs = {
+				.modify = bgp_nb_shutdown_message_modify,
+				.destroy = bgp_nb_shutdown_message_destroy,
+				.cli_show = bgp_nb_cli_show_shutdown_message,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/shutdown-no-notify",
+			.cbs = {
+				.modify = bgp_nb_shutdown_no_notify_modify,
+				.destroy = bgp_nb_shutdown_no_notify_destroy,
+				.cli_show = bgp_nb_cli_show_shutdown_no_notify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/allow-martian-nexthop",
+			.cbs = {
+				.modify = bgp_nb_allow_martian_modify,
+				.cli_show = bgp_nb_cli_show_allow_martian,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/use-underlays-nexthop-weight",
+			.cbs = {
+				.modify = bgp_nb_use_underlays_nexthop_weight_modify,
+				.cli_show = bgp_nb_cli_show_use_underlays_nexthop_weight,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

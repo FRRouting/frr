@@ -247,6 +247,62 @@ int bgp_nb_gr_llgr_stale_time_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_gr_llgr_stale_time(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults);
 
+int bgp_nb_gr_enabled_modify(struct nb_cb_modify_args *args);
+int bgp_nb_gr_enabled_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_gr_enabled(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_gr_disable_modify(struct nb_cb_modify_args *args);
+int bgp_nb_gr_disable_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_gr_disable(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_tcp_keepalive_idle_modify(struct nb_cb_modify_args *args);
+int bgp_nb_tcp_keepalive_idle_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_tcp_keepalive_interval_modify(struct nb_cb_modify_args *args);
+int bgp_nb_tcp_keepalive_interval_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_tcp_keepalive_probes_modify(struct nb_cb_modify_args *args);
+int bgp_nb_tcp_keepalive_probes_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_tcp_keepalive_idle(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+
+int bgp_nb_wpkt_quanta_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_wpkt_quanta(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_rpkt_quanta_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_rpkt_quanta(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_coalesce_time_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_coalesce_time(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+
+int bgp_nb_subgroup_pkt_queue_size_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_subgroup_pkt_queue_size(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+
+int bgp_nb_default_shutdown_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_default_shutdown(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_shutdown_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_shutdown(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_shutdown_message_modify(struct nb_cb_modify_args *args);
+int bgp_nb_shutdown_message_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_shutdown_message(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_shutdown_no_notify_modify(struct nb_cb_modify_args *args);
+int bgp_nb_shutdown_no_notify_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_shutdown_no_notify(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+
+int bgp_nb_allow_martian_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_allow_martian(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+
+int bgp_nb_use_underlays_nexthop_weight_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_use_underlays_nexthop_weight(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus
