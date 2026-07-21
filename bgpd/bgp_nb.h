@@ -914,4 +914,18 @@ int bgp_nb_sid_export_rmap_modify(struct nb_cb_modify_args *args);
 int bgp_nb_sid_export_rmap_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_sid_export(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
+/* segment-routing srv6 */
+int bgp_nb_srv6_locator_modify(struct nb_cb_modify_args *args);
+int bgp_nb_srv6_locator_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_srv6_encap_behavior_modify(struct nb_cb_modify_args *args);
+int bgp_nb_srv6_encap_behavior_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_srv6_only_modify(struct nb_cb_modify_args *args);
+int bgp_nb_srv6_only_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_srv6(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bgp_nb_cli_show_srv6_end(struct vty *vty, const struct lyd_node *dnode);
+void bgp_nb_cli_show_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+void bgp_nb_cli_show_srv6_encap(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bgp_nb_cli_show_srv6_only(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */

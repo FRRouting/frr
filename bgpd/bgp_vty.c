@@ -324,7 +324,7 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 	return "Unknown";
 }
 
-static void bgp_srv6_sids_unset(struct bgp *bgp)
+void bgp_srv6_sids_unset(struct bgp *bgp)
 {
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
@@ -447,7 +447,7 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 }
 
 /* unset srv6 locator */
-static int bgp_srv6_locator_unset(struct bgp *bgp)
+int bgp_srv6_locator_unset(struct bgp *bgp)
 {
 	/* clear function, sids */
 	bgp_srv6_sids_unset(bgp);
@@ -4412,18 +4412,7 @@ DEFUN_NOSH(address_family_link_state,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (bgp_segment_routing_srv6,
-            bgp_segment_routing_srv6_cmd,
-            "segment-routing srv6",
-            "Segment-Routing configuration\n"
-            "Segment-Routing SRv6 configuration\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	vty->node = BGP_SRV6_NODE;
-	return CMD_SUCCESS;
-}
-
-static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
+void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
 {
 	struct bgp *bgp_inst;
 	struct listnode *node;
@@ -4437,7 +4426,7 @@ static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
 	}
 }
 
-static void bgp_srv6_only_change(struct bgp *bgp, bool enable)
+void bgp_srv6_only_change(struct bgp *bgp, bool enable)
 {
 	struct bgp *bgp_inst;
 	struct listnode *node;
@@ -4473,135 +4462,6 @@ static void bgp_srv6_only_change(struct bgp *bgp, bool enable)
 	}
 	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
 	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
-}
-
-DEFUN (no_bgp_segment_routing_srv6,
-       no_bgp_segment_routing_srv6_cmd,
-       "no segment-routing srv6",
-       NO_STR
-       "Segment-Routing configuration\n"
-       "Segment-Routing SRv6 configuration\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (strlen(bgp->srv6_locator_name) > 0)
-		if (bgp_srv6_locator_unset(bgp) < 0)
-			return CMD_WARNING_CONFIG_FAILED;
-
-	if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS) {
-		bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
-		bgp_segment_routing_srv6_hencaps_refresh(bgp);
-	}
-
-	if (!bgp->srv6_only)
-		bgp_srv6_only_change(bgp, true);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_srv6_encap_behavior,
-       bgp_srv6_encap_behavior_cmd,
-       "[no$no] encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior",
-       NO_STR
-       "Configure SRv6 encap mode\n"
-       "H.Encaps\n"
-       "H.Encaps.Red\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	enum srv6_headend_behavior srv6_encap_behavior;
-
-	bgp = bgp_get_default();
-	if (!bgp)
-		return CMD_SUCCESS;
-
-	if (strmatch(encap_behavior, "H_Encaps_Red"))
-		srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
-	else
-		srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
-
-	if (no && ((srv6_encap_behavior != bgp->srv6_encap_behavior) ||
-		   (srv6_encap_behavior == SRV6_HEADEND_BEHAVIOR_H_ENCAPS)))
-		return CMD_SUCCESS;
-	else if (no == NULL && srv6_encap_behavior == bgp->srv6_encap_behavior)
-		return CMD_SUCCESS;
-
-	if (no)
-		bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
-	else
-		bgp->srv6_encap_behavior = srv6_encap_behavior;
-
-	bgp_segment_routing_srv6_hencaps_refresh(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_srv6_locator,
-       bgp_srv6_locator_cmd,
-       "locator NAME$name",
-       "Specify SRv6 locator\n"
-       "Specify SRv6 locator\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
-
-	if (strlen(bgp->srv6_locator_name) > 0) {
-		if (strcmp(name, bgp->srv6_locator_name) == 0)
-			return CMD_SUCCESS;
-
-		vty_out(vty, "srv6 locator is already configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bgp_srv6_sids_unset(bgp);
-
-	snprintf(bgp->srv6_locator_name,
-		 sizeof(bgp->srv6_locator_name), "%s", name);
-
-	ret = bgp_zebra_srv6_manager_get_locator(name);
-	if (ret < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_srv6_only,
-       bgp_srv6_only_cmd,
-       "[no] srv6-only",
-       NO_STR
-       "Only allow SRv6 and disallow MPLS routes\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if ((!no && bgp->srv6_only) || (no && !bgp->srv6_only))
-		return CMD_SUCCESS;
-	bgp_srv6_only_change(bgp, !no);
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_bgp_srv6_locator,
-       no_bgp_srv6_locator_cmd,
-       "no locator NAME$name",
-       NO_STR
-       "Specify SRv6 locator\n"
-       "Specify SRv6 locator\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	/* when locator isn't configured, do nothing */
-	if (strlen(bgp->srv6_locator_name) < 1)
-		return CMD_SUCCESS;
-
-	/* name validation */
-	if (strcmp(name, bgp->srv6_locator_name) != 0) {
-		vty_out(vty, "%% No srv6 locator is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* unset locator */
-	if (bgp_srv6_locator_unset(bgp) < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	return CMD_SUCCESS;
 }
 
 DEFPY (show_bgp_srv6,
@@ -15720,13 +15580,8 @@ void bgp_vty_init(void)
 
 
 	/* srv6 commands */
+	/* segment-routing srv6 — YANG: bgp_cli_init() */
 	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
-	install_element(BGP_NODE, &bgp_segment_routing_srv6_cmd);
-	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
-	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
-	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
-	install_element(BGP_SRV6_NODE, &bgp_srv6_only_cmd);
-	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);

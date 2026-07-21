@@ -316,6 +316,35 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/segment-routing/srv6",
+			.cbs = {
+				.cli_show = bgp_nb_cli_show_srv6,
+				.cli_show_end = bgp_nb_cli_show_srv6_end,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/segment-routing/srv6/locator",
+			.cbs = {
+				.modify = bgp_nb_srv6_locator_modify,
+				.destroy = bgp_nb_srv6_locator_destroy,
+				.cli_show = bgp_nb_cli_show_srv6_locator,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/segment-routing/srv6/encap-behavior",
+			.cbs = {
+				.modify = bgp_nb_srv6_encap_behavior_modify,
+				.cli_show = bgp_nb_cli_show_srv6_encap,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/segment-routing/srv6/srv6-only",
+			.cbs = {
+				.modify = bgp_nb_srv6_only_modify,
+				.cli_show = bgp_nb_cli_show_srv6_only,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi",
 			.cbs = {
 				.create = bgp_nb_global_afi_safi_create,

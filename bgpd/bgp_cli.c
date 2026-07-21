@@ -266,6 +266,92 @@ DEFUN_YANG(no_router_bgp_yang, no_router_bgp_yang_cmd,
 	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
+DEFUN_YANG_NOSH(bgp_segment_routing_srv6_yang, bgp_segment_routing_srv6_yang_cmd,
+		"segment-routing srv6",
+		"Segment-Routing configuration\n"
+		"Segment-Routing SRv6 configuration\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	vty->node = BGP_SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN_YANG(no_bgp_segment_routing_srv6_yang,
+	   no_bgp_segment_routing_srv6_yang_cmd, "no segment-routing srv6",
+	   NO_STR
+	   "Segment-Routing configuration\n"
+	   "Segment-Routing SRv6 configuration\n")
+{
+	nb_cli_enqueue_change(vty, "./global/segment-routing/srv6/locator", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/segment-routing/srv6/encap-behavior", NB_OP_DESTROY,
+			      NULL);
+	/* Classic restores srv6-only to its default (true), which is not shown. */
+	nb_cli_enqueue_change(vty, "./global/segment-routing/srv6/srv6-only", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_srv6_locator_yang, bgp_srv6_locator_yang_cmd,
+	   "locator NAME$name",
+	   "Specify SRv6 locator\n"
+	   "Specify SRv6 locator\n")
+{
+	nb_cli_enqueue_change(vty, "./global/segment-routing/srv6/locator", NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_bgp_srv6_locator_yang, no_bgp_srv6_locator_yang_cmd,
+	   "no locator NAME$name",
+	   NO_STR
+	   "Specify SRv6 locator\n"
+	   "Specify SRv6 locator\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (strlen(bgp->srv6_locator_name) < 1)
+		return CMD_SUCCESS;
+
+	if (!strmatch(name, bgp->srv6_locator_name)) {
+		vty_out(vty, "%% No srv6 locator is configured\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, "./global/segment-routing/srv6/locator", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_srv6_encap_behavior_yang, bgp_srv6_encap_behavior_yang_cmd,
+	   "[no$no] encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior",
+	   NO_STR
+	   "Configure SRv6 encap mode\n"
+	   "H.Encaps\n"
+	   "H.Encaps.Red\n")
+{
+	const char *yang_val;
+
+	if (no) {
+		if (strmatch(encap_behavior, "H_Encaps_Red"))
+			nb_cli_enqueue_change(vty, "./global/segment-routing/srv6/encap-behavior",
+					      NB_OP_DESTROY, NULL);
+		else
+			return CMD_SUCCESS;
+	} else {
+		yang_val = strmatch(encap_behavior, "H_Encaps_Red") ? "h-encaps-red" : "h-encaps";
+		nb_cli_enqueue_change(vty, "./global/segment-routing/srv6/encap-behavior",
+				      NB_OP_MODIFY, yang_val);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_srv6_only_yang, bgp_srv6_only_yang_cmd, "[no] srv6-only",
+	   NO_STR
+	   "Only allow SRv6 and disallow MPLS routes\n")
+{
+	nb_cli_enqueue_change(vty, "./global/segment-routing/srv6/srv6-only", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG(bgp_router_id_yang, bgp_router_id_yang_cmd,
 	   "bgp router-id A.B.C.D",
 	   BGP_STR
@@ -6664,6 +6750,13 @@ void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
 	install_element(CONFIG_NODE, &no_router_bgp_yang_cmd);
+
+	install_element(BGP_NODE, &bgp_segment_routing_srv6_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_yang_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_yang_cmd);
+	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_yang_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_only_yang_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_yang_cmd);
 
 	install_element(BGP_NODE, &bgp_router_id_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_router_id_yang_cmd);
