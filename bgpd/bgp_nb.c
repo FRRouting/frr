@@ -308,6 +308,21 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/conditional-advertisement-timer",
+			.cbs = {
+				.modify = bgp_nb_conditional_advertisement_timer_modify,
+				.cli_show = bgp_nb_cli_show_conditional_advertisement_timer,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/default-originate-timer",
+			.cbs = {
+				.modify = bgp_nb_default_originate_timer_modify,
+				.destroy = bgp_nb_default_originate_timer_destroy,
+				.cli_show = bgp_nb_cli_show_default_originate_timer,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,

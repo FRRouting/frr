@@ -204,6 +204,17 @@ int bgp_nb_advertisement_delay_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults);
 
+int bgp_nb_conditional_advertisement_timer_modify(struct nb_cb_modify_args *args);
+int bgp_nb_conditional_advertisement_timer_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_conditional_advertisement_timer(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
+
+int bgp_nb_default_originate_timer_modify(struct nb_cb_modify_args *args);
+int bgp_nb_default_originate_timer_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_default_originate_timer(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+
+
 int bgp_nb_dynamic_neighbors_limit_modify(struct nb_cb_modify_args *args);
 int bgp_nb_dynamic_neighbors_limit_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_dynamic_neighbors_limit(struct vty *vty, const struct lyd_node *dnode,

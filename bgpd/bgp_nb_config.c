@@ -1828,6 +1828,85 @@ void bgp_nb_cli_show_advertisement_delay(struct vty *vty, const struct lyd_node 
 	vty_out(vty, " advertisement-delay %u\n", yang_dnode_get_uint16(dnode, NULL));
 }
 
+int bgp_nb_conditional_advertisement_timer_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_conditional_adv_period_set(bgp, yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_conditional_advertisement_timer_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (bgp->condition_check_period == DEFAULT_CONDITIONAL_ROUTES_POLL_TIME)
+		return NB_OK;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
+
+	bgp_conditional_adv_period_set(bgp, DEFAULT_CONDITIONAL_ROUTES_POLL_TIME);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_conditional_advertisement_timer(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults)
+{
+	uint16_t period = yang_dnode_get_uint16(dnode, NULL);
+
+	if (period != DEFAULT_CONDITIONAL_ROUTES_POLL_TIME || show_defaults)
+		vty_out(vty, " bgp conditional-advertisement timer %u\n", period);
+}
+
+int bgp_nb_default_originate_timer_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->rmap_def_originate_eval_timer = yang_dnode_get_uint16(args->dnode, NULL);
+	event_cancel(&bgp->t_rmap_def_originate_eval);
+	return NB_OK;
+}
+
+int bgp_nb_default_originate_timer_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->rmap_def_originate_eval_timer = 0;
+	event_cancel(&bgp->t_rmap_def_originate_eval);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_default_originate_timer(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	uint16_t timer = yang_dnode_get_uint16(dnode, NULL);
+
+	if (timer && timer != RMAP_DEFAULT_ORIGINATE_EVAL_TIMER)
+		vty_out(vty, " bgp default-originate timer %u\n", timer);
+	else if (show_defaults && timer)
+		vty_out(vty, " bgp default-originate timer %u\n", timer);
+}
+
+
 int bgp_nb_dynamic_neighbors_limit_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
