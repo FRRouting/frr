@@ -5435,6 +5435,165 @@ DEFPY_YANG(bgp_evpn_macvrf_soo_yang, bgp_evpn_macvrf_soo_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_evpn_dad_yang, bgp_evpn_dad_yang_cmd,
+	   "[no] dup-addr-detection [max-moves (2-1000)$max_moves time (2-1800)$time | freeze <permanent$permanent |(30-3600)$freeze_time>]",
+	   NO_STR
+	   "Duplicate address detection\n"
+	   "Max allowed moves before address detected as duplicate\n"
+	   "Num of max allowed moves (2-1000) default 5\n"
+	   "Duplicate address detection time\n"
+	   "Time in seconds (2-1800) default 180\n"
+	   "Duplicate address detection freeze\n"
+	   "Duplicate address detection permanent freeze\n"
+	   "Duplicate address detection freeze time (30-3600)\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char moves_buf[16], time_buf[16], freeze_buf[16];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	if (no) {
+		if (!max_moves_str && !time_str && !permanent && !freeze_time_str) {
+			snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/enable",
+				   af_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
+			snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/max-moves",
+				   af_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/time",
+				   af_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			snprintfrr(leaf, sizeof(leaf),
+				   "%s/duplicate-address-detection/freeze-time", af_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			snprintfrr(leaf, sizeof(leaf),
+				   "%s/duplicate-address-detection/freeze-permanent", af_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			return nb_cli_apply_changes(vty, NULL);
+		}
+		if (max_moves_str || time_str) {
+			snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/max-moves",
+				   af_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/time",
+				   af_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			return nb_cli_apply_changes(vty, NULL);
+		}
+		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/freeze-time",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/freeze-permanent",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/enable", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+
+	if (max_moves_str && time_str) {
+		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/max-moves",
+			   af_xpath);
+		snprintfrr(moves_buf, sizeof(moves_buf), "%" PRId64, max_moves);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, moves_buf);
+		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/time", af_xpath);
+		snprintfrr(time_buf, sizeof(time_buf), "%" PRId64, time);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, time_buf);
+	}
+
+	if (permanent) {
+		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/freeze-time",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/freeze-permanent",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, NULL);
+	} else if (freeze_time_str) {
+		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/freeze-permanent",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/freeze-time",
+			   af_xpath);
+		snprintfrr(freeze_buf, sizeof(freeze_buf), "%" PRId64, freeze_time);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, freeze_buf);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_use_es_l3nhg_yang, bgp_evpn_use_es_l3nhg_yang_cmd,
+	   "[no] use-es-l3nhg",
+	   NO_STR
+	   "use L3 nexthop group for host routes with ES destination\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/use-es-l3nhg", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_disable_ead_evi_rx_yang,
+	   bgp_evpn_disable_ead_evi_rx_yang_cmd,
+	   "[no] disable-ead-evi-rx",
+	   NO_STR
+	   "Activate PE on EAD-ES even if EAD-EVI is not received\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/disable-ead-evi-rx", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_disable_ead_evi_tx_yang,
+	   bgp_evpn_disable_ead_evi_tx_yang_cmd,
+	   "[no] disable-ead-evi-tx",
+	   NO_STR
+	   "Don't advertise EAD-EVI for local ESs\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/disable-ead-evi-tx", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_ead_es_frag_yang, bgp_evpn_ead_es_frag_yang_cmd,
+	   "[no] ead-es-frag evi-limit (1-1000)$limit",
+	   NO_STR
+	   "EAD ES fragment config\n"
+	   "EVIs per-fragment\n"
+	   "limit\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/ead-es-fragment-evi-limit", af_xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, limit);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	   "[no] <import|export>$direction_str vpn",
 	   NO_STR
@@ -8039,6 +8198,11 @@ void bgp_cli_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_resolve_overlay_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_flooding_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_macvrf_soo_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_dad_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_use_es_l3nhg_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_disable_ead_evi_rx_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_disable_ead_evi_tx_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_frag_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);

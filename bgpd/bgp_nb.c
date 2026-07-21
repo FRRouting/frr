@@ -1255,6 +1255,72 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/duplicate-address-detection/enable",
+			.cbs = {
+				.modify = bgp_nb_evpn_dad_enable_modify,
+				.cli_show = bgp_nb_cli_show_evpn_dad_enable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/duplicate-address-detection/max-moves",
+			.cbs = {
+				.modify = bgp_nb_evpn_dad_param_modify,
+				.cli_show = bgp_nb_cli_show_evpn_dad_max_moves,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/duplicate-address-detection/time",
+			.cbs = {
+				.modify = bgp_nb_evpn_dad_param_modify,
+				.cli_show = bgp_nb_cli_show_evpn_dad_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/duplicate-address-detection/freeze-time",
+			.cbs = {
+				.modify = bgp_nb_evpn_dad_param_modify,
+				.destroy = bgp_nb_evpn_dad_param_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_dad_freeze_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/duplicate-address-detection/freeze-permanent",
+			.cbs = {
+				.create = bgp_nb_evpn_dad_freeze_permanent_create,
+				.destroy = bgp_nb_evpn_dad_freeze_permanent_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_dad_freeze_permanent,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/multihoming/use-es-l3nhg",
+			.cbs = {
+				.modify = bgp_nb_evpn_use_es_l3nhg_modify,
+				.cli_show = bgp_nb_cli_show_evpn_use_es_l3nhg,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/multihoming/disable-ead-evi-rx",
+			.cbs = {
+				.modify = bgp_nb_evpn_disable_ead_evi_rx_modify,
+				.cli_show = bgp_nb_cli_show_evpn_disable_ead_evi_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/multihoming/disable-ead-evi-tx",
+			.cbs = {
+				.modify = bgp_nb_evpn_disable_ead_evi_tx_modify,
+				.cli_show = bgp_nb_cli_show_evpn_disable_ead_evi_tx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/multihoming/ead-es-fragment-evi-limit",
+			.cbs = {
+				.modify = bgp_nb_evpn_ead_es_frag_modify,
+				.destroy = bgp_nb_evpn_ead_es_frag_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_ead_es_frag,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/enable",
 			.cbs = {
 				.modify = bgp_nb_dampening_enable_modify,
