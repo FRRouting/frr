@@ -2673,7 +2673,7 @@ DEFUN (bgp_graceful_restart_stalepath_time,
  * Reset the BGP session since there's a change
  * in GR capability
  */
-static void bgp_update_graceful_restart_capability(struct peer *peer)
+void bgp_update_graceful_restart_capability(struct peer *peer)
 {
 	enum peer_mode peer_gr_mode;
 	enum global_mode global_gr_mode;
@@ -2908,30 +2908,6 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
 		UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
 	}
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_graceful_restart_notification,
-	bgp_graceful_restart_notification_cmd,
-	"[no$no] bgp graceful-restart notification",
-	NO_STR
-	BGP_STR
-	"Graceful restart capability parameters\n"
-	"Indicate Graceful Restart support for BGP NOTIFICATION messages\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct listnode *node, *nnode;
-	struct peer *peer;
-
-	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
-	else
-		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
-
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
-
 	return CMD_SUCCESS;
 }
 
@@ -3234,33 +3210,6 @@ DEFPY (neighbor_graceful_shutdown,
 			ret = bgp_peer_soft_reset(vty, neighbor_str, peer, clear_group);
 	}
 	return ret;
-}
-
-DEFUN_HIDDEN (bgp_graceful_restart_disable_eor,
-              bgp_graceful_restart_disable_eor_cmd,
-              "bgp graceful-restart disable-eor",
-              BGP_STR
-              "Graceful restart configuration parameters\n"
-              "Disable EOR Check\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_bgp_graceful_restart_disable_eor,
-              no_bgp_graceful_restart_disable_eor_cmd,
-              "no bgp graceful-restart disable-eor",
-              NO_STR
-              BGP_STR
-              "Graceful restart configuration parameters\n"
-              "Disable EOR Check\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR);
-
-	return CMD_SUCCESS;
 }
 
 DEFUN (bgp_graceful_restart_rib_stale_time,
@@ -22424,13 +22373,7 @@ void bgp_vty_init(void)
 	/* "bgp default-originate set-only-unconditional" command */
 	install_element(BGP_NODE, &bgp_default_originate_setonly_empty_table_cmd);
 
-	/* "bgp graceful-restart" command */
-	install_element(BGP_NODE, &bgp_graceful_restart_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_cmd);
-
-	/* "bgp graceful-restart-disable" command */
-	install_element(BGP_NODE, &bgp_graceful_restart_disable_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_cmd);
+	/* GR mode enable/disable remain classic (CONFIG+BGP shared). */
 
 	/* "neighbor a:b:c:d graceful-restart" command */
 	install_element(BGP_NODE, &bgp_neighbor_graceful_restart_set_cmd);
@@ -22448,21 +22391,15 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE,
 			&no_bgp_neighbor_graceful_restart_helper_set_cmd);
 
-	install_element(BGP_NODE, &bgp_graceful_restart_stalepath_time_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_stalepath_time_cmd);
-	install_element(BGP_NODE, &bgp_graceful_restart_restart_time_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_restart_time_cmd);
-	install_element(BGP_NODE, &bgp_graceful_restart_select_defer_time_cmd);
-	install_element(BGP_NODE,
-			&no_bgp_graceful_restart_select_defer_time_cmd);
-	install_element(BGP_NODE, &bgp_graceful_restart_preserve_fw_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_preserve_fw_cmd);
-	install_element(BGP_NODE, &bgp_graceful_restart_notification_cmd);
+	/* GR timer/flag knobs — BGP_NODE YANG: bgp_cli_init();
+	 * CONFIG_NODE remains classic where installed.
+	 */
 
-	install_element(BGP_NODE, &bgp_graceful_restart_disable_eor_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_eor_cmd);
-	install_element(BGP_NODE, &bgp_graceful_restart_rib_stale_time_cmd);
-	install_element(BGP_NODE, &no_bgp_graceful_restart_rib_stale_time_cmd);
+	/* Keep classic BGP_NODE installs for GR enable/disable */
+	install_element(BGP_NODE, &bgp_graceful_restart_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_disable_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_cmd);
 
 	/* "bgp graceful-shutdown" — BGP_NODE YANG: bgp_cli_init();
 	 * CONFIG_NODE remains classic (daemon-wide).

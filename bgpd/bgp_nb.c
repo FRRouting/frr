@@ -345,6 +345,79 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config/dynamic-neighbors-limit",
+			.cbs = {
+				.modify = bgp_nb_dynamic_neighbors_limit_modify,
+				.destroy = bgp_nb_dynamic_neighbors_limit_destroy,
+				.cli_show = bgp_nb_cli_show_dynamic_neighbors_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-afi-safi",
+			.cbs = {
+				.create = bgp_nb_default_afi_safi_create,
+				.destroy = bgp_nb_default_afi_safi_destroy,
+				.cli_show = bgp_nb_cli_show_default_afi_safi,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/stale-routes-time",
+			.cbs = {
+				.modify = bgp_nb_gr_stale_routes_time_modify,
+				.cli_show = bgp_nb_cli_show_gr_stale_routes_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/restart-time",
+			.cbs = {
+				.modify = bgp_nb_gr_restart_time_modify,
+				.cli_show = bgp_nb_cli_show_gr_restart_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/selection-deferral-time",
+			.cbs = {
+				.modify = bgp_nb_gr_select_defer_time_modify,
+				.cli_show = bgp_nb_cli_show_gr_select_defer_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/rib-stale-time",
+			.cbs = {
+				.modify = bgp_nb_gr_rib_stale_time_modify,
+				.cli_show = bgp_nb_cli_show_gr_rib_stale_time,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/preserve-fw-entry",
+			.cbs = {
+				.modify = bgp_nb_gr_preserve_fw_modify,
+				.cli_show = bgp_nb_cli_show_gr_preserve_fw,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/notification",
+			.cbs = {
+				.modify = bgp_nb_gr_notification_modify,
+				.destroy = bgp_nb_gr_notification_destroy,
+				.cli_show = bgp_nb_cli_show_gr_notification,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/disable-eor",
+			.cbs = {
+				.modify = bgp_nb_gr_disable_eor_modify,
+				.cli_show = bgp_nb_cli_show_gr_disable_eor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/long-lived-stale-time",
+			.cbs = {
+				.modify = bgp_nb_gr_llgr_stale_time_modify,
+				.cli_show = bgp_nb_cli_show_gr_llgr_stale_time,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

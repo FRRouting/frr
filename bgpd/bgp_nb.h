@@ -195,6 +195,49 @@ int bgp_nb_advertisement_delay_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults);
 
+int bgp_nb_dynamic_neighbors_limit_modify(struct nb_cb_modify_args *args);
+int bgp_nb_dynamic_neighbors_limit_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_dynamic_neighbors_limit(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+
+int bgp_nb_default_afi_safi_create(struct nb_cb_create_args *args);
+int bgp_nb_default_afi_safi_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_default_afi_safi(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_gr_stale_routes_time_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_gr_stale_routes_time(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+
+int bgp_nb_gr_restart_time_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_gr_restart_time(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+
+int bgp_nb_gr_select_defer_time_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_gr_select_defer_time(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+
+int bgp_nb_gr_rib_stale_time_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_gr_rib_stale_time(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_gr_preserve_fw_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_gr_preserve_fw(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+
+int bgp_nb_gr_notification_modify(struct nb_cb_modify_args *args);
+int bgp_nb_gr_notification_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_gr_notification(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+
+int bgp_nb_gr_disable_eor_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_gr_disable_eor(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+
+int bgp_nb_gr_llgr_stale_time_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_gr_llgr_stale_time(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus
