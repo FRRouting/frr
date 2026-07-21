@@ -4496,178 +4496,6 @@ ALIAS (bgp_sid_vpn_export,
        "sid per-VRF (both IPv4 and IPv6 address families)\n"
        "For routes leaked from current vrf to vpn\n")
 
-DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
-      "import vrf route-map RMAP$rmap_str",
-      "Import routes from another VRF\n"
-      "Vrf routes being filtered\n"
-      "Specify route map\n"
-      "name of route-map\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	enum vpn_policy_direction dir = BGP_VPN_POLICY_DIR_FROMVPN;
-	afi_t afi;
-	struct bgp *bgp_default;
-
-	afi = vpn_policy_getafi(vty, bgp, true);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	bgp_default = bgp_get_default();
-	if (!bgp_default) {
-		int32_t ret;
-		as_t as = BGP_AS_ZERO;
-
-		/* Auto-create with an unspecified ASN, to be filled in later. */
-		ret = bgp_get_vty(&bgp_default, &as, NULL,
-				  BGP_INSTANCE_TYPE_DEFAULT, NULL,
-				  ASNOTATION_UNDEFINED);
-
-		if (ret) {
-			vty_out(vty,
-				"VRF default is not configured as a bgp instance\n");
-			return CMD_WARNING;
-		}
-
-		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
-	}
-
-	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
-
-	if (bgp->vpn_policy[afi].rmap_name[dir])
-		XFREE(MTYPE_ROUTE_MAP_NAME,
-		      bgp->vpn_policy[afi].rmap_name[dir]);
-	bgp->vpn_policy[afi].rmap_name[dir] =
-		XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
-	bgp->vpn_policy[afi].rmap[dir] =
-		route_map_lookup_warn_noexist(vty, rmap_str);
-
-	SET_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
-		 BGP_CONFIG_VRF_TO_VRF_IMPORT);
-	if (!bgp->vpn_policy[afi].rmap[dir])
-		return CMD_SUCCESS;
-
-	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(af_no_import_vrf_route_map, af_no_import_vrf_route_map_cmd,
-      "no import vrf route-map [RMAP$rmap_str]",
-      NO_STR
-      "Import routes from another VRF\n"
-      "Vrf routes being filtered\n"
-      "Specify route map\n"
-      "name of route-map\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	enum vpn_policy_direction dir = BGP_VPN_POLICY_DIR_FROMVPN;
-	afi_t afi;
-
-	afi = vpn_policy_getafi(vty, bgp, true);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
-
-	if (bgp->vpn_policy[afi].rmap_name[dir])
-		XFREE(MTYPE_ROUTE_MAP_NAME,
-		      bgp->vpn_policy[afi].rmap_name[dir]);
-	bgp->vpn_policy[afi].rmap_name[dir] = NULL;
-	bgp->vpn_policy[afi].rmap[dir] = NULL;
-
-	if (bgp->vpn_policy[afi].import_vrf->count == 0)
-		UNSET_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
-			   BGP_CONFIG_VRF_TO_VRF_IMPORT);
-
-	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
-      "[no] import vrf VIEWVRFNAME$import_name",
-      NO_STR
-      "Import routes from another VRF\n"
-      "VRF to import from\n"
-      "The name of the VRF\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct listnode *node;
-	struct bgp *vrf_bgp, *bgp_default;
-	int32_t ret = 0;
-	as_t as = bgp->as;
-	bool remove = false;
-	int32_t idx = 0;
-	char *vname;
-	safi_t safi;
-	afi_t afi;
-
-	if (import_name == NULL) {
-		vty_out(vty, "%% Missing import name\n");
-		return CMD_WARNING;
-	}
-
-	if (strcmp(import_name, "route-map") == 0) {
-		vty_out(vty, "%% Must include route-map name\n");
-		return CMD_WARNING;
-	}
-
-	if (argv_find(argv, argc, "no", &idx))
-		remove = true;
-
-	afi = vpn_policy_getafi(vty, bgp, true);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	safi = bgp_node_safi(vty);
-
-	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type)
-	     && (strcmp(import_name, VRF_DEFAULT_NAME) == 0))
-	    || (bgp->name && (strcmp(import_name, bgp->name) == 0))) {
-		vty_out(vty, "%% Cannot %s vrf %s into itself\n",
-			remove ? "unimport" : "import", import_name);
-		return CMD_WARNING;
-	}
-
-	bgp_default = bgp_get_default();
-	if (!bgp_default) {
-		as = BGP_AS_ZERO;
-
-		/* Auto-create with an unspecified ASN, to be filled in later. */
-		ret = bgp_get_vty(&bgp_default, &as, NULL,
-				  BGP_INSTANCE_TYPE_DEFAULT, NULL,
-				  ASNOTATION_UNDEFINED);
-
-		if (ret) {
-			vty_out(vty,
-				"VRF default is not configured as a bgp instance\n");
-			return CMD_WARNING;
-		}
-
-		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
-	}
-
-	if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
-		vrf_bgp = bgp_default;
-	else
-		vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
-
-	if (remove) {
-		vrf_unimport_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
-	} else {
-		/* Already importing from "import_vrf"? */
-		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
-					  vname)) {
-			if (strcmp(vname, import_name) == 0)
-				return CMD_WARNING;
-		}
-
-		vrf_import_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFPY (af_routetarget_import,
        af_routetarget_import_cmd,
        "[no] <rt|route-target|route-target6|rt6> redirect import RTLIST...",
@@ -16118,9 +15946,7 @@ void bgp_vty_init(void)
 	install_element(VIEW_NODE, &show_bgp_redistribute_cmd);
 
 	/* import|export vpn — YANG: bgp_cli_init() */
-
-	install_element(BGP_IPV4_NODE, &bgp_imexport_vrf_cmd);
-	install_element(BGP_IPV6_NODE, &bgp_imexport_vrf_cmd);
+	/* import vrf — YANG: bgp_cli_init() */
 
 	/* ttl_security commands */
 
@@ -16153,17 +15979,13 @@ void bgp_vty_init(void)
 
 	/* vpn-policy commands */
 	/* rd / label / nexthop / rt vpn — YANG: bgp_cli_init() */
-	/* route-map vpn — YANG: bgp_cli_init() */
-	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_cmd);
-	install_element(BGP_IPV6_NODE, &af_import_vrf_route_map_cmd);
+	/* route-map vpn / import vrf route-map — YANG: bgp_cli_init() */
 
 	install_element(BGP_IPV4_NODE, &af_routetarget_import_cmd);
 	install_element(BGP_IPV6_NODE, &af_routetarget_import_cmd);
 
 	/* no rd / label / rt vpn — YANG: bgp_cli_init() */
-	/* no route-map vpn — YANG: bgp_cli_init() */
-	install_element(BGP_IPV4_NODE, &af_no_import_vrf_route_map_cmd);
-	install_element(BGP_IPV6_NODE, &af_no_import_vrf_route_map_cmd);
+	/* no route-map vpn / import vrf route-map — YANG: bgp_cli_init() */
 
 	/* tcp-mss command */
 
