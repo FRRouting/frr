@@ -3308,7 +3308,7 @@ DEFUN_YANG (match_rpki,
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:rpki']";
-	char xpath_value[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN + 256];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),

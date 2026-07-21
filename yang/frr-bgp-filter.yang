@@ -326,6 +326,17 @@ module frr-bgp-filter {
                     "List of node-target values for the ext-community NT attribute";
                 }
               }
+
+              case extcommunity-color {
+                description
+                  "Set BGP ext-community color attribute";
+                leaf-list extcommunity-color {
+                  type frr-bt:route-target;
+                  description
+                    "List of color values for the ext-community Color attribute.
+                     Maps to: bgp extcommunity-list ... color AA:NN.";
+                }
+              }
             }
           }
 

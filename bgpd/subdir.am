@@ -245,7 +245,9 @@ nodist_bgpd_bgpd_SOURCES = \
 	yang/frr-bgp-neighbor.yang.c \
 	yang/frr-bgp-peer-group.yang.c \
 	yang/frr-bgp-bmp.yang.c \
+	yang/frr-bgp-evpn.yang.c \
 	yang/frr-bgp-rpki.yang.c \
+	yang/frr-bgp-vnc.yang.c \
 	yang/frr-deviations-bgp-datacenter.yang.c \
 	yang/frr-bgp-filter.yang.c \
 	yang/frr-bgp-route-map.yang.c \
