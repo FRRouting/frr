@@ -4199,6 +4199,74 @@ ALIAS_ATTR(aggregate_addressv4_yang, aggregate_addressv4_yang_hidden_cmd,
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
 
+DEFPY_YANG(bgp_maxpaths_yang, bgp_maxpaths_yang_cmd,
+	   "[no] maximum-paths [1-" MULTIPATH_NUM_STR "$mpaths]",
+	   NO_STR
+	   "Forward packets over multiple paths\n"
+	   "Number of paths\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ebgp/maximum-paths", af_xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!mpaths)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
+	   "[no] maximum-paths ibgp [1-" MULTIPATH_NUM_STR "$mpaths [equal-cluster-length$cluster]]",
+	   NO_STR
+	   "Forward packets over multiple paths\n"
+	   "iBGP-multipath\n"
+	   "Number of paths\n"
+	   "Match the cluster length\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/maximum-paths", af_xpath);
+	if (no) {
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	} else {
+		if (!mpaths)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths);
+		snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
+			   af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, cluster ? "true" : "false");
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(bgp_maxpaths_yang, bgp_maxpaths_yang_hidden_cmd,
+	   "[no] maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "$mpaths]",
+	   NO_STR "Forward packets over multiple paths\n"
+		  "Number of paths\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_hidden_cmd,
+	   "[no] maximum-paths ibgp [" CMD_RANGE_STR(
+		   1, MULTIPATH_NUM) "$mpaths [equal-cluster-length$cluster]]",
+	   NO_STR "Forward packets over multiple paths\n"
+		  "iBGP-multipath\n"
+		  "Number of paths\n"
+		  "Match the cluster length\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
 {
@@ -5900,6 +5968,18 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV4M_NODE, &aggregate_addressv4_yang_cmd);
 	install_element(BGP_IPV6_NODE, &aggregate_addressv6_yang_cmd);
 	install_element(BGP_NODE, &aggregate_addressv4_yang_hidden_cmd);
+
+	/* maximum-paths: unicast + labeled */
+	install_element(BGP_IPV4_NODE, &bgp_maxpaths_yang_cmd);
+	install_element(BGP_IPV4_NODE, &bgp_maxpaths_ibgp_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_maxpaths_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_maxpaths_ibgp_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_maxpaths_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_maxpaths_ibgp_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_yang_cmd);
+	install_element(BGP_NODE, &bgp_maxpaths_yang_hidden_cmd);
+	install_element(BGP_NODE, &bgp_maxpaths_ibgp_yang_hidden_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
