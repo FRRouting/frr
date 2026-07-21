@@ -34,6 +34,8 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_bmp.h"
+#include "bgpd/bgp_bmp_nb.h"
+#include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_vty.h"
@@ -2735,6 +2737,43 @@ static struct bmp_targets *bmp_targets_get(struct bgp *bgp, const char *name)
 	return bt;
 }
 
+static void bmp_targets_stats_set(struct bmp_targets *bt, int msec)
+{
+	event_cancel(&bt->t_stats);
+	bt->stat_msec = msec;
+	if (bt->stat_msec)
+		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec, &bt->t_stats);
+}
+
+static void bmp_targets_mirror_set(struct bmp_targets *bt, bool enable)
+{
+	struct bmp *bmp;
+
+	if (bt->mirror == enable)
+		return;
+
+	bt->mirror = enable;
+	if (bt->mirror)
+		return;
+
+	frr_each (bmp_session, &bt->sessions, bmp) {
+		struct bmp_mirrorq *bmq;
+
+		while ((bmq = bmp_pull_mirror(bmp)))
+			if (!bmq->refcount)
+				XFREE(MTYPE_BMP_MIRRORQ, bmq);
+	}
+}
+
+static void bmp_targets_acl_set(struct bmp_targets *bt, bool ipv6, const char *access_list)
+{
+	char **what = ipv6 ? &bt->acl6_name : &bt->acl_name;
+
+	XFREE(MTYPE_BMP_ACLNAME, *what);
+	if (access_list)
+		*what = XSTRDUP(MTYPE_BMP_ACLNAME, access_list);
+}
+
 static void bmp_imported_bgp_free(struct bmp_imported_bgp *bib)
 {
 	if (bib->name)
@@ -3426,19 +3465,10 @@ DEFPY(bmp_acl,
       "Access list name\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
-	char **what;
 
 	if (no)
 		access_list = NULL;
-	if (!strcmp(af, "ipv6"))
-		what = &bt->acl6_name;
-	else
-		what = &bt->acl_name;
-
-	XFREE(MTYPE_BMP_ACLNAME, *what);
-	if (access_list)
-		*what = XSTRDUP(MTYPE_BMP_ACLNAME, access_list);
-
+	bmp_targets_acl_set(bt, !strcmp(af, "ipv6"), access_list);
 	return CMD_SUCCESS;
 }
 
@@ -3515,18 +3545,16 @@ DEFPY(bmp_stats_cfg,
       "Interval (milliseconds) to send BMP Stats in\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+	int msec;
 
-	event_cancel(&bt->t_stats);
 	if (no)
-		bt->stat_msec = 0;
+		msec = 0;
 	else if (interval_str)
-		bt->stat_msec = interval;
+		msec = interval;
 	else
-		bt->stat_msec = BMP_STAT_DEFAULT_TIMER;
+		msec = BMP_STAT_DEFAULT_TIMER;
 
-	if (bt->stat_msec)
-		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec,
-				     &bt->t_stats);
+	bmp_targets_stats_set(bt, msec);
 	return CMD_SUCCESS;
 }
 
@@ -3610,22 +3638,8 @@ DEFPY(bmp_mirror_cfg,
       "Send BMP route mirroring messages\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
-	struct bmp *bmp;
 
-	if (bt->mirror == !no)
-		return CMD_SUCCESS;
-
-	bt->mirror = !no;
-	if (bt->mirror)
-		return CMD_SUCCESS;
-
-	frr_each (bmp_session, &bt->sessions, bmp) {
-		struct bmp_mirrorq *bmq;
-
-		while ((bmq = bmp_pull_mirror(bmp)))
-			if (!bmq->refcount)
-				XFREE(MTYPE_BMP_MIRRORQ, bmq);
-	}
+	bmp_targets_mirror_set(bt, !no);
 	return CMD_SUCCESS;
 }
 
@@ -3897,24 +3911,19 @@ static int bgp_bmp_init(struct event_loop *tm)
 
 	cmd_variable_handler_register(bmp_targets_var_handlers);
 
-	install_element(BGP_NODE, &bmp_targets_cmd);
-	install_element(BGP_NODE, &no_bmp_targets_cmd);
+	/* bmp targets / mirror buffer-limit on BGP_NODE — YANG: bgp_cli_init()
+	 * BMP_NODE knobs installed here after the node exists.
+	 */
+	bgp_cli_bmp_init();
 
 	install_element(BMP_NODE, &bmp_listener_cmd);
 	install_element(BMP_NODE, &no_bmp_listener_cmd);
 	install_element(BMP_NODE, &bmp_connect_cmd);
-	install_element(BMP_NODE, &bmp_acl_cmd);
 	install_element(BMP_NODE, &bmp_initiation_cmd);
 	install_element(BMP_NODE, &no_bmp_initiation_cmd);
 	install_element(BMP_NODE, &no_bmp_initiation_line_cmd);
-	install_element(BMP_NODE, &bmp_stats_send_experimental_cmd);
-	install_element(BMP_NODE, &bmp_stats_cmd);
 	install_element(BMP_NODE, &bmp_monitor_cmd);
-	install_element(BMP_NODE, &bmp_mirror_cmd);
 	install_element(BMP_NODE, &bmp_import_vrf_cmd);
-
-	install_element(BGP_NODE, &bmp_mirror_limit_cmd);
-	install_element(BGP_NODE, &no_bmp_mirror_limit_cmd);
 
 	install_element(VIEW_NODE, &show_bmp_cmd);
 
@@ -4179,8 +4188,77 @@ static int bmp_vrf_itf_state_changed(struct bgp *bgp, struct interface *itf)
 	return 0;
 }
 
+/*
+ * Northbound ops — wired to bmp_nb_cb at module init so core bgpd can
+ * APPLY bmp-config without linking bmp_* symbols.
+ */
+static int bmp_nb_mirror_buffer_limit_set(struct bgp *bgp, uint32_t limit)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_get(bgp);
+
+	if (!bmpbgp)
+		return NB_ERR_RESOURCE;
+	bmpbgp->mirror_qsizelimit = limit;
+	return NB_OK;
+}
+
+static int bmp_nb_mirror_buffer_limit_unset(struct bgp *bgp)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+
+	if (bmpbgp)
+		bmpbgp->mirror_qsizelimit = ~0UL;
+	return NB_OK;
+}
+
+static void *bmp_nb_target_get(struct bgp *bgp, const char *name)
+{
+	return bmp_targets_get(bgp, name);
+}
+
+static void bmp_nb_target_put(void *bt)
+{
+	if (bt)
+		bmp_targets_put(bt);
+}
+
+static void bmp_nb_target_mirror_set(void *bt, bool enable)
+{
+	bmp_targets_mirror_set(bt, enable);
+}
+
+static void bmp_nb_target_stats_set(void *bt, uint32_t msec)
+{
+	bmp_targets_stats_set(bt, msec);
+}
+
+static void bmp_nb_target_stats_experimental_set(void *bt, bool enable)
+{
+	struct bmp_targets *target = bt;
+
+	target->stats_send_experimental = enable;
+}
+
+static void bmp_nb_target_acl_set(void *bt, bool ipv6, const char *access_list)
+{
+	bmp_targets_acl_set(bt, ipv6, access_list);
+}
+
 static int bgp_bmp_module_init(void)
 {
+	static struct bmp_nb_ops bmp_nb_ops_impl = {
+		.mirror_buffer_limit_set = bmp_nb_mirror_buffer_limit_set,
+		.mirror_buffer_limit_unset = bmp_nb_mirror_buffer_limit_unset,
+		.target_get = bmp_nb_target_get,
+		.target_put = bmp_nb_target_put,
+		.target_mirror_set = bmp_nb_target_mirror_set,
+		.target_stats_set = bmp_nb_target_stats_set,
+		.target_stats_experimental_set = bmp_nb_target_stats_experimental_set,
+		.target_acl_set = bmp_nb_target_acl_set,
+	};
+
+	bmp_nb_cb = &bmp_nb_ops_impl;
+
 	hook_register(bgp_packet_dump, bmp_mirror_packet);
 	hook_register(bgp_packet_send, bmp_outgoing_packet);
 	hook_register(peer_status_changed, bmp_peer_status_changed);

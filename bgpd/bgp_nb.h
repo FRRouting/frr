@@ -797,6 +797,7 @@ int bgp_nb_vpn_network_rmap_destroy(struct nb_cb_destroy_args *args);
 
 
 void bgp_cli_init(void);
+void bgp_cli_bmp_init(void);
 
 #ifdef __cplusplus
 }
@@ -1089,6 +1090,37 @@ int bgp_nb_vpn_retain_rt_modify(struct nb_cb_modify_args *args);
 int bgp_nb_vpn_retain_rt_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_vpn_retain_rt(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults);
+
+/* BMP */
+int bgp_nb_bmp_mirror_buffer_limit_modify(struct nb_cb_modify_args *args);
+int bgp_nb_bmp_mirror_buffer_limit_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_mirror_buffer_limit(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+
+int bgp_nb_bmp_target_create(struct nb_cb_create_args *args);
+int bgp_nb_bmp_target_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_target(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bgp_nb_cli_show_bmp_target_end(struct vty *vty, const struct lyd_node *dnode);
+
+int bgp_nb_bmp_target_mirror_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_bmp_target_mirror(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_bmp_target_stats_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_bmp_target_stats_time_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_target_stats_time(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
+int bgp_nb_bmp_target_stats_experimental_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_bmp_target_stats_experimental(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+
+int bgp_nb_bmp_target_acl_modify(struct nb_cb_modify_args *args);
+int bgp_nb_bmp_target_acl_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_target_acl_v4(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+void bgp_nb_cli_show_bmp_target_acl_v6(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
 
 int bgp_nb_vpn_redirect_rt_modify(struct nb_cb_modify_args *args);
 int bgp_nb_vpn_redirect_rt_destroy(struct nb_cb_destroy_args *args);
