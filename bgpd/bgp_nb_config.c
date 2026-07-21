@@ -1763,6 +1763,45 @@ void bgp_nb_cli_show_update_delay_time(struct vty *vty, const struct lyd_node *d
 		vty_out(vty, " update-delay %u\n", delay);
 }
 
+int bgp_nb_rmap_delay_time_modify(struct nb_cb_modify_args *args)
+{
+	uint16_t timer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	timer = yang_dnode_get_uint16(args->dnode, NULL);
+	bm->rmap_update_timer = timer;
+
+	/*
+	 * Disabling the delay timer while one is armed: cancel and run the
+	 * update immediately (matches classic CLI).
+	 */
+	if (!timer && event_is_scheduled(bm->t_rmap_update)) {
+		event_cancel(&bm->t_rmap_update);
+		event_execute(bm->master, bgp_route_map_update_timer, NULL, 0, NULL);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_rmap_delay_time_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_rmap_delay_time(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	uint16_t timer = yang_dnode_get_uint16(dnode, NULL);
+
+	if (timer != RMAP_DEFAULT_UPDATE_TIMER || show_defaults)
+		vty_out(vty, " bgp route-map delay-timer %u\n", timer);
+}
+
 int bgp_nb_establish_wait_time_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -4094,6 +4133,91 @@ void bgp_nb_cli_show_peer_shutdown_message(struct vty *vty, const struct lyd_nod
 {
 	vty_out(vty, "%sneighbor %s shutdown message %s\n", bgp_nb_peer_show_indent(dnode),
 		bgp_nb_config_peer_name(dnode), yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_peer_shutdown_rtt_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	const struct lyd_node *shut;
+	uint16_t rtt;
+	uint8_t count = 1;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	rtt = yang_dnode_get_uint16(args->dnode, NULL);
+	shut = yang_dnode_get_parent(args->dnode, "admin-shutdown");
+	if (shut && yang_dnode_exists(shut, "./rtt-count"))
+		count = yang_dnode_get_uint8(shut, "./rtt-count");
+
+	peer->rtt_expected = rtt;
+	peer->rtt_keepalive_conf = count;
+	peer_flag_set(peer, PEER_FLAG_RTT_SHUTDOWN);
+	return NB_OK;
+}
+
+int bgp_nb_peer_shutdown_rtt_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	peer->rtt_expected = 0;
+	peer->rtt_keepalive_conf = 1;
+	peer_flag_unset(peer, PEER_FLAG_RTT_SHUTDOWN);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_shutdown_rtt(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	const struct lyd_node *shut = yang_dnode_get_parent(dnode, "admin-shutdown");
+	uint8_t count = 1;
+
+	if (shut && yang_dnode_exists(shut, "./rtt-count"))
+		count = yang_dnode_get_uint8(shut, "./rtt-count");
+
+	vty_out(vty, "%sneighbor %s shutdown rtt %u count %u\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint16(dnode, NULL), count);
+}
+
+int bgp_nb_peer_shutdown_rtt_count_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer->rtt_keepalive_conf = yang_dnode_get_uint8(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_peer_shutdown_rtt_count_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	peer->rtt_keepalive_conf = 1;
+	return NB_OK;
 }
 
 /*

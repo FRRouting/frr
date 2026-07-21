@@ -1549,49 +1549,6 @@ void bgp_clear_all_soft_out(struct bgp *bgp)
 		bgp_clear_soft_out(bgp, afi, safi);
 }
 
-static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
-				uint64_t flag, int set)
-{
-	int ret;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	/*
-	 * If 'neighbor <interface>', then this is for directly connected peers,
-	 * we should not accept disable-connected-check.
-	 */
-	if (peer->conf_if && (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
-		vty_out(vty,
-			"%s is directly connected peer, cannot accept disable-connected-check\n",
-			ip_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!set && flag == PEER_FLAG_SHUTDOWN)
-		peer_tx_shutdown_message_unset(peer);
-
-	if (set)
-		ret = peer_flag_set(peer, flag);
-	else
-		ret = peer_flag_unset(peer, flag);
-
-	return bgp_vty_return(vty, ret);
-}
-
-static int peer_flag_set_vty(struct vty *vty, const char *ip_str, uint64_t flag)
-{
-	return peer_flag_modify_vty(vty, ip_str, flag, 1);
-}
-
-static int peer_flag_unset_vty(struct vty *vty, const char *ip_str,
-			       uint64_t flag)
-{
-	return peer_flag_modify_vty(vty, ip_str, flag, 0);
-}
-
 static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
 {
 	struct listnode *node;
@@ -3029,64 +2986,6 @@ ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Member of the peer-group\n"
 	     "Peer-group name\n")
-
-DEFUN(neighbor_shutdown_rtt,
-      neighbor_shutdown_rtt_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown rtt (1-65535) [count (1-255)]",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Administratively shut down this neighbor\n"
-      "Shutdown if round-trip-time is higher than expected\n"
-      "Round-trip-time in milliseconds\n"
-      "Specify the number of keepalives before shutdown\n"
-      "The number of keepalives with higher RTT to shutdown\n")
-{
-	int idx_peer = 1;
-	int idx_rtt = 4;
-	int idx_count = 0;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	peer->rtt_expected = strtol(argv[idx_rtt]->arg, NULL, 10);
-
-	if (argv_find(argv, argc, "count", &idx_count))
-		peer->rtt_keepalive_conf =
-			strtol(argv[idx_count + 1]->arg, NULL, 10);
-
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_RTT_SHUTDOWN);
-}
-
-DEFUN(no_neighbor_shutdown_rtt,
-      no_neighbor_shutdown_rtt_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown rtt [(1-65535) [count (1-255)]]",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Administratively shut down this neighbor\n"
-      "Shutdown if round-trip-time is higher than expected\n"
-      "Round-trip-time in milliseconds\n"
-      "Specify the number of keepalives before shutdown\n"
-      "The number of keepalives with higher RTT to shutdown\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	peer->rtt_expected = 0;
-	peer->rtt_keepalive_conf = 1;
-
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_RTT_SHUTDOWN);
-}
 
 /*
  * Send dynamic capability on the peer(s) that own the TCP BGP session.
@@ -14346,10 +14245,9 @@ void bgp_vty_init(void)
 
 	/* "timers bgp" / minimum-holdtime — YANG: bgp_cli_init() */
 
-	/* route-map delay-timer commands - per instance for backwards compat.
+	/* route-map delay-timer — BGP_NODE YANG: bgp_cli_init();
+	 * CONFIG_NODE remains classic (process-global, no BGP xpath).
 	 */
-	install_element(BGP_NODE, &bgp_set_route_map_delay_timer_cmd);
-	install_element(BGP_NODE, &no_bgp_set_route_map_delay_timer_cmd);
 
 	/* "bgp client-to-client reflection" — YANG: bgp_cli_init() */
 
@@ -14527,11 +14425,9 @@ void bgp_vty_init(void)
 
 	install_element(VIEW_NODE, &show_bgp_neighbor_upa_cmd);
 
-	/* "neighbor shutdown" — YANG: bgp_cli_init();
-	 * shutdown rtt remains classic for now.
+	/* "neighbor shutdown" — YANG: bgp_cli_init()
+	 * (including shutdown rtt)
 	 */
-	install_element(BGP_NODE, &neighbor_shutdown_rtt_cmd);
-	install_element(BGP_NODE, &no_neighbor_shutdown_rtt_cmd);
 
 	/* "neighbor capability extended-nexthop" commands.*/
 

@@ -196,6 +196,11 @@ int bgp_nb_update_delay_time_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_update_delay_time(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults);
 
+int bgp_nb_rmap_delay_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_rmap_delay_time_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_rmap_delay_time(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+
 int bgp_nb_establish_wait_time_modify(struct nb_cb_modify_args *args);
 int bgp_nb_establish_wait_time_destroy(struct nb_cb_destroy_args *args);
 
@@ -424,6 +429,12 @@ int bgp_nb_peer_shutdown_message_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_shutdown_message(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 
+int bgp_nb_peer_shutdown_rtt_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_shutdown_rtt_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_shutdown_rtt(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+int bgp_nb_peer_shutdown_rtt_count_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_shutdown_rtt_count_destroy(struct nb_cb_destroy_args *args);
 
 int bgp_nb_peer_update_source_ip_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_update_source_ip_destroy(struct nb_cb_destroy_args *args);
