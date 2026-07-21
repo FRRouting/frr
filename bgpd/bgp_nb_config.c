@@ -3364,8 +3364,6 @@ int bgp_nb_unnumbered_peer_group_destroy(struct nb_cb_destroy_args *args)
 	if (!peer || !peer->group)
 		return NB_OK;
 
-	if (peer_group_unbind(peer->bgp, peer, peer->group) != 0)
-		return NB_ERR_RESOURCE;
 
 	return NB_OK;
 }
@@ -3602,4 +3600,761 @@ void bgp_nb_cli_show_peer_shutdown_message(struct vty *vty, const struct lyd_nod
 {
 	vty_out(vty, " neighbor %s shutdown message %s\n", bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * Shared connection / timer / capability session leaves
+ */
+int bgp_nb_peer_update_source_ip_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	union sockunion su;
+	const char *ip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	ip = yang_dnode_get_string(args->dnode, NULL);
+	if (str2sockunion(ip, &su) < 0)
+		return NB_ERR_VALIDATION;
+
+	peer_update_source_addr_set(peer, &su);
+	return NB_OK;
+}
+
+int bgp_nb_peer_update_source_ip_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_update_source_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_update_source_ip(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_out(vty, " neighbor %s update-source %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_peer_update_source_if_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (peer_update_source_if_set(peer, yang_dnode_get_string(args->dnode, NULL)))
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_update_source_if_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_update_source_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_update_source_if(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_out(vty, " neighbor %s update-source %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_peer_ebgp_mh_enabled_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!peer)
+			return NB_ERR_VALIDATION;
+		if (peer->conf_if) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "ebgp-multihop not valid for interface peer");
+			return NB_ERR_VALIDATION;
+		}
+		if (yang_dnode_get_bool(args->dnode, NULL) && peer_gtsm_configured(peer)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "ebgp-multihop and ttl-security are mutually exclusive");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_ebgp_multihop_set(peer, MAXTTL, true);
+	else
+		peer_ebgp_multihop_unset(peer, true);
+	return NB_OK;
+}
+
+int bgp_nb_peer_ebgp_mh_enabled_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_ebgp_multihop_unset(peer, true);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_ebgp_mh_enabled(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	const struct lyd_node *mh = yang_dnode_get_parent(dnode, "ebgp-multihop");
+
+	if (mh && yang_dnode_exists(mh, "./multihop-ttl"))
+		return;
+
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s ebgp-multihop\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_ebgp_mh_ttl_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	uint8_t ttl;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!peer)
+			return NB_ERR_VALIDATION;
+		if (peer->conf_if) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "ebgp-multihop not valid for interface peer");
+			return NB_ERR_VALIDATION;
+		}
+		if (peer_gtsm_configured(peer)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "ebgp-multihop and ttl-security are mutually exclusive");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	ttl = yang_dnode_get_uint8(args->dnode, NULL);
+	peer_ebgp_multihop_set(peer, ttl, true);
+	return NB_OK;
+}
+
+int bgp_nb_peer_ebgp_mh_ttl_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_ebgp_multihop_unset(peer, true);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_ebgp_mh_ttl(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " neighbor %s ebgp-multihop %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint8(dnode, NULL));
+}
+
+int bgp_nb_peer_disable_connected_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_DISABLE_CONNECTED_CHECK);
+	else
+		peer_flag_unset(peer, PEER_FLAG_DISABLE_CONNECTED_CHECK);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_disable_connected(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s disable-connected-check\n",
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s disable-connected-check\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_ttl_security_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	uint8_t hops;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!peer)
+			return NB_ERR_VALIDATION;
+		hops = yang_dnode_get_uint8(args->dnode, NULL);
+		if (peer->conf_if && hops > 1) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "interface peer hops cannot exceed 1");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (peer_ttl_security_hops_set(peer, yang_dnode_get_uint8(args->dnode, NULL)))
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_ttl_security_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_ttl_security_hops_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_ttl_security(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	vty_out(vty, " neighbor %s ttl-security hops %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint8(dnode, NULL));
+}
+
+static void bgp_nb_peer_local_as_apply(struct peer *peer, const struct lyd_node *dnode)
+{
+	const struct lyd_node *las;
+	as_t as;
+	bool no_prepend = false, replace_as = false, dual_as = false;
+	const char *as_str;
+
+	las = yang_dnode_get_parent(dnode, "local-as");
+	if (!las || !yang_dnode_exists(las, "./local-as"))
+		return;
+
+	as = yang_dnode_get_uint32(las, "./local-as");
+	as_str = yang_dnode_get_string(las, "./local-as");
+	if (yang_dnode_exists(las, "./no-prepend"))
+		no_prepend = yang_dnode_get_bool(las, "./no-prepend");
+	if (yang_dnode_exists(las, "./replace-as"))
+		replace_as = yang_dnode_get_bool(las, "./replace-as");
+	if (yang_dnode_exists(las, "./dual-as"))
+		dual_as = yang_dnode_get_bool(las, "./dual-as");
+
+	peer_local_as_set(peer, as, no_prepend, replace_as, dual_as, as_str);
+}
+
+int bgp_nb_peer_local_as_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_nb_peer_local_as_apply(peer, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_peer_local_as_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_local_as_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_local_as(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const struct lyd_node *las = yang_dnode_get_parent(dnode, "local-as");
+	bool no_prepend = las && yang_dnode_exists(las, "./no-prepend") &&
+			  yang_dnode_get_bool(las, "./no-prepend");
+	bool replace_as = las && yang_dnode_exists(las, "./replace-as") &&
+			  yang_dnode_get_bool(las, "./replace-as");
+	bool dual_as = las && yang_dnode_exists(las, "./dual-as") &&
+		       yang_dnode_get_bool(las, "./dual-as");
+
+	vty_out(vty, " neighbor %s local-as %s", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+	if (no_prepend)
+		vty_out(vty, " no-prepend");
+	if (replace_as)
+		vty_out(vty, " replace-as");
+	if (dual_as)
+		vty_out(vty, " dual-as");
+	vty_out(vty, "\n");
+}
+
+int bgp_nb_peer_local_as_no_prepend_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_nb_peer_local_as_apply(peer, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_peer_local_as_replace_as_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_nb_peer_local_as_apply(peer, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_peer_local_as_dual_as_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_nb_peer_local_as_apply(peer, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_peer_timers_keepalive_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	uint32_t keepalive, holdtime;
+	const struct lyd_node *timers;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	keepalive = yang_dnode_get_uint16(args->dnode, NULL);
+	timers = yang_dnode_get_parent(args->dnode, "timers");
+	if (timers && yang_dnode_exists(timers, "./hold-time"))
+		holdtime = yang_dnode_get_uint16(timers, "./hold-time");
+	else
+		holdtime = peer->holdtime ? peer->holdtime : keepalive * 3;
+
+	peer_timers_set(peer, keepalive, holdtime);
+	return NB_OK;
+}
+
+int bgp_nb_peer_timers_keepalive_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_timers_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_timers_keepalive(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "timers");
+	uint16_t hold = 0;
+
+	if (timers && yang_dnode_exists(timers, "./hold-time"))
+		hold = yang_dnode_get_uint16(timers, "./hold-time");
+
+	vty_out(vty, " neighbor %s timers %u %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint16(dnode, NULL), hold);
+}
+
+void bgp_nb_cli_show_peer_timers_holdtime(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "timers");
+	const struct lyd_node *ka;
+	uint16_t keepalive;
+
+	/*
+	 * Keepalive owns this line when nb_cli_show will visit it. A default
+	 * keepalive is skipped, which dropped "neighbor A timers 60 <hold>".
+	 */
+	ka = (timers && yang_dnode_exists(timers, "./keepalive"))
+		? yang_dnode_get(timers, "./keepalive")
+		: NULL;
+	if (ka && (show_defaults || !yang_dnode_is_default(ka, NULL)))
+		return;
+
+	keepalive = ka ? yang_dnode_get_uint16(ka, NULL) : DFLT_BGP_KEEPALIVE;
+	vty_out(vty, " neighbor %s timers %u %u\n", bgp_nb_config_peer_name(dnode), keepalive,
+		yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_peer_timers_holdtime_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	uint32_t keepalive, holdtime;
+	const struct lyd_node *timers;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+	timers = yang_dnode_get_parent(args->dnode, "timers");
+	if (timers && yang_dnode_exists(timers, "./keepalive"))
+		keepalive = yang_dnode_get_uint16(timers, "./keepalive");
+	else
+		keepalive = peer->keepalive ? peer->keepalive : holdtime / 3;
+
+	peer_timers_set(peer, keepalive, holdtime);
+	return NB_OK;
+}
+
+int bgp_nb_peer_timers_holdtime_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_timers_unset(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_timers_connect_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer_timers_connect_set(peer, yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_peer_timers_connect_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_timers_connect_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_timers_connect(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	vty_out(vty, " neighbor %s timers connect %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_peer_timers_delayopen_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer_timers_delayopen_set(peer, yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_peer_timers_delayopen_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_timers_delayopen_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_timers_delayopen(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_out(vty, " neighbor %s timers delayopen %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_peer_advertise_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer_advertise_interval_set(peer, yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_peer_advertise_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_advertise_interval_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_advertise_interval(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	vty_out(vty, " neighbor %s advertisement-interval %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_peer_cap_dynamic_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_DYNAMIC_CAPABILITY);
+	else
+		peer_flag_unset(peer, PEER_FLAG_DYNAMIC_CAPABILITY);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_dynamic(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s capability dynamic\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s capability dynamic\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_cap_enhe_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_ENHE);
+	else
+		peer_flag_unset(peer, PEER_FLAG_CAPABILITY_ENHE);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_enhe(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s capability extended-nexthop\n",
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s capability extended-nexthop\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_cap_negotiate_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	/* true => negotiate (clear DONT_CAPABILITY) */
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_unset(peer, PEER_FLAG_DONT_CAPABILITY);
+	else
+		peer_flag_set(peer, PEER_FLAG_DONT_CAPABILITY);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_negotiate(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s dont-capability-negotiate\n",
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s dont-capability-negotiate\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_cap_fqdn_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_FQDN);
+	else
+		peer_flag_unset(peer, PEER_FLAG_CAPABILITY_FQDN);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_fqdn(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s capability fqdn\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s capability fqdn\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_enforce_first_as_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_ENFORCE_FIRST_AS);
+	else
+		peer_flag_unset(peer, PEER_FLAG_ENFORCE_FIRST_AS);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		if (show_defaults)
+			vty_out(vty, " neighbor %s enforce-first-as\n",
+				bgp_nb_config_peer_name(dnode));
+	} else
+		vty_out(vty, " no neighbor %s enforce-first-as\n", bgp_nb_config_peer_name(dnode));
 }
