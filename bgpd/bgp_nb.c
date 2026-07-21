@@ -1396,6 +1396,48 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast/retain-route-target-all",
+			.cbs = {
+				.modify = bgp_nb_vpn_retain_rt_modify,
+				.cli_show = bgp_nb_cli_show_vpn_retain_rt,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast/retain-route-target-all",
+			.cbs = {
+				.modify = bgp_nb_vpn_retain_rt_modify,
+				.cli_show = bgp_nb_cli_show_vpn_retain_rt,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/redirect-rt",
+			.cbs = {
+				.modify = bgp_nb_vpn_redirect_rt_modify,
+				.destroy = bgp_nb_vpn_redirect_rt_destroy,
+				.cli_show = bgp_nb_cli_show_vpn_redirect_rt,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/redirect-rt-ipv6",
+			.cbs = {
+				.modify = bgp_nb_vpn_redirect_rt_ipv6_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/redirect-rt",
+			.cbs = {
+				.modify = bgp_nb_vpn_redirect_rt_modify,
+				.destroy = bgp_nb_vpn_redirect_rt_destroy,
+				.cli_show = bgp_nb_cli_show_vpn_redirect_rt,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/redirect-rt-ipv6",
+			.cbs = {
+				.modify = bgp_nb_vpn_redirect_rt_ipv6_modify,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,
