@@ -5244,6 +5244,92 @@ DEFPY_YANG(af_routetarget_redirect_yang, af_routetarget_redirect_yang_cmd,
 	return ret;
 }
 
+static void bgp_cli_sid_export_clear(struct vty *vty, const char *af_xpath)
+{
+	char leaf[XPATH_MAXLEN + 256];
+
+	snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-index", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-auto", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-explicit", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/sid-export/behavior-dt46", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/sid-export/route-map", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+}
+
+DEFPY_YANG(sid_export_yang, sid_export_yang_cmd,
+	   "[no] sid export [<(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> [behavior dt46$behavior_dt46] [route-map RMAP$rmap_str]]",
+	   NO_STR
+	   "Sid value for VRF\n"
+	   "Encapsulation SRv6 over default vrf\n"
+	   "Sid allocation index\n"
+	   "Automatically assign a label\n"
+	   "Explicitly assign a sid value\n"
+	   "Sid value\n"
+	   "Specify SRv6 SID behavior\n"
+	   "Allocate a DT46 SID\n"
+	   "Specify route-map name\n"
+	   "Name of route-map\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	if (no) {
+		bgp_cli_sid_export_clear(vty, af_xpath);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (!sid_idx_str && !sid_auto && !sid_explicit)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/*
+	 * Choice: destroy only sibling allocation leaves so a same-mode
+	 * re-apply (e.g. route-map update) does not tear down the SID.
+	 */
+	if (!sid_auto) {
+		snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-auto", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+	if (!sid_explicit) {
+		snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-explicit", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+	if (!sid_idx_str) {
+		snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-index", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
+
+	if (sid_auto) {
+		snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-auto", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, NULL);
+	} else if (sid_explicit) {
+		snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-explicit", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, sid_value_str);
+	} else {
+		snprintfrr(buf, sizeof(buf), "%" PRId64, sid_idx);
+		snprintfrr(leaf, sizeof(leaf), "%s/sid-export/sid-index", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+
+	snprintfrr(leaf, sizeof(leaf), "%s/sid-export/behavior-dt46", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, behavior_dt46 ? "true" : "false");
+
+	/* Classic: omitting route-map leaves any existing map unchanged. */
+	if (rmap_str) {
+		snprintfrr(leaf, sizeof(leaf), "%s/sid-export/route-map", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_str);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -7022,6 +7108,8 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &af_routetarget_redirect_yang_cmd);
 	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_yang_cmd);
 	install_element(BGP_VPNV6_NODE, &bgp_retain_route_target_yang_cmd);
+	install_element(BGP_IPV4_NODE, &sid_export_yang_cmd);
+	install_element(BGP_IPV6_NODE, &sid_export_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
