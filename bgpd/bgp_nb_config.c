@@ -19,6 +19,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_updgrp.h"
 
 /*
  * XPath: .../frr-bgp:bgp
@@ -627,4 +628,225 @@ void bgp_nb_cli_show_reject_as_sets(struct vty *vty, const struct lyd_node *dnod
 			vty_out(vty, " bgp reject-as-sets\n");
 	} else
 		vty_out(vty, " no bgp reject-as-sets\n");
+}
+
+int bgp_nb_enforce_first_as_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	if (enable) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+			return NB_OK;
+		SET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+	} else {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+			return NB_OK;
+		UNSET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		FOREACH_AFI_SAFI (afi, safi)
+			peer_on_policy_change(peer, afi, safi, 0);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_enforce_first_as(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp enforce-first-as\n");
+	else
+		vty_out(vty, " no bgp enforce-first-as\n");
+}
+
+int bgp_nb_connected_route_check_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	/* YANG true => disable connected NH check */
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
+	bgp_clear_all_soft_in(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_connected_route_check(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp disable-ebgp-connected-route-check\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp disable-ebgp-connected-route-check\n");
+}
+
+int bgp_nb_allow_outbound_policy_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	if (enable) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
+			return NB_OK;
+		SET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+	} else {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
+			return NB_OK;
+		UNSET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+	}
+	update_group_announce_rrclients(bgp);
+	bgp_clear_all_soft_out(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_allow_outbound_policy(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp route-reflector allow-outbound-policy\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp route-reflector allow-outbound-policy\n");
+}
+
+int bgp_nb_hard_admin_reset_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_HARD_ADMIN_RESET);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_HARD_ADMIN_RESET);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_hard_admin_reset(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp hard-administrative-reset\n");
+	else
+		vty_out(vty, " no bgp hard-administrative-reset\n");
+}
+
+int bgp_nb_show_hostname_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_show_hostname(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp default show-hostname\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp default show-hostname\n");
+}
+
+int bgp_nb_show_nexthop_hostname_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_show_nexthop_hostname(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp default show-nexthop-hostname\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp default show-nexthop-hostname\n");
+}
+
+int bgp_nb_external_compare_router_id_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
+	bgp_recalculate_all_bestpaths(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_external_compare_router_id(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp bestpath compare-routerid\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp bestpath compare-routerid\n");
+}
+
+int bgp_nb_ignore_as_path_length_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
+	bgp_recalculate_all_bestpaths(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_ignore_as_path_length(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp bestpath as-path ignore\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp bestpath as-path ignore\n");
 }

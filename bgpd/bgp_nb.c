@@ -137,6 +137,62 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/enforce-first-as",
+			.cbs = {
+				.modify = bgp_nb_enforce_first_as_modify,
+				.cli_show = bgp_nb_cli_show_enforce_first_as,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/ebgp-multihop-connected-route-check",
+			.cbs = {
+				.modify = bgp_nb_connected_route_check_modify,
+				.cli_show = bgp_nb_cli_show_connected_route_check,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-reflector/allow-outbound-policy",
+			.cbs = {
+				.modify = bgp_nb_allow_outbound_policy_modify,
+				.cli_show = bgp_nb_cli_show_allow_outbound_policy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/hard-administrative-reset",
+			.cbs = {
+				.modify = bgp_nb_hard_admin_reset_modify,
+				.cli_show = bgp_nb_cli_show_hard_admin_reset,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-hostname",
+			.cbs = {
+				.modify = bgp_nb_show_hostname_modify,
+				.cli_show = bgp_nb_cli_show_show_hostname,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-nexthop-hostname",
+			.cbs = {
+				.modify = bgp_nb_show_nexthop_hostname_modify,
+				.cli_show = bgp_nb_cli_show_show_nexthop_hostname,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/external-compare-router-id",
+			.cbs = {
+				.modify = bgp_nb_external_compare_router_id_modify,
+				.cli_show = bgp_nb_cli_show_external_compare_router_id,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/ignore-as-path-length",
+			.cbs = {
+				.modify = bgp_nb_ignore_as_path_length_modify,
+				.cli_show = bgp_nb_cli_show_ignore_as_path_length,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

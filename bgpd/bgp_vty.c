@@ -1528,17 +1528,6 @@ static int bgp_clear_vty(struct vty *vty, const char *name, afi_t afi,
 	return bgp_clear(vty, bgp, afi, safi, sort, stype, arg);
 }
 
-/* clear soft inbound */
-static void bgp_clear_star_soft_in(struct vty *vty, const char *name)
-{
-	afi_t afi;
-	safi_t safi;
-
-	FOREACH_AFI_SAFI (afi, safi)
-		bgp_clear_vty(vty, name, afi, safi, clear_all,
-			      BGP_CLEAR_SOFT_IN, NULL);
-}
-
 /* clear soft outbound */
 static void bgp_clear_star_soft_out(struct vty *vty, const char *name)
 {
@@ -2846,37 +2835,6 @@ DEFPY(no_bgp_tcp_keepalive, no_bgp_tcp_keepalive_cmd,
 }
 
 
-DEFPY(bgp_enforce_first_as,
-      bgp_enforce_first_as_cmd,
-      "[no] bgp enforce-first-as",
-      NO_STR
-      BGP_STR
-      "Enforce the first AS for EBGP routes\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct listnode *node;
-	struct peer *peer;
-	afi_t afi;
-	safi_t safi;
-
-	if (no) {
-		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
-			return CMD_SUCCESS;
-		UNSET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
-	} else {
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
-			return CMD_SUCCESS;
-		SET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		FOREACH_AFI_SAFI (afi, safi)
-			peer_on_policy_change(peer, afi, safi, 0);
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFPY(bgp_lu_uses_explicit_null, bgp_lu_uses_explicit_null_cmd,
       "[no] bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>$value",
       NO_STR BGP_STR
@@ -3361,23 +3319,6 @@ DEFPY (bgp_graceful_restart_notification,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 				    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (bgp_administrative_reset,
-	bgp_administrative_reset_cmd,
-	"[no$no] bgp hard-administrative-reset",
-	NO_STR
-	BGP_STR
-	"Send Hard Reset CEASE Notification for 'Administrative Reset'\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_HARD_ADMIN_RESET);
-	else
-		SET_FLAG(bgp->flags, BGP_FLAG_HARD_ADMIN_RESET);
 
 	return CMD_SUCCESS;
 }
@@ -3924,68 +3865,6 @@ DEFPY (bgp_bestpath_aigp,
 	else
 		SET_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP);
 
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp bestpath compare-routerid" configuration.  */
-DEFUN (bgp_bestpath_compare_router_id,
-       bgp_bestpath_compare_router_id_cmd,
-       "bgp bestpath compare-routerid",
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "Compare router-id for identical EBGP paths\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_bestpath_compare_router_id,
-       no_bgp_bestpath_compare_router_id_cmd,
-       "no bgp bestpath compare-routerid",
-       NO_STR
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "Compare router-id for identical EBGP paths\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp bestpath as-path ignore" configuration.  */
-DEFUN (bgp_bestpath_aspath_ignore,
-       bgp_bestpath_aspath_ignore_cmd,
-       "bgp bestpath as-path ignore",
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Ignore as-path length in selecting a route\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_bestpath_aspath_ignore,
-       no_bgp_bestpath_aspath_ignore_cmd,
-       "no bgp bestpath as-path ignore",
-       NO_STR
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Ignore as-path length in selecting a route\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -4758,39 +4637,6 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 	}
 }
 
-
-DEFUN (bgp_disable_connected_route_check,
-       bgp_disable_connected_route_check_cmd,
-       "bgp disable-ebgp-connected-route-check",
-       BGP_STR
-       "Disable checking if nexthop is connected on ebgp sessions\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-		return CMD_SUCCESS;
-
-	SET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
-	bgp_clear_star_soft_in(vty, bgp->name);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_disable_connected_route_check,
-       no_bgp_disable_connected_route_check_cmd,
-       "no bgp disable-ebgp-connected-route-check",
-       NO_STR
-       BGP_STR
-       "Disable checking if nexthop is connected on ebgp sessions\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-		return CMD_SUCCESS;
-
-	UNSET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
-	bgp_clear_star_soft_in(vty, bgp->name);
-
-	return CMD_SUCCESS;
-}
 
 
 static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
@@ -23263,9 +23109,7 @@ void bgp_vty_init(void)
 	/* "neighbor graceful-shutdown" command */
 	install_element(BGP_NODE, &neighbor_graceful_shutdown_cmd);
 
-	/* bgp disable-ebgp-connected-nh-check */
-	install_element(BGP_NODE, &bgp_disable_connected_route_check_cmd);
-	install_element(BGP_NODE, &no_bgp_disable_connected_route_check_cmd);
+	/* bgp disable-ebgp-connected-nh-check — YANG: bgp_cli_init() */
 
 	/* bgp update-delay command */
 	install_element(BGP_NODE, &bgp_update_delay_cmd);
@@ -23335,8 +23179,7 @@ void bgp_vty_init(void)
 
 	/* bgp ebgp-requires-policy — YANG: bgp_cli_init() */
 
-	/* bgp enforce-first-as */
-	install_element(BGP_NODE, &bgp_enforce_first_as_cmd);
+	/* bgp enforce-first-as — YANG: bgp_cli_init() */
 
 	/* bgp labeled-unicast explicit-null */
 	install_element(BGP_NODE, &bgp_lu_uses_explicit_null_cmd);
@@ -23394,8 +23237,7 @@ void bgp_vty_init(void)
 	 * CONFIG_NODE remains classic (daemon-wide).
 	 */
 
-	/* "bgp hard-administrative-reset" commands */
-	install_element(BGP_NODE, &bgp_administrative_reset_cmd);
+	/* "bgp hard-administrative-reset" — YANG: bgp_cli_init() */
 
 	/* "bgp long-lived-graceful-restart" commands */
 	install_element(BGP_NODE, &bgp_llgr_stalepath_time_cmd);
@@ -23406,13 +23248,9 @@ void bgp_vty_init(void)
 	/* "bgp bestpath aigp" commands */
 	install_element(BGP_NODE, &bgp_bestpath_aigp_cmd);
 
-	/* "bgp bestpath compare-routerid" commands */
-	install_element(BGP_NODE, &bgp_bestpath_compare_router_id_cmd);
-	install_element(BGP_NODE, &no_bgp_bestpath_compare_router_id_cmd);
+	/* "bgp bestpath compare-routerid" — YANG: bgp_cli_init() */
 
-	/* "bgp bestpath as-path ignore" commands */
-	install_element(BGP_NODE, &bgp_bestpath_aspath_ignore_cmd);
-	install_element(BGP_NODE, &no_bgp_bestpath_aspath_ignore_cmd);
+	/* "bgp bestpath as-path ignore" — YANG: bgp_cli_init() */
 
 	/* "bgp bestpath use-imported-attributes" commands */
 	install_element(BGP_NODE, &bgp_bestpath_use_imported_attrs_cmd);

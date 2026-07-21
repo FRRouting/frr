@@ -227,6 +227,7 @@ bgpd_bgpd_bmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 
 clippy_scan += \
 	bgpd/bgp_bmp.c \
+	bgpd/bgp_cli.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_evpn_vty.c \
 	bgpd/bgp_labelpool.c \
