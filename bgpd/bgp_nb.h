@@ -605,6 +605,22 @@ void bgp_nb_cli_show_peer_af_reflector_client(struct vty *vty, const struct lyd_
 int bgp_nb_peer_af_rserver_client_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_peer_af_rserver_client(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults);
+int bgp_nb_peer_af_weight_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_weight_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_weight(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+int bgp_nb_peer_af_send_community_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_send_community(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+int bgp_nb_peer_af_send_ext_community_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_send_ext_community(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+int bgp_nb_peer_af_send_large_community_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_send_large_community(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+int bgp_nb_peer_af_send_ext_community_rpki_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_send_ext_community_rpki(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
 
 
 void bgp_cli_init(void);
