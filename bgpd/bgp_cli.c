@@ -5371,6 +5371,122 @@ DEFPY_YANG(bgp_evpn_ead_es_frag_yang, bgp_evpn_ead_es_frag_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_evpn_default_originate_yang,
+	   bgp_evpn_default_originate_yang_cmd,
+	   "[no] default-originate <ipv4$afi|ipv6$afi>",
+	   NO_STR
+	   "originate a default route\n"
+	   "ipv4 address family\n"
+	   "ipv6 address family\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/default-originate/%s", af_xpath, afi);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_advertise_type5_yang,
+	   bgp_evpn_advertise_type5_yang_cmd,
+	   "[no] advertise <ipv4$afi|ipv6$afi> <unicast|vpn>$safi_str [gateway-ip$gw_ip] [route-map RMAP_NAME$rmap] [skip-evpn-imported$skip_evpn_imported]",
+	   NO_STR
+	   "Advertise prefix routes\n"
+	   "IPv4 address family\n"
+	   "IPv6 address family\n"
+	   "Unicast Address Family\n"
+	   "VPN Address Family\n"
+	   "advertise gateway IP overlay index\n"
+	   "route-map for filtering specific routes\n"
+	   "Name of the route map\n"
+	   "Do not advertise routes imported from EVPN as Type-5 routes\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char check[XPATH_MAXLEN + 256];
+	char cont[32];
+	bool is_unicast = strmatch(safi_str, "unicast");
+
+	if (!is_unicast && gw_ip) {
+		vty_out(vty, "%% gateway-ip overlay index is only supported for unicast SAFI\n");
+		return CMD_WARNING;
+	}
+
+	if (!is_unicast && skip_evpn_imported) {
+		vty_out(vty, "%% skip-evpn-imported is only supported for unicast SAFI\n");
+		return CMD_WARNING;
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+
+	snprintfrr(cont, sizeof(cont), "%s-%s", afi, safi_str);
+
+	if (no) {
+		/* No options: disable Type-5 export along with all options. */
+		if (!gw_ip && !rmap && !skip_evpn_imported) {
+			snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/enable", af_xpath, cont);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
+			snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/route-map", af_xpath, cont);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			if (is_unicast) {
+				snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/gateway-ip", af_xpath,
+					   cont);
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+				snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/skip-evpn-imported",
+					   af_xpath, cont);
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			}
+			return nb_cli_apply_changes(vty, NULL);
+		}
+
+		/* Remove only the named options and keep Type-5 export enabled. */
+		if (gw_ip) {
+			snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/gateway-ip", af_xpath, cont);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		}
+		if (skip_evpn_imported) {
+			snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/skip-evpn-imported", af_xpath,
+				   cont);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		}
+		if (rmap) {
+			const struct lyd_node *dnode;
+
+			/* Only remove the route-map if it is the configured one. */
+			snprintfrr(check, sizeof(check), "%s%s/ip-vrf/%s/route-map", VTY_CURR_XPATH,
+				   af_xpath + 1, cont);
+			dnode = yang_dnode_get(vty->candidate_config->dnode, check);
+			if (dnode && strmatch(yang_dnode_get_string(dnode, NULL), rmap)) {
+				snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/route-map", af_xpath,
+					   cont);
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			}
+		}
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	/* Omitted options are left as configured. */
+	snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/enable", af_xpath, cont);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	if (gw_ip) {
+		snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/gateway-ip", af_xpath, cont);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	}
+	if (rmap) {
+		snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/route-map", af_xpath, cont);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap);
+	}
+	if (skip_evpn_imported) {
+		snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/skip-evpn-imported", af_xpath, cont);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	   "[no] <import|export>$direction_str vpn",
 	   NO_STR
@@ -8018,6 +8134,8 @@ void bgp_cli_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_disable_ead_evi_rx_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_disable_ead_evi_tx_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_frag_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);
