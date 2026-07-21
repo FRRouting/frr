@@ -369,6 +369,20 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/link-state/distribute/bgp-fabric-link-state",
+			.cbs = {
+				.create = bgp_nb_ls_fabric_create,
+				.destroy = bgp_nb_ls_fabric_destroy,
+				.cli_show = bgp_nb_cli_show_ls_fabric,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/link-state/distribute/bgp-fabric-link-state/instance-id",
+			.cbs = {
+				.modify = bgp_nb_ls_fabric_instance_id_modify,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi",
 			.cbs = {
 				.create = bgp_nb_global_afi_safi_create,

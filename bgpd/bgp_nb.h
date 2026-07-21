@@ -951,4 +951,10 @@ void bgp_nb_cli_show_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
 void bgp_nb_cli_show_srv6_encap(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void bgp_nb_cli_show_srv6_only(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
+int bgp_nb_ls_fabric_create(struct nb_cb_create_args *args);
+int bgp_nb_ls_fabric_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_ls_fabric_instance_id_modify(struct nb_cb_modify_args *args);
+int bgp_nb_ls_fabric_instance_id_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_ls_fabric(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */

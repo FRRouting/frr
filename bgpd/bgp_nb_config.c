@@ -44,6 +44,7 @@
 #include "frrdistance.h"
 #include "bgpd/bgp_srv6.h"
 #include "srv6.h"
+#include "bgpd/bgp_ls.h"
 
 DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
@@ -9495,6 +9496,151 @@ void bgp_nb_cli_show_srv6_only(struct vty *vty, const struct lyd_node *dnode, bo
 		vty_out(vty, "  srv6-only\n");
 	else
 		vty_out(vty, "  no srv6-only\n");
+}
+
+/*
+ * link-state: distribute bgp-fabric-link-state
+ */
+static int bgp_nb_ls_fabric_enable(struct bgp *bgp, uint64_t instance_id, char *errmsg,
+				   size_t errmsg_len)
+{
+	if (!bgp->ls_info) {
+		snprintfrr(errmsg, errmsg_len, "BGP-LS not initialized");
+		return NB_ERR_RESOURCE;
+	}
+
+	if (bgp->ls_info->enable_distribution && bgp->ls_info->instance_id == instance_id)
+		return NB_OK;
+
+	if (bgp->ls_info->enable_distribution && bgp->ls_info->instance_id != instance_id)
+		bgp_ls_withdraw_all(bgp);
+
+	bgp->ls_info->instance_id = instance_id;
+	bgp->ls_info->enable_distribution = true;
+
+	bgp_redist_add(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0);
+	if (bgp_redistribute_set(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0, false) != CMD_SUCCESS)
+		zlog_warn("%s: failed to subscribe to IPv6 ZEBRA_ROUTE_ALL redistribution",
+			  __func__);
+
+	if (bgp_zclient && bgp_zclient->sock >= 0)
+		bgp_zebra_srv6_manager_get_locator(NULL);
+
+	if (bgp_ls_export_bgp_topology(bgp) != 0) {
+		snprintfrr(errmsg, errmsg_len, "Failed to export BGP topology");
+		return NB_ERR_RESOURCE;
+	}
+	return NB_OK;
+}
+
+static void bgp_nb_ls_fabric_disable(struct bgp *bgp)
+{
+	if (!bgp->ls_info || !bgp->ls_info->enable_distribution)
+		return;
+
+	bgp_redistribute_unset(bgp, AFI_IP6, ZEBRA_ROUTE_ALL, 0);
+	bgp->ls_info->enable_distribution = false;
+	bgp->ls_info->instance_id = 0;
+	bgp_ls_withdraw_all(bgp);
+}
+
+int bgp_nb_ls_fabric_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	uint64_t instance_id = 0;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (bgp && !bgp->ls_info) {
+			snprintfrr(args->errmsg, args->errmsg_len, "BGP-LS not initialized");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_exists(args->dnode, "./instance-id"))
+		instance_id = yang_dnode_get_uint64(args->dnode, "./instance-id");
+
+	return bgp_nb_ls_fabric_enable(bgp, instance_id, args->errmsg, args->errmsg_len);
+}
+
+int bgp_nb_ls_fabric_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	bgp_nb_ls_fabric_disable(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_ls_fabric_instance_id_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	uint64_t instance_id;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	instance_id = yang_dnode_get_uint64(args->dnode, NULL);
+	return bgp_nb_ls_fabric_enable(bgp, instance_id, args->errmsg, args->errmsg_len);
+}
+
+int bgp_nb_ls_fabric_instance_id_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp->ls_info)
+		return NB_OK;
+
+	/* Restoring default instance-id 0 while container remains. */
+	if (!bgp->ls_info->enable_distribution)
+		return NB_OK;
+
+	return bgp_nb_ls_fabric_enable(bgp, 0, args->errmsg, args->errmsg_len);
+}
+
+void bgp_nb_cli_show_ls_fabric(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint64_t instance_id = 0;
+
+	if (yang_dnode_exists(dnode, "./instance-id"))
+		instance_id = yang_dnode_get_uint64(dnode, "./instance-id");
+
+	if (instance_id || show_defaults)
+		vty_out(vty, "  distribute bgp-fabric-link-state instance-id %" PRIu64 "\n",
+			instance_id);
+	else
+		vty_out(vty, "  distribute bgp-fabric-link-state\n");
 }
 
 

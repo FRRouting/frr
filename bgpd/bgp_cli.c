@@ -30,6 +30,55 @@
 #include "bgpd/bgp_cli_clippy.c"
 
 /*
+ * Address-family CLI helpers (classic AF nodes keep vty->node; BGP YANG
+ * xpath remains on the stack from router bgp).
+ */
+static const char *bgp_cli_afi_safi_name(int node)
+{
+	switch (node) {
+	case BGP_IPV4_NODE:
+		return "ipv4-unicast";
+	case BGP_IPV4M_NODE:
+		return "ipv4-multicast";
+	case BGP_IPV4L_NODE:
+		return "ipv4-labeled-unicast";
+	case BGP_IPV6_NODE:
+		return "ipv6-unicast";
+	case BGP_IPV6M_NODE:
+		return "ipv6-multicast";
+	case BGP_IPV6L_NODE:
+		return "ipv6-labeled-unicast";
+	case BGP_VPNV4_NODE:
+		return "l3vpn-ipv4-unicast";
+	case BGP_VPNV6_NODE:
+		return "l3vpn-ipv6-unicast";
+	case BGP_EVPN_NODE:
+		return "l2vpn-evpn";
+	case BGP_FLOWSPECV4_NODE:
+		return "ipv4-flowspec";
+	case BGP_FLOWSPECV6_NODE:
+		return "ipv6-flowspec";
+	case BGP_LS_NODE:
+		return "link-state";
+	default:
+		return "ipv4-unicast";
+	}
+}
+
+/*
+ * Global AF network statements
+ * (unicast/multicast only; labeled-unicast remains classic until YANG grows)
+ */
+static int bgp_cli_global_af_xpath(struct vty *vty, char *xpath, size_t xpath_len)
+{
+	const char *af = bgp_cli_afi_safi_name(vty->node);
+
+	snprintfrr(xpath, xpath_len, "./global/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']",
+		   af);
+	return 0;
+}
+
+/*
  * control-plane-protocol keys: type, name, vrf
  * BGP container is under frr-bgp:bgp
  */
@@ -405,6 +454,50 @@ DEFPY_YANG(bgp_sid_vpn_export_yang, bgp_sid_vpn_export_yang_cmd,
 				      NB_OP_MODIFY, buf);
 	}
 
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_ls_distribute_bgp_fabric_yang,
+	   bgp_ls_distribute_bgp_fabric_yang_cmd,
+	   "[no] distribute bgp-fabric-link-state [instance-id WORD$instance_id_str]",
+	   NO_STR
+	   "Distribute BGP link-state topology information\n"
+	   "Enable BGP fabric link-state topology distribution\n"
+	   "BGP-LS instance identifier\n"
+	   "Instance ID value\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char cont[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 512];
+	char *endp = NULL;
+	uint64_t instance_id = 0;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(cont, sizeof(cont), "%s/distribute/bgp-fabric-link-state", af_xpath);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, cont, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (instance_id_str) {
+		errno = 0;
+		instance_id = strtoull(instance_id_str, &endp, 10);
+		if (errno == ERANGE || endp == instance_id_str || *endp != '\0') {
+			vty_out(vty, "%% Invalid instance-id\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	nb_cli_enqueue_change(vty, cont, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/instance-id", cont);
+	{
+		char buf[32];
+
+		snprintfrr(buf, sizeof(buf), "%" PRIu64, instance_id);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -3914,54 +4007,6 @@ DEFPY_YANG(neighbor_port_yang, neighbor_port_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-
-/*
- * Address-family CLI helpers (classic AF nodes keep vty->node; BGP YANG
- * xpath remains on the stack from router bgp).
- */
-static const char *bgp_cli_afi_safi_name(int node)
-{
-	switch (node) {
-	case BGP_IPV4_NODE:
-		return "ipv4-unicast";
-	case BGP_IPV4M_NODE:
-		return "ipv4-multicast";
-	case BGP_IPV4L_NODE:
-		return "ipv4-labeled-unicast";
-	case BGP_IPV6_NODE:
-		return "ipv6-unicast";
-	case BGP_IPV6M_NODE:
-		return "ipv6-multicast";
-	case BGP_IPV6L_NODE:
-		return "ipv6-labeled-unicast";
-	case BGP_VPNV4_NODE:
-		return "l3vpn-ipv4-unicast";
-	case BGP_VPNV6_NODE:
-		return "l3vpn-ipv6-unicast";
-	case BGP_EVPN_NODE:
-		return "l2vpn-evpn";
-	case BGP_FLOWSPECV4_NODE:
-		return "ipv4-flowspec";
-	case BGP_FLOWSPECV6_NODE:
-		return "ipv6-flowspec";
-	default:
-		return "ipv4-unicast";
-	}
-}
-
-/*
- * Global AF network statements
- * (unicast/multicast only; labeled-unicast remains classic until YANG grows)
- */
-static int bgp_cli_global_af_xpath(struct vty *vty, char *xpath, size_t xpath_len)
-{
-	const char *af = bgp_cli_afi_safi_name(vty->node);
-
-	snprintfrr(xpath, xpath_len, "./global/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']",
-		   af);
-	return 0;
-}
-
 DEFPY_YANG(bgp_network_yang, bgp_network_yang_cmd,
 	   "[no] network <A.B.C.D/M$prefix|A.B.C.D$address [mask A.B.C.D$netmask]> [{route-map RMAP_NAME$map_name|label-index (0-1048560)$label_index|backdoor$backdoor}]",
 	   NO_STR
@@ -6985,6 +7030,7 @@ void bgp_cli_init(void)
 	install_element(BGP_SRV6_NODE, &bgp_srv6_only_yang_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_yang_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_yang_cmd);
+	install_element(BGP_LS_NODE, &bgp_ls_distribute_bgp_fabric_yang_cmd);
 
 	install_element(BGP_NODE, &bgp_router_id_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_router_id_yang_cmd);
