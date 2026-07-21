@@ -7490,6 +7490,11 @@ int bgp_nb_vpn_rmap_import_modify(struct nb_cb_modify_args *args)
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
 		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
 			return NB_OK;
+		if (yang_dnode_exists(args->dnode, "../vrf-rmap-import")) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "route-map vpn import conflicts with import vrf route-map");
+			return NB_ERR_VALIDATION;
+		}
 		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -8246,8 +8251,8 @@ void bgp_nb_cli_show_vpn_rt_export(struct vty *vty, const struct lyd_node *dnode
 /*
  * AF-level import vrf NAME
  */
-static int bgp_nb_vpn_import_vrf_validate(struct bgp *bgp, afi_t afi, safi_t safi,
-					  const char *import_name, char *errmsg, size_t errmsg_len)
+static int bgp_nb_vpn_import_vrf_mode_validate(struct bgp *bgp, afi_t afi, safi_t safi,
+					       char *errmsg, size_t errmsg_len)
 {
 	if (safi != SAFI_UNICAST || (afi != AFI_IP && afi != AFI_IP6)) {
 		snprintfrr(errmsg, errmsg_len, "import vrf valid only for unicast ipv4|ipv6");
@@ -8260,6 +8265,18 @@ static int bgp_nb_vpn_import_vrf_validate(struct bgp *bgp, afi_t afi, safi_t saf
 			   "Please unconfigure vpn to vrf commands before using import vrf commands");
 		return NB_ERR_VALIDATION;
 	}
+
+	return NB_OK;
+}
+
+static int bgp_nb_vpn_import_vrf_validate(struct bgp *bgp, afi_t afi, safi_t safi,
+					  const char *import_name, char *errmsg, size_t errmsg_len)
+{
+	int ret;
+
+	ret = bgp_nb_vpn_import_vrf_mode_validate(bgp, afi, safi, errmsg, errmsg_len);
+	if (ret != NB_OK)
+		return ret;
 
 	if (((bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) &&
 	     strmatch(import_name, VRF_DEFAULT_NAME)) ||
@@ -8358,6 +8375,94 @@ void bgp_nb_cli_show_vpn_import_vrf(struct vty *vty, const struct lyd_node *dnod
 				    bool show_defaults)
 {
 	vty_out(vty, "  import vrf %s\n", yang_dnode_get_string(dnode, "./vrf"));
+}
+
+/*
+ * AF-level import vrf route-map
+ */
+int bgp_nb_vpn_vrf_rmap_import_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const char *rmap_name;
+
+	rmap_name = yang_dnode_get_string(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		if (yang_dnode_exists(args->dnode, "../rmap-import")) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "import vrf route-map conflicts with route-map vpn import");
+			return NB_ERR_VALIDATION;
+		}
+		return bgp_nb_vpn_import_vrf_mode_validate(bgp, afi, safi, args->errmsg,
+							   args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!bgp_nb_vpn_ensure_default())
+		return NB_ERR_RESOURCE;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, afi, bgp_get_default(), bgp);
+
+	if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN])
+		XFREE(MTYPE_ROUTE_MAP_NAME,
+		      bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]);
+	bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN] = XSTRDUP(MTYPE_ROUTE_MAP_NAME,
+									     rmap_name);
+	bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_FROMVPN] = route_map_lookup_by_name(rmap_name);
+
+	SET_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_IMPORT);
+
+	if (bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_FROMVPN])
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_vrf_rmap_import_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, afi, bgp_get_default(), bgp);
+
+	if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN])
+		XFREE(MTYPE_ROUTE_MAP_NAME,
+		      bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]);
+	bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN] = NULL;
+	bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_FROMVPN] = NULL;
+
+	if (!bgp->vpn_policy[afi].import_vrf || bgp->vpn_policy[afi].import_vrf->count == 0)
+		UNSET_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_IMPORT);
+
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_vpn_vrf_rmap_import(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	vty_out(vty, "  import vrf route-map %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 

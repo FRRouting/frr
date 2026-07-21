@@ -4894,6 +4894,39 @@ DEFPY_YANG(af_route_map_vpn_yang, af_route_map_vpn_yang_cmd,
 	else {
 		if (!rmap_str)
 			return CMD_WARNING_CONFIG_FAILED;
+		if (!strcmp(direction_str, "import")) {
+			char other[XPATH_MAXLEN + 256];
+
+			snprintfrr(other, sizeof(other), "%s/vpn-config/vrf-rmap-import", af_xpath);
+			nb_cli_enqueue_change(vty, other, NB_OP_DESTROY, NULL);
+		}
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(af_import_vrf_route_map_yang, af_import_vrf_route_map_yang_cmd,
+	   "[no] import vrf route-map [RMAP$rmap_str]",
+	   NO_STR
+	   "Import routes from another VRF\n"
+	   "Vrf routes being filtered\n"
+	   "Specify route map\n"
+	   "name of route-map\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char other[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/vrf-rmap-import", af_xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!rmap_str)
+			return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(other, sizeof(other), "%s/vpn-config/rmap-import", af_xpath);
+		nb_cli_enqueue_change(vty, other, NB_OP_DESTROY, NULL);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_str);
 	}
 	return nb_cli_apply_changes(vty, NULL);
@@ -6920,6 +6953,8 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_yang_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_import_vrf_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_import_vrf_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_import_vrf_route_map_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }
