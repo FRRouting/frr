@@ -12,15 +12,18 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+      # Use the compare API instead of checking out the PR head. pull_request_target
+      # runs with base-repo privileges; fetching fork code there is blocked by
+      # actions/checkout and is unsafe ("pwn request").
       - name: Set custom variables
         id: vars
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "behind_by=$(git log --oneline origin/${{ github.base_ref }} ^${{ github.event.pull_request.head.sha }} | wc -l)" >> $GITHUB_OUTPUT
+          behind_by=$(gh api \
+            "repos/${{ github.repository }}/compare/${{ github.base_ref }}...${{ github.event.pull_request.head.sha }}" \
+            --jq .behind_by)
+          echo "behind_by=${behind_by}" >> "$GITHUB_OUTPUT"
       - name: Add rebase label if needed
         if: ${{ steps.vars.outputs.behind_by > 50 }}
         uses: actions-ecosystem/action-add-labels@v1
