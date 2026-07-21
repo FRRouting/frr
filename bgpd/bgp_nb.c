@@ -185,6 +185,196 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/incoming-session/session-list",
+			.cbs = {
+				.create = bgp_nb_bmp_listener_create,
+				.destroy = bgp_nb_bmp_listener_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_listener,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/outgoing-session/session-list",
+			.cbs = {
+				.create = bgp_nb_bmp_connect_create,
+				.destroy = bgp_nb_bmp_connect_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_connect,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/outgoing-session/session-list/min-retry-time",
+			.cbs = {
+				.modify = bgp_nb_bmp_connect_leaf_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/outgoing-session/session-list/max-retry-time",
+			.cbs = {
+				.modify = bgp_nb_bmp_connect_leaf_modify,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/outgoing-session/session-list/source-interface",
+			.cbs = {
+				.modify = bgp_nb_bmp_connect_leaf_modify,
+				.destroy = bgp_nb_bmp_connect_leaf_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/import-vrf",
+			.cbs = {
+				.create = bgp_nb_bmp_import_vrf_create,
+				.destroy = bgp_nb_bmp_import_vrf_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_import_vrf,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast/common-config/pre-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast/common-config/post-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast/common-config/loc-rib",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-multicast/common-config/pre-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-multicast/common-config/post-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-multicast/common-config/loc-rib",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-unicast/common-config/pre-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-unicast/common-config/post-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-unicast/common-config/loc-rib",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-multicast/common-config/pre-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-multicast/common-config/post-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-multicast/common-config/loc-rib",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l3vpn-ipv4-unicast/common-config/pre-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l3vpn-ipv4-unicast/common-config/post-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l3vpn-ipv4-unicast/common-config/loc-rib",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l3vpn-ipv6-unicast/common-config/pre-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l3vpn-ipv6-unicast/common-config/post-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l3vpn-ipv6-unicast/common-config/loc-rib",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l2vpn-evpn/common-config/pre-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l2vpn-evpn/common-config/post-policy",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/afi-safis/afi-safi/l2vpn-evpn/common-config/loc-rib",
+			.cbs = {
+				.modify = bgp_nb_bmp_monitor_modify,
+				.cli_show = bgp_nb_cli_show_bmp_monitor,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/reject-as-sets",
 			.cbs = {
 				.modify = bgp_nb_reject_as_sets_modify,

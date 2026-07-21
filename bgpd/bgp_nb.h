@@ -1118,6 +1118,26 @@ void bgp_nb_cli_show_bmp_target_acl_v4(struct vty *vty, const struct lyd_node *d
 void bgp_nb_cli_show_bmp_target_acl_v6(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults);
 
+int bgp_nb_bmp_listener_create(struct nb_cb_create_args *args);
+int bgp_nb_bmp_listener_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_listener(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+
+int bgp_nb_bmp_connect_create(struct nb_cb_create_args *args);
+int bgp_nb_bmp_connect_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_connect(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+int bgp_nb_bmp_connect_leaf_modify(struct nb_cb_modify_args *args);
+int bgp_nb_bmp_connect_leaf_destroy(struct nb_cb_destroy_args *args);
+
+int bgp_nb_bmp_import_vrf_create(struct nb_cb_create_args *args);
+int bgp_nb_bmp_import_vrf_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_import_vrf(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+
+int bgp_nb_bmp_monitor_modify(struct nb_cb_modify_args *args);
+int bgp_nb_bmp_monitor_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_monitor(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
 int bgp_nb_vpn_redirect_rt_modify(struct nb_cb_modify_args *args);
 int bgp_nb_vpn_redirect_rt_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_vpn_redirect_rt(struct vty *vty, const struct lyd_node *dnode,
