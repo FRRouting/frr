@@ -2547,7 +2547,7 @@ module frr-zebra {
             "RFC 6275: Mobility Support in IPv6";
         }
         leaf link-mtu {
-          type uint32;
+          type uint16;
           default "0";
           description
             "The value to be placed in MTU options sent by the

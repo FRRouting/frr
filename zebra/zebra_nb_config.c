@@ -2761,7 +2761,7 @@ int lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify(
 {
 	struct interface *ifp;
 	struct zebra_if *zif;
-	uint32_t mtu;
+	uint16_t mtu;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -2769,7 +2769,7 @@ int lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify(
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	zif = ifp->info;
 
-	mtu = yang_dnode_get_uint32(args->dnode, NULL);
+	mtu = yang_dnode_get_uint16(args->dnode, NULL);
 
 	zif->rtadv.AdvLinkMTU = mtu;
 
