@@ -4699,6 +4699,30 @@ DEFPY_YANG(af_route_map_vpn_yang, af_route_map_vpn_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(af_rd_vpn_export_yang, af_rd_vpn_export_yang_cmd,
+	   "[no] rd vpn export [ASN:NN_OR_IP-ADDRESS:NN$rd_str]",
+	   NO_STR
+	   "Specify route distinguisher\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from current address-family to vpn\n"
+	   "Route Distinguisher (<as-number>:<number> | <ip-address>:<number>)\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/rd", af_xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!rd_str)
+			return CMD_WARNING_CONFIG_FAILED;
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rd_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6493,6 +6517,8 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &bgp_imexport_vpn_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_route_map_vpn_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_route_map_vpn_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_rd_vpn_export_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_rd_vpn_export_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }

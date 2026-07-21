@@ -43,6 +43,9 @@
 #include "frrdistance.h"
 
 DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
+DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
+	    (bgp, afi, preconfig));
+
 /*
  * XPath: .../frr-bgp:bgp
  */
@@ -7152,6 +7155,96 @@ void bgp_nb_cli_show_vpn_rmap_export(struct vty *vty, const struct lyd_node *dno
 				     bool show_defaults)
 {
 	vty_out(vty, "  route-map vpn export %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * AF-level rd vpn export
+ */
+int bgp_nb_vpn_rd_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct prefix_rd prd;
+	const char *rd_str;
+
+	rd_str = yang_dnode_get_string(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!str2prefix_rd(rd_str, &prd)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Malformed rd");
+			return NB_ERR_VALIDATION;
+		}
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!str2prefix_rd(rd_str, &prd))
+		return NB_ERR_VALIDATION;
+
+	if (bgp->vpn_policy[afi].tovpn_rd_pretty &&
+	    strmatch(rd_str, bgp->vpn_policy[afi].tovpn_rd_pretty))
+		return NB_OK;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+
+	hook_call(bgp_route_distinguisher_update, bgp, afi, true);
+	if (bgp->vpn_policy[afi].tovpn_rd_pretty)
+		XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
+	bgp->vpn_policy[afi].tovpn_rd_pretty = XSTRDUP(MTYPE_BGP_NAME, rd_str);
+	bgp->vpn_policy[afi].tovpn_rd = prd;
+	SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET);
+	SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET);
+	hook_call(bgp_route_distinguisher_update, bgp, afi, false);
+
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_rd_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	if (!bgp->vpn_policy[afi].tovpn_rd_pretty)
+		return NB_OK;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+
+	hook_call(bgp_route_distinguisher_update, bgp, afi, true);
+	XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
+	bgp->vpn_policy[afi].tovpn_rd_pretty = NULL;
+	UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET);
+	UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET);
+	hook_call(bgp_route_distinguisher_update, bgp, afi, false);
+
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_vpn_rd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  rd vpn export %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 
