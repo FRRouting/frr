@@ -1021,6 +1021,14 @@ extern void bgp_config_write_table_map(struct vty *vty, struct bgp *bgp, afi_t a
 extern void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
 
+extern void bgp_distance_bgp_set(struct bgp *bgp, afi_t afi, safi_t safi, uint8_t distance_ebgp,
+				 uint8_t distance_ibgp, uint8_t distance_local);
+extern void bgp_distance_bgp_unset(struct bgp *bgp, afi_t afi, safi_t safi);
+extern int bgp_distance_source_set(afi_t afi, safi_t safi, uint8_t distance, const char *ip_str,
+				   const char *access_list_str, char *errmsg, size_t errmsg_len);
+extern int bgp_distance_source_unset(afi_t afi, safi_t safi, uint8_t distance, const char *ip_str,
+				     char *errmsg, size_t errmsg_len);
+
 extern void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p,
 				 afi_t afi, safi_t safi,
 				 struct bgp_aggregate *aggregate);

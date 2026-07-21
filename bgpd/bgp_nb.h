@@ -796,4 +796,16 @@ int bgp_nb_redistribute_metric_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_redistribute_rmap_modify(struct nb_cb_modify_args *args);
 int bgp_nb_redistribute_rmap_destroy(struct nb_cb_destroy_args *args);
 
+int bgp_nb_distance_bgp_modify(struct nb_cb_modify_args *args);
+int bgp_nb_distance_bgp_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_distance_bgp(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+int bgp_nb_distance_route_create(struct nb_cb_create_args *args);
+int bgp_nb_distance_route_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_distance_route(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+int bgp_nb_distance_route_distance_modify(struct nb_cb_modify_args *args);
+int bgp_nb_distance_route_acl_modify(struct nb_cb_modify_args *args);
+int bgp_nb_distance_route_acl_destroy(struct nb_cb_destroy_args *args);
+
 #endif /* _FRR_BGP_NB_H_ */
