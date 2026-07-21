@@ -6,17 +6,16 @@ jobs:
   mergifyio_backport:
     if: github.repository == 'frrouting/frr'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
     steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-ecosystem/action-regex-match@v2
-        id: regex-match
-        with:
-          text: ${{ github.event.comment.body }}
-          regex: '[Mm]ergifyio backport '
-
-      - uses: actions-ecosystem/action-add-labels@v1
-        if: ${{ steps.regex-match.outputs.match != '' }}
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: backport
+      - name: Add backport label
+        if: ${{ github.event.issue.pull_request && github.event.comment.body }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          if printf '%s\n' "$COMMENT_BODY" | grep -qiE 'mergifyio[[:space:]]+backport'; then
+            gh pr edit "${{ github.event.issue.number }}" --add-label backport
+          fi
