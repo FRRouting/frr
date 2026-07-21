@@ -169,69 +169,6 @@ enum show_type {
 	show_ipv6_peer
 };
 
-static enum node_type bgp_node_type(afi_t afi, safi_t safi)
-{
-	switch (afi) {
-	case AFI_IP:
-		switch (safi) {
-		case SAFI_UNICAST:
-			return BGP_IPV4_NODE;
-		case SAFI_MULTICAST:
-			return BGP_IPV4M_NODE;
-		case SAFI_LABELED_UNICAST:
-			return BGP_IPV4L_NODE;
-		case SAFI_MPLS_VPN:
-			return BGP_VPNV4_NODE;
-		case SAFI_FLOWSPEC:
-			return BGP_FLOWSPECV4_NODE;
-		case SAFI_UNREACH:
-			return BGP_IPV4U_NODE;
-		case SAFI_BGP_LS:
-		case SAFI_UNSPEC:
-		case SAFI_ENCAP:
-		case SAFI_EVPN:
-		case SAFI_MAX:
-			/* not expected */
-			return BGP_IPV4_NODE;
-		}
-		break;
-	case AFI_IP6:
-		switch (safi) {
-		case SAFI_UNICAST:
-			return BGP_IPV6_NODE;
-		case SAFI_MULTICAST:
-			return BGP_IPV6M_NODE;
-		case SAFI_LABELED_UNICAST:
-			return BGP_IPV6L_NODE;
-		case SAFI_MPLS_VPN:
-			return BGP_VPNV6_NODE;
-		case SAFI_FLOWSPEC:
-			return BGP_FLOWSPECV6_NODE;
-		case SAFI_UNREACH:
-			return BGP_IPV6U_NODE;
-		case SAFI_BGP_LS:
-		case SAFI_UNSPEC:
-		case SAFI_ENCAP:
-		case SAFI_EVPN:
-		case SAFI_MAX:
-			/* not expected and the return value seems wrong */
-			return BGP_IPV4_NODE;
-		}
-		break;
-	case AFI_L2VPN:
-		return BGP_EVPN_NODE;
-	case AFI_BGP_LS:
-		return BGP_LS_NODE;
-	case AFI_UNSPEC:
-	case AFI_MAX:
-		// We should never be here but to clarify the switch statement..
-		return BGP_IPV4_NODE;
-	}
-
-	// Impossible to happen
-	return BGP_IPV4_NODE;
-}
-
 static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 {
 	if (afi == AFI_IP) {
@@ -2172,96 +2109,8 @@ int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv, struct eco
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(address_family_ipv4_safi, address_family_ipv4_safi_cmd,
-	   "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>]",
-	   "Enter Address Family command mode\n" BGP_AF_STR BGP_SAFI_WITH_LABEL_HELP_STR)
-{
-
-	if (argc == 3) {
-		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		safi_t safi = bgp_vty_safi_from_str(argv[2]->text);
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT
-		    && safi != SAFI_UNICAST && safi != SAFI_MULTICAST
-		    && safi != SAFI_EVPN) {
-			vty_out(vty,
-				"Only Unicast/Multicast/EVPN SAFIs supported in non-core instances.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vty->node = bgp_node_type(AFI_IP, safi);
-	} else
-		vty->node = BGP_IPV4_NODE;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH(address_family_ipv6_safi, address_family_ipv6_safi_cmd,
-	   "address-family ipv6 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>]",
-	   "Enter Address Family command mode\n" BGP_AF_STR BGP_SAFI_WITH_LABEL_HELP_STR)
-{
-	if (argc == 3) {
-		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		safi_t safi = bgp_vty_safi_from_str(argv[2]->text);
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT
-		    && safi != SAFI_UNICAST && safi != SAFI_MULTICAST
-		    && safi != SAFI_EVPN) {
-			vty_out(vty,
-				"Only Unicast/Multicast/EVPN SAFIs supported in non-core instances.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		vty->node = bgp_node_type(AFI_IP6, safi);
-	} else
-		vty->node = BGP_IPV6_NODE;
-
-	return CMD_SUCCESS;
-}
-
 #ifdef KEEP_OLD_VPN_COMMANDS
-DEFUN_NOSH (address_family_vpnv4,
-       address_family_vpnv4_cmd,
-       "address-family vpnv4 [unicast]",
-       "Enter Address Family command mode\n"
-       BGP_AF_STR
-       BGP_AF_MODIFIER_STR)
-{
-	vty->node = BGP_VPNV4_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (address_family_vpnv6,
-       address_family_vpnv6_cmd,
-       "address-family vpnv6 [unicast]",
-       "Enter Address Family command mode\n"
-       BGP_AF_STR
-       BGP_AF_MODIFIER_STR)
-{
-	vty->node = BGP_VPNV6_NODE;
-	return CMD_SUCCESS;
-}
 #endif /* KEEP_OLD_VPN_COMMANDS */
-
-DEFUN_NOSH (address_family_evpn,
-       address_family_evpn_cmd,
-       "address-family l2vpn evpn",
-       "Enter Address Family command mode\n"
-       BGP_AF_STR
-       BGP_AF_MODIFIER_STR)
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	vty->node = BGP_EVPN_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH(address_family_link_state,
-	address_family_link_state_cmd,
-	"address-family link-state [link-state]",
-	"Enter Address Family command mode\n"
-	"Link-State Address Family\n"
-	"Link-State Subsequent Address Family\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	vty->node = BGP_LS_NODE;
-	return CMD_SUCCESS;
-}
 
 void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
 {
@@ -12872,16 +12721,7 @@ void bgp_vty_init(void)
 	/* neighbor dampening: YANG in bgp_cli.c */
 	install_element(VIEW_NODE, &show_ip_bgp_neighbor_damp_param_cmd);
 
-	/* address-family commands. */
-	install_element(BGP_NODE, &address_family_ipv4_safi_cmd);
-	install_element(BGP_NODE, &address_family_ipv6_safi_cmd);
-#ifdef KEEP_OLD_VPN_COMMANDS
-	install_element(BGP_NODE, &address_family_vpnv4_cmd);
-	install_element(BGP_NODE, &address_family_vpnv6_cmd);
-#endif /* KEEP_OLD_VPN_COMMANDS */
-
-	install_element(BGP_NODE, &address_family_evpn_cmd);
-	install_element(BGP_NODE, &address_family_link_state_cmd);
+	/* address-family enter — YANG: bgp_cli_init() */
 
 	/* "exit-address-family" command. */
 	install_element(BGP_IPV4_NODE, &exit_address_family_cmd);
