@@ -2651,6 +2651,66 @@ DEFPY_YANG(no_neighbor_description_comment_yang, no_neighbor_description_comment
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(neighbor_ls_local_link_id_yang, neighbor_ls_local_link_id_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str local-link-id [(1-4294967295)$link_id]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Configure local link ID for BGP-LS topology\n"
+	   "Link identifier value\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, peer_str, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/local-link-id", xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!link_id_str) {
+			vty_out(vty, "%% Incomplete command\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		snprintfrr(buf, sizeof(buf), "%" PRId64, link_id);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_ls_remote_link_id_yang, neighbor_ls_remote_link_id_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str remote-link-id [(1-4294967295)$link_id]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Configure remote link ID for BGP-LS topology\n"
+	   "Link identifier value\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, peer_str, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/remote-link-id", xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!link_id_str) {
+			vty_out(vty, "%% Incomplete command\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		snprintfrr(buf, sizeof(buf), "%" PRId64, link_id);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(neighbor_passive_yang, neighbor_passive_yang_cmd,
 	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor passive",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
@@ -4004,6 +4064,28 @@ DEFPY_YANG(neighbor_port_yang, neighbor_port_yang_cmd,
 		snprintfrr(buf, sizeof(buf), "%" PRId64, port);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
 	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_fs_local_install_yang, bgp_fs_local_install_yang_cmd,
+	   "[no] local-install INTERFACE$ifname",
+	   NO_STR
+	   "Apply local policy routing\n"
+	   "Interface name\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/flow-spec-config/local-install/interface[.='%s']",
+		   af_xpath, ifname);
+
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, NULL);
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -7031,6 +7113,8 @@ void bgp_cli_init(void)
 	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_yang_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_yang_cmd);
 	install_element(BGP_LS_NODE, &bgp_ls_distribute_bgp_fabric_yang_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_yang_cmd);
+	install_element(BGP_FLOWSPECV6_NODE, &bgp_fs_local_install_yang_cmd);
 
 	install_element(BGP_NODE, &bgp_router_id_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_router_id_yang_cmd);
@@ -7171,6 +7255,8 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_description_yang_cmd);
 	install_element(BGP_NODE, &no_neighbor_description_yang_cmd);
 	install_element(BGP_NODE, &no_neighbor_description_comment_yang_cmd);
+	install_element(BGP_NODE, &neighbor_ls_local_link_id_yang_cmd);
+	install_element(BGP_NODE, &neighbor_ls_remote_link_id_yang_cmd);
 	install_element(BGP_NODE, &neighbor_passive_yang_cmd);
 	install_element(BGP_NODE, &neighbor_solo_yang_cmd);
 	install_element(BGP_NODE, &neighbor_shutdown_yang_cmd);

@@ -957,4 +957,22 @@ int bgp_nb_ls_fabric_instance_id_modify(struct nb_cb_modify_args *args);
 int bgp_nb_ls_fabric_instance_id_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_ls_fabric(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
+/* flowspec local-install */
+int bgp_nb_fs_local_install_enable_modify(struct nb_cb_modify_args *args);
+int bgp_nb_fs_local_install_enable_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_fs_local_install_interface_create(struct nb_cb_create_args *args);
+int bgp_nb_fs_local_install_interface_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_fs_local_install_interface(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+
+/* neighbor LS link ids */
+int bgp_nb_peer_ls_local_link_id_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_ls_local_link_id_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_ls_local_link_id(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_peer_ls_remote_link_id_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_ls_remote_link_id_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_ls_remote_link_id(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */

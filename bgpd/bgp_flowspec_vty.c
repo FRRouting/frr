@@ -628,6 +628,5 @@ void bgp_flowspec_vty_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_flowspec_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_flowspec_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_flowspec_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_ifname_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &bgp_fs_local_install_ifname_cmd);
+	/* local-install — YANG: bgp_cli_init() */
 }
