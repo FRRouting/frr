@@ -4637,6 +4637,33 @@ DEFPY_YANG(upa_drop_yang, upa_drop_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
+	   "[no] <import|export>$direction_str vpn",
+	   NO_STR
+	   "Import routes to this address-family\n"
+	   "Export routes from this address-family\n"
+	   "to/from default instance VPN RIB\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	const char *leafname;
+
+	if (!strcmp(direction_str, "import"))
+		leafname = "import-vpn";
+	else if (!strcmp(direction_str, "export"))
+		leafname = "export-vpn";
+	else {
+		vty_out(vty, "%% unknown direction %s\n", direction_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/%s", af_xpath, leafname);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xpath,
 				 size_t xpath_len, bool *is_pg)
@@ -6425,6 +6452,10 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &upa_originate_all_yang_cmd);
 	install_element(BGP_IPV6_NODE, &upa_max_routes_yang_cmd);
 	install_element(BGP_IPV6_NODE, &upa_drop_yang_cmd);
+
+	/* AF-level import|export vpn */
+	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_imexport_vpn_yang_cmd);
 
 	bgp_cli_install_af_neighbor();
 }

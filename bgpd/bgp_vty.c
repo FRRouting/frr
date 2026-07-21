@@ -159,7 +159,6 @@ DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
-DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
 	    (bgp, afi, preconfig));
@@ -5128,83 +5127,6 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 
 		vrf_import_from_vrf(bgp, vrf_bgp, import_name, afi, safi);
 	}
-
-	return CMD_SUCCESS;
-}
-
-/* This command is valid only in a bgp vrf instance or the default instance */
-DEFPY (bgp_imexport_vpn,
-       bgp_imexport_vpn_cmd,
-       "[no] <import|export>$direction_str vpn",
-       NO_STR
-       "Import routes to this address-family\n"
-       "Export routes from this address-family\n"
-       "to/from default instance VPN RIB\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int previous_state;
-	afi_t afi;
-	safi_t safi;
-	int idx = 0;
-	bool yes = true;
-	int flag;
-	enum vpn_policy_direction dir;
-	struct bgp *bgp_default = bgp_get_default();
-
-	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
-	else {
-		afi = vpn_policy_getafi(vty, bgp, false);
-		if (afi == AFI_MAX)
-			return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type &&
-		BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
-
-		vty_out(vty, "%% import|export vpn valid only for bgp vrf or default instance\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	afi = bgp_node_afi(vty);
-	safi = bgp_node_safi(vty);
-	if ((SAFI_UNICAST != safi) || ((AFI_IP != afi) && (AFI_IP6 != afi))) {
-		vty_out(vty, "%% import|export vpn valid only for unicast ipv4|ipv6\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!strcmp(direction_str, "import")) {
-		flag = BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT;
-		dir = BGP_VPN_POLICY_DIR_FROMVPN;
-	} else if (!strcmp(direction_str, "export")) {
-		flag = BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT;
-		dir = BGP_VPN_POLICY_DIR_TOVPN;
-	} else {
-		vty_out(vty, "%% unknown direction %s\n", direction_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	previous_state = CHECK_FLAG(bgp->af_flags[afi][safi], flag);
-
-	if (yes) {
-		SET_FLAG(bgp->af_flags[afi][safi], flag);
-		if (!previous_state) {
-			/* trigger export current vrf */
-			vpn_leak_postchange(dir, afi, bgp_default, bgp);
-		}
-	} else {
-		if (previous_state) {
-			/* trigger un-export current vrf */
-			vpn_leak_prechange(dir, afi, bgp_default, bgp);
-		}
-		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
-		if (previous_state && bgp_default &&
-		    !CHECK_FLAG(bgp_default->af_flags[afi][SAFI_MPLS_VPN],
-				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
-			vpn_leak_no_retain(bgp, bgp_default, afi);
-	}
-
-	hook_call(bgp_snmp_init_stats, bgp);
 
 	return CMD_SUCCESS;
 }
@@ -16096,133 +16018,6 @@ static void bgp_vty_if_init(void)
 /* Forward declaration for show_bgp_neighbor_upa_cmd defined after bgp_vty_init */
 static const struct cmd_element show_bgp_neighbor_upa_cmd;
 
-DEFPY(upa_originate_all,
-      upa_originate_all_cmd,
-      "upa originate-all",
-      "Unreachable Prefix Announcement\n"
-      "Originate UPA routes for ALL unreachable prefixes (not just under aggregates)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	/* Only support unicast SAFI for now */
-	if (safi != SAFI_UNICAST) {
-		vty_out(vty, "%% Global UPA origination is only supported for unicast SAFI\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Enable global UPA */
-	bgp->upa_enabled[afi][safi] = true;
-
-	/* Originate UPA routes for all currently unreachable prefixes */
-	bgp_upa_originate_global(bgp, afi, safi);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_upa_originate_all,
-      no_upa_originate_all_cmd,
-      "no upa originate-all",
-      NO_STR
-      "Unreachable Prefix Announcement\n"
-      "Originate UPA routes for ALL unreachable prefixes (not just under aggregates)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	if (!bgp->upa_enabled[afi][safi]) {
-		vty_out(vty, "%% Global UPA origination is not configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Withdraw all global UPA routes */
-	bgp_upa_withdraw_global(bgp, afi, safi);
-
-	/* Disable global UPA */
-	bgp->upa_enabled[afi][safi] = false;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(upa_max_routes_global,
-      upa_max_routes_global_cmd,
-      "upa max-routes (1-4294967295)$max",
-      "Unreachable Prefix Announcement\n"
-      "Maximum number of simultaneous global UPA routes\n"
-      "Maximum count\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	bgp->upa_max_routes[afi][safi] = max;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_upa_max_routes_global,
-      no_upa_max_routes_global_cmd,
-      "no upa max-routes [(1-4294967295)]",
-      NO_STR
-      "Unreachable Prefix Announcement\n"
-      "Maximum number of simultaneous global UPA routes\n"
-      "Maximum count\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	/* Reset to unlimited (0) */
-	bgp->upa_max_routes[afi][safi] = 0;
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(upa_drop_global,
-      upa_drop_global_cmd,
-      "upa drop",
-      "Unreachable Prefix Announcement\n"
-      "Set D-bit in global UPA Extended Community (receivers install drop/blackhole entry)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	bgp->upa_drop[afi][safi] = true;
-
-	/* If global UPA is already enabled, re-originate with new D-bit setting */
-	if (bgp->upa_enabled[afi][safi]) {
-		bgp_upa_withdraw_global(bgp, afi, safi);
-		bgp_upa_originate_global(bgp, afi, safi);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_upa_drop_global,
-      no_upa_drop_global_cmd,
-      "no upa drop",
-      NO_STR
-      "Unreachable Prefix Announcement\n"
-      "Set D-bit in global UPA Extended Community (receivers install drop/blackhole entry)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	bgp->upa_drop[afi][safi] = false;
-
-	/* If global UPA is already enabled, re-originate with new D-bit setting */
-	if (bgp->upa_enabled[afi][safi]) {
-		bgp_upa_withdraw_global(bgp, afi, safi);
-		bgp_upa_originate_global(bgp, afi, safi);
-	}
-
-	return CMD_SUCCESS;
-}
-
 void bgp_vty_init(void)
 {
 	cmd_variable_handler_register(bgp_var_neighbor);
@@ -16785,9 +16580,7 @@ void bgp_vty_init(void)
 	/* redistribute show commands */
 	install_element(VIEW_NODE, &show_bgp_redistribute_cmd);
 
-	/* import|export vpn [route-map RMAP_NAME] */
-	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_cmd);
-	install_element(BGP_IPV6_NODE, &bgp_imexport_vpn_cmd);
+	/* import|export vpn — YANG: bgp_cli_init() */
 
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vrf_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_imexport_vrf_cmd);
@@ -16882,18 +16675,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_neighbor_ls_remote_link_id_cmd);
 
 	/* UPA global origination commands - for all prefixes, not just aggregates */
-	install_element(BGP_IPV4_NODE, &upa_originate_all_cmd);
-	install_element(BGP_IPV4_NODE, &no_upa_originate_all_cmd);
-	install_element(BGP_IPV4_NODE, &upa_max_routes_global_cmd);
-	install_element(BGP_IPV4_NODE, &no_upa_max_routes_global_cmd);
-	install_element(BGP_IPV4_NODE, &upa_drop_global_cmd);
-	install_element(BGP_IPV4_NODE, &no_upa_drop_global_cmd);
-	install_element(BGP_IPV6_NODE, &upa_originate_all_cmd);
-	install_element(BGP_IPV6_NODE, &no_upa_originate_all_cmd);
-	install_element(BGP_IPV6_NODE, &upa_max_routes_global_cmd);
-	install_element(BGP_IPV6_NODE, &no_upa_max_routes_global_cmd);
-	install_element(BGP_IPV6_NODE, &upa_drop_global_cmd);
-	install_element(BGP_IPV6_NODE, &no_upa_drop_global_cmd);
+	/* AF-level UPA — YANG: bgp_cli_init() */
 
 	bgp_vty_if_init();
 

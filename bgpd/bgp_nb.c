@@ -1187,6 +1187,34 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/import-vpn",
+			.cbs = {
+				.modify = bgp_nb_vpn_import_modify,
+				.cli_show = bgp_nb_cli_show_vpn_import,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/export-vpn",
+			.cbs = {
+				.modify = bgp_nb_vpn_export_modify,
+				.cli_show = bgp_nb_cli_show_vpn_export,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/import-vpn",
+			.cbs = {
+				.modify = bgp_nb_vpn_import_modify,
+				.cli_show = bgp_nb_cli_show_vpn_import,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/export-vpn",
+			.cbs = {
+				.modify = bgp_nb_vpn_export_modify,
+				.cli_show = bgp_nb_cli_show_vpn_export,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,

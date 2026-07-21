@@ -42,6 +42,7 @@
 #include "bgpd/bgp_damp.h"
 #include "frrdistance.h"
 
+DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 /*
  * XPath: .../frr-bgp:bgp
  */
@@ -6852,6 +6853,166 @@ void bgp_nb_cli_show_upa_drop(struct vty *vty, const struct lyd_node *dnode, boo
 {
 	if (yang_dnode_get_bool(dnode, NULL) || show_defaults)
 		vty_out(vty, "  upa drop\n");
+}
+
+/*
+ * AF-level import|export vpn
+ */
+static int bgp_nb_vpn_imexport_validate(struct bgp *bgp, afi_t afi, safi_t safi, bool enable,
+					char *errmsg, size_t errmsg_len)
+{
+	if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF && bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+		snprintfrr(errmsg, errmsg_len,
+			   "import|export vpn valid only for bgp vrf or default instance");
+		return NB_ERR_VALIDATION;
+	}
+
+	if (safi != SAFI_UNICAST || (afi != AFI_IP && afi != AFI_IP6)) {
+		snprintfrr(errmsg, errmsg_len,
+			   "import|export vpn valid only for unicast ipv4|ipv6");
+		return NB_ERR_VALIDATION;
+	}
+
+	if (enable && (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_VRF_IMPORT) ||
+		       CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_VRF_EXPORT))) {
+		snprintfrr(errmsg, errmsg_len,
+			   "Please unconfigure import vrf commands before using vpn commands");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+static int bgp_nb_vpn_imexport_apply(struct bgp *bgp, afi_t afi, safi_t safi, bool enable,
+				     int flag, enum vpn_policy_direction dir)
+{
+	struct bgp *bgp_default = bgp_get_default();
+	int previous_state = CHECK_FLAG(bgp->af_flags[afi][safi], flag);
+
+	if (enable) {
+		SET_FLAG(bgp->af_flags[afi][safi], flag);
+		if (!previous_state)
+			vpn_leak_postchange(dir, afi, bgp_default, bgp);
+	} else {
+		if (previous_state)
+			vpn_leak_prechange(dir, afi, bgp_default, bgp);
+		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
+		if (previous_state && bgp_default &&
+		    !CHECK_FLAG(bgp_default->af_flags[afi][SAFI_MPLS_VPN],
+				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
+			vpn_leak_no_retain(bgp, bgp_default, afi);
+	}
+
+	hook_call(bgp_snmp_init_stats, bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_import_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	bool enable;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_imexport_validate(bgp, afi, safi, enable, args->errmsg,
+						    args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	return bgp_nb_vpn_imexport_apply(bgp, afi, safi, enable, BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT,
+					 BGP_VPN_POLICY_DIR_FROMVPN);
+}
+
+int bgp_nb_vpn_import_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	return bgp_nb_vpn_imexport_apply(bgp, afi, safi, false, BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT,
+					 BGP_VPN_POLICY_DIR_FROMVPN);
+}
+
+void bgp_nb_cli_show_vpn_import(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) || show_defaults)
+		vty_out(vty, "  import vpn\n");
+}
+
+int bgp_nb_vpn_export_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	bool enable;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_imexport_validate(bgp, afi, safi, enable, args->errmsg,
+						    args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	return bgp_nb_vpn_imexport_apply(bgp, afi, safi, enable, BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT,
+					 BGP_VPN_POLICY_DIR_TOVPN);
+}
+
+int bgp_nb_vpn_export_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	return bgp_nb_vpn_imexport_apply(bgp, afi, safi, false, BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT,
+					 BGP_VPN_POLICY_DIR_TOVPN);
+}
+
+void bgp_nb_cli_show_vpn_export(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) || show_defaults)
+		vty_out(vty, "  export vpn\n");
 }
 
 
