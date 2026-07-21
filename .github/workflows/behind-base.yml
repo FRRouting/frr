@@ -19,13 +19,17 @@ jobs:
         id: vars
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           behind_by=$(gh api \
-            "repos/${{ github.repository }}/compare/${{ github.base_ref }}...${{ github.event.pull_request.head.sha }}" \
+            "repos/${REPO}/compare/${BASE_REF}...${HEAD_SHA}" \
             --jq .behind_by)
           echo "behind_by=${behind_by}" >> "$GITHUB_OUTPUT"
       - name: Add rebase label if needed
         if: ${{ steps.vars.outputs.behind_by > 50 }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr edit "${{ github.event.pull_request.number }}" --add-label rebase
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr edit "$PR_NUMBER" --add-label rebase
