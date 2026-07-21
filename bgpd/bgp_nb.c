@@ -1419,6 +1419,27 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/advertise-pip/enable",
+			.cbs = {
+				.modify = bgp_nb_evpn_advertise_pip_enable_modify,
+				.cli_show = bgp_nb_cli_show_evpn_advertise_pip_enable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/advertise-pip/system-ip",
+			.cbs = {
+				.modify = bgp_nb_evpn_advertise_pip_param_modify,
+				.destroy = bgp_nb_evpn_advertise_pip_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/l2vpn-evpn/advertise-pip/system-mac",
+			.cbs = {
+				.modify = bgp_nb_evpn_advertise_pip_param_modify,
+				.destroy = bgp_nb_evpn_advertise_pip_param_destroy,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/enable",
 			.cbs = {
 				.modify = bgp_nb_dampening_enable_modify,
