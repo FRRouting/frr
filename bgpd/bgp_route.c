@@ -4296,6 +4296,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 			zlog_debug(
 				"%s: bgp delete in progress, ignoring event, p=%pBD(%s)",
 				__func__, dest, bgp->name_pretty);
+		if (dest)
+			UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 		return;
 	}
 	/* Is it end of initial update? (after startup) */
@@ -4344,6 +4346,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		if (BGP_DEBUG(update, UPDATE_OUT))
 			zlog_debug("SELECT_DEFER flag set for route %p(%s)",
 				   dest, bgp->name_pretty);
+		UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 		return;
 	}
 
@@ -5340,6 +5343,9 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 				 struct bgp_path_info *pi, afi_t afi,
 				 safi_t safi, bool early_process)
 {
+	struct bgp_table *table;
+	int ret;
+
 	/*
 	 * Indicate that *this* pi is in an unsorted
 	 * situation, even if the node is already
@@ -5386,17 +5392,31 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	/* all unlocked in process_subq_xxx functions */
-	bgp_table_lock(bgp_dest_table(dest));
+	table = bgp_dest_table(dest);
+	bgp_table_lock(table);
 
 	SET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 	bgp_dest_lock_node(dest);
 
 	if (early_process) {
 		SET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
-		early_route_process(bgp, dest);
+		ret = early_route_process(bgp, dest);
 	} else {
 		UNSET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
-		other_route_process(bgp, dest);
+		ret = other_route_process(bgp, dest);
+	}
+
+	/*
+	 * On success the dest stays enqueued with the node/table locks held
+	 * and BGP_NODE_PROCESS_SCHEDULED set; they are released and the flag
+	 * cleared asynchronously at dequeue time by process_subq_*_route() ->
+	 * bgp_process_main_one(). On enqueue failure the dequeue never runs,
+	 * so unwind the flag and both locks here.
+	 */
+	if (ret < 0) {
+		UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
+		bgp_dest_unlock_node(dest);
+		bgp_table_unlock(table);
 	}
 
 	return;
