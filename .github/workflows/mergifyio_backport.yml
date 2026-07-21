@@ -15,7 +15,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_BODY: ${{ github.event.comment.body }}
+          PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           if printf '%s\n' "$COMMENT_BODY" | grep -qiE 'mergifyio[[:space:]]+backport'; then
-            gh pr edit "${{ github.event.issue.number }}" --add-label backport
+            gh pr edit "$PR_NUMBER" --add-label backport
           fi
