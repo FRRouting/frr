@@ -7034,6 +7034,20 @@ void bgp_nb_cli_show_peer_af_upa(struct vty *vty, const struct lyd_node *dnode, 
 		vty_out(vty, " neighbor %s upa\n", bgp_nb_config_peer_name(dnode));
 }
 
+int bgp_nb_peer_af_nexthop_local_unchanged_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED);
+}
+
+void bgp_nb_cli_show_peer_af_nexthop_local_unchanged(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s nexthop-local unchanged\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+
 static int bgp_nb_peer_af_orf_apply(struct peer *peer, afi_t afi, safi_t safi, bool send,
 				    bool recv, bool set)
 {

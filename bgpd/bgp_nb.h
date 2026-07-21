@@ -729,6 +729,9 @@ int bgp_nb_peer_af_orf_both_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_af_orf_both_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_af_orf_both(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults);
+int bgp_nb_peer_af_nexthop_local_unchanged_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_nexthop_local_unchanged(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
 
 
 void bgp_cli_init(void);
