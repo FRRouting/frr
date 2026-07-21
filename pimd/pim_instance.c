@@ -213,6 +213,14 @@ static int pim_vrf_enable(struct vrf *vrf)
 		vrf_bind(pim->vrf->vrf_id, pim->global_scope.unicast_sock, NULL);
 	}
 
+	/*
+	 * Any RP / upstream nexthop registrations attempted during config
+	 * load were skipped (or silently dropped by zebra) because they
+	 * carried vrf_id == VRF_UNKNOWN. Re-register them now that the vrf
+	 * id is resolved so zebra can track these nexthops.
+	 */
+	pim_nht_reregister_all(pim);
+
 	return 0;
 }
 

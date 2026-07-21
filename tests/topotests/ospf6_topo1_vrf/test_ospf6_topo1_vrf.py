@@ -309,6 +309,9 @@ def test_linux_ipv6_kernel_routingTable():
             .run("ip -6 route show vrf r{}-cust1".format(i))
             .rstrip()
         )
+        # Normalize NHA_GROUP-of-one routes back to singleton rendering so
+        # the reference tables (captured with singleton output) keep matching.
+        actual = topotest.normalize_iproute_nhg_output(actual)
         if "nhid" in actual:
             refTableFile = os.path.join(CWD, "r{}/ip_6_address.nhg.ref".format(i))
         else:

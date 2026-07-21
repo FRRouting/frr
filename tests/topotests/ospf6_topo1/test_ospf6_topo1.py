@@ -265,6 +265,9 @@ def test_linux_ipv6_kernel_routingTable():
     for i in range(1, 5):
         # Actual output from router
         actual = tgen.gears["r{}".format(i)].run("ip -6 route").rstrip()
+        # Normalize NHA_GROUP-of-one routes back to singleton rendering so
+        # the reference tables (captured with singleton output) keep matching.
+        actual = topotest.normalize_iproute_nhg_output(actual)
         if "nhid" in actual:
             refTableFile = os.path.join(CWD, "r{}/ip_6_address.nhg.ref".format(i))
         else:

@@ -130,16 +130,8 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    router_list = tgen.routers()
-
-    # For all registered routers, load the zebra configuration file
-    for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-        )
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
 
@@ -238,6 +230,18 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
             )
 
 
+def start_ospfd(tgen, router):
+    """
+    Start ospfd on the given router and reapply its configuration.
+
+    Under the unified frr.conf model, ospfd isn't an mgmtd backend client,
+    so it doesn't get its configuration replayed automatically on restart
+    (unlike zebra). Re-push its portion of frr.conf explicitly via vtysh.
+    """
+    start_router_daemons(tgen, router, ["ospfd"])
+    tgen.net[router].cmd("vtysh -d ospfd -f /etc/frr/frr.conf")
+
+
 def ensure_gr_is_in_zebra(rname):
     retry = True
     retry_times = 10
@@ -289,7 +293,7 @@ def test_gr_rt1():
     kill_router_daemons(tgen, "rt1", ["ospfd"], save_config=False)
     check_routers(exiting="rt1")
 
-    start_router_daemons(tgen, "rt1", ["ospfd"])
+    start_ospfd(tgen, "rt1")
     check_routers(restarting="rt1")
 
 
@@ -311,7 +315,7 @@ def test_gr_rt2():
     kill_router_daemons(tgen, "rt2", ["ospfd"], save_config=False)
     check_routers(exiting="rt2")
 
-    start_router_daemons(tgen, "rt2", ["ospfd"])
+    start_ospfd(tgen, "rt2")
     check_routers(restarting="rt2")
 
 
@@ -334,7 +338,7 @@ def test_gr_rt3():
     kill_router_daemons(tgen, "rt3", ["ospfd"], save_config=False)
     check_routers(exiting="rt3")
 
-    start_router_daemons(tgen, "rt3", ["ospfd"])
+    start_ospfd(tgen, "rt3")
     check_routers(restarting="rt3")
 
 
@@ -356,7 +360,7 @@ def test_gr_rt4():
     kill_router_daemons(tgen, "rt4", ["ospfd"], save_config=False)
     check_routers(exiting="rt4")
 
-    start_router_daemons(tgen, "rt4", ["ospfd"])
+    start_ospfd(tgen, "rt4")
     check_routers(restarting="rt4")
 
 
@@ -377,7 +381,7 @@ def test_gr_rt5():
     kill_router_daemons(tgen, "rt5", ["ospfd"], save_config=False)
     check_routers(exiting="rt5")
 
-    start_router_daemons(tgen, "rt5", ["ospfd"])
+    start_ospfd(tgen, "rt5")
     check_routers(restarting="rt5")
 
 
@@ -399,7 +403,7 @@ def test_gr_rt6():
     kill_router_daemons(tgen, "rt6", ["ospfd"], save_config=False)
     check_routers(exiting="rt6")
 
-    start_router_daemons(tgen, "rt6", ["ospfd"])
+    start_ospfd(tgen, "rt6")
     check_routers(restarting="rt6")
 
 
@@ -420,7 +424,7 @@ def test_gr_rt7():
     kill_router_daemons(tgen, "rt7", ["ospfd"], save_config=False)
     check_routers(exiting="rt7")
 
-    start_router_daemons(tgen, "rt7", ["ospfd"])
+    start_ospfd(tgen, "rt7")
     check_routers(restarting="rt7")
 
 
@@ -436,7 +440,7 @@ def test_unplanned_gr_rt1():
         pytest.skip(tgen.errors)
 
     kill_router_daemons(tgen, "rt1", ["ospfd"], save_config=False)
-    start_router_daemons(tgen, "rt1", ["ospfd"])
+    start_ospfd(tgen, "rt1")
 
     expect_grace_lsa(restarting="1.1.1.1", area="0.0.0.1", helper="rt2")
     ensure_gr_is_in_zebra("rt1")
@@ -455,7 +459,7 @@ def test_unplanned_gr_rt2():
         pytest.skip(tgen.errors)
 
     kill_router_daemons(tgen, "rt2", ["ospfd"], save_config=False)
-    start_router_daemons(tgen, "rt2", ["ospfd"])
+    start_ospfd(tgen, "rt2")
 
     expect_grace_lsa(restarting="2.2.2.2", area="0.0.0.1", helper="rt1")
     expect_grace_lsa(restarting="2.2.2.2", area="0.0.0.0", helper="rt3")
@@ -475,7 +479,7 @@ def test_unplanned_gr_rt3():
         pytest.skip(tgen.errors)
 
     kill_router_daemons(tgen, "rt3", ["ospfd"], save_config=False)
-    start_router_daemons(tgen, "rt3", ["ospfd"])
+    start_ospfd(tgen, "rt3")
 
     expect_grace_lsa(restarting="3.3.3.3", area="0.0.0.0", helper="rt2")
     expect_grace_lsa(restarting="3.3.3.3", area="0.0.0.0", helper="rt4")
@@ -496,7 +500,7 @@ def test_unplanned_gr_rt4():
         pytest.skip(tgen.errors)
 
     kill_router_daemons(tgen, "rt4", ["ospfd"], save_config=False)
-    start_router_daemons(tgen, "rt4", ["ospfd"])
+    start_ospfd(tgen, "rt4")
 
     expect_grace_lsa(restarting="4.4.4.4", area="0.0.0.0", helper="rt3")
     expect_grace_lsa(restarting="4.4.4.4", area="0.0.0.2", helper="rt5")
@@ -516,7 +520,7 @@ def test_unplanned_gr_rt5():
         pytest.skip(tgen.errors)
 
     kill_router_daemons(tgen, "rt5", ["ospfd"], save_config=False)
-    start_router_daemons(tgen, "rt5", ["ospfd"])
+    start_ospfd(tgen, "rt5")
 
     expect_grace_lsa(restarting="5.5.5.5", area="0.0.0.2", helper="rt4")
     ensure_gr_is_in_zebra("rt5")
@@ -535,7 +539,7 @@ def test_unplanned_gr_rt6():
         pytest.skip(tgen.errors)
 
     kill_router_daemons(tgen, "rt6", ["ospfd"], save_config=False)
-    start_router_daemons(tgen, "rt6", ["ospfd"])
+    start_ospfd(tgen, "rt6")
 
     expect_grace_lsa(restarting="6.6.6.6", area="0.0.0.0", helper="rt3")
     expect_grace_lsa(restarting="6.6.6.6", area="0.0.0.3", helper="rt7")
@@ -555,7 +559,7 @@ def test_unplanned_gr_rt7():
         pytest.skip(tgen.errors)
 
     kill_router_daemons(tgen, "rt7", ["ospfd"], save_config=False)
-    start_router_daemons(tgen, "rt7", ["ospfd"])
+    start_ospfd(tgen, "rt7")
 
     expect_grace_lsa(restarting="7.7.7.7", area="0.0.0.3", helper="rt6")
     ensure_gr_is_in_zebra("rt7")

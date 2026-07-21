@@ -1826,11 +1826,12 @@ def interface_status(tgen, topo, input_dict):
     return True
 
 
-def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
+def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75, retry_sleep=2):
     """
     Fixture: Retries function while it's return value is an errormsg (str), False, or it raises an exception.
 
     * `retry_timeout`: Retry for at least this many seconds; after waiting initial_wait seconds
+    * `retry_sleep`: amount in seconds to sleep between attempts
     * `initial_wait`: Sleeps for this many seconds before first executing function
     * `expected`: if False then the return logic is inverted, except for exceptions,
                       (i.e., a False or errmsg (str) function return ends the retry loop,
@@ -1848,8 +1849,6 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
             # We will continue to retry diag_pct of the timeout value to see if test would have passed with a
             # longer retry timeout value.
             saved_failure = None
-
-            retry_sleep = 2
 
             # Allow the wrapped function's args to override the fixtures
             _retry_timeout = kwargs.pop("retry_timeout", retry_timeout)
