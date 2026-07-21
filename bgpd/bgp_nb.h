@@ -495,6 +495,29 @@ void bgp_nb_cli_show_peer_local_role(struct vty *vty, const struct lyd_node *dno
 				     bool show_defaults);
 int bgp_nb_peer_local_role_strict_modify(struct nb_cb_modify_args *args);
 
+
+int bgp_nb_peer_bfd_enable_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_bfd_enable_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_bfd_enable(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+int bgp_nb_peer_bfd_detect_mult_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_bfd_min_rx_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_bfd_min_tx_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_bfd_cbit_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_bfd_cbit(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_peer_bfd_profile_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_bfd_profile_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+int bgp_nb_peer_bfd_strict_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_bfd_strict(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+int bgp_nb_peer_bfd_strict_hold_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_bfd_strict_hold_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_bfd_strict_hold(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

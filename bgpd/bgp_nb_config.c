@@ -21,6 +21,8 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_bfd.h"
+#include "bfd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_fsm.h"
@@ -4684,4 +4686,282 @@ int bgp_nb_peer_local_role_strict_modify(struct nb_cb_modify_args *args)
 
 	bgp_nb_peer_local_role_apply(peer, args->dnode);
 	return NB_OK;
+}
+
+static void bgp_nb_peer_bfd_apply(struct peer *peer)
+{
+	if (peer->bfd_config)
+		bgp_peer_config_apply(peer, peer->group);
+}
+
+int bgp_nb_peer_bfd_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		bgp_bfd_enable(peer);
+		bgp_nb_peer_bfd_apply(peer);
+	} else
+		bgp_peer_remove_bfd_config(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		bgp_peer_remove_bfd_config(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_bfd_enable(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	const struct lyd_node *bfd = yang_dnode_get_parent(dnode, "bfd-options");
+	uint8_t mult = BFD_DEF_DETECT_MULT;
+	uint16_t min_rx = BFD_DEF_MIN_RX, min_tx = BFD_DEF_MIN_TX;
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	if (bfd && yang_dnode_exists(bfd, "./detect-multiplier"))
+		mult = yang_dnode_get_uint8(bfd, "./detect-multiplier");
+	if (bfd && yang_dnode_exists(bfd, "./required-min-rx"))
+		min_rx = yang_dnode_get_uint16(bfd, "./required-min-rx");
+	if (bfd && yang_dnode_exists(bfd, "./desired-min-tx"))
+		min_tx = yang_dnode_get_uint16(bfd, "./desired-min-tx");
+
+	/*
+	 * Print the whole line here. detect-multiplier's cli_show is not
+	 * called when the multiplier is 3: lyd_is_default() treats an explicit
+	 * 3 as the default, so "neighbor X bfd 3 100 100" would otherwise
+	 * disappear from the running configuration.
+	 */
+	if (mult != BFD_DEF_DETECT_MULT || min_rx != BFD_DEF_MIN_RX || min_tx != BFD_DEF_MIN_TX)
+		vty_out(vty, " neighbor %s bfd %u %u %u\n", bgp_nb_config_peer_name(dnode), mult,
+			min_rx, min_tx);
+	else
+		vty_out(vty, " neighbor %s bfd\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_bfd_enable(peer);
+	peer->bfd_config->detection_multiplier = yang_dnode_get_uint8(args->dnode, NULL);
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_min_rx_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_bfd_enable(peer);
+	peer->bfd_config->min_rx = yang_dnode_get_uint16(args->dnode, NULL);
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_min_tx_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_bfd_enable(peer);
+	peer->bfd_config->min_tx = yang_dnode_get_uint16(args->dnode, NULL);
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_cbit_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_bfd_enable(peer);
+	peer->bfd_config->cbit = yang_dnode_get_bool(args->dnode, NULL);
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_bfd_cbit(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s bfd check-control-plane-failure\n",
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_bfd_profile_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_bfd_enable(peer);
+	strlcpy(peer->bfd_config->profile, yang_dnode_get_string(args->dnode, NULL),
+		sizeof(peer->bfd_config->profile));
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_profile_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !peer->bfd_config)
+		return NB_OK;
+
+	peer->bfd_config->profile[0] = 0;
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " neighbor %s bfd profile %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_peer_bfd_strict_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer, *member;
+	struct listnode *node;
+	bool strict;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	strict = yang_dnode_get_bool(args->dnode, NULL);
+	if (strict)
+		peer_flag_set(peer, PEER_FLAG_BFD_STRICT);
+	else
+		peer_flag_unset(peer, PEER_FLAG_BFD_STRICT);
+
+	/*
+	 * A single-hop session whose egress is still unknown stays out of
+	 * bfdd. Setting the flag does not retry that install, so BGP waits
+	 * for BFD and BFD waits for an interface that appears only once BGP
+	 * connects. Strict mode has to install the session now.
+	 */
+	if (!strict)
+		return NB_OK;
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member))
+			bgp_peer_bfd_update_source(member);
+	} else
+		bgp_peer_bfd_update_source(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_bfd_strict(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	const struct lyd_node *bfd = yang_dnode_get_parent(dnode, "bfd-options");
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	if (bfd && yang_dnode_exists(bfd, "./strict-hold-time"))
+		return;
+
+	vty_out(vty, " neighbor %s bfd strict\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_bfd_strict_hold_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_bfd_enable(peer);
+	event_cancel(&peer->bfd_config->t_hold_timer);
+	peer->bfd_config->hold_time = yang_dnode_get_uint32(args->dnode, NULL);
+	peer_flag_set(peer, PEER_FLAG_BFD_STRICT);
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_strict_hold_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !peer->bfd_config)
+		return NB_OK;
+
+	event_cancel(&peer->bfd_config->t_hold_timer);
+	peer->bfd_config->hold_time = BFD_DEF_STRICT_HOLD_TIME;
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_bfd_strict_hold(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	vty_out(vty, " neighbor %s bfd strict hold-time %u\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_uint32(dnode, NULL));
 }

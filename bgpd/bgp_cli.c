@@ -10,6 +10,7 @@
 #include "northbound_cli.h"
 #include "vrf.h"
 #include "asn.h"
+#include "bfd.h"
 #include "routing_nb.h"
 
 #include "bgpd/bgpd.h"
@@ -3083,6 +3084,202 @@ DEFPY_YANG(no_neighbor_local_role_yang, no_neighbor_local_role_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFPY_YANG(neighbor_bfd_yang, neighbor_bfd_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Enables BFD support\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
+	if (no) {
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/detect-multiplier", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/required-min-rx", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/desired-min-tx", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/profile", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/check-cp-failure", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-hold-time", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-mode", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	} else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_bfd_param_yang, neighbor_bfd_param_yang_cmd,
+	   "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd (2-255)$detect (50-60000)$min_rx (50-60000)$min_tx",
+	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Enables BFD support\n"
+	   "Detect Multiplier\n"
+	   "Required min receive interval\n"
+	   "Desired min transmit interval\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	snprintfrr(buf, sizeof(buf), "%" PRId64, detect);
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/detect-multiplier", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(buf, sizeof(buf), "%" PRId64, min_rx);
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/required-min-rx", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(buf, sizeof(buf), "%" PRId64, min_tx);
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/desired-min-tx", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(neighbor_bfd_yang, no_neighbor_bfd_param_yang_cmd,
+	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd (2-255) (50-60000) (50-60000)",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Enables BFD support\n"
+	   "Detect Multiplier\n"
+	   "Required min receive interval\n"
+	   "Desired min transmit interval\n",
+	   CMD_ATTR_YANG);
+
+DEFPY_YANG(neighbor_bfd_profile_yang, neighbor_bfd_profile_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd profile [BFDPROF$profile]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "BFD integration\n"
+	   BFD_PROFILE_STR
+	   BFD_PROFILE_NAME_STR)
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/profile", xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!profile) {
+			vty_out(vty, "%% Incomplete command\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/profile", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, profile);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_bfd_cbit_yang, neighbor_bfd_cbit_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd check-control-plane-failure",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "BFD support\n"
+	   "Link dataplane status with BGP controlplane\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!no) {
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	}
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/check-cp-failure", xpath);
+	/*
+	 * Setting the leaf to false requires enable = true. Destroy clears
+	 * cbit whether or not BFD is configured on the neighbor.
+	 */
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_bfd_strict_yang, neighbor_bfd_strict_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd strict",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "BFD support\n"
+	   "Strict mode\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-mode", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_bfd_strict_hold_yang, neighbor_bfd_strict_hold_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd strict hold-time ![(1-4294967295)$hold_time]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "BFD support\n"
+	   "Strict mode\n"
+	   "BFD Hold time in seconds\n"
+	   "Seconds to wait before declaring BFD session down\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-hold-time", xpath);
+	if (no) {
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-mode", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
+	} else {
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-mode", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+		snprintfrr(buf, sizeof(buf), "%" PRId64, hold_time);
+		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-hold-time", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -3255,4 +3452,11 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_rpki_strict_yang_cmd);
 	install_element(BGP_NODE, &neighbor_local_role_yang_cmd);
 	install_element(BGP_NODE, &no_neighbor_local_role_yang_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_yang_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_param_yang_cmd);
+	install_element(BGP_NODE, &no_neighbor_bfd_param_yang_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_profile_yang_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_cbit_yang_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_strict_yang_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_strict_hold_yang_cmd);
 }
