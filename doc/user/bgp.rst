@@ -5304,6 +5304,19 @@ incoming/outgoing directions.
 
    Display Address Prefix ORFs received from this peer.
 
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [afi] [safi] neighbors PEER orf-prefix-list [json]
+
+   Display the ORF prefix-list entries received from this peer. This command
+   shows the individual prefix entries that make up the Outbound Route
+   Filtering (ORF) prefix-list sent by the peer, which is used to filter
+   outbound route advertisements to that peer.
+
+   Example output::
+
+      r1# show bgp ipv4 unicast neighbors 192.168.12.2 orf-prefix-list
+      ip prefix-list 192.168.12.2.1.1: 1 entries
+         seq 5 permit 10.0.0.1/32
+
 .. clicmd:: show bgp [afi] [safi] [all] dampening dampened-paths [wide|json]
 
    Display paths suppressed due to dampening of the selected afi and safi
