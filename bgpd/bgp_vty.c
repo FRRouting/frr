@@ -155,10 +155,7 @@ FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
 	{ .val_bool = false },
 );
 
-DEFINE_HOOK(bgp_inst_config_write,
-		(struct bgp *bgp, struct vty *vty),
-		(bgp, vty));
-DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
+DEFINE_HOOK(bgp_inst_config_write, (struct bgp *bgp, struct vty *vty), (bgp, vty));
 DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 
 
@@ -4263,156 +4260,6 @@ static afi_t vpn_policy_getafi(struct vty *vty, struct bgp *bgp, bool v2vimport)
 	return afi;
 }
 
-DEFPY(af_label_vpn_export_allocation_mode,
-      af_label_vpn_export_allocation_mode_cmd,
-      "[no$no] label vpn export allocation-mode <per-vrf$label_per_vrf|per-nexthop$label_per_nh>",
-      NO_STR
-      "label value for VRF\n"
-      "Between current address-family and vpn\n"
-      "For routes leaked from current address-family to vpn\n"
-      "Label allocation mode\n"
-      "Allocate one label for all BGP updates of the VRF\n"
-      "Allocate a label per connected next-hop in the VRF\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi;
-	bool old_per_nexthop, new_per_nexthop;
-
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	old_per_nexthop = !!CHECK_FLAG(bgp->vpn_policy[afi].flags,
-				       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
-	if (no) {
-		if (old_per_nexthop == false && label_per_nh)
-			return CMD_ERR_NO_MATCH;
-		if (old_per_nexthop == true && label_per_vrf)
-			return CMD_ERR_NO_MATCH;
-		new_per_nexthop = false;
-	} else {
-		if (label_per_nh)
-			new_per_nexthop = true;
-		else
-			new_per_nexthop = false;
-	}
-
-	/* no change */
-	if (old_per_nexthop == new_per_nexthop)
-		return CMD_SUCCESS;
-
-	/*
-	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-	 */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
-			   bgp);
-
-	if (new_per_nexthop)
-		SET_FLAG(bgp->vpn_policy[afi].flags,
-			 BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
-	else
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
-
-	/* post-change: re-export vpn routes */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
-			    bgp);
-
-	hook_call(bgp_snmp_update_last_changed, bgp);
-	return CMD_SUCCESS;
-}
-
-DEFPY (af_label_vpn_export,
-       af_label_vpn_export_cmd,
-       "[no] label vpn export <(0-1048575)$label_val|auto$label_auto>",
-       NO_STR
-       "label value for VRF\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n"
-       "Label Value <0-1048575>\n"
-       "Automatically assign a label\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	mpls_label_t label = (mpls_label_t)label_val;
-	afi_t afi;
-	int idx = 0;
-	bool yes = true;
-
-	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
-
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (yes) {
-		if (label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
-					     BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
-			/* no change */
-			return CMD_SUCCESS;
-		if (!label_auto && label == bgp->vpn_policy[afi].tovpn_label)
-			/* no change */
-			return CMD_SUCCESS;
-	} else {
-		if (label_auto && !CHECK_FLAG(bgp->vpn_policy[afi].flags,
-					      BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
-			/* no match */
-			return CMD_WARNING_CONFIG_FAILED;
-		if (!label_auto && label_val &&
-		    label != bgp->vpn_policy[afi].tovpn_label)
-			/* no change */
-			return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/*
-	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-	 */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			   bgp_get_default(), bgp);
-
-	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-		       BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG)) {
-		bgp_zebra_release_label_range(bgp->vpn_policy[afi].tovpn_label,
-					      bgp->vpn_policy[afi].tovpn_label);
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
-
-	} else if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
-		/* release any previous auto label */
-		bgp_vpn_release_label(bgp, afi, false);
-
-	if (yes) {
-		if (label_auto) {
-			SET_FLAG(bgp->vpn_policy[afi].flags,
-				 BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
-			/* fetch a label */
-			bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
-		} else {
-			bgp->vpn_policy[afi].tovpn_label = label;
-			UNSET_FLAG(bgp->vpn_policy[afi].flags,
-				   BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
-			if (bgp->vpn_policy[afi].tovpn_label >=
-				    MPLS_LABEL_UNRESERVED_MIN &&
-			    bgp_zebra_request_label_range(bgp->vpn_policy[afi]
-								  .tovpn_label,
-							  1, false))
-				SET_FLAG(bgp->vpn_policy[afi].flags,
-					 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
-		}
-	} else {
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
-		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
-	}
-
-	/* post-change: re-export vpn routes */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			    bgp_get_default(), bgp);
-
-	hook_call(bgp_snmp_update_last_changed, bgp);
-	return CMD_SUCCESS;
-}
-
 DEFPY (af_sid_vpn_export,
        af_sid_vpn_export_cmd,
        "[no] sid vpn export <(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
@@ -4639,14 +4486,6 @@ DEFPY (bgp_sid_vpn_export,
 
 	return CMD_SUCCESS;
 }
-
-ALIAS (af_label_vpn_export,
-       af_no_label_vpn_export_cmd,
-       "no label vpn export",
-       NO_STR
-       "label value for VRF\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n")
 
 ALIAS (bgp_sid_vpn_export,
        no_bgp_sid_vpn_export_cmd,
@@ -16463,13 +16302,7 @@ void bgp_vty_init(void)
 	community_alias_vty();
 
 	/* vpn-policy commands */
-	/* rd vpn export — YANG: bgp_cli_init() */
-	install_element(BGP_IPV4_NODE, &af_label_vpn_export_cmd);
-	install_element(BGP_IPV6_NODE, &af_label_vpn_export_cmd);
-	install_element(BGP_IPV4_NODE,
-			&af_label_vpn_export_allocation_mode_cmd);
-	install_element(BGP_IPV6_NODE,
-			&af_label_vpn_export_allocation_mode_cmd);
+	/* rd / label vpn export — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_imexport_cmd);
@@ -16481,9 +16314,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV4_NODE, &af_routetarget_import_cmd);
 	install_element(BGP_IPV6_NODE, &af_routetarget_import_cmd);
 
-	/* no rd vpn export — YANG: bgp_cli_init() */
-	install_element(BGP_IPV4_NODE, &af_no_label_vpn_export_cmd);
-	install_element(BGP_IPV6_NODE, &af_no_label_vpn_export_cmd);
+	/* no rd / label vpn export — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_no_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_rt_vpn_imexport_cmd);
 	/* no route-map vpn — YANG: bgp_cli_init() */

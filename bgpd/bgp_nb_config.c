@@ -45,6 +45,7 @@
 DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
 	    (bgp, afi, preconfig));
+DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 
 /*
  * XPath: .../frr-bgp:bgp
@@ -7663,6 +7664,250 @@ int bgp_nb_vpn_rd_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_vpn_rd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	vty_out(vty, "  rd vpn export %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * AF-level label vpn export / allocation-mode
+ */
+static void bgp_nb_vpn_label_release_current(struct bgp *bgp, afi_t afi)
+{
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG)) {
+		bgp_zebra_release_label_range(bgp->vpn_policy[afi].tovpn_label,
+					      bgp->vpn_policy[afi].tovpn_label);
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
+	} else if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
+		bgp_vpn_release_label(bgp, afi, false);
+	}
+}
+
+static int bgp_nb_vpn_label_clear(struct bgp *bgp, afi_t afi)
+{
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	bgp_nb_vpn_label_release_current(bgp, afi);
+	UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+	bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	hook_call(bgp_snmp_update_last_changed, bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_label_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	mpls_label_t label;
+
+	label = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
+	    label == bgp->vpn_policy[afi].tovpn_label)
+		return NB_OK;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	bgp_nb_vpn_label_release_current(bgp, afi);
+
+	bgp->vpn_policy[afi].tovpn_label = label;
+	UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+	if (bgp->vpn_policy[afi].tovpn_label >= MPLS_LABEL_UNRESERVED_MIN &&
+	    bgp_zebra_request_label_range(bgp->vpn_policy[afi].tovpn_label, 1, false))
+		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
+
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	hook_call(bgp_snmp_update_last_changed, bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_label_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	/* Auto mode uses label-auto; leave it alone if active. */
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+		return NB_OK;
+
+	if (bgp->vpn_policy[afi].tovpn_label == MPLS_LABEL_NONE)
+		return NB_OK;
+
+	return bgp_nb_vpn_label_clear(bgp, afi);
+}
+
+void bgp_nb_cli_show_vpn_label(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  label vpn export %u\n", yang_dnode_get_uint32(dnode, NULL));
+}
+
+int bgp_nb_vpn_label_auto_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	bool enable;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (enable) {
+		if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+			return NB_OK;
+
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+		bgp_nb_vpn_label_release_current(bgp, afi);
+		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+		hook_call(bgp_snmp_update_last_changed, bgp);
+		return NB_OK;
+	}
+
+	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+		return NB_OK;
+
+	return bgp_nb_vpn_label_clear(bgp, afi);
+}
+
+int bgp_nb_vpn_label_auto_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+		return NB_OK;
+
+	return bgp_nb_vpn_label_clear(bgp, afi);
+}
+
+void bgp_nb_cli_show_vpn_label_auto(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL) || show_defaults)
+		vty_out(vty, "  label vpn export auto\n");
+}
+
+int bgp_nb_vpn_label_alloc_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	const char *mode;
+	bool new_per_nexthop;
+	bool old_per_nexthop;
+
+	mode = yang_dnode_get_string(args->dnode, NULL);
+	new_per_nexthop = strmatch(mode, "per-nexthop");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		return bgp_nb_vpn_rmap_validate(bgp, afi, safi, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	old_per_nexthop = !!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+	if (old_per_nexthop == new_per_nexthop)
+		return NB_OK;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	if (new_per_nexthop)
+		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+	else
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	hook_call(bgp_snmp_update_last_changed, bgp);
+	return NB_OK;
+}
+
+int bgp_nb_vpn_label_alloc_mode_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
+		return NB_OK;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
+	hook_call(bgp_snmp_update_last_changed, bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_vpn_label_alloc_mode(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	const char *mode = yang_dnode_get_string(dnode, NULL);
+
+	if (strmatch(mode, "per-nexthop") || show_defaults)
+		vty_out(vty, "  label vpn export allocation-mode %s\n", mode);
 }
 
 
