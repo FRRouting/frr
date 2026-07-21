@@ -3590,6 +3590,78 @@ DEFPY_YANG(neighbor_graceful_shutdown_yang, neighbor_graceful_shutdown_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFPY_YANG(neighbor_set_peer_group_yang, neighbor_set_peer_group_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor peer-group PGNAME$pgname",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Member of the peer-group\n"
+	   "Peer-group name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char pg_path[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (is_pg) {
+		vty_out(vty, "%% Peer-group cannot join a peer-group\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no) {
+		/*
+		 * Classic "no neighbor X peer-group PG" deletes the neighbor,
+		 * which drops the listen socket when the instance has no peers
+		 * left. Destroying only the peer-group leaf leaves the neighbor
+		 * and the wildcard listener in place.
+		 */
+		snprintfrr(pg_path, sizeof(pg_path),
+			   "%s/peer-groups/peer-group[peer-group-name='%s']", VTY_CURR_XPATH,
+			   pgname);
+		if (!yang_dnode_exists(vty->candidate_config->dnode, pg_path)) {
+			vty_out(vty, "%% Configure the peer-group first\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	} else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, pgname);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_port_yang, neighbor_port_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor port [(0-65535)$port]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Neighbor's BGP port\n"
+	   "TCP port number\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	char buf[16];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/local-port", xpath);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!port_str) {
+			vty_out(vty, "%% Incomplete command\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		snprintfrr(buf, sizeof(buf), "%" PRId64, port);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -3779,4 +3851,6 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_aigp_yang_cmd);
 	install_element(BGP_NODE, &neighbor_oad_yang_cmd);
 	install_element(BGP_NODE, &neighbor_graceful_shutdown_yang_cmd);
+	install_element(BGP_NODE, &neighbor_set_peer_group_yang_cmd);
+	install_element(BGP_NODE, &neighbor_port_yang_cmd);
 }

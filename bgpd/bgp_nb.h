@@ -547,6 +547,16 @@ int bgp_nb_peer_graceful_shutdown_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_peer_graceful_shutdown(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults);
 
+
+int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args);
+int bgp_nb_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_neighbor_peer_group(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+int bgp_nb_neighbor_local_port_modify(struct nb_cb_modify_args *args);
+int bgp_nb_neighbor_local_port_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_neighbor_local_port(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

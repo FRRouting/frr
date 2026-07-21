@@ -4689,58 +4689,6 @@ ALIAS_HIDDEN(
 	"route-map name\n")
 
 
-/* Set neighbor's BGP port.  */
-static int peer_port_vty(struct vty *vty, const char *ip_str, int afi,
-			 const char *port_str)
-{
-	struct peer *peer;
-	uint16_t port;
-	struct servent *sp;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!port_str) {
-		sp = getservbyname("bgp", "tcp");
-		port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs(sp->s_port);
-	} else {
-		port = strtoul(port_str, NULL, 10);
-	}
-
-	peer_port_set(peer, port);
-
-	return CMD_SUCCESS;
-}
-
-/* Set specified peer's BGP port.  */
-DEFUN (neighbor_port,
-       neighbor_port_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> port (0-65535)",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Neighbor's BGP port\n"
-       "TCP port number\n")
-{
-	int idx_ip = 1;
-	int idx_number = 3;
-	return peer_port_vty(vty, argv[idx_ip]->arg, AFI_IP,
-			     argv[idx_number]->arg);
-}
-
-DEFUN (no_neighbor_port,
-       no_neighbor_port_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> port [(0-65535)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Neighbor's BGP port\n"
-       "TCP port number\n")
-{
-	int idx_ip = 2;
-	return peer_port_vty(vty, argv[idx_ip]->arg, AFI_IP, NULL);
-}
-
 
 /* neighbor weight. */
 static int peer_weight_set_vty(struct vty *vty, const char *ip_str, afi_t afi,
@@ -19806,7 +19754,6 @@ void bgp_vty_init(void)
 	install_element(BGP_LS_NODE, &no_neighbor_activate_cmd);
 
 	/* "neighbor peer-group" set commands. */
-	install_element(BGP_NODE, &neighbor_set_peer_group_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_set_peer_group_hidden_cmd);
 	install_element(BGP_IPV4M_NODE, &neighbor_set_peer_group_hidden_cmd);
 	install_element(BGP_IPV6_NODE, &neighbor_set_peer_group_hidden_cmd);
@@ -19820,7 +19767,6 @@ void bgp_vty_init(void)
 			&neighbor_set_peer_group_hidden_cmd);
 
 	/* "no neighbor peer-group unset" commands. */
-	install_element(BGP_NODE, &no_neighbor_set_peer_group_cmd);
 	install_element(BGP_IPV4_NODE, &no_neighbor_set_peer_group_hidden_cmd);
 	install_element(BGP_IPV4M_NODE, &no_neighbor_set_peer_group_hidden_cmd);
 	install_element(BGP_IPV6_NODE, &no_neighbor_set_peer_group_hidden_cmd);
@@ -20457,8 +20403,6 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &no_neighbor_default_originate_cmd);
 
 	/* "neighbor port" commands. */
-	install_element(BGP_NODE, &neighbor_port_cmd);
-	install_element(BGP_NODE, &no_neighbor_port_cmd);
 
 	/* "neighbor weight" commands. */
 	install_element(BGP_NODE, &neighbor_weight_hidden_cmd);

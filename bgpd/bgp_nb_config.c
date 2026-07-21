@@ -4966,6 +4966,415 @@ void bgp_nb_cli_show_peer_bfd_strict_hold(struct vty *vty, const struct lyd_node
 		yang_dnode_get_uint32(dnode, NULL));
 }
 
+int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	struct peer_group *group;
+	const char *group_name;
+	as_t as;
+	int ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!peer)
+			return NB_ERR_VALIDATION;
+		if (peer_dynamic_neighbor(peer)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "operation not allowed on a dynamic neighbor");
+			return NB_ERR_VALIDATION;
+		}
+		group_name = yang_dnode_get_string(args->dnode, NULL);
+		if (!peer_group_lookup(peer->bgp, group_name)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Configure the peer-group first");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	group_name = yang_dnode_get_string(args->dnode, NULL);
+	group = peer_group_lookup(peer->bgp, group_name);
+	if (!group)
+		return NB_ERR_NOT_FOUND;
+
+	as = peer->as;
+	ret = peer_group_bind(peer->bgp, &peer->connection->su, peer, group, &as);
+	if (ret != 0)
+		return NB_ERR_RESOURCE;
+
+	if (group->conf->as_type != AS_UNSPECIFIED)
+		bgp_nb_need_listening(peer->bgp);
+	return NB_OK;
+}
+
+static bool bgp_nb_flag_inherited(uint64_t flags, uint64_t override, uint64_t flag)
+{
+	return CHECK_FLAG(flags, flag) && !CHECK_FLAG(override, flag);
+}
+
+static void bgp_nb_drop_session_flag(struct peer *peer, uint64_t flag)
+{
+	if (!bgp_nb_flag_inherited(peer->flags, peer->flags_override, flag))
+		return;
+	UNSET_FLAG(peer->flags_invert, flag);
+	peer_flag_unset(peer, flag);
+}
+
+static void bgp_nb_drop_af_flag(struct peer *peer, afi_t afi, safi_t safi, uint64_t flag)
+{
+	if (!bgp_nb_flag_inherited(peer->af_flags[afi][safi], peer->af_flags_override[afi][safi],
+				  flag))
+		return;
+	UNSET_FLAG(peer->af_flags_invert[afi][safi], flag);
+	peer_af_flag_unset(peer, afi, safi, flag);
+}
+
+/* True when the neighbor YANG itself turned GR on or off. */
+static bool bgp_nb_neighbor_gr_explicit(const struct lyd_node *nbr)
+{
+	if (!nbr)
+		return false;
+	if (yang_dnode_exists(nbr, "graceful-restart/enable") &&
+	    yang_dnode_get_bool(nbr, "graceful-restart/enable"))
+		return true;
+	if (yang_dnode_exists(nbr, "graceful-restart/graceful-restart-helper") &&
+	    yang_dnode_get_bool(nbr, "graceful-restart/graceful-restart-helper"))
+		return true;
+	if (yang_dnode_exists(nbr, "graceful-restart/graceful-restart-disable") &&
+	    yang_dnode_get_bool(nbr, "graceful-restart/graceful-restart-disable"))
+		return true;
+	return false;
+}
+
+/*
+ * Classic "no neighbor X peer-group" deletes the peer. YANG keeps the
+ * neighbor, so after unbind drop every inherited value that is not an
+ * explicit override. Unset helpers re-inherit while peer_group_active(),
+ * so this runs only after peer_group_unbind().
+ */
+static void bgp_nb_neighbor_drop_inherited(struct peer *peer, const struct lyd_node *nbr)
+{
+	static const uint64_t session_flags[] = {
+		PEER_FLAG_PASSIVE,
+		PEER_FLAG_SHUTDOWN,
+		PEER_FLAG_RTT_SHUTDOWN,
+		PEER_FLAG_DONT_CAPABILITY,
+		PEER_FLAG_OVERRIDE_CAPABILITY,
+		PEER_FLAG_STRICT_CAP_MATCH,
+		PEER_FLAG_DYNAMIC_CAPABILITY,
+		PEER_FLAG_DISABLE_CONNECTED_CHECK,
+		PEER_FLAG_CAPABILITY_ENHE,
+		PEER_FLAG_ENFORCE_FIRST_AS,
+		PEER_FLAG_IFPEER_V6ONLY,
+		PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE,
+		PEER_FLAG_EXTENDED_OPT_PARAMS,
+		PEER_FLAG_ROLE_STRICT_MODE,
+		PEER_FLAG_LOCAL_AS_NO_PREPEND,
+		PEER_FLAG_LOCAL_AS_REPLACE_AS,
+		PEER_FLAG_DUAL_AS,
+		PEER_FLAG_AIGP,
+		PEER_FLAG_GRACEFUL_SHUTDOWN,
+		PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD,
+		PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW,
+		PEER_FLAG_CAPABILITY_FQDN,
+		PEER_FLAG_AS_LOOP_DETECTION,
+		PEER_FLAG_EXTENDED_LINK_BANDWIDTH,
+		PEER_FLAG_LONESOUL,
+		PEER_FLAG_CAPABILITY_LINK_LOCAL,
+		PEER_FLAG_BFD_STRICT,
+		PEER_FLAG_RPKI_STRICT,
+		PEER_FLAG_SEND_NHC_ATTRIBUTE,
+		PEER_FLAG_IP_TRANSPARENT,
+	};
+	static const uint64_t af_flags[] = {
+		PEER_FLAG_SEND_COMMUNITY,
+		PEER_FLAG_SEND_EXT_COMMUNITY,
+		PEER_FLAG_SEND_LARGE_COMMUNITY,
+		PEER_FLAG_NEXTHOP_SELF,
+		PEER_FLAG_REFLECTOR_CLIENT,
+		PEER_FLAG_RSERVER_CLIENT,
+		PEER_FLAG_SOFT_RECONFIG,
+		PEER_FLAG_AS_PATH_UNCHANGED,
+		PEER_FLAG_NEXTHOP_UNCHANGED,
+		PEER_FLAG_MED_UNCHANGED,
+		PEER_FLAG_REMOVE_PRIVATE_AS,
+		PEER_FLAG_ORF_PREFIX_SM,
+		PEER_FLAG_ORF_PREFIX_RM,
+		PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED,
+		PEER_FLAG_FORCE_NEXTHOP_SELF,
+		PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
+		PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
+		PEER_FLAG_AS_OVERRIDE,
+		PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
+		PEER_FLAG_DISABLE_ADDPATH_RX,
+		PEER_FLAG_ACCEPT_OWN,
+		PEER_FLAG_SEND_EXT_COMMUNITY_RPKI,
+		PEER_FLAG_ADDPATH_RX_PATHS_LIMIT,
+		PEER_FLAG_CONFIG_ENCAPSULATION_SRV6,
+		PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX,
+		PEER_FLAG_CONFIG_ENCAPSULATION_MPLS,
+		PEER_FLAG_UPA,
+	};
+	afi_t afi;
+	safi_t safi;
+	unsigned int i;
+
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_PASSWORD)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_PASSWORD);
+		peer_password_unset(peer);
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_UPDATE_SOURCE)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_UPDATE_SOURCE);
+		peer_update_source_unset(peer);
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_TIMER)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_TIMER);
+		peer_timers_unset(peer);
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_TIMER_CONNECT)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_TIMER_CONNECT);
+		peer_timers_connect_unset(peer);
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_TIMER_DELAYOPEN)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_TIMER_DELAYOPEN);
+		peer_timers_delayopen_unset(peer);
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_ROUTEADV)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_ROUTEADV);
+		peer_advertise_interval_unset(peer);
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_LOCAL_AS)) {
+		UNSET_FLAG(peer->flags_invert,
+			   PEER_FLAG_LOCAL_AS | PEER_FLAG_LOCAL_AS_NO_PREPEND |
+				   PEER_FLAG_LOCAL_AS_REPLACE_AS | PEER_FLAG_DUAL_AS);
+		peer_local_as_unset(peer);
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_TCP_MSS)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_TCP_MSS);
+		peer_tcp_mss_unset(peer);
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_ROLE)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_ROLE | PEER_FLAG_ROLE_STRICT_MODE);
+		peer_role_unset(peer);
+		peer->local_role = 0;
+	}
+	if (bgp_nb_flag_inherited(peer->flags, peer->flags_override, PEER_FLAG_PORT)) {
+		UNSET_FLAG(peer->flags_invert, PEER_FLAG_PORT);
+		peer_port_unset(peer);
+	}
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_EBGP_MULTIHOP) &&
+	    (peer->cfg_ttl || CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP)))
+		peer_cfg_ttl_set(peer, 0);
+	if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED &&
+	    !(nbr && yang_dnode_exists(nbr, "ttl-security")))
+		peer_ttl_security_hops_unset(peer);
+
+	for (i = 0; i < array_size(session_flags); i++)
+		bgp_nb_drop_session_flag(peer, session_flags[i]);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		const char *ident = yang_afi_safi_value2identity(afi, safi);
+		struct bgp_filter *filter = &peer->filter[afi][safi];
+		uint8_t *ov_in = &peer->filter_override[afi][safi][FILTER_IN];
+		uint8_t *ov_out = &peer->filter_override[afi][safi][FILTER_OUT];
+		const struct lyd_node *enabled = NULL;
+		const struct lyd_node *addpath = NULL;
+		const char *addpath_type = NULL;
+		bool explicit_af = false;
+		bool af_on = false;
+
+		for (i = 0; i < array_size(af_flags); i++)
+			bgp_nb_drop_af_flag(peer, afi, safi, af_flags[i]);
+
+		if (bgp_nb_flag_inherited(peer->af_flags[afi][safi], peer->af_flags_override[afi][safi],
+					  PEER_FLAG_MAX_PREFIX)) {
+			UNSET_FLAG(peer->af_flags_invert[afi][safi], PEER_FLAG_MAX_PREFIX);
+			peer_maximum_prefix_unset(peer, afi, safi);
+		}
+		if (bgp_nb_flag_inherited(peer->af_flags[afi][safi], peer->af_flags_override[afi][safi],
+					  PEER_FLAG_MAX_PREFIX_OUT)) {
+			UNSET_FLAG(peer->af_flags_invert[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
+			peer_maximum_prefix_out_unset(peer, afi, safi);
+		}
+		if (bgp_nb_flag_inherited(peer->af_flags[afi][safi], peer->af_flags_override[afi][safi],
+					  PEER_FLAG_ALLOWAS_IN)) {
+			UNSET_FLAG(peer->af_flags_invert[afi][safi],
+				   PEER_FLAG_ALLOWAS_IN | PEER_FLAG_ALLOWAS_IN_ORIGIN);
+			peer_allowas_in_unset(peer, afi, safi);
+		}
+		if (bgp_nb_flag_inherited(peer->af_flags[afi][safi], peer->af_flags_override[afi][safi],
+					  PEER_FLAG_WEIGHT)) {
+			UNSET_FLAG(peer->af_flags_invert[afi][safi], PEER_FLAG_WEIGHT);
+			peer_weight_unset(peer, afi, safi);
+		}
+		if (bgp_nb_flag_inherited(peer->af_flags[afi][safi], peer->af_flags_override[afi][safi],
+					  PEER_FLAG_DEFAULT_ORIGINATE)) {
+			UNSET_FLAG(peer->af_flags_invert[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE);
+			peer_default_originate_unset(peer, afi, safi);
+		}
+		if (!CHECK_FLAG(peer->af_flags_override[afi][safi], PEER_FLAG_SOO) && peer->soo[afi][safi]) {
+			ecommunity_free(&peer->soo[afi][safi]);
+			bgp_nb_drop_af_flag(peer, afi, safi, PEER_FLAG_SOO);
+		}
+
+		if (!CHECK_FLAG(*ov_in, PEER_FT_DISTRIBUTE_LIST) && filter->dlist[FILTER_IN].name)
+			peer_distribute_unset(peer, afi, safi, FILTER_IN);
+		if (!CHECK_FLAG(*ov_out, PEER_FT_DISTRIBUTE_LIST) && filter->dlist[FILTER_OUT].name)
+			peer_distribute_unset(peer, afi, safi, FILTER_OUT);
+		if (!CHECK_FLAG(*ov_in, PEER_FT_PREFIX_LIST) && filter->plist[FILTER_IN].name)
+			peer_prefix_list_unset(peer, afi, safi, FILTER_IN);
+		if (!CHECK_FLAG(*ov_out, PEER_FT_PREFIX_LIST) && filter->plist[FILTER_OUT].name)
+			peer_prefix_list_unset(peer, afi, safi, FILTER_OUT);
+		if (!CHECK_FLAG(*ov_in, PEER_FT_FILTER_LIST) && filter->aslist[FILTER_IN].name)
+			peer_aslist_unset(peer, afi, safi, FILTER_IN);
+		if (!CHECK_FLAG(*ov_out, PEER_FT_FILTER_LIST) && filter->aslist[FILTER_OUT].name)
+			peer_aslist_unset(peer, afi, safi, FILTER_OUT);
+		if (!CHECK_FLAG(*ov_in, PEER_FT_ROUTE_MAP) && filter->map[RMAP_IN].name)
+			peer_route_map_unset(peer, afi, safi, RMAP_IN);
+		if (!CHECK_FLAG(*ov_out, PEER_FT_ROUTE_MAP) && filter->map[RMAP_OUT].name)
+			peer_route_map_unset(peer, afi, safi, RMAP_OUT);
+		if (!CHECK_FLAG(peer->filter_override[afi][safi][0], PEER_FT_UNSUPPRESS_MAP) &&
+		    filter->usmap.name)
+			peer_unsuppress_map_unset(peer, afi, safi);
+		if (!CHECK_FLAG(*ov_out, PEER_FT_ADVERTISE_MAP) && filter->advmap.aname)
+			peer_advertise_map_unset(peer, afi, safi, filter->advmap.aname,
+						 filter->advmap.amap, filter->advmap.cname,
+						 filter->advmap.cmap, filter->advmap.condition);
+
+		if (ident && nbr) {
+			enabled = yang_dnode_getf(nbr,
+						  "afi-safis/afi-safi[afi-safi-name='%s']/enabled",
+						  ident);
+			addpath = yang_dnode_getf(
+				nbr, "afi-safis/afi-safi[afi-safi-name='%s']/add-paths/path-type",
+				ident);
+		}
+		if (enabled) {
+			explicit_af = true;
+			af_on = yang_dnode_get_bool(enabled, NULL);
+		}
+		if (explicit_af) {
+			if (af_on && !peer->afc[afi][safi])
+				peer_activate(peer, afi, safi);
+			else if (!af_on && peer->afc[afi][safi])
+				peer_deactivate(peer, afi, safi);
+		} else if (peer->bgp->default_af[afi][safi]) {
+			if (!peer->afc[afi][safi])
+				peer_activate(peer, afi, safi);
+		} else if (peer->afc[afi][safi]) {
+			peer_deactivate(peer, afi, safi);
+		}
+
+		if (addpath)
+			addpath_type = yang_dnode_get_string(addpath, NULL);
+		if (peer->addpath_type[afi][safi] != BGP_ADDPATH_NONE &&
+		    (!addpath_type || strmatch(addpath_type, "none")))
+			bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE, 0);
+	}
+
+	/* Remote-as after AF flags so iBGP-only unsets still see the group AS. */
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS)) {
+		if (nbr && yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type"))
+			SET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
+		else
+			peer_as_change(peer, 0, AS_UNSPECIFIED, NULL);
+	}
+
+	if (!bgp_nb_neighbor_gr_explicit(nbr))
+		bgp_peer_move_to_gr_mode(peer, PEER_GLOBAL_INHERIT);
+
+	if (peer->bfd_config && !(nbr && yang_dnode_exists(nbr, "bfd-options/enable") &&
+				  yang_dnode_get_bool(nbr, "bfd-options/enable")))
+		bgp_peer_remove_bfd_config(peer);
+}
+
+int bgp_nb_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	const struct lyd_node *nbr;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !peer->group)
+		return NB_OK;
+
+	if (peer_group_unbind(peer->bgp, peer, peer->group) != 0)
+		return NB_ERR_RESOURCE;
+
+	nbr = yang_dnode_get_parent(args->dnode, "neighbor");
+	if (!nbr)
+		nbr = yang_dnode_get_parent(args->dnode, "unnumbered-neighbor");
+	bgp_nb_neighbor_drop_inherited(peer, nbr);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		struct peer_af *paf = peer_af_find(peer, afi, safi);
+
+		if (paf)
+			update_group_adjust_peer(paf);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_neighbor_peer_group(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	vty_out(vty, " neighbor %s peer-group %s\n", bgp_nb_config_peer_name(dnode),
+		yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_neighbor_local_port_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	peer_port_set(peer, yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_neighbor_local_port_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer)
+		peer_port_unset(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_neighbor_local_port(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	uint16_t port = yang_dnode_get_uint16(dnode, NULL);
+
+	if (port == BGP_PORT_DEFAULT && !show_defaults)
+		return;
+
+	vty_out(vty, " neighbor %s port %u\n", bgp_nb_config_peer_name(dnode), port);
+}
+
 static bool bgp_nb_path_attr_forbidden(uint8_t attr_num, struct peer *peer, char *errmsg,
 				       size_t errmsg_len)
 {

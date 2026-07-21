@@ -1788,6 +1788,23 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.cli_show = bgp_nb_cli_show_peer_graceful_shutdown,
 			},
 		},
+
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/peer-group",
+			.cbs = {
+				.modify = bgp_nb_neighbor_peer_group_modify,
+				.destroy = bgp_nb_neighbor_peer_group_destroy,
+				.cli_show = bgp_nb_cli_show_neighbor_peer_group,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-port",
+			.cbs = {
+				.modify = bgp_nb_neighbor_local_port_modify,
+				.destroy = bgp_nb_neighbor_local_port_destroy,
+				.cli_show = bgp_nb_cli_show_neighbor_local_port,
+			},
+		},
 		{
 			.xpath = NULL,
 		},
