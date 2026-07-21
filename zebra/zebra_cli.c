@@ -2030,7 +2030,7 @@ DEFPY_YANG (ipv6_nd_mtu,
 static void lib_interface_zebra_ipv6_router_advertisements_link_mtu_cli_write(
 	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	uint16_t link_mtu = yang_dnode_get_uint32(dnode, NULL);
+	uint16_t link_mtu = yang_dnode_get_uint16(dnode, NULL);
 
 	vty_out(vty, " ipv6 nd mtu %u\n", link_mtu);
 }
