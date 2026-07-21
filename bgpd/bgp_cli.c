@@ -73,10 +73,7 @@ static const char *bgp_cli_afi_safi_name(int node)
 	}
 }
 
-/*
- * Global AF network statements
- * (unicast/multicast only; labeled-unicast remains classic until YANG grows)
- */
+/* Build relative xpath for the current global AFI-SAFI node. */
 static int bgp_cli_global_af_xpath(struct vty *vty, char *xpath, size_t xpath_len)
 {
 	const char *af = bgp_cli_afi_safi_name(vty->node);
@@ -9061,17 +9058,21 @@ void bgp_cli_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_set_peer_group_yang_hidden_cmd);
 
-	/* network statements: unicast/multicast (labeled stays classic) */
+	/* network statements: unicast/multicast/labeled-unicast */
 	install_element(BGP_IPV4_NODE, &bgp_network_yang_cmd);
 	install_element(BGP_IPV4M_NODE, &bgp_network_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_network_yang_cmd);
 	install_element(BGP_IPV6_NODE, &ipv6_bgp_network_yang_cmd);
 	install_element(BGP_IPV6M_NODE, &ipv6_bgp_network_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_yang_cmd);
 	install_element(BGP_NODE, &bgp_network_yang_hidden_cmd);
 
-	/* aggregate-address: unicast/multicast (labeled stays classic) */
+	/* aggregate-address: unicast/multicast/labeled-unicast */
 	install_element(BGP_IPV4_NODE, &aggregate_addressv4_yang_cmd);
 	install_element(BGP_IPV4M_NODE, &aggregate_addressv4_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &aggregate_addressv4_yang_cmd);
 	install_element(BGP_IPV6_NODE, &aggregate_addressv6_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &aggregate_addressv6_yang_cmd);
 	install_element(BGP_NODE, &aggregate_addressv4_yang_hidden_cmd);
 
 	/* maximum-paths: unicast + labeled */

@@ -21293,9 +21293,8 @@ void bgp_route_init(void)
 	/* IPv4 multicast configuration.  */
 	/* table-map — YANG: bgp_cli_init() */
 
-	/* IPv4 labeled-unicast configuration.  */
-	install_element(BGP_IPV4L_NODE, &bgp_network_cmd);
-	install_element(BGP_IPV4L_NODE, &aggregate_addressv4_cmd);
+	/* IPv4 labeled-unicast network/aggregate — YANG: bgp_cli_init() */
+
 
 	install_element(VIEW_NODE, &show_ip_bgp_instance_all_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_afi_safi_statistics_cmd);
@@ -21339,9 +21338,8 @@ void bgp_route_init(void)
 	/* New config IPv6 BGP commands.  */
 	/* table-map — YANG: bgp_cli_init() */
 
-	/* IPv6 labeled unicast address family. */
-	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);
-	install_element(BGP_IPV6L_NODE, &aggregate_addressv6_cmd);
+	/* IPv6 labeled-unicast network/aggregate — YANG: bgp_cli_init() */
+
 
 	/* ipv4/ipv6 unicast + multicast distance — YANG: bgp_cli_init() */
 
