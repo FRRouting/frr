@@ -3971,6 +3971,26 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	return 0;
 }
 
+int peer_group_unbind(struct bgp *bgp, struct peer *peer, struct peer_group *group)
+{
+	struct listnode *pn;
+
+	if (!peer || !group)
+		return -1;
+
+	if (peer->group != group)
+		return -1;
+
+	pn = listnode_lookup(group->peer, peer);
+	if (pn) {
+		list_delete_node(group->peer, pn);
+		peer_unlock(peer); /* group->peer list reference */
+	}
+
+	peer->group = NULL;
+	return 0;
+}
+
 static void bgp_startup_timer_expire(struct event *event)
 {
 	struct bgp *bgp;

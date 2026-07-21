@@ -2881,6 +2881,7 @@ extern void peer_orf_plist_name(const struct peer *peer, afi_t afi, safi_t safi,
 
 extern int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			   struct peer_group *group, as_t *as);
+extern int peer_group_unbind(struct bgp *bgp, struct peer *peer, struct peer_group *group);
 
 extern int peer_flag_set(struct peer *peer, uint64_t flag);
 extern int peer_flag_unset(struct peer *peer, uint64_t flag);

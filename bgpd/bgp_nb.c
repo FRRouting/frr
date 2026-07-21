@@ -660,6 +660,183 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor",
+			.cbs = {
+				.create = bgp_nb_unnumbered_neighbor_create,
+				.destroy = bgp_nb_unnumbered_neighbor_destroy,
+				.cli_show = bgp_nb_cli_show_unnumbered_neighbor,
+				.cli_show_end = bgp_nb_cli_show_unnumbered_neighbor_end,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/v6only",
+			.cbs = {
+				.modify = bgp_nb_unnumbered_v6only_modify,
+				.cli_show = bgp_nb_cli_show_unnumbered_v6only,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/peer-group",
+			.cbs = {
+				.modify = bgp_nb_unnumbered_peer_group_modify,
+				.destroy = bgp_nb_unnumbered_peer_group_destroy,
+				.cli_show = bgp_nb_cli_show_unnumbered_peer_group,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/neighbor-remote-as/remote-as-type",
+			.cbs = {
+				.modify = bgp_nb_neighbor_remote_as_type_modify,
+				.destroy = bgp_nb_neighbor_remote_as_type_destroy,
+				.cli_show = bgp_nb_cli_show_neighbor_remote_as_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/neighbor-remote-as/remote-as",
+			.cbs = {
+				.modify = bgp_nb_neighbor_remote_as_modify,
+				.destroy = bgp_nb_neighbor_remote_as_destroy,
+			},
+		},
+		/* Shared session leaves: numbered neighbor */
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/password",
+			.cbs = {
+				.modify = bgp_nb_peer_password_modify,
+				.destroy = bgp_nb_peer_password_destroy,
+				.cli_show = bgp_nb_cli_show_peer_password,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/description",
+			.cbs = {
+				.modify = bgp_nb_peer_description_modify,
+				.destroy = bgp_nb_peer_description_destroy,
+				.cli_show = bgp_nb_cli_show_peer_description,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/passive-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_passive_modify,
+				.cli_show = bgp_nb_cli_show_peer_passive,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/solo",
+			.cbs = {
+				.modify = bgp_nb_peer_solo_modify,
+				.cli_show = bgp_nb_cli_show_peer_solo,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown/enable",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_enable_modify,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_enable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/admin-shutdown/message",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_message_modify,
+				.destroy = bgp_nb_peer_shutdown_message_destroy,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_message,
+			},
+		},
+		/* Shared session leaves: unnumbered */
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/password",
+			.cbs = {
+				.modify = bgp_nb_peer_password_modify,
+				.destroy = bgp_nb_peer_password_destroy,
+				.cli_show = bgp_nb_cli_show_peer_password,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/description",
+			.cbs = {
+				.modify = bgp_nb_peer_description_modify,
+				.destroy = bgp_nb_peer_description_destroy,
+				.cli_show = bgp_nb_cli_show_peer_description,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/passive-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_passive_modify,
+				.cli_show = bgp_nb_cli_show_peer_passive,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/solo",
+			.cbs = {
+				.modify = bgp_nb_peer_solo_modify,
+				.cli_show = bgp_nb_cli_show_peer_solo,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown/enable",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_enable_modify,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_enable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/admin-shutdown/message",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_message_modify,
+				.destroy = bgp_nb_peer_shutdown_message_destroy,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_message,
+			},
+		},
+		/* Shared session leaves: peer-group */
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/password",
+			.cbs = {
+				.modify = bgp_nb_peer_password_modify,
+				.destroy = bgp_nb_peer_password_destroy,
+				.cli_show = bgp_nb_cli_show_peer_password,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/description",
+			.cbs = {
+				.modify = bgp_nb_peer_description_modify,
+				.destroy = bgp_nb_peer_description_destroy,
+				.cli_show = bgp_nb_cli_show_peer_description,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/passive-mode",
+			.cbs = {
+				.modify = bgp_nb_peer_passive_modify,
+				.cli_show = bgp_nb_cli_show_peer_passive,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/solo",
+			.cbs = {
+				.modify = bgp_nb_peer_solo_modify,
+				.cli_show = bgp_nb_cli_show_peer_solo,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown/enable",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_enable_modify,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_enable,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/admin-shutdown/message",
+			.cbs = {
+				.modify = bgp_nb_peer_shutdown_message_modify,
+				.destroy = bgp_nb_peer_shutdown_message_destroy,
+				.cli_show = bgp_nb_cli_show_peer_shutdown_message,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

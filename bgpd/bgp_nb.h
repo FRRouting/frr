@@ -365,6 +365,49 @@ void bgp_nb_cli_show_peer_group_remote_as_type(struct vty *vty, const struct lyd
 int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_group_remote_as_destroy(struct nb_cb_destroy_args *args);
 
+/* Unnumbered neighbors */
+int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args);
+int bgp_nb_unnumbered_neighbor_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_unnumbered_neighbor(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+void bgp_nb_cli_show_unnumbered_neighbor_end(struct vty *vty, const struct lyd_node *dnode);
+
+int bgp_nb_unnumbered_v6only_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_unnumbered_v6only(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args);
+int bgp_nb_unnumbered_peer_group_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_unnumbered_peer_group(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
+/* Shared neighbor / unnumbered / peer-group session leaves */
+int bgp_nb_peer_password_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_password_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_password(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+
+int bgp_nb_peer_description_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_description_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_description(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_nb_peer_passive_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_passive(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+
+int bgp_nb_peer_solo_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_solo(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_peer_shutdown_enable_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_shutdown_enable(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+
+int bgp_nb_peer_shutdown_message_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_shutdown_message_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_shutdown_message(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus
