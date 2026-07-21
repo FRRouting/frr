@@ -210,6 +210,16 @@ extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				  ifindex_t svi_ifindex);
 extern void bgp_evpn_flood_control_change(struct bgp *bgp);
 extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
+
+/* EVPN AF config helpers used by classic CLI and northbound. */
+extern void evpn_set_advertise_all_vni(struct bgp *bgp);
+extern void evpn_unset_advertise_all_vni(struct bgp *bgp);
+extern void evpn_set_autort_rfc8365(struct bgp *bgp, bool import, bool export);
+extern void evpn_unset_autort_rfc8365(struct bgp *bgp, bool import, bool export);
+extern void evpn_set_advertise_default_gw(struct bgp *bgp, struct bgpevpn *vpn);
+extern void evpn_unset_advertise_default_gw(struct bgp *bgp, struct bgpevpn *vpn);
+extern void evpn_set_advertise_svi_macip(struct bgp *bgp, struct bgpevpn *vpn, uint32_t set);
+extern void bgp_evpn_set_unset_resolve_overlay_index(struct bgp *bgp, bool set);
 extern void bgp_evpn_cleanup_per_vni_routes(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);
 extern void bgp_evpn_init(struct bgp *bgp);

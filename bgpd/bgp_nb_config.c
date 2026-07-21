@@ -32,6 +32,8 @@
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
+#include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_zebra.h"
 #include "routemap.h"
 #include "filter.h"
 #include "bfd.h"
@@ -7667,6 +7669,301 @@ void bgp_nb_cli_show_nexthop_prefer_global(struct vty *vty, const struct lyd_nod
 		vty_out(vty, "  nexthop prefer-global\n");
 	else if (show_defaults)
 		vty_out(vty, "  no nexthop prefer-global\n");
+}
+
+/*
+ * Global L2VPN EVPN AF knobs
+ */
+int bgp_nb_evpn_advertise_all_vni_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct bgp *bgp_evpn;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!yang_dnode_get_bool(args->dnode, NULL))
+			return NB_OK;
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp)
+			return NB_ERR_VALIDATION;
+		bgp_evpn = bgp_get_evpn();
+		if (bgp_evpn && bgp_evpn != bgp && EVPN_ENABLED(bgp_evpn)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Please unconfigure EVPN in %s",
+				   bgp_evpn->name_pretty);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		evpn_set_advertise_all_vni(bgp);
+	else
+		evpn_unset_advertise_all_vni(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_advertise_all_vni_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+	evpn_unset_advertise_all_vni(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_advertise_all_vni(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  advertise-all-vni\n");
+}
+
+int bgp_nb_evpn_autort_rfc8365_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		evpn_set_autort_rfc8365(bgp, true, true);
+	else
+		evpn_unset_autort_rfc8365(bgp, true, true);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_autort_rfc8365_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+	evpn_unset_autort_rfc8365(bgp, true, true);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_autort_rfc8365(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  autort rfc8365-compatible\n");
+}
+
+int bgp_nb_evpn_advertise_default_gw_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!yang_dnode_get_bool(args->dnode, NULL))
+			return NB_OK;
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp || !EVPN_ENABLED(bgp)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under the EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		evpn_set_advertise_default_gw(bgp, NULL);
+	else
+		evpn_unset_advertise_default_gw(bgp, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_advertise_default_gw_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+	evpn_unset_advertise_default_gw(bgp, NULL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_advertise_default_gw(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  advertise-default-gw\n");
+}
+
+int bgp_nb_evpn_advertise_svi_ip_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event == NB_EV_VALIDATE) {
+		if (!yang_dnode_get_bool(args->dnode, NULL))
+			return NB_OK;
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp || !EVPN_ENABLED(bgp)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	evpn_set_advertise_svi_macip(bgp, NULL, yang_dnode_get_bool(args->dnode, NULL) ? 1 : 0);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_advertise_svi_ip_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+	evpn_set_advertise_svi_macip(bgp, NULL, 0);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_advertise_svi_ip(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  advertise-svi-ip\n");
+}
+
+int bgp_nb_evpn_resolve_overlay_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event == NB_EV_VALIDATE) {
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		if (!bgp || bgp != bgp_get_evpn()) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_evpn_set_unset_resolve_overlay_index(bgp, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_evpn_resolve_overlay_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+	bgp_evpn_set_unset_resolve_overlay_index(bgp, false);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_resolve_overlay(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  enable-resolve-overlay-index\n");
+}
+
+int bgp_nb_evpn_flooding_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *val;
+	enum vxlan_flood_control flood_ctrl;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	val = yang_dnode_get_string(args->dnode, NULL);
+	if (strmatch(val, "disable"))
+		flood_ctrl = VXLAN_FLOOD_DISABLED;
+	else
+		flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+
+	if (bgp->vxlan_flood_ctrl == flood_ctrl)
+		return NB_OK;
+
+	bgp->vxlan_flood_ctrl = flood_ctrl;
+	bgp_evpn_flood_control_change(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_flooding_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
+		return NB_OK;
+
+	bgp->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+	bgp_evpn_flood_control_change(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_flooding(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const char *val = yang_dnode_get_string(dnode, NULL);
+
+	if (strmatch(val, "disable"))
+		vty_out(vty, "  flooding disable\n");
+	else if (show_defaults)
+		vty_out(vty, "  flooding head-end-replication\n");
 }
 
 /*

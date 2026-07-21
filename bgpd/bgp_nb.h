@@ -871,6 +871,36 @@ int bgp_nb_nexthop_prefer_global_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_nexthop_prefer_global(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 
+int bgp_nb_evpn_advertise_all_vni_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_advertise_all_vni_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_advertise_all_vni(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+
+int bgp_nb_evpn_autort_rfc8365_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_autort_rfc8365_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_autort_rfc8365(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+
+int bgp_nb_evpn_advertise_default_gw_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_advertise_default_gw_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_advertise_default_gw(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+
+int bgp_nb_evpn_advertise_svi_ip_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_advertise_svi_ip_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_advertise_svi_ip(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+
+int bgp_nb_evpn_resolve_overlay_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_resolve_overlay_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_resolve_overlay(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+
+int bgp_nb_evpn_flooding_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_flooding_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_flooding(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+
 int bgp_nb_vpn_import_modify(struct nb_cb_modify_args *args);
 int bgp_nb_vpn_import_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_vpn_import(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);

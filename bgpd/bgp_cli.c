@@ -5280,6 +5280,118 @@ DEFPY_YANG(bgp_af_nexthop_prefer_global_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_evpn_advertise_all_vni_yang,
+	   bgp_evpn_advertise_all_vni_yang_cmd,
+	   "[no] advertise-all-vni",
+	   NO_STR
+	   "Advertise All local VNIs\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/advertise-all-vni", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/* Deprecated: use "auto-route-target both rfc8365-compatible". */
+DEFPY_ATTR(bgp_evpn_autort_rfc8365_yang, bgp_evpn_autort_rfc8365_yang_cmd,
+	   "[no] autort rfc8365-compatible",
+	   NO_STR
+	   "Auto-derivation of RT\n"
+	   "Auto-derivation of RT using RFC8365\n",
+	   CMD_ATTR_YANG | CMD_ATTR_DEPRECATED | CMD_ATTR_HIDDEN)
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	vty_out(vty,
+		"%% \"%sautort rfc8365-compatible\" is deprecated, use \"%sauto-route-target both rfc8365-compatible\"\n",
+		no ? "no " : "", no ? "no " : "");
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/autort-rfc8365-compatible", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_advertise_default_gw_yang,
+	   bgp_evpn_advertise_default_gw_yang_cmd,
+	   "[no] advertise-default-gw",
+	   NO_STR
+	   "Advertise All default g/w mac-ip routes in EVPN\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/advertise-default-gateway", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_advertise_svi_ip_yang,
+	   bgp_evpn_advertise_svi_ip_yang_cmd,
+	   "[no] advertise-svi-ip",
+	   NO_STR
+	   "Advertise svi mac-ip routes in EVPN\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/advertise-svi-ip", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_resolve_overlay_yang,
+	   bgp_evpn_resolve_overlay_yang_cmd,
+	   "[no] enable-resolve-overlay-index",
+	   NO_STR
+	   "Enable Recursive Resolution of type-5 route overlay index\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/enable-resolve-overlay-index", af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_evpn_flooding_yang, bgp_evpn_flooding_yang_cmd,
+	   "[no] flooding <disable$disable|head-end-replication$her>",
+	   NO_STR
+	   "Specify handling for BUM packets\n"
+	   "Do not flood any BUM packets\n"
+	   "Flood BUM packets using head-end replication\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	const char *val;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/flooding", af_xpath);
+
+	if (no || her)
+		val = "head-end-replication";
+	else if (disable)
+		val = "disable";
+	else
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	   "[no] <import|export>$direction_str vpn",
 	   NO_STR
@@ -7875,6 +7987,14 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV6_NODE, &bgp_af_nexthop_prefer_global_yang_cmd);
 	install_element(BGP_IPV6M_NODE, &bgp_af_nexthop_prefer_global_yang_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_af_nexthop_prefer_global_yang_cmd);
+
+	/* EVPN AF global knobs */
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_autort_rfc8365_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_default_gw_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_resolve_overlay_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_flooding_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);
