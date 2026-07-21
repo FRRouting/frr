@@ -3496,35 +3496,6 @@ static int peer_af_flag_unset_vty(struct vty *vty, const char *peer_str,
 }
 
 
-DEFUN (neighbor_nexthop_local_unchanged,
-       neighbor_nexthop_local_unchanged_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> nexthop-local unchanged",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Configure treatment of outgoing link-local nexthop attribute\n"
-       "Leave link-local nexthop unchanged for this peer\n")
-{
-	int idx_peer = 1;
-	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-				    bgp_node_safi(vty),
-				    PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED);
-}
-
-DEFUN (no_neighbor_nexthop_local_unchanged,
-       no_neighbor_nexthop_local_unchanged_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> nexthop-local unchanged",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Configure treatment of outgoing link-local-nexthop attribute\n"
-       "Leave link-local nexthop unchanged for this peer\n")
-{
-	int idx_peer = 2;
-	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
-				      bgp_node_afi(vty), bgp_node_safi(vty),
-				      PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED);
-}
-
 /* Re-evaluate routes when the role changes */
 void bgp_vty_role_update(struct peer *peer, int action)
 {
@@ -17771,9 +17742,6 @@ void bgp_vty_init(void)
 
 
 	/* "nexthop-local unchanged" commands */
-	install_element(BGP_IPV6_NODE, &neighbor_nexthop_local_unchanged_cmd);
-	install_element(BGP_IPV6_NODE,
-			&no_neighbor_nexthop_local_unchanged_cmd);
 
 	/* "neighbor next-hop-self" commands. */
 

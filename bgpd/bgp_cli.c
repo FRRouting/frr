@@ -4758,6 +4758,16 @@ DEFPY_YANG(neighbor_capability_orf_yang, neighbor_capability_orf_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(neighbor_nexthop_local_unchanged_yang,
+	   neighbor_nexthop_local_unchanged_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor nexthop-local unchanged",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Configure treatment of outgoing link-local nexthop attribute\n"
+	   "Leave link-local nexthop unchanged for this peer\n")
+{
+	return bgp_cli_peer_af_bool(vty, neighbor, "nexthop-local-unchanged", !!no);
+}
+
 ALIAS_ATTR(
 	neighbor_advertise_map_yang, neighbor_advertise_map_yang_hidden_cmd,
 	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
@@ -5305,6 +5315,9 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_NODE, &neighbor_advertise_map_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_upa_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_capability_orf_yang_hidden_cmd);
+
+	/* nexthop-local unchanged: IPv6 unicast only */
+	install_element(BGP_IPV6_NODE, &neighbor_nexthop_local_unchanged_yang_cmd);
 }
 
 void bgp_cli_init(void)
