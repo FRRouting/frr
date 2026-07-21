@@ -43,6 +43,7 @@
 #include "bgpd/bgp_damp.h"
 #include "frrdistance.h"
 #include "bgpd/bgp_srv6.h"
+#include "srv6.h"
 
 DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
@@ -9172,6 +9173,211 @@ void bgp_nb_cli_show_sid_export(struct vty *vty, const struct lyd_node *dnode, b
 	if (rmap)
 		vty_out(vty, " route-map %s", rmap);
 	vty_out(vty, "\n");
+}
+
+/*
+ * segment-routing srv6
+ */
+int bgp_nb_srv6_locator_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *name;
+	int ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		name = yang_dnode_get_string(args->dnode, NULL);
+		if (strlen(bgp->srv6_locator_name) > 0 && !strmatch(name, bgp->srv6_locator_name)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "srv6 locator is already configured");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	name = yang_dnode_get_string(args->dnode, NULL);
+	/*
+	 * A previous apply may have stored the name while zebra was down.
+	 * APPLY failures are not rolled back, so a later apply of the same
+	 * name must ask zebra again until the locator object exists.
+	 */
+	if (strmatch(name, bgp->srv6_locator_name) && bgp->srv6_locator)
+		return NB_OK;
+
+	if (!strmatch(name, bgp->srv6_locator_name)) {
+		bgp_srv6_sids_unset(bgp);
+		snprintfrr(bgp->srv6_locator_name, sizeof(bgp->srv6_locator_name), "%s", name);
+	}
+	ret = bgp_zebra_srv6_manager_get_locator(name);
+	if (ret < 0) {
+		snprintfrr(args->errmsg, args->errmsg_len, "failed to get srv6 locator %s", name);
+		return NB_ERR_RESOURCE;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_srv6_locator_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	if (bgp_srv6_locator_unset(bgp) < 0) {
+		snprintfrr(args->errmsg, args->errmsg_len, "failed to unset srv6 locator");
+		return NB_ERR_RESOURCE;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_srv6_encap_behavior_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *val;
+	enum srv6_headend_behavior behavior;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	val = yang_dnode_get_string(args->dnode, NULL);
+	if (strmatch(val, "h-encaps-red"))
+		behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+	else
+		behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+
+	if (behavior == bgp->srv6_encap_behavior)
+		return NB_OK;
+
+	bgp->srv6_encap_behavior = behavior;
+	bgp_segment_routing_srv6_hencaps_refresh(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_srv6_encap_behavior_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	if (bgp->srv6_encap_behavior == SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
+		return NB_OK;
+
+	bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	bgp_segment_routing_srv6_hencaps_refresh(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_srv6_only_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	bool enable;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	if (enable == bgp->srv6_only)
+		return NB_OK;
+
+	bgp_srv6_only_change(bgp, enable);
+	return NB_OK;
+}
+
+int bgp_nb_srv6_only_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	/* YANG default is true; restoring default matches leaf destroy. */
+	if (bgp->srv6_only)
+		return NB_OK;
+	bgp_srv6_only_change(bgp, true);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_srv6(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " !\n segment-routing srv6\n");
+}
+
+void bgp_nb_cli_show_srv6_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, " exit\n");
+}
+
+void bgp_nb_cli_show_srv6_locator(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  locator %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+void bgp_nb_cli_show_srv6_encap(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *val = yang_dnode_get_string(dnode, NULL);
+
+	if (strmatch(val, "h-encaps") && !show_defaults)
+		return;
+
+	vty_out(vty, "  encap-behavior %s\n",
+		strmatch(val, "h-encaps-red") ? "H_Encaps_Red" : "H_Encaps");
+}
+
+void bgp_nb_cli_show_srv6_only(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool only = yang_dnode_get_bool(dnode, NULL);
+
+	if (only && !show_defaults)
+		return;
+	if (only)
+		vty_out(vty, "  srv6-only\n");
+	else
+		vty_out(vty, "  no srv6-only\n");
 }
 
 

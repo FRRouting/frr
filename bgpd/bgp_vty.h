@@ -215,4 +215,10 @@ extern void bgp_init_ipv6_nexthop_prefer_global(struct bgp *bgp);
 
 extern int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 			 struct ecommunity **list, bool is_rt6);
+
+extern void bgp_srv6_sids_unset(struct bgp *bgp);
+extern int bgp_srv6_locator_unset(struct bgp *bgp);
+extern void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp);
+extern void bgp_srv6_only_change(struct bgp *bgp, bool enable);
+
 #endif /* _QUAGGA_BGP_VTY_H */
