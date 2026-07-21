@@ -8514,6 +8514,2895 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list",
+			.cbs = {
+				.create = bgp_nb_peer_af_prefix_limit_create,
+				.destroy = bgp_nb_peer_af_prefix_limit_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/max-prefixes",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_max_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_max,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/force-check",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_force_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tr-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tr-restart-timer",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tw-shutdown-threshold-pct",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/prefix-limit/direction-list/options/tw-warning-only",
+			.cbs = {
+				.modify = bgp_nb_peer_af_prefix_limit_option_modify,
+				.destroy = bgp_nb_peer_af_prefix_limit_option_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_prefix_limit_noop,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/add-paths/path-type",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_type_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_type,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/add-paths/best-selected-paths",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_best_selected_modify,
+				.destroy = bgp_nb_peer_af_addpath_best_selected_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_best_selected,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/add-paths/disable-addpath-rx",
+			.cbs = {
+				.modify = bgp_nb_peer_af_disable_addpath_rx_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_disable_addpath_rx,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn/add-paths/addpath-rx-paths-limit",
+			.cbs = {
+				.modify = bgp_nb_peer_af_addpath_rx_limit_modify,
+				.destroy = bgp_nb_peer_af_addpath_rx_limit_destroy,
+				.cli_show = bgp_nb_cli_show_peer_af_addpath_rx_limit,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

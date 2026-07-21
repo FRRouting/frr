@@ -4218,13 +4218,6 @@ DEFUN (neighbor_maximum_prefix,
 		argv[idx_number]->arg, NULL, 0, NULL, force);
 }
 
-ALIAS_HIDDEN(neighbor_maximum_prefix, neighbor_maximum_prefix_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) [force]",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Maximum number of prefix accept from this peer\n"
-	     "maximum no. of prefix limit\n"
-	     "Force checking all received routes not only accepted\n")
-
 DEFUN (neighbor_maximum_prefix_threshold,
        neighbor_maximum_prefix_threshold_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) [force]",
@@ -4249,16 +4242,6 @@ DEFUN (neighbor_maximum_prefix_threshold,
 		argv[idx_number]->arg, argv[idx_number_2]->arg, 0, NULL, force);
 }
 
-ALIAS_HIDDEN(
-	neighbor_maximum_prefix_threshold,
-	neighbor_maximum_prefix_threshold_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) [force]",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Maximum number of prefix accept from this peer\n"
-	"maximum no. of prefix limit\n"
-	"Threshold value (%) at which to generate a warning msg\n"
-	"Force checking all received routes not only accepted\n")
-
 DEFUN (neighbor_maximum_prefix_warning,
        neighbor_maximum_prefix_warning_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only [force]",
@@ -4281,16 +4264,6 @@ DEFUN (neighbor_maximum_prefix_warning,
 		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
 		argv[idx_number]->arg, NULL, 1, NULL, force);
 }
-
-ALIAS_HIDDEN(
-	neighbor_maximum_prefix_warning,
-	neighbor_maximum_prefix_warning_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only [force]",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Maximum number of prefix accept from this peer\n"
-	"maximum no. of prefix limit\n"
-	"Only give warning message when limit is exceeded\n"
-	"Force checking all received routes not only accepted\n")
 
 DEFUN (neighbor_maximum_prefix_threshold_warning,
        neighbor_maximum_prefix_threshold_warning_cmd,
@@ -4317,17 +4290,6 @@ DEFUN (neighbor_maximum_prefix_threshold_warning,
 		argv[idx_number]->arg, argv[idx_number_2]->arg, 1, NULL, force);
 }
 
-ALIAS_HIDDEN(
-	neighbor_maximum_prefix_threshold_warning,
-	neighbor_maximum_prefix_threshold_warning_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) warning-only [force]",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Maximum number of prefix accept from this peer\n"
-	"maximum no. of prefix limit\n"
-	"Threshold value (%) at which to generate a warning msg\n"
-	"Only give warning message when limit is exceeded\n"
-	"Force checking all received routes not only accepted\n")
-
 DEFUN (neighbor_maximum_prefix_restart,
        neighbor_maximum_prefix_restart_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535) [force]",
@@ -4352,17 +4314,6 @@ DEFUN (neighbor_maximum_prefix_restart,
 		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
 		argv[idx_number]->arg, NULL, 0, argv[idx_number_2]->arg, force);
 }
-
-ALIAS_HIDDEN(
-	neighbor_maximum_prefix_restart,
-	neighbor_maximum_prefix_restart_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535) [force]",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Maximum number of prefix accept from this peer\n"
-	"maximum no. of prefix limit\n"
-	"Restart bgp connection after limit is exceeded\n"
-	"Restart interval in minutes\n"
-	"Force checking all received routes not only accepted\n")
 
 DEFUN (neighbor_maximum_prefix_threshold_restart,
        neighbor_maximum_prefix_threshold_restart_cmd,
@@ -4392,18 +4343,6 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
 		argv[idx_number_3]->arg, force);
 }
 
-ALIAS_HIDDEN(
-	neighbor_maximum_prefix_threshold_restart,
-	neighbor_maximum_prefix_threshold_restart_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535) [force]",
-	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Maximum number of prefixes to accept from this peer\n"
-	"maximum no. of prefix limit\n"
-	"Threshold value (%) at which to generate a warning msg\n"
-	"Restart bgp connection after limit is exceeded\n"
-	"Restart interval in minutes\n"
-	"Force checking all received routes not only accepted\n")
-
 DEFUN (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only] [force]]",
@@ -4423,18 +4362,6 @@ DEFUN (no_neighbor_maximum_prefix,
 					     bgp_node_afi(vty),
 					     bgp_node_safi(vty));
 }
-
-ALIAS_HIDDEN(
-	no_neighbor_maximum_prefix, no_neighbor_maximum_prefix_hidden_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only] [force]]",
-	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	"Maximum number of prefixes to accept from this peer\n"
-	"maximum no. of prefix limit\n"
-	"Threshold value (%) at which to generate a warning msg\n"
-	"Restart bgp connection after limit is exceeded\n"
-	"Restart interval in minutes\n"
-	"Only give warning message when limit is exceeded\n"
-	"Force checking all received routes not only accepted\n")
 
 /* "neighbor accept-own" */
 DEFPY (neighbor_accept_own,
@@ -4613,206 +4540,6 @@ DEFPY (neighbor_encapsulation_srv6_or_mpls,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-/* disable-addpath-rx */
-DEFUN(neighbor_disable_addpath_rx,
-      neighbor_disable_addpath_rx_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Do not accept additional paths\n")
-{
-	char *peer_str = argv[1]->arg;
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	return peer_af_flag_set_vty(vty, peer_str, afi, safi, PEER_FLAG_DISABLE_ADDPATH_RX);
-}
-
-DEFUN(no_neighbor_disable_addpath_rx,
-      no_neighbor_disable_addpath_rx_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Do not accept additional paths\n")
-{
-	char *peer_str = argv[2]->arg;
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-
-	peer = peer_and_group_lookup_vty(vty, peer_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	return peer_af_flag_unset_vty(vty, peer_str, afi, safi, PEER_FLAG_DISABLE_ADDPATH_RX);
-}
-
-DEFUN (neighbor_addpath_tx_all_paths,
-       neighbor_addpath_tx_all_paths_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Use addpath to advertise all paths to a neighbor\n")
-{
-	int idx_peer = 1;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty), BGP_ADDPATH_ALL, 0);
-	return CMD_SUCCESS;
-}
-
-ALIAS_HIDDEN(neighbor_addpath_tx_all_paths,
-	     neighbor_addpath_tx_all_paths_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Use addpath to advertise all paths to a neighbor\n")
-
-DEFUN (no_neighbor_addpath_tx_all_paths,
-       no_neighbor_addpath_tx_all_paths_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Use addpath to advertise all paths to a neighbor\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-	safi_t safi = bgp_node_safi(vty);
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (safi == SAFI_LABELED_UNICAST)
-		safi = SAFI_UNICAST;
-	if (peer->addpath_type[bgp_node_afi(vty)][safi] != BGP_ADDPATH_ALL) {
-		vty_out(vty,
-			"%% Peer not currently configured to transmit all paths.");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty), BGP_ADDPATH_NONE, 0);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS_HIDDEN(no_neighbor_addpath_tx_all_paths,
-	     no_neighbor_addpath_tx_all_paths_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Use addpath to advertise all paths to a neighbor\n")
-
-DEFPY (neighbor_addpath_tx_best_selected_paths,
-       neighbor_addpath_tx_best_selected_paths_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-best-selected (1-6)$paths",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Use addpath to advertise best selected paths to a neighbor\n"
-       "The number of best paths\n")
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				  BGP_ADDPATH_BEST_SELECTED, paths);
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_neighbor_addpath_tx_best_selected_paths,
-       no_neighbor_addpath_tx_best_selected_paths_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-best-selected [(1-6)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Use addpath to advertise best selected paths to a neighbor\n"
-       "The number of best paths\n")
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				  BGP_ADDPATH_BEST_SELECTED, 0);
-	return CMD_SUCCESS;
-}
-
-DEFUN (neighbor_addpath_tx_bestpath_per_as,
-       neighbor_addpath_tx_bestpath_per_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Use addpath to advertise the bestpath per each neighboring AS\n")
-{
-	int idx_peer = 1;
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				  BGP_ADDPATH_BEST_PER_AS, 0);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS_HIDDEN(neighbor_addpath_tx_bestpath_per_as,
-	     neighbor_addpath_tx_bestpath_per_as_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Use addpath to advertise the bestpath per each neighboring AS\n")
-
-DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
-       no_neighbor_addpath_tx_bestpath_per_as_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Use addpath to advertise the bestpath per each neighboring AS\n")
-{
-	int idx_peer = 2;
-	struct peer *peer;
-	safi_t safi = bgp_node_safi(vty);
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (safi == SAFI_LABELED_UNICAST)
-		safi = SAFI_UNICAST;
-	if (peer->addpath_type[bgp_node_afi(vty)][safi] != BGP_ADDPATH_BEST_PER_AS) {
-		vty_out(vty,
-			"%% Peer not currently configured to transmit all best path per as.");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				  BGP_ADDPATH_NONE, 0);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS_HIDDEN(no_neighbor_addpath_tx_bestpath_per_as,
-	     no_neighbor_addpath_tx_bestpath_per_as_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Use addpath to advertise the bestpath per each neighboring AS\n")
-
 DEFPY(
 	neighbor_aspath_loop_detection, neighbor_aspath_loop_detection_cmd,
 	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor sender-as-path-loop-detection",
@@ -4821,70 +4548,6 @@ DEFPY(
 	"Detect AS loops before sending to neighbor\n")
 {
 	return peer_flag_set_vty(vty, neighbor, PEER_FLAG_AS_LOOP_DETECTION);
-}
-
-DEFPY (neighbor_addpath_paths_limit,
-       neighbor_addpath_paths_limit_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-rx-paths-limit (1-65535)$paths_limit",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Paths Limit for Addpath to receive from the peer\n"
-       "Maximum number of paths\n")
-{
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_af_flag_set_vty(vty, neighbor, afi, safi,
-				   PEER_FLAG_ADDPATH_RX_PATHS_LIMIT);
-
-	peer->addpath_paths_limit[afi][safi].send = paths_limit;
-
-	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
-			    CAPABILITY_ACTION_SET);
-
-	return ret;
-}
-
-DEFPY (no_neighbor_addpath_paths_limit,
-       no_neighbor_addpath_paths_limit_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-rx-paths-limit [(1-65535)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Paths Limit for Addpath to receive from the peer\n"
-       "Maximum number of paths\n")
-{
-	struct peer *peer;
-	afi_t afi = bgp_node_afi(vty);
-	safi_t safi = bgp_node_safi(vty);
-	int ret;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = peer_af_flag_unset_vty(vty, neighbor, afi, safi,
-				     PEER_FLAG_ADDPATH_RX_PATHS_LIMIT);
-
-	peer->addpath_paths_limit[afi][safi].send = 0;
-
-	/* A tuple with zero Paths Limit is ignored by the receiver, so
-	 * re-sending the capability alone would not clear the old limit.
-	 * Withdraw the capability (clears all limits), and advertise it
-	 * again with the limits still configured for other AFI/SAFIs.
-	 */
-	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
-			    CAPABILITY_ACTION_UNSET);
-	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
-			    CAPABILITY_ACTION_SET);
-
-	return ret;
 }
 
 DEFPY(
@@ -18425,144 +18088,14 @@ void bgp_vty_init(void)
 	/* "neighbor route-server" commands.*/
 
 	/* "neighbor disable-addpath-rx" commands. */
-	install_element(BGP_IPV4_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_disable_addpath_rx_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_disable_addpath_rx_cmd);
 
 	/* "neighbor addpath-tx-all-paths" commands.*/
-	install_element(BGP_NODE, &neighbor_addpath_tx_all_paths_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_addpath_tx_all_paths_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_all_paths_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
 
 	/* "neighbor addpath-tx-best-selected" commands.*/
-	install_element(BGP_IPV4_NODE,
-			&neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV4_NODE,
-			&no_neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&no_neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV4L_NODE,
-			&neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV4L_NODE,
-			&no_neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV6_NODE,
-			&neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV6_NODE,
-			&no_neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&no_neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV6L_NODE,
-			&neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_IPV6L_NODE,
-			&no_neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_VPNV4_NODE,
-			&neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_VPNV4_NODE,
-			&no_neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_VPNV6_NODE,
-			&neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_VPNV6_NODE,
-			&no_neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_best_selected_paths_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_tx_best_selected_paths_cmd);
 
 	/* "neighbor addpath-tx-bestpath-per-AS" commands.*/
-	install_element(BGP_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_hidden_cmd);
-	install_element(BGP_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_hidden_cmd);
-	install_element(BGP_IPV4_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV4_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV4L_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV4L_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV6_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV6_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV6L_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_IPV6L_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_VPNV4_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_VPNV4_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_VPNV6_NODE,
-			&neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_VPNV6_NODE,
-			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_addpath_tx_bestpath_per_as_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_tx_bestpath_per_as_cmd);
 
 	/* "neighbor addpath-rx-paths-limit" commands.*/
-	install_element(BGP_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_addpath_paths_limit_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_paths_limit_cmd);
 
 	/* "neighbor sender-as-path-loop-detection" commands. */
 	install_element(BGP_NODE, &neighbor_aspath_loop_detection_cmd);
@@ -18706,112 +18239,12 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_def_originate_eval_cmd);
 
 	/* neighbor maximum-prefix-out commands. */
-	install_element(BGP_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_NODE, &no_neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_maximum_prefix_out_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_maximum_prefix_out_cmd);
 	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_out_cmd);
 	install_element(BGP_IPV4U_NODE, &no_neighbor_maximum_prefix_out_cmd);
 	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_out_cmd);
 	install_element(BGP_IPV6U_NODE, &no_neighbor_maximum_prefix_out_cmd);
 
 	/* "neighbor maximum-prefix" commands. */
-	install_element(BGP_NODE, &neighbor_maximum_prefix_hidden_cmd);
-	install_element(BGP_NODE,
-			&neighbor_maximum_prefix_threshold_hidden_cmd);
-	install_element(BGP_NODE, &neighbor_maximum_prefix_warning_hidden_cmd);
-	install_element(BGP_NODE,
-			&neighbor_maximum_prefix_threshold_warning_hidden_cmd);
-	install_element(BGP_NODE, &neighbor_maximum_prefix_restart_hidden_cmd);
-	install_element(BGP_NODE,
-			&neighbor_maximum_prefix_threshold_restart_hidden_cmd);
-	install_element(BGP_NODE, &no_neighbor_maximum_prefix_hidden_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_IPV4_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_IPV4_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_IPV4_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_IPV4_NODE, &no_neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_IPV4M_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_IPV4L_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_IPV4L_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_IPV4L_NODE, &no_neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_IPV6_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_IPV6_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_IPV6M_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_IPV6L_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_IPV6L_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_maximum_prefix_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_VPNV4_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_VPNV4_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_maximum_prefix_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_VPNV6_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_VPNV6_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_maximum_prefix_cmd);
 
 	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_cmd);
 	install_element(BGP_IPV4U_NODE, &neighbor_maximum_prefix_threshold_cmd);
@@ -18829,15 +18262,6 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &neighbor_maximum_prefix_threshold_restart_cmd);
 	install_element(BGP_IPV6U_NODE, &no_neighbor_maximum_prefix_cmd);
 
-	install_element(BGP_EVPN_NODE, &neighbor_maximum_prefix_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_maximum_prefix_threshold_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_maximum_prefix_warning_cmd);
-	install_element(BGP_EVPN_NODE,
-			&neighbor_maximum_prefix_threshold_warning_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_maximum_prefix_restart_cmd);
-	install_element(BGP_EVPN_NODE,
-			&neighbor_maximum_prefix_threshold_restart_cmd);
-	install_element(BGP_EVPN_NODE, &no_neighbor_maximum_prefix_cmd);
 
 	/* "neighbor allowas-in" */
 	install_element(BGP_IPV4U_NODE, &neighbor_allowas_in_cmd);

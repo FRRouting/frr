@@ -686,6 +686,30 @@ int bgp_nb_peer_af_unsuppress_map_export_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_af_unsuppress_map_export_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_af_unsuppress_map_export(struct vty *vty, const struct lyd_node *dnode,
 						   bool show_defaults);
+int bgp_nb_peer_af_prefix_limit_create(struct nb_cb_create_args *args);
+int bgp_nb_peer_af_prefix_limit_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_af_prefix_limit_max_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_prefix_limit_force_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_prefix_limit_option_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_prefix_limit_option_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_prefix_limit_max(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+void bgp_nb_cli_show_peer_af_prefix_limit_noop(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+int bgp_nb_peer_af_addpath_type_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_addpath_best_selected_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_addpath_best_selected_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_addpath_type(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+void bgp_nb_cli_show_peer_af_addpath_best_selected(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+int bgp_nb_peer_af_disable_addpath_rx_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_af_disable_addpath_rx(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+int bgp_nb_peer_af_addpath_rx_limit_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_addpath_rx_limit_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_addpath_rx_limit(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
 
 
 void bgp_cli_init(void);

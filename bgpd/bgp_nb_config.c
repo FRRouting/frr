@@ -20,6 +20,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_open.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "routemap.h"
@@ -6965,6 +6966,383 @@ void bgp_nb_cli_show_peer_af_unsuppress_map_export(struct vty *vty, const struct
 {
 	vty_out(vty, "%sneighbor %s unsuppress-map %s\n", bgp_nb_peer_show_indent(dnode),
 		bgp_nb_config_peer_name(dnode), yang_dnode_get_string(dnode, NULL));
+}
+
+static int bgp_nb_peer_af_max_prefix_in_apply(const struct lyd_node *dir)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	uint32_t max;
+	uint8_t threshold = MAXIMUM_PREFIX_THRESHOLD_DEFAULT;
+	uint16_t restart = 0;
+	int warning = 0;
+	bool force = false;
+
+	peer = bgp_nb_config_peer(dir);
+	if (!peer || !bgp_nb_dnode_afi_safi(dir, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!yang_dnode_exists(dir, "./max-prefixes"))
+		return NB_OK;
+
+	max = yang_dnode_get_uint32(dir, "./max-prefixes");
+	if (yang_dnode_exists(dir, "./force-check"))
+		force = yang_dnode_get_bool(dir, "./force-check");
+
+	if (yang_dnode_exists(dir, "./options/warning-only") &&
+	    yang_dnode_get_bool(dir, "./options/warning-only")) {
+		warning = 1;
+	} else if (yang_dnode_exists(dir, "./options/restart-timer")) {
+		restart = yang_dnode_get_uint16(dir, "./options/restart-timer");
+	} else if (yang_dnode_exists(dir, "./options/shutdown-threshold-pct")) {
+		threshold = yang_dnode_get_uint8(dir, "./options/shutdown-threshold-pct");
+	} else if (yang_dnode_exists(dir, "./options/tr-shutdown-threshold-pct")) {
+		threshold = yang_dnode_get_uint8(dir, "./options/tr-shutdown-threshold-pct");
+		restart = yang_dnode_get_uint16(dir, "./options/tr-restart-timer");
+	} else if (yang_dnode_exists(dir, "./options/tw-shutdown-threshold-pct")) {
+		threshold = yang_dnode_get_uint8(dir, "./options/tw-shutdown-threshold-pct");
+		warning = yang_dnode_exists(dir, "./options/tw-warning-only") &&
+			  yang_dnode_get_bool(dir, "./options/tw-warning-only");
+	}
+
+	if (peer_maximum_prefix_set(peer, afi, safi, max, threshold, warning, restart, force) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+static int bgp_nb_peer_af_max_prefix_out_apply(const struct lyd_node *dir)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	uint32_t max;
+
+	peer = bgp_nb_config_peer(dir);
+	if (!peer || !bgp_nb_dnode_afi_safi(dir, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!yang_dnode_exists(dir, "./max-prefixes"))
+		return NB_OK;
+
+	max = yang_dnode_get_uint32(dir, "./max-prefixes");
+	if (peer_maximum_prefix_out_set(peer, afi, safi, max) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+static const struct lyd_node *bgp_nb_prefix_limit_dir(const struct lyd_node *dnode)
+{
+	return yang_dnode_get_parent(dnode, "direction-list");
+}
+
+int bgp_nb_peer_af_prefix_limit_create(struct nb_cb_create_args *args)
+{
+	const char *dir;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	dir = yang_dnode_get_string(args->dnode, "./direction");
+	if (strmatch(dir, "in"))
+		return bgp_nb_peer_af_max_prefix_in_apply(args->dnode);
+	return bgp_nb_peer_af_max_prefix_out_apply(args->dnode);
+}
+
+int bgp_nb_peer_af_prefix_limit_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const char *dir;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	dir = yang_dnode_get_string(args->dnode, "./direction");
+	if (strmatch(dir, "in"))
+		peer_maximum_prefix_unset(peer, afi, safi);
+	else
+		peer_maximum_prefix_out_unset(peer, afi, safi);
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_prefix_limit_max_modify(struct nb_cb_modify_args *args)
+{
+	const struct lyd_node *dir;
+	const char *direction;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	dir = bgp_nb_prefix_limit_dir(args->dnode);
+	if (!dir)
+		return NB_ERR_NOT_FOUND;
+	direction = yang_dnode_get_string(dir, "./direction");
+	if (strmatch(direction, "in"))
+		return bgp_nb_peer_af_max_prefix_in_apply(dir);
+	return bgp_nb_peer_af_max_prefix_out_apply(dir);
+}
+
+int bgp_nb_peer_af_prefix_limit_force_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_prefix_limit_max_modify(args);
+}
+
+int bgp_nb_peer_af_prefix_limit_option_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_prefix_limit_max_modify(args);
+}
+
+int bgp_nb_peer_af_prefix_limit_option_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *dir;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	dir = bgp_nb_prefix_limit_dir(args->dnode);
+	if (!dir)
+		return NB_OK;
+
+	/* Re-apply remaining options after this leaf is gone. */
+	if (strmatch(yang_dnode_get_string(dir, "./direction"), "in"))
+		return bgp_nb_peer_af_max_prefix_in_apply(dir);
+	return bgp_nb_peer_af_max_prefix_out_apply(dir);
+}
+
+void bgp_nb_cli_show_peer_af_prefix_limit_max(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	const struct lyd_node *dir = bgp_nb_prefix_limit_dir(dnode);
+	const char *direction;
+	uint32_t max;
+	bool force = false;
+
+	if (!dir)
+		return;
+
+	direction = yang_dnode_get_string(dir, "./direction");
+	max = yang_dnode_get_uint32(dnode, NULL);
+	if (yang_dnode_exists(dir, "./force-check"))
+		force = yang_dnode_get_bool(dir, "./force-check");
+
+	if (strmatch(direction, "out")) {
+		vty_out(vty, "%sneighbor %s maximum-prefix-out %u\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode), max);
+		return;
+	}
+
+	/*
+	 * The neighbor name can be an arbitrarily long peer-group name, so
+	 * emit the line piecewise instead of accumulating into a fixed
+	 * size buffer.
+	 */
+	vty_out(vty, "%sneighbor %s maximum-prefix %u", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), max);
+
+	if (yang_dnode_exists(dir, "./options/tw-shutdown-threshold-pct")) {
+		vty_out(vty, " %u",
+			yang_dnode_get_uint8(dir, "./options/tw-shutdown-threshold-pct"));
+		if (yang_dnode_exists(dir, "./options/tw-warning-only") &&
+		    yang_dnode_get_bool(dir, "./options/tw-warning-only"))
+			vty_out(vty, " warning-only");
+	} else if (yang_dnode_exists(dir, "./options/tr-shutdown-threshold-pct")) {
+		vty_out(vty, " %u restart %u",
+			yang_dnode_get_uint8(dir, "./options/tr-shutdown-threshold-pct"),
+			yang_dnode_get_uint16(dir, "./options/tr-restart-timer"));
+	} else if (yang_dnode_exists(dir, "./options/shutdown-threshold-pct")) {
+		vty_out(vty, " %u", yang_dnode_get_uint8(dir, "./options/shutdown-threshold-pct"));
+	} else if (yang_dnode_exists(dir, "./options/restart-timer")) {
+		vty_out(vty, " restart %u", yang_dnode_get_uint16(dir, "./options/restart-timer"));
+	} else if (yang_dnode_exists(dir, "./options/warning-only") &&
+		   yang_dnode_get_bool(dir, "./options/warning-only")) {
+		vty_out(vty, " warning-only");
+	}
+
+	if (force)
+		vty_out(vty, " force");
+
+	vty_out(vty, "\n");
+}
+
+void bgp_nb_cli_show_peer_af_prefix_limit_noop(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	/* Rendered with max-prefixes cli_show. */
+}
+
+static void bgp_nb_peer_af_addpath_apply(struct peer *peer, afi_t afi, safi_t safi,
+					 const struct lyd_node *addpaths)
+{
+	const char *type = "none";
+	uint16_t paths = 0;
+	enum bgp_addpath_strat strat = BGP_ADDPATH_NONE;
+
+	if (yang_dnode_exists(addpaths, "./path-type"))
+		type = yang_dnode_get_string(addpaths, "./path-type");
+
+	if (strmatch(type, "all"))
+		strat = BGP_ADDPATH_ALL;
+	else if (strmatch(type, "per-as"))
+		strat = BGP_ADDPATH_BEST_PER_AS;
+	else if (strmatch(type, "best-selected")) {
+		strat = BGP_ADDPATH_BEST_SELECTED;
+		if (yang_dnode_exists(addpaths, "./best-selected-paths"))
+			paths = yang_dnode_get_uint8(addpaths, "./best-selected-paths");
+	} else
+		strat = BGP_ADDPATH_NONE;
+
+	bgp_addpath_set_peer_type(peer, afi, safi, strat, paths);
+}
+
+int bgp_nb_peer_af_addpath_type_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *addpaths;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	addpaths = yang_dnode_get_parent(args->dnode, "add-paths");
+	if (!addpaths)
+		return NB_ERR_NOT_FOUND;
+
+	bgp_nb_peer_af_addpath_apply(peer, afi, safi, addpaths);
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_addpath_best_selected_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_addpath_type_modify(args);
+}
+
+int bgp_nb_peer_af_addpath_best_selected_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *addpaths;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	addpaths = yang_dnode_get_parent(args->dnode, "add-paths");
+	if (!addpaths)
+		return NB_OK;
+
+	bgp_nb_peer_af_addpath_apply(peer, afi, safi, addpaths);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_addpath_type(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	const char *type = yang_dnode_get_string(dnode, NULL);
+	const struct lyd_node *addpaths = yang_dnode_get_parent(dnode, "add-paths");
+
+	if (strmatch(type, "all"))
+		vty_out(vty, "%sneighbor %s addpath-tx-all-paths\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	else if (strmatch(type, "per-as"))
+		vty_out(vty, "%sneighbor %s addpath-tx-bestpath-per-AS\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	else if (strmatch(type, "best-selected") && addpaths &&
+		 yang_dnode_exists(addpaths, "./best-selected-paths"))
+		vty_out(vty, "%sneighbor %s addpath-tx-best-selected %u\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
+			yang_dnode_get_uint8(addpaths, "./best-selected-paths"));
+}
+
+void bgp_nb_cli_show_peer_af_addpath_best_selected(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults)
+{
+	/* Rendered with path-type cli_show. */
+}
+
+int bgp_nb_peer_af_disable_addpath_rx_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_DISABLE_ADDPATH_RX);
+}
+
+void bgp_nb_cli_show_peer_af_disable_addpath_rx(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s disable-addpath-rx\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_addpath_rx_limit_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	uint16_t limit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	limit = yang_dnode_get_uint16(args->dnode, NULL);
+	if (peer_af_flag_set(peer, afi, safi, PEER_FLAG_ADDPATH_RX_PATHS_LIMIT) < 0)
+		return NB_ERR_RESOURCE;
+	peer->addpath_paths_limit[afi][safi].send = limit;
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+			    CAPABILITY_ACTION_SET);
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_addpath_rx_limit_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ADDPATH_RX_PATHS_LIMIT);
+	peer->addpath_paths_limit[afi][safi].send = 0;
+	/*
+	 * A tuple with zero Paths Limit is ignored by the receiver, so
+	 * re-sending the capability alone would not clear the old limit.
+	 * Withdraw the capability (clears all limits), and advertise it
+	 * again with the limits still configured for other AFI/SAFIs.
+	 */
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+			    CAPABILITY_ACTION_UNSET);
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+			    CAPABILITY_ACTION_SET);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_addpath_rx_limit(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	vty_out(vty, "%sneighbor %s addpath-rx-paths-limit %u\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint16(dnode, NULL));
 }
 
 static bool bgp_nb_path_attr_forbidden(uint8_t attr_num, struct peer *peer, char *errmsg,
