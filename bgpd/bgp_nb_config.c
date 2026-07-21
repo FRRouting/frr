@@ -8572,6 +8572,259 @@ void bgp_nb_cli_show_sid_vpn_export(struct vty *vty, const struct lyd_node *dnod
 }
 
 /*
+ * Global sid vpn per-vrf export
+ */
+static void bgp_nb_sid_vpn_per_vrf_clear(struct bgp *bgp)
+{
+	if (!is_srv6_vpn_vrf_enabled(bgp))
+		return;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	bgp->tovpn_sid_index = 0;
+	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+}
+
+static void bgp_nb_sid_vpn_per_vrf_read(const struct lyd_node *cont, enum bgp_nb_sid_vpn_mode *mode,
+					uint32_t *idx, struct in6_addr *explicit)
+{
+	bgp_nb_sid_vpn_export_read(cont, mode, idx, explicit);
+}
+
+static int bgp_nb_sid_vpn_per_vrf_validate(struct bgp *bgp, enum bgp_nb_sid_vpn_mode mode,
+					   char *errmsg, size_t errmsg_len)
+{
+	if (mode == BGP_NB_SID_VPN_NONE)
+		return NB_OK;
+
+	if (is_srv6_vpn_afi_enabled(bgp, AFI_IP) || is_srv6_vpn_afi_enabled(bgp, AFI_IP6)) {
+		snprintfrr(errmsg, errmsg_len, "per-vrf sid and per-af sid are mutually exclusive");
+		return NB_ERR_VALIDATION;
+	}
+	if (is_srv6_unicast_enabled(bgp, AFI_IP) || is_srv6_unicast_enabled(bgp, AFI_IP6)) {
+		snprintfrr(errmsg, errmsg_len,
+			   "sid export is configured on unicast; remove it before sid vpn");
+		return NB_ERR_VALIDATION;
+	}
+
+	if (!is_srv6_vpn_vrf_enabled(bgp))
+		return NB_OK;
+
+	{
+		bool cur_auto = CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+		bool cur_explicit = CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
+		uint32_t cur_idx = bgp->tovpn_sid_index;
+		bool same_family = (mode == BGP_NB_SID_VPN_AUTO && cur_auto) ||
+				   (mode == BGP_NB_SID_VPN_INDEX && cur_idx != 0) ||
+				   (mode == BGP_NB_SID_VPN_EXPLICIT && cur_explicit);
+
+		if (same_family)
+			return NB_OK;
+
+		if (cur_idx != 0 && mode != BGP_NB_SID_VPN_INDEX) {
+			snprintfrr(errmsg, errmsg_len, "it's already configured as idx-mode");
+			return NB_ERR_VALIDATION;
+		}
+		if (cur_explicit && mode != BGP_NB_SID_VPN_EXPLICIT) {
+			snprintfrr(errmsg, errmsg_len, "it's already configured as explicit-mode");
+			return NB_ERR_VALIDATION;
+		}
+		if (cur_auto && mode != BGP_NB_SID_VPN_AUTO) {
+			snprintfrr(errmsg, errmsg_len, "it's already configured as auto-mode");
+			return NB_ERR_VALIDATION;
+		}
+	}
+	return NB_OK;
+}
+
+static int bgp_nb_sid_vpn_per_vrf_apply(struct bgp *bgp, const struct lyd_node *cont)
+{
+	enum bgp_nb_sid_vpn_mode mode;
+	uint32_t idx;
+	struct in6_addr explicit;
+	bool same_family;
+
+	bgp_nb_sid_vpn_per_vrf_read(cont, &mode, &idx, &explicit);
+
+	if (mode == BGP_NB_SID_VPN_NONE) {
+		bgp_nb_sid_vpn_per_vrf_clear(bgp);
+		return NB_OK;
+	}
+
+	same_family = (mode == BGP_NB_SID_VPN_AUTO &&
+		       CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
+		      (mode == BGP_NB_SID_VPN_INDEX && bgp->tovpn_sid_index != 0) ||
+		      (mode == BGP_NB_SID_VPN_EXPLICIT &&
+		       CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT));
+	if (same_family)
+		return NB_OK;
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+
+	if (mode == BGP_NB_SID_VPN_AUTO) {
+		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+	} else if (mode == BGP_NB_SID_VPN_INDEX) {
+		bgp->tovpn_sid_index = idx;
+	} else if (mode == BGP_NB_SID_VPN_EXPLICIT) {
+		if (!bgp->tovpn_sid_explicit)
+			bgp->tovpn_sid_explicit = XCALLOC(MTYPE_BGP_SRV6_SID,
+							  sizeof(struct in6_addr));
+		IPV6_ADDR_COPY(bgp->tovpn_sid_explicit, &explicit);
+		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
+	}
+
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	return NB_OK;
+}
+
+static int bgp_nb_sid_vpn_per_vrf_from_dnode(const struct lyd_node *dnode, enum nb_event event,
+					     char *errmsg, size_t errmsg_len)
+{
+	struct bgp *bgp;
+	const struct lyd_node *cont;
+	enum bgp_nb_sid_vpn_mode mode;
+	uint32_t idx;
+	struct in6_addr explicit;
+
+	cont = yang_dnode_get_parent(dnode, "sid-vpn-per-vrf-export");
+	bgp_nb_sid_vpn_per_vrf_read(cont, &mode, &idx, &explicit);
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		return bgp_nb_sid_vpn_per_vrf_validate(bgp, mode, errmsg, errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	bgp = nb_running_get_entry(dnode, NULL, true);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	return bgp_nb_sid_vpn_per_vrf_apply(bgp, cont);
+}
+
+int bgp_nb_sid_vpn_per_vrf_index_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_sid_vpn_per_vrf_from_dnode(args->dnode, args->event, args->errmsg,
+						 args->errmsg_len);
+}
+
+int bgp_nb_sid_vpn_per_vrf_index_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *cont;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	cont = yang_dnode_get_parent(args->dnode, "sid-vpn-per-vrf-export");
+	if (cont &&
+	    (yang_dnode_exists(cont, "./sid-auto") || yang_dnode_exists(cont, "./sid-explicit")))
+		return NB_OK;
+
+	bgp_nb_sid_vpn_per_vrf_clear(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_sid_vpn_per_vrf_auto_create(struct nb_cb_create_args *args)
+{
+	return bgp_nb_sid_vpn_per_vrf_from_dnode(args->dnode, args->event, args->errmsg,
+						 args->errmsg_len);
+}
+
+int bgp_nb_sid_vpn_per_vrf_auto_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *cont;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	cont = yang_dnode_get_parent(args->dnode, "sid-vpn-per-vrf-export");
+	if (cont &&
+	    (yang_dnode_exists(cont, "./sid-index") || yang_dnode_exists(cont, "./sid-explicit")))
+		return NB_OK;
+
+	bgp_nb_sid_vpn_per_vrf_clear(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_sid_vpn_per_vrf_explicit_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_sid_vpn_per_vrf_from_dnode(args->dnode, args->event, args->errmsg,
+						 args->errmsg_len);
+}
+
+int bgp_nb_sid_vpn_per_vrf_explicit_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *cont;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
+	cont = yang_dnode_get_parent(args->dnode, "sid-vpn-per-vrf-export");
+	if (cont &&
+	    (yang_dnode_exists(cont, "./sid-index") || yang_dnode_exists(cont, "./sid-auto")))
+		return NB_OK;
+
+	bgp_nb_sid_vpn_per_vrf_clear(bgp);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_sid_vpn_per_vrf(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	const struct lyd_node *cont = yang_dnode_get_parent(dnode, "sid-vpn-per-vrf-export");
+	enum bgp_nb_sid_vpn_mode mode;
+	uint32_t idx;
+	struct in6_addr explicit;
+	char buf[INET6_ADDRSTRLEN];
+
+	bgp_nb_sid_vpn_per_vrf_read(cont, &mode, &idx, &explicit);
+	if (mode == BGP_NB_SID_VPN_NONE)
+		return;
+
+	if (mode == BGP_NB_SID_VPN_AUTO && !strmatch(dnode->schema->name, "sid-auto"))
+		return;
+	if (mode == BGP_NB_SID_VPN_INDEX && !strmatch(dnode->schema->name, "sid-index"))
+		return;
+	if (mode == BGP_NB_SID_VPN_EXPLICIT && !strmatch(dnode->schema->name, "sid-explicit"))
+		return;
+
+	if (mode == BGP_NB_SID_VPN_AUTO)
+		vty_out(vty, " sid vpn per-vrf export auto\n");
+	else if (mode == BGP_NB_SID_VPN_EXPLICIT) {
+		inet_ntop(AF_INET6, &explicit, buf, sizeof(buf));
+		vty_out(vty, " sid vpn per-vrf export explicit %s\n", buf);
+	} else
+		vty_out(vty, " sid vpn per-vrf export %u\n", idx);
+}
+
+/*
  * AF-level sid export (SRv6 unicast)
  */
 enum bgp_nb_sid_export_mode {

@@ -345,6 +345,30 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/sid-vpn-per-vrf-export/sid-index",
+			.cbs = {
+				.modify = bgp_nb_sid_vpn_per_vrf_index_modify,
+				.destroy = bgp_nb_sid_vpn_per_vrf_index_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_per_vrf,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/sid-vpn-per-vrf-export/sid-auto",
+			.cbs = {
+				.create = bgp_nb_sid_vpn_per_vrf_auto_create,
+				.destroy = bgp_nb_sid_vpn_per_vrf_auto_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_per_vrf,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/sid-vpn-per-vrf-export/sid-explicit",
+			.cbs = {
+				.modify = bgp_nb_sid_vpn_per_vrf_explicit_modify,
+				.destroy = bgp_nb_sid_vpn_per_vrf_explicit_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_per_vrf,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi",
 			.cbs = {
 				.create = bgp_nb_global_afi_safi_create,
