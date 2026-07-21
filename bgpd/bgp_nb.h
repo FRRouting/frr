@@ -855,4 +855,8 @@ int bgp_nb_vpn_rmap_export_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_vpn_rmap_export(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
 
+int bgp_nb_vpn_rd_modify(struct nb_cb_modify_args *args);
+int bgp_nb_vpn_rd_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_vpn_rd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */

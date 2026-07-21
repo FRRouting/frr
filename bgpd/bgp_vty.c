@@ -160,8 +160,6 @@ DEFINE_HOOK(bgp_inst_config_write,
 		(bgp, vty));
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
-DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
-	    (bgp, afi, preconfig));
 
 
 /* Show BGP peer's information. */
@@ -4264,84 +4262,6 @@ static afi_t vpn_policy_getafi(struct vty *vty, struct bgp *bgp, bool v2vimport)
 	}
 	return afi;
 }
-
-DEFPY (af_rd_vpn_export,
-       af_rd_vpn_export_cmd,
-       "[no] rd vpn export ASN:NN_OR_IP-ADDRESS:NN$rd_str",
-       NO_STR
-       "Specify route distinguisher\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n"
-       "Route Distinguisher (<as-number>:<number> | <ip-address>:<number>)\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct prefix_rd prd;
-	int ret;
-	afi_t afi;
-	int idx = 0;
-	bool yes = true;
-
-	if (argv_find(argv, argc, "no", &idx))
-		yes = false;
-
-	if (yes) {
-		ret = str2prefix_rd(rd_str, &prd);
-		if (!ret) {
-			vty_out(vty, "%% Malformed rd\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	afi = vpn_policy_getafi(vty, bgp, false);
-	if (afi == AFI_MAX)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	/*
-	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-	 */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			   bgp_get_default(), bgp);
-
-	if (!bgp->vpn_policy[afi].tovpn_rd_pretty && !rd_str)
-		return CMD_SUCCESS;
-
-	if (yes && bgp->vpn_policy[afi].tovpn_rd_pretty && rd_str &&
-	    strmatch(rd_str, bgp->vpn_policy[afi].tovpn_rd_pretty))
-		return CMD_SUCCESS;
-
-	hook_call(bgp_route_distinguisher_update, bgp, afi, true);
-	if (yes) {
-		if (bgp->vpn_policy[afi].tovpn_rd_pretty)
-			XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
-		bgp->vpn_policy[afi].tovpn_rd_pretty = XSTRDUP(MTYPE_BGP_NAME,
-							       rd_str);
-		bgp->vpn_policy[afi].tovpn_rd = prd;
-		SET_FLAG(bgp->vpn_policy[afi].flags,
-			 BGP_VPN_POLICY_TOVPN_RD_SET);
-		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET);
-	} else {
-		XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
-		bgp->vpn_policy[afi].tovpn_rd_pretty = NULL;
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_RD_SET);
-		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET);
-	}
-	hook_call(bgp_route_distinguisher_update, bgp, afi, false);
-
-	/* post-change: re-export vpn routes */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-			    bgp_get_default(), bgp);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS (af_rd_vpn_export,
-       af_no_rd_vpn_export_cmd,
-       "no rd vpn export",
-       NO_STR
-       "Specify route distinguisher\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n")
 
 DEFPY(af_label_vpn_export_allocation_mode,
       af_label_vpn_export_allocation_mode_cmd,
@@ -16543,8 +16463,7 @@ void bgp_vty_init(void)
 	community_alias_vty();
 
 	/* vpn-policy commands */
-	install_element(BGP_IPV4_NODE, &af_rd_vpn_export_cmd);
-	install_element(BGP_IPV6_NODE, &af_rd_vpn_export_cmd);
+	/* rd vpn export — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_label_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_label_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE,
@@ -16562,8 +16481,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV4_NODE, &af_routetarget_import_cmd);
 	install_element(BGP_IPV6_NODE, &af_routetarget_import_cmd);
 
-	install_element(BGP_IPV4_NODE, &af_no_rd_vpn_export_cmd);
-	install_element(BGP_IPV6_NODE, &af_no_rd_vpn_export_cmd);
+	/* no rd vpn export — YANG: bgp_cli_init() */
 	install_element(BGP_IPV4_NODE, &af_no_label_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_label_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_rt_vpn_imexport_cmd);
