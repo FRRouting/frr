@@ -12552,9 +12552,99 @@ int bgp_nb_peer_aigp_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_aigp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s aigp\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s aigp\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s aigp\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s aigp\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+}
+
+static int bgp_nb_peer_bool_flag_modify(struct nb_cb_modify_args *args, uint64_t flag)
+{
+	struct peer *peer;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		ret = peer_flag_set(peer, flag);
+	else
+		ret = peer_flag_unset(peer, flag);
+
+	if (ret < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+static void bgp_nb_cli_show_peer_bool_flag(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults, const char *cmd)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s %s\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode), cmd);
+	else if (show_defaults)
+		vty_out(vty, "%sno neighbor %s %s\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode), cmd);
+}
+
+int bgp_nb_peer_extended_link_bw_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_bool_flag_modify(args, PEER_FLAG_EXTENDED_LINK_BANDWIDTH);
+}
+
+void bgp_nb_cli_show_peer_extended_link_bw(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	bgp_nb_cli_show_peer_bool_flag(vty, dnode, show_defaults, "extended-link-bandwidth");
+}
+
+int bgp_nb_peer_disable_link_bw_ieee_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_bool_flag_modify(args, PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
+}
+
+void bgp_nb_cli_show_peer_disable_link_bw_ieee(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	bgp_nb_cli_show_peer_bool_flag(vty, dnode, show_defaults, "disable-link-bw-encoding-ieee");
+}
+
+int bgp_nb_peer_extended_opt_params_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_bool_flag_modify(args, PEER_FLAG_EXTENDED_OPT_PARAMS);
+}
+
+void bgp_nb_cli_show_peer_extended_opt_params(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	bgp_nb_cli_show_peer_bool_flag(vty, dnode, show_defaults, "extended-optional-parameters");
+}
+
+int bgp_nb_peer_send_nhc_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_bool_flag_modify(args, PEER_FLAG_SEND_NHC_ATTRIBUTE);
+}
+
+void bgp_nb_cli_show_peer_send_nhc(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	bgp_nb_cli_show_peer_bool_flag(vty, dnode, show_defaults, "send-nexthop-characteristics");
+}
+
+int bgp_nb_peer_as_loop_detection_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_bool_flag_modify(args, PEER_FLAG_AS_LOOP_DETECTION);
+}
+
+void bgp_nb_cli_show_peer_as_loop_detection(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	bgp_nb_cli_show_peer_bool_flag(vty, dnode, show_defaults, "sender-as-path-loop-detection");
 }
 
 int bgp_nb_peer_oad_modify(struct nb_cb_modify_args *args)

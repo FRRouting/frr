@@ -4086,6 +4086,67 @@ DEFPY_YANG(neighbor_aigp_yang, neighbor_aigp_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static int bgp_cli_peer_bool_leaf(struct vty *vty, const char *neighbor, const char *leaf_name,
+				  bool no)
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	int ret;
+
+	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s", xpath, leaf_name);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_extended_link_bw_yang,
+	   neighbor_extended_link_bw_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor extended-link-bandwidth",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Send Extended (64-bit) version of encoding for Link-Bandwidth\n")
+{
+	return bgp_cli_peer_bool_leaf(vty, neighbor, "extended-link-bandwidth", no);
+}
+
+DEFPY_YANG(neighbor_disable_link_bw_ieee_yang,
+	   neighbor_disable_link_bw_ieee_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor disable-link-bw-encoding-ieee",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Disable IEEE floating-point encoding for extended community bandwidth\n")
+{
+	return bgp_cli_peer_bool_leaf(vty, neighbor, "disable-link-bw-encoding-ieee", no);
+}
+
+DEFPY_YANG(neighbor_extended_opt_params_yang,
+	   neighbor_extended_opt_params_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor extended-optional-parameters",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Force the extended optional parameters format for OPEN messages\n")
+{
+	return bgp_cli_peer_bool_leaf(vty, neighbor, "extended-optional-parameters", no);
+}
+
+DEFPY_YANG(neighbor_send_nhc_yang, neighbor_send_nhc_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-nexthop-characteristics",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Send BGP Next Hop Dependent Characteristics Attribute\n")
+{
+	return bgp_cli_peer_bool_leaf(vty, neighbor, "send-nexthop-characteristics", no);
+}
+
+DEFPY_YANG(neighbor_as_loop_detection_yang,
+	   neighbor_as_loop_detection_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor sender-as-path-loop-detection",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Detect AS loops before sending to neighbor\n")
+{
+	return bgp_cli_peer_bool_leaf(vty, neighbor, "sender-as-path-loop-detection", no);
+}
+
 DEFPY_YANG(neighbor_oad_yang, neighbor_oad_yang_cmd,
 	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor oad",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
@@ -7482,6 +7543,11 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &neighbor_graceful_restart_helper_yang_cmd);
 	install_element(BGP_NODE, &neighbor_graceful_restart_disable_yang_cmd);
 	install_element(BGP_NODE, &neighbor_aigp_yang_cmd);
+	install_element(BGP_NODE, &neighbor_extended_link_bw_yang_cmd);
+	install_element(BGP_NODE, &neighbor_disable_link_bw_ieee_yang_cmd);
+	install_element(BGP_NODE, &neighbor_extended_opt_params_yang_cmd);
+	install_element(BGP_NODE, &neighbor_send_nhc_yang_cmd);
+	install_element(BGP_NODE, &neighbor_as_loop_detection_yang_cmd);
 	install_element(BGP_NODE, &neighbor_oad_yang_cmd);
 	install_element(BGP_NODE, &neighbor_graceful_shutdown_yang_cmd);
 	install_element(BGP_NODE, &neighbor_set_peer_group_yang_cmd);

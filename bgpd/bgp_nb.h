@@ -984,4 +984,21 @@ int bgp_nb_peer_ls_remote_link_id_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_ls_remote_link_id(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults);
 
+
+int bgp_nb_peer_extended_link_bw_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_extended_link_bw(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_peer_disable_link_bw_ieee_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_disable_link_bw_ieee(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+int bgp_nb_peer_extended_opt_params_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_extended_opt_params(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+int bgp_nb_peer_send_nhc_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_send_nhc(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+int bgp_nb_peer_as_loop_detection_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_as_loop_detection(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */
