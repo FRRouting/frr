@@ -4069,6 +4069,134 @@ DEFPY_YANG(neighbor_route_server_client_yang,
 	return bgp_cli_peer_af_bool(vty, neighbor, "route-server/route-server-client", !!no);
 }
 
+
+DEFPY_YANG(neighbor_weight_yang, neighbor_weight_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor weight [(0-65535)$weight]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Set default weight for routes from this neighbor\n"
+	   "default weight\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	char buf[16];
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/weight/weight-attribute", xpath, af);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else {
+		if (!weight_str)
+			return CMD_WARNING_CONFIG_FAILED;
+		snprintfrr(buf, sizeof(buf), "%" PRId64, weight);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_send_community_yang, neighbor_send_community_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-community [<both|all|extended|standard|large>$type]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Send Community attribute to this neighbor\n"
+	   "Send Standard and Extended Community attributes\n"
+	   "Send Standard, Large and Extended Community attributes\n"
+	   "Send Extended Community attributes\n"
+	   "Send Standard Community attributes\n"
+	   "Send Large Community attributes\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	const char *val;
+	bool do_std = false, do_ext = false, do_large = false;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	/* Bare send-community (no type) => standard only, like classic. */
+	if (!type || strmatch(type, "standard"))
+		do_std = true;
+	else if (strmatch(type, "extended"))
+		do_ext = true;
+	else if (strmatch(type, "large"))
+		do_large = true;
+	else if (strmatch(type, "both")) {
+		do_std = true;
+		do_ext = true;
+	} else { /* all */
+		do_std = true;
+		do_ext = true;
+		do_large = true;
+	}
+	val = no ? "false" : "true";
+
+	if (do_std) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/send-community/send-community", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	}
+	if (do_ext) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/send-community/send-ext-community", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	}
+	if (do_large) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/send-community/send-large-community", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_send_community_rpki_yang,
+	   neighbor_send_community_rpki_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-community extended rpki",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Send Community attribute to this neighbor\n"
+	   "Send Extended Community attributes\n"
+	   "Send RPKI Extended Community attributes\n")
+{
+	return bgp_cli_peer_af_bool(vty, neighbor, "send-community/send-ext-community-rpki", !!no);
+}
+
+ALIAS_ATTR(neighbor_weight_yang, neighbor_weight_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor weight [(0-65535)$weight]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Set default weight for routes from this neighbor\n"
+	   "default weight\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_send_community_yang, neighbor_send_community_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-community [<both|all|extended|standard|large>$type]",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Send Community attribute to this neighbor\n"
+	"Send Standard and Extended Community attributes\n"
+	"Send Standard, Large and Extended Community attributes\n"
+	"Send Extended Community attributes\n"
+	"Send Standard Community attributes\n"
+	"Send Large Community attributes\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(neighbor_send_community_rpki_yang, neighbor_send_community_rpki_yang_hidden_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-community extended rpki",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Send Community attribute to this neighbor\n"
+						  "Send Extended Community attributes\n"
+						  "Send RPKI Extended Community attributes\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 ALIAS_ATTR(neighbor_as_override_yang, neighbor_as_override_yang_hidden_cmd,
 	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor as-override",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
@@ -4224,6 +4352,35 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_server_client_yang_cmd);
 	install_element(BGP_NODE, &neighbor_route_reflector_client_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_route_server_client_yang_hidden_cmd);
+
+	/* weight / send-community */
+	install_element(BGP_IPV4_NODE, &neighbor_weight_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_send_community_yang_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_send_community_rpki_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_weight_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_send_community_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_send_community_rpki_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_weight_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_send_community_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_send_community_rpki_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_weight_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_send_community_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_send_community_rpki_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_weight_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_send_community_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_send_community_rpki_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_weight_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_send_community_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_send_community_rpki_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_weight_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_send_community_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_send_community_rpki_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_weight_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_send_community_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_send_community_rpki_yang_cmd);
+	install_element(BGP_NODE, &neighbor_weight_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_send_community_yang_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_send_community_rpki_yang_hidden_cmd);
 }
 
 void bgp_cli_init(void)

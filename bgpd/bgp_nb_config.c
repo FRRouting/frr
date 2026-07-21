@@ -6175,7 +6175,113 @@ void bgp_nb_cli_show_peer_af_rserver_client(struct vty *vty, const struct lyd_no
 					    bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s route-server-client\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s route-server-client\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_weight_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	uint16_t weight;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	weight = yang_dnode_get_uint16(args->dnode, NULL);
+	if (peer_weight_set(peer, afi, safi, weight) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_weight_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	peer_weight_unset(peer, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_weight(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	vty_out(vty, "%sneighbor %s weight %" PRIu16 "\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint16(dnode, NULL));
+}
+
+int bgp_nb_peer_af_send_community_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_SEND_COMMUNITY);
+}
+
+void bgp_nb_cli_show_peer_af_send_community(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sno neighbor %s send-community\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, "%sneighbor %s send-community\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_send_ext_community_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_SEND_EXT_COMMUNITY);
+}
+
+void bgp_nb_cli_show_peer_af_send_ext_community(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sno neighbor %s send-community extended\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, "%sneighbor %s send-community extended\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_send_large_community_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_SEND_LARGE_COMMUNITY);
+}
+
+void bgp_nb_cli_show_peer_af_send_large_community(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sno neighbor %s send-community large\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, "%sneighbor %s send-community large\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_send_ext_community_rpki_modify(struct nb_cb_modify_args *args)
+{
+	return bgp_nb_peer_af_flag_modify(args, PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
+}
+
+void bgp_nb_cli_show_peer_af_send_ext_community_rpki(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s send-community extended rpki\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 
