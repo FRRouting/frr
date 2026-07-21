@@ -138,6 +138,36 @@ submodule frr-bgp-evpn {
           "Route map applied while exporting IPv4 routes as type-5
            EVPN routes.";
       }
+
+      leaf skip-evpn-imported {
+        when "../enable = 'true'";
+        type boolean;
+        default "false";
+        description
+          "Do not advertise routes imported from EVPN as type-5 routes.
+           Maps to: advertise ipv4 unicast skip-evpn-imported.";
+      }
+    }
+
+    container ipv4-vpn {
+      description
+        "IPv4 VPN type-5 route advertisement.";
+
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Advertise IPv4 VPN routes as EVPN type-5 routes.
+           Maps to: advertise ipv4 vpn.";
+      }
+
+      leaf route-map {
+        when "../enable = 'true'";
+        type frr-route-map:route-map-ref;
+        description
+          "Route map applied while exporting IPv4 VPN routes as
+           type-5 EVPN routes.";
+      }
     }
 
     container ipv6-unicast {
@@ -167,6 +197,36 @@ submodule frr-bgp-evpn {
         description
           "Route map applied while exporting IPv6 routes as type-5
            EVPN routes.";
+      }
+
+      leaf skip-evpn-imported {
+        when "../enable = 'true'";
+        type boolean;
+        default "false";
+        description
+          "Do not advertise routes imported from EVPN as type-5 routes.
+           Maps to: advertise ipv6 unicast skip-evpn-imported.";
+      }
+    }
+
+    container ipv6-vpn {
+      description
+        "IPv6 VPN type-5 route advertisement.";
+
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Advertise IPv6 VPN routes as EVPN type-5 routes.
+           Maps to: advertise ipv6 vpn.";
+      }
+
+      leaf route-map {
+        when "../enable = 'true'";
+        type frr-route-map:route-map-ref;
+        description
+          "Route map applied while exporting IPv6 VPN routes as
+           type-5 EVPN routes.";
       }
     }
   }

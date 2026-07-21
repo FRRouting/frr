@@ -3609,8 +3609,7 @@ void evpn_unset_advertise_default_gw(struct bgp *bgp, struct bgpevpn *vpn)
 /*
  * evpn - enable advertisement of default g/w
  */
-static void evpn_process_default_originate_cmd(struct bgp *bgp_vrf,
-					       afi_t afi, bool add)
+void evpn_process_default_originate_cmd(struct bgp *bgp_vrf, afi_t afi, bool add)
 {
 	safi_t safi = SAFI_UNICAST; /* ipv4/ipv6 unicast */
 
@@ -8439,12 +8438,9 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
 	/* advertise-all-vni / autort / default-gw / svi-ip / flooding /
 	 * resolve-overlay-index / mac-vrf soo / dup-addr-detection /
-	 * use-es-l3nhg / disable-ead-evi-* / ead-es-frag — YANG: bgp_cli_init()
+	 * use-es-l3nhg / disable-ead-evi-* / ead-es-frag /
+	 * default-originate / advertise ipv4|ipv6 unicast — YANG: bgp_cli_init()
 	 */
-	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
-	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_default_originate_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_pip_ip_mac_cmd);
 
 	/* test commands */

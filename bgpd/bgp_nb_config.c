@@ -8371,6 +8371,377 @@ void bgp_nb_cli_show_evpn_ead_es_frag(struct vty *vty, const struct lyd_node *dn
 }
 
 /*
+ * EVPN default-originate ipv4|ipv6
+ */
+static afi_t bgp_nb_evpn_default_orig_afi(const struct lyd_node *dnode)
+{
+	if (strmatch(dnode->schema->name, "ipv4"))
+		return AFI_IP;
+	if (strmatch(dnode->schema->name, "ipv6"))
+		return AFI_IP6;
+	return AFI_UNSPEC;
+}
+
+int bgp_nb_evpn_default_originate_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	afi = bgp_nb_evpn_default_orig_afi(args->dnode);
+	if (!bgp || afi == AFI_UNSPEC)
+		return NB_ERR_NOT_FOUND;
+
+	evpn_process_default_originate_cmd(bgp, afi, yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_evpn_default_originate_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	afi_t afi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	afi = bgp_nb_evpn_default_orig_afi(args->dnode);
+	if (!bgp || afi == AFI_UNSPEC)
+		return NB_OK;
+
+	evpn_process_default_originate_cmd(bgp, afi, false);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_default_originate(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+	vty_out(vty, "  default-originate %s\n", dnode->schema->name);
+}
+
+/*
+ * EVPN type-5 advertise ipv4|ipv6 <unicast|vpn> [gateway-ip] [route-map RMAP]
+ * [skip-evpn-imported]
+ */
+static bool bgp_nb_evpn_type5_container(const struct lyd_node *dnode, const struct lyd_node **cont,
+					afi_t *afi, safi_t *safi)
+{
+	const struct lyd_node *n;
+
+	for (n = dnode; n; n = lyd_parent(n)) {
+		const char *name = n->schema->name;
+
+		if (strmatch(name, "ipv4-unicast")) {
+			*afi = AFI_IP;
+			*safi = SAFI_UNICAST;
+		} else if (strmatch(name, "ipv6-unicast")) {
+			*afi = AFI_IP6;
+			*safi = SAFI_UNICAST;
+		} else if (strmatch(name, "ipv4-vpn")) {
+			*afi = AFI_IP;
+			*safi = SAFI_MPLS_VPN;
+		} else if (strmatch(name, "ipv6-vpn")) {
+			*afi = AFI_IP6;
+			*safi = SAFI_MPLS_VPN;
+		} else
+			continue;
+
+		*cont = n;
+		return true;
+	}
+	return false;
+}
+
+/*
+ * Resolve struct bgp * for a dnode under frr-bgp:bgp by walking up to the
+ * control-plane-protocol name/vrf keys. Prefer this over nb_running_get_entry
+ * alone for EVPN ip-vrf leaves — parent-chain entry lookup has bound the
+ * wrong (default) instance and made RD / type-5 APPLY a silent no-op.
+ */
+static struct bgp *bgp_nb_dnode_lookup_bgp(const struct lyd_node *dnode)
+{
+	const struct lyd_node *cpp;
+	const char *name, *vrf;
+	struct bgp *bgp;
+
+	cpp = yang_dnode_get_parent(dnode, "control-plane-protocol");
+	if (cpp && yang_dnode_exists(cpp, "name") && yang_dnode_exists(cpp, "vrf")) {
+		name = yang_dnode_get_string(cpp, "name");
+		vrf = yang_dnode_get_string(cpp, "vrf");
+		if (strmatch(vrf, VRF_DEFAULT_NAME))
+			bgp = bgp_get_default();
+		else
+			bgp = bgp_lookup_by_name(name);
+		if (bgp)
+			return bgp;
+	}
+
+	return nb_running_get_entry(dnode, NULL, false);
+}
+
+
+static void bgp_nb_evpn_type5_rmap_free(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	if (!bgp->adv_cmd_rmap[afi][safi].name)
+		return;
+
+	XFREE(MTYPE_ROUTE_MAP_NAME, bgp->adv_cmd_rmap[afi][safi].name);
+	route_map_counter_decrement(bgp->adv_cmd_rmap[afi][safi].map);
+	bgp->adv_cmd_rmap[afi][safi].name = NULL;
+	bgp->adv_cmd_rmap[afi][safi].map = NULL;
+}
+
+/*
+ * Reconcile the running Type-5 export state of one afi/safi with the
+ * configured values of its YANG container.
+ */
+static int bgp_nb_evpn_type5_apply(const struct lyd_node *dnode, struct bgp *bgp_hint,
+				   bool clear_rmap)
+{
+	struct bgp *bgp;
+	const struct lyd_node *cont = NULL;
+	afi_t afi;
+	safi_t safi;
+	bool enable, gw_ip = false, skip = false;
+	const char *rmap = NULL;
+	uint16_t flag_oi_none, flag_oi_gw_ip, suppress_flag;
+	bool has_none, has_gw, was_advertising, adv_flag_changed;
+	bool rmap_changed, skip_newly_enabled, skip_newly_disabled;
+	const char *cur_rmap;
+	uint16_t *flags;
+
+	if (!bgp_nb_evpn_type5_container(dnode, &cont, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	/*
+	 * Prefer an explicit VRF BGP (reapply after L3VNI attach). Fall back
+	 * to resolving by control-plane-protocol name/vrf keys — walking
+	 * nb_running_get_entry from ip-vrf leaves has bound the wrong
+	 * instance and left type-5 / RD flags unset on the tenant VRF.
+	 */
+	bgp = bgp_hint;
+	if (!bgp)
+		bgp = bgp_nb_dnode_lookup_bgp(cont);
+	if (!bgp)
+		return NB_ERR_NOT_FOUND;
+
+	flags = &bgp->af_flags[AFI_L2VPN][SAFI_EVPN];
+
+	enable = yang_dnode_exists(cont, "./enable") && yang_dnode_get_bool(cont, "./enable");
+	/*
+	 * Destroy callbacks receive the running-tree dnode, so ./route-map
+	 * still appears present. clear_rmap forces treat-as-absent.
+	 */
+	if (!clear_rmap && enable && yang_dnode_exists(cont, "./route-map"))
+		rmap = yang_dnode_get_string(cont, "./route-map");
+
+	if (safi == SAFI_UNICAST) {
+		gw_ip = enable && yang_dnode_exists(cont, "./gateway-ip") &&
+			yang_dnode_get_bool(cont, "./gateway-ip");
+		skip = enable && yang_dnode_exists(cont, "./skip-evpn-imported") &&
+		       yang_dnode_get_bool(cont, "./skip-evpn-imported");
+
+		if (afi == AFI_IP) {
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
+			flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP;
+			suppress_flag = BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN;
+		} else {
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST;
+			flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP;
+			suppress_flag = BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN;
+		}
+	} else {
+		flag_oi_none = (afi == AFI_IP) ? BGP_L2VPN_EVPN_ADV_IPV4_VPN
+					       : BGP_L2VPN_EVPN_ADV_IPV6_VPN;
+		flag_oi_gw_ip = 0;
+		suppress_flag = 0;
+	}
+
+	has_none = CHECK_FLAG(*flags, flag_oi_none);
+	has_gw = flag_oi_gw_ip && CHECK_FLAG(*flags, flag_oi_gw_ip);
+	was_advertising = has_none || has_gw;
+
+	cur_rmap = bgp->adv_cmd_rmap[afi][safi].name;
+	if (rmap && cur_rmap)
+		rmap_changed = strcmp(rmap, cur_rmap) != 0;
+	else
+		rmap_changed = (rmap != NULL) != (cur_rmap != NULL);
+
+	if (!enable) {
+		if (was_advertising)
+			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
+		UNSET_FLAG(*flags, flag_oi_none);
+		if (flag_oi_gw_ip)
+			UNSET_FLAG(*flags, flag_oi_gw_ip);
+		if (suppress_flag)
+			UNSET_FLAG(*flags, suppress_flag);
+		if (has_gw)
+			bgp_addpath_type_changed(bgp);
+		bgp_nb_evpn_type5_rmap_free(bgp, afi, safi);
+		return NB_OK;
+	}
+
+	adv_flag_changed = gw_ip != has_gw;
+	skip_newly_enabled = suppress_flag && skip && !CHECK_FLAG(*flags, suppress_flag);
+	skip_newly_disabled = suppress_flag && !skip && CHECK_FLAG(*flags, suppress_flag);
+
+	if (was_advertising && !adv_flag_changed && !rmap_changed && !skip_newly_enabled &&
+	    !skip_newly_disabled)
+		return NB_OK;
+
+	/*
+	 * A route-map or overlay-index change requires the already advertised
+	 * Type-5 routes to be withdrawn before the flags are changed, for
+	 * proper addpath handling in the withdraw logic.
+	 */
+	if (was_advertising && (rmap_changed || adv_flag_changed))
+		bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
+
+	/*
+	 * Enabling skip-evpn-imported drains exactly the EVPN-derived Type-5
+	 * routes instead of withdrawing everything this VRF advertises.
+	 */
+	if (skip_newly_enabled) {
+		if (was_advertising)
+			bgp_evpn_withdraw_imported_type5_leaked_routes(bgp, afi);
+		SET_FLAG(*flags, suppress_flag);
+	}
+	if (skip_newly_disabled)
+		UNSET_FLAG(*flags, suppress_flag);
+
+	if (rmap_changed) {
+		bgp_nb_evpn_type5_rmap_free(bgp, afi, safi);
+		if (rmap) {
+			bgp->adv_cmd_rmap[afi][safi].name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+			bgp->adv_cmd_rmap[afi][safi].map = route_map_lookup_by_name(rmap);
+			route_map_counter_increment(bgp->adv_cmd_rmap[afi][safi].map);
+		}
+	}
+
+	if (adv_flag_changed || !was_advertising) {
+		UNSET_FLAG(*flags, flag_oi_none);
+		if (flag_oi_gw_ip)
+			UNSET_FLAG(*flags, flag_oi_gw_ip);
+		SET_FLAG(*flags, gw_ip ? flag_oi_gw_ip : flag_oi_none);
+	}
+
+	if (adv_flag_changed)
+		/* Generate/cleanup addpath ids */
+		bgp_addpath_type_changed(bgp);
+
+	/*
+	 * Run the advertise walk after first enabling Type-5 export, changing
+	 * the route-map or overlay-index mode, or re-allowing EVPN-imported
+	 * routes.  Enabling skip-evpn-imported only withdraws the EVPN-derived
+	 * Type-5 routes.
+	 */
+	if ((advertise_type5_routes_bestpath(bgp, afi, safi) ||
+	     advertise_type5_routes_multipath(bgp, afi, safi)) &&
+	    (!was_advertising || rmap_changed || adv_flag_changed || skip_newly_disabled))
+		bgp_evpn_advertise_type5_routes(bgp, afi, safi);
+
+	/*
+	 * Flags may have been set before L3VNI was live (advertise helpers
+	 * no-op without l3vni). Once the VNI is attached, push VRF routes.
+	 */
+	if (bgp->l3vni)
+		update_advertise_vrf_routes(bgp);
+
+	return NB_OK;
+}
+
+int bgp_nb_evpn_type5_enable_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+}
+
+int bgp_nb_evpn_type5_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+}
+
+int bgp_nb_evpn_type5_gateway_ip_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+}
+
+int bgp_nb_evpn_type5_gateway_ip_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+}
+
+int bgp_nb_evpn_type5_route_map_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+}
+
+int bgp_nb_evpn_type5_route_map_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_type5_apply(args->dnode, NULL, true);
+}
+
+int bgp_nb_evpn_type5_skip_evpn_imported_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+}
+
+int bgp_nb_evpn_type5_skip_evpn_imported_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+}
+
+void bgp_nb_cli_show_evpn_type5_enable(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	const struct lyd_node *cont = NULL;
+	afi_t afi;
+	safi_t safi;
+	const char *rmap = NULL;
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	if (!bgp_nb_evpn_type5_container(dnode, &cont, &afi, &safi))
+		return;
+
+	if (yang_dnode_exists(cont, "./route-map"))
+		rmap = yang_dnode_get_string(cont, "./route-map");
+
+	vty_out(vty, "  advertise %s %s", afi == AFI_IP ? "ipv4" : "ipv6",
+		safi == SAFI_UNICAST ? "unicast" : "vpn");
+	if (safi == SAFI_UNICAST && yang_dnode_exists(cont, "./gateway-ip") &&
+	    yang_dnode_get_bool(cont, "./gateway-ip"))
+		vty_out(vty, " gateway-ip");
+	if (rmap)
+		vty_out(vty, " route-map %s", rmap);
+	if (safi == SAFI_UNICAST && yang_dnode_exists(cont, "./skip-evpn-imported") &&
+	    yang_dnode_get_bool(cont, "./skip-evpn-imported"))
+		vty_out(vty, " skip-evpn-imported");
+	vty_out(vty, "\n");
+}
+
+/*
  * AF-level import|export vpn
  */
 static int bgp_nb_vpn_imexport_validate(struct bgp *bgp, afi_t afi, safi_t safi, bool enable,
