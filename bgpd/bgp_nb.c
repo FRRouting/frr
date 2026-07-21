@@ -942,6 +942,216 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/enable",
+			.cbs = {
+				.modify = bgp_nb_dampening_enable_modify,
+				.cli_show = bgp_nb_cli_show_dampening,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/reach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/reuse-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/suppress-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/route-flap-dampening/unreach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/enable",
+			.cbs = {
+				.modify = bgp_nb_dampening_enable_modify,
+				.cli_show = bgp_nb_cli_show_dampening,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/reach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/reuse-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/suppress-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/route-flap-dampening/unreach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/enable",
+			.cbs = {
+				.modify = bgp_nb_dampening_enable_modify,
+				.cli_show = bgp_nb_cli_show_dampening,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/reach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/reuse-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/suppress-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast/route-flap-dampening/unreach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/enable",
+			.cbs = {
+				.modify = bgp_nb_dampening_enable_modify,
+				.cli_show = bgp_nb_cli_show_dampening,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/reach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/reuse-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/suppress-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast/route-flap-dampening/unreach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/enable",
+			.cbs = {
+				.modify = bgp_nb_dampening_enable_modify,
+				.cli_show = bgp_nb_cli_show_dampening,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/reach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/reuse-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/suppress-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-multicast/route-flap-dampening/unreach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/enable",
+			.cbs = {
+				.modify = bgp_nb_dampening_enable_modify,
+				.cli_show = bgp_nb_cli_show_dampening,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/reach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/reuse-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/suppress-above",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-multicast/route-flap-dampening/unreach-decay",
+			.cbs = {
+				.modify = bgp_nb_dampening_param_modify,
+				.destroy = bgp_nb_dampening_param_destroy,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/confederation/identifier",
 			.cbs = {
 				.modify = bgp_nb_confederation_identifier_modify,
