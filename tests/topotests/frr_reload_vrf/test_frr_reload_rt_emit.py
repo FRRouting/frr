@@ -938,3 +938,41 @@ def test_vrf_delete_blocked_matches_device_up_errors(reload):
     assert reload.vrf_delete_blocked_as_active("% Only inactive VRFs can be deleted")
     assert not reload.vrf_delete_blocked_as_active("% Unknown command")
     assert not reload.vrf_delete_blocked_as_active("")
+
+
+def test_bgp_neighbor_batch_delete_orders_af_remote_as_and_peer_group(reload):
+    """AF leaves come before remote-as/member peer-group, which come before peer-group def."""
+    rtr = ("router bgp 65001",)
+    af = ("router bgp 65001", "address-family ipv4 unicast")
+    entries = [
+        (rtr, "neighbor PG peer-group"),
+        (rtr, "neighbor PG remote-as external"),
+        (rtr, "neighbor PG timers 3 9"),
+        (rtr, "neighbor 10.0.0.1 peer-group PG"),
+        (af, "neighbor PG activate"),
+        (af, "neighbor 10.0.0.1 soft-reconfiguration inbound"),
+    ]
+    text = _text(reload.emit_batch_deletes(entries))
+    af_pos = text.index("no neighbor PG activate")
+    timers_pos = text.index("no neighbor PG timers 3 9")
+    remote_as_pos = text.index("no neighbor PG remote-as external")
+    member_pos = text.index("no neighbor 10.0.0.1 peer-group PG")
+    pg_def_pos = text.index("no neighbor PG peer-group")
+    assert af_pos < timers_pos < remote_as_pos < pg_def_pos
+    assert timers_pos < member_pos < pg_def_pos
+
+
+def test_bgp_neighbor_batch_add_does_not_hoist_af_before_remote_as(reload):
+    """Subsequent AF adds after a new router-level remote-as are not hoisted before it."""
+    rtr = ("router bgp 65001",)
+    af = ("router bgp 65001", "address-family ipv4 unicast")
+    entries = [
+        (af, "neighbor 10.0.0.1 soft-reconfiguration inbound"),
+        (rtr, "neighbor 10.0.0.2 remote-as 65002"),
+        (af, "neighbor 10.0.0.2 activate"),
+    ]
+    text = _text(reload.emit_add_config(entries))
+    assert text.index("neighbor 10.0.0.2 remote-as 65002") < text.index(
+        "neighbor 10.0.0.2 activate"
+    )
+
