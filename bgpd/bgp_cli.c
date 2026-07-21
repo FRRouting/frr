@@ -685,6 +685,189 @@ DEFUN_YANG(no_bgp_bestpath_aspath_ignore_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_bestpath_aigp_yang, bgp_bestpath_aigp_yang_cmd,
+	   "[no] bgp bestpath aigp",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "Evaluate the AIGP attribute during the best path selection process\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/compare-aigp", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_bestpath_use_imported_attrs_yang,
+	   bgp_bestpath_use_imported_attrs_yang_cmd,
+	   "[no] bgp bestpath use-imported-attributes",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "Use imported path's attributes for bestpath comparison\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/use-imported-attributes",
+			      NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_bestpath_aspath_confed_yang, bgp_bestpath_aspath_confed_yang_cmd,
+	   "bgp bestpath as-path confed",
+	   BGP_STR
+	   "Change the default bestpath selection\n"
+	   "AS-path attribute\n"
+	   "Compare path lengths including confederation sets & sequences in selecting a route\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/aspath-confed", NB_OP_MODIFY,
+			      "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_bestpath_aspath_confed_yang,
+	   no_bgp_bestpath_aspath_confed_yang_cmd,
+	   "no bgp bestpath as-path confed",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "AS-path attribute\n"
+	   "Compare path lengths including confederation sets & sequences in selecting a route\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/aspath-confed", NB_OP_MODIFY,
+			      "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_bestpath_aspath_multipath_relax_yang,
+	   bgp_bestpath_aspath_multipath_relax_yang_cmd,
+	   "bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
+	   BGP_STR
+	   "Change the default bestpath selection\n"
+	   "AS-path attribute\n"
+	   "Allow load sharing across routes that have different AS paths (but same length)\n"
+	   "Generate an AS_SET\n"
+	   "Do not generate an AS_SET\n")
+{
+	int idx = 0;
+
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/allow-multiple-as",
+			      NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/multi-path-as-set",
+			      NB_OP_MODIFY,
+			      argv_find(argv, argc, "as-set", &idx) ? "true" : "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_bestpath_aspath_multipath_relax_yang,
+	   no_bgp_bestpath_aspath_multipath_relax_yang_cmd,
+	   "no bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "AS-path attribute\n"
+	   "Allow load sharing across routes that have different AS paths (but same length)\n"
+	   "Generate an AS_SET\n"
+	   "Do not generate an AS_SET\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/allow-multiple-as",
+			      NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/multi-path-as-set",
+			      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_bestpath_peer_type_multipath_relax_yang,
+	   bgp_bestpath_peer_type_multipath_relax_yang_cmd,
+	   "bgp bestpath peer-type multipath-relax",
+	   BGP_STR
+	   "Change the default bestpath selection\n"
+	   "Peer type\n"
+	   "Allow load sharing across routes learned from different peer types\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/peer-type-multipath-relax",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_bestpath_peer_type_multipath_relax_yang,
+	   no_bgp_bestpath_peer_type_multipath_relax_yang_cmd,
+	   "no bgp bestpath peer-type multipath-relax",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "Peer type\n"
+	   "Allow load sharing across routes learned from different peer types\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/peer-type-multipath-relax",
+			      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(bgp_bestpath_med_yang, bgp_bestpath_med_yang_cmd,
+	   "bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
+	   BGP_STR
+	   "Change the default bestpath selection\n"
+	   "MED attribute\n"
+	   "Compare MED among confederation paths\n"
+	   "Treat missing MED as the least preferred one\n"
+	   "Treat missing MED as the least preferred one\n"
+	   "Compare MED among confederation paths\n")
+{
+	int idx = 0;
+
+	if (argv_find(argv, argc, "confed", &idx))
+		nb_cli_enqueue_change(vty, "./global/route-selection-options/confed-med",
+				      NB_OP_MODIFY, "true");
+	idx = 0;
+	if (argv_find(argv, argc, "missing-as-worst", &idx))
+		nb_cli_enqueue_change(vty, "./global/route-selection-options/missing-as-worst-med",
+				      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_bestpath_med_yang, no_bgp_bestpath_med_yang_cmd,
+	   "no bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "MED attribute\n"
+	   "Compare MED among confederation paths\n"
+	   "Treat missing MED as the least preferred one\n"
+	   "Treat missing MED as the least preferred one\n"
+	   "Compare MED among confederation paths\n")
+{
+	int idx = 0;
+
+	if (argv_find(argv, argc, "confed", &idx))
+		nb_cli_enqueue_change(vty, "./global/route-selection-options/confed-med",
+				      NB_OP_MODIFY, "false");
+	idx = 0;
+	if (argv_find(argv, argc, "missing-as-worst", &idx))
+		nb_cli_enqueue_change(vty, "./global/route-selection-options/missing-as-worst-med",
+				      NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_bestpath_bw_yang, bgp_bestpath_bw_yang_cmd,
+	   "bgp bestpath bandwidth <ignore|skip-missing|default-weight-for-missing>$bw_cfg",
+	   BGP_STR
+	   "Change the default bestpath selection\n"
+	   "Link Bandwidth attribute\n"
+	   "Ignore link bandwidth (i.e., do regular ECMP, not weighted)\n"
+	   "Ignore paths without link bandwidth for ECMP (if other paths have it)\n"
+	   "Assign a low default weight (value 1) to paths not having link bandwidth\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/bandwidth-handling",
+			      NB_OP_MODIFY, bw_cfg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_bgp_bestpath_bw_yang, no_bgp_bestpath_bw_yang_cmd,
+	   "no bgp bestpath bandwidth [<ignore|skip-missing|default-weight-for-missing>$bw_cfg]",
+	   NO_STR BGP_STR
+	   "Change the default bestpath selection\n"
+	   "Link Bandwidth attribute\n"
+	   "Ignore link bandwidth (i.e., do regular ECMP, not weighted)\n"
+	   "Ignore paths without link bandwidth for ECMP (if other paths have it)\n"
+	   "Assign a low default weight (value 1) to paths not having link bandwidth\n")
+{
+	nb_cli_enqueue_change(vty, "./global/route-selection-options/bandwidth-handling",
+			      NB_OP_MODIFY, "ecmp");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bgp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_bgp_yang_cmd);
@@ -732,4 +915,17 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_bestpath_compare_router_id_yang_cmd);
 	install_element(BGP_NODE, &bgp_bestpath_aspath_ignore_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_bestpath_aspath_ignore_yang_cmd);
+
+	install_element(BGP_NODE, &bgp_bestpath_aigp_yang_cmd);
+	install_element(BGP_NODE, &bgp_bestpath_use_imported_attrs_yang_cmd);
+	install_element(BGP_NODE, &bgp_bestpath_aspath_confed_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_bestpath_aspath_confed_yang_cmd);
+	install_element(BGP_NODE, &bgp_bestpath_aspath_multipath_relax_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_yang_cmd);
+	install_element(BGP_NODE, &bgp_bestpath_peer_type_multipath_relax_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_bestpath_peer_type_multipath_relax_yang_cmd);
+	install_element(BGP_NODE, &bgp_bestpath_med_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_bestpath_med_yang_cmd);
+	install_element(BGP_NODE, &bgp_bestpath_bw_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_bestpath_bw_yang_cmd);
 }

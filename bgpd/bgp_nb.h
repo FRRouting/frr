@@ -112,6 +112,41 @@ int bgp_nb_ignore_as_path_length_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_ignore_as_path_length(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 
+int bgp_nb_compare_aigp_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_compare_aigp(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+
+int bgp_nb_use_imported_attributes_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_use_imported_attributes(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+
+int bgp_nb_aspath_confed_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_aspath_confed(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+
+int bgp_nb_allow_multiple_as_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_allow_multiple_as(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_multi_path_as_set_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_multi_path_as_set(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+
+int bgp_nb_peer_type_multipath_relax_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_type_multipath_relax(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+
+int bgp_nb_confed_med_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_confed_med(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+int bgp_nb_missing_as_worst_med_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_missing_as_worst_med(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+
+int bgp_nb_bandwidth_handling_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_bandwidth_handling(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

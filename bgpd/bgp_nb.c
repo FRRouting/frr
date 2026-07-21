@@ -193,6 +193,69 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/compare-aigp",
+			.cbs = {
+				.modify = bgp_nb_compare_aigp_modify,
+				.cli_show = bgp_nb_cli_show_compare_aigp,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/use-imported-attributes",
+			.cbs = {
+				.modify = bgp_nb_use_imported_attributes_modify,
+				.cli_show = bgp_nb_cli_show_use_imported_attributes,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/aspath-confed",
+			.cbs = {
+				.modify = bgp_nb_aspath_confed_modify,
+				.cli_show = bgp_nb_cli_show_aspath_confed,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/allow-multiple-as",
+			.cbs = {
+				.modify = bgp_nb_allow_multiple_as_modify,
+				.cli_show = bgp_nb_cli_show_allow_multiple_as,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/multi-path-as-set",
+			.cbs = {
+				.modify = bgp_nb_multi_path_as_set_modify,
+				.cli_show = bgp_nb_cli_show_multi_path_as_set,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/peer-type-multipath-relax",
+			.cbs = {
+				.modify = bgp_nb_peer_type_multipath_relax_modify,
+				.cli_show = bgp_nb_cli_show_peer_type_multipath_relax,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/confed-med",
+			.cbs = {
+				.modify = bgp_nb_confed_med_modify,
+				.cli_show = bgp_nb_cli_show_confed_med,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/missing-as-worst-med",
+			.cbs = {
+				.modify = bgp_nb_missing_as_worst_med_modify,
+				.cli_show = bgp_nb_cli_show_missing_as_worst_med,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/bandwidth-handling",
+			.cbs = {
+				.modify = bgp_nb_bandwidth_handling_modify,
+				.cli_show = bgp_nb_cli_show_bandwidth_handling,
+			},
+		},
+		{
 			.xpath = NULL,
 		},
 	}

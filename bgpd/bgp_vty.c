@@ -1528,17 +1528,6 @@ static int bgp_clear_vty(struct vty *vty, const char *name, afi_t afi,
 	return bgp_clear(vty, bgp, afi, safi, sort, stype, arg);
 }
 
-/* clear soft outbound */
-static void bgp_clear_star_soft_out(struct vty *vty, const char *name)
-{
-	afi_t afi;
-	safi_t safi;
-
-	FOREACH_AFI_SAFI (afi, safi)
-		bgp_clear_vty(vty, name, afi, safi, clear_all,
-			      BGP_CLEAR_SOFT_OUT, NULL);
-}
-
 
 void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi)
 {
@@ -3850,277 +3839,6 @@ DEFUN (no_bgp_graceful_shutdown,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_bestpath_aigp,
-       bgp_bestpath_aigp_cmd,
-       "[no$no] bgp bestpath aigp",
-       NO_STR
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "Evaluate the AIGP attribute during the best path selection process\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (no)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP);
-	else
-		SET_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP);
-
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp bestpath use-imported-attributes" configuration. */
-DEFPY (bgp_bestpath_use_imported_attrs,
-       bgp_bestpath_use_imported_attrs_cmd,
-       "[no$no] bgp bestpath use-imported-attributes",
-       NO_STR
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "Use imported path's attributes for bestpath comparison\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (no) {
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS)) {
-			UNSET_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS);
-			bgp_recalculate_all_bestpaths(bgp);
-		}
-	} else {
-		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS)) {
-			SET_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS);
-			bgp_recalculate_all_bestpaths(bgp);
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp bestpath as-path confed" configuration.  */
-DEFUN (bgp_bestpath_aspath_confed,
-       bgp_bestpath_aspath_confed_cmd,
-       "bgp bestpath as-path confed",
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Compare path lengths including confederation sets & sequences in selecting a route\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_bestpath_aspath_confed,
-       no_bgp_bestpath_aspath_confed_cmd,
-       "no bgp bestpath as-path confed",
-       NO_STR
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Compare path lengths including confederation sets & sequences in selecting a route\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp bestpath as-path multipath-relax" configuration.  */
-DEFUN (bgp_bestpath_aspath_multipath_relax,
-       bgp_bestpath_aspath_multipath_relax_cmd,
-       "bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Allow load sharing across routes that have different AS paths (but same length)\n"
-       "Generate an AS_SET\n"
-       "Do not generate an AS_SET\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx = 0;
-	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
-
-	/* no-as-set is now the default behavior so we can silently
-	 * ignore it */
-	if (argv_find(argv, argc, "as-set", &idx))
-		SET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
-	else
-		UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
-
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_bestpath_aspath_multipath_relax,
-       no_bgp_bestpath_aspath_multipath_relax_cmd,
-       "no bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
-       NO_STR
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Allow load sharing across routes that have different AS paths (but same length)\n"
-       "Generate an AS_SET\n"
-       "Do not generate an AS_SET\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp bestpath peer-type multipath-relax" configuration. */
-DEFUN(bgp_bestpath_peer_type_multipath_relax,
-      bgp_bestpath_peer_type_multipath_relax_cmd,
-      "bgp bestpath peer-type multipath-relax",
-      BGP_STR
-      "Change the default bestpath selection\n"
-      "Peer type\n"
-      "Allow load sharing across routes learned from different peer types\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_bgp_bestpath_peer_type_multipath_relax,
-      no_bgp_bestpath_peer_type_multipath_relax_cmd,
-      "no bgp bestpath peer-type multipath-relax",
-      NO_STR BGP_STR
-      "Change the default bestpath selection\n"
-      "Peer type\n"
-      "Allow load sharing across routes learned from different peer types\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX);
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp bestpath med" configuration. */
-DEFUN (bgp_bestpath_med,
-       bgp_bestpath_med_cmd,
-       "bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "MED attribute\n"
-       "Compare MED among confederation paths\n"
-       "Treat missing MED as the least preferred one\n"
-       "Treat missing MED as the least preferred one\n"
-       "Compare MED among confederation paths\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	int idx = 0;
-	if (argv_find(argv, argc, "confed", &idx))
-		SET_FLAG(bgp->flags, BGP_FLAG_MED_CONFED);
-	idx = 0;
-	if (argv_find(argv, argc, "missing-as-worst", &idx))
-		SET_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST);
-
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_bestpath_med,
-       no_bgp_bestpath_med_cmd,
-       "no bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
-       NO_STR
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "MED attribute\n"
-       "Compare MED among confederation paths\n"
-       "Treat missing MED as the least preferred one\n"
-       "Treat missing MED as the least preferred one\n"
-       "Compare MED among confederation paths\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	int idx = 0;
-	if (argv_find(argv, argc, "confed", &idx))
-		UNSET_FLAG(bgp->flags, BGP_FLAG_MED_CONFED);
-	idx = 0;
-	if (argv_find(argv, argc, "missing-as-worst", &idx))
-		UNSET_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST);
-
-	bgp_recalculate_all_bestpaths(bgp);
-
-	return CMD_SUCCESS;
-}
-
-/* "bgp bestpath bandwidth" configuration. */
-DEFPY (bgp_bestpath_bw,
-       bgp_bestpath_bw_cmd,
-       "bgp bestpath bandwidth <ignore|skip-missing|default-weight-for-missing>$bw_cfg",
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "Link Bandwidth attribute\n"
-       "Ignore link bandwidth (i.e., do regular ECMP, not weighted)\n"
-       "Ignore paths without link bandwidth for ECMP (if other paths have it)\n"
-       "Assign a low default weight (value 1) to paths not having link bandwidth\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi;
-	safi_t safi;
-
-	if (!bw_cfg) {
-		vty_out(vty, "%% Bandwidth configuration must be specified\n");
-		return CMD_ERR_INCOMPLETE;
-	}
-	if (!strcmp(bw_cfg, "ignore"))
-		bgp->lb_handling = BGP_LINK_BW_IGNORE_BW;
-	else if (!strcmp(bw_cfg, "skip-missing"))
-		bgp->lb_handling = BGP_LINK_BW_SKIP_MISSING;
-	else if (!strcmp(bw_cfg, "default-weight-for-missing"))
-		bgp->lb_handling = BGP_LINK_BW_DEFWT_4_MISSING;
-	else
-		return CMD_ERR_NO_MATCH;
-
-	/* This config is used in route install, so redo that. */
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!bgp_fibupd_safi(safi))
-			continue;
-		bgp_zebra_announce_table(bgp, afi, safi);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_bgp_bestpath_bw,
-       no_bgp_bestpath_bw_cmd,
-       "no bgp bestpath bandwidth [<ignore|skip-missing|default-weight-for-missing>$bw_cfg]",
-       NO_STR
-       BGP_STR
-       "Change the default bestpath selection\n"
-       "Link Bandwidth attribute\n"
-       "Ignore link bandwidth (i.e., do regular ECMP, not weighted)\n"
-       "Ignore paths without link bandwidth for ECMP (if other paths have it)\n"
-       "Assign a low default weight (value 1) to paths not having link bandwidth\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi;
-	safi_t safi;
-
-	bgp->lb_handling = BGP_LINK_BW_ECMP;
-
-	/* This config is used in route install, so redo that. */
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!bgp_fibupd_safi(safi))
-			continue;
-		bgp_zebra_announce_table(bgp, afi, safi);
-	}
-	return CMD_SUCCESS;
-}
-
 DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
       "[no] bgp default <ipv4-unicast|"
       "ipv4-multicast|"
@@ -4181,58 +3899,6 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
 			bgp->default_af[afi][safi] = true;
 	}
 
-	return CMD_SUCCESS;
-}
-
-/* Display hostname in certain command outputs */
-DEFUN (bgp_default_show_hostname,
-       bgp_default_show_hostname_cmd,
-       "bgp default show-hostname",
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Show hostname in certain command outputs\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_default_show_hostname,
-       no_bgp_default_show_hostname_cmd,
-       "no bgp default show-hostname",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Show hostname in certain command outputs\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
-	return CMD_SUCCESS;
-}
-
-/* Display hostname in certain command outputs */
-DEFUN (bgp_default_show_nexthop_hostname,
-       bgp_default_show_nexthop_hostname_cmd,
-       "bgp default show-nexthop-hostname",
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Show hostname for nexthop in certain command outputs\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	SET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_default_show_nexthop_hostname,
-       no_bgp_default_show_nexthop_hostname_cmd,
-       "no bgp default show-nexthop-hostname",
-       NO_STR
-       BGP_STR
-       "Configure BGP defaults\n"
-       "Show hostname for nexthop in certain command outputs\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME);
 	return CMD_SUCCESS;
 }
 
@@ -4328,43 +3994,6 @@ DEFUN (no_bgp_default_subgroup_pkt_queue_max,
 	return CMD_SUCCESS;
 }
 
-
-DEFUN (bgp_rr_allow_outbound_policy,
-       bgp_rr_allow_outbound_policy_cmd,
-       "bgp route-reflector allow-outbound-policy",
-       BGP_STR
-       "Allow modifications made by out route-map\n"
-       "on ibgp neighbors\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-		SET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
-		update_group_announce_rrclients(bgp);
-		bgp_clear_star_soft_out(vty, bgp->name);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_rr_allow_outbound_policy,
-       no_bgp_rr_allow_outbound_policy_cmd,
-       "no bgp route-reflector allow-outbound-policy",
-       NO_STR
-       BGP_STR
-       "Allow modifications made by out route-map\n"
-       "on ibgp neighbors\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-		UNSET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
-		update_group_announce_rrclients(bgp);
-		bgp_clear_star_soft_out(vty, bgp->name);
-	}
-
-	return CMD_SUCCESS;
-}
 
 DEFUN (bgp_listen_limit,
        bgp_listen_limit_cmd,
@@ -23245,38 +22874,25 @@ void bgp_vty_init(void)
 
 	/* "bgp fast-external-failover" — YANG: bgp_cli_init() */
 
-	/* "bgp bestpath aigp" commands */
-	install_element(BGP_NODE, &bgp_bestpath_aigp_cmd);
+	/* "bgp bestpath aigp" — YANG: bgp_cli_init() */
 
 	/* "bgp bestpath compare-routerid" — YANG: bgp_cli_init() */
 
 	/* "bgp bestpath as-path ignore" — YANG: bgp_cli_init() */
 
-	/* "bgp bestpath use-imported-attributes" commands */
-	install_element(BGP_NODE, &bgp_bestpath_use_imported_attrs_cmd);
+	/* "bgp bestpath use-imported-attributes" — YANG: bgp_cli_init() */
 
-	/* "bgp bestpath as-path confed" commands */
-	install_element(BGP_NODE, &bgp_bestpath_aspath_confed_cmd);
-	install_element(BGP_NODE, &no_bgp_bestpath_aspath_confed_cmd);
+	/* "bgp bestpath as-path confed" — YANG: bgp_cli_init() */
 
-	/* "bgp bestpath as-path multipath-relax" commands */
-	install_element(BGP_NODE, &bgp_bestpath_aspath_multipath_relax_cmd);
-	install_element(BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_cmd);
+	/* "bgp bestpath as-path multipath-relax" — YANG: bgp_cli_init() */
 
-	/* "bgp bestpath peer-type multipath-relax" commands */
-	install_element(BGP_NODE, &bgp_bestpath_peer_type_multipath_relax_cmd);
-	install_element(BGP_NODE,
-			&no_bgp_bestpath_peer_type_multipath_relax_cmd);
+	/* "bgp bestpath peer-type multipath-relax" — YANG: bgp_cli_init() */
 
 	/* "bgp log-neighbor-changes" — YANG: bgp_cli_init() */
 
-	/* "bgp bestpath med" commands */
-	install_element(BGP_NODE, &bgp_bestpath_med_cmd);
-	install_element(BGP_NODE, &no_bgp_bestpath_med_cmd);
+	/* "bgp bestpath med" — YANG: bgp_cli_init() */
 
-	/* "bgp bestpath bandwidth" commands */
-	install_element(BGP_NODE, &bgp_bestpath_bw_cmd);
-	install_element(BGP_NODE, &no_bgp_bestpath_bw_cmd);
+	/* "bgp bestpath bandwidth" — YANG: bgp_cli_init() */
 
 	/* "no bgp default <afi>-<safi>" commands. */
 	install_element(BGP_NODE, &bgp_default_afi_safi_cmd);
@@ -23285,13 +22901,9 @@ void bgp_vty_init(void)
 
 	/* "bgp default local-preference" — YANG: bgp_cli_init() */
 
-	/* bgp default show-hostname */
-	install_element(BGP_NODE, &bgp_default_show_hostname_cmd);
-	install_element(BGP_NODE, &no_bgp_default_show_hostname_cmd);
+	/* bgp default show-hostname — YANG: bgp_cli_init() */
 
-	/* bgp default show-nexthop-hostname */
-	install_element(BGP_NODE, &bgp_default_show_nexthop_hostname_cmd);
-	install_element(BGP_NODE, &no_bgp_default_show_nexthop_hostname_cmd);
+	/* bgp default show-nexthop-hostname — YANG: bgp_cli_init() */
 
 	/* bgp default software-version-capability */
 	install_element(BGP_NODE, &bgp_default_software_version_capability_cmd);
@@ -23306,9 +22918,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);
 	install_element(BGP_NODE, &no_bgp_default_subgroup_pkt_queue_max_cmd);
 
-	/* bgp ibgp-allow-policy-mods command */
-	install_element(BGP_NODE, &bgp_rr_allow_outbound_policy_cmd);
-	install_element(BGP_NODE, &no_bgp_rr_allow_outbound_policy_cmd);
+	/* bgp route-reflector allow-outbound-policy — YANG: bgp_cli_init() */
 
 	/* "bgp listen limit" commands. */
 	install_element(BGP_NODE, &bgp_listen_limit_cmd);
