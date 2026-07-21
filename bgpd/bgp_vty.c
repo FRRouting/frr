@@ -2801,253 +2801,6 @@ DEFUN (no_bgp_graceful_restart_disable,
 	return bgp_vty_return(vty, ret);
 }
 
-DEFUN (bgp_neighbor_graceful_restart_set,
-	bgp_neighbor_graceful_restart_set_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart",
-	NEIGHBOR_STR
-	NEIGHBOR_ADDR_STR2
-	GR_NEIGHBOR_CMD
-      )
-{
-	int idx_peer = 1;
-	struct peer *peer;
-	int result = BGP_GR_FAILURE, ret = BGP_GR_SUCCESS;
-
-	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	result = bgp_neighbor_graceful_restart(peer, PEER_GR_CMD);
-	if (result == BGP_GR_SUCCESS) {
-		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
-		VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(peer->bgp, ret);
-		vty_out(vty,
-			"Graceful restart configuration changed, reset this peer to take effect\n");
-	}
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (no_bgp_neighbor_graceful_restart,
-	no_bgp_neighbor_graceful_restart_set_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart",
-	NO_STR
-	NEIGHBOR_STR
-	NEIGHBOR_ADDR_STR2
-	NO_GR_NEIGHBOR_CMD
-      )
-{
-	int idx_peer = 2;
-	int result = BGP_GR_FAILURE, ret = BGP_GR_SUCCESS;
-	struct peer *peer;
-
-	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	result = bgp_neighbor_graceful_restart(peer, NO_PEER_GR_CMD);
-	if (ret == BGP_GR_SUCCESS) {
-		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
-		VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(peer->bgp, ret);
-		vty_out(vty,
-			"Graceful restart configuration changed, reset this peer to take effect\n");
-	}
-
-	return bgp_vty_return(vty, result);
-}
-
-DEFUN (bgp_neighbor_graceful_restart_helper_set,
-	bgp_neighbor_graceful_restart_helper_set_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart-helper",
-	NEIGHBOR_STR
-	NEIGHBOR_ADDR_STR2
-	GR_NEIGHBOR_HELPER_CMD
-      )
-{
-	int idx_peer = 1;
-	struct peer *peer;
-	int ret = BGP_GR_FAILURE;
-
-	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = bgp_neighbor_graceful_restart(peer, PEER_HELPER_CMD);
-	if (ret == BGP_GR_SUCCESS) {
-		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
-		VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(peer->bgp, ret);
-		vty_out(vty,
-			"Graceful restart configuration changed, reset this peer to take effect\n");
-	}
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (no_bgp_neighbor_graceful_restart_helper,
-	no_bgp_neighbor_graceful_restart_helper_set_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart-helper",
-	NO_STR
-	NEIGHBOR_STR
-	NEIGHBOR_ADDR_STR2
-	NO_GR_NEIGHBOR_HELPER_CMD
-      )
-{
-	int idx_peer = 2;
-	int ret = BGP_GR_FAILURE;
-	struct peer *peer;
-
-	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = bgp_neighbor_graceful_restart(peer, NO_PEER_HELPER_CMD);
-	if (ret == BGP_GR_SUCCESS) {
-		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
-		VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(peer->bgp, ret);
-		vty_out(vty,
-			"Graceful restart configuration changed, reset this peer to take effect\n");
-	}
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (bgp_neighbor_graceful_restart_disable_set,
-	bgp_neighbor_graceful_restart_disable_set_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart-disable",
-	NEIGHBOR_STR
-	NEIGHBOR_ADDR_STR2
-	GR_NEIGHBOR_DISABLE_CMD
-      )
-{
-	int idx_peer = 1;
-	struct peer *peer;
-	int ret = BGP_GR_FAILURE;
-
-	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = bgp_neighbor_graceful_restart(peer, PEER_DISABLE_CMD);
-	if (ret == BGP_GR_SUCCESS) {
-		if (event_is_scheduled(peer->bgp->t_startup) || bgp_in_graceful_restart())
-			bgp_peer_gr_flags_update(peer);
-
-		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
-		VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(peer->bgp, ret);
-	}
-
-	return bgp_vty_return(vty, ret);
-}
-
-DEFUN (no_bgp_neighbor_graceful_restart_disable,
-	no_bgp_neighbor_graceful_restart_disable_set_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> graceful-restart-disable",
-	NO_STR
-	NEIGHBOR_STR
-	NEIGHBOR_ADDR_STR2
-	NO_GR_NEIGHBOR_DISABLE_CMD
-      )
-{
-	int idx_peer = 2;
-	int ret = BGP_GR_FAILURE;
-	struct peer *peer;
-
-	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
-
-	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = bgp_neighbor_graceful_restart(peer, NO_PEER_DISABLE_CMD);
-	if (ret == BGP_GR_SUCCESS) {
-		VTY_BGP_GR_ROUTER_DETECT(bgp, peer, peer->bgp->peer);
-		VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(peer->bgp, ret);
-	}
-
-	return bgp_vty_return(vty, ret);
-}
-
-/*
- * Function to announce route to peer
- */
-static void bgp_peer_announce_routes(struct peer *peer)
-{
-	afi_t afi;
-	safi_t safi;
-	struct peer_af *paf = NULL;
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!peer->afc[afi][safi])
-			continue;
-		paf = peer_af_find(peer, afi, safi);
-		if (paf) {
-			update_group_adjust_peer(paf);
-			bgp_announce_route(peer, afi, safi, false);
-		}
-	}
-}
-
-/*
- * Function to perform a soft reset of BGP neighborship on a peer or peer group
- */
-static int bgp_peer_soft_reset(struct vty *vty, const char *peer_str, struct peer *peer, enum clear_sort sort)
-{
-	struct listnode *node, *nnode;
-	struct peer_group *group;
-
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	bgp_clear(vty, bgp, AFI_UNSPEC, SAFI_UNSPEC, sort, BGP_CLEAR_SOFT_IN, peer_str);
-
-	if (sort == clear_group) {
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer))
-			bgp_peer_announce_routes(peer);
-	} else {
-		bgp_peer_announce_routes(peer);
-	}
-	return CMD_SUCCESS;
-}
-
-DEFPY (neighbor_graceful_shutdown,
-       neighbor_graceful_shutdown_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor_str graceful-shutdown",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Graceful shutdown\n")
-{
-	int ret;
-	struct peer *peer = NULL;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor_str, PEER_FLAG_GRACEFUL_SHUTDOWN);
-	else
-		ret = peer_flag_set_vty(vty, neighbor_str, PEER_FLAG_GRACEFUL_SHUTDOWN);
-
-	if (ret == 0) {
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-			ret = bgp_peer_soft_reset(vty, neighbor_str, peer, clear_peer);
-		else
-			ret = bgp_peer_soft_reset(vty, neighbor_str, peer, clear_group);
-	}
-	return ret;
-}
-
 DEFUN (bgp_graceful_restart_rib_stale_time,
        bgp_graceful_restart_rib_stale_time_cmd,
        "bgp graceful-restart rib-stale-time (1-3600)",
@@ -4730,26 +4483,6 @@ ALIAS_HIDDEN(
 	"Nexthop attribute\n"
 	"Med attribute\n")
 
-DEFPY (neighbor_aigp,
-       neighbor_aigp_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor aigp",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Enable send and receive of the AIGP attribute per neighbor\n")
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_AIGP);
-	else
-		return peer_flag_set_vty(vty, neighbor, PEER_FLAG_AIGP);
-}
-
 /* Re-evaluate routes when the role changes */
 void bgp_vty_role_update(struct peer *peer, int action)
 {
@@ -4770,28 +4503,6 @@ void bgp_vty_role_update(struct peer *peer, int action)
 
 	peer_clear_soft(peer, AFI_IP, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
 	peer_clear_soft(peer, AFI_IP6, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
-}
-
-DEFPY (neighbor_oad,
-       neighbor_oad_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor oad",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Set peering session type to EBGP-OAD\n")
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (no)
-		peer->sub_sort = 0;
-	else if (peer->sort == BGP_PEER_EBGP)
-		peer->sub_sort = BGP_PEER_EBGP_OAD;
-
-	return CMD_SUCCESS;
 }
 
 DEFPY(neighbor_extended_link_bw,
@@ -6590,120 +6301,6 @@ DEFPY(
 	"Detect AS loops before sending to neighbor\n")
 {
 	return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_AS_LOOP_DETECTION);
-}
-
-DEFPY(neighbor_path_attribute_discard,
-      neighbor_path_attribute_discard_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute discard (1-255)...",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Manipulate path attributes from incoming UPDATE messages\n"
-      "Drop specified attributes from incoming UPDATE messages\n"
-      "Attribute number\n")
-{
-	struct peer *peer;
-	int idx = 0;
-	char *discard_attrs = NULL;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	argv_find(argv, argc, "(1-255)", &idx);
-	if (idx)
-		discard_attrs = argv_concat(argv, argc, idx);
-
-	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, true);
-
-	XFREE(MTYPE_TMP, discard_attrs);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_neighbor_path_attribute_discard,
-      no_neighbor_path_attribute_discard_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute discard [(1-255)]",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Manipulate path attributes from incoming UPDATE messages\n"
-      "Drop specified attributes from incoming UPDATE messages\n"
-      "Attribute number\n")
-{
-	struct peer *peer;
-	int idx = 0;
-	char *discard_attrs = NULL;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	argv_find(argv, argc, "(1-255)", &idx);
-	if (idx)
-		discard_attrs = argv_concat(argv, argc, idx);
-
-	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, false);
-
-	XFREE(MTYPE_TMP, discard_attrs);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(neighbor_path_attribute_treat_as_withdraw,
-      neighbor_path_attribute_treat_as_withdraw_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute treat-as-withdraw (1-255)...",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Manipulate path attributes from incoming UPDATE messages\n"
-      "Treat-as-withdraw any incoming BGP UPDATE messages that contain the specified attribute\n"
-      "Attribute number\n")
-{
-	struct peer *peer;
-	int idx = 0;
-	char *withdraw_attrs = NULL;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	argv_find(argv, argc, "(1-255)", &idx);
-	if (idx)
-		withdraw_attrs = argv_concat(argv, argc, idx);
-
-	bgp_path_attribute_withdraw_vty(vty, peer, withdraw_attrs, true);
-
-	XFREE(MTYPE_TMP, withdraw_attrs);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
-      no_neighbor_path_attribute_treat_as_withdraw_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute treat-as-withdraw (1-255)...",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
-      "Manipulate path attributes from incoming UPDATE messages\n"
-      "Treat-as-withdraw any incoming BGP UPDATE messages that contain the specified attribute\n"
-      "Attribute number\n")
-{
-	struct peer *peer;
-	int idx = 0;
-	char *withdraw_attrs = NULL;
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	argv_find(argv, argc, "(1-255)", &idx);
-	if (idx)
-		withdraw_attrs = argv_concat(argv, argc, idx);
-
-	bgp_path_attribute_withdraw_vty(vty, peer, withdraw_attrs, false);
-
-	XFREE(MTYPE_TMP, withdraw_attrs);
-
-	return CMD_SUCCESS;
 }
 
 DEFPY(neighbor_encap_srv6,
@@ -20019,13 +19616,10 @@ void bgp_vty_init(void)
 	/* "neighbor role" commands. */
 
 	/* "neighbor oad" commands. */
-	install_element(BGP_NODE, &neighbor_oad_cmd);
 
 	/* "neighbor aigp" commands. */
-	install_element(BGP_NODE, &neighbor_aigp_cmd);
 
 	/* "neighbor graceful-shutdown" command */
-	install_element(BGP_NODE, &neighbor_graceful_shutdown_cmd);
 
 	/* bgp disable-ebgp-connected-nh-check — YANG: bgp_cli_init() */
 
@@ -20097,20 +19691,10 @@ void bgp_vty_init(void)
 	 */
 
 	/* "neighbor a:b:c:d graceful-restart" command */
-	install_element(BGP_NODE, &bgp_neighbor_graceful_restart_set_cmd);
-	install_element(BGP_NODE, &no_bgp_neighbor_graceful_restart_set_cmd);
 
 	/* "neighbor a:b:c:d graceful-restart-disable" command */
-	install_element(BGP_NODE,
-			&bgp_neighbor_graceful_restart_disable_set_cmd);
-	install_element(BGP_NODE,
-			&no_bgp_neighbor_graceful_restart_disable_set_cmd);
 
 	/* "neighbor a:b:c:d graceful-restart-helper" command */
-	install_element(BGP_NODE,
-			&bgp_neighbor_graceful_restart_helper_set_cmd);
-	install_element(BGP_NODE,
-			&no_bgp_neighbor_graceful_restart_helper_set_cmd);
 
 	/* GR timer/flag knobs — BGP_NODE YANG: bgp_cli_init();
 	 * CONFIG_NODE remains classic where installed.
@@ -20768,14 +20352,8 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_neighbor_aspath_loop_detection_cmd);
 
 	/* "neighbor path-attribute discard" commands. */
-	install_element(BGP_NODE, &neighbor_path_attribute_discard_cmd);
-	install_element(BGP_NODE, &no_neighbor_path_attribute_discard_cmd);
 
 	/* "neighbor path-attribute treat-as-withdraw" commands. */
-	install_element(BGP_NODE,
-			&neighbor_path_attribute_treat_as_withdraw_cmd);
-	install_element(BGP_NODE,
-			&no_neighbor_path_attribute_treat_as_withdraw_cmd);
 
 	/* "neighbor passive" — YANG: bgp_cli_init() */
 

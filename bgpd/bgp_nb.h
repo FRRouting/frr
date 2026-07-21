@@ -527,6 +527,35 @@ int bgp_nb_peer_bfd_strict_hold_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_bfd_strict_hold(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults);
 
+
+int bgp_nb_peer_path_attr_discard_create(struct nb_cb_create_args *args);
+int bgp_nb_peer_path_attr_discard_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_path_attr_discard(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+int bgp_nb_peer_path_attr_withdraw_create(struct nb_cb_create_args *args);
+int bgp_nb_peer_path_attr_withdraw_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_path_attr_withdraw(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+int bgp_nb_peer_gr_enable_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_gr_enable_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_gr_enable(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+int bgp_nb_peer_gr_helper_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_gr_helper_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_gr_helper(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+int bgp_nb_peer_gr_disable_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_gr_disable_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_gr_disable(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+int bgp_nb_peer_aigp_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_aigp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+int bgp_nb_peer_oad_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_oad(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+int bgp_nb_peer_graceful_shutdown_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_peer_graceful_shutdown(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+
 void bgp_cli_init(void);
 
 #ifdef __cplusplus

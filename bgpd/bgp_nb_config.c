@@ -5406,6 +5406,449 @@ int bgp_nb_peer_bfd_strict_hold_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_bfd_strict_hold(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
-	vty_out(vty, " neighbor %s bfd strict hold-time %u\n", bgp_nb_config_peer_name(dnode),
-		yang_dnode_get_uint32(dnode, NULL));
+	vty_out(vty, "%sneighbor %s bfd strict hold-time %u\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint32(dnode, NULL));
+}
+
+static bool bgp_nb_path_attr_forbidden(uint8_t attr_num, struct peer *peer, char *errmsg,
+				       size_t errmsg_len)
+{
+	if (attr_num == BGP_ATTR_ORIGIN || attr_num == BGP_ATTR_AS_PATH ||
+	    attr_num == BGP_ATTR_NEXT_HOP || attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
+	    attr_num == BGP_ATTR_MP_REACH_NLRI || attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
+	    attr_num == BGP_ATTR_EXT_COMMUNITIES) {
+		snprintfrr(errmsg, errmsg_len, "Can't discard/withdraw path-attribute %u",
+			   attr_num);
+		return true;
+	}
+
+	if (peer->sort != BGP_PEER_EBGP &&
+	    (attr_num == BGP_ATTR_LOCAL_PREF || attr_num == BGP_ATTR_ORIGINATOR_ID ||
+	     attr_num == BGP_ATTR_CLUSTER_LIST)) {
+		snprintfrr(errmsg, errmsg_len, "path-attribute %u only valid for eBGP", attr_num);
+		return true;
+	}
+
+	return false;
+}
+
+static void bgp_nb_peer_path_attr_soft_clear(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi)
+		peer_clear_soft(peer, afi, safi, BGP_CLEAR_SOFT_IN);
+}
+
+/*
+ * libyang sibling lists are circular: the first node's prev is the last
+ * node, and yang_is_last_list_dnode() is true only for a one-element list.
+ * Print once, from the first leaf-list entry of this name.
+ */
+static bool bgp_nb_leaflist_is_first(const struct lyd_node *dnode)
+{
+	const struct lyd_node *sib;
+
+	if (!dnode)
+		return false;
+
+	sib = dnode->prev;
+	while (sib && sib->next) {
+		if (sib->schema && strmatch(sib->schema->name, dnode->schema->name))
+			return false;
+		if (!sib->prev || sib->prev == sib || sib->prev->next == NULL)
+			break;
+		sib = sib->prev;
+	}
+	return true;
+}
+
+static void bgp_nb_cli_show_peer_path_attr_list(struct vty *vty, const struct lyd_node *dnode,
+						const char *leaf_name, const char *cli_kw)
+{
+	const struct lyd_node *parent, *child;
+
+	if (!bgp_nb_leaflist_is_first(dnode))
+		return;
+
+	parent = lyd_parent(dnode);
+	vty_out(vty, "%sneighbor %s path-attribute %s", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), cli_kw);
+	for (child = lyd_child(parent); child; child = child->next) {
+		if (child->schema->nodetype != LYS_LEAFLIST)
+			continue;
+		if (!strmatch(child->schema->name, leaf_name))
+			continue;
+		vty_out(vty, " %u", yang_dnode_get_uint8(child, NULL));
+	}
+	vty_out(vty, "\n");
+}
+
+int bgp_nb_peer_path_attr_discard_create(struct nb_cb_create_args *args)
+{
+	struct peer *peer;
+	uint8_t attr_num;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!peer)
+			return NB_ERR_VALIDATION;
+		attr_num = yang_dnode_get_uint8(args->dnode, NULL);
+		if (bgp_nb_path_attr_forbidden(attr_num, peer, args->errmsg, args->errmsg_len))
+			return NB_ERR_VALIDATION;
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	attr_num = yang_dnode_get_uint8(args->dnode, NULL);
+	peer->discard_attrs[attr_num] = true;
+	bgp_nb_peer_path_attr_soft_clear(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_path_attr_discard_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	uint8_t attr_num;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	attr_num = yang_dnode_get_uint8(args->dnode, NULL);
+	peer->discard_attrs[attr_num] = false;
+	bgp_nb_peer_path_attr_soft_clear(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_path_attr_discard(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	bgp_nb_cli_show_peer_path_attr_list(vty, dnode, "discard", "discard");
+}
+
+int bgp_nb_peer_path_attr_withdraw_create(struct nb_cb_create_args *args)
+{
+	struct peer *peer;
+	uint8_t attr_num;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!peer)
+			return NB_ERR_VALIDATION;
+		attr_num = yang_dnode_get_uint8(args->dnode, NULL);
+		if (bgp_nb_path_attr_forbidden(attr_num, peer, args->errmsg, args->errmsg_len))
+			return NB_ERR_VALIDATION;
+		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	attr_num = yang_dnode_get_uint8(args->dnode, NULL);
+	peer->withdraw_attrs[attr_num] = true;
+	bgp_nb_peer_path_attr_soft_clear(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_path_attr_withdraw_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	uint8_t attr_num;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	attr_num = yang_dnode_get_uint8(args->dnode, NULL);
+	peer->withdraw_attrs[attr_num] = false;
+	bgp_nb_peer_path_attr_soft_clear(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_path_attr_withdraw(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	bgp_nb_cli_show_peer_path_attr_list(vty, dnode, "treat-as-withdraw", "treat-as-withdraw");
+}
+
+static int bgp_nb_peer_gr_cmd(struct peer *peer, enum peer_gr_command cmd)
+{
+	int result;
+	int ret = BGP_GR_SUCCESS;
+
+	result = bgp_neighbor_graceful_restart(peer, cmd);
+	if (result == BGP_GR_SUCCESS)
+		VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp, peer->bgp->peer,
+								      ret);
+
+	if (result == BGP_GR_FAILURE || ret == BGP_ERR_INVALID_VALUE)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_gr_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		return bgp_nb_peer_gr_cmd(peer, PEER_GR_CMD);
+	return bgp_nb_peer_gr_cmd(peer, NO_PEER_GR_CMD);
+}
+
+int bgp_nb_peer_gr_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	return bgp_nb_peer_gr_cmd(peer, NO_PEER_GR_CMD);
+}
+
+void bgp_nb_cli_show_peer_gr_enable(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s graceful-restart\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_gr_helper_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		return bgp_nb_peer_gr_cmd(peer, PEER_HELPER_CMD);
+	return bgp_nb_peer_gr_cmd(peer, NO_PEER_HELPER_CMD);
+}
+
+int bgp_nb_peer_gr_helper_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	return bgp_nb_peer_gr_cmd(peer, NO_PEER_HELPER_CMD);
+}
+
+void bgp_nb_cli_show_peer_gr_helper(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s graceful-restart-helper\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_gr_disable_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		return bgp_nb_peer_gr_cmd(peer, PEER_DISABLE_CMD);
+	return bgp_nb_peer_gr_cmd(peer, NO_PEER_DISABLE_CMD);
+}
+
+int bgp_nb_peer_gr_disable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	return bgp_nb_peer_gr_cmd(peer, NO_PEER_DISABLE_CMD);
+}
+
+void bgp_nb_cli_show_peer_gr_disable(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s graceful-restart-disable\n",
+			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_aigp_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_AIGP);
+	else
+		peer_flag_unset(peer, PEER_FLAG_AIGP);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_aigp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s aigp\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s aigp\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_oad_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		if (peer->sort == BGP_PEER_EBGP)
+			peer->sub_sort = BGP_PEER_EBGP_OAD;
+	} else
+		peer->sub_sort = 0;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_oad(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "%sneighbor %s oad\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, "%sno neighbor %s oad\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+}
+
+static void bgp_nb_peer_announce_routes(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+	struct peer_af *paf;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!peer->afc[afi][safi])
+			continue;
+		paf = peer_af_find(peer, afi, safi);
+		if (paf) {
+			update_group_adjust_peer(paf);
+			bgp_announce_route(peer, afi, safi, false);
+		}
+	}
+}
+
+static void bgp_nb_peer_gs_soft_reset(struct peer *peer)
+{
+	struct listnode *node, *nnode;
+	struct peer *member;
+	afi_t afi;
+	safi_t safi;
+
+	/*
+	 * Match classic neighbor graceful-shutdown: soft-in clear plus
+	 * re-announce so originated routes pick up/drop GSHUT / loc-pref 0.
+	 */
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+			FOREACH_AFI_SAFI (afi, safi)
+				peer_clear_soft(member, afi, safi, BGP_CLEAR_SOFT_IN);
+			bgp_nb_peer_announce_routes(member);
+		}
+	} else {
+		FOREACH_AFI_SAFI (afi, safi)
+			peer_clear_soft(peer, afi, safi, BGP_CLEAR_SOFT_IN);
+		bgp_nb_peer_announce_routes(peer);
+	}
+}
+
+int bgp_nb_peer_graceful_shutdown_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		ret = peer_flag_set(peer, PEER_FLAG_GRACEFUL_SHUTDOWN);
+	else
+		ret = peer_flag_unset(peer, PEER_FLAG_GRACEFUL_SHUTDOWN);
+
+	if (ret == 0)
+		bgp_nb_peer_gs_soft_reset(peer);
+	else if (ret < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_graceful_shutdown(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " neighbor %s graceful-shutdown\n", bgp_nb_config_peer_name(dnode));
+	else if (show_defaults)
+		vty_out(vty, " no neighbor %s graceful-shutdown\n", bgp_nb_config_peer_name(dnode));
 }
