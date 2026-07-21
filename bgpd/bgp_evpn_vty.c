@@ -8526,9 +8526,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_auto_rt_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rt_auto_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_auto_cmd);
-	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_rt_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_ead_es_rt_cmd);
-	/* ead-es-frag — YANG: bgp_cli_init() */
+	/* ead-es-route-target / ead-es-frag — YANG: bgp_cli_init() */
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_advertise_svi_ip_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
 			&bgp_evpn_advertise_default_gw_vni_cmd);

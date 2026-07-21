@@ -8396,6 +8396,7 @@ void bgp_cli_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_yang_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_pip_yang_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_rt_yang_cmd);
 
 	/* AF-level import|export vpn */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_yang_cmd);
