@@ -4057,6 +4057,124 @@ DEFPY_YANG(neighbor_send_community_rpki_yang,
 	return bgp_cli_peer_af_bool(vty, neighbor, "send-community/send-ext-community-rpki", !!no);
 }
 
+
+DEFPY_YANG(neighbor_allowas_in_yang, neighbor_allowas_in_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map ![RMAP_NAME$rmap_name]] [<(1-10)$allow_num|origin$origin_kw>]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Accept as-path with my AS present in it\n"
+	   "Filter routes using route-map\n"
+	   "Name of route-map\n"
+	   "Number of occurrences of AS number\n"
+	   "Only accept my AS in the as-path if the route was originated in my AS\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	char buf[8];
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (no) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/as-path-options/allowas-in-route-map", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/as-path-options/allow-own-as", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/as-path-options/allow-own-origin-as", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (origin_kw) {
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/as-path-options/allow-own-as", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/as-path-options/allow-own-origin-as", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	} else {
+		unsigned int num = allow_num ? (unsigned int)allow_num : BGP_ALLOWAS_IN_DEFAULT;
+
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/as-path-options/allow-own-origin-as", xpath,
+			   af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		snprintfrr(buf, sizeof(buf), "%u", num);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/as-path-options/allow-own-as", xpath, af);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	}
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/as-path-options/allowas-in-route-map", xpath, af);
+	if (rmap_name)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_name);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(neighbor_default_originate_yang,
+	   neighbor_default_originate_yang_cmd,
+	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor default-originate [route-map RMAP_NAME$rmap]",
+	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	   "Originate default route to this neighbor\n"
+	   "Route-map to specify criteria to originate default\n"
+	   "route-map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	bool is_pg = false;
+	const char *af;
+	int ret;
+
+	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
+	if (ret != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	af = bgp_cli_afi_safi_name(vty->node);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/default-originate/route-map", xpath, af);
+	if (no || !rmap)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap);
+
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/default-originate/originate", xpath, af);
+	if (no)
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
+	else
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(
+	neighbor_allowas_in_yang, neighbor_allowas_in_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in [route-map ![RMAP_NAME$rmap_name]] [<(1-10)$allow_num|origin$origin_kw>]",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Accept as-path with my AS present in it\n"
+	"Filter routes using route-map\n"
+	"Name of route-map\n"
+	"Number of occurrences of AS number\n"
+	"Only accept my AS in the as-path if the route was originated in my AS\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(
+	neighbor_default_originate_yang, neighbor_default_originate_yang_hidden_cmd,
+	"[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor default-originate [route-map RMAP_NAME$rmap]",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Originate default route to this neighbor\n"
+	"Route-map to specify criteria to originate default\n"
+	"route-map name\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
 ALIAS_ATTR(neighbor_weight_yang, neighbor_weight_yang_hidden_cmd,
 	   "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor weight [(0-65535)$weight]",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
@@ -4267,6 +4385,27 @@ static void bgp_cli_install_af_neighbor(void)
 	install_element(BGP_NODE, &neighbor_weight_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_send_community_yang_hidden_cmd);
 	install_element(BGP_NODE, &neighbor_send_community_rpki_yang_hidden_cmd);
+
+	/* default-originate: unicast/mcast/labeled only */
+	install_element(BGP_IPV4_NODE, &neighbor_default_originate_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_default_originate_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_default_originate_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_default_originate_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_default_originate_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_default_originate_yang_cmd);
+	install_element(BGP_NODE, &neighbor_default_originate_yang_hidden_cmd);
+
+	/* allowas-in: as_nodes + EVPN (UPA stays classic) */
+	install_element(BGP_IPV4_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_yang_cmd);
+	install_element(BGP_NODE, &neighbor_allowas_in_yang_hidden_cmd);
 }
 
 void bgp_cli_init(void)

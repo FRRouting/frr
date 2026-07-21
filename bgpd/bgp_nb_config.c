@@ -22,6 +22,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
+#include "routemap.h"
 #include "bfd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
@@ -5810,6 +5811,343 @@ void bgp_nb_cli_show_peer_af_send_ext_community_rpki(struct vty *vty, const stru
 	if (yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " neighbor %s send-community extended rpki\n",
 			bgp_nb_config_peer_name(dnode));
+}
+
+static const char *bgp_nb_af_allowas_rmap(const struct lyd_node *dnode)
+{
+	const struct lyd_node *opts;
+
+	opts = yang_dnode_get_parent(dnode, "as-path-options");
+	if (!opts)
+		return NULL;
+	if (!yang_dnode_exists(opts, "./allowas-in-route-map"))
+		return NULL;
+	return yang_dnode_get_string(opts, "./allowas-in-route-map");
+}
+
+int bgp_nb_peer_af_allow_own_as_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	uint8_t allow_num;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	allow_num = yang_dnode_get_uint8(args->dnode, NULL);
+	if (peer_allowas_in_set(peer, afi, safi, allow_num, false,
+				bgp_nb_af_allowas_rmap(args->dnode)) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_allow_own_as_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	peer_allowas_in_unset(peer, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_allow_own_as(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	const char *rmap = bgp_nb_af_allowas_rmap(dnode);
+	uint8_t num = yang_dnode_get_uint8(dnode, NULL);
+
+	if (rmap) {
+		if (num == BGP_ALLOWAS_IN_DEFAULT)
+			vty_out(vty, " neighbor %s allowas-in route-map %s\n",
+				bgp_nb_config_peer_name(dnode), rmap);
+		else
+			vty_out(vty, " neighbor %s allowas-in route-map %s %u\n",
+				bgp_nb_config_peer_name(dnode), rmap, num);
+	} else if (num == BGP_ALLOWAS_IN_DEFAULT) {
+		vty_out(vty, " neighbor %s allowas-in\n", bgp_nb_config_peer_name(dnode));
+	} else {
+		vty_out(vty, " neighbor %s allowas-in %u\n", bgp_nb_config_peer_name(dnode), num);
+	}
+}
+
+int bgp_nb_peer_af_allow_own_origin_as_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!yang_dnode_get_bool(args->dnode, NULL)) {
+		peer_allowas_in_unset(peer, afi, safi);
+		return NB_OK;
+	}
+
+	if (peer_allowas_in_set(peer, afi, safi, 0, true, bgp_nb_af_allowas_rmap(args->dnode)) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_allow_own_origin_as_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	peer_allowas_in_unset(peer, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_allow_own_origin_as(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults)
+{
+	const char *rmap;
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	rmap = bgp_nb_af_allowas_rmap(dnode);
+	if (rmap)
+		vty_out(vty, " neighbor %s allowas-in route-map %s origin\n",
+			bgp_nb_config_peer_name(dnode), rmap);
+	else
+		vty_out(vty, " neighbor %s allowas-in origin\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_allowas_in_rmap_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *opts;
+	const char *rmap;
+	bool origin;
+	int allow_num;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	opts = yang_dnode_get_parent(args->dnode, "as-path-options");
+	if (!opts)
+		return NB_ERR_NOT_FOUND;
+
+	rmap = yang_dnode_get_string(args->dnode, NULL);
+	origin = yang_dnode_exists(opts, "./allow-own-origin-as") &&
+		 yang_dnode_get_bool(opts, "./allow-own-origin-as");
+	if (origin)
+		allow_num = 0;
+	else if (yang_dnode_exists(opts, "./allow-own-as"))
+		allow_num = yang_dnode_get_uint8(opts, "./allow-own-as");
+	else
+		allow_num = BGP_ALLOWAS_IN_DEFAULT;
+
+	if (peer_allowas_in_set(peer, afi, safi, allow_num, origin, rmap) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_allowas_in_rmap_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *opts;
+	bool origin;
+	int allow_num;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	opts = yang_dnode_get_parent(args->dnode, "as-path-options");
+	if (!opts)
+		return NB_OK;
+
+	/* If allowas-in itself is gone, unset already handled elsewhere. */
+	if (!yang_dnode_exists(opts, "./allow-own-as") &&
+	    !(yang_dnode_exists(opts, "./allow-own-origin-as") &&
+	      yang_dnode_get_bool(opts, "./allow-own-origin-as")))
+		return NB_OK;
+
+	origin = yang_dnode_exists(opts, "./allow-own-origin-as") &&
+		 yang_dnode_get_bool(opts, "./allow-own-origin-as");
+	if (origin)
+		allow_num = 0;
+	else
+		allow_num = yang_dnode_get_uint8(opts, "./allow-own-as");
+
+	if (peer_allowas_in_set(peer, afi, safi, allow_num, origin, NULL) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_allowas_in_rmap(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	/* Printed with allow-own-as / allow-own-origin-as cli_show. */
+}
+
+static const char *bgp_nb_af_default_originate_rmap(const struct lyd_node *dnode)
+{
+	const struct lyd_node *cont;
+
+	cont = yang_dnode_get_parent(dnode, "default-originate");
+	if (!cont)
+		return NULL;
+	if (!yang_dnode_exists(cont, "./route-map"))
+		return NULL;
+	return yang_dnode_get_string(cont, "./route-map");
+}
+
+int bgp_nb_peer_af_default_originate_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const char *rmap;
+	struct route_map *map = NULL;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	if (!yang_dnode_get_bool(args->dnode, NULL)) {
+		peer_default_originate_unset(peer, afi, safi);
+		return NB_OK;
+	}
+
+	rmap = bgp_nb_af_default_originate_rmap(args->dnode);
+	if (rmap)
+		map = route_map_lookup_by_name(rmap);
+	if (peer_default_originate_set(peer, afi, safi, rmap, map) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_default_originate_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	peer_default_originate_unset(peer, afi, safi);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_default_originate(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	const char *rmap;
+
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	rmap = bgp_nb_af_default_originate_rmap(dnode);
+	if (rmap)
+		vty_out(vty, " neighbor %s default-originate route-map %s\n",
+			bgp_nb_config_peer_name(dnode), rmap);
+	else
+		vty_out(vty, " neighbor %s default-originate\n", bgp_nb_config_peer_name(dnode));
+}
+
+int bgp_nb_peer_af_default_originate_rmap_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const char *rmap;
+	struct route_map *map;
+	const struct lyd_node *cont;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_ERR_NOT_FOUND;
+
+	cont = yang_dnode_get_parent(args->dnode, "default-originate");
+	if (!cont || !yang_dnode_exists(cont, "./originate") ||
+	    !yang_dnode_get_bool(cont, "./originate"))
+		return NB_OK;
+
+	rmap = yang_dnode_get_string(args->dnode, NULL);
+	map = route_map_lookup_by_name(rmap);
+	if (peer_default_originate_set(peer, afi, safi, rmap, map) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+int bgp_nb_peer_af_default_originate_rmap_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	const struct lyd_node *cont;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		return NB_OK;
+
+	cont = yang_dnode_get_parent(args->dnode, "default-originate");
+	if (!cont || !yang_dnode_exists(cont, "./originate") ||
+	    !yang_dnode_get_bool(cont, "./originate"))
+		return NB_OK;
+
+	if (peer_default_originate_set(peer, afi, safi, NULL, NULL) < 0)
+		return NB_ERR_RESOURCE;
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_af_default_originate_rmap(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults)
+{
+	/* Printed with originate cli_show. */
 }
 
 

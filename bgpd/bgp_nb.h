@@ -621,6 +621,26 @@ void bgp_nb_cli_show_peer_af_send_large_community(struct vty *vty, const struct 
 int bgp_nb_peer_af_send_ext_community_rpki_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_peer_af_send_ext_community_rpki(struct vty *vty, const struct lyd_node *dnode,
 						     bool show_defaults);
+int bgp_nb_peer_af_allow_own_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_allow_own_as_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_allow_own_as(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+int bgp_nb_peer_af_allow_own_origin_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_allow_own_origin_as_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_allow_own_origin_as(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults);
+int bgp_nb_peer_af_allowas_in_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_allowas_in_rmap_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_allowas_in_rmap(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+int bgp_nb_peer_af_default_originate_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_default_originate_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_default_originate(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+int bgp_nb_peer_af_default_originate_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_default_originate_rmap_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_af_default_originate_rmap(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
 
 
 void bgp_cli_init(void);
