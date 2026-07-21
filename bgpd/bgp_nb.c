@@ -1460,6 +1460,54 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/sid-vpn-export/sid-index",
+			.cbs = {
+				.modify = bgp_nb_sid_vpn_export_index_modify,
+				.destroy = bgp_nb_sid_vpn_export_index_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_export,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/sid-vpn-export/sid-auto",
+			.cbs = {
+				.create = bgp_nb_sid_vpn_export_auto_create,
+				.destroy = bgp_nb_sid_vpn_export_auto_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_export,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/vpn-config/sid-vpn-export/sid-explicit",
+			.cbs = {
+				.modify = bgp_nb_sid_vpn_export_explicit_modify,
+				.destroy = bgp_nb_sid_vpn_export_explicit_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_export,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/sid-vpn-export/sid-index",
+			.cbs = {
+				.modify = bgp_nb_sid_vpn_export_index_modify,
+				.destroy = bgp_nb_sid_vpn_export_index_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_export,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/sid-vpn-export/sid-auto",
+			.cbs = {
+				.create = bgp_nb_sid_vpn_export_auto_create,
+				.destroy = bgp_nb_sid_vpn_export_auto_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_export,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv6-unicast/vpn-config/sid-vpn-export/sid-explicit",
+			.cbs = {
+				.modify = bgp_nb_sid_vpn_export_explicit_modify,
+				.destroy = bgp_nb_sid_vpn_export_explicit_destroy,
+				.cli_show = bgp_nb_cli_show_sid_vpn_export,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/afi-safis/afi-safi/ipv4-unicast/sid-export/sid-index",
 			.cbs = {
 				.modify = bgp_nb_sid_export_index_modify,
