@@ -970,49 +970,6 @@ bool peer_address_self_check(struct bgp *bgp, union sockunion *su)
 	return false;
 }
 
-/* Utility function for looking up peer from VTY.  */
-/* This is used only for configuration, so disallow if attempted on
- * a dynamic neighbor.
- */
-static struct peer *peer_lookup_vty(struct vty *vty, const char *ip_str)
-{
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	int ret;
-	union sockunion su;
-	struct peer *peer;
-
-	if (!bgp) {
-		return NULL;
-	}
-
-	ret = str2sockunion(ip_str, &su);
-	if (ret < 0) {
-		peer = peer_lookup_by_conf_if(bgp, ip_str);
-		if (!peer) {
-			if ((peer = peer_lookup_by_hostname(bgp, ip_str))
-			    == NULL) {
-				vty_out(vty,
-					"%% Malformed address or name: %s\n",
-					ip_str);
-				return NULL;
-			}
-		}
-	} else {
-		peer = peer_lookup(bgp, &su);
-		if (!peer) {
-			vty_out(vty,
-				"%% Specify remote-as or peer-group commands first\n");
-			return NULL;
-		}
-		if (peer_dynamic_neighbor(peer)) {
-			vty_out(vty,
-				"%% Operation not allowed on a dynamic neighbor\n");
-			return NULL;
-		}
-	}
-	return peer;
-}
-
 /* Utility function for looking up peer or peer group.  */
 /* This is used only for configuration, so disallow if attempted on
  * a dynamic neighbor.
@@ -2874,118 +2831,6 @@ DEFUN (no_neighbor_activate,
 	ret = peer_deactivate(peer, bgp_node_afi(vty), bgp_node_safi(vty));
 	return bgp_vty_return(vty, ret);
 }
-
-DEFUN (neighbor_set_peer_group,
-       neighbor_set_peer_group_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Member of the peer-group\n"
-       "Peer-group name\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_peer = 1;
-	int idx_word = 3;
-	int ret;
-	as_t as = 0;
-	union sockunion su;
-	struct peer *peer;
-	struct peer_group *group;
-
-	ret = str2sockunion(argv[idx_peer]->arg, &su);
-	if (ret < 0) {
-		peer = peer_lookup_by_conf_if(bgp, argv[idx_peer]->arg);
-		if (!peer) {
-			vty_out(vty, "%% Malformed address or name: %s\n",
-				argv[idx_peer]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else {
-		if (peer_address_self_check(bgp, &su)) {
-			vty_out(vty,
-				"%% Can not configure the local system as neighbor\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		/* Disallow for dynamic neighbor. */
-		peer = peer_lookup(bgp, &su);
-		if (peer && peer_dynamic_neighbor(peer)) {
-			vty_out(vty,
-				"%% Operation not allowed on a dynamic neighbor\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	group = peer_group_lookup(bgp, argv[idx_word]->arg);
-	if (!group) {
-		vty_out(vty, "%% Configure the peer-group first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = peer_group_bind(bgp, &su, peer, group, &as);
-
-	if (ret == 0 && group->conf->as_type != AS_UNSPECIFIED)
-		bgp_need_listening(bgp, vty);
-
-	return bgp_vty_return(vty, ret);
-}
-
-ALIAS_HIDDEN(neighbor_set_peer_group, neighbor_set_peer_group_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
-	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Member of the peer-group\n"
-	     "Peer-group name\n")
-
-DEFUN (no_neighbor_set_peer_group,
-       no_neighbor_set_peer_group_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Member of the peer-group\n"
-       "Peer-group name\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int idx_peer = 2;
-	int idx_word = 4;
-	int ret;
-	struct peer *peer, *other;
-	struct peer_group *group;
-
-	peer = peer_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	group = peer_group_lookup(bgp, argv[idx_word]->arg);
-	if (!group) {
-		vty_out(vty, "%% Configure the peer-group first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-		bgp_zebra_terminate_radv(peer->bgp, peer);
-
-	other = peer->doppelganger;
-	peer_notify_unconfig(peer->connection);
-	ret = peer_delete(peer);
-	if (other && other->connection->status != Deleted) {
-		peer_notify_unconfig(other->connection);
-		peer_delete(other);
-	}
-
-	/*
-	 * if need stop listening
-	 */
-	bgp_may_stop_listening(bgp, vty);
-
-	return bgp_vty_return(vty, ret);
-}
-
-ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
-	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Member of the peer-group\n"
-	     "Peer-group name\n")
 
 /*
  * Send dynamic capability on the peer(s) that own the TCP BGP session.
@@ -14250,41 +14095,15 @@ void bgp_vty_init(void)
 
 	/* "neighbor password" — YANG: bgp_cli_init() */
 
-	/* "neighbor activate" commands. */
+	/* "neighbor activate" — UPA remains classic; LS → YANG bgp_cli_init() */
 	install_element(BGP_IPV4U_NODE, &neighbor_activate_cmd);
 	install_element(BGP_IPV6U_NODE, &neighbor_activate_cmd);
-	install_element(BGP_LS_NODE, &neighbor_activate_cmd);
 
-	/* "no neighbor activate" commands. */
+	/* "no neighbor activate" — UPA remains classic */
 	install_element(BGP_IPV4U_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_IPV6U_NODE, &no_neighbor_activate_cmd);
-	install_element(BGP_LS_NODE, &no_neighbor_activate_cmd);
 
-	/* "neighbor peer-group" set commands. */
-	install_element(BGP_IPV4_NODE, &neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_FLOWSPECV4_NODE,
-			&neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_FLOWSPECV6_NODE,
-			&neighbor_set_peer_group_hidden_cmd);
-
-	/* "no neighbor peer-group unset" commands. */
-	install_element(BGP_IPV4_NODE, &no_neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_IPV4M_NODE, &no_neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_IPV6_NODE, &no_neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_IPV6M_NODE, &no_neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_IPV6L_NODE, &no_neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_VPNV4_NODE, &no_neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_VPNV6_NODE, &no_neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_FLOWSPECV4_NODE,
-			&no_neighbor_set_peer_group_hidden_cmd);
-	install_element(BGP_FLOWSPECV6_NODE,
-			&no_neighbor_set_peer_group_hidden_cmd);
+	/* "neighbor peer-group" set on AF nodes — YANG: bgp_cli_init() */
 
 	/* "neighbor softreconfiguration inbound" commands.*/
 
