@@ -63,8 +63,6 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_ASPA, "BGP RPKI ASPA record");
 #endif
 
-#define STR_SEPARATOR 10
-
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
@@ -198,6 +196,7 @@ static int bgp_rpki_vrf_update(struct vrf *vrf, bool enabled);
 static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf);
 static int bgp_rpki_hook_write_vrf(struct vty *vty, struct vrf *vrf);
 static int bgp_rpki_write_debug(struct vty *vty, bool running);
+static void rpki_build_xpath(char *buf, size_t sz, const char *vrfname);
 static int start(struct rpki_vrf *rpki_vrf);
 static void stop(struct rpki_vrf *rpki_vrf);
 static int reset(bool force, struct rpki_vrf *rpki_vrf);
@@ -2360,85 +2359,54 @@ static int bgp_rpki_hook_write_vrf(struct vty *vty, struct vrf *vrf)
 	return ret;
 }
 
+/*
+ * True when YANG holds only enable (or defaults) — match classic writer which
+ * suppressed empty `rpki` / default-timer blocks.
+ */
+static bool rpki_yang_config_is_trivial(const struct lyd_node *dnode)
+{
+	if (yang_dnode_exists(dnode, "rpki-cache-server/cache-list"))
+		return false;
+	if (yang_dnode_exists(dnode, "rpki-timers/polling-time") &&
+	    !yang_dnode_is_default(dnode, "rpki-timers/polling-time"))
+		return false;
+	if (yang_dnode_exists(dnode, "rpki-timers/expire-time") &&
+	    !yang_dnode_is_default(dnode, "rpki-timers/expire-time"))
+		return false;
+	if (yang_dnode_exists(dnode, "rpki-timers/retry-time") &&
+	    !yang_dnode_is_default(dnode, "rpki-timers/retry-time"))
+		return false;
+	return true;
+}
+
 static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 {
-	struct listnode *cache_node;
-	struct cache *cache;
-	struct rpki_vrf *rpki_vrf = NULL;
-	char sep[STR_SEPARATOR];
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	char xpath[XPATH_MAXLEN];
+	const struct lyd_node *dnode;
+	const char *vrfname = NULL;
 
-	if (!vrf) {
-		rpki_vrf = find_rpki_vrf(NULL);
-		snprintf(sep, sizeof(sep), "%s", "");
-	} else if (vrf->vrf_id != VRF_DEFAULT) {
-		rpki_vrf = find_rpki_vrf(vrf->name);
-		snprintf(sep, sizeof(sep), "%s", " ");
-		vrf_id = vrf->vrf_id;
-	} else
-		return ERROR;
-
-	if (!rpki_vrf)
-		return ERROR;
-
-	if (rpki_vrf->cache_list && list_isempty(rpki_vrf->cache_list) &&
-	    rpki_vrf->polling_period == POLLING_PERIOD_DEFAULT &&
-	    rpki_vrf->retry_interval == RETRY_INTERVAL_DEFAULT &&
-	    rpki_vrf->expire_interval == EXPIRE_INTERVAL_DEFAULT)
-		/* do not display the default config values */
-		return 0;
-
-	if (vrf_id == VRF_DEFAULT)
-		vty_out(vty, "%s!\n", sep);
-	vty_out(vty, "%srpki\n", sep);
-
-	if (rpki_vrf->polling_period != POLLING_PERIOD_DEFAULT)
-		vty_out(vty, "%s rpki polling_period %d\n", sep,
-			rpki_vrf->polling_period);
-	if (rpki_vrf->retry_interval != RETRY_INTERVAL_DEFAULT)
-		vty_out(vty, "%s rpki retry_interval %d\n", sep,
-			rpki_vrf->retry_interval);
-	if (rpki_vrf->expire_interval != EXPIRE_INTERVAL_DEFAULT)
-		vty_out(vty, "%s rpki expire_interval %d\n", sep,
-			rpki_vrf->expire_interval);
-
-	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
-		switch (cache->type) {
-			struct rtr_tr_tcp_config *tcp_config;
-#if defined(FOUND_SSH)
-			struct rtr_tr_ssh_config *ssh_config;
-#endif
-		case TCP:
-			tcp_config = cache->tr_config.tcp_config;
-			vty_out(vty, "%s rpki cache tcp %s %s ", sep,
-				tcp_config->host, tcp_config->port);
-			if (tcp_config->bindaddr)
-				vty_out(vty, "source %s ",
-					tcp_config->bindaddr);
-			break;
-#if defined(FOUND_SSH)
-		case SSH:
-			ssh_config = cache->tr_config.ssh_config;
-			vty_out(vty, "%s rpki cache ssh %s %u %s %s %s ", sep,
-				ssh_config->host, ssh_config->port,
-				ssh_config->username,
-				ssh_config->client_privkey_path,
-				ssh_config->server_hostkey_path != NULL
-					? ssh_config->server_hostkey_path
-					: "");
-			if (ssh_config->bindaddr)
-				vty_out(vty, "source %s ",
-					ssh_config->bindaddr);
-			break;
-#endif
-		default:
-			break;
-		}
-
-		vty_out(vty, "preference %hhu\n", cache->preference);
+	if (vrf) {
+		if (vrf->vrf_id == VRF_DEFAULT)
+			return ERROR;
+		vrfname = vrf->name;
 	}
 
-	vty_out(vty, "%sexit\n%s", sep, vrf_id == VRF_DEFAULT ? "!\n" : "");
+	rpki_build_xpath(xpath, sizeof(xpath), vrfname);
+	dnode = yang_dnode_get(running_config->dnode, xpath);
+	if (!dnode)
+		return vrf ? ERROR : 0;
+
+	if (rpki_yang_config_is_trivial(dnode))
+		return 0;
+
+	/* Default-VRF RPKI_NODE dump: keep classic `!` framing. */
+	if (!vrf)
+		vty_out(vty, "!\n");
+
+	nb_cli_show_dnode_cmds(vty, dnode, false);
+
+	if (!vrf)
+		vty_out(vty, "!\n");
 
 	return 1;
 }

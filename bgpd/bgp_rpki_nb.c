@@ -39,7 +39,8 @@ static void bgp_rpki_container_cli_show(struct vty *vty, const struct lyd_node *
 
 static void bgp_rpki_container_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
 {
-	vty_out(vty, "exit\n!\n");
+	/* Trailing `!` is added by RPKI_NODE / VRF config writers. */
+	vty_out(vty, "exit\n");
 }
 
 static int bgp_rpki_enable_modify(struct nb_cb_modify_args *args)
