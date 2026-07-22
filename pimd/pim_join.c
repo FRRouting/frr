@@ -116,8 +116,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 		sg->src = PIMADDR_ANY;
 	}
 	if (pim_iface_grp_dm(pim_ifp, sg->grp)) {
-		zlog_warn("%s: Specified Group(%pPA) in join is now in DM, not allowed to create PIM state",
-			  __func__, &sg->grp);
+		pim_dm_recv_join(ifp, neigh, holdtime, upstream, sg, source_flags);
 		return;
 	}
 
@@ -523,7 +522,7 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 				continue;
 
 			if (pim_msg_type == PIM_MSG_TYPE_GRAFT)
-				pim_dm_recv_graft(ifp, &sg);
+				pim_dm_recv_graft(ifp, msg_upstream_addr, &sg);
 			else if (pim_msg_type == PIM_MSG_TYPE_GRAFT_ACK) {
 				up = pim_upstream_find(pim_ifp->pim, &sg);
 				if (up)

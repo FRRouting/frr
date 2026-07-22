@@ -379,13 +379,8 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 						c_oil->up->rpf.source_nexthop.interface;
 					if (ifp && ifp->info) {
 						struct pim_interface *pim_ifp = ifp->info;
-						if (HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
-							PIM_UPSTREAM_DM_UNSET_PRUNE(
-								c_oil->up->flags);
-							event_cancel(&c_oil->up->t_prune_timer);
-							pim_dm_graft_send(c_oil->up->rpf, c_oil->up);
-							graft_timer_start(c_oil->up);
-						}
+						if (HAVE_DENSE_MODE(pim_ifp->pim_mode))
+							pim_dm_upstream_graft(c_oil->up);
 					}
 				}
 			}
@@ -469,25 +464,13 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 		return;
 	}
 
-	/* dm: check if we need to send a prune message */
-	if ((*oilp)->oil_size == 0) {
-		/* Not forwarding to any other interfaces, prune it */
-		/* Only if the upstream is dense and group is dense */
-		if (pim_iface_grp_dm(pim_oif, sg.grp) && HAVE_DENSE_MODE(pim_oif->pim_mode)) {
-			if ((*oilp)->up) {
-				struct interface *ifp = (*oilp)->up->rpf.source_nexthop.interface;
-				if (ifp && ifp->info) {
-					struct pim_interface *pim_ifp = ifp->info;
-					if (HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
-						event_cancel(&(*oilp)->up->t_graft_timer);
-						PIM_UPSTREAM_DM_SET_PRUNE((*oilp)->up->flags);
-						pim_dm_prune_send((*oilp)->up->rpf, (*oilp)->up, 0);
-						prune_timer_start((*oilp)->up);
-					}
-				}
-			}
-		}
-	}
+	/*
+	 * Dense (S,G) OIFs are installed by flood via oil_if_set(), not
+	 * PROTO_GM.  Clear the leave interface from those oils and prune
+	 * upstream when no dense downstream remains.
+	 */
+	if (pim_iface_grp_dm(pim_oif, sg.grp) && HAVE_DENSE_MODE(pim_oif->pim_mode))
+		pim_dm_gm_oif_del(pim, sg, oif);
 
 	/*
 	  Feed IGMPv3-gathered local membership information into PIM
