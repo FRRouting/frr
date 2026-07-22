@@ -52,10 +52,21 @@ TOPOLOGY = """
  10.101.0.0/24   |                             |   10.0.0.0/24
                  |                             |
     r4-eth1 (p)  | .1                          | .2 r2-eth0 (d)
-              +--+--+      10.0.2.0/24      +--+--+
-              | R4  |-----------------------| R2  |
-              +--+--+ .2                 .1 +--+--+
-                  r4-eth0 (d)    r2-eth2 (sd)  | .1 r2-eth1 (sd)
+              +--+--+   10.0.2.0/24 (shared) +--+--+
+              | R4  |-------+--------+-------| R2  |
+              +--+--+ .2    |             .1 +--+--+
+              r4-eth0 (d)   |    r2-eth2 (sd)  | .1 r2-eth1 (sd)
+              r7-eth0 (d)   |                  |
+                        +--+--+                |
+                        | R7  |                |
+                        +--+--+                |
+               r7-eth1 (p) | .3                |
+        10.104.0.0/24      |                   |
+                           |                   |
+               h7-eth0     | .2                |
+                        +--+--+                |
+                        | H7  |                |
+                        +--+--+                |
                                                |
                                                |   10.0.1.0.24
                                                |
@@ -99,20 +110,26 @@ def build_topo(tgen):
     tgen.add_router("r4")
     tgen.add_router("r5")
     tgen.add_router("r6")
+    tgen.add_router("r7")
     tgen.add_host("h1", "10.100.0.2/24", "via 10.100.0.1")
     tgen.add_host("h4", "10.101.0.2/24", "via 10.101.0.1")
     tgen.add_host("h5", "10.102.0.2/24", "via 10.102.0.1")
     tgen.add_host("h6", "10.103.0.2/24", "via 10.103.0.1")
+    tgen.add_host("h7", "10.104.0.2/24", "via 10.104.0.1")
 
     # Create topology links
     tgen.add_link(tgen.gears["h1"], tgen.gears["r1"], "h1-eth0", "r1-eth1")
     tgen.add_link(tgen.gears["h4"], tgen.gears["r4"], "h4-eth0", "r4-eth1")
     tgen.add_link(tgen.gears["h5"], tgen.gears["r5"], "h5-eth0", "r5-eth1")
     tgen.add_link(tgen.gears["h6"], tgen.gears["r6"], "h6-eth0", "r6-eth1")
+    tgen.add_link(tgen.gears["h7"], tgen.gears["r7"], "h7-eth0", "r7-eth1")
     tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "r1-eth0", "r2-eth0")
     tgen.add_link(tgen.gears["r1"], tgen.gears["r3"], "r1-eth2", "r3-eth3")
     tgen.add_link(tgen.gears["r2"], tgen.gears["r3"], "r2-eth1", "r3-eth0")
-    tgen.add_link(tgen.gears["r2"], tgen.gears["r4"], "r2-eth2", "r4-eth0")
+    switch = tgen.add_switch("s02")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-eth2")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-eth0")
+    switch.add_link(tgen.gears["r7"], nodeif="r7-eth0")
     tgen.add_link(tgen.gears["r3"], tgen.gears["r5"], "r3-eth1", "r5-eth0")
     tgen.add_link(tgen.gears["r3"], tgen.gears["r6"], "r3-eth2", "r6-eth0")
 
@@ -191,6 +208,11 @@ def test_pim_dense_neighbors(request):
                     "neighbor": "10.0.2.2",
                     "drPriority": 1,
                 },
+                "10.0.2.3": {
+                    "interface": "r2-eth2",
+                    "neighbor": "10.0.2.3",
+                    "drPriority": 1,
+                },
             },
         },
         "r3": {
@@ -230,6 +252,25 @@ def test_pim_dense_neighbors(request):
                     "neighbor": "10.0.2.1",
                     "drPriority": 1,
                 },
+                "10.0.2.3": {
+                    "interface": "r4-eth0",
+                    "neighbor": "10.0.2.3",
+                    "drPriority": 1,
+                },
+            },
+        },
+        "r7": {
+            "r7-eth0": {
+                "10.0.2.1": {
+                    "interface": "r7-eth0",
+                    "neighbor": "10.0.2.1",
+                    "drPriority": 1,
+                },
+                "10.0.2.2": {
+                    "interface": "r7-eth0",
+                    "neighbor": "10.0.2.2",
+                    "drPriority": 1,
+                },
             },
         },
         "r5": {
@@ -267,7 +308,7 @@ def test_pim_dense_neighbors(request):
 
 def stop_all_hosts():
     """Stop multicast traffic and IGMP joins on all hosts."""
-    for host in ("h1", "h4", "h5", "h6"):
+    for host in ("h1", "h4", "h5", "h6", "h7"):
         app_helper.stop_host(host)
 
 
@@ -334,6 +375,42 @@ def check_mroute_iif(tgen, router, src, group, iif):
         return "Unexpected iif on {}: {} (expected {})".format(
             router, entry.get("iif"), iif
         )
+    return None
+
+
+def check_mroute_oif_present(tgen, router, src, group, oif):
+    """Return None if (S,G) OIL on router includes oif, else an error string."""
+    entry = mroute_entry(tgen, router, src, group)
+    if not entry or entry.get("installed", 0) == 0:
+        return "No installed mroute for ({},{}) on {}".format(src, group, router)
+    oil_names = mroute_oil_names(entry)
+    if oif not in oil_names:
+        return "Expected OIF {} on {}, got {}".format(oif, router, oil_names)
+    return None
+
+
+def check_mroute_oif_absent(tgen, router, src, group, oif):
+    """Return None if (S,G) OIL on router does not include oif."""
+    entry = mroute_entry(tgen, router, src, group)
+    if not entry or entry.get("installed", 0) == 0:
+        return None
+    oil_names = mroute_oil_names(entry)
+    if oif in oil_names:
+        return "Unexpected OIF {} still on {}, OIL {}".format(oif, router, oil_names)
+    return None
+
+
+def check_igmp_group_absent(tgen, router, interface, group):
+    """Return None when interface has no IGMP membership for group."""
+    output = tgen.gears[router].vtysh_cmd("show ip igmp groups json", isjson=True)
+    iface = output.get(interface)
+    if not iface:
+        return None
+    for entry in iface.get("groups", []):
+        if entry.get("group") == group:
+            return "IGMP group {} still present on {} {}".format(
+                group, router, interface
+            )
     return None
 
 
@@ -1512,6 +1589,153 @@ def test_pim_dense_to_sparse_on_rp_add(request):
                 no rp 10.0.2.1 239.0.0.0/8
             """
         )
+
+    stop_all_hosts()
+
+
+def test_pim_dense_lan_prune_with_active_branch(request):
+    """Verify LAN prune/override on the shared 10.0.2.0/24 segment (r2, r4, r7).
+
+    RFC 3973 items 4 and 5 with three PIM routers on one multi-access LAN:
+
+    - Item 5 (join override): when h4 leaves, r4 Prunes on the LAN but r7 still
+      has h7 joined. r7 must override so r2 keeps flooding on r2-eth2 and h7
+      keeps receiving.
+
+    - Item 4 (delayed prune): when h7 also leaves, no sibling on the LAN has
+      downstream receivers. r2 must wait for the LAN override window before
+      dropping r2-eth2 from its OIL.
+
+    - Graft: re-joining h4 after the LAN branch pruned must restore the r4 path.
+
+    Topology (r7 added on shared 10.0.2.0/24 with r2 and r4):
+      h1 -> r1 -> r2 === 10.0.2 LAN (r2-eth2, r4-eth0, r7-eth0) === r4 -> h4
+                                   |
+                                   +-> r7 -> h7
+
+    Uses a dedicated group so earlier tests cannot leave stale (S,G) state.
+    """
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    group = "239.8.8.8"
+
+    stop_all_hosts()
+
+    step("Join receivers on h4 and h7, then start dense traffic from h1")
+    for host, intf in (
+        ("h4", "h4-eth0"),
+        ("h7", "h7-eth0"),
+    ):
+        result = app_helper.run_join(host, group, join_intf=intf)
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    result = app_helper.run_traffic("h1", group, bind_intf="h1-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Verify r2 floods on the shared LAN and both receivers get traffic")
+    lan_setup = {
+        "r2": ("r2-eth0", "r2-eth2"),
+        "r4": ("r4-eth0", "r4-eth1"),
+        "r7": ("r7-eth0", "r7-eth1"),
+    }
+    for router, (iif, oil) in lan_setup.items():
+        _, result = topotest.run_and_expect(
+            functools.partial(check_mroute_oil, tgen, router, SRC, group, iif, oil),
+            None,
+            count=30,
+            wait=2,
+        )
+        assert result is None, "LAN setup failed on {}: {}".format(router, result)
+
+    step("Stop h4 so r4 Prunes on the shared LAN while r7 still has h7")
+    app_helper.stop_host("h4")
+
+    step("Wait until r4 has no IGMP membership for the group")
+    _, result = topotest.run_and_expect(
+        functools.partial(check_igmp_group_absent, tgen, "r4", "r4-eth1", group),
+        None,
+        count=30,
+        wait=2,
+    )
+    assert result is None, "r4 still has IGMP membership after h4 leave: {}".format(
+        result
+    )
+
+    step("Verify the h7 branch stays up after r4 Prunes (item 5)")
+    _, result = topotest.run_and_expect(
+        functools.partial(
+            check_mroute_oil, tgen, "r7", SRC, group, "r7-eth0", "r7-eth1"
+        ),
+        None,
+        count=30,
+        wait=2,
+    )
+    assert result is None, "h7 branch lost after h4 left: {}".format(result)
+
+    step("Verify r2 keeps r2-eth2 in its OIL while r7 Join overrides r4 Prune (item 5)")
+    _, result = topotest.run_and_expect(
+        functools.partial(check_mroute_oif_present, tgen, "r2", SRC, group, "r2-eth2"),
+        None,
+        count=15,
+        wait=1,
+    )
+    assert result is None, "LAN join override missing on r2-eth2: {}".format(result)
+
+    step("Stop h7 so no sibling on the LAN has downstream receivers")
+    app_helper.stop_host("h7")
+
+    step("Wait until r7 has no IGMP membership for the group")
+    _, result = topotest.run_and_expect(
+        functools.partial(check_igmp_group_absent, tgen, "r7", "r7-eth1", group),
+        None,
+        count=30,
+        wait=2,
+    )
+    assert result is None, "r7 still has IGMP membership after h7 leave: {}".format(
+        result
+    )
+
+    step("Verify r2 keeps r2-eth2 in its OIL during the LAN override window (item 4)")
+    _, result = topotest.run_and_expect(
+        functools.partial(check_mroute_oif_present, tgen, "r2", SRC, group, "r2-eth2"),
+        None,
+        count=2,
+        wait=1,
+    )
+    assert result is None, "LAN delayed prune missing on r2-eth2: {}".format(result)
+
+    step("Stop the source so continuous flood cannot re-add pruned LAN OIFs")
+    app_helper.stop_host("h1")
+
+    step("Verify r2 eventually stops flooding on the shared LAN")
+    _, result = topotest.run_and_expect(
+        functools.partial(check_mroute_oif_absent, tgen, "r2", SRC, group, "r2-eth2"),
+        None,
+        count=30,
+        wait=1,
+    )
+    assert result is None, "r2 still flooding pruned LAN branch: {}".format(result)
+
+    step("Re-join h4, restart traffic, and verify the r4 branch grafts back")
+    result = app_helper.run_join("h4", group, join_intf="h4-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+    result = app_helper.run_traffic("h1", group, bind_intf="h1-eth0")
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    _, result = topotest.run_and_expect(
+        functools.partial(
+            check_mroute_oil, tgen, "r4", SRC, group, "r4-eth0", "r4-eth1"
+        ),
+        None,
+        count=30,
+        wait=2,
+    )
+    assert result is None, "Graft back to h4 failed: {}".format(result)
 
     stop_all_hosts()
 
