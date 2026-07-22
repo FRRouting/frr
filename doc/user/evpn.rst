@@ -911,6 +911,10 @@ configuration management and improves host mobility.
 Displaying EVPN information
 ---------------------------
 
+BGP EVPN NLRI (including per-neighbor ``show bgp l2vpn evpn neighbors … routes``
+with optional ``json`` and ``json brief``) is documented in the BGP chapter,
+:ref:`bgp`.
+
 .. clicmd:: show evpn mac vni (1-16777215) detail [json]
 
    Display detailed information about MAC addresses for

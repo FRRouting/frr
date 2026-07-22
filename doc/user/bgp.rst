@@ -5788,6 +5788,27 @@ Displaying Routes by Route Distinguisher
 
       Displayed 2 prefixes (2 paths)
 
+.. clicmd:: show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> routes [json [brief]]
+
+   Display EVPN routes from the BGP loc-rib that were received from the given
+   neighbor and accepted for the L2VPN EVPN address-family (same filter as the
+   non-JSON ``routes`` form).
+
+   With ``json``, output is JSON including per-prefix ``paths`` and table-level
+   counters such as ``numPrefix`` and ``totalPrefix``.
+
+   With ``json brief`` (``brief`` only after ``json``), output is compact JSON:
+   per-prefix ``pathCount``, ``multiPathCount``, and ``flags`` (for example
+   ``bestPathExists``) under each NLRI key, without a ``paths`` array and
+   without the outer ``numPrefix`` / ``totalPrefix`` fields.
+
+.. clicmd:: show [ip] bgp l2vpn evpn rd <ASN:NN_OR_IP-ADDRESS:NN|all> neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]
+
+   Same intent as :clicmd:`show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> routes [json [brief]]`, but
+   the RIB is restricted to the given Route Distinguisher (or all RDs when
+   ``all`` is used instead of a specific RD). Only ``json`` is supported here;
+   there is no ``brief`` modifier on this variant.
+
 Displaying Update Group Information
 -----------------------------------
 
