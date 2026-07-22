@@ -52,3 +52,32 @@ YANG stores **explicit** peer/peer-group configuration only. Runtime inherit/ove
 ## bgpyang WIP note
 
 `remotes/bgpyang/*` uses module name `frr-bgpd` and leaf `is-view`. Master schemas use **`frr-bgp`** and **`instance-type-view`**. Do not copy WIP XPaths verbatim; adapt helpers to master YANG.
+
+## Config CLI conversion status (2026-07-22)
+
+Daemon-local NB **configuration** CLI conversion for BGP is effectively
+complete for vertical slices covered by this effort (globals, neighbors,
+AFI/SAFI, filters, RPKI, interface MPLS, VNC when enabled, SNMP trap knobs).
+
+Inventory: regenerate `yang/BGP_YANG_CLI_GAP.{csv,md}` with
+`python3 yang/tools/extract_bgp_cli_config.py`. Prefer the
+**CONVERTED** / **INTENTIONAL** columns over older MISSING heuristics —
+commands defined with `DEFUN_YANG` / `DEFPY_YANG` are already on NB even
+when path matching was wrong.
+
+**Intentionally left classic**
+
+- `exit-address-family` (node exit)
+- Hidden `bgp local-mac`
+- EVPN test helpers (`evpnrt5`, `test_es_*`)
+- `rpki reset` (operational reset in RPKI config mode, not NB config)
+- Debug / show / clear / dump (out of scope)
+
+**Follow-ups (not blocking “config done”)**
+
+- Drop dual-path classic `config_write` once YANG `cli_show` is trusted
+  (started: RPKI node / VRF hook now dump via `nb_cli_show_dnode_cmds`)
+- Ops (debug/show/clear) remain classic by design
+- Do not YANG-convert `rpki reset` as configuration
+- Remaining classic writers: `bgp_config_write` (instance + daemon knobs),
+  filters (as-path / community-list need `cli_show`), VNC nodes, dump/debug
