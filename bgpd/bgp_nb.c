@@ -368,6 +368,22 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/initiation-sysdescr",
+			.cbs = {
+				.modify = bgp_nb_bmp_target_initiation_modify,
+				.destroy = bgp_nb_bmp_target_initiation_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_target_initiation_sysdescr,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/initiation-sysname",
+			.cbs = {
+				.modify = bgp_nb_bmp_target_initiation_modify,
+				.destroy = bgp_nb_bmp_target_initiation_destroy,
+				.cli_show = bgp_nb_cli_show_bmp_target_initiation_sysname,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/bmp-config/target-list/incoming-session/session-list",
 			.cbs = {
 				.create = bgp_nb_bmp_listener_create,
@@ -885,6 +901,8 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.create = bgp_nb_global_afi_safi_create,
 				.destroy = bgp_nb_global_afi_safi_destroy,
+				.cli_show = bgp_nb_cli_show_global_afi_safi,
+				.cli_show_end = bgp_nb_cli_show_global_afi_safi_end,
 			},
 		},
 		{
@@ -3011,6 +3029,13 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.modify = bgp_nb_subgroup_pkt_queue_size_modify,
 				.cli_show = bgp_nb_cli_show_subgroup_pkt_queue_size,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-originate-set-only-unconditional",
+			.cbs = {
+				.modify = bgp_nb_default_originate_setonly_modify,
+				.cli_show = bgp_nb_cli_show_default_originate_setonly,
 			},
 		},
 		{

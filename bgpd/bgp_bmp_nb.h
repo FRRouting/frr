@@ -33,6 +33,8 @@ struct bmp_nb_ops {
 	void (*target_stats_set)(void *bt, uint32_t msec);
 	void (*target_stats_experimental_set)(void *bt, bool enable);
 	void (*target_acl_set)(void *bt, bool ipv6, const char *access_list);
+	/* value NULL clears the override */
+	void (*target_initiation_set)(void *bt, bool sysdescr, const char *value);
 
 	int (*listener_set)(void *bt, const char *addr, uint16_t port);
 	int (*listener_unset)(void *bt, const char *addr, uint16_t port);

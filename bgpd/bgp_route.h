@@ -1022,9 +1022,6 @@ extern void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
  * queue element with NULL bgp node.
  */
 extern void bgp_add_eoiu_mark(struct bgp *bgp);
-extern void bgp_config_write_table_map(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
-extern void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
-extern void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
 
 extern int bgp_table_map_set(struct bgp *bgp, afi_t afi, safi_t safi, const char *rmap_name);
 extern int bgp_table_map_unset(struct bgp *bgp, afi_t afi, safi_t safi);
@@ -1200,4 +1197,5 @@ extern int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete);
 extern void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
 extern uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi);
 extern uint64_t bgp_path_info_get_link_bw(struct bgp_path_info *bpi);
+extern void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
 #endif /* _QUAGGA_BGP_ROUTE_H */

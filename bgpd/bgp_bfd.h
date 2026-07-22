@@ -14,8 +14,6 @@
 
 extern void bgp_bfd_init(struct event_loop *tm);
 
-extern void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, const char *addr);
-
 /**
  * Show BFD information helper.
  *

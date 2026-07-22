@@ -2495,6 +2495,17 @@ DEFUN_YANG(no_bgp_default_subgroup_pkt_queue_max_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_default_originate_setonly_yang, bgp_default_originate_setonly_yang_cmd,
+	   "[no] bgp default-originate set-only-unconditional",
+	   NO_STR BGP_STR
+	   "Control default-originate behavior\n"
+	   "Permit set-only route-maps to originate default even with empty table\n")
+{
+	nb_cli_enqueue_change(vty, "./global/default-originate-set-only-unconditional",
+			      NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_default_shutdown_yang, bgp_default_shutdown_yang_cmd,
 	   "[no] bgp default shutdown",
 	   NO_STR BGP_STR
@@ -7460,6 +7471,56 @@ DEFPY_YANG(bmp_acl_yang, bmp_acl_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bmp_initiation_yang, bmp_initiation_yang_cmd,
+	   "[no] bmp initiation <sysDescr|sysName>$info LINE...",
+	   NO_STR
+	   BMP_STR
+	   "BMP Initiation message\n"
+	   "System description, by default the FRR version\n"
+	   "System name, by default the hostname\n"
+	   "String to send\n")
+{
+	const char *leaf = strmatch(info, "sysDescr") ? "./initiation-sysdescr"
+						      : "./initiation-sysname";
+	char *str;
+	int idx = 0;
+
+	if (no) {
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (!argv_find(argv, argc, "LINE", &idx)) {
+		vty_out(vty, "%% Missing string to send\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	str = argv_concat(argv, argc, idx);
+	if (strlen(str) > 255) {
+		vty_out(vty, "%% %s length should be at most 255 chars\n", info);
+		XFREE(MTYPE_TMP, str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, str);
+	idx = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, str);
+	return idx;
+}
+
+DEFPY_YANG(no_bmp_initiation_yang, no_bmp_initiation_yang_cmd,
+	   "no bmp initiation <sysDescr|sysName>$info",
+	   NO_STR
+	   BMP_STR
+	   "BMP Initiation message\n"
+	   "System description, by default the FRR version\n"
+	   "System name, by default the hostname\n")
+{
+	nb_cli_enqueue_change(vty,
+			      strmatch(info, "sysDescr") ? "./initiation-sysdescr"
+							 : "./initiation-sysname",
+			      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bmp_listener_yang, bmp_listener_yang_cmd,
 	   "[no] bmp listener <A.B.C.D|X:X::X:X>$addr port (1-65535)$port",
 	   NO_STR
@@ -9728,6 +9789,7 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_bgp_coalesce_time_yang_cmd);
 	install_element(BGP_NODE, &bgp_default_subgroup_pkt_queue_max_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_default_subgroup_pkt_queue_max_yang_cmd);
+	install_element(BGP_NODE, &bgp_default_originate_setonly_yang_cmd);
 	install_element(BGP_NODE, &bgp_default_shutdown_yang_cmd);
 	install_element(BGP_NODE, &bgp_shutdown_yang_cmd);
 	install_element(BGP_NODE, &bgp_shutdown_msg_yang_cmd);
@@ -10023,6 +10085,8 @@ void bgp_cli_bmp_init(void)
 	install_element(BMP_NODE, &bmp_stats_yang_cmd);
 	install_element(BMP_NODE, &bmp_stats_experimental_yang_cmd);
 	install_element(BMP_NODE, &bmp_acl_yang_cmd);
+	install_element(BMP_NODE, &bmp_initiation_yang_cmd);
+	install_element(BMP_NODE, &no_bmp_initiation_yang_cmd);
 	install_element(BMP_NODE, &bmp_listener_yang_cmd);
 	install_element(BMP_NODE, &bmp_connect_yang_cmd);
 	install_element(BMP_NODE, &bmp_import_vrf_yang_cmd);

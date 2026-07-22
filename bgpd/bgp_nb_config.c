@@ -11,6 +11,7 @@
 #endif
 
 #include "northbound.h"
+#include "northbound_cli.h"
 #include "libfrr.h"
 #include "defaults.h"
 #include "vrf.h"
@@ -191,12 +192,284 @@ void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, b
 		vty_out(vty, " view %s", name);
 	else if (!strmatch(vrf_name, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf_name);
+	if (yang_dnode_exists(dnode, "./global/as-notation"))
+		vty_out(vty, " as-notation %s",
+			yang_dnode_get_string(dnode, "./global/as-notation"));
 	vty_out(vty, "\n");
 }
 
 void bgp_nb_cli_show_router_bgp_end(struct vty *vty, const struct lyd_node *dnode)
 {
 	vty_out(vty, "exit\n");
+}
+
+/*
+ * Dump a neighbor / peer-group / unnumbered entry without walking
+ * afi-safis. Peer AF knobs are emitted inside address-family blocks by
+ * bgp_nb_cli_show_global_afi_safi_end().
+ */
+static void bgp_nb_cli_show_dnode_skip_afi_safis(struct vty *vty, const struct lyd_node *dnode)
+{
+	struct nb_node *nb_node;
+	const struct lyd_node *child;
+
+	if (yang_dnode_is_default_recursive(dnode))
+		return;
+
+	nb_node = dnode->schema->priv;
+	if (nb_node && nb_node->cbs.cli_show)
+		(*nb_node->cbs.cli_show)(vty, dnode, false);
+
+	if (!(dnode->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA))) {
+		LY_LIST_FOR (lyd_child(dnode), child) {
+			if (strmatch(child->schema->name, "afi-safis"))
+				continue;
+			nb_cli_show_dnode_cmds(vty, child, false);
+		}
+	}
+
+	if (nb_node && nb_node->cbs.cli_show_end)
+		(*nb_node->cbs.cli_show_end)(vty, dnode);
+}
+
+static void bgp_nb_cli_show_container_entries_skip_af(struct vty *vty,
+						      const struct lyd_node *container)
+{
+	const struct lyd_node *child;
+
+	if (!container)
+		return;
+
+	LY_LIST_FOR (lyd_child(container), child)
+		bgp_nb_cli_show_dnode_skip_afi_safis(vty, child);
+}
+
+/*
+ * Build absolute xpath for a BGP instance's frr-bgp:bgp container.
+ * Keys match router_bgp_yang: default uses default/default; VRF and view
+ * instances use name=vrf=bgp->name.
+ */
+const char *bgp_nb_instance_xpath(const struct bgp *bgp, char *buf, size_t buflen)
+{
+	const char *name = VRF_DEFAULT_NAME;
+	const char *vrf = VRF_DEFAULT_NAME;
+
+	if (bgp->name) {
+		name = bgp->name;
+		vrf = bgp->name;
+	}
+
+	snprintfrr(buf, buflen,
+		   "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-bgp:bgp'][name='%s'][vrf='%s']/frr-bgp:bgp",
+		   name, vrf);
+	return buf;
+}
+
+/*
+ * Locate the running-config frr-bgp:bgp dnode for a BGP instance by walking
+ * control-plane-protocol list keys (name/vrf). Avoids identityref predicates
+ * in xpath lookups that silently fail (type-5 / RD reapply no-op).
+ */
+static const struct lyd_node *bgp_nb_find_instance_dnode(const struct bgp *bgp)
+{
+	const struct lyd_node *root, *cpps, *cpp, *bgp_dnode;
+	const char *want_name = VRF_DEFAULT_NAME;
+	const char *want_vrf = VRF_DEFAULT_NAME;
+	const char *name, *vrf, *type;
+
+	if (!bgp || !running_config || !running_config->dnode)
+		return NULL;
+
+	if (bgp->name) {
+		want_name = bgp->name;
+		want_vrf = bgp->name;
+	}
+
+	root = running_config->dnode;
+	cpps = yang_dnode_get(root, "/frr-routing:routing/control-plane-protocols");
+	if (!cpps)
+		return NULL;
+
+	LY_LIST_FOR (lyd_child(cpps), cpp) {
+		if (!strmatch(cpp->schema->name, "control-plane-protocol"))
+			continue;
+		if (!yang_dnode_exists(cpp, "./type") || !yang_dnode_exists(cpp, "./name") ||
+		    !yang_dnode_exists(cpp, "./vrf"))
+			continue;
+		type = yang_dnode_get_string(cpp, "./type");
+		/*
+		 * Identityref string form varies by libyang (frr-bgp:bgp,
+		 * bgp, …). Accept any value whose final identity name is bgp.
+		 */
+		if (!type)
+			continue;
+		{
+			const char *id = strrchr(type, ':');
+
+			id = id ? id + 1 : type;
+			if (!strmatch(id, "bgp"))
+				continue;
+		}
+		name = yang_dnode_get_string(cpp, "./name");
+		vrf = yang_dnode_get_string(cpp, "./vrf");
+		if (!strmatch(name, want_name) || !strmatch(vrf, want_vrf))
+			continue;
+		bgp_dnode = yang_dnode_get(cpp, "frr-bgp:bgp");
+		if (bgp_dnode)
+			return bgp_dnode;
+	}
+
+	return NULL;
+}
+
+/*
+ * Resolve struct bgp * for a dnode under frr-bgp:bgp by walking up to the
+ * control-plane-protocol name/vrf keys. Prefer this over nb_running_get_entry
+ * alone for EVPN ip-vrf leaves — parent-chain entry lookup has bound the
+ * wrong (default) instance and made RD / type-5 APPLY a silent no-op.
+ */
+static struct bgp *bgp_nb_dnode_lookup_bgp(const struct lyd_node *dnode)
+{
+	const struct lyd_node *cpp;
+	const char *name, *vrf;
+	struct bgp *bgp;
+
+	cpp = yang_dnode_get_parent(dnode, "control-plane-protocol");
+	if (cpp && yang_dnode_exists(cpp, "name") && yang_dnode_exists(cpp, "vrf")) {
+		name = yang_dnode_get_string(cpp, "name");
+		vrf = yang_dnode_get_string(cpp, "vrf");
+		if (strmatch(vrf, VRF_DEFAULT_NAME))
+			bgp = bgp_get_default();
+		else
+			bgp = bgp_lookup_by_name(name);
+		if (bgp)
+			return bgp;
+	}
+
+	return nb_running_get_entry(dnode, NULL, false);
+}
+
+/*
+ * Orchestrated per-instance CLI dump. Naive nb_cli_show_dnode_cmds() on
+ * frr-bgp:bgp is wrong: peer AF config must appear inside address-family
+ * frames, and bgp default shutdown / bgp shutdown must follow peers.
+ */
+static const char *bgp_nb_afi_safi_cli_name(afi_t afi, safi_t safi);
+static void bgp_nb_cli_show_peer_afi_safis(struct vty *vty, const struct lyd_node *bgp_dnode,
+					   const char *ident);
+
+void bgp_nb_cli_show_instance(struct vty *vty, const struct lyd_node *bgp)
+{
+	const struct lyd_node *global, *child, *afs, *vnc;
+	static const char *const defer[] = {
+		"afi-safis", "default-shutdown", "shutdown", "shutdown-message",
+		"shutdown-no-notify", NULL,
+	};
+	unsigned int i;
+	bool skip;
+	afi_t afi;
+	safi_t safi;
+
+	bgp_nb_cli_show_router_bgp(vty, bgp, false);
+
+	global = yang_dnode_get(bgp, "global");
+	if (global) {
+		struct bgp *bgp_inst;
+
+		LY_LIST_FOR (lyd_child(global), child) {
+			skip = false;
+			for (i = 0; defer[i]; i++) {
+				if (strmatch(child->schema->name, defer[i])) {
+					skip = true;
+					break;
+				}
+			}
+			if (skip)
+				continue;
+			nb_cli_show_dnode_cmds(vty, child, false);
+		}
+
+		/*
+		 * ipv4-unicast is the implicit default (seeded in YANG, omitted
+		 * from show). When cleared, emit the classic negative so
+		 * write-config / reload keeps default_af false.
+		 */
+		bgp_inst = nb_running_get_entry(bgp, NULL, false);
+		if (bgp_inst && !bgp_inst->default_af[AFI_IP][SAFI_UNICAST])
+			vty_out(vty, " no bgp default ipv4-unicast\n");
+	}
+
+	bgp_nb_cli_show_container_entries_skip_af(vty, yang_dnode_get(bgp, "peer-groups"));
+	bgp_nb_cli_show_container_entries_skip_af(vty, yang_dnode_get(bgp, "neighbors"));
+
+	/*
+	 * bgp default shutdown / bgp shutdown must dump after peers so a
+	 * reload does not shut every peer (see #2286).
+	 */
+	if (global) {
+		child = yang_dnode_get(global, "default-shutdown");
+		if (child)
+			nb_cli_show_dnode_cmds(vty, child, false);
+		child = yang_dnode_get(global, "shutdown");
+		if (child)
+			nb_cli_show_dnode_cmds(vty, child, false);
+		child = yang_dnode_get(global, "shutdown-message");
+		if (child)
+			nb_cli_show_dnode_cmds(vty, child, false);
+		child = yang_dnode_get(global, "shutdown-no-notify");
+		if (child)
+			nb_cli_show_dnode_cmds(vty, child, false);
+	}
+
+	afs = yang_dnode_get(bgp, "global/afi-safis");
+	FOREACH_AFI_SAFI (afi, safi) {
+		const char *ident = yang_afi_safi_value2identity(afi, safi);
+		const char *afname = bgp_nb_afi_safi_cli_name(afi, safi);
+		const struct lyd_node *global_af;
+
+		if (!ident || !afname)
+			continue;
+
+		global_af = afs ? yang_dnode_getf(afs, "afi-safi[afi-safi-name='%s']", ident)
+				: NULL;
+		if (global_af) {
+			nb_cli_show_dnode_cmds(vty, global_af, false);
+		} else {
+			/*
+			 * Hidden BGP_NODE neighbor AF commands (e.g.
+			 * "neighbor X route-map RM in") populate peer
+			 * afi-safis without creating global/afi-safis.
+			 * Emit the address-family block whenever any peer or
+			 * peer-group prints lines under this AFI/SAFI.
+			 */
+			vty_frame(vty, " !\n address-family %s\n", afname);
+			if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+				bgp_config_write_network_evpn(
+					vty, nb_running_get_entry_non_rec(bgp, NULL, false), afi,
+					safi);
+			bgp_config_write_distance_source(vty, afi, safi);
+			bgp_nb_cli_show_peer_afi_safis(vty, bgp, ident);
+			vty_endframe(vty, " exit-address-family\n");
+		}
+	}
+
+	vnc = yang_dnode_get(bgp, "frr-bgp-vnc:vnc");
+	if (vnc)
+		nb_cli_show_dnode_cmds(vty, vnc, false);
+
+	bgp_nb_cli_show_router_bgp_end(vty, bgp);
+	vty_out(vty, "!\n");
+}
+
+void bgp_nb_cli_show_instance_bgp(struct vty *vty, struct bgp *bgp)
+{
+	const struct lyd_node *dnode;
+
+	dnode = bgp_nb_find_instance_dnode(bgp);
+	if (!dnode)
+		return;
+
+	bgp_nb_cli_show_instance(vty, dnode);
 }
 
 /*
@@ -2670,6 +2943,30 @@ void bgp_nb_cli_show_subgroup_pkt_queue_size(struct vty *vty, const struct lyd_n
 
 	if (value != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX || show_defaults)
 		vty_out(vty, " bgp default subgroup-pkt-queue-max %u\n", value);
+}
+
+int bgp_nb_default_originate_setonly_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_default_originate_setonly(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " bgp default-originate set-only-unconditional\n");
+	else if (show_defaults)
+		vty_out(vty, " no bgp default-originate set-only-unconditional\n");
 }
 
 int bgp_nb_default_shutdown_modify(struct nb_cb_modify_args *args)
@@ -6216,6 +6513,129 @@ int bgp_nb_global_afi_safi_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static const char *bgp_nb_afi_safi_cli_name(afi_t afi, safi_t safi)
+{
+	if (afi == AFI_IP) {
+		if (safi == SAFI_UNICAST)
+			return "ipv4 unicast";
+		if (safi == SAFI_LABELED_UNICAST)
+			return "ipv4 labeled-unicast";
+		if (safi == SAFI_MULTICAST)
+			return "ipv4 multicast";
+		if (safi == SAFI_MPLS_VPN)
+			return "ipv4 vpn";
+		if (safi == SAFI_ENCAP)
+			return "ipv4 encap";
+		if (safi == SAFI_FLOWSPEC)
+			return "ipv4 flowspec";
+		if (safi == SAFI_UNREACH)
+			return "ipv4 unreachability";
+	} else if (afi == AFI_IP6) {
+		if (safi == SAFI_UNICAST)
+			return "ipv6 unicast";
+		if (safi == SAFI_LABELED_UNICAST)
+			return "ipv6 labeled-unicast";
+		if (safi == SAFI_MULTICAST)
+			return "ipv6 multicast";
+		if (safi == SAFI_MPLS_VPN)
+			return "ipv6 vpn";
+		if (safi == SAFI_ENCAP)
+			return "ipv6 encap";
+		if (safi == SAFI_FLOWSPEC)
+			return "ipv6 flowspec";
+		if (safi == SAFI_UNREACH)
+			return "ipv6 unreachability";
+	} else if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+		return "l2vpn evpn";
+	} else if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS) {
+		return "link-state link-state";
+	}
+	return NULL;
+}
+
+void bgp_nb_cli_show_global_afi_safi(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	afi_t afi;
+	safi_t safi;
+	const char *afname;
+
+	if (!bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
+		return;
+	afname = bgp_nb_afi_safi_cli_name(afi, safi);
+	if (!afname)
+		return;
+
+	/* vty_frame: header only emitted if a child prints config. */
+	vty_frame(vty, " !\n address-family %s\n", afname);
+
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+		const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+
+		if (bgp_dnode)
+			bgp_config_write_network_evpn(
+				vty, nb_running_get_entry_non_rec(bgp_dnode, NULL, false), afi,
+				safi);
+	}
+	bgp_config_write_distance_source(vty, afi, safi);
+}
+
+static void bgp_nb_cli_show_peer_afi_safis(struct vty *vty, const struct lyd_node *bgp_dnode,
+					   const char *ident)
+{
+	const struct lyd_node *container;
+	const struct lyd_node *peer;
+	const struct lyd_node *af;
+
+	if (!bgp_dnode || !ident)
+		return;
+
+	/*
+	 * Peer-group AF knobs come before individual neighbors, matching
+	 * classic bgp_config_write_family() so reloads apply group defaults
+	 * before member overrides.
+	 */
+	container = yang_dnode_get(bgp_dnode, "peer-groups");
+	if (container) {
+		LY_LIST_FOR (lyd_child(container), peer) {
+			if (!strmatch(peer->schema->name, "peer-group"))
+				continue;
+			af = yang_dnode_getf(peer, "afi-safis/afi-safi[afi-safi-name='%s']", ident);
+			if (af)
+				nb_cli_show_dnode_cmds(vty, af, false);
+		}
+	}
+
+	container = yang_dnode_get(bgp_dnode, "neighbors");
+	if (container) {
+		LY_LIST_FOR (lyd_child(container), peer) {
+			if (!strmatch(peer->schema->name, "neighbor") &&
+			    !strmatch(peer->schema->name, "unnumbered-neighbor"))
+				continue;
+			af = yang_dnode_getf(peer, "afi-safis/afi-safi[afi-safi-name='%s']", ident);
+			if (af)
+				nb_cli_show_dnode_cmds(vty, af, false);
+		}
+	}
+}
+
+void bgp_nb_cli_show_global_afi_safi_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	const struct lyd_node *bgp_dnode;
+	const char *ident;
+
+	ident = yang_dnode_get_string(dnode, "afi-safi-name");
+	bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+
+	/*
+	 * Peer / peer-group AF knobs live under neighbors|peer-groups in
+	 * YANG but must appear inside the address-family block in CLI.
+	 */
+	bgp_nb_cli_show_peer_afi_safis(vty, bgp_dnode, ident);
+
+	vty_endframe(vty, " exit-address-family\n");
+}
+
 static int bgp_nb_network_apply(const struct lyd_node *dnode, bool clear_rmap)
 {
 	struct bgp *bgp;
@@ -8650,34 +9070,6 @@ static bool bgp_nb_evpn_type5_container(const struct lyd_node *dnode, const stru
 	}
 	return false;
 }
-
-/*
- * Resolve struct bgp * for a dnode under frr-bgp:bgp by walking up to the
- * control-plane-protocol name/vrf keys. Prefer this over nb_running_get_entry
- * alone for EVPN ip-vrf leaves — parent-chain entry lookup has bound the
- * wrong (default) instance and made RD / type-5 APPLY a silent no-op.
- */
-static struct bgp *bgp_nb_dnode_lookup_bgp(const struct lyd_node *dnode)
-{
-	const struct lyd_node *cpp;
-	const char *name, *vrf;
-	struct bgp *bgp;
-
-	cpp = yang_dnode_get_parent(dnode, "control-plane-protocol");
-	if (cpp && yang_dnode_exists(cpp, "name") && yang_dnode_exists(cpp, "vrf")) {
-		name = yang_dnode_get_string(cpp, "name");
-		vrf = yang_dnode_get_string(cpp, "vrf");
-		if (strmatch(vrf, VRF_DEFAULT_NAME))
-			bgp = bgp_get_default();
-		else
-			bgp = bgp_lookup_by_name(name);
-		if (bgp)
-			return bgp;
-	}
-
-	return nb_running_get_entry(dnode, NULL, false);
-}
-
 
 static void bgp_nb_evpn_type5_rmap_free(struct bgp *bgp, afi_t afi, safi_t safi)
 {
@@ -15968,6 +16360,60 @@ void bgp_nb_cli_show_bmp_target_acl_v6(struct vty *vty, const struct lyd_node *d
 				       bool show_defaults)
 {
 	vty_out(vty, "  ipv6 access-list %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+static bool bgp_nb_bmp_initiation_is_sysdescr(const struct lyd_node *dnode)
+{
+	return strmatch(dnode->schema->name, "initiation-sysdescr");
+}
+
+int bgp_nb_bmp_target_initiation_modify(struct nb_cb_modify_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_initiation_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_ERR_NOT_FOUND;
+
+	bmp_nb_cb->target_initiation_set(bt, bgp_nb_bmp_initiation_is_sysdescr(args->dnode),
+					 yang_dnode_get_string(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_bmp_target_initiation_destroy(struct nb_cb_destroy_args *args)
+{
+	void *bt;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (!bmp_nb_cb || !bmp_nb_cb->target_initiation_set)
+		return NB_OK;
+
+	bt = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bt)
+		return NB_OK;
+
+	bmp_nb_cb->target_initiation_set(bt, bgp_nb_bmp_initiation_is_sysdescr(args->dnode), NULL);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_bmp_target_initiation_sysdescr(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults)
+{
+	vty_out(vty, "  bmp initiation sysDescr %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+void bgp_nb_cli_show_bmp_target_initiation_sysname(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults)
+{
+	vty_out(vty, "  bmp initiation sysName %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 static int bgp_nb_bmp_port_check(uint32_t port, char *errmsg, size_t errmsg_len)

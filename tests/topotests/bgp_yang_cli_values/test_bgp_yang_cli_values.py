@@ -84,6 +84,143 @@ router bgp 65000
     assert "neighbor 192.0.2.2 maximum-prefix 1000 restart 12" in running
 
 
+def test_hidden_neighbor_af_emits_address_family():
+    """Hidden BGP_NODE neighbor AF commands must emit address-family block (B005)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ neighbor PG_AF peer-group
+ neighbor PG_AF remote-as 65002
+ neighbor PG_AF route-map PG_RM in
+ neighbor 192.0.2.20 remote-as 65002
+ neighbor 192.0.2.20 route-map FOO in
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert " address-family ipv4 unicast\n" in running
+    assert "  neighbor PG_AF route-map PG_RM in\n" in running
+    assert "  neighbor 192.0.2.20 route-map FOO in\n" in running
+    assert running.index("neighbor PG_AF route-map PG_RM in") < running.index(
+        "neighbor 192.0.2.20 route-map FOO in"
+    )
+
+
+def test_max_med_administrative_default_and_explicit():
+    """bgp max-med administrative must set default maxmed value before update (B007)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ bgp max-med administrative
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert " bgp max-med administrative\n" in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ bgp max-med administrative 100
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert " bgp max-med administrative 100\n" in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no bgp max-med administrative
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "max-med administrative" not in r1.vtysh_cmd("show running-config")
+
+
+def test_no_multipath_relax_when_off():
+    """no bgp bestpath as-path multipath-relax must succeed when already off (B009)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no bgp bestpath as-path multipath-relax
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ bgp bestpath as-path multipath-relax as-set
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert " bgp bestpath as-path multipath-relax as-set\n" in r1.vtysh_cmd(
+        "show running-config"
+    )
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no bgp bestpath as-path multipath-relax
+ no bgp bestpath as-path multipath-relax
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "multipath-relax" not in r1.vtysh_cmd("show running-config")
+
+
+def test_confederation_identifier_and_peers_pretty():
+    """Confederation identifier and peers preserve original text on one line (B012)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ bgp confederation identifier 1.0
+ bgp confederation peers 1.1 65002
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert " bgp confederation identifier 1.0\n" in running
+    assert " bgp confederation peers 1.1 65002\n" in running
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no bgp confederation peers 1.1 65002
+ no bgp confederation identifier
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "bgp confederation" not in running
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
