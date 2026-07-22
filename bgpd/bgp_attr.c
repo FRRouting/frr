@@ -6818,6 +6818,36 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	stream_putw_at(s, cp, len);
 }
 
+bool bgp_path_attribute_discard_forbidden(uint8_t attr_num, bool ebgp, bool withdraw, char *errmsg,
+					  size_t errmsg_len)
+{
+	const char *verb = withdraw ? "treat-as-withdraw" : "discard";
+	const char *name;
+
+	name = lookup_msg(attr_str, attr_num, NULL);
+
+	/*
+	 * OTC is here because RFC 9234 forbids the operator from altering
+	 * the route leak prevention procedures.
+	 */
+	if (attr_num == BGP_ATTR_ORIGIN || attr_num == BGP_ATTR_AS_PATH ||
+	    attr_num == BGP_ATTR_NEXT_HOP || attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
+	    attr_num == BGP_ATTR_MP_REACH_NLRI || attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
+	    attr_num == BGP_ATTR_EXT_COMMUNITIES || attr_num == BGP_ATTR_OTC) {
+		snprintfrr(errmsg, errmsg_len, "Can't %s path-attribute %s, ignoring.", verb, name);
+		return true;
+	}
+
+	if (!ebgp && (attr_num == BGP_ATTR_LOCAL_PREF || attr_num == BGP_ATTR_ORIGINATOR_ID ||
+		      attr_num == BGP_ATTR_CLUSTER_LIST)) {
+		snprintfrr(errmsg, errmsg_len, "Can %s path-attribute %s only for eBGP, ignoring.",
+			   verb, name);
+		return true;
+	}
+
+	return false;
+}
+
 void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
 				    const char *discard_attrs, bool set)
 {
@@ -6845,37 +6875,14 @@ void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
 
 		for (i = 0; i < num_attributes; i++) {
 			uint8_t attr_num = strtoul(attributes[i], NULL, 10);
+			char why[128];
 
 			XFREE(MTYPE_TMP, attributes[i]);
 
-			/* Some of the attributes, just can't be ignored.
-			 *
-			 * OTC is in this list because RFC 9234 forbids the
-			 * operator from altering the route leak prevention
-			 * procedures. Discarding it on ingress would let a
-			 * Provider or an RS accept a leaked route.
-			 */
-			if (attr_num == BGP_ATTR_ORIGIN || attr_num == BGP_ATTR_AS_PATH ||
-			    attr_num == BGP_ATTR_NEXT_HOP || attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
-			    attr_num == BGP_ATTR_MP_REACH_NLRI ||
-			    attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
-			    attr_num == BGP_ATTR_EXT_COMMUNITIES || attr_num == BGP_ATTR_OTC) {
-				vty_out(vty,
-					"%% Can't discard path-attribute %s, ignoring.\n",
-					lookup_msg(attr_str, attr_num, NULL));
-				continue;
-			}
-
-			/* Ignore local-pref, originator-id, cluster-list only
-			 * for eBGP.
-			 */
-			if (peer->sort != BGP_PEER_EBGP &&
-			    (attr_num == BGP_ATTR_LOCAL_PREF ||
-			     attr_num == BGP_ATTR_ORIGINATOR_ID ||
-			     attr_num == BGP_ATTR_CLUSTER_LIST)) {
-				vty_out(vty,
-					"%% Can discard path-attribute %s only for eBGP, ignoring.\n",
-					lookup_msg(attr_str, attr_num, NULL));
+			if (bgp_path_attribute_discard_forbidden(attr_num,
+								 peer->sort == BGP_PEER_EBGP,
+								 false, why, sizeof(why))) {
+				vty_out(vty, "%% %s\n", why);
 				continue;
 			}
 
@@ -6918,36 +6925,14 @@ void bgp_path_attribute_withdraw_vty(struct vty *vty, struct peer *peer,
 
 		for (i = 0; i < num_attributes; i++) {
 			uint8_t attr_num = strtoul(attributes[i], NULL, 10);
+			char why[128];
 
 			XFREE(MTYPE_TMP, attributes[i]);
 
-			/* Some of the attributes, just can't be ignored.
-			 *
-			 * OTC is in this list because RFC 9234 forbids the
-			 * operator from altering the route leak prevention
-			 * procedures.
-			 */
-			if (attr_num == BGP_ATTR_ORIGIN || attr_num == BGP_ATTR_AS_PATH ||
-			    attr_num == BGP_ATTR_NEXT_HOP || attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
-			    attr_num == BGP_ATTR_MP_REACH_NLRI ||
-			    attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
-			    attr_num == BGP_ATTR_EXT_COMMUNITIES || attr_num == BGP_ATTR_OTC) {
-				vty_out(vty,
-					"%% Can't treat-as-withdraw path-attribute %s, ignoring.\n",
-					lookup_msg(attr_str, attr_num, NULL));
-				continue;
-			}
-
-			/* Ignore local-pref, originator-id, cluster-list only
-			 * for eBGP.
-			 */
-			if (peer->sort != BGP_PEER_EBGP &&
-			    (attr_num == BGP_ATTR_LOCAL_PREF ||
-			     attr_num == BGP_ATTR_ORIGINATOR_ID ||
-			     attr_num == BGP_ATTR_CLUSTER_LIST)) {
-				vty_out(vty,
-					"%% Can treat-as-withdraw path-attribute %s only for eBGP, ignoring.\n",
-					lookup_msg(attr_str, attr_num, NULL));
+			if (bgp_path_attribute_discard_forbidden(attr_num,
+								 peer->sort == BGP_PEER_EBGP, true,
+								 why, sizeof(why))) {
+				vty_out(vty, "%% %s\n", why);
 				continue;
 			}
 

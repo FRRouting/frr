@@ -268,14 +268,17 @@ DEFPY_YANG_NOSH(exit_vrf_policy_cli,
 
 DEFPY_YANG(vrf_policy_label_cli,
 	vrf_policy_label_cli_cmd,
-	"[no] label ![(0-1048575)$label]",
+	"[no] label [(0-1048575)$label]",
 	NO_STR
 	"Specify label for this VRF policy\n"
 	"MPLS label value\n")
 {
 	if (no)
 		nb_cli_enqueue_change(vty, "./label", NB_OP_DESTROY, NULL);
-	else
+	else if (!label_str) {
+		vty_out(vty, "%% Missing label value\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	} else
 		nb_cli_enqueue_change(vty, "./label", NB_OP_MODIFY, label_str);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1245,6 +1248,13 @@ void vnc_l2_group_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
 
 void bgp_vnc_cli_init(void)
 {
+	/*
+	 * Register VNC/VRF-policy cmd_nodes before install_element().
+	 * bgp_vty_init() → bgp_cli_init() runs before rfapi_init(), so
+	 * nodes must be installed here rather than from rfapi_init().
+	 */
+	bgp_rfapi_cfg_init();
+
 	install_element(BGP_NODE, &vnc_defaults_cli_cmd);
 	install_element(BGP_NODE, &vnc_nve_group_cli_cmd);
 	install_element(BGP_NODE, &no_vnc_nve_group_cli_cmd);

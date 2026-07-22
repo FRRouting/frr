@@ -79,13 +79,16 @@ static const char *bgp_cli_afi_safi_name(int node)
 	}
 }
 
-/* Build relative xpath for the current global AFI-SAFI node. */
+/* Build relative xpath for the current global AFI-SAFI config container.
+ * Schema nests AF leaves under afi-safi/<af>/ (e.g. ipv4-unicast), not
+ * directly under the afi-safi list entry.
+ */
 static int bgp_cli_global_af_xpath(struct vty *vty, char *xpath, size_t xpath_len)
 {
 	const char *af = bgp_cli_afi_safi_name(vty->node);
 
-	snprintfrr(xpath, xpath_len, "./global/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']",
-		   af);
+	snprintfrr(xpath, xpath_len,
+		   "./global/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']/%s", af, af);
 	return 0;
 }
 
@@ -4475,6 +4478,7 @@ static void bgp_cli_path_attr_enqueue_replace(struct vty *vty, const char *base,
 	char leaf[XPATH_MAXLEN + 256];
 	char check[XPATH_MAXLEN + 256];
 	char **attributes = NULL;
+	const struct lyd_node *nbr = NULL;
 	int num_attributes = 0;
 	int i;
 
@@ -4511,8 +4515,30 @@ static void bgp_cli_path_attr_enqueue_replace(struct vty *vty, const char *base,
 	if (!attrs)
 		return;
 
+	if (set && base[0] == '.') {
+		/*
+		 * The classic command warned about an attribute that cannot be
+		 * discarded, skipped it and applied the rest. Do the same here
+		 * so a config file that names one still loads. The NB validate
+		 * callback rejects it for clients that do not come through
+		 * this command.
+		 */
+		snprintfrr(leaf, sizeof(leaf), "%s%s", VTY_CURR_XPATH, base + 1);
+		nbr = yang_dnode_get(vty->candidate_config->dnode, leaf);
+	}
+
 	frrstr_split(attrs, " ", &attributes, &num_attributes);
 	for (i = 0; i < num_attributes; i++) {
+		if (nbr) {
+			char why[128];
+
+			if (bgp_nb_path_attr_forbidden(nbr, strtoul(attributes[i], NULL, 10),
+						       strmatch(leaf_name, "treat-as-withdraw"),
+						       why, sizeof(why))) {
+				vty_out(vty, "%% %s\n", why);
+				continue;
+			}
+		}
 		snprintfrr(leaf, sizeof(leaf), "%s/path-attribute/%s[.='%s']", base, leaf_name,
 			   attributes[i]);
 		if (set)
@@ -6653,8 +6679,8 @@ DEFPY_YANG(bgp_evpn_vrf_rt_yang, bgp_evpn_vrf_rt_yang_cmd,
 	}
 
 	for (; idx < argc; idx++) {
-		if (argv[idx]->arg[0] == '*') {
-			vty_out(vty, "%% Wildcard route-targets are not supported via YANG yet\n");
+		if (argv[idx]->arg[0] == '*' && do_export) {
+			vty_out(vty, "%% Wildcard '*' only applicable for import\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		if (do_import) {
@@ -6746,7 +6772,7 @@ DEFPY_YANG_NOSH(bgp_evpn_vni_yang, bgp_evpn_vni_yang_cmd,
 		return ret;
 
 	snprintfrr(vni_abs, sizeof(vni_abs),
-		   "%s/global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/vni[vni='%" PRId64
+		   "%s/global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/vni[vni='%" PRId64
 		   "']",
 		   VTY_CURR_XPATH, vni);
 	VTY_PUSH_XPATH(BGP_EVPN_VNI_NODE, vni_abs);
@@ -7895,6 +7921,11 @@ static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xp
 		return ret;
 
 	afi_safi = bgp_cli_afi_safi_name(vty->node);
+	/*
+	 * Peer AF xpath is the afi-safi list entry only. Leaf "enabled"
+	 * (neighbor activate) lives directly on the list entry; other
+	 * knobs append "/<af>/..." themselves (e.g. /ipv4-unicast/...).
+	 */
 	snprintfrr(xpath, xpath_len, "%s/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']", base,
 		   afi_safi);
 	return 0;

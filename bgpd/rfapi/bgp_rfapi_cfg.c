@@ -3675,6 +3675,11 @@ bgp_rfapi_get_ecommunity_by_lni_label(struct bgp *bgp, uint32_t is_import,
 
 void bgp_rfapi_cfg_init(void)
 {
+	/*
+	 * Called from bgp_vnc_cli_init() (before install_element on these
+	 * nodes). Must not also run from rfapi_init() — that is too late
+	 * and a second install_node() would abort.
+	 */
 	install_node(&bgp_vnc_defaults_node);
 	install_node(&bgp_vnc_nve_group_node);
 	install_node(&bgp_vrf_policy_node);

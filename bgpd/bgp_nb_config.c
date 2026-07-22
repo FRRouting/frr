@@ -1533,12 +1533,14 @@ static void bgp_nb_apply_global_timers(struct bgp *bgp, const struct lyd_node *d
 	const struct lyd_node *timers;
 	uint32_t keepalive;
 	uint32_t holdtime;
+	uint32_t connect_retry = DFLT_BGP_CONNECT_RETRY;
 
 	timers = yang_dnode_get_parent(dnode, "global-config-timers");
 	keepalive = yang_dnode_get_uint16(timers, "keepalive");
 	holdtime = yang_dnode_get_uint16(timers, "hold-time");
-	bgp_timers_set(NULL, bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY,
-		       BGP_DEFAULT_DELAYOPEN);
+	if (yang_dnode_exists(timers, "connect-retry-interval"))
+		connect_retry = yang_dnode_get_uint16(timers, "connect-retry-interval");
+	bgp_timers_set(NULL, bgp, keepalive, holdtime, connect_retry, BGP_DEFAULT_DELAYOPEN);
 }
 
 int bgp_nb_keepalive_modify(struct nb_cb_modify_args *args)
@@ -3444,14 +3446,15 @@ int bgp_nb_neighbor_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
 		remote_addr_str = yang_dnode_get_string(args->dnode, "./remote-address");
 		if (str2sockunion(remote_addr_str, &su) < 0) {
 			snprintfrr(args->errmsg, args->errmsg_len, "invalid neighbor address %s",
 				   remote_addr_str);
 			return NB_ERR_VALIDATION;
 		}
-		if (peer_address_self_check(bgp, &su)) {
+		/* Parent BGP may only exist after APPLY in the same candidate. */
+		bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, false);
+		if (bgp && peer_address_self_check(bgp, &su)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "cannot configure the local system as neighbor");
 			return NB_ERR_VALIDATION;
@@ -3698,7 +3701,9 @@ int bgp_nb_peer_group_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+		bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, false);
+		if (!bgp)
+			return NB_OK;
 		name = yang_dnode_get_string(args->dnode, "./peer-group-name");
 		if (peer_lookup_by_conf_if(bgp, name)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
@@ -3988,17 +3993,22 @@ static struct peer *bgp_nb_config_peer(const struct lyd_node *dnode)
 	const struct lyd_node *list;
 	struct peer_group *group;
 
+	/*
+	 * Soft lookup: VALIDATE runs before APPLY of list creates in the same
+	 * candidate, so the peer may not be in running yet. Callers must treat
+	 * NULL as "skip" during VALIDATE and as an error during APPLY.
+	 */
 	list = yang_dnode_get_parent(dnode, "neighbor");
 	if (list)
-		return nb_running_get_entry(list, NULL, true);
+		return nb_running_get_entry(list, NULL, false);
 
 	list = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
 	if (list)
-		return nb_running_get_entry(list, NULL, true);
+		return nb_running_get_entry(list, NULL, false);
 
 	list = yang_dnode_get_parent(dnode, "peer-group");
 	if (list) {
-		group = nb_running_get_entry(list, NULL, true);
+		group = nb_running_get_entry(list, NULL, false);
 		return group ? group->conf : NULL;
 	}
 
@@ -4043,7 +4053,9 @@ int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+		bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, false);
+		if (!bgp)
+			return NB_OK;
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
 		if (peer_group_lookup(bgp, ifname)) {
 			snprintfrr(args->errmsg, args->errmsg_len, "name conflict with peer-group");
@@ -4627,7 +4639,7 @@ int bgp_nb_peer_ebgp_mh_enabled_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
 		if (!peer)
-			return NB_ERR_VALIDATION;
+			return NB_OK;
 		if (peer->conf_if) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "ebgp-multihop not valid for interface peer");
@@ -4692,7 +4704,7 @@ int bgp_nb_peer_ebgp_mh_ttl_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
 		if (!peer)
-			return NB_ERR_VALIDATION;
+			return NB_OK;
 		if (peer->conf_if) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "ebgp-multihop not valid for interface peer");
@@ -4778,7 +4790,7 @@ int bgp_nb_peer_ttl_security_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
 		if (!peer)
-			return NB_ERR_VALIDATION;
+			return NB_OK;
 		hops = yang_dnode_get_uint8(args->dnode, NULL);
 		if (peer->conf_if && hops > 1) {
 			snprintfrr(args->errmsg, args->errmsg_len,
@@ -5534,7 +5546,7 @@ int bgp_nb_peer_ip_transparent_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
 		if (!peer)
-			return NB_ERR_VALIDATION;
+			return NB_OK;
 		if (yang_dnode_get_bool(args->dnode, NULL) &&
 		    !peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
@@ -6031,7 +6043,7 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
 		if (!peer)
-			return NB_ERR_VALIDATION;
+			return NB_OK;
 		if (peer_dynamic_neighbor(peer)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "operation not allowed on a dynamic neighbor");
@@ -8296,9 +8308,9 @@ int bgp_nb_evpn_advertise_all_vni_modify(struct nb_cb_modify_args *args)
 	if (args->event == NB_EV_VALIDATE) {
 		if (!yang_dnode_get_bool(args->dnode, NULL))
 			return NB_OK;
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
 		if (!bgp)
-			return NB_ERR_VALIDATION;
+			return NB_OK;
 		bgp_evpn = bgp_get_evpn();
 		if (bgp_evpn && bgp_evpn != bgp && EVPN_ENABLED(bgp_evpn)) {
 			snprintfrr(args->errmsg, args->errmsg_len, "Please unconfigure EVPN in %s",
@@ -8388,8 +8400,10 @@ int bgp_nb_evpn_advertise_default_gw_modify(struct nb_cb_modify_args *args)
 	if (args->event == NB_EV_VALIDATE) {
 		if (!yang_dnode_get_bool(args->dnode, NULL))
 			return NB_OK;
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || !EVPN_ENABLED(bgp)) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (!EVPN_ENABLED(bgp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under the EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -8438,8 +8452,10 @@ int bgp_nb_evpn_advertise_svi_ip_modify(struct nb_cb_modify_args *args)
 	if (args->event == NB_EV_VALIDATE) {
 		if (!yang_dnode_get_bool(args->dnode, NULL))
 			return NB_OK;
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || !EVPN_ENABLED(bgp)) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (!EVPN_ENABLED(bgp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -8483,8 +8499,10 @@ int bgp_nb_evpn_resolve_overlay_modify(struct nb_cb_modify_args *args)
 	struct bgp *bgp;
 
 	if (args->event == NB_EV_VALIDATE) {
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || bgp != bgp_get_evpn()) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (bgp != bgp_get_evpn()) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -8588,9 +8606,11 @@ int bgp_nb_evpn_macvrf_soo_modify(struct nb_cb_modify_args *args)
 	const char *soo;
 
 	if (args->event == NB_EV_VALIDATE) {
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
 		bgp_evpn = bgp_get_evpn();
-		if (!bgp || !bgp_evpn || !bgp_evpn->evpn_info) {
+		if (!bgp)
+			return NB_OK;
+		if (!bgp_evpn || !bgp_evpn->evpn_info) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "EVPN underlay is not configured");
 			return NB_ERR_VALIDATION;
@@ -8709,8 +8729,10 @@ int bgp_nb_evpn_dad_enable_modify(struct nb_cb_modify_args *args)
 	struct bgp *bgp;
 
 	if (args->event == NB_EV_VALIDATE) {
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || !EVPN_ENABLED(bgp)) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (!EVPN_ENABLED(bgp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under the EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -8734,8 +8756,10 @@ int bgp_nb_evpn_dad_param_modify(struct nb_cb_modify_args *args)
 	struct bgp *bgp;
 
 	if (args->event == NB_EV_VALIDATE) {
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || !EVPN_ENABLED(bgp)) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (!EVPN_ENABLED(bgp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under the EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -8822,8 +8846,10 @@ int bgp_nb_evpn_dad_freeze_permanent_create(struct nb_cb_create_args *args)
 	struct bgp *bgp;
 
 	if (args->event == NB_EV_VALIDATE) {
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || !EVPN_ENABLED(bgp)) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (!EVPN_ENABLED(bgp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under the EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -9425,8 +9451,10 @@ int bgp_nb_evpn_advertise_pip_enable_modify(struct nb_cb_modify_args *args)
 	struct bgp *bgp;
 
 	if (args->event == NB_EV_VALIDATE) {
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || EVPN_ENABLED(bgp)) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (EVPN_ENABLED(bgp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is supported under L3VNI BGP EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -9450,8 +9478,10 @@ int bgp_nb_evpn_advertise_pip_param_modify(struct nb_cb_modify_args *args)
 	struct bgp *bgp;
 
 	if (args->event == NB_EV_VALIDATE) {
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || EVPN_ENABLED(bgp)) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (EVPN_ENABLED(bgp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is supported under L3VNI BGP EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -9589,8 +9619,10 @@ int bgp_nb_evpn_ead_es_rt_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (!bgp || !EVPN_ENABLED(bgp)) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		if (!EVPN_ENABLED(bgp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -9763,6 +9795,36 @@ static void bgp_nb_evpn_vrf_rt_batch(struct bgp *bgp, struct bgp_evpn_cfgd_rt *c
 	bgp_evpn_cfgd_rt_slu_fini(&head);
 }
 
+/*
+ * Parse an FRR CLI RT string. Wildcard import RTs are stored as "*:NN" in
+ * YANG; classic CLI rewrites '*' to '0' before ecommunity_str2com().
+ */
+static struct ecommunity *bgp_nb_evpn_vrf_rt_str2com(const char *rt_str, bool *is_wildcard)
+{
+	char buf[64];
+	bool wildcard = false;
+
+	if (is_wildcard)
+		*is_wildcard = false;
+
+	if (!rt_str || !rt_str[0])
+		return NULL;
+
+	if (rt_str[0] == '*') {
+		if (strlen(rt_str) >= sizeof(buf))
+			return NULL;
+		strlcpy(buf, rt_str, sizeof(buf));
+		buf[0] = '0';
+		wildcard = true;
+		rt_str = buf;
+	}
+
+	if (is_wildcard)
+		*is_wildcard = wildcard;
+
+	return ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+}
+
 int bgp_nb_evpn_vrf_rt_create(struct nb_cb_create_args *args)
 {
 	struct bgp *bgp;
@@ -9771,16 +9833,18 @@ int bgp_nb_evpn_vrf_rt_create(struct nb_cb_create_args *args)
 	struct bgp_evpn_rt_config *rt_config;
 	const char *rt_str;
 	bool is_import;
+	bool is_wildcard;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		rt_str = yang_dnode_get_string(args->dnode, NULL);
-		if (rt_str[0] == '*') {
+		is_import = bgp_nb_evpn_vrf_rt_is_import(args->dnode);
+		if (rt_str[0] == '*' && !is_import) {
 			snprintfrr(args->errmsg, args->errmsg_len,
-				   "Wildcard route-targets are not supported via YANG yet");
+				   "Wildcard '*' only applicable for import");
 			return NB_ERR_VALIDATION;
 		}
-		ecom = ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+		ecom = bgp_nb_evpn_vrf_rt_str2com(rt_str, NULL);
 		if (!ecom) {
 			snprintfrr(args->errmsg, args->errmsg_len, "Malformed Route Target list");
 			return NB_ERR_VALIDATION;
@@ -9800,12 +9864,12 @@ int bgp_nb_evpn_vrf_rt_create(struct nb_cb_create_args *args)
 
 	is_import = bgp_nb_evpn_vrf_rt_is_import(args->dnode);
 	rt_str = yang_dnode_get_string(args->dnode, NULL);
-	ecom = ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+	ecom = bgp_nb_evpn_vrf_rt_str2com(rt_str, &is_wildcard);
 	if (!ecom)
 		return NB_ERR_VALIDATION;
 	ecommunity_str(ecom);
 
-	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, false);
+	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, is_wildcard);
 	ecommunity_free(&ecom);
 	if (!cfgd_rt)
 		return NB_ERR_VALIDATION;
@@ -9833,6 +9897,7 @@ int bgp_nb_evpn_vrf_rt_destroy(struct nb_cb_destroy_args *args)
 	struct ecommunity *ecom;
 	struct bgp_evpn_cfgd_rt *cfgd_rt;
 	bool is_import;
+	bool is_wildcard;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -9842,13 +9907,12 @@ int bgp_nb_evpn_vrf_rt_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	is_import = bgp_nb_evpn_vrf_rt_is_import(args->dnode);
-	ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL),
-				  ECOMMUNITY_ROUTE_TARGET, 0);
+	ecom = bgp_nb_evpn_vrf_rt_str2com(yang_dnode_get_string(args->dnode, NULL), &is_wildcard);
 	if (!ecom)
 		return NB_OK;
 	ecommunity_str(ecom);
 
-	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, false);
+	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, is_wildcard);
 	ecommunity_free(&ecom);
 	if (!cfgd_rt)
 		return NB_OK;
@@ -15253,26 +15317,17 @@ void bgp_nb_cli_show_peer_af_orf_receive(struct vty *vty, const struct lyd_node 
 		bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
-static bool bgp_nb_path_attr_forbidden(uint8_t attr_num, struct peer *peer, char *errmsg,
-				       size_t errmsg_len)
+bool bgp_nb_path_attr_forbidden(const struct lyd_node *dnode, uint8_t attr_num, bool withdraw,
+				char *errmsg, size_t errmsg_len)
 {
-	if (attr_num == BGP_ATTR_ORIGIN || attr_num == BGP_ATTR_AS_PATH ||
-	    attr_num == BGP_ATTR_NEXT_HOP || attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
-	    attr_num == BGP_ATTR_MP_REACH_NLRI || attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
-	    attr_num == BGP_ATTR_EXT_COMMUNITIES) {
-		snprintfrr(errmsg, errmsg_len, "Can't discard/withdraw path-attribute %u",
-			   attr_num);
-		return true;
-	}
+	bool ebgp;
 
-	if (peer->sort != BGP_PEER_EBGP &&
-	    (attr_num == BGP_ATTR_LOCAL_PREF || attr_num == BGP_ATTR_ORIGINATOR_ID ||
-	     attr_num == BGP_ATTR_CLUSTER_LIST)) {
-		snprintfrr(errmsg, errmsg_len, "path-attribute %u only valid for eBGP", attr_num);
-		return true;
-	}
-
-	return false;
+	/*
+	 * Peer-independent attributes are rejected even when the neighbor
+	 * is created in this same candidate and has no running peer yet.
+	 */
+	ebgp = bgp_nb_candidate_peer_sort(dnode) == BGP_PEER_EBGP;
+	return bgp_path_attribute_discard_forbidden(attr_num, ebgp, withdraw, errmsg, errmsg_len);
 }
 
 static void bgp_nb_peer_path_attr_soft_clear(struct peer *peer)
@@ -15335,11 +15390,9 @@ int bgp_nb_peer_path_attr_discard_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
-			return NB_ERR_VALIDATION;
 		attr_num = yang_dnode_get_uint8(args->dnode, NULL);
-		if (bgp_nb_path_attr_forbidden(attr_num, peer, args->errmsg, args->errmsg_len))
+		if (bgp_nb_path_attr_forbidden(args->dnode, attr_num, false, args->errmsg,
+					       args->errmsg_len))
 			return NB_ERR_VALIDATION;
 		return NB_OK;
 	case NB_EV_PREPARE:
@@ -15390,11 +15443,9 @@ int bgp_nb_peer_path_attr_withdraw_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
-			return NB_ERR_VALIDATION;
 		attr_num = yang_dnode_get_uint8(args->dnode, NULL);
-		if (bgp_nb_path_attr_forbidden(attr_num, peer, args->errmsg, args->errmsg_len))
+		if (bgp_nb_path_attr_forbidden(args->dnode, attr_num, true, args->errmsg,
+					       args->errmsg_len))
 			return NB_ERR_VALIDATION;
 		return NB_OK;
 	case NB_EV_PREPARE:
@@ -17873,4 +17924,373 @@ void bgp_nb_cli_show_mpls_l3vpn_multi_domain_switching(struct vty *vty,
 {
 	if (yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " mpls bgp l3vpn-multi-domain-switching\n");
+}
+
+/*
+ * Destroy / optional callbacks added to satisfy nb_validate_callbacks.
+ */
+
+int bgp_nb_as_notation_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->asnotation = ASNOTATION_PLAIN;
+	return NB_OK;
+}
+
+int bgp_nb_enforce_first_as_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+		return NB_OK;
+	UNSET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		FOREACH_AFI_SAFI (afi, safi)
+			peer_on_policy_change(peer, afi, safi, 0);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_hard_admin_reset_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_HARD_ADMIN_RESET);
+	return NB_OK;
+}
+
+int bgp_nb_multi_path_as_set_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET))
+		return NB_OK;
+
+	UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+	bgp_recalculate_all_bestpaths(bgp);
+	return NB_OK;
+}
+
+int bgp_nb_gr_llgr_stale_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
+				    CAPABILITY_ACTION_SET);
+	return NB_OK;
+}
+
+int bgp_nb_maxpaths_ibgp_cluster_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct lyd_node *ibgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ibgp = yang_dnode_get_parent(args->dnode, "ibgp");
+	if (!ibgp || !yang_dnode_exists(ibgp, "./maximum-paths"))
+		return NB_OK;
+
+	return bgp_nb_maxpaths_apply(yang_dnode_get(ibgp, "./maximum-paths"), BGP_PEER_IBGP, false);
+}
+
+int bgp_nb_peer_shutdown_enable_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	peer_tx_shutdown_message_unset(peer);
+	peer_flag_unset(peer, PEER_FLAG_SHUTDOWN);
+	return NB_OK;
+}
+
+int bgp_nb_peer_local_role_strict_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	/*
+	 * Only clear strict-mode. Do not call bgp_nb_peer_local_role_apply():
+	 * "no neighbor … local-role" destroys strict-mode and role together,
+	 * and apply order can unset the role first — re-apply from the old
+	 * dnode would resurrect the role and leave the capability advertised.
+	 */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_ROLE))
+		peer_role_set(peer, peer->local_role, false);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_detect_mult_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !peer->bfd_config)
+		return NB_OK;
+
+	peer->bfd_config->detection_multiplier = BFD_DEF_DETECT_MULT;
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_min_rx_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !peer->bfd_config)
+		return NB_OK;
+
+	peer->bfd_config->min_rx = BFD_DEF_MIN_RX;
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_min_tx_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !peer->bfd_config)
+		return NB_OK;
+
+	peer->bfd_config->min_tx = BFD_DEF_MIN_TX;
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_cbit_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer || !peer->bfd_config)
+		return NB_OK;
+
+	peer->bfd_config->cbit = false;
+	bgp_nb_peer_bfd_apply(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_session_type_modify(struct nb_cb_modify_args *args)
+{
+	/* Stored for future BFD hop-type wiring; accept config for now. */
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return NB_OK;
+}
+
+int bgp_nb_peer_bfd_session_type_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return NB_OK;
+}
+
+int bgp_nb_aggregate_attr_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+}
+
+int bgp_nb_aggregate_attr_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+}
+
+int bgp_nb_connect_retry_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_apply_global_timers(bgp, args->dnode);
+	return NB_OK;
+}
+
+int bgp_nb_daemon_gr_notification_modify(struct nb_cb_modify_args *args)
+{
+	struct listnode *node, *nnode;
+	struct listnode *pnode, *pnnode;
+	struct bgp *bgp;
+	struct peer *peer;
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (enable)
+			SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+		else
+			UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+		for (ALL_LIST_ELEMENTS(bgp->peer, pnode, pnnode, peer))
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_gr_notification_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct listnode *pnode, *pnnode;
+	struct bgp *bgp;
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+		for (ALL_LIST_ELEMENTS(bgp->peer, pnode, pnnode, peer))
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_gr_notification(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "bgp graceful-restart notification\n");
+	else
+		vty_out(vty, "no bgp graceful-restart notification\n");
+}
+
+int bgp_nb_daemon_gr_disable_eor_modify(struct nb_cb_modify_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	enable = yang_dnode_get_bool(args->dnode, NULL);
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (enable)
+			SET_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR);
+		else
+			UNSET_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_gr_disable_eor(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "bgp graceful-restart disable-eor\n");
+	else if (show_defaults)
+		vty_out(vty, "no bgp graceful-restart disable-eor\n");
+}
+
+int bgp_nb_daemon_gr_llgr_stale_time_modify(struct nb_cb_modify_args *args)
+{
+	struct listnode *node, *nnode;
+	struct listnode *pnode, *pnnode;
+	struct bgp *bgp;
+	struct peer *peer;
+	uint32_t val;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	val = yang_dnode_get_uint32(args->dnode, NULL);
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->llgr_stale_time = val;
+		for (ALL_LIST_ELEMENTS(bgp->peer, pnode, pnnode, peer))
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_SET);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_gr_llgr_stale_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct listnode *pnode, *pnnode;
+	struct bgp *bgp;
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
+		for (ALL_LIST_ELEMENTS(bgp->peer, pnode, pnnode, peer))
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_SET);
+	}
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_gr_llgr_stale_time(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	uint32_t val = yang_dnode_get_uint32(dnode, NULL);
+
+	if (val != BGP_DEFAULT_LLGR_STALE_TIME || show_defaults)
+		vty_out(vty, "bgp long-lived-graceful-restart stale-time %u\n", val);
 }
