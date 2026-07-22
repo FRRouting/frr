@@ -46,6 +46,27 @@ int bgp_global_vnc_redistribute_ipv4_source_create(struct nb_cb_create_args *arg
 int bgp_global_vnc_redistribute_ipv4_source_destroy(struct nb_cb_destroy_args *args);
 int bgp_global_vnc_redistribute_ipv6_source_create(struct nb_cb_create_args *args);
 int bgp_global_vnc_redistribute_ipv6_source_destroy(struct nb_cb_destroy_args *args);
+
+int bgp_global_vnc_advertise_un_method_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_advertise_un_method_destroy(struct nb_cb_destroy_args *args);
+void vnc_advertise_un_method_cli_show(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+
+int bgp_global_vnc_defaults_l2rd_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_defaults_l2rd_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_group_l2rd_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_group_l2rd_destroy(struct nb_cb_destroy_args *args);
+
+int bgp_global_vnc_l2_group_create(struct nb_cb_create_args *args);
+int bgp_global_vnc_l2_group_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_l2_group_logical_network_id_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_l2_group_labels_create(struct nb_cb_create_args *args);
+int bgp_global_vnc_l2_group_labels_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_l2_group_rt_import_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_l2_group_rt_export_modify(struct nb_cb_modify_args *args);
+void vnc_l2_group_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void vnc_l2_group_cli_show_end(struct vty *vty, const struct lyd_node *dnode);
+
 int bgp_global_vnc_noop_destroy(struct nb_cb_destroy_args *args);
 
 void vnc_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);

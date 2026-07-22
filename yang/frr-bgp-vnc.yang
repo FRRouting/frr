@@ -70,6 +70,20 @@ module frr-bgp-vnc {
       description
         "VNC/RFAPI configuration for this BGP instance.";
 
+      leaf advertise-un-method {
+        type enumeration {
+          enum encap-attr {
+            value 0;
+          }
+          enum encap-safi {
+            value 1;
+          }
+        }
+        description
+          "Method of advertising UN addresses.
+           Maps to: vnc advertise-un-method ...";
+      }
+
       container rfp {
         description
           "RFP (Registered Forwarder Protocol) settings.";
@@ -124,6 +138,13 @@ module frr-bgp-vnc {
           description
             "Space-separated list of export route targets.";
         }
+
+        leaf l2rd {
+          type string;
+          description
+            "Default Local NVE ID for L2 RDs: 'auto-vn' or 1-255.
+             Maps to: l2rd ...";
+        }
       }
 
       list nve-group {
@@ -159,6 +180,48 @@ module frr-bgp-vnc {
           type string;
           description
             "Response lifetime in seconds, or 'infinite'.";
+        }
+
+        leaf rt-import {
+          type string;
+          description
+            "Space-separated list of import route targets.";
+        }
+
+        leaf rt-export {
+          type string;
+          description
+            "Space-separated list of export route targets.";
+        }
+
+        leaf l2rd {
+          type string;
+          description
+            "Per-NVE-group Local NVE ID for L2 RDs: 'auto-vn' or 1-255.";
+        }
+      }
+
+      list l2-group {
+        key "name";
+        description
+          "Maps to: vnc l2-group NAME.";
+
+        leaf name {
+          type string;
+          description
+            "L2 group name.";
+        }
+
+        leaf logical-network-id {
+          type uint32;
+          description
+            "Maps to: logical-network-id ...";
+        }
+
+        leaf-list labels {
+          type uint32;
+          description
+            "Maps to: labels ...";
         }
 
         leaf rt-import {
