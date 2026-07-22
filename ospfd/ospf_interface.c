@@ -549,6 +549,10 @@ void ospf_if_stream_unset(struct ospf_interface *oi)
 	ospf_if_reset_stats(oi);
 }
 
+static void oif_crypt_key_free(void *p)
+{
+	XFREE(MTYPE_OSPF_CRYPT_KEY, p);
+}
 
 static struct ospf_if_params *ospf_new_if_params(void)
 {
@@ -580,6 +584,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, rfc7474_compat);
 
 	oip->auth_crypt = list_new();
+	oip->auth_crypt->del = oif_crypt_key_free;
 
 	oip->network_lsa_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
 	oip->is_v_wait_set = false;
