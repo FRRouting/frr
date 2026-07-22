@@ -15,6 +15,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_vnc_nb.h"
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
 
 #include "bgpd/bgp_vnc_cli_clippy.c"
 
@@ -445,6 +446,89 @@ DEFPY_YANG(no_vnc_redistribute_source_cli,
 		snprintfrr(xpath, sizeof(xpath),
 			   "./frr-bgp-vnc:vnc/redistribute/ipv6-source[.='%s']", source);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	if (!strcmp(source, "bgp-direct-to-nve-groups"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-bgp-vnc:vnc/redistribute/bgp-direct-to-nve-groups-view",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/* --- VNC redistribute nve-group / lifetime / roo / exterior view --- */
+
+DEFPY_YANG(vnc_redistribute_nvegroup_cli,
+	   vnc_redistribute_nvegroup_cli_cmd,
+	   "[no] vnc redistribute nve-group [NAME$name]",
+	   NO_STR
+	   "VNC/RFAPI configuration\n"
+	   "Redistribute from other protocol\n"
+	   "Assign an NVE group to redistributed routes\n"
+	   "Group name\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/redistribute/nve-group",
+				      NB_OP_DESTROY, NULL);
+	} else if (!name) {
+		vty_out(vty, "%% Missing NVE group name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	} else {
+		nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/redistribute/nve-group",
+				      NB_OP_MODIFY, name);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_redistribute_lifetime_cli,
+	   vnc_redistribute_lifetime_cli_cmd,
+	   "vnc redistribute lifetime <LIFETIME$lifetime|infinite$infinite>",
+	   "VNC/RFAPI configuration\n"
+	   "Redistribute\n"
+	   "Assign a lifetime to redistributed routes\n"
+	   "Lifetime value (32 bit)\n"
+	   "Allow lifetime to never expire\n")
+{
+	char buf[32];
+
+	nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/redistribute/lifetime", NB_OP_MODIFY,
+			      vnc_cli_lifetime(lifetime, infinite, false, buf, sizeof(buf)));
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_redistribute_rh_roo_localadmin_cli,
+	   vnc_redistribute_rh_roo_localadmin_cli_cmd,
+	   "vnc redistribute resolve-nve roo-ec-local-admin (0-65535)$localadmin",
+	   "VNC/RFAPI configuration\n"
+	   "Redistribute routes into VNC\n"
+	   "Resolve-NVE mode\n"
+	   "Route Origin Extended Community Local Admin Field\n"
+	   "Field value\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/redistribute/resolve-nve-roo-ec-local-admin",
+			      NB_OP_MODIFY, localadmin_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_redistribute_bgp_exterior_cli,
+	   vnc_redistribute_bgp_exterior_cli_cmd,
+	   "vnc redistribute <ipv4|ipv6>$afi bgp-direct-to-nve-groups view NAME$view",
+	   "VNC/RFAPI configuration\n"
+	   "Redistribute routes into VNC\n"
+	   "IPv4 routes\n"
+	   "IPv6 routes\n"
+	   "From BGP without Zebra, only to configured NVE groups\n"
+	   "From BGP view\n"
+	   "BGP view name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (!strcmp(afi, "ipv4"))
+		snprintfrr(xpath, sizeof(xpath),
+			   "./frr-bgp-vnc:vnc/redistribute/ipv4-source[.='bgp-direct-to-nve-groups']");
+	else
+		snprintfrr(xpath, sizeof(xpath),
+			   "./frr-bgp-vnc:vnc/redistribute/ipv6-source[.='bgp-direct-to-nve-groups']");
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/redistribute/bgp-direct-to-nve-groups-view",
+			      NB_OP_MODIFY, view);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -585,6 +669,22 @@ void vnc_redistribute_cli_show(struct vty *vty, const struct lyd_node *dnode, bo
 {
 	const struct lyd_node *child;
 	const char *mode;
+	const char *view = NULL;
+
+	if (yang_dnode_exists(dnode, "nve-group"))
+		vty_out(vty, " vnc redistribute nve-group %s\n",
+			yang_dnode_get_string(dnode, "nve-group"));
+	if (yang_dnode_exists(dnode, "lifetime")) {
+		const char *lt = yang_dnode_get_string(dnode, "lifetime");
+
+		vty_out(vty, " vnc redistribute lifetime %s\n", lt);
+	}
+	if (yang_dnode_exists(dnode, "resolve-nve-roo-ec-local-admin")) {
+		uint16_t roo = yang_dnode_get_uint16(dnode, "resolve-nve-roo-ec-local-admin");
+
+		if (roo != BGP_VNC_CONFIG_RESOLVE_NVE_ROO_LOCAL_ADMIN_DEFAULT || show_defaults)
+			vty_out(vty, " vnc redistribute resolve-nve roo-ec-local-admin %u\n", roo);
+	}
 
 	if (yang_dnode_exists(dnode, "mode")) {
 		mode = yang_dnode_get_string(dnode, "mode");
@@ -592,12 +692,26 @@ void vnc_redistribute_cli_show(struct vty *vty, const struct lyd_node *dnode, bo
 			vty_out(vty, " vnc redistribute mode %s\n", mode);
 	}
 
+	if (yang_dnode_exists(dnode, "bgp-direct-to-nve-groups-view"))
+		view = yang_dnode_get_string(dnode, "bgp-direct-to-nve-groups-view");
+
 	/* Emit ipv4-source and ipv6-source entries */
 	LY_LIST_FOR (lyd_child(dnode), child) {
+		const char *afistr;
+		const char *src;
+
 		if (!strcmp(child->schema->name, "ipv4-source"))
-			vty_out(vty, " vnc redistribute ipv4 %s\n", lyd_get_value(child));
+			afistr = "ipv4";
 		else if (!strcmp(child->schema->name, "ipv6-source"))
-			vty_out(vty, " vnc redistribute ipv6 %s\n", lyd_get_value(child));
+			afistr = "ipv6";
+		else
+			continue;
+
+		src = lyd_get_value(child);
+		if (view && !strcmp(src, "bgp-direct-to-nve-groups"))
+			vty_out(vty, " vnc redistribute %s %s view %s\n", afistr, src, view);
+		else
+			vty_out(vty, " vnc redistribute %s %s\n", afistr, src);
 	}
 }
 
@@ -779,6 +893,10 @@ void bgp_vnc_cli_init(void)
 	install_element(BGP_NODE, &vnc_redistribute_mode_cli_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_source_cli_cmd);
 	install_element(BGP_NODE, &no_vnc_redistribute_source_cli_cmd);
+	install_element(BGP_NODE, &vnc_redistribute_nvegroup_cli_cmd);
+	install_element(BGP_NODE, &vnc_redistribute_lifetime_cli_cmd);
+	install_element(BGP_NODE, &vnc_redistribute_rh_roo_localadmin_cli_cmd);
+	install_element(BGP_NODE, &vnc_redistribute_bgp_exterior_cli_cmd);
 
 	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_rd_cli_cmd);
 	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_response_lifetime_cli_cmd);

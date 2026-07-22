@@ -3700,12 +3700,8 @@ void bgp_rfapi_cfg_init(void)
 
 	/* BGP_VNC_DEFAULTS_NODE — migrated: rt/rd/response-lifetime/l2rd/exit-vnc */
 
-	/* BGP_NODE — still classic (redistribute sub-config) */
-	install_element(BGP_NODE, &vnc_redistribute_nvegroup_cmd);
-	install_element(BGP_NODE, &vnc_redistribute_no_nvegroup_cmd);
-	install_element(BGP_NODE, &vnc_redistribute_lifetime_cmd);
-	install_element(BGP_NODE, &vnc_redistribute_rh_roo_localadmin_cmd);
-	install_element(BGP_NODE, &vnc_redistribute_bgp_exterior_cmd);
+	/* BGP_NODE — still classic (redistribute/export filter helpers) */
+	/* nve-group/lifetime/roo/exterior — YANG: bgp_vnc_cli_init() */
 
 	install_element(BGP_NODE, &vnc_redist_bgpdirect_no_prefixlist_cmd);
 	install_element(BGP_NODE, &vnc_redist_bgpdirect_prefixlist_cmd);
