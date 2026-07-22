@@ -490,6 +490,9 @@ void prune_timer_start(struct pim_upstream *up)
 
 	if (up->rpf.source_nexthop.interface) {
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface, up->rpf.rpf_addr, true);
+		if (!nbr && !pim_addr_is_any(up->rpf.source_nexthop.mrib_nexthop_addr))
+			nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+						up->rpf.source_nexthop.mrib_nexthop_addr, true);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s", __func__,
@@ -498,7 +501,7 @@ void prune_timer_start(struct pim_upstream *up)
 	}
 
 	if (nbr)
-		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
+		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, false, nbr);
 	else {
 		event_cancel(&up->t_prune_timer);
 		event_add_timer(router->master, on_prune_timer, up, router->t_periodic,
@@ -977,10 +980,14 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	if (pim_addr_is_any(up->sg.src))
 		return;
 
-	/* Ignore RP mapping when the upstream state
-	 * is NOT Joined on a FHR
+	/* Ignore RP mapping when the upstream is NOT Joined on an FHR, or
+	 * when it is a dense-mode stream (no RPT).  Switching those to
+	 * USE_RPT clears IIF (no (*,G) parent) and uninstalls the MFC, so
+	 * the next packet NOCACHEs and re-floods.
 	 */
-	if (up->join_state == PIM_UPSTREAM_NOTJOINED && PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+	if (up->join_state == PIM_UPSTREAM_NOTJOINED &&
+	    (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) || PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) ||
+	     PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags)))
 		return;
 
 	old_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
@@ -990,18 +997,18 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	 * 2. We are FHR
 	 * 3. Source is directly connected
 	 * 4. We are RP (parent's IIF is lo or vrf-device)
+	 * 5. Dense-mode (S,G) (no RP tree)
 	 * In all other cases the source will stay along the RPT and
 	 * IIF=RPF_interface(RP).
 	 */
 	if (up->join_state == PIM_UPSTREAM_JOINED ||
-			PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
-			pim_if_connected_to_source(
-				up->rpf.source_nexthop.interface,
-				up->sg.src) ||
-			/* XXX - need to switch this to a more efficient
-			 * lookup API
-			 */
-			I_am_RP(up->pim, up->sg.grp))
+	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) || PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) ||
+	    PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) ||
+	    pim_if_connected_to_source(up->rpf.source_nexthop.interface, up->sg.src) ||
+	    /* XXX - need to switch this to a more efficient
+	     * lookup API
+	     */
+	    I_am_RP(up->pim, up->sg.grp))
 		/* use SPT */
 		PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
 	else
@@ -1540,6 +1547,15 @@ bool pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 {
 	bool empty_imm_oil;
 	bool empty_inh_oil;
+
+	/*
+	 * Dense-pruned streams with no OIL must not emit sparse Join
+	 * refreshes.  If an OIF is already present the prune flag is stale
+	 * (e.g. Graft added the OIF without clearing DM_PRUNE).
+	 */
+	if (PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) &&
+	    pim_upstream_empty_inherited_olist(up))
+		return false;
 
 	empty_imm_oil = pim_upstream_empty_immediate_olist(pim, up);
 
@@ -2406,12 +2422,14 @@ bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 }
 
 /* Check if any dense mode interface is in the OIL of this upstream
- * or if any interface has an IGMP join for this upstream group
+ * or if any non-RPF interface has an IGMP join for this upstream group.
+ * IGMP on RPF_interface(S) is served by the upstream forwarder on that LAN.
  */
 bool pim_upstream_up_connected(struct pim_upstream *up)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp;
+	struct interface *rpf_ifp = up->rpf.source_nexthop.interface;
 
 	FOR_ALL_INTERFACES (up->pim->vrf, ifp) {
 		pim_ifp = ifp->info;
@@ -2419,8 +2437,10 @@ bool pim_upstream_up_connected(struct pim_upstream *up)
 		if (!pim_ifp || !pim_ifp->pim_enable)
 			continue;
 
+		if (rpf_ifp && ifp->ifindex == rpf_ifp->ifindex)
+			continue;
+
 		if (HAVE_DENSE_MODE(pim_ifp->pim_mode) &&
-		    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
 		    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
 			return true;
 		if (pim_gm_has_igmp_join(ifp, up->sg.grp))
