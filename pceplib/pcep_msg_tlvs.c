@@ -346,6 +346,31 @@ pcep_tlv_create_vendor_info(uint32_t enterprise_number,
 	return tlv;
 }
 
+struct pcep_object_tlv_te_path_binding *pcep_tlv_create_te_path_binding_mpls(mpls_label_t label)
+{
+	struct pcep_object_tlv_te_path_binding *tlv = (struct pcep_object_tlv_te_path_binding *)
+		pcep_tlv_common_create(PCEP_OBJ_TLV_TYPE_TE_PATH_BINDING,
+				       sizeof(struct pcep_object_tlv_te_path_binding));
+	tlv->type = PCEP_OBJ_TLV_TE_PATH_BINDING_MPLS;
+	tlv->flags = 0;
+	tlv->value.label = label;
+
+	return tlv;
+}
+
+struct pcep_object_tlv_te_path_binding *
+pcep_tlv_create_te_path_binding_srv6(struct in6_addr *segment)
+{
+	struct pcep_object_tlv_te_path_binding *tlv = (struct pcep_object_tlv_te_path_binding *)
+		pcep_tlv_common_create(PCEP_OBJ_TLV_TYPE_TE_PATH_BINDING,
+				       sizeof(struct pcep_object_tlv_te_path_binding));
+	tlv->type = PCEP_OBJ_TLV_TE_PATH_BINDING_SRV6;
+	tlv->flags = 0;
+	memcpy(&tlv->value.segment, segment, sizeof(tlv->value.segment));
+
+	return tlv;
+}
+
 /*
  * SRPAG (SR Association Group) TLVs
  */
