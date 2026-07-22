@@ -2937,17 +2937,22 @@ DEFUN (ospf_max_multipath,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ospf_max_multipath,
+DEFPY (no_ospf_max_multipath,
        no_ospf_max_multipath_cmd,
-       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM)"]",
+       "no maximum-paths [(1-128)$maxpaths]",
        NO_STR
        "Max no of multiple paths for ECMP support\n"
        "Number of paths\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	uint16_t maxpaths = MULTIPATH_NUM;
 
-	ospf_maxpath_set(vty, ospf, maxpaths);
+	/* If a value is given, only reset when it matches the configured
+	 * maximum-paths.  A mismatched value is a no-op.
+	 */
+	if (maxpaths_str && ospf->max_multipath != maxpaths)
+		return CMD_SUCCESS;
+
+	ospf_maxpath_set(vty, ospf, MULTIPATH_NUM);
 	return CMD_SUCCESS;
 }
 
