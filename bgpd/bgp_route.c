@@ -3559,7 +3559,7 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 
 
 	if (advertise_type5_routes_bestpath(bgp, afi) && new_select &&
-	    is_route_injectable_into_evpn(new_select)) {
+	    is_route_injectable_into_evpn(bgp, afi, safi, new_select)) {
 		/* apply the route-map */
 		if (bgp->adv_cmd_rmap[afi][safi].map) {
 			route_map_result_t ret;
@@ -3596,7 +3596,7 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 						       safi, 0);
 		}
 	} else if (advertise_type5_routes_bestpath(bgp, afi) && old_select &&
-		   is_route_injectable_into_evpn(old_select))
+		   is_route_injectable_into_evpn(bgp, afi, safi, old_select))
 		bgp_evpn_withdraw_type5_route(bgp, old_select, p, afi, safi, 0);
 }
 
@@ -4978,7 +4978,8 @@ static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, stru
 	if (safi == SAFI_EVPN)
 		bgp_evpn_unimport_route(peer->bgp, afi, safi, p, pi);
 	/* If this is a route exported to EVPN, process for un-export */
-	if (advertise_type5_routes_multipath(peer->bgp, afi) && is_route_injectable_into_evpn(pi))
+	if (advertise_type5_routes_multipath(peer->bgp, afi) &&
+	    is_route_injectable_into_evpn(peer->bgp, afi, safi, pi))
 		bgp_evpn_unexport_type5_route(peer->bgp, dest, pi, afi, safi);
 
 	bgp_rib_remove(dest, pi, peer, afi, safi);
@@ -5766,7 +5767,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 #endif
 
 		if (advertise_type5_routes_multipath(bgp, afi) &&
-		    is_route_injectable_into_evpn(pi)) {
+		    is_route_injectable_into_evpn(bgp, afi, safi, pi)) {
 			/* Implicit withdraw case */
 			bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 			force_evpn_export = true;
@@ -5845,7 +5846,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 #endif
 
 		if (advertise_type5_routes_multipath(bgp, afi) &&
-		    is_route_injectable_into_evpn(pi) && force_evpn_export) {
+		    is_route_injectable_into_evpn(bgp, afi, safi, pi) && force_evpn_export) {
 			/* Add back the route with its new attributes (e.g. local-pref). */
 			bgp_evpn_export_type5_route(bgp, dest, pi, afi, safi);
 		}
@@ -6012,7 +6013,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (safi == SAFI_EVPN && CHECK_FLAG(new->flags, BGP_PATH_VALID))
 		bgp_evpn_import_route(bgp, afi, safi, p, new);
 	/* If this is a route we should export for EVPN, process for export */
-	if (advertise_type5_routes_multipath(bgp, afi) && is_route_injectable_into_evpn(new))
+	if (advertise_type5_routes_multipath(bgp, afi) &&
+	    is_route_injectable_into_evpn(bgp, afi, safi, new))
 		bgp_evpn_export_type5_route(bgp, dest, new, afi, safi);
 
 	hook_call(bgp_process, bgp, afi, safi, dest, addpath_id, peer, true);
@@ -6078,7 +6080,8 @@ filtered:
 		if (safi == SAFI_EVPN)
 			bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
 		/* If this route is exported to EVPN, process for un-export as it is now filtered */
-		if (advertise_type5_routes_multipath(bgp, afi) && is_route_injectable_into_evpn(pi))
+		if (advertise_type5_routes_multipath(bgp, afi) &&
+		    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 			bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 
 		if (SAFI_UNICAST == safi
@@ -6623,7 +6626,7 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 					bgp_dest_get_prefix(dest), pi);
 			/* If this is a route exported to EVPN, process for un-export. */
 			if (advertise_type5_routes_multipath(bgp, afi) &&
-			    is_route_injectable_into_evpn(pi))
+			    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 				bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 			/* Handle withdraw for VRF route-leaking and L3VPN */
 			if (SAFI_UNICAST == safi
@@ -6849,7 +6852,8 @@ static void clearing_clear_one_pi(struct bgp_table *table, struct bgp_dest *dest
 				bgp, afi, safi,
 				bgp_dest_get_prefix(dest), pi);
 		/* If this is a route exported to EVPN, process for un-export */
-		if (advertise_type5_routes_multipath(bgp, afi) && is_route_injectable_into_evpn(pi))
+		if (advertise_type5_routes_multipath(bgp, afi) &&
+		    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 			bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 		/* Handle withdraw for VRF route-leaking and L3VPN */
 		if (SAFI_UNICAST == safi
@@ -7291,7 +7295,7 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 						bgp_get_default(), peer->bgp,
 						pi);
 				if (advertise_type5_routes_multipath(peer->bgp, afi) &&
-				    is_route_injectable_into_evpn(pi))
+				    is_route_injectable_into_evpn(peer->bgp, afi, safi, pi))
 					bgp_evpn_unexport_type5_route(peer->bgp, dest, pi, afi,
 								      safi);
 
@@ -7423,7 +7427,7 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table, afi_t af
 							SAFI_EVPN, p, pi);
 			/* If this is a route exported to EVPN, process for un-export */
 			if (advertise_type5_routes_multipath(bgp, afi) &&
-			    is_route_injectable_into_evpn(pi))
+			    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 				bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
@@ -7903,7 +7907,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 							 pi);
 			}
 			if (advertise_type5_routes_multipath(bgp, afi) &&
-			    is_route_injectable_into_evpn(pi))
+			    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 				bgp_evpn_export_type5_route(bgp, dest, pi, afi, safi);
 
 			bgp_dest_unlock_node(dest);
@@ -7955,7 +7959,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	}
 
 	/* If this is a route we should export to EVPN, process for export */
-	if (advertise_type5_routes_multipath(bgp, afi) && is_route_injectable_into_evpn(new))
+	if (advertise_type5_routes_multipath(bgp, afi) &&
+	    is_route_injectable_into_evpn(bgp, afi, safi, new))
 		bgp_evpn_export_type5_route(bgp, dest, new, afi, safi);
 
 #ifdef ENABLE_BGP_VNC
@@ -8001,7 +8006,8 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			vpn_leak_to_vrf_withdraw(pi);
 		}
 		/* If this is a route exported to EVPN, process for un-export. */
-		if (advertise_type5_routes_multipath(bgp, afi) && is_route_injectable_into_evpn(pi))
+		if (advertise_type5_routes_multipath(bgp, afi) &&
+		    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 			bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 
 		bgp_aggregate_decrement(bgp, p, pi, afi, safi);
@@ -8778,7 +8784,7 @@ static void bgp_aggregate_install(
 					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 			vpn_leak_from_vrf_update(bgp_get_default(), bgp, new);
 		if (advertise_type5_routes_multipath(bgp, afi) &&
-		    is_route_injectable_into_evpn(new))
+		    is_route_injectable_into_evpn(bgp, afi, safi, new))
 			bgp_evpn_export_type5_route(bgp, dest, new, afi, safi);
 	} else {
 	uninstall_aggregate_route:
@@ -8794,7 +8800,7 @@ static void bgp_aggregate_install(
 					vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
 				}
 				if (advertise_type5_routes_multipath(bgp, afi) &&
-				    is_route_injectable_into_evpn(pi))
+				    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 					bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 			}
 	}
@@ -8910,7 +8916,7 @@ void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
 									   pi);
 					if (advertise_type5_routes_multipath(bgp, afi) &&
-					    is_route_injectable_into_evpn(pi))
+					    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 						bgp_evpn_unexport_type5_route(bgp, dest, pi, afi,
 									      safi);
 				}
@@ -8925,7 +8931,7 @@ void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 				     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 					vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
 				if (advertise_type5_routes_multipath(bgp, afi) &&
-				    is_route_injectable_into_evpn(pi))
+				    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 					bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 			}
 		}
@@ -9070,7 +9076,7 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
 									   pi);
 					if (advertise_type5_routes_multipath(bgp, afi) &&
-					    is_route_injectable_into_evpn(pi))
+					    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 						bgp_evpn_unexport_type5_route(bgp, dest, pi, afi,
 									      safi);
 				}
@@ -9096,7 +9102,7 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
 									   pi);
 					if (advertise_type5_routes_multipath(bgp, afi) &&
-					    is_route_injectable_into_evpn(pi))
+					    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 						bgp_evpn_unexport_type5_route(bgp, dest, pi, afi,
 									      safi);
 				}
@@ -9254,7 +9260,7 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 						vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
 					if (advertise_type5_routes_multipath(bgp, afi) &&
-					    is_route_injectable_into_evpn(pi))
+					    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 						bgp_evpn_export_type5_route(bgp, dest, pi, afi,
 									    safi);
 				}
@@ -9468,7 +9474,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 						     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 				vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
 			if (advertise_type5_routes_multipath(bgp, afi) &&
-			    is_route_injectable_into_evpn(pi))
+			    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 				bgp_evpn_export_type5_route(bgp, pi->net, pi, afi, safi);
 		}
 
@@ -9480,7 +9486,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 						     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 				vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
 			if (advertise_type5_routes_multipath(bgp, afi) &&
-			    is_route_injectable_into_evpn(pi))
+			    is_route_injectable_into_evpn(bgp, afi, safi, pi))
 				bgp_evpn_export_type5_route(bgp, pi->net, pi, afi, safi);
 		}
 
@@ -10140,7 +10146,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 						bgp_get_default(), bgp, bpi);
 				}
 				if (advertise_type5_routes_multipath(bgp, afi) &&
-				    is_route_injectable_into_evpn(bpi))
+				    is_route_injectable_into_evpn(bgp, afi, SAFI_UNICAST, bpi))
 					bgp_evpn_export_type5_route(bgp, bn, bpi, afi,
 								    SAFI_UNICAST);
 				return;
@@ -10163,7 +10169,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			vpn_leak_from_vrf_update(bgp_get_default(), bgp, new);
 		}
 		if (advertise_type5_routes_multipath(bgp, afi) &&
-		    is_route_injectable_into_evpn(new))
+		    is_route_injectable_into_evpn(bgp, afi, SAFI_UNICAST, new))
 			bgp_evpn_export_type5_route(bgp, bn, new, afi, SAFI_UNICAST);
 	}
 
@@ -10198,7 +10204,7 @@ void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
 							   bgp, pi);
 			}
 			if (advertise_type5_routes_multipath(bgp, afi) &&
-			    is_route_injectable_into_evpn(pi))
+			    is_route_injectable_into_evpn(bgp, afi, SAFI_UNICAST, pi))
 				bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, SAFI_UNICAST);
 			bgp_aggregate_decrement(bgp, p, pi, afi, SAFI_UNICAST);
 			bgp_path_info_mark_for_delete(dest, pi);
@@ -10235,7 +10241,7 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 							   bgp, pi);
 			}
 			if (advertise_type5_routes_multipath(bgp, afi) &&
-			    is_route_injectable_into_evpn(pi))
+			    is_route_injectable_into_evpn(bgp, afi, SAFI_UNICAST, pi))
 				bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, SAFI_UNICAST);
 			bgp_aggregate_decrement(bgp, bgp_dest_get_prefix(dest),
 						pi, afi, SAFI_UNICAST);
