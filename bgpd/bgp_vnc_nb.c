@@ -924,6 +924,252 @@ int bgp_global_vnc_redistribute_ipv6_source_destroy(struct nb_cb_destroy_args *a
 }
 
 
+int bgp_global_vnc_advertise_un_method_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	/* encap-safi sets flag; encap-attr clears (matches classic write/read). */
+	if (strmatch(yang_dnode_get_string(args->dnode, NULL), "encap-safi"))
+		bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_ADV_UN_METHOD_ENCAP;
+	else
+		bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_ADV_UN_METHOD_ENCAP;
+	return NB_OK;
+}
+
+int bgp_global_vnc_advertise_un_method_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_ADV_UN_METHOD_ENCAP;
+	return NB_OK;
+}
+
+static int vnc_nb_parse_l2rd(const char *val, uint8_t *out)
+{
+	unsigned long value_l;
+	char *end = NULL;
+
+	if (!val)
+		return -1;
+	if (strmatch(val, "auto-vn") || strmatch(val, "auto:vn")) {
+		*out = 0;
+		return 0;
+	}
+	value_l = strtoul(val, &end, 10);
+	if (!val[0] || (end && *end) || value_l < 1 || value_l > 255)
+		return -1;
+	*out = value_l & 0xff;
+	return 0;
+}
+
+int bgp_global_vnc_defaults_l2rd_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	uint8_t value;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+	if (vnc_nb_parse_l2rd(yang_dnode_get_string(args->dnode, NULL), &value))
+		return NB_ERR_INCONSISTENCY;
+
+	bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_L2RD;
+	bgp->rfapi_cfg->default_l2rd = value;
+	return NB_OK;
+}
+
+int bgp_global_vnc_defaults_l2rd_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	bgp->rfapi_cfg->default_l2rd = 0;
+	bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_L2RD;
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_l2rd_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+	uint8_t value;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+	if (vnc_nb_parse_l2rd(yang_dnode_get_string(args->dnode, NULL), &value))
+		return NB_ERR_INCONSISTENCY;
+
+	rfg->l2rd = value;
+	rfg->flags |= RFAPI_RFG_L2RD;
+	return NB_OK;
+}
+
+int bgp_global_vnc_nve_group_l2rd_destroy(struct nb_cb_destroy_args *args)
+{
+	struct rfapi_nve_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+
+	rfg->l2rd = 0;
+	rfg->flags &= ~RFAPI_RFG_L2RD;
+	return NB_OK;
+}
+
+int bgp_global_vnc_l2_group_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	struct rfapi_l2_group_cfg *rfg;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	name = yang_dnode_get_string(args->dnode, "name");
+	rfg = rfapi_l2_group_lookup_byname(bgp, name);
+	if (!rfg) {
+		rfg = rfapi_l2_group_new();
+		rfg->name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG, name);
+		listnode_add(bgp->rfapi_cfg->l2_groups, rfg);
+	}
+	nb_running_set_entry(args->dnode, rfg);
+	return NB_OK;
+}
+
+int bgp_global_vnc_l2_group_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	struct rfapi_l2_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	rfg = nb_running_unset_entry(args->dnode);
+	if (!bgp || !rfg)
+		return NB_ERR_INCONSISTENCY;
+
+	bgp_rfapi_delete_l2_group(NULL, bgp, rfg);
+	return NB_OK;
+}
+
+int bgp_global_vnc_l2_group_logical_network_id_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_l2_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+
+	rfg->logical_net_id = yang_dnode_get_uint32(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_global_vnc_l2_group_labels_create(struct nb_cb_create_args *args)
+{
+	struct rfapi_l2_group_cfg *rfg;
+	uint32_t label;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+
+	label = yang_dnode_get_uint32(args->dnode, NULL);
+	if (!rfg->labels)
+		rfg->labels = list_new();
+	if (!listnode_lookup(rfg->labels, (void *)(uintptr_t)label))
+		listnode_add(rfg->labels, (void *)(uintptr_t)label);
+	return NB_OK;
+}
+
+int bgp_global_vnc_l2_group_labels_destroy(struct nb_cb_destroy_args *args)
+{
+	struct rfapi_l2_group_cfg *rfg;
+	uint32_t label;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg || !rfg->labels)
+		return NB_OK;
+
+	label = yang_dnode_get_uint32(args->dnode, NULL);
+	listnode_delete(rfg->labels, (void *)(uintptr_t)label);
+	return NB_OK;
+}
+
+int bgp_global_vnc_l2_group_rt_import_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_l2_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+
+	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL), &rfg->rt_import_list);
+	return NB_OK;
+}
+
+int bgp_global_vnc_l2_group_rt_export_modify(struct nb_cb_modify_args *args)
+{
+	struct rfapi_l2_group_cfg *rfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
+	if (!rfg)
+		return NB_ERR_INCONSISTENCY;
+
+	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL), &rfg->rt_export_list);
+	return NB_OK;
+}
+
+
 int bgp_global_vnc_noop_destroy(struct nb_cb_destroy_args *args)
 {
 	return NB_OK;
@@ -939,6 +1185,15 @@ const struct frr_yang_module_info frr_bgp_vnc_info = {
 				.cli_show = vnc_cli_show,
 				.create = bgp_global_vnc_create,
 				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/advertise-un-method",
+			.cbs = {
+				.modify = bgp_global_vnc_advertise_un_method_modify,
+				.destroy = bgp_global_vnc_advertise_un_method_destroy,
+				.cli_show = vnc_advertise_un_method_cli_show,
 			}
 		},
 		{
@@ -998,6 +1253,14 @@ const struct frr_yang_module_info frr_bgp_vnc_info = {
 				.destroy = bgp_global_vnc_noop_destroy,
 			}
 		},
+
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/defaults/l2rd",
+			.cbs = {
+				.modify = bgp_global_vnc_defaults_l2rd_modify,
+				.destroy = bgp_global_vnc_defaults_l2rd_destroy,
+			}
+		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group",
 			.cbs = {
@@ -1046,6 +1309,52 @@ const struct frr_yang_module_info frr_bgp_vnc_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group/rt-export",
 			.cbs = {
 				.modify = bgp_global_vnc_nve_group_rt_export_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/nve-group/l2rd",
+			.cbs = {
+				.modify = bgp_global_vnc_nve_group_l2rd_modify,
+				.destroy = bgp_global_vnc_nve_group_l2rd_destroy,
+			}
+		},
+
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/l2-group",
+			.cbs = {
+				.cli_show = vnc_l2_group_cli_show,
+				.cli_show_end = vnc_l2_group_cli_show_end,
+				.create = bgp_global_vnc_l2_group_create,
+				.destroy = bgp_global_vnc_l2_group_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/l2-group/logical-network-id",
+			.cbs = {
+				.modify = bgp_global_vnc_l2_group_logical_network_id_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/l2-group/labels",
+			.cbs = {
+				.create = bgp_global_vnc_l2_group_labels_create,
+				.destroy = bgp_global_vnc_l2_group_labels_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/l2-group/rt-import",
+			.cbs = {
+				.modify = bgp_global_vnc_l2_group_rt_import_modify,
+				.destroy = bgp_global_vnc_noop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/l2-group/rt-export",
+			.cbs = {
+				.modify = bgp_global_vnc_l2_group_rt_export_modify,
 				.destroy = bgp_global_vnc_noop_destroy,
 			}
 		},

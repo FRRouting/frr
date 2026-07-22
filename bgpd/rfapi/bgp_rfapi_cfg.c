@@ -553,8 +553,7 @@ struct rfapi_nve_group_cfg *rfapi_group_new(struct bgp *bgp, rfapi_group_cfg_typ
 	return rfg;
 }
 
-static struct rfapi_l2_group_cfg *rfapi_l2_group_lookup_byname(struct bgp *bgp,
-							       const char *name)
+struct rfapi_l2_group_cfg *rfapi_l2_group_lookup_byname(struct bgp *bgp, const char *name)
 {
 	struct rfapi_l2_group_cfg *rfg;
 	struct listnode *node, *nnode;
@@ -569,7 +568,7 @@ static struct rfapi_l2_group_cfg *rfapi_l2_group_lookup_byname(struct bgp *bgp,
 	return NULL;
 }
 
-static struct rfapi_l2_group_cfg *rfapi_l2_group_new(void)
+struct rfapi_l2_group_cfg *rfapi_l2_group_new(void)
 {
 	struct rfapi_l2_group_cfg *rfg;
 
@@ -3418,9 +3417,8 @@ DEFUN_NOSH (vnc_l2_group,
 	return CMD_SUCCESS;
 }
 
-static void bgp_rfapi_delete_l2_group(struct vty *vty, /* NULL = no output */
-				      struct bgp *bgp,
-				      struct rfapi_l2_group_cfg *rfg)
+void bgp_rfapi_delete_l2_group(struct vty *vty, /* NULL = no output */
+			       struct bgp *bgp, struct rfapi_l2_group_cfg *rfg)
 {
 	/* delete it */
 	XFREE(MTYPE_RFAPI_GROUP_CFG, rfg->name);
@@ -3436,10 +3434,8 @@ static void bgp_rfapi_delete_l2_group(struct vty *vty, /* NULL = no output */
 	rfapi_l2_group_del(rfg);
 }
 
-static int
-bgp_rfapi_delete_named_l2_group(struct vty *vty, /* NULL = no output */
-				struct bgp *bgp,
-				const char *rfg_name) /* NULL = any */
+int bgp_rfapi_delete_named_l2_group(struct vty *vty,			   /* NULL = no output */
+				    struct bgp *bgp, const char *rfg_name) /* NULL = any */
 {
 	struct rfapi_l2_group_cfg *rfg = NULL;
 	struct listnode *node, *nnode;
@@ -3700,13 +3696,9 @@ void bgp_rfapi_cfg_init(void)
 	/* vnc_export_mode_cmd (bgp path), vnc_export_nvegroup_cmd */
 
 	/* BGP_NODE — still classic */
-	install_element(BGP_NODE, &vnc_l2_group_cmd);
-	install_element(BGP_NODE, &vnc_no_l2_group_cmd);
-	install_element(BGP_NODE, &vnc_advertise_un_method_cmd);
+	/* vnc_l2_group / no / advertise-un-method — YANG: bgp_vnc_cli_init() */
 
-	/* BGP_VNC_DEFAULTS_NODE — migrated: rt/rd/response-lifetime/exit-vnc */
-	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_l2rd_cmd);
-	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_no_l2rd_cmd);
+	/* BGP_VNC_DEFAULTS_NODE — migrated: rt/rd/response-lifetime/l2rd/exit-vnc */
 
 	/* BGP_NODE — still classic (redistribute sub-config) */
 	install_element(BGP_NODE, &vnc_redistribute_nvegroup_cmd);
@@ -3734,9 +3726,7 @@ void bgp_rfapi_cfg_init(void)
 	install_element(BGP_NODE, &vnc_nve_export_no_prefixlist_cmd);
 	install_element(BGP_NODE, &vnc_nve_export_no_routemap_cmd);
 
-	/* BGP_VNC_NVE_GROUP_NODE — migrated: rt/rd/prefix/lifetime/exit-vnc */
-	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_l2rd_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_no_l2rd_cmd);
+	/* BGP_VNC_NVE_GROUP_NODE — migrated: rt/rd/prefix/lifetime/l2rd/exit-vnc */
 	install_element(BGP_VNC_NVE_GROUP_NODE,
 			&vnc_nve_group_export_prefixlist_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE,
@@ -3756,11 +3746,7 @@ void bgp_rfapi_cfg_init(void)
 	install_element(BGP_VRF_POLICY_NODE,
 			&vnc_vrf_policy_export_no_routemap_cmd);
 
-	install_element(BGP_VNC_L2_GROUP_NODE, &vnc_l2_group_lni_cmd);
-	install_element(BGP_VNC_L2_GROUP_NODE, &vnc_l2_group_labels_cmd);
-	install_element(BGP_VNC_L2_GROUP_NODE, &vnc_l2_group_no_labels_cmd);
-	install_element(BGP_VNC_L2_GROUP_NODE, &vnc_l2_group_rt_cmd);
-	install_element(BGP_VNC_L2_GROUP_NODE, &exit_vnc_cmd);
+	/* BGP_VNC_L2_GROUP_NODE — migrated to bgp_vnc_cli_init() */
 }
 
 struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
