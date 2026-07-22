@@ -514,8 +514,11 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		if (wrongvif)
 			pim_dm_wrongif(ifp, sg, up);
 
-		/* We have no where to flood this traffic, prune it */
-		if (!update_oil) {
+		/*
+		 * We have no where to flood this traffic, prune it, unless the
+		 * wrong-interface prune above already pruned upstream.
+		 */
+		if (!update_oil && !PIM_UPSTREAM_DM_TEST_PRUNE(up->flags)) {
 			PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
 			pim_dm_prune_send(up->rpf, up, 0);
 			prune_timer_start(up);

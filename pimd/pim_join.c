@@ -115,8 +115,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 		sg->src = PIMADDR_ANY;
 	}
 	if (pim_iface_grp_dm(pim_ifp, sg->grp)) {
-		zlog_warn("%s: Specified Group(%pPA) in join is now in DM, not allowed to create PIM state",
-			  __func__, &sg->grp);
+		pim_dm_recv_join(ifp, neigh, holdtime, upstream, sg, source_flags);
 		return;
 	}
 
@@ -142,7 +141,11 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 	++pim_ifp->pim_ifstat_prune_recv;
 
 
-	pim_dm_recv_prune(ifp, neigh, holdtime, upstream, sg, source_flags);
+	/* Dense groups keep no sparse downstream state. */
+	if (pim_iface_grp_dm(pim_ifp, sg->grp)) {
+		pim_dm_recv_prune(ifp, neigh, holdtime, upstream, sg, source_flags);
+		return;
+	}
 
 	if (CHECK_FLAG(source_flags, PIM_WILDCARD_BIT_MASK)) {
 		/* As per RFC 7761 Section 4.9.1:
@@ -520,7 +523,7 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 				continue;
 
 			if (pim_msg_type == PIM_MSG_TYPE_GRAFT)
-				pim_dm_recv_graft(ifp, &sg);
+				pim_dm_recv_graft(ifp, msg_upstream_addr, &sg);
 			else if (pim_msg_type == PIM_MSG_TYPE_GRAFT_ACK) {
 				up = pim_upstream_find(pim_ifp->pim, &sg);
 				if (up)
