@@ -374,6 +374,76 @@ ALIAS_ATTR(no_vnc_export_bgp_group_nve_cli, vnc_export_bgp_group_nve_no_group_cm
 	   "NVE group name\n",
 	   CMD_ATTR_YANG);
 
+/* --- VNC export zebra mode / group-nve --- */
+
+DEFPY_YANG(vnc_export_zebra_mode_cli,
+	   vnc_export_zebra_mode_cli_cmd,
+	   "vnc export zebra mode <group-nve|ce|none|registering-nve>$mode",
+	   "VNC/RFAPI configuration\n"
+	   "Export to other protocols\n"
+	   "Export to Zebra (experimental)\n"
+	   "Set export mode\n"
+	   "Export using NVE group configuration\n"
+	   "Export routes with NVE connected router next-hops\n"
+	   "Disable export\n"
+	   "Export based on registering NVE\n")
+{
+	if (strmatch(mode, "ce")) {
+		vty_out(vty, "Changing modes for zebra export not implemented yet\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/export/zebra/mode", NB_OP_MODIFY, mode);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_export_zebra_group_nve_cli,
+	   vnc_export_zebra_group_nve_cli_cmd,
+	   "vnc export zebra group-nve group WORD$name",
+	   "VNC/RFAPI configuration\n"
+	   "Export to other protocols\n"
+	   "Export to Zebra (experimental)\n"
+	   "NVE group mode\n"
+	   "Specify NVE group\n"
+	   "NVE group name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/export/zebra/group-nve-group[.='%s']",
+		   name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_vnc_export_zebra_group_nve_cli,
+	   no_vnc_export_zebra_group_nve_cli_cmd,
+	   "no vnc export zebra group-nve group WORD$name",
+	   NO_STR
+	   "VNC/RFAPI configuration\n"
+	   "Export to other protocols\n"
+	   "Export to Zebra (experimental)\n"
+	   "NVE group mode\n"
+	   "Specify NVE group\n"
+	   "NVE group name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath),
+		   "./frr-bgp-vnc:vnc/export/zebra/group-nve-group[.='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_ATTR(no_vnc_export_zebra_group_nve_cli, vnc_export_zebra_group_nve_no_group_cmd,
+	   "vnc export zebra group-nve no group WORD$name",
+	   "VNC/RFAPI configuration\n"
+	   "Export to other protocols\n"
+	   "Export to Zebra (experimental)\n"
+	   "NVE group mode\n"
+	   NO_STR
+	   "Specify NVE group\n"
+	   "NVE group name\n",
+	   CMD_ATTR_YANG);
+
 /* --- VNC redistribute mode --- */
 
 DEFPY_YANG(vnc_redistribute_mode_cli,
@@ -712,6 +782,21 @@ void vnc_export_bgp_cli_show(struct vty *vty, const struct lyd_node *dnode, bool
 
 void vnc_export_zebra_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
+	const struct lyd_node *child;
+	const char *mode;
+
+	if (yang_dnode_exists(dnode, "mode")) {
+		mode = yang_dnode_get_string(dnode, "mode");
+		if (strcmp(mode, "none"))
+			vty_out(vty, " vnc export zebra mode %s\n", mode);
+	}
+
+	LY_LIST_FOR (lyd_child(dnode), child) {
+		if (!strcmp(child->schema->name, "group-nve-group"))
+			vty_out(vty, " vnc export zebra group-nve group %s\n",
+				lyd_get_value(child));
+	}
+
 	if (yang_dnode_exists(dnode, "ipv4-prefix-list"))
 		vty_out(vty, " vnc export zebra ipv4 prefix-list %s\n",
 			yang_dnode_get_string(dnode, "ipv4-prefix-list"));
@@ -1172,6 +1257,10 @@ void bgp_vnc_cli_init(void)
 	install_element(BGP_NODE, &vnc_export_bgp_group_nve_cli_cmd);
 	install_element(BGP_NODE, &no_vnc_export_bgp_group_nve_cli_cmd);
 	install_element(BGP_NODE, &vnc_export_bgp_group_nve_no_group_cmd);
+	install_element(BGP_NODE, &vnc_export_zebra_mode_cli_cmd);
+	install_element(BGP_NODE, &vnc_export_zebra_group_nve_cli_cmd);
+	install_element(BGP_NODE, &no_vnc_export_zebra_group_nve_cli_cmd);
+	install_element(BGP_NODE, &vnc_export_zebra_group_nve_no_group_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_mode_cli_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_source_cli_cmd);
 	install_element(BGP_NODE, &no_vnc_redistribute_source_cli_cmd);

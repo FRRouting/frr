@@ -716,33 +716,195 @@ int bgp_global_vnc_export_bgp_group_nve_group_create(struct nb_cb_create_args *a
 {
 	struct bgp *bgp;
 	struct rfapi_rfg_name *rfgn;
+	struct listnode *node;
 	struct rfapi_nve_group_cfg *rfg;
 	const char *name;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
 	if (!bgp || !bgp->rfapi_cfg)
 		return NB_ERR_INCONSISTENCY;
+
 	name = lyd_get_value(args->dnode);
+	if (!bgp->rfapi_cfg->rfg_export_direct_bgp_l)
+		bgp->rfapi_cfg->rfg_export_direct_bgp_l = list_new();
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node, rfgn)) {
+		if (rfgn->name && !strcmp(rfgn->name, name))
+			return NB_OK;
+	}
+
 	rfgn = XCALLOC(MTYPE_RFAPI_RFG_NAME, sizeof(struct rfapi_rfg_name));
-	rfgn->name = XSTRDUP(MTYPE_RFAPI_RFG_NAME, name);
+	rfgn->name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG, name);
 	rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_NVE);
 	if (!rfg)
 		rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_VRF);
 	rfgn->rfg = rfg;
-	if (!bgp->rfapi_cfg->rfg_export_direct_bgp_l)
-		bgp->rfapi_cfg->rfg_export_direct_bgp_l = list_new();
 	listnode_add(bgp->rfapi_cfg->rfg_export_direct_bgp_l, rfgn);
-	if (rfg && (bgp->rfapi_cfg->flags & BGP_VNC_CONFIG_EXPORT_BGP_MODE_GRP))
+	if (rfg && VNC_EXPORT_BGP_GRP_ENABLED(bgp->rfapi_cfg))
 		vnc_direct_bgp_add_group(bgp, rfg);
 	return NB_OK;
 }
 
 int bgp_global_vnc_export_bgp_group_nve_group_destroy(struct nb_cb_destroy_args *args)
 {
+	struct bgp *bgp;
+
+	struct listnode *node, *nnode;
+	struct rfapi_rfg_name *rfgn;
+	const char *name;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg || !bgp->rfapi_cfg->rfg_export_direct_bgp_l)
+		return NB_OK;
+
+	name = lyd_get_value(args->dnode);
+	for (ALL_LIST_ELEMENTS(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node, nnode, rfgn)) {
+		if (!rfgn->name || strcmp(rfgn->name, name))
+			continue;
+		if (rfgn->rfg)
+			vnc_direct_bgp_del_group(bgp, rfgn->rfg);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, rfgn->name);
+		list_delete_node(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node);
+		XFREE(MTYPE_RFAPI_RFG_NAME, rfgn);
+		break;
+	}
+	return NB_OK;
+}
+
+static void vnc_nb_zebra_export_mode_apply(struct bgp *bgp, uint32_t newmode)
+{
+	struct rfapi_cfg *hc = bgp->rfapi_cfg;
+	uint32_t oldmode = hc->flags & BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_BITS;
+	struct listnode *node;
+	struct rfapi_rfg_name *rfgn;
+
+	if (newmode == oldmode)
+		return;
+
+	if (oldmode == BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_GRP && hc->rfg_export_zebra_l) {
+		for (ALL_LIST_ELEMENTS_RO(hc->rfg_export_zebra_l, node, rfgn)) {
+			if (rfgn->rfg)
+				vnc_zebra_del_group(bgp, rfgn->rfg);
+		}
+	}
+
+	hc->flags &= ~BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_BITS;
+	hc->flags |= newmode;
+
+	if (newmode == BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_GRP && hc->rfg_export_zebra_l) {
+		for (ALL_LIST_ELEMENTS_RO(hc->rfg_export_zebra_l, node, rfgn)) {
+			if (rfgn->rfg)
+				vnc_zebra_add_group(bgp, rfgn->rfg);
+		}
+	}
+}
+
+int bgp_global_vnc_export_zebra_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *mode;
+	uint32_t newmode = BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_NONE;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	mode = yang_dnode_get_string(args->dnode, NULL);
+	if (!strcmp(mode, "group-nve"))
+		newmode = BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_GRP;
+	else if (!strcmp(mode, "registering-nve"))
+		newmode = BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_RH;
+
+	vnc_nb_zebra_export_mode_apply(bgp, newmode);
+	return NB_OK;
+}
+
+int bgp_global_vnc_export_zebra_mode_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	vnc_nb_zebra_export_mode_apply(bgp, BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_NONE);
+	return NB_OK;
+}
+
+int bgp_global_vnc_export_zebra_group_nve_group_create(struct nb_cb_create_args *args)
+{
+	struct bgp *bgp;
+	struct rfapi_rfg_name *rfgn;
+	struct listnode *node;
+	struct rfapi_nve_group_cfg *rfg;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg)
+		return NB_ERR_INCONSISTENCY;
+
+	name = lyd_get_value(args->dnode);
+	if (!bgp->rfapi_cfg->rfg_export_zebra_l)
+		bgp->rfapi_cfg->rfg_export_zebra_l = list_new();
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->rfapi_cfg->rfg_export_zebra_l, node, rfgn)) {
+		if (rfgn->name && !strcmp(rfgn->name, name))
+			return NB_OK;
+	}
+
+	rfgn = XCALLOC(MTYPE_RFAPI_RFG_NAME, sizeof(struct rfapi_rfg_name));
+	rfgn->name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG, name);
+	rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_NVE);
+	if (!rfg)
+		rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_VRF);
+	rfgn->rfg = rfg;
+	listnode_add(bgp->rfapi_cfg->rfg_export_zebra_l, rfgn);
+	if (rfg && VNC_EXPORT_ZEBRA_GRP_ENABLED(bgp->rfapi_cfg))
+		vnc_zebra_add_group(bgp, rfg);
+	return NB_OK;
+}
+
+int bgp_global_vnc_export_zebra_group_nve_group_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	struct listnode *node, *nnode;
+	struct rfapi_rfg_name *rfgn;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg || !bgp->rfapi_cfg->rfg_export_zebra_l)
+		return NB_OK;
+
+	name = lyd_get_value(args->dnode);
+	for (ALL_LIST_ELEMENTS(bgp->rfapi_cfg->rfg_export_zebra_l, node, nnode, rfgn)) {
+		if (!rfgn->name || strcmp(rfgn->name, name))
+			continue;
+		if (rfgn->rfg)
+			vnc_zebra_del_group(bgp, rfgn->rfg);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, rfgn->name);
+		list_delete_node(bgp->rfapi_cfg->rfg_export_zebra_l, node);
+		XFREE(MTYPE_RFAPI_RFG_NAME, rfgn);
+		break;
+	}
 	return NB_OK;
 }
 
@@ -2067,6 +2229,20 @@ const struct frr_yang_module_info frr_bgp_vnc_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/export/zebra",
 			.cbs = {
 				.cli_show = vnc_export_zebra_cli_show,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/export/zebra/mode",
+			.cbs = {
+				.modify = bgp_global_vnc_export_zebra_mode_modify,
+				.destroy = bgp_global_vnc_export_zebra_mode_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc/export/zebra/group-nve-group",
+			.cbs = {
+				.create = bgp_global_vnc_export_zebra_group_nve_group_create,
+				.destroy = bgp_global_vnc_export_zebra_group_nve_group_destroy,
 			}
 		},
 		{
