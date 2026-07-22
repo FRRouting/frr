@@ -183,6 +183,16 @@ void pim_dm_wrongif(struct interface *ifp, pim_sgaddr sg, struct pim_upstream *u
 			zlog_debug("%s: Dense Mode WRONGVIF on P2P %s, immediate prune (S,G)=%pSG",
 				   __func__, ifp->name, &sg);
 		pim_dm_prune_wrongif(ifp, sg, up);
+	} else if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+		/*
+		 * The FHR injects on RPF_interface(S) only.  Reflected copies of
+		 * the same flow on other LAN interfaces are not competing forwarders;
+		 * Assert winner state there would keep stale OIFs and break prune.
+		 */
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: Dense Mode WRONGVIF on LAN %s at FHR, immediate prune (S,G)=%pSG",
+				   __func__, ifp->name, &sg);
+		pim_dm_prune_wrongif(ifp, sg, up);
 	} else {
 		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug("%s: Dense Mode WRONGVIF on LAN %s, starting Assert (S,G)=%pSG",

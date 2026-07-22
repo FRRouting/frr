@@ -232,7 +232,11 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 		/* RFC 3973 4.6.4: CouldAssert(S,G,I) = (RPF_interface(S) != I).
 		 * Require a resolved RPF interface so a transiently unresolved
 		 * RPF (NULL) does not make every interface assert-eligible.
+		 * FHR injects only on RPF_interface(S); reflected copies on other
+		 * LANs are not competing forwarders.
 		 */
+		if (PIM_UPSTREAM_FLAG_TEST_FHR(ch->upstream->flags))
+			return 0;
 		return ch->upstream->rpf.source_nexthop.interface != NULL &&
 		       ch->upstream->rpf.source_nexthop.interface != ifp;
 	}
