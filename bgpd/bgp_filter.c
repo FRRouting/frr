@@ -12,6 +12,8 @@
 #include "queue.h"
 #include "filter.h"
 #include "frregex_real.h"
+#include "northbound_cli.h"
+#include "yang.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
@@ -801,27 +803,19 @@ ALIAS (show_as_path_access_list_all,
        "List AS path access lists\n"
        JSON_STR)
 
-static int config_write_as_list(struct vty *vty)
+static int config_write_as_list_one(const struct lyd_node *dnode, void *arg)
 {
-	struct as_list *aslist;
-	struct as_filter *asfilter;
-	int write = 0;
-
-	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
-		for (asfilter = aslist->head; asfilter;
-		     asfilter = asfilter->next) {
-			vty_out(vty,
-				"bgp as-path access-list %s seq %" PRId64
-				" %s %s\n",
-				aslist->name, asfilter->seq,
-				filter_type_str(asfilter->type),
-				asfilter->reg_str);
-			write++;
-		}
-	return write;
+	nb_cli_show_dnode_cmds(arg, dnode, false);
+	return YANG_ITER_CONTINUE;
 }
 
-static int config_write_as_list(struct vty *vty);
+static int config_write_as_list(struct vty *vty)
+{
+	yang_dnode_iterate(config_write_as_list_one, vty, running_config->dnode,
+			   "/frr-filter:lib/frr-bgp-filter:as-path-list");
+	return 0;
+}
+
 static struct cmd_node as_list_node = {
 	.name = "as list",
 	.node = AS_LIST_NODE,
