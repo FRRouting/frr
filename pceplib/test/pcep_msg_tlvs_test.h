@@ -34,6 +34,8 @@ void test_pcep_tlv_create_srpag_cp_id(void);
 void test_pcep_tlv_create_srpag_cp_pref(void);
 void test_pcep_tlv_create_nopath_vector(void);
 void test_pcep_tlv_create_arbitrary(void);
+void test_pcep_tlv_create_te_path_binding_mpls(void);
+void test_pcep_tlv_create_te_path_binding_srv6(void);
 
 
 #endif
