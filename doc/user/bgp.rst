@@ -1389,6 +1389,22 @@ Route Aggregation-IPv4 Address Family
    Similar to `summary-only`, but will only suppress more specific routes that
    are matched by the selected route-map.
 
+.. clicmd:: aggregate-address A.B.C.D/M upa [drop] [max-routes (1-4294967295)]
+
+   Enable Unreachable Prefix Announcement (UPA) for this aggregate. When component
+   routes are withdrawn or become unreachable, UPA routes are originated with
+   the UPA extended community (type 0x03, subtype 0x09) instead of withdrawing
+   the aggregate.
+
+   The optional ``drop`` keyword sets the D-bit in the UPA extended community,
+   signaling to receivers that they should install a blackhole/drop entry for
+   the prefix.
+
+   The ``max-routes`` parameter specifies a cap on the number of simultaneous
+   UPA routes that can be originated for this aggregate (0 = unlimited).
+
+   See :ref:`bgp-upa` for detailed information about UPA configuration and behavior.
+
 
    This configuration example sets up an ``aggregate-address`` under the ipv4
    address-family.
@@ -1442,6 +1458,22 @@ Route Aggregation-IPv6 Address Family
    Similar to `summary-only`, but will only suppress more specific routes that
    are matched by the selected route-map.
 
+.. clicmd:: aggregate-address X:X::X:X/M upa [drop] [max-routes (1-4294967295)]
+
+   Enable Unreachable Prefix Announcement (UPA) for this aggregate. When component
+   routes are withdrawn or become unreachable, UPA routes are originated with
+   the UPA extended community (type 0x03, subtype 0x09) instead of withdrawing
+   the aggregate.
+
+   The optional ``drop`` keyword sets the D-bit in the UPA extended community,
+   signaling to receivers that they should install a blackhole/drop entry for
+   the prefix.
+
+   The ``max-routes`` parameter specifies a cap on the number of simultaneous
+   UPA routes that can be originated for this aggregate (0 = unlimited).
+
+   See :ref:`bgp-upa` for detailed information about UPA configuration and behavior.
+
 
    This configuration example sets up an ``aggregate-address`` under the ipv6
    address-family.
@@ -1456,6 +1488,126 @@ Route Aggregation-IPv6 Address Family
         aggregate-address 50::0/64 route-map aggr-rmap
        exit-address-family
 
+
+.. _bgp-upa:
+
+Unreachable Prefix Announcement (UPA)
+--------------------------------------
+
+Unreachable Prefix Announcement (UPA) is a BGP mechanism defined in
+``draft-ietf-idr-upa-02`` that allows routers to signal that a prefix is
+unreachable without withdrawing the route entirely. This enables downstream
+routers to take appropriate action (such as blackholing traffic) while
+maintaining route presence in the BGP table.
+
+UPA Overview
+^^^^^^^^^^^^
+
+Traditionally, when all component routes of an aggregate disappear, the
+aggregate itself must be withdrawn. UPA solves this by advertising the
+aggregate with a special **UPA Extended Community** (type 0x03, subtype 0x09)
+that contains:
+
+- **Router ID**: The originating router's BGP router ID (4 bytes)
+- **D-bit (Drop flag)**: Whether receivers should install a blackhole entry
+
+When peers receive a route with the UPA extended community, they can:
+
+- Install a blackhole route to drop traffic immediately (D-bit)
+- Apply special policies (rate limiting, diversion to scrubbing centers, etc.)
+- Log/alert on unreachable prefixes
+
+UPA Configuration
+^^^^^^^^^^^^^^^^^
+
+UPA must be enabled on both the aggregate and the BGP neighbor.
+
+**On the aggregate:**
+
+.. code-block:: frr
+
+   router bgp 65001
+    address-family ipv4 unicast
+     aggregate-address 10.0.0.0/8 upa drop max-routes 100
+    exit-address-family
+
+This enables UPA for the aggregate 10.0.0.0/8. When component routes become
+unreachable, UPA routes are originated up to the max-routes limit.
+
+**On the neighbor:**
+
+.. code-block:: frr
+
+   router bgp 65001
+    neighbor 192.0.2.1 remote-as 65002
+    address-family ipv4 unicast
+     neighbor 192.0.2.1 activate
+     neighbor 192.0.2.1 upa
+    exit-address-family
+
+Only neighbors configured with ``neighbor X upa`` will receive UPA-tagged routes;
+others receive normal route withdrawals, maintaining backward compatibility.
+The ``neighbor X upa`` command is documented in :ref:`bgp-peers`.
+
+Global UPA Origination
+^^^^^^^^^^^^^^^^^^^^^^^
+
+In addition to per-aggregate UPA, UPA origination can be enabled globally for an
+address-family. This originates UPA routes for any prefix that becomes
+unreachable, independent of aggregate configuration.
+
+.. clicmd:: upa originate-all
+
+   Enable global UPA origination for the address-family. When any prefix becomes
+   unreachable, a UPA route is originated instead of a plain withdrawal.
+
+.. clicmd:: upa drop
+
+   Set the D-bit in globally originated UPA Extended Communities, signaling
+   receivers to install a blackhole/drop entry.
+
+.. clicmd:: upa max-routes (1-4294967295)
+
+   Limit the maximum number of simultaneous global UPA routes that can be
+   originated for the address-family. The default is ``0`` (unlimited).
+
+UPA Behavior
+^^^^^^^^^^^^
+
+- Aggregate is advertised normally when component routes are present
+- When components are withdrawn, UPA routes are originated with the UPA ExtCom
+- If ``drop`` is configured, the D-bit is set in the UPA extended community,
+  signaling receivers to install a blackhole/drop entry
+- When components become reachable again, UPA routes are automatically withdrawn
+- Multiple UPA originators' Router-IDs are aggregated in a single UPDATE
+  (up to 200 per prefix; a warning is logged above 100)
+- UPA routes always lose best-path selection to non-UPA routes
+
+UPA Show Commands
+^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] [unicast] upa [json]
+
+   Display UPA routes in the BGP routing table. Shows all routes that have
+   the UPA extended community set.
+
+.. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] [unicast] upa statistics [json]
+
+   Display UPA statistics including global UPA configuration state, number of
+   tracked UPA routes, and active UPA route count.
+
+.. clicmd:: show bgp [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> upa [json]
+
+   Display per-neighbor UPA information, including whether UPA sending is
+   enabled for the neighbor.
+
+UPA Debugging
+^^^^^^^^^^^^^
+
+.. clicmd:: debug bgp upa
+
+   Enable debugging of UPA origination, withdrawal, and Extended Community
+   processing.
 
 .. _bgp-redistribute-to-bgp:
 
@@ -1507,6 +1659,28 @@ Redistribute routes from a routing table number into BGP.
    Display the current redistribution configuration for the specified BGP
    instance. Shows which protocols are being redistributed into BGP along with
    their associated metrics, instances, and route-maps if configured.
+
+.. clicmd:: show bgp [<view|vrf> VRFNAME] <ipv4|ipv6> unicast aggregate-address [A.B.C.D/M|X:X::X:X/M] [json]
+
+   Display runtime information for configured aggregate-address entries.
+   When a specific prefix is provided, shows details for that aggregate only.
+   The output includes:
+
+   - Summary-only and AS-set flags
+   - Origin (IGP/EGP/incomplete)
+   - Matching route count and origin breakdown (incomplete, EGP counts)
+   - MED state (match enabled, initialized, mismatched, value)
+   - Route-map and suppress-map names if configured
+   - Aggregated attributes (community, extended community, large community, AS path)
+
+   Example output::
+
+      Aggregate: 192.168.0.0/24
+        Summary-only: yes, AS-set: no
+        Origin: igp
+        Matching routes: 3 (incomplete: 0, egp: 0)
+        MED: match=yes, initialized=yes, mismatched=no, value=100
+        Suppress-map: my-suppress-map
 
 .. clicmd:: bgp update-delay MAX-DELAY
 
@@ -1971,6 +2145,22 @@ Configuring Peers
 
    Send the extended RPKI communities to the peer. RPKI extended community
    can be send only to iBGP and eBGP-OAD peers.
+
+   Default: disabled.
+
+.. clicmd:: neighbor PEER upa
+
+   Enable sending UPA (Unreachable Prefix Announcement) routes to this peer.
+   When configured, locally originated UPA routes and received routes carrying
+   the UPA extended community (type 0x03, subtype 0x09) are announced to
+   this neighbor.
+
+   Neighbors without this capability will receive standard route withdrawals
+   when aggregates become unreachable, maintaining backward compatibility.
+
+   This capability must be configured together with the aggregate-address
+   ``upa`` option on the originating router.
+   See :ref:`bgp-upa` for detailed information.
 
    Default: disabled.
 
@@ -2985,13 +3175,28 @@ The following commands can be used in route maps:
 
    It is not possible to set an expanded community list.
 
-.. clicmd:: set comm-list WORD delete
 
-   This command remove communities value from BGP communities attribute.  The
-   ``word`` is community list name. When BGP route's communities value matches
-   to the community list ``word``, the communities value is removed. When all
-   of communities value is removed eventually, the BGP update's communities
-   attribute is completely removed.
+.. clicmd:: set comm-list <delete|add|replace> WORD
+
+   This command modifies the BGP communities attribute using a specified 
+   standard community list name (``WORD``). 
+   The following operations are available:
+
+   * ``delete``: Removes communities from the BGP communities attribute that 
+                 match the specified community list.
+   * ``add``: Appends the communities defined in the community list to the 
+              existing BGP communities attribute of the route.
+   * ``replace``: Overwrites the existing BGP communities attribute entirely 
+                  with the communities defined in the community list.
+
+.. clicmd:: set extended-comm-list delete <EXTCOMMUNITY_LIST_NAME>
+
+   Set BGP extended community list for deletion.
+
+.. clicmd:: set large-comm-list delete <LCOMMUNITY_LIST_NAME>
+
+   Set BGP large community list for deletion.
+
 
 .. _bgp-communities-example:
 
@@ -3106,7 +3311,7 @@ community-list is used. ``deny`` community-list is ignored.
    bgp community-list standard DEL permit 100:1 100:2
    !
    route-map RMAP permit 10
-    set comm-list DEL delete
+    set comm-list delete DEL
 
 
 .. _bgp-extended-communities-attribute:
@@ -3214,6 +3419,11 @@ BGP Extended Communities in Route Map
    If the receiving BGP router supports Node Target Extended Communities,
    it will install the route with the community that contains it's own
    local BGP Identifier. Otherwise, it's not installed.
+
+.. clicmd:: set extcommunity evpn rmac X:X:X:X:X:X
+
+   This command sets the EVPN Router MAC extended community value in BGP
+   updates. This command is applied only to EVPN type-5 (IP Prefix) routes.
 
 .. clicmd:: set extcommunity soo EXTCOMMUNITY
 
@@ -5009,7 +5219,7 @@ incoming/outgoing directions.
 
       Total number of VRFs (including default): 3
 
-.. clicmd:: show bgp [<ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast|flowspec> | l2vpn evpn]
+.. clicmd:: show bgp [<ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast|flowspec|unreachability> | l2vpn evpn]
 
    These commands display BGP routes for the specific routing table indicated by
    the selected afi and the selected safi. If no afi and no safi value is given,
@@ -5093,6 +5303,19 @@ incoming/outgoing directions.
 .. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] [afi] [safi] neighbors PEER received prefix-filter [json]
 
    Display Address Prefix ORFs received from this peer.
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [afi] [safi] neighbors PEER orf-prefix-list [json]
+
+   Display the ORF prefix-list entries received from this peer. This command
+   shows the individual prefix entries that make up the Outbound Route
+   Filtering (ORF) prefix-list sent by the peer, which is used to filter
+   outbound route advertisements to that peer.
+
+   Example output::
+
+      r1# show bgp ipv4 unicast neighbors 192.168.12.2 orf-prefix-list
+      ip prefix-list 192.168.12.2.1.1: 1 entries
+         seq 5 permit 10.0.0.1/32
 
 .. clicmd:: show bgp [afi] [safi] [all] dampening dampened-paths [wide|json]
 
@@ -5564,6 +5787,27 @@ Displaying Routes by Route Distinguisher
             Last update: Thu Apr 30 17:46:31 2026
 
       Displayed 2 prefixes (2 paths)
+
+.. clicmd:: show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> routes [json [brief]]
+
+   Display EVPN routes from the BGP loc-rib that were received from the given
+   neighbor and accepted for the L2VPN EVPN address-family (same filter as the
+   non-JSON ``routes`` form).
+
+   With ``json``, output is JSON including per-prefix ``paths`` and table-level
+   counters such as ``numPrefix`` and ``totalPrefix``.
+
+   With ``json brief`` (``brief`` only after ``json``), output is compact JSON:
+   per-prefix ``pathCount``, ``multiPathCount``, and ``flags`` (for example
+   ``bestPathExists``) under each NLRI key, without a ``paths`` array and
+   without the outer ``numPrefix`` / ``totalPrefix`` fields.
+
+.. clicmd:: show [ip] bgp l2vpn evpn rd <ASN:NN_OR_IP-ADDRESS:NN|all> neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]
+
+   Same intent as :clicmd:`show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> routes [json [brief]]`, but
+   the RIB is restricted to the given Route Distinguisher (or all RDs when
+   ``all`` is used instead of a specific RD). Only ``json`` is supported here;
+   there is no ``brief`` modifier on this variant.
 
 Displaying Update Group Information
 -----------------------------------
@@ -6299,6 +6543,8 @@ Show command json output:
 .. include:: flowspec.rst
 
 .. include:: bgp-linkstate.rst
+
+.. include:: unreachability.rst
 
 .. [bgp-route-osci-cond] McPherson, D. and Gill, V. and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation Condition", IETF RFC3345
 .. [stable-flexible-ibgp] Flavel, A. and M. Roughan, "Stable and flexible iBGP", ACM SIGCOMM 2009

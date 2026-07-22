@@ -491,6 +491,12 @@ static void logging_unique_id_cli_write(struct vty *vty, const struct lyd_node *
 	else if (show_defaults)
 		vty_out(vty, "log unique-id\n");
 }
+static void logging_filter_text_cli_write(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults __attribute__((unused)))
+{
+	vty_out(vty, "log filter-text %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 static void logging_immediate_mode_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
@@ -514,8 +520,7 @@ struct frr_yang_module_info frr_logging_cli_info = {
 		{ .xpath = "/frr-logging:logging/syslog", .cbs.cli_show = logging_syslog_cli_write },
 		{ .xpath = "/frr-logging:logging/file/filename", .cbs.cli_show = logging_file_filename_cli_write },
 		{ .xpath = "/frr-logging:logging/filtered-file/filename", .cbs.cli_show = logging_filtered_file_filename_cli_write },
-		/* This is not saved, but may be the future. */
-		/* { .xpath = "/frr-logging:logging/filter-text", .cbs.cli_show = logging_filter_text_cli_write }, */
+		{ .xpath = "/frr-logging:logging/filter-text", .cbs.cli_show = logging_filter_text_cli_write },
 		{ .xpath = "/frr-logging:logging/daemon-file/filename", .cbs.cli_show = logging_daemon_file_filename_cli_write },
 		{ .xpath = "/frr-logging:logging/facility", .cbs.cli_show = logging_facility_cli_write },
 		{ .xpath = "/frr-logging:logging/record-priority", .cbs.cli_show = logging_record_priority_cli_write },

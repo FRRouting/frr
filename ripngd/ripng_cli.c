@@ -98,7 +98,7 @@ DEFUN_YANG (ripng_allow_ecmp,
             "Number of paths\n")
 {
 	int idx_number = 0;
-	char mpaths[3] = {};
+	char mpaths[sizeof(STRINGIFY(MULTIPATH_NUM))] = {};
 	uint32_t paths = MULTIPATH_NUM;
 
     if (argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx_number))
@@ -124,9 +124,9 @@ DEFUN_YANG (no_ripng_allow_ecmp,
 void cli_show_ripng_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
-	uint8_t paths;
+	uint16_t paths;
 
-	paths = yang_dnode_get_uint8(dnode, NULL);
+	paths = yang_dnode_get_uint16(dnode, NULL);
 
 	if (!paths)
 		vty_out(vty, " no allow-ecmp\n");

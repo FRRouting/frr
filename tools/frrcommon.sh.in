@@ -35,7 +35,8 @@ FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 # ORDER MATTERS FOR $DAEMONS!
 # - keep zebra first
 # - watchfrr does NOT belong in this list
-
+# - The topotests attempt to mirror this so if you modify this order
+#   go fix the topotests.
 DAEMONS="mgmtd zebra bfdd bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd fabricd vrrpd pathd"
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
@@ -154,7 +155,7 @@ daemon_prep() {
 }
 
 daemon_start() {
-	local dmninst daemon inst args instopt wrap bin
+	local dmninst daemon inst args instopt wrap bin daemon_max_fds daemon_uc
 
 	is_user_root || exit 1
 
@@ -163,7 +164,14 @@ daemon_start() {
 
 	daemon_inst "$1"
 
-	[ "$MAX_FDS" != "" ] && ulimit -n "$MAX_FDS" > /dev/null 2> /dev/null
+	# Allow a per-daemon MAX_<DAEMON>_FDS to override the global MAX_FDS so
+	# that daemons needing a large number of FDs do not force every other
+	# daemon to use an equally high value.  The daemon name is upper cased,
+	# e.g. bgpd uses MAX_BGPD_FDS.
+	daemon_uc="`echo "$daemon" | tr '[:lower:]' '[:upper:]'`"
+	eval daemon_max_fds="\$MAX_${daemon_uc}_FDS"
+	[ "$daemon_max_fds" = "" ] && daemon_max_fds="$MAX_FDS"
+	[ "$daemon_max_fds" != "" ] && ulimit -n "$daemon_max_fds" > /dev/null 2> /dev/null
 	daemon_prep "$daemon" "$inst" || return 1
 	if test ! -d "$V_PATH"; then
 		install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" -d "$V_PATH"

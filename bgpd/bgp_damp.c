@@ -16,6 +16,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_damp.h"
+#include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
@@ -75,13 +76,10 @@ struct bgp_damp_config *get_active_bdc_from_pi(struct bgp_path_info *pi,
 {
 	if (!pi)
 		return NULL;
-	if (CHECK_FLAG(pi->peer->af_flags[afi][safi],
-		       PEER_FLAG_CONFIG_DAMPENING))
-		return &pi->peer->damp[afi][safi];
-	if (peer_group_active(pi->peer))
-		if (CHECK_FLAG(pi->peer->group->conf->af_flags[afi][safi],
-			       PEER_FLAG_CONFIG_DAMPENING))
-			return &pi->peer->group->conf->damp[afi][safi];
+	if (pi->peer->damp[afi][safi])
+		return pi->peer->damp[afi][safi];
+	if (peer_group_active(pi->peer) && pi->peer->group->conf->damp[afi][safi])
+		return pi->peer->group->conf->damp[afi][safi];
 	if (CHECK_FLAG(pi->peer->bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
 		return &pi->peer->bgp->damp[afi][safi];
 	return NULL;
@@ -828,15 +826,20 @@ void bgp_peer_damp_enable(struct peer *peer, afi_t afi, safi_t safi, time_t half
 
 	if (!peer)
 		return;
-	bdc = &peer->damp[afi][safi];
-	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING)) {
+
+	bdc = peer->damp[afi][safi];
+	if (bdc) {
 		if (bdc->half_life == half && bdc->reuse_limit == reuse &&
-		    bdc->suppress_value == suppress &&
-		    bdc->max_suppress_time == max)
+		    bdc->suppress_value == suppress && bdc->max_suppress_time == max)
 			return;
 		bgp_peer_damp_disable(peer, afi, safi);
 	}
-	SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_DAMPENING);
+
+	/* Allocate on demand */
+	if (!peer->damp[afi][safi])
+		peer->damp[afi][safi] = XCALLOC(MTYPE_BGP_DAMP_CONFIG,
+						sizeof(struct bgp_damp_config));
+	bdc = peer->damp[afi][safi];
 	bgp_damp_parameter_set(half, reuse, suppress, max, bdc);
 	bdc->afi = afi;
 	bdc->safi = safi;
@@ -853,13 +856,11 @@ void bgp_peer_damp_disable(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_damp_config *bdc;
 
-	if (!peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_DAMPENING))
-		return;
-	bdc = &peer->damp[afi][safi];
+	bdc = peer->damp[afi][safi];
 	if (!bdc)
 		return;
 	bgp_damp_info_clean(peer->bgp, bdc, afi, safi);
-	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_DAMPENING);
+	XFREE(MTYPE_BGP_DAMP_CONFIG, peer->damp[afi][safi]);
 }
 
 void bgp_config_write_peer_damp(struct vty *vty, struct peer *peer, afi_t afi,
@@ -867,7 +868,9 @@ void bgp_config_write_peer_damp(struct vty *vty, struct peer *peer, afi_t afi,
 {
 	struct bgp_damp_config *bdc;
 
-	bdc = &peer->damp[afi][safi];
+	bdc = peer->damp[afi][safi];
+	if (!bdc)
+		return;
 	if (bdc->half_life == DEFAULT_HALF_LIFE * 60 &&
 	    bdc->reuse_limit == DEFAULT_REUSE &&
 	    bdc->suppress_value == DEFAULT_SUPPRESS &&
@@ -894,10 +897,8 @@ static void bgp_print_peer_dampening_parameters(struct vty *vty,
 
 	if (!peer)
 		return;
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_DAMPENING)) {
-		bdc = &peer->damp[afi][safi];
-		if (!bdc)
-			return;
+	bdc = peer->damp[afi][safi];
+	if (bdc) {
 		if (use_json) {
 			json_object_int_add(json, "halfLifeSecs",
 					    bdc->half_life);

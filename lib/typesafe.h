@@ -1004,15 +1004,16 @@ macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
 				  const type *item)                            \
 {                                                                              \
 	if (!h->hh.tabshift)                                                   \
-		return NULL;                                                   \
+		return false;                                                   \
 	uint32_t hval = item->field.hi.hashval, hbits = HASH_KEY(h->hh, hval); \
 	const struct thash_item *hitem = h->hh.entries[hbits];                 \
 	while (hitem && hitem->hashval < hval)                                 \
 		hitem = hitem->next;                                           \
-	for (hitem = h->hh.entries[hbits]; hitem && hitem->hashval <= hval;    \
-	     hitem = hitem->next)                                              \
+	while (hitem && hitem->hashval == hval) {                              \
 		if (hitem == &item->field.hi)                                  \
 			return true;                                           \
+		hitem = hitem->next;                                           \
+	}                                                                       \
 	return false;                                                          \
 }                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */

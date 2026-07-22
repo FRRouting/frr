@@ -43,14 +43,16 @@ extern const char *nl_rtproto_to_str(uint8_t rtproto);
 extern const char *nl_family_to_str(uint8_t family);
 extern const char *nl_rttype_to_str(uint8_t rttype);
 
-extern int netlink_parse_info(int (*filter)(struct nlmsghdr *h, ns_id_t ns_id, int startup),
-			      struct nlsock *nl, const struct zebra_dplane_info *dp_info,
-			      int count, bool startup);
-extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
-extern int netlink_talk(int (*filter)(struct nlmsghdr *h, ns_id_t ns_id, int startup),
-			struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns, bool startup);
-extern int ge_netlink_talk(int (*filter)(struct nlmsghdr *h, ns_id_t ns_id, int startup),
-			   struct nlmsghdr *n, struct zebra_ns *zns, bool startup);
+typedef int (*netlink_parse_filter_t)(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
+
+extern int netlink_parse_info(netlink_parse_filter_t filter, struct nlsock *nl,
+			      const struct zebra_dplane_info *dp_info, int count, bool startup,
+			      void *arg, int *nl_err);
+extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup, void *arg);
+extern int netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsock *nl,
+			struct zebra_ns *zns, bool startup, void *arg, int *nl_err);
+extern int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct zebra_ns *zns,
+			   bool startup, void *arg, int *nl_err);
 extern int netlink_request(struct nlsock *nl, void *req);
 
 enum netlink_msg_status {

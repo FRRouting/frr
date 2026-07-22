@@ -2506,14 +2506,13 @@ static void rip_update_process(struct rip *rip, int route_type)
 			continue;
 		}
 
-		/* If unicast is used, but `network X.Y.Z.W` is not defined
-		 * for this interface, we SHOULD NOT send an update to this
-		 * neighbor.
+		/* If unicast is used, but no `network` statement enables
+		 * this interface, we SHOULD NOT send an update to this neighbor.
 		 * If RIP is configured on such an interface, the redistribution
 		 * of route(s) from another routing protocol into RIP, received
 		 * through that interface, does not work.
 		 */
-		if (rip_enable_network_lookup2(connected) < 0) {
+		if (rip_enable_network_connected_lookup(connected) < 0) {
 			if (RIP_DEBUG_SEND)
 				zlog_debug("Neighbor %pI4 is not in any `network` statement!",
 					   &p->u.prefix4);
@@ -2712,7 +2711,7 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	rip->vrf_name = XSTRDUP(MTYPE_RIP_VRF_NAME, vrf_name);
 
 	/* Set initial value. */
-	rip->ecmp = yang_get_default_uint8("%s/allow-ecmp", RIP_INSTANCE);
+	rip->ecmp = yang_get_default_uint16("%s/allow-ecmp", RIP_INSTANCE);
 	rip->default_metric =
 		yang_get_default_uint8("%s/default-metric", RIP_INSTANCE);
 	rip->distance =

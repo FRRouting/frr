@@ -337,6 +337,15 @@ To start OSPF process you have to specify the OSPF router.
 
    This feature is enabled by default.
 
+.. clicmd:: shutdown
+
+   Disables the OSPF instance. This command is useful when it's desired
+   to disable the OSPF instance while retaining its configuration,
+   making it easier to reenable it later.
+
+   It can be used in conjunction with graceful restart to continue forwarding
+   traffic while shutting down.
+
 .. clicmd:: clear ip ospf [(1-65535)] process
 
    This command can be used to clear the ospf process data structures. This
@@ -1093,10 +1102,12 @@ Opaque LSA
 .. clicmd:: capability opaque
 
 
+   *ospfd* supports Opaque LSA (:rfc:`2370`), which is a pre-requisite for
+   Graceful Restart, Segment Routing, MPLS Traffic Engineering, and others.
 
    *ospfd* supports Opaque LSA (:rfc:`5250`) as partial support for
-   MPLS Traffic Engineering LSAs. The opaque-lsa capability must be
-   enabled in the configuration. An alternate command could be
+   MPLS Traffic Engineering LSAs. The opaque-lsa capability is enabled
+   by default in the configuration. An alternate command could be
    "mpls-te on" (:ref:`ospf-traffic-engineering`). Note that FRR
    offers only partial support for some of the routing protocol
    extensions that are used with MPLS-TE; it does not support a

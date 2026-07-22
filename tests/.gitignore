@@ -7,6 +7,7 @@ frr_northbound*
 /bgpd/test_aspath
 /bgpd/test_bgp_table
 /bgpd/test_capability
+/bgpd/test_community
 /bgpd/test_ecommunity
 /bgpd/test_mp_attr
 /bgpd/test_mpath
@@ -47,6 +48,7 @@ frr_northbound*
 /lib/test_prefix2str
 /lib/test_printfrr
 /lib/test_privs
+/lib/test_rcu
 /lib/test_resolver
 /lib/test_ringbuf
 /lib/test_segv

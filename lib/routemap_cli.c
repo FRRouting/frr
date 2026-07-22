@@ -912,6 +912,11 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-pim-route-map:multicast-interface"));
+	} else if (IS_MATCH_MULTICAST_SOURCE_INTERFACE(condition)) {
+		vty_out(vty, " match multicast-source-interface %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:multicast-source-interface"));
 	}
 }
 
@@ -1338,15 +1343,34 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				"./rmap-set-action/frr-bgp-route-map:originator-id"));
 	} else if (IS_SET_COMM_LIST_DEL(action)) {
 		acl = NULL;
-		if ((ln = yang_dnode_get(
-				 dnode,
-				 "./rmap-set-action/frr-bgp-route-map:comm-list-name"))
-			!= NULL)
+		if ((ln = yang_dnode_get(dnode,
+					 "./rmap-set-action/frr-bgp-route-map:comm-list-name-delete")) !=
+		    NULL)
 			acl = yang_dnode_get_string(ln, NULL);
 
 		assert(acl);
 
-		vty_out(vty, " set comm-list %s delete\n", acl);
+		vty_out(vty, " set comm-list delete %s\n", acl);
+	} else if (IS_SET_COMM_LIST_ADD(action)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode,
+				    "./rmap-set-action/frr-bgp-route-map:comm-list-name-add");
+		if (ln)
+			acl = yang_dnode_get_string(ln, NULL);
+
+		assert(acl);
+
+		vty_out(vty, " set comm-list add %s\n", acl);
+	} else if (IS_SET_COMM_LIST_REPLACE(action)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode,
+				    "./rmap-set-action/frr-bgp-route-map:comm-list-name-replace");
+		if (ln)
+			acl = yang_dnode_get_string(ln, NULL);
+
+		assert(acl);
+
+		vty_out(vty, " set comm-list replace %s\n", acl);
 	} else if (IS_SET_LCOMM_LIST_DEL(action)) {
 		acl = NULL;
 		if ((ln = yang_dnode_get(
@@ -1357,7 +1381,7 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 
 		assert(acl);
 
-		vty_out(vty, " set large-comm-list %s delete\n", acl);
+		vty_out(vty, " set large-comm-list delete %s\n", acl);
 	} else if (IS_SET_EXTCOMM_LIST_DEL(action)) {
 		acl = NULL;
 		ln = yang_dnode_get(dnode, "rmap-set-action/frr-bgp-route-map:comm-list-name");
@@ -1367,7 +1391,7 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 
 		assert(acl);
 
-		vty_out(vty, " set extended-comm-list %s delete\n", acl);
+		vty_out(vty, " set extended-comm-list delete %s\n", acl);
 	} else if (IS_SET_LCOMMUNITY(action)) {
 		if (yang_dnode_exists(
 			    dnode,
@@ -1525,6 +1549,10 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv6"));
+	} else if (IS_SET_BGP_EVPN_ROUTER_MAC(action)) {
+		vty_out(vty, " set extcommunity evpn rmac %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-set-action/frr-bgp-route-map:extcommunity-evpn-rmac"));
 	} else if (IS_SET_BGP_L3VPN_NEXTHOP_ENCAPSULATION(action)) {
 		vty_out(vty, " set l3vpn next-hop encapsulation %s\n",
 			yang_dnode_get_string(

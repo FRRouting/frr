@@ -93,6 +93,17 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 
 	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
+	/* cache the incoming attr to avoid repeated intern, and to
+	 * prevent bgp_attr_owns_extra() from treating the parsed parent
+	 * attr as transient. Without this, the multi-NLRI loop can lose
+	 * srv6_l3service (and other attr->extra members) for prefixes
+	 * after the first one in the same UPDATE.
+	 */
+	if (attr) {
+		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
+		attr->attr_intern_reuse.parsed_attr = attr;
+	}
+
 #define VPN_PREFIXLEN_MIN_BYTES (3 + 8) /* label + RD */
 	while (STREAM_READABLE(data) > 0) {
 		/* Clear prefix structure. */
@@ -217,7 +228,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
 				   SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, &prd, &label, 1, 0, NULL);
+				   BGP_ROUTE_NORMAL, &prd, &label, 1, 0, NULL, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP,
@@ -243,6 +254,10 @@ stream_failure:
 	ret = BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 
 done:
+	/* Reset the attr_intern_reuse cache */
+	if (attr)
+		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
+
 	stream_free(data);
 	return ret;
 
@@ -2059,8 +2074,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				 * XXX Leave static_attr.nexthop
 				 * intact for NHT
 				 */
-				static_attr.flag &=
-					~ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+				bgp_attr_unset(&static_attr, BGP_ATTR_NEXT_HOP);
 			}
 		} else {
 			/* Update based on next-hop family to account for
@@ -2075,8 +2089,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 					static_attr.nexthop.s_addr;
 				static_attr.mp_nexthop_len =
 					BGP_ATTR_NHLEN_IPV4;
-				static_attr.flag |=
-					ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+				bgp_attr_set(&static_attr, BGP_ATTR_NEXT_HOP);
 			}
 		}
 		nexthop_self_flag = 1;
@@ -2109,7 +2122,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		encode_label(label_val, &label);
 
 	/* Set originator ID to "me" */
-	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+	bgp_attr_set(&static_attr, BGP_ATTR_ORIGINATOR_ID);
 	static_attr.originator_id = to_bgp->router_id;
 
 	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
@@ -2557,7 +2570,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 			static_attr.mp_nexthop_len =
 				path_vpn->attr->mp_nexthop_len;
 		}
-		static_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		bgp_attr_set(&static_attr, BGP_ATTR_NEXT_HOP);
 		break;
 	case AF_INET6:
 		/* save */

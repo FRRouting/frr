@@ -13,7 +13,22 @@ network for optimizing forwarding of overlay BUM traffic.
 
 .. note::
 
-   On Linux for PIM-SM operation you *must* have kernel version 4.19 or greater.
+   On Linux, kernel version 4.19 or greater is *recommended* for PIM-SM (ASM).
+   Kernels from 4.19 onward deliver the ``IGMPMSG_WRVIFWHOLE`` upcall, which
+   carries the ingress interface and the full packet.  That path drives
+   first-hop router (FHR) activation and PIM register encapsulation of the
+   first data packet to the RP.
+
+   On Linux kernels older than 4.19 (for example some RHEL/Rocky 8 systems),
+   only ``IGMPMSG_WRONGVIF`` is available.  *pimd* detects this at runtime and
+   compensates via the WRONGVIF handler for several cases (join-before-data,
+   source and receiver on the same LAN, LHR / SPT switch, and ``(S,G)``
+   MFC recovery after *pimd* restart).  This support is best-effort: WRONGVIF
+   does not include the packet buffer, so register encapsulation of the
+   first data packet still requires ``IGMPMSG_WRVIFWHOLE`` (kernel >= 4.19).
+   On kernels that deliver WRVIFWHOLE, compensation is not used after the
+   first such upcall.
+
    To use PIM for EVPN BUM forwarding, kernels 5.0 or greater are required.
    OpenBSD has no multicast support and FreeBSD, and NetBSD only
    have support for SSM.
@@ -302,6 +317,12 @@ PIM Routers
 
    Unreachable routes do not receive special treatment and do not cause
    fallback to a second lookup.
+
+.. clicmd:: shutdown
+
+   Disable the PIM instance while retaining all configuration and remove
+   all state.
+
 
 .. _pim-global-configuration:
 

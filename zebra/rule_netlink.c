@@ -245,7 +245,7 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
  * from a previous instance and should have been removed on shutdown.
  *
  */
-int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	struct zebra_ns *zns;
 	struct fib_rule_hdr *frh;
@@ -416,8 +416,7 @@ int netlink_rules_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
-	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
-				 &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd, &dp_info, 0, true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -425,8 +424,7 @@ int netlink_rules_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
-	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
-				 &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd, &dp_info, 0, true, NULL, NULL);
 
 	return ret;
 }

@@ -177,18 +177,7 @@ def teardown_module():
 
 
 def router_compare_json_output(rname, command, reference, wait=0.5, count=120):
-    "Compare router JSON output"
-
-    logger.info('Comparing router "%s" "%s" output', rname, command)
-
-    tgen = get_topogen()
-    expected = json.loads(reference)
-
-    # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
-    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
-    assert diff is None, assertmsg
+    topotest.router_compare_json_output_data(rname, command, reference, count, wait)
 
 
 #

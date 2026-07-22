@@ -879,8 +879,10 @@ static void zebra_srv6_sid_entry_delete_all(struct zebra_srv6_sid *sid)
 {
 	struct zebra_srv6_sid_entry *entry;
 
-	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry)
+	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry) {
 		zebra_srv6_sid_entry_list_del(&sid->entries, entry);
+		zebra_srv6_sid_entry_free(entry);
+	}
 }
 
 struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid,

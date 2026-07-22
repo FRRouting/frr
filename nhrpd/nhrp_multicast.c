@@ -128,7 +128,7 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	if (!out_ndx || !ctx.pkt)
 		return;
 
-	ctx.ifp = if_lookup_by_index(htonl(*out_ndx), VRF_DEFAULT);
+	ctx.ifp = if_lookup_by_index(ntohl(*out_ndx), VRF_DEFAULT);
 	if (!ctx.ifp)
 		return;
 

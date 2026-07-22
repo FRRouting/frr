@@ -1822,7 +1822,7 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa, struct ospf_lsa *old)
 				"LSA[Type%d:%pI4]: OSPF API Server Originate LSA Old Seq: 0x%x Age: %d",
 				old->data->type, &old->data->id,
 				ntohl(old->data->ls_seqnum),
-				ntohl(old->data->ls_age));
+				ntohs(old->data->ls_age));
 		if (IS_LSA_MAX_SEQ(old)) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "%s: old LSA at maxseq", __func__);
@@ -1835,7 +1835,7 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa, struct ospf_lsa *old)
 		zlog_debug(
 			"LSA[Type%d:%pI4]: OSPF API Server Originate LSA New Seq: 0x%x Age: %d",
 			lsa->data->type, &lsa->data->id,
-			ntohl(lsa->data->ls_seqnum), ntohl(lsa->data->ls_age));
+			ntohl(lsa->data->ls_seqnum), ntohs(lsa->data->ls_age));
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(ospf, lsa->oi, lsa) == NULL) {

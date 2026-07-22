@@ -412,6 +412,27 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:comm-list-name-delete",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:comm-list-name-add",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:comm-list-name-replace",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-asn",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify,
@@ -483,6 +504,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify,
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-evpn-rmac",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_evpn_rmac_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_evpn_rmac_destroy,
 			}
 		},
 		{

@@ -80,6 +80,7 @@ struct igmp_mtrace {
 
 #define MTRACE_HDR_SIZE (sizeof(struct igmp_mtrace))
 #define MTRACE_RSP_SIZE (sizeof(struct igmp_mtrace_rsp))
+#define MTRACE_MAX_MSG_LEN (MTRACE_HDR_SIZE + MTRACE_MAX_HOPS * MTRACE_RSP_SIZE)
 
 int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			     char *igmp_msg, int igmp_msg_len);

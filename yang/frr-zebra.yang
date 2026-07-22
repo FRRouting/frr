@@ -178,7 +178,6 @@ module frr-zebra {
       "Zebra interface type dummy.";
   }
 
-  // End of ip6-route
   /*
    * VxLAN Network Identifier type
    */
@@ -675,7 +674,7 @@ module frr-zebra {
 
             leaf instance {
               type uint16;
-              must "../protocol = \"ospf\"";
+              must "../protocol = \"ospf\" or ../protocol = \"ospf6\"";
               description
                 "Retrieve routes from a specific OSPF instance.";
             }
@@ -704,7 +703,6 @@ module frr-zebra {
     }
   }
 
-  // End of zebra container
   /*
    * RPCs
    */
@@ -791,7 +789,7 @@ module frr-zebra {
       }
 
       leaf protocol {
-        type frr-route-types:frr-route-types-v4;
+        type frr-route-types:frr-route-types;
         description
           "Retrieve routes from a specific protocol daemon.";
       }
@@ -800,7 +798,7 @@ module frr-zebra {
         type uint32 {
           range "1..65535";
         }
-        must "../protocol = \"ospf\"";
+        must "../protocol = \"ospf\" or ../protocol = \"ospf6\"";
         description
           "Retrieve routes from a specific OSPF instance.";
       }
@@ -1311,7 +1309,7 @@ module frr-zebra {
     }
   }
 
-  // End get-evpn-vni-vteps
+  // End get-evpn-vni-nexthops
 
   rpc clear-evpn-dup-addr {
     description
@@ -1370,8 +1368,8 @@ module frr-zebra {
     input {
       choice all-choice {
         default "all-vni";
-        description 
-	  "Choice between retrieving information for all VNIs or |
+        description
+          "Choice between retrieving information for all VNIs or |
            including detailed results, a single VTEP address, or |
            showing duplicate addresses.";
 
@@ -1836,25 +1834,25 @@ module frr-zebra {
         leaf src-prefix {
           type inet:ip-prefix;
           description
-            "";
+            "Source IP prefix to match.";
         }
 
         leaf dest-prefix {
           type inet:ip-prefix;
           description
-            "";
+            "Destination IP prefix to match.";
         }
 
         leaf src-port {
           type inet:port-number;
           description
-            "";
+            "Source port number to match.";
         }
 
         leaf dest-port {
           type inet:port-number;
           description
-            "";
+            "Destination port number to match.";
         }
 
         choice proto-choice {
@@ -1883,25 +1881,25 @@ module frr-zebra {
           leaf type-min {
             type uint8;
             description
-              "";
+              "Minimum ICMP type value.";
           }
 
           leaf type-max {
             type uint8;
             description
-              "";
+              "Maximum ICMP type value.";
           }
 
           leaf code-min {
             type uint8;
             description
-              "";
+              "Minimum ICMP code value.";
           }
 
           leaf code-max {
             type uint8;
             description
-              "";
+              "Maximum ICMP code value.";
           }
         }
 
@@ -1912,19 +1910,19 @@ module frr-zebra {
           leaf is-unique {
             type empty;
             description
-              "";
+              "The IP set entry is unique.";
           }
 
           leaf packet-counter {
             type uint64;
             description
-              "";
+              "Number of packets matched by the IP set.";
           }
 
           leaf bytes-counter {
             type uint64;
             description
-              "";
+              "Number of bytes matched by the IP set.";
           }
         }
       }
@@ -1963,7 +1961,7 @@ module frr-zebra {
         leaf unique-val {
           type uint32;
           description
-            "";
+            "A unique value identifying the iptable entry.";
         }
 
         choice action-choice {
@@ -1973,7 +1971,7 @@ module frr-zebra {
             leaf action-drop {
               type empty;
               description
-                "";
+                "Drop matching packets.";
             }
           }
 
@@ -1981,7 +1979,7 @@ module frr-zebra {
             leaf action-redirect {
               type empty;
               description
-                "";
+                "Redirect matching packets to a different table.";
             }
           }
         }
@@ -1989,37 +1987,37 @@ module frr-zebra {
         leaf min-packet {
           type uint32;
           description
-            "";
+            "Minimum packet size to match.";
         }
 
         leaf max-packet {
           type uint32;
           description
-            "";
+            "Maximum packet size to match.";
         }
 
         leaf lookup-src-port {
           type empty;
           description
-            "";
+            "Match on source port.";
         }
 
         leaf lookup-dst-port {
           type empty;
           description
-            "";
+            "Match on destination port.";
         }
 
         leaf tcp-flags {
           type uint16;
           description
-            "";
+            "TCP flags to match.";
         }
 
         leaf tcp-flags-mask {
           type uint16;
           description
-            "";
+            "Mask for TCP flags matching.";
         }
 
         leaf protocol-val {
@@ -2075,7 +2073,7 @@ module frr-zebra {
           leaf bytes-counter {
             type uint64;
             description
-              "Number of packets processed by iptables.";
+              "Number of bytes processed by iptables.";
           }
         }
 
@@ -2549,7 +2547,7 @@ module frr-zebra {
             "RFC 6275: Mobility Support in IPv6";
         }
         leaf link-mtu {
-          type uint32;
+          type uint16;
           default "0";
           description
             "The value to be placed in MTU options sent by the
@@ -2656,7 +2654,9 @@ module frr-zebra {
             "RFC 6275: Mobility Support in IPv6";
         }
         leaf home-agent-lifetime {
-          type uint16;
+          type uint16 {
+            range "1..65520";
+          }
           description
             "The value to be placed in the Home Agent Lifetime
             field in the Router Advertisement messages sent by the
@@ -2877,8 +2877,8 @@ module frr-zebra {
               units "seconds";
               description
                 "Lifetime of the NAT64 prefix to be placed in RAs.
-		If omitted, the lifetime will be calculated automatically as
-		MaxRtrAdvInterval * 3";
+                If omitted, the lifetime will be calculated automatically as
+                MaxRtrAdvInterval * 3";
             }
           }
         }
@@ -3038,7 +3038,7 @@ module frr-zebra {
       leaf ipv6-resolve-via-default {
         type boolean;
         description
-          "Resolve IPv4 nexthops via the default route. This is true by default
+          "Resolve IPv6 nexthops via the default route. This is true by default
            for traditional profile and false by default for datacenter profile.
            Removing the leaf sets it back to the default value for the profile.";
       }
@@ -3172,6 +3172,47 @@ module frr-zebra {
       default "200";
       description
         "Limit on the number of updates queued to the dataplane subsystem.";
+    }
+    container nexthop-group {
+      description
+        "Global nexthop group configuration.";
+      container resilience {
+        presence
+          "Create every zebra-owned multipath nexthop group as a
+           resilient nexthop group using the parameters below. A
+           nexthop group that an upper level protocol has already
+           configured as resilient is left unchanged.";
+        description
+          "Resilient hashing parameters applied to every zebra-owned
+           multipath nexthop group.";
+        leaf buckets {
+          type uint16 {
+            range "1..256";
+          }
+          mandatory true;
+          description
+            "Number of buckets in the resilient hash for each group.";
+        }
+        leaf idle-timer {
+          type uint32 {
+            range "1..4294967295";
+          }
+          units "seconds";
+          mandatory true;
+          description
+            "The idle timer for each resilient nexthop group, in seconds.";
+        }
+        leaf unbalanced-timer {
+          type uint32 {
+            range "1..4294967295";
+          }
+          units "seconds";
+          mandatory true;
+          description
+            "The length of time that the nexthop group can be
+             unbalanced, in seconds.";
+        }
+      }
     }
     leaf ptm-enable {
       if-feature ptm-bfd;

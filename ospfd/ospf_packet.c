@@ -609,7 +609,7 @@ static void ospf_write(struct event *event)
 
 		/* Set DONTROUTE flag if dst is unicast. */
 		if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-			if (!IN_MULTICAST(htonl(op->dst.s_addr)))
+			if (!IN_MULTICAST(ntohl(op->dst.s_addr)))
 				flags = MSG_DONTROUTE;
 
 		iph.ip_hl = sizeof(struct ip) >> OSPF_WRITE_IPHL_SHIFT;
@@ -2055,6 +2055,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					zlog_debug("%s: Link State Update[%s]: router-id is local, but has higher seq num",
 						   __func__, dump_lsa_key(lsa));
 				current->data->ls_seqnum = lsa->data->ls_seqnum;
+				ospf_lsa_checksum(current->data);
 				ospf_lsa_refresh(oi->ospf, current);
 				/* Discarding without ACK may cause neighbor to retransmit the stale LSA
 				 * until the refreshed LSA arrives, make sure that doesn't happen.

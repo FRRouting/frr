@@ -12,13 +12,20 @@
 Following tests are covered to test pim igmp proxy:
 
 1. TC:1 Verify correct joins were read from the config and proxied
-2. TC:2 Verify joins from another interface are proxied
-3. TC:3 Verify correct proxy disable on 'no ip igmp proxy'
-4. TC:4 Verify that proper proxy joins are set up on run-time enable
-5. TC:5 Verify igmp drops/timeouts from another interface cause
+2. TC:1b Verify show ip igmp interface reports operational state
+3. TC:2 Verify joins from another interface are proxied
+4. TC:3 Verify correct proxy disable on 'no ip igmp proxy'
+5. TC:4 Verify that proper proxy joins are set up on run-time enable
+6. TC:5 Verify igmp drops/timeouts from another interface cause
         proxy join removal
-6. TC:6 Verify that 'ip igmp proxy route-map' filters proxied groups
-7. TC:7 Verify 'match multicast-source-interface' filters by source iface
+7. TC:6 Verify that 'ip igmp proxy route-map' filters proxied groups
+8. TC:7 Verify 'match multicast-source-interface' filters by source iface
+9. TC:8 Verify leave on one downstream interface does not prune proxy
+        while another downstream interface still has receivers for the
+        same group (and show ip igmp proxy lists downstream ifaces)
+10. TC:9 Verify filtered downstream interest does not block proxy prune
+11. TC:10 Verify (S,G) static-group covered by (*,G) is pruned when that
+        (*,G) later leaves
 """
 
 import os
@@ -85,8 +92,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     # For all registered routers, load the zebra configuration file
-    for rname, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
@@ -117,21 +124,25 @@ def test_pim_igmp_proxy_config():
                     "source": "*",
                     "group": "225.4.4.4",
                     "primaryAddr": "10.0.30.1",
+                    "downstreamInterfaces": ["r1-eth2"],
                 },
                 {
                     "source": "*",
                     "group": "225.3.3.3",
                     "primaryAddr": "10.0.30.1",
+                    "downstreamInterfaces": ["r1-eth2"],
                 },
                 {
                     "source": "*",
                     "group": "225.2.2.2",
                     "primaryAddr": "10.0.30.1",
+                    "downstreamInterfaces": ["r1-eth0"],
                 },
                 {
                     "source": "*",
                     "group": "225.1.1.1",
                     "primaryAddr": "10.0.30.1",
+                    "downstreamInterfaces": ["r1-eth0"],
                 },
             ],
         },
@@ -144,6 +155,62 @@ def test_pim_igmp_proxy_config():
     assertmsg = '"{}" JSON output mismatches'.format(r1.name)
     assert result is None, assertmsg
     # tgen.mininet_cli()
+
+
+def test_pim_igmp_interface_state():
+    """
+    TC:1b - Verify show ip igmp interface JSON includes operational state.
+
+    After TC:1, r1-eth1 is the proxy upstream with four proxied groups;
+    r1-eth0/r1-eth2 are receiver-facing with static join-groups only.
+    """
+    logger.info("Verify show ip igmp interface operational state")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+
+    expected = {
+        "r1-eth0": {
+            "igmpEnabled": True,
+            "proxy": False,
+            "immediateLeave": False,
+            "requireRouterAlert": False,
+            "joinEntryCount": 2,
+            "joinGroupCount": 2,
+            "proxyJoinCount": 0,
+        },
+        "r1-eth1": {
+            "igmpEnabled": True,
+            "proxy": True,
+            "immediateLeave": False,
+            "requireRouterAlert": False,
+            "maxSources": None,
+            "maxGroups": None,
+            "joinEntryCount": 4,
+            "joinGroupCount": 0,
+            "proxyJoinCount": 4,
+        },
+        "r1-eth2": {
+            "igmpEnabled": True,
+            "proxy": False,
+            "joinEntryCount": 2,
+            "joinGroupCount": 2,
+            "proxyJoinCount": 0,
+        },
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip igmp interface json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" IGMP interface state JSON mismatches'.format(r1.name)
+    assert result is None, assertmsg
+
+    # proxyRouteMap is omitted when unset
+    out = r1.vtysh_cmd("show ip igmp interface r1-eth1 json", isjson=True)
+    assert "proxyRouteMap" not in out.get("r1-eth1", {}), (
+        "proxyRouteMap present without proxy route-map configured: %s" % out
+    )
 
 
 def test_pim_igmp_proxy_learn():
@@ -383,6 +450,25 @@ int r1-eth1
     assertmsg = '"r1" proxy groups mismatch after route-map filter applied'
     assert result is None, assertmsg
 
+    # Interface state should reflect the active proxy route-map and filtered count
+    expected_iface = {
+        "r1-eth1": {
+            "proxy": True,
+            "proxyRouteMap": "PROXY_FILTER",
+            "proxyJoinCount": 2,
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip igmp interface r1-eth1 json",
+        expected_iface,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), '"r1" IGMP interface state mismatch with proxy route-map applied'
+
     # Step 5: add a new join that the route-map denies (225.9.9.9) — must NOT appear
     r2.vtysh_cmd(
         """
@@ -410,9 +496,9 @@ int r2-eth0
     _, result = topotest.run_and_expect(
         step5_join_seen_proxy_omits_denied, True, count=30, wait=1
     )
-    assert result is True, (
-        "Timed out waiting for r2 IGMP join while r1 proxy omits denied groups"
-    )
+    assert (
+        result is True
+    ), "Timed out waiting for r2 IGMP join while r1 proxy omits denied groups"
 
     # Step 6: remove the route-map and cycle proxy — all groups should return
     r2.vtysh_cmd(
@@ -457,6 +543,12 @@ int r1-eth1
     running = r1.vtysh_cmd("show running-config")
     assert "ip igmp proxy route-map" not in running, (
         "running-config still has 'ip igmp proxy route-map' after removal:\n" + running
+    )
+
+    # And not in IGMP interface operational state
+    out = r1.vtysh_cmd("show ip igmp interface r1-eth1 json", isjson=True)
+    assert "proxyRouteMap" not in out.get("r1-eth1", {}), (
+        "proxyRouteMap still present after route-map removal: %s" % out
     )
 
     # cleanup route-map config
@@ -573,6 +665,234 @@ conf
 no route-map PROXY_SRC_IFC
 """
     )
+
+
+def test_pim_igmp_proxy_multi_downstream_leave():
+    """
+    TC:8 - Leave on one downstream must not proxy-prune while another still wants G.
+
+    Topology reminder:
+      r1-eth0 <-> r2   (downstream)
+      r1-eth1 <-> rp   (upstream / igmp proxy)
+      r1-eth2 <-> r3   (downstream)
+
+    Join the same group on both downstream interfaces, leave on eth0 only, and
+    confirm the upstream proxy join remains until the last downstream receiver
+    leaves.
+    """
+    logger.info("Verify multi-downstream leave does not prune remaining proxy join")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+    group = "239.0.0.1"
+
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  ip igmp join {group}
+ interface r1-eth2
+  ip igmp join {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
+    assert result is True, "Error: {}".format(result)
+
+    def proxy_downstream_for(group_addr):
+        out = r1.vtysh_cmd("show ip igmp proxy json", isjson=True)
+        for g in out.get("r1-eth1", {}).get("groups", []):
+            if g.get("group") == group_addr:
+                return g.get("downstreamInterfaces")
+        return None
+
+    def expect_downstream(want):
+        got = proxy_downstream_for(group)
+        if got is None:
+            return "group {} not in proxy json".format(group)
+        if sorted(got) != sorted(want):
+            return "downstreamInterfaces={!r}, want {!r}".format(got, want)
+        return None
+
+    _, result = topotest.run_and_expect(
+        lambda: expect_downstream(["r1-eth0", "r1-eth2"]), None, count=30, wait=1
+    )
+    assert result is None, result
+
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  no ip igmp join {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
+    assert result is True, "Error: proxy pruned while r1-eth2 still joined: {}".format(
+        result
+    )
+
+    _, result = topotest.run_and_expect(
+        lambda: expect_downstream(["r1-eth2"]), None, count=30, wait=1
+    )
+    assert result is None, result
+
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth2
+  no ip igmp join {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [], [group])
+    assert (
+        result is True
+    ), "Error: proxy join remained after last downstream leave: {}".format(result)
+
+
+def test_pim_igmp_proxy_filtered_downstream_leave():
+    """
+    TC:9 - Filtered downstream interest must not keep the upstream proxy join.
+
+    Join the same group on eth0 (permitted) and eth2 (denied by source-interface
+    route-map).  Leaving eth0 must proxy-prune even though eth2 still has a join.
+    """
+    logger.info("Verify filtered downstream does not block proxy prune on leave")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+    group = "239.0.0.2"
+
+    r1.vtysh_cmd(
+        f"""
+conf
+route-map PROXY_LEAVE_FILTER permit 10
+ match multicast-source-interface r1-eth0
+!
+interface r1-eth0
+ ip igmp join {group}
+interface r1-eth2
+ ip igmp join {group}
+interface r1-eth1
+ ip igmp proxy route-map PROXY_LEAVE_FILTER
+ no ip igmp proxy
+ ip igmp proxy
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
+    assert result is True, "Error: {}".format(result)
+
+    # Leave the only unfiltered downstream; eth2 still joined but denied by rmap.
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  no ip igmp join {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [], [group])
+    assert result is True, (
+        "Error: proxy join remained after last unfiltered downstream leave "
+        "(filtered eth2 still joined): {}".format(result)
+    )
+
+    # cleanup
+    r1.vtysh_cmd(
+        f"""
+conf
+interface r1-eth2
+ no ip igmp join {group}
+interface r1-eth1
+ no ip igmp proxy route-map
+no route-map PROXY_LEAVE_FILTER
+"""
+    )
+
+
+def test_pim_igmp_proxy_starg_covers_sg_leave():
+    """
+    TC:10 - (S,G) kept by covering (*,G) must prune when that (*,G) later leaves.
+
+    This is an ASM static-group edge case: join-group cannot install proxied
+    (S,G) in ASM (igmp_source_forward_start refuses ASM+source), and SSM
+    cannot hold covering (*,G).  static-group is the way to create (S,G) on
+    an ASM group that also has (*,G) interest.
+
+    Sequence:
+      1. eth0 static-group (S,G) -> proxy adds (S,G)
+      2. eth2 static-group (*,G) -> proxy adds (*,G)
+      3. eth0 removes (S,G) -> skip (S,G) prune because eth2 (*,G) covers it
+      4. eth2 removes (*,G) -> prune (*,G) and also the uncovered (S,G)
+    """
+    logger.info("Verify (S,G) proxy covered by (*,G) is not stranded on (*,G) leave")
+    tgen = get_topogen()
+
+    r1 = tgen.gears["r1"]
+    group = "239.0.0.3"
+    source = "10.1.1.10"
+
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  ip igmp static-group {group} {source}
+ interface r1-eth2
+  ip igmp static-group {group}
+"""
+    )
+
+    expected_both = {
+        "r1-eth1": {
+            "groups": [
+                {
+                    "source": source,
+                    "group": group,
+                },
+                {
+                    "source": "*",
+                    "group": group,
+                },
+            ],
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip igmp proxy json", expected_both
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "expected both (S,G) and (*,G) proxy joins: {}".format(
+        r1.vtysh_cmd("show ip igmp proxy json")
+    )
+
+    # Remove (S,G); (*,G) on eth2 must keep coverage (and may keep (S,G) proxy).
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth0
+  no ip igmp static-group {group} {source}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [group], [])
+    assert result is True, "Error: proxy pruned while eth2 still has (*,G): {}".format(
+        result
+    )
+
+    # Remove covering (*,G); uncovered (S,G) proxy must go with it.
+    r1.vtysh_cmd(
+        f"""
+conf
+ interface r1-eth2
+  no ip igmp static-group {group}
+"""
+    )
+
+    result = verify_local_igmp_proxy_groups(tgen, "r1", [], [group])
+    assert (
+        result is True
+    ), "Error: (S,G) proxy join stranded after covering (*,G) leave: {}".format(result)
 
 
 def test_memory_leak():

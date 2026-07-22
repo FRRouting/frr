@@ -246,6 +246,259 @@ def get_normalized_ebgp_multihop_line(line):
     return line
 
 
+def get_normalized_aggregate_address_line(line):
+    """
+    The keywords of an "aggregate-address" command can be entered in any
+    order, but FRR always renders them in a fixed order:
+
+      aggregate-address <prefix> [as-set] [summary-only] [route-map NAME]
+          [origin <egp|igp|incomplete>] [matching-MED-only] [suppress-map NAME]
+          [upa [drop] [max-routes (1-4294967295)]]
+
+    Reorder a user-supplied line into that canonical order so that a line
+    written with the keywords in a different order is not seen as a change.
+    Otherwise frr-reload deletes and re-adds the aggregate on every reload,
+    briefly withdrawing the aggregate route.
+    """
+    match = re.match(
+        r"^aggregate-address\s+(\S+(?:\s+\d+\.\d+\.\d+\.\d+)?)\s*(.*)$", line
+    )
+    if not match:
+        return line
+
+    prefix = match.group(1)
+    rest = match.group(2).split()
+
+    as_set = False
+    summary_only = False
+    match_med = False
+    route_map = None
+    origin = None
+    suppress_map = None
+    upa = False
+    upa_drop = False
+    upa_max_routes = None
+
+    i = 0
+    while i < len(rest):
+        tok = rest[i]
+        if tok == "as-set":
+            as_set = True
+        elif tok == "summary-only":
+            summary_only = True
+        elif tok == "matching-MED-only":
+            match_med = True
+        elif tok == "route-map" and i + 1 < len(rest):
+            i += 1
+            route_map = rest[i]
+        elif tok == "origin" and i + 1 < len(rest):
+            i += 1
+            origin = rest[i]
+        elif tok == "suppress-map" and i + 1 < len(rest):
+            i += 1
+            suppress_map = rest[i]
+        elif tok == "upa":
+            upa = True
+        elif tok == "drop":
+            upa_drop = True
+        elif tok == "max-routes" and i + 1 < len(rest):
+            i += 1
+            upa_max_routes = rest[i]
+        else:
+            # Unrecognized token; leave the line untouched.
+            return line
+        i += 1
+
+    normalized = "aggregate-address " + prefix
+    if as_set:
+        normalized += " as-set"
+    if summary_only:
+        normalized += " summary-only"
+    if route_map:
+        normalized += " route-map " + route_map
+    if origin:
+        normalized += " origin " + origin
+    if match_med:
+        normalized += " matching-MED-only"
+    if suppress_map:
+        normalized += " suppress-map " + suppress_map
+    if upa:
+        normalized += " upa"
+        if upa_drop:
+            normalized += " drop"
+        if upa_max_routes:
+            normalized += " max-routes " + upa_max_routes
+
+    return normalized
+
+
+def get_normalized_static_route_line(line):
+    """
+    The optional keywords of "ip route" / "ipv6 route" commands can be entered
+    in any order, but FRR always renders them in a fixed order:
+
+      ip route <prefix> <nexthop> [tag T] [D] [metric M] [label L]
+          [segments S [encap-behavior E]] [nexthop-vrf V] [table TBL]
+          [weight W] [onlink] [color C]
+          [bfd [multi-hop] [source SRC] [profile P]]
+
+    (For ipv6, there's also [from <src-prefix>] after the destination prefix.)
+
+    Reorder a user-supplied line into that canonical order so that a line
+    written with the keywords in a different order is not seen as a change.
+    Otherwise frr-reload deletes and re-adds the route on every reload,
+    briefly creating a routing hole.
+    """
+    match = re.match(r"^(ip|ipv6) route\s+(\S+)\s+(.*)$", line)
+    if not match:
+        return line
+
+    afi = match.group(1)
+    prefix = match.group(2)
+    rest = match.group(3).split()
+
+    src_prefix = None
+    nexthop = []
+    tag = None
+    distance = None
+    metric = None
+    label = None
+    segments = None
+    encap_behavior = None
+    nexthop_vrf = None
+    table = None
+    weight = None
+    onlink = False
+    color = None
+    bfd = False
+    bfd_multi_hop = False
+    bfd_source = None
+    bfd_profile = None
+    vrf = None
+
+    i = 0
+
+    if afi == "ipv6" and i < len(rest) and rest[i] == "from":
+        i += 1
+        if i < len(rest):
+            src_prefix = rest[i]
+            i += 1
+
+    while i < len(rest):
+        tok = rest[i]
+        if tok in ("blackhole", "reject", "Null0"):
+            nexthop.append(tok)
+        elif tok == "tag" and i + 1 < len(rest):
+            i += 1
+            tag = rest[i]
+        elif tok == "metric" and i + 1 < len(rest):
+            i += 1
+            metric = rest[i]
+        elif tok == "label" and i + 1 < len(rest):
+            i += 1
+            label = rest[i]
+        elif tok == "segments" and i + 1 < len(rest):
+            i += 1
+            segments = rest[i]
+        elif segments and tok == "encap-behavior" and i + 1 < len(rest):
+            i += 1
+            encap_behavior = rest[i]
+        elif tok == "nexthop-vrf" and i + 1 < len(rest):
+            i += 1
+            nexthop_vrf = rest[i]
+        elif tok == "table" and i + 1 < len(rest):
+            i += 1
+            table = rest[i]
+        elif tok == "weight" and i + 1 < len(rest):
+            i += 1
+            weight = rest[i]
+        elif tok == "onlink":
+            onlink = True
+        elif tok == "color" and i + 1 < len(rest):
+            i += 1
+            color = rest[i]
+        elif tok == "bfd":
+            bfd = True
+        elif bfd and tok == "multi-hop":
+            bfd_multi_hop = True
+        elif bfd and tok == "source" and i + 1 < len(rest):
+            i += 1
+            bfd_source = rest[i]
+        elif bfd and tok == "profile" and i + 1 < len(rest):
+            i += 1
+            bfd_profile = rest[i]
+        elif tok == "vrf" and i + 1 < len(rest):
+            i += 1
+            vrf = rest[i]
+        elif re.match(r"^\d+$", tok) and int(tok) <= 255:
+            distance = tok
+        elif not nexthop:
+            nexthop.append(tok)
+        elif len(nexthop) == 1 and not any(
+            kw in rest[: i + 1]
+            for kw in [
+                "from",
+                "tag",
+                "metric",
+                "label",
+                "segments",
+                "nexthop-vrf",
+                "table",
+                "weight",
+                "onlink",
+                "color",
+                "bfd",
+            ]
+        ):
+            nexthop.append(tok)
+        else:
+            return line
+        i += 1
+
+    if not nexthop:
+        return line
+
+    normalized = afi + " route " + prefix
+    if src_prefix:
+        normalized += " from " + src_prefix
+    normalized += " " + " ".join(nexthop)
+    if tag:
+        normalized += " tag " + tag
+    if distance:
+        normalized += " " + distance
+    if metric:
+        normalized += " metric " + metric
+    if label:
+        normalized += " label " + label
+    if segments:
+        normalized += " segments " + segments
+        if encap_behavior:
+            normalized += " encap-behavior " + encap_behavior
+    if nexthop_vrf:
+        normalized += " nexthop-vrf " + nexthop_vrf
+    if table:
+        normalized += " table " + table
+    if weight:
+        normalized += " weight " + weight
+    if onlink:
+        normalized += " onlink"
+    if color:
+        normalized += " color " + color
+    if bfd:
+        if bfd_multi_hop:
+            normalized += " bfd multi-hop"
+        else:
+            normalized += " bfd"
+        if bfd_source:
+            normalized += " source " + bfd_source
+        if bfd_profile:
+            normalized += " profile " + bfd_profile
+    if vrf:
+        normalized += " vrf " + vrf
+
+    return normalized
+
+
 # This dictionary contains a tree of all commands that we know start a
 # new multi-line context. All other commands are treated either as
 # commands inside a multi-line context or as single-line contexts. This
@@ -394,6 +647,12 @@ class Config(object):
 
             if "ebgp-multihop" in line:
                 line = get_normalized_ebgp_multihop_line(line)
+
+            if line.startswith("aggregate-address "):
+                line = get_normalized_aggregate_address_line(line)
+
+            if line.startswith("ip route ") or line.startswith("ipv6 route "):
+                line = get_normalized_static_route_line(line)
 
             # vrf static routes can be added in two ways. The old way is:
             #
@@ -921,10 +1180,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             if ctx_keys[0] in pg_dict:
                 # Find 'neighbor <pg_name> remote-as'
                 re_pg_rmtas = re.search(pg_rmtas, line)
-                if (
-                    re_pg_rmtas
-                    and re_pg_rmtas.group(1) in pg_dict[ctx_keys[0]]
-                ):
+                if re_pg_rmtas and re_pg_rmtas.group(1) in pg_dict[ctx_keys[0]]:
                     pg_dict[ctx_keys[0]][re_pg_rmtas.group(1)]["remoteas"] = True
 
                 # Find 'neighbor <peer> [interface] peer-group <pg_name>'
@@ -932,9 +1188,12 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
                 if (
                     re_nbr_pg
                     and re_nbr_pg.group(1) in pg_dict[ctx_keys[0]]
-                    and re_nbr_pg.group(2) not in pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]
+                    and re_nbr_pg.group(2)
+                    not in pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]
                 ):
-                    pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]["nbr"].append(re_nbr_pg.group(2))
+                    pg_dict[ctx_keys[0]][re_nbr_pg.group(1)]["nbr"].append(
+                        re_nbr_pg.group(2)
+                    )
 
     # Find any neighbor <nbr> remote-as config line check if the nbr
     # is in the peer group's list of nbrs. Remove 'neighbor <nbr> remote-as <>'
@@ -1377,6 +1636,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     save_line = "EMPTY"
                     for ctx_keys_al, add_line in lines_to_add:
                         if ctx_keys_al[0].startswith("router bgp"):
+                            rm_match = None
                             if add_line:
                                 rm_match = re.search(search, add_line)
                             if rm_match:
@@ -2007,13 +2267,9 @@ def compare_context_objects(newconf, running):
     if len(candidates_to_add) > 0:
         lines_to_add.extend(candidates_to_add)
 
-    (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(
-        lines_to_add, lines_to_del
-    )
-    (lines_to_add, lines_to_del) = delete_move_lines(lines_to_add, lines_to_del)
-    (lines_to_add, lines_to_del) = ignore_unconfigurable_lines(
-        lines_to_add, lines_to_del
-    )
+    lines_to_add, lines_to_del = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
+    lines_to_add, lines_to_del = delete_move_lines(lines_to_add, lines_to_del)
+    lines_to_add, lines_to_del = ignore_unconfigurable_lines(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del)
 
@@ -2281,7 +2537,7 @@ if __name__ == "__main__":
         else:
             running.load_from_show_running(args.daemon)
 
-        (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+        lines_to_add, lines_to_del = compare_context_objects(newconf, running)
 
         if lines_to_del:
             if not args.test_reset:
@@ -2381,7 +2637,7 @@ if __name__ == "__main__":
             running.load_from_show_running(args.daemon)
             log.debug(f"Running Frr Config (Pass #{x})\n{running.get_lines()}")
 
-            (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+            lines_to_add, lines_to_del = compare_context_objects(newconf, running)
 
             if x == 0:
                 lines_to_add_first_pass = lines_to_add

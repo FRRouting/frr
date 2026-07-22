@@ -38,6 +38,7 @@ import shlex
 import subprocess
 import sys
 from collections import OrderedDict
+from functools import partial
 
 import lib.topolog as topolog
 from lib.micronet import Commander
@@ -457,7 +458,7 @@ class Topogen(object):
         if router is None:
             # pylint: disable=r1704
             # XXX should be hosts?
-            for _, router in self.routers().items():
+            for router in self.routers().values():
                 router.start()
         else:
             if isinstance(router, str):
@@ -888,14 +889,21 @@ class TopoRouter(TopoGear):
         self.logger.info('check capability {} for "{}"'.format(param, daemonstr))
         return self.net.checkCapability(daemonstr, param)
 
-    def load_frr_config(self, source, daemons=None, extra_daemons=None):
+    def load_frr_config(self, source="frr.conf", daemons=None, extra_daemons=None):
         """
-        Loads the unified configuration file source.  Start the daemons in the list.  If
-        `daemons` is None, try to infer daemons from the config file.  `daemons` is a
-        either a tuple (daemon, param) or a daemon name string of daemons to start,
-        e.g.: (TopoRouter.RD_ZEBRA, "-s 90000000").  If `extra_daemons` is not None, it
-        is a list of either tuple (daemon, param) or daemon name string to use in
-        addition to the daemons inferred from the config file.
+        Load unified FRR configuration and start daemons.
+
+        Loads configuration from `source` (default: ``frr.conf``).  When
+        `daemons` is None, daemons are inferred from the config file (zebra is
+        always included).
+
+        * `source`: unified config file path or name (default: ``frr.conf``)
+        * `daemons`: daemon(s) to start.  Each entry is either a daemon name
+          string or a ``(daemon, param)`` tuple, e.g.
+          ``("zebra", "-s 90000000")``.  If None, infer from the
+          config file.
+        * `extra_daemons`: additional daemons to start when inferring from the
+          config file.  Same format as `daemons`.
         """
         source_path = self.load_config(self.RD_FRR, source)
         if not daemons:
@@ -1025,6 +1033,31 @@ class TopoRouter(TopoGear):
         """
         self.logger.debug("stopping (no assert)")
         return self.net.stopRouter(False)
+
+    def enableDaemons(self, daemons):
+        """
+        Mark daemons to be started on router start().
+
+        Use this to explicitly enable daemons that load_frr_config() /
+        load_config() auto-detection did not select, or to re-enable daemons
+        previously excluded with disableDaemons().
+        """
+        for daemon in daemons:
+            if daemon not in self.net.daemons:
+                raise ValueError('Unknown daemon "{}"'.format(daemon))
+            self.net.daemons[daemon] = 1
+
+    def disableDaemons(self, daemons):
+        """
+        Prevent daemons from being started on router start().
+
+        Typical use: load config that references a daemon, but start it manually
+        later via startDaemons() to control timing.
+        """
+        for daemon in daemons:
+            if daemon not in self.net.daemons:
+                raise ValueError('Unknown daemon "{}"'.format(daemon))
+            self.net.daemons[daemon] = 0
 
     def startDaemons(self, daemons):
         """
@@ -1231,6 +1264,49 @@ class TopoRouter(TopoGear):
         if "with-crypto=openssl" in output:
             return True
         return False
+
+    def expect_ospfv2_neighbor(self, neighbor: str) -> None:
+        """
+        Runs the command 'show ip ospf neighbor json' and verifies that the
+        neighbor passed as parameter has convergence status Full.
+
+        If the neighbor doesn't exist or is not in state 'Full' the function
+        asserts.
+        """
+        expected = {
+            "neighbors": {
+                neighbor: [{
+                    "converged": "Full"
+                }]
+            }
+        }
+        test_func = partial(
+            topotest.router_json_cmp,
+            self,
+            "show ip ospf neighbor json",
+            expected)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, f"Router {self.name} failed to converge"
+
+    def expect_pim_neighbor(self, interface: str, neighbor: str) -> None:
+        """
+        Runs the command 'show ip pim neighbor json' and verifies that the
+        neighbor passed as parameter has being discovered.
+
+        If the neighbor doesn't exist the function asserts.
+        """
+        expected = {
+                interface: {
+                    neighbor: {}
+                }
+        }
+        test_func = partial(
+            topotest.router_json_cmp,
+            self,
+            "show ip pim neighbor json",
+            expected)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, f"Router {self.name} failed to converge"
 
 
 class TopoSwitch(TopoGear):

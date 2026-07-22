@@ -544,8 +544,18 @@ static void ism_change_state(struct ospf_interface *oi, int state)
 	if (state == ISM_Down) {
 		if (oi->area->act_ints > 0)
 			oi->area->act_ints--;
-	} else if (old_state == ISM_Down)
+	} else if (old_state == ISM_Down) {
 		oi->area->act_ints++;
+
+		/* An interface in an NSSA area becoming operative may make an
+		 * NSSA forwarding address available. Reschedule the ASBR
+		 * redistribution update so that self-originated external routes
+		 * whose Type-7 LSA could not be originated earlier (because no
+		 * usable forwarding address existed) are re-originated now.
+		 */
+		if (oi->area->external_routing == OSPF_AREA_NSSA)
+			ospf_schedule_asbr_redist_update(oi->ospf);
+	}
 
 	/* schedule router-LSA originate. */
 	ospf_router_lsa_update_area(oi->area);

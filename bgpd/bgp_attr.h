@@ -39,10 +39,10 @@
 
 /* Valid lengths for mp_nexthop_len */
 #define BGP_ATTR_NHLEN_IPV4               IPV4_MAX_BYTELEN
-#define BGP_ATTR_NHLEN_VPNV4              8+IPV4_MAX_BYTELEN
+#define BGP_ATTR_NHLEN_VPNV4              (8 + IPV4_MAX_BYTELEN)
 #define BGP_ATTR_NHLEN_IPV6_GLOBAL        IPV6_MAX_BYTELEN
 #define BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL (IPV6_MAX_BYTELEN * 2)
-#define BGP_ATTR_NHLEN_VPNV6_GLOBAL       8+IPV6_MAX_BYTELEN
+#define BGP_ATTR_NHLEN_VPNV6_GLOBAL       (8 + IPV6_MAX_BYTELEN)
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ((8+IPV6_MAX_BYTELEN) * 2)
 
 /* Prefix SID types */
@@ -61,6 +61,7 @@
 /* SRv6 Service Sub-TLV types */
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO 1
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH 21
+#define BGP_PREFIX_SID_SRV6_SERVICE_SID_FLAGS_KNOWN_MASK 0x00
 
 /* SRv6 Service Data Sub-Sub-TLV types */
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE 1
@@ -381,10 +382,8 @@ struct transit {
 #define bgp_attr_set(attr, id) SET_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
 #define bgp_attr_unset(attr, id) UNSET_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
 
-#define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
-	(CHECK_FLAG((attr)->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))        \
-		 ? bgp_attr_get_cluster((attr))->length                        \
-		 : 0)
+#define BGP_CLUSTER_LIST_LENGTH(attr)                                                             \
+	(bgp_attr_exists(attr, BGP_ATTR_CLUSTER_LIST) ? bgp_attr_get_cluster((attr))->length : 0)
 
 enum bgp_attr_parse_ret {
 	BGP_ATTR_PARSE_PROCEED = 0,
@@ -409,7 +408,7 @@ extern void bgp_attr_init(void);
 extern void bgp_attr_finish(void);
 extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struct attr *attr,
 					      bgp_size_t size, struct bgp_nlri *mp_update,
-					      struct bgp_nlri *mp_withdraw);
+					      struct bgp_nlri *mp_withdraw, bool has_nlri);
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern struct bgp_attr_srv6_l3service *
 bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_l3service *vpn);
@@ -489,7 +488,8 @@ extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				     const struct prefix *p, const struct prefix_rd *prd,
 				     mpls_label_t *label, uint8_t num_labels, bool addpath_capable,
 				     uint32_t addpath_tx_id, struct attr *attr,
-				     struct bgp_ls_nlri *ls_nlri);
+				     struct bgp_ls_nlri *ls_nlri,
+				     struct bgp_path_info *path);
 extern size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 					    const struct prefix *p);
 extern void bgp_packet_mpattr_end(struct stream *s, size_t sizep);
@@ -589,9 +589,9 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 	attr->ecommunity = ecomm;
 
 	if (ecomm && ecomm->size)
-		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+		bgp_attr_set(attr, BGP_ATTR_EXT_COMMUNITIES);
 	else
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+		bgp_attr_unset(attr, BGP_ATTR_EXT_COMMUNITIES);
 }
 
 static inline struct lcommunity *
@@ -606,10 +606,9 @@ static inline void bgp_attr_set_lcommunity(struct attr *attr,
 	attr->lcommunity = lcomm;
 
 	if (lcomm)
-		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
+		bgp_attr_set(attr, BGP_ATTR_LARGE_COMMUNITIES);
 	else
-		UNSET_FLAG(attr->flag,
-			   ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
+		bgp_attr_unset(attr, BGP_ATTR_LARGE_COMMUNITIES);
 }
 
 static inline struct community *bgp_attr_get_community(const struct attr *attr)
@@ -623,9 +622,9 @@ static inline void bgp_attr_set_community(struct attr *attr,
 	attr->community = comm;
 
 	if (comm)
-		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
+		bgp_attr_set(attr, BGP_ATTR_COMMUNITIES);
 	else
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
+		bgp_attr_unset(attr, BGP_ATTR_COMMUNITIES);
 }
 
 static inline struct ecommunity *
@@ -649,11 +648,9 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 	}
 
 	if (ipv6_ecomm && ipv6_ecomm->size)
-		SET_FLAG(attr->flag,
-			 ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
+		bgp_attr_set(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES);
 	else
-		UNSET_FLAG(attr->flag,
-			   ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
+		bgp_attr_unset(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES);
 }
 
 static inline struct transit *bgp_attr_get_transit(const struct attr *attr)
@@ -686,9 +683,9 @@ static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 	}
 
 	if (bnc)
-		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC));
+		bgp_attr_set(attr, BGP_ATTR_NHC);
 	else
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC));
+		bgp_attr_unset(attr, BGP_ATTR_NHC);
 }
 
 #define AIGP_TRANSMIT_ALLOWED(peer)                                                                \
@@ -710,7 +707,7 @@ static inline void bgp_attr_unset_aigp_metric(struct attr *attr)
 		bgp_attr_extra_put(attr);
 	}
 
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
+	bgp_attr_unset(attr, BGP_ATTR_AIGP);
 }
 
 static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
@@ -725,7 +722,7 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 	else
 		attr->extra->aigp_metric = aigp;
 
-	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
+	bgp_attr_set(attr, BGP_ATTR_AIGP);
 }
 
 static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
@@ -742,7 +739,7 @@ static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
 static inline void bgp_attr_set_med(struct attr *attr, uint32_t med)
 {
 	attr->med = med;
-	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+	bgp_attr_set(attr, BGP_ATTR_MULTI_EXIT_DISC);
 }
 
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
@@ -756,9 +753,9 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 	attr->cluster1 = cl;
 
 	if (cl)
-		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
+		bgp_attr_set(attr, BGP_ATTR_CLUSTER_LIST);
 	else
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
+		bgp_attr_unset(attr, BGP_ATTR_CLUSTER_LIST);
 }
 
 static inline struct bgp_route_evpn *

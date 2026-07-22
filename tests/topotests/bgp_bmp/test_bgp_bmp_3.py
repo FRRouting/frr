@@ -52,7 +52,7 @@ from .bgpbmp import (
     bmp_reset_seq,
     BMPSequenceContext,
 )
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
@@ -103,16 +103,15 @@ ip link set r1import-eth2 master vrf1
 
     bmp_reset_seq(bmp_seq_context)
     if DEBUG_PCAP:
-        tgen.gears["r1import"].run("rm /tmp/bmp.pcap")
+        pcap_file = os.path.join(tgen.logdir, "r1import/bmp.pcap")
+        tgen.gears["r1import"].run("rm {}".format(pcap_file))
         tgen.gears["r1import"].run(
-            "tcpdump -nni r1import-eth0 -s 0 -w /tmp/bmp.pcap &", stdout=None
+            "tcpdump -nni r1import-eth0 -s 0 -w {} &".format(pcap_file), stdout=None
         )
 
-    for rname, router in tgen.routers().items():
-        logger.info("Loading router %s" % rname)
+    for router in tgen.routers().values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BGP, "-M bmp")],
+            daemons=["zebra", ("bgpd", "-M bmp")],
         )
 
     tgen.start_router()

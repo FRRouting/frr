@@ -114,10 +114,10 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
-        if (PIM_DEBUG_MLAG) {
-                vty_out(vty, "debug pim mlag\n");
-                ++writes;
-        }
+	if (PIM_DEBUG_MLAG) {
+		vty_out(vty, "debug pim mlag\n");
+		++writes;
+	}
 
 	if (PIM_DEBUG_BSM) {
 		vty_out(vty, "debug " PIM_AF_DBG " bsm\n");
@@ -171,6 +171,16 @@ int pim_debug_config_write(struct vty *vty)
 
 	if (PIM_DEBUG_AUTORP) {
 		vty_out(vty, "debug pim autorp\n");
+		++writes;
+	}
+
+	if (PIM_DEBUG_GRAFT) {
+		vty_out(vty, "debug pim graft\n");
+		++writes;
+	}
+
+	if (PIM_DEBUG_STATE_REFRESH) {
+		vty_out(vty, "debug pim state-refresh\n");
 		++writes;
 	}
 
@@ -285,6 +295,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 
 	if (pim->join_filter.rmapname) {
 		vty_out(vty, " join-filter route-map %s\n", pim->join_filter.rmapname);
+		++writes;
+	}
+
+	if (pim->shutdown) {
+		vty_out(vty, " shutdown\n");
 		++writes;
 	}
 

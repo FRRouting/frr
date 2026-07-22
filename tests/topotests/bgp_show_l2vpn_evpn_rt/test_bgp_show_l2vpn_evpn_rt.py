@@ -89,10 +89,9 @@ def setup_module(mod):
         _setup_vrfs(r1, vrf)
         _setup_vrfs(r2, vrf)
 
-    for rname, router in tgen.routers().items():
-        logger.info("Loading router %s" % rname)
+    for router in tgen.routers().values():
         router.use_netns_vrf()
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        router.load_frr_config()
 
     tgen.start_router()
 
@@ -104,7 +103,7 @@ def teardown_module(_mod):
     tgen = get_topogen()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for router in router_list.values():
         router.net.delete_netns("vrf-101")
         router.net.delete_netns("vrf-102")
     tgen.stop_topology()

@@ -49,6 +49,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
+#include "bgpd/bgp_unreach.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
 
@@ -330,6 +331,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
 	case SAFI_BGP_LS:
 		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
+	case SAFI_UNREACH:
+		return bgp_nlri_parse_unreach(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
@@ -1002,24 +1005,24 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	{
 		struct bgp_notify bgp_notify;
 		int first = 0;
-		int i;
+		size_t i;
 		char c[4];
 
 		bgp_notify.code = code;
 		bgp_notify.subcode = sub_code;
 		bgp_notify.data = NULL;
-		bgp_notify.length = datalen;
+		bgp_notify.length = datalen * 3;
 		bgp_notify.raw_data = data;
 
 		peer->notify.code = bgp_notify.code;
 		peer->notify.subcode = bgp_notify.subcode;
-		peer->notify.length = bgp_notify.length;
+		peer->notify.length = datalen;
 		peer->notify.hard_reset = hard_reset;
 
 		if (bgp_notify.length && data) {
 			bgp_notify.data = XMALLOC(MTYPE_BGP_NOTIFICATION,
-						  bgp_notify.length * 3);
-			for (i = 0; i < bgp_notify.length; i++)
+						  bgp_notify.length);
+			for (i = 0; i < datalen; i++)
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
 						 data[i]);
@@ -1542,27 +1545,49 @@ void bgp_capability_send(struct peer_connection *connection, afi_t afi, safi_t s
 				   iana_safi2str(pkt_safi));
 		break;
 	case CAPABILITY_CODE_FQDN:
+		/* No hostname configured. If we never advertised one there is
+		 * nothing to do. If we advertised one before (e.g. the hostname
+		 * was later removed with `no hostname`), withdraw it so the peer
+		 * drops the stale value instead of sending an empty FQDN that
+		 * would be rejected as malformed.
+		 */
+		if (!hostname) {
+			if (!CHECK_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV)) {
+				stream_free(s);
+				return;
+			}
+			action = CAPABILITY_ACTION_UNSET;
+		}
+
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_FQDN);
 		cap_len = stream_get_endp(s);
 		stream_putc(s, 0); /* Capability Length */
 
-		len = strlen(hostname);
-		if (len > BGP_MAX_HOSTNAME)
-			len = BGP_MAX_HOSTNAME;
-
-		stream_putc(s, len);
-		stream_put(s, hostname, len);
-
-		if (domainname) {
-			len = strlen(domainname);
+		if (action == CAPABILITY_ACTION_SET) {
+			len = strlen(hostname);
 			if (len > BGP_MAX_HOSTNAME)
 				len = BGP_MAX_HOSTNAME;
 
 			stream_putc(s, len);
-			stream_put(s, domainname, len);
-		} else
+			stream_put(s, hostname, len);
+
+			if (domainname) {
+				len = strlen(domainname);
+				if (len > BGP_MAX_HOSTNAME)
+					len = BGP_MAX_HOSTNAME;
+
+				stream_putc(s, len);
+				stream_put(s, domainname, len);
+			} else
+				stream_putc(s, 0);
+		} else {
+			/* CAPABILITY_CODE_MIN_FQDN_LEN is 2 bytes, so just to make
+			 * sure we don't miss that at the receiving end...
+			 */
 			stream_putc(s, 0);
+			stream_putc(s, 0);
+		}
 
 		len = stream_get_endp(s) - cap_len - 1;
 		stream_putc_at(s, cap_len, len);
@@ -1791,13 +1816,34 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	uint8_t notify_data_remote_as[2];
 	uint8_t notify_data_remote_as4[4];
 	uint8_t notify_data_remote_id[4];
-	uint16_t *holdtime_ptr;
+	uint8_t notify_data_holdtime[2];
+
+	/*
+	 * RFC 8654: the Extended Message capability never applies to OPEN.
+	 * An OPEN larger than the standard maximum (4096) is malformed and is
+	 * rejected here regardless of any extended size already negotiated on
+	 * this session, so the receive-path guard in bgp_io.c stays type-blind.
+	 */
+	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
+		flog_err(EC_BGP_PKT_OPEN,
+			 "%s: OPEN message size (%u bytes) exceeds the standard maximum",
+			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
+		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		return BGP_Stop;
+	}
 
 	/* Parse open packet. */
+	if (STREAM_READABLE(connection->curr) < BGP_OPEN_BODY_MIN_SIZE) {
+		flog_err(EC_BGP_PKT_OPEN, "%s: OPEN message too short (%zu bytes, need %u)",
+			 peer->host, STREAM_READABLE(connection->curr), BGP_OPEN_BODY_MIN_SIZE);
+		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		return BGP_Stop;
+	}
+
 	version = stream_getc(connection->curr);
 	memcpy(notify_data_remote_as, stream_pnt(connection->curr), 2);
 	remote_as = stream_getw(connection->curr);
-	holdtime_ptr = (uint16_t *)stream_pnt(connection->curr);
+	memcpy(notify_data_holdtime, stream_pnt(connection->curr), 2);
 	holdtime = stream_getw(connection->curr);
 	memcpy(notify_data_remote_id, stream_pnt(connection->curr), 4);
 	remote_id.s_addr = stream_get_ipv4(connection->curr);
@@ -1852,6 +1898,18 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 			optlen = stream_getw(connection->curr);
 			SET_FLAG(peer->sflags,
 				 PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
+		} else {
+			/* RFC 9072: the extended format is in use only when the
+			 * Non-Ext OP Type octet is 255. A one-octet length of
+			 * 255 with any other type is a regular (non-extended)
+			 * OPEN message carrying exactly 255 octets of Optional
+			 * Parameters, and the octet we just read is the Type
+			 * field of the first Optional Parameter (type 255 is
+			 * reserved and never a bona fide parameter type). Rewind
+			 * so it is parsed as part of the Optional Parameters
+			 * rather than being consumed here.
+			 */
+			stream_rewind_getp(connection->curr, 1);
 		}
 	}
 
@@ -2078,7 +2136,7 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	if (holdtime < 3 && holdtime != 0) {
 		bgp_notify_send_with_data(connection, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
-					  (uint8_t *)holdtime_ptr, 2);
+					  notify_data_holdtime, 2);
 		return BGP_Stop;
 	}
 
@@ -2088,7 +2146,7 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	    && peer->bgp->default_min_holdtime != 0) {
 		bgp_notify_send_with_data(connection, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
-					  (uint8_t *)holdtime_ptr, 2);
+					  notify_data_holdtime, 2);
 		return BGP_Stop;
 	}
 
@@ -2209,6 +2267,19 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 static int bgp_keepalive_receive(struct peer_connection *connection, bgp_size_t size)
 {
 	struct peer *peer = connection->peer;
+
+	/*
+	 * RFC 8654: the Extended Message capability never applies to KEEPALIVE,
+	 * which stays capped at the standard maximum (4096) even after an
+	 * extended size has been negotiated for this session.
+	 */
+	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
+		flog_err(EC_BGP_KEEP_RCV,
+			 "%s: KEEPALIVE message size (%u bytes) exceeds the standard maximum",
+			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
+		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		return BGP_Stop;
+	}
 
 	if (bgp_debug_keepalive(peer))
 		zlog_debug("%s KEEPALIVE rcvd", peer->host);
@@ -2352,8 +2423,8 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
 	memset(&nlris, 0, sizeof(nlris));
-	memset(peer->rcvd_attr_str, 0, BUFSIZ);
-	peer->rcvd_attr_printed = false;
+	bm->rcvd_attr_str[0] = '\0';
+	bm->rcvd_attr_printed = false;
 
 	s = connection->curr;
 	end = stream_pnt(s) + size;
@@ -2434,10 +2505,13 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 		 ? &attr                                                                          \
 		 : NULL)
 
+	update_len = end - stream_pnt(s) - attribute_len;
+
 	/* Parse attribute when it exists. */
 	if (attribute_len) {
 		attr_parse_ret = bgp_attr_parse(connection, &attr, attribute_len,
-						&nlris[NLRI_MP_UPDATE], &nlris[NLRI_MP_WITHDRAW]);
+						&nlris[NLRI_MP_UPDATE], &nlris[NLRI_MP_WITHDRAW],
+						update_len > 0);
 		if (attr_parse_ret == BGP_ATTR_PARSE_ERROR) {
 			bgp_attr_unintern_sub(&attr);
 			return BGP_Stop;
@@ -2448,8 +2522,7 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW ||
 	    attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW_IGNORE || BGP_DEBUG(update, UPDATE_IN) ||
 	    BGP_DEBUG(update, UPDATE_PREFIX)) {
-		ret = bgp_dump_attr(&attr, peer->rcvd_attr_str,
-				    sizeof(peer->rcvd_attr_str));
+		ret = bgp_dump_attr(&attr, bm->rcvd_attr_str, sizeof(bm->rcvd_attr_str));
 
 		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW ||
 		    attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW_IGNORE) {
@@ -2462,14 +2535,10 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 
 		if (ret && bgp_debug_update(peer, NULL, NULL, 1) &&
 		    BGP_DEBUG(update, UPDATE_DETAIL)) {
-			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
-				   peer->rcvd_attr_str);
-			peer->rcvd_attr_printed = true;
+			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer, bm->rcvd_attr_str);
+			bm->rcvd_attr_printed = true;
 		}
 	}
-
-	/* Network Layer Reachability Information. */
-	update_len = end - stream_pnt(s);
 
 	/* If we received MP_UNREACH_NLRI attribute, but also NLRIs, then
 	 * NLRIs should be handled as a new data. Though, if we received
@@ -2483,17 +2552,6 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 		nlris[NLRI_UPDATE].nlri = stream_pnt(s);
 		nlris[NLRI_UPDATE].length = update_len;
 		stream_forward_getp(s, update_len);
-
-		if (CHECK_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI))) {
-			/*
-			 * We skipped nexthop attribute validation earlier so
-			 * validate the nexthop now.
-			 */
-			if (bgp_attr_nexthop_valid(peer, &attr) < 0) {
-				bgp_attr_unintern_sub(&attr);
-				return BGP_Stop;
-			}
-		}
 	}
 
 	if (BGP_DEBUG(update, UPDATE_IN) && BGP_DEBUG(update, UPDATE_DETAIL))
@@ -2563,8 +2621,8 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 		if (!attribute_len) {
 			afi = AFI_IP;
 			safi = SAFI_UNICAST;
-		} else if (attr.flag & ATTR_FLAG_BIT(BGP_ATTR_MP_UNREACH_NLRI)
-			   && nlris[NLRI_MP_WITHDRAW].length == 0) {
+		} else if (bgp_attr_exists(&attr, BGP_ATTR_MP_UNREACH_NLRI) &&
+			   nlris[NLRI_MP_WITHDRAW].length == 0) {
 			afi = nlris[NLRI_MP_WITHDRAW].afi;
 			safi = nlris[NLRI_MP_WITHDRAW].safi;
 		}
@@ -2581,6 +2639,9 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 
 	/* Notify BGP Conditional advertisement scanner process */
 	peer->advmap_table_change = true;
+
+	/* Clear attribute string to prevent stale state from other call paths */
+	bm->rcvd_attr_str[0] = '\0';
 
 	return Receive_UPDATE_message;
 }
@@ -2863,6 +2924,16 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				int psize;
 				char name[BUFSIZ];
 				int ret = CMD_SUCCESS;
+
+				if (!CHECK_FLAG(peer->af_cap[afi][safi],
+						PEER_CAP_ORF_PREFIX_RM_ADV) ||
+				    !CHECK_FLAG(peer->af_cap[afi][safi],
+						PEER_CAP_ORF_PREFIX_SM_RCV)) {
+					flog_err(EC_BGP_NO_CAP,
+						 "%pBP rcvd Prefix ORF for %s/%s, but prefix ORF capability was not negotiated, ignoring",
+						 peer, afi2str(afi), safi2str(safi));
+					return BGP_PACKET_NOOP;
+				}
 
 				if (bgp_debug_neighbor_events(peer)) {
 					zlog_debug(
@@ -3853,6 +3924,7 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 		case CAPABILITY_CODE_ROLE:
 		case CAPABILITY_CODE_SOFT_VERSION:
 		case CAPABILITY_CODE_PATHS_LIMIT:
+		case CAPABILITY_CODE_LLGR:
 			if (hdr->length < cap_minsizes[hdr->code]) {
 				zlog_info("%pBP: %s Capability length error: got %u, expected at least %u",
 					  peer, capability, hdr->length,

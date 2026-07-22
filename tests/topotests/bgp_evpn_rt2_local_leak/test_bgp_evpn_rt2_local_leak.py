@@ -19,7 +19,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topolog import logger
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.checkping import check_ping
 from lib.common_config import step
 
@@ -93,20 +93,31 @@ ip neigh add 192.168.0.{id} lladdr 02:00:00:00:00:{id}{id} dev br100
 
     router_list = tgen.routers()
 
-    for _, (rname, router) in enumerate(router_list.items(), 1):
-        d = [
-            (TopoRouter.RD_ZEBRA, None),
-            (TopoRouter.RD_MGMTD, None),
-        ]
-        if rname.startswith("r"):
-            d.append((TopoRouter.RD_BGP, None))
-
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            d,
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
+
+    tgen.gears["r3"].vtysh_cmd(
+        """
+conf
+vrf vrf10
+ vni 10
+exit
+    """
+    )
+
+    import time
+
+    time.sleep(2)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+conf
+interface lo
+ ip address 10.0.0.2/32
+    """
+    )
 
 
 def teardown_module(mod):
@@ -217,7 +228,7 @@ def check_bgp_convergence(step=None):
             cmd,
             expected,
         )
-        _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = f"BGP did not converge. Error on {rname} {cmd}"
         assert res is None, assertmsg
 
@@ -231,7 +242,9 @@ def check_bgp_convergence(step=None):
             suffix_vrf = "" if vrf == "default" else f"_vrf_{vrf}"
             suffix = f"_step{step}" if step else ""
             logger.info(f"Check IPv4 routing table: {rname} vrf {vrf}")
-            reffile = os.path.join(CWD, f"{rname}/show_ip_route{suffix_vrf}{suffix}.json")
+            reffile = os.path.join(
+                CWD, f"{rname}/show_ip_route{suffix_vrf}{suffix}.json"
+            )
             expected = json.loads(open(reffile).read())
             if vrf == "default":
                 cmd = f"show ip route json"
@@ -243,7 +256,7 @@ def check_bgp_convergence(step=None):
                 cmd,
                 expected,
             )
-            _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+            _, res = topotest.run_and_expect(test_func, None, count=60, wait=1)
             assertmsg = f"IPv4 routing table did not converge. Error on {rname} {cmd}"
             assert res is None, assertmsg
 
@@ -280,6 +293,27 @@ def test_host2_neighbor_add():
         pytest.skip(tgen.errors)
 
     tgen.gears["r2"].cmd("ip neigh add 192.168.0.2 lladdr 02:00:00:00:00:22 dev br100")
+
+    check_bgp_convergence()
+
+
+def test_host3_neighbor_delete():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r3"].cmd("ip neigh del 192.168.0.3 lladdr 02:00:00:00:00:33 dev br100")
+    check_bgp_convergence(step=4)
+
+
+def test_host3_neighbor_add():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r3"].cmd("ip neigh add 192.168.0.3 lladdr 02:00:00:00:00:33 dev br100")
 
     check_bgp_convergence()
 

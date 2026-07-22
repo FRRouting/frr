@@ -248,7 +248,6 @@ struct zebra_vxlan_sg {
 	uint32_t ref_cnt;
 };
 
-extern struct zebra_evpn *zevpn_lookup(vni_t vni);
 extern void zebra_vxlan_sync_mac_dp_install(struct zebra_mac *mac,
 					    bool set_inactive,
 					    bool force_clear_static,

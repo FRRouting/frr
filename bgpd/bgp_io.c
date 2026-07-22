@@ -38,7 +38,6 @@ static bool validate_header(struct peer_connection *connection);
 /* generic i/o status codes */
 #define BGP_IO_TRANS_ERR (1 << 0) /* EAGAIN or similar occurred */
 #define BGP_IO_FATAL_ERR (1 << 1) /* some kind of fatal TCP error */
-#define BGP_IO_WORK_FULL_ERR (1 << 2) /* No room in work buffer */
 
 /* Thread external API ----------------------------------------------------- */
 
@@ -51,7 +50,6 @@ void bgp_writes_on(struct peer_connection *connection)
 	assert(connection->status != Deleted);
 	assert(connection->obuf);
 	assert(connection->ibuf);
-	assert(connection->ibuf_work);
 	assert(!connection->t_connect_check_r);
 	assert(!connection->t_connect_check_w);
 	assert(connection->fd);
@@ -92,7 +90,6 @@ void bgp_reads_on(struct peer_connection *connection)
 	assert(connection->status != Deleted);
 	assert(connection->ibuf);
 	assert(connection->fd);
-	assert(connection->ibuf_work);
 	assert(connection->obuf);
 	assert(!connection->t_connect_check_r);
 	assert(!connection->t_connect_check_w);
@@ -173,14 +170,16 @@ static void bgp_process_writes(struct event *event)
 
 static int read_ibuf_work(struct peer_connection *connection)
 {
-	/* static buffer for transferring packets */
 	/* shorter alias to peer's input buffer */
 	struct ringbuf *ibw = connection->ibuf_work;
 	/* packet size as given by header */
 	uint16_t pktsize = 0;
 	struct stream *pkt;
 
-	/* ============================================== */
+	/* ibuf_work is allocated on demand; nothing to do if not present */
+	if (!ibw)
+		return 0;
+
 	frr_with_mutex (&connection->io_mtx) {
 		if (connection->ibuf->count >= bm->inq_limit)
 			return -ENOMEM;
@@ -305,8 +304,17 @@ done:
 	/* handle invalid header */
 	if (fatal) {
 		/* wipe buffer just in case someone screwed up */
-		ringbuf_wipe(connection->ibuf_work);
+		if (connection->ibuf_work) {
+			ringbuf_del(connection->ibuf_work);
+			connection->ibuf_work = NULL;
+		}
 		return;
+	}
+
+	/* Free ibuf_work if empty - it will be reallocated on demand */
+	if (connection->ibuf_work && ringbuf_remain(connection->ibuf_work) == 0) {
+		ringbuf_del(connection->ibuf_work);
+		connection->ibuf_work = NULL;
 	}
 
 	if (ret != -ENOMEM)
@@ -504,7 +512,7 @@ done : {
 	return status;
 }
 
-uint8_t ibuf_scratch[BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX];
+uint8_t ibuf_scratch[BGP_IBUF_WORK_SIZE];
 /*
  * Reads a chunk of data from peer->connection.fd into
  * peer->connection.ibuf_work.
@@ -525,12 +533,13 @@ static uint16_t bgp_read(struct peer_connection *connection, int *code_p)
 	size_t ibuf_work_space; /* space we can read into the work buf */
 	uint16_t status = 0;
 
-	ibuf_work_space = ringbuf_space(connection->ibuf_work);
+	if (connection->ibuf_work)
+		ibuf_work_space = ringbuf_space(connection->ibuf_work);
+	else
+		ibuf_work_space = BGP_IBUF_WORK_SIZE;
 
-	if (ibuf_work_space == 0) {
-		SET_FLAG(status, BGP_IO_WORK_FULL_ERR);
-		return status;
-	}
+	if (ibuf_work_space == 0)
+		return 0;
 
 	readsize = MIN(ibuf_work_space, sizeof(ibuf_scratch));
 
@@ -569,6 +578,10 @@ static uint16_t bgp_read(struct peer_connection *connection, int *code_p)
 
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
 	} else {
+		/* Allocate ibuf_work on demand to hold partial packets */
+		if (!connection->ibuf_work)
+			connection->ibuf_work = ringbuf_new(BGP_IBUF_WORK_SIZE);
+
 		assert(ringbuf_put(connection->ibuf_work, ibuf_scratch,
 				   nbytes) == (size_t)nbytes);
 	}

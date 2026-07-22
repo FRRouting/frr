@@ -283,6 +283,10 @@ bool zebra_nhg_proto_nexthops_only(void);
 void zebra_nhg_set_recursive_use_backups(bool set);
 bool zebra_nhg_recursive_use_backups(void);
 
+/* Global control to create every zebra multipath NHG as resilient. */
+void zebra_nhg_set_resilience(uint16_t buckets, uint32_t idle_timer,
+			      uint32_t unbalanced_timer);
+
 /**
  * NHE abstracted tree functions.
  * Use these where possible instead of direct access.

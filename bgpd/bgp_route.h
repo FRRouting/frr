@@ -18,6 +18,7 @@
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
+struct bgp_unreach_nlri;
 
 enum bgp_show_type {
 	bgp_show_type_normal,
@@ -175,6 +176,18 @@ struct bgp_path_info_extra_fs {
 	struct list *bgp_fs_iprule;
 };
 
+/* Per-path Reporter TLV storage for SAFI_UNREACH (draft-tantsura-idr-unreachability-safi). */
+struct bgp_path_info_extra_unreach {
+	struct in_addr reporter; /* BGP Router ID */
+	uint32_t reporter_as;	 /* Reporter AS Number (4-octet) */
+	uint16_t reason_code;	 /* Sub-TLV Type 1 value */
+	uint64_t timestamp;	 /* Sub-TLV Type 2 value */
+	bool has_reporter;
+	bool has_reporter_as;
+	bool has_reason_code;
+	bool has_timestamp;
+};
+
 /* new structure for vrfleak*/
 struct bgp_path_info_extra_vrfleak {
 	void *parent; /* parent from global table */
@@ -260,6 +273,9 @@ struct bgp_path_info_extra {
 
 	/* For flowspec*/
 	struct bgp_path_info_extra_fs *flowspec;
+
+	/* SAFI_UNREACH per-path Reporter TLV storage. */
+	struct bgp_path_info_extra_unreach *unreach;
 
 	/* For vrf leaking*/
 	struct bgp_path_info_extra_vrfleak *vrfleak;
@@ -358,13 +374,16 @@ struct bgp_path_info {
  */
 #define BGP_PATH_MULTIPATH_NEW (1 << 20)
 #define BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP (1 << 21)
+#define BGP_PATH_UPA                                                                              \
+	(1 << 22) /* Route has UPA marking (locally originated or received with UPA ExtCom) */
+#define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
 /*
  * BGP_PATH_BACKUP is set on a path that is selected as a backup path.
  * The backup path is chosen from paths that are not part of the multipath
  * set.
  */
-#define BGP_PATH_BACKUP	    (1 << 22)
-#define BGP_PATH_BACKUP_CHG (1 << 23)
+#define BGP_PATH_BACKUP	    (1 << 24)
+#define BGP_PATH_BACKUP_CHG (1 << 25)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -536,6 +555,22 @@ struct bgp_aggregate {
 	char *suppress_map_name;
 	/** Suppress map route map pointer. */
 	struct route_map *suppress_map;
+
+	/* UPA (Unreachable Prefix Announcement) state for this aggregate.
+	 *
+	 * upa_enabled  true when "aggregate-address ... upa" is configured.
+	 * upa_drop     true when the D-bit should be set on originated UPAs.
+	 * upa_max_routes  per-aggregate cap on simultaneous UPA entries (0=unlimited).
+	 * upa_routes   typesafe hash of prefixes currently announced as UPA under this
+	 *              aggregate; keyed by prefix, cleaned up in bgp_free_aggregate_info().
+	 *
+	 * bgp_aggregate_new() uses XCALLOC so all fields default to
+	 * false/0/NULL without explicit initialisation.
+	 */
+	bool upa_enabled;
+	bool upa_drop;
+	uint32_t upa_max_routes;
+	struct bgp_upa_prefix_hash_head upa_routes;
 };
 
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \
@@ -549,9 +584,8 @@ struct bgp_aggregate {
 	 (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||              \
 	 (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
 
-#define BGP_ATTR_NEXTHOP_AFI_IP6(attr)                                         \
-	(!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) &&          \
-	 BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))
+#define BGP_ATTR_NEXTHOP_AFI_IP6(attr)                                                            \
+	(!bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP) && BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))
 
 #define BGP_PATH_COUNTABLE(BI)                                                 \
 	(!CHECK_FLAG((BI)->flags, BGP_PATH_HISTORY)                            \
@@ -787,6 +821,11 @@ DECLARE_HOOK(bgp_process,
 	      struct peer *peer, bool withdraw),
 	     (bgp, afi, safi, bn, peer, withdraw));
 
+/* whether a component other than soft-reconfiguration inbound needs the
+ * peer's Adj-RIB-In to be maintained (e.g. BMP pre-policy monitoring)
+ */
+DECLARE_HOOK(bgp_adj_in_needed, (struct peer *peer, afi_t afi, safi_t safi), (peer, afi, safi));
+
 /* called when a route is updated in the rib */
 DECLARE_HOOK(bgp_route_update,
 	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
@@ -797,6 +836,14 @@ extern int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path
 extern uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi);
 
 DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, bgp_pi_hash_hashfn);
+
+/* UPA prefix hash - for tracking unreachable prefixes */
+extern int bgp_upa_prefix_cmp(const struct bgp_upa_prefix_entry *e1,
+			      const struct bgp_upa_prefix_entry *e2);
+extern uint32_t bgp_upa_prefix_hashfn(const struct bgp_upa_prefix_entry *entry);
+
+DECLARE_HASH(bgp_upa_prefix_hash, struct bgp_upa_prefix_entry, hash_link, bgp_upa_prefix_cmp,
+	     bgp_upa_prefix_hashfn);
 
 /* BGP show options */
 #define BGP_SHOW_OPT_JSON (1 << 0)
@@ -841,6 +888,7 @@ extern bool bgp_clear_node_queue_drain(struct peer *peer);
 /* Clear routes for a batch of peers */
 void bgp_clear_route_batch(struct bgp_clearing_info *cinfo);
 
+extern bool bgp_adj_in_needed(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi);
@@ -912,7 +960,8 @@ extern void bgp_update(struct peer *peer, const struct prefix *p,
 		       safi_t safi, int type, int sub_type,
 		       struct prefix_rd *prd, mpls_label_t *label,
 		       uint8_t num_labels, int soft_reconfig,
-		       struct bgp_route_evpn *evpn);
+		       struct bgp_route_evpn *evpn,
+		       struct bgp_unreach_nlri *unreach);
 extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 			 int sub_type, struct prefix_rd *prd,
@@ -1062,6 +1111,19 @@ extern void bgp_path_info_add_with_caller(const char *caller,
 					  struct bgp_dest *dest,
 					  struct bgp_path_info *pi);
 extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
+
+/* UPA (Unreachable Prefix Announcement) functions */
+extern void bgp_upa_originate_all(struct bgp *bgp, const struct prefix *aggr_p, afi_t afi,
+				  safi_t safi, struct bgp_aggregate *aggregate);
+extern void bgp_upa_withdraw_all(struct bgp *bgp, const struct prefix *aggr_p, afi_t afi,
+				 safi_t safi);
+extern void bgp_upa_originate_global(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_upa_withdraw_global(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_upa_check_prefix_global(struct bgp *bgp, const struct prefix *p, afi_t afi,
+					safi_t safi);
+extern bool bgp_upa_has_extcomm(struct bgp_path_info *pi);
+extern bool bgp_upa_get_dbit(struct bgp_path_info *pi);
+
 extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     struct bgp_path_info *exist, int *paths_eq,
 			     struct bgp_maxpaths_cfg *mpath_cfg, bool debug,

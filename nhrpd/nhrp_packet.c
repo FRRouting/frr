@@ -126,8 +126,12 @@ uint16_t nhrp_packet_calculate_checksum(const uint8_t *pdu, uint16_t len)
 
 	for (i = 0; i < len / 2; i++)
 		csum += pdu16[i];
-	if (len & 1)
-		csum += htons(pdu[len - 1]);
+	if (len & 1) {
+		uint16_t last = 0;
+
+		*(uint8_t *)&last = pdu[len - 1];
+		csum += last;
+	}
 
 	while (csum & 0xffff0000)
 		csum = (csum & 0xffff) + (csum >> 16);

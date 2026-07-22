@@ -340,6 +340,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-pim-route-map:ipv6-multicast-group-prefix-list"))
 #define IS_MATCH_MULTICAST_INTERFACE(C) \
 	(strmatch(C, "frr-pim-route-map:multicast-interface"))
+#define IS_MATCH_MULTICAST_SOURCE_INTERFACE(C) \
+	(strmatch(C, "frr-pim-route-map:multicast-source-interface"))
 
 /* Route-map set actions */
 #define IS_SET_IPv4_NH(A)                                                      \
@@ -380,10 +382,11 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:originator-id"))
 #define IS_SET_COMM_LIST_DEL(A)                                                \
 	(strmatch(A, "frr-bgp-route-map:comm-list-delete"))
+#define IS_SET_COMM_LIST_ADD(A)	    (strmatch(A, "frr-bgp-route-map:comm-list-add"))
+#define IS_SET_COMM_LIST_REPLACE(A) (strmatch(A, "frr-bgp-route-map:comm-list-replace"))
 #define IS_SET_LCOMM_LIST_DEL(A)                                               \
 	(strmatch(A, "frr-bgp-route-map:large-comm-list-delete"))
-#define IS_SET_EXTCOMM_LIST_DEL(A)                                                \
-	(strmatch(A, "frr-bgp-route-map:extended-comm-list-delete"))
+#define IS_SET_EXTCOMM_LIST_DEL(A) (strmatch(A, "frr-bgp-route-map:extended-comm-list-delete"))
 #define IS_SET_LCOMMUNITY(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:set-large-community"))
 #define IS_SET_COMMUNITY(A)                                                    \
@@ -424,6 +427,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-evpn-gateway-ip-ipv4"))
 #define IS_SET_BGP_EVPN_GATEWAY_IP_IPV6(A)                                     \
 	(strmatch(A, "frr-bgp-route-map:set-evpn-gateway-ip-ipv6"))
+#define IS_SET_BGP_EVPN_ROUTER_MAC(A) (strmatch(A, "frr-bgp-route-map:set-extcommunity-evpn-rmac"))
 #define IS_SET_BGP_L3VPN_NEXTHOP_ENCAPSULATION(A)                              \
 	(strmatch(A, "frr-bgp-route-map:set-l3vpn-nexthop-encapsulation"))
 

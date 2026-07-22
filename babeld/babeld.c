@@ -24,6 +24,7 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "babel_interface.h"
 #include "neighbour.h"
 #include "route.h"
+#include "xroute.h"
 #include "message.h"
 #include "resend.h"
 #include "babel_filter.h"
@@ -536,6 +537,10 @@ static void babel_distribute_update(struct distribute_ctx *ctx __attribute__((__
 	babel_interface_nfo *babel_ifp;
 	int type;
 	int family;
+	struct xroute_stream *xroutes;
+	struct xroute *xroute;
+	struct route_stream *routes;
+	struct babel_route *route;
 
 	if (!dist->ifname)
 		return;
@@ -557,6 +562,42 @@ static void babel_distribute_update(struct distribute_ctx *ctx __attribute__((__
 		else
 			babel_ifp->prefix[type] = NULL;
 	}
+
+	/* The outbound filter may now deny prefixes that were previously
+	 * advertised on this interface. Walk the locally originated xroutes and
+	 * the installed (transit) routes and explicitly retract the ones that
+	 * are no longer permitted, otherwise neighbors keep the stale route
+	 * until it times out. Newly permitted prefixes are re-advertised by the
+	 * update below.
+	 */
+	xroutes = xroute_stream();
+	if (xroutes) {
+		while (1) {
+			xroute = xroute_stream_next(xroutes);
+			if (xroute == NULL)
+				break;
+			if (output_filter(NULL, xroute->prefix, xroute->plen, ifp->ifindex) >=
+			    INFINITY)
+				send_retraction(ifp, myid, myseqno, xroute->prefix, xroute->plen);
+		}
+		xroute_stream_done(xroutes);
+	}
+
+	routes = route_stream(1);
+	if (routes) {
+		while (1) {
+			route = route_stream_next(routes);
+			if (route == NULL)
+				break;
+			if (output_filter(route->src->id, route->src->prefix, route->src->plen,
+					  ifp->ifindex) >= INFINITY)
+				send_retraction(ifp, route->src->id, route->seqno,
+						route->src->prefix, route->src->plen);
+		}
+		route_stream_done(routes);
+	}
+
+	send_update(ifp, 0, NULL, 0);
 }
 
 static void babel_distribute_update_interface(struct interface *ifp)

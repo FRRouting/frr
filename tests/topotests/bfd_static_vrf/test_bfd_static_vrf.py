@@ -28,7 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 
@@ -73,16 +73,8 @@ sysctl net.ipv6.conf.r1-eth1.keep_addr_on_down=1
 """
     )
 
-    for _, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_MGMTD, None),
-                (TopoRouter.RD_BFD, None),
-                (TopoRouter.RD_STATIC, None),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()

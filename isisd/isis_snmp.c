@@ -965,7 +965,7 @@ static int isis_snmp_circuit_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 	struct isis_circuit *circuit;
 
 	if (oid_idx == NULL || oid_idx_len < 1
-	    || oid_idx[0] > SNMP_CIRCUITS_MAX)
+	    || oid_idx[0] >= SNMP_CIRCUITS_MAX)
 		return 0;
 
 	circuit = snmp_circuits[oid_idx[0]];

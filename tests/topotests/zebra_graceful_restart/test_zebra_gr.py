@@ -38,7 +38,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 from lib import topotest
 from lib.common_config import kill_router_daemons, start_router_daemons, step
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.sharpd, pytest.mark.staticd]
@@ -56,14 +56,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            extra_daemons=[
-                (TopoRouter.RD_SHARP, ""),
-                (TopoRouter.RD_STATIC, ""),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config(extra_daemons=["sharpd"])
 
     tgen.start_router()
 
@@ -111,9 +105,34 @@ def test_zebra_gr_kernel_read_and_sweep():
     r1 = tgen.gears["r1"]
 
     # ---- Phase 1: Install routes via sharpd ----
+    step("Verify the 3 connected routes are present before creating nexthop groups")
+    connected_prefixes = ["192.168.1.0/24", "192.168.2.0/24", "192.168.3.0/24"]
+
+    def _check_connected_routes():
+        output = json.loads(r1.vtysh_cmd("show ip route connected json"))
+        for pfx in connected_prefixes:
+            if pfx not in output:
+                return "connected route {} not present yet".format(pfx)
+        return None
+
+    _, result = topotest.run_and_expect(_check_connected_routes, None, count=30, wait=1)
+    assert result is None, "Connected routes not present: {}".format(result)
+
+    step("Create nexthop groups now that connected routes are resolvable")
+    r1.vtysh_cmd(
+        "configure terminal\n"
+        "nexthop-group twonhg\n"
+        "nexthop 192.168.1.2 r1-eth0\n"
+        "nexthop 192.168.2.2 r1-eth1\n"
+        "exit\n"
+        "nexthop-group threenhg\n"
+        "nexthop 192.168.1.2 r1-eth0\n"
+        "nexthop 192.168.2.2 r1-eth1\n"
+        "nexthop 192.168.3.2 r1-eth2\n"
+        "exit\n"
+    )
 
     step("Verify sharpd nexthop groups are installed in zebra RIB")
-
     def _check_sharp_nhgs_installed():
         output = r1.vtysh_cmd("show nexthop-group rib sharp json", isjson=True)
         if not output or "default" not in output:

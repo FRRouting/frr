@@ -39,6 +39,7 @@
 #include "ospfd/ospf_te.h"
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ldp_sync.h"
+#include "ospfd/ospf_vty.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table");
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
@@ -1004,7 +1005,7 @@ static int ospf_external_lsa_originate_check(struct ospf *ospf,
 					     struct external_info *ei)
 {
 	/* If prefix is multicast, then do not originate LSA. */
-	if (IN_MULTICAST(htonl(ei->p.prefix.s_addr))) {
+	if (IN_MULTICAST(ntohl(ei->p.prefix.s_addr))) {
 		zlog_info(
 			"LSA[Type5:%pI4]: Not originate AS-external-LSA, Prefix belongs multicast",
 			&ei->p.prefix);
@@ -2123,8 +2124,13 @@ static void ospf_zebra_connected(struct zclient *zclient)
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
-	/* Activate graceful restart if configured. */
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		/* Replay existing OSPF routes to the (re)connected Zebra so a
+		 * restarted Zebra rebuilds its OSPF RIB state.
+		 */
+		ospf_reinstall_routes(ospf);
+
+		/* Activate graceful restart if configured. */
 		if (!ospf->gr_info.restart_support)
 			continue;
 		(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);

@@ -163,6 +163,19 @@ associated with a particular ``bmp targets``:
    All BGP neighbors are included in Route Monitoring.  Options to select
    a subset of BGP sessions may be added in the future.
 
+   .. note::
+
+      Pre-policy Route Monitoring is sourced from a peer's Adj-RIB-In, which
+      *bgpd* maintains automatically for every peer the monitoring covers;
+      configuring :clicmd:`neighbor PEER soft-reconfiguration inbound` is not
+      required.  When pre-policy monitoring is enabled at runtime, *bgpd*
+      repopulates the Adj-RIB-In of covered peers through a route refresh
+      (peers without the route refresh capability are reset).  Disabling it
+      frees the Adj-RIB-In memory again, unless soft-reconfiguration or
+      another monitoring target still needs it.  ``show bgp neighbors PEER
+      received-routes`` remains available only with soft-reconfiguration
+      inbound configured.
+
 .. clicmd:: bmp mirror
 
    Perform Route Mirroring for all BGP neighbors.  Since this provides a

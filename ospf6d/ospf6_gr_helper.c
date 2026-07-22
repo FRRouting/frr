@@ -145,7 +145,8 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
-	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
+	/* Iterate as long as we have at least a TLV header available */
+	for (tlvh = lsdesc_start(lsah); sum + TLV_HDR_SIZE <= length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		/* Check TLV len against overall LSA */
 		if (sum + TLV_SIZE(tlvh) > length) {
@@ -585,9 +586,11 @@ void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 			 * lsas will not be flooded in stub area.
 			 */
 			if (IS_AREA_STUB(oi->area)
-			    && ((lsa->header->type == OSPF6_LSTYPE_AS_EXTERNAL)
-				|| (lsa->header->type == OSPF6_LSTYPE_TYPE_7)
-				|| (lsa->header->type
+			    && ((ntohs(lsa->header->type)
+				 == OSPF6_LSTYPE_AS_EXTERNAL)
+				|| (ntohs(lsa->header->type)
+				    == OSPF6_LSTYPE_TYPE_7)
+				|| (ntohs(lsa->header->type)
 				    == OSPF6_LSTYPE_INTER_ROUTER))) {
 				continue;
 			}

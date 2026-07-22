@@ -451,7 +451,7 @@ DEFPY (install_seg6_routes,
 	sg.r.nhop.gate.ipv6 = seg6_nh6;
 	sg.r.nhop.vrf_id = vrf->vrf_id;
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
-	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg, 1, SRV6_HEADEND_BEHAVIOR_H_ENCAPS);
+	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg, 1, SRV6_HEADEND_BEHAVIOR_H_ENCAPS, NULL);
 
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, 0, &sg.r.nhop_group,
@@ -550,7 +550,7 @@ DEFPY(install_seg6local_segs_routes, install_seg6local_segs_routes_cmd,
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
 	seg_list[0] = seg6_seg1;
 	seg_list[1] = seg6_seg2;
-	nexthop_add_srv6_seg6(&sg.r.nhop, p_seg_list, 2, SRV6_HEADEND_BEHAVIOR_H_ENCAPS);
+	nexthop_add_srv6_seg6(&sg.r.nhop, p_seg_list, 2, SRV6_HEADEND_BEHAVIOR_H_ENCAPS, NULL);
 
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&sg.r.orig_prefix, sg.r.vrf_id, sg.r.inst, 0, &sg.r.nhop_group,
@@ -1269,7 +1269,7 @@ DEFUN (show_sharp_ted,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Vertex from the Link State Database */
-			key = ((uint64_t)ip_addr.s_addr) & 0xffffffff;
+			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
 			vertex = ls_find_vertex_by_key(sg.ted, key);
 			if (!vertex) {
 				vty_out(vty, "No vertex found for ID %pI4\n",

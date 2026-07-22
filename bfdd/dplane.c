@@ -417,6 +417,25 @@ static int bfd_dplane_enqueue(struct bfd_dplane_ctx *bdc, const void *buf,
 	if (bdc->client && bdc->sock == -1)
 		return -1;
 
+	/*
+	 * Not enough space: the buffer may simply not have been drained
+	 * yet, e.g. the initial session registration burst enqueues all
+	 * sessions before the write event ever runs. Try flushing
+	 * synchronously before giving up: the socket is normally
+	 * writable. Skip clients still connecting (flush would spin on
+	 * EAGAIN until the connection finishes).
+	 */
+	if (buflen > STREAM_WRITEABLE(bdc->outbuf) &&
+	    !(bdc->client && bdc->connecting)) {
+		/*
+		 * On socket failure or close the context is freed by
+		 * the flush. The buffer is non empty here, so a zero
+		 * return means exactly that: don't touch `bdc` again.
+		 */
+		if (bfd_dplane_flush(bdc) == 0)
+			return -1;
+	}
+
 	/* Not enough space. */
 	if (buflen > STREAM_WRITEABLE(bdc->outbuf)) {
 		bdc->out_fullev++;
@@ -640,7 +659,19 @@ static void _bfd_session_register_dplane(struct hash_bucket *hb, void *arg)
 	bfd_session_disable(bs);
 
 	/* Move session to data plane. */
-	_bfd_dplane_add_session(bdc, bs);
+	if (_bfd_dplane_add_session(bdc, bs) != 0) {
+		/*
+		 * The data plane didn't take the session (e.g. output
+		 * buffer full): return it to the software
+		 * implementation instead of leaving it implemented by
+		 * neither. Same recovery as data plane detach
+		 * (`_bfd_session_unregister_dplane`).
+		 */
+		zlog_warn(
+			"%s: failed to register session with data plane, keeping it in software",
+			__func__);
+		bfd_session_enable(bs);
+	}
 }
 
 static struct bfd_dplane_ctx *bfd_dplane_ctx_new(int sock)
@@ -798,7 +829,7 @@ static void _bfd_dplane_update_session_counters(struct bfddp_message *msg,
 	bs->stats.rx_echo_pkt =
 		be64toh(msg->data.session_counters.echo_input_packets);
 	bs->stats.tx_echo_pkt =
-		be64toh(msg->data.session_counters.echo_output_bytes);
+		be64toh(msg->data.session_counters.echo_output_packets);
 }
 
 /**
@@ -987,7 +1018,7 @@ static void bfd_dplane_client_init(const struct sockaddr *sa, socklen_t salen)
 	bdc = bfd_dplane_ctx_new(-1);
 	if (salen <= sizeof(bdc->addr)) {
 		memcpy(&bdc->addr, sa, salen);
-		bdc->addrlen = sizeof(bdc->addr);
+		bdc->addrlen = salen;
 	} else {
 		memcpy(&bdc->addr, sa, sizeof(bdc->addr));
 		bdc->addrlen = sizeof(bdc->addr);

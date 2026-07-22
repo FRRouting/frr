@@ -1599,6 +1599,17 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		ctx = dplane_ctx_dequeue(ctx_list);
 		if (ctx == NULL)
 			break;
+
+		/*
+		 * Skip-kernel ctxs are routed through work_list to preserve
+		 * FIFO ordering for downstream providers. Pass them directly
+		 * to handled_list without kernel programming.
+		 */
+		if (dplane_ctx_is_skip_kernel(ctx)) {
+			dplane_ctx_enqueue_tail(&handled_list, ctx);
+			continue;
+		}
+
 		switch (dplane_ctx_get_op(ctx)) {
 
 		case DPLANE_OP_ROUTE_INSTALL:
@@ -1692,6 +1703,7 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_GRE_SET:
 		case DPLANE_OP_INTF_ADDR_ADD:
 		case DPLANE_OP_INTF_ADDR_DEL:
+		case DPLANE_OP_INTF_SPEED_GET:
 		case DPLANE_OP_STARTUP_STAGE:
 		case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		case DPLANE_OP_VLAN_INSTALL:

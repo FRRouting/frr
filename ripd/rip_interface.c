@@ -39,6 +39,7 @@ static void rip_enable_apply(struct interface *);
 static void rip_passive_interface_apply(struct interface *);
 static int rip_if_down(struct interface *ifp);
 static int rip_enable_if_lookup(struct rip *rip, const char *ifname);
+static int rip_enable_network_prefix_lookup(struct connected *connected);
 static void rip_enable_apply_all(struct rip *rip);
 
 const struct message ri_version_msg[] = {{RI_RIP_VERSION_1, "1"},
@@ -492,10 +493,8 @@ static void rip_apply_address_add(struct connected *ifc)
 	nh.ifindex = ifc->ifp->ifindex;
 	nh.type = NEXTHOP_TYPE_IFINDEX;
 
-	/* Check if this interface is RIP enabled or not
-	   or  Check if this address's prefix is RIP enabled */
-	if ((rip_enable_if_lookup(rip, ifc->ifp->name) >= 0)
-	    || (rip_enable_network_lookup2(ifc) >= 0))
+	/* Check if this connected address is RIP enabled. */
+	if (rip_enable_network_connected_lookup(ifc) >= 0)
 		rip_redistribute_add(rip, ZEBRA_ROUTE_CONNECT,
 				     RIP_ROUTE_INTERFACE, &address, &nh, 0, 0,
 				     0);
@@ -615,8 +614,8 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 	return -1;
 }
 
-/* Check whether connected is within the ripng_enable_network table. */
-int rip_enable_network_lookup2(struct connected *connected)
+/* Check whether connected is within the RIP prefix-form network table. */
+static int rip_enable_network_prefix_lookup(struct connected *connected)
 {
 	struct rip_interface *ri = connected->ifp->info;
 	struct rip *rip = ri->rip;
@@ -645,6 +644,19 @@ int rip_enable_network_lookup2(struct connected *connected)
 
 	return -1;
 }
+
+/* Check whether connected is enabled by either form of `network`. */
+int rip_enable_network_connected_lookup(struct connected *connected)
+{
+	struct rip_interface *ri = connected->ifp->info;
+	struct rip *rip = ri->rip;
+
+	if (rip_enable_if_lookup(rip, connected->ifp->name) >= 0)
+		return 1;
+
+	return rip_enable_network_prefix_lookup(connected);
+}
+
 /* Add RIP enable network. */
 int rip_enable_network_add(struct rip *rip, struct prefix *p)
 {
@@ -791,11 +803,10 @@ static void rip_connect_set(struct interface *ifp, int set)
 		nh.ifindex = connected->ifp->ifindex;
 		nh.type = NEXTHOP_TYPE_IFINDEX;
 		if (set) {
-			/* Check once more whether this prefix is within a
-			 * "network IF_OR_PREF" one */
-			if ((rip_enable_if_lookup(rip, connected->ifp->name)
-			     >= 0)
-			    || (rip_enable_network_lookup2(connected) >= 0))
+			/* Check once more whether this connected address is
+			 * enabled by a network statement.
+			 */
+			if (rip_enable_network_connected_lookup(connected) >= 0)
 				rip_redistribute_add(rip, ZEBRA_ROUTE_CONNECT,
 						     RIP_ROUTE_INTERFACE,
 						     &address, &nh, 0, 0, 0);

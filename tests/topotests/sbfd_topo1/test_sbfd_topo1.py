@@ -41,7 +41,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
 from lib.checkping import check_ping
@@ -117,11 +117,8 @@ def setup_module(mod):
     # This is a sample of configuration loading.
     router_list = tgen.routers()
 
-    for rname, router in router_list.items():
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BFD, None)],
-        )
+    for router in router_list.values():
+        router.load_frr_config(extra_daemons=["bfdd"])
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()

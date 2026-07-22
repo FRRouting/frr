@@ -1855,13 +1855,12 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 		strlcpy(bzo.aspath, info->attr->aspath->str,
 			sizeof(bzo.aspath));
 
-		if (info->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))
+		if (bgp_attr_exists(info->attr, BGP_ATTR_COMMUNITIES))
 			strlcpy(bzo.community,
 				bgp_attr_get_community(info->attr)->str,
 				sizeof(bzo.community));
 
-		if (info->attr->flag
-		    & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))
+		if (bgp_attr_exists(info->attr, BGP_ATTR_LARGE_COMMUNITIES))
 			strlcpy(bzo.lcommunity,
 				bgp_attr_get_lcommunity(info->attr)->str,
 				sizeof(bzo.lcommunity));
@@ -1885,7 +1884,13 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 	 */
 	if (info->sub_type == BGP_ROUTE_AGGREGATE)
 		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
-	else
+	/* UPA routes with D-bit set get blackhole nexthop */
+	else if (CHECK_FLAG(info->flags, BGP_PATH_UPA) &&
+		 CHECK_FLAG(info->flags, BGP_PATH_UPA_DROP)) {
+		if (BGP_DEBUG(upa, UPA))
+			zlog_debug("UPA route %pFX: setting blackhole nexthop (D-bit=1)", p);
+		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
+	} else
 		api.nexthop_num = valid_nh_count;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
@@ -3477,6 +3482,8 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 static void bgp_zebra_connected(struct zclient *zclient)
 {
 	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
 
 	zclient_num_connects++; /* increment even if not responding */
 
@@ -3492,6 +3499,17 @@ static void bgp_zebra_connected(struct zclient *zclient)
 		return;
 
 	bgp_zebra_instance_register(bgp);
+
+	/* A restarted zebra has lost any previously installed BGP routes, and a
+	 * stable BGP RIB will not re-select unchanged best paths on its own.
+	 * Replay the selected routes so zebra and the kernel FIB are rebuilt.
+	 */
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!bgp_fibupd_safi(safi))
+			continue;
+
+		bgp_zebra_announce_table(bgp, afi, safi);
+	}
 
 	/* Retry the deferred suppress-fib-pending configuration */
 	bgp_zebra_suppress_fib_pending_config_retry();
@@ -3704,9 +3722,16 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 			vrf_id_to_name(vrf_id), vni,
 			vrf_id_to_name(tenant_vrf_id), svi_ifindex);
 
-	if (ipaddr_is_zero(&vtep_ip)) {
+	/* Preserve legacy behavior for VXLAN devices with no explicit local
+	 * address: treat IPv4/IPv6 zero as unspecified and use the router-id as
+	 * the EVPN VTEP/originator IP.
+	 */
+	if (cmd == ZEBRA_VNI_ADD && ipaddr_is_zero(&vtep_ip)) {
 		SET_IPADDR_V4(&vtep_ip);
 		vtep_ip.ipaddr_v4 = bgp->router_id;
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Rx VNI add with unspecified VTEP IP, using router-id %pIA",
+				   &vtep_ip);
 	}
 
 	if (cmd == ZEBRA_VNI_ADD) {
@@ -5157,6 +5182,19 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: %s afi: %u safi: %u Command %s ignore", __func__,
 				   bgp->name_pretty, afi, safi, zserv_gr_client_cap_string(type));
+
+		return BGP_GR_SUCCESS;
+	}
+
+	/*
+	 * SAFI_UNREACH has no forwarding state (purely control-plane UI-RIB).
+	 * No need to communicate route sync status to zebra.
+	 */
+	if (safi == SAFI_UNREACH) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: %s afi: %u safi: UNREACH Command %s ignore (no FIB)",
+				   __func__, bgp->name_pretty, afi,
+				   zserv_gr_client_cap_string(type));
 
 		return BGP_GR_SUCCESS;
 	}

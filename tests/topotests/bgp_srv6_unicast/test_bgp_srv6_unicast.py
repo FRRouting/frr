@@ -39,7 +39,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 from lib.common_config import retry
 from lib import topotest
-from lib.topogen import Topogen, get_topogen, TopoRouter
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
 
@@ -74,10 +74,9 @@ def setup_module(mod):
         """
     )
 
-    for _, (rname, router) in enumerate(router_list.items()):
+    for router in router_list.values():
         router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BGP, "-M bmp")],
+            daemons=["zebra", ("bgpd", "-M bmp")],
         )
 
     tgen.start_router()

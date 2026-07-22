@@ -92,7 +92,11 @@ DEFUN (babel_redistribute_type,
 	else {
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, babel_zclient, afi, type, 0,
 				     VRF_DEFAULT);
-		/* perhaps should we remove xroutes having the same type... */
+		/*
+		 * Zebra keeps the routes it already handed us, so drop the
+		 * matching xroutes ourselves and withdraw them.
+		 */
+		flush_xroutes_by_type(afi, type);
 	}
 	return CMD_SUCCESS;
 }

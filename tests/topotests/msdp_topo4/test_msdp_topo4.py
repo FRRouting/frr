@@ -80,9 +80,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for _, router in router_list.items():
-        file = f"{CWD}/{router.name}/frr.conf"
-        router.load_frr_config(file)
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()

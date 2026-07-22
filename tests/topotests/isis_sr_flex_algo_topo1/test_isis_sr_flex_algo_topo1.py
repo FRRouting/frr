@@ -158,21 +158,12 @@ def router_json_cmp_exact_filter(router, cmd, expected):
     return topotest.json_cmp(router_output, expected, exact=True)
 
 
-def router_compare_json_output(rname, command, reference):
-    "Compare router JSON output"
-
-    logger.info('Comparing router "%s" "%s" output', rname, command)
-
-    tgen = get_topogen()
-    expected = json.loads(reference)
-
-    # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(
-        router_json_cmp_exact_filter, tgen.gears[rname], command, expected
-    )
-    _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
-    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
-    assert diff is None, assertmsg
+router_compare_json_output = partial(
+    topotest.router_compare_json_output_data,
+    count=120,
+    wait=0.5,
+    cmp_func=router_json_cmp_exact_filter,
+)
 
 
 def router_compare_output(rname, command, reference):

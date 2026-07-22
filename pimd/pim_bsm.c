@@ -687,9 +687,23 @@ static void pim_bsm_update(struct pim_instance *pim, pim_addr bsr,
 		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
 	pim_nht_bsr_add(pim, bsr);
 
-	pim->global_scope.current_bsr = bsr;
-	pim->global_scope.current_bsr_first_ts = pim_time_monotonic_sec();
-	pim->global_scope.state = ACCEPT_PREFERRED;
+	/*
+	 * Cancel bs_timer when dropping out of BSR_PENDING - the timer has
+	 * pim_cand_bsr_pending_expire callback which asserts state == BSR_PENDING.
+	 * We must start the BS liveness timer after transitioning since
+	 * pim_bsm_process skips pim_bs_timer_restart when in BSR_PENDING.
+	 */
+	if (pim->global_scope.state == BSR_PENDING) {
+		event_cancel(&pim->global_scope.bs_timer);
+		pim->global_scope.current_bsr = bsr;
+		pim->global_scope.current_bsr_first_ts = pim_time_monotonic_sec();
+		pim->global_scope.state = ACCEPT_PREFERRED;
+		pim_bs_timer_start(&pim->global_scope, PIM_BSR_DEFAULT_TIMEOUT);
+	} else {
+		pim->global_scope.current_bsr = bsr;
+		pim->global_scope.current_bsr_first_ts = pim_time_monotonic_sec();
+		pim->global_scope.state = ACCEPT_PREFERRED;
+	}
 
 	pim_cand_rp_trigger(&pim->global_scope);
 }
@@ -797,6 +811,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 
 		/* RP not found for the group grp */
 		if (!trp_info || pim_rpf_addr_is_inaddr_any(&trp_info->rp)) {
+			pim_nht_delete_tracked_upstream(pim, up->upstream_addr, up);
 			pim_upstream_rpf_clear(pim, up);
 			pim_rp_set_upstream_addr(pim, &up->upstream_addr,
 						 up->sg.src, up->sg.grp);
@@ -844,6 +859,29 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 
 	pim_ifp->pim->bsm_sent++;
 	return true;
+}
+
+/* Send the current fragment and construct the next one. Reuse old packet
+ * buffer; PIM/BSM headers remain, pkt resets to firstgrp_ptr.
+ */
+static void pim_bsm_frag_flush(struct pim_interface *pim_ifp, uint8_t *pak_start, uint8_t **pkt,
+			       uint8_t *firstgrp_ptr, uint32_t *this_pkt_rem, uint32_t pim_mtu,
+			       pim_addr dst_addr, struct interface *ifp, bool no_fwd)
+{
+	uint32_t this_pkt_len;
+
+	if (*pkt <= firstgrp_ptr) {
+		*this_pkt_rem = pim_mtu - (PIM_BSM_HDR_LEN + PIM_MSG_HEADER_LEN);
+		return;
+	}
+
+	this_pkt_len = pim_mtu - *this_pkt_rem;
+	pim_msg_build_header(pim_ifp->primary_address, dst_addr, pak_start, this_pkt_len,
+			     PIM_MSG_TYPE_BOOTSTRAP, no_fwd);
+	pim_bsm_send_intf(pak_start, this_pkt_len, ifp, dst_addr);
+
+	*pkt = firstgrp_ptr;
+	*this_pkt_rem = pim_mtu - (PIM_BSM_HDR_LEN + PIM_MSG_HEADER_LEN);
 }
 
 static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
@@ -917,6 +955,20 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 		 *                     the frag
 		 * this_rp_cnt    ---> how many rp have we parsed
 		 */
+		if (parsed_len + PIM_BSM_GRP_LEN > len) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug("%s: truncated BSM group header", __func__);
+			XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, pak_start);
+			return false;
+		}
+
+		/* Flush when the current fragment cannot hold another group + one RP */
+		if (this_pkt_rem < PIM_BSM_GRP_LEN + PIM_BSM_RP_LEN) {
+			pim_bsm_frag_flush(pim_ifp, pak_start, &pkt, firstgrp_ptr, &this_pkt_rem,
+					   pim_mtu, dst_addr, ifp, no_fwd);
+			pak_pending = false;
+		}
+
 		grpinfo = (struct bsmmsg_grpinfo *)buf;
 		memcpy(pkt, buf, PIM_BSM_GRP_LEN);
 		curgrp = (struct bsmmsg_grpinfo *)pkt;
@@ -928,6 +980,21 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 		/* initialize rp count and total_rp_cnt before the rp loop */
 		this_rp_cnt = 0;
 		total_rp_cnt = grpinfo->frag_rp_count;
+
+		/* Bound RP count against remaining source bytes (byte-exact) */
+		if ((uint32_t)total_rp_cnt * PIM_BSM_RP_LEN > (uint32_t)(len - parsed_len)) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug("%s: BSM frag_rp_count exceeds remaining input",
+					   __func__);
+			XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, pak_start);
+			return false;
+		}
+
+		if (total_rp_cnt == 0) {
+			/* Group with no RPs in this fragment; outer loop only */
+			pak_pending = (pkt > firstgrp_ptr);
+			continue;
+		}
 
 		/* Loop till all RPs for the group parsed */
 		while (this_rp_cnt < total_rp_cnt) {
@@ -946,9 +1013,31 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 			else
 				frag_rp_cnt = rp_fit_cnt;
 
+			/* Unreachable: the outer-loop pre-flush guarantees
+			 * this_pkt_rem >= GRP_LEN + RP_LEN before the group
+			 * header is written, so rp_fit_cnt >= 1 here and
+			 * frag_rp_cnt >= 1 by the loop guard.  Guard anyway
+			 * so a future refactor cannot silently spin forever.
+			 */
+			if (frag_rp_cnt == 0) {
+				if (PIM_DEBUG_BSM)
+					zlog_debug("%s: BUG: frag_rp_cnt zero in RP loop",
+						   __func__);
+				XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, pak_start);
+				return false;
+			}
+
+			copy_byte_count = frag_rp_cnt * PIM_BSM_RP_LEN;
+			if (parsed_len + copy_byte_count > len) {
+				if (PIM_DEBUG_BSM)
+					zlog_debug("%s: BSM RP data exceeds remaining input",
+						   __func__);
+				XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, pak_start);
+				return false;
+			}
+
 			/* populate the frag rp count for the current grp */
 			curgrp->frag_rp_count = frag_rp_cnt;
-			copy_byte_count = frag_rp_cnt * PIM_BSM_RP_LEN;
 
 			/* copy all the rp that we are fitting in this
 			 * frag for the grp
@@ -967,25 +1056,25 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 			    || (this_pkt_rem
 				< (PIM_BSM_GRP_LEN + PIM_BSM_RP_LEN))) {
 				/* No space to fit in more rp, send this pkt */
-				this_pkt_len = pim_mtu - this_pkt_rem;
-				pim_msg_build_header(
-					pim_ifp->primary_address, dst_addr,
-					pak_start, this_pkt_len,
-					PIM_MSG_TYPE_BOOTSTRAP, no_fwd);
-				pim_bsm_send_intf(pak_start, this_pkt_len, ifp,
-						  dst_addr);
-
-				/* Construct next fragment. Reuse old packet */
-				pkt = firstgrp_ptr;
-				this_pkt_rem = pim_mtu - (PIM_BSM_HDR_LEN
-							  + PIM_MSG_HEADER_LEN);
+				pim_bsm_frag_flush(pim_ifp, pak_start, &pkt, firstgrp_ptr,
+						   &this_pkt_rem, pim_mtu, dst_addr, ifp, no_fwd);
 
 				/* If pkt can't accommodate next group + at
 				 * least one rp, we must break out of this inner
 				 * loop and process next RP
 				 */
-				if (total_rp_cnt == this_rp_cnt)
+				if (total_rp_cnt == this_rp_cnt) {
+					pak_pending = false;
 					break;
+				}
+
+				if (this_pkt_rem < PIM_BSM_GRP_LEN + PIM_BSM_RP_LEN) {
+					if (PIM_DEBUG_BSM)
+						zlog_debug("%s: fragment MTU too small for continuation group",
+							   __func__);
+					XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, pak_start);
+					return false;
+				}
 
 				/* If some more RPs for the same group pending,
 				 * fill grp hdr
@@ -1349,6 +1438,13 @@ bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		if (grpinfo.rp_count == 0) {
 			struct bsm_rpinfo *old_rpinfo;
 
+			if (grpinfo.frag_rp_count != 0) {
+				if (PIM_DEBUG_BSM)
+					zlog_debug("%s: rp_count zero but frag_rp_count %u",
+						   __func__, grpinfo.frag_rp_count);
+				return false;
+			}
+
 			/* BSR explicitly no longer has RPs for this group */
 			if (!bsgrp)
 				continue;
@@ -1366,6 +1462,13 @@ bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			pim_free_bsgrp_node(scope->bsrp_table, &bsgrp->group);
 			pim_free_bsgrp_data(bsgrp);
 			continue;
+		}
+
+		if (grpinfo.frag_rp_count > grpinfo.rp_count) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug("%s: frag_rp_count %u exceeds rp_count %u", __func__,
+					   grpinfo.frag_rp_count, grpinfo.rp_count);
+			return false;
 		}
 
 		if (!bsgrp) {
@@ -1648,8 +1751,12 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	 * Restart BS liveness whenever we accept a preferred BSR's BSM; do not
 	 * tie this to whether payload parsing installs every (G,RP) (capacity
 	 * bounds may drop tuples without invalidating receipt).
+	 *
+	 * But do NOT restart when in BSR_PENDING state - the bs_timer is used
+	 * for the pending-to-elected transition in that state.
 	 */
-	pim_bs_timer_restart(&pim_ifp->pim->global_scope, PIM_BSR_DEFAULT_TIMEOUT);
+	if (pim_ifp->pim->global_scope.state != BSR_PENDING)
+		pim_bs_timer_restart(&pim_ifp->pim->global_scope, PIM_BSR_DEFAULT_TIMEOUT);
 
 	/* Parse Update bsm rp table and install/uninstall rp if required */
 	if (!pim_bsm_parse_install_g2rp(
@@ -1980,16 +2087,26 @@ static void pim_cand_bsr_trigger(struct bsm_scope *scope, bool verbose)
 		return;
 	}
 
-	if (!pim_addr_cmp(scope->current_bsr, scope->bsr_addrsel.run_addr))
+	if (!pim_addr_cmp(scope->current_bsr, scope->bsr_addrsel.run_addr)) {
+		/* We are the current BSR. If our priority changed, update and
+		 * regenerate BSM immediately.
+		 */
+		if (scope->state == BSR_ELECTED && scope->current_bsr_prio != scope->cand_bsr_prio) {
+			scope->current_bsr_prio = scope->cand_bsr_prio;
+			pim_bsm_generate(scope);
+		}
 		return;
+	}
 
 	pim_cand_bsr_pending(scope);
 }
 
 void pim_cand_bsr_apply(struct bsm_scope *scope)
 {
-	if (!cand_addrsel_update(&scope->bsr_addrsel, scope->pim->vrf))
-		return;
+	/* Always call pim_cand_bsr_trigger regardless of address change -
+	 * priority changes need to be processed even if the address stays same.
+	 */
+	cand_addrsel_update(&scope->bsr_addrsel, scope->pim->vrf);
 
 	if (!scope->bsr_addrsel.run) {
 		pim_cand_bsr_stop(scope, true);
@@ -1999,6 +2116,28 @@ void pim_cand_bsr_apply(struct bsm_scope *scope)
 	if (PIM_DEBUG_BSM)
 		zlog_debug("Candidate BSR: %pPA, priority %u",
 			   &scope->bsr_addrsel.run_addr, scope->cand_bsr_prio);
+
+	/*
+	 * Handle the case where our candidacy is now worse than current_bsr.
+	 * This can happen if an operator lowers the priority or the source
+	 * address changes while we're already pending/elected.
+	 *
+	 * For BSR_PENDING: cancel the pending timer (which would assert on
+	 * cand_bsr_prio >= current_bsr_prio) and fall back to ACCEPT_PREFERRED.
+	 *
+	 * For BSR_ELECTED: just return early - we'll continue as elected BSR
+	 * until the next BSM exchange resolves the situation.
+	 */
+	if (scope->current_bsr_prio > scope->cand_bsr_prio ||
+	    (scope->current_bsr_prio == scope->cand_bsr_prio &&
+	     pim_addr_cmp(scope->current_bsr, scope->bsr_addrsel.run_addr) > 0)) {
+		if (scope->state == BSR_PENDING) {
+			event_cancel(&scope->bs_timer);
+			scope->state = ACCEPT_PREFERRED;
+			pim_bs_timer_start(scope, PIM_BSR_DEFAULT_TIMEOUT);
+		}
+		return;
+	}
 
 	pim_cand_bsr_trigger(scope, true);
 }

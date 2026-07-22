@@ -1178,8 +1178,30 @@ static struct ospf_lsa *ospf_network_lsa_refresh(struct ospf_lsa *lsa)
 		return NULL;
 	}
 
-	if (oi->state != ISM_DR)
+	/*
+	 * RFC 2328 Section 13.4: if we are no longer the Designated Router for
+	 * this network we must not re-originate the network-LSA.  Instead the
+	 * self-originated network-LSA has to be flushed from the routing domain
+	 * (MaxAge + reflood).
+	 */
+	if (oi->state != ISM_DR) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
+			zlog_debug("LSA[Type%d:%pI4]: network-LSA refresh: no longer DR, flushing",
+				   lsa->data->type, &lsa->data->id);
+			ospf_lsa_header_dump(lsa->data);
+		}
+
+		ospf_refresher_unregister_lsa(area->ospf, lsa);
+		ospf_lsa_flush_area(lsa, area);
+		if (oi->network_lsa_self == lsa)
+			ospf_lsa_unlock(&oi->network_lsa_self);
+
+		oip = ospf_lookup_if_params(oi->ifp, oi->address->u.prefix4);
+		if (oip)
+			oip->network_lsa_seqnum = htonl(OSPF_INVALID_SEQUENCE_NUMBER);
+
 		return NULL;
+	}
 
 	/* Delete LSA from neighbor retransmit-list. */
 	ospf_ls_retransmit_delete_nbr_area(area, lsa);

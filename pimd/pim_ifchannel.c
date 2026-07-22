@@ -451,6 +451,7 @@ void pim_ifchannel_find(struct interface *ifp, pim_sgaddr *sg, struct pim_ifchan
 			  __func__, sg, ifp->name);
 		*ch = NULL;
 		*chrpt = NULL;
+		return;
 	}
 
 	lookup.sg = *sg;
@@ -609,6 +610,18 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 		PIM_IF_FLAG_SET_COULD_ASSERT(ch->flags);
 	else
 		PIM_IF_FLAG_UNSET_COULD_ASSERT(ch->flags);
+
+	/*
+	 * my_assert_metric() depends on the CouldAssert(S,G,I) flag, but the
+	 * metric above was evaluated before that flag was set, so it defaulted
+	 * to the infinite metric. Dense-mode ifchannels are frequently created
+	 * with RPF already resolved (CouldAssert true at creation), and the
+	 * flag is set directly here without going through
+	 * pim_ifchannel_update_could_assert(), so a later update sees no change
+	 * and never refreshes the metric. Recompute it now that the flag is
+	 * known so the first Assert we send carries the real metric.
+	 */
+	ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
 
 	if (pim_macro_assert_tracking_desired_eval(ch))
 		PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);

@@ -453,9 +453,9 @@ int ospf6_lsa_compare(struct ospf6_lsa *a, struct ospf6_lsa *b)
 		return 1;
 
 	/* Age check */
-	if (agea > ageb && agea - ageb >= OSPF_LSA_MAXAGE_DIFF)
+	if (agea > ageb && agea - ageb > OSPF_LSA_MAXAGE_DIFF)
 		return 1;
-	else if (agea < ageb && ageb - agea >= OSPF_LSA_MAXAGE_DIFF)
+	else if (agea < ageb && ageb - agea > OSPF_LSA_MAXAGE_DIFF)
 		return -1;
 
 	/* neither recent */
@@ -969,7 +969,8 @@ void ospf6_lsa_refresh(struct event *event)
 
 void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 {
-	struct listnode *node, *nnode;
+	struct listnode *node;
+	struct listnode *if_node, *if_nnode;
 	struct ospf6_area *oa;
 	struct ospf6_lsa *lsa;
 	const struct route_node *end = NULL;
@@ -990,7 +991,7 @@ void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 			lsa = ospf6_lsdb_next(end, lsa);
 		}
 
-		for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
+		for (ALL_LIST_ELEMENTS(oa->if_list, if_node, if_nnode, oi)) {
 			end = ospf6_lsdb_head(oi->lsdb_self, 0, 0,
 					      ospf6->router_id, &lsa);
 			while (lsa) {

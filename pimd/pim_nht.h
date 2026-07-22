@@ -103,6 +103,10 @@ bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr);
 void pim_nht_delete_tracked(struct pim_instance *pim, pim_addr addr, struct pim_upstream *up,
 			    struct rp_info *rp);
 
+/* Delete a tracked upstream from the NHT entry for addr */
+void pim_nht_delete_tracked_upstream(struct pim_instance *pim, pim_addr addr,
+				     struct pim_upstream *up);
+
 /* Delete a tracked addr and decrement BSR count, if no-one else is interested, stop tracking */
 void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
 
@@ -119,14 +123,19 @@ void pim_nht_rp_del(struct rp_info *rp_info);
 /* Walk the NH cache and update every nexthop that uses the given interface */
 void pim_nht_upstream_if_update(struct pim_instance *pim, struct interface *ifp);
 
+/* Re-send ZEBRA_NEXTHOP_REGISTER once vrf_id is resolved. */
+void pim_nht_reregister_all(struct pim_instance *pim);
+
 /* Lookup nexthop information for src, returned in nexthop when function returns true.
  * Tries to find in cache first and does a synchronous lookup if not found in the cache.
  * If neighbor_needed is true, then nexthop is only considered valid if it's to a pim
  * neighbor.
- * Providing the group only effects the ECMP decision, if enabled
+ * Providing the group only effects the ECMP decision, if enabled.
+ * When ingress_ifp is non-NULL and listed among valid nexthops, it is
+ * preferred over the default first-fit / ECMP selection.
  */
 bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr src,
-			 struct prefix *grp, bool neighbor_needed);
+			 struct prefix *grp, bool neighbor_needed, struct interface *ingress_ifp);
 
 /* Very similar to pim_nht_lookup_ecmp, but does not check the nht cache and only does
  * a synchronous lookup. No ECMP decision is made.

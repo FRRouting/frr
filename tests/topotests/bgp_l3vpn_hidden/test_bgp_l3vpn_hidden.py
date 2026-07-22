@@ -20,7 +20,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topolog import logger
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.common_config import step
 
 
@@ -87,18 +87,8 @@ ip link set eth-ce1 master RED
 
     router_list = tgen.routers()
 
-    for _, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_MGMTD, None),
-                (TopoRouter.RD_BFD, None),
-                (TopoRouter.RD_LDP, None),
-                (TopoRouter.RD_ISIS, None),
-                (TopoRouter.RD_BGP, None),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
 

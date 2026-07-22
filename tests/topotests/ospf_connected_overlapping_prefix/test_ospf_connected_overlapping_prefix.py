@@ -15,7 +15,6 @@ test_ospf_connected_overlapping_prefix.py: test OSPF overlapping prefix bug.
 
 import os
 import sys
-from functools import partial
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -42,29 +41,10 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_frr_config(f"{CWD}/{rname}/frr.conf")
+    for router in router_list.values():
+        router.load_frr_config()
 
     tgen.start_router()
-
-
-def expect_ospf_neighbor(router, neighbor):
-    tgen = get_topogen()
-
-    expected = {
-        "neighbors": {
-            neighbor: [{
-                "converged": "Full"
-            }]
-        }
-    }
-    test_func = partial(
-        topotest.router_json_cmp,
-        tgen.gears[router],
-        "show ip ospf neighbor json",
-        expected)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert result is None, f"Router {router} failed to converge"
 
 
 def test_ospf_neighbor_convergence():
@@ -72,8 +52,8 @@ def test_ospf_neighbor_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    expect_ospf_neighbor("r1", "10.254.254.2")
-    expect_ospf_neighbor("r2", "10.254.254.1")
+    tgen.gears["r1"].expect_ospfv2_neighbor("10.254.254.2")
+    tgen.gears["r2"].expect_ospfv2_neighbor("10.254.254.1")
 
 
 def test_ospf_connected_overlapping_prefix():

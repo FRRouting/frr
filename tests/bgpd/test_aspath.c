@@ -1363,7 +1363,7 @@ static int handle_attr_test(struct aspath_tests *t)
 		datalen += sizeof(dummyaspath) + t->old_segment->len;
 	}
 
-	ret = bgp_attr_parse(peer.connection, &attr, t->len + datalen, NULL, NULL);
+	ret = bgp_attr_parse(peer.connection, &attr, t->len + datalen, NULL, NULL, false);
 
 	if (ret != t->result) {
 		printf("bgp_attr_parse returned %d, expected %d\n", ret,
@@ -1404,6 +1404,98 @@ static void attr_test(struct aspath_tests *t)
 {
 	printf("%s\n", t->desc);
 	printf("%s\n\n", handle_attr_test(t) ? FAILED : OK);
+}
+
+/*
+ * Regression test for the AS_PATH put-truncation issue.
+ *
+ * assegment_normalise() must merge adjacent AS_SEQUENCE segments only up to
+ * the on-wire 255-ASN segment limit.  If it merges without the length cap, an
+ * AS_PATH received as several 255-ASN wire segments (e.g. over an RFC 8654
+ * Extended-Message session) is stored as a single over-length internal
+ * segment.  aspath_put() then trips its outer-loop guard and silently emits an
+ * empty AS_PATH when re-encoding the route for a peer that did not negotiate
+ * Extended-Message - laundering the prefix.  Make sure no internal segment
+ * ever exceeds the 255-ASN limit, and that aspath_put() still emits the path
+ * (rather than nothing) when the destination stream is too small to hold it
+ * all as one segment.
+ */
+static void overlong_sequence_test(void)
+{
+	const unsigned int seg_count = 2;
+	const unsigned int seg_len = 200; /* 2 x 200 = 400 ASNs > 255 */
+	const as_t asn = 0x1234;
+	uint8_t data[2 * (2 + seg_len * 2)];
+	struct aspath *asp;
+	struct assegment *seg;
+	unsigned int total = 0;
+	size_t pos = 0;
+	bool ok = true;
+
+	printf("overlong sequence: merge must honour the 255-ASN segment cap\n");
+
+	for (unsigned int s = 0; s < seg_count; s++) {
+		data[pos++] = AS_SEQUENCE;
+		data[pos++] = seg_len;
+		for (unsigned int a = 0; a < seg_len; a++) {
+			data[pos++] = (asn >> 8) & 0xff;
+			data[pos++] = asn & 0xff;
+		}
+	}
+
+	asp = make_aspath(data, pos, 0, ASNOTATION_PLAIN);
+
+	if (!asp) {
+		ok = false;
+		printf("  failed to parse\n");
+	}
+
+	if (asp && aspath_count_hops(asp) != seg_count * seg_len) {
+		ok = false;
+		printf("  wrong hop count: %u (expected %u)\n", aspath_count_hops(asp),
+		       seg_count * seg_len);
+	}
+
+	for (seg = asp ? asp->segments : NULL; seg; seg = seg->next) {
+		total += seg->length;
+		if (seg->length > 255) {
+			ok = false;
+			printf("  over-length internal segment: %u ASNs\n", seg->length);
+		}
+	}
+
+	if (asp && total != seg_count * seg_len) {
+		ok = false;
+		printf("  lost ASNs: counted %u (expected %u)\n", total, seg_count * seg_len);
+	}
+
+	/* Re-encode into a stream too small to hold the whole path as a single
+	 * segment, the way bgp_packet_attribute() does for a peer with a
+	 * smaller MTU.  The buggy single over-length segment makes aspath_put()
+	 * emit nothing at all (an empty AS_PATH); capped segments let it write
+	 * at least the part that fits.
+	 */
+	if (asp) {
+		struct stream *s = stream_new(1000);
+
+		if (aspath_put(s, asp, 1) == 0) {
+			ok = false;
+			printf("  aspath_put() emitted an empty AS_PATH\n");
+		}
+		stream_free(s);
+	}
+
+	if (ok)
+		printf("%s\n", OK);
+	else {
+		failed++;
+		printf("%s!\n", FAILED);
+	}
+
+	printf("\n");
+
+	if (asp)
+		aspath_unintern(&asp);
 }
 
 int main(void)
@@ -1448,6 +1540,10 @@ int main(void)
 	i = 0;
 
 	empty_get_test();
+
+	i = 0;
+
+	overlong_sequence_test();
 
 	i = 0;
 

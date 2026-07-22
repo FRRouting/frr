@@ -11,6 +11,7 @@
 #include "prefix.h"
 #include "vector.h"
 #include "vty.h"
+#include "monotime.h"
 
 #include "ospf6d/ospf6_proto.h" /* for struct ospf6_prefix */
 #include "ospf6d/ospf6_lsa.h"
@@ -203,6 +204,33 @@ DEFPY(lsa_refcounts, lsa_refcounts_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(lsa_compare_age, lsa_compare_age_cmd,
+      "lsa compare-age (0-999999)$a (0-999999)$b ages (0-65535)$agea (0-65535)$ageb",
+      "LSA\n"
+      "compare two (otherwise identical) LSAs at the given LS ages\n"
+      "first LSA index in array\n"
+      "second LSA index in array\n"
+      "set the LS ages used for the comparison\n"
+      "LS age of the first LSA\n"
+      "LS age of the second LSA\n")
+{
+	struct timeval now;
+
+	/* Use a single time reference so the resulting age difference is
+	 * exact regardless of how long the comparison itself takes.
+	 */
+	monotime(&now);
+	lsas[a]->header->age = 0;
+	lsas[a]->birth.tv_sec = now.tv_sec - agea;
+	lsas[a]->birth.tv_usec = now.tv_usec;
+	lsas[b]->header->age = 0;
+	lsas[b]->birth.tv_sec = now.tv_sec - ageb;
+	lsas[b]->birth.tv_usec = now.tv_usec;
+
+	vty_out(vty, "compare = %d\n", ospf6_lsa_compare(lsas[a], lsas[b]));
+	return CMD_SUCCESS;
+}
+
 DEFPY(lsdb_create, lsdb_create_cmd,
       "lsdb create",
       "LSDB\n"
@@ -234,6 +262,7 @@ void test_init(int argc, char **argv)
 	install_element(ENABLE_NODE, &lsa_set_cmd);
 	install_element(ENABLE_NODE, &lsa_refcounts_cmd);
 	install_element(ENABLE_NODE, &lsa_drop_cmd);
+	install_element(ENABLE_NODE, &lsa_compare_age_cmd);
 
 	install_element(ENABLE_NODE, &lsdb_create_cmd);
 	install_element(ENABLE_NODE, &lsdb_delete_cmd);

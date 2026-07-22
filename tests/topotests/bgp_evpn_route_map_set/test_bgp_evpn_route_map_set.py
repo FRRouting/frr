@@ -43,7 +43,7 @@ ip link add vxlan10 up master br10 type vxlan id 10 dstport 4789 local 10.0.0.3 
     )
 
     for name, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, f"{name}/frr.conf"))
+        router.load_frr_config()
 
     tgen.start_router()
 

@@ -326,7 +326,7 @@ static struct rpki_vrf *find_rpki_vrf_from_ident(const char *ident)
 	size_t host_len;
 	char *endptr;
 	char *host;
-	char *ptr;
+	const char *ptr;
 	char *buf;
 
 	/* extract the <SOCKET> */
@@ -722,7 +722,7 @@ static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *bgp_dest, afi_
 
 		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest), ain->addpath_rx_id,
 				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				 label, num_labels, 1, NULL);
+				 label, num_labels, 1, NULL, NULL);
 	}
 
 	/* Locally originated routes (e.g., 'network' statement) have no adj_in

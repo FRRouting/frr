@@ -19,7 +19,7 @@ import pytest
 
 from lib.common_config import retry
 from lib.pim import McastTesterHelper
-from lib.topogen import Topogen, TopoRouter
+from lib.topogen import Topogen
 from lib.topolog import logger
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -80,15 +80,8 @@ def tgen(request):
     router_list = tgen.routers()
 
     # Start Zebra and PIM on all routers
-    for rname, router in router_list.items():
-        router.load_frr_config(
-            os.path.join(CWD, f"{rname}/frr.conf"),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_PIM, None),
-                (TopoRouter.RD_BGP, None),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Start and configure the router daemons
     tgen.start_router()

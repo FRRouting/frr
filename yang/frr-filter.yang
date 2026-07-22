@@ -277,7 +277,7 @@ module frr-filter {
           case ipv6-prefix {
             when "../type = 'ipv6'";
 
-            choice style {
+            choice ipv6-style {
               mandatory true;
               description "Access list entry style selection: zebra or cisco.";
 
@@ -296,7 +296,7 @@ module frr-filter {
               }
 
               case cisco {
-                choice standard-value {
+                choice ipv6-standard-value {
                   description "Source value to match";
 
                   leaf ipv6-host {
@@ -327,7 +327,7 @@ module frr-filter {
                   }
                 }
 
-                choice extended-value {
+                choice ipv6-extended-value {
                   description "Destination value to match";
 
                   leaf ipv6-destination-host {

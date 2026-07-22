@@ -269,80 +269,36 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		ctx, *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]));
 }
 
-static uint32_t get_iflink_speed(struct interface *interface, int *error)
+void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx)
 {
-	struct ifreq ifdata;
-	struct ethtool_cmd ecmd;
-	int sd;
-	int rc;
-	const char *ifname = interface->name;
-	uint32_t ret;
+	const char *ifname = dplane_ctx_get_ifname(ctx);
+	struct zebra_ns *zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+	uint32_t speed;
+	int error = 0;
 
-	if (error)
-		*error = 0;
-	/* initialize struct */
-	memset(&ifdata, 0, sizeof(ifdata));
-
-	/* set interface name */
-	strlcpy(ifdata.ifr_name, ifname, sizeof(ifdata.ifr_name));
-
-	/* initialize ethtool interface */
-	memset(&ecmd, 0, sizeof(ecmd));
-	ecmd.cmd = ETHTOOL_GSET; /* ETHTOOL_GLINK */
-	ifdata.ifr_data = (caddr_t)&ecmd;
-
-	/* use ioctl to get speed of an interface */
-	frr_with_privs(&zserv_privs) {
-		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
-				interface->vrf->vrf_id, NULL);
-		if (sd < 0) {
-			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("Failure to read interface %s speed: %d %s",
-					   ifname, errno, safe_strerror(errno));
-			/* no vrf socket creation may probably mean vrf issue */
-			if (error)
-				*error = INTERFACE_SPEED_ERROR_READ;
-
-			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
-				 safe_strerror(errno), 1);
-
-			return 0;
-		}
-		/* Get the current link state for the interface */
-		rc = vrf_ioctl(interface->vrf->vrf_id, sd, SIOCETHTOOL,
-			       (char *)&ifdata);
+	speed = netlink_get_interface_speed(zns, ifname, &error);
+	switch (error) {
+	case 0:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+		dplane_ctx_set_ifp_speed(ctx, speed);
+		dplane_ctx_set_ifp_speed_set(ctx, true);
+		break;
+	case INTERFACE_SPEED_ERROR_UNKNOWN:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+		dplane_ctx_set_ifp_speed_set(ctx, false);
+		break;
+	case INTERFACE_SPEED_ERROR_READ:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		dplane_ctx_set_ifp_speed_set(ctx, false);
+		break;
+	default:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		dplane_ctx_set_ifp_speed_set(ctx, false);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("netlink_get_interface_speed returned an unknown error %d",
+				   error);
+		break;
 	}
-	if (rc < 0) {
-		if (errno != EOPNOTSUPP && IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"IOCTL failure to read interface %s speed: %d %s",
-				ifname, errno, safe_strerror(errno));
-		/* no device means interface unreachable */
-		if (errno == ENODEV && error)
-			*error = INTERFACE_SPEED_ERROR_READ;
-
-		if (errno != EOPNOTSUPP)
-			frrtrace(4, frr_zebra, get_iflink_speed, ifname, errno,
-				 safe_strerror(errno), 2);
-
-		ecmd.speed_hi = 0;
-		ecmd.speed = 0;
-	}
-
-	close(sd);
-
-	ret = ((uint32_t)ecmd.speed_hi << 16) | ecmd.speed;
-	if (ret == UINT32_MAX) {
-		if (error)
-			*error = INTERFACE_SPEED_ERROR_UNKNOWN;
-		ret = 0;
-	}
-	return ret;
-}
-
-uint32_t kernel_get_speed(struct interface *ifp, int *error)
-{
-	return get_iflink_speed(ifp, error);
 }
 
 static ssize_t
@@ -907,8 +863,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_PACKET, RTM_GETLINK, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0,
-				 true);
+	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0, true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -917,8 +872,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 					RTEXT_FILTER_BRVLAN);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0,
-				 true);
+	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0, true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -966,8 +920,8 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_INET, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd,
-				 &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd, &dp_info, 0, true,
+				 NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -975,8 +929,8 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_INET6, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd,
-				 &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd, &dp_info, 0, true,
+				 NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -1012,8 +966,7 @@ int kernel_interface_set_master(struct interface *master,
 		return -1;
 	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 /* Interface address modification. */
@@ -1133,8 +1086,8 @@ netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
  * This runs in the dplane pthread; the context is enqueued to the
  * main pthread for processing.
  */
-int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
-				  int startup /*ignored*/)
+int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id, int startup /*ignored*/,
+				  void *arg)
 {
 	int len;
 	struct ifaddrmsg *ifa;
@@ -1369,7 +1322,7 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	return 0;
 }
 
-int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct ifinfomsg *ifi;
@@ -1389,6 +1342,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint8_t bypass = 0;
 	uint32_t txqlen = 0;
 	uint32_t cchanges = 0;
+	int speed_err = 0;
+	uint32_t speed = 0;
 
 	frrtrace(3, frr_zebra, netlink_interface, h, ns_id, startup);
 
@@ -1549,17 +1504,28 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
+
+		vrf_id_t ifp_vrf_id = vrf_is_backend_netns() ? ns_id : vrf_id;
+
+		if (startup) {
+			speed = netlink_get_interface_speed(zebra_ns_lookup(ifp_vrf_id),
+							    name, &speed_err);
+			if (speed_err == 0) {
+				dplane_ctx_set_ifp_speed(ctx, speed);
+				dplane_ctx_set_ifp_speed_set(ctx, true);
+			} else
+				dplane_ctx_set_ifp_speed_set(ctx, false);
+		} else
+			dplane_ctx_set_ifp_speed_set(ctx, false);
+
 		dplane_ctx_set_ifp_zif_slave_type(ctx, zif_slave_type);
-		dplane_ctx_set_ifp_vrf_id(ctx, vrf_id);
+		dplane_ctx_set_ifp_vrf_id(ctx, ifp_vrf_id);
 		dplane_ctx_set_ifp_master_ifindex(ctx, master_infindex);
 		dplane_ctx_set_ifp_bridge_ifindex(ctx, bridge_ifindex);
 		dplane_ctx_set_ifp_bond_ifindex(ctx, bond_ifindex);
 		dplane_ctx_set_ifp_bypass(ctx, bypass);
 		dplane_ctx_set_ifp_zltype(
 			ctx, netlink_to_zebra_link_type(ifi->ifi_type));
-
-		if (vrf_is_backend_netns())
-			dplane_ctx_set_ifp_vrf_id(ctx, ns_id);
 
 		dplane_ctx_set_ifp_flags(ctx, ifi->ifi_flags & 0x0000fffff);
 		dplane_ctx_set_ifp_change_flags(ctx, ifi->ifi_change & 0x0000fffff);
@@ -1763,8 +1729,8 @@ static int tunneldump_walk_cb(struct interface *ifp, void *arg)
 		return NS_WALK_STOP;
 	}
 
-	ret = netlink_parse_info(netlink_link_change, &(ctx->zns->netlink_cmd),
-				 ctx->dp_info, 0, true);
+	ret = netlink_parse_info(netlink_link_change, &(ctx->zns->netlink_cmd), ctx->dp_info, 0,
+				 true, NULL, NULL);
 
 	if (ret < 0) {
 		ctx->ret = ret;
@@ -1798,7 +1764,7 @@ static uint8_t netlink_get_dplane_vlan_state(uint8_t state)
  *
  * Return:	Result status
  */
-int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len, rem;
 	struct br_vlan_msg *bvm;
@@ -1958,8 +1924,7 @@ int netlink_vlan_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
-	ret = netlink_parse_info(netlink_vlan_change, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+	ret = netlink_parse_info(netlink_vlan_change, &zns->netlink_cmd, &dp_info, 0, 1, NULL, NULL);
 
 	return ret;
 }

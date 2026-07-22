@@ -1,0 +1,35 @@
+{
+  "routes": {
+    "192.168.0.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "path": "",
+        "origin": "incomplete",
+        "nexthops": [
+          {
+            "hostname": "r2",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "192.168.0.2/32": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "hostname": "r2",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "192.168.0.3/32": null
+  }
+}

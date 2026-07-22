@@ -34,10 +34,14 @@
 #include "pim_time.h"
 #include "pim_ssmpingd.h"
 #include "pim_rp.h"
+#include "pim_rpf.h"
 #include "pim_nht.h"
 #include "pim_jp_agg.h"
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
+#if PIM_IPV == 4
+#include "pim_msdp.h"
+#endif
 #include "pim_static.h"
 #include "pim_tib.h"
 #include "pim_util.h"
@@ -47,6 +51,8 @@
 
 static void pim_if_gm_join_del_all(struct interface *ifp);
 static void pim_if_static_group_del_all(struct interface *ifp);
+static void pim_if_gm_join_replay(struct interface *ifp);
+static void pim_if_static_group_replay(struct interface *ifp);
 
 static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			pim_addr group_addr, pim_addr source_addr,
@@ -204,6 +210,9 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
+
+	pim_upstream_rpf_interface_del(ifp);
+
 	if (pim_ifp->gm_join_list) {
 		pim_if_gm_join_del_all(ifp);
 		/*
@@ -664,29 +673,8 @@ void pim_if_addr_add(struct connected *ifc)
 				pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp, false);
 			}
 
-			/* Replay Static IGMP groups */
-			if (pim_ifp->gm_join_list) {
-				struct listnode *node;
-				struct listnode *nextnode;
-				struct gm_join *ij;
-				int join_fd;
-
-				for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
-					/* Close socket and reopen with Source and Group
-					 */
-					close(ij->sock_fd);
-					join_fd = gm_join_sock(ifp->name, ifp->ifindex,
-							       ij->group_addr, ij->source_addr,
-							       pim_ifp);
-					if (join_fd < 0) {
-						zlog_warn("%s: gm_join_sock() failure for IGMP group %pI4s source %pI4s on interface %s",
-							  __func__, &ij->group_addr,
-							  &ij->source_addr, ifp->name);
-						/* warning only */
-					} else
-						ij->sock_fd = join_fd;
-				}
-			}
+			/* Replay join-group socket joins */
+			pim_if_gm_join_replay(ifp);
 		} /* igmp */
 		else {
 			struct gm_sock *igmp;
@@ -700,6 +688,14 @@ void pim_if_addr_add(struct connected *ifc)
 					  true);
 		} /* igmp mtrace only */
 	}
+#else
+	/* Replay static MLD join-groups.  IPv4 replays inside the gm_enable
+	 * branch above; without this, a join deferred from startup config
+	 * (no ifindex from zebra yet) or issued against a stale ifindex
+	 * would never be (re)joined for IPv6.
+	 */
+	if (pim_ifp->gm_enable)
+		pim_if_gm_join_replay(ifp);
 #endif
 
 	if (pim_ifp->pim_enable) {
@@ -732,6 +728,7 @@ void pim_if_addr_add(struct connected *ifc)
 		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
 		pim_if_add_vif(ifp, false, vxlan_term);
 	}
+	pim_if_static_group_replay(ifp);
 	gm_ifp_update(ifp);
 	pim_ifchannel_scan_forward_start(ifp);
 }
@@ -787,6 +784,8 @@ static void pim_if_addr_del_pim(struct connected *ifc)
 		/* Interface does not hold a valid socket any longer */
 		return;
 	}
+
+	pim_upstream_rpf_interface_del(ifc->ifp);
 
 	/*
 	  pim_sock_delete() closes the socket, stops read and timer threads,
@@ -1123,12 +1122,16 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
 	pim_static_reconcile(pim_ifp->pim);
+	if (!ispimreg)
+		pim_if_static_group_replay(ifp);
 	return 0;
 }
 
 int pim_if_del_vif(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
+
+	pim_upstream_rpf_interface_del(ifp);
 
 	if (pim_ifp->mroute_vif_index < 1) {
 		zlog_warn("%s: vif_index=%d < 1 on interface %s ifindex=%d",
@@ -1419,13 +1422,24 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	join_fd = gm_join_sock(ifp->name, ifp->ifindex, group_addr, source_addr,
-			       pim_ifp);
-	if (join_fd < 0) {
-		zlog_warn("%s: gm_join_sock() failure for " GM
-			  " group %pPAs source %pPAs on interface %s",
-			  __func__, &group_addr, &source_addr, ifp->name);
-		return 0;
+	if (ifp->ifindex == IFINDEX_INTERNAL) {
+		/* The interface has no ifindex yet -- startup config is
+		 * read before zebra delivers interfaces.  Issuing the join
+		 * now would not just fail: with gsr_interface == 0 the
+		 * kernel resolves the interface through a route lookup and
+		 * silently subscribes on whatever device that returns.
+		 * Defer instead; pim_if_gm_join_replay() issues the join
+		 * once the interface has an address (and gm is enabled).
+		 */
+		join_fd = -1;
+	} else {
+		join_fd = gm_join_sock(ifp->name, ifp->ifindex, group_addr, source_addr, pim_ifp);
+		if (join_fd < 0) {
+			zlog_warn("%s: gm_join_sock() failure for " GM
+				  " group %pPAs source %pPAs on interface %s",
+				  __func__, &group_addr, &source_addr, ifp->name);
+			return 0;
+		}
 	}
 
 	ij = XCALLOC(MTYPE_PIM_IGMP_JOIN, sizeof(*ij));
@@ -1441,13 +1455,98 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	return ij;
 }
 
+/* (Re)issue the kernel socket joins for every configured join-group on
+ * the interface, against its current ifindex.  This is what makes
+ * deferred joins (sock_fd == -1, created while the interface had no
+ * ifindex) real, and what re-targets existing joins when the interface
+ * is recreated under a new ifindex.  Entries that fail here keep their
+ * previous socket (or stay deferred) and are retried on the next
+ * replay.
+ */
+static void pim_if_gm_join_replay(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct listnode *nextnode;
+	struct gm_join *ij;
+	int join_fd;
+
+	if (!pim_ifp || !pim_ifp->gm_join_list)
+		return;
+
+	if (ifp->ifindex == IFINDEX_INTERNAL)
+		return;
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
+		/* Open the replacement join before dropping any existing
+		 * membership, so a failed reopen keeps whatever the old
+		 * socket still holds (the kernel refcounts the interface's
+		 * group membership across sockets, so both briefly
+		 * coexisting is fine).
+		 */
+		join_fd = gm_join_sock(ifp->name, ifp->ifindex, ij->group_addr, ij->source_addr,
+				       pim_ifp);
+		if (join_fd < 0) {
+			zlog_warn("%s: gm_join_sock() failure for " GM
+				  " group %pPAs source %pPAs on interface %s",
+				  __func__, &ij->group_addr, &ij->source_addr, ifp->name);
+			/* warning only; keep the existing socket, if any */
+			continue;
+		}
+		if (ij->sock_fd >= 0)
+			close(ij->sock_fd);
+		ij->sock_fd = join_fd;
+	}
+}
+
+static bool static_group_activate(struct interface *ifp, struct static_group *stgrp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	pim_sgaddr sg;
+
+	if (!pim_ifp || pim_ifp->mroute_vif_index < 0)
+		return false;
+
+	if (stgrp->oilp)
+		return true;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = stgrp->source_addr;
+	sg.grp = stgrp->group_addr;
+
+	if (!tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp))) {
+		zlog_warn("%s: activation failed for static group (S,G)=(%pPA,%pPA) on interface %s",
+			  __func__, &stgrp->source_addr, &stgrp->group_addr, ifp->name);
+		return false;
+	}
+
+	return true;
+}
+
+static void pim_if_static_group_replay(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct static_group *stgrp;
+
+	if (!pim_ifp || !pim_ifp->static_group_list)
+		return;
+
+	if (pim_ifp->mroute_vif_index < 0)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
+		if (!stgrp->oilp)
+			static_group_activate(ifp, stgrp);
+	}
+}
+
 static struct static_group *static_group_new(struct interface *ifp,
 					     pim_addr group_addr,
 					     pim_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
 	struct static_group *stgrp;
-	pim_sgaddr sg;
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
@@ -1458,13 +1557,9 @@ static struct static_group *static_group_new(struct interface *ifp,
 	stgrp->source_addr = source_addr;
 	stgrp->oilp = NULL;
 
-	memset(&sg, 0, sizeof(sg));
-	sg.src = source_addr;
-	sg.grp = group_addr;
-
-	tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
-
 	listnode_add(pim_ifp->static_group_list, stgrp);
+
+	static_group_activate(ifp, stgrp);
 
 	return stgrp;
 }
@@ -1553,7 +1648,7 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		return 0;
 	}
 
-	if (close(ij->sock_fd)) {
+	if (ij->sock_fd >= 0 && close(ij->sock_fd)) {
 		zlog_warn(
 			"%s: failure closing sock_fd=%d for " GM
 			" group %pPAs source %pPAs on interface %s: errno=%d: %s",
@@ -1923,6 +2018,12 @@ static int pim_ifp_create(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
+	if (ifp->vrf->vrf_id != VRF_DEFAULT && strcmp(ifp->name, ifp->vrf->name) == 0) {
+#if PIM_IPV == 4
+		pim_msdp_vrf_iface_up(pim);
+#endif
+	}
+
 	if (if_is_operative(ifp)) {
 		struct pim_interface *pim_ifp;
 
@@ -1980,9 +2081,41 @@ static int pim_ifp_create(struct interface *ifp)
 	return 0;
 }
 
+static void pimreg_set_master(struct interface *ifp)
+{
+	struct interface *master;
+	struct vrf *vrf;
+	uint32_t table_id;
+
+	/* Check if we are dealing with a pimreg interface */
+	if (sscanf(ifp->name, "" PIMREG "%" SCNu32, &table_id) != 1)
+		return;
+
+	/*
+	 * Go through all VRFs and make sure the pimreg<NUMBER> belongs to
+	 * the correct VRF.
+	 */
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (table_id != vrf->data.l.table_id)
+			continue;
+		if (ifp->vrf->vrf_id == vrf->vrf_id)
+			continue;
+
+		master = if_lookup_by_name(vrf->name, vrf->vrf_id);
+		if (master == NULL) {
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: Unable to find Master interface for %s", __func__,
+					   vrf->name);
+			return;
+		}
+
+		pim_zebra_interface_set_master(master, ifp);
+		return;
+	}
+}
+
 static int pim_ifp_up(struct interface *ifp)
 {
-	uint32_t table_id;
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 
@@ -1994,9 +2127,36 @@ static int pim_ifp_up(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
+	/*
+	 * If we have a pimreg device callback and it's for a specific
+	 * table set the master appropriately.
+	 *
+	 * This must run before the double-activation guard below: the kernel
+	 * places the pimreg interface in the default VRF initially, so the
+	 * first if_up event arrives while the interface is still in the wrong
+	 * VRF. The guard would otherwise return early and
+	 * `pim_zebra_interface_set_master()` would never be reached,
+	 * leaving pimreg<NUMBER> permanently in default VRF.
+	 */
+	pimreg_set_master(ifp);
+
 	pim = ifp->vrf->info;
 
+	if (pim == NULL || pim->shutdown)
+		return 0;
+
+	if (ifp->vrf->vrf_id != VRF_DEFAULT && strcmp(ifp->name, ifp->vrf->name) == 0) {
+#if PIM_IPV == 4
+		pim_msdp_vrf_iface_up(pim);
+#endif
+	}
+
 	pim_ifp = ifp->info;
+
+	/* Avoid enabling the same interface twice */
+	if (pim_ifp && pim_ifp->mroute_vif_index != -1)
+		return 0;
+
 	/*
 	 * If we have a pim_ifp already and this is an if_add
 	 * that means that we probably have a vrf move event
@@ -2018,31 +2178,6 @@ static int pim_ifp_up(struct interface *ifp)
 	if (if_is_operative(ifp) && (!pim->regiface))
 		pim_if_create_pimreg(pim);
 
-	/*
-	 * If we have a pimreg device callback and it's for a specific
-	 * table set the master appropriately
-	 */
-	if (sscanf(ifp->name, "" PIMREG "%" SCNu32, &table_id) == 1) {
-		struct vrf *vrf;
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			if ((table_id == vrf->data.l.table_id)
-			    && (ifp->vrf->vrf_id != vrf->vrf_id)) {
-				struct interface *master = if_lookup_by_name(
-					vrf->name, vrf->vrf_id);
-
-				if (!master) {
-					zlog_debug(
-						"%s: Unable to find Master interface for %s",
-						__func__, vrf->name);
-					return 0;
-				}
-
-				pim_zebra_interface_set_master(master, ifp);
-				break;
-			}
-		}
-	}
-
 #if PIM_IPV == 4
 	pim_autorp_add_ifp(ifp);
 #endif
@@ -2053,6 +2188,9 @@ static int pim_ifp_up(struct interface *ifp)
 
 static int pim_ifp_down(struct interface *ifp)
 {
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim;
+
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
 			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
@@ -2061,8 +2199,15 @@ static int pim_ifp_down(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-	if (!if_is_operative(ifp)) {
+	/* Avoid disabling the same interface twice */
+	if (pim_ifp && pim_ifp->mroute_vif_index == -1)
+		return 0;
+
+	pim = ifp->vrf->info;
+	if (!if_is_operative(ifp) || (pim && pim->shutdown)) {
 		pim_ifchannel_delete_all(ifp);
+		gm_group_delete(ifp);
+
 		/*
 		  pim_if_addr_del_all() suffices for shutting down IGMP,
 		  but not for shutting down PIM
@@ -2101,6 +2246,9 @@ static int pim_ifp_destroy(struct interface *ifp)
 			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
 			ifp->mtu, if_is_operative(ifp));
 	}
+
+	if (ifp->info)
+		pim_upstream_rpf_interface_del(ifp);
 
 	if (!if_is_operative(ifp))
 		pim_if_addr_del_all(ifp);
@@ -2162,6 +2310,8 @@ void pim_pim_interface_delete(struct interface *ifp)
 
 	pim_ifp->pim_enable = false;
 
+	pim_upstream_rpf_interface_del(ifp);
+
 #if PIM_IPV == 4
 	pim_autorp_rm_ifp(ifp);
 #endif
@@ -2217,4 +2367,38 @@ const char *pim_mod_str(enum pim_iface_mode mode)
 	}
 
 	return "";
+}
+
+void pim_vrf_shutdown(struct pim_instance *pim, bool shutdown)
+{
+	struct interface *ifp;
+
+	if (shutdown == pim->shutdown)
+		return;
+
+	pim->shutdown = shutdown;
+
+	if (PIM_DEBUG_ZEBRA) {
+		if (shutdown)
+			zlog_debug("%s: entering admin shutdown on vrf %s", __func__,
+				   VRF_LOGNAME(pim->vrf));
+		else
+			zlog_debug("%s: leaving admin shutdown on vrf %s", __func__,
+				   VRF_LOGNAME(pim->vrf));
+	}
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (pim_ifp == NULL)
+			continue;
+		if (pim->regiface == ifp)
+			/* pimreg stays up, too much breakage otherwise */
+			continue;
+
+		if (shutdown)
+			pim_ifp_down(ifp);
+		else
+			pim_ifp_up(ifp);
+	}
 }

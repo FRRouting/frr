@@ -691,6 +691,26 @@ static bool ecommunity_regexp_match(struct ecommunity *ecom, struct frregex *reg
 	return false;
 }
 
+/* Like ecommunity_regexp_match(), but recomputes the display string on every
+ * call instead of using the cached ecom->str.  Required when matching a reused
+ * ecommunity whose ->val is repointed per iteration (e.g. the delete path),
+ * where a stale cached ->str would match the wrong community.
+ */
+static bool ecommunity_regexp_match_uncached(struct ecommunity *ecom, struct frregex *reg)
+{
+	char *str;
+	bool match;
+
+	if (ecom == NULL || ecom->size == 0)
+		return regexec(&reg->real, "", 0, NULL, 0) == 0;
+
+	str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
+	match = regexec(&reg->real, str, 0, NULL, 0) == 0;
+	XFREE(MTYPE_ECOMMUNITY_STR, str);
+
+	return match;
+}
+
 /* When given community attribute matches to the community-list return
    1 else return 0.  */
 bool community_list_match(struct community *com, struct community_list *list)
@@ -861,6 +881,39 @@ struct community *community_list_match_delete(struct community *com,
 		val = community_val_get(com, com_index_to_delete[i]);
 		val = htonl(val);
 		community_del_val(com, &val);
+	}
+
+	return com;
+}
+
+/*
+ * Adds the communities defined in a community_list to an existing community structure.
+ * @param com   The initial community structure of the route (can be NULL).
+ * @param list  The configured community list (containing permit/deny rules).
+ * @return      A pointer to the NEW allocated community structure.
+ */
+struct community *community_list_add(struct community *com, struct community_list *list)
+{
+	struct community_entry *entry;
+
+	if (!list)
+		return com;
+
+	/*  Iterate over all entries in the community list */
+	for (entry = list->head; entry; entry = entry->next) {
+		/* Ignore "deny" clauses, we only want to add "permit" entries */
+		if (entry->direct == COMMUNITY_DENY)
+			continue;
+
+		/* Ensure it's a standard list (no regex) and the community
+		 * attribute exists within the entry.
+		 */
+		if (entry->style == COMMUNITY_LIST_STANDARD && entry->u.com) {
+			if (com)
+				com = community_merge(com, entry->u.com);
+			else
+				com = community_dup(entry->u.com);
+		}
 	}
 
 	return com;
@@ -1105,7 +1158,7 @@ struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
 	uint8_t *ptr;
 	uint32_t delete_index = 0;
 	uint32_t i;
-	struct ecommunity local_ecom = {.size = 1};
+	struct ecommunity local_ecom = { .size = 1, .unit_size = ECOMMUNITY_SIZE };
 	struct ecommunity_val local_eval = {0};
 
 	local_ecom.unit_size = ecom->unit_size;
@@ -1116,7 +1169,7 @@ struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
 			if (((entry->style == EXTCOMMUNITY_LIST_STANDARD) &&
 			     ecommunity_include(entry->u.ecom, &local_ecom)) ||
 			    ((entry->style == EXTCOMMUNITY_LIST_EXPANDED) &&
-			     ecommunity_regexp_match(&local_ecom, entry->reg))) {
+			     ecommunity_regexp_match_uncached(&local_ecom, entry->reg))) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;

@@ -49,7 +49,7 @@ DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
  * are made. The minor version (at least) should be updated when new APIs
  * are introduced.
  */
-static uint32_t zdplane_version = MAKE_FRRVERSION(3, 1, 0);
+static uint32_t zdplane_version = MAKE_FRRVERSION(4, 0, 0);
 
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
@@ -245,6 +245,9 @@ struct dplane_intf_info {
 	uint32_t metric;
 	uint32_t flags;
 	uint32_t change_flags;
+
+	bool speed_set;
+	uint32_t speed;
 
 	bool protodown;
 	bool protodown_set;
@@ -694,6 +697,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_intfs_in;
 	_Atomic uint32_t dg_intf_errors;
 
+	_Atomic uint32_t dg_intf_speed_get_in;
+	_Atomic uint32_t dg_intf_speed_get_errors;
+
 	_Atomic uint32_t dg_tcs_in;
 	_Atomic uint32_t dg_tcs_errors;
 
@@ -972,6 +978,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_GRE_SET:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_STARTUP_STAGE:
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		break;
@@ -1260,6 +1267,9 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "INTF_UPDATE";
 	case DPLANE_OP_INTF_DELETE:
 		return "INTF_DELETE";
+
+	case DPLANE_OP_INTF_SPEED_GET:
+		return "INTF_SPEED_GET";
 
 	case DPLANE_OP_TC_QDISC_INSTALL:
 		return "TC_QDISC_INSTALL";
@@ -1886,6 +1896,34 @@ void dplane_ctx_set_ifp_zif_type(struct zebra_dplane_ctx *ctx,
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.intf.zif_type = zif_type;
+}
+
+void dplane_ctx_set_ifp_speed_set(struct zebra_dplane_ctx *ctx, bool set)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.speed_set = set;
+}
+
+bool dplane_ctx_get_ifp_speed_set(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.speed_set;
+}
+
+void dplane_ctx_set_ifp_speed(struct zebra_dplane_ctx *ctx, uint32_t speed)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.speed = speed;
+}
+
+uint32_t dplane_ctx_get_ifp_speed(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.speed;
 }
 
 void dplane_ctx_set_ifname(struct zebra_dplane_ctx *ctx, const char *ifname)
@@ -4251,9 +4289,18 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), &(nhe->nhg));
 
-	/* If this is a group, convert it to a grp array of ids */
-	if (!zebra_nhg_depends_is_empty(nhe)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+	/*
+	 * If the NHE has any depends (a multi-nh group, a zebra-owned
+	 * single-nh wrapped as a group of one, or a recursive parent
+	 * with a resolved depend), build the child-id array.
+	 * zebra_nhg_nhe2grp -> zebra_nhg_nhe2grp_internal will resolve
+	 * a recursive depend to the resolved nhe's id, so recursive
+	 * parents emit NHA_GROUP { resolved_id } rather than a flattened
+	 * singleton -- this keeps every zebra-built kernel NHE in
+	 * group form so future ECMP grow/shrink can reuse the same
+	 * parent id via NLM_F_REPLACE.
+	 */
+	if (!zebra_nhg_depends_is_empty(nhe))
 		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
 			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
 
@@ -5692,6 +5739,44 @@ enum zebra_dplane_result dplane_intf_update(const struct interface *ifp)
 }
 
 /*
+ * Enqueue a interface speed query for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_ns *zns;
+	int ret;
+
+	ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = DPLANE_OP_INTF_SPEED_GET;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
+
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+	ctx->zd_ifindex = ifp->ifindex;
+
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ret = dplane_update_enqueue(ctx);
+
+	/* Increment counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_intf_speed_get_in, 1, memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_speed_get_errors, 1,
+					  memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+/*
  * Enqueue vxlan/evpn mac add (or update).
  */
 enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
@@ -6701,6 +6786,11 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "Intf change updates:        %" PRIu64 "\n", incoming);
 	vty_out(vty, "Intf change errors:         %" PRIu64 "\n", errs);
 
+	incoming = atomic_load_explicit(&zdplane_info.dg_intf_speed_get_in, memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_intf_speed_get_errors, memory_order_relaxed);
+	vty_out(vty, "Intf speed query:           %" PRIu64 "\n", incoming);
+	vty_out(vty, "Intf speed errors:          %" PRIu64 "\n", errs);
+
 	incoming = atomic_load_explicit(&zdplane_info.dg_macs_in,
 					memory_order_relaxed);
 	errs = atomic_load_explicit(&zdplane_info.dg_mac_errors,
@@ -7344,6 +7434,10 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_ifindex(ctx),
 			   dplane_ctx_intf_is_protodown(ctx));
 		break;
+	case DPLANE_OP_INTF_SPEED_GET:
+		zlog_debug("Dplane intf %s, idx %u", dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifindex(ctx));
+		break;
 
 	/* TODO: more detailed log */
 	case DPLANE_OP_TC_QDISC_INSTALL:
@@ -7563,6 +7657,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_VLAN_INSTALL:
 		break;
 
@@ -7631,6 +7726,14 @@ static void kernel_dplane_process_tc_qdisc_read(struct zebra_dplane_provider *pr
 	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
+/* Runs in the dplane pthread. */
+static void kernel_dplane_process_if_speed(struct zebra_dplane_provider *prov,
+					   struct zebra_dplane_ctx *ctx)
+{
+	kernel_read_intf_speed(ctx);
+	dplane_provider_enqueue_out_ctx(prov, ctx);
+}
+
 /*
  * Kernel provider callback
  */
@@ -7657,11 +7760,13 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 
 		/*
 		 * A previous provider plugin may have asked to skip the
-		 * kernel update.
+		 * kernel update. Route through work_list so the FIFO order
+		 * (and therefore NHG dependency order) is preserved when
+		 * the ctx is forwarded to downstream providers like FPM.
 		 */
 		if (dplane_ctx_is_skip_kernel(ctx)) {
 			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
-			dplane_provider_enqueue_out_ctx(prov, ctx);
+			dplane_ctx_list_add_tail(&work_list, ctx);
 			continue;
 		}
 
@@ -7695,6 +7800,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			kernel_dplane_process_neigh_read(prov, ctx);
 		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_TC_QDISC_READ)
 			kernel_dplane_process_tc_qdisc_read(prov, ctx);
+		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_INTF_SPEED_GET)
+			kernel_dplane_process_if_speed(prov, ctx);
 		else
 			dplane_ctx_list_add_tail(&work_list, ctx);
 	}

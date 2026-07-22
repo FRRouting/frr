@@ -138,19 +138,9 @@ def teardown_module():
 
 
 def router_compare_json_output(rname, command, reference, count=80, wait=1):
-    "Compare router JSON output"
-
-    logger.info('Comparing router "%s" "%s" output', rname, command)
-
-    tgen = get_topogen()
-    filename = "{}/{}/{}".format(CWD, rname, reference)
-    expected = json.loads(open(filename).read())
-
-    # Run test function until we get an result.
-    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count, wait)
-    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
-    assert diff is None, assertmsg
+    return topotest.router_compare_json_output(
+        rname, command, reference, count, wait, CWD
+    )
 
 
 def test_ospf_convergence():

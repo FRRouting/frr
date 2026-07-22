@@ -19,6 +19,14 @@ module frr-ospf6-route-map {
   description
     "This module defines ospf6 route map settings";
 
+  revision 2026-07-09 {
+    description
+      "Add metric-type set-action case";
+
+    reference
+      "FRRouting";
+  }
+
   revision 2020-01-02 {
     description
       "Initial revision";
@@ -49,6 +57,26 @@ module frr-ospf6-route-map {
         type inet:ipv6-address;
         description
           "IPv6 address used for forwarding actions";
+      }
+    }
+
+    case metric-type {
+      when "derived-from-or-self(../frr-route-map:action, 'metric-type')";
+      leaf metric-type {
+        type enumeration {
+          enum "type-1" {
+            value 0;
+            description
+              "OSPF6 external type 1 metric";
+          }
+          enum "type-2" {
+            value 1;
+            description
+              "OSPF6 external type 2 metric";
+          }
+        }
+        description
+          "Specifies the metric type for the route map entry";
       }
     }
   }

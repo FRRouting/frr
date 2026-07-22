@@ -96,12 +96,6 @@ struct gw_family_t {
 	union g_addr gate;
 };
 
-struct buf_req {
-	struct nlmsghdr n;
-	struct nhmsg nhm;
-	char buf[];
-};
-
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 static struct in_addr ipv4_ll;
 
@@ -498,7 +492,8 @@ parse_encap_seg6local(struct rtattr *tb,
 }
 
 static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs,
-			    enum srv6_headend_behavior *encap_behavior)
+			    enum srv6_headend_behavior *encap_behavior,
+			    struct in6_addr *encap_source)
 {
 	struct rtattr *tb_encap[SEG6_IPTUNNEL_MAX + 1] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
@@ -527,6 +522,14 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs,
 			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED;
 			break;
 		}
+
+		if (tb_encap[SEG6_IPTUNNEL_SRC]) {
+			memcpy(encap_source, RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRC]),
+			       sizeof(struct in6_addr));
+		} else {
+			memset(encap_source, 0, sizeof(struct in6_addr));
+		}
+
 		ind_seg6 = ipt->srh[0].first_segment;
 		if (ind_seg6 >= SRV6_MAX_SIDS) {
 			ind_seg6 = SRV6_MAX_SIDS - 1;
@@ -560,6 +563,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
 	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	struct in6_addr srv6_encap_source = {};
 
 	vrf_id_t nh_vrf_id = vrf_id;
 	size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -607,7 +611,8 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
 	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
 		       == LWTUNNEL_ENCAP_SEG6) {
-		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs, &srv6_encap_behavior);
+		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs, &srv6_encap_behavior,
+					    &srv6_encap_source);
 	}
 
 	if (rtm->rtm_flags & RTNH_F_ONLINK)
@@ -633,7 +638,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
 
 	if (num_segs)
-		nexthop_add_srv6_seg6(&nh, segs, num_segs, srv6_encap_behavior);
+		nexthop_add_srv6_seg6(&nh, segs, num_segs, srv6_encap_behavior, &srv6_encap_source);
 
 	return nh;
 }
@@ -654,6 +659,7 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 	int num_segs = 0;
 	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
+	struct in6_addr srv6_encap_source = {};
 
 	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
 	vrf_id_t nh_vrf_id = vrf_id;
@@ -707,7 +713,8 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
 				       == LWTUNNEL_ENCAP_SEG6) {
 				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP], segs,
-							    &srv6_encap_behavior);
+							    &srv6_encap_behavior,
+							    &srv6_encap_source);
 			}
 		}
 
@@ -750,7 +757,8 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 							   &seg6l_ctx);
 
 			if (num_segs)
-				nexthop_add_srv6_seg6(nh, segs, num_segs, srv6_encap_behavior);
+				nexthop_add_srv6_seg6(nh, segs, num_segs, srv6_encap_behavior,
+						      &srv6_encap_source);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
@@ -1391,16 +1399,16 @@ done:
 	return ret;
 }
 
-static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
-					     int startup)
+static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id, int startup,
+					     void *arg)
 {
 	return netlink_route_change_read_unicast_internal(h, ns_id, startup);
 }
 
 static struct mcast_route_data *mroute = NULL;
 
-static int netlink_route_change_read_multicast(struct nlmsghdr *h,
-					       ns_id_t ns_id, int startup)
+static int netlink_route_change_read_multicast(struct nlmsghdr *h, ns_id_t ns_id, int startup,
+					       void *arg)
 {
 	int len;
 	struct rtmsg *rtm;
@@ -1512,7 +1520,7 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	return 0;
 }
 
-int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct rtmsg *rtm;
@@ -1571,7 +1579,7 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (rtm->rtm_type == RTN_MULTICAST)
 		return 0;
 
-	netlink_route_change_read_unicast(h, ns_id, startup);
+	netlink_route_change_read_unicast(h, ns_id, startup, arg);
 	return 0;
 }
 
@@ -1606,8 +1614,8 @@ int netlink_route_read(struct zebra_ns *zns)
 	ret = netlink_request_route(zns, AF_INET, RTM_GETROUTE);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_route_change_read_unicast,
-				 &zns->netlink_cmd, &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_route_change_read_unicast, &zns->netlink_cmd, &dp_info, 0,
+				 true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -1615,8 +1623,8 @@ int netlink_route_read(struct zebra_ns *zns)
 	ret = netlink_request_route(zns, AF_INET6, RTM_GETROUTE);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_route_change_read_unicast,
-				 &zns->netlink_cmd, &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_route_change_read_unicast, &zns->netlink_cmd, &dp_info, 0,
+				 true, NULL, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -1865,11 +1873,10 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 
 	/*
 	 * Note: even if Zebra is capable of programming all the SRv6
-	 * Headend Behaviors defined in RFC 8986, FRR daemons support
+	 * Headend Behaviors defined in RFC 8986, FRR daemons may support
 	 * only a subset of them.
-	 * Currently, STATIC currently supports H.Encaps and H.Encaps.Red.
-	 * BGP supports only H.Encaps.
-	 * Daemons need to be extended to support other behaviors.
+	 * Daemons need to be extended individually to support additional
+	 * behaviors.
 	 */
 	switch (segs->encap_behavior) {
 	case SRV6_HEADEND_BEHAVIOR_H_INSERT:
@@ -1913,6 +1920,11 @@ static bool _netlink_nexthop_encode_seg6_info(struct nlmsghdr *nlmsg, size_t buf
 	if (tun_len < 0)
 		return false;
 	if (!nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRH, tun_buf, tun_len))
+		return false;
+
+	if (!sid_zero_ipv6(&segs->encap_source) &&
+	    !nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRC, &segs->encap_source,
+			 sizeof(struct in6_addr)))
 		return false;
 
 	return true;
@@ -2501,8 +2513,7 @@ static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 				ifp->vrf->vrf_id);
 		}
 	}
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 static bool nexthop_set_src(const struct nexthop *nexthop, int family,
@@ -2986,8 +2997,8 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 		return 0;
 	}
 
-	suc = netlink_talk(netlink_route_change_read_multicast, &req.n,
-			   &zns->netlink_cmd, zns, false);
+	suc = netlink_talk(netlink_route_change_read_multicast, &req.n, &zns->netlink_cmd, zns,
+			   false, NULL, NULL);
 
 	mroute = NULL;
 	return suc;
@@ -3647,7 +3658,8 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 
 		if (tbn[NHA_RES_GROUP_UNBALANCED_TIME]) {
 			rta = tbn[NHA_RES_GROUP_UNBALANCED_TIME];
-			nhgr->unbalanced_time = *(uint64_t *)RTA_DATA(rta);
+			memcpy(&nhgr->unbalanced_time, RTA_DATA(rta),
+			       sizeof(nhgr->unbalanced_time));
 		}
 	}
 
@@ -3663,7 +3675,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
  *
  * Return:	Result status
  */
-int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	/* nexthop group id */
@@ -3859,8 +3871,8 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 	ret = netlink_request_nexthop(zns, AF_UNSPEC, RTM_GETNEXTHOP);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_nexthop_change, &zns->netlink_cmd,
-				 &dp_info, 0, true);
+	ret = netlink_parse_info(netlink_nexthop_change, &zns->netlink_cmd, &dp_info, 0, true,
+				 NULL, NULL);
 
 	if (!ret)
 		/* If we successfully read in nexthop objects,
@@ -4203,7 +4215,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	return 0;
 }
 
-static int netlink_macfdb_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+static int netlink_macfdb_table(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct ndmsg *ndm;
@@ -4263,7 +4275,7 @@ static int netlink_macfdb_read(struct nlsock *nl, const struct zebra_dplane_info
 		return ret;
 	/* We are reading entire table. */
 	filter_vlan = 0;
-	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, true);
+	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, true, NULL, NULL);
 
 	return ret;
 }
@@ -4289,7 +4301,7 @@ static int netlink_macfdb_read_for_bridge(struct nlsock *nl,
 	if (ret < 0)
 		goto done;
 
-	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, false);
+	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, false, NULL, NULL);
 
 done:
 	/* Reset VLAN filter. */
@@ -4366,7 +4378,7 @@ static int netlink_macfdb_read_specific_mac(struct nlsock *nl,
 	if (ret < 0)
 		return ret;
 
-	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false);
+	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false, NULL, NULL);
 }
 
 static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
@@ -4382,7 +4394,7 @@ static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
 	if (ret < 0)
 		return ret;
 
-	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false);
+	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false, NULL, NULL);
 }
 
 void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
@@ -4665,7 +4677,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	return 0;
 }
 
-static int netlink_neigh_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+static int netlink_neigh_table(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;
 	struct ndmsg *ndm;
@@ -4775,15 +4787,15 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 	if (ip->ipa_type != IPADDR_NONE) {
 		ret = netlink_request_specific_neigh_in_vlan(nl, RTM_GETNEIGH, ip, ifindex);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 1, false);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 1, false, NULL, NULL);
 	} else if (ifindex) {
 		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, ifindex);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, false);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, false, NULL, NULL);
 	} else {
 		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, 0);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, true);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, true, NULL, NULL);
 	}
 
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
@@ -5201,8 +5213,7 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct ipaddr *vtep_ip)
 	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
 		zlog_debug("Tx %s fdb-nh 0x%x %pIA", nl_msg_type_to_str(cmd), nh_id, vtep_ip);
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 static int netlink_fdb_nh_del(uint32_t nh_id)
@@ -5234,8 +5245,7 @@ static int netlink_fdb_nh_del(uint32_t nh_id)
 			   nl_msg_type_to_str(cmd), nh_id);
 	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
@@ -5293,8 +5303,7 @@ static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
 			   nl_msg_type_to_str(cmd), nhg_id, vtep_str);
 	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
 static int netlink_fdb_nhg_del(uint32_t nhg_id)

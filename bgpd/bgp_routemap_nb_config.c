@@ -3230,9 +3230,7 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(
 
 		action = yang_dnode_get_string(args->dnode,
 				"../../frr-route-map:action");
-		if (IS_SET_COMM_LIST_DEL(action))
-			rhc->rhc_rule = "comm-list";
-		else if (IS_SET_EXTCOMM_LIST_DEL(action))
+		if (IS_SET_EXTCOMM_LIST_DEL(action))
 			rhc->rhc_rule = "extended-comm-list";
 		else
 			rhc->rhc_rule = "large-comm-list";
@@ -3253,6 +3251,77 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(
 
 int
 lib_route_map_entry_set_action_rmap_set_action_comm_list_name_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:comm-list-name-*
+ */
+int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *name;
+	size_t argstr_len;
+	char *argstr;
+	const char *action;
+	int rv = CMD_SUCCESS;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		name = yang_dnode_get_string(args->dnode, NULL);
+		argstr_len = strlen(name) + strlen("replace") + 3;
+		argstr = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, argstr_len);
+
+		action = yang_dnode_get_string(args->dnode, "../../frr-route-map:action");
+		if (IS_SET_COMM_LIST_DEL(action)) {
+			rhc->rhc_rule = "comm-list-delete";
+			snprintf(argstr, argstr_len, "%s %s", name, "delete");
+		} else if (IS_SET_COMM_LIST_ADD(action)) {
+			rhc->rhc_rule = "comm-list-add";
+			snprintf(argstr, argstr_len, "%s %s", name, "add");
+		} else if (IS_SET_COMM_LIST_REPLACE(action)) {
+			rhc->rhc_rule = "comm-list-replace";
+			snprintf(argstr, argstr_len, "%s %s", name, "replace");
+		}
+
+		/* Set destroy information. */
+		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
+		rhc->rhc_shook = generic_set_delete;
+
+		rv = generic_set_add(rhc->rhc_rmi, rhc->rhc_rule, argstr, args->errmsg,
+				     args->errmsg_len);
+
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
+
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_shook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
@@ -3576,6 +3645,56 @@ int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify(
 }
 
 int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-evpn-rmac
+ */
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_evpn_rmac_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *type;
+	int rv;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		type = yang_dnode_get_string(args->dnode, NULL);
+
+		rhc->rhc_shook = generic_set_delete;
+		rhc->rhc_rule = "extcommunity evpn rmac";
+		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
+
+		rv = generic_set_add(rhc->rhc_rmi, "extcommunity evpn rmac", type, args->errmsg,
+				     args->errmsg_len);
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_shook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_evpn_rmac_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {

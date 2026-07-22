@@ -411,14 +411,16 @@ lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args)
 		rn = route_top(zrt->table);
 	else
 		rn = srcdest_route_next(rn);
-	/* Optimization: skip empty route nodes. */
-	while (rn && rn->info == NULL)
+	/*
+	 * Skip empty route nodes and link-local IPv6 routes. Link-locals are
+	 * excluded because the multiple connected link-local routes a router
+	 * holds (one per interface) collapse to identical YANG keys
+	 * (route[prefix='fe80::/64']/route-entry[protocol='connected']), which
+	 * breaks key-based resume of the async walk.
+	 */
+	while (rn && (rn->info == NULL ||
+		      (rn->p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&rn->p.u.prefix6))))
 		rn = route_next(rn);
-
-	/* Skip link-local routes. */
-	if (rn && rn->p.family == AF_INET6
-	    && IN6_IS_ADDR_LINKLOCAL(&rn->p.u.prefix6))
-		return NULL;
 
 	return rn;
 }
@@ -466,8 +468,14 @@ lib_vrf_zebra_ribs_rib_route_lookup_next(struct nb_cb_lookup_entry_args *args)
 	if (!rn)
 		return NULL;
 
-	route_unlock_node(rn);
-
+	/*
+	 * Unlike lib_vrf_zebra_ribs_rib_route_lookup_entry() (a self-contained
+	 * point lookup), this function seeds the get_next iteration: the
+	 * returned node is carried as args->list_entry into
+	 * lib_vrf_zebra_ribs_rib_route_get_next() -> srcdest_route_next() ->
+	 * route_next(), which unlocks its input node. The node returned by
+	 * route_table_get_next() must therefore keep the lock it carries.
+	 */
 	return rn;
 }
 
@@ -1084,6 +1092,18 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_e
  */
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_encap_behavior_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/encap-source
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_encap_source_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */

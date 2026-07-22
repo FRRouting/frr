@@ -9,7 +9,11 @@
 #
 
 r"""
-test_rip_no_neighbor.py: Test to verify that disabling a rip neighbor via the "no neighbor" command works correctly.
+test_rip_no_neighbor.py: Test to verify that disabling a RIP neighbor via the
+"no neighbor" command works correctly.
+
+The sender uses `network IFNAME` on a passive interface so the neighbor unicast
+path is also covered for interface-name based RIP enablement.
 """
 
 import os
@@ -52,11 +56,11 @@ def tgen(request):
     # - starting zebra using config file from <rtrname>/zebra.conf
     # - starting ripd using an empty config file.
     # - loading frr config file from <rtrname>/frr.conf
-    for rname, router in router_list.items():
+    for router in router_list.values():
         router.load_config(TopoRouter.RD_ZEBRA)
         router.load_config(TopoRouter.RD_RIP)
         router.load_config(TopoRouter.RD_STATIC)
-        router.load_frr_config(os.path.join(CWD, f"{rname}/frr.conf"))
+        router.load_frr_config()
 
     # Start and configure the router daemons
     tgen.start_router()
@@ -83,7 +87,10 @@ def test_rip_no_neighbor(tgen):
 
         return topotest.json_cmp(output, expected, exact=exact)
 
-    step("verify r1 has 192.168.105.0/24 in routing table as a rip route")
+    step(
+        "verify r1 has 192.168.105.0/24 from r2's "
+        "ifname-enabled RIP interface"
+    )
 
     expected = {
         "192.168.105.0/24": [

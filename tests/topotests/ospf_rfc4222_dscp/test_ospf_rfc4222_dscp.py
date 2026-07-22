@@ -13,11 +13,12 @@
 #
 
 import sys
+import os
 import pytest
 import json
 
 from lib.topogen import Topogen, get_topogen, TopoRouter, topotest
-
+from lib.topolog import logger
 
 def _build_topo(tgen):
     "Simple R1-R2 topology"
@@ -38,8 +39,8 @@ def tgen(request):
     router_list = tgen.routers()
 
     # Load FRR configs
-    for _, router in router_list.items():
-        router.load_frr_config("frr.conf")
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Start all routers
     tgen.start_router()
@@ -222,14 +223,16 @@ interface r1-eth0
 
     # Give OSPF a moment to send some control traffic
     # Flood: add 200 loopbacks on r1 and redistribute connected
-    pcap = "/tmp/r1-ospf-dscp.pcap"
+    pcap = os.path.join(tgen.logdir, "r1-ospf-dscp.pcap")
+    logger.info("PCAP DIR: {}".format(pcap))
+
     _capture_ospf_pcap(r1, "r1-eth0", pcap)
     topotest.sleep(2, "Setup packet capture")
     r1.vtysh_cmd("conf t\nrouter ospf\n redistribute connected\n exit")
     for i in range(1, 10):
         r1.cmd(f"ip addr add 198.51.100.{i}/32 dev lo")
     # Capture packets on R1's interface
-    topotest.sleep(3, "Gathering Packets")
+    topotest.sleep(10, "Gathering Packets")
     _stop_ospf_capture(r1, "r1-eth0", pcap)
 
     tuples = _tshark_dscp_and_type(r1, pcap)

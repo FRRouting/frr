@@ -131,10 +131,23 @@ static void pim_if_membership_refresh(struct interface *ifp)
 		} /* scan group sources */
 	}	 /* scan igmp groups */
 #else
+	/*
+	 * Restore PIM (S,G) membership only for MLD entries that already
+	 * own TIB state -- the analog of the IGMP_SOURCE_TEST_FORWARDING
+	 * gate in the IPv4 branch above.  Feeding a not-yet-joined sg in
+	 * here bypasses tib_sg_gm_join(): the ifchannel INCLUDE and the
+	 * PROTO_GM oif get created behind the sg's back, every later
+	 * gm_sg_update() join retry then fails on the duplicate-oif check,
+	 * and when the sg expires or the host leaves, its prune is skipped
+	 * (tib_joined was never set) -- stranding membership, oif and
+	 * upstream until the daemon restarts.  Entries without TIB state
+	 * are picked up by gm_sg_update()'s own join-retry path, which
+	 * keeps the bookkeeping coherent.
+	 */
 	sg_start = gm_sgs_first(gm_ifp->sgs);
 
 	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
-		if (!in6_multicast_nofwd(&sg->sgaddr.grp)) {
+		if (sg->tib_joined && !in6_multicast_nofwd(&sg->sgaddr.grp)) {
 			pim_ifchannel_local_membership_add(
 				ifp, &sg->sgaddr, false /*is_vxlan*/);
 		}
@@ -829,6 +842,30 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_de
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/shutdown
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_shutdown_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim_vrf_shutdown(pim, yang_dnode_get_bool(args->dnode, NULL));
 		break;
 	}
 

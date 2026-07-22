@@ -41,7 +41,8 @@
 #define IS_OSPF6_DEBUG_FLOOD_TYPE(type)                                        \
 	(ospf6_lstype_debug(type) & OSPF6_LSA_DEBUG_FLOOD)
 #define IS_OSPF6_DEBUG_AGGR						       \
-	(ospf6_lstype_debug(OSPF6_LSTYPE_AS_EXTERNAL) & OSPF6_LSA_DEBUG_AGGR)  \
+	(ospf6_lstype_debug(htons(OSPF6_LSTYPE_AS_EXTERNAL)) &		       \
+	 OSPF6_LSA_DEBUG_AGGR)						       \
 
 /* LSA definition */
 

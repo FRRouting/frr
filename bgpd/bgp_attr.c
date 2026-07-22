@@ -47,6 +47,9 @@
 #include "bgp_flowspec_private.h"
 #include "bgp_mac.h"
 #include "bgpd/bgp_ls_nlri.h"
+#include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_route.h"
+#include "bgpd/bgp_unreach.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -76,6 +79,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_IPV6_EXT_COMMUNITIES, "IPV6_EXT_COMMUNITIES"},
 	{BGP_ATTR_AIGP, "AIGP"},
 	{BGP_ATTR_NHC, "Next Hop Dependent Characteristics"},
+	{BGP_ATTR_LINK_STATE, "BGP-LS Attribute"},
 	{0}};
 
 static const struct message attr_flag_str[] = {
@@ -1520,7 +1524,7 @@ struct attr *bgp_attr_aggregate_intern(
 
 	/* Origin attribute. */
 	attr.origin = origin;
-	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN));
+	bgp_attr_set(&attr, BGP_ATTR_ORIGIN);
 
 	/* MED */
 	bgp_attr_set_med(&attr, 0);
@@ -1530,7 +1534,7 @@ struct attr *bgp_attr_aggregate_intern(
 		attr.aspath = aspath_intern(aspath);
 	else
 		attr.aspath = aspath_empty(bgp->asnotation);
-	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+	bgp_attr_set(&attr, BGP_ATTR_AS_PATH);
 
 	if (community) {
 		uint32_t gshut = COMMUNITY_GSHUT;
@@ -1560,8 +1564,8 @@ struct attr *bgp_attr_aggregate_intern(
 	attr.weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
 	if (!aggregate->as_set || atomic_aggregate)
-		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
-	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+		bgp_attr_set(&attr, BGP_ATTR_ATOMIC_AGGREGATE);
+	bgp_attr_set(&attr, BGP_ATTR_AGGREGATOR);
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 		attr.aggregator_as = bgp->confed_id;
 	else
@@ -1579,7 +1583,7 @@ struct attr *bgp_attr_aggregate_intern(
 	 */
 	if (p->family == AF_INET) {
 		/* Next hop attribute.  */
-		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+		bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
 		attr.mp_nexthop_len = IPV4_MAX_BYTELEN;
 	}
 
@@ -1916,6 +1920,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_ATOMIC_AGGREGATE:
 	case BGP_ATTR_PREFIX_SID:
 	case BGP_ATTR_NHC:
+	case BGP_ATTR_LINK_STATE:
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* Core attributes, particularly ones which may influence route
@@ -2024,6 +2029,8 @@ const uint8_t attr_flags_values[] = {
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_AIGP] = BGP_ATTR_FLAG_OPTIONAL,
 	[BGP_ATTR_NHC] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_ENCAP] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_LINK_STATE] = BGP_ATTR_FLAG_OPTIONAL,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -2279,13 +2286,12 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 	 * such messages, conformant BGP speakers SHOULD use the "Treat-as-
 	 * withdraw" error handling behavior as per [RFC7606].
 	 */
-	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+	if (peer->bgp->reject_as_sets && aspath_check_as_sets(*as4_path)) {
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
 			 "AS_SET and AS_CONFED_SET are deprecated from %pBP",
 			 peer);
-		if (attr->aspath)
-			zlog_warn("`bgp reject-as-sets` is enabled, and AS-path (%s) contains AS_SET/AS_CONFED_SET",
-				  attr->aspath->str);
+		zlog_warn("`bgp reject-as-sets` is enabled, and AS-path (%s) contains AS_SET/AS_CONFED_SET",
+			  (*as4_path)->str);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
@@ -2305,19 +2311,10 @@ enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 	struct bgp *bgp = peer->bgp;
 
 	if (ipv4_martian(&attr->nexthop) && !bgp->allow_martian) {
-		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
-
 		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %pI4",
 			 &attr->nexthop);
-		data[0] = BGP_ATTR_FLAG_TRANS;
-		data[1] = BGP_ATTR_NEXT_HOP;
-		data[2] = BGP_ATTR_NHLEN_IPV4;
-		memcpy(&data[3], &attr->nexthop.s_addr, BGP_ATTR_NHLEN_IPV4);
-		bgp_notify_send_with_data(peer->connection,
-					  BGP_NOTIFY_UPDATE_ERR,
-					  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
-					  data, 7);
-		return BGP_ATTR_PARSE_ERROR;
+
+		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2468,7 +2465,8 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto aggregator_ignore;
 
-	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV))
+	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) &&
+	    CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV))
 		aggregator_as = stream_getl(connection->curr);
 	else
 		aggregator_as = stream_getw(connection->curr);
@@ -2581,13 +2579,11 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 		 * should not send them
 		 */
 		if (BGP_DEBUG(as4, AS4)) {
-			if (CHECK_FLAG(attr->flag,
-				       (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH))))
+			if (bgp_attr_exists(attr, BGP_ATTR_AS4_PATH))
 				zlog_debug("[AS4] %s %s AS4_PATH", peer->host,
 					   "AS4 capable peer, yet it sent");
 
-			if (CHECK_FLAG(attr->flag,
-				       (ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR))))
+			if (bgp_attr_exists(attr, BGP_ATTR_AS4_AGGREGATOR))
 				zlog_debug("[AS4] %s %s AS4_AGGREGATOR",
 					   peer->host,
 					   "AS4 capable peer, yet it sent");
@@ -2599,9 +2595,8 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 	/* We have a asn16 peer.  First, look for AS4_AGGREGATOR
 	 * because that may override AS4_PATH
 	 */
-	if (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR)))) {
-		if (CHECK_FLAG(attr->flag,
-			       (ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_AS4_AGGREGATOR)) {
+		if (bgp_attr_exists(attr, BGP_ATTR_AGGREGATOR)) {
 			/* received both.
 			 * if the as_number in aggregator is not AS_TRANS,
 			 *  then AS4_AGGREGATOR and AS4_PATH shall be ignored
@@ -2641,14 +2636,12 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 			attr->aggregator_as = as4_aggregator;
 			/* sweep it under the carpet and simulate a "good"
 			 * AGGREGATOR */
-			SET_FLAG(attr->flag,
-				 (ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)));
+			bgp_attr_set(attr, BGP_ATTR_AGGREGATOR);
 		}
 	}
 
 	/* need to reconcile NEW_AS_PATH and AS_PATH */
-	if (!ignore_as4_path &&
-	    (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH))))) {
+	if (!ignore_as4_path && bgp_attr_exists(attr, BGP_ATTR_AS4_PATH)) {
 		newpath = aspath_reconcile_as4(attr->aspath, as4_path);
 		if (!newpath)
 			return BGP_ATTR_PARSE_ERROR;
@@ -2815,8 +2808,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 #define BGP_MP_REACH_MIN_SIZE 5
 #define LEN_LEFT	(length - (stream_get_getp(s) - start))
 	if ((length > STREAM_READABLE(s)) || (length < BGP_MP_REACH_MIN_SIZE)) {
-		zlog_info("%s: %s sent invalid length, %lu, of MP_REACH_NLRI",
-			  __func__, peer->host, (unsigned long)length);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent invalid length, %lu, of MP_REACH_NLRI",
+			 __func__, peer->host, (unsigned long)length);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -2845,18 +2838,19 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	attr->mp_nexthop_len = stream_getc(s);
 
 	if (LEN_LEFT < attr->mp_nexthop_len) {
-		zlog_info(
-			"%s: %s sent next-hop length, %u, in MP_REACH_NLRI which goes past the end of attribute",
-			__func__, peer->host, attr->mp_nexthop_len);
+		flog_err(EC_BGP_ATTR_LEN,
+			 "%s: %s sent next-hop length, %u, in MP_REACH_NLRI which goes past the end of attribute",
+			 __func__, peer->host, attr->mp_nexthop_len);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	/* Nexthop length check. */
 	switch (attr->mp_nexthop_len) {
 	case 0:
-		if (safi != SAFI_FLOWSPEC) {
-			zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
-				  __func__, peer->host, attr->mp_nexthop_len);
+		if (safi != SAFI_FLOWSPEC && safi != SAFI_UNREACH) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
+				 __func__, peer->host, attr->mp_nexthop_len);
 			return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 		}
 		break;
@@ -2984,14 +2978,14 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		}
 		break;
 	default:
-		zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
-			  __func__, peer->host, attr->mp_nexthop_len);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
+			 __func__, peer->host, attr->mp_nexthop_len);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	if (!LEN_LEFT) {
-		zlog_info("%s: %s sent SNPA which couldn't be read",
-			  __func__, peer->host);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent SNPA which couldn't be read", __func__,
+			 peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -3007,14 +3001,14 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	/* must have nrli_len, what is left of the attribute */
 	nlri_len = LEN_LEFT;
 	if (nlri_len > STREAM_READABLE(s)) {
-		zlog_info("%s: %s sent MP_REACH_NLRI which couldn't be read",
-			  __func__, peer->host);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent MP_REACH_NLRI which couldn't be read",
+			 __func__, peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	if (!nlri_len) {
-		zlog_info("%s: %s sent a zero-length NLRI. Hence, treating as a EOR marker",
-			  __func__, peer->host);
+		flog_err(EC_BGP_ATTR_LEN, "%s: %s sent a zero-length MP_REACH_NLRI", __func__,
+			 peer->host);
 
 		mp_update->afi = afi;
 		mp_update->safi = safi;
@@ -3493,6 +3487,8 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
 
 		struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(attr);
 
+		assert(srv6_l3service);
+
 		srv6_l3service->loc_block_len = loc_block_len;
 		srv6_l3service->loc_node_len = loc_node_len;
 		srv6_l3service->func_len = func_len;
@@ -3566,6 +3562,8 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 		stream_getc(connection->curr);
 		stream_get(&ipv6_sid, connection->curr, sizeof(ipv6_sid));
 		sid_flags = stream_getc(connection->curr);
+		/* RFC 9252: Ignore unknown SID flags. */
+		sid_flags &= BGP_PREFIX_SID_SRV6_SERVICE_SID_FLAGS_KNOWN_MASK;
 		endpoint_behavior = stream_getw(connection->curr);
 		stream_getc(connection->curr);
 
@@ -3843,7 +3841,9 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	uint8_t type;
 	uint16_t length;
 	size_t headersz = sizeof(type) + sizeof(length);
+	size_t tlv_total_len;
 	size_t psid_parsed_length = 0;
+	bool srv6_l3_service_tlv_seen = false;
 
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto prefix_sid_ignore;
@@ -3860,8 +3860,9 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 
 		type = stream_getc(connection->curr);
 		length = stream_getw(connection->curr);
+		tlv_total_len = headersz + length;
 
-		if (((size_t)length + headersz + psid_parsed_length > (size_t)args->length) ||
+		if ((tlv_total_len + psid_parsed_length > (size_t)args->length) ||
 		    STREAM_READABLE(connection->curr) < length) {
 			flog_err(EC_BGP_ATTR_LEN,
 				 "Malformed Prefix SID attribute - insufficient data (need %hu for attribute body, have %zu remaining in UPDATE)",
@@ -3871,22 +3872,25 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 						  args->total);
 		}
 
+		psid_parsed_length += tlv_total_len;
+
+		if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
+			if (srv6_l3_service_tlv_seen) {
+				/*
+				 * RFC 9252 Section 7: ignore all but the first
+				 * SRv6 L3 Service TLV instance.
+				 */
+				stream_forward_getp(connection->curr, length);
+				continue;
+			}
+
+			srv6_l3_service_tlv_seen = true;
+		}
+
 		ret = bgp_attr_psid_sub(type, length, args);
 
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			return ret;
-
-		psid_parsed_length += length + headersz;
-
-		if (psid_parsed_length > args->length) {
-			flog_err(
-				EC_BGP_ATTR_LEN,
-				"Malformed Prefix SID attribute - TLV overflow by attribute (need %zu for TLV length, have %zu overflowed in UPDATE)",
-				length + headersz, psid_parsed_length - (length + headersz));
-			return bgp_attr_malformed(
-				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-				args->total);
-		}
 	}
 
 	bgp_attr_set(attr, BGP_ATTR_PREFIX_SID);
@@ -3998,9 +4002,7 @@ static enum bgp_attr_parse_ret bgp_attr_aigp(struct bgp_attr_parser_args *args)
 	 * sessions between members of the same BGP Confederation,
 	 * the default value of AIGP_SESSION SHOULD be "enabled".
 	 */
-	if (peer->sort == BGP_PEER_EBGP &&
-	    (!CHECK_FLAG(peer->flags, PEER_FLAG_AIGP) ||
-	     peer->sub_sort != BGP_PEER_EBGP_OAD)) {
+	if (!AIGP_TRANSMIT_ALLOWED(peer)) {
 		zlog_warn(
 			"%pBP received AIGP attribute, but eBGP peer do not support it",
 			peer);
@@ -4119,7 +4121,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 	 * ~                Characteristic Value (variable)                ~
 	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 */
-	while (length && STREAM_READABLE(s) >= BGP_NHC_TLV_MIN_LEN) {
+	while (length >= BGP_NHC_TLV_MIN_LEN) {
 		struct bgp_nhc_tlv *found;
 
 		tlv_code = stream_getw(s);
@@ -4194,6 +4196,15 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 		length -= tlv_length + BGP_NHC_TLV_MIN_LEN;
 	}
 
+	/* post-TLVs processing sanity check to avoid session reset */
+	if (length != 0) {
+		zlog_err("%pBP rcvd BGP NHC with %d trailing byte(s), smaller than a TLV header",
+			 peer, length);
+		bgp_nhc_free(nhc);
+		bgp_attr_set_nhc(attr, NULL);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
+	}
+
 	/*
 	 * draft-ietf-idr-nhc: if the next hop has no global part (i.e. it
 	 * is a link-local address), the sender MUST include a BGPID TLV to
@@ -4260,6 +4271,7 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
 	struct peer_connection *const connection = args->connection;
 	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
+	const size_t attr_startp = stream_get_getp(connection->curr);
 	int ret;
 	struct bgp_ls_attr *ls_attr;
 
@@ -4271,12 +4283,10 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
 	ret = bgp_ls_parse_attr(connection->curr, args->length, ls_attr);
 	if (ret != 0) {
 		bgp_ls_attr_free(ls_attr);
-		/*
-		 * RFC 9552 §5.1 + RFC 7606 §5.4: a malformed BGP-LS TLV
-		 * requires NLRI discard (treat-as-withdraw) while the BGP
-		 * session itself continues.
-		 */
-		return BGP_ATTR_PARSE_WITHDRAW;
+		flog_warn(EC_BGP_LS_PACKET, "%s: malformed BGP-LS Attribute, discarding attribute",
+			  peer->host);
+		stream_set_getp(connection->curr, attr_startp + args->length);
+		return BGP_ATTR_PARSE_PROCEED;
 	}
 
 	bgp_attr_set_ls_attr(attr, bgp_ls_attr_intern(ls_attr));
@@ -4354,10 +4364,9 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 }
 
 /* Well-known attribute check. */
-static int bgp_attr_check(struct peer *peer, struct attr *attr,
-			  bgp_size_t length)
+static int bgp_attr_check(struct peer *peer, struct attr *attr, bgp_size_t length, bool has_nlri)
 {
-	uint8_t type = 0;
+	uint8_t missing_attr = 0;
 
 	/* BGP Graceful-Restart End-of-RIB for IPv4 unicast is signaled as an
 	 * empty UPDATE. Treat-as-withdraw, otherwise if we just ignore it,
@@ -4369,21 +4378,24 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr,
 		return BGP_ATTR_PARSE_WITHDRAW;
 
 	if (!bgp_attr_exists(attr, BGP_ATTR_ORIGIN))
-		type = BGP_ATTR_ORIGIN;
+		missing_attr = BGP_ATTR_ORIGIN;
 
 	if (!bgp_attr_exists(attr, BGP_ATTR_AS_PATH))
-		type = BGP_ATTR_AS_PATH;
+		missing_attr = BGP_ATTR_AS_PATH;
 
-	/* RFC 2858 makes Next-Hop optional/ignored, if MP_REACH_NLRI is present
-	 * and
-	 * NLRI is empty. We can't easily check NLRI empty here though.
+	/* NEXT_HOP is a well-known mandatory attribute for IPv4 unicast
+	 * carried in the NLRI field of the UPDATE message.
+	 * RFC 4760 relaxes this when the message carries no NLRI other than
+	 * the one encoded in MP_REACH_NLRI. A message that additionally
+	 * carries IPv4 unicast NLRI in the NLRI field still requires NEXT_HOP
+	 * for those prefixes, regardless of MP_REACH_NLRI being present.
 	 */
 	if (!bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP) &&
-	    !bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI))
-		type = BGP_ATTR_NEXT_HOP;
+	    (has_nlri || !bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI)))
+		missing_attr = BGP_ATTR_NEXT_HOP;
 
 	if (peer->sort == BGP_PEER_IBGP && !bgp_attr_exists(attr, BGP_ATTR_LOCAL_PREF))
-		type = BGP_ATTR_LOCAL_PREF;
+		missing_attr = BGP_ATTR_LOCAL_PREF;
 
 	/* An UPDATE message that contains the MP_UNREACH_NLRI is not required
 	 * to carry any other path attributes. Though if MP_REACH_NLRI or NLRI
@@ -4392,16 +4404,15 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr,
 	 */
 	if (!bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI) &&
 	    bgp_attr_exists(attr, BGP_ATTR_MP_UNREACH_NLRI))
-		return type ? BGP_ATTR_PARSE_MISSING_MANDATORY
-			    : BGP_ATTR_PARSE_PROCEED;
+		return missing_attr ? BGP_ATTR_PARSE_MISSING_MANDATORY : BGP_ATTR_PARSE_PROCEED;
 
 	/* If any of the well-known mandatory attributes are not present
-	 * in an UPDATE message, then "treat-as-withdraw" MUST be used.
+	 * in an UPDATE message, then "treat-as-withdraw" MUST be used
+	 * (RFC 7606).
 	 */
-	if (type) {
-		flog_warn(EC_BGP_MISSING_ATTRIBUTE,
-			  "%s Missing well-known attribute %s.", peer->host,
-			  lookup_msg(attr_str, type, NULL));
+	if (missing_attr) {
+		flog_warn(EC_BGP_MISSING_ATTRIBUTE, "%s Missing well-known attribute %s.",
+			  peer->host, lookup_msg(attr_str, missing_attr, NULL));
 		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 	return BGP_ATTR_PARSE_PROCEED;
@@ -4411,7 +4422,7 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr,
    bgp_update_receive() in bgp_packet.c.  */
 enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struct attr *attr,
 				       bgp_size_t size, struct bgp_nlri *mp_update,
-				       struct bgp_nlri *mp_withdraw)
+				       struct bgp_nlri *mp_withdraw, bool has_nlri)
 {
 	struct peer *peer = connection->peer;
 	enum bgp_attr_parse_ret ret;
@@ -4752,13 +4763,13 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 	if (bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP) &&
 	    !bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI)) {
 		if (bgp_attr_nexthop_valid(peer, attr) < 0) {
-			ret = BGP_ATTR_PARSE_ERROR;
+			ret = BGP_ATTR_PARSE_WITHDRAW;
 			goto done;
 		}
 	}
 
 	/* Check all mandatory well-known attributes are present */
-	ret = bgp_attr_check(peer, attr, length);
+	ret = bgp_attr_check(peer, attr, length, has_nlri);
 	if (ret < 0)
 		goto done;
 
@@ -4789,7 +4800,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 	 * Finally do the checks on the aspath we did not do yet
 	 * because we waited for a potentially synthesized aspath.
 	 */
-	if (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS_PATH)))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_AS_PATH)) {
 		ret = bgp_attr_aspath_check(peer, attr);
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			goto done;
@@ -4919,7 +4930,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST
 		|| safi == SAFI_MPLS_VPN || safi == SAFI_MULTICAST))
 		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
-	else if (safi == SAFI_FLOWSPEC)
+	else if (safi == SAFI_FLOWSPEC || safi == SAFI_UNREACH)
 		nh_afi = afi;
 	else if (safi == SAFI_BGP_LS)
 		nh_afi = CHECK_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV6)
@@ -4954,13 +4965,26 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			if (attr->mp_nexthop_len == 0)
 				stream_putc(s, 0); /* no nexthop for flowspec */
 			else {
-				stream_putc(s, attr->mp_nexthop_len);
+				/*
+				 * We only ever emit a 4-byte IPv4 next-hop here,
+				 * so the length field MUST be 4 regardless of the
+				 * value received on the wire. Echoing a peer's
+				 * mp_nexthop_len (which bgp_mp_reach_parse()
+				 * accepts as 12/16/24/32/48 without checking the
+				 * SAFI) would advertise an MP_REACH whose declared
+				 * next-hop length does not match its body, leading
+				 * downstream peers to misparse the following NLRI.
+				 */
+				stream_putc(s, BGP_ATTR_NHLEN_IPV4);
 				stream_put_ipv4(s, attr->nexthop.s_addr);
 			}
 			break;
 		case SAFI_BGP_LS:
 			stream_putc(s, IPV4_MAX_BYTELEN);
 			stream_put_ipv4(s, attr->mp_nexthop_global_in.s_addr);
+			break;
+		case SAFI_UNREACH:
+			stream_putc(s, 0); /* no nexthop for unreachability */
 			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -5021,6 +5045,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_put(s, &attr->mp_nexthop_global, IPV6_MAX_BYTELEN);
 			if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 				stream_put(s, &attr->mp_nexthop_local, IPV6_MAX_BYTELEN);
+			break;
+		case SAFI_UNREACH:
+			stream_putc(s, 0); /* no nexthop for unreachability */
 			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -5177,7 +5204,7 @@ static void bgp_packet_ls_attribute(struct stream *s, struct bgp *bgp, struct at
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const struct prefix *p,
 			      const struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
 			      bool addpath_capable, uint32_t addpath_tx_id, struct attr *attr,
-			      struct bgp_ls_nlri *ls_nlri)
+			      struct bgp_ls_nlri *ls_nlri, struct bgp_path_info *path)
 {
 	switch (safi) {
 	case SAFI_UNSPEC:
@@ -5210,12 +5237,85 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const st
 		bgp_attr_stream_put_labeled_prefix(s, p, label, num_labels, addpath_capable,
 						   addpath_tx_id);
 		break;
-	case SAFI_FLOWSPEC:
-		stream_putc(s, p->u.prefix_flowspec.prefixlen);
-		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
-			   p->u.prefix_flowspec.prefixlen);
-		break;
+	case SAFI_FLOWSPEC: {
+		uint16_t flen = p->u.prefix_flowspec.prefixlen;
 
+		if (flen >= FLOWSPEC_NLRI_SIZELIMIT)
+			stream_putw(s, 0xf000 | flen);
+		else
+			stream_putc(s, flen);
+		stream_put(s, (const void *)p->u.prefix_flowspec.ptr, flen);
+		break;
+	}
+	case SAFI_UNREACH: {
+		size_t unreach_nlri_len_pos;
+		size_t unreach_nlri_body_start;
+		size_t unreach_nlri_len;
+
+		/* Unreachability NLRI encoding with TLVs from path->extra */
+		if (addpath_capable)
+			stream_putl(s, addpath_tx_id);
+
+		/*
+		 * Length-prefixed NLRI envelope (draft -06): reserve a
+		 * 2-octet NLRI Length, then backfill it once the prefix and
+		 * Reporter TLV(s) have been written. It counts every octet
+		 * after itself but not the AddPath Path Identifier above.
+		 */
+		unreach_nlri_len_pos = stream_get_endp(s);
+		stream_putw(s, 0);
+		unreach_nlri_body_start = stream_get_endp(s);
+
+		stream_putc(s, p->prefixlen);
+		if (PSIZE(p->prefixlen) > 0)
+			stream_put(s, &p->u.prefix, PSIZE(p->prefixlen));
+
+		/* Encode TLVs from path->extra->unreach (NLRI data, not attributes) */
+		if (path && path->extra && path->extra->unreach) {
+			struct bgp_unreach_nlri nlri;
+			struct bgp_path_info_extra_unreach *unreach = path->extra->unreach;
+
+			/* Build NLRI structure from path extra data */
+			memset(&nlri, 0, sizeof(nlri));
+			nlri.timestamp = unreach->timestamp;
+			nlri.has_timestamp = unreach->has_timestamp;
+			nlri.reason_code = unreach->reason_code;
+			nlri.has_reason_code = unreach->has_reason_code;
+			nlri.reporter = unreach->reporter;
+			nlri.has_reporter = unreach->has_reporter;
+			nlri.reporter_as = unreach->reporter_as;
+			nlri.has_reporter_as = unreach->has_reporter_as;
+
+			/* Encode TLVs as part of NLRI (not as BGP attributes).
+			 * The size was reserved by bgp_packet_mpattr_prefix_size()
+			 * so this should not fail; log if it ever does rather than
+			 * silently emitting a prefix with no Reporter TLV.
+			 */
+			if (bgp_unreach_tlv_encode(s, &nlri) < 0)
+				zlog_warn("[UNREACH] UNREACH ENCODE: insufficient stream space for Reporter TLV, prefix=%pFX",
+					  p);
+		} else if (path == NULL) {
+			/* path=NULL indicates this is a withdrawal - TLVs are not
+			 * included in withdrawals per protocol spec, this is expected.
+			 */
+			if (BGP_DEBUG(update, UPDATE_OUT))
+				zlog_debug("[UNREACH] UNREACH ENCODE: withdrawal for prefix=%pFX (no TLVs)",
+					   p);
+		} else if (!path->extra) {
+			/* path exists but no extra data - this is unexpected for updates */
+			zlog_warn("[UNREACH] UNREACH ENCODE: path->extra=NULL for prefix=%pFX",
+				  p);
+		} else if (!path->extra->unreach) {
+			/* path exists but no unreach data - this is unexpected for updates */
+			zlog_warn("[UNREACH] UNREACH ENCODE: path->extra->unreach=NULL for prefix=%pFX",
+				  p);
+		}
+
+		/* Backfill the NLRI Length over prefix + Reporter TLV(s). */
+		unreach_nlri_len = stream_get_endp(s) - unreach_nlri_body_start;
+		stream_putw_at(s, unreach_nlri_len_pos, (uint16_t)unreach_nlri_len);
+		break;
+	}
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 		bgp_attr_stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
@@ -5261,10 +5361,45 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		break;
 	case SAFI_FLOWSPEC:
 		size = ((struct prefix_fs *)p)->prefix.prefixlen;
+		/*
+		 * Account for the extended length octet used when the NLRI
+		 * length is encoded as 2 bytes (see bgp_packet_mpattr_prefix).
+		 * The caller adds BGP_NLRI_LENGTH for the first length octet.
+		 */
+		if (size >= FLOWSPEC_NLRI_SIZELIMIT)
+			size += 1;
 		break;
 	case SAFI_BGP_LS:
 		/* TODO: add explaination */
 		size = 0;
+		break;
+	case SAFI_UNREACH:
+		/*
+		 * SAFI_UNREACH packet space upper bound per
+		 * draft-tantsura-idr-unreachability-safi (Sections 3.4-3.5):
+		 *
+		 *   Reporter TLV (Type 1, MANDATORY)
+		 *     header (Type 1B + Length 2B)             :  3 bytes
+		 *     Reporter Identifier                       :  4 bytes
+		 *     Reporter AS Number                        :  4 bytes
+		 *     ---------------------------------------------
+		 *     mandatory subtotal                        : 11 bytes
+		 *   Sub-TLV Type 1 - Reason Code (optional)
+		 *     header (3) + value (2)                    :  5 bytes
+		 *   Sub-TLV Type 2 - Timestamp (optional)
+		 *     header (3) + value (8)                    : 11 bytes
+		 *   ---------------------------------------------------
+		 *   Maximum Reporter TLV footprint              : 27 bytes
+		 *
+		 * Earlier revisions used 23 bytes here, which omitted the
+		 * 4-byte Reporter AS Number and could under-estimate the
+		 * stream space needed by bgp_unreach_tlv_encode().
+		 *
+		 * BGP_UNREACH_NLRI_LEN_SIZE accounts for the 2-octet
+		 * length-prefixed NLRI envelope (draft -06) written before
+		 * the prefix.
+		 */
+		size += BGP_UNREACH_NLRI_LEN_SIZE + 27;
 		break;
 	}
 
@@ -5450,7 +5585,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 							vecarr, attr);
 		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels, addpath_capable,
-					 addpath_tx_id, attr, ls_nlri);
+					 addpath_tx_id, attr, ls_nlri, bpi);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
 
@@ -5770,7 +5905,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 	/* Label index attribute. */
 	if (safi == SAFI_LABELED_UNICAST) {
-		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) {
+		if (bgp_attr_exists(attr, BGP_ATTR_PREFIX_SID)) {
 			uint32_t label_index;
 
 			label_index = attr->label_index;
@@ -6029,7 +6164,7 @@ void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p, afi_t
 	}
 
 	bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels, addpath_capable,
-				 addpath_tx_id, attr, ls_nlri);
+				 addpath_tx_id, attr, ls_nlri, NULL);
 }
 
 void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt)

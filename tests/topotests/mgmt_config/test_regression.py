@@ -22,7 +22,7 @@ def tgen(request):
     topodef = {"s1": ("r1",)}
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
-    tgen.gears["r1"].load_frr_config("frr.conf")
+    tgen.gears["r1"].load_frr_config()
     tgen.start_router()
     yield tgen
     tgen.stop_topology()

@@ -144,6 +144,7 @@ struct ospf6 {
 	uint8_t flag;
 #define OSPF6_FLAG_ABR          0x04
 #define OSPF6_FLAG_ASBR         0x08
+#define OSPF6_FLAG_SHUTDOWN	0x10
 
 	int redistribute; /* Num of redistributed protocols. */
 
@@ -172,6 +173,7 @@ struct ospf6 {
 	/* Threads */
 	struct event *t_spf_calc; /* SPF calculation timer. */
 	struct event *t_ase_calc; /* ASE calculation timer. */
+	struct event *t_asbr_route_calc; /* AS-External route recalculation timer. */
 	struct event *maxage_remover;
 	struct event *t_distribute_update; /* Distribute update timer. */
 	struct event *t_ospf6_receive;	   /* OSPF6 receive timer */
@@ -253,4 +255,6 @@ void ospf6_reinstall_routes(struct ospf6 *ospf6);
 const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id);
 void ospf6_vrf_init(void);
 bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p);
+
+extern void ospf6_shutdown(struct ospf6 *o, bool shutdown);
 #endif /* OSPF6_TOP_H */

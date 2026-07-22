@@ -55,14 +55,13 @@
 /* AS segment octet length. */
 #define ASSEGMENT_LEN(X,S) ASSEGMENT_SIZE((X)->length,S)
 
-/* AS_SEQUENCE segments can be packed together */
-/* Can the types of X and Y be considered for packing? */
-#define ASSEGMENT_TYPES_PACKABLE(X, Y)                                         \
-	(((X)->type == (Y)->type) && ((X)->type == AS_SEQUENCE))
-/* Types and length of X,Y suitable for packing? */
-#define ASSEGMENTS_PACKABLE(X, Y)                                              \
-	(ASSEGMENT_TYPES_PACKABLE((X), (Y))                                    \
-	 && (((X)->length + (Y)->length) <= AS_SEGMENT_MAX))
+/* Are the types and combined length of X,Y suitable for packing?
+ * Only AS_SEQUENCE segments pack, and only while the result still fits within
+ * the on-wire AS_SEGMENT_MAX (255) ASN limit.
+ */
+#define ASSEGMENTS_PACKABLE(X, Y)                                                                 \
+	(((X)->type == (Y)->type) && ((X)->type == AS_SEQUENCE) &&                                \
+	 (((X)->length + (Y)->length) <= AS_SEGMENT_MAX))
 
 /* As segment header - the on-wire representation
  * NOT the internal representation!
@@ -226,10 +225,16 @@ static int int_cmp(const void *p1, const void *p2)
 }
 
 /* normalise the segment.
- * In particular, merge runs of AS_SEQUENCEs into one segment
- * Internally, we do not care about the wire segment length limit, and
- * we want each distinct AS_PATHs to have the exact same internal
- * representation - eg, so that our hashing actually works..
+ * In particular, merge runs of AS_SEQUENCEs into one segment.
+ * We want each distinct AS_PATH to have the same internal representation -
+ * eg, so that our hashing actually works.
+ *
+ * Merging is capped at the on-wire AS_SEGMENT_MAX (255) ASN limit
+ * (ASSEGMENTS_PACKABLE).  If an over-length AS_SEQUENCE - e.g. one received as
+ * several 255-ASN wire segments over an RFC 8654 Extended-Message session -
+ * were merged into a single oversized internal segment, aspath_put() would
+ * trip its outer-loop length guard and silently emit an empty AS_PATH when
+ * re-encoding the route for a peer that did not negotiate Extended-Message.
  */
 static struct assegment *assegment_normalise(struct assegment *head)
 {
@@ -273,7 +278,7 @@ static struct assegment *assegment_normalise(struct assegment *head)
 		 * to the segment we have pinned and remove these appended
 		 * segments.
 		 */
-		while (pin->next && ASSEGMENT_TYPES_PACKABLE(pin, pin->next)) {
+		while (pin->next && ASSEGMENTS_PACKABLE(pin, pin->next)) {
 			tmp = pin->next;
 			seg = pin->next;
 

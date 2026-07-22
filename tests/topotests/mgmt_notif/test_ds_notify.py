@@ -50,7 +50,7 @@ def tgen(request):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    for _, router in router_list.items():
+    for router in router_list.values():
         router.load_frr_config("frr-ds.conf")
 
     tgen.start_router()
@@ -115,6 +115,16 @@ def check_backend_xpath_registry(r1, repath):
     output = r1.cmd_raises('vtysh -c "show mgmt backend-yang-xpath-registry notify"')
     if re.match("notify: ?" + repath, output):
         return "missing notify registration for " + repath
+    return None
+
+
+def check_running_datastore_unlocked(r1):
+    output = r1.cmd_raises('vtysh -c "show mgmt datastore all"')
+    m = re.search(r"DS: running.*?Locked:\s+(True|False)", output, re.DOTALL)
+    if not m:
+        return "running datastore status not found in output"
+    if m.group(1) == "True":
+        return "running datastore is locked"
     return None
 
 
@@ -300,6 +310,13 @@ def test_backend_datastore_router_id(tgen):
             "/frr-vrf:lib/vrf/frr-zebra:zebra/router-id",
             js4_init,
         )
+        ok, result = topotest.run_and_expect(
+            lambda: check_running_datastore_unlocked(r1),
+            None,
+            count=30,
+            wait=1,
+        )
+        assert ok, result
         r1.cmd_raises('vtysh -c "conf t" -c "router-id 1.2.3.4"')
         wait_op_json(
             p.stdout,

@@ -364,7 +364,7 @@ static int netlink_tfilter_flower_put_options(struct nlmsghdr *n, size_t datalen
 {
 	struct inet_prefix addr;
 	uint32_t flags = 0, classid;
-	uint8_t protocol = htons(dplane_ctx_tc_filter_get_eth_proto(ctx));
+	uint16_t protocol = htons(dplane_ctx_tc_filter_get_eth_proto(ctx));
 	uint32_t filter_bm = dplane_ctx_tc_filter_get_filter_bm(ctx);
 
 	if (filter_bm & TC_FLOWER_SRC_IP) {
@@ -705,7 +705,7 @@ static int netlink_request_qdiscs(struct nlsock *nl, int family, int type)
 	return netlink_request(nl, &req);
 }
 
-int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	struct tcmsg *tcm;
 	enum tc_qdisc_kind kind = TC_QDISC_UNSPEC;
@@ -747,7 +747,7 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
-int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	struct tcmsg *tcm;
 
@@ -782,7 +782,7 @@ int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
-int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	struct tcmsg *tcm;
 
@@ -822,7 +822,7 @@ void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 
 	ret = netlink_request_qdiscs(nl, AF_UNSPEC, RTM_GETQDISC);
 	if (ret >= 0)
-		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true);
+		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true, NULL, NULL);
 
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 

@@ -235,6 +235,8 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	prune_timer_stop(up);
 	join_timer_stop(up);
+
+	pim_jp_agg_remove_upstream(pim, up);
 	pim_jp_agg_upstream_verification(up, false);
 	up->rpf.source_nexthop.interface = NULL;
 
@@ -522,8 +524,14 @@ bool should_limit_prune(struct pim_upstream *up)
 
 void graft_timer_start(struct pim_upstream *up)
 {
+	if (PIM_DEBUG_PIM_EVENTS) {
+		zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s", __func__,
+			   PIM_DEFAULT_GRAFT_RETRY_PERIOD, up->sg_str);
+	}
+
 	event_cancel(&up->t_graft_timer);
-	event_add_timer(router->master, on_graft_timer, up, router->t_periodic, &up->t_graft_timer);
+	event_add_timer(router->master, on_graft_timer, up, PIM_DEFAULT_GRAFT_RETRY_PERIOD,
+			&up->t_graft_timer);
 	pim_jp_agg_upstream_verification(up, true);
 }
 
@@ -874,7 +882,7 @@ static void pim_upstream_transition_dm_to_sm(struct pim_instance *pim, struct pi
 				 */
 				old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
 				old_rpf.rpf_addr = up->rpf.rpf_addr;
-				rpf_result = pim_rpf_update(pim, up, &old_rpf, __func__);
+				rpf_result = pim_rpf_update(pim, up, &old_rpf, NULL, __func__);
 				if (rpf_result == PIM_RPF_CHANGED ||
 				    (rpf_result == PIM_RPF_FAILURE &&
 				     old_rpf.source_nexthop.interface))
@@ -1093,10 +1101,14 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		 * In FHR pimreg interface is needed all the time
 		 * inorder to send register packets.
 		 * Only for ASM (Any Source Multicast) groups, NOT for SSM or Dense mode.
+		 *
+		 * pimreg addition to channel_oil is not valid in non-DR
+		 * cases; handle the same by pim_upstream_could_register()
+		 * check.
 		 */
 		if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) && up->reg_state == PIM_REG_NOINFO &&
 		    pim->regiface->configured && !pim_is_grp_ssm(pim, up->sg.grp) &&
-		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags)) {
+		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) && pim_upstream_could_register(up)) {
 			pim_channel_add_oif(up->channel_oil, pim->regiface, PIM_OIF_FLAG_PROTO_PIM,
 					    __func__);
 		}
@@ -1262,12 +1274,12 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 			 * Set the right RPF so that future changes will
 			 * be right
 			 */
-			(void)pim_rpf_update(pim, up, NULL, __func__);
+			(void)pim_rpf_update(pim, up, NULL, NULL, __func__);
 			pim_upstream_keep_alive_timer_start(
 				up, pim->keep_alive_time);
 		}
 	} else if (!pim_addr_is_any(up->upstream_addr)) {
-		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
+		rpf_result = pim_rpf_update(pim, up, NULL, NULL, __func__);
 		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			up->channel_oil->oil_inherited_rescan = 1;
@@ -2264,7 +2276,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 					__func__, up->sg_str);
 			old.source_nexthop.interface =
 				up->rpf.source_nexthop.interface;
-			rpf_result = pim_rpf_update(pim, up, &old, __func__);
+			rpf_result = pim_rpf_update(pim, up, &old, NULL, __func__);
 			if (rpf_result == PIM_RPF_CHANGED ||
 					(rpf_result == PIM_RPF_FAILURE &&
 					 old.source_nexthop.interface))
@@ -2356,7 +2368,7 @@ bool pim_upstream_equal(const void *arg1, const void *arg2)
  * set KeepaliveTimer(S,G) to Keepalive_Period
  * }
  */
-static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
+bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 {
 	struct channel_oil *c_oil = up->channel_oil;
 	struct interface *ifp = up->rpf.source_nexthop.interface;

@@ -282,11 +282,11 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 
 	memset(&ctx, 0, sizeof(ctx));
 	buffer[0] = '\n';
-	memcpy(buffer + 1, key, strlen(key->string));
+	memcpy(buffer + 1, key->string, strlen(key->string));
 	memcpy(buffer + 1 + strlen(key->string), source_ip, strlen(source_ip));
 	HMAC__SHA256_Init(&ctx, buffer,
 			  1 + strlen(key->string) + strlen(source_ip));
-	HMAC__SHA256_Update(&ctx, ibuf, strlen(ibuf));
+	HMAC__SHA256_Update(&ctx, ibuf, backup_end);
 	HMAC__SHA256_Final(digest, &ctx);
 
 
@@ -388,7 +388,7 @@ void eigrp_write(struct event *event)
 	sa_dst.sin_port = htons(0);
 
 	/* Set DONTROUTE flag if dst is unicast. */
-	if (!IN_MULTICAST(htonl(ep->dst.s_addr)))
+	if (!IN_MULTICAST(ntohl(ep->dst.s_addr)))
 		flags = MSG_DONTROUTE;
 
 	iph.ip_hl = sizeof(struct ip) >> EIGRP_WRITE_IPHL_SHIFT;
@@ -498,7 +498,7 @@ void eigrp_read(struct event *event)
 
 	// Subtract IPv4 header size from EIGRP Packet itself
 	if (iph->ip_v == 4)
-		length = (iph->ip_len) - 20U;
+		length = (iph->ip_len) - (iph->ip_hl << 2);
 
 	srcaddr = iph->ip_src;
 	dstaddr = iph->ip_dst;
@@ -1109,7 +1109,7 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 
 	tlv->type = stream_getw(s);
 	tlv->length = stream_getw(s);
-	tlv->forward.s_addr = stream_getl(s);
+	tlv->forward.s_addr = htonl(stream_getl(s));
 	tlv->metric.delay = stream_getl(s);
 	tlv->metric.bandwidth = stream_getl(s);
 	tlv->metric.mtu[0] = stream_getc(s);

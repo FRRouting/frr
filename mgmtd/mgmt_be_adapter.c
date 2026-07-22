@@ -389,13 +389,13 @@ int mgmt_be_adapter_send(struct mgmt_be_client_adapter *adapter, void *_msg)
 	uint64_t txn_id = msg->refer_id;
 	int ret;
 
-	_dbg("Sending %s to '%s' txn-id: %Lu", mgmt_msg_code_name(msg->code), adapter->name,
+	_dbg("Sending %s to '%s' txn-id: %" PRIu64, mgmt_msg_code_name(msg->code), adapter->name,
 	     txn_id);
 
 	ret = mgmt_msg_native_send_msg(adapter->conn, msg, false);
 	if (ret)
-		_log_err("Failed sending %s to '%s' txn-id: %Lu", mgmt_msg_code_name(msg->code),
-			 adapter->name, txn_id);
+		_log_err("Failed sending %s to '%s' txn-id: %" PRIu64,
+			 mgmt_msg_code_name(msg->code), adapter->name, txn_id);
 	return ret;
 }
 
@@ -525,7 +525,7 @@ static void be_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 	 * function.
 	 */
 
-	_dbg("Got %s from '%s' txn-id %Lu", mgmt_msg_code_name(msg->code), adapter->name,
+	_dbg("Got %s from '%s' txn-id %" PRIu64, mgmt_msg_code_name(msg->code), adapter->name,
 	     msg->refer_id);
 
 	assert(adapter->id != MGMTD_BE_CLIENT_ID_MAX || msg->code == MGMT_MSG_CODE_SUBSCRIBE);
@@ -599,10 +599,10 @@ void mgmt_be_adapter_status_write(struct vty *vty)
 		vty_out(vty, "  Client: \t\t\t%s\n", adapter->name);
 		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adapter->conn->fd);
 		vty_out(vty, "    Client-Id: \t\t\t%d\n", adapter->id);
-		vty_out(vty, "    Msg-Recvd: \t\t\t%Lu\n", adapter->conn->mstate.nrxm);
-		vty_out(vty, "    Bytes-Recvd: \t\t%Lu\n", adapter->conn->mstate.nrxb);
-		vty_out(vty, "    Msg-Sent: \t\t\t%Lu\n", adapter->conn->mstate.ntxm);
-		vty_out(vty, "    Bytes-Sent: \t\t%Lu\n", adapter->conn->mstate.ntxb);
+		vty_out(vty, "    Msg-Recvd: \t\t\t%" PRIu64 "\n", adapter->conn->mstate.nrxm);
+		vty_out(vty, "    Bytes-Recvd: \t\t%" PRIu64 "\n", adapter->conn->mstate.nrxb);
+		vty_out(vty, "    Msg-Sent: \t\t\t%" PRIu64 "\n", adapter->conn->mstate.ntxm);
+		vty_out(vty, "    Bytes-Sent: \t\t%" PRIu64 "\n", adapter->conn->mstate.ntxb);
 		count++;
 	}
 	vty_out(vty, "  Total: %u\n", count);

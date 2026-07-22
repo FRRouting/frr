@@ -3877,6 +3877,20 @@ static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 		if (dest && rib_dest_vrf(dest) != zvrf)
 			continue;
 
+		/*
+		 * Clear the per-dest queued bit before unlinking the node from
+		 * the sub-queue.  For a non-default VRF the dest survives the
+		 * disable (the table is retained, see zebra_vrf_disable()), so
+		 * if we leave RIB_ROUTE_QUEUED set here, every subsequent
+		 * rib_meta_queue_add() for this route node is rejected as
+		 * "already queued" and the node is never processed again -
+		 * leaving its routes stuck ROUTE_ENTRY_CHANGED/inactive until
+		 * the daemon is restarted.  process_subq_route() clears this on
+		 * the normal dequeue path; the flush path must do the same.
+		 */
+		if (dest)
+			UNSET_FLAG(dest->flags, MQ_BIT_MASK);
+
 		route_unlock_node(rnode);
 		node->data = NULL;
 		list_delete_node(l, node);
@@ -4327,7 +4341,7 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 }
 
 void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_t safi,
-					vrf_id_t vrf_id, int route_type)
+					vrf_id_t vrf_id, uint32_t table, int route_type)
 {
 	struct listnode *node, *nnode;
 	struct zebra_early_route *ere;
@@ -4336,7 +4350,7 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_
 	for (ALL_LIST_ELEMENTS(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node, nnode, ere)) {
 		/* Check if this entry matches the prefix and route type */
 		if (prefix_same(&ere->p, p) && ere->re->type == route_type && ere->afi == afi &&
-		    ere->safi == safi && ere->re->vrf_id == vrf_id) {
+		    ere->safi == safi && ere->re->vrf_id == vrf_id && ere->re->table == table) {
 			/* Remove from the list */
 			list_delete_node(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node);
 
@@ -4350,9 +4364,10 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
 
-				zlog_debug("Route %pFX(%s:%s) type %s(%d) removed from early route queue",
+				zlog_debug("Route %pFX(%s:%s) type %s(%d) table %u removed from early route queue",
 					   p, VRF_LOGNAME(vrf), safi2str(ere->safi),
-					   zebra_route_string(route_type), route_type);
+					   zebra_route_string(route_type), route_type,
+					   ere->re->table);
 			}
 
 			/* Free the early route memory */
@@ -4558,6 +4573,11 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ip
 			}
 		}
 	}
+
+	if ((re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_CONNECT ||
+	     re->type == ZEBRA_ROUTE_LOCAL) &&
+	    n->nhg.nexthop && n->nhg.nexthop->next == NULL && n->afi == AFI_UNSPEC)
+		n->afi = afi;
 
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup, replace);
 
@@ -5279,6 +5299,7 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_INTF_UPDATE:
 			case DPLANE_OP_INTF_DELETE:
 			case DPLANE_OP_INTF_NETCONFIG:
+			case DPLANE_OP_INTF_SPEED_GET:
 				zebra_if_dplane_result(ctx);
 				break;
 

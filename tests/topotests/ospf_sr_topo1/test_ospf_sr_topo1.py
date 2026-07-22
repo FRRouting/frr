@@ -122,16 +122,8 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    router_list = tgen.routers()
-
-    # For all registered routers, load the zebra configuration file
-    for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-        )
+    for router in tgen.routers().values():
+        router.load_frr_config()
 
     tgen.start_router()
 
@@ -148,20 +140,9 @@ def print_cmd_result(rname, command):
     print(get_topogen().gears[rname].vtysh_cmd(command, isjson=False))
 
 
-def router_compare_json_output(rname, command, reference):
-    "Compare router JSON output"
-
-    logger.info('Comparing router "%s" "%s" output', rname, command)
-
-    tgen = get_topogen()
-    filename = "{}/{}/{}".format(CWD, rname, reference)
-    expected = json.loads(open(filename).read())
-
-    # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
-    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
-    assert diff is None, assertmsg
+router_compare_json_output = partial(
+    topotest.router_compare_json_output, count=120, wait=0.5, CWD=CWD
+)
 
 
 #

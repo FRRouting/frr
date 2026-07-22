@@ -185,7 +185,7 @@ static uint16_t bfd_pkt_checksum(struct udphdr *pkt, size_t pktsize,
 
 		memcpy(&ph.src, ip, sizeof(ph.src));
 		memcpy(&ph.dst, ip, sizeof(ph.dst));
-		ph.ulpl = htons(pktsize);
+		ph.ulpl = htonl(pktsize);
 		ph.next_hdr = IPPROTO_UDP;
 		chksum = in_cksum_with_ph6(&ph, pkt, pktsize);
 	} else {
@@ -588,6 +588,13 @@ static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8
 		return -1;
 	}
 
+	/* Validate read size: must have the headers */
+	if (mlen < (int)(sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr))) {
+		if (bglobal.debug_network)
+			zlog_debug("%s: invalid read: len %zd too short", __func__, mlen);
+		return -1;
+	}
+
 	ip = (struct iphdr *)(msgbuf + sizeof(struct ethhdr));
 
 	/* verify ip checksum */
@@ -619,6 +626,15 @@ static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8
 	/* verify udp checksum */
 	uh = (struct udphdr *)(msgbuf + sizeof(struct iphdr) +
 			       sizeof(struct ethhdr));
+
+	/* Validate read size: UDP header length */
+	if ((mlen < (ssize_t)(sizeof(struct ethhdr) + sizeof(struct iphdr) + ntohs(uh->len)))) {
+		if (bglobal.debug_network)
+			zlog_debug("%s: invalid UDP len %d overflows recv len %zd ",
+				   __func__, ntohs(uh->len), mlen);
+		return -1;
+	}
+
 	recv_checksum = uh->check;
 	uh->check = 0;
 	checksum = bfd_pkt_checksum(uh, ntohs(uh->len),
@@ -980,13 +996,6 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
 			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
 			 "Auth: packet length too short for auth data");
-		return false;
-	}
-
-	if (expected_auth_type == BFD_AUTH_TYPE_RESERVED) {
-		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
-			 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
-			 "Auth: local type not available");
 		return false;
 	}
 

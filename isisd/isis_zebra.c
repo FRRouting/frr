@@ -802,12 +802,44 @@ void isis_zebra_vrf_deregister(struct isis *isis)
 
 static void isis_zebra_connected(struct zclient *zclient)
 {
+	struct isis *isis;
+	struct isis_area *area;
+
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 	zclient_register_opaque(zclient, LDP_RLFA_LABELS);
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 	isis_srv6_locators_request();
+
+	/*
+	 * A (re)connected zebra has none of the routes we previously
+	 * installed, and routes computed while zebra was down were never
+	 * sent (yet may have been marked synced). Clear the zebra-synced
+	 * state on every area's routes and reschedule SPF so all routes are
+	 * reinstalled into the new zebra.
+	 */
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area) {
+			for (int tree = 0; tree < SPFTREE_COUNT; tree++) {
+				for (int level = 0; level < ISIS_LEVELS; level++) {
+					struct isis_spftree *spftree;
+
+					spftree = area->spftree[tree][level];
+					if (!spftree)
+						continue;
+
+					isis_route_table_clear_synced(spftree->route_table);
+					isis_route_table_clear_synced(spftree->route_table_backup);
+				}
+			}
+
+			if (area->is_type & IS_LEVEL_1)
+				isis_spf_schedule(area, IS_LEVEL_1);
+			if (area->is_type & IS_LEVEL_2)
+				isis_spf_schedule(area, IS_LEVEL_2);
+		}
+	}
 }
 
 /**
@@ -1213,6 +1245,9 @@ static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator
 
 		sr_debug("SRv6 locator (locator %s, prefix %pFX) set for IS-IS area %s",
 			 locator->name, &locator->prefix, area->area_tag);
+
+		if (area->srv6db.srv6_locator)
+			srv6_locator_free(area->srv6db.srv6_locator);
 
 		/* Store the locator in the IS-IS area */
 		area->srv6db.srv6_locator = srv6_locator_alloc(locator->name);

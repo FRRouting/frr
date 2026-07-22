@@ -361,7 +361,7 @@ configure terminal
 bgp extcommunity-list 1 permit rt 52:100
 !
 route-map RMAP permit 1
- set extended-comm-list 1 delete
+ set extended-comm-list delete 1
 """
     )
     prefix = "172.31.0.1/32"

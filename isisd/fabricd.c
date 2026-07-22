@@ -378,7 +378,7 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 			furthest_from_remote->N.id, furthest_from_remote->d_N);
 	}
 
-	int64_t tier = furthest_from_remote->d_N - furthest_t0->d_N;
+	int64_t tier = (int64_t)furthest_from_remote->d_N - (int64_t)furthest_t0->d_N;
 	isis_spftree_del(remote_tree);
 
 	if (tier < 0 || tier >= ISIS_TIER_UNDEFINED) {

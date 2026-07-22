@@ -900,7 +900,7 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr) {
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
-			   0, 0, NULL);
+			   0, 0, NULL, NULL);
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
@@ -1370,7 +1370,7 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	/* Process the route. */
 	if (attr) {
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi, safi, ZEBRA_ROUTE_BGP,
-			   BGP_ROUTE_NORMAL, &prd, &label[0], 1, 0, NULL);
+			   BGP_ROUTE_NORMAL, &prd, &label[0], 1, 0, NULL, NULL);
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi, ZEBRA_ROUTE_BGP,
 			     BGP_ROUTE_NORMAL, &prd, &label[0], 1);
@@ -2549,6 +2549,28 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("add local es %s orig-ip %pIA df_pref %u %s", es->esi_str,
 			   &originator_ip, df_pref, bypass ? "bypass" : "");
+
+	/* Handle tunnel IP (originator_ip) change for an existing local ES */
+	if (!new_es && !ipaddr_is_same(&es->originator_ip, &originator_ip)) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+			zlog_debug("local es %s tunnel-ip changed from %pIA to %pIA", es->esi_str,
+				   &es->originator_ip, &originator_ip);
+
+		if (bgp_evpn_local_es_is_active(es)) {
+			struct prefix_evpn p;
+			int ret;
+
+			build_evpn_type4_prefix(&p, &es->esi, es->originator_ip);
+			ret = bgp_evpn_type4_route_delete(bgp, es, &p);
+			if (ret) {
+				flog_err(EC_BGP_EVPN_ROUTE_DELETE,
+					 "%u failed to delete type-4 route for ESI %s",
+					 bgp->vrf_id, es->esi_str);
+			}
+		}
+
+		regen_esr = true;
+	}
 
 	es->originator_ip = originator_ip;
 	if (df_pref != es->df_pref) {

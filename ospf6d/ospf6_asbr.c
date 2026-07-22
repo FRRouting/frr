@@ -2332,13 +2332,12 @@ DEFUN_YANG (ospf6_routemap_set_metric_type, ospf6_routemap_set_metric_type_cmd,
 {
 	char *ext = argv[2]->text;
 
-	const char *xpath =
-		"./set-action[action='frr-ospf-route-map:metric-type']";
+	const char *xpath = "./set-action[action='frr-ospf6-route-map:metric-type']";
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/rmap-set-action/frr-ospf-route-map:metric-type", xpath);
+		 "%s/rmap-set-action/frr-ospf6-route-map:metric-type", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2352,8 +2351,7 @@ DEFUN_YANG (ospf6_routemap_no_set_metric_type, ospf6_routemap_no_set_metric_type
       "OSPF[6] external type 1 metric\n"
       "OSPF[6] external type 2 metric\n")
 {
-	const char *xpath =
-		"./set-action[action='frr-ospf-route-map:metric-type']";
+	const char *xpath = "./set-action[action='frr-ospf6-route-map:metric-type']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
@@ -2569,7 +2567,7 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 	char route_type[2];
 
 	prefix2str(&route->prefix, prefix, sizeof(prefix));
-	tmp_id = ntohl(info->id);
+	tmp_id = htonl(info->id);
 	inet_ntop(AF_INET, &tmp_id, id, sizeof(id));
 	if (!IN6_IS_ADDR_UNSPECIFIED(&info->forwarding))
 		inet_ntop(AF_INET6, &info->forwarding, forwarding,

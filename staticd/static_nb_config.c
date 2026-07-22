@@ -72,10 +72,24 @@ static int ecmp_path_list_validate(const struct lyd_node *path_list_dnode, char 
 		.metric = yang_dnode_get_uint32(path_list_dnode, "metric"),
 	};
 	const struct lyd_node *route_dnode;
+	const struct lyd_node *child;
 	enum static_nh_type nh_type;
 
 	route_dnode = yang_dnode_get_parent(path_list_dnode, "route-list");
-	yang_dnode_iterate(path_list_ecmp_iter_cb, &ec, route_dnode, "./path-list");
+
+	/*
+	 * Walk path-list children directly rather than via yang_dnode_iterate()
+	 * to avoid libyang's XPath set_sort(), which performs an O(N) DFS from
+	 * the tree root for each node when sorting >=2 results into document
+	 * order.  Document order is irrelevant here since the callback only
+	 * accumulates a count and two boolean flags.
+	 */
+	for (child = lyd_child(route_dnode); child; child = child->next) {
+		if (!child->schema || strcmp(child->schema->name, "path-list"))
+			continue;
+		if (path_list_ecmp_iter_cb(child, &ec) == YANG_ITER_STOP)
+			break;
+	}
 
 	nh_type = yang_dnode_get_enum(path_list_dnode, "nh-type");
 	if (nh_type == STATIC_BLACKHOLE && ec.has_non_blackhole) {
@@ -489,6 +503,70 @@ static int static_nexthop_srv6_encap_behavior_destroy(struct nb_cb_destroy_args 
 
 	if (old_encap_behavior != nh->snh_seg.encap_behavior)
 		nh->state = STATIC_START;
+
+	return NB_OK;
+}
+
+static int static_nexthop_srv6_encap_source_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *nh;
+	struct in6_addr encap_source;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		yang_dnode_get_ipv6(&encap_source, args->dnode, NULL);
+
+		if (IN6_IS_ADDR_UNSPECIFIED(&encap_source)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Encap-source cannot be empty ('::')");
+			return NB_ERR_VALIDATION;
+		}
+		if (IN6_IS_ADDR_LOOPBACK(&encap_source)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Encap-source cannot be loopback");
+			return NB_ERR_VALIDATION;
+		}
+		if (IN6_IS_ADDR_MULTICAST(&encap_source)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Encap-source cannot be multicast");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_get_entry(args->dnode, NULL, true);
+		yang_dnode_get_ipv6(&encap_source, args->dnode, NULL);
+
+		if (!IPV6_ADDR_SAME(&encap_source, &nh->snh_seg.encap_source)) {
+			nh->snh_seg.encap_source = encap_source;
+			nh->state = STATIC_START;
+		}
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int static_nexthop_srv6_encap_source_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *nh;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_get_entry(args->dnode, NULL, true);
+
+		if (!IN6_IS_ADDR_UNSPECIFIED(&nh->snh_seg.encap_source)) {
+			nh->snh_seg.encap_source = in6addr_any;
+			nh->state = STATIC_START;
+		}
+		break;
+	}
 
 	return NB_OK;
 }
@@ -1102,6 +1180,22 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 		break;
 	}
 	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/srv6-segs-stack/encap-source
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_encap_source_modify(
+	struct nb_cb_modify_args *args)
+{
+	return static_nexthop_srv6_encap_source_modify(args);
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_srv6_segs_stack_encap_source_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return static_nexthop_srv6_encap_source_destroy(args);
 }
 
 /*

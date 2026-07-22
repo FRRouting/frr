@@ -1492,6 +1492,19 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 			continue;
 
 		if (!CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED)) {
+			/*
+			 * Skip peers that do not have this AFI/SAFI
+			 * configured/activated; they cannot have negotiated
+			 * the AF nor send an EOR for it, so waiting for one
+			 * would block GR fast-cancel indefinitely.
+			 */
+			if (!peer->afc[afi][safi]) {
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug(".... Ignoring EOR from %s. %s is not configured",
+						   peer->host, get_afi_safi_str(afi, safi, false));
+				continue;
+			}
+
 			if (!bgp->gr_multihop_peer_exists) {
 				/*
 				 * This instance doesn't have a mix of directly
@@ -1506,13 +1519,6 @@ static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi,
 					 peer->host, 1);
 
 				return false;
-			}
-
-			if (!peer->afc[afi][safi]) {
-				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-					zlog_debug(".... Ignoring EOR from %s. %s is not configured",
-						   peer->host, get_afi_safi_str(afi, safi, false));
-				continue;
 			}
 
 			/*
@@ -2231,7 +2237,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		update_group_remove_peer_afs(peer);
 
 		/* Withdraw Link NLRI for BGP session (local -> peer) */
-		if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+		if (bgp->ls_info && bgp->ls_info->enable_distribution)
 			if (bgp_ls_withdraw_bgp_link(bgp, peer) != 0)
 				zlog_warn("BGP-LS: Failed to withdraw link NLRI for peer %s",
 					  peer->host);
@@ -2266,8 +2272,10 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		if (connection->obuf)
 			stream_fifo_clean(connection->obuf);
 
-		if (connection->ibuf_work)
-			ringbuf_wipe(connection->ibuf_work);
+		if (connection->ibuf_work) {
+			ringbuf_del(connection->ibuf_work);
+			connection->ibuf_work = NULL;
+		}
 
 		if (connection->curr) {
 			stream_free(connection->curr);
@@ -2284,6 +2292,9 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 	/* Reset capabilities. */
 	peer->cap = 0;
+
+	/* Capabilities are gone: revert the message-size limit to standard. */
+	bgp_peer_set_max_packet_size(peer);
 
 	/* Resetting neighbor role to the default value */
 	peer->remote_role = ROLE_UNDEFINED;
@@ -2650,6 +2661,9 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	/* Clear peer capability flag. */
 	peer->cap = 0;
 
+	/* Capabilities are gone: revert the message-size limit to standard. */
+	bgp_peer_set_max_packet_size(peer);
+
 	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT) &&
 	    !bgp_rpki_cache_connected(peer->bgp)) {
 		if (bgp_debug_neighbor_events(peer))
@@ -2856,9 +2870,16 @@ static void bgp_peer_process_gr_cap_clear_stale(struct peer *peer)
 			 * safi). However, if the peer didn't adv
 			 * the F-bit, any previous (stale) routes
 			 * should be flushed.
+			 *
+			 * Exception: SAFI_UNREACH has no forwarding state,
+			 * so F-bit has no defined semantics. Per RFC draft,
+			 * stale entries must be retained until EOR or
+			 * Restart Time expiry, regardless of F-bit.
 			 */
 			if (peer->nsf[afi][safi] &&
-			    !CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV))
+			    !CHECK_FLAG(peer->af_cap[afi][safi],
+					PEER_CAP_RESTART_AF_PRESERVE_RCV) &&
+			    safi != SAFI_UNREACH)
 				bgp_clear_stale_route(peer, afi, safi);
 
 			peer->nsf[afi][safi] = 1;
@@ -3007,7 +3028,7 @@ bgp_establish(struct peer_connection *connection)
 	}
 
 	/* Generate Link NLRI for BGP session (local -> peer) */
-	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		if (bgp_ls_originate_bgp_link(bgp, peer) != 0)
 			zlog_warn("BGP-LS: Failed to originate link NLRI for peer %s", peer->host);
 

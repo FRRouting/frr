@@ -130,7 +130,7 @@ int ripngd_instance_allow_ecmp_modify(struct nb_cb_modify_args *args)
 
 	ripng = nb_running_get_entry(args->dnode, NULL, true);
 	ripng->ecmp =
-		MIN(yang_dnode_get_uint8(args->dnode, NULL), zebra_ecmp_count);
+		MIN(yang_dnode_get_uint16(args->dnode, NULL), zebra_ecmp_count);
 	if (!ripng->ecmp) {
 		ripng_ecmp_disable(ripng);
 		return NB_OK;

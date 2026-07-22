@@ -22,7 +22,7 @@ import logging
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, verify_bgp_convergence_from_running_config
 from lib.common_config import step
@@ -291,17 +291,8 @@ def setup_module(mod):
     # Starting Routers
     router_list = tgen.routers()
 
-    for rname, router in router_list.items():
-        logger.info("Loading router %s" % rname)
-        router.load_frr_config(
-            os.path.join(CWD, "{}/frr.conf".format(rname)),
-            [
-                (TopoRouter.RD_ZEBRA, None),
-                (TopoRouter.RD_BGP, None),
-                (TopoRouter.RD_SHARP, None),
-                (TopoRouter.RD_STATIC, None),
-            ],
-        )
+    for router in router_list.values():
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()

@@ -216,6 +216,8 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 					"Mtrace response block of wrong length");
 
 		responses = responses / sizeof(struct igmp_mtrace_rsp);
+		if (responses > MTRACE_MAX_HOPS)
+			responses = MTRACE_MAX_HOPS;
 
 		for (i = 0; i < responses; i++)
 			mtrace_rsp_debug(mtracep->qry_id, i, &mtracep->rsp[i]);
@@ -332,12 +334,28 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	int fd;
 	int sent;
 	uint16_t checksum;
+	uint16_t pkt_len;
+	uint16_t ip_hlen;
+
+	pkt_len = ntohs(ip_hdr->ip_len);
+	ip_hlen = ip_hdr->ip_hl << 2;
+	/*
+	 * Sanitize packet-derived IP length before sendto(). Payload must fit
+	 * the mtrace maximum; header length must be consistent.
+	 */
+	if (ip_hlen < sizeof(struct ip) || pkt_len < ip_hlen ||
+	    (size_t)(pkt_len - ip_hlen) > MTRACE_MAX_MSG_LEN) {
+		if (PIM_DEBUG_MTRACE)
+			zlog_debug("Dropping mtrace packet with invalid length %u (ihl=%u max_payload=%zu)",
+				   pkt_len, ip_hlen, MTRACE_MAX_MSG_LEN);
+		return -1;
+	}
 
 	checksum = ip_hdr->ip_sum;
 
 	ip_hdr->ip_sum = 0;
 
-	if (checksum != in_cksum(ip_hdr, ip_hdr->ip_hl * 4))
+	if (checksum != in_cksum(ip_hdr, ip_hlen))
 		return -1;
 
 	if (ip_hdr->ip_ttl-- <= 1)
@@ -358,7 +376,7 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 		if_out = interface;
 	}
 
-	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hdr->ip_hl * 4);
+	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hlen);
 
 	fd = pim_socket_raw(IPPROTO_RAW);
 
@@ -379,8 +397,7 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	to.sin_addr = ip_hdr->ip_dst;
 	tolen = sizeof(to);
 
-	sent = sendto(fd, ip_hdr, ntohs(ip_hdr->ip_len), 0,
-		      (struct sockaddr *)&to, tolen);
+	sent = sendto(fd, ip_hdr, pkt_len, 0, (struct sockaddr *)&to, tolen);
 
 	close(fd);
 
@@ -395,8 +412,8 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	if (PIM_DEBUG_MTRACE) {
 		struct in_addr dstaddr = ip_hdr->ip_dst;
 
-		zlog_debug("Fwd mtrace packet len=%u to %pI4 ttl=%u", ntohs(ip_hdr->ip_len),
-			   &dstaddr, ip_hdr->ip_ttl);
+		zlog_debug("Fwd mtrace packet len=%u to %pI4 ttl=%u", pkt_len, &dstaddr,
+			   ip_hdr->ip_ttl);
 	}
 
 	return 0;
@@ -549,7 +566,7 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr, struct in_
 			     char *igmp_msg, int igmp_msg_len)
 {
 	static uint32_t qry_id, qry_src;
-	char mtrace_buf[MTRACE_HDR_SIZE + MTRACE_MAX_HOPS * MTRACE_RSP_SIZE];
+	char mtrace_buf[MTRACE_MAX_MSG_LEN];
 	struct interface *ifp;
 	struct interface *out_ifp = NULL;
 	struct pim_interface *pim_ifp;
@@ -580,10 +597,15 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr, struct in_
 					 pim->vrf->vrf_id))
 			return mtrace_forward_packet(pim, ip_hdr);
 
-	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
+	/*
+	 * Sanitize packet-derived length before using it as an offset /
+	 * memcpy length. Cap matches mtrace_buf.
+	 */
+	if (igmp_msg_len < (int)MTRACE_HDR_SIZE || igmp_msg_len > (int)MTRACE_MAX_MSG_LEN) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_debug("Recv mtrace packet from %pI4s on %s: too short, len=%d, min=%zu",
-				   &from, ifp->name, igmp_msg_len, sizeof(struct igmp_mtrace));
+			zlog_debug("Recv mtrace packet from %pI4s on %s: invalid length %d (min=%zu max=%zu)",
+				   &from, ifp->name, igmp_msg_len, MTRACE_HDR_SIZE,
+				   MTRACE_MAX_MSG_LEN);
 		return -1;
 	}
 
@@ -790,10 +812,11 @@ int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr, struct in
 	pim_ifp = ifp->info;
 	pim = pim_ifp->pim;
 
-	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
+	if (igmp_msg_len < (int)MTRACE_HDR_SIZE || igmp_msg_len > (int)MTRACE_MAX_MSG_LEN) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_debug("Recv mtrace packet from %pI4s on %s: too short, len=%d, min=%zu",
-				   &from, ifp->name, igmp_msg_len, sizeof(struct igmp_mtrace));
+			zlog_debug("Recv mtrace response from %pI4s on %s: invalid length %d (min=%zu max=%zu)",
+				   &from, ifp->name, igmp_msg_len, MTRACE_HDR_SIZE,
+				   MTRACE_MAX_MSG_LEN);
 		return -1;
 	}
 

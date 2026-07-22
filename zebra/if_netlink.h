@@ -16,13 +16,12 @@ extern "C" {
  * Parse an incoming interface address change message, generate a dplane
  * context object for processing.
  */
-int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
-				  int startup);
+int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 
-extern int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
+extern int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 extern int interface_lookup_netlink(struct zebra_ns *zns);
 
-extern int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
+extern int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 extern int netlink_vlan_read(struct zebra_ns *zns);
 
 extern ssize_t netlink_intf_msg_encode(uint16_t cmd,

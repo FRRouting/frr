@@ -1480,6 +1480,68 @@ struct route_map_rule_cmd route_set_evpn_gateway_ip_ipv6_cmd = {
 	"evpn gateway-ip ipv6", route_set_evpn_gateway_ip,
 	route_set_evpn_gateway_ip_compile, route_set_evpn_gateway_ip_free};
 
+static enum route_map_cmd_result_t
+route_set_evpn_router_mac(void *rule, const struct prefix *prefix, void *object)
+{
+	struct ethaddr *rmac = rule;
+	const struct prefix_evpn *evp;
+	struct bgp_path_info *path;
+	struct ecommunity *old_ecom;
+	struct ecommunity *new_ecom;
+	struct ecommunity_val rmac_eval;
+
+	if (prefix->family != AF_EVPN)
+		return RMAP_OKAY;
+
+	evp = (const struct prefix_evpn *)prefix;
+	if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE)
+		return RMAP_OKAY;
+
+	path = object;
+
+	encode_rmac_extcomm(&rmac_eval, rmac);
+
+	old_ecom = bgp_attr_get_ecommunity(path->attr);
+	if (old_ecom) {
+		new_ecom = ecommunity_dup(old_ecom);
+		ecommunity_strip(new_ecom, ECOMMUNITY_ENCODE_EVPN,
+				 ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC);
+		ecommunity_add_val(new_ecom, &rmac_eval, true, true);
+		if (!old_ecom->refcnt)
+			ecommunity_free(&old_ecom);
+	} else {
+		new_ecom = ecommunity_new();
+		ecommunity_add_val(new_ecom, &rmac_eval, true, true);
+	}
+
+	bgp_attr_set_ecommunity(path->attr, new_ecom);
+	memcpy(&path->attr->rmac, rmac, ETH_ALEN);
+
+	return RMAP_OKAY;
+}
+
+static void *route_set_evpn_router_mac_compile(const char *arg)
+{
+	struct ethaddr *rmac;
+
+	rmac = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct ethaddr));
+	if (!prefix_str2mac(arg, rmac)) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, rmac);
+		return NULL;
+	}
+	return rmac;
+}
+
+static void route_set_evpn_router_mac_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_set_evpn_router_mac_cmd = { "extcommunity evpn rmac",
+							    route_set_evpn_router_mac,
+							    route_set_evpn_router_mac_compile,
+							    route_set_evpn_router_mac_free };
+
 /* Route map commands for VRF route leak with source vrf matching */
 static enum route_map_cmd_result_t
 route_match_vrl_source_vrf(void *rule, const struct prefix *prefix,
@@ -1761,6 +1823,8 @@ struct rmap_community {
 	uint32_t name_hash;
 	bool exact;
 	bool any;
+	bool add;
+	bool delete;
 };
 
 /* Match function for community match. */
@@ -3121,10 +3185,10 @@ static const struct route_map_rule_cmd route_set_lcommunity_delete_cmd = {
 
 /* For community set mechanism. */
 static enum route_map_cmd_result_t
-route_set_community_delete(void *rule, const struct prefix *prefix,
-			   void *object)
+route_set_community_change(void *rule, const struct prefix *prefix, void *object)
 {
 	struct community_list *list;
+	struct community *merge;
 	struct community *new;
 	struct community *old;
 	struct bgp_path_info *path;
@@ -3138,53 +3202,71 @@ route_set_community_delete(void *rule, const struct prefix *prefix,
 				     COMMUNITY_LIST_MASTER);
 	old = bgp_attr_get_community(path->attr);
 
-	if (list && old) {
-		new = community_list_match_delete(community_dup(old), list);
+	if (!old && rcom->delete)
+		return RMAP_OKAY;
 
-		/* HACK: if the old community is not intern'd,
-		 * we should free it here, or all reference to it may be
-		 * lost.
-		 * Really need to cleanup attribute caching sometime.
-		 */
-		if (old->refcnt == 0)
-			community_free(&old);
+	if (!list)
+		return RMAP_OKAY;
 
-		if (new->size == 0) {
-			bgp_attr_set_community(path->attr, NULL);
-			community_free(&new);
-		} else {
-			bgp_attr_set_community(path->attr, new);
-		}
+	if (rcom->delete)
+		merge = community_list_match_delete(community_dup(old), list);
+	else if (rcom->add && old)
+		merge = community_list_add(community_dup(old), list);
+	else /* replace case or add without old */
+		merge = community_list_add(community_new(), list);
+
+	new = community_uniq_sort(merge);
+	community_free(&merge);
+
+	/* HACK: if the old community is not intern'd,
+	 * we should free it here, or all reference to it may be
+	 * lost.
+	 * Really need to cleanup attribute caching sometime.
+	 */
+	if (old && old->refcnt == 0)
+		community_free(&old);
+
+	if (new->size == 0) {
+		bgp_attr_set_community(path->attr, NULL);
+		community_free(&new);
+	} else {
+		bgp_attr_set_community(path->attr, new);
 	}
 
 	return RMAP_OKAY;
 }
 
 /* Compile function for set community. */
-static void *route_set_community_delete_compile(const char *arg)
+static void *route_set_community_change_compile(const char *arg)
 {
-	struct rmap_community *rcom;
+	struct rmap_community *rcom = NULL;
 	char **splits = NULL;
 	int num = 0;
 
 	frrstr_split(arg, " ", &splits, &num);
 
-	if (splits == NULL)
-		return NULL;
+	if (splits && splits[1]) {
+		rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
+		if (strncmp(splits[1], "delete", strlen("delete") + 1) == 0)
+			rcom->delete = true;
+		else if (strncmp(splits[1], "add", strlen("add") + 1) == 0)
+			rcom->add = true;
 
-	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
-	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, splits[0]);
-	rcom->name_hash = bgp_clist_hash_key(rcom->name);
+		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, splits[0]);
+		rcom->name_hash = bgp_clist_hash_key(rcom->name);
+	}
 
-	for (int i = 0; i < num; i++)
-		XFREE(MTYPE_TMP, splits[i]);
-	XFREE(MTYPE_TMP, splits);
-
+	if (splits) {
+		for (int i = 0; i < num; i++)
+			if (splits[i])
+				XFREE(MTYPE_TMP, splits[i]);
+		XFREE(MTYPE_TMP, splits);
+	}
 	return rcom;
 }
 
 /* Free function for set community. */
-static void route_set_community_delete_free(void *rule)
+static void route_set_community_change_free(void *rule)
 {
 	struct rmap_community *rcom = rule;
 
@@ -3194,10 +3276,24 @@ static void route_set_community_delete_free(void *rule)
 
 /* Set community rule structure. */
 static const struct route_map_rule_cmd route_set_community_delete_cmd = {
-	"comm-list",
-	route_set_community_delete,
-	route_set_community_delete_compile,
-	route_set_community_delete_free,
+	"comm-list-delete",
+	route_set_community_change,
+	route_set_community_change_compile,
+	route_set_community_change_free,
+};
+
+static const struct route_map_rule_cmd route_set_community_add_cmd = {
+	"comm-list-add",
+	route_set_community_change,
+	route_set_community_change_compile,
+	route_set_community_change_free,
+};
+
+static const struct route_map_rule_cmd route_set_community_replace_cmd = {
+	"comm-list-replace",
+	route_set_community_change,
+	route_set_community_change_compile,
+	route_set_community_change_free,
 };
 
 /* `set extcomm-list (<1-99>|<100-500>|WORD) delete' */
@@ -3500,6 +3596,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		} else {
 			ecom_lb.size = 1;
 			ecom_lb.unit_size = IPV6_ECOMMUNITY_SIZE;
+			ecom_lb.disable_ieee_floating = false;
 			ecom_lb.val = (uint8_t *)lb_eval.val;
 			new_ecom = ecommunity_dup(&ecom_lb);
 		}
@@ -3515,12 +3612,16 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		old_ecom = bgp_attr_get_ecommunity(path->attr);
 		if (old_ecom) {
 			new_ecom = ecommunity_dup(old_ecom);
+			new_ecom->disable_ieee_floating =
+				CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
 			ecommunity_add_val(new_ecom, &lb_eval, true, true);
 			if (!old_ecom->refcnt)
 				ecommunity_free(&old_ecom);
 		} else {
 			ecom_lb.size = 1;
 			ecom_lb.unit_size = ECOMMUNITY_SIZE;
+			ecom_lb.disable_ieee_floating =
+				CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
 			ecom_lb.val = (uint8_t *)lb_eval.val;
 			new_ecom = ecommunity_dup(&ecom_lb);
 		}
@@ -3767,18 +3868,25 @@ route_set_aggregator_as(void *rule, const struct prefix *prefix, void *object)
 static void *route_set_aggregator_as_compile(const char *arg)
 {
 	struct aggregator *aggregator;
-	char as[10];
+	char as[ASN_STRING_MAX_SIZE];
 	char address[20];
 	int ret;
 
 	aggregator =
 		XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct aggregator));
-	if (sscanf(arg, "%s %s", as, address) != 2) {
+	/* Bound the conversions to the buffer sizes (size - 1) to avoid
+	 * overflowing the stack buffers above.
+	 */
+	if (sscanf(arg, "%11s %19s", as, address) != 2) {
 		XFREE(MTYPE_ROUTE_MAP_COMPILED, aggregator);
 		return NULL;
 	}
 
-	aggregator->as = strtoul(as, NULL, 10);
+	if (!asn_str2asn(as, &aggregator->as)) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, aggregator);
+		return NULL;
+	}
+
 	ret = inet_aton(address, &aggregator->address);
 	if (ret == 0) {
 		XFREE(MTYPE_ROUTE_MAP_COMPILED, aggregator);
@@ -5511,6 +5619,44 @@ DEFUN_YANG (no_set_evpn_gw_ip_ipv6,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (set_ecommunity_evpn_rmac,
+	    set_ecommunity_evpn_rmac_cmd,
+	    "set extcommunity evpn rmac X:X:X:X:X:X",
+	    SET_STR
+	    "BGP extended community attribute\n"
+	    "EVPN extended community\n"
+	    "Router MAC extended community\n"
+	    "MAC address in XX:XX:XX:XX:XX:XX format\n")
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:set-extcommunity-evpn-rmac']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-evpn-rmac", xpath);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (no_set_ecommunity_evpn_rmac,
+	    no_set_ecommunity_evpn_rmac_cmd,
+	    "no set extcommunity evpn rmac [X:X:X:X:X:X]",
+	    NO_STR
+	    SET_STR
+	    "BGP extended community attribute\n"
+	    "EVPN extended community\n"
+	    "Router MAC extended community\n"
+	    "MAC address in XX:XX:XX:XX:XX:XX format\n")
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:set-extcommunity-evpn-rmac']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(match_vrl_source_vrf,
       match_vrl_source_vrf_cmd,
       "match source-vrf NAME$vrf_name",
@@ -6167,6 +6313,22 @@ DEFUN_YANG (no_match_ecommunity,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static int _set_ecommunity_delete_cmd(struct vty *vty, const char *name)
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:extended-comm-list-delete']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:comm-list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+#if CONFDATE > 20270527
+CPP_NOTICE("Remove `[no] set extended-comm-list <COMM_LIST> delete` commands")
+#endif
 
 DEFPY_YANG (set_ecommunity_delete,
 	    set_ecommunity_delete_cmd,
@@ -6178,21 +6340,10 @@ DEFPY_YANG (set_ecommunity_delete,
 	    EXTCOMM_LIST_NAME_STR
             "Delete matching extended communities\n")
 {
-	const char *xpath =
-		"./set-action[action='frr-bgp-route-map:extended-comm-list-delete']";
-	char xpath_value[XPATH_MAXLEN];
 	int idx_comm_list = 2;
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/rmap-set-action/frr-bgp-route-map:comm-list-name",
-		 xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-			argv[idx_comm_list]->arg);
-	return nb_cli_apply_changes(vty, NULL);
+	return _set_ecommunity_delete_cmd(vty, argv[idx_comm_list]->arg);
 }
-
 
 DEFPY_YANG (no_set_ecommunity_delete,
 	    no_set_ecommunity_delete_cmd,
@@ -6212,6 +6363,37 @@ DEFPY_YANG (no_set_ecommunity_delete,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (set_ecommunity_delete_method2,
+	    set_ecommunity_delete_method2_cmd,
+            "set extended-comm-list delete " EXTCOMM_LIST_CMD_STR,
+	    SET_STR
+	    "set BGP extended community list\n"
+            "Delete matching extended communities\n"
+	    EXTCOMM_STD_LIST_NUM_STR
+	    EXTCOMM_EXP_LIST_NUM_STR
+	    EXTCOMM_LIST_NAME_STR)
+{
+	int idx_comm_list = 3;
+
+	return _set_ecommunity_delete_cmd(vty, argv[idx_comm_list]->arg);
+}
+
+DEFPY_YANG (no_set_ecommunity_delete_method2,
+	    no_set_ecommunity_delete_method2_cmd,
+            "no set extended-comm-list delete [" EXTCOMM_LIST_CMD_STR "]",
+	    NO_STR
+	    SET_STR
+	    "set BGP extended community list\n"
+            "Delete matching extended communities\n"
+	    EXTCOMM_STD_LIST_NUM_STR
+	    EXTCOMM_EXP_LIST_NUM_STR
+	    EXTCOMM_LIST_NAME_STR)
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:extended-comm-list-delete']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 DEFUN_YANG (match_aspath,
 	    match_aspath_cmd,
@@ -7038,7 +7220,36 @@ ALIAS_YANG (no_set_community,
             SET_STR
             "BGP community attribute\n")
 
-DEFPY_YANG (set_community_delete,
+static int _set_community_change_cmd(struct vty *vty, const char *name, bool delete, bool add,
+				     bool replace)
+{
+	char xpath_value[XPATH_MAXLEN];
+	char xpath_set[2 * XPATH_MAXLEN];
+	const char *action_type = NULL;
+
+	if (delete)
+		action_type = "-delete";
+	else if (add)
+		action_type = "-add";
+	else if (replace)
+		action_type = "-replace";
+
+	snprintf(xpath_value, XPATH_MAXLEN, "./set-action[action='frr-bgp-route-map:comm-list%s']",
+		 action_type);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_set, 2 * XPATH_MAXLEN,
+		 "%s/rmap-set-action/frr-bgp-route-map:comm-list-name%s", xpath_value, action_type);
+
+	nb_cli_enqueue_change(vty, xpath_set, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+#if CONFDATE > 20270527
+CPP_NOTICE("Remove `[no] set comm-list <COMM_LIST> delete` commands")
+#endif
+
+DEFPY_YANG_HIDDEN (set_community_delete,
        set_community_delete_cmd,
        "set comm-list <(1-99)|(100-500)|COMMUNITY_LIST_NAME> delete",
        SET_STR
@@ -7048,24 +7259,12 @@ DEFPY_YANG (set_community_delete,
        "Community-list name\n"
        "Delete matching communities\n")
 {
-	const char *xpath =
-		"./set-action[action='frr-bgp-route-map:comm-list-delete']";
-	char xpath_value[XPATH_MAXLEN];
 	int idx_comm_list = 2;
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/rmap-set-action/frr-bgp-route-map:comm-list-name",
-		 xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-			argv[idx_comm_list]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
-
+	return _set_community_change_cmd(vty, argv[idx_comm_list]->arg, true, false, false);
 }
 
-DEFUN_YANG (no_set_community_delete,
+DEFUN_YANG_HIDDEN (no_set_community_delete,
 	    no_set_community_delete_cmd,
 	    "no set comm-list [<(1-99)|(100-500)|COMMUNITY_LIST_NAME> delete]",
 	    NO_STR
@@ -7080,6 +7279,52 @@ DEFUN_YANG (no_set_community_delete,
 		"./set-action[action='frr-bgp-route-map:comm-list-delete']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (set_community_change,
+       set_community_change_cmd,
+       "set comm-list <delete$del|add$add|replace$rep> <(1-99)|(100-500)|COMMUNITY_LIST_NAME>$name",
+       SET_STR
+       "Set BGP community list\n"
+       "Delete matching communities\n"
+       "Add communities\n"
+       "Replace communities\n"
+       "Community-list number (standard)\n"
+       "Community-list number (expanded)\n"
+       "Community-list name\n")
+{
+	return _set_community_change_cmd(vty, name, del, add, rep);
+}
+
+
+DEFPY_YANG (no_set_community_change,
+	    no_set_community_change_cmd,
+	    "no set comm-list <delete$del|add$add|replace$rep> [<(1-99)|(100-500)|COMMUNITY_LIST_NAME>$name]",
+	    NO_STR
+	    SET_STR
+	    "Set BGP community list\n"
+	    "Delete matching communities\n"
+	    "Add communities\n"
+	    "Replace communities\n"
+	    "Community-list number (standard)\n"
+	    "Community-list number (expanded)\n"
+	    "Community-list name\n")
+{
+	char xpath_value[XPATH_MAXLEN];
+	const char *action_type = NULL;
+
+	if (del)
+		action_type = "comm-list-delete";
+	else if (add)
+		action_type = "comm-list-add";
+	else if (rep)
+		action_type = "comm-list-replace";
+
+	snprintf(xpath_value, XPATH_MAXLEN, "./set-action[action='frr-bgp-route-map:%s']",
+		 action_type);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -7165,6 +7410,23 @@ ALIAS_YANG (no_set_lcommunity1,
             SET_STR
             "BGP large community attribute\n")
 
+static int _set_lcommunity_delete_cmd(struct vty *vty, const char *name)
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:large-comm-list-delete']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:comm-list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+#if CONFDATE > 20270527
+CPP_NOTICE("Remove `[no] set large-comm-list <COMM_LIST> delete` commands")
+#endif
+
 DEFPY_YANG (set_lcommunity_delete,
        set_lcommunity_delete_cmd,
        "set large-comm-list <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> delete",
@@ -7175,20 +7437,9 @@ DEFPY_YANG (set_lcommunity_delete,
        "Large Community-list name\n"
        "Delete matching large communities\n")
 {
-	const char *xpath =
-		"./set-action[action='frr-bgp-route-map:large-comm-list-delete']";
-	char xpath_value[XPATH_MAXLEN];
 	int idx_lcomm_list = 2;
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	snprintf(xpath_value, sizeof(xpath_value),
-			"%s/rmap-set-action/frr-bgp-route-map:comm-list-name",
-			xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-			argv[idx_lcomm_list]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return _set_lcommunity_delete_cmd(vty, argv[idx_lcomm_list]->arg);
 }
 
 DEFUN_YANG (no_set_lcommunity_delete,
@@ -7215,6 +7466,38 @@ ALIAS_YANG (no_set_lcommunity_delete,
             NO_STR
             SET_STR
             "set BGP large community list (for deletion)\n")
+
+DEFPY_YANG (set_lcommunity_delete_method2,
+       set_lcommunity_delete_method2_cmd,
+       "set large-comm-list delete <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME>",
+       SET_STR
+       "set BGP large community list (for deletion)\n"
+       "Delete matching large communities\n"
+       "Large Community-list number (standard)\n"
+       "Large Communitly-list number (expanded)\n"
+       "Large Community-list name\n")
+{
+	int idx_lcomm_list = 3;
+
+	return _set_lcommunity_delete_cmd(vty, argv[idx_lcomm_list]->arg);
+}
+
+DEFUN_YANG (no_set_lcommunity_delete_method2,
+	    no_set_lcommunity_delete_method2_cmd,
+	    "no set large-comm-list delete [<(1-99)|(100-500)|LCOMMUNITY_LIST_NAME>]",
+	    NO_STR
+	    SET_STR
+	    "set BGP large community list (for deletion)\n"
+	    "Delete matching large communities\n"
+	    "Large Community-list number (standard)\n"
+	    "Large Communitly-list number (expanded)\n"
+	    "Large Community-list name\n")
+{
+	const char *xpath = "./set-action[action='frr-bgp-route-map:large-comm-list-delete']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 DEFUN_YANG (set_ecommunity_rt,
 	    set_ecommunity_rt_cmd,
@@ -8303,6 +8586,7 @@ void bgp_route_map_init(void)
 
 	route_map_install_set(&route_set_evpn_gateway_ip_ipv4_cmd);
 	route_map_install_set(&route_set_evpn_gateway_ip_ipv6_cmd);
+	route_map_install_set(&route_set_evpn_router_mac_cmd);
 	route_map_install_set(&route_set_table_id_cmd);
 	route_map_install_set(&route_set_srte_color_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
@@ -8320,6 +8604,8 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_aggregator_as_cmd);
 	route_map_install_set(&route_set_community_cmd);
 	route_map_install_set(&route_set_community_delete_cmd);
+	route_map_install_set(&route_set_community_add_cmd);
+	route_map_install_set(&route_set_community_replace_cmd);
 	route_map_install_set(&route_set_ecommunity_delete_cmd);
 	route_map_install_set(&route_set_lcommunity_cmd);
 	route_map_install_set(&route_set_lcommunity_delete_cmd);
@@ -8359,6 +8645,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_evpn_gw_ip_ipv4_cmd);
 	install_element(RMAP_NODE, &set_evpn_gw_ip_ipv6_cmd);
 	install_element(RMAP_NODE, &no_set_evpn_gw_ip_ipv6_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_evpn_rmac_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_evpn_rmac_cmd);
 	install_element(RMAP_NODE, &match_vrl_source_vrf_cmd);
 	install_element(RMAP_NODE, &no_match_vrl_source_vrf_cmd);
 
@@ -8420,15 +8708,25 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_community_none_cmd);
 	install_element(RMAP_NODE, &no_set_community_cmd);
 	install_element(RMAP_NODE, &no_set_community_short_cmd);
+#if CONFDATE > 20270527
+	CPP_NOTICE("Remove `[no] set comm-list <COMM_LIST> delete` commands")
+#endif
 	install_element(RMAP_NODE, &set_community_delete_cmd);
 	install_element(RMAP_NODE, &no_set_community_delete_cmd);
+	install_element(RMAP_NODE, &set_community_change_cmd);
+	install_element(RMAP_NODE, &no_set_community_change_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_none_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity1_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity1_short_cmd);
+#if CONFDATE > 20270527
+	CPP_NOTICE("Remove `[no] set large-comm-list <COMM_LIST> delete` commands")
+#endif
 	install_element(RMAP_NODE, &set_lcommunity_delete_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_delete_cmd);
+	install_element(RMAP_NODE, &set_lcommunity_delete_method2_cmd);
+	install_element(RMAP_NODE, &no_set_lcommunity_delete_method2_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_delete_short_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_rt_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_rt_cmd);
@@ -8447,8 +8745,13 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ecommunity_color_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_color_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_color_all_cmd);
+#if CONFDATE > 20270527
+	CPP_NOTICE("Remove `[no] set ext-comm-list <COMM_LIST> delete` commands")
+#endif
 	install_element(RMAP_NODE, &set_ecommunity_delete_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_delete_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_delete_method2_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_delete_method2_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(RMAP_NODE, &set_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &no_set_vpn_nexthop_cmd);

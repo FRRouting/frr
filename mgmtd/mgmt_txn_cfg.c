@@ -122,7 +122,7 @@ void txn_cfg_cleanup(struct txn_req *txn_req)
 	uint64_t txn_id = txn_req->txn->txn_id;
 	uint64_t clients;
 
-	_dbg("Deleting COMMITCFG req-id: %Lu txn-id: %Lu", txn_req->req_id, txn_id);
+	_dbg("Deleting COMMITCFG req-id: %" PRIu64 " txn-id: %" PRIu64, txn_req->req_id, txn_id);
 
 	XFREE(MTYPE_MGMTD_TXN_REQ, ccreq->edit);
 	darr_free(ccreq->info_msgs);
@@ -165,7 +165,7 @@ void txn_cfg_cleanup(struct txn_req *txn_req)
 		ccreq->clients_wait = 0;
 		ccreq->clients = 0;
 		FOREACH_BE_ADAPTER_BITS (id, adapter, clients) {
-			_dbg("Disconnect client: %s for txn-id: %Lu resync required",
+			_dbg("Disconnect client: %s for txn-id: %" PRIu64 " resync required",
 			     adapter->name, txn_id);
 			msg_conn_disconnect(adapter->conn, false);
 		}
@@ -178,7 +178,8 @@ void txn_cfg_cleanup(struct txn_req *txn_req)
 		FOREACH_BE_ADAPTER_BITS (id, adapter, clients) {
 			if (!txn_cfg_send_txn_delete(adapter, txn_id))
 				continue;
-			_dbg("Disconnect client: %s for txn-id: %Lu failed to send CFG_ABORT",
+			_dbg("Disconnect client: %s for txn-id: %" PRIu64
+			     " failed to send CFG_ABORT",
 			     adapter->name, txn_id);
 			msg_conn_disconnect(adapter->conn, false);
 		}
@@ -341,7 +342,7 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 			if (DEBUG_MODE_CHECK(&mgmt_debug_txn, DEBUG_MODE_ALL)) {
 				darr_ensure_i(num_cfg_data, id);
 				num_cfg_data[id]++;
-				_dbg(" -- %s item: %Lu", adapter->name, num_cfg_data[id]);
+				_dbg(" -- %s item: %" PRIu64, adapter->name, num_cfg_data[id]);
 			}
 
 			batch_items++;
@@ -398,8 +399,8 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 		darr_ensure_i(cfg_actions, id); /* required for clang SA NULL ptr check */
 		darr_push(cfg_actions[id], 0);
 		mgmt_msg_native_add_str(cfg_msgs[id], cfg_actions[id]);
-		_dbg("Finished CFG_REQ for '%s' txn-id: %Lu with actions: %s", adapter->name,
-		     txn_req->txn->txn_id, cfg_actions[id]);
+		_dbg("Finished CFG_REQ for '%s' txn-id: %" PRIu64 " with actions: %s",
+		     adapter->name, txn_req->txn->txn_id, cfg_actions[id]);
 
 		if (mgmt_be_adapter_send(adapter, cfg_msgs[id])) {
 			/* remove this client and reset the connection */
@@ -413,7 +414,7 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 
 	if (ccreq->clients) {
 		/* set a timeout for hearing back from the backend clients */
-		_dbg("Set timeout (%us) for txn-id: %Lu backend client CFG_REPLYs",
+		_dbg("Set timeout (%us) for txn-id: %" PRIu64 " backend client CFG_REPLYs",
 		     MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, txn_req->txn->txn_id);
 		event_add_timer(mm->master, txn_cfg_timeout, txn_req,
 				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, &txn_req->timeout);
@@ -482,7 +483,7 @@ static void txn_cfg_send_cfg_apply(struct txn_req_commit *ccreq)
 	mgmt_msg_native_free_msg(msg);
 
 	if (!ccreq->clients_wait) {
-		_dbg("No backends to wait for on CFG_APPLY for txn-id: %Lu", txn_id);
+		_dbg("No backends to wait for on CFG_APPLY for txn-id: %" PRIu64, txn_id);
 		txn_cfg_adapter_acked(ccreq, NULL);
 	}
 }
@@ -531,12 +532,26 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 	accept_changes = ccreq->phase >= MGMTD_COMMIT_PHASE_APPLY_CFG && apply_op;
 	discard_changes = (result == MGMTD_SUCCESS && ccreq->abort);
 	if (accept_changes) {
-		bool create_cmt_info_rec = (result != MGMTD_NO_CFG_CHANGES && !ccreq->rollback);
+		/* unlock_info == true: per-command implicit commit; skip history. */
+		bool create_cmt_info_rec = (result != MGMTD_NO_CFG_CHANGES && !ccreq->rollback &&
+					    !ccreq->unlock_info);
 
 		mgmt_ds_copy_dss(ccreq->dst_ds_ctx, ccreq->src_ds_ctx, create_cmt_info_rec);
 	}
 	if (discard_changes)
 		mgmt_ds_copy_dss(ccreq->src_ds_ctx, ccreq->dst_ds_ctx, false);
+
+	/*
+	 * Release transaction datastore locks before sending replies to
+	 * front-end clients. Commit replies resume the VTY session immediately
+	 * (short-circuit) and a new CLI command can try to lock running before
+	 * txn_req_free() would otherwise clear txn_lock.
+	 */
+	if (ccreq->txn_lock) {
+		mgmt_ds_txn_unlock(ccreq->src_ds_ctx, txn->txn_id);
+		mgmt_ds_txn_unlock(ccreq->dst_ds_ctx, txn->txn_id);
+		ccreq->txn_lock = false;
+	}
 
 	/*
 	 * For internal txns do lock cleanup, for front-end session send replies.
@@ -574,7 +589,7 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 						      &ccreq->edit, result, error_if_any);
 	}
 	if (ret)
-		_log_err("Failed sending config reply for txn-id: %Lu session-id: %Lu",
+		_log_err("Failed sending config reply for txn-id: %" PRIu64 " session-id: %" PRIu64,
 			 txn->txn_id, txn->session_id);
 
 	ccreq->cmt_stats = NULL;
@@ -607,8 +622,8 @@ static void txn_cfg_next_phase(struct txn_req_commit *ccreq)
 		break;
 	}
 
-	_dbg("CONFIG-STATE-MACHINE txn-id: %Lu transition to state: %s", txn_req->txn->txn_id,
-	     mgmt_commit_phase_name[ccreq->phase]);
+	_dbg("CONFIG-STATE-MACHINE txn-id: %" PRIu64 " transition to state: %s",
+	     txn_req->txn->txn_id, mgmt_commit_phase_name[ccreq->phase]);
 
 	switch (ccreq->phase) {
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
@@ -630,7 +645,7 @@ static void txn_cfg_adapter_acked(struct txn_req_commit *ccreq,
 {
 	struct txn_req *txn_req = &ccreq->req;
 
-	_dbg("CONFIG-STATE-MACHINE txn-id: %Lu in state: %s", txn_req->txn->txn_id,
+	_dbg("CONFIG-STATE-MACHINE txn-id: %" PRIu64 " in state: %s", txn_req->txn->txn_id,
 	     mgmt_commit_phase_name[ccreq->phase]);
 
 	if (adapter) {
@@ -643,7 +658,8 @@ static void txn_cfg_adapter_acked(struct txn_req_commit *ccreq,
 	}
 
 	if (ccreq->clients_wait) {
-		_dbg("CONFIG-STATE-MACHINE txn-id: %Lu still waiting on clients: 0x%Lx",
+		_dbg("CONFIG-STATE-MACHINE txn-id: %" PRIu64
+		     " still waiting on clients: 0x%" PRIx64,
 		     txn_req->txn->txn_id, ccreq->clients_wait);
 		return;
 	}
@@ -666,12 +682,14 @@ static void txn_cfg_timeout(struct event *event)
 	 * phase we return an error and abort the commit.
 	 */
 	if (ccreq->phase < MGMTD_COMMIT_PHASE_APPLY_CFG) {
-		_log_err("Backend timeout validating txn-id: %Lu waiting: 0x%Lx aborting commit",
+		_log_err("Backend timeout validating txn-id: %" PRIu64 " waiting: 0x%" PRIx64
+			 " aborting commit",
 			 txn_req->txn->txn_id, ccreq->clients_wait);
 		txn_finish_commit(ccreq, MGMTD_INTERNAL_ERROR,
 				  "Some backend clients taking too long to validate the changes.");
 	} else {
-		_log_warn("Backend timeout applying txn-id: %Lu waiting: 0x%Lx, applying commit",
+		_log_warn("Backend timeout applying txn-id: %" PRIu64 " waiting: 0x%" PRIx64
+			  ", applying commit",
 			  txn_req->txn->txn_id, ccreq->clients_wait);
 		txn_finish_commit(ccreq, MGMTD_SUCCESS,
 				  "Some backend clients taking too long to apply the changes.");
@@ -710,24 +728,27 @@ txn_cfg_ensure_msg(uint64_t txn_id, struct mgmt_be_client_adapter *adapter, cons
 	struct txn_req_commit *ccreq;
 
 	if (!txn) {
-		_log_err("%s reply from '%s' for txn-id: %Lu no TXN, resetting connection", tag,
-			 adapter->name, txn_id);
+		_log_err("%s reply from '%s' for txn-id: %" PRIu64 " no TXN, resetting connection",
+			 tag, adapter->name, txn_id);
 		return NULL;
 	}
 	if (txn->type != MGMTD_TXN_TYPE_CONFIG) {
-		_log_err("%s reply from '%s' for txn-id: %Lu failed wrong txn TYPE %u, resetting connection",
+		_log_err("%s reply from '%s' for txn-id: %" PRIu64
+			 " failed wrong txn TYPE %u, resetting connection",
 			 tag, adapter->name, txn_id, txn->type);
 		return NULL;
 	}
 	ccreq = txn_txn_req_commit(txn);
 	if (!ccreq) {
-		_log_err("%s reply from '%s' for txn-id: %Lu failed no COMMITCFG_REQ, resetting connection",
+		_log_err("%s reply from '%s' for txn-id: %" PRIu64
+			 " failed no COMMITCFG_REQ, resetting connection",
 			 tag, adapter->name, txn_id);
 		return NULL;
 	}
 	/* make sure we are part of this config commit */
 	if (!IS_IDBIT_SET(ccreq->clients, adapter->id)) {
-		_log_err("%s reply from '%s' for txn-id %Lu not participating, resetting connection",
+		_log_err("%s reply from '%s' for txn-id %" PRIu64
+			 " not participating, resetting connection",
 			 tag, adapter->name, txn_id);
 		return NULL;
 	}
@@ -748,7 +769,8 @@ static void txn_cfg_handle_cfg_reply(struct txn_req_commit *ccreq, bool success,
 	struct txn_req *txn_req = as_txn_req(ccreq);
 
 	if (!IS_IDBIT_SET(ccreq->clients_wait, adapter->id)) {
-		_log_warn("CFG_REPLY from '%s' but not waiting for it txn-id: %Lu, resetting conn",
+		_log_warn("CFG_REPLY from '%s' but not waiting for it txn-id: %" PRIu64
+			  ", resetting conn",
 			  adapter->name, txn_req->txn->txn_id);
 		msg_conn_disconnect(adapter->conn, false);
 		return;

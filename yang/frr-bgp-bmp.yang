@@ -52,12 +52,20 @@ submodule frr-bgp-bmp {
   revision 2019-12-03 {
     description
       "Initial revision.";
+    reference
+      "FRRouting.";
   }
 
   grouping bmp-incoming-session {
+    description
+      "Grouping for BMP incoming session configuration.";
     container incoming-session {
+      description
+        "Configuration for BMP incoming (listening) sessions.";
       list session-list {
         key "address tcp-port";
+        description
+          "List of BMP incoming session entries.";
         leaf address {
           type inet:ip-address;
           description
@@ -66,21 +74,33 @@ submodule frr-bgp-bmp {
 
         leaf tcp-port {
           type uint32;
+          description
+            "TCP port to listen on for BMP incoming sessions.";
         }
       }
     }
   }
 
   grouping bmp-outgoing-session {
+    description
+      "Grouping for BMP outgoing session configuration.";
     container outgoing-session {
+      description
+        "Configuration for BMP outgoing (connecting) sessions.";
       list session-list {
         key "hostname tcp-port";
+        description
+          "List of BMP outgoing session entries.";
         leaf hostname {
           type string;
+          description
+            "Hostname or IP address of the remote BMP monitoring station.";
         }
 
         leaf tcp-port {
           type uint32;
+          description
+            "TCP port to connect to for BMP outgoing sessions.";
         }
 
         leaf min-retry-time {
@@ -107,6 +127,8 @@ submodule frr-bgp-bmp {
   }
 
   grouping bmp-afi-safis {
+    description
+      "Grouping for BMP AFI-SAFI configuration.";
     container afi-safis {
       description
         "List of address-families associated with the BGP
@@ -124,7 +146,11 @@ submodule frr-bgp-bmp {
   }
 
   grouping bmp-afi-safi-common-config {
+    description
+      "Grouping for common BMP AFI-SAFI configuration parameters.";
     container common-config {
+      description
+        "Common configuration for BMP AFI-SAFI entries.";
       leaf pre-policy {
         type boolean;
         default "false";
@@ -150,6 +176,8 @@ submodule frr-bgp-bmp {
         "BMP related parameters.";
       list target-list {
         key "target-name";
+        description
+          "List of BMP target groups.";
         leaf target-name {
           type string;
           description

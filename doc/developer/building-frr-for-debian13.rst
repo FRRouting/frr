@@ -32,6 +32,13 @@ For gRPC support the following packages are required:
       libprotobuf-dev protobuf-compiler-grpc
 
 
+For pceplib testing the following packages are required:
+
+::
+
+  sudo apt-get install libcunit1-dev
+
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

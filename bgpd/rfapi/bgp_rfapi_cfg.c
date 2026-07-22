@@ -2111,12 +2111,11 @@ void vnc_routemap_update(struct bgp *bgp, const char *unused)
 					rfg->routemap_export_bgp);
 		}
 		if (rfg->routemap_export_zebra_name) {
-			old = rfg->routemap_export_bgp;
-			rfg->routemap_export_bgp = route_map_lookup_by_name(
-				rfg->routemap_export_zebra_name);
+			old = rfg->routemap_export_zebra;
+			rfg->routemap_export_zebra =
+				route_map_lookup_by_name(rfg->routemap_export_zebra_name);
 			if (!old)
-				route_map_counter_increment(
-					rfg->routemap_export_bgp);
+				route_map_counter_increment(rfg->routemap_export_zebra);
 		}
 		for (i = 0; i < ZEBRA_ROUTE_MAX; ++i) {
 			if (rfg->routemap_redist_name[i]) {
@@ -2146,11 +2145,11 @@ void vnc_routemap_update(struct bgp *bgp, const char *unused)
 			route_map_counter_increment(hc->routemap_export_bgp);
 	}
 	if (hc->routemap_export_zebra_name) {
-		old  = hc->routemap_export_bgp;
-		hc->routemap_export_bgp = route_map_lookup_by_name(
-			hc->routemap_export_zebra_name);
+		old = hc->routemap_export_zebra;
+		hc->routemap_export_zebra =
+			route_map_lookup_by_name(hc->routemap_export_zebra_name);
 		if (!old)
-			route_map_counter_increment(hc->routemap_export_bgp);
+			route_map_counter_increment(hc->routemap_export_zebra);
 	}
 	for (i = 0; i < ZEBRA_ROUTE_MAX; ++i) {
 		if (hc->routemap_redist_name[i]) {

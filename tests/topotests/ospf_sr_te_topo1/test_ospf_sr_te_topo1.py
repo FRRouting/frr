@@ -75,7 +75,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
@@ -143,25 +143,70 @@ def setup_module(mod):
         pytest.skip("pathd daemon wasn't built in:" + frrdir)
 
     tgen.start_topology()
-
-    router_list = tgen.routers()
-
-    # For all registered routers, load the zebra configuration file
-    for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_PATH, os.path.join(CWD, "{}/pathd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+    for router in tgen.routers().values():
+        if router.name in ["rt1", "rt6"]:
+            router.load_frr_config(daemons=["bgpd", "ospfd", "pathd", "zebra"])
+        else:
+            router.load_frr_config()
 
     tgen.start_router()
+
+    # pathd can't apply its segment-routing/traffic-eng configuration from a
+    # configuration file at start up, so it's configured here instead using
+    # live vtysh commands.
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+configure terminal
+segment-routing
+ traffic-eng
+  mpls-te on
+   mpls-te import ospfv2
+  segment-list default
+   index 10 nai adjacency 10.0.1.1 10.0.1.2
+   index 20 nai adjacency 10.0.2.2 10.0.2.4
+   index 30 nai adjacency 10.0.7.4 10.0.7.6
+  !
+  segment-list test
+   index 10 nai adjacency 10.0.1.1 10.0.1.2
+   index 20 nai adjacency 10.0.2.2 10.0.2.4
+   index 30 nai adjacency 10.0.6.4 10.0.6.5
+   index 40 nai adjacency 10.0.8.5 10.0.8.6
+  !
+  policy color 1 endpoint 6.6.6.6
+   name default
+   binding-sid 1111
+  !
+ !
+!
+    """
+    )
+
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+configure terminal
+segment-routing
+ traffic-eng
+  mpls-te on
+   mpls-te import ospfv2
+  segment-list default
+   index 10 nai adjacency 10.0.7.6 10.0.7.4
+   index 20 nai adjacency 10.0.2.4 10.0.2.2
+   index 30 nai adjacency 10.0.1.2 10.0.1.1
+  !
+  segment-list test
+   index 10 nai adjacency 10.0.8.6 10.0.8.5
+   index 20 nai adjacency 10.0.6.5 10.0.6.4
+   index 30 nai adjacency 10.0.2.4 10.0.2.2
+   index 40 nai adjacency 10.0.1.2 10.0.1.1
+  !
+  policy color 1 endpoint 1.1.1.1
+   name default
+   binding-sid 6666
+  !
+ !
+!
+    """
+    )
 
 
 def teardown_module():
@@ -353,6 +398,21 @@ def delete_prefix_sid(rname, prefix):
               -c "no segment-routing prefix "'''
         + prefix
     )
+
+
+def setup_pathd_traffic_eng(rname, segment_lists, endpoint, bsid):
+    """
+    Statically configure pathd's segment lists and SR Policy used as the
+    base scenario for the rest of the tests.
+    """
+    get_topogen().net[rname].cmd(
+        ' vtysh -c "conf t" -c "segment-routing" -c "traffic-eng"'
+        ' -c "mpls-te on" -c "mpls-te import ospfv2"'
+    )
+    for name, adjacencies in segment_lists.items():
+        for index, src, dst in adjacencies:
+            add_segment_adj(rname, name, index, src, dst)
+    create_sr_policy(rname, endpoint, bsid)
 
 
 def check_bsid(rt, bsid, fn_name, positive):

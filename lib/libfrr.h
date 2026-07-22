@@ -288,7 +288,9 @@ const char *frr_vers2str(uint32_t version, char *buf, int buflen);
 void frr_exit_with_buffer_flush(int status);
 
 /* Config for free-memory release: rate in MB/sec */
+#define FRR_MEM_RELEASE_MB_DEFAULT 1
 void frr_mem_release_config(uint32_t rate);
+uint32_t frr_mem_release_rate_get(void);
 
 #ifdef __cplusplus
 }

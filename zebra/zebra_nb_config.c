@@ -31,6 +31,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/table_manager.h"
 #include "zebra/ipforward.h"
+#include "zebra/zebra_nhg.h"
 
 /*
  * XPath: /frr-zebra:zebra/ip-forwarding
@@ -268,6 +269,66 @@ int zebra_dplane_queue_limit_modify(struct nb_cb_modify_args *args)
 
 	dplane_set_in_queue_limit(limit, true);
 
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-zebra:zebra/nexthop-group/resilience
+ */
+int zebra_nexthop_group_resilience_create(struct nb_cb_create_args *args)
+{
+	/* handled in apply_finish callback of this node */
+	return NB_OK;
+}
+
+int zebra_nexthop_group_resilience_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zebra_nhg_set_resilience(0, 0, 0);
+
+	return NB_OK;
+}
+
+void zebra_nexthop_group_resilience_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	uint16_t buckets = yang_dnode_get_uint16(args->dnode, "buckets");
+	uint32_t idle_timer = yang_dnode_get_uint32(args->dnode, "idle-timer");
+	uint32_t unbalanced_timer =
+		yang_dnode_get_uint32(args->dnode, "unbalanced-timer");
+
+	zebra_nhg_set_resilience(buckets, idle_timer, unbalanced_timer);
+}
+
+/*
+ * XPath: /frr-zebra:zebra/nexthop-group/resilience/buckets
+ */
+int zebra_nexthop_group_resilience_buckets_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* handled in apply_finish callback of the parent node */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-zebra:zebra/nexthop-group/resilience/idle-timer
+ */
+int zebra_nexthop_group_resilience_idle_timer_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* handled in apply_finish callback of the parent node */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-zebra:zebra/nexthop-group/resilience/unbalanced-timer
+ */
+int zebra_nexthop_group_resilience_unbalanced_timer_modify(
+	struct nb_cb_modify_args *args)
+{
+	/* handled in apply_finish callback of the parent node */
 	return NB_OK;
 }
 
@@ -2700,7 +2761,7 @@ int lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify(
 {
 	struct interface *ifp;
 	struct zebra_if *zif;
-	uint32_t mtu;
+	uint16_t mtu;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -2708,7 +2769,7 @@ int lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify(
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	zif = ifp->info;
 
-	mtu = yang_dnode_get_uint32(args->dnode, NULL);
+	mtu = yang_dnode_get_uint16(args->dnode, NULL);
 
 	zif->rtadv.AdvLinkMTU = mtu;
 

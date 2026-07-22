@@ -92,6 +92,26 @@ def test_bfd_connection():
         assert result is None, assertmsg
 
 
+def test_bfd_peers_brief_json():
+    "Assert that the show bfd peers brief json output is correct."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("checking show bfd peers brief json")
+
+    for router in tgen.routers().values():
+        json_file = "{}/{}/bfd_peers_brief.json".format(CWD, router.name)
+        expected = json.loads(open(json_file).read())
+
+        test_func = partial(
+            topotest.router_json_cmp, router, "show bfd peers brief json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+        assertmsg = '"{}" brief JSON output mismatches'.format(router.name)
+        assert result is None, assertmsg
+
+
 def test_bfd_yang_operational_data():
     "Verify BFD session stats are retrievable via YANG operational data."
     tgen = get_topogen()

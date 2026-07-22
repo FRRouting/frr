@@ -1104,20 +1104,24 @@ def start_topology(tgen):
     tgen.start_router()
 
 
-def stop_router(tgen, router):
+def stop_router(tgen, router, save_config=True):
     """
-    Router"s current config would be saved to /tmp/topotest/<suite>/<router> for each daemon
-    and router and its daemons would be stopped.
+    Stop all FRR daemons on a router.
+
+    Despite the name, this does not tear down the mininet namespace — only the
+    FRR processes configured for that router (see ``restart_frr()``).
 
     * `tgen`  : topogen object
-    * `router`: Device under test
+    * `router`: router name (e.g. ``"r1"``)
+    * `save_config`: when True (default), run ``write memory`` before stopping
     """
 
     router_list = tgen.routers()
 
-    # Saving router config to /etc/frr, which will be loaded to router
-    # when it starts
-    router_list[router].vtysh_cmd("write memory")
+    if save_config:
+        # Saving router config to /etc/frr, which will be loaded to router
+        # when it starts
+        router_list[router].vtysh_cmd("write memory")
 
     # Stop router
     router_list[router].stop()
@@ -1125,11 +1129,13 @@ def stop_router(tgen, router):
 
 def start_router(tgen, router):
     """
-    Router will be started and config would be loaded from /tmp/topotest/<suite>/<router> for each
-    daemon
+    Start all FRR daemons on a router.
+
+    Loads configuration from the test log directory for each daemon.  Does not
+    create or destroy the mininet namespace (see ``stop_router()``).
 
     * `tgen`  : topogen object
-    * `router`: Device under test
+    * `router`: router name (e.g. ``"r1"``)
     """
 
     logger.debug("Entering lib API: start_router")
@@ -1151,6 +1157,22 @@ def start_router(tgen, router):
 
     logger.debug("Exiting lib API: start_router()")
     return True
+
+
+def restart_frr(tgen, router, save_config=True):
+    """
+    Stop and start all FRR daemons on a router.
+
+    Equivalent to ``stop_router()`` followed by ``start_router()``.  Only FRR
+    processes are affected; the namespace, interfaces, and non-FRR host
+    processes keep running.
+
+    * `tgen`  : topogen object
+    * `router`: router name (e.g. ``"r1"``)
+    * `save_config`: when True (default), run ``write memory`` before stopping
+    """
+    stop_router(tgen, router, save_config=save_config)
+    return start_router(tgen, router)
 
 
 def number_to_row(routerName):
@@ -1804,11 +1826,12 @@ def interface_status(tgen, topo, input_dict):
     return True
 
 
-def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
+def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75, retry_sleep=2):
     """
     Fixture: Retries function while it's return value is an errormsg (str), False, or it raises an exception.
 
     * `retry_timeout`: Retry for at least this many seconds; after waiting initial_wait seconds
+    * `retry_sleep`: amount in seconds to sleep between attempts
     * `initial_wait`: Sleeps for this many seconds before first executing function
     * `expected`: if False then the return logic is inverted, except for exceptions,
                       (i.e., a False or errmsg (str) function return ends the retry loop,
@@ -1826,8 +1849,6 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
             # We will continue to retry diag_pct of the timeout value to see if test would have passed with a
             # longer retry timeout value.
             saved_failure = None
-
-            retry_sleep = 2
 
             # Allow the wrapped function's args to override the fixtures
             _retry_timeout = kwargs.pop("retry_timeout", retry_timeout)
@@ -2542,11 +2563,8 @@ def create_route_maps(tgen, input_dict, build=False):
                         if large_comm_list:
                             comm_id = large_comm_list.setdefault("id", None)
                             del_comm = large_comm_list.setdefault("delete", None)
-                            if comm_id:
-                                cmd = "set large-comm-list {}".format(comm_id)
-                                if del_comm:
-                                    cmd = "{} delete".format(cmd)
-
+                            if comm_id and del_comm:
+                                cmd = "set large-comm-list delete {}".format(comm_id)
                                 rmap_data.append(cmd)
                             else:
                                 logger.error("In large_comm_list 'id' not" " provided")

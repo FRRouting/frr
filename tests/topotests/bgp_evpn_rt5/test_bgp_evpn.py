@@ -119,7 +119,7 @@ ip link set vxlan-{0} up type bridge_slave learning off flood off mcast_flood of
         logger.info("Loading router %s" % rname)
         if rname == "r1":
             router.use_netns_vrf()
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        router.load_frr_config()
 
     # Initialize all routers.
     tgen.start_router()
@@ -897,6 +897,93 @@ def test_rmap_match_evpn_vni_101():
     assert result is None, f"r1 was expecting {nb_prefix} from r2"
 
 
+def test_rmap_set_extcommunity_evpn_rmac():
+    """
+    Set EVPN Router-MAC per VNI through route-map entries and verify rewrite.
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    rmac_101 = "02:11:22:33:44:55"
+    rmac_102 = "02:11:22:33:44:66"
+
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "route-map rmap_r1 permit 1",
+                " match evpn vni 101",
+                " set extcommunity evpn rmac {}".format(rmac_101),
+                "route-map rmap_r1 permit 2",
+                " match evpn vni 102",
+                " set extcommunity evpn rmac {}".format(rmac_102),
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    expected = {
+        "101": {
+            rmac_101: {
+                "routerMac": rmac_101,
+                "vtepIp": "192.168.2.2",
+            }
+        },
+        "102": {
+            rmac_102: {
+                "routerMac": rmac_102,
+                "vtepIp": "192.168.2.2",
+            }
+        },
+    }
+    test_func = partial(_validate_evpn_rmacs, r1, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r1 RMAC rewrite via route-map did not converge"
+
+    _assert_no_rmac_on_non_type5_routes(r1, [rmac_101, rmac_102])
+
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "route-map rmap_r1 permit 1",
+                " no set extcommunity evpn rmac",
+                "route-map rmap_r1 permit 2",
+                " no set extcommunity evpn rmac",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    _test_evpn_rmac(tgen)
+
+
+def _assert_no_rmac_on_non_type5_routes(router, forbidden_rmacs):
+    """
+    Ensure route-map `set extcommunity evpn rmac` does not leak onto
+    non-Type-5 EVPN routes.
+    """
+
+    for route_type in (2, 3, 4):
+        output = router.vtysh_cmd(
+            "show bgp l2vpn evpn route type {} detail".format(route_type),
+            isjson=False,
+        )
+        low = output.lower()
+
+        # Some topologies may not have all EVPN route types present.
+        if "unknown" in low or "invalid" in low:
+            continue
+
+        for rmac in forbidden_rmacs:
+            assert (
+                rmac.lower() not in low
+            ), "unexpected RMAC {} found in EVPN type-{} detail output".format(
+                rmac, route_type
+            )
+
+
 def test_rmap_match_evpn_vni_101_deny():
     """
     change input route-map from r2.
@@ -979,34 +1066,40 @@ def _validate_evpn_rmacs(router, expected):
         if vni not in data:
             return "Failed to find expected VNI {}".format(vni)
 
-    # Each rmac in expected should be in output
-    # the VTEP in each expected rmac object should be in output - in v4 or v6 form
-    # Each VTEP should be in vni only once...
-
+    # Build observed RMAC->detail maps and enforce VTEP uniqueness per VNI.
+    observed = {}
     for vni, details in data.items():
-        vtep_ips = []
-        jvni = None
-
-        if vni in expected:
-            jvni = expected[vni]
+        vtep_ips = set()
+        observed[vni] = {}
 
         for key, detail in details.items():
             if key == "numRmacs":
                 continue
 
-            vtep_ip = detail["vtepIp"]
             rmac = detail["routerMac"]
-            if jvni != None:
-                if rmac in jvni:
-                    # Compare VTEP IPs - a forgiving comparison
-                    if detail["vtepIp"].find(jvni[rmac]["vtepIp"]) < 0:
-                        return "VTEP {} failed, not found in VNI {}".format(
-                            detail["vtepIp"], vni
-                        )
+            vtep_ip = detail["vtepIp"]
+
             if vtep_ip in vtep_ips:
-                # VTEP IP is occuring for more than one RMAC in the same VNI
+                # VTEP IP is occurring for more than one RMAC in the same VNI.
                 return "Duplicate VTEP IP {} found in VNI {}".format(vtep_ip, vni)
-            vtep_ips.append(vtep_ip)
+            vtep_ips.add(vtep_ip)
+
+            observed[vni][rmac] = detail
+
+    # Ensure each expected RMAC exists and has expected VTEP in that VNI.
+    for vni, expected_rmacs in expected.items():
+        vni_data = observed.get(vni, {})
+        for expected_rmac, expected_detail in expected_rmacs.items():
+            if expected_rmac not in vni_data:
+                return "Failed to find expected RMAC {} in VNI {}".format(
+                    expected_rmac, vni
+                )
+
+            got_vtep = vni_data[expected_rmac]["vtepIp"]
+            expected_vtep = expected_detail["vtepIp"]
+            # Compare VTEP IPs - keep existing forgiving behavior.
+            if got_vtep.find(expected_vtep) < 0:
+                return "VTEP {} failed, not found in VNI {}".format(got_vtep, vni)
 
     return None
 

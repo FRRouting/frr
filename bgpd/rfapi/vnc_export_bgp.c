@@ -74,7 +74,7 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 	case AF_INET:
 		new->nexthop = use_nexthop->u.prefix4;
 		new->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4; /* bytes */
-		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		bgp_attr_set(new, BGP_ATTR_NEXT_HOP);
 		break;
 
 	case AF_INET6:
@@ -95,7 +95,7 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 	 *
 	 *          neighbor NEIGHBOR attribute-unchanged med
 	 */
-	if (!CHECK_FLAG(new->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
+	if (!bgp_attr_exists(new, BGP_ATTR_MULTI_EXIT_DISC)) {
 		uint32_t med = 255;
 
 		if (bgp_attr_exists(new, BGP_ATTR_LOCAL_PREF)) {
@@ -309,7 +309,8 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
 		   afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		   BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		   NULL, 0,			 /* tag not used for unicast */
-		   0, NULL);			 /* EVPN not used */
+		   0, NULL,			 /* EVPN not used */
+		   NULL);			 /* SAFI_UNREACH not used */
 	bgp_attr_unintern(&iattr);
 }
 
@@ -605,7 +606,7 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	case AF_INET:
 		new->nexthop = use_nexthop->u.prefix4;
 		new->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4; /* bytes */
-		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		bgp_attr_set(new, BGP_ATTR_NEXT_HOP);
 		break;
 
 	case AF_INET6:
@@ -642,7 +643,7 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	 *
 	 *          neighbor NEIGHBOR attribute-unchanged med
 	 */
-	if (!CHECK_FLAG(new->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
+	if (!bgp_attr_exists(new, BGP_ATTR_MULTI_EXIT_DISC)) {
 		uint32_t med = 255;
 
 		if (bgp_attr_exists(new, BGP_ATTR_LOCAL_PREF)) {
@@ -1033,7 +1034,8 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 						/* RD not used for unicast */
 						NULL,
 						/* tag not used for unicast */
-						0, 0, NULL); /* EVPN not used */
+						0, 0, NULL, /* EVPN not used */
+						NULL); /* SAFI_UNREACH not used */
 
 					bgp_attr_unintern(&iattr);
 				}
@@ -1245,7 +1247,8 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 		   afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		   BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		   NULL,			 /* tag not used for unicast */
-		   0, 0, NULL);			 /* EVPN not used */
+		   0, 0, NULL,			 /* EVPN not used */
+		   NULL);			 /* SAFI_UNREACH not used */
 
 	bgp_attr_unintern(&iattr);
 
@@ -1697,7 +1700,8 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 		   afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT_RH,
 		   BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		   NULL,	/* tag not used for unicast, EVPN neither */
-		   0, 0, NULL); /* EVPN not used */
+		   0, 0, NULL,	/* EVPN not used */
+		   NULL);	/* SAFI_UNREACH not used */
 	bgp_attr_unintern(&iattr);
 }
 
@@ -1936,7 +1940,8 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 						NULL,
 						/* tag not used for unicast,
 						   or EVPN */
-						0, 0, NULL); /* EVPN not used */
+						0, 0, NULL, /* EVPN not used */
+						NULL); /* SAFI_UNREACH not used */
 
 					bgp_attr_unintern(&iattr);
 				}

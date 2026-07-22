@@ -666,7 +666,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	if (local_pref) {
 		attr.local_pref = *local_pref;
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+		bgp_attr_set(&attr, BGP_ATTR_LOCAL_PREF);
 	}
 
 	if (med)
@@ -690,7 +690,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	 */
 	if (type == ZEBRA_ROUTE_BGP_DIRECT
 	    || type == ZEBRA_ROUTE_BGP_DIRECT_EXT) {
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID);
+		bgp_attr_set(&attr, BGP_ATTR_ORIGINATOR_ID);
 		attr.originator_id = bgp->router_id;
 	}
 
@@ -1053,12 +1053,13 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		encode_label(label_val, &bn->local_label);
 	}
 
-	bgp_dest_unlock_node(bn);
 	bgp_process(bgp, bn, new, afi, safi);
 
 	vnc_zlog_debug_any(
 		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRDP)",
 		__func__, safi2str(safi), buf, bn, prd);
+
+	bgp_dest_unlock_node(bn);
 
 done:
 	/* Loop back to import tables */
