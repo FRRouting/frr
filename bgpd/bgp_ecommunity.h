@@ -250,8 +250,8 @@ static inline void encode_route_target_as4(as_t as, uint16_t val,
 	eval->val[7] = val & 0xff;
 }
 
-/* Helper function to convert uint32 to IEEE-754 Floating Point */
-static uint32_t uint32_to_ieee_float_uint32(uint32_t u)
+/* Helper function to convert uint64 to IEEE-754 Floating Point */
+static uint32_t uint64_to_ieee_float_uint32(uint64_t u)
 {
 	union {
 		float r;
@@ -269,9 +269,7 @@ static inline void encode_lb_extcomm(as_t as, uint64_t bw, bool non_trans,
 				     struct ecommunity_val *eval,
 				     bool disable_ieee_floating)
 {
-	uint64_t bandwidth = disable_ieee_floating
-				     ? bw
-				     : uint32_to_ieee_float_uint32(bw);
+	uint64_t bandwidth = disable_ieee_floating ? bw : uint64_to_ieee_float_uint32(bw);
 
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_AS;
