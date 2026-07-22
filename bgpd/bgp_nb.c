@@ -113,6 +113,27 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-bgp:bgp-daemon/snmp-traps/rfc4273",
+			.cbs = {
+				.modify = bgp_nb_daemon_snmp_traps_rfc4273_modify,
+				.cli_show = bgp_nb_cli_show_daemon_snmp_traps_rfc4273,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/snmp-traps/bgp4-mibv2",
+			.cbs = {
+				.modify = bgp_nb_daemon_snmp_traps_bgp4_mibv2_modify,
+				.cli_show = bgp_nb_cli_show_daemon_snmp_traps_bgp4_mibv2,
+			},
+		},
+		{
+			.xpath = "/frr-bgp:bgp-daemon/snmp-traps/rfc4382",
+			.cbs = {
+				.modify = bgp_nb_daemon_snmp_traps_rfc4382_modify,
+				.cli_show = bgp_nb_cli_show_daemon_snmp_traps_rfc4382,
+			},
+		},
+		{
 			.xpath = "/frr-bgp:bgp-daemon/rmap-delay-time",
 			.cbs = {
 				.modify = bgp_nb_daemon_rmap_delay_time_modify,

@@ -1275,6 +1275,15 @@ int bgp_nb_daemon_community_alias_name_modify(struct nb_cb_modify_args *args);
 int bgp_nb_daemon_send_extra_data_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_daemon_send_extra_data(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults);
+int bgp_nb_daemon_snmp_traps_rfc4273_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_daemon_snmp_traps_rfc4273(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+int bgp_nb_daemon_snmp_traps_bgp4_mibv2_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_daemon_snmp_traps_bgp4_mibv2(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+int bgp_nb_daemon_snmp_traps_rfc4382_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_daemon_snmp_traps_rfc4382(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
 int bgp_nb_daemon_rmap_delay_time_modify(struct nb_cb_modify_args *args);
 int bgp_nb_daemon_rmap_delay_time_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_daemon_rmap_delay_time(struct vty *vty, const struct lyd_node *dnode,
