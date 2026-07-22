@@ -2231,6 +2231,36 @@ int pim_autorp_config_write(struct pim_instance *pim, struct vty *vty)
 	return writes;
 }
 
+/* Fill groupRanges for one discovered RP. Missing __AUTORP_* prefix-list still
+ * leaves the RP in JSON with an empty array.
+ */
+static void pim_autorp_json_add_discovery_group_ranges(json_object *grp_arr,
+						       struct pim_autorp_rp *rp)
+{
+	json_object *grp_obj;
+	struct prefix_list *pl;
+	struct prefix_list_entry *ple;
+
+	if (!strlen(rp->grplist)) {
+		grp_obj = json_object_new_object();
+		json_object_boolean_add(grp_obj, "negative", false);
+		json_object_string_addf(grp_obj, "prefix", "%pFX", &rp->grp);
+		json_object_array_add(grp_arr, grp_obj);
+		return;
+	}
+
+	pl = prefix_list_lookup(AFI_IP, rp->grplist);
+	if (!pl)
+		return;
+
+	for (ple = pl->head; ple != NULL; ple = ple->next) {
+		grp_obj = json_object_new_object();
+		json_object_boolean_add(grp_obj, "negative", ple->type == PREFIX_DENY);
+		json_object_string_addf(grp_obj, "prefix", "%pFX", &ple->prefix);
+		json_object_array_add(grp_arr, grp_obj);
+	}
+}
+
 static void pim_autorp_show_autorp_json(struct pim_autorp *autorp, const char *component,
 					json_object *json, struct ttable *cand_table)
 {
@@ -2253,34 +2283,7 @@ static void pim_autorp_show_autorp_json(struct pim_autorp *autorp, const char *c
 				json_object_string_addf(rp_obj, "rpAddress", "%pI4", &rp->addr);
 				json_object_int_add(rp_obj, "holdtime", rp->holdtime);
 				grp_arr = json_object_new_array();
-
-				if (strlen(rp->grplist)) {
-					struct prefix_list *pl;
-					struct prefix_list_entry *ple;
-
-					pl = prefix_list_lookup(AFI_IP, rp->grplist);
-					if (pl == NULL)
-						continue;
-
-					for (ple = pl->head; ple != NULL; ple = ple->next) {
-						json_object *grp_obj;
-
-						grp_obj = json_object_new_object();
-						json_object_boolean_add(grp_obj, "negative",
-									ple->type == PREFIX_DENY);
-						json_object_string_addf(grp_obj, "prefix", "%pFX",
-									&ple->prefix);
-						json_object_array_add(grp_arr, grp_obj);
-					}
-				} else {
-					json_object *grp_obj;
-
-					grp_obj = json_object_new_object();
-					json_object_boolean_add(grp_obj, "negative", false);
-					json_object_string_addf(grp_obj, "prefix", "%pFX", &rp->grp);
-					json_object_array_add(grp_arr, grp_obj);
-				}
-
+				pim_autorp_json_add_discovery_group_ranges(grp_arr, rp);
 				json_object_object_add(rp_obj, "groupRanges", grp_arr);
 				json_object_object_addf(rplist_obj, rp_obj, "%pI4", &rp->addr);
 			}
