@@ -1344,4 +1344,33 @@ void bgp_nb_cli_show_mpls_l3vpn_multi_domain_switching(struct vty *vty,
 						       const struct lyd_node *dnode,
 						       bool show_defaults);
 
+int bgp_nb_as_notation_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_enforce_first_as_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_hard_admin_reset_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_multi_path_as_set_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_gr_llgr_stale_time_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_maxpaths_ibgp_cluster_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_shutdown_enable_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_local_role_strict_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_bfd_detect_mult_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_bfd_min_rx_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_bfd_min_tx_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_bfd_cbit_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_bfd_session_type_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_bfd_session_type_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_aggregate_attr_modify(struct nb_cb_modify_args *args);
+int bgp_nb_aggregate_attr_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_connect_retry_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_gr_notification_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_gr_notification_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_gr_notification(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+int bgp_nb_daemon_gr_disable_eor_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_daemon_gr_disable_eor(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+int bgp_nb_daemon_gr_llgr_stale_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_gr_llgr_stale_time_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_daemon_gr_llgr_stale_time(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+
 #endif /* _FRR_BGP_NB_H_ */

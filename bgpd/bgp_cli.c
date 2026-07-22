@@ -77,13 +77,16 @@ static const char *bgp_cli_afi_safi_name(int node)
 	}
 }
 
-/* Build relative xpath for the current global AFI-SAFI node. */
+/* Build relative xpath for the current global AFI-SAFI config container.
+ * Schema nests AF leaves under afi-safi/<af>/ (e.g. ipv4-unicast), not
+ * directly under the afi-safi list entry.
+ */
 static int bgp_cli_global_af_xpath(struct vty *vty, char *xpath, size_t xpath_len)
 {
 	const char *af = bgp_cli_afi_safi_name(vty->node);
 
-	snprintfrr(xpath, xpath_len, "./global/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']",
-		   af);
+	snprintfrr(xpath, xpath_len,
+		   "./global/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']/%s", af, af);
 	return 0;
 }
 
@@ -6337,8 +6340,8 @@ DEFPY_YANG(bgp_evpn_vrf_rt_yang, bgp_evpn_vrf_rt_yang_cmd,
 	}
 
 	for (; idx < argc; idx++) {
-		if (argv[idx]->arg[0] == '*') {
-			vty_out(vty, "%% Wildcard route-targets are not supported via YANG yet\n");
+		if (argv[idx]->arg[0] == '*' && do_export) {
+			vty_out(vty, "%% Wildcard '*' only applicable for import\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		if (do_import) {
@@ -6435,7 +6438,7 @@ DEFPY_YANG_NOSH(bgp_evpn_vni_yang, bgp_evpn_vni_yang_cmd,
 	}
 
 	snprintfrr(vni_abs, sizeof(vni_abs),
-		   "%s/global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/vni[vni='%" PRId64
+		   "%s/global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/vni[vni='%" PRId64
 		   "']",
 		   VTY_CURR_XPATH, vni);
 	VTY_PUSH_XPATH(BGP_EVPN_VNI_NODE, vni_abs);
@@ -7323,7 +7326,14 @@ DEFPY_YANG(bmp_monitor_yang, bmp_monitor_yang_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	snprintfrr(af_xpath, sizeof(af_xpath), "./afi-safis/afi-safi[afi-safi-name='%s']", ident);
+	/* ident is "frr-routing:<af>"; BMP common-config lives under <af>/. */
+	{
+		const char *af_cont = strchr(ident, ':');
+
+		af_cont = af_cont ? af_cont + 1 : ident;
+		snprintfrr(af_xpath, sizeof(af_xpath),
+			   "./afi-safis/afi-safi[afi-safi-name='%s']/%s", ident, af_cont);
+	}
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/common-config/%s", af_xpath, policy);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
@@ -7543,6 +7553,11 @@ static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xp
 		return ret;
 
 	afi_safi = bgp_cli_afi_safi_name(vty->node);
+	/*
+	 * Peer AF xpath is the afi-safi list entry only. Leaf "enabled"
+	 * (neighbor activate) lives directly on the list entry; other
+	 * knobs append "/<af>/..." themselves (e.g. /ipv4-unicast/...).
+	 */
 	snprintfrr(xpath, xpath_len, "%s/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']", base,
 		   afi_safi);
 	return 0;

@@ -3553,7 +3553,7 @@ void rfapi_init(void)
 {
 	rfapi_rib_init();
 	rfapi_import_init();
-	bgp_rfapi_cfg_init();
+	/* VNC cmd_nodes: bgp_rfapi_cfg_init() via bgp_vnc_cli_init() */
 	vnc_debug_init();
 
 	install_element(ENABLE_NODE, &debug_rfapi_show_import_cmd);

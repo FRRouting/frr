@@ -46,64 +46,16 @@ DEFUN (rfp_example_config_value,
 	return CMD_SUCCESS;
 }
 
-DEFUN (rfp_holddown_factor,
-       rfp_holddown_factor_cmd,
-       "rfp holddown-factor (0-4294967295)",
-       RFP_SHOW_STR
-       "Holddown factor\n"
-       "Holddown factor value\n")
-{
-	struct rfp_instance_t *rfi;
-	uint32_t value = 0;
-
-	value = strtoul((argv[--argc]->arg), NULL, 10);
-	rfi = rfapi_get_rfp_start_val(VTY_GET_CONTEXT(bgp)); /* BGP_NODE */
-	if (!rfi) {
-		vty_out(vty, "VNC not configured\n");
-		return CMD_WARNING;
-	}
-	rfi->rfapi_config.holddown_factor = value;
-	rfapi_rfp_set_configuration(rfi, &rfi->rfapi_config);
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (rfp_full_table_download,
-       rfp_full_table_download_cmd,
-       "rfp full-table-download <on|off>",
-       RFP_SHOW_STR
-       "Full table download\n"
-       "Enable full table download\n"
-       "Disable full table download\n")
-{
-	struct rfp_instance_t *rfi;
-	rfapi_rfp_download_type old;
-
-	rfi = rfapi_get_rfp_start_val(VTY_GET_CONTEXT(bgp)); /* BGP_NODE */
-	if (!rfi) {
-		vty_out(vty, "VNC not configured\n");
-		return CMD_WARNING;
-	}
-	old = rfi->rfapi_config.download_type;
-	if (argv[--argc]->arg[1] == 'n' || argv[argc]->arg[1] == 'N')
-		rfi->rfapi_config.download_type = RFAPI_RFP_DOWNLOAD_FULL;
-	else
-		rfi->rfapi_config.download_type = RFAPI_RFP_DOWNLOAD_PARTIAL;
-	if (old != rfi->rfapi_config.download_type)
-		rfapi_rfp_set_configuration(rfi, &rfi->rfapi_config);
-	return CMD_SUCCESS;
-}
-
 static void rfp_vty_install(void)
 {
 	static int installed = 0;
 	if (installed) /* do this only once */
 		return;
 	installed = 1;
-	/* example of new cli command */
+	/* example of new cli command; holddown-factor / full-table-download
+	 * are YANG CLI in bgp_vnc_cli.c
+	 */
 	install_element(BGP_NODE, &rfp_example_config_value_cmd);
-	install_element(BGP_NODE, &rfp_holddown_factor_cmd);
-	install_element(BGP_NODE, &rfp_full_table_download_cmd);
 }
 
 /***********************************************************************
