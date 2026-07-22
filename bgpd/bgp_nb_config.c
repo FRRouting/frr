@@ -16465,7 +16465,7 @@ int bgp_nb_daemon_no_rib_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_daemon_no_rib(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
+	if (yang_dnode_get_bool(dnode, NULL) || bgp_option_check(BGP_OPT_NO_FIB))
 		vty_out(vty, "bgp no-rib\n");
 	else if (show_defaults)
 		vty_out(vty, "no bgp no-rib\n");
@@ -16707,6 +16707,9 @@ void bgp_nb_cli_show_daemon_update_delay(struct vty *vty, const struct lyd_node 
 	const struct lyd_node *parent;
 
 	delay = yang_dnode_get_uint16(dnode, NULL);
+	if (delay == BGP_UPDATE_DELAY_DEFAULT && !show_defaults)
+		return;
+
 	parent = yang_dnode_get_parent(dnode, "bgp-daemon");
 	if (parent && yang_dnode_exists(parent, "establish-wait-time"))
 		wait = yang_dnode_get_uint16(parent, "establish-wait-time");
@@ -16796,7 +16799,10 @@ int bgp_nb_daemon_advertisement_delay_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_daemon_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
 						bool show_defaults)
 {
-	vty_out(vty, "bgp advertisement-delay %u\n", yang_dnode_get_uint16(dnode, NULL));
+	uint16_t delay = yang_dnode_get_uint16(dnode, NULL);
+
+	if (delay != BGP_ADVERTISEMENT_DELAY_DEFAULT || show_defaults)
+		vty_out(vty, "bgp advertisement-delay %u\n", delay);
 }
 
 

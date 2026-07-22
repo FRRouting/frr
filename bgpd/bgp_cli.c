@@ -1487,8 +1487,13 @@ DEFUN_YANG(no_bgp_daemon_norib_yang, no_bgp_daemon_norib_yang_cmd,
 	   NO_STR BGP_STR
 	   "Disable BGP route installation to RIB (Zebra)\n")
 {
+	int ret;
+
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/no-rib", NB_OP_MODIFY, "false");
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && bgp_option_check(BGP_OPT_NO_FIB))
+		bgp_option_norib_unset_runtime();
+	return ret;
 }
 
 DEFPY_YANG(bgp_daemon_session_dscp_yang, bgp_daemon_session_dscp_yang_cmd,
