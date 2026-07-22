@@ -14,6 +14,7 @@ jobs:
         if: ${{ github.event.issue.pull_request && github.event.comment.body }}
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
