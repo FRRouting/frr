@@ -1156,6 +1156,22 @@ int lib_as_path_list_entry_as_path_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static void lib_as_path_list_entry_cli_show(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	const char *name;
+	uint32_t seq;
+	const char *action;
+	const char *aspath;
+
+	name = yang_dnode_get_string(dnode, "../name");
+	seq = yang_dnode_get_uint32(dnode, "sequence");
+	action = yang_dnode_get_string(dnode, "action");
+	aspath = yang_dnode_get_string(dnode, "as-path");
+
+	vty_out(vty, "bgp as-path access-list %s seq %u %s %s\n", name, seq, action, aspath);
+}
+
 /* ========================================================================
  * Operational State Callbacks for RESTCONF GET
  * ========================================================================
@@ -2090,6 +2106,7 @@ const struct frr_yang_module_info frr_bgp_filter_info = {
 				.get_next = lib_as_path_list_entry_get_next,
 				.get_keys = lib_as_path_list_entry_get_keys,
 				.lookup_entry = lib_as_path_list_entry_lookup_entry,
+				.cli_show = lib_as_path_list_entry_cli_show,
 			}
 		},
 		{
