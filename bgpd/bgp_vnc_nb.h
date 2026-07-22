@@ -46,6 +46,14 @@ int bgp_global_vnc_redistribute_ipv4_source_create(struct nb_cb_create_args *arg
 int bgp_global_vnc_redistribute_ipv4_source_destroy(struct nb_cb_destroy_args *args);
 int bgp_global_vnc_redistribute_ipv6_source_create(struct nb_cb_create_args *args);
 int bgp_global_vnc_redistribute_ipv6_source_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redistribute_nve_group_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redistribute_nve_group_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redistribute_lifetime_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redistribute_lifetime_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redistribute_resolve_nve_roo_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redistribute_resolve_nve_roo_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redistribute_exterior_view_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redistribute_exterior_view_destroy(struct nb_cb_destroy_args *args);
 
 int bgp_global_vnc_advertise_un_method_modify(struct nb_cb_modify_args *args);
 int bgp_global_vnc_advertise_un_method_destroy(struct nb_cb_destroy_args *args);

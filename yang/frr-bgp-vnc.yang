@@ -341,6 +341,34 @@ module frr-bgp-vnc {
             "VNC redistribute mode.";
         }
 
+        leaf nve-group {
+          type string;
+          description
+            "NVE group assigned to redistributed routes.
+             Maps to: vnc redistribute nve-group NAME";
+        }
+
+        leaf lifetime {
+          type string;
+          description
+            "Lifetime for redistributed routes in seconds, or 'infinite'.
+             Maps to: vnc redistribute lifetime ...";
+        }
+
+        leaf resolve-nve-roo-ec-local-admin {
+          type uint16;
+          description
+            "Route Origin EC local-admin for resolve-nve mode.
+             Maps to: vnc redistribute resolve-nve roo-ec-local-admin ...";
+        }
+
+        leaf bgp-direct-to-nve-groups-view {
+          type string;
+          description
+            "BGP view name for bgp-direct-to-nve-groups redistribution.
+             Maps to: vnc redistribute <ipv4|ipv6> bgp-direct-to-nve-groups view NAME";
+        }
+
         leaf-list ipv4-source {
           type string;
           description
