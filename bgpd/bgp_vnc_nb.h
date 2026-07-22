@@ -55,6 +55,58 @@ int bgp_global_vnc_redistribute_resolve_nve_roo_destroy(struct nb_cb_destroy_arg
 int bgp_global_vnc_redistribute_exterior_view_modify(struct nb_cb_modify_args *args);
 int bgp_global_vnc_redistribute_exterior_view_destroy(struct nb_cb_destroy_args *args);
 
+int bgp_global_vnc_redist_bgp_direct_ipv4_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redist_bgp_direct_ipv4_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redist_bgp_direct_ipv6_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redist_bgp_direct_ipv6_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redist_bgp_direct_ext_ipv4_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redist_bgp_direct_ext_ipv4_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redist_bgp_direct_ext_ipv6_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redist_bgp_direct_ext_ipv6_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redist_bgp_direct_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redist_bgp_direct_rmap_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_redist_bgp_direct_ext_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_redist_bgp_direct_ext_rmap_destroy(struct nb_cb_destroy_args *args);
+
+int bgp_global_vnc_export_bgp_ipv4_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_export_bgp_ipv4_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_export_bgp_ipv6_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_export_bgp_ipv6_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_export_zebra_ipv4_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_export_zebra_ipv4_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_export_zebra_ipv6_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_export_zebra_ipv6_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_export_bgp_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_export_bgp_rmap_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_export_zebra_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_export_zebra_rmap_destroy(struct nb_cb_destroy_args *args);
+
+int bgp_global_vnc_nve_redist_bgp_direct_ipv4_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_redist_bgp_direct_ipv4_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_redist_bgp_direct_ipv6_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_redist_bgp_direct_ipv6_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_redist_bgp_direct_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_redist_bgp_direct_rmap_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_export_bgp_ipv4_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_export_bgp_ipv4_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_export_bgp_ipv6_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_export_bgp_ipv6_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_export_zebra_ipv4_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_export_zebra_ipv4_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_export_zebra_ipv6_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_export_zebra_ipv6_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_export_bgp_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_export_bgp_rmap_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_nve_export_zebra_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_nve_export_zebra_rmap_destroy(struct nb_cb_destroy_args *args);
+
+int bgp_global_vnc_vrf_export_ipv4_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_vrf_export_ipv4_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_vrf_export_ipv6_plist_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_vrf_export_ipv6_plist_destroy(struct nb_cb_destroy_args *args);
+int bgp_global_vnc_vrf_export_rmap_modify(struct nb_cb_modify_args *args);
+int bgp_global_vnc_vrf_export_rmap_destroy(struct nb_cb_destroy_args *args);
+
 int bgp_global_vnc_advertise_un_method_modify(struct nb_cb_modify_args *args);
 int bgp_global_vnc_advertise_un_method_destroy(struct nb_cb_destroy_args *args);
 void vnc_advertise_un_method_cli_show(struct vty *vty, const struct lyd_node *dnode,
@@ -86,6 +138,7 @@ void vnc_nve_group_cli_show_end(struct vty *vty, const struct lyd_node *dnode);
 void vnc_vrf_policy_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void vnc_vrf_policy_cli_show_end(struct vty *vty, const struct lyd_node *dnode);
 void vnc_export_bgp_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void vnc_export_zebra_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void vnc_redistribute_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
 void bgp_vnc_cli_init(void);

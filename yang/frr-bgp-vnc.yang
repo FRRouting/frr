@@ -199,6 +199,60 @@ module frr-bgp-vnc {
           description
             "Per-NVE-group Local NVE ID for L2 RDs: 'auto-vn' or 1-255.";
         }
+
+        leaf bgp-direct-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: redistribute bgp-direct ipv4 prefix-list NAME";
+        }
+
+        leaf bgp-direct-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: redistribute bgp-direct ipv6 prefix-list NAME";
+        }
+
+        leaf bgp-direct-route-map {
+          type string;
+          description
+            "Maps to: redistribute bgp-direct route-map NAME";
+        }
+
+        leaf bgp-export-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: export bgp ipv4 prefix-list NAME";
+        }
+
+        leaf bgp-export-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: export bgp ipv6 prefix-list NAME";
+        }
+
+        leaf bgp-export-route-map {
+          type string;
+          description
+            "Maps to: export bgp route-map NAME";
+        }
+
+        leaf zebra-export-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: export zebra ipv4 prefix-list NAME";
+        }
+
+        leaf zebra-export-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: export zebra ipv6 prefix-list NAME";
+        }
+
+        leaf zebra-export-route-map {
+          type string;
+          description
+            "Maps to: export zebra route-map NAME";
+        }
       }
 
       list l2-group {
@@ -277,6 +331,24 @@ module frr-bgp-vnc {
           description
             "Next-hop address (IPv4, IPv6, or 'self').";
         }
+
+        leaf ipv4-export-prefix-list {
+          type string;
+          description
+            "Maps to: export ipv4 prefix-list NAME";
+        }
+
+        leaf ipv6-export-prefix-list {
+          type string;
+          description
+            "Maps to: export ipv6 prefix-list NAME";
+        }
+
+        leaf export-route-map {
+          type string;
+          description
+            "Maps to: export route-map NAME";
+        }
       }
 
       container export {
@@ -314,6 +386,47 @@ module frr-bgp-vnc {
             type string;
             description
               "NVE group names for group-nve export mode.";
+          }
+
+          leaf ipv4-prefix-list {
+            type string;
+            description
+              "Maps to: vnc export bgp ipv4 prefix-list NAME";
+          }
+
+          leaf ipv6-prefix-list {
+            type string;
+            description
+              "Maps to: vnc export bgp ipv6 prefix-list NAME";
+          }
+
+          leaf route-map {
+            type string;
+            description
+              "Maps to: vnc export bgp route-map NAME";
+          }
+        }
+
+        container zebra {
+          description
+            "VNC export to Zebra configuration.";
+
+          leaf ipv4-prefix-list {
+            type string;
+            description
+              "Maps to: vnc export zebra ipv4 prefix-list NAME";
+          }
+
+          leaf ipv6-prefix-list {
+            type string;
+            description
+              "Maps to: vnc export zebra ipv6 prefix-list NAME";
+          }
+
+          leaf route-map {
+            type string;
+            description
+              "Maps to: vnc export zebra route-map NAME";
           }
         }
       }
@@ -367,6 +480,42 @@ module frr-bgp-vnc {
           description
             "BGP view name for bgp-direct-to-nve-groups redistribution.
              Maps to: vnc redistribute <ipv4|ipv6> bgp-direct-to-nve-groups view NAME";
+        }
+
+        leaf bgp-direct-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct ipv4 prefix-list NAME";
+        }
+
+        leaf bgp-direct-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct ipv6 prefix-list NAME";
+        }
+
+        leaf bgp-direct-to-nve-groups-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct-to-nve-groups ipv4 prefix-list NAME";
+        }
+
+        leaf bgp-direct-to-nve-groups-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct-to-nve-groups ipv6 prefix-list NAME";
+        }
+
+        leaf bgp-direct-route-map {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct route-map NAME";
+        }
+
+        leaf bgp-direct-to-nve-groups-route-map {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct-to-nve-groups route-map NAME";
         }
 
         leaf-list ipv4-source {

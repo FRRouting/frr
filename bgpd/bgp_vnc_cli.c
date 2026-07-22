@@ -622,6 +622,33 @@ void vnc_nve_group_cli_show(struct vty *vty, const struct lyd_node *dnode, bool 
 	if (yang_dnode_exists(dnode, "l2rd"))
 		vty_out(vty, "  l2rd %s\n", yang_dnode_get_string(dnode, "l2rd"));
 	vnc_rt_cli_show_helper(vty, dnode, "  ");
+	if (yang_dnode_exists(dnode, "bgp-export-ipv4-prefix-list"))
+		vty_out(vty, "  export bgp ipv4 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "bgp-export-ipv4-prefix-list"));
+	if (yang_dnode_exists(dnode, "bgp-export-ipv6-prefix-list"))
+		vty_out(vty, "  export bgp ipv6 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "bgp-export-ipv6-prefix-list"));
+	if (yang_dnode_exists(dnode, "zebra-export-ipv4-prefix-list"))
+		vty_out(vty, "  export zebra ipv4 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "zebra-export-ipv4-prefix-list"));
+	if (yang_dnode_exists(dnode, "zebra-export-ipv6-prefix-list"))
+		vty_out(vty, "  export zebra ipv6 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "zebra-export-ipv6-prefix-list"));
+	if (yang_dnode_exists(dnode, "bgp-export-route-map"))
+		vty_out(vty, "  export bgp route-map %s\n",
+			yang_dnode_get_string(dnode, "bgp-export-route-map"));
+	if (yang_dnode_exists(dnode, "zebra-export-route-map"))
+		vty_out(vty, "  export zebra route-map %s\n",
+			yang_dnode_get_string(dnode, "zebra-export-route-map"));
+	if (yang_dnode_exists(dnode, "bgp-direct-ipv4-prefix-list"))
+		vty_out(vty, "  redistribute bgp-direct ipv4 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-ipv4-prefix-list"));
+	if (yang_dnode_exists(dnode, "bgp-direct-ipv6-prefix-list"))
+		vty_out(vty, "  redistribute bgp-direct ipv6 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-ipv6-prefix-list"));
+	if (yang_dnode_exists(dnode, "bgp-direct-route-map"))
+		vty_out(vty, "  redistribute bgp-direct route-map %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-route-map"));
 }
 
 void vnc_nve_group_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
@@ -640,6 +667,15 @@ void vnc_vrf_policy_cli_show(struct vty *vty, const struct lyd_node *dnode, bool
 	vnc_rt_cli_show_helper(vty, dnode, "  ");
 	if (yang_dnode_exists(dnode, "nexthop"))
 		vty_out(vty, "  nexthop %s\n", yang_dnode_get_string(dnode, "nexthop"));
+	if (yang_dnode_exists(dnode, "ipv4-export-prefix-list"))
+		vty_out(vty, "  export ipv4 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "ipv4-export-prefix-list"));
+	if (yang_dnode_exists(dnode, "ipv6-export-prefix-list"))
+		vty_out(vty, "  export ipv6 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "ipv6-export-prefix-list"));
+	if (yang_dnode_exists(dnode, "export-route-map"))
+		vty_out(vty, "  export route-map %s\n",
+			yang_dnode_get_string(dnode, "export-route-map"));
 }
 
 void vnc_vrf_policy_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
@@ -663,6 +699,28 @@ void vnc_export_bgp_cli_show(struct vty *vty, const struct lyd_node *dnode, bool
 		if (!strcmp(child->schema->name, "group-nve-group"))
 			vty_out(vty, " vnc export bgp group-nve group %s\n", lyd_get_value(child));
 	}
+	if (yang_dnode_exists(dnode, "ipv4-prefix-list"))
+		vty_out(vty, " vnc export bgp ipv4 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "ipv4-prefix-list"));
+	if (yang_dnode_exists(dnode, "ipv6-prefix-list"))
+		vty_out(vty, " vnc export bgp ipv6 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "ipv6-prefix-list"));
+	if (yang_dnode_exists(dnode, "route-map"))
+		vty_out(vty, " vnc export bgp route-map %s\n",
+			yang_dnode_get_string(dnode, "route-map"));
+}
+
+void vnc_export_zebra_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_exists(dnode, "ipv4-prefix-list"))
+		vty_out(vty, " vnc export zebra ipv4 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "ipv4-prefix-list"));
+	if (yang_dnode_exists(dnode, "ipv6-prefix-list"))
+		vty_out(vty, " vnc export zebra ipv6 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "ipv6-prefix-list"));
+	if (yang_dnode_exists(dnode, "route-map"))
+		vty_out(vty, " vnc export zebra route-map %s\n",
+			yang_dnode_get_string(dnode, "route-map"));
 }
 
 void vnc_redistribute_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -695,6 +753,25 @@ void vnc_redistribute_cli_show(struct vty *vty, const struct lyd_node *dnode, bo
 	if (yang_dnode_exists(dnode, "bgp-direct-to-nve-groups-view"))
 		view = yang_dnode_get_string(dnode, "bgp-direct-to-nve-groups-view");
 
+	if (yang_dnode_exists(dnode, "bgp-direct-ipv4-prefix-list"))
+		vty_out(vty, " vnc redistribute bgp-direct ipv4 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-ipv4-prefix-list"));
+	if (yang_dnode_exists(dnode, "bgp-direct-ipv6-prefix-list"))
+		vty_out(vty, " vnc redistribute bgp-direct ipv6 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-ipv6-prefix-list"));
+	if (yang_dnode_exists(dnode, "bgp-direct-to-nve-groups-ipv4-prefix-list"))
+		vty_out(vty, " vnc redistribute bgp-direct-to-nve-groups ipv4 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-to-nve-groups-ipv4-prefix-list"));
+	if (yang_dnode_exists(dnode, "bgp-direct-to-nve-groups-ipv6-prefix-list"))
+		vty_out(vty, " vnc redistribute bgp-direct-to-nve-groups ipv6 prefix-list %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-to-nve-groups-ipv6-prefix-list"));
+	if (yang_dnode_exists(dnode, "bgp-direct-route-map"))
+		vty_out(vty, " vnc redistribute bgp-direct route-map %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-route-map"));
+	if (yang_dnode_exists(dnode, "bgp-direct-to-nve-groups-route-map"))
+		vty_out(vty, " vnc redistribute bgp-direct-to-nve-groups route-map %s\n",
+			yang_dnode_get_string(dnode, "bgp-direct-to-nve-groups-route-map"));
+
 	/* Emit ipv4-source and ipv6-source entries */
 	LY_LIST_FOR (lyd_child(dnode), child) {
 		const char *afistr;
@@ -715,6 +792,211 @@ void vnc_redistribute_cli_show(struct vty *vty, const struct lyd_node *dnode, bo
 	}
 }
 
+
+/* --- redistribute / export prefix-list and route-map filters --- */
+
+DEFPY_YANG(vnc_redist_bgpdirect_prefixlist_cli,
+	   vnc_redist_bgpdirect_prefixlist_cli_cmd,
+	   "[no] vnc redistribute <bgp-direct|bgp-direct-to-nve-groups>$proto <ipv4|ipv6>$afi prefix-list ![NAME$name]",
+	   NO_STR
+	   "VNC/RFAPI configuration\n"
+	   "Redistribute from other protocol\n"
+	   "Redistribute from BGP directly\n"
+	   "Redistribute from BGP without Zebra, only to configured NVE groups\n"
+	   "IPv4 routes\n"
+	   "IPv6 routes\n"
+	   "Prefix-list for filtering redistributed routes\n"
+	   "Prefix list name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/redistribute/%s-%s-prefix-list", proto,
+		   afi);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_redist_bgpdirect_routemap_cli,
+	   vnc_redist_bgpdirect_routemap_cli_cmd,
+	   "[no] vnc redistribute <bgp-direct|bgp-direct-to-nve-groups>$proto route-map ![NAME$name]",
+	   NO_STR
+	   "VNC/RFAPI configuration\n"
+	   "Redistribute from other protocols\n"
+	   "Redistribute from BGP directly\n"
+	   "Redistribute from BGP without Zebra, only to configured NVE groups\n"
+	   "Route-map for filtering redistributed routes\n"
+	   "Route map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/redistribute/%s-route-map", proto);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_nve_export_prefixlist_cli,
+	   vnc_nve_export_prefixlist_cli_cmd,
+	   "[no] vnc export <bgp|zebra>$proto <ipv4|ipv6>$afi prefix-list ![NAME$name]",
+	   NO_STR
+	   "VNC/RFAPI configuration\n"
+	   "Export to other protocols\n"
+	   "Export to BGP\n"
+	   "Export to Zebra (experimental)\n"
+	   "IPv4 prefixes\n"
+	   "IPv6 prefixes\n"
+	   "Prefix-list for filtering exported routes\n"
+	   "Prefix list name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/export/%s/%s-prefix-list", proto, afi);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_nve_export_routemap_cli,
+	   vnc_nve_export_routemap_cli_cmd,
+	   "[no] vnc export <bgp|zebra>$proto route-map ![NAME$name]",
+	   NO_STR
+	   "VNC/RFAPI configuration\n"
+	   "Export to other protocols\n"
+	   "Export to BGP\n"
+	   "Export to Zebra (experimental)\n"
+	   "Route-map for filtering exported routes\n"
+	   "Route map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/export/%s/route-map", proto);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_nve_group_redist_bgpdirect_prefixlist_cli,
+	   vnc_nve_group_redist_bgpdirect_prefixlist_cli_cmd,
+	   "[no] redistribute bgp-direct <ipv4|ipv6>$afi prefix-list ![NAME$name]",
+	   NO_STR
+	   "Redistribute from other protocol\n"
+	   "Redistribute from BGP directly\n"
+	   "IPv4 routes\n"
+	   "IPv6 routes\n"
+	   "Prefix-list for filtering redistributed routes\n"
+	   "Prefix list name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./bgp-direct-%s-prefix-list", afi);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_nve_group_redist_bgpdirect_routemap_cli,
+	   vnc_nve_group_redist_bgpdirect_routemap_cli_cmd,
+	   "[no] redistribute bgp-direct route-map ![NAME$name]",
+	   NO_STR
+	   "Redistribute from other protocols\n"
+	   "Redistribute from BGP directly\n"
+	   "Route-map for filtering redistributed routes\n"
+	   "Route map name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./bgp-direct-route-map", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./bgp-direct-route-map", NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_nve_group_export_prefixlist_cli,
+	   vnc_nve_group_export_prefixlist_cli_cmd,
+	   "[no] export <bgp|zebra>$proto <ipv4|ipv6>$afi prefix-list ![NAME$name]",
+	   NO_STR
+	   "Export to other protocols\n"
+	   "Export to BGP\n"
+	   "Export to Zebra (experimental)\n"
+	   "IPv4 routes\n"
+	   "IPv6 routes\n"
+	   "Prefix-list for filtering exported routes\n"
+	   "Prefix list name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./%s-export-%s-prefix-list", proto, afi);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_nve_group_export_routemap_cli,
+	   vnc_nve_group_export_routemap_cli_cmd,
+	   "[no] export <bgp|zebra>$proto route-map ![NAME$name]",
+	   NO_STR
+	   "Export to other protocols\n"
+	   "Export to BGP\n"
+	   "Export to Zebra (experimental)\n"
+	   "Route-map for filtering exported routes\n"
+	   "Route map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./%s-export-route-map", proto);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_vrf_policy_export_prefixlist_cli,
+	   vnc_vrf_policy_export_prefixlist_cli_cmd,
+	   "[no] export <ipv4|ipv6>$afi prefix-list ![NAME$name]",
+	   NO_STR
+	   "Export to VRF\n"
+	   "IPv4 routes\n"
+	   "IPv6 routes\n"
+	   "Prefix-list for filtering exported routes\n"
+	   "Prefix list name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintfrr(xpath, sizeof(xpath), "./%s-export-prefix-list", afi);
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(vnc_vrf_policy_export_routemap_cli,
+	   vnc_vrf_policy_export_routemap_cli_cmd,
+	   "[no] export route-map ![NAME$name]",
+	   NO_STR
+	   "Export to VRF\n"
+	   "Route-map for filtering exported routes\n"
+	   "Route map name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./export-route-map", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./export-route-map", NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 /* --- advertise-un-method --- */
 
@@ -897,6 +1179,10 @@ void bgp_vnc_cli_init(void)
 	install_element(BGP_NODE, &vnc_redistribute_lifetime_cli_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_rh_roo_localadmin_cli_cmd);
 	install_element(BGP_NODE, &vnc_redistribute_bgp_exterior_cli_cmd);
+	install_element(BGP_NODE, &vnc_redist_bgpdirect_prefixlist_cli_cmd);
+	install_element(BGP_NODE, &vnc_redist_bgpdirect_routemap_cli_cmd);
+	install_element(BGP_NODE, &vnc_nve_export_prefixlist_cli_cmd);
+	install_element(BGP_NODE, &vnc_nve_export_routemap_cli_cmd);
 
 	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_rd_cli_cmd);
 	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_response_lifetime_cli_cmd);
@@ -909,12 +1195,18 @@ void bgp_vnc_cli_init(void)
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_response_lifetime_cli_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_l2rd_cli_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_rt_cli_cmd);
+	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_redist_bgpdirect_prefixlist_cli_cmd);
+	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_redist_bgpdirect_routemap_cli_cmd);
+	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_export_prefixlist_cli_cmd);
+	install_element(BGP_VNC_NVE_GROUP_NODE, &vnc_nve_group_export_routemap_cli_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &exit_vnc_cli_cmd);
 
 	install_element(BGP_VRF_POLICY_NODE, &vrf_policy_label_cli_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vrf_policy_rd_cli_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vnc_rt_cli_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vrf_policy_nexthop_cli_cmd);
+	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_export_prefixlist_cli_cmd);
+	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_export_routemap_cli_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &exit_vrf_policy_cli_cmd);
 
 	install_element(BGP_VNC_L2_GROUP_NODE, &vnc_l2_group_lni_cli_cmd);
