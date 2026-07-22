@@ -29,87 +29,19 @@
 #include "bgpd/bgp_snmp_bgp4.h"
 #include "bgpd/bgp_snmp_bgp4v2.h"
 #include "bgpd/bgp_mplsvpn_snmp.h"
-#include "bgpd/bgp_snmp_clippy.c"
-
-
-
-static int bgp_cli_snmp_traps_config_write(struct vty *vty);
-
-DEFPY(bgp_snmp_traps_rfc4273, bgp_snmp_traps_rfc4273_cmd,
-      "[no$no] bgp snmp traps rfc4273",
-      NO_STR BGP_STR
-      "Configure BGP SNMP\n"
-      "Configure SNMP traps for BGP\n"
-      "Configure use of rfc4273 SNMP traps for BGP\n")
-{
-	if (no) {
-		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
-		return CMD_SUCCESS;
-	}
-	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
-	return CMD_SUCCESS;
-}
-
-DEFPY(bgp_snmp_traps_rfc4382, bgp_snmp_traps_rfc4382_cmd,
-      "[no$no] bgp snmp traps rfc4382",
-      NO_STR BGP_STR
-      "Configure BGP SNMP\n"
-      "Configure SNMP traps for BGP\n"
-      "Configure use of rfc4382 SNMP traps for BGP\n")
-{
-	if (no) {
-		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382);
-		return CMD_SUCCESS;
-	}
-	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382);
-	return CMD_SUCCESS;
-}
-
-DEFPY(bgp_snmp_traps_bgp4_mibv2, bgp_snmp_traps_bgp4_mibv2_cmd,
-      "[no$no] bgp snmp traps bgp4-mibv2",
-      NO_STR BGP_STR
-      "Configure BGP SNMP\n"
-      "Configure SNMP traps for BGP\n"
-      "Configure use of BGP4-MIBv2 SNMP traps for BGP\n")
-{
-	if (no) {
-		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2);
-		return CMD_SUCCESS;
-	}
-	SET_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2);
-	return CMD_SUCCESS;
-}
+#include "bgpd/bgp_nb.h"
 
 static void bgp_snmp_traps_init(void)
 {
-	install_element(CONFIG_NODE, &bgp_snmp_traps_rfc4273_cmd);
-	install_element(CONFIG_NODE, &bgp_snmp_traps_bgp4_mibv2_cmd);
-	install_element(CONFIG_NODE, &bgp_snmp_traps_rfc4382_cmd);
-
+	/*
+	 * Install the YANG SNMP trap commands only when the SNMP module loads,
+	 * and seed runtime defaults to match YANG defaults before any explicit
+	 * config is applied.
+	 */
+	bgp_cli_snmp_traps_init();
 	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
 	/* BGP4MIBv2 traps are disabled by default */
-
 	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382);
-}
-
-int bgp_cli_snmp_traps_config_write(struct vty *vty)
-{
-	int write = 0;
-
-	if (!CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273)) {
-		vty_out(vty, "no bgp snmp traps rfc4273\n");
-		write++;
-	}
-	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2)) {
-		vty_out(vty, "bgp snmp traps bgp4-mibv2\n");
-		write++;
-	}
-	if (!CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382)) {
-		vty_out(vty, "no bgp snmp traps rfc4382\n");
-		write++;
-	}
-
-	return write;
 }
 
 int bgpTrapEstablished(struct peer_connection *connection)
@@ -158,8 +90,6 @@ static int bgp_snmp_module_init(void)
 	hook_register(peer_backward_transition, bgpTrapBackwardTransition);
 	hook_register(frr_late_init, bgp_snmp_init);
 	hook_register(frr_fini, bgp_snmp_terminate);
-	hook_register(bgp_snmp_traps_config_write,
-		      bgp_cli_snmp_traps_config_write);
 	return 0;
 }
 

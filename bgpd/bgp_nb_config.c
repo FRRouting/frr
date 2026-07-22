@@ -16919,6 +16919,69 @@ void bgp_nb_cli_show_daemon_send_extra_data(struct vty *vty, const struct lyd_no
 		vty_out(vty, "no bgp send-extra-data zebra\n");
 }
 
+int bgp_nb_daemon_snmp_traps_rfc4273_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
+	else
+		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_snmp_traps_rfc4273(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "no bgp snmp traps rfc4273\n");
+	else if (show_defaults)
+		vty_out(vty, "bgp snmp traps rfc4273\n");
+}
+
+int bgp_nb_daemon_snmp_traps_bgp4_mibv2_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2);
+	else
+		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_snmp_traps_bgp4_mibv2(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "bgp snmp traps bgp4-mibv2\n");
+	else if (show_defaults)
+		vty_out(vty, "no bgp snmp traps bgp4-mibv2\n");
+}
+
+int bgp_nb_daemon_snmp_traps_rfc4382_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382);
+	else
+		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_daemon_snmp_traps_rfc4382(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "no bgp snmp traps rfc4382\n");
+	else if (show_defaults)
+		vty_out(vty, "bgp snmp traps rfc4382\n");
+}
+
 int bgp_nb_daemon_rmap_delay_time_modify(struct nb_cb_modify_args *args)
 {
 	uint16_t timer;

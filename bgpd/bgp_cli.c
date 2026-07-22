@@ -1715,6 +1715,45 @@ DEFPY_YANG(bgp_daemon_send_extra_data_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(bgp_daemon_snmp_traps_rfc4273_yang,
+	   bgp_daemon_snmp_traps_rfc4273_yang_cmd,
+	   "[no] bgp snmp traps rfc4273",
+	   NO_STR BGP_STR
+	   "Configure BGP SNMP\n"
+	   "Configure SNMP traps for BGP\n"
+	   "Configure use of rfc4273 SNMP traps for BGP\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/snmp-traps/rfc4273", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_snmp_traps_bgp4_mibv2_yang,
+	   bgp_daemon_snmp_traps_bgp4_mibv2_yang_cmd,
+	   "[no] bgp snmp traps bgp4-mibv2",
+	   NO_STR BGP_STR
+	   "Configure BGP SNMP\n"
+	   "Configure SNMP traps for BGP\n"
+	   "Configure use of BGP4-MIBv2 SNMP traps for BGP\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/snmp-traps/bgp4-mibv2", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bgp_daemon_snmp_traps_rfc4382_yang,
+	   bgp_daemon_snmp_traps_rfc4382_yang_cmd,
+	   "[no] bgp snmp traps rfc4382",
+	   NO_STR BGP_STR
+	   "Configure BGP SNMP\n"
+	   "Configure SNMP traps for BGP\n"
+	   "Configure use of rfc4382 SNMP traps for BGP\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/snmp-traps/rfc4382", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(bgp_daemon_rmap_delay_timer_yang,
 	   bgp_daemon_rmap_delay_timer_yang_cmd,
 	   "[no] bgp route-map delay-timer [(0-600)$timer]",
@@ -9910,6 +9949,7 @@ void bgp_cli_init(void)
 	install_element(CONFIG_NODE, &no_bgp_daemon_advertisement_delay_yang_cmd);
 	install_element(CONFIG_NODE, &bgp_daemon_community_alias_yang_cmd);
 	install_element(CONFIG_NODE, &bgp_daemon_send_extra_data_yang_cmd);
+	/* bgp snmp traps commands are installed by bgp_cli_snmp_traps_init() when bgpd_snmp loads */
 	install_element(CONFIG_NODE, &bgp_daemon_rmap_delay_timer_yang_cmd);
 	install_element(CONFIG_NODE, &bgp_daemon_graceful_restart_yang_cmd);
 	install_element(CONFIG_NODE, &no_bgp_daemon_graceful_restart_yang_cmd);
@@ -9982,4 +10022,12 @@ void bgp_cli_bmp_init(void)
 	install_element(BMP_NODE, &bmp_connect_yang_cmd);
 	install_element(BMP_NODE, &bmp_import_vrf_yang_cmd);
 	install_element(BMP_NODE, &bmp_monitor_yang_cmd);
+}
+
+/* Called from bgp_snmp_traps_init() once bgpd_snmp is loaded. */
+void bgp_cli_snmp_traps_init(void)
+{
+	install_element(CONFIG_NODE, &bgp_daemon_snmp_traps_rfc4273_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_snmp_traps_bgp4_mibv2_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_daemon_snmp_traps_rfc4382_yang_cmd);
 }
