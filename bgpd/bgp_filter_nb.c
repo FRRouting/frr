@@ -23,6 +23,7 @@
 #include "bgpd/bgp_filter_nb.h"
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_regex.h"
+#include "frrstr.h"
 
 /*
  * Join a leaf-list into the string community_list_set() expects.
@@ -177,6 +178,89 @@ static const char *bgp_filter_entry_text(const struct lyd_node *entry, int maste
 	return *owned ? *owned : "";
 }
 
+/* Shared helpers for community / large / extcommunity list cli_show. */
+static void bgp_filter_cli_show_style_line(struct vty *vty, const char *kind, const char *name,
+					   bool numbered, bool standard, uint32_t seq,
+					   const char *action, const char *value)
+{
+	if (numbered)
+		vty_out(vty, "bgp %s %s seq %u %s %s\n", kind, name, seq, action, value);
+	else
+		vty_out(vty, "bgp %s %s %s seq %u %s %s\n", kind,
+			standard ? "standard" : "expanded", name, seq, action, value);
+}
+
+static void lib_community_list_entry_cli_show(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	const char *name;
+	uint32_t seq;
+	const char *action;
+	const char *type_str;
+	const char *comm_str;
+	char *owned = NULL;
+	bool standard;
+
+	name = yang_dnode_get_string(dnode, "../name");
+	seq = yang_dnode_get_uint32(dnode, "sequence");
+	action = yang_dnode_get_string(dnode, "action");
+	type_str = yang_dnode_get_string(dnode, "type");
+	standard = strmatch(type_str, "community-list-standard");
+
+	comm_str = bgp_filter_entry_text(dnode, COMMUNITY_LIST_MASTER, !standard, &owned);
+	if (comm_str[0])
+		bgp_filter_cli_show_style_line(vty, "community-list", name, all_digit(name),
+					       standard, seq, action, comm_str);
+	XFREE(MTYPE_TMP, owned);
+}
+
+static void lib_large_community_list_entry_cli_show(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults)
+{
+	const char *name;
+	uint32_t seq;
+	const char *action;
+	const char *type_str;
+	const char *comm_str;
+	char *owned = NULL;
+	bool standard;
+
+	name = yang_dnode_get_string(dnode, "../name");
+	seq = yang_dnode_get_uint32(dnode, "sequence");
+	action = yang_dnode_get_string(dnode, "action");
+	type_str = yang_dnode_get_string(dnode, "type");
+	standard = strstr(type_str, "standard") != NULL;
+
+	comm_str = bgp_filter_entry_text(dnode, LARGE_COMMUNITY_LIST_MASTER, !standard, &owned);
+	if (comm_str[0])
+		bgp_filter_cli_show_style_line(vty, "large-community-list", name, all_digit(name),
+					       standard, seq, action, comm_str);
+	XFREE(MTYPE_TMP, owned);
+}
+
+static void lib_extcommunity_list_entry_cli_show(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults)
+{
+	const char *name;
+	uint32_t seq;
+	const char *action;
+	const char *type_str;
+	const char *comm_str;
+	char *owned = NULL;
+	bool standard;
+
+	name = yang_dnode_get_string(dnode, "../name");
+	seq = yang_dnode_get_uint32(dnode, "sequence");
+	action = yang_dnode_get_string(dnode, "action");
+	type_str = yang_dnode_get_string(dnode, "type");
+	standard = strstr(type_str, "standard") != NULL;
+
+	comm_str = bgp_filter_entry_text(dnode, EXTCOMMUNITY_LIST_MASTER, !standard, &owned);
+	if (comm_str[0])
+		bgp_filter_cli_show_style_line(vty, "extcommunity-list", name, all_digit(name),
+					       standard, seq, action, comm_str);
+	XFREE(MTYPE_TMP, owned);
+}
 
 /*
  * XPath: /frr-filter:lib/frr-bgp-filter:community-list
@@ -1939,6 +2023,7 @@ const struct frr_yang_module_info frr_bgp_filter_info = {
 				.get_next = lib_community_list_entry_get_next,
 				.get_keys = lib_community_list_entry_get_keys,
 				.lookup_entry = lib_community_list_entry_lookup_entry,
+				.cli_show = lib_community_list_entry_cli_show,
 				.apply_finish = lib_community_list_entry_apply_finish,
 			}
 		},
@@ -1988,6 +2073,7 @@ const struct frr_yang_module_info frr_bgp_filter_info = {
 				.get_next = lib_large_community_list_entry_get_next,
 				.get_keys = lib_large_community_list_entry_get_keys,
 				.lookup_entry = lib_large_community_list_entry_lookup_entry,
+				.cli_show = lib_large_community_list_entry_cli_show,
 				.apply_finish = lib_large_community_list_entry_apply_finish,
 			}
 		},
@@ -2037,6 +2123,7 @@ const struct frr_yang_module_info frr_bgp_filter_info = {
 				.get_next = lib_extcommunity_list_entry_get_next,
 				.get_keys = lib_extcommunity_list_entry_get_keys,
 				.lookup_entry = lib_extcommunity_list_entry_lookup_entry,
+				.cli_show = lib_extcommunity_list_entry_cli_show,
 			}
 		},
 		{

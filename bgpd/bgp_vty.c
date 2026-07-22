@@ -13046,94 +13046,23 @@ DEFUN (show_extcommunity_list_arg,
 }
 
 /* Display community-list and extcommunity-list configuration.  */
-static int community_list_config_write(struct vty *vty)
+static int community_list_config_write_one(const struct lyd_node *dnode, void *arg)
 {
-	struct community_list *list;
-	struct community_entry *entry;
-	struct community_list_master *cm;
-	int write = 0;
-
-	/* Community-list.  */
-	cm = community_list_master_lookup(bgp_clist, COMMUNITY_LIST_MASTER);
-
-	for (list = cm->num.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty,
-				"bgp community-list %s seq %" PRId64 " %s %s\n",
-				list->name, entry->seq,
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
-		}
-	for (list = cm->str.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty,
-				"bgp community-list %s %s seq %" PRId64 " %s %s\n",
-				entry->style == COMMUNITY_LIST_STANDARD
-					? "standard"
-					: "expanded",
-				list->name, entry->seq,
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
-		}
-
-	/* Extcommunity-list.  */
-	cm = community_list_master_lookup(bgp_clist, EXTCOMMUNITY_LIST_MASTER);
-
-	for (list = cm->num.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty,
-				"bgp extcommunity-list %s seq %" PRId64 " %s %s\n",
-				list->name, entry->seq,
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
-		}
-	for (list = cm->str.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty,
-				"bgp extcommunity-list %s %s seq %" PRId64" %s %s\n",
-				entry->style == EXTCOMMUNITY_LIST_STANDARD
-					? "standard"
-					: "expanded",
-				list->name, entry->seq,
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
-		}
-
-
-	/* lcommunity-list.  */
-	cm = community_list_master_lookup(bgp_clist,
-					  LARGE_COMMUNITY_LIST_MASTER);
-
-	for (list = cm->num.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty,
-				"bgp large-community-list %s seq %" PRId64" %s %s\n",
-				list->name, entry->seq,
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
-		}
-	for (list = cm->str.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty,
-				"bgp large-community-list %s %s seq %" PRId64" %s %s\n",
-
-				entry->style == LARGE_COMMUNITY_LIST_STANDARD
-					? "standard"
-					: "expanded",
-				list->name, entry->seq, community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
-		}
-
-	return write;
+	nb_cli_show_dnode_cmds(arg, dnode, false);
+	return YANG_ITER_CONTINUE;
 }
 
-static int community_list_config_write(struct vty *vty);
+static int community_list_config_write(struct vty *vty)
+{
+	yang_dnode_iterate(community_list_config_write_one, vty, running_config->dnode,
+			   "/frr-filter:lib/frr-bgp-filter:community-list");
+	yang_dnode_iterate(community_list_config_write_one, vty, running_config->dnode,
+			   "/frr-filter:lib/frr-bgp-filter:extcommunity-list");
+	yang_dnode_iterate(community_list_config_write_one, vty, running_config->dnode,
+			   "/frr-filter:lib/frr-bgp-filter:large-community-list");
+	return 0;
+}
+
 static struct cmd_node community_list_node = {
 	.name = "community list",
 	.node = COMMUNITY_LIST_NODE,
