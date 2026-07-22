@@ -336,40 +336,27 @@ static int is_vni_present_in_irt_vnis(struct list *vnis, struct bgpevpn *vpn)
 }
 
 /* Flag if the route is injectable into EVPN.
- * This would be following category:
- * Non-imported route,
- * Non-EVPN imported route,
+ * When suppress-imported-from-evpn is configured for type-5 export, routes
+ * whose import parent is the EVPN table are not injectable.
  */
-bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi)
+bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi,
+					    safi_t safi,
+					    struct bgp_path_info *pi)
 {
-	struct bgp_path_info *parent_pi;
-	struct bgp_table *table;
-	struct bgp_dest *dest;
+	if (safi == SAFI_UNICAST &&
+	    bgp_evpn_suppress_import_from_evpn(bgp_vrf, afi) &&
+	    IS_PATH_IMPORTED_FROM_EVPN_TABLE(pi))
+		return false;
 
-	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
-	    !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
-		return true;
-
-        parent_pi = (struct bgp_path_info *)pi->extra->vrfleak->parent;
-        dest = parent_pi->net;
-        if (!dest)
-		return true;
-        table = bgp_dest_table(dest);
-        if (table &&
-            table->afi == AFI_L2VPN &&
-            table->safi == SAFI_EVPN)
-                return false;
-
-        return true;
+	return true;
 }
 
 /* Flag if the route is injectable into EVPN.
- * This would be following category:
- * Non-imported route,
- * Non-EVPN imported route,
- * Non Aggregate suppressed route.
+ * This includes the imported-from-EVPN suppression check above and skips
+ * aggregate-suppressed paths.
  */
-bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
+bool is_route_injectable_into_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
+				   struct bgp_path_info *pi)
 {
 	/* do not import aggr suppressed routes */
 	if (bgp_path_suppressed(pi)) {
@@ -377,7 +364,7 @@ bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 		return false;
 	}
 
-	return is_route_injectable_into_evpn_non_supp(pi);
+	return is_route_injectable_into_evpn_non_supp(bgp_vrf, afi, safi, pi);
 }
 
 /*
@@ -5717,7 +5704,8 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 		 * type-5s in the EVPN table.
 		 */
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			if (!is_route_injectable_into_evpn_non_supp(pi))
+			if (!is_route_injectable_into_evpn_non_supp(
+				    bgp_vrf, afi, safi, pi))
 				continue;
 			addpath_id = bgp_evpn_addpath_id_for_path(bgp_vrf, pi, afi);
 			bgp_evpn_withdraw_type5_route(bgp_vrf, pi, bgp_dest_get_prefix(dest), afi,
@@ -5787,7 +5775,8 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 		 * into EVPN.
 		 */
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			if (!is_route_injectable_into_evpn(pi))
+			if (!is_route_injectable_into_evpn(
+				    bgp_vrf, afi, safi, pi))
 				continue;
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) ||
@@ -8619,7 +8608,8 @@ void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi, safi_t safi)
 					zlog_debug("%s aggregated %pFX remove suppressed route %pFX",
 						   __func__, aggr_p, dest_p);
 
-				if (!is_route_injectable_into_evpn_non_supp(pi))
+				if (!is_route_injectable_into_evpn_non_supp(
+					    bgp, afi, safi, pi))
 					continue;
 
 				addpath_id = bgp_evpn_addpath_id_for_path(bgp, pi, afi);
