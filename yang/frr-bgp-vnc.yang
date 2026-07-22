@@ -411,6 +411,30 @@ module frr-bgp-vnc {
           description
             "VNC export to Zebra configuration.";
 
+          leaf mode {
+            type enumeration {
+              enum none {
+                value 0;
+              }
+              enum group-nve {
+                value 1;
+              }
+              enum registering-nve {
+                value 2;
+              }
+            }
+            description
+              "VNC export to Zebra mode.
+               Maps to: vnc export zebra mode ...";
+          }
+
+          leaf-list group-nve-group {
+            type string;
+            description
+              "NVE group names for group-nve zebra export mode.
+               Maps to: vnc export zebra group-nve group NAME";
+          }
+
           leaf ipv4-prefix-list {
             type string;
             description

@@ -3696,12 +3696,9 @@ void bgp_rfapi_cfg_init(void)
 	/* vnc_export_mode_cmd (bgp path), vnc_export_nvegroup_cmd */
 
 	/* BGP_NODE — still classic */
-	/* vnc_l2_group / no / advertise-un-method — YANG: bgp_vnc_cli_init() */
+	/* (none — VNC config CLI fully migrated to bgp_vnc_cli_init()) */
 
 	/* BGP_VNC_DEFAULTS_NODE — migrated: rt/rd/response-lifetime/l2rd/exit-vnc */
-
-	/* BGP_NODE — still classic (zebra export mode/group leftovers) */
-	/* redistribute/export filters — YANG: bgp_vnc_cli_init() */
 
 	/* BGP_VNC_NVE_GROUP_NODE — migrated: rt/rd/prefix/lifetime/l2rd/filters/exit-vnc */
 
