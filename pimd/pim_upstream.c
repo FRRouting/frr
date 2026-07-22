@@ -490,6 +490,9 @@ void prune_timer_start(struct pim_upstream *up)
 
 	if (up->rpf.source_nexthop.interface) {
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface, up->rpf.rpf_addr, true);
+		if (!nbr && !pim_addr_is_any(up->rpf.source_nexthop.mrib_nexthop_addr))
+			nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+						up->rpf.source_nexthop.mrib_nexthop_addr, true);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s", __func__,
@@ -498,7 +501,7 @@ void prune_timer_start(struct pim_upstream *up)
 	}
 
 	if (nbr)
-		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
+		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, false, nbr);
 	else {
 		event_cancel(&up->t_prune_timer);
 		event_add_timer(router->master, on_prune_timer, up, router->t_periodic,
@@ -1540,6 +1543,10 @@ bool pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 {
 	bool empty_imm_oil;
 	bool empty_inh_oil;
+
+	/* Dense-mode pruned streams must not emit sparse Join refreshes. */
+	if (PIM_UPSTREAM_DM_TEST_PRUNE(up->flags))
+		return false;
 
 	empty_imm_oil = pim_upstream_empty_immediate_olist(pim, up);
 
