@@ -3700,47 +3700,12 @@ void bgp_rfapi_cfg_init(void)
 
 	/* BGP_VNC_DEFAULTS_NODE — migrated: rt/rd/response-lifetime/l2rd/exit-vnc */
 
-	/* BGP_NODE — still classic (redistribute/export filter helpers) */
-	/* nve-group/lifetime/roo/exterior — YANG: bgp_vnc_cli_init() */
+	/* BGP_NODE — still classic (zebra export mode/group leftovers) */
+	/* redistribute/export filters — YANG: bgp_vnc_cli_init() */
 
-	install_element(BGP_NODE, &vnc_redist_bgpdirect_no_prefixlist_cmd);
-	install_element(BGP_NODE, &vnc_redist_bgpdirect_prefixlist_cmd);
-	install_element(BGP_NODE, &vnc_redist_bgpdirect_no_routemap_cmd);
-	install_element(BGP_NODE, &vnc_redist_bgpdirect_routemap_cmd);
+	/* BGP_VNC_NVE_GROUP_NODE — migrated: rt/rd/prefix/lifetime/l2rd/filters/exit-vnc */
 
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_redist_bgpdirect_no_prefixlist_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_redist_bgpdirect_prefixlist_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_redist_bgpdirect_no_routemap_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_redist_bgpdirect_routemap_cmd);
-
-	install_element(BGP_NODE, &vnc_nve_export_prefixlist_cmd);
-	install_element(BGP_NODE, &vnc_nve_export_routemap_cmd);
-	install_element(BGP_NODE, &vnc_nve_export_no_prefixlist_cmd);
-	install_element(BGP_NODE, &vnc_nve_export_no_routemap_cmd);
-
-	/* BGP_VNC_NVE_GROUP_NODE — migrated: rt/rd/prefix/lifetime/l2rd/exit-vnc */
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_export_prefixlist_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_export_routemap_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_export_no_prefixlist_cmd);
-	install_element(BGP_VNC_NVE_GROUP_NODE,
-			&vnc_nve_group_export_no_routemap_cmd);
-
-	/* BGP_VRF_POLICY_NODE — migrated: rt/rd/label/nexthop/exit */
-	install_element(BGP_VRF_POLICY_NODE,
-			&vnc_vrf_policy_export_prefixlist_cmd);
-	install_element(BGP_VRF_POLICY_NODE,
-			&vnc_vrf_policy_export_routemap_cmd);
-	install_element(BGP_VRF_POLICY_NODE,
-			&vnc_vrf_policy_export_no_prefixlist_cmd);
-	install_element(BGP_VRF_POLICY_NODE,
-			&vnc_vrf_policy_export_no_routemap_cmd);
+	/* BGP_VRF_POLICY_NODE — migrated: rt/rd/label/nexthop/filters/exit */
 
 	/* BGP_VNC_L2_GROUP_NODE — migrated to bgp_vnc_cli_init() */
 }
