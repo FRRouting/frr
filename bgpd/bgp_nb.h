@@ -23,6 +23,11 @@ int bgp_nb_routing_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void bgp_nb_cli_show_router_bgp_end(struct vty *vty, const struct lyd_node *dnode);
 
+struct bgp;
+const char *bgp_nb_instance_xpath(const struct bgp *bgp, char *buf, size_t buflen);
+void bgp_nb_cli_show_instance(struct vty *vty, const struct lyd_node *dnode);
+void bgp_nb_cli_show_instance_bgp(struct vty *vty, struct bgp *bgp);
+
 /* Global leaves */
 int bgp_nb_local_as_modify(struct nb_cb_modify_args *args);
 int bgp_nb_router_id_modify(struct nb_cb_modify_args *args);
@@ -284,6 +289,10 @@ void bgp_nb_cli_show_coalesce_time(struct vty *vty, const struct lyd_node *dnode
 int bgp_nb_subgroup_pkt_queue_size_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_subgroup_pkt_queue_size(struct vty *vty, const struct lyd_node *dnode,
 					     bool show_defaults);
+
+int bgp_nb_default_originate_setonly_modify(struct nb_cb_modify_args *args);
+void bgp_nb_cli_show_default_originate_setonly(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
 
 int bgp_nb_default_shutdown_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_default_shutdown(struct vty *vty, const struct lyd_node *dnode,
@@ -771,6 +780,9 @@ void bgp_nb_cli_show_peer_af_nexthop_local_unchanged(struct vty *vty, const stru
 
 int bgp_nb_global_afi_safi_create(struct nb_cb_create_args *args);
 int bgp_nb_global_afi_safi_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_global_afi_safi(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+void bgp_nb_cli_show_global_afi_safi_end(struct vty *vty, const struct lyd_node *dnode);
 
 int bgp_nb_network_create(struct nb_cb_create_args *args);
 int bgp_nb_network_destroy(struct nb_cb_destroy_args *args);
@@ -1117,6 +1129,13 @@ void bgp_nb_cli_show_bmp_target_acl_v4(struct vty *vty, const struct lyd_node *d
 				       bool show_defaults);
 void bgp_nb_cli_show_bmp_target_acl_v6(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults);
+
+int bgp_nb_bmp_target_initiation_modify(struct nb_cb_modify_args *args);
+int bgp_nb_bmp_target_initiation_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_bmp_target_initiation_sysdescr(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
+void bgp_nb_cli_show_bmp_target_initiation_sysname(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
 
 int bgp_nb_bmp_listener_create(struct nb_cb_create_args *args);
 int bgp_nb_bmp_listener_destroy(struct nb_cb_destroy_args *args);

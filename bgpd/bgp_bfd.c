@@ -666,44 +666,6 @@ void bgp_peer_remove_bfd_config(struct peer *p)
 }
 
 /*
- * bgp_bfd_peer_config_write - Write the peer BFD configuration.
- */
-void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, const char *addr)
-{
-	/*
-	 * Always show group BFD configuration, but peer only when explicitly
-	 * configured.
-	 */
-	if ((!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-	     && peer->bfd_config->manual)
-	    || CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-#if HAVE_BFDD > 0
-		vty_out(vty, " neighbor %s bfd\n", addr);
-#else
-		vty_out(vty, " neighbor %s bfd %d %d %d\n", addr,
-			peer->bfd_config->detection_multiplier,
-			peer->bfd_config->min_rx, peer->bfd_config->min_tx);
-#endif /* HAVE_BFDD */
-	}
-
-	if (peer->bfd_config->profile[0])
-		vty_out(vty, " neighbor %s bfd profile %s\n", addr,
-			peer->bfd_config->profile);
-
-	if (peer->bfd_config->cbit)
-		vty_out(vty, " neighbor %s bfd check-control-plane-failure\n",
-			addr);
-
-	if (peergroup_flag_check(peer, PEER_FLAG_BFD_STRICT)) {
-		if (peer->bfd_config->hold_time != BFD_DEF_STRICT_HOLD_TIME)
-			vty_out(vty, " neighbor %s bfd strict hold-time %u\n", addr,
-				peer->bfd_config->hold_time);
-		else
-			vty_out(vty, " neighbor %s bfd strict\n", addr);
-	}
-}
-
-/*
  * bgp_bfd_show_info - Show the peer BFD information.
  */
 void bgp_bfd_show_info(struct vty *vty, struct peer *peer, json_object *json_neigh)

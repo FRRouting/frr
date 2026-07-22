@@ -249,6 +249,26 @@ submodule frr-bgp-bmp {
             "Access list to restrict BMP sessions.";
         }
 
+        leaf initiation-sysdescr {
+          type string {
+            length "1..255";
+          }
+          description
+            "System description sent in the BMP Initiation message
+             (default: the FRR version).
+             Maps to: bmp initiation sysDescr LINE.";
+        }
+
+        leaf initiation-sysname {
+          type string {
+            length "1..255";
+          }
+          description
+            "System name sent in the BMP Initiation message
+             (default: the hostname).
+             Maps to: bmp initiation sysName LINE.";
+        }
+
         leaf-list import-vrf {
           type string;
           description

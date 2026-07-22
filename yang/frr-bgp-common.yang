@@ -492,6 +492,15 @@ submodule frr-bgp-common {
         "Apply administrative shutdown to newly configured peers.";
     }
 
+    leaf default-originate-set-only-unconditional {
+      type boolean;
+      default "false";
+      description
+        "Permit set-only route-maps to originate a default route even
+         when the table is empty.
+         Maps to: bgp default-originate set-only-unconditional.";
+    }
+
     leaf suppress-duplicates {
       type boolean;
       default "true";

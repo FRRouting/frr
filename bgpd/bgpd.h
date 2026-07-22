@@ -1213,9 +1213,6 @@ struct bgp_interface {
 };
 
 DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
-DECLARE_HOOK(bgp_inst_config_write,
-		(struct bgp *bgp, struct vty *vty),
-		(bgp, vty));
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	     (vrf, enabled));
