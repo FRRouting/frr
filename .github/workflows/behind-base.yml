@@ -31,5 +31,6 @@ jobs:
         if: ${{ steps.vars.outputs.behind_by > 50 }}
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: gh pr edit "$PR_NUMBER" --add-label rebase

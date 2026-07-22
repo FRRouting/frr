@@ -17,6 +17,7 @@ jobs:
       - name: Add base branch label
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_LABEL: ${{ github.event.pull_request.base.ref }}
         run: gh pr edit "$PR_NUMBER" --add-label "$BASE_LABEL"
