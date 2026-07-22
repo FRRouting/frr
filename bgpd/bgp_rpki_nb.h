@@ -25,7 +25,7 @@ struct rpki_nb_ops {
 	 * Incomplete parameters drop a stale cache and do not install one.
 	 */
 	void (*cache_add_tcp)(const char *vrfname, uint8_t preference, const char *host,
-			      uint16_t port, const char *source);
+			      const char *port, const char *source);
 	void (*cache_add_ssh)(const char *vrfname, uint8_t preference, const char *host,
 			      uint16_t port, const char *user, const char *priv_key,
 			      const char *server_pub_key, const char *source);

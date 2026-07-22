@@ -31,15 +31,25 @@ static const char *rpki_nb_vrf_name(const struct lyd_node *dnode)
 	return VRF_DEFAULT_NAME;
 }
 
+static const char *rpki_nb_cli_indent(const struct lyd_node *dnode)
+{
+	const char *vrfname = rpki_nb_vrf_name(dnode);
+
+	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME))
+		return " ";
+	return "";
+}
+
 static void bgp_rpki_container_cli_show(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, "rpki\n");
+	vty_out(vty, "%srpki\n", rpki_nb_cli_indent(dnode));
 }
 
 static void bgp_rpki_container_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
 {
-	vty_out(vty, "exit\n!\n");
+	/* Trailing `!` is added by RPKI_NODE / VRF config writers. */
+	vty_out(vty, "%sexit\n", rpki_nb_cli_indent(dnode));
 }
 
 static int bgp_rpki_enable_modify(struct nb_cb_modify_args *args)
@@ -65,24 +75,55 @@ static int bgp_rpki_polling_time_modify(struct nb_cb_modify_args *args)
 static void bgp_rpki_polling_time_cli_show(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " rpki polling_period %u\n", yang_dnode_get_uint32(dnode, NULL));
+	vty_out(vty, "%s rpki polling_period %u\n", rpki_nb_cli_indent(dnode),
+		yang_dnode_get_uint32(dnode, NULL));
 }
 
 static int bgp_rpki_expire_time_modify(struct nb_cb_modify_args *args)
 {
-	/* expire vs polling constrained by YANG must. */
+	switch (args->event) {
+	case NB_EV_VALIDATE: {
+		uint32_t expire = yang_dnode_get_uint32(args->dnode, NULL);
+		uint32_t polling = 3600;
+
+		if (yang_dnode_exists(args->dnode, "../polling-time"))
+			polling = yang_dnode_get_uint32(args->dnode, "../polling-time");
+		if (expire < polling) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Expiry interval must be polling period or larger");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		if (rpki_nb_cb && rpki_nb_cb->expire_set)
+			rpki_nb_cb->expire_set(rpki_nb_vrf_name(args->dnode),
+					       yang_dnode_get_uint32(args->dnode, NULL));
+		return NB_OK;
+	}
+	return NB_OK;
+}
+
+static int bgp_rpki_expire_time_destroy(struct nb_cb_destroy_args *args)
+{
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	if (rpki_nb_cb && rpki_nb_cb->expire_set)
-		rpki_nb_cb->expire_set(rpki_nb_vrf_name(args->dnode),
-				       yang_dnode_get_uint32(args->dnode, NULL));
+		rpki_nb_cb->expire_set(rpki_nb_vrf_name(args->dnode), 0);
 	return NB_OK;
 }
 
 static void bgp_rpki_expire_time_cli_show(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
-	vty_out(vty, " rpki expire_interval %u\n", yang_dnode_get_uint32(dnode, NULL));
+	uint32_t expire = yang_dnode_get_uint32(dnode, NULL);
+
+	if (expire == 7200 && !show_defaults)
+		return;
+	vty_out(vty, "%s rpki expire_interval %u\n", rpki_nb_cli_indent(dnode), expire);
 }
 
 static int bgp_rpki_retry_time_modify(struct nb_cb_modify_args *args)
@@ -98,7 +139,8 @@ static int bgp_rpki_retry_time_modify(struct nb_cb_modify_args *args)
 static void bgp_rpki_retry_time_cli_show(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	vty_out(vty, " rpki retry_interval %u\n", yang_dnode_get_uint16(dnode, NULL));
+	vty_out(vty, "%s rpki retry_interval %u\n", rpki_nb_cli_indent(dnode),
+		yang_dnode_get_uint16(dnode, NULL));
 }
 
 /*
@@ -128,12 +170,14 @@ static void bgp_rpki_cache_list_install(const struct lyd_node *dnode)
 		host = yang_dnode_get_string(dnode, "ip-host-address");
 
 	if (strmatch(cache_type, "TCP")) {
+		const char *tcp_port = NULL;
+
 		if (yang_dnode_exists(dnode, "transport/tcp/tcp-port"))
-			port = (uint16_t)yang_dnode_get_uint32(dnode, "transport/tcp/tcp-port");
+			tcp_port = yang_dnode_get_string(dnode, "transport/tcp/tcp-port");
 		if (yang_dnode_exists(dnode, "transport/tcp/source-address"))
 			source = yang_dnode_get_string(dnode, "transport/tcp/source-address");
 		if (rpki_nb_cb && rpki_nb_cb->cache_add_tcp)
-			rpki_nb_cb->cache_add_tcp(vrfname, pref, host, port, source);
+			rpki_nb_cb->cache_add_tcp(vrfname, pref, host, tcp_port, source);
 		return;
 	}
 
@@ -186,6 +230,7 @@ static int bgp_rpki_cache_list_destroy(struct nb_cb_destroy_args *args)
 static void bgp_rpki_cache_list_cli_show(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
+	const char *indent = rpki_nb_cli_indent(dnode);
 	uint8_t pref;
 	const char *type;
 	const char *host;
@@ -201,11 +246,13 @@ static void bgp_rpki_cache_list_cli_show(struct vty *vty, const struct lyd_node 
 		host = yang_dnode_get_string(dnode, "ip-host-address");
 
 	if (strmatch(type, "TCP")) {
+		const char *tcp_port = "";
+
 		if (yang_dnode_exists(dnode, "transport/tcp/tcp-port"))
-			port = (uint16_t)yang_dnode_get_uint32(dnode, "transport/tcp/tcp-port");
+			tcp_port = yang_dnode_get_string(dnode, "transport/tcp/tcp-port");
 		if (yang_dnode_exists(dnode, "transport/tcp/source-address"))
 			source = yang_dnode_get_string(dnode, "transport/tcp/source-address");
-		vty_out(vty, " rpki cache tcp %s %u", host, port);
+		vty_out(vty, "%s rpki cache tcp %s %s", indent, host, tcp_port);
 		if (source)
 			vty_out(vty, " source %s", source);
 		vty_out(vty, " preference %u\n", pref);
@@ -224,7 +271,8 @@ static void bgp_rpki_cache_list_cli_show(struct vty *vty, const struct lyd_node 
 			known = yang_dnode_get_string(dnode, "transport/ssh/server-public-key");
 		if (yang_dnode_exists(dnode, "transport/ssh/source-address"))
 			source = yang_dnode_get_string(dnode, "transport/ssh/source-address");
-		vty_out(vty, " rpki cache ssh %s %u %s %s %s", host, port, user, priv, known);
+		vty_out(vty, "%s rpki cache ssh %s %u %s %s %s", indent, host, port, user, priv,
+			known);
 		if (source)
 			vty_out(vty, " source %s", source);
 		vty_out(vty, " preference %u\n", pref);
@@ -273,6 +321,7 @@ const struct frr_yang_module_info frr_bgp_rpki_info = {
 			.xpath = "/frr-vrf:lib/vrf/frr-bgp-rpki:bgp-rpki/rpki-timers/expire-time",
 			.cbs = {
 				.modify = bgp_rpki_expire_time_modify,
+				.destroy = bgp_rpki_expire_time_destroy,
 				.cli_show = bgp_rpki_expire_time_cli_show,
 			},
 		},
@@ -316,7 +365,6 @@ const struct frr_yang_module_info frr_bgp_rpki_info = {
 			.xpath = "/frr-vrf:lib/vrf/frr-bgp-rpki:bgp-rpki/rpki-cache-server/cache-list/transport/tcp/tcp-port",
 			.cbs = {
 				.modify = bgp_rpki_cache_leaf_modify,
-				.destroy = bgp_rpki_cache_leaf_destroy,
 			},
 		},
 		{
