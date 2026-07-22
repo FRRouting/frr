@@ -2658,6 +2658,12 @@ if __name__ == "__main__":
             # apply to other scenarios as well where configuring FOO adds BAR
             # to the config.
             if lines_to_del and x == 0:
+                log.info("lines_to_del content\n%s", pformat(lines_to_del))
+
+                # Flush log before executing deletes so content is preserved if crash occurs
+                for handler in log.handlers:
+                    handler.flush()
+
                 for ctx_keys, line in lines_to_del:
                     if line == "!":
                         continue
@@ -2709,7 +2715,6 @@ if __name__ == "__main__":
                             new_last_arg = last_arg[0:-1]
                             cmd[-1] = " ".join(new_last_arg)
                         else:
-                            log.info(f'Executed "{" ".join(cmd)}"')
                             break
 
             if lines_to_add:
@@ -2737,6 +2742,10 @@ if __name__ == "__main__":
 
                     filename = args.rundir + "/reload-%s.txt" % random_string
                     log.info(f"{filename} content\n{pformat(lines_to_configure)}")
+
+                    # Flush log before vtysh.exec_file() so content is preserved if crash occurs
+                    for handler in log.handlers:
+                        handler.flush()
 
                     with open(filename, "w") as fh:
                         for line in lines_to_configure:
