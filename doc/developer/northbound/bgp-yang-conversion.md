@@ -76,8 +76,10 @@ when path matching was wrong.
 **Follow-ups (not blocking “config done”)**
 
 - Drop dual-path classic `config_write` once YANG `cli_show` is trusted
-  (started: RPKI node / VRF hook now dump via `nb_cli_show_dnode_cmds`)
+  (started: RPKI node / VRF hook; daemon-wide `/frr-bgp:bgp-daemon` knobs
+  including SNMP traps and community aliases)
 - Ops (debug/show/clear) remain classic by design
 - Do not YANG-convert `rpki reset` as configuration
-- Remaining classic writers: `bgp_config_write` (instance + daemon knobs),
-  filters (as-path / community-list need `cli_show`), VNC nodes, dump/debug
+- Remaining classic writers: `bgp_config_write` (per-instance globals /
+  neighbors / AF), filters (as-path / community-list need `cli_show`),
+  VNC nodes, dump/debug

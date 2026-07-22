@@ -31,6 +31,8 @@
 #include "asn.h"
 #include "frregex_real.h"
 
+#include "northbound_cli.h"
+
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_attr_evpn.h"
@@ -156,7 +158,6 @@ FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
 );
 
 DEFINE_HOOK(bgp_inst_config_write, (struct bgp *bgp, struct vty *vty), (bgp, vty));
-DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 
 
 /* Show BGP peer's information. */
@@ -11378,80 +11379,14 @@ int bgp_config_write(struct vty *vty)
 	afi_t afi;
 	safi_t safi;
 	uint32_t tovpn_sid_index = 0;
+	const struct lyd_node *daemon_dnode;
 
-	hook_call(bgp_snmp_traps_config_write, vty);
-
+	/* Daemon-wide CONFIG_NODE knobs (/frr-bgp:bgp-daemon). */
 	vty_out(vty, "!\n");
-	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
-		vty_out(vty, "bgp route-map delay-timer %u\n",
-			bm->rmap_update_timer);
-
-	if (bm->v_update_delay != BGP_UPDATE_DELAY_DEFAULT) {
-		vty_out(vty, "bgp update-delay %d", bm->v_update_delay);
-		if (bm->v_update_delay != bm->v_establish_wait)
-			vty_out(vty, " %d", bm->v_establish_wait);
-		vty_out(vty, "\n");
-	}
-
-	if (bm->v_advertisement_delay != BGP_ADVERTISEMENT_DELAY_DEFAULT)
-		vty_out(vty, "bgp advertisement-delay %d\n", bm->v_advertisement_delay);
-
-	if (bm->wait_for_fib) {
-		if (bm->suppress_fib_adv_delay != BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY)
-			vty_out(vty, "bgp suppress-fib-pending %u\n",
-				bm->suppress_fib_adv_delay);
-		else
-			vty_out(vty, "bgp suppress-fib-pending\n");
-	}
-
-	if (bm->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
-		vty_out(vty, "bgp graceful-restart stalepath-time %u\n",
-			bm->stalepath_time);
-
-	if (bm->restart_time != BGP_DEFAULT_RESTART_TIME)
-		vty_out(vty, "bgp graceful-restart restart-time %u\n",
-			bm->restart_time);
-
-	if (bm->select_defer_time != BGP_DEFAULT_SELECT_DEFERRAL_TIME)
-		vty_out(vty, "bgp graceful-restart select-defer-time %u\n",
-			bm->select_defer_time);
-
-	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_RESTARTER))
-		vty_out(vty, "bgp graceful-restart\n");
-	else if (CHECK_FLAG(bm->flags, BM_FLAG_GR_DISABLED))
-		vty_out(vty, "bgp graceful-restart-disable\n");
-
-	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD))
-		vty_out(vty, "bgp graceful-restart preserve-fw-state\n");
-
-	if (bm->rib_stale_time != BGP_DEFAULT_RIB_STALE_TIME)
-		vty_out(vty, "bgp graceful-restart rib-stale-time %u\n",
-			bm->rib_stale_time);
-
-	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
-		vty_out(vty, "bgp graceful-shutdown\n");
-
-	/* No-RIB (Zebra) option flag configuration */
-	if (bgp_option_check(BGP_OPT_NO_FIB))
-		vty_out(vty, "bgp no-rib\n");
-
-	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
-		vty_out(vty, "bgp send-extra-data zebra\n");
-
-	if (CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
-		vty_out(vty, "no bgp ipv6-auto-ra\n");
-
-	/* DSCP value for outgoing packets in BGP connections */
-	if (bm->ip_tos != IPTOS_PREC_INTERNETCONTROL)
-		vty_out(vty, "bgp session-dscp %u\n", bm->ip_tos >> 2);
-
-	/* BGP InQ limit */
-	if (bm->inq_limit != BM_DEFAULT_Q_LIMIT)
-		vty_out(vty, "bgp input-queue-limit %u\n", bm->inq_limit);
-
-	if (bm->outq_limit != BM_DEFAULT_Q_LIMIT)
-		vty_out(vty, "bgp output-queue-limit %u\n", bm->outq_limit);
-
+	daemon_dnode = yang_dnode_get(running_config->dnode,
+				      "/frr-bgp:bgp-daemon");
+	if (daemon_dnode)
+		nb_cli_show_dnode_cmds(vty, daemon_dnode, false);
 	vty_out(vty, "!\n");
 
 	/* BGP configuration. */
@@ -13227,7 +13162,8 @@ static struct cmd_node community_alias_node = {
 	.name = "community alias",
 	.node = COMMUNITY_ALIAS_NODE,
 	.prompt = "",
-	.config_write = bgp_community_alias_write,
+	/* Dumped via /frr-bgp:bgp-daemon cli_show from bgp_config_write. */
+	.config_write = NULL,
 };
 
 void community_alias_vty(void)
