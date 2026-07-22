@@ -31,12 +31,15 @@ Topotests for pimd NOCACHE / WRONGVIF ingress handling:
    survives after MFC flush.
 
 5. WRONGVIF ingress prefer on FHR: parent has a broad secondary prefix that
-   also covers the tunnel source subnet (e.g. /16 on the parent while GRE
-   tunnels carry the same /16).  Join/FHR installs MFC iif on the parent; a
-   more-specific static via the tunnel does not change that connected RPF.
-   Data then arrives on the passive tunnel -> WRONGVIF.  pimd must realign
-   MFC iif to the kernel ingress.  NOCACHE does not apply because the MFC
-   already exists.
+   also covers the alternate-path source subnet (e.g. /16 on the parent while
+   another interface carries the same /16).  Join/FHR installs MFC iif on the
+   parent; a more-specific static via the alternate interface does not change
+   that connected RPF.  Data then arrives on the alternate interface ->
+   WRONGVIF.  pimd must realign MFC iif to the kernel ingress.  NOCACHE does
+   not apply because the MFC already exists.  A (*,G) ifchannel on the
+   alternate ingress (e.g. from static-group / local membership) must not
+   block prefer-ingress: Assert on (*,G) cannot succeed (SPTbit is false),
+   which previously left WRONGVIF stuck.
 """
 
 import json
@@ -78,16 +81,16 @@ TOPOLOGY = """
               |        |        |                 |
            h_src    h_src    h_local    r_passive [passive->fhr]
          fhr-eth1  fhr-eth4  fhr-eth2           fhr-eth3
-         (parent)  (tunnel)                       |
+         (parent)  (alt iif)                      |
                                              h_foreign
 
     RP 10.255.0.1 (rp lo)
 
     WRONGVIF overlapping-prefix shape (test_wrongvif_prefer_kernel_ingress):
       fhr-eth1 primary 10.10.4.1/24 + secondary 10.20.0.1/16
-      fhr-eth4          10.20.2.253/16  (PIM passive tunnel stand-in)
-      static            10.20.1.0/24 via tunnel
-      source            10.20.1.4 on h_src-eth1 (data on tunnel)
+      fhr-eth4          10.20.2.253/16  (PIM-passive alternate ingress)
+      static            10.20.1.0/24 via fhr-eth4
+      source            10.20.1.4 on h_src-eth1 (data on alternate path)
       Connected /16 on parent makes RPF stick to fhr-eth1 while packets
       arrive on fhr-eth4.
 """
@@ -96,7 +99,7 @@ SOURCE = "10.10.4.2"
 FOREIGN_SOURCE = "10.50.1.2"
 RP_ADDR = "10.255.0.1"
 
-# WRONGVIF source covered by parent secondary /16; data arrives on tunnel.
+# WRONGVIF source covered by parent secondary /16; data arrives on alternate path.
 WRONGVIF_SOURCE = "10.20.1.4"
 WRONGVIF_SRC_PREFIX = "10.20.1.0/24"
 WRONGVIF_OVERLAP = "10.20.0.0/16"
@@ -178,7 +181,7 @@ def build_topo(tgen):
         "h_foreign-eth0",
         R_PASSIVE_TO_FOREIGN,
     )
-    # Second path from source host to FHR (tunnel stand-in for WRONGVIF test).
+    # Second path from source host to FHR (alternate ingress for WRONGVIF test).
     tgen.add_link(tgen.gears["h_src"], tgen.gears["fhr"], "h_src-eth1", FHR_TO_TUNNEL)
 
 
@@ -540,15 +543,18 @@ def test_static_mroute_forward_with_traffic(request):
 
 def test_wrongvif_prefer_kernel_ingress(request):
     """
-    Overlapping connected prefix on parent vs PIM-passive tunnel:
+    Overlapping connected prefix on parent vs alternate PIM-passive interface:
 
-      - Parent (fhr-eth1) has primary LAN plus secondary overlapping /16
-      - Tunnel stand-in (fhr-eth4) is PIM passive on the same /16
-      - More-specific static points the source prefix at the tunnel
+      - Parent (fhr-eth1) has primary address plus secondary overlapping /16
+      - Alternate interface (fhr-eth4) is PIM passive on the same /16
+      - More-specific static points the source prefix at the alternate interface
       - Connected /16 on parent still makes join/FHR RPF stick to parent
+      - (*,G) static-group on the alternate interface installs local membership
+        without an (S,G) ifchannel on that ingress
 
-    Traffic arrives on the tunnel while MFC iif is parent -> WRONGVIF.
-    pimd must realign MFC iif / upstream RPF to the kernel ingress.
+    Traffic arrives on the alternate interface while MFC iif is parent ->
+    WRONGVIF.  pimd must realign MFC iif / upstream RPF to the kernel ingress
+    even though a (*,G) ifchannel exists on the ingress (Assert cannot win).
     """
 
     tgen = get_topogen()
@@ -564,7 +570,7 @@ def test_wrongvif_prefer_kernel_ingress(request):
     group = GROUP_WRONGVIF_INGRESS
     source = WRONGVIF_SOURCE
 
-    step("Configure parent secondary /16 overlapping tunnel source space")
+    step("Configure parent secondary /16 overlapping alternate-path source space")
     fhr.vtysh_cmd(
         f"""
         conf t
@@ -578,7 +584,9 @@ def test_wrongvif_prefer_kernel_ingress(request):
     # 10.10.4.2 so packets are sourced as WRONGVIF_SOURCE toward the parent.
     h_src.run("ip addr del 10.10.4.2/24 dev h_src-eth0 || true")
     h_src.run(f"ip addr add {source}/16 dev h_src-eth0")
-    h_src.run(f"ip route replace default via {WRONGVIF_PARENT_SEC.split('/')[0]} || true")
+    h_src.run(
+        f"ip route replace default via {WRONGVIF_PARENT_SEC.split('/')[0]} || true"
+    )
 
     step("Join local receiver and start traffic on parent path {}".format(FHR_TO_SRC))
     assert app_helper.run_join("h_local", group, join_intf="h_local-eth0") is True
@@ -602,8 +610,10 @@ def test_wrongvif_prefer_kernel_ingress(request):
         tc_name, result
     )
 
-    step("Bring up PIM-passive tunnel stand-in and more-specific static via tunnel")
+    step("Bring up PIM-passive alternate path with (*,G) membership and static")
     # Install after baseline so join/FHR RPF is already stuck on the parent.
+    # static-group creates a (*,G) ifchannel on the alternate ingress without
+    # a matching (S,G) ifchannel.
     fhr.vtysh_cmd(
         f"""
         conf t
@@ -611,11 +621,13 @@ def test_wrongvif_prefer_kernel_ingress(request):
               ip address {WRONGVIF_TUNNEL_ADDR}
               ip pim
               ip pim passive
+              ip igmp
+              ip igmp static-group {group}
            ip route {WRONGVIF_SRC_PREFIX} {source} {FHR_TO_TUNNEL}
     """
     )
 
-    step("Confirm overlapping connected /16 is present on parent and tunnel")
+    step("Confirm overlapping connected /16 is present on parent and alternate")
 
     def _check_overlap_routes():
         output = fhr.vtysh_cmd(
@@ -630,24 +642,32 @@ def test_wrongvif_prefer_kernel_ingress(request):
         return FHR_TO_SRC in ifaces and FHR_TO_TUNNEL in ifaces
 
     _, ok = topotest.run_and_expect(_check_overlap_routes, True, count=30, wait=1)
-    assert ok is True, "{}: overlapping /16 not on parent+tunnel".format(tc_name)
+    assert ok is True, "{}: overlapping /16 not on parent+alternate".format(tc_name)
 
-    step("Confirm MFC iif remains stuck on parent after tunnel/static install")
-    result = verify_mroutes(tgen, "fhr", source, group, FHR_TO_SRC, FHR_TO_LOCAL)
-    assert result is True, "{}: parent iif not sticky after tunnel: {}".format(
+    step("Confirm (*,G) ifchannel exists on alternate ingress")
+    result = verify_mroutes(tgen, "fhr", "*", group, FHR_TO_RP, FHR_TO_TUNNEL)
+    assert (
+        result is True
+    ), "{}: (*,G) not present after static-group on alternate: {}".format(
         tc_name, result
     )
 
-    step("Move source traffic to tunnel stand-in {}".format(FHR_TO_TUNNEL))
+    step("Confirm MFC iif remains stuck on parent after alternate/static install")
+    result = verify_mroutes(tgen, "fhr", source, group, FHR_TO_SRC, FHR_TO_LOCAL)
+    assert result is True, "{}: parent iif not sticky after alternate path: {}".format(
+        tc_name, result
+    )
+
+    step("Move source traffic to alternate ingress {}".format(FHR_TO_TUNNEL))
     h_src.run(f"ip addr add {source}/16 dev h_src-eth1 || true")
     h_src.run("ip link set h_src-eth1 up")
     h_src.run(f"ip route replace {WRONGVIF_TUNNEL_GW}/32 dev h_src-eth1 || true")
     app_helper.stop_traffic_senders()
     assert app_helper.run_traffic("h_src", group, bind_intf="h_src-eth1") is True
 
-    step("Verify WRONGVIF realigned MFC iif to tunnel stand-in")
+    step("Verify WRONGVIF realigned MFC iif to alternate ingress despite (*,G)")
     result = verify_mroutes(tgen, "fhr", source, group, FHR_TO_TUNNEL, FHR_TO_LOCAL)
-    assert result is True, "{}: tunnel iif not installed after WRONGVIF: {}".format(
+    assert result is True, "{}: alternate iif not installed after WRONGVIF: {}".format(
         tc_name, result
     )
 
@@ -661,7 +681,7 @@ def test_wrongvif_prefer_kernel_ingress(request):
             "firstHopRouter": True,
         },
     )
-    assert result is True, "{}: upstream not realigned to tunnel: {}".format(
+    assert result is True, "{}: upstream not realigned to alternate: {}".format(
         tc_name, result
     )
 
@@ -671,12 +691,14 @@ def test_wrongvif_prefer_kernel_ingress(request):
         tc_name, json.dumps(report)
     )
 
-    step("Remove overlapping secondary / tunnel configuration")
+    step("Remove overlapping secondary / alternate-path configuration")
     fhr.vtysh_cmd(
         f"""
         conf t
            no ip route {WRONGVIF_SRC_PREFIX} {source} {FHR_TO_TUNNEL}
            interface {FHR_TO_TUNNEL}
+              no ip igmp static-group {group}
+              no ip igmp
               no ip pim
               no ip address {WRONGVIF_TUNNEL_ADDR}
            interface {FHR_TO_SRC}

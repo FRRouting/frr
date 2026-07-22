@@ -238,16 +238,64 @@ Internals
    thread-local storage.
 
 .. c:function:: struct rcu_thread *rcu_thread_prepare(void)
+.. c:function:: struct rcu_thread *rcu_thread_new(void *arg)
 .. c:function:: void rcu_thread_unprepare(struct rcu_thread *rcu_thread)
 .. c:function:: void rcu_thread_start(struct rcu_thread *rcu_thread)
 
    Since the RCU code needs to have a list of all active threads, these
    functions are used by the ``frr_pthread`` code to set up threads.  Teardown
-   is automatic.  It should not be necessary to call these functions.
+   is automatic on thread exit (via a ``pthread_key`` destructor).
 
    Any thread that accesses RCU-protected data needs to be registered with
    these functions.  Threads that do not access RCU-protected data may call
    these functions but do not need to.
+
+   For threads created outside FRR (e.g. a Rust/Tokio worker pool), call
+   ``rcu_thread_start(rcu_thread_new(NULL))`` from the thread-start hook.
+   Prefer letting the thread exit so the destructor cleans up; if the
+   runtime provides a thread-stop hook and threads may outlive
+   ``rcu_shutdown()``, call ``rcu_thread_unprepare(NULL)`` from that hook
+   (NULL means "unregister the calling thread").  A second
+   ``rcu_thread_unprepare(NULL)`` after that is a no-op; do not pass the
+   same non-NULL ``rcu_thread`` pointer to unprepare twice.
+
+   ``rcu_thread_new(NULL)`` holds the current global RCU epoch rather than
+   inheriting a parent thread's epoch.  That is enough for zlog and similar
+   callbacks, but do not pass RCU-protected pointers into such a thread at
+   creation time — use ``rcu_thread_prepare()`` from the creating thread
+   when that is required.
+
+   Example with Tokio (FFI bindings omitted):
+
+   .. code-block:: rust
+
+      // Register so zlog / RCU are valid on this OS thread.
+      fn frr_register_thread(_name: &str) {
+          unsafe {
+              c_shim::rcu_thread_start(c_shim::rcu_thread_new(std::ptr::null_mut()));
+          }
+      }
+
+      // Unregister before the thread is gone / before rcu_shutdown().
+      fn frr_unregister_thread() {
+          unsafe {
+              c_shim::rcu_thread_unprepare(std::ptr::null_mut());
+          }
+      }
+
+      let runtime = tokio::runtime::Builder::new_multi_thread()
+          .on_thread_start(|| {
+              frr_register_thread("tokio-worker-thread");
+          })
+          .on_thread_stop(|| {
+              frr_unregister_thread();
+          })
+          .build()
+          .unwrap();
+
+   Workers must unregister (or fully exit) before ``rcu_shutdown()`` /
+   ``frr_fini()``, which asserts that only the main RCU thread remains.
+   See also ``tests/lib/test_rcu``.
 
    Note that passing a pointer to RCU-protected data to some library which
    accesses that pointer makes the library "access RCU-protected data".  In
@@ -278,6 +326,10 @@ Internals
    RCU operations are completed.  This is mostly to get a clean exit without
    memory leaks from queued RCU operations.  It should not be necessary to
    call this function as libfrr handles this.
+
+   Only the main thread may remain registered when this is called.  External
+   threads that called ``rcu_thread_start()`` must have exited or called
+   ``rcu_thread_unprepare()`` first.
 
 FRR specifics and implementation details
 ----------------------------------------

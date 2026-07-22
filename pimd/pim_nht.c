@@ -214,6 +214,21 @@ static void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zcli
 	struct prefix p;
 	int ret;
 
+	/*
+	 * Defer when the VRF id has not yet been resolved.
+	 * zebra cannot map an RNH message with vrf_id == VRF_UNKNOWN to a
+	 * real VRF and silently drops it. Deferred registers are
+	 * re-driven from pim_vrf_enable() via pim_nht_reregister_all()
+	 * once the VRF id becomes valid.
+	 */
+	if (pim->vrf->vrf_id == VRF_UNKNOWN) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug("%s: skip %sregister of %pPA in vrf %s: vrf_id not yet resolved",
+				   __func__, (command == ZEBRA_NEXTHOP_REGISTER) ? "" : "un",
+				   &addr, pim->vrf->name);
+		return;
+	}
+
 	pim_addr_to_prefix(&p, addr);
 
 	/* Register to track nexthops from the MRIB */
@@ -1077,6 +1092,24 @@ void pim_nht_upstream_if_update(struct pim_instance *pim, struct interface *ifp)
 	pwd.ifp = ifp;
 
 	hash_walk(pim->nht_hash, pim_upstream_nh_if_update_helper, &pwd);
+}
+
+static int pim_nht_reregister_helper(struct hash_bucket *bucket, void *arg)
+{
+	struct pim_nexthop_cache *pnc = bucket->data;
+	struct pim_instance *pim = arg;
+	struct zclient *zclient = pim_zebra_zclient_get();
+
+	pim_sendmsg_zebra_rnh(pim, zclient, pnc->addr, ZEBRA_NEXTHOP_REGISTER);
+	return HASHWALK_CONTINUE;
+}
+
+void pim_nht_reregister_all(struct pim_instance *pim)
+{
+	if (!pim || !pim->nht_hash || pim->vrf->vrf_id == VRF_UNKNOWN)
+		return;
+
+	hash_walk(pim->nht_hash, pim_nht_reregister_helper, pim);
 }
 
 static uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp)

@@ -582,6 +582,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Verify the sending peer implements draft-tantsura-idr-unreachability-safi correctly. Note that error logs for this EC are rate-limited to prevent log flooding from malicious or misbehaving peers.",
 	},
 	{
+		.code = EC_BGP_UPA,
+		.title = "BGP UPA Extended Community error",
+		.description = "Error during UPA Extended Community aggregation or processing",
+		.suggestion = "Check for excessive number of UPA originators (>200 Router-IDs per prefix). Review UPA configuration on upstream routers.",
+	},
+	{
 		.code = END_FERR,
 	}
 };

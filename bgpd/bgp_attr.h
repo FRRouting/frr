@@ -408,7 +408,7 @@ extern void bgp_attr_init(void);
 extern void bgp_attr_finish(void);
 extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struct attr *attr,
 					      bgp_size_t size, struct bgp_nlri *mp_update,
-					      struct bgp_nlri *mp_withdraw);
+					      struct bgp_nlri *mp_withdraw, bool has_nlri);
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern struct bgp_attr_srv6_l3service *
 bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_l3service *vpn);

@@ -20,6 +20,7 @@
 
 PREDECL_LIST(zebra_announce);
 PREDECL_LIST(zebra_l2_vni);
+PREDECL_HASH(bgp_upa_prefix_hash);
 
 enum bgp_bp_install_type {
 	BGP_BP_INSTALL_ROUTE,
@@ -48,6 +49,14 @@ struct bgp_bp_install_node {
 #include "bgp_damp.h"
 
 #include "lib/bfd.h"
+
+/* UPA prefix tracking structure for typesafe hash.
+ * Wraps a prefix to allow storage in intrusive typesafe hash tables.
+ */
+struct bgp_upa_prefix_entry {
+	struct prefix prefix;
+	struct bgp_upa_prefix_hash_item hash_link;
+};
 
 DECLARE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
 	     (vty, vrf));
@@ -836,6 +845,23 @@ struct bgp {
 
 	/* Aggregate address configuration.  */
 	struct bgp_table *aggregate[AFI_MAX][SAFI_MAX];
+
+	/* Global UPA (Unreachable Prefix Announcement) configuration per AFI/SAFI.
+	 *
+	 * upa_enabled[][]      true when "upa originate" configured at AF level.
+	 * upa_drop[][]         true when D-bit should be set on originated UPAs.
+	 * upa_max_routes[][]   global cap on simultaneous UPA entries (0=unlimited).
+	 * upa_routes[][]       typesafe hash of prefixes currently announced as UPA globally;
+	 *                      keyed by prefix, cleaned up in bgp_free().
+	 *
+	 * When upa_enabled is true, BGP originates UPAs for ANY unreachable prefix
+	 * in the RIB (not limited to aggregate constituents). This is independent of
+	 * per-aggregate UPA configuration in struct bgp_aggregate.
+	 */
+	bool upa_enabled[AFI_MAX][SAFI_MAX];
+	bool upa_drop[AFI_MAX][SAFI_MAX];
+	uint32_t upa_max_routes[AFI_MAX][SAFI_MAX];
+	struct bgp_upa_prefix_hash_head upa_routes[AFI_MAX][SAFI_MAX];
 
 	/* BGP routing information base.  */
 	struct bgp_table *rib[AFI_MAX][SAFI_MAX];
@@ -1937,6 +1963,10 @@ struct peer {
 #define PEER_FLAG_CONFIG_ENCAPSULATION_MPLS	  (1ULL << 34)
 #define PEER_FLAG_BGP_LS_IPV4			  (1ULL << 35)
 #define PEER_FLAG_BGP_LS_IPV6			  (1ULL << 36)
+/* Send UPA (Unreachable Prefix Announcement) routes to this peer.
+ * Set when the peer negotiates UPA capability.
+ */
+#define PEER_FLAG_UPA_SEND   (1ULL << 37)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];

@@ -164,6 +164,23 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
 	}
 }
 
+void pim_jp_agg_remove_upstream(struct pim_instance *pim, struct pim_upstream *up)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct listnode *node, *nnode;
+		struct pim_iface_upstream_switch *pius;
+
+		if (!pim_ifp || !pim_ifp->upstream_switch_list)
+			continue;
+
+		for (ALL_LIST_ELEMENTS(pim_ifp->upstream_switch_list, node, nnode, pius))
+			pim_jp_agg_remove_group(pius->us, up, NULL);
+	}
+}
+
 int pim_jp_agg_is_in_list(struct list *group, struct pim_upstream *up)
 {
 	struct listnode *node, *nnode;

@@ -341,7 +341,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	vpn_handle_router_id_update(bgp, true, is_config);
 
-	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		bgp_ls_withdraw_all(bgp);
 
 	hook_call(bgp_routerid_update, bgp, true);
@@ -363,7 +363,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	vpn_handle_router_id_update(bgp, false, is_config);
 
-	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		bgp_ls_export_bgp_topology(bgp);
 
 	hook_call(bgp_routerid_update, bgp, false);
@@ -4174,7 +4174,7 @@ peer_init:
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
 	bgp_clearing_info_init(&bgp->clearing_list);
 
-	if (bgp && bgp->ls_info && bgp->ls_info->enable_distribution)
+	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		bgp_ls_originate_bgp_node(bgp);
 
 	return bgp;
@@ -4992,6 +4992,17 @@ void bgp_free(struct bgp *bgp)
 			bgp_table_finish(&bgp->static_routes[afi][safi]);
 		if (bgp->aggregate[afi][safi])
 			bgp_table_finish(&bgp->aggregate[afi][safi]);
+
+		/* Clean up UPA tracking hash */
+		if (bgp->upa_routes[afi][safi].hh.count > 0) {
+			struct bgp_upa_prefix_entry *entry;
+
+			while ((entry = bgp_upa_prefix_hash_pop(&bgp->upa_routes[afi][safi])))
+				XFREE(MTYPE_BGP_AGGREGATE, entry);
+
+			bgp_upa_prefix_hash_fini(&bgp->upa_routes[afi][safi]);
+		}
+
 		if (bgp->rib[afi][safi])
 			bgp_table_finish(&bgp->rib[afi][safi]);
 		rmap = &bgp->table_map[afi][safi];
@@ -5627,6 +5638,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6, 0, peer_change_best_path },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX, 0, peer_change_best_path },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_MPLS, 0, peer_change_best_path },
+	{ PEER_FLAG_UPA_SEND, 1, peer_change_reset_out },
 	{ 0, 0, 0 }
 };
 
@@ -6065,9 +6077,13 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	/* Execute action when peer is established.  */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) &&
 	    peer_established(peer->connection)) {
-		if (!set && flag == PEER_FLAG_SOFT_RECONFIG)
-			bgp_clear_adj_in(peer, afi, safi);
-		else {
+		if (!set && flag == PEER_FLAG_SOFT_RECONFIG) {
+			/* keep the Adj-RIB-In while another consumer (BMP
+			 * pre-policy monitoring) still needs it
+			 */
+			if (!bgp_adj_in_needed(peer, afi, safi))
+				bgp_clear_adj_in(peer, afi, safi);
+		} else {
 			if (flag == PEER_FLAG_REFLECTOR_CLIENT)
 				peer_set_last_reset(peer, PEER_DOWN_RR_CLIENT_CHANGE);
 			else if (flag == PEER_FLAG_RSERVER_CLIENT)
@@ -6128,9 +6144,14 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 
 			/* Execute flag action on peer-group member. */
 			if (peer_established(member->connection)) {
-				if (!set && flag == PEER_FLAG_SOFT_RECONFIG)
-					bgp_clear_adj_in(member, afi, safi);
-				else {
+				if (!set && flag == PEER_FLAG_SOFT_RECONFIG) {
+					/* keep the Adj-RIB-In while another
+					 * consumer (BMP pre-policy monitoring)
+					 * still needs it
+					 */
+					if (!bgp_adj_in_needed(member, afi, safi))
+						bgp_clear_adj_in(member, afi, safi);
+				} else {
 					if (flag == PEER_FLAG_REFLECTOR_CLIENT)
 						peer_set_last_reset(member,
 								    PEER_DOWN_RR_CLIENT_CHANGE);

@@ -2055,6 +2055,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					zlog_debug("%s: Link State Update[%s]: router-id is local, but has higher seq num",
 						   __func__, dump_lsa_key(lsa));
 				current->data->ls_seqnum = lsa->data->ls_seqnum;
+				ospf_lsa_checksum(current->data);
 				ospf_lsa_refresh(oi->ospf, current);
 				/* Discarding without ACK may cause neighbor to retransmit the stale LSA
 				 * until the refreshed LSA arrives, make sure that doesn't happen.

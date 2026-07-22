@@ -2550,6 +2550,28 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_
 		zlog_debug("add local es %s orig-ip %pIA df_pref %u %s", es->esi_str,
 			   &originator_ip, df_pref, bypass ? "bypass" : "");
 
+	/* Handle tunnel IP (originator_ip) change for an existing local ES */
+	if (!new_es && !ipaddr_is_same(&es->originator_ip, &originator_ip)) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+			zlog_debug("local es %s tunnel-ip changed from %pIA to %pIA", es->esi_str,
+				   &es->originator_ip, &originator_ip);
+
+		if (bgp_evpn_local_es_is_active(es)) {
+			struct prefix_evpn p;
+			int ret;
+
+			build_evpn_type4_prefix(&p, &es->esi, es->originator_ip);
+			ret = bgp_evpn_type4_route_delete(bgp, es, &p);
+			if (ret) {
+				flog_err(EC_BGP_EVPN_ROUTE_DELETE,
+					 "%u failed to delete type-4 route for ESI %s",
+					 bgp->vrf_id, es->esi_str);
+			}
+		}
+
+		regen_esr = true;
+	}
+
 	es->originator_ip = originator_ip;
 	if (df_pref != es->df_pref) {
 		es->df_pref = df_pref;

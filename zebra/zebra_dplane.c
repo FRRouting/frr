@@ -4273,9 +4273,18 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), &(nhe->nhg));
 
-	/* If this is a group, convert it to a grp array of ids */
-	if (!zebra_nhg_depends_is_empty(nhe)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+	/*
+	 * If the NHE has any depends (a multi-nh group, a zebra-owned
+	 * single-nh wrapped as a group of one, or a recursive parent
+	 * with a resolved depend), build the child-id array.
+	 * zebra_nhg_nhe2grp -> zebra_nhg_nhe2grp_internal will resolve
+	 * a recursive depend to the resolved nhe's id, so recursive
+	 * parents emit NHA_GROUP { resolved_id } rather than a flattened
+	 * singleton -- this keeps every zebra-built kernel NHE in
+	 * group form so future ECMP grow/shrink can reuse the same
+	 * parent id via NLM_F_REPLACE.
+	 */
+	if (!zebra_nhg_depends_is_empty(nhe))
 		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
 			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
 
@@ -5745,8 +5754,7 @@ enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp)
 	else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_intf_speed_get_errors, 1,
 					  memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 
 	return result;
@@ -7736,11 +7744,13 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 
 		/*
 		 * A previous provider plugin may have asked to skip the
-		 * kernel update.
+		 * kernel update. Route through work_list so the FIFO order
+		 * (and therefore NHG dependency order) is preserved when
+		 * the ctx is forwarded to downstream providers like FPM.
 		 */
 		if (dplane_ctx_is_skip_kernel(ctx)) {
 			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
-			dplane_provider_enqueue_out_ctx(prov, ctx);
+			dplane_ctx_list_add_tail(&work_list, ctx);
 			continue;
 		}
 

@@ -135,7 +135,7 @@ module frr-isisd {
         value 1;
         description
           "Do not add any padding to hello packets.";
-      } 
+      }
       enum "during-adjacency-formation" {
         value 2;
         description
@@ -622,7 +622,7 @@ module frr-isisd {
         units "seconds";
         default "10";
         description
-          "CNSP interval for level-1";
+          "CSNP interval for level-1";
       }
 
       leaf level-2 {
@@ -632,7 +632,7 @@ module frr-isisd {
         units "seconds";
         default "10";
         description
-          "CNSP interval for level-2";
+          "CSNP interval for level-2";
       }
     }
 
@@ -646,7 +646,7 @@ module frr-isisd {
         units "seconds";
         default "2";
         description
-          "PNSP interval for level-1";
+          "PSNP interval for level-1";
       }
 
       leaf level-2 {
@@ -656,7 +656,7 @@ module frr-isisd {
         units "seconds";
         default "2";
         description
-          "PCNSP interval for level-2";
+          "PSNP interval for level-2";
       }
     }
 
@@ -1066,7 +1066,7 @@ module frr-isisd {
     leaf extended-circuit-id {
       type extended-circuit-id;
       description
-        "Eextended circuit-id of the interface.";
+        "Extended circuit-id of the interface.";
     }
   }
 
@@ -1203,7 +1203,7 @@ module frr-isisd {
       leaf attached {
         type boolean;
         default "false";
-	status deprecated;
+        status deprecated;
         description
           "If true, identify as L1/L2 router for inter-area traffic.";
       }
@@ -1599,10 +1599,10 @@ module frr-isisd {
                 "Choice of routing protocol type.";
 
             case protocol-table {
+              when "./protocol = \"table\"";
               list table {
                 when "../protocol = \"table\"";
                 key "table";
-
                 description
                   "List of routing tables for the 'table' protocol.";
 
@@ -1616,7 +1616,6 @@ module frr-isisd {
 
                 uses redistribute-attributes;
               }
-              when "./protocol = \"table\"";
             }
             case protocol-other {
               uses redistribute-attributes;
@@ -1763,7 +1762,7 @@ module frr-isisd {
           type boolean;
           default "false";
           description
-            "Export Link State informatin.";
+            "Export Link State information.";
         }
       }
 
@@ -1815,26 +1814,26 @@ module frr-isisd {
               "Use Flex-algo Prefix Metric";
           }
           leaf metric-type {
-		    type enumeration {
-		      enum "igp" {
-		        value 0;
-			description
-			  "IGP Metric";
-		      }
-		      enum "min-uni-link-delay" {
-		        value 1;
-			description
-			  "RFC 8570 Sec 4.2 Min Unidirectional Link Delay";
-		      }
-		      enum "te-default" {
-		        value 2;
-			description
-			  "RFC 5305 Sec 3.7 Traffic Engineering Default Metric";
-		      }
-		    }
-                    default "igp";
-                    description
-                      "Set the Flex-Algo metric-type";
+            type enumeration {
+              enum "igp" {
+                value 0;
+                description
+                  "IGP Metric";
+              }
+              enum "min-uni-link-delay" {
+                value 1;
+                description
+                  "RFC 8570 Sec 4.2 Min Unidirectional Link Delay";
+              }
+              enum "te-default" {
+                value 2;
+                description
+                  "RFC 5305 Sec 3.7 Traffic Engineering Default Metric";
+              }
+            }
+            default "igp";
+            description
+              "Set the Flex-Algo metric-type";
           }
           leaf priority {
             type uint32 {
@@ -1846,17 +1845,17 @@ module frr-isisd {
           leaf dplane-sr-mpls {
             type empty;
             description
-	          "Advertise and participate in the Flex-Algo Segment-Routing MPLS data-plane";
+              "Advertise and participate in the Flex-Algo Segment-Routing MPLS data-plane";
           }
           leaf dplane-srv6 {
             type empty;
             description
-	          "Advertise and participate in the Flex-Algo Segment-Routing SRv6 data-plane";
+              "Advertise and participate in the Flex-Algo Segment-Routing SRv6 data-plane";
           }
           leaf dplane-ip {
             type empty;
             description
-	          "Advertise and participate in the Flex-Algo IP data-plane";
+              "Advertise and participate in the Flex-Algo IP data-plane";
           }
           leaf flex-algo {
             type uint32 {
@@ -2106,33 +2105,33 @@ module frr-isisd {
               type uint8 {
                 range "0..255";
               }
-              default 3;
+              default "3";
               description
-               "Maximum Segments Left MSD.";
+                "Maximum Segments Left MSD.";
             }
             leaf max-end-pop {
               type uint8 {
                 range "0..255";
               }
-              default 3;
+              default "3";
               description
-               "Maximum End Pop MSD.";
+                "Maximum End Pop MSD.";
             }
             leaf max-h-encaps {
               type uint8 {
                 range "0..255";
               }
-              default 2;
+              default "2";
               description
-               "Maximum H.Encaps MSD.";
+                "Maximum H.Encaps MSD.";
             }
             leaf max-end-d {
               type uint8 {
                 range "0..255";
               }
-              default 5;
+              default "5";
               description
-               "Maximum End D MSD.";
+                "Maximum End D MSD.";
             }
           }
         }
@@ -2381,9 +2380,8 @@ module frr-isisd {
     description
       "This notification is sent when the system receives
        a PDU with the wrong authentication information.
-       The notification generation must be throttled with
-       with at least 5 seconds between successive
-       notifications.";
+       The notification generation must be throttled with at
+       least 5 seconds between successive notifications.";
     uses notification-instance-hdr;
 
     uses notification-interface-hdr;
@@ -2465,7 +2463,7 @@ module frr-isisd {
 
   notification lsp-error-detected {
     description
-      "This notification is sent when the system  receives an
+      "This notification is sent when the system receives an
        LSP with a parse error. The notification generation must
        be throttled with at least 5 seconds between successive
        notifications.";

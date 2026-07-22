@@ -953,7 +953,7 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	zclient_create_header(
 		s, add ? ZEBRA_REMOTE_MACIP_ADD : ZEBRA_REMOTE_MACIP_DEL,
 		bgp->vrf_id);
-	stream_putl(s, vpn ? vpn->vni : 0);
+	stream_putl(s, vpn->vni);
 
 	if (mac) /* Mac Addr */
 		stream_put(s, &mac->octet, ETH_ALEN);

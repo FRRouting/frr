@@ -7,6 +7,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "vrf.h"
 
 #include "log.h"
 #include "prefix.h"
@@ -214,6 +215,37 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 		up->rpf.rpf_addr = PIMADDR_ANY;
 		if (up->channel_oil)
 			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+	}
+}
+
+/* Clear upstream RPF during interface teardown/vrf migration */
+void pim_upstream_rpf_interface_del(struct interface *ifp)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct pim_upstream *up;
+
+	if (!ifp)
+		return;
+
+	/* Scan every VRF, not just ifp's current one: during a VRF move the
+	 * ifp is migrating between instances, so an upstream in another VRF
+	 * may still reference it. Going through just ifp->vrf will not
+	 * cover vrf migration case.
+	 */
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		pim = vrf->info;
+		/* Avoid re-entering a partially torn down PIM instance. */
+		if (!pim || pim->stopping)
+			continue;
+
+		frr_each_safe (rb_pim_upstream, &pim->upstream_head, up) {
+			/* Interface teardown must not leave upstreams with
+			 * stale ifp.
+			 */
+			if (up->rpf.source_nexthop.interface == ifp)
+				pim_upstream_rpf_clear(pim, up);
+		}
 	}
 }
 

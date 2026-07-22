@@ -903,7 +903,12 @@ static int pim_mroute_wrongvif_prefer_ingress(struct interface *ifp, pim_sgaddr 
 	ingress_vif = pim_ifp->mroute_vif_index;
 	if (up->channel_oil->installed && up->rpf.source_nexthop.interface == ifp &&
 	    *oil_incoming_vif(up->channel_oil) == ingress_vif)
-		return -1;
+		/*
+		 * Already aligned with kernel ingress.  Treat as handled so
+		 * the caller does not fall through to Assert on a (*,G)
+		 * ifchannel that cannot win CouldAssert.
+		 */
+		return 0;
 
 	if (force_connected_ingress) {
 		memset(&old, 0, sizeof(old));
@@ -1024,11 +1029,19 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 
 	if (!sg_channel && !pim_iface_grp_dm(pim_ifp, sg.grp) && ifp != pim_ifp->pim->regiface) {
 		/*
-		 * Prefer kernel ingress only when there is no ifchannel on
-		 * ingress (neither (S,G) nor (*,G)).  A (*,G)-only channel
-		 * must fall through to the Assert state machine below.
+		 * Prefer kernel ingress when there is no (S,G) ifchannel.
+		 * A (*,G)-only ifchannel must not block this: Assert on (*,G)
+		 * never succeeds (SPTbit is false for (*,G)).  Local (*,G)
+		 * membership on the ingress (IGMP/MLD or static-group) is
+		 * common when interfaces share overlapping connected prefixes
+		 * and data arrives on a different interface than the installed
+		 * MFC iif; without prefer-ingress, WRONGVIF repeats until RPF
+		 * is realigned to the kernel ingress.
+		 *
+		 * If prefer_ingress cannot reconcile (ingress not a valid RPF),
+		 * fall through to WRVIFWHOLE compat and/or Assert below.
 		 */
-		if (!any_channel && pim_mroute_wrongvif_prefer_ingress(ifp, &sg) == 0)
+		if (pim_mroute_wrongvif_prefer_ingress(ifp, &sg) == 0)
 			return 0;
 
 		if (!mroute_wrvifwhole_supported) {
@@ -1813,9 +1826,9 @@ static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
 		} else {
 			ifp = up->rpf.source_nexthop.interface;
 		}
-		if (ifp) {
-			pim_ifp = (struct pim_interface *)ifp->info;
-			if (pim_ifp)
+		if (ifp && !PIM_IF_IS_DELETED(ifp) && ifp->info) {
+			pim_ifp = ifp->info;
+			if (pim_ifp->pim == c_oil->pim)
 				iif = pim_ifp->mroute_vif_index;
 		}
 	}

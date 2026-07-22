@@ -60,6 +60,18 @@ def test_zebra_mtu_ipv6_change():
 
     def _kernel_route_installed():
         output = json.loads(r1.run("ip -6 -j route show fdfd::/64"))
+        # The kernel renders a route differently depending on whether the
+        # route's nexthop id is a singleton (NHA_GATEWAY) or a group
+        # (NHA_GROUP):
+        #   singleton: {"dst": ..., "dev": ..., "protocol": ...}
+        #   group:     {"dst": ..., "protocol": ..., "nexthops": [{"dev": ..., ...}]}
+        # Zebra now wraps every route's nexthop set in an NHA_GROUP, so the
+        # outgoing interface lives in the first nexthop member. Lift it back
+        # up to the top level for an apples-to-apples json_cmp check.
+        if isinstance(output, list):
+            for entry in output:
+                if "dev" not in entry and entry.get("nexthops"):
+                    entry["dev"] = entry["nexthops"][0].get("dev")
         return topotest.json_cmp(
             output, [{"dst": "fdfd::/64", "dev": "r1-eth0", "protocol": "bgp"}]
         )

@@ -79,6 +79,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_IPV6_EXT_COMMUNITIES, "IPV6_EXT_COMMUNITIES"},
 	{BGP_ATTR_AIGP, "AIGP"},
 	{BGP_ATTR_NHC, "Next Hop Dependent Characteristics"},
+	{BGP_ATTR_LINK_STATE, "BGP-LS Attribute"},
 	{0}};
 
 static const struct message attr_flag_str[] = {
@@ -1919,6 +1920,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_ATOMIC_AGGREGATE:
 	case BGP_ATTR_PREFIX_SID:
 	case BGP_ATTR_NHC:
+	case BGP_ATTR_LINK_STATE:
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* Core attributes, particularly ones which may influence route
@@ -2027,6 +2029,8 @@ const uint8_t attr_flags_values[] = {
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_AIGP] = BGP_ATTR_FLAG_OPTIONAL,
 	[BGP_ATTR_NHC] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_ENCAP] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_LINK_STATE] = BGP_ATTR_FLAG_OPTIONAL,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -3483,6 +3487,8 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
 
 		struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(attr);
 
+		assert(srv6_l3service);
+
 		srv6_l3service->loc_block_len = loc_block_len;
 		srv6_l3service->loc_node_len = loc_node_len;
 		srv6_l3service->func_len = func_len;
@@ -4115,7 +4121,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 	 * ~                Characteristic Value (variable)                ~
 	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 */
-	while (length && STREAM_READABLE(s) >= BGP_NHC_TLV_MIN_LEN) {
+	while (length >= BGP_NHC_TLV_MIN_LEN) {
 		struct bgp_nhc_tlv *found;
 
 		tlv_code = stream_getw(s);
@@ -4190,6 +4196,15 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 		length -= tlv_length + BGP_NHC_TLV_MIN_LEN;
 	}
 
+	/* post-TLVs processing sanity check to avoid session reset */
+	if (length != 0) {
+		zlog_err("%pBP rcvd BGP NHC with %d trailing byte(s), smaller than a TLV header",
+			 peer, length);
+		bgp_nhc_free(nhc);
+		bgp_attr_set_nhc(attr, NULL);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
+	}
+
 	/*
 	 * draft-ietf-idr-nhc: if the next hop has no global part (i.e. it
 	 * is a link-local address), the sender MUST include a BGPID TLV to
@@ -4256,6 +4271,7 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
 	struct peer_connection *const connection = args->connection;
 	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
+	const size_t attr_startp = stream_get_getp(connection->curr);
 	int ret;
 	struct bgp_ls_attr *ls_attr;
 
@@ -4267,12 +4283,10 @@ static enum bgp_attr_parse_ret bgp_attr_ls(struct bgp_attr_parser_args *args)
 	ret = bgp_ls_parse_attr(connection->curr, args->length, ls_attr);
 	if (ret != 0) {
 		bgp_ls_attr_free(ls_attr);
-		/*
-		 * RFC 9552 §5.1 + RFC 7606 §5.4: a malformed BGP-LS TLV
-		 * requires NLRI discard (treat-as-withdraw) while the BGP
-		 * session itself continues.
-		 */
-		return BGP_ATTR_PARSE_WITHDRAW;
+		flog_warn(EC_BGP_LS_PACKET, "%s: malformed BGP-LS Attribute, discarding attribute",
+			  peer->host);
+		stream_set_getp(connection->curr, attr_startp + args->length);
+		return BGP_ATTR_PARSE_PROCEED;
 	}
 
 	bgp_attr_set_ls_attr(attr, bgp_ls_attr_intern(ls_attr));
@@ -4350,10 +4364,9 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 }
 
 /* Well-known attribute check. */
-static int bgp_attr_check(struct peer *peer, struct attr *attr,
-			  bgp_size_t length)
+static int bgp_attr_check(struct peer *peer, struct attr *attr, bgp_size_t length, bool has_nlri)
 {
-	uint8_t type = 0;
+	uint8_t missing_attr = 0;
 
 	/* BGP Graceful-Restart End-of-RIB for IPv4 unicast is signaled as an
 	 * empty UPDATE. Treat-as-withdraw, otherwise if we just ignore it,
@@ -4365,21 +4378,24 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr,
 		return BGP_ATTR_PARSE_WITHDRAW;
 
 	if (!bgp_attr_exists(attr, BGP_ATTR_ORIGIN))
-		type = BGP_ATTR_ORIGIN;
+		missing_attr = BGP_ATTR_ORIGIN;
 
 	if (!bgp_attr_exists(attr, BGP_ATTR_AS_PATH))
-		type = BGP_ATTR_AS_PATH;
+		missing_attr = BGP_ATTR_AS_PATH;
 
-	/* RFC 2858 makes Next-Hop optional/ignored, if MP_REACH_NLRI is present
-	 * and
-	 * NLRI is empty. We can't easily check NLRI empty here though.
+	/* NEXT_HOP is a well-known mandatory attribute for IPv4 unicast
+	 * carried in the NLRI field of the UPDATE message.
+	 * RFC 4760 relaxes this when the message carries no NLRI other than
+	 * the one encoded in MP_REACH_NLRI. A message that additionally
+	 * carries IPv4 unicast NLRI in the NLRI field still requires NEXT_HOP
+	 * for those prefixes, regardless of MP_REACH_NLRI being present.
 	 */
 	if (!bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP) &&
-	    !bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI))
-		type = BGP_ATTR_NEXT_HOP;
+	    (has_nlri || !bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI)))
+		missing_attr = BGP_ATTR_NEXT_HOP;
 
 	if (peer->sort == BGP_PEER_IBGP && !bgp_attr_exists(attr, BGP_ATTR_LOCAL_PREF))
-		type = BGP_ATTR_LOCAL_PREF;
+		missing_attr = BGP_ATTR_LOCAL_PREF;
 
 	/* An UPDATE message that contains the MP_UNREACH_NLRI is not required
 	 * to carry any other path attributes. Though if MP_REACH_NLRI or NLRI
@@ -4388,16 +4404,15 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr,
 	 */
 	if (!bgp_attr_exists(attr, BGP_ATTR_MP_REACH_NLRI) &&
 	    bgp_attr_exists(attr, BGP_ATTR_MP_UNREACH_NLRI))
-		return type ? BGP_ATTR_PARSE_MISSING_MANDATORY
-			    : BGP_ATTR_PARSE_PROCEED;
+		return missing_attr ? BGP_ATTR_PARSE_MISSING_MANDATORY : BGP_ATTR_PARSE_PROCEED;
 
 	/* If any of the well-known mandatory attributes are not present
-	 * in an UPDATE message, then "treat-as-withdraw" MUST be used.
+	 * in an UPDATE message, then "treat-as-withdraw" MUST be used
+	 * (RFC 7606).
 	 */
-	if (type) {
-		flog_warn(EC_BGP_MISSING_ATTRIBUTE,
-			  "%s Missing well-known attribute %s.", peer->host,
-			  lookup_msg(attr_str, type, NULL));
+	if (missing_attr) {
+		flog_warn(EC_BGP_MISSING_ATTRIBUTE, "%s Missing well-known attribute %s.",
+			  peer->host, lookup_msg(attr_str, missing_attr, NULL));
 		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 	return BGP_ATTR_PARSE_PROCEED;
@@ -4407,7 +4422,7 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr,
    bgp_update_receive() in bgp_packet.c.  */
 enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struct attr *attr,
 				       bgp_size_t size, struct bgp_nlri *mp_update,
-				       struct bgp_nlri *mp_withdraw)
+				       struct bgp_nlri *mp_withdraw, bool has_nlri)
 {
 	struct peer *peer = connection->peer;
 	enum bgp_attr_parse_ret ret;
@@ -4754,7 +4769,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 	}
 
 	/* Check all mandatory well-known attributes are present */
-	ret = bgp_attr_check(peer, attr, length);
+	ret = bgp_attr_check(peer, attr, length, has_nlri);
 	if (ret < 0)
 		goto done;
 
