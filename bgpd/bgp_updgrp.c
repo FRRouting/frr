@@ -300,7 +300,7 @@ static void *updgrp_hash_alloc(void *p)
  *       4. (AF-independent) Capability flags:
  *             AS4_RCV capability
  *       5. (AF-dependent) Capability flags:
- *             ORF_PREFIX_SM_RCV (peer can send prefix ORF)
+ *             ADDPATH, ENHE
  *       6. MRAI
  *       7. peer-group name
  *       8. Outbound route-map name (neighbor route-map <> out)
@@ -314,7 +314,9 @@ static void *updgrp_hash_alloc(void *p)
  *       16. Local-as should match, if configured.
  *       17. maximum-prefix-out
  *       18. Local-role should also match, if configured.
- *       19. Add-Path best selected paths count should match as well
+ *       19. ORF: peers with ORF_PREFIX_RM_ADV and ORF_PREFIX_SM_RCV are
+ *             each isolated into their own update-group (identified by
+ *             peer address).
  *      )
  */
 static unsigned int updgrp_hash_key_make(const void *p)
@@ -360,6 +362,11 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word((peer->cap & PEER_UPDGRP_CAP_FLAGS), key);
 	key = jhash_1word((peer->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS),
 			  key);
+	/* A peer sending ORF to us must get its own update-group. */
+	if (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+	    && CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV))
+		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
+				  key);
 	key = jhash_1word(peer->v_routeadv, key);
 	key = jhash_1word(peer->change_local_as, key);
 	key = jhash_1word(peer->max_packet_size, key);
@@ -431,11 +438,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	/*
 	 * There are certain peers that must get their own update-group:
 	 * - lonesoul peers
-	 * - peers that negotiated ORF
 	 * - maximum-prefix-out is set
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)
-	    || CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
 	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT))
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
@@ -618,6 +623,14 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    != (pe2->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS))
 		return false;
 
+	/* A peer sending ORF to us cannot share an update-group. */
+	if (((CHECK_FLAG(pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+	      && CHECK_FLAG(pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV))
+	     || (CHECK_FLAG(pe2->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+		 && CHECK_FLAG(pe2->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)))
+	    && !sockunion_same(&pe1->connection->su, &pe2->connection->su))
+		return false;
+
 	if (pe1->v_routeadv != pe2->v_routeadv)
 		return false;
 
@@ -684,9 +697,8 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	if ((afi == AFI_IP6) && (pe1->shared_network != pe2->shared_network))
 		return false;
 
-	if ((CHECK_FLAG(pe1->flags, PEER_FLAG_LONESOUL) ||
-	     CHECK_FLAG(pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)) &&
-	    !sockunion_same(&pe1->connection->su, &pe2->connection->su))
+	if (CHECK_FLAG(pe1->flags, PEER_FLAG_LONESOUL)
+	    && !sockunion_same(&pe1->connection->su, &pe2->connection->su))
 		return false;
 
 	if (afi == AFI_IP6 &&
