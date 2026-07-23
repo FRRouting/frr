@@ -706,3 +706,63 @@ void test_pcep_tlv_create_arbitrary(void)
 
 	pcep_obj_free_tlv(&tlv->header);
 }
+
+void test_pcep_tlv_create_te_path_binding_mpls(void)
+{
+	struct pcep_object_tlv_te_path_binding *tlv = pcep_tlv_create_te_path_binding_mpls(16000);
+
+	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
+
+	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
+	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_TE_PATH_BINDING);
+	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, 7);
+	CU_ASSERT_EQUAL(tlv->header.encoded_tlv[4], PCEP_OBJ_TLV_TE_PATH_BINDING_MPLS);
+
+	mpls_label_t label;
+
+	memcpy(&label, tlv->header.encoded_tlv + 8, sizeof(label));
+	label = ntohl(label);
+	label = label >> 12;
+	CU_ASSERT_EQUAL(label, 16000);
+
+	struct pcep_object_tlv_header *decoded = pcep_decode_tlv(tlv_buf);
+	struct pcep_object_tlv_te_path_binding *binding =
+		(struct pcep_object_tlv_te_path_binding *)decoded;
+	CU_ASSERT_EQUAL(tlv->type, binding->type);
+	CU_ASSERT_EQUAL(tlv->flags, binding->flags);
+	CU_ASSERT_EQUAL(tlv->value.label, binding->value.label);
+
+	pcep_obj_free_tlv(&tlv->header);
+}
+
+void test_pcep_tlv_create_te_path_binding_srv6(void)
+{
+	struct in6_addr segment;
+
+	inet_pton(AF_INET6, "fc00::1", &segment);
+
+	struct pcep_object_tlv_te_path_binding *tlv =
+		pcep_tlv_create_te_path_binding_srv6(&segment);
+	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
+
+	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
+	CU_ASSERT_EQUAL(tlv->header.type, PCEP_OBJ_TLV_TYPE_TE_PATH_BINDING);
+	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, 20);
+	CU_ASSERT_EQUAL(tlv->header.encoded_tlv[4], PCEP_OBJ_TLV_TE_PATH_BINDING_SRV6);
+
+	struct in6_addr encoded_segment;
+
+	memcpy(&encoded_segment, tlv->header.encoded_tlv + 8, sizeof(encoded_segment));
+	CU_ASSERT(memcmp(&encoded_segment, &segment, 16) == 0);
+
+	struct pcep_object_tlv_header *decoded = pcep_decode_tlv(tlv_buf);
+	struct pcep_object_tlv_te_path_binding *binding =
+		(struct pcep_object_tlv_te_path_binding *)decoded;
+	CU_ASSERT_EQUAL(tlv->type, binding->type);
+	CU_ASSERT_EQUAL(tlv->flags, binding->flags);
+	CU_ASSERT(memcmp(&tlv->value.segment, &binding->value.segment, 16) == 0);
+
+	pcep_obj_free_tlv(&tlv->header);
+}
