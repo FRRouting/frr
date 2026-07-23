@@ -12,8 +12,12 @@ EBGP-OAD is configured.
 Also check if no-export community is passed to the EBGP-OAD peer.
 
 Also check that the (optional non-transitive) AIGP attribute is propagated
-across EBGP-OAD sessions (r3 -> r2 -> r1), but stripped towards a regular
-EBGP peer (r1 -> r4).
+across EBGP-OAD sessions (r3 -> r2 -> r1) when explicitly enabled with
+"neighbor PEER aigp", but stripped towards a regular EBGP peer (r1 -> r4).
+
+Per draft-uttaro-idr-bgp-oad section 3.20 the default value of AIGP_SESSION
+is "disabled" for EBGP-OAD sessions, hence "neighbor PEER aigp" is configured
+on both ends of each OAD session (r3<->r2, r2<->r1).
 """
 
 import os
@@ -167,7 +171,8 @@ def test_bgp_oad():
         expected = {"paths": [arg]}
         return topotest.json_cmp(output, expected)
 
-    # AIGP must be propagated across the EBGP-OAD domain (r3 -> r2 -> r1).
+    # AIGP must be propagated across the EBGP-OAD domain (r3 -> r2 -> r1)
+    # when explicitly enabled with "neighbor PEER aigp".
     test_func = functools.partial(_bgp_check_aigp, r2)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "10.10.10.20/32 should be received at r2 with aigp-metric"
