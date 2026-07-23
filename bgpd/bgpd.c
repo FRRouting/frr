@@ -6973,8 +6973,14 @@ void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 			return;
 
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-			bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
-					       BGP_ROUTE_REFRESH_NORMAL);
+			/*
+			 * Use the ORF-aware soft-clear so that if this peer
+			 * previously sent an ORF (PEER_STATUS_ORF_PREFIX_SEND)
+			 * and the inbound prefix-list has just been removed, a
+			 * REMOVE_ALL ORF is sent to the remote peer instead of
+			 * a plain route-refresh.
+			 */
+			peer_clear_soft(peer, afi, safi, BGP_CLEAR_SOFT_IN_ORF_PREFIX);
 	}
 }
 
@@ -9410,11 +9416,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 		    CHECK_FLAG(peer->af_cap[afi][safi],
 			       PEER_CAP_ORF_PREFIX_RM_RCV)) {
 			struct bgp_filter *filter = &peer->filter[afi][safi];
-			uint8_t prefix_type;
-
-			if (CHECK_FLAG(peer->af_cap[afi][safi],
-				       PEER_CAP_ORF_PREFIX_RM_RCV))
-				prefix_type = ORF_TYPE_PREFIX;
+			uint8_t prefix_type = ORF_TYPE_PREFIX;
 
 			if (filter->plist[FILTER_IN].plist) {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
