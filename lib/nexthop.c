@@ -89,9 +89,11 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (nh1->nh_srv6->seg6_segs && !nh2->nh_srv6->seg6_segs)
 		return 1;
 
-	if (nh1->nh_srv6->seg6_segs->num_segs !=
-	    nh2->nh_srv6->seg6_segs->num_segs)
+	if (nh1->nh_srv6->seg6_segs->num_segs < nh2->nh_srv6->seg6_segs->num_segs)
 		return -1;
+
+	if (nh1->nh_srv6->seg6_segs->num_segs > nh2->nh_srv6->seg6_segs->num_segs)
+		return 1;
 
 	for (i = 0; i < nh1->nh_srv6->seg6_segs->num_segs; i++) {
 		ret = memcmp(&nh1->nh_srv6->seg6_segs->seg[i],
