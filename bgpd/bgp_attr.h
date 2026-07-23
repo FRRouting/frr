@@ -688,9 +688,11 @@ static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 		bgp_attr_unset(attr, BGP_ATTR_NHC);
 }
 
-#define AIGP_TRANSMIT_ALLOWED(peer)                                                                \
-	(CHECK_FLAG((peer)->flags, PEER_FLAG_AIGP) || ((peer)->sub_sort == BGP_PEER_EBGP_OAD) ||   \
-	 ((peer)->sort != BGP_PEER_EBGP))
+/* draft-uttaro-idr-bgp-oad says AIGP must be disabled to be sent
+ * over OAD session, we need explicitly enable AIGP for OAD session.
+ */
+#define AIGP_TRANSMIT_ALLOWED(peer)                                                               \
+	(CHECK_FLAG((peer)->flags, PEER_FLAG_AIGP) || ((peer)->sort != BGP_PEER_EBGP))
 
 static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 {
