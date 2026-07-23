@@ -235,6 +235,7 @@ static bool check_srv6_interfaces_configured(enum kernel_capabilities_interface_
 	if (!zebra_kernel_capabilities_configure_interface(zns, CHECK_SRV6_DUMMY_INTERFACE, action))
 		return false;
 
+	check_srv6_seg6_source_encap_attr_supported_in_progress = true;
 	return true;
 }
 
