@@ -7568,6 +7568,12 @@ sub process {
 			ERROR("BZERO",
 			      "bzero() is deprecated; use memset()"  . $herecurr);
 		}
+
+# check for use of snprintf()
+		if ($line =~ /\bsnprintf\s*\(.*\)/) {
+			ERROR("SNPRINTF",
+			      "snprintf() does not support FRR format extensions; please use snprintfrr()\n" . $herecurr);
+		}
 	}
 
 	# If we have no input at all, then there is nothing to report on
