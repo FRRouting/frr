@@ -48,7 +48,6 @@
 #include "mpls.h"
 #include "vxlan.h"
 #include "printfrr.h"
-#include "kernel_capabilities.h"
 
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_ns.h"

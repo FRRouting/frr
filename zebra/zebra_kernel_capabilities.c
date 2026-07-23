@@ -364,7 +364,7 @@ void zebra_kernel_capabilities_init(void)
 
 /*
  * called upon interface creation
- * check that probe l3vrf interface CHECK_SRV6_DUMMY_INTERFACE is created
+ * check that probe interface CHECK_SRV6_DUMMY_INTERFACE is created
  */
 void zebra_kernel_capabilities_interface_created_cb(struct interface *ifp)
 {
