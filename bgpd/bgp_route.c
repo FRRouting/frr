@@ -3204,8 +3204,106 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (p->family == AF_INET6 || peer_cap_enhe(peer, afi, safi)) {
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			subgroup_announce_reset_nhop(AF_INET6, attr);
-				nh_reset = true;
+			nh_reset = true;
+		}
+	}
+
+	/*
+	 * RFC 4271 Section 5.1.3:
+	 * "A route originated by a BGP speaker SHALL NOT be
+	 * advertised to a peer using an address of that peer
+	 * as NEXT_HOP."
+	 *
+	 * After route-map processing, the NEXT_HOP may have been
+	 * set (e.g., via "set ip next-hop") to the receiving
+	 * peer's own address. Reset it to self to comply with
+	 * the RFC and avoid a blackhole. This must happen before
+	 * the WECMP/link-bandwidth and AIGP adjustments below,
+	 * which are conditioned on nh_reset being true.
+	 *
+	 * We must check against ALL peers in the subgroup, not just
+	 * the representative peer, to handle peer-group scenarios
+	 * where multiple peers with different addresses share the
+	 * same subgroup policy.
+	 */
+	{
+		struct peer_af *paf;
+		bool match_v4 = false;
+		bool match_v6 = false;
+
+		/* Check nexthop against all peers in the subgroup */
+		SUBGRP_FOREACH_PEER (subgrp, paf) {
+			struct peer *subgrp_peer = paf->peer;
+			struct in_addr subgrp_peer_addr_v4;
+			struct in6_addr subgrp_peer_addr_v6;
+			bool have_v4 = false, have_v6 = false;
+
+			/* Get peer address from su_remote if available */
+			if (subgrp_peer->connection && subgrp_peer->connection->su_remote) {
+				if (sockunion_family(subgrp_peer->connection->su_remote) ==
+				    AF_INET) {
+					subgrp_peer_addr_v4 =
+						subgrp_peer->connection->su_remote->sin.sin_addr;
+					have_v4 = true;
+				} else if (sockunion_family(subgrp_peer->connection->su_remote) ==
+					   AF_INET6) {
+					subgrp_peer_addr_v6 =
+						subgrp_peer->connection->su_remote->sin6.sin6_addr;
+					have_v6 = true;
+				}
 			}
+
+			/* Check IPv4 nexthop */
+			if (afi == AFI_IP && safi == SAFI_UNICAST && !match_v4) {
+				if (have_v4 && IPV4_ADDR_SAME(&attr->nexthop, &subgrp_peer_addr_v4))
+					match_v4 = true;
+				/* If no su_remote, check against configured peer address */
+				else if (!have_v4 && subgrp_peer->host &&
+					 inet_pton(AF_INET, subgrp_peer->host,
+						   &subgrp_peer_addr_v4) == 1 &&
+					 IPV4_ADDR_SAME(&attr->nexthop, &subgrp_peer_addr_v4))
+					match_v4 = true;
+			}
+
+			/* Check IPv6 nexthop */
+			if (NEXTHOP_IS_V6 && !match_v6) {
+				if (have_v6 &&
+				    IPV6_ADDR_SAME(&attr->mp_nexthop_global, &subgrp_peer_addr_v6))
+					match_v6 = true;
+				/* If no su_remote, check against configured peer address */
+				else if (!have_v6 && subgrp_peer->host &&
+					 inet_pton(AF_INET6, subgrp_peer->host,
+						   &subgrp_peer_addr_v6) == 1 &&
+					 IPV6_ADDR_SAME(&attr->mp_nexthop_global,
+							&subgrp_peer_addr_v6))
+					match_v6 = true;
+			}
+
+			/* Early exit if both matches found */
+			if ((afi == AFI_IP && safi == SAFI_UNICAST && match_v4) ||
+			    (NEXTHOP_IS_V6 && match_v6))
+				break;
+		}
+
+		/* Apply IPv4 nexthop correction if match found */
+		if (afi == AFI_IP && safi == SAFI_UNICAST && match_v4) {
+			flog_warn(EC_BGP_NEXTHOP_SELF_PEER,
+				  "%s: %pBP [Update:SEND] %pFX NEXT_HOP %pI4 equals peer address, resetting to self (RFC 4271 5.1.3)",
+				  __func__, peer, p, &attr->nexthop);
+			subgroup_announce_reset_nhop(AF_INET, attr);
+			SET_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+			nh_reset = true;
+		}
+
+		/* Apply IPv6 nexthop correction if match found */
+		if (NEXTHOP_IS_V6 && match_v6) {
+			flog_warn(EC_BGP_NEXTHOP_SELF_PEER,
+				  "%s: %pBP [Update:SEND] %pFX NEXT_HOP %pI6 equals peer address, resetting to self (RFC 4271 5.1.3)",
+				  __func__, peer, p, &attr->mp_nexthop_global);
+			subgroup_announce_reset_nhop(AF_INET6, attr);
+			SET_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+			nh_reset = true;
+		}
 	}
 
 	/* If this is an iBGP, send Origin Validation State (OVS)
