@@ -170,6 +170,35 @@ def teardown_module():
     tgen.stop_topology()
 
 
+def set_link_states(tgen, link1_up, link2_up, link3_up, link4_up):
+    """
+    Set link states explicitly to ensure test independence.
+    link1: r1-eth1 (R1 to Ra in VRF blue)
+    link2: r2-eth1 (R2 to Ra in VRF blue)
+    link3: r3-eth1 (R3 to Rb in VRF blue)
+    link4: r4-eth1 (R4 to Rb in VRF blue)
+    """
+    if link1_up:
+        tgen.net["r1"].cmd("ip link set dev r1-eth1 up")
+    else:
+        tgen.net["r1"].cmd("ip link set dev r1-eth1 down")
+
+    if link2_up:
+        tgen.net["r2"].cmd("ip link set dev r2-eth1 up")
+    else:
+        tgen.net["r2"].cmd("ip link set dev r2-eth1 down")
+
+    if link3_up:
+        tgen.net["r3"].cmd("ip link set dev r3-eth1 up")
+    else:
+        tgen.net["r3"].cmd("ip link set dev r3-eth1 down")
+
+    if link4_up:
+        tgen.net["r4"].cmd("ip link set dev r4-eth1 up")
+    else:
+        tgen.net["r4"].cmd("ip link set dev r4-eth1 down")
+
+
 def test_all_links_up():
     "Test path R1 -> Ra -> Rb -> R4"
     tgen = get_topogen()
@@ -215,7 +244,8 @@ def test_link_1_down():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    tgen.net["r1"].cmd("ip link set dev r1-eth1 down")
+    # Explicitly set link states: link1 down, others up
+    set_link_states(tgen, link1_up=False, link2_up=True, link3_up=True, link4_up=True)
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-2.json".format(CWD)
@@ -236,7 +266,9 @@ def test_link_1_2_down():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    tgen.net["r2"].cmd("ip link set dev r2-eth1 down")
+    # Explicitly set link states: link1 down, link2 down, link3 up, link4 up
+    set_link_states(tgen, link1_up=False, link2_up=False, link3_up=True, link4_up=True)
+    # Bounce r1-eth0 and r2-eth2 to trigger route recalculation
     tgen.net["r1"].cmd("ip link set dev r1-eth0 down")
     tgen.net["r2"].cmd("ip link set dev r2-eth2 down")
     tgen.net["r2"].cmd("ip link set dev r2-eth2 up")
@@ -261,7 +293,9 @@ def test_link_1_2_3_down():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    tgen.net["r3"].cmd("ip link set dev r3-eth1 down")
+    # Explicitly set link states: link1 down, link2 down, link3 down, link4 up
+    set_link_states(tgen, link1_up=False, link2_up=False, link3_up=False, link4_up=True)
+    # Bounce r1-eth0 and r3-eth0 to trigger route recalculation
     tgen.net["r1"].cmd("ip link set dev r1-eth0 down")
     tgen.net["r3"].cmd("ip link set dev r3-eth0 down")
     tgen.net["r3"].cmd("ip link set dev r3-eth0 up")
@@ -286,7 +320,8 @@ def test_link_1_2_3_4_down():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    tgen.net["r4"].cmd("ip link set dev r4-eth1 down")
+    # Explicitly set link states: all links down
+    set_link_states(tgen, link1_up=False, link2_up=False, link3_up=False, link4_up=False)
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-4.json".format(CWD)
@@ -307,8 +342,8 @@ def test_link_1_2_4_down_3_up():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    # bring link 3 back up
-    tgen.net["r3"].cmd("ip link set dev r3-eth1 up")
+    # Explicitly set link states: link1 down, link2 down, link3 up, link4 down
+    set_link_states(tgen, link1_up=False, link2_up=False, link3_up=True, link4_up=False)
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-4.json".format(CWD)
@@ -329,8 +364,8 @@ def test_link_1_4_down_2_up():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    # bring back link 2 up
-    tgen.net["r2"].cmd("ip link set dev r2-eth1 up")
+    # Explicitly set link states: link1 down, link2 up, link3 up, link4 down
+    set_link_states(tgen, link1_up=False, link2_up=True, link3_up=True, link4_up=False)
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-5.json".format(CWD)
@@ -351,8 +386,8 @@ def test_link_4_down_1_up():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    # bring back link 1 up
-    tgen.net["r1"].cmd("ip link set dev r1-eth1 up")
+    # Explicitly set link states: link1 up, link2 up, link3 up, link4 down
+    set_link_states(tgen, link1_up=True, link2_up=True, link3_up=True, link4_up=False)
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-6.json".format(CWD)
@@ -373,8 +408,8 @@ def test_link_1_2_3_4_up():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    # bring back link 4 up
-    tgen.net["r4"].cmd("ip link set dev r4-eth1 up")
+    # Explicitly set link states: all links up
+    set_link_states(tgen, link1_up=True, link2_up=True, link3_up=True, link4_up=True)
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-1.json".format(CWD)
