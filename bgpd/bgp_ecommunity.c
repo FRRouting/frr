@@ -378,8 +378,13 @@ unsigned int ecommunity_hash_make(const void *arg)
 {
 	const struct ecommunity *ecom = arg;
 	int size = ecom->size * ecom->unit_size;
+	unsigned int key;
 
-	return jhash(ecom->val, size, 0x564321ab);
+	key = jhash(ecom->val, size, 0x564321ab);
+	if (ecom->unit_size == ECOMMUNITY_SIZE)
+		key = jhash_1word(ecom->disable_ieee_floating, key);
+
+	return key;
 }
 
 /* Compare two Extended Communities Attribute structure.  */
@@ -395,6 +400,9 @@ bool ecommunity_cmp(const void *arg1, const void *arg2)
 		return false;
 
 	if (ecom1->unit_size != ecom2->unit_size)
+		return false;
+	if (ecom1->unit_size == ECOMMUNITY_SIZE &&
+	    ecom1->disable_ieee_floating != ecom2->disable_ieee_floating)
 		return false;
 
 	return (ecom1->size == ecom2->size
@@ -1831,6 +1839,7 @@ struct ecommunity *ecommunity_filter(struct ecommunity *ecom,
 	new = XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
 	new->size = new_size;
 	new->unit_size = ecom->unit_size;
+	new->disable_ieee_floating = ecom->disable_ieee_floating;
 	new->val = new_val;
 
 	return new;
@@ -2206,6 +2215,7 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 
 		encode_lb_extended_extcomm(as, cum_bw, false, &lb_eval);
 		new = ecommunity_dup(ecom);
+		new->disable_ieee_floating = false;
 		ecommunity_add_val_ipv6(new, &lb_eval, true, true);
 	} else {
 		struct ecommunity_val lb_eval;
