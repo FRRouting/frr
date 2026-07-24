@@ -711,6 +711,7 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 		return;
 
 	nexthop->nh_srv6->seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	memset(&nexthop->nh_srv6->seg6local_ctx, 0, sizeof(nexthop->nh_srv6->seg6local_ctx));
 
 	if (nexthop->nh_srv6->seg6_segs &&
 	    (nexthop->nh_srv6->seg6_segs->num_segs == 0 ||
