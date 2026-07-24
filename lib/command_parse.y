@@ -94,6 +94,7 @@
 
 /* special syntax, value is irrelevant */
 %token <string> EXCL_BRACKET
+%token <string> PIPE
 
 /* union types for parsed rules */
 %type <node> start
@@ -101,6 +102,7 @@
 %type <node> placeholder_token
 %type <node> placeholder_token_real
 %type <node> simple_token
+%type <node> variadic_token
 %type <subgraph> selector
 %type <subgraph> selector_token
 %type <subgraph> selector_token_seq
@@ -174,20 +176,6 @@ start:
   // tack on the command element
   terminate_graph (&@1, ctx, ctx->currnode);
 }
-| cmd_token_seq placeholder_token '.' '.' '.'
-{
-  if ((ctx->currnode = graph_add_edge (ctx->currnode, $2)) != $2)
-    graph_delete_node (ctx->graph, $2);
-
-  ((struct cmd_token *)ctx->currnode->data)->allowrepeat = 1;
-
-  // adding a node as a child of itself accepts any number
-  // of the same token, which is what we want for variadics
-  graph_add_edge (ctx->currnode, ctx->currnode);
-
-  // tack on the command element
-  terminate_graph (&@1, ctx, ctx->currnode);
-}
 ;
 
 varname_token: '$' WORD
@@ -207,6 +195,12 @@ cmd_token_seq:
 
 cmd_token:
   simple_token
+{
+  if ((ctx->currnode = graph_add_edge (ctx->currnode, $1)) != $1)
+    graph_delete_node (ctx->graph, $1);
+  cmd_token_varname_seqappend($1);
+}
+| variadic_token
 {
   if ((ctx->currnode = graph_add_edge (ctx->currnode, $1)) != $1)
     graph_delete_node (ctx->graph, $1);
@@ -300,6 +294,13 @@ placeholder_token:
   XFREE (MTYPE_LEX, $2);
 };
 
+variadic_token:
+  placeholder_token '.' '.' '.'
+{
+  ((struct cmd_token *)$1->data)->allowrepeat = 1;
+  graph_add_edge ($1, $1);
+  $$ = $1;
+};
 
 /* <selector|set> productions */
 selector: '<' selector_seq_seq '>' varname_token
@@ -310,7 +311,7 @@ selector: '<' selector_seq_seq '>' varname_token
 };
 
 selector_seq_seq:
-  selector_seq_seq '|' selector_token_seq
+  selector_seq_seq PIPE selector_token_seq
 {
   $$ = $1;
   graph_add_edge ($$.start, $3.start);
@@ -348,6 +349,10 @@ selector: '{' selector_seq_seq '}' varname_token
 
 selector_token:
   simple_token
+{
+  $$.start = $$.end = $1;
+}
+| variadic_token
 {
   $$.start = $$.end = $1;
 }
