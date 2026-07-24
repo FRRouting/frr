@@ -226,6 +226,9 @@ enum dplane_op_e {
 	/* Traffic control qdisc read */
 	DPLANE_OP_TC_QDISC_READ,
 	DPLANE_OP_TC_QDISC_NOTIFY,
+
+	/* NHT (Nexthop Tracking) event update */
+	DPLANE_OP_NHT_EVENT_UPDATE,
 };
 
 /* Operational status of Bridge Ports */
@@ -668,6 +671,13 @@ const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
 
+/* NHT event context accessors */
+const struct prefix *dplane_ctx_get_rnh_prefix(const struct zebra_dplane_ctx *ctx);
+const struct prefix *dplane_ctx_get_rnh_prev_resolved_prefix(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_rnh_prev_resolved_nhg_id(const struct zebra_dplane_ctx *ctx);
+const struct prefix *dplane_ctx_get_rnh_curr_resolved_prefix(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_rnh_curr_resolved_nhg_id(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for LSP information */
 
 /* Init the internal LSP data struct - necessary before adding to it.
@@ -987,6 +997,17 @@ struct nhg_hash_entry;
 enum zebra_dplane_result dplane_nexthop_add(struct nhg_hash_entry *nhe);
 enum zebra_dplane_result dplane_nexthop_update(struct nhg_hash_entry *nhe);
 enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe);
+
+/*
+ * Enqueue an NHT event update - emitted when an RNH's resolved state changes
+ * so fpmsyncd can perform a fast RIB fixup. Takes independent fields so the
+ * dplane layer does not depend on struct rnh internals.
+ */
+enum zebra_dplane_result dplane_nht_event_update(const struct prefix *rnh_prefix,
+						 const struct prefix *prev_resolved_prefix,
+						 uint32_t prev_nhg_id,
+						 const struct prefix *curr_resolved_prefix,
+						 uint32_t curr_nhg_id);
 
 /*
  * Enqueue LSP change operations for the dataplane.
