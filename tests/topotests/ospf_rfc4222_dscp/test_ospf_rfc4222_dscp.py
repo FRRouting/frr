@@ -221,18 +221,20 @@ interface r1-eth0
     )
     # print("output is: {}".format(output))
 
-    # Give OSPF a moment to send some control traffic
-    # Flood: add 200 loopbacks on r1 and redistribute connected
     pcap = os.path.join(tgen.logdir, "r1-ospf-dscp.pcap")
     logger.info("PCAP DIR: {}".format(pcap))
 
     _capture_ospf_pcap(r1, "r1-eth0", pcap)
     topotest.sleep(2, "Setup packet capture")
-    r1.vtysh_cmd("conf t\nrouter ospf\n redistribute connected\n exit")
-    for i in range(1, 10):
-        r1.cmd(f"ip addr add 198.51.100.{i}/32 dev lo")
-    # Capture packets on R1's interface
-    topotest.sleep(10, "Gathering Packets")
+
+    # Force adjacency re-establishment to guarantee DB-Desc/LS-Req/LS-Upd
+    # packets are exchanged with the new DSCP settings
+    r1.vtysh_cmd("clear ip ospf process")
+
+    # Wait for adjacency to re-form
+    assert _wait_for_neighbors_full("r1"), "R1 did not reach Full after OSPF restart"
+    # Allow time for final LS-Ack packets after Full state
+    topotest.sleep(2, "Capture remaining LS-Acks")
     _stop_ospf_capture(r1, "r1-eth0", pcap)
 
     tuples = _tshark_dscp_and_type(r1, pcap)
