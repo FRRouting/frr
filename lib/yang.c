@@ -470,6 +470,29 @@ struct lyd_node *yang_dnode_get(const struct lyd_node *dnode, const char *xpath)
 	if (xpath[0] == '.' && xpath[1] == '/')
 		xpath += 2;
 
+	/*
+	 * Fast O(1) path: lyd_find_path uses libyang hash tables instead of
+	 * the O(K) XPath engine.  It handles absolute paths correctly even
+	 * when dnode is not the first top-level sibling (ly_path_eval_partial
+	 * always walks to the first sibling for absolute paths).
+	 *
+	 * The leading ".." check is a fast-reject for the common parent-axis
+	 * case; embedded ".." (e.g. "sibling/../target") still reaches
+	 * lyd_find_path, which rejects it with LY_EVALID, triggering fallback.
+	 * XPath functions and wildcards are handled the same way.
+	 */
+	if (dnode && dnode->schema && !(xpath[0] == '.' && xpath[1] == '.')) {
+		LY_ERR err = lyd_find_path(dnode, xpath, 0, &dnode_ret);
+
+		if (err == LY_SUCCESS)
+			return dnode_ret;
+		/* LY_ENOTFOUND: path is valid but node absent - no fallback */
+		if (err == LY_ENOTFOUND)
+			return NULL;
+		/* Reset before fallback - lyd_find_path may have set partial value */
+		dnode_ret = NULL;
+	}
+
 	if (lyd_find_xpath(dnode, xpath, &set)) {
 		/*
 		 * Commenting out the below assert failure as it crashes mgmtd
@@ -513,10 +536,31 @@ struct lyd_node *yang_dnode_getf(const struct lyd_node *dnode,
 bool yang_dnode_exists(const struct lyd_node *dnode, const char *xpath)
 {
 	struct ly_set *set = NULL;
+	struct lyd_node *dnode_ret = NULL;
 	bool exists = false;
 
 	if (xpath[0] == '.' && xpath[1] == '/')
 		xpath += 2;
+
+	/*
+	 * lyd_find_path uses ly_path_eval which is O(1) per path segment vs
+	 * the O(K) XPath engine.
+	 *
+	 * The leading ".." check is a fast-reject for the common parent-axis
+	 * case; embedded ".." (e.g. "sibling/../target") still reaches
+	 * lyd_find_path, which rejects it with LY_EVALID, triggering fallback.
+	 * XPath functions and wildcards are handled the same way.
+	 */
+	if (dnode && dnode->schema && !(xpath[0] == '.' && xpath[1] == '.')) {
+		LY_ERR err = lyd_find_path(dnode, xpath, 0, &dnode_ret);
+
+		if (err == LY_SUCCESS)
+			return true;
+		/* LY_ENOTFOUND: path is valid but node absent - no fallback */
+		if (err == LY_ENOTFOUND)
+			return false;
+	}
+
 	if (lyd_find_xpath(dnode, xpath, &set))
 		return false;
 	exists = set->count > 0;
