@@ -2100,7 +2100,12 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 {
 	struct in_addr cluster_id;
 	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
+	struct cluster *per_neighbor_cluster;
 
+	/* when receiving a route with any of the per-neighbor cluster-ids configured
+	 * on the router, the route should be dropped to avoid loop regardless of the
+	 * cluster that originated it
+	 */
 	if (cluster) {
 		if (CHECK_FLAG(peer->bgp->config, BGP_CONFIG_CLUSTER_ID))
 			cluster_id = peer->bgp->cluster_id;
@@ -2109,6 +2114,13 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 
 		if (cluster_loop_check(cluster, cluster_id))
 			return true;
+		if (!CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK)) {
+			frr_each (per_neighbor_cluster_list, &peer->bgp->per_neighbor_clusters,
+				  per_neighbor_cluster) {
+				if (cluster_loop_check(cluster, per_neighbor_cluster->cluster_id))
+					return true;
+			}
+		}
 	}
 	return false;
 }
@@ -2429,6 +2441,122 @@ void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 		memset(&attr->mp_nexthop_global_in, 0, BGP_ATTR_NHLEN_IPV4);
 }
 
+
+static bool ibgp_reflection_check_from_per_neighbor(struct bgp *bgp, struct peer *from,
+						    struct peer *peer, afi_t afi, safi_t safi)
+{
+	if (!CHECK_FLAG(from->af_flags[afi][safi],
+			PEER_CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER_CONFIGURED)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+			/* both peers are clients, from is part of a per-neighbor cluster but
+			 * client-to-client reflection isn't configured in that cluster,
+			 * client-to-client reflection is disabled at the bgp instance level
+			 */
+			return false;
+
+	} else if (CHECK_FLAG(from->af_flags[afi][safi],
+			      PEER_CLUSTER_FLAG_CLIENT_TO_CLIENT_INTRA_CLUSTER)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT)) {
+			if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID))
+				/* both peers are clients, from is part of a per-neighbor cluster and
+				 * client-to-client reflection is enabled in that cluster but
+				 * client-to-client reflection is disabled at the bgp instance level
+				 * and peer is part of the global cluster
+				 */
+				return false;
+
+			if (!IPV4_ADDR_SAME(&from->cluster[afi][safi], &peer->cluster[afi][safi]))
+				/* both peers are clients, from is part of a per-neighbor cluster and
+				 * client-to-client reflection is enabled in that cluster but
+				 * client-to-client reflection is disabled at the bgp instance level
+				 * and peer is part of another per-neighbor cluster
+				 */
+				return false;
+		}
+	} else {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+			/* both peers are clients, from is part of a per-neighbor cluster and
+			 * client-to-client reflection is disabled both in that cluster and
+			 * at the bgp instance level
+			 */
+			return false;
+
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID)) {
+			if (IPV4_ADDR_SAME(&from->cluster[afi][safi], &peer->cluster[afi][safi]))
+				/* both peers are clients, from is part of a per-neighbor cluster and
+				 * client-to-client reflection is disabled in that cluster and both
+				 * peers are part of that cluster
+				 */
+				return false;
+		}
+	}
+	return true;
+}
+
+static bool ibgp_reflection_check_from_global(struct bgp *bgp, struct peer *from,
+					      struct peer *peer, afi_t afi, safi_t safi)
+{
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER_CONFIGURED)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+			/* both peers are clients, from is part of the global cluster and
+			 * client-to-client reflection is not configured in that cluster but
+			 * client-to-client reflection is disabled at the bgp instance level
+			 */
+			return false;
+	} else if (CHECK_FLAG(bgp->flags, BGP_FLAG_CLIENT_TO_CLIENT_GLOBAL_CLUSTER)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT) &&
+		    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID) &&
+		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_CLUSTER_FLAG_GLOBAL))
+			/* both peers are clients, from is part of the global cluster and
+			 * client-to-client reflection is enabled in that cluster but
+			 * client-to-client reflection is disabled at the bgp instance level
+			 * and peer is not part of the default cluster
+			 */
+			return false;
+
+	} else {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+			/* both peers are clients, from is part of the global cluster and
+			 * client-to-client reflection is disabled in that cluster and
+			 * client-to-client reflection is disabled at the bgp instance level
+			 */
+			return false;
+
+		if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID))
+			/* both peers are clients, both peer and from are
+			 * part of the global cluster and client-to-client reflection
+			 * is disabled in that cluster
+			 */
+			return false;
+
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_CLUSTER_FLAG_GLOBAL))
+			/* both peers are clients, both peer and from are
+			 * part of the global cluster and client-to-client reflection
+			 * is disabled in that cluster
+			 */
+			return false;
+	}
+	return true;
+}
+
+static bool ibgp_reflection_check(struct bgp *bgp, struct peer *from, struct peer *peer, afi_t afi,
+				  safi_t safi)
+{
+	/* reflection logic is as follows :
+	 * if both peers are in the same cluster, be it global or per-neighbor
+	 * the client-to-client configuration of the said cluster decides if the
+	 * route is reflected or not.
+	 * if there is no client-to-client configuration in that cluster or
+	 * if both peers are from different cluster the bgp level configuration
+	 * applies.
+	 */
+	if (CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID)) {
+		if (!CHECK_FLAG(from->af_flags[afi][safi], PEER_CLUSTER_FLAG_GLOBAL))
+			return ibgp_reflection_check_from_per_neighbor(bgp, from, peer, afi, safi);
+	}
+	return ibgp_reflection_check_from_global(bgp, from, peer, afi, safi);
+}
+
 bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			     struct update_subgroup *subgrp,
 			     const struct prefix *p, struct attr *attr,
@@ -2652,6 +2780,20 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		return false;
 	}
 
+	/* If the attribute has cluster-list and one of the cluster-ids in it is the same as remote
+	 * peer's cluster-id. Only when the loose check cluster-id check is enabled and the peer
+	 * is part of a per-neighbor cluster, otherwise it is filtered when received by the
+	 * route-reflector
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_LOOSE_CLUSTER_LIST_CHECK) &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CLUSTER_ID)) {
+		if (bgp_attr_exists(piattr, BGP_ATTR_CLUSTER_LIST) &&
+		    cluster_loop_check(bgp_attr_get_cluster(piattr), peer->cluster[afi][safi])) {
+			frrtrace(3, frr_bgp, upd_prefix_filtered_due_to, 4, peer->host, pfxprint);
+			return false;
+		}
+	}
+
 	/* ORF prefix-list filter check */
 	if (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV) &&
 	    CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV))
@@ -2739,18 +2881,18 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* IBGP reflection check. */
 	if (ibgp_to_ibgp && !samepeer_safe) {
 		/* A route from a Client peer. */
-		if (CHECK_FLAG(from->af_flags[afi][safi],
-			       PEER_FLAG_REFLECTOR_CLIENT)) {
+		if (CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)) {
 			/* Reflect to all the Non-Client peers and also to the
-			   Client peers other than the originator.  Originator
-			   check
-			   is already done.  So there is noting to do. */
-			/* no bgp client-to-client reflection check. */
-			if (CHECK_FLAG(bgp->flags,
-				       BGP_FLAG_NO_CLIENT_TO_CLIENT))
-				if (CHECK_FLAG(peer->af_flags[afi][safi],
-					       PEER_FLAG_REFLECTOR_CLIENT))
+			 * Client peers other than the originator. Originator
+			 * check
+			 * is already done. So there is nothing to do.
+			 */
+			if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)) {
+				/* checks client-to-client reflection policies */
+				ret = ibgp_reflection_check(bgp, from, peer, afi, safi);
+				if (!ret)
 					return false;
+			}
 		} else {
 			/* A route from a Non-client peer. Reflect to all other
 			   clients. */
