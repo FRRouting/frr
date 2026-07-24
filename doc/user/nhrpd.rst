@@ -215,6 +215,61 @@ original multicast packet.
    specified then destination NBMA address (or addresses) are learnt
    dynamically.
 
+.. _nhrp-pim-nbma-mode:
+
+PIM-Aware NBMA-Mode (DMVPN PIM-SM)
+----------------------------------
+
+By default nhrpd fans every multicast frame it intercepts out to every
+peer registered for the destination -- sufficient for control-plane
+protocols (OSPF, IS-IS) but pathological for PIM-SM user data, which
+expects per-spoke selective replication.
+
+NBMA-mode tightens this. nhrpd snoops PIM Join/Prune messages on the
+inbound side of the tunnel, builds a per-(S, G, ifindex) outgoing
+interface list (OIL) keyed by spoke NBMA addresses, and replicates user
+multicast only to spokes that have explicitly Joined. Link-local groups
+(``224.0.0.0/24``) are always fanned out so PIM Hellos / OSPF DR
+elections / etc. continue to work.
+
+.. clicmd:: ip nhrp nbma-mode
+
+   Enable PIM-aware per-NBMA replication on this interface. With
+   nbma-mode active, user multicast is *only* forwarded to peers
+   present in the OIL -- a missing entry is treated as fail-closed
+   (drop), not fanout. Link-local multicast is always fanned out.
+
+   This flag is normally set automatically when ``ip pim nbma`` is
+   configured on the same interface (pimd signals nhrpd over zebra).
+   Operators only need to set it explicitly to drive nhrpd-side
+   replication without enabling pimd, e.g. for DMVPN deployments where
+   PIM runs in a separate VRF or daemon.
+
+.. clicmd:: show ip nhrp multicast oil
+
+   Dump the per-(S, G, ifindex) OIL -- the spoke NBMAs that have
+   actively Joined each (S, G), with remaining holdtime. Use this to
+   verify that PIM Joins from spokes are being snooped correctly when
+   debugging selective replication.
+
+NBMA-mode requires snooping inbound PIM messages, so an additional
+NFLOG rule on the **input** chain is required alongside the existing
+output/forward rules. PIM Join/Prune destines ``224.0.0.13``
+(ALL-PIM-ROUTERS); without an input-side rule the OIL never populates
+and *all* user multicast is dropped:
+
+ .. code-block:: shell
+
+   # Existing output rule (replication side):
+   iptables -A OUTPUT  -d 224.0.0.0/4 -o gre1 -j NFLOG --nflog-group 2
+
+   # New input rule for PIM Join/Prune snooping in NBMA-mode:
+   iptables -A INPUT   -d 224.0.0.0/4 -i gre1 -j NFLOG --nflog-group 2
+
+The two rules share the same nflog-group -- nhrpd disambiguates
+inbound vs. outbound via the ``NFULA_IFINDEX_INDEV`` /
+``NFULA_IFINDEX_OUTDEV`` netlink attributes on each NFLOG message.
+
 .. _nhrp-events:
 
 NHRP Events

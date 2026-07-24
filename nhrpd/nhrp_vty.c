@@ -13,6 +13,7 @@
 #include "nhrpd.h"
 #include "netlink.h"
 #include "nhrp_protocol.h"
+#include "nhrp_mcast_oil.h"
 
 #include "nhrpd/nhrp_vty_clippy.c"
 
@@ -695,6 +696,48 @@ DEFUN(if_no_nhrp_map_multicast, if_no_nhrp_map_multicast_cmd,
 	return nhrp_vty_return(vty, ret);
 }
 
+DEFUN(if_nhrp_nbma_mode, if_nhrp_nbma_mode_cmd,
+	"ip nhrp nbma-mode",
+	IP_STR
+	NHRP_STR
+	"Enable PIM-aware per-NBMA multicast replication (DMVPN PIM-SM)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct nhrp_interface *nifp = ifp->info;
+
+	if (!nifp)
+		return CMD_WARNING_CONFIG_FAILED;
+	nifp->nbma_mode_enabled = 1;
+	return CMD_SUCCESS;
+}
+
+DEFUN(if_no_nhrp_nbma_mode, if_no_nhrp_nbma_mode_cmd,
+	"no ip nhrp nbma-mode",
+	NO_STR
+	IP_STR
+	NHRP_STR
+	"Disable PIM-aware per-NBMA multicast replication (DMVPN PIM-SM)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct nhrp_interface *nifp = ifp->info;
+
+	if (nifp)
+		nifp->nbma_mode_enabled = 0;
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_nhrp_multicast_oil, show_nhrp_multicast_oil_cmd,
+	"show ip nhrp multicast oil",
+	SHOW_STR
+	IP_STR
+	NHRP_STR
+	"Multicast\n"
+	"Outgoing Interface List (per-NBMA subscriber cache)\n")
+{
+	nhrp_mcast_oil_show(vty);
+	return CMD_SUCCESS;
+}
+
 DEFUN(if_nhrp_nhs, if_nhrp_nhs_cmd,
 	AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN>",
 	AFI_STR
@@ -1283,6 +1326,9 @@ static int interface_config_write(struct vty *vty)
 			}
 		}
 
+		if (nifp->nbma_mode_enabled)
+			vty_out(vty, " ip nhrp nbma-mode\n");
+
 		if_vty_config_end(vty);
 	}
 
@@ -1341,6 +1387,9 @@ void nhrp_config_init(void)
 	install_element(INTERFACE_NODE, &if_no_nhrp_map_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_map_multicast_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_map_multicast_cmd);
+	install_element(INTERFACE_NODE, &if_nhrp_nbma_mode_cmd);
+	install_element(INTERFACE_NODE, &if_no_nhrp_nbma_mode_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_nhs_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_nhs_cmd);
+	install_element(VIEW_NODE, &show_nhrp_multicast_oil_cmd);
 }

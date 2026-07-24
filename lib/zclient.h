@@ -1411,6 +1411,10 @@ enum zapi_opaque_registry {
 	LDP_RLFA_UNREGISTER_ALL = 8,
 	/* Announce LDP labels associated to a previously registered RLFA */
 	LDP_RLFA_LABELS = 9,
+	/* Update PIM NBMA-mode interface flag (pimd -> nhrpd). */
+	PIM_NBMA_IF_STATE_UPDATE = 10,
+	/* Request current PIM NBMA-mode state from pimd (nhrpd -> pimd). */
+	PIM_NBMA_IF_STATE_REQUEST = 11,
 };
 
 /* Send the hello message.

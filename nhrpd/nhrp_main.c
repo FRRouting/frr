@@ -23,6 +23,7 @@
 
 #include "nhrpd.h"
 #include "nhrp_errors.h"
+#include "nhrp_mcast_oil.h"
 
 DEFINE_MGROUP(NHRPD, "NHRP");
 
@@ -91,6 +92,7 @@ static FRR_NORETURN void nhrp_request_stop(void)
 	nhrp_interface_terminate();
 	vrf_terminate();
 	nhrp_vc_terminate();
+	nhrp_mcast_oil_terminate();
 
 	debugf(NHRP_DEBUG_COMMON, "Done.");
 
@@ -171,6 +173,7 @@ int main(int argc, char **argv)
 	hook_register_prio(if_unreal, 0, nhrp_ifp_destroy);
 	nhrp_zebra_init();
 	nhrp_shortcut_init();
+	nhrp_mcast_oil_init();
 
 	nhrp_config_init();
 

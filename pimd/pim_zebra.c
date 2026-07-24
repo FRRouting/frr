@@ -15,6 +15,7 @@
 #include "vty.h"
 #include "plist.h"
 #include "lib/bfd.h"
+#include "lib/pim_nbma_sync.h"
 
 #include "pimd.h"
 #include "pim_pim.h"
@@ -412,6 +413,82 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 			     &pim->rpf_cache_refresher);
 }
 
+/* Send a PIM_NBMA_IF_STATE_UPDATE opaque to nhrpd describing the current
+ * `pim_nbma_enable` bit on `ifp`.  Used after the operator commits
+ * `[no] ip pim nbma` and to answer PIM_NBMA_IF_STATE_REQUEST replays.
+ */
+void pim_nbma_send_state(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+	struct pim_nbma_if_state state;
+
+	if (!pim_zclient || pim_zclient->sock < 0)
+		return;
+	if (!ifp)
+		return;
+
+	pim_ifp = ifp->info;
+
+	memset(&state, 0, sizeof(state));
+	state.ifindex = ifp->ifindex;
+	state.enabled = pim_ifp ? pim_ifp->pim_nbma_enable : false;
+	strlcpy(state.ifname, ifp->name, sizeof(state.ifname));
+
+	(void)zclient_send_opaque(pim_zclient, PIM_NBMA_IF_STATE_UPDATE, (const uint8_t *)&state,
+				  sizeof(state));
+}
+
+/* Re-broadcast PIM_NBMA_IF_STATE_UPDATE for every interface with a
+ * pim_interface attached.  Called on REQUEST from nhrpd and on local
+ * zebra reconnect so nhrpd can rebuild its mirror without requiring the
+ * operator to re-enter `ip pim nbma`.
+ */
+static void pim_nbma_send_state_all(void)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->info)
+				pim_nbma_send_state(ifp);
+		}
+}
+
+static int pim_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s = zclient->ibuf;
+	struct zapi_opaque_msg info;
+	struct pim_nbma_if_state_req req;
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
+
+	switch (info.type) {
+	case PIM_NBMA_IF_STATE_REQUEST:
+		STREAM_GET(&req, s, sizeof(req));
+		if (req.ifindex == 0) {
+			pim_nbma_send_state_all();
+		} else {
+			RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+				ifp = if_lookup_by_index(req.ifindex, vrf->vrf_id);
+				if (ifp) {
+					pim_nbma_send_state(ifp);
+					break;
+				}
+			}
+		}
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+	return 0;
+}
+
 static void pim_zebra_connected(struct zclient *zclient)
 {
 #if PIM_IPV == 4
@@ -425,6 +502,12 @@ static void pim_zebra_connected(struct zclient *zclient)
 	/* request for VxLAN BUM group addresses */
 	pim_zebra_vxlan_replay();
 #endif
+
+	/* Subscribe to nhrpd's REQUEST replay messages and resend our
+	 * current per-interface state so nhrpd can rebuild its mirror.
+	 */
+	zclient_register_opaque(zclient, PIM_NBMA_IF_STATE_REQUEST);
+	pim_nbma_send_state_all();
 }
 
 static void pim_zebra_capabilities(struct zclient_capabilities *cap)
@@ -437,6 +520,8 @@ static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
 
 	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
+
+	[ZEBRA_OPAQUE_MESSAGE] = pim_zebra_opaque_msg_handler,
 
 #if PIM_IPV == 4
 	[ZEBRA_VXLAN_SG_ADD] = pim_zebra_vxlan_sg_proc,
