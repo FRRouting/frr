@@ -45,6 +45,7 @@ struct ospf_if_params {
 	DECLARE_IF_PARAM(uint32_t, transmit_delay); /* Interface Transmission Delay */
 	DECLARE_IF_PARAM(uint32_t,
 			 output_cost_cmd); /* Command Interface Output Cost */
+	DECLARE_IF_PARAM(uint64_t, weight); /* Command Interface Nexthop Weight */
 	DECLARE_IF_PARAM(uint32_t,
 			 retransmit_interval); /* Retransmission Interval */
 	DECLARE_IF_PARAM(uint32_t,

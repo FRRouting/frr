@@ -232,6 +232,8 @@ int ospf_route_match_same(struct route_table *rt, struct prefix_ipv4 *prefix,
 					return 0;
 				if (op->ifindex != newop->ifindex)
 					return 0;
+				if (op->nh_weight != newop->nh_weight)
+					return 0;
 
 				/* check TI-LFA backup paths */
 				if (!ospf_route_backup_path_same(&op->srni,
@@ -697,9 +699,12 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 
 			path = ospf_path_new();
 			path->nexthop.s_addr = INADDR_ANY;
+			path->nh_weight = 0;
 
 			if (oi) {
 				path->ifindex = oi->ifp->ifindex;
+				if (OSPF_IF_PARAM(oi, weight))
+					path->nh_weight = OSPF_IF_PARAM(oi, weight);
 				if (CHECK_FLAG(oi->connected->flags,
 					       ZEBRA_IFA_UNNUMBERED))
 					path->unnumbered = 1;
@@ -846,8 +851,8 @@ static int ospf_path_exist(struct list *plist, struct in_addr nexthop,
 	struct ospf_path *path;
 
 	for (ALL_LIST_ELEMENTS(plist, node, nnode, path))
-		if (IPV4_ADDR_SAME(&path->nexthop, &nexthop)
-		    && path->ifindex == oi->ifp->ifindex)
+		if (IPV4_ADDR_SAME(&path->nexthop, &nexthop) && path->ifindex == oi->ifp->ifindex &&
+		    path->nh_weight == OSPF_IF_PARAM(oi, weight))
 			return 1;
 
 	return 0;
@@ -880,9 +885,12 @@ void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
 			path = ospf_path_new();
 			path->nexthop = nexthop->router;
 			path->adv_router = v->lsa->adv_router;
+			path->nh_weight = 0;
 
 			if (oi) {
 				path->ifindex = oi->ifp->ifindex;
+				if (OSPF_IF_PARAM(oi, weight))
+					path->nh_weight = OSPF_IF_PARAM(oi, weight);
 				if (CHECK_FLAG(oi->connected->flags,
 					       ZEBRA_IFA_UNNUMBERED))
 					path->unnumbered = 1;
@@ -904,6 +912,8 @@ struct ospf_path *ospf_path_lookup(struct list *plist, struct ospf_path *path)
 		if (!IPV4_ADDR_SAME(&op->adv_router, &path->adv_router))
 			continue;
 		if (op->ifindex != path->ifindex)
+			continue;
+		if (op->nh_weight != path->nh_weight)
 			continue;
 		return op;
 	}
