@@ -1444,6 +1444,57 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					 l2mtu);
 			} else
 				unk_ecom = true;
+		} else if (type == ECOMMUNITY_ENCODE_MUP) {
+			/* Sub-types 0x00-0x02 identify a Direct Segment,
+			 * 0x03-0x05 an Interwork Segment, in the 2-octet AS,
+			 * IPv4 and 4-octet AS value formats (draft 3.2).
+			 */
+			const char *seg;
+
+			if (filter == ECOMMUNITY_ROUTE_TARGET)
+				continue;
+
+			sub_type = *pnt++;
+			seg = sub_type >= ECOMMUNITY_MUP_SUBTYPE_INTERWORK_SEG_AS2 ? "interwork"
+										   : "direct";
+			switch (sub_type) {
+			case ECOMMUNITY_MUP_SUBTYPE_DIRECT_SEG_AS2:
+			case ECOMMUNITY_MUP_SUBTYPE_INTERWORK_SEG_AS2: {
+				uint16_t as;
+				uint32_t val;
+
+				memcpy(&as, pnt, 2);
+				memcpy(&val, pnt + 2, 4);
+				snprintfrr(encbuf, sizeof(encbuf), "MUP:%s %u:%u", seg, ntohs(as),
+					   ntohl(val));
+				break;
+			}
+			case ECOMMUNITY_MUP_SUBTYPE_DIRECT_SEG_IP:
+			case ECOMMUNITY_MUP_SUBTYPE_INTERWORK_SEG_IP: {
+				struct in_addr ip;
+				uint16_t val;
+
+				memcpy(&ip, pnt, 4);
+				memcpy(&val, pnt + 4, 2);
+				snprintfrr(encbuf, sizeof(encbuf), "MUP:%s %pI4:%u", seg, &ip,
+					   ntohs(val));
+				break;
+			}
+			case ECOMMUNITY_MUP_SUBTYPE_DIRECT_SEG_AS4:
+			case ECOMMUNITY_MUP_SUBTYPE_INTERWORK_SEG_AS4: {
+				uint32_t as;
+				uint16_t val;
+
+				memcpy(&as, pnt, 4);
+				memcpy(&val, pnt + 4, 2);
+				snprintfrr(encbuf, sizeof(encbuf), "MUP:%s %u:%u", seg, ntohl(as),
+					   ntohs(val));
+				break;
+			}
+			default:
+				unk_ecom = true;
+				break;
+			}
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_REDIRECT_IP_NH) {

@@ -95,6 +95,8 @@ const char *family2str(int family)
 		return "Ethernet";
 	case AF_EVPN:
 		return "Evpn";
+	case AF_MUP:
+		return "Mup";
 	}
 	return "?";
 }
@@ -184,6 +186,8 @@ const char *safi2str(safi_t safi)
 		return "bgp-ls";
 	case SAFI_UNREACH:
 		return "unreachability";
+	case SAFI_MUP:
+		return "mup";
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return "unknown";
@@ -358,6 +362,8 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
+	} else if (src->family == AF_MUP) {
+		memcpy(&dest->u.prefix_mup, &src->u.prefix_mup, sizeof(struct mup_prefix));
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
@@ -447,6 +453,10 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
+		if (p1->family == AF_MUP)
+			if (!memcmp(&p1->u.prefix_mup, &p2->u.prefix_mup,
+				    sizeof(struct mup_prefix)))
+				return 1;
 	}
 	return 0;
 }
@@ -547,6 +557,8 @@ int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub)
 		length = ETH_ALEN;
 	if (p1->family == AF_EVPN)
 		length = 8 * sizeof(struct evpn_addr);
+	if (p1->family == AF_MUP)
+		length = sizeof(struct mup_prefix);
 
 	if (p1->family != p2->family || !length)
 		return -1;
@@ -1098,6 +1110,47 @@ static const char *prefixevpn2str(const struct prefix_evpn *p, char *str,
 	return str;
 }
 
+static const char *prefixmup2str(const struct prefix_mup *p, char *str, int size)
+{
+	const struct mup_prefix *mp = &p->prefix;
+	char buf[INET6_ADDRSTRLEN];
+	int family;
+
+	switch (mp->route_type) {
+	case BGP_MUP_ISD_ROUTE:
+		family = IS_IPADDR_V4(&mp->isd_route.ip) ? AF_INET : AF_INET6;
+		snprintf(str, size, "[%d]:[%d]:[%d]:[%s/%u]", mp->arch_type, mp->route_type,
+			 mp->length, inet_ntop(family, &mp->isd_route.ip.ip.addr, buf, sizeof(buf)),
+			 mp->isd_route.ip_prefix_length);
+		break;
+	case BGP_MUP_DSD_ROUTE:
+		family = IS_IPADDR_V4(&mp->dsd_route.ip) ? AF_INET : AF_INET6;
+		snprintf(str, size, "[%d]:[%d]:[%d]:[%s]", mp->arch_type, mp->route_type,
+			 mp->length,
+			 inet_ntop(family, &mp->dsd_route.ip.ip.addr, buf, sizeof(buf)));
+		break;
+	case BGP_MUP_T1ST_ROUTE:
+		family = IS_IPADDR_V4(&mp->t1st_route.ip) ? AF_INET : AF_INET6;
+		snprintf(str, size, "[%d]:[%d]:[%d]:[%s/%u]", mp->arch_type, mp->route_type,
+			 mp->length,
+			 inet_ntop(family, &mp->t1st_route.ip.ip.addr, buf, sizeof(buf)),
+			 mp->t1st_route.ip_prefix_length);
+		break;
+	case BGP_MUP_T2ST_ROUTE:
+		family = IS_IPADDR_V4(&mp->t2st_route.endpoint_address) ? AF_INET : AF_INET6;
+		snprintf(str, size, "[%d]:[%d]:[%d]:[%u/%s][teid=%u]", mp->arch_type,
+			 mp->route_type, mp->length, mp->t2st_route.endpoint_address_length,
+			 inet_ntop(family, &mp->t2st_route.endpoint_address.ip.addr, buf,
+				   sizeof(buf)),
+			 mp->t2st_route.teid);
+		break;
+	default:
+		snprintf(str, size, "Unsupported MUP prefix");
+		break;
+	}
+	return str;
+}
+
 /* Helper function to format the prefix length in the format /xx */
 static size_t format_prefixlen(char *buf, size_t l, int prefixlen, size_t buf_size)
 {
@@ -1185,6 +1238,10 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 
 	case AF_FLOWSPEC:
 		strlcpy(str, "FS prefix", size);
+		break;
+
+	case AF_MUP:
+		prefixmup2str((const struct prefix_mup *)p, str, size);
 		break;
 
 	default:

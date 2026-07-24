@@ -185,7 +185,8 @@ typedef enum {
 	SAFI_FLOWSPEC = 7,
 	SAFI_BGP_LS = 8, /* BGP-LS (RFC 9552) */
 	SAFI_UNREACH = 9,
-	SAFI_MAX = 10
+	SAFI_MUP = 10, /* BGP-MUP (draft-ietf-bess-mup-safi) */
+	SAFI_MAX = 11
 } safi_t;
 
 #define FOREACH_AFI_SAFI(afi, safi)                                            \

@@ -62,6 +62,7 @@
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_mup.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_unreach.h"
@@ -12145,6 +12146,18 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p, s
 			json_object_string_add(json, "nlriStr", nlri_str);
 			json_object_object_add(json, "nlri", json_nlri);
 		}
+	} else if (p->family == AF_MUP) {
+		if (!json) {
+			len = vty_out(vty, "%pFX", p);
+		} else {
+			const struct prefix_mup *pm = (const struct prefix_mup *)p;
+
+			json_object_string_addf(json, "prefix", "%pFX", p);
+			json_object_int_add(json, "prefixLen", p->prefixlen);
+			json_object_string_addf(json, "network", "%pFX", p);
+			json_object_int_add(json, "version", dest->version);
+			bgp_mup_route2json(pm, json);
+		}
 	} else {
 		if (!json)
 			len = vty_out(vty, "%pFX", p);
@@ -12392,6 +12405,12 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 			vty_out(vty, "%*s", (wide ? 45 : 17), " ");
 	} else {
 		route_vty_out_route(path->net, p, vty, json_path, wide, rd_str);
+
+		/* T1ST session fields and TLVs ride on the attr, not the key. */
+		if (p->family == AF_MUP && bgp_attr_get_mup_nlri_data(attr))
+			bgp_mup_nlri_data_show(bgp_attr_get_mup_nlri_data(attr),
+					       ((const struct prefix_mup *)p)->prefix.route_type,
+					       NULL, json_path);
 	}
 
 	/*
@@ -14308,6 +14327,11 @@ skip_nexthop:
 		}
 	}
 
+	if (p->family == AF_MUP && bgp_attr_get_mup_nlri_data(attr))
+		bgp_mup_nlri_data_show(bgp_attr_get_mup_nlri_data(attr),
+				       ((const struct prefix_mup *)p)->prefix.route_type, vty,
+				       json_path);
+
 	/* Line 6 display Large community */
 	if (bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES)) {
 		if (json_paths) {
@@ -15949,6 +15973,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_EVPN:
 		return (struct prefix_rd *)(bgp_dest_get_prefix(dest));
 	case SAFI_BGP_LS:
+	case SAFI_MUP:
 	case SAFI_UNSPEC:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:

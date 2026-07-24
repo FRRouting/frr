@@ -44,12 +44,15 @@
 #include "bgp_vnc_types.h"
 #endif
 #include "bgp_evpn.h"
+#include "bgp_mup.h"
 #include "bgp_flowspec_private.h"
 #include "bgp_mac.h"
 #include "bgpd/bgp_ls_nlri.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_unreach.h"
+
+DEFINE_MTYPE_STATIC(BGPD, BGP_MUP_NLRI_DATA, "BGP MUP NLRI TLVs");
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -687,6 +690,95 @@ static void evpn_overlay_finish(void)
 			    (void (*)(void *))evpn_overlay_free);
 }
 
+/* BGP-MUP NLRI non-key data, interned per unique byte string. */
+static int mup_nlri_data_hash_cmp(const struct bgp_mup_nlri_data *data1,
+				  const struct bgp_mup_nlri_data *data2)
+{
+	if (data1->length != data2->length)
+		return numcmp(data1->length, data2->length);
+	return memcmp(data1->val, data2->val, data1->length);
+}
+
+static uint32_t mup_nlri_data_hash_key(const struct bgp_mup_nlri_data *data)
+{
+	return jhash(data->val, data->length, 0);
+}
+
+DECLARE_HASH(mup_nlri_data_hash, struct bgp_mup_nlri_data, hash_item, mup_nlri_data_hash_cmp,
+	     mup_nlri_data_hash_key);
+
+static struct mup_nlri_data_hash_head mup_nlri_data_head;
+
+static void mup_nlri_data_free(struct bgp_mup_nlri_data *data)
+{
+	XFREE(MTYPE_BGP_MUP_NLRI_DATA, data);
+}
+
+struct bgp_mup_nlri_data *mup_nlri_data_new(const uint8_t *val, uint16_t length)
+{
+	struct bgp_mup_nlri_data *data;
+
+	data = XCALLOC(MTYPE_BGP_MUP_NLRI_DATA, sizeof(struct bgp_mup_nlri_data) + length);
+	data->length = length;
+	memcpy(data->val, val, length);
+	return data;
+}
+
+struct bgp_mup_nlri_data *mup_nlri_data_intern(struct bgp_mup_nlri_data *data)
+{
+	struct bgp_mup_nlri_data *find;
+
+	find = mup_nlri_data_hash_find(&mup_nlri_data_head, data);
+	if (!find) {
+		mup_nlri_data_hash_add(&mup_nlri_data_head, data);
+		find = data;
+	} else if (find != data)
+		mup_nlri_data_free(data);
+	find->refcnt++;
+	return find;
+}
+
+void mup_nlri_data_unintern(struct bgp_mup_nlri_data **datap)
+{
+	struct bgp_mup_nlri_data *data = *datap;
+
+	if (!data)
+		return;
+
+	if (data->refcnt)
+		data->refcnt--;
+
+	if (data->refcnt == 0) {
+		mup_nlri_data_hash_del(&mup_nlri_data_head, data);
+		mup_nlri_data_free(data);
+		*datap = NULL;
+	}
+}
+
+static bool mup_nlri_data_same(const struct bgp_mup_nlri_data *data1,
+			       const struct bgp_mup_nlri_data *data2)
+{
+	if (!data1 && !data2)
+		return true;
+	if (!data1 || !data2)
+		return false;
+	return mup_nlri_data_hash_cmp(data1, data2) == 0;
+}
+
+static void mup_nlri_data_init(void)
+{
+	mup_nlri_data_hash_init(&mup_nlri_data_head);
+}
+
+static void mup_nlri_data_finish(void)
+{
+	struct bgp_mup_nlri_data *data;
+
+	while ((data = mup_nlri_data_hash_pop(&mup_nlri_data_head)))
+		mup_nlri_data_free(data);
+	mup_nlri_data_hash_fini(&mup_nlri_data_head);
+}
+
 static bool bgp_nhc_same(const struct bgp_nhc *nhc1, const struct bgp_nhc *nhc2)
 {
 	const struct bgp_nhc_tlv *p;
@@ -1100,6 +1192,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(srv6_l3service_hash_key_make(bgp_attr_get_srv6_l3service(attr)));
 	if (bgp_attr_get_evpn_overlay(attr))
 		MIX(evpn_overlay_hash_key_make(bgp_attr_get_evpn_overlay(attr)));
+	if (bgp_attr_get_mup_nlri_data(attr))
+		MIX(mup_nlri_data_hash_key(bgp_attr_get_mup_nlri_data(attr)));
 	if (bgp_attr_get_srv6_vpn(attr))
 		MIX(srv6_vpn_hash_key_make(bgp_attr_get_srv6_vpn(attr)));
 #ifdef ENABLE_BGP_VNC
@@ -1160,6 +1254,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in, &attr2->mp_nexthop_global_in) &&
 		    IPV4_ADDR_SAME(&attr1->originator_id, &attr2->originator_id) &&
 		    overlay_index_same(attr1, attr2) &&
+		    mup_nlri_data_same(bgp_attr_get_mup_nlri_data(attr1),
+				       bgp_attr_get_mup_nlri_data(attr2)) &&
 		    !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t)) &&
 		    attr1->es_flags == attr2->es_flags && attr1->mm_seqnum == attr2->mm_seqnum &&
 		    attr1->mm_sync_seqnum == attr2->mm_sync_seqnum &&
@@ -1400,6 +1496,18 @@ struct attr *bgp_attr_intern(struct attr *attr)
 						  evpn_overlay_intern(bre));
 		else
 			bre->refcnt++;
+	}
+
+	{
+		struct bgp_mup_nlri_data *mup_nlri_data = bgp_attr_get_mup_nlri_data(attr);
+
+		if (mup_nlri_data) {
+			if (!mup_nlri_data->refcnt)
+				bgp_attr_set_mup_nlri_data(attr,
+							   mup_nlri_data_intern(mup_nlri_data));
+			else
+				mup_nlri_data->refcnt++;
+		}
 	}
 
 	{
@@ -1703,6 +1811,13 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	evpn_overlay_unintern(&bre);
 	bgp_attr_set_evpn_overlay(attr, NULL);
 
+	{
+		struct bgp_mup_nlri_data *mup_nlri_data = bgp_attr_get_mup_nlri_data(attr);
+
+		mup_nlri_data_unintern(&mup_nlri_data);
+		bgp_attr_set_mup_nlri_data(attr, NULL);
+	}
+
 	ls_attr = bgp_attr_get_ls_attr(attr);
 	bgp_ls_attr_unintern(&ls_attr);
 	bgp_attr_set_ls_attr(attr, NULL);
@@ -1827,6 +1942,13 @@ void bgp_attr_flush(struct attr *attr)
 	if (bre && !bre->refcnt) {
 		evpn_overlay_free(bre);
 		bgp_attr_set_evpn_overlay(attr, NULL);
+	}
+
+	struct bgp_mup_nlri_data *mup_nlri_data = bgp_attr_get_mup_nlri_data(attr);
+
+	if (mup_nlri_data && !mup_nlri_data->refcnt) {
+		mup_nlri_data_free(mup_nlri_data);
+		bgp_attr_set_mup_nlri_data(attr, NULL);
 	}
 
 	struct bgp_ls_attr *ls_attr = bgp_attr_get_ls_attr(attr);
@@ -4986,6 +5108,16 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_UNREACH:
 			stream_putc(s, 0); /* no nexthop for unreachability */
 			break;
+		case SAFI_MUP:
+			/* Keep whichever nexthop family the route carries. */
+			if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) {
+				stream_putc(s, BGP_ATTR_NHLEN_IPV4);
+				stream_put(s, &attr->mp_nexthop_global_in, 4);
+			} else {
+				stream_putc(s, IPV6_MAX_BYTELEN);
+				stream_put(s, &attr->mp_nexthop_global, IPV6_MAX_BYTELEN);
+			}
+			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			assert(!"SAFI's UNSPEC or MAX being specified are a DEV ESCAPE");
@@ -4997,7 +5129,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
-		case SAFI_EVPN: {
+		case SAFI_EVPN:
+		case SAFI_MUP: {
 			if (attr->mp_nexthop_len ==
 			    BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				stream_putc(s,
@@ -5323,6 +5456,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const st
 	case SAFI_ENCAP:
 		assert(!"Please add proper encoding of SAFI_ENCAP");
 		break;
+	case SAFI_MUP:
+		bgp_mup_encode_prefix(s, afi, p, prd, attr, addpath_capable, addpath_tx_id);
+		break;
 	}
 }
 
@@ -5400,6 +5536,9 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		 * the prefix.
 		 */
 		size += BGP_UNREACH_NLRI_LEN_SIZE + 27;
+		break;
+	case SAFI_MUP:
+		size = bgp_mup_prefix_size(p);
 		break;
 	}
 
@@ -5930,7 +6069,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	if ((afi == AFI_IP || afi == AFI_IP6)) {
 		struct bgp_attr_srv6_l3service *srv6_l3service = NULL;
 
-		if (safi == SAFI_MPLS_VPN && bgp_attr_get_srv6_l3service(attr))
+		if ((safi == SAFI_MPLS_VPN || safi == SAFI_MUP) &&
+		    bgp_attr_get_srv6_l3service(attr))
 			srv6_l3service = bgp_attr_get_srv6_l3service(attr);
 		else if (peer_af_flag_check(peer, afi, safi,
 					    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX) ||
@@ -6185,6 +6325,7 @@ void bgp_attr_init(void)
 	encap_init();
 	srv6_init();
 	evpn_overlay_init();
+	mup_nlri_data_init();
 	nhc_init();
 }
 
@@ -6200,6 +6341,7 @@ void bgp_attr_finish(void)
 	encap_finish();
 	srv6_finish();
 	evpn_overlay_finish();
+	mup_nlri_data_finish();
 	nhc_finish();
 }
 

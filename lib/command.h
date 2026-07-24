@@ -121,6 +121,8 @@ enum node_type {
 	BGP_EVPN_NODE,		 /* BGP EVPN node. */
 	BGP_SRV6_NODE,		 /* BGP SRv6 node. */
 	BGP_LS_NODE,		 /* BGP Link-State node. */
+	BGP_MUPV4_NODE,	 /* BGP-MUP IPv4 (draft-ietf-bess-mup-safi). */
+	BGP_MUPV6_NODE,	 /* BGP-MUP IPv6 (draft-ietf-bess-mup-safi). */
 	OSPF_NODE,		 /* OSPF protocol mode */
 	OSPF6_NODE,		 /* OSPF protocol for IPv6 mode */
 	LDP_NODE,		 /* LDP protocol mode */

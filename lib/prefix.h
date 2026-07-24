@@ -158,10 +158,74 @@ struct evpn_addr {
 #define AF_FLOWSPEC (AF_MAX + 2)
 #endif
 
+#if !defined(AF_MUP)
+#define AF_MUP (AF_MAX + 3)
+#endif
+
 struct flowspec_prefix {
 	uint8_t family;
 	uint16_t prefixlen; /* length in bytes */
 	uintptr_t ptr;
+};
+
+/* MUP Architecture types (draft-ietf-bess-mup-safi 3.1). */
+enum bgp_mup_architecture_type {
+	BGP_MUP_ARCH_3GPP_5G = 1,
+};
+
+/* MUP route types (draft-ietf-bess-mup-safi 3.1). */
+enum bgp_mup_route_type {
+	BGP_MUP_ISD_ROUTE = 1,	/* Interwork Segment Discovery */
+	BGP_MUP_DSD_ROUTE = 2,	/* Direct Segment Discovery */
+	BGP_MUP_T1ST_ROUTE = 3, /* Type 1 Session Transformed */
+	BGP_MUP_T2ST_ROUTE = 4, /* Type 2 Session Transformed */
+};
+
+/* Interwork Segment Discovery route (draft 3.1.1). */
+struct mup_isd_route {
+	uint8_t ip_prefix_length;
+	struct ipaddr ip;
+};
+
+/* Direct Segment Discovery route (draft 3.1.2). */
+struct mup_dsd_route {
+	struct ipaddr ip;
+};
+
+/* Type 1 Session Transformed route (draft 3.1.3).  Only the RD, Prefix
+ * Length and Prefix form the route key; the architecture specific fields
+ * (TEID, QFI, addresses, TLVs) are kept on the path attributes.
+ */
+struct mup_t1st_route {
+	uint8_t ip_prefix_length;
+	struct ipaddr ip;
+};
+
+/* Type 2 Session Transformed route (draft 3.1.4). */
+struct mup_t2st_route {
+	uint8_t endpoint_address_length; /* includes trailing TEID bits */
+	struct ipaddr endpoint_address;
+	uint32_t teid; /* left-aligned partial TEID */
+};
+
+/* MUP NLRI: the RD is the first 8 octets of every route-type payload, so it
+ * is part of the route key rather than carried by a parent bgp_dest.
+ */
+struct mup_prefix {
+	uint8_t arch_type;   /* enum bgp_mup_architecture_type */
+	uint16_t route_type; /* enum bgp_mup_route_type */
+	uint8_t length;	     /* route-body octets in the key; excludes T1ST/T2ST optional TLVs */
+	uint8_t rd[8];
+	union {
+		struct mup_isd_route _isd_route;
+		struct mup_dsd_route _dsd_route;
+		struct mup_t1st_route _t1st_route;
+		struct mup_t2st_route _t2st_route;
+	} u;
+#define isd_route  u._isd_route
+#define dsd_route  u._dsd_route
+#define t1st_route u._t1st_route
+#define t2st_route u._t2st_route
 };
 
 /* FRR generic prefix structure. */
@@ -182,6 +246,7 @@ struct prefix {
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
 		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */
+		struct mup_prefix prefix_mup;		/* AF_MUP */
 	} u __attribute__((aligned(8)));
 };
 
@@ -279,6 +344,13 @@ struct prefix_fs {
 	struct flowspec_prefix  prefix __attribute__((aligned(8)));
 };
 
+/* MUP prefix (draft-ietf-bess-mup-safi). */
+struct prefix_mup {
+	uint8_t family;
+	uint16_t prefixlen;
+	struct mup_prefix prefix __attribute__((aligned(8)));
+};
+
 struct prefix_sg {
 	uint8_t family;
 	uint16_t prefixlen;
@@ -294,6 +366,7 @@ union prefixptr {
 	uniontype(prefixptr, struct prefix_evpn, evp)
 	uniontype(prefixptr, struct prefix_fs,   fs)
 	uniontype(prefixptr, struct prefix_rd,   rd)
+	uniontype(prefixptr, struct prefix_mup,  mup)
 } TRANSPARENT_UNION;
 
 union prefixconstptr {
@@ -303,6 +376,7 @@ union prefixconstptr {
 	uniontype(prefixconstptr, const struct prefix_evpn, evp)
 	uniontype(prefixconstptr, const struct prefix_fs,   fs)
 	uniontype(prefixconstptr, const struct prefix_rd,   rd)
+	uniontype(prefixconstptr, const struct prefix_mup,  mup)
 } TRANSPARENT_UNION;
 /* clang-format on */
 

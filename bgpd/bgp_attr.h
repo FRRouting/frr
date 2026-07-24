@@ -7,6 +7,7 @@
 #define _QUAGGA_BGP_ATTR_H
 
 #include "mpls.h"
+#include "typesafe.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_attr_srv6.h"
@@ -292,6 +293,9 @@ struct attr {
 	/* Unknown transitive attribute. */
 	struct transit *transit;
 
+	/* BGP-MUP NLRI optional TLVs, re-encoded verbatim on re-advertisement. */
+	struct bgp_mup_nlri_data *mup_nlri_data;
+
 	struct in_addr mp_nexthop_global_in;
 
 	/* Aggregator Router ID attribute */
@@ -371,6 +375,20 @@ struct transit {
 	unsigned long refcnt;
 	int length;
 	uint8_t *val;
+};
+
+PREDECL_HASH(mup_nlri_data_hash);
+
+/* The non-key part of a BGP-MUP T1ST/T2ST NLRI body: for T1ST the
+ * architecture specific fields plus any TLVs, for T2ST the optional TLVs
+ * (draft-ietf-bess-mup-safi 3.1.3, 3.1.5).  Unknown TLV types MUST be
+ * propagated unchanged, so the whole region is kept verbatim.
+ */
+struct bgp_mup_nlri_data {
+	unsigned long refcnt;
+	struct mup_nlri_data_hash_item hash_item;
+	uint16_t length;
+	uint8_t val[];
 };
 
 /* "(void) 0" will generate a compiler error.  this is a safety check to
@@ -664,6 +682,16 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 	attr->transit = transit;
 }
 
+static inline struct bgp_mup_nlri_data *bgp_attr_get_mup_nlri_data(const struct attr *attr)
+{
+	return attr->mup_nlri_data;
+}
+
+static inline void bgp_attr_set_mup_nlri_data(struct attr *attr, struct bgp_mup_nlri_data *tlvs)
+{
+	attr->mup_nlri_data = tlvs;
+}
+
 static inline struct bgp_nhc *bgp_attr_get_nhc(const struct attr *attr)
 {
 	return attr->extra ? attr->extra->nhc : NULL;
@@ -886,6 +914,9 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);
 extern void evpn_overlay_free(struct bgp_route_evpn *bre);
 extern struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre);
+extern struct bgp_mup_nlri_data *mup_nlri_data_new(const uint8_t *val, uint16_t length);
+extern struct bgp_mup_nlri_data *mup_nlri_data_intern(struct bgp_mup_nlri_data *tlvs);
+extern void mup_nlri_data_unintern(struct bgp_mup_nlri_data **tlvsp);
 
 extern int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
 					      mpls_label_t *labels, uint8_t num_labels,
