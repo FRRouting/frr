@@ -2243,6 +2243,22 @@ DEFUN (no_ospf_compatible_rfc1583,
 	return CMD_SUCCESS;
 }
 
+DEFPY (ospf_compatible_rfc7474,
+       ospf_compatible_rfc7474_cmd,
+       "[no] compatible rfc7474",
+       NO_STR
+       "OSPF compatibility list\n"
+       "Strict RFC 7474 sequence number validation\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (no)
+		UNSET_FLAG(ospf->config, OSPF_RFC7474_COMPATIBLE);
+	else
+		SET_FLAG(ospf->config, OSPF_RFC7474_COMPATIBLE);
+	return CMD_SUCCESS;
+}
+
 ALIAS(ospf_compatible_rfc1583, ospf_rfc1583_flag_cmd,
       "ospf rfc1583compatibility",
       "OSPF specific commands\n"
@@ -9929,6 +9945,55 @@ DEFUN (no_ip_ospf_mtu_ignore,
 	return CMD_SUCCESS;
 }
 
+DEFPY (ip_ospf_compatible_rfc7474,
+       ip_ospf_compatible_rfc7474_addr_cmd,
+       "[no] ip ospf compatible rfc7474 ![enable$enable | disable$disable] \
+	 [A.B.C.D]$ip_addr",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "OSPF compatibility list\n"
+       "Strict RFC 7474 sequence number validation\n"
+       "Enable strict validation\n"
+       "Disable strict validation\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	/*
+	 * Without A.B.C.D: apply to the interface default params,
+	 * affecting all addresses on this interface.
+	 * With A.B.C.D: apply to per-address params, scoping the
+	 * override to a single address on multi-address interfaces.
+	 */
+	params = IF_DEF_PARAMS(ifp);
+
+	if (ip_addr.s_addr != INADDR_ANY) {
+		params = ospf_get_if_params(ifp, ip_addr);
+		ospf_if_update_params(ifp, ip_addr);
+	}
+
+	if (disable) {
+		/* Force legacy (relaxed) validation on this interface/address */
+		params->rfc7474_compat = 0;
+		SET_IF_PARAM(params, rfc7474_compat);
+	} else if (enable) {
+		/* Force strict RFC 7474 on this interface/address */
+		params->rfc7474_compat = 1;
+		SET_IF_PARAM(params, rfc7474_compat);
+	} else {
+		/* Restore default behavior, remove per-intf config */
+		UNSET_IF_PARAM(params, rfc7474_compat);
+		if (params != IF_DEF_PARAMS(ifp)) {
+			ospf_free_if_params(ifp, ip_addr);
+			ospf_if_update_params(ifp, ip_addr);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(ip_ospf_capability_opaque, ip_ospf_capability_opaque_addr_cmd,
       "[no] ip ospf capability opaque [A.B.C.D]$ip_addr",
       NO_STR
@@ -12526,13 +12591,18 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
-			if (OSPF_IF_PARAM_CONFIGURED(params,
-						     passive_interface)) {
+			/* RFC 7474 compatibility print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, rfc7474_compat)) {
+				vty_out(vty, " ip ospf compatible rfc7474 %s",
+					params->rfc7474_compat ? "enable" : "disable");
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
+			}
+
+			if (OSPF_IF_PARAM_CONFIGURED(params, passive_interface)) {
 				vty_out(vty, " %sip ospf passive",
-					params->passive_interface
-							== OSPF_IF_ACTIVE
-						? "no "
-						: "");
+					params->passive_interface == OSPF_IF_ACTIVE ? "no " : "");
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4", &rn->p.u.prefix4);
 				vty_out(vty, "\n");
@@ -13134,6 +13204,13 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (CHECK_FLAG(ospf->config, OSPF_RFC1583_COMPATIBLE))
 		vty_out(vty, " compatible rfc1583\n");
 
+	/*
+	 * RFC7474 compatibility flag -- only write when disabled
+	 * since enabled is the default.
+	 */
+	if (!CHECK_FLAG(ospf->config, OSPF_RFC7474_COMPATIBLE))
+		vty_out(vty, " no compatible rfc7474\n");
+
 	/* auto-cost reference-bandwidth configuration.  */
 	if (ospf->ref_bandwidth != OSPF_DEFAULT_REF_BANDWIDTH) {
 		vty_out(vty,
@@ -13371,10 +13448,12 @@ static void ospf_vty_if_init(void)
 	install_element(INTERFACE_NODE, &ip_ospf_mtu_ignore_addr_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_mtu_ignore_addr_cmd);
 
+	/* "ip ospf compatible rfc7474" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_compatible_rfc7474_addr_cmd);
+
 	/* "ip ospf dead-interval" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_dead_interval_cmd);
-	install_element(INTERFACE_NODE,
-			&ip_ospf_dead_interval_minimal_addr_cmd);
+	install_element(INTERFACE_NODE, &ip_ospf_dead_interval_minimal_addr_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_dead_interval_cmd);
 
 	/* "ip ospf hello-interval" commands. */
@@ -13892,6 +13971,9 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &no_ospf_compatible_rfc1583_cmd);
 	install_element(OSPF_NODE, &ospf_rfc1583_flag_cmd);
 	install_element(OSPF_NODE, &no_ospf_rfc1583_flag_cmd);
+
+	/* "compatible rfc7474" commands. */
+	install_element(OSPF_NODE, &ospf_compatible_rfc7474_cmd);
 
 	/* "ospf send-extra-data zebra" commands. */
 	install_element(OSPF_NODE, &ospf_send_extra_data_cmd);

@@ -1,0 +1,50 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 24
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "r2": {
+                    "ipv4": "auto",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf": {
+                "router_id": "100.1.1.1",
+                "neighbors": {
+                    "r2": {}
+                }
+            }
+        },
+        "r2": {
+            "links": {
+                "r1": {
+                    "ipv4": "auto",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf": {
+                "router_id": "100.1.1.2",
+                "neighbors": {
+                    "r1": {}
+                }
+            }
+        }
+    }
+}
