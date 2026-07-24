@@ -522,6 +522,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Debug the route-map script and ensure it returns successful status. Verify script accessibility and correct any errors in the script file.",
 	},
 	{
+		.code = EC_BGP_NEXTHOP_SELF_PEER,
+		.title = "BGP next-hop self peer check failed",
+		.description = "BGP detected a locally originated route where route-map set NEXT_HOP to the receiving peer's address, RFC 4271 Section 5.1.3 enforcement",
+		.suggestion = "Review BGP route-map configuration to avoid setting next-hop to peer address, or ensure proper next-hop handling",
+	},
+	{
 		.code = EC_BGP_VRF_NOT_FOUND,
 		.title = "BGP VRF not found",
 		.description = "BGP requested VRF does not exist or cannot be found",
