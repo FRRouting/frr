@@ -1101,6 +1101,33 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 	*/
 
 	if (ch->ifassert_state != PIM_IFASSERT_NOINFO) {
+		/*
+		 * Assert Winner Re-assert on WRONGVIF
+		 *
+		 * When the channel is in I_AM_WINNER state and wrong_if continues
+		 * to rise (indicating another router is still forwarding), the
+		 * WINNER should re-send its Assert (RFC 4601 action A3) to refresh
+		 * the LOSER's timer. Without this, the LOSER's timer may expire,
+		 * causing it to transition to NOINFO and re-add its OIF, leading
+		 * to periodic duplicate forwarding.
+		 *
+		 * Before re-asserting, verify COULD_ASSERT is still true to avoid
+		 * sending stale asserts after RPF or downstream state changes.
+		 *
+		 * GitHub Issue: #21980
+		 */
+		if (ch->ifassert_state == PIM_IFASSERT_I_AM_WINNER) {
+			if (PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)) {
+				if (assert_action_a3(ch)) {
+					if (PIM_DEBUG_MROUTE) {
+						zlog_debug("%s: WRONGVIF (S,G)=%s assert_action_a3 failure on interface %s",
+							   __func__, ch->sg_str, ifp->name);
+					}
+				}
+			}
+			return 0;
+		}
+
 		if (PIM_DEBUG_MROUTE) {
 			zlog_debug(
 				"%s: WRONGVIF (S,G)=%s channel is not on Assert NoInfo state for interface %s",

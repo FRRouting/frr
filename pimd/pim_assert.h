@@ -48,6 +48,12 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 			     enum pim_ifassert_state new_state, pim_addr winner,
 			     struct pim_assert_metric winner_metric);
 
+/* Assert state machine actions */
+int assert_action_a1(struct pim_ifchannel *ch);
+int assert_action_a3(struct pim_ifchannel *ch);
+void assert_action_a4(struct pim_ifchannel *ch);
+void assert_action_a5(struct pim_ifchannel *ch);
+
 int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		    pim_addr src_addr, uint8_t *buf, int buf_size);
 
@@ -62,9 +68,5 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 			 uint32_t rpt_bit_flag);
 
 int pim_assert_send(struct pim_ifchannel *ch);
-
-int assert_action_a1(struct pim_ifchannel *ch);
-void assert_action_a4(struct pim_ifchannel *ch);
-void assert_action_a5(struct pim_ifchannel *ch);
 
 #endif /* PIM_ASSERT_H */

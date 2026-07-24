@@ -26,7 +26,6 @@
 #include "pim_ifchannel.h"
 #include "pim_dm.h"
 
-static int assert_action_a3(struct pim_ifchannel *ch);
 static void assert_action_a2(struct pim_ifchannel *ch,
 			     struct pim_assert_metric winner_metric);
 static void assert_action_a6(struct pim_ifchannel *ch,
@@ -86,6 +85,39 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 		pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
 		pim_ifchannel_update_could_assert(ch);
 		pim_ifchannel_update_assert_tracking_desired(ch);
+	}
+
+	/*
+	 * Assert Loser Output Interface Removal
+	 *
+	 * RFC 4601 Section 4.6.1 specifies that when a router loses an Assert
+	 * election, it must stop forwarding on that interface. This code
+	 * removes the output interface from the kernel multicast forwarding
+	 * cache (MFC) when transitioning to I_AM_LOSER state, preventing
+	 * duplicate packet forwarding on shared-medium networks.
+	 *
+	 * When leaving LOSER state (e.g., Assert timer expired, transitioning
+	 * to NOINFO), we re-evaluate the OIL to potentially restore the OIF
+	 * based on current join/prune state.
+	 *
+	 * GitHub Issue: #21980
+	 */
+	if (old_state != new_state && ch->upstream->channel_oil) {
+		if (new_state == PIM_IFASSERT_I_AM_LOSER) {
+			/*
+			 * Lost Assert election - remove OIF to stop forwarding
+			 * and prevent duplicate packets on the shared medium.
+			 */
+			pim_channel_del_oif(ch->upstream->channel_oil, ch->interface,
+					    PIM_OIF_FLAG_PROTO_ANY, __func__);
+		} else if (old_state == PIM_IFASSERT_I_AM_LOSER) {
+			/*
+			 * Leaving LOSER state - re-evaluate inherited OIL to
+			 * determine if OIF should be restored based on current
+			 * join/prune state.
+			 */
+			pim_upstream_inherited_olist_decide(pim_ifp->pim, ch->upstream);
+		}
 	}
 
 	/* Dense mode manages its OIL directly (not via the SM olist), so the
@@ -648,7 +680,7 @@ static void assert_action_a2(struct pim_ifchannel *ch,
   A3:  Send Assert(S,G).
   Set Assert Timer to (Assert_Time - Assert_Override_Interval).
 */
-static int assert_action_a3(struct pim_ifchannel *ch)
+int assert_action_a3(struct pim_ifchannel *ch)
 {
 	if (ch->ifassert_state != PIM_IFASSERT_I_AM_WINNER) {
 		if (PIM_DEBUG_PIM_EVENTS)

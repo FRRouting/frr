@@ -163,9 +163,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *origch)
 		 */
 		if (up->sources) {
 			struct pim_upstream *child;
-			struct listnode *up_node;
+			struct listnode *node;
 
-			for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child))
+			for (ALL_LIST_ELEMENTS_RO(up->sources, node, child))
 				pim_channel_del_inherited_oif(child->channel_oil, ifp, __func__);
 		}
 	}
@@ -281,12 +281,11 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 	if (pim_addr_is_any(ch->sg.src)) {
 		struct pim_upstream *up = ch->upstream;
 		struct pim_upstream *child;
-		struct listnode *up_node;
+		struct listnode *node;
 
-		if (up) {
+		if (up && up->sources) {
 			if (ch->ifjoin_state == PIM_IFJOIN_NOINFO) {
-				for (ALL_LIST_ELEMENTS_RO(up->sources, up_node,
-							  child)) {
+				for (ALL_LIST_ELEMENTS_RO(up->sources, node, child)) {
 					struct channel_oil *c_oil =
 						child->channel_oil;
 
@@ -314,8 +313,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 				}
 			}
 			if (ch->ifjoin_state == PIM_IFJOIN_JOIN) {
-				for (ALL_LIST_ELEMENTS_RO(up->sources, up_node,
-							  child)) {
+				for (ALL_LIST_ELEMENTS_RO(up->sources, node, child)) {
 					struct pim_ifchannel *child_chrpt;
 
 					if (PIM_DEBUG_PIM_TRACE)
@@ -1217,32 +1215,34 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 	if (pim_addr_is_any(sg->src)) {
 		struct pim_upstream *up = pim_upstream_find(pim, sg);
 		struct pim_upstream *child;
-		struct listnode *up_node;
+		struct listnode *node;
 
 		starch = ch;
 
-		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
-			if (PIM_DEBUG_EVENTS)
-				zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
-					   __FILE__, __func__, child->sg_str,
-					   ifp->name, up->sg_str);
-
-			if (!child->rpf.source_nexthop.interface) {
-				/* when iif unknown, do not inherit */
+		if (up && up->sources) {
+			for (ALL_LIST_ELEMENTS_RO(up->sources, node, child)) {
 				if (PIM_DEBUG_EVENTS)
-					zlog_debug(
-						"Skipped (S,G)=%s(%s) from %s: no iif",
-						child->sg_str, ifp->name,
-						up->sg_str);
-				continue;
-			}
+					zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
+						   __FILE__, __func__, child->sg_str,
+						   ifp->name, up->sg_str);
 
-			pim_ifchannel_find(ifp, &child->sg, &ch, &chrpt);
-			if (pim_upstream_evaluate_join_desired_interface(child, ch, chrpt, starch)) {
-				pim_channel_add_oif(child->channel_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR,
-							__func__);
-				pim_upstream_update_join_desired(pim, child);
+				if (!child->rpf.source_nexthop.interface) {
+					/* when iif unknown, do not inherit */
+					if (PIM_DEBUG_EVENTS)
+						zlog_debug(
+							"Skipped (S,G)=%s(%s) from %s: no iif",
+							child->sg_str, ifp->name,
+							up->sg_str);
+					continue;
+				}
+
+				pim_ifchannel_find(ifp, &child->sg, &ch, &chrpt);
+				if (pim_upstream_evaluate_join_desired_interface(child, ch, chrpt, starch)) {
+					pim_channel_add_oif(child->channel_oil, ifp,
+							    PIM_OIF_FLAG_PROTO_STAR,
+								__func__);
+					pim_upstream_update_join_desired(pim, child);
+				}
 			}
 		}
 
@@ -1292,38 +1292,40 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 	if (pim_addr_is_any(sg->src)) {
 		struct pim_upstream *up = pim_upstream_find(pim_ifp->pim, sg);
 		struct pim_upstream *child;
-		struct listnode *up_node, *up_nnode;
+		struct listnode *node, *nnode;
 
 		starch = ch;
 
-		for (ALL_LIST_ELEMENTS(up->sources, up_node, up_nnode, child)) {
-			struct channel_oil *c_oil = child->channel_oil;
-			struct pim_ifchannel *chchannel, *chchannelrpt;
+		if (up && up->sources) {
+			for (ALL_LIST_ELEMENTS(up->sources, node, nnode, child)) {
+				struct channel_oil *c_oil = child->channel_oil;
+				struct pim_ifchannel *chchannel, *chchannelrpt;
 
-			pim_ifchannel_find(ifp, &child->sg, &chchannel, &chchannelrpt);
+				pim_ifchannel_find(ifp, &child->sg, &chchannel, &chchannelrpt);
 
-			pim_ifp = ifp->info;
+				pim_ifp = ifp->info;
 
-			if (PIM_DEBUG_EVENTS)
-				zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
-					   __FILE__, __func__, up->sg_str,
-					   ifp->name, child->sg_str);
+				if (PIM_DEBUG_EVENTS)
+					zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
+						   __FILE__, __func__, up->sg_str,
+						   ifp->name, child->sg_str);
 
-			/*
-			 * If the S,G has no if channel and the c_oil still
-			 * has output here then the *,G was supplying the
-			 * implied
-			 * if channel.  So remove it.
-			 */
-			if (!pim_upstream_evaluate_join_desired_interface(child, chchannel,
-									  chchannelrpt, starch) ||
-			    (!chchannel && oil_if_has(c_oil, pim_ifp->mroute_vif_index))) {
-				pim_channel_del_inherited_oif(c_oil, ifp,
-						__func__);
+				/*
+				 * If the S,G has no if channel and the c_oil still
+				 * has output here then the *,G was supplying the
+				 * implied
+				 * if channel.  So remove it.
+				 */
+				if (!pim_upstream_evaluate_join_desired_interface(child, chchannel,
+										  chchannelrpt, starch) ||
+				    (!chchannel && oil_if_has(c_oil, pim_ifp->mroute_vif_index))) {
+					pim_channel_del_inherited_oif(c_oil, ifp,
+							__func__);
+				}
+
+				/* Child node removal/ref count-- will happen as part of
+				 * parent' delete_no_info */
 			}
-
-			/* Child node removal/ref count-- will happen as part of
-			 * parent' delete_no_info */
 		}
 	}
 

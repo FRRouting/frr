@@ -44,6 +44,8 @@
 #include "pim_state_refresh.h"
 #include "pim_dm.h"
 
+IMPLEMENT_DLIST(pim_upstream_sources);
+
 static void join_timer_stop(struct pim_upstream *up);
 static void prune_timer_stop(struct pim_upstream *up);
 static void
@@ -60,12 +62,7 @@ static void pim_upstream_remove_children(struct pim_instance *pim,
 {
 	struct pim_upstream *child;
 
-	if (!up->sources)
-		return;
-
-	while (!list_isempty(up->sources)) {
-		child = listnode_head(up->sources);
-		listnode_delete(up->sources, child);
+	while ((child = pim_upstream_sources_pop(&up->sources)) != NULL) {
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(child->flags)) {
 			PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(child->flags);
 			child = pim_upstream_del(pim, child, __func__);
@@ -78,74 +75,108 @@ static void pim_upstream_remove_children(struct pim_instance *pim,
 						__func__);
 		}
 	}
-	list_delete(&up->sources);
 }
 
 /*
- * A (*,G) or a (*,*) is being created
- * Find the children that would point
- * at us.
+ * Find the parent (*,G) or (*,*) entry for a given (S,G) upstream
+ */
+static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
+						     struct pim_upstream *up)
+{
+	pim_sgaddr star_g;
+
+	/* (S,G) entries can have a (*,G) parent */
+	if (pim_addr_is_any(up->sg.src))
+		return NULL;
+
+	star_g = up->sg;
+	star_g.src = PIMADDR_ANY;
+
+	return pim_upstream_find(pim, &star_g);
+}
+
+/*
+ * Link new upstream entry to parent's sources list
  */
 static void pim_upstream_find_new_children(struct pim_instance *pim,
 					   struct pim_upstream *up)
 {
-	struct pim_upstream *child;
+	struct pim_upstream *parent;
 
-	if (!pim_addr_is_any(up->sg.src) && !pim_addr_is_any(up->sg.grp))
+	/* Only (*,G) entries have children */
+	if (!pim_addr_is_any(up->sg.src))
 		return;
 
-	if (pim_addr_is_any(up->sg.src) && pim_addr_is_any(up->sg.grp))
-		return;
-
-	frr_each (rb_pim_upstream, &pim->upstream_head, child) {
-		if (!pim_addr_is_any(up->sg.grp) &&
-		    !pim_addr_cmp(child->sg.grp, up->sg.grp) && (child != up)) {
-			child->parent = up;
-			listnode_add_sort(up->sources, child);
-			if (PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags))
-				pim_upstream_mroute_iif_update(
-						child->channel_oil,
-						__func__);
+	parent = up;
+	up = pim_upstream_find(pim, &parent->sg);
+	if (up && up != parent) {
+		/* There's already an entry, link it */
+		if (!parent->sources) {
+			parent->sources = list_new();
+			parent->sources->cmp =
+				(int (*)(void *, void *))pim_upstream_compare;
 		}
+		listnode_add_sort(parent->sources, up);
+		up->parent = parent;
 	}
 }
 
 /*
- * If we have a (*,*) || (S,*) there is no parent
- * If we have a (S,G), find the (*,G)
- * If we have a (*,G), find the (*,*)
+ * (*,G) Inheritance Respects (S,G) Assert Loss
+ *
+ * This function evaluates whether an interface should be included in the
+ * OIL for an upstream entry. Direct (S,G) joins are always eligible.
+ * When inheriting from (*,G), if the (S,G) channel has lost an Assert on
+ * an interface, that interface is excluded from the OIL even if (*,G)
+ * state would otherwise include it.
+ *
+ * Without this check, the OIF removed by the Assert loser code would be
+ * immediately re-added through (*,G) inheritance, causing duplicate
+ * forwarding on shared-medium networks.
+ *
+ * RFC 4601 Section 4.2 specifies that lost_assert(S,G,I) removes the
+ * interface from inherited_olist(S,G).
+ *
+ * GitHub Issue: #21980
  */
-static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
-						     struct pim_upstream *child)
+int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up, struct pim_ifchannel *ch,
+						 struct pim_ifchannel *chrpt,
+						 struct pim_ifchannel *starch)
 {
-	pim_sgaddr any = child->sg;
-	struct pim_upstream *up = NULL;
-
-	// (S,G)
-	if (!pim_addr_is_any(child->sg.src) &&
-	    !pim_addr_is_any(child->sg.grp)) {
-		any.src = PIMADDR_ANY;
-		up = pim_upstream_find(pim, &any);
-
-		if (up)
-			listnode_add(up->sources, child);
-
-		/*
-		 * In case parent is MLAG entry copy the data to child
-		 */
-		if (up && PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags)) {
-			PIM_UPSTREAM_FLAG_SET_MLAG_INTERFACE(child->flags);
-			if (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags))
-				PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(child->flags);
-			else
-				PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(
-					child->flags);
-		}
-
-		return up;
+	/*
+	 * Evaluate (S,G) channel state first.
+	 *
+	 * Direct (S,G) joins/includes are always eligible for OIL.
+	 * The lost-assert check only applies to (*,G) inheritance below.
+	 */
+	if (ch) {
+		if (pim_macro_chisin_joins_or_include(ch))
+			return 1;
 	}
 
-	return NULL;
+	if (chrpt)
+		return 0;
+	/*
+	 * Check (*,G) inheritance.
+	 *
+	 * The (*,G) channel doesn't have Assert state, so we only check
+	 * if it has joins/includes. However, if there's a corresponding
+	 * (S,G) channel that lost the Assert, we must not inherit.
+	 */
+	if (starch) {
+		/*
+		 * If (S,G) channel lost Assert on this interface, do not
+		 * inherit the OIF from (*,G). The (S,G) Assert loss takes
+		 * precedence over (*,G) inheritance per RFC 4601 Section 4.2.
+		 */
+		if (ch && pim_macro_ch_lost_assert(ch))
+			return 0;
+
+		if (!pim_macro_ch_lost_assert(starch) && pim_macro_chisin_joins_or_include(starch))
+			return 1;
+	}
+
+	return 0;
 }
 
 static void upstream_channel_oil_detach(struct pim_instance *pim, struct pim_upstream *up)
@@ -256,8 +287,6 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	list_delete(&up->ifchannels);
 
 	pim_upstream_remove_children(pim, up);
-	if (up->sources)
-		list_delete(&up->sources);
 
 	if (up->parent && up->parent->sources)
 		listnode_delete(up->parent->sources, up);
@@ -1438,6 +1467,18 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
  * This function is copied over from
  * pim_upstream_evaluate_join_desired_interface but limited to
  * parent (*,G)'s includes/joins.
+ *
+ * (*,G) Inheritance Respects (S,G) Assert Loss
+ *
+ * When an (S,G) channel has lost an Assert on an interface, that interface
+ * must be excluded from the OIL regardless of (*,G) state. Without this
+ * check, the OIF removed by the Assert loser code would be immediately
+ * re-added through (*,G) inheritance.
+ *
+ * RFC 4601 Section 4.2 specifies that lost_assert(S,G,I) removes the
+ * interface from inherited_olist(S,G).
+ *
+ * GitHub Issue: #21980
  */
 int pim_upstream_eval_inherit_if(struct pim_upstream *up, struct pim_ifchannel *ch,
 				 struct pim_ifchannel *chrpt, struct pim_ifchannel *starch)
@@ -1448,35 +1489,15 @@ int pim_upstream_eval_inherit_if(struct pim_upstream *up, struct pim_ifchannel *
 	if (chrpt)
 		return 0;
 
-	/* Check if the OIF can be inherited from the (*,G) entry
-	 */
-	if (starch) {
-		if (!pim_macro_ch_lost_assert(starch)
-		    && pim_macro_chisin_joins_or_include(starch))
-			return 1;
-	}
-
-	return 0;
-}
-
-/*
- * Passed in up must be the upstream for ch.  starch is NULL if no
- * information
- */
-int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up, struct pim_ifchannel *ch,
-						 struct pim_ifchannel *chrpt,
-						 struct pim_ifchannel *starch)
-{
-	if (ch) {
-		if (!pim_macro_ch_lost_assert(ch)
-		    && pim_macro_chisin_joins_or_include(ch))
-			return 1;
-	}
-
-	if (chrpt)
-		return 0;
 	/*
-	 * joins (*,G)
+	 * If (S,G) channel lost Assert on this interface, do not inherit
+	 * the OIF from (*,G). The (S,G) Assert loss takes precedence over
+	 * (*,G) inheritance per RFC 4601 Section 4.2.
+	 */
+	if (ch && pim_macro_ch_lost_assert(ch))
+		return 0;
+
+	/* Check if the OIF can be inherited from the (*,G) entry
 	 */
 	if (starch) {
 		if (!pim_macro_ch_lost_assert(starch)
