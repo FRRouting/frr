@@ -794,6 +794,60 @@ static void _bfd_dplane_session_fill(const struct bfd_session *bs,
 	msg->data.session.min_rx = htonl(bs->timers.required_min_rx);
 	msg->data.session.min_echo_tx = htonl(bs->timers.desired_min_echo_tx);
 	msg->data.session.min_echo_rx = htonl(bs->timers.required_min_echo_rx);
+
+	/*
+	 * SBFD over SRv6 fields.
+	 *
+	 * For classical BFD sessions (`bfd_mode == BFD_MODE_TYPE_BFD` and
+	 * `segnum == 0`), every appended field below ends up zeroed,
+	 * preserving the wire payload that v1 subscribers used to see.
+	 */
+	if (bs->bfd_mode > UINT8_MAX)
+		zlog_err("bfddp: bfd_mode %u truncated to %u in dplane msg",
+			 bs->bfd_mode, (uint8_t)bs->bfd_mode);
+	msg->data.session.bfd_mode = (uint8_t)bs->bfd_mode;
+	msg->data.session.encap_type = (bs->segnum > 0) ? 1 : 0; /* 1 = SRv6 */
+	msg->data.session.seg_num = bs->segnum;
+	msg->data.session.zero2 = 0;
+	/*
+	 * The wire-format `remote_discr` is documented as zero for non-
+	 * SBFD_INIT modes (see `bfddp_session.remote_discr` in
+	 * `bfddp_packet.h`). For classical BFD the value in
+	 * `bs->discrs.remote_discr` is dynamically learned from the peer's
+	 * CONTROL packets (RFC 5880 §6.8.6) and becomes non-zero after
+	 * the handshake. Without this conditional, the dplane subscriber
+	 * reconnect-replay path (`bfd_key_iterate(_bfd_session_register_
+	 * dplane, ...)` in `bfd_dplane_ctx_new`) would emit the learned
+	 * value for every established classical-BFD session, silently
+	 * violating the contract.
+	 */
+	msg->data.session.remote_discr =
+		(bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT) ?
+			htonl(bs->discrs.remote_discr) : 0;
+	memcpy(&msg->data.session.srv6_source_ipv6, &bs->out_sip6,
+	       sizeof(struct in6_addr));
+	/*
+	 * `bs->seg_list` is sized to SRV6_MAX_SEGS; so is the wire-format
+	 * `seg_list[]` here. A future bump of SRV6_MAX_SEGS without
+	 * bumping the wire-format would silently truncate, so lock the
+	 * two together at compile time.
+	 */
+	_Static_assert(SRV6_MAX_SEGS == 8,
+		       "wire-format bfddp_session.seg_list[8] must track SRV6_MAX_SEGS");
+	memcpy(msg->data.session.seg_list, bs->seg_list,
+	       sizeof(msg->data.session.seg_list));
+	/*
+	 * Truncate-on-copy: `bs->bfd_name[]` is BFD_NAME_SIZE+1 (256
+	 * bytes); the wire-format buffer is 64. Log when truncation
+	 * actually happens so a longer name doesn't silently corrupt the
+	 * subscriber's lookup key.
+	 */
+	if (strlen(bs->bfd_name) >= sizeof(msg->data.session.bfd_name))
+		zlog_warn("bfddp: bfd_name '%s' (len %zu) truncated to %zu in dplane msg",
+			  bs->bfd_name, strlen(bs->bfd_name),
+			  sizeof(msg->data.session.bfd_name) - 1);
+	strlcpy(msg->data.session.bfd_name, bs->bfd_name,
+		sizeof(msg->data.session.bfd_name));
 }
 
 static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
