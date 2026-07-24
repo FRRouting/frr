@@ -55,7 +55,11 @@ static void embed_register(void)
 passchars = set(string.printable) - set("\\'\"%\r\n\t\x0b\x0c")
 
 
-def escapech(char):
+def spacify(line):
+    return "".join(("\t" if ch == "\t" else " ") for ch in line)
+
+
+def escapech(char, line, lineno, column):
     if char in passchars:
         return char
     if char == "\n":
@@ -64,11 +68,23 @@ def escapech(char):
         return "\\t"
     if char in "\"\\'":
         return "\\" + char
+    if ord(char) >= 0x80:
+        if lineno is not None:
+            sys.stderr.write(
+                f"{inname}:{lineno+1}:{column+1}: non-ASCII character in YANG model\n"
+            )
+            sys.stderr.write(f"{inname}:{lineno+1}:{column+1}- {line}\n")
+            sys.stderr.write(
+                f"{inname}:{lineno+1}:{column+1}- {spacify(line[:column])}^--\n"
+            )
+
+        enc = char.encode("UTF-8")
+        return "".join("\\x%02x" % e for e in enc)
     return "\\x%02x" % (ord(char))
 
 
-def escape(line):
-    return "".join([escapech(i) for i in line])
+def escape(line, lineno=None):
+    return "".join([escapech(i, line, lineno, column) for column, i in enumerate(line)])
 
 
 with open(inname, "r") as fd:
@@ -102,7 +118,7 @@ else:
 if name is None or rev is None:
     raise ValueError("cannot determine YANG module name and revision")
 
-lines = [escape(row) for row in data.split("\n")]
+lines = [escape(row, lineno) for lineno, row in enumerate(data.split("\n"))]
 text = '\\n"\n\t"'.join(lines)
 
 with open(outname, "w") as fd:
