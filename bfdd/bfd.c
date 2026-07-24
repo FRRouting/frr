@@ -1754,6 +1754,8 @@ void bfd_set_echo(struct bfd_session *bs, bool echo)
 		/* Activate/update echo receive timeout timer. */
 		if (bs->bdc == NULL)
 			bs_echo_timer_handler(bs);
+		else
+			bfd_dplane_echo_negotiate(bs);
 	} else {
 		/* Check if echo mode is already disabled. */
 		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
