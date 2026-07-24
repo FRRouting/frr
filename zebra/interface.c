@@ -400,11 +400,11 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 				(struct listnode *)listhead(addr_list));
 			zebra_interface_address_delete_update(ifp, ifc);
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY);
-			/* XXX: Linux kernel removes all the secondary addresses
-			 * when the primary
-			 * address is removed. We could try to work around that,
-			 * though this is
-			 * non-trivial. */
+			/* Linux kernel removes all the secondary addresses
+			 * when the primary address is removed.
+			 * This behavior is hardcoded in the kernel,
+			 * no need to do any further changes.
+			 */
 			zebra_interface_address_add_update(ifp, ifc);
 		}
 
