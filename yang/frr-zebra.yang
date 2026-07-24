@@ -3274,7 +3274,13 @@ module frr-zebra {
         type boolean;
         description
           "MPLS forwarding status.";
-      }   
+      }
+      leaf kernel-mac-ext-learn {
+        type boolean;
+        description
+          "Kernel MAC external learn mode status.
+           Enabling hardware-based MAC learning and aging.";
+      }
     }
     // End of operational / state container
   }
