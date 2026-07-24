@@ -10,6 +10,7 @@
 #include "lib/hook.h"
 
 #include "zebra_router.h"
+#include "zebra/interface.h"
 #include "zebra_pbr.h"
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
@@ -230,8 +231,23 @@ uint32_t zebra_router_get_next_sequence(void)
 static inline unsigned int interface_hash_key(const void *arg)
 {
 	const struct interface *ifp = arg;
+	const struct zebra_if *zif = ifp->info;
 
-	return ifp->ifindex;
+	/*
+	 * Key on the snapshot taken at arm time, not the live ifp->ifindex.
+	 *
+	 * ifp->ifindex is mutated while the wheel still references the same
+	 * ifp: if_delete_update() zeroes it via if_set_index() before the
+	 * if_del hook (rtadv_if_fini) drains the wheel, and set_ifindex()
+	 * rewrites it on an RTM_NEWLINK re-key.  Reading the live value here
+	 * would send wheel_remove_item() to the wrong slot, leave the stale
+	 * entry behind, and use-after-free in process_rtadv() on the next
+	 * tick.  zif->ra_wheel_slot is set once when the item is added and is
+	 * stable for the lifetime of the wheel entry.  slot_key() is only
+	 * invoked from wheel_add_item()/wheel_remove_item(), at which points
+	 * ifp->info is always valid.
+	 */
+	return zif->ra_wheel_slot;
 }
 
 void zebra_router_terminate(void)

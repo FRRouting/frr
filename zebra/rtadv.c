@@ -1437,6 +1437,15 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 		rtadv_event(zvrf, RTADV_START, 0);
 
 	rtadv_send_packet(zvrf->rtadv.sock, zif->ifp, RA_ENABLE);
+
+	/*
+	 * Snapshot the ifindex as the wheel slot key while it is still valid
+	 * (guaranteed != IFINDEX_INTERNAL by the gate above).  interface_hash_key()
+	 * reads this snapshot for both add and the later remove, so the entry
+	 * is found in its original slot even after if_set_index()/set_ifindex()
+	 * mutate ifp->ifindex.
+	 */
+	zif->ra_wheel_slot = zif->ifp->ifindex;
 	wheel_add_item(zrouter.ra_wheel, zif->ifp);
 }
 

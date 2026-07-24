@@ -142,6 +142,18 @@ struct zebra_if {
 	unsigned int ra_sent, ra_rcvd;
 	unsigned int rs_rcvd;
 
+	/*
+	 * RA timer wheel slot key, snapshotted from ifp->ifindex when the
+	 * interface is armed in zrouter.ra_wheel.  The wheel must be keyed on
+	 * a value that stays constant for as long as the entry is in the
+	 * wheel: ifp->ifindex is not such a value (if_set_index() zeroes it
+	 * on RTM_DELLINK before the wheel is drained, and set_ifindex()
+	 * rewrites it on a rename), which would strand the entry in the wrong
+	 * slot and use-after-free in process_rtadv().  Set once at arm time,
+	 * read by interface_hash_key() at add/remove; never reset.
+	 */
+	uint32_t ra_wheel_slot;
+
 #ifdef HAVE_STRUCT_SOCKADDR_DL
 	union {
 		/* note that sdl_storage is never accessed, it only exists to

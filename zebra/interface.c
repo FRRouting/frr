@@ -229,6 +229,18 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		rtadv_if_fini(zebra_if);
 
+		/*
+		 * Drain any stale RA timer wheel entry before the ifp is freed.
+		 * A kernel RTM_DELLINK turns the interface into a pseudo-ifp via
+		 * if_delete_update() without an if_down(), so nothing else
+		 * removes it from zrouter.ra_wheel; leaving it there would
+		 * use-after-free in process_rtadv() on the next tick.  The
+		 * removal is keyed on zif->ra_wheel_slot (see interface_hash_key)
+		 * so it lands in the original slot even after ifp->ifindex was
+		 * zeroed.
+		 */
+		rtadv_stop_ra(ifp, true);
+
 		bond = &zebra_if->bond_info;
 		if (bond && bond->mbr_zifs)
 			list_delete(&bond->mbr_zifs);
