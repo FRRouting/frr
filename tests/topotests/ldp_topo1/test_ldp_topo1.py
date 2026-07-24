@@ -454,7 +454,50 @@ def test_mpls_ldp_binding():
     # Verify MPLS LDP binding
     print("\n\n** Verifying MPLS LDP binding")
     print("******************************************\n")
-    failures = 0
+
+    def _ldp_binding_diff(router_idx, expected):
+        # Actual output from router
+        actual = (
+            net["r%s" % router_idx]
+            .cmd('vtysh -c "show mpls ldp binding" 2> /dev/null')
+            .rstrip()
+        )
+
+        # Mask out changing parts in output
+        # Mask out label
+        actual = re.sub(
+            r"(ipv4 [0-9\./]+ +[0-9\.]+ +)[0-9][0-9] (.*)", r"\1xxx\2", actual
+        )
+        actual = re.sub(
+            r"(ipv4 [0-9\./]+ +[0-9\.]+ +[a-z\-]+ +)[0-9][0-9] (.*)",
+            r"\1xxx\2",
+            actual,
+        )
+
+        # Fix newlines (make them all the same)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        # Sort lines which start with "xx via inet "
+        pattern = r"^\s+[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s+"
+        swapped = True
+        while swapped:
+            swapped = False
+            for j in range(1, len(actual)):
+                if re.search(pattern, actual[j]) and re.search(pattern, actual[j - 1]):
+                    if actual[j - 1] > actual[j]:
+                        temp = actual[j - 1]
+                        actual[j - 1] = actual[j]
+                        actual[j] = temp
+                        swapped = True
+
+        # Generate Diff
+        return topotest.get_textdiff(
+            actual,
+            expected,
+            title1="actual MPLS LDP binding output",
+            title2="expected MPLS LDP binding output",
+        )
+
     for i in range(1, 5):
         refTableFile = "%s/r%s/show_mpls_ldp_binding.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
@@ -463,63 +506,23 @@ def test_mpls_ldp_binding():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r%s" % i]
-                .cmd('vtysh -c "show mpls ldp binding" 2> /dev/null')
-                .rstrip()
-            )
-
-            # Mask out changing parts in output
-            # Mask out label
-            actual = re.sub(
-                r"(ipv4 [0-9\./]+ +[0-9\.]+ +)[0-9][0-9] (.*)", r"\1xxx\2", actual
-            )
-            actual = re.sub(
-                r"(ipv4 [0-9\./]+ +[0-9\.]+ +[a-z\-]+ +)[0-9][0-9] (.*)",
-                r"\1xxx\2",
-                actual,
-            )
-
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
-
-            # Sort lines which start with "xx via inet "
-            pattern = r"^\s+[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s+"
-            swapped = True
-            while swapped:
-                swapped = False
-                for j in range(1, len(actual)):
-                    if re.search(pattern, actual[j]) and re.search(
-                        pattern, actual[j - 1]
-                    ):
-                        if actual[j - 1] > actual[j]:
-                            temp = actual[j - 1]
-                            actual[j - 1] = actual[j]
-                            actual[j] = temp
-                            swapped = True
-
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual MPLS LDP binding output",
-                title2="expected MPLS LDP binding output",
+            # Retry: the NHG event tracker can defer route/LDP-label convergence up to its safety timer, so poll until it settles.
+            ok, diff = topotest.run_and_expect(
+                lambda idx=i, exp=expected: _ldp_binding_diff(idx, exp),
+                "",
+                count=30,
+                wait=1,
             )
 
             # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+            if not ok:
                 sys.stderr.write(
                     "r%s failed MPLS LDP binding output Check:\n%s\n" % (i, diff)
                 )
-                failures += 1
             else:
                 print("r%s ok" % i)
 
-            assert failures == 0, "MPLS LDP binding output for router r%s:\n%s" % (
-                i,
-                diff,
-            )
+            assert ok, "MPLS LDP binding output for router r%s:\n%s" % (i, diff)
 
     # Make sure that all daemons are running
     for i in range(1, 5):
@@ -540,56 +543,66 @@ def test_zebra_ipv4_routingTable():
     # Verify Zebra IPv4 Routing Table
     print("\n\n** Verifying Zebra IPv4 Routing Table")
     print("******************************************\n")
-    failures = 0
+
+    def _zebra_route_diff(router_idx, expected_raw):
+        # Actual output from router
+        actual = (
+            net["r%s" % router_idx]
+            .cmd('vtysh -c "show ip route" 2> /dev/null | grep "^O"')
+            .rstrip()
+        )
+        # Drop timers on end of line
+        actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
+
+        # Mask out label - all LDP labels should be >= 10 (2-digit)
+        #   leaving the implicit labels unmasked
+        actual = re.sub(r" label [0-9][0-9]+", " label xxx", actual)
+        #   and translating remaining implicit (single-digit) labels to label implicit-null
+        actual = re.sub(r" label [0-9]+", " label implicit-null", actual)
+
+        # Check if we have implicit labels - if not, then remove them from reference
+        expected = expected_raw
+        if not re.search(r" label implicit-null", actual):
+            expected = re.sub(r", label implicit-null", "", expected)
+
+        # now fix newlines of expected (make them all the same)
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        # Fix newlines (make them all the same)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        # Generate Diff
+        return topotest.get_textdiff(
+            actual,
+            expected,
+            title1="actual IPv4 zebra routing table",
+            title2="expected IPv4 zebra routing table",
+        )
+
     for i in range(1, 5):
         refTableFile = "%s/r%s/show_ipv4_route.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            expected_raw = open(refTableFile).read().rstrip()
 
-            # Actual output from router
-            actual = (
-                net["r%s" % i]
-                .cmd('vtysh -c "show ip route" 2> /dev/null | grep "^O"')
-                .rstrip()
-            )
-            # Drop timers on end of line
-            actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
-
-            # Mask out label - all LDP labels should be >= 10 (2-digit)
-            #   leaving the implicit labels unmasked
-            actual = re.sub(r" label [0-9][0-9]+", " label xxx", actual)
-            #   and translating remaining implicit (single-digit) labels to label implicit-null
-            actual = re.sub(r" label [0-9]+", " label implicit-null", actual)
-            # Check if we have implicit labels - if not, then remove them from reference
-            if not re.search(r" label implicit-null", actual):
-                expected = re.sub(r", label implicit-null", "", expected)
-
-            # now fix newlines of expected (make them all the same)
-            expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
-
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
-
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual IPv4 zebra routing table",
-                title2="expected IPv4 zebra routing table",
+            # Retry: the NHG event tracker can defer route convergence up to its safety timer, so poll until the table settles.
+            ok, diff = topotest.run_and_expect(
+                lambda idx=i, exp=expected_raw: _zebra_route_diff(idx, exp),
+                "",
+                count=30,
+                wait=1,
             )
 
             # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+            if not ok:
                 sys.stderr.write(
                     "r%s failed IPv4 Zebra Routing Table Check:\n%s\n" % (i, diff)
                 )
-                failures += 1
             else:
                 print("r%s ok" % i)
 
             assert (
-                failures == 0
+                ok
             ), "IPv4 Zebra Routing Table verification failed for router r%s:\n%s" % (
                 i,
                 diff,

@@ -1334,6 +1334,278 @@ TRACEPOINT_EVENT(frr_zebra, gr_evpn_stale_entries_cleanup,
 				   ctf_integer(uint64_t, gr_cleanup_time, gr_cleanup_time)))
 TRACEPOINT_LOGLEVEL(frr_zebra, gr_evpn_stale_entries_cleanup, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker_park_re,
+	TP_ARGS(const char *, action, struct prefix *, p, uint32_t, route_type,
+		uint32_t, tracker_id, uint32_t, orig_nhe_id, uint32_t, matched,
+		uint32_t, unmatched, uint32_t, deleted, uint32_t, orig_re),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_array(unsigned char, prefix, p, sizeof(struct prefix))
+		ctf_integer(uint32_t, route_type, route_type)
+		ctf_integer(uint32_t, tracker_id, tracker_id)
+		ctf_integer(uint32_t, orig_nhe_id, orig_nhe_id)
+		ctf_integer(uint32_t, matched, matched)
+		ctf_integer(uint32_t, unmatched, unmatched)
+		ctf_integer(uint32_t, deleted, deleted)
+		ctf_integer(uint32_t, orig_re, orig_re)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_park_re, TRACE_INFO)
+
+/* NHG Tracker related events */
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_rework,
+	TP_ARGS(const char *, action, uint32_t, nhg_id, uint32_t, refcnt, uint32_t, old_deps,
+		uint32_t, new_deps, uint32_t, source_nhg_id),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, refcnt, refcnt)
+		ctf_integer(uint32_t, old_deps, old_deps)
+		ctf_integer(uint32_t, new_deps, new_deps)
+		ctf_integer(uint32_t, source_nhg_id, source_nhg_id)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_rework, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_hash_reinsert,
+	TP_ARGS(const char *, action, uint32_t, nhg_id, uint32_t, result_nhg_id, uint32_t, inserted,
+		uint32_t, nhg_flags),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, result_nhg_id, result_nhg_id)
+		ctf_integer(uint32_t, inserted, inserted)
+		ctf_integer(uint32_t, nhg_flags, nhg_flags)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_hash_reinsert, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_migrate,
+	TP_ARGS(const char *, action, uint32_t, loser_nhg_id, uint32_t, winner_nhg_id, uint32_t,
+		re_status, uint32_t, migrated_count),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, loser_nhg_id, loser_nhg_id)
+		ctf_integer(uint32_t, winner_nhg_id, winner_nhg_id)
+		ctf_integer(uint32_t, re_status, re_status)
+		ctf_integer(uint32_t, migrated_count, migrated_count)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_migrate, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_consolidate,
+	TP_ARGS(const char *, action, uint32_t, nhg_id, uint32_t, winner_nhg_id, uint32_t,
+		dups_found, uint32_t, busy_skipped, uint32_t, winner_re_count),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, winner_nhg_id, winner_nhg_id)
+		ctf_integer(uint32_t, dups_found, dups_found)
+		ctf_integer(uint32_t, busy_skipped, busy_skipped)
+		ctf_integer(uint32_t, winner_re_count, winner_re_count)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_consolidate, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_consolidate_busy,
+	TP_ARGS(const char *, action, uint32_t, nhg_id, uint32_t, dup_nhg_id, uint32_t, trackers,
+		uint32_t, pending_winners),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, dup_nhg_id, dup_nhg_id)
+		ctf_integer(uint32_t, trackers, trackers)
+		ctf_integer(uint32_t, pending_winners, pending_winners)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_consolidate_busy, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_state,
+	TP_ARGS(const char *, action, uint32_t, nhg_id, uint32_t, nhg_flags, uint32_t, refcnt),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, nhg_flags, nhg_flags)
+		ctf_integer(uint32_t, refcnt, refcnt)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_state, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_install_dep,
+	TP_ARGS(const char *, action, uint32_t, nhg_id, uint32_t, nhg_flags, uint32_t,
+		parent_nhg_id),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, nhg_flags, nhg_flags)
+		ctf_integer(uint32_t, parent_nhg_id, parent_nhg_id)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_install_dep, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_reuse,
+	TP_ARGS(const char *, action, uint32_t, parent_nhg_id, uint32_t, resolved_active, uint32_t,
+		incoming_count),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, parent_nhg_id, parent_nhg_id)
+		ctf_integer(uint32_t, resolved_active, resolved_active)
+		ctf_integer(uint32_t, incoming_count, incoming_count)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_reuse, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_winner,
+	TP_ARGS(const char *, action, uint32_t, parent_nhg_id, uint32_t, pending_winners, uint32_t,
+		reuse_ok, uint32_t, locked_nhg_id, uint32_t, is_dup),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, parent_nhg_id, parent_nhg_id)
+		ctf_integer(uint32_t, pending_winners, pending_winners)
+		ctf_integer(uint32_t, reuse_ok, reuse_ok)
+		ctf_integer(uint32_t, locked_nhg_id, locked_nhg_id)
+		ctf_integer(uint32_t, is_dup, is_dup)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_winner, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_re_change,
+	TP_ARGS(const char *, action, uint32_t, re_nhg_id, uint32_t, new_nhg_id, uint32_t, re_status,
+		uint32_t, old_flags, uint32_t, new_flags),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, re_nhg_id, re_nhg_id)
+		ctf_integer(uint32_t, new_nhg_id, new_nhg_id)
+		ctf_integer(uint32_t, re_status, re_status)
+		ctf_integer(uint32_t, old_flags, old_flags)
+		ctf_integer(uint32_t, new_flags, new_flags)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_re_change, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker,
+	TP_ARGS(const char *, action, uint32_t, tracker_id, uint32_t, nhg_id, uint32_t, matched,
+		uint32_t, unmatched, uint32_t, deleted, uint32_t, orig_re),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, tracker_id, tracker_id)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, matched, matched)
+		ctf_integer(uint32_t, unmatched, unmatched)
+		ctf_integer(uint32_t, deleted, deleted)
+		ctf_integer(uint32_t, orig_re, orig_re)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker_phase,
+	TP_ARGS(const char *, action, uint32_t, tracker_id, uint32_t, nhg_id, uint32_t, re_count),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, tracker_id, tracker_id)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, re_count, re_count)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_phase, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker_collapse,
+	TP_ARGS(const char *, action, uint32_t, old_tracker_id, uint32_t, new_tracker_id, uint32_t,
+		nhg_id, uint32_t, unmatched, uint32_t, deleted),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, old_tracker_id, old_tracker_id)
+		ctf_integer(uint32_t, new_tracker_id, new_tracker_id)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, unmatched, unmatched)
+		ctf_integer(uint32_t, deleted, deleted)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_collapse, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker_winner_sel,
+	TP_ARGS(const char *, action, uint32_t, tracker_id, uint32_t, nhg_id, uint32_t, winner_flags,
+		uint32_t, winner_nhg_id, uint32_t, matched, uint32_t, silent, uint32_t,
+		unmatched_max, uint32_t, snapshot_eq),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, tracker_id, tracker_id)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, winner_flags, winner_flags)
+		ctf_integer(uint32_t, winner_nhg_id, winner_nhg_id)
+		ctf_integer(uint32_t, matched, matched)
+		ctf_integer(uint32_t, silent, silent)
+		ctf_integer(uint32_t, unmatched_max, unmatched_max)
+		ctf_integer(uint32_t, snapshot_eq, snapshot_eq)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_winner_sel, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker_create,
+	TP_ARGS(const char *, action, uint32_t, tracker_id, uint32_t, nhg_id, uint32_t, event,
+		uint32_t, ifindex, uint32_t, snapshot_src_nhg_id, uint32_t, orig_re),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, tracker_id, tracker_id)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, event, event)
+		ctf_integer(uint32_t, ifindex, ifindex)
+		ctf_integer(uint32_t, snapshot_src_nhg_id, snapshot_src_nhg_id)
+		ctf_integer(uint32_t, orig_re, orig_re)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_create, TRACE_INFO)
+
+/* Flush iter (re)scheduled: snapshot of flush progress state. */
+TRACEPOINT_EVENT(
+	frr_zebra,
+	nhg_tracker_sched,
+	TP_ARGS(const char *, action, uint32_t, tracker_id, uint32_t, nhg_id, uint32_t, flush_state,
+		uint32_t, routes_pending, uint32_t, phase2_consumers, uint32_t, pending_winners),
+	TP_FIELDS(
+		ctf_string(action, action)
+		ctf_integer(uint32_t, tracker_id, tracker_id)
+		ctf_integer(uint32_t, nhg_id, nhg_id)
+		ctf_integer(uint32_t, flush_state, flush_state)
+		ctf_integer(uint32_t, routes_pending, routes_pending)
+		ctf_integer(uint32_t, phase2_consumers, phase2_consumers)
+		ctf_integer(uint32_t, pending_winners, pending_winners)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_zebra, nhg_tracker_sched, TRACE_INFO)
+
 /* clang-format on */
 #include <lttng/tracepoint-event.h>
 

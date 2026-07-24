@@ -2347,6 +2347,14 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					}
 				}
 			} else {
+				/*
+				 * Capture operative state before updating flags so we
+				 * only notify if_down when transitioning from up to down.
+				 * Avoids spurious if_down() when kernel sends the first
+				 * RTM_NEWLINK (admin up, no RUNNING) during "ip link set up".
+				 */
+				bool was_operative = if_is_operative(ifp);
+
 				ifp->flags = flags;
 				if (if_is_operative(ifp) &&
 				    !CHECK_FLAG(zif->flags,
@@ -2361,7 +2369,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					if (IS_ZEBRA_IF_BRIDGE(ifp))
 						chgflags =
 							ZEBRA_BRIDGE_MASTER_UP;
-				} else {
+				} else if (was_operative) {
+					/* notify down only when we were previously up. */
 					if (IS_ZEBRA_DEBUG_KERNEL)
 						zlog_debug(
 							"Intf %s(%u) has gone DOWN",
