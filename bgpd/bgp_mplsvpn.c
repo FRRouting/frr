@@ -3097,20 +3097,24 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 			 */
 			form_auto_rd(bgp->router_id, bgp->vrf_rd_id,
 				     &bgp->vrf_prd_auto);
-			if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET))
+			if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+					BGP_VPN_POLICY_TOVPN_RD_CLI_SET))
 				bgp->vpn_policy[afi].tovpn_rd = bgp->vrf_prd_auto;
 
-			prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd, buf,
-				      sizeof(buf), bgp->asnotation);
-
-			/* free up pre-existing memory if any and allocate
-			 *  the ecommunity attribute with new RD/RT
+			/* Re-derive the export RT only when it was not configured
+			 * explicitly.  A CLI-configured RT may intentionally differ
+			 * from the RD and must survive router-id changes.
 			 */
-			if (bgp->vpn_policy[afi].rtlist[edir])
-				ecommunity_free(
-					&bgp->vpn_policy[afi].rtlist[edir]);
-			bgp->vpn_policy[afi].rtlist[edir] = ecommunity_str2com(
-				buf, ECOMMUNITY_ROUTE_TARGET, 0);
+			if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+					BGP_VPN_POLICY_TOVPN_RT_CLI_SET)) {
+				prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd, buf, sizeof(buf),
+					      bgp->asnotation);
+
+				if (bgp->vpn_policy[afi].rtlist[edir])
+					ecommunity_free(&bgp->vpn_policy[afi].rtlist[edir]);
+				bgp->vpn_policy[afi].rtlist[edir] =
+					ecommunity_str2com(buf, ECOMMUNITY_ROUTE_TARGET, 0);
+			}
 
 			/* Update import_vrf rt_list */
 			ecom = bgp->vpn_policy[afi].rtlist[edir];
@@ -3246,16 +3250,25 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *i
 		SET_FLAG(from_bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_RD_SET);
 
-		prefix_rd2str(&from_bgp->vpn_policy[afi].tovpn_rd, buf,
-			      sizeof(buf), from_bgp->asnotation);
-		from_bgp->vpn_policy[afi].rtlist[edir] =
-			ecommunity_str2com(buf, ECOMMUNITY_ROUTE_TARGET, 0);
+		if (!CHECK_FLAG(from_bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RT_CLI_SET)) {
+			prefix_rd2str(&from_bgp->vpn_policy[afi].tovpn_rd, buf, sizeof(buf),
+				      from_bgp->asnotation);
+			from_bgp->vpn_policy[afi].rtlist[edir] =
+				ecommunity_str2com(buf, ECOMMUNITY_ROUTE_TARGET, 0);
+		}
 		SET_FLAG(from_bgp->af_flags[afi][safi],
 			 BGP_CONFIG_VRF_TO_VRF_EXPORT);
 		from_bgp->vpn_policy[afi].tovpn_label =
 			BGP_PREVENT_VRF_2_VRF_LEAK;
 	}
 	ecom = from_bgp->vpn_policy[afi].rtlist[edir];
+	if (!ecom) {
+		if (debug)
+			zlog_debug("%s from %s to %s missing export RT", __func__, import_name,
+				   export_name);
+		return;
+	}
+
 	if (to_bgp->vpn_policy[afi].rtlist[idir])
 		to_bgp->vpn_policy[afi].rtlist[idir] =
 			ecommunity_merge(to_bgp->vpn_policy[afi]
@@ -3401,15 +3414,18 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char 
 
 	if (!listcount(from_bgp->vpn_policy[afi].export_vrf)) {
 		vpn_leak_prechange(edir, afi, bgp_get_default(), from_bgp);
-		ecommunity_free(&from_bgp->vpn_policy[afi].rtlist[edir]);
-		UNSET_FLAG(from_bgp->af_flags[afi][safi],
-			   BGP_CONFIG_VRF_TO_VRF_EXPORT);
-		memset(&from_bgp->vpn_policy[afi].tovpn_rd, 0,
-		       sizeof(struct prefix_rd));
-		UNSET_FLAG(from_bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_RD_SET);
-		from_bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
 
+		if (!CHECK_FLAG(from_bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RT_CLI_SET))
+			ecommunity_free(&from_bgp->vpn_policy[afi].rtlist[edir]);
+
+		UNSET_FLAG(from_bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_VRF_EXPORT);
+
+		if (!CHECK_FLAG(from_bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET)) {
+			memset(&from_bgp->vpn_policy[afi].tovpn_rd, 0, sizeof(struct prefix_rd));
+			UNSET_FLAG(from_bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET);
+		}
+
+		from_bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
 	}
 }
 
