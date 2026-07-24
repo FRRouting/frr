@@ -31,6 +31,7 @@
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_memory.h"
@@ -377,10 +378,6 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 	if (!vrf)
 		return;
 
-	ifp = if_get_vrf_loopback(bgp->vrf_id);
-	if (!ifp)
-		return;
-
 	if (bgp->vpn_policy[afi].tovpn_sid_locator) {
 		ctx.block_len =
 			bgp->vpn_policy[afi].tovpn_sid_locator->block_bits_length;
@@ -397,11 +394,23 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 		if (CHECK_FLAG(bgp->vpn_policy[afi].tovpn_sid_locator->flags, SRV6_LOCATOR_USID))
 			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	}
+
+	/*
+	 * End.DT4 / End.DT6: table-based L3 VPN decap.
+	 * The loopback is used as the dummy outgoing interface.
+	 */
+	ifp = if_get_vrf_loopback(bgp->vrf_id);
+	if (!ifp) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: no loopback interface found", __func__,
+				   bgp->name_pretty, afi2str(afi));
+		return;
+	}
 	ctx.table = vrf->data.l.table_id;
-	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-		: ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4 : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 	zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_ADD, tovpn_sid, IPV6_MAX_BITLEN,
 			      ifp->ifindex, act, &ctx);
+
 
 	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 	*tovpn_sid_ls = *tovpn_sid;
@@ -894,16 +903,20 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	}
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
+
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+
+	zlog_debug("requesting VPN SID with behavior=%s for vrf %s locator %s",
+		   seg6local_action2str(ctx.behavior), bgp_vrf->name_pretty, locator_bgp->name);
+
 	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid, locator_bgp->name, &sid_func)) {
 		zlog_err("%s: failed to request sid for vrf %s: afi %s", __func__,
 			 bgp_vrf->name_pretty, afi2str(afi));
 		return;
 	}
-	if (debug)
-		zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s", __func__,
-			   bgp_vrf->name_pretty, afi2str(afi), locator_bgp->name);
+	zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s", __func__,
+		   bgp_vrf->name_pretty, afi2str(afi), locator_bgp->name);
 }
 
 void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
@@ -1037,8 +1050,11 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
 		ctx.vrf_id = bgp_vrf->vrf_id;
-		ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		if (afi == AFI_IP)
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		else
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+
 		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[afi].tovpn_sid_locator->name);
 		UNSET_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 
@@ -1053,6 +1069,116 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 
 	srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
 	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
+}
+
+/*
+ * SRv6 L2 EVPN - install an EVI's local decap SIDs (VXLAN-decoupled design).
+ *
+ * zebra has allocated this EVI's End.DT2U / End.DT2M SIDs and resolved the
+ * local srl2 / bum-srl2 oifs, reporting them in ZEBRA_VNI_ADD.  Here bgpd
+ * programs the kernel via the same zclient_send_localsid() path used for the
+ * per-instance SIDs.  Both decap routes use the End.DT2U action on a bridge
+ * SLAVE (the unicast srl2 and the BUM bum-srl2 respectively) with the EVI's
+ * VNI as the bridge-domain selector - matching the validated single-EVI
+ * behaviour (the BUM companion deliberately uses End.DT2U on bum-srl2 for the
+ * flood-loop avoidance reason documented in
+ * vpn_leak_zebra_vrf_sid_update_per_af()).
+ *
+ * Deferred (no-op) until the corresponding oif exists; zebra re-sends
+ * ZEBRA_VNI_ADD when the srl2 / bum-srl2 are created, re-driving this.
+ */
+void bgp_evpn_srv6_install_local_decap(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct srv6_locator *loc;
+	struct seg6local_context ctx = {};
+
+	if (!bgp || !vpn)
+		return;
+	if (bgp->evpn_encap != BGP_EVPN_ENCAP_MODE_SRV6)
+		return;
+
+	loc = bgp_srv6_locator_lookup(bgp, bgp_get_default());
+	if (loc) {
+		ctx.block_len = loc->block_bits_length;
+		ctx.node_len = loc->node_bits_length;
+		ctx.function_len = loc->function_bits_length;
+		ctx.argument_len = loc->argument_bits_length;
+		if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+	}
+	ctx.dt2_vni = vpn->vni;
+
+	/* Unicast End.DT2U decap on the EVI's local srl2.
+	 *
+	 * The kernel SEG6_LOCAL_L2DEV attribute (reported as "l2dev device
+	 * not found" when wrong/zero) is encoded by zebra from ctx.oif, NOT
+	 * from the oif parameter of zclient_send_localsid (that param only
+	 * selects the route nexthop). So ctx.oif MUST be set here, exactly
+	 * as the vpn_leak_zebra_vrf_sid_update_per_af path does.
+	 */
+	if (vpn->srv6_dt2u_sid_valid && vpn->srv6_dt2u_oif) {
+		ctx.oif = vpn->srv6_dt2u_oif;
+		zlog_info("SRv6 EVI %u: installing End.DT2U SID %pI6 l2dev %u", vpn->vni,
+			  &vpn->srv6_dt2u_sid, vpn->srv6_dt2u_oif);
+		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_ADD, &vpn->srv6_dt2u_sid,
+				      IPV6_MAX_BITLEN, vpn->srv6_dt2u_oif,
+				      ZEBRA_SEG6_LOCAL_ACTION_END_DT2U, &ctx);
+	}
+
+	/* BUM decap (End.DT2U action) on the EVI's local bum-srl2. */
+	if (vpn->srv6_dt2m_sid_valid && vpn->srv6_dt2m_oif) {
+		ctx.oif = vpn->srv6_dt2m_oif;
+		zlog_info("SRv6 EVI %u: installing BUM SID %pI6 (End.DT2U) l2dev %u", vpn->vni,
+			  &vpn->srv6_dt2m_sid, vpn->srv6_dt2m_oif);
+		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_ADD, &vpn->srv6_dt2m_sid,
+				      IPV6_MAX_BITLEN, vpn->srv6_dt2m_oif,
+				      ZEBRA_SEG6_LOCAL_ACTION_END_DT2U, &ctx);
+	}
+}
+
+/*
+ * Remove the per-EVI SRv6 local decap routes (End.DT2U unicast + BUM) that
+ * bgp_evpn_srv6_install_local_decap() installed via zclient_send_localsid().
+ * Called on EVI teardown ("no evi N") so the kernel/hardware entries for the
+ * EVI's End.DT2U/DT2M SIDs are cleaned up on the local node. The cached SID
+ * state is cleared so a later re-add re-installs cleanly.
+ */
+void bgp_evpn_srv6_uninstall_local_decap(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	struct seg6local_context ctx = {};
+
+	if (!bgp || !vpn)
+		return;
+	if (bgp->evpn_encap != BGP_EVPN_ENCAP_MODE_SRV6)
+		return;
+
+	ctx.dt2_vni = vpn->vni;
+
+	if (vpn->srv6_dt2u_sid_valid) {
+		ctx.oif = vpn->srv6_dt2u_oif;
+		zlog_info("SRv6 EVI %u: removing End.DT2U SID %pI6 l2dev %u", vpn->vni,
+			  &vpn->srv6_dt2u_sid, vpn->srv6_dt2u_oif);
+		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_DELETE, &vpn->srv6_dt2u_sid,
+				      IPV6_MAX_BITLEN, vpn->srv6_dt2u_oif,
+				      ZEBRA_SEG6_LOCAL_ACTION_END_DT2U, &ctx);
+	}
+
+	if (vpn->srv6_dt2m_sid_valid) {
+		ctx.oif = vpn->srv6_dt2m_oif;
+		zlog_info("SRv6 EVI %u: removing BUM SID %pI6 (End.DT2U) l2dev %u", vpn->vni,
+			  &vpn->srv6_dt2m_sid, vpn->srv6_dt2m_oif);
+		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_DELETE, &vpn->srv6_dt2m_sid,
+				      IPV6_MAX_BITLEN, vpn->srv6_dt2m_oif,
+				      ZEBRA_SEG6_LOCAL_ACTION_END_DT2U, &ctx);
+	}
+
+	/* Clear cached SID state so a re-add re-installs from a clean slate. */
+	memset(&vpn->srv6_dt2u_sid, 0, sizeof(vpn->srv6_dt2u_sid));
+	memset(&vpn->srv6_dt2m_sid, 0, sizeof(vpn->srv6_dt2m_sid));
+	vpn->srv6_dt2u_sid_valid = false;
+	vpn->srv6_dt2m_sid_valid = false;
+	vpn->srv6_dt2u_oif = 0;
+	vpn->srv6_dt2m_oif = 0;
 }
 
 void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)

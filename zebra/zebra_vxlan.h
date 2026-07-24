@@ -72,7 +72,7 @@ extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS);
 void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
-				 int flood_control);
+				 int flood_control, const struct in6_addr *bum_sid);
 extern void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip);
 extern void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);
@@ -81,6 +81,7 @@ extern void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_dup_addr_detection(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_set_evpn_encap_mode(struct zebra_vrf *zvrf, enum bgp_evpn_encap_mode mode);
 
 extern int is_l3vni_for_prefix_routes_only(vni_t vni);
 extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
@@ -142,6 +143,8 @@ extern void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				  json_object *json_array);
 extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 				   bool use_json);
+extern void zebra_vxlan_print_evis(struct vty *vty, struct zebra_vrf *zvrf, bool use_json);
+extern void zebra_vxlan_print_evis_detail(struct vty *vty, struct zebra_vrf *zvrf, bool use_json);
 extern void zebra_vxlan_print_vnis_detail(struct vty *vty,
 					  struct zebra_vrf *zvrf,
 					  bool use_json);

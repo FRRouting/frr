@@ -42,6 +42,8 @@
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_srl2.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 #include "zebra/zebra_trace.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
@@ -1359,7 +1361,7 @@ static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 		 vni->vni, vid, zl3vni->vxlan_if);
 
 	res = dplane_rem_mac_add(zl3vni->vxlan_if, br_ifp, vid, &zrmac->macaddr, vni->vni,
-				 &zrmac->fwd_info.r_vtep_ip, 0, 0, false /*was_static*/);
+				 &zrmac->fwd_info.r_vtep_ip, 0, 0, false /*was_static*/, NULL, 0);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -4247,6 +4249,75 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 		vty_json(vty, json);
 }
 
+/*
+ * Display the SRv6 L2 EVPN EVI table (VTY command handler for `show evpn evi`).
+ * Same row set as the L2 part of `show evpn vni` but restricted to the SRv6
+ * backend and with the VxLAN-IF / # Remote VTEPs columns removed.
+ */
+void zebra_vxlan_print_evis(struct vty *vty, struct zebra_vrf *zvrf, bool use_json)
+{
+	json_object *json = NULL;
+	void *args[2];
+
+	if (use_json)
+		json = json_object_new_object();
+
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_json_empty(vty, json);
+		return;
+	}
+
+	if (!use_json)
+		vty_out(vty, "%-10s %-4s %-8s %-8s %-15s %-10s %-37s\n", "EVI", "Type", "# MACs",
+			"# ARPs", "Tenant VRF", "VLAN", "BRIDGE");
+
+	args[0] = vty;
+	args[1] = json;
+
+	hash_iterate(zvrf->evpn_table,
+		     (void (*)(struct hash_bucket *, void *))zebra_evpn_print_evi_hash, args);
+
+	if (use_json)
+		vty_json(vty, json);
+}
+
+/*
+ * Detail view for `show evpn evi detail` — per-EVI detail restricted to the
+ * SRv6 L2 EVPN backend.
+ */
+void zebra_vxlan_print_evis_detail(struct vty *vty, struct zebra_vrf *zvrf, bool use_json)
+{
+	json_object *json_array = NULL;
+	struct zebra_ns *zns = NULL;
+	struct zebra_evpn_show zes;
+
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
+		return;
+	}
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	if (!zns)
+		return;
+
+	if (use_json)
+		json_array = json_object_new_array();
+
+	zes.vty = vty;
+	zes.json = json_array;
+	zes.zvrf = zvrf;
+	zes.use_json = use_json;
+
+	hash_iterate(zvrf->evpn_table,
+		     (void (*)(struct hash_bucket *, void *))zebra_evpn_print_evi_hash_detail,
+		     &zes);
+
+	if (use_json)
+		vty_json_no_pretty(vty, json_array);
+}
+
 void zebra_vxlan_dup_addr_detection(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -4438,7 +4509,8 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interfa
 static int32_t zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t *vni,
 					       struct ethaddr *macaddr, uint16_t *ipa_len,
 					       struct ipaddr *ip, struct ipaddr *vtep_ip,
-					       uint8_t *flags, uint32_t *seq, esi_t *esi)
+					       uint8_t *flags, uint32_t *seq, esi_t *esi,
+					       struct in6_addr *srv6_sid, bool *has_srv6_sid)
 {
 	uint16_t l = 0;
 
@@ -4478,6 +4550,22 @@ static int32_t zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t
 		l += 5;
 		STREAM_GET(esi, s, sizeof(esi_t));
 		l += sizeof(esi_t);
+
+		/* Optional SRv6 SID: 1-byte presence flag + 16-byte SID */
+		*has_srv6_sid = false;
+		if (STREAM_READABLE(s) >= 1) {
+			uint8_t srv6_flag;
+
+			STREAM_GETC(s, srv6_flag);
+			l += 1;
+			if (srv6_flag) {
+				if (STREAM_READABLE(s) < IPV6_MAX_BYTELEN)
+					goto stream_failure;
+				STREAM_GET(srv6_sid->s6_addr, s, IPV6_MAX_BYTELEN);
+				l += IPV6_MAX_BYTELEN;
+				*has_srv6_sid = true;
+			}
+		}
 	}
 
 	return l;
@@ -4502,9 +4590,9 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
-		int res_length = zebra_vxlan_remote_macip_helper(
-			false, s, &vni, &macaddr, &ipa_len, &ip, &vtep_ip, NULL,
-			NULL, NULL);
+		int res_length = zebra_vxlan_remote_macip_helper(false, s, &vni, &macaddr,
+								 &ipa_len, &ip, &vtep_ip, NULL,
+								 NULL, NULL, NULL, NULL);
 
 		if (res_length == -1)
 			goto stream_failure;
@@ -4545,6 +4633,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	char buf1[INET6_ADDRSTRLEN];
 	esi_t esi;
 	char esi_buf[ESI_STR_LEN];
+	struct in6_addr srv6_sid;
+	bool has_srv6_sid = false;
 
 	if (!EVPN_ENABLED(zvrf)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -4555,10 +4645,9 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
-
-		int res_length = zebra_vxlan_remote_macip_helper(
-			true, s, &vni, &macaddr, &ipa_len, &ip, &vtep_ip,
-			&flags, &seq, &esi);
+		int res_length = zebra_vxlan_remote_macip_helper(true, s, &vni, &macaddr, &ipa_len,
+								 &ip, &vtep_ip, &flags, &seq, &esi,
+								 &srv6_sid, &has_srv6_sid);
 
 		if (res_length == -1)
 			goto stream_failure;
@@ -4579,7 +4668,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 			 flags, &esi);
 
 		/* Enqueue to workqueue for processing */
-		zebra_rib_queue_evpn_rem_macip_add(vni, &macaddr, &ip, flags, seq, &vtep_ip, &esi);
+		zebra_rib_queue_evpn_rem_macip_add(vni, &macaddr, &ip, flags, seq, &vtep_ip, &esi,
+						   has_srv6_sid ? &srv6_sid : NULL);
 	}
 
 stream_failure:
@@ -4816,7 +4906,7 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 	zevpn = zebra_evpn_map_vlan(ifp, br_if, vid);
 	if (!zevpn)
 		return 0;
-	if (!zevpn->vxlan_if) {
+	if (!zevpn->vxlan_if && zevpn->dp_ops != &zevpn_dp_ops_srv6) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VNI %u hash %p doesn't have intf upon local MAC DEL",
 				   zevpn->vni, zevpn);
@@ -4862,7 +4952,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 		return 0;
 	}
 
-	if (!zevpn->vxlan_if) {
+	if (!zevpn->vxlan_if && zevpn->dp_ops != &zevpn_dp_ops_srv6) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"        VNI %u hash %p doesn't have intf upon local MAC ADD",
@@ -4965,6 +5055,25 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		return;
 	}
 
+	/*
+	 * SRv6 EVI (no vxlan device): release the peer's bum-srl2 flood port and
+	 * drop the VTEP bookkeeping here.  The VXLAN path below early-returns on
+	 * a NULL vxlan_if, so without this the bum-srl2 created from the peer's
+	 * Type-3 would leak when the peer withdraws (mirror of the SRv6 dispatch
+	 * in zebra_vxlan_remote_vtep_add()).
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6) {
+		zvtep = zebra_evpn_vtep_find(zevpn, vtep_ip);
+		if (zvtep) {
+			/* bum_sid=NULL drives the withdraw branch, which releases
+			 * the bum-srl2 bound to this VTEP's BUM SID.
+			 */
+			zebra_srv6_evi_remote_bum(zevpn, vtep_ip, NULL);
+			zebra_evpn_vtep_del(zevpn, zvtep);
+		}
+		return;
+	}
+
 	ifp = zevpn->vxlan_if;
 	if (!ifp) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -4997,7 +5106,7 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
  * Handle message from client to add a remote VTEP for an EVPN.
  */
 void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
-				 int flood_control)
+				 int flood_control, const struct in6_addr *bum_sid)
 {
 	struct zebra_evpn *zevpn;
 	struct interface *ifp;
@@ -5028,6 +5137,15 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 			EC_ZEBRA_VTEP_ADD_FAILED,
 			"Failed to locate EVPN hash upon remote VTEP ADD, VNI %u",
 			vni);
+		return;
+	}
+
+	/* SRv6 EVI (no vxlan device): BUM is handled via bum-srl2 on the EVI
+	 * bridge — dispatch to the SRv6 backend handler and skip the VXLAN
+	 * VTEP/HER logic below.
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6) {
+		zebra_srv6_evi_remote_bum(zevpn, vtep_ip, bum_sid);
 		return;
 	}
 
@@ -5086,6 +5204,103 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 				 "Failed to add remote VTEP, VNI %u zevpn %p",
 				 vni, zevpn);
 	}
+
+	/*
+	 * SRv6 BUM endpoint: if BGP attached an End.DT2M SID to the Type-3
+	 * IMET that produced this remote-VTEP-ADD, materialise a BUM-purpose
+	 * srl2 netdev for that SID.  The unicast (Type-2) srl2 is created
+	 * elsewhere (zebra_evpn_rem_macip_add path) with is_bum=false; this
+	 * is the BUM counterpart with is_bum=true so the brport flag profile
+	 * comes out as "learning off / flood on / mcast_flood on / bcast_flood
+	 * on".  Crucially, DO NOT install any FDB entry on this srl2 - it is
+	 * the bridge's flood-target port and is reached via the bridge's BUM
+	 * forwarding logic, not via per-MAC FDB bindings.
+	 */
+	if (bum_sid && !IN6_IS_ADDR_UNSPECIFIED(bum_sid) && zvtep) {
+		struct zebra_srl2 *bum_srl2;
+		ifindex_t br_ifindex = zif->brslave_info.br_if->ifindex;
+
+		/*
+		 * SRv6 mode (gated by bum_sid present): the VXLAN netdev is
+		 * only a traffic-less VNI anchor. It must NOT be a BUM flood
+		 * target - otherwise a decapped BUM frame re-floods out vxlan
+		 * (VXLAN head-end replication) and loops against the bum-srl2
+		 * SRv6 path. Turn learning + unicast/mcast/bcast flood OFF on
+		 * THIS VNI's vxlan_if only.
+		 *
+		 * Scope guarantee: this is inside the `bum_sid` branch, so it
+		 * fires ONLY for VNIs whose Type-3 carried an SRv6 BUM SID
+		 * (i.e. SRv6-encap VNIs). A generic VXLAN VNI never advertises
+		 * a BUM SID, so its vxlan_if flood flags are left untouched.
+		 */
+		if (zevpn->vxlan_if && zevpn->vxlan_if->ifindex > 0) {
+#ifdef GNU_LINUX
+			netlink_srl2_if_set_brport_flags(zevpn->vxlan_if->ifindex);
+#endif
+			zlog_debug("SRv6 VNI %u - flood/learning OFF on vxlan_if %s (anchor only, BUM rides bum-srl2)",
+				   vni, zevpn->vxlan_if->name);
+		}
+
+		/*
+		 * Bug-fix (srl2 stale BUM): if the remote VTEP already had a
+		 * BUM SID and that SID has now changed (NS2 migrated to uSID),
+		 * release the old bum-srl2 interface before creating the new
+		 * one.  Without this the old interface lingers in the kernel
+		 * with a stale segs= attribute.
+		 */
+		if (zvtep->has_bum_srv6_sid &&
+		    memcmp(&zvtep->bum_srv6_sid, bum_sid, sizeof(zvtep->bum_srv6_sid)) != 0) {
+			zebra_srl2_release(&zvtep->bum_srv6_sid);
+			zvtep->has_bum_srv6_sid = false;
+		}
+
+		/*
+		 * SRv6-FIX (srl2 refcount leak): like the unicast path,
+		 * zebra_srl2_get_or_create() bumps the refcount on every call,
+		 * but a remote VTEP is (re)added on every refresh.  Only acquire
+		 * a reference when this VTEP is not already holding one for the
+		 * BUM SID; the SID-change block above clears has_bum_srv6_sid
+		 * after releasing, so a changed SID re-acquires correctly.
+		 */
+		if (!zvtep->has_bum_srv6_sid) {
+			bum_srl2 = zebra_srl2_get_or_create(bum_sid, br_ifindex, /*is_bum=*/true,
+							    0 /* legacy vxlan, no EVI vlan */);
+			if (bum_srl2) {
+				/* Track BUM SID on zvtep for future SID-change detection. */
+				zvtep->bum_srv6_sid = *bum_sid;
+				zvtep->has_bum_srv6_sid = true;
+			} else {
+				zlog_warn("%s: failed to create BUM srl2 for remote DT2M SID %pI6 on VNI %u",
+					  __func__, bum_sid, vni);
+			}
+		}
+
+		/*
+		 * the block above runs only when a BUM SID is present,
+		 * so it releases the bum-srl2 solely
+		 * on a SID *change* (one non-null value to another).  When the remote
+		 * peer withdraws its DT2M SID entirely (e.g. `no sid vpn export`),
+		 * this function is re-invoked with bum_sid == NULL / unspecified, the
+		 * block is skipped, and the bum-srl2 interface is left orphaned with
+		 * its stale segs=.  Detect the withdrawal here and release it (mirror
+		 * of the unicast SID-removal release in zebra_evpn_mac.c).
+		 */
+		if ((!bum_sid || IN6_IS_ADDR_UNSPECIFIED(bum_sid)) && zvtep &&
+		    zvtep->has_bum_srv6_sid) {
+			zebra_srl2_release(&zvtep->bum_srv6_sid);
+			zvtep->has_bum_srv6_sid = false;
+		}
+	}
+
+	/* SRv6-FIX (BUM srl2 leak on SID withdrawal): the block above releases
+	 * the bum-srl2 only on a SID *change*. On `no sid vpn export` the VTEP
+	 * stays but bum_sid becomes NULL, so that block is skipped and the
+	 * bum-srl2 leaks. Release it here.
+	 */
+	if ((!bum_sid || IN6_IS_ADDR_UNSPECIFIED(bum_sid)) && zvtep && zvtep->has_bum_srv6_sid) {
+		zebra_srl2_release(&zvtep->bum_srv6_sid);
+		zvtep->has_bum_srv6_sid = false;
+	}
 }
 
 /*
@@ -5125,13 +5340,39 @@ void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, flood_control);
 		l += 4;
 
+		/*
+		 * Optional trailing SRv6 BUM (DT2M) SID appended by newer bgpd
+		 * after flood_control:
+		 *     uint8_t  have_bum_sid (0/1)
+		 *     struct in6_addr bum_sid (only when have_bum_sid == 1)
+		 * Old bgpd omits it; guard on remaining length for back-compat.
+		 */
+		struct in6_addr bum_sid;
+		uint8_t have_bum_sid = 0;
+
+		memset(&bum_sid, 0, sizeof(bum_sid));
+		if (l < hdr->length) {
+			STREAM_GETC(s, have_bum_sid);
+			l += 1;
+			if (have_bum_sid) {
+				if (l + (int)sizeof(struct in6_addr) <= hdr->length) {
+					STREAM_GET(&bum_sid, s, sizeof(struct in6_addr));
+					l += sizeof(struct in6_addr);
+				} else {
+					have_bum_sid = 0; /* malformed -> ignore */
+				}
+			}
+		}
+
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("Recv VTEP ADD %pIA VNI %u flood %d from %s", &vtep_ip, vni,
-				   flood_control, zebra_route_string(client->proto));
+			zlog_debug("Recv VTEP ADD %pIA VNI %u flood %d bum_sid=%s from %s",
+				   &vtep_ip, vni, flood_control, have_bum_sid ? "yes" : "no",
+				   zebra_route_string(client->proto));
 
 		frrtrace(3, frr_zebra, zebra_vxlan_remote_vtep_add, &vtep_ip, vni, flood_control);
-		/* Enqueue for processing */
-		zebra_rib_queue_evpn_rem_vtep_add(zvrf_id(zvrf), vni, &vtep_ip, flood_control);
+		/* Enqueue for processing (carries the BUM SID when present) */
+		zebra_rib_queue_evpn_rem_vtep_add_srv6(zvrf_id(zvrf), vni, &vtep_ip, flood_control,
+						       have_bum_sid ? &bum_sid : NULL);
 	}
 
 stream_failure:
@@ -5690,6 +5931,64 @@ stream_failure:
 }
 
 /*
+ * Apply the EVPN encapsulation choice (`encapsulation [srv6|vxlan]`) to the
+ * VxLAN sub-system in zebra. Called from the ZEBRA_EVPN_ENCAP_MODE handler
+ * in zapi_msg.c.
+ *
+ * When the operator selects SRv6 we must stop programming the VxLAN dataplane
+ * for EVPN routes (BUM flood entries, remote VTEP install, MAC-IP install via
+ * the VxLAN device, etc.), and walk the existing EVPN hash table to clean up
+ * anything we previously installed.
+ *
+ * When the operator selects VxLAN (default) we put the VxLAN dataplane back
+ * in service. Routes will be re-installed by BGP via the usual remote-MACIP
+ * / remote-VTEP path on its next walk.
+ */
+void zebra_vxlan_set_evpn_encap_mode(struct zebra_vrf *zvrf, enum bgp_evpn_encap_mode mode)
+{
+	if (!zvrf)
+		return;
+
+	if (zvrf->evpn_encap_mode == mode) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: VRF %s(%u) EVPN encap mode unchanged (%s)", __func__,
+				   zvrf_name(zvrf), zvrf_id(zvrf),
+				   (mode == BGP_EVPN_ENCAP_MODE_SRV6) ? "srv6" : "vxlan");
+		return;
+	}
+
+
+	zvrf->evpn_encap_mode = mode;
+
+	/*
+	 * Do NOT call zebra_evpn_vxlan_cleanup_all() or zevpn_build_hash_table()
+	 * here.  Both are too coarse: they destroy or rebuild the EVPN VNI hash
+	 * table itself, which deletes local MAC tracking, the VNI hash entry,
+	 * remote-VTEP lists, and BUM flood state — all of which BGP and the
+	 * dataplane still need across an encap-mode change.
+	 *
+	 * After the destruction, `show evpn mac vni N` returns "VNI N does not
+	 * exist", subsequent remote MACIP installs from BGP are dropped, and
+	 * the srl2-* SRv6-EVPN binding path never fires.
+	 *
+	 * The mode flag flip on its own is sufficient.  BGP drives the
+	 * dataplane convergence:
+	 *   - On the outbound side, BGP withdraws routes that used the old
+	 *     encap and re-advertises them under the new encap (via
+	 *     bgp_evpn_flood_control_change() for Type-3 and
+	 *     bgp_evpn_re_advertise_all_type2_routes() for Type-2).
+	 *   - On the inbound side, the receive path reads the L2 service SID
+	 *     (if any) from the incoming Type-2 / Type-3 and programs the
+	 *     SRv6 dataplane (srl2-N creation, FDB extern_learn) accordingly.
+	 *
+	 * If a deployment ever needs to forcibly purge stale VxLAN dataplane
+	 * entries on encap flip, that should be a targeted operation on the
+	 * legacy VxLAN remote-VTEP / remote-MACIP tables — NOT a wholesale
+	 * tear-down of the EVPN VNI hash.
+	 */
+}
+
+/*
  * Handle message from client to enable/disable advertisement of svi macip
  * routes
  */
@@ -6039,6 +6338,13 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 		/* Replay ESs after VNIs so ES-EVIs can resolve their VNI. */
 		zebra_evpn_es_send_all_to_client(true /* add */);
+
+		/* SRv6 L2 EVPN: zevpn_build_hash_table() only discovers VNIs
+		 * from VXLAN interfaces.  Replay the config-driven SRv6 EVIs
+		 * (no vxlan device) so they are (re)announced to BGP and go
+		 * "live" regardless of bgpd connect/enable ordering.
+		 */
+		zebra_srv6_l2evpn_replay();
 
 		/* Add all SVI (L3 GW) MACs to BGP*/
 		hash_iterate(zvrf->evpn_table,

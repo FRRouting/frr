@@ -775,6 +775,11 @@ const struct ethaddr *dplane_ctx_mac_get_addr(
 vni_t dplane_ctx_mac_get_vni(const struct zebra_dplane_ctx *ctx);
 const struct ipaddr *dplane_ctx_mac_get_vtep_ip(const struct zebra_dplane_ctx *ctx);
 ifindex_t dplane_ctx_mac_get_br_ifindex(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_mac_has_srv6_sid(const struct zebra_dplane_ctx *ctx);
+const struct in6_addr *dplane_ctx_mac_get_srv6_sid(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_mac_has_srl2_if(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_mac_get_srl2_ifindex(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_mac_set_srl2_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t srl2_ifindex);
 uint32_t dplane_ctx_mac_get_dst_present(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_mac_get_local_inactive(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_mac_get_dp_static(const struct zebra_dplane_ctx *ctx);
@@ -1070,7 +1075,8 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-					    bool was_static);
+					    bool was_static, const struct in6_addr *srv6_sid,
+					    ifindex_t srl2_ifindex);
 
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
@@ -1090,11 +1096,17 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip);
 
+/* SRv6 L2 EVPN: del a remote MAC via the srl2 (End.DT2U) FDB path (no VXLAN). */
+enum zebra_dplane_result
+dplane_rem_mac_del_srl2(const struct interface *ifp, const struct interface *bridge_ifp,
+			vlanid_t vid, const struct ethaddr *mac, vni_t vni, struct ipaddr *vtep_ip,
+			const struct in6_addr *srv6_sid, ifindex_t srl2_ifindex);
+
 /* Helper api to init an empty or new context for a MAC update */
 void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		     const struct interface *br_ifp, vlanid_t vid, const struct ethaddr *mac,
 		     vni_t vni, struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-		     uint32_t update_flags);
+		     uint32_t update_flags, const struct in6_addr *srv6_sid);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.

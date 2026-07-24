@@ -14470,6 +14470,33 @@ skip_nexthop:
 		}
 	}
 
+	/* Remote SID for EVPN L2 Service */
+	if (bgp_attr_get_srv6_l2vpn(path->attr) && safi == SAFI_EVPN) {
+		struct bgp_attr_srv6_l3service *l2srv = bgp_attr_get_srv6_l2vpn(path->attr);
+
+		if (json_paths) {
+			json_object *json_sid_attr;
+
+			json_object_string_addf(json_path, "remoteL2Sid", "%pI6", &l2srv->sid);
+			json_sid_attr = json_object_new_object();
+			json_object_object_add(json_path, "remoteL2SidStructure", json_sid_attr);
+			json_object_int_add(json_sid_attr, "locatorBlockLen", l2srv->loc_block_len);
+			json_object_int_add(json_sid_attr, "locatorNodeLen", l2srv->loc_node_len);
+			json_object_int_add(json_sid_attr, "functionLen", l2srv->func_len);
+			json_object_int_add(json_sid_attr, "argumentLen", l2srv->arg_len);
+			json_object_int_add(json_sid_attr, "transpositionLen",
+					    l2srv->transposition_len);
+			json_object_int_add(json_sid_attr, "transpositionOffset",
+					    l2srv->transposition_offset);
+		} else {
+			vty_out(vty, "      Remote L2 SID: %pI6", &l2srv->sid);
+			vty_out(vty, ", sid structure=[%u %u %u %u %u %u]", l2srv->loc_block_len,
+				l2srv->loc_node_len, l2srv->func_len, l2srv->arg_len,
+				l2srv->transposition_len, l2srv->transposition_offset);
+			vty_out(vty, "\n");
+		}
+	}
+
 	/* Label Index */
 	if (attr->label_index != BGP_INVALID_LABEL_INDEX) {
 		if (json_paths)

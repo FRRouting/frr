@@ -7,6 +7,7 @@
 #define _BGP_EVPN_PRIVATE_H
 
 #include "vxlan.h"
+#include "srv6.h"
 #include "zebra.h"
 
 #include "bgpd/bgpd.h"
@@ -63,6 +64,7 @@ struct bgpevpn {
 /* Attach both L2-VNI and L3-VNI if needed for this VPN */
 #define VNI_FLAG_USE_TWO_LABELS 0x20
 #define VNI_FLAG_ADD		0x40 /* L2VNI Add */
+#define VNI_FLAG_EVI		0x80 /* configured via 'evi' (SRv6 L2 EVPN) */
 
 	struct bgp *bgp_vrf; /* back pointer to the vrf instance */
 
@@ -120,12 +122,74 @@ struct bgpevpn {
 
 	enum vxlan_flood_control vxlan_flood_ctrl;
 
+	/*
+	 * SRv6 L2 EVPN per-EVI service SIDs (VXLAN-decoupled design).
+	 *
+	 * With multiple EVIs each VNI needs its OWN End.DT2U (unicast) and
+	 * End.DT2M (BUM) SID so the egress PE can demux to the correct
+	 * bridge-domain; a single per-BGP-instance SID would collide.  zebra
+	 * allocates these from the EVI locator and reports them (with the
+	 * resolved local srl2/bum-srl2 oifs) in ZEBRA_VNI_ADD.  When valid they
+	 * take precedence over the per-instance bgp->vpn_policy[AFI_L2VPN] SIDs
+	 * in route origination, and drive the local decap install.  All zero /
+	 * invalid for VXLAN EVIs.
+	 */
+	struct in6_addr srv6_dt2u_sid; /* End.DT2U (Type-2 / unicast) */
+	struct in6_addr srv6_dt2m_sid; /* End.DT2M (Type-3 / BUM) */
+	bool srv6_dt2u_sid_valid;
+	bool srv6_dt2m_sid_valid;
+	ifindex_t srv6_dt2u_oif; /* local unicast srl2 (decap l2dev) */
+	ifindex_t srv6_dt2m_oif; /* local bum-srl2 (BUM decap l2dev) */
+	/* EVI L2 service type (enum zevpn_l2_service), reported by zebra
+	 * in ZEBRA_VNI_ADD.
+	 */
+	uint8_t srv6_svc_type;
+	/* per-EVI locator name, reported by zebra in ZEBRA_VNI_ADD */
+	char srv6_locator_name[SRV6_LOCNAME_SIZE];
+
+	/*
+	 * Per-EVI locator METADATA, reported by zebra in ZEBRA_VNI_ADD
+	 * (VXLAN-decoupled design).  Used to encode the SRv6 L2 service TLV
+	 * (End.DT2U / End.DT2M) for this VNI when there is no BGP-instance-level
+	 * locator to look up.  srv6_loc_meta_valid is set only when zebra
+	 * resolved the EVI's locator and shipped its bit lengths + uSID flag.
+	 */
+	bool srv6_loc_meta_valid;
+	bool srv6_loc_is_usid;
+	uint8_t srv6_loc_block_len;
+	uint8_t srv6_loc_node_len;
+	uint8_t srv6_loc_func_len;
+	uint8_t srv6_loc_arg_len;
+
 	QOBJ_FIELDS;
 };
 
 DECLARE_QOBJ_TYPE(bgpevpn);
 
 DECLARE_LIST(zebra_l2_vni, struct bgpevpn, zl2vni);
+
+/*
+ * SRv6 L2 EVPN service types as reported by zebra in ZEBRA_VNI_ADD and stored
+ * in bgpevpn->srv6_svc_type.  These mirror zebra's enum zevpn_l2_service but
+ * are kept as bare values here to avoid a zebra header dependency in bgpd:
+ *   0 = vlan-aware-bundle, 1 = vlan-based, 2 = vlan-bundle.
+ */
+#define BGP_EVPN_SVC_VLAN_AWARE_BUNDLE 0
+#define BGP_EVPN_SVC_VLAN_BASED	       1
+#define BGP_EVPN_SVC_VLAN_BUNDLE       2
+
+/*
+ * True when this VNI is an SRv6 L2 EVPN vlan-bundle EVI: N customer VLANs
+ * collapse into one flat bridge-domain / MAC-VRF, Ethernet Tag ID = 0, C-tags
+ * transported transparently, and the service is L2-only (no per-VLAN IRB).
+ * Drives the bundle-specific behaviour in route origination.  Returns false
+ * for vlan-based and vlan-aware-bundle EVIs and for all VXLAN VNIs, so their
+ * existing behaviour is unchanged.
+ */
+static inline bool is_vpn_vlan_bundle(const struct bgpevpn *vpn)
+{
+	return vpn && vpn->srv6_svc_type == BGP_EVPN_SVC_VLAN_BUNDLE;
+}
 
 /* Mapping of Import RT to VNIs.
  * The Import RTs of all VNIs are maintained in a hash table with each
@@ -782,6 +846,11 @@ extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
 extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);
+/* Install the local decap route for the SRv6 EVI whose srl2/bum-srl2 just
+ * appeared — called from the interface-add hook with the fresh, operative
+ * ifindex, so the install never uses a stale cached oif.
+ */
+extern void bgp_evpn_srv6_install_for_ifindex(struct bgp *bgp, ifindex_t ifindex);
 extern struct bgp_path_info *delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 						     struct bgp_dest *dest,
 						     const struct bgp_path_info *originator,

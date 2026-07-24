@@ -7,6 +7,7 @@
 #define _QUAGGA_BGP_ZEBRA_H
 
 #include "vxlan.h"
+#include "zclient.h"
 
 /* The global zapi session handle */
 extern struct zclient *bgp_zclient;
@@ -113,6 +114,7 @@ extern int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise,
 extern int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise);
 extern int bgp_zebra_dup_addr_detection(struct bgp *bgp);
 extern int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgpevpn *evpn);
+extern int bgp_zebra_evpn_encap_mode(struct bgp *bgp, enum bgp_evpn_encap_mode mode);
 
 extern int bgp_zebra_num_connects(void);
 
@@ -150,6 +152,11 @@ extern bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 				       const char *locator_name,
 				       uint32_t *sid_func);
 extern void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *locator_name);
+extern int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
+				     const struct in6_addr *local_sid);
+extern int bgp_zebra_send_vpws_local_del(const char *instance);
+extern int bgp_zebra_send_vpws_remote(const char *instance, const struct in6_addr *peer_sid);
+extern int bgp_zebra_send_vpws_remote_del(const char *instance);
 
 extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 					 ifindex_t index, vrf_id_t vrfid,

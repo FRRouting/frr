@@ -17,6 +17,7 @@
 #include "frrevent.h"
 #include "queue.h"
 #include "memory.h"
+#include "typesafe.h"
 #include "lib/json.h"
 #include "lib/bfd.h"
 #include "lib/route_opaque.h"
@@ -51,6 +52,7 @@
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
@@ -69,6 +71,7 @@ DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 	    (bgp, ifp));
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_IF_INFO, "BGP interface context");
+DEFINE_MTYPE_STATIC(BGPD, BGP_SRV6_LOC_CACHE, "BGP SRv6 locator cache entry");
 
 /* Can we install into zebra? */
 static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
@@ -253,6 +256,9 @@ static int bgp_ifp_up(struct interface *ifp)
 		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP, ifp, true);
 		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP6, ifp, true);
 	}
+
+	if (bgp_get_default())
+		bgp_evpn_vpws_on_interface_up(bgp_get_default(), ifp);
 
 	return 0;
 }
@@ -2791,6 +2797,45 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	return zclient_send_message(bgp_zclient);
 }
 
+/*
+ * Send the EVPN data-plane encapsulation mode (VxLAN or SRv6) selected by
+ * the operator under `address-family l2vpn evpn` -> `encapsulation ...` to
+ * zebra. Zebra dispatches the message to both its VxLAN and SRv6 sub-systems
+ * so that the appropriate dataplane is enabled / disabled for EVPN routes.
+ *
+ * Wire format (after zclient header):
+ *   uint8_t mode  -- one of enum bgp_evpn_encap_mode
+ */
+int bgp_zebra_evpn_encap_mode(struct bgp *bgp, enum bgp_evpn_encap_mode mode)
+{
+	struct stream *s;
+
+	/* Check socket. */
+	if (!bgp_zclient || bgp_zclient->sock < 0)
+		return 0;
+
+	/* Don't try to register if Zebra doesn't know of this instance. */
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: No zebra instance to talk to, not sending EVPN encap mode",
+				   __func__);
+		return 0;
+	}
+
+	s = bgp_zclient->obuf;
+	stream_reset(s);
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: Setting EVPN encap mode for VRF %u to %s", __func__, bgp->vrf_id,
+			   (mode == BGP_EVPN_ENCAP_MODE_SRV6) ? "srv6" : "vxlan");
+
+	zclient_create_header(s, ZEBRA_EVPN_ENCAP_MODE, bgp->vrf_id);
+	stream_putc(s, (uint8_t)mode);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(bgp_zclient);
+}
+
 int bgp_zebra_dup_addr_detection(struct bgp *bgp)
 {
 	struct stream *s;
@@ -3521,6 +3566,21 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	vrf_id_t tenant_vrf_id = VRF_DEFAULT;
 	struct in_addr mcast_grp = {INADDR_ANY};
 	ifindex_t svi_ifindex = 0;
+	/* SRv6 L2 EVPN per-EVI service SIDs + decap oifs (VXLAN-decoupled). */
+	bool have_srv6 = false;
+	struct in6_addr srv6_dt2u_sid = {};
+	struct in6_addr srv6_dt2m_sid = {};
+	uint32_t srv6_dt2u_oif = 0;
+	uint32_t srv6_dt2m_oif = 0;
+	uint8_t srv6_svc_type = 0;
+	char srv6_locator_name[SRV6_LOCNAME_SIZE] = {};
+	/* Per-EVI locator metadata (VXLAN-decoupled design). */
+	bool srv6_loc_meta_valid = false;
+	bool srv6_loc_is_usid = false;
+	uint8_t srv6_loc_block_len = 0;
+	uint8_t srv6_loc_node_len = 0;
+	uint8_t srv6_loc_func_len = 0;
+	uint8_t srv6_loc_arg_len = 0;
 
 	s = zclient->ibuf;
 	vni = stream_getl(s);
@@ -3533,6 +3593,56 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 		stream_get(&tenant_vrf_id, s, sizeof(vrf_id_t));
 		mcast_grp.s_addr = stream_get_ipv4(s);
 		stream_get(&svi_ifindex, s, sizeof(ifindex_t));
+
+		/*
+		 * Optional trailing SRv6 per-EVI block (zebra appends it; older
+		 * zebra / VXLAN EVIs send nothing or zeros).  Length-guarded for
+		 * backward compatibility: dt2u_sid(16) dt2m_sid(16) oifs(4+4).
+		 */
+		if (STREAM_READABLE(s) >= 40) {
+			stream_get(&srv6_dt2u_sid, s, sizeof(srv6_dt2u_sid));
+			stream_get(&srv6_dt2m_sid, s, sizeof(srv6_dt2m_sid));
+			srv6_dt2u_oif = stream_getl(s);
+			srv6_dt2m_oif = stream_getl(s);
+			have_srv6 = true;
+
+			/* Optional trailing svc_type byte (EVI L2 service
+			 * type), guarded separately for compat.
+			 */
+			if (STREAM_READABLE(s) >= 1)
+				srv6_svc_type = stream_getc(s);
+
+			/* Optional trailing length-prefixed EVI locator name
+			 * (per-EVI; may differ from the instance locator).
+			 */
+			if (STREAM_READABLE(s) >= 1) {
+				uint8_t llen = stream_getc(s);
+
+				if (llen > 0 && STREAM_READABLE(s) >= llen) {
+					stream_get(srv6_locator_name, s, llen);
+					srv6_locator_name[llen] = '\0';
+				}
+			}
+
+			/*
+			 * Optional trailing per-EVI locator metadata (block/node/
+			 * func/arg bit lengths + uSID flag), length-guarded for
+			 * compat.  Lets bgpd encode the SRv6 L2 service TLV from the
+			 * EVI's own locator without a BGP-instance locator.
+			 */
+			if (STREAM_READABLE(s) >= 1) {
+				uint8_t meta_valid = stream_getc(s);
+
+				if (meta_valid && STREAM_READABLE(s) >= 5) {
+					srv6_loc_block_len = stream_getc(s);
+					srv6_loc_node_len = stream_getc(s);
+					srv6_loc_func_len = stream_getc(s);
+					srv6_loc_arg_len = stream_getc(s);
+					srv6_loc_is_usid = stream_getc(s) ? true : false;
+					srv6_loc_meta_valid = true;
+				}
+			}
+		}
 	}
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
@@ -3559,18 +3669,73 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (cmd == ZEBRA_VNI_ADD) {
+		int ret;
+
 		frrtrace(4, frr_bgp, evpn_local_vni_add_zrecv, vni, &vtep_ip, tenant_vrf_id,
 			 mcast_grp);
 
-		return bgp_evpn_local_vni_add(
-			bgp, vni,
-			&vtep_ip,
-			tenant_vrf_id, mcast_grp, svi_ifindex);
-	} else {
-		frrtrace(1, frr_bgp, evpn_local_vni_del_zrecv, vni);
+		ret = bgp_evpn_local_vni_add(bgp, vni, &vtep_ip, tenant_vrf_id, mcast_grp,
+					     svi_ifindex);
 
-		return bgp_evpn_local_vni_del(bgp, vni);
+		/*
+		 * SRv6 L2 EVPN (VXLAN-decoupled): stash this EVI's per-EVI
+		 * service SIDs + local decap oifs reported by zebra, install
+		 * the local End.DT2U/BUM decap routes, and re-originate the
+		 * VNI's Type-2/Type-3 routes so they carry the per-EVI SID.
+		 */
+		if (have_srv6 && bgp->evpn_encap == BGP_EVPN_ENCAP_MODE_SRV6) {
+			struct bgpevpn *vpn = bgp_evpn_lookup_vni(bgp, vni);
+
+			if (vpn) {
+				vpn->srv6_dt2u_sid = srv6_dt2u_sid;
+				vpn->srv6_dt2m_sid = srv6_dt2m_sid;
+				vpn->srv6_dt2u_sid_valid = !IN6_IS_ADDR_UNSPECIFIED(&srv6_dt2u_sid);
+				vpn->srv6_dt2m_sid_valid = !IN6_IS_ADDR_UNSPECIFIED(&srv6_dt2m_sid);
+				vpn->srv6_dt2u_oif = srv6_dt2u_oif;
+				vpn->srv6_dt2m_oif = srv6_dt2m_oif;
+				vpn->srv6_svc_type = srv6_svc_type;
+				strlcpy(vpn->srv6_locator_name, srv6_locator_name,
+					sizeof(vpn->srv6_locator_name));
+				vpn->srv6_loc_meta_valid = srv6_loc_meta_valid;
+				vpn->srv6_loc_is_usid = srv6_loc_is_usid;
+				vpn->srv6_loc_block_len = srv6_loc_block_len;
+				vpn->srv6_loc_node_len = srv6_loc_node_len;
+				vpn->srv6_loc_func_len = srv6_loc_func_len;
+				vpn->srv6_loc_arg_len = srv6_loc_arg_len;
+
+				/*
+				 * Best-effort install now; the authoritative
+				 * install happens from the srl2/bum-srl2
+				 * interface-add hook (bgp_ifp_create), where the
+				 * oif is a known, operative interface - installing
+				 * on VNI_ADD alone can race the interface-add.
+				 */
+				bgp_evpn_srv6_install_local_decap(bgp, vpn);
+				update_routes_for_vni(bgp, vpn);
+			}
+		}
+
+		return ret;
 	}
+
+	frrtrace(1, frr_bgp, evpn_local_vni_del_zrecv, vni);
+
+	/*
+	 * SRv6 L2 EVPN (VXLAN-decoupled): zebra's "no evi N" releases
+	 * the per-EVI SID and sends this VNI_DEL, but the local
+	 * End.DT2U/BUM decap routes were installed by bgpd via
+	 * zclient_send_localsid, so bgpd must remove them here before
+	 * the vpn is freed by bgp_evpn_local_vni_del. Otherwise the
+	 * seg6local routes linger in the kernel/hardware.
+	 */
+	if (bgp->evpn_encap == BGP_EVPN_ENCAP_MODE_SRV6) {
+		struct bgpevpn *vpn = bgp_evpn_lookup_vni(bgp, vni);
+
+		if (vpn)
+			bgp_evpn_srv6_uninstall_local_decap(bgp, vpn);
+	}
+
+	return bgp_evpn_local_vni_del(bgp, vni);
 }
 
 static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
@@ -3708,6 +3873,33 @@ static int bgp_ifp_create(struct interface *ifp)
 		vpn_leak_postchange_all();
 	}
 
+	/*
+	 * Re-install the L2VPN local SID install whenever either flavor
+	 * of srl2 appears, because the discovery loop in
+	 * vpn_leak_zebra_vrf_sid_update_per_af() may now find a
+	 * better-suited l2dev (e.g., the just-arrived unicast srl2-N
+	 * after the BUM bum-srl2-N had been the only candidate).
+	 *
+	 * Prefix is authoritative - no integer/parity heuristic.
+	 */
+	bool is_bum_srl2 = (strncmp(ifp->name, "bum-srl2-", 9) == 0);
+	bool is_uni_srl2 = !is_bum_srl2 && (strncmp(ifp->name, "srl2-", 5) == 0);
+
+	if ((is_bum_srl2 || is_uni_srl2) && bgp_get_default()) {
+		zlog_debug("Rx Intf add %s (%s) - re-installing L2VPN local SID", ifp->name,
+			   is_bum_srl2 ? "BUM" : "unicast");
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_L2VPN);
+		/*
+		 * Install the per-EVI SRv6 decap route on THIS just-added,
+		 * operative interface (matched by ifindex), so the oif is
+		 * always current and never a stale cached value.
+		 */
+		bgp_evpn_srv6_install_for_ifindex(bgp, ifp->ifindex);
+	}
+
+	if (bgp_get_default())
+		bgp_evpn_vpws_on_interface_up(bgp_get_default(), ifp);
+
 	return 0;
 }
 
@@ -3768,9 +3960,61 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 		  locator->block_bits_length, locator->node_bits_length,
 		  locator->function_bits_length, locator->argument_bits_length);
 
+	/*
+	 * Detect USID flag transition (legacy <-> uSID).
+	 *
+	 * When the operator adds/removes `behavior usid` + `format usid-f3216`
+	 * on an existing locator, the SRV6_LOCATOR_USID flag in the incoming
+	 * locator notification differs from the flag stored in the currently
+	 * cached bgp->srv6_locator.  VPWS End.DX2 SIDs (bgpd-allocated) must be
+	 * released and re-requested from the new function range; per-EVI
+	 * DT2U/DT2M SIDs are re-reported by zebra via ZEBRA_VNI_ADD.
+	 *
+	 * The comparison must happen here, before bgp->srv6_locator is
+	 * overwritten, so we can still read the old flags.
+	 */
+	bool new_usid = CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID);
+	bool old_usid;
+	bool locator_changed = false;
+
+	if (bgp->srv6_locator)
+		/* Normal path: locator still cached (no DEL before ADD). */
+		old_usid = CHECK_FLAG(bgp->srv6_locator->flags, SRV6_LOCATOR_USID);
+	else
+		/* DEL cleared bgp->srv6_locator; no cached mode to compare. */
+		old_usid = new_usid;
+
+	if (old_usid != new_usid) {
+		struct bgp *bgp_evpn = bgp_get_default();
+
+		zlog_info("%s(%d): %s, SRv6 locator USID flag changed (%s -> %s): re-requesting VPWS DX2 SIDs from the new range",
+			  bgp->name_pretty, bgp->vrf_id, __func__, old_usid ? "usid" : "legacy",
+			  new_usid ? "usid" : "legacy");
+
+		/*
+		 * Release and re-request every VPWS (Type-1 EAD-EVI) DX2 SID;
+		 * these are stored per-instance in bgp_evpn_vpws.local_sid.
+		 * Per-EVI DT2U/DT2M SIDs are re-reported by zebra via
+		 * ZEBRA_VNI_ADD, so no bgpd-side release is needed here.
+		 */
+		if (bgp_evpn)
+			bgp_evpn_vpws_on_locator_update(bgp_evpn);
+	}
+
+	/* Re-advertise gating: only when the locator actually changed. */
+	if (old_usid != new_usid)
+		locator_changed = true;
+
+	/* Also treat first-time locator install or prefix change as 'changed'. */
+	if (!bgp->srv6_locator ||
+	    memcmp(&bgp->srv6_locator->prefix, &locator->prefix, sizeof(locator->prefix)) != 0)
+		locator_changed = true;
+
+
 	/* Store the locator in the BGP instance */
 	if (bgp->srv6_locator)
 		srv6_locator_free(bgp->srv6_locator);
+
 	bgp->srv6_locator = srv6_locator_alloc(locator->name);
 	srv6_locator_copy(bgp->srv6_locator, locator);
 
@@ -3782,7 +4026,142 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 	bgp_srv6_unicast_ensure_afi_sid(bgp, AFI_IP);
 	bgp_srv6_unicast_ensure_afi_sid(bgp, AFI_IP6);
 
+	/*
+	 * EVPN per-EVI DT2U/DT2M SIDs are allocated by zebra on the VLAN->EVI
+	 * binding and reported to bgpd via ZEBRA_VNI_ADD, so no bgpd-side SID
+	 * request is needed here.  VPWS End.DX2 per-instance SIDs, however, are
+	 * requested by bgpd, so retry them now that the locator is available
+	 * (covers a vpws-instance configured before the locator arrived).
+	 */
+	bgp_evpn_vpws_request_missing_sids(bgp_get_default());
+
+	/*
+	 * Re-originate all locally-generated EVPN Type-2 and Type-3 routes so
+	 * that the SRv6 endpoint_behavior codepoint in outbound BGP UPDATEs
+	 * reflects the current locator state.
+	 *
+	 * This is needed when the operator toggles `behavior usid` /
+	 * `no behavior usid` (or `format usid-f3216` / `no format`) on a
+	 * locator that already has live EVPN SIDs: the locator's
+	 * SRV6_LOCATOR_USID flag changes and zebra re-reports the per-EVI
+	 * SIDs, but the BGP path_info attributes already in the RIB still
+	 * carry the old endpoint_behavior codepoint (uDT2U/uDT2M vs
+	 * End.DT2U/End.DT2M).
+	 * Calling these re-advertise helpers forces a full attribute rebuild
+	 * for every locally-originated EVPN route so the correct codepoint
+	 * is sent to peers immediately without requiring a `clear bgp *`.
+	 *
+	 * bgp_get_default() is used because the EVPN VNI hash (vnihash) lives
+	 * on the default BGP instance regardless of which instance the locator
+	 * update arrived for.
+	 */
+	if (locator_changed) {
+		struct bgp *bgp_evpn = bgp_get_default();
+
+		zlog_debug("locator changed, re-advertising EVPN T2/T3");
+		bgp_evpn_re_advertise_all_type2_routes(bgp_evpn);
+		bgp_evpn_re_advertise_all_type3_routes(bgp_evpn);
+	}
+
 	return 0;
+}
+
+/*
+ * Cache of ALL SRv6 locators advertised by zebra (keyed by name).
+ *
+ * bgpd only binds ONE instance-level locator (bgp->srv6_locator).  The
+ * VXLAN-decoupled design, however, uses PER-EVI / per-VPWS locators (e.g.
+ * `evi N locator LOC-X`, `vpws ... locator LOC-Y`) that are never the instance
+ * locator, so their metadata (prefix + block/node/func/arg lengths + uSID
+ * flag) was decoded from ZEBRA_SRV6_LOCATOR_ADD and then thrown away.  That
+ * left the SRv6 SID-notify handler unable to resolve the locator a per-EVI /
+ * VPWS SID was allocated from, so it dropped the notify ("locator not set")
+ * and e.g. VPWS End.DX2 SIDs were never consumed.
+ *
+ * Keep a lightweight copy of every advertised locator here so the notify
+ * handler can resolve by name without requiring an instance locator.
+ */
+PREDECL_DLIST(srv6loc_cache);
+
+/*
+ * struct srv6_locator is a lib type with no intrusive list linkage, so the
+ * cache holds these wrappers, each owning one locator copy.
+ */
+struct bgp_srv6_loc_cache_entry {
+	struct srv6loc_cache_item item;
+	struct srv6_locator *loc;
+};
+
+DECLARE_DLIST(srv6loc_cache, struct bgp_srv6_loc_cache_entry, item);
+
+static struct srv6loc_cache_head bgp_srv6_locator_cache[1];
+static bool bgp_srv6_locator_cache_inited;
+
+static struct srv6_locator *bgp_srv6_locator_cache_lookup(const char *name)
+{
+	struct bgp_srv6_loc_cache_entry *e;
+
+	if (!bgp_srv6_locator_cache_inited || !name || !name[0])
+		return NULL;
+	frr_each (srv6loc_cache, bgp_srv6_locator_cache, e)
+		if (strmatch(e->loc->name, name))
+			return e->loc;
+	return NULL;
+}
+
+static void bgp_srv6_locator_cache_add(const struct srv6_locator *loc)
+{
+	struct bgp_srv6_loc_cache_entry *e;
+	struct srv6_locator *c;
+
+	if (!loc || !loc->name[0])
+		return;
+	if (!bgp_srv6_locator_cache_inited) {
+		srv6loc_cache_init(bgp_srv6_locator_cache);
+		bgp_srv6_locator_cache_inited = true;
+	}
+
+	c = bgp_srv6_locator_cache_lookup(loc->name);
+	if (c) {
+		/* Refresh metadata in place (e.g. legacy<->uSID format change). */
+		srv6_locator_copy(c, loc);
+		return;
+	}
+	c = srv6_locator_alloc(loc->name);
+	srv6_locator_copy(c, loc);
+	e = XCALLOC(MTYPE_BGP_SRV6_LOC_CACHE, sizeof(*e));
+	e->loc = c;
+	srv6loc_cache_add_tail(bgp_srv6_locator_cache, e);
+}
+
+static void bgp_srv6_locator_cache_del(const char *name)
+{
+	struct bgp_srv6_loc_cache_entry *e;
+
+	if (!bgp_srv6_locator_cache_inited || !name || !name[0])
+		return;
+	frr_each (srv6loc_cache, bgp_srv6_locator_cache, e)
+		if (strmatch(e->loc->name, name)) {
+			srv6loc_cache_del(bgp_srv6_locator_cache, e);
+			srv6_locator_free(e->loc);
+			XFREE(MTYPE_BGP_SRV6_LOC_CACHE, e);
+			return;
+		}
+}
+
+static void bgp_srv6_locator_cache_finish(void)
+{
+	struct bgp_srv6_loc_cache_entry *e;
+
+	if (!bgp_srv6_locator_cache_inited)
+		return;
+	frr_each_safe (srv6loc_cache, bgp_srv6_locator_cache, e) {
+		srv6loc_cache_del(bgp_srv6_locator_cache, e);
+		srv6_locator_free(e->loc); /* frees each cached locator + wrapper */
+		XFREE(MTYPE_BGP_SRV6_LOC_CACHE, e);
+	}
+	srv6loc_cache_fini(bgp_srv6_locator_cache);
+	bgp_srv6_locator_cache_inited = false;
 }
 
 static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
@@ -3813,9 +4192,17 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		break;
 	}
 
+	/*
+	 * No instance-level locator is required in the VXLAN-decoupled design:
+	 * per-EVI / per-VPWS SIDs are drawn from their own locators, resolved
+	 * from the locator cache below.  Fall back to the default instance for
+	 * downstream context/logging instead of dropping the notify.
+	 */
+	if (!bgp)
+		bgp = bgp_get_default();
 	if (!bgp) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s, ignoring SRv6 SID notify: locator not set", __func__);
+			zlog_debug("%s, ignoring SRv6 SID notify: no BGP instance", __func__);
 		return -1;
 	}
 
@@ -3853,13 +4240,40 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	}
 
 	locator_bgp = bgp_srv6_locator_lookup(bgp_vrf, bgp_get_default());
+	/*
+	 * Per-EVI / per-VPWS SIDs are allocated from a locator that is NOT the
+	 * BGP-instance locator, so the lookup above returns NULL.  Resolve the
+	 * actual locator (metadata included) by the name carried in the notify,
+	 * from the cache of zebra-advertised locators.  This is what lets VPWS
+	 * End.DX2 (and any per-EVI SID) be consumed without an instance locator.
+	 */
 	if (!locator_bgp)
+		locator_bgp = bgp_srv6_locator_cache_lookup(loc_name);
+	if (!locator_bgp) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: ignoring SRv6 SID notify: no locator (instance or cache) for '%s'",
+				   __func__, loc_name);
 		return -1;
+	}
 
 	if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6)
 		afi = AFI_IP6;
 	else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)
 		afi = AFI_IP;
+
+
+	/* VPWS-instance dispatch: per-VPWS End.DX2 allocations are keyed
+	 * by (behavior, oif, dt2_vni) and should not flow through the
+	 * per-AFI vpn_policy slot below. If a VPWS instance matches, it
+	 * consumes the notification.
+	 */
+	{
+		bool allocated = (note == ZAPI_SRV6_SID_ALLOCATED);
+
+		if (bgp_evpn_vpws_handle_sid_notify(bgp_vrf, ctx.oif, ctx.dt2_vni, ctx.behavior,
+						    &sid_addr, locator_bgp, allocated))
+			return 0;
+	}
 
 	/* Handle notification */
 	switch (note) {
@@ -4282,6 +4696,14 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
 
+	/*
+	 * Cache every advertised locator (with full metadata) so per-EVI /
+	 * per-VPWS SID-notify handling can resolve non-instance locators by
+	 * name.  Independent of whether any BGP instance has this locator
+	 * configured.
+	 */
+	bgp_srv6_locator_cache_add(&loc);
+
 	bgp_ls_originate_srv6_locator_prefix(bgp_get_default(), &loc);
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
@@ -4457,6 +4879,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
+
+	bgp_srv6_locator_cache_del(loc.name);
 
 	bgp_ls_withdraw_srv6_locator_prefix(bgp_get_default(), &loc);
 
@@ -4649,6 +5073,7 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 
 void bgp_zebra_destroy(void)
 {
+	bgp_srv6_locator_cache_finish();
 	if (bgp_zclient == NULL)
 		return;
 	zclient_stop(bgp_zclient);
@@ -5271,7 +5696,58 @@ void bgp_zebra_release_label_range(uint32_t start, uint32_t end)
 	if (!bgp_zclient_sync || !bgp_zebra_label_manager_ready())
 		return;
 
+
 	ret = lm_release_label_chunk(bgp_zclient_sync, start, end);
 	if (ret < 0)
 		zlog_warn("%s: error releasing label range!", __func__);
+}
+
+int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
+			      const struct in6_addr *local_sid)
+{
+	struct zapi_vpws_local api = {};
+	struct stream *s;
+
+
+	strlcpy(api.instance_name, instance, sizeof(api.instance_name));
+	strlcpy(api.ac_ifname, ac_ifname, sizeof(api.ac_ifname));
+	api.local_sid = *local_sid;
+
+	s = bgp_zclient->obuf;
+	zapi_vpws_local_encode(ZEBRA_VPWS_LOCAL_ADD, s, &api);
+	return zclient_send_message(bgp_zclient);
+}
+
+
+int bgp_zebra_send_vpws_local_del(const char *instance)
+{
+	struct stream *s = bgp_zclient->obuf;
+
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_VPWS_LOCAL_DEL, VRF_DEFAULT);
+	stream_put(s, instance, 64); /* must match decoder fixed length */
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zclient_send_message(bgp_zclient);
+}
+
+int bgp_zebra_send_vpws_remote(const char *instance, const struct in6_addr *peer_sid)
+{
+	struct zapi_vpws_remote api = {};
+
+	strlcpy(api.instance_name, instance, sizeof(api.instance_name));
+	api.peer_sid = *peer_sid;
+
+	zapi_vpws_remote_encode(ZEBRA_VPWS_REMOTE_ADD, bgp_zclient->obuf, &api);
+	return zclient_send_message(bgp_zclient);
+}
+
+int bgp_zebra_send_vpws_remote_del(const char *instance)
+{
+	struct stream *s = bgp_zclient->obuf;
+
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_VPWS_REMOTE_DEL, VRF_DEFAULT);
+	stream_put(s, instance, 64);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zclient_send_message(bgp_zclient);
 }

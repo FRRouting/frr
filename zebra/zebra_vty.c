@@ -3112,6 +3112,38 @@ DEFUN (show_evpn_vni,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_evpn_evi,
+       show_evpn_evi_cmd,
+       "show evpn evi [json]",
+       SHOW_STR
+       "EVPN\n"
+       "SRv6 L2 EVPN EVI (VLAN-to-EVI mapping)\n"
+       JSON_STR)
+{
+	struct zebra_vrf *zvrf;
+	bool uj = use_json(argc, argv);
+
+	zvrf = zebra_vrf_get_evpn();
+	zebra_vxlan_print_evis(vty, zvrf, uj);
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_evi_detail, show_evpn_evi_detail_cmd,
+       "show evpn evi detail [json]",
+       SHOW_STR
+       "EVPN\n"
+       "SRv6 L2 EVPN EVI (VLAN-to-EVI mapping)\n"
+       "Detailed information on each EVI\n"
+       JSON_STR)
+{
+	struct zebra_vrf *zvrf;
+	bool uj = use_json(argc, argv);
+
+	zvrf = zebra_vrf_get_evpn();
+	zebra_vxlan_print_evis_detail(vty, zvrf, uj);
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_evpn_vni_detail, show_evpn_vni_detail_cmd,
        "show evpn vni detail [json]",
        SHOW_STR
@@ -4333,6 +4365,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_frr_cmd);
 	install_element(VIEW_NODE, &show_evpn_global_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_evi_cmd);
+	install_element(VIEW_NODE, &show_evpn_evi_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_l2_nh_cmd);

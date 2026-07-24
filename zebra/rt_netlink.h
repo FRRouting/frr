@@ -101,6 +101,16 @@ netlink_put_lsp_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 extern enum netlink_msg_status
 netlink_put_pw_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
+/* SRv6 SR-L2 interface helpers (zebra_srl2.c uses these). */
+extern ifindex_t netlink_srl2_if_add(const char *ifname, const struct in6_addr *sid);
+extern int netlink_srl2_if_set_master(ifindex_t srl2_ifindex, ifindex_t bridge_ifindex);
+extern int netlink_srl2_if_del(ifindex_t srl2_ifindex);
+extern int netlink_srl2_if_up(ifindex_t srl2_ifindex);
+extern int netlink_srl2_if_update_sid(ifindex_t srl2_ifindex, const struct in6_addr *sid);
+extern int netlink_srl2_if_set_brport_flags(ifindex_t ifindex);
+extern int netlink_srl2_if_set_brport_bum_flags(ifindex_t ifindex);
+extern int netlink_srl2_bridge_vlan_add(ifindex_t ifindex, vlanid_t vid, bool untagged, bool pvid);
+
 #ifdef NETLINK_DEBUG
 const char *nlmsg_type2str(uint16_t type);
 const char *af_type2str(int type);
@@ -128,7 +138,6 @@ const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen);
 void nl_dump(void *msg, size_t msglen);
 
 extern int zebra2proto(int proto);
-
 #endif /* NETLINK_DEBUG */
 
 #ifdef __cplusplus

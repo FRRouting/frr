@@ -40,6 +40,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_srv6_vpws.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/rt.h"
 #include "zebra/zebra_trace.h"
@@ -4131,6 +4132,98 @@ static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
 	zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr);
 }
 
+
+/* === EVPN-VPWS dataplane handlers ============================ */
+static void zread_vpws_local_add(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_vpws_local api;
+
+	if (zapi_vpws_local_decode(msg, &api) < 0) {
+		zlog_warn("%s: decode failed", __func__);
+		return;
+	}
+	zebra_srv6_vpws_local_add(&api);
+}
+
+static void zread_vpws_local_del(ZAPI_HANDLER_ARGS)
+{
+	char name[64];
+
+	STREAM_GET(name, msg, sizeof(name));
+	zebra_srv6_vpws_local_del(name);
+	return;
+stream_failure:
+	zlog_warn("%s: stream short-read", __func__);
+}
+
+static void zread_vpws_remote_add(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_vpws_remote api;
+
+	if (zapi_vpws_remote_decode(msg, &api) < 0) {
+		zlog_warn("%s: decode failed", __func__);
+		return;
+	}
+	zebra_srv6_vpws_remote_add(&api);
+}
+
+static void zread_vpws_remote_del(ZAPI_HANDLER_ARGS)
+{
+	char name[64];
+
+	STREAM_GET(name, msg, sizeof(name));
+	zebra_srv6_vpws_remote_del(name);
+	return;
+stream_failure:
+	zlog_warn("%s: stream short-read", __func__);
+}
+/* === end EVPN-VPWS handlers =================================== */
+
+/*
+ * Handler for ZEBRA_EVPN_ENCAP_MODE.
+ *
+ * BGP sends this whenever the operator changes the encapsulation under
+ * `address-family l2vpn evpn` (`encapsulation [srv6|vxlan]`). We fan it out
+ * to both the VxLAN and SRv6 sub-systems so each can enable / disable its
+ * dataplane glue for EVPN routes.
+ *
+ * Wire format: uint8_t mode (enum bgp_evpn_encap_mode).
+ */
+static void zread_evpn_encap_mode(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	uint8_t raw_mode;
+	enum bgp_evpn_encap_mode mode;
+
+	s = msg;
+	STREAM_GETC(s, raw_mode);
+
+	if (raw_mode != BGP_EVPN_ENCAP_MODE_VXLAN && raw_mode != BGP_EVPN_ENCAP_MODE_SRV6) {
+		zlog_warn("%s: Received invalid EVPN encap mode %u from client", __func__,
+			  raw_mode);
+		return;
+	}
+
+	mode = (enum bgp_evpn_encap_mode)raw_mode;
+
+	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_RECV)
+		zlog_debug("%s: VRF %u EVPN encap mode set to %s", __func__, zvrf_id(zvrf),
+			   (mode == BGP_EVPN_ENCAP_MODE_SRV6) ? "srv6" : "vxlan");
+
+	/* Notify the VxLAN sub-system so it can disable the VxLAN dataplane
+	 * glue when SRv6 is selected (and re-enable it on a switch back).
+	 */
+	zebra_vxlan_set_evpn_encap_mode(zvrf, mode);
+
+	/* Notify the SRv6 sub-system so it can mark EVPN as an SRv6 user and
+	 * gate SID programming on the operator's choice.
+	 */
+	zebra_srv6_set_evpn_encap_mode(mode);
+
+stream_failure:
+	return;
+}
+
 void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
@@ -4179,6 +4272,10 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REMOTE_VTEP_DEL] = zebra_vxlan_remote_vtep_del_zapi,
 	[ZEBRA_REMOTE_MACIP_ADD] = zebra_vxlan_remote_macip_add,
 	[ZEBRA_REMOTE_MACIP_DEL] = zebra_vxlan_remote_macip_del,
+	[ZEBRA_VPWS_LOCAL_ADD] = zread_vpws_local_add,
+	[ZEBRA_VPWS_LOCAL_DEL] = zread_vpws_local_del,
+	[ZEBRA_VPWS_REMOTE_ADD] = zread_vpws_remote_add,
+	[ZEBRA_VPWS_REMOTE_DEL] = zread_vpws_remote_del,
 	[ZEBRA_DUPLICATE_ADDR_DETECTION] = zebra_vxlan_dup_addr_detection,
 	[ZEBRA_INTERFACE_SET_MASTER] = zread_interface_set_master,
 	[ZEBRA_INTERFACE_SET_ARP] = zread_interface_set_arp,
@@ -4198,6 +4295,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPTABLE_ADD] = zread_iptable,
 	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
 	[ZEBRA_VXLAN_FLOOD_CONTROL] = zebra_vxlan_flood_control,
+	[ZEBRA_EVPN_ENCAP_MODE] = zread_evpn_encap_mode,
 	[ZEBRA_VXLAN_SG_REPLAY] = zebra_vxlan_sg_replay,
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,

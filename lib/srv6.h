@@ -57,23 +57,27 @@ enum seg6_mode_t {
 };
 
 enum seg6local_action_t {
-	ZEBRA_SEG6_LOCAL_ACTION_UNSPEC       = 0,
-	ZEBRA_SEG6_LOCAL_ACTION_END          = 1,
-	ZEBRA_SEG6_LOCAL_ACTION_END_X        = 2,
-	ZEBRA_SEG6_LOCAL_ACTION_END_T        = 3,
-	ZEBRA_SEG6_LOCAL_ACTION_END_DX2      = 4,
-	ZEBRA_SEG6_LOCAL_ACTION_END_DX6      = 5,
-	ZEBRA_SEG6_LOCAL_ACTION_END_DX4      = 6,
-	ZEBRA_SEG6_LOCAL_ACTION_END_DT6      = 7,
-	ZEBRA_SEG6_LOCAL_ACTION_END_DT4      = 8,
-	ZEBRA_SEG6_LOCAL_ACTION_END_B6       = 9,
+	ZEBRA_SEG6_LOCAL_ACTION_UNSPEC = 0,
+	ZEBRA_SEG6_LOCAL_ACTION_END = 1,
+	ZEBRA_SEG6_LOCAL_ACTION_END_X = 2,
+	ZEBRA_SEG6_LOCAL_ACTION_END_T = 3,
+	ZEBRA_SEG6_LOCAL_ACTION_END_DX2 = 4,
+	ZEBRA_SEG6_LOCAL_ACTION_END_DX6 = 5,
+	ZEBRA_SEG6_LOCAL_ACTION_END_DX4 = 6,
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT6 = 7,
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT4 = 8,
+	ZEBRA_SEG6_LOCAL_ACTION_END_B6 = 9,
 	ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP = 10,
-	ZEBRA_SEG6_LOCAL_ACTION_END_BM       = 11,
-	ZEBRA_SEG6_LOCAL_ACTION_END_S        = 12,
-	ZEBRA_SEG6_LOCAL_ACTION_END_AS       = 13,
-	ZEBRA_SEG6_LOCAL_ACTION_END_AM       = 14,
-	ZEBRA_SEG6_LOCAL_ACTION_END_BPF      = 15,
-	ZEBRA_SEG6_LOCAL_ACTION_END_DT46     = 16,
+	ZEBRA_SEG6_LOCAL_ACTION_END_BM = 11,
+	ZEBRA_SEG6_LOCAL_ACTION_END_S = 12,
+	ZEBRA_SEG6_LOCAL_ACTION_END_AS = 13,
+	ZEBRA_SEG6_LOCAL_ACTION_END_AM = 14,
+	ZEBRA_SEG6_LOCAL_ACTION_END_BPF = 15,
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT46 = 16,
+	/* RFC 8986 Section 4.1.12 - bridge-domain unicast MAC lookup */
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT2U = 17,
+	/* RFC 8986 Section 4.1.13 - bridge-domain BUM flooding */
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT2M = 18,
 };
 
 /* Flavor operations for SRv6 End* Behaviors */
@@ -125,11 +129,17 @@ struct seg6local_context {
 	struct in6_addr nh6;
 	uint32_t table;
 	ifindex_t ifindex;
+	ifindex_t oif; /* output interface for End.DX2/DT2U/DT2M  */
 	struct seg6local_flavors_info flv;
 	uint8_t block_len;
 	uint8_t node_len;
 	uint8_t function_len;
 	uint8_t argument_len;
+	/* Bridge domain VNI/table for End.DT2U (MAC lookup) and
+	 * End.DT2M (BUM flooding). Reuses the table field in those
+	 * behaviours - set to the VNI that identifies the bridge domain.
+	 */
+	uint32_t dt2_vni;
 };
 
 struct srv6_locator {
@@ -195,30 +205,54 @@ struct srv6_locator_chunk {
  * https://www.iana.org/assignments/segment-routing/segment-routing.xhtml
  */
 enum srv6_endpoint_behavior_codepoint {
-	SRV6_ENDPOINT_BEHAVIOR_RESERVED         = 0x0000,
-	SRV6_ENDPOINT_BEHAVIOR_END              = 0x0001,
-	SRV6_ENDPOINT_BEHAVIOR_END_PSP          = 0x0002,
-	SRV6_ENDPOINT_BEHAVIOR_END_X            = 0x0005,
-	SRV6_ENDPOINT_BEHAVIOR_END_X_PSP        = 0x0006,
-	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS    = 0x000E,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT6          = 0x0012,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT4          = 0x0013,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT46         = 0x0014,
+	SRV6_ENDPOINT_BEHAVIOR_RESERVED = 0x0000,
+	SRV6_ENDPOINT_BEHAVIOR_END = 0x0001,
+	SRV6_ENDPOINT_BEHAVIOR_END_PSP = 0x0002,
+	SRV6_ENDPOINT_BEHAVIOR_END_X = 0x0005,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_PSP = 0x0006,
+	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS = 0x000E,
+	/* RFC 8986 Section 4.1.8 - L2 cross-connect (point-to-point) */
+	SRV6_ENDPOINT_BEHAVIOR_END_DX2 = 0x0011,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT6 = 0x0012,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT4 = 0x0013,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT46 = 0x0014,
+	/* RFC 8986 Section 4.1.12 - bridge-domain unicast MAC lookup */
+	SRV6_ENDPOINT_BEHAVIOR_END_DT2U = 0x0015,
+	/* RFC 8986 Section 4.1.13 - bridge-domain BUM flooding */
+	SRV6_ENDPOINT_BEHAVIOR_END_DT2M = 0x0016,
 	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED = 0x001B,
-	SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD      = 0x001D,
-	SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD    = 0x0021,
-	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID    = 0x002B,
-	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID  = 0x0034,
-	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP   = 0x002C,
-	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD   = 0x0030,
+	SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD = 0x001D,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD = 0x0021,
+	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID = 0x002B,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID = 0x0034,
+	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP = 0x002C,
+	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD = 0x0030,
 	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP = 0x0035,
 	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD = 0x0039,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID     = 0x003E,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID     = 0x003F,
-	SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID    = 0x0040,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID = 0x003E,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID = 0x003F,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID = 0x0040,
+	/*
+	 * L2 bridge-domain behaviors with NEXT-C-SID (uSID) flavor.
+	 *
+	 * End.DT2U and End.DT2M do not yet have separate IANA-assigned
+	 * codepoints for the uSID/NEXT-C-SID variant (unlike uDT4/uDT6/uDT46
+	 * which are defined in the IANA SR codepoints registry).  The values
+	 * below follow the natural extension of the uDT4/uDT6/uDT46 NEXT-C-SID
+	 * series (0x003E-0x0040) and are intended as placeholders pending an
+	 * official IANA assignment via the SRv6 Endpoint Behaviors registry.
+	 *
+	 * Interoperability note: until a standard codepoint is assigned,
+	 * receivers must also accept the plain End.DT2U (0x0015) / End.DT2M
+	 * (0x0016) codepoints and rely on the SRv6 SID Structure sub-sub-TLV
+	 * (block_len / node_len) to identify the uSID encoding.
+	 */
+	SRV6_ENDPOINT_BEHAVIOR_END_DT2U_USID = 0x0041, /* uDT2U - pending IANA */
+	SRV6_ENDPOINT_BEHAVIOR_END_DT2M_USID = 0x0042, /* uDT2M - pending IANA */
+	SRV6_ENDPOINT_BEHAVIOR_END_DX2_USID = 0x0043,  /* uDX2  - pending IANA */
 	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID = 0x005D,
 	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID = 0x005E,
-	SRV6_ENDPOINT_BEHAVIOR_OPAQUE           = 0xFFFF,
+	SRV6_ENDPOINT_BEHAVIOR_OPAQUE = 0xFFFF,
 };
 
 macro_inline uint16_t srv6_behavior_codepoint_get(enum srv6_endpoint_behavior_codepoint _codepoint,
@@ -272,6 +306,8 @@ srv6_endpoint_behavior_codepoint2str(enum srv6_endpoint_behavior_codepoint behav
 		return "End.X PSP";
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
 		return "End.B6.Encaps";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2:
+		return "End.DX2";
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
 		return "End.X PSP/USD";
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
@@ -280,6 +316,10 @@ srv6_endpoint_behavior_codepoint2str(enum srv6_endpoint_behavior_codepoint behav
 		return "End.DT4";
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
 		return "End.DT46";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2U:
+		return "End.DT2U";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2M:
+		return "End.DT2M";
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
 		return "End.B6.Encaps.Red";
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
@@ -300,6 +340,12 @@ srv6_endpoint_behavior_codepoint2str(enum srv6_endpoint_behavior_codepoint behav
 		return "uDT4";
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
 		return "uDT46";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2U_USID:
+		return "uDT2U";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2M_USID:
+		return "uDT2M";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2_USID:
+		return "uDX2";
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
 		return "uB6.Encaps";
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
@@ -385,6 +431,12 @@ struct srv6_sid_ctx {
 	struct in6_addr nh6;
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
+
+	/* Output interface for End.DX2 / End.DT2U / End.DT2M */
+	ifindex_t oif;
+
+	/* Bridge-domain VNI for End.DT2U (unicast) and End.DT2M (BUM) */
+	uint32_t dt2_vni;
 };
 
 static inline const char *srv6_headend_behavior2str(enum srv6_headend_behavior behavior,
@@ -511,6 +563,17 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		snprintf(str + len, size - len, " oif_idx %u", ctx->oif);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+		snprintf(str + len, size - len, " oif_idx %u vni %u", ctx->oif, ctx->dt2_vni);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		snprintf(str + len, size - len, " oif_idx %u vni %u (BUM)", ctx->oif, ctx->dt2_vni);
+		break;
+
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:

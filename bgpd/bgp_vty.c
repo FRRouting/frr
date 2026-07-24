@@ -62,6 +62,7 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_flowspec.h"
@@ -12027,18 +12028,228 @@ DEFPY (no_bgp_srv6_locator,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Format one EVPN SRv6 SID row for `show bgp segment-routing srv6 evpn`.
+ *
+ * label    - human-readable name of the SID class (e.g. "L2 unicast (Type-2)").
+ * sid      - allocated SRv6 SID; NULL is rendered as "<unallocated>".
+ * mode     - "auto" / "explicit" / "index N" / "-" when no mode is configured.
+ * locator  - srv6_locator clone associated with the SID; NULL prints "-".
+ * behavior - End.* behavior string (e.g. "End.DT2U"); NULL omits the column.
+ * oif_ifname - AC ifname; NULL omits the column, "" prints
+ *              "<auto-from-EVI>".
+ */
+void show_srv6_evpn_sid_row(struct vty *vty, const char *label, const struct in6_addr *sid,
+			    const char *mode, const struct srv6_locator *locator,
+			    const char *behavior, const char *oif_ifname)
+{
+	vty_out(vty, "    %-26s ", label);
+	if (sid)
+		vty_out(vty, "%-19pI6 ", sid);
+	else
+		vty_out(vty, "%-19s ", "<unallocated>");
+
+	vty_out(vty, "mode=%-9s", mode ? mode : "-");
+
+	if (locator && locator->name[0])
+		vty_out(vty, "  locator=%-12s", locator->name);
+	else
+		vty_out(vty, "  locator=%-12s", "-");
+
+	if (behavior)
+		vty_out(vty, "  behavior=%s", behavior);
+
+	if (oif_ifname) {
+		if (oif_ifname[0])
+			vty_out(vty, "  oif=%s", oif_ifname);
+		else
+			vty_out(vty, "  oif=<auto-from-EVI>");
+	}
+
+	vty_out(vty, "\n");
+}
+
+/*
+ * Return true if `bgp` has any SRv6/EVPN state worth rendering under
+ * `show bgp segment-routing srv6 evpn`.  Used to skip non-EVPN VRFs so we
+ * don't spam the operator with empty per-instance blocks.
+ */
+bool bgp_has_srv6_evpn_state(const struct bgp *bgp)
+{
+	if (!bgp)
+		return false;
+
+	if (bgp->evpn_encap == BGP_EVPN_ENCAP_MODE_SRV6)
+		return true;
+	if (bgp->srv6_locator_name[0] != '\0')
+		return true;
+
+	return false;
+}
+
+/*
+ * Render one EVPN-context SID class as a single row via show_srv6_evpn_sid_row.
+ * mode is derived from the configured-mode flags on vp->flags.
+ */
+void show_srv6_evpn_render_class(struct vty *vty, const char *label, const struct in6_addr *sid,
+				 uint32_t idx, const struct in6_addr *explicit_sid,
+				 const struct srv6_locator *locator, bool is_auto,
+				 bool is_explicit, const char *behavior, const char *oif_ifname)
+{
+	const char *mode;
+	char modebuf[24];
+
+	if (is_explicit) {
+		mode = "explicit";
+		(void)explicit_sid; /* address shown via sid */
+	} else if (is_auto) {
+		mode = "auto";
+	} else if (idx != 0) {
+		snprintf(modebuf, sizeof(modebuf), "index %u", idx);
+		mode = modebuf;
+	} else {
+		mode = "-";
+	}
+
+	show_srv6_evpn_sid_row(vty, label, sid, mode, locator, behavior, oif_ifname);
+}
+
+/*
+ * Render the EVPN-context SRv6 state for a single BGP instance:
+ *   - encapsulation mode (vxlan default / srv6),
+ *   - bound SRv6 locator name (or <none>),
+ *   - four SID classes: VPN, L2 unicast (Type-2), L2 BUM (Type-3),
+ *     L2 VPWS (Type-1).
+ *
+ * Caller is responsible for deciding whether to emit anything for this
+ * instance (typically via bgp_has_srv6_evpn_state()).
+ */
+void bgp_show_srv6_evpn_instance(struct vty *vty, struct bgp *bgp)
+{
+	if (!bgp)
+		return;
+
+	vty_out(vty, "BGP instance: %s\n", bgp->name ? bgp->name : "default");
+	vty_out(vty, "  EVPN encapsulation: %s\n",
+		(bgp->evpn_encap == BGP_EVPN_ENCAP_MODE_SRV6) ? "srv6" : "vxlan");
+
+	if (bgp->srv6_locator_name[0])
+		vty_out(vty, "  SRv6 locator: %s\n", bgp->srv6_locator_name);
+	else
+		vty_out(vty, "  SRv6 locator: <none>\n");
+
+	vty_out(vty, "  L2VPN/EVPN SIDs:\n");
+
+	/* VPN (Type-5 DT4/DT6) - show whichever L3 AFI actually has a SID.
+	 * Falls back to "<unallocated>" when no L3VPN is configured.
+	 */
+	{
+		struct vpn_policy *vp_v4 = &bgp->vpn_policy[AFI_IP];
+		struct vpn_policy *vp_v6 = &bgp->vpn_policy[AFI_IP6];
+		struct vpn_policy *vp_l3 = vp_v6->tovpn_sid ? vp_v6 : vp_v4;
+
+		show_srv6_evpn_render_class(vty, "VPN (Type-5 DT4/DT6):", vp_l3->tovpn_sid,
+					    vp_l3->tovpn_sid_index, vp_l3->tovpn_sid_explicit,
+					    vp_l3->tovpn_sid_locator,
+					    CHECK_FLAG(vp_l3->flags, BGP_VPN_POLICY_TOVPN_SID_AUTO),
+					    CHECK_FLAG(vp_l3->flags,
+						       BGP_VPN_POLICY_TOVPN_SID_EXPLICIT),
+					    NULL, NULL);
+	}
+
+	/*
+	 * L2 unicast (End.DT2U) / L2 BUM (End.DT2M): VXLAN-decoupled design.
+	 * Every EVI/VNI owns its unique End.DT2U/End.DT2M SID (allocated by
+	 * zebra, keyed by VNI); list them per-EVI.  Only meaningful under SRv6
+	 * encapsulation.
+	 */
+	if (bgp->evpn_encap == BGP_EVPN_ENCAP_MODE_SRV6) {
+		const char *locname = bgp->srv6_locator_name[0] ? bgp->srv6_locator_name : "-";
+
+		vty_out(vty,
+			"    L2 unicast (Type-2) / BUM (Type-3) - per-EVI End.DT2U/End.DT2M (locator=%s):\n",
+			locname);
+		bgp_evpn_show_srv6_evi_sids(vty, bgp);
+	}
+
+	/* End.DX2 on EVPN Type-1 (EAD/EVI) routes.
+	 *
+	 *   Per-instance VPWS mode: `vpws-instance NAME / interface IFNAME
+	 *   sid auto` -> bgp->evpn_vpws_list, each with its own SID.
+	 *
+	 */
+	{
+		bool vpws_present = bgp->evpn_vpws_inited &&
+				    evpn_vpws_list_count(&bgp->evpn_vpws_list) > 0;
+		if (vpws_present) {
+			struct bgp_evpn_vpws *vpws;
+			char label[128];
+
+			frr_each (evpn_vpws_list, &bgp->evpn_vpws_list, vpws) {
+				snprintf(label, sizeof(label), "L2 (Type-1) %s:", vpws->name);
+				show_srv6_evpn_render_class(vty, label,
+							    vpws->sid_allocated ? &vpws->local_sid
+										: NULL,
+							    0, NULL, vpws->sid_locator,
+							    vpws->sid_auto, /* is_auto */
+							    false,	    /* is_explicit */
+							    "End.DX2", vpws->ac_ifname);
+			}
+		}
+
+		if (!vpws_present)
+			show_srv6_evpn_render_class(vty, "L2 (Type-1):", NULL, 0, NULL, NULL,
+						    false, false, "End.DX2", NULL);
+	}
+
+	vty_out(vty, "\n");
+}
+
+/*
+ * Body of `show bgp segment-routing srv6 evpn`.  Iterates every BGP
+ * instance and prints the EVPN-context SRv6 state via
+ * bgp_show_srv6_evpn_instance().  Instances with no EVPN/SRv6 state are
+ * skipped to keep multi-VRF output focused on relevant rows.
+ */
+void bgp_show_srv6_evpn(struct vty *vty)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	bool any_emitted = false;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		if (!bgp_has_srv6_evpn_state(bgp))
+			continue;
+		any_emitted = true;
+		bgp_show_srv6_evpn_instance(vty, bgp);
+	}
+
+	if (!any_emitted)
+		vty_out(vty, "%% No BGP instance has EVPN/SRv6 state configured\n");
+}
+
 DEFPY (show_bgp_srv6,
        show_bgp_srv6_cmd,
-       "show bgp segment-routing srv6",
+	"show bgp segment-routing srv6 [evpn$evpn]",
        SHOW_STR
        BGP_STR
        "BGP Segment Routing\n"
-       "BGP Segment Routing SRv6\n")
+	"BGP Segment Routing SRv6\n"
+	"Show EVPN-context SRv6 state (encap mode, locator binding, L2 SIDs)\n")
 {
 	struct bgp *bgp;
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
+
+	/* `show bgp segment-routing srv6 evpn` - EVPN-context view. The
+	 * legacy text path below is left byte-identical for the bare
+	 * `show bgp segment-routing srv6` form.
+	 */
+	if (evpn) {
+		bgp_show_srv6_evpn(vty);
+		return CMD_SUCCESS;
+	}
 
 	bgp = bgp_get_default();
 	if (!bgp)

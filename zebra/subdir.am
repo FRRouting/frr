@@ -84,6 +84,8 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_mpls_vty.c \
 	zebra/zebra_srv6.c \
 	zebra/zebra_srv6_vty.c \
+        zebra/zebra_srl2.c \
+        zebra/zebra_srv6_l2evpn.c \
 	zebra/zebra_mroute.c \
 	zebra/zebra_nb.c \
 	zebra/zebra_nb_config.c \
@@ -115,6 +117,8 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_evpn_mh.c \
 	zebra/zebra_neigh.c \
 	zebra/zserv.c \
+        zebra/zebra_srv6_vpws.c \
+	zebra/zebra_srv6_sid_stats.c \
 	# end
 
 clippy_scan += \
@@ -170,6 +174,8 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_mpls.h \
 	zebra/zebra_srv6.h \
 	zebra/zebra_srv6_vty.h \
+        zebra/zebra_srl2.h \
+        zebra/zebra_srv6_l2evpn.h \
 	zebra/zebra_mroute.h \
 	zebra/zebra_nb.h \
 	zebra/zebra_netns_id.h \
@@ -198,6 +204,8 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_l2_bridge_if.h \
 	zebra/zebra_vxlan_if.h \
 	zebra/zserv.h \
+        zebra/zebra_srv6_vpws.h \
+	zebra/zebra_srv6_sid_stats.h \
 	# end
 
 noinst_HEADERS += \

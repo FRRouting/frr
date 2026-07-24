@@ -238,7 +238,24 @@ typedef enum {
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
 	ZEBRA_SRV6_SID_NOTIFY,
+	ZEBRA_EVPN_ENCAP_MODE,
+	/* VPWS dataplane (End.DX2 cross-connect) */
+	ZEBRA_VPWS_LOCAL_ADD,
+	ZEBRA_VPWS_LOCAL_DEL,
+	ZEBRA_VPWS_REMOTE_ADD,
+	ZEBRA_VPWS_REMOTE_DEL,
 } zebra_message_types_t;
+
+/*
+ * Encapsulation mode selected for EVPN data-plane.
+ * Communicated from BGP -> Zebra via ZEBRA_EVPN_ENCAP_MODE so that the
+ * VxLAN and SRv6 sub-systems in zebra can react to the operator's choice
+ * configured under `address-family l2vpn evpn` -> `encapsulation [srv6|vxlan]`.
+ */
+enum bgp_evpn_encap_mode {
+	BGP_EVPN_ENCAP_MODE_VXLAN = 0,
+	BGP_EVPN_ENCAP_MODE_SRV6 = 1,
+};
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
  */
@@ -1358,6 +1375,25 @@ struct zapi_opaque_notif_info {
 	uint16_t instance;
 	uint32_t session_id;
 };
+
+/* sent on local `interface IFNAME sid auto` once the local SID is allocated */
+struct zapi_vpws_local {
+	char instance_name[64];	   /* maps to bridge vpws-br-<name> */
+	char ac_ifname[IFNAMSIZ];  /* AC interface to enslave + use as DX2 oif */
+	struct in6_addr local_sid; /* DX2 decap SID to install */
+};
+
+/* sent on Type-1 EAD-EVI import (peer learned) */
+struct zapi_vpws_remote {
+	char instance_name[64];	  /* must match a prior LOCAL_ADD */
+	struct in6_addr peer_sid; /* encap dst for srl2 */
+};
+
+extern int zapi_vpws_local_encode(uint8_t cmd, struct stream *s, const struct zapi_vpws_local *api);
+extern int zapi_vpws_local_decode(struct stream *s, struct zapi_vpws_local *api);
+extern int zapi_vpws_remote_encode(uint8_t cmd, struct stream *s,
+				   const struct zapi_vpws_remote *api);
+extern int zapi_vpws_remote_decode(struct stream *s, struct zapi_vpws_remote *api);
 
 /* The same ZAPI message is used for daemon->zebra requests, and for
  * zebra->daemon notifications.

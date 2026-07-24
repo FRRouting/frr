@@ -67,6 +67,14 @@
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE 1
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH 6
 
+/* SRv6 L2 Service Sub-TLV types (RFC 9252 - identical structure to L3) */
+#define BGP_PREFIX_SID_SRV6_L2_SERVICE_SID_INFO	       1
+#define BGP_PREFIX_SID_SRV6_L2_SERVICE_SID_INFO_LENGTH 21
+
+/* SRv6 L2 Service Data Sub-Sub-TLV types */
+#define BGP_PREFIX_SID_SRV6_L2_SERVICE_SID_STRUCTURE	    1
+#define BGP_PREFIX_SID_SRV6_L2_SERVICE_SID_STRUCTURE_LENGTH 6
+
 #define BGP_ATTR_NH_AFI(afi, attr) \
 	((afi != AFI_L2VPN) ? afi : \
 	((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ? AFI_IP : AFI_IP6))
@@ -154,6 +162,9 @@ struct attr_extra {
 
 	/* SRv6 L3 service SID */
 	struct bgp_attr_srv6_l3service *srv6_l3service;
+
+	/* SRv6 L2 service SID (RFC 9252 - EVPN) */
+	struct bgp_attr_srv6_l3service *srv6_l2vpn;
 
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
@@ -860,6 +871,26 @@ static inline void bgp_attr_set_srv6_l3service(struct attr *attr,
 		attr->extra->srv6_l3service = srv6_l3service; /* replace; refcnt unchanged */
 	} else if (!srv6_l3service && old) {
 		attr->extra->srv6_l3service = NULL;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline struct bgp_attr_srv6_l3service *bgp_attr_get_srv6_l2vpn(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->srv6_l2vpn : NULL;
+}
+
+static inline void bgp_attr_set_srv6_l2vpn(struct attr *attr,
+					   struct bgp_attr_srv6_l3service *srv6_l2vpn)
+{
+	struct bgp_attr_srv6_l3service *old = bgp_attr_get_srv6_l2vpn(attr);
+
+	if (srv6_l2vpn && !old) {
+		bgp_attr_extra_get(attr)->srv6_l2vpn = srv6_l2vpn;
+	} else if (srv6_l2vpn && old) {
+		attr->extra->srv6_l2vpn = srv6_l2vpn; /* replace; refcnt unchanged */
+	} else if (!srv6_l2vpn && old) {
+		attr->extra->srv6_l2vpn = NULL;
 		bgp_attr_extra_put(attr);
 	}
 }
