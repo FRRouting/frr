@@ -3071,6 +3071,13 @@ int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 
 	withdraw_len = length - BGP_MP_UNREACH_MIN_SIZE;
 
+	if (withdraw_len > STREAM_READABLE(s)) {
+		flog_err(EC_BGP_ATTR_LEN,
+			 "%s: MP_UNREACH_NLRI withdraw length %u exceeds readable stream %zu",
+			 peer->host, withdraw_len, STREAM_READABLE(s));
+		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
+	}
+
 	mp_withdraw->afi = afi;
 	mp_withdraw->safi = safi;
 	mp_withdraw->nlri = stream_pnt(s);
