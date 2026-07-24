@@ -539,7 +539,7 @@ struct bfd_vrf_global {
 	struct event *bg_ev[7];
 
 	/** Number of active BFD sessions using this VRF's sockets. */
-	int bg_session_count;
+	unsigned int bg_session_count;
 
 	/** Number of SBFD reflectors using this VRF's sockets. */
 	int bg_reflector_count;
