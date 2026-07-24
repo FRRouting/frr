@@ -134,7 +134,7 @@ struct pbr_rule {
 
 	uint32_t seq;
 	uint32_t priority;
-	uint32_t unique;
+	uint32_t unique; /* scope: originating daemon + interface */
 	struct pbr_filter filter;
 	struct pbr_action action;
 
