@@ -2808,8 +2808,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	safi_t safi;
 	struct stream *s;
 	struct peer_af *paf;
-	struct update_group *updgrp;
-	struct peer *updgrp_peer;
 	uint8_t subtype;
 	bool force_update = false;
 	bgp_size_t msg_length =
@@ -2957,16 +2955,13 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 							"%pBP rcvd Remove-All pfxlist ORF request",
 							peer);
 					prefix_bgp_orf_remove_all(afi, name);
-					peer->orf_plist[afi][safi] = prefix_bgp_orf_lookup(afi,
-											   name);
+					peer->orf_plist[afi][safi] = NULL;
 
+					/* Propagate to conf peer for REFRESH_DEFER case */
 					paf = peer_af_find(peer, afi, safi);
-					if (paf && paf->subgroup) {
-						updgrp = PAF_UPDGRP(paf);
-						updgrp_peer = UPDGRP_PEER(updgrp);
-						updgrp_peer->orf_plist[afi][safi] =
-							peer->orf_plist[afi][safi];
-					}
+					if (paf && paf->subgroup)
+						UPDGRP_PEER(PAF_UPDGRP(paf))->orf_plist[afi][safi] = NULL;
+
 					break;
 				}
 
@@ -3087,9 +3082,14 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 
 	paf = peer_af_find(peer, afi, safi);
 	if (paf && paf->subgroup) {
-		updgrp = PAF_UPDGRP(paf);
-		updgrp_peer = UPDGRP_PEER(updgrp);
-		updgrp_peer->orf_plist[afi][safi] = peer->orf_plist[afi][safi];
+		/*
+		 * A peer sending ORF to us is placed into a dedicated update-group
+		 * at session establishment (isolated by peer address).
+		 * Propagate the updated orf_plist directly to the conf peer
+		 * so that subgroup_announce_check() sees the new filter.
+		 */
+		UPDGRP_PEER(PAF_UPDGRP(paf))->orf_plist[afi][safi] =
+			peer->orf_plist[afi][safi];
 
 		/* Avoid suppressing duplicate routes later
 		 * when processing in subgroup_announce_table().
