@@ -2629,6 +2629,8 @@ static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 	STREAM_GETL(s, nhr->metric);
 	STREAM_GETW(s, nhr->nexthop_num);
 
+	nhr->nexthop_num = MIN(MULTIPATH_NUM, nhr->nexthop_num);
+
 	for (i = 0; i < nhr->nexthop_num; i++) {
 		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
 			return false;
