@@ -18,6 +18,7 @@
 #include "northbound.h"
 #include "northbound_db.h"
 #include "frr_pthread.h"
+#include "sockunion.h"
 
 #include <iostream>
 #include <sstream>
@@ -25,6 +26,7 @@
 #include <string>
 
 #define GRPC_DEFAULT_PORT 50051
+#define GRPC_MIN_PORT 1024
 
 
 // ------------------------------------------------------
@@ -1131,17 +1133,15 @@ static grpc::Server *s_server;
 static void *grpc_pthread_start(void *arg)
 {
 	struct frr_pthread *fpt = static_cast<frr_pthread *>(arg);
-	uint port = (uint) reinterpret_cast<intptr_t>(fpt->data);
+	std::string *server_address = static_cast<std::string *>(fpt->data);
 
 	Candidates candidates;
 	grpc::ServerBuilder builder;
-	std::stringstream server_address;
 	frr::Northbound::AsyncService service;
 
 	frr_pthread_set_name(fpt);
 
-	server_address << "0.0.0.0:" << port;
-	builder.AddListeningPort(server_address.str(),
+	builder.AddListeningPort(*server_address,
 				 grpc::InsecureServerCredentials());
 	builder.RegisterService(&service);
 	builder.AddChannelArgument(
@@ -1149,6 +1149,14 @@ static void *grpc_pthread_start(void *arg)
 	std::unique_ptr<grpc::ServerCompletionQueue> cq =
 		builder.AddCompletionQueue();
 	std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
+	if (!server) {
+		flog_err(EC_LIB_GRPC_INIT,
+			 "%s: failed to start gRPC server on %s (port may be in use)",
+			 __func__, server_address->c_str());
+		delete server_address;
+		return NULL;
+	}
+
 	s_server = server.get();
 
 	pthread_mutex_lock(&s_server_lock); // Make coverity happy
@@ -1172,8 +1180,7 @@ static void *grpc_pthread_start(void *arg)
 	REQUEST_NEWRPC_STREAMING(Get);
 	REQUEST_NEWRPC_STREAMING(ListTransactions);
 
-	zlog_notice("gRPC server listening on %s",
-		    server_address.str().c_str());
+	zlog_notice("gRPC server listening on %s", server_address->c_str());
 
 	/* Process inbound RPCs */
 	bool ok;
@@ -1221,11 +1228,15 @@ static void *grpc_pthread_start(void *arg)
 	}
 
 	zlog_info("%s: exiting from grpc pthread", __func__);
+
+	/* Clean up allocated server address string */
+	delete server_address;
+
 	return NULL;
 }
 
 
-static int frr_grpc_init(uint port)
+static int frr_grpc_init(const std::string &server_address)
 {
 	struct frr_pthread_attr attr = {
 		.start = grpc_pthread_start,
@@ -1235,12 +1246,14 @@ static int frr_grpc_init(uint port)
 	grpc_debug("%s: entered", __func__);
 
 	fpt = frr_pthread_new(&attr, "frr-grpc", "frr-grpc");
-	fpt->data = reinterpret_cast<void *>((intptr_t)port);
+	std::string *addr = new std::string(server_address);
+	fpt->data = reinterpret_cast<void *>(addr);
 
 	/* Create a pthread for gRPC since it runs its own event loop. */
 	if (frr_pthread_run(fpt, NULL) < 0) {
 		flog_err(EC_LIB_SYSTEM_CALL, "%s: error creating pthread: %s",
 			 __func__, safe_strerror(errno));
+		delete addr;
 		return -1;
 	}
 
@@ -1278,6 +1291,62 @@ static int frr_grpc_finish(void)
 	return 0;
 }
 
+/**
+ * Validate port number from string.
+ *
+ * @param port_str Port number as string
+ * @return true if valid, false otherwise
+ *
+ * @note Valid port range is 1024-65535
+ * @note Empty strings are rejected
+ */
+static bool validate_grpc_port(const std::string &port_str)
+{
+	unsigned long port;
+	size_t pos = 0;
+
+	/* Check for empty port string */
+	if (port_str.empty()) {
+		flog_err(EC_LIB_GRPC_INIT,
+			 "%s: port number cannot be empty",
+			 __func__);
+		return false;
+	}
+
+	/* Parse port number - stoul will skip leading whitespace */
+	try {
+		port = std::stoul(port_str, &pos);
+	} catch (const std::exception &e) {
+		flog_err(EC_LIB_GRPC_INIT,
+			 "%s: invalid port number '%s': %s",
+			 __func__, port_str.c_str(), e.what());
+		return false;
+	}
+
+	/* Skip any trailing whitespace after the number */
+	while (pos < port_str.length() && std::isspace(port_str[pos]))
+		pos++;
+
+	/* Check if entire string was consumed
+	 * This catches cases like "8080abc" or "8080 extra" */
+	if (pos != port_str.length()) {
+		flog_err(EC_LIB_GRPC_INIT,
+			 "%s: invalid port number '%s': contains non-numeric characters",
+			 __func__, port_str.c_str());
+		return false;
+	}
+
+	/* Validate port range */
+	if (port < GRPC_MIN_PORT || port > UINT16_MAX) {
+		flog_err(EC_LIB_GRPC_INIT,
+			 "%s: port number must be between %d and %d",
+			 __func__, GRPC_MIN_PORT, UINT16_MAX);
+		return false;
+	}
+
+	return true;
+}
+
 /*
  * This is done this way because module_init and module_late_init are both
  * called during daemon pre-fork initialization. Because the GRPC library
@@ -1288,19 +1357,77 @@ static int frr_grpc_finish(void)
 static void frr_grpc_module_very_late_init(struct event *event)
 {
 	const char *args = THIS_MODULE->load_args;
-	uint port = GRPC_DEFAULT_PORT;
+	std::string server_address;
+	std::string host;
+	std::string port_str;
 
-	if (args) {
-		port = std::stoul(args);
-		if (port < 1024 || port > UINT16_MAX) {
+	if (!args) {
+		/* No args provided, use default */
+		server_address = "0.0.0.0:" + std::to_string(GRPC_DEFAULT_PORT);
+	} else {
+		std::string arg_str(args);
+
+		/* Trim leading and trailing whitespace */
+		size_t start = arg_str.find_first_not_of(" \t\n\r");
+		size_t end = arg_str.find_last_not_of(" \t\n\r");
+
+		if (start == std::string::npos) {
+			/* String is all whitespace */
 			flog_err(EC_LIB_GRPC_INIT,
-				 "%s: port number must be between 1025 and %d",
-				 __func__, UINT16_MAX);
+				 "%s: bind address cannot be empty or whitespace only",
+				 __func__);
 			goto error;
+		}
+
+		/* Extract trimmed substring (from first non-whitespace to last non-whitespace) */
+		arg_str = arg_str.substr(start, end - start + 1);
+
+		size_t colon_pos = arg_str.rfind(':');
+
+		/* Extract port string based on format */
+		if (colon_pos != std::string::npos) {
+			/* Format: host:port or :port */
+			host = arg_str.substr(0, colon_pos);
+			port_str = arg_str.substr(colon_pos + 1);
+		} else {
+			/* Format: port only */
+			port_str = arg_str;
+		}
+
+		/* Validate port */
+		if (!validate_grpc_port(port_str))
+			goto error;
+
+		/* Build server address based on format */
+		if (colon_pos != std::string::npos) {
+			/* Validate host if provided */
+			if (!host.empty()) {
+				union sockunion su;
+				if (str2sockunion(host.c_str(), &su) < 0) {
+					flog_err(EC_LIB_GRPC_INIT,
+						 "%s: invalid IP address '%s' (hostnames are not supported, use IPv4 address)",
+						 __func__, host.c_str());
+					goto error;
+				}
+				/* Reject IPv6 addresses (not currently supported) */
+				if (su.sa.sa_family == AF_INET6) {
+					flog_err(EC_LIB_GRPC_INIT,
+						 "%s: IPv6 addresses are not currently supported",
+						 __func__);
+					goto error;
+				}
+				server_address = arg_str;
+			} else {
+				/* Empty host means :port format, use 0.0.0.0 */
+				server_address = "0.0.0.0:" + port_str;
+			}
+		} else {
+			/* Port only format, use default host */
+			server_address = "0.0.0.0:" + port_str;
 		}
 	}
 
-	if (frr_grpc_init(port) < 0)
+	if (frr_grpc_init(server_address) < 0)
 		goto error;
 
 	return;

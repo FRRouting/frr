@@ -42,20 +42,28 @@ Northbound gRPC Features
 Daemon gRPC Configuration
 =========================
 
-The *gRPC* module accepts the following run time option:
+The *gRPC* module accepts the following run time options:
 
-- ``port``: the port to listen to (defaults to ``50051``).
+- ``host:port``: the address and port to bind to (e.g., ``192.168.1.1:50051``)
+- ``port``: the port to listen to (defaults to ``50051`` on ``0.0.0.0``)
+- ``:port``: explicitly bind to ``0.0.0.0`` with specified port
 
 
 .. note::
 
-   At the moment only localhost connections with no SSL/TLS are
-   supported.
+   - Only IPv4 numeric addresses are supported (no hostnames or IPv6)
+   - Port range: 1024-65535
+   - Empty host (``:port`` or ``::port``) defaults to ``0.0.0.0``
+
+
+.. note::
+
+   At the moment only connections with no SSL/TLS are supported.
 
 
 To configure FRR daemons to listen to gRPC you need to append the
 following parameter to the daemon's command line: ``-M grpc``
-(optionally ``-M grpc:PORT`` to specify listening port).
+(optionally ``-M grpc:HOST:PORT`` or ``-M grpc:PORT`` to specify binding address and/or port).
 
 To do that in production you need to edit the ``/etc/frr/daemons`` file
 so the daemons get started with the command line argument. Example:
