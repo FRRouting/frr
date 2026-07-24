@@ -51,6 +51,25 @@ static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, af
 	return 0;
 }
 
+static inline bool bgp_evpn_suppress_import_from_evpn(struct bgp *bgp_vrf,
+						      afi_t afi)
+{
+	if (!bgp_vrf)
+		return false;
+
+	if (afi == AFI_IP)
+		return CHECK_FLAG(
+			bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN);
+
+	if (afi == AFI_IP6)
+		return CHECK_FLAG(
+			bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN);
+
+	return false;
+}
+
 /* Flag if the route's parent is a EVPN route. */
 static inline struct bgp_path_info *
 get_route_parent_evpn(struct bgp_path_info *ri)
@@ -200,8 +219,12 @@ extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
 extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
-extern bool is_route_injectable_into_evpn(struct bgp_path_info *pi);
-extern bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi);
+extern bool is_route_injectable_into_evpn(struct bgp *bgp_vrf, afi_t afi,
+					  safi_t safi,
+					  struct bgp_path_info *pi);
+extern bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf,
+						   afi_t afi, safi_t safi,
+						   struct bgp_path_info *pi);
 extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
 					     safi_t safi);
 
