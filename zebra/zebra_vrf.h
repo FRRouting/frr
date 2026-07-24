@@ -40,6 +40,7 @@ struct zebra_rmap {
 };
 
 PREDECL_RBTREE_UNIQ(otable);
+PREDECL_HASH(zvrf_table_id_hash);
 
 struct other_route_table {
 	struct otable_item next;
@@ -67,7 +68,16 @@ struct zebra_vrf {
 #define ZEBRA_VRF_RETAIN          (1 << 0)
 #define ZEBRA_PIM_SEND_VXLAN_SG   (1 << 1)
 
-	uint32_t table_id;
+	/*
+	 * Table ID for this VRF. This field is used as a hash key in
+	 * zrouter.vrf_table_hash. All writes MUST go through
+	 * zebra_vrf_set_table_id() to keep the hash in sync.
+	 * Use zvrf_table_id() to read this value.
+	 */
+	uint32_t _table_id;
+
+	/* Typesafe hash linkage for VRF table-id lookup */
+	struct zvrf_table_id_hash_item vrf_table_hash_item;
 
 	/* Routing table.  */
 	struct route_table *table[AFI_MAX][SAFI_MAX];
@@ -179,6 +189,42 @@ struct zebra_vrf {
 	bool zebra_rnh_ipv6_default_route;
 	bool zebra_mpls_fec_nexthop_resolution;
 };
+
+/*
+ * Typesafe hash compare function for VRF Table ID lookup.
+ *
+ * a: First zebra_vrf.
+ * b: Second zebra_vrf.
+ * Returns: 0 if table_ids match, non-zero otherwise.
+ */
+static inline int zvrf_table_id_hash_cmp(const struct zebra_vrf *a,
+					 const struct zebra_vrf *b)
+{
+	return numcmp(a->_table_id, b->_table_id);
+}
+
+/*
+ * Typesafe hash key function for VRF Table ID lookup.
+ *
+ * zvrf: Pointer to zebra_vrf.
+ * Returns: The table_id as the hash key.
+ */
+static inline uint32_t zvrf_table_id_hash_key(const struct zebra_vrf *zvrf)
+{
+	return zvrf->_table_id;
+}
+
+DECLARE_HASH(zvrf_table_id_hash, struct zebra_vrf, vrf_table_hash_item,
+	     zvrf_table_id_hash_cmp, zvrf_table_id_hash_key);
+
+/*
+ * Read accessor for the VRF table ID. Always use this instead of
+ * accessing _table_id directly.
+ */
+static inline uint32_t zvrf_table_id(const struct zebra_vrf *zvrf)
+{
+	return zvrf->_table_id;
+}
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name
 #define PROTO_RM_MAP(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].map
@@ -252,6 +298,8 @@ extern vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
 extern struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id);
 int zebra_vrf_lookup_tableid(vrf_id_t vrf_id, ns_id_t ns_id);
+
+extern void zebra_vrf_set_table_id(struct zebra_vrf *zvrf, uint32_t table_id);
 
 /*
  * API to associate a VRF with a NETNS.
