@@ -2275,26 +2275,16 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 static void zebra_evpn_flush_local_mac(struct zebra_mac *mac,
 				       struct interface *ifp)
 {
-	vlanid_t vid;
 	struct zebra_if *zif;
 	struct interface *br_ifp;
-	struct zebra_vxlan_vni *vni;
 
 	zif = ifp->info;
 	br_ifp = zif->brslave_info.br_if;
 	if (!br_ifp)
 		return;
 
-	if (mac->zevpn->vxlan_if) {
-		zif = mac->zevpn->vxlan_if->info;
-		vni = zebra_vxlan_if_vni_find(zif, mac->zevpn->vni);
-		vid = vni->access_vlan;
-	} else {
-		vid = 0;
-	}
-
-	/* delete the local mac from the dataplane */
-	dplane_local_mac_del(ifp, br_ifp, vid, &mac->macaddr);
+	/* delete the sync/local mac from the dataplane */
+	zebra_evpn_sync_mac_dp_uninstall(mac, __func__);
 	/* delete the local mac in zebra */
 	zebra_evpn_del_local_mac(mac->zevpn, mac, true);
 }
