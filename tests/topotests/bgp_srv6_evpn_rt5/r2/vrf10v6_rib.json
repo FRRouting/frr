@@ -1,0 +1,92 @@
+{
+	"2001:db8:101::/64": [
+		{
+			"prefix": "2001:db8:101::/64",
+			"protocol": "bgp",
+			"vrfName": "vrf10",
+			"selected": true,
+			"destSelected": true,
+			"distance": 20,
+			"metric": 0,
+			"installed": true,
+			"table": 10,
+			"internalStatus": 16,
+			"internalFlags": 8,
+			"internalNextHopNum": 1,
+			"internalNextHopActiveNum": 1,
+			"nexthops": [
+				{
+					"flags": 3,
+					"fib": true,
+					"afi": "ipv6",
+					"interfaceName": "eth0",
+					"vrf": "default",
+					"active": true,
+					"weight": 1,
+					"seg6": {
+						"segs": "fcbb:bbbb:1:e000::"
+					},
+					"srv6EncapBehavior": "H.Encaps.Red"
+				}
+			]
+		}
+	],
+	"2001:db8:102::/64": [
+		{
+			"prefix": "2001:db8:102::/64",
+			"protocol": "connected",
+			"vrfName": "vrf10",
+			"selected": true,
+			"destSelected": true,
+			"distance": 0,
+			"metric": 0,
+			"installed": true,
+			"table": 10,
+			"internalStatus": 16,
+			"internalFlags": 8,
+			"internalNextHopNum": 1,
+			"internalNextHopActiveNum": 1,
+			"nexthops": [
+				{
+					"flags": 3,
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth1",
+					"active": true
+				}
+			]
+		}
+	],
+	"2001:db8:103::/64": [
+		{
+			"prefix": "2001:db8:103::/64",
+			"protocol": "bgp",
+			"vrfName": "vrf10",
+			"selected": true,
+			"destSelected": true,
+			"distance": 20,
+			"metric": 0,
+			"installed": true,
+			"table": 10,
+			"internalStatus": 16,
+			"internalFlags": 8,
+			"internalNextHopNum": 1,
+			"internalNextHopActiveNum": 1,
+			"nexthops": [
+				{
+					"flags": 3,
+					"fib": true,
+					"afi": "ipv6",
+					"interfaceName": "eth0",
+					"vrf": "default",
+					"active": true,
+					"weight": 1,
+					"seg6": {
+						"segs": "fcbb:bbbb:1:e000::"
+					},
+					"srv6EncapBehavior": "H.Encaps.Red"
+				}
+			]
+		}
+	]
+}
