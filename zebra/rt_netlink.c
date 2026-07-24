@@ -231,7 +231,7 @@ static inline bool is_selfroute(int proto)
 	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)
 	    || (proto == RTPROT_RIP) || (proto == RTPROT_SHARP)
 	    || (proto == RTPROT_PBR) || (proto == RTPROT_OPENFABRIC)
-	    || (proto == RTPROT_SRTE)) {
+	    || (proto == RTPROT_SRTE || (proto == RTPROT_ADJACENCY))) {
 		return true;
 	}
 
@@ -293,6 +293,10 @@ int zebra2proto(int proto)
 	case ZEBRA_ROUTE_KERNEL:
 		proto = RTPROT_KERNEL;
 		break;
+	case ZEBRA_ROUTE_ADJACENCY:
+		proto = RTPROT_ADJACENCY;
+		break;
+
 	default:
 		/*
 		 * When a user adds a new protocol this will show up
@@ -356,6 +360,9 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 		break;
 	case RTPROT_SRTE:
 		proto = ZEBRA_ROUTE_SRTE;
+		break;
+	case RTPROT_ADJACENCY:
+		proto = ZEBRA_ROUTE_ADJACENCY;
 		break;
 	case RTPROT_UNSPEC:
 	case RTPROT_REDIRECT:
@@ -3453,17 +3460,34 @@ static ssize_t netlink_delroute_msg_encoder(struct zebra_dplane_ctx *ctx,
 						  buflen, false, false, false);
 }
 
+/*
+ * Skip updates for a few route-types - kernel types and the host-route type
+ * initially.
+ */
+static bool update_route_type(int type)
+{
+	if (RSYSTEM_ROUTE(type) || type == ZEBRA_ROUTE_ADJACENCY)
+		return false;
+	else
+		return true;
+}
+
 enum netlink_msg_status
 netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	int cmd;
 	const struct prefix *p = dplane_ctx_get_dest(ctx);
+	bool do_new, do_old;
+
+	do_new = update_route_type(dplane_ctx_get_type(ctx));
 
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 		cmd = RTM_DELROUTE;
 	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {
 		cmd = RTM_NEWROUTE;
 	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
+		do_old = update_route_type(dplane_ctx_get_old_type(ctx));
+
 		if (p->family == AF_INET || kernel_nexthops_supported() ||
 		    zrouter.zav.v6_rr_semantics) {
 			/* Single 'replace' operation */
@@ -3476,8 +3500,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 			 * route should cause us to withdraw from
 			 * the kernel the old non-system route
 			 */
-			if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx))
-			    && !RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
+			if (!do_new && do_old)
 				return netlink_batch_add_msg(
 					bth, ctx, netlink_delroute_msg_encoder,
 					true);
@@ -3494,7 +3517,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 			 * of the route delete.  If that happens yeah we're
 			 * screwed.
 			 */
-			if (!RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
+			if (do_old)
 				netlink_batch_add_msg(
 					bth, ctx, netlink_delroute_msg_encoder,
 					true);
@@ -3507,7 +3530,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	if (dplane_ctx_get_safi(ctx) == SAFI_MULTICAST)
 		return FRR_NETLINK_SUCCESS;
 
-	if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)))
+	if (!do_new)
 		return FRR_NETLINK_SUCCESS;
 
 	return netlink_batch_add_msg(bth, ctx,

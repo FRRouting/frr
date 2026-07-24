@@ -3049,6 +3049,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 			vty_out(vty, "  Parent ifindex: %d\n", zebra_if->link_ifindex);
 	}
 
+	if (CHECK_FLAG(zebra_if->flags, ZIF_FLAG_HOST_ROUTES))
+		vty_out(vty, "  Neigh host routes enabled\n");
+
 	if (HAS_LINK_PARAMS(ifp)) {
 		int i;
 		struct if_link_params *iflp = ifp->link_params;
