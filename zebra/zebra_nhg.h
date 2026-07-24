@@ -178,6 +178,17 @@ struct nhg_hash_entry {
  * by the NHG layer, not the EVPN-MH layer.
  */
 #define NEXTHOP_GROUP_STALE_FDB (1 << 11)
+
+/*
+ * Set on the *parent* NHE that owns a backup_info pool when the producer
+ * specified the route-level "engage backups only when all primaries are
+ * down" semantic. The inner pool NHE keeps NEXTHOP_GROUP_BACKUP as before.
+ *
+ * Independent of NEXTHOP_FLAG_HAS_BACKUP on the primary nexthops. With
+ * this flag set there is no per-primary backup association; primaries
+ * carry no backup_idx[]. Used by BGP PIC-Local.
+ */
+#define NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN (1 << 12)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */

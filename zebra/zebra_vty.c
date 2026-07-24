@@ -501,6 +501,21 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
 				show_nh_backup_helper(vty, rn, re, nexthop);
 		}
+
+		/* Route-level "all-primaries-down" backup pool: primaries
+		 * carry no per-NH backup_idx[], so render the pool once
+		 * after the primary list.
+		 */
+		if (CHECK_FLAG(re->nhe->flags, NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN) &&
+		    re->nhe->backup_info && re->nhe->backup_info->nhe) {
+			const struct nexthop *bnh;
+
+			for (ALL_NEXTHOPS(re->nhe->backup_info->nhe->nhg, bnh)) {
+				show_nexthop_detail_helper(vty, rn, re, bnh, true /*is_backup*/);
+				vty_out(vty, "\n");
+			}
+		}
+
 		zebra_show_ip_route_opaque(vty, re, NULL);
 
 		vty_out(vty, "\n");
@@ -670,6 +685,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 
 					json_object_object_add(json_route, "backupNexthops",
 							       json_nexthops);
+
+					if (CHECK_FLAG(re->nhe->flags,
+						       NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN))
+						json_object_boolean_true_add(json_route,
+									     "backupAllPrimariesDown");
 				}
 				zebra_show_ip_route_opaque(NULL, re, json_route);
 			}

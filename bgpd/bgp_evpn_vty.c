@@ -672,7 +672,8 @@ static void show_esi_routes(struct bgp *bgp,
 			if (json)
 				json_path = json_object_new_array();
 
-			route_vty_out(vty, p, pi, 0, NULL, SAFI_EVPN, json_path, false, NULL);
+			route_vty_out(vty, p, pi, 0, NULL, AFI_L2VPN, SAFI_EVPN, json_path, false,
+				      NULL);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -771,8 +772,8 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 						     AFI_L2VPN, SAFI_EVPN, RPKI_NOT_BEING_USED,
 						     json_path, NULL, 0);
 			else
-				route_vty_out(vty, &bd->rn->p, pi, 0, NULL, SAFI_EVPN, json_path,
-					      false, NULL);
+				route_vty_out(vty, &bd->rn->p, pi, 0, NULL, AFI_L2VPN, SAFI_EVPN,
+					      json_path, false, NULL);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -902,8 +903,8 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn,
 						     NULL, 0);
 
 			else
-				route_vty_out(vty, &tmp_p, pi, 0, NULL, SAFI_EVPN, json_path,
-					      false, NULL);
+				route_vty_out(vty, &tmp_p, pi, 0, NULL, AFI_L2VPN, SAFI_EVPN,
+					      json_path, false, NULL);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -1444,20 +1445,21 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd, enum bg
 						RD_ADDRSTRLEN);
 					rd_header = 0;
 				}
+
 				if (!brief) {
 					if (use_json && !json_array)
 						json_array = json_object_new_array();
 
 					if (option == SHOW_DISPLAY_TAGS)
 						route_vty_out_tag(vty, bgp_dest_get_prefix(rm), pi,
-								  no_display, SAFI_EVPN,
+								  no_display, afi, SAFI_EVPN,
 								  json_array);
 					else if (option == SHOW_DISPLAY_OVERLAY)
 						route_vty_out_overlay(vty, bgp_dest_get_prefix(rm),
 								      pi, no_display, json_array);
 					else
 						route_vty_out(vty, bgp_dest_get_prefix(rm), pi,
-							      no_display, NULL, SAFI_EVPN,
+							      no_display, NULL, afi, SAFI_EVPN,
 							      json_array, false, NULL);
 				}
 				prefix_path_count++;
@@ -3439,7 +3441,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, jso
 								     RPKI_NOT_BEING_USED,
 								     json_path, NULL, 0);
 					} else
-						route_vty_out(vty, p, pi, 0, NULL, SAFI_EVPN,
+						route_vty_out(vty, p, pi, 0, NULL, afi, SAFI_EVPN,
 							      json_path, false, rd_str);
 
 					if (json)

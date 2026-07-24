@@ -789,6 +789,9 @@ static void bgp_show_bgp_path_info_flags(uint32_t flags, json_object *json)
 				CHECK_FLAG(flags, BGP_PATH_MULTIPATH));
 	json_object_boolean_add(json_flags, "multipathChanged",
 				CHECK_FLAG(flags, BGP_PATH_MULTIPATH_CHG));
+	json_object_boolean_add(json_flags, "backup", CHECK_FLAG(flags, BGP_PATH_BACKUP));
+	json_object_boolean_add(json_flags, "backupChanged",
+				CHECK_FLAG(flags, BGP_PATH_BACKUP_CHG));
 	json_object_boolean_add(json_flags, "ribAttributeChanged",
 				CHECK_FLAG(flags, BGP_PATH_RIB_ATTR_CHG));
 	json_object_boolean_add(json_flags, "nexthopSelf",
