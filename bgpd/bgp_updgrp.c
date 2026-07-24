@@ -462,11 +462,6 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_2words(!!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV),
 			   !!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV), key);
 
-	/* Neighbors configured with the AIGP attribute are put in a separate
-	 * update group from other neighbors.
-	 */
-	key = jhash_1word((peer->flags & PEER_FLAG_AIGP), key);
-
 	if (peer->soo[afi][safi]) {
 		const char *soo_str = ecommunity_str(peer->soo[afi][safi]);
 

@@ -203,8 +203,6 @@ def test_bgp_oad():
          no neighbor 192.168.1.1 aigp
         """
     )
-    # Toggling PEER_FLAG_AIGP is peer_change_none, so force re-advertisement.
-    r2.vtysh_cmd("clear bgp * soft out")
 
     # r2 still has the AIGP metric (received from r3).
     test_func = functools.partial(_bgp_check_aigp, r2)
