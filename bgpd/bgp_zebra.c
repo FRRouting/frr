@@ -1615,6 +1615,9 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 	const struct prefix *p = bgp_dest_get_prefix(dest);
 	enum bgp_wecmp_behavior do_wt_ecmp = BGP_WECMP_BEHAVIOR_NONE;
 
+	if (table->safi == SAFI_CRYPTO_ROUTES)
+		return ZCLIENT_SEND_SUCCESS;
+
 	if (table->safi == SAFI_FLOWSPEC) {
 		bgp_pbr_update_entry(bgp, p, info, table->afi, table->safi,
 				     true);
@@ -1762,6 +1765,8 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 	table = bgp->rib[afi][safi];
 	if (!table)
 		return;
+	if (safi == SAFI_CRYPTO_ROUTES)
+		return;
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
@@ -1800,6 +1805,8 @@ void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 	table = bgp->rib[afi][safi];
 	if (!table)
 		return;
+	if (safi == SAFI_CRYPTO_ROUTES)
+		return;
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
@@ -1817,6 +1824,9 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 	struct peer *peer;
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
+
+	if (table->safi == SAFI_CRYPTO_ROUTES)
+		return ZCLIENT_SEND_SUCCESS;
 
 	if (table->safi == SAFI_FLOWSPEC) {
 		peer = info->peer;
@@ -5011,13 +5021,15 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 
 	/*
-	 * SAFI_UNREACH has no forwarding state (purely control-plane UI-RIB).
+	 * SAFI_UNREACH and SAFI_CRYPTO_ROUTES have no forwarding state
+	 * (purely control-plane UI-RIBs).
 	 * No need to communicate route sync status to zebra.
 	 */
-	if (safi == SAFI_UNREACH) {
+	if (safi == SAFI_UNREACH || safi == SAFI_CRYPTO_ROUTES) {
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("%s: %s afi: %u safi: UNREACH Command %s ignore (no FIB)",
+			zlog_debug("%s: %s afi: %u safi: %s Command %s ignore (no FIB)",
 				   __func__, bgp->name_pretty, afi,
+				   safi == SAFI_UNREACH ? "UNREACH" : "CRYPTO_ROUTES",
 				   zserv_gr_client_cap_string(type));
 
 		return BGP_GR_SUCCESS;

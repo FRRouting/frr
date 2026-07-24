@@ -158,8 +158,17 @@ struct evpn_addr {
 #define AF_FLOWSPEC (AF_MAX + 2)
 #endif
 
+#if !defined(AF_CRYPTO)
+#define AF_CRYPTO (AF_MAX + 3)
+#endif
+
 struct flowspec_prefix {
 	uint8_t family;
+	uint16_t prefixlen; /* length in bytes */
+	uintptr_t ptr;
+};
+
+struct crypto_prefix {
 	uint16_t prefixlen; /* length in bytes */
 	uintptr_t ptr;
 };
@@ -182,6 +191,7 @@ struct prefix {
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
 		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */
+		struct crypto_prefix prefix_crypto; /* AF_CRYPTO */
 	} u __attribute__((aligned(8)));
 };
 
@@ -401,6 +411,8 @@ static inline afi_t prefix_afi(union prefixconstptr pu)
 extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t bit_index);
 
 extern void prefix_flowspec_ptr_free(struct prefix *p);
+extern void prefix_crypto_set(struct prefix *p, const void *key, uint16_t len);
+extern void prefix_crypto_ptr_free(struct prefix *p);
 
 extern struct prefix *prefix_new(void);
 extern void prefix_free(struct prefix **p);

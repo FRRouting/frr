@@ -118,6 +118,7 @@ enum bgp_af_index {
 	BGP_AF_BGP_LS,
 	BGP_AF_IPV4_UNREACH,
 	BGP_AF_IPV6_UNREACH,
+	BGP_AF_CRYPTO_ROUTES,
 	BGP_AF_MAX
 };
 
@@ -3043,6 +3044,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_BGP_LS;
 		case SAFI_UNREACH:
 			return BGP_AF_IPV4_UNREACH;
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -3067,6 +3069,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_BGP_LS;
 		case SAFI_UNREACH:
 			return BGP_AF_IPV6_UNREACH;
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -3085,6 +3088,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 		case SAFI_ENCAP:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return BGP_AF_MAX;
@@ -3094,6 +3098,25 @@ static inline int afindex(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_BGP_LS:
 			return BGP_AF_BGP_LS;
+		case SAFI_CRYPTO_ROUTES:
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_MPLS_VPN:
+		case SAFI_ENCAP:
+		case SAFI_EVPN:
+		case SAFI_FLOWSPEC:
+		case SAFI_UNREACH:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
+			return BGP_AF_MAX;
+		}
+		break;
+	case AFI_CRYPTO:
+		switch (safi) {
+		case SAFI_CRYPTO_ROUTES:
+			return BGP_AF_CRYPTO_ROUTES;
+		case SAFI_BGP_LS:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -3130,7 +3153,8 @@ static inline int peer_afi_active_nego(const struct peer *peer, afi_t afi)
 	if (peer->afc_nego[afi][SAFI_UNICAST] || peer->afc_nego[afi][SAFI_MULTICAST] ||
 	    peer->afc_nego[afi][SAFI_LABELED_UNICAST] || peer->afc_nego[afi][SAFI_MPLS_VPN] ||
 	    peer->afc_nego[afi][SAFI_ENCAP] || peer->afc_nego[afi][SAFI_FLOWSPEC] ||
-	    peer->afc_nego[afi][SAFI_UNREACH] || peer->afc_nego[afi][SAFI_EVPN])
+	    peer->afc_nego[afi][SAFI_UNREACH] ||
+	    peer->afc_nego[afi][SAFI_CRYPTO_ROUTES] || peer->afc_nego[afi][SAFI_EVPN])
 		return 1;
 	return 0;
 }
@@ -3153,7 +3177,8 @@ static inline int peer_group_af_configured(struct peer_group *group)
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
 	    || peer->afc[AFI_IP6][SAFI_UNREACH]
 	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
-	    || peer->afc[AFI_BGP_LS][SAFI_BGP_LS])
+	    || peer->afc[AFI_BGP_LS][SAFI_BGP_LS]
+	    || peer->afc[AFI_CRYPTO][SAFI_CRYPTO_ROUTES])
 		return 1;
 	return 0;
 }
@@ -3345,7 +3370,7 @@ static inline bool bgp_gr_is_forwarding_preserved_for_safi(struct bgp *bgp, afi_
 	 * Per RFC 4724, F-bit indicates forwarding state preservation.
 	 * Since there's no forwarding state, F=0.
 	 */
-	if (safi == SAFI_UNREACH)
+	if (safi == SAFI_UNREACH || safi == SAFI_CRYPTO_ROUTES)
 		return false;
 
 	return bgp_gr_is_forwarding_preserved(bgp);

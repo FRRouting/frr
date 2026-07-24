@@ -68,6 +68,7 @@
 #include "bgpd/bgp_conditional_adv.h"
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_unreach.h"
+#include "bgpd/bgp_crypto.h"
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
@@ -186,6 +187,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_FLOWSPECV4_NODE;
 		case SAFI_UNREACH:
 			return BGP_IPV4U_NODE;
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
@@ -209,6 +211,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_FLOWSPECV6_NODE;
 		case SAFI_UNREACH:
 			return BGP_IPV6U_NODE;
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
@@ -222,6 +225,8 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 		return BGP_EVPN_NODE;
 	case AFI_BGP_LS:
 		return BGP_LS_NODE;
+	case AFI_CRYPTO:
+		return BGP_CRYPTO_ROUTES_NODE;
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		// We should never be here but to clarify the switch statement..
@@ -270,6 +275,9 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 	} else if (afi == AFI_BGP_LS) {
 		if (safi == SAFI_BGP_LS)
 			return "Link-State Link-State";
+	} else if (afi == AFI_CRYPTO) {
+		if (safi == SAFI_CRYPTO_ROUTES)
+			return "Crypto Routes";
 	}
 
 	return "Unknown";
@@ -319,6 +327,9 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 	} else if (afi == AFI_BGP_LS) {
 		if (safi == SAFI_BGP_LS)
 			return "linkState";
+	} else if (afi == AFI_CRYPTO) {
+		if (safi == SAFI_CRYPTO_ROUTES)
+			return "cryptoRoutes";
 	}
 
 	return "Unknown";
@@ -478,6 +489,9 @@ afi_t bgp_node_afi(struct vty *vty)
 	case BGP_LS_NODE:
 		afi = AFI_BGP_LS;
 		break;
+	case BGP_CRYPTO_ROUTES_NODE:
+		afi = AFI_CRYPTO;
+		break;
 	default:
 		afi = AFI_IP;
 		break;
@@ -517,6 +531,9 @@ safi_t bgp_node_safi(struct vty *vty)
 	case BGP_IPV6U_NODE:
 		safi = SAFI_UNREACH;
 		break;
+	case BGP_CRYPTO_ROUTES_NODE:
+		safi = SAFI_CRYPTO_ROUTES;
+		break;
 	default:
 		safi = SAFI_UNICAST;
 		break;
@@ -542,6 +559,8 @@ afi_t bgp_vty_afi_from_str(const char *afi_str)
 		afi = AFI_IP6;
 	else if (strmatch(afi_str, "l2vpn"))
 		afi = AFI_L2VPN;
+	else if (strmatch(afi_str, "crypto"))
+		afi = AFI_CRYPTO;
 	return afi;
 }
 
@@ -561,6 +580,10 @@ int argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (afi)
 			*afi = AFI_L2VPN;
+	} else if (argv_find(argv, argc, "crypto", index)) {
+		ret = 1;
+		if (afi)
+			*afi = AFI_CRYPTO;
 	}
 	return ret;
 }
@@ -583,6 +606,8 @@ safi_t bgp_vty_safi_from_str(const char *safi_str)
 		safi = SAFI_FLOWSPEC;
 	else if (strmatch(safi_str, "unreachability"))
 		safi = SAFI_UNREACH;
+	else if (strmatch(safi_str, "crypto-routes"))
+		safi = SAFI_CRYPTO_ROUTES;
 	return safi;
 }
 
@@ -618,6 +643,10 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (safi)
 			*safi = SAFI_UNREACH;
+	} else if (argv_find(argv, argc, "crypto-routes", index)) {
+		ret = 1;
+		if (safi)
+			*safi = SAFI_CRYPTO_ROUTES;
 	}
 	return ret;
 }
@@ -657,6 +686,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv4-bgp-ls";
 		case SAFI_UNREACH:
 			return "ipv4-unreachability";
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -681,6 +711,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv6-bgp-ls";
 		case SAFI_UNREACH:
 			return "ipv6-unreachability";
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -699,6 +730,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_LABELED_UNICAST:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
+		case SAFI_CRYPTO_ROUTES:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return "unknown-afi/safi";
@@ -708,6 +740,25 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_BGP_LS:
 			return "link-state";
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_MPLS_VPN:
+		case SAFI_ENCAP:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_FLOWSPEC:
+		case SAFI_EVPN:
+		case SAFI_UNREACH:
+		case SAFI_CRYPTO_ROUTES:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
+			return "unknown-afi/safi";
+		}
+		break;
+	case AFI_CRYPTO:
+		switch (safi) {
+		case SAFI_CRYPTO_ROUTES:
+			return "crypto-routes";
+		case SAFI_BGP_LS:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_MPLS_VPN:
@@ -11862,6 +11913,17 @@ DEFUN_NOSH(address_family_link_state,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH(address_family_crypto_routes,
+	address_family_crypto_routes_cmd,
+	"address-family crypto-routes",
+	"Enter Address Family command mode\n"
+	"Experimental crypto metadata routes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	vty->node = BGP_CRYPTO_ROUTES_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (bgp_segment_routing_srv6,
             bgp_segment_routing_srv6_cmd,
             "segment-routing srv6",
@@ -22160,6 +22222,9 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	} else if (afi == AFI_BGP_LS) {
 		if (safi == SAFI_BGP_LS)
 			vty_frame(vty, "link-state link-state");
+	} else if (afi == AFI_CRYPTO) {
+		if (safi == SAFI_CRYPTO_ROUTES)
+			vty_frame(vty, "crypto-routes");
 	}
 	vty_frame(vty, "\n");
 
@@ -22219,6 +22284,9 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	if (safi == SAFI_MPLS_VPN)
 		bgp_vpn_config_write(vty, bgp, afi, safi);
+
+	if (afi == AFI_CRYPTO && safi == SAFI_CRYPTO_ROUTES)
+		bgp_crypto_config_write(vty, bgp);
 
 	if (safi == SAFI_UNICAST) {
 		bgp_vpn_policy_config_write_afi(vty, bgp, afi);
@@ -22873,6 +22941,9 @@ int bgp_config_write(struct vty *vty)
 		/* BGP-LS configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_BGP_LS, SAFI_BGP_LS);
 
+		/* Crypto routes configuration. */
+		bgp_config_write_family(vty, bgp, AFI_CRYPTO, SAFI_CRYPTO_ROUTES);
+
 		hook_call(bgp_inst_config_write, bgp, vty);
 
 #ifdef ENABLE_BGP_VNC
@@ -23016,6 +23087,14 @@ static struct cmd_node bgp_srv6_node = {
 static struct cmd_node bgp_ls_node = {
 	.name = "bgp link-state",
 	.node = BGP_LS_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
+};
+
+static struct cmd_node bgp_crypto_routes_node = {
+	.name = "bgp crypto-routes",
+	.node = BGP_CRYPTO_ROUTES_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 	.no_xpath = true,
@@ -23473,6 +23552,7 @@ void bgp_vty_init(void)
 	install_node(&bgp_ipv6_unreachability_node);
 	install_node(&bgp_srv6_node);
 	install_node(&bgp_ls_node);
+	install_node(&bgp_crypto_routes_node);
 
 	/* Install default VTY commands to new nodes.  */
 	install_default(BGP_NODE);
@@ -23492,6 +23572,7 @@ void bgp_vty_init(void)
 	install_default(BGP_EVPN_VNI_NODE);
 	install_default(BGP_SRV6_NODE);
 	install_default(BGP_LS_NODE);
+	install_default(BGP_CRYPTO_ROUTES_NODE);
 
 	/* "global bgp inq-limit command */
 	install_element(CONFIG_NODE, &bgp_inq_limit_cmd);
@@ -23899,6 +23980,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &neighbor_activate_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &neighbor_activate_cmd);
 
 	/* "no neighbor activate" commands. */
 	install_element(BGP_NODE, &no_neighbor_activate_hidden_cmd);
@@ -23916,6 +23998,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &no_neighbor_activate_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &no_neighbor_activate_cmd);
 
 	/* "neighbor peer-group" set commands. */
 	install_element(BGP_NODE, &neighbor_set_peer_group_cmd);
@@ -25003,6 +25086,7 @@ void bgp_vty_init(void)
 
 	install_element(BGP_NODE, &address_family_evpn_cmd);
 	install_element(BGP_NODE, &address_family_link_state_cmd);
+	install_element(BGP_NODE, &address_family_crypto_routes_cmd);
 
 	/* "exit-address-family" command. */
 	install_element(BGP_IPV4_NODE, &exit_address_family_cmd);
@@ -25019,6 +25103,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &exit_address_family_cmd);
 	install_element(BGP_EVPN_NODE, &exit_address_family_cmd);
 	install_element(BGP_LS_NODE, &exit_address_family_cmd);
+	install_element(BGP_CRYPTO_ROUTES_NODE, &exit_address_family_cmd);
 
 	/* BGP retain all route-target */
 	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_cmd);
@@ -25228,6 +25313,7 @@ void bgp_vty_init(void)
 	bgp_vty_if_init();
 
 	bgp_unreach_vty_init();
+	bgp_crypto_vty_init();
 }
 
 /* Show UPA information for a specific neighbor */

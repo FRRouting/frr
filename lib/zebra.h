@@ -168,7 +168,8 @@ typedef enum {
 	AFI_IP6 = 2,
 	AFI_L2VPN = 3,
 	AFI_BGP_LS = 4, /* BGP-LS (RFC 9552) */
-	AFI_MAX = 5
+	AFI_CRYPTO = 5, /* Experimental crypto metadata routes */
+	AFI_MAX = 6
 } afi_t;
 
 #define IS_VALID_AFI(a) ((a) > AFI_UNSPEC && (a) < AFI_MAX)
@@ -185,7 +186,8 @@ typedef enum {
 	SAFI_FLOWSPEC = 7,
 	SAFI_BGP_LS = 8, /* BGP-LS (RFC 9552) */
 	SAFI_UNREACH = 9,
-	SAFI_MAX = 10
+	SAFI_CRYPTO_ROUTES = 10,
+	SAFI_MAX = 11
 } safi_t;
 
 #define FOREACH_AFI_SAFI(afi, safi)                                            \

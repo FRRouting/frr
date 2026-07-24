@@ -183,7 +183,7 @@ static void route_common(const struct prefix *n, const struct prefix *p,
 	const uint8_t *pp;
 	uint8_t *newp;
 
-	if (n->family == AF_FLOWSPEC)
+	if (n->family == AF_FLOWSPEC || n->family == AF_CRYPTO)
 		return prefix_copy(new, p);
 	np = (const uint8_t *)&n->u.prefix;
 	pp = (const uint8_t *)&p->u.prefix;
@@ -239,6 +239,10 @@ struct route_node *route_node_match(struct route_table *table,
 		matched = rn_hash_node_find(&table->hash, &rn);
 		if (matched && matched->info == NULL)
 			matched = NULL;
+		if (rn.p.family == AF_FLOWSPEC)
+			prefix_flowspec_ptr_free(&rn.p);
+		if (rn.p.family == AF_CRYPTO)
+			prefix_crypto_ptr_free(&rn.p);
 
 		goto done;
 	}
@@ -269,11 +273,17 @@ struct route_node *route_node_lookup(struct route_table *table,
 				     union prefixconstptr pu)
 {
 	struct route_node rn, *node;
+	struct route_node *ret;
 	prefix_copy(&rn.p, pu.p);
 	apply_mask(&rn.p);
 
 	node = rn_hash_node_find(&table->hash, &rn);
-	return (node && node->info) ? route_lock_node(node) : NULL;
+	ret = (node && node->info) ? route_lock_node(node) : NULL;
+	if (rn.p.family == AF_FLOWSPEC)
+		prefix_flowspec_ptr_free(&rn.p);
+	if (rn.p.family == AF_CRYPTO)
+		prefix_crypto_ptr_free(&rn.p);
+	return ret;
 }
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
@@ -281,11 +291,17 @@ struct route_node *route_node_lookup_maynull(struct route_table *table,
 					     union prefixconstptr pu)
 {
 	struct route_node rn, *node;
+	struct route_node *ret;
 	prefix_copy(&rn.p, pu.p);
 	apply_mask(&rn.p);
 
 	node = rn_hash_node_find(&table->hash, &rn);
-	return node ? route_lock_node(node) : NULL;
+	ret = node ? route_lock_node(node) : NULL;
+	if (rn.p.family == AF_FLOWSPEC)
+		prefix_flowspec_ptr_free(&rn.p);
+	if (rn.p.family == AF_CRYPTO)
+		prefix_crypto_ptr_free(&rn.p);
+	return ret;
 }
 
 /* Add node to routing table. */
@@ -314,6 +330,8 @@ struct route_node *route_node_get(struct route_table *table,
 	if (node && node->info) {
 		if (p->family == AF_FLOWSPEC)
 			prefix_flowspec_ptr_free(p);
+		if (p->family == AF_CRYPTO)
+			prefix_crypto_ptr_free(p);
 		return route_lock_node(node);
 	}
 
@@ -338,6 +356,8 @@ struct route_node *route_node_get(struct route_table *table,
 		if (node->p.prefixlen == prefixlen) {
 			if (p->family == AF_FLOWSPEC)
 				prefix_flowspec_ptr_free(p);
+			if (p->family == AF_CRYPTO)
+				prefix_crypto_ptr_free(p);
 
 			return route_lock_node(node);
 		}
@@ -378,6 +398,8 @@ done:
 
 	if (p->family == AF_FLOWSPEC)
 		prefix_flowspec_ptr_free(p);
+	if (p->family == AF_CRYPTO)
+		prefix_crypto_ptr_free(p);
 
 	return new;
 }
@@ -714,6 +736,10 @@ route_table_get_next_internal(struct route_table *table,
 			if (prefix_cmp(&node->p, p) == 0)
 				node = rn_tree_next(&table->tree, node);
 		}
+		if (lookup.p.family == AF_FLOWSPEC)
+			prefix_flowspec_ptr_free(&lookup.p);
+		if (lookup.p.family == AF_CRYPTO)
+			prefix_crypto_ptr_free(&lookup.p);
 
 		return node;
 	}
