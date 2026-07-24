@@ -743,6 +743,12 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
 			XCALLOC(MTYPE_NH_SRV6,
 				sizeof(struct seg6_seg_stack) +
 					num_segs * sizeof(struct in6_addr));
+	} else if (num_segs > nexthop->nh_srv6->seg6_segs->num_segs) {
+		nexthop->nh_srv6->seg6_segs =
+			XREALLOC(MTYPE_NH_SRV6,
+				 nexthop->nh_srv6->seg6_segs,
+				 sizeof(struct seg6_seg_stack) +
+					 num_segs * sizeof(struct in6_addr));
 	}
 
 	nexthop->nh_srv6->seg6_segs->num_segs = num_segs;
