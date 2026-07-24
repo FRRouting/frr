@@ -12,6 +12,10 @@ source-built FRR on the following base platforms:
 * Centos 7
 * Centos 8
 
+A minimal "slim" variant of the Alpine image is also available, which
+excludes development, documentation, and debug packages from the runtime
+image. See "Building Alpine Slim Image" below.
+
 The following platform images are used to support Travis CI and can also
 be used to reproduce topotest failures when the docker host is Ubuntu
 (tested on 20.04 and 22.04):
@@ -61,6 +65,33 @@ No script::
 No script, multi-arch (ex. amd64, arm64, armv7)::
 
    docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -f docker/alpine/Dockerfile -t frr:latest .
+
+
+Building Alpine Slim Image
+---------------------------
+
+The Alpine slim image is a minimal runtime variant of the Alpine image that
+excludes development (``-dev``), documentation (``-doc``), and debug
+(``-dbg``) packages from the final image. These packages (e.g. ``frr-dev``,
+``libyang-dev``) are only needed at build time and their presence in the
+runtime image increases image size and the CVE/SBOM footprint unnecessarily.
+See `issue #22615 <https://github.com/FRRouting/frr/issues/22615>`_ for
+background.
+
+The slim image reuses the same build stages as the standard Alpine image; it
+only differs in the final stage, which installs a filtered set of APKs.
+
+Build image::
+
+   docker build --target alpine-slim --build-arg PKGVER=0 -f docker/alpine/Dockerfile -t frr:alpine-slim .
+
+No script, multi-arch (ex. amd64, arm64, armv7)::
+
+   docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 --target alpine-slim -f docker/alpine/Dockerfile -t frr:alpine-slim .
+
+Script (build both standard and slim images)::
+
+   BUILD_SLIM=1 ./docker/alpine/build.sh
 
 
 Building Debian Image

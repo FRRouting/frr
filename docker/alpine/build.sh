@@ -44,5 +44,17 @@ docker build \
 	--tag="frr:alpine-$GITREV" \
 	.
 
+# Set BUILD_SLIM=1 in ENV to also build the slim runtime variant, which
+# excludes development, documentation and debug packages from the final
+# image (see https://github.com/FRRouting/frr/issues/22615).
+if [ "${BUILD_SLIM:-0}" = "1" ]; then
+	docker build \
+		--file=docker/alpine/Dockerfile \
+		--build-arg="PKGVER=$PKGVER" \
+		--tag="frr:alpine-slim-$GITREV" \
+		--target=alpine-slim \
+		.
+fi
+
 docker rmi "frr:alpine-builder-$GITREV"
 docker rmi "frr:alpine-apk-builder-$GITREV"
