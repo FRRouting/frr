@@ -54,7 +54,7 @@ extern int bgp_zebra_get_table_range(struct zclient *zc, uint32_t chunk_size,
 extern int bgp_if_update_all(void);
 extern void bgp_zebra_route_install(struct bgp_dest *dest,
 				    struct bgp_path_info *path, struct bgp *bgp,
-				    bool install, struct bgpevpn *vpn,
+				    bool install, struct bgp_evpn_vba_evi *vpn,
 				    bool is_sync);
 extern void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi);
 
@@ -112,7 +112,7 @@ extern int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise,
 					 vni_t vni);
 extern int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise);
 extern int bgp_zebra_dup_addr_detection(struct bgp *bgp);
-extern int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgpevpn *evpn);
+extern int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgp_evpn_vba_evi *evpn);
 
 extern int bgp_zebra_num_connects(void);
 
