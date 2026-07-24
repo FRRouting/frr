@@ -1211,17 +1211,19 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 	/* Edit candidate configuration. */
 	for (size_t i = 0; i < num_cfg_changes; i++) {
 		struct nb_cfg_change *change = &cfg_changes[i];
-		char *change_xpath = change->xpath;
-		char xpath[XPATH_MAXLEN];
+		const char *xpath = change->xpath;
+		char abs[XPATH_MAXLEN];
 
-		memset(xpath, 0, sizeof(xpath));
 		/* If change xpath is relative, prepend base xpath. */
-		/* XXX shouldn't this be change_xpath[0] != '/'? */
-		if (change_xpath[0] == '.') {
-			strlcpy(xpath, xpath_base, sizeof(xpath));
-			change_xpath++; /* skip '.' */
+		if (xpath[0] != '/') {
+			strlcpy(abs, xpath_base, sizeof(abs));
+			if (xpath[0] == '.')
+				xpath = xpath + 1;              /* "./path/to/leaf", skip '.' */
+			else
+				strlcat(abs, "/", sizeof(abs)); /* "path/to/leaf", add '/' */
+			strlcat(abs, xpath, sizeof(abs));
+			xpath = abs;
 		}
-		strlcat(xpath, change_xpath, sizeof(xpath));
 
 		result = nb_candidate_edit_config_change(candidate_config, change->operation, xpath,
 							 change->value, in_backend);
