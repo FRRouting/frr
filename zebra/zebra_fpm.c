@@ -2045,12 +2045,17 @@ static int zfpm_init(struct event_loop *master)
 
 static int zfpm_fini(void)
 {
+	struct fpm_mac_info_t *mac;
+
 	zfpm_write_off();
 	zfpm_read_off();
 	zfpm_connect_off();
 	zfpm_conn_down_off();
 
 	zfpm_stop_stats_timer();
+
+	while ((mac = TAILQ_FIRST(&zfpm_g->mac_q)) != NULL)
+		zfpm_mac_info_del(mac);
 
 	hook_unregister(rib_update, zfpm_trigger_update);
 	hook_unregister(zebra_rmac_update, zfpm_trigger_rmac_update);
