@@ -32,6 +32,7 @@
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_nsm.h"
 #include "ospfd/ospf_packet.h"
+#include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_dump.h"
@@ -248,6 +249,74 @@ static void ospf_delete_from_if(struct interface *ifp,
 	route_unlock_node(rn);
 }
 
+/* RFC4222 R4: recompute effective LSA gap pacing settings. */
+static void ospf_rec4_recompute_effective(struct ospf_interface *oi)
+{
+	bool was_pacing = oi->rec4_gap_pacing;
+
+	oi->rec4_gap_pacing = OSPF_IF_PARAM(oi, gap_pacing_enable);
+	oi->rec4_gap_initial_ms = OSPF_IF_PARAM(oi, gap_initial_ms);
+	oi->rec4_gap_min_ms = OSPF_IF_PARAM(oi, gap_min_ms);
+	oi->rec4_gap_max_ms = OSPF_IF_PARAM(oi, gap_max_ms);
+	oi->rec4_gap_factor = OSPF_IF_PARAM(oi, gap_factor);
+	oi->rec4_gap_adjust_int_ms = OSPF_IF_PARAM(oi, gap_adjust_int_ms);
+	oi->rec4_high_water = OSPF_IF_PARAM(oi, gap_high_water);
+	oi->rec4_low_water = OSPF_IF_PARAM(oi, gap_low_water);
+	oi->rec4_max_lsas = OSPF_IF_PARAM(oi, gap_max_lsas);
+
+	if (oi->rec4_gap_min_ms < 1)
+		oi->rec4_gap_min_ms = 1;
+	if (oi->rec4_gap_max_ms < oi->rec4_gap_min_ms)
+		oi->rec4_gap_max_ms = oi->rec4_gap_min_ms;
+	if (oi->rec4_gap_factor < 1)
+		oi->rec4_gap_factor = 1;
+	if (oi->rec4_gap_adjust_int_ms < 1)
+		oi->rec4_gap_adjust_int_ms = 1;
+	if (oi->rec4_low_water > oi->rec4_high_water)
+		oi->rec4_low_water = oi->rec4_high_water;
+
+	/* RFC4222 R4: pacing was disabled at runtime; flush the per-neighbor
+	 * paced queues so no R4 state (queued LSAs, send timers, queue
+	 * back-pointers) lingers while pacing is off. Queued LSAs are first
+	 * handed to the regular retransmission machinery: flood copies that
+	 * were never transmitted have no ls_rxmt entry yet and would
+	 * otherwise be lost until the next LSA refresh.
+	 * ospf_ls_retransmit_add() ignores instances already on the list.
+	 */
+	if (was_pacing && !oi->rec4_gap_pacing && oi->nbrs) {
+		struct route_node *rn;
+
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			struct ospf_neighbor *nbr = rn->info;
+			struct listnode *qnode;
+			struct ospf_lsa *qlsa;
+
+			if (!nbr || nbr == oi->nbr_self)
+				continue;
+			for (ALL_LIST_ELEMENTS_RO(&nbr->r4_send_queue, qnode, qlsa))
+				ospf_ls_retransmit_add(nbr, qlsa);
+			ospf_r4_nbr_cancel(nbr);
+		}
+	}
+
+	/* RFC4222 R4: propagate the refreshed gap to neighbors that already
+	 * exist on this interface, so enabling/changing pacing on a live
+	 * interface takes effect immediately instead of only applying to
+	 * neighbors created afterward.
+	 */
+	if (oi->nbrs) {
+		struct route_node *rn;
+
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			struct ospf_neighbor *nbr = rn->info;
+
+			if (!nbr || nbr == oi->nbr_self)
+				continue;
+			ospf_nbr_apply_rec4_params(nbr);
+		}
+	}
+}
+
 struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 				   struct prefix *p)
 {
@@ -292,6 +361,40 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	ospf_opaque_type9_lsa_init(oi);
 
 	oi->ospf = ospf;
+
+	/* RFC4222/R5 : Per-interface adjacency pacing */
+	oi->adj_pacing.mode = OSPF_ADJ_PACING_NONE;
+	oi->adj_pacing.static_limit = 0;
+	oi->adj_pacing.in_progress = 0;
+	ospf_adj_pacing_queue_init(&oi->adj_pacing);
+	oi->adj_pacing.dynamic_limit = OSPF_ADJ_DYN_LIMIT_INITIAL;
+	oi->adj_pacing.last_adjust_ms = 0;
+	oi->adj_pacing.high_water = OSPF_ADJ_DYN_HIGH_WATER;
+	oi->adj_pacing.low_water = OSPF_ADJ_DYN_LOW_WATER;
+	oi->adj_pacing.t_dyn_adjust = NULL;
+
+	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
+		zlog_debug("R5: %s adj_pacing initialized: mode=NONE dynamic_limit=%u H=%u L=%u",
+			   ifp->name, oi->adj_pacing.dynamic_limit, oi->adj_pacing.high_water,
+			   oi->adj_pacing.low_water);
+
+	/* Attach params and apply adjacency pacing config if present */
+	oi->params = ospf_lookup_if_params(ifp, oi->address->u.prefix4);
+	if (!oi->params)
+		oi->params = IF_DEF_PARAMS(ifp);
+	if (OSPF_IF_PARAM_CONFIGURED(oi->params, adj_pacing_mode)) {
+		oi->adj_pacing.mode = oi->params->adj_pacing_mode;
+		oi->adj_pacing.static_limit = oi->params->adj_pacing_static_limit;
+	}
+	/* Apply configured dynamic thresholds if present */
+	if (OSPF_IF_PARAM_CONFIGURED(oi->params, adj_pacing_high_water))
+		oi->adj_pacing.high_water = oi->params->adj_pacing_high_water;
+	if (OSPF_IF_PARAM_CONFIGURED(oi->params, adj_pacing_low_water))
+		oi->adj_pacing.low_water = oi->params->adj_pacing_low_water;
+
+	/* RFC4222 R4: cache effective LSA pacing params for this interface. */
+	ospf_rec4_recompute_effective(oi);
+
 
 	QOBJ_REG(oi, ospf_interface);
 
@@ -360,6 +463,14 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 
 	oi->crypt_seqnum = 0;
 
+
+	/* Stop any pending LSU drain event before we free its data */
+	event_cancel(&oi->t_ls_upd_event);
+
+	/*RFC4222/R5 Changes*/
+	/* Cancel any pending dynamic adjustment timer */
+	event_cancel(&oi->adj_pacing.t_dyn_adjust);
+
 	/* Empty link state update queue */
 	ospf_ls_upd_queue_empty(oi);
 
@@ -407,11 +518,14 @@ void ospf_if_free(struct ospf_interface *oi)
 	listnode_delete(oi->ospf->oiflist, oi);
 	listnode_delete(oi->area->oiflist, oi);
 
-	event_cancel_event(master, oi);
+	/* RFC4222/R5 : Per-interface adjacency pacing */
+	ospf_adj_pacing_queue_fini(&oi->adj_pacing);
 
 	/* If last oi, close per-interface socket */
 	if (ospf_oi_count(ifp) == 0)
 		ospf_ifp_sock_close(ifp);
+
+	event_cancel_event(master, oi);
 
 	memset(oi, 0, sizeof(*oi));
 	XFREE(MTYPE_OSPF_IF, oi);
@@ -578,6 +692,17 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, dscp_ospf_all);
 	UNSET_IF_PARAM(oip, dscp_low_control);
 
+	/* RFC4222 R4: LSA gap pacing parameters. */
+	UNSET_IF_PARAM(oip, gap_pacing_enable);
+	UNSET_IF_PARAM(oip, gap_initial_ms);
+	UNSET_IF_PARAM(oip, gap_min_ms);
+	UNSET_IF_PARAM(oip, gap_max_ms);
+	UNSET_IF_PARAM(oip, gap_factor);
+	UNSET_IF_PARAM(oip, gap_adjust_int_ms);
+	UNSET_IF_PARAM(oip, gap_high_water);
+	UNSET_IF_PARAM(oip, gap_low_water);
+	UNSET_IF_PARAM(oip, gap_max_lsas);
+
 	oip->auth_crypt = list_new();
 
 	oip->network_lsa_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
@@ -591,6 +716,17 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	/* RFC4222 dscp Priority */
 	oip->dscp_ospf_all = IPTOS_PREC_INTERNETCONTROL >> 2;	 /* upper 6 bits */
 	oip->dscp_low_control = IPTOS_PREC_INTERNETCONTROL >> 2; /* Default feature is off */
+
+	/* RFC4222 R4: defaults used only when LSA pacing is enabled. */
+	oip->gap_pacing_enable = false;
+	oip->gap_initial_ms = OSPF_GAP_INITIAL_MS_DEFAULT;
+	oip->gap_min_ms = OSPF_GAP_MIN_MS_DEFAULT;
+	oip->gap_max_ms = OSPF_GAP_MAX_MS_DEFAULT;
+	oip->gap_factor = OSPF_GAP_FACTOR_DEFAULT;
+	oip->gap_adjust_int_ms = OSPF_GAP_ADJUST_INT_MS_DEFAULT;
+	oip->gap_high_water = OSPF_GAP_HIGH_WATER_DEFAULT;
+	oip->gap_low_water = OSPF_GAP_LOW_WATER_DEFAULT;
+	oip->gap_max_lsas = OSPF_GAP_MAX_LSAS_DEFAULT;
 	return oip;
 }
 
@@ -604,6 +740,7 @@ static void ospf_del_if_params(struct interface *ifp,
 	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
 }
+
 
 void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 {
@@ -636,7 +773,17 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    !OSPF_IF_PARAM_CONFIGURED(oip, nbr_filter_name) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, dead_timer_any) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_ospf_all) &&
-	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_low_control) && listcount(oip->auth_crypt) == 0) {
+	    !OSPF_IF_PARAM_CONFIGURED(oip, dscp_low_control) &&
+	    /* RFC4222 R4: keep params while any LSA pacing knob is set. */
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_pacing_enable) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_initial_ms) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_min_ms) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_max_ms) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_factor) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_adjust_int_ms) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_high_water) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_low_water) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, gap_max_lsas) && listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
@@ -684,6 +831,7 @@ struct ospf_if_params *ospf_get_if_params(struct interface *ifp,
 	return rn->info;
 }
 
+
 void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
 {
 	struct route_node *rn;
@@ -693,11 +841,30 @@ void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
 		if ((oi = rn->info) == NULL)
 			continue;
 
-		if (IPV4_ADDR_SAME(&oi->address->u.prefix4, &addr))
+		if (IPV4_ADDR_SAME(&oi->address->u.prefix4, &addr)) {
 			oi->params = ospf_lookup_if_params(
 				ifp, oi->address->u.prefix4);
+			/* RFC4222 R4: refresh effective LSA pacing params. */
+			ospf_rec4_recompute_effective(oi);
+		}
 	}
 }
+void ospf_if_update_params_all(struct interface *ifp)
+{
+	struct route_node *rn;
+	struct ospf_interface *oi;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+		if (!oi)
+			continue;
+
+		oi->params = ospf_lookup_if_params(ifp, oi->address->u.prefix4);
+		/* RFC4222 R4: refresh effective LSA pacing params. */
+		ospf_rec4_recompute_effective(oi);
+	}
+}
+
 
 int ospf_if_new_hook(struct interface *ifp)
 {
@@ -724,6 +891,8 @@ int ospf_if_new_hook(struct interface *ifp)
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), priority);
 	IF_DEF_PARAMS(ifp)->priority = OSPF_ROUTER_PRIORITY_DEFAULT;
+	IF_DEF_PARAMS(ifp)->adj_pacing_mode = OSPF_ADJ_PACING_NONE;
+	IF_DEF_PARAMS(ifp)->adj_pacing_static_limit = 0;
 
 	IF_DEF_PARAMS(ifp)->mtu_ignore = OSPF_MTU_IGNORE_DEFAULT;
 

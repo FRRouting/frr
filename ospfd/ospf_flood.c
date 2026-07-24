@@ -751,6 +751,15 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 			}
 		}
 
+		/* RFC4222 R4: queue ownership begins at the paced send timer,
+		 * not during flood traversal. Mark that at least one eligible
+		 * neighbor exists and let the later R4 block enqueue the LSA.
+		 */
+		if (oi->rec4_gap_pacing) {
+			retx_flag = 1;
+			continue;
+		}
+
 		/* Add the new LSA to the Link state retransmission list
 		   for the adjacency. The LSA will be retransmitted
 		   at intervals until an acknowledgment is seen from
@@ -814,6 +823,41 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	    IP addresses for these packets are the neighbors' IP
 	    addresses. This behavior is extended to P2MP networks which
 	    don't support broadcast. */
+	/* RFC4222 R4: route flooding through per-neighbor paced queues. */
+	if (oi->rec4_gap_pacing) {
+		struct ospf_neighbor *nbr;
+
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			nbr = rn->info;
+			if (!nbr || nbr == oi->nbr_self)
+				continue;
+			if (nbr->state < NSM_Exchange)
+				continue;
+			if (inbr && IPV4_ADDR_SAME(&inbr->router_id, &nbr->router_id))
+				continue;
+			if (!inbr && IPV4_ADDR_SAME(&lsa->data->adv_router, &nbr->router_id))
+				continue;
+
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+				zlog_debug("RFC4222 R4: flood enqueue LSA [Type%d:%pI4] nbr=%pI4 intf=%s",
+					   lsa->data->type, &lsa->data->id, &nbr->router_id,
+					   IF_NAME(oi));
+
+			/* A superseded instance may still be waiting in the
+			 * paced send queue; drop it. This covers instances
+			 * that have been transmitted at least once (i.e. have
+			 * an ls_rxmt node carrying the queue back-pointer). A
+			 * never-sent copy has no such node and may still be
+			 * transmitted once; the receiver replies with its
+			 * newer instance per RFC 2328 section 13 (a).
+			 */
+			ospf_r4_nbr_dequeue(nbr, ospf_lsdb_linked_lookup(&nbr->ls_rxmt, lsa));
+
+			ospf_r4_nbr_enqueue(nbr, lsa);
+		}
+		return 0;
+	}
+
 	if (OSPF_IF_NON_BROADCAST(oi)) {
 		struct ospf_neighbor *nbr;
 
@@ -1127,6 +1171,13 @@ void ospf_ls_retransmit_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 
 	if (ospf_lsa_more_recent(old, lsa) < 0) {
 		if (old) {
+			/* RFC4222 R4: the replaced instance may still have a
+			 * copy waiting in the paced send queue; drop it before
+			 * its bookkeeping node goes away.
+			 */
+			if (nbr->oi && nbr->oi->rec4_gap_pacing)
+				ospf_r4_nbr_dequeue(nbr, ls_rxmt_node);
+
 			old->retransmit_counter--;
 			if (ls_rxmt_node->lsa_list_entry ==
 			    ospf_lsa_list_first(&nbr->ls_rxmt_list))
@@ -1198,11 +1249,25 @@ void ospf_ls_retransmit_delete(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	if (ls_rxmt_node) {
 		bool rxmt_timer_reset;
 
+		/* RFC4222 R4: the neighbor has this LSA; a retransmit copy
+		 * still waiting in the paced send queue is now pointless,
+		 * and sending it would re-add the LSA to this list.
+		 */
+		if (nbr->oi && nbr->oi->rec4_gap_pacing)
+			ospf_r4_nbr_dequeue(nbr, ls_rxmt_node);
+
 		if (ls_rxmt_node->lsa_list_entry ==
 		    ospf_lsa_list_first(&nbr->ls_rxmt_list))
 			rxmt_timer_reset = true;
 		else
 			rxmt_timer_reset = false;
+
+		/* Decrement unacked count if this LSA was counted */
+		if (ls_rxmt_node->counted_sent) {
+			ls_rxmt_node->counted_sent = false;
+			if (nbr->ls_rxmt_unacked)
+				nbr->ls_rxmt_unacked--;
+		}
 
 		lsa->retransmit_counter--;
 
@@ -1321,8 +1386,7 @@ static void ospf_ls_retransmit_delete_nbr_if(struct ospf_interface *oi,
 			lsr = ospf_ls_retransmit_lookup(nbr, lsa);
 
 			/* If LSA find in ls-retransmit list, remove it. */
-			if (lsr != NULL &&
-			    lsr->data->ls_seqnum == lsa->data->ls_seqnum)
+			if (lsr != NULL && lsr->data->ls_seqnum == lsa->data->ls_seqnum)
 				ospf_ls_retransmit_delete(nbr, lsr);
 		}
 }

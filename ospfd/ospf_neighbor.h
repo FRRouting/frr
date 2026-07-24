@@ -10,6 +10,7 @@
 #include <ospfd/ospf_gr.h>
 #include <ospfd/ospf_packet.h>
 #include <ospfd/ospf_flood.h>
+#include <ospfd/ospf_nsm.h>
 
 /* Neighbor Data Structure */
 struct ospf_neighbor {
@@ -70,8 +71,8 @@ struct ospf_neighbor {
 
 	/* Statistics */
 	struct timeval ts_last_progress; /* last advance of NSM            */
-	struct timeval ts_last_regress;  /* last regressive NSM change     */
-	const char *last_regress_str;    /* Event which last regressed NSM */
+	struct timeval ts_last_regress;	 /* last regressive NSM change     */
+	const char *last_regress_str;	 /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
 	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmitted.  */
 	uint64_t dead_timer_resets;	 /* Number of times dead-timer was reset RFC4222 rec 2*/
@@ -81,6 +82,18 @@ struct ospf_neighbor {
 
 	/* ospf graceful restart HELPER info */
 	struct ospf_helper_info gr_helper_info;
+
+	/* RFC4222 R4: per-neighbor LSA gap pacing runtime. */
+	uint32_t lsu_gap_ms;
+	uint64_t next_send_ms;
+	uint64_t gap_last_change_ms;
+	struct list r4_send_queue;
+	struct event *t_r4_send;
+
+	uint32_t ls_rxmt_unacked; /* count of sent but unacked retransmit LSAs */
+
+	/* RFC4222/R5: linkage for per-interface adjacency pacing queue */
+	struct ospf_pacing_queue_item pacing_link;
 };
 
 /* Macros. */
@@ -107,4 +120,6 @@ extern struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,
 extern struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *nbrs,
 							 const struct in_addr *id);
 extern void ospf_renegotiate_optional_capabilities(struct ospf *top);
+/* RFC4222 R4: re-apply interface LSA pacing gap to an existing neighbor. */
+extern void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr);
 #endif /* _ZEBRA_OSPF_NEIGHBOR_H */
