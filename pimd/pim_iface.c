@@ -1973,9 +1973,9 @@ struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src)
 	frr_each (if_connected, ifp->connected, c) {
 		if (c->address->family != PIM_AF)
 			continue;
-		if (prefix_match(c->address, &p))
+		if (prefix_contains(c->address, &p))
 			return c->address;
-		if (CONNECTED_PEER(c) && prefix_match(c->destination, &p))
+		if (CONNECTED_PEER(c) && prefix_contains(c->destination, &p))
 			/* this is not a typo, on PtP we need to return the
 			 * *local* address that lines up with src.
 			 */

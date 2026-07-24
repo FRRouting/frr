@@ -504,8 +504,7 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 
 		if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
 			unnumbered_match = oi;
-		else if (prefix_match(CONNECTED_PREFIX(oi->connected),
-				      (struct prefix *)&addr)) {
+		else if (prefix_contains(CONNECTED_PREFIX(oi->connected), (struct prefix *)&addr)) {
 			if ((match == NULL) || (match->address->prefixlen
 						< oi->address->prefixlen))
 				match = oi;

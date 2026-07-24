@@ -683,7 +683,7 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 	np.prefixlen = IPV6_MAX_BITLEN;
 	np.u.prefix6 = nexthop;
 
-	p.family = AF_INET;
+	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
 
 	bgp = SUBGRP_INST(subgrp);

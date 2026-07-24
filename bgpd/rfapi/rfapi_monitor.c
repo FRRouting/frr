@@ -815,7 +815,7 @@ void rfapiMonitorTimersRestart(struct rfapi_descriptor *rfd,
 
 			p_node = agg_node_get_prefix(m->node);
 			/* NB order of test is significant ! */
-			if (!m->node || prefix_match(p_node, p)) {
+			if (!m->node || prefix_contains(p_node, p)) {
 				rfapiMonitorTimerRestart(m);
 			}
 		}

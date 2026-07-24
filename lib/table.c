@@ -245,8 +245,7 @@ struct route_node *route_node_match(struct route_table *table,
 
 	/* Walk down tree.  If there is matched route then store it to
 	   matched. */
-	while (node && node->p.prefixlen <= p->prefixlen
-	       && prefix_match(&node->p, p)) {
+	while (node && node->p.prefixlen <= p->prefixlen && prefix_contains(&node->p, p)) {
 		if (node->info)
 			matched = node;
 
@@ -333,8 +332,7 @@ struct route_node *route_node_get(struct route_table *table,
 
 	match = NULL;
 	node = table->top;
-	while (node && node->p.prefixlen <= prefixlen
-	       && prefix_match(&node->p, p)) {
+	while (node && node->p.prefixlen <= prefixlen && prefix_contains(&node->p, p)) {
 		if (node->p.prefixlen == prefixlen) {
 			if (p->family == AF_FLOWSPEC)
 				prefix_flowspec_ptr_free(p);
@@ -629,8 +627,7 @@ int route_table_prefix_iter_cmp(const struct prefix *p1,
 	struct prefix *common = &common_space;
 
 	if (p1->prefixlen <= p2->prefixlen) {
-		if (prefix_match(p1, p2)) {
-
+		if (prefix_contains(p1, p2)) {
 			/*
 			 * p1 contains p2, or is equal to it.
 			 */
@@ -641,7 +638,7 @@ int route_table_prefix_iter_cmp(const struct prefix *p1,
 		/*
 		 * Check if p2 contains p1.
 		 */
-		if (prefix_match(p2, p1))
+		if (prefix_contains(p2, p1))
 			return 1;
 	}
 
@@ -724,9 +721,9 @@ route_table_get_next_internal(struct route_table *table,
 		int match;
 
 		if (node->p.prefixlen < p->prefixlen)
-			match = prefix_match(&node->p, p);
+			match = prefix_contains(&node->p, p);
 		else
-			match = prefix_match(p, &node->p);
+			match = prefix_contains(p, &node->p);
 
 		if (match) {
 			if (node->p.prefixlen == p->prefixlen) {

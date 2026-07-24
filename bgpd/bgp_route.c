@@ -15107,7 +15107,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 			}
 			if (type == bgp_show_type_prefix_longer) {
 				p = output_arg;
-				if (!prefix_match(p, dest_p))
+				if (!prefix_contains(p, dest_p))
 					continue;
 			}
 			if (type == bgp_show_type_community_all) {
@@ -16047,8 +16047,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp, struct bgp_
 				 * Get prefixlen of the ip-prefix within type5
 				 * evpn route
 				 */
-				if (evpn_type5_prefix_match(rm_p, &match)
-				    && rm->info) {
+				if (evpn_type5_prefix_contains(rm_p, &match) && rm->info) {
 					longest_pfx = rm;
 					int type5_pfxlen =
 						bgp_evpn_get_type5_prefixlen(

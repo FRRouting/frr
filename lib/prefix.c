@@ -193,14 +193,17 @@ const char *safi2str(safi_t safi)
 	return "DEV ESCAPE";
 }
 
-/* If n includes p prefix then return 1 else return 0. */
-int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
+/* If unetwork includes uprefix then return 1 else return 0. */
+int prefix_contains(union prefixconstptr unetwork, union prefixconstptr uprefix)
 {
-	const struct prefix *n = unet.p;
-	const struct prefix *p = upfx.p;
+	const struct prefix *n = unetwork.p;
+	const struct prefix *p = uprefix.p;
 	int offset;
 	int shift;
 	const uint8_t *np, *pp;
+
+	if (n->family != p->family)
+		return 0;
 
 	/* If n's prefix is longer than p's one return 0. */
 	if (n->prefixlen > p->prefixlen)
@@ -251,7 +254,7 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
  * ip-prefix within n which matches prefix p
  * If n includes p prefix then return 1 else return 0.
  */
-int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
+int evpn_type5_prefix_contains(const struct prefix *n, const struct prefix *p)
 {
 	int offset;
 	int shift;
