@@ -28,6 +28,104 @@
 
 /* clang-format off */
 
+/*
+ * BFD client-library (lib/bfd.c) session lifecycle tracepoints.
+ *
+ * Field legend (shared across the events below):
+ *   bsp_ptr    : pointer of the struct bfd_session_params (per-session id)
+ *   ifname     : outgoing interface recorded on the session params ("*" if unset)
+ *   vrf_id     : VRF id recorded on the session params
+ *   family     : AF_INET (2) or AF_INET6 (10)
+ *   dst / src  : 16-byte in6_addr; for AF_INET only the first 4 bytes are meaningful
+ *   lastev     : 0 = BSE_UNINSTALL, 1 = BSE_INSTALL (enum bfd_session_event in bfd.c)
+ *   installed  : bsp->installed at the sampling point
+ *   ev_pending : bsp->installev was non-NULL, i.e. a queued event is being
+ *                cancelled by _bfd_sess_remove()
+ *   command    : ZAPI command that hit the wire, or 0 for the DEREGISTER
+ *                early-out. ZEBRA_BFD_DEST_REGISTER=27, DEREGISTER=28, UPDATE=29
+ *   rv         : return value of zclient_bfd_command()
+ */
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	bfd_sess_send,
+	TP_ARGS(
+		void *, bsp,
+		const char *, ifname,
+		uint32_t, vrf_id,
+		uint8_t, family,
+		const void *, dst,
+		const void *, src,
+		uint8_t, lastev,
+		int32_t, command,
+		int, rv,
+		uint8_t, installed_out
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, bsp_ptr, bsp)
+		ctf_string(ifname, ifname ? ifname : "*")
+		ctf_integer(uint32_t, vrf_id, vrf_id)
+		ctf_integer(uint8_t, family, family)
+		ctf_array(uint8_t, dst, dst ? (const uint8_t *)dst : (const uint8_t[16]){0}, 16)
+		ctf_array(uint8_t, src, src ? (const uint8_t *)src : (const uint8_t[16]){0}, 16)
+		ctf_integer(uint8_t, lastev, lastev)
+		ctf_integer(int32_t, command, command)
+		ctf_integer(int, rv, rv)
+		ctf_integer(uint8_t, installed_out, installed_out)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_libfrr, bfd_sess_send, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	bfd_sess_remove,
+	TP_ARGS(
+		void *, bsp,
+		const char *, ifname,
+		uint32_t, vrf_id,
+		uint8_t, family,
+		const void *, dst,
+		uint8_t, installed,
+		uint8_t, ev_pending
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, bsp_ptr, bsp)
+		ctf_string(ifname, ifname ? ifname : "*")
+		ctf_integer(uint32_t, vrf_id, vrf_id)
+		ctf_integer(uint8_t, family, family)
+		ctf_array(uint8_t, dst, dst ? (const uint8_t *)dst : (const uint8_t[16]){0}, 16)
+		ctf_integer(uint8_t, installed, installed)
+		ctf_integer(uint8_t, ev_pending, ev_pending)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_libfrr, bfd_sess_remove, TRACE_INFO)
+
+/*
+ * Fired by _bfd_sess_valid() when a single-hop IPv6 link-local session is
+ * deferred because its outgoing interface is not yet known (the #5131052 fix).
+ * One event per deferral tells us exactly which session/VRF is being held back
+ * and how often, before it later installs with a unique per-interface key.
+ */
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	bfd_sess_defer_linklocal_without_intf,
+	TP_ARGS(
+		void *, bsp,
+		uint32_t, vrf_id,
+		uint8_t, family,
+		const void *, dst,
+		const void *, src
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, bsp_ptr, bsp)
+		ctf_integer(uint32_t, vrf_id, vrf_id)
+		ctf_integer(uint8_t, family, family)
+		ctf_array(uint8_t, dst, dst ? (const uint8_t *)dst : (const uint8_t[16]){0}, 16)
+		ctf_array(uint8_t, src, src ? (const uint8_t *)src : (const uint8_t[16]){0}, 16)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_libfrr, bfd_sess_defer_linklocal_without_intf, TRACE_INFO)
+
 TRACEPOINT_EVENT(
 	frr_libfrr,
 	hash_get,
