@@ -1922,10 +1922,15 @@ static bool _netlink_nexthop_encode_seg6_info(struct nlmsghdr *nlmsg, size_t buf
 	if (!nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRH, tun_buf, tun_len))
 		return false;
 
-	if (!sid_zero_ipv6(&segs->encap_source) &&
-	    !nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRC, &segs->encap_source,
-			 sizeof(struct in6_addr)))
-		return false;
+	if (!sid_zero_ipv6(&segs->rmap_encap_source)) {
+		if (!nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRC, &segs->rmap_encap_source,
+				 sizeof(struct in6_addr)))
+			return false;
+	} else if (!sid_zero_ipv6(&segs->encap_source)) {
+		if (!nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRC, &segs->encap_source,
+				 sizeof(struct in6_addr)))
+			return false;
+	}
 
 	return true;
 }

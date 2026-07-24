@@ -115,6 +115,7 @@ struct seg6_seg_stack {
 
 	/* optional encapsulation source address */
 	struct in6_addr encap_source;
+	struct in6_addr rmap_encap_source;
 
 	uint8_t num_segs;
 	struct in6_addr seg[0]; /* 1 or more segs */
