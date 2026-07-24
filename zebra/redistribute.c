@@ -136,11 +136,11 @@ static void zebra_redistribute(struct zserv *client, int type,
 					"%s: client %s %pRN(%u:%u) checking: selected=%d, type=%s, instance=%u, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
 					zebra_route_string(client->proto), rn,
-					vrf_id, newre->instance,
+					vrf_id, route_entry_get_proto_instance(newre),
 					!!CHECK_FLAG(newre->flags,
 						     ZEBRA_FLAG_SELECTED),
 					zebra_route_string(newre->type),
-					newre->instance,
+					route_entry_get_proto_instance(newre),
 					newre->distance,
 					newre->metric,
 					zebra_check_addr(&rn->p));
@@ -149,7 +149,7 @@ static void zebra_redistribute(struct zserv *client, int type,
 				continue;
 			if ((type != ZEBRA_ROUTE_ALL
 			     && (newre->type != type
-				 || newre->instance != instance)))
+				 || route_entry_get_proto_instance(newre) != instance)))
 				continue;
 			if (!zebra_check_addr(&rn->p))
 				continue;
@@ -222,9 +222,9 @@ static bool zebra_redistribute_check(const struct route_node *rn,
 	 * If multi-instance then check for route
 	 * redistribution for given instance.
 	 */
-	if (re->instance) {
+	if (route_entry_get_proto_instance(re)) {
 		if (redist_check_instance(&client->mi_redist[afi][re->type],
-					  re->instance))
+					  route_entry_get_proto_instance(re)))
 			return true;
 		else
 			return false;
@@ -248,7 +248,7 @@ void redistribute_update(const struct route_node *rn,
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug(
 			"(%u:%u):%pRN(%u): Redist update re %p (%s), old %p (%s)",
-			re->vrf_id, re->table, rn, re->instance, re,
+			re->vrf_id, re->table, rn, route_entry_get_proto_instance(re), re,
 			zebra_route_string(re->type), prev_re,
 			prev_re ? zebra_route_string(prev_re->type) : "None");
 
@@ -315,11 +315,11 @@ void redistribute_delete(const struct route_node *rn,
 		old_inst = new_inst = 0;
 
 		if (old_re) {
-			old_inst = old_re->instance;
+			old_inst = route_entry_get_proto_instance(old_re);
 			table = old_re->table;
 		}
 		if (new_re) {
-			new_inst = new_re->instance;
+			new_inst = route_entry_get_proto_instance(new_re);
 			table = new_re->table;
 		}
 
@@ -762,7 +762,8 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct rou
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		if (same->type == re->type && same->instance == re->instance &&
+		if (same->type == re->type &&
+		    route_entry_get_proto_instance(same) == route_entry_get_proto_instance(re) &&
 		    same->table == re->table &&
 		    (same->type != ZEBRA_ROUTE_CONNECT &&
 		     same->type != ZEBRA_ROUTE_LOCAL))

@@ -112,6 +112,10 @@ module frr-route-types {
         value 27;
         description "Openfabric route";
       }
+      enum vrf-import {
+        value 32;
+        description "VRF import route";
+      }
     }
     description "Enumeration of supported IPv4 route types";
   }
@@ -177,6 +181,10 @@ module frr-route-types {
       enum openfabric {
         value 27;
         description "OpenFabric route";
+      }
+      enum vrf-import {
+        value 32;
+        description "VRF import route";
       }
     }
     description "Enumeration of supported IPv6 route types";
