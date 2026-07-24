@@ -23,6 +23,7 @@ extern "C" {
 
 typedef struct json_object json_object;
 struct l2vni_walk_ctx;
+struct zebra_dplane_ctx;
 
 #define IS_ZEBRA_NEIGH_ACTIVE(n) (n->state == ZEBRA_NEIGH_ACTIVE)
 
@@ -79,6 +80,8 @@ struct zebra_neigh {
  * is local connected
  */
 #define ZEBRA_NEIGH_LOCAL_INACTIVE 0x200
+/* DAD freeze delete is waiting for a dplane kernel read completion. */
+#define ZEBRA_NEIGH_DAD_READ_PENDING 0x400
 #define ZEBRA_NEIGH_ALL_LOCAL_FLAGS                                            \
 	(ZEBRA_NEIGH_LOCAL | ZEBRA_NEIGH_LOCAL_INACTIVE)
 #define ZEBRA_NEIGH_ALL_PEER_FLAGS                                             \
@@ -104,6 +107,7 @@ struct zebra_neigh {
 
 	/* Duplicate ip detection */
 	uint32_t dad_count;
+	uint32_t dad_read_seq;
 
 	struct event *dad_ip_auto_recovery_timer;
 
@@ -132,6 +136,11 @@ static inline uint32_t zebra_neigh_hash(const struct zebra_neigh *n)
 	return ipaddr_hash(&n->ip);
 }
 
+static inline void zebra_evpn_neigh_clear_dad_read_pending(struct zebra_neigh *n)
+{
+	UNSET_FLAG(n->flags, ZEBRA_NEIGH_DAD_READ_PENDING);
+	n->dad_read_seq = 0;
+}
 
 DECLARE_HASH(zebra_neigh_db, struct zebra_neigh, znd_item, zebra_neigh_cmp, zebra_neigh_hash);
 
@@ -295,6 +304,7 @@ void zebra_evpn_neigh_remote_uninstall(struct zebra_evpn *zevpn,
 				       struct zebra_neigh *n,
 				       struct zebra_mac *mac,
 				       const struct ipaddr *ipaddr);
+void zebra_evpn_dad_neigh_read_complete(struct zebra_dplane_ctx *ctx);
 int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip);
 
 
