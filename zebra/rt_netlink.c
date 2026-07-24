@@ -476,12 +476,11 @@ parse_encap_seg6local(struct rtattr *tb,
 	if (tb_encap[SEG6_LOCAL_OIF])
 		ctx->ifindex = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_OIF]);
 
-	if (tb_encap[SEG6_LOCAL_TABLE])
-		ctx->table = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_TABLE]);
-
 	if (tb_encap[SEG6_LOCAL_VRFTABLE])
 		ctx->table =
 			*(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_VRFTABLE]);
+	else if (tb_encap[SEG6_LOCAL_TABLE])
+		ctx->table = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_TABLE]);
 
 	if (tb_encap[SEG6_LOCAL_FLAVORS]) {
 		parse_encap_seg6local_flavors(tb_encap[SEG6_LOCAL_FLAVORS],
@@ -2011,7 +2010,7 @@ static bool _netlink_nexthop_encode_seg6local_info(const struct nexthop *nexthop
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DT6))
 			return false;
-		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_TABLE, ctx->table))
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_VRFTABLE, ctx->table))
 			return false;
 		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:

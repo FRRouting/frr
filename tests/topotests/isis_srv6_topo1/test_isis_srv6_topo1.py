@@ -303,12 +303,18 @@ def test_ping_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    # On rt6, create a VRF to host seg6local DT6 route
+    # inner received packet will fallback to 254 routing table
+    tgen.gears["rt6"].run("sysctl net.vrf.strict_mode=1")
+    tgen.gears["rt6"].run("ip link add vrf254fallback type vrf table 1000")
+    tgen.gears["rt6"].run("ip link set dev vrf254fallback up")
+
     # Setup encap route on rt1, decap route on rt2
     tgen.gears["rt1"].vtysh_cmd(
         "sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:f00d:: 1"
     )
     tgen.gears["rt6"].vtysh_cmd(
-        "sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1"
+        "sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 1000 1"
     )
     tgen.gears["dst"].vtysh_cmd(
         "sharp install route 2001:db8:1::1 nexthop 2001:db8:10::1 1"
