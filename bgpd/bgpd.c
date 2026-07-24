@@ -1326,8 +1326,8 @@ void bgp_peer_connection_buffers_free(struct peer_connection *connection)
 		}
 
 		if (connection->ibuf_work) {
-			ringbuf_del(connection->ibuf_work);
-			connection->ibuf_work = NULL;
+			XFREE(MTYPE_BGP_IBUF_WORK, connection->ibuf_work);
+			connection->ibuf_data_len = 0;
 		}
 	}
 
