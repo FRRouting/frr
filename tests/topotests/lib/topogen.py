@@ -82,21 +82,21 @@ def is_string(value):
 
 
 def get_exabgp_cmd(commander=None):
-    """Return the command to use for ExaBGP version >= 4.2.11"""
+    """Return the command to use for ExaBGP version >= 5.0.0"""
 
     if commander is None:
         commander = Commander("exabgp", logger=logging.getLogger("exabgp"))
 
     def exacmd_version_ok(exacmd):
-        logger.debug("checking %s for exabgp version >= 4.2.11", exacmd)
-        _, stdout, _ = commander.cmd_status(exacmd + " --version", warn=False)
+        logger.debug("checking %s for exabgp version >= 5.0.0", exacmd)
+        _, stdout, _ = commander.cmd_status(exacmd + " version", warn=False)
         m = re.search(r"ExaBGP\s*:\s*((\d+)\.(\d+)(?:\.(\d+))?)", stdout)
         if not m:
             return False
         version = m.group(1)
-        if topotest.version_cmp(version, "4.2.11") < 0:
+        if topotest.version_cmp(version, "5.0.0") < 0:
             logging.debug(
-                "found exabgp version < 4.2.11 in %s will keep looking", exacmd
+                "found exabgp version < 5.0.0 in %s will keep looking", exacmd
             )
             return False
         logger.info("Using ExaBGP version %s in %s", version, exacmd)
@@ -1407,7 +1407,7 @@ class TopoExaBGP(TopoHost):
         * Run ExaBGP with env file `env_file` and configuration peer*/exabgp.cfg
         """
         exacmd = self.tgen.get_exabgp_cmd()
-        assert exacmd, "Can't find a usable ExaBGP (must be version >= 4.2.11)"
+        assert exacmd, "Can't find a usable ExaBGP (must be version >= 5.0.0)"
 
         self.run("mkdir -p /etc/exabgp")
         self.run("chmod 755 /etc/exabgp")
@@ -1418,10 +1418,6 @@ class TopoExaBGP(TopoHost):
         self.run("chmod 644 /etc/exabgp/*")
         self.run("chmod a+x /etc/exabgp/*.py")
         self.run("chown -R exabgp:exabgp /etc/exabgp")
-        self.run("[ -p /var/run/exabgp.in ] || mkfifo /var/run/exabgp.in")
-        self.run("[ -p /var/run/exabgp.out ] || mkfifo /var/run/exabgp.out")
-        self.run("chown exabgp:exabgp /var/run/exabgp.{in,out}")
-        self.run("chmod 600 /var/run/exabgp.{in,out}")
 
         log_dir = os.path.join(self.logdir, self.name)
         self.run("chmod 777 {}".format(log_dir))
@@ -1430,10 +1426,15 @@ class TopoExaBGP(TopoHost):
 
         env_cmd = "env exabgp.log.level=INFO "
         env_cmd += "exabgp.log.destination={} ".format(log_file)
+        env_cmd += "EXABGP_ENVFILE=/etc/exabgp/exabgp.env "
 
-        output = self.run(
-            env_cmd + exacmd + " -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg "
+        # Without the stdio redirect the daemonized exabgp keeps the
+        # launch pipe open and self.run() blocks forever.
+        invocation = (
+            exacmd + " server /etc/exabgp/exabgp.cfg </dev/null >/dev/null 2>&1"
         )
+
+        output = self.run(env_cmd + invocation)
         if output is None or len(output) == 0:
             output = "<none>"
 
@@ -1606,7 +1607,7 @@ def diagnose_env_linux(rundir):
         logger.info("LDPd tests will not run (missing mpls-iptunnel kernel module)")
 
     if not get_exabgp_cmd():
-        logger.warning("Failed to find exabgp >= 4.2.11")
+        logger.warning("Failed to find exabgp >= 5.0.0")
 
     logger.removeHandler(fhandler)
     fhandler.close()
