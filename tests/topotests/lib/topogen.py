@@ -1005,9 +1005,7 @@ class TopoRouter(TopoGear):
                 self.vtysh_cmd(
                     "\n".join(
                         [
-                            "clear log cmdline-targets",
                             "conf t",
-                            "log file {}.log debug".format(daemon),
                             "log commands",
                             "log timestamp precision 6",
                         ]
