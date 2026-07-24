@@ -6,6 +6,7 @@
 
 #include <zebra.h>
 
+#include <regex.h>
 #ifdef GNU_LINUX
 
 /* The following definition is to workaround an issue in the Linux kernel
@@ -63,6 +64,7 @@
 #include "zebra/zebra_l2.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_router.h"
 #include "lib/netlink_parser.h"
 
 extern struct zebra_privs_t zserv_privs;
@@ -1102,6 +1104,13 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id, int startup
 
 	ifa = NLMSG_DATA(h);
 
+	/* Check if kernel address events should be ignored */
+	if (zrouter.ignore_kernel_addr) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: ignoring kernel address event (minimal kernel mode enabled)", __func__);
+		return 0;
+	}
+
 	/* Validate message types */
 	if (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)
 		return 0;
@@ -1396,6 +1405,19 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 	if (tb[IFLA_IFNAME] == NULL)
 		return -1;
 	name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
+
+	/* Check if interface should be ignored based on regex patterns */
+	if (zrouter.ignore_regex_count > 0) {
+		for (uint32_t i = 0; i < zrouter.ignore_regex_count; i++) {
+			if (zrouter.ignore_regex[i].compiled &&
+			    regexec(&zrouter.ignore_regex[i].regex, name, 0, NULL, 0) == 0) {
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug("%s: ignoring interface %s (matches regex: %s)",
+						   __func__, name, zrouter.ignore_regex[i].pattern);
+				return 0;
+			}
+		}
+	}
 
 	/* Must be valid string. */
 	len = RTA_PAYLOAD(tb[IFLA_IFNAME]);
