@@ -183,6 +183,16 @@ void pim_dm_wrongif(struct interface *ifp, pim_sgaddr sg, struct pim_upstream *u
 			zlog_debug("%s: Dense Mode WRONGVIF on P2P %s, immediate prune (S,G)=%pSG",
 				   __func__, ifp->name, &sg);
 		pim_dm_prune_wrongif(ifp, sg, up);
+	} else if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+		/*
+		 * The FHR injects on RPF_interface(S) only.  Reflected copies of
+		 * the same flow on other LAN interfaces are not competing forwarders;
+		 * Assert winner state there would keep stale OIFs and break prune.
+		 */
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: Dense Mode WRONGVIF on LAN %s at FHR, immediate prune (S,G)=%pSG",
+				   __func__, ifp->name, &sg);
+		pim_dm_prune_wrongif(ifp, sg, up);
 	} else {
 		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug("%s: Dense Mode WRONGVIF on LAN %s, starting Assert (S,G)=%pSG",
@@ -361,6 +371,97 @@ bool pim_gm_has_igmp_join(struct interface *ifp, pim_addr group_addr)
 	return false;
 }
 
+/*
+ * Dense flood installs (S,G) OIFs with oil_if_set() (no PROTO_GM).  IGMP/MLD
+ * leave only removes PROTO_GM from the (*,G)/(S,G) channel_oil that GM tracks,
+ * so those DM-native OIFs would otherwise stick forever and block upstream
+ * prune.  Clear the leave interface from matching dense (S,G) oils and prune
+ * toward RPF when nothing downstream remains.
+ *
+ * While tib_sg_gm_prune runs, the leaving group is still on gm_group_list, so
+ * pim_upstream_up_connected() would still see local membership on oif.  Skip
+ * IGMP/MLD on the leave interface when deciding whether to prune.
+ */
+void pim_dm_gm_oif_del(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
+{
+	struct channel_oil *c_oil;
+	struct pim_interface *pim_oif = oif->info;
+
+	if (!pim_oif || !pim_iface_grp_dm(pim_oif, sg.grp))
+		return;
+
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
+		struct pim_upstream *up = c_oil->up;
+		struct interface *ifp;
+		struct interface *rpf_ifp;
+		struct pim_interface *pim_rpf;
+		struct pim_ifchannel *ch, *throwaway;
+		bool connected = false;
+
+		if (pim_addr_cmp(sg.grp, *oil_mcastgrp(c_oil)))
+			continue;
+		/* Dense forwarding state is on (S,G); skip (*,G) oils. */
+		if (pim_addr_is_any(*oil_origin(c_oil)))
+			continue;
+		if (!pim_addr_is_any(sg.src) && pim_addr_cmp(sg.src, *oil_origin(c_oil)))
+			continue;
+		if (!up || !up->channel_oil)
+			continue;
+		if (!oil_if_has(c_oil, pim_oif->mroute_vif_index))
+			continue;
+
+		oil_if_set(c_oil, pim_oif->mroute_vif_index, 0);
+		pim_upstream_mroute_update(c_oil, __func__);
+
+		FOR_ALL_INTERFACES (up->pim->vrf, ifp) {
+			struct pim_interface *pim_ifp = ifp->info;
+
+			if (!pim_ifp || !pim_ifp->pim_enable)
+				continue;
+
+			if (HAVE_DENSE_MODE(pim_ifp->pim_mode) &&
+			    up->rpf.source_nexthop.interface &&
+			    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
+			    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
+				connected = true;
+				break;
+			}
+			/* Leave interface still has the group on gm_group_list. */
+			if (ifp != oif && pim_gm_has_igmp_join(ifp, up->sg.grp)) {
+				connected = true;
+				break;
+			}
+		}
+
+		if (connected)
+			continue;
+
+		rpf_ifp = up->rpf.source_nexthop.interface;
+		if (!rpf_ifp || !rpf_ifp->info)
+			continue;
+
+		pim_rpf = rpf_ifp->info;
+		if (!HAVE_DENSE_MODE(pim_rpf->pim_mode))
+			continue;
+
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: (S,G)=%pSG leave on %s, pruning upstream on %s", __func__,
+				   &up->sg, oif->name, rpf_ifp->name);
+
+		event_cancel(&up->t_graft_timer);
+		event_cancel(&up->t_join_timer);
+		PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
+		if (up->join_state == PIM_UPSTREAM_JOINED)
+			pim_upstream_switch(up->pim, up, PIM_UPSTREAM_NOTJOINED);
+		/* Cancel any pending Join-override on the RPF LAN. */
+		pim_ifchannel_find(rpf_ifp, &up->sg, &ch, &throwaway);
+		if (ch)
+			event_cancel(&ch->t_ifjoin_prune_pending_timer);
+		pim_dm_prune_send(up->rpf, up, 0);
+		prune_timer_start(up);
+	}
+}
+
 void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
 {
 	struct pim_upstream *up;
@@ -405,18 +506,159 @@ void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
 }
 
 
+/*
+ * Apply a received dense prune on a forwarding OIF: clear the OIL, optionally
+ * prune further upstream, and arm the prune-holdtime re-flood timer.
+ */
+static void pim_dm_apply_oif_prune(struct interface *ifp, struct pim_upstream *up,
+				   uint16_t holdtime, uint8_t source_flags)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_ifchannel *ch, *throwaway;
+	struct interface *ifp2;
+	struct pim_interface *pim_ifp2;
+	struct vrf *vrf;
+	bool sg_connected = false;
+
+	if (!oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
+		return;
+
+	oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+	pim_upstream_mroute_update(up->channel_oil, __func__);
+
+	vrf = up->pim->vrf;
+	FOR_ALL_INTERFACES (vrf, ifp2) {
+		pim_ifp2 = ifp2->info;
+
+		if (!pim_ifp2)
+			continue;
+		if (HAVE_DENSE_MODE(pim_ifp2->pim_mode) && ifp2->ifindex != ifp->ifindex &&
+		    oil_if_has(up->channel_oil, pim_ifp2->mroute_vif_index)) {
+			sg_connected = true;
+			break;
+		}
+		if (pim_gm_has_igmp_join(ifp2, up->sg.grp)) {
+			sg_connected = true;
+			break;
+		}
+	}
+
+	if (!sg_connected) {
+		event_cancel(&up->t_graft_timer);
+		event_cancel(&up->t_join_timer);
+		PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
+		if (up->join_state == PIM_UPSTREAM_JOINED)
+			pim_upstream_switch(up->pim, up, PIM_UPSTREAM_NOTJOINED);
+		pim_dm_prune_send(up->rpf, up, 0);
+		prune_timer_start(up);
+	}
+
+	pim_ifchannel_find(ifp, &up->sg, &ch, &throwaway);
+	if (!ch)
+		ch = pim_ifchannel_add(ifp, &up->sg, source_flags, PIM_UPSTREAM_DM_FLAG_MASK_PRUNE);
+	PIM_UPSTREAM_DM_SET_PRUNE(ch->flags);
+	ch->prune_holdtime = holdtime;
+	event_cancel(&ch->t_ifjoin_expiry_timer);
+	event_add_timer(router->master, pim_dm_prune_iff_on_timer, ch, holdtime,
+			&ch->t_ifjoin_expiry_timer);
+}
+
+void pim_dm_prune_pending_on_timer(struct event *t)
+{
+	struct pim_ifchannel *ch = EVENT_ARG(t);
+	struct interface *ifp = ch->interface;
+	struct pim_upstream *up = ch->upstream;
+	uint16_t holdtime = ch->prune_holdtime;
+
+	if (PIM_DEBUG_PIM_J_P)
+		zlog_debug("%s: (S,G)=%s LAN prune-pending expired on %s, applying prune",
+			   __func__, ch->sg_str, ifp->name);
+
+	if (!up)
+		return;
+
+	pim_dm_apply_oif_prune(ifp, up, holdtime, 0);
+}
+
+void pim_dm_join_override_on_timer(struct event *t)
+{
+	struct pim_ifchannel *ch = EVENT_ARG(t);
+	struct pim_upstream *up = ch->upstream;
+	struct interface *ifp = ch->interface;
+
+	if (!up)
+		return;
+
+	if (PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) || !pim_upstream_up_connected(up))
+		return;
+
+	if (PIM_DEBUG_PIM_J_P)
+		zlog_debug("%s: (S,G)=%s sending LAN Join override on %s", __func__, ch->sg_str,
+			   ifp->name);
+
+	pim_dm_prune_send(up->rpf, up, true);
+}
+
+/*
+ * Dense Join on a multi-access LAN: cancel a pending OIF prune (override),
+ * cancel a pending Join override (suppression), or re-add an already-pruned
+ * OIF like a Graft directed at this forwarder.
+ */
+void pim_dm_recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
+		      pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_upstream *up;
+	struct pim_ifchannel *ch, *throwaway;
+	bool directed_to_us;
+
+	if (!pim_ifp || !pim_ifp->pim_enable)
+		return;
+
+	if (!HAVE_DENSE_MODE(pim_ifp->pim_mode) || !pim_iface_grp_dm(pim_ifp, sg->grp))
+		return;
+
+	up = pim_upstream_find(pim_ifp->pim, sg);
+	if (!up)
+		return;
+
+	directed_to_us = !pim_addr_cmp(upstream, pim_ifp->primary_address);
+
+	pim_ifchannel_find(ifp, sg, &ch, &throwaway);
+
+	if (!directed_to_us) {
+		/* Join suppression: another router already overrode the prune. */
+		if (ch && event_is_scheduled(ch->t_ifjoin_prune_pending_timer) &&
+		    up->rpf.source_nexthop.interface == ifp) {
+			if (PIM_DEBUG_PIM_J_P)
+				zlog_debug("%s: (S,G)=%pSG suppressing Join override on %s",
+					   __func__, sg, ifp->name);
+			event_cancel(&ch->t_ifjoin_prune_pending_timer);
+		}
+		return;
+	}
+
+	/* Directed to us (LAN forwarder). */
+	if (ch && event_is_scheduled(ch->t_ifjoin_prune_pending_timer)) {
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: (S,G)=%pSG Join override cancels prune-pending on %s",
+				   __func__, sg, ifp->name);
+		event_cancel(&ch->t_ifjoin_prune_pending_timer);
+	}
+
+	/*
+	 * After the OIF is pruned, restoration is via Graft (pim_dm_recv_graft),
+	 * not Join. Join only cancels prune-pending during the override window.
+	 */
+}
+
 void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
 		       pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags)
 {
 	struct pim_upstream *up;
 	struct pim_interface *pim_ifp;
-	pim_addr group_addr = sg->grp;
 	struct pim_ifchannel *ch, *throwaway;
-
-	struct interface *ifp2 = NULL;
-	struct pim_interface *pim_ifp2;
-	bool sg_connected;
-	struct vrf *vrf;
+	int jp_override_interval_msec;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp || !pim_ifp->pim_enable)
@@ -425,52 +667,73 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 	if (!HAVE_DENSE_MODE(pim_ifp->pim_mode))
 		return;
 
-	up = pim_upstream_find(pim_ifp->pim, sg);
+	if (!pim_iface_grp_dm(pim_ifp, sg->grp))
+		return;
 
+	up = pim_upstream_find(pim_ifp->pim, sg);
 	if (!up)
 		return;
 
-	sg_connected = false;
-	vrf = up->pim->vrf;
+	/*
+	 * Prune not directed to us: if this is our RPF interface and we still
+	 * have downstream interest, schedule a Join override (RFC 3973).
+	 */
+	if (pim_addr_cmp(upstream, pim_ifp->primary_address)) {
+		/*
+		 * Overheard prune on our RPF LAN: Join-override only while we
+		 * still want the stream.  Already-pruned upstreams must not
+		 * keep canceling the forwarder's prune-pending.
+		 */
+		if (up->rpf.source_nexthop.interface == ifp &&
+		    !PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) && pim_upstream_up_connected(up)) {
+			pim_ifchannel_find(ifp, sg, &ch, &throwaway);
+			if (!ch)
+				ch = pim_ifchannel_add(ifp, sg, source_flags, 0);
+			if (!event_is_scheduled(ch->t_ifjoin_prune_pending_timer)) {
+				int t_override_msec = pim_if_t_override_msec(ifp);
 
-	if (pim_iface_grp_dm(pim_ifp, group_addr) &&
-	    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
-		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
-		pim_upstream_mroute_update(up->channel_oil, __func__);
-
-		/* dm: we need to forward the prune upstream if needed */
-		FOR_ALL_INTERFACES (vrf, ifp2) {
-			pim_ifp2 = ifp2->info;
-
-			if (!pim_ifp2)
-				continue;
-			if (HAVE_DENSE_MODE(pim_ifp2->pim_mode) && ifp2->ifindex != ifp->ifindex &&
-			    oil_if_has(up->channel_oil, pim_ifp2->mroute_vif_index)) {
-				sg_connected = true;
-				break;
-			}
-			if (pim_gm_has_igmp_join(ifp2, sg->grp)) {
-				sg_connected = true;
-				break;
+				if (PIM_DEBUG_PIM_J_P)
+					zlog_debug("%s: (S,G)=%pSG scheduling Join override in %d msec on %s",
+						   __func__, sg, t_override_msec, ifp->name);
+				event_add_timer_msec(router->master, pim_dm_join_override_on_timer,
+						     ch, t_override_msec,
+						     &ch->t_ifjoin_prune_pending_timer);
 			}
 		}
+		return;
+	}
 
-		if (!sg_connected) {
-			PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
-			pim_dm_prune_send(up->rpf, up, 0);
-			prune_timer_start(up);
-		}
+	/* Directed to us: we forward onto this interface. */
+	if (!up->channel_oil || !oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
+		return;
+
+	/*
+	 * Multi-access LAN with other neighbors: delay OIF removal so a sibling
+	 * with receivers can Join-override (RFC 3973). P2P or sole neighbor:
+	 * prune immediately.
+	 */
+	if (!if_is_pointopoint(ifp) && listcount(pim_ifp->pim_neighbor_list) > 1) {
+		jp_override_interval_msec = pim_if_jp_override_interval_msec(ifp);
 
 		pim_ifchannel_find(ifp, sg, &ch, &throwaway);
 		if (!ch)
-			ch = pim_ifchannel_add(ifp, sg, source_flags,
-					       PIM_UPSTREAM_DM_FLAG_MASK_PRUNE);
-		PIM_UPSTREAM_DM_SET_PRUNE(ch->flags);
+			ch = pim_ifchannel_add(ifp, sg, source_flags, 0);
 		ch->prune_holdtime = holdtime;
-		event_cancel(&ch->t_ifjoin_expiry_timer);
-		event_add_timer(router->master, pim_dm_prune_iff_on_timer, ch, holdtime,
-				&ch->t_ifjoin_expiry_timer);
+		ch->upstream = up;
+
+		if (event_is_scheduled(ch->t_ifjoin_prune_pending_timer))
+			return;
+
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: (S,G)=%pSG LAN prune-pending %d msec on %s", __func__, sg,
+				   jp_override_interval_msec, ifp->name);
+
+		event_add_timer_msec(router->master, pim_dm_prune_pending_on_timer, ch,
+				     jp_override_interval_msec, &ch->t_ifjoin_prune_pending_timer);
+		return;
 	}
+
+	pim_dm_apply_oif_prune(ifp, up, holdtime, source_flags);
 }
 
 void pim_dm_prune_iff_on_timer(struct event *t)
