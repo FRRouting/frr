@@ -4594,7 +4594,7 @@ int bgp_delete(struct bgp *bgp)
 	safi_t safi;
 	int i;
 	uint32_t vni_count;
-	struct bgpevpn *vpn = NULL;
+	struct bgp_evpn_evi *vpn = NULL;
 	struct graceful_restart_info *gr_info;
 	struct bgp *bgp_default = bgp_get_default();
 	struct bgp_clearing_info *cinfo;
@@ -4887,13 +4887,13 @@ int bgp_delete(struct bgp *bgp)
 		 *
 		 * This must run on every teardown of the EVPN-owner instance
 		 * (not only during daemon termination).  Each L2VNI holds a
-		 * bgp_lock on the owner via bgpevpn_link_to_l3vni(); without
+		 * bgp_lock on the owner via bgp_evpn_evi_link_to_l3vni(); without
 		 * releasing those locks here, "no router bgp" of the EVPN
 		 * owner leaks the instance, its peer_self, and any local
 		 * EVPN paths still held in the per-VNI tables.  The per-VNI
 		 * route tables were already drained above; free_vni_entry()
 		 * here re-runs delete_all_vni_routes() which is a no-op (the
-		 * tables are empty) and then frees the bgpevpn structs.
+		 * tables are empty) and then frees the bgp_evpn_evi structs.
 		 */
 		bgp_evpn_cleanup(bgp);
 	}
