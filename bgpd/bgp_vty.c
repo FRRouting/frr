@@ -10315,7 +10315,7 @@ DEFPY(no_neighbor_path_attribute_discard,
 
 	argv_find(argv, argc, "(1-255)", &idx);
 	if (idx)
-		discard_attrs = argv[idx]->arg;
+		discard_attrs = argv_concat(argv, argc, idx);
 
 	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, false);
 
