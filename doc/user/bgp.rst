@@ -2294,7 +2294,7 @@ Configuring Peers
 
    .. code-block:: frr
 
-      ip extcommunity-list standard MGMT_SOO permit soo 1.1.1.1:0
+      bgp extcommunity-list standard MGMT_SOO permit soo 1.1.1.1:0
       !
       route-map RM_ALLOW_AS permit 10
        match extcommunity MGMT_SOO
@@ -3191,7 +3191,10 @@ The following commands can be used in route maps:
 
 .. clicmd:: set extended-comm-list delete <EXTCOMMUNITY_LIST_NAME>
 
-   Set BGP extended community list for deletion.
+   Remove extended communities from a route that match the specified
+   extcommunity-list. Both standard and expanded lists may be used. Only
+   ``permit`` entries in the list are removed. See
+   :ref:`bgp-extended-community-lists`.
 
 .. clicmd:: set large-comm-list delete <LCOMMUNITY_LIST_NAME>
 
@@ -3353,30 +3356,82 @@ the other is IP address based format.
 Extended Community Lists
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+Extended community lists are user-defined lists of extended community values.
+They are used to match routes in route-maps or to remove selected extended
+communities from a route.
+
+There are two types of extended community list:
+
+standard
+   This type accepts explicit extended community values. Each value must be
+   prefixed with a type keyword: ``rt``, ``soo``, ``nt``, or ``color``. The
+   value itself uses either AS-based (``AS:VAL``) or IP-based
+   (``IP-Address:VAL``) format. Multiple values may be specified on one line.
+   Matching is done on the encoded extended community, so ``rt 65001:100`` and
+   ``soo 65001:100`` are different values.
+
+expanded
+   This type accepts a regular expression (:ref:`bgp-regular-expressions`).
+   Because the regex must be interpreted on each use, expanded lists are slower
+   than standard lists. Do not prefix values with ``rt`` or ``soo``; the regex
+   is matched against each extended community on the route individually (for
+   example against strings such as ``RT:65001:100`` or ``SoO:10.0.0.1:1``).
+
 .. clicmd:: bgp extcommunity-list standard NAME permit|deny EXTCOMMUNITY
 
-   This command defines a new standard extcommunity-list. `extcommunity` is
-   extended communities value. The `extcommunity` is compiled into extended
-   community structure. We can define multiple extcommunity-list under same
-   name. In that case match will happen user defined order. Once the
-   extcommunity-list matches to extended communities attribute in BGP updates
-   it return permit or deny based upon the extcommunity-list definition. When
-   there is no matched entry, deny will be returned. When `extcommunity` is
-   empty it matches to any routes.
+   This command defines a new standard extcommunity-list. ``EXTCOMMUNITY`` is
+   one or more extended community values, each prefixed with a type keyword.
+   The value is compiled into an extended community structure. Multiple
+   extcommunity-list entries may be defined under the same name; in that case
+   matching happens in user-defined order. Once an entry matches an extended
+   community on the route, the list returns ``permit`` or ``deny`` based on
+   that entry. When no entry matches, ``deny`` is returned. When
+   ``EXTCOMMUNITY`` is empty, the entry matches any route.
+
+   Example:
+
+   .. code-block:: frr
+
+      bgp extcommunity-list standard CUSTOMER-RT permit rt 65001:100
+      bgp extcommunity-list standard MGMT-SOO permit soo 10.0.0.1:100
+      bgp extcommunity-list standard STRIP-RT permit rt 65001:100 rt 65001:200
 
 .. clicmd:: bgp extcommunity-list expanded NAME permit|deny LINE
 
-   This command defines a new expanded extcommunity-list. `line` is a string
-   expression of extended communities attribute. `line` can be a regular
-   expression (:ref:`bgp-regular-expressions`) to match an extended communities
-   attribute in BGP updates.
+   This command defines a new expanded extcommunity-list. ``LINE`` is a regular
+   expression matched against each extended community value on a route
+   individually.
 
-   Note that all extended community lists shares a single name space, so it's
-   not necessary to specify their type when creating or destroying them.
+   Example:
+
+   .. code-block:: frr
+
+      bgp extcommunity-list expanded STRIP-RT permit 65001:(1[0-9]{2}|2[0-4][0-9]|250)
+
+   Note that all extended community lists share a single namespace, so it is
+   not necessary to specify ``standard`` or ``expanded`` when removing a list
+   by name.
+
+.. _bgp-numbered-extcommunity-lists:
+
+Numbered Extended Community Lists
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When a number is used as the extcommunity-list name, the number range
+determines the list type. Numbers ``1`` to ``99`` define standard lists.
+Numbers ``100`` to ``500`` define expanded lists.
+
+.. clicmd:: bgp extcommunity-list (1-99) permit|deny EXTCOMMUNITY
+
+   Define a numbered standard extcommunity-list.
+
+.. clicmd:: bgp extcommunity-list (100-500) permit|deny LINE
+
+   Define a numbered expanded extcommunity-list.
 
 .. clicmd:: show bgp extcommunity-list [NAME detail]
 
-   This command displays current extcommunity-list information. When `name` is
+   This command displays current extcommunity-list information. When ``NAME`` is
    specified the community list's information is shown.
 
 
@@ -3395,12 +3450,37 @@ BGP Extended Communities in Route Map
    is set, match happens when any of the extended communities of the BGP updates
    matches an extended community of the specified list.
 
- .. clicmd:: match extcommunity-limit (0-65535)
+.. clicmd:: match extcommunity-limit (0-65535)
 
    This command matches BGP updates that use extended community list and IPv6
    extended community list, and with an extended community list count less or
    equal than the defined limit. Setting extended community-limit to 0 will
    only match BGP updates with no extended community.
+
+.. clicmd:: set extended-comm-list delete <EXTCOMMUNITY_LIST_NAME>
+
+   Remove extended communities from the route that match ``permit`` entries in
+   the named extcommunity-list. Both standard and expanded lists are
+   supported. Other extended communities on the route are left unchanged.
+   See :ref:`bgp-extended-community-lists`.
+
+   Example using a standard list to strip one Route Target:
+
+   .. code-block:: frr
+
+      bgp extcommunity-list standard STRIP-RT permit rt 65001:200
+      !
+      route-map RMAP permit 10
+       set extended-comm-list delete STRIP-RT
+
+   Example using an expanded list to strip a range of Route Targets:
+
+   .. code-block:: frr
+
+      bgp extcommunity-list expanded STRIP-RT permit 65001:(2[0-4][0-9]|250)
+      !
+      route-map RMAP permit 10
+       set extended-comm-list delete STRIP-RT
 
 .. clicmd:: set extcommunity none
 
@@ -3429,7 +3509,7 @@ BGP Extended Communities in Route Map
 
    This command sets Site of Origin value.
 
-.. clicmd:: set extcomumnity color EXTCOMMUNITY
+.. clicmd:: set extcommunity color EXTCOMMUNITY
 
    This command sets colors values.
 
@@ -3462,9 +3542,6 @@ BGP Extended Communities in Route Map
    configures it as ``non-transitive``.
 
 .. seealso:: :ref:`wecmp_linkbw`
-
-Note that the extended expanded community is only used for `match` rule, not for
-`set` actions.
 
 .. _bgp-large-communities-attribute:
 
