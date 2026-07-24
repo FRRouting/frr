@@ -14,6 +14,8 @@
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry");
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE_CONFIG, "NHRP cache config entry");
 
+static void nhrp_cache_reset_new(struct nhrp_cache *c);
+
 unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
 const char *const nhrp_cache_type_str[] = {
@@ -73,9 +75,8 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	if (c->cur.peer)
 		nhrp_peer_notify_del(c->cur.peer, &c->peer_notifier);
 	nhrp_peer_unref(c->cur.peer);
-	nhrp_peer_unref(c->new.peer);
+	nhrp_cache_reset_new(c);
 	event_cancel(&c->t_timeout);
-	event_cancel(&c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
 }
 
