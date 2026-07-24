@@ -492,6 +492,21 @@ static void babel_set_timer(struct timeval *timeout)
 			     &babel_routing_process->t_update);
 }
 
+/* Wake the main loop immediately.  The main loop only re-arms its own timer at
+ * the end of each pass, using the timeouts that existed at that time.  When a
+ * per-interface timer (e.g. a freshly enabled interface's hello/update timeout)
+ * is set outside the loop, it would otherwise not take effect until the
+ * previously scheduled, possibly far-future, wakeup.  Call this to reschedule
+ * the loop to run now so those timers are honoured promptly.
+ */
+void babel_schedule_now(void)
+{
+	struct timeval now = { 0, 0 };
+
+	if (babel_routing_process)
+		babel_set_timer(&now);
+}
+
 void schedule_neighbours_check(int msecs, int override)
 {
 	struct timeval timeout;
