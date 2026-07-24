@@ -254,6 +254,15 @@ def test_pim6_multiple_groups_same_RP_address_p2(request):
 
     result = create_debug_log_config(tgen, input_dict)
 
+    step("Configure shorter join-prune-interval for faster prune propagation")
+    input_dict = {
+        "r1": {"pim6": {"join-prune-interval": "10"}},
+        "r2": {"pim6": {"join-prune-interval": "10"}},
+        "r3": {"pim6": {"join-prune-interval": "10"}},
+    }
+    result = create_pim_config(tgen, TOPO, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
     step("Enable MLD on r1 interface")
     step("Enable the PIM6 on all the interfaces of r1, r2, r3 and r4 routers")
     step("r2: Configure r2 as RP")
