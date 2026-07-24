@@ -9,7 +9,7 @@ Routing Protocol is "rip"
     Interface        Send  Recv   Key-chain
     r3-eth1          2     2      
   Routing for Networks:
-    193.1.2.0/24
+    r3-eth1
   Routing Information Sources:
     Gateway          BadPackets BadRoutes  Distance Last Update
     193.1.2.1                 0         0       120    XX:XX:XX
