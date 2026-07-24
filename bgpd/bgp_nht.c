@@ -636,10 +636,13 @@ static void bgp_bnc_mark_nht_important(struct bgp_nexthop_cache *bnc, struct zap
 	if (prefix_same(&bnc->resolved_prefix, &nhr->prefix))
 		return;
 
-	dest = bgp_afi_node_get(table, afi, nhr->safi, &bnc->resolved_prefix, NULL);
-	if (dest) {
-		UNSET_FLAG(dest->flags, BGP_NODE_NHT_RESOLVED_NODE);
-		bgp_dest_unlock_node(dest);
+	if (bnc->resolved_prefix.family != 0) {
+		dest = bgp_afi_node_get(table, afi, nhr->safi,
+					&bnc->resolved_prefix, NULL);
+		if (dest) {
+			UNSET_FLAG(dest->flags, BGP_NODE_NHT_RESOLVED_NODE);
+			bgp_dest_unlock_node(dest);
+		}
 	}
 
 	dest = bgp_afi_node_get(table, afi, nhr->safi, &nhr->prefix, NULL);
