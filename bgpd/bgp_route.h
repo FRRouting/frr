@@ -917,6 +917,10 @@ extern bool bgp_path_info_labels_same(const struct bgp_path_info *bpi,
 extern int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr, struct bgp_nlri *packet);
 
 extern bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi, int always);
+extern bool bgp_maximum_paths_per_prefix_overflow(struct peer *peer, struct bgp_dest *dest,
+						  struct bgp_path_info *new, afi_t afi,
+						  safi_t safi);
+extern void bgp_maximum_paths_per_prefix_reevaluate(struct peer *peer, afi_t afi, safi_t safi);
 
 extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr *nexthop,
 				 ifindex_t ifindex, enum nexthop_types_t nhtype, uint8_t distance,

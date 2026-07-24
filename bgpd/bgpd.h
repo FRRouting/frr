@@ -1954,6 +1954,8 @@ struct peer {
 #define PEER_FLAG_SEND_LARGE_COMMUNITY (1ULL << 24)
 #define PEER_FLAG_MAX_PREFIX_OUT (1ULL << 25)
 #define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 26)
+#define PEER_FLAG_MAX_PREFIX_INCLUDE_PATHS	  (1ULL << 37)
+#define PEER_FLAG_MAX_PREFIX_ADDITIONAL_PATHS	  (1ULL << 38)
 #define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 27)
 #define PEER_FLAG_SOO (1ULL << 28)
 #define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
@@ -1991,6 +1993,8 @@ struct peer {
 #define PEER_STATUS_EXT_OPT_PARAMS_LENGTH	 (1U << 5)
 #define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 6) /* BFD strict hold time expired */
 #define PEER_STATUS_COND_ADV_PENDING		 (1U << 7) /* conditional advertisement pending */
+/* paths-overflow (e.g. maximum-prefix include-additional-paths) */
+#define PEER_STATUS_PATH_OVERFLOW (1U << 8)
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];
@@ -2140,6 +2144,12 @@ struct peer {
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
 
+	/* Accepted distinct prefix count (counts each prefix once regardless of
+	 * how many ADD-PATH paths were received for it). Used by maximum-prefix
+	 * unless `include-additional-paths` is configured.
+	 */
+	uint32_t pcount_prefix[AFI_MAX][SAFI_MAX];
+
 	/* Duplicate update count */
 	uint32_t pcount_dup[AFI_MAX][SAFI_MAX];
 
@@ -2147,6 +2157,7 @@ struct peer {
 	uint32_t pmax[AFI_MAX][SAFI_MAX];
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];
 	uint16_t pmax_restart[AFI_MAX][SAFI_MAX];
+	uint32_t pmax_additional_paths[AFI_MAX][SAFI_MAX];
 #define MAXIMUM_PREFIX_THRESHOLD_DEFAULT 75
 
 	/* Send prefix count. */
@@ -2223,6 +2234,7 @@ struct peer {
 #define PEER_DOWN_CEASE_NO_RESOURCE	 44U /* Out of resources */
 #define PEER_DOWN_CEASE_HARD_RESET	 45U /* Hard reset */
 #define PEER_DOWN_CEASE_UNKNOWN		 46U /* Subcode unknown */
+#define PEER_DOWN_CEASE_PATH_COUNT	 47U /* Reached received path count */
 
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
@@ -2493,6 +2505,7 @@ struct bgp_nlri {
 #define BGP_NOTIFY_CEASE_OUT_OF_RESOURCE         8
 #define BGP_NOTIFY_CEASE_HARD_RESET 9
 #define BGP_NOTIFY_CEASE_BFD_DOWN 10
+#define BGP_NOTIFY_CEASE_MAX_PATHS 11
 
 /* BGP_NOTIFY_ROUTE_REFRESH_ERR sub codes (RFC 7313). */
 #define BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN 1
@@ -2931,7 +2944,8 @@ extern int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 				    bool condition);
 
 extern int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t max,
-				   uint8_t threshold, int warning, uint16_t restart, bool force);
+				   uint8_t threshold, int warning, uint16_t restart, bool force,
+				   bool include_paths, uint32_t max_additional_paths);
 extern int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi);
 
 extern void peer_maximum_prefix_out_refresh_routes(struct peer *peer, afi_t afi,
