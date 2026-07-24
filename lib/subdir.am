@@ -415,7 +415,7 @@ endif
 
 lib_sysrepo_la_CFLAGS = $(AM_CFLAGS) $(SYSREPO_CFLAGS)
 lib_sysrepo_la_LDFLAGS = $(MODULE_LDFLAGS)
-lib_sysrepo_la_LIBADD = lib/libfrr.la $(SYSREPO_LIBS)
+lib_sysrepo_la_LIBADD = $(SYSREPO_LIBS)
 lib_sysrepo_la_SOURCES = lib/northbound_sysrepo.c
 
 #
@@ -427,7 +427,7 @@ endif
 
 lib_grpc_la_CXXFLAGS = $(WERROR) $(GRPC_CFLAGS)
 lib_grpc_la_LDFLAGS = $(MODULE_LDFLAGS)
-lib_grpc_la_LIBADD = lib/libfrr.la grpc/libfrrgrpc_pb.la $(GRPC_LIBS)
+lib_grpc_la_LIBADD = grpc/libfrrgrpc_pb.la $(GRPC_LIBS)
 lib_grpc_la_SOURCES = lib/northbound_grpc.cpp
 
 #
