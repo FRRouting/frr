@@ -53,6 +53,7 @@ static void *nhrp_cache_alloc(void *data)
 		.new.type = NHRP_CACHE_INVALID,
 		.remote_addr = key->remote_addr,
 		.ifp = key->ifp,
+		.priority = 0,
 		.notifier_list =
 		NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
 	};

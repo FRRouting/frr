@@ -16,6 +16,19 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries");
 static void nhrp_nhs_resolve(struct event *t);
 static void nhrp_reg_send_req(struct event *t);
 
+struct nhs_ctx {
+	uint8_t best_pri;
+};
+
+static void nhrp_nhs_clear_higher_pri_cache(struct nhrp_cache *c, void *pctx)
+{
+	struct nhs_ctx *ctx = (struct nhs_ctx *)pctx;
+
+	if (c->cur.type == NHRP_CACHE_NHS && c->priority > ctx->best_pri)
+		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, -1, NULL, 0, NULL,
+					  NULL);
+}
+
 static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 {
 	struct nhrp_packet_parser *p = arg;
@@ -28,6 +41,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c;
 	struct zbuf extpl;
+	struct nhs_ctx ctx;
 	union sockunion cie_nbma, cie_nbma_nhs, cie_proto, cie_proto_nhs,
 		*proto;
 	int ok = 0, holdtime;
@@ -60,6 +74,9 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 
 	if (!ok)
 		return;
+
+	nhs->unreachable = 0;
+	ctx.best_pri = nhs->priority;
 
 	/* Parse extensions */
 	sockunion_family(&nifp->nat_nbma) = AF_UNSPEC;
@@ -97,10 +114,15 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 
 	r->proto_addr = p->dst_proto;
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
-	if (c)
+	if (c) {
 		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, holdtime,
 					  nhrp_peer_ref(r->peer), mtu, NULL,
 					  &cie_nbma_nhs);
+		c->priority = nhs->priority;
+	}
+
+	/* Timeout all NHS cache entries on same interface with higher priority */
+	nhrp_cache_foreach(ifp, nhrp_nhs_clear_higher_pri_cache, &ctx);
 }
 
 static void nhrp_reg_timeout(struct event *t)
@@ -108,6 +130,8 @@ static void nhrp_reg_timeout(struct event *t)
 	struct nhrp_registration *r = EVENT_ARG(t);
 	struct nhrp_cache *c;
 
+	if (r->nhs->unreachable < 254)
+		r->nhs->unreachable++;
 
 	if (r->timeout >= 16 && sockunion_family(&r->proto_addr) != AF_UNSPEC) {
 		nhrp_reqid_free(&nhrp_packet_reqid, &r->reqid);
@@ -155,10 +179,28 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 	}
 }
 
+static uint8_t nhrp_find_best_nhs_pri(struct nhrp_interface *nifp, afi_t afi)
+{
+	uint8_t best_pri = 255;
+	struct nhrp_nhs *best_nhs = NULL;
+	struct nhrp_nhs *nhs;
+
+	frr_each (nhrp_nhslist, &nifp->afi[afi].nhslist_head, nhs) {
+		if (nhs->unreachable < NHRP_UNREACHABLE_COUNT && nhs->priority < best_pri) {
+			best_pri = nhs->priority;
+			best_nhs = nhs;
+		}
+	}
+	if (best_nhs == NULL)
+		return 255;
+	return best_pri;
+}
+
 static void nhrp_reg_send_req(struct event *t)
 {
 	struct nhrp_registration *r = EVENT_ARG(t);
 	struct nhrp_nhs *nhs = r->nhs;
+	uint8_t best_nhs_pri = 255;
 	struct interface *ifp = nhs->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_afi_data *if_ad = &nifp->afi[nhs->afi];
@@ -167,6 +209,18 @@ static void nhrp_reg_send_req(struct event *t)
 	struct nhrp_packet_header *hdr;
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
+
+	best_nhs_pri = nhrp_find_best_nhs_pri(nifp, nhs->afi);
+
+	if (best_nhs_pri < nhs->priority) {
+		int renewtime = if_ad->holdtime / 4;
+		/* Wait for higher priority (lower number) NHS to be unreachable */
+		debugf(NHRP_DEBUG_COMMON,
+		       "NHS: Higher priority (%u) NHS than %pSU, pri %u, retrying in %d seconds",
+		       best_nhs_pri, &nhs->proto_addr, nhs->priority, renewtime);
+		event_add_timer(master, nhrp_reg_send_req, r, renewtime, &r->t_register);
+		return;
+	}
 
 	if (!nhrp_peer_check(r->peer, 2)) {
 		int renewtime = if_ad->holdtime / 4;
@@ -324,7 +378,7 @@ static void nhrp_nhs_resolve(struct event *t)
 }
 
 int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
-		 const char *nbma_fqdn)
+		 const char *nbma_fqdn, uint8_t priority)
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_nhs *nhs;
@@ -351,6 +405,8 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		.proto_addr = *proto_addr,
 		.nbma_fqdn = strdup(nbma_fqdn),
 		.reglist_head = INIT_DLIST(nhs->reglist_head),
+		.unreachable = 0,
+		.priority = priority,
 	};
 	nhrp_nhslist_add_tail(&nifp->afi[afi].nhslist_head, nhs);
 	event_add_timer_msec(master, nhrp_nhs_resolve, nhs, 1000,
