@@ -205,6 +205,7 @@ static void vrf_import_rt_free(struct vrf_irt_node *irt)
 
 static void hash_vrf_import_rt_free(struct vrf_irt_node *irt)
 {
+	list_delete(&irt->vrfs);
 	XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
 }
 
@@ -300,6 +301,7 @@ static void import_rt_free(struct bgp *bgp, struct irt_node *irt)
 
 static void hash_import_rt_free(struct irt_node *irt)
 {
+	list_delete(&irt->vnis);
 	XFREE(MTYPE_BGP_EVPN_IMPORT_RT, irt);
 }
 

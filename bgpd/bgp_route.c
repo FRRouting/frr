@@ -6977,6 +6977,7 @@ filtered:
 	if (new) {
 		bgp_unlink_nexthop(new);
 		bgp_path_info_mark_for_delete(dest, new);
+		bgp_attr_unintern(&new->attr);
 		bgp_path_info_extra_free(&new->extra);
 		XFREE(MTYPE_BGP_ROUTE, new);
 	}
@@ -8765,6 +8766,7 @@ static void bgp_static_free(struct bgp_static *bgp_static)
 	if (bgp_static->prd_pretty)
 		XFREE(MTYPE_BGP_NAME, bgp_static->prd_pretty);
 	XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
+	XFREE(MTYPE_ATTR, bgp_static->router_mac);
 	XFREE(MTYPE_BGP_STATIC, bgp_static);
 }
 
@@ -9292,6 +9294,21 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 					bgp_static->rmap.map);
 				bgp_static->rmap.map = NULL;
 				bgp_static->valid = 0;
+			}
+
+			if (safi == SAFI_EVPN) {
+				if (esi) {
+					XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
+					bgp_static->eth_s_id = XCALLOC(MTYPE_ATTR, sizeof(esi_t));
+					str2esi(esi, bgp_static->eth_s_id);
+				}
+				if (routermac) {
+					XFREE(MTYPE_ATTR, bgp_static->router_mac);
+					bgp_static->router_mac = XCALLOC(MTYPE_ATTR, ETH_ALEN + 1);
+					(void)prefix_str2mac(routermac, bgp_static->router_mac);
+				}
+				if (gwip)
+					prefix_copy(&bgp_static->gatewayIp, &gw_ip);
 			}
 			bgp_dest_unlock_node(dest);
 		} else {
