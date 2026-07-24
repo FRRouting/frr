@@ -96,6 +96,8 @@ static const struct pack_order_entry pack_order[] = {
 	PACK_ENTRY(LAN_NEIGHBORS, ISIS_ITEMS, lan_neighbor),
 	PACK_ENTRY(LSP_ENTRY, ISIS_ITEMS, lsp_entries),
 	PACK_ENTRY(EXTENDED_REACH, ISIS_ITEMS, extended_reach),
+	PACK_ENTRY(GMPLS_SRLG, ISIS_ITEMS, srlg),
+	PACK_ENTRY(IPV6_SRLG, ISIS_ITEMS, srlg_ipv6),
 	PACK_ENTRY(MT_REACH, ISIS_MT_ITEMS, mt_reach),
 	PACK_ENTRY(OLDSTYLE_IP_REACH, ISIS_ITEMS, oldstyle_ip_reach),
 	PACK_ENTRY(OLDSTYLE_IP_REACH_EXT, ISIS_ITEMS, oldstyle_ip_reach_ext),
@@ -2875,6 +2877,232 @@ static int unpack_item_lan_neighbor(uint16_t mtid, uint8_t len, struct stream *s
 
 	format_item_lan_neighbor(mtid, (struct isis_item *)rv, log, NULL, indent + 2);
 	append_item(&tlvs->lan_neighbor, (struct isis_item *)rv);
+	return 0;
+}
+
+/* Functions related to TLV 138 GMPLS Shared Risk Link Group (RFC5307, IPv4) */
+static struct isis_item *copy_item_srlg(struct isis_item *i)
+{
+	struct isis_srlg *s = (struct isis_srlg *)i;
+	struct isis_srlg *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	memcpy(rv->neighbor_id, s->neighbor_id, sizeof(rv->neighbor_id));
+	rv->flags = s->flags;
+	rv->local = s->local;
+	rv->remote = s->remote;
+	rv->srlg_num = s->srlg_num;
+	memcpy(rv->srlgs, s->srlgs, s->srlg_num * sizeof(uint32_t));
+	return (struct isis_item *)rv;
+}
+
+static void format_item_srlg(uint16_t mtid, struct isis_item *i, struct sbuf *buf,
+			     struct json_object *json, int indent)
+{
+	struct isis_srlg *s = (struct isis_srlg *)i;
+	char sys_id[ISO_SYSID_STRLEN];
+
+	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pPN", s->neighbor_id);
+	if (json) {
+		struct json_object *srlg_json, *array_json, *values_json;
+
+		json_object_object_get_ex(json, "srlg", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "srlg", array_json);
+		}
+		srlg_json = json_object_new_object();
+		json_object_array_add(array_json, srlg_json);
+		json_object_string_add(srlg_json, "neighbor", sys_id);
+		json_object_string_addf(srlg_json, "interfaceAddress", "%pI4", &s->local);
+		json_object_string_addf(srlg_json, "neighborAddress", "%pI4", &s->remote);
+		values_json = json_object_new_array();
+		json_object_object_add(srlg_json, "values", values_json);
+		for (uint8_t j = 0; j < s->srlg_num; j++)
+			json_object_array_add(values_json, json_object_new_int64(s->srlgs[j]));
+	} else {
+		sbuf_push(buf, indent, "Shared Risk Link Group: Neighbor %s\n", sys_id);
+		sbuf_push(buf, indent, "  Interface IP Address: %pI4\n", &s->local);
+		sbuf_push(buf, indent, "  Neighbor IP Address: %pI4\n", &s->remote);
+		sbuf_push(buf, indent, "  SRLG Values:");
+		for (uint8_t j = 0; j < s->srlg_num; j++)
+			sbuf_push(buf, 0, " %u", s->srlgs[j]);
+		sbuf_push(buf, 0, "\n");
+	}
+}
+
+static void free_item_srlg(struct isis_item *i)
+{
+	XFREE(MTYPE_ISIS_TLV, i);
+}
+
+static int pack_item_srlg(struct isis_item *i, struct stream *s, size_t *min_len)
+{
+	struct isis_srlg *srlg = (struct isis_srlg *)i;
+	size_t len = 16 + (size_t)srlg->srlg_num * 4;
+
+	if (STREAM_WRITEABLE(s) < len) {
+		*min_len = len;
+		return 1;
+	}
+
+	stream_put(s, srlg->neighbor_id, 7);
+	stream_putc(s, srlg->flags);
+	stream_put(s, &srlg->local, 4);
+	stream_put(s, &srlg->remote, 4);
+	for (uint8_t j = 0; j < srlg->srlg_num; j++)
+		stream_putl(s, srlg->srlgs[j]);
+
+	return 0;
+}
+
+static int unpack_item_srlg(uint16_t mtid, uint8_t len, struct stream *s, struct sbuf *log,
+			    void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+	struct isis_srlg *rv;
+	uint8_t values;
+
+	sbuf_push(log, indent, "Unpack GMPLS SRLG (TLV 138)...\n");
+	if (len < 16) {
+		sbuf_push(log, indent,
+			  "Not enough data left. (Expected 16 bytes of header, got %hhu)\n", len);
+		return 1;
+	}
+	if ((len - 16) % 4) {
+		sbuf_push(log, indent, "SRLG value list is not a multiple of 4 bytes.\n");
+		return 1;
+	}
+
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	stream_get(rv->neighbor_id, s, 7);
+	rv->flags = stream_getc(s);
+	stream_get(&rv->local, s, 4);
+	stream_get(&rv->remote, s, 4);
+
+	values = (len - 16) / 4;
+	for (uint8_t j = 0; j < values; j++) {
+		uint32_t value = stream_getl(s);
+
+		if (j < ISIS_SRLG_MAX)
+			rv->srlgs[j] = value;
+	}
+	rv->srlg_num = (values > ISIS_SRLG_MAX) ? ISIS_SRLG_MAX : values;
+
+	format_item_srlg(mtid, (struct isis_item *)rv, log, NULL, indent + 2);
+	append_item(&tlvs->srlg, (struct isis_item *)rv);
+	return 0;
+}
+
+/* Functions related to TLV 139 IPv6 Shared Risk Link Group (RFC6119) */
+static struct isis_item *copy_item_srlg_ipv6(struct isis_item *i)
+{
+	struct isis_srlg_ipv6 *s = (struct isis_srlg_ipv6 *)i;
+	struct isis_srlg_ipv6 *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	memcpy(rv->neighbor_id, s->neighbor_id, sizeof(rv->neighbor_id));
+	rv->flags = s->flags;
+	rv->local = s->local;
+	rv->remote = s->remote;
+	rv->srlg_num = s->srlg_num;
+	memcpy(rv->srlgs, s->srlgs, s->srlg_num * sizeof(uint32_t));
+	return (struct isis_item *)rv;
+}
+
+static void format_item_srlg_ipv6(uint16_t mtid, struct isis_item *i, struct sbuf *buf,
+				  struct json_object *json, int indent)
+{
+	struct isis_srlg_ipv6 *s = (struct isis_srlg_ipv6 *)i;
+	char sys_id[ISO_SYSID_STRLEN];
+
+	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pPN", s->neighbor_id);
+	if (json) {
+		struct json_object *srlg_json, *array_json, *values_json;
+
+		json_object_object_get_ex(json, "srlgIpv6", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "srlgIpv6", array_json);
+		}
+		srlg_json = json_object_new_object();
+		json_object_array_add(array_json, srlg_json);
+		json_object_string_add(srlg_json, "neighbor", sys_id);
+		json_object_string_addf(srlg_json, "interfaceAddress", "%pI6", &s->local);
+		json_object_string_addf(srlg_json, "neighborAddress", "%pI6", &s->remote);
+		values_json = json_object_new_array();
+		json_object_object_add(srlg_json, "values", values_json);
+		for (uint8_t j = 0; j < s->srlg_num; j++)
+			json_object_array_add(values_json, json_object_new_int64(s->srlgs[j]));
+	} else {
+		sbuf_push(buf, indent, "IPv6 Shared Risk Link Group: Neighbor %s\n", sys_id);
+		sbuf_push(buf, indent, "  Interface IPv6 Address: %pI6\n", &s->local);
+		sbuf_push(buf, indent, "  Neighbor IPv6 Address: %pI6\n", &s->remote);
+		sbuf_push(buf, indent, "  SRLG Values:");
+		for (uint8_t j = 0; j < s->srlg_num; j++)
+			sbuf_push(buf, 0, " %u", s->srlgs[j]);
+		sbuf_push(buf, 0, "\n");
+	}
+}
+
+static void free_item_srlg_ipv6(struct isis_item *i)
+{
+	XFREE(MTYPE_ISIS_TLV, i);
+}
+
+static int pack_item_srlg_ipv6(struct isis_item *i, struct stream *s, size_t *min_len)
+{
+	struct isis_srlg_ipv6 *srlg = (struct isis_srlg_ipv6 *)i;
+	size_t len = 40 + (size_t)srlg->srlg_num * 4;
+
+	if (STREAM_WRITEABLE(s) < len) {
+		*min_len = len;
+		return 1;
+	}
+
+	stream_put(s, srlg->neighbor_id, 7);
+	stream_putc(s, srlg->flags);
+	stream_put(s, &srlg->local, 16);
+	stream_put(s, &srlg->remote, 16);
+	for (uint8_t j = 0; j < srlg->srlg_num; j++)
+		stream_putl(s, srlg->srlgs[j]);
+
+	return 0;
+}
+
+static int unpack_item_srlg_ipv6(uint16_t mtid, uint8_t len, struct stream *s, struct sbuf *log,
+				 void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+	struct isis_srlg_ipv6 *rv;
+	uint8_t values;
+
+	sbuf_push(log, indent, "Unpack IPv6 SRLG (TLV 139)...\n");
+	if (len < 40) {
+		sbuf_push(log, indent,
+			  "Not enough data left. (Expected 40 bytes of header, got %hhu)\n", len);
+		return 1;
+	}
+	if ((len - 40) % 4) {
+		sbuf_push(log, indent, "SRLG value list is not a multiple of 4 bytes.\n");
+		return 1;
+	}
+
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	stream_get(rv->neighbor_id, s, 7);
+	rv->flags = stream_getc(s);
+	stream_get(&rv->local, s, 16);
+	stream_get(&rv->remote, s, 16);
+
+	values = (len - 40) / 4;
+	for (uint8_t j = 0; j < values; j++) {
+		uint32_t value = stream_getl(s);
+
+		if (j < ISIS_SRLG_MAX)
+			rv->srlgs[j] = value;
+	}
+	rv->srlg_num = (values > ISIS_SRLG_MAX) ? ISIS_SRLG_MAX : values;
+
+	format_item_srlg_ipv6(mtid, (struct isis_item *)rv, log, NULL, indent + 2);
+	append_item(&tlvs->srlg_ipv6, (struct isis_item *)rv);
 	return 0;
 }
 
@@ -5761,6 +5989,13 @@ top:
 			add_item_to_fragment(item, pe, *fragment_tlvs, mtid);
 
 		last_len = len;
+
+		/* RFC5307/RFC6119: one SRLG entry per TLV, so always break */
+		if (context == ISIS_CONTEXT_LSP &&
+		    (type == ISIS_TLV_GMPLS_SRLG || type == ISIS_TLV_IPV6_SRLG)) {
+			item = item->next;
+			break;
+		}
 	}
 
 	stream_putc_at(s, len_pos, len);
@@ -6183,6 +6418,8 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 	init_item_list(&result->lan_neighbor);
 	init_item_list(&result->lsp_entries);
 	init_item_list(&result->extended_reach);
+	init_item_list(&result->srlg);
+	init_item_list(&result->srlg_ipv6);
 	RB_INIT(isis_mt_item_list, &result->mt_reach);
 	init_item_list(&result->oldstyle_ip_reach);
 	init_item_list(&result->oldstyle_ip_reach_ext);
@@ -6224,6 +6461,9 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_EXTENDED_REACH, &tlvs->extended_reach,
 		   &rv->extended_reach);
+	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_GMPLS_SRLG, &tlvs->srlg, &rv->srlg);
+	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_SRLG, &tlvs->srlg_ipv6,
+		   &rv->srlg_ipv6);
 
 	copy_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_REACH, &tlvs->mt_reach, &rv->mt_reach);
 
@@ -6310,6 +6550,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 
 	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_EXTENDED_REACH, &tlvs->extended_reach, buf, json,
 		     indent);
+	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_GMPLS_SRLG, &tlvs->srlg, buf, json, indent);
+	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_SRLG, &tlvs->srlg_ipv6, buf, json, indent);
 
 	format_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_REACH, &tlvs->mt_reach, buf, json, indent);
 
@@ -6377,6 +6619,8 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_LAN_NEIGHBORS, &tlvs->lan_neighbor);
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_LSP_ENTRY, &tlvs->lsp_entries);
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_EXTENDED_REACH, &tlvs->extended_reach);
+	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_GMPLS_SRLG, &tlvs->srlg);
+	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_SRLG, &tlvs->srlg_ipv6);
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_REACH, &tlvs->mt_reach);
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_OLDSTYLE_IP_REACH, &tlvs->oldstyle_ip_reach);
 	free_tlv_protocols_supported(&tlvs->protocols_supported);
@@ -6795,6 +7039,8 @@ ITEM_TLV_OPS(lsp_entry, "TLV 9 LSP Entries");
 ITEM_TLV_OPS(auth, "TLV 10 IS-IS Auth");
 TLV_OPS(purge_originator, "TLV 13 Purge Originator Identification");
 ITEM_TLV_OPS(extended_reach, "TLV 22 Extended Reachability");
+ITEM_TLV_OPS(srlg, "TLV 138 GMPLS Shared Risk Link Group");
+ITEM_TLV_OPS(srlg_ipv6, "TLV 139 IPv6 Shared Risk Link Group");
 ITEM_TLV_OPS(oldstyle_ip_reach, "TLV 128/130 IP Reachability");
 TLV_OPS(protocols_supported, "TLV 129 Protocols Supported");
 ITEM_TLV_OPS(ipv4_address, "TLV 132 IPv4 Interface Address");
@@ -6834,6 +7080,8 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_TE_ROUTER_ID_IPV6] = &tlv_te_router_id_ipv6_ops,
 		[ISIS_TLV_EXTENDED_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
+		[ISIS_TLV_GMPLS_SRLG] = &tlv_srlg_ops,
+		[ISIS_TLV_IPV6_SRLG] = &tlv_srlg_ipv6_ops,
 		[ISIS_TLV_SPINE_LEAF_EXT] = &tlv_spine_leaf_ops,
 		[ISIS_TLV_MT_REACH] = &tlv_extended_reach_ops,
 		[ISIS_TLV_MT_ROUTER_INFO] = &tlv_mt_router_info_ops,
@@ -7665,6 +7913,42 @@ void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid, uint8_t
 	else
 		l = isis_get_mt_items(&tlvs->mt_reach, mtid);
 	append_item(l, (struct isis_item *)r);
+}
+
+void isis_tlvs_add_srlg(struct isis_tlvs *tlvs, const uint8_t *id,
+			const uint32_t *srlgs, uint8_t srlg_num,
+			struct isis_ext_subtlvs *ext)
+{
+	uint8_t num = (srlg_num > ISIS_SRLG_MAX) ? ISIS_SRLG_MAX : srlg_num;
+
+	if (!ext || num == 0)
+		return;
+
+	/* RFC5307 TLV 138: emitted when both IPv4 link addresses are known */
+	if (IS_SUBTLV(ext, EXT_LOCAL_ADDR) && IS_SUBTLV(ext, EXT_NEIGH_ADDR)) {
+		struct isis_srlg *s = XCALLOC(MTYPE_ISIS_TLV, sizeof(*s));
+
+		memcpy(s->neighbor_id, id, sizeof(s->neighbor_id));
+		s->flags = ISIS_SRLG_FLAG_NUMBERED;
+		s->local = ext->local_addr;
+		s->remote = ext->neigh_addr;
+		s->srlg_num = num;
+		memcpy(s->srlgs, srlgs, num * sizeof(uint32_t));
+		append_item(&tlvs->srlg, (struct isis_item *)s);
+	}
+
+	/* RFC6119 TLV 139: emitted when both IPv6 link addresses are known */
+	if (IS_SUBTLV(ext, EXT_LOCAL_ADDR6) && IS_SUBTLV(ext, EXT_NEIGH_ADDR6)) {
+		struct isis_srlg_ipv6 *s = XCALLOC(MTYPE_ISIS_TLV, sizeof(*s));
+
+		memcpy(s->neighbor_id, id, sizeof(s->neighbor_id));
+		s->flags = ISIS_SRLG_FLAG_NUMBERED;
+		s->local = ext->local_addr6;
+		s->remote = ext->neigh_addr6;
+		s->srlg_num = num;
+		memcpy(s->srlgs, srlgs, num * sizeof(uint32_t));
+		append_item(&tlvs->srlg_ipv6, (struct isis_item *)s);
+	}
 }
 
 void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs, enum isis_threeway_state state,

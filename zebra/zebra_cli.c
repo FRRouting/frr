@@ -799,6 +799,29 @@ static void lib_interface_zebra_link_params_legacy_admin_group_cli_write(
 	vty_out(vty, "  admin-grp %#x\n", yang_dnode_get_uint32(dnode, NULL));
 }
 
+/* RFC5307 & RFC6119: Shared Risk Link Group */
+DEFPY_YANG (link_params_srlg,
+	link_params_srlg_cmd,
+	"[no] srlg (0-4294967295)$srlg",
+	NO_STR
+	"Shared Risk Link Group\n"
+	"SRLG value\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./srlg[.='%s']", srlg_str);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_interface_zebra_link_params_srlg_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  srlg %u\n", yang_dnode_get_uint32(dnode, NULL));
+}
+
 /* RFC5392 & RFC5316: INTER-AS */
 DEFPY_YANG (link_params_inter_as,
 	link_params_inter_as_cmd,
@@ -3169,6 +3192,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_interface_zebra_link_params_legacy_admin_group_cli_write,
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/srlg",
+			.cbs.cli_show = lib_interface_zebra_link_params_srlg_cli_write,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities",
 			.cbs.cli_show = lib_interface_zebra_link_params_affinities_cli_write,
 		},
@@ -3370,6 +3397,7 @@ void zebra_cli_init(void)
 	install_element(LINK_PARAMS_NODE, &link_params_max_rsv_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_unrsv_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_admin_grp_cmd);
+	install_element(LINK_PARAMS_NODE, &link_params_srlg_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_inter_as_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_delay_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_delay_var_cmd);

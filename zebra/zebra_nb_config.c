@@ -1858,6 +1858,68 @@ int lib_interface_zebra_legacy_admin_group_destroy(
 
 /*
  * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/srlg
+ */
+int lib_interface_zebra_link_params_srlg_create(struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t srlg;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		srlg = yang_dnode_get_uint32(args->dnode, NULL);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+
+		if (iflp->srlg_num >= LP_MAX_SRLG)
+			break;
+		iflp->srlgs[iflp->srlg_num++] = srlg;
+		SET_PARAM(iflp, LP_SRLG);
+		break;
+	}
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_params_srlg_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct if_link_params *iflp;
+	uint32_t srlg;
+	uint8_t i;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		srlg = yang_dnode_get_uint32(args->dnode, NULL);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		iflp = if_link_params_get(ifp);
+
+		for (i = 0; i < iflp->srlg_num; i++) {
+			if (iflp->srlgs[i] != srlg)
+				continue;
+			/* Remove entry, preserving relative order */
+			memmove(&iflp->srlgs[i], &iflp->srlgs[i + 1],
+				(iflp->srlg_num - i - 1) * sizeof(uint32_t));
+			iflp->srlg_num--;
+			break;
+		}
+		if (iflp->srlg_num == 0)
+			UNSET_PARAM(iflp, LP_SRLG);
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities
  */
 int lib_interface_zebra_affinities_create(struct nb_cb_create_args *args)
