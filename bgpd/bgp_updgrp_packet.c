@@ -786,7 +786,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			total_attr_len = bgp_packet_attribute(NULL, peer, s, adv->baa->attr,
 							      &vecarr, NULL, afi, safi, from, NULL,
 							      NULL, 0, dest->srv6_unicast, 0, 0,
-							      path, NULL, false);
+							      path, dest->ls_nlri, false);
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				- BGP_MAX_PACKET_SIZE_OVERFLOW;
