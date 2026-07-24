@@ -37,6 +37,9 @@ service Northbound {
   // Retrieve configuration data, state data or both from the target.
   rpc Get(GetRequest) returns (stream GetResponse) {}
 
+  // Subscribe to notification data streams.
+  rpc Subscribe(SubscribeRequest) returns (SubscribeResponse) {}
+
   // Create a new candidate configuration and return a reference to it. The
   // created candidate is a copy of the running configuration.
   rpc CreateCandidate(CreateCandidateRequest) returns (CreateCandidateResponse) {}
@@ -73,6 +76,9 @@ service Northbound {
 
   // Unlock the running configuration.
   rpc UnlockConfig(UnlockConfigRequest) returns (UnlockConfigResponse) {}
+
+  // Send subscription cache data asynchronously (non-blocking).
+  rpc SubscriptionCache(SubscriptionCacheRequest) returns (SubscriptionCacheResponse) {}
 
   // Execute a YANG RPC.
   rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
@@ -144,6 +150,33 @@ message GetResponse {
 
   // The requested data.
   DataTree data = 2;
+}
+
+//
+// RPC: Subscribe()
+//
+message SubscribeRequest {
+  oneof request {
+    SubscriptionList subscribe = 1;
+  }
+}
+
+message SubscriptionList {
+  repeated Subscription subscriptions = 1;
+}
+
+// Subscription parameters for notification streaming.
+// action: Add/Del/Update
+message Subscription {
+  string path = 1;
+  string action = 2;
+  string stream_mode = 3;
+  uint32 sample_interval = 4;
+}
+
+message SubscribeResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
 }
 
 //
@@ -420,4 +453,23 @@ message PathValue {
 message DataTree {
   Encoding encoding = 1;
   string data = 2;
+}
+
+//
+// RPC: SubscriptionCache()
+//
+message SubscriptionCacheRequest {
+  // Paths requested by the client.
+  repeated string path = 1;
+
+  // Data associated with the xpath.
+  DataTree data = 2;
+
+  // Sample time of the data (timestamp).
+  uint32 sampletime = 3;
+}
+
+message SubscriptionCacheResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
 }
