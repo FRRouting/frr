@@ -186,9 +186,9 @@ DEFUN (show_srv6_locator,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_srv6_locator_detail,
+DEFPY (show_srv6_locator_detail,
        show_srv6_locator_detail_cmd,
-       "show segment-routing srv6 locator NAME detail [json]",
+       "show segment-routing srv6 locator NAME$locator_name detail [json]",
        SHOW_STR
        "Segment Routing\n"
        "Segment Routing SRv6\n"
@@ -202,7 +202,6 @@ DEFUN (show_srv6_locator_detail,
 	struct srv6_locator *locator;
 	struct listnode *node;
 	char str[256];
-	const char *locator_name = argv[4]->arg;
 	json_object *json_locator = NULL;
 
 	if (uj) {
