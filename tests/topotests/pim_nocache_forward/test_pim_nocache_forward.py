@@ -361,6 +361,8 @@ def test_nocache_ecmp_prefer_kernel_ingress(request):
 
     step("Flush MFC on LHR to force NOCACHE with ECMP RPF ambiguity")
     clear_mroute(tgen, "l1")
+    # clear_mroute deletes IGMP groups; re-join to restore OIL (not IIF being tested)
+    app_helper.run_join("h_recv", group, join_intf="h_recv-eth0")
 
     step("Verify (S,G) reinstalled with RP-facing IIF after NOCACHE")
     result = verify_mroutes(tgen, "l1", SOURCE, group, L1_TO_RP, L1_TO_RECV)
