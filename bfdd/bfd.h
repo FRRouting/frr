@@ -917,6 +917,7 @@ int bfd_dplane_add_session(struct bfd_session *bs);
  * \param bs the BFD session to update.
  */
 int bfd_dplane_update_session(const struct bfd_session *bs);
+void bfd_dplane_echo_negotiate(struct bfd_session *bs);
 
 /**
  * Deletes session from data plane.
