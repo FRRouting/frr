@@ -385,9 +385,14 @@ def test_pim6_multiple_groups_same_RP_address_p2(request):
     result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
-    step("r2: Verify (S, G) upstream IIF interface")
+    step("r2: Verify (S, G) ip mroutes")
     dut = "r2"
     iif = TOPO["routers"]["r2"]["links"]["r3"]["interface"]
+    oif = "none"
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
+    assert result is True, ASSERT_MSG.format(tc_name, result)
+
+    step("r2: Verify (S, G) upstream IIF interface")
     result = verify_upstream_iif(
         tgen, dut, iif, SOURCE_ADDRESS, group_address_list, joinState="NotJoined"
     )
@@ -409,11 +414,6 @@ def test_pim6_multiple_groups_same_RP_address_p2(request):
             tc_name, result
         )
     )
-
-    step("r2: Verify (S, G) ip mroutes")
-    oif = "none"
-    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
-    assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Delete RP configuration")
     input_dict = {
