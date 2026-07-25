@@ -1193,9 +1193,10 @@ def test_BGP_GR_15_p2(request):
         result = verify_bgp_rib(tgen, addr_type, "r1", input_dict_2)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-        # Verifying BGP RIB routes (r2's 102.x via r1) on r6
+        # Verifying BGP RIB routes (r2's 102.x via r1) on r6.
+        # Use extended timeout as R1->R6 propagation can be slow under ASAN.
         dut = "r6"
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_2)
+        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_2, retry_timeout=60)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Verifying RIB routes before shutting down BGPd daemon
