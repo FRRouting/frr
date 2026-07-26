@@ -4169,10 +4169,30 @@ peer_init:
 	memset(&bgp->ebgprequirespolicywarning, 0,
 	       sizeof(bgp->ebgprequirespolicywarning));
 
-	/* Init peer connection error info */
-	pthread_mutex_init(&bgp->peer_errs_mtx, NULL);
+	/*
+	 * Init peer connection error info.  On the hidden revival path the
+	 * tombstoned instance was never freed: bgp_free(), the only place
+	 * peer_errs_mtx is destroyed, is not reached because bgp_delete()
+	 * keeps the initial reference (skips bgp_unlock()) for a hidden
+	 * instance.  The mutex is therefore still initialized, and
+	 * re-initializing it would be a double pthread_mutex_init() on a live
+	 * mutex - undefined behavior per POSIX, and a leak where
+	 * pthread_mutex_t is heap-allocated (e.g. FreeBSD libthr).
+	 */
+	if (!hidden)
+		pthread_mutex_init(&bgp->peer_errs_mtx, NULL);
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
 	bgp_clearing_info_init(&bgp->clearing_list);
+
+	/*
+	 * The non-hidden path above records the first default instance as the
+	 * EVPN instance (bm->bgp_evpn). That block is skipped on the hidden
+	 * revival path ("goto peer_init"), and bgp_delete() cleared
+	 * bm->bgp_evpn when the instance was tombstoned. Re-record the revived
+	 * default so bgp_get_evpn() keeps returning it.
+	 */
+	if (hidden && inst_type == BGP_INSTANCE_TYPE_DEFAULT && !bgp_get_evpn())
+		bgp_set_evpn(bgp);
 
 	if (bgp->ls_info && bgp->ls_info->enable_distribution)
 		bgp_ls_originate_bgp_node(bgp);
@@ -5585,7 +5605,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{ PEER_FLAG_ROLE_STRICT_MODE, 0, peer_change_none },
 	{ PEER_FLAG_ROLE, 0, peer_change_none },
 	{ PEER_FLAG_PORT, 0, peer_change_reset },
-	{ PEER_FLAG_AIGP, 0, peer_change_none },
+	{ PEER_FLAG_AIGP, 0, peer_change_reset },
 	{ PEER_FLAG_GRACEFUL_SHUTDOWN, 0, peer_change_none },
 	{ PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD, 0, peer_change_none },
 	{ PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW, 0, peer_change_none },
@@ -6973,8 +6993,14 @@ void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 			return;
 
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-			bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
-					       BGP_ROUTE_REFRESH_NORMAL);
+			/*
+			 * Use the ORF-aware soft-clear so that if this peer
+			 * previously sent an ORF (PEER_STATUS_ORF_PREFIX_SEND)
+			 * and the inbound prefix-list has just been removed, a
+			 * REMOVE_ALL ORF is sent to the remote peer instead of
+			 * a plain route-refresh.
+			 */
+			peer_clear_soft(peer, afi, safi, BGP_CLEAR_SOFT_IN_ORF_PREFIX);
 	}
 }
 
@@ -9410,11 +9436,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 		    CHECK_FLAG(peer->af_cap[afi][safi],
 			       PEER_CAP_ORF_PREFIX_RM_RCV)) {
 			struct bgp_filter *filter = &peer->filter[afi][safi];
-			uint8_t prefix_type;
-
-			if (CHECK_FLAG(peer->af_cap[afi][safi],
-				       PEER_CAP_ORF_PREFIX_RM_RCV))
-				prefix_type = ORF_TYPE_PREFIX;
+			uint8_t prefix_type = ORF_TYPE_PREFIX;
 
 			if (filter->plist[FILTER_IN].plist) {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],

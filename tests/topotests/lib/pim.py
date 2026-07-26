@@ -1112,6 +1112,19 @@ def verify_upstream_iif(
             )
             return errormsg
 
+        # First check joinState before checking inboundInterface.
+        # When joinState is not as expected, return error to trigger retry.
+        # Default expectation is "Joined" (RPF resolution complete).
+        current_join_state = group_addr_json[src_address]["joinState"]
+        expected_join_state = joinState if joinState is not None else "Joined"
+        if current_join_state != expected_join_state:
+            errormsg = (
+                "[DUT %s]: Verifying joinState for (%s, %s) "
+                "[FAILED]!! Expected: %s, Found: %s"
+                % (dut, src_address, grp_addr, expected_join_state, current_join_state)
+            )
+            return errormsg
+
         # Verify Inbound Interface
         found = False
         for in_interface in iif:
@@ -1128,45 +1141,7 @@ def verify_upstream_iif(
                     )
                     found = True
                 if found:
-                    if joinState is None:
-                        if group_addr_json[src_address]["joinState"] != "Joined":
-                            errormsg = (
-                                "[DUT %s]: Verifying iif "
-                                "(Inbound Interface) and joinState "
-                                "for (%s, %s), Expected iif: %s, "
-                                "Found iif : %s,  and Expected "
-                                "joinState :%s , Found joinState: %s"
-                                % (
-                                    dut,
-                                    src_address,
-                                    grp_addr,
-                                    in_interface,
-                                    group_addr_json[src_address]["inboundInterface"],
-                                    "Joined",
-                                    group_addr_json[src_address]["joinState"],
-                                )
-                            )
-                            return errormsg
-
-                    elif group_addr_json[src_address]["joinState"] != joinState:
-                        errormsg = (
-                            "[DUT %s]: Verifying iif "
-                            "(Inbound Interface) and joinState "
-                            "for (%s, %s), Expected iif: %s, "
-                            "Found iif : %s,  and Expected "
-                            "joinState :%s , Found joinState: %s"
-                            % (
-                                dut,
-                                src_address,
-                                grp_addr,
-                                in_interface,
-                                group_addr_json[src_address]["inboundInterface"],
-                                joinState,
-                                group_addr_json[src_address]["joinState"],
-                            )
-                        )
-                        return errormsg
-
+                    # joinState already verified above
                     if regState:
                         if group_addr_json[src_address]["regState"] != regState:
                             errormsg = (

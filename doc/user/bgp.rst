@@ -1914,6 +1914,10 @@ Defining Peers
    attributes across EBGP peerings (e.g. local-preference). Make sure to
    turn this peering type on for all peers in the OAD.
 
+   The AIGP attribute is not propagated implicitly over EBGP-OAD sessions. Per
+   ``draft-uttaro-idr-bgp-oad`` its default is "disabled" and it must be enabled
+   explicitly with ``neighbor PEER aigp`` on both ends of each OAD session.
+
    Disabled by default.
 
 .. clicmd:: bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME

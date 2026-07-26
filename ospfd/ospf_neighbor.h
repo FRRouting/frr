@@ -103,8 +103,8 @@ extern struct ospf_neighbor *ospf_qnbr_get(struct ospf_interface *oi, struct in_
 extern struct ospf_neighbor *ospf_nbr_lookup(struct ospf_interface *oi, struct ip *iph,
 					     struct ospf_header *ospfh);
 extern struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,
-						     struct in_addr *addr);
+						     const struct in_addr *addr);
 extern struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *nbrs,
-							 struct in_addr *id);
+							 const struct in_addr *id);
 extern void ospf_renegotiate_optional_capabilities(struct ospf *top);
 #endif /* _ZEBRA_OSPF_NEIGHBOR_H */

@@ -130,6 +130,22 @@ interface r2-eth1
 """.format(GROUP6, SOURCE6)
     )
 
+    # First wait for RPF to be resolved (inboundInterface != "Unknown")
+    def _rpf_resolved():
+        ups = _json_cmd("r2", "show ipv6 pim upstream json")
+        if ups is None:
+            return "r2: unparseable v6 pim upstream JSON (pim6d dead?)"
+        sg = ups.get(GROUP6, {}).get(SOURCE6, {})
+        if not sg:
+            return "r2 (S,G) upstream not created yet: {}".format(ups)
+        iif = sg.get("inboundInterface", "Unknown")
+        if iif == "Unknown":
+            return "r2 (S,G) upstream RPF not resolved yet (iif=Unknown): {}".format(ups)
+        return None
+
+    _, result = topotest.run_and_expect(_rpf_resolved, None, count=60, wait=1)
+    assert result is None, result
+
     def _baseline():
         data = _json_cmd("r2", "show ipv6 pim local-membership json")
         if data is None:

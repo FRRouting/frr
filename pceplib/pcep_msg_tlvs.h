@@ -19,6 +19,7 @@
 #include <stdint.h>
 
 #include "pcep.h"
+#include "mpls.h"
 #include "pcep_utils_double_linked_list.h"
 
 #ifdef __cplusplus
@@ -41,21 +42,21 @@ extern "C" {
  * https://www.iana.org/assignments/pcep/pcep.xhtml */
 enum pcep_object_tlv_types {
 	PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR = 1,
-	PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST = 4,  /* RFC 5541 */
+	PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST = 4,	/* RFC 5541 */
 	PCEP_OBJ_TLV_TYPE_VENDOR_INFO = 7,		/* RFC 7470 */
 	PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY = 16, /* RFC 8231 */
-	PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME = 17,      /* RFC 8232 */
-	PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS = 18,    /* RFC 8231 */
-	PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS = 19,    /* RFC 8231 */
+	PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME = 17,	/* RFC 8232 */
+	PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS = 18,	/* RFC 8231 */
+	PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS = 19,	/* RFC 8231 */
 	PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE = 20,		/* RFC 8232 */
 	PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC = 21,		/* RFC 8232 */
 	PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION = 23,		/* RFC 8232 */
-	PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID = 24,       /* RFC 8232 */
-	PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY =
-		26, /* draft-ietf-pce-segment-routing-16 */
-	PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE = 28, /* RFC 8408 */
+	PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID = 24,	/* RFC 8232 */
+	PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY = 26,	/* draft-ietf-pce-segment-routing-16 */
+	PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE = 28,		/* RFC 8408 */
 	PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY =
-		34, /* RFC 8408, draft-ietf-pce-segment-routing-16 */
+		34,				/* RFC 8408, draft-ietf-pce-segment-routing-16 */
+	PCEP_OBJ_TLV_TYPE_TE_PATH_BINDING = 55, /* RFC9604 */
 	PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID =
 		60, /*TDB2 draft-barth-pce-segment-routing-policy-cp-04 */
 	PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME =
@@ -69,6 +70,17 @@ enum pcep_object_tlv_types {
 	/* Max IANA To write arbitrary data */
 	PCEP_OBJ_TLV_TYPE_ARBITRARY = 65533
 };
+
+/* RFC9604 */
+enum pcep_object_tlv_binding_type {
+	PCEP_OBJ_TLV_TE_PATH_BINDING_MPLS = 0,
+	PCEP_OBJ_TLV_TE_PATH_BINDING_MPLS_ENTRY = 1,
+	PCEP_OBJ_TLV_TE_PATH_BINDING_SRV6 = 2,
+	PCEP_OBJ_TLV_TE_PATH_BINDING_SRV6_BEHAVIOR = 3
+};
+
+/* RFC9604 */
+enum pcep_object_tlv_binding_flags { BINDING_REMOVE = (1 << 7) };
 
 
 struct pcep_object_tlv_header {
@@ -142,6 +154,17 @@ struct pcep_object_tlv_symbolic_path_name {
 	struct pcep_object_tlv_header header;
 	uint16_t symbolic_path_name_length;
 	char symbolic_path_name[MAX_SYMBOLIC_PATH_NAME];
+};
+
+struct pcep_object_tlv_te_path_binding {
+	struct pcep_object_tlv_header header;
+	uint16_t tlv_length;
+	enum pcep_object_tlv_binding_type type;
+	uint8_t flags;
+	union {
+		mpls_label_t label;
+		struct in6_addr segment;
+	} value;
 };
 
 /* LSP Error Code TLV, Used in LSP Object. RFCs: 8231 */
@@ -341,6 +364,9 @@ pcep_tlv_create_nopath_vector(uint32_t error_code);
 struct pcep_object_tlv_vendor_info *
 pcep_tlv_create_vendor_info(uint32_t enterprise_number,
 			    uint32_t enterprise_specific_info);
+struct pcep_object_tlv_te_path_binding *pcep_tlv_create_te_path_binding_mpls(mpls_label_t label);
+struct pcep_object_tlv_te_path_binding *
+pcep_tlv_create_te_path_binding_srv6(struct in6_addr *segment);
 
 struct pcep_object_tlv_arbitrary *
 pcep_tlv_create_tlv_arbitrary(const char *data, uint16_t data_length,

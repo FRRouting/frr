@@ -83,10 +83,12 @@ static struct cmd_node srv6_sid_format_usid_f3216_node = {
 	.prompt = "%s(config-srv6-format)# "
 };
 
-static struct cmd_node srv6_sid_format_usid_f4816_node = { .name = "srv6-format-usid-f4816",
-							   .node = SRV6_SID_FORMAT_USID_F4816_NODE,
-							   .parent_node = SRV6_SID_FORMATS_NODE,
-							   .prompt = "%s(config-srv6-format)# " };
+static struct cmd_node srv6_sid_format_usid_f4816_node = {
+	.name = "srv6-format-usid-f4816",
+	.node = SRV6_SID_FORMAT_USID_F4816_NODE,
+	.parent_node = SRV6_SID_FORMATS_NODE,
+	.prompt = "%s(config-srv6-format)# "
+};
 
 static struct cmd_node srv6_sid_format_uncompressed_f4024_node = {
 	.name = "srv6-format-uncompressed-f4024",
@@ -186,9 +188,9 @@ DEFUN (show_srv6_locator,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_srv6_locator_detail,
+DEFPY (show_srv6_locator_detail,
        show_srv6_locator_detail_cmd,
-       "show segment-routing srv6 locator NAME detail [json]",
+       "show segment-routing srv6 locator NAME$locator_name detail [json]",
        SHOW_STR
        "Segment Routing\n"
        "Segment Routing SRv6\n"
@@ -202,7 +204,6 @@ DEFUN (show_srv6_locator_detail,
 	struct srv6_locator *locator;
 	struct listnode *node;
 	char str[256];
-	const char *locator_name = argv[4]->arg;
 	json_object *json_locator = NULL;
 
 	if (uj) {

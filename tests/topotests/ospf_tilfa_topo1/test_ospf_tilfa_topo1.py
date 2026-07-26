@@ -130,6 +130,27 @@ def test_ospf_initial_convergence_step1():
     )
 
 
+def test_ospf_sr_convergence_step1b():
+    """
+    Verify SR prefix SIDs are learned before TI-LFA tests.
+
+    This is critical for TI-LFA because backup paths require SR labels.
+    Without this check, TI-LFA tests may fail intermittently when SR
+    labels haven't fully propagated yet.
+    """
+    logger.info("Test (step 1b): check SR label convergence")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router_compare_json_output(
+        "rt1",
+        "show mpls table json",
+        "step1/show_mpls_table.ref",
+    )
+
+
 def test_ospf_link_protection_step2():
     logger.info("Test (step 2): check OSPF link protection")
     tgen = get_topogen()

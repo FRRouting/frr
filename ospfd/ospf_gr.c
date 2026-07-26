@@ -308,17 +308,26 @@ void ospf_gr_restart_enter(struct ospf *ospf,
 }
 
 /* Check if a Router-LSA contains a given link. */
-static bool ospf_router_lsa_contains_adj(struct ospf_lsa *lsa,
-					 struct in_addr *id)
+static bool ospf_router_lsa_contains_adj(const struct ospf_lsa *lsa,
+					 const struct in_addr *id)
 {
-	struct router_lsa *rl;
+	const struct router_lsa *rl;
+	const struct router_link *rlnk;
+	const struct in_addr *link_id;
+	int i;
 
 	rl = (struct router_lsa *)lsa->data;
-	for (int i = 0; i < ntohs(rl->links); i++) {
-		struct in_addr *link_id = &rl->link[i].link_id;
 
-		if (rl->link[i].type != LSA_LINK_TYPE_POINTOPOINT)
+	for (i = 0; i < ntohs(rl->links); i++) {
+		if (i == 0)
+			rlnk = &(rl->link[0]);
+		else
+			rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
+
+		if (rlnk->type != LSA_LINK_TYPE_POINTOPOINT)
 			continue;
+
+		link_id = &rlnk->link_id;
 
 		if (IPV4_ADDR_SAME(id, link_id))
 			return true;
@@ -327,19 +336,29 @@ static bool ospf_router_lsa_contains_adj(struct ospf_lsa *lsa,
 	return false;
 }
 
-static bool ospf_gr_check_router_lsa_consistency(struct ospf *ospf,
-						 struct ospf_area *area,
-						 struct ospf_lsa *lsa)
+static bool ospf_gr_check_router_lsa_consistency(struct ospf *ospf, struct ospf_area *area,
+						 const struct ospf_lsa *lsa)
 {
+	const struct ospf_lsa *lsa_self;
+	const struct ospf_lsa *lsa_adj;
+	const struct router_lsa *rl;
+	const struct router_link *rlnk;
+	const struct in_addr *link_id;
+	int i;
+
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_SELF)) {
-		struct ospf_lsa *lsa_self = lsa;
-		struct router_lsa *rl = (struct router_lsa *)lsa->data;
+		lsa_self = lsa;
+		rl = (struct router_lsa *)lsa->data;
 
-		for (int i = 0; i < ntohs(rl->links); i++) {
-			struct in_addr *link_id = &rl->link[i].link_id;
-			struct ospf_lsa *lsa_adj;
+		for (i = 0; i < ntohs(rl->links); i++) {
+			if (i == 0)
+				rlnk = &(rl->link[0]);
+			else
+				rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
 
-			if (rl->link[i].type != LSA_LINK_TYPE_POINTOPOINT)
+			link_id = &rlnk->link_id;
+
+			if (rlnk->type != LSA_LINK_TYPE_POINTOPOINT)
 				continue;
 
 			lsa_adj = ospf_lsa_lookup_by_id(area, OSPF_ROUTER_LSA,
@@ -352,8 +371,6 @@ static bool ospf_gr_check_router_lsa_consistency(struct ospf *ospf,
 				return false;
 		}
 	} else {
-		struct ospf_lsa *lsa_self;
-
 		lsa_self = ospf_lsa_lookup_by_id(area, OSPF_ROUTER_LSA,
 						 ospf->router_id);
 		if (!lsa_self
@@ -396,8 +413,8 @@ void ospf_gr_check_lsdb_consistency(struct ospf *ospf, struct ospf_area *area)
 }
 
 /* Lookup neighbor by address in a given OSPF area. */
-static struct ospf_neighbor *
-ospf_area_nbr_lookup_by_addr(struct ospf_area *area, struct in_addr *addr)
+static struct ospf_neighbor *ospf_area_nbr_lookup_by_addr(struct ospf_area *area,
+							  const struct in_addr *addr)
 {
 	struct ospf_interface *oi;
 	struct ospf_neighbor *nbr;
@@ -413,8 +430,8 @@ ospf_area_nbr_lookup_by_addr(struct ospf_area *area, struct in_addr *addr)
 }
 
 /* Lookup neighbor by Router ID in a given OSPF area. */
-static struct ospf_neighbor *
-ospf_area_nbr_lookup_by_routerid(struct ospf_area *area, struct in_addr *id)
+static struct ospf_neighbor *ospf_area_nbr_lookup_by_routerid(struct ospf_area *area,
+							      const struct in_addr *id)
 {
 	struct ospf_interface *oi;
 	struct ospf_neighbor *nbr;
@@ -430,8 +447,7 @@ ospf_area_nbr_lookup_by_routerid(struct ospf_area *area, struct in_addr *id)
 }
 
 /* Check if there's a fully formed adjacency with the given neighbor ID. */
-static bool ospf_gr_check_adj_id(struct ospf_area *area,
-				 struct in_addr *nbr_id)
+static bool ospf_gr_check_adj_id(struct ospf_area *area, const struct in_addr *nbr_id)
 {
 	struct ospf_neighbor *nbr;
 
@@ -447,7 +463,7 @@ static bool ospf_gr_check_adj_id(struct ospf_area *area,
 }
 
 static bool ospf_gr_check_adjs_lsa_transit(struct ospf_area *area,
-					   struct in_addr *link_id)
+					   const struct in_addr *link_id)
 {
 	struct ospf *ospf = area->ospf;
 	struct ospf_interface *oi;
@@ -501,14 +517,22 @@ static bool ospf_gr_check_adjs_lsa_transit(struct ospf_area *area,
 	return true;
 }
 
-static bool ospf_gr_check_adjs_lsa(struct ospf_area *area, struct ospf_lsa *lsa)
+static bool ospf_gr_check_adjs_lsa(struct ospf_area *area, const struct ospf_lsa *lsa)
 {
-	struct router_lsa *rl = (struct router_lsa *)lsa->data;
+	const struct router_lsa *rl = (struct router_lsa *)lsa->data;
+	const struct router_link *rlnk;
+	const struct in_addr *link_id;
+	int i;
 
-	for (int i = 0; i < ntohs(rl->links); i++) {
-		struct in_addr *link_id = &rl->link[i].link_id;
+	for (i = 0; i < ntohs(rl->links); i++) {
+		if (i == 0)
+			rlnk = &(rl->link[0]);
+		else
+			rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
 
-		switch (rl->link[i].type) {
+		link_id = &rlnk->link_id;
+
+		switch (rlnk->type) {
 		case LSA_LINK_TYPE_POINTOPOINT:
 			if (!ospf_gr_check_adj_id(area, link_id))
 				return false;

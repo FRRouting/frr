@@ -7540,33 +7540,39 @@ sub process {
 		}
 
 # check for use of strcpy()
-		if ($line =~ /\bstrcpy\s*\(.*\)/) {
+		if ($line =~ /\bstrcpy\s*\(/) {
 			ERROR("STRCPY",
 			      "strcpy() is error-prone; please use strlcpy()"  . $herecurr);
 		}
 
 # check for use of strncpy()
-		if ($line =~ /\bstrncpy\s*\(.*\)/) {
+		if ($line =~ /\bstrncpy\s*\(/) {
 			WARN("STRNCPY",
 			     "strncpy() is error-prone; please use strlcpy() if possible, or memcpy()"  . $herecurr);
 		}
 
 # check for use of strcat()
-		if ($line =~ /\bstrcat\s*\(.*\)/) {
+		if ($line =~ /\bstrcat\s*\(/) {
 			ERROR("STRCAT",
 			      "strcat() is error-prone; please use strlcat() if possible"  . $herecurr);
 		}
 
 # check for use of strncat()
-		if ($line =~ /\bstrncat\s*\(.*\)/) {
+		if ($line =~ /\bstrncat\s*\(/) {
 			WARN("STRNCAT",
 			     "strncat() is error-prone; please use strlcat() if possible"  . $herecurr);
 		}
 
 # check for use of bzero()
-		if ($line =~ /\bbzero\s*\(.*\)/) {
+		if ($line =~ /\bbzero\s*\(/) {
 			ERROR("BZERO",
 			      "bzero() is deprecated; use memset()"  . $herecurr);
+		}
+
+# check for use of snprintf()
+		if ($line =~ /\bsnprintf\s*\(/) {
+			ERROR("SNPRINTF",
+			      "snprintf() does not support FRR format extensions; please use snprintfrr()\n" . $herecurr);
 		}
 	}
 
