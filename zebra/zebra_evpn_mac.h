@@ -276,6 +276,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				    bool dp_static, struct zebra_mac *mac);
 int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 			     bool clear_static);
+void zebra_evpn_sync_mac_dp_uninstall(struct zebra_mac *mac, const char *caller);
 void zebra_evpn_mac_gw_macip_add(struct interface *ifp,
 				 struct zebra_evpn *zevpn,
 				 const struct ipaddr *ip,
