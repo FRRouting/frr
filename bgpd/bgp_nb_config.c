@@ -2946,8 +2946,14 @@ int bgp_nb_suppress_fib_pending_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_suppress_fib_pending(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
-	/* Printed with suppress-fib-pending-delay when enabled. */
-	if (!yang_dnode_get_bool(dnode, NULL) && show_defaults)
+	/*
+	 * Delay leaf is when-gated and omitted from running when it equals
+	 * the YANG default. Print the enable form here in that case.
+	 */
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		if (!yang_dnode_exists(dnode, "../suppress-fib-pending-delay"))
+			vty_out(vty, " bgp suppress-fib-pending\n");
+	} else if (show_defaults)
 		vty_out(vty, " no bgp suppress-fib-pending\n");
 }
 
@@ -16582,8 +16588,14 @@ int bgp_nb_daemon_suppress_fib_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_daemon_suppress_fib(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	/* Printed with suppress-fib-pending-delay when enabled. */
-	if (!yang_dnode_get_bool(dnode, NULL) && show_defaults)
+	/*
+	 * Delay leaf is when-gated and omitted from running when it equals
+	 * the YANG default. Print the enable form here in that case.
+	 */
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		if (!yang_dnode_exists(dnode, "../suppress-fib-pending-delay"))
+			vty_out(vty, "bgp suppress-fib-pending\n");
+	} else if (show_defaults)
 		vty_out(vty, "no bgp suppress-fib-pending\n");
 }
 
