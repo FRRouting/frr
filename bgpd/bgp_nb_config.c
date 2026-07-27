@@ -3432,8 +3432,16 @@ int bgp_nb_suppress_fib_pending_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_suppress_fib_pending(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
-	/* Printed with suppress-fib-pending-delay when enabled. */
-	if (!yang_dnode_get_bool(dnode, NULL) && show_defaults)
+	/*
+	 * CLI always stores delay (YANG default 1000). nb_cli_show_dnode_cmds
+	 * skips the default-valued delay leaf, so its cli_show never runs.
+	 * Print the enable form here when delay is absent OR at default.
+	 */
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		if (!yang_dnode_exists(dnode, "../suppress-fib-pending-delay") ||
+		    yang_dnode_is_default(dnode, "../suppress-fib-pending-delay"))
+			vty_out(vty, " bgp suppress-fib-pending\n");
+	} else if (show_defaults)
 		vty_out(vty, " no bgp suppress-fib-pending\n");
 }
 
@@ -17700,8 +17708,16 @@ int bgp_nb_daemon_suppress_fib_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_daemon_suppress_fib(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	/* Printed with suppress-fib-pending-delay when enabled. */
-	if (!yang_dnode_get_bool(dnode, NULL) && show_defaults)
+	/*
+	 * CLI always stores delay (YANG default 1000). nb_cli_show_dnode_cmds
+	 * skips the default-valued delay leaf, so its cli_show never runs.
+	 * Print the enable form here when delay is absent OR at default.
+	 */
+	if (yang_dnode_get_bool(dnode, NULL)) {
+		if (!yang_dnode_exists(dnode, "../suppress-fib-pending-delay") ||
+		    yang_dnode_is_default(dnode, "../suppress-fib-pending-delay"))
+			vty_out(vty, "bgp suppress-fib-pending\n");
+	} else if (show_defaults)
 		vty_out(vty, "no bgp suppress-fib-pending\n");
 }
 
