@@ -13726,7 +13726,6 @@ int bgp_nb_peer_af_allowas_in_rmap_destroy(struct nb_cb_destroy_args *args)
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
-	const struct lyd_node *opts;
 	bool origin;
 	int allow_num;
 
@@ -13737,22 +13736,21 @@ int bgp_nb_peer_af_allowas_in_rmap_destroy(struct nb_cb_destroy_args *args)
 	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
 		return NB_OK;
 
-	opts = yang_dnode_get_parent(args->dnode, "as-path-options");
-	if (!opts)
+	/*
+	 * Full 'no ... allowas-in route-map ...' destroys allow-own-as before
+	 * this leaf. That unset already cleared PEER_FLAG_ALLOWAS_IN. Do not
+	 * consult the old dnode tree for siblings — they still appear present
+	 * and a re-set with NULL rmap would wrongly enable unfiltered
+	 * allowas-in.
+	 *
+	 * If only the route-map leaf is removed, allowas-in remains set on the
+	 * peer; clear the rmap while keeping the same allow count/origin.
+	 */
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN))
 		return NB_OK;
 
-	/* If allowas-in itself is gone, unset already handled elsewhere. */
-	if (!yang_dnode_exists(opts, "./allow-own-as") &&
-	    !(yang_dnode_exists(opts, "./allow-own-origin-as") &&
-	      yang_dnode_get_bool(opts, "./allow-own-origin-as")))
-		return NB_OK;
-
-	origin = yang_dnode_exists(opts, "./allow-own-origin-as") &&
-		 yang_dnode_get_bool(opts, "./allow-own-origin-as");
-	if (origin)
-		allow_num = 0;
-	else
-		allow_num = yang_dnode_get_uint8(opts, "./allow-own-as");
+	origin = CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN);
+	allow_num = peer->allowas_in[afi][safi];
 
 	if (peer_allowas_in_set(peer, afi, safi, allow_num, origin, NULL) < 0)
 		return NB_ERR_RESOURCE;
