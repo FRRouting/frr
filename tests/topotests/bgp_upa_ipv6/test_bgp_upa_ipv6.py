@@ -208,10 +208,6 @@ def test_aggregate_upa_origination():
         no ipv6 route 2001:db8:10:2::/64 Null0
     """)
 
-    # Give BGP time to process
-    import time
-    time.sleep(2)
-
     print("\n=== DEBUG: After withdrawal ===")
     after_output = r1.vtysh_cmd("show bgp ipv6 unicast")
     print(after_output)
@@ -298,11 +294,16 @@ def test_aggregate_upa_withdrawal():
         aggregate-address 2001:db8:10::/48 upa
     """)
 
-    # Add and remove route to trigger UPA
+    # Add route, wait for it to enter BGP, then remove it to trigger UPA
     r1.vtysh_cmd("configure terminal\nipv6 route 2001:db8:10:3::/64 Null0")
 
-    import time
-    time.sleep(1)
+    def _constituent_in_bgp():
+        output = r1.vtysh_cmd("show bgp ipv6 unicast json")
+        data = json.loads(output)
+        return "2001:db8:10:3::/64" in data.get("routes", {})
+
+    success, _ = topotest.run_and_expect(_constituent_in_bgp, True, count=30, wait=1)
+    assert success, "Constituent route 2001:db8:10:3::/64 not in BGP RIB"
 
     r1.vtysh_cmd("configure terminal\nno ipv6 route 2001:db8:10:3::/64 Null0")
 
@@ -373,8 +374,18 @@ def test_aggregate_upa_max_routes():
         ipv6 route 2001:db8:10:c::/64 Null0
     """)
 
-    import time
-    time.sleep(1)
+    def _constituents_in_bgp():
+        output = r1.vtysh_cmd("show bgp ipv6 unicast json")
+        data = json.loads(output)
+        routes = data.get("routes", {})
+        return (
+            "2001:db8:10:a::/64" in routes
+            and "2001:db8:10:b::/64" in routes
+            and "2001:db8:10:c::/64" in routes
+        )
+
+    success, _ = topotest.run_and_expect(_constituents_in_bgp, True, count=30, wait=1)
+    assert success, "Constituent routes not in BGP RIB"
 
     r1.vtysh_cmd("""
         configure terminal
@@ -383,18 +394,23 @@ def test_aggregate_upa_max_routes():
         no ipv6 route 2001:db8:10:c::/64 Null0
     """)
 
-    # Wait and verify only 2 UPA routes
-    time.sleep(2)
-
-    output = r1.vtysh_cmd("show bgp ipv6 unicast upa json")
-    data = json.loads(output)
-
     # Count only UPA routes under the aggregate (2001:db8:10::/48)
-    aggregate_upa_routes = [
-        r for r in data.get("routes", [])
-        if r.get("network", "").startswith("2001:db8:10:")
-    ]
+    def _aggregate_upa_routes():
+        output = r1.vtysh_cmd("show bgp ipv6 unicast upa json")
+        data = json.loads(output)
+        return [
+            r for r in data.get("routes", [])
+            if r.get("network", "").startswith("2001:db8:10:")
+        ]
 
+    # Wait for the (rate-limited) UPA routes to be originated, then verify
+    # exactly 2 were originated (max-routes limit).
+    def _at_least_two_upa():
+        return len(_aggregate_upa_routes()) >= 2
+
+    topotest.run_and_expect(_at_least_two_upa, True, count=30, wait=1)
+
+    aggregate_upa_routes = _aggregate_upa_routes()
     upa_count = len(aggregate_upa_routes)
     assert upa_count == 2, f"Expected 2 UPA routes (max-routes limit), got {upa_count}"
 
@@ -433,11 +449,16 @@ def test_global_upa_originate_all():
         upa originate-all
     """)
 
-    # Add then remove a route
+    # Add a route, wait for it to enter BGP, then remove it
     r1.vtysh_cmd("configure terminal\nipv6 route 2001:db8:20:1::/64 Null0")
 
-    import time
-    time.sleep(1)
+    def _route_in_bgp():
+        output = r1.vtysh_cmd("show bgp ipv6 unicast json")
+        data = json.loads(output)
+        return "2001:db8:20:1::/64" in data.get("routes", {})
+
+    success, _ = topotest.run_and_expect(_route_in_bgp, True, count=30, wait=1)
+    assert success, "Route 2001:db8:20:1::/64 not in BGP RIB"
 
     r1.vtysh_cmd("configure terminal\nno ipv6 route 2001:db8:20:1::/64 Null0")
 
@@ -488,11 +509,16 @@ def test_upa_vs_reachable_precedence():
         aggregate-address 2001:db8:10::/48 upa
     """)
 
-    # Add route then remove it
+    # Add route, wait for it to enter BGP, then remove it
     r1.vtysh_cmd("configure terminal\nipv6 route 2001:db8:10:d::/64 Null0")
 
-    import time
-    time.sleep(1)
+    def _route_in_bgp():
+        output = r1.vtysh_cmd("show bgp ipv6 unicast json")
+        data = json.loads(output)
+        return "2001:db8:10:d::/64" in data.get("routes", {})
+
+    success, _ = topotest.run_and_expect(_route_in_bgp, True, count=30, wait=1)
+    assert success, "Route 2001:db8:10:d::/64 not in BGP RIB"
 
     r1.vtysh_cmd("configure terminal\nno ipv6 route 2001:db8:10:d::/64 Null0")
 
@@ -574,7 +600,7 @@ def test_received_upa_dbit_zebra():
         return False
 
     # r1 has NOT opted in to UPA: the D-bit must be ignored, so no blackhole.
-    _, appeared = topotest.run_and_expect(_blackhole_installed, True, count=10, wait=1)
+    _, appeared = topotest.run_and_expect(_blackhole_installed, True, count=15, wait=1)
     assert appeared is not True, (
         "received D-bit=1 UPA route installed an IPv6 blackhole without "
         "'neighbor X upa' opt-in"

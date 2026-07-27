@@ -106,7 +106,6 @@ Tests validate both control plane (BGP RIB) and data plane (zebra RIB/FPM):
 import os
 import sys
 import json
-import time
 import pytest
 from functools import partial
 
@@ -314,7 +313,6 @@ def test_link_failure_upa_origination():
     interface r1-eth0
      shutdown
     """)
-    time.sleep(5)  # Increased wait for BGP convergence
 
     # Debug: Check what happened after shutdown
     step("Step 3.1c: Debug - Check BGP state after shutdown")
@@ -513,7 +511,6 @@ def test_link_recovery_upa_withdrawal():
     interface r1-eth0
      no shutdown
     """)
-    time.sleep(3)
 
     # Check Leaf1 withdrew UPA
     step("Step 5.2: Verify Leaf1 withdrew UPA")
@@ -666,7 +663,6 @@ def test_multi_as_extcom_aggregation():
     interface r1-eth1
      shutdown
     """)
-    time.sleep(3)
 
     # Check both leaves originate UPA
     step("Step 7.2: Verify Leaf1 and Leaf2 both originate UPA")
@@ -818,7 +814,6 @@ def test_partial_recovery_extcom_cleanup():
 
     # Restore R1-Leaf1
     r1.vtysh_cmd("conf t\ninterface r1-eth0\n no shutdown")
-    time.sleep(5)  # BGP session establishment
 
     # Verify Leaf1 local state: has routes from R1, not advertising UPA
     def _check_leaf1():
@@ -849,8 +844,6 @@ def test_partial_recovery_extcom_cleanup():
 
     _, result = topotest.run_and_expect(_check_leaf1, None, count=30, wait=1)
     assert result is None, f"Leaf1 check failed: {result}"
-
-    time.sleep(10)  # Longer propagation delay to rule out timing issues
 
     # Debug: Check what Leaf1 is advertising to Spine
     leaf1_adv = leaf1.vtysh_cmd("show bgp ipv4 unicast neighbors 10.100.1.2 advertised-routes json")
@@ -937,7 +930,6 @@ def test_partial_recovery_extcom_cleanup():
     interface r1-eth1
      no shutdown
     """)
-    time.sleep(2)
 
     step("✅ Test 8 COMPLETE: Summary-only + ExtCom cleanup validated")
 

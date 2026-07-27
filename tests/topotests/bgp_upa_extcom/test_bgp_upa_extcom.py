@@ -1051,18 +1051,18 @@ def test_no_origination_when_disabled():
     )
 
     # Wait for prefix to leave RIB; confirm NO UPA appeared
-    import time
-    time.sleep(2)
-
-    output = r1.vtysh_cmd("show bgp ipv4 unicast 10.10.1.0/24 json")
-    data = json.loads(output)
-
-    if data.get("paths"):
-        # If path still exists, verify it's NOT UPA
+    def _upa_appeared():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast 10.10.1.0/24 json")
+        data = json.loads(output)
         for path in data.get("paths", []):
             extcoms = path.get("extendedCommunity", {}).get("string", "")
-            assert "upa:" not in extcoms, \
-                f"Unexpected UPA appeared for 10.10.1.0/24 with upa_enabled=false: {extcoms}"
+            if "upa:" in extcoms:
+                return True
+        return False
+
+    _, appeared = topotest.run_and_expect(_upa_appeared, True, count=15, wait=1)
+    assert appeared is not True, \
+        "Unexpected UPA appeared for 10.10.1.0/24 with upa_enabled=false"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -1118,7 +1118,6 @@ def test_aggregate_upa_basic_origination():
     )
 
     # Wait for routes to be processed
-    import time
     def _routes_installed():
         output = r1.vtysh_cmd("show bgp ipv4 unicast json")
         data = json.loads(output)
@@ -1243,7 +1242,6 @@ def test_aggregate_upa_with_dbit():
         """
     )
 
-    import time
     # Wait for redistributed static route to be installed
     def _route_ready():
         output = r1.vtysh_cmd("show bgp ipv4 unicast json")
@@ -1324,8 +1322,14 @@ def test_aggregate_upa_max_routes():
             """
         )
 
-    import time
-    time.sleep(1)
+    # Wait for all 6 routes to be installed
+    def _routes_installed():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast json")
+        data = json.loads(output)
+        routes = data.get("routes", {})
+        return all(f"10.3.{i}.0/24" in routes for i in range(1, 7))
+
+    topotest.run_and_expect(_routes_installed, True, count=30, wait=1)
 
     # Make all unreachable
     for i in range(1, 7):
@@ -1336,7 +1340,15 @@ def test_aggregate_upa_max_routes():
             """
         )
 
-    time.sleep(1)
+    # Wait for UPA count to settle at the max-routes limit (3)
+    def _local_upa_count_3():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
+        data = json.loads(output)
+        local_upa_routes = [r for r in data.get("routes", [])
+                           if r.get("network", "").startswith("10.3.")]
+        return len(local_upa_routes) == 3
+
+    topotest.run_and_expect(_local_upa_count_3, True, count=30, wait=1)
 
     # Check UPA count - should be limited to 3
     # NOTE: Filter to only locally originated routes (10.3.x.0/24)
@@ -1369,7 +1381,15 @@ def test_aggregate_upa_max_routes():
         """
     )
 
-    time.sleep(1)
+    # Wait for UPA routes after the max-routes limit increase
+    def _local_upa_count_ge_3():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
+        data = json.loads(output)
+        local_upa_routes = [r for r in data.get("routes", [])
+                           if r.get("network", "").startswith("10.3.")]
+        return len(local_upa_routes) >= 3
+
+    topotest.run_and_expect(_local_upa_count_ge_3, True, count=30, wait=1)
 
     # Now should have all 6 (or close to it, depending on processing)
     # NOTE: Filter to only locally originated routes (10.3.x.0/24)
@@ -1547,8 +1567,14 @@ def test_global_upa_originate_all():
             """
         )
 
-    import time
-    time.sleep(1)
+    # Wait for all 4 routes to be installed
+    def _routes_installed():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast json")
+        data = json.loads(output)
+        routes = data.get("routes", {})
+        return all(f"172.16.{i}.0/24" in routes for i in range(1, 5))
+
+    topotest.run_and_expect(_routes_installed, True, count=30, wait=1)
 
     # Make all unreachable
     for i in range(1, 5):
@@ -1559,7 +1585,13 @@ def test_global_upa_originate_all():
             """
         )
 
-    time.sleep(1)
+    # Wait for global UPA routes to be originated
+    def _upa_active():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics json")
+        data = json.loads(output)
+        return data.get("activeUpaRoutes", 0) >= 4
+
+    topotest.run_and_expect(_upa_active, True, count=30, wait=1)
 
     # Check statistics
     output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics json")
@@ -1625,8 +1657,14 @@ def test_global_upa_with_max_routes():
             """
         )
 
-    import time
-    time.sleep(1)
+    # Wait for all 10 routes to be installed
+    def _routes_installed():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast json")
+        data = json.loads(output)
+        routes = data.get("routes", {})
+        return all(f"172.17.{i}.0/24" in routes for i in range(1, 11))
+
+    topotest.run_and_expect(_routes_installed, True, count=30, wait=1)
 
     # Make all unreachable
     for i in range(1, 11):
@@ -1637,7 +1675,15 @@ def test_global_upa_with_max_routes():
             """
         )
 
-    time.sleep(1)
+    # Wait for UPA origination up to the max-routes limit
+    def _upa_reached_limit():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
+        data = json.loads(output)
+        local_upa_routes = [r for r in data.get("routes", [])
+                           if r.get("network", "").startswith("172.17.")]
+        return len(local_upa_routes) >= 5
+
+    topotest.run_and_expect(_upa_reached_limit, True, count=30, wait=1)
 
     # Check max-routes limit in statistics
     stats_output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics json")
@@ -2322,8 +2368,12 @@ def test_upa_blackhole_with_dbit():
     )
 
     # Wait for route to be installed
-    import time
-    time.sleep(1)
+    def _route_installed():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast json")
+        data = json.loads(output)
+        return "10.88.1.0/24" in data.get("routes", {})
+
+    topotest.run_and_expect(_route_installed, True, count=30, wait=1)
 
     # Remove the route to trigger UPA
     r1.vtysh_cmd(
@@ -2417,8 +2467,12 @@ def test_upa_no_blackhole_without_dbit():
     )
 
     # Wait for route to be installed
-    import time
-    time.sleep(1)
+    def _route_installed():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast json")
+        data = json.loads(output)
+        return "10.77.1.0/24" in data.get("routes", {})
+
+    topotest.run_and_expect(_route_installed, True, count=30, wait=1)
 
     # Remove the route to trigger UPA
     r1.vtysh_cmd(
@@ -2563,18 +2617,20 @@ def test_upa_best_no_fib_without_drop():
         f"UPA extended community not found in path: {extcom_str}"
 
     # Verify NOT in zebra (D-bit=0 should not install)
-    import time
-    time.sleep(1)
-    output = r1.vtysh_cmd("show ip route 10.88.1.0/24 json")
-    data = json.loads(output)
-    route_info = data.get("10.88.1.0/24")
-
-    # Route should not exist in zebra, or if it does, should not be from BGP
-    if route_info:
+    def _bgp_in_zebra():
+        output = r1.vtysh_cmd("show ip route 10.88.1.0/24 json")
+        data = json.loads(output)
+        route_info = data.get("10.88.1.0/24")
+        if not route_info:
+            return False
         for entry in route_info:
-            protocol = entry.get("protocol", "")
-            assert protocol != "bgp", \
-                f"UPA route (D-bit=0) incorrectly installed in zebra (protocol={protocol})"
+            if entry.get("protocol", "") == "bgp":
+                return True
+        return False
+
+    _, appeared = topotest.run_and_expect(_bgp_in_zebra, True, count=15, wait=1)
+    assert appeared is not True, \
+        "UPA route (D-bit=0) incorrectly installed in zebra (protocol=bgp)"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -2690,9 +2746,6 @@ def test_upa_drop_blackhole_removed_on_recovery():
         """
     )
 
-    import time
-    time.sleep(1)
-
     # Verify blackhole is REMOVED from zebra (reachable route should win)
     def _blackhole_removed():
         output = r1.vtysh_cmd("show ip route 10.99.5.0/24 json")
@@ -2794,9 +2847,13 @@ def test_received_upa_best_path_ranking():
         """
     )
 
-    # Wait for local route to be processed
-    import time
-    time.sleep(1)
+    # Wait for local route to be processed (2 paths: UPA from peer + local)
+    def _two_paths():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.1.0/24 json")
+        data = json.loads(output)
+        return len(data.get("paths", [])) >= 2
+
+    topotest.run_and_expect(_two_paths, True, count=30, wait=1)
 
     # Verify we now have 2 paths: UPA (from peer) and local (network)
     output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.1.0/24 json")
@@ -2899,7 +2956,7 @@ def test_received_upa_dbit_zebra_install():
 
     # r1 has NOT opted in to UPA: the D-bit must be ignored, so no blackhole.
     # Poll for a while; if a blackhole ever appears, the gating regressed.
-    _, appeared = topotest.run_and_expect(_zebra_has_blackhole, True, count=10, wait=1)
+    _, appeared = topotest.run_and_expect(_zebra_has_blackhole, True, count=15, wait=1)
     assert appeared is not True, (
         "received D-bit=1 UPA route installed a blackhole without "
         "'neighbor X upa' opt-in"
@@ -2938,21 +2995,22 @@ def test_received_upa_no_dbit_no_zebra():
     success, _ = topotest.run_and_expect(_upa_no_dbit_received, True, count=30, wait=1)
     assert success, "UPA route with D-bit=0 not received from ExaBGP"
 
-    # Verify route is NOT installed in zebra
-    import time
-    time.sleep(1)  # Give time for any potential zebra install to happen
-
-    output = r1.vtysh_cmd("show ip route 192.168.1.0/24 json")
-    data = json.loads(output)
-    route_info = data.get("192.168.1.0/24")
-
-    # Route should either not exist in zebra, or if it does, it should NOT be from BGP
-    if route_info:
+    # Verify route is NOT installed in zebra: poll for a BGP zebra entry
+    # appearing (it must not) rather than blindly sleeping.
+    def _bgp_in_zebra():
+        output = r1.vtysh_cmd("show ip route 192.168.1.0/24 json")
+        data = json.loads(output)
+        route_info = data.get("192.168.1.0/24")
+        if not route_info:
+            return False
         for entry in route_info:
-            protocol = entry.get("protocol", "")
-            assert protocol != "bgp", \
-                f"UPA route with D-bit=0 incorrectly installed in zebra (protocol={protocol})"
-    # If route_info is None/empty, that's correct - no zebra install
+            if entry.get("protocol", "") == "bgp":
+                return True
+        return False
+
+    _, appeared = topotest.run_and_expect(_bgp_in_zebra, True, count=15, wait=1)
+    assert appeared is not True, \
+        "UPA route with D-bit=0 incorrectly installed in zebra (protocol=bgp)"
 
     # No cleanup needed - received routes from ExaBGP remain until session ends
 
@@ -3018,8 +3076,13 @@ def test_update_group_separation():
         """
     )
 
-    import time
-    time.sleep(1)  # Allow update-group recalculation
+    # Allow update-group recalculation
+    def _updgrp_ready():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast update-groups json")
+        data = json.loads(output)
+        return bool(data.get("default"))
+
+    topotest.run_and_expect(_updgrp_ready, True, count=30, wait=1)
 
     # Check new update group assignment
     output = r1.vtysh_cmd("show bgp ipv4 unicast update-groups json")
@@ -3082,8 +3145,13 @@ def test_upa_announcement_with_capability():
         """
     )
 
-    import time
-    time.sleep(2)  # Allow BGP updates
+    # Allow BGP updates to settle: wait for the UPA route in the RIB
+    def _upa_in_rib():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.2.0/24 json")
+        data = json.loads(output)
+        return len(data.get("paths", [])) > 0
+
+    topotest.run_and_expect(_upa_in_rib, True, count=30, wait=1)
 
     # Verify UPA route is in BGP RIB
     output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.2.0/24 json")
@@ -3207,8 +3275,18 @@ def test_receive_path_parsing():
         """
     )
 
-    import time
-    time.sleep(1)
+    # Wait for local route to win over UPA (best path becomes non-UPA)
+    def _local_best():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.2.0/24 json")
+        data = json.loads(output)
+        for path in data.get("paths", []):
+            if path.get("bestpath", {}).get("overall", False):
+                extcomm = path.get("extendedCommunity", {})
+                has_upa = "string" in extcomm and "upa:" in extcomm["string"]
+                return not has_upa
+        return False
+
+    topotest.run_and_expect(_local_best, True, count=30, wait=1)
 
     # Verify local route wins over UPA (behavior confirms BGP_PATH_UPA flag was set correctly)
     output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.2.0/24 json")
@@ -3273,8 +3351,14 @@ def test_debug_output_propagation():
         """
     )
 
-    import time
-    time.sleep(2)
+    # Let the config settle: poll that the peer session stays Established
+    def _peer_established():
+        output = r1.vtysh_cmd("show bgp ipv4 unicast summary json")
+        data = json.loads(output)
+        peer = data.get("peers", {}).get("10.0.0.2", {})
+        return peer.get("state") == "Established"
+
+    topotest.run_and_expect(_peer_established, True, count=30, wait=1)
 
     r1.vtysh_cmd(
         """
@@ -3284,7 +3368,7 @@ def test_debug_output_propagation():
         """
     )
 
-    time.sleep(1)
+    topotest.run_and_expect(_peer_established, True, count=30, wait=1)
 
     # Disable debug
     r1.vtysh_cmd("no debug bgp updates")
