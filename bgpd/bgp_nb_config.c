@@ -119,7 +119,7 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 				asnotation = ASNOTATION_PLAIN;
 		}
 
-		ret = bgp_get(&bgp, &as, name, inst_type, NULL, asnotation);
+		ret = bgp_get_vty(&bgp, &as, name, inst_type, NULL, asnotation);
 		if (ret != BGP_SUCCESS && ret != BGP_CREATED && ret != BGP_INSTANCE_EXISTS)
 			return NB_ERR_RESOURCE;
 
@@ -132,6 +132,15 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 
 		nb_running_set_entry(args->dnode, bgp);
 		bgp_vpn_leak_export(bgp);
+
+		/*
+		 * Inverse race: L3VNI may already be live when the VRF BGP
+		 * instance is created/claimed from YANG. Re-apply ip-vrf
+		 * leaves now (no-op if they are not in running yet; child
+		 * APPLY / later L3VNI reapply covers the other order).
+		 */
+		if (bgp->l3vni)
+			bgp_nb_evpn_vrf_yang_reapply(bgp);
 		break;
 	}
 
@@ -9232,7 +9241,8 @@ int bgp_nb_evpn_vrf_rd_modify(struct nb_cb_modify_args *args)
 	if (!str2prefix_rd(rd_str, &prd))
 		return NB_ERR_VALIDATION;
 
-	if (bgp_evpn_vrf_rd_matches_existing(bgp, &prd))
+	if (bgp_evpn_vrf_rd_matches_existing(bgp, &prd) &&
+	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))
 		return NB_OK;
 
 	evpn_configure_vrf_rd(bgp, &prd, rd_str);
@@ -9316,6 +9326,113 @@ static struct ecommunity *bgp_nb_evpn_vrf_rt_str2com(const char *rt_str, bool *i
 		*is_wildcard = wildcard;
 
 	return ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+}
+
+/*
+ * Re-apply VRF EVPN ip-vrf YANG (RD / RT / type-5 advertise) onto runtime.
+ * YANG APPLY can race ahead of L3VNI bring-up; L3VNI add then auto-derives
+ * RD/RT and never picks up the already-committed YANG leaves. Call after
+ * L3VNI is attached so configured values win and type-5 is advertised.
+ *
+ * Resolve the l2vpn-evpn afi-safi by iterating children rather than an
+ * identityref list-key predicate — lyd_find_xpath has been unreliable for
+ * that form, which made reapply a silent no-op.
+ */
+void bgp_nb_evpn_vrf_yang_reapply(struct bgp *bgp)
+{
+	char xpath[XPATH_MAXLEN];
+	const struct lyd_node *bgp_dnode, *afs, *af, *ip_vrf, *child, *enable;
+	struct prefix_rd prd;
+	const char *rd_str;
+	const char *af_name;
+	struct ecommunity *ecom;
+	bool is_wildcard;
+	afi_t afi;
+	safi_t safi;
+
+	if (!bgp || !running_config || !running_config->dnode)
+		return;
+
+	bgp_nb_instance_xpath(bgp, xpath, sizeof(xpath));
+	bgp_dnode = yang_dnode_get(running_config->dnode, xpath);
+	if (!bgp_dnode)
+		return;
+
+	afs = yang_dnode_get(bgp_dnode, "global/afi-safis");
+	if (!afs)
+		return;
+
+	ip_vrf = NULL;
+	LY_LIST_FOR (lyd_child(afs), af) {
+		if (!strmatch(af->schema->name, "afi-safi"))
+			continue;
+		if (!yang_dnode_exists(af, "./afi-safi-name"))
+			continue;
+		af_name = yang_dnode_get_string(af, "./afi-safi-name");
+		afi = AFI_UNSPEC;
+		safi = SAFI_UNSPEC;
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		if (afi != AFI_L2VPN || safi != SAFI_EVPN)
+			continue;
+		ip_vrf = yang_dnode_get(af, "l2vpn-evpn/ip-vrf");
+		break;
+	}
+	if (!ip_vrf) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: no YANG ip-vrf for VRF %s", __func__, bgp->name_pretty);
+		return;
+	}
+
+	if (yang_dnode_exists(ip_vrf, "./rd")) {
+		rd_str = yang_dnode_get_string(ip_vrf, "./rd");
+		if (str2prefix_rd(rd_str, &prd) && (!CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD) ||
+						    !bgp_evpn_vrf_rd_matches_existing(bgp, &prd)))
+			evpn_configure_vrf_rd(bgp, &prd, rd_str);
+	}
+
+	LY_LIST_FOR (lyd_child(ip_vrf), child) {
+		struct bgp_evpn_rt_config *rt_config = bgp->vrf_route_target_config;
+		struct bgp_evpn_cfgd_rt *cfgd_rt;
+
+		if (strmatch(child->schema->name, "import-route-target")) {
+			ecom = bgp_nb_evpn_vrf_rt_str2com(yang_dnode_get_string(child, NULL),
+							  &is_wildcard);
+			if (!ecom)
+				continue;
+			ecommunity_str(ecom);
+			cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, is_wildcard);
+			ecommunity_free(&ecom);
+			if (!cfgd_rt)
+				continue;
+			if (bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt))
+				bgp_evpn_cfgd_rt_free(cfgd_rt);
+			else
+				bgp_nb_evpn_vrf_rt_batch(bgp, cfgd_rt, true, true);
+		} else if (strmatch(child->schema->name, "export-route-target")) {
+			ecom = bgp_nb_evpn_vrf_rt_str2com(yang_dnode_get_string(child, NULL), NULL);
+			if (!ecom)
+				continue;
+			ecommunity_str(ecom);
+			cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, false);
+			ecommunity_free(&ecom);
+			if (!cfgd_rt)
+				continue;
+			if (bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt))
+				bgp_evpn_cfgd_rt_free(cfgd_rt);
+			else
+				bgp_nb_evpn_vrf_rt_batch(bgp, cfgd_rt, false, true);
+		}
+	}
+
+	enable = yang_dnode_get(ip_vrf, "./ipv4-unicast/enable");
+	if (enable)
+		bgp_nb_evpn_type5_apply(enable);
+	enable = yang_dnode_get(ip_vrf, "./ipv6-unicast/enable");
+	if (enable)
+		bgp_nb_evpn_type5_apply(enable);
+
+	if (bgp->l3vni)
+		update_advertise_vrf_routes(bgp);
 }
 
 int bgp_nb_evpn_vrf_rt_create(struct nb_cb_create_args *args)
