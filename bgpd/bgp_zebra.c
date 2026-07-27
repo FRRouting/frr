@@ -2282,9 +2282,18 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 				.table_id = instance,
 				.vrf_id = bgp->vrf_id,
 			};
+
 			if (redist_lookup_table_direct(&bgp_zclient->mi_redist[afi][type],
-						       &table) != NULL)
-				return CMD_WARNING;
+						       &table) != NULL) {
+				/*
+				 * zclient still tracks this table (e.g. after
+				 * a rapid no router bgp + vtysh -f reload).
+				 * Refresh zebra and re-import kernel routes.
+				 */
+				if (bgp_install_info_to_zebra(bgp))
+					bgp_redistribute_resend(bgp, afi, type, instance);
+				return CMD_SUCCESS;
+			}
 
 			redist_add_table_direct(&bgp_zclient->mi_redist[afi][type], &table);
 		} else {
