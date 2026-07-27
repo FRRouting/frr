@@ -38,6 +38,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_mpath.h"
@@ -5976,6 +5977,82 @@ static void drain_vni_routes(struct hash_bucket *bucket, struct bgp *bgp)
 }
 
 /*
+ * Synchronously reap a VRF-imported EVPN path instead of queueing bgp_process().
+ * Used during global EVPN parent teardown so vrfleak->parent dest locks are
+ * released while the parent dest is still live.
+ */
+static void bgp_evpn_reap_vrf_imported_path(struct bgp *bgp_vrf, struct bgp_dest *dest,
+					    struct bgp_path_info *pi, afi_t afi, safi_t safi)
+{
+	struct bgp_path_info *cur;
+	bool linked = false;
+
+	vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp_vrf, pi);
+	bgp_aggregate_decrement(bgp_vrf, bgp_dest_get_prefix(dest), pi, afi, safi);
+	bgp_evpn_path_nh_del(bgp_vrf, pi);
+	bgp_path_info_mark_for_delete(dest, pi);
+	/*
+	 * bgp_path_info_reap() only unlinks the path. Run selection now so
+	 * zebra and peers see the withdraw before the parent dest is freed.
+	 * Reap afterwards only if selection left the path linked.
+	 */
+	bgp_process_main_one(bgp_vrf, dest, afi, safi);
+	for (cur = bgp_dest_get_bgp_path_info(dest); cur; cur = cur->next) {
+		if (cur == pi) {
+			linked = true;
+			break;
+		}
+	}
+	if (linked)
+		bgp_path_info_reap(dest, pi);
+}
+
+/*
+ * Drain all VRF-imported EVPN paths referencing this EVPN owner instance.
+ * Must run before bgp_cleanup_routes() on the EVPN owner, mirroring the
+ * per-VNI drain done by bgp_evpn_cleanup_per_vni_routes().
+ */
+void bgp_evpn_cleanup_vrf_imported_routes(struct bgp *bgp_evpn)
+{
+	struct bgp *bgp_vrf;
+	struct listnode *node;
+	afi_t afi;
+
+	if (!bgp_evpn)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		struct bgp_dest *dest;
+		struct bgp_path_info *pi, *nextpi;
+
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+			for (dest = bgp_table_top(bgp_vrf->rib[afi][SAFI_UNICAST]); dest;
+			     dest = bgp_route_next(dest)) {
+				for (pi = bgp_dest_get_bgp_path_info(dest);
+				     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
+					struct bgp_path_info *parent_pi;
+
+					if (!pi->extra || !pi->extra->vrfleak)
+						continue;
+					parent_pi =
+						(struct bgp_path_info *)pi->extra->vrfleak->parent;
+					if (!parent_pi || !parent_pi->peer ||
+					    parent_pi->peer->bgp != bgp_evpn ||
+					    !is_pi_family_evpn(parent_pi))
+						continue;
+
+					bgp_evpn_reap_vrf_imported_path(bgp_vrf, dest, pi, afi,
+									SAFI_UNICAST);
+				}
+			}
+		}
+	}
+}
+
+/*
  * Drain the per-VNI route tables for every VNI owned by this bgp instance.
  *
  * Per-VNI imported paths (in vpn->mac_table and vpn->ip_table) hold
@@ -8579,6 +8656,13 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 
 	/* auto derive RD */
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
+
+	/*
+	 * YANG may have committed RD/RT/type-5 before this L3VNI was live.
+	 * Re-apply those leaves now so configured values win over auto
+	 * derive and type-5 advertise flags are set before we push routes.
+	 */
+	bgp_nb_evpn_vrf_yang_reapply(bgp_vrf);
 
 	/* link all corresponding l2vnis */
 	hash_iterate(bgp_evpn->vnihash,

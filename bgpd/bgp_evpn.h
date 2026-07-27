@@ -232,6 +232,7 @@ extern void evpn_unconfigure_rd(struct bgp *bgp, struct bgpevpn *vpn);
 extern void evpn_set_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn);
 extern void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_handle_global_macvrf_soo_change(struct bgp *bgp, struct ecommunity *new_soo);
+extern void bgp_evpn_cleanup_vrf_imported_routes(struct bgp *bgp_evpn);
 extern void bgp_evpn_cleanup_per_vni_routes(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);
 extern void bgp_evpn_init(struct bgp *bgp);

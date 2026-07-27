@@ -3342,6 +3342,20 @@ static inline uint32_t bgp_vrf_interfaces(struct bgp *bgp, bool active)
 /* Link BGP instance to VRF. */
 static inline void bgp_vrf_link(struct bgp *bgp, struct vrf *vrf)
 {
+	/*
+	 * If another BGP instance still owns vrf->info (e.g. an AUTO instance
+	 * created by L3VNI before YANG "router bgp … vrf" claimed the name),
+	 * release that lock and clear its vrf_id. Otherwise we leak the old
+	 * instance and leave Type-5 / RD config on a different struct bgp.
+	 */
+	if (vrf->info && vrf->info != (void *)bgp) {
+		struct bgp *old = vrf->info;
+
+		old->vrf_id = VRF_UNKNOWN;
+		vrf->info = NULL;
+		bgp_unlock(old);
+	}
+
 	bgp->vrf_id = vrf->vrf_id;
 	if (vrf->info != (void *)bgp)
 		vrf->info = (void *)bgp_lock(bgp);

@@ -74,13 +74,121 @@ DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool pr
 	    (bgp, afi, preconfig));
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 
+/* Same instance identity bgp_nb_bgp_create() uses on APPLY. */
+static void bgp_nb_instance_key(const struct lyd_node *bgp_dnode,
+				enum bgp_instance_type *inst_type, const char **inst_name)
+{
+	const char *vrf_name = yang_dnode_get_string(bgp_dnode, "../vrf");
+
+	if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
+		*inst_name = NULL;
+		*inst_type = BGP_INSTANCE_TYPE_DEFAULT;
+		return;
+	}
+
+	*inst_name = vrf_name;
+	if (yang_dnode_exists(bgp_dnode, "./global/instance-type-view") &&
+	    yang_dnode_get_bool(bgp_dnode, "./global/instance-type-view"))
+		*inst_type = BGP_INSTANCE_TYPE_VIEW;
+	else
+		*inst_type = BGP_INSTANCE_TYPE_VRF;
+}
+
+static bool bgp_nb_cpp_is_bgp(const struct lyd_node *cpp)
+{
+	const char *type;
+	const char *id;
+
+	if (!cpp || !strmatch(cpp->schema->name, "control-plane-protocol"))
+		return false;
+	if (!yang_dnode_exists(cpp, "./type"))
+		return false;
+
+	type = yang_dnode_get_string(cpp, "./type");
+	if (!type)
+		return false;
+	id = strrchr(type, ':');
+	id = id ? id + 1 : type;
+	return strmatch(id, "bgp");
+}
+
+static bool bgp_nb_instance_same(enum bgp_instance_type a, const char *aname,
+				 enum bgp_instance_type b, const char *bname)
+{
+	if (a != b)
+		return false;
+	if (!aname || !bname)
+		return !aname && !bname;
+	return strmatch(aname, bname);
+}
+
+/*
+ * The list key is (type, name, vrf), but the instance is looked up by the
+ * vrf leaf. Two entries that resolve to the same instance would share one
+ * struct bgp and bgp_delete() either of them out from under the other.
+ */
+static int bgp_nb_bgp_validate_unique(struct nb_cb_create_args *args)
+{
+	const struct lyd_node *cpp, *sib, *other;
+	enum bgp_instance_type mine_type, other_type;
+	const char *mine_name, *other_name;
+	const char *vrf;
+
+	cpp = yang_dnode_get_parent(args->dnode, "control-plane-protocol");
+	if (!cpp || !lyd_parent(cpp))
+		return NB_OK;
+
+	bgp_nb_instance_key(args->dnode, &mine_type, &mine_name);
+	LY_LIST_FOR (lyd_child(lyd_parent(cpp)), sib) {
+		if (sib == cpp || !bgp_nb_cpp_is_bgp(sib))
+			continue;
+		other = yang_dnode_get(sib, "frr-bgp:bgp");
+		if (!other)
+			other = yang_dnode_get(sib, "bgp");
+		if (!other)
+			continue;
+		bgp_nb_instance_key(other, &other_type, &other_name);
+		if (!bgp_nb_instance_same(mine_type, mine_name, other_type, other_name))
+			continue;
+
+		vrf = yang_dnode_get_string(args->dnode, "../vrf");
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "BGP instance for vrf %s is already configured", vrf);
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+/*
+ * bgp_get_vty() enables neighbor-change logging for the datacenter profile.
+ * The YANG default stays false, and a leaf whose value equals that default
+ * is not a configuration diff, so an implicit false must not clear the flag.
+ * An explicit value is not marked LYD_DEFAULT once the candidate is validated.
+ */
+static void bgp_nb_apply_explicit_log_neighbor_changes(struct bgp *bgp,
+						       const struct lyd_node *bgp_dnode)
+{
+	const struct lyd_node *leaf;
+
+	if (!bgp ||
+	    !yang_dnode_exists(bgp_dnode, "./global/global-neighbor-config/log-neighbor-changes"))
+		return;
+
+	leaf = yang_dnode_get(bgp_dnode, "./global/global-neighbor-config/log-neighbor-changes");
+	if (!leaf || (leaf->flags & LYD_DEFAULT))
+		return;
+	if (yang_dnode_get_bool(leaf, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+}
+
 /*
  * XPath: .../frr-bgp:bgp
  */
 int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 {
 	struct bgp *bgp = NULL;
-	const char *vrf_name;
 	const char *name;
 	enum bgp_instance_type inst_type;
 	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
@@ -90,24 +198,13 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_nb_bgp_validate_unique(args);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf_name = yang_dnode_get_string(args->dnode, "../vrf");
 		as = yang_dnode_get_uint32(args->dnode, "./global/local-as");
-
-		if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
-			name = NULL;
-			inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-		} else if (yang_dnode_exists(args->dnode, "./global/instance-type-view") &&
-			   yang_dnode_get_bool(args->dnode, "./global/instance-type-view")) {
-			name = vrf_name;
-			inst_type = BGP_INSTANCE_TYPE_VIEW;
-		} else {
-			name = vrf_name;
-			inst_type = BGP_INSTANCE_TYPE_VRF;
-		}
+		bgp_nb_instance_key(args->dnode, &inst_type, &name);
 
 		if (yang_dnode_exists(args->dnode, "./global/as-notation")) {
 			notation = yang_dnode_get_string(args->dnode, "./global/as-notation");
@@ -119,19 +216,62 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 				asnotation = ASNOTATION_PLAIN;
 		}
 
-		ret = bgp_get(&bgp, &as, name, inst_type, NULL, asnotation);
-		if (ret != BGP_SUCCESS && ret != BGP_CREATED && ret != BGP_INSTANCE_EXISTS)
-			return NB_ERR_RESOURCE;
+		/*
+		 * Match classic router_bgp: look up with force_config so an
+		 * AUTO instance created by L3VNI (same VRF name) is reclaimed
+		 * instead of skipped. bgp_get_vty() filters AUTO and would
+		 * create a second struct bgp — config (RD/Type-5) then lands
+		 * on the YANG instance while L3VNI stays on the AUTO one
+		 * (memory leak + missing EVPN prefixes).
+		 */
+		ret = bgp_lookup_by_as_name_type(&bgp, &as, NULL, asnotation, name, inst_type,
+						 true);
+		if (!(bgp && ret == BGP_INSTANCE_EXISTS)) {
+			ret = bgp_get_vty(&bgp, &as, name, inst_type, NULL, asnotation);
+			if (ret != BGP_SUCCESS && ret != BGP_CREATED && ret != BGP_INSTANCE_EXISTS)
+				return NB_ERR_RESOURCE;
+		}
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
+			struct vrf *vrf;
+
 			bgp_vpn_leak_export(bgp);
 			UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 			UNSET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
 			UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
+
+			/* Ensure the claimed instance owns the VRF link. */
+			if (name) {
+				vrf = vrf_lookup_by_name(name);
+				if (vrf && (bgp->vrf_id != vrf->vrf_id || vrf->info != (void *)bgp))
+					bgp_vrf_link(bgp, vrf);
+			}
 		}
 
 		nb_running_set_entry(args->dnode, bgp);
 		bgp_vpn_leak_export(bgp);
+
+		/*
+		 * bgp_create() seeds default_af IPv4 unicast. Under XFRR
+		 * batching, the router-bgp seed CREATE of default-afi-safi
+		 * ipv4-unicast and "no bgp default ipv4-unicast" DESTROY
+		 * cancel in the candidate, so the destroy callback never
+		 * runs and peers stay IPv4-activated (e.g. BGP-LS fabric
+		 * tests leak EBGP prefixes as LS NLRIs). Clear the C
+		 * default here; child default-afi-safi create callbacks
+		 * re-apply only what remains in the committed tree.
+		 */
+		bgp->default_af[AFI_IP][SAFI_UNICAST] = false;
+
+		/*
+		 * Inverse race: L3VNI may already be live when the VRF BGP
+		 * instance is created/claimed from YANG. Re-apply ip-vrf
+		 * leaves now (no-op if they are not in running yet; child
+		 * APPLY / later L3VNI reapply covers the other order).
+		 */
+		if (bgp->l3vni)
+			bgp_nb_evpn_vrf_yang_reapply(bgp);
+		bgp_nb_apply_explicit_log_neighbor_changes(bgp, args->dnode);
 		break;
 	}
 
@@ -9833,7 +9973,8 @@ int bgp_nb_evpn_vrf_rd_modify(struct nb_cb_modify_args *args)
 	if (!str2prefix_rd(rd_str, &prd))
 		return NB_ERR_VALIDATION;
 
-	if (bgp_evpn_vrf_rd_matches_existing(bgp, &prd))
+	if (bgp_evpn_vrf_rd_matches_existing(bgp, &prd) &&
+	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))
 		return NB_OK;
 
 	evpn_configure_vrf_rd(bgp, &prd, rd_str);
@@ -9917,6 +10058,134 @@ static struct ecommunity *bgp_nb_evpn_vrf_rt_str2com(const char *rt_str, bool *i
 		*is_wildcard = wildcard;
 
 	return ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+}
+
+/*
+ * Re-apply VRF EVPN ip-vrf YANG (RD / RT / type-5 advertise) onto runtime.
+ * YANG APPLY can race ahead of L3VNI bring-up; L3VNI add then auto-derives
+ * RD/RT and never picks up the already-committed YANG leaves. Call after
+ * L3VNI is attached so configured values win and type-5 is advertised.
+ *
+ * Resolve the l2vpn-evpn afi-safi by iterating children rather than an
+ * identityref list-key predicate — lyd_find_xpath has been unreliable for
+ * that form, which made reapply a silent no-op.
+ */
+void bgp_nb_evpn_vrf_yang_reapply(struct bgp *bgp)
+{
+	const struct lyd_node *bgp_dnode, *afs, *af, *ip_vrf, *child, *enable;
+	struct prefix_rd prd;
+	const char *rd_str;
+	const char *af_name;
+	struct ecommunity *ecom;
+	bool is_wildcard;
+	afi_t afi;
+	safi_t safi;
+
+	if (!bgp || !running_config || !running_config->dnode)
+		return;
+
+	/*
+	 * Resolve the instance dnode by walking list keys — identityref
+	 * xpath predicates for control-plane-protocol have been unreliable
+	 * and made reapply a silent no-op (type-5 / RD never pushed after
+	 * L3VNI attach).
+	 */
+	bgp_dnode = bgp_nb_find_instance_dnode(bgp);
+	if (!bgp_dnode) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: no YANG dnode for VRF %s", __func__, bgp->name_pretty);
+		return;
+	}
+
+	afs = yang_dnode_get(bgp_dnode, "global/afi-safis");
+	if (!afs) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: no YANG afi-safis for VRF %s", __func__, bgp->name_pretty);
+		return;
+	}
+
+	ip_vrf = NULL;
+	LY_LIST_FOR (lyd_child(afs), af) {
+		if (!strmatch(af->schema->name, "afi-safi"))
+			continue;
+		if (!yang_dnode_exists(af, "./afi-safi-name"))
+			continue;
+		af_name = yang_dnode_get_string(af, "./afi-safi-name");
+		afi = AFI_UNSPEC;
+		safi = SAFI_UNSPEC;
+		yang_afi_safi_identity2value(af_name, &afi, &safi);
+		if (afi != AFI_L2VPN || safi != SAFI_EVPN)
+			continue;
+		ip_vrf = yang_dnode_get(af, "l2vpn-evpn/ip-vrf");
+		break;
+	}
+	if (!ip_vrf) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: no YANG ip-vrf for VRF %s", __func__, bgp->name_pretty);
+		return;
+	}
+
+	if (yang_dnode_exists(ip_vrf, "./rd")) {
+		rd_str = yang_dnode_get_string(ip_vrf, "./rd");
+		if (str2prefix_rd(rd_str, &prd) && (!CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD) ||
+						    !bgp_evpn_vrf_rd_matches_existing(bgp, &prd)))
+			evpn_configure_vrf_rd(bgp, &prd, rd_str);
+	}
+
+	LY_LIST_FOR (lyd_child(ip_vrf), child) {
+		if (strmatch(child->schema->name, "import-route-target")) {
+			struct bgp_evpn_cfgd_rt *cfgd_rt;
+			struct bgp_evpn_rt_config *rt_config;
+
+			ecom = bgp_nb_evpn_vrf_rt_str2com(yang_dnode_get_string(child, NULL),
+							  &is_wildcard);
+			if (!ecom)
+				continue;
+			ecommunity_str(ecom);
+			cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, is_wildcard);
+			ecommunity_free(&ecom);
+			if (!cfgd_rt)
+				continue;
+			rt_config = bgp->vrf_route_target_config;
+			if (bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt))
+				bgp_evpn_cfgd_rt_free(cfgd_rt);
+			else
+				bgp_nb_evpn_vrf_rt_batch(bgp, cfgd_rt, true, true);
+		} else if (strmatch(child->schema->name, "export-route-target")) {
+			struct bgp_evpn_cfgd_rt *cfgd_rt;
+			struct bgp_evpn_rt_config *rt_config;
+
+			ecom = bgp_nb_evpn_vrf_rt_str2com(yang_dnode_get_string(child, NULL), NULL);
+			if (!ecom)
+				continue;
+			ecommunity_str(ecom);
+			cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, false);
+			ecommunity_free(&ecom);
+			if (!cfgd_rt)
+				continue;
+			rt_config = bgp->vrf_route_target_config;
+			if (bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt))
+				bgp_evpn_cfgd_rt_free(cfgd_rt);
+			else
+				bgp_nb_evpn_vrf_rt_batch(bgp, cfgd_rt, false, true);
+		}
+	}
+
+	enable = yang_dnode_get(ip_vrf, "./ipv4-unicast/enable");
+	if (enable)
+		bgp_nb_evpn_type5_apply(enable, bgp, false);
+	enable = yang_dnode_get(ip_vrf, "./ipv6-unicast/enable");
+	if (enable)
+		bgp_nb_evpn_type5_apply(enable, bgp, false);
+	enable = yang_dnode_get(ip_vrf, "./ipv4-vpn/enable");
+	if (enable)
+		bgp_nb_evpn_type5_apply(enable, bgp, false);
+	enable = yang_dnode_get(ip_vrf, "./ipv6-vpn/enable");
+	if (enable)
+		bgp_nb_evpn_type5_apply(enable, bgp, false);
+
+	if (bgp->l3vni)
+		update_advertise_vrf_routes(bgp);
 }
 
 int bgp_nb_evpn_vrf_rt_create(struct nb_cb_create_args *args)
