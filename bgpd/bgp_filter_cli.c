@@ -20,6 +20,7 @@
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_filter_cli.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
 
 #include "bgpd/bgp_filter_cli_clippy.c"
@@ -111,14 +112,142 @@ static bool bgp_filter_entry_matches(const struct lyd_node *entry, const char *v
 }
 
 /*
+ * Classic extcommunity-list entries mix types: "rt A soo B nt C color D".
+ * Keywords may be repeated or omitted between values of the same type.
+ * Compare the parsed extended communities, which is how the old unset
+ * decided two lines were the same entry.
+ */
+static const char *const bgp_extcommunity_keywords[] = { "rt", "soo", "nt", "color" };
+static const char *const bgp_extcommunity_leaves[] = {
+	"extcommunity-rt",
+	"extcommunity-soo",
+	"extcommunity-nt",
+	"extcommunity-color",
+};
+
+static int bgp_extcommunity_keyword(const char *arg)
+{
+	size_t i;
+
+	for (i = 0; i < array_size(bgp_extcommunity_keywords); i++) {
+		if (strmatch(arg, bgp_extcommunity_keywords[i]))
+			return (int)i;
+	}
+	return -1;
+}
+
+static bool bgp_filter_append_word(char *buf, size_t buflen, bool *first, const char *word)
+{
+	size_t n;
+
+	if (!*first) {
+		n = strlcat(buf, " ", buflen);
+		if (n >= buflen)
+			return false;
+	}
+	n = strlcat(buf, word, buflen);
+	*first = false;
+	return n < buflen;
+}
+
+/* "rt A rt B soo C" from the entry's leaf-lists. False on overflow. */
+static bool bgp_filter_extcommunity_from_entry(const struct lyd_node *entry, char *buf,
+					       size_t buflen)
+{
+	size_t part;
+	bool first = true;
+
+	buf[0] = '\0';
+	for (part = 0; part < array_size(bgp_extcommunity_leaves); part++) {
+		struct bgp_filter_join join = { .first = true };
+		char *value;
+		const char *keyword = bgp_extcommunity_keywords[part];
+
+		yang_dnode_iterate(bgp_filter_join_value, &join, entry, "%s",
+				   bgp_extcommunity_leaves[part]);
+		if (join.first)
+			continue;
+		for (value = join.buf; value && *value;) {
+			char *sp = strchr(value, ' ');
+
+			if (sp)
+				*sp = '\0';
+			if (!bgp_filter_append_word(buf, buflen, &first, keyword) ||
+			    !bgp_filter_append_word(buf, buflen, &first, value))
+				return false;
+			value = sp ? sp + 1 : NULL;
+		}
+	}
+	return buf[0] != '\0';
+}
+
+/* Same form from CLI tokens. A keyword applies to each following value. */
+static bool bgp_filter_extcommunity_from_argv(struct cmd_token **argv, int argc, int idx,
+					      char *buf, size_t buflen)
+{
+	int kind = -1;
+	bool need_value = false;
+	bool first = true;
+	int i;
+
+	buf[0] = '\0';
+	if (idx < 0)
+		return false;
+	for (i = idx; i < argc; i++) {
+		int next = bgp_extcommunity_keyword(argv[i]->arg);
+
+		if (next >= 0) {
+			if (need_value)
+				return false;
+			kind = next;
+			need_value = true;
+			continue;
+		}
+		if (kind < 0)
+			return false;
+		if (!bgp_filter_append_word(buf, buflen, &first, bgp_extcommunity_keywords[kind]) ||
+		    !bgp_filter_append_word(buf, buflen, &first, argv[i]->arg))
+			return false;
+		need_value = false;
+	}
+	return !need_value && buf[0] != '\0';
+}
+
+static bool bgp_filter_extcommunity_matches(const struct lyd_node *entry, struct cmd_token **argv,
+					    int argc, int idx)
+{
+	char want[4096];
+	char got[4096];
+	struct ecommunity *want_ecom = NULL;
+	struct ecommunity *got_ecom = NULL;
+	bool match;
+
+	if (!bgp_filter_extcommunity_from_argv(argv, argc, idx, want, sizeof(want)))
+		return false;
+	if (!bgp_filter_extcommunity_from_entry(entry, got, sizeof(got)))
+		return false;
+
+	want_ecom = ecommunity_str2com(want, 0, 1);
+	got_ecom = ecommunity_str2com(got, 0, 1);
+	match = want_ecom && got_ecom && ecommunity_cmp(want_ecom, got_ecom);
+	ecommunity_free(&want_ecom);
+	ecommunity_free(&got_ecom);
+	return match;
+}
+
+/*
  * Delete the one list entry whose action and value match. Classic
  * community_list_unset() matches the value and ignores sequence; a missing
  * sequence must not destroy the list (the separate "all" command does that).
+ *
+ * extcommunity is true for a standard extcommunity-list line. val_idx then
+ * points at the first type keyword, and every type on the entry must match.
  */
 static int bgp_filter_destroy_matching_entry(struct vty *vty, const char *list_xpath,
 					     const char *seq_str, const char *action,
 					     const char *value_leaf, bool leaf_list,
-					     struct cmd_token **argv, int argc, int val_idx)
+					     bool extcommunity, struct cmd_token **argv, int argc,
+					     int val_idx)
 {
 	char xpath_entry[XPATH_MAXLEN + 256];
 	char *want = NULL;
@@ -130,11 +259,13 @@ static int bgp_filter_destroy_matching_entry(struct vty *vty, const char *list_x
 	uint32_t i;
 	int ret;
 
-	want = argv_concat(argv, argc, val_idx);
-	if (!want || want[0] == '\0') {
-		vty_out(vty, "%% No community string specified\n");
-		XFREE(MTYPE_TMP, want);
-		return CMD_WARNING_CONFIG_FAILED;
+	if (!extcommunity) {
+		want = argv_concat(argv, argc, val_idx);
+		if (!want || want[0] == '\0') {
+			vty_out(vty, "%% No community string specified\n");
+			XFREE(MTYPE_TMP, want);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
 	if (!vty->candidate_config || !vty->candidate_config->dnode) {
@@ -154,7 +285,10 @@ static int bgp_filter_destroy_matching_entry(struct vty *vty, const char *list_x
 		const struct lyd_node *entry = set->dnodes[i];
 		const char *got;
 
-		if (!bgp_filter_entry_matches(entry, value_leaf, leaf_list, want))
+		if (extcommunity) {
+			if (!bgp_filter_extcommunity_matches(entry, argv, argc, val_idx))
+				continue;
+		} else if (!bgp_filter_entry_matches(entry, value_leaf, leaf_list, want))
 			continue;
 		if (!content)
 			content = entry;
@@ -256,8 +390,7 @@ DEFPY_YANG(
 		   sseq);
 
 	/* Find first community value argument */
-	argv_find(argv, argc, "AA:NN", &idx);
-	if (idx >= argc) {
+	if (!argv_find(argv, argc, "AA:NN", &idx)) {
 		vty_out(vty, "%% No community string specified\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -318,8 +451,8 @@ DEFPY_YANG(
 	if (argv_find(argv, argc, action, &idx))
 		idx++;
 	return bgp_filter_destroy_matching_entry(vty, xpath, seq_str, action,
-						 "standard-community-string", true, argv, argc,
-						 idx);
+						 "standard-community-string", true, false, argv,
+						 argc, idx);
 }
 
 DEFPY_YANG(
@@ -430,8 +563,8 @@ DEFPY_YANG(
 	if (argv_find(argv, argc, action, &idx))
 		idx++;
 	return bgp_filter_destroy_matching_entry(vty, xpath, seq_str, action,
-						 "expanded-community-string", false, argv, argc,
-						 idx);
+						 "expanded-community-string", false, false, argv,
+						 argc, idx);
 }
 
 DEFPY_YANG(
@@ -567,8 +700,8 @@ DEFPY_YANG(
 	if (argv_find(argv, argc, action, &idx))
 		idx++;
 	return bgp_filter_destroy_matching_entry(vty, xpath, seq_str, action,
-						 "standard-large-community-string", true, argv,
-						 argc, idx);
+						 "standard-large-community-string", true, false,
+						 argv, argc, idx);
 }
 
 DEFPY_YANG(
@@ -684,8 +817,8 @@ DEFPY_YANG(
 	if (argv_find(argv, argc, action, &idx))
 		idx++;
 	return bgp_filter_destroy_matching_entry(vty, xpath, seq_str, action,
-						 "expanded-large-community-string", false, argv,
-						 argc, idx);
+						 "expanded-large-community-string", false, false,
+						 argv, argc, idx);
 }
 
 DEFPY_YANG(
@@ -784,11 +917,39 @@ DEFPY_YANG(
 	snprintfrr(xpath_entry, sizeof(xpath_entry), "%s/entry[sequence='%" PRId64 "']", xpath,
 		   sseq);
 
+	/* Start at the first token after permit/deny so type keywords count. */
 	if (!argv_find(argv, argc, action, &idx) || idx + 1 >= argc) {
 		vty_out(vty, "%% No extended community string specified\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	idx++;
+
+	/*
+	 * Classic CLI is "permit rt 65001:1 soo 65001:2". Type keywords may
+	 * repeat. A value with no keyword in front of it is malformed.
+	 * Check before enqueueing so a rejected line leaves no pending change.
+	 */
+	{
+		const char *check_leaf = NULL;
+		bool saw_value = false;
+
+		for (i = idx; i < argc; i++) {
+			if (strmatch(argv[i]->arg, "rt") || strmatch(argv[i]->arg, "soo") ||
+			    strmatch(argv[i]->arg, "nt") || strmatch(argv[i]->arg, "color")) {
+				check_leaf = argv[i]->arg;
+				continue;
+			}
+			if (!check_leaf) {
+				vty_out(vty, "%% Malformed community-list value\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			saw_value = true;
+		}
+		if (!saw_value) {
+			vty_out(vty, "%% Malformed community-list value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
@@ -797,7 +958,11 @@ DEFPY_YANG(
 
 	bgp_filter_clear_entry_leaflists(vty, xpath_entry);
 
-	/* Add each extcommunity value as a separate leaf-list entry */
+	/*
+	 * Classic CLI is "permit rt 65001:1 soo 65001:2". Type keywords may
+	 * repeat among the AA:NN tokens. Each value is stored on the leaf-list
+	 * for the keyword in front of it. Those lists are kept together.
+	 */
 	for (i = idx; i < argc; i++) {
 		if (strmatch(argv[i]->arg, "rt")) {
 			rt_or_soo_leaf = "extcommunity-rt";
@@ -814,10 +979,6 @@ DEFPY_YANG(
 		if (strmatch(argv[i]->arg, "color")) {
 			rt_or_soo_leaf = "extcommunity-color";
 			continue;
-		}
-		if (!rt_or_soo_leaf) {
-			vty_out(vty, "%% Malformed community-list value\n");
-			return CMD_WARNING_CONFIG_FAILED;
 		}
 		snprintfrr(xpath_leaf, sizeof(xpath_leaf), "./%s[.='%s']", rt_or_soo_leaf,
 			   argv[i]->arg);
@@ -845,35 +1006,19 @@ DEFPY_YANG(
 {
 	char xpath[XPATH_MAXLEN];
 	const char *list_name;
-	const char *leaf = NULL;
 	int idx = 0;
-	int i;
 
 	list_name = num_str ? num_str : name;
-	if (!argv_find(argv, argc, action, &idx))
-		return CMD_WARNING_CONFIG_FAILED;
-	for (i = idx + 1; i < argc; i++) {
-		if (strmatch(argv[i]->arg, "rt"))
-			leaf = "extcommunity-rt";
-		else if (strmatch(argv[i]->arg, "soo"))
-			leaf = "extcommunity-soo";
-		else if (strmatch(argv[i]->arg, "nt"))
-			leaf = "extcommunity-nt";
-		else if (strmatch(argv[i]->arg, "color"))
-			leaf = "extcommunity-color";
-		else
-			break;
-		idx = i;
-	}
-	if (!leaf) {
-		vty_out(vty, "%% Malformed community-list value\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	snprintfrr(xpath, sizeof(xpath),
 		   "/frr-filter:lib/frr-bgp-filter:extcommunity-list[name='%s']", list_name);
+	/* Stay on the first token after the action so type keywords count. */
+	if (!argv_find(argv, argc, action, &idx) || idx + 1 >= argc) {
+		vty_out(vty, "%% No extended community string specified\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	idx++;
-	return bgp_filter_destroy_matching_entry(vty, xpath, seq_str, action, leaf, true, argv,
-						 argc, idx);
+	return bgp_filter_destroy_matching_entry(vty, xpath, seq_str, action, NULL, false, true,
+						 argv, argc, idx);
 }
 
 DEFPY_YANG(
@@ -989,8 +1134,8 @@ DEFPY_YANG(
 	if (argv_find(argv, argc, action, &idx))
 		idx++;
 	return bgp_filter_destroy_matching_entry(vty, xpath, seq_str, action,
-						 "expanded-extcommunity-string", false, argv, argc,
-						 idx);
+						 "expanded-extcommunity-string", false, false,
+						 argv, argc, idx);
 }
 
 DEFPY_YANG(

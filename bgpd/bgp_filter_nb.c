@@ -1027,8 +1027,10 @@ int lib_extcommunity_list_entry_destroy(struct nb_cb_destroy_args *args)
 /*
  * Leaf callbacks for extcommunity-list/entry
  *
- * rt/soo/nt/color leaves are plain strings. Reject values the classic
- * extcommunity parser rejects, before they are committed.
+ * rt, soo, nt, and color are plain strings. The CLI accepts any word, and
+ * the route-target pattern would reject a word with no colon before this
+ * callback could see it. ecommunity_str2com() is what accepts or rejects
+ * the word, as the classic extcommunity-list parser did.
  */
 static int lib_extcommunity_list_value_validate(struct nb_cb_create_args *args, int sub_type)
 {
