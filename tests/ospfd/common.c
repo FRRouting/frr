@@ -43,7 +43,11 @@ int sort_paths(const void **path1, const void **path2)
 	const struct ospf_path *p1 = *path1;
 	const struct ospf_path *p2 = *path2;
 
-	return (p1->nexthop.s_addr - p2->nexthop.s_addr);
+	if (p1->nexthop.s_addr > p2->nexthop.s_addr)
+		return 1;
+	if (p1->nexthop.s_addr < p2->nexthop.s_addr)
+		return -1;
+	return 0;
 }
 
 void print_route_table(struct vty *vty, struct route_table *rt)

@@ -56,7 +56,11 @@ extern struct in_addr router_id_zebra;
 
 int eigrp_master_hash_cmp(const struct eigrp *a, const struct eigrp *b)
 {
-	return a->vrf_id - b->vrf_id;
+	if (a->vrf_id > b->vrf_id)
+		return 1;
+	if (a->vrf_id < b->vrf_id)
+		return -1;
+	return 0;
 }
 
 uint32_t eigrp_master_hash_hash(const struct eigrp *a)

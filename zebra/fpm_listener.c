@@ -98,7 +98,11 @@ struct fpm_nhg {
 /* Comparison function for nexthop groups */
 static int fpm_nhg_cmp(const struct fpm_nhg *a, const struct fpm_nhg *b)
 {
-	return a->id - b->id;
+	if (a->id > b->id)
+		return 1;
+	if (a->id < b->id)
+		return -1;
+	return 0;
 }
 
 /* Hash function for nexthop groups */
