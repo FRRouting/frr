@@ -3147,6 +3147,11 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.destroy = bgp_nb_peer_group_listen_range_destroy,
 				.cli_show = bgp_nb_cli_show_peer_group_listen_range,
 			},
+			/*
+			 * A listen range can only be added once the group has a
+			 * remote-as, so it must be applied after its siblings.
+			 */
+			.priority = NB_DFLT_PRIORITY + 1,
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/ipv6-listen-range",
@@ -3155,6 +3160,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.destroy = bgp_nb_peer_group_listen_range_destroy,
 				.cli_show = bgp_nb_cli_show_peer_group_listen_range,
 			},
+			.priority = NB_DFLT_PRIORITY + 1,
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor",

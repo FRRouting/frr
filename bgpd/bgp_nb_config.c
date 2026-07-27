@@ -3563,6 +3563,7 @@ static int bgp_nb_listen_range_parse(const struct lyd_node *dnode, struct prefix
 
 int bgp_nb_peer_group_listen_range_create(struct nb_cb_create_args *args)
 {
+	const struct lyd_node *pg_dnode;
 	struct peer_group *group;
 	struct peer_group *existing;
 	struct prefix range;
@@ -3571,12 +3572,22 @@ int bgp_nb_peer_group_listen_range_create(struct nb_cb_create_args *args)
 	if (bgp_nb_listen_range_parse(args->dnode, &range, args->errmsg, args->errmsg_len) < 0)
 		return NB_ERR_VALIDATION;
 
-	group = nb_running_get_entry(yang_dnode_get_parent(args->dnode, "peer-group"), NULL,
-				     args->event == NB_EV_APPLY);
+	pg_dnode = yang_dnode_get_parent(args->dnode, "peer-group");
+	group = nb_running_get_entry(pg_dnode, NULL, args->event == NB_EV_APPLY);
 
 	if (args->event == NB_EV_VALIDATE) {
 		struct bgp *bgp;
 
+		/*
+		 * Dynamic neighbors need a remote-as, which is read from the
+		 * candidate because the group and its remote-as are commonly
+		 * created by the same commit as the listen range.
+		 */
+		if (!yang_dnode_exists(pg_dnode, "./neighbor-remote-as/remote-as-type")) {
+			snprintfrr(args->errmsg, args->errmsg_len, "peer-group %s has no remote-as",
+				   yang_dnode_get_string(pg_dnode, "./peer-group-name"));
+			return NB_ERR_VALIDATION;
+		}
 		if (!group)
 			return NB_OK;
 		bgp = group->bgp;
@@ -3591,11 +3602,6 @@ int bgp_nb_peer_group_listen_range_create(struct nb_cb_create_args *args)
 		if (existing && existing != group) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "Listen range overlaps with existing listen range");
-			return NB_ERR_VALIDATION;
-		}
-		if (group->conf->as_type == AS_UNSPECIFIED) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "peer-group %s has no remote-as", group->name);
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
