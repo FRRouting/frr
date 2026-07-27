@@ -72,11 +72,10 @@ def teardown_module(mod):
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _bgp_prefix_json(tgen, prefix):
     """Return the JSON dict for *prefix* from r1's BGP RIB, or None."""
-    output = tgen.gears["r1"].vtysh_cmd(
-        "show bgp ipv4 unicast {} json".format(prefix)
-    )
+    output = tgen.gears["r1"].vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
     data = json.loads(output)
     paths = data.get("paths")
     if not paths:
@@ -88,6 +87,7 @@ def _bgp_prefix_json(tgen, prefix):
 # Test 1 – session convergence
 # ---------------------------------------------------------------------------
 
+
 def test_bgp_upa_extcom_convergence():
     tgen = get_topogen()
 
@@ -95,9 +95,7 @@ def test_bgp_upa_extcom_convergence():
         pytest.skip(tgen.errors)
 
     def _converged():
-        output = json.loads(
-            tgen.gears["r1"].vtysh_cmd("show bgp ipv4 unicast json")
-        )
+        output = json.loads(tgen.gears["r1"].vtysh_cmd("show bgp ipv4 unicast json"))
         # Expect both prefixes to be present
         routes = output.get("routes", {})
         if "192.168.1.0/24" not in routes:
@@ -113,6 +111,7 @@ def test_bgp_upa_extcom_convergence():
 # ---------------------------------------------------------------------------
 # Test 2 – UPA ExtCom D-bit=0 displays correctly
 # ---------------------------------------------------------------------------
+
 
 def test_bgp_upa_extcom_no_drop_flag():
     tgen = get_topogen()
@@ -139,6 +138,7 @@ def test_bgp_upa_extcom_no_drop_flag():
 # ---------------------------------------------------------------------------
 # Test 3 – UPA ExtCom D-bit=1 displays correctly
 # ---------------------------------------------------------------------------
+
 
 def test_bgp_upa_extcom_drop_flag():
     tgen = get_topogen()
@@ -167,6 +167,7 @@ def test_bgp_upa_extcom_drop_flag():
 #           one UPA entry per prefix, with the right originator Router-ID
 # ---------------------------------------------------------------------------
 
+
 def test_bgp_upa_extcom_parse_roundtrip():
     tgen = get_topogen()
 
@@ -181,23 +182,23 @@ def test_bgp_upa_extcom_parse_roundtrip():
         assert path is not None, "{} not in RIB".format(prefix)
 
         extcoms = path.get("extendedCommunity", {}).get("string", "")
-        assert expected_str in extcoms, (
-            "prefix {}: expected '{}' in extendedCommunity string '{}'"
-            .format(prefix, expected_str, extcoms)
+        assert (
+            expected_str in extcoms
+        ), "prefix {}: expected '{}' in extendedCommunity string '{}'".format(
+            prefix, expected_str, extcoms
         )
 
         # Exactly one UPA token should be present
         upa_tokens = [t for t in extcoms.split() if t.startswith("upa:")]
-        assert len(upa_tokens) == 1, (
-            "prefix {}: expected 1 UPA ExtCom token, got {}".format(
-                prefix, upa_tokens
-            )
-        )
+        assert (
+            len(upa_tokens) == 1
+        ), "prefix {}: expected 1 UPA ExtCom token, got {}".format(prefix, upa_tokens)
 
 
 # ===========================================================================
 # Data Structure Changes
 # ===========================================================================
+
 
 def test_aggregate_data_structure_initialization():
     """
@@ -227,8 +228,9 @@ def test_aggregate_data_structure_initialization():
 
     # Verify aggregate appears in config
     output = r1.vtysh_cmd("show running-config")
-    assert "aggregate-address 192.168.0.0/16 summary-only" in output, \
-        "Aggregate not found in running config"
+    assert (
+        "aggregate-address 192.168.0.0/16 summary-only" in output
+    ), "Aggregate not found in running config"
 
     # Clean up
     r1.vtysh_cmd(
@@ -265,7 +267,9 @@ def test_aggregate_cleanup_no_leak():
             router bgp 65001
             address-family ipv4 unicast
             aggregate-address 10.{}.0.0/16 summary-only
-            """.format(i)
+            """.format(
+                i
+            )
         )
 
         # Verify it exists
@@ -279,7 +283,9 @@ def test_aggregate_cleanup_no_leak():
             router bgp 65001
             address-family ipv4 unicast
             no aggregate-address 10.{}.0.0/16 summary-only
-            """.format(i)
+            """.format(
+                i
+            )
         )
 
         # Verify removal
@@ -322,8 +328,9 @@ def test_bgp_route_types_no_conflict():
 
     # Aggregate should be present (even if no constituents)
     # Just verify the command was accepted and processed
-    assert "paths" in parsed or "routes" in parsed or parsed == {}, \
-        "Aggregate route not processed correctly"
+    assert (
+        "paths" in parsed or "routes" in parsed or parsed == {}
+    ), "Aggregate route not processed correctly"
 
     # Test STATIC route type by configuring a network statement
     r1.vtysh_cmd(
@@ -337,8 +344,7 @@ def test_bgp_route_types_no_conflict():
 
     # Verify network exists in config
     output = r1.vtysh_cmd("show running-config")
-    assert "network 198.51.100.0/24" in output, \
-        "Static network not found in config"
+    assert "network 198.51.100.0/24" in output, "Static network not found in config"
 
     # Clean up
     r1.vtysh_cmd(
@@ -373,8 +379,7 @@ def test_peer_flag_upa_send_exists():
     output = r1.vtysh_cmd("show bgp summary json")
     parsed = json.loads(output)
 
-    assert "ipv4Unicast" in parsed, \
-        "BGP daemon not running correctly after changes"
+    assert "ipv4Unicast" in parsed, "BGP daemon not running correctly after changes"
 
 
 def test_bgp_upa_aggregate_no_upa_by_default():
@@ -409,7 +414,9 @@ def test_bgp_upa_aggregate_no_upa_by_default():
             return "aggregate 192.168.0.0/22 not yet in RIB"
         return None
 
-    success, result = topotest.run_and_expect(_aggregate_present, None, count=30, wait=1)
+    success, result = topotest.run_and_expect(
+        _aggregate_present, None, count=30, wait=1
+    )
     assert success, result
 
     # Fetch aggregate path and check for absence of UPA ExtCom
@@ -420,8 +427,9 @@ def test_bgp_upa_aggregate_no_upa_by_default():
 
     extcoms = paths[0].get("extendedCommunity", {}).get("string", "")
     upa_tokens = [t for t in extcoms.split() if t.startswith("upa:")]
-    assert upa_tokens == [], \
-        f"aggregate without 'upa' keyword should carry no UPA ExtCom, got: '{extcoms}'"
+    assert (
+        upa_tokens == []
+    ), f"aggregate without 'upa' keyword should carry no UPA ExtCom, got: '{extcoms}'"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -484,8 +492,9 @@ def test_bgp_upa_aggregate_free_no_crash():
         return None
 
     success, result = topotest.run_and_expect(_session_healthy, None, count=30, wait=1)
-    assert success, \
-        f"BGP session or RIB unhealthy after bgp_free_aggregate_info() cycles: {result}"
+    assert (
+        success
+    ), f"BGP session or RIB unhealthy after bgp_free_aggregate_info() cycles: {result}"
 
 
 def test_bgp_upa_subtype_no_conflict():
@@ -517,7 +526,9 @@ def test_bgp_upa_subtype_no_conflict():
         data = json.loads(output)
         return None if data.get("paths") else "aggregate not yet present"
 
-    success, result = topotest.run_and_expect(_aggregate_present, None, count=30, wait=1)
+    success, result = topotest.run_and_expect(
+        _aggregate_present, None, count=30, wait=1
+    )
     assert success, result
 
     output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.0.0/22 json")
@@ -527,8 +538,9 @@ def test_bgp_upa_subtype_no_conflict():
 
     # BGP_ROUTE_AGGREGATE paths set "aggregated": true in JSON output.
     # BGP_PATH_UPA paths (sub_type=BGP_ROUTE_NORMAL) would NOT set this flag
-    assert paths[0].get("aggregated") is True, \
-        f"expected aggregated=true for normal aggregate (sub_type=BGP_ROUTE_AGGREGATE), got: {paths[0]}"
+    assert (
+        paths[0].get("aggregated") is True
+    ), f"expected aggregated=true for normal aggregate (sub_type=BGP_ROUTE_AGGREGATE), got: {paths[0]}"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -544,6 +556,7 @@ def test_bgp_upa_subtype_no_conflict():
 # ===========================================================================
 # Configuration and CLI Commands
 # ===========================================================================
+
 
 def test_debug_command():
     """
@@ -571,13 +584,13 @@ def test_debug_command():
 
     # Verify in show debugging
     output = r1.vtysh_cmd("show debugging")
-    assert "BGP UPA debugging is on" in output, \
-        "Debug UPA not shown in 'show debugging'"
+    assert (
+        "BGP UPA debugging is on" in output
+    ), "Debug UPA not shown in 'show debugging'"
 
     # Verify appears in config
     output = r1.vtysh_cmd("show running-config")
-    assert "debug bgp upa" in output, \
-        "Debug UPA not in running config"
+    assert "debug bgp upa" in output, "Debug UPA not in running config"
 
     # Disable debug
     r1.vtysh_cmd(
@@ -589,8 +602,9 @@ def test_debug_command():
 
     # Verify removed
     output = r1.vtysh_cmd("show debugging")
-    assert "BGP UPA debugging is on" not in output, \
-        "Debug UPA still shown after 'no debug'"
+    assert (
+        "BGP UPA debugging is on" not in output
+    ), "Debug UPA still shown after 'no debug'"
 
 
 def test_neighbor_upa_command():
@@ -617,19 +631,21 @@ def test_neighbor_upa_command():
         """
     )
     # Check if command succeeded
-    assert "Unknown command" not in result and "%" not in result, \
-        f"neighbor upa command failed: {result}"
+    assert (
+        "Unknown command" not in result and "%" not in result
+    ), f"neighbor upa command failed: {result}"
 
     # Verify in config
     output = r1.vtysh_cmd("show running-config")
     # Debug: print what we got
     if "neighbor 10.0.0.2" in output:
         # Extract just the neighbor 10.0.0.2 section for debugging
-        lines = [l for l in output.split('\n') if '10.0.0.2' in l]
+        lines = [l for l in output.split("\n") if "10.0.0.2" in l]
         print(f"DEBUG: Found neighbor lines: {lines}")
-    neighbor_lines = [l for l in output.split('\n') if '10.0.0.2' in l]
-    assert "neighbor 10.0.0.2 upa" in output, \
-        f"neighbor upa not in running config. Neighbor lines: {neighbor_lines}"
+    neighbor_lines = [l for l in output.split("\n") if "10.0.0.2" in l]
+    assert (
+        "neighbor 10.0.0.2 upa" in output
+    ), f"neighbor upa not in running config. Neighbor lines: {neighbor_lines}"
 
     # Remove it
     r1.vtysh_cmd(
@@ -642,8 +658,9 @@ def test_neighbor_upa_command():
 
     # Verify removed
     output = r1.vtysh_cmd("show running-config")
-    assert "neighbor 10.0.0.2 upa" not in output, \
-        "neighbor upa still in config after removal"
+    assert (
+        "neighbor 10.0.0.2 upa" not in output
+    ), "neighbor upa still in config after removal"
 
 
 def test_aggregate_upa_keywords():
@@ -673,8 +690,7 @@ def test_aggregate_upa_keywords():
         """
     )
     output = r1.vtysh_cmd("show running-config")
-    assert "aggregate-address 192.0.2.0/24 upa" in output, \
-        "aggregate upa not in config"
+    assert "aggregate-address 192.0.2.0/24 upa" in output, "aggregate upa not in config"
 
     # Test 2: Add 'drop' keyword
     r1.vtysh_cmd(
@@ -686,8 +702,9 @@ def test_aggregate_upa_keywords():
         """
     )
     output = r1.vtysh_cmd("show running-config")
-    assert "aggregate-address 192.0.2.0/24 upa drop" in output, \
-        "aggregate upa drop not in config"
+    assert (
+        "aggregate-address 192.0.2.0/24 upa drop" in output
+    ), "aggregate upa drop not in config"
 
     # Test 3: Add max-routes
     r1.vtysh_cmd(
@@ -699,8 +716,7 @@ def test_aggregate_upa_keywords():
         """
     )
     output = r1.vtysh_cmd("show running-config")
-    assert "max-routes 100" in output, \
-        "aggregate upa max-routes not in config"
+    assert "max-routes 100" in output, "aggregate upa max-routes not in config"
 
     # Clean up
     r1.vtysh_cmd(
@@ -730,8 +746,7 @@ def test_show_bgp_upa():
 
     # Test basic command
     output = r1.vtysh_cmd("show bgp upa")
-    assert "UPA routes" in output, \
-        "show bgp upa failed"
+    assert "UPA routes" in output, "show bgp upa failed"
 
     # Test JSON output
     output = r1.vtysh_cmd("show bgp upa json")
@@ -744,8 +759,7 @@ def test_show_bgp_upa():
 
     # Test with IPv6
     output = r1.vtysh_cmd("show bgp ipv6 upa")
-    assert "UPA routes" in output, \
-        "show bgp ipv6 upa failed"
+    assert "UPA routes" in output, "show bgp ipv6 upa failed"
 
 
 def test_show_bgp_upa_statistics_ipv4_unicast():
@@ -765,8 +779,9 @@ def test_show_bgp_upa_statistics_ipv4_unicast():
 
     # Test basic command
     output = r1.vtysh_cmd("show bgp upa statistics")
-    assert "UPA Statistics" in output or "statistics" in output.lower(), \
-        "show bgp upa statistics failed"
+    assert (
+        "UPA Statistics" in output or "statistics" in output.lower()
+    ), "show bgp upa statistics failed"
 
     # Test JSON output
     output = r1.vtysh_cmd("show bgp upa statistics json")
@@ -774,9 +789,9 @@ def test_show_bgp_upa_statistics_ipv4_unicast():
         parsed = json.loads(output)
         assert isinstance(parsed, dict), "statistics json didn't return dict"
         # Check for expected fields in stub
-        assert "aggregatesWithUpaEnabled" in parsed or \
-               "activeUpaRoutes" in parsed, \
-               "statistics json missing expected fields"
+        assert (
+            "aggregatesWithUpaEnabled" in parsed or "activeUpaRoutes" in parsed
+        ), "statistics json missing expected fields"
     except json.JSONDecodeError:
         pytest.fail("show bgp upa statistics json returned invalid JSON")
 
@@ -798,8 +813,9 @@ def test_show_bgp_neighbor_upa():
 
     # Test basic command
     output = r1.vtysh_cmd("show bgp neighbors 10.0.0.2 upa")
-    assert "UPA" in output or "neighbor" in output.lower(), \
-        "show bgp neighbors upa failed"
+    assert (
+        "UPA" in output or "neighbor" in output.lower()
+    ), "show bgp neighbors upa failed"
 
     # Test JSON output
     output = r1.vtysh_cmd("show bgp neighbors 10.0.0.2 upa json")
@@ -807,8 +823,9 @@ def test_show_bgp_neighbor_upa():
         parsed = json.loads(output)
         assert isinstance(parsed, dict), "neighbor upa json didn't return dict"
         # Stub should have peer field
-        assert "peer" in parsed or "upaSendEnabled" in parsed, \
-               "neighbor upa json missing expected fields"
+        assert (
+            "peer" in parsed or "upaSendEnabled" in parsed
+        ), "neighbor upa json missing expected fields"
     except json.JSONDecodeError:
         pytest.fail("show bgp neighbors upa json returned invalid JSON")
 
@@ -840,8 +857,9 @@ def test_show_bgp_aggregate():
 
     # Test basic command
     output = r1.vtysh_cmd("show bgp ipv4 unicast aggregate-address")
-    assert "203.0.113.0/24" in output or "Aggregate" in output, \
-        "show bgp ipv4 unicast aggregate-address failed"
+    assert (
+        "203.0.113.0/24" in output or "Aggregate" in output
+    ), "show bgp ipv4 unicast aggregate-address failed"
 
     # Test JSON output
     output = r1.vtysh_cmd("show bgp ipv4 unicast aggregate-address json")
@@ -849,18 +867,22 @@ def test_show_bgp_aggregate():
         parsed = json.loads(output)
         assert isinstance(parsed, dict), "aggregate json didn't return dict"
     except json.JSONDecodeError:
-        pytest.fail("show bgp ipv4 unicast aggregate-address json returned invalid JSON")
+        pytest.fail(
+            "show bgp ipv4 unicast aggregate-address json returned invalid JSON"
+        )
 
     # Test filtering by prefix
     output = r1.vtysh_cmd("show bgp ipv4 unicast aggregate-address 203.0.113.0/24")
-    assert "203.0.113.0/24" in output, \
-        "show bgp ipv4 unicast aggregate-address with prefix filter failed"
+    assert (
+        "203.0.113.0/24" in output
+    ), "show bgp ipv4 unicast aggregate-address with prefix filter failed"
 
     # Verify UPA settings via running-config. Runtime aggregate output does not
     # currently display UPA-specific fields in text mode.
     run_cfg = r1.vtysh_cmd("show running-config")
-    assert "aggregate-address 203.0.113.0/24 upa drop max-routes 50" in run_cfg, \
-        "UPA aggregate configuration not found in running-config"
+    assert (
+        "aggregate-address 203.0.113.0/24 upa drop max-routes 50" in run_cfg
+    ), "UPA aggregate configuration not found in running-config"
 
     # Verify max-routes in JSON output
     output = r1.vtysh_cmd("show bgp ipv4 unicast aggregate-address 203.0.113.0/24 json")
@@ -912,8 +934,7 @@ def test_max_routes_dynamic_changes():
         """
     )
     output = r1.vtysh_cmd("show running-config")
-    assert "max-routes 50" in output, \
-        "Initial max-routes 50 not in config"
+    assert "max-routes 50" in output, "Initial max-routes 50 not in config"
 
     # Test 2: Increase limit to 100
     r1.vtysh_cmd(
@@ -925,10 +946,10 @@ def test_max_routes_dynamic_changes():
         """
     )
     output = r1.vtysh_cmd("show running-config")
-    assert "max-routes 100" in output, \
-        "Increased max-routes 100 not in config"
-    assert "max-routes 50" not in output, \
-        "Old max-routes 50 still in config after increase"
+    assert "max-routes 100" in output, "Increased max-routes 100 not in config"
+    assert (
+        "max-routes 50" not in output
+    ), "Old max-routes 50 still in config after increase"
 
     # Test 3: Decrease limit to 25
     r1.vtysh_cmd(
@@ -940,10 +961,10 @@ def test_max_routes_dynamic_changes():
         """
     )
     output = r1.vtysh_cmd("show running-config")
-    assert "max-routes 25" in output, \
-        "Decreased max-routes 25 not in config"
-    assert "max-routes 100" not in output, \
-        "Old max-routes 100 still in config after decrease"
+    assert "max-routes 25" in output, "Decreased max-routes 25 not in config"
+    assert (
+        "max-routes 100" not in output
+    ), "Old max-routes 100 still in config after decrease"
 
     # Test 4: Remove max-routes limit (set to unlimited)
     # Just configure 'upa' without max-routes - should default to 0 (unlimited)
@@ -957,12 +978,12 @@ def test_max_routes_dynamic_changes():
     )
     output = r1.vtysh_cmd("show running-config")
     # When unlimited (0), max-routes keyword should not appear
-    assert "198.18.0.0/15 upa" in output, \
-        "aggregate upa not in config"
+    assert "198.18.0.0/15 upa" in output, "aggregate upa not in config"
     # Check that old limit is gone from this specific aggregate line
-    lines = [line for line in output.split('\n') if '198.18.0.0/15' in line]
-    assert any('upa' in line and 'max-routes 25' not in line for line in lines), \
-        "Old max-routes 25 still appears after removal"
+    lines = [line for line in output.split("\n") if "198.18.0.0/15" in line]
+    assert any(
+        "upa" in line and "max-routes 25" not in line for line in lines
+    ), "Old max-routes 25 still appears after removal"
 
     # Test 5: Verify in show bgp ipv4 unicast aggregate-address
     output = r1.vtysh_cmd("show bgp ipv4 unicast aggregate-address 198.18.0.0/15 json")
@@ -971,8 +992,9 @@ def test_max_routes_dynamic_changes():
         for prefix_data in parsed.values():
             if isinstance(prefix_data, dict) and prefix_data.get("upaEnabled"):
                 # When unlimited, max-routes should be 0
-                assert prefix_data.get("upaMaxRoutes") == 0, \
-                    f"Expected unlimited (0), got {prefix_data.get('upaMaxRoutes')}"
+                assert (
+                    prefix_data.get("upaMaxRoutes") == 0
+                ), f"Expected unlimited (0), got {prefix_data.get('upaMaxRoutes')}"
                 break
     except (json.JSONDecodeError, KeyError, AssertionError) as e:
         pytest.fail(f"Unlimited max-routes not properly handled: {e}")
@@ -991,6 +1013,7 @@ def test_max_routes_dynamic_changes():
 # ===========================================================================
 # Tests - UPA Origination (Aggregate and Global)
 # ===========================================================================
+
 
 def test_no_origination_when_disabled():
     """
@@ -1061,8 +1084,9 @@ def test_no_origination_when_disabled():
         return False
 
     _, appeared = topotest.run_and_expect(_upa_appeared, True, count=15, wait=1)
-    assert appeared is not True, \
-        "Unexpected UPA appeared for 10.10.1.0/24 with upa_enabled=false"
+    assert (
+        appeared is not True
+    ), "Unexpected UPA appeared for 10.10.1.0/24 with upa_enabled=false"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -1080,6 +1104,7 @@ def test_no_origination_when_disabled():
 # ---------------------------------------------------------------------------
 # Test Group 1: Aggregate-Scoped UPA Origination
 # ---------------------------------------------------------------------------
+
 
 def test_aggregate_upa_basic_origination():
     """
@@ -1155,7 +1180,9 @@ def test_aggregate_upa_basic_origination():
 
     # DEBUG: Check debug logs
     print("\n=== DEBUG: Recent UPA debug logs ===")
-    log_output = r1.run("tail -100 /var/log/frr/bgpd.log | grep -i upa || echo 'No UPA logs found'")
+    log_output = r1.run(
+        "tail -100 /var/log/frr/bgpd.log | grep -i upa || echo 'No UPA logs found'"
+    )
     print(log_output)
 
     # Verify UPA routes originated
@@ -1164,8 +1191,9 @@ def test_aggregate_upa_basic_origination():
 
     print(f"\n=== DEBUG: UPA routes JSON: {json.dumps(data, indent=2)} ===\n")
 
-    assert data.get("totalUpaRoutes", 0) >= 3, \
-        f"Expected at least 3 UPA routes, got {data.get('totalUpaRoutes')}"
+    assert (
+        data.get("totalUpaRoutes", 0) >= 3
+    ), f"Expected at least 3 UPA routes, got {data.get('totalUpaRoutes')}"
 
     # Check one UPA route in detail - find the path with UPA extended community
     route_101 = r1.vtysh_cmd("show bgp ipv4 unicast 10.1.1.0/24 json")
@@ -1180,19 +1208,19 @@ def test_aggregate_upa_basic_origination():
                 upa_path = path
                 break
 
-    assert upa_path is not None, \
-        "Could not find UPA path in route 10.1.1.0/24"
+    assert upa_path is not None, "Could not find UPA path in route 10.1.1.0/24"
 
     # Verify ORIGIN is INCOMPLETE
-    assert upa_path.get("origin") == "incomplete", \
-        f"Expected ORIGIN incomplete, got {upa_path.get('origin')}"
+    assert (
+        upa_path.get("origin") == "incomplete"
+    ), f"Expected ORIGIN incomplete, got {upa_path.get('origin')}"
 
     # Verify extended community present
-    assert "extendedCommunity" in upa_path, \
-        "UPA extended community not found"
+    assert "extendedCommunity" in upa_path, "UPA extended community not found"
     extcom_str = upa_path.get("extendedCommunity", {}).get("string", "")
-    assert "upa:" in extcom_str.lower(), \
-        f"UPA extended community not in string: {extcom_str}"
+    assert (
+        "upa:" in extcom_str.lower()
+    ), f"UPA extended community not in string: {extcom_str}"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -1286,6 +1314,7 @@ def test_aggregate_upa_with_dbit():
         """
     )
 
+
 def test_aggregate_upa_max_routes():
     """
     Test 1.3: Aggregate UPA max-routes limiting
@@ -1344,8 +1373,11 @@ def test_aggregate_upa_max_routes():
     def _local_upa_count_3():
         output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
         data = json.loads(output)
-        local_upa_routes = [r for r in data.get("routes", [])
-                           if r.get("network", "").startswith("10.3.")]
+        local_upa_routes = [
+            r
+            for r in data.get("routes", [])
+            if r.get("network", "").startswith("10.3.")
+        ]
         return len(local_upa_routes) == 3
 
     topotest.run_and_expect(_local_upa_count_3, True, count=30, wait=1)
@@ -1357,8 +1389,9 @@ def test_aggregate_upa_max_routes():
     data = json.loads(output)
 
     # Count only locally originated UPA routes (10.3.x.0/24)
-    local_upa_routes = [r for r in data.get("routes", [])
-                       if r.get("network", "").startswith("10.3.")]
+    local_upa_routes = [
+        r for r in data.get("routes", []) if r.get("network", "").startswith("10.3.")
+    ]
     upa_count = len(local_upa_routes)
 
     # Debug: show which routes were originated
@@ -1368,8 +1401,9 @@ def test_aggregate_upa_max_routes():
         print(f"All UPA routes: {json.dumps(data.get('routes', []), indent=2)}")
 
     # Should be exactly 3 due to max-routes limit
-    assert upa_count == 3, \
-        f"Expected 3 locally originated UPA routes (max-routes limit), got {upa_count}"
+    assert (
+        upa_count == 3
+    ), f"Expected 3 locally originated UPA routes (max-routes limit), got {upa_count}"
 
     # Increase limit to 6
     r1.vtysh_cmd(
@@ -1385,8 +1419,11 @@ def test_aggregate_upa_max_routes():
     def _local_upa_count_ge_3():
         output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
         data = json.loads(output)
-        local_upa_routes = [r for r in data.get("routes", [])
-                           if r.get("network", "").startswith("10.3.")]
+        local_upa_routes = [
+            r
+            for r in data.get("routes", [])
+            if r.get("network", "").startswith("10.3.")
+        ]
         return len(local_upa_routes) >= 3
 
     topotest.run_and_expect(_local_upa_count_ge_3, True, count=30, wait=1)
@@ -1397,13 +1434,15 @@ def test_aggregate_upa_max_routes():
     data = json.loads(output)
 
     # Count only locally originated UPA routes (10.3.x.0/24)
-    local_upa_routes = [r for r in data.get("routes", [])
-                       if r.get("network", "").startswith("10.3.")]
+    local_upa_routes = [
+        r for r in data.get("routes", []) if r.get("network", "").startswith("10.3.")
+    ]
     upa_count = len(local_upa_routes)
 
     # After increasing limit, should have more UPAs
-    assert upa_count >= 3, \
-        f"Local UPA count should remain at least 3 after limit increase, got {upa_count}"
+    assert (
+        upa_count >= 3
+    ), f"Local UPA count should remain at least 3 after limit increase, got {upa_count}"
 
     # Cleanup
     for i in range(1, 7):
@@ -1423,6 +1462,7 @@ def test_aggregate_upa_max_routes():
         no aggregate-address 10.0.0.0/8
         """
     )
+
 
 def test_aggregate_upa_withdrawal():
     """
@@ -1505,12 +1545,15 @@ def test_aggregate_upa_withdrawal():
         output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
         data = json.loads(output)
         # Check if any locally originated UPA routes (10.x.x.x) remain
-        local_upa_routes = [r for r in data.get("routes", [])
-                           if r.get("network", "").startswith("10.")]
+        local_upa_routes = [
+            r for r in data.get("routes", []) if r.get("network", "").startswith("10.")
+        ]
         return len(local_upa_routes) == 0
 
     success, _ = topotest.run_and_expect(_upa_withdrawn, True, count=30, wait=1)
-    assert success, "Locally originated UPA routes not withdrawn after aggregate removal"
+    assert (
+        success
+    ), "Locally originated UPA routes not withdrawn after aggregate removal"
 
     # Disable debug
     r1.vtysh_cmd("no debug bgp upa")
@@ -1597,10 +1640,10 @@ def test_global_upa_originate_all():
     output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics json")
     data = json.loads(output)
 
-    assert data.get("globalUpaEnabled") == True, \
-        "Global UPA not enabled"
-    assert data.get("activeUpaRoutes", 0) >= 4, \
-        f"Expected at least 4 global UPA routes, got {data.get('activeUpaRoutes')}"
+    assert data.get("globalUpaEnabled") == True, "Global UPA not enabled"
+    assert (
+        data.get("activeUpaRoutes", 0) >= 4
+    ), f"Expected at least 4 global UPA routes, got {data.get('activeUpaRoutes')}"
 
     # Cleanup
     for i in range(1, 5):
@@ -1620,6 +1663,7 @@ def test_global_upa_originate_all():
         no upa originate-all
         """
     )
+
 
 def test_global_upa_with_max_routes():
     """
@@ -1679,8 +1723,11 @@ def test_global_upa_with_max_routes():
     def _upa_reached_limit():
         output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
         data = json.loads(output)
-        local_upa_routes = [r for r in data.get("routes", [])
-                           if r.get("network", "").startswith("172.17.")]
+        local_upa_routes = [
+            r
+            for r in data.get("routes", [])
+            if r.get("network", "").startswith("172.17.")
+        ]
         return len(local_upa_routes) >= 5
 
     topotest.run_and_expect(_upa_reached_limit, True, count=30, wait=1)
@@ -1689,17 +1736,20 @@ def test_global_upa_with_max_routes():
     stats_output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics json")
     stats_data = json.loads(stats_output)
 
-    assert stats_data.get("maxRoutesLimit", 0) == 5, \
-        f"Max-routes limit should be 5, got {stats_data.get('maxRoutesLimit')}"
+    assert (
+        stats_data.get("maxRoutesLimit", 0) == 5
+    ), f"Max-routes limit should be 5, got {stats_data.get('maxRoutesLimit')}"
 
     # Count only locally originated UPA routes (172.17.x prefix)
     routes_output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
     routes_data = json.loads(routes_output)
-    local_upa_routes = [r for r in routes_data.get("routes", [])
-                       if r.get("network", "").startswith("172.17.")]
+    local_upa_routes = [
+        r
+        for r in routes_data.get("routes", [])
+        if r.get("network", "").startswith("172.17.")
+    ]
     upa_count = len(local_upa_routes)
-    assert upa_count <= 5, \
-        f"UPA count {upa_count} exceeds max-routes limit of 5"
+    assert upa_count <= 5, f"UPA count {upa_count} exceeds max-routes limit of 5"
 
     # Cleanup
     for i in range(1, 11):
@@ -1720,6 +1770,7 @@ def test_global_upa_with_max_routes():
         no upa originate-all
         """
     )
+
 
 def test_global_upa_with_dbit():
     """
@@ -1791,18 +1842,17 @@ def test_global_upa_with_dbit():
     # Check D-bit enabled in statistics
     output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics json")
     data = json.loads(output)
-    assert data.get("dropBitEnabled") == True, \
-        "D-bit not enabled in statistics"
+    assert data.get("dropBitEnabled") == True, "D-bit not enabled in statistics"
 
     # Verify UPA route was originated
     upa_output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
     upa_data = json.loads(upa_output)
 
     # Find our route in the UPA list to confirm it was originated
-    upa_found = any(r.get("network") == "172.18.1.0/24"
-                    for r in upa_data.get("routes", []))
-    assert upa_found, \
-        f"172.18.1.0/24 not found in UPA routes: {upa_output[:500]}"
+    upa_found = any(
+        r.get("network") == "172.18.1.0/24" for r in upa_data.get("routes", [])
+    )
+    assert upa_found, f"172.18.1.0/24 not found in UPA routes: {upa_output[:500]}"
 
     # Query the specific route to get extended community details
     route_output = r1.vtysh_cmd("show bgp ipv4 unicast 172.18.1.0/24 json")
@@ -1816,13 +1866,15 @@ def test_global_upa_with_dbit():
             upa_path = path
             break
 
-    assert upa_path is not None, \
-        f"Path with UPA extended community not found. Route: {route_output[:800]}"
+    assert (
+        upa_path is not None
+    ), f"Path with UPA extended community not found. Route: {route_output[:800]}"
 
     # Verify D-bit is set (drop flag in extended community)
     extcom_str = upa_path.get("extendedCommunity", {}).get("string", "")
-    assert ":drop" in extcom_str.lower(), \
-        f"D-bit (drop) not found in extended community: {extcom_str}"
+    assert (
+        ":drop" in extcom_str.lower()
+    ), f"D-bit (drop) not found in extended community: {extcom_str}"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -1837,6 +1889,7 @@ def test_global_upa_with_dbit():
         exit
         """
     )
+
 
 def test_global_upa_withdrawal():
     """
@@ -1897,8 +1950,11 @@ def test_global_upa_withdrawal():
         output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
         data = json.loads(output)
         # Filter for locally originated routes (172.19.x)
-        local_upa_routes = [r for r in data.get("routes", [])
-                           if r.get("network", "").startswith("172.19.")]
+        local_upa_routes = [
+            r
+            for r in data.get("routes", [])
+            if r.get("network", "").startswith("172.19.")
+        ]
         return len(local_upa_routes) > 0
 
     success, _ = topotest.run_and_expect(_upa_originated, True, count=30, wait=1)
@@ -1919,8 +1975,11 @@ def test_global_upa_withdrawal():
         output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
         data = json.loads(output)
         # Filter for locally originated routes (172.19.x)
-        local_upa_routes = [r for r in data.get("routes", [])
-                           if r.get("network", "").startswith("172.19.")]
+        local_upa_routes = [
+            r
+            for r in data.get("routes", [])
+            if r.get("network", "").startswith("172.19.")
+        ]
         return len(local_upa_routes) == 0
 
     success, _ = topotest.run_and_expect(_upa_withdrawn, True, count=30, wait=1)
@@ -1928,15 +1987,18 @@ def test_global_upa_withdrawal():
     # Verify all locally originated routes withdrawn
     output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
     data = json.loads(output)
-    local_upa_routes = [r for r in data.get("routes", [])
-                       if r.get("network", "").startswith("172.19.")]
+    local_upa_routes = [
+        r for r in data.get("routes", []) if r.get("network", "").startswith("172.19.")
+    ]
 
     stats_output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics json")
     stats_data = json.loads(stats_output)
-    assert stats_data.get("globalUpaEnabled") == False, \
-        "Global UPA still enabled after 'no upa originate-all'"
-    assert success, \
-        f"Still have {len(local_upa_routes)} locally originated UPA routes after withdrawal"
+    assert (
+        stats_data.get("globalUpaEnabled") == False
+    ), "Global UPA still enabled after 'no upa originate-all'"
+    assert (
+        success
+    ), f"Still have {len(local_upa_routes)} locally originated UPA routes after withdrawal"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -1952,6 +2014,7 @@ def test_global_upa_withdrawal():
 # ---------------------------------------------------------------------------
 # Test Group 3: Configuration Persistence
 # ---------------------------------------------------------------------------
+
 
 def test_config_write_aggregate_upa():
     """
@@ -1980,12 +2043,15 @@ def test_config_write_aggregate_upa():
     # Check running-config
     output = r1.vtysh_cmd("show running-config")
 
-    assert "aggregate-address 10.0.0.0/8 upa" in output, \
-        "Basic aggregate UPA not in config"
-    assert "aggregate-address 172.16.0.0/12 upa drop" in output, \
-        "Aggregate UPA with drop not in config"
-    assert "aggregate-address 192.168.0.0/16 upa" in output and "max-routes 50" in output, \
-        "Aggregate UPA with max-routes not in config"
+    assert (
+        "aggregate-address 10.0.0.0/8 upa" in output
+    ), "Basic aggregate UPA not in config"
+    assert (
+        "aggregate-address 172.16.0.0/12 upa drop" in output
+    ), "Aggregate UPA with drop not in config"
+    assert (
+        "aggregate-address 192.168.0.0/16 upa" in output and "max-routes 50" in output
+    ), "Aggregate UPA with max-routes not in config"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -2027,12 +2093,9 @@ def test_config_write_global_upa():
     # Check running-config
     output = r1.vtysh_cmd("show running-config")
 
-    assert "upa originate-all" in output, \
-        "Global UPA originate-all not in config"
-    assert "upa drop" in output, \
-        "Global UPA drop not in config"
-    assert "upa max-routes 1000" in output, \
-        "Global UPA max-routes not in config"
+    assert "upa originate-all" in output, "Global UPA originate-all not in config"
+    assert "upa drop" in output, "Global UPA drop not in config"
+    assert "upa max-routes 1000" in output, "Global UPA max-routes not in config"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -2045,6 +2108,8 @@ def test_config_write_global_upa():
         no upa originate-all
         """
     )
+
+
 def test_show_bgp_upa_routes():
     """
     Test 6.1: Show BGP UPA routes command
@@ -2113,16 +2178,15 @@ def test_show_bgp_upa_routes():
 
     # Test text output
     output = r1.vtysh_cmd("show bgp ipv4 unicast upa")
-    assert "10.5.1.0/24" in output or "10.5.2.0/24" in output, \
-        "UPA routes not in show output"
+    assert (
+        "10.5.1.0/24" in output or "10.5.2.0/24" in output
+    ), "UPA routes not in show output"
 
     # Test JSON output
     json_output = r1.vtysh_cmd("show bgp ipv4 unicast upa json")
     data = json.loads(json_output)
-    assert "totalUpaRoutes" in data, \
-        "totalUpaRoutes not in JSON output"
-    assert "routes" in data, \
-        "routes array not in JSON output"
+    assert "totalUpaRoutes" in data, "totalUpaRoutes not in JSON output"
+    assert "routes" in data, "routes array not in JSON output"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -2162,22 +2226,16 @@ def test_show_bgp_upa_statistics():
 
     # Check statistics
     output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics")
-    assert "Global UPA originate-all" in output, \
-        "Global UPA status not in statistics"
-    assert "Max-routes limit" in output, \
-        "Max-routes not in statistics"
-    assert "D-bit" in output, \
-        "D-bit status not in statistics"
+    assert "Global UPA originate-all" in output, "Global UPA status not in statistics"
+    assert "Max-routes limit" in output, "Max-routes not in statistics"
+    assert "D-bit" in output, "D-bit status not in statistics"
 
     # Check JSON
     json_output = r1.vtysh_cmd("show bgp ipv4 unicast upa statistics json")
     data = json.loads(json_output)
-    assert data.get("globalUpaEnabled") == True, \
-        "globalUpaEnabled not correct in JSON"
-    assert data.get("maxRoutesLimit") == 100, \
-        "maxRoutesLimit not correct in JSON"
-    assert data.get("dropBitEnabled") == True, \
-        "dropBitEnabled not correct in JSON"
+    assert data.get("globalUpaEnabled") == True, "globalUpaEnabled not correct in JSON"
+    assert data.get("maxRoutesLimit") == 100, "maxRoutesLimit not correct in JSON"
+    assert data.get("dropBitEnabled") == True, "dropBitEnabled not correct in JSON"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -2190,6 +2248,7 @@ def test_show_bgp_upa_statistics():
         no upa originate-all
         """
     )
+
 
 def test_upa_best_path_ranking():
     """
@@ -2273,7 +2332,9 @@ def test_upa_best_path_ranking():
 
         return False
 
-    success, _ = topotest.run_and_expect(_bgp_processed_withdrawal, True, count=30, wait=1)
+    success, _ = topotest.run_and_expect(
+        _bgp_processed_withdrawal, True, count=30, wait=1
+    )
     assert success, "UPA route not originated"
 
     # Now add static route back (will be redistributed again)
@@ -2329,6 +2390,7 @@ def test_upa_best_path_ranking():
         exit
         """
     )
+
 
 def test_upa_blackhole_with_dbit():
     """
@@ -2428,6 +2490,7 @@ def test_upa_blackhole_with_dbit():
         exit
         """
     )
+
 
 def test_upa_no_blackhole_without_dbit():
     """
@@ -2593,8 +2656,7 @@ def test_upa_best_no_fib_without_drop():
     # Verify UPA is in BGP RIB
     output = r1.vtysh_cmd("show bgp ipv4 unicast 10.88.1.0/24 json")
     data = json.loads(output)
-    assert "paths" in data and len(data["paths"]) > 0, \
-        "UPA route not found in BGP RIB"
+    assert "paths" in data and len(data["paths"]) > 0, "UPA route not found in BGP RIB"
 
     # Find the UPA path (has extended community with "upa:")
     upa_path = None
@@ -2607,14 +2669,18 @@ def test_upa_best_no_fib_without_drop():
 
     # DEBUG: If not found, print all paths
     if upa_path is None:
-        print(f"\n=== DEBUG: Could not find UPA path. All paths: {json.dumps(data, indent=2)} ===\n")
+        print(
+            f"\n=== DEBUG: Could not find UPA path. All paths: {json.dumps(data, indent=2)} ===\n"
+        )
 
-    assert upa_path is not None, \
-        f"UPA extended community not found in any path for 10.88.1.0/24"
+    assert (
+        upa_path is not None
+    ), f"UPA extended community not found in any path for 10.88.1.0/24"
 
     extcom_str = upa_path.get("extendedCommunity", {}).get("string", "")
-    assert "upa:" in extcom_str.lower(), \
-        f"UPA extended community not found in path: {extcom_str}"
+    assert (
+        "upa:" in extcom_str.lower()
+    ), f"UPA extended community not found in path: {extcom_str}"
 
     # Verify NOT in zebra (D-bit=0 should not install)
     def _bgp_in_zebra():
@@ -2629,8 +2695,9 @@ def test_upa_best_no_fib_without_drop():
         return False
 
     _, appeared = topotest.run_and_expect(_bgp_in_zebra, True, count=15, wait=1)
-    assert appeared is not True, \
-        "UPA route (D-bit=0) incorrectly installed in zebra (protocol=bgp)"
+    assert (
+        appeared is not True
+    ), "UPA route (D-bit=0) incorrectly installed in zebra (protocol=bgp)"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -2776,8 +2843,9 @@ def test_upa_drop_blackhole_removed_on_recovery():
     # First path should be the reachable one (not UPA)
     best_path = paths[0]
     extcom_str = best_path.get("extendedCommunity", {}).get("string", "")
-    assert "upa:" not in extcom_str.lower(), \
-        "UPA route still selected as best after reachable route restored"
+    assert (
+        "upa:" not in extcom_str.lower()
+    ), "UPA route still selected as best after reachable route restored"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -2803,6 +2871,7 @@ def test_upa_drop_blackhole_removed_on_recovery():
 # ===========================================================================
 # Tests (Using Received UPA Routes from ExaBGP)
 # ===========================================================================
+
 
 def test_received_upa_best_path_ranking():
     """
@@ -2860,8 +2929,7 @@ def test_received_upa_best_path_ranking():
     data = json.loads(output)
     paths = data.get("paths", [])
 
-    assert len(paths) >= 2, \
-        f"Expected at least 2 paths (UPA + local), got {len(paths)}"
+    assert len(paths) >= 2, f"Expected at least 2 paths (UPA + local), got {len(paths)}"
 
     # Find the UPA path and check if it's selected as best
     # In FRR JSON output, the first path in the list is typically the best path
@@ -2879,14 +2947,16 @@ def test_received_upa_best_path_ranking():
 
     # Verify best path (first path) is NOT the UPA path
     best_extcom = best_path.get("extendedCommunity", {}).get("string", "")
-    assert "upa:" not in best_extcom.lower(), \
-        "UPA route incorrectly selected as best path over local route"
+    assert (
+        "upa:" not in best_extcom.lower()
+    ), "UPA route incorrectly selected as best path over local route"
 
     # Alternatively, verify UPA path has notBestReason if that field exists
     if "notBestReason" in upa_path:
         # UPA should have a reason for not being best
-        assert upa_path.get("notBestReason") is not None, \
-            "UPA path should have notBestReason set"
+        assert (
+            upa_path.get("notBestReason") is not None
+        ), "UPA path should have notBestReason set"
 
     # Cleanup
     r1.vtysh_cmd(
@@ -3009,8 +3079,9 @@ def test_received_upa_no_dbit_no_zebra():
         return False
 
     _, appeared = topotest.run_and_expect(_bgp_in_zebra, True, count=15, wait=1)
-    assert appeared is not True, \
-        "UPA route with D-bit=0 incorrectly installed in zebra (protocol=bgp)"
+    assert (
+        appeared is not True
+    ), "UPA route with D-bit=0 incorrectly installed in zebra (protocol=bgp)"
 
     # No cleanup needed - received routes from ExaBGP remain until session ends
 
@@ -3018,6 +3089,7 @@ def test_received_upa_no_dbit_no_zebra():
 # ---------------------------------------------------------------------------
 # UPA Propagation
 # ---------------------------------------------------------------------------
+
 
 def test_update_group_separation():
     """
@@ -3061,11 +3133,11 @@ def test_update_group_separation():
     peer_output = r1.vtysh_cmd("show bgp ipv4 unicast summary json")
     peer_data = json.loads(peer_output)
 
-    assert "10.0.0.2" in peer_data.get("peers", {}), \
-        "Peer 10.0.0.2 not found in BGP summary"
+    assert "10.0.0.2" in peer_data.get(
+        "peers", {}
+    ), "Peer 10.0.0.2 not found in BGP summary"
 
-    assert initial_updgrp is not None, \
-        "No update groups found"
+    assert initial_updgrp is not None, "No update groups found"
 
     # Enable UPA capability on peer
     r1.vtysh_cmd(
@@ -3101,8 +3173,9 @@ def test_update_group_separation():
     # Verify peer session is still established
     peer_output = r1.vtysh_cmd("show bgp ipv4 unicast summary json")
     peer_data = json.loads(peer_output)
-    assert "10.0.0.2" in peer_data.get("peers", {}), \
-        "Peer 10.0.0.2 session lost after enabling UPA"
+    assert "10.0.0.2" in peer_data.get(
+        "peers", {}
+    ), "Peer 10.0.0.2 session lost after enabling UPA"
 
     # Peer should be in a different update group (or be the only peer, so update group ID might be same
     # but configuration is different). The key test is that PEER_FLAG_UPA affects update-group membership.
@@ -3161,7 +3234,9 @@ def test_upa_announcement_with_capability():
 
     # Check advertised routes to peer - UPA should be present
     def _upa_advertised():
-        output = r1.vtysh_cmd("show bgp ipv4 unicast neighbor 10.0.0.2 advertised-routes json")
+        output = r1.vtysh_cmd(
+            "show bgp ipv4 unicast neighbor 10.0.0.2 advertised-routes json"
+        )
         data = json.loads(output)
         advertised_routes = data.get("advertisedRoutes", {})
         return "192.168.2.0/24" in advertised_routes
@@ -3302,7 +3377,9 @@ def test_receive_path_parsing():
             if "string" in extcomm:
                 has_upa = "upa:" in extcomm["string"]
 
-            assert not has_upa, "UPA route incorrectly selected as best over static route"
+            assert (
+                not has_upa
+            ), "UPA route incorrectly selected as best over static route"
             best_path_found = True
             break
 

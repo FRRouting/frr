@@ -193,9 +193,9 @@ def test_r2_installs_blackhole_when_opted_in():
     _, result = topotest.run_and_expect(
         lambda: _zebra_has_blackhole(r2, PREFIX), True, count=30, wait=1
     )
-    assert result is True, "r2 did not install a blackhole for {} despite 'neighbor upa'".format(
-        PREFIX
-    )
+    assert (
+        result is True
+    ), "r2 did not install a blackhole for {} despite 'neighbor upa'".format(PREFIX)
 
 
 if __name__ == "__main__":
