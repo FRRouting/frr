@@ -1482,7 +1482,8 @@ class Router(Node):
     # Daemon stop order, mirroring the production init scripts
     # (tools/frrcommon.sh.in). all_stop() there signals daemons in the reverse
     # of the $DAEMONS start order, so this is that reversed list. Daemons not
-    # present here (e.g. fpm_listener, snmpd) sort before everything else.
+    # present here (e.g. fpm_listener, bfd_dplane_listener, snmpd) sort
+    # before everything else.
     # Keep this in sync with $DAEMONS in tools/frrcommon.sh.in.
     FRR_DAEMON_STOP_ORDER = {
         name: index
@@ -1587,6 +1588,7 @@ class Router(Node):
             "mgmtd": 0,
             "snmptrapd": 0,
             "fpm_listener": 0,
+            "bfd_dplane_listener": 0,
         }
         self.daemon_instances = {"ospfd": []}
         self.daemons_options = {"zebra": ""}
@@ -1687,28 +1689,30 @@ class Router(Node):
         return ret
 
     def stopRouter(self, assertOnError=True):
-        # fpm_listener writes its PID file to the gear log directory (next to
-        # its data dump), not to /var/run/frr/, so listDaemons() can't see it.
-        # Send it SIGTERM first and give it a brief moment to run its atexit
-        # handlers (in particular gcov flush under --enable-gcov) before the
-        # namespace teardown SIGKILLs it. This must happen before listDaemons()
-        # below sends SIGTERM to the FRR daemons because once zebra exits the
-        # FPM client side closes the socket and we want fpm_listener's last
-        # accept loop iteration to be reflected in coverage.
-        fpm_pidfile = "{}/{}/fpm_listener.pid".format(self.logdir, self.name)
-        try:
-            with open(fpm_pidfile) as f:
-                fpm_pid = int(f.read().strip())
+        # The listener helpers write their PID files to the gear log
+        # directory (next to their data dumps), not to /var/run/frr/, so
+        # listDaemons() can't see them. Send SIGTERM first and give them a
+        # brief moment to run their atexit handlers (in particular gcov flush
+        # under --enable-gcov) before the namespace teardown SIGKILLs them.
+        # This must happen before listDaemons() below sends SIGTERM to the FRR
+        # daemons because once the daemon exits its client side closes the
+        # socket, and we want the listener's last accept loop iteration to be
+        # reflected in coverage.
+        for listener in ("fpm_listener", "bfd_dplane_listener"):
+            pidfile = "{}/{}/{}.pid".format(self.logdir, self.name, listener)
             try:
-                os.kill(fpm_pid, signal.SIGTERM)
-                logger.debug(
-                    "%s: sent SIGTERM to fpm_listener pid %d", self.name, fpm_pid
-                )
-            except OSError:
+                with open(pidfile) as f:
+                    pid = int(f.read().strip())
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    logger.debug(
+                        "%s: sent SIGTERM to %s pid %d", self.name, listener, pid
+                    )
+                except OSError:
+                    pass
+                time.sleep(0.1)
+            except (FileNotFoundError, ValueError):
                 pass
-            time.sleep(0.1)
-        except (FileNotFoundError, ValueError):
-            pass
 
         # Stop Running FRR Daemons
         running = self.listDaemons()
@@ -2158,6 +2162,10 @@ class Router(Node):
                 binary = "/usr/lib/frr/fpm_listener"
                 cmdenv = ""
                 cmdopt = "-d {}".format(daemon_opts)
+            elif daemon == "bfd_dplane_listener":
+                binary = os.path.join(self.daemondir, "bfd_dplane_listener")
+                cmdenv = ""
+                cmdopt = "-d {}".format(daemon_opts)
             elif daemon == "snmpd":
                 binary = "/usr/sbin/snmpd"
                 cmdenv = ""
@@ -2447,6 +2455,7 @@ class Router(Node):
                     daemon != "snmpd"
                     and daemon != "snmptrapd"
                     and daemon != "fpm_listener"
+                    and daemon != "bfd_dplane_listener"
                 ):
                     cmdopt += " -d "
                 cmdopt += rediropt
@@ -2582,6 +2591,13 @@ class Router(Node):
             start_daemon("fpm_listener")
             while "fpm_listener" in daemons_list:
                 daemons_list.remove("fpm_listener")
+
+        if "bfd_dplane_listener" in daemons_list:
+            # bfdd connects to the listener as a client, so it has to be
+            # accepting before bfdd starts or the first connect fails.
+            start_daemon("bfd_dplane_listener")
+            while "bfd_dplane_listener" in daemons_list:
+                daemons_list.remove("bfd_dplane_listener")
 
         # Now start all the other daemons
         for daemon in daemons_list:
@@ -2809,6 +2825,8 @@ class Router(Node):
             if daemon == "snmptrapd":
                 continue
             if daemon == "fpm_listener":
+                continue
+            if daemon == "bfd_dplane_listener":
                 continue
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))

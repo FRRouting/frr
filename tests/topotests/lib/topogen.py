@@ -812,6 +812,7 @@ class TopoRouter(TopoGear):
     RD_MGMTD = 20
     RD_TRAP = 21
     RD_FPM_LISTENER = 22
+    RD_BFD_DPLANE_LISTENER = 23
     RD = {
         RD_FRR: "frr",
         RD_ZEBRA: "zebra",
@@ -836,6 +837,7 @@ class TopoRouter(TopoGear):
         RD_MGMTD: "mgmtd",
         RD_TRAP: "snmptrapd",
         RD_FPM_LISTENER: "fpm_listener",
+        RD_BFD_DPLANE_LISTENER: "bfd_dplane_listener",
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -955,7 +957,7 @@ class TopoRouter(TopoGear):
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
         TopoRouter.RD_PIM, TopoRouter.RD_PIM6, TopoRouter.RD_PBR,
         TopoRouter.RD_SNMP, TopoRouter.RD_MGMTD, TopoRouter.RD_TRAP,
-        TopoRouter.RD_FPM_LISTENER.
+        TopoRouter.RD_FPM_LISTENER, TopoRouter.RD_BFD_DPLANE_LISTENER.
 
         Possible `source` values are `None` for an empty config file, a path name which is
         used directly, or a file name with no path components which is first looked for
@@ -1001,6 +1003,7 @@ class TopoRouter(TopoGear):
                 and daemon != "snmpd"
                 and daemon != "snmptrapd"
                 and daemon != "fpm_listener"
+                and daemon != "bfd_dplane_listener"
             ):
                 self.vtysh_cmd(
                     "\n".join(
@@ -1082,6 +1085,7 @@ class TopoRouter(TopoGear):
                 and daemon != "snmpd"
                 and daemon != "snmptrapd"
                 and daemon != "fpm_listener"
+                and daemon != "bfd_dplane_listener"
             ):
                 self.vtysh_cmd(
                     "\n".join(
