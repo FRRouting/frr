@@ -3958,40 +3958,58 @@ static int bgp_nb_listen_range_parse(const struct lyd_node *dnode, struct prefix
 
 int bgp_nb_peer_group_listen_range_create(struct nb_cb_create_args *args)
 {
+	const struct lyd_node *pg_dnode;
 	struct peer_group *group;
-	struct peer_group *existing;
 	struct prefix range;
 	int ret;
 
 	if (bgp_nb_listen_range_parse(args->dnode, &range, args->errmsg, args->errmsg_len) < 0)
 		return NB_ERR_VALIDATION;
 
-	group = nb_running_get_entry(yang_dnode_get_parent(args->dnode, "peer-group"), NULL,
-				     args->event == NB_EV_APPLY);
+	pg_dnode = yang_dnode_get_parent(args->dnode, "peer-group");
+	group = nb_running_get_entry(pg_dnode, NULL, args->event == NB_EV_APPLY);
 
 	if (args->event == NB_EV_VALIDATE) {
-		struct bgp *bgp;
+		const struct lyd_node *pgs_dnode = yang_dnode_get_parent(pg_dnode, "peer-groups");
+		const char *pg_name = yang_dnode_get_string(pg_dnode, "./peer-group-name");
+		const char *leaf = args->dnode->schema->name;
+		const struct lyd_node *pg_iter;
 
-		if (!group)
-			return NB_OK;
-		bgp = group->bgp;
-		existing = bgp_listen_range_lookup(bgp, &range, true);
-		if (existing && existing != group) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "Same listen range is attached to peer-group %s",
-				   existing->name);
-			return NB_ERR_VALIDATION;
-		}
-		existing = bgp_listen_range_lookup(bgp, &range, false);
-		if (existing && existing != group) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "Listen range overlaps with existing listen range");
-			return NB_ERR_VALIDATION;
-		}
-		if (group->conf->as_type == AS_UNSPECIFIED) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "peer-group %s has no remote-as", group->name);
-			return NB_ERR_VALIDATION;
+		if (pgs_dnode) {
+			LY_LIST_FOR (lyd_child(pgs_dnode), pg_iter) {
+				const char *other_name;
+				const struct lyd_node *child;
+
+				if (!strmatch(pg_iter->schema->name, "peer-group"))
+					continue;
+				other_name = yang_dnode_get_string(pg_iter, "./peer-group-name");
+				LY_LIST_FOR (lyd_child(pg_iter), child) {
+					struct prefix other;
+
+					if (child == args->dnode)
+						continue;
+					if (!strmatch(child->schema->name, leaf))
+						continue;
+					if (!str2prefix(lyd_get_value(child), &other))
+						continue;
+					apply_mask(&other);
+					if (prefix_same(&other, &range)) {
+						if (!strmatch(other_name, pg_name)) {
+							snprintfrr(
+								args->errmsg, args->errmsg_len,
+								"Same listen range is attached to peer-group %s",
+								other_name);
+							return NB_ERR_VALIDATION;
+						}
+					} else if (prefix_match(&other, &range) ||
+						   prefix_match(&range, &other)) {
+						snprintfrr(
+							args->errmsg, args->errmsg_len,
+							"Listen range overlaps with existing listen range");
+						return NB_ERR_VALIDATION;
+					}
+				}
+			}
 		}
 		return NB_OK;
 	}
