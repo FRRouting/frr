@@ -543,10 +543,15 @@ def test_upa_vs_reachable_precedence():
 
 def test_received_upa_dbit_zebra():
     """
-    Test 8: Verify D-bit=1 installs IPv6 blackhole in zebra RIB.
+    Test 8: Verify a received D-bit=1 UPA route is NOT installed as an IPv6
+    blackhole unless the neighbor is opted in with 'neighbor X upa'.
 
-    ExaBGP sends 2001:db8:99:2::/64 with D-bit=1.
-    Verify zebra RIB has blackhole entry.
+    ExaBGP sends 2001:db8:99:2::/64 with D-bit=1. r1 has not enabled UPA for
+    the neighbor, so the D-bit must be ignored and no unreachable/blackhole
+    route may be installed into zebra.
+
+    (The opted-in case is covered by the bgp_upa_no_zebra and bgp_upa_anycast
+    suites.)
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -554,19 +559,26 @@ def test_received_upa_dbit_zebra():
 
     r1 = tgen.gears["r1"]
 
-    # Wait for route with D-bit=1 in zebra
     def _blackhole_installed():
         output = r1.vtysh_cmd("show ipv6 route 2001:db8:99:2::/64 json")
         data = json.loads(output)
         route_data = data.get("2001:db8:99:2::/64")
         if not route_data:
             return False
-        nexthops = route_data[0].get("nexthops", [])
-        # Check for "blackhole": true field, not "type": "blackhole"
-        return any(nh.get("blackhole") is True for nh in nexthops)
+        for entry in route_data:
+            if entry.get("protocol") != "bgp":
+                continue
+            for nh in entry.get("nexthops", []):
+                if nh.get("blackhole") is True or nh.get("unreachable") is True:
+                    return True
+        return False
 
-    success, _ = topotest.run_and_expect(_blackhole_installed, True, count=30, wait=1)
-    assert success, "IPv6 blackhole route (D-bit=1) not installed in zebra"
+    # r1 has NOT opted in to UPA: the D-bit must be ignored, so no blackhole.
+    _, appeared = topotest.run_and_expect(_blackhole_installed, True, count=10, wait=1)
+    assert appeared is not True, (
+        "received D-bit=1 UPA route installed an IPv6 blackhole without "
+        "'neighbor X upa' opt-in"
+    )
 
 
 # ---------------------------------------------------------------------------

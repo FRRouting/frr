@@ -966,7 +966,7 @@ def test_neighbor_upa_dynamic_toggle():
     10. Cleanup
 
     This validates:
-    - PEER_FLAG_UPA_SEND toggles dynamically
+    - PEER_FLAG_UPA toggles dynamically
     - Update group membership changes when flag changes
     - UPA filtering responds to dynamic config changes
     """

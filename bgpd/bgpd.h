@@ -1963,10 +1963,12 @@ struct peer {
 #define PEER_FLAG_CONFIG_ENCAPSULATION_MPLS	  (1ULL << 34)
 #define PEER_FLAG_BGP_LS_IPV4			  (1ULL << 35)
 #define PEER_FLAG_BGP_LS_IPV6			  (1ULL << 36)
-/* Send UPA (Unreachable Prefix Announcement) routes to this peer.
- * Set when the peer negotiates UPA capability.
+/* UPA (Unreachable Prefix Announcement) enabled for this peer.
+ * Governs both directions: send UPA routes to this peer, and honor the
+ * D-bit of UPA routes received from it (install a blackhole/drop entry).
+ * Without this flag a received UPA route is never installed into zebra.
  */
-#define PEER_FLAG_UPA_SEND   (1ULL << 37)
+#define PEER_FLAG_UPA	     (1ULL << 37)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];

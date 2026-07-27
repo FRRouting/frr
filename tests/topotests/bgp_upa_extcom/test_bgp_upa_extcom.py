@@ -354,7 +354,7 @@ def test_bgp_route_types_no_conflict():
 
 def test_peer_flag_upa_send_exists():
     """
-    Verify PEER_FLAG_UPA_SEND can be referenced.
+    Verify PEER_FLAG_UPA can be referenced.
 
     This test confirms the peer flag constant is defined and the code
     compiles. Since doesn't implement the CLI command yet,
@@ -368,7 +368,7 @@ def test_peer_flag_upa_send_exists():
 
     r1 = tgen.gears["r1"]
 
-    # Verify bgpd is running (implicitly tests that PEER_FLAG_UPA_SEND
+    # Verify bgpd is running (implicitly tests that PEER_FLAG_UPA
     # constant is defined and code compiled successfully)
     output = r1.vtysh_cmd("show bgp summary json")
     parsed = json.loads(output)
@@ -2847,12 +2847,15 @@ def test_received_upa_best_path_ranking():
 
 def test_received_upa_dbit_zebra_install():
     """
-    Verify D-bit=1 UPA routes install as blackhole in zebra.
+    Verify a received D-bit=1 UPA route is NOT installed as a blackhole unless
+    the receiving neighbor is opted in with 'neighbor X upa'.
 
     Test uses UPA route 192.168.2.0/24 received from ExaBGP peer1 (D-bit=1).
-    Since D-bit is set, this route should be installed in zebra as blackhole.
+    r1 has not enabled UPA for the neighbor, so the D-bit must be ignored and
+    no unreachable/blackhole route may be installed into zebra.
 
-    HLD Requirement: "D-bit=1: Install blackhole route in kernel FIB"
+    (The opted-in case - where the blackhole IS installed - is covered by the
+    bgp_upa_no_zebra and bgp_upa_anycast suites.)
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -2877,7 +2880,6 @@ def test_received_upa_dbit_zebra_install():
     success, _ = topotest.run_and_expect(_upa_dbit_received, True, count=30, wait=1)
     assert success, "UPA route with D-bit=1 not received from ExaBGP"
 
-    # Verify route is installed in zebra as blackhole
     def _zebra_has_blackhole():
         output = r1.vtysh_cmd("show ip route 192.168.2.0/24 json")
         data = json.loads(output)
@@ -2885,19 +2887,23 @@ def test_received_upa_dbit_zebra_install():
         if not route_info:
             return False
 
-        # Check for blackhole nexthop (boolean field)
+        # Check for blackhole/unreachable nexthop (boolean fields)
         for entry in route_info:
-            nexthops = entry.get("nexthops", [])
-            for nh in nexthops:
-                if nh.get("blackhole") == True:
+            if entry.get("protocol") != "bgp":
+                continue
+            for nh in entry.get("nexthops", []):
+                if nh.get("blackhole") == True or nh.get("unreachable") == True:
                     return True
 
         return False
 
-    success, _ = topotest.run_and_expect(_zebra_has_blackhole, True, count=30, wait=1)
-    assert success, "UPA route with D-bit=1 not installed as blackhole in zebra"
-
-    # No cleanup needed - received routes from ExaBGP remain until session ends
+    # r1 has NOT opted in to UPA: the D-bit must be ignored, so no blackhole.
+    # Poll for a while; if a blackhole ever appears, the gating regressed.
+    _, appeared = topotest.run_and_expect(_zebra_has_blackhole, True, count=10, wait=1)
+    assert appeared is not True, (
+        "received D-bit=1 UPA route installed a blackhole without "
+        "'neighbor X upa' opt-in"
+    )
 
 
 def test_received_upa_no_dbit_no_zebra():
@@ -2959,7 +2965,7 @@ def test_update_group_separation():
     """
     Verify UPA-capable peers are in separate update groups.
 
-    HLD Requirement: "Add PEER_FLAG_UPA_SEND to PEER_UPDGRP_FLAGS so that
+    HLD Requirement: "Add PEER_FLAG_UPA to PEER_UPDGRP_FLAGS so that
     UPA-capable and non-UPA-capable peers form separate update groups."
 
     Test scenario:
@@ -3036,7 +3042,7 @@ def test_update_group_separation():
         "Peer 10.0.0.2 session lost after enabling UPA"
 
     # Peer should be in a different update group (or be the only peer, so update group ID might be same
-    # but configuration is different). The key test is that PEER_FLAG_UPA_SEND affects update-group membership.
+    # but configuration is different). The key test is that PEER_FLAG_UPA affects update-group membership.
     # For this simple topology with one peer, we verify the peer is still in an update group.
 
     # Cleanup
@@ -3054,7 +3060,7 @@ def test_upa_announcement_with_capability():
     Verify UPA routes ARE announced to peers with 'upa' capability.
 
     HLD Requirement: "UPA routes (BGP_PATH_UPA flag set) should only be
-    announced to peers with CHECK_FLAG(peer->flags, PEER_FLAG_UPA_SEND)"
+    announced to peers with CHECK_FLAG(peer->flags, PEER_FLAG_UPA)"
 
     Test scenario:
     1. Enable 'neighbor X upa' capability

@@ -6364,12 +6364,14 @@ DEFUN (no_neighbor_passive,
 	return peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_PASSIVE);
 }
 
-/* neighbor upa - enable UPA route propagation to this peer */
+/* neighbor upa - enable UPA (send routes to, and honor the D-bit received
+ * from, this peer)
+ */
 DEFPY(neighbor_upa, neighbor_upa_cmd,
       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor upa",
       NO_STR
       NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Send UPA (Unreachable Prefix Announcement) routes to this neighbor\n")
+      "Enable UPA (Unreachable Prefix Announcement) with this neighbor (send and honor D-bit)\n")
 {
 	struct peer *peer = peer_and_group_lookup_vty(vty, neighbor);
 
@@ -6377,19 +6379,18 @@ DEFPY(neighbor_upa, neighbor_upa_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no)
-		return bgp_vty_return(vty,
-				      peer_af_flag_unset(peer, bgp_node_afi(vty),
-							 bgp_node_safi(vty), PEER_FLAG_UPA_SEND));
+		return bgp_vty_return(vty, peer_af_flag_unset(peer, bgp_node_afi(vty),
+							      bgp_node_safi(vty), PEER_FLAG_UPA));
 
 	return bgp_vty_return(vty, peer_af_flag_set(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-						    PEER_FLAG_UPA_SEND));
+						    PEER_FLAG_UPA));
 }
 
 ALIAS_HIDDEN(neighbor_upa, neighbor_upa_hidden_cmd,
 	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor upa",
 	     NO_STR
 	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-	     "Send UPA (Unreachable Prefix Announcement) routes to this neighbor\n")
+	     "Enable UPA (Unreachable Prefix Announcement) with this neighbor (send and honor D-bit)\n")
 
 /* neighbor shutdown. */
 DEFUN (neighbor_shutdown_msg,
@@ -21952,7 +21953,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* UPA (Unreachable Prefix Announcement) */
-	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_UPA_SEND))
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_UPA))
 		vty_out(vty, "  neighbor %s upa\n", addr);
 
 	/* Default information */
@@ -25266,12 +25267,12 @@ DEFPY(show_bgp_neighbor_upa, show_bgp_neighbor_upa_cmd,
 		json = json_object_new_object();
 		json_object_string_add(json, "peer", peer->host);
 		json_object_boolean_add(json, "upaSendEnabled",
-					CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND));
+					CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA));
 		vty_json(vty, json);
 	} else {
 		vty_out(vty, "BGP neighbor %s UPA information:\n\n", peer->host);
 		vty_out(vty, "  UPA send enabled: %s\n",
-			CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND) ? "yes" : "no");
+			CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA) ? "yes" : "no");
 	}
 
 	return CMD_SUCCESS;

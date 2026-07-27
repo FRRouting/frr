@@ -1517,6 +1517,12 @@ When peers receive a route with the UPA extended community, they can:
 - Apply special policies (rate limiting, diversion to scrubbing centers, etc.)
 - Log/alert on unreachable prefixes
 
+Honoring the D-bit is opt-in: a receiver installs a blackhole/drop entry for a
+received UPA route **only** if UPA is enabled for that neighbor with
+``neighbor X upa``. Without that configuration the D-bit is ignored and no
+unreachable route is installed, even though the route (and its UPA extended
+community) remains visible in the BGP table.
+
 UPA Configuration
 ^^^^^^^^^^^^^^^^^
 
@@ -1545,9 +1551,11 @@ unreachable, UPA routes are originated up to the max-routes limit.
      neighbor 192.0.2.1 upa
     exit-address-family
 
-Only neighbors configured with ``neighbor X upa`` will receive UPA-tagged routes;
-others receive normal route withdrawals, maintaining backward compatibility.
-The ``neighbor X upa`` command is documented in :ref:`bgp-peers`.
+``neighbor X upa`` governs UPA in both directions for that neighbor: only such
+neighbors are sent UPA-tagged routes (others receive normal route withdrawals,
+maintaining backward compatibility), and only for such neighbors is the D-bit of
+a received UPA route honored (a drop/blackhole entry installed). The
+``neighbor X upa`` command is documented in :ref:`bgp-peers`.
 
 Global UPA Origination
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -2154,12 +2162,17 @@ Configuring Peers
 
 .. clicmd:: neighbor PEER upa
 
-   Enable sending UPA (Unreachable Prefix Announcement) routes to this peer.
-   When configured, locally originated UPA routes and received routes carrying
-   the UPA extended community (type 0x03, subtype 0x09) are announced to
-   this neighbor.
+   Enable UPA (Unreachable Prefix Announcement) for this peer. This governs
+   both directions:
 
-   Neighbors without this capability will receive standard route withdrawals
+   - Outbound: locally originated UPA routes and received routes carrying the
+     UPA extended community (type 0x03, subtype 0x09) are announced to this
+     neighbor.
+   - Inbound: the D-bit of UPA routes received from this neighbor is honored,
+     i.e. a blackhole/drop entry is installed into zebra. Without this option
+     the D-bit is ignored and no unreachable route is installed.
+
+   Neighbors without this option will receive standard route withdrawals
    when aggregates become unreachable, maintaining backward compatibility.
 
    This capability must be configured together with the aggregate-address

@@ -2485,10 +2485,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * Filter both:
 	 * 1. Locally originated UPA routes (BGP_PATH_UPA flag set)
 	 * 2. Received routes with UPA extended community (BGP_PATH_UPA flag set)
-	 * These should only be announced to peers with PEER_FLAG_UPA_SEND
+	 * These should only be announced to peers with PEER_FLAG_UPA
 	 * configured via 'neighbor X upa'
 	 */
-	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND)) {
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA)) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_UPA)) {
 			if (BGP_DEBUG(upa, UPA))
 				zlog_debug("%s: UPA route %pFX FILTERED - peer lacks 'neighbor upa' configuration",
@@ -2775,13 +2775,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	RESET_FLAG(attr->rmap_change_flags);
 
 	/* Strip UPA Extended Community for non-UPA peers.
-	 * If the peer does not support UPA (lacks PEER_FLAG_UPA_SEND),
+	 * If the peer does not support UPA (lacks PEER_FLAG_UPA),
 	 * remove UPA ExtCom from the attributes before sending. This handles
 	 * cases where non-UPA routes carry UPA ExtComs (e.g., received from
 	 * another router). Note: Full UPA routes (BGP_PATH_UPA flag set)
 	 * are already filtered earlier.
 	 */
-	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND)) {
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA)) {
 		struct ecommunity *ecom = bgp_attr_get_ecommunity(attr);
 		struct ecommunity *ecom_filtered = NULL;
 
@@ -6850,8 +6850,13 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				}
 
 				SET_FLAG(new->flags, BGP_PATH_UPA);
-				if (CHECK_FLAG(ptr[BGP_UPA_EXTCOM_OFF_FLAGS], BGP_UPA_FLAG_DROP))
-					SET_FLAG(new->flags, BGP_PATH_UPA_DROP);
+				if (CHECK_FLAG(ptr[BGP_UPA_EXTCOM_OFF_FLAGS], BGP_UPA_FLAG_DROP)) {
+					if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA))
+						SET_FLAG(new->flags, BGP_PATH_UPA_DROP);
+					else if (BGP_DEBUG(upa, UPA))
+						zlog_debug("%s: not honoring UPA D-bit for %pFX from %pBP (neighbor UPA not enabled)",
+							   __func__, p, peer);
+				}
 				break;
 			}
 		}
