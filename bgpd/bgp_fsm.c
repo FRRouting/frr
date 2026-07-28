@@ -45,8 +45,8 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
 
-DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
-DEFINE_HOOK(peer_status_changed, (struct peer_connection * connection), (connection));
+DEFINE_HOOK(peer_backward_transition, (struct peer *peer), (peer));
+DEFINE_HOOK(peer_status_changed, (struct peer_connection *connection), (connection));
 DEFINE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
 
 bool bgp_rpki_cache_connected(struct bgp *bgp)
@@ -2688,6 +2688,18 @@ static void bgp_connect_in_progress_update_connection(struct peer_connection *co
 	}
 }
 
+/*
+ * bgp_getsockname() accepts a missing nexthop only when the peer is both
+ * ip-transparent and has an explicit update-source. Use the same pair here
+ * so Connect is not blocked, and a later NHT withdraw does not tear the
+ * session down.
+ */
+static bool bgp_peer_nht_connect_exempt(const struct peer *peer)
+{
+	return CHECK_FLAG(peer->flags, PEER_FLAG_IP_TRANSPARENT) &&
+	       CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE);
+}
+
 /* This function is the first starting point of all BGP connection. It
  * try to connect to remote peer with non-blocking IO.
  */
@@ -2755,8 +2767,16 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 
 	/* Register peer for NHT. If next hop is already resolved, proceed
 	 * with connection setup, else wait.
+	 *
+	 * ip-transparent plus an explicit update-source binds a non-local
+	 * address; NHT for the peer can race or stay unresolved while the
+	 * admin has already forced connectivity. Mirror bgp_getsockname()
+	 * and do not block Connect on WAITING_NHT.
 	 */
-	if (!bgp_peer_connection_reg_with_nht(connection)) {
+	if (bgp_peer_nht_connect_exempt(peer)) {
+		/* Still register for tracking, but do not block on result. */
+		bgp_peer_connection_reg_with_nht(connection);
+	} else if (!bgp_peer_connection_reg_with_nht(connection)) {
 		if (bgp_zebra_num_connects()) {
 			frrtrace(2, frr_bgp, session_state_change, peer, 8);
 			if (bgp_debug_neighbor_events(peer))
@@ -3259,7 +3279,7 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 			BGP_EVENT_ADD(connection, BGP_Start);
 		break;
 	case Connect:
-		if (!has_valid_nexthops) {
+		if (!has_valid_nexthops && !bgp_peer_nht_connect_exempt(peer)) {
 			event_cancel(&connection->t_connect);
 			BGP_EVENT_ADD(connection, TCP_fatal_error);
 		}
@@ -3274,7 +3294,7 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 	case OpenSent:
 	case OpenConfirm:
 	case Established:
-		if (!has_valid_nexthops &&
+		if (!has_valid_nexthops && !bgp_peer_nht_connect_exempt(peer) &&
 		    (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED || peer->bgp->fast_convergence)) {
 			BGP_EVENT_ADD(connection, TCP_fatal_error);
 			peer_set_last_reset(peer, PEER_DOWN_WAITING_NHT);
