@@ -7048,9 +7048,6 @@ static void show_lsa_detail_adv_router(struct vty *vty, struct ospf *ospf,
 	json_object *json_areas = NULL;
 	json_object *json_lsa_array = NULL;
 
-	if (json)
-		json_lsa_type = json_object_new_object();
-
 	switch (type) {
 	case OSPF_AS_EXTERNAL_LSA:
 	case OSPF_OPAQUE_AS_LSA:
@@ -7092,6 +7089,7 @@ static void show_lsa_detail_adv_router(struct vty *vty, struct ospf *ospf,
 		}
 
 		if (json) {
+			json_lsa_type = json_object_new_object();
 			json_object_object_add(json_lsa_type, "areas",
 					       json_areas);
 			json_object_object_add(json,
