@@ -83,6 +83,7 @@ struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
 
 	/* Lookup static route prefix. */
 	rn = srcdest_rnode_get(stable, p, src_p);
+	assert(!rn->info);
 
 	si = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(struct static_route_info));
 
