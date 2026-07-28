@@ -106,7 +106,6 @@ Tests validate both control plane (BGP RIB) and data plane (zebra RIB/FPM):
 import os
 import sys
 import json
-import time
 import pytest
 from functools import partial
 
@@ -118,6 +117,7 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
+
 # Topology definition
 def build_topo(tgen):
     """
@@ -128,12 +128,12 @@ def build_topo(tgen):
     """
 
     # Add routers
-    tgen.add_router("r1")    # Client AS 65001
-    tgen.add_router("r2")    # Client AS 65002
-    tgen.add_router("leaf1") # Leaf AS 65010
-    tgen.add_router("leaf2") # Leaf AS 65011
-    tgen.add_router("leaf3") # Leaf AS 65012
-    tgen.add_router("spine") # Spine AS 65100 (RR)
+    tgen.add_router("r1")  # Client AS 65001
+    tgen.add_router("r2")  # Client AS 65002
+    tgen.add_router("leaf1")  # Leaf AS 65010
+    tgen.add_router("leaf2")  # Leaf AS 65011
+    tgen.add_router("leaf3")  # Leaf AS 65012
+    tgen.add_router("spine")  # Spine AS 65100 (RR)
 
     # R1 connections (dual-homed to Leaf1 and Leaf2)
     tgen.add_link(tgen.gears["r1"], tgen.gears["leaf1"], "r1-eth0", "leaf1-eth0")
@@ -309,12 +309,13 @@ def test_link_failure_upa_origination():
 
     # Shutdown R1-Leaf1 link
     step("Step 3.1b: Shutdown R1-Leaf1 interface")
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     interface r1-eth0
      shutdown
-    """)
-    time.sleep(5)  # Increased wait for BGP convergence
+    """
+    )
 
     # Debug: Check what happened after shutdown
     step("Step 3.1c: Debug - Check BGP state after shutdown")
@@ -382,14 +383,19 @@ def test_link_failure_upa_origination():
 
             # Should have UPA ExtCom
             extcoms = leaf1_path.get("extendedCommunity", {}).get("string", "")
-            if "upa:10.255.1.1:drop" not in extcoms and "upa:10.255.1.1:0x80" not in extcoms:
+            if (
+                "upa:10.255.1.1:drop" not in extcoms
+                and "upa:10.255.1.1:0x80" not in extcoms
+            ):
                 return f"Wrong ExtCom on constituent from Leaf1: {extcoms}"
 
             return None
         except Exception as e:
             return str(e)
 
-    _, result = topotest.run_and_expect(_spine_has_upa_from_leaf1, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(
+        _spine_has_upa_from_leaf1, None, count=30, wait=1
+    )
     assert result is None, f"Spine UPA reception failed: {result}"
 
     # Check Data Plane: Verify blackhole installed in zebra
@@ -470,17 +476,24 @@ def test_ecmp_exclusion_on_upa():
 
             # Should have UPA ExtCom
             extcoms = leaf1_path.get("extendedCommunity", {}).get("string", "")
-            if "upa:10.255.1.1:drop" not in extcoms and "upa:10.255.1.1:0x80" not in extcoms:
+            if (
+                "upa:10.255.1.1:drop" not in extcoms
+                and "upa:10.255.1.1:0x80" not in extcoms
+            ):
                 return f"Missing UPA ExtCom on /25 constituent: {extcoms}"
 
             return None
         except Exception as e:
             return str(e)
 
-    _, result = topotest.run_and_expect(_spine_has_upa_constituent, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(
+        _spine_has_upa_constituent, None, count=30, wait=1
+    )
     assert result is None, f"UPA constituent check failed: {result}"
 
     step("✅ Test 4 PASSED: Spine has UPA constituent routes from Leaf1")
+
+
 def test_link_recovery_upa_withdrawal():
     """
     Test 5: Link recovery triggers UPA withdrawal
@@ -508,12 +521,13 @@ def test_link_recovery_upa_withdrawal():
 
     # Restore R1-Leaf1 link
     step("Step 5.1: Restore R1-Leaf1 interface")
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     interface r1-eth0
      no shutdown
-    """)
-    time.sleep(3)
+    """
+    )
 
     # Check Leaf1 withdrew UPA
     step("Step 5.2: Verify Leaf1 withdrew UPA")
@@ -659,14 +673,15 @@ def test_multi_as_extcom_aggregation():
 
     # Shutdown BOTH links
     step("Step 7.1: Shutdown R1-Leaf1 and R1-Leaf2 interfaces")
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     interface r1-eth0
      shutdown
     interface r1-eth1
      shutdown
-    """)
-    time.sleep(3)
+    """
+    )
 
     # Check both leaves originate UPA
     step("Step 7.2: Verify Leaf1 and Leaf2 both originate UPA")
@@ -681,19 +696,27 @@ def test_multi_as_extcom_aggregation():
             parsed_25_0 = json.loads(output_25_0)
             paths_25_0 = parsed_25_0.get("paths", [])
             if len(paths_25_0) > 0:
-                extcoms_25_0 = paths_25_0[0].get("extendedCommunity", {}).get("string", "")
+                extcoms_25_0 = (
+                    paths_25_0[0].get("extendedCommunity", {}).get("string", "")
+                )
                 if "upa:" in extcoms_25_0:
                     # Found UPA on constituent - this is what we expect
-                    if router_id in extcoms_25_0 and (":drop" in extcoms_25_0 or ":0x80" in extcoms_25_0):
+                    if router_id in extcoms_25_0 and (
+                        ":drop" in extcoms_25_0 or ":0x80" in extcoms_25_0
+                    ):
                         return None  # Success - UPA on constituent
 
             # Check second /25
             parsed_25_128 = json.loads(output_25_128)
             paths_25_128 = parsed_25_128.get("paths", [])
             if len(paths_25_128) > 0:
-                extcoms_25_128 = paths_25_128[0].get("extendedCommunity", {}).get("string", "")
+                extcoms_25_128 = (
+                    paths_25_128[0].get("extendedCommunity", {}).get("string", "")
+                )
                 if "upa:" in extcoms_25_128:
-                    if router_id in extcoms_25_128 and (":drop" in extcoms_25_128 or ":0x80" in extcoms_25_128):
+                    if router_id in extcoms_25_128 and (
+                        ":drop" in extcoms_25_128 or ":0x80" in extcoms_25_128
+                    ):
                         return None  # Success - UPA on constituent
 
             # If we get here, no UPA found on constituents
@@ -715,7 +738,9 @@ def test_multi_as_extcom_aggregation():
     assert result is None, f"Leaf2 UPA origination failed: {result}"
 
     # Check Data Plane: Verify blackholes installed in both leaves
-    step("Step 7.2a: Verify blackhole routes installed in Leaf1 and Leaf2 zebra (Data Plane)")
+    step(
+        "Step 7.2a: Verify blackhole routes installed in Leaf1 and Leaf2 zebra (Data Plane)"
+    )
 
     def _leaf_has_blackhole(leaf, prefix):
         output = leaf.vtysh_cmd(f"show ip route {prefix} json")
@@ -788,7 +813,9 @@ def test_multi_as_extcom_aggregation():
         except Exception as e:
             return str(e)
 
-    _, result = topotest.run_and_expect(_spine_has_upa_from_both_leaves, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(
+        _spine_has_upa_from_both_leaves, None, count=30, wait=1
+    )
     assert result is None, f"Multi-AS UPA reception failed: {result}"
 
     step("✅ Test 7 PASSED: Multi-AS UPA reception validated")
@@ -818,7 +845,6 @@ def test_partial_recovery_extcom_cleanup():
 
     # Restore R1-Leaf1
     r1.vtysh_cmd("conf t\ninterface r1-eth0\n no shutdown")
-    time.sleep(5)  # BGP session establishment
 
     # Verify Leaf1 local state: has routes from R1, not advertising UPA
     def _check_leaf1():
@@ -827,14 +853,15 @@ def test_partial_recovery_extcom_cleanup():
         parsed = json.loads(output)
         paths = parsed.get("paths", [])
 
-        has_r1 = any(p.get("peer", {}).get("routerId") == "10.1.1.1"
-                     for p in paths)
+        has_r1 = any(p.get("peer", {}).get("routerId") == "10.1.1.1" for p in paths)
         if not has_r1:
             return "Leaf1 missing route from R1"
 
         # Check that Leaf1 is NOT advertising UPA to Spine
         # Note: Leaf1's table may still have UPA from Leaf2 via Spine, which is expected
-        adv_output = leaf1.vtysh_cmd("show bgp ipv4 unicast neighbors 10.100.1.2 advertised-routes json")
+        adv_output = leaf1.vtysh_cmd(
+            "show bgp ipv4 unicast neighbors 10.100.1.2 advertised-routes json"
+        )
         adv_parsed = json.loads(adv_output)
 
         # Check /25 constituents - Leaf1 should not be advertising these at all with summary-only
@@ -850,10 +877,10 @@ def test_partial_recovery_extcom_cleanup():
     _, result = topotest.run_and_expect(_check_leaf1, None, count=30, wait=1)
     assert result is None, f"Leaf1 check failed: {result}"
 
-    time.sleep(10)  # Longer propagation delay to rule out timing issues
-
     # Debug: Check what Leaf1 is advertising to Spine
-    leaf1_adv = leaf1.vtysh_cmd("show bgp ipv4 unicast neighbors 10.100.1.2 advertised-routes json")
+    leaf1_adv = leaf1.vtysh_cmd(
+        "show bgp ipv4 unicast neighbors 10.100.1.2 advertised-routes json"
+    )
     logger.info(f"=== DEBUG: Leaf1 advertised routes to Spine ===\n{leaf1_adv}\n")
 
     # Debug: Check Leaf1's local state for /25
@@ -861,7 +888,9 @@ def test_partial_recovery_extcom_cleanup():
     logger.info(f"=== DEBUG: Leaf1 local state for /25 ===\n{leaf1_25}\n")
 
     # Debug: Check Spine's received routes from Leaf1
-    spine_rcv = spine.vtysh_cmd("show bgp ipv4 unicast neighbors 10.100.1.1 routes json")
+    spine_rcv = spine.vtysh_cmd(
+        "show bgp ipv4 unicast neighbors 10.100.1.1 routes json"
+    )
     logger.info(f"=== DEBUG: Spine received routes from Leaf1 ===\n{spine_rcv}\n")
 
     # Debug: Check Spine's BGP update queue
@@ -876,14 +905,20 @@ def test_partial_recovery_extcom_cleanup():
 
         # Separate aggregate routes from UPA routes
         aggregates = [p for p in agg_paths if p.get("atomicAggregate", False)]
-        upa_routes = [p for p in agg_paths if "upa:" in p.get("extendedCommunity", {}).get("string", "")]
+        upa_routes = [
+            p
+            for p in agg_paths
+            if "upa:" in p.get("extendedCommunity", {}).get("string", "")
+        ]
 
         # Check: no aggregate route should have UPA ExtCom
         for p in aggregates:
             extcoms = p.get("extendedCommunity", {}).get("string", "")
             if "upa:" in extcoms:
                 rid = p.get("peer", {}).get("routerId", "")
-                return f"{rid} aggregate route has UPA ExtCom (bug in bgp_aggregate_route)"
+                return (
+                    f"{rid} aggregate route has UPA ExtCom (bug in bgp_aggregate_route)"
+                )
 
         # Check: no leaf should be originating UPA for the aggregate prefix itself
         if upa_routes:
@@ -932,12 +967,13 @@ def test_partial_recovery_extcom_cleanup():
 
     # Restore R1-Leaf2 for cleanup
     step("Step 8.3: Cleanup - restore R1-Leaf2 interface")
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     interface r1-eth1
      no shutdown
-    """)
-    time.sleep(2)
+    """
+    )
 
     step("✅ Test 8 COMPLETE: Summary-only + ExtCom cleanup validated")
 

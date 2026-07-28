@@ -5658,7 +5658,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6, 0, peer_change_best_path },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX, 0, peer_change_best_path },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_MPLS, 0, peer_change_best_path },
-	{ PEER_FLAG_UPA_SEND, 1, peer_change_reset_out },
+	{ PEER_FLAG_UPA, 1, peer_change_reset_out },
 	{ 0, 0, 0 }
 };
 

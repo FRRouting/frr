@@ -733,7 +733,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		 * UPDATE messages with UPA ExtCom MUST contain only UPA prefixes.
 		 * Only apply this rule for UPA-capable subgroups.
 		 */
-		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND)) {
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA)) {
 			bool prefix_has_upa = bgp_upa_has_extcomm(path);
 
 			if (stream_empty(s)) {
