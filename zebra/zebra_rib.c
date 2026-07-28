@@ -1230,7 +1230,7 @@ static struct route_entry *rib_choose_best_type(uint8_t route_type,
 		}
 
 		/* Neither are loop or vrf so pick best metric  */
-		if (alternate->metric <= current->metric)
+		if (alternate->metric < current->metric)
 			return alternate;
 
 		return current;
@@ -1280,7 +1280,7 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 		return current;
 
 	/* metric tie-breaks equal distance */
-	if (alternate->metric <= current->metric)
+	if (alternate->metric < current->metric)
 		return alternate;
 
 	return current;
