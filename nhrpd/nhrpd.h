@@ -18,6 +18,7 @@ DECLARE_MGROUP(NHRPD);
 #define NHRPD_DEFAULT_PURGE_TIME 30
 #define NHRPD_PURGE_EXPIRE	 3000
 #define NHRP_DEFAULT_CONFIG	"nhrpd.conf"
+#define NHRP_UNREACHABLE_COUNT	 3
 
 extern struct event_loop *master;
 
@@ -222,6 +223,7 @@ struct nhrp_cache_config {
 struct nhrp_cache {
 	struct interface *ifp;
 	union sockunion remote_addr;
+	uint8_t priority;
 
 	unsigned map : 1;
 	unsigned used : 1;
@@ -280,6 +282,8 @@ struct nhrp_nhs {
 	struct event *t_resolve;
 	struct resolver_query dns_resolve;
 	struct nhrp_reglist_head reglist_head;
+	uint8_t unreachable;
+	uint8_t priority;
 };
 
 DECLARE_DLIST(nhrp_nhslist, struct nhrp_nhs, nhslist_entry);
@@ -289,6 +293,7 @@ struct nhrp_multicast {
 	struct nhrp_mcastlist_item mcastlist_entry;
 	afi_t afi;
 	union sockunion nbma_addr; /* IP-address */
+	enum nhrp_cache_type type;
 };
 
 DECLARE_DLIST(nhrp_mcastlist, struct nhrp_multicast, mcastlist_entry);
@@ -393,7 +398,7 @@ extern int nhrp_ifp_down(struct interface *ifp);
 extern int nhrp_ifp_destroy(struct interface *ifp);
 
 int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
-		 const char *nbma_fqdn);
+		 const char *nbma_fqdn, uint8_t priority);
 int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);
 int nhrp_nhs_free(struct nhrp_interface *nifp, afi_t afi, struct nhrp_nhs *nhs);
@@ -404,10 +409,10 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 		      void *ctx);
 void nhrp_nhs_interface_del(struct interface *ifp);
 
-int nhrp_multicast_add(struct interface *ifp, afi_t afi,
-		       union sockunion *nbma_addr);
-int nhrp_multicast_del(struct interface *ifp, afi_t afi,
-		       union sockunion *nbma_addr);
+int nhrp_multicast_add(struct interface *ifp, afi_t afi, union sockunion *nbma_addr,
+		       enum nhrp_cache_type type);
+int nhrp_multicast_del(struct interface *ifp, afi_t afi, union sockunion *nbma_addr,
+		       enum nhrp_cache_type type);
 void nhrp_multicast_interface_del(struct interface *ifp);
 void nhrp_multicast_foreach(struct interface *ifp, afi_t afi,
 			    void (*cb)(struct nhrp_multicast *, void *),
