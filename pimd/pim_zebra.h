@@ -30,4 +30,10 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 
 void pim_zebra_interface_set_master(struct interface *vrf,
 				    struct interface *ifp);
+
+/* Send a PIM_NBMA_IF_STATE_UPDATE for `ifp` to nhrpd via zebra opaque.
+ * Called when `[no] ip pim nbma` is committed.  No-op if pim_zclient is
+ * not up -- nhrpd refreshes via PIM_NBMA_IF_STATE_REQUEST on reconnect.
+ */
+void pim_nbma_send_state(struct interface *ifp);
 #endif /* PIM_ZEBRA_H */

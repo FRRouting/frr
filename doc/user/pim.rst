@@ -539,6 +539,26 @@ keyword at the end.
 
    Disable sending and receiving PIM control packets on the interface.
 
+.. clicmd:: ip pim nbma
+
+   Mark this interface as a non-broadcast multi-access (NBMA) PIM
+   interface. Intended for mGRE/DMVPN tunnels where the same physical
+   interface carries traffic to many distinct PIM neighbors but the
+   underlay does not natively replicate multicast.
+
+   When set, pimd allows ``iif == oif`` in the multicast forwarding
+   cache so the hub can hairpin traffic between two spokes that share
+   the tunnel; without it the kernel's loop-free check drops
+   spoke-to-spoke forwarded multicast.
+
+   pimd also signals nhrpd over a ZAPI opaque message so the matching
+   nhrp interface mirrors the NBMA flag automatically -- operators do
+   not need to set ``ip nhrp nbma-mode`` separately. See
+   :ref:`nhrp-pim-nbma-mode` for the nhrpd-side replication filter that
+   this flag enables.
+
+   PIM must already be enabled on the interface (``ip pim``).
+
 .. clicmd:: ip igmp
 
    Tell PIM to receive IGMP reports and Query on this interface. The default

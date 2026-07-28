@@ -13,6 +13,7 @@
 #include "stream.h"
 #include "log.h"
 #include "zclient.h"
+#include "lib/pim_nbma_sync.h"
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry");
 
@@ -358,6 +359,68 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
 	return NHRP_ROUTE_BLACKHOLE;
 }
 
+/* Apply a PIM NBMA-mode state update from pimd to the matching
+ * nhrp_interface.  Lookup is by ifindex first (authoritative across
+ * VRFs) and falls back to ifname when the index doesn't resolve.
+ */
+static void nhrp_apply_pim_nbma_state(const struct pim_nbma_if_state *state)
+{
+	struct interface *ifp = NULL;
+	struct nhrp_interface *nifp;
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_index(state->ifindex, vrf->vrf_id);
+		if (ifp)
+			break;
+	}
+	if (!ifp)
+		ifp = if_lookup_by_name(state->ifname, VRF_DEFAULT);
+	if (!ifp || !ifp->info)
+		return;
+
+	nifp = ifp->info;
+	if (nifp->nbma_mode_enabled == (unsigned int)state->enabled)
+		return;
+
+	nifp->nbma_mode_enabled = state->enabled ? 1 : 0;
+	debugf(NHRP_DEBUG_IF, "%s: nbma-mode %s via pimd (zapi)", ifp->name,
+	       state->enabled ? "enabled" : "disabled");
+}
+
+static int nhrp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s = zclient->ibuf;
+	struct zapi_opaque_msg info;
+	struct pim_nbma_if_state state;
+
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
+
+	switch (info.type) {
+	case PIM_NBMA_IF_STATE_UPDATE:
+		STREAM_GET(&state, s, sizeof(state));
+		nhrp_apply_pim_nbma_state(&state);
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+	return 0;
+}
+
+/* Ask pimd for the current state of every NBMA-enabled interface so
+ * nhrpd's mirror is consistent after start or zebra reconnect.
+ */
+static void nhrp_pim_nbma_send_request_all(struct zclient *zclient)
+{
+	struct pim_nbma_if_state_req req = { .ifindex = 0 };
+
+	(void)zclient_send_opaque(zclient, PIM_NBMA_IF_STATE_REQUEST, (const uint8_t *)&req,
+				  sizeof(req));
+}
+
 static void nhrp_zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
@@ -367,6 +430,9 @@ static void nhrp_zebra_connected(struct zclient *zclient)
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP, true);
 	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP6, true);
+
+	zclient_register_opaque(zclient, PIM_NBMA_IF_STATE_UPDATE);
+	nhrp_pim_nbma_send_request_all(zclient);
 }
 
 static zclient_handler *const nhrp_handlers[] = {
@@ -378,6 +444,7 @@ static zclient_handler *const nhrp_handlers[] = {
 	[ZEBRA_NEIGH_REMOVED] = nhrp_neighbor_operation,
 	[ZEBRA_NEIGH_GET] = nhrp_neighbor_operation,
 	[ZEBRA_GRE_UPDATE] = nhrp_gre_update,
+	[ZEBRA_OPAQUE_MESSAGE] = nhrp_zebra_opaque_msg_handler,
 };
 
 void nhrp_zebra_init(void)

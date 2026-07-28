@@ -17,6 +17,7 @@ nhrpd_nhrpd_SOURCES = \
 	nhrpd/nhrp_event.c \
 	nhrpd/nhrp_interface.c \
 	nhrpd/nhrp_main.c \
+	nhrpd/nhrp_mcast_oil.c \
 	nhrpd/nhrp_nhs.c \
 	nhrpd/nhrp_packet.c \
 	nhrpd/nhrp_peer.c \
@@ -35,6 +36,7 @@ noinst_HEADERS += \
 	nhrpd/debug.h \
 	nhrpd/netlink.h \
 	nhrpd/nhrp_errors.h \
+	nhrpd/nhrp_mcast_oil.h \
 	nhrpd/nhrp_protocol.h \
 	nhrpd/nhrpd.h \
 	nhrpd/os.h \
