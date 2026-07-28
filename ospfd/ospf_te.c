@@ -3203,7 +3203,7 @@ static int ospf_te_delete_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	atr = edge->attributes;
 	UNSET_FLAG(atr->flags, LS_ATTR_ADJ_SID);
 	UNSET_FLAG(atr->flags, LS_ATTR_BCK_ADJ_SID);
-	memset(atr->adj_sid, 0, 2 * sizeof(struct ls_sid));
+	memset(atr->adj_sid, 0, 2 * sizeof(atr->adj_sid[0]));
 	edge->status = UPDATE;
 
 	/* Edge has been updated: export it */
