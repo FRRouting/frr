@@ -73,7 +73,11 @@ struct vrf *vrf_lookup_by_name(const char *name)
 
 static __inline int vrf_id_compare(const struct vrf *a, const struct vrf *b)
 {
-	return (a->vrf_id - b->vrf_id);
+	if (a->vrf_id > b->vrf_id)
+		return 1;
+	if (a->vrf_id < b->vrf_id)
+		return -1;
+	return 0;
 }
 
 static int vrf_name_compare(const struct vrf *a, const struct vrf *b)

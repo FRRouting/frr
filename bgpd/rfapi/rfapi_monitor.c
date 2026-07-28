@@ -1101,7 +1101,11 @@ static int mon_eth_cmp(const void *a, const void *b)
 	/*
 	 * compare LNIs
 	 */
-	return (m1->logical_net_id - m2->logical_net_id);
+	if (m1->logical_net_id > m2->logical_net_id)
+		return 1;
+	if (m1->logical_net_id < m2->logical_net_id)
+		return -1;
+	return 0;
 }
 
 static void rfapiMonitorEthAttachImport(
