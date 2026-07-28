@@ -71,6 +71,14 @@ submodule frr-bgp-common {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-07-21 {
+    description
+      "Sync global BGP knobs, timers, GR/LLGR, and daemon-wide config
+       with current FRR CLI.";
+    reference
+      "FRRouting";
+  }
+
   revision 2019-12-03 {
     description
       "Initial revision.";
@@ -272,6 +280,55 @@ submodule frr-bgp-common {
            information for aggregate routes, When set to 'false' it
            prevents AS set generation.";
       }
+
+      leaf compare-aigp {
+        type boolean;
+        default "false";
+        description
+          "Evaluate AIGP during bestpath selection.
+           Maps to: bgp bestpath aigp.";
+      }
+
+      leaf use-imported-attributes {
+        type boolean;
+        default "false";
+        description
+          "Use imported path attributes for bestpath comparison.
+           Maps to: bgp bestpath use-imported-attributes.";
+      }
+
+      leaf peer-type-multipath-relax {
+        type boolean;
+        default "false";
+        description
+          "Allow multipath across different peer types.
+           Maps to: bgp bestpath peer-type multipath-relax.";
+      }
+
+      leaf bandwidth-handling {
+        type enumeration {
+          enum ecmp {
+            description
+              "Regular ECMP using link-bandwidth when present.";
+          }
+          enum ignore {
+            description
+              "Ignore link-bandwidth; do regular ECMP.";
+          }
+          enum skip-missing {
+            description
+              "Ignore paths without link-bandwidth when others have it.";
+          }
+          enum default-weight-for-missing {
+            description
+              "Assign low default weight to paths without link-bandwidth.";
+          }
+        }
+        default "ecmp";
+        description
+          "Maps to: bgp bestpath bandwidth
+           <ignore|skip-missing|default-weight-for-missing>.";
+      }
     }
   }
 
@@ -464,6 +521,338 @@ submodule frr-bgp-common {
         "When set to 'true' BGP show hostname for nexthop in certain
          command outputs.";
     }
+
+    leaf suppress-fib-pending {
+      type boolean;
+      default "false";
+      description
+        "Advertise only routes that are programmed in the kernel FIB.
+         Maps to: bgp suppress-fib-pending.";
+    }
+
+    leaf suppress-fib-pending-delay {
+      when "../suppress-fib-pending = 'true'";
+      type uint16 {
+        range "0..10000";
+      }
+      units "milliseconds";
+      default "1000";
+      description
+        "Advertisement delay after FIB installation.
+         Maps to: bgp suppress-fib-pending [(0-10000)].";
+    }
+
+    leaf fast-convergence {
+      type boolean;
+      default "false";
+      description
+        "Bring down sessions immediately when nexthop becomes
+         unreachable without waiting for holdtime expiry.
+         Maps to: bgp fast-convergence.";
+    }
+
+    leaf reject-as-sets {
+      type boolean;
+      default "true";
+      description
+        "Reject routes whose AS_PATH contains AS_SET or AS_CONFED_SET.
+         Maps to: bgp reject-as-sets / no bgp reject-as-sets.";
+    }
+
+    leaf allow-martian-nexthop {
+      type boolean;
+      default "false";
+      description
+        "Allow martian nexthops in NLRI from peers.
+         Maps to: bgp allow-martian-nexthop.";
+    }
+
+    leaf hard-administrative-reset {
+      type boolean;
+      description
+        "Send Hard Reset CEASE Notification for Administrative Reset.
+         Maps to: bgp hard-administrative-reset.";
+    }
+
+    leaf ipv6-auto-ra {
+      type boolean;
+      default "true";
+      description
+        "Allow enabling IPv6 ND RA sending for unnumbered peers.
+         Maps to: [no] bgp ipv6-auto-ra.";
+    }
+
+    leaf enforce-first-as {
+      type boolean;
+      description
+        "Enforce that the first AS in AS_PATH matches the EBGP peer AS.
+         Maps to: [no] bgp enforce-first-as.";
+    }
+
+    leaf use-underlays-nexthop-weight {
+      type boolean;
+      default "false";
+      description
+        "When resolving a route, use underlay nexthop weights.
+         Maps to: use-underlays-nexthop-weight.";
+    }
+
+    leaf labeled-unicast-explicit-null {
+      type enumeration {
+        enum none {
+          description
+            "Do not force explicit-null for local LU prefixes.";
+        }
+        enum explicit-null {
+          description
+            "Use explicit-null for IPv4 and IPv6 local prefixes.";
+        }
+        enum ipv4-explicit-null {
+          description
+            "Use IPv4 explicit-null for IPv4 local prefixes.";
+        }
+        enum ipv6-explicit-null {
+          description
+            "Use IPv6 explicit-null for IPv6 local prefixes.";
+        }
+      }
+      default "none";
+      description
+        "Maps to: bgp labeled-unicast
+         <explicit-null|ipv4-explicit-null|ipv6-explicit-null>.";
+    }
+
+    leaf default-dynamic-capability {
+      type boolean;
+      default "false";
+      description
+        "Advertise dynamic capability to all neighbors by default.
+         Maps to: bgp default dynamic-capability.";
+    }
+
+    leaf default-link-local-capability {
+      type boolean;
+      default "false";
+      description
+        "Advertise Link-Local Next Hop capability by default.
+         Maps to: bgp default link-local-capability.";
+    }
+
+    leaf default-software-version-capability {
+      type enumeration {
+        enum disabled;
+        enum old-encoding;
+        enum latest-encoding;
+      }
+      default "disabled";
+      description
+        "Advertise software version capability.
+         Maps to: bgp default software-version-capability
+         [latest-encoding].";
+    }
+
+    leaf-list default-afi-safi {
+      type string;
+      description
+        "AFI/SAFI activated for new peers by default
+         (e.g. ipv4-unicast, ipv6-unicast, l2vpn-evpn).
+         Maps to: bgp default <afi-safi>.";
+    }
+
+    leaf shutdown {
+      type boolean;
+      default "false";
+      description
+        "Administratively shut down this BGP instance.
+         Maps to: bgp shutdown.";
+    }
+
+    leaf shutdown-message {
+      when "../shutdown = 'true'";
+      type string {
+        length "1..255";
+      }
+      description
+        "RFC 8203 shutdown communication message.
+         Maps to: bgp shutdown message MSG...";
+    }
+  }
+
+  grouping bgp-daemon-config {
+    description
+      "Daemon-wide BGP configuration (CONFIG_NODE / bm), not
+       per-instance.";
+
+    leaf no-rib {
+      type boolean;
+      default "false";
+      description
+        "Disable BGP route installation to RIB (Zebra).
+         Maps to: bgp no-rib.";
+    }
+
+    leaf session-dscp {
+      type uint8 {
+        range "0..63";
+      }
+      description
+        "Override default (CS6) DSCP for BGP TCP connections.
+         Maps to: bgp session-dscp (0-63).";
+    }
+
+    leaf suppress-fib-pending {
+      type boolean;
+      default "false";
+      description
+        "Global suppress-fib-pending for all BGP instances.
+         Maps to: bgp suppress-fib-pending at CONFIG_NODE.";
+    }
+
+    leaf suppress-fib-pending-delay {
+      when "../suppress-fib-pending = 'true'";
+      type uint16 {
+        range "0..10000";
+      }
+      units "milliseconds";
+      default "1000";
+      description
+        "Global FIB advertisement delay in milliseconds.";
+    }
+
+    leaf update-delay-time {
+      type uint16 {
+        range "0..3600";
+      }
+      units "seconds";
+      must "not(../establish-wait-time) or . >= ../establish-wait-time" {
+        error-message
+          "BGP update-delay-time must be greater than or equal to establish-wait-time.";
+      }
+      description
+        "Global update-delay. Maps to: bgp update-delay at CONFIG_NODE.";
+    }
+
+    leaf establish-wait-time {
+      type uint16 {
+        range "1..3600";
+      }
+      units "seconds";
+      must "not(../update-delay-time) or . <= ../update-delay-time" {
+        error-message
+          "BGP establish-wait-time must be less than or equal to update-delay-time.";
+      }
+      description
+        "Global establish-wait for update-delay.";
+    }
+
+    leaf advertisement-delay-time {
+      type uint16 {
+        range "1..3600";
+      }
+      units "seconds";
+      description
+        "Global advertisement-delay.
+         Maps to: bgp advertisement-delay at CONFIG_NODE.";
+    }
+
+    leaf ipv6-auto-ra {
+      type boolean;
+      default "true";
+      description
+        "Daemon-wide IPv6 auto-RA control.
+         Maps to: [no] bgp ipv6-auto-ra at CONFIG_NODE.";
+    }
+
+    leaf input-queue-limit {
+      type uint32 {
+        range "1..max";
+      }
+      description
+        "Maps to: bgp input-queue-limit (1-4294967295).";
+    }
+
+    leaf output-queue-limit {
+      type uint32 {
+        range "1..max";
+      }
+      description
+        "Maps to: bgp output-queue-limit (1-4294967295).";
+    }
+
+    leaf send-extra-data {
+      type boolean;
+      default "false";
+      description
+        "Send extra data to Zebra for display/use.
+         Maps to: [no] bgp send-extra-data zebra.";
+    }
+
+    leaf rmap-delay-time {
+      type uint16 {
+        range "0..600";
+      }
+      units "seconds";
+      default "5";
+      description
+        "Daemon-wide route-map delay timer (bm->rmap_update_timer).
+         Maps to: bgp route-map delay-timer (0-600) at CONFIG_NODE.
+         Zero disables delayed processing.";
+    }
+
+    container snmp-traps {
+      description
+        "BGP SNMP trap selection (CONFIG_NODE / bm->options).
+         Defaults match the bgpd_snmp module init (rfc4273 and rfc4382
+         enabled; bgp4-mibv2 disabled).";
+
+      leaf rfc4273 {
+        type boolean;
+        default "true";
+        description
+          "Maps to: [no] bgp snmp traps rfc4273";
+      }
+
+      leaf bgp4-mibv2 {
+        type boolean;
+        default "false";
+        description
+          "Maps to: [no] bgp snmp traps bgp4-mibv2";
+      }
+
+      leaf rfc4382 {
+        type boolean;
+        default "true";
+        description
+          "Maps to: [no] bgp snmp traps rfc4382";
+      }
+    }
+
+    container graceful-restart {
+      description
+        "Daemon-wide graceful-restart configuration (CONFIG_NODE / bm).
+         Maps to: bgp graceful-restart* at CONFIG_NODE.";
+      uses graceful-restart-config;
+    }
+
+    uses global-graceful-shutdown;
+
+    list community-alias {
+      key "community";
+      unique "alias";
+      description
+        "Maps to: bgp community alias WORD ALIAS_NAME.";
+      leaf community {
+        type string;
+        description
+          "Community (AA:BB or AA:BB:CC) or large-community.";
+      }
+      leaf alias {
+        type string;
+        mandatory true;
+        description
+          "Alias name for the community.";
+      }
+    }
   }
 
   grouping global-neighbor-config {
@@ -638,7 +1027,10 @@ submodule frr-bgp-common {
         units "seconds";
         default "5";
         description
-          "Time to wait before processing route-map changes.";
+          "Time to wait before processing route-map changes.
+           Maps to: bgp route-map delay-timer (0-600). Zero disables
+           delayed processing (route-map changes apply immediately via
+           an immediate update).";
       }
 
       leaf update-delay-time {
@@ -646,6 +1038,10 @@ submodule frr-bgp-common {
           range "0..3600";
         }
         units "seconds";
+        must "not(../establish-wait-time) or . >= ../establish-wait-time" {
+          error-message
+            "BGP update-delay-time must be greater than or equal to establish-wait-time.";
+        }
         description
           "Time to force initial delay for best-path and updates.";
       }
@@ -655,6 +1051,10 @@ submodule frr-bgp-common {
           range "1..3600";
         }
         units "seconds";
+        must "not(../update-delay-time) or . <= ../update-delay-time" {
+          error-message
+            "BGP establish-wait-time must be less than or equal to update-delay-time.";
+        }
         description
           "Time to force initial delay for updates.";
       }
@@ -671,6 +1071,76 @@ submodule frr-bgp-common {
         reference
           "RFC 4271, This is the value used
            to initialize the 'ConnectRetryTimer'.";
+      }
+
+      leaf advertisement-delay-time {
+        type uint16 {
+          range "1..3600";
+        }
+        units "seconds";
+        description
+          "Delay initial route advertisements after session
+           establishment. Maps to: advertisement-delay (1-3600).";
+      }
+
+      leaf minimum-holdtime {
+        type uint16 {
+          range "1..65535";
+        }
+        units "seconds";
+        description
+          "Reject peers that negotiate a holdtime below this value.
+           Maps to: bgp minimum-holdtime (1-65535).";
+      }
+
+      leaf conditional-advertisement-timer {
+        type uint16 {
+          range "5..240";
+        }
+        units "seconds";
+        default "60";
+        description
+          "Period to rescan BGP table for conditional advertisement.
+           Maps to: bgp conditional-advertisement timer (5-240).";
+      }
+
+      leaf default-originate-timer {
+        type uint16 {
+          range "0..65535";
+        }
+        units "seconds";
+        description
+          "Period to rescan for default-originate condition.
+           Maps to: bgp default-originate timer (0-65535).";
+      }
+
+      container tcp-keepalive {
+        description
+          "TCP keepalive parameters for BGP sessions.
+           Maps to: bgp tcp-keepalive IDLE INTERVAL PROBES.";
+        leaf idle {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          description
+            "TCP keepalive idle time.";
+        }
+        leaf interval {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          description
+            "TCP keepalive interval.";
+        }
+        leaf probes {
+          type uint8 {
+            range "1..30";
+          }
+          description
+            "TCP keepalive maximum probes.";
+        }
       }
 
       uses neighbor-timers;
@@ -718,7 +1188,7 @@ submodule frr-bgp-common {
 
     leaf restart-time {
       type uint16 {
-        range "1..3600";
+        range "0..4095";
       }
       units "seconds";
       default "120";
@@ -728,14 +1198,15 @@ submodule frr-bgp-common {
          restart BGP capability.  This is a 12-bit value, referred to
          as Restart Time in RFC4724.  Per RFC4724, the suggested
          default value is <= the hold-time value. This timer is
-         applicable for helper node.";
+         applicable for helper node.
+         Maps to: bgp graceful-restart restart-time (0-4095).";
       reference
         "RFC 4724: Graceful Restart Mechanism for BGP.";
     }
 
     leaf stale-routes-time {
       type uint16 {
-        range "1..3600";
+        range "1..4095";
       }
       units "seconds";
       default "360";
@@ -745,7 +1216,8 @@ submodule frr-bgp-common {
          End-of-RIB (EOR) marker is received prior to this timer
          expiring stale-routes will be flushed upon its receipt - if
          no EOR is received, then when this timer expires stale paths
-         will be purged. This timer is applicable for restarting node.";
+         will be purged. This timer is applicable for restarting node.
+         Maps to: bgp graceful-restart stalepath-time (1-4095).";
       reference
         "RFC 4724: Graceful Restart Mechanism for BGP.";
     }
@@ -774,6 +1246,33 @@ submodule frr-bgp-common {
          stale routes in Zebra, When this timer gets expired Zebra
          removes the stale routes.";
     }
+
+    leaf notification {
+      type boolean;
+      description
+        "Indicate Graceful Restart support for BGP NOTIFICATION
+         messages. Maps to: [no] bgp graceful-restart notification.";
+    }
+
+    leaf disable-eor {
+      type boolean;
+      default "false";
+      description
+        "Disable End-of-RIB check during graceful restart.
+         Maps to: bgp graceful-restart disable-eor.";
+    }
+
+    leaf long-lived-stale-time {
+      type uint32 {
+        range "1..16777215";
+      }
+      units "seconds";
+      description
+        "Maximum time to wait before purging long-lived stale routes
+         (LLGR). Maps to: bgp long-lived-graceful-restart stale-time
+         (1-16777215). Unset means LLGR stale-time not configured
+         (FRR default 0).";
+    }
   }
 
   grouping global-group-use-multiple-paths {
@@ -788,11 +1287,13 @@ submodule frr-bgp-common {
         description
           "Multi-Path parameters for EBGP.";
         leaf maximum-paths {
-          type uint16;
-          default "64";
+          type uint16 {
+            range "1..max";
+          }
           description
             "Maximum number of parallel paths to consider when using
-             BGP multi-path. The default is use a single path.";
+             BGP multi-path. Maps to: maximum-paths <1-MULTIPATH_NUM>.
+             Omit to keep the daemon multipath-num default.";
         }
       }
 
@@ -800,22 +1301,23 @@ submodule frr-bgp-common {
         description
           "Multi-Path parameters for IBGP.";
         leaf maximum-paths {
-          type uint16;
-          default "64";
+          type uint16 {
+            range "1..max";
+          }
           description
             "Maximum number of parallel paths to consider when using
-             IBGP multi-path. The default is to use a single path.";
+             IBGP multi-path. Maps to: maximum-paths ibgp
+             <1-MULTIPATH_NUM>.";
         }
 
         leaf cluster-length-list {
-          when "../maximum-paths != 0";
+          when "../maximum-paths";
           type boolean;
           default "false";
           description
-            "When set to 'true' route with the shortest cluster-list
-             length is used. The cluster-list reflects the IBGP
-             reflection path the route has taken. It's the part
-             of route selection algo.";
+            "When set to 'true' prefer routes with the shortest
+             cluster-list length. Maps to: maximum-paths ibgp <n>
+             equal-cluster-length.";
         }
       }
     }
@@ -962,6 +1464,64 @@ submodule frr-bgp-common {
       description
         "Suppress more specific routes specified in route-map.";
     }
+
+    leaf community {
+      type string;
+      description
+        "Standard community attached to the aggregate route.
+         Maps to: aggregate-address <prefix> community <community>.";
+    }
+
+    leaf extended-community {
+      type string;
+      description
+        "Extended community attached to the aggregate route.
+         Maps to: aggregate-address <prefix> extended-community
+         <community>.";
+    }
+
+    leaf large-community {
+      type string;
+      description
+        "Large community attached to the aggregate route.
+         Maps to: aggregate-address <prefix> large-community
+         <community>.";
+    }
+
+    leaf as-path {
+      type string;
+      description
+        "AS path attached to the aggregate route.
+         Maps to: aggregate-address <prefix> as-path <as-path>.";
+    }
+
+    leaf upa {
+      type boolean;
+      default "false";
+      description
+        "Originate Unreachable Prefix Announcements for unreachable
+         more-specific prefixes under this aggregate.
+         Maps to: aggregate-address <prefix> upa.";
+    }
+
+    leaf upa-drop {
+      type boolean;
+      default "false";
+      description
+        "Set the D-bit in UPA Extended Community so receivers install
+         a drop entry. Implies upa.
+         Maps to: aggregate-address <prefix> upa drop.";
+    }
+
+    leaf upa-max-routes {
+      type uint16 {
+        range "1..65535";
+      }
+      description
+        "Cap simultaneous UPA routes for this aggregate.
+         Implies upa. Maps to: aggregate-address <prefix> upa
+         max-routes <1-65535>.";
+    }
   }
 
   grouping admin-distance {
@@ -1023,11 +1583,19 @@ submodule frr-bgp-common {
       description
         "Access-list policy applied on routes going from BGP to Zebra.";
     }
+
+    leaf access-list {
+      type frr-bt:access-list-ref;
+      description
+        "Access list matched against the BGP peer source address.
+         Maps to: distance <1-255> <peer-prefix> <access-list>.";
+    }
   }
 
   grouping route-flap-dampening {
     description
-      "Grouping for route flap dampening configuration.";
+      "Grouping for route flap dampening configuration.
+       Maps to: bgp dampening [HALF [REUSE SUPPRESS MAX]].";
 
     container route-flap-dampening {
       description
@@ -1036,7 +1604,8 @@ submodule frr-bgp-common {
         type boolean;
         default "false";
         description
-          "Enable route flap dampening.";
+          "Enable route flap dampening.
+           Maps to: bgp dampening.";
       }
 
       leaf reach-decay {
@@ -1044,16 +1613,11 @@ submodule frr-bgp-common {
         type uint8 {
           range "1..45";
         }
-        units "seconds";
+        units "minutes";
         default "15";
         description
-          "This value specifies the time desired for the instability
-           metric value to reach one-half of its current value when
-           the route is reachable. This half-life value determines
-           the rate at which the metric value is decayed. A smaller
-           half-life value makes a suppressed route reusable sooner
-           than a larger value. The accumulated penalty will be reduced
-           to half after this duration.";
+          "Half-life time for the penalty in minutes.
+           Maps to: bgp dampening <1-45>.";
       }
 
       leaf reuse-above {
@@ -1063,24 +1627,19 @@ submodule frr-bgp-common {
         }
         default "750";
         description
-          "This is the value of the instability metric at which a
-           suppressed route becomes unsuppressed if it is reachable
-           but currently suppressed. The value assigned to
-           reuse-below must be less than suppress-above.";
+          "Value to start reusing a route.
+           Maps to: bgp dampening HALF <1-20000> ...";
       }
 
       leaf suppress-above {
         when "../enable = 'true'";
         type uint16 {
-          range "1..20000";
+          range "1..50000";
         }
         default "2000";
         description
-          "This is the value of the instability metric at which
-           route suppression takes place. A route is not installed
-           in the forwarding information base (FIB), or announced
-           even if it is reachable during the period that it is
-           suppressed.";
+          "Value to start suppressing a route.
+           Maps to: bgp dampening HALF REUSE <1-50000> ...";
       }
 
       leaf unreach-decay {
@@ -1088,13 +1647,12 @@ submodule frr-bgp-common {
         type uint8 {
           range "1..255";
         }
-        units "seconds";
+        units "minutes";
         default "60";
         description
-          "This value acts the same as reach-decay except that it
-           specifies the rate at which the instability metric is
-           decayed when a route is unreachable. It should have a
-           value greater than or equal to reach-decay.";
+          "Maximum duration to suppress a stable route in minutes.
+           Maps to: bgp dampening HALF REUSE SUPPRESS <1-255>.
+           (Leaf name retained from harvested model; value is max-suppress.)";
       }
     }
   }
@@ -1106,12 +1664,27 @@ submodule frr-bgp-common {
     container flow-spec-config {
       description
         "Flow spec feature.";
-      leaf interface {
-        type frr-interface:interface-ref {
-          require-instance false;
-        }
+      container local-install {
         description
-          "The local interface.";
+          "Install received FlowSpec rules locally. With enable set and
+           no interface entries, FRR installs rules for all interfaces.
+           Maps to: local-install [INTERFACE].";
+
+        leaf enable {
+          type boolean;
+          default "true";
+          description
+            "Enable local FlowSpec policy-routing installation.";
+        }
+
+        leaf-list interface {
+          type frr-interface:interface-ref {
+            require-instance false;
+          }
+          description
+            "Limit local FlowSpec installation to this interface. An
+             empty list means all interfaces.";
+        }
       }
     }
   }
@@ -1138,8 +1711,14 @@ submodule frr-bgp-common {
        configuration for BGP RIB table.";
     container filter-config {
       description
-        "BGP table to RIB route download filter.";
-      uses rmap-policy-export;
+        "BGP table to RIB route download filter.
+         Maps to: table-map WORD.";
+      leaf rmap-export {
+        type frr-route-map:route-map-ref;
+        description
+          "Route-map used to filter BGP routes downloaded into the RIB.
+           Maps to: table-map WORD.";
+      }
     }
   }
 
@@ -1147,7 +1726,7 @@ submodule frr-bgp-common {
     description
       "Route distinguisher value as per RFC4364.";
     leaf rd {
-      type rt-types:route-distinguisher;
+      type frr-bt:route-distinguisher;
       description
         "Route distinguisher value as per RFC4364.";
     }
@@ -1155,16 +1734,18 @@ submodule frr-bgp-common {
 
   grouping vpn-label-params {
     description
-      "Label value for VRF.";
-    choice label-allocation-mode {
+      "Label configuration for routes exported from a VRF to VPN.";
+
+    choice label-value {
       description
-        "Choice for label allocation mode (manual or auto).";
+        "Choice for manual or automatic label allocation.";
 
       case manual {
         leaf label {
           type rt-types:mpls-label;
           description
-            "Label index to associate with the prefix.";
+            "Label to use for exported VPN routes.
+             Maps to: label vpn export <0-1048575>.";
         }
       }
 
@@ -1173,9 +1754,28 @@ submodule frr-bgp-common {
           type boolean;
           default "false";
           description
-            "Automatically assign a label.";
+            "Automatically allocate an export label.
+             Maps to: label vpn export auto.";
         }
       }
+    }
+
+    leaf export-allocation-mode {
+      type enumeration {
+        enum per-vrf {
+          description
+            "Allocate one export label for the VRF.";
+        }
+        enum per-nexthop {
+          description
+            "Allocate an export label for each connected nexthop.";
+        }
+      }
+      default "per-vrf";
+      description
+        "VPN export label allocation mode.
+         Maps to: label vpn export allocation-mode
+         <per-vrf|per-nexthop>.";
     }
   }
 
@@ -1185,7 +1785,8 @@ submodule frr-bgp-common {
     leaf nexthop {
       type inet:ip-address;
       description
-        "Nexthop IP address.";
+        "Nexthop IP address.
+         Maps to: nexthop vpn export <A.B.C.D|X:X::X:X>.";
     }
   }
 
@@ -1193,15 +1794,17 @@ submodule frr-bgp-common {
     description
       "Route Target list";
     leaf-list import-rt-list {
-      type rt-types:route-target;
+      type frr-bt:route-target;
       description
-        "For routes leaked from vpn to current address-family: match any.";
+        "Route targets matched on VPN->VRF import.
+         Maps to: rt vpn import RTLIST.";
     }
 
     leaf-list export-rt-list {
-      type rt-types:route-target;
+      type frr-bt:route-target;
       description
-        "For routes leaked from current address-family to vpn: set.";
+        "Route targets set on VRF->VPN export.
+         Maps to: rt vpn export RTLIST.";
     }
   }
 
@@ -1209,27 +1812,21 @@ submodule frr-bgp-common {
     description
       "Route Target value.";
     leaf redirect-rt {
-      type rt-types:route-target;
+      type string;
       description
-        "Flow-spec redirect type route target.";
+        "Space-separated flowspec redirect route targets.
+         Maps to: rt redirect import RTLIST (or rt6 redirect import).";
     }
 
-    choice rt-direction {
-        description
-          "Choice for route target direction (import, export, or both).";
-
-      case import-export {
-        uses rt-list;
-      }
-
-      case both {
-        leaf-list rt-list {
-          type rt-types:route-target;
-          description
-            "Both import: match any and export: set.";
-        }
-      }
+    leaf redirect-rt-ipv6 {
+      type boolean;
+      default "false";
+      description
+        "When true, redirect-rt values are IPv6 route targets.
+         Maps to: rt6|route-target6 redirect import.";
     }
+
+    uses rt-list;
   }
 
   grouping vpn-import-params {
@@ -1239,20 +1836,23 @@ submodule frr-bgp-common {
       type boolean;
       default "false";
       description
-        "Import routes from default instance VPN RIB.";
+        "Import routes from default instance VPN RIB.
+         Maps to: import vpn.";
     }
 
     leaf export-vpn {
       type boolean;
       default "false";
       description
-        "Export routes to default instance VPN RIB.";
+        "Export routes to default instance VPN RIB.
+         Maps to: export vpn.";
     }
 
     list import-vrf-list {
       key "vrf";
       description
-        "List of VRFs to import routes from.";
+        "List of VRFs to import routes from.
+         Maps to: import vrf NAME.";
       leaf vrf {
         type frr-vrf:vrf-ref {
           require-instance false;
@@ -1262,9 +1862,43 @@ submodule frr-bgp-common {
       }
     }
 
-    uses rmap-policy-import;
+    uses rmap-policy-import {
+      refine "rmap-import" {
+        description
+          "Route-map for routes leaked from VPN into this AF.
+           Maps to: route-map vpn import WORD.";
+      }
+    }
 
-    uses rmap-policy-export;
+    leaf vrf-rmap-import {
+      type frr-route-map:route-map-ref;
+      description
+        "Route-map for VRF-to-VRF imported routes.
+         Maps to: import vrf route-map WORD.
+         Mutually exclusive with rmap-import (route-map vpn import).";
+    }
+
+    uses rmap-policy-export {
+      refine "rmap-export" {
+        description
+          "Route-map for routes leaked from this AF into VPN.
+           Maps to: route-map vpn export WORD.";
+      }
+    }
+  }
+
+  grouping vpn-retain-route-target-config {
+    description
+      "VPN AF retain route-target configuration.";
+
+    leaf retain-route-target-all {
+      type boolean;
+      default "true";
+      description
+        "Retain all VPN routes regardless of route-target membership.
+         Maps to: bgp retain route-target all under address-family
+         ipv4/ipv6 vpn.";
+    }
   }
 
   grouping global-afi-safi-vpn-config {
@@ -1278,7 +1912,8 @@ submodule frr-bgp-common {
       leaf rd {
         type string;
         description
-          "Route distinguisher value as per RFC4364.";
+          "Route distinguisher value as per RFC4364.
+           Maps to: rd vpn export ASN:NN_OR_IP-ADDRESS:NN.";
       }
 
       uses vpn-label-params;
@@ -1288,6 +1923,44 @@ submodule frr-bgp-common {
       uses vpn-import-params;
 
       uses vpn-route-target-params;
+
+      container sid-vpn-export {
+        description
+          "Per-AFI SRv6 SID for VRF-to-VPN export.
+           Maps to: sid vpn export ... under address-family ipv4/ipv6 unicast.";
+
+        choice sid-allocation {
+          description
+            "SRv6 SID allocation mode for VPN export.";
+
+          case index {
+            leaf sid-index {
+              type uint32 {
+                range "1..max";
+              }
+              description
+                "SRv6 SID allocation index.
+                 Maps to: sid vpn export (1-4294967295).";
+            }
+          }
+          case automatic {
+            leaf sid-auto {
+              type empty;
+              description
+                "Request automatic SRv6 SID allocation.
+                 Maps to: sid vpn export auto.";
+            }
+          }
+          case explicit {
+            leaf sid-explicit {
+              type inet:ipv6-address;
+              description
+                "Request this explicit SRv6 SID.
+                 Maps to: sid vpn export explicit X:X::X:X.";
+            }
+          }
+        }
+      }
     }
   }
 

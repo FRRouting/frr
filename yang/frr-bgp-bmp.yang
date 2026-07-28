@@ -49,6 +49,16 @@ submodule frr-bgp-bmp {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-07-21 {
+    description
+      "Add BMP import-vrf and experimental stats knobs to match CLI.
+       Default stats-send-experimental to true to match classic.
+       Constrain max-retry-time >= min-retry-time via YANG must.
+       Add source-interface on outbound sessions and loc-rib monitor.";
+    reference
+      "FRRouting.";
+  }
+
   revision 2019-12-03 {
     description
       "Initial revision.";
@@ -119,8 +129,19 @@ submodule frr-bgp-bmp {
           }
           units "milliseconds";
           default "720000";
+          must ". >= ../min-retry-time" {
+            error-message
+              "BMP max-retry-time must be greater than or equal to min-retry-time.";
+          }
           description
             "Maximum connection retry interval.";
+        }
+
+        leaf source-interface {
+          type string;
+          description
+            "Source interface for the outbound BMP connection.
+             Maps to: bmp connect ... source-interface IFNAME.";
         }
       }
     }
@@ -163,6 +184,14 @@ submodule frr-bgp-bmp {
         default "false";
         description
           "Send state after policy and filter processing.";
+      }
+
+      leaf loc-rib {
+        type boolean;
+        default "false";
+        description
+          "Send Loc-RIB state after the decision process.
+           Maps to: bmp monitor ... loc-rib.";
       }
     }
   }
@@ -214,6 +243,22 @@ submodule frr-bgp-bmp {
           type frr-bt:access-list-ref;
           description
             "Access list to restrict BMP sessions.";
+        }
+
+        leaf-list import-vrf {
+          type string;
+          description
+            "Import BMP monitoring state from the named VRF(s).
+             Maps to: bmp import-vrf NAME.";
+        }
+
+        leaf stats-send-experimental {
+          type boolean;
+          default "true";
+          description
+            "Include experimental BMP statistics TLVs.
+             Maps to: bmp stats send-experimental.
+             Default true matches classic FRR behaviour for new targets.";
         }
 
         uses bmp-afi-safis;

@@ -24,6 +24,10 @@ module frr-bgp {
     prefix frr-route-types;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   include "frr-bgp-common";
 
   include "frr-bgp-common-structure";
@@ -35,6 +39,8 @@ module frr-bgp {
   include "frr-bgp-peer-group";
 
   include "frr-bgp-bmp";
+
+  include "frr-bgp-evpn";
 
   organization
     "FRRouting";
@@ -69,6 +75,14 @@ module frr-bgp {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-07-21 {
+    description
+      "Sync BGP YANG with FRR CLI: daemon-wide config, EVPN, SRv6,
+       link-state, UPA, flowspec, and neighbor/AF policy gaps.";
+    reference
+      "FRRouting";
+  }
+
   revision 2019-12-03 {
     description
       "Initial revision.";
@@ -80,6 +94,17 @@ module frr-bgp {
     base frr-rt:routing-protocol;
     description
       "BGP protocol.";
+  }
+
+  /*
+   * Daemon-wide (CONFIG_NODE) BGP configuration. Not under a
+   * control-plane-protocol instance.
+   */
+  container bgp-daemon {
+    description
+      "BGP daemon-wide configuration mapped from CONFIG_NODE
+       (bgp no-rib, session-dscp, community alias, queue limits, ...).";
+    uses bgp-daemon-config;
   }
 
   grouping mp-afi-unicast-common {
@@ -100,7 +125,7 @@ module frr-bgp {
     container bgp {
       when "../frr-rt:type = 'frr-bgp:bgp'" {
         description
-          "BGP protocol augmentation of ietf-routing module
+          "BGP protocol augmentation of frr-routing module
            control-plane-protocol.";
       }
       presence "Enables configuration of BGP";
@@ -165,6 +190,88 @@ module frr-bgp {
 
         uses global-bmp-config;
 
+        container segment-routing {
+          description
+            "BGP segment-routing configuration.
+             Maps to: segment-routing srv6 under router bgp.";
+
+          container srv6 {
+            description
+              "BGP SRv6 configuration.";
+
+            leaf locator {
+              type string;
+              description
+                "Name of the SRv6 locator configured in zebra.
+                 Maps to: locator NAME.";
+            }
+
+            leaf encap-behavior {
+              type enumeration {
+                enum h-encaps {
+                  description
+                    "Use H.Encaps.";
+                }
+                enum h-encaps-red {
+                  description
+                    "Use H.Encaps.Red.";
+                }
+              }
+              default "h-encaps";
+              description
+                "Headend encapsulation behavior for received SRv6 routes.
+                 Maps to: encap-behavior ...";
+            }
+
+            leaf srv6-only {
+              type boolean;
+              default "true";
+              description
+                "Accept only SRv6 service routes when an SRv6 locator is
+                 configured. A false value corresponds to CLI
+                 'no srv6-only'.";
+            }
+          }
+        }
+
+        container sid-vpn-per-vrf-export {
+          description
+            "Per-VRF SRv6 SID for VRF-to-VPN export (both AFI).
+             Maps to: sid vpn per-vrf export ... under router bgp.";
+
+          choice sid-allocation {
+            description
+              "SRv6 SID allocation mode for per-VRF VPN export.";
+
+            case index {
+              leaf sid-index {
+                type uint32 {
+                  range "1..max";
+                }
+                description
+                  "SRv6 SID allocation index.
+                   Maps to: sid vpn per-vrf export (1-4294967295).";
+              }
+            }
+            case automatic {
+              leaf sid-auto {
+                type empty;
+                description
+                  "Request automatic SRv6 SID allocation.
+                   Maps to: sid vpn per-vrf export auto.";
+              }
+            }
+            case explicit {
+              leaf sid-explicit {
+                type inet:ipv6-address;
+                description
+                  "Request this explicit SRv6 SID.
+                   Maps to: sid vpn per-vrf export explicit X:X::X:X.";
+              }
+            }
+          }
+        }
+
         container afi-safis {
           description
             "List of address-families associated with the BGP
@@ -200,7 +307,8 @@ module frr-bgp {
               require-instance false;
             }
             description
-              "Neighbor's interface name.";
+              "Local interface used by this numbered peer.
+               Maps to: neighbor <A.B.C.D|X:X::X:X> interface WORD.";
           }
 
           leaf local-port {
@@ -352,6 +460,83 @@ module frr-bgp {
     uses global-filter-config;
 
     uses global-afi-safi-vpn-config;
+    container upa {
+      description
+        "Unreachable Prefix Announcement configuration.
+         Maps to: upa ... under address-family ipv4/ipv6 unicast.";
+
+      leaf originate-all {
+        type boolean;
+        default "false";
+        description
+          "Originate UPA routes for all unreachable prefixes.
+           Maps to: upa originate-all.";
+      }
+
+      leaf max-routes {
+        type uint32;
+        default "0";
+        description
+          "Maximum simultaneous globally originated UPA routes. Zero
+           means unlimited. Maps to: upa max-routes.";
+      }
+
+      leaf drop {
+        type boolean;
+        default "false";
+        description
+          "Set the UPA D-bit, requesting receiver blackhole installation.
+           Maps to: upa drop.";
+      }
+    }
+
+    container sid-export {
+      description
+        "SRv6 SID export configuration for this unicast AFI.
+         Maps to: sid export ... under address-family.";
+
+      choice sid-allocation {
+        description
+          "SRv6 SID allocation mode.";
+
+        case index {
+          leaf sid-index {
+            type uint32 {
+              range "1..1048575";
+            }
+            description
+              "SRv6 SID allocation index.";
+          }
+        }
+        case automatic {
+          leaf sid-auto {
+            type empty;
+            description
+              "Request automatic SRv6 SID allocation.";
+          }
+        }
+        case explicit {
+          leaf sid-explicit {
+            type inet:ipv6-address;
+            description
+              "Request this explicit SRv6 SID.";
+          }
+        }
+      }
+
+      leaf behavior-dt46 {
+        type boolean;
+        default "false";
+        description
+          "Use End.DT46/uDT46 instead of the AFI default behavior.";
+      }
+
+      leaf route-map {
+        type frr-route-map:route-map-ref;
+        description
+          "Route map selecting routes for SID export.";
+      }
+    }
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-unicast" {
@@ -413,11 +598,121 @@ module frr-bgp {
     uses global-filter-config;
 
     uses global-afi-safi-vpn-config;
+    container upa {
+      description
+        "Unreachable Prefix Announcement configuration.
+         Maps to: upa ... under address-family ipv4/ipv6 unicast.";
+
+      leaf originate-all {
+        type boolean;
+        default "false";
+        description
+          "Originate UPA routes for all unreachable prefixes.
+           Maps to: upa originate-all.";
+      }
+
+      leaf max-routes {
+        type uint32;
+        default "0";
+        description
+          "Maximum simultaneous globally originated UPA routes. Zero
+           means unlimited. Maps to: upa max-routes.";
+      }
+
+      leaf drop {
+        type boolean;
+        default "false";
+        description
+          "Set the UPA D-bit, requesting receiver blackhole installation.
+           Maps to: upa drop.";
+      }
+    }
+
+    container sid-export {
+      description
+        "SRv6 SID export configuration for this unicast AFI.
+         Maps to: sid export ... under address-family.";
+
+      choice sid-allocation {
+        description
+          "SRv6 SID allocation mode.";
+
+        case index {
+          leaf sid-index {
+            type uint32 {
+              range "1..1048575";
+            }
+            description
+              "SRv6 SID allocation index.";
+          }
+        }
+        case automatic {
+          leaf sid-auto {
+            type empty;
+            description
+              "Request automatic SRv6 SID allocation.";
+          }
+        }
+        case explicit {
+          leaf sid-explicit {
+            type inet:ipv6-address;
+            description
+              "Request this explicit SRv6 SID.";
+          }
+        }
+      }
+
+      leaf behavior-dt46 {
+        type boolean;
+        default "false";
+        description
+          "Use End.DT46/uDT46 instead of the AFI default behavior.";
+      }
+
+      leaf route-map {
+        type frr-route-map:route-map-ref;
+        description
+          "Route map selecting routes for SID export.";
+      }
+    }
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast" {
     description
       "Augmentation for global IPv4 labeled unicast AFI-SAFI configuration.";
+
+    list network-config {
+      key "prefix";
+      description
+        "A list of network routes.";
+      leaf prefix {
+        type inet:ipv4-prefix;
+        description
+          "IPv4 destination prefix.";
+      }
+
+      leaf backdoor {
+        type boolean;
+        default "false";
+        description
+          "Specify a BGP backdoor route.";
+      }
+
+      uses mp-afi-safi-network-config;
+    }
+
+    list aggregate-route {
+      key "prefix";
+      description
+        "A list of aggregated routes.";
+      leaf prefix {
+        type inet:ipv4-prefix;
+        description
+          "IPv4 destination prefix.";
+      }
+
+      uses mp-afi-safi-agg-route-config;
+    }
 
     uses global-group-use-multiple-paths;
 
@@ -427,6 +722,39 @@ module frr-bgp {
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast" {
     description
       "Augmentation for global IPv6 labeled unicast AFI-SAFI configuration.";
+
+    list network-config {
+      key "prefix";
+      description
+        "A list of network routes.";
+      leaf prefix {
+        type inet:ipv6-prefix;
+        description
+          "IPv6 destination prefix.";
+      }
+
+      leaf backdoor {
+        type boolean;
+        default "false";
+        description
+          "Specify a BGP backdoor route.";
+      }
+
+      uses mp-afi-safi-network-config;
+    }
+
+    list aggregate-route {
+      key "prefix";
+      description
+        "A list of aggregated routes.";
+      leaf prefix {
+        type inet:ipv6-prefix;
+        description
+          "IPv6 destination prefix.";
+      }
+
+      uses mp-afi-safi-agg-route-config;
+    }
 
     uses global-group-use-multiple-paths;
 
@@ -549,9 +877,48 @@ module frr-bgp {
     uses ipv6-nexthop-prefer-global;
   }
 
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/l2vpn-evpn" {
+    description
+      "Augmentation for global L2VPN EVPN AFI-SAFI configuration.";
+
+    uses global-evpn-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/link-state" {
+    description
+      "Augmentation for global BGP Link-State AFI-SAFI configuration.";
+
+    container distribute {
+      description
+        "BGP Link-State topology distribution.";
+
+      container bgp-fabric-link-state {
+        presence "Enable BGP fabric link-state topology distribution.";
+        description
+          "Export locally learned BGP fabric topology as BGP-LS NLRIs.
+           Maps to: distribute bgp-fabric-link-state.";
+
+        leaf instance-id {
+          type uint64;
+          default "0";
+          description
+            "BGP-LS instance identifier.";
+        }
+      }
+    }
+  }
+
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-flowspec" {
     description
       "Augmentation for global IPv4 flowspec AFI-SAFI configuration.";
+
+    uses flow-spec-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-flowspec" {
+    description
+      "Augmentation for global IPv6 flowspec AFI-SAFI configuration.";
 
     uses flow-spec-config;
   }
@@ -561,6 +928,8 @@ module frr-bgp {
       "Augmentation for global L3VPN IPv4 unicast AFI-SAFI configuration.";
 
     uses global-afi-safi-vpn-network-config;
+
+    uses vpn-retain-route-target-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
@@ -568,6 +937,8 @@ module frr-bgp {
       "Augmentation for global L3VPN IPv6 unicast AFI-SAFI configuration.";
 
     uses global-afi-safi-vpn-network-config;
+
+    uses vpn-retain-route-target-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast" {
@@ -594,6 +965,27 @@ module frr-bgp {
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-multicast" {
     description
       "Augmentation for BMP IPv6 multicast AFI-SAFI configuration.";
+
+    uses bmp-afi-safi-common-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    description
+      "Augmentation for BMP L3VPN IPv4 unicast AFI-SAFI configuration.";
+
+    uses bmp-afi-safi-common-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    description
+      "Augmentation for BMP L3VPN IPv6 unicast AFI-SAFI configuration.";
+
+    uses bmp-afi-safi-common-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/l2vpn-evpn" {
+    description
+      "Augmentation for BMP L2VPN EVPN AFI-SAFI configuration.";
 
     uses bmp-afi-safi-common-config;
   }
@@ -628,7 +1020,13 @@ module frr-bgp {
 
     uses structure-neighbor-group-orf-capability;
 
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast" {
@@ -670,7 +1068,13 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast" {
@@ -703,7 +1107,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast" {
@@ -736,7 +1144,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
    }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast" {
@@ -769,7 +1181,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast" {
@@ -802,7 +1218,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
@@ -830,6 +1250,10 @@ module frr-bgp {
     uses structure-neighbor-group-soft-reconfiguration;
 
     uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
 
     uses structure-neighbor-group-filter-config;
   }
@@ -860,6 +1284,10 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-group-filter-config;
   }
 
@@ -867,9 +1295,13 @@ module frr-bgp {
     description
       "Augmentation for neighbor L2VPN EVPN AFI-SAFI configuration.";
 
+    uses structure-neighbor-group-add-paths;
+
     uses structure-neighbor-group-as-path-options;
 
     uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
 
     uses structure-neighbor-nexthop-self;
 
@@ -878,6 +1310,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
   }
@@ -892,6 +1326,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
   }
 
@@ -904,6 +1340,37 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/link-state" {
+    description
+      "Augmentation for neighbor Link-State AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unreachability" {
+    description
+      "Augmentation for neighbor IPv4 unreachability AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unreachability" {
+    description
+      "Augmentation for neighbor IPv6 unreachability AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-prefix-limit;
 
     uses structure-neighbor-group-filter-config;
   }
@@ -938,7 +1405,13 @@ module frr-bgp {
 
     uses structure-neighbor-group-orf-capability;
 
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast" {
@@ -980,7 +1453,13 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast" {
@@ -1013,7 +1492,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast" {
@@ -1046,7 +1529,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast" {
@@ -1079,7 +1566,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast" {
@@ -1111,6 +1602,8 @@ module frr-bgp {
     uses structure-neighbor-group-soft-reconfiguration;
 
     uses structure-neighbor-weight;
+    uses route-flap-dampening;
+
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
@@ -1136,6 +1629,8 @@ module frr-bgp {
     uses structure-neighbor-send-community;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-encapsulation;
 
     uses structure-neighbor-weight;
   }
@@ -1164,6 +1659,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-weight;
   }
 
@@ -1171,9 +1668,13 @@ module frr-bgp {
     description
       "Augmentation for unnumbered neighbor L2VPN EVPN AFI-SAFI configuration.";
 
+    uses structure-neighbor-group-add-paths;
+
     uses structure-neighbor-group-as-path-options;
 
     uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
 
     uses structure-neighbor-nexthop-self;
 
@@ -1182,6 +1683,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
   }
@@ -1196,6 +1699,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
   }
 
@@ -1208,6 +1713,37 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/link-state" {
+    description
+      "Augmentation for unnumbered neighbor Link-State AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unreachability" {
+    description
+      "Augmentation for unnumbered neighbor IPv4 unreachability AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unreachability" {
+    description
+      "Augmentation for unnumbered neighbor IPv6 unreachability AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-prefix-limit;
 
     uses structure-neighbor-group-filter-config;
   }
@@ -1242,7 +1778,13 @@ module frr-bgp {
 
     uses structure-neighbor-group-orf-capability;
 
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast" {
@@ -1284,7 +1826,13 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast" {
@@ -1317,7 +1865,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast" {
@@ -1350,7 +1902,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast" {
@@ -1383,7 +1939,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast" {
@@ -1416,7 +1976,11 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+
+    uses route-flap-dampening;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
@@ -1444,6 +2008,10 @@ module frr-bgp {
     uses structure-neighbor-group-soft-reconfiguration;
 
     uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
 
     uses structure-neighbor-group-filter-config;
   }
@@ -1474,6 +2042,10 @@ module frr-bgp {
 
     uses structure-neighbor-weight;
 
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-encapsulation;
+
     uses structure-neighbor-group-filter-config;
   }
 
@@ -1481,9 +2053,13 @@ module frr-bgp {
     description
       "Augmentation for peer-group L2VPN EVPN AFI-SAFI configuration.";
 
+    uses structure-neighbor-group-add-paths;
+
     uses structure-neighbor-group-as-path-options;
 
     uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
 
     uses structure-neighbor-nexthop-self;
 
@@ -1492,6 +2068,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
   }
@@ -1506,6 +2084,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
   }
 
@@ -1519,6 +2099,57 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/link-state" {
+    description
+      "Augmentation for peer-group Link-State AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unreachability" {
+    description
+      "Augmentation for peer-group IPv4 unreachability AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unreachability" {
+    description
+      "Augmentation for peer-group IPv6 unreachability AFI-SAFI configuration.";
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-interface:lib/frr-interface:interface" {
+    description
+      "Augments interface model with BGP MPLS forwarding knobs.";
+
+    leaf mpls-bgp-forwarding {
+      type boolean;
+      default "false";
+      description
+        "Enable MPLS forwarding for eBGP directly connected peers.";
+    }
+
+    leaf mpls-l3vpn-multi-domain-switching {
+      type boolean;
+      default "false";
+      description
+        "Bind a local MPLS label to incoming L3VPN updates on this
+         interface.";
+    }
   }
 }

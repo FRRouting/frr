@@ -447,7 +447,7 @@ module frr-zebra {
         "List of remote VTEPs.";
 
       leaf remote-vtep {
-        type inet:ipv4-address;
+        type inet:ip-address;
         description
           "The remote VTEP IP address.";
       }
@@ -1211,7 +1211,7 @@ module frr-zebra {
         }
 
         leaf remote-vtep {
-          type inet:ipv4-address;
+          type inet:ip-address;
           description
             "The remote VTEP IP address.";
         }
@@ -1765,7 +1765,7 @@ module frr-zebra {
             }
 
             leaf remote-vtep {
-              type inet:ipv4-address;
+              type inet:ip-address;
               description
                 "The remote VTEP address.";
             }
@@ -2547,7 +2547,7 @@ module frr-zebra {
             "RFC 6275: Mobility Support in IPv6";
         }
         leaf link-mtu {
-          type uint16;
+          type uint32;
           default "0";
           description
             "The value to be placed in MTU options sent by the
@@ -2654,9 +2654,7 @@ module frr-zebra {
             "RFC 6275: Mobility Support in IPv6";
         }
         leaf home-agent-lifetime {
-          type uint16 {
-            range "1..65520";
-          }
+          type uint16;
           description
             "The value to be placed in the Home Agent Lifetime
             field in the Router Advertisement messages sent by the
@@ -2936,7 +2934,7 @@ module frr-zebra {
         }
 
         leaf remote-vtep {
-          type inet:ipv4-address;
+          type inet:ip-address;
           description
             "The remote VTEP IP address.";
         }
