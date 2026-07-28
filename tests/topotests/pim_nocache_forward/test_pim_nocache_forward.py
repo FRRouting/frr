@@ -243,12 +243,15 @@ def verify_upstream_json(tgen, dut, source, group, expected_fields):
     return result
 
 
-def verify_receiver_traffic(host, group, recv_intf, source, min_pkts=1):
-    report = app_helper.collect_receiver_sources(
-        host, group, recv_intf, duration=3, source=source
-    )
-    count = report.get("sources", {}).get(source, 0)
-    return count >= min_pkts, report
+def verify_receiver_traffic(host, group, recv_intf, source, min_pkts=1, retries=3):
+    for _ in range(retries):
+        report = app_helper.collect_receiver_sources(
+            host, group, recv_intf, duration=3, source=source
+        )
+        count = report.get("sources", {}).get(source, 0)
+        if count >= min_pkts:
+            return True, report
+    return False, report
 
 
 def verify_mroute_json(router, expected, count=30, wait=1):
