@@ -199,4 +199,6 @@ extern bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
 				    uint64_t flag);
 extern void bgp_init_ipv6_nexthop_prefer_global(struct bgp *bgp);
 
+extern int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
+			 struct ecommunity **list, bool is_rt6);
 #endif /* _QUAGGA_BGP_VTY_H */
