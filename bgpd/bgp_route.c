@@ -11582,8 +11582,11 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 
 	/* Aggregate address insert into BGP routing table. */
 	if (!bgp_aggregate_route(bgp, &p, afi, safi, aggregate)) {
+		/* Keep table state consistent and avoid stale aggregate pointer. */
+		bgp_dest_set_bgp_aggregate_info(dest, NULL);
 		bgp_aggregate_free(aggregate);
 		bgp_dest_unlock_node(dest);
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* Handle UPA origination/withdrawal based on configuration change */
@@ -20250,7 +20253,7 @@ DEFUN(show_bgp_upa_statistics, show_bgp_upa_statistics_cmd,
 	} else {
 		vty_out(vty, "UPA Statistics for AFI %s, SAFI %s:\n\n",
 			afi == AFI_IP ? "IPv4" : "IPv6",
-			safi == SAFI_UNICAST ? "unicast" : "other");
+			"unicast");
 		vty_out(vty, "  Global UPA originate-all:      %s\n",
 			global_enabled ? "Enabled" : "Disabled");
 		vty_out(vty, "  Active UPA routes:             %u\n", total_upa_routes);
