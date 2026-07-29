@@ -6202,6 +6202,8 @@ DEFPY_ATTR(bgp_evpn_autort_rfc8365_yang, bgp_evpn_autort_rfc8365_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static bool bgp_cli_evpn_is_enabled(struct vty *vty, const char *af_xpath);
+
 DEFPY_YANG(bgp_evpn_advertise_default_gw_yang,
 	   bgp_evpn_advertise_default_gw_yang_cmd,
 	   "[no] advertise-default-gw",
@@ -6212,6 +6214,10 @@ DEFPY_YANG(bgp_evpn_advertise_default_gw_yang,
 	char leaf[XPATH_MAXLEN + 256];
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	if (!no && !bgp_cli_evpn_is_enabled(vty, af_xpath)) {
+		vty_out(vty, "This command is only supported under the EVPN VRF\n");
+		return CMD_WARNING;
+	}
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/advertise-default-gateway", af_xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
@@ -6228,6 +6234,10 @@ DEFPY_YANG(bgp_evpn_advertise_svi_ip_yang,
 	char leaf[XPATH_MAXLEN + 256];
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	if (!no && !bgp_cli_evpn_is_enabled(vty, af_xpath)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING;
+	}
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/advertise-svi-ip", af_xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
@@ -6406,6 +6416,28 @@ DEFPY_YANG(bgp_evpn_dad_yang, bgp_evpn_dad_yang_cmd,
 	}
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+static bool bgp_cli_evpn_is_enabled(struct vty *vty, const char *af_xpath)
+{
+	char check[XPATH_MAXLEN + 256];
+	const struct lyd_node *cand_root = vty->candidate_config ? vty->candidate_config->dnode
+								 : NULL;
+
+	if (af_xpath) {
+		snprintfrr(check, sizeof(check), "%s%s/advertise-all-vni", VTY_CURR_XPATH,
+			   af_xpath + 1);
+	} else {
+		/* Under BGP_EVPN_VNI_NODE, VTY_CURR_XPATH ends with /l2vpn-evpn/vni[vni='...']. */
+		const char *vni_pos = strstr(VTY_CURR_XPATH, "/vni[vni=");
+
+		if (!vni_pos)
+			return false;
+		snprintfrr(check, sizeof(check), "%.*s/advertise-all-vni",
+			   (int)(vni_pos - VTY_CURR_XPATH), VTY_CURR_XPATH);
+	}
+	return cand_root && yang_dnode_exists(cand_root, check) &&
+	       yang_dnode_get_bool(cand_root, "%s", check);
 }
 
 DEFPY_YANG(bgp_evpn_use_es_l3nhg_yang, bgp_evpn_use_es_l3nhg_yang_cmd,
