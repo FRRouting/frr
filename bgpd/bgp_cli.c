@@ -3326,8 +3326,9 @@ DEFPY_YANG(neighbor_description_yang, neighbor_description_yang_cmd,
 	str = argv_concat(argv, argc, 3);
 	snprintfrr(leaf, sizeof(leaf), "%s/description", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, str);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
-	return nb_cli_apply_changes(vty, NULL);
+	return ret;
 }
 
 DEFPY_YANG(no_neighbor_description_yang, no_neighbor_description_yang_cmd,
