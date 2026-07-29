@@ -4886,8 +4886,40 @@ DEFPY_YANG(neighbor_set_peer_group_yang, neighbor_set_peer_group_yang_cmd,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	} else
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, pgname);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	/* Create neighbor list entry; remote-as-type is mandatory on neighbor. */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintfrr(pg_path, sizeof(pg_path),
+		   "%s/peer-groups/peer-group[peer-group-name='%s']/neighbor-remote-as/remote-as-type",
+		   VTY_CURR_XPATH, pgname);
+	if (yang_dnode_exists(vty->candidate_config->dnode, pg_path)) {
+		const char *astype;
+		const struct lyd_node *pg_as;
+
+		pg_as = yang_dnode_get(vty->candidate_config->dnode, pg_path);
+		astype = yang_dnode_get_string(pg_as, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, astype);
+
+		snprintfrr(pg_path, sizeof(pg_path),
+			   "%s/peer-groups/peer-group[peer-group-name='%s']/neighbor-remote-as/remote-as",
+			   VTY_CURR_XPATH, pgname);
+		if (yang_dnode_exists(vty->candidate_config->dnode, pg_path)) {
+			const char *asval;
+			const struct lyd_node *pg_asn;
+
+			pg_asn = yang_dnode_get(vty->candidate_config->dnode, pg_path);
+			asval = yang_dnode_get_string(pg_asn, NULL);
+			snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, asval);
+		}
+	}
+
+	snprintfrr(leaf, sizeof(leaf), "%s/peer-group", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, pgname);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
