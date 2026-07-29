@@ -409,11 +409,16 @@ int zebra_evpn_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 	struct zebra_if *zif = NULL;
 	struct zebra_vxlan_vni *vni;
 
+	if (!zevpn->vxlan_if)
+		return -1;
+
 	zif = zevpn->vxlan_if->info;
 	if (!zif)
 		return -1;
 
 	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	if (!vni)
+		return -1;
 
 	zebra_evpn_mac_gw_macip_add(ifp, zevpn, ip, &mac, macaddr,
 				    vni->access_vlan, true);
@@ -1269,6 +1274,13 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall)
  */
 int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 {
+	if (!zevpn->vxlan_if) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p couldn't be installed - no intf", zevpn->vni,
+				   zevpn);
+		return -1;
+	}
+
 	if (is_vxlan_flooding_head_end() &&
 	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
 		if (ZEBRA_DPLANE_REQUEST_FAILURE ==
