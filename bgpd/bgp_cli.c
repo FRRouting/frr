@@ -1191,7 +1191,15 @@ DEFUN_YANG(bgp_confederation_identifier_yang,
 	   "Set routing domain confederation AS\n"
 	   AS_STR)
 {
-	nb_cli_enqueue_change(vty, "./global/confederation/identifier", NB_OP_MODIFY, argv[3]->arg);
+	as_t as;
+
+	if (!asn_str2asn(argv[3]->arg, &as)) {
+		vty_out(vty, "%% Invalid AS number: %s\n", argv[3]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	/* inet:as-number is uint32; convert ASDOT before YANG apply. */
+	nb_cli_enqueue_change(vty, "./global/confederation/identifier", NB_OP_MODIFY,
+			      asn_asn2asplain(as));
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -1216,10 +1224,15 @@ DEFUN_YANG(bgp_confederation_peers_yang, bgp_confederation_peers_yang_cmd,
 {
 	int i;
 	char xpath[XPATH_MAXLEN];
+	as_t as;
 
 	for (i = 3; i < argc; i++) {
+		if (!asn_str2asn(argv[i]->arg, &as)) {
+			vty_out(vty, "%% Invalid AS number: %s\n", argv[i]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		snprintfrr(xpath, sizeof(xpath), "./global/confederation/member-as[.='%s']",
-			   argv[i]->arg);
+			   asn_asn2asplain(as));
 		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	}
 	return nb_cli_apply_changes(vty, NULL);
@@ -1234,10 +1247,15 @@ DEFUN_YANG(no_bgp_confederation_peers_yang, no_bgp_confederation_peers_yang_cmd,
 {
 	int i;
 	char xpath[XPATH_MAXLEN];
+	as_t as;
 
 	for (i = 4; i < argc; i++) {
+		if (!asn_str2asn(argv[i]->arg, &as)) {
+			vty_out(vty, "%% Invalid AS number: %s\n", argv[i]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		snprintfrr(xpath, sizeof(xpath), "./global/confederation/member-as[.='%s']",
-			   argv[i]->arg);
+			   asn_asn2asplain(as));
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	}
 	return nb_cli_apply_changes(vty, NULL);
@@ -3546,8 +3564,11 @@ DEFPY_YANG(neighbor_local_as_yang, neighbor_local_as_yang_cmd,
 	if (ret != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	/* Clippy parses ASNUM into as_t as_str; YANG leaf is inet:as-number
+	 * (uint32). Pass plain ASN, not the original ASDOT string.
+	 */
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/local-as", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_str_str);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, asn_asn2asplain(as_str));
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/no-prepend", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, noprepend ? "true" : "false");
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/replace-as", xpath);
