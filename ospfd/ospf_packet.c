@@ -2050,19 +2050,58 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				 * must take special action. ... the router must then advance the LSA's LS
 				 * sequence number one past the received LS sequence number, and
 				 * originate a new instance of the LSA.
+				 *
+				 * Unless we no longer wish to originate it, in which case the
+				 * received instance is the one that has to be flushed.  A
+				 * database copy already sitting at MaxAge is how we know that:
+				 * it was flushed locally when we stopped wanting to originate
+				 * it, one of Section 13.4's examples being a network-LSA for a
+				 * network we are no longer Designated Router for.
 				 */
+				struct ospf_lsa *ls_req;
+
 				if (IS_DEBUG_OSPF(lsa, LSA))
 					zlog_debug("%s: Link State Update[%s]: router-id is local, but has higher seq num",
 						   __func__, dump_lsa_key(lsa));
-				current->data->ls_seqnum = lsa->data->ls_seqnum;
-				ospf_lsa_checksum(current->data);
-				ospf_lsa_refresh(oi->ospf, current);
-				/* Discarding without ACK may cause neighbor to retransmit the stale LSA
-				 * until the refreshed LSA arrives, make sure that doesn't happen.
+
+				/* Ack immediately, otherwise the neighbor keeps
+				 * retransmitting the stale instance while we re-originate or
+				 * flush it.
 				 */
 				ospf_ls_ack_send_direct(nbr, lsa);
-				DISCARD_LSA(lsa, 10);
-				continue;
+
+				/* The received LSA satisfies any request still outstanding
+				 * for it.  Without this the neighbor never leaves Loading.
+				 */
+				ls_req = ospf_ls_request_lookup(nbr, lsa);
+				if (ls_req != NULL) {
+					ospf_ls_request_delete(nbr, ls_req);
+					ospf_check_nbr_loading(nbr);
+				}
+
+				if (IS_LSA_MAXAGE(current)) {
+					/* Section 14.1: flush by setting the received LSA's LS
+					 * age to MaxAge and reflooding it, leaving its sequence
+					 * number alone.  Step (5) below does the reflooding.
+					 *
+					 * Reflooding our own database copy instead cannot flush
+					 * anything: it carries the same sequence number as the
+					 * received instance but different contents, so the
+					 * Section 13.1 checksum comparison makes the instance the
+					 * rest of the domain holds more recent, and the two get
+					 * exchanged back and forth forever.
+					 */
+					LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
+				} else {
+					/* ospf_lsa_refresh() increments the sequence number as it
+					 * re-originates, which lands it one past the received one.
+					 */
+					current->data->ls_seqnum = lsa->data->ls_seqnum;
+					ospf_lsa_checksum(current->data);
+					ospf_lsa_refresh(oi->ospf, current);
+					DISCARD_LSA(lsa, 10);
+					continue;
+				}
 			}
 		}
 
