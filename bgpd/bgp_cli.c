@@ -7217,15 +7217,13 @@ static void bgp_cli_vpn_rt_clear(struct vty *vty, const char *af_xpath, const ch
 {
 	char check[XPATH_MAXLEN + 256];
 	char leaf[XPATH_MAXLEN + 256];
-	const struct lyd_node *dnode, *parent, *child, *next;
+	const struct lyd_node *parent, *child, *next;
 
-	snprintfrr(check, sizeof(check), "%s%s/vpn-config/%s", VTY_CURR_XPATH, af_xpath + 1,
-		   list_name);
-	dnode = yang_dnode_get(vty->candidate_config->dnode, check);
-	if (!dnode)
+	snprintfrr(check, sizeof(check), "%s%s/vpn-config", VTY_CURR_XPATH, af_xpath + 1);
+	parent = yang_dnode_get(vty->candidate_config->dnode, check);
+	if (!parent)
 		return;
 
-	parent = lyd_parent(dnode);
 	for (child = lyd_child(parent); child; child = next) {
 		next = child->next;
 		if (child->schema->nodetype != LYS_LEAFLIST)
@@ -7251,16 +7249,8 @@ static void bgp_cli_vpn_rt_set(struct vty *vty, const char *af_xpath, const char
 	}
 }
 
-DEFPY_YANG(af_rt_vpn_yang, af_rt_vpn_yang_cmd,
-	   "[no] <rt|route-target> vpn <import|export|both>$direction_str [RTLIST]",
-	   NO_STR
-	   "Specify route target list\n"
-	   "Specify route target list\n"
-	   "Between current address-family and vpn\n"
-	   "For routes leaked from vpn to current address-family: match any\n"
-	   "For routes leaked from current address-family to vpn: set\n"
-	   "both import: match any and export: set\n"
-	   "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+static int bgp_cli_af_rt_vpn(struct vty *vty, bool no, const char *direction_str, int argc,
+			     struct cmd_token **argv)
 {
 	char af_xpath[XPATH_MAXLEN];
 	int idx = 0;
@@ -7299,6 +7289,33 @@ DEFPY_YANG(af_rt_vpn_yang, af_rt_vpn_yang_cmd,
 			bgp_cli_vpn_rt_set(vty, af_xpath, "export-rt-list", argc - idx, argv + idx);
 	}
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(af_rt_vpn_yang, af_rt_vpn_yang_cmd,
+	   "[no] <rt|route-target> vpn <import|export|both>$direction_str RTLIST...",
+	   NO_STR
+	   "Specify route target list\n"
+	   "Specify route target list\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from vpn to current address-family: match any\n"
+	   "For routes leaked from current address-family to vpn: set\n"
+	   "both import: match any and export: set\n"
+	   "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+{
+	return bgp_cli_af_rt_vpn(vty, !!no, direction_str, argc, argv);
+}
+
+DEFPY_YANG(af_no_rt_vpn_yang, af_no_rt_vpn_yang_cmd,
+	   "no <rt|route-target> vpn <import|export|both>$direction_str",
+	   NO_STR
+	   "Specify route target list\n"
+	   "Specify route target list\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from vpn to current address-family\n"
+	   "For routes leaked from current address-family to vpn\n"
+	   "both import and export\n")
+{
+	return bgp_cli_af_rt_vpn(vty, true, direction_str, argc, argv);
 }
 
 DEFPY_YANG(bgp_import_vrf_yang, bgp_import_vrf_yang_cmd,
@@ -10135,7 +10152,9 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_no_rt_vpn_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_no_rt_vpn_yang_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_import_vrf_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_import_vrf_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_yang_cmd);

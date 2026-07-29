@@ -11175,6 +11175,13 @@ static int bgp_nb_vpn_rt_add(struct bgp *bgp, afi_t afi, enum vpn_policy_directi
 {
 	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
+	if (dir == BGP_VPN_POLICY_DIR_TOVPN &&
+	    !CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RT_CLI_SET)) {
+		if (bgp->vpn_policy[afi].rtlist[dir])
+			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
+	}
+
 	if (bgp->vpn_policy[afi].rtlist[dir]) {
 		ecommunity_merge(bgp->vpn_policy[afi].rtlist[dir], add);
 		ecommunity_free(&add);
@@ -11198,8 +11205,11 @@ static int bgp_nb_vpn_rt_del(struct bgp *bgp, afi_t afi, enum vpn_policy_directi
 	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
 	ecommunity_del_val(bgp->vpn_policy[afi].rtlist[dir], &eval);
-	if (!bgp->vpn_policy[afi].rtlist[dir]->size)
+	if (!bgp->vpn_policy[afi].rtlist[dir]->size) {
 		ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+		if (dir == BGP_VPN_POLICY_DIR_TOVPN)
+			UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
+	}
 
 	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 	return NB_OK;
