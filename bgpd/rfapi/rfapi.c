@@ -1053,12 +1053,13 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		encode_label(label_val, &bn->local_label);
 	}
 
-	bgp_dest_unlock_node(bn);
 	bgp_process(bgp, bn, new, afi, safi);
 
 	vnc_zlog_debug_any(
 		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRDP)",
 		__func__, safi2str(safi), buf, bn, prd);
+
+	bgp_dest_unlock_node(bn);
 
 done:
 	/* Loop back to import tables */
