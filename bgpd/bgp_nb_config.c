@@ -7766,6 +7766,33 @@ void bgp_nb_cli_show_nexthop_prefer_global(struct vty *vty, const struct lyd_nod
 /*
  * Global L2VPN EVPN AF knobs
  */
+
+/*
+ * EVPN_ENABLED is set on APPLY of advertise-all-vni. VALIDATE of sibling
+ * leaves in the same candidate must treat a pending advertise-all-vni as
+ * enabling EVPN, matching classic sequential CLI checks.
+ *
+ * Tenant L3 VRFs commonly configure advertise-default-gw / advertise-svi-ip
+ * under address-family l2vpn evpn without advertise-all-vni (that knob lives
+ * on the underlay EVPN VRF). Allow those when an EVPN VRF already exists.
+ */
+static bool bgp_nb_evpn_enabled_in_candidate(struct bgp *bgp, const struct lyd_node *dnode)
+{
+	struct bgp *bgp_evpn;
+
+	if (EVPN_ENABLED(bgp))
+		return true;
+	if (yang_dnode_exists(dnode, "../advertise-all-vni") &&
+	    yang_dnode_get_bool(dnode, "../advertise-all-vni"))
+		return true;
+
+	bgp_evpn = bgp_get_evpn();
+	if (bgp_evpn && bgp_evpn != bgp && EVPN_ENABLED(bgp_evpn))
+		return true;
+
+	return false;
+}
+
 int bgp_nb_evpn_advertise_all_vni_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -7869,7 +7896,7 @@ int bgp_nb_evpn_advertise_default_gw_modify(struct nb_cb_modify_args *args)
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
 		if (!bgp)
 			return NB_OK;
-		if (!EVPN_ENABLED(bgp)) {
+		if (!bgp_nb_evpn_enabled_in_candidate(bgp, args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under the EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -7921,7 +7948,7 @@ int bgp_nb_evpn_advertise_svi_ip_modify(struct nb_cb_modify_args *args)
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
 		if (!bgp)
 			return NB_OK;
-		if (!EVPN_ENABLED(bgp)) {
+		if (!bgp_nb_evpn_enabled_in_candidate(bgp, args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under EVPN VRF");
 			return NB_ERR_VALIDATION;
