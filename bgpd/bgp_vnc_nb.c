@@ -39,16 +39,18 @@
  */
 static struct bgp *bgp_nb_vnc_get_bgp(const struct lyd_node *dnode)
 {
-	const struct lyd_node *dn = dnode;
-	struct bgp *bgp;
+	const struct lyd_node *bgp_node;
 
-	while (dn) {
-		bgp = nb_running_get_entry(dn, NULL, false);
-		if (bgp)
-			return bgp;
-		dn = lyd_parent(dn);
-	}
-	return NULL;
+	/*
+	 * VNC nodes hang under .../frr-bgp:bgp/frr-bgp-vnc:vnc/...
+	 * Do not walk nb_running_get_entry() up the tree: nve-group /
+	 * vrf-policy list entries also have running pointers (rfg), and a
+	 * recursive lookup would return those cast as struct bgp *.
+	 */
+	bgp_node = yang_dnode_get_parent(dnode, "bgp");
+	if (!bgp_node)
+		return NULL;
+	return nb_running_get_entry_non_rec(bgp_node, NULL, false);
 }
 
 
@@ -580,7 +582,7 @@ int bgp_global_vnc_vrf_policy_label_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
-	if (!rfg || !bgp)
+	if (!rfg || !bgp || !bgp->rfapi_cfg)
 		return NB_ERR_INCONSISTENCY;
 	if (bgp->rfapi_cfg->rfg_redist == rfg)
 		vnc_redistribute_prechange(bgp);
