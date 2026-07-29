@@ -304,8 +304,12 @@ static bool bgp_cli_no_router_blocked(struct vty *vty, int argc, struct cmd_toke
 }
 
 DEFUN_YANG(no_router_bgp_yang, no_router_bgp_yang_cmd,
-	   "no router bgp [ASNUM [<view|vrf> VIEWVRFNAME]]",
-	   NO_STR ROUTER_STR BGP_STR AS_STR BGP_INSTANCE_HELP_STR)
+	   "no router bgp [ASNUM [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]",
+	   NO_STR ROUTER_STR BGP_STR AS_STR BGP_INSTANCE_HELP_STR
+	   "Force the AS notation output style\n"
+	   "Ignore as-notation on delete\n"
+	   "Ignore as-notation on delete\n"
+	   "Ignore as-notation on delete\n")
 {
 	char cpp_xpath[XPATH_MAXLEN];
 	const char *name = VRF_DEFAULT_NAME;

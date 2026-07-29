@@ -216,10 +216,36 @@ void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, b
 		vty_out(vty, " view %s", name);
 	else if (!strmatch(vrf_name, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf_name);
-	if (yang_dnode_exists(dnode, "./global/as-notation"))
-		vty_out(vty, " as-notation %s",
-			yang_dnode_get_string(dnode, "./global/as-notation"));
+	/*
+	 * Do not emit "as-notation ..." here. ASDOT is already reflected in
+	 * the ASN display; printing the keyword makes config deltas generate
+	 * "no router bgp X as-notation ..." which the YANG CLI does not
+	 * accept (classic also omits the keyword when notation was inferred).
+	 */
 	vty_out(vty, "\n");
+
+	/*
+	 * "no bgp log-neighbor-changes" equals the YANG default, so the leaf
+	 * writer is skipped on a normal save. Emit it from the operational
+	 * flag when that differs from the active defaults profile.
+	 */
+	if (!show_defaults) {
+		const struct lyd_node *leaf = NULL;
+		struct bgp *bgp;
+		bool enabled;
+		bool profile_on = (frr_default_chosen() == FRR_DEFAULT_DATACENTER);
+
+		if (yang_dnode_exists(dnode, "./global/global-neighbor-config/log-neighbor-changes"))
+			leaf = yang_dnode_get(dnode, "./global/global-neighbor-config/log-neighbor-changes");
+		if (!leaf || yang_dnode_is_default(leaf, NULL)) {
+			bgp = nb_running_get_entry(dnode, NULL, false);
+			if (bgp) {
+				enabled = !!CHECK_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+				if (enabled != profile_on)
+					vty_out(vty, " %sbgp log-neighbor-changes\n", enabled ? "" : "no ");
+			}
+		}
+	}
 }
 
 void bgp_nb_cli_show_router_bgp_end(struct vty *vty, const struct lyd_node *dnode)
