@@ -6874,7 +6874,7 @@ static void bgp_cli_vpn_rt_set(struct vty *vty, const char *af_xpath, const char
 }
 
 DEFPY_YANG(af_rt_vpn_yang, af_rt_vpn_yang_cmd,
-	   "[no] <rt|route-target> vpn <import|export|both>$direction_str [RTLIST]",
+	   "[no] <rt|route-target> vpn <import|export|both>$direction_str RTLIST...",
 	   NO_STR
 	   "Specify route target list\n"
 	   "Specify route target list\n"
@@ -6922,6 +6922,17 @@ DEFPY_YANG(af_rt_vpn_yang, af_rt_vpn_yang_cmd,
 	}
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+ALIAS_ATTR(af_rt_vpn_yang, af_no_rt_vpn_yang_cmd,
+	   "no <rt|route-target> vpn <import|export|both>$direction_str",
+	   NO_STR
+	   "Specify route target list\n"
+	   "Specify route target list\n"
+	   "Between current address-family and vpn\n"
+	   "For routes leaked from vpn to current address-family\n"
+	   "For routes leaked from current address-family to vpn\n"
+	   "both import and export\n",
+	   CMD_ATTR_YANG);
 
 DEFPY_YANG(bgp_import_vrf_yang, bgp_import_vrf_yang_cmd,
 	   "[no] import vrf VIEWVRFNAME$import_name",
@@ -9752,7 +9763,9 @@ void bgp_cli_init(void)
 	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_yang_cmd);
+	install_element(BGP_IPV4_NODE, &af_no_rt_vpn_yang_cmd);
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_yang_cmd);
+	install_element(BGP_IPV6_NODE, &af_no_rt_vpn_yang_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_import_vrf_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_import_vrf_yang_cmd);
 	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_yang_cmd);
