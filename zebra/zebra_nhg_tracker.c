@@ -292,7 +292,9 @@ static void zebra_nhg_tracker_collapse(struct tracker_prefix_map_head *prefix_ma
 	new_tracker->deleted_table.re_count += old_tracker->deleted_table.re_count;
 	old_tracker->deleted_table.re_count = 0;
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	zrouter.tracker_counters.trackers_collapsed_re_match++;
+
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: collapsed tracker %u into tracker %u for NHG %u (new unmatched=%u deleted=%u)",
 			   __func__, old_tracker->nhg_tracker_id, new_tracker->nhg_tracker_id,
 			   new_tracker->parent_nhe ? new_tracker->parent_nhe->id : 0,
@@ -350,7 +352,7 @@ void zebra_nhg_tracker_rn_add(struct nhg_tracker_table *tt, uint32_t *re_count,
 			entry->tracker = tracker;
 			tracker_prefix_map_add(prefix_map, entry);
 			(*re_count)++;
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 				zlog_debug("%s: added %pRN (type %s vrf %s(%u)) to tracker %u, re_count=%u",
 					   __func__, rn, zebra_route_string(re->type),
 					   vrf_id_to_name(re->vrf_id), re->vrf_id,
@@ -501,7 +503,7 @@ zebra_nhg_tracker_park_unmatched(struct nhg_hash_entry *orig_nhe,
 
 	zebra_nhg_tracker_add_route(prefix_map, tracker, &tracker->unmatched_table, rn, re);
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: %pRN (type %s) unmatched, parking in tracker %u for originating NHG %u (matched=%u unmatched=%u orig_re=%u)",
 			   __func__, rn, zebra_route_string(re->type), tracker->nhg_tracker_id,
 			   orig_nhe->id, tracker->matched_table.re_count,
@@ -530,7 +532,7 @@ static struct nhg_event_tracker *zebra_nhg_tracker_park_deleted(
 
 	zebra_nhg_tracker_add_route(prefix_map, tracker, &tracker->deleted_table, rn, re);
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: %pRN (type %s) deleted parked in tracker %u for originating NHG %u (deleted=%u matched=%u unmatched=%u orig_re=%u)",
 			   __func__, rn, zebra_route_string(re->type), tracker->nhg_tracker_id,
 			   orig_nhe->id, tracker->deleted_table.re_count,
@@ -552,7 +554,7 @@ static void zebra_nhg_tracker_park_matched(struct nhg_hash_entry *orig_nhe,
 {
 	zebra_nhg_tracker_add_route(prefix_map, tracker, &tracker->matched_table, rn, re);
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: %pRN (type %s) matched tracker %u from originating NHG %u (matched=%u unmatched=%u orig_re=%u)",
 			   __func__, rn, zebra_route_string(re->type), tracker->nhg_tracker_id,
 			   orig_nhe->id, tracker->matched_table.re_count,
@@ -791,6 +793,7 @@ static void tracker_flush_build_groups(struct nhg_event_tracker *tracker,
 {
 	struct list *groups = tracker->flush_nhg_groups;
 	struct tracker_flush_nhg_group *g, *unmatched_winner = NULL;
+	struct nhg_hash_entry *winner_nhe = NULL;
 	struct listnode *node;
 	uint32_t matched_count = tracker->matched_table.re_count;
 	uint32_t silent_count;
@@ -874,29 +877,38 @@ static void tracker_flush_build_groups(struct nhg_event_tracker *tracker,
 			tracker->winner_flags |= TRACKER_WIN_SILENT;
 		if (is_snapshot_eq_parent_nhe && matched_count > 0)
 			tracker->winner_flags |= TRACKER_WIN_MATCHED;
-		/* Matched wins alone */
 	} else if (matched_count > 0 && matched_count >= unmatched_max) {
+		/* Matched wins alone. */
 		tracker->winner_flags = TRACKER_WIN_MATCHED;
 		tracker->winner_nhg_id = tracker->nhg_tracker_snapshot
 						 ? tracker->nhg_tracker_snapshot->id
 						 : 0;
-		/* Unmatched wins: pick the largest incoming-NHG group (lowest id on ties). */
 	} else if (unmatched_winner) {
+		/* Unmatched wins: largest incoming-NHG group, lowest id on ties. */
 		tracker->winner_flags = TRACKER_WIN_UNMATCHED;
 		tracker->winner_nhg_id = unmatched_winner->incoming_nhg_id;
 		unmatched_winner->is_winner = true;
 	}
-	/* else: winner_flags stays 0 (no winner — deletions-only flush). */
+	/* else: winner_flags stays 0 -- deletions-only flush. */
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: NHG %u tracker %u winner flags=0x%x nhg=%u (matched=%u silent=%u unmatched_max=%u silent_plus_matched=%u snapshot_eq_parent=%d)",
-			   __func__, parent_nhe->id, tracker->nhg_tracker_id, tracker->winner_flags,
-			   tracker->winner_nhg_id, matched_count, silent_count, unmatched_max,
-			   silent_plus_matched_count, is_snapshot_eq_parent_nhe ? 1 : 0);
+	if (tracker->winner_nhg_id)
+		winner_nhe = zebra_nhg_lookup_id(tracker->winner_nhg_id);
 
-	frrtrace(9, frr_zebra, nhg_tracker_winner_sel, "winner-select", tracker->nhg_tracker_id,
-		 parent_nhe->id, tracker->winner_flags, tracker->winner_nhg_id, matched_count,
-		 silent_count, unmatched_max, is_snapshot_eq_parent_nhe ? 1 : 0);
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
+		zlog_debug("%s: NHG %u tracker %u winner flags=0x%x nhg=%u %s nhg_flags=0x%x (matched=%u silent=%u unmatched_max=%u silent_plus_matched=%u snapshot_eq_parent=%d)",
+			   __func__, parent_nhe->id, tracker->nhg_tracker_id,
+			   tracker->winner_flags, tracker->winner_nhg_id,
+			   !tracker->winner_nhg_id ? "none"
+			   : winner_nhe		   ? "present"
+						   : "MISSING",
+			   winner_nhe ? winner_nhe->flags : 0, matched_count, silent_count,
+			   unmatched_max, silent_plus_matched_count,
+			   is_snapshot_eq_parent_nhe ? 1 : 0);
+
+	frrtrace(10, frr_zebra, nhg_tracker_winner_sel, tracker->nhg_tracker_id, parent_nhe->id,
+		 tracker->winner_flags, tracker->winner_nhg_id, winner_nhe ? 1 : 0,
+		 winner_nhe ? winner_nhe->flags : 0, matched_count, silent_count, unmatched_max,
+		 is_snapshot_eq_parent_nhe ? 1 : 0);
 }
 
 static void tracker_flush_nhg_group_free(void *data)
@@ -999,7 +1011,8 @@ static size_t tracker_flush_process_rn(struct nhg_hash_entry *parent_nhe,
 			SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
 			re->tracker_parent_nhg_id = parent_nhe->id;
 			tracker->routes_pending++;
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zrouter.tracker_counters.losers_tagged++;
+			if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 				zlog_debug("%s: phase1 loser drained %pRN parent NHG %u tracker %u -> routes_pending=%u (re->nhe %u status 0x%x %s)",
 					   __func__, rn, parent_nhe->id, tracker->nhg_tracker_id,
 					   tracker->routes_pending, re->nhe ? re->nhe->id : 0, re->status,
@@ -1021,7 +1034,8 @@ static size_t tracker_flush_process_rn(struct nhg_hash_entry *parent_nhe,
 				re->tracker_parent_nhg_id = parent_nhe->id;
 				tracker->flush_phase2_consumers++;
 				parent_nhe->tracker_pending_winners++;
-				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zrouter.tracker_counters.winners_tagged++;
+				if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 					zlog_debug("%s: phase2 winner tagged %pRN parent NHG %u tracker %u -> pending_winners=%u (re->nhe %u)",
 						   __func__, rn, parent_nhe->id, tracker->nhg_tracker_id,
 						   parent_nhe->tracker_pending_winners,
@@ -1066,8 +1080,18 @@ static size_t tracker_flush_process_rn(struct nhg_hash_entry *parent_nhe,
 	if (flush_rn) {
 		RNODE_FOREACH_RE (rn, re) {
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) &&
-			    !CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED))
+			    !CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+				if (IS_ZEBRA_DEBUG_NHG_TRACKER)
+					zlog_debug("%s: phase1 2nd-pass cleared TRACKER on OLD re %pRN parent NHG %u tracker %u (re->nhe %u status 0x%x) - NOT counted in routes_pending",
+						   __func__, rn, parent_nhe->id,
+						   tracker->nhg_tracker_id,
+						   re->nhe ? re->nhe->id : 0, re->status);
+
+				frrtrace(6, frr_zebra, nhg_re_change, "phase1-old-tracker-cleared",
+					 re->nhe ? re->nhe->id : 0, parent_nhe->id, re->status,
+					 re->nhe ? re->nhe->flags : 0, tracker->nhg_tracker_id);
+			}
 		}
 
 		rib_queue_add(rn);
@@ -1165,6 +1189,7 @@ void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
 		return;
 
 	UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
+	zrouter.tracker_counters.losers_consumed++;
 
 	/*
 	 * Once this loser RE is flushed, re->tracker_parent_nhg_id is the
@@ -1190,7 +1215,7 @@ void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
 	}
 
 	if (tracker->routes_pending == 0) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 			zlog_debug("%s: dec-noop phase1 %pRN NHG %u tracker %u already 0 (re->nhe %u parent_nhg_id=%u)",
 				   __func__, re->rn, tracker->parent_nhe ? tracker->parent_nhe->id : 0,
 				   tracker->nhg_tracker_id, re->nhe ? re->nhe->id : 0, parent_nhg_id);
@@ -1217,7 +1242,7 @@ void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
 		return;
 	}
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: phase 1 complete for NHG %u tracker %u, scheduling iter cb", __func__,
 			   nhe->id, tracker->nhg_tracker_id);
 
@@ -1249,9 +1274,10 @@ void tracker_winner_pre_remove(struct route_node *rn, struct route_entry *re)
 
 	UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
 	re->tracker_parent_nhg_id = 0;
+	zrouter.tracker_counters.winners_consumed++;
 
 	if (!parent_nhe) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 			zlog_debug("%s: re %p prefix %pRN type %s vrf %u status 0x%x re->nhe NHG %u: WINNER set but tagged parent NHG %u is gone",
 				   __func__, re, rn, re->type ? zebra_route_string(re->type) : "?",
 				   re->vrf_id, re->status, re->nhe ? re->nhe->id : 0, tagged_id);
@@ -1259,6 +1285,7 @@ void tracker_winner_pre_remove(struct route_node *rn, struct route_entry *re)
 		frrtrace(6, frr_zebra, nhg_re_change, "winner-no-peer-preremove",
 			 re->nhe ? re->nhe->id : 0, tagged_id, re->status,
 			 re->nhe ? re->nhe->flags : 0, 0);
+		zrouter.tracker_counters.winner_drained_no_parent++;
 		return;
 	}
 
@@ -1266,7 +1293,7 @@ void tracker_winner_pre_remove(struct route_node *rn, struct route_entry *re)
 		parent_nhe->tracker_pending_winners--;
 
 	if (parent_nhe->tracker_pending_winners == 0) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 			zlog_debug("%s: NHG %u: all winners drained (last via pre-remove of re %p prefix %pRN)",
 				   __func__, parent_nhe->id, re, rn);
 
@@ -1320,11 +1347,12 @@ static void tracker_flush_enqueue_silent_res(struct nhg_hash_entry *parent_nhe,
 		 */
 		re->tracker_parent_nhg_id = parent_nhe->id;
 		tracker->routes_pending++;
+		zrouter.tracker_counters.losers_tagged++;
 		queued++;
 		rib_queue_add(re->rn);
 	}
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: NHG %u tracker %u queued %u silent RE(s) for phase 1", __func__,
 			   parent_nhe->id, tracker->nhg_tracker_id, queued);
 }
@@ -1367,12 +1395,14 @@ static uint32_t tracker_flush_fire_silent_routes_phase2(struct nhg_hash_entry *p
 			SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
 			re->tracker_parent_nhg_id = parent_nhe->id;
 			parent_nhe->tracker_pending_winners++;
+			zrouter.tracker_counters.winners_tagged++;
 		}
+		zrouter.tracker_counters.silent_fired++;
 		rib_queue_add(re->rn);
 		fired++;
 	}
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: NHG %u tracker %u fired %u silent RE(s) in phase 2", __func__,
 			   parent_nhe->id, tracker->nhg_tracker_id, fired);
 
@@ -1474,7 +1504,7 @@ static void tracker_flush_rn_opts_for(struct nhg_event_tracker *tracker,
  */
 static void nhg_tracker_flush_schedule(struct nhg_event_tracker *tracker)
 {
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: scheduling flush iter for tracker %u NHG %u (state=%d routes_pending=%u phase2_consumers=%u pending_winners=%u)",
 			   __func__, tracker->nhg_tracker_id,
 			   tracker->parent_nhe ? tracker->parent_nhe->id : 0, tracker->flush_state,
@@ -1507,43 +1537,44 @@ static void nhg_tracker_flush_schedule(struct nhg_event_tracker *tracker)
 static void tracker_flush_complete(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker)
 {
 	size_t consumers = tracker->flush_phase2_consumers;
+	size_t silent_fired = 0;
+	bool armed;
 
 	nhg_tracker_table_iter_rn_cleanup(&tracker->iter);
 
 	if (consumers == 0 && tracker->flush_silent_count > 0) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: NHG %u tracker %u no winners released, firing silent REs to consume REUSE/REINSTALL",
-				   __func__, nhe->id, tracker->nhg_tracker_id);
-
 		frrtrace(4, frr_zebra, nhg_tracker_phase, "fire-silent-reuse",
 			 tracker->nhg_tracker_id, nhe->id, 0);
-		consumers += tracker_flush_fire_silent_routes_phase2(nhe, tracker);
+		silent_fired = tracker_flush_fire_silent_routes_phase2(nhe, tracker);
+		consumers += silent_fired;
 	}
 
-	if (consumers > 0 && nhe->tracker_pending_winners > 0) {
+	armed = (consumers > 0 && nhe->tracker_pending_winners > 0);
+
+	if (armed) {
 		zebra_nhg_mark_reuse(nhe);
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: NHG %u tracker %u armed REUSE/REINSTALL (consumers=%zu, pending_winners=%u)",
-				   __func__, nhe->id, tracker->nhg_tracker_id, consumers,
-				   nhe->tracker_pending_winners);
 	} else {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: NHG %u tracker %u no outstanding winner (consumers=%zu pending=%u), NOT arming REUSE/REINSTALL",
-				   __func__, nhe->id, tracker->nhg_tracker_id, consumers,
-				   nhe->tracker_pending_winners);
 		/* No first_winner to re-insert parent_nhe; rehash it
 		 * explicitly so future content lookups can dedup.
 		 */
 		zebra_nhg_rework_content_rehash(nhe);
 	}
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: phase 2 done for NHG %u tracker %u (consumers=%zu), finishing tracker",
-			   __func__, nhe->id, tracker->nhg_tracker_id, consumers);
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
+		zlog_debug("%s: flush done tracker %u NHG %u snapshot %u matched=%u unmatched=%u deleted=%u silent=%u consumers=%zu (silent_fired=%zu) pending_winners=%u -> %s",
+			   __func__, tracker->nhg_tracker_id, nhe->id,
+			   tracker->nhg_tracker_snapshot ? tracker->nhg_tracker_snapshot->id : 0,
+			   tracker->matched_table.re_count, tracker->unmatched_table.re_count,
+			   tracker->deleted_table.re_count, tracker->flush_silent_count, consumers,
+			   silent_fired, nhe->tracker_pending_winners,
+			   armed ? "armed REUSE/REINSTALL" : "no winner, rehashed");
 
-	frrtrace(4, frr_zebra, nhg_tracker_phase, "phase2-done", tracker->nhg_tracker_id, nhe->id,
-		 (uint32_t)consumers);
+	frrtrace(10, frr_zebra, nhg_tracker_flush_done, tracker->nhg_tracker_id, nhe->id,
+		 tracker->nhg_tracker_snapshot ? tracker->nhg_tracker_snapshot->id : 0,
+		 tracker->matched_table.re_count, tracker->unmatched_table.re_count,
+		 tracker->deleted_table.re_count, tracker->flush_silent_count, (uint32_t)consumers,
+		 (uint32_t)silent_fired, nhe->tracker_pending_winners);
 
 	tracker_flush_batch_finish(nhe, tracker);
 }
@@ -1607,7 +1638,7 @@ static void nhg_tracker_flush_iter_event(struct event *ev)
 			}
 			/* All phase-1 tables done, dplane ack will reschedule */
 			if (tracker->routes_pending > 0) {
-				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 					zlog_debug("%s: phase1 tables exhausted NHG %u tracker %u, waiting for acks routes_pending=%u",
 						   __func__, nhe->id, tracker->nhg_tracker_id,
 						   tracker->routes_pending);
@@ -1717,7 +1748,7 @@ static void zebra_nhg_tracker_flush(struct nhg_event_tracker *tracker, struct nh
 	 * actually entered.
 	 */
 	if (tracker_find_flushing(nhe)) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 			zlog_debug("%s: NHG %u tracker %u deferred (state=WAITING) -- another tracker is already flushing",
 				   __func__, nhe->id, tracker->nhg_tracker_id);
 
@@ -1797,7 +1828,7 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 	     tracker->deleted_table.re_count) != tracker->orig_re_count)
 		return;
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: flush_if_full tracker %u NHG %u (matched=%u unmatched=%u deleted=%u orig_re=%u)",
 			   __func__, tracker->nhg_tracker_id, nhe->id, tracker->matched_table.re_count,
 			   tracker->unmatched_table.re_count, tracker->deleted_table.re_count,
@@ -1825,7 +1856,7 @@ static void nhg_tracker_timer_expiry(struct event *event)
 		return;
 	}
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: timer_expiry tracker %u NHG %u ifindex %u event %d (matched=%u unmatched=%u orig_re=%u)",
 			   __func__, tracker->nhg_tracker_id, nhe->id, tracker->ifindex, tracker->event,
 			   tracker->matched_table.re_count, tracker->unmatched_table.re_count,
@@ -2033,7 +2064,7 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *parent
 
 	zrouter.tracker_counters.trackers_allocated++;
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: NHG %u created tracker %u (event=%d ifindex=%u snapshot_src_nhg=%u expected_re=%u timer=%lus) total trackers=%zu",
 			   __func__, parent_nhe->id, tracker->nhg_tracker_id, event, ifindex,
 			   snapshot_src_nhe->id, tracker->orig_re_count, inherit_secs,
@@ -2069,7 +2100,7 @@ struct nhg_event_tracker *zebra_nhg_tracker_create_or_update(struct nhg_hash_ent
 			zebra_nhg_free(existing->nhg_tracker_snapshot);
 			existing->nhg_tracker_snapshot = snapshot;
 
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 				zlog_debug("%s: NHG %u updated tracker %u snapshot (event=%d ifindex=%u)",
 					   __func__, nhe->id, existing->nhg_tracker_id, event, ifindex);
 
@@ -2093,7 +2124,7 @@ void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker
 
 	/* Leak detector: tracker torn down with phase-1 losers still outstanding (routes_pending never drained to 0) -- their dplane-ack accounting was mis-attributed, so phase 2 / NHG reuse did not complete cleanly. */
 	if (tracker->routes_pending > 0) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 			zlog_debug("%s: NHG %u tracker %u freed with routes_pending=%u -- phase-1 loser ack accounting leaked",
 				   __func__, nhe->id, tracker->nhg_tracker_id, tracker->routes_pending);
 
@@ -2103,7 +2134,7 @@ void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker
 
 	nhg_event_tracker_list_del(&nhe->tracker_list, tracker);
 
-	if (nhg_event_tracker_list_count(&nhe->tracker_list) == 0 && IS_ZEBRA_DEBUG_NHG_DETAIL)
+	if (nhg_event_tracker_list_count(&nhe->tracker_list) == 0 && IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: NHG %u last tracker %u freed, no active trackers remain", __func__,
 			   nhe->id, tracker->nhg_tracker_id);
 
