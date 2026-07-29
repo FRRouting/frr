@@ -2724,15 +2724,23 @@ static int bgp_cli_enqueue_remote_as(struct vty *vty, const char *base_xpath, co
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_type);
 		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", base_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, asn_asn2asplain(as_num));
-	} else if (internal) {
-		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", base_xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "internal");
-	} else if (as_auto) {
-		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", base_xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "auto");
 	} else {
+		/*
+		 * remote-as is when-gated on as-specified. Clear any leftover
+		 * ASN leaf before/with switching to internal/external/auto
+		 * (e.g. after peer-group join copied the group's ASN).
+		 */
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", base_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+
+		if (internal)
+			as_type = "internal";
+		else if (as_auto)
+			as_type = "auto";
+		else
+			as_type = "external";
 		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", base_xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "external");
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_type);
 	}
 	return CMD_SUCCESS;
 }
