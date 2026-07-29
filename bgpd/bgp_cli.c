@@ -332,8 +332,7 @@ DEFUN_YANG_NOSH(bgp_segment_routing_srv6_yang, bgp_segment_routing_srv6_yang_cmd
 		"Segment-Routing configuration\n"
 		"Segment-Routing SRv6 configuration\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
+	/* Pure node switch; do not require BGP qobj context (vtysh -f / mgmtd). */
 	vty->node = BGP_SRV6_NODE;
 	return CMD_SUCCESS;
 }
