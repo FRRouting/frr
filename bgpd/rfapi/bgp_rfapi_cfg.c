@@ -3830,6 +3830,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 	nb_cli_show_dnode_cmds(vty, dnode, false);
 	return 1;
 }
+
 void bgp_rfapi_show_summary(struct bgp *bgp, struct vty *vty)
 {
 	struct rfapi_cfg *hc = bgp->rfapi_cfg;
