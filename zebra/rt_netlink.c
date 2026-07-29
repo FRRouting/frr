@@ -3382,10 +3382,10 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 			/* FPM-specific nexthop-group attributes */
 			if (fpm) {
-				if (nh->resolved_via > 0) {
+				if (nh->res_info) {
 					if (!nl_attr_put32(&req->n, buflen,
 							   NHA_FPM_RESOLVED_VIA,
-							   nh->resolved_via))
+							   nh->res_info->id))
 						return 0;
 				}
 			}
