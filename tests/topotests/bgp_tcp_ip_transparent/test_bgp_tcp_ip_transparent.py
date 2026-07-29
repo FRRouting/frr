@@ -96,6 +96,7 @@ def setup_module(mod):
     router bgp 20101
       bgp disable-ebgp-connected-route-check
       neighbor 15.20.100.2 remote-as 20102
+      neighbor 15.20.100.2 timers connect 3
     """)
 
     # needed to enforce socket() receive for a transparent IP socket
@@ -116,6 +117,7 @@ def setup_module(mod):
       bgp disable-ebgp-connected-route-check
       neighbor 10.20.100.1 remote-as 20101
       neighbor 10.20.100.1 update-source 15.20.100.2
+      neighbor 10.20.100.1 timers connect 3
     """)
 
     logger.info("Running setup_module() done")
