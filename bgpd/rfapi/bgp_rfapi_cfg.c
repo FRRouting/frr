@@ -2301,6 +2301,22 @@ static void bgp_rfapi_delete_nve_group(struct vty *vty, /* NULL = no output */
 	struct listnode *node, *nnode;
 
 	/*
+	 * Close the group's own descriptor before the orphan loop below.
+	 * rfapi_open_inner() links that descriptor onto rfg->nves, and the
+	 * loop clears rfd->rfg. rfapi_close() then skips rfapi_close_inner(),
+	 * so the RFAPI peer and the descriptor's import-table reference are
+	 * never released. VRF descriptors are not on the global descriptor
+	 * list, which makes this their only close. clear_vnc_vrf_closer()
+	 * leaves the descriptor open while the import table still has routes.
+	 */
+	if (rfg->rfd) {
+		struct rfapi_descriptor *rfd = rfg->rfd;
+
+		rfg->rfd = NULL;
+		rfapi_close(rfd);
+	}
+
+	/*
 	 * If there are currently-open NVEs that belong to this group,
 	 * zero out their references to this group structure.
 	 */
@@ -2393,11 +2409,9 @@ static void bgp_rfapi_delete_nve_group(struct vty *vty, /* NULL = no output */
 	}
 }
 
-static int
-bgp_rfapi_delete_named_nve_group(struct vty *vty, /* NULL = no output */
-				 struct bgp *bgp,
-				 const char *rfg_name,	/* NULL = any */
-				 rfapi_group_cfg_type_t type) /* _MAX = any */
+int bgp_rfapi_delete_named_nve_group(struct vty *vty,			    /* NULL = no output */
+				     struct bgp *bgp, const char *rfg_name, /* NULL = any */
+				     rfapi_group_cfg_type_t type)	    /* _MAX = any */
 {
 	struct rfapi_nve_group_cfg *rfg = NULL;
 	struct listnode *node, *nnode;

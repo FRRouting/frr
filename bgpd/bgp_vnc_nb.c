@@ -39,14 +39,26 @@
  */
 static struct bgp *bgp_nb_vnc_get_bgp(const struct lyd_node *dnode)
 {
-	const struct lyd_node *dn = dnode;
-	struct bgp *bgp;
+	const struct lyd_node *cur;
 
-	while (dn) {
-		bgp = nb_running_get_entry(dn, NULL, false);
-		if (bgp)
-			return bgp;
-		dn = lyd_parent(dn);
+	/*
+	 * VNC nodes hang under .../frr-bgp:bgp/frr-bgp-vnc:vnc/...
+	 * Do not use yang_dnode_get_parent(dnode, "bgp"): VNC itself has
+	 * nested containers named "bgp" (e.g. export/bgp), and the nearest
+	 * match is wrong. Walk for the frr-bgp module's bgp container.
+	 *
+	 * Also avoid recursive nb_running_get_entry(): nve-group /
+	 * vrf-policy list entries have running pointers that would be
+	 * returned cast as struct bgp *.
+	 */
+	for (cur = dnode; cur; cur = lyd_parent(cur)) {
+		if (cur->schema->nodetype != LYS_CONTAINER && cur->schema->nodetype != LYS_LIST)
+			continue;
+		if (!strmatch(cur->schema->name, "bgp"))
+			continue;
+		if (!cur->schema->module || !strmatch(cur->schema->module->name, "frr-bgp"))
+			continue;
+		return nb_running_get_entry_non_rec(cur, NULL, false);
 	}
 	return NULL;
 }
@@ -339,9 +351,22 @@ int bgp_global_vnc_nve_group_create(struct nb_cb_create_args *args)
 
 int bgp_global_vnc_nve_group_destroy(struct nb_cb_destroy_args *args)
 {
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+	char *name = NULL;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	nb_running_unset_entry(args->dnode);
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	rfg = nb_running_unset_entry(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg || !rfg)
+		return NB_OK;
+
+	if (rfg->name)
+		name = XSTRDUP(MTYPE_TMP, rfg->name);
+	bgp_rfapi_delete_named_nve_group(NULL, bgp, name, RFAPI_GROUP_CFG_NVE);
+	XFREE(MTYPE_TMP, name);
 	return NB_OK;
 }
 
@@ -596,9 +621,22 @@ int bgp_global_vnc_vrf_policy_create(struct nb_cb_create_args *args)
 
 int bgp_global_vnc_vrf_policy_destroy(struct nb_cb_destroy_args *args)
 {
+	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
+	char *name = NULL;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	nb_running_unset_entry(args->dnode);
+
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	rfg = nb_running_unset_entry(args->dnode);
+	if (!bgp || !bgp->rfapi_cfg || !rfg)
+		return NB_OK;
+
+	if (rfg->name)
+		name = XSTRDUP(MTYPE_TMP, rfg->name);
+	bgp_rfapi_delete_named_nve_group(NULL, bgp, name, RFAPI_GROUP_CFG_VRF);
+	XFREE(MTYPE_TMP, name);
 	return NB_OK;
 }
 
@@ -611,7 +649,7 @@ int bgp_global_vnc_vrf_policy_label_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
-	if (!rfg || !bgp)
+	if (!rfg || !bgp || !bgp->rfapi_cfg)
 		return NB_ERR_INCONSISTENCY;
 	if (bgp->rfapi_cfg->rfg_redist == rfg)
 		vnc_redistribute_prechange(bgp);
@@ -665,31 +703,70 @@ int bgp_global_vnc_vrf_policy_rt_import_modify(struct nb_cb_modify_args *args)
 {
 	struct rfapi_nve_group_cfg *rfg;
 	struct bgp *bgp;
+	struct listnode *node;
+	struct rfapi_rfg_name *rfgn;
+	int is_export_bgp = 0;
+	int is_export_zebra = 0;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
 	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
-	if (!rfg || !bgp)
+	if (!rfg || !bgp || !bgp->rfapi_cfg)
 		return NB_ERR_INCONSISTENCY;
-	if (rfg->rt_import_list && rfg->rfapi_import_table)
+
+	/* Mirror classic vnc_vrf_policy_rt_import: refresh export groups. */
+	for (ALL_LIST_ELEMENTS_RO(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node, rfgn)) {
+		if (rfgn->rfg == rfg) {
+			is_export_bgp = 1;
+			break;
+		}
+	}
+	for (ALL_LIST_ELEMENTS_RO(bgp->rfapi_cfg->rfg_export_zebra_l, node, rfgn)) {
+		if (rfgn->rfg == rfg) {
+			is_export_zebra = 1;
+			break;
+		}
+	}
+
+	if (is_export_bgp)
+		vnc_direct_bgp_del_group(bgp, rfg);
+	if (is_export_zebra)
+		vnc_zebra_del_group(bgp, rfg);
+
+	if (rfg->rfapi_import_table)
 		rfapiImportTableRefDelByIt(bgp, rfg->rfapi_import_table);
 	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL), &rfg->rt_import_list);
-	if (rfg->rt_import_list)
-		rfg->rfapi_import_table = rfapiImportTableRefAdd(bgp, rfg->rt_import_list, rfg);
+	rfg->rfapi_import_table = rfg->rt_import_list
+					  ? rfapiImportTableRefAdd(bgp, rfg->rt_import_list, rfg)
+					  : NULL;
+
+	if (is_export_bgp)
+		vnc_direct_bgp_add_group(bgp, rfg);
+	if (is_export_zebra)
+		vnc_zebra_add_group(bgp, rfg);
 	return NB_OK;
 }
 
 int bgp_global_vnc_vrf_policy_rt_export_modify(struct nb_cb_modify_args *args)
 {
 	struct rfapi_nve_group_cfg *rfg;
+	struct bgp *bgp;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
+
 	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
-	if (!rfg)
+	bgp = bgp_nb_vnc_get_bgp(args->dnode);
+	if (!rfg || !bgp || !bgp->rfapi_cfg)
 		return NB_ERR_INCONSISTENCY;
+
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_prechange(bgp);
 	rfapi_set_ecom_from_str(yang_dnode_get_string(args->dnode, NULL), &rfg->rt_export_list);
+	if (bgp->rfapi_cfg->rfg_redist == rfg)
+		vnc_redistribute_postchange(bgp);
 	return NB_OK;
 }
 
