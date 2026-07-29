@@ -8017,12 +8017,24 @@ static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xp
 				 size_t xpath_len, bool *is_pg)
 {
 	char base[XPATH_MAXLEN];
+	char check[XPATH_MAXLEN + 256];
 	const char *afi_safi;
 	int ret;
 
 	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, base, sizeof(base), is_pg);
 	if (ret != 0)
 		return ret;
+
+	/*
+	 * Classic AF neighbor cmds require an existing peer (remote-as or
+	 * peer-group first). Creating afi-safi under a missing neighbor would
+	 * auto-create the list entry without mandatory remote-as-type.
+	 */
+	snprintfrr(check, sizeof(check), "%s/%s", VTY_CURR_XPATH, base + 2);
+	if (!yang_dnode_exists(vty->candidate_config->dnode, check)) {
+		vty_out(vty, "%% Specify remote-as or peer-group commands first\n");
+		return -1;
+	}
 
 	afi_safi = bgp_cli_afi_safi_name(vty->node);
 	/*
