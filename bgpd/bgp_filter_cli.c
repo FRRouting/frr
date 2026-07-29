@@ -19,6 +19,8 @@
 #include "bgpd/bgp_clist.h"
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_filter_cli.h"
+#include "bgpd/bgp_community.h"
+#include "bgpd/bgp_lcommunity.h"
 
 #include "bgpd/bgp_filter_cli_clippy.c"
 
@@ -260,6 +262,18 @@ DEFPY_YANG(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* Reject malformed values before YANG edit (classic parity). */
+	for (i = idx; i < argc; i++) {
+		struct community *com;
+
+		com = community_str2com(argv[i]->arg);
+		if (!com) {
+			vty_out(vty, "%% Malformed community-list value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		community_free(&com);
+	}
+
 	/* Create list and entry */
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
@@ -497,6 +511,17 @@ DEFPY_YANG(
 	if (idx >= argc) {
 		vty_out(vty, "%% No large community string specified\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	for (i = idx; i < argc; i++) {
+		struct lcommunity *lcom;
+
+		lcom = lcommunity_str2com(argv[i]->arg);
+		if (!lcom) {
+			vty_out(vty, "%% Malformed large-community-list value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		lcommunity_free(&lcom);
 	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
