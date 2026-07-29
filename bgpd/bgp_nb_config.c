@@ -5509,7 +5509,11 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
+		/*
+		 * Soft lookup may return NULL (same-candidate create) or a
+		 * stale/wrong entry without a live bgp — never deref blindly.
+		 */
+		if (!peer || !peer->bgp)
 			return NB_OK;
 		if (peer_dynamic_neighbor(peer)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
@@ -5531,7 +5535,7 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 	}
 
 	peer = bgp_nb_config_peer(args->dnode);
-	if (!peer)
+	if (!peer || !peer->bgp)
 		return NB_ERR_NOT_FOUND;
 
 	group_name = yang_dnode_get_string(args->dnode, NULL);
