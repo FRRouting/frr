@@ -5498,8 +5498,30 @@ ALIAS_ATTR(aggregate_addressv4_yang, aggregate_addressv4_yang_hidden_cmd,
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
 
-DEFPY_YANG(bgp_maxpaths_yang, bgp_maxpaths_yang_cmd,
-	   "[no] maximum-paths [1-" MULTIPATH_NUM_STR "$mpaths]",
+/*
+ * DEFUN so the C preprocessor expands MULTIPATH_NUM. A DEFPY would need
+ * clippy to read config.h, which lives in the build directory.
+ */
+DEFUN_YANG(bgp_maxpaths_yang, bgp_maxpaths_yang_cmd,
+	   "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+	   "Forward packets over multiple paths\n"
+	   "Number of paths\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	int idx = 0;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ebgp/maximum-paths", af_xpath);
+	if (!argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx))
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, argv[idx]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_maxpaths_yang, no_bgp_maxpaths_yang_cmd,
+	   "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
 	   NO_STR
 	   "Forward packets over multiple paths\n"
 	   "Number of paths\n")
@@ -5510,18 +5532,37 @@ DEFPY_YANG(bgp_maxpaths_yang, bgp_maxpaths_yang_cmd,
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ebgp/maximum-paths", af_xpath);
-	if (no)
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	else {
-		if (!mpaths)
-			return CMD_WARNING_CONFIG_FAILED;
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths);
-	}
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
-	   "[no] maximum-paths ibgp [1-" MULTIPATH_NUM_STR "$mpaths [equal-cluster-length$cluster]]",
+DEFUN_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
+	   "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]",
+	   "Forward packets over multiple paths\n"
+	   "iBGP-multipath\n"
+	   "Number of paths\n"
+	   "Match the cluster length\n")
+{
+	char af_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	int idx = 0;
+	bool cluster;
+
+	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/maximum-paths", af_xpath);
+	if (!argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx))
+		return CMD_WARNING_CONFIG_FAILED;
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, argv[idx]->arg);
+	cluster = argv_find(argv, argc, "equal-cluster-length", &idx);
+	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
+		   af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, cluster ? "true" : "false");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_bgp_maxpaths_ibgp_yang, no_bgp_maxpaths_ibgp_yang_cmd,
+	   "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
 	   NO_STR
 	   "Forward packets over multiple paths\n"
 	   "iBGP-multipath\n"
@@ -5534,31 +5575,35 @@ DEFPY_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/maximum-paths", af_xpath);
-	if (no) {
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-		snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
-			   af_xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	} else {
-		if (!mpaths)
-			return CMD_WARNING_CONFIG_FAILED;
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths);
-		snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
-			   af_xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, cluster ? "true" : "false");
-	}
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
+		   af_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_ATTR(bgp_maxpaths_yang, bgp_maxpaths_yang_hidden_cmd,
-	   "[no] maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "$mpaths]",
+	   "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+	   "Forward packets over multiple paths\n"
+	   "Number of paths\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(no_bgp_maxpaths_yang, no_bgp_maxpaths_yang_hidden_cmd,
+	   "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
 	   NO_STR "Forward packets over multiple paths\n"
 		  "Number of paths\n",
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
 ALIAS_ATTR(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_hidden_cmd,
-	   "[no] maximum-paths ibgp [" CMD_RANGE_STR(
-		   1, MULTIPATH_NUM) "$mpaths [equal-cluster-length$cluster]]",
+	   "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]",
+	   "Forward packets over multiple paths\n"
+	   "iBGP-multipath\n"
+	   "Number of paths\n"
+	   "Match the cluster length\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
+
+ALIAS_ATTR(no_bgp_maxpaths_ibgp_yang, no_bgp_maxpaths_ibgp_yang_hidden_cmd,
+	   "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
 	   NO_STR "Forward packets over multiple paths\n"
 		  "iBGP-multipath\n"
 		  "Number of paths\n"
@@ -9942,15 +9987,25 @@ void bgp_cli_init(void)
 
 	/* maximum-paths: unicast + labeled */
 	install_element(BGP_IPV4_NODE, &bgp_maxpaths_yang_cmd);
+	install_element(BGP_IPV4_NODE, &no_bgp_maxpaths_yang_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_maxpaths_ibgp_yang_cmd);
+	install_element(BGP_IPV4_NODE, &no_bgp_maxpaths_ibgp_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_maxpaths_yang_cmd);
+	install_element(BGP_IPV6_NODE, &no_bgp_maxpaths_yang_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_maxpaths_ibgp_yang_cmd);
+	install_element(BGP_IPV6_NODE, &no_bgp_maxpaths_ibgp_yang_cmd);
 	install_element(BGP_IPV4L_NODE, &bgp_maxpaths_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &no_bgp_maxpaths_yang_cmd);
 	install_element(BGP_IPV4L_NODE, &bgp_maxpaths_ibgp_yang_cmd);
+	install_element(BGP_IPV4L_NODE, &no_bgp_maxpaths_ibgp_yang_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &no_bgp_maxpaths_yang_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_yang_cmd);
+	install_element(BGP_IPV6L_NODE, &no_bgp_maxpaths_ibgp_yang_cmd);
 	install_element(BGP_NODE, &bgp_maxpaths_yang_hidden_cmd);
+	install_element(BGP_NODE, &no_bgp_maxpaths_yang_hidden_cmd);
 	install_element(BGP_NODE, &bgp_maxpaths_ibgp_yang_hidden_cmd);
+	install_element(BGP_NODE, &no_bgp_maxpaths_ibgp_yang_hidden_cmd);
 
 	/* redistribute: ipv4/ipv6 unicast */
 	install_element(BGP_IPV4_NODE, &bgp_redistribute_ipv4_yang_cmd);
