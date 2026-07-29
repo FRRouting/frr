@@ -8118,6 +8118,14 @@ DEFPY_YANG(neighbor_dampening_yang, neighbor_dampening_yang_cmd,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
+	/* Dampening leaves live under afi-safi/<af>/route-flap-dampening. */
+	{
+		const char *af = bgp_cli_afi_safi_name(vty->node);
+		size_t len = strlen(xpath);
+
+		snprintfrr(xpath + len, sizeof(xpath) - len, "/%s", af);
+	}
+
 	half_min = half_str ? (unsigned int)half : DEFAULT_HALF_LIFE;
 	reuse_val = reuse_str ? (unsigned int)reuse : DEFAULT_REUSE;
 	suppress_val = suppress_str ? (unsigned int)suppress : DEFAULT_SUPPRESS;
@@ -8165,6 +8173,14 @@ DEFPY_YANG(no_neighbor_dampening_yang, no_neighbor_dampening_yang_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	/* Dampening leaves live under afi-safi/<af>/route-flap-dampening. */
+	{
+		const char *af = bgp_cli_afi_safi_name(vty->node);
+		size_t len = strlen(xpath);
+
+		snprintfrr(xpath + len, sizeof(xpath) - len, "/%s", af);
+	}
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/enable", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
