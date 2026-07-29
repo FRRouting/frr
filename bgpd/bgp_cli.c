@@ -172,6 +172,12 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 			asnotation = ASNOTATION_DOT;
 		else
 			asnotation = ASNOTATION_PLAIN;
+	} else {
+		/*
+		 * Match classic: ASDOT input like "1.300" implies asnotation
+		 * dot even without an explicit as-notation keyword.
+		 */
+		asn_str2asn_notation(argv[2]->arg, NULL, &asnotation);
 	}
 
 	snprintfrr(cpp_xpath, sizeof(cpp_xpath), BGP_CPP_XPATH, name, vrf_name);
