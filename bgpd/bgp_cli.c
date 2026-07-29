@@ -6466,10 +6466,10 @@ DEFPY_YANG_NOSH(bgp_evpn_vni_yang, bgp_evpn_vni_yang_cmd,
 	struct bgpevpn *vpn;
 	int ret;
 
-	bgp = VTY_GET_CONTEXT(bgp);
-	if (!bgp)
-		return CMD_WARNING;
-
+	/*
+	 * Create via YANG first. Do not require BGP qobj context up front —
+	 * vtysh -f / mgmtd may lack it (same class as segment-routing srv6).
+	 */
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	snprintfrr(vni_rel, sizeof(vni_rel), "%s/vni[vni='%" PRId64 "']", af_xpath, vni);
 
@@ -6478,6 +6478,19 @@ DEFPY_YANG_NOSH(bgp_evpn_vni_yang, bgp_evpn_vni_yang_cmd,
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret != CMD_SUCCESS)
 		return ret;
+
+	bgp = VTY_GET_CONTEXT(bgp);
+	if (!bgp && vty->xpath_index > 0) {
+		const struct lyd_node *dnode;
+
+		dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+		if (dnode)
+			bgp = nb_running_get_entry(dnode, NULL, false);
+	}
+	if (!bgp) {
+		vty_out(vty, "%% BGP instance not found\n");
+		return CMD_WARNING;
+	}
 
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
