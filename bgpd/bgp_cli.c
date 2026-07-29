@@ -8641,14 +8641,10 @@ DEFPY_YANG(neighbor_advertise_map_yang, neighbor_advertise_map_yang_cmd,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	if (no) {
-		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/advertise-map",
-			   xpath, af);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/exist-map", xpath,
-			   af);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement/non-exist-map",
-			   xpath, af);
+		/* Destroy the whole container so leaf destroy order cannot
+		 * re-apply conditional-advertisement via sibling leaves.
+		 */
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/conditional-advertisement", xpath, af);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
