@@ -19,6 +19,7 @@
 #include "lib_errors.h"
 #include "routing_nb.h"
 #include "zebra.h"
+#include "asn.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_open.h"
@@ -82,6 +83,8 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 	const char *vrf_name;
 	const char *name;
 	enum bgp_instance_type inst_type;
+	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
+	const char *notation;
 	as_t as;
 	int ret;
 
@@ -106,7 +109,17 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 			inst_type = BGP_INSTANCE_TYPE_VRF;
 		}
 
-		ret = bgp_get(&bgp, &as, name, inst_type, NULL, ASNOTATION_PLAIN);
+		if (yang_dnode_exists(args->dnode, "./global/as-notation")) {
+			notation = yang_dnode_get_string(args->dnode, "./global/as-notation");
+			if (strmatch(notation, "dot+"))
+				asnotation = ASNOTATION_DOTPLUS;
+			else if (strmatch(notation, "dot"))
+				asnotation = ASNOTATION_DOT;
+			else
+				asnotation = ASNOTATION_PLAIN;
+		}
+
+		ret = bgp_get(&bgp, &as, name, inst_type, NULL, asnotation);
 		if (ret != BGP_SUCCESS && ret != BGP_CREATED && ret != BGP_INSTANCE_EXISTS)
 			return NB_ERR_RESOURCE;
 
@@ -177,6 +190,7 @@ void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, b
 	const char *name;
 	as_t as;
 	bool is_view = false;
+	enum asnotation_mode asnotation = ASNOTATION_PLAIN;
 
 	cpp = yang_dnode_get_parent(dnode, "control-plane-protocol");
 	vrf_name = yang_dnode_get_string(cpp, "vrf");
@@ -186,8 +200,18 @@ void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, b
 	if (yang_dnode_exists(dnode, "./global/instance-type-view"))
 		is_view = yang_dnode_get_bool(dnode, "./global/instance-type-view");
 
+	if (yang_dnode_exists(dnode, "./global/as-notation")) {
+		const char *notation = yang_dnode_get_string(dnode, "./global/as-notation");
+
+		if (strmatch(notation, "dot+"))
+			asnotation = ASNOTATION_DOTPLUS;
+		else if (strmatch(notation, "dot"))
+			asnotation = ASNOTATION_DOT;
+	}
+
 	vty_out(vty, "!\n");
-	vty_out(vty, "router bgp %u", as);
+	vty_out(vty, "router bgp ");
+	vty_out(vty, ASN_FORMAT(asnotation), &as);
 	if (is_view)
 		vty_out(vty, " view %s", name);
 	else if (!strmatch(vrf_name, VRF_DEFAULT_NAME))
