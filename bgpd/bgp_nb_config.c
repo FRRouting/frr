@@ -6031,9 +6031,10 @@ void bgp_nb_cli_show_global_afi_safi(struct vty *vty, const struct lyd_node *dno
 	afi_t afi;
 	safi_t safi;
 	const char *afname;
+	const char *ident;
 
-	if (!bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
-		return;
+	ident = yang_dnode_get_string(dnode, "afi-safi-name");
+	yang_afi_safi_identity2value(ident, &afi, &safi);
 	afname = bgp_nb_afi_safi_cli_name(afi, safi);
 	if (!afname)
 		return;
