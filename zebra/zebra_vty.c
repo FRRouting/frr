@@ -4612,6 +4612,11 @@ DEFUN (show_zebra_tracker,
 	uint32_t full = zrouter.tracker_counters.tracker_full;
 	uint32_t count = MIN(full, TRACKER_FLUSH_LOG_SIZE);
 	uint32_t start;
+	/* Tags still held by REs.  Non-zero with no flush in flight is a leak. */
+	int64_t losers_out = (int64_t)zrouter.tracker_counters.losers_tagged -
+			     (int64_t)zrouter.tracker_counters.losers_consumed;
+	int64_t winners_out = (int64_t)zrouter.tracker_counters.winners_tagged -
+			      (int64_t)zrouter.tracker_counters.winners_consumed;
 
 	if (full <= TRACKER_FLUSH_LOG_SIZE)
 		start = 0;
@@ -4627,8 +4632,6 @@ DEFUN (show_zebra_tracker,
 		json_object_int_add(json, "trackersFreed", zrouter.tracker_counters.trackers_freed);
 		json_object_int_add(json, "trackersCollapsedReMatch",
 				    zrouter.tracker_counters.trackers_collapsed_re_match);
-		json_object_int_add(json, "trackerLoopDetected",
-				    zrouter.tracker_counters.tracker_loop_detected);
 		json_object_int_add(json, "trackerTimerExpired",
 				    zrouter.tracker_counters.tracker_timer_expired);
 		json_object_int_add(json, "trackerFullMatched",
@@ -4646,6 +4649,36 @@ DEFUN (show_zebra_tracker,
 				    zrouter.tracker_counters.flush_slices_total);
 		json_object_int_add(json, "flushSlicesYielded",
 				    zrouter.tracker_counters.flush_slices_yielded);
+		json_object_int_add(json, "losersTagged", zrouter.tracker_counters.losers_tagged);
+		json_object_int_add(json, "losersConsumed",
+				    zrouter.tracker_counters.losers_consumed);
+		json_object_int_add(json, "losersOutstanding", losers_out);
+		json_object_int_add(json, "winnersTagged", zrouter.tracker_counters.winners_tagged);
+		json_object_int_add(json, "winnersConsumed",
+				    zrouter.tracker_counters.winners_consumed);
+		json_object_int_add(json, "winnersOutstanding", winners_out);
+		json_object_int_add(json, "silentFired", zrouter.tracker_counters.silent_fired);
+		json_object_int_add(json, "reuseCopy", zrouter.tracker_counters.reuse_copy);
+		json_object_int_add(json, "reuseFastpath", zrouter.tracker_counters.reuse_fastpath);
+		json_object_int_add(json, "reuseSkip", zrouter.tracker_counters.reuse_skip);
+		json_object_int_add(json, "reuseDupMarked",
+				    zrouter.tracker_counters.reuse_dup_marked);
+		json_object_int_add(json, "newNhgOnLoser",
+				    zrouter.tracker_counters.new_nhg_on_loser);
+		json_object_int_add(json, "consolidationsRun",
+				    zrouter.tracker_counters.consolidations_run);
+		json_object_int_add(json, "consolidateMigrated",
+				    zrouter.tracker_counters.consolidate_migrated);
+		json_object_int_add(json, "consolidateWinBase",
+				    zrouter.tracker_counters.consolidate_win_base);
+		json_object_int_add(json, "consolidateWinDup",
+				    zrouter.tracker_counters.consolidate_win_dup);
+		json_object_int_add(json, "reuseSkipNotReusable",
+				    zrouter.tracker_counters.reuse_skip_not_reusable);
+		json_object_int_add(json, "winnerDrainedNoParent",
+				    zrouter.tracker_counters.winner_drained_no_parent);
+		json_object_int_add(json, "consolidateSkippedBusy",
+				    zrouter.tracker_counters.consolidate_skipped_busy);
 
 		for (uint32_t i = 0; i < count; i++) {
 			uint32_t idx = (start + i) % TRACKER_FLUSH_LOG_SIZE;
@@ -4671,8 +4704,6 @@ DEFUN (show_zebra_tracker,
 			zrouter.tracker_counters.trackers_freed);
 		vty_out(vty, "Trackers collapsed (due to RE match in older tracker): %" PRIu32 "\n",
 			zrouter.tracker_counters.trackers_collapsed_re_match);
-		vty_out(vty, "Loop detected: %" PRIu32 "\n",
-			zrouter.tracker_counters.tracker_loop_detected);
 		vty_out(vty, "Timer expired: %" PRIu32 "\n",
 			zrouter.tracker_counters.tracker_timer_expired);
 		vty_out(vty, "Full (matched only): %" PRIu32 "\n",
@@ -4690,6 +4721,43 @@ DEFUN (show_zebra_tracker,
 			zrouter.tracker_counters.flush_slices_total);
 		vty_out(vty, "Flush iter slices (yielded): %" PRIu32 "\n",
 			zrouter.tracker_counters.flush_slices_yielded);
+		vty_out(vty, "Losers tagged: %" PRIu32 "\n",
+			zrouter.tracker_counters.losers_tagged);
+		vty_out(vty, "Losers consumed: %" PRIu32 "\n",
+			zrouter.tracker_counters.losers_consumed);
+		vty_out(vty, "  Outstanding (0 when idle): %" PRId64 "\n", losers_out);
+		vty_out(vty, "Winners tagged: %" PRIu32 "\n",
+			zrouter.tracker_counters.winners_tagged);
+		vty_out(vty, "Winners consumed: %" PRIu32 "\n",
+			zrouter.tracker_counters.winners_consumed);
+		vty_out(vty, "  Outstanding (0 when idle): %" PRId64 "\n", winners_out);
+		vty_out(vty, "Phase2 silent fired: %" PRIu32 "\n",
+			zrouter.tracker_counters.silent_fired);
+		vty_out(vty, "Reuse copy (rework-in-place): %" PRIu32 "\n",
+			zrouter.tracker_counters.reuse_copy);
+		vty_out(vty, "Reuse fastpath (target already held content): %" PRIu32 "\n",
+			zrouter.tracker_counters.reuse_fastpath);
+		vty_out(vty, "Reuse skipped (route-map/shape): %" PRIu32 "\n",
+			zrouter.tracker_counters.reuse_skip);
+		vty_out(vty, "Reuse target marked duplicate: %" PRIu32 "\n",
+			zrouter.tracker_counters.reuse_dup_marked);
+		vty_out(vty, "New NHG on loser (bleed via normal alloc): %" PRIu32 "\n",
+			zrouter.tracker_counters.new_nhg_on_loser);
+		vty_out(vty, "Consolidations run (migrated dups): %" PRIu32 "\n",
+			zrouter.tracker_counters.consolidations_run);
+		vty_out(vty, "Consolidate migrated routes (total): %" PRIu32 "\n",
+			zrouter.tracker_counters.consolidate_migrated);
+		vty_out(vty, "Consolidate winner == base (original id kept): %" PRIu32 "\n",
+			zrouter.tracker_counters.consolidate_win_base);
+		vty_out(vty, "Consolidate winner == dup (original id displaced): %" PRIu32 "\n",
+			zrouter.tracker_counters.consolidate_win_dup);
+		vty_out(vty, "Anomalies:\n");
+		vty_out(vty, "  Reuse skipped (parent left the kernel): %" PRIu32 "\n",
+			zrouter.tracker_counters.reuse_skip_not_reusable);
+		vty_out(vty, "  Winner drained with tagged parent gone: %" PRIu32 "\n",
+			zrouter.tracker_counters.winner_drained_no_parent);
+		vty_out(vty, "  Consolidation deferred (busy): %" PRIu32 "\n",
+			zrouter.tracker_counters.consolidate_skipped_busy);
 
 		for (uint32_t i = 0; i < count; i++) {
 			uint32_t idx = (start + i) % TRACKER_FLUSH_LOG_SIZE;

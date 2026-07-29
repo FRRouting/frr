@@ -154,8 +154,6 @@ struct zebra_nhg_tracker_counters {
 	uint32_t trackers_freed;
 	/* Number of times trackers were collapsed due to RE match in older tracker */
 	uint32_t trackers_collapsed_re_match;
-	/* Number of times loop was detected (state matched existing tracker) */
-	uint32_t tracker_loop_detected;
 	/* Number of times tracker timer expired */
 	uint32_t tracker_timer_expired;
 	/* Total tracker full events (sum of matched + unmatched + combined)
@@ -172,6 +170,31 @@ struct zebra_nhg_tracker_counters {
 	/* Flush slice stats: incremented every time the flush iter cb runs */
 	uint32_t flush_slices_total;
 	uint32_t flush_slices_yielded;
+	/*
+	 * NHG-reuse debug accounting across the flush/reuse/consolidation
+	 * paths.  Debug-only, surfaced via 'show zebra nexthop-group tracker'.
+	 */
+	uint32_t losers_tagged;	       /* FLUSH_BATCH set: phase1 drain + silent enqueue */
+	uint32_t losers_consumed;      /* FLUSH_BATCH released on dplane ack */
+	uint32_t winners_tagged;       /* WINNER set: phase2 release + silent fire */
+	uint32_t winners_consumed;     /* WINNER released by consumer or pre-remove */
+	uint32_t silent_fired;	       /* phase2: silent REs re-queued for install */
+	uint32_t reuse_copy;	       /* reuse: rework-in-place onto reuse-target */
+	uint32_t reuse_fastpath;       /* reuse: target already held resolved content */
+	uint32_t reuse_skip;	       /* reuse: skipped (route-map / shape mismatch) */
+	uint32_t reuse_dup_marked;     /* reuse: reuse-target marked duplicate */
+	uint32_t new_nhg_on_loser;     /* loser reinstall created a brand-new NHG id */
+	uint32_t consolidations_run;   /* consolidation events that migrated dups */
+	uint32_t consolidate_migrated; /* total routes migrated during consolidation */
+	uint32_t consolidate_win_base; /* winner == base nhe (original id kept) */
+	uint32_t consolidate_win_dup;  /* winner == a dup (original id displaced) */
+	/*
+	 * Anomaly accounting.  These stay at zero in a healthy run; a
+	 * non-zero value points at the flush/reuse bookkeeping itself.
+	 */
+	uint32_t reuse_skip_not_reusable;  /* reuse: parent left the kernel mid-flush */
+	uint32_t winner_drained_no_parent; /* winner tag consumed, tagged parent gone */
+	uint32_t consolidate_skipped_busy; /* consolidation deferred: base or dup busy */
 	/* Circular log of last few flush events */
 	struct tracker_flush_event log[TRACKER_FLUSH_LOG_SIZE];
 	uint32_t log_idx;

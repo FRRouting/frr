@@ -3197,7 +3197,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 				}
 				dest->selected_fib = NULL;
 
-				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 					zlog_debug("%s: %pRN re %p NHG %u parked in tracker, skipping kernel re-add",
 						   __func__, rn, same,
 						   same->nhe ? same->nhe->id : 0);
@@ -4181,7 +4181,7 @@ static struct nhg_event_tracker *rib_link_track_ecmp_change(struct route_node *r
 		 * parking the REs. When only flushing trackers exist on
 		 * orig_nhe, we create a new tracker if its NHs differ.
 		 */
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 			zlog_debug("%s: re %p NHG %u old_re %p NHG %u prefix %pRN (existing tracker)",
 				   __func__, re, re->nhe ? re->nhe->id : 0, old_re, orig_nhe->id,
 				   rn);
@@ -4214,7 +4214,7 @@ static struct nhg_event_tracker *rib_link_track_ecmp_change(struct route_node *r
 		if (ZEBRA_NHG_IS_SINGLETON(re->nhe) != ZEBRA_NHG_IS_SINGLETON(orig_nhe)) {
 			/* Shape mismatch (singleton vs group): skip tracker. */
 		} else {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 				zlog_debug("%s: re %p NHG %u old_re %p NHG %u prefix %pRN (ECMP change, creating tracker)",
 					   __func__, re, re->nhe->id, old_re, orig_nhe->id, rn);
 			if (zebra_nhg_tracker_create(orig_nhe, re->nhe, 0,
