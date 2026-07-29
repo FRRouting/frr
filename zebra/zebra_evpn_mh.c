@@ -1199,6 +1199,24 @@ void zebra_evpn_if_init(struct zebra_if *zif)
 	zebra_evpn_local_es_update(zif);
 }
 
+static void zebra_evpn_acc_vl_ref_cleanup_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn_access_bd *acc_bd = bucket->data;
+	const struct zebra_if *zif = arg;
+
+	/*
+	 * These are caches of an interface that is going away. Both are
+	 * optional and are re-derived when the SVI/vxlan device reappears,
+	 * so simply dropping the reference is enough - and it is required,
+	 * since zebra_evpn_acc_bd_svi_set() only clears vlan_zif while the
+	 * SVI still has a parent bridge to look up.
+	 */
+	if (acc_bd->vlan_zif == zif)
+		acc_bd->vlan_zif = NULL;
+	if (acc_bd->vxlan_zif == zif)
+		acc_bd->vxlan_zif = NULL;
+}
+
 /* handle deletion of an access port by removing it from all associated
  * broadcast domains.
  */
@@ -1220,6 +1238,9 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 	es = zif->es_info.es;
 	if (es)
 		zebra_evpn_local_es_del(&es);
+
+	if (zmh_info && zmh_info->evpn_vlan_table)
+		hash_iterate(zmh_info->evpn_vlan_table, zebra_evpn_acc_vl_ref_cleanup_cb, zif);
 }
 
 /*****************************************************************************
