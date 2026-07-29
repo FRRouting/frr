@@ -5254,7 +5254,7 @@ ALIAS_ATTR(aggregate_addressv4_yang, aggregate_addressv4_yang_hidden_cmd,
 
 
 DEFPY_YANG(bgp_maxpaths_yang, bgp_maxpaths_yang_cmd,
-	   "[no] maximum-paths [1-" MULTIPATH_NUM_STR "$mpaths]",
+	   "[no] maximum-paths [(1-" MULTIPATH_NUM_STR ")$mpaths]",
 	   NO_STR
 	   "Forward packets over multiple paths\n"
 	   "Number of paths\n")
@@ -5268,15 +5268,15 @@ DEFPY_YANG(bgp_maxpaths_yang, bgp_maxpaths_yang_cmd,
 	if (no)
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	else {
-		if (!mpaths)
+		if (!mpaths_str)
 			return CMD_WARNING_CONFIG_FAILED;
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths_str);
 	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
-	   "[no] maximum-paths ibgp [1-" MULTIPATH_NUM_STR "$mpaths [equal-cluster-length$cluster]]",
+	   "[no] maximum-paths ibgp [(1-" MULTIPATH_NUM_STR ")$mpaths [equal-cluster-length$cluster]]",
 	   NO_STR
 	   "Forward packets over multiple paths\n"
 	   "iBGP-multipath\n"
@@ -5295,9 +5295,9 @@ DEFPY_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
 			   af_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	} else {
-		if (!mpaths)
+		if (!mpaths_str)
 			return CMD_WARNING_CONFIG_FAILED;
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths_str);
 		snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
 			   af_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, cluster ? "true" : "false");
