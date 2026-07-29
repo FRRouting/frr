@@ -10047,6 +10047,8 @@ static struct cmd_node bgp_srv6_node = {
 	.node = BGP_SRV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-srv6)# ",
+	/* SRv6 mode does not push xpath; keep BGP container on exit. */
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ls_node = {
