@@ -50,6 +50,7 @@ extern "C" {
 
 #define ZEBRA_DEBUG_NHG             0x01
 #define ZEBRA_DEBUG_NHG_DETAILED    0x02
+#define ZEBRA_DEBUG_NHG_TRACKER	    0x04
 
 #define ZEBRA_DEBUG_EVPN_MH_ES 0x01
 #define ZEBRA_DEBUG_EVPN_MH_NH 0x02
@@ -108,6 +109,9 @@ extern "C" {
 
 #define IS_ZEBRA_DEBUG_NHG_DETAIL \
 	(zebra_debug_nexthop & ZEBRA_DEBUG_NHG_DETAILED)
+
+#define IS_ZEBRA_DEBUG_NHG_TRACKER                                                                \
+	(zebra_debug_nexthop & (ZEBRA_DEBUG_NHG_TRACKER | ZEBRA_DEBUG_NHG_DETAILED))
 
 #define IS_ZEBRA_DEBUG_EVPN_MH_ES \
 	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_ES)
