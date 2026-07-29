@@ -3748,8 +3748,11 @@ DEFPY_YANG(neighbor_local_as_yang, neighbor_local_as_yang_cmd,
 	if (ret != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	/* Clippy parses ASNUM into as_t as_str; YANG leaf is inet:as-number
+	 * (uint32). Pass plain ASN, not the original ASDOT string.
+	 */
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/local-as", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_str_str);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, asn_asn2asplain(as_str));
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/no-prepend", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, noprepend ? "true" : "false");
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/replace-as", xpath);
