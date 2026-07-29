@@ -10692,8 +10692,8 @@ DEFPY (show_ip_bgp_neighbor_damp_param,
 	return CMD_SUCCESS;
 }
 
-static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
-			 struct ecommunity **list, bool is_rt6)
+int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv, struct ecommunity **list,
+		  bool is_rt6)
 {
 	struct ecommunity *ecom = NULL;
 	struct ecommunity *ecomadd;
