@@ -4018,21 +4018,26 @@ static struct peer *bgp_nb_config_peer(const struct lyd_node *dnode)
 	struct peer_group *group;
 
 	/*
-	 * Soft lookup: VALIDATE runs before APPLY of list creates in the same
-	 * candidate, so the peer may not be in running yet. Callers must treat
-	 * NULL as "skip" during VALIDATE and as an error during APPLY.
+	 * Soft, non-recursive lookup: VALIDATE runs before APPLY of list
+	 * creates in the same candidate, so the peer may not be in running
+	 * yet. Callers must treat NULL as "skip" during VALIDATE and as an
+	 * error during APPLY.
+	 *
+	 * Must not use recursive nb_running_get_entry(): walking to the BGP
+	 * instance would return struct bgp * cast as peer when the neighbor
+	 * create is still pending, and peer->bgp would be garbage.
 	 */
 	list = yang_dnode_get_parent(dnode, "neighbor");
 	if (list)
-		return nb_running_get_entry(list, NULL, false);
+		return nb_running_get_entry_non_rec(list, NULL, false);
 
 	list = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
 	if (list)
-		return nb_running_get_entry(list, NULL, false);
+		return nb_running_get_entry_non_rec(list, NULL, false);
 
 	list = yang_dnode_get_parent(dnode, "peer-group");
 	if (list) {
-		group = nb_running_get_entry(list, NULL, false);
+		group = nb_running_get_entry_non_rec(list, NULL, false);
 		return group ? group->conf : NULL;
 	}
 
