@@ -1874,8 +1874,14 @@ int bgp_global_vnc_noop_destroy(struct nb_cb_destroy_args *args)
 }
 
 /* clang-format off */
+static const char *frr_bgp_vnc_features[] = {
+	"vnc",
+	NULL,
+};
+
 const struct frr_yang_module_info frr_bgp_vnc_info = {
 	.name = "frr-bgp-vnc",
+	.features = frr_bgp_vnc_features,
 	.nodes = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/frr-bgp-vnc:vnc",
