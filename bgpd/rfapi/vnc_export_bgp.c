@@ -897,6 +897,13 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 			struct rfapi_descriptor *irfd;
 
 			irfd = rfgn->rfg->rfd;
+			/*
+			 * VRF policy may still be on the export list after
+			 * the handle was closed (YANG destroy / cleanup) or
+			 * before it was opened. Skip rather than deref NULL.
+			 */
+			if (!irfd)
+				continue;
 
 			if (rfapiRaddr2Qprefix(&irfd->vn_addr, &nhp))
 				continue;
