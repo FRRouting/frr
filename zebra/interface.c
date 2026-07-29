@@ -233,6 +233,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		zebra_evpn_if_cleanup(zebra_if);
 		zebra_evpn_mac_ifp_del(ifp);
 
+		zebra_l2_unmap_slave_from_bond(zebra_if);
+
 		if_nhg_dependents_release(ifp);
 		nhg_connected_tree_free(&zebra_if->nhg_dependents);
 
@@ -245,6 +247,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		XFREE(MTYPE_ZINFO, zebra_if);
 	}
 
+	zebra_vxlan_if_ref_cleanup(ifp);
+
 	/* walk over all zebra interfaces; unref link pointer */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES (vrf, p_ifp) {
@@ -256,6 +260,15 @@ static int if_zebra_delete_hook(struct interface *ifp)
 				zebra_if->link_ifindex = IFINDEX_INTERNAL;
 				zebra_if->link_nsid = NS_UNKNOWN;
 			}
+			/*
+			 * Master pointers are caches of an ifp that is about
+			 * to be freed; the ifindex stays as-is so that the
+			 * linkage is re-established if the master reappears.
+			 */
+			if (zebra_if->brslave_info.br_if == ifp)
+				zebra_if->brslave_info.br_if = NULL;
+			if (zebra_if->bondslave_info.bond_if == ifp)
+				zebra_if->bondslave_info.bond_if = NULL;
 		}
 	}
 	return 0;
