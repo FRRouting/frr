@@ -358,7 +358,7 @@ int path_pcep_config_update_path(struct path *path)
 {
 	assert(path != NULL);
 	assert(path->nbkey.preference != 0);
-	assert(path->nbkey.endpoint.ipa_type == IPADDR_V4);
+	assert(!IS_IPADDR_NONE(&path->nbkey.endpoint));
 
 	int number_of_sid_clashed = 0;
 	struct path_hop *hop;
