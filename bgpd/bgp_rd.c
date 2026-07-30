@@ -90,6 +90,7 @@ int str2prefix_rd(const char *str, struct prefix_rd *prd)
 	char *half = NULL;
 	struct in_addr addr;
 	as_t as_val = 0;
+	bool is_as = false;
 
 	prd->family = AF_UNSPEC;
 	prd->prefixlen = 64;
@@ -124,8 +125,21 @@ int str2prefix_rd(const char *str, struct prefix_rd *prd)
 
 	s = stream_new(RD_BYTES);
 
+	/*
+	 * asn_str2asn() rejects AS 0, but 0 is a valid Type 0 RD administrator
+	 * subfield (e.g. "0:3159413647"). A bare decimal number is always an
+	 * AS, never an IPv4 address, so treat a bare "0" as AS 0 here. Without
+	 * this, inet_aton() would misparse "0" as 0.0.0.0 and the 4-byte value
+	 * would be truncated to 2 bytes.
+	 */
+	is_as = asn_str2asn(half, &as_val);
+	if (!is_as && all_digit(half) && strtoull(half, NULL, 10) == 0) {
+		is_as = true;
+		as_val = 0;
+	}
+
 	/* if it is an AS format or an IP */
-	if (asn_str2asn(half, &as_val)) {
+	if (is_as) {
 		if (as_val > UINT16_MAX) {
 			stream_putw(s, RD_TYPE_AS4);
 			stream_putl(s, as_val);
