@@ -1761,10 +1761,10 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "  exit\n");
 			vty_out(vty, "  !\n");
 		}
-		vty_out(vty, " exit\n");
-		vty_out(vty, " !\n");
 	}
 	if (display_source_srv6 || zebra_srv6_is_enable()) {
+		vty_out(vty, " exit\n");
+		vty_out(vty, " !\n");
 		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
