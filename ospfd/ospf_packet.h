@@ -7,6 +7,8 @@
 #ifndef _ZEBRA_OSPF_PACKET_H
 #define _ZEBRA_OSPF_PACKET_H
 
+#include <ospfd/ospf_flood.h>
+
 #define OSPF_HEADER_SIZE         24U
 #define OSPF_AUTH_SIMPLE_SIZE     8U
 #define OSPF_AUTH_MD5_SIZE       16U
@@ -45,6 +47,9 @@ struct ospf_packet {
 
 	/* OSPF packet length. */
 	uint16_t length;
+	/* RFC4222/R5: LSAs serialized into this packet (locked), for ACK tracking */
+	struct ospf_lsa_list_head sent_lsas;
+	struct ospf_interface *sent_oi; /* optional: convenience for logging */
 };
 
 /* OSPF packet queue structure. */
@@ -141,6 +146,7 @@ extern void ospf_ls_ack_send_delayed(struct ospf_interface *oi);
 extern void ospf_ls_retransmit(struct ospf_interface *oi, struct ospf_lsa *lsa);
 extern void ospf_ls_req_event(struct ospf_neighbor *nbr);
 
+extern uint64_t ospf_now_ms(void);
 extern void ospf_ls_rxmt_timer(struct event *event);
 extern void ospf_ls_ack_delayed_timer(struct event *event);
 extern void ospf_poll_timer(struct event *event);
