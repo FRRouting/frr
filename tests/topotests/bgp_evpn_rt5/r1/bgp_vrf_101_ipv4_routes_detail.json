@@ -8,7 +8,9 @@
                 "importedFrom": "65000:2",
                 "vni": "101",
                 "valid": true,
-                "extendedCommunity": null,
+                "extendedCommunity": {
+                    "string": "Color:01:100"
+                },
                 "nexthops": [
                     {
                         "ip": "192.168.2.2",

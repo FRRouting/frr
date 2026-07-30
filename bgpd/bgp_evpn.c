@@ -3220,6 +3220,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	char buf1[INET6_ADDRSTRLEN];
 	struct bgp_route_evpn *bre;
 	struct ecommunity *ecom;
+	struct ecommunity *ecom_tmp = NULL;
 
 	memset(pp, 0, sizeof(struct prefix));
 	ip_prefix_from_evpn_prefix(evp, pp);
@@ -3294,6 +3295,10 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		SET_FLAG(attr.es_flags, ATTR_ES_L3_NHG_ACTIVE);
 
 	ecom = ecommunity_filter(bgp_attr_get_ecommunity(&attr), bgp_evpn_filter_ecommunity, NULL);
+	if (ecom && !ecom->refcnt) {
+		ecom = ecommunity_intern(ecom);
+		ecom_tmp = ecom;
+	}
 	bgp_attr_set_ecommunity(&attr, ecom);
 
 	/* Check if route entry is already present. */
@@ -3308,6 +3313,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		new_pi = true;
 	} else {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(pi->attr, &attr)) {
+			ecommunity_unintern(&ecom_tmp);
 			bgp_dest_unlock_node(dest);
 			bgp_attr_extra_discard(&attr);
 			return 0;
@@ -3340,6 +3346,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi->attr = attr_new;
 		pi->uptime = monotime(NULL);
 	}
+	ecommunity_unintern(&ecom_tmp);
 
 	bgp_dest_set_defer_flag(dest, false);
 

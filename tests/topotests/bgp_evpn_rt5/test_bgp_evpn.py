@@ -20,6 +20,7 @@ import sys
 import pytest
 import platform
 import re
+import time
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -424,6 +425,102 @@ def test_evpn_ping():
         pytest.skip(tgen.errors)
 
     _test_evpn_ping_router(tgen.gears["r1"], tgen.gears["r2"], 101, 101)
+
+
+def _imported_ipv4_path(router):
+    prefix = "10.0.101.2/32"
+    output = router.vtysh_cmd(
+        "show bgp vrf vrf-101 ipv4 unicast detail json",
+        isjson=True,
+    )
+    paths = output.get("routes", {}).get(prefix, [])
+    for path in paths:
+        if path.get("importedFrom") == "65000:2":
+            return path
+    return None
+
+
+def test_evpn_autort_update_keeps_import_uptime():
+    """
+    Check that an auto-RT update does not churn an unchanged EVPN VRF import.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    peer = "192.168.1.101"
+    path = _imported_ipv4_path(r1)
+    assert path is not None, "imported IPv4 path not found"
+    assert path.get("extendedCommunity", {}).get("string") == "Color:01:100"
+
+    def import_path_aged():
+        path = _imported_ipv4_path(r1)
+        if path is None:
+            return False
+        return time.time() - path["lastUpdate"]["epoch"] >= 2
+
+    _, result = topotest.run_and_expect(import_path_aged, True, count=60, wait=0.25)
+    assert result, "imported IPv4 path did not stabilize"
+
+    path = _imported_ipv4_path(r1)
+    before_epoch = path["lastUpdate"]["epoch"]
+
+    neighbor = r1.vtysh_cmd(f"show bgp neighbor {peer} json", isjson=True)
+    peer_info = neighbor[peer]
+    assert peer_info["bgpState"] == "Established"
+    before_session_counters = (
+        peer_info["connectionsEstablished"],
+        peer_info["connectionsDropped"],
+    )
+
+    updated_export_rt = "RT:65000:268435557"
+    time.sleep(2)
+    try:
+        r1.vtysh_cmd(
+            """
+configure terminal
+ router bgp 65000 vrf vrf-101
+  address-family l2vpn evpn
+   autort rfc8365-compatible
+            """
+        )
+
+        def export_rt_updated():
+            output = r1.vtysh_cmd("show bgp vrf vrf-101 vni json", isjson=True)
+            return updated_export_rt in output.get("export-rts", [])
+
+        _, result = topotest.run_and_expect(export_rt_updated, True, count=30, wait=0.5)
+        assert result, "L3VNI auto export RT was not updated"
+
+        path = _imported_ipv4_path(r1)
+        assert path is not None, "imported IPv4 path disappeared after auto-RT update"
+        assert path.get("extendedCommunity", {}).get("string") == "Color:01:100"
+        after_epoch = path["lastUpdate"]["epoch"]
+        assert abs(after_epoch - before_epoch) <= 1, (
+            f"imported IPv4 path was reinstalled: {before_epoch} -> {after_epoch}"
+        )
+
+        neighbor = r1.vtysh_cmd(f"show bgp neighbor {peer} json", isjson=True)
+        peer_info = neighbor[peer]
+        assert peer_info["bgpState"] == "Established"
+        after_session_counters = (
+            peer_info["connectionsEstablished"],
+            peer_info["connectionsDropped"],
+        )
+        assert after_session_counters == before_session_counters, (
+            "BGP session counters changed: "
+            f"{before_session_counters} -> {after_session_counters}"
+        )
+    finally:
+        r1.vtysh_cmd(
+            """
+configure terminal
+ router bgp 65000 vrf vrf-101
+  address-family l2vpn evpn
+   no autort rfc8365-compatible
+            """
+        )
 
 
 def test_evpn_disable_routemap():
