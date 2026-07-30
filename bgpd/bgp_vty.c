@@ -13258,6 +13258,9 @@ DEFPY(show_bgp_router,
 	time_t unix_timestamp;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
+	uint32_t total_established = 0;
+	struct listnode *node;
+	struct bgp *bgp;
 
 	if (uj)
 		json = json_object_new_object();
@@ -13303,17 +13306,22 @@ DEFPY(show_bgp_router,
 			CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN) ? "enabled" : "disabled");
 	}
 
+	/* Sum established peers across all BGP instances */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp))
+		total_established += bgp->established_peers;
+
 	if (uj) {
 		json_object_boolean_add(json, "bgpInMaintenanceMode",
 					(CHECK_FLAG(bm->flags, BM_FLAG_MAINTENANCE_MODE)));
 		json_object_int_add(json, "bgpInstanceCount", listcount(bm->bgp));
-
+		json_object_int_add(json, "establishedPeersTotal", total_established);
 	} else {
 		if (CHECK_FLAG(bm->flags, BM_FLAG_MAINTENANCE_MODE))
 			vty_out(vty, "BGP is in Maintenance mode (BGP GSHUT is in effect)\n");
 
 		vty_out(vty, "Number of BGP instances (including default): %d\n",
 			listcount(bm->bgp));
+		vty_out(vty, "Total established peers: %u\n", total_established);
 	}
 
 	if (uj) {
