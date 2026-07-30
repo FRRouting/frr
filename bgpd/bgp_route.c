@@ -1320,11 +1320,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	     new_sub_sort == BGP_PEER_EBGP_OAD)) {
 		*reason = bgp_path_selection_peer;
 		if (debug)
-			zlog_debug("%s: %s loses to %s due to %s peer < eBGP peer",
-				   pfx_buf, new_buf, exist_buf,
-				   (exist_sub_sort == BGP_PEER_EBGP_OAD)
-					   ? "eBGP-OAD"
-					   : "iBGP");
+			zlog_debug("%s: %s loses to %s due to %s peer < eBGP peer", pfx_buf,
+				   new_buf, exist_buf,
+				   (new_sub_sort == BGP_PEER_EBGP_OAD) ? "eBGP-OAD" : "iBGP");
 		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
 			return 0;
 		peer_sort_ret = 0;
