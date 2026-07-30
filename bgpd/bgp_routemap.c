@@ -3557,8 +3557,12 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	if (!peer || !peer->bgp)
 		return RMAP_ERROR;
 
-	/* Build link bandwidth extended community */
-	as = (peer->bgp->as > BGP_AS_MAX) ? BGP_AS_TRANS : peer->bgp->as;
+	/* Build link bandwidth extended community. The 2-byte (classic)
+	 * encoding below falls back to BGP_AS_TRANS for a 4-byte AS; the
+	 * extended (4-byte) encoding has no such limit and must use the
+	 * real AS.
+	 */
+	as = peer->bgp->as;
 	if (rels->lb_type == RMAP_ECOMM_LB_SET_VALUE) {
 		bw_bytes = (rels->bw * 1000 * 1000) / 8;
 	} else if (rels->lb_type == RMAP_ECOMM_LB_SET_CUMUL) {
@@ -3605,7 +3609,8 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	} else {
 		struct ecommunity_val lb_eval;
 
-		encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval,
+		encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, bw_bytes,
+				  rels->non_trans, &lb_eval,
 				  CHECK_FLAG(peer->flags,
 					     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 
