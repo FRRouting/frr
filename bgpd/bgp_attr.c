@@ -4458,10 +4458,9 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 		 * to encode a single minimum-sized path attribute.
 		 *
 		 * An error condition exists and the "treat-as-withdraw"
-		 * approach MUST be used (unless some other, more severe
-		 * error is encountered dictating a stronger approach),
-		 * and the Total Attribute Length MUST be relied upon to
-		 * enable the beginning of the NLRI field to be located.
+		 * approach MUST be used, and the Total Attribute Length
+		 * MUST be relied upon to enable the beginning of the
+		 * NLRI field to be located.
 		 */
 
 		/* Check remaining length check.*/
@@ -4471,15 +4470,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 				  "%s: error BGP attribute length %lu is smaller than min len",
 				  peer->host,
 				  (unsigned long)(endp - stream_pnt(BGP_INPUT(connection))));
-
-			if (peer->sort != BGP_PEER_EBGP) {
-				bgp_notify_send(connection, BGP_NOTIFY_UPDATE_ERR,
-						BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-				ret = BGP_ATTR_PARSE_ERROR;
-			} else {
-				ret = BGP_ATTR_PARSE_WITHDRAW;
-			}
-
+			ret = BGP_ATTR_PARSE_WITHDRAW;
 			goto done;
 		}
 
@@ -4498,15 +4489,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 				  "%s: Extended length set, but just %lu bytes of attr header",
 				  peer->host,
 				  (unsigned long)(endp - stream_pnt(BGP_INPUT(connection))));
-
-			if (peer->sort != BGP_PEER_EBGP) {
-				bgp_notify_send(connection, BGP_NOTIFY_UPDATE_ERR,
-						BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-				ret = BGP_ATTR_PARSE_ERROR;
-			} else {
-				ret = BGP_ATTR_PARSE_WITHDRAW;
-			}
-
+			ret = BGP_ATTR_PARSE_WITHDRAW;
 			goto done;
 		}
 
