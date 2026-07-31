@@ -1921,6 +1921,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_PREFIX_SID:
 	case BGP_ATTR_NHC:
 	case BGP_ATTR_LINK_STATE:
+	case BGP_ATTR_AIGP:
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* Core attributes, particularly ones which may influence route
