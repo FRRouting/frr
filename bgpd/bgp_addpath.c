@@ -13,27 +13,26 @@
 #include "bgp_route.h"
 
 static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
-	{
-		.config_name = "addpath-tx-all-paths",
-		.human_name = "All",
-		.human_description = "Advertise all paths via addpath",
-		.type_json_name = "addpathTxAllPaths",
-		.id_json_name = "addpathTxIdAll"
-	},
-	{
-		.config_name = "addpath-tx-bestpath-per-AS",
-		.human_name = "Best-Per-AS",
-		.human_description = "Advertise bestpath per AS via addpath",
-		.type_json_name = "addpathTxBestpathPerAS",
-		.id_json_name = "addpathTxIdBestPerAS"
-	},
-	{
-		.config_name = "addpath-tx-best-selected",
-		.human_name = "Best-Selected",
-		.human_description = "Advertise best N selected paths via addpath",
-		.type_json_name = "addpathTxBestSelectedPaths",
-		.id_json_name = "addpathTxIdBestSelected"
-	},
+	{ .config_name = "addpath-tx-all-paths",
+	  .human_name = "All",
+	  .human_description = "Advertise all paths via addpath",
+	  .type_json_name = "addpathTxAllPaths",
+	  .id_json_name = "addpathTxIdAll" },
+	{ .config_name = "addpath-tx-bestpath-per-AS",
+	  .human_name = "Best-Per-AS",
+	  .human_description = "Advertise bestpath per AS via addpath",
+	  .type_json_name = "addpathTxBestpathPerAS",
+	  .id_json_name = "addpathTxIdBestPerAS" },
+	{ .config_name = "addpath-tx-best-selected",
+	  .human_name = "Best-Selected",
+	  .human_description = "Advertise best N selected paths via addpath",
+	  .type_json_name = "addpathTxBestSelectedPaths",
+	  .id_json_name = "addpathTxIdBestSelected" },
+	{ .config_name = "addpath-tx-bestpath-per-encapsulation",
+	  .human_name = "Best-Per-Encapsulation",
+	  .human_description = "Advertise bestpath per encapsulation via addpath",
+	  .type_json_name = "addpathTxBestpathPerEncapsulation",
+	  .id_json_name = "addpathTxIdBestPerEncapsulation" },
 };
 
 static const struct bgp_addpath_strategy_names unknown_names = {
@@ -186,6 +185,14 @@ bool bgp_addpath_dmed_required(int strategy)
 }
 
 /*
+ * Check to see if the addpath strategy requires DATAPLANE_SELECTION to be configured to work.
+ */
+bool bgp_addpath_encapsulation_required(int strategy)
+{
+	return strategy == BGP_ADDPATH_BEST_PER_ENCAPSULATION;
+}
+
+/*
  * Return true if this is a path we should advertise due to a
  * configured addpath-tx knob
  */
@@ -198,6 +205,11 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat, struct bgp_path_info *pi)
 		return true;
 	case BGP_ADDPATH_BEST_PER_AS:
 		if (CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))
+			return true;
+		else
+			return false;
+	case BGP_ADDPATH_BEST_PER_ENCAPSULATION:
+		if (CHECK_FLAG(pi->flags, BGP_PATH_ENCAPSULATION_SELECTED))
 			return true;
 		else
 			return false;

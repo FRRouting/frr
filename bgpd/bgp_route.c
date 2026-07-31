@@ -3967,6 +3967,77 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	bgp_path_info_mpath_update(bgp, dest, new_select, old_select, num_candidates, mpath_cfg);
 	bgp_path_info_mpath_aggregate_update(new_select, old_select);
 
+
+	struct bgp_path_info *pi_mpls = NULL, *pi_srv6 = NULL, *pi_tmp = NULL;
+
+	if (safi == SAFI_MPLS_VPN && CHECK_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION)) {
+		/* Mark BGP_PATH_ENCAPSULATION_SELECTED for best paths with flag PATH_SELECTED */
+		for (pi1 = bgp_dest_get_bgp_path_info(dest); pi1; pi1 = pi1->next) {
+			if (!CHECK_FLAG(pi1->flags, BGP_PATH_SELECTED))
+				continue;
+
+			if (bgp_mplsvpn_path_uses_valid_mpls_label(pi1))
+				pi_mpls = pi1;
+			if (bgp_attr_get_srv6_l3service(pi1->attr) ||
+			    bgp_attr_get_srv6_vpn(pi1->attr))
+				pi_srv6 = pi1;
+			if (pi_mpls || pi_srv6) {
+				bgp_path_info_set_flag(dest, pi1, BGP_PATH_ENCAPSULATION_SELECTED);
+				break;
+			}
+		}
+
+		/* Unmark BGP_PATH_ENCAPSULATION_SELECTED :
+		 * - for other paths with flag not set to PATH_MULTIPATH
+		 * - for other paths with flag set to PATH_MULTIPATH but redundant with SELECTED pi dataplane
+		 * mark BGP_PATH_ENCAPSULATION_SELECTED :
+		 * - if no other matching pi has the same mark (for deterministically having same PI
+		 * - reuse existing mark when available
+		 */
+		for (pi1 = bgp_dest_get_bgp_path_info(dest); pi1; pi1 = pi1->next) {
+			if (!CHECK_FLAG(pi1->flags, BGP_PATH_MULTIPATH) ||
+			    CHECK_FLAG(pi1->flags, BGP_PATH_SELECTED)) {
+				if (!CHECK_FLAG(pi1->flags, BGP_PATH_SELECTED))
+					bgp_path_info_unset_flag(dest, pi1,
+								 BGP_PATH_ENCAPSULATION_SELECTED);
+				continue;
+			}
+
+			if (!bgp_mplsvpn_path_uses_valid_mpls_label(pi1) &&
+			    !bgp_attr_get_srv6_l3service(pi1->attr) &&
+			    !bgp_attr_get_srv6_vpn(pi1->attr)) {
+				bgp_path_info_unset_flag(dest, pi1,
+							 BGP_PATH_ENCAPSULATION_SELECTED);
+				continue;
+			}
+			if ((pi_mpls && bgp_mplsvpn_path_uses_valid_mpls_label(pi1)) ||
+			    (pi_srv6 && (bgp_attr_get_srv6_l3service(pi1->attr) ||
+					 bgp_attr_get_srv6_vpn(pi1->attr)))) {
+				bgp_path_info_unset_flag(dest, pi1,
+							 BGP_PATH_ENCAPSULATION_SELECTED);
+				continue;
+			}
+			/* DATAPLANE_SELECTED is present */
+			if (CHECK_FLAG(pi1->flags, BGP_PATH_ENCAPSULATION_SELECTED)) {
+				if (pi_mpls)
+					pi_srv6 = pi1;
+				else if (pi_srv6)
+					pi_mpls = pi1;
+				break;
+			}
+			/* remember first available pi1 */
+			pi_tmp = pi1;
+		}
+		if (!pi_mpls && pi_tmp) {
+			bgp_path_info_set_flag(dest, pi_tmp, BGP_PATH_ENCAPSULATION_SELECTED);
+			pi_mpls = pi_tmp;
+		}
+		if (!pi_srv6 && pi_tmp) {
+			bgp_path_info_set_flag(dest, pi_tmp, BGP_PATH_ENCAPSULATION_SELECTED);
+			pi_srv6 = pi_tmp;
+		}
+	}
+
 	bgp_addpath_update_ids(bgp, dest, afi, safi);
 
 	result->old = old_select;
@@ -14284,6 +14355,19 @@ skip_nexthop:
 				vty_out(vty, ", bestpath-from-AS %u", first_as);
 			else
 				vty_out(vty, ", bestpath-from-AS Local");
+		}
+	}
+
+	if (CHECK_FLAG(path->flags, BGP_PATH_ENCAPSULATION_SELECTED)) {
+		bool is_mpls = bgp_mplsvpn_path_uses_valid_mpls_label(path);
+
+		if (json_paths) {
+			if (!json_bestpath)
+				json_bestpath = json_object_new_object();
+			json_object_string_add(json_bestpath, "bestpathFromEncapsulation",
+					       is_mpls ? "mpls" : "srv6");
+		} else {
+			vty_out(vty, ", bestpath-from-Encapsulation %s", is_mpls ? "mpls" : "srv6");
 		}
 	}
 
