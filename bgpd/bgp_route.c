@@ -246,6 +246,7 @@ struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table, safi_t safi,
 		}
 
 		table = bgp_dest_get_bgp_table_info(pdest);
+		bgp_dest_unlock_node(pdest);
 	}
 
 	dest = bgp_node_lookup(table, p);
