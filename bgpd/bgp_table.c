@@ -166,6 +166,8 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 
 	if (node->p.family == AF_FLOWSPEC)
 		prefix_flowspec_ptr_free(&node->p);
+	if (node->p.family == AF_CRYPTO)
+		prefix_crypto_ptr_free(&node->p);
 
 	XFREE(MTYPE_ROUTE_NODE, node);
 }
@@ -189,7 +191,7 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 	rt->route_table = route_table_init_with_delegate(&bgp_table_delegate);
 
 	/* For EVPN, use a direct-lookup table mode, not an IP-oriented trie */
-	if (safi == SAFI_EVPN)
+	if (safi == SAFI_EVPN || safi == SAFI_CRYPTO_ROUTES)
 		route_table_set_unique_mode(rt->route_table);
 
 	/*

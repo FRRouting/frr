@@ -42,6 +42,7 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_crypto.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_updgrp.h"
@@ -333,6 +334,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
 	case SAFI_UNREACH:
 		return bgp_nlri_parse_unreach(peer, attr, packet, mp_withdraw);
+	case SAFI_CRYPTO_ROUTES:
+		return bgp_nlri_parse_crypto(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }

@@ -5423,7 +5423,8 @@ enum bgp_peer_active peer_active(struct peer_connection *connection)
 	    || peer->afc[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
 	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
-	    || peer->afc[AFI_BGP_LS][SAFI_BGP_LS])
+	    || peer->afc[AFI_BGP_LS][SAFI_BGP_LS]
+	    || peer->afc[AFI_CRYPTO][SAFI_CRYPTO_ROUTES])
 		return BGP_PEER_ACTIVE;
 
 	return BGP_PEER_AF_UNCONFIGURED;
@@ -5445,7 +5446,8 @@ bool peer_active_nego(struct peer *peer)
 	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
 	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN]
-	    || peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS])
+	    || peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS]
+	    || peer->afc_nego[AFI_CRYPTO][SAFI_CRYPTO_ROUTES])
 		return true;
 	return false;
 }

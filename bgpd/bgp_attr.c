@@ -50,6 +50,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_unreach.h"
+#include "bgpd/bgp_crypto.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -2847,7 +2848,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	/* Nexthop length check. */
 	switch (attr->mp_nexthop_len) {
 	case 0:
-		if (safi != SAFI_FLOWSPEC && safi != SAFI_UNREACH) {
+		if (safi != SAFI_FLOWSPEC && safi != SAFI_UNREACH &&
+		    safi != SAFI_CRYPTO_ROUTES) {
 			flog_err(EC_BGP_ATTR_LEN,
 				 "%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
 				 __func__, peer->host, attr->mp_nexthop_len);
@@ -4930,6 +4932,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST
 		|| safi == SAFI_MPLS_VPN || safi == SAFI_MULTICAST))
 		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
+	else if (safi == SAFI_CRYPTO_ROUTES)
+		nh_afi = AFI_IP;
 	else if (safi == SAFI_FLOWSPEC || safi == SAFI_UNREACH)
 		nh_afi = afi;
 	else if (safi == SAFI_BGP_LS)
@@ -4985,6 +4989,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			break;
 		case SAFI_UNREACH:
 			stream_putc(s, 0); /* no nexthop for unreachability */
+			break;
+		case SAFI_CRYPTO_ROUTES:
+			stream_putc(s, 0); /* no nexthop for crypto routes */
 			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -5049,6 +5056,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_UNREACH:
 			stream_putc(s, 0); /* no nexthop for unreachability */
 			break;
+		case SAFI_CRYPTO_ROUTES:
+			stream_putc(s, 0); /* no nexthop for crypto routes */
+			break;
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			assert(!"SAFI's UNSPEC or MAX being specified are a DEV ESCAPE");
@@ -5063,9 +5073,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 				peer->host, afi, safi, attr->mp_nexthop_len);
 		break;
 	case AFI_BGP_LS:
+	case AFI_CRYPTO:
 	case AFI_UNSPEC:
 	case AFI_MAX:
-		assert(!"DEV ESCAPE: AFI_BGP_LS, AFI_UNSPEC or AFI_MAX should not be used here");
+		assert(!"DEV ESCAPE: AFI_BGP_LS, AFI_CRYPTO, AFI_UNSPEC or AFI_MAX should not be used here");
 		break;
 	}
 
@@ -5316,6 +5327,10 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const st
 		stream_putw_at(s, unreach_nlri_len_pos, (uint16_t)unreach_nlri_len);
 		break;
 	}
+	case SAFI_CRYPTO_ROUTES:
+		bgp_crypto_encode_nlri(s, p, addpath_capable, addpath_tx_id,
+				       path);
+		break;
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 		bgp_attr_stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
@@ -5400,6 +5415,9 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		 * the prefix.
 		 */
 		size += BGP_UNREACH_NLRI_LEN_SIZE + 27;
+		break;
+	case SAFI_CRYPTO_ROUTES:
+		size = bgp_crypto_nlri_size(p);
 		break;
 	}
 
