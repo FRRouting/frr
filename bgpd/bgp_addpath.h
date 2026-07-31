@@ -47,6 +47,7 @@ const struct bgp_addpath_strategy_names *
 bgp_addpath_names(enum bgp_addpath_strat strat);
 
 bool bgp_addpath_dmed_required(int strategy);
+bool bgp_addpath_encapsulation_required(int strategy);
 
 /*
  * Return true if this is a path we should advertise due to a configured
