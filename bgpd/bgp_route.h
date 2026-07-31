@@ -338,6 +338,7 @@ struct bgp_path_info {
 #define BGP_PATH_BMP_LOCKED	       (1 << 20)
 #define BGP_PATH_BMP_ADJIN_CHG	       (1 << 21)
 #define BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP (1 << 22)
+#define BGP_PATH_ENCAPSULATION_SELECTED (1 << 23)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
