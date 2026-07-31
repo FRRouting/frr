@@ -12,6 +12,7 @@
 #include "bgp_evpn.h"
 #include "bgp_route.h"
 
+/* clang-format off */
 static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
 	{
 		.config_name = "addpath-tx-all-paths",
@@ -34,7 +35,15 @@ static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
 		.type_json_name = "addpathTxBestSelectedPaths",
 		.id_json_name = "addpathTxIdBestSelected"
 	},
+	{
+		.config_name = "addpath-tx-bestpath-per-encapsulation",
+		.human_name = "Best-Per-Encapsulation",
+		.human_description = "Advertise bestpath per encapsulation via addpath",
+		.type_json_name = "addpathTxBestPathPerEncapsulation",
+		.id_json_name = "addpathTxIdBestPerEncapsulation"
+	},
 };
+/* clang-format on */
 
 static const struct bgp_addpath_strategy_names unknown_names = {
 	.config_name = "addpath-tx-unknown",
@@ -186,6 +195,14 @@ bool bgp_addpath_dmed_required(int strategy)
 }
 
 /*
+ * Check to see if the addpath strategy requires DATAPLANE_SELECTION to be configured to work.
+ */
+bool bgp_addpath_encapsulation_required(int strategy)
+{
+	return strategy == BGP_ADDPATH_BEST_PER_ENCAPSULATION;
+}
+
+/*
  * Return true if this is a path we should advertise due to a
  * configured addpath-tx knob
  */
@@ -198,6 +215,11 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat, struct bgp_path_info *pi)
 		return true;
 	case BGP_ADDPATH_BEST_PER_AS:
 		if (CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))
+			return true;
+		else
+			return false;
+	case BGP_ADDPATH_BEST_PER_ENCAPSULATION:
+		if (CHECK_FLAG(pi->flags, BGP_PATH_ENCAPSULATION_SELECTED))
 			return true;
 		else
 			return false;
@@ -442,6 +464,13 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 					peer->host);
 				SET_FLAG(bgp->flags,
 					 BGP_FLAG_DETERMINISTIC_MED);
+				bgp_recalculate_all_bestpaths(bgp);
+			}
+		} else if (bgp_addpath_encapsulation_required(addpath_type)) {
+			if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION)) {
+				zlog_warn("%s: enabling bgp encapsulation-selection, this is required for addpath-tx-bestpath-per-encapsulation",
+					  peer->host);
+				SET_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION);
 				bgp_recalculate_all_bestpaths(bgp);
 			}
 		}
