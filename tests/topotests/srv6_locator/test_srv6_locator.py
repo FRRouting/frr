@@ -150,6 +150,51 @@ def test_srv6():
     check_sharpd_chunk(router, "expected_chunks6.json")
 
 
+def test_srv6_no_locator():
+    """Delete a locator after removing its prefix."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+             format usid-f3216
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            no locator loc1
+        """
+    )
+    assert router.check_router_running() == ""
+    check_srv6_locator(router, "expected_locators6.json")
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+        """
+    )
+    check_srv6_locator(router, "expected_locators7.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
