@@ -3235,25 +3235,77 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * the most sense. However, don't modify if the link-bandwidth has
 	 * been explicitly set by user policy.
 	 */
+	struct attr *rmap_src_attr = post_attr ? post_attr : piattr;
+	bool link_bw_was_set = CHECK_FLAG(rmap_src_attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET);
+
 	if (nh_reset && bgp_path_info_mpath_chkwtd(bgp, pi->net) == BGP_WECMP_BEHAVIOR_LINK_BW &&
-	    (cum_bw = bgp_path_info_mpath_cumbw(pi->net)) != 0 &&
+	    (cum_bw = bgp_path_info_mpath_cumbw(pi->net)) != 0 && !link_bw_was_set &&
 	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH))
-			bgp_attr_set_ipv6_ecommunity(
-				attr,
-				ecommunity_replace_linkbw(bgp->as,
-							  bgp_attr_get_ipv6_ecommunity(
-								  attr),
-							  cum_bw, false, true));
-		else
-			bgp_attr_set_ecommunity(
-				attr,
-				ecommunity_replace_linkbw(
-					bgp->as, bgp_attr_get_ecommunity(attr),
-					cum_bw,
+		as_t link_bw_as = bgp_local_as_for_peer(peer);
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH)) {
+			struct ecommunity *old_ecom, *new_ecom;
+
+			old_ecom = bgp_attr_get_ipv6_ecommunity(attr);
+			new_ecom = ecommunity_replace_linkbw(link_bw_as, old_ecom, cum_bw, false,
+							     true, false);
+			bgp_attr_set_ipv6_ecommunity(attr, new_ecom);
+			if (old_ecom && new_ecom != old_ecom && !old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		} else {
+			struct ecommunity *old_ecom, *new_ecom;
+			bool disable_ieee = CHECK_FLAG(peer->flags,
+						       PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
+
+			old_ecom = bgp_attr_get_ecommunity(attr);
+			new_ecom = ecommunity_replace_linkbw(link_bw_as, old_ecom, cum_bw,
+							     disable_ieee, false, false);
+			bgp_attr_set_ecommunity(attr, new_ecom);
+			if (old_ecom && new_ecom != old_ecom && !old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		}
+	}
+
+	/*
+	 * If link-bandwidth was set by a route-map (either at origination or
+	 * per-neighbor), we still need to adjust the AS number based on the
+	 * destination peer type, even though the bandwidth value itself should
+	 * not be changed.
+	 *
+	 * This ensures consistency: external eBGP peers see confederation AS,
+	 * while iBGP and confederation peers see local AS.
+	 */
+	if (link_bw_was_set || CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
+		as_t link_bw_as = bgp_local_as_for_peer(peer);
+		uint64_t bw_val = 0;
+
+		/* Replace AS number in existing link-bandwidth extended community */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH)) {
+			struct ecommunity *old_ecom, *new_ecom;
+
+			old_ecom = bgp_attr_get_ipv6_ecommunity(attr);
+			if (old_ecom && ecommunity_linkbw_present(old_ecom, &bw_val)) {
+				new_ecom = ecommunity_replace_linkbw(link_bw_as, old_ecom, bw_val,
+								     false, true, true);
+				bgp_attr_set_ipv6_ecommunity(attr, new_ecom);
+				if (new_ecom != old_ecom && !old_ecom->refcnt)
+					ecommunity_free(&old_ecom);
+			}
+		} else {
+			struct ecommunity *old_ecom, *new_ecom;
+
+			old_ecom = bgp_attr_get_ecommunity(attr);
+			if (old_ecom && ecommunity_linkbw_present(old_ecom, &bw_val)) {
+				new_ecom = ecommunity_replace_linkbw(
+					link_bw_as, old_ecom, bw_val,
 					CHECK_FLAG(peer->flags,
 						   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE),
-					false));
+					false, true);
+				bgp_attr_set_ecommunity(attr, new_ecom);
+				if (new_ecom != old_ecom && !old_ecom->refcnt)
+					ecommunity_free(&old_ecom);
+			}
+		}
 	}
 
 	/*

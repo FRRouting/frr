@@ -3560,9 +3560,13 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	/* Build link bandwidth extended community. The 2-byte (classic)
 	 * encoding below falls back to BGP_AS_TRANS for a 4-byte AS; the
 	 * extended (4-byte) encoding has no such limit and must use the
-	 * real AS.
+	 * real AS. Use confederation ID if configured and sending to
+	 * external eBGP peer, similar to AS_PATH handling. When route-map
+	 * is applied at origination (network command), peer is peer_self.
+	 * The AS number set here will be replaced later in
+	 * subgroup_announce_check() based on the actual destination peer.
 	 */
-	as = peer->bgp->as;
+	as = bgp_local_as_for_peer(peer);
 	if (rels->lb_type == RMAP_ECOMM_LB_SET_VALUE) {
 		bw_bytes = (rels->bw * 1000 * 1000) / 8;
 	} else if (rels->lb_type == RMAP_ECOMM_LB_SET_CUMUL) {

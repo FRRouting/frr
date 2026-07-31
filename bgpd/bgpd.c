@@ -842,6 +842,22 @@ bool bgp_confederation_peers_check(struct bgp *bgp, as_t as)
 	return false;
 }
 
+/*
+ * Return the AS this peer's session should present as our local AS —
+ * the confederation ID for peers outside the confederation, the local
+ * sub-AS for iBGP and confederation-member peers (already tracked in
+ * peer->local_as), or an explicit "neighbor X local-as Y" override
+ * when one is configured and confederation is not. Mirrors the AS
+ * selection in bgp_packet_attribute()'s AS_PATH construction.
+ */
+as_t bgp_local_as_for_peer(struct peer *peer)
+{
+	if (!CHECK_FLAG(peer->bgp->config, BGP_CONFIG_CONFEDERATION) && peer->change_local_as)
+		return peer->change_local_as;
+
+	return peer->local_as;
+}
+
 /* Add an AS to the confederation set.  */
 void bgp_confederation_peers_add(struct bgp *bgp, as_t as, const char *as_str)
 {

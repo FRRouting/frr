@@ -455,9 +455,9 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 extern void bgp_aggr_ecommunity_remove(void *arg);
 extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
 						uint64_t *bw);
-extern struct ecommunity *
-ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom, uint64_t cum_bw,
-			  bool disable_ieee_floating, bool extended);
+extern struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
+						    uint64_t cum_bw, bool disable_ieee_floating,
+						    bool extended, bool ignore_non_transitive);
 
 extern bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo);
 
