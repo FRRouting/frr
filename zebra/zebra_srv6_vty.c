@@ -830,26 +830,24 @@ DEFUN (no_srv6_locator,
 	}
 
 	block = locator->sid_block;
-	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
-		if (!ctx->sid)
-			continue;
-
-		frr_each_safe (zebra_srv6_sid_entry_list, &ctx->sid->entries, entry)
-			if (entry->locator == locator) {
-				zebra_srv6_sid_entry_list_del(&ctx->sid->entries, entry);
-				zebra_srv6_sid_entry_free(entry);
-			}
-
-		if (zebra_srv6_sid_entry_list_count(&ctx->sid->entries) == 0) {
-			zebra_srv6_sid_free(ctx->sid);
-
-			zebra_srv6_sid_ctx_list_del(&block->sids, ctx);
-			zebra_srv6_sid_ctx_free(ctx);
-		}
-	}
-
-	block = locator->sid_block;
 	if (block) {
+		frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
+			if (!ctx->sid)
+				continue;
+
+			frr_each_safe (zebra_srv6_sid_entry_list, &ctx->sid->entries, entry)
+				if (entry->locator == locator) {
+					zebra_srv6_sid_entry_list_del(&ctx->sid->entries, entry);
+					zebra_srv6_sid_entry_free(entry);
+				}
+
+			if (zebra_srv6_sid_entry_list_count(&ctx->sid->entries) == 0) {
+				zebra_srv6_sid_free(ctx->sid);
+
+				zebra_srv6_sid_ctx_list_del(&block->sids, ctx);
+				zebra_srv6_sid_ctx_free(ctx);
+			}
+		}
 		block->refcnt--;
 		if (block->refcnt == 0) {
 			frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
