@@ -130,6 +130,9 @@ static int bgp_isvalid_nexthop_for_mpls(struct bgp_nexthop_cache *bnc,
 static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
 					  struct bgp_path_info *path)
 {
+	struct bgp_table *table;
+	bool nh_valid;
+
 	if (bgp_zebra_num_connects() == 0)
 		return 1;
 
@@ -143,13 +146,23 @@ static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
 			return 1;
 		return 0;
 	}
+
 	/*
 	 * In the case of MPLS-VPN, the label is learned from LDP or other
 	 * protocols, and nexthop tracking is enabled for the label.
 	 * The value is recorded as BGP_NEXTHOP_LABELED_VALID.
 	 * - Otherwise check for mpls-gre acceptance
 	 */
-	return bgp_isvalid_nexthop_for_mpls(bnc, path);
+	nh_valid = bgp_isvalid_nexthop_for_mpls(bnc, path);
+
+	table = path->net ? bgp_dest_table(path->net) : NULL;
+	if (nh_valid && table && bnc->bgp->srv6_only &&
+	    ((bgp_srv6_locator_is_configured(bnc->bgp) ||
+	      (table->bgp && bgp_srv6_locator_is_configured(table->bgp)))))
+		/* Control if srv6/mpls coexistence is autorised */
+		nh_valid = false;
+
+	return nh_valid;
 }
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
