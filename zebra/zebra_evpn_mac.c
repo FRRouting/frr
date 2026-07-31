@@ -180,6 +180,45 @@ void zebra_evpn_mac_clear_fwd_info(struct zebra_mac *zmac)
 }
 
 /*
+ * ZEBRA_MAC_LOCAL and ZEBRA_MAC_REMOTE select which member of the fwd_info
+ * union is live, so they must never be set at the same time: a MAC left
+ * flagged remote while fwd_info holds local data makes consumers read
+ * local.ifindex as r_vtep_ip.ipa_type. Go through the two helpers below
+ * instead of setting the flags by hand so the classification and the union
+ * always change together.
+ */
+
+/*
+ * Mark the MAC as locally learnt. ifp is where it was learnt, or NULL when
+ * the caller has no access port to record - the MAC sits behind an ES, or it
+ * was activated by an ES peer - in which case fwd_info is left untouched.
+ */
+static void zebra_evpn_mac_set_local(struct zebra_mac *zmac,
+				     struct interface *ifp, ns_id_t ns_id,
+				     vlanid_t vid)
+{
+	UNSET_FLAG(zmac->flags, ZEBRA_MAC_REMOTE);
+	SET_FLAG(zmac->flags, ZEBRA_MAC_LOCAL);
+
+	if (!ifp)
+		return;
+
+	zmac->fwd_info.local.ifindex = ifp->ifindex;
+	zmac->fwd_info.local.ns_id = ns_id;
+	zmac->fwd_info.local.vid = vid;
+}
+
+/* Mark the MAC as learnt from vtep_ip, dropping any local forwarding info. */
+static void zebra_evpn_mac_set_remote(struct zebra_mac *zmac,
+				      const struct ipaddr *vtep_ip)
+{
+	zebra_evpn_mac_clear_fwd_info(zmac);
+	UNSET_FLAG(zmac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
+	SET_FLAG(zmac->flags, ZEBRA_MAC_REMOTE);
+	zmac->fwd_info.r_vtep_ip = *vtep_ip;
+}
+
+/*
  * Install remote MAC into the forwarding plane.
  */
 int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
@@ -1704,7 +1743,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		zebra_evpn_es_mac_ref(mac, esi);
 
 		/* local mac activated by an ES peer */
-		SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+		zebra_evpn_mac_set_local(mac, NULL, NS_DEFAULT, 0);
 		/* if mac-only route setup peer flags */
 		if (!ipa_len) {
 			if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT))
@@ -1901,13 +1940,10 @@ static bool zebra_evpn_local_mac_update_fwd_info(struct zebra_mac *mac,
 		es = NULL;
 	es_change = zebra_evpn_es_mac_ref_entry(mac, es);
 
-	if (!mac->es) {
-		/* if es is set fwd_info is not-relevant/taped-out */
-		mac->fwd_info.local.ifindex = ifp->ifindex;
-		mac->fwd_info.local.ns_id = local_ns_id;
-		mac->fwd_info.local.vid = vid;
+	/* if es is set fwd_info is not-relevant/taped-out */
+	zebra_evpn_mac_set_local(mac, mac->es ? NULL : ifp, local_ns_id, vid);
+	if (!mac->es)
 		zebra_evpn_mac_ifp_link(mac, ifp);
-	}
 
 	return es_change;
 }
@@ -2113,10 +2149,7 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 		}
 
 		/* Set "auto" and "remote" forwarding info. */
-		zebra_evpn_mac_clear_fwd_info(mac);
-		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
-		SET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
-		mac->fwd_info.r_vtep_ip = *vtep_ip;
+		zebra_evpn_mac_set_remote(mac, vtep_ip);
 
 		if (sticky)
 			SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
@@ -2177,7 +2210,6 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				   local_inactive ? " local-inactive" : "");
 
 		mac = zebra_evpn_mac_add(zevpn, macaddr);
-		SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 		es_change = zebra_evpn_local_mac_update_fwd_info(mac, ifp, vid);
 		if (sticky)
 			SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
@@ -2290,9 +2322,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				do_dad = true;
 			}
 
-			UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 			UNSET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
-			SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 			es_change = zebra_evpn_local_mac_update_fwd_info(mac,
 									 ifp,
 									 vid);
@@ -2473,15 +2503,12 @@ void zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn
 	mac->gr_refresh_time = monotime(NULL);
 	/* Set "local" forwarding info. */
 	zebra_evpn_mac_clear_fwd_info(mac);
-	SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+	zebra_evpn_mac_set_local(mac, ifp, local_ns_id, vlan_id);
 	SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 	if (def_gw)
 		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
 	else
 		SET_FLAG(mac->flags, ZEBRA_MAC_SVI);
-	mac->fwd_info.local.ifindex = ifp->ifindex;
-	mac->fwd_info.local.ns_id = local_ns_id;
-	mac->fwd_info.local.vid = vlan_id;
 }
 
 void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn)
@@ -2565,8 +2592,7 @@ static void zebra_vxlan_stale_remote_mac_add_l2vni(struct zebra_evpn *zevpn,
 	}
 
 	/* Set "remote" forwarding info. */
-	SET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
-	mac->fwd_info.r_vtep_ip = vtep_ip;
+	zebra_evpn_mac_set_remote(mac, &vtep_ip);
 
 	/*
 	 * Sticky could be set either when ZEBRA_MAC_STICKY or
