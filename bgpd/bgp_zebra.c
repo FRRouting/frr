@@ -2041,7 +2041,7 @@ void bgp_zebra_update_fib_install_pending(struct bgp_dest *dest, struct bgp *bgp
  *                                     withdrawn.
  */
 void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
-			     struct bgp *bgp, bool install, struct bgpevpn *vpn,
+			     struct bgp *bgp, bool install, struct bgp_evpn_evi *vpn,
 			     bool is_sync)
 {
 	bool is_evpn = false;
@@ -2727,7 +2727,7 @@ int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 	return zclient_send_message(bgp_zclient);
 }
 
-int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgpevpn *evpn)
+int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgp_evpn_evi *evpn)
 {
 	struct stream *s;
 	vni_t vni = evpn ? evpn->vni : VNI_MAX;

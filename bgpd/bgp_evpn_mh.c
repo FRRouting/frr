@@ -465,7 +465,7 @@ static void bgp_evpn_es_route_table_purge(struct bgp_evpn_es *es)
  * ESR).
  */
 int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
-			     struct bgpevpn *vpn, afi_t afi, safi_t safi,
+			     struct bgp_evpn_evi *vpn, afi_t afi, safi_t safi,
 			     struct bgp_dest *dest, struct attr *attr,
 			     struct bgp_path_info **ri, int *route_changed)
 {
@@ -592,7 +592,7 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
  * ESR).
  */
 static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
-				    struct bgpevpn *vpn,
+				    struct bgp_evpn_evi *vpn,
 				    struct bgp_evpn_es_frag *es_frag,
 				    struct prefix_evpn *p)
 {
@@ -668,7 +668,7 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
  * Delete all EAD/EVI local routes for this VNI from the global routing table.
  * These routes are scheduled for withdraw from peers.
  */
-int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn)
+int delete_global_ead_evi_routes(struct bgp *bgp, struct bgp_evpn_evi *vpn)
 {
 	afi_t afi;
 	safi_t safi;
@@ -1048,7 +1048,7 @@ bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
 
 /* Extended communities associated with EAD-per-EVI */
 static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
-		struct bgpevpn *vpn, struct attr *attr)
+		struct bgp_evpn_evi *vpn, struct attr *attr)
 {
 	struct ecommunity ecom_encap;
 	struct ecommunity_val eval;
@@ -1076,7 +1076,7 @@ static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
  * vpn - valid for EAD-EVI routes and NULL for EAD-ES routes
  */
 static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
-				       struct bgpevpn *vpn,
+				       struct bgp_evpn_evi *vpn,
 				       struct bgp_evpn_es_frag *es_frag,
 				       struct prefix_evpn *p)
 {
@@ -1209,7 +1209,7 @@ static void bgp_evpn_ead_es_route_update(struct bgp *bgp,
 
 static void bgp_evpn_ead_evi_route_update(struct bgp *bgp,
 					  struct bgp_evpn_es *es,
-					  struct bgpevpn *vpn,
+					  struct bgp_evpn_evi *vpn,
 					  struct prefix_evpn *p)
 {
 	if (bgp_evpn_type1_route_update(bgp, es, vpn, NULL, p))
@@ -1218,7 +1218,7 @@ static void bgp_evpn_ead_evi_route_update(struct bgp *bgp,
 			 es->esi_str, vpn->vni);
 }
 
-void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn)
+void update_type1_routes_for_evi(struct bgp *bgp, struct bgp_evpn_evi *vpn)
 {
 	struct prefix_evpn p;
 	struct bgp_evpn_es *es;
@@ -1262,7 +1262,7 @@ static void bgp_evpn_ead_es_route_delete(struct bgp *bgp,
 
 static int bgp_evpn_ead_evi_route_delete(struct bgp *bgp,
 					 struct bgp_evpn_es *es,
-					 struct bgpevpn *vpn,
+					 struct bgp_evpn_evi *vpn,
 					 struct prefix_evpn *p)
 {
 	return bgp_evpn_mh_route_delete(bgp, es, vpn, NULL, p);
@@ -2250,7 +2250,7 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 	struct bgp_path_es_info *es_info;
 	struct bgp_path_info *pi;
 	struct bgp *bgp;
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 
 	if (!bgp_mh_info->suppress_l3_ecomm_on_inactive_es)
 		return;
@@ -3323,7 +3323,7 @@ void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi, struct bgp *bgp_vrf)
 /* When the L2-VNI is associated with a L3-VNI/VRF update all the
  * associated ES-EVI entries
  */
-void bgp_evpn_es_evi_vrf_deref(struct bgpevpn *vpn)
+void bgp_evpn_es_evi_vrf_deref(struct bgp_evpn_evi *vpn)
 {
 	struct bgp_evpn_es_evi *es_evi;
 
@@ -3333,7 +3333,7 @@ void bgp_evpn_es_evi_vrf_deref(struct bgpevpn *vpn)
 	RB_FOREACH (es_evi, bgp_es_evi_rb_head, &vpn->es_evi_rb_tree)
 		bgp_evpn_es_vrf_deref(es_evi);
 }
-void bgp_evpn_es_evi_vrf_ref(struct bgpevpn *vpn)
+void bgp_evpn_es_evi_vrf_ref(struct bgp_evpn_evi *vpn)
 {
 	struct bgp_evpn_es_evi *es_evi;
 
@@ -3570,7 +3570,7 @@ void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj)
 /*****************************************************************************/
 /* Ethernet Segment to EVI association -
  * 1. The ES-EVI entry is maintained as a RB tree per L2-VNI
- * (bgpevpn->es_evi_rb_tree).
+ * (bgp_evpn_evi->es_evi_rb_tree).
  * 2. Each local ES-EVI entry is rxed from zebra and then used by BGP to
  * advertises an EAD-EVI (Type-1 EVPN) route
  * 3. The remote ES-EVI is created when a bgp_evpn_es_evi_vtep references
@@ -3759,7 +3759,7 @@ RB_GENERATE(bgp_es_evi_rb_head, bgp_evpn_es_evi, rb_node, bgp_es_evi_rb_cmp);
 
 /* find the ES-EVI in the per-L2-VNI RB tree */
 static struct bgp_evpn_es_evi *bgp_evpn_es_evi_find(struct bgp_evpn_es *es,
-		struct bgpevpn *vpn)
+		struct bgp_evpn_evi *vpn)
 {
 	struct bgp_evpn_es_evi es_evi;
 
@@ -3772,7 +3772,7 @@ static struct bgp_evpn_es_evi *bgp_evpn_es_evi_find(struct bgp_evpn_es *es,
  * tables.
  */
 static struct bgp_evpn_es_evi *bgp_evpn_es_evi_new(struct bgp_evpn_es *es,
-		struct bgpevpn *vpn)
+		struct bgp_evpn_evi *vpn)
 {
 	struct bgp_evpn_es_evi *es_evi;
 
@@ -3814,7 +3814,7 @@ static struct bgp_evpn_es_evi *bgp_evpn_es_evi_free_internal(struct bgp_evpn_es_
 							     bool force)
 {
 	struct bgp_evpn_es *es = es_evi->es;
-	struct bgpevpn *vpn = es_evi->vpn;
+	struct bgp_evpn_evi *vpn = es_evi->vpn;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("Freeing ES-EVI for ES %s VNI %u flags 0x%x%s", es->esi_str, vpn->vni,
@@ -3855,7 +3855,7 @@ static struct bgp_evpn_es_evi *bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_e
 /* init local info associated with the ES-EVI */
 static void bgp_evpn_es_evi_local_info_set(struct bgp_evpn_es_evi *es_evi)
 {
-	struct bgpevpn *vpn = es_evi->vpn;
+	struct bgp_evpn_evi *vpn = es_evi->vpn;
 
 	if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
 		return;
@@ -3874,7 +3874,7 @@ static void bgp_evpn_es_evi_local_info_set(struct bgp_evpn_es_evi *es_evi)
 static struct bgp_evpn_es_evi *
 bgp_evpn_es_evi_local_info_clear(struct bgp_evpn_es_evi *es_evi)
 {
-	struct bgpevpn *vpn = es_evi->vpn;
+	struct bgp_evpn_evi *vpn = es_evi->vpn;
 
 	UNSET_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL);
 	list_delete_node(vpn->local_es_evi_list, &es_evi->l2vni_listnode);
@@ -3951,7 +3951,7 @@ bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi)
 
 int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni)
 {
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 	struct bgp_evpn_es *es;
 	struct bgp_evpn_es_evi *es_evi;
 	char buf[ESI_STR_LEN];
@@ -3991,7 +3991,7 @@ int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni)
 /* Create ES-EVI and advertise the corresponding EAD routes */
 int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 {
-	struct bgpevpn *vpn;
+	struct bgp_evpn_evi *vpn;
 	struct prefix_evpn p;
 	struct bgp_evpn_es *es;
 	struct bgp_evpn_es_evi *es_evi;
@@ -4056,7 +4056,7 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
  * ES-EVI is implicitly created on first VTEP's reference.
  */
 enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
-						    struct bgpevpn *vpn,
+						    struct bgp_evpn_evi *vpn,
 						    const struct prefix_evpn *p,
 							struct bgp_path_info *pi)
 {
@@ -4099,7 +4099,7 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
  * parent es-evi freed up implicitly in last VTEP's deref.
  */
 enum zclient_send_status bgp_evpn_remote_es_evi_del(struct bgp *bgp,
-						    struct bgpevpn *vpn,
+						    struct bgp_evpn_evi *vpn,
 						    const struct prefix_evpn *p,
 						    struct bgp_path_info *pi)
 {
@@ -4175,7 +4175,7 @@ static void bgp_evpn_remote_es_evi_flush(struct bgp_evpn_es_evi *es_evi)
 }
 
 /* Initialize the ES tables maintained per-L2_VNI */
-void bgp_evpn_vni_es_init(struct bgpevpn *vpn)
+void bgp_evpn_vni_es_init(struct bgp_evpn_evi *vpn)
 {
 	/* Initialize the ES-EVI RB tree */
 	RB_INIT(bgp_es_evi_rb_head, &vpn->es_evi_rb_tree);
@@ -4186,7 +4186,7 @@ void bgp_evpn_vni_es_init(struct bgpevpn *vpn)
 }
 
 /* Cleanup the ES info maintained per-L2_VNI */
-void bgp_evpn_vni_es_cleanup(struct bgpevpn *vpn)
+void bgp_evpn_vni_es_cleanup(struct bgp_evpn_evi *vpn)
 {
 	struct bgp_evpn_es_evi *es_evi;
 	struct bgp_evpn_es_evi *es_evi_next;
@@ -4366,7 +4366,7 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 	}
 }
 
-static void bgp_evpn_es_evi_show_one_vni(struct bgpevpn *vpn, struct vty *vty,
+static void bgp_evpn_es_evi_show_one_vni(struct bgp_evpn_evi *vpn, struct vty *vty,
 		json_object *json_array, bool detail)
 {
 	struct bgp_evpn_es_evi *es_evi;
@@ -4395,7 +4395,7 @@ struct es_evi_show_ctx {
 static void bgp_evpn_es_evi_show_one_vni_hash_cb(struct hash_bucket *bucket,
 		void *ctxt)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	struct bgp_evpn_evi *vpn = (struct bgp_evpn_evi *)bucket->data;
 	struct es_evi_show_ctx *wctx = (struct es_evi_show_ctx *)ctxt;
 
 	bgp_evpn_es_evi_show_one_vni(vpn, wctx->vty, wctx->json, wctx->detail);
@@ -4439,7 +4439,7 @@ void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail)
 void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 		bool uj, bool detail)
 {
-	struct bgpevpn *vpn = NULL;
+	struct bgp_evpn_evi *vpn = NULL;
 	json_object *json_array = NULL;
 	struct bgp *bgp;
 
