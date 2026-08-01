@@ -5481,7 +5481,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 
 	/* Parse remaining part of the TLV if present */
 	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
-	while (subtlv_len > 2) {
+	while (subtlv_len > ISIS_SUBTLV_HDR_SIZE) {
 #ifndef FABRICD
 		struct isis_router_cap_fad *fad;
 		uint8_t subsubtlvs_len;
@@ -5491,7 +5491,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		type = stream_getc(s);
 		length = stream_getc(s);
 
-		if (length > STREAM_READABLE(s) || length > subtlv_len - 2) {
+		if (length > STREAM_READABLE(s) || length > subtlv_len - ISIS_SUBTLV_HDR_SIZE) {
 			sbuf_push(
 				log, indent,
 				"WARNING: Router Capability subTLV length too large compared to expected size\n");
@@ -5850,7 +5850,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			stream_forward_getp(s, length);
 			break;
 		}
-		subtlv_len = subtlv_len - length - 2;
+		subtlv_len -= length + ISIS_SUBTLV_HDR_SIZE;
 	}
 	return 0;
 }
