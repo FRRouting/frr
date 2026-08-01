@@ -466,13 +466,22 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 	struct stream *s;
 	size_t len;
 	struct timeval uptime, uptime_real;
+	struct timeval *uptime_tv = NULL;
 	uint8_t peer_type;
 	bool is_locrib = false;
 	uint64_t peer_distinguisher = 0;
 
-	uptime.tv_sec = peer->uptime;
-	uptime.tv_usec = 0;
-	monotime_to_realtime(&uptime, &uptime_real);
+	/* peer->uptime is monotonic and is 0 when the session has never
+	 * established; converting 0 to realtime would yield the machine's
+	 * boot time.  RFC 7854 says a zero timestamp means the time is
+	 * unavailable, which bmp_per_peer_hdr emits for a NULL timeval.
+	 */
+	if (peer->uptime) {
+		uptime.tv_sec = peer->uptime;
+		uptime.tv_usec = 0;
+		monotime_to_realtime(&uptime, &uptime_real);
+		uptime_tv = &uptime_real;
+	}
 
 	peer_type = bmp_get_peer_type(peer);
 	if (peer_type == BMP_PEER_TYPE_LOC_RIB_INSTANCE)
@@ -493,7 +502,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		bmp_common_hdr(s, BMP_VERSION_3,
 				BMP_TYPE_PEER_UP_NOTIFICATION);
-		bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type, peer_distinguisher, &uptime_real);
+		bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type, peer_distinguisher, uptime_tv);
 
 		/* Local Address (16 bytes) */
 		if (is_locrib)
@@ -558,7 +567,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		bmp_common_hdr(s, BMP_VERSION_3,
 				BMP_TYPE_PEER_DOWN_NOTIFICATION);
-		bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type, peer_distinguisher, &uptime_real);
+		bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type, peer_distinguisher, uptime_tv);
 
 		type_pos = stream_get_endp(s);
 		stream_putc(s, 0);	/* placeholder for down reason */
