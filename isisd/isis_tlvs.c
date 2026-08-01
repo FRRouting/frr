@@ -5500,8 +5500,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		if (length > STREAM_READABLE(s) || length > subtlv_len - ISIS_SUBTLV_HDR_SIZE) {
 			sbuf_push(log, indent,
 				  "WARNING: Router Capability subTLV length too large compared to expected size\n");
+<<<<<<< HEAD
 >>>>>>> 9e3672f48 (isisd: Use subTLV header size in Router Capability parsing)
 			stream_forward_getp(s, STREAM_READABLE(s));
+=======
+			stream_forward_getp(s, subtlv_len - ISIS_SUBTLV_HDR_SIZE);
+>>>>>>> e0f63248d (isisd: Skip only Router Capability bytes on bad subTLV)
 			return 0;
 		}
 
