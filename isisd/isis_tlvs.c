@@ -5481,7 +5481,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 
 	/* Parse remaining part of the TLV if present */
 	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
-	while (subtlv_len > ISIS_SUBTLV_HDR_SIZE) {
+	while (subtlv_len >= ISIS_SUBTLV_HDR_SIZE) {
 #ifndef FABRICD
 		struct isis_router_cap_fad *fad;
 		uint8_t subsubtlvs_len;
