@@ -5335,6 +5335,13 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 		}
 		subtlv_len -= length + ISIS_SUBTLV_HDR_SIZE;
 	}
+
+	if (subtlv_len > 0) {
+		sbuf_push(log, indent,
+			  "WARNING: Router Capability TLV has leftover bytes after subTLVs\n");
+		stream_forward_getp(s, subtlv_len);
+	}
+
 	return 0;
 }
 
