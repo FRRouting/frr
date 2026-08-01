@@ -5495,7 +5495,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			sbuf_push(
 				log, indent,
 				"WARNING: Router Capability subTLV length too large compared to expected size\n");
-			stream_forward_getp(s, STREAM_READABLE(s));
+			stream_forward_getp(s, subtlv_len - ISIS_SUBTLV_HDR_SIZE);
 			return 0;
 		}
 
