@@ -76,6 +76,7 @@ typedef struct esi_t_ {
 	uint8_t val[ESI_BYTES];
 } esi_t;
 
+/* Ethernet Auto-Discovery (A-D) route (EVPN route type 1) */
 struct evpn_ead_addr {
 	esi_t esi;
 	uint32_t eth_tag;
@@ -83,6 +84,7 @@ struct evpn_ead_addr {
 	uint16_t frag_id;
 };
 
+/* MAC/IP Advertisement route (EVPN route type 2) */
 struct evpn_macip_addr {
 	uint32_t eth_tag;
 	uint8_t ip_prefix_length;
@@ -90,18 +92,21 @@ struct evpn_macip_addr {
 	struct ipaddr ip;
 };
 
+/* Inclusive Multicast Ethernet Tag route (EVPN route type 3) */
 struct evpn_imet_addr {
 	uint32_t eth_tag;
 	uint8_t ip_prefix_length;
 	struct ipaddr ip;
 };
 
+/* Ethernet Segment route (EVPN route type 4) */
 struct evpn_es_addr {
 	esi_t esi;
 	uint8_t ip_prefix_length;
 	struct ipaddr ip;
 };
 
+/* IP Prefix route (EVPN route type 5) */
 struct evpn_prefix_addr {
 	uint32_t eth_tag;
 	uint8_t ip_prefix_length;
@@ -112,11 +117,11 @@ struct evpn_prefix_addr {
 struct evpn_addr {
 	uint8_t route_type;
 	union {
-		struct evpn_ead_addr _ead_addr;
-		struct evpn_macip_addr _macip_addr;
-		struct evpn_imet_addr _imet_addr;
-		struct evpn_es_addr _es_addr;
-		struct evpn_prefix_addr _prefix_addr;
+		struct evpn_ead_addr _ead_addr;	      /* route type 1 */
+		struct evpn_macip_addr _macip_addr;   /* route type 2 */
+		struct evpn_imet_addr _imet_addr;     /* route type 3 */
+		struct evpn_es_addr _es_addr;	      /* route type 4 */
+		struct evpn_prefix_addr _prefix_addr; /* route type 5 */
 	} u;
 #define ead_addr u._ead_addr
 #define macip_addr u._macip_addr
