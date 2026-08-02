@@ -10320,11 +10320,14 @@ DEFPY (ospf_forwarding_address_self,
        "Set forwarding address to self for external LSAs\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	bool new_value = !no;
 
-	if (no)
-		ospf->forwarding_address_self = false;
-	else
-		ospf->forwarding_address_self = true;
+	if (ospf->forwarding_address_self != new_value) {
+		ospf->forwarding_address_self = new_value;
+
+		/* Refresh all external LSAs to apply the new config. */
+		ospf_schedule_asbr_redist_update(ospf);
+	}
 
 	return CMD_SUCCESS;
 }

@@ -2436,7 +2436,7 @@ struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
 {
 	struct ospf *ospf = area->ospf;
 	struct ospf_lsa *new;
-	struct as_external_lsa *extlsa_old, *extlsa_new;
+	struct as_external_lsa *extlsa_new;
 
 	/* Delete LSA from neighbor retransmit-list. */
 	ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
@@ -2450,18 +2450,37 @@ struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
 			zlog_debug(
 				"LSA[Type7:%pI4]: Could not originate NSSA-LSA",
 				&ei->p.prefix);
+		ospf_lsa_flush_area(lsa, area);
 		return NULL;
 	}
 	new->data->type = OSPF_AS_NSSA_LSA;
 	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
 	new->area = area;
 
-	/* Preserve the NP bit and forwarding address. */
+	/* Preserve the NP bit. */
 	if (CHECK_FLAG(lsa->data->options, OSPF_OPTION_NP))
 		SET_FLAG(new->data->options, OSPF_OPTION_NP);
-	extlsa_old = (struct as_external_lsa *)lsa->data;
+
+	/*
+	 * Set forwarding address for NSSA LSA. Per RFC 3101, if the P-bit
+	 * is set and the newly computed address is 0, use an NSSA interface
+	 * address. Without the P-bit, a zero forwarding address is valid.
+	 */
 	extlsa_new = (struct as_external_lsa *)new->data;
-	extlsa_new->e[0].fwd_addr = extlsa_old->e[0].fwd_addr;
+	if (CHECK_FLAG(new->data->options, OSPF_OPTION_NP) &&
+	    extlsa_new->e[0].fwd_addr.s_addr == INADDR_ANY)
+		extlsa_new->e[0].fwd_addr = ospf_get_nssa_ip(area);
+
+	/* P-bit LSAs must have a non-zero forwarding address. */
+	if (CHECK_FLAG(new->data->options, OSPF_OPTION_NP) &&
+	    extlsa_new->e[0].fwd_addr.s_addr == INADDR_ANY) {
+		if (IS_DEBUG_OSPF_NSSA)
+			zlog_debug("LSA[Type-7:%pI4]: Could not refresh, no NSSA interface address",
+				   &new->data->id);
+		ospf_lsa_discard(new);
+		ospf_lsa_flush_area(lsa, area);
+		return NULL;
+	}
 
 	/* Install newly created LSA into Type-7 LSDB. */
 	ospf_lsa_install(ospf, NULL, new);
