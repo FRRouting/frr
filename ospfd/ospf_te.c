@@ -1615,6 +1615,40 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
  */
 
 /**
+ * Get or create Vertex with specified area_id.
+ *
+ * @param ted		Link State Traffic Engineering Database
+ * @param addr		Router advertisement IP address
+ * @param area_id	Area ID (use zero for AS-scope)
+ *
+ * @return	Link State Vertex or NULL on error
+ */
+static struct ls_vertex *get_vertex_by_id(struct ls_ted *ted, struct in_addr addr,
+					  struct in_addr area_id)
+{
+	struct ls_node_id lnid;
+	struct ls_node *lnode;
+	struct ls_vertex *vertex;
+	const struct in_addr inaddr_any = { .s_addr = INADDR_ANY };
+
+	if (!ted)
+		return NULL;
+
+	lnid.origin = OSPFv2;
+	lnid.id.ip.addr = addr;
+	lnid.id.ip.area_id = area_id;
+	vertex = ls_find_vertex_by_id(ted, lnid);
+
+	if (!vertex) {
+		lnode = ls_node_new(lnid, inaddr_any, in6addr_any);
+		snprintfrr(lnode->name, MAX_NAME_LENGTH, "%pI4", &addr);
+		vertex = ls_vertex_add(ted, lnode);
+	}
+
+	return vertex;
+}
+
+/**
  * Get Vertex from TED by the router which advertised the LSA. A new Vertex and
  * associated Link State Node are created if Vertex is not found.
  *
@@ -2612,6 +2646,18 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 	/* Get vertex / Node from LSA Advertised Router ID */
 	vertex = get_vertex(ted, lsa);
+	if (!vertex) {
+		/* For AS-scope (Type 11) LSAs, get_vertex() returns NULL since
+		 * lsa->area is NULL. Create vertex with zero area_id instead.
+		 */
+		if (lsa->data->type == OSPF_OPAQUE_AS_LSA) {
+			struct in_addr zero_area = { .s_addr = 0 };
+
+			vertex = get_vertex_by_id(ted, lsa->data->adv_router, zero_area);
+		}
+		if (!vertex)
+			return -1;
+	}
 	node = vertex->node;
 
 	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
@@ -2771,15 +2817,12 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
  */
 static int ospf_te_delete_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 {
-	struct ls_node_id lnid;
 	struct ls_vertex *vertex;
 	struct ls_node *node;
+	struct in_addr area_id;
 
-	/* Search if a Link State Vertex already exist */
-	lnid.origin = OSPFv2;
-	lnid.id.ip.addr = lsa->data->adv_router;
-	lnid.id.ip.area_id = lsa->area->area_id;
-	vertex = ls_find_vertex_by_id(ted, lnid);
+	area_id = lsa->area ? lsa->area->area_id : (struct in_addr){ .s_addr = 0 };
+	vertex = get_vertex_by_id(ted, lsa->data->adv_router, area_id);
 	if (!vertex)
 		return -1;
 
