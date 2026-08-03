@@ -19,6 +19,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
@@ -141,6 +142,108 @@ static const struct attr_test attr_tests[] = {
 			  0x50, 0x08, 0x00),			    /* extlen COMMUNITIES */
 		.expect = BGP_ATTR_PARSE_WITHDRAW,
 	},
+	{
+		.name = "repeated-attr-ebgp",
+		.desc = "MULTI_EXIT_DISC twice, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		     /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			     /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,	     /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02,  /* NEXT_HOP */
+			  0x80, 0x04, 0x04, 0x00, 0x00, 0x00, 0x0a,  /* MED 10 */
+			  0x80, 0x04, 0x04, 0x00, 0x00, 0x00, 0x14), /* MED 20, repeat */
+		.expect = BGP_ATTR_PARSE_PROCEED,
+	},
+	{
+		.name = "repeated-attr-ibgp",
+		.desc = "MULTI_EXIT_DISC twice, iBGP",
+		.sort = BGP_PEER_IBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		     /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			     /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe8,	     /* AS_SEQ 65000 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02,  /* NEXT_HOP */
+			  0x40, 0x05, 0x04, 0x00, 0x00, 0x00, 0x64,  /* LOCAL_PREF */
+			  0x80, 0x04, 0x04, 0x00, 0x00, 0x00, 0x0a,  /* MED 10 */
+			  0x80, 0x04, 0x04, 0x00, 0x00, 0x00, 0x14), /* MED 20, repeat */
+		.expect = BGP_ATTR_PARSE_PROCEED,
+	},
+	{
+		.name = "repeated-mp-reach-ibgp",
+		.desc = "MP_REACH_NLRI twice must still notify, iBGP",
+		.sort = BGP_PEER_IBGP,
+		.sub_sort = 0,
+		.has_nlri = false,
+		/*
+		 * Each MP_REACH is 30 octets of value: AFI(2) + SAFI(1)
+		 * + nhlen(1) + nexthop(16) + reserved(1) + NLRI(9).
+		 */
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,				 /* ORIGIN igp */
+			  0x40, 0x02, 0x06,					 /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe8,			 /* AS_SEQ 65000 */
+			  0x40, 0x05, 0x04, 0x00, 0x00, 0x00, 0x64,		 /* LOCAL_PREF */
+			  0x80, 0x0e, 0x1e, 0x00, 0x02, 0x01, 0x10,		 /* MP_REACH #1 */
+			  0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,	 /* nexthop */
+			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00,	 /* reserved */
+			  0x40, 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x01, 0x00, 0x00,	 /* NLRI */
+			  0x80, 0x0e, 0x1e, 0x00, 0x02, 0x01, 0x10,		 /* MP_REACH #2 */
+			  0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,	 /* nexthop */
+			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00,	 /* reserved */
+			  0x40, 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x02, 0x00, 0x00), /* NLRI */
+		.expect = BGP_ATTR_PARSE_ERROR,
+	},
+	/*
+	 * RFC 8669 section 5: a malformed BGP Prefix-SID attribute is handled
+	 * with the "treat-as-withdraw" approach.
+	 *
+	 * The PREFIX_SID value below is six octets:
+	 *   01 00 00   Label-Index TLV, declared length 0 (must be 7)
+	 *              -> bgp_attr_psid_sub() calls bgp_attr_malformed()
+	 *   00 00 00   never read, because the walk stops on the first
+	 *              malformed TLV
+	 *
+	 * The trailing 80 00 00 is an unrecognized, optional, non-transitive
+	 * attribute, and it is what makes this blob worth keeping: those three
+	 * octets are exactly the ones bgp_attr_prefix_sid() used to consume as
+	 * a further TLV header, walking past the end of its own attribute,
+	 * back when bgp_attr_malformed() answered PROCEED for PREFIX_SID and
+	 * the TLV walk carried on from a getp it had already repositioned.
+	 */
+	{
+		.name = "prefix-sid-bad-label-index-ebgp",
+		.desc = "PREFIX_SID with a malformed Label-Index TLV, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		    /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			    /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,	    /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02, /* NEXT_HOP */
+			  0xc0, 0x28, 0x06,			    /* PREFIX_SID, len 6 */
+			  0x01, 0x00, 0x00,			    /* Label-Index, len 0 */
+			  0x00, 0x00, 0x00,			    /* never read */
+			  0x80, 0x00, 0x00),			    /* unknown optional */
+		.expect = BGP_ATTR_PARSE_WITHDRAW,
+	},
+	{
+		.name = "aigp-bad-flags-ibgp",
+		.desc = "AIGP with the transitive bit set, iBGP",
+		.sort = BGP_PEER_IBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		    /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			    /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe8,	    /* AS_SEQ 65000 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02, /* NEXT_HOP */
+			  0x40, 0x05, 0x04, 0x00, 0x00, 0x00, 0x64, /* LOCAL_PREF */
+			  0xc0, 0x1a, 0x0b,			    /* AIGP, optional+trans */
+			  0x01, 0x00, 0x0b,			    /* AIGP TLV, len 11 */
+			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a), /* metric 10 */
+		.expect = BGP_ATTR_PARSE_PROCEED,
+	},
 };
 
 static const char *parse_ret_str(enum bgp_attr_parse_ret ret)
@@ -245,6 +348,12 @@ int main(void)
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
 	bgp_labels_init();
+	/*
+	 * community_parse() looks every community up in the alias hash, so a
+	 * case carrying a well-formed COMMUNITIES attribute crashes on a NULL
+	 * hash without this -- exactly as bgp_init() sets it up in bgpd.
+	 */
+	bgp_community_alias_init();
 
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));

@@ -19,3 +19,12 @@ TestAttrParse.okfail(
 TestAttrParse.okfail(
     "extlen-underflow-ibgp: three trailing octets with Extended Length set, iBGP"
 )
+TestAttrParse.okfail("repeated-attr-ebgp: MULTI_EXIT_DISC twice, eBGP")
+TestAttrParse.okfail("repeated-attr-ibgp: MULTI_EXIT_DISC twice, iBGP")
+TestAttrParse.okfail(
+    "repeated-mp-reach-ibgp: MP_REACH_NLRI twice must still notify, iBGP"
+)
+TestAttrParse.okfail(
+    "prefix-sid-bad-label-index-ebgp: PREFIX_SID with a malformed Label-Index TLV, eBGP"
+)
+TestAttrParse.okfail("aigp-bad-flags-ibgp: AIGP with the transitive bit set, iBGP")
