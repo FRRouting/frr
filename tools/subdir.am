@@ -69,10 +69,5 @@ EXTRA_DIST += \
 	tools/frr@.service \
 	tools/generate_support_bundle.py \
 	tools/frr_babeltrace.py \
-	tools/multiple-bgpd.sh \
-	tools/rrcheck.pl \
-	tools/rrlookup.pl \
-	tools/zc.pl \
-	tools/zebra.el \
 	tools/build-debian-package.sh \
 	# end

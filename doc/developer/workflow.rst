@@ -1159,9 +1159,7 @@ Historically, FRR used fixed-width integral types that do not exist in any
 standard but were defined by most platforms at some point. Officially these
 types are not guaranteed to exist. Therefore, please use the fixed-width
 integral types introduced in the C99 standard when contributing new code to
-FRR. If you need to convert a large amount of code to use the correct types,
-there is a shell script in :file:`tools/convert-fixedwidth.sh` that will do the
-necessary replacements.
+FRR.
 
 +-----------+--------------------------+
 | Incorrect | Correct                  |
@@ -1643,13 +1641,6 @@ annotations must be ignored non-development branches. For example:
    #if CONFDATE > 20180403
    CPP_NOTICE("Use of <XYZ> is deprecated, please use <ABC>")
    #endif
-
-Preferably, the shell script :file:`tools/fixup-deprecated.py` will be
-updated along with making non-backwards compatible code changes, or an
-alternate script should be introduced, to update the code to match the
-change.  When the script is updated, there is no need to preserve the
-deprecated code. Note that this does not apply to user interface
-changes, just internal code, macros and libraries.
 
 Miscellaneous
 -------------
