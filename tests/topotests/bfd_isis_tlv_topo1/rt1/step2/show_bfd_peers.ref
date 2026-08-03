@@ -12,5 +12,17 @@
     "status": "up",
     "diagnostic": "ok",
     "remote-diagnostic": "ok"
+  },
+  {
+    "interface": "eth-rt3",
+    "status": "up",
+    "diagnostic": "ok",
+    "remote-diagnostic": "ok"
+  },
+  {
+    "interface": "eth-rt2",
+    "status": "up",
+    "diagnostic": "ok",
+    "remote-diagnostic": "ok"
   }
 ]

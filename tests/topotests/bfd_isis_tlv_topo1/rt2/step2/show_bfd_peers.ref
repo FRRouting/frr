@@ -5,5 +5,11 @@
     "status": "up",
     "diagnostic": "ok",
     "remote-diagnostic": "ok"
+  },
+  {
+    "interface": "eth-rt1",
+    "status": "up",
+    "diagnostic": "ok",
+    "remote-diagnostic": "ok"
   }
 ]

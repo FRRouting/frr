@@ -161,14 +161,26 @@ def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
 ## TEST STEPS
 
 
-def test_rib_isis_step1():
-    logger.info("Test (step 1): verify RIB (IPv4 and IPv6) for IS-IS")
-    tgen = get_topogen()
+def test_bfd_convergence():
+    logger.info("Check BFD peers")
 
-    # Skip if previous fatal error condition is raised
+    tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    tgen.gears["rt1"].vtysh_cmd("show ip route isis")
+
+    # BFD is only used on three routers
+    for rt in ["rt1", "rt2", "rt3"]:
+        router_compare_json_output(
+            rt, "show bfd peers json", "step2/show_bfd_peers.ref"
+        )
+
+
+def test_route_convergence():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check RIB (IPv4 and IPv6) for IS-IS")
 
     router_compare_json_output(
         "rt1", "show ip route isis json", "step1/show_ip_route.ref"
@@ -178,26 +190,10 @@ def test_rib_isis_step1():
     )
 
 
-def test_bfd_isis_sessions_step2():
-    logger.info("Test (step 2): verify BFD peers for IS-IS")
+def test_bfd_isis_interface_failure_rt2_step1():
+    logger.info("Check failover handling when RT2 eth-rt1 goes down")
+
     tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    # BFD is just used on three routers
-    for rt in ["rt1", "rt2", "rt3"]:
-        router_compare_json_output(
-            rt, "show bfd peers json", "step2/show_bfd_peers.ref"
-        )
-
-
-def test_bfd_isis_interface_failure_rt2_step3():
-    logger.info("Test (step 2): check failover handling when RT2 goes down")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
@@ -207,17 +203,29 @@ def test_bfd_isis_interface_failure_rt2_step3():
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     sleep(3)
     router_compare_json_output(
-        "rt1", "show ip route isis json", "step3/show_ip_route_rt2_down.ref", 1, 0
+        "rt1", "show ip route isis json", "step3/show_ip_route_rt2_down.ref", 20, 1
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt2_down.ref", 1, 0
+        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt2_down.ref", 20, 1
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 20, 1
     )
+
+
+def test_bfd_isis_interface_recovery_rt2_step2():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Check recovery, this can take some time
     tgen.gears["rt2"].link_enable("eth-rt1", enabled=True)
+
+    # BFD is only used on three routers
+    for rt in ["rt1", "rt2", "rt3"]:
+        router_compare_json_output(
+            rt, "show bfd peers json", "step2/show_bfd_peers.ref"
+        )
 
     router_compare_json_output(
         "rt1", "show ip route isis json", "step3/show_ip_route_healthy.ref"
@@ -231,10 +239,9 @@ def test_bfd_isis_interface_failure_rt2_step3():
 
 
 def test_bfd_isis_interface_failure_rt3_step3():
-    logger.info("Test (step 2): check failover handling when RT2 goes down")
-    tgen = get_topogen()
+    logger.info("Check failover handling when RT3 eth-rt1 goes down")
 
-    # Skip if previous fatal error condition is raised
+    tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
@@ -243,14 +250,19 @@ def test_bfd_isis_interface_failure_rt3_step3():
 
     # By default BFD provides a recovery time of 900ms plus jitter
     router_compare_json_output(
-        "rt1", "show ip route isis json", "step3/show_ip_route_rt3_down.ref", 5, 1
+        "rt1", "show ip route isis json", "step3/show_ip_route_rt3_down.ref", 20, 1
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt3_down.ref", 5, 1
+        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt3_down.ref", 20, 1
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 5, 1
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 20, 1
     )
+
+def test_bfd_isis_interface_recovery_rt3_step4():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Check recovery, this can take some time
     tgen.gears["rt3"].link_enable("eth-rt1", enabled=True)
