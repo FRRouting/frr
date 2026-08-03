@@ -1,0 +1,550 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-bgp-vnc {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/bgp-vnc";
+  prefix frr-bgp-vnc;
+
+  import frr-routing {
+    prefix frr-rt;
+  }
+
+  import frr-bgp {
+    prefix frr-bgp;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "Optional BGP Virtual Network Control (VNC / RFAPI) configuration.
+     Present only when FRR is built with --enable-vnc.
+
+     Copyright 2026 Nvidia Inc
+		    Donald Sharp
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2026-07-21 {
+    description
+      "VNC/RFAPI YANG model aligned with tip NB conversion.";
+    reference
+      "FRRouting";
+  }
+
+  feature vnc {
+    description
+      "Indicates that FRR was built with Virtual Network Control
+       (RFAPI) support (--enable-vnc).";
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp" {
+    if-feature vnc;
+    description
+      "Augment BGP instance with optional VNC/RFAPI configuration.";
+
+    container vnc {
+      presence "VNC/RFAPI is configured";
+      description
+        "VNC/RFAPI configuration for this BGP instance.";
+
+      leaf advertise-un-method {
+        type enumeration {
+          enum encap-attr {
+            value 0;
+          }
+          enum encap-safi {
+            value 1;
+          }
+        }
+        description
+          "Method of advertising UN addresses.
+           Maps to: vnc advertise-un-method ...";
+      }
+
+      container rfp {
+        description
+          "RFP (Registered Forwarder Protocol) settings.";
+
+        leaf holddown-factor {
+          type uint32;
+          description
+            "RFP holddown factor.";
+        }
+
+        leaf full-table-download {
+          type enumeration {
+            enum on {
+              value 1;
+            }
+            enum off {
+              value 0;
+            }
+          }
+          description
+            "RFP full table download mode.";
+        }
+      }
+
+      container defaults {
+        presence "VNC defaults are configured";
+        description
+          "VNC default settings for NVE groups.";
+
+        leaf rd {
+          type string;
+          description
+            "Default route distinguisher (e.g. ASN:NN or auto:vn:NN).";
+        }
+
+        leaf response-lifetime {
+          type string;
+          description
+            "Default response lifetime in seconds, or 'infinite'.";
+        }
+
+        leaf rt-import {
+          type string;
+          description
+            "Space-separated list of import route targets.";
+        }
+
+        leaf rt-export {
+          type string;
+          description
+            "Space-separated list of export route targets.";
+        }
+
+        leaf l2rd {
+          type string;
+          description
+            "Default Local NVE ID for L2 RDs: 'auto-vn' or 1-255.
+             Maps to: l2rd ...";
+        }
+      }
+
+      list nve-group {
+        key "name";
+        description
+          "VNC NVE (Network Virtualization Edge) group.";
+
+        leaf name {
+          type string;
+          description
+            "NVE group name.";
+        }
+
+        leaf prefix-vn {
+          type string;
+          description
+            "VN (Virtual Network) address prefix.";
+        }
+
+        leaf prefix-un {
+          type string;
+          description
+            "UN (Underlay Network) address prefix.";
+        }
+
+        leaf rd {
+          type string;
+          description
+            "Route distinguisher for this NVE group.";
+        }
+
+        leaf response-lifetime {
+          type string;
+          description
+            "Response lifetime in seconds, or 'infinite'.";
+        }
+
+        leaf rt-import {
+          type string;
+          description
+            "Space-separated list of import route targets.";
+        }
+
+        leaf rt-export {
+          type string;
+          description
+            "Space-separated list of export route targets.";
+        }
+
+        leaf l2rd {
+          type string;
+          description
+            "Per-NVE-group Local NVE ID for L2 RDs: 'auto-vn' or 1-255.";
+        }
+
+        leaf bgp-direct-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: redistribute bgp-direct ipv4 prefix-list NAME";
+        }
+
+        leaf bgp-direct-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: redistribute bgp-direct ipv6 prefix-list NAME";
+        }
+
+        leaf bgp-direct-route-map {
+          type string;
+          description
+            "Maps to: redistribute bgp-direct route-map NAME";
+        }
+
+        leaf bgp-export-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: export bgp ipv4 prefix-list NAME";
+        }
+
+        leaf bgp-export-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: export bgp ipv6 prefix-list NAME";
+        }
+
+        leaf bgp-export-route-map {
+          type string;
+          description
+            "Maps to: export bgp route-map NAME";
+        }
+
+        leaf zebra-export-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: export zebra ipv4 prefix-list NAME";
+        }
+
+        leaf zebra-export-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: export zebra ipv6 prefix-list NAME";
+        }
+
+        leaf zebra-export-route-map {
+          type string;
+          description
+            "Maps to: export zebra route-map NAME";
+        }
+      }
+
+      list l2-group {
+        key "name";
+        description
+          "Maps to: vnc l2-group NAME.";
+
+        leaf name {
+          type string;
+          description
+            "L2 group name.";
+        }
+
+        leaf logical-network-id {
+          type uint32;
+          description
+            "Maps to: logical-network-id ...";
+        }
+
+        leaf-list labels {
+          type uint32;
+          description
+            "Maps to: labels ...";
+        }
+
+        leaf rt-import {
+          type string;
+          description
+            "Space-separated list of import route targets.";
+        }
+
+        leaf rt-export {
+          type string;
+          description
+            "Space-separated list of export route targets.";
+        }
+      }
+
+      list vrf-policy {
+        key "name";
+        description
+          "VNC VRF policy group.";
+
+        leaf name {
+          type string;
+          description
+            "VRF policy name.";
+        }
+
+        leaf label {
+          type uint32;
+          description
+            "MPLS label for this VRF policy.";
+        }
+
+        leaf rd {
+          type string;
+          description
+            "Route distinguisher for this VRF policy.";
+        }
+
+        leaf rt-import {
+          type string;
+          description
+            "Space-separated list of import route targets.";
+        }
+
+        leaf rt-export {
+          type string;
+          description
+            "Space-separated list of export route targets.";
+        }
+
+        leaf nexthop {
+          type string;
+          description
+            "Next-hop address (IPv4, IPv6, or 'self').";
+        }
+
+        leaf ipv4-export-prefix-list {
+          type string;
+          description
+            "Maps to: export ipv4 prefix-list NAME";
+        }
+
+        leaf ipv6-export-prefix-list {
+          type string;
+          description
+            "Maps to: export ipv6 prefix-list NAME";
+        }
+
+        leaf export-route-map {
+          type string;
+          description
+            "Maps to: export route-map NAME";
+        }
+      }
+
+      container export {
+        description
+          "VNC export configuration.";
+
+        container bgp {
+          description
+            "VNC export to BGP configuration.";
+
+          leaf mode {
+            type enumeration {
+              enum none {
+                value 0;
+              }
+              enum group-nve {
+                value 1;
+              }
+              enum registering-nve {
+                value 2;
+              }
+              enum ce {
+                value 3;
+              }
+            }
+            description
+              "VNC export to BGP mode.";
+          }
+
+          leaf-list group-nve-group {
+            type string;
+            description
+              "NVE group names for group-nve export mode.";
+          }
+
+          leaf ipv4-prefix-list {
+            type string;
+            description
+              "Maps to: vnc export bgp ipv4 prefix-list NAME";
+          }
+
+          leaf ipv6-prefix-list {
+            type string;
+            description
+              "Maps to: vnc export bgp ipv6 prefix-list NAME";
+          }
+
+          leaf route-map {
+            type string;
+            description
+              "Maps to: vnc export bgp route-map NAME";
+          }
+        }
+
+        container zebra {
+          description
+            "VNC export to Zebra configuration.";
+
+          leaf mode {
+            type enumeration {
+              enum none {
+                value 0;
+              }
+              enum group-nve {
+                value 1;
+              }
+              enum registering-nve {
+                value 2;
+              }
+            }
+            description
+              "VNC export to Zebra mode.
+               Maps to: vnc export zebra mode ...";
+          }
+
+          leaf-list group-nve-group {
+            type string;
+            description
+              "NVE group names for group-nve zebra export mode.
+               Maps to: vnc export zebra group-nve group NAME";
+          }
+
+          leaf ipv4-prefix-list {
+            type string;
+            description
+              "Maps to: vnc export zebra ipv4 prefix-list NAME";
+          }
+
+          leaf ipv6-prefix-list {
+            type string;
+            description
+              "Maps to: vnc export zebra ipv6 prefix-list NAME";
+          }
+
+          leaf route-map {
+            type string;
+            description
+              "Maps to: vnc export zebra route-map NAME";
+          }
+        }
+      }
+
+      container redistribute {
+        description
+          "VNC redistribute configuration.";
+
+        leaf mode {
+          type enumeration {
+            enum plain {
+              value 0;
+            }
+            enum nve-group {
+              value 1;
+            }
+            enum resolve-nve {
+              value 2;
+            }
+          }
+          description
+            "VNC redistribute mode.";
+        }
+
+        leaf nve-group {
+          type string;
+          description
+            "NVE group assigned to redistributed routes.
+             Maps to: vnc redistribute nve-group NAME";
+        }
+
+        leaf lifetime {
+          type string;
+          description
+            "Lifetime for redistributed routes in seconds, or 'infinite'.
+             Maps to: vnc redistribute lifetime ...";
+        }
+
+        leaf resolve-nve-roo-ec-local-admin {
+          type uint16;
+          description
+            "Route Origin EC local-admin for resolve-nve mode.
+             Maps to: vnc redistribute resolve-nve roo-ec-local-admin ...";
+        }
+
+        leaf bgp-direct-to-nve-groups-view {
+          type string;
+          description
+            "BGP view name for bgp-direct-to-nve-groups redistribution.
+             Maps to: vnc redistribute <ipv4|ipv6> bgp-direct-to-nve-groups view NAME";
+        }
+
+        leaf bgp-direct-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct ipv4 prefix-list NAME";
+        }
+
+        leaf bgp-direct-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct ipv6 prefix-list NAME";
+        }
+
+        leaf bgp-direct-to-nve-groups-ipv4-prefix-list {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct-to-nve-groups ipv4 prefix-list NAME";
+        }
+
+        leaf bgp-direct-to-nve-groups-ipv6-prefix-list {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct-to-nve-groups ipv6 prefix-list NAME";
+        }
+
+        leaf bgp-direct-route-map {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct route-map NAME";
+        }
+
+        leaf bgp-direct-to-nve-groups-route-map {
+          type string;
+          description
+            "Maps to: vnc redistribute bgp-direct-to-nve-groups route-map NAME";
+        }
+
+        leaf-list ipv4-source {
+          type string;
+          description
+            "IPv4 redistribution sources (e.g. bgp-direct).";
+        }
+
+        leaf-list ipv6-source {
+          type string;
+          description
+            "IPv6 redistribution sources.";
+        }
+      }
+    }
+  }
+}

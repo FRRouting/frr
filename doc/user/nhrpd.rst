@@ -104,11 +104,15 @@ Configuring NHRP
    different nodes do not need to match. When NHRP packets are received on an
    interface they are assigned to the local NHRP domain for that interface.
 
-.. clicmd:: ip nhrp nhs A.B.C.D nbma A.B.C.D|FQDN
+.. clicmd:: ip nhrp nhs A.B.C.D nbma A.B.C.D|FQDN [priority (0-255)]
 
-   Configure the Next Hop Server address and its NBMA address.
+   Configure the Next Hop Server address and its NBMA address. The optional
+   priority controls the order in which spokes select hubs. The lower values
+   are attempted first, moving to higher numbered servers when lower numbered
+   ones are not reachable. When unreachable, lower value servers are rechecked
+   at the interval of holdtime / 4.
 
-.. clicmd:: ip nhrp nhs dynamic nbma A.B.C.D
+.. clicmd:: ip nhrp nhs dynamic nbma A.B.C.D [priority (0-255)]
 
    Configure the Next Hop Server to have a dynamic address and set its NBMA
    address.
@@ -209,11 +213,12 @@ original multicast packet.
    Sets the nflog group that nhrpd will listen on for multicast packets. This
    value must match the nflog-group value set in the iptables rule.
 
-.. clicmd:: ip nhrp map multicast A.B.C.D|X:X::X:X A.B.C.D|dynamic
+.. clicmd:: ip nhrp map multicast A.B.C.D|X:X::X:X A.B.C.D|dynamic|nhs
 
    Sends multicast packets to the specified NBMA address. If dynamic is
    specified then destination NBMA address (or addresses) are learnt
-   dynamically.
+   dynamically. If nhs is specified, then active NHS address(es) are used
+   if they are reachable.
 
 .. _nhrp-events:
 

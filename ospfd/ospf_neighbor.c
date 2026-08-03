@@ -52,6 +52,28 @@ static void ospf_nbr_key(struct ospf_interface *oi, struct ospf_neighbor *nbr,
 	return;
 }
 
+/* RFC4222 R4: initialize per-neighbor gap from interface config. */
+void ospf_nbr_apply_rec4_params(struct ospf_neighbor *nbr)
+{
+	struct ospf_interface *oi;
+
+	if (!nbr)
+		return;
+	oi = nbr->oi;
+	if (!oi)
+		return;
+	if (!oi->rec4_gap_pacing)
+		return;
+
+	nbr->lsu_gap_ms = oi->rec4_gap_initial_ms;
+	if (nbr->lsu_gap_ms < oi->rec4_gap_min_ms)
+		nbr->lsu_gap_ms = oi->rec4_gap_min_ms;
+	if (nbr->lsu_gap_ms > oi->rec4_gap_max_ms)
+		nbr->lsu_gap_ms = oi->rec4_gap_max_ms;
+	if (nbr->next_send_ms < ospf_now_ms())
+		nbr->next_send_ms = ospf_now_ms();
+}
+
 struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 {
 	struct ospf_neighbor *nbr;
@@ -95,12 +117,24 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 	nbr->gr_helper_info.helper_exit_reason = OSPF_GR_HELPER_EXIT_NONE;
 	nbr->gr_helper_info.gr_restart_reason = OSPF_GR_UNKNOWN_RESTART;
 
+	nbr->ls_rxmt_unacked = 0;
+
+	/* RFC4222 R4: initialize per-neighbor paced LSU queue. */
+	ospf_nbr_apply_rec4_params(nbr);
+	ospf_r4_nbr_init(nbr);
+
 	nbr->dead_timer_resets = 0; /* rfc 4222 rec 2 */
 	return nbr;
 }
 
 void ospf_nbr_free(struct ospf_neighbor *nbr)
 {
+	/* RFC4222 R4: cancel pacing timer and drain queued LSAs first; the
+	 * queue cleanup clears back-pointers held in ls_rxmt nodes, so it
+	 * must run before the ls_rxmt LSDB is torn down below.
+	 */
+	ospf_r4_nbr_cancel(nbr);
+
 	/* Free DB summary list. */
 	if (ospf_db_summary_count(nbr))
 		ospf_db_summary_clear(nbr);
@@ -331,7 +365,7 @@ int ospf_nbr_count_opaque_capable(struct ospf_interface *oi)
  * with virtual link and PointToPoint neighbours
  */
 struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,
-					      struct in_addr *addr)
+					      const struct in_addr *addr)
 {
 	struct prefix p;
 	struct route_node *rn;
@@ -360,7 +394,7 @@ struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *nbrs,
 }
 
 struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *nbrs,
-						  struct in_addr *id)
+						  const struct in_addr *id)
 {
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;

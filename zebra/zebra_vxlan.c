@@ -5303,7 +5303,7 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 			zevpn->vrf_id = VRF_DEFAULT;
 
 			/* update the tenant vrf in BGP */
-			if (if_is_operative(zevpn->vxlan_if))
+			if (zevpn->vxlan_if && if_is_operative(zevpn->vxlan_if))
 				zebra_evpn_send_add_to_client(zevpn);
 		}
 	}
@@ -5461,6 +5461,49 @@ void zebra_vxlan_macvlan_up(struct interface *ifp)
 		if (is_l3vni_oper_up(zl3vni))
 			zebra_vxlan_process_l3vni_oper_up(zl3vni);
 	}
+}
+
+static void zl3vni_ifp_ref_cleanup_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_l3vni *zl3vni = bucket->data;
+	const struct interface *ifp = arg;
+
+	if (zl3vni->vxlan_if == ifp)
+		zl3vni->vxlan_if = NULL;
+	if (zl3vni->svi_if == ifp)
+		zl3vni->svi_if = NULL;
+	if (zl3vni->mac_vlan_if == ifp)
+		zl3vni->mac_vlan_if = NULL;
+	if (zl3vni->bridge_if == ifp) {
+		zl3vni->bridge_if = NULL;
+		zl3vni->vid = 0;
+	}
+}
+
+static void zevpn_ifp_ref_cleanup_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn *zevpn = bucket->data;
+	const struct interface *ifp = arg;
+
+	if (zevpn->vxlan_if == ifp)
+		zevpn->vxlan_if = NULL;
+	if (zevpn->svi_if == ifp)
+		zevpn->svi_if = NULL;
+	if (zevpn->bridge_if == ifp) {
+		zevpn->bridge_if = NULL;
+		zevpn->vid = 0;
+	}
+}
+
+void zebra_vxlan_if_ref_cleanup(struct interface *ifp)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+
+	if (zvrf && zvrf->evpn_table)
+		hash_iterate(zvrf->evpn_table, zevpn_ifp_ref_cleanup_cb, ifp);
+
+	if (zrouter.l3vni_table)
+		hash_iterate(zrouter.l3vni_table, zl3vni_ifp_ref_cleanup_cb, ifp);
 }
 
 void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,

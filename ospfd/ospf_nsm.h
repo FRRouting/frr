@@ -9,6 +9,17 @@
 #define _ZEBRA_OSPF_NSM_H
 
 #include "hook.h"
+#include "typesafe.h"
+
+/* forward declaration so ospf_nsm.h can be included before ospf_interface.h */
+struct ospf_interface;
+
+/* RFC4222/R5: typed list for per-interface adjacency pacing queue.
+ * Only PREDECL_LIST here — DECLARE_LIST lives in ospf_nsm.c where
+ * struct ospf_neighbor is fully defined.  Callers outside ospf_nsm.c
+ * use the wrapper functions below.
+ */
+PREDECL_LIST(ospf_pacing_queue);
 
 /* OSPF Neighbor State Machine State. */
 #define NSM_DependUpon          0
@@ -59,6 +70,19 @@ extern int ospf_db_summary_isempty(struct ospf_neighbor *nbr);
 extern int ospf_db_summary_count(struct ospf_neighbor *nbr);
 extern void ospf_db_summary_clear(struct ospf_neighbor *nbr);
 extern int nsm_should_adj(struct ospf_neighbor *nbr);
+
+/* RFC4222/R5: Dynamic adjacency pacing */
+extern void ospf_adj_dyn_adjust(struct ospf_interface *oi);
+extern void ospf_adj_pacing_kick(struct ospf_interface *oi);
+
+/* RFC4222/R5: pacing queue lifecycle — wrappers around the typesafe list
+ * so callers outside ospf_nsm.c do not need the full ospf_neighbor type.
+ */
+struct ospf_adj_pacing; /* forward declaration — full type in ospf_interface.h */
+extern void ospf_adj_pacing_queue_init(struct ospf_adj_pacing *p);
+extern void ospf_adj_pacing_queue_fini(struct ospf_adj_pacing *p);
+extern void ospf_adj_pacing_queue_flush(struct ospf_interface *oi);
+
 DECLARE_HOOK(ospf_nsm_change,
 	     (struct ospf_neighbor * on, int state, int oldstate),
 	     (on, state, oldstate));

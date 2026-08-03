@@ -479,7 +479,7 @@ static int rfapi_info_cmp(struct rfapi_info *a, struct rfapi_info *b)
 		return (a->cost - b->cost);
 
 	if (a->lifetime != b->lifetime)
-		return (a->lifetime - b->lifetime);
+		return (a->lifetime > b->lifetime) ? 1 : -1;
 
 	if ((rc = bgp_tea_options_cmp(a->tea_options, b->tea_options)))
 		return rc;

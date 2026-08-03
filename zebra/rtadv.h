@@ -84,7 +84,7 @@ struct rtadvconf {
 	   value of zero indicates that no MTU options are sent.
 
 	   Default: 0 */
-	int AdvLinkMTU;
+	uint16_t AdvLinkMTU;
 
 
 	/* The value to be placed in the Reachable Time field in the Router

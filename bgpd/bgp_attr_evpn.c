@@ -180,8 +180,7 @@ uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
 		*alg = (*pnt++) & ECOMMUNITY_EVPN_SUBTYPE_DF_ALG_BITS;
 
 		pnt += 3;
-		pnt = ptr_get_be16(pnt, &df_pref);
-		(void)pnt; /* consume value */
+		ptr_get_be16(pnt, &df_pref);
 		break;
 	}
 

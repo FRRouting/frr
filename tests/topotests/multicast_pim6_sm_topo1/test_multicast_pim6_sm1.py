@@ -524,6 +524,16 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
     result = create_pim_config(tgen, topo, input_dict)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+    step("Configure shorter join-prune-interval for faster SPT switchover")
+    input_dict = {
+        "r1": {"pim6": {"join-prune-interval": "10"}},
+        "r3": {"pim6": {"join-prune-interval": "10"}},
+        "r4": {"pim6": {"join-prune-interval": "10"}},
+        "r5": {"pim6": {"join-prune-interval": "10"}},
+    }
+    result = create_pim_config(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
     step("send mld join (ffaa::1-5) to R1")
     result = app_helper.run_join("i1", _MLD_JOIN_RANGE, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)

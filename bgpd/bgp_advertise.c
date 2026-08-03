@@ -179,6 +179,7 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 				bgp_labels_unintern(&adj->labels);
 				adj->labels = bgp_labels_intern(labels);
 			}
+			adj->uptime = monotime(NULL);
 			return;
 		}
 	}

@@ -262,6 +262,12 @@ bool bgp_path_suppressed(struct bgp_path_info *pi)
 	return listcount(pi->extra->aggr_suppressors) > 0;
 }
 
+/* Return (creating if needed) the destination node for the given prefix.
+ * SAFI_MPLS_VPN, SAFI_ENCAP and SAFI_EVPN use a two-level table: the top
+ * level is keyed by the Route Distinguisher and each of its nodes holds
+ * another table containing the actual prefixes, whose nodes point back
+ * to the RD node via dest->pdest.
+ */
 struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, const struct prefix *p,
 				  struct prefix_rd *prd)
@@ -1584,11 +1590,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	     new_sub_sort == BGP_PEER_EBGP_OAD)) {
 		*reason = bgp_path_selection_peer;
 		if (debug)
-			zlog_debug("%s: %s loses to %s due to %s peer < eBGP peer",
-				   pfx_buf, new_buf, exist_buf,
-				   (exist_sub_sort == BGP_PEER_EBGP_OAD)
-					   ? "eBGP-OAD"
-					   : "iBGP");
+			zlog_debug("%s: %s loses to %s due to %s peer < eBGP peer", pfx_buf,
+				   new_buf, exist_buf,
+				   (new_sub_sort == BGP_PEER_EBGP_OAD) ? "eBGP-OAD" : "iBGP");
 		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
 			return 0;
 		peer_sort_ret = 0;
@@ -2485,10 +2489,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * Filter both:
 	 * 1. Locally originated UPA routes (BGP_PATH_UPA flag set)
 	 * 2. Received routes with UPA extended community (BGP_PATH_UPA flag set)
-	 * These should only be announced to peers with PEER_FLAG_UPA_SEND
+	 * These should only be announced to peers with PEER_FLAG_UPA
 	 * configured via 'neighbor X upa'
 	 */
-	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND)) {
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA)) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_UPA)) {
 			if (BGP_DEBUG(upa, UPA))
 				zlog_debug("%s: UPA route %pFX FILTERED - peer lacks 'neighbor upa' configuration",
@@ -2775,13 +2779,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	RESET_FLAG(attr->rmap_change_flags);
 
 	/* Strip UPA Extended Community for non-UPA peers.
-	 * If the peer does not support UPA (lacks PEER_FLAG_UPA_SEND),
+	 * If the peer does not support UPA (lacks PEER_FLAG_UPA),
 	 * remove UPA ExtCom from the attributes before sending. This handles
 	 * cases where non-UPA routes carry UPA ExtComs (e.g., received from
 	 * another router). Note: Full UPA routes (BGP_PATH_UPA flag set)
 	 * are already filtered earlier.
 	 */
-	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA_SEND)) {
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA)) {
 		struct ecommunity *ecom = bgp_attr_get_ecommunity(attr);
 		struct ecommunity *ecom_filtered = NULL;
 
@@ -3237,25 +3241,77 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * the most sense. However, don't modify if the link-bandwidth has
 	 * been explicitly set by user policy.
 	 */
+	struct attr *rmap_src_attr = post_attr ? post_attr : piattr;
+	bool link_bw_was_set = CHECK_FLAG(rmap_src_attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET);
+
 	if (nh_reset && bgp_path_info_mpath_chkwtd(bgp, pi->net) == BGP_WECMP_BEHAVIOR_LINK_BW &&
-	    (cum_bw = bgp_path_info_mpath_cumbw(pi->net)) != 0 &&
+	    (cum_bw = bgp_path_info_mpath_cumbw(pi->net)) != 0 && !link_bw_was_set &&
 	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH))
-			bgp_attr_set_ipv6_ecommunity(
-				attr,
-				ecommunity_replace_linkbw(bgp->as,
-							  bgp_attr_get_ipv6_ecommunity(
-								  attr),
-							  cum_bw, false, true));
-		else
-			bgp_attr_set_ecommunity(
-				attr,
-				ecommunity_replace_linkbw(
-					bgp->as, bgp_attr_get_ecommunity(attr),
-					cum_bw,
+		as_t link_bw_as = bgp_local_as_for_peer(peer);
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH)) {
+			struct ecommunity *old_ecom, *new_ecom;
+
+			old_ecom = bgp_attr_get_ipv6_ecommunity(attr);
+			new_ecom = ecommunity_replace_linkbw(link_bw_as, old_ecom, cum_bw, false,
+							     true, false);
+			bgp_attr_set_ipv6_ecommunity(attr, new_ecom);
+			if (old_ecom && new_ecom != old_ecom && !old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		} else {
+			struct ecommunity *old_ecom, *new_ecom;
+			bool disable_ieee = CHECK_FLAG(peer->flags,
+						       PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
+
+			old_ecom = bgp_attr_get_ecommunity(attr);
+			new_ecom = ecommunity_replace_linkbw(link_bw_as, old_ecom, cum_bw,
+							     disable_ieee, false, false);
+			bgp_attr_set_ecommunity(attr, new_ecom);
+			if (old_ecom && new_ecom != old_ecom && !old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		}
+	}
+
+	/*
+	 * If link-bandwidth was set by a route-map (either at origination or
+	 * per-neighbor), we still need to adjust the AS number based on the
+	 * destination peer type, even though the bandwidth value itself should
+	 * not be changed.
+	 *
+	 * This ensures consistency: external eBGP peers see confederation AS,
+	 * while iBGP and confederation peers see local AS.
+	 */
+	if (link_bw_was_set || CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
+		as_t link_bw_as = bgp_local_as_for_peer(peer);
+		uint64_t bw_val = 0;
+
+		/* Replace AS number in existing link-bandwidth extended community */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH)) {
+			struct ecommunity *old_ecom, *new_ecom;
+
+			old_ecom = bgp_attr_get_ipv6_ecommunity(attr);
+			if (old_ecom && ecommunity_linkbw_present(old_ecom, &bw_val)) {
+				new_ecom = ecommunity_replace_linkbw(link_bw_as, old_ecom, bw_val,
+								     false, true, true);
+				bgp_attr_set_ipv6_ecommunity(attr, new_ecom);
+				if (new_ecom != old_ecom && !old_ecom->refcnt)
+					ecommunity_free(&old_ecom);
+			}
+		} else {
+			struct ecommunity *old_ecom, *new_ecom;
+
+			old_ecom = bgp_attr_get_ecommunity(attr);
+			if (old_ecom && ecommunity_linkbw_present(old_ecom, &bw_val)) {
+				new_ecom = ecommunity_replace_linkbw(
+					link_bw_as, old_ecom, bw_val,
 					CHECK_FLAG(peer->flags,
 						   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE),
-					false));
+					false, true);
+				bgp_attr_set_ecommunity(attr, new_ecom);
+				if (new_ecom != old_ecom && !old_ecom->refcnt)
+					ecommunity_free(&old_ecom);
+			}
+		}
 	}
 
 	/*
@@ -6850,8 +6906,13 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				}
 
 				SET_FLAG(new->flags, BGP_PATH_UPA);
-				if (CHECK_FLAG(ptr[BGP_UPA_EXTCOM_OFF_FLAGS], BGP_UPA_FLAG_DROP))
-					SET_FLAG(new->flags, BGP_PATH_UPA_DROP);
+				if (CHECK_FLAG(ptr[BGP_UPA_EXTCOM_OFF_FLAGS], BGP_UPA_FLAG_DROP)) {
+					if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA))
+						SET_FLAG(new->flags, BGP_PATH_UPA_DROP);
+					else if (BGP_DEBUG(upa, UPA))
+						zlog_debug("%s: not honoring UPA D-bit for %pFX from %pBP (neighbor UPA not enabled)",
+							   __func__, p, peer);
+				}
 				break;
 			}
 		}
@@ -11582,8 +11643,11 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 
 	/* Aggregate address insert into BGP routing table. */
 	if (!bgp_aggregate_route(bgp, &p, afi, safi, aggregate)) {
+		/* Keep table state consistent and avoid stale aggregate pointer. */
+		bgp_dest_set_bgp_aggregate_info(dest, NULL);
 		bgp_aggregate_free(aggregate);
 		bgp_dest_unlock_node(dest);
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* Handle UPA origination/withdrawal based on configuration change */
@@ -20250,7 +20314,7 @@ DEFUN(show_bgp_upa_statistics, show_bgp_upa_statistics_cmd,
 	} else {
 		vty_out(vty, "UPA Statistics for AFI %s, SAFI %s:\n\n",
 			afi == AFI_IP ? "IPv4" : "IPv6",
-			safi == SAFI_UNICAST ? "unicast" : "other");
+			"unicast");
 		vty_out(vty, "  Global UPA originate-all:      %s\n",
 			global_enabled ? "Enabled" : "Disabled");
 		vty_out(vty, "  Active UPA routes:             %u\n", total_upa_routes);

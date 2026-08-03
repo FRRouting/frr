@@ -54,7 +54,11 @@ struct ns_map_nsid {
 static inline int ns_map_compare(const struct ns_map_nsid *a,
 				   const struct ns_map_nsid *b)
 {
-	return (a->ns_id - b->ns_id);
+	if (a->ns_id > b->ns_id)
+		return 1;
+	if (a->ns_id < b->ns_id)
+		return -1;
+	return 0;
 }
 
 RB_HEAD(ns_map_nsid_head, ns_map_nsid);
@@ -120,7 +124,11 @@ static int ns_is_enabled(struct ns *ns);
 
 static inline int ns_compare(const struct ns *a, const struct ns *b)
 {
-	return (a->ns_id - b->ns_id);
+	if (a->ns_id > b->ns_id)
+		return 1;
+	if (a->ns_id < b->ns_id)
+		return -1;
+	return 0;
 }
 
 /* Look up a NS by identifier. */

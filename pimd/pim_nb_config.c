@@ -1409,6 +1409,7 @@ int pim_msdp_shutdown_modify(struct nb_cb_modify_args *args)
  */
 int pim_msdp_mesh_group_create(struct nb_cb_create_args *args)
 {
+	const struct lyd_node *vrf_dnode;
 	struct pim_msdp_mg *mg;
 	struct vrf *vrf;
 
@@ -1418,7 +1419,15 @@ int pim_msdp_mesh_group_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		/*
+		 * This callback stores its own mesh-group pointer on
+		 * args->dnode. On a reload re-apply a recursive lookup would
+		 * return that stored pointer instead of climbing to the VRF,
+		 * so fetch the VRF from the control-plane-protocol ancestor
+		 * with a non-recursive lookup.
+		 */
+		vrf_dnode = yang_dnode_get_parent(args->dnode, "control-plane-protocol");
+		vrf = nb_running_get_entry_non_rec(vrf_dnode, NULL, true);
 		mg = pim_msdp_mg_new(vrf->info, yang_dnode_get_string(
 							args->dnode, "./name"));
 		nb_running_set_entry(args->dnode, mg);
@@ -1584,6 +1593,7 @@ int pim_msdp_peer_authentication_key_destroy(struct nb_cb_destroy_args *args)
  */
 int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args)
 {
+	const struct lyd_node *mg_dnode;
 	const struct lyd_node *vrf_dnode;
 	struct pim_msdp_mg_mbr *mbr;
 	struct pim_msdp_mg *mg;
@@ -1596,7 +1606,15 @@ int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		mg = nb_running_get_entry(args->dnode, NULL, true);
+		/*
+		 * This callback stores its own member pointer on args->dnode.
+		 * On a reload re-apply a recursive lookup would return that
+		 * stored pointer instead of the mesh-group, so fetch the
+		 * mesh-group from the msdp-mesh-groups ancestor with a
+		 * non-recursive lookup.
+		 */
+		mg_dnode = yang_dnode_get_parent(args->dnode, "msdp-mesh-groups");
+		mg = nb_running_get_entry_non_rec(mg_dnode, NULL, true);
 		vrf_dnode =
 			yang_dnode_get_parent(args->dnode, "address-family");
 		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
@@ -1640,6 +1658,7 @@ int pim_msdp_mesh_group_members_destroy(struct nb_cb_destroy_args *args)
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_create(
 	struct nb_cb_create_args *args)
 {
+	const struct lyd_node *vrf_dnode;
 	struct pim_msdp_peer *mp;
 	struct pim_instance *pim;
 	struct vrf *vrf;
@@ -1652,7 +1671,15 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		/*
+		 * This callback stores its own peer pointer on args->dnode.
+		 * On a reload re-apply a recursive lookup would return that
+		 * stored pointer instead of climbing to the VRF, so fetch the
+		 * VRF from the control-plane-protocol ancestor with a
+		 * non-recursive lookup.
+		 */
+		vrf_dnode = yang_dnode_get_parent(args->dnode, "control-plane-protocol");
+		vrf = nb_running_get_entry_non_rec(vrf_dnode, NULL, true);
 		pim = vrf->info;
 		yang_dnode_get_ip(&peer_ip, args->dnode, "peer-ip");
 		yang_dnode_get_ip(&source_ip, args->dnode, "source-ip");
@@ -2252,6 +2279,78 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static int pim_interface_num_get(const struct lyd_node *if_dnode)
+{
+	struct interface *ifp;
+	struct pim_instance *pim;
+	const struct lyd_node *iter, *lib_dnode;
+	int cnt = 0;
+	int i;
+
+	/*
+	 * If the interface already exists in running datastore, check the
+	 * per-VRF iface_vif_index array directly for used VIF slots.
+	 * This correctly accounts for pimreg reserving VIF index 0, is
+	 * scoped to the correct VRF.
+	 */
+	ifp = nb_running_get_entry(if_dnode, NULL, false);
+	if (ifp) {
+		pim = ifp->vrf->info;
+		if (pim) {
+			for (i = 0; i < MAXVIFS; i++) {
+				if (pim->iface_vif_index[i] != 0)
+					cnt++;
+			}
+			return cnt;
+		}
+	}
+
+	/*
+	 * If the interface is not yet in running datastore, then walk the
+	 * candidate config tree and count interfaces with PIM or GMP enabled
+	 * for the current address family.
+	 */
+	lib_dnode = lyd_parent(if_dnode);
+
+	LY_LIST_FOR (lyd_child(lib_dnode), iter) {
+		const struct lyd_node *gmp_enable;
+		const struct lyd_node *pim_enable;
+		struct interface *iter_ifp;
+
+		if (iter->schema->nodetype != LYS_LIST)
+			continue;
+
+		gmp_enable =
+			yang_dnode_getf(iter,
+					"frr-gmp:gmp/address-family[address-family='%s']/enable",
+					FRR_PIM_AF_XPATH_VAL);
+		pim_enable =
+			yang_dnode_getf(iter,
+					"frr-pim:pim/address-family[address-family='%s']/pim-enable",
+					FRR_PIM_AF_XPATH_VAL);
+
+		if (!((gmp_enable && yang_dnode_get_bool(gmp_enable, NULL)) ||
+		      (pim_enable && yang_dnode_get_bool(pim_enable, NULL))))
+			continue;
+
+		/*
+		 * Skip siblings in a different VRF. If either side has no
+		 * running entry, count conservatively (may over-count
+		 * in multi-VRF scenarios, but never under-count).
+		 */
+		if (ifp) {
+			iter_ifp = nb_running_get_entry(iter, NULL, false);
+			if (iter_ifp && iter_ifp->vrf != ifp->vrf)
+				continue;
+		}
+
+		cnt++;
+	}
+
+	/* +1 to account for pimreg which always reserves VIF index 0 */
+	return cnt + 1;
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/pim-enable
  */
@@ -2259,17 +2358,22 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
-	int mcast_if_count;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
-		mcast_if_count =
-			yang_get_list_elements_count(if_dnode);
-
 		/* Limiting mcast interfaces to number of VIFs */
-		if (mcast_if_count == MAXVIFS) {
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+
+		/*
+		 * If this interface already has a pim_interface,
+		 * it will share the same VIF slot.
+		 */
+		ifp = nb_running_get_entry(if_dnode, NULL, false);
+		if (ifp && ifp->info)
+			break;
+
+		if (pim_interface_num_get(if_dnode) >= MAXVIFS) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Max multicast interfaces(%d) reached.",
 				 MAXVIFS);
@@ -4701,17 +4805,23 @@ int lib_interface_gmp_address_family_enable_modify(
 {
 	struct interface *ifp;
 	bool gm_enable;
-	int mcast_if_count;
 	const char *ifp_name;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
-		mcast_if_count =
-			yang_get_list_elements_count(if_dnode);
 		/* Limiting mcast interfaces to number of VIFs */
-		if (mcast_if_count == MAXVIFS) {
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+
+		/*
+		 * If this interface already has a pim_interface,
+		 * it will share the same VIF slot.
+		 */
+		ifp = nb_running_get_entry(if_dnode, NULL, false);
+		if (ifp && ifp->info)
+			break;
+
+		if (pim_interface_num_get(if_dnode) >= MAXVIFS) {
 			ifp_name = yang_dnode_get_string(if_dnode, "name");
 			snprintf(
 				args->errmsg, args->errmsg_len,

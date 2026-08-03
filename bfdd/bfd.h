@@ -539,7 +539,7 @@ struct bfd_vrf_global {
 	struct event *bg_ev[7];
 
 	/** Number of active BFD sessions using this VRF's sockets. */
-	int bg_session_count;
+	unsigned int bg_session_count;
 
 	/** Number of SBFD reflectors using this VRF's sockets. */
 	int bg_reflector_count;
@@ -917,6 +917,7 @@ int bfd_dplane_add_session(struct bfd_session *bs);
  * \param bs the BFD session to update.
  */
 int bfd_dplane_update_session(const struct bfd_session *bs);
+void bfd_dplane_echo_negotiate(struct bfd_session *bs);
 
 /**
  * Deletes session from data plane.

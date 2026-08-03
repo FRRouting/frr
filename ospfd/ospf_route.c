@@ -823,8 +823,11 @@ int ospf_route_cmp(struct ospf *ospf, struct ospf_route *r1,
 		}
 		break;
 	case OSPF_PATH_TYPE2_EXTERNAL:
-		if ((ret = (r1->u.ext.type2_cost - r2->u.ext.type2_cost)))
-			return ret;
+		if (r1->u.ext.type2_cost != r2->u.ext.type2_cost) {
+			if (r1->u.ext.type2_cost > r2->u.ext.type2_cost)
+				return 1;
+			return -1;
+		}
 
 		if (!CHECK_FLAG(ospf->config, OSPF_RFC1583_COMPATIBLE)) {
 			ret = ospf_asbr_route_cmp(ospf, r1->u.ext.asbr,
@@ -836,7 +839,11 @@ int ospf_route_cmp(struct ospf *ospf, struct ospf_route *r1,
 	}
 
 	/* Anyway, compare the costs. */
-	return (r1->cost - r2->cost);
+	if (r1->cost > r2->cost)
+		return 1;
+	if (r1->cost < r2->cost)
+		return -1;
+	return 0;
 }
 
 static int ospf_path_exist(struct list *plist, struct in_addr nexthop,

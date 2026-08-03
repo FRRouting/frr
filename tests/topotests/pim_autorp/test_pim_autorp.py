@@ -1042,7 +1042,19 @@ def test_pim_autorp_discovery_neg_prefixes(request):
           }
         }"""
     )
-    for rtr in ["r1", "r2", "r3", "r4"]:
+    # First verify r1's discovery has the negative prefixes.
+    # Since r1 is the mapping agent, this confirms the updated discovery was sent.
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r1"],
+        "show ip pim autorp json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r1 does not have correct autorp discovery"
+
+    # Now verify the other routers received the discovery.
+    for rtr in ["r2", "r3", "r4"]:
         test_func = partial(
             topotest.router_json_cmp,
             tgen.gears[rtr],

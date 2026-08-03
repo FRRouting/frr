@@ -37,6 +37,7 @@ static struct event *netlink_mcast_log_thread;
 struct mcast_ctx {
 	struct interface *ifp;
 	struct zbuf *pkt;
+	enum nhrp_cache_type type;
 };
 
 static void nhrp_multicast_send(struct nhrp_peer *p, struct zbuf *zb)
@@ -71,7 +72,7 @@ static void nhrp_multicast_forward_cache(struct nhrp_cache *c, void *pctx)
 {
 	struct mcast_ctx *ctx = (struct mcast_ctx *)pctx;
 
-	if (c->cur.type == NHRP_CACHE_DYNAMIC && c->cur.peer)
+	if (c->cur.type == ctx->type && c->cur.peer)
 		nhrp_multicast_forward_nbma(&c->cur.peer->vc->remote.nbma,
 					    ctx->ifp, ctx->pkt);
 }
@@ -84,8 +85,9 @@ static void nhrp_multicast_forward(struct nhrp_multicast *mcast, void *pctx)
 	if (!nifp->enabled)
 		return;
 
-	/* dynamic */
+	/* dynamic or nhs */
 	if (sockunion_family(&mcast->nbma_addr) == AF_UNSPEC) {
+		ctx->type = mcast->type;
 		nhrp_cache_foreach(ctx->ifp, nhrp_multicast_forward_cache,
 				   pctx);
 		return;
@@ -223,21 +225,24 @@ static int nhrp_multicast_free(struct interface *ifp,
 	return 0;
 }
 
-int nhrp_multicast_add(struct interface *ifp, afi_t afi,
-		       union sockunion *nbma_addr)
+int nhrp_multicast_add(struct interface *ifp, afi_t afi, union sockunion *nbma_addr,
+		       enum nhrp_cache_type type)
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
 
 	frr_each (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head, mcast) {
-		if (sockunion_same(&mcast->nbma_addr, nbma_addr))
+		if (sockunion_same(&mcast->nbma_addr, nbma_addr) && mcast->type == type)
 			return NHRP_ERR_ENTRY_EXISTS;
 	}
 
 	mcast = XMALLOC(MTYPE_NHRP_MULTICAST, sizeof(struct nhrp_multicast));
 
 	*mcast = (struct nhrp_multicast){
-		.afi = afi, .ifp = ifp, .nbma_addr = *nbma_addr,
+		.afi = afi,
+		.ifp = ifp,
+		.nbma_addr = *nbma_addr,
+		.type = type,
 	};
 	nhrp_mcastlist_add_tail(&nifp->afi[afi].mcastlist_head, mcast);
 
@@ -246,14 +251,14 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 	return NHRP_OK;
 }
 
-int nhrp_multicast_del(struct interface *ifp, afi_t afi,
-		       union sockunion *nbma_addr)
+int nhrp_multicast_del(struct interface *ifp, afi_t afi, union sockunion *nbma_addr,
+		       enum nhrp_cache_type type)
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
 
 	frr_each_safe (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head, mcast) {
-		if (!sockunion_same(&mcast->nbma_addr, nbma_addr))
+		if (mcast->type != type || !sockunion_same(&mcast->nbma_addr, nbma_addr))
 			continue;
 
 		debugf(NHRP_DEBUG_COMMON, "Deleting multicast entry (%pSU)",

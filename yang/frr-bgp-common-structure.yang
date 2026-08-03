@@ -18,6 +18,10 @@ submodule frr-bgp-common-structure {
     prefix frr-interface;
   }
 
+  import frr-bfdd {
+    prefix frr-bfdd;
+  }
+
   import ietf-bgp-types {
     prefix bt;
   }
@@ -60,6 +64,15 @@ submodule frr-bgp-common-structure {
      THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2026-07-21 {
+    description
+      "Sync neighbor/peer-group session and AF policy options with
+       current FRR CLI (roles, TCP-MSS, BFD profile, addpath RX,
+       conditional advertisement, ...).";
+    reference
+      "FRRouting";
+  }
 
   revision 2019-12-03 {
     description
@@ -141,6 +154,14 @@ submodule frr-bgp-common-structure {
         description
           "Do not prepend local-as to updates from IBGP peers.";
       }
+
+      leaf dual-as {
+        type boolean;
+        default "false";
+        description
+          "Accept either the global BGP AS or local-as in the remote
+           OPEN. Maps to: neighbor <peer> local-as <asn> dual-as.";
+      }
     }
   }
 
@@ -203,6 +224,33 @@ submodule frr-bgp-common-structure {
         default "false";
         description
           "Link dataplane status with BGP control plane.";
+      }
+
+      leaf profile {
+        type frr-bfdd:profile-ref;
+        description
+          "BFD profile applied to this BGP neighbor or peer group.
+           Maps to: neighbor <peer> bfd profile <profile>.";
+      }
+
+      leaf strict-mode {
+        type boolean;
+        default "false";
+        description
+          "Require BFD to be established before the BGP session is
+           usable. Maps to: neighbor <peer> bfd strict.";
+      }
+
+      leaf strict-hold-time {
+        when "../strict-mode = 'true'";
+        type uint32 {
+          range "1..4294967295";
+        }
+        units "seconds";
+        description
+          "Time to wait before declaring BFD down in BFD strict mode.
+           Maps to: neighbor <peer> bfd strict hold-time
+           <1-4294967295>.";
       }
     }
   }
@@ -278,6 +326,33 @@ submodule frr-bgp-common-structure {
           "Enable ability to receive multiple path advertisements for
            an NLRI from the neighbor or group.";
       }
+
+      leaf best-selected-paths {
+        when "../path-type = 'best-selected'";
+        type uint8 {
+          range "1..6";
+        }
+        description
+          "Number of best selected paths to advertise with addpath.
+           Maps to: neighbor <peer> addpath-tx-best-selected <1-6>.";
+      }
+
+      leaf disable-addpath-rx {
+        type boolean;
+        default "false";
+        description
+          "Do not accept additional paths from this peer.
+           Maps to: neighbor <peer> disable-addpath-rx.";
+      }
+
+      leaf addpath-rx-paths-limit {
+        type uint16 {
+          range "1..65535";
+        }
+        description
+          "Maximum number of additional paths to receive from this peer.
+           Maps to: neighbor <peer> addpath-rx-paths-limit <1-65535>.";
+      }
     }
   }
 
@@ -313,6 +388,13 @@ submodule frr-bgp-common-structure {
                if the route was originated in my AS.";
           }
         }
+      }
+
+      leaf allowas-in-route-map {
+        type frr-route-map:route-map-ref;
+        description
+          "Optional route-map that gates allowas-in processing.
+           Maps to: neighbor <peer> allowas-in route-map <name> ...";
       }
 
       leaf replace-peer-as {
@@ -374,6 +456,271 @@ submodule frr-bgp-common-structure {
           "Overrides the result of Capability Negotiation, ignoring remote
            peer's capability value, when set to 'true'.";
       }
+
+      leaf fqdn-capability {
+        type boolean;
+        default "true";
+        description
+          "Advertise the FQDN capability to this peer.
+           Maps to: neighbor <peer> capability fqdn.
+           Default true matches peer_create() which enables FQDN
+           unless explicitly disabled.";
+      }
+
+      leaf software-version-capability {
+        type enumeration {
+          enum disabled {
+            description
+              "Do not advertise the software-version capability
+               (explicit override of bgp default).";
+          }
+          enum old-encoding {
+            description
+              "Advertise the legacy software-version capability
+               encoding.";
+          }
+          enum latest-encoding {
+            description
+              "Advertise the latest software-version capability
+               encoding.";
+          }
+        }
+        description
+          "Advertise the software-version capability to this peer.
+           Maps to: neighbor <peer> capability software-version
+           [latest-encoding]. Absent means inherit from
+           'bgp default software-version-capability'.";
+      }
+
+      leaf link-local-capability {
+        type boolean;
+        default "false";
+        description
+          "Advertise the Link-Local Next Hop capability to this peer.
+           Maps to: neighbor <peer> capability link-local.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-session-options {
+    description
+      "Structural grouping used to include session configuration for
+       both BGP neighbors and peer groups.";
+
+    leaf tcp-mss {
+      type uint16 {
+        range "1..65535";
+      }
+      description
+        "TCP maximum segment size for the BGP session.
+         Maps to: neighbor <peer> tcp-mss <1-65535>.";
+    }
+
+    leaf ip-transparent {
+      type boolean;
+      default "false";
+      description
+        "Enable IP_TRANSPARENT on the BGP TCP socket.
+         Maps to: neighbor <peer> ip-transparent.";
+    }
+
+    container local-role {
+      description
+        "BGP Open Policy role configuration.";
+
+      leaf role {
+        type frr-bt:bgp-role;
+        description
+          "Local BGP role used for role capability negotiation and
+           Only-To-Customer attribute processing.
+           Maps to: neighbor <peer> local-role
+           <provider|rs-server|rs-client|customer|peer>.";
+      }
+
+      leaf strict-mode {
+        when "../role";
+        type boolean;
+        default "false";
+        description
+          "Require the remote peer to advertise a compatible BGP role.
+           Maps to: neighbor <peer> local-role <role> strict-mode.";
+      }
+    }
+
+    leaf rpki-strict {
+      type boolean;
+      default "false";
+      description
+        "Require RPKI validation information for this peer.
+         Maps to: neighbor <peer> rpki strict.";
+    }
+
+    leaf aigp {
+      type boolean;
+      default "false";
+      description
+        "Enable send and receive of the AIGP attribute for this peer.
+         Maps to: neighbor <peer> aigp.";
+    }
+
+    leaf extended-link-bandwidth {
+      type boolean;
+      default "false";
+      description
+        "Send the extended (64-bit) Link-Bandwidth encoding.
+         Maps to: neighbor <peer> extended-link-bandwidth.";
+    }
+
+    leaf disable-link-bw-encoding-ieee {
+      type boolean;
+      default "false";
+      description
+        "Disable IEEE floating-point encoding for Link-Bandwidth
+         extended communities.
+         Maps to: neighbor <peer> disable-link-bw-encoding-ieee.";
+    }
+
+    leaf extended-optional-parameters {
+      type boolean;
+      default "false";
+      description
+        "Force the extended optional parameters format for OPEN
+         messages. Maps to: neighbor <peer> extended-optional-parameters.";
+    }
+
+    leaf send-nexthop-characteristics {
+      type boolean;
+      default "false";
+      description
+        "Send the BGP Next Hop Dependent Characteristics attribute.
+         Maps to: neighbor <peer> send-nexthop-characteristics.";
+    }
+
+    leaf sender-as-path-loop-detection {
+      type boolean;
+      default "false";
+      description
+        "Detect AS-path loops before sending routes to this peer.
+         Maps to: neighbor <peer> sender-as-path-loop-detection.";
+    }
+
+    leaf oad {
+      type boolean;
+      default "false";
+      description
+        "Mark the session as EBGP-OAD (Old Autonomous Domain).
+         Maps to: neighbor <peer> oad.";
+    }
+
+    leaf graceful-shutdown {
+      type boolean;
+      default "false";
+      description
+        "Enable graceful-shutdown for this peer.
+         Maps to: neighbor <peer> graceful-shutdown.";
+    }
+  }
+
+  grouping structure-neighbor-group-path-attribute-options {
+    description
+      "Structural grouping used to include inbound path attribute
+       error handling configuration for both BGP neighbors and peer
+       groups.";
+
+    container path-attribute {
+      description
+        "Handling of selected path attributes in received UPDATE
+         messages.";
+
+      leaf-list discard {
+        type uint8 {
+          range "1..255";
+        }
+        description
+          "Discard the specified path attribute from received UPDATE
+           messages.
+           Maps to: neighbor <peer> path-attribute discard <1-255>...";
+      }
+
+      leaf-list treat-as-withdraw {
+        type uint8 {
+          range "1..255";
+        }
+        description
+          "Treat received UPDATE messages containing the specified path
+           attribute as withdrawals.
+           Maps to: neighbor <peer> path-attribute treat-as-withdraw
+           <1-255>...";
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-af-policy-options {
+    description
+      "Structural grouping used to include AF-specific BGP policy
+       options for both neighbors and peer groups.";
+
+    container conditional-advertisement {
+      description
+        "Conditional route advertisement configuration.";
+
+      leaf advertise-map {
+        type frr-route-map:route-map-ref;
+        description
+          "Route-map selecting routes to advertise conditionally.
+           Maps to: neighbor <peer> advertise-map <route-map>
+           <exist-map|non-exist-map> <route-map>.";
+      }
+
+      choice condition {
+        description
+          "Condition used to enable conditional advertisement.";
+
+        case exist-map {
+          leaf exist-map {
+            type frr-route-map:route-map-ref;
+            description
+              "Advertise when the route-map matches an installed BGP
+               route.
+               Maps to: neighbor <peer> advertise-map <route-map>
+               exist-map <route-map>.";
+          }
+        }
+
+        case non-exist-map {
+          leaf non-exist-map {
+            type frr-route-map:route-map-ref;
+            description
+              "Advertise when the route-map does not match an installed
+               BGP route.
+               Maps to: neighbor <peer> advertise-map <route-map>
+               non-exist-map <route-map>.";
+          }
+        }
+      }
+    }
+
+    leaf accept-own {
+      type boolean;
+      default "false";
+      description
+        "Accept self-originated VPN routes carrying the ACCEPT_OWN
+         community. Maps to: neighbor <peer> accept-own.";
+    }
+
+    leaf soo {
+      type string;
+      description
+        "Site-of-Origin extended community.
+         Maps to: neighbor <peer> soo <asn:nn|ip-address:nn>.";
+    }
+
+    leaf upa {
+      type boolean;
+      default "false";
+      description
+        "Send Unreachable Prefix Announcement routes to this peer.
+         Maps to: neighbor <peer> upa.";
     }
   }
 
@@ -647,6 +994,14 @@ submodule frr-bgp-common-structure {
         description
           "Send large community attribute to this neighbor.";
       }
+
+      leaf send-ext-community-rpki {
+        type boolean;
+        default "false";
+        description
+          "Send RPKI extended communities to this peer.
+           Maps to: neighbor <peer> send-community extended rpki.";
+      }
     }
   }
 
@@ -669,6 +1024,29 @@ submodule frr-bgp-common-structure {
           "Shutdown message.";
         reference
           "draft-ietf-idr-shutdown-06";
+      }
+
+      leaf rtt {
+        type uint16 {
+          range "1..65535";
+        }
+        units "milliseconds";
+        description
+          "Shut down the peer when round-trip-time exceeds this
+           threshold. Maps to: neighbor ... shutdown rtt (1-65535)
+           [count (1-255)].";
+      }
+
+      leaf rtt-count {
+        when "../rtt";
+        type uint8 {
+          range "1..255";
+        }
+        default "1";
+        description
+          "Number of consecutive keepalives with RTT above the
+           threshold before shutting down the peer.
+           Maps to: neighbor ... shutdown rtt ... count (1-255).";
       }
     }
   }
@@ -828,7 +1206,55 @@ submodule frr-bgp-common-structure {
           "BGP connect timer.";
       }
 
+      leaf delayopen {
+        type uint16 {
+          range "1..240";
+        }
+        units "seconds";
+        description
+          "Delay sending the BGP OPEN message after TCP connection
+           setup. Maps to: neighbor <peer> timers delayopen <1-240>.";
+      }
+
       uses neighbor-timers;
+    }
+  }
+
+  grouping structure-neighbor-group-encapsulation {
+    description
+      "Structural grouping for neighbor encapsulation preference
+       (MPLS vs SRv6).";
+
+    container encapsulation {
+      description
+        "Preferred encapsulation for routes advertised to this peer.
+         Maps to: neighbor <peer> encapsulation-mpls|
+         encapsulation-srv6|encapsulation-srv6-relax.
+         MPLS and SRv6 may both be configured (classic CLI); srv6 and
+         srv6-relax remain mutually exclusive.";
+
+      leaf-list type {
+        type enumeration {
+          enum mpls {
+            description
+              "Prefer MPLS encapsulation.
+               Maps to: encapsulation-mpls.";
+          }
+          enum srv6 {
+            description
+              "Prefer SRv6 encapsulation.
+               Maps to: encapsulation-srv6.";
+          }
+          enum srv6-relax {
+            description
+              "Advertise routes with and without SRv6 prefix SID.
+               Maps to: encapsulation-srv6-relax.";
+          }
+        }
+        description
+          "Encapsulation type(s). Multiple values allowed so MPLS and
+           SRv6 can be set together.";
+      }
     }
   }
 

@@ -30,7 +30,11 @@ struct nhg_connected {
 static int nhg_connected_cmp(const struct nhg_connected *con1,
 			     const struct nhg_connected *con2)
 {
-	return (con1->nhe->id - con2->nhe->id);
+	if (con1->nhe->id > con2->nhe->id)
+		return 1;
+	if (con1->nhe->id < con2->nhe->id)
+		return -1;
+	return 0;
 }
 
 DECLARE_RBTREE_UNIQ(nhg_connected_tree, struct nhg_connected, tree_item,

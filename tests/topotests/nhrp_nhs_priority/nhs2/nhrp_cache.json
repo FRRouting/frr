@@ -1,0 +1,18 @@
+{
+	"attr": {
+		"entriesCount": 1
+	},
+	"table": [
+		{
+			"interface": "nhs2-gre0",
+			"type": "local",
+			"protocol": "172.16.1.2",
+			"nbma": "192.168.1.2",
+			"claimed_nbma": "192.168.1.2",
+			"used": false,
+			"timeout": false,
+			"auth": false,
+			"identity": "-"
+		}
+	]
+}

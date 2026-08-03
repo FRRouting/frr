@@ -38,7 +38,7 @@
 
 #define PEER_UPDGRP_FLAGS                                                                         \
 	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS |                          \
-	 PEER_FLAG_AS_LOOP_DETECTION | PEER_FLAG_SEND_NHC_ATTRIBUTE)
+	 PEER_FLAG_AS_LOOP_DETECTION | PEER_FLAG_SEND_NHC_ATTRIBUTE | PEER_FLAG_AIGP)
 
 #define PEER_UPDGRP_AF_FLAGS                                                                      \
 	(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY |                                \
@@ -50,7 +50,7 @@
 	 PEER_FLAG_REMOVE_PRIVATE_AS_ALL | PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE |                  \
 	 PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE | PEER_FLAG_AS_OVERRIDE |                        \
 	 PEER_FLAG_CONFIG_ENCAPSULATION_SRV6 | PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX |        \
-	 PEER_FLAG_CONFIG_ENCAPSULATION_MPLS | PEER_FLAG_UPA_SEND)
+	 PEER_FLAG_CONFIG_ENCAPSULATION_MPLS | PEER_FLAG_UPA)
 
 /*
  * PEER_CAP_LLGR_RCV is included so peers that differ in the received Long-Lived
@@ -62,8 +62,8 @@
 #define PEER_UPDGRP_CAP_FLAGS (PEER_CAP_AS4_RCV | PEER_CAP_LLGR_RCV)
 
 #define PEER_UPDGRP_AF_CAP_FLAGS                                               \
-	(PEER_CAP_ORF_PREFIX_SM_RCV | PEER_CAP_ADDPATH_AF_TX_ADV |             \
-	 PEER_CAP_ADDPATH_AF_RX_RCV | PEER_CAP_ENHE_AF_NEGO)
+	(PEER_CAP_ADDPATH_AF_TX_ADV | PEER_CAP_ADDPATH_AF_RX_RCV               \
+	 | PEER_CAP_ENHE_AF_NEGO)
 
 enum bpacket_attr_vec_type { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX };
 

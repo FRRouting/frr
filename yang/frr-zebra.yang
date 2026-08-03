@@ -447,7 +447,7 @@ module frr-zebra {
         "List of remote VTEPs.";
 
       leaf remote-vtep {
-        type inet:ipv4-address;
+        type inet:ip-address;
         description
           "The remote VTEP IP address.";
       }
@@ -1211,7 +1211,7 @@ module frr-zebra {
         }
 
         leaf remote-vtep {
-          type inet:ipv4-address;
+          type inet:ip-address;
           description
             "The remote VTEP IP address.";
         }
@@ -1765,7 +1765,7 @@ module frr-zebra {
             }
 
             leaf remote-vtep {
-              type inet:ipv4-address;
+              type inet:ip-address;
               description
                 "The remote VTEP address.";
             }
@@ -2934,7 +2934,7 @@ module frr-zebra {
         }
 
         leaf remote-vtep {
-          type inet:ipv4-address;
+          type inet:ip-address;
           description
             "The remote VTEP IP address.";
         }

@@ -100,9 +100,11 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (ret != 0)
 		return ret;
 
-	if (nh1->nh_srv6->seg6_segs->num_segs !=
-	    nh2->nh_srv6->seg6_segs->num_segs)
+	if (nh1->nh_srv6->seg6_segs->num_segs < nh2->nh_srv6->seg6_segs->num_segs)
 		return -1;
+
+	if (nh1->nh_srv6->seg6_segs->num_segs > nh2->nh_srv6->seg6_segs->num_segs)
+		return 1;
 
 	for (i = 0; i < nh1->nh_srv6->seg6_segs->num_segs; i++) {
 		ret = memcmp(&nh1->nh_srv6->seg6_segs->seg[i],
@@ -709,6 +711,7 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 		return;
 
 	nexthop->nh_srv6->seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	memset(&nexthop->nh_srv6->seg6local_ctx, 0, sizeof(nexthop->nh_srv6->seg6local_ctx));
 
 	if (nexthop->nh_srv6->seg6_segs &&
 	    (nexthop->nh_srv6->seg6_segs->num_segs == 0 ||

@@ -116,7 +116,11 @@ nbr_addr_compare(const struct nbr *a, const struct nbr *b)
 static __inline int
 nbr_pid_compare(const struct nbr *a, const struct nbr *b)
 {
-	return (a->peerid - b->peerid);
+	if (a->peerid > b->peerid)
+		return 1;
+	if (a->peerid < b->peerid)
+		return -1;
+	return 0;
 }
 
 int

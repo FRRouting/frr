@@ -136,8 +136,8 @@ extern void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 				   mpls_label_t *label, uint8_t num_labels,
 				   struct attr *attr, bool addpath_capable,
 				   uint32_t addpath_tx_id);
-extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
-			       struct bgp_nlri *packet, bool withdraw);
+extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr, const struct bgp_nlri *packet,
+			       bool withdraw);
 extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				 const struct prefix *p,
 				 struct bgp_path_info *ri);
