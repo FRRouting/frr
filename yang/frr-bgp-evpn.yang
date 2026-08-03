@@ -1,0 +1,484 @@
+// SPDX-License-Identifier: BSD-2-Clause
+submodule frr-bgp-evpn {
+  yang-version 1.1;
+
+  belongs-to frr-bgp {
+    prefix "bgp";
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-bgp-types {
+    prefix frr-bt;
+  }
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "BGP EVPN configuration definitions matching FRR CLI under
+     address-family l2vpn evpn and VNI mode.
+
+     Copyright 2026 Nvidia Inc.
+		    Donald Sharp
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2026-07-21 {
+    description
+      "Initial EVPN configuration model synced with bgp_evpn_vty.c CLI.";
+    reference
+      "FRRouting";
+  }
+
+  grouping evpn-route-target-config {
+    description
+      "Import and export route-target configuration.";
+
+    leaf-list import-route-target {
+      type frr-bt:route-target;
+      description
+        "Route targets used to import EVPN routes.
+         Maps to: route-target import ...";
+    }
+
+    leaf-list export-route-target {
+      type frr-bt:route-target;
+      description
+        "Route targets attached to locally originated EVPN routes.
+         Maps to: route-target export ...";
+    }
+  }
+
+  grouping evpn-vrf-route-target-config {
+    description
+      "IP-VRF EVPN route-target configuration, including automatic RTs.";
+
+    uses evpn-route-target-config;
+
+    leaf import-route-target-auto {
+      type boolean;
+      default "false";
+      description
+        "Automatically derive the import route target.
+         Maps to: route-target import auto.";
+    }
+
+    leaf export-route-target-auto {
+      type boolean;
+      default "false";
+      description
+        "Automatically derive the export route target.
+         Maps to: route-target export auto.";
+    }
+  }
+
+  grouping evpn-type-5-config {
+    description
+      "EVPN type-5 route advertisement configuration for an IP-VRF.";
+
+    container ipv4-unicast {
+      description
+        "IPv4 unicast type-5 route advertisement.";
+
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Advertise IPv4 unicast routes as EVPN type-5 routes.
+           Maps to: advertise ipv4 unicast.";
+      }
+
+      leaf gateway-ip {
+        when "../enable = 'true'";
+        type boolean;
+        default "false";
+        description
+          "Use each exported route's next hop as its gateway-IP overlay
+           index. Maps to: advertise ipv4 unicast gateway-ip.";
+      }
+
+      leaf route-map {
+        when "../enable = 'true'";
+        type frr-route-map:route-map-ref;
+        description
+          "Route map applied while exporting IPv4 routes as type-5
+           EVPN routes.";
+      }
+    }
+
+    container ipv6-unicast {
+      description
+        "IPv6 unicast type-5 route advertisement.";
+
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Advertise IPv6 unicast routes as EVPN type-5 routes.
+           Maps to: advertise ipv6 unicast.";
+      }
+
+      leaf gateway-ip {
+        when "../enable = 'true'";
+        type boolean;
+        default "false";
+        description
+          "Use each exported route's next hop as its gateway-IP overlay
+           index. Maps to: advertise ipv6 unicast gateway-ip.";
+      }
+
+      leaf route-map {
+        when "../enable = 'true'";
+        type frr-route-map:route-map-ref;
+        description
+          "Route map applied while exporting IPv6 routes as type-5
+           EVPN routes.";
+      }
+    }
+  }
+
+  grouping evpn-vni-config {
+    description
+      "Configuration of a MAC-VRF/L2VNI.";
+
+    list vni {
+      key "vni";
+      description
+        "Configured EVPN VXLAN network identifiers.
+         Maps to: vni <1-16777215>.";
+
+      leaf vni {
+        type uint32 {
+          range "1..16777215";
+        }
+        description
+          "VXLAN network identifier.";
+      }
+
+      leaf rd {
+        type frr-bt:route-distinguisher;
+        description
+          "Route distinguisher for this L2VNI. Maps to: rd ...";
+      }
+
+      uses evpn-route-target-config;
+
+      leaf advertise-default-gateway {
+        type boolean;
+        default "false";
+        description
+          "Advertise default-gateway MAC/IP routes for this VNI.
+           Maps to: advertise-default-gw.";
+      }
+
+      leaf advertise-svi-ip {
+        type boolean;
+        default "false";
+        description
+          "Advertise SVI MAC/IP routes for this VNI.
+           Maps to: advertise-svi-ip.";
+      }
+
+      leaf advertise-subnet {
+        type boolean;
+        default "false";
+        status deprecated;
+        description
+          "Advertise the subnet associated with this VNI. Represents
+           FRR's hidden advertise-subnet CLI.";
+      }
+
+      leaf flooding {
+        type enumeration {
+          enum inherit-global {
+            description
+              "Inherit the EVPN global flooding setting.";
+          }
+          enum disable {
+            description
+              "Do not flood BUM traffic.";
+          }
+          enum head-end-replication {
+            description
+              "Flood BUM traffic by head-end replication.";
+          }
+        }
+        default "inherit-global";
+        description
+          "BUM flooding mode for this VNI. Maps to: flooding ...";
+      }
+    }
+  }
+
+  grouping global-evpn-config {
+    description
+      "Global BGP EVPN AF configuration. Some leaves are meaningful only
+       on the EVPN underlay BGP instance, while IP-VRF leaves apply to
+       a BGP VRF with an L3VNI.";
+
+    leaf advertise-all-vni {
+      type boolean;
+      default "false";
+      description
+        "Enable EVPN and advertise all local VNIs.
+         Maps to: advertise-all-vni.";
+    }
+
+    leaf autort-rfc8365-compatible {
+      type boolean;
+      default "false";
+      description
+        "Use RFC 8365-compatible automatic route-target derivation.
+         Maps to: autort rfc8365-compatible.";
+    }
+
+    leaf advertise-default-gateway {
+      type boolean;
+      default "false";
+      description
+        "Advertise default-gateway MAC/IP routes for all VNIs unless
+         overridden per VNI. Maps to: advertise-default-gw.";
+    }
+
+    leaf advertise-svi-ip {
+      type boolean;
+      default "false";
+      description
+        "Advertise SVI MAC/IP routes for all VNIs unless overridden
+         per VNI. Maps to: advertise-svi-ip.";
+    }
+
+    leaf mac-vrf-site-of-origin {
+      type frr-bt:route-target;
+      description
+        "Site-of-Origin extended community for MAC-VRF routes.
+         Maps to: mac-vrf soo ...";
+    }
+
+    leaf enable-resolve-overlay-index {
+      type boolean;
+      default "false";
+      description
+        "Enable recursive resolution of type-5 gateway-IP overlay
+         indexes. Maps to: enable-resolve-overlay-index.";
+    }
+
+    leaf flooding {
+      type enumeration {
+        enum disable {
+          description
+            "Do not flood BUM traffic.";
+        }
+        enum head-end-replication {
+          description
+            "Flood BUM traffic by head-end replication.";
+        }
+      }
+      default "head-end-replication";
+      description
+        "Global BUM flooding mode. Maps to: flooding ...";
+    }
+
+    container duplicate-address-detection {
+      description
+        "EVPN duplicate MAC/IP address detection.
+         Maps to: dup-addr-detection ...";
+
+      leaf enable {
+        type boolean;
+        default "true";
+        description
+          "Enable duplicate address detection.";
+      }
+
+      leaf max-moves {
+        type uint16 {
+          range "2..1000";
+        }
+        default "5";
+        description
+          "Maximum MAC/IP moves before declaring an address duplicate.";
+      }
+
+      leaf time {
+        type uint16 {
+          range "2..1800";
+        }
+        units "seconds";
+        default "180";
+        description
+          "Move observation interval.";
+      }
+
+      choice recovery-mode {
+        description
+          "Automatic recovery mode after duplicate detection.";
+
+        case timed {
+          leaf freeze-time {
+            type uint16 {
+              range "30..3600";
+            }
+            units "seconds";
+            description
+              "Freeze a duplicate MAC/IP for this duration.";
+          }
+        }
+
+        case permanent {
+          leaf freeze-permanent {
+            type empty;
+            description
+              "Freeze a duplicate MAC/IP permanently.";
+          }
+        }
+      }
+    }
+
+    container multihoming {
+      description
+        "EVPN multihoming controls.";
+
+      leaf use-es-l3nhg {
+        type boolean;
+        default "true";
+        description
+          "Use an L3 nexthop group for host routes with an Ethernet
+           Segment destination. Maps to: use-es-l3nhg.";
+      }
+
+      leaf disable-ead-evi-rx {
+        type boolean;
+        default "false";
+        description
+          "Activate a PE based on EAD-ES even when EAD-EVI was not
+           received. Maps to: disable-ead-evi-rx.";
+      }
+
+      leaf disable-ead-evi-tx {
+        type boolean;
+        default "false";
+        description
+          "Do not advertise EAD-EVI routes for local Ethernet Segments.
+           Maps to: disable-ead-evi-tx.";
+      }
+
+      leaf ead-es-fragment-evi-limit {
+        type uint16 {
+          range "1..1000";
+        }
+        description
+          "Maximum EVIs carried in each EAD-ES route fragment.
+           Maps to: ead-es-frag evi-limit ...";
+      }
+
+      leaf-list ead-es-export-route-target {
+        type frr-bt:route-target;
+        description
+          "Route targets attached to locally originated EAD-per-ES
+           routes. Maps to: ead-es-route-target export ...";
+      }
+    }
+
+    container default-originate {
+      description
+        "Default-route type-5 origination.";
+
+      leaf ipv4 {
+        type boolean;
+        default "false";
+        description
+          "Originate an IPv4 default route into EVPN.
+           Maps to: default-originate ipv4.";
+      }
+
+      leaf ipv6 {
+        type boolean;
+        default "false";
+        description
+          "Originate an IPv6 default route into EVPN.
+           Maps to: default-originate ipv6.";
+      }
+    }
+
+    container advertise-pip {
+      description
+        "Primary-IP and system-MAC advertisement for EVPN type-2 self
+         routes and type-5 routes. Applies to an L3VNI BGP VRF.
+         Maps to: advertise-pip ...";
+
+      leaf enable {
+        type boolean;
+        default "true";
+        description
+          "Advertise the system primary IP and system MAC.";
+      }
+
+      leaf system-ip {
+        when "../enable = 'true'";
+        type inet:ipv4-address;
+        description
+          "Statically configured system primary IP.";
+      }
+
+      leaf system-mac {
+        when "../enable = 'true'";
+        type yang:mac-address;
+        description
+          "Statically configured system MAC.";
+      }
+    }
+
+    container ip-vrf {
+      description
+        "EVPN L3VNI/IP-VRF parameters.";
+
+      leaf rd {
+        type frr-bt:route-distinguisher;
+        description
+          "Route distinguisher for the IP-VRF's L3VNI.
+           Maps to: rd ... under EVPN AF in a VRF.";
+      }
+
+      uses evpn-vrf-route-target-config;
+
+      uses evpn-type-5-config;
+    }
+
+    uses evpn-vni-config;
+  }
+}

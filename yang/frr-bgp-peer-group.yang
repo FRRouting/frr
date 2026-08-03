@@ -67,15 +67,17 @@ submodule frr-bgp-peer-group {
     }
 
     leaf-list ipv4-listen-range {
-      type inet:ipv4-address;
+      type inet:ipv4-prefix;
       description
-        "Configure BGP dynamic neighbors listen range.";
+        "IPv4 prefix for BGP dynamic neighbors listen range.
+         Maps to: bgp listen range A.B.C.D/M peer-group NAME.";
     }
 
     leaf-list ipv6-listen-range {
-      type inet:ipv6-address;
+      type inet:ipv6-prefix;
       description
-        "Configure BGP dynamic neighbors listen range.";
+        "IPv6 prefix for BGP dynamic neighbors listen range.
+         Maps to: bgp listen range X:X::X:X/M peer-group NAME.";
     }
 
     uses neighbor-remote-as;

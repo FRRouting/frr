@@ -45,6 +45,15 @@ module frr-bgp-rpki {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-07-21 {
+    description
+      "Add source-address for TCP/SSH caches; align server-public-key
+       with known-hosts CLI; support northbound conversion.
+       Constrain expire-time >= polling-time via YANG must.";
+    reference
+      "FRRouting.";
+  }
+
   revision 2019-12-03 {
     description
       "Initial revision.";
@@ -92,6 +101,10 @@ module frr-bgp-rpki {
         }
         units "seconds";
         default "7200";
+        must ". >= ../polling-time" {
+          error-message
+            "RPKI expire-time must be greater than or equal to polling-time.";
+        }
         description
           "Set the expire interval.";
       }
@@ -167,6 +180,13 @@ module frr-bgp-rpki {
               description
                 "TCP port for the RPKI cache server.";
             }
+
+            leaf source-address {
+              type inet:ip-address;
+              description
+                "Source address for the TCP connection to the cache.
+                 Maps to: rpki cache tcp ... source A.B.C.D.";
+            }
           }
 
           container ssh {
@@ -200,10 +220,19 @@ module frr-bgp-rpki {
                 "Local path that includes the public key file of the router.";
             }
 
-            leaf server-public-ley {
+            leaf server-public-key {
               type string;
               description
-                "Server public key.";
+                "Known-hosts / server hostkey path.
+                 Maps to: optional KNOWN_HOSTS_PATH on
+                 rpki cache ssh ....";
+            }
+
+            leaf source-address {
+              type inet:ip-address;
+              description
+                "Source address for the SSH connection to the cache.
+                 Maps to: rpki cache ssh ... source A.B.C.D.";
             }
           }
         }
