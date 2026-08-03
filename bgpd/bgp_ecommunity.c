@@ -1316,9 +1316,15 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					ecommunity_lb_str(
 						encbuf, sizeof(encbuf), pnt,
 						ecom->disable_ieee_floating);
-				} else if (sub_type ==
-						   ECOMMUNITY_EXTENDED_LINK_BANDWIDTH &&
-					   type == ECOMMUNITY_ENCODE_AS4) {
+				} else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH &&
+					   type == ECOMMUNITY_ENCODE_AS4 &&
+					   ecom->unit_size == IPV6_ECOMMUNITY_SIZE) {
+					/* Only exists as a 20-octet value. In
+					 * a regular 8-octet Extended
+					 * Communities attribute 0x02/0x06 is
+					 * the Route Aggregation Parameter, so
+					 * do not claim it as Link Bandwidth.
+					 */
 					ipv6_ecommunity_lb_str(encbuf,
 							       sizeof(encbuf),
 							       pnt, len);
@@ -1580,34 +1586,27 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 				unk_ecom = true;
 		} else if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
 			   type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
+			/* Each sub-type below is only allocated under one
+			 * specific non-transitive type, so match on the full
+			 * type byte instead of on the sub-type alone. Colour
+			 * (0x0b) and UPA (0x09) are deliberately absent: IANA
+			 * registers both under the *transitive* Opaque type
+			 * only, and they are handled there.
+			 */
 			sub_type = *pnt++;
-			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
+			if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS &&
+			    sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
 				ecommunity_origin_validation_state_str(encbuf, sizeof(encbuf), pnt);
-			else if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
+			else if (type == (ECOMMUNITY_ENCODE_AS | ECOMMUNITY_FLAG_NON_TRANSITIVE) &&
+				 sub_type == ECOMMUNITY_LINK_BANDWIDTH)
 				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt,
 						  ecom->disable_ieee_floating);
-			else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
+			else if (type == (ECOMMUNITY_ENCODE_AS4 | ECOMMUNITY_FLAG_NON_TRANSITIVE) &&
+				 sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH &&
+				 ecom->unit_size == IPV6_ECOMMUNITY_SIZE)
 				ipv6_ecommunity_lb_str(encbuf, sizeof(encbuf),
 						       pnt, len);
-			else if (sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_COLOR) {
-				uint32_t color;
-				/* get the color type */
-				uint8_t color_type = (*pnt) >> 6;
-				memcpy(&color, pnt + 2, 4);
-				color = ntohl(color);
-				snprintf(encbuf, sizeof(encbuf), "Color:%d%d:%u",
-					 (color_type & 0x2) >> 1, color_type & 0x1, color);
-			} else if (sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_UPA) {
-				struct in_addr router_id;
-				uint8_t flags = *pnt;
-				const char *dbit_str = CHECK_FLAG(flags, BGP_UPA_FLAG_DROP)
-							       ? "drop"
-							       : "no-drop";
-
-				memcpy(&router_id.s_addr, pnt + 2, 4);
-				snprintfrr(encbuf, sizeof(encbuf), "upa:%pI4:%s", &router_id,
-					   dbit_str);
-			} else
+			else
 				unk_ecom = true;
 		} else {
 			sub_type = *pnt++;
@@ -2189,11 +2188,9 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 			return data;
 		} else if (CHECK_FLAG(type, ~ECOMMUNITY_FLAG_NON_TRANSITIVE) ==
 				   ECOMMUNITY_ENCODE_AS4 &&
-			   sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH) {
+			   sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH &&
+			   ecom->unit_size == IPV6_ECOMMUNITY_SIZE) {
 			uint64_t bwval;
-
-			if (len < IPV6_ECOMMUNITY_SIZE)
-				return NULL;
 
 			pnt += 2; /* Reserved */
 			pnt = ptr_get_be64(pnt, &bwval);
