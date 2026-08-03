@@ -2796,6 +2796,7 @@ extern void bgp_confederation_id_set(struct bgp *bgp, as_t as,
 				     const char *as_str);
 extern void bgp_confederation_id_unset(struct bgp *bgp);
 extern bool bgp_confederation_peers_check(struct bgp *bgp, as_t as);
+extern as_t bgp_local_as_for_peer(struct peer *peer);
 
 extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as,
 					const char *as_str);

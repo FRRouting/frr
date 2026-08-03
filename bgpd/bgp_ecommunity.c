@@ -2187,18 +2187,18 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 }
 
 
-struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
-					     uint64_t cum_bw,
-					     bool disable_ieee_floating,
-					     bool extended)
+struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom, uint64_t cum_bw,
+					     bool disable_ieee_floating, bool extended,
+					     bool ignore_non_transitive)
 {
 	struct ecommunity *new;
 	const uint8_t *eval;
 	uint8_t type;
 	uint64_t cur_bw;
+	bool non_trans;
 
-	/* Nothing to replace if link-bandwidth doesn't exist or
-	 * is non-transitive - just return existing extcommunity.
+	/* Nothing to replace if link-bandwidth doesn't exist - just
+	 * return existing extcommunity.
 	 */
 	new = ecom;
 	if (!ecom || !ecom->size)
@@ -2209,10 +2209,20 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 		return new;
 
 	type = *eval;
-	if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE))
+	non_trans = CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE);
+	/*
+	 * Non-transitive link-bandwidth is normally left untouched. Some
+	 * callers (e.g. confederation boundary handling) only need to correct
+	 * the encoded AS, not the bandwidth value — they set
+	 * ignore_non_transitive and pass the existing bandwidth value back in
+	 * unchanged as cum_bw, so the re-encode below is a no-op for the
+	 * bandwidth itself.
+	 */
+	if (non_trans && !ignore_non_transitive)
 		return new;
 
-	/* Transitive link-bandwidth exists, replace with the passed
+	/* Link-bandwidth exists and is either transitive, or non-transitive
+	 * with ignore_non_transitive set. Replace with the passed
 	 * (cumulative) bandwidth value. We need to create a new
 	 * extcommunity for this - refer to AS-Path replace function
 	 * for reference.
@@ -2223,14 +2233,14 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 	if (extended) {
 		struct ecommunity_val_ipv6 lb_eval;
 
-		encode_lb_extended_extcomm(as, cum_bw, false, &lb_eval);
+		encode_lb_extended_extcomm(as, cum_bw, non_trans, &lb_eval);
 		new = ecommunity_dup(ecom);
 		ecommunity_add_val_ipv6(new, &lb_eval, true, true);
 	} else {
 		struct ecommunity_val lb_eval;
 
-		encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw,
-				  false, &lb_eval, disable_ieee_floating);
+		encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw, non_trans, &lb_eval,
+				  disable_ieee_floating);
 		new = ecommunity_dup(ecom);
 		new->disable_ieee_floating = disable_ieee_floating;
 		ecommunity_add_val(new, &lb_eval, true, true);
