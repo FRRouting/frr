@@ -2093,20 +2093,17 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	/* Setup RT and encap extended community */
 	build_evpn_type5_route_extcomm(bgp_vrf, &attr);
 
-	/* get the route node in global table */
 	dest = bgp_evpn_global_node_get(bgp_evpn->rib[afi][safi], afi, safi,
 					evp, &bgp_vrf->vrf_prd, NULL);
 	assert(dest);
 
-	/* create or update the route entry within the route node */
 	update_evpn_type5_route_entry(bgp_evpn, bgp_vrf, afi, safi, dest, originator, &attr,
 				      &route_changed, &pi, addpath_id);
 
-	/* schedule for processing and unlock node */
-	if (route_changed) {
+	if (route_changed)
 		bgp_process(bgp_evpn, dest, pi, afi, safi);
-		bgp_dest_unlock_node(dest);
-	}
+
+	bgp_dest_unlock_node(dest);
 
 	/* uninten temporary */
 	if (!src_attr)
