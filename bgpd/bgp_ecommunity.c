@@ -506,6 +506,31 @@ static void ecommunity_origin_validation_state_str(char *buf, size_t bufsz,
 	(void)ptr; /* consume value */
 }
 
+bool ecommunity_is_node_target(uint8_t type, uint8_t sub_type)
+{
+	if (sub_type != ECOMMUNITY_NODE_TARGET)
+		return false;
+
+	return type == ECOMMUNITY_ENCODE_IP || type == ECOMMUNITY_ENCODE_IP_NON_TRANS;
+}
+
+bool ecommunity_has_node_target(struct ecommunity *ecom)
+{
+	uint32_t i;
+
+	if (!ecom || !ecom->size || ecom->unit_size != ECOMMUNITY_SIZE)
+		return false;
+
+	for (i = 0; i < ecom->size; i++) {
+		const uint8_t *pnt = ecom->val + (i * ECOMMUNITY_SIZE);
+
+		if (ecommunity_is_node_target(pnt[0], pnt[1]))
+			return true;
+	}
+
+	return false;
+}
+
 bool ecommunity_node_target_match(struct ecommunity *ecom,
 				  struct in_addr *local_id)
 {
@@ -523,8 +548,7 @@ bool ecommunity_node_target_match(struct ecommunity *ecom,
 		type = *pnt++;
 		sub_type = *pnt++;
 
-		if (type == ECOMMUNITY_ENCODE_IP &&
-		    sub_type == ECOMMUNITY_NODE_TARGET) {
+		if (ecommunity_is_node_target(type, sub_type)) {
 			/* Node Target ID is encoded as A.B.C.D:0 */
 			if (IPV4_ADDR_SAME((struct in_addr *)pnt, local_id))
 				match = true;
@@ -1548,6 +1572,12 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					 "FS:marking %u", *(pnt + 5));
 			} else
 				unk_ecom = true;
+		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_NODE_TARGET)
+				ecommunity_node_target_str(encbuf, sizeof(encbuf), pnt, format);
+			else
+				unk_ecom = true;
 		} else if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
 			   type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
 			sub_type = *pnt++;
@@ -1578,13 +1608,6 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 				snprintfrr(encbuf, sizeof(encbuf), "upa:%pI4:%s", &router_id,
 					   dbit_str);
 			} else
-				unk_ecom = true;
-		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
-			sub_type = *pnt++;
-			if (sub_type == ECOMMUNITY_NODE_TARGET)
-				ecommunity_node_target_str(
-					encbuf, sizeof(encbuf), pnt, format);
-			else
 				unk_ecom = true;
 		} else {
 			sub_type = *pnt++;

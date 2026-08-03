@@ -498,6 +498,8 @@ ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
 extern struct ecommunity *ecommunity_add_node_target(struct in_addr *node_id,
 						     struct ecommunity *old,
 						     bool non_trans);
+extern bool ecommunity_is_node_target(uint8_t type, uint8_t sub_type);
+extern bool ecommunity_has_node_target(struct ecommunity *ecom);
 extern bool ecommunity_node_target_match(struct ecommunity *ecomm,
 					 struct in_addr *local_id);
 

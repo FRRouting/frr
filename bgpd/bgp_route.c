@@ -6300,8 +6300,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
 		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-		if (ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_IP,
-				      ECOMMUNITY_NODE_TARGET) &&
+		if (ecommunity_has_node_target(ecomm) &&
 		    !ecommunity_node_target_match(ecomm, &peer->local_id)) {
 			reason =
 				"Node-Target Extended Communities do not contain own BGP Identifier;";
