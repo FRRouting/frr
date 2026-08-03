@@ -109,9 +109,11 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
-		adj->circuit->area->bfd_signalled_down = true;
-		isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
-				      "bfd session went down");
+		if (family == AF_UNSPEC || (family == AF_INET && !adj->bfd_session_ipv6) ||
+		    (family == AF_INET6 && !adj->bfd_session_ipv4)) {
+			adj->circuit->area->bfd_signalled_down = true;
+			isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "bfd session went down");
+		}
 	}
 }
 
