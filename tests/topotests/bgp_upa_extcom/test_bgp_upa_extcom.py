@@ -2916,47 +2916,41 @@ def test_received_upa_best_path_ranking():
         """
     )
 
-    # Wait for local route to be processed (2 paths: UPA from peer + local)
-    def _two_paths():
+    # Wait until the local network path is valid and selected as best.
+    # The network statement can appear in the BGP table before Null0 is
+    # installed in zebra and import-check passes, so waiting only for
+    # pathCount >= 2 races with bestpath selection.
+    def _check_best_path():
         output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.1.0/24 json")
         data = json.loads(output)
-        return len(data.get("paths", [])) >= 2
+        paths = data.get("paths", [])
+        if len(paths) < 2:
+            return False
 
-    topotest.run_and_expect(_two_paths, True, count=30, wait=1)
+        upa_path = None
+        best_path = None
+        for path in paths:
+            extcom_str = path.get("extendedCommunity", {}).get("string", "")
+            if "upa:" in extcom_str.lower():
+                upa_path = path
+            if path.get("bestpath", {}).get("overall"):
+                best_path = path
 
-    # Verify we now have 2 paths: UPA (from peer) and local (network)
-    output = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.1.0/24 json")
-    data = json.loads(output)
-    paths = data.get("paths", [])
+        if upa_path is None or best_path is None:
+            return False
 
-    assert len(paths) >= 2, f"Expected at least 2 paths (UPA + local), got {len(paths)}"
+        # Local path must be valid (import-check passed) and best
+        if not best_path.get("valid") or not best_path.get("local"):
+            return False
 
-    # Find the UPA path and check if it's selected as best
-    # In FRR JSON output, the first path in the list is typically the best path
-    # Also check for "selectionReason" or lack of "notBestReason" field
-    best_path = paths[0]  # First path is best
-    upa_path = None
+        best_extcom = best_path.get("extendedCommunity", {}).get("string", "")
+        if "upa:" in best_extcom.lower():
+            return False
 
-    for path in paths:
-        extcom_str = path.get("extendedCommunity", {}).get("string", "")
-        if "upa:" in extcom_str.lower():
-            upa_path = path
-            break
+        return True
 
-    assert upa_path is not None, "UPA path not found"
-
-    # Verify best path (first path) is NOT the UPA path
-    best_extcom = best_path.get("extendedCommunity", {}).get("string", "")
-    assert (
-        "upa:" not in best_extcom.lower()
-    ), "UPA route incorrectly selected as best path over local route"
-
-    # Alternatively, verify UPA path has notBestReason if that field exists
-    if "notBestReason" in upa_path:
-        # UPA should have a reason for not being best
-        assert (
-            upa_path.get("notBestReason") is not None
-        ), "UPA path should have notBestReason set"
+    success, _ = topotest.run_and_expect(_check_best_path, True, count=30, wait=1)
+    assert success, "UPA route incorrectly selected as best path over local route"
 
     # Cleanup
     r1.vtysh_cmd(
