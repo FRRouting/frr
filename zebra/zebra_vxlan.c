@@ -2901,8 +2901,11 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 		return;
 	}
 	num_rmacs = hashcount(zl3vni->rmac_table);
-	if (!num_rmacs)
+	if (!num_rmacs) {
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
+	}
 
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
@@ -3186,8 +3189,11 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		return;
 	}
 	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
-	if (!num_neigh)
+	if (!num_neigh) {
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
+	}
 
 	/* Since we have IPv6 addresses to deal with which can vary widely in
 	 * size, we try to be a bit more elegant in display by first computing
@@ -3352,8 +3358,11 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf, v
 		return;
 	}
 	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
-	if (!num_neigh)
+	if (!num_neigh) {
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
+	}
 
 	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
@@ -3409,12 +3418,18 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 	}
 
 	num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
-	if (!num_neigh)
+	if (!num_neigh) {
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
+	}
 
 	num_neigh = num_dup_detected_neighs(zevpn);
-	if (!num_neigh)
+	if (!num_neigh) {
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
+	}
 
 	/* Since we have IPv6 addresses to deal with which can vary widely in
 	 * size, we try to be a bit more elegant in display by first computing
