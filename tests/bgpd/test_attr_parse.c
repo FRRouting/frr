@@ -2,10 +2,16 @@
 /*
  * bgp_attr_parse() malformed-attribute handling tests (RFC 7606).
  *
- * Covers the framing-level malformations that cannot be produced by ExaBGP,
- * because they require an attribute length field that disagrees with the
- * actual data: truncated attribute header, extended-length underflow, and
- * an attribute length overrunning the Total Attribute Length.
+ * Covers the malformations that cannot be driven through ExaBGP:
+ *
+ *  - framing errors, which need an attribute length field that disagrees with
+ *    the actual data: truncated attribute header, extended-length underflow,
+ *    and an attribute length overrunning the Total Attribute Length;
+ *  - NEXT_HOP, which ExaBGP either drops or crashes on depending on token
+ *    order, because Attributes.add() is first-wins and its NEXT_HOP skip
+ *    lambda calls a method GenericAttribute does not have;
+ *  - LOCAL_PREF from an external peer, which ExaBGP drops whenever local-as
+ *    differs from peer-as.
  */
 
 #include <zebra.h>
@@ -196,8 +202,11 @@ static const struct attr_test attr_tests[] = {
 		.expect = BGP_ATTR_PARSE_ERROR,
 	},
 	/*
-	 * RFC 8669 section 5: a malformed BGP Prefix-SID attribute is handled
-	 * with the "treat-as-withdraw" approach.
+	 * RFC 8669 section 6: a speaker receiving a malformed BGP Prefix-SID
+	 * attribute "MUST ignore the received BGP Prefix-SID attribute and not
+	 * advertise it to other BGP peers", which it states is equivalent to
+	 * the "attribute discard" action of RFC 7606 -- so the UPDATE itself is
+	 * still processed and bgp_attr_parse() answers PROCEED.
 	 *
 	 * The PREFIX_SID value below is six octets:
 	 *   01 00 00   Label-Index TLV, declared length 0 (must be 7)
@@ -226,7 +235,7 @@ static const struct attr_test attr_tests[] = {
 			  0x01, 0x00, 0x00,			    /* Label-Index, len 0 */
 			  0x00, 0x00, 0x00,			    /* never read */
 			  0x80, 0x00, 0x00),			    /* unknown optional */
-		.expect = BGP_ATTR_PARSE_WITHDRAW,
+		.expect = BGP_ATTR_PARSE_PROCEED,
 	},
 	{
 		.name = "aigp-bad-flags-ibgp",
@@ -243,6 +252,114 @@ static const struct attr_test attr_tests[] = {
 			  0x01, 0x00, 0x0b,			    /* AIGP TLV, len 11 */
 			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a), /* metric 10 */
 		.expect = BGP_ATTR_PARSE_PROCEED,
+	},
+	/*
+	 * NEXT_HOP.  ExaBGP cannot put any of these on the wire: a raw
+	 * attribute [0x03 ...] after the next-hop keyword is dropped by the
+	 * first-wins Attributes.add(), one placed before it makes
+	 * Attributes.pack() call GenericAttribute.ipv4(), which does not
+	 * exist, and omitting next-hop is a configuration syntax error.
+	 *
+	 * The three length cases below declare a NEXT_HOP length that
+	 * deliberately disagrees with the octets that follow it -- that
+	 * disagreement is the malformation under test.
+	 */
+	{
+		.name = "nexthop-flag-optional-ebgp",
+		.desc = "NEXT_HOP with the optional bit set, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		     /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			     /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,	     /* AS_SEQ 65001 */
+			  0xc0, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02), /* NEXT_HOP, optional */
+		.expect = BGP_ATTR_PARSE_WITHDRAW,
+	},
+	{
+		.name = "nexthop-len-3-ebgp",
+		.desc = "NEXT_HOP with length 3, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,	       /* ORIGIN igp */
+			  0x40, 0x02, 0x06,		       /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,  /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x03, 0x0a, 0x00, 0x00), /* NEXT_HOP, len 3 */
+		.expect = BGP_ATTR_PARSE_WITHDRAW,
+	},
+	{
+		.name = "nexthop-len-5-ebgp",
+		.desc = "NEXT_HOP with length 5, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,			   /* ORIGIN igp */
+			  0x40, 0x02, 0x06,				   /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,		   /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x05, 0x0a, 0x00, 0x00, 0x02, 0x00), /* NEXT_HOP, len 5 */
+		.expect = BGP_ATTR_PARSE_WITHDRAW,
+	},
+	{
+		.name = "nexthop-len-0-ebgp",
+		.desc = "NEXT_HOP with length 0, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,	      /* ORIGIN igp */
+			  0x40, 0x02, 0x06,		      /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9, /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x00),		      /* NEXT_HOP, len 0 */
+		.expect = BGP_ATTR_PARSE_WITHDRAW,
+	},
+	/*
+	 * LOCAL_PREF.  ExaBGP's Attributes.pack() skips LOCAL_PREF whenever
+	 * local-as differs from peer-as, so no external peer it configures can
+	 * ever emit one -- these three cases are unreachable from a topotest.
+	 *
+	 * RFC 7606 section 7.5 makes a malformed LOCAL_PREF an "attribute
+	 * discard" from an external neighbour and "treat-as-withdraw" from an
+	 * internal one; draft-uttaro-idr-bgp-oad makes an OAD session behave
+	 * like an internal one for this attribute.
+	 */
+	{
+		.name = "local-pref-len-3-ebgp",
+		.desc = "LOCAL_PREF length 3 from a plain eBGP peer is discarded",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		    /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			    /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,	    /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02, /* NEXT_HOP */
+			  0x40, 0x05, 0x03, 0x00, 0x00, 0x00),	    /* LOCAL_PREF, len 3 */
+		.expect = BGP_ATTR_PARSE_PROCEED,
+	},
+	{
+		.name = "local-pref-len-3-ebgp-oad",
+		.desc = "LOCAL_PREF length 3 over an OAD session is treat-as-withdraw",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = BGP_PEER_EBGP_OAD,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		    /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			    /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,	    /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02, /* NEXT_HOP */
+			  0x40, 0x05, 0x03, 0x00, 0x00, 0x00),	    /* LOCAL_PREF, len 3 */
+		.expect = BGP_ATTR_PARSE_WITHDRAW,
+	},
+	{
+		.name = "local-pref-len-0-ebgp-oad",
+		.desc = "LOCAL_PREF length 0 over an OAD session is treat-as-withdraw",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = BGP_PEER_EBGP_OAD,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		    /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			    /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,	    /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02, /* NEXT_HOP */
+			  0x40, 0x05, 0x00),			    /* LOCAL_PREF, len 0 */
+		.expect = BGP_ATTR_PARSE_WITHDRAW,
 	},
 };
 

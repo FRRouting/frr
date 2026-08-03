@@ -28,3 +28,16 @@ TestAttrParse.okfail(
     "prefix-sid-bad-label-index-ebgp: PREFIX_SID with a malformed Label-Index TLV, eBGP"
 )
 TestAttrParse.okfail("aigp-bad-flags-ibgp: AIGP with the transitive bit set, iBGP")
+TestAttrParse.okfail("nexthop-flag-optional-ebgp: NEXT_HOP with the optional bit set, eBGP")
+TestAttrParse.okfail("nexthop-len-3-ebgp: NEXT_HOP with length 3, eBGP")
+TestAttrParse.okfail("nexthop-len-5-ebgp: NEXT_HOP with length 5, eBGP")
+TestAttrParse.okfail("nexthop-len-0-ebgp: NEXT_HOP with length 0, eBGP")
+TestAttrParse.okfail(
+    "local-pref-len-3-ebgp: LOCAL_PREF length 3 from a plain eBGP peer is discarded"
+)
+TestAttrParse.okfail(
+    "local-pref-len-3-ebgp-oad: LOCAL_PREF length 3 over an OAD session is treat-as-withdraw"
+)
+TestAttrParse.okfail(
+    "local-pref-len-0-ebgp-oad: LOCAL_PREF length 0 over an OAD session is treat-as-withdraw"
+)
