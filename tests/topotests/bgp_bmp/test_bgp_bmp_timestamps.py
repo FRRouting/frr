@@ -24,6 +24,10 @@ Checks:
   section 4.2 "time unavailable" -- not a wall-clock time fabricated from
   the peer's zero monotonic uptime (which decodes to the machine's boot
   time);
+* the live Peer Up at the moment of establishment must carry the
+  establish time: a real timestamp on the first establish (not 0), and
+  the NEW session's establish time on a re-establish (not the previous
+  session's disconnect time, which is what a stale peer uptime yields);
 * a pre-policy route-monitoring message for a re-announcement of an
   already-known prefix (same prefix, changed attribute) must carry the
   reception time of the re-announcement, not the time the prefix was
@@ -119,10 +123,10 @@ def _route_messages(policy, bmp_log_type, prefix):
     ]
 
 
-def _never_established_peer_state_messages():
+def _peer_state_messages(peer_ip, bmp_log_type, min_seq=0):
     """
-    Return the peer-state (Peer Up/Down) messages logged for the neighbor
-    that can never establish, oldest first.
+    Return the peer-state messages of the given type logged for the given
+    peer beyond the given sequence number, oldest first.
     """
     tgen = get_topogen()
     messages = get_bmp_messages(tgen.gears["bmp1ts"], _bmp_log_file())
@@ -130,33 +134,24 @@ def _never_established_peer_state_messages():
         (
             m
             for m in messages
-            if m.get("peer_ip") == NEVER_ESTABLISHED_PEER
-            and m.get("bmp_log_type") in ("peer up", "peer down")
+            if m.get("peer_ip") == peer_ip
+            and m.get("bmp_log_type") == bmp_log_type
+            and m.get("seq", 0) > min_seq
         ),
         key=lambda m: m["seq"],
     )
 
 
-def test_bgp_convergence():
+def _never_established_peer_state_messages():
     """
-    Wait for the r1ts--r2ts session to establish.  The 192.168.0.66 neighbor
-    is unreachable by design and must NOT be waited for.
+    Return the peer-state (Peer Up/Down) messages logged for the neighbor
+    that can never establish, oldest first.
     """
-    tgen = get_topogen()
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    def _r2_established():
-        out = tgen.gears["r1ts"].vtysh_cmd(
-            "show bgp neighbors 192.168.0.2 json", isjson=True
-        )
-        state = out.get("192.168.0.2", {}).get("bgpState")
-        if state == "Established":
-            return True
-        return "session state is {}".format(state)
-
-    success, res = topotest.run_and_expect(_r2_established, True, count=60, wait=1)
-    assert success, "r1ts--r2ts BGP session did not establish: {}".format(res)
+    return sorted(
+        _peer_state_messages(NEVER_ESTABLISHED_PEER, "peer up")
+        + _peer_state_messages(NEVER_ESTABLISHED_PEER, "peer down"),
+        key=lambda m: m["seq"],
+    )
 
 
 def test_bmp_server_logging():
@@ -188,9 +183,7 @@ def test_peerstate_timestamp_never_established():
     def _peer_state_seen():
         if _never_established_peer_state_messages():
             return True
-        return "no peer-state message for {} logged yet".format(
-            NEVER_ESTABLISHED_PEER
-        )
+        return "no peer-state message for {} logged yet".format(NEVER_ESTABLISHED_PEER)
 
     success, res = topotest.run_and_expect(_peer_state_seen, True, count=60, wait=1)
     assert success, (
@@ -207,6 +200,163 @@ def test_peerstate_timestamp_never_established():
         "but carries {} -- bgpd converted the peer's zero monotonic uptime "
         "to wall clock, fabricating the machine's boot time".format(
             msg["seq"], NEVER_ESTABLISHED_PEER, epoch, timestamp
+        )
+    )
+
+
+def test_peerup_timestamp_first_establish():
+    """
+    Enable the r2ts neighbor (configured shut down) while the BMP session
+    is already up.  The live Peer Up for the first establishment since
+    bgpd start must carry the establish time.  With a stale peer uptime
+    (still 0 when the peer_status_changed hook fires) the message carries
+    a zero 'time unavailable' timestamp instead.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    bmp_update_seq(tgen.gears["bmp1ts"], _bmp_log_file(), bmp_seq_context)
+    baseline = bmp_seq_context.get_seq()
+
+    tgen.gears["r1ts"].vtysh_cmd(
+        "configure terminal\n"
+        "router bgp 65501\n"
+        " no neighbor 192.168.0.2 shutdown\n"
+    )
+
+    def _established():
+        out = tgen.gears["r1ts"].vtysh_cmd(
+            "show bgp neighbors 192.168.0.2 json", isjson=True
+        )
+        state = out.get("192.168.0.2", {}).get("bgpState")
+        if state == "Established":
+            return True
+        return "session state is {}".format(state)
+
+    success, res = topotest.run_and_expect(_established, True, count=60, wait=1)
+    assert success, "r1ts--r2ts BGP session did not establish: {}".format(res)
+
+    def _peer_up_seen():
+        if _peer_state_messages("192.168.0.2", "peer up", baseline):
+            return True
+        return "no live peer up for 192.168.0.2 logged yet"
+
+    success, res = topotest.run_and_expect(_peer_up_seen, True, count=30, wait=1)
+    assert (
+        success
+    ), "no live Peer Up for 192.168.0.2 after enabling the neighbor: " "{}".format(res)
+
+    msg = _peer_state_messages("192.168.0.2", "peer up", baseline)[0]
+    timestamp = _parse_bmp_timestamp(msg["timestamp"])
+    epoch = datetime.fromtimestamp(0)
+    assert timestamp != epoch, (
+        "the live Peer Up (seq {}) for the first establishment of "
+        "192.168.0.2 must carry the establish time, but carries the zero "
+        "'time unavailable' timestamp -- peer->uptime was still 0 when "
+        "the peer_status_changed hook fired".format(msg["seq"])
+    )
+
+    out = tgen.gears["r1ts"].vtysh_cmd(
+        "show bgp neighbors 192.168.0.2 json", isjson=True
+    )
+    established_epoch = out["192.168.0.2"]["bgpTimerUpEstablishedEpoch"]
+    delta = abs((timestamp - datetime.fromtimestamp(established_epoch)).total_seconds())
+    assert delta <= 2.0, (
+        "the live Peer Up (seq {}) timestamp {} does not match bgpd's own "
+        "establish epoch {} (delta {:.1f}s)".format(
+            msg["seq"],
+            timestamp,
+            datetime.fromtimestamp(established_epoch),
+            delta,
+        )
+    )
+
+
+def test_peerup_timestamp_reestablish():
+    """
+    Hard-clear the established r2ts session and let it re-establish.  The
+    live Peer Up for the re-establishment must carry the NEW session's
+    establish time.  With a stale peer uptime the message instead carries
+    the previous session's disconnect time -- bit-identical to the Peer
+    Down timestamp, since both come from the same uptime stamp written by
+    bgp_stop().  The session's 5s delayopen timer guarantees the two
+    events are >= 5s apart; both r1ts and r2ts run `timers delayopen
+    5`, so neither side's OPEN is sent early.  A >= 2s assertion
+    threshold is safe at the 1-second BMP timestamp granularity.
+    """
+    tgen = get_topogen()
+
+    out = tgen.gears["r1ts"].vtysh_cmd(
+        "show bgp neighbors 192.168.0.2 json", isjson=True
+    )
+    assert (
+        out.get("192.168.0.2", {}).get("bgpState") == "Established"
+    ), "test precondition: the r1ts--r2ts session must be established"
+    epoch_before = out["192.168.0.2"]["bgpTimerUpEstablishedEpoch"]
+
+    bmp_update_seq(tgen.gears["bmp1ts"], _bmp_log_file(), bmp_seq_context)
+    baseline = bmp_seq_context.get_seq()
+
+    tgen.gears["r1ts"].vtysh_cmd("clear bgp 192.168.0.2")
+
+    def _peer_down_seen():
+        if _peer_state_messages("192.168.0.2", "peer down", baseline):
+            return True
+        return "no peer down for 192.168.0.2 logged yet"
+
+    success, res = topotest.run_and_expect(_peer_down_seen, True, count=30, wait=1)
+    assert (
+        success
+    ), "no Peer Down for 192.168.0.2 after clearing the session: " "{}".format(res)
+    down_msg = _peer_state_messages("192.168.0.2", "peer down", baseline)[0]
+    down_timestamp = _parse_bmp_timestamp(down_msg["timestamp"])
+
+    # Established-epoch-differs idiom (precedent:
+    # bgp_evpn_rt5/test_bgp_evpn.py): plain state polling can pass before
+    # the old session is torn down; the epoch only changes when a NEW
+    # session establishes.
+    def _reestablished():
+        out = tgen.gears["r1ts"].vtysh_cmd(
+            "show bgp neighbors 192.168.0.2 json", isjson=True
+        )
+        state = out.get("192.168.0.2", {}).get("bgpState")
+        if state != "Established":
+            return "session state is {}".format(state)
+        if out["192.168.0.2"]["bgpTimerUpEstablishedEpoch"] == epoch_before:
+            return "established epoch not changed yet"
+        return True
+
+    success, res = topotest.run_and_expect(_reestablished, True, count=60, wait=1)
+    assert success, "r1ts--r2ts session did not re-establish: {}".format(res)
+
+    def _peer_up_seen():
+        if _peer_state_messages("192.168.0.2", "peer up", down_msg["seq"]):
+            return True
+        return "no peer up for 192.168.0.2 logged yet"
+
+    success, res = topotest.run_and_expect(_peer_up_seen, True, count=30, wait=1)
+    assert success, (
+        "no live Peer Up for 192.168.0.2 after the session cleared and "
+        "re-established: {}".format(res)
+    )
+
+    up_msg = _peer_state_messages("192.168.0.2", "peer up", down_msg["seq"])[0]
+    up_timestamp = _parse_bmp_timestamp(up_msg["timestamp"])
+
+    delta = (up_timestamp - down_timestamp).total_seconds()
+    assert delta >= 2.0, (
+        "the live Peer Up (seq {}) for the re-establishment of 192.168.0.2 "
+        "must carry the new session's establish time, >= 5s after the "
+        "disconnect (5s delayopen), but carries {} vs Peer Down (seq {}) "
+        "at {} (delta {:.6f}s) -- peer->uptime still held the previous "
+        "session's disconnect time when the peer_status_changed hook "
+        "fired".format(
+            up_msg["seq"],
+            up_timestamp,
+            down_msg["seq"],
+            down_timestamp,
+            delta,
         )
     )
 
@@ -248,9 +398,10 @@ def test_prepolicy_reannouncement_timestamp():
         return "initial pre-policy update not logged yet"
 
     success, res = topotest.run_and_expect(_first_update_seen, True, count=30, wait=1)
-    assert success, (
-        "no pre-policy update for the initial announcement of {}: "
-        "{}".format(WATCHED_PREFIX, res)
+    assert (
+        success
+    ), "no pre-policy update for the initial announcement of {}: " "{}".format(
+        WATCHED_PREFIX, res
     )
 
     first = [
@@ -268,9 +419,7 @@ def test_prepolicy_reannouncement_timestamp():
     # announcement -- a measurable wall-clock gap between the two
     # receptions.
     tgen.gears["r2ts"].vtysh_cmd(
-        "configure terminal\n"
-        "route-map RM-TS permit 10\n"
-        " set community 65502:77\n"
+        "configure terminal\n" "route-map RM-TS permit 10\n" " set community 65502:77\n"
     )
 
     def _second_update_seen():
@@ -296,9 +445,7 @@ def test_prepolicy_reannouncement_timestamp():
     assert not withdraws, (
         "test scenario broken: pre-policy withdraw(s) logged for {} "
         "between the two announcements, so the Adj-RIB-In entry was "
-        "re-created instead of modified in place: {}".format(
-            WATCHED_PREFIX, withdraws
-        )
+        "re-created instead of modified in place: {}".format(WATCHED_PREFIX, withdraws)
     )
 
     second = [
