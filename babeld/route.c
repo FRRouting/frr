@@ -772,6 +772,11 @@ struct babel_route *update_route(const unsigned char *router_id, const unsigned 
 			if (src != route->src) {
 				uninstall_route(route);
 				lost = 1;
+			} else {
+				/* Same source, unfeasible update: per RFC 8966 §3.5.3,
+				 * ignore this update if the source has not changed.
+				 */
+				return route;
 			}
 		}
 
