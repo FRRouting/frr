@@ -2503,8 +2503,6 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 
 	community_strip_accept_own(&static_attr);
 
-	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
-
 	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
 		if (bpi->extra && bpi->extra->vrfleak &&
 		    bpi->extra->vrfleak->parent == path_vpn)
@@ -2613,6 +2611,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 					to_bgp->vpn_policy[afi]
 						.rmap[BGP_VPN_POLICY_DIR_FROMVPN]
 						->name);
+			bgp_dest_unlock_node(bn);
 			return;
 		}
 		/*
