@@ -14,10 +14,20 @@ test_bgp_bmp_timestamps.py: BMP per-peer header timestamps.
     |          |            |          |               |          |
     +----------+            +----------+               +----------+
 
-Checks that a pre-policy route-monitoring message for a re-announcement
-of an already-known prefix (same prefix, changed attribute) carries the
-reception time of the re-announcement, not the time the prefix was
-first received.
+r1ts additionally has a configured neighbor at an unreachable address
+(192.168.0.66) whose session can never establish.
+
+Checks:
+
+* peer-state (Peer Up/Down) messages for a peer that has never established
+  since bgpd start must carry a per-peer header timestamp of 0 -- RFC 7854
+  section 4.2 "time unavailable" -- not a wall-clock time fabricated from
+  the peer's zero monotonic uptime (which decodes to the machine's boot
+  time);
+* a pre-policy route-monitoring message for a re-announcement of an
+  already-known prefix (same prefix, changed attribute) must carry the
+  reception time of the re-announcement, not the time the prefix was
+  first received.
 """
 
 import os
@@ -40,6 +50,7 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd]
 
 WATCHED_PREFIX = "203.0.113.1/32"
+NEVER_ESTABLISHED_PEER = "192.168.0.66"
 
 bmp_seq_context = BMPSequenceContext()
 
@@ -108,9 +119,28 @@ def _route_messages(policy, bmp_log_type, prefix):
     ]
 
 
+def _never_established_peer_state_messages():
+    """
+    Return the peer-state (Peer Up/Down) messages logged for the neighbor
+    that can never establish, oldest first.
+    """
+    tgen = get_topogen()
+    messages = get_bmp_messages(tgen.gears["bmp1ts"], _bmp_log_file())
+    return sorted(
+        (
+            m
+            for m in messages
+            if m.get("peer_ip") == NEVER_ESTABLISHED_PEER
+            and m.get("bmp_log_type") in ("peer up", "peer down")
+        ),
+        key=lambda m: m["seq"],
+    )
+
+
 def test_bgp_convergence():
     """
-    Wait for the r1ts--r2ts session to establish.
+    Wait for the r1ts--r2ts session to establish.  The 192.168.0.66 neighbor
+    is unreachable by design and must NOT be waited for.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -143,6 +173,42 @@ def test_bmp_server_logging():
 
     success, _ = topotest.run_and_expect(check_for_log_file, True, count=30, wait=1)
     assert success, "The BMP server is not logging"
+
+
+def test_peerstate_timestamp_never_established():
+    """
+    When the BMP session starts, bgpd dumps the state of every configured
+    peer; a peer that has never established is reported with a Peer Down
+    message.  Per RFC 7854 section 4.2 its per-peer header timestamp must
+    be 0 ("time unavailable"), since there is no session whose reception
+    time could be reported.
+    """
+    tgen = get_topogen()
+
+    def _peer_state_seen():
+        if _never_established_peer_state_messages():
+            return True
+        return "no peer-state message for {} logged yet".format(
+            NEVER_ESTABLISHED_PEER
+        )
+
+    success, res = topotest.run_and_expect(_peer_state_seen, True, count=60, wait=1)
+    assert success, (
+        "bgpd never sent a peer-state message for the never-established "
+        "neighbor {}: {}".format(NEVER_ESTABLISHED_PEER, res)
+    )
+
+    msg = _never_established_peer_state_messages()[0]
+    timestamp = _parse_bmp_timestamp(msg["timestamp"])
+    epoch = datetime.fromtimestamp(0)
+    assert timestamp == epoch, (
+        "the peer-state message (seq {}) for the never-established neighbor "
+        "{} must carry timestamp 0 ('time unavailable', decoding to {}), "
+        "but carries {} -- bgpd converted the peer's zero monotonic uptime "
+        "to wall clock, fabricating the machine's boot time".format(
+            msg["seq"], NEVER_ESTABLISHED_PEER, epoch, timestamp
+        )
+    )
 
 
 def test_prepolicy_reannouncement_timestamp():
