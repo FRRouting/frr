@@ -1045,12 +1045,17 @@ void expire_routes(void)
 		r = routes[i];
 		while (r) {
 			/* Protect against clock being stepped. */
-			if (r->time > babel_now.tv_sec || route_old(r)) {
+			if (r->time > babel_now.tv_sec) {
 				flush_route(r);
 				goto again;
 			}
 
 			update_route_metric(r);
+
+			if (route_expired(r)) {
+				flush_route(r);
+				goto again;
+			}
 
 			if (r->installed && r->refmetric < INFINITY) {
 				if (route_old(r))
