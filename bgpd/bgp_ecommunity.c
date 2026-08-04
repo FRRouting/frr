@@ -648,7 +648,7 @@ static int ecommunity_encode(uint8_t type, uint8_t sub_type, int trans, as_t as,
 
 /* Get next Extended Communities token from the string. */
 static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
-				       enum ecommunity_token *token, int type)
+				       enum ecommunity_token *token, int sub_type)
 {
 	int ret;
 	int dot = 0;
@@ -662,7 +662,6 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	uint32_t val = 0;
 	uint32_t val_color = 0;
 	uint8_t ecomm_type = 0;
-	uint8_t sub_type = 0;
 	char buf[INET_ADDRSTRLEN + 1];
 	struct ecommunity_val *eval = (struct ecommunity_val *)eval_ptr;
 	uint64_t tmp_as = 0;
@@ -835,7 +834,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 				 */
 				if (!asn_str2asn(buf, &as))
 					goto error;
-			} else if (type == ECOMMUNITY_COLOR) {
+			} else if (sub_type == ECOMMUNITY_COLOR) {
 				/* If extcommunity is color, only support 00/01/10/11, max value is 3 */
 				/* color value */
 				as = strtoul(buf, &endptr, 2);
@@ -896,9 +895,8 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 		/* Encode result into extended community for AS format or color.  */
 		if (as > BGP_AS_MAX)
 			ecomm_type = ECOMMUNITY_ENCODE_AS4;
-		else if (type == ECOMMUNITY_COLOR) {
+		else if (sub_type == ECOMMUNITY_COLOR) {
 			ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
-			sub_type = ECOMMUNITY_COLOR;
 			if (val_color) {
 				val = val_color;
 				as = 1;
@@ -916,9 +914,8 @@ error:
 	return p;
 }
 
-static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
-						      int keyword_included,
-						      bool is_ipv6_extcomm)
+static struct ecommunity *ecommunity_str2com_internal(const char *str, int sub_type,
+						      int keyword_included, bool is_ipv6_extcomm)
 {
 	struct ecommunity *ecom = NULL;
 	enum ecommunity_token token = ecommunity_token_unknown;
@@ -927,7 +924,7 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 
 	if (is_ipv6_extcomm)
 		token = ecommunity_token_rt6;
-	while ((str = ecommunity_gettoken(str, (void *)&eval, &token, type))) {
+	while ((str = ecommunity_gettoken(str, (void *)&eval, &token, sub_type))) {
 		switch (token) {
 		case ecommunity_token_rt:
 		case ecommunity_token_nt:
@@ -943,13 +940,13 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 
 			if (token == ecommunity_token_rt ||
 			    token == ecommunity_token_rt6)
-				type = ECOMMUNITY_ROUTE_TARGET;
+				sub_type = ECOMMUNITY_ROUTE_TARGET;
 			if (token == ecommunity_token_soo)
-				type = ECOMMUNITY_SITE_ORIGIN;
+				sub_type = ECOMMUNITY_SITE_ORIGIN;
 			if (token == ecommunity_token_nt)
-				type = ECOMMUNITY_NODE_TARGET;
+				sub_type = ECOMMUNITY_NODE_TARGET;
 			if (token == ecommunity_token_color)
-				type = ECOMMUNITY_COLOR;
+				sub_type = ECOMMUNITY_COLOR;
 			break;
 		case ecommunity_token_val:
 			if (keyword_included) {
@@ -961,7 +958,7 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 			}
 			if (ecom == NULL)
 				ecom = ecommunity_new();
-			eval.val[1] = type;
+			eval.val[1] = sub_type;
 			ecommunity_add_val_internal(ecom, (void *)&eval,
 						    false, false,
 						    ecom->unit_size);
@@ -977,7 +974,7 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 			if (ecom == NULL)
 				ecom = ecommunity_new();
 			ecom->unit_size = IPV6_ECOMMUNITY_SIZE;
-			eval.val[1] = type;
+			eval.val[1] = sub_type;
 			ecommunity_add_val_internal(ecom, (void *)&eval, false, false,
 						    ecom->unit_size);
 			break;
@@ -992,19 +989,23 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 
 /* Convert string to extended community attribute.
  *
- * When type is already known, please specify both str and type.  str
- * should not include keyword such as "rt" and "soo".  Type is
- * ECOMMUNITY_ROUTE_TARGET or ECOMMUNITY_SITE_ORIGIN.
+ * sub_type is the low-order octet of the extended Type field, i.e. what kind
+ * of extended community the values are: ECOMMUNITY_ROUTE_TARGET,
+ * ECOMMUNITY_SITE_ORIGIN, ECOMMUNITY_NODE_TARGET or ECOMMUNITY_COLOR. The
+ * high-order octet is derived from the format of each value.
+ *
+ * When the sub-type is already known, please specify both str and sub_type.
+ * str should not include keyword such as "rt" and "soo".
  * keyword_included should be zero.
  *
  * For example route-map's "set extcommunity" command case:
  *
  * "rt 100:1 100:2 100:3"        -> str = "100:1 100:2 100:3"
- *				    type = ECOMMUNITY_ROUTE_TARGET
+ *				    sub_type = ECOMMUNITY_ROUTE_TARGET
  *				    keyword_included = 0
  *
  * "soo 100:1"                   -> str = "100:1"
- *				    type = ECOMMUNITY_SITE_ORIGIN
+ *				    sub_type = ECOMMUNITY_SITE_ORIGIN
  *				    keyword_included = 0
  *
  * When string includes keyword for each extended community value.
@@ -1013,21 +1014,17 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
  * For example standard extcommunity-list case:
  *
  * "rt 100:1 rt 100:2 soo 100:1" -> str = "rt 100:1 rt 100:2 soo 100:1"
- *				    type = 0
+ *				    sub_type = 0
  *				    keyword_include = 1
  */
-struct ecommunity *ecommunity_str2com(const char *str, int type,
-				      int keyword_included)
+struct ecommunity *ecommunity_str2com(const char *str, int sub_type, int keyword_included)
 {
-	return ecommunity_str2com_internal(str, type,
-					   keyword_included, false);
+	return ecommunity_str2com_internal(str, sub_type, keyword_included, false);
 }
 
-struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
-					   int keyword_included)
+struct ecommunity *ecommunity_str2com_ipv6(const char *str, int sub_type, int keyword_included)
 {
-	return ecommunity_str2com_internal(str, type,
-					   keyword_included, true);
+	return ecommunity_str2com_internal(str, sub_type, keyword_included, true);
 }
 
 static int ecommunity_rt_soo_str_internal(char *buf, size_t bufsz,

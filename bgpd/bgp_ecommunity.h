@@ -419,9 +419,8 @@ extern struct ecommunity *ecommunity_intern(struct ecommunity *);
 extern bool ecommunity_cmp(const void *arg1, const void *arg2);
 extern void ecommunity_unintern(struct ecommunity **ecommunity);
 extern unsigned int ecommunity_hash_make(const void *arg);
-extern struct ecommunity *ecommunity_str2com(const char *str, int type,
-					     int keyword_included);
-extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
+extern struct ecommunity *ecommunity_str2com(const char *str, int sub_type, int keyword_included);
+extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int sub_type,
 						  int keyword_included);
 extern char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter);
 extern char *ecommunity_ecom2str_one(struct ecommunity *ecom, int format, int number);
