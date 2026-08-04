@@ -359,7 +359,6 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 {
 	struct bfd_session *bs;
 	uint32_t flags;
-	int old_state;
 
 	/* Look up session. */
 	bs = bfd_id_lookup(ntohl(state->lid));
@@ -373,10 +372,8 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 	}
 
 	flags = ntohl(state->remote_flags);
-	old_state = bs->ses_state;
 
-	/* Update session state. */
-	bs->ses_state = state->state;
+	/* Update remote session data from dataplane. */
 	bs->remote_diag = state->diagnostics;
 	bs->discrs.remote_discr = ntohl(state->rid);
 	bs->remote_cbit = !!(flags & RBIT_CPI);
@@ -387,45 +384,15 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 
 	bfd_dplane_echo_negotiate(bs);
 
-	/* Notify and update counters. */
-	ptm_bfd_notify(bs, bs->ses_state);
+	/* Process remote state through RFC 5880 state machine
+	 * instead of directly overwriting the local session state.
+	 */
+	bs_state_handler(bs, state->state);
 
-	/* No state change. */
-	if (old_state == bs->ses_state)
-		return;
 
-	switch (bs->ses_state) {
-	case PTM_BFD_ADM_DOWN:
-	case PTM_BFD_DOWN:
-		/* Both states mean down. */
-		if (old_state == PTM_BFD_ADM_DOWN || old_state == PTM_BFD_DOWN)
-			break;
-
-		monotime(&bs->downtime);
-		bs->stats.session_down++;
-		break;
-	case PTM_BFD_UP:
-		monotime(&bs->uptime);
-		bs->stats.session_up++;
-		break;
-	case PTM_BFD_INIT:
-		/* NOTHING */
-		break;
-
-	default:
-		zlog_warn("%s: unhandled new state %d", __func__,
-			  bs->ses_state);
-		break;
-	}
-
-	if (bglobal.debug_peer_event) {
-		zlog_debug("state-change: [data plane: %s] %s -> %s",
-			   bs_to_string(bs), state_list[old_state].str,
-			   state_list[bs->ses_state].str);
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES) &&
-		    old_state != bs->ses_state)
-			zlog_notice("Session-Change: [data plane: %s] %s -> %s", bs_to_string(bs),
-				    state_list[old_state].str, state_list[bs->ses_state].str);
+	if (bglobal.debug_peer_event)
+		zlog_debug("state-change: [data plane: %s] remote state %s",
+			   bs_to_string(bs), state_list[state->state].str);
 	}
 }
 
