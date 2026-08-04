@@ -84,8 +84,7 @@ def setup_module(mod):
         warn=False,
     )
     assert rc == 0, (
-        "failed to install r1-eth0 TBF: "
-        f"stdout={out.strip()} stderr={err.strip()}"
+        "failed to install r1-eth0 TBF: " f"stdout={out.strip()} stderr={err.strip()}"
     )
 
     router_list = tgen.routers()
@@ -273,7 +272,9 @@ def wait_for_opaque_area_lsa(tgen, router, area, link_state_id, adv_router):
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert result is None, f"Opaque area LSA {link_state_id} from {adv_router} not found on {router}"
+    assert (
+        result is None
+    ), f"Opaque area LSA {link_state_id} from {adv_router} not found on {router}"
 
 
 def verify_no_adjacency_pacing(tgen, router, ifname):
@@ -281,9 +282,9 @@ def verify_no_adjacency_pacing(tgen, router, ifname):
     cmd = (
         f"vtysh -c 'show running ospfd' | "
         f"awk -v ifname='{ifname}' "
-        "'($1==\"interface\" && $2==ifname){f=1} "
-        "($1==\"interface\" && $2!=ifname){f=0} "
-        "($1==\"exit\" || $1==\"!\"){f=0} "
+        '\'($1=="interface" && $2==ifname){f=1} '
+        '($1=="interface" && $2!=ifname){f=0} '
+        '($1=="exit" || $1=="!"){f=0} '
         "f{print}'"
     )
     rc, out, err = tgen.net[router].cmd_status(cmd, warn=False)
@@ -336,27 +337,28 @@ def test_ospf_broadcast_7router_neighbors_full():
     )
     verify_broadcast_interface(tgen, "r7", r7_if, "198.51.101.3", "1.1.1.7", 2, 2)
 
-    #interface r1-eth0
+    # interface r1-eth0
     wait_for_neighbor_full(tgen, "r1", "1.1.1.2")
     wait_for_neighbor_full(tgen, "r1", "1.1.1.3")
     wait_for_neighbor_full(tgen, "r1", "1.1.1.4")
     wait_for_neighbor_full(tgen, "r1", "1.1.1.5")
 
-    #interface r1-eth1
+    # interface r1-eth1
     wait_for_neighbor_full(tgen, "r1", "1.1.1.6")
     wait_for_neighbor_full(tgen, "r1", "1.1.1.7")
 
-    #BDR neighbors on r1-eth0
+    # BDR neighbors on r1-eth0
     wait_for_neighbor_full(tgen, "r2", "1.1.1.1")
     wait_for_neighbor_full(tgen, "r2", "1.1.1.3")
     wait_for_neighbor_full(tgen, "r2", "1.1.1.4")
     wait_for_neighbor_full(tgen, "r2", "1.1.1.5")
 
-    #BDR on r1-eth1
+    # BDR on r1-eth1
     wait_for_neighbor_full(tgen, "r6", "1.1.1.1")
     wait_for_neighbor_full(tgen, "r6", "1.1.1.7")
 
     sleep(5)
+
 
 def test_ospf_broadcast_external_lsa_flooding():
     """
@@ -409,7 +411,9 @@ def test_ospf_broadcast_external_lsa_flooding():
         "vtysh -c 'conf t' -c 'router ospf' -c 'redistribute connected'",
         warn=False,
     )
-    assert rc == 0, f"failed to enable redistribute connected: stdout={out} stderr={err}"
+    assert (
+        rc == 0
+    ), f"failed to enable redistribute connected: stdout={out} stderr={err}"
 
     for i in range(1, 101):
         tgen.net["r1"].cmd(f"ip addr add 198.51.110.{i}/32 dev lo")
@@ -419,9 +423,9 @@ def test_ospf_broadcast_external_lsa_flooding():
     for _ in range(5):
         for router, nbr in monitored_adjacencies:
             state = neighbor_state(tgen, router, nbr)
-            assert state.split("/", 1)[0] == "Full", (
-                f"Neighbor {nbr} left FULL on {router} during LSA storm: {state}"
-            )
+            assert (
+                state.split("/", 1)[0] == "Full"
+            ), f"Neighbor {nbr} left FULL on {router} during LSA storm: {state}"
         time.sleep(1)
 
     adjacency_failure = re.compile(r"InactivityTimer|1-WayReceived|Full ->")
@@ -433,10 +437,9 @@ def test_ospf_broadcast_external_lsa_flooding():
             if adjacency_failure.search(line)
             and any(nbr in line for nbr in monitored_neighbors[router])
         ]
-        assert not failures, (
-            f"{router} adjacency reset during LSA storm:\n"
-            + "\n".join(failures[-10:])
-        )
+        assert (
+            not failures
+        ), f"{router} adjacency reset during LSA storm:\n" + "\n".join(failures[-10:])
 
     # Wait for pacing logic to react
     sleep(5)
@@ -448,7 +451,9 @@ def test_ospf_broadcast_external_lsa_flooding():
     log_out = tgen.net["r1"].cmd(log_cmd)
     logger.info("r1 ospfd.log AIMD limit changes after LSA flood:\n%s", log_out)
 
-    assert log_out.strip(), "No dynamic pacing log entries found after external LSA flood"
+    assert (
+        log_out.strip()
+    ), "No dynamic pacing log entries found after external LSA flood"
 
 
 def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
@@ -479,7 +484,9 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     #   a) LSA withdrawal from the previous test takes minutes → U never settles
     #   b) Adjacency formation itself is throttled → Full assertion timeout is unreachable
     # This test creates its own congestion via LSA injection, so no tc constraint needed.
-    step("Replace 10kbit tc constraint with 1Mbps and clean up previous test state")
+    step(
+        "Replace baseline tc constraint with 1Mbps for this test, and clean up previous test state"
+    )
     tgen.net["r1"].cmd("tc qdisc del dev r1-eth0 root 2>/dev/null || true")
     tgen.net["r1"].cmd(
         "tc qdisc add dev r1-eth0 root tbf rate 1mbit burst 100kb latency 50ms"
@@ -512,11 +519,10 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     step("Wait for residual unacked LSAs to drain (U < 6) before starting test")
 
     def _unacked_low():
-        chk = tgen.net["r1"].cmd(
-            f"grep -a 'unacknowledged-LSAs' {log_path} | tail -1"
-        )
+        chk = tgen.net["r1"].cmd(f"grep -a 'unacknowledged-LSAs' {log_path} | tail -1")
         logger.info("Latest unacked entry: %s", chk.strip())
         import re
+
         m = re.search(r"unacknowledged-LSAs=(\d+)", chk)
         if m and int(m.group(1)) < 6:
             return None
@@ -532,20 +538,22 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     # At 1Mbps, 50 LSAs × 200B × 4 neighbors = 40KB takes ~320ms — long enough for
     # the AIMD timer to fire and see high U before most acks arrive.
     step("Set dynamic pacing thresholds on r1 (H=20, L=6)")
-    r1.vtysh_cmd(f"""
+    r1.vtysh_cmd(
+        f"""
         configure terminal
         interface {r1_if}
         ip ospf adjacency-pacing dynamic thresholds 20 6
         end
-    """)
+    """
+    )
 
     # Step 3: Inject 50 external LSAs to drive U above H=20.
     # At 1Mbps, 50 LSAs × 200B × 4 neighbors = 40KB → ~320ms transmission.
     # AIMD timer fires within ~500ms of pacing — U ≈ 200 at that point >> H=20.
-    step("Inject 50 external prefixes on r1 to drive U > H=20 and decrease dynamic_limit")
-    tgen.net["r1"].cmd(
-        "vtysh -c 'conf t' -c 'router ospf' -c 'redistribute connected'"
+    step(
+        "Inject 50 external prefixes on r1 to drive U > H=20 and decrease dynamic_limit"
     )
+    tgen.net["r1"].cmd("vtysh -c 'conf t' -c 'router ospf' -c 'redistribute connected'")
     for i in range(1, 51):
         tgen.net["r1"].cmd(f"ip addr add 198.51.120.{i}/32 dev lo")
 
@@ -567,6 +575,33 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     time.sleep(1)
     for rname, ifn in flap_ifaces.items():
         tgen.net[rname].cmd(f"ip link set {ifn} up")
+
+    # Step 4b: Wait for the flap to actually produce an AIMD trigger before
+    # spending any of the congestion-detection budget below. Hello exchange
+    # over the netem-delayed links is not instantaneous, and nsm_twoway_received()
+    # only calls ospf_adj_pacing_allow() -> ospf_adj_dyn_adjust() once a flapped
+    # neighbor reaches TwoWay ("2-Way" in NSM state strings) or later. Decoupling
+    # "did the flap produce a trigger" from "did AIMD see U > H once triggered"
+    # keeps a slow Hello convergence from eating into the window meant for the
+    # latter. Written as an exclusion (not Down/Init) rather than a whitelist so
+    # it doesn't depend on getting every downstream NSM state name right.
+    # count*wait must be >= 15s (topotest.run_and_expect's enforced minimum) or
+    # it silently falls back to its own (count=20, wait=3) defaults.
+    step("Wait for at least one flapped neighbor to reach TwoWay (AIMD trigger)")
+
+    def _any_flapped_past_init():
+        for nbr in ["1.1.1.3", "1.1.1.4", "1.1.1.5"]:
+            state = neighbor_state(tgen, "r1", nbr)
+            if state.split("/", 1)[0] not in ("Down", "Init", "missing", "unknown"):
+                return None
+        return "no flapped neighbor past Init yet"
+
+    _, result = topotest.run_and_expect(_any_flapped_past_init, None, count=10, wait=2)
+    assert result is None, (
+        "No flapped neighbor (r3/r4/r5) reached TwoWay within 20s of the flap — "
+        "this points at Hello/link mechanics, not AIMD; check the flap itself "
+        "before suspecting congestion detection."
+    )
 
     # Step 5: Now wait for AIMD to detect congestion.
     # The pacing activity from step 4 triggers the AIMD timer which sees U > H=20.
@@ -617,7 +652,9 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     log_out = tgen.net["r1"].cmd(
         f"awk -v ts='{mark_time}' '$0 >= ts' {log_path} | grep -a 'releasing queued adjacencies' | tail -5"
     )
-    logger.info("Queue kick log entries after mark (debug-only, may be empty):\n%s", log_out)
+    logger.info(
+        "Queue kick log entries after mark (debug-only, may be empty):\n%s", log_out
+    )
 
     # Cleanup: disable redistribute, remove injected loopbacks, restore tc and thresholds
     step("Cleanup: restore r1/r2/r3/r4/r5 to baseline state")
@@ -634,9 +671,11 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     tgen.net["r2"].cmd("tc qdisc del dev r2-eth0 root 2>/dev/null || true")
     for _rname in ["r3", "r4", "r5"]:
         tgen.net[_rname].cmd(f"tc qdisc del dev {_rname}-eth0 root 2>/dev/null || true")
-    r1.vtysh_cmd(f"""
+    r1.vtysh_cmd(
+        f"""
         configure terminal
         interface {r1_if}
         no ip ospf adjacency-pacing dynamic thresholds
         end
-    """)
+    """
+    )
