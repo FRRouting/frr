@@ -4335,6 +4335,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
 	int debug = 0;
+	bool vpn_full_refresh = true;
+	bool vpn_refresh_needed = true;
 
 	/*
 	 * For default bgp instance, which is deleted i.e. marked hidden
@@ -4468,20 +4470,26 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 			group_announce_route(bgp, afi, safi, dest, new_select);
 			/* unicast routes must also be annonuced to
 			 * labeled-unicast update-groups */
-			if (safi == SAFI_UNICAST)
+			if (safi == SAFI_UNICAST) {
 				group_announce_route(bgp, afi,
 						     SAFI_LABELED_UNICAST, dest,
 						     new_select);
+				vpn_full_refresh = false;
+			}
 
 			UNSET_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED);
 			UNSET_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED);
 		}
 
 		/* advertise/withdraw type-5 routes */
-		if (CHECK_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG)
-		    || CHECK_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG))
+		if (CHECK_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG) ||
+		    CHECK_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG)) {
 			bgp_process_evpn_route_injection(
 				bgp, afi, safi, dest, old_select, old_select);
+			vpn_full_refresh = false;
+		}
+		if (vpn_full_refresh)
+			vpn_refresh_needed = false;
 
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
@@ -4618,6 +4626,12 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	 * If so, dynamically originate/withdraw UPA based on reachability.
 	 */
 	bgp_upa_check_prefix_aggregates(bgp, bgp_dest_get_prefix(dest), afi, safi, new_select);
+
+	if (safi == SAFI_UNICAST &&
+	    ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+	      bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) &&
+	    vpn_refresh_needed)
+		vpn_leak_from_vrf_refresh(bgp, dest, new_select, afi, vpn_full_refresh);
 
 	return;
 }
