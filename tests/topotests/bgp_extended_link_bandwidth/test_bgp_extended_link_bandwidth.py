@@ -91,17 +91,8 @@ def test_bgp_dynamic_capability_role():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "r2 (iBGP) should see link bandwidth extended communities"
 
-    test_func = functools.partial(
-        _bgp_converge,
-        r3,
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert (
-        result is None
-    ), "r3 (eBGP) should see link bandwidth extended communities (including non-transitive)"
-
-    def _bgp_check_non_transitive_extended_communities():
-        output = json.loads(r4.vtysh_cmd("show bgp ipv4 unicast json detail"))
+    def _bgp_check_non_transitive_extended_communities(router):
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
             "routes": {
                 "10.10.10.40/32": {
@@ -135,6 +126,16 @@ def test_bgp_dynamic_capability_role():
 
     test_func = functools.partial(
         _bgp_check_non_transitive_extended_communities,
+        r3,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "r3 (eBGP) should NOT see non-transitive link bandwidth extended communities"
+
+    test_func = functools.partial(
+        _bgp_check_non_transitive_extended_communities,
+        r4,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
