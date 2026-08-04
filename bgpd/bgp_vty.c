@@ -21774,6 +21774,8 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &neighbor_cluster_id_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_cluster_id_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_cluster_id_cmd);
+	install_element(BGP_LS_NODE, &neighbor_cluster_id_cmd);
 
 	/* "neighbor route-reflector" commands.*/
 	install_element(BGP_NODE, &neighbor_route_reflector_client_hidden_cmd);
