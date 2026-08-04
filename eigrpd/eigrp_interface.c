@@ -44,6 +44,84 @@
 #include "eigrpd/eigrp_metric.h"
 
 DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF, "EIGRP interface");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF_INFO, "EIGRP interface info");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF_PARAMS, "EIGRP interface parameters");
+
+struct eigrp_if_params *eigrp_new_if_params(void)
+{
+	struct eigrp_if_params *eip;
+
+	eip = XCALLOC(MTYPE_EIGRP_IF_PARAMS, sizeof(struct eigrp_if_params));
+
+	eip->v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
+	eip->v_wait = EIGRP_HOLD_INTERVAL_DEFAULT;
+	eip->bandwidth = EIGRP_BANDWIDTH_DEFAULT;
+	eip->delay = EIGRP_DELAY_DEFAULT;
+	eip->reliability = EIGRP_RELIABILITY_DEFAULT;
+	eip->load = EIGRP_LOAD_DEFAULT;
+	eip->auth_type = EIGRP_AUTH_TYPE_NONE;
+	eip->auth_keychain = NULL;
+
+	return eip;
+}
+
+/*
+ * Allocate the per-interface EIGRP data on demand.
+ *
+ * Called both from the interface-creation hook and from the northbound
+ * configuration callbacks, so that configuration entered before EIGRP is
+ * running has somewhere to live (issue #11301).
+ */
+struct eigrp_if_info *eigrp_if_info_get(struct interface *ifp)
+{
+	struct eigrp_if_info *eii = ifp->info;
+
+	if (eii)
+		return eii;
+
+	eii = XCALLOC(MTYPE_EIGRP_IF_INFO, sizeof(struct eigrp_if_info));
+	eii->def_params = eigrp_new_if_params();
+	eii->def_params->type = eigrp_default_iftype(ifp);
+	eii->eifs = route_table_init();
+
+	ifp->info = eii;
+
+	return eii;
+}
+
+void eigrp_if_info_free(struct interface *ifp)
+{
+	struct eigrp_if_info *eii = ifp->info;
+
+	if (!eii)
+		return;
+
+	route_table_finish(eii->eifs);
+
+	eigrp_del_if_params(eii->def_params);
+	XFREE(MTYPE_EIGRP_IF_PARAMS, eii->def_params);
+
+	XFREE(MTYPE_EIGRP_IF_INFO, ifp->info);
+}
+
+struct eigrp_interface *eigrp_if_lookup_by_ifp(struct interface *ifp)
+{
+	struct route_node *rn;
+
+	if (!ifp->info)
+		return NULL;
+
+	for (rn = route_top(EIGRP_IF_EIFS(ifp)); rn; rn = route_next(rn)) {
+		if (rn->info) {
+			struct eigrp_interface *ei = rn->info;
+
+			route_unlock_node(rn);
+			return ei;
+		}
+	}
+
+	return NULL;
+}
 
 int eigrp_interface_cmp(const struct eigrp_interface *a, const struct eigrp_interface *b)
 {
@@ -58,11 +136,21 @@ uint32_t eigrp_interface_hash(const struct eigrp_interface *ei)
 struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 				     struct prefix *p)
 {
-	struct eigrp_interface *ei = ifp->info;
+	struct eigrp_if_info *eii = eigrp_if_info_get(ifp);
+	struct eigrp_interface *ei;
+	struct route_node *rn;
 	int i;
 
-	if (ei)
-		return ei;
+	/*
+	 * Running instances are keyed by connected address, so an interface
+	 * is no longer limited to a single one.  The node lock taken by
+	 * route_node_get() is held for as long as rn->info is set.
+	 */
+	rn = route_node_get(eii->eifs, p);
+	if (rn->info) {
+		route_unlock_node(rn);
+		return rn->info;
+	}
 
 	ei = XCALLOC(MTYPE_EIGRP_IF, sizeof(struct eigrp_interface));
 
@@ -70,7 +158,7 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	ei->ifp = ifp;
 	prefix_copy(&ei->address, p);
 
-	ifp->info = ei;
+	rn->info = ei;
 	eigrp_interface_hash_add(&eigrp->eifs, ei);
 
 	ei->type = EIGRP_IFTYPE_BROADCAST;
@@ -89,14 +177,12 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 
 	ei->eigrp = eigrp;
 
-	ei->params.v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
-	ei->params.v_wait = EIGRP_HOLD_INTERVAL_DEFAULT;
-	ei->params.bandwidth = EIGRP_BANDWIDTH_DEFAULT;
-	ei->params.delay = EIGRP_DELAY_DEFAULT;
-	ei->params.reliability = EIGRP_RELIABILITY_DEFAULT;
-	ei->params.load = EIGRP_LOAD_DEFAULT;
-	ei->params.auth_type = EIGRP_AUTH_TYPE_NONE;
-	ei->params.auth_keychain = NULL;
+	/*
+	 * Configuration is owned by the interface, not by this object, so
+	 * anything set before EIGRP started is picked up here rather than
+	 * being reset to defaults.
+	 */
+	ei->params = eii->def_params;
 
 	ei->curr_bandwidth = ifp->bandwidth;
 	ei->curr_mtu = ifp->mtu;
@@ -104,34 +190,67 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	return ei;
 }
 
-int eigrp_if_delete_hook(struct interface *ifp)
+static void eigrp_if_delete_one(struct eigrp_interface *ei)
 {
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	if (!ei)
-		return 0;
+	struct eigrp *eigrp = ei->eigrp;
 
 	eigrp_nbr_hash_fini(&ei->nbr_hash_head);
-
-	eigrp = ei->eigrp;
 	eigrp_interface_hash_del(&eigrp->eifs, ei);
-
 	eigrp_fifo_free(ei->obuf);
 
-	XFREE(MTYPE_EIGRP_IF, ifp->info);
+	XFREE(MTYPE_EIGRP_IF, ei);
+}
+
+/*
+ * Tear down every running instance on an interface, but keep the interface's
+ * configuration.
+ *
+ * This is the path taken when an EIGRP instance goes away or a `network`
+ * statement is removed: the protocol stops, but the interface and everything
+ * configured on it remain.  Previously this freed ifp->info outright, which
+ * is why interface configuration could not outlive the protocol.
+ */
+void eigrp_if_free_all(struct interface *ifp)
+{
+	struct route_node *rn;
+
+	if (!ifp->info)
+		return;
+
+	for (rn = route_top(EIGRP_IF_EIFS(ifp)); rn; rn = route_next(rn)) {
+		struct eigrp_interface *ei = rn->info;
+
+		if (!ei)
+			continue;
+
+		eigrp_if_delete_one(ei);
+		rn->info = NULL;
+		route_unlock_node(rn);
+	}
+}
+
+/* The interface itself is going away, so the configuration goes with it. */
+int eigrp_if_delete_hook(struct interface *ifp)
+{
+	if (!ifp->info)
+		return 0;
+
+	eigrp_if_free_all(ifp);
+	eigrp_if_info_free(ifp);
 
 	return 0;
 }
 
 static int eigrp_ifp_create(struct interface *ifp)
 {
-	struct eigrp_interface *ei = ifp->info;
+	/*
+	 * Allocate the interface data as soon as the interface exists rather
+	 * than waiting for a `network` statement to match.  This is what lets
+	 * configuration be applied to an interface EIGRP is not running on.
+	 */
+	struct eigrp_if_info *eii = eigrp_if_info_get(ifp);
 
-	if (!ei)
-		return 0;
-
-	ei->params.type = eigrp_default_iftype(ifp);
+	eii->def_params->type = eigrp_default_iftype(ifp);
 
 	eigrp_if_update(ifp);
 
@@ -140,7 +259,7 @@ static int eigrp_ifp_create(struct interface *ifp)
 
 static int eigrp_ifp_up(struct interface *ifp)
 {
-	struct eigrp_interface *ei = ifp->info;
+	struct eigrp_interface *ei = eigrp_if_lookup_by_ifp(ifp);
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: Interface[%s] state change to up.",
@@ -173,25 +292,29 @@ static int eigrp_ifp_up(struct interface *ifp)
 		return 0;
 	}
 
-	eigrp_if_up(ifp->info);
+	eigrp_if_up(ei);
 
 	return 0;
 }
 
 static int eigrp_ifp_down(struct interface *ifp)
 {
+	struct eigrp_interface *ei = eigrp_if_lookup_by_ifp(ifp);
+
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: Interface[%s] state change to down.",
 			   ifp->name);
 
-	if (ifp->info)
-		eigrp_if_down(ifp->info);
+	if (ei)
+		eigrp_if_down(ei);
 
 	return 0;
 }
 
 static int eigrp_ifp_destroy(struct interface *ifp)
 {
+	struct eigrp_interface *ei;
+
 	if (if_is_up(ifp))
 		zlog_warn("Zebra: got delete of %s, but interface is still up",
 			  ifp->name);
@@ -202,8 +325,9 @@ static int eigrp_ifp_destroy(struct interface *ifp)
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu);
 
-	if (ifp->info)
-		eigrp_if_free(ifp->info, INTERFACE_DOWN_BY_ZEBRA);
+	ei = eigrp_if_lookup_by_ifp(ifp);
+	if (ei)
+		eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
 
 	return 0;
 }
@@ -217,7 +341,13 @@ void eigrp_if_init(void)
 	hook_register_prio(if_down, 0, eigrp_ifp_down);
 	hook_register_prio(if_unreal, 0, eigrp_ifp_destroy);
 	/* Initialize Zebra interface data structure. */
-	// hook_register_prio(if_add, 0, eigrp_if_new);
+	/*
+	 * eigrp_ifp_create() allocates the interface data, so there is no
+	 * longer a disabled if_add hook trying to build a prefix-derived
+	 * struct eigrp_interface before one can exist.  Configuration that
+	 * arrives before the interface is known to zebra is handled by the
+	 * northbound callbacks calling eigrp_if_info_get() on demand.
+	 */
 	hook_register_prio(if_del, 0, eigrp_if_delete_hook);
 }
 
@@ -264,10 +394,10 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	event_add_event(master, eigrp_hello_timer, ei, (1), &ei->t_hello);
 
 	/*Prepare metrics*/
-	metric.bandwidth = eigrp_bandwidth_to_scaled(ei->params.bandwidth);
-	metric.delay = eigrp_delay_to_scaled(ei->params.delay);
-	metric.load = ei->params.load;
-	metric.reliability = ei->params.reliability;
+	metric.bandwidth = eigrp_bandwidth_to_scaled(ei->params->bandwidth);
+	metric.delay = eigrp_delay_to_scaled(ei->params->delay);
+	metric.load = ei->params->load;
+	metric.reliability = ei->params->reliability;
 	eigrp_mtu_convert(&metric, ei->ifp->mtu);
 	metric.hop_count = 0;
 	metric.flags = 0;
@@ -372,7 +502,7 @@ void eigrp_if_stream_unset(struct eigrp_interface *ei)
 
 bool eigrp_if_is_passive(struct eigrp_interface *ei)
 {
-	if (ei->params.passive_interface == EIGRP_IF_ACTIVE)
+	if (ei->params->passive_interface == EIGRP_IF_ACTIVE)
 		return false;
 
 	if (ei->eigrp->passive_interface_default == EIGRP_IF_ACTIVE)
@@ -446,7 +576,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
    the MTU changes. */
 void eigrp_if_reset(struct interface *ifp)
 {
-	struct eigrp_interface *ei = ifp->info;
+	struct eigrp_interface *ei = eigrp_if_lookup_by_ifp(ifp);
 
 	if (!ei)
 		return;

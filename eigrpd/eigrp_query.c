@@ -183,8 +183,8 @@ void eigrp_send_query(struct eigrp_interface *ei)
 						 ei->eigrp->sequence_number, 0);
 
 			// encode Authentication TLV, if needed
-			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
-			    && (ei->params.auth_keychain != NULL)) {
+			if ((ei->params->auth_type == EIGRP_AUTH_TYPE_MD5)
+			    && (ei->params->auth_keychain != NULL)) {
 				length += eigrp_add_authTLV_MD5_to_stream(ep->s,
 									  ei);
 			}
@@ -199,8 +199,8 @@ void eigrp_send_query(struct eigrp_interface *ei)
 		}
 
 		if (length + EIGRP_TLV_MAX_IPV4_BYTE > eigrp_mtu) {
-			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
-			    && ei->params.auth_keychain != NULL) {
+			if ((ei->params->auth_type == EIGRP_AUTH_TYPE_MD5)
+			    && ei->params->auth_keychain != NULL) {
 				eigrp_make_md5_digest(ei, ep->s,
 						      EIGRP_AUTH_UPDATE_FLAG);
 			}
@@ -238,8 +238,8 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	if (!has_tlv)
 		return;
 
-	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && ei->params.auth_keychain != NULL)
+	if ((ei->params->auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && ei->params->auth_keychain != NULL)
 		eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
 
 

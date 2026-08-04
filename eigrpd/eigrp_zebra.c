@@ -170,7 +170,7 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			   c->ifp->name, c->address);
 
 	ifp = c->ifp;
-	ei = ifp->info;
+	ei = eigrp_if_lookup_by_ifp(ifp);
 	if (!ei)
 		return 0;
 

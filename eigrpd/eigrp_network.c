@@ -256,8 +256,17 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 		if (CHECK_FLAG(co->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 
-		if (p->family == co->address->family && !ifp->info
-		    && eigrp_network_match_iface(co->address, p)) {
+		/*
+		 * ifp->info is now always set (it holds the interface
+		 * configuration), so it can no longer be used to test whether
+		 * EIGRP is already running here.  Keep the existing
+		 * one-instance-per-interface behaviour by checking for a
+		 * running instance instead; supporting several connected
+		 * prefixes is a separate change.
+		 */
+		if (p->family == co->address->family &&
+		    !eigrp_if_lookup_by_ifp(ifp) &&
+		    eigrp_network_match_iface(co->address, p)) {
 
 			ei = eigrp_if_new(eigrp, ifp, co->address);
 
