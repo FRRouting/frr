@@ -151,6 +151,34 @@ def test_config_survives_network_removal():
     ), "eigrp bandwidth was lost when EIGRP stopped using the interface"
 
 
+def test_interface_reactivates_after_network_readd():
+    "Re-adding a network statement must bring the interface back up."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # The previous test removed the network statement, so EIGRP is no longer
+    # running on the interface.  Put it back.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router eigrp 1
+         network 10.0.1.0/24
+        """
+    )
+
+    def _check_topology():
+        output = r1.vtysh_cmd("show ip eigrp topology")
+        if "10.0.1.0/24" not in output:
+            return "connected prefix was not re-advertised after re-adding network"
+        return None
+
+    _, result = topotest.run_and_expect(_check_topology, None, count=30, wait=1)
+    assert result is None, result
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
