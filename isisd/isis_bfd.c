@@ -704,41 +704,16 @@ void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit)
 {
 	struct isis_area_mt_setting **area_settings;
 	unsigned int mt_count = 0, i;
-	bool rfc6213_ipv4 = false;
-	bool rfc6213_ipv6 = false;
-	uint8_t cnt;
 	uint16_t mtid;
 
-	if (circuit->bfd_config.rfc6213_ipv4 && circuit->bfd_config.enabled &&
-	    circuit->ip_router && fabricd_ip_addrs(circuit)) {
-		for (cnt = 0; cnt < circuit->nlpids.count; cnt++) {
-			if (circuit->nlpids.nlpids[cnt] == NLPID_IP) {
-				rfc6213_ipv4 = true;
-				break;
-			}
-		}
-	}
-
-	if (rfc6213_ipv4)
+	if (circuit->bfd_config.rfc6213_ipv4 && circuit->bfd_config.enabled)
 		SET_FLAG(circuit->bfd_config.mtid_nlpid,
 			 ISIS_BFD_MT_STANDARD_NLP_IPV4);
 	else
 		UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
 			   ISIS_BFD_MT_STANDARD_NLP_IPV4);
 
-	if (circuit->bfd_config.rfc6213_ipv6 && circuit->bfd_config.enabled &&
-	    circuit->ipv6_router &&
-	    (listcount(circuit->ipv6_link) > 0 ||
-	     listcount(circuit->ipv6_non_link) > 0)) {
-		for (cnt = 0; cnt < circuit->nlpids.count; cnt++) {
-			if (circuit->nlpids.nlpids[cnt] == NLPID_IPV6) {
-				rfc6213_ipv6 = true;
-				break;
-			}
-		}
-	}
-
-	if (rfc6213_ipv6) {
+	if (circuit->bfd_config.rfc6213_ipv6 && circuit->bfd_config.enabled) {
 		area_settings = area_mt_settings(circuit->area, &mt_count);
 
 		/* MTID ISIS_MT_STANDARD is always enabled
@@ -1180,8 +1155,13 @@ static void isis_bfd_update_rfc6213_ipv4_required(struct isis_adjacency *adj, bo
 
 	old_value = adj->bfd_rfc6213.bfd_ipv4_required;
 	adj->bfd_rfc6213.bfd_ipv4_required = false;
-	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node, bfd_local_pair)) {
-		if (bfd_local_pair->nlpid == NLPID_IP && bfd_local_pair->topo_nlpid_bfd_required) {
+	if (adj->circuit->ip_router && !list_isempty(adj->circuit->ip_addrs) && adj->ipv4_address_count) {
+		for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node, bfd_local_pair)) {
+			if (bfd_local_pair->nlpid != NLPID_IP)
+				continue;
+			if (!bfd_local_pair->topo_nlpid_bfd_required)
+				continue;
+
 			adj->bfd_rfc6213.bfd_ipv4_required = true;
 			break;
 		}
@@ -1207,8 +1187,13 @@ static void isis_bfd_update_rfc6213_ipv6_required(struct isis_adjacency *adj, bo
 
 	old_value = adj->bfd_rfc6213.bfd_ipv6_required;
 	adj->bfd_rfc6213.bfd_ipv6_required = false;
-	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node, bfd_local_pair)) {
-		if (bfd_local_pair->nlpid == NLPID_IPV6 && bfd_local_pair->topo_nlpid_bfd_required) {
+	if (adj->circuit->ipv6_router &&
+	    !(listcount(adj->circuit->ipv6_link) == 0 || adj->ll_ipv6_count == 0)) {
+		for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node, bfd_local_pair)) {
+			if (bfd_local_pair->nlpid != NLPID_IPV6)
+				continue;
+			if (!bfd_local_pair->topo_nlpid_bfd_required)
+				continue;
 			adj->bfd_rfc6213.bfd_ipv6_required = true;
 			break;
 		}
