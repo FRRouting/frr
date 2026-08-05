@@ -3335,21 +3335,21 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 	/* Extended communities can be transitive and non-transitive.
-	 * If the extended community is non-transitive, strip it off,
-	 * unless it's a locally originated route (static, aggregate,
-	 * redistributed, etc.).
-	 * draft-uttaro-idr-bgp-oad says:
-	 * Extended communities which are non-transitive across an AS
-	 * boundary MAY be advertised over an EBGP-OAD session if allowed
-	 * by explicit policy configuration. If allowed, all the members
-	 * of the OAD SHOULD be configured to use the same criteria.
-	 * For example, the Origin Validation State Extended Community,
-	 * defined as non-transitive in [RFC8097], can be advertised to
-	 * peers in the same OAD.
+	 *
+	 * RFC 4360 says:
+	 * If a route has a non-transitivity extended community, then before
+	 * advertising the route across the Autonomous System boundary the
+	 * community SHOULD be removed from the route.
+	 * So strip them whenever we are about to cross an AS boundary,
+	 * regardless of where we learnt the route from. This includes routes
+	 * we originate locally: an aggregate with "as-set" inherits the
+	 * extended communities of its contributors, so exempting locally
+	 * originated routes would let a received non-transitive community
+	 * launder itself across the boundary.
+	 *
+	 * Except: OAD sessions, confederations.
 	 */
-	if (from->sort == BGP_PEER_EBGP && from->sub_sort != BGP_PEER_EBGP_OAD &&
-	    peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD &&
-	    pi->sub_type == BGP_ROUTE_NORMAL) {
+	if (peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD) {
 		struct ecommunity *new_ecomm;
 		struct ecommunity *old_ecomm;
 
@@ -6301,8 +6301,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
 		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-		if (ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_IP,
-				      ECOMMUNITY_NODE_TARGET) &&
+		if (ecommunity_has_node_target(ecomm) &&
 		    !ecommunity_node_target_match(ecomm, &peer->local_id)) {
 			reason =
 				"Node-Target Extended Communities do not contain own BGP Identifier;";

@@ -150,12 +150,20 @@ def test_bgp_oad():
 
     test_func = functools.partial(
         _bgp_check_non_transitive_extended_community,
-        r4,
+        r1,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
         result is None
-    ), "10.10.10.20/32 should be received at r4 with non-transitive extended community"
+    ), "10.10.10.20/32 should be received at r1 with non-transitive extended community (OAD)"
+
+    test_func = functools.partial(
+        _bgp_check_non_transitive_extended_community, r4, None
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "10.10.10.20/32 should NOT be received at r4 with non-transitive extended community (not OAD)"
 
     test_func = functools.partial(
         _bgp_check_non_transitive_extended_community, r5, None

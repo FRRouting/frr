@@ -419,9 +419,8 @@ extern struct ecommunity *ecommunity_intern(struct ecommunity *);
 extern bool ecommunity_cmp(const void *arg1, const void *arg2);
 extern void ecommunity_unintern(struct ecommunity **ecommunity);
 extern unsigned int ecommunity_hash_make(const void *arg);
-extern struct ecommunity *ecommunity_str2com(const char *str, int type,
-					     int keyword_included);
-extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
+extern struct ecommunity *ecommunity_str2com(const char *str, int sub_type, int keyword_included);
+extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int sub_type,
 						  int keyword_included);
 extern char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter);
 extern char *ecommunity_ecom2str_one(struct ecommunity *ecom, int format, int number);
@@ -498,6 +497,8 @@ ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
 extern struct ecommunity *ecommunity_add_node_target(struct in_addr *node_id,
 						     struct ecommunity *old,
 						     bool non_trans);
+extern bool ecommunity_is_node_target(uint8_t type, uint8_t sub_type);
+extern bool ecommunity_has_node_target(struct ecommunity *ecom);
 extern bool ecommunity_node_target_match(struct ecommunity *ecomm,
 					 struct in_addr *local_id);
 

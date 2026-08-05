@@ -26,8 +26,8 @@ pytestmark = [pytest.mark.bgpd]
 
 
 # AS number constants
-LOCAL_AS = "65101"           # Local sub-AS for r1, r2, r7
-CONFEDERATION_AS = "65100"   # Confederation AS
+LOCAL_AS = "65101"  # Local sub-AS for r1, r2, r7
+CONFEDERATION_AS = "65100"  # Confederation AS
 
 # Standard test prefix, originated by both r2 and r7 (multipath at r1),
 # used by the transitive/automatic link-bandwidth test cases.
@@ -96,7 +96,9 @@ def get_peer_address(router_name, peer_name, ipv6=False):
         raise ValueError("Router {} not found in PEER_ADDRESSES".format(router_name))
 
     if peer_name not in PEER_ADDRESSES[router_name]:
-        raise ValueError("Peer {} not found for router {}".format(peer_name, router_name))
+        raise ValueError(
+            "Peer {} not found for router {}".format(peer_name, router_name)
+        )
 
     return PEER_ADDRESSES[router_name][peer_name][af]
 
@@ -133,8 +135,15 @@ def get_bgp_path_from_peer(router, prefix, peer_id, ipv6=False):
     return None
 
 
-def validate_linkbw_as(router, peer_router_name, expected_as, peer_type, prefix,
-                       ipv6=False, forbidden_as=None):
+def validate_linkbw_as(
+    router,
+    peer_router_name,
+    expected_as,
+    peer_type,
+    prefix,
+    ipv6=False,
+    forbidden_as=None,
+):
     """
     Validate that link-bandwidth extended community has the correct AS number.
 
@@ -166,14 +175,47 @@ def validate_linkbw_as(router, peer_router_name, expected_as, peer_type, prefix,
     extcomm = path.get("extendedCommunity", {}).get("string", "")
 
     # Validate expected AS is present
-    assert "LB:{}:".format(expected_as) in extcomm, \
-        "Expected AS {} in link-bandwidth for {}, got: {}".format(expected_as, peer_type, extcomm)
+    assert (
+        "LB:{}:".format(expected_as) in extcomm
+    ), "Expected AS {} in link-bandwidth for {}, got: {}".format(
+        expected_as, peer_type, extcomm
+    )
 
     if forbidden_as is not None:
-        assert "LB:{}:".format(forbidden_as) not in extcomm, \
-            "Unexpected AS {} in link-bandwidth for {}, got: {}".format(
-                forbidden_as, peer_type, extcomm
-            )
+        assert (
+            "LB:{}:".format(forbidden_as) not in extcomm
+        ), "Unexpected AS {} in link-bandwidth for {}, got: {}".format(
+            forbidden_as, peer_type, extcomm
+        )
+
+    return extcomm
+
+
+def assert_no_linkbw(router, peer_router_name, peer_type, prefix, ipv6=False):
+    """
+    Assert that no link-bandwidth extended community is present.
+
+    Used where the community must not cross an AS boundary: RFC 4360 Section 6
+    says a non-transitive extended community SHOULD be removed before the route
+    is advertised across an Autonomous System boundary, so a non-transitive
+    link-bandwidth never reaches a plain external eBGP peer. Confederation and
+    EBGP-OAD peers are not such a boundary and do still receive it.
+    """
+    peer_id = get_peer_address(router.name, peer_router_name, ipv6)
+
+    path = get_bgp_path_from_peer(router, prefix, peer_id, ipv6)
+
+    assert path is not None, "No path found from peer {} ({}) on router {}".format(
+        peer_router_name, peer_id, router.name
+    )
+
+    extcomm = path.get("extendedCommunity", {}).get("string", "")
+
+    assert (
+        "LB:" not in extcomm
+    ), "Non-transitive link-bandwidth must not be advertised to {}, got: {}".format(
+        peer_type, extcomm
+    )
 
     return extcomm
 
@@ -295,7 +337,9 @@ def test_ibgp_peer_linkbw_as():
     )
 
     step("r2→r1 path extended community: {}".format(extcomm))
-    step("PASS: r2 (iBGP peer AS 65101): Correctly uses local AS 65101 when sending to r1")
+    step(
+        "PASS: r2 (iBGP peer AS 65101): Correctly uses local AS 65101 when sending to r1"
+    )
 
 
 def test_ibgp_peer_r7_linkbw_as():
@@ -319,7 +363,9 @@ def test_ibgp_peer_r7_linkbw_as():
     )
 
     step("r7→r1 path extended community: {}".format(extcomm))
-    step("PASS: r7 (iBGP peer AS 65101): Correctly uses local AS 65101 when sending to r1")
+    step(
+        "PASS: r7 (iBGP peer AS 65101): Correctly uses local AS 65101 when sending to r1"
+    )
 
 
 def test_confederation_peer_linkbw_as():
@@ -354,7 +400,9 @@ def test_confederation_peer_origination_only_linkbw_as():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking origination-only link-bandwidth AS for confederation peer r3 (AS 65102)")
+    step(
+        "Checking origination-only link-bandwidth AS for confederation peer r3 (AS 65102)"
+    )
 
     router_r3 = tgen.gears["r3"]
 
@@ -371,8 +419,10 @@ def test_confederation_peer_origination_only_linkbw_as():
     )
 
     step("r1→r3 origination-only path extended community: {}".format(extcomm))
-    step("PASS: r3 (confederation peer AS 65102, origination-only route-map): "
-         "Correctly uses sub-AS 65101")
+    step(
+        "PASS: r3 (confederation peer AS 65102, origination-only route-map): "
+        "Correctly uses sub-AS 65101"
+    )
 
 
 def _test_confederation_peer_with_routemap_linkbw_as(prefix):
@@ -381,7 +431,9 @@ def _test_confederation_peer_with_routemap_linkbw_as(prefix):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking link-bandwidth AS for confederation peer r4 (AS 65103) with route-map")
+    step(
+        "Checking link-bandwidth AS for confederation peer r4 (AS 65103) with route-map"
+    )
 
     router_r4 = tgen.gears["r4"]
 
@@ -397,7 +449,9 @@ def _test_confederation_peer_with_routemap_linkbw_as(prefix):
     )
 
     step("r1→r4 path extended community: {}".format(extcomm))
-    step("PASS: r4 (confederation peer AS 65103, route-map): Correctly uses sub-AS 65101")
+    step(
+        "PASS: r4 (confederation peer AS 65103, route-map): Correctly uses sub-AS 65101"
+    )
 
 
 def test_confederation_peer_with_routemap_linkbw_as():
@@ -428,11 +482,13 @@ def test_external_ebgp_peer_linkbw_as():
         expected_as=CONFEDERATION_AS,
         peer_type="external eBGP peer r5",
         prefix=TRANS_PREFIX_V4,
-        ipv6=False
+        ipv6=False,
     )
 
     step("r1→r5 path extended community: {}".format(extcomm))
-    step("PASS: r5 (external eBGP AS 64001, no route-map): Correctly uses confederation AS 65100")
+    step(
+        "PASS: r5 (external eBGP AS 64001, no route-map): Correctly uses confederation AS 65100"
+    )
 
 
 def test_external_ebgp_peer_origination_only_linkbw_as():
@@ -441,7 +497,9 @@ def test_external_ebgp_peer_origination_only_linkbw_as():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking origination-only link-bandwidth AS for external eBGP peer r5 (AS 64001)")
+    step(
+        "Checking origination-only link-bandwidth AS for external eBGP peer r5 (AS 64001)"
+    )
 
     router_r5 = tgen.gears["r5"]
 
@@ -461,8 +519,10 @@ def test_external_ebgp_peer_origination_only_linkbw_as():
     )
 
     step("r1→r5 origination-only path extended community: {}".format(extcomm))
-    step("PASS: r5 (external eBGP AS 64001, origination-only route-map): "
-         "Correctly uses confederation AS 65100")
+    step(
+        "PASS: r5 (external eBGP AS 64001, origination-only route-map): "
+        "Correctly uses confederation AS 65100"
+    )
 
 
 def _test_external_ebgp_peer_with_routemap_linkbw_as(prefix):
@@ -471,7 +531,9 @@ def _test_external_ebgp_peer_with_routemap_linkbw_as(prefix):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking link-bandwidth AS for external eBGP peer r6 (AS 64002) with route-map")
+    step(
+        "Checking link-bandwidth AS for external eBGP peer r6 (AS 64002) with route-map"
+    )
 
     router_r6 = tgen.gears["r6"]
 
@@ -486,7 +548,9 @@ def _test_external_ebgp_peer_with_routemap_linkbw_as(prefix):
     )
 
     step("r1→r6 path extended community: {}".format(extcomm))
-    step("PASS: r6 (external eBGP AS 64002, route-map): Correctly uses confederation AS 65100")
+    step(
+        "PASS: r6 (external eBGP AS 64002, route-map): Correctly uses confederation AS 65100"
+    )
 
 
 def test_external_ebgp_peer_with_routemap_linkbw_as():
@@ -494,9 +558,26 @@ def test_external_ebgp_peer_with_routemap_linkbw_as():
     _test_external_ebgp_peer_with_routemap_linkbw_as(prefix=TRANS_PREFIX_V4)
 
 
-def test_external_ebgp_peer_with_routemap_nontransitive_linkbw_as():
-    """Test link-bandwidth AS for external eBGP peer with non-transitive route-map (r6)."""
-    _test_external_ebgp_peer_with_routemap_linkbw_as(prefix=NONTRANS_PREFIX_V4)
+def test_external_ebgp_peer_with_routemap_nontransitive_linkbw_stripped():
+    """Non-transitive link-bandwidth must not reach external eBGP peer r6.
+
+    The AS correction for a route-map set non-transitive link-bandwidth is
+    covered by test_confederation_peer_with_routemap_nontransitive_linkbw_as(),
+    where r4 is a confederation peer and therefore not an AS boundary.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step("Checking non-transitive link-bandwidth is stripped towards eBGP peer r6")
+
+    assert_no_linkbw(
+        router=tgen.gears["r6"],
+        peer_router_name="r1",
+        peer_type="external eBGP peer r6 (route-map, non-transitive)",
+        prefix=NONTRANS_PREFIX_V4,
+        ipv6=False,
+    )
 
 
 def _test_bgp_convergence_ipv6(prefix, min_paths=2):
@@ -544,7 +625,9 @@ def test_ibgp_peer_linkbw_as_ipv6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking link-bandwidth AS for iBGP peer r2 (AS 65101) - what r1 receives (IPv6)")
+    step(
+        "Checking link-bandwidth AS for iBGP peer r2 (AS 65101) - what r1 receives (IPv6)"
+    )
 
     router_r1 = tgen.gears["r1"]
 
@@ -561,7 +644,9 @@ def test_ibgp_peer_linkbw_as_ipv6():
     )
 
     step("r2→r1 path extended community (IPv6): {}".format(extcomm))
-    step("PASS: r2 (iBGP peer AS 65101, IPv6): Correctly uses local AS 65101 when sending to r1")
+    step(
+        "PASS: r2 (iBGP peer AS 65101, IPv6): Correctly uses local AS 65101 when sending to r1"
+    )
 
 
 def test_ibgp_peer_r7_linkbw_as_ipv6():
@@ -570,7 +655,9 @@ def test_ibgp_peer_r7_linkbw_as_ipv6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking link-bandwidth AS for iBGP peer r7 (AS 65101) - what r1 receives (IPv6)")
+    step(
+        "Checking link-bandwidth AS for iBGP peer r7 (AS 65101) - what r1 receives (IPv6)"
+    )
 
     router_r1 = tgen.gears["r1"]
 
@@ -585,7 +672,9 @@ def test_ibgp_peer_r7_linkbw_as_ipv6():
     )
 
     step("r7→r1 path extended community (IPv6): {}".format(extcomm))
-    step("PASS: r7 (iBGP peer AS 65101, IPv6): Correctly uses local AS 65101 when sending to r1")
+    step(
+        "PASS: r7 (iBGP peer AS 65101, IPv6): Correctly uses local AS 65101 when sending to r1"
+    )
 
 
 def test_confederation_peer_linkbw_as_ipv6():
@@ -619,7 +708,9 @@ def test_confederation_peer_origination_only_linkbw_as_ipv6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking origination-only link-bandwidth AS for confederation peer r3 (AS 65102) - IPv6")
+    step(
+        "Checking origination-only link-bandwidth AS for confederation peer r3 (AS 65102) - IPv6"
+    )
 
     router_r3 = tgen.gears["r3"]
 
@@ -634,8 +725,10 @@ def test_confederation_peer_origination_only_linkbw_as_ipv6():
     )
 
     step("r1→r3 origination-only path extended community (IPv6): {}".format(extcomm))
-    step("PASS: r3 (confederation peer AS 65102, origination-only route-map, IPv6): "
-         "Correctly uses sub-AS 65101")
+    step(
+        "PASS: r3 (confederation peer AS 65102, origination-only route-map, IPv6): "
+        "Correctly uses sub-AS 65101"
+    )
 
 
 def _test_confederation_peer_with_routemap_linkbw_as_ipv6(prefix):
@@ -644,7 +737,9 @@ def _test_confederation_peer_with_routemap_linkbw_as_ipv6(prefix):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking link-bandwidth AS for confederation peer r4 (AS 65103) with route-map - IPv6")
+    step(
+        "Checking link-bandwidth AS for confederation peer r4 (AS 65103) with route-map - IPv6"
+    )
 
     router_r4 = tgen.gears["r4"]
 
@@ -660,7 +755,9 @@ def _test_confederation_peer_with_routemap_linkbw_as_ipv6(prefix):
     )
 
     step("r1→r4 path extended community (IPv6): {}".format(extcomm))
-    step("PASS: r4 (confederation peer AS 65103, route-map, IPv6): Correctly uses sub-AS 65101")
+    step(
+        "PASS: r4 (confederation peer AS 65103, route-map, IPv6): Correctly uses sub-AS 65101"
+    )
 
 
 def test_confederation_peer_with_routemap_linkbw_as_ipv6():
@@ -690,11 +787,13 @@ def test_external_ebgp_peer_linkbw_as_ipv6():
         expected_as=CONFEDERATION_AS,
         peer_type="external eBGP peer r5 (IPv6)",
         prefix=TRANS_PREFIX_V6,
-        ipv6=True
+        ipv6=True,
     )
 
     step("r1→r5 path extended community (IPv6): {}".format(extcomm))
-    step("PASS: r5 (external eBGP AS 64001, no route-map, IPv6): Correctly uses confederation AS 65100")
+    step(
+        "PASS: r5 (external eBGP AS 64001, no route-map, IPv6): Correctly uses confederation AS 65100"
+    )
 
 
 def test_external_ebgp_peer_origination_only_linkbw_as_ipv6():
@@ -703,7 +802,9 @@ def test_external_ebgp_peer_origination_only_linkbw_as_ipv6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking origination-only link-bandwidth AS for external eBGP peer r5 (AS 64001) - IPv6")
+    step(
+        "Checking origination-only link-bandwidth AS for external eBGP peer r5 (AS 64001) - IPv6"
+    )
 
     router_r5 = tgen.gears["r5"]
 
@@ -718,8 +819,10 @@ def test_external_ebgp_peer_origination_only_linkbw_as_ipv6():
     )
 
     step("r1→r5 origination-only path extended community (IPv6): {}".format(extcomm))
-    step("PASS: r5 (external eBGP AS 64001, origination-only route-map, IPv6): "
-         "Correctly uses confederation AS 65100")
+    step(
+        "PASS: r5 (external eBGP AS 64001, origination-only route-map, IPv6): "
+        "Correctly uses confederation AS 65100"
+    )
 
 
 def _test_external_ebgp_peer_with_routemap_linkbw_as_ipv6(prefix):
@@ -728,7 +831,9 @@ def _test_external_ebgp_peer_with_routemap_linkbw_as_ipv6(prefix):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Checking link-bandwidth AS for external eBGP peer r6 (AS 64002) with route-map - IPv6")
+    step(
+        "Checking link-bandwidth AS for external eBGP peer r6 (AS 64002) with route-map - IPv6"
+    )
 
     router_r6 = tgen.gears["r6"]
 
@@ -743,7 +848,9 @@ def _test_external_ebgp_peer_with_routemap_linkbw_as_ipv6(prefix):
     )
 
     step("r1→r6 path extended community (IPv6): {}".format(extcomm))
-    step("PASS: r6 (external eBGP AS 64002, route-map, IPv6): Correctly uses confederation AS 65100")
+    step(
+        "PASS: r6 (external eBGP AS 64002, route-map, IPv6): Correctly uses confederation AS 65100"
+    )
 
 
 def test_external_ebgp_peer_with_routemap_linkbw_as_ipv6():
@@ -751,12 +858,23 @@ def test_external_ebgp_peer_with_routemap_linkbw_as_ipv6():
     _test_external_ebgp_peer_with_routemap_linkbw_as_ipv6(prefix=TRANS_PREFIX_V6)
 
 
-def test_external_ebgp_peer_with_routemap_nontransitive_linkbw_as_ipv6():
-    """Test link-bandwidth AS for external eBGP peer with non-transitive route-map (r6) - IPv6."""
-    _test_external_ebgp_peer_with_routemap_linkbw_as_ipv6(prefix=NONTRANS_PREFIX_V6)
+def test_external_ebgp_peer_with_routemap_nontransitive_linkbw_stripped_ipv6():
+    """Non-transitive link-bandwidth must not reach external eBGP peer r6 - IPv6."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step("Checking non-transitive link-bandwidth is stripped towards eBGP peer r6")
+
+    assert_no_linkbw(
+        router=tgen.gears["r6"],
+        peer_router_name="r1",
+        peer_type="external eBGP peer r6 (route-map, non-transitive)",
+        prefix=NONTRANS_PREFIX_V6,
+        ipv6=True,
+    )
 
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
-
