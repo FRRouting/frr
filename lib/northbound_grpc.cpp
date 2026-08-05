@@ -582,7 +582,7 @@ static struct lyd_node *get_dnode_config(const std::string &path)
 
 	dnode = yang_dnode_get(running_config->dnode, path.c_str());
 	if (dnode)
-		dnode = dup_single_dnode(dnode);
+		dnode = yang_dnode_dup(dnode);
 
 	return dnode;
 }
