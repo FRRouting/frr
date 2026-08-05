@@ -952,9 +952,8 @@ static bool isis_bfd_get_bfd_nlpid_state(struct isis_adjacency *adj,
 		state = bfd_sess_status(adj->bfd_session_ipv4);
 	if (family == AF_INET6 && adj->bfd_session_ipv6)
 		state = bfd_sess_status(adj->bfd_session_ipv6);
-	if (state == BFD_STATUS_ADMIN_DOWN || state == BFD_STATUS_DOWN)
-		return false;
-	return true;
+
+	return state == BFD_STATUS_UP;
 }
 
 static void isis_bfd_update_rfc6213_topo_nlpid_required(struct isis_adjacency *adj, bool debug)
