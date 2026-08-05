@@ -26,7 +26,6 @@ DEFINE_MTYPE_STATIC(ISISD, BFD_LOCAL_MTID_NLPID, "ISIS BFD local MTID/NLPID");
 DEFINE_MTYPE_STATIC(ISISD, BFD_LOCAL_MTID, "ISIS BFD local MTID");
 
 
-static void isis_bfd_update_rfc6213(struct isis_adjacency *adj);
 static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
 					   uint8_t family);
 
@@ -1239,7 +1238,7 @@ static void isis_bfd_update_rfc6213_ipv6_required(struct isis_adjacency *adj, bo
  *  but internal variables that determines whether IPv4 and IPv6 BFD sessions
  *  should be active.
  */
-static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
+void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 {
 	struct listnode *node, *mtnode;
 	struct bfd_local_mtnlpid *bfd_local_pair;

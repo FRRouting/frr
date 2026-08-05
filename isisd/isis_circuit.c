@@ -273,6 +273,26 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 {
 	return (struct isis_circuit *)ifp->info;
 }
+/* Update RF6213 variables of circuit adjacencies*/
+static void isis_circuit_bfd_update_rfc6213(struct isis_circuit *circuit)
+{
+	struct isis_adjacency *adj;
+	struct listnode *node;
+	uint8_t level;
+
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		for (level = 0; level < 2; level++) {
+			if (!circuit->u.bc.adjdb[level])
+				continue;
+			if (!circuit->u.bc.adjdb[level]->count)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(circuit->u.bc.adjdb[level], node, adj))
+				isis_bfd_update_rfc6213(adj);
+		}
+	} else if (circuit->circ_type == CIRCUIT_T_P2P && circuit->u.p2p.neighbor)
+		isis_bfd_update_rfc6213(circuit->u.p2p.neighbor);
+}
 
 DEFINE_HOOK(isis_circuit_add_addr_hook,
 	    (struct isis_circuit * circuit, uint8_t family), (circuit, family));
@@ -287,6 +307,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 	struct listnode *node;
 	struct prefix_ipv4 *ipv4;
 	struct prefix_ipv6 *ipv6;
+	bool first_address;
+
 
 	if (connected->address->family == AF_INET) {
 		uint32_t addr = connected->address->u.prefix4.s_addr;
@@ -298,6 +320,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 			if (prefix_same((struct prefix *)ipv4,
 					connected->address))
 				return;
+
+		first_address = list_isempty(circuit->ip_addrs);
 
 		ipv4 = prefix_ipv4_new();
 		ipv4->prefixlen = connected->address->prefixlen;
@@ -323,6 +347,9 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 #endif /* EXTREME_DEBUG */
 	}
 	if (connected->address->family == AF_INET6) {
+		first_address = list_isempty(circuit->ipv6_link) &&
+				list_isempty(circuit->ipv6_non_link);
+
 		if (IN6_IS_ADDR_LOOPBACK(&connected->address->u.prefix6))
 			return;
 
@@ -363,6 +390,9 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 #endif /* EXTREME_DEBUG */
 	}
 
+	if (first_address)
+		isis_circuit_bfd_update_rfc6213(circuit);
+
 	hook_call(isis_circuit_add_addr_hook, circuit,
 		  connected->address->family);
 
@@ -376,6 +406,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 	struct listnode *node;
 	struct prefix_ipv6 *ipv6, *ip6 = NULL;
 	int found = 0;
+	bool last_address = false;
 
 	if (connected->address->family == AF_INET) {
 		ipv4 = prefix_ipv4_new();
@@ -389,6 +420,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 
 		if (ip) {
 			listnode_delete(circuit->ip_addrs, ip);
+			last_address = list_isempty(circuit->ip_addrs);
 			prefix_ipv4_free(&ip);
 			hook_call(isis_circuit_del_addr_hook, circuit, AF_INET);
 			if (circuit->area)
@@ -423,6 +455,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 			}
 			if (ip6) {
 				listnode_delete(circuit->ipv6_link, ip6);
+				last_address = list_isempty(circuit->ipv6_link);
 				prefix_ipv6_free(&ip6);
 				found = 1;
 			}
@@ -435,6 +468,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 			}
 			if (ip6) {
 				listnode_delete(circuit->ipv6_non_link, ip6);
+				last_address = list_isempty(circuit->ipv6_non_link);
 				prefix_ipv6_free(&ip6);
 				found = 1;
 			}
@@ -462,6 +496,10 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 
 		prefix_ipv6_free(&ipv6);
 	}
+
+	if (last_address)
+		isis_circuit_bfd_update_rfc6213(circuit);
+
 	return;
 }
 
