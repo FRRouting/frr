@@ -1181,6 +1181,9 @@ static void isis_bfd_update_rfc6213_ipv4_required(struct isis_adjacency *adj, bo
 	    adj->bfd_rfc6213.bfd_ipv4_required)
 		isis_bfd_transition_bfd_required(adj, true,
 						 "bfd_ipv4_required is True");
+
+	if (old_value != adj->bfd_rfc6213.bfd_ipv4_required)
+		isis_bfd_update_status_rfc6213(adj, AF_INET);
 }
 
 static void isis_bfd_update_rfc6213_ipv6_required(struct isis_adjacency *adj, bool debug)
@@ -1213,6 +1216,9 @@ static void isis_bfd_update_rfc6213_ipv6_required(struct isis_adjacency *adj, bo
 	    adj->bfd_rfc6213.bfd_ipv6_required)
 		isis_bfd_transition_bfd_required(adj, true,
 						 "bfd_ipv6_required is True");
+
+	if (old_value != adj->bfd_rfc6213.bfd_ipv6_required)
+		isis_bfd_update_status_rfc6213(adj, AF_INET6);
 }
 
 /* Update the RFC6213 variables :
@@ -1284,12 +1290,8 @@ void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 }
 
 /* Init or set down the BFD session of the specified address family */
-static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
-					   uint8_t family)
+void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj, uint8_t family)
 {
-	struct listnode *node;
-	struct bfd_local_mtnlpid *bfd_local_pair;
-	bool found;
 	char buf[BUFSIZ];
 
 	if (family != AF_INET && family != AF_INET6)
@@ -1321,72 +1323,20 @@ static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
 	 */
 	if ((family == AF_INET && !adj->bfd_rfc6213.bfd_ipv4_required) ||
 	    (family == AF_INET6 && !adj->bfd_rfc6213.bfd_ipv6_required)) {
-		snprintf(buf, sizeof(buf),
-			 "L%u adjacency %s, address family not required.",
+		snprintf(buf, sizeof(buf), "L%u adjacency %s, address family not required.",
 			 adj->level, isis_adj_name(adj));
 		bfd_handle_adj_down(adj, family, buf);
 		return;
 	}
 
-	/* RFC6213, 4.
-	 * If the value of "ISIS_BFD_REQUIRED" becomes "FALSE"
-	 * then BFD session establishment is no longer required
-	 * other case : at startup, BFD required is "FALSE"
-	 */
-	if (adj->bfd_rfc6213.bfd_required_last &&
-	    ((family == AF_INET && !adj->bfd_rfc6213.bfd_ipv4_required) ||
-	     (family == AF_INET6 && !adj->bfd_rfc6213.bfd_ipv6_required))) {
-		snprintf(buf, sizeof(buf),
-			 "L%u adjacency %s, ISIS_BFD_REQUIRED %s becomes false.",
-			 adj->level, isis_adj_name(adj), family2str(family));
-		bfd_handle_adj_down(adj, family, buf);
-		return;
-	}
-
-	found = false;
-	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
-				  bfd_local_pair)) {
-		if (bfd_local_pair->nlpid == NLPID_IP && family != AF_INET)
-			continue;
-		if (bfd_local_pair->nlpid == NLPID_IPV6 && family != AF_INET6)
-			continue;
-
-		found = true;
-		if (bfd_local_pair->topo_nlpid_bfd_required) {
-			if (family == AF_INET &&
-			    (!adj->bfd_session_ipv4 ||
-			     bfd_sess_status(adj->bfd_session_ipv4) !=
-				     BFD_STATUS_UP)) {
-				if (IS_DEBUG_BFD)
-					zlog_debug("ISIS-BFD: L%u adjacency %s IPv%d: initializing BFD.",
-						   adj->level,
-						   isis_adj_name(adj),
-						   family == AF_INET ? 4 : 6);
-				bfd_handle_run_bfd(adj, family);
-			}
-			if (family == AF_INET6 &&
-			    (!adj->bfd_session_ipv6 ||
-			     bfd_sess_status(adj->bfd_session_ipv6) !=
-				     BFD_STATUS_UP)) {
-				if (IS_DEBUG_BFD)
-					zlog_debug("ISIS-BFD: L%u adjacency %s IPv%d: initializing BFD.",
-						   adj->level,
-						   isis_adj_name(adj),
-						   family == AF_INET ? 4 : 6);
-				bfd_handle_run_bfd(adj, family);
-			}
-		} else {
-			snprintf(buf, sizeof(buf),
-				 "L%u adjacency %s, ISIS_TOPO_NLPID_BFD_REQUIRED is false.",
-				 adj->level, isis_adj_name(adj));
-			bfd_handle_adj_down(adj, family, buf);
-		}
-	}
-	if (!found) {
-		snprintf(buf, sizeof(buf),
-			 "L%u adjacency %s, local NLPID not found.", adj->level,
-			 isis_adj_name(adj));
-		bfd_handle_adj_down(adj, family, buf);
+	if ((family == AF_INET &&
+	     (!adj->bfd_session_ipv4 || bfd_sess_status(adj->bfd_session_ipv4) != BFD_STATUS_UP)) ||
+	    (family == AF_INET6 &&
+	     (!adj->bfd_session_ipv6 || bfd_sess_status(adj->bfd_session_ipv6) != BFD_STATUS_UP))) {
+		if (IS_DEBUG_BFD)
+			zlog_debug("ISIS-BFD: L%u adjacency %s IPv%d: initializing BFD.",
+				   adj->level, isis_adj_name(adj), family == AF_INET ? 4 : 6);
+		bfd_handle_run_bfd(adj, family);
 	}
 }
 
