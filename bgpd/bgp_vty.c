@@ -15886,31 +15886,26 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			char comm_attri_sent_to_nbr[BGP_SEND_COMMUNITY_STR_SIZE] = { 0 };
 
 			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)) {
-				strncat(comm_attri_sent_to_nbr, "standard",
-					sizeof(comm_attri_sent_to_nbr) -
-						strlen(comm_attri_sent_to_nbr) - 1);
+				strlcat(comm_attri_sent_to_nbr, "standard",
+					sizeof(comm_attri_sent_to_nbr));
 			}
 
 			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)) {
 				if (strlen(comm_attri_sent_to_nbr) > 0) {
-					strncat(comm_attri_sent_to_nbr, "And",
-						sizeof(comm_attri_sent_to_nbr) -
-							strlen(comm_attri_sent_to_nbr) - 1);
+					strlcat(comm_attri_sent_to_nbr, "And",
+						sizeof(comm_attri_sent_to_nbr));
 				}
-				strncat(comm_attri_sent_to_nbr, "extended",
-					sizeof(comm_attri_sent_to_nbr) -
-						strlen(comm_attri_sent_to_nbr) - 1);
+				strlcat(comm_attri_sent_to_nbr, "extended",
+					sizeof(comm_attri_sent_to_nbr));
 			}
 
 			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_LARGE_COMMUNITY)) {
 				if (strlen(comm_attri_sent_to_nbr) > 0) {
-					strncat(comm_attri_sent_to_nbr, "And",
-						sizeof(comm_attri_sent_to_nbr) -
-							strlen(comm_attri_sent_to_nbr) - 1);
+					strlcat(comm_attri_sent_to_nbr, "And",
+						sizeof(comm_attri_sent_to_nbr));
 				}
-				strncat(comm_attri_sent_to_nbr, "large",
-					sizeof(comm_attri_sent_to_nbr) -
-						strlen(comm_attri_sent_to_nbr) - 1);
+				strlcat(comm_attri_sent_to_nbr, "large",
+					sizeof(comm_attri_sent_to_nbr));
 			}
 
 			json_object_string_add(json_addr, "commAttriSentToNbr",
