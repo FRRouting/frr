@@ -202,6 +202,33 @@ static void eigrp_if_delete_one(struct eigrp_interface *ei)
 }
 
 /*
+ * Detach one running instance from its interface and free it, leaving the
+ * interface's configuration alone.
+ *
+ * Without this, stopping EIGRP on an interface would leave the instance in
+ * the interface's table and in the process-wide hash, so the interface would
+ * still look like it was running and could never be reactivated.
+ */
+static void eigrp_if_remove(struct eigrp_interface *ei)
+{
+	struct interface *ifp = ei->ifp;
+	struct route_node *rn;
+
+	rn = route_node_lookup(EIGRP_IF_EIFS(ifp), &ei->address);
+	if (rn) {
+		if (rn->info == ei) {
+			rn->info = NULL;
+			/* reference held for as long as rn->info was set */
+			route_unlock_node(rn);
+		}
+		/* reference taken by the lookup above */
+		route_unlock_node(rn);
+	}
+
+	eigrp_if_delete_one(ei);
+}
+
+/*
  * Tear down every running instance on an interface, but keep the interface's
  * configuration.
  *
@@ -570,6 +597,13 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 					       pe);
 
 	eigrp_if_down(ei);
+
+	/*
+	 * Drop the instance rather than leaving it behind stopped: a later
+	 * `network` statement covering this interface must be able to create
+	 * a fresh one.  The interface configuration is untouched.
+	 */
+	eigrp_if_remove(ei);
 }
 
 /* Simulate down/up on the interface.  This is needed, for example, when
