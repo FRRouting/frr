@@ -1436,13 +1436,47 @@ static void isis_bfd_show_mtid_nlpid(struct vty *vty, uint8_t mtid_nlpid)
 
 void isis_bfd_show_adjacency(struct vty *vty, struct isis_adjacency *adj)
 {
-	if (!adj->bfd_rfc6213.neighbor_mtid_nlpid)
-		return;
+	struct listnode *node;
+	struct bfd_local_mtnlpid *bfd_topo_nlpid;
+	struct bfd_local_mtid *bfd_topo;
+
 	vty_out(vty, "    RFC6213 (MTID,NLPID):\n");
 	vty_out(vty, "        Local   : ");
 	isis_bfd_show_mtid_nlpid(vty, adj->circuit->bfd_config.mtid_nlpid);
 	vty_out(vty, "        Neighbor: ");
 	isis_bfd_show_mtid_nlpid(vty, adj->bfd_rfc6213.neighbor_mtid_nlpid);
+
+	vty_out(vty, "    RFC6213 specific variables\n");
+
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node, bfd_topo_nlpid))
+		vty_out(vty, "        (%s,%s) ISIS_TOPO_NLPID_BFD_REQUIRED: %s\n",
+			isis_mtid2str(bfd_topo_nlpid->mtid), nlpid2str(bfd_topo_nlpid->nlpid),
+			bfd_topo_nlpid->topo_nlpid_bfd_required ? "True" : "False");
+
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtid_lst, node, bfd_topo))
+		vty_out(vty, "        %s ISIS_TOPO_BFD_REQUIRED: %s\n",
+			isis_mtid2str(bfd_topo->mtid),
+			bfd_topo->topo_bfd_required ? "True" : "False");
+
+	vty_out(vty, "        IPv4 required   : %s\n",
+		adj->bfd_rfc6213.bfd_ipv4_required ? "True" : "False");
+	vty_out(vty, "        IPv6 required   : %s\n",
+		adj->bfd_rfc6213.bfd_ipv6_required ? "True" : "False");
+
+	vty_out(vty, "        ISIS_BFD_REQUIRED   : %s\n",
+		adj->bfd_rfc6213.bfd_required ? "True" : "False");
+
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node, bfd_topo_nlpid))
+		vty_out(vty, "        (%s,%s) ISIS_TOPO_NLPID_STATE: %s\n",
+			isis_mtid2str(bfd_topo_nlpid->mtid), nlpid2str(bfd_topo_nlpid->nlpid),
+			bfd_topo_nlpid->topo_nlpid_state ? "True" : "False");
+
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtid_lst, node, bfd_topo))
+		vty_out(vty, "        %s ISIS_TOPO_USEABLE: %s\n", isis_mtid2str(bfd_topo->mtid),
+			bfd_topo->topo_useable ? "True" : "False");
+
+	vty_out(vty, "        ISIS_NEIGHBOR_USEABLE   : %s\n",
+		adj->bfd_rfc6213.neighbor_useable ? "True" : "False");
 }
 
 /* RFC6213, 4.
