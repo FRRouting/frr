@@ -273,7 +273,7 @@ static int process_p2p_hello(struct iih_info *iih)
 
 	/* RFC6213, 4. transition handling using hold timer
 	 */
-	if (isis_bfd_config_rfc6213_enabled(&iih->circuit->bfd_config) &&
+	if (isis_bfd_circuit_rfc6213_enabled(iih->circuit) &&
 	    isis_bfd_dont_update_adjacency_holdtime(adj))
 		isis_pdu_log_dont_update_adjacency_holdtime(adj);
 	else {
@@ -552,7 +552,7 @@ static int process_lan_hello(struct iih_info *iih)
 
 	/* RFC6213, 4. transition handling using hold timer
 	 */
-	if (isis_bfd_config_rfc6213_enabled(&iih->circuit->bfd_config) &&
+	if (isis_bfd_circuit_rfc6213_enabled(iih->circuit) &&
 	    isis_bfd_dont_update_adjacency_holdtime(adj))
 		isis_pdu_log_dont_update_adjacency_holdtime(adj);
 	else {
@@ -2044,13 +2044,10 @@ int send_hello(struct isis_circuit *circuit, int level)
 			if (fabricd_initial_sync_is_in_progress(circuit->area)
 			    && fabricd_initial_sync_circuit(circuit->area) != circuit)
 				threeway_state = ISIS_THREEWAY_DOWN;
-			else if (isis_bfd_config_rfc6213_enabled(
-					 &circuit->bfd_config) &&
+			else if (isis_bfd_circuit_rfc6213_enabled(circuit) &&
 				 circuit->u.p2p.neighbor &&
-				 circuit->u.p2p.neighbor->bfd_rfc6213
-					 .bfd_required &&
-				 !circuit->u.p2p.neighbor->bfd_rfc6213
-					  .neighbor_useable)
+				 circuit->u.p2p.neighbor->bfd_rfc6213.bfd_required &&
+				 !circuit->u.p2p.neighbor->bfd_rfc6213.neighbor_useable)
 				/* RFC6213, 3.2
 				 * Whenever "ISIS_BFD_REQUIRED" is "TRUE", ...
 				 * On a Point-to-Point circuit whenever "ISIS_NEIGHBOR_USEABLE" is

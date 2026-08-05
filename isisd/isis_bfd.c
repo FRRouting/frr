@@ -81,10 +81,8 @@ static bool isis_bfd_is_required_changed_up(struct isis_adjacency *adj,
 static bool isis_bfd_is_neighbor_not_useable(struct isis_adjacency *adj,
 					     bool debug_on)
 {
-	if (adj->adj_state == ISIS_ADJ_UP && adj->circuit &&
-	    adj->circuit->bfd_config.enabled &&
-	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
-	    adj->bfd_rfc6213.bfd_required &&
+	if (adj->adj_state == ISIS_ADJ_UP && adj->circuit && adj->circuit->bfd_config.enabled &&
+	    isis_bfd_circuit_rfc6213_enabled(adj->circuit) && adj->bfd_rfc6213.bfd_required &&
 	    !adj->bfd_rfc6213.neighbor_useable) {
 		/* RFC6213, 4.
 		 * To avoid disruptive transition to the use of BFD, do
@@ -140,9 +138,8 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 					   family2str(family));
 			return;
 		}
-		if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
-		    bss->state == BFD_STATUS_DOWN &&
-		    isis_bfd_is_required_changed_up(adj, true))
+		if (isis_bfd_circuit_rfc6213_enabled(adj->circuit) &&
+		    bss->state == BFD_STATUS_DOWN && isis_bfd_is_required_changed_up(adj, true))
 			return;
 	}
 	if (bss->state == BFD_STATUS_UP)
@@ -155,10 +152,9 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 	 * removed from the neighbor's BFD TLV by not updating the adjacency
 	 * hold time until "ISIS_BFD_REQUIRED" becomes "FALSE".
 	 */
-	if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
+	if (isis_bfd_circuit_rfc6213_enabled(adj->circuit) &&
 	    (neighbor_useable_last != adj->bfd_rfc6213.neighbor_useable) &&
-	    !adj->bfd_rfc6213.neighbor_useable &&
-	    isis_bfd_session_is_admin_down(adj, bsp, true))
+	    !adj->bfd_rfc6213.neighbor_useable && isis_bfd_session_is_admin_down(adj, bsp, true))
 		return;
 
 	SET_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_REFRESH);
@@ -200,8 +196,7 @@ static int bfd_handle_delete(struct isis_adjacency *adj)
 	struct bfd_local_mtnlpid *bfd_local_pair;
 	struct bfd_local_mtid *bfd_local_topo;
 
-	if (IS_DEBUG_BFD &&
-	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config))
+	if (IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit))
 		zlog_debug("ISIS-BFD: L%u adjacency %s becomes down. Cleaning RFC6213 structures.",
 			   adj->level, isis_adj_name(adj));
 
@@ -276,7 +271,7 @@ static void bfd_handle_run_bfd(struct isis_adjacency *adj, uint8_t family)
 	struct list *local_ips;
 	struct prefix *local_ip;
 
-	if (isis_bfd_config_rfc6213_enabled(&circuit->bfd_config) &&
+	if (isis_bfd_circuit_rfc6213_enabled(circuit) &&
 	    ((family == AF_INET && !adj->bfd_rfc6213.bfd_ipv4_required) ||
 	     (family == AF_INET6 && !adj->bfd_rfc6213.bfd_ipv6_required))) {
 		if (IS_DEBUG_BFD)
@@ -354,7 +349,7 @@ static void bfd_handle_run_bfd(struct isis_adjacency *adj, uint8_t family)
 	bfd_sess_install(bfd_session);
 
 	/* if rfc6213 is not enabled, keep only one bfd session */
-	if (!isis_bfd_config_rfc6213_enabled(&circuit->bfd_config))
+	if (!isis_bfd_circuit_rfc6213_enabled(circuit))
 		bfd_handle_adj_down(
 			adj, selected_family == AF_INET ? AF_INET6 : AF_INET,
 			"RFC6213 is disabled. Only one BFD session is supported.");
@@ -371,7 +366,7 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, uint8_t family)
 		goto out;
 	}
 
-	if (isis_bfd_config_rfc6213_enabled(&circuit->bfd_config)) {
+	if (isis_bfd_circuit_rfc6213_enabled(circuit)) {
 		isis_bfd_update_rfc6213(adj);
 		if (family == AF_UNSPEC) {
 			isis_bfd_update_status_rfc6213(adj, AF_INET);
@@ -384,9 +379,8 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, uint8_t family)
 	 * When the IS-IS adjacency is "UP" and "ISIS_NEIGHBOR_USEABLE"
 	 * becomes "FALSE", the IS-IS adjacency MUST transition to "DOWN".
 	 */
-	if (isis_bfd_config_rfc6213_enabled(&circuit->bfd_config) &&
-	    adj->adj_state == ISIS_ADJ_UP && adj->bfd_rfc6213.bfd_required &&
-	    !adj->bfd_rfc6213.neighbor_useable) {
+	if (isis_bfd_circuit_rfc6213_enabled(circuit) && adj->adj_state == ISIS_ADJ_UP &&
+	    adj->bfd_rfc6213.bfd_required && !adj->bfd_rfc6213.neighbor_useable) {
 		if (IS_DEBUG_BFD)
 			zlog_debug("ISIS-BFD: neighbor is not useable for L%u adjacency %s",
 				   adj->level, isis_adj_name(adj));
@@ -395,7 +389,7 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, uint8_t family)
 		goto out;
 	}
 
-	if (!isis_bfd_config_rfc6213_enabled(&circuit->bfd_config))
+	if (!isis_bfd_circuit_rfc6213_enabled(circuit))
 		bfd_handle_run_bfd(adj, AF_UNSPEC);
 	return;
 out:
@@ -405,8 +399,7 @@ out:
 
 void isis_bfd_init_adjacency(struct isis_adjacency *adj)
 {
-	if (IS_DEBUG_BFD &&
-	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config))
+	if (IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit))
 		zlog_debug("ISIS-BFD: L%u adjacency %s becomes up. Initializing RFC6213 structures.",
 			   adj->level, isis_adj_name(adj));
 
@@ -449,7 +442,7 @@ static void bfd_adj_cmd(struct isis_adjacency *adj)
 	}
 	adj->bfd_rfc6213.config_enabled_last = adj->circuit->bfd_config.enabled;
 	/* case 'isis bfd use-tlv-ipv[4,6] changed */
-	if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+	if (isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
 		if (changed)
 			family = AF_UNSPEC;
 		if (adj->bfd_rfc6213.config_rfc6213_ipv4_last !=
@@ -577,7 +570,7 @@ static int bfd_handle_circuit_del_addr(struct isis_circuit *circuit,
 		if (family == AF_INET6 && !adj->bfd_session_ipv6)
 			continue;
 
-		if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+		if (isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
 			isis_bfd_update_rfc6213(adj);
 			isis_bfd_update_status_rfc6213(adj, family);
 		}
@@ -607,8 +600,7 @@ static int bfd_handle_nlpids_update(struct isis_circuit *circuit)
 		}
 		for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj)) {
 			isis_bfd_update_rfc6213(adj);
-			if (isis_bfd_config_rfc6213_enabled(
-				    &adj->circuit->bfd_config)) {
+			if (isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
 				isis_bfd_update_status_rfc6213(adj, AF_INET);
 				isis_bfd_update_status_rfc6213(adj, AF_INET6);
 			}
@@ -619,8 +611,7 @@ static int bfd_handle_nlpids_update(struct isis_circuit *circuit)
 		adj = circuit->u.p2p.neighbor;
 		if (adj && adj->adj_state == ISIS_ADJ_UP) {
 			isis_bfd_update_rfc6213(adj);
-			if (isis_bfd_config_rfc6213_enabled(
-				    &adj->circuit->bfd_config)) {
+			if (isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
 				isis_bfd_update_status_rfc6213(adj, AF_INET);
 				isis_bfd_update_status_rfc6213(adj, AF_INET6);
 			}
@@ -740,8 +731,7 @@ void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,
 
 	bfd_tlv_changed = prev_mtid_nlpid != *mtid_nlpid;
 
-	if (IS_DEBUG_BFD && bfd_tlv_changed &&
-	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+	if (IS_DEBUG_BFD && bfd_tlv_changed && isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
 		for (unsigned int i = 0; i < sizeof(mtid_nlpid_flag) * 8; i++) {
 			mtid_nlpid_flag = 0x1 << i;
 			if (CHECK_FLAG(*mtid_nlpid, mtid_nlpid_flag))
@@ -752,8 +742,7 @@ void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,
 		}
 	}
 
-	if (bfd_tlv_changed &&
-	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+	if (bfd_tlv_changed && isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
 		isis_bfd_update_rfc6213(adj);
 		isis_bfd_update_status_rfc6213(adj, AF_INET);
 		isis_bfd_update_status_rfc6213(adj, AF_INET6);
@@ -950,7 +939,7 @@ isis_bfd_adjacency_update_rfc6213_local_params(struct isis_adjacency *adj)
 
 	bfd_conf = &adj->circuit->bfd_config;
 
-	if (IS_DEBUG_BFD && isis_bfd_config_rfc6213_enabled(bfd_conf))
+	if (IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit))
 		zlog_debug("ISIS-BFD: updating RFC6213 local variables for L%u adjacency %s",
 			   adj->level, isis_adj_name(adj));
 
@@ -1039,8 +1028,7 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 	struct bfd_local_mtid *bfd_local_topo;
 	bool old_value, debug;
 
-	debug = IS_DEBUG_BFD &&
-		isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config);
+	debug = IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit);
 
 	if (debug)
 		zlog_debug("ISIS-BFD: %s RFC6213 variables for L%u adjacency %s",
@@ -1234,8 +1222,7 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		}
 	}
 
-	if (IS_DEBUG_BFD &&
-	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
+	if (IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit) &&
 	    adj->bfd_rfc6213.bfd_required_last != adj->bfd_rfc6213.bfd_required) {
 		zlog_debug("ISIS-BFD: BFD is %srequired for L%u adjacency %s",
 			   adj->bfd_rfc6213.bfd_required ? "" : "not ",
@@ -1307,8 +1294,7 @@ static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
 		return;
 	}
 
-	if (!adj->circuit ||
-	    !isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+	if (!adj->circuit || !isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
 		if (IS_DEBUG_BFD)
 			zlog_debug("ISIS-BFD: L%u adjacency %s IPv%d RFC6213 is disabled.",
 				   adj->level, isis_adj_name(adj),
@@ -1392,11 +1378,9 @@ static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
 	}
 }
 
-bool isis_bfd_config_rfc6213_enabled(struct bfd_conf *config)
+bool isis_bfd_circuit_rfc6213_enabled(struct isis_circuit *circuit)
 {
-	if (config->rfc6213_ipv4 || config->rfc6213_ipv6)
-		return true;
-	return false;
+	return circuit->bfd_config.rfc6213_ipv4 || circuit->bfd_config.rfc6213_ipv6;
 }
 
 static void isis_bfd_show_mtid_nlpid(struct vty *vty, uint8_t mtid_nlpid)

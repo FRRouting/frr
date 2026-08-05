@@ -96,7 +96,7 @@ struct bfd_rfc6213_params {
 
 void isis_bfd_circuit_cmd(struct isis_circuit *circuit);
 void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit);
-bool isis_bfd_config_rfc6213_enabled(struct bfd_conf *config);
+bool isis_bfd_circuit_rfc6213_enabled(struct isis_circuit *circuit);
 void isis_bfd_init_adjacency(struct isis_adjacency *adj);
 void isis_bfd_show_adjacency(struct vty *vty, struct isis_adjacency *adj);
 void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,

@@ -324,11 +324,9 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 		return;
 
 	/* RFC6213: BFD should keep adjacency to init, while BFD is not up */
-	if (old_state == ISIS_ADJ_INITIALIZING &&
-	    new_state != ISIS_ADJ_UNKNOWN &&
-	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
-	    ((adj->bfd_rfc6213.bfd_required &&
-	      !adj->bfd_rfc6213.neighbor_useable) ||
+	if (old_state == ISIS_ADJ_INITIALIZING && new_state != ISIS_ADJ_UNKNOWN &&
+	    isis_bfd_circuit_rfc6213_enabled(adj->circuit) &&
+	    ((adj->bfd_rfc6213.bfd_required && !adj->bfd_rfc6213.neighbor_useable) ||
 	     !isis_bfd_is_bfd_state_up(adj))) {
 		if (IS_DEBUG_ADJ_PACKETS) {
 			zlog_debug("ISIS-Adj (%s): BFD down, Ignore Adjacency state change %d->%d: %s",
@@ -871,8 +869,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 					? ""
 					: bfd_get_status_str(bfd_sess_status(
 						  bfd_session)));
-			if (isis_bfd_config_rfc6213_enabled(
-				    &adj->circuit->bfd_config))
+			if (isis_bfd_circuit_rfc6213_enabled(adj->circuit))
 				isis_bfd_show_adjacency(vty, adj);
 		}
 		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
@@ -930,7 +927,7 @@ void isis_adj_build_neigh_list(struct list *adjdb, struct list *list)
 		 * IS Neighbors TLV advertising the Media Access Control (MAC)
 		 * address of the neighbor MUST be omitted in all transmitted IIHs.
 		 */
-		if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+		if (isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
 			/* RFC6213, 3.2
 			 * "ISIS_NEIGHBOR_USEABLE" MUST be "TRUE" before the adjacency can
 			 * transition from "INIT" to "UP" state.
