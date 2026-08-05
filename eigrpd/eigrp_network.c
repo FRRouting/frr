@@ -328,8 +328,13 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	prefix_ipv4_free((struct prefix_ipv4 **)&rn->info);
 	route_unlock_node(rn); /* initial reference */
 
-	/* Find interfaces that not configured already.  */
-	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
+	/*
+	 * Find interfaces that not configured already.
+	 *
+	 * Iterate safely: eigrp_if_free() now removes the instance from this
+	 * hash.
+	 */
+	frr_each_safe (eigrp_interface_hash, &eigrp->eifs, ei) {
 		bool found = false;
 
 		for (rn = route_top(eigrp->networks); rn; rn = route_next(rn)) {
