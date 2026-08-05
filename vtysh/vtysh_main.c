@@ -342,7 +342,7 @@ static void log_it(const char *line)
 
 static int flock_fd;
 
-static void vtysh_flock_config(const char *flock_file)
+static int vtysh_flock_config(const char *flock_file)
 {
 	int count = 0;
 
@@ -350,7 +350,7 @@ static void vtysh_flock_config(const char *flock_file)
 	if (flock_fd < 0) {
 		fprintf(stderr, "Unable to create lock file: %s, %s\n",
 			flock_file, safe_strerror(errno));
-		return;
+		return -1;
 	}
 
 	while (count < 400 && (flock(flock_fd, LOCK_EX | LOCK_NB) < 0)) {
@@ -358,10 +358,15 @@ static void vtysh_flock_config(const char *flock_file)
 		usleep(500000);
 	}
 
-	if (count >= 400)
+	if (count >= 400) {
 		fprintf(stderr,
 			"Flock of %s failed, continuing this may cause issues\n",
 			flock_file);
+		close(flock_fd);
+		return -1;
+	}
+
+	return 0;
 }
 
 static void vtysh_unflock_config(void)
@@ -691,9 +696,12 @@ int main(int argc, char **argv, char **env)
 		inputfile = frr_config;
 
 	if (inputfile || boot_flag) {
-		vtysh_flock_config(inputfile);
-		ret = vtysh_apply_config(inputfile, dryrun, !no_fork);
-		vtysh_unflock_config();
+		if (vtysh_flock_config(inputfile) < 0)
+			ret = 1;
+		else {
+			ret = vtysh_apply_config(inputfile, dryrun, !no_fork);
+			vtysh_unflock_config();
+		}
 
 		if (no_error)
 			ret = 0;
