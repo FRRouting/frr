@@ -1047,7 +1047,6 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 
 	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
 				  bfd_local_pair)) {
-		old_value = bfd_local_pair->topo_nlpid_bfd_required;
 		if (isis_bfd_mtnlpid_enabled(adj->bfd_rfc6213.neighbor_mtid_nlpid,
 					     bfd_local_pair->mtid,
 					     bfd_local_pair->nlpid))
@@ -1055,6 +1054,7 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		else
 			bfd_local_pair->topo_nlpid_bfd_required = false;
 
+		old_value = bfd_local_pair->topo_nlpid_bfd_required;
 		/* TO DO: to be moved somewhere else */
 		if (old_value == false &&
 		    bfd_local_pair->topo_nlpid_bfd_required)
@@ -1222,8 +1222,7 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		}
 	}
 
-	if (IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit) &&
-	    adj->bfd_rfc6213.bfd_required_last != adj->bfd_rfc6213.bfd_required) {
+	if (debug && adj->bfd_rfc6213.bfd_required_last != adj->bfd_rfc6213.bfd_required) {
 		zlog_debug("ISIS-BFD: BFD is %srequired for L%u adjacency %s",
 			   adj->bfd_rfc6213.bfd_required ? "" : "not ",
 			   adj->level, isis_adj_name(adj));
