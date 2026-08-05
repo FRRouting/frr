@@ -406,33 +406,36 @@ static void static_bfd_show_path_json(struct vty *vty, struct json_object *jo,
 
 static void static_bfd_show_json(struct vty *vty)
 {
-	struct json_object *jo, *jo_path, *jo_afi_safi;
+	struct json_object *jo, *jo_path;
+	struct json_object *jo_ipv4_unicast, *jo_ipv4_multicast;
+	struct json_object *jo_ipv6_unicast;
 	struct static_vrf *svrf;
 
 	jo = json_object_new_object();
 	jo_path = json_object_new_object();
+	jo_ipv4_unicast = json_object_new_array();
+	jo_ipv4_multicast = json_object_new_array();
+	jo_ipv6_unicast = json_object_new_array();
 
 	json_object_object_add(jo, "path-list", jo_path);
+	json_object_object_add(jo_path, "ipv4-unicast", jo_ipv4_unicast);
+	json_object_object_add(jo_path, "ipv4-multicast", jo_ipv4_multicast);
+	json_object_object_add(jo_path, "ipv6-unicast", jo_ipv6_unicast);
+
 	RB_FOREACH (svrf, svrf_name_head, &svrfs) {
 		struct route_table *rt;
 
-		jo_afi_safi = json_object_new_array();
-		json_object_object_add(jo_path, "ipv4-unicast", jo_afi_safi);
 		rt = svrf->stable[AFI_IP][SAFI_UNICAST];
 		if (rt)
-			static_bfd_show_path_json(vty, jo_afi_safi, rt);
+			static_bfd_show_path_json(vty, jo_ipv4_unicast, rt);
 
-		jo_afi_safi = json_object_new_array();
-		json_object_object_add(jo_path, "ipv4-multicast", jo_afi_safi);
 		rt = svrf->stable[AFI_IP][SAFI_MULTICAST];
 		if (rt)
-			static_bfd_show_path_json(vty, jo_afi_safi, rt);
+			static_bfd_show_path_json(vty, jo_ipv4_multicast, rt);
 
-		jo_afi_safi = json_object_new_array();
-		json_object_object_add(jo_path, "ipv6-unicast", jo_afi_safi);
 		rt = svrf->stable[AFI_IP6][SAFI_UNICAST];
 		if (rt)
-			static_bfd_show_path_json(vty, jo_afi_safi, rt);
+			static_bfd_show_path_json(vty, jo_ipv6_unicast, rt);
 	}
 
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
