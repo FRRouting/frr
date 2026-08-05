@@ -863,14 +863,33 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 					      ? adj->bfd_session_ipv4
 					      : adj->bfd_session_ipv6;
 
-			vty_out(vty, "    BFD is %s%s\n",
-				bfd_session ? "active, status " : "configured",
-				!bfd_session
-					? ""
-					: bfd_get_status_str(bfd_sess_status(
-						  bfd_session)));
-			if (isis_bfd_circuit_rfc6213_enabled(adj->circuit))
+			if (isis_bfd_circuit_rfc6213_enabled(adj->circuit)) {
+				vty_out(vty, "    BFD is %s\n",
+					bfd_session ? "active" : "configured");
+
+				vty_out(vty, "    BFD TLV IPv4 is %s%s\n",
+					adj->bfd_session_ipv4			? "active, status "
+					: adj->circuit->bfd_config.rfc6213_ipv4 ? "configured"
+										: "",
+					adj->bfd_session_ipv4 ? bfd_get_status_str(bfd_sess_status(
+									adj->bfd_session_ipv4))
+							      : "");
+				vty_out(vty, "    BFD TLV IPv6 is %s%s\n",
+					adj->bfd_session_ipv6			? "active, status "
+					: adj->circuit->bfd_config.rfc6213_ipv6 ? "configured"
+										: "",
+					adj->bfd_session_ipv6 ? bfd_get_status_str(bfd_sess_status(
+									adj->bfd_session_ipv6))
+							      : "");
+
 				isis_bfd_show_adjacency(vty, adj);
+			} else {
+				vty_out(vty, "    BFD is %s%s\n",
+					bfd_session ? "active, status " : "configured",
+					bfd_session
+						? bfd_get_status_str(bfd_sess_status(bfd_session))
+						: "");
+			}
 		}
 		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
 			const char *adj_type;
