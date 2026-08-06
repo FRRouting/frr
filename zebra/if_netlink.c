@@ -1077,6 +1077,60 @@ netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 }
 
 /*
+ * Encoder for the SRv6 VPWS bridge-create / port set-master / link-delete
+ * dataplane ops.  This is the netlink message building that previously lived in
+ * module-private helpers in zebra_srv6_vpws.c (vpws_nl_bridge_create /
+ * vpws_nl_set_master / vpws_nl_link_delete), re-homed here so it runs through
+ * the dataplane provider's batch socket instead of a private netlink_talk().
+ */
+static ssize_t netlink_link_update_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+					       size_t buflen)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[];
+	} *req = buf;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+
+	if (buflen < sizeof(*req))
+		return 0;
+	memset(req, 0, sizeof(*req));
+
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req->ifi.ifi_family = AF_UNSPEC;
+
+	/*
+	 * if/else on op (rather than switch) intentionally: this encoder only
+	 * ever handles the three link ops below, and a switch over the full
+	 * dplane_op_e would trip -Wswitch-enum.  Mirrors netlink_intf_msg_encoder.
+	 */
+	if (op == DPLANE_OP_INTF_SET_MASTER) {
+		req->n.nlmsg_type = RTM_SETLINK;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+		if (!nl_attr_put32(&req->n, buflen, IFLA_MASTER,
+				   dplane_ctx_get_ifp_master_ifindex(ctx)))
+			return 0;
+	} else if (op == DPLANE_OP_LINK_DELETE) {
+		req->n.nlmsg_type = RTM_DELLINK;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+	} else {
+		flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
+			 "Context for link update with incorrect OP code (%u)", op);
+		return -1;
+	}
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
+}
+
+enum netlink_msg_status netlink_put_link_update_msg(struct nl_batch *bth,
+						    struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_link_update_msg_encoder, false);
+}
+
+/*
  * Parse and validate an incoming interface address change message,
  * generating a dplane context object.
  * This runs in the dplane pthread; the context is enqueued to the
