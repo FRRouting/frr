@@ -999,8 +999,14 @@ struct bgp {
 	/* EVPN enable - advertise gateway macip routes */
 	int advertise_gw_macip;
 
-	/* EVPN enable - advertise local VNIs and their MACs etc. */
+	/* EVPN enable (VXLAN) - `advertise-all-vni`: advertise VXLAN VNIs. */
 	int advertise_all_vni;
+
+	/* EVPN enable (SRv6) - `advertise-srv6-evpn`: advertise SRv6 EVIs.
+	 * Independent of advertise_all_vni; either flag makes EVPN_ENABLED true.
+	 * Each flag scopes which transport's VNIs/EVIs are advertised.
+	 */
+	int l2vpn_evpn_enabled;
 
 	/* draft-ietf-idr-deprecate-as-set-confed-set
 	 * Reject aspaths with AS_SET and/or AS_CONFED_SET.
@@ -1021,6 +1027,14 @@ struct bgp {
 	/* Hash tables of fully qualified and wildcard import RTs to VNIs */
 	struct bgp_evpn_l2vni_fq_irt_head l2vni_fq_irt_nodes;
 	struct bgp_evpn_l2vni_wildcard_irt_head l2vni_wildcard_irt_nodes;
+
+	/*
+	 * EVPN data-plane encapsulation is now decided PER-EVI (is_vpn_srv6(),
+	 * driven by the per-EVI End.DT2U/DT2M SIDs zebra reports in
+	 * ZEBRA_VNI_ADD), not by a BGP-instance-wide mode.  The former
+	 * `encapsulation [srv6|vxlan]` command and `bgp->evpn_encap` field were
+	 * removed so one instance can carry a mix of VXLAN and SRv6 EVIs.
+	 */
 
 	/* Hash tables of fully qualified and wildcard VRF import RTs to
 	 * VRFs
