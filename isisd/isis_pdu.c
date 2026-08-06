@@ -260,6 +260,9 @@ static int process_p2p_hello(struct iih_info *iih)
 	changed |= tlvs_to_adj_mt_set(iih->tlvs, iih->v4_usable, iih->v6_usable,
 				      adj);
 
+	if (changed)
+		isis_bfd_update_rfc6213(adj);
+
 	if (isis_bfd_dont_update_adjacency_holdtime(adj)) {
 		/* RFC6213, 4. transition handling using hold timer */
 		if (IS_DEBUG_ADJ_PACKETS)
@@ -538,6 +541,8 @@ static int process_lan_hello(struct iih_info *iih)
 	isis_tlvs_to_adj(iih->tlvs, adj, &changed);
 	changed |= tlvs_to_adj_mt_set(iih->tlvs, iih->v4_usable, iih->v6_usable,
 				      adj);
+	if (changed)
+		isis_bfd_update_rfc6213(adj);
 
 	if (isis_bfd_dont_update_adjacency_holdtime(adj)) {
 		/* RFC6213, 4. transition handling using hold timer */
