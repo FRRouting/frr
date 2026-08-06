@@ -63,6 +63,16 @@ static int16_t seg6_genl_family = -1;
  */
 static int16_t ethtool_genl_family = -1;
 
+int16_t genl_family_ethtool(void)
+{
+	return ethtool_genl_family;
+}
+
+int16_t genl_family_seg6(void)
+{
+	return seg6_genl_family;
+}
+
 static int genl_parse_getfamily(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	int len;

@@ -15,7 +15,6 @@
 extern "C" {
 #endif
 
-
 /*
  * Additional protocol strings to push into routes
  * If we add anything new here please make sure
@@ -125,7 +124,7 @@ const char *neigh_flags2str(uint32_t flags, char *buf, size_t buflen);
 const char *ifa_flags2str(uint32_t flags, char *buf, size_t buflen);
 const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen);
 
-void nl_dump(void *msg, size_t msglen);
+void nl_dump(const struct nlsock *nl, void *msg, size_t msglen);
 
 extern int zebra2proto(int proto);
 
