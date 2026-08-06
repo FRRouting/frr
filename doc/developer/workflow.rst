@@ -372,6 +372,14 @@ systems. Once the automated tests succeed, other developers will review your
 code for quality and correctness. After any concerns are resolved, your code
 will be merged into the branch it was submitted against.
 
+Opening a new PR over code that is already in a PR, is not an appropriate
+way to develop.  This removes any history from the new PR as such, we cannot
+easily track if comments are missed/addressed.  As such PR's that just re-open
+a new PR for an existing PR will be summarily closed.  The take over of a PR by
+a new submitter is the only case where a new PR can be opened.  This should be
+discussed with a current maintainer before this is done though.  A submitter
+is expected to do a rebase and a force push on the current branch.
+
 The title of the pull request should provide a high level technical
 summary of the included patches.  The description should provide
 additional details that will help the reviewer to understand the context
