@@ -182,6 +182,7 @@ extern int zebra_vxlan_if_add(struct interface *ifp);
 extern int zebra_vxlan_if_update(struct interface *ifp,
 				 struct zebra_vxlan_if_update_ctx *ctx);
 extern int zebra_vxlan_if_del(struct interface *ifp);
+extern void zebra_vxlan_if_ref_cleanup(struct interface *ifp);
 extern void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 					    int filter, int add);
 extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
