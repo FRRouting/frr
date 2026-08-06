@@ -31,6 +31,10 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_debug.h"
+#include "lib/srv6.h"
+#include "termtable.h"
 
 #define SHOW_DISPLAY_STANDARD 0
 #define SHOW_DISPLAY_TAGS 1
@@ -534,13 +538,18 @@ static void display_l2vni(struct vty *vty, struct bgpevpn *vpn, json_object *jso
 			json_object_string_add(json, "siteOfOrigin", soo_str);
 		json_object_string_add(json, "sviInterface",
 				       ifindex2ifname(vpn->svi_ifindex, vpn->tenant_vrf_id));
+
+		if (CHECK_FLAG(vpn->flags, VNI_FLAG_EVI))
+			json_object_boolean_true_add(json, "evi");
 	} else {
-		vty_out(vty, "VNI: %u", vpn->vni);
+		vty_out(vty, "%s: %u", CHECK_FLAG(vpn->flags, VNI_FLAG_EVI) ? "EVI" : "VNI",
+			vpn->vni);
 		if (is_vni_live(vpn))
 			vty_out(vty, " (known to the kernel)");
 		vty_out(vty, "\n");
 
-		vty_out(vty, "  Type: %s\n", "L2");
+		vty_out(vty, "  Type: %s\n",
+			CHECK_FLAG(vpn->flags, VNI_FLAG_EVI) ? "L2 (SRv6 EVI)" : "L2");
 		vty_out(vty, "  Tenant-Vrf: %s\n", vrf_id_to_name(vpn->tenant_vrf_id));
 		vty_out(vty, "  RD: ");
 		vty_out(vty, BGP_RD_AS_FORMAT(asnotation), &vpn->prd);
@@ -1374,6 +1383,302 @@ DEFUN(show_ip_bgp_l2vpn_evpn,
 {
 	return bgp_show_ethernet_vpn(vty, NULL, bgp_show_type_normal, NULL, SHOW_DISPLAY_STANDARD,
 				     use_json(argc, argv), false);
+}
+
+/* ---------------------------------------------------------------------- */
+/* `show bgp l2vpn evpn srv6` - focused view of EVPN routes carrying an   */
+/* SRv6 L2 Service SID (Type-1/2/3 with attr.srv6_l2vpn set).             */
+/* ---------------------------------------------------------------------- */
+
+/*
+ * Map the EVPN route type encoded in the prefix to the SRv6 endpoint
+ * behavior we attach to it in this codebase:
+ *   Type-1 (EAD/EVI)  -> End.DX2  (cross-connect)
+ *   Type-2 (MAC/IP)   -> End.DT2U (unicast bridge MAC lookup)
+ *   Type-3 (IMET)     -> End.DT2M (BUM flooding)
+ * The actual behavior carried in attr.srv6_l2vpn->endpoint_behavior is the
+ * authoritative value and is what we render; this helper only provides a
+ * fallback label when the codepoint is unknown.
+ */
+static const char *show_evpn_srv6_behavior_str(uint16_t behavior)
+{
+	const char *s = srv6_endpoint_behavior_codepoint2str(behavior);
+
+	return (s && s[0]) ? s : "unknown";
+}
+
+/*
+ * Per-route compact line for `show bgp l2vpn evpn srv6` (non-detail).
+ * Layout:
+ *   [type]  prefix                                sid             behavior   nexthop
+ */
+static void show_evpn_srv6_route_line(struct ttable *tt, const struct prefix_evpn *evp,
+				      const struct prefix *p, struct bgp_path_info *pi)
+{
+	const struct bgp_attr_srv6_l3service *s = bgp_attr_get_srv6_l2vpn(pi->attr);
+	char pfxbuf[PREFIX2STR_BUFFER];
+	char sidbuf[INET6_ADDRSTRLEN];
+	char nhbuf[INET6_ADDRSTRLEN];
+
+	snprintfrr(pfxbuf, sizeof(pfxbuf), "%pFX", p);
+	snprintfrr(sidbuf, sizeof(sidbuf), "%pI6", &s->sid);
+
+	if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+	    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
+		snprintfrr(nhbuf, sizeof(nhbuf), "%pI4", &pi->attr->mp_nexthop_global_in);
+	else
+		snprintfrr(nhbuf, sizeof(nhbuf), "%pI6", &pi->attr->mp_nexthop_global);
+
+	ttable_add_row(tt, "[%u]|%s|%s|%s|%s", evp->prefix.route_type, pfxbuf, sidbuf,
+		       show_evpn_srv6_behavior_str(s->endpoint_behavior), nhbuf);
+}
+
+/*
+ * Walk one VNI's ip_table + mac_table and render every path that carries an
+ * SRv6 L2 service SID.  Header line is emitted lazily so VNIs without any
+ * SRv6-tagged routes don't clutter the output.
+ */
+struct evpn_srv6_walk_ctx {
+	struct vty *vty;
+	struct bgp *bgp;
+	bool detail;
+	uint32_t prefix_cnt;
+	uint32_t path_cnt;
+};
+
+/*
+ * Stringify the EVI L2 service type reported by zebra in ZEBRA_VNI_ADD
+ * (enum zevpn_l2_service: 0 = vlan-aware-bundle, 1 = vlan-based,
+ * 2 = vlan-bundle).  Kept local to bgpd to avoid a zebra header dependency.
+ */
+static const char *bgp_evpn_svc_type2str(uint8_t svc)
+{
+	switch (svc) {
+	case 0:
+		return "vlan-aware-bundle";
+	case 1:
+		return "vlan-based";
+	case 2:
+		return "vlan-bundle";
+	default:
+		return "unknown";
+	}
+}
+
+/*
+ * Per-EVI End.DT2U (Type-2) / End.DT2M (Type-3) SID row for
+ * `show bgp segment-routing srv6 evpn`.  Under the VXLAN-decoupled SRv6
+ * design each EVI owns its own End.DT2U/End.DT2M SIDs (allocated by zebra,
+ * reported in ZEBRA_VNI_ADD); list them with the EVI id and L2 service type.
+ */
+static void show_srv6_evi_sid_entry(struct hash_bucket *bucket, void *args[])
+{
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	struct ttable *tt = args[0];
+	uint32_t *cnt = args[1];
+	char dt2u[INET6_ADDRSTRLEN];
+	char dt2m[INET6_ADDRSTRLEN];
+
+	if (vpn->srv6_dt2u_sid_valid)
+		snprintfrr(dt2u, sizeof(dt2u), "%pI6", &vpn->srv6_dt2u_sid);
+	else
+		strlcpy(dt2u, "<unallocated>", sizeof(dt2u));
+	if (vpn->srv6_dt2m_sid_valid)
+		snprintfrr(dt2m, sizeof(dt2m), "%pI6", &vpn->srv6_dt2m_sid);
+	else
+		strlcpy(dt2m, "<unallocated>", sizeof(dt2m));
+
+	ttable_add_row(tt, "%u|%s|%s|%s|%s", vpn->vni, bgp_evpn_svc_type2str(vpn->srv6_svc_type),
+		       vpn->srv6_locator_name[0] ? vpn->srv6_locator_name : "-", dt2u, dt2m);
+	(*cnt)++;
+}
+
+/* Dump a BLANK-styled ttable to vty, prefixing each line with @indent spaces
+ * so the auto-aligned table nests under the surrounding show output.
+ */
+static void bgp_evpn_srv6_ttable_dump(struct vty *vty, struct ttable *tt, const char *indent)
+{
+	char *table, *line, *saveptr;
+
+	if (tt->nrows <= 1)
+		return;
+	table = ttable_dump(tt, "\n");
+	for (line = strtok_r(table, "\n", &saveptr); line; line = strtok_r(NULL, "\n", &saveptr))
+		vty_out(vty, "%s%s\n", indent, line);
+	XFREE(MTYPE_TMP_TTABLE, table);
+}
+
+/*
+ * Render the per-EVI End.DT2U/End.DT2M SID table for the SRv6-encap branch of
+ * `show bgp segment-routing srv6 evpn` (bgp_show_srv6_evpn_instance(), which
+ * lives in bgp_vty.c and has no access to the private bgpevpn internals).
+ */
+void bgp_evpn_show_srv6_evi_sids(struct vty *vty, struct bgp *bgp)
+{
+	uint32_t cnt = 0;
+	void *args[2];
+	struct ttable *tt;
+
+	if (!bgp || !bgp->vnihash)
+		return;
+
+	/* Auto-aligning table so long locator names (e.g. MAIN_VLAN_BUNDLE_2)
+	 * no longer push the SID columns out of alignment.
+	 */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "EVI|Service-Type|Locator|End.DT2U (Type-2)|End.DT2M (Type-3)");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = ' ';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	args[0] = tt;
+	args[1] = &cnt;
+	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *, void *))show_srv6_evi_sid_entry,
+		     args);
+
+	if (cnt == 0)
+		vty_out(vty, "      (no EVIs configured)\n");
+	else
+		bgp_evpn_srv6_ttable_dump(vty, tt, "      ");
+	ttable_del(tt);
+}
+
+static void show_evpn_srv6_routes_per_vni(struct hash_bucket *bucket, void *arg)
+{
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	struct evpn_srv6_walk_ctx *wctx = arg;
+	struct vty *vty = wctx->vty;
+	struct bgp_table *tables[2];
+	bool header_printed = false;
+	struct ttable *tt = NULL;
+	int t;
+
+	tables[0] = vpn->ip_table;
+	tables[1] = vpn->mac_table;
+
+	for (t = 0; t < 2; t++) {
+		struct bgp_table *table = tables[t];
+		struct bgp_dest *dest;
+
+		if (!table)
+			continue;
+
+		for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+			const struct prefix *p = bgp_dest_get_prefix(dest);
+			const struct prefix_evpn *evp = (const struct prefix_evpn *)p;
+			struct bgp_path_info *pi;
+			bool route_matched = false;
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+				if (!pi->attr || !bgp_attr_get_srv6_l2vpn(pi->attr))
+					continue;
+
+				if (!header_printed) {
+					vty_out(vty, "\n  EVI %u", vpn->vni);
+					if (vpn->prd_pretty)
+						vty_out(vty, "  (RD %s)", vpn->prd_pretty);
+					vty_out(vty, "\n");
+					vty_out(vty, "    Service-type: %s\n",
+						bgp_evpn_svc_type2str(vpn->srv6_svc_type));
+					if (!wctx->detail) {
+						/* Auto-aligning table so long Type-2
+						 * MAC+IP prefixes don't misalign the
+						 * SID/Behavior/Nexthop columns.
+						 */
+						tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+						ttable_add_row(tt,
+							       "Type|Prefix|SID|Behavior|Nexthop");
+						tt->style.cell.rpad = 2;
+						tt->style.corner = ' ';
+						ttable_restyle(tt);
+						ttable_rowseps(tt, 0, BOTTOM, true, '-');
+					}
+					header_printed = true;
+				}
+
+				if (wctx->detail)
+					route_vty_out_detail(vty, wctx->bgp, dest, p, pi,
+							     AFI_L2VPN, SAFI_EVPN,
+							     RPKI_NOT_BEING_USED, NULL, NULL, 0);
+				else
+					show_evpn_srv6_route_line(tt, evp, p, pi);
+
+				wctx->path_cnt++;
+				route_matched = true;
+			}
+			if (route_matched)
+				wctx->prefix_cnt++;
+		}
+	}
+
+	/* Emit the accumulated (auto-aligned) route table for this EVI. */
+	if (tt) {
+		bgp_evpn_srv6_ttable_dump(vty, tt, "    ");
+		ttable_del(tt);
+	}
+}
+
+/*
+ * Top-level body for `show bgp l2vpn evpn srv6 [detail]`.
+ * Iterates every BGP instance with EVPN/SRv6 state, prints the per-instance
+ * SRv6 SID summary (reused from `show bgp segment-routing srv6 evpn`), then
+ * walks the VNI hash to render Type-1/2/3 routes that carry attr.srv6_l2vpn.
+ */
+static void bgp_show_l2vpn_evpn_srv6(struct vty *vty, bool detail)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	bool any_instance = false;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		struct evpn_srv6_walk_ctx wctx = {
+			.vty = vty,
+			.bgp = bgp,
+			.detail = detail,
+			.prefix_cnt = 0,
+			.path_cnt = 0,
+		};
+
+		if (!bgp_has_srv6_evpn_state(bgp))
+			continue;
+		any_instance = true;
+
+		/* Per-instance summary block: encap mode, locator, four
+		 * configured SID classes.  Reused from bgp_vty.c.
+		 */
+		bgp_show_srv6_evpn_instance(vty, bgp);
+
+		/* Walk every VNI on this instance and render SRv6-tagged
+		 * EVPN routes.
+		 */
+		if (bgp->vnihash)
+			hash_iterate(bgp->vnihash, show_evpn_srv6_routes_per_vni, &wctx);
+
+		if (wctx.prefix_cnt == 0)
+			vty_out(vty, "  %% No SRv6 EVPN routes received\n");
+		else
+			vty_out(vty,
+				"\n  Displayed %u prefixes (%u paths) carrying SRv6 L2 service SIDs\n",
+				wctx.prefix_cnt, wctx.path_cnt);
+	}
+
+	if (!any_instance)
+		vty_out(vty, "%% No BGP instance has EVPN/SRv6 state configured\n");
+}
+
+DEFUN (show_ip_bgp_l2vpn_evpn_srv6,
+       show_ip_bgp_l2vpn_evpn_srv6_cmd,
+       "show [ip] bgp l2vpn evpn srv6 [detail$detail]",
+       SHOW_STR IP_STR BGP_STR L2VPN_HELP_STR EVPN_HELP_STR
+       "SRv6 L2 service view (RFC 9252) - encap mode, locator, configured SIDs, per-route SID attachment\n"
+       "Per-route detail with full SID structure\n")
+{
+	int idx = 0;
+	bool detail = argv_find(argv, argc, "detail", &idx) != 0;
+
+	bgp_show_l2vpn_evpn_srv6(vty, !!detail);
+	return CMD_SUCCESS;
 }
 
 DEFUN(show_ip_bgp_l2vpn_evpn_rd,
@@ -2312,6 +2617,14 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
  */
 static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 {
+	/* SRv6 L2 EVPN: the per-EVI local decap routes (End.DT2U unicast +
+	 * BUM) are installed by bgpd via zclient_send_localsid and are NOT
+	 * cleaned up by the RD/RT unconfigure below, so remove them here on
+	 * "no evi N". Runs in both the free and keep-as-learnt branches.
+	 */
+	if (is_vpn_srv6(vpn))
+		bgp_evpn_srv6_uninstall_local_decap(bgp, vpn);
+
 	if (!is_vni_live(vpn)) {
 		bgp_evpn_free(bgp, vpn);
 		return;
@@ -3536,7 +3849,7 @@ static void evpn_show_vni(struct vty *vty, struct bgp *bgp, vni_t vni,
 /*
  * Display a VNI (upon user query).
  */
-static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp, json_object *json)
+static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp, json_object *json, bool use_evi)
 {
 	void *args[2];
 	struct bgp *bgp_temp = NULL;
@@ -3545,8 +3858,9 @@ static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp, json_object *js
 
 	if (!json) {
 		vty_out(vty, "Flags: * - Kernel\n");
-		vty_out(vty, "  %-10s %-4s %-21s %-25s %-25s %-25s %-37s\n", "VNI", "Type", "RD",
-			"Import RT", "Export RT", "MAC-VRF Site-of-Origin", "Tenant VRF");
+		vty_out(vty, "  %-10s %-4s %-21s %-25s %-25s %-25s %-37s\n",
+			use_evi ? "EVI" : "VNI", "Type", "RD", "Import RT", "Export RT",
+			"MAC-VRF Site-of-Origin", "Tenant VRF");
 	}
 
 	/* print all L3 VNIs */
@@ -3692,26 +4006,73 @@ static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
- * EVPN (VNI advertisement) enabled. Register with zebra.
+ * `advertise-all-vni` enabled: advertise VXLAN VNIs only.  The zebra VNI
+ * registration is shared with `advertise-srv6-evpn` (zebra advertisement is
+ * all-or-nothing), so it is (de)registered on the aggregate EVPN_ENABLED
+ * transition; route advertisement/import is scoped via bgp_evpn_advertise_scope.
  */
 static void evpn_set_advertise_all_vni(struct bgp *bgp)
 {
+	bool was_enabled = EVPN_ENABLED(bgp);
+
 	bgp->advertise_all_vni = 1;
 	bgp_set_evpn(bgp);
-	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
+	if (!was_enabled)
+		bgp_zebra_advertise_all_vni(bgp, 1);
+	bgp_evpn_advertise_scope(bgp, false /* srv6 */, true /* enable */);
 }
 
 /*
- * EVPN (VNI advertisement) disabled. De-register with zebra. Cleanup VNI
- * cache, EVPN routes (delete and withdraw from peers).
+ * `no advertise-all-vni`: withdraw VXLAN VNIs only.  De-register from zebra and
+ * run global EVPN cleanup only once NO transport enable remains.
  */
 static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 {
 	bgp->advertise_all_vni = 0;
-	bgp_set_evpn(bgp_get_default());
-	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
-	bgp_evpn_cleanup_on_disable(bgp);
+	bgp_evpn_advertise_scope(bgp, false /* srv6 */, false /* withdraw */);
+	if (!EVPN_ENABLED(bgp)) {
+		bgp_set_evpn(bgp_get_default());
+		bgp_zebra_advertise_all_vni(bgp, 0);
+		bgp_evpn_cleanup_on_disable(bgp);
+	}
 }
+
+/*
+ * `advertise-srv6-evpn` enabled: advertise SRv6 EVIs only.  Shares the zebra
+ * VNI registration with `advertise-all-vni`.
+ */
+static void evpn_set_advertise_srv6_evpn(struct bgp *bgp)
+{
+	bool was_enabled = EVPN_ENABLED(bgp);
+
+	bgp->l2vpn_evpn_enabled = 1;
+	bgp_set_evpn(bgp);
+	if (!was_enabled)
+		bgp_zebra_advertise_all_vni(bgp, 1);
+	bgp_evpn_advertise_scope(bgp, true /* srv6 */, true /* enable */);
+}
+
+/*
+ * `no advertise-srv6-evpn`: withdraw SRv6 EVIs only (and release their local
+ * decap).  Global teardown/zebra de-register only when no transport remains.
+ */
+static void evpn_unset_advertise_srv6_evpn(struct bgp *bgp)
+{
+	bgp->l2vpn_evpn_enabled = 0;
+	bgp_evpn_advertise_scope(bgp, true /* srv6 */, false /* withdraw */);
+	if (!EVPN_ENABLED(bgp)) {
+		bgp_set_evpn(bgp_get_default());
+		bgp_zebra_advertise_all_vni(bgp, 0);
+		bgp_evpn_cleanup_on_disable(bgp);
+	}
+}
+
+/*
+ * NOTE: the former `encapsulation srv6|vxlan` command and its
+ * evpn_set_encap()/evpn_unset_encap() helpers were removed.  EVPN encapsulation
+ * is now decided PER-EVI (is_vpn_srv6(vpn), driven by the per-EVI End.DT2U/DT2M
+ * SIDs zebra reports), so one bgpd instance can carry mixed VXLAN + SRv6 EVIs.
+ */
 
 /* Set resolve overlay index flag */
 static void bgp_evpn_set_unset_resolve_overlay_index(struct bgp *bgp, bool set)
@@ -3803,7 +4164,8 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 	char rt_buf[RT_ADDRSTRLEN];
 
 	if (is_vni_configured(vpn)) {
-		vty_out(vty, "  vni %u\n", vpn->vni);
+		vty_out(vty, "  %s %u\n", CHECK_FLAG(vpn->flags, VNI_FLAG_EVI) ? "evi" : "vni",
+			vpn->vni);
 		if (is_rd_configured(vpn))
 			vty_out(vty, "   rd %s\n", vpn->prd_pretty);
 
@@ -3842,7 +4204,8 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 		if (vpn->advertise_subnet)
 			vty_out(vty, "   advertise-subnet\n");
 
-		vty_out(vty, "  exit-vni\n");
+		vty_out(vty, "  %s\n",
+			CHECK_FLAG(vpn->flags, VNI_FLAG_EVI) ? "exit-evi" : "exit-vni");
 	}
 }
 
@@ -4079,6 +4442,41 @@ DEFPY_ATTR(no_bgp_evpn_advertise_autort_rfc8365,
 		"%% \"no autort rfc8365-compatible\" is deprecated, use \"no auto-route-target both rfc8365-compatible\"\n");
 
 	evpn_unset_autort_rfc8365(bgp, true, true);
+	return CMD_SUCCESS;
+}
+
+DEFUN (bgp_evpn_advertise_srv6_evpn,
+       bgp_evpn_advertise_srv6_evpn_cmd,
+       "advertise-srv6-evpn",
+       "Advertise local SRv6 L2 EVPN EVIs (End.DT2U/DT2M)\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct bgp *bgp_evpn = NULL;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	bgp_evpn = bgp_get_evpn();
+	if (bgp_evpn && bgp_evpn != bgp) {
+		vty_out(vty, "%% Please unconfigure EVPN in %s\n", bgp_evpn->name_pretty);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	evpn_set_advertise_srv6_evpn(bgp);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_evpn_advertise_srv6_evpn,
+       no_bgp_evpn_advertise_srv6_evpn_cmd,
+       "no advertise-srv6-evpn",
+       NO_STR
+       "Advertise local SRv6 L2 EVPN EVIs (End.DT2U/DT2M)\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp)
+		return CMD_WARNING;
+	evpn_unset_advertise_srv6_evpn(bgp);
 	return CMD_SUCCESS;
 }
 
@@ -4928,9 +5326,17 @@ DEFPY(show_bgp_l2vpn_evpn_vni,
 	struct listnode *node = NULL;
 	struct bgp *bgp_temp = NULL;
 
+	int evi_idx = 0;
+	bool use_evi;
+
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
 		return CMD_WARNING;
+
+	/* Invoked as "... evpn evi" (SRv6 L2 EVPN) rather than "... evpn vni":
+	 * label the summary output EVI instead of VNI.
+	 */
+	use_evi = argv_find(argv, argc, "evi", &evi_idx) != 0;
 
 	if (uj)
 		json = json_object_new_object();
@@ -4949,11 +5355,9 @@ DEFPY(show_bgp_l2vpn_evpn_vni,
 						       ? "Enabled"
 						       : "Disabled");
 			json_object_string_add(json, "advertiseSviMacIp",
-					bgp_evpn->evpn_info->advertise_svi_macip
-					? "Enabled" : "Disabled");
-			json_object_string_add(json, "advertiseAllVnis",
-					       is_evpn_enabled() ? "Enabled"
-								 : "Disabled");
+					       bgp_evpn->evpn_info->advertise_svi_macip
+						       ? "Enabled"
+						       : "Disabled");
 			json_object_string_add(
 				json, "flooding",
 				bgp_evpn->vxlan_flood_ctrl ==
@@ -4974,10 +5378,7 @@ DEFPY(show_bgp_l2vpn_evpn_vni,
 				bgp_evpn->advertise_gw_macip ? "Enabled"
 							    : "Disabled");
 			vty_out(vty, "Advertise SVI Macip: %s\n",
-				bgp_evpn->evpn_info->advertise_svi_macip ? "Enabled"
-							: "Disabled");
-			vty_out(vty, "Advertise All VNI flag: %s\n",
-				is_evpn_enabled() ? "Enabled" : "Disabled");
+				bgp_evpn->evpn_info->advertise_svi_macip ? "Enabled" : "Disabled");
 			vty_out(vty, "BUM flooding: %s\n",
 				bgp_evpn->vxlan_flood_ctrl ==
 						VXLAN_FLOOD_HEAD_END_REPL
@@ -4988,10 +5389,11 @@ DEFPY(show_bgp_l2vpn_evpn_vni,
 						VXLAN_FLOOD_HEAD_END_REPL
 					? "Enabled"
 					: "Disabled");
-			vty_out(vty, "Number of L2 VNIs: %u\n", num_l2vnis);
+			vty_out(vty, "Number of L2 %s: %u\n", use_evi ? "EVIs" : "VNIs",
+				num_l2vnis);
 			vty_out(vty, "Number of L3 VNIs: %u\n", num_l3vnis);
 		}
-		evpn_show_all_vnis(vty, bgp_evpn, json);
+		evpn_show_all_vnis(vty, bgp_evpn, json, use_evi);
 	} else {
 		/* Display specific VNI */
 		evpn_show_vni(vty, bgp_evpn, vni, json);
@@ -5002,6 +5404,17 @@ DEFPY(show_bgp_l2vpn_evpn_vni,
 
 	return CMD_SUCCESS;
 }
+
+ALIAS(show_bgp_l2vpn_evpn_vni,
+      show_bgp_l2vpn_evpn_evi_cmd,
+      "show bgp l2vpn evpn evi [" CMD_VNI_RANGE "] [json]",
+      SHOW_STR
+      BGP_STR
+      L2VPN_HELP_STR
+      EVPN_HELP_STR
+      "Show EVI (SRv6 L2 EVPN)\n"
+      "EVI number\n"
+      JSON_STR)
 
 DEFUN_HIDDEN(show_bgp_l2vpn_evpn_vni_remote_ip_hash,
 	     show_bgp_l2vpn_evpn_vni_remote_ip_hash_cmd,
@@ -6670,6 +7083,74 @@ DEFUN_NOSH (exit_vni,
 	return CMD_SUCCESS;
 }
 
+DEFPY_NOSH (exit_evi,
+            exit_evi_cmd,
+            "exit-evi",
+            "Exit from EVI mode (SRv6 L2 EVPN)\n")
+{
+	if (vty->node == BGP_EVPN_VNI_NODE)
+		vty->node = BGP_EVPN_NODE;
+	return CMD_SUCCESS;
+}
+
+/*
+ * SRv6 L2 EVPN: 'evi' is an alias of 'vni' for SRv6 EVPN instances, where the
+ * EVI identifier shares the VNI value space (the EVI is announced to BGP via
+ * ZEBRA_VNI_ADD).  It enters the same BGP_EVPN_VNI_NODE so rd/route-target/etc.
+ * are configured identically.
+ */
+DEFPY_NOSH (bgp_evpn_evi,
+            bgp_evpn_evi_cmd,
+	    "evi "CMD_VNI_RANGE"$vni",
+            "EVPN Virtual Instance (SRv6 L2 EVPN; alias of vni)\n"
+            "EVI / VNI number\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct bgpevpn *vpn;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	vpn = evpn_create_update_vni(bgp, vni);
+	if (!vpn) {
+		vty_out(vty, "%% Failed to create EVI\n");
+		return CMD_WARNING;
+	}
+
+	/* Mark as configured via 'evi' so it persists/displays as EVI. */
+	SET_FLAG(vpn->flags, VNI_FLAG_EVI);
+
+	VTY_PUSH_CONTEXT_SUB(BGP_EVPN_VNI_NODE, vpn);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_evpn_evi,
+       no_bgp_evpn_evi_cmd,
+       "no evi "CMD_VNI_RANGE"$vni",
+       NO_STR
+       "EVPN Virtual Instance (SRv6 L2 EVPN; alias of vni)\n"
+       "EVI / VNI number\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct bgpevpn *vpn;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	vpn = bgp_evpn_lookup_vni(bgp, vni);
+	if (!vpn) {
+		vty_out(vty, "%% Specified EVI does not exist\n");
+		return CMD_WARNING;
+	}
+	if (!is_vni_configured(vpn)) {
+		vty_out(vty, "%% Specified EVI is not configured\n");
+		return CMD_WARNING;
+	}
+
+	evpn_delete_vni(bgp, vpn);
+	return CMD_SUCCESS;
+}
+
 DEFUN (bgp_evpn_vrf_rd,
        bgp_evpn_vrf_rd_cmd,
        "rd ASN:NN_OR_IP-ADDRESS:NN",
@@ -8080,8 +8561,17 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 	const char *autort_mode_str;
 	char rt_buf[RT_ADDRSTRLEN];
 
+	/*
+	 * EVPN encapsulation is per-EVI now (no 'encapsulation srv6' line).
+	 * The two transport-scoped enables are emitted independently:
+	 *   advertise-all-vni    -> VXLAN VNIs
+	 *   advertise-srv6-evpn  -> SRv6 EVIs
+	 */
 	if (bgp->advertise_all_vni)
 		vty_out(vty, "  advertise-all-vni\n");
+
+	if (bgp->l2vpn_evpn_enabled)
+		vty_out(vty, "  advertise-srv6-evpn\n");
 
 	if (hashcount(bgp->vnihash)) {
 		struct list *vnilist = hash_to_list(bgp->vnihash);
@@ -8253,6 +8743,7 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 void bgp_ethernetvpn_init(void)
 {
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_srv6_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_tags_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_tags_cmd);
@@ -8272,6 +8763,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_srv6_evpn_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_srv6_evpn_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_autort_rfc8365_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_autort_rfc8365_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_default_gw_cmd);
@@ -8305,6 +8798,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_es_vrf_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_nh_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vni_cmd);
+	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_evi_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vni_remote_ip_hash_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vni_svi_hash_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_summary_cmd);
@@ -8357,7 +8851,10 @@ void bgp_ethernetvpn_init(void)
 
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vni_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_evi_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_evi_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &exit_vni_cmd);
+	install_element(BGP_EVPN_VNI_NODE, &exit_evi_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_flood_control_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_rd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rd_cmd);
