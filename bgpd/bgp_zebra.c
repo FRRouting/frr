@@ -52,6 +52,7 @@
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
@@ -263,6 +264,9 @@ static int bgp_ifp_up(struct interface *ifp)
 		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP, ifp, true);
 		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP6, ifp, true);
 	}
+
+	if (bgp_get_default())
+		bgp_evpn_vpws_on_interface_up(bgp_get_default(), ifp);
 
 	return 0;
 }
@@ -3883,6 +3887,8 @@ static int bgp_ifp_create(struct interface *ifp)
 		bgp_evpn_srv6_install_for_ifindex(bgp, ifp->ifindex, is_bum_srl2);
 	}
 
+	if (bgp_get_default())
+		bgp_evpn_vpws_on_interface_up(bgp_get_default(), ifp);
 
 	return 0;
 }
@@ -3968,6 +3974,23 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 		/* DEL cleared bgp->srv6_locator; no cached mode to compare. */
 		old_usid = new_usid;
 
+	if (old_usid != new_usid) {
+		struct bgp *bgp_evpn = bgp_get_default();
+
+		zlog_info("%s(%d): %s, SRv6 locator USID flag changed (%s -> %s): re-requesting VPWS DX2 SIDs from the new range",
+			  bgp->name_pretty, bgp->vrf_id, __func__, old_usid ? "usid" : "legacy",
+			  new_usid ? "usid" : "legacy");
+
+		/*
+		 * Release and re-request every VPWS (Type-1 EAD-EVI) DX2 SID;
+		 * these are stored per-instance in bgp_evpn_vpws.local_sid.
+		 * Per-EVI DT2U/DT2M SIDs are re-reported by zebra via
+		 * ZEBRA_VNI_ADD, so no bgpd-side release is needed here.
+		 */
+		if (bgp_evpn)
+			bgp_evpn_vpws_on_locator_update(bgp_evpn);
+	}
+
 	/* Re-advertise gating: only when the locator actually changed. */
 	if (old_usid != new_usid)
 		locator_changed = true;
@@ -3992,6 +4015,15 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 	vpn_leak_postchange_all();
 	bgp_srv6_unicast_ensure_afi_sid(bgp, AFI_IP);
 	bgp_srv6_unicast_ensure_afi_sid(bgp, AFI_IP6);
+
+	/*
+	 * EVPN per-EVI DT2U/DT2M SIDs are allocated by zebra on the VLAN->EVI
+	 * binding and reported to bgpd via ZEBRA_VNI_ADD, so no bgpd-side SID
+	 * request is needed here.  VPWS End.DX2 per-instance SIDs, however, are
+	 * requested by bgpd, so retry them now that the locator is available
+	 * (covers a vpws-instance configured before the locator arrived).
+	 */
+	bgp_evpn_vpws_request_missing_sids(bgp_get_default());
 
 	/*
 	 * Re-originate all locally-generated EVPN Type-2 and Type-3 routes so
@@ -4228,6 +4260,20 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		afi = AFI_IP6;
 	else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)
 		afi = AFI_IP;
+
+
+	/* VPWS-instance dispatch: per-VPWS End.DX2 allocations are keyed
+	 * by (behavior, oif, dt2_vni) and should not flow through the
+	 * per-AFI vpn_policy slot below. If a VPWS instance matches, it
+	 * consumes the notification.
+	 */
+	{
+		bool allocated = (note == ZAPI_SRV6_SID_ALLOCATED);
+
+		if (bgp_evpn_vpws_handle_sid_notify(bgp_vrf, ctx.oif, ctx.dt2_vni, ctx.behavior,
+						    &sid_addr, locator_bgp, allocated))
+			return 0;
+	}
 
 	/* Handle notification */
 	switch (note) {
@@ -4665,6 +4711,18 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 			continue;
 		bgp_zebra_process_srv6_locator_internal(&loc, bgp);
 	}
+
+	/*
+	 * A locator format/encoding change (legacy <-> uSID) re-sends
+	 * SRV6_LOCATOR_ADD with the same name.  zebra reallocates the per-EVI
+	 * DT2U/DT2M SIDs itself (zebra_srv6_evi_on_locator_update), but the
+	 * VPWS End.DX2 SIDs are bgpd-owned, so reissue them here from the
+	 * updated locator.  Not gated on an instance-level locator: a VPWS may
+	 * draw from a per-instance locator with no `router bgp` locator.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp))
+		bgp_evpn_vpws_reissue_locator_sids(bgp, loc.name);
+
 	return 0;
 }
 
@@ -4856,6 +4914,12 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 		};
 		hash_iterate(bgp->vnihash, bgp_locator_del_evi_clear_sids_cb, &evi_ctx);
 	}
+
+	/*
+	 * Clear VPWS (End.DX2) SIDs bound to this locator so they no longer
+	 * appear in the show output after locator removal.
+	 */
+	bgp_evpn_vpws_on_locator_update(bgp);
 
 	vpn_leak_postchange_all();
 }
@@ -5685,7 +5749,59 @@ void bgp_zebra_release_label_range(uint32_t start, uint32_t end)
 	if (!bgp_zclient_sync || !bgp_zebra_label_manager_ready())
 		return;
 
+
 	ret = lm_release_label_chunk(bgp_zclient_sync, start, end);
 	if (ret < 0)
 		zlog_warn("%s: error releasing label range!", __func__);
+}
+
+int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
+			      const char *bridge_ifname, const struct in6_addr *local_sid)
+{
+	struct zapi_vpws_local api = {};
+	struct stream *s;
+
+
+	strlcpy(api.instance_name, instance, sizeof(api.instance_name));
+	strlcpy(api.ac_ifname, ac_ifname, sizeof(api.ac_ifname));
+	strlcpy(api.bridge_ifname, bridge_ifname, sizeof(api.bridge_ifname));
+	api.local_sid = *local_sid;
+
+	s = bgp_zclient->obuf;
+	zapi_vpws_local_encode(ZEBRA_VPWS_LOCAL_ADD, s, &api);
+	return zclient_send_message(bgp_zclient);
+}
+
+
+int bgp_zebra_send_vpws_local_del(const char *instance)
+{
+	struct stream *s = bgp_zclient->obuf;
+
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_VPWS_LOCAL_DEL, VRF_DEFAULT);
+	stream_put(s, instance, 64); /* must match decoder fixed length */
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zclient_send_message(bgp_zclient);
+}
+
+int bgp_zebra_send_vpws_remote(const char *instance, const struct in6_addr *peer_sid)
+{
+	struct zapi_vpws_remote api = {};
+
+	strlcpy(api.instance_name, instance, sizeof(api.instance_name));
+	api.peer_sid = *peer_sid;
+
+	zapi_vpws_remote_encode(ZEBRA_VPWS_REMOTE_ADD, bgp_zclient->obuf, &api);
+	return zclient_send_message(bgp_zclient);
+}
+
+int bgp_zebra_send_vpws_remote_del(const char *instance)
+{
+	struct stream *s = bgp_zclient->obuf;
+
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_VPWS_REMOTE_DEL, VRF_DEFAULT);
+	stream_put(s, instance, 64);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zclient_send_message(bgp_zclient);
 }
