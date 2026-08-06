@@ -1018,6 +1018,15 @@ struct bgp {
 	struct bgp_evpn_l2vni_fq_irt_head l2vni_fq_irt_nodes;
 	struct bgp_evpn_l2vni_wildcard_irt_head l2vni_wildcard_irt_nodes;
 
+	/*
+	 * EVPN data-plane encapsulation chosen by the operator under
+	 * `address-family l2vpn evpn` -> `encapsulation [srv6|vxlan]`.
+	 * Defaults to VxLAN. When SRv6 is selected, EVPN routes carry the
+	 * RFC 9252 SRv6 L2 Service SID instead of a VxLAN VNI label, and
+	 * BGP signals the choice to zebra via ZEBRA_EVPN_ENCAP_MODE.
+	 */
+	enum bgp_evpn_encap_mode evpn_encap;
+
 	/* Hash tables of fully qualified and wildcard VRF import RTs to
 	 * VRFs
 	 */
