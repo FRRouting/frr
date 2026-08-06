@@ -4035,6 +4035,10 @@ DEFPY (no_bgp_evpn_advertise_all_vni,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20290206
+CPP_NOTICE("Remove `autort rfc8365-compatible` command")
+#endif
+/* Deprecated on 2026-07-14 */
 DEFPY_ATTR(bgp_evpn_advertise_autort_rfc8365,
 	   bgp_evpn_advertise_autort_rfc8365_cmd,
 	   "autort rfc8365-compatible",
@@ -4054,6 +4058,10 @@ DEFPY_ATTR(bgp_evpn_advertise_autort_rfc8365,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20290206
+CPP_NOTICE("Remove `no autort rfc8365-compatible` command")
+#endif
+/* Deprecated on 2026-07-14 */
 DEFPY_ATTR(no_bgp_evpn_advertise_autort_rfc8365,
 	   no_bgp_evpn_advertise_autort_rfc8365_cmd,
 	   "no autort rfc8365-compatible",
@@ -7350,6 +7358,10 @@ DEFPY (bgp_evpn_vrf_auto_rt,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20290206
+CPP_NOTICE("Remove `route-target <both|import|export> auto` command")
+#endif
+/* Deprecated on 2026-07-14 */
 DEFPY_ATTR(bgp_evpn_vrf_rt_auto,
 	   bgp_evpn_vrf_rt_auto_cmd,
 	   "route-target <both|import|export>$type auto",
@@ -7532,6 +7544,10 @@ DEFPY (no_bgp_evpn_vrf_auto_rt,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20290206
+CPP_NOTICE("Remove `no route-target <both|import|export> auto` command")
+#endif
+/* Deprecated on 2026-07-14 */
 DEFPY_ATTR(no_bgp_evpn_vrf_rt_auto,
 	   no_bgp_evpn_vrf_rt_auto_cmd,
 	   "no route-target <both|import|export>$type auto",
