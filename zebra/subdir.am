@@ -85,6 +85,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_srv6.c \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_srl2.c \
+	zebra/zebra_srv6_l2evpn.c \
 	zebra/zebra_mroute.c \
 	zebra/zebra_nb.c \
 	zebra/zebra_nb_config.c \
@@ -172,6 +173,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_srv6.h \
 	zebra/zebra_srv6_vty.h \
 	zebra/zebra_srl2.h \
+	zebra/zebra_srv6_l2evpn.h \
 	zebra/zebra_mroute.h \
 	zebra/zebra_nb.h \
 	zebra/zebra_netns_id.h \

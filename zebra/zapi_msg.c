@@ -4131,6 +4131,15 @@ static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
 	zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr);
 }
 
+
+/*
+ * ZEBRA_EVPN_ENCAP_MODE was removed: EVPN encapsulation is decided per-EVI
+ * (bgpd derives it from the per-EVI SIDs it already receives in
+ * ZEBRA_VNI_ADD), so bgpd no longer signals an instance-wide mode and zebra
+ * no longer keeps a global VxLAN/SRv6 mode.  The message id remains reserved
+ * in lib/zclient.h for wire compatibility but is never sent or handled.
+ */
+
 void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
