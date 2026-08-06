@@ -6,6 +6,8 @@
 #ifndef _FRR_BGP_EVPN_VTY_H
 #define _FRR_BGP_EVPN_VTY_H
 
+#include "bgpd/bgp_attr_evpn.h"
+
 extern void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp,
 				       afi_t afi, safi_t safi);
 extern void bgp_ethernetvpn_init(void);
