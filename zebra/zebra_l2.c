@@ -30,6 +30,8 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_sr6.h"
+#include "zebra/zebra_srv6_vpws.h"
 
 /* definitions */
 
@@ -466,6 +468,17 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 			zebra_vxlan_if_update(ifp, &ctx);
 		if (zif->es_info.es)
 			zebra_evpn_es_local_br_port_update(zif);
+		/*
+		 * SRv6 L2 EVPN / VPWS: an operator-owned sr6/bum-sr6/vpws-sr6
+		 * encap netdev may be enslaved to its bridge after it first
+		 * appeared, in which case the interface-add hook deferred the
+		 * SID binding (the bridge was still unknown then).  Now that the
+		 * bridge is known, re-run the hooks to bind and program the
+		 * deferred SID and re-realize the EVI.  Both self-filter by name
+		 * and are idempotent for already-bound interfaces.
+		 */
+		zebra_sr6_if_add(ifp);
+		zebra_srv6_vpws_if_add(ifp);
 	} else if (old_bridge_ifindex != IFINDEX_INTERNAL) {
 		/*
 		 * In the case of VxLAN, invoke the handler for EVPN.

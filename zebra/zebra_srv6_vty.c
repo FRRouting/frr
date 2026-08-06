@@ -1056,6 +1056,10 @@ DEFPY (no_locator_prefix,
 	locator->status_up = false;
 
 	zebra_notify_srv6_locator_delete(locator);
+	/* Invalidate SRv6 L2 EVPN EVIs drawing SIDs from this locator: its
+	 * prefix (and thus their allocations) is gone.
+	 */
+	zebra_srv6_evi_on_locator_delete(locator->name);
 	zebra_srv6_sid_entry_del_by_locator_all_sids(locator);
 	zebra_srv6_sid_locator_block_release(locator);
 
