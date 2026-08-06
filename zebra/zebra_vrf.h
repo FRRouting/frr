@@ -13,6 +13,7 @@
 #include <zebra/zebra_pw.h>
 #include <zebra/rtadv.h>
 #include <lib/vxlan.h>
+#include <lib/zclient.h>
 #include "defaults.h"
 
 #ifdef __cplusplus
@@ -159,6 +160,14 @@ struct zebra_vrf {
 	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
 	 */
 	enum vxlan_flood_control vxlan_flood_ctrl;
+
+	/*
+	 * EVPN data-plane encapsulation selected by the operator under
+	 * `address-family l2vpn evpn` -> `encapsulation [srv6|vxlan]`.
+	 * Defaults to VxLAN; switches to SRv6 when BGP sends
+	 * ZEBRA_EVPN_ENCAP_MODE.
+	 */
+	enum bgp_evpn_encap_mode evpn_encap_mode;
 
 	/* Install stats */
 	uint64_t installs;

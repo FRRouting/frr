@@ -4131,6 +4131,52 @@ static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
 	zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr);
 }
 
+
+/*
+ * Handler for ZEBRA_EVPN_ENCAP_MODE.
+ *
+ * BGP sends this whenever the operator changes the encapsulation under
+ * `address-family l2vpn evpn` (`encapsulation [srv6|vxlan]`). We fan it out
+ * to both the VxLAN and SRv6 sub-systems so each can enable / disable its
+ * dataplane glue for EVPN routes.
+ *
+ * Wire format: uint8_t mode (enum bgp_evpn_encap_mode).
+ */
+static void zread_evpn_encap_mode(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	uint8_t raw_mode;
+	enum bgp_evpn_encap_mode mode;
+
+	s = msg;
+	STREAM_GETC(s, raw_mode);
+
+	if (raw_mode != BGP_EVPN_ENCAP_MODE_VXLAN && raw_mode != BGP_EVPN_ENCAP_MODE_SRV6) {
+		zlog_warn("%s: Received invalid EVPN encap mode %u from client", __func__,
+			  raw_mode);
+		return;
+	}
+
+	mode = (enum bgp_evpn_encap_mode)raw_mode;
+
+	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_RECV)
+		zlog_debug("%s: VRF %u EVPN encap mode set to %s", __func__, zvrf_id(zvrf),
+			   (mode == BGP_EVPN_ENCAP_MODE_SRV6) ? "srv6" : "vxlan");
+
+	/* Notify the VxLAN sub-system so it can disable the VxLAN dataplane
+	 * glue when SRv6 is selected (and re-enable it on a switch back).
+	 */
+	zebra_vxlan_set_evpn_encap_mode(zvrf, mode);
+
+	/* Notify the SRv6 sub-system so it can mark EVPN as an SRv6 user and
+	 * gate SID programming on the operator's choice.
+	 */
+	zebra_srv6_set_evpn_encap_mode(mode);
+
+stream_failure:
+	return;
+}
+
 void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
@@ -4198,6 +4244,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPTABLE_ADD] = zread_iptable,
 	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
 	[ZEBRA_VXLAN_FLOOD_CONTROL] = zebra_vxlan_flood_control,
+	[ZEBRA_EVPN_ENCAP_MODE] = zread_evpn_encap_mode,
 	[ZEBRA_VXLAN_SG_REPLAY] = zebra_vxlan_sg_replay,
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,

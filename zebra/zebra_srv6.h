@@ -13,6 +13,7 @@
 
 #include "qobj.h"
 #include "prefix.h"
+#include "zclient.h"
 #include <pthread.h>
 #include <plist.h>
 
@@ -243,6 +244,14 @@ struct zebra_srv6 {
 
 	/* SRv6 SID blocks */
 	struct list *sid_blocks;
+
+	/*
+	 * EVPN data-plane encapsulation chosen by the operator under
+	 * `address-family l2vpn evpn` -> `encapsulation [srv6|vxlan]`.
+	 * Updated when BGP sends ZEBRA_EVPN_ENCAP_MODE. Used to gate SRv6
+	 * SID programming for EVPN routes.
+	 */
+	enum bgp_evpn_encap_mode evpn_encap_mode;
 };
 
 /* declare hooks for the basic API, so that it can be specialized or served
@@ -284,6 +293,15 @@ extern void zebra_srv6_locator_add(struct srv6_locator *locator);
 extern void zebra_srv6_locator_delete(struct srv6_locator *locator);
 extern struct srv6_locator *zebra_srv6_locator_lookup(const char *name);
 
+/* Compose a LOC:FUNC[:WIDE]:: SID under a locator (SRv6 L2 EVPN per-EVI SIDs). */
+extern bool zebra_srv6_l2_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
+				      uint32_t sid_func, uint32_t sid_func_wide);
+
+/* Release a zebra-internally-allocated SID (no client) by its context — used
+ * to free SRv6 L2 EVPN per-EVI DT2U/DT2M SIDs on EVI teardown.
+ */
+extern void zebra_srv6_l2_sid_release(const struct srv6_sid_ctx *ctx, const char *locator_name);
+
 void zebra_notify_srv6_locator_add(struct srv6_locator *locator);
 void zebra_notify_srv6_locator_delete(struct srv6_locator *locator);
 
@@ -291,6 +309,7 @@ extern void zebra_srv6_init(void);
 extern void zebra_srv6_terminate(void);
 extern struct zebra_srv6 *zebra_srv6_get_default(void);
 extern bool zebra_srv6_is_enable(void);
+extern void zebra_srv6_set_evpn_encap_mode(enum bgp_evpn_encap_mode mode);
 
 extern void srv6_manager_client_connect_call(struct zserv *client,
 					     vrf_id_t vrf_id);
