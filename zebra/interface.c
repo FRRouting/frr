@@ -2167,6 +2167,21 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			if_add_update(ifp);
 
 			/*
+			 * sr6 (SRv6 L2 tunnel) netdev: cache the kernel-reported
+			 * encap mode on the zebra_if so the SRv6 L2 EVPN backend
+			 * mirrors the operator's mode per EVI / VPWS.
+			 */
+			{
+				struct zebra_if *zif2 = ifp->info;
+				uint8_t sr6_mode;
+
+				if (dplane_ctx_get_ifp_sr6_kernel_mode(ctx, &sr6_mode)) {
+					zif2->sr6_kernel_mode = sr6_mode;
+					zif2->sr6_kernel_mode_present = true;
+				}
+			}
+
+			/*
 			 * Extract and save L2 interface information, take
 			 * additional actions.
 			 */

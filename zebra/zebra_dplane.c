@@ -307,6 +307,10 @@ struct dplane_mac_info {
 	struct ipaddr vtep_ip;
 	bool is_sticky;
 	uint32_t nhg_id;
+	struct in6_addr srv6_sid;
+	bool has_srv6_sid;
+	/* sr6 outgoing port ifindex; 0 if not using sr6 path. */
+	ifindex_t sr6_ifindex;
 	uint32_t update_flags;
 	int dst_present;
 	bool local_inactive;
@@ -774,11 +778,11 @@ static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 static enum zebra_dplane_result intf_addr_update_internal(
 	const struct interface *ifp, const struct connected *ifc,
 	enum dplane_op_e op);
-static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const struct interface *ifp,
-						  const struct interface *br_ifp, vlanid_t vid,
-						  const struct ethaddr *mac, vni_t vni,
-						  struct ipaddr *vtep_ip, bool sticky,
-						  uint32_t nhg_id, uint32_t update_flags);
+static enum zebra_dplane_result
+mac_update_common(enum dplane_op_e op, const struct interface *ifp, const struct interface *br_ifp,
+		  vlanid_t vid, const struct ethaddr *mac, vni_t vni, struct ipaddr *vtep_ip,
+		  bool sticky, uint32_t nhg_id, uint32_t update_flags,
+		  const struct in6_addr *srv6_sid, ifindex_t sr6_ifindex);
 static enum zebra_dplane_result
 neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 		      const void *link, int link_family,
@@ -3136,6 +3140,36 @@ ifindex_t dplane_ctx_mac_get_br_ifindex(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.macinfo.br_ifindex;
+}
+
+bool dplane_ctx_mac_has_srv6_sid(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.macinfo.has_srv6_sid;
+}
+
+const struct in6_addr *dplane_ctx_mac_get_srv6_sid(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &ctx->u.macinfo.srv6_sid;
+}
+
+bool dplane_ctx_mac_has_sr6_if(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.macinfo.sr6_ifindex != 0;
+}
+
+ifindex_t dplane_ctx_mac_get_sr6_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.macinfo.sr6_ifindex;
+}
+
+void dplane_ctx_mac_set_sr6_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t sr6_ifindex)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.macinfo.sr6_ifindex = sr6_ifindex;
 }
 
 void dplane_ctx_mac_set_addr(struct zebra_dplane_ctx *ctx, const struct ethaddr *mac)
@@ -6163,7 +6197,8 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-					    bool was_static)
+					    bool was_static, const struct in6_addr *srv6_sid,
+					    ifindex_t sr6_ifindex)
 {
 	enum zebra_dplane_result result;
 	uint32_t update_flags = 0;
@@ -6172,10 +6207,11 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 	if (was_static)
 		update_flags |= DPLANE_MAC_WAS_STATIC;
 
-	/* Use common helper api */
-	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid,
-				   mac, vni, vtep_ip, sticky, nhg_id,
-				   update_flags);
+	/* Use common helper api (srv6_sid/sr6_ifindex steer the SRv6 FDB
+	 * outgoing port; both 0/NULL fall back to the VXLAN/NDA_DST path).
+	 */
+	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid, mac, vni, vtep_ip,
+				   sticky, nhg_id, update_flags, srv6_sid, sr6_ifindex);
 	return result;
 }
 
@@ -6193,9 +6229,26 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 	update_flags |= DPLANE_MAC_REMOTE;
 
 	/* Use common helper api */
-	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid,
-				   mac, vni, vtep_ip, false, 0, update_flags);
+	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid, mac, vni, vtep_ip,
+				   false, 0, update_flags, NULL, 0);
 	return result;
+}
+
+/*
+ * SRv6 L2 EVPN: delete a remote MAC whose forwarding egress is an sr6
+ * interface (End.DT2U), no VXLAN device involved.  Mirrors dplane_rem_mac_del
+ * but carries srv6_sid + sr6_ifindex so the kernel provider takes the sr6
+ * FDB path (netlink_sr6_macfdb_encode) instead of the NDA_DST/VXLAN path.
+ */
+enum zebra_dplane_result
+dplane_rem_mac_del_sr6(const struct interface *ifp, const struct interface *bridge_ifp,
+		       vlanid_t vid, const struct ethaddr *mac, vni_t vni, struct ipaddr *vtep_ip,
+		       const struct in6_addr *srv6_sid, ifindex_t sr6_ifindex)
+{
+	uint32_t update_flags = DPLANE_MAC_REMOTE;
+
+	return mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid, mac, vni, vtep_ip,
+				 false, 0, update_flags, srv6_sid, sr6_ifindex);
 }
 
 /*
@@ -6252,7 +6305,7 @@ enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid, mac, 0, &vtep_ip,
-				   sticky, 0, update_flags);
+				   sticky, 0, update_flags, NULL, 0);
 	return result;
 }
 
@@ -6269,7 +6322,7 @@ dplane_local_mac_del(const struct interface *ifp,
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid, mac, 0, &vtep_ip,
-				   false, 0, 0);
+				   false, 0, 0, NULL, 0);
 	return result;
 }
 /*
@@ -6279,7 +6332,7 @@ dplane_local_mac_del(const struct interface *ifp,
 void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		     const struct interface *br_ifp, vlanid_t vid, const struct ethaddr *mac,
 		     vni_t vni, struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-		     uint32_t update_flags)
+		     uint32_t update_flags, const struct in6_addr *srv6_sid)
 {
 	struct zebra_ns *zns;
 
@@ -6303,16 +6356,22 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 	ctx->u.macinfo.is_sticky = sticky;
 	ctx->u.macinfo.nhg_id = nhg_id;
 	ctx->u.macinfo.update_flags = update_flags;
+	if (srv6_sid) {
+		ctx->u.macinfo.srv6_sid = *srv6_sid;
+		ctx->u.macinfo.has_srv6_sid = true;
+	} else {
+		ctx->u.macinfo.has_srv6_sid = false;
+	}
 }
 
 /*
  * Common helper api for MAC address/vxlan updates
  */
-static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const struct interface *ifp,
-						  const struct interface *br_ifp, vlanid_t vid,
-						  const struct ethaddr *mac, vni_t vni,
-						  struct ipaddr *vtep_ip, bool sticky,
-						  uint32_t nhg_id, uint32_t update_flags)
+static enum zebra_dplane_result
+mac_update_common(enum dplane_op_e op, const struct interface *ifp, const struct interface *br_ifp,
+		  vlanid_t vid, const struct ethaddr *mac, vni_t vni, struct ipaddr *vtep_ip,
+		  bool sticky, uint32_t nhg_id, uint32_t update_flags,
+		  const struct in6_addr *srv6_sid, ifindex_t sr6_ifindex)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret;
@@ -6326,8 +6385,11 @@ static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const str
 	ctx->zd_op = op;
 
 	/* Common init for the ctx */
-	dplane_mac_init(ctx, ifp, br_ifp, vid, mac, vni, vtep_ip, sticky,
-			nhg_id, update_flags);
+	dplane_mac_init(ctx, ifp, br_ifp, vid, mac, vni, vtep_ip, sticky, nhg_id, update_flags,
+			srv6_sid);
+
+	/* SRv6 sr6 FDB outgoing port (0 = NDA_DST/VXLAN path). */
+	ctx->u.macinfo.sr6_ifindex = sr6_ifindex;
 
 	/* Enqueue for processing on the dplane pthread */
 	ret = dplane_update_enqueue(ctx);
