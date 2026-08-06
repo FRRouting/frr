@@ -200,6 +200,15 @@ enum dplane_op_e {
 	DPLANE_OP_INTF_UPDATE,
 	DPLANE_OP_INTF_DELETE,
 
+	/*
+	 * Bridge create, port master set/unset (enslave/unslave) and link
+	 * delete.  Used by the SRv6 VPWS path so it programs the kernel through
+	 * the dataplane provider abstraction instead of private netlink sockets.
+	 */
+	DPLANE_OP_BR_CREATE,
+	DPLANE_OP_INTF_SET_MASTER,
+	DPLANE_OP_LINK_DELETE,
+
 	/* Traffic control */
 	DPLANE_OP_TC_QDISC_INSTALL,
 	DPLANE_OP_TC_QDISC_UNINSTALL,
@@ -1022,6 +1031,18 @@ enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 enum zebra_dplane_result dplane_intf_add(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp);
+
+/*
+ * SRv6 VPWS bridge/enslave helpers routed through the dataplane provider
+ * abstraction instead of module-private netlink sockets.  dplane_br_create() is
+ * fire-and-forget: the created bridge's ifindex is learned from the normal
+ * interface-add notification.  dplane_intf_set_master() enslaves (master != 0)
+ * or unslaves (master == 0) a port; dplane_link_delete() removes a link by
+ * ifindex.
+ */
+enum zebra_dplane_result dplane_br_create(const char *name);
+enum zebra_dplane_result dplane_intf_set_master(ifindex_t slave_ifindex, ifindex_t master_ifindex);
+enum zebra_dplane_result dplane_link_delete(ifindex_t ifindex);
 
 /*
  * Enqueue tc link changes for the dataplane.

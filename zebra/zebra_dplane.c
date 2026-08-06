@@ -950,6 +950,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			XFREE(MTYPE_TMP, ctx->u.intf.bvarray);
 		break;
 	case DPLANE_OP_INTF_DELETE:
+	case DPLANE_OP_BR_CREATE:
+	case DPLANE_OP_INTF_SET_MASTER:
+	case DPLANE_OP_LINK_DELETE:
 	case DPLANE_OP_TC_QDISC_INSTALL:
 	case DPLANE_OP_TC_QDISC_UNINSTALL:
 	case DPLANE_OP_TC_CLASS_ADD:
@@ -1261,6 +1264,13 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "INTF_UPDATE";
 	case DPLANE_OP_INTF_DELETE:
 		return "INTF_DELETE";
+
+	case DPLANE_OP_BR_CREATE:
+		return "BR_CREATE";
+	case DPLANE_OP_INTF_SET_MASTER:
+		return "INTF_SET_MASTER";
+	case DPLANE_OP_LINK_DELETE:
+		return "LINK_DELETE";
 
 	case DPLANE_OP_INTF_SPEED_GET:
 		return "INTF_SPEED_GET";
@@ -5761,6 +5771,109 @@ enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp)
 }
 
 /*
+ * SRv6 VPWS: create a bridge netdev through the dataplane.  Fire-and-forget -
+ * the resulting ifindex is learned from the normal interface-add notification
+ * (see zebra_srv6_vpws.c), the same way zebra learns every other
+ * kernel-created interface.
+ */
+enum zebra_dplane_result dplane_br_create(const char *name)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	struct zebra_ns *zns;
+	int ret;
+
+	if (!name || !name[0])
+		return result;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = DPLANE_OP_BR_CREATE;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = VRF_DEFAULT;
+	strlcpy(ctx->zd_ifname, name, sizeof(ctx->zd_ifname));
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ret = dplane_update_enqueue(ctx);
+	atomic_fetch_add_explicit(&zdplane_info.dg_intfs_in, 1, memory_order_relaxed);
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors, 1, memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+	return result;
+}
+
+/*
+ * SRv6 VPWS: set (master_ifindex != 0) or clear (== 0) a port's bridge master.
+ */
+enum zebra_dplane_result dplane_intf_set_master(ifindex_t slave_ifindex, ifindex_t master_ifindex)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	struct zebra_ns *zns;
+	int ret;
+
+	if (slave_ifindex == 0)
+		return result;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = DPLANE_OP_INTF_SET_MASTER;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = VRF_DEFAULT;
+	ctx->zd_ifindex = slave_ifindex;
+	dplane_ctx_set_ifp_master_ifindex(ctx, master_ifindex);
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ret = dplane_update_enqueue(ctx);
+	atomic_fetch_add_explicit(&zdplane_info.dg_intfs_in, 1, memory_order_relaxed);
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors, 1, memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+	return result;
+}
+
+/*
+ * SRv6 VPWS: delete a kernel link (bridge) we created, by ifindex.
+ */
+enum zebra_dplane_result dplane_link_delete(ifindex_t ifindex)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	struct zebra_ns *zns;
+	int ret;
+
+	if (ifindex == 0)
+		return result;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = DPLANE_OP_LINK_DELETE;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = VRF_DEFAULT;
+	ctx->zd_ifindex = ifindex;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ret = dplane_update_enqueue(ctx);
+	atomic_fetch_add_explicit(&zdplane_info.dg_intfs_in, 1, memory_order_relaxed);
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors, 1, memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+	return result;
+}
+
+/*
  * Enqueue vxlan/evpn mac add (or update).
  */
 enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
@@ -7419,6 +7532,9 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_intf_is_protodown(ctx));
 		break;
 	case DPLANE_OP_INTF_SPEED_GET:
+	case DPLANE_OP_BR_CREATE:
+	case DPLANE_OP_INTF_SET_MASTER:
+	case DPLANE_OP_LINK_DELETE:
 		zlog_debug("Dplane intf %s, idx %u", dplane_op2str(dplane_ctx_get_op(ctx)),
 			   dplane_ctx_get_ifindex(ctx));
 		break;
@@ -7611,6 +7727,9 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
+	case DPLANE_OP_BR_CREATE:
+	case DPLANE_OP_INTF_SET_MASTER:
+	case DPLANE_OP_LINK_DELETE:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors,
 						  1, memory_order_relaxed);

@@ -969,6 +969,41 @@ int kernel_interface_set_master(struct interface *master,
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
+/*
+ * Enslave (master_ifindex != 0) or unslave (master_ifindex == 0) a link to a
+ * bridge/bond via RTM_SETLINK / IFLA_MASTER, addressed purely by ifindex.
+ *
+ * This is the ifindex-based counterpart of kernel_interface_set_master() above:
+ * that one is driven by struct interface* and also emits IFLA_LINK, but callers
+ * that only hold ifindexes cannot use it.  In particular the SRv6 srl2
+ * bridge-port setup enslaves an interface it just created, before zebra has
+ * learned it into its interface table (so no struct interface* exists yet), and
+ * a bridge port must not carry IFLA_LINK.
+ */
+int netlink_link_set_master(ifindex_t slave_ifindex, ifindex_t master_ifindex)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[128];
+	} req = {};
+
+	if (!zns)
+		return -1;
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.ifi.ifi_family = AF_UNSPEC;
+	req.ifi.ifi_index = slave_ifindex;
+
+	if (!nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master_ifindex))
+		return -1;
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
+}
+
 /* Interface address modification. */
 static ssize_t netlink_address_msg_encoder(struct zebra_dplane_ctx *ctx,
 					   void *buf, size_t buflen)
@@ -1078,6 +1113,77 @@ enum netlink_msg_status
 netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	return netlink_batch_add_msg(bth, ctx, netlink_intf_msg_encoder, false);
+}
+
+/*
+ * Encoder for the SRv6 VPWS bridge-create / port set-master / link-delete
+ * dataplane ops.  This is the netlink message building that previously lived in
+ * module-private helpers in zebra_srv6_vpws.c (vpws_nl_bridge_create /
+ * vpws_nl_set_master / vpws_nl_link_delete), re-homed here so it runs through
+ * the dataplane provider's batch socket instead of a private netlink_talk().
+ */
+static ssize_t netlink_link_update_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+					       size_t buflen)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[];
+	} *req = buf;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+
+	if (buflen < sizeof(*req))
+		return 0;
+	memset(req, 0, sizeof(*req));
+
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req->ifi.ifi_family = AF_UNSPEC;
+
+	/*
+	 * if/else on op (rather than switch) intentionally: this encoder only
+	 * ever handles the three link ops below, and a switch over the full
+	 * dplane_op_e would trip -Wswitch-enum.  Mirrors netlink_intf_msg_encoder.
+	 */
+	if (op == DPLANE_OP_BR_CREATE) {
+		struct rtattr *linkinfo;
+		const char *name = dplane_ctx_get_ifname(ctx);
+
+		/* Create the bridge and bring it UP in a single message. */
+		req->n.nlmsg_type = RTM_NEWLINK;
+		req->n.nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+		req->ifi.ifi_flags = IFF_UP;
+		req->ifi.ifi_change = IFF_UP;
+		if (!nl_attr_put(&req->n, buflen, IFLA_IFNAME, name, strlen(name) + 1))
+			return 0;
+		linkinfo = nl_attr_nest(&req->n, buflen, IFLA_LINKINFO);
+		if (!linkinfo)
+			return 0;
+		if (!nl_attr_put(&req->n, buflen, IFLA_INFO_KIND, "bridge", 7))
+			return 0;
+		nl_attr_nest_end(&req->n, linkinfo);
+	} else if (op == DPLANE_OP_INTF_SET_MASTER) {
+		req->n.nlmsg_type = RTM_SETLINK;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+		if (!nl_attr_put32(&req->n, buflen, IFLA_MASTER,
+				   dplane_ctx_get_ifp_master_ifindex(ctx)))
+			return 0;
+	} else if (op == DPLANE_OP_LINK_DELETE) {
+		req->n.nlmsg_type = RTM_DELLINK;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+	} else {
+		flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
+			 "Context for link update with incorrect OP code (%u)", op);
+		return -1;
+	}
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
+}
+
+enum netlink_msg_status netlink_put_link_update_msg(struct nl_batch *bth,
+						    struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_link_update_msg_encoder, false);
 }
 
 /*
