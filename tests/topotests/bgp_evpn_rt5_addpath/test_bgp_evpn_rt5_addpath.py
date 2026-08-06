@@ -888,6 +888,27 @@ def test_bgp_evpn_rt5_addpath_route_map():
         result is None
     ), "All paths, including non-best, should be imported in overlay VRF"
 
+    logger.info("Remove advertise route-map and check that it is unused")
+    r1.vtysh_cmd(
+        """
+        conf
+        router bgp 64001 vrf vrf100
+         address-family l2vpn evpn
+          no advertise ipv4 unicast route-map set-pref
+    """
+    )
+
+    def _check_route_map_unused():
+        output = json.loads(r1.vtysh_cmd("show route-map-unused json"))
+        if "set-pref" not in output.get("bgpd", {}):
+            return "set-pref is still in use"
+        return None
+
+    _, result = topotest.run_and_expect(_check_route_map_unused, None, count=20, wait=1)
+    assert result is None, (
+        "set-pref should be unused after removing it from advertise " "ipv4 unicast"
+    )
+
     logger.info("Cleaning up")
     r1.vtysh_cmd(
         """
