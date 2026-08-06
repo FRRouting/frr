@@ -204,7 +204,7 @@ static void nhrp_cache_do_timeout(struct event *t)
 	struct nhrp_cache *c = EVENT_ARG(t);
 
 	if (c->cur.type != NHRP_CACHE_INVALID)
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+		nhrp_cache_update_binding(c, c->cur.type, -1, 0, NULL, 0, NULL,
 					  NULL);
 }
 
@@ -293,7 +293,7 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 	case NOTIFY_PEER_DOWN:
 	case NOTIFY_PEER_IFCONFIG_CHANGED:
 		notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+		nhrp_cache_update_binding(c, c->cur.type, -1, 0, NULL, 0, NULL,
 					  NULL);
 		break;
 	case NOTIFY_PEER_NBMA_CHANGING:
@@ -420,7 +420,7 @@ static void nhrp_cache_newpeer_notifier(struct notifier_block *n,
 }
 
 int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
-			      int holding_time, struct nhrp_peer *p,
+			      int holding_time, int unique, struct nhrp_peer *p,
 			      uint32_t mtu, union sockunion *nbma_oa,
 			      union sockunion *nbma_claimed)
 {
@@ -452,6 +452,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 
 	nhrp_cache_reset_new(c);
 	if (c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
+		c->cur.unique = unique;
 		debugf(NHRP_DEBUG_COMMON,
 		       "cache: same type %u, updating expiry and changing nbma addr from %s to %s",
 		       type, buf[0], nbma_oa ? buf[1] : "(NULL)");
@@ -481,6 +482,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 		c->new.peer = p;
 		c->new.mtu = mtu;
 		c->new.holding_time = holding_time;
+		c->new.unique = unique;
 		if (nbma_oa)
 			c->new.remote_nbma_natoa = *nbma_oa;
 
