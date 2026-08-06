@@ -988,13 +988,20 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			zbuf_put(zb, extpl.head, len);
 			if ((type == NHRP_EXTENSION_REVERSE_TRANSIT_NHS)
 			    == (packet_types[hdr->type].type == PACKET_REPLY)) {
-				/* Check NHS list for forwarding loop */
+				/* Check NHS list for forwarding loop per
+				 * RFC 2332 §5.3.2/§5.3.3: compare protocol
+				 * address, not NBMA address.
+				 */
 				while (nhrp_cie_pull(&extpl, pp->hdr,
 						     &cie_nbma,
 						     &cie_protocol) != NULL) {
-					if (sockunion_same(&p->vc->remote.nbma,
-							   &cie_nbma))
+					if (sockunion_same(&pp->if_ad->addr,
+							   &cie_protocol)) {
+						nhrp_packet_send_error(pp,
+							NHRP_ERROR_LOOP_DETECTED,
+							0);
 						goto err;
+					}
 				}
 				/* Append our selves to the list */
 				cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
