@@ -3738,9 +3738,20 @@ static void bgp_evpn_set_unset_resolve_overlay_index(struct bgp *bgp, bool set)
 /*
  * EVPN - use RFC8365 to auto-derive RT
  */
-static void evpn_set_autort_rfc8365(struct bgp *bgp, bool import, bool export)
+static int evpn_set_autort_rfc8365(struct vty *vty, struct bgp *bgp, bool import, bool export)
 {
 	bool changed = false;
+
+	if (import && bgp->autort_enforce_as4_import) {
+		vty_out(vty,
+			"%% Cannot configure rfc8365-compatible and enforce-as4 simultaneously for import\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (export && bgp->autort_enforce_as4_export) {
+		vty_out(vty,
+			"%% Cannot configure rfc8365-compatible and enforce-as4 simultaneously for export\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (import && !bgp->autort_rfc8365_import) {
 		bgp->autort_rfc8365_import = true;
@@ -3753,6 +3764,8 @@ static void evpn_set_autort_rfc8365(struct bgp *bgp, bool import, bool export)
 
 	if (changed)
 		bgp_evpn_handle_autort_change(bgp);
+
+	return CMD_SUCCESS;
 }
 
 /*
@@ -3768,6 +3781,96 @@ static void evpn_unset_autort_rfc8365(struct bgp *bgp, bool import, bool export)
 	}
 	if (export && bgp->autort_rfc8365_export) {
 		bgp->autort_rfc8365_export = false;
+		changed = true;
+	}
+
+	if (changed)
+		bgp_evpn_handle_autort_change(bgp);
+}
+
+static void evpn_autort_as4_count_oversized_vni(struct hash_bucket *bucket, void *arg)
+{
+	struct bgpevpn *vpn = bucket->data;
+	unsigned int *count = arg;
+
+	if (vpn->vni > 0xFFFF)
+		(*count)++;
+}
+
+/* Count the VNIs owned by bgp (its L3VNI, if any, plus all its L2VNIs)
+ * that exceed the 16-bit local admin available in enforce-as4 mode:
+ * auto route-target generation is skipped for these.
+ */
+static unsigned int evpn_autort_as4_oversized_vni_count(struct bgp *bgp)
+{
+	unsigned int count = 0;
+
+	if (bgp->l3vni > 0xFFFF)
+		count++;
+	if (bgp->vnihash)
+		hash_iterate(bgp->vnihash,
+			     (void (*)(struct hash_bucket *,
+				       void *))evpn_autort_as4_count_oversized_vni,
+			     &count);
+
+	return count;
+}
+
+/*
+ * EVPN - enforce AS4 (32-bit) encoding for auto-derived RT
+ * Mutually exclusive with RFC 8365 mode.
+ */
+static int evpn_set_autort_enforce_as4(struct vty *vty, struct bgp *bgp, bool import, bool export)
+{
+	bool changed = false;
+
+	if (import && bgp->autort_rfc8365_import) {
+		vty_out(vty,
+			"%% Cannot configure enforce-as4 and rfc8365-compatible simultaneously for import\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (export && bgp->autort_rfc8365_export) {
+		vty_out(vty,
+			"%% Cannot configure enforce-as4 and rfc8365-compatible simultaneously for export\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (import && !bgp->autort_enforce_as4_import) {
+		bgp->autort_enforce_as4_import = true;
+		changed = true;
+	}
+	if (export && !bgp->autort_enforce_as4_export) {
+		bgp->autort_enforce_as4_export = true;
+		changed = true;
+	}
+
+	if (changed) {
+		unsigned int oversized = evpn_autort_as4_oversized_vni_count(bgp);
+
+		bgp_evpn_handle_autort_change(bgp);
+
+		if (oversized)
+			vty_out(vty,
+				"%% %u VNI(s) exceed the 16-bit limit for enforce-as4; automatic route-target generation skipped for them (see log)\n",
+				oversized);
+	}
+
+	return CMD_SUCCESS;
+}
+
+/*
+ * EVPN - stop enforcing AS4 encoding for auto-derived RT
+ */
+static void evpn_unset_autort_enforce_as4(struct bgp *bgp, bool import, bool export)
+{
+	bool changed = false;
+
+	if (import && bgp->autort_enforce_as4_import) {
+		bgp->autort_enforce_as4_import = false;
+		changed = true;
+	}
+	if (export && bgp->autort_enforce_as4_export) {
+		bgp->autort_enforce_as4_export = false;
 		changed = true;
 	}
 
@@ -4050,8 +4153,7 @@ DEFPY_ATTR(bgp_evpn_advertise_autort_rfc8365,
 	vty_out(vty,
 		"%% \"autort rfc8365-compatible\" is deprecated, use \"auto-route-target both rfc8365-compatible\"\n");
 
-	evpn_set_autort_rfc8365(bgp, true, true);
-	return CMD_SUCCESS;
+	return evpn_set_autort_rfc8365(vty, bgp, true, true);
 }
 
 DEFPY_ATTR(no_bgp_evpn_advertise_autort_rfc8365,
@@ -4071,6 +4173,36 @@ DEFPY_ATTR(no_bgp_evpn_advertise_autort_rfc8365,
 		"%% \"no autort rfc8365-compatible\" is deprecated, use \"no auto-route-target both rfc8365-compatible\"\n");
 
 	evpn_unset_autort_rfc8365(bgp, true, true);
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_evpn_autort_enforce_as4,
+       bgp_evpn_autort_enforce_as4_cmd,
+       "autort enforce-as4",
+       "Auto-derivation of RT\n"
+       "Force AS4 (32-bit AS) encoding for auto-derived route targets\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	return evpn_set_autort_enforce_as4(vty, bgp, true, true);
+}
+
+DEFPY (no_bgp_evpn_autort_enforce_as4,
+       no_bgp_evpn_autort_enforce_as4_cmd,
+       "no autort enforce-as4",
+       NO_STR
+       "Auto-derivation of RT\n"
+       "Force AS4 (32-bit AS) encoding for auto-derived route targets\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	evpn_unset_autort_enforce_as4(bgp, true, true);
 	return CMD_SUCCESS;
 }
 
@@ -7312,7 +7444,7 @@ static enum bgp_evpn_autort_cfgd bgp_evpn_autort_mode_from_str(const char *mode)
 
 DEFPY (bgp_evpn_vrf_auto_rt,
        bgp_evpn_vrf_auto_rt_cmd,
-       "auto-route-target <both|import|export>$type <add-always|add-never|add-if-no-manual|rfc8365-compatible>$mode",
+       "auto-route-target <both|import|export>$type <add-always|add-never|add-if-no-manual|rfc8365-compatible|enforce-as4>$mode",
        "Automatic route-target configuration\n"
        "Import and export\n"
        "Import\n"
@@ -7320,7 +7452,8 @@ DEFPY (bgp_evpn_vrf_auto_rt,
        "Always add the automatic route-target, even when manual route-targets are configured\n"
        "Never add the automatic route-target\n"
        "Add the automatic route-target only when no manual route-target is configured (default)\n"
-       "Encode the automatic route-target as RFC 8365 compatible (set the VXLAN encapsulation bits in the local admin field)\n")
+       "Encode the automatic route-target as RFC 8365 compatible (set the VXLAN encapsulation bits in the local admin field)\n"
+       "Force AS4 (32-bit AS) encoding for auto-derived route targets\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	bool do_import, do_export;
@@ -7332,11 +7465,14 @@ DEFPY (bgp_evpn_vrf_auto_rt,
 	do_import = strmatch(type, "import") || strmatch(type, "both");
 	do_export = strmatch(type, "export") || strmatch(type, "both");
 
-	/* rfc8365-compatible is orthogonal to the add-mode: it only affects
-	 * how the automatic route-target is encoded.
+	/* rfc8365-compatible and enforce-as4 are orthogonal to the add-mode:
+	 * they only affect how the automatic route-target is encoded.
+	 * They are mutually exclusive with each other.
 	 */
 	if (strmatch(mode, "rfc8365-compatible")) {
-		evpn_set_autort_rfc8365(bgp, do_import, do_export);
+		return evpn_set_autort_rfc8365(vty, bgp, do_import, do_export);
+	} else if (strmatch(mode, "enforce-as4")) {
+		return evpn_set_autort_enforce_as4(vty, bgp, do_import, do_export);
 	} else {
 		enum bgp_evpn_autort_cfgd autort = bgp_evpn_autort_mode_from_str(mode);
 
@@ -7445,7 +7581,7 @@ DEFPY (no_bgp_evpn_vrf_rt,
 
 DEFPY (no_bgp_evpn_vrf_auto_rt,
        no_bgp_evpn_vrf_auto_rt_cmd,
-       "no auto-route-target [<both|import|export>$type [<add-always|add-never|add-if-no-manual|rfc8365-compatible>$mode]]",
+       "no auto-route-target [<both|import|export>$type [<add-always|add-never|add-if-no-manual|rfc8365-compatible|enforce-as4>$mode]]",
        NO_STR
        "Automatic route-target configuration\n"
        "Import and export\n"
@@ -7454,13 +7590,15 @@ DEFPY (no_bgp_evpn_vrf_auto_rt,
        "Always add the automatic route-target, even when manual route-targets are configured\n"
        "Never add the automatic route-target\n"
        "Add the automatic route-target only when no manual route-target is configured (default)\n"
-       "Encode the automatic route-target as RFC 8365 compatible (set the VXLAN encapsulation bits in the local admin field)\n")
+       "Encode the automatic route-target as RFC 8365 compatible (set the VXLAN encapsulation bits in the local admin field)\n"
+       "Force AS4 (32-bit AS) encoding for auto-derived route targets\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	struct bgp_evpn_rt_config *rt_config;
 	bool do_import, do_export;
 	bool clear_add_import, clear_add_export;
 	bool clear_rfc_import, clear_rfc_export;
+	bool clear_as4_import, clear_as4_export;
 
 	if (!bgp)
 		return CMD_WARNING_CONFIG_FAILED;
@@ -7483,6 +7621,21 @@ DEFPY (no_bgp_evpn_vrf_auto_rt,
 		}
 
 		evpn_unset_autort_rfc8365(bgp, clear_import, clear_export);
+		return CMD_SUCCESS;
+	}
+
+	if (mode && strmatch(mode, "enforce-as4")) {
+		/* Clear the (orthogonal) enforce-as4 setting, exact match. */
+		bool clear_import = do_import && bgp->autort_enforce_as4_import;
+		bool clear_export = do_export && bgp->autort_enforce_as4_export;
+
+		if (!clear_import && !clear_export) {
+			vty_out(vty,
+				"%% Enforce-as4 automatic route-target is not configured for this VRF\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		evpn_unset_autort_enforce_as4(bgp, clear_import, clear_export);
 		return CMD_SUCCESS;
 	}
 
@@ -7509,15 +7662,18 @@ DEFPY (no_bgp_evpn_vrf_auto_rt,
 		return CMD_SUCCESS;
 	}
 
-	/* Without a mode, clear both the add-mode and the rfc8365 setting for
-	 * the direction(s).
+	/* Without a mode, clear the add-mode, rfc8365 and enforce-as4
+	 * settings for the direction(s).
 	 */
 	clear_add_import = do_import && rt_config->autort_cfgd_import != BGP_EVPN_AUTORT_NOT_CFGD;
 	clear_add_export = do_export && rt_config->autort_cfgd_export != BGP_EVPN_AUTORT_NOT_CFGD;
 	clear_rfc_import = do_import && bgp->autort_rfc8365_import;
 	clear_rfc_export = do_export && bgp->autort_rfc8365_export;
+	clear_as4_import = do_import && bgp->autort_enforce_as4_import;
+	clear_as4_export = do_export && bgp->autort_enforce_as4_export;
 
-	if (!clear_add_import && !clear_add_export && !clear_rfc_import && !clear_rfc_export) {
+	if (!clear_add_import && !clear_add_export && !clear_rfc_import && !clear_rfc_export &&
+	    !clear_as4_import && !clear_as4_export) {
 		vty_out(vty, "%% Automatic route-target is not configured for this VRF\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -7527,6 +7683,7 @@ DEFPY (no_bgp_evpn_vrf_auto_rt,
 	if (clear_add_export)
 		bgp_evpn_unconfigure_export_auto_rt_for_vrf(bgp);
 	evpn_unset_autort_rfc8365(bgp, clear_rfc_import, clear_rfc_export);
+	evpn_unset_autort_enforce_as4(bgp, clear_as4_import, clear_as4_export);
 
 	return CMD_SUCCESS;
 }
@@ -8121,6 +8278,8 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 		vty_out(vty, "  auto-route-target import %s\n", autort_mode_str);
 	if (bgp->autort_rfc8365_import)
 		vty_out(vty, "  auto-route-target import rfc8365-compatible\n");
+	if (bgp->autort_enforce_as4_import)
+		vty_out(vty, "  auto-route-target import enforce-as4\n");
 
 	/* export route-target */
 	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_export, cfgd_rt) {
@@ -8134,6 +8293,8 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 		vty_out(vty, "  auto-route-target export %s\n", autort_mode_str);
 	if (bgp->autort_rfc8365_export)
 		vty_out(vty, "  auto-route-target export rfc8365-compatible\n");
+	if (bgp->autort_enforce_as4_export)
+		vty_out(vty, "  auto-route-target export enforce-as4\n");
 }
 
 void bgp_ethernetvpn_init(void)
@@ -8160,6 +8321,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_autort_rfc8365_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_autort_rfc8365_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_autort_enforce_as4_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_autort_enforce_as4_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_default_gw_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_default_gw_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_cmd);
