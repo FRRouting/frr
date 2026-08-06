@@ -1056,6 +1056,10 @@ DEFPY (no_locator_prefix,
 	locator->status_up = false;
 
 	zebra_notify_srv6_locator_delete(locator);
+	/* Invalidate SRv6 L2 EVPN EVIs drawing SIDs from this locator: its
+	 * prefix (and thus their allocations) is gone.
+	 */
+	zebra_srv6_evi_on_locator_delete(locator->name);
 	zebra_srv6_sid_entry_del_by_locator_all_sids(locator);
 	zebra_srv6_sid_locator_block_release(locator);
 
@@ -1772,7 +1776,20 @@ static int zebra_sr_config(struct vty *vty)
 					vty_out(vty, " arg-len %u", locator->argument_bits_length);
 				vty_out(vty, "\n");
 			}
-			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+			/*
+			 * Print `behavior usid` only when the uSID flag is not
+			 * already implied by a uSID sid-format.  A `format usid-*`
+			 * locator carries SRV6_LOCATOR_USID (set in
+			 * zebra_srv6_locator_format_set so flag-only consumers such
+			 * as bgpd see it as uSID), but emitting `behavior usid` for
+			 * it writes a line the operator never configured and breaks
+			 * config round-trip (frr-reload).  An explicit `behavior
+			 * usid` - no sid-format, or a non-uSID format - still prints.
+			 */
+			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID) &&
+			    !(locator->sid_format &&
+			      ((struct srv6_sid_format *)locator->sid_format)->type ==
+				      SRV6_SID_FORMAT_TYPE_USID))
 				vty_out(vty, "    behavior usid\n");
 			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_PSP))
 				vty_out(vty, "    flavor psp\n");
