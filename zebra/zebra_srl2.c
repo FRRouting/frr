@@ -22,6 +22,8 @@
 #include "zebra/zebra_srl2.h"
 #include "zebra/zebra_router.h"
 #include "zebra/interface.h" /* struct zebra_if, brslave_info */
+#include "zebra/zebra_srv6_l2evpn.h"
+#include "zebra/zebra_dplane.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SRL2, "Zebra SRv6 SR-L2 interface");
 
@@ -156,7 +158,6 @@ struct zebra_srl2 *zebra_srl2_get_or_create(const struct in6_addr *sid, ifindex_
 	struct zebra_srl2 key = {};
 	struct zebra_srl2 *entry;
 	char ifname[IFNAMSIZ];
-	ifindex_t new_ifindex;
 
 	key.sid = *sid;
 	entry = srl2_htab_find(srl2_table, &key);
@@ -181,13 +182,9 @@ struct zebra_srl2 *zebra_srl2_get_or_create(const struct in6_addr *sid, ifindex_
 		snprintfrr(ifname, sizeof(ifname), "srl2-%u", srl2_next_id++);
 
 	/*
-	 * srl2 interfaces persist across an FRR restart (e.g. zebra running in
-	 * a netns), but srl2_next_id restarts at 0 — so a freshly generated
-	 * name can collide with an orphaned interface left by a prior zebra
-	 * run, causing netlink_srl2_if_add to fail with EEXIST.  Such an
-	 * interface is, by definition, not tracked in our table (we only reach
-	 * here on a table miss), so it is a stale orphan: delete it before
-	 * (re)creating with the current SID.
+	 * Orphan left by a prior zebra run may hold this name; delete it via
+	 * the dplane before recreating.  Enqueued before the create below, and
+	 * the single dplane FIFO guarantees the delete lands first (no EEXIST).
 	 */
 	{
 		struct interface *orphan = if_lookup_by_name(ifname, VRF_DEFAULT);
@@ -196,59 +193,25 @@ struct zebra_srl2 *zebra_srl2_get_or_create(const struct in6_addr *sid, ifindex_
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("%s: removing stale orphan %s (ifindex %u) before recreate",
 					   __func__, ifname, orphan->ifindex);
-			netlink_srl2_if_del(orphan->ifindex);
-		}
-	}
-
-	/* Ask the kernel to create the srl2 interface. */
-	new_ifindex = netlink_srl2_if_add(ifname, sid);
-	if (new_ifindex <= 0) {
-		zlog_err("%s: failed to create srl2 interface %s for SID %pI6", __func__, ifname,
-			 sid);
-		return NULL;
-	}
-
-	/* Add the new interface as a bridge slave. */
-	if (bridge_ifindex) {
-		if (netlink_link_set_master(new_ifindex, bridge_ifindex) < 0) {
-			zlog_warn("%s: srl2 %s created but failed to add to bridge %u", __func__,
-				  ifname, bridge_ifindex);
-			/* Continue - FDB may still work if the interface is up. */
-		} else {
-			if (is_bum) {
-				if (netlink_srl2_if_set_brport_bum_flags(new_ifindex) < 0)
-					zlog_warn("%s: srl2 %s (BUM): failed to set BUM brport flags",
-						  __func__, ifname);
-			} else {
-				if (netlink_srl2_if_set_brport_flags(new_ifindex) < 0)
-					zlog_warn("%s: srl2 %s: failed to set unicast brport flags",
-						  __func__, ifname);
-			}
-
-			/*
-			 * Bind the EVI VLAN (tagged) onto the port while it is
-			 * still DOWN and freshly enslaved.  vid 0 (vlan-bundle)
-			 * => no VLAN filter.  Must happen before bringing the
-			 * port up, otherwise the membership is lost.
-			 */
-			if (vid)
-				netlink_srl2_bridge_vlan_add(new_ifindex, vid, false /* untagged */,
-							     false /* pvid */);
+			dplane_link_delete(orphan->ifindex);
 		}
 	}
 
 	/*
-	 * Bring the port UP only now — after enslave + brport flags + VLAN
-	 * bind (canonical `ip link add down; set master; bridge vlan add; set
-	 * up` ordering).  addr_gen_mode=none was already set while down in
-	 * netlink_srl2_if_add(), so no link-local is generated.
+	 * Create the sr6 netdev through the dataplane provider (fire-and-forget).
+	 * The kernel ifindex is unknown here: the entry is created with ifindex 0
+	 * and filled in by zebra_srl2_if_add() when the netdev appears, which then
+	 * queues addr-gen-mode -> enslave -> brport -> vlan -> up and re-realizes
+	 * the EVI.  Callers tolerate ifindex 0 and re-realize (zebra_srv6_l2evpn.c
+	 * / zebra_evpn_mac.c both retry get_or_create while their oif is 0).
 	 */
-	netlink_srl2_if_up(new_ifindex);
+	dplane_srl2_create(ifname, sid);
 
 	entry = XCALLOC(MTYPE_ZEBRA_SRL2, sizeof(*entry));
 	entry->sid = *sid;
-	entry->ifindex = new_ifindex;
+	entry->ifindex = 0;
 	entry->bridge_ifindex = bridge_ifindex;
+	entry->vid = vid;
 	strlcpy(entry->ifname, ifname, sizeof(entry->ifname));
 	entry->refcnt = 1;
 	entry->is_bum = is_bum;
@@ -256,10 +219,51 @@ struct zebra_srl2 *zebra_srl2_get_or_create(const struct in6_addr *sid, ifindex_
 	srl2_htab_add(srl2_table, entry);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s: created srl2 if %s ifindex %u for SID %pI6 on bridge %u", __func__,
-			   ifname, new_ifindex, sid, bridge_ifindex);
+		zlog_debug("%s: srl2 %s create queued for SID %pI6 on bridge %u (ifindex pending)",
+			   __func__, ifname, sid, bridge_ifindex);
 
 	return entry;
+}
+
+/*
+ * Interface-add hook (driven from if_add_update()).  When a queued srl2/
+ * bum-srl2 netdev appears, record its ifindex, finish the deferred bridge
+ * programming through the dplane FIFO (addr-gen-mode -> enslave -> brport ->
+ * vlan -> up), and re-realize the EVI on its bridge so local_decap_oif and the
+ * remote MAC FDB pick up the now-known ifindex.  Mirrors zebra_srv6_vpws_if_add.
+ */
+void zebra_srl2_if_add(struct interface *ifp)
+{
+	struct zebra_srl2 *entry;
+
+	if (!srl2_inited || !ifp || ifp->ifindex == 0)
+		return;
+	if (strncmp(ifp->name, "srl2-", 5) != 0 && strncmp(ifp->name, "bum-srl2-", 9) != 0)
+		return;
+
+	frr_each (srl2_htab, srl2_table, entry) {
+		if (entry->ifindex != 0 || strcmp(entry->ifname, ifp->name) != 0)
+			continue;
+
+		entry->ifindex = ifp->ifindex;
+
+		dplane_srl2_addrgenmode(ifp->ifindex);
+		if (entry->bridge_ifindex) {
+			dplane_intf_set_master(ifp->ifindex, entry->bridge_ifindex);
+			dplane_srl2_brport_flags(ifp->ifindex, entry->is_bum);
+			if (entry->vid)
+				dplane_srl2_bridge_vlan_add(ifp->ifindex, entry->vid,
+							    false /* untagged */, false /* pvid */);
+		}
+		dplane_srl2_if_up(ifp->ifindex);
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: srl2 %s added (ifindex %u); programmed + re-realizing bridge %u",
+				   __func__, ifp->name, ifp->ifindex, entry->bridge_ifindex);
+
+		zebra_srv6_l2evpn_realize_on_bridge(entry->bridge_ifindex);
+		break;
+	}
 }
 
 /*
@@ -278,8 +282,8 @@ void zebra_srl2_bind_vlan_on_bridge(ifindex_t bridge_ifindex, vlanid_t vid)
 
 	frr_each (srl2_htab, srl2_table, entry)
 		if (entry->bridge_ifindex == bridge_ifindex)
-			netlink_srl2_bridge_vlan_add(entry->ifindex, vid, false /* untagged */,
-						     false /* pvid */);
+			dplane_srl2_bridge_vlan_add(entry->ifindex, vid, false /* untagged */,
+						    false /* pvid */);
 }
 
 /*
@@ -312,7 +316,7 @@ static void srl2_release_kernel_orphans_on_bridge(ifindex_t bridge_ifindex)
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("%s: deleting orphan srl2 %s (ifindex %u) on bridge %u (EVI teardown)",
 				   __func__, ifp->name, ifp->ifindex, bridge_ifindex);
-		netlink_srl2_if_del(ifp->ifindex);
+		dplane_link_delete(ifp->ifindex);
 	}
 }
 
@@ -338,7 +342,7 @@ void zebra_srl2_release_all_on_bridge(ifindex_t bridge_ifindex)
 				   __func__, entry->ifname, entry->ifindex, &entry->sid,
 				   bridge_ifindex);
 
-		netlink_srl2_if_del(entry->ifindex);
+		dplane_link_delete(entry->ifindex);
 		srl2_htab_del(srl2_table, entry);
 		XFREE(MTYPE_ZEBRA_SRL2, entry);
 	}
@@ -366,12 +370,8 @@ struct zebra_srl2 *zebra_srl2_update_sid(const struct in6_addr *old_sid,
 	if (memcmp(&entry->sid, new_sid, sizeof(entry->sid)) == 0)
 		return entry;
 
-	/* Reprogram the kernel interface's encap SID without recreating it. */
-	if (netlink_srl2_if_update_sid(entry->ifindex, new_sid) < 0) {
-		zlog_warn("%s: in-place SID update failed for %s (ifindex %u)", __func__,
-			  entry->ifname, entry->ifindex);
-		return NULL;
-	}
+	/* Reprogram the kernel interface's encap SID in place via the dplane. */
+	dplane_srl2_update_sid(entry->ifindex, new_sid);
 
 	/* Re-key the hash entry: remove under old SID, reinsert under new. */
 	srl2_htab_del(srl2_table, entry);
@@ -405,7 +405,7 @@ void zebra_srl2_release(const struct in6_addr *sid)
 		zlog_debug("%s: deleting srl2 if %s (ifindex %u) for SID %pI6", __func__,
 			   entry->ifname, entry->ifindex, sid);
 
-	netlink_srl2_if_del(entry->ifindex);
+	dplane_link_delete(entry->ifindex);
 	srl2_htab_del(srl2_table, entry);
 	XFREE(MTYPE_ZEBRA_SRL2, entry);
 }
@@ -432,6 +432,10 @@ const char *zebra_srl2_encap_mode2str(enum zebra_srl2_encap_mode mode)
 }
 
 void zebra_srl2_init(void)
+{
+}
+
+void zebra_srl2_if_add(struct interface *ifp)
 {
 }
 

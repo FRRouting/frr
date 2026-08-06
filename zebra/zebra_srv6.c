@@ -16,6 +16,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_srv6.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
 #include "zebra/interface.h"
@@ -291,9 +292,17 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 		if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
 			SET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
 			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+			/* A uSID sid-format IS uSID: keep the SRV6_LOCATOR_USID
+			 * flag in sync so consumers that only see the flag (e.g.
+			 * bgpd, whose locator copies drop sid_format) treat a
+			 * `format usid-*`-only locator as uSID too - not just one
+			 * configured with the explicit `behavior usid`.
+			 */
+			SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 		} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
 			SET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
 			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+			SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 		} else {
 			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
 			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
@@ -311,6 +320,13 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 
 	/* Notify zclients about the updated locator */
 	zebra_srv6_locator_add(locator);
+
+	/*
+	 * Re-allocate any per-EVI L2 service SIDs drawn from this locator so the
+	 * new encoding (legacy <-> uSID) takes effect.  Done last so realize's
+	 * get_srv6_sid() draws from the freshly-allocated parent block above.
+	 */
+	zebra_srv6_evi_on_locator_update(locator->name);
 }
 
 /*
@@ -1248,6 +1264,12 @@ void zebra_srv6_encap_src_addr_unset(void)
 	memset(&srv6->encap_src_addr, 0, sizeof(struct in6_addr));
 }
 
+/*
+ * zebra_srv6_set_evpn_encap_mode() was removed along with the global
+ * ZEBRA_EVPN_ENCAP_MODE signalling: EVPN encapsulation is per-EVI and zebra
+ * does not keep an instance-wide EVPN encap mode.
+ */
+
 /* --- SRv6 SID Allocation/Release functions -------------------------------- */
 
 /**
@@ -1299,6 +1321,17 @@ static bool zebra_srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locat
 	}
 
 	return true;
+}
+
+/*
+ * Exported thin wrapper around zebra_srv6_sid_compose() for the SRv6 L2 EVPN
+ * module: compose a plain LOC:FUNC:: SID under a locator (no wide function,
+ * not local-only).  Used to allocate per-EVI End.DT2U/End.DT2M service SIDs.
+ */
+bool zebra_srv6_l2_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
+			       uint32_t sid_func, uint32_t sid_func_wide)
+{
+	return zebra_srv6_sid_compose(sid_value, locator, sid_func, sid_func_wide, false);
 }
 
 /**
@@ -2582,6 +2615,43 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
 	return 0;
 }
 
+/*
+ * Release an SRv6 SID that was allocated by a zebra-internal caller (no zserv
+ * client) — e.g. the SRv6 L2 EVPN per-EVI End.DT2U/End.DT2M SIDs allocated via
+ * get_srv6_sid() from zebra/zebra_srv6_l2evpn.c.
+ *
+ * release_srv6_sid() above is client-oriented (requires a per-client entry and
+ * dereferences client->proto), which does not fit internally-allocated SIDs.
+ * This variant looks the SID up by its context and runs the deallocation tail
+ * directly: return the function to the block's pool and free the SID +
+ * context (zebra_srv6_sid_free() also frees the SID's locator entries).
+ * Idempotent / safe if the ctx is unknown.
+ */
+void zebra_srv6_l2_sid_release(const struct srv6_sid_ctx *ctx, const char *locator_name)
+{
+	struct srv6_locator *locator;
+	struct zebra_srv6_sid_block *block;
+	struct zebra_srv6_sid_ctx *zctx;
+
+	if (!ctx || !locator_name)
+		return;
+
+	locator = zebra_srv6_locator_lookup(locator_name);
+	if (!locator || !locator->sid_block)
+		return;
+	block = locator->sid_block;
+
+	zctx = zebra_srv6_sid_ctx_lookup(ctx, block);
+	if (!zctx || !zctx->sid)
+		return;
+
+	release_srv6_sid_func(zctx);
+	zebra_srv6_sid_free(zctx->sid);
+	zctx->sid = NULL;
+	zebra_srv6_sid_ctx_list_del(&block->sids, zctx);
+	zebra_srv6_sid_ctx_free(zctx);
+}
+
 /**
  * Handle a get SRv6 Locator request received from a client.
  *
@@ -2846,6 +2916,8 @@ void zebra_srv6_terminate(void)
 	struct zebra_srv6_sid_block *block;
 	struct zebra_srv6_sid_ctx *sid_ctx;
 
+	zebra_srv6_l2evpn_terminate();
+
 	if (g_srv6.locators) {
 		while (listcount(g_srv6.locators)) {
 			locator = listnode_head(g_srv6.locators);
@@ -2907,6 +2979,9 @@ void zebra_srv6_init(void)
 		      srv6_manager_release_sid_internal);
 	hook_register(srv6_manager_get_locator,
 		      srv6_manager_get_srv6_locator_internal);
+
+	/* SRv6 L2 EVPN (VLAN-to-EVI) EVI table. */
+	zebra_srv6_l2evpn_init();
 }
 
 bool zebra_srv6_is_enable(void)

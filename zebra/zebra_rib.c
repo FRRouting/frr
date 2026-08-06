@@ -214,6 +214,8 @@ struct wq_evpn_wrapper {
 	struct ethaddr macaddr;
 	struct prefix prefix;
 	struct ipaddr vtep_ip;
+	struct in6_addr srv6_sid;
+	bool has_srv6_sid;
 };
 
 #define WQ_EVPN_WRAPPER_TYPE_VRFROUTE     0x01
@@ -2431,12 +2433,14 @@ static void process_subq_evpn(struct listnode *lnode)
 
 		if (w->add_p)
 			zebra_evpn_rem_macip_add(w->vni, &w->macaddr, ipa_len, &w->ip, w->flags,
-						 w->seq, &w->vtep_ip, &w->esi);
+						 w->seq, &w->vtep_ip, &w->esi,
+						 w->has_srv6_sid ? &w->srv6_sid : NULL);
 		else
 			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip);
 	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_VTEP) {
 		if (w->add_p)
-			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni, &w->vtep_ip, w->flags);
+			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni, &w->vtep_ip, w->flags,
+						    w->has_srv6_sid ? &w->srv6_sid : NULL);
 		else
 			zebra_vxlan_remote_vtep_del(w->vrf_id, w->vni, &w->vtep_ip);
 	}
@@ -3678,7 +3682,8 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_
  */
 int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 				       const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-				       struct ipaddr *vtep_ip, const esi_t *esi)
+				       struct ipaddr *vtep_ip, const esi_t *esi,
+				       const struct in6_addr *srv6_sid)
 {
 	struct wq_evpn_wrapper *w;
 	char buf[ESI_STR_LEN];
@@ -3694,6 +3699,12 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	w->seq = seq;
 	w->vtep_ip = *vtep_ip;
 	w->esi = *esi;
+	if (srv6_sid) {
+		w->srv6_sid = *srv6_sid;
+		w->has_srv6_sid = true;
+	} else {
+		w->has_srv6_sid = false;
+	}
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		if (memcmp(esi, zero_esi, sizeof(esi_t)) != 0)
@@ -3747,6 +3758,35 @@ int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr 
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("%s: vrf %u, vtep %pIA enqueued", __func__, vrf_id, vtep_ip);
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+/* Enqueue a remote VTEP add carrying an optional SRv6 BUM (DT2M) SID. */
+int zebra_rib_queue_evpn_rem_vtep_add_srv6(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
+					   int flood_control, const struct in6_addr *bum_sid)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_VTEP;
+	w->add_p = true;
+	w->vrf_id = vrf_id;
+	w->vni = vni;
+	w->vtep_ip = *vtep_ip;
+	w->flags = flood_control;
+
+	if (bum_sid && !IN6_IS_ADDR_UNSPECIFIED(bum_sid)) {
+		w->srv6_sid = *bum_sid;
+		w->has_srv6_sid = true;
+	} else {
+		w->has_srv6_sid = false;
+	}
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: vrf %u, vtep %pIA bum_sid=%s enqueued", __func__, vrf_id, vtep_ip,
+			   w->has_srv6_sid ? "yes" : "no");
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
