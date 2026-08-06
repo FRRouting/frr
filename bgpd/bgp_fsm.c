@@ -46,6 +46,7 @@
 #include "bgpd/bgp_ls.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
+DEFINE_HOOK(peer_established, (struct peer * peer), (peer));
 DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
 DEFINE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
 
@@ -2993,6 +2994,9 @@ bgp_establish(struct peer_connection *connection)
 	peer->uptime = monotime(NULL);
 
 	bgp_fsm_change_status(connection, Established);
+
+	/* Fire established hook now that the transition is final */
+	hook_call(peer_established, peer);
 
 	/* bgp log-neighbor-changes of neighbor Up */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
