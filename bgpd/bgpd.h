@@ -331,7 +331,6 @@ struct vpn_policy {
 /* Is this value set by the cli? */
 #define BGP_VPN_POLICY_TOVPN_RD_CLI_SET       (1 << 7)
 #define BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE    (1 << 8)
-
 	/*
 	 * If we are importing another vrf into us keep a list of
 	 * vrf names that are being imported into us.
@@ -522,6 +521,8 @@ PREDECL_DLIST(bgp_clearing_info);
 
 /* Hash of peers in clearing info object */
 PREDECL_HASH(bgp_clearing_hash);
+/* EVPN-VPWS service instances (struct bgp_evpn_vpws *) hung off struct bgp */
+PREDECL_DLIST(evpn_vpws_list);
 
 /* Info about a batch of peers that need to be cleared from the RIB.
  * If many peers need to be cleared, we process them in batches, taking
@@ -1187,6 +1188,9 @@ struct bgp {
 	uint64_t bestpath_runs;
 	uint64_t node_already_on_queue;
 	uint64_t node_deferred_on_queue;
+
+	struct evpn_vpws_list_head evpn_vpws_list;
+	bool evpn_vpws_inited;
 
 	QOBJ_FIELDS;
 };
