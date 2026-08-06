@@ -150,6 +150,11 @@ extern bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 				       const char *locator_name,
 				       uint32_t *sid_func);
 extern void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *locator_name);
+extern int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
+				     const char *bridge_ifname, const struct in6_addr *local_sid);
+extern int bgp_zebra_send_vpws_local_del(const char *instance);
+extern int bgp_zebra_send_vpws_remote(const char *instance, const struct in6_addr *peer_sid);
+extern int bgp_zebra_send_vpws_remote_del(const char *instance);
 
 extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 					 ifindex_t index, vrf_id_t vrfid,
@@ -168,4 +173,6 @@ extern enum zclient_send_status
 bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info, struct bgp *bgp);
 extern void bgp_zebra_update_fib_install_pending(struct bgp_dest *dest, struct bgp *bgp,
 						 bool install);
+extern bool bgp_evpn_srv6_local_originator(struct bgp *bgp, struct ipaddr *originator);
+
 #endif /* _QUAGGA_BGP_ZEBRA_H */

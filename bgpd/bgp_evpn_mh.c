@@ -29,6 +29,7 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_debug.h"
@@ -1329,14 +1330,29 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	vtep_ip.ipa_type = IPADDR_V4;
 	vtep_ip.ipaddr_v4.s_addr = INADDR_ANY;
 	build_evpn_type1_prefix(&p, eth_tag, &esi, vtep_ip);
+
 	/* Process the route. */
 	if (attr) {
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi, safi, ZEBRA_ROUTE_BGP,
 			   BGP_ROUTE_NORMAL, &prd, &label[0], 1, 0, NULL, NULL);
+
+		const struct bgp_attr_srv6_l3service *svc = bgp_attr_get_srv6_l2vpn(attr);
+
+		if (svc) {
+			/* VPWS hook: if this is an EAD-EVI with an SRv6 L2 Service
+			 * binding, hand it to the local VPWS state machine so it
+			 * can match by target AC-ID and record the peer SID.
+			 */
+			bgp_evpn_vpws_handle_remote_ead(peer->bgp, &p, svc, attr, peer, label[0]);
+		}
+
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi, ZEBRA_ROUTE_BGP,
 			     BGP_ROUTE_NORMAL, &prd, &label[0], 1);
+
+		bgp_evpn_vpws_handle_remote_ead_withdraw(peer->bgp, &p);
 	}
+
 	return 0;
 }
 
