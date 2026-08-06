@@ -57,6 +57,9 @@ struct zebra_srl2 {
 
 	/* true -> BUM-purpose srl2 (flood-target, no FDB) */
 	bool is_bum;
+
+	/* EVI VLAN to (re)bind once the netdev appears (0 = vlan-bundle). */
+	vlanid_t vid;
 };
 
 /*
@@ -83,6 +86,7 @@ extern const char *zebra_srl2_encap_mode2str(enum zebra_srl2_encap_mode mode);
 
 /* Initialise/tear down global srl2 tracking table. */
 extern void zebra_srl2_init(void);
+extern void zebra_srl2_if_add(struct interface *ifp);
 extern void zebra_srl2_terminate(void);
 
 /* Delete every srl2/bum-srl2 kernel interface (graceful-shutdown cleanup). */

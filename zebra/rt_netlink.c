@@ -87,6 +87,8 @@
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
 #include "lib/srv6.h"
+#include "zebra/zebra_srl2.h"
+#include "zebra/zebra_dplane.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -4530,6 +4532,10 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 }
 
+/* Forward declaration - defined in the srl2 section at the bottom of the file. */
+static ssize_t netlink_srl2_macfdb_encode(const struct zebra_dplane_ctx *ctx, int cmd, void *data,
+					  size_t datalen);
+
 /*
  * Netlink-specific handler for MAC updates using dataplane context object.
  */
@@ -4547,6 +4553,15 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	bool nfy = false;
 	uint8_t nfy_flags = 0;
 	int proto = RTPROT_ZEBRA;
+
+	/*
+	 * srl2 path: the outgoing port is an srl2 interface that has the SID
+	 * bound to it.The FDB entry just names the interface - no NDA_DST.
+	 */
+	if (dplane_ctx_mac_has_srl2_if(ctx)) {
+		cmd = dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL ? RTM_NEWNEIGH : RTM_DELNEIGH;
+		return netlink_srl2_macfdb_encode(ctx, cmd, data, datalen);
+	}
 
 	if (dplane_ctx_get_type(ctx) != 0)
 		proto = zebra2proto(dplane_ctx_get_type(ctx));
@@ -5432,6 +5447,94 @@ int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
 int kernel_del_mac_nhg(uint32_t nhg_id)
 {
 	return netlink_fdb_nhg_del(nhg_id);
+}
+
+/* -------------------------------------------------------------------------- */
+/* SRv6 SR-L2 (srl2) interface management moved to if_netlink.c (link ops).    */
+/* fill_srh() (defined above) is shared with them, so it is no longer static.  */
+/* -------------------------------------------------------------------------- */
+
+
+/*
+ * Build a bridge FDB message that uses an srl2 interface as the outgoing port.
+ * Unlike the NDA_DST-based approach for VXLAN/SRv6, the SID is implicit in
+ * the srl2 interface itself - no destination address attribute is needed.
+ *
+ * Kernel equivalent of:
+ *   bridge fdb add <mac> dev srl2-N [permanent]
+ */
+static ssize_t netlink_srl2_macfdb_encode(const struct zebra_dplane_ctx *ctx, int cmd, void *data,
+					  size_t datalen)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ndmsg ndm;
+		char buf[256];
+	} *req = data;
+	const struct ethaddr *mac = dplane_ctx_mac_get_addr(ctx);
+	ifindex_t srl2_ifindex = dplane_ctx_mac_get_srl2_ifindex(ctx);
+	/*
+	 * Flag shape MUST match what zebra's L2VNI MAC watcher considers
+	 * a remote BGP-installed entry:
+	 *
+	 *   NTF_MASTER       - bridge-master FDB (NTF_SELF is rejected by the
+	 *                      srl2 driver, which has no ndo_fdb_add).
+	 *   NTF_EXT_LEARNED  - programmed by an external control plane (BGP).
+	 *   NTF_STICKY       - pin the entry; never let the bridge re-learn or
+	 *                      age it.  THIS is what makes `bridge fdb show`
+	 *                      print the entry with the `static` keyword and,
+	 *                      crucially, what causes zebra_evpn_mac.c to
+	 *                      classify the FDB notification as a REMOTE MAC
+	 *                      instead of a locally-learned one.  Without it,
+	 *                      both VTEPs flip the peer's MAC to "local",
+	 *                      both sides re-announce it via Type-2, EVPN
+	 *                      duplicate-detection or the import re-eval
+	 *                      tears down the IPv6 underlay route, and the
+	 *                      seg6 dataplane never converges.
+	 *   NUD_NOARP        - paired with NTF_STICKY: kernel must not initiate
+	 *                      neighbor resolution for the entry.
+	 */
+	uint8_t flags = NTF_MASTER | NTF_EXT_LEARNED | NTF_STICKY;
+	uint16_t state = NUD_REACHABLE | NUD_NOARP;
+	uint8_t protocol = RTPROT_ZEBRA;
+	vlanid_t vid;
+	int proto = RTPROT_ZEBRA;
+
+	if (dplane_ctx_get_type(ctx) != 0)
+		proto = zebra2proto(dplane_ctx_get_type(ctx));
+	protocol = proto;
+
+	if (dplane_ctx_mac_is_sticky(ctx)) {
+		state |= NUD_NOARP;
+		flags = (flags & ~NTF_EXT_LEARNED) | NTF_STICKY;
+	}
+
+	if (datalen < sizeof(*req))
+		return 0;
+
+	memset(req, 0, sizeof(*req));
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	if (cmd == RTM_NEWNEIGH)
+		req->n.nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
+	req->n.nlmsg_type = cmd;
+
+	req->ndm.ndm_family = AF_BRIDGE;
+	req->ndm.ndm_ifindex = srl2_ifindex;
+	req->ndm.ndm_flags = flags;
+	req->ndm.ndm_state = state;
+
+	if (!nl_attr_put(&req->n, datalen, NDA_PROTOCOL, &protocol, sizeof(protocol)))
+		return 0;
+	if (!nl_attr_put(&req->n, datalen, NDA_LLADDR, mac->octet, ETH_ALEN))
+		return 0;
+
+	vid = dplane_ctx_mac_get_vlan(ctx);
+	if (vid > 0)
+		if (!nl_attr_put16(&req->n, datalen, NDA_VLAN, vid))
+			return 0;
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
 #endif /* HAVE_NETLINK */
