@@ -80,6 +80,7 @@
 #include "bgpd/bgp_encap_tlv.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
@@ -5852,8 +5853,17 @@ static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, stru
 #endif
 
 	/* If this is an EVPN route, process for un-import. */
-	if (safi == SAFI_EVPN)
+	if (safi == SAFI_EVPN) {
 		bgp_evpn_unimport_route(peer->bgp, afi, safi, p, pi);
+		/* VPWS: reconcile / tear down the peer SID when an EAD route
+		 * leaves the RIB. The Type-1 withdraw NLRI only covers graceful
+		 * withdrawals; a session drop without graceful restart reaches
+		 * cleanup here, not the NLRI parser, and would otherwise leave
+		 * zebra encapsulating toward the departed peer's SID.
+		 */
+		bgp_evpn_vpws_reconcile_remote_ead(peer->bgp, dest, (const struct prefix_evpn *)p,
+						   pi);
+	}
 	/* If this is a route exported to EVPN, process for un-export */
 	if (advertise_type5_routes_multipath(peer->bgp, afi, safi) &&
 	    is_route_injectable_into_evpn(peer->bgp, afi, safi, pi))
