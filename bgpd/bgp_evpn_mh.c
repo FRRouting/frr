@@ -29,6 +29,7 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_debug.h"
@@ -1329,14 +1330,45 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	vtep_ip.ipa_type = IPADDR_V4;
 	vtep_ip.ipaddr_v4.s_addr = INADDR_ANY;
 	build_evpn_type1_prefix(&p, eth_tag, &esi, vtep_ip);
+
 	/* Process the route. */
 	if (attr) {
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi, safi, ZEBRA_ROUTE_BGP,
 			   BGP_ROUTE_NORMAL, &prd, &label[0], 1, 0, NULL, NULL);
+
+		/*
+		 * Drive VPWS from actual RIB state, not the received packet:
+		 * bgp_update() can accept, rewrite, or deny the route, and the
+		 * prefix may carry paths from several peers (e.g. two route
+		 * reflectors). Reconcile the prefix as the SINGLE authority for
+		 * both program and withdraw: it (re)programs each VPWS instance
+		 * from whatever valid remote path survives for its RT - using the
+		 * installed, post-policy attributes - and tears down only
+		 * instances with no surviving path. Passing exclude_pi == NULL
+		 * considers every path currently on the prefix.
+		 */
+		struct bgp_dest *dest = bgp_evpn_global_node_lookup(peer->bgp->rib[afi][safi],
+								    safi, &p, &prd, NULL);
+
+		if (dest) {
+			bgp_evpn_vpws_reconcile_remote_ead(peer->bgp, dest, &p, NULL);
+			bgp_dest_unlock_node(dest);
+		}
+
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi, ZEBRA_ROUTE_BGP,
 			     BGP_ROUTE_NORMAL, &prd, &label[0], 1);
+
+		/*
+		 * No explicit teardown here. bgp_withdraw() above runs the RIB
+		 * cleanup path, which calls bgp_evpn_vpws_reconcile_remote_ead():
+		 * that restores the peer SID from any surviving path (e.g. the
+		 * same EAD route still advertised by a second route reflector) or
+		 * tears it down when none remains. An unconditional withdraw here
+		 * would delete a just-restored binding.
+		 */
 	}
+
 	return 0;
 }
 
