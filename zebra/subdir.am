@@ -117,6 +117,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_evpn_mh.c \
 	zebra/zebra_neigh.c \
 	zebra/zserv.c \
+	zebra/zebra_srv6_vpws.c \
 	# end
 
 clippy_scan += \
@@ -202,6 +203,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_l2_bridge_if.h \
 	zebra/zebra_vxlan_if.h \
 	zebra/zserv.h \
+	zebra/zebra_srv6_vpws.h \
 	# end
 
 noinst_HEADERS += \
