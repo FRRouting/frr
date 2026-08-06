@@ -6736,6 +6736,17 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (CHECK_FLAG(pi->flags, BGP_PATH_STALE)) {
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_STALE);
 			bgp_dest_set_defer_flag(dest, false);
+
+			/* For EVPN routes, ensure import is triggered after stale
+			 * flag is cleared during GR recovery. This ensures L2VPN/EVPN
+			 * SRv6 SIDs are properly installed when routes are restored.
+			 */
+			if (safi == SAFI_EVPN && CHECK_FLAG(pi->flags, BGP_PATH_VALID)) {
+				if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+					zlog_debug("%s: Re-importing EVPN route %pFX after GR stale flag clear",
+						   __func__, p);
+				bgp_evpn_import_route(bgp, afi, safi, p, pi);
+			}
 		}
 
 		/* The attribute is changed. */
