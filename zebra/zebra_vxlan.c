@@ -6021,6 +6021,10 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 			/* Del primary MAC-IP */
 			zebra_evpn_del_macip_for_intf(vlan_if, zevpn);
 
+			/* Re-advertise it as an SVI route, if enabled. */
+			if (advertise_svi_macip_enabled(zevpn))
+				zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
+
 			/* Del VRR MAC-IP - if any*/
 			vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
 			if (vrr_if)
