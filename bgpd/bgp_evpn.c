@@ -28,6 +28,7 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_debug.h"
