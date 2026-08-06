@@ -200,6 +200,20 @@ enum dplane_op_e {
 	DPLANE_OP_INTF_UPDATE,
 	DPLANE_OP_INTF_DELETE,
 
+	/*
+	 * Port master set/unset (enslave/unslave) and link delete.  Used by the
+	 * SRv6 L2 EVPN / VPWS path so it programs the kernel through the dataplane
+	 * provider abstraction instead of private netlink sockets.
+	 */
+	DPLANE_OP_INTF_SET_MASTER,
+	DPLANE_OP_LINK_DELETE,
+	DPLANE_OP_BRPORT_FLAGS,
+	DPLANE_OP_BRIDGE_VLAN_ADD,
+	DPLANE_OP_SRL2_IF_UP,
+	DPLANE_OP_SRL2_UPDATE_SID,
+	DPLANE_OP_SRL2_CREATE,
+	DPLANE_OP_SRL2_ADDRGENMODE,
+
 	/* Traffic control */
 	DPLANE_OP_TC_QDISC_INSTALL,
 	DPLANE_OP_TC_QDISC_UNINSTALL,
@@ -1032,6 +1046,35 @@ enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 enum zebra_dplane_result dplane_intf_add(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp);
+
+/*
+ * SRv6 L2 EVPN / VPWS enslave helpers routed through the dataplane provider
+ * abstraction instead of module-private netlink sockets.  dplane_intf_set_master()
+ * enslaves (master != 0) or unslaves (master == 0) a port; dplane_link_delete()
+ * removes a link by ifindex.
+ */
+enum zebra_dplane_result dplane_intf_set_master(ifindex_t slave_ifindex, ifindex_t master_ifindex);
+enum zebra_dplane_result dplane_link_delete(ifindex_t ifindex);
+
+/*
+ * SRv6 srl2 bridge-port programming through the dataplane provider.  The single
+ * dplane FIFO preserves enslave -> brport -> vlan -> up ordering.
+ */
+enum zebra_dplane_result dplane_srl2_brport_flags(ifindex_t ifindex, bool is_bum);
+enum zebra_dplane_result dplane_srl2_bridge_vlan_add(ifindex_t ifindex, vlanid_t vid,
+						     bool untagged, bool pvid);
+enum zebra_dplane_result dplane_srl2_if_up(ifindex_t ifindex);
+enum zebra_dplane_result dplane_srl2_update_sid(ifindex_t ifindex, const struct in6_addr *sid);
+void dplane_ctx_set_srl2_sid(struct zebra_dplane_ctx *ctx, const struct in6_addr *sid);
+const struct in6_addr *dplane_ctx_get_srl2_sid(const struct zebra_dplane_ctx *ctx);
+enum zebra_dplane_result dplane_srl2_create(const char *name, const struct in6_addr *sid);
+enum zebra_dplane_result dplane_srl2_addrgenmode(ifindex_t ifindex);
+void dplane_ctx_set_br_is_bum(struct zebra_dplane_ctx *ctx, bool is_bum);
+bool dplane_ctx_get_br_is_bum(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_br_vlan(struct zebra_dplane_ctx *ctx, vlanid_t vid, bool untagged, bool pvid);
+vlanid_t dplane_ctx_get_br_vid(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_br_untagged(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_br_pvid(const struct zebra_dplane_ctx *ctx);
 
 /*
  * Enqueue tc link changes for the dataplane.
