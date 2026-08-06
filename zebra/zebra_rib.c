@@ -5372,6 +5372,14 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
 			case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+			/*
+			 * SRv6 VPWS bridge/enslave/delete: the created bridge's
+			 * ifindex is picked up from the interface-add hook, not
+			 * from this result, so nothing to do on completion.
+			 */
+			case DPLANE_OP_BRPORT_FLAGS:
+			case DPLANE_OP_BRIDGE_VLAN_ADD:
+			case DPLANE_OP_SR6_UPDATE_SID:
 			case DPLANE_OP_NONE:
 				break;
 			case DPLANE_OP_STARTUP_STAGE:
