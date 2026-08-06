@@ -933,6 +933,7 @@ class SubscribeRpcState : public RpcStateBase {
 				      frr::SubscribeResponse &&resp);
 	static void deregister_all_from_main(void);
 	static void cancel_cleanup_events_from_main(void);
+	static void delete_abandoned_tags_from_main(void);
 
 	frr::SubscribeRequest request;
 	frr::SubscribeResponse response;
@@ -991,6 +992,8 @@ static pthread_mutex_t active_subscriptions_mtx = PTHREAD_MUTEX_INITIALIZER;
 static std::list<Subscription *> active_subscriptions;
 static pthread_mutex_t active_subscribe_cleanups_mtx = PTHREAD_MUTEX_INITIALIZER;
 static std::list<SubscribeCleanup *> active_subscribe_cleanups;
+static pthread_mutex_t abandoned_subscribe_tags_mtx = PTHREAD_MUTEX_INITIALIZER;
+static std::list<SubscribeRpcState *> abandoned_subscribe_tags;
 
 struct SubscribeCleanup {
 	pthread_mutex_t mtx;
@@ -1099,6 +1102,14 @@ static void grpc_notification_data_dispatch(const char *xpath, LYD_FORMAT format
 	auto *update = resp.mutable_update();
 	std::string update_path;
 
+	/*
+	 * Runs on the libfrr main thread.  The copied tag stays valid after
+	 * sub->mtx is released: every path that deletes a SubscribeRpcState
+	 * runs on this thread, waits for it (SubscribeCleanup handshake),
+	 * or runs after the gRPC pthread is joined
+	 * (delete_abandoned_tags_from_main), and a tag deleted in FINISH
+	 * state already unsubscribed this selector on this thread.
+	 */
 	pthread_mutex_lock(&sub->mtx);
 	tag = sub->tag;
 	encoding = sub->encoding;
@@ -1219,6 +1230,24 @@ void SubscribeRpcState::cancel_cleanup_events_from_main(void)
 		}
 		if (free_now)
 			subscribe_cleanup_free(cleanup);
+	}
+}
+
+void SubscribeRpcState::delete_abandoned_tags_from_main(void)
+{
+	while (true) {
+		SubscribeRpcState *tag;
+
+		pthread_mutex_lock(&abandoned_subscribe_tags_mtx);
+		if (abandoned_subscribe_tags.empty()) {
+			pthread_mutex_unlock(&abandoned_subscribe_tags_mtx);
+			return;
+		}
+		tag = abandoned_subscribe_tags.front();
+		abandoned_subscribe_tags.pop_front();
+		pthread_mutex_unlock(&abandoned_subscribe_tags_mtx);
+
+		delete tag;
 	}
 }
 
@@ -1752,15 +1781,37 @@ bool SubscribeRpcState::handle_cq_error(void)
 	 * interrupts the wait.
 	 */
 	if (!grpc_is_running()) {
-		struct Subscription *cleanup_sub;
+		struct Subscription *destroy_sub;
+		bool abandon;
 
 		pthread_mutex_lock(&cmux);
-		cleanup_sub = shutdown_sub ? shutdown_sub : sub;
+		destroy_sub = shutdown_sub;
 		shutdown_sub = NULL;
-		sub = NULL;
+		abandon = sub != NULL;
 		pthread_mutex_unlock(&cmux);
-		if (cleanup_sub)
-			subscription_destroy(cleanup_sub);
+
+		/*
+		 * A parked shutdown_sub was already released and untracked by
+		 * deregister_all_from_main(); only the memory is left.
+		 */
+		if (destroy_sub)
+			subscription_destroy(destroy_sub);
+
+		/*
+		 * deregister_all_from_main() has not processed this
+		 * subscription yet: it is still on active_subscriptions with
+		 * its mgmtd selector and timers registered, and the main
+		 * thread may be about to park it on this tag.  Freeing either
+		 * of them here would race the main thread, so park the tag;
+		 * frr_grpc_finish() deletes it after this pthread is joined,
+		 * and its destructor frees the parked subscription.
+		 */
+		if (abandon) {
+			pthread_mutex_lock(&abandoned_subscribe_tags_mtx);
+			abandoned_subscribe_tags.push_back(this);
+			pthread_mutex_unlock(&abandoned_subscribe_tags_mtx);
+			return false;
+		}
 		return true;
 	}
 
@@ -2931,6 +2982,14 @@ static int frr_grpc_finish(void)
 	grpc_debug("%s: joining and destroy grpc thread", __func__);
 	pthread_join(fpt->thread, NULL);
 	frr_pthread_destroy(fpt);
+
+	/*
+	 * The completion-queue pthread is gone; delete the Subscribe tags it
+	 * parked instead of freeing while the main thread could still be
+	 * using them.
+	 */
+	SubscribeRpcState::delete_abandoned_tags_from_main();
+
 	/*
 	 * Cleanup after pthread_join(): the gRPC thread is gone, so reset
 	 * globals for a possible future init/finish path.
