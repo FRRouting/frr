@@ -229,6 +229,7 @@ struct nhrp_cache {
 	unsigned used : 1;
 	unsigned route_installed : 1;
 	unsigned nhrp_route_installed : 1;
+	unsigned unique : 1;
 
 	struct notifier_block peer_notifier;
 	struct notifier_block newpeer_notifier;
@@ -454,7 +455,7 @@ void nhrp_cache_config_foreach(struct interface *ifp,
 			       void (*cb)(struct nhrp_cache_config *, void *), void *ctx);
 void nhrp_cache_set_used(struct nhrp_cache *c, int used);
 int nhrp_cache_update_binding(struct nhrp_cache *, enum nhrp_cache_type type,
-			      int holding_time, struct nhrp_peer *p,
+			      int holding_time, int unique, struct nhrp_peer *p,
 			      uint32_t mtu, union sockunion *nbma_natoa,
 			      union sockunion *claimed_nbma);
 void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *n, notifier_fn_t fn);
