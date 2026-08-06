@@ -29,6 +29,7 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_debug.h"
@@ -1329,14 +1330,83 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	vtep_ip.ipa_type = IPADDR_V4;
 	vtep_ip.ipaddr_v4.s_addr = INADDR_ANY;
 	build_evpn_type1_prefix(&p, eth_tag, &esi, vtep_ip);
+
 	/* Process the route. */
 	if (attr) {
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi, safi, ZEBRA_ROUTE_BGP,
 			   BGP_ROUTE_NORMAL, &prd, &label[0], 1, 0, NULL, NULL);
+
+		const struct bgp_attr_srv6_l3service *svc = bgp_attr_get_srv6_l2vpn(attr);
+
+		if (svc) {
+			struct in6_addr sid;
+
+			/* VPWS hook: if this is an EAD-EVI with an SRv6 L2 Service
+			 * binding, hand it to the local VPWS state machine so it
+			 * can match by target AC-ID and record the peer SID.
+			 */
+			bgp_evpn_vpws_handle_remote_ead(peer->bgp, &p, svc, attr, peer, label[0]);
+
+			/* Underlay reachability for the per-VPWS DX2 SID.
+			 * Without this, the encap from `vpws-srl2-<inst>` has no
+			 * IPv6 route to the peer SID and is silently dropped.
+			 * Use the real SID: the raw one is the bare locator when
+			 * the peer transposes the function into the label.
+			 */
+			bgp_evpn_vpws_peer_sid(svc, label[0], &sid);
+			bgp_evpn_program_srv6_ipv6_route(peer->bgp, &sid, attr, peer, true);
+		}
+
 	} else {
+		/* On withdraw we must extract the SID BEFORE bgp_withdraw()
+		 * frees the path-info.
+		 */
+
+		struct in6_addr withdrawn_sid = {};
+		struct attr *snapshot_attr = NULL;
+		bool have_sid = false;
+		struct bgp_dest *dest;
+		struct bgp_path_info *pi_old;
+
+		dest = bgp_node_lookup(peer->bgp->rib[afi][safi], (struct prefix *)&p);
+		if (dest) {
+			for (pi_old = bgp_dest_get_bgp_path_info(dest); pi_old;
+			     pi_old = pi_old->next) {
+				if (pi_old->peer == peer && pi_old->attr &&
+				    bgp_attr_get_srv6_l2vpn(pi_old->attr)) {
+					/* Same real SID as installed above; the
+					 * withdraw NLRI's own label is not the
+					 * stored path's.
+					 */
+					bgp_evpn_vpws_peer_sid(bgp_attr_get_srv6_l2vpn(pi_old->attr),
+							       (pi_old->extra &&
+								pi_old->extra->labels)
+								       ? pi_old->extra->labels
+										 ->label[0]
+								       : MPLS_INVALID_LABEL,
+							       &withdrawn_sid);
+					snapshot_attr = bgp_attr_intern(pi_old->attr);
+					have_sid = true;
+					break;
+				}
+			}
+			bgp_dest_unlock_node(dest);
+		}
+
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi, ZEBRA_ROUTE_BGP,
 			     BGP_ROUTE_NORMAL, &prd, &label[0], 1);
+
+		bgp_evpn_vpws_handle_remote_ead_withdraw(peer->bgp, &p);
+
+		if (have_sid) {
+			bgp_evpn_program_srv6_ipv6_route(peer->bgp, &withdrawn_sid, snapshot_attr,
+							 peer, false);
+
+			/* Release the extra ref we took above. */
+			bgp_attr_unintern(&snapshot_attr);
+		}
 	}
+
 	return 0;
 }
 

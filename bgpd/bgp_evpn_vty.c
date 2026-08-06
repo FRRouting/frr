@@ -24,6 +24,7 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_errors.h"
@@ -1617,6 +1618,68 @@ static void show_evpn_srv6_routes_per_vni(struct hash_bucket *bucket, void *arg)
 		bgp_evpn_srv6_ttable_dump(vty, tt, "    ");
 		ttable_del(tt);
 	}
+}
+
+/*
+ * Top-level body for `show bgp l2vpn evpn srv6 [detail]`.
+ * Iterates every BGP instance with EVPN/SRv6 state, prints the per-instance
+ * SRv6 SID summary (reused from `show bgp segment-routing srv6 evpn`), then
+ * walks the VNI hash to render Type-1/2/3 routes that carry attr.srv6_l2vpn.
+ */
+static void bgp_show_l2vpn_evpn_srv6(struct vty *vty, bool detail)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	bool any_instance = false;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		struct evpn_srv6_walk_ctx wctx = {
+			.vty = vty,
+			.bgp = bgp,
+			.detail = detail,
+			.prefix_cnt = 0,
+			.path_cnt = 0,
+		};
+
+		if (!bgp_has_srv6_evpn_state(bgp))
+			continue;
+		any_instance = true;
+
+		/* Per-instance summary block: encap mode, locator, four
+		 * configured SID classes.  Reused from bgp_vty.c.
+		 */
+		bgp_show_srv6_evpn_instance(vty, bgp);
+
+		/* Walk every VNI on this instance and render SRv6-tagged
+		 * EVPN routes.
+		 */
+		if (bgp->vnihash)
+			hash_iterate(bgp->vnihash, show_evpn_srv6_routes_per_vni, &wctx);
+
+		if (wctx.prefix_cnt == 0)
+			vty_out(vty, "  %% No SRv6 EVPN routes received\n");
+		else
+			vty_out(vty,
+				"\n  Displayed %u prefixes (%u paths) carrying SRv6 L2 service SIDs\n",
+				wctx.prefix_cnt, wctx.path_cnt);
+	}
+
+	if (!any_instance)
+		vty_out(vty, "%% No BGP instance has EVPN/SRv6 state configured\n");
+}
+
+DEFUN (show_ip_bgp_l2vpn_evpn_srv6,
+       show_ip_bgp_l2vpn_evpn_srv6_cmd,
+       "show [ip] bgp l2vpn evpn srv6 [detail$detail]",
+       SHOW_STR IP_STR BGP_STR L2VPN_HELP_STR EVPN_HELP_STR
+       "SRv6 L2 service view (RFC 9252) - encap mode, locator, configured SIDs, per-route SID attachment\n"
+       "Per-route detail with full SID structure\n")
+{
+	int idx = 0;
+	bool detail = argv_find(argv, argc, "detail", &idx) != 0;
+
+	bgp_show_l2vpn_evpn_srv6(vty, !!detail);
+	return CMD_SUCCESS;
 }
 
 DEFUN(show_ip_bgp_l2vpn_evpn_rd,
@@ -8577,6 +8640,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 		list_delete(&vnilist);
 	}
 
+	/* EVPN-VPWS service instances */
+	bgp_evpn_vpws_config_write_all(vty, bgp);
+
 	if (bgp->advertise_gw_macip)
 		vty_out(vty, "  advertise-default-gw\n");
 
@@ -8751,6 +8817,7 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 void bgp_ethernetvpn_init(void)
 {
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_srv6_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_tags_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_tags_cmd);
