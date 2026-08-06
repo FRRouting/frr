@@ -4219,7 +4219,7 @@ notably Route Type 2 and Route Type 3 (IMET).
        exit-address-family
       exit
 
-.. clicmd:: auto-route-target <import|export|both> <add-always|add-never|add-if-no-manual|rfc8365-compatible>
+.. clicmd:: auto-route-target <import|export|both> <add-always|add-never|add-if-no-manual|rfc8365-compatible|enforce-as4>
 
    Control the automatic route-target of the given direction(s) of the
    IP-VRF or EVI / L2VNI (see :ref:`evpn-automatic-route-targets` for
@@ -4244,6 +4244,15 @@ notably Route Type 2 and Route Type 3 (IMET).
    local admin field, as described in :rfc:`8365`. It is off by default,
    configured at the instance level (the tenant VRF for the L3VNI, the
    EVPN underlay VRF for all its L2VNIs) and cannot be set per-L2VNI.
+
+   ``enforce-as4`` is similarly an orthogonal per-direction setting: it
+   forces the automatic route-target to be encoded in the Type 0x02 format
+   (AS4), regardless of whether the AS is a 2-byte or 4-byte AS. The VNI
+   is truncated to its lower 16 bits. A warning is generated and auto-RT
+   creation is skipped for VNIs larger than 65535 when this is enabled,
+   as the truncation would lead to route target collisions. It is off by default.
+   It cannot be configured simultaneously with ``rfc8365-compatible`` for
+   the same direction.
 
    ``both`` applies the setting to import and export.
 
