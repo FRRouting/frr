@@ -400,7 +400,7 @@ out:
 void isis_bfd_init_adjacency(struct isis_adjacency *adj)
 {
 	if (IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit))
-		zlog_debug("ISIS-BFD: L%u adjacency %s becomes up. Initializing RFC6213 structures.",
+		zlog_debug("ISIS-BFD: New L%u adjacency %s. Initializing RFC6213 structures.",
 			   adj->level, isis_adj_name(adj));
 
 	adj->bfd_rfc6213.local_mtnlpid_lst = list_new();
