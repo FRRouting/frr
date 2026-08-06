@@ -77,6 +77,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_srv6.h"
@@ -1316,6 +1317,7 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 enum bgp_peer_sort peer_sort(struct peer *peer)
 {
 	peer->sort = peer_calc_sort(peer);
+
 	return peer->sort;
 }
 
@@ -4174,6 +4176,7 @@ peer_init:
 
 		bgp_evpn_init(bgp);
 		bgp_evpn_vrf_es_init(bgp);
+		bgp_evpn_vpws_init(bgp);
 		bgp_pbr_init(bgp);
 		bgp_srv6_init(bgp);
 		bgp_ls_init(bgp);
@@ -4933,6 +4936,8 @@ int bgp_delete(struct bgp *bgp)
 			bgp->vpn_policy[afi].rmap[dir] = NULL;
 		}
 	}
+
+	bgp_evpn_vpws_finish(bgp);
 
 	/* Deregister from Zebra, if needed */
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp) && !IS_BGP_INSTANCE_HIDDEN(bgp)) {
@@ -9838,6 +9843,7 @@ void bgp_init(unsigned short instance)
 	rfapi_init();
 #endif
 	bgp_ethernetvpn_init();
+	bgp_evpn_vpws_vty_init();
 	bgp_flowspec_vty_init();
 
 	/* Access list initialize. */
