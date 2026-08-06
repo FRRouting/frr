@@ -4372,7 +4372,7 @@ route with gateway IP.
 1. CLI to add gateway IP while generating EVPN type-5 route from a BGP IPv4/IPv6
 prefix:
 
-.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip]
+.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip] [route-map RMAP_NAME] [skip-evpn-imported]
 
 When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
 type-5 routes are generated for BGP prefixes in the vrf.
@@ -4387,6 +4387,14 @@ of the corresponding type-5 paths.
 
 Note that EVPN will still perform its own bestpath selection for each EVPN
 prefix, and addpath must be properly configured in EVPN to enable multipathing.
+
+The optional ``skip-evpn-imported`` keyword prevents exporting a
+unicast route as a Type-5 route when its ultimate VRF-leak import parent is in
+the EVPN table. This prevents an EVPN-origin route leaked between VRFs from
+being re-exported into EVPN. It can be removed without disabling Type-5 export
+with the following command:
+
+.. clicmd:: no advertise <ipv4|ipv6> unicast skip-evpn-imported
 
 2. Add gateway IP to EVPN type-5 route using a route-map:
 
