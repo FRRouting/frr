@@ -761,6 +761,9 @@ void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,
 	}
 }
 
+/* Set the locally supported BFD TLV MTID/NLPID pairs on the circuit,
+ * meaning the list of MTID/NLPID on which BFD TLV is configured.
+ */
 void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit)
 {
 	struct isis_area_mt_setting **area_settings;
@@ -770,7 +773,6 @@ void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit)
 	uint8_t cnt;
 	uint16_t mtid;
 
-	/* Update the locally supported MTID/NLPID pairs. */
 	if (circuit->bfd_config.rfc6213_ipv4 && circuit->bfd_config.enabled &&
 	    circuit->ip_router && fabricd_ip_addrs(circuit)) {
 		for (cnt = 0; cnt < circuit->nlpids.count; cnt++) {
@@ -929,6 +931,14 @@ static struct bfd_local_mtid *isis_bfd_local_mtid_add(struct isis_adjacency *adj
 	return bfd_topo;
 }
 
+
+/* Based on the configuration, init / remove the adjacency structures for:
+ *  - locally supported BFD TLV MTID/NLPID pairs
+ *  - locally supported BFD MTID
+ *
+ * These structures store the RFC6213 variables (eg.
+ * ISIS_TOPO_NLPID_BFD_REQUIRED)
+ */
 static void
 isis_bfd_adjacency_update_rfc6213_local_params(struct isis_adjacency *adj)
 {
@@ -995,6 +1005,7 @@ isis_bfd_adjacency_update_rfc6213_local_params(struct isis_adjacency *adj)
 	}
 }
 
+/* Return whether the BFD session for the specified address family is up */
 static bool isis_bfd_get_bfd_nlpid_state(struct isis_adjacency *adj,
 					 uint8_t family)
 {
@@ -1009,6 +1020,18 @@ static bool isis_bfd_get_bfd_nlpid_state(struct isis_adjacency *adj,
 	return true;
 }
 
+/* Update the RFC6213 variables :
+ *  - ISIS_TOPO_NLPID_BFD_REQUIRED
+ *  - ISIS_TOPO_BFD_REQUIRED
+ *  - ISIS_BFD_REQUIRED
+ *  - ISIS_TOPO_NLPID_STATE
+ *  - ISIS_TOPO_USEABLE
+ *  - ISIS_NEIGHBOR_USEABLE
+ *
+ *  And bfd_ipv4_required and bfd_ipv6_required. They are not RFC-defined
+ *  but internal variables that determines whether IPv4 and IPv6 BFD sessions
+ *  should be active.
+ */
 static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 {
 	struct listnode *node, *mtnode;
@@ -1124,11 +1147,13 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 				   adj->level, isis_adj_name(adj));
 	}
 
-	/* Internal:
-	 * Set if BFD IPv4/IPv6 local config is required
-	 * and useable with local NLPID.
+	/* Non specified RFC booleans:
+	 *  - bfd_ipv4_required
+	 *  - bfd_ipv6_required
+	 *
+	 * Their value determines whether the BFD sessions
+	 * should be active for the IPv4 and v6 address family.
 	 */
-
 	old_value = adj->bfd_rfc6213.bfd_ipv4_required;
 	adj->bfd_rfc6213.bfd_ipv4_required = false;
 	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
@@ -1259,9 +1284,7 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		bfd_local_topo->inited = true;
 }
 
-/* RFC6213, 3.1.
- * family parameter is either AF_INET or AF_INET6
- */
+/* Init or set down the BFD session of the specified address family */
 static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
 					   uint8_t family)
 {
