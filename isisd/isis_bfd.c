@@ -1380,7 +1380,8 @@ static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
 
 bool isis_bfd_circuit_rfc6213_enabled(struct isis_circuit *circuit)
 {
-	return circuit->bfd_config.rfc6213_ipv4 || circuit->bfd_config.rfc6213_ipv6;
+	return circuit->bfd_config.enabled &&
+	       (circuit->bfd_config.rfc6213_ipv4 || circuit->bfd_config.rfc6213_ipv6);
 }
 
 static void isis_bfd_show_mtid_nlpid(struct vty *vty, uint8_t mtid_nlpid)
