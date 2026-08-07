@@ -50,6 +50,10 @@ const char *seg6local_action2str_with_next_csid(uint32_t action, bool has_next_c
 		return "End.AM";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
 		return has_next_csid ? "uDT46" : "End.DT46";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+		return "End.DT2U";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		return "End.DT2M";
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 		return "unspec";
 	default:
@@ -126,7 +130,16 @@ void seg6local_context2json(const struct seg6local_context *ctx,
 		json_object_int_add(json, "table", ctx->table);
 		return;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
-		json_object_boolean_add(json, "none", true);
+		json_object_string_add(json, "interfaceName",
+				       ifindex2ifname(ctx->oif, VRF_DEFAULT));
+		json_object_int_add(json, "interfaceIndex", ctx->oif);
+		return;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		json_object_string_add(json, "interfaceName",
+				       ifindex2ifname(ctx->oif, VRF_DEFAULT));
+		json_object_int_add(json, "interfaceIndex", ctx->oif);
+		json_object_int_add(json, "vni", ctx->dt2_vni);
 		return;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
@@ -213,8 +226,16 @@ const char *seg6local_context2str(char *str, size_t size,
 		snprintfrr(str, size, "nh6 %pI6%s", &ctx->nh6, p_flavor);
 		return str;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
-		ifp = if_lookup_by_index(ctx->ifindex, VRF_DEFAULT);
-		snprintfrr(str, size, "oif %s", ifp ? ifp->name : "<unknown>");
+		/* End.DX2 carries its cross-connect output in ctx->oif. */
+		ifp = if_lookup_by_index(ctx->oif, VRF_DEFAULT);
+		snprintfrr(str, size, "oif %s%s", ifp ? ifp->name : "<unknown>", p_flavor);
+		return str;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		/* End.DT2U/DT2M decap to a bridge domain: l2dev + VNI. */
+		ifp = if_lookup_by_index(ctx->oif, VRF_DEFAULT);
+		snprintfrr(str, size, "l2dev %s vni %u%s", ifp ? ifp->name : "<unknown>",
+			   ctx->dt2_vni, p_flavor);
 		return str;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
