@@ -334,8 +334,6 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, uint8_t family)
 		if (IS_DEBUG_BFD)
 			zlog_debug("ISIS-BFD: neighbor is not useable for L%u adjacency %s",
 				   adj->level, isis_adj_name(adj));
-		isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
-				      "BFD-TLV, neighbor is not useable");
 		goto out;
 	}
 
