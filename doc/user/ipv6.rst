@@ -22,6 +22,37 @@ Router Advertisement
    Show configured route advertisement interfaces. VRF subcommand only
    applicable for netns-based vrfs.
 
+.. clicmd:: clear ipv6 nd prefix X:X::X:X/M interface IFNAME [vrf NAME] [count (1-3)] [valid-lifetime (0-4294967295)] [preferred-lifetime (0-4294967295)]
+
+   Send a short burst of router advertisements on the interface that carry the
+   prefix with the given lifetimes, so that hosts stop using addresses they
+   formed from it instead of waiting out the valid lifetime advertised earlier,
+   30 days by default. The configuration is not changed, so a prefix the
+   interface goes on advertising is announced with its configured lifetimes
+   again once the burst is over.
+
+   The prefix does not have to be one the interface advertises. A host that has
+   been moved to another port can still hold the prefix of the port it came
+   from, and the advertisement that retires it has to go out on the port the
+   host is now attached to. For such a prefix only a ``valid-lifetime`` of
+   ``0`` is accepted.
+
+   - ``count``: the number of advertisements to send, spaced 3 seconds apart
+     as RFC 4861 section 6.2.6 requires. Default: ``2``
+
+   - ``valid-lifetime`` and ``preferred-lifetime``: the lifetimes to advertise.
+     The preferred lifetime may not exceed the valid lifetime, since RFC 4861
+     section 4.6.2 has hosts discard such an option. Default: ``0``
+
+   The interface must be operationally up with router advertisements enabled,
+   and at most 16 prefixes can be in flight on an interface at a time. The
+   ``vrf`` keyword is only accepted with netns-based VRFs. While the burst is
+   in progress, ``show interface`` lists the prefix being flushed.
+
+   Note that RFC 4862 section 5.5.3 does not let a host lower the stored valid
+   lifetime of an address below two hours, so the address is deprecated at once
+   but only removed after that window.
+
 .. clicmd:: ipv6 nd suppress-ra
 
    Don't send router advertisement messages. The ``no`` form of this command
