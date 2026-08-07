@@ -717,6 +717,12 @@ void isis_srv6_area_term(struct isis_area *area)
 
 	sr_debug("ISIS-SRv6 (%s): Terminate SRv6", area->area_tag);
 
+	/* Release SRv6 SIDs back to Zebra if locator is set */
+	if (strncmp(area->srv6db.config.srv6_locator_name, "",
+		    sizeof(area->srv6db.config.srv6_locator_name)) != 0) {
+		isis_srv6_locator_unset(area);
+	}
+
 	/* Uninstall all local SRv6 End.X SIDs */
 	if (area->srv6db.config.enabled)
 		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
