@@ -1921,6 +1921,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_PREFIX_SID:
 	case BGP_ATTR_NHC:
 	case BGP_ATTR_LINK_STATE:
+	case BGP_ATTR_AIGP:
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* Core attributes, particularly ones which may influence route
@@ -4458,10 +4459,9 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 		 * to encode a single minimum-sized path attribute.
 		 *
 		 * An error condition exists and the "treat-as-withdraw"
-		 * approach MUST be used (unless some other, more severe
-		 * error is encountered dictating a stronger approach),
-		 * and the Total Attribute Length MUST be relied upon to
-		 * enable the beginning of the NLRI field to be located.
+		 * approach MUST be used, and the Total Attribute Length
+		 * MUST be relied upon to enable the beginning of the
+		 * NLRI field to be located.
 		 */
 
 		/* Check remaining length check.*/
@@ -4471,15 +4471,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 				  "%s: error BGP attribute length %lu is smaller than min len",
 				  peer->host,
 				  (unsigned long)(endp - stream_pnt(BGP_INPUT(connection))));
-
-			if (peer->sort != BGP_PEER_EBGP) {
-				bgp_notify_send(connection, BGP_NOTIFY_UPDATE_ERR,
-						BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-				ret = BGP_ATTR_PARSE_ERROR;
-			} else {
-				ret = BGP_ATTR_PARSE_WITHDRAW;
-			}
-
+			ret = BGP_ATTR_PARSE_WITHDRAW;
 			goto done;
 		}
 
@@ -4498,15 +4490,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 				  "%s: Extended length set, but just %lu bytes of attr header",
 				  peer->host,
 				  (unsigned long)(endp - stream_pnt(BGP_INPUT(connection))));
-
-			if (peer->sort != BGP_PEER_EBGP) {
-				bgp_notify_send(connection, BGP_NOTIFY_UPDATE_ERR,
-						BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-				ret = BGP_ATTR_PARSE_ERROR;
-			} else {
-				ret = BGP_ATTR_PARSE_WITHDRAW;
-			}
-
+			ret = BGP_ATTR_PARSE_WITHDRAW;
 			goto done;
 		}
 
@@ -4547,9 +4531,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 		 */
 
 		if (CHECK_BITMAP(seen, type)) {
-			/* Only relax error handling for eBGP peers */
-			if (peer->sort != BGP_PEER_EBGP ||
-					type == BGP_ATTR_MP_REACH_NLRI || type == BGP_ATTR_MP_UNREACH_NLRI) {
+			if (type == BGP_ATTR_MP_REACH_NLRI || type == BGP_ATTR_MP_UNREACH_NLRI) {
 				flog_warn(
 					EC_BGP_ATTRIBUTE_REPEATED,
 					"%s: error BGP attribute type %d appears twice in a message",
@@ -4713,14 +4695,26 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 			goto done;
 		}
 
-		/* Check the fetched length. */
+		/* Check the fetched length.
+		 *
+		 * A recognized attribute whose declared length disagrees with
+		 * the content the handler consumed is the Attribute Length
+		 * Error of RFC 4271 section 6.3. RFC 7606 section 7 replaces
+		 * its session-reset default on a per-attribute basis, so route
+		 * this through bgp_attr_malformed(), which already encodes
+		 * that mapping - including keeping the NOTIFICATION for
+		 * MP_REACH_NLRI and MP_UNREACH_NLRI, as section 7.11 requires.
+		 */
 		if (BGP_INPUT_PNT(connection) != attr_endp) {
 			flog_warn(EC_BGP_ATTRIBUTE_FETCH_ERROR,
 				  "%s: BGP attribute %s, fetch error",
 				  peer->host, lookup_msg(attr_str, type, NULL));
-			bgp_notify_send(connection, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-			ret = BGP_ATTR_PARSE_ERROR;
+			ret = bgp_attr_malformed(&attr_args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+						 attr_args.total);
+			if (ret == BGP_ATTR_PARSE_PROCEED)
+				continue;
+			stream_forward_getp(BGP_INPUT(connection),
+					    endp - BGP_INPUT_PNT(connection));
 			goto done;
 		}
 	}
