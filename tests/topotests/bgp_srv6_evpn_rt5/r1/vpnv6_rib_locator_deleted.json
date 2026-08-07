@@ -1,0 +1,169 @@
+{
+	"vrfId": 0,
+	"vrfName": "default",
+	"routerId": "192.0.2.1",
+	"defaultLocPrf": 100,
+	"localAS": 65001,
+	"routes": {
+		"routeDistinguishers": {
+			"65001:10": {
+				"2001:db8:101::/64": [
+					{
+						"valid": true,
+						"bestpath": true,
+						"selectionReason": "First path received",
+						"pathFrom": "external",
+						"prefix": "2001:db8:101::",
+						"prefixLen": 64,
+						"network": "2001:db8:101::/64",
+						"metric": 0,
+						"weight": 32768,
+						"peerId": "(unspec)",
+						"path": "",
+						"origin": "incomplete",
+						"announceNexthopSelf": true,
+						"nhVrfName": "vrf10",
+						"nexthops": [
+							{
+								"ip": "::",
+								"hostname": "r1",
+								"afi": "ipv6",
+								"used": true
+							}
+						]
+					}
+				],
+				"2001:db8:103::/64": [
+					{
+						"valid": true,
+						"bestpath": true,
+						"selectionReason": "First path received",
+						"pathFrom": "external",
+						"prefix": "2001:db8:103::",
+						"prefixLen": 64,
+						"network": "2001:db8:103::/64",
+						"metric": 0,
+						"weight": 32768,
+						"peerId": "(unspec)",
+						"path": "",
+						"origin": "incomplete",
+						"announceNexthopSelf": true,
+						"nhVrfName": "vrf10",
+						"nexthops": [
+							{
+								"ip": "::",
+								"hostname": "r1",
+								"afi": "ipv6",
+								"used": true
+							}
+						]
+					}
+				]
+			},
+			"65001:20": {
+				"2001:db8:105::/64": [
+					{
+						"valid": true,
+						"bestpath": true,
+						"selectionReason": "First path received",
+						"pathFrom": "external",
+						"prefix": "2001:db8:105::",
+						"prefixLen": 64,
+						"network": "2001:db8:105::/64",
+						"metric": 0,
+						"weight": 32768,
+						"peerId": "(unspec)",
+						"path": "",
+						"origin": "incomplete",
+						"announceNexthopSelf": true,
+						"nhVrfName": "vrf20",
+						"nexthops": [
+							{
+								"ip": "::",
+								"hostname": "r1",
+								"afi": "ipv6",
+								"used": true
+							}
+						]
+					}
+				]
+			},
+			"65002:10": {
+				"2001:db8:102::/64": [
+					{
+						"valid": true,
+						"bestpath": true,
+						"selectionReason": "First path received",
+						"pathFrom": "external",
+						"prefix": "2001:db8:102::",
+						"prefixLen": 64,
+						"network": "2001:db8:102::/64",
+						"metric": 0,
+						"weight": 0,
+						"peerId": "2001:db8:ff::2",
+						"path": "65002",
+						"origin": "incomplete",
+						"nexthops": [
+							{
+								"ip": "2001:db8:ff::2",
+								"hostname": "r2",
+								"afi": "ipv6",
+								"used": true
+							}
+						]
+					}
+				]
+			},
+			"65002:20": {
+				"2001:db8:104::/64": [
+					{
+						"valid": true,
+						"bestpath": true,
+						"selectionReason": "First path received",
+						"pathFrom": "external",
+						"prefix": "2001:db8:104::",
+						"prefixLen": 64,
+						"network": "2001:db8:104::/64",
+						"metric": 0,
+						"weight": 0,
+						"peerId": "2001:db8:ff::2",
+						"path": "65002",
+						"origin": "incomplete",
+						"nexthops": [
+							{
+								"ip": "2001:db8:ff::2",
+								"hostname": "r2",
+								"afi": "ipv6",
+								"used": true
+							}
+						]
+					}
+				],
+				"2001:db8:106::/64": [
+					{
+						"valid": true,
+						"bestpath": true,
+						"selectionReason": "First path received",
+						"pathFrom": "external",
+						"prefix": "2001:db8:106::",
+						"prefixLen": 64,
+						"network": "2001:db8:106::/64",
+						"metric": 0,
+						"weight": 0,
+						"peerId": "2001:db8:ff::2",
+						"path": "65002",
+						"origin": "incomplete",
+						"nexthops": [
+							{
+								"ip": "2001:db8:ff::2",
+								"hostname": "r2",
+								"afi": "ipv6",
+								"used": true
+							}
+						]
+					}
+				]
+			}
+		}
+	}
+}
