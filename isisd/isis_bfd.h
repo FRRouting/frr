@@ -88,7 +88,6 @@ struct bfd_rfc6213_params {
 
 #define BFD_ADJ_STOP_IPV4 0x1
 #define BFD_ADJ_STOP_IPV6 0x2
-#define BFD_ADJ_REFRESH	  0x4
 	uint8_t flags;
 
 	bool bfd_required_is_transition_up;

@@ -485,13 +485,11 @@ static int process_p2p_hello(struct iih_info *iih)
 static int process_lan_hello(struct iih_info *iih)
 {
 	struct isis_adjacency *adj;
-	bool refresh_neigh_list = false;
 
 	adj = isis_adj_lookup(iih->sys_id,
 			      iih->circuit->u.bc.adjdb[iih->level - 1]);
 	if ((adj == NULL) || (memcmp(adj->snpa, iih->ssnpa, ETH_ALEN))
 	    || (adj->level != iih->level)) {
-		refresh_neigh_list = true;
 		if (!adj) {
 			/* Do as in 8.4.2.5 */
 			adj = isis_new_adj(iih->sys_id, iih->ssnpa, iih->level,
@@ -510,15 +508,11 @@ static int process_lan_hello(struct iih_info *iih)
 			adj->sys_type = ISIS_SYSTYPE_L1_IS;
 		else
 			adj->sys_type = ISIS_SYSTYPE_L2_IS;
-	}
-	if (CHECK_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_REFRESH) ||
-	    refresh_neigh_list) {
 		list_delete_all_node(
 			iih->circuit->u.bc.lan_neighs[iih->level - 1]);
 		isis_adj_build_neigh_list(
 			iih->circuit->u.bc.adjdb[iih->level - 1],
 			iih->circuit->u.bc.lan_neighs[iih->level - 1]);
-		UNSET_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_REFRESH);
 	}
 
 	if (adj->dis_record[iih->level - 1].dis == ISIS_IS_DIS) {

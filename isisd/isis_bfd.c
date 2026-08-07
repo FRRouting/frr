@@ -104,8 +104,6 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 	    !adj->bfd_rfc6213.neighbor_useable && isis_bfd_session_is_admin_down(adj, bsp, true))
 		return;
 
-	SET_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_REFRESH);
-
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
 		if (family == AF_UNSPEC || (family == AF_INET && !adj->bfd_session_ipv6) ||
