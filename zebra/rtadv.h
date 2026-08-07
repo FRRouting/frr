@@ -35,6 +35,61 @@ struct rtadv {
 PREDECL_RBTREE_UNIQ(rtadv_prefixes);
 PREDECL_SORTLIST_UNIQ(pref64_advs);
 
+/*
+ * A prefix being flushed: re-announced with short (normally zero) lifetimes for
+ * a bounded number of RAs, so hosts deprecate the derived SLAAC address now
+ * rather than waiting out AdvValidLifetime (30 days by default).
+ *
+ * The prefix is held by value, not as a struct rtadv_prefix pointer, for two
+ * reasons.  It survives the prefix entry being freed and recreated underneath
+ * us -- frr-reload does exactly that on any lifetime change, and the delete
+ * path frees it outright.  And it lets us flush a prefix that this interface
+ * does not advertise at all, which is the mis-cabling case: a host moved from
+ * one port to another still holds the old port's prefix, so the RA that retires
+ * it has to go out on the new port.
+ */
+struct rtadv_flush {
+	struct prefix_ipv6 prefix;
+
+	/* Lifetimes to advertise for this prefix while the flush is active. */
+	uint32_t AdvValidLifetime;
+	uint32_t AdvPreferredLifetime;
+
+	/* RAs left to send.  Decremented only when one is actually sent. */
+	uint8_t remaining;
+
+	/*
+	 * Wall-clock backstop.  Without it, a prefix deleted mid-flush leaves an
+	 * entry that never counts down (no RA carries it any more), and a much
+	 * later re-add would emit stale zero-lifetime RAs out of nowhere.
+	 */
+	time_t deadline;
+};
+
+#define RTADV_MAX_FLUSH_PREFIXES  16
+#define RTADV_FLUSH_DEADLINE_SECS 120
+
+/*
+ * Spacing between flush RAs.  RFC 4861 6.2.6 requires consecutive multicast
+ * RAs to be at least MIN_DELAY_BETWEEN_RAS apart, so the burst is paced at
+ * that floor rather than any faster.  The first RA goes out inline, so a
+ * burst of N spans (N - 1) periods: three seconds for the default count of
+ * two, six for the three sent on prefix deletion.  That is immaterial next
+ * to the thirty day lifetime the burst exists to cut short.
+ *
+ * It runs on a private timer rather than the fast-retransmit counter, which is
+ * shared with link-up and RA-enable, accounts for only two of the RA transmit
+ * paths, and would both miscount and clobber unrelated convergence.
+ */
+#define RTADV_FLUSH_PERIOD_MS MIN_DELAY_BETWEEN_RAS
+
+/*
+ * RAs sent by an operator-driven flush.  One is enough when it is not lost;
+ * the second covers a single drop, which is the realistic failure for
+ * unacknowledged multicast on an otherwise healthy link.
+ */
+#define RTADV_FLUSH_DEFAULT_COUNT 2
+
 /* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
 struct rtadvconf {
 	/* A flag indicating whether or not the router sends periodic Router
@@ -215,6 +270,16 @@ struct rtadvconf {
 
 	/* LL pending default-router withdrawal (removed while link was down). */
 	struct in6_addr retract_ll;
+
+	/*
+	 * Prefixes currently being flushed, and the timer driving the burst.
+	 * A fixed array rather than an allocated list: the cap is structural,
+	 * there is nothing to free on interface teardown, and zebra_if is
+	 * XCALLOC'd so this starts out empty for free.
+	 */
+	struct rtadv_flush flush[RTADV_MAX_FLUSH_PREFIXES];
+	uint8_t flush_count;
+	struct event *flush_timer;
 };
 
 struct rtadv_rdnss {
