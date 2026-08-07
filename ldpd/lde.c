@@ -1448,7 +1448,11 @@ lde_send_notification_eol_pwid(struct lde_nbr *ln, uint16_t pw_type)
 static __inline int
 lde_nbr_compare(const struct lde_nbr *a, const struct lde_nbr *b)
 {
-	return (a->peerid - b->peerid);
+	if (a->peerid > b->peerid)
+		return 1;
+	if (a->peerid < b->peerid)
+		return -1;
+	return 0;
 }
 
 static struct lde_nbr *

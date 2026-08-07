@@ -256,9 +256,9 @@ def test_pim6_multiple_groups_same_RP_address_p2(request):
 
     step("Configure shorter join-prune-interval for faster prune propagation")
     input_dict = {
-        "r1": {"pim6": {"join-prune-interval": "10"}},
-        "r2": {"pim6": {"join-prune-interval": "10"}},
-        "r3": {"pim6": {"join-prune-interval": "10"}},
+        "r1": {"pim6": {"join-prune-interval": "5"}},
+        "r2": {"pim6": {"join-prune-interval": "5"}},
+        "r3": {"pim6": {"join-prune-interval": "5"}},
     }
     result = create_pim_config(tgen, TOPO, input_dict)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)

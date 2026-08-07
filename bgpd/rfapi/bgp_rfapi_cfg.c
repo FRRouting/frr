@@ -296,39 +296,6 @@ DEFUN_NOSH (vnc_defaults,
 	return CMD_SUCCESS;
 }
 
-static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
-			 struct ecommunity **list)
-{
-	struct ecommunity *ecom = NULL;
-	struct ecommunity *ecomadd;
-
-	for (; argc; --argc, ++argv) {
-
-		ecomadd = ecommunity_str2com(argv[0]->arg,
-					     ECOMMUNITY_ROUTE_TARGET, 0);
-		if (!ecomadd) {
-			vty_out(vty, "Malformed community-list value\n");
-			if (ecom)
-				ecommunity_free(&ecom);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		if (ecom) {
-			ecommunity_merge(ecom, ecomadd);
-			ecommunity_free(&ecomadd);
-		} else {
-			ecom = ecomadd;
-		}
-	}
-
-	if (*list) {
-		ecommunity_free(&*list);
-	}
-	*list = ecom;
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (vnc_defaults_rt_import,
        vnc_defaults_rt_import_cmd,
        "rt import RTLIST...",
@@ -337,8 +304,8 @@ DEFUN (vnc_defaults_rt_import,
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	return set_ecom_list(vty, argc - 2, argv + 2,
-			     &bgp->rfapi_cfg->default_rt_import_list);
+	return set_ecom_list(vty, argc - 2, argv + 2, &bgp->rfapi_cfg->default_rt_import_list,
+			     false);
 }
 
 DEFUN (vnc_defaults_rt_export,
@@ -349,8 +316,8 @@ DEFUN (vnc_defaults_rt_export,
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	return set_ecom_list(vty, argc - 2, argv + 2,
-			     &bgp->rfapi_cfg->default_rt_export_list);
+	return set_ecom_list(vty, argc - 2, argv + 2, &bgp->rfapi_cfg->default_rt_export_list,
+			     false);
 }
 
 DEFUN (vnc_defaults_rt_both,
@@ -363,12 +330,11 @@ DEFUN (vnc_defaults_rt_both,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int rc;
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2,
-			   &bgp->rfapi_cfg->default_rt_import_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &bgp->rfapi_cfg->default_rt_import_list, false);
 	if (rc != CMD_SUCCESS)
 		return rc;
-	return set_ecom_list(vty, argc - 2, argv + 2,
-			     &bgp->rfapi_cfg->default_rt_export_list);
+	return set_ecom_list(vty, argc - 2, argv + 2, &bgp->rfapi_cfg->default_rt_export_list,
+			     false);
 }
 
 DEFUN (vnc_defaults_rd,
@@ -2592,7 +2558,7 @@ DEFUN (vnc_nve_group_rt_import,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list, false);
 	if (rc != CMD_SUCCESS)
 		return rc;
 
@@ -2659,7 +2625,7 @@ DEFUN (vnc_nve_group_rt_export,
 		vnc_redistribute_prechange(bgp);
 	}
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list, false);
 
 	if (bgp->rfapi_cfg->rfg_redist == rfg) {
 		vnc_redistribute_postchange(bgp);
@@ -2690,7 +2656,7 @@ DEFUN (vnc_nve_group_rt_both,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list, false);
 	if (rc != CMD_SUCCESS)
 		return rc;
 
@@ -2738,7 +2704,7 @@ DEFUN (vnc_nve_group_rt_both,
 		vnc_redistribute_prechange(bgp);
 	}
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list, false);
 
 	if (bgp->rfapi_cfg->rfg_redist == rfg) {
 		vnc_redistribute_postchange(bgp);
@@ -3130,7 +3096,7 @@ DEFUN (vnc_vrf_policy_rt_import,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list, false);
 	if (rc != CMD_SUCCESS)
 		return rc;
 
@@ -3197,7 +3163,7 @@ DEFUN (vnc_vrf_policy_rt_export,
 		vnc_redistribute_prechange(bgp);
 	}
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list, false);
 
 	if (bgp->rfapi_cfg->rfg_redist == rfg) {
 		vnc_redistribute_postchange(bgp);
@@ -3228,7 +3194,7 @@ DEFUN (vnc_vrf_policy_rt_both,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list, false);
 	if (rc != CMD_SUCCESS)
 		return rc;
 
@@ -3276,7 +3242,7 @@ DEFUN (vnc_vrf_policy_rt_both,
 		vnc_redistribute_prechange(bgp);
 	}
 
-	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list);
+	rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list, false);
 
 	if (bgp->rfapi_cfg->rfg_redist == rfg) {
 		vnc_redistribute_postchange(bgp);
@@ -3596,11 +3562,9 @@ DEFUN (vnc_l2_group_rt,
 	}
 
 	if (do_import)
-		rc = set_ecom_list(vty, argc - 2, argv + 2,
-				   &rfg->rt_import_list);
+		rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_import_list, false);
 	if (rc == CMD_SUCCESS && do_export)
-		rc = set_ecom_list(vty, argc - 2, argv + 2,
-				   &rfg->rt_export_list);
+		rc = set_ecom_list(vty, argc - 2, argv + 2, &rfg->rt_export_list, false);
 	return rc;
 }
 

@@ -1517,6 +1517,12 @@ When peers receive a route with the UPA extended community, they can:
 - Apply special policies (rate limiting, diversion to scrubbing centers, etc.)
 - Log/alert on unreachable prefixes
 
+Honoring the D-bit is opt-in: a receiver installs a blackhole/drop entry for a
+received UPA route **only** if UPA is enabled for that neighbor with
+``neighbor X upa``. Without that configuration the D-bit is ignored and no
+unreachable route is installed, even though the route (and its UPA extended
+community) remains visible in the BGP table.
+
 UPA Configuration
 ^^^^^^^^^^^^^^^^^
 
@@ -1545,9 +1551,11 @@ unreachable, UPA routes are originated up to the max-routes limit.
      neighbor 192.0.2.1 upa
     exit-address-family
 
-Only neighbors configured with ``neighbor X upa`` will receive UPA-tagged routes;
-others receive normal route withdrawals, maintaining backward compatibility.
-The ``neighbor X upa`` command is documented in :ref:`bgp-peers`.
+``neighbor X upa`` governs UPA in both directions for that neighbor: only such
+neighbors are sent UPA-tagged routes (others receive normal route withdrawals,
+maintaining backward compatibility), and only for such neighbors is the D-bit of
+a received UPA route honored (a drop/blackhole entry installed). The
+``neighbor X upa`` command is documented in :ref:`bgp-peers`.
 
 Global UPA Origination
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -2154,12 +2162,17 @@ Configuring Peers
 
 .. clicmd:: neighbor PEER upa
 
-   Enable sending UPA (Unreachable Prefix Announcement) routes to this peer.
-   When configured, locally originated UPA routes and received routes carrying
-   the UPA extended community (type 0x03, subtype 0x09) are announced to
-   this neighbor.
+   Enable UPA (Unreachable Prefix Announcement) for this peer. This governs
+   both directions:
 
-   Neighbors without this capability will receive standard route withdrawals
+   - Outbound: locally originated UPA routes and received routes carrying the
+     UPA extended community (type 0x03, subtype 0x09) are announced to this
+     neighbor.
+   - Inbound: the D-bit of UPA routes received from this neighbor is honored,
+     i.e. a blackhole/drop entry is installed into zebra. Without this option
+     the D-bit is ignored and no unreachable route is installed.
+
+   Neighbors without this option will receive standard route withdrawals
    when aggregates become unreachable, maintaining backward compatibility.
 
    This capability must be configured together with the aggregate-address
@@ -4132,34 +4145,54 @@ and used as the source VNI for sending traffic to the destination IP-VRF.
 Note that in FRR, Downstream VNI requires the use of single VXLAN devices (SVD)
 for the dataplane and will not work with traditional VXLAN devices.
 
-.. _bgp-evpn-ip-vrf-route-targets:
+.. _bgp-evpn-route-target-configuration:
 
-EVPN IP-VRF Route Targets
-^^^^^^^^^^^^^^^^^^^^^^^^^
+EVPN Route Target Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. clicmd:: route-target <import|export|both> <RTLIST|auto>
+The concepts behind EVPN Route Targets (how they identify IP-VRFs and
+EVIs, how the automatic Route Target is derived and matched, and how
+wildcard Route Targets match) are described in :ref:`evpn-route-targets`.
+This section documents the commands.
 
-   Configure the route-target set for EVPN for a specific IP-VRF.
-   RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)``
-   where ``*`` indicates wildcard matching for the AS number
-   (match any AS number). Note that wildcards are only applicable to ``import``.
-   Wildcards are particularly useful in eBGP-datacenter deployments, where each leaf
-   has a unique AS number and thus uses a unique export-RT, but you want to import all routes
-   from all leaves.
-   ``auto`` is used to retain the autoconfigure that is default behavior for L3 RTs.
+Route Targets are configured per direction with the same commands on two
+levels:
 
-   Route Targets allow building flexible VPN topologies by controlling the leaking of
-   routes between different IP-VRFs. For EVPN, the Downstream VNI feature makes this easy.
+- for an IP-VRF (L3VNI), under the ``l2vpn evpn`` address-family of the
+  tenant VRF's BGP instance (``router bgp AS vrf VRFNAME``), and
+- for an EVI / L2VNI (unfortunately the terms are used exchangeably in FRR,
+  because FRR uses the "VLAN-Based Service Interface" model, as defined
+  in :rfc:`9135`), under ``vni N`` inside the ``l2vpn evpn`` address-family
+  of the BGP underlay (IP-)VRF (the VRF that has ``advertise-all-vni``
+  configured). Any attempt to configure the vni-level commands in a
+  different (IP-)VRF is rejected
+  (``This command is only supported under EVPN VRF``).
 
-   When using ``import``, the configured RTs are used to select which
-   EVPN VPN routes are imported into the local VRF. When using
-   ``export``, the configured RTs are attached to advertised EVPN VPN routes. Note that
-   the ``export`` Route Target only applies to routes that are originated in the local VRF.
-   An export Route Target will not be attached to routes that are learned from other peers
-   that are re-advertised. ``both`` applies the list to import and export.
+EVPN attaches the IP-VRF Route Targets to Route Type 2 (MAC/IP
+Advertisement, :rfc:`9135`) and Route Type 5 (IP Prefix Route, :rfc:`9136`)
+routes, and the EVI Route Targets to the routes of the EVI,
+notably Route Type 2 and Route Type 3 (IMET).
 
-   EVPN attaches the IP-VRF Route Targets to Route Type 2 (MAC/IP Advertisement, :rfc:`9135`)
-   and Route Type 5 (IP Prefix Route, :rfc:`9136`).
+.. clicmd:: route-target <import|export|both> RTLIST
+
+   Configure the manual route-target set of the IP-VRF or EVI / L2VNI.
+   RTLIST is a space separated list of route targets, each matching
+   ``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)``, where ``*`` indicates
+   wildcard matching for the AS number (match any AS number, see
+   :ref:`evpn-wildcard-route-targets`). Wildcards are only applicable to
+   ``import``.
+
+   When using ``import``, the configured RTs are used to select which EVPN
+   VPN routes are imported into the IP-VRF or EVI. When using
+   ``export``, the configured RTs are attached to advertised EVPN VPN
+   routes. Note that the ``export`` Route Targets only apply to routes that
+   are originated locally. An export Route Target will not be attached to
+   routes that are learned from other peers and re-advertised. ``both``
+   applies the list to import and export.
+
+   Route Targets allow building flexible VPN topologies by controlling the
+   leaking of routes between different IP-VRFs. For EVPN, the Downstream
+   VNI feature makes this easy.
 
    Example:
 
@@ -4170,36 +4203,11 @@ EVPN IP-VRF Route Targets
        address-family l2vpn evpn
         route-target import 64496:12344
         route-target import 64496:17000000
+        route-target import *:12345
         route-target export 64496:12344
        exit-address-family
       exit
-
-.. _bgp-evpn-mac-vrf-l2vni-route-targets:
-
-EVPN MAC-VRF / L2VNI Route Targets
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. clicmd:: route-target <import|export|both> <RTLIST>
-
-   Configure the route-target set for EVPN for a specific MAC-VRF / L2VNI (the
-   terms are equivalent for FRR, because FRR uses the "VLAN-Based Service Interface" model,
-   as defined in :rfc:`9135`)
-
-   RTLIST is a list of any of matching ``(A.B.C.D:MN|EF:OPQR|GHJK:MN)``. Note that it is currently
-   not possible to manually define wildcard imports like for IP-VRFs, and there is also no explicit
-   ``auto`` option like for IP-VRFs.
-
-   This command can only be executed in the BGP underlay (IP-)VRF
-   (i.e. the VRF that has ``advertise-all-vni`` configured).
-   Any attempt to configure this command in a different (IP-)VRF will be rejected
-   (``This command is only supported under EVPN VRF``).
-
-   EVPN attaches the MAC-VRF Route Targets to Route Type 2 (MAC/IP Advertisement, :rfc:`9135`).
-
-   Example:
-
-   .. code-block:: frr
-
+      !
       router bgp 64496
        !
        address-family l2vpn evpn
@@ -4210,6 +4218,41 @@ EVPN MAC-VRF / L2VNI Route Targets
         exit-vni
        exit-address-family
       exit
+
+.. clicmd:: auto-route-target <import|export|both> <add-always|add-never|add-if-no-manual|rfc8365-compatible>
+
+   Control the automatic route-target of the given direction(s) of the
+   IP-VRF or EVI / L2VNI (see :ref:`evpn-automatic-route-targets` for
+   how it is derived, encoded and matched). The add-mode selects when it is
+   added to the effective route-targets:
+
+   - ``add-always``: always add the automatic route-target, even when
+     manual route-targets are configured for the direction.
+   - ``add-never``: never add the automatic route-target, so the direction
+     only uses manually configured route-targets. With ``add-never`` and no
+     manual route-targets, no EVPN VPN routes are imported into
+     (``import``) or advertised with a route-target from (``export``) the
+     IP-VRF or EVI.
+   - ``add-if-no-manual``: add the automatic route-target only when no
+     manual route-target is configured for the direction. This is the
+     default behavior; configuring it explicitly makes the default visible
+     in the running configuration.
+
+   ``rfc8365-compatible`` is an orthogonal per-direction setting (a
+   separate statement, kept independently of the add-mode): it encodes the
+   automatic route-target with the VXLAN encapsulation bits set in the
+   local admin field, as described in :rfc:`8365`. It is off by default,
+   configured at the instance level (the tenant VRF for the L3VNI, the
+   EVPN underlay VRF for all its L2VNIs) and cannot be set per-L2VNI.
+
+   ``both`` applies the setting to import and export.
+
+   .. deprecated:: 10.8
+      ``route-target <import|export|both> auto`` is the previous spelling
+      of ``auto-route-target <import|export|both> add-always``, and
+      ``autort rfc8365-compatible`` is the previous spelling of
+      ``auto-route-target both rfc8365-compatible``. Both are still
+      accepted as hidden aliases.
 
 
 .. _bgp-evpn-advertise-pip:
@@ -4329,7 +4372,7 @@ route with gateway IP.
 1. CLI to add gateway IP while generating EVPN type-5 route from a BGP IPv4/IPv6
 prefix:
 
-.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip]
+.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip] [route-map RMAP_NAME] [skip-evpn-imported]
 
 When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
 type-5 routes are generated for BGP prefixes in the vrf.
@@ -4344,6 +4387,14 @@ of the corresponding type-5 paths.
 
 Note that EVPN will still perform its own bestpath selection for each EVPN
 prefix, and addpath must be properly configured in EVPN to enable multipathing.
+
+The optional ``skip-evpn-imported`` keyword prevents exporting a
+unicast route as a Type-5 route when its ultimate VRF-leak import parent is in
+the EVPN table. This prevents an EVPN-origin route leaked between VRFs from
+being re-exported into EVPN. It can be removed without disabling Type-5 export
+with the following command:
+
+.. clicmd:: no advertise <ipv4|ipv6> unicast skip-evpn-imported
 
 2. Add gateway IP to EVPN type-5 route using a route-map:
 
@@ -5812,6 +5863,25 @@ Displaying Routes by Route Distinguisher
    the RIB is restricted to the given Route Distinguisher (or all RDs when
    ``all`` is used instead of a specific RD). Only ``json`` is supported here;
    there is no ``brief`` modifier on this variant.
+
+BGP EVPN Route RD Brief Command
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp l2vpn evpn route rd <ASN:NN_OR_IP-ADDRESS:NN|all> [json [brief]]
+
+   Display EVPN routes for the given Route Distinguisher. Without ``json``,
+   output is the usual detailed text. With ``json``, output is full detail in
+   JSON.
+
+   The ``brief`` keyword is only valid together with ``json``. Use
+   ``json brief`` for a reduced JSON structure: ``numPrefixes`` per RD and, per
+   prefix, ``pathCount``, ``multiPathCount``, and ``flags`` (including
+   ``bestPathExists``).
+
+.. clicmd:: show bgp l2vpn evpn route rd <ASN:NN_OR_IP-ADDRESS:NN|all> type <ead|1|macip|2|multicast|3|es|4|prefix|5> [json [brief]]
+
+   Same as above, restricted to the given EVPN route type. Use ``json brief``
+   for the same reduced JSON format.
 
 Displaying Update Group Information
 -----------------------------------

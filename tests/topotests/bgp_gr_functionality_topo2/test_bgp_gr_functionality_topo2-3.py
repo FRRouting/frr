@@ -1036,14 +1036,28 @@ def test_BGP_GR_15_p2(request):
                     "ipv4": {
                         "unicast": {
                             "neighbor": {
-                                "r2": {"dest_link": {"r1": {"graceful-restart": True}}}
+                                "r2": {
+                                    "dest_link": {
+                                        "r1": {
+                                            "graceful-restart": True,
+                                            "connecttimer": 10,
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
                     "ipv6": {
                         "unicast": {
                             "neighbor": {
-                                "r2": {"dest_link": {"r1": {"graceful-restart": True}}}
+                                "r2": {
+                                    "dest_link": {
+                                        "r1": {
+                                            "graceful-restart": True,
+                                            "connecttimer": 10,
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
@@ -1058,7 +1072,10 @@ def test_BGP_GR_15_p2(request):
                             "neighbor": {
                                 "r1": {
                                     "dest_link": {
-                                        "r2": {"graceful-restart-helper": True}
+                                        "r2": {
+                                            "graceful-restart-helper": True,
+                                            "connecttimer": 10,
+                                        }
                                     }
                                 }
                             }
@@ -1069,7 +1086,10 @@ def test_BGP_GR_15_p2(request):
                             "neighbor": {
                                 "r1": {
                                     "dest_link": {
-                                        "r2": {"graceful-restart-helper": True}
+                                        "r2": {
+                                            "graceful-restart-helper": True,
+                                            "connecttimer": 10,
+                                        }
                                     }
                                 }
                             }
@@ -1098,9 +1118,13 @@ def test_BGP_GR_15_p2(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_1)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-        # Verifying BGP RIB routes
-        dut = "r6"
+        # First verify R1 has received R2's routes after the session clear.
         input_dict_2 = {key: topo["routers"][key] for key in ["r2"]}
+        result = verify_bgp_rib(tgen, addr_type, "r1", input_dict_2)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying BGP RIB routes (r2's routes via r1) on r6.
+        dut = "r6"
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_2)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 

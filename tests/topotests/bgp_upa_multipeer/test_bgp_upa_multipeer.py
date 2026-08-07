@@ -97,7 +97,6 @@ and subsequent per-neighbor filtering based on UPA capability negotiation.
 import os
 import sys
 import json
-import time
 import pytest
 import functools
 
@@ -227,14 +226,14 @@ def ensure_baseline_state():
         except Exception as e:
             return str(e)
 
-    # Give time for any async cleanup to complete
-    time.sleep(1)
-
     _, result = topotest.run_and_expect(_verify_baseline, None, count=30, wait=1)
     if result is not None:
         # Try to restore if missing - re-advertise networks on R5
-        r5.vtysh_cmd("conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nnetwork 10.1.1.0/24\nnetwork 10.1.2.0/24")
-        time.sleep(3)  # Wait for BGP to propagate to R4 and R1
+        r5.vtysh_cmd(
+            "conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nnetwork 10.1.1.0/24\nnetwork 10.1.2.0/24"
+        )
+        # Wait for BGP to propagate to R4 and R1 (poll R5's advertised state)
+        topotest.run_and_expect(_verify_baseline, None, count=30, wait=1)
 
 
 def test_bgp_convergence():
@@ -295,6 +294,7 @@ def test_bgp_convergence():
 
     # Check R2
     r2 = tgen.gears["r2"]
+
     def _bgp_converge_r2():
         output = json.loads(r2.vtysh_cmd("show ip bgp summary json"))
         expected = {
@@ -369,7 +369,9 @@ def test_extcom_aggregation_multiple_sources():
             # Should be from R4 (Router-ID 10.255.0.4)
             peer_router_id = paths[0].get("peer", {}).get("routerId", "")
             if peer_router_id != "10.255.0.4":
-                return "Path not from R4 (Router-ID 10.255.0.4), got: {}".format(peer_router_id)
+                return "Path not from R4 (Router-ID 10.255.0.4), got: {}".format(
+                    peer_router_id
+                )
 
             # Should NOT have UPA ExtCom yet
             extcoms = paths[0].get("extendedCommunity", {}).get("string", "")
@@ -384,10 +386,14 @@ def test_extcom_aggregation_multiple_sources():
     assert result is None, "R1 initial state check failed: {}".format(result)
 
     # Step 2: R5 withdraws BOTH constituents -> R4 withdraws to R1 -> R1 originates UPA
-    step("Step 2.2: R5 withdraws 10.1.1.0/24 and 10.1.2.0/24 - R4 relays withdrawals to R1")
+    step(
+        "Step 2.2: R5 withdraws 10.1.1.0/24 and 10.1.2.0/24 - R4 relays withdrawals to R1"
+    )
     r5 = tgen.gears["r5"]
     # Withdraw both constituents so R1 has NO valid paths under aggregate
-    r5.vtysh_cmd("conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nno network 10.1.1.0/24\nno network 10.1.2.0/24")
+    r5.vtysh_cmd(
+        "conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nno network 10.1.1.0/24\nno network 10.1.2.0/24"
+    )
 
     # Step 3: Check R1 originates UPA (R1 has the aggregate, loses ALL constituents)
     step("Step 2.3: Verify R1 originates UPA for 10.1.1.0/24")
@@ -409,7 +415,9 @@ def test_extcom_aggregation_multiple_sources():
 
             # Should have R1's Router-ID (R1 originated the UPA)
             if "10.255.0.1" not in extcoms:
-                return "UPA ExtCom missing R1 Router-ID (10.255.0.1): {}".format(extcoms)
+                return "UPA ExtCom missing R1 Router-ID (10.255.0.1): {}".format(
+                    extcoms
+                )
 
             # Should have D-bit
             if ":drop" not in extcoms and ":0x80" not in extcoms:
@@ -496,7 +504,9 @@ def test_extcom_aggregation_multiple_sources():
 
     # Step 5: Cleanup - Restore the route
     step("Step 2.5: Cleanup - R5 re-advertises 10.1.1.0/24")
-    r5.vtysh_cmd("conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nnetwork 10.1.1.0/24")
+    r5.vtysh_cmd(
+        "conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nnetwork 10.1.1.0/24"
+    )
 
     def _r1_route_restored():
         # Check R1's BGP table for route from R4
@@ -525,7 +535,9 @@ def test_extcom_aggregation_multiple_sources():
     _, result = topotest.run_and_expect(_r1_route_restored, None, count=30, wait=1)
     assert result is None, "Failed to restore normal route: {}".format(result)
 
-    step("Test 2 PASSED: UPA origination by R4 and propagation via R1 to R2 verified, cleanup completed")
+    step(
+        "Test 2 PASSED: UPA origination by R4 and propagation via R1 to R2 verified, cleanup completed"
+    )
     step("=" * 60)
 
 
@@ -552,9 +564,9 @@ def test_upa_filtering_with_capability():
 
     # Withdraw 10.1.2.0/24 on R5 to trigger UPA on R1
     step("Step 3.1: R5 withdraws 10.1.2.0/24 - R1 should originate UPA")
-    r5.vtysh_cmd("conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nno network 10.1.2.0/24")
-
-    time.sleep(3)
+    r5.vtysh_cmd(
+        "conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nno network 10.1.2.0/24"
+    )
 
     # Verify R2 receives UPA
     step("Step 3.2: Verify R2 receives UPA for 10.1.2.0/24")
@@ -581,10 +593,14 @@ def test_upa_filtering_with_capability():
 
     # Cleanup: Restore BGP route on R5 and wait for convergence
     step("Step 3.3: Cleanup - R5 re-advertises 10.1.2.0/24")
-    r5.vtysh_cmd("conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nnetwork 10.1.2.0/24")
+    r5.vtysh_cmd(
+        "conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nnetwork 10.1.2.0/24"
+    )
     assert result is None, "Cleanup failed: {}".format(result)
 
-    step("Test 3 PASSED: UPA propagation to capable peer verified and cleanup completed")
+    step(
+        "Test 3 PASSED: UPA propagation to capable peer verified and cleanup completed"
+    )
     step("=" * 60)
 
 
@@ -629,38 +645,34 @@ def test_upa_filtering_without_capability():
     # R5 withdraws 10.1.2.0/24 → R4 originates UPA → R1 receives → R3 should filter
     step("Step 4.2: R5 withdraws 10.1.2.0/24 - R4 should originate UPA")
     r5 = tgen.gears["r5"]
-    r5.vtysh_cmd("conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nno network 10.1.2.0/24")
-
-    time.sleep(3)
+    r5.vtysh_cmd(
+        "conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nno network 10.1.2.0/24"
+    )
 
     # Verify R3 does NOT receive UPA (filtered)
     step("Step 4.3: Verify R3 does NOT receive UPA for 10.1.2.0/24")
 
-    def _r3_no_upa():
+    # Negative check: poll the POSITIVE condition (R3 got a UPA route) over a
+    # bounded window and assert it never becomes true.
+    def _r3_has_upa():
         output = r3.vtysh_cmd("show ip bgp 10.1.2.0/24 json")
         try:
             parsed = json.loads(output)
-            # Should have no paths (filtered)
-            if parsed == {} or "paths" not in parsed or len(parsed["paths"]) == 0:
-                return None
-
-            # If path exists, check it's NOT a UPA route
             paths = parsed.get("paths", [])
+            if len(paths) == 0:
+                return False
             extcoms = paths[0].get("extendedCommunity", {}).get("string", "")
-            if "upa:" in extcoms:
-                return "R3 received UPA route (should be filtered)"
+            return "upa:" in extcoms
+        except Exception:
+            return False
 
-            # Non-UPA route is OK (shouldn't happen in this test but allowed)
-            return None
-        except Exception as e:
-            return str(e)
-
-    _, result = topotest.run_and_expect(_r3_no_upa, None, count=30, wait=1)
-    assert result is None, "R3 UPA filtering failed: {}".format(result)
+    _, appeared = topotest.run_and_expect(_r3_has_upa, True, count=15, wait=1)
+    assert appeared is not True, "R3 received UPA route (should be filtered)"
 
     step("Step 4.4: Cleanup - R5 re-advertises 10.1.2.0/24")
-    r5.vtysh_cmd("conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nnetwork 10.1.2.0/24")
-    time.sleep(3)
+    r5.vtysh_cmd(
+        "conf t\nrouter bgp 65006\naddress-family ipv4 unicast\nnetwork 10.1.2.0/24"
+    )
 
     # Verify cleanup - normal route from R4 (which got it from R5) should be back on R1
     def _route_restored():
@@ -711,7 +723,6 @@ def test_update_group_separation():
     # Force update group recalculation to ensure UPA flag changes are applied
     step("Forcing update group recalculation with soft reset")
     r1.vtysh_cmd("clear ip bgp * soft out")
-    time.sleep(3)  # Wait for update groups to reform
 
     # DEBUG: Check if BGP sessions are established
     step("DEBUG: Checking BGP session status")
@@ -776,7 +787,10 @@ def test_update_group_separation():
 
             # Check if groups exist at all
             if not groups:
-                return "No update groups found! BGP sessions may not be established. Raw output: " + output[:200]
+                return (
+                    "No update groups found! BGP sessions may not be established. Raw output: "
+                    + output[:200]
+                )
 
             # Check if all peers were found
             if r2_group is None or r3_group is None or r4_group is None:
@@ -836,14 +850,15 @@ def test_upa_only_update_rule():
 
     # Step 1: Add a non-UPA static route on R1
     step("Step 6.1: Configure non-UPA static route 192.168.100.0/24 on R1")
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     ip route 192.168.100.0/24 Null0
     router bgp 65001
      address-family ipv4 unicast
       network 192.168.100.0/24
-    """)
-    time.sleep(2)
+    """
+    )
 
     # Step 2: Verify R2 receives the static route (baseline check)
     step("Step 6.2: Verify R2 receives static route")
@@ -863,18 +878,19 @@ def test_upa_only_update_rule():
 
     # Step 3: Withdraw constituents to trigger UPA
     step("Step 6.3: Withdraw constituents from R5 to trigger UPA")
-    r5.vtysh_cmd("""
+    r5.vtysh_cmd(
+        """
     conf t
     router bgp 65006
      address-family ipv4 unicast
       no network 10.1.1.0/24
       no network 10.1.2.0/24
-    """)
+    """
+    )
 
     # Step 4: Wait for UPA propagation to R2
     # R2 should receive UPA routes (with ExtCom) for the constituents
     step("Step 6.4: Wait for UPA routes to propagate to R2")
-    time.sleep(5)  # Allow time for: R5→R4→R3→R1(UPA origination)→R2
 
     # Step 5: THE TEST - Verify R2 has both route types with correct attributes
     step("Step 6.5: Verify R2 receives UPA and non-UPA routes with correct separation")
@@ -900,10 +916,14 @@ def test_upa_only_update_rule():
             # UPA route MUST have UPA ExtCom
             upa_extcoms = upa_paths[0].get("extendedCommunity", {}).get("string", "")
             if "upa:" not in upa_extcoms:
-                return f"UPA route 10.1.1.0/24 missing UPA ExtCom. ExtComs: {upa_extcoms}"
+                return (
+                    f"UPA route 10.1.1.0/24 missing UPA ExtCom. ExtComs: {upa_extcoms}"
+                )
 
             # Non-UPA route MUST NOT have UPA ExtCom
-            non_upa_extcoms = non_upa_paths[0].get("extendedCommunity", {}).get("string", "")
+            non_upa_extcoms = (
+                non_upa_paths[0].get("extendedCommunity", {}).get("string", "")
+            )
             if "upa:" in non_upa_extcoms:
                 return f"Non-UPA route 192.168.100.0/24 has unexpected UPA ExtCom: {non_upa_extcoms}"
 
@@ -911,7 +931,9 @@ def test_upa_only_update_rule():
         except Exception as e:
             return str(e)
 
-    _, result = topotest.run_and_expect(_r2_routes_correctly_separated, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(
+        _r2_routes_correctly_separated, None, count=30, wait=1
+    )
     assert result is None, f"R2 route separation validation failed: {result}"
 
     step("✅ Test 6 PASSED: UPA-only UPDATE rule validated")
@@ -923,24 +945,44 @@ def test_upa_only_update_rule():
     step("Step 6.6: Cleanup - restore original state")
 
     # Remove static route
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     no ip route 192.168.100.0/24 Null0
     router bgp 65001
      address-family ipv4 unicast
       no network 192.168.100.0/24
-    """)
+    """
+    )
 
     # Restore constituents on R5
-    r5.vtysh_cmd("""
+    r5.vtysh_cmd(
+        """
     conf t
     router bgp 65006
      address-family ipv4 unicast
       network 10.1.1.0/24
       network 10.1.2.0/24
-    """)
+    """
+    )
 
-    time.sleep(3)
+    # Wait for restoration to propagate: R1 should again see a normal
+    # (non-UPA) route for the constituent from R4.
+    def _r1_constituent_restored():
+        output = r1.vtysh_cmd("show ip bgp 10.1.1.0/24 json")
+        try:
+            parsed = json.loads(output)
+            paths = parsed.get("paths", [])
+            if len(paths) == 0:
+                return "No paths for 10.1.1.0/24 after restoration"
+            extcoms = paths[0].get("extendedCommunity", {}).get("string", "")
+            if "upa:" in extcoms:
+                return "UPA ExtCom still present: {}".format(extcoms)
+            return None
+        except Exception as e:
+            return str(e)
+
+    topotest.run_and_expect(_r1_constituent_restored, None, count=30, wait=1)
     step("  - Cleanup completed - system restored to normal state")
     step("=" * 60)
 
@@ -966,7 +1008,7 @@ def test_neighbor_upa_dynamic_toggle():
     10. Cleanup
 
     This validates:
-    - PEER_FLAG_UPA_SEND toggles dynamically
+    - PEER_FLAG_UPA toggles dynamically
     - Update group membership changes when flag changes
     - UPA filtering responds to dynamic config changes
     """
@@ -986,19 +1028,21 @@ def test_neighbor_upa_dynamic_toggle():
     step("Step 7.1: Verify baseline - R2 has 'neighbor upa' configured")
 
     config = r1.vtysh_cmd("show running-config")
-    assert "neighbor 10.0.2.2 upa" in config, \
-        "Baseline failed: R2 should have 'neighbor upa' in config"
+    assert (
+        "neighbor 10.0.2.2 upa" in config
+    ), "Baseline failed: R2 should have 'neighbor upa' in config"
 
     # Step 2: Trigger UPA origination by withdrawing ALL constituents from R5
     step("Step 7.2: Withdraw constituents from R5 to trigger UPA")
-    r5.vtysh_cmd("""
+    r5.vtysh_cmd(
+        """
     conf t
     router bgp 65006
      address-family ipv4 unicast
       no network 10.1.1.0/24
       no network 10.1.2.0/24
-    """)
-    time.sleep(5)  # Wait for: R5→R4→R1(UPA origination)→R2
+    """
+    )
 
     # Step 3: Verify R2 receives UPA routes WITH ExtCom (baseline)
     step("Step 7.3: Verify R2 receives UPA routes (baseline)")
@@ -1056,16 +1100,17 @@ def test_neighbor_upa_dynamic_toggle():
 
     # Step 4: Dynamically DISABLE 'neighbor upa' for R2
     step("Step 7.4b: Dynamically disable 'neighbor 10.0.2.2 upa'")
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     router bgp 65001
      address-family ipv4 unicast
       no neighbor 10.0.2.2 upa
-    """)
+    """
+    )
 
     # Force update group recalculation for all peers
     r1.vtysh_cmd("clear ip bgp * soft out")
-    time.sleep(3)
 
     # Step 5: Verify update group changed
     step("Step 7.5: Verify R2's update group changed after disabling UPA")
@@ -1087,9 +1132,7 @@ def test_neighbor_upa_dynamic_toggle():
     # Step 6: Verify R2 NO LONGER receives UPA routes (filtered)
     step("Step 7.6: Verify R2 no longer receives UPA ExtCom (filtered)")
 
-    # Wait for BGP to propagate the change
-    time.sleep(3)
-
+    # Poll until BGP propagates the change (UPA removed from R2)
     def _r2_no_upa():
         output = r2.vtysh_cmd("show ip bgp 10.1.1.0/24 json")
         try:
@@ -1115,16 +1158,17 @@ def test_neighbor_upa_dynamic_toggle():
 
     # Step 7: Dynamically RE-ENABLE 'neighbor upa' for R2
     step("Step 7.7: Dynamically re-enable 'neighbor 10.0.2.2 upa'")
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     router bgp 65001
      address-family ipv4 unicast
       neighbor 10.0.2.2 upa
-    """)
+    """
+    )
 
     # Force update group recalculation for all peers
     r1.vtysh_cmd("clear ip bgp * soft out")
-    time.sleep(3)
 
     # Step 8: Verify update group changed back (different from non-UPA group)
     step("Step 7.8: Verify R2's update group changed after re-enabling UPA")
@@ -1138,7 +1182,9 @@ def test_neighbor_upa_dynamic_toggle():
         # It might not be the same as initial_r2_group, but it should be different from new_r2_group
         return None
 
-    _, result = topotest.run_and_expect(_check_r2_group_restored, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(
+        _check_r2_group_restored, None, count=30, wait=1
+    )
     assert result is None, f"Update group restoration check failed: {result}"
 
     final_r2_group = _get_r2_update_group()
@@ -1151,27 +1197,51 @@ def test_neighbor_upa_dynamic_toggle():
     assert result is None, f"UPA restoration check failed: {result}"
 
     step("✅ Test 7 PASSED: Dynamic neighbor UPA toggle validated")
-    step(f"  - UPA disabled → R2 update group changed: {initial_r2_group} → {new_r2_group}")
+    step(
+        f"  - UPA disabled → R2 update group changed: {initial_r2_group} → {new_r2_group}"
+    )
     step("  - UPA disabled → R2 no longer receives UPA ExtCom")
-    step(f"  - UPA re-enabled → R2 update group changed: {new_r2_group} → {final_r2_group}")
+    step(
+        f"  - UPA re-enabled → R2 update group changed: {new_r2_group} → {final_r2_group}"
+    )
     step("  - UPA re-enabled → R2 receives UPA ExtCom again")
 
     # Step 10: Cleanup - restore routes on R5
     step("Step 7.10: Cleanup - restore routes on R5")
-    r5.vtysh_cmd("""
+    r5.vtysh_cmd(
+        """
     conf t
     router bgp 65006
      address-family ipv4 unicast
       network 10.1.1.0/24
       network 10.1.2.0/24
-    """)
+    """
+    )
 
-    time.sleep(3)
+    # Wait for restoration to propagate: R1 should again see a normal
+    # (non-UPA) route for the constituent from R4.
+    def _r1_constituent_restored():
+        output = r1.vtysh_cmd("show ip bgp 10.1.1.0/24 json")
+        try:
+            parsed = json.loads(output)
+            paths = parsed.get("paths", [])
+            if len(paths) == 0:
+                return "No paths for 10.1.1.0/24 after restoration"
+            extcoms = paths[0].get("extendedCommunity", {}).get("string", "")
+            if "upa:" in extcoms:
+                return "UPA ExtCom still present: {}".format(extcoms)
+            return None
+        except Exception as e:
+            return str(e)
+
+    topotest.run_and_expect(_r1_constituent_restored, None, count=30, wait=1)
     step("  - Cleanup completed - system restored to normal state")
     step("=" * 60)
 
 
-@pytest.mark.skip(reason="Requires per-daemon config files for daemon restart; unified frr.conf incompatible with individual bgpd restart")
+@pytest.mark.skip(
+    reason="Requires per-daemon config files for daemon restart; unified frr.conf incompatible with individual bgpd restart"
+)
 def test_gr_stale_routes_trigger_upa():
     """
     Test 8: BGP Graceful Restart - validates UPA correctly handles STALE routes
@@ -1232,6 +1302,7 @@ def test_gr_stale_routes_trigger_upa():
     # GR is pre-configured in static frr.conf files, so it should be negotiated at startup
     # Just verify it's actually working
     step("  Verifying GR capability on R1-R4 session...")
+
     def _gr_cap_negotiated():
         output = r1.vtysh_cmd("show bgp neighbor 10.0.4.2 json")
         try:
@@ -1265,22 +1336,24 @@ def test_gr_stale_routes_trigger_upa():
         step(f"  DEBUG: Neighbor output (first 500 chars):")
         step(output[:500])
 
-        pytest.skip("BGP Graceful Restart capability not negotiated - test requires GR support")
+        pytest.skip(
+            "BGP Graceful Restart capability not negotiated - test requires GR support"
+        )
 
     step("  ✅ GR capability negotiated on R1-R4 session")
 
     # Step 2: Ensure routes are advertised by R5 (clean state after previous tests)
     step("Step 8.2: Ensure routes are advertised by R5")
 
-    r5.vtysh_cmd("""
+    r5.vtysh_cmd(
+        """
     conf t
     router bgp 65006
      address-family ipv4 unicast
       network 10.1.1.0/24
       network 10.1.2.0/24
-    """)
-
-    time.sleep(3)
+    """
+    )
 
     # Step 3: Verify baseline - routes are present and valid on R1
     step("Step 8.3: Verify baseline - routes from R5 are present on R1")
@@ -1293,8 +1366,11 @@ def test_gr_stale_routes_trigger_upa():
             if len(paths) == 0:
                 return "Missing 10.1.1.0/24 on R1"
             # Verify we have non-UPA paths
-            non_upa_paths = [p for p in paths
-                           if "upa:" not in p.get("extendedCommunity", {}).get("string", "")]
+            non_upa_paths = [
+                p
+                for p in paths
+                if "upa:" not in p.get("extendedCommunity", {}).get("string", "")
+            ]
             if len(non_upa_paths) == 0:
                 return "Only UPA paths exist (expected normal paths)"
             return None
@@ -1312,9 +1388,6 @@ def test_gr_stale_routes_trigger_upa():
     # R4 is the direct peer of R1, so GR will activate properly
     step("  Killing bgpd on R4 to simulate restart...")
     kill_router_daemons(tgen, "r4", ["bgpd"])
-
-    # Wait for GR to activate on R1
-    time.sleep(3)
 
     # Step 5: Verify routes are marked STALE on R1 (key GR behavior)
     step("Step 8.5: Verify routes marked STALE on R1 (GR activated)")
@@ -1387,7 +1460,9 @@ def test_gr_stale_routes_trigger_upa():
     _, result = topotest.run_and_expect(_r1_no_upa_for_stale, None, count=30, wait=1)
     assert result is None, f"GR UPA suppression check failed: {result}"
 
-    step("  ✅ CRITICAL: UPA NOT originated for stale routes (BGP_PATH_STALE code path validated)")
+    step(
+        "  ✅ CRITICAL: UPA NOT originated for stale routes (BGP_PATH_STALE code path validated)"
+    )
 
     # Step 7: Clear stale routes to trigger UPA
     step("Step 8.7: Clear stale routes (simulating stalepath-time expiry)")
@@ -1396,9 +1471,6 @@ def test_gr_stale_routes_trigger_upa():
     # Option B: Manually clear stale routes - faster
     step("  Clearing stale routes from R4 (simulating timer expiry)...")
     r1.vtysh_cmd("clear ip bgp 10.255.0.4")
-
-    # Wait for stale routes to be removed and UPA to be originated
-    time.sleep(5)
 
     # Step 8: NOW verify UPA IS originated (after stale routes cleared)
     step("Step 8.8: Verify UPA IS originated (after stale routes cleared)")
@@ -1509,9 +1581,6 @@ def test_gr_stale_routes_trigger_upa():
     step("  Starting bgpd on R4...")
     start_router_daemons(tgen, "r4", ["bgpd"])
 
-    # Wait for bgpd to start and sessions to establish
-    time.sleep(5)
-
     # Verify BGP session is back up
     def _r4_bgp_running():
         output = r4.vtysh_cmd("show ip bgp summary json")
@@ -1536,7 +1605,6 @@ def test_gr_stale_routes_trigger_upa():
     step("  ✅ R4 BGP running, sessions re-established with R1 and R5")
 
     # Wait for routes to propagate R5 → R4 → R1
-    time.sleep(5)
 
     # Step 13: Verify UPA withdrawn after routes restored
     step("Step 8.13: Verify UPA withdrawn after routes restored")
@@ -1574,7 +1642,9 @@ def test_gr_stale_routes_trigger_upa():
     step("  - UPA propagated to R2 (with 'neighbor upa')")
     step("  - UPA filtered from R3 (without 'neighbor upa')")
     step("  - UPA withdrawn after R4 recovery and route restoration")
-    step("  - Validates complete GR cycle: stale → clear → UPA → restore → withdraw UPA")
+    step(
+        "  - Validates complete GR cycle: stale → clear → UPA → restore → withdraw UPA"
+    )
 
     # Step 14: Cleanup note
     step("Step 8.14: Cleanup - GR remains enabled (pre-configured in static configs)")
@@ -1634,14 +1704,15 @@ def test_route_refresh_upa_persistence():
 
     # Step 1: Trigger UPA origination - R5 withdraws routes
     step("Step 9.1: Withdraw routes from R5 to trigger UPA on R1")
-    r5.vtysh_cmd("""
+    r5.vtysh_cmd(
+        """
     conf t
     router bgp 65006
      address-family ipv4 unicast
       no network 10.1.1.0/24
       no network 10.1.2.0/24
-    """)
-    time.sleep(5)
+    """
+    )
 
     # Step 2: Verify R2 has UPA baseline
     step("Step 9.2: Verify R2 receives UPA (baseline before refresh)")
@@ -1680,7 +1751,6 @@ def test_route_refresh_upa_persistence():
     step("Step 9.3: Trigger soft inbound refresh on R2")
     step("  Command: clear bgp 10.0.2.1 soft in")
     r2.vtysh_cmd("clear bgp 10.0.2.1 soft in")
-    time.sleep(3)
 
     # Step 4: Verify UPA persists with same attributes
     step("Step 9.4: Verify UPA persists after inbound refresh")
@@ -1711,7 +1781,9 @@ def test_route_refresh_upa_persistence():
         except Exception as e:
             return str(e)
 
-    _, result = topotest.run_and_expect(_r2_upa_persists_after_refresh, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(
+        _r2_upa_persists_after_refresh, None, count=30, wait=1
+    )
     assert result is None, f"Inbound refresh validation failed: {result}"
 
     step("  ✅ UPA route persisted through inbound refresh")
@@ -1730,7 +1802,6 @@ def test_route_refresh_upa_persistence():
     step("Step 9.5: Trigger soft outbound refresh on R1")
     step("  Command: clear bgp 10.0.2.2 soft out")
     r1.vtysh_cmd("clear bgp 10.0.2.2 soft out")
-    time.sleep(3)
 
     # Step 6: Verify R2 still receives UPA (re-advertised)
     step("Step 9.6: Verify R2 still receives UPA after outbound refresh")
@@ -1760,7 +1831,9 @@ def test_route_refresh_upa_persistence():
         except Exception as e:
             return str(e)
 
-    _, result = topotest.run_and_expect(_r2_receives_upa_after_outbound, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(
+        _r2_receives_upa_after_outbound, None, count=30, wait=1
+    )
     assert result is None, f"Outbound refresh validation failed: {result}"
 
     step("  ✅ UPA successfully re-advertised after outbound refresh")
@@ -1776,7 +1849,8 @@ def test_route_refresh_upa_persistence():
 
     # Step 7: Apply route-map to filter UPA aggregate on R1→R2
     step("Step 9.7: Apply route-map to filter UPA aggregate 10.1.0.0/16 from R1 to R2")
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     ip prefix-list FILTER_AGGREGATE permit 10.1.0.0/16
     !
@@ -1788,7 +1862,8 @@ def test_route_refresh_upa_persistence():
     router bgp 65001
      address-family ipv4 unicast
       neighbor 10.0.2.2 route-map TO_R2 out
-    """)
+    """
+    )
 
     step("  - Prefix-list matches aggregate 10.1.0.0/16")
     step("  - Route-map clause 10: deny UPA aggregate")
@@ -1798,7 +1873,6 @@ def test_route_refresh_upa_persistence():
     # Step 8: Soft refresh to apply policy
     step("Step 9.8: Soft refresh to apply new policy")
     r1.vtysh_cmd("clear bgp 10.0.2.2 soft out")
-    time.sleep(3)
 
     # Step 9: Verify UPA aggregate filtered from R2
     step("Step 9.9: Verify UPA aggregate filtered from R2")
@@ -1830,19 +1904,36 @@ def test_route_refresh_upa_persistence():
     step("Step 9.10: Cleanup - Restore routes first, then remove route-map")
 
     # Restore routes on R5 while route-map still active
-    r5.vtysh_cmd("""
+    r5.vtysh_cmd(
+        """
     conf t
     router bgp 65006
      address-family ipv4 unicast
       network 10.1.1.0/24
       network 10.1.2.0/24
-    """)
+    """
+    )
 
     # Wait for routes to propagate and R1 to switch from UPA to normal
-    time.sleep(8)
+    def _r1_switched_to_normal():
+        output = r1.vtysh_cmd("show ip bgp 10.1.1.0/24 json")
+        try:
+            parsed = json.loads(output)
+            paths = parsed.get("paths", [])
+            if len(paths) == 0:
+                return "No paths for 10.1.1.0/24 after restoration"
+            extcoms = paths[0].get("extendedCommunity", {}).get("string", "")
+            if "upa:" in extcoms:
+                return "R1 still has UPA (not switched to normal): {}".format(extcoms)
+            return None
+        except Exception as e:
+            return str(e)
+
+    topotest.run_and_expect(_r1_switched_to_normal, None, count=30, wait=1)
 
     # Remove route-map
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
     conf t
     router bgp 65001
      address-family ipv4 unicast
@@ -1850,12 +1941,11 @@ def test_route_refresh_upa_persistence():
     !
     no route-map TO_R2
     no ip prefix-list FILTER_AGGREGATE
-    """)
+    """
+    )
 
     # Soft refresh to advertise aggregate without filter
     r1.vtysh_cmd("clear bgp 10.0.2.2 soft out")
-
-    time.sleep(3)
 
     # Verify cleanup - R2 should have normal aggregate (not UPA)
     def _cleanup_verified():

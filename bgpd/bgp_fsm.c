@@ -2967,6 +2967,14 @@ bgp_establish(struct peer_connection *connection)
 
 	/* Increment established count. */
 	peer->established++;
+
+	/* Stamp the session uptime before the status change so that the
+	 * peer_status_changed hook (which builds the BMP Peer Up message)
+	 * sees this session's establish time rather than the previous
+	 * session's disconnect time.
+	 */
+	peer->uptime = monotime(NULL);
+
 	bgp_fsm_change_status(connection, Established);
 
 	/* bgp log-neighbor-changes of neighbor Up */
@@ -2989,11 +2997,9 @@ bgp_establish(struct peer_connection *connection)
 	/* graceful restart handling */
 	bgp_peer_process_gr_cap_clear_stale(peer);
 
-	/* Reset uptime, turn on keepalives, send current table. */
+	/* Turn on keepalives, send current table. */
 	if (!peer->v_holdtime)
 		bgp_keepalives_on(connection);
-
-	peer->uptime = monotime(NULL);
 
 	/* Send route-refresh when ORF is enabled.
 	 * Stop Long-lived Graceful Restart timers.

@@ -37,6 +37,20 @@ module frr-bgp-types {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-07-26 {
+    description
+      "Add FRR CLI-syntax route-target and route-distinguisher typedefs.";
+    reference
+      "FRRouting";
+  }
+
+  revision 2026-07-21 {
+    description
+      "Add BGP Open Policy role typedef for neighbor local-role CLI.";
+    reference
+      "FRRouting";
+  }
+
   revision 2019-12-03 {
     description
       "Initial revision.";
@@ -102,6 +116,12 @@ module frr-bgp-types {
         description
           "External BGP peer.";
       }
+      enum "auto" {
+        value 4;
+        description
+          "Auto-detect remote AS from peer's OPEN message.
+           Maps to: neighbor <peer> remote-as auto.";
+      }
     }
     description
       "AS type, which specifies the type of AS or BGP peer.";
@@ -123,6 +143,12 @@ module frr-bgp-types {
         value 3;
         description
           "Add path feature is disabled.";
+      }
+      enum "best-selected" {
+        value 4;
+        description
+          "Advertise a configured number of best selected paths.
+           Maps to: neighbor <peer> addpath-tx-best-selected <1-6>.";
       }
     }
     description
@@ -166,5 +192,70 @@ module frr-bgp-types {
     }
     description
       "Direction of traffic flow, either ingress or egress.";
+  }
+
+  typedef bgp-role {
+    type enumeration {
+      enum provider {
+        description
+          "Local speaker provides transit to the remote peer.";
+      }
+      enum rs-server {
+        description
+          "Local speaker is a route server for the remote peer.";
+      }
+      enum rs-client {
+        description
+          "Local speaker is a route server client.";
+      }
+      enum customer {
+        description
+          "Local speaker receives transit from the remote peer.";
+      }
+      enum peer {
+        description
+          "Local speaker and remote peer have a lateral peering
+           relationship.";
+      }
+    }
+    description
+      "BGP Open Policy role as defined by RFC 9234.";
+  }
+
+  /*
+   * FRR CLI RD/RT syntax (not IETF ietf-routing-types).
+   * Matches ASN:NN_OR_IP-ADDRESS:NN and AA.BB:NN as used by bgpd CLI.
+   * Fine-grained validation is performed by str2prefix_rd /
+   * ecommunity_str2com in northbound VALIDATE callbacks.
+   *
+   * Patterns: IPv4:NN | AA.BB:NN | ASN:NN  (plus *:NN for route-target).
+   * Do not put comments between '+' string fragments; libyang rejects that.
+   */
+  typedef route-distinguisher {
+    type string {
+      /*
+       * Loose CLI-syntax gate matching ASN:NN / AA.BB:NN / A.B.C.D:NN
+       * and inet_aton-lenient forms such as 100.100.100:100.
+       * Real validation is done by str2prefix_rd() in NB callbacks.
+       */
+      pattern '[^: \t]+(:[^: \t]+)+';
+    }
+    description
+      "FRR route distinguisher as accepted by CLI
+       (ASN:NN, AA.BB:NN, or A.B.C.D:NN; inet_aton-lenient IPv4).";
+  }
+
+  typedef route-target {
+    type string {
+      /*
+       * Loose CLI-syntax gate; also accepts *:NN for EVPN VRF import
+       * and multi-colon SoO forms such as ASN:NN:NN (e.g. 1:1:1).
+       * Real validation is done by ecommunity_str2com() in NB callbacks.
+       */
+      pattern '[^: \t]+(:[^: \t]+)+';
+    }
+    description
+      "FRR route target / SoO as accepted by CLI
+       (ASN:NN, AA.BB:NN, A.B.C.D:NN, *:NN, or ASN:NN:NN).";
   }
 }

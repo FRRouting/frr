@@ -372,6 +372,14 @@ systems. Once the automated tests succeed, other developers will review your
 code for quality and correctness. After any concerns are resolved, your code
 will be merged into the branch it was submitted against.
 
+Opening a new PR over code that is already in a PR, is not an appropriate
+way to develop.  This removes any history from the new PR as such, we cannot
+easily track if comments are missed/addressed.  As such PR's that just re-open
+a new PR for an existing PR will be summarily closed.  The take over of a PR by
+a new submitter is the only case where a new PR can be opened.  This should be
+discussed with a current maintainer before this is done though.  A submitter
+is expected to do a rebase and a force push on the current branch.
+
 The title of the pull request should provide a high level technical
 summary of the included patches.  The description should provide
 additional details that will help the reviewer to understand the context
@@ -1159,9 +1167,7 @@ Historically, FRR used fixed-width integral types that do not exist in any
 standard but were defined by most platforms at some point. Officially these
 types are not guaranteed to exist. Therefore, please use the fixed-width
 integral types introduced in the C99 standard when contributing new code to
-FRR. If you need to convert a large amount of code to use the correct types,
-there is a shell script in :file:`tools/convert-fixedwidth.sh` that will do the
-necessary replacements.
+FRR.
 
 +-----------+--------------------------+
 | Incorrect | Correct                  |
@@ -1643,13 +1649,6 @@ annotations must be ignored non-development branches. For example:
    #if CONFDATE > 20180403
    CPP_NOTICE("Use of <XYZ> is deprecated, please use <ABC>")
    #endif
-
-Preferably, the shell script :file:`tools/fixup-deprecated.py` will be
-updated along with making non-backwards compatible code changes, or an
-alternate script should be introduced, to update the code to match the
-change.  When the script is updated, there is no need to preserve the
-deprecated code. Note that this does not apply to user interface
-changes, just internal code, macros and libraries.
 
 Miscellaneous
 -------------

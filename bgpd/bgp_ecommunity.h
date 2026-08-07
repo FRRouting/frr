@@ -146,23 +146,29 @@ enum ecommunity_origin_validation_states {
 #define ECOMMUNITY_NODE_TARGET 0x09
 #define ECOMMUNITY_NODE_TARGET_RESERVED 0
 
-/* Extended Communities attribute.  */
+/*
+ * Extended Communities attribute.
+ *
+ * All values in a single ecommunity must be of the same type (either regular
+ * 8-octet values or IPv6 20-octet values), never mix the two!
+ */
 struct ecommunity {
 	/* Reference counter.  */
 	unsigned long refcnt;
 
-	/* Size of Each Unit of Extended Communities attribute.
-	 * to differentiate between IPv6 ext comm and ext comm
+	/* Size in octets of each value in val, i.e. the size of one unit:
+	 * ECOMMUNITY_SIZE for regular values, IPV6_ECOMMUNITY_SIZE for IPv6
+	 * values. Distinguishes the two encodings
 	 */
 	uint8_t unit_size;
 
 	/* Disable IEEE floating-point encoding for extended community */
 	bool disable_ieee_floating;
 
-	/* Size of Extended Communities attribute.  */
+	/* Number of values held in val, each unit_size octets long */
 	uint32_t size;
 
-	/* Extended Communities value.  */
+	/* Payload, packed array of "size" values, each of size "unit_size" octets */
 	uint8_t *val;
 
 	/* Human readable format string.  */
@@ -189,12 +195,28 @@ struct ecommunity_val {
 	uint8_t val[ECOMMUNITY_SIZE];
 };
 
-/* IPv6 Extended community value is eight octet.  */
+/* Many places assume that an ecommunity_val can be used as a plain
+ * byte buffer of its value.
+ */
+static_assert(sizeof(struct ecommunity_val) == ECOMMUNITY_SIZE,
+	      "struct ecommunity_val size mismatch");
+
+/* IPv6 Extended community value is twenty octet.  */
 struct ecommunity_val_ipv6 {
 	uint8_t val[IPV6_ECOMMUNITY_SIZE];
 };
 
-#define ecom_length_size(X, Y)    ((X)->size * (Y))
+static_assert(sizeof(struct ecommunity_val_ipv6) == IPV6_ECOMMUNITY_SIZE,
+	      "struct ecommunity_val_ipv6 size mismatch");
+
+/*
+ * Length of the val payload of an ecommunity: the number of held communities
+ * (size) times the length of each held community (unit_size).
+ */
+static inline size_t ecom_val_size(const struct ecommunity *ecom)
+{
+	return (size_t)ecom->size * ecom->unit_size;
+}
 
 /*
  * Encode BGP Route Target AS:nn.
@@ -218,9 +240,8 @@ static inline void encode_route_target_as(as_t as, uint32_t val,
 /*
  * Encode BGP Route Target IP:nn.
  */
-static inline void encode_route_target_ip(struct in_addr *ip, uint16_t val,
-					  struct ecommunity_val *eval,
-					  bool trans)
+static inline void encode_route_target_ip(const struct in_addr *ip, uint16_t val,
+					  struct ecommunity_val *eval, bool trans)
 {
 	eval->val[0] = ECOMMUNITY_ENCODE_IP;
 	if (!trans)
@@ -250,8 +271,8 @@ static inline void encode_route_target_as4(as_t as, uint16_t val,
 	eval->val[7] = val & 0xff;
 }
 
-/* Helper function to convert uint32 to IEEE-754 Floating Point */
-static uint32_t uint32_to_ieee_float_uint32(uint32_t u)
+/* Helper function to convert uint64 to IEEE-754 Floating Point */
+static uint32_t uint64_to_ieee_float_uint32(uint64_t u)
 {
 	union {
 		float r;
@@ -269,9 +290,7 @@ static inline void encode_lb_extcomm(as_t as, uint64_t bw, bool non_trans,
 				     struct ecommunity_val *eval,
 				     bool disable_ieee_floating)
 {
-	uint64_t bandwidth = disable_ieee_floating
-				     ? bw
-				     : uint32_to_ieee_float_uint32(bw);
+	uint64_t bandwidth = disable_ieee_floating ? bw : uint64_to_ieee_float_uint32(bw);
 
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_AS;
@@ -400,9 +419,8 @@ extern struct ecommunity *ecommunity_intern(struct ecommunity *);
 extern bool ecommunity_cmp(const void *arg1, const void *arg2);
 extern void ecommunity_unintern(struct ecommunity **ecommunity);
 extern unsigned int ecommunity_hash_make(const void *arg);
-extern struct ecommunity *ecommunity_str2com(const char *str, int type,
-					     int keyword_included);
-extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
+extern struct ecommunity *ecommunity_str2com(const char *str, int sub_type, int keyword_included);
+extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int sub_type,
 						  int keyword_included);
 extern char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter);
 extern char *ecommunity_ecom2str_one(struct ecommunity *ecom, int format, int number);
@@ -419,6 +437,8 @@ extern uint32_t ecommunity_select_color(const struct ecommunity *ecom);
 extern bool ecommunity_add_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval,
 			       bool unique, bool overwrite);
+extern void ecommunity_append_val_unchecked(struct ecommunity *ecom,
+					    const struct ecommunity_val *eval);
 extern bool ecommunity_add_val_ipv6(struct ecommunity *ecom,
 				    struct ecommunity_val_ipv6 *eval,
 				    bool unique, bool overwrite);
@@ -457,9 +477,9 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 extern void bgp_aggr_ecommunity_remove(void *arg);
 extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
 						uint64_t *bw);
-extern struct ecommunity *
-ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom, uint64_t cum_bw,
-			  bool disable_ieee_floating, bool extended);
+extern struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
+						    uint64_t cum_bw, bool disable_ieee_floating,
+						    bool extended, bool ignore_non_transitive);
 
 extern bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo);
 
@@ -477,6 +497,8 @@ ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
 extern struct ecommunity *ecommunity_add_node_target(struct in_addr *node_id,
 						     struct ecommunity *old,
 						     bool non_trans);
+extern bool ecommunity_is_node_target(uint8_t type, uint8_t sub_type);
+extern bool ecommunity_has_node_target(struct ecommunity *ecom);
 extern bool ecommunity_node_target_match(struct ecommunity *ecomm,
 					 struct in_addr *local_id);
 

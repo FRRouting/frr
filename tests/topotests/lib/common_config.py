@@ -1881,7 +1881,7 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75, retry_sle
                     negative_result = ret is False or is_string(ret)
                     if negative_result == invert_logic:
                         # Simple case, successful result in time
-                        if not saved_failure:
+                        if saved_failure is None:
                             return ret
 
                         # Positive result, but happened after timeout failure, very important to
@@ -1899,7 +1899,9 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75, retry_sle
                     logger.info('Function raised exception: "%s"', repr(error))
                     ret = error
 
-                if seconds_left < 0 and saved_failure:
+                # Use "is not None" so a boolean False failure is preserved; truthiness
+                # checks treat False as unset and re-extend the timeout forever.
+                if seconds_left < 0 and saved_failure is not None:
                     logger.info(
                         "RETRY DIAGNOSTIC: Retry timeout reached, still failing"
                     )
@@ -1926,7 +1928,7 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75, retry_sle
                             raise saved_failure
                         return saved_failure
 
-                if saved_failure:
+                if saved_failure is not None:
                     logger.debug(
                         "RETRY DIAG: [failure] Sleeping %ds until next retry with %.1f retry time left - too see if timeout was too short",
                         retry_sleep,

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-zebra-route-map {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/zebra-route-map";
@@ -21,11 +22,38 @@ module frr-zebra-route-map {
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines zebra route map settings";
+    "This module defines zebra route map settings.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2020-01-02 {
     description
       "Initial revision";
+    reference
+      "FRRouting";
   }
 
   identity ipv4-prefix-length {
@@ -70,6 +98,10 @@ module frr-zebra-route-map {
     + "/frr-route-map:match-condition"
     + "/frr-route-map:rmap-match-condition"
     + "/frr-route-map:match-condition" {
+    description
+      "Augment route-map match conditions with zebra-specific
+       match types for prefix length, source instance, and
+       source protocol.";
     case ipv4-prefix-length {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv4-prefix-length') or "
          + "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv4-next-hop-prefix-length')";
@@ -77,6 +109,10 @@ module frr-zebra-route-map {
         type uint8 {
           range "0..32";
         }
+        description
+          "IPv4 prefix length (or next-hop prefix length) to match.
+           Used for both ipv4-prefix-length and ipv4-next-hop-prefix-length
+           match conditions.";
       }
     }
 
@@ -86,6 +122,8 @@ module frr-zebra-route-map {
         type uint8 {
           range "0..128";
         }
+        description
+          "IPv6 prefix length to match.";
       }
     }
 
@@ -95,6 +133,8 @@ module frr-zebra-route-map {
         type uint8 {
           range "0..255";
         }
+        description
+          "Protocol instance number to match.";
       }
     }
 
@@ -102,6 +142,8 @@ module frr-zebra-route-map {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:source-protocol')";
       leaf source-protocol {
         type frr-route-types:frr-route-types;
+        description
+          "Protocol type via which the route was learnt.";
       }
     }
   }
@@ -112,6 +154,9 @@ module frr-zebra-route-map {
     + "/frr-route-map:set-action"
     + "/frr-route-map:rmap-set-action"
     + "/frr-route-map:set-action" {
+    description
+      "Augment route-map set actions with zebra-specific
+       set action for source address.";
     case src-address {
       when "derived-from-or-self(../frr-route-map:action, 'frr-zebra-route-map:src-address')";
       choice src-address {
@@ -121,6 +166,8 @@ module frr-zebra-route-map {
           leaf ipv4-src-address {
             type inet:ipv4-address;
             mandatory true;
+            description
+              "IPv4 source address to set for the route.";
           }
         }
 
@@ -128,6 +175,8 @@ module frr-zebra-route-map {
           leaf ipv6-src-address {
             type inet:ipv6-address;
             mandatory true;
+            description
+              "IPv6 source address to set for the route.";
           }
         }
       }

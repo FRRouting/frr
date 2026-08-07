@@ -27,10 +27,11 @@ struct timeval resend_time = { 0, 0 };
 struct resend *to_resend = NULL;
 
 static int resend_match(struct resend *resend, int kind, const unsigned char *prefix,
-			unsigned char plen)
+			unsigned char plen, const unsigned char *id)
 {
 	return (resend->kind == kind && resend->plen == plen &&
-		memcmp(resend->prefix, prefix, 16) == 0);
+		memcmp(resend->prefix, prefix, 16) == 0 &&
+		(kind != RESEND_REQUEST || (id && memcmp(resend->id, id, 8) == 0)));
 }
 
 /* This is called by neigh.c when a neighbour is flushed */
@@ -41,6 +42,7 @@ void flush_resends(struct neighbour *neigh)
 }
 
 static struct resend *find_resend(int kind, const unsigned char *prefix, unsigned char plen,
+				  const unsigned char *id,
 				  struct resend **previous_return)
 {
 	struct resend *current, *previous;
@@ -48,7 +50,7 @@ static struct resend *find_resend(int kind, const unsigned char *prefix, unsigne
 	previous = NULL;
 	current = to_resend;
 	while (current) {
-		if (resend_match(current, kind, prefix, plen)) {
+		if (resend_match(current, kind, prefix, plen, id)) {
 			if (previous_return)
 				*previous_return = previous;
 			return current;
@@ -61,9 +63,9 @@ static struct resend *find_resend(int kind, const unsigned char *prefix, unsigne
 }
 
 struct resend *find_request(const unsigned char *prefix, unsigned char plen,
-			    struct resend **previous_return)
+			    const unsigned char *id, struct resend **previous_return)
 {
-	return find_resend(RESEND_REQUEST, prefix, plen, previous_return);
+	return find_resend(RESEND_REQUEST, prefix, plen, id, previous_return);
 }
 
 int record_resend(int kind, const unsigned char *prefix, unsigned char plen, unsigned short seqno,
@@ -80,7 +82,7 @@ int record_resend(int kind, const unsigned char *prefix, unsigned char plen, uns
 	if (delay >= 0xFFFF)
 		delay = 0xFFFF;
 
-	resend = find_resend(kind, prefix, plen, NULL);
+	resend = find_resend(kind, prefix, plen, id, NULL);
 	if (resend) {
 		if (resend->delay && delay)
 			resend->delay = MIN(resend->delay, delay);
@@ -142,11 +144,11 @@ int unsatisfied_request(const unsigned char *prefix, unsigned char plen, unsigne
 {
 	struct resend *request;
 
-	request = find_request(prefix, plen, NULL);
+	request = find_request(prefix, plen, id, NULL);
 	if (request == NULL || resend_expired(request))
 		return 0;
 
-	if (memcmp(request->id, id, 8) != 0 || seqno_compare(request->seqno, seqno) <= 0)
+	if (seqno_compare(request->seqno, seqno) <= 0)
 		return 1;
 
 	return 0;
@@ -158,11 +160,11 @@ int request_redundant(struct interface *ifp, const unsigned char *prefix, unsign
 {
 	struct resend *request;
 
-	request = find_request(prefix, plen, NULL);
+	request = find_request(prefix, plen, id, NULL);
 	if (request == NULL || resend_expired(request))
 		return 0;
 
-	if (memcmp(request->id, id, 8) == 0 && seqno_compare(request->seqno, seqno) > 0)
+	if (seqno_compare(request->seqno, seqno) > 0)
 		return 0;
 
 	if (request->ifp != NULL && request->ifp != ifp)
@@ -185,14 +187,14 @@ int satisfy_request(const unsigned char *prefix, unsigned char plen, unsigned sh
 {
 	struct resend *request, *previous;
 
-	request = find_request(prefix, plen, &previous);
+	request = find_request(prefix, plen, id, &previous);
 	if (request == NULL)
 		return 0;
 
 	if (ifp != NULL && request->ifp != ifp)
 		return 0;
 
-	if (memcmp(request->id, id, 8) != 0 || seqno_compare(request->seqno, seqno) <= 0) {
+	if (seqno_compare(request->seqno, seqno) <= 0) {
 		/* We cannot remove the request, as we may be walking the list right
            now.  Mark it as expired, so that expire_resend will remove it. */
 		request->max = 0;

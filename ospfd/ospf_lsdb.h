@@ -55,6 +55,15 @@ struct ospf_lsdb_linked_node {
 	 * retransmission list.
 	 */
 	struct ospf_lsa_list_entry *lsa_list_entry;
+
+	/* Track if this LSA was sent and counted in ls_rxmt_unacked */
+	bool counted_sent;
+
+	/* RFC4222 R4: node in the neighbor's r4_send_queue holding this
+	 * LSA's queued copy, or NULL if no copy is currently queued.
+	 * Only maintained while LSA gap pacing is enabled.
+	 */
+	struct listnode *r4_qnode;
 };
 
 /* OSPF LSDB related functions. */

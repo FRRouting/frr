@@ -42,7 +42,11 @@ static struct event_loop *main_master;
 
 static struct frr_pthread *fpt;
 
-static bool grpc_running;
+static enum grpc_state {
+	GRPC_STATE_INIT,
+	GRPC_STATE_RUNNING,
+	GRPC_STATE_SHUTDOWN,
+} grpc_state = GRPC_STATE_INIT;
 
 #define grpc_debug(...)                                                        \
 	do {                                                                   \
@@ -1127,6 +1131,7 @@ struct grpc_pthread_attr {
 // Capture these objects so we can try to shut down cleanly
 static pthread_mutex_t s_server_lock = PTHREAD_MUTEX_INITIALIZER;
 static grpc::Server *s_server;
+static grpc::ServerCompletionQueue *s_cq;
 
 static void *grpc_pthread_start(void *arg)
 {
@@ -1149,11 +1154,28 @@ static void *grpc_pthread_start(void *arg)
 	std::unique_ptr<grpc::ServerCompletionQueue> cq =
 		builder.AddCompletionQueue();
 	std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
-	s_server = server.get();
+	void *tag;
+	bool ok;
 
 	pthread_mutex_lock(&s_server_lock); // Make coverity happy
-	grpc_running = true;
-	pthread_mutex_unlock(&s_server_lock); // Make coverity happy
+	if (grpc_state == GRPC_STATE_SHUTDOWN) {
+		pthread_mutex_unlock(&s_server_lock);
+		if (server)
+			server->Shutdown();
+		/*
+		 * No RPC handlers have been posted yet; REQUEST_NEWRPC*() calls
+		 * happen below after grpc_state is set to RUNNING, so there are
+		 * no RpcStateBase tags to drain from this CQ.
+		 */
+		if (cq)
+			cq->Shutdown();
+		grpc_debug("%s: early shutdown, exiting", __func__);
+		return NULL;
+	}
+
+	s_server = server.get();
+	s_cq = cq.get();
+	grpc_state = GRPC_STATE_RUNNING;
 
 	/* Schedule unary RPC handlers */
 	REQUEST_NEWRPC(GetCapabilities, NULL);
@@ -1174,10 +1196,9 @@ static void *grpc_pthread_start(void *arg)
 
 	zlog_notice("gRPC server listening on %s",
 		    server_address.str().c_str());
+	pthread_mutex_unlock(&s_server_lock); // Make coverity happy
 
 	/* Process inbound RPCs */
-	bool ok;
-	void *tag;
 	while (true) {
 		if (!cq->Next(&tag, &ok)) {
 			grpc_debug("%s: CQ empty exiting", __func__);
@@ -1203,16 +1224,18 @@ static void *grpc_pthread_start(void *arg)
 
 	/* This was probably done for us to get here, but let's be safe */
 	pthread_mutex_lock(&s_server_lock);
-	grpc_running = false;
+	grpc_state = GRPC_STATE_SHUTDOWN;
 	if (s_server) {
 		grpc_debug("%s: shutdown server and CQ", __func__);
 		server->Shutdown();
 		s_server = NULL;
 	}
+	if (s_cq) {
+		grpc_debug("%s: shutting down CQ", __func__);
+		s_cq->Shutdown();
+		s_cq = NULL;
+	}
 	pthread_mutex_unlock(&s_server_lock);
-
-	grpc_debug("%s: shutting down CQ", __func__);
-	cq->Shutdown();
 
 	grpc_debug("%s: draining the CQ", __func__);
 	while (cq->Next(&tag, &ok)) {
@@ -1259,17 +1282,28 @@ static int frr_grpc_finish(void)
 	 * the completion queue (cq.Next()) to exit and cleanup everything else.
 	 */
 	pthread_mutex_lock(&s_server_lock);
-	grpc_running = false;
+	grpc_state = GRPC_STATE_SHUTDOWN;
 	if (s_server) {
 		grpc_debug("%s: shutdown server", __func__);
 		s_server->Shutdown();
 		s_server = NULL;
+	}
+	if (s_cq) {
+		grpc_debug("%s: shutting down CQ", __func__);
+		s_cq->Shutdown();
+		s_cq = NULL;
 	}
 	pthread_mutex_unlock(&s_server_lock);
 
 	grpc_debug("%s: joining and destroy grpc thread", __func__);
 	pthread_join(fpt->thread, NULL);
 	frr_pthread_destroy(fpt);
+	/*
+	 * Cleanup after pthread_join(): the gRPC thread is gone, so reset
+	 * globals for a possible future init/finish path.
+	 */
+	grpc_state = GRPC_STATE_INIT;
+	fpt = NULL;
 
 	// Fix protobuf 'memory leaks' during shutdown.
 	// https://groups.google.com/g/protobuf/c/4y_EmQiCGgs

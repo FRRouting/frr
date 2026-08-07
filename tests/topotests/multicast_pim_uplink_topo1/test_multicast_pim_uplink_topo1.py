@@ -3018,7 +3018,48 @@ def test_mroutes_updated_after_changing_rp_config_p1(request):
         "'show ip mroute json'"
     )
 
-    for data in input_dict_star_sg:
+    # Verify mroutes on LHRs (r1 and r4) instead of r2, since with RP at R3
+    # and ECMP routes, traffic may bypass r2 entirely via r1 -> r3 -> r4 path.
+    input_dict_lhr = [
+        {
+            "dut": "r1",
+            "src_address": "*",
+            "iif": r1_r3_links,
+            "oil": topo["routers"]["r1"]["links"]["i1"]["interface"],
+        },
+        {
+            "dut": "r4",
+            "src_address": "*",
+            "iif": r4_r3_links,
+            "oil": topo["routers"]["r4"]["links"]["i7"]["interface"],
+        },
+        {
+            "dut": "r1",
+            "src_address": source_i6,
+            "iif": r1_r2_links + r1_r3_links,
+            "oil": topo["routers"]["r1"]["links"]["i1"]["interface"],
+        },
+        {
+            "dut": "r1",
+            "src_address": source_i2,
+            "iif": topo["routers"]["r1"]["links"]["i2"]["interface"],
+            "oil": topo["routers"]["r1"]["links"]["i1"]["interface"],
+        },
+        {
+            "dut": "r4",
+            "src_address": source_i6,
+            "iif": topo["routers"]["r4"]["links"]["i6"]["interface"],
+            "oil": topo["routers"]["r4"]["links"]["i7"]["interface"],
+        },
+        {
+            "dut": "r4",
+            "src_address": source_i2,
+            "iif": r4_r2_links + r4_r3_links,
+            "oil": topo["routers"]["r4"]["links"]["i7"]["interface"],
+        },
+    ]
+
+    for data in input_dict_lhr:
         result = verify_mroutes(
             tgen,
             data["dut"],

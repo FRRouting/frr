@@ -581,6 +581,17 @@ struct bgp_clearing_info {
 #define BGP_IPV6_SAFI_SUPPORTS_NEXTHOP_PREFER_GLOBAL(safi)                                        \
 	((safi) == SAFI_UNICAST || (safi) == SAFI_MULTICAST || (safi) == SAFI_LABELED_UNICAST)
 
+/* EVPN route-target configuration (see bgp_evpn_private.h) */
+struct bgp_evpn_rt_config;
+PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_wildcard_rt_slu);
+PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_fq_rt_slu);
+
+/* EVPN import route-target hash tables (see bgp_evpn_private.h) */
+PREDECL_HASH(bgp_evpn_l2vni_fq_irt);
+PREDECL_HASH(bgp_evpn_l2vni_wildcard_irt);
+PREDECL_HASH(bgp_evpn_vrf_fq_irt);
+PREDECL_HASH(bgp_evpn_vrf_wildcard_irt);
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -822,10 +833,12 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 /* vpnvx retain flag */
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
+#define BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN (1 << 12)
+#define BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN (1 << 13)
 /* per-AF backup-path flags (ipv4/ipv6 unicast) */
-#define BGP_CONFIG_BACKUP_PATH	     (1 << 12)
-#define BGP_CONFIG_BACKUP_PATH_ECMP  (1 << 13)
-#define BGP_CONFIG_BACKUP_PATH_FLUSH (1 << 14)
+#define BGP_CONFIG_BACKUP_PATH	     (1 << 14)
+#define BGP_CONFIG_BACKUP_PATH_ECMP  (1 << 15)
+#define BGP_CONFIG_BACKUP_PATH_FLUSH (1 << 16)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
@@ -998,19 +1011,24 @@ struct bgp {
 
 	struct bgp_evpn_info *evpn_info;
 
-	/* EVPN - use RFC 8365 to auto-derive RT */
-	int advertise_autort_rfc8365;
+	/* EVPN - use RFC 8365 to auto-derive RT, per direction */
+	bool autort_rfc8365_import;
+	bool autort_rfc8365_export;
 
 	/*
 	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
 	 */
 	enum vxlan_flood_control vxlan_flood_ctrl;
 
-	/* Hash table of Import RTs to EVIs */
-	struct hash *import_rt_hash;
+	/* Hash tables of fully qualified and wildcard import RTs to VNIs */
+	struct bgp_evpn_l2vni_fq_irt_head l2vni_fq_irt_nodes;
+	struct bgp_evpn_l2vni_wildcard_irt_head l2vni_wildcard_irt_nodes;
 
-	/* Hash table of VRF import RTs to VRFs */
-	struct hash *vrf_import_rt_hash;
+	/* Hash tables of fully qualified and wildcard VRF import RTs to
+	 * VRFs
+	 */
+	struct bgp_evpn_vrf_fq_irt_head vrf_fq_irt_nodes;
+	struct bgp_evpn_vrf_wildcard_irt_head vrf_wildcard_irt_nodes;
 
 	/* L3-VNI corresponding to this vrf */
 	vni_t l3vni;
@@ -1042,10 +1060,10 @@ struct bgp {
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)
-#define BGP_VRF_IMPORT_RT_CFGD              (1 << 1)
-#define BGP_VRF_EXPORT_RT_CFGD              (1 << 2)
-#define BGP_VRF_IMPORT_AUTO_RT_CFGD         (1 << 3) /* retain auto when cfgd */
-#define BGP_VRF_EXPORT_AUTO_RT_CFGD         (1 << 4) /* retain auto when cfgd */
+/* Bits (1 << 1) through (1 << 4) are unused. They used to be the
+ * BGP_VRF_{IMPORT,EXPORT}[_AUTO]_RT_CFGD flags, which are superseded by
+ * the vrf_route_target_config structure.
+ */
 #define BGP_VRF_RD_CFGD                     (1 << 5)
 #define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 6)
 /* per-VRF toVPN SID */
@@ -1063,11 +1081,15 @@ struct bgp {
 	struct prefix_rd vrf_prd;
 	char *vrf_prd_pretty;
 
-	/* import rt list for the vrf instance */
-	struct list *vrf_import_rtl;
+	/* User route-target configuration of this L3VNI VRF */
+	struct bgp_evpn_rt_config *vrf_route_target_config;
 
-	/* export rt list for the vrf instance */
-	struct list *vrf_export_rtl;
+	/* Derived route targets: wildcard import (match local admin only),
+	 * fully qualified import, fully qualified export
+	 */
+	struct bgp_evpn_effective_wildcard_rt_slu_head effective_wildcard_import_rts;
+	struct bgp_evpn_effective_fq_rt_slu_head effective_fq_import_rts;
+	struct bgp_evpn_effective_fq_rt_slu_head effective_fq_export_rts;
 
 	/* list of corresponding l2vnis (struct bgpevpn) */
 	struct list *l2vnis;
@@ -1967,10 +1989,12 @@ struct peer {
 #define PEER_FLAG_CONFIG_ENCAPSULATION_MPLS	  (1ULL << 34)
 #define PEER_FLAG_BGP_LS_IPV4			  (1ULL << 35)
 #define PEER_FLAG_BGP_LS_IPV6			  (1ULL << 36)
-/* Send UPA (Unreachable Prefix Announcement) routes to this peer.
- * Set when the peer negotiates UPA capability.
+/* UPA (Unreachable Prefix Announcement) enabled for this peer.
+ * Governs both directions: send UPA routes to this peer, and honor the
+ * D-bit of UPA routes received from it (install a blackhole/drop entry).
+ * Without this flag a received UPA route is never installed into zebra.
  */
-#define PEER_FLAG_UPA_SEND   (1ULL << 37)
+#define PEER_FLAG_UPA	     (1ULL << 37)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
@@ -2778,6 +2802,7 @@ extern void bgp_confederation_id_set(struct bgp *bgp, as_t as,
 				     const char *as_str);
 extern void bgp_confederation_id_unset(struct bgp *bgp);
 extern bool bgp_confederation_peers_check(struct bgp *bgp, as_t as);
+extern as_t bgp_local_as_for_peer(struct peer *peer);
 
 extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as,
 					const char *as_str);
