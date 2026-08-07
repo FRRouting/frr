@@ -2534,6 +2534,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		return false;
 	}
 
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
+	    p->family == AF_EVPN && p->u.prefix_evpn.route_type == BGP_EVPN_IP_PREFIX_ROUTE &&
+	    !bgp_attr_get_srv6_l3service(piattr))
+		return false;
+
 	/* With addpath we may be asked to TX all kinds of paths so make sure
 	 * pi is valid */
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)

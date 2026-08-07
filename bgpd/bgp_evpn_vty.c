@@ -4430,6 +4430,29 @@ static int bgp_evpn_set_suppress_import_from_evpn(struct bgp *bgp_vrf, afi_t afi
 	return CMD_SUCCESS;
 }
 
+DEFPY (neighbor_evpn_encapsulation_type_srv6,
+       neighbor_evpn_encapsulation_type_srv6_cmd,
+       "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str encapsulation-type srv6",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Set EVPN encapsulation type\n"
+       "SRv6 encapsulation\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		return bgp_vty_return(vty, peer_af_flag_unset(peer, AFI_L2VPN, SAFI_EVPN,
+							      PEER_FLAG_CONFIG_ENCAPSULATION_SRV6));
+
+	return bgp_vty_return(vty, peer_af_flag_set(peer, AFI_L2VPN, SAFI_EVPN,
+						    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6));
+}
+
 DEFUN (bgp_evpn_advertise_type5,
        bgp_evpn_advertise_type5_cmd,
        "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR
@@ -8330,6 +8353,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_cmd);
 	install_element(BGP_EVPN_NODE, &macvrf_soo_global_cmd);
 	install_element(BGP_EVPN_NODE, &no_macvrf_soo_global_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_evpn_encapsulation_type_srv6_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_suppress_import_from_evpn_cmd);
