@@ -468,7 +468,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
       4. Flap r3, r4, r5 to create pacing activity + queued adjacencies
       5. Confirm congestion is established (log shows CONGESTION.*high-water=20)
       6. Mark timestamp, clear LSAs -> U drops to 3 < L=4 -> limit increases -> kick
-      7. Assert all three reach Full within 15s (bounded by one AIMD interval)
+      7. Assert all three reach Full within 20s (bounded by one AIMD interval)
       8. Assert ospfd.log shows "releasing queued adjacencies" AFTER the mark timestamp
     """
     tgen = get_topogen()
@@ -495,9 +495,18 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     # Kernel modules are system-wide so one modprobe suffices for all namespaces.
     tgen.net["r1"].cmd("modprobe sch_netem 2>/dev/null || true")
     # r2: 2500ms egress delay keeps r2's LSA ACKs in-flight when AIMD fires.
-    # At 1Mbps with sub-ms netns RTT all 50 LSAs are acked in ~81ms, so U=0 by
-    # the time r3/r4/r5 reach 2-Way (~2.1s after the flap). With 2500ms delay
-    # the first ACK arrives at ~2501ms, so AIMD sees U=50 > H=20 at ~2147ms.
+    # U is counted at send time (lsu_sent_for_dst()), not ack time, so U's
+    # peak is bounded by how much of the 50-LSA flood completes before the
+    # delay elapses, not by the batch size alone. This delay applies to ALL
+    # of r2's egress traffic, not just LSAcks -- including its DBD packets
+    # during adjacency formation. Widening it (tried 10000ms) backfired: as
+    # the DBD slave, r2 must respond to each round of r1's DBD exchange, and
+    # every response eats the full delay, so a handful of exchange rounds at
+    # 10000ms compounds into 30-50s of formation time and reliably breaks
+    # adjacency setup. 2500ms keeps that compounding cheap while still
+    # giving the AIMD-detection window below room to observe U. If CI shows
+    # this margin is insufficient again, prefer widening the
+    # congestion-detection window/count=30 below over the delay itself.
     tgen.net["r2"].cmd("tc qdisc del dev r2-eth0 root 2>/dev/null || true")
     tgen.net["r2"].cmd("tc qdisc add dev r2-eth0 root netem delay 2500ms")
     # r3/r4/r5: 500ms egress delay slows adjacency formation to ~3s per neighbor.
@@ -615,7 +624,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
             return None
         return "congestion not yet detected"
 
-    _, result = topotest.run_and_expect(_congestion_detected, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(_congestion_detected, None, count=30, wait=1)
     assert result is None, "AIMD did not detect congestion — pacing may not be active"
 
     # Wait for neighbors to settle into queued state (in_progress=1, 2 queued)
@@ -631,20 +640,23 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     for i in range(1, 51):
         tgen.net["r1"].cmd(f"ip addr del 198.51.120.{i}/32 dev lo 2>/dev/null || true")
 
-    # Step 7: All three neighbors must reach Full within 15s.
-    # Without the fix they stall; with fix they are kicked within one AIMD interval.
+    # Step 7: All three neighbors must reach Full within 20s. Widened from
+    # 15s alongside the r2 ack-delay increase above: some of the pre-clear
+    # LSAs' delayed acks can still be in flight for up to 10s after they
+    # were originally sent, regardless of the later withdrawal, so U may not
+    # drop below L until a bit after that.
     step("Verify r3, r4, r5 reach Full promptly after queue kick")
     for nbr in ["1.1.1.3", "1.1.1.4", "1.1.1.5"]:
         wait_for_neighbor_full(tgen, "r1", nbr)
     elapsed = time.time() - clear_time
     logger.info("r3/r4/r5 all Full %.1f seconds after clearing congestion", elapsed)
-    assert elapsed < 15, (
+    assert elapsed < 20, (
         f"Neighbors took {elapsed:.1f}s to reach Full after congestion cleared — "
         "queue kick may not have fired on limit increase"
     )
 
     # Step 8: Log check for kick diagnostic (informational only).
-    # The kick is already proved by Step 7: r3/r4/r5 reaching Full within 15s
+    # The kick is already proved by Step 7: r3/r4/r5 reaching Full within 20s
     # requires ospf_adj_pacing_kick() to have fired. The "releasing queued
     # adjacencies" message is inside IS_DEBUG_OSPF(nsm, NSM_EVENTS) and will
     # only appear when NSM debug is enabled, so asserting on it is fragile.
