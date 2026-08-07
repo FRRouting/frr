@@ -66,6 +66,17 @@ static void isis_srv6_sid_structure_init(struct isis_srv6_sid_structure *structu
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
 	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	/*
+	 * SRv6 L2 EVPN decap behaviors (End.DX2 / End.DT2U / End.DT2M and
+	 * their uSID variants) carry a function field like End.DT4/DT6, so
+	 * keep the locator-derived structure - no special handling.
+	 */
+	case SRV6_ENDPOINT_BEHAVIOR_END_DX2:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2U:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT2M:
+	case SRV6_ENDPOINT_BEHAVIOR_UDX2:
+	case SRV6_ENDPOINT_BEHAVIOR_UDT2U:
+	case SRV6_ENDPOINT_BEHAVIOR_UDT2M:
 		break;
 	}
 }
