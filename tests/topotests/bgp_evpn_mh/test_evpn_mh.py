@@ -601,9 +601,10 @@ def check_local_es_evi_count(dut, expected_esis):
 
         bgp_vni_count = bgp_detail.get("vniCount", 0)
         if bgp_vni_count != zebra_vni_count:
-            return (
-                "ES %s VNI count mismatch: zebra %s bgpd %s"
-                % (esi, zebra_vni_count, bgp_vni_count)
+            return "ES %s VNI count mismatch: zebra %s bgpd %s" % (
+                esi,
+                zebra_vni_count,
+                bgp_vni_count,
             )
 
         bgp_rd = bgp_detail.get("rd")
@@ -618,9 +619,10 @@ def check_local_es_evi_count(dut, expected_esis):
 
         bgp_evi_count = local_frag.get("eviCount", 0)
         if bgp_evi_count != zebra_vni_count:
-            return (
-                "ES %s local EVI count mismatch: zebra VNI %s bgpd local EVI %s"
-                % (esi, zebra_vni_count, bgp_evi_count)
+            return "ES %s local EVI count mismatch: zebra VNI %s bgpd local EVI %s" % (
+                esi,
+                zebra_vni_count,
+                bgp_evi_count,
             )
 
     return None
@@ -680,16 +682,12 @@ def test_evpn_mh_bgpd_restart_replays_local_es_evi():
 
     test_fn = partial(check_local_es_evi_count, dut, local_esis)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
-    assertmsg = '"{}" local ES-EVI count incorrect before bgpd restart'.format(
-        dut_name
-    )
+    assertmsg = '"{}" local ES-EVI count incorrect before bgpd restart'.format(dut_name)
     assert result is None, assertmsg
 
     test_fn = partial(check_type1_routes, peer, dut_name, local_esis)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
-    assertmsg = '"{}" did not advertise Type-1/EAD before bgpd restart'.format(
-        dut_name
-    )
+    assertmsg = '"{}" did not advertise Type-1/EAD before bgpd restart'.format(dut_name)
     assert result is None, assertmsg
 
     kill_router_daemons(tgen, dut_name, ["bgpd"])
@@ -1200,6 +1198,79 @@ def test_evpn_es_config_without_bridge():
                 evpn mh es-sys-mac 44:38:39:ff:ff:01
             """
         )
+
+
+def check_svi_mac_route(dut, rd, mac, expect_present):
+    """
+    Look up the type-2 route for the given MAC in the global EVPN table
+    under the origin's RD and return None if its presence matches
+    expect_present, the parsed output otherwise.
+    """
+    route = json.loads(
+        dut.vtysh_cmd(f"show bgp l2vpn evpn route rd {rd} mac {mac} json")
+    )
+    present = route.get("numPaths", 0) > 0
+    if present == expect_present:
+        return None
+    return route
+
+
+def test_evpn_svi_mac_withdraw_on_svi_del():
+    """
+    EVPN-MH advertises the SVI MAC as a MAC-only type-2 route once a
+    local ES is configured.
+    1. Restart zebra on torm11 to re-originate the SVI MAC route (it
+       does not survive the bgpd restart done earlier in this file).
+    2. Verify torm11's SVI MAC-only route is present on torm12.
+    3. Delete the vlan1000 SVI on torm11.
+    4. Verify the SVI MAC-only route is withdrawn on torm12.
+    5. Restore the SVI.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut = tgen.gears["torm12"]
+    origin_name = "torm11"
+    origin = tgen.gears[origin_name]
+
+    # A bgpd restart earlier in this file lost the SVI MAC route for
+    # good: with graceful restart registered on the zapi session, zebra
+    # retains its EVPN state on client close and short-circuits the
+    # advertise-all-vni processing on reconnect, so nothing replays the
+    # SVI MAC to the restarted bgpd. Restarting zebra rebuilds its MAC
+    # table from scratch and re-originates the route, so this test
+    # starts with the route present.
+    kill_router_daemons(tgen, origin_name, ["zebra"])
+    start_router_daemons(tgen, origin_name, ["zebra"])
+
+    svi_mac = json.loads(origin.run("ip -json link show vlan1000"))[0]["address"]
+    rd = json.loads(origin.vtysh_cmd("show bgp l2vpn evpn vni 1000 json"))["rd"]
+
+    # the SVI MAC-only route must be present before the SVI is deleted
+    test_fn = partial(check_svi_mac_route, dut, rd, svi_mac, True)
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+    assertmsg = f'"{origin_name}" SVI MAC route missing on {dut.name}: {result}'
+    assert result is None, assertmsg
+
+    try:
+        # delete the SVI (including its VRR macvlan)
+        origin.run("ip link del dev vlan1000-v0")
+        origin.run("ip link del dev vlan1000")
+
+        # the SVI MAC-only route must be withdrawn
+        test_fn = partial(check_svi_mac_route, dut, rd, svi_mac, False)
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assertmsg = (
+            f'"{origin_name}" SVI MAC route not withdrawn on {dut.name} '
+            f"after SVI delete: {result}"
+        )
+        assert result is None, assertmsg
+    finally:
+        # Restore the SVI, including the vlan1000-v0 VRR macvlan.
+        config_svi(origin, svi_ips.get(origin_name))
 
 
 if __name__ == "__main__":
