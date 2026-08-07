@@ -2496,7 +2496,7 @@ void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn)
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 	mac = zebra_evpn_mac_lookup(zevpn, &macaddr);
 
-	if (!mac || CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI))
+	if (!mac || !CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI))
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
