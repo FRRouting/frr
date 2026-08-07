@@ -2273,8 +2273,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 			stream_fifo_clean(connection->obuf);
 
 		if (connection->ibuf_work) {
-			ringbuf_del(connection->ibuf_work);
-			connection->ibuf_work = NULL;
+			XFREE(MTYPE_BGP_IBUF_WORK, connection->ibuf_work);
+			connection->ibuf_data_len = 0;
 		}
 
 		if (connection->curr) {
