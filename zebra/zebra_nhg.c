@@ -3565,6 +3565,41 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 	    (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
 	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL)) &&
 	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+		/*
+		 * The Linux kernel does NOT support LWTUNNEL_ENCAP_SEG6_LOCAL
+		 * inside a nexthop-group object (RTM_NEWNEXTHOP).  Attempting
+		 * to do so returns EINVAL; the subsequent RTM_NEWROUTE that
+		 * references the NHG id then also fails with "Nexthop id does
+		 * not exist".
+		 *
+		 * For NHEs whose nexthops carry seg6local actions we therefore
+		 * skip the kernel NHG install entirely.  We mark the NHE as
+		 * INSTALLED so that FRR's internal state stays consistent (e.g.
+		 * dependent-NHG processing), and the route encoder will detect
+		 * the seg6local nexthop and fall back to inline (per-route)
+		 * nexthop encoding instead of RTA_NH_ID.
+		 */
+		struct nexthop *_nh;
+		bool _has_seg6local = false;
+
+		for (ALL_NEXTHOPS(nhe->nhg, _nh)) {
+			if (_nh->nh_srv6 &&
+			    _nh->nh_srv6->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+				_has_seg6local = true;
+				break;
+			}
+		}
+
+		if (_has_seg6local) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: skipping kernel NHG install for seg6local NHE %pNG",
+					   __func__, nhe);
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			zebra_nhg_handle_install(nhe, true);
+			return;
+		}
+
 		/* Change its type to us since we are installing it */
 		if (!ZEBRA_NHG_CREATED(nhe)) {
 			nhe->type = ZEBRA_ROUTE_NHG;

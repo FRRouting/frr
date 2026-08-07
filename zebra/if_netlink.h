@@ -38,6 +38,20 @@ extern int netlink_tunneldump_read(struct zebra_ns *zns);
 extern enum netlink_msg_status
 netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
+extern enum netlink_msg_status netlink_put_link_update_msg(struct nl_batch *bth,
+							   struct zebra_dplane_ctx *ctx);
+
+extern int netlink_link_set_master(ifindex_t slave_ifindex, ifindex_t master_ifindex);
+
+/* SRv6 SR-L2 (srl2) interface helpers (moved here from rt_netlink.c; link ops). */
+extern ifindex_t netlink_srl2_if_add(const char *ifname, const struct in6_addr *sid);
+extern int netlink_srl2_if_del(ifindex_t srl2_ifindex);
+extern int netlink_srl2_if_up(ifindex_t srl2_ifindex);
+extern int netlink_srl2_if_update_sid(ifindex_t srl2_ifindex, const struct in6_addr *sid);
+extern int netlink_srl2_if_set_brport_flags(ifindex_t ifindex);
+extern int netlink_srl2_if_set_brport_bum_flags(ifindex_t ifindex);
+extern int netlink_srl2_bridge_vlan_add(ifindex_t ifindex, vlanid_t vid, bool untagged, bool pvid);
+
 #ifdef __cplusplus
 }
 #endif

@@ -49,6 +49,11 @@ static bool vty_mgmt_fe_enabled(void)
 	return mgmt_fe_client && mgmt_fe_connected;
 }
 
+static bool vty_mgmt_is_noop_note(const char *note)
+{
+	return note && strcmp(note, "No changes found to be committed!") == 0;
+}
+
 static void fe_client_set_vty_callbacks(bool connected);
 static int vty_mgmt_send_lockds_req(struct vty *vty, enum mgmt_ds_id ds_id, bool lock, bool scok);
 
@@ -483,7 +488,7 @@ static void vty_mgmt_handle_commit_config_reply(struct mgmt_fe_client *client, u
 		debug_fe_client("COMMIT_CONFIG request for client 0x%" PRIx64 " req-id %" PRIu64
 				" was successfull%s%s",
 				client_id, req_id, errmsg_if_any ? ": " : "", errmsg_if_any ?: "");
-		if (errmsg_if_any)
+		if (errmsg_if_any && !vty_mgmt_is_noop_note(errmsg_if_any))
 			vty_out(vty, "%% Configuration applied with notes:\n%s\n", errmsg_if_any);
 	}
 
@@ -608,7 +613,7 @@ static int vty_mgmt_handle_edit_reply(struct mgmt_fe_client *client, uintptr_t u
 		debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64
 				" was successful, xpath: %s",
 				client_id, req_id, xpath);
-		if (errstr)
+		if (errstr && !vty_mgmt_is_noop_note(errstr))
 			vty_out(vty, "%% Configuration applied with notes:\n%s\n", errstr);
 	} else {
 		debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64

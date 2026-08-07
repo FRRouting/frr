@@ -23,6 +23,8 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
+#include "zebra/zebra_srv6_l2evpn.h"
+#include "zebra/zebra_evpn.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
@@ -95,6 +97,20 @@ static struct cmd_node srv6_sid_format_uncompressed_f4024_node = {
 	.node = SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,
 	.parent_node = SRV6_SID_FORMATS_NODE,
 	.prompt = "%s(config-srv6-format)# "
+};
+
+static struct cmd_node srv6_l2evpn_node = {
+	.name = "srv6-l2-evpn",
+	.node = SRV6_L2EVPN_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-l2-evpn)# ",
+};
+
+static struct cmd_node srv6_l2evpn_evi_node = {
+	.name = "srv6-l2-evpn-evi",
+	.node = SRV6_L2EVPN_EVI_NODE,
+	.parent_node = SRV6_L2EVPN_NODE,
+	.prompt = "%s(config-srv6-l2-evpn-evi)# ",
 };
 
 DEFPY (show_srv6_manager,
@@ -284,10 +300,15 @@ static const char *show_srv6_sid_seg6_action(enum seg6local_action_t behavior)
 		return "uDT4";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
 		return "uDT46";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+		return "uDT2U";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		return "uDT2M";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		return "uDX2";
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 		return "unspec";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
-	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
@@ -327,6 +348,25 @@ static const char *show_srv6_sid_seg6_context(char *str, size_t size, const stru
 		snprintf(str, size, "VRF '%s'", vrf ? vrf->name : "<unknown>");
 		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		/* DX2: fixed L2 cross-connect - show outgoing interface */
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			ifp = if_lookup_by_index(ctx->oif, vrf->vrf_id);
+			if (ifp) {
+				snprintfrr(str, size, "Interface '%s'", ifp->name);
+				break;
+			}
+		}
+		break;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+		/* DT2U: bridge-domain unicast show EVI */
+		if (ctx->dt2_vni)
+			snprintfrr(str, size, "EVI %u", ctx->dt2_vni);
+		break;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		/* DT2M: bridge-domain BUM flooding show EVI */
+		if (ctx->dt2_vni)
+			snprintfrr(str, size, "EVI %u", ctx->dt2_vni);
+		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
@@ -345,7 +385,7 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
 				  struct in6_addr *sid_value, struct srv6_locator *locator)
 {
 	struct zserv *client;
-	char clients[256];
+	char clients[256] = {};
 	char ctx[256] = {};
 	char behavior[256] = {};
 	char alloc_mode_str[10] = {};
@@ -353,6 +393,17 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
 	struct zebra_srv6_sid_entry *entry;
 	struct zebra_srv6_sid_client *sclient;
 	int ret;
+
+	/*
+	 * Hide stale per-instance L2VPN service SIDs that carry no EVI context
+	 * (End.DT2U / End.DT2M with dt2_vni == 0).  Under the VXLAN-decoupled
+	 * SRv6 design these are the retired per-instance fallback SIDs; every
+	 * live per-EVI SID carries a non-zero dt2_vni (shown as "EVI <n>").
+	 */
+	if ((sid->ctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT2U ||
+	     sid->ctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT2M) &&
+	    sid->ctx->ctx.dt2_vni == 0)
+		return;
 
 	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry) {
 		if (locator && locator != entry->locator)
@@ -381,6 +432,15 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
 				if (ret > 0)
 					i += ret;
 			}
+		} else {
+			/*
+			 * No external zclient owns this SID — e.g. zebra-internal
+			 * per-EVI SRv6 L2 EVPN service SIDs (End.DT2U/End.DT2M)
+			 * allocated by zebra itself.  Show "zebra" as the owner
+			 * instead of leaving the buffer uninitialised (which printed
+			 * junk in the Daemon/Instance column).
+			 */
+			snprintfrr(clients, sizeof(clients), "zebra");
 		}
 
 		/* Behavior */
@@ -1058,9 +1118,15 @@ DEFPY (locator_behavior,
 	else
 		SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 
-	if (!locator->sid_format)
+	if (!locator->sid_format) {
 		/* Notify the new locator to zclients */
 		zebra_srv6_locator_add(locator);
+
+		/* Re-allocate per-EVI L2 SIDs so the new uSID/legacy encoding
+		 * takes effect (mirrors zebra_srv6_locator_format_set()).
+		 */
+		zebra_srv6_evi_on_locator_update(locator->name);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -1760,6 +1826,10 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "  exit\n");
 			vty_out(vty, "  !\n");
 		}
+		/* SRv6 L2 EVPN (VLAN-to-EVI) block, nested inside `srv6`.
+		 * Self-guards: emits nothing when no EVIs are configured.
+		 */
+		zebra_srv6_l2evpn_config_write(vty);
 	}
 	if (display_source_srv6 || zebra_srv6_is_enable()) {
 		vty_out(vty, " exit\n");
@@ -1768,6 +1838,128 @@ static int zebra_sr_config(struct vty *vty)
 		vty_out(vty, "!\n");
 	}
 	return 0;
+}
+
+/* ----- SRv6 L2 EVPN (VLAN-to-EVI) config commands (design Phase 1) ----- */
+
+DEFPY_NOSH (srv6_l2evpn,
+       srv6_l2evpn_cmd,
+       "l2-evpn",
+       "Segment Routing SRv6 L2 EVPN (VLAN-to-EVI mapping)\n")
+{
+	vty->node = SRV6_L2EVPN_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFPY_NOSH (srv6_l2evpn_evi,
+       srv6_l2evpn_evi_cmd,
+       "evi (1-16777215)$vni [locator WORD$locator] [bridge IFNAME$bridge]",
+       "EVPN Virtual Instance\n"
+       "EVI / VNI value\n"
+       "SRv6 locator for this EVI's SIDs\n"
+       "Locator name\n"
+       "VLAN-aware bridge carrying the member VLANs\n"
+       "Bridge interface name\n")
+{
+	struct zebra_srv6_evi *evi;
+
+	evi = zebra_srv6_evi_get_or_create(vni);
+	if (!evi)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (locator)
+		zebra_srv6_evi_set_locator(evi, locator);
+	if (bridge) {
+		struct interface *ifp = if_lookup_by_name(bridge, VRF_DEFAULT);
+
+		zebra_srv6_evi_set_bridge(evi, ifp);
+	}
+	VTY_PUSH_CONTEXT(SRV6_L2EVPN_EVI_NODE, evi);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_srv6_l2evpn_evi,
+       no_srv6_l2evpn_evi_cmd,
+       "no evi (1-16777215)$vni",
+       NO_STR
+       "EVPN Virtual Instance\n"
+       "EVI / VNI value\n")
+{
+	struct zebra_srv6_evi *evi = zebra_srv6_evi_lookup(vni);
+
+	if (evi)
+		zebra_srv6_evi_del(evi);
+	return CMD_SUCCESS;
+}
+
+DEFPY (srv6_evi_service_type,
+       srv6_evi_service_type_cmd,
+       "service-type <vlan-aware-bundle|vlan-based|vlan-bundle>$svc",
+       "L2 service type\n"
+       "VLAN-aware bundle: N VLANs/EVI, per-VLAN BD, Ethernet-Tag=VLAN\n"
+       "VLAN-based: one VLAN per EVI, Ethernet-Tag=0\n"
+       "VLAN bundle: N VLANs collapsed into one BD, Ethernet-Tag=0\n")
+{
+	VTY_DECLVAR_CONTEXT(zebra_srv6_evi, evi);
+	enum zevpn_l2_service s;
+
+	if (zevpn_l2_service_str2enum(svc, &s) < 0) {
+		vty_out(vty, "%% invalid service-type\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (s == ZEVPN_SVC_VLAN_AWARE_BUNDLE) {
+		vty_out(vty, "%% vlan-aware-bundle not implemented\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/*
+	 * vlan-based is a single-VLAN-per-EVI service.  Reject the switch if the
+	 * EVI already has more than one member VLAN, otherwise the extra members
+	 * would be silently orphaned.  vlan-bundle / vlan-aware-bundle accept any
+	 * number of members, so no cap there.
+	 */
+	if (s == ZEVPN_SVC_VLAN_BASED && evi_bds_count(&evi->bds) > 1) {
+		vty_out(vty,
+			"%% vlan-based allows only one VLAN per EVI; EVI %u has %zu members — remove members first\n",
+			evi->vni, evi_bds_count(&evi->bds));
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (zebra_srv6_evi_set_service(evi, s) < 0) {
+		vty_out(vty,
+			"%% service-type cannot be changed once set (vlan-bundle vs vlan-based/aware need different bridge models); delete and recreate EVI %u bound to a matching bridge\n",
+			evi->vni);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	return CMD_SUCCESS;
+}
+
+DEFPY (srv6_evi_vlan,
+       srv6_evi_vlan_cmd,
+       "vlan (1-4094)$vid",
+       "Member VLAN mapped into this EVI\n"
+       "VLAN ID\n")
+{
+	VTY_DECLVAR_CONTEXT(zebra_srv6_evi, evi);
+
+	if (!zebra_srv6_evi_vlan_add(evi, vid)) {
+		vty_out(vty, "%% failed to add vlan %ld to evi %u\n", (long)vid, evi->vni);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_srv6_evi_vlan,
+       no_srv6_evi_vlan_cmd,
+       "no vlan (1-4094)$vid",
+       NO_STR
+       "Member VLAN mapped into this EVI\n"
+       "VLAN ID\n")
+{
+	VTY_DECLVAR_CONTEXT(zebra_srv6_evi, evi);
+
+	zebra_srv6_evi_vlan_del(evi, vid);
+	return CMD_SUCCESS;
 }
 
 void zebra_srv6_vty_init(void)
@@ -1782,6 +1974,8 @@ void zebra_srv6_vty_init(void)
 	install_node(&srv6_sid_format_usid_f3216_node);
 	install_node(&srv6_sid_format_usid_f4816_node);
 	install_node(&srv6_sid_format_uncompressed_f4024_node);
+	install_node(&srv6_l2evpn_node);
+	install_node(&srv6_l2evpn_evi_node);
 	install_default(SEGMENT_ROUTING_NODE);
 	install_default(SRV6_NODE);
 	install_default(SRV6_LOCS_NODE);
@@ -1791,6 +1985,8 @@ void zebra_srv6_vty_init(void)
 	install_default(SRV6_SID_FORMAT_USID_F3216_NODE);
 	install_default(SRV6_SID_FORMAT_USID_F4816_NODE);
 	install_default(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE);
+	install_default(SRV6_L2EVPN_NODE);
+	install_default(SRV6_L2EVPN_EVI_NODE);
 
 	/* Command for change node */
 	install_element(CONFIG_NODE, &segment_routing_cmd);
@@ -1800,6 +1996,14 @@ void zebra_srv6_vty_init(void)
 	install_element(SRV6_NODE, &srv6_encap_cmd);
 	install_element(SRV6_NODE, &no_srv6_encap_cmd);
 	install_element(SRV6_NODE, &srv6_sid_formats_cmd);
+
+	/* SRv6 L2 EVPN (VLAN-to-EVI) */
+	install_element(SRV6_NODE, &srv6_l2evpn_cmd);
+	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_evi_cmd);
+	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_evi_cmd);
+	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_service_type_cmd);
+	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_vlan_cmd);
+	install_element(SRV6_L2EVPN_EVI_NODE, &no_srv6_evi_vlan_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f3216_usid_cmd);

@@ -44,6 +44,11 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
 
+	if (strlen(tag) > 255) {
+		vty_out(vty, "%% IS-IS area tag must not exceed 255 characters\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	snprintf(base_xpath, XPATH_MAXLEN, "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']",
 		 tag, vrf_name);
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
@@ -109,6 +114,10 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	   "IS-IS routing protocol\n"
 	   "Routing process tag\n")
 {
+	if (strlen(tag) > 255) {
+		vty_out(vty, "%% IS-IS area tag must not exceed 255 characters\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY, tag);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing", NB_OP_MODIFY, "true");
@@ -130,6 +139,10 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	   "IS-IS routing protocol\n"
 	   "Routing process tag\n")
 {
+	if (strlen(tag) > 255) {
+		vty_out(vty, "%% IS-IS area tag must not exceed 255 characters\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY, tag);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing", NB_OP_MODIFY, "true");
