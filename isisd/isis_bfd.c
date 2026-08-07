@@ -1030,12 +1030,12 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 
 	debug = IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit);
 
+	isis_bfd_adjacency_update_rfc6213_local_params(adj);
+
 	if (debug)
 		zlog_debug("ISIS-BFD: %s RFC6213 variables for L%u adjacency %s",
 			   adj->bfd_rfc6213.inited ? "updating" : "initializing",
 			   adj->level, isis_adj_name(adj));
-
-	isis_bfd_adjacency_update_rfc6213_local_params(adj);
 
 	/* RFC6213, 3.1. ISIS_TOPO_NLPID_BFD_REQUIRED
 	 * For each locally supported MTID/NLPID pair, an
