@@ -115,17 +115,6 @@ struct iih_info {
 	int calculated_type;
 };
 
-static void
-isis_pdu_log_dont_update_adjacency_holdtime(struct isis_adjacency *adj)
-{
-	struct isis_circuit *circuit = adj->circuit;
-
-	if (IS_DEBUG_ADJ_PACKETS)
-		zlog_debug("ISIS-Adj (%s): IIH from L%u adjacency %s received. holdtime not maintained.",
-			   circuit->area->area_tag, adj->level,
-			   isis_adj_name(adj));
-}
-
 static int process_p2p_hello(struct iih_info *iih)
 {
 	struct isis_threeway_adj *tw_adj = iih->tlvs->threeway_adj;
@@ -271,12 +260,12 @@ static int process_p2p_hello(struct iih_info *iih)
 	changed |= tlvs_to_adj_mt_set(iih->tlvs, iih->v4_usable, iih->v6_usable,
 				      adj);
 
-	/* RFC6213, 4. transition handling using hold timer
-	 */
-	if (isis_bfd_circuit_rfc6213_enabled(iih->circuit) &&
-	    isis_bfd_dont_update_adjacency_holdtime(adj))
-		isis_pdu_log_dont_update_adjacency_holdtime(adj);
-	else {
+	if (isis_bfd_dont_update_adjacency_holdtime(adj)) {
+		/* RFC6213, 4. transition handling using hold timer */
+		if (IS_DEBUG_ADJ_PACKETS)
+			zlog_debug("ISIS-Adj (%s): IIH from L%u adjacency %s received. holdtime not updated.",
+				   adj->circuit->area->area_tag, adj->level, isis_adj_name(adj));
+	} else {
 		/* 8.2.6 Monitoring point-to-point adjacencies */
 		adj->hold_time = iih->holdtime;
 		adj->last_upd = time(NULL);
@@ -550,12 +539,12 @@ static int process_lan_hello(struct iih_info *iih)
 	changed |= tlvs_to_adj_mt_set(iih->tlvs, iih->v4_usable, iih->v6_usable,
 				      adj);
 
-	/* RFC6213, 4. transition handling using hold timer
-	 */
-	if (isis_bfd_circuit_rfc6213_enabled(iih->circuit) &&
-	    isis_bfd_dont_update_adjacency_holdtime(adj))
-		isis_pdu_log_dont_update_adjacency_holdtime(adj);
-	else {
+	if (isis_bfd_dont_update_adjacency_holdtime(adj)) {
+		/* RFC6213, 4. transition handling using hold timer */
+		if (IS_DEBUG_ADJ_PACKETS)
+			zlog_debug("ISIS-Adj (%s): IIH from L%u adjacency %s received. holdtime not updated.",
+				   adj->circuit->area->area_tag, adj->level, isis_adj_name(adj));
+	} else {
 		adj->hold_time = iih->holdtime;
 		adj->last_upd = time(NULL);
 

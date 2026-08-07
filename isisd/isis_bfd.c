@@ -73,32 +73,6 @@ static bool isis_bfd_is_required_changed_up(struct isis_adjacency *adj,
 	return false;
 }
 
-/* Check if an adjacency is up and neighbor is not useable
- * This function identifies disruptive situations that should be avoided
- * Returns true if identified, false otherwise
- * - Used to not update the adjacency hold time, when identified
- */
-static bool isis_bfd_is_neighbor_not_useable(struct isis_adjacency *adj,
-					     bool debug_on)
-{
-	if (adj->adj_state == ISIS_ADJ_UP && adj->circuit && adj->circuit->bfd_config.enabled &&
-	    isis_bfd_circuit_rfc6213_enabled(adj->circuit) && adj->bfd_rfc6213.bfd_required &&
-	    !adj->bfd_rfc6213.neighbor_useable) {
-		/* RFC6213, 4.
-		 * To avoid disruptive transition to the use of BFD, do
-		 * not update the adjacency hold time when receiving
-		 * an IIH from a neighbor with whom we have an "UP" adjacency until
-		 * "ISIS_NEIGHBOR_USEABLE" becomes "TRUE"
-		 */
-		if (IS_DEBUG_BFD && debug_on)
-			zlog_debug("ISIS-BFD: keep L%u adjacency %s to %s, as neighbor is not useable",
-				   adj->level, isis_adj_name(adj),
-				   adj_state2string(adj->adj_state));
-		return true;
-	}
-	return false;
-}
-
 static void isis_bfd_transition_bfd_required(struct isis_adjacency *adj,
 					     bool val, const char *reason)
 {
@@ -1427,29 +1401,29 @@ void isis_bfd_show_adjacency(struct vty *vty, struct isis_adjacency *adj)
  */
 bool isis_bfd_dont_update_adjacency_holdtime(struct isis_adjacency *adj)
 {
-	bool ipv4 = false;
-	bool ipv6 = false;
-	bool state = false;
+	if (!isis_bfd_circuit_rfc6213_enabled(adj->circuit))
+		return false;
 
-	if (adj->circuit->bfd_config.rfc6213_ipv4)
-		ipv4 = isis_bfd_session_is_admin_down(adj, adj->bfd_session_ipv4,
-						      false);
+	if (adj->adj_state == ISIS_ADJ_UP && !adj->bfd_rfc6213.neighbor_useable) {
+		/* RFC6213, 4.
+		 * To avoid disruptive transition to the use of BFD, do
+		 * not update the adjacency hold time when receiving
+		 * an IIH from a neighbor with whom we have an "UP" adjacency until
+		 * "ISIS_NEIGHBOR_USEABLE" becomes "TRUE"
+		 */
+		if (IS_DEBUG_BFD)
+			zlog_debug("ISIS-BFD: keep L%u adjacency %s to %s, as neighbor is not useable",
+				   adj->level, isis_adj_name(adj), adj_state2string(adj->adj_state));
+		return true;
+	}
 
-	if (adj->circuit->bfd_config.rfc6213_ipv6)
-		ipv6 = isis_bfd_session_is_admin_down(adj, adj->bfd_session_ipv6,
-						      false);
+	if (isis_bfd_session_is_admin_down(adj, adj->bfd_session_ipv4, false))
+		return true;
 
-	state = isis_bfd_is_neighbor_not_useable(adj, false);
+	if (isis_bfd_session_is_admin_down(adj, adj->bfd_session_ipv6, false))
+		return true;
 
-	if (adj->circuit->bfd_config.rfc6213_ipv4 &&
-	    !adj->circuit->bfd_config.rfc6213_ipv6)
-		return ipv4 || state;
-
-	if (adj->circuit->bfd_config.rfc6213_ipv6 &&
-	    !adj->circuit->bfd_config.rfc6213_ipv4)
-		return ipv6 || state;
-
-	return ipv4 || ipv6 || state;
+	return false;
 }
 
 bool isis_bfd_is_bfd_state_up(struct isis_adjacency *adj)
