@@ -238,7 +238,13 @@ typedef enum {
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
 	ZEBRA_SRV6_SID_NOTIFY,
+	/* VPWS dataplane (End.DX2 cross-connect) */
+	ZEBRA_VPWS_LOCAL_ADD,
+	ZEBRA_VPWS_LOCAL_DEL,
+	ZEBRA_VPWS_REMOTE_ADD,
+	ZEBRA_VPWS_REMOTE_DEL,
 } zebra_message_types_t;
+
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
  */
@@ -1358,6 +1364,65 @@ struct zapi_opaque_notif_info {
 	uint16_t instance;
 	uint32_t session_id;
 };
+
+/* sent on local `interface IFNAME sid auto` once the local SID is allocated */
+struct zapi_vpws_local {
+	char instance_name[64];
+	char ac_ifname[IFNAMSIZ];     /* Attachment Circuit (AC) to enslave + use as DX2 oif */
+	char bridge_ifname[IFNAMSIZ]; /* operator-created bridge to enslave AC+sr6 to */
+	struct in6_addr local_sid;    /* DX2 decap SID to install */
+};
+
+/* sent on Type-1 EAD-EVI import (peer learned) */
+struct zapi_vpws_remote {
+	char instance_name[64];	  /* must match a prior LOCAL_ADD */
+	struct in6_addr peer_sid; /* encap dst for sr6 */
+};
+
+/*
+ * Per-EVI SRv6 L2 EVPN service block appended to ZEBRA_VNI_ADD by zebra.
+ * Always present (zeroed for VXLAN EVIs); bgpd treats a zero DT2U/DT2M SID as
+ * "not an SRv6 EVI".  Encoded/decoded as one unit - see
+ * zapi_srv6_l2_evi_encode()/decode() - so neither side counts bytes by hand.
+ */
+struct zapi_srv6_l2_evi {
+	struct in6_addr dt2u_sid;	      /* End.DT2U (unicast) service SID; :: if none */
+	struct in6_addr dt2m_sid;	      /* End.DT2M (BUM) service SID; :: if none */
+	uint32_t dt2u_oif;		      /* local decap l2dev ifindex (unicast) */
+	uint32_t dt2m_oif;		      /* local decap l2dev ifindex (BUM) */
+	uint8_t svc_type;		      /* enum zevpn_l2_service */
+	char locator_name[SRV6_LOCNAME_SIZE]; /* per-EVI locator; "" if none */
+	/*
+	 * Per-EVI locator metadata, so bgpd can encode the SRv6 L2 Service TLV
+	 * from the EVI's own locator without a BGP-instance locator.  When
+	 * loc_meta_valid == 0 the length/usid fields are 0.
+	 */
+	uint8_t loc_meta_valid;
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t loc_func_len;
+	uint8_t loc_arg_len;
+	uint8_t loc_is_usid;
+};
+
+extern int zapi_vpws_local_encode(uint8_t cmd, struct stream *s, const struct zapi_vpws_local *api);
+extern int zapi_vpws_local_decode(struct stream *s, struct zapi_vpws_local *api);
+extern int zapi_vpws_remote_encode(uint8_t cmd, struct stream *s,
+				   const struct zapi_vpws_remote *api);
+extern int zapi_vpws_remote_decode(struct stream *s, struct zapi_vpws_remote *api);
+/*
+ * VPWS name-only messages (LOCAL_DEL / REMOTE_DEL): length-prefixed instance
+ * name (count + value), so no fixed length is duplicated across daemons.
+ */
+extern void zapi_vpws_name_encode(uint8_t cmd, struct stream *s, const char *name);
+extern int zapi_vpws_name_decode(struct stream *s, char *name, size_t namesz);
+/*
+ * SRv6 L2 EVPN per-EVI service block appended to ZEBRA_VNI_ADD.  encode() is a
+ * block writer (no header/length - the caller is mid-message); decode() reads
+ * the block in one shot with the usual STREAM_GET* underflow handling.
+ */
+extern void zapi_srv6_l2_evi_encode(struct stream *s, const struct zapi_srv6_l2_evi *api);
+extern int zapi_srv6_l2_evi_decode(struct stream *s, struct zapi_srv6_l2_evi *api);
 
 /* The same ZAPI message is used for daemon->zebra requests, and for
  * zebra->daemon notifications.
