@@ -45,43 +45,16 @@ static bool isis_bfd_session_is_admin_down(struct isis_adjacency *adj,
 	return false;
 }
 
-/* Check if an adjacency is up and bfd required just went up
- * This function identifies disruptive situations that should be avoided
- * Returns true if identified, false otherwise
- * - Used to not trigger alarm, when identified
- */
-static bool isis_bfd_is_required_changed_up(struct isis_adjacency *adj,
-					    bool debug_on)
-{
-	if (adj->adj_state == ISIS_ADJ_UP && adj->circuit &&
-	    adj->bfd_rfc6213.bfd_required_is_transition_up) {
-		/* RFC6213, 4.
-		 * some amount of time should be allowed before bringing down an "UP"
-		 * adjacency on a BFD enabled interface when the value of
-		 * "ISIS_BFD_REQUIRED" becomes "TRUE" as a result of the introduction of
-		 * the BFD TLV or the modification (by adding a new supported MTID/
-		 * NLPID) of an existing BFD TLV in a neighbor's IIH
-		 *
-		 * solution: return true, by not updating the IIH holdtime
-		 */
-		if (IS_DEBUG_BFD && debug_on)
-			zlog_debug("ISIS-BFD: keep L%u adjacency %s to %s, as BFD required just went true",
-				   adj->level, isis_adj_name(adj),
-				   adj_state2string(adj->adj_state));
-		return true;
-	}
-	return false;
-}
-
 static void isis_bfd_transition_bfd_required(struct isis_adjacency *adj,
 					     bool val, const char *reason)
 {
-	if (IS_DEBUG_BFD &&
-	    ((adj->bfd_rfc6213.bfd_required_is_transition_up && !val) ||
-	     (!adj->bfd_rfc6213.bfd_required_is_transition_up && val)))
-		zlog_debug("ISIS-BFD: L%u adjacency %s, bfd required transition to up changes to %s (%s)",
-			   adj->level, isis_adj_name(adj),
-			   val ? "True" : "False", reason);
+	if (adj->bfd_rfc6213.bfd_required_is_transition_up == val)
+		return;
+
+	if (IS_DEBUG_BFD)
+		zlog_debug("ISIS-BFD: L%u adjacency %s, %sset bfd required transition flag to up changes(%s)",
+			   adj->level, isis_adj_name(adj), val ? "" : "un", reason);
+
 	adj->bfd_rfc6213.bfd_required_is_transition_up = val;
 }
 
@@ -113,7 +86,8 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 			return;
 		}
 		if (isis_bfd_circuit_rfc6213_enabled(adj->circuit) &&
-		    bss->state == BFD_STATUS_DOWN && isis_bfd_is_required_changed_up(adj, true))
+		    bss->state == BFD_STATUS_DOWN && adj->adj_state == ISIS_ADJ_UP &&
+		    adj->bfd_rfc6213.bfd_required_is_transition_up)
 			return;
 	}
 	if (bss->state == BFD_STATUS_UP)
