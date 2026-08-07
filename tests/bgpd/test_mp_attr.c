@@ -49,6 +49,7 @@ static struct test_segment {
 	int len;
 #define SHOULD_PARSE	0
 #define SHOULD_ERR	-1
+#define SHOULD_WITHDRAW BGP_ATTR_PARSE_WITHDRAW
 	int parses; /* whether it should parse or not */
 } mp_reach_segments[] = {
 	{
@@ -965,13 +966,21 @@ static void handle_result(struct peer *peer, struct test_segment *t,
 			  int parse_ret, int nlri_ret)
 {
 	int oldfailed = failed;
+	bool ok;
 
 	printf("mp attr parsed?: %s\n", parse_ret ? "no" : "yes");
 	if (!parse_ret)
 		printf("nrli parsed?:  %s\n", nlri_ret ? "no" : "yes");
 	printf("should parse?:  %s\n", t->parses ? "no" : "yes");
 
-	if ((parse_ret != 0 || nlri_ret != 0) != (t->parses != 0))
+	if (t->parses == SHOULD_ERR)
+		ok = parse_ret != 0 || nlri_ret != 0;
+	else if (t->parses == SHOULD_WITHDRAW)
+		ok = parse_ret == BGP_ATTR_PARSE_WITHDRAW;
+	else
+		ok = parse_ret == 0 && nlri_ret == 0;
+
+	if (!ok)
 		failed++;
 
 
