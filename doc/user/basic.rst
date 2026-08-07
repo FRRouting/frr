@@ -478,6 +478,96 @@ configuration, the previously-invisible old defaults that are now shown must
 be removed from the configuration.
 
 
+Settings affected by the profile
+""""""""""""""""""""""""""""""""
+
+The following settings take a different default depending only on the
+selected profile.  They are applied when the relevant object is created,
+i.e. when the ``router bgp``, ``router ospf`` or ``router ospf6`` instance is
+created, or when zebra learns about a VRF.
+
++--------+---------------------------------------------+-----------------+----------------+
+| Daemon | Setting                                     | ``traditional`` | ``datacenter`` |
++========+=============================================+=================+================+
+| bgpd   | ``timers bgp`` keepalive                    | 60 seconds      | 3 seconds      |
++--------+---------------------------------------------+-----------------+----------------+
+| bgpd   | ``timers bgp`` hold time                    | 180 seconds     | 9 seconds      |
++--------+---------------------------------------------+-----------------+----------------+
+| bgpd   | ``neighbor ... timers connect``             | 30 seconds      | 10 seconds     |
++--------+---------------------------------------------+-----------------+----------------+
+| bgpd   | ``bgp default show-hostname``               | off             | on             |
++--------+---------------------------------------------+-----------------+----------------+
+| bgpd   | ``bgp default show-nexthop-hostname``       | off             | on             |
++--------+---------------------------------------------+-----------------+----------------+
+| bgpd   | ``bgp log-neighbor-changes``                | off             | on             |
++--------+---------------------------------------------+-----------------+----------------+
+| bgpd   | ``bgp deterministic-med``                   | off             | on             |
++--------+---------------------------------------------+-----------------+----------------+
+| bgpd   | ``bgp default software-version-capability`` | off             | on             |
++--------+---------------------------------------------+-----------------+----------------+
+| bgpd   | ``bgp default dynamic-capability``          | off             | on             |
++--------+---------------------------------------------+-----------------+----------------+
+| ospfd  | ``log-adjacency-changes``                   | off             | on             |
++--------+---------------------------------------------+-----------------+----------------+
+| ospf6d | ``log-adjacency-changes``                   | off             | on             |
++--------+---------------------------------------------+-----------------+----------------+
+| zebra  | ``ip nht resolve-via-default``              | on              | off            |
++--------+---------------------------------------------+-----------------+----------------+
+| zebra  | ``ipv6 nht resolve-via-default``            | on              | off            |
++--------+---------------------------------------------+-----------------+----------------+
+| zebra  | ``mpls fec nexthop-resolution``             | on              | off            |
++--------+---------------------------------------------+-----------------+----------------+
+
+.. note::
+
+   ``bgp default software-version-capability`` refers to the original
+   encoding of the software version capability.  The ``latest-encoding``
+   variant is off by default in both profiles.
+
+Settings affected by the version
+""""""""""""""""""""""""""""""""
+
+The following settings do not depend on the profile at all; their default is
+determined solely by the ``frr version`` statement that was loaded (see
+above).  Each of them was off before the version listed below and is on from
+that version onwards.
+
++-------------------------------------------------+---------------------+----------------------+
+| Setting                                         | ``frr version`` < X | ``frr version`` >= X |
++=================================================+=====================+======================+
+| ``bgp suppress-duplicates`` (X = 7.6)           | off                 | on                   |
++-------------------------------------------------+---------------------+----------------------+
+| ``bgp graceful-restart notification`` (X = 8.3) | off                 | on                   |
++-------------------------------------------------+---------------------+----------------------+
+| ``bgp hard-administrative-reset`` (X = 8.3)     | off                 | on                   |
++-------------------------------------------------+---------------------+----------------------+
+| ``bgp enforce-first-as`` (X = 9.1)              | off                 | on                   |
++-------------------------------------------------+---------------------+----------------------+
+
+Settings affected by both the profile and the version
+"""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Two BGP settings combine both conditions.  In both cases the ``datacenter``
+profile behaves the same regardless of version, while ``traditional`` changed
+its default in 7.4:
+
++------------------------------+-----------------+-----------------+---------+
+| Setting                      | Profile         | ``frr version`` | Default |
++==============================+=================+=================+=========+
+| ``bgp ebgp-requires-policy`` | ``datacenter``  | any             | off     |
++------------------------------+-----------------+-----------------+---------+
+| ``bgp ebgp-requires-policy`` | ``traditional`` | < 7.4           | off     |
++------------------------------+-----------------+-----------------+---------+
+| ``bgp ebgp-requires-policy`` | ``traditional`` | >= 7.4          | on      |
++------------------------------+-----------------+-----------------+---------+
+| ``bgp network import-check`` | ``traditional`` | < 7.4           | off     |
++------------------------------+-----------------+-----------------+---------+
+| ``bgp network import-check`` | ``traditional`` | >= 7.4          | on      |
++------------------------------+-----------------+-----------------+---------+
+| ``bgp network import-check`` | ``datacenter``  | any             | on      |
++------------------------------+-----------------+-----------------+---------+
+
+
 Upgrade practices for interactive configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
