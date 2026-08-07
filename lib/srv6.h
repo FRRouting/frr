@@ -74,6 +74,10 @@ enum seg6local_action_t {
 	ZEBRA_SEG6_LOCAL_ACTION_END_AM       = 14,
 	ZEBRA_SEG6_LOCAL_ACTION_END_BPF      = 15,
 	ZEBRA_SEG6_LOCAL_ACTION_END_DT46     = 16,
+	/* RFC 8986 Section 4.1.12 - bridge-domain unicast MAC lookup */
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT2U = 17,
+	/* RFC 8986 Section 4.1.13 - bridge-domain BUM flooding */
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT2M = 18,
 };
 
 /* Flavor operations for SRv6 End* Behaviors */
@@ -130,6 +134,11 @@ struct seg6local_context {
 	uint8_t node_len;
 	uint8_t function_len;
 	uint8_t argument_len;
+	/* Bridge-domain identifier for End.DT2U (MAC lookup) and
+	 * End.DT2M (BUM flooding). Reuses the table field in those
+	 * behaviours - set to the id that identifies the bridge domain.
+	 */
+	uint32_t dt2_bd;
 };
 
 struct srv6_locator {
@@ -413,6 +422,9 @@ struct srv6_sid_ctx {
 	struct in6_addr nh6;
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
+
+	/* Bridge-domain identifier for End.DT2U (unicast) and End.DT2M (BUM) */
+	uint32_t dt2_bd;
 };
 
 static inline const char *srv6_headend_behavior2str(enum srv6_headend_behavior behavior,
@@ -539,6 +551,18 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		snprintfrr(str + len, size - len, " oif_idx %u", ctx->ifindex);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+		snprintfrr(str + len, size - len, " oif_idx %u bd %u", ctx->ifindex, ctx->dt2_bd);
+		break;
+
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		snprintfrr(str + len, size - len, " oif_idx %u bd %u (BUM)", ctx->ifindex,
+			   ctx->dt2_bd);
+		break;
+
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
