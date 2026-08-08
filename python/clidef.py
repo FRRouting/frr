@@ -168,6 +168,7 @@ handlers = {
 # jinja2)
 templ = Template(
     """$cond_begin/* $fnname => "$cmddef" */
+#define IS_SHOW_CMD_$fnname $is_show_cmd
 DEFUN_CMD_FUNC_DECL($fnname)
 #define funcdecl_$fnname static int ${fnname}_magic(\\
 	const struct cmd_element *self __attribute__ ((unused)),\\
@@ -361,6 +362,11 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
             # pprint(args)
 
             params = {"cmddef": cmddef, "fnname": entry["args"][0][0]}
+            if cmddef.startswith("show "):
+                params["is_show_cmd"] = "1"
+            else:
+                params["is_show_cmd"] = "0"
+
             argdefs = []
             argdecls = []
             arglist = []
