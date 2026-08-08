@@ -4,7 +4,7 @@
 
 if BFDD
 noinst_LIBRARIES += bfdd/libbfd.a
-sbin_PROGRAMS += bfdd/bfdd
+sbin_PROGRAMS += bfdd/bfdd bfdd/bfd_dplane_listener
 vtysh_daemons += bfdd
 man8 += $(MANBUILD)/frr-bfdd.8
 endif
@@ -47,3 +47,6 @@ nodist_bfdd_bfdd_SOURCES = \
 
 bfdd_bfdd_SOURCES = bfdd/bfdd.c
 bfdd_bfdd_LDADD = bfdd/libbfd.a lib/libfrr.la $(UST_LIBS)
+
+bfdd_bfd_dplane_listener_SOURCES = bfdd/bfd_dplane_listener.c
+bfdd_bfd_dplane_listener_LDADD = lib/libfrr.la
