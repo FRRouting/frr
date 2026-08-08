@@ -13,11 +13,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "lib/typesafe.h"
-
 #include "pimd/pim_addr.h"
 #include "pimd/pim_rpf.h"
 #include "pimd/pim_str.h"
+#include "typesafe.h"
 
 struct interface;
 struct pim_ifchannel;
@@ -205,6 +204,7 @@ struct pim_up_mlag {
 };
 
 PREDECL_RBTREE_UNIQ(rb_pim_upstream);
+PREDECL_DLIST(pim_upstream_sources);
 /*
   Upstream (S,G) channel in Joined state
   (S,G) in the "Not Joined" state is not represented
@@ -242,7 +242,8 @@ struct pim_upstream {
 	char sg_str[PIM_SG_LEN];
 	uint32_t flags;
 	struct channel_oil *channel_oil;
-	struct list *sources;
+	struct pim_upstream_sources_head sources;
+	struct pim_upstream_sources_item sources_item;
 	struct list *ifchannels;
 	/* Counter for Dual active ifchannels*/
 	uint32_t dualactive_ifchannel_count;

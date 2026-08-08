@@ -215,6 +215,17 @@ int pim_macro_chisin_joins_or_include(const struct pim_ifchannel *ch)
   ch->upstream->rpf.source_nexthop.mrib_metric_preference
   ch->upstream->rpf.source_nexthop.mrib_route_metric
   ch->upstream->rpf.source_nexthop.interface
+
+  CouldAssert Includes (*,G) Joins (RFC 4601 Compliance)
+  ------------------------------------------------------
+  The original code only checked joins(S,G) + pim_include(S,G), ignoring
+  the (*,G) terms from the RFC formula. This caused issues when (S,G) OIF
+  is installed via (*,G) inheritance but (S,G) has no direct joins.
+
+  The fix adds a fallback check for (*,G) channel state to ensure proper
+  Assert participation when (S,G) OIF is inherited from (*,G).
+
+  GitHub Issue: #21980
 */
 int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 {
@@ -245,8 +256,46 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 	if (ch->upstream->rpf.source_nexthop.interface == ifp)
 		return 0; /* false */
 
-	/* I in joins(S,G) (+) pim_include(S,G) ? */
-	return pim_macro_chisin_joins_or_include(ch);
+	/*
+	 * I in joins(S,G) (+) pim_include(S,G) ?
+	 * This is the original check - if (S,G) has direct joins or includes,
+	 * the interface is assert-eligible.
+	 */
+	if (pim_macro_chisin_joins_or_include(ch))
+		return 1; /* true */
+
+	/*
+	 * RFC 4601 4.6.1 specifies that CouldAssert(S,G,I) also includes
+	 * the (*,G) terms:
+	 *   joins(*,G) (+) pim_include(*,G) (-) lost_assert(*,G)
+	 *
+	 * This check is critical when (S,G) OIF is installed via (*,G)
+	 * inheritance but (S,G) has no direct joins. Without this check,
+	 * the router would incorrectly believe it has no forwarding interest
+	 * and would not participate in Assert elections.
+	 *
+	 * We check the (*,G) channel state as a fallback when (S,G) has no
+	 * direct joins/includes.
+	 */
+	if (!pim_addr_is_any(ch->sg.src)) {
+		pim_sgaddr star_g = { 0 };
+		struct pim_ifchannel *starch, *throwaway;
+
+		star_g.grp = ch->sg.grp;
+		star_g.src = PIMADDR_ANY;
+		pim_ifchannel_find(ifp, &star_g, &starch, &throwaway);
+		if (starch && !pim_macro_ch_lost_assert(starch) &&
+		    pim_macro_chisin_joins_or_include(starch)) {
+			/*
+			 * (*,G) has joins/includes and hasn't lost Assert.
+			 * This interface is assert-eligible via (*,G) inheritance
+			 * per RFC 4601 4.6.1.
+			 */
+			return 1; /* true */
+		}
+	}
+
+	return 0; /* false */
 }
 
 /*
@@ -382,6 +431,19 @@ int pim_macro_chisin_oiflist(const struct pim_ifchannel *ch)
 
   AssertTrackingDesired(S,G,I) is true on any interface in which an
   (S,G) assert might affect our behavior.
+
+  AssertTrackingDesired Includes (*,G) Joins (RFC 4601 Compliance)
+  ----------------------------------------------------------------
+  Similar to CouldAssert, the original code only checked joins(S,G) and
+  ignored the (*,G) terms from the RFC formula. This caused issues when
+  (S,G) OIF is installed via (*,G) inheritance but (S,G) has no direct
+  joins - AssertTrackingDesired would be FALSE, causing Asserts to be
+  silently ignored and duplicates to persist.
+
+  The fix adds a fallback check for (*,G) channel state to ensure proper
+  Assert tracking when (S,G) OIF is inherited from (*,G).
+
+  GitHub Issue: #21980
 */
 int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 {
@@ -404,6 +466,33 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 	/* I in joins(S,G) ? */
 	if (pim_macro_chisin_joins(ch))
 		return 1; /* true */
+
+	/*
+	 * RFC 4601 4.6.1 specifies that AssertTrackingDesired includes
+	 * the (*,G) terms:
+	 *   joins(*,G) (+) pim_include(*,G) (-) lost_assert(*,G)
+	 *
+	 * This check is critical when (S,G) OIF is installed via (*,G)
+	 * inheritance but (S,G) has no direct joins. Without this check,
+	 * the router would incorrectly believe it doesn't need to track
+	 * Asserts.
+	 */
+	if (!pim_addr_is_any(ch->sg.src)) {
+		pim_sgaddr star_g = { 0 };
+		struct pim_ifchannel *starch, *throwaway;
+
+		star_g.grp = ch->sg.grp;
+		star_g.src = PIMADDR_ANY;
+		pim_ifchannel_find(ifp, &star_g, &starch, &throwaway);
+		if (starch && !pim_macro_ch_lost_assert(starch) &&
+		    pim_macro_chisin_joins_or_include(starch)) {
+			/*
+			 * (*,G) has joins/includes and hasn't lost Assert.
+			 * This interface must track Asserts per RFC 4601 4.6.1.
+			 */
+			return 1; /* true */
+		}
+	}
 
 	/* local_receiver_include(S,G,I) ? */
 	if (local_receiver_include(ch)) {
