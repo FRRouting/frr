@@ -1,0 +1,4 @@
+O>* fc00:2:2:2::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r1-sw5, weight 1, XX:XX:XX
+O>* fc00:3:3:3::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r1-sw5, weight 1, XX:XX:XX
+O>* fc00:2222:2222:2222::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r1-sw5, weight 1, XX:XX:XX
+O>* fc00:3333:3333:3333::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r1-sw5, weight 1, XX:XX:XX
