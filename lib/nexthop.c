@@ -941,6 +941,10 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 		memcpy(copy->backup_idx, nexthop->backup_idx, copy->backup_num);
 
 	copy->srte_color = nexthop->srte_color;
+	copy->resolved_via = nexthop->resolved_via;
+	copy->resolved_addr = nexthop->resolved_addr;
+	copy->resolved_len = nexthop->resolved_len;
+
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
@@ -1482,6 +1486,14 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 			}
 		}
 	}
+
+	if (nexthop->resolved_via > 0) {
+		json_object_int_add(json_nexthop, "resolvedVia", nexthop->resolved_via);
+		json_object_string_addf(json_nexthop, "resolvedPrefix", "%pIA",
+					&(nexthop->resolved_addr));
+		json_object_int_add(json_nexthop, "resolvedPrefixLen",
+				    nexthop->resolved_len);
+	}
 }
 
 /*
@@ -1634,4 +1646,8 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 		for (i = 1; i < nexthop->backup_num; i++)
 			vty_out(vty, ",%d", nexthop->backup_idx[i]);
 	}
+
+	if (nexthop->resolved_via > 0)
+		vty_out(vty, ", res via %pIA/%d (%u)", &(nexthop->resolved_addr),
+			nexthop->resolved_len, nexthop->resolved_via);
 }

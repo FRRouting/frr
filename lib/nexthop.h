@@ -159,6 +159,11 @@ struct nexthop {
 	/* SR-TE color used for matching SR-TE policies */
 	uint32_t srte_color;
 
+	/* If resolved (by zebra typically), the resolving NHG ID and prefix */
+	uint32_t resolved_via;
+	struct ipaddr resolved_addr;
+	uint8_t resolved_len;
+
 	/* SRv6 information */
 	struct nexthop_srv6 *nh_srv6;
 };

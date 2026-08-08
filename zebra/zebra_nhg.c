@@ -2345,6 +2345,46 @@ zebra_nhg_connected_ifindex(struct route_node *rn, struct route_entry *match,
 }
 
 /*
+ * Locate NHG info for use as the "resolver" for a recursive route. This
+ * may mean navigating some of the NHG hierarchy; some levels of the NHG hierarchy
+ * are not installed through the dataplane, and aren't "visible" outside zebra.
+ */
+static void get_resolving_info(struct nexthop *nh, const struct route_node *rn,
+			       const struct route_entry *match)
+{
+	uint32_t id = match->nhe_id;
+	const struct nhg_hash_entry *nhe;
+	const struct nhg_connected *node;
+
+	nhe = match->nhe;
+
+	/* If the resolving nhg is itself recursive, it won't be installed. Walk
+	 * down the tree a bit to find the installed id value.
+	 */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
+		frr_each (nhg_connected_tree_const, &nhe->nhg_depends, node) {
+			if (CHECK_FLAG(node->nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
+				id = node->nhe->id;
+				break;
+			}
+		}
+	}
+
+	nh->resolved_via = id;
+
+	/* Capture resolving prefix */
+	if (rn->p.family == AF_INET) {
+		SET_IPADDR_V4(&nh->resolved_addr);
+		nh->resolved_addr.ipaddr_v4 = rn->p.u.prefix4;
+	} else {
+		SET_IPADDR_V6(&nh->resolved_addr);
+		nh->resolved_addr.ipaddr_v6 = rn->p.u.prefix6;
+	}
+	nh->resolved_len = rn->p.prefixlen;
+}
+
+/*
  * Given a nexthop we need to properly recursively resolve,
  * do a table lookup to find and match if at all possible.
  * Set the nexthop->ifindex and resolution info as appropriate.
@@ -2673,6 +2713,10 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					 NEXTHOP_FLAG_RECURSIVE);
 				resolver = nexthop_set_resolved(afi, newhop, nexthop, NULL, flags);
 				resolved = 1;
+
+				/* Capture the NHG ID used to resolve the nexthop. */
+				if (resolver)
+					get_resolving_info(resolver, rn, match);
 
 				/* If there are backup nexthops, capture
 				 * that info with the resolving nexthop.
