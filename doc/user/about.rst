@@ -242,6 +242,21 @@ The indicators have the following semantics:
 Known Kernel Issues
 -------------------
 
+- Linux 6.19 – 7.1.5 (fixed in 7.1.6+ and 7.2-rc5+)
+
+  MPLS ECMP - Adding an MPLS route with multiple nexthops can mark the route
+  as dead / link-down even when the nexthops are reachable, breaking MPLS
+  ECMP forwarding.  The regression was introduced in 6.19-rc1 by commit
+  ``f0914b8436c5`` and fixed by commit ``3671f0419d90`` ("mpls: Set rt->rt_nhn
+  just before returning from mpls_nh_build_multi()"), which first landed in
+  mainline at v7.2-rc5 and was backported to the 7.1 stable series starting
+  at v7.1.6.  Kernels on the 7.0 and 6.19 stable lines remain affected until
+  a backport is available; kernels ≤ 6.18 are unaffected.  For a released
+  kernel with the fix, use 7.1.6+ or a 7.2-rc5+ build.  See
+  https://lists.openwall.net/netdev/2026/07/16/322 and
+  https://lore.kernel.org/netdev/20260716170609.804629-1-kuniyu@google.com/
+  for discussion of the fix.
+
 - Linux < 4.19
 
   PIM-SM (ASM) - Kernels before 4.19 do not deliver the ``IGMPMSG_WRVIFWHOLE``
