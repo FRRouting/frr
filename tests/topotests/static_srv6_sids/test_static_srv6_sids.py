@@ -507,6 +507,63 @@ def test_srv6_static_sids_ua_neighbor_recovery():
     check_srv6_static_sids(router, "expected_srv6_sids_and_ua.json")
 
 
+def test_srv6_static_sids_ua_nexthop_learn_mode_ra_recovery():
+    """Test uA SID recovery in RA mode without traffic trigger."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # Enable RA mode globally for SRv6 uA LL resolution.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           uA nexthop-learn-mode radv
+        """
+    )
+
+    # Ensure RA is accepted by r1 and periodically sent by r2.
+    topotest.sysctl_assure(tgen.net["r1"], "net.ipv6.conf.r1-eth0.accept_ra", 2)
+    r2.vtysh_cmd(
+        """
+        configure terminal
+         interface r2-eth0
+          no ipv6 nd suppress-ra
+          ipv6 nd ra-interval 3
+        """
+    )
+
+    # Validate mode is rendered in running config.
+    running = r1.vtysh_cmd("show running-config")
+    assert (
+        "uA nexthop-learn-mode radv" in running
+    ), "uA LL resolution mode is not set to RA in running config"
+
+    # Take link down and flush neighbor to force uA SID withdrawal.
+    logger.info("Taking down r2-eth0 and flushing neighbor")
+    r2.run("ip link set r2-eth0 down")
+    r1.vtysh_cmd("ip neigh flush 2001::2 dev r1-eth0")
+    check_srv6_static_sids(r1, "expected_srv6_sids.json")
+
+    # Bring the link back and rely on RA (no ping trigger).
+    logger.info("Bringing up r2-eth0 and waiting for RA-driven uA SID recovery")
+    r2.run("ip link set r2-eth0 up")
+    check_srv6_static_sids(r1, "expected_srv6_sids_and_ua.json")
+
+    # Reset mode to default ND for subsequent tests.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           uA nexthop-learn-mode ndisc
+        """
+    )
+
+
 def test_srv6_static_sids_ua_sid_removal():
     """Test cleanup when uA SID with resolution is removed"""
     tgen = get_topogen()
