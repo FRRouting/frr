@@ -1062,6 +1062,12 @@ static int netlink_talk_info(netlink_parse_filter_t filter, struct nlmsghdr *n,
 	struct nlsock *nl;
 
 	nl = kernel_netlink_nlsock_lookup(dp_info->sock);
+	if (nl == NULL) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: no netlink socket for sock %d; dataplane disabled, skipping",
+				   __func__, dp_info->sock);
+		return -1;
+	}
 	n->nlmsg_seq = dp_info->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
