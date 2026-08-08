@@ -828,7 +828,8 @@ DECLARE_HOOK(bgp_route_update,
 extern int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path_info *p2);
 extern uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi);
 
-DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, bgp_pi_hash_hashfn);
+extern void bgp_pi_hash_table_init(struct bgp_pi_hash_head *h);
+extern void bgp_pi_hash_table_fini(struct bgp_pi_hash_head *h);
 
 /* UPA prefix hash - for tracking unreachable prefixes */
 extern int bgp_upa_prefix_cmp(const struct bgp_upa_prefix_entry *e1,
