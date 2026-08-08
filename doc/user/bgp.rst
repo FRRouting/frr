@@ -4408,6 +4408,15 @@ propagated to the EVPN type-5 route. The ``gateway-ip`` overlay index is only
 supported with ``advertise <ipv4|ipv6> unicast`` and cannot be used with the
 ``vpn`` form.
 
+EVPN type-5 routes can be filtered per neighbor by encapsulation type:
+
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> encapsulation-type <srv6>
+
+When this CLI is configured under the L2VPN EVPN address family, only EVPN
+type-5 routes matching the configured encapsulation type are advertised to the
+neighbor. EVPN type-5 routes without the configured encapsulation are filtered
+from outbound updates to that neighbor. Currently, only ``srv6`` is supported.
+
 2. Add gateway IP to EVPN type-5 route using a route-map:
 
 .. clicmd:: set evpn gateway-ip <ipv4|ipv6> <addr>
