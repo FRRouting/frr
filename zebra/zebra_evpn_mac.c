@@ -357,27 +357,20 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 		return buf;
 	}
 
-	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s",
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s%s",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) ? "LOC " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ? "REM " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) ? "AUTO " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ? "STICKY " : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_RMAC) ? "REM Router "
-								 : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_RMAC) ? "REM Router " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW) ? "Default GW " : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW)
-			   ? "REM DEF GW "
-			   : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW) ? "REM DEF GW " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) ? "DUP " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_FPM_SENT) ? "FPM " : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE)
-			   ? "PEER Active "
-			   : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_PROXY) ? "PROXY "
-								   : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)
-			   ? "LOC Inactive "
-			   : "");
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE) ? "PEER Active " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_PROXY) ? "PROXY " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE) ? "LOC Inactive " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_DAD_READ_PENDING) ? "DAD Read Pending " : "");
 	return buf;
 }
 
@@ -1158,6 +1151,7 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 				   &mac->macaddr, mac->flags, zevpn->vni,
 				   listcount(mac->neigh_list));
 
+		zebra_evpn_mac_clear_dad_read_pending(mac);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 		mac->rem_seq = 0;
 		return 0;
@@ -1964,8 +1958,10 @@ void zebra_evpn_rem_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 
 	if (list_isempty(mac->neigh_list))
 		zebra_evpn_mac_del(zevpn, mac);
-	else
+	else {
+		zebra_evpn_mac_clear_dad_read_pending(mac);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+	}
 }
 
 /* Print Duplicate MAC */
@@ -2137,6 +2133,8 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 			zebra_evpn_rem_mac_install(zevpn, mac, old_static);
 		}
 	}
+
+	zebra_evpn_mac_clear_dad_read_pending(mac);
 
 	/* Update seq number. */
 	mac->rem_seq = seq;
@@ -2439,6 +2437,7 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 	if (!listcount(mac->neigh_list)) {
 		zebra_evpn_mac_del(zevpn, mac);
 	} else {
+		zebra_evpn_mac_clear_dad_read_pending(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
