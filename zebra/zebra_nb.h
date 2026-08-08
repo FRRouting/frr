@@ -321,6 +321,11 @@ void lib_vrf_zebra_filter_protocol_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 int lib_vrf_zebra_filter_protocol_route_map_modify(
 	struct nb_cb_modify_args *args);
+int lib_vrf_zebra_import_vrf_create(struct nb_cb_create_args *args);
+int lib_vrf_zebra_import_vrf_destroy(struct nb_cb_destroy_args *args);
+void lib_vrf_zebra_import_vrf_apply_finish(struct nb_cb_apply_finish_args *args);
+int lib_vrf_zebra_import_vrf_route_map_modify(struct nb_cb_modify_args *args);
+int lib_vrf_zebra_import_vrf_route_map_destroy(struct nb_cb_destroy_args *args);
 int lib_vrf_zebra_filter_nht_create(struct nb_cb_create_args *args);
 int lib_vrf_zebra_filter_nht_destroy(struct nb_cb_destroy_args *args);
 void lib_vrf_zebra_filter_nht_apply_finish(struct nb_cb_apply_finish_args *args);

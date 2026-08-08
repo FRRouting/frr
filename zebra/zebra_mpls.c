@@ -2796,7 +2796,7 @@ void zebra_mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	RNODE_FOREACH_RE (rn, re) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
-		if (re->type == route_type && re->instance == route_instance)
+		if (re->type == route_type && route_entry_get_proto_instance(re) == route_instance)
 			break;
 	}
 	if (re == NULL)
@@ -2954,7 +2954,7 @@ void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 					continue;
 				if (re->type == zl->route.type &&
-				    re->instance == zl->route.instance)
+				    route_entry_get_proto_instance(re) == zl->route.instance)
 					break;
 			}
 		}
