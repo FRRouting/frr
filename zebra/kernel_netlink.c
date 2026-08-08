@@ -879,6 +879,8 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	      (-errnum == ENODEV || -errnum == ESRCH)) ||
 	     (msg_type == RTM_NEWROUTE &&
 	      (-errnum == ENETDOWN || -errnum == EEXIST)) ||
+	     (msg_type == RTM_DELNEXTHOP &&
+	      (-errnum == ENOENT || -errnum == ESRCH)) ||
 	     ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
 	       msg_type == RTM_GETTUNNEL) &&
 	      (-errnum == EOPNOTSUPP)))) {
