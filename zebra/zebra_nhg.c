@@ -4202,6 +4202,14 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		 */
 		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
 			continue;
+
+		/*
+		 * Skip NHGs whose nexthop belongs to a different VRF than the
+		 * interface's current VRF.
+		 */
+		if (rb_node_dep->nhe->nhg.nexthop->vrf_id != ifp->vrf->vrf_id)
+			continue;
+
 		/*
 		 * The nexthop associated with this was set as !ACTIVE
 		 * so we need to turn it back to active when we get to
