@@ -782,6 +782,91 @@ def parse_frr_bfd_stats_error(event):
     parse_event(event, field_parsers)
 
 
+def bfd_sess_lastev2str(field_val):
+    """0=UNINSTALL, 1=INSTALL (matches enum bfd_session_event in lib/bfd.c)."""
+    return {0: "UNINSTALL", 1: "INSTALL"}.get(field_val, f"UNKNOWN({field_val})")
+
+
+def zapi_bfd_command2str(field_val):
+    """
+    ZAPI command sent by _bfd_sess_send(); 0 indicates the DEREGISTER
+    early-out (no wire message). Values match the enum in lib/zclient.h.
+    """
+    return {
+        0: "NONE_EARLY_OUT",
+        27: "ZEBRA_BFD_DEST_REGISTER",
+        28: "ZEBRA_BFD_DEST_DEREGISTER",
+        29: "ZEBRA_BFD_DEST_UPDATE",
+    }.get(field_val, f"ZEBRA_CMD_{field_val}")
+
+
+def getsockname_status2str(field_val):
+    """bgp_getsockname() outcome: 0=SUCCESS, -1=FAILURE."""
+    return {0: "SUCCESS", -1: "FAILURE"}.get(field_val, f"UNKNOWN({field_val})")
+
+
+def parse_frr_libfrr_bfd_sess_send(event):
+    """Parse BFD client-lib session send events (lib/bfd.c)."""
+    family = event.get("family", 0)
+    field_parsers = {
+        "family": lambda x: "IPv4" if x == socket.AF_INET
+                            else "IPv6" if x == socket.AF_INET6
+                            else f"AF_{x}",
+        "dst": lambda x: print_bfd_addr(x, family) if family else "N/A",
+        "src": lambda x: print_bfd_addr(x, family) if family else "N/A",
+        "lastev": bfd_sess_lastev2str,
+        "command": zapi_bfd_command2str,
+        "installed_out": lambda x: "true" if x else "false",
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_libfrr_bfd_sess_remove(event):
+    """Parse BFD client-lib _bfd_sess_remove() entries (lib/bfd.c)."""
+    family = event.get("family", 0)
+    field_parsers = {
+        "family": lambda x: "IPv4" if x == socket.AF_INET
+                            else "IPv6" if x == socket.AF_INET6
+                            else f"AF_{x}",
+        "dst": lambda x: print_bfd_addr(x, family) if family else "N/A",
+        "installed": lambda x: "true" if x else "false",
+        "ev_pending": lambda x: "true" if x else "false",
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_libfrr_bfd_sess_defer_linklocal_without_intf(event):
+    """Parse BFD client-lib single-hop link-local defer events (lib/bfd.c)."""
+    family = event.get("family", 0)
+    field_parsers = {
+        "family": lambda x: "IPv4" if x == socket.AF_INET
+                            else "IPv6" if x == socket.AF_INET6
+                            else f"AF_{x}",
+        "dst": lambda x: print_bfd_addr(x, family) if family else "N/A",
+        "src": lambda x: print_bfd_addr(x, family) if family else "N/A",
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bfd_update_source_enter(event):
+    """Parse entry to bgp_peer_bfd_update_source() (bgpd/bgp_bfd.c)."""
+    field_parsers = {
+        "fsm_status": bgp_status_to_string,
+        "su_local_present": lambda x: "true" if x else "false",
+        "established": lambda x: "true" if x else "false",
+        "nexthop_ifp_set": lambda x: "true" if x else "false",
+    }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bgp_getsockname_result(event):
+    """Parse bgp_getsockname() result (bgpd/bgp_network.c)."""
+    field_parsers = {
+        "status": getsockname_status2str,
+    }
+    parse_event(event, field_parsers)
+
+
 ############################ BFD parsers - end #################################
 
 
@@ -2000,6 +2085,12 @@ def main():
         "frr_bfd:ptm_config_refcount_error": parse_frr_bfd_ptm_config_refcount_error,
         "frr_bfd:packet_send_error": parse_frr_bfd_packet_send_error,
         "frr_bfd:stats_error": parse_frr_bfd_stats_error,
+        "frr_libfrr:bfd_sess_send": parse_frr_libfrr_bfd_sess_send,
+        "frr_libfrr:bfd_sess_remove": parse_frr_libfrr_bfd_sess_remove,
+        "frr_libfrr:bfd_sess_defer_linklocal_without_intf":
+            parse_frr_libfrr_bfd_sess_defer_linklocal_without_intf,
+        "frr_bgp:bfd_update_source_enter": parse_frr_bgp_bfd_update_source_enter,
+        "frr_bgp:bgp_getsockname_result": parse_frr_bgp_bgp_getsockname_result,
     }
 
     # get the trace path from the first command line argument
