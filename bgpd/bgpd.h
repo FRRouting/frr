@@ -331,6 +331,8 @@ struct vpn_policy {
 /* Is this value set by the cli? */
 #define BGP_VPN_POLICY_TOVPN_RD_CLI_SET       (1 << 7)
 #define BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE    (1 << 8)
+/* Is the export RT list set by the cli? */
+#define BGP_VPN_POLICY_TOVPN_RT_CLI_SET (1 << 9)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
