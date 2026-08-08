@@ -30,6 +30,8 @@ struct nlsock {
 	int seq;
 	struct sockaddr_nl snl;
 	char name[64];
+	/* NETLINK_ROUTE, NETLINK_GENERIC, ... — set at socket creation */
+	int proto;
 
 	uint8_t *buf;
 	size_t buflen;

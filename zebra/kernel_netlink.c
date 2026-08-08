@@ -377,6 +377,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 
 	nl->snl = snl;
 	nl->sock = sock;
+	nl->proto = nl_family;
 	nl->buflen = NL_RCV_PKT_BUF_SIZE;
 	nl->buf = XMALLOC(MTYPE_NL_BUF, nl->buflen);
 
@@ -647,6 +648,21 @@ void netlink_parse_rtattr_flags(struct rtattr **tb, int max, struct rtattr *rta,
 
 const char *nl_msg_type_to_str(uint16_t msg_type)
 {
+	int16_t fam;
+
+	/*
+	 * Generic Netlink family IDs are assigned dynamically. Prefer those
+	 * over the static RTM table so msgdump/error paths name ETHTOOL/SEG6
+	 * correctly (e.g. type 23 → "ETHTOOL" once resolved).
+	 */
+	fam = genl_family_ethtool();
+	if (fam >= 0 && msg_type == (uint16_t)fam)
+		return "ETHTOOL";
+
+	fam = genl_family_seg6();
+	if (fam >= 0 && msg_type == (uint16_t)fam)
+		return "SEG6";
+
 	return lookup_msg(nlmsg_str, msg_type, "");
 }
 
@@ -750,7 +766,7 @@ static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
 		zlog_debug("%s: >> netlink message dump [sent]", __func__);
 		frrtrace(2, frr_zebra, netlink_send_msg, nl, msg);
 #ifdef NETLINK_DEBUG
-		nl_dump(buf, buflen);
+		nl_dump(nl, buf, buflen);
 #else
 		zlog_hexdump(buf, buflen);
 #endif /* NETLINK_DEBUG */
@@ -822,7 +838,7 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
 		zlog_debug("%s: << netlink message dump [recv]", __func__);
 #ifdef NETLINK_DEBUG
-		nl_dump(nl->buf, status);
+		nl_dump(nl, nl->buf, status);
 #else
 		zlog_hexdump(nl->buf, status);
 #endif /* NETLINK_DEBUG */
@@ -1670,6 +1686,7 @@ static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsign
 {
 	snprintf(nl->name, sizeof(nl->name), "%s (NS %u)", name_prefix, ns_id);
 	nl->sock = -1;
+	nl->proto = nl_family;
 
 	if (netlink_socket(nl, groups, ext_groups, ext_group_size, ns_id, nl_family) < 0) {
 		if (warn_only)
