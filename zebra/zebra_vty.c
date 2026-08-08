@@ -411,6 +411,46 @@ static void uptime2str(time_t uptime, char *buf, size_t bufsize)
 	frrtime_to_interval(cur, buf, bufsize);
 }
 
+static void zebra_dump_redistribution_info(const struct route_node *rn,
+					   const struct route_entry *re, struct vty *vty,
+					   struct json_object *json)
+{
+	const struct zserv *client;
+	const char *redist_proto;
+	struct json_object *json_redist = NULL;
+	bool redist_found = false;
+
+	if (!vty && !json)
+		return;
+
+	frr_each (zserv_client_list_const, &zrouter.client_list, client) {
+		if (zebra_redistribute_check(rn, re, client)) {
+			redist_proto = zebra_route_string(client->proto);
+
+			if (vty) {
+				if (redist_found)
+					vty_out(vty, ",");
+				else
+					vty_out(vty, "  Redistributing via");
+				vty_out(vty, " %s", redist_proto);
+			} else {
+				if (!json_redist)
+					json_redist = json_object_new_array();
+				json_array_string_add(json_redist, redist_proto);
+			}
+
+			redist_found = true;
+		}
+	}
+
+	if (redist_found) {
+		if (vty)
+			vty_out(vty, "\n");
+		else
+			json_object_object_add(json, "redistributingVia", json_redist);
+	}
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng)
@@ -466,6 +506,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			vty_out(vty, ", best");
 		vty_out(vty, "\n");
+
+		zebra_dump_redistribution_info(rn, re, vty, NULL);
 
 		uptime2str(re->uptime, buf, sizeof(buf));
 
@@ -811,6 +853,8 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 		json_object *json_route =
 			json_object_array_get_idx(json_prefix,
 						  json_object_array_length(json_prefix) - 1);
+
+		zebra_dump_redistribution_info(rn, re, NULL, json_route);
 
 		json_object_int_add(json_route, "flags", re->flags);
 		json_object_int_add(json_route, "status", re->status);
