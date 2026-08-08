@@ -28,6 +28,93 @@
 
 DEFINE_MTYPE_STATIC(SHARPD, SRV6_LOCATOR, "SRv6 Locator");
 
+#define SHARP_ECMP_NH_MAX 512
+static struct nexthop sharp_nh_arr[SHARP_ECMP_NH_MAX];
+
+/*
+ * Parse a comma-separated list of nexthops into a list. Each token may
+ * optionally carry a weight in the form IP:WEIGHT (e.g. 10.1.1.2:100).
+ * WEIGHT is a uint16 (0..65535); omitting ":WEIGHT" leaves weight=0
+ * (equal-cost ECMP).
+ * Returns the number of nexthops parsed, or -1 on error.
+ */
+static int sharp_parse_nexthops(const char *nhops_str, vrf_id_t vrf_id, struct nexthop_group *nhg,
+				struct vty *vty)
+{
+	char buf[4096];
+	char *saveptr = NULL;
+	char *token;
+	int count = 0;
+	struct in_addr v4;
+	struct in6_addr v6;
+
+	memset(sharp_nh_arr, 0, sizeof(sharp_nh_arr));
+	nhg->nexthop = NULL;
+
+	strlcpy(buf, nhops_str, sizeof(buf));
+
+	for (token = strtok_r(buf, ",", &saveptr); token; token = strtok_r(NULL, ",", &saveptr)) {
+		uint32_t weight = 0;
+
+		if (count >= SHARP_ECMP_NH_MAX) {
+			vty_out(vty, "%% Too many nexthops (max %d)\n", SHARP_ECMP_NH_MAX);
+			return -1;
+		}
+
+		if (inet_pton(AF_INET, token, &v4) == 1) {
+			sharp_nh_arr[count].type = NEXTHOP_TYPE_IPV4;
+			sharp_nh_arr[count].gate.ipv4 = v4;
+		} else if (inet_pton(AF_INET6, token, &v6) == 1) {
+			sharp_nh_arr[count].type = NEXTHOP_TYPE_IPV6;
+			sharp_nh_arr[count].gate.ipv6 = v6;
+		} else {
+			/* Plain IP didn't parse — try IPv4:WEIGHT.
+			 */
+			char *weight_sep = strrchr(token, ':');
+			char *endp = NULL;
+
+			if (!weight_sep) {
+				vty_out(vty, "%% Invalid nexthop address: %s\n", token);
+				return -1;
+			}
+
+			*weight_sep = '\0';
+			weight = strtoul(weight_sep + 1, &endp, 10);
+			if (endp == weight_sep + 1 || *endp != '\0' || weight > UINT16_MAX) {
+				vty_out(vty, "%% Invalid weight (0..%u): %s\n", UINT16_MAX,
+					weight_sep + 1);
+				return -1;
+			}
+
+			if (inet_pton(AF_INET, token, &v4) != 1) {
+				vty_out(vty, "%% Invalid nexthop address: %s\n", token);
+				return -1;
+			}
+
+			sharp_nh_arr[count].type = NEXTHOP_TYPE_IPV4;
+			sharp_nh_arr[count].gate.ipv4 = v4;
+		}
+
+		sharp_nh_arr[count].vrf_id = vrf_id;
+		sharp_nh_arr[count].weight = (uint16_t)weight;
+
+		if (count > 0) {
+			sharp_nh_arr[count - 1].next = &sharp_nh_arr[count];
+			sharp_nh_arr[count].prev = &sharp_nh_arr[count - 1];
+		}
+
+		count++;
+	}
+
+	if (count == 0) {
+		vty_out(vty, "%% No valid nexthops specified\n");
+		return -1;
+	}
+
+	nhg->nexthop = &sharp_nh_arr[0];
+	return count;
+}
+
 DEFPY(watch_neighbor, watch_neighbor_cmd,
       "sharp watch [vrf NAME$vrf_name] neighbor",
       "Sharp routing Protocol\n"
@@ -215,6 +302,7 @@ DEFPY (install_routes,
        "sharp install routes [vrf NAME$vrf_name]\
 	  <A.B.C.D$start4|X:X::X:X$start6>\
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
+	   nexthops NHOPS$nexthop_str|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
 	  (1-1000000)$routes [instance (0-255)$instance] [table (0-4294967295)$table_id] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
@@ -228,6 +316,8 @@ DEFPY (install_routes,
        "Nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "V4 Nexthop address to use\n"
        "V6 Nexthop address to use\n"
+       "Multiple nexthops for ECMP (weight is optional, 0..65535)\n"
+       "Comma-separated nexthop IPs, optional weight per NH (e.g. 10.1.1.2,10.1.2.2:100)\n"
        "Nexthop-Group to use\n"
        "The Name of the nexthop-group\n"
        "Backup nexthop to use(Can be an IPv4 or IPv6 address)\n"
@@ -291,9 +381,14 @@ DEFPY (install_routes,
 		return CMD_WARNING;
 	}
 
-	/* Explicit backup not available with named nexthop-group */
+	/* Explicit backup not available with named nexthop-group or multi-NH */
 	if (backup && nexthop_group) {
 		vty_out(vty, "%% Invalid: cannot specify both nexthop-group and backup\n");
+		return CMD_WARNING;
+	}
+
+	if (backup && nexthop_str) {
+		vty_out(vty, "%% Invalid: cannot specify both nexthops and backup\n");
 		return CMD_WARNING;
 	}
 
@@ -325,6 +420,12 @@ DEFPY (install_routes,
 			sg.r.backup_nhop.vrf_id = vrf->vrf_id;
 			sg.r.backup_nhop_group.nexthop = bnhgc->nhg.nexthop;
 		}
+	} else if (nexthop_str) {
+		int nh_cnt;
+
+		nh_cnt = sharp_parse_nexthops(nexthop_str, vrf->vrf_id, &sg.r.nhop_group, vty);
+		if (nh_cnt < 0)
+			return CMD_WARNING;
 	} else {
 		if (nexthop4.s_addr != INADDR_ANY) {
 			sg.r.nhop.gate.ipv4 = nexthop4;
