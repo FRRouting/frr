@@ -2056,6 +2056,27 @@ static struct nexthop *nexthop_set_resolved(afi_t afi, const struct nexthop *new
 		nexthop_add_labels(resolved_hop, label_type, num_labels,
 				   labels);
 
+	/* Copy SRv6 info from the resolved route's nexthop (newhop) if
+	 * present; if the parent nexthop also carries SRv6 info, its
+	 * value takes precedence and replaces the resolver's.
+	 */
+	if (newhop->nh_srv6) {
+		if (newhop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			nexthop_add_srv6_seg6local(resolved_hop,
+						   newhop->nh_srv6
+							   ->seg6local_action,
+						   &newhop->nh_srv6
+							    ->seg6local_ctx);
+		if (newhop->nh_srv6->seg6_segs &&
+		    newhop->nh_srv6->seg6_segs->num_segs &&
+		    !sid_zero(newhop->nh_srv6->seg6_segs))
+			nexthop_add_srv6_seg6(resolved_hop,
+					      &newhop->nh_srv6->seg6_segs->seg[0],
+					      newhop->nh_srv6->seg6_segs->num_segs,
+					      newhop->nh_srv6->seg6_segs->encap_behavior);
+	}
+
 	if (nexthop->nh_srv6) {
 		if (nexthop->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
@@ -2064,7 +2085,9 @@ static struct nexthop *nexthop_set_resolved(afi_t afi, const struct nexthop *new
 							   ->seg6local_action,
 						   &nexthop->nh_srv6
 							    ->seg6local_ctx);
-		if (nexthop->nh_srv6->seg6_segs)
+		if (nexthop->nh_srv6->seg6_segs &&
+		    nexthop->nh_srv6->seg6_segs->num_segs &&
+		    !sid_zero(nexthop->nh_srv6->seg6_segs))
 			nexthop_add_srv6_seg6(resolved_hop, &nexthop->nh_srv6->seg6_segs->seg[0],
 					      nexthop->nh_srv6->seg6_segs->num_segs,
 					      nexthop->nh_srv6->seg6_segs->encap_behavior,
