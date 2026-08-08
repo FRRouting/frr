@@ -1011,6 +1011,10 @@ struct bgp {
 	bool autort_rfc8365_import;
 	bool autort_rfc8365_export;
 
+	/* EVPN - force AS4 (32-bit) encoding for auto-derived RT */
+	bool autort_enforce_as4_import;
+	bool autort_enforce_as4_export;
+
 	/*
 	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
 	 */
@@ -3472,5 +3476,4 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&                                       \
 	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_RCV) &&                                       \
 	 IN6_IS_ADDR_LINKLOCAL(&_peer->nexthop.v6_local))
-
 #endif /* _QUAGGA_BGPD_H */
