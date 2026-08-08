@@ -1355,6 +1355,8 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len, struct
 
 	if (subtlv_len < ISIS_SUBSUBTLV_HDR_SIZE) {
 		TLV_SIZE_MISMATCH(log, indent, "ASLA");
+		/* Consume the subtlv octets */
+		stream_forward_getp(s, subtlv_len);
 		return -1;
 	}
 
@@ -1374,6 +1376,7 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len, struct
 	if (readable < asla->standard_apps_length + asla->user_def_apps_length) {
 		TLV_SIZE_MISMATCH(log, indent, "ASLA");
 		XFREE(MTYPE_ISIS_SUBTLV, asla);
+		stream_forward_getp(s, readable);
 		return -1;
 	}
 
