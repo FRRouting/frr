@@ -102,6 +102,21 @@ struct bfd_peer_cfg {
 	char bfd_name[BFD_NAME_SIZE + 1];
 	uint8_t bfd_name_len;
 
+	/*
+	 * SBFD over SRv6 fields carried in the optional tail of
+	 * the ZEBRA_BFD_DEST_REGISTER / DEST_UPDATE / DEST_DEREGISTER
+	 * payload. `bfd_regext_flags` mirrors the wire-format
+	 * `BFD_REGEXT_FLAG_*` word so propagation and update paths can
+	 * distinguish "field absent" from "field set to zero" (notably
+	 * `remote_discr == 0` for `sbfd_init`).
+	 */
+	uint16_t bfd_regext_flags;
+	uint8_t bfd_mode;
+	uint32_t remote_discr;
+	struct in6_addr srv6_source_ipv6;
+	uint8_t seg_num;
+	struct in6_addr seg_list[SRV6_MAX_SEGS];
+
 	struct {
 		/* Keychain name for authentication */
 		char key_chain_name[MAXKEYCHAINNAMELEN + 1];
