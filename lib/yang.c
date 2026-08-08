@@ -707,7 +707,7 @@ struct lyd_node *yang_state_new(struct lyd_node *tree, const char *path, const c
 	struct lyd_node *dnode, *parent;
 	LY_ERR err;
 
-	err = yang_new_path2(tree, ly_native_ctx, path, value, 0, 0, LYD_NEW_PATH_UPDATE, &parent,
+	err = yang_new_path2(tree, ly_native_ctx, path, value, 0, LYD_NEW_PATH_UPDATE, &parent,
 			     &dnode);
 	assert(err == LY_SUCCESS);
 
@@ -916,7 +916,7 @@ LY_ERR yang_parse_data(const char *xpath, LYD_FORMAT format, bool as_subtree, bo
 		 * a common YANG JSON technique (vs XML which starts all
 		 * data trees from the root).
 		 */
-		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, &parent, &subtree);
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, &parent, &subtree);
 		if (err != LY_SUCCESS)
 			goto done;
 		err = lyd_find_path(parent, xpath, false, &subtree);
@@ -1016,7 +1016,7 @@ LY_ERR yang_parse_restconf_rpc(const char *xpath, LYD_FORMAT format, const char 
 		return LY_ENOTFOUND;
 	}
 	/* Get the tree for the RPC/Action */
-	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL, &dnode);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, NULL, &dnode);
 	if (err) {
 		zlog_err("Failed to create parent node for action: %s", ly_last_errmsg());
 		goto done;
@@ -1070,8 +1070,7 @@ LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data, bo
 			return LY_EINVAL;
 		}
 
-		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, 0, NULL,
-				     &parent);
+		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, NULL, &parent);
 		XFREE(MTYPE_TMP, parent_xpath);
 		if (err) {
 			zlog_err("Failed to create parent node for action: %s",
@@ -1604,9 +1603,8 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 #ifdef HAVE_LYD_TRIM_XPATH
 	err = lyd_trim_xpath(root, xpath, NULL);
 	if (err) {
-		flog_err_sys(EC_LIB_LIBYANG,
-			     "cannot obtain specific result for xpath \"%s\": %s",
-			     xpath, yang_ly_strerrcode(err));
+		flog_err_sys(EC_LIB_LIBYANG, "cannot obtain specific result for xpath \"%s\": %s",
+			     xpath, ly_strerrcode(err));
 		return err;
 	}
 	return LY_SUCCESS;
@@ -1621,9 +1619,8 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 	err = yang_lyd_find_xpath3(NULL, *root, xpath, LY_VALUE_JSON, NULL,
 				   NULL, &set);
 	if (err) {
-		flog_err_sys(EC_LIB_LIBYANG,
-			     "cannot obtain specific result for xpath \"%s\": %s",
-			     xpath, yang_ly_strerrcode(err));
+		flog_err_sys(EC_LIB_LIBYANG, "cannot obtain specific result for xpath \"%s\": %s",
+			     xpath, ly_strerrcode(err));
 		return err;
 	}
 	/*
@@ -1718,10 +1715,7 @@ LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
  * Handle NBC API changes between versions of Libyang
  */
 
-#undef lyd_new_term_bin
-#undef lyd_change_term_bin
 #undef lyd_new_path2
-#undef lyd_new_ext_term
 
 #if (LY_VERSION_MAJOR >= 4)
 #define LY_SZ(x) ((x)*8)
@@ -1729,110 +1723,12 @@ LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
 #define LY_SZ(x) (x)
 #endif
 
-LY_ERR yang_new_term_bin(struct lyd_node *parent, const struct lys_module *module,
-			 const char *name, const void *value, uint32_t size, uint32_t options,
-			 struct lyd_node **node)
-{
-	return lyd_new_term_bin(parent, module, name, value, LY_SZ(size), options, node);
-}
-
-LY_ERR yang_change_term_bin(struct lyd_node *term, const void *value, uint32_t size)
-{
-	return lyd_change_term_bin(term, value, LY_SZ(size));
-}
-
 LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
-		      const void *value, uint32_t size, LYD_ANYDATA_VALUETYPE value_type,
-		      uint32_t options, struct lyd_node **new_parent, struct lyd_node **new_node)
+		      const void *value, uint32_t value_size_bytes, uint32_t options,
+		      struct lyd_node **new_parent, struct lyd_node **new_node)
 {
-	return lyd_new_path2(parent, ctx, path, value, LY_SZ(size), value_type, options,
+	return lyd_new_path2(parent, ctx, path, value, LY_SZ(value_size_bytes), 0, options,
 			     new_parent, new_node);
 }
 
-#if (LY_VERSION_MAJOR >= 3) && (LY_VERSION_MAJOR < 5)
-LY_ERR yang_new_ext_term(const struct lysc_ext_instance *ext, const char *name, const void *value,
-			 uint32_t size, uint32_t options, struct lyd_node **node)
-{
-	return lyd_new_ext_term(ext, name, value, LY_SZ(size), options, node);
-}
-#endif
 #undef LY_SZ
-
-/*
- * Safe to remove after libyang v2.1.128 is required
- */
-const char *yang_ly_strerrcode(LY_ERR err)
-{
-#ifdef HAVE_LY_STRERRCODE
-	return ly_strerrcode(err);
-#else
-	switch (err) {
-	case LY_SUCCESS:
-		return "ok";
-	case LY_EMEM:
-		return "out of memory";
-	case LY_ESYS:
-		return "system error";
-	case LY_EINVAL:
-		return "invalid value given";
-	case LY_EEXIST:
-		return "item exists";
-	case LY_ENOTFOUND:
-		return "item not found";
-	case LY_EINT:
-		return "operation interrupted";
-	case LY_EVALID:
-		return "validation failed";
-	case LY_EDENIED:
-		return "access denied";
-	case LY_EINCOMPLETE:
-		return "incomplete";
-	case LY_ERECOMPILE:
-		return "compile error";
-	case LY_ENOT:
-		return "not";
-	case LY_EPLUGIN:
-	case LY_EOTHER:
-		return "other";
-	default:
-		return "unknown";
-	}
-#endif
-}
-
-/*
- * Safe to remove after libyang v2.1.128 is required
- */
-const char *yang_ly_strvecode(LY_VECODE vecode)
-{
-#ifdef HAVE_LY_STRVECODE
-	return ly_strvecode(vecode);
-#else
-	switch (vecode) {
-	case LYVE_SUCCESS:
-		return "";
-	case LYVE_SYNTAX:
-		return "syntax";
-	case LYVE_SYNTAX_YANG:
-		return "yang-syntax";
-	case LYVE_SYNTAX_YIN:
-		return "yin-syntax";
-	case LYVE_REFERENCE:
-		return "reference";
-	case LYVE_XPATH:
-		return "xpath";
-	case LYVE_SEMANTICS:
-		return "semantics";
-	case LYVE_SYNTAX_XML:
-		return "xml-syntax";
-	case LYVE_SYNTAX_JSON:
-		return "json-syntax";
-	case LYVE_DATA:
-		return "data";
-	case LYVE_OTHER:
-		return "other";
-	default:
-		return "unknown";
-	}
-#endif
-}
