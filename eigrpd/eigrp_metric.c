@@ -106,13 +106,13 @@ eigrp_calculate_total_metrics(struct eigrp *eigrp,
 
 	entry->total_metric = entry->reported_metric;
 	temp_delay = entry->total_metric.delay
-		     + eigrp_delay_to_scaled(ei->params.delay);
+		     + eigrp_delay_to_scaled(ei->params->delay);
 
 	entry->total_metric.delay = temp_delay > EIGRP_METRIC_MAX_CLASSIC
 					    ? EIGRP_METRIC_MAX_CLASSIC
 					    : temp_delay;
 
-	bw = eigrp_bandwidth_to_scaled(ei->params.bandwidth);
+	bw = eigrp_bandwidth_to_scaled(ei->params->bandwidth);
 	entry->total_metric.bandwidth = entry->total_metric.bandwidth > bw
 						? bw
 						: entry->total_metric.bandwidth;
