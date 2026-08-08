@@ -1,0 +1,34 @@
+{
+  "12.12.12.12/32":[
+    {
+      "prefix":"12.12.12.12/32",
+      "protocol":"isis",
+      "vrfId":0,
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":115,
+      "metric":10,
+      "installed":true,
+      "table":254,
+      "internalStatus":20,
+      "internalFlags":8,
+      "internalNextHopNum":1,
+      "internalNextHopActiveNum":1,
+      "nexthops":[
+        {
+          "flags":3,
+          "fib":true,
+          "ip":"10.0.1.2",
+          "afi":"ipv4",
+          "interfaceName":"r1-eth1",
+          "active":true,
+          "labels":[
+            3
+          ],
+          "weight":1
+        }
+      ]
+    }
+  ]
+}
