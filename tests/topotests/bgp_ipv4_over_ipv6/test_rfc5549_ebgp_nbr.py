@@ -132,7 +132,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
+    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:{}".format(
         BGP_CONVERGENCE
     )
     logger.info("Running setup_module() done")
@@ -219,7 +219,7 @@ def test_ext_nh_cap_red_static_network_ebgp_peer_tc8_p0(request):
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    step("Configure IPv6 EBGP session between R1 and R2 with global" " IPv6 address")
+    step("Configure IPv6 EBGP session between R1 and R2 with globalIPv6 address")
     reset_config_on_routers(tgen)
 
     step(
@@ -533,9 +533,7 @@ def test_ext_nh_cap_remove_red_static_network_ebgp_peer_tc10_p1(request):
     )
     assert (
         bgp_rib is not True
-    ), "Testcase {} : Failed \n Error: Routes still" " present in BGP rib".format(
-        tc_name
-    )
+    ), "Testcase {} : Failed \n Error: Routes stillpresent in BGP rib".format(tc_name)
     result = verify_rib(
         tgen,
         "ipv4",
