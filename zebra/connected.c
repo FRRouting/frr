@@ -217,7 +217,7 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 		return;
 
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, 0, 0, p, NULL, nh, 0,
-		   zvrf->table_id, 0, 0, false);
+		   zvrf_table_id(zvrf), 0, 0, false);
 }
 
 /* Called from if_up(). */
@@ -332,18 +332,18 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
 
 		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0, flags, &p,
-			NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0, false, true);
+			NULL, &nh, 0, zvrf_table_id(zvrf), metric, 0, 0, 0, false, true);
 
 		connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
 		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0, flags, &p,
-			NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0, false, true);
+			NULL, &nh, 0, zvrf_table_id(zvrf), metric, 0, 0, 0, false, true);
 	}
 
 	if (install_local) {
 		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, flags, &plocal,
-			NULL, &nh, 0, zvrf->table_id, 0, 0, 0, 0, false, true);
+			NULL, &nh, 0, zvrf_table_id(zvrf), 0, 0, 0, 0, false, true);
 		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL, 0, flags,
-			&plocal, NULL, &nh, 0, zvrf->table_id, 0, 0, 0, 0, false, true);
+			&plocal, NULL, &nh, 0, zvrf_table_id(zvrf), 0, 0, 0, 0, false, true);
 	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
@@ -533,21 +533,21 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
 		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, &nh, 0,
-			   zvrf->table_id, 0, 0, false);
+			   zvrf_table_id(zvrf), 0, 0, false);
 
 		rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, &nh, 0,
-			   zvrf->table_id, 0, 0, false);
+			   zvrf_table_id(zvrf), 0, 0, false);
 	}
 
 	if (remove_local) {
 		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
-			   zvrf->table_id, 0, 0, false);
+			   zvrf_table_id(zvrf), 0, 0, false);
 
 		rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
 			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
-			   zvrf->table_id, 0, 0, false);
+			   zvrf_table_id(zvrf), 0, 0, false);
 	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
