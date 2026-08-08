@@ -1,0 +1,7 @@
+{
+	"2001:db8::2": {
+		"remoteAs": 65002,
+		"localAs": 65001,
+		"bgpState": "Established"
+	}
+}
