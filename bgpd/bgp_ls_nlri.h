@@ -443,6 +443,16 @@ enum bgp_ls_attr_tlv {
 #define BGP_LS_PREFIX_SID_FLAG_LOCAL 0x04 /* Same for IS-IS, OSPFv2, OSPFv3 */
 
 /*
+ * IS-IS RFC 8667, 2.2.1
+ * OSPFv2 RFC 8665, 6.1
+ * OSPFv3 RFC 8666, 7.1
+ */
+#define ISIS_EXT_SUBTLV_LINK_ADJ_SID_VFLG 0x20
+#define ISIS_EXT_SUBTLV_LINK_ADJ_SID_LFLG 0x10
+#define OSPF_EXT_SUBTLV_LINK_ADJ_SID_VFLG 0x40
+#define OSPF_EXT_SUBTLV_LINK_ADJ_SID_LFLG 0x20
+
+/*
  * ===========================================================================
  * Descriptor Structures (RFC 9552 Section 5.2)
  * ===========================================================================
@@ -738,6 +748,15 @@ struct bgp_ls_attr {
 	/* Link Name (TLV 1098) */
 	char *link_name;
 
+	/* Adjacency SID (TLV 1099) */
+#define BGP_LS_ADJ_MAX 4
+	uint8_t adj_sid_count; /* number of adj_sid elements */
+	struct bgp_ls_adjacency {
+		uint32_t sid;	   /* SID as MPLS label or index */
+		uint8_t flags;	   /* Flags */
+		uint8_t weight;	   /* Administrative weight */
+	} adj_sid[BGP_LS_ADJ_MAX]; /* IPv4/IPv6 & Primary/Backup Adj. SID */
+
 	/* Extended Administrative Group (TLV 1173) */
 	struct admin_group ext_admin_group;
 
@@ -851,6 +870,9 @@ extern bool bgp_ls_nlri_validate(const struct bgp_ls_nlri *nlri);
 /* NLRI size calculation helpers */
 extern size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri);
 
+/* NLRI get protocol_id helper */
+extern enum bgp_ls_protocol_id bgp_ls_nlri_protocol_id(const struct bgp_ls_nlri *nlri);
+
 /* String conversion helpers */
 extern const char *bgp_ls_protocol_id_str(enum bgp_ls_protocol_id proto_id);
 extern const char *bgp_ls_nlri_type_str(enum bgp_ls_nlri_type nlri_type);
@@ -948,7 +970,8 @@ extern int bgp_ls_encode_prefix_nlri(struct stream *s, const struct bgp_ls_prefi
 extern int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri);
 
 /* Encode BGP-LS Attributes (Type 29 TLVs) */
-extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr);
+extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
+			      enum bgp_ls_protocol_id protocol_id);
 
 /*
  * Get Prefix-SID attribute SID length by flags
@@ -956,6 +979,13 @@ extern int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr);
  * @return 3 or 4 in normal case, -1 in error case
  */
 extern int bgp_ls_attr_prefix_sid_len(uint8_t flags);
+
+/*
+ * Get Adjacency SID attribute Label/Index SID length by flags
+ *
+ * @return 3 or 4 in normal case, -1 in error case
+ */
+extern int bgp_ls_attr_adjacency_sid_len(uint8_t flags, enum bgp_ls_protocol_id protocol_id);
 
 /*
  * ===========================================================================
@@ -997,15 +1027,21 @@ extern int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlr
 /* Decode complete NLRI */
 extern int bgp_ls_decode_nlri(struct stream *s, struct bgp_ls_nlri *nlri);
 
+/* Decode enough NLRI to get protocol id */
+extern int bgp_ls_decode_nlri_protocol_id(struct bgp_nlri *packet,
+					  enum bgp_ls_protocol_id *protocol_id);
+
 /*
  * Parse BGP-LS Attributes (Type 29 TLVs)
  *
  * @param s Stream containing the attribute TLVs
  * @param total_length Total length of all TLVs in bytes
+ * @param protocol_id Protocol-ID from NLRI needed by some attributes
  * @param attr Pointer to node attribute structure to populate
  * @return 0 on success, -1 on error
  */
-extern int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr);
+extern int bgp_ls_parse_attr(struct stream *s, uint16_t total_length,
+			     enum bgp_ls_protocol_id protocol_id, struct bgp_ls_attr *attr);
 
 /*
  * Convert BGP-LS Attributes to JSON object
