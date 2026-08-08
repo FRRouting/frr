@@ -1,0 +1,18 @@
+[
+  {
+    "dst": "10:254::1",
+    "gateway": "10:254::1",
+    "dev": "r2-eth0",
+    "protocol": "isis",
+    "metric": 20,
+    "flags": []
+  },
+  {
+    "dst": "10:254::3",
+    "gateway": "10:254::3",
+    "dev": "r2-eth1",
+    "protocol": "isis",
+    "metric": 20,
+    "flags": []
+  }
+]
