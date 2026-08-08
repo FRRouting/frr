@@ -179,6 +179,7 @@ Stage 2 - Staging
          git fetch --all
          git checkout frr-$TAG
          docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG --push .
+         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG-slim --target alpine-slim --push .
          git tag docker/$TAG
          git push origin docker/$TAG
 
@@ -189,6 +190,14 @@ Stage 2 - Staging
       changes need to be made on top of the ``frr-$TAG`` release tag, make
       sure these changes are committed and pointed at by the ``docker/X.Y.Z``
       tag.
+
+      The second ``docker buildx build`` command additionally builds and
+      pushes a "slim" image tagged ``quay.io/frrouting/frr:$TAG-slim``. This
+      variant excludes development, documentation and debug packages (e.g.
+      ``frr-dev``, ``libyang-dev``) from the runtime image, reducing image
+      size and CVE/SBOM footprint. See
+      `issue #22615 <https://github.com/FRRouting/frr/issues/22615>`_ for
+      background.
 
 
 Stage 3 - Publish
