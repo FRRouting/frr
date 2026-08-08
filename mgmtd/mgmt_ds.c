@@ -53,26 +53,27 @@ static struct mgmt_master *mgmt_ds_mm;
 static struct mgmt_ds_ctx running, candidate, oper;
 
 /* Dump the data tree of the specified format in the file pointed by the path */
-static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
-				  const char *base_xpath, LYD_FORMAT format,
-				  struct ly_out *out)
+static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
+				  LYD_FORMAT format, struct ly_out *out)
 {
 	struct lyd_node *root;
 	uint32_t options = 0;
 
 	if (base_xpath[0] == '\0')
-		root = ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
-					  : ds_ctx->root.dnode_root;
+		root = ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode : ds_ctx->root.dnode_root;
 	else
-		root = yang_dnode_get(ds_ctx->config_ds
-					      ? ds_ctx->root.cfg_root->dnode
-					      : ds_ctx->root.dnode_root,
+		root = yang_dnode_get(ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
+							: ds_ctx->root.dnode_root,
 				      base_xpath);
 	if (!root)
 		return -1;
 
-	options = ds_ctx->config_ds ? LYD_PRINT_WD_TRIM :
-		LYD_PRINT_WD_EXPLICIT;
+	/*
+	 * WD_EXPLICIT for config datastores too: a leaf explicitly set to its
+	 * default value is configuration and must survive the dump; only
+	 * implicit defaults are omitted. WD_TRIM would drop both.
+	 */
+	options = LYD_PRINT_WD_EXPLICIT;
 
 	if (base_xpath[0] == '\0')
 		lyd_print_all(out, root, format, options);
