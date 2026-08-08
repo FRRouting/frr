@@ -5781,17 +5781,14 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 			return;
 
 
-		if (advertise) {
-			zvrf->advertise_svi_macip = advertise;
+		zvrf->advertise_svi_macip = advertise;
+		if (advertise)
 			hash_iterate(zvrf->evpn_table,
 				     zebra_evpn_gw_macip_add_for_evpn_hash,
 				     NULL);
-		} else {
-			hash_iterate(zvrf->evpn_table,
-				     zebra_evpn_svi_macip_del_for_evpn_hash,
+		else
+			hash_iterate(zvrf->evpn_table, zebra_evpn_svi_macip_del_for_evpn_hash,
 				     NULL);
-			zvrf->advertise_svi_macip = advertise;
-		}
 
 	} else {
 		struct zebra_if *zif = NULL;
@@ -5842,7 +5839,7 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 		if (advertise) {
 			/* Add primary SVI MAC-IP */
 			zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
-		} else {
+		} else if (!advertise_gw_macip_enabled(zevpn)) {
 			/* Del primary SVI MAC-IP */
 			zebra_evpn_del_macip_for_intf(vlan_if, zevpn);
 		}
@@ -6020,6 +6017,10 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 		} else {
 			/* Del primary MAC-IP */
 			zebra_evpn_del_macip_for_intf(vlan_if, zevpn);
+
+			/* Re-advertise it as an SVI route, if enabled. */
+			if (advertise_svi_macip_enabled(zevpn))
+				zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
 
 			/* Del VRR MAC-IP - if any*/
 			vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
