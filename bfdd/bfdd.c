@@ -124,7 +124,6 @@ static struct frr_signal_t bfd_signals[] = {
 static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
 	/* CLI-only filter YANG; do not use frr_filter_info (no filter backend). */
 	&frr_filter_cli_info,
-	&frr_interface_info,
 	&frr_bfdd_info,
 	&frr_vrf_info,
 	&ietf_key_chain_info,
