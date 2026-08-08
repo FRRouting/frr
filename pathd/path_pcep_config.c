@@ -326,8 +326,8 @@ int path_pcep_config_initiate_path(struct path *path)
 			SET_FLAG(candidate->flags, F_CANDIDATE_NEW);
 		} else {
 			policy = candidate->policy;
-			if ((path->originator != candidate->originator)
-			    || (path->originator != policy->originator)) {
+			if (strcmp(path->originator, candidate->originator)
+			    || strcmp(path->originator, policy->originator)) {
 				/* There is already an initiated path from
 				 * another PCE, show a warning and regect the
 				 * initiated path */
