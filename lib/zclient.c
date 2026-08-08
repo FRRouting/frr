@@ -3199,11 +3199,13 @@ size_t zebra_interface_link_params_write(struct stream *s,
  * :               :
  * |               |
  * +-+-+-+-+-+-+-+-+
- * |    addr_len   |  len of addr. E.g., addr_len = 4 for ipv4 addrs.
+ * |   addr_plen   |  prefixlen of addr.
  * +-+-+-+-+-+-+-+-+
- * |     daddr..   |
+ * |    daddr..    |  (zeroes if no destination/peer prefix)
  * :               :
  * |               |
+ * +-+-+-+-+-+-+-+-+
+ * |   daddr_plen  |  prefixlen of daddr.
  * +-+-+-+-+-+-+-+-+
  */
 
@@ -3254,26 +3256,20 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 
 	if (zclient_stream_get_prefix(s, &p) != 0)
 		goto stream_failure;
-
-	/* Fetch destination address. */
-	STREAM_GET(&d.u.prefix, s, plen);
+	if (zclient_stream_get_prefix(s, &d) != 0)
+		goto stream_failure;
 
 	/* N.B. NULL destination pointers are encoded as all zeroes */
-	dp = memconstant(&d.u.prefix, 0, plen) ? NULL : &d;
+	dp = (d.prefixlen == 0) && memconstant(&d.u.prefix, 0, plen) ? NULL : &d;
 
 	if (type == ZEBRA_INTERFACE_ADDRESS_ADD) {
-		ifc = connected_lookup_prefix_exact(ifp, &p);
-		if (!ifc) {
-			/* N.B. NULL destination pointers are encoded as all
-			 * zeroes */
+		ifc = connected_lookup_prefix_exact(ifp, &p, dp);
+		if (!ifc)
 			ifc = connected_add_by_prefix(ifp, &p, dp);
-		}
+
 		if (ifc) {
 			ifc->flags = ifc_flags;
-			if (ifc->destination)
-				ifc->destination->prefixlen =
-					ifc->address->prefixlen;
-			else if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
+			if (!ifc->destination && CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
 				/* carp interfaces on OpenBSD with 0.0.0.0/0 as
 				 * "peer" */
 				flog_err(
@@ -3285,7 +3281,7 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 		}
 	} else {
 		assert(type == ZEBRA_INTERFACE_ADDRESS_DELETE);
-		ifc = connected_delete_by_prefix(ifp, &p);
+		ifc = connected_delete_by_prefix(ifp, &p, dp);
 	}
 
 	return ifc;
