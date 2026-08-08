@@ -76,6 +76,8 @@ struct memgroup {
 	static void _mginit_##mname(void)                                      \
 	{                                                                      \
 		extern struct memgroup **mg_insert;                            \
+		if (_mg_##mname.ref)                                           \
+			return;                                                \
 		_mg_##mname.ref = mg_insert;                                   \
 		*mg_insert = &_mg_##mname;                                     \
 		mg_insert = &_mg_##mname.next;                                 \
@@ -109,6 +111,8 @@ struct memgroup {
 	static void _mtinit_##mname(void) __attribute__((_CONSTRUCTOR(1001))); \
 	static void _mtinit_##mname(void)                                      \
 	{                                                                      \
+		if (MTYPE_##mname->ref)                                        \
+			return;                                                \
 		if (_mg_##group.insert == NULL)                                \
 			_mg_##group.insert = &_mg_##group.types;               \
 		MTYPE_##mname->ref = _mg_##group.insert;                       \
