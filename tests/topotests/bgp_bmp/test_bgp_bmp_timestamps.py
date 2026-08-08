@@ -32,12 +32,18 @@ Checks:
   already-known prefix (same prefix, changed attribute) must carry the
   reception time of the re-announcement, not the time the prefix was
   first received.
+* pre-policy route-monitoring timestamps must carry genuine
+  microsecond precision: the microsecond components of updates
+  received seconds apart must differ, not all sit at the boot-constant
+  sub-second offset that monotime_to_realtime() fabricates from a
+  seconds-only monotonic timestamp.
 """
 
 import os
 import sys
 import pytest
 from datetime import datetime
+from itertools import combinations
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -469,6 +475,87 @@ def test_prepolicy_reannouncement_timestamp():
             second_timestamp,
             delta,
         )
+    )
+
+
+def test_prepolicy_microsecond_timestamps():
+    """
+    The previous subtest left WATCHED_PREFIX announced through
+    route-map RM-TS (community 65502:77) and produced two pre-policy
+    updates >= 5s apart.  Drive three further re-announcements by
+    changing only the route-map community, each spaced by the 5s
+    route-map delay timer, and collect the microsecond component of
+    all five updates' timestamps.  Genuine reception times of events
+    seconds apart have effectively random microseconds; the fabricated
+    ones are the boot-constant CLOCK_REALTIME-CLOCK_MONOTONIC
+    sub-second offset, identical (within ~20us of clock-read jitter)
+    for every message.  Assert the samples spread out: maximum
+    pairwise circular distance above 100us -- 5x the observed jitter
+    cluster, with a ~1e-8 false-failure probability on fixed code.
+    """
+    tgen = get_topogen()
+
+    # Deliberately no bmp_update_seq() here: the baseline set at the
+    # start of the previous subtest keeps its two updates visible.
+    def _update_with_community(community, min_seq):
+        msgs = [
+            m
+            for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+            if m["seq"] > min_seq and m.get("communities") == community
+        ]
+        return msgs[0] if msgs else None
+
+    samples = {}
+    last_seq = 0
+
+    # The two updates the previous subtest already verified.
+    for community in ("65502:11", "65502:77"):
+        msg = _update_with_community(community, last_seq)
+        assert msg, (
+            "pre-policy update with community {} from the previous "
+            "subtest not found in the BMP log".format(community)
+        )
+        samples[community] = _parse_bmp_timestamp(msg["timestamp"]).microsecond
+        last_seq = msg["seq"]
+
+    # Three more re-announcements, each an in-place attribute change
+    # spaced by the 5s route-map delay timer.
+    for community in ("65502:101", "65502:102", "65502:103"):
+        tgen.gears["r2ts"].vtysh_cmd(
+            "configure terminal\n"
+            "route-map RM-TS permit 10\n"
+            " set community {}\n".format(community)
+        )
+
+        def _update_seen():
+            if _update_with_community(community, last_seq):
+                return True
+            return "pre-policy update with community {} not logged yet".format(
+                community
+            )
+
+        success, res = topotest.run_and_expect(_update_seen, True, count=60, wait=1)
+        assert success, (
+            "no pre-policy update carrying community {} for the "
+            "re-announcement of {}: {}".format(community, WATCHED_PREFIX, res)
+        )
+        msg = _update_with_community(community, last_seq)
+        samples[community] = _parse_bmp_timestamp(msg["timestamp"]).microsecond
+        last_seq = msg["seq"]
+
+    def _circular_distance(a, b):
+        d = abs(a - b)
+        return min(d, 1000000 - d)
+
+    max_spread = max(
+        _circular_distance(a, b) for a, b in combinations(samples.values(), 2)
+    )
+    assert max_spread > 100, (
+        "the microsecond components of {} pre-policy updates received "
+        "seconds apart all sit within {}us of each other ({}) -- bgpd "
+        "fabricated them from the boot-constant sub-second offset "
+        "between CLOCK_REALTIME and CLOCK_MONOTONIC instead of "
+        "carrying the genuine reception time".format(len(samples), max_spread, samples)
     )
 
 
