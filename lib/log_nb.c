@@ -292,7 +292,7 @@ static int logging_file_level_modify(struct nb_cb_modify_args *args)
 	if (yang_dnode_exists(args->dnode, "../filename"))
 		fname = yang_dnode_get_string(args->dnode, "../filename");
 	if (!fname)
-		fname = zt_file.filename;
+		return NB_OK;
 	level = _get_level_value(args->dnode, NULL);
 	if (set_log_file(&zt_file, NULL, fname, level) != CMD_SUCCESS)
 		return NB_ERR_INCONSISTENCY;
@@ -342,7 +342,7 @@ static int logging_filtered_file_level_modify(struct nb_cb_modify_args *args)
 	if (yang_dnode_exists(args->dnode, "../filename"))
 		fname = yang_dnode_get_string(args->dnode, "../filename");
 	if (!fname)
-		fname = zt_file.filename;
+		return NB_OK;
 	level = _get_level_value(args->dnode, NULL);
 	if (set_log_file(&zt_filterfile.parent, NULL, fname, level) != CMD_SUCCESS)
 		return NB_ERR_INCONSISTENCY;
