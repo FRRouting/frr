@@ -114,8 +114,13 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 
 	r->proto_addr = p->dst_proto;
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
+<<<<<<< HEAD
 	if (c) {
 		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, holdtime,
+=======
+	if (c)
+		nhrp_cache_update_binding(c, NHRP_CACHE_NHS, holdtime, 0, 0,
+>>>>>>> 81d76fcf6 (nhrpd: implement U-bit uniqueness semantics per RFC2332 §5.2.1)
 					  nhrp_peer_ref(r->peer), mtu, NULL,
 					  &cie_nbma_nhs);
 		c->priority = nhs->priority;
@@ -137,7 +142,7 @@ static void nhrp_reg_timeout(struct event *t)
 		nhrp_reqid_free(&nhrp_packet_reqid, &r->reqid);
 		c = nhrp_cache_get(r->nhs->ifp, &r->proto_addr, 0);
 		if (c)
-			nhrp_cache_update_binding(c, NHRP_CACHE_NHS, -1, NULL,
+			nhrp_cache_update_binding(c, NHRP_CACHE_NHS, -1, 0, NULL,
 						  0, NULL, NULL);
 		sockunion_family(&r->proto_addr) = AF_UNSPEC;
 	}
