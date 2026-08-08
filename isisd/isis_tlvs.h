@@ -323,6 +323,36 @@ struct isis_lan_neighbor {
 	uint8_t mac[6];
 };
 
+/* RFC5307 SRLG TLV 138 (IPv4) flags */
+#define ISIS_SRLG_FLAG_NUMBERED 0x01
+
+/* Max SRLG values held per advertisement (matches lib LP_MAX_SRLG) */
+#define ISIS_SRLG_MAX 32
+
+/* RFC5307 TLV 138 GMPLS Shared Risk Link Group (IPv4) */
+struct isis_srlg {
+	struct isis_srlg *next;
+
+	uint8_t neighbor_id[7]; /* System ID + pseudonode number */
+	uint8_t flags;
+	struct in_addr local;	/* IPv4 interface or Link Local Identifier */
+	struct in_addr remote;	/* IPv4 neighbor or Link Remote Identifier */
+	uint8_t srlg_num;
+	uint32_t srlgs[ISIS_SRLG_MAX];
+};
+
+/* RFC6119 TLV 139 IPv6 Shared Risk Link Group */
+struct isis_srlg_ipv6 {
+	struct isis_srlg_ipv6 *next;
+
+	uint8_t neighbor_id[7]; /* System ID + pseudonode number */
+	uint8_t flags;
+	struct in6_addr local;	/* IPv6 interface address */
+	struct in6_addr remote;	/* IPv6 neighbor address */
+	uint8_t srlg_num;
+	uint32_t srlgs[ISIS_SRLG_MAX];
+};
+
 struct isis_ipv4_address {
 	struct isis_ipv4_address *next;
 
@@ -412,6 +442,8 @@ struct isis_tlvs {
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
 	struct isis_mt_item_list srv6_locator;
+	struct isis_item_list srlg;	  /* TLV 138 GMPLS SRLG (IPv4) */
+	struct isis_item_list srlg_ipv6;  /* TLV 139 IPv6 SRLG */
 };
 
 enum isis_tlv_context {
@@ -465,6 +497,8 @@ enum isis_tlv_type {
 	ISIS_TLV_TE_ROUTER_ID = 134,
 	ISIS_TLV_EXTENDED_IP_REACH = 135,
 	ISIS_TLV_DYNAMIC_HOSTNAME = 137,
+	ISIS_TLV_GMPLS_SRLG = 138,
+	ISIS_TLV_IPV6_SRLG = 139,
 	ISIS_TLV_TE_ROUTER_ID_IPV6 = 140,
 	ISIS_TLV_SPINE_LEAF_EXT = 150,
 	ISIS_TLV_MT_REACH = 222,
@@ -833,6 +867,9 @@ void isis_tlvs_free_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps);
 void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id, uint8_t metric);
 void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid, uint8_t *id,
 				  uint32_t metric, struct isis_ext_subtlvs *subtlvs);
+void isis_tlvs_add_srlg(struct isis_tlvs *tlvs, const uint8_t *id,
+			const uint32_t *srlgs, uint8_t srlg_num,
+			struct isis_ext_subtlvs *ext);
 
 const char *isis_threeway_state_name(enum isis_threeway_state state);
 
