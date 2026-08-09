@@ -300,9 +300,9 @@ int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
 			    : ({                                                                                                                                   \
 				      lua_settop(lfs->L, 0);                                                                                                       \
 				      lua_getglobal(lfs->L, f);                                                                                                    \
-				      MAP_LISTS(ENCODE_ARGS, ##__VA_ARGS__);                                                                                       \
+				      MACRO_REPEAT_SEMICOLON(ENCODE_ARGS, ##__VA_ARGS__);                                                                          \
 				      _frrscript_call_lua(                                                                                                         \
-					      lfs, PP_NARG(__VA_ARGS__));                                                                                          \
+					      lfs, MACRO_NARGS(__VA_ARGS__));                                                                                      \
 			      }) != 0                                                                                                                              \
 				      ? ({                                                                                                                         \
 						zlog_err(                                                                                                          \
@@ -311,7 +311,7 @@ int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
 						1;                                                                                                                 \
 					})                                                                                                                         \
 				      : ({                                                                                                                         \
-						MAP_LISTS(DECODE_ARGS,                                                                                             \
+						MACRO_REPEAT_SEMICOLON(DECODE_ARGS,                                                                                \
 							  ##__VA_ARGS__);                                                                                          \
 						0;                                                                                                                 \
 					});                                                                                                                        \
