@@ -536,10 +536,10 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 		return;
 
 	hdr = (struct zlog_live_hdr *)data;
-	if (hdr->hdrlen < sizeof(*hdr))
+	if (hdr->hdrlen < sizeof(*hdr) || hdr->hdrlen > len)
 		return;
 	data += hdr->hdrlen;
-	len -= sizeof(*hdr);
+	len -= hdr->hdrlen;
 
 	msg->ts.tv_sec = hdr->ts_sec;
 	msg->ts.tv_nsec = hdr->ts_nsec;
@@ -563,6 +563,7 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 	static_assert(sizeof(msg->argpos[0]) == sizeof(hdr->argpos[0]),
 		      "in-memory struct doesn't match on-wire variant");
 	msg->n_argpos = MIN(hdr->n_argpos, array_size(msg->argpos));
+	msg->n_argpos = MIN(msg->n_argpos, (hdr->hdrlen - sizeof(*hdr)) / sizeof(msg->argpos[0]));
 	memcpy(msg->argpos, hdr->argpos, msg->n_argpos * sizeof(msg->argpos[0]));
 
 	/* This will only work if we're in the same daemon: we received a log
