@@ -547,10 +547,15 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 	msg->tid = hdr->tid;
 	msg->prio = hdr->prio;
 
-	if (hdr->textlen > len)
-		return;
 	msg->textlen = hdr->textlen;
-	msg->hdrlen = hdr->texthdrlen;
+	if (msg->textlen > len) {
+		const char *uid = hdr->uid[0] ? hdr->uid : "<no uid>";
+
+		zlog_warn("log message %s truncated in recirculation (%zu cut off to %zu)", uid,
+			  msg->textlen, len);
+		msg->textlen = len;
+	}
+	msg->hdrlen = MIN(hdr->texthdrlen, msg->textlen);
 	msg->text = (char *)data;
 
 	/* caller needs to make sure we have a trailing \n\0, it's not
@@ -560,6 +565,11 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 	    msg->text[msg->textlen + 1] != '\0')
 		return;
 
+	/* NB: even if the message is truncated, argpos are left intact.  It
+	 * just further mangled a log event that already got mangled, and
+	 * readers/consumers of these values should be resilient against
+	 * invalid offsets anyway
+	 */
 	static_assert(sizeof(msg->argpos[0]) == sizeof(hdr->argpos[0]),
 		      "in-memory struct doesn't match on-wire variant");
 	msg->n_argpos = MIN(hdr->n_argpos, array_size(msg->argpos));
@@ -590,7 +600,7 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 		msg->fmt = xref_logmsg->fmtstring;
 	} else {
 		/* fake out format string... */
-		msg->fmt = msg->text + hdr->texthdrlen;
+		msg->fmt = msg->text + msg->hdrlen;
 	}
 
 	rcu_read_lock();
