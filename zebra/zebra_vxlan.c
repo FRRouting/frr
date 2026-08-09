@@ -5953,7 +5953,10 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 
 		zvrf->advertise_gw_macip = advertise;
 
-		if (advertise_gw_macip_enabled(zevpn))
+		/* zevpn is NULL in the global branch; the walkers re-check
+		 * the per-EVPN override themselves.
+		 */
+		if (advertise_gw_macip_enabled(NULL))
 			hash_iterate(zvrf->evpn_table,
 				     zebra_evpn_gw_macip_add_for_evpn_hash,
 				     NULL);
