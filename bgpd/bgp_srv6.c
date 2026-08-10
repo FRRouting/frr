@@ -355,7 +355,6 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 			}
 
 			bgp_attr_extra_discard(&attr_tmp);
-			route_map_counter_increment(rmap);
 		} else {
 			zlog_warn("route-map %s was no found, ignored",
 				  bgp->srv6_unicast[afi].rmap_name);
