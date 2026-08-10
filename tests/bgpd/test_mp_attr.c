@@ -49,6 +49,7 @@ static struct test_segment {
 	int len;
 #define SHOULD_PARSE	0
 #define SHOULD_ERR	-1
+#define SHOULD_WITHDRAW BGP_ATTR_PARSE_WITHDRAW
 	int parses; /* whether it should parse or not */
 } mp_reach_segments[] = {
 	{
@@ -991,6 +992,97 @@ static struct test_segment mp_prefix_sid[] = {
 		.len = 56,
 		.parses = SHOULD_PARSE,
 	},
+	{
+		.name = "PREFIX-SID-SRv6-L3-Service-length-overflow",
+		.desc = "PREFIX-SID rejects an overlong SRv6 L3 Service TLV",
+		.data = {
+			0x05,       /* Type 0x05: SRv6 L3 Service */
+			0x00, 0x19, /* Length exceeds remaining attribute data */
+			0x00,       /* Reserved */
+		},
+		.len = 4,
+		.parses = SHOULD_WITHDRAW,
+	},
+	{
+		.name = "PREFIX-SID-SRv6-L3-Service-missing-reserved",
+		.desc = "PREFIX-SID rejects an SRv6 L3 Service TLV without the reserved byte",
+		.data = {
+			0x05,       /* Type 0x05: SRv6 L3 Service */
+			0x00, 0x00, /* Length omits the mandatory reserved byte */
+		},
+		.len = 3,
+		.parses = SHOULD_WITHDRAW,
+	},
+	{
+		.name = "PREFIX-SID-SRv6-L3-Service-sid-info-short",
+		.desc = "PREFIX-SID rejects a short SRv6 SID Information Sub-TLV",
+		.data = {
+			0x05,       /* Type 0x05: SRv6 L3 Service */
+			0x00, 0x18, /* SRv6 L3 Service TLV length */
+			0x00,       /* Reserved */
+			0x01,       /* Sub-TLV type: SID Information */
+			0x00, 0x14, /* Sub-TLV length below the fixed 21 bytes */
+			0x00,       /* Reserved */
+			0xfc, 0xbb, 0xbb, 0xbb, /* SID fcbb:bbbb:1:e000:: */
+			0x00, 0x01, 0xe0, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00,       /* SID flags */
+			0x00, 0x40, /* Endpoint behavior */
+		},
+		.len = 27,
+		.parses = SHOULD_WITHDRAW,
+	},
+	{
+		.name = "PREFIX-SID-SRv6-L3-Service-sid-structure-bad-length",
+		.desc = "PREFIX-SID rejects an SRv6 SID Structure Sub-Sub-TLV with a bad length",
+		.data = {
+			0x05,       /* Type 0x05: SRv6 L3 Service */
+			0x00, 0x21, /* SRv6 L3 Service TLV length */
+			0x00,       /* Reserved */
+			0x01,       /* Sub-TLV type: SID Information */
+			0x00, 0x1d, /* SID Information plus Sub-Sub-TLV */
+			0x00,       /* Reserved */
+			0xfc, 0xbb, 0xbb, 0xbb, /* SID fcbb:bbbb:1:e000:: */
+			0x00, 0x01, 0xe0, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00,       /* SID flags */
+			0x00, 0x40, /* Endpoint behavior */
+			0x00,       /* Reserved */
+			0x01,       /* Sub-Sub-TLV type: SID Structure */
+			0x00, 0x05, /* Bad SID Structure length */
+			0x20, 0x20, 0x10, 0x00, 0x00,
+		},
+		.len = 36,
+		.parses = SHOULD_WITHDRAW,
+	},
+	{
+		.name = "PREFIX-SID-SRv6-L3-Service-sid-structure-bad-transposition",
+		.desc = "PREFIX-SID rejects an SRv6 SID Structure Sub-Sub-TLV with bad transposition",
+		.data = {
+			0x05,       /* Type 0x05: SRv6 L3 Service */
+			0x00, 0x22, /* SRv6 L3 Service TLV length */
+			0x00,       /* Reserved */
+			0x01,       /* Sub-TLV type: SID Information */
+			0x00, 0x1e, /* SID Information plus Sub-Sub-TLV */
+			0x00,       /* Reserved */
+			0xfc, 0xbb, 0xbb, 0xbb, /* SID fcbb:bbbb:1:e000:: */
+			0x00, 0x01, 0xe0, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00,       /* SID flags */
+			0x00, 0x40, /* Endpoint behavior */
+			0x00,       /* Reserved */
+			0x01,       /* Sub-Sub-TLV type: SID Structure */
+			0x00, 0x06, /* SID Structure length */
+			0x20, 0x20, 0x10, 0x00,
+			0x15,       /* Transposition length greater than 20 */
+			0x00,       /* Transposition offset */
+		},
+		.len = 37,
+		.parses = SHOULD_WITHDRAW,
+	},
 	{NULL, NULL, { 0 }, 0, 0},
 };
 
@@ -1002,13 +1094,21 @@ static void handle_result(struct peer *peer, struct test_segment *t,
 			  int parse_ret, int nlri_ret)
 {
 	int oldfailed = failed;
+	bool ok;
 
 	printf("mp attr parsed?: %s\n", parse_ret ? "no" : "yes");
 	if (!parse_ret)
 		printf("nrli parsed?:  %s\n", nlri_ret ? "no" : "yes");
 	printf("should parse?:  %s\n", t->parses ? "no" : "yes");
 
-	if ((parse_ret != 0 || nlri_ret != 0) != (t->parses != 0))
+	if (t->parses == SHOULD_ERR)
+		ok = parse_ret != 0 || nlri_ret != 0;
+	else if (t->parses == SHOULD_WITHDRAW)
+		ok = parse_ret == BGP_ATTR_PARSE_WITHDRAW;
+	else
+		ok = parse_ret == 0 && nlri_ret == 0;
+
+	if (!ok)
 		failed++;
 
 
