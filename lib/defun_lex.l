@@ -50,6 +50,7 @@
 #define DEFUNNY	  270
 #define INSTALL	  271
 #define AUXILIARY 272
+#define HOOK	  273
 
 int comment_link;
 char string_end;
@@ -168,9 +169,18 @@ SPECIAL		[(),]
 "DEFPY_YANG_NOSH"		value = strdup(yytext); return DEFUNNY;
 "ALIAS"				value = strdup(yytext); return DEFUNNY;
 "ALIAS_HIDDEN"			value = strdup(yytext); return DEFUNNY;
+
 "install_element"		value = strdup(yytext); return INSTALL;
+
 "VTYSH_TARGETS"			value = strdup(yytext); return AUXILIARY;
 "VTYSH_NODESWITCH"		value = strdup(yytext); return AUXILIARY;
+
+"DO_HOOK"			value = strdup(yytext); return HOOK;
+"DEFINE_HOOK"			value = strdup(yytext); return HOOK;
+"DECLARE_HOOK"			value = strdup(yytext); return HOOK;
+"DO_KOOH"			value = strdup(yytext); return HOOK;
+"DEFINE_KOOH"			value = strdup(yytext); return HOOK;
+"DECLARE_KOOH"			value = strdup(yytext); return HOOK;
 
 [ \t]+				/* ignore */
 \\				/* ignore */
@@ -289,11 +299,23 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 
 	while ((token = yylex_clr(&tval, &off_start)) != YY_NULL) {
 		int lineno = yylineno;
+		const char *type;
+
 		PyObject *pyItem = NULL, *pyArgs;
 		switch (token) {
 		case DEFUNNY:
+			if (!(type = "DEFUNNY"))
+				/* fallthru */
 		case INSTALL:
+			if (!(type = "INSTALL"))
+				/* fallthru */
 		case AUXILIARY:
+			if (!(type = "AUXILIARY"))
+				/* fallthru */
+		case HOOK:
+			if (!(type = "HOOK"))
+				(void)0;
+
 			off_start -= strlen(tval);
 
 			pyArgs = get_args(filename, lineno, &off_end);
@@ -304,9 +326,10 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 				return NULL;
 			}
 			pyItem = PyDict_New();
-			PyDict_SetItemString(pyItem, "type", PyUnicode_FromString(tval));
+			PyDict_SetItemString(pyItem, "value", PyUnicode_FromString(tval));
 			PyDict_SetItemString(pyItem, "start", PyLong_FromLongLong(off_start));
 			PyDict_SetItemString(pyItem, "end", PyLong_FromLongLong(off_end));
+			PyDict_SetItemString(pyItem, "type", PyUnicode_FromString(type));
 			PyDict_SetItemString(pyItem, "args", pyArgs);
 			break;
 		case COMMENT:

@@ -310,8 +310,8 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
                 elif len(cond_stack) == 1 and cond_stack[0] == "#ifdef CLIPPY\n":
                     macros.load_preproc(fn, entry)
             continue
-        if entry["type"].startswith("DEFPY") or (
-            all_defun and entry["type"].startswith("DEFUN")
+        if entry["type"] == "DEFUNNY" and (
+            entry["value"].startswith("DEFPY") or all_defun
         ):
             if len(entry["args"][0]) != 1:
                 sys.stderr.write(
@@ -451,7 +451,7 @@ if __name__ == "__main__":
         "--all-defun",
         action="store_const",
         const=True,
-        help="process DEFUN() statements in addition to DEFPY()",
+        help="process DEFUN() and ALIAS() statements in addition to DEFPY()",
     )
     argp.add_argument(
         "--show",
