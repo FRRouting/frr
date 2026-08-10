@@ -957,33 +957,11 @@ static bool isis_bfd_get_bfd_nlpid_state(struct isis_adjacency *adj,
 	return true;
 }
 
-/* Update the RFC6213 variables :
- *  - ISIS_TOPO_NLPID_BFD_REQUIRED
- *  - ISIS_TOPO_BFD_REQUIRED
- *  - ISIS_BFD_REQUIRED
- *  - ISIS_TOPO_NLPID_STATE
- *  - ISIS_TOPO_USEABLE
- *  - ISIS_NEIGHBOR_USEABLE
- *
- *  And bfd_ipv4_required and bfd_ipv6_required. They are not RFC-defined
- *  but internal variables that determines whether IPv4 and IPv6 BFD sessions
- *  should be active.
- */
-static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
+static void isis_bfd_update_rfc6213_topo_nlpid_required(struct isis_adjacency *adj, bool debug)
 {
-	struct listnode *node, *mtnode;
 	struct bfd_local_mtnlpid *bfd_local_pair;
-	struct bfd_local_mtid *bfd_local_topo;
-	bool old_value, debug;
-
-	debug = IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit);
-
-	isis_bfd_adjacency_update_rfc6213_local_params(adj);
-
-	if (debug)
-		zlog_debug("ISIS-BFD: %s RFC6213 variables for L%u adjacency %s",
-			   adj->bfd_rfc6213.inited ? "updating" : "initializing",
-			   adj->level, isis_adj_name(adj));
+	struct listnode *node;
+	bool old_value;
 
 	/* RFC6213, 3.1. ISIS_TOPO_NLPID_BFD_REQUIRED
 	 * For each locally supported MTID/NLPID pair, an
@@ -992,7 +970,6 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 	 * NLPID, this variable is set to "TRUE".  Otherwise, the variable is
 	 * set to "FALSE".
 	 */
-
 	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
 				  bfd_local_pair)) {
 		if (isis_bfd_mtnlpid_enabled(adj->bfd_rfc6213.neighbor_mtid_nlpid,
@@ -1031,104 +1008,14 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 				   adj->level, isis_adj_name(adj));
 		}
 	}
+}
 
-	/* RFC6213, 3.1. ISIS_TOPO_NLPID_STATE
-	 * If "ISIS_TOPO_NLPID_BFD_REQUIRED" is "TRUE", "NLPID_STATE"
-	 * follows the BFD session state for that MTID/NLPID ("UP == TRUE").
-	 * Otherwise, the variable is set to "TRUE".
-	 */
-
-	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
-				  bfd_local_pair)) {
-		old_value = bfd_local_pair->topo_nlpid_state;
-		if (bfd_local_pair->topo_nlpid_bfd_required)
-			bfd_local_pair->topo_nlpid_state =
-				isis_bfd_get_bfd_nlpid_state(adj,
-							     bfd_local_pair->nlpid ==
-									     NLPID_IP
-								     ? AF_INET
-								     : AF_INET6);
-		else
-			bfd_local_pair->topo_nlpid_state = true;
-		if (debug && (!bfd_local_pair->inited ||
-			      old_value != bfd_local_pair->topo_nlpid_state))
-			zlog_debug("ISIS-BFD: local MT %s NLPID %s BFD state is %s on L%u adjacency %s",
-				   isis_mtid2str(bfd_local_pair->mtid),
-				   nlpid2str(bfd_local_pair->nlpid),
-				   bfd_local_pair->topo_nlpid_state ? "True"
-								    : "False",
-				   adj->level, isis_adj_name(adj));
-	}
-
-	/* RFC6213, 3.1. ISIS_TOPO_USEABLE
-	 * For each locally supported topology (MTID), an "ISIS_TOPO_USEABLE"
-	 * variable is set to the logical "AND" of the set of
-	 * "ISIS_TOPO_NLPID_STATE" variables associated with that MTID.
-	 */
-	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtid_lst, mtnode,
-				  bfd_local_topo)) {
-		old_value = bfd_local_topo->topo_useable;
-		bfd_local_topo->topo_useable = true;
-		for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst,
-					  node, bfd_local_pair)) {
-			if (bfd_local_topo->mtid == bfd_local_pair->mtid)
-				bfd_local_topo->topo_useable &=
-					bfd_local_pair->topo_nlpid_state;
-		}
-		if (debug && (!bfd_local_topo->inited ||
-			      old_value != bfd_local_topo->topo_useable))
-			zlog_debug("ISIS-BFD: local MT %s is %suseable on L%u adjacency %s",
-				   isis_mtid2str(bfd_local_topo->mtid),
-				   bfd_local_topo->topo_useable ? "" : "not ",
-				   adj->level, isis_adj_name(adj));
-	}
-
-	/* Non specified RFC booleans:
-	 *  - bfd_ipv4_required
-	 *  - bfd_ipv6_required
-	 *
-	 * Their value determines whether the BFD sessions
-	 * should be active for the IPv4 and v6 address family.
-	 */
-	old_value = adj->bfd_rfc6213.bfd_ipv4_required;
-	adj->bfd_rfc6213.bfd_ipv4_required = false;
-	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
-				  bfd_local_pair)) {
-		if (bfd_local_pair->nlpid == NLPID_IP &&
-		    bfd_local_pair->topo_nlpid_bfd_required) {
-			adj->bfd_rfc6213.bfd_ipv4_required = true;
-			break;
-		}
-	}
-	if (debug && (!adj->bfd_rfc6213.inited ||
-		      old_value != adj->bfd_rfc6213.bfd_ipv4_required))
-		zlog_debug("ISIS-BFD: bfd_ipv4_required is %s on L%u adjacency %s",
-			   adj->bfd_rfc6213.bfd_ipv4_required ? "True" : "False",
-			   adj->level, isis_adj_name(adj));
-	if (old_value != adj->bfd_rfc6213.bfd_ipv4_required &&
-	    adj->bfd_rfc6213.bfd_ipv4_required)
-		isis_bfd_transition_bfd_required(adj, true,
-						 "bfd_ipv4_required is True");
-
-	old_value = adj->bfd_rfc6213.bfd_ipv6_required;
-	adj->bfd_rfc6213.bfd_ipv6_required = false;
-	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
-				  bfd_local_pair)) {
-		if (bfd_local_pair->nlpid == NLPID_IPV6 &&
-		    bfd_local_pair->topo_nlpid_bfd_required) {
-			adj->bfd_rfc6213.bfd_ipv6_required = true;
-			break;
-		}
-	}
-	if (debug && (!adj->bfd_rfc6213.inited ||
-		      old_value != adj->bfd_rfc6213.bfd_ipv6_required))
-		zlog_debug("ISIS-BFD: bfd_ipv6_required is %s on L%u adjacency %s",
-			   adj->bfd_rfc6213.bfd_ipv6_required ? "True" : "False",
-			   adj->level, isis_adj_name(adj));
-	if (old_value != adj->bfd_rfc6213.bfd_ipv6_required &&
-	    adj->bfd_rfc6213.bfd_ipv6_required)
-		isis_bfd_transition_bfd_required(adj, true,
-						 "bfd_ipv6_required is True");
+static void isis_bfd_update_rfc6213_topo_required(struct isis_adjacency *adj, bool debug)
+{
+	struct bfd_local_mtnlpid *bfd_local_pair;
+	struct bfd_local_mtid *bfd_local_topo;
+	struct listnode *node, *mtnode;
+	bool old_value;
 
 	/* RFC6213, 3.1. ISIS_TOPO_BFD_REQUIRED
 	 * For each locally supported MTID, an "ISIS_TOPO_BFD_REQUIRED" variable
@@ -1153,6 +1040,12 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 								     : "not ",
 				   adj->level, isis_adj_name(adj));
 	}
+}
+
+static void isis_bfd_update_rfc6213_required(struct isis_adjacency *adj, bool debug)
+{
+	struct bfd_local_mtid *bfd_local_topo;
+	struct listnode *mtnode;
 
 	/* RFC6213, 3.1. ISIS_BFD_REQUIRED
 	 * An "ISIS_BFD_REQUIRED" variable is set to the logical "AND" of all
@@ -1187,6 +1080,80 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		zlog_debug("ISIS-BFD: local BFD is %srequired on L%u adjacency %s",
 			   adj->bfd_rfc6213.bfd_required ? "" : "not ",
 			   adj->level, isis_adj_name(adj));
+}
+
+static void isis_bfd_update_rfc6213_topo_nlpid_state(struct isis_adjacency *adj, bool debug)
+{
+	struct listnode *node;
+	struct bfd_local_mtnlpid *bfd_local_pair;
+	bool old_value;
+
+	/* RFC6213, 3.1. ISIS_TOPO_NLPID_STATE
+	 * If "ISIS_TOPO_NLPID_BFD_REQUIRED" is "TRUE", "NLPID_STATE"
+	 * follows the BFD session state for that MTID/NLPID ("UP == TRUE").
+	 * Otherwise, the variable is set to "TRUE".
+	 */
+
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
+				  bfd_local_pair)) {
+		old_value = bfd_local_pair->topo_nlpid_state;
+		if (bfd_local_pair->topo_nlpid_bfd_required)
+			bfd_local_pair->topo_nlpid_state =
+				isis_bfd_get_bfd_nlpid_state(adj,
+							     bfd_local_pair->nlpid ==
+									     NLPID_IP
+								     ? AF_INET
+								     : AF_INET6);
+		else
+			bfd_local_pair->topo_nlpid_state = true;
+		if (debug && (!bfd_local_pair->inited ||
+			      old_value != bfd_local_pair->topo_nlpid_state))
+			zlog_debug("ISIS-BFD: local MT %s NLPID %s BFD state is %s on L%u adjacency %s",
+				   isis_mtid2str(bfd_local_pair->mtid),
+				   nlpid2str(bfd_local_pair->nlpid),
+				   bfd_local_pair->topo_nlpid_state ? "True"
+								    : "False",
+				   adj->level, isis_adj_name(adj));
+	}
+}
+
+/* RFC6213, 3.1. ISIS_TOPO_USEABLE */
+static void isis_bfd_update_rfc6213_topo_useable(struct isis_adjacency *adj, bool debug)
+{
+	struct bfd_local_mtnlpid *bfd_local_pair;
+	struct bfd_local_mtid *bfd_local_topo;
+	struct listnode *node, *mtnode;
+	bool old_value;
+
+	/* RFC6213, 3.1. ISIS_TOPO_USEABLE
+	 * For each locally supported topology (MTID), an "ISIS_TOPO_USEABLE"
+	 * variable is set to the logical "AND" of the set of
+	 * "ISIS_TOPO_NLPID_STATE" variables associated with that MTID.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtid_lst, mtnode,
+				  bfd_local_topo)) {
+		old_value = bfd_local_topo->topo_useable;
+		bfd_local_topo->topo_useable = true;
+		for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst,
+					  node, bfd_local_pair)) {
+			if (bfd_local_topo->mtid == bfd_local_pair->mtid)
+				bfd_local_topo->topo_useable &=
+					bfd_local_pair->topo_nlpid_state;
+		}
+		if (debug && (!bfd_local_topo->inited ||
+			      old_value != bfd_local_topo->topo_useable))
+			zlog_debug("ISIS-BFD: local MT %s is %suseable on L%u adjacency %s",
+				   isis_mtid2str(bfd_local_topo->mtid),
+				   bfd_local_topo->topo_useable ? "" : "not ",
+				   adj->level, isis_adj_name(adj));
+	}
+}
+
+static void isis_bfd_update_rfc6213_neighbor_useable(struct isis_adjacency *adj, bool debug)
+{
+	struct bfd_local_mtid *bfd_local_topo;
+	struct listnode *mtnode;
+	bool old_value;
 
 	/* RFC6213, 3.1. ISIS_NEIGHBOR_USEABLE
 	 * An "ISIS_NEIGHBOR_USEABLE" variable is set to the logical "OR" of all
@@ -1205,6 +1172,117 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		zlog_debug("ISIS-BFD: neighbor is %suseable on L%u adjacency %s",
 			   adj->bfd_rfc6213.neighbor_useable ? "" : "not ",
 			   adj->level, isis_adj_name(adj));
+}
+
+static void isis_bfd_update_rfc6213_ipv4_required(struct isis_adjacency *adj, bool debug)
+{
+	struct bfd_local_mtnlpid *bfd_local_pair;
+	struct listnode *node;
+	bool old_value;
+
+	old_value = adj->bfd_rfc6213.bfd_ipv4_required;
+	adj->bfd_rfc6213.bfd_ipv4_required = false;
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node, bfd_local_pair)) {
+		if (bfd_local_pair->nlpid == NLPID_IP && bfd_local_pair->topo_nlpid_bfd_required) {
+			adj->bfd_rfc6213.bfd_ipv4_required = true;
+			break;
+		}
+	}
+
+	if (debug && (!adj->bfd_rfc6213.inited ||
+		      old_value != adj->bfd_rfc6213.bfd_ipv4_required))
+		zlog_debug("ISIS-BFD: bfd_ipv4_required is %s on L%u adjacency %s",
+			   adj->bfd_rfc6213.bfd_ipv4_required ? "True" : "False",
+			   adj->level, isis_adj_name(adj));
+
+	if (old_value != adj->bfd_rfc6213.bfd_ipv4_required &&
+	    adj->bfd_rfc6213.bfd_ipv4_required)
+		isis_bfd_transition_bfd_required(adj, true,
+						 "bfd_ipv4_required is True");
+}
+
+static void isis_bfd_update_rfc6213_ipv6_required(struct isis_adjacency *adj, bool debug)
+{
+	struct bfd_local_mtnlpid *bfd_local_pair;
+	struct listnode *node;
+	bool old_value;
+
+	old_value = adj->bfd_rfc6213.bfd_ipv6_required;
+	adj->bfd_rfc6213.bfd_ipv6_required = false;
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node, bfd_local_pair)) {
+		if (bfd_local_pair->nlpid == NLPID_IPV6 && bfd_local_pair->topo_nlpid_bfd_required) {
+			adj->bfd_rfc6213.bfd_ipv6_required = true;
+			break;
+		}
+	}
+
+	if (debug && (!adj->bfd_rfc6213.inited ||
+		      old_value != adj->bfd_rfc6213.bfd_ipv6_required))
+		zlog_debug("ISIS-BFD: bfd_ipv6_required is %s on L%u adjacency %s",
+			   adj->bfd_rfc6213.bfd_ipv6_required ? "True" : "False",
+			   adj->level, isis_adj_name(adj));
+
+	if (old_value != adj->bfd_rfc6213.bfd_ipv6_required &&
+	    adj->bfd_rfc6213.bfd_ipv6_required)
+		isis_bfd_transition_bfd_required(adj, true,
+						 "bfd_ipv6_required is True");
+}
+
+/* Update the RFC6213 variables :
+ *  - ISIS_TOPO_NLPID_BFD_REQUIRED
+ *  - ISIS_TOPO_BFD_REQUIRED
+ *  - ISIS_BFD_REQUIRED
+ *  - ISIS_TOPO_NLPID_STATE
+ *  - ISIS_TOPO_USEABLE
+ *  - ISIS_NEIGHBOR_USEABLE
+ *
+ *  And bfd_ipv4_required and bfd_ipv6_required. They are not RFC-defined
+ *  but internal variables that determines whether IPv4 and IPv6 BFD sessions
+ *  should be active.
+ */
+static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
+{
+	struct listnode *node, *mtnode;
+	struct bfd_local_mtnlpid *bfd_local_pair;
+	struct bfd_local_mtid *bfd_local_topo;
+	bool debug;
+
+	debug = IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit);
+
+	isis_bfd_adjacency_update_rfc6213_local_params(adj);
+
+	if (debug)
+		zlog_debug("ISIS-BFD: %s RFC6213 variables for L%u adjacency %s",
+			   adj->bfd_rfc6213.inited ? "updating" : "initializing",
+			   adj->level, isis_adj_name(adj));
+
+	/* RFC6213, 3.1. ISIS_TOPO_NLPID_BFD_REQUIRED */
+	isis_bfd_update_rfc6213_topo_nlpid_required(adj, debug);
+
+	/* RFC6213, 3.1. ISIS_TOPO_BFD_REQUIRED */
+	isis_bfd_update_rfc6213_topo_required(adj, debug);
+
+	/* RFC6213, 3.1. ISIS_BFD_REQUIRED */
+	isis_bfd_update_rfc6213_required(adj, debug);
+
+	/* Non specified RFC booleans:
+	 *  - bfd_ipv4_required
+	 *  - bfd_ipv6_required
+	 *
+	 * Their value determines whether the BFD sessions
+	 * should be active for the IPv4 and v6 address family.
+	 */
+	isis_bfd_update_rfc6213_ipv4_required(adj, debug);
+	isis_bfd_update_rfc6213_ipv6_required(adj, debug);
+
+	/* RFC6213, 3.1. ISIS_TOPO_NLPID_STATE */
+	isis_bfd_update_rfc6213_topo_nlpid_state(adj, debug);
+
+	/* RFC6213, 3.1. ISIS_TOPO_BFD_USEABLE */
+	isis_bfd_update_rfc6213_topo_useable(adj, debug);
+
+	/* RFC6213, 3.1. ISIS_NEIGHBOR_USEABLE */
+	isis_bfd_update_rfc6213_neighbor_useable(adj, debug);
 
 	/* set inited value to true in order to not display debug logs
 	 * next time unless a value has changed.
