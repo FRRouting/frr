@@ -43,11 +43,10 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_NEXTHOP, "ISIS nexthop");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_ROUTE_INFO, "ISIS route info");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_ROUTE_TABLE_INFO, "ISIS route table info");
 
-
-DEFINE_HOOK(isis_route_update_hook,
-	    (struct isis_area *area, struct prefix *prefix,
-	     struct isis_route_info *route_info),
-	    (area, prefix, route_info));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_route_hooks.h"
+#include "lib/hooks_end.h"
 
 static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family, union g_addr *ip,
 					  ifindex_t ifindex);

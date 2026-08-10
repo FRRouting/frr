@@ -12,8 +12,10 @@
 #include "bgp_attr.h"
 #include "bgp_updgrp.h"
 
-DECLARE_HOOK(bgp_hook_config_write_debug, (struct vty *vty, bool running),
-	     (vty, running));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_debug_hooks.h"
+#include "lib/hooks_end.h"
 
 /* sort of packet direction */
 #define DUMP_ON        1

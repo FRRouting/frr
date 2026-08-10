@@ -201,13 +201,6 @@ extern enum frr_cli_mode frr_get_cli_mode(void);
 extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);
 extern bool frr_is_daemon(void);
-/* call order of these hooks is as ordered here */
-DECLARE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
-DECLARE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
-/* fork() happens between late_init and config_pre */
-DECLARE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
-DECLARE_HOOK(frr_config_post, (struct event_loop * tm), (tm));
-
 extern void frr_config_fork(void);
 
 extern void frr_run(struct event_loop *master);
@@ -222,12 +215,13 @@ struct json_object;
 extern struct json_object *frr_daemon_state_load(void);
 extern void frr_daemon_state_save(struct json_object **statep);
 
-/* these two are before the protocol daemon does its own shutdown
- * it's named this way being the counterpart to frr_late_init */
-DECLARE_KOOH(frr_early_fini, (), ());
 extern void frr_early_fini(void);
-/* and these two are after the daemon did its own cleanup */
-DECLARE_KOOH(frr_fini, (), ());
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/libfrr_hooks.h"
+#include "lib/hooks_end.h"
+
 extern void frr_fini(void);
 
 extern char config_default[512];

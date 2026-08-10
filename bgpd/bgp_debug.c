@@ -39,8 +39,10 @@
 
 #include "bgpd/bgp_debug_clippy.c"
 
-DEFINE_HOOK(bgp_hook_config_write_debug, (struct vty *vty, bool running),
-	    (vty, running));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_debug_hooks.h"
+#include "lib/hooks_end.h"
 
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;

@@ -1368,10 +1368,10 @@ done:
 	return ret;
 }
 
-
-/* State machine ----------------------------------------------------------- */
-
-DEFINE_HOOK(vrrp_change_state_hook, (struct vrrp_router *r, int to), (r, to));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "vrrpd/vrrp_hooks.h"
+#include "lib/hooks_end.h"
 
 /*
  * Handle any necessary actions during state change to MASTER state.

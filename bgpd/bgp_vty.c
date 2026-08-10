@@ -147,14 +147,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
 	{ .val_bool = false },
 );
 
-DEFINE_HOOK(bgp_inst_config_write,
-		(struct bgp *bgp, struct vty *vty),
-		(bgp, vty));
-DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
-DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
-DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty * vty), (vty));
-DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
-	    (bgp, afi, preconfig));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_vty_hooks.h"
+#include "lib/hooks_end.h"
 
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
@@ -23025,8 +23021,6 @@ static const struct cmd_variable_handler bgp_var_neighbor[] = {
 static const struct cmd_variable_handler bgp_var_peergroup[] = {
 	{.tokenname = "PGNAME", .completions = bgp_ac_peergroup},
 	{.completions = NULL} };
-
-DEFINE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 
 static struct event *t_bgp_cfg;
 

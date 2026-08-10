@@ -606,9 +606,10 @@ static inline void rib_tables_iter_cleanup(rib_tables_iter_t *iter)
 	iter->state = RIB_TABLES_ITER_S_DONE;
 }
 
-DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
-	     (rn, reason));
-DECLARE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_rib_hooks.h"
+#include "lib/hooks_end.h"
 
 /*
  * Access installed/fib nexthops, which may be a subset of the

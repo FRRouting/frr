@@ -866,11 +866,10 @@ typedef enum nb_error (*nb_oper_data_finish_cb)(const struct lyd_node *tree,
 /* Iterate over direct child nodes only. */
 #define NB_OPER_DATA_ITER_NORECURSE 0x0001
 
-/* Hooks. */
-DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
-	     (xpath, arguments));
-DECLARE_HOOK(nb_notification_tree_send,
-	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/northbound_hooks.h"
+#include "lib/hooks_end.h"
 
 /* Northbound debugging records */
 extern struct debug nb_dbg_cbs_config;

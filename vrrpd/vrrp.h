@@ -471,14 +471,10 @@ int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 
 extern const char *const vrrp_state_names[3];
 
-/*
- * This hook called whenever the state of a Virtual Router changes, after the
- * specific internal state handlers have run.
- *
- * Use this if you need to react to state changes to perform non-critical
- * tasks. Critical tasks should go in the internal state change handlers.
- */
-DECLARE_HOOK(vrrp_change_state_hook, (struct vrrp_router *r, int to), (r, to));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "vrrpd/vrrp_hooks.h"
+#include "lib/hooks_end.h"
 
 /*
  * Trigger a VRRP event on a given Virtual Router..

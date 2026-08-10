@@ -2452,8 +2452,10 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 	}
 }
 
-DEFINE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
-	    (xpath, arguments));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/northbound_hooks.h"
+#include "lib/hooks_end.h"
 
 int nb_notification_send(const char *xpath, struct list *arguments)
 {
@@ -2514,9 +2516,6 @@ done:
 
 	return ret;
 }
-
-DEFINE_HOOK(nb_notification_tree_send,
-	    (const char *xpath, const struct lyd_node *tree), (xpath, tree));
 
 int nb_notification_tree_send(const char *xpath, const struct lyd_node *tree)
 {

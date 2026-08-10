@@ -402,35 +402,10 @@ DECLARE_QOBJ_TYPE(interface);
 	if (vrf)                                                               \
 		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 
-/* called from the library code whenever interfaces are created/deleted
- * note: interfaces may not be fully realized at that point; also they
- * may not exist in the system (ifindex = IFINDEX_INTERNAL)
- *
- * priority values are important here, daemons should be at 0 while modules
- * can use 1000+ so they run after the daemon has initialised daemon-specific
- * interface data
- */
-DECLARE_HOOK(if_add, (struct interface *ifp), (ifp));
-DECLARE_KOOH(if_del, (struct interface *ifp), (ifp));
-
-/* called (in daemons) when ZAPI tells us the interface actually exists
- * (ifindex != IFINDEX_INTERNAL)
- *
- * WARNING: these 2 hooks NEVER CALLED inside zebra!
- */
-DECLARE_HOOK(if_real, (struct interface *ifp), (ifp));
-DECLARE_KOOH(if_unreal, (struct interface *ifp), (ifp));
-
-/* called (in daemons) on state changes on interfaces.  Whether this is admin
- * state (= pure config) or carrier state (= hardware link plugged) depends on
- * zebra's "link-detect" configuration.  By default, it's carrier state, so
- * this won't happen until the interface actually has a link.
- *
- * WARNING: these 2 hooks NEVER CALLED inside zebra!
- */
-DECLARE_HOOK(if_up, (struct interface *ifp), (ifp));
-DECLARE_KOOH(if_down, (struct interface *ifp), (ifp));
-
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/if_hooks.h"
+#include "lib/hooks_end.h"
 
 #define METRIC_MAX (~0)
 

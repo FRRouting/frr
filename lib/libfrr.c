@@ -40,12 +40,10 @@
 
 #include "lib/config_paths.h"
 
-DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
-DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
-DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
-DEFINE_HOOK(frr_config_post, (struct event_loop * tm), (tm));
-DEFINE_KOOH(frr_early_fini, (), ());
-DEFINE_KOOH(frr_fini, (), ());
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/libfrr_hooks.h"
+#include "lib/hooks_end.h"
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 char frr_runstatedir[256] = FRR_RUNSTATE_PATH;

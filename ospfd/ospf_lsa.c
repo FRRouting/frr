@@ -62,11 +62,10 @@ static struct ospf_lsa *
 ospf_exnl_lsa_prepare_and_flood(struct ospf *ospf, struct external_info *ei,
 				struct in_addr id);
 
-/*
- * LSA Update and Delete Hook LSAs.
- */
-DEFINE_HOOK(ospf_lsa_update, (struct ospf_lsa *lsa), (lsa));
-DEFINE_HOOK(ospf_lsa_delete, (struct ospf_lsa *lsa), (lsa));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ospfd/ospf_lsa_hooks.h"
+#include "lib/hooks_end.h"
 
 uint32_t get_metric(uint8_t *metric)
 {

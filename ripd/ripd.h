@@ -565,8 +565,10 @@ extern struct rip_instance_head rip_instances;
 /* Master thread structure. */
 extern struct event_loop *master;
 
-DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc));
-DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "ripd/rip_interface_hooks.h"
+#include "lib/hooks_end.h"
 
 extern void rip_ecmp_change(struct rip *rip);
 

@@ -7423,12 +7423,10 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs, struct isis_
 	memcpy(adj->nlpids.nlpids, reduced.nlpids, reduced.count);
 }
 
-DEFINE_HOOK(isis_adj_ip_enabled_hook,
-	    (struct isis_adjacency *adj, int family, bool global),
-	    (adj, family, global));
-DEFINE_HOOK(isis_adj_ip_disabled_hook,
-	    (struct isis_adjacency *adj, int family, bool global),
-	    (adj, family, global));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_tlvs_hooks.h"
+#include "lib/hooks_end.h"
 
 static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
 				       bool *changed)

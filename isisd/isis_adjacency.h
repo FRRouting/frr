@@ -122,13 +122,13 @@ void isis_delete_adj(void *adj);
 void isis_adj_process_threeway(struct isis_adjacency **padj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage);
-DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));
-DECLARE_HOOK(isis_adj_ip_enabled_hook,
-	     (struct isis_adjacency * adj, int family, bool global),
-	     (adj, family, global));
-DECLARE_HOOK(isis_adj_ip_disabled_hook,
-	     (struct isis_adjacency * adj, int family, bool global),
-	     (adj, family, global));
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_adjacency_hooks.h"
+#include "isisd/isis_tlvs_hooks.h"
+#include "lib/hooks_end.h"
+
 void isis_log_adj_change(struct isis_adjacency *adj,
 			 enum isis_adj_state old_state,
 			 enum isis_adj_state new_state, const char *reason);

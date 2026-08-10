@@ -95,7 +95,12 @@ struct isis_master *im;
 struct event *t_isis_cfg;
 
 #ifndef FABRICD
-DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
+
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "isisd/isisd_hooks.h"
+#include "lib/hooks_end.h"
+
 #endif /* ifndef FABRICD */
 
 /*

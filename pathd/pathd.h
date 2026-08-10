@@ -21,17 +21,6 @@
 
 DECLARE_MGROUP(PATHD);
 
-/*
- * If config is not empty, pathd_srte_check_config_not_empty must
- * return 1, otherwise - 0. If no hook subscribers return 1 and there is no
- * configuration in pathd, headers `segment-routing/traffic-eng` won't be
- * output for `write` command and `pathd_srte_config_write` won't be called.
- */
-DECLARE_HOOK(pathd_srte_check_config_not_empty, (), ());
-DECLARE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
-/* Sent when user requests 'no traffic-eng', please clean configuration */
-DECLARE_HOOK(pathd_srte_no_srte, (), ());
-
 enum srte_protocol_origin {
 	SRTE_ORIGIN_UNDEFINED = 0,
 	SRTE_ORIGIN_PCEP = 1,
@@ -366,12 +355,11 @@ struct srte_policy {
 RB_HEAD(srte_policy_head, srte_policy);
 RB_PROTOTYPE(srte_policy_head, srte_policy, entry, srte_policy_compare)
 
-DECLARE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
-	     (candidate));
-DECLARE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
-	     (candidate));
-DECLARE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
-	     (candidate));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "pathd/path_cli_hooks.h"
+#include "pathd/pathd_hooks.h"
+#include "lib/hooks_end.h"
 
 extern struct srte_segment_list_head srte_segment_lists;
 extern struct srte_policy_head srte_policies;

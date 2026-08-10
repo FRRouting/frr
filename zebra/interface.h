@@ -217,8 +217,10 @@ struct zebra_if {
 	char *desc;
 };
 
-DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struct interface *ifp),
-	     (vty, json_if, ifp));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/interface_hooks.h"
+#include "lib/hooks_end.h"
 
 #define IS_ZEBRA_IF_VRF(ifp)                                                   \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VRF)

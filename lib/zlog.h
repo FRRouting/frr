@@ -252,15 +252,9 @@ extern struct zlog_target *zlog_target_replace(struct zlog_target *oldzt,
 #define zlog_target_free(mt, zt) \
 	rcu_free(mt, zt, rcu_head)
 
-extern void zlog_init(const char *progname, const char *protoname,
-		      unsigned short instance, uid_t uid, gid_t gid);
-DECLARE_HOOK(zlog_init, (const char *progname, const char *protoname,
-			 unsigned short instance, uid_t uid, gid_t gid),
-			(progname, protoname, instance, uid, gid));
-
+extern void zlog_init(const char *progname, const char *protoname, unsigned short instance,
+		      uid_t uid, gid_t gid);
 extern void zlog_fini(void);
-DECLARE_KOOH(zlog_fini, (), ());
-
 extern void zlog_set_prefix_ec(bool enable);
 extern bool zlog_get_prefix_ec(void);
 extern void zlog_set_prefix_xid(bool enable);
@@ -270,8 +264,11 @@ extern bool zlog_get_prefix_xid(void);
  * (no cleanup needed at exit)
  */
 extern void zlog_aux_init(const char *prefix, int prio_min);
-DECLARE_HOOK(zlog_aux_init, (const char *prefix, int prio_min),
-			    (prefix, prio_min));
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/zlog_hooks.h"
+#include "lib/hooks_end.h"
 
 extern void zlog_startup_end(void);
 

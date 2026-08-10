@@ -20,12 +20,10 @@
 #include "mlag/mlag.pb-c.h"
 #endif
 
-DEFINE_HOOK(zebra_mlag_private_write_data,
-	    (uint8_t *data, uint32_t len), (data, len));
-DEFINE_HOOK(zebra_mlag_private_monitor_state, (), ());
-DEFINE_HOOK(zebra_mlag_private_open_channel, (), ());
-DEFINE_HOOK(zebra_mlag_private_close_channel, (), ());
-DEFINE_HOOK(zebra_mlag_private_cleanup_data, (), ());
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_mlag_hooks.h"
+#include "lib/hooks_end.h"
 
 #define ZEBRA_MLAG_METADATA_LEN 4
 #define ZEBRA_MLAG_MSG_BCAST 0xFFFFFFFF
