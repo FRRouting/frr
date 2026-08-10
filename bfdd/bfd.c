@@ -91,6 +91,7 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	bp->admin_shutdown = false;
 	bp->detection_multiplier = BFD_DEFDETECTMULT;
 	bp->echo_mode = false;
+	bp->demand_mode = false;
 	bp->passive = false;
 	bp->log_session_changes = false;
 	bp->minimum_ttl = BFD_DEF_MHOP_TTL;
@@ -226,6 +227,12 @@ void bfd_session_apply(struct bfd_session *bs)
 		else
 			bs->mh_ttl = bs->peer_profile.minimum_ttl;
 	}
+
+	/* Toggle 'demand-mode' if default value. */
+	if (bs->peer_profile.demand_mode == false)
+		bfd_set_demand(bs, bp->demand_mode);
+	else
+		bfd_set_demand(bs, bs->peer_profile.demand_mode);
 
 	/* Toggle 'passive-mode' if default value. */
 	if (bs->bfd_mode == BFD_MODE_TYPE_BFD) {
@@ -1840,6 +1847,14 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			bfd_xmttimer_update(bs, bs->xmt_TO);
 		}
 	}
+}
+
+void bfd_set_demand(struct bfd_session *bs, bool demand)
+{
+	if (demand)
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND);
+	else
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND);
 }
 
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive)

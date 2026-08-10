@@ -257,6 +257,19 @@ module frr-bfdd {
     }
   }
 
+  grouping session-demand {
+    description "BFD session demand settings";
+
+    leaf demand-mode {
+      type boolean;
+      default false;
+      description
+        "Operate in demand mode: cease periodic control packet
+         transmission once the session is up, relying on an
+         independent means of verifying connectivity.";
+    }
+  }
+
   grouping session-multi-hop {
     description "BFD session multi hop settings.";
 
@@ -471,6 +484,7 @@ module frr-bfdd {
         uses session-common;
         uses session-echo;
         uses session-multi-hop;
+        uses session-demand;
 
         container profile-authentication {
           leaf authentication-key-chain {
@@ -520,6 +534,7 @@ module frr-bfdd {
 
           uses session-common;
           uses session-echo;
+          uses session-demand;
           uses auth-config;
 
 
@@ -557,6 +572,7 @@ module frr-bfdd {
 
           uses session-common;
           uses session-multi-hop;
+          uses session-demand;
           uses auth-config;
 
           container stats {

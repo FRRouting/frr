@@ -260,6 +260,7 @@ enum bfd_session_flags {
 					     * actively
 					     */
 	BFD_SESS_FLAG_MH = 1 << 2,		     /* BFD Multi-hop session */
+	BFD_SESS_FLAG_DEMAND = 1 << 3,		     /* Demand mode configured */
 	BFD_SESS_FLAG_IPV6 = 1 << 4,		     /* BFD IPv6 session */
 	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5,	     /* send event timer active */
 	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6,	     /* ignore send event when timer
@@ -343,6 +344,7 @@ struct bfd_profile {
 
 	/** Echo mode (only applies to single hop). */
 	bool echo_mode;
+	bool demand_mode;
 	/** Desired echo transmission interval (in microseconds). */
 	uint32_t min_echo_tx;
 	/** Minimum required echo receive interval (in microseconds). */
@@ -743,6 +745,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
  * \param passive the passive mode.
  */
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
+void bfd_set_demand(struct bfd_session *bs, bool demand);
 
 /**
  * Set the BFD session to log or not log session changes.
