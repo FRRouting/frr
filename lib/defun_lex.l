@@ -71,6 +71,8 @@ static void extendbuf(char **what, const char *arg)
 
 #ifndef __clang_analyzer__
 
+#define YY_USER_INIT BEGIN(linestart)
+
 %}
 
 ID		[A-Za-z0-9_]+
@@ -91,9 +93,8 @@ SPECIAL		[(),]
 %x linecomment
 %x preproc
 %x rstring
-%%
-				BEGIN(linestart);
 
+%%
 \n				BEGIN(linestart);
 
 <INITIAL,linestart,preproc>"/*"	comment_link = YY_START; extend(yytext); BEGIN(comment);
@@ -107,7 +108,7 @@ SPECIAL		[(),]
 <linecomment>\n			BEGIN((comment_link == INITIAL) ? linestart : comment_link); return COMMENT;
 
 <linestart>#			BEGIN(preproc);
-<preproc>\n			BEGIN(INITIAL); return PREPROC;
+<preproc>\n			BEGIN(linestart); return PREPROC;
 <preproc>[^\n\\]+		extend(yytext);
 <preproc>\\\n			extend(yytext);
 <preproc>\\+[^\n]		extend(yytext);
@@ -149,7 +150,7 @@ SPECIAL		[(),]
 "VTYSH_TARGETS"			value = strdup(yytext); return AUXILIARY;
 "VTYSH_NODESWITCH"		value = strdup(yytext); return AUXILIARY;
 
-[ \t\n]+			/* ignore */
+[ \t]+				/* ignore */
 \\				/* ignore */
 {ID}				BEGIN(INITIAL); value = strdup(yytext); return ID;
 {OPERATOR}			BEGIN(INITIAL); value = strdup(yytext); return OPERATOR;
