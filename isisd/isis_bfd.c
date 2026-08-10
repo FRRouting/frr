@@ -26,9 +26,6 @@ DEFINE_MTYPE_STATIC(ISISD, BFD_LOCAL_MTID_NLPID, "ISIS BFD local MTID/NLPID");
 DEFINE_MTYPE_STATIC(ISISD, BFD_LOCAL_MTID, "ISIS BFD local MTID");
 
 
-static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
-					   uint8_t family);
-
 static bool isis_bfd_session_is_admin_down(struct isis_adjacency *adj,
 					   struct bfd_session_params *bfd_session,
 					   bool debug_on)
@@ -1445,24 +1442,4 @@ bool isis_bfd_dont_update_adjacency_holdtime(struct isis_adjacency *adj)
 		return true;
 
 	return false;
-}
-
-bool isis_bfd_is_bfd_state_up(struct isis_adjacency *adj)
-{
-	/* if no bfd session, consider adjacency useable */
-	if (!adj->bfd_session_ipv4 && !adj->bfd_session_ipv6)
-		return true;
-
-	/* if both bfd sessions are working, both should be up
-	* which is a valid case for BFD RFC6213
-	*/
-	if (adj->bfd_session_ipv4 &&
-	    bfd_sess_status(adj->bfd_session_ipv4) != BFD_STATUS_UP)
-		return false;
-
-	if (adj->bfd_session_ipv6 &&
-	    bfd_sess_status(adj->bfd_session_ipv6) != BFD_STATUS_UP)
-		return false;
-
-	return true;
 }

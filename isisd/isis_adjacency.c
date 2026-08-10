@@ -323,17 +323,24 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 	if (new_state == old_state)
 		return;
 
-	/* RFC6213: BFD should keep adjacency to init, while BFD is not up */
-	if (old_state == ISIS_ADJ_INITIALIZING && new_state != ISIS_ADJ_UNKNOWN &&
-	    isis_bfd_circuit_rfc6213_enabled(adj->circuit) &&
-	    ((adj->bfd_rfc6213.bfd_required && !adj->bfd_rfc6213.neighbor_useable) ||
-	     !isis_bfd_is_bfd_state_up(adj))) {
-		if (IS_DEBUG_ADJ_PACKETS) {
-			zlog_debug("ISIS-Adj (%s): BFD down, Ignore Adjacency state change %d->%d: %s",
-				   circuit->area->area_tag, old_state,
-				   new_state, reason ? reason : "unspecified");
+	if (isis_bfd_circuit_rfc6213_enabled(adj->circuit) && old_state == ISIS_ADJ_INITIALIZING &&
+	    new_state != ISIS_ADJ_UNKNOWN) {
+		/* Set adjacency BFD sessions */
+		isis_bfd_update_status_rfc6213(adj, AF_INET);
+		isis_bfd_update_status_rfc6213(adj, AF_INET6);
+
+		/* Update BFD variables */
+		isis_bfd_update_rfc6213(adj);
+
+		/* RFC6213: BFD should keep adjacency to init, while BFD is not up */
+		if (adj->bfd_rfc6213.bfd_required && !adj->bfd_rfc6213.neighbor_useable) {
+			if (IS_DEBUG_ADJ_PACKETS) {
+				zlog_debug("ISIS-Adj (%s): BFD down, Ignore Adjacency state change %d->%d: %s",
+					   circuit->area->area_tag, old_state, new_state,
+					   reason ? reason : "unspecified");
+			}
+			return;
 		}
-		return;
 	}
 	if (old_state == ISIS_ADJ_UP &&
 	    !CHECK_FLAG(adj->circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z)) {
