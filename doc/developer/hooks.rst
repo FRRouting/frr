@@ -15,13 +15,15 @@ Example:
    :caption: mydaemon.h
 
    #include "hook.h"
-   DECLARE_HOOK(some_update_event, (struct eventinfo *info), (info));
+   DECLARE_HOOK(some_update_event,
+                (struct eventinfo *, info));
 
 .. code-block:: c
    :caption: mydaemon.c
 
    #include "mydaemon.h"
-   DEFINE_HOOK(some_update_event, (struct eventinfo *info), (info));
+   DEFINE_HOOK(some_update_event,
+               (struct eventinfo *, info));
    ...
    hook_call(some_update_event, info);
 
@@ -91,17 +93,16 @@ the same thing as DECLARE_HOOK, it's just there to make it obvious.)
 Definition
 ----------
 
-.. c:macro:: DECLARE_HOOK(name, arglist, passlist)
-.. c:macro:: DECLARE_KOOH(name, arglist, passlist)
+.. c:macro:: DECLARE_HOOK(name, args...)
+.. c:macro:: DECLARE_KOOH(name, args...)
 
    :param name: Name of the hook to be defined
-   :param arglist: Function definition style parameter list in braces.
-   :param passlist: List of the same parameters without their types.
+   :param args: List of (type, name) tuples specifying hook parameters.
 
-   Note:  the second and third macro args must be the hook function's
-   parameter list, with the same names for each parameter.  The second
-   macro arg is with types (used for defining things), the third arg is
-   just the names (used for passing along parameters).
+   The tuples specifying parameters are essentially just "insert a comma
+   between the type and the name and put braces around it".  Without the extra
+   comma, the macro would be unable to use the name without the declaration in
+   front of it.
 
    This macro must be placed in a header file;  this header file must be
    included to register a callback on the hook.
@@ -110,11 +111,24 @@ Definition
 
    .. code-block:: c
 
-      DECLARE_HOOK(foo, (), ());
-      DECLARE_HOOK(bar, (int arg), (arg));
-      DECLARE_HOOK(baz, (const void *x, in_addr_t y), (x, y));
+      DECLARE_HOOK(foo);
+      DECLARE_HOOK(bar, (int, arg));
+      DECLARE_HOOK(baz, (const void *, x), (in_addr_t, y));
 
-.. c:macro:: DEFINE_HOOK(name, arglist, passlist)
+   .. note::
+      Due to this way of specifying the parameter list, it is not possible to
+      use plain function pointers as parameters on hooks, since there the
+      function pointer's parameter list is after the name of the parameter.
+
+      This is considered an acceptable limitation of the way this macro works.
+      The workaround/solution to defining a hook that takes a function pointer
+      as a parameter is to either use a typedef for the function pointer, put
+      the function pointer in a struct, or use ``__typeof__``.
+
+      At the time this note was written, none of the hooks in FRR had a
+      function pointer parameter.
+
+.. c:macro:: DEFINE_HOOK(name, args...)
 
    Implements an hook.  Each ``DECLARE_HOOK`` must have be accompanied by
    exactly one ``DEFINE_HOOK``, which needs to be placed in a source file.
@@ -126,7 +140,7 @@ Definition
    doesn't exist will therefore result in a linker error, or a module
    load-time error for dynamic modules.
 
-.. c:macro:: DEFINE_KOOH(name, arglist, passlist)
+.. c:macro:: DEFINE_KOOH(name, args...)
 
    Same as ``DEFINE_HOOK``, but the sense of priorities / order of callbacks
    is reversed.  This should be used for cleanup hooks.
