@@ -54,8 +54,9 @@
 
 int comment_link;
 char string_end;
+int lno_offs;
 
-char *value;
+char *value, *val_comment;
 static const char *yyfilename;
 static size_t input_pos;
 
@@ -70,7 +71,8 @@ static void extendbuf(char **what, const char *arg)
 		(*what)[vall + argl] = '\0';
 	}
 }
-#define extend(x) extendbuf(&value, x)
+#define extend(x)     extendbuf(&value, x)
+#define extendcomm(x) extendbuf(&val_comment, x)
 
 #ifndef __clang_analyzer__
 
@@ -118,21 +120,24 @@ SPECIAL		[(),]
 %x rstring
 
 %%
-\n				BEGIN(linestart);
 
-<INITIAL,linestart,preproc>"/*"	comment_link = YY_START; extend(yytext); BEGIN(comment);
-<comment>[^*\n]*		extend(yytext);
-<comment>"*"+[^*/\n]*		extend(yytext);
-<comment>\n			extend(yytext);
-<comment>"*"+"/"		extend(yytext); BEGIN(comment_link); return COMMENT;
+<INITIAL,linestart,preproc>"/*"	comment_link = YY_START; extendcomm(yytext); BEGIN(comment);
+<comment>[^*\n]*		extendcomm(yytext);
+<comment>"*"+[^*/\n]*		extendcomm(yytext);
+<comment>\n			extendcomm(yytext);
+<comment>"*"+"/"		extendcomm(yytext); BEGIN(comment_link); if (value) extend(" "); return COMMENT;
 
-<INITIAL,linestart,preproc>"//"	comment_link = YY_START; extend(yytext); BEGIN(linecomment);
-<linecomment>[^\n]*		extend(yytext);
-<linecomment>\n			BEGIN((comment_link == INITIAL) ? linestart : comment_link); return COMMENT;
+<INITIAL,linestart>"//"		extendcomm(yytext); BEGIN(linecomment);
+<linecomment>[^\n\\]*		extendcomm(yytext);
+<linecomment>\\\n		extendcomm(yytext);
+<linecomment>\\			extendcomm(yytext);
+<linecomment>\n			BEGIN(linestart); lno_offs = -1; return COMMENT;
 
 <linestart>#			BEGIN(preproc);
 <preproc>\n			BEGIN(linestart); return PREPROC;
-<preproc>[^\n\\]+		extend(yytext);
+<preproc>"//"			extendcomm(yytext); BEGIN(linecomment); lno_offs = 1; return PREPROC;
+<preproc>[^\n\\/]+		extend(yytext);
+<preproc>"/"			extend(yytext);
 <preproc>\\\n			extend(yytext);
 <preproc>\\+[^\n]		extend(yytext);
 
@@ -189,11 +194,13 @@ SPECIAL		[(),]
 "DEFINE_KOOH"			value = strdup(yytext); return HOOK;
 "DECLARE_KOOH"			value = strdup(yytext); return HOOK;
 
+<INITIAL,linestart>\\\n		/* ignore */
 [ \t]+				/* ignore */
-\\				/* ignore */
 {ID}				BEGIN(INITIAL); value = strdup(yytext); return ID;
 {OPERATOR}			BEGIN(INITIAL); value = strdup(yytext); return OPERATOR;
 {SPECIAL}			BEGIN(INITIAL); value = strdup(yytext); return SPECIAL;
+\n				BEGIN(linestart);
+
 .				/* printf("-- '%s' in init\n", yytext); */ BEGIN(INITIAL); return yytext[0];
 
 %%
@@ -203,14 +210,22 @@ extern int def_yylex(void);
 extern int def_yylex_destroy(void);
 #endif /* __clang_analyzer__ */
 
-static int yylex_clr(char **retbuf, ssize_t *retpos)
+static int yylex_clr(char **retbuf, int *lineno, ssize_t *retpos)
 {
 	int rv = def_yylex();
 	char *yy_ch_buf = YY_CURRENT_BUFFER_LVALUE->yy_ch_buf;
 
 	*retpos = input_pos - yy_n_chars + (yy_c_buf_p - yy_ch_buf);
-	*retbuf = value;
-	value = NULL;
+	if (rv == COMMENT) {
+		*retbuf = val_comment;
+		val_comment = NULL;
+	} else {
+		*retbuf = value;
+		value = NULL;
+	}
+	if (lineno)
+		*lineno = yylineno + lno_offs;
+	lno_offs = 0;
 	return rv;
 }
 
@@ -223,7 +238,7 @@ static PyObject *get_args(const char *filename, int lineno, ssize_t *off_end)
 	int depth = 1;
 	int token;
 
-	while ((token = yylex_clr(&tval, off_end)) != YY_NULL) {
+	while ((token = yylex_clr(&tval, NULL, off_end)) != YY_NULL) {
 		if (token == SPECIAL && tval[0] == '(') {
 			free(tval);
 			break;
@@ -236,7 +251,7 @@ static PyObject *get_args(const char *filename, int lineno, ssize_t *off_end)
 		exit(1);
 	}
 
-	while ((token = yylex_clr(&tval, off_end)) != YY_NULL) {
+	while ((token = yylex_clr(&tval, NULL, off_end)) != YY_NULL) {
 		if (token == COMMENT) {
 			free(tval);
 			continue;
@@ -294,6 +309,7 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 
 	yyin = fd;
 	value = NULL;
+	val_comment = NULL;
 	yyfilename = filename;
 	input_pos = 0;
 
@@ -303,9 +319,9 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 	PyDict_SetItemString(pyCont, "data", pyObj);
 
 	ssize_t off_start, off_end;
+	int lineno;
 
-	while ((token = yylex_clr(&tval, &off_start)) != YY_NULL) {
-		int lineno = yylineno;
+	while ((token = yylex_clr(&tval, &lineno, &off_start)) != YY_NULL) {
 		const char *type;
 
 		PyObject *pyItem = NULL, *pyArgs;
