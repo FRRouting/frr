@@ -35,6 +35,7 @@
 #include <Python.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "command_graph.h"
 #include "clippy.h"
@@ -55,6 +56,7 @@ char string_end;
 
 char *value;
 static const char *yyfilename;
+static size_t input_pos;
 
 static void extendbuf(char **what, const char *arg)
 {
@@ -70,6 +72,26 @@ static void extendbuf(char **what, const char *arg)
 #define extend(x) extendbuf(&value, x)
 
 #ifndef __clang_analyzer__
+
+static int def_do_input(char *buf, int max_size, FILE *filep)
+{
+	ssize_t result;
+
+	assert(max_size > 0);
+
+	result = fread(buf, 1, (size_t)max_size, filep);
+	if (result >= 0)
+		input_pos += result;
+
+	return result;
+}
+
+#define YY_INPUT(buf, result, max_size)                                                           \
+	do {                                                                                      \
+		result = def_do_input(buf, max_size, yyin);                                       \
+		if (result < 0)                                                                   \
+			YY_FATAL_ERROR("input in flex scanner failed");                           \
+	} while (0)
 
 #define YY_USER_INIT BEGIN(linestart)
 
@@ -164,15 +186,18 @@ extern int def_yylex(void);
 extern int def_yylex_destroy(void);
 #endif /* __clang_analyzer__ */
 
-static int yylex_clr(char **retbuf)
+static int yylex_clr(char **retbuf, ssize_t *retpos)
 {
 	int rv = def_yylex();
+	char *yy_ch_buf = YY_CURRENT_BUFFER_LVALUE->yy_ch_buf;
+
+	*retpos = input_pos - yy_n_chars + (yy_c_buf_p - yy_ch_buf);
 	*retbuf = value;
 	value = NULL;
 	return rv;
 }
 
-static PyObject *get_args(const char *filename, int lineno)
+static PyObject *get_args(const char *filename, int lineno, ssize_t *off_end)
 {
 	PyObject *pyObj = PyList_New(0);
 	PyObject *pyArg = NULL;
@@ -181,7 +206,7 @@ static PyObject *get_args(const char *filename, int lineno)
 	int depth = 1;
 	int token;
 
-	while ((token = yylex_clr(&tval)) != YY_NULL) {
+	while ((token = yylex_clr(&tval, off_end)) != YY_NULL) {
 		if (token == SPECIAL && tval[0] == '(') {
 			free(tval);
 			break;
@@ -194,7 +219,7 @@ static PyObject *get_args(const char *filename, int lineno)
 		exit(1);
 	}
 
-	while ((token = yylex_clr(&tval)) != YY_NULL) {
+	while ((token = yylex_clr(&tval, off_end)) != YY_NULL) {
 		if (token == COMMENT) {
 			free(tval);
 			continue;
@@ -249,23 +274,29 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 
 	char *tval;
 	int token;
+
 	yyin = fd;
 	value = NULL;
 	yyfilename = filename;
+	input_pos = 0;
 
 	PyObject *pyCont = PyDict_New();
 	PyObject *pyObj = PyList_New(0);
 	PyDict_SetItemString(pyCont, "filename", PyUnicode_FromString(filename));
 	PyDict_SetItemString(pyCont, "data", pyObj);
 
-	while ((token = yylex_clr(&tval)) != YY_NULL) {
+	ssize_t off_start, off_end;
+
+	while ((token = yylex_clr(&tval, &off_start)) != YY_NULL) {
 		int lineno = yylineno;
 		PyObject *pyItem = NULL, *pyArgs;
 		switch (token) {
 		case DEFUNNY:
 		case INSTALL:
 		case AUXILIARY:
-			pyArgs = get_args(filename, lineno);
+			off_start -= strlen(tval);
+
+			pyArgs = get_args(filename, lineno, &off_end);
 			if (!pyArgs) {
 				free(tval);
 				Py_DECREF(pyCont);
@@ -274,6 +305,8 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 			}
 			pyItem = PyDict_New();
 			PyDict_SetItemString(pyItem, "type", PyUnicode_FromString(tval));
+			PyDict_SetItemString(pyItem, "start", PyLong_FromLongLong(off_start));
+			PyDict_SetItemString(pyItem, "end", PyLong_FromLongLong(off_end));
 			PyDict_SetItemString(pyItem, "args", pyArgs);
 			break;
 		case COMMENT:
