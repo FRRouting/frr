@@ -1141,6 +1141,10 @@ static struct spf_adj_ref *adj_find(struct spf_adj_list_head *adj_list, const ui
 		if (mtid == ISIS_MT_IPV4_UNICAST &&
 		    !speaks(adj->nlpids.nlpids, adj->nlpids.count, family))
 			continue;
+		if (family == AF_INET && !isis_adj_ipv4_usable(adj))
+			continue;
+		if (family == AF_INET6 && !isis_adj_ipv6_usable(adj))
+			continue;
 		return ref;
 	}
 
