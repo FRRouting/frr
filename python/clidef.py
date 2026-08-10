@@ -289,13 +289,19 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
     cond_stack = []
 
     for entry in filedata["data"]:
+        errors += process_one(fn, entry, cond_stack, ofd, dumpfd, all_defun, macros)
+
+    return errors
+
+def process_one(fn, entry, cond_stack, ofd, dumpfd, all_defun, macros) -> int:
+    try:
         if entry["type"] == "PREPROC":
             line = entry["line"].lstrip()
             tokens = line.split(maxsplit=1)
             line = "#" + line + "\n"
 
             if not tokens:
-                continue
+                return 0
 
             if tokens[0] in ["if", "ifdef", "ifndef"]:
                 cond_stack.append(line)
@@ -309,7 +315,7 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
                     macros.load_preproc(fn, entry)
                 elif len(cond_stack) == 1 and cond_stack[0] == "#ifdef CLIPPY\n":
                     macros.load_preproc(fn, entry)
-            continue
+            return 0
         if entry["type"] == "DEFUNNY" and (
             entry["value"].startswith("DEFPY") or all_defun
         ):
@@ -318,8 +324,7 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
                     "%s:%d: DEFPY function name not parseable (%r)\n"
                     % (fn, entry["lineno"], entry["args"][0])
                 )
-                errors += 1
-                continue
+                return 1
 
             cmddef = entry["args"][2]
             cmddefx = []
@@ -334,11 +339,7 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
                     "%s:%d: DEFPY command string not parseable (%r)\n"
                     % (fn, entry["lineno"], cmddef)
                 )
-                errors += 1
-                cmddefx = None
-                break
-            if cmddefx is None:
-                continue
+                return 1
             cmddef = "".join([i for i in cmddefx])
 
             graph = clippy.Graph(cmddef)
@@ -439,8 +440,12 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
             params["nonempty"] = len(argblocks)
             params["argassert"] = "".join(argassert)
             ofd.write(templ.substitute(params))
+    except Exception as e:
+        tokeninfo = entry.get("value", entry.get("type"))
+        e.add_note(f"{fn}:{entry['lineno']}: at token {tokeninfo!r}")
+        raise e
 
-    return errors
+    return 0
 
 
 if __name__ == "__main__":
