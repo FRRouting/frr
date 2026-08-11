@@ -131,6 +131,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	dst->nh_ifindex = src->nh_ifindex;
 
 	dst->origin = src->origin;
+	dst->weight = src->weight;
 
 	bgp_attr_script_apply_aspath(dst, src);
 }
@@ -288,6 +289,9 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 		break;
 	}
 	lua_setfield(L, -2, "origin");
+
+	lua_pushinteger(L, attr->weight);
+	lua_setfield(L, -2, "weight");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -326,6 +330,11 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 				attr->origin = BGP_ORIGIN_INCOMPLETE;
 		}
 	}
+	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "weight");
+	if (!lua_isnil(L, -1))
+		attr->weight = (uint32_t)lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
 	/* pop the attributes table */
