@@ -136,6 +136,14 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	dst->tag = src->tag;
 	dst->rmap_table_id = src->rmap_table_id;
 
+	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID))) {
+		dst->label_index = src->label_index;
+		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+	} else {
+		dst->label_index = 0;
+		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+	}
+
 	bgp_attr_script_apply_aspath(dst, src);
 }
 
@@ -304,6 +312,12 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 
 	lua_pushinteger(L, attr->rmap_table_id);
 	lua_setfield(L, -2, "table");
+
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)))
+		lua_pushinteger(L, attr->label_index);
+	else
+		lua_pushnil(L);
+	lua_setfield(L, -2, "label_index");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -362,6 +376,24 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_getfield(L, idx, "table");
 	if (!lua_isnil(L, -1))
 		attr->rmap_table_id = (uint32_t)lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "label_index");
+	{
+		uint32_t label_index =
+			lua_isnil(L, -1) ? 0 : (uint32_t)lua_tointeger(L, -1);
+
+		/* nil or 0 clears Prefix-SID presence, consistent with
+		 * other optional numeric attributes.
+		 */
+		if (label_index) {
+			attr->label_index = label_index;
+			SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+		} else {
+			attr->label_index = 0;
+			UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+		}
+	}
 	lua_pop(L, 1);
 
 	/* pop the attributes table */
