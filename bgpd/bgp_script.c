@@ -702,6 +702,16 @@ static void lua_push_evpn_table(lua_State *L, const struct attr *attr)
 	} else
 		lua_pushnil(L);
 	lua_setfield(L, -2, "gateway_ip");
+
+	lua_newtable(L);
+	lua_pushboolean(L, CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY));
+	lua_setfield(L, -2, "sticky");
+	lua_pushboolean(L,
+			CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW));
+	lua_setfield(L, -2, "default_gw");
+	lua_pushboolean(L, CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER));
+	lua_setfield(L, -2, "router");
+	lua_setfield(L, -2, "flags");
 }
 
 static void lua_decode_evpn_table(lua_State *L, int idx, struct attr *attr)
@@ -741,6 +751,24 @@ static void lua_decode_evpn_table(lua_State *L, int idx, struct attr *attr)
 	}
 	lua_pop(L, 1);
 
+	lua_getfield(L, -1, "flags");
+	if (lua_istable(L, -1)) {
+		attr->evpn_flags = 0;
+		lua_getfield(L, -1, "sticky");
+		if (!lua_isnil(L, -1) && lua_toboolean(L, -1))
+			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
+		lua_pop(L, 1);
+		lua_getfield(L, -1, "default_gw");
+		if (!lua_isnil(L, -1) && lua_toboolean(L, -1))
+			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+		lua_pop(L, 1);
+		lua_getfield(L, -1, "router");
+		if (!lua_isnil(L, -1) && lua_toboolean(L, -1))
+			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+
 	lua_pop(L, 1); /* evpn */
 }
 
@@ -748,6 +776,8 @@ static void bgp_attr_script_apply_evpn(struct attr *dst, struct attr *src)
 {
 	struct bgp_route_evpn *old = bgp_attr_get_evpn_overlay(dst);
 	struct bgp_route_evpn *new = bgp_attr_get_evpn_overlay(src);
+
+	dst->evpn_flags = src->evpn_flags;
 
 	if (old == new)
 		return;
