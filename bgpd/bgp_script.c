@@ -12,8 +12,134 @@
 #include "bgp_script.h"
 #include "bgp_debug.h"
 #include "bgp_aspath.h"
+#include "bgp_attr.h"
 #include "frratomic.h"
 #include "frrscript.h"
+
+/* Encode an optional integer attr: nil when the presence flag is clear. */
+static void lua_push_optional_uint(lua_State *L, const struct attr *attr,
+				   uint64_t flagbit, uint64_t value,
+				   const char *key)
+{
+	if (CHECK_FLAG(attr->flag, flagbit))
+		lua_pushinteger(L, (lua_Integer)value);
+	else
+		lua_pushnil(L);
+	lua_setfield(L, -2, key);
+}
+
+/*
+ * Decode optional integer. nil/absent clears the flag and zeroes the field.
+ * Returns true if the value is present (and *out is set).
+ */
+static bool lua_decode_optional_uint(lua_State *L, int idx, const char *key,
+				     struct attr *attr, uint64_t flagbit,
+				     uint64_t *out)
+{
+	lua_getfield(L, idx, key);
+	if (lua_isnil(L, -1)) {
+		UNSET_FLAG(attr->flag, flagbit);
+		*out = 0;
+		lua_pop(L, 1);
+		return false;
+	}
+	*out = (uint64_t)lua_tointeger(L, -1);
+	SET_FLAG(attr->flag, flagbit);
+	lua_pop(L, 1);
+	return true;
+}
+
+/* Replace aspath on a working attr copy without freeing a shared original. */
+static void lua_decode_aspath_field(lua_State *L, int idx, struct attr *attr)
+{
+	struct aspath *new_aspath = NULL;
+	const char *str;
+
+	lua_getfield(L, idx, "aspath");
+	if (lua_isnil(L, -1)) {
+		attr->aspath = NULL;
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+		lua_pop(L, 1);
+		return;
+	}
+
+	str = lua_tostring(L, -1);
+	if (str && attr->aspath && attr->aspath->str
+	    && strcmp(attr->aspath->str, str) == 0) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	if (str && *str)
+		new_aspath = aspath_str2aspath(str,
+					       bgp_get_asnotation(NULL));
+	if (!new_aspath && str && *str) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	/*
+	 * Working attrs are shallow-copied from path->attr; do not free the
+	 * previous pointer here — it may still be referenced by the original.
+	 * Ownership is resolved in bgp_attr_script_apply / discard.
+	 */
+	attr->aspath = new_aspath;
+	if (new_aspath)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+	lua_pop(L, 1);
+}
+
+static void bgp_attr_script_apply_aspath(struct attr *dst, struct attr *src)
+{
+	if (dst->aspath == src->aspath)
+		return;
+
+	if (dst->aspath && dst->aspath->refcnt == 0)
+		aspath_free(dst->aspath);
+
+	dst->aspath = src->aspath;
+	src->aspath = NULL;
+
+	if (dst->aspath)
+		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+	else
+		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+}
+
+void bgp_attr_script_apply(struct attr *dst, struct attr *src)
+{
+	/* metric / MED */
+	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+		bgp_attr_set_med(dst, src->med);
+	else {
+		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+		dst->med = 0;
+	}
+
+	/* local preference */
+	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
+		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+		dst->local_pref = src->local_pref;
+	} else {
+		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+		dst->local_pref = 0;
+	}
+
+	/* nexthop ifindex (flat key; nested nexthop table added later) */
+	dst->nh_ifindex = src->nh_ifindex;
+
+	bgp_attr_script_apply_aspath(dst, src);
+}
+
+void bgp_attr_script_discard(struct attr *working, const struct attr *orig)
+{
+	if (working->aspath && working->aspath != orig->aspath
+	    && working->aspath->refcnt == 0)
+		aspath_free(working->aspath);
+	working->aspath = NULL;
+}
 
 void lua_pushpeer(lua_State *L, const struct peer *peer)
 {
@@ -131,31 +257,45 @@ void lua_pushpeer(lua_State *L, const struct peer *peer)
 void lua_pushattr(lua_State *L, const struct attr *attr)
 {
 	lua_newtable(L);
-	lua_pushinteger(L, attr->med);
-	lua_setfield(L, -2, "metric");
+
+	lua_push_optional_uint(L, attr, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC),
+			       attr->med, "metric");
+
 	lua_pushinteger(L, attr->nh_ifindex);
 	lua_setfield(L, -2, "ifindex");
-	lua_pushstring(L, attr->aspath->str);
+
+	if (attr->aspath && attr->aspath->str)
+		lua_pushstring(L, attr->aspath->str);
+	else
+		lua_pushnil(L);
 	lua_setfield(L, -2, "aspath");
-	lua_pushinteger(L, attr->local_pref);
-	lua_setfield(L, -2, "localpref");
+
+	lua_push_optional_uint(L, attr, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF),
+			       attr->local_pref, "localpref");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 {
-	lua_getfield(L, idx, "metric");
-	attr->med = lua_tointeger(L, -1);
-	lua_pop(L, 1);
+	uint64_t val;
+
+	if (lua_decode_optional_uint(L, idx, "metric", attr,
+				     ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC),
+				     &val))
+		bgp_attr_set_med(attr, (uint32_t)val);
+
 	lua_getfield(L, idx, "ifindex");
-	attr->nh_ifindex = lua_tointeger(L, -1);
+	if (!lua_isnil(L, -1))
+		attr->nh_ifindex = (ifindex_t)lua_tointeger(L, -1);
 	lua_pop(L, 1);
-	lua_getfield(L, idx, "aspath");
-	attr->aspath = aspath_str2aspath(lua_tostring(L, -1),
-					 bgp_get_asnotation(NULL));
-	lua_pop(L, 1);
-	lua_getfield(L, idx, "localpref");
-	attr->local_pref = lua_tointeger(L, -1);
-	lua_pop(L, 1);
+
+	lua_decode_aspath_field(L, idx, attr);
+
+	if (lua_decode_optional_uint(L, idx, "localpref", attr,
+				     ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF),
+				     &val))
+		attr->local_pref = (uint32_t)val;
+
+	/* pop the attributes table */
 	lua_pop(L, 1);
 }
 
