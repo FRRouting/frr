@@ -25,6 +25,7 @@ void bgp_script_init(void);
 /* Forward references */
 struct peer;
 struct attr;
+struct bgp_path_info;
 
 void lua_pushpeer(lua_State *L, const struct peer *peer);
 
@@ -33,6 +34,8 @@ void lua_pushattr(lua_State *L, const struct attr *attr);
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr);
 
 void *lua_toattr(lua_State *L, int idx);
+
+void lua_push_bgp_path_info(lua_State *L, const struct bgp_path_info *path);
 
 /*
  * Transfer script-supported fields from a working attr (src) onto dst.

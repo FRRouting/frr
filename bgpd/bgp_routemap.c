@@ -444,7 +444,8 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		("attributes", &newattr), ("peer", path->peer),
 		("RM_FAILURE", LUA_RM_FAILURE), ("RM_NOMATCH", LUA_RM_NOMATCH),
 		("RM_MATCH", LUA_RM_MATCH),
-		("RM_MATCH_AND_CHANGE", LUA_RM_MATCH_AND_CHANGE));
+		("RM_MATCH_AND_CHANGE", LUA_RM_MATCH_AND_CHANGE),
+		("path", (const struct bgp_path_info *)path));
 
 	if (result) {
 		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
