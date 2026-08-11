@@ -133,6 +133,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	dst->origin = src->origin;
 	dst->weight = src->weight;
 	dst->distance = src->distance;
+	dst->tag = src->tag;
 
 	bgp_attr_script_apply_aspath(dst, src);
 }
@@ -296,6 +297,9 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 
 	lua_pushinteger(L, attr->distance);
 	lua_setfield(L, -2, "distance");
+
+	lua_pushinteger(L, attr->tag);
+	lua_setfield(L, -2, "tag");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -344,6 +348,11 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_getfield(L, idx, "distance");
 	if (!lua_isnil(L, -1))
 		attr->distance = (uint8_t)lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "tag");
+	if (!lua_isnil(L, -1))
+		attr->tag = (route_tag_t)lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
 	/* pop the attributes table */
