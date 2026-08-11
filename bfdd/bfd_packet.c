@@ -1399,6 +1399,7 @@ void bfd_recv_cb(struct event *t)
 		bfd->remote_cbit = 0;
 
 	bfd->remote_ses_state = BFD_GETSTATE(cp->flags);
+	bfd->remote_demand_mode = BFD_GETDEMANDBIT(cp->flags) ? 1 : 0;
 
 	/* The initiator handle SBFD reflect packet. */
 	if (bfd->bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
@@ -1450,8 +1451,20 @@ void bfd_recv_cb(struct event *t)
 		bfd->detect_TO = bfd->remote_detect_mult
 				 * bfd->remote_timers.desired_min_tx;
 
-	/* Apply new receive timer immediately. */
-	bfd_recvtimer_update(bfd);
+	/*
+	 * Apply new receive timer immediately, unless demand mode is
+	 * active: the peer ceases periodic transmission, so there is
+	 * nothing to time out. Liveness is then verified by Poll
+	 * Sequence instead.
+	 *
+	 * RFC 5880, Section 6.6.
+	 */
+	if (!(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_DEMAND) &&
+	      bfd->ses_state == PTM_BFD_UP &&
+	      bfd->remote_ses_state == PTM_BFD_UP))
+		bfd_recvtimer_update(bfd);
+	else
+		bfd_recvtimer_delete(bfd);
 
 	/* Handle echo timers changes. */
 	bs_echo_timer_handler(bfd);

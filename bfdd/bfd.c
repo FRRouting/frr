@@ -1854,10 +1854,45 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 
 void bfd_set_demand(struct bfd_session *bs, bool demand)
 {
-	if (demand)
+	if (demand) {
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND))
+			return;
+
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND);
-	else
-		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND);
+
+		/*
+		 * Stop the detection timer here rather than waiting for
+		 * the next packet: the peer ceases as soon as it sees
+		 * the Demand bit, so there may be no further packet to
+		 * take the receive path.
+		 */
+		if (bs->ses_state == PTM_BFD_UP && bs->remote_ses_state == PTM_BFD_UP)
+			bfd_recvtimer_delete(bs);
+
+		return;
+	}
+
+	if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND))
+		return;
+
+	UNSET_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND);
+
+	if (bs->ses_state != PTM_BFD_UP)
+		return;
+
+	/*
+	 * Leaving demand mode must restore failure detection without
+	 * waiting for the peer. The detection timer was removed while
+	 * demand mode was active, and if the path is already down no
+	 * packet will arrive to re-arm it.
+	 *
+	 * The peer may still be demanding, in which case our own
+	 * transmission is suppressed and it would never learn that our
+	 * Demand bit is gone. A Poll Sequence is exempt from that
+	 * suppression, so it is what carries the change across.
+	 */
+	bfd_set_polling(bs);
+	bfd_recvtimer_update(bs);
 }
 
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive)
