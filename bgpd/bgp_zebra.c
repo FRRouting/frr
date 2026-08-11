@@ -445,7 +445,8 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		 * we do not want the peering to bounce.
 		 */
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (IPV6_ADDR_SAME(&peer->nexthop.v6_global, &addr->u.prefix6)) {
+			if (peer->nexthop.ifp == ifc->ifp &&
+			    IPV6_ADDR_SAME(&peer->nexthop.v6_global, &addr->u.prefix6)) {
 				if (v6_global)
 					IPV6_ADDR_COPY(&peer->nexthop.v6_global, v6_global);
 				else if (v6_local)
