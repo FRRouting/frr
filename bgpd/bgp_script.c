@@ -389,8 +389,9 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		dst->local_pref = 0;
 	}
 
-	/* nexthop ifindex (flat key; nested nexthop table added later) */
+	/* nexthop ifindexes (flat ifindex kept for compatibility) */
 	dst->nh_ifindex = src->nh_ifindex;
+	dst->nh_lla_ifindex = src->nh_lla_ifindex;
 
 	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
 		dst->nexthop = src->nexthop;
@@ -525,9 +526,22 @@ static void lua_push_nexthop_table(lua_State *L, const struct attr *attr)
 
 	lua_pushinteger(L, attr->mp_nexthop_len);
 	lua_setfield(L, -2, "mp_len");
+
+	lua_pushinteger(L, attr->nh_ifindex);
+	lua_setfield(L, -2, "ifindex");
+	lua_pushinteger(L, attr->nh_lla_ifindex);
+	lua_setfield(L, -2, "lla_ifindex");
 }
 
-static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr)
+/*
+ * orig_nh_ifindex is attr->nh_ifindex as it was before any decoding of
+ * this attributes table began (i.e. what was pushed to Lua as both the
+ * flat "ifindex" key and "nexthop.ifindex"). It is used to tell which of
+ * the two redundant keys the script actually changed, since both are
+ * always present (never nil) on the pushed table.
+ */
+static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
+				     ifindex_t orig_nh_ifindex)
 {
 	lua_getfield(L, idx, "nexthop");
 	if (lua_isnil(L, -1) || !lua_istable(L, -1)) {
@@ -594,6 +608,26 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr)
 	lua_getfield(L, -1, "mp_len");
 	if (!lua_isnil(L, -1))
 		attr->mp_nexthop_len = (uint8_t)lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	lua_getfield(L, -1, "ifindex");
+	if (!lua_isnil(L, -1)) {
+		ifindex_t script_ifindex = (ifindex_t)lua_tointeger(L, -1);
+
+		/*
+		 * Only override the flat "ifindex" key's decode if the
+		 * script actually changed the nested value; otherwise a
+		 * script that only touches the flat key (compat) would
+		 * have its change clobbered by this unmodified default.
+		 */
+		if (script_ifindex != orig_nh_ifindex)
+			attr->nh_ifindex = script_ifindex;
+	}
+	lua_pop(L, 1);
+
+	lua_getfield(L, -1, "lla_ifindex");
+	if (!lua_isnil(L, -1))
+		attr->nh_lla_ifindex = (ifindex_t)lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
 	lua_pop(L, 1); /* nexthop table */
@@ -788,6 +822,7 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 {
 	uint64_t val;
+	ifindex_t orig_nh_ifindex = attr->nh_ifindex;
 
 	if (lua_decode_optional_uint(L, idx, "metric", attr,
 				     ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC),
@@ -879,7 +914,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_decode_lcommunity_field(L, idx, attr);
 	lua_decode_ecommunity_field(L, idx, attr);
 	lua_decode_ipv6_ecommunity_field(L, idx, attr);
-	lua_decode_nexthop_table(L, idx, attr);
+	lua_decode_nexthop_table(L, idx, attr, orig_nh_ifindex);
 
 	/* pop the attributes table */
 	lua_pop(L, 1);
