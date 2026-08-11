@@ -405,13 +405,8 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	dst->mp_nexthop_local = src->mp_nexthop_local;
 	dst->mp_nexthop_global_in = src->mp_nexthop_global_in;
 	dst->mp_nexthop_len = src->mp_nexthop_len;
-	SET_FLAG(dst->rmap_change_flags,
-		 CHECK_FLAG(src->rmap_change_flags,
-			    BATTR_RMAP_IPV4_NHOP_CHANGED
-				    | BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED
-				    | BATTR_RMAP_IPV6_LL_NHOP_CHANGED
-				    | BATTR_RMAP_VPNV4_NHOP_CHANGED
-				    | BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED));
+	/* Full rmap_change_flags from script (peer-address, unchanged, etc.) */
+	dst->rmap_change_flags = src->rmap_change_flags;
 
 	dst->origin = src->origin;
 	dst->weight = src->weight;
@@ -612,8 +607,21 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 	lua_pop(L, 1);
 
 	lua_getfield(L, -1, "mp_len");
-	if (!lua_isnil(L, -1))
-		attr->mp_nexthop_len = (uint8_t)lua_tointeger(L, -1);
+	if (!lua_isnil(L, -1)) {
+		uint8_t script_len = (uint8_t)lua_tointeger(L, -1);
+		uint8_t inferred = attr->mp_nexthop_len;
+
+		/*
+		 * Address decode may have raised len to GLOBAL_AND_LL.
+		 * Do not let the encoded original mp_len clobber that.
+		 */
+		if ((inferred == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
+		     || inferred == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+		    && script_len < inferred)
+			; /* keep inferred */
+		else
+			attr->mp_nexthop_len = script_len;
+	}
 	lua_pop(L, 1);
 
 	lua_getfield(L, -1, "ifindex");
@@ -834,6 +842,9 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 
 	lua_push_nexthop_table(L, attr);
 	lua_setfield(L, -2, "nexthop");
+
+	lua_pushinteger(L, attr->rmap_change_flags);
+	lua_setfield(L, -2, "rmap_change_flags");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -931,6 +942,16 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_decode_lcommunity_field(L, idx, attr);
 	lua_decode_ecommunity_field(L, idx, attr);
 	lua_decode_ipv6_ecommunity_field(L, idx, attr);
+	/*
+	 * Script rmap_change_flags are the base bitfield (peer-address,
+	 * unchanged, etc.). Nexthop decode ORs BATTR_RMAP_*_CHANGED on top
+	 * so returning the encoded table does not wipe auto-detected bits.
+	 */
+	lua_getfield(L, idx, "rmap_change_flags");
+	if (!lua_isnil(L, -1))
+		attr->rmap_change_flags = (uint16_t)lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
 	lua_decode_nexthop_table(L, idx, attr, orig_nh_ifindex);
 
 	/* pop the attributes table */
