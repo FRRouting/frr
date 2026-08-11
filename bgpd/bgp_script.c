@@ -130,6 +130,8 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	/* nexthop ifindex (flat key; nested nexthop table added later) */
 	dst->nh_ifindex = src->nh_ifindex;
 
+	dst->origin = src->origin;
+
 	bgp_attr_script_apply_aspath(dst, src);
 }
 
@@ -272,6 +274,20 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 
 	lua_push_optional_uint(L, attr, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF),
 			       attr->local_pref, "localpref");
+
+	switch (attr->origin) {
+	case BGP_ORIGIN_IGP:
+		lua_pushstring(L, "igp");
+		break;
+	case BGP_ORIGIN_EGP:
+		lua_pushstring(L, "egp");
+		break;
+	case BGP_ORIGIN_INCOMPLETE:
+	default:
+		lua_pushstring(L, "incomplete");
+		break;
+	}
+	lua_setfield(L, -2, "origin");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -294,6 +310,23 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 				     ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF),
 				     &val))
 		attr->local_pref = (uint32_t)val;
+
+	lua_getfield(L, idx, "origin");
+	if (!lua_isnil(L, -1)) {
+		if (lua_isinteger(L, -1))
+			attr->origin = (uint8_t)lua_tointeger(L, -1);
+		else {
+			const char *origin = lua_tostring(L, -1);
+
+			if (origin && strmatch(origin, "igp"))
+				attr->origin = BGP_ORIGIN_IGP;
+			else if (origin && strmatch(origin, "egp"))
+				attr->origin = BGP_ORIGIN_EGP;
+			else if (origin && strmatch(origin, "incomplete"))
+				attr->origin = BGP_ORIGIN_INCOMPLETE;
+		}
+	}
+	lua_pop(L, 1);
 
 	/* pop the attributes table */
 	lua_pop(L, 1);
