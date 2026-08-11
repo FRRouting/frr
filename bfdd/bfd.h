@@ -390,6 +390,7 @@ struct bfd_session {
 	uint8_t mh_ttl;
 	uint8_t remote_cbit;
 	uint8_t remote_ses_state;
+	uint8_t remote_demand_mode;
 
 	/** BFD profile name. */
 	char *profile_name;

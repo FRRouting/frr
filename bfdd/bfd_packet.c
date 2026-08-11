@@ -1459,8 +1459,7 @@ void bfd_recv_cb(struct event *t)
 	 *
 	 * RFC 5880, Section 6.6.
 	 */
-	if (!(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_DEMAND) &&
-	      bfd->ses_state == PTM_BFD_UP &&
+	if (!(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_DEMAND) && bfd->ses_state == PTM_BFD_UP &&
 	      bfd->remote_ses_state == PTM_BFD_UP))
 		bfd_recvtimer_update(bfd);
 	else

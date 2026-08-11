@@ -680,6 +680,22 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool m
 
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 {
+	/*
+	 * Periodic transmission ceases while the peer has requested
+	 * Demand mode, both systems are Up and no Poll Sequence is
+	 * in progress.
+	 *
+	 * The timer keeps running so that transmission resumes on
+	 * its own once any of those stop holding.
+	 *
+	 * RFC 5880, Section 6.8.7.
+	 */
+	if (bfd->remote_demand_mode && bfd->ses_state == PTM_BFD_UP &&
+	    bfd->remote_ses_state == PTM_BFD_UP && !bfd->polling && !fbit) {
+		ptm_bfd_start_xmt_timer(bfd, false);
+		return;
+	}
+
 	/* Send the scheduled control packet */
 	ptm_bfd_snd(bfd, fbit);
 
@@ -789,6 +805,7 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, bool notify_admin_do
 	bfd->ses_state = PTM_BFD_DOWN;
 	bfd->polling = 0;
 	bfd->remote_ses_state = PTM_BFD_ADM_DOWN;
+	bfd->remote_demand_mode = 0;
 	monotime(&bfd->downtime);
 
 	/*
@@ -885,6 +902,7 @@ void ptm_sbfd_init_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd->ses_state = PTM_BFD_DOWN;
 	bfd->polling = 0;
 	bfd->remote_ses_state = PTM_BFD_ADM_DOWN;
+	bfd->remote_demand_mode = 0;
 	monotime(&bfd->downtime);
 
 	/*
@@ -935,6 +953,7 @@ void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd->ses_state = PTM_BFD_DOWN;
 	bfd->polling = 0;
 	bfd->remote_ses_state = PTM_BFD_ADM_DOWN;
+	bfd->remote_demand_mode = 0;
 	monotime(&bfd->downtime);
 	/* only signal clients when going from up->down state */
 	if (old_state == PTM_BFD_UP)
