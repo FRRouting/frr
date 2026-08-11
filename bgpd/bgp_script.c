@@ -408,6 +408,16 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	/* Full rmap_change_flags from script (peer-address, unchanged, etc.) */
 	dst->rmap_change_flags = src->rmap_change_flags;
 
+	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
+		dst->aggregator_as = src->aggregator_as;
+		dst->aggregator_addr = src->aggregator_addr;
+		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+	} else {
+		dst->aggregator_as = 0;
+		memset(&dst->aggregator_addr, 0, sizeof(dst->aggregator_addr));
+		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+	}
+
 	dst->origin = src->origin;
 	dst->weight = src->weight;
 	dst->distance = src->distance;
@@ -845,6 +855,20 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 
 	lua_pushinteger(L, attr->rmap_change_flags);
 	lua_setfield(L, -2, "rmap_change_flags");
+
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
+		char buf[INET_ADDRSTRLEN];
+
+		lua_newtable(L);
+		lua_pushinteger(L, attr->aggregator_as);
+		lua_setfield(L, -2, "as");
+		inet_ntop(AF_INET, &attr->aggregator_addr, buf, sizeof(buf));
+		lua_pushstring(L, buf);
+		lua_setfield(L, -2, "address");
+	} else
+		lua_pushnil(L);
+	lua_setfield(L, -2, "aggregator");
+
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -953,6 +977,28 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_pop(L, 1);
 
 	lua_decode_nexthop_table(L, idx, attr, orig_nh_ifindex);
+
+	lua_getfield(L, idx, "aggregator");
+	if (lua_isnil(L, -1)) {
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+		attr->aggregator_as = 0;
+		memset(&attr->aggregator_addr, 0, sizeof(attr->aggregator_addr));
+	} else if (lua_istable(L, -1)) {
+		lua_getfield(L, -1, "as");
+		if (!lua_isnil(L, -1))
+			attr->aggregator_as = (as_t)lua_tointeger(L, -1);
+		lua_pop(L, 1);
+		lua_getfield(L, -1, "address");
+		if (!lua_isnil(L, -1)) {
+			const char *str = lua_tostring(L, -1);
+
+			if (str)
+				inet_pton(AF_INET, str, &attr->aggregator_addr);
+		}
+		lua_pop(L, 1);
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+	}
+	lua_pop(L, 1);
 
 	/* pop the attributes table */
 	lua_pop(L, 1);
