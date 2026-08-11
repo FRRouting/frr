@@ -158,6 +158,69 @@ static void bgp_attr_script_apply_community(struct attr *dst, struct attr *src)
 	bgp_attr_set_community(src, NULL);
 }
 
+
+static void lua_push_lcommunity_field(lua_State *L, struct lcommunity *lcom,
+				      const char *key)
+{
+	if (lcom) {
+		char *str = lcommunity_str(lcom, false, false);
+
+		lua_pushstring(L, str ? str : "");
+	} else
+		lua_pushnil(L);
+	lua_setfield(L, -2, key);
+}
+
+static void lua_decode_lcommunity_field(lua_State *L, int idx, struct attr *attr)
+{
+	struct lcommunity *new_lcom = NULL;
+	struct lcommunity *old;
+	const char *str;
+
+	lua_getfield(L, idx, "large_community");
+	if (lua_isnil(L, -1)) {
+		bgp_attr_set_lcommunity(attr, NULL);
+		lua_pop(L, 1);
+		return;
+	}
+
+	str = lua_tostring(L, -1);
+	old = bgp_attr_get_lcommunity(attr);
+	if (str && old) {
+		char *cur = lcommunity_str(old, false, false);
+
+		if (cur && strcmp(cur, str) == 0) {
+			lua_pop(L, 1);
+			return;
+		}
+	}
+
+	if (str && *str)
+		new_lcom = lcommunity_str2com(str);
+	if (!new_lcom && str && *str) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	bgp_attr_set_lcommunity(attr, new_lcom);
+	lua_pop(L, 1);
+}
+
+static void bgp_attr_script_apply_lcommunity(struct attr *dst, struct attr *src)
+{
+	struct lcommunity *old = bgp_attr_get_lcommunity(dst);
+	struct lcommunity *new = bgp_attr_get_lcommunity(src);
+
+	if (old == new)
+		return;
+
+	if (old && old->refcnt == 0)
+		lcommunity_free(&old);
+
+	bgp_attr_set_lcommunity(dst, new);
+	bgp_attr_set_lcommunity(src, NULL);
+}
+
 static void bgp_attr_script_apply_aspath(struct attr *dst, struct attr *src)
 {
 	if (dst->aspath == src->aspath)
@@ -222,6 +285,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
 
 	bgp_attr_script_apply_community(dst, src);
+	bgp_attr_script_apply_lcommunity(dst, src);
 	bgp_attr_script_apply_aspath(dst, src);
 }
 
@@ -238,6 +302,15 @@ void bgp_attr_script_discard(struct attr *working, const struct attr *orig)
 	if (com && com != ocom && com->refcnt == 0)
 		community_free(&com);
 	bgp_attr_set_community(working, NULL);
+
+	{
+		struct lcommunity *lcom = bgp_attr_get_lcommunity(working);
+		struct lcommunity *olcom = bgp_attr_get_lcommunity(orig);
+
+		if (lcom && lcom != olcom && lcom->refcnt == 0)
+			lcommunity_free(&lcom);
+		bgp_attr_set_lcommunity(working, NULL);
+	}
 }
 
 void lua_pushpeer(lua_State *L, const struct peer *peer)
@@ -415,6 +488,8 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 	lua_setfield(L, -2, "atomic_aggregate");
 
 	lua_push_community_field(L, bgp_attr_get_community(attr), "community");
+	lua_push_lcommunity_field(L, bgp_attr_get_lcommunity(attr),
+				  "large_community");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -508,6 +583,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_pop(L, 1);
 
 	lua_decode_community_field(L, idx, attr);
+	lua_decode_lcommunity_field(L, idx, attr);
 
 	/* pop the attributes table */
 	lua_pop(L, 1);
