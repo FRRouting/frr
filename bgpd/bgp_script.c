@@ -16,8 +16,10 @@
 #include "bgp_community.h"
 #include "bgp_ecommunity.h"
 #include "bgp_lcommunity.h"
+#include "bgp_attr_evpn.h"
 #include "frratomic.h"
 #include "frrscript.h"
+#include "ipaddr.h"
 
 /* Encode an optional integer attr: nil when the presence flag is clear. */
 static void lua_push_optional_uint(lua_State *L, const struct attr *attr,
@@ -454,6 +456,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	bgp_attr_script_apply_lcommunity(dst, src);
 	bgp_attr_script_apply_ecommunity(dst, src);
 	bgp_attr_script_apply_ipv6_ecommunity(dst, src);
+	bgp_attr_script_apply_evpn(dst, src);
 	bgp_attr_script_apply_aspath(dst, src);
 }
 
@@ -496,6 +499,15 @@ void bgp_attr_script_discard(struct attr *working, const struct attr *orig)
 		if (ecom && ecom != oecom && ecom->refcnt == 0)
 			ecommunity_free(&ecom);
 		bgp_attr_set_ipv6_ecommunity(working, NULL);
+	}
+
+	{
+		struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(working);
+		struct bgp_route_evpn *obre = bgp_attr_get_evpn_overlay(orig);
+
+		if (bre && bre != obre && bre->refcnt == 0)
+			evpn_overlay_free(bre);
+		bgp_attr_set_evpn_overlay(working, NULL);
 	}
 }
 
@@ -674,6 +686,77 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 	lua_pop(L, 1);
 
 	lua_pop(L, 1); /* nexthop table */
+}
+
+
+static void lua_push_evpn_table(lua_State *L, const struct attr *attr)
+{
+	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
+	char buf[INET6_ADDRSTRLEN];
+
+	lua_newtable(L);
+
+	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
+		ipaddr2str(&bre->gw_ip, buf, sizeof(buf));
+		lua_pushstring(L, buf);
+	} else
+		lua_pushnil(L);
+	lua_setfield(L, -2, "gateway_ip");
+}
+
+static void lua_decode_evpn_table(lua_State *L, int idx, struct attr *attr)
+{
+	lua_getfield(L, idx, "evpn");
+	if (lua_isnil(L, -1) || !lua_istable(L, -1)) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	lua_getfield(L, -1, "gateway_ip");
+	if (lua_isnil(L, -1)) {
+		struct bgp_route_evpn *old = bgp_attr_get_evpn_overlay(attr);
+
+		/* Nil means "no gateway IP", not "delete ESI/MAC overlay". */
+		if (old && old->type == OVERLAY_INDEX_GATEWAY_IP)
+			bgp_attr_set_evpn_overlay(attr, NULL);
+	} else {
+		const char *str = lua_tostring(L, -1);
+		struct ipaddr gw = {};
+		struct bgp_route_evpn *old = bgp_attr_get_evpn_overlay(attr);
+		struct bgp_route_evpn *bre;
+
+		if (str && str2ipaddr(str, &gw) == 0) {
+			if (old && old->type == OVERLAY_INDEX_GATEWAY_IP
+			    && ipaddr_is_same(&old->gw_ip, &gw))
+				; /* unchanged */
+			else {
+				bre = XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					      sizeof(struct bgp_route_evpn));
+				bre->type = OVERLAY_INDEX_GATEWAY_IP;
+				bre->gw_ip = gw;
+				bgp_attr_set_evpn_overlay(attr, bre);
+			}
+		}
+		/* parse failure: keep original overlay */
+	}
+	lua_pop(L, 1);
+
+	lua_pop(L, 1); /* evpn */
+}
+
+static void bgp_attr_script_apply_evpn(struct attr *dst, struct attr *src)
+{
+	struct bgp_route_evpn *old = bgp_attr_get_evpn_overlay(dst);
+	struct bgp_route_evpn *new = bgp_attr_get_evpn_overlay(src);
+
+	if (old == new)
+		return;
+
+	if (old && old->refcnt == 0)
+		evpn_overlay_free(old);
+
+	bgp_attr_set_evpn_overlay(dst, new);
+	bgp_attr_set_evpn_overlay(src, NULL);
 }
 
 void lua_pushpeer(lua_State *L, const struct peer *peer)
@@ -885,6 +968,9 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 	} else
 		lua_pushnil(L);
 	lua_setfield(L, -2, "originator_id");
+
+	lua_push_evpn_table(L, attr);
+	lua_setfield(L, -2, "evpn");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -1027,6 +1113,8 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 			SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
 	}
 	lua_pop(L, 1);
+
+	lua_decode_evpn_table(L, idx, attr);
 
 	/* pop the attributes table */
 	lua_pop(L, 1);
