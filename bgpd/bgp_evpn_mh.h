@@ -347,10 +347,6 @@ static inline int bgp_evpn_is_es_local(struct bgp_evpn_es *es)
 }
 
 extern esi_t *zero_esi;
-static inline bool bgp_evpn_is_esi_valid(esi_t *esi)
-{
-	return !!memcmp(esi, zero_esi, sizeof(esi_t));
-}
 
 static inline esi_t *bgp_evpn_attr_get_esi(struct attr *attr)
 {
