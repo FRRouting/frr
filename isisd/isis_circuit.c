@@ -49,6 +49,7 @@
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
 #include "isisd/isis_ldp_sync.h"
+#include "isisd/isis_spf.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_CIRCUIT, "ISIS circuit");
 
@@ -278,6 +279,26 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 DEFINE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
 	    (circuit));
 
+/*
+ * A local IP address was added or removed on this circuit. Re-evaluate
+ * which address families each adjacency can still be used for (we need a
+ * local address in that AF to reach the neighbor's nexthop), then
+ * re-originate our LSP and re-run SPF so any route whose nexthop is no
+ * longer usable is withdrawn. IPv6 adjacencies keep working across an
+ * IPv4 address removal and vice versa.
+ */
+static void isis_circuit_ip_addr_change_update(struct isis_circuit *circuit)
+{
+	if (circuit->area == NULL)
+		return;
+
+	lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
+	if (circuit->is_type & IS_LEVEL_1)
+		isis_spf_schedule(circuit->area, IS_LEVEL_1);
+	if (circuit->is_type & IS_LEVEL_2)
+		isis_spf_schedule(circuit->area, IS_LEVEL_2);
+}
+
 void isis_circuit_add_addr(struct isis_circuit *circuit,
 			   struct connected *connected)
 {
@@ -308,9 +329,7 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 			SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR);
 		}
 
-		if (circuit->area)
-			lsp_regenerate_schedule(circuit->area, circuit->is_type,
-						0);
+		isis_circuit_ip_addr_change_update(circuit);
 
 #ifdef EXTREME_DEBUG
 		if (IS_DEBUG_EVENTS)
@@ -348,9 +367,7 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 				SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR6);
 			}
 		}
-		if (circuit->area)
-			lsp_regenerate_schedule(circuit->area, circuit->is_type,
-						0);
+		isis_circuit_ip_addr_change_update(circuit);
 
 #ifdef EXTREME_DEBUG
 		if (IS_DEBUG_EVENTS)
@@ -386,9 +403,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		if (ip) {
 			listnode_delete(circuit->ip_addrs, ip);
 			prefix_ipv4_free(&ip);
-			if (circuit->area)
-				lsp_regenerate_schedule(circuit->area,
-							circuit->is_type, 0);
+			isis_circuit_ip_addr_change_update(circuit);
 		} else {
 			zlog_warn(
 				"Nonexistent ip address %pFX removal attempt from circuit %s",
@@ -449,9 +464,8 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 						  ip6))
 				zlog_warn("  %pFX", (struct prefix *)ip6);
 			zlog_warn("End of addresses");
-		} else if (circuit->area)
-			lsp_regenerate_schedule(circuit->area, circuit->is_type,
-						0);
+		} else
+			isis_circuit_ip_addr_change_update(circuit);
 
 		prefix_ipv6_free(&ipv6);
 	}
