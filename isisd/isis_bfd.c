@@ -688,6 +688,7 @@ void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,
 		isis_bfd_update_rfc6213(adj);
 		isis_bfd_update_status_rfc6213(adj, AF_INET);
 		isis_bfd_update_status_rfc6213(adj, AF_INET6);
+		isis_bfd_update_rfc6213_useable(adj);
 		*changed = true;
 	}
 }
@@ -1333,6 +1334,29 @@ void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj, uint8_t family)
 				   adj->level, isis_adj_name(adj), family == AF_INET ? 4 : 6);
 		bfd_handle_run_bfd(adj, family);
 	}
+}
+
+/* Update the RFC6213 variables :
+ *  - ISIS_TOPO_NLPID_STATE
+ *  - ISIS_TOPO_USEABLE
+ *  - ISIS_NEIGHBOR_USEABLE
+ */
+void isis_bfd_update_rfc6213_useable(struct isis_adjacency *adj)
+{
+	bool debug = IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit);
+
+	if (debug)
+		zlog_debug("ISIS-BFD: updating RFC6213 variables for L%u adjacency %s", adj->level,
+			   isis_adj_name(adj));
+
+	/* RFC6213, 3.1. ISIS_TOPO_NLPID_STATE */
+	isis_bfd_update_rfc6213_topo_nlpid_state(adj, debug);
+
+	/* RFC6213, 3.1. ISIS_TOPO_BFD_USEABLE */
+	isis_bfd_update_rfc6213_topo_useable(adj, debug);
+
+	/* RFC6213, 3.1. ISIS_NEIGHBOR_USEABLE */
+	isis_bfd_update_rfc6213_neighbor_useable(adj, debug);
 }
 
 bool isis_bfd_circuit_rfc6213_enabled(struct isis_circuit *circuit)
