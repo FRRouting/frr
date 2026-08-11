@@ -374,6 +374,23 @@ static void bgp_attr_script_apply_aspath(struct attr *dst, struct attr *src)
 		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
 }
 
+static void bgp_attr_script_apply_evpn(struct attr *dst, struct attr *src)
+{
+	struct bgp_route_evpn *old = bgp_attr_get_evpn_overlay(dst);
+	struct bgp_route_evpn *new = bgp_attr_get_evpn_overlay(src);
+
+	dst->evpn_flags = src->evpn_flags;
+
+	if (old == new)
+		return;
+
+	if (old && old->refcnt == 0)
+		evpn_overlay_free(old);
+
+	bgp_attr_set_evpn_overlay(dst, new);
+	bgp_attr_set_evpn_overlay(src, NULL);
+}
+
 void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 {
 	/* metric / MED */
@@ -459,6 +476,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	bgp_attr_script_apply_ecommunity(dst, src);
 	bgp_attr_script_apply_ipv6_ecommunity(dst, src);
 	bgp_attr_script_apply_evpn(dst, src);
+
 	bgp_attr_script_apply_aspath(dst, src);
 }
 
@@ -774,23 +792,6 @@ static void lua_decode_evpn_table(lua_State *L, int idx, struct attr *attr)
 	lua_pop(L, 1); /* evpn */
 }
 
-static void bgp_attr_script_apply_evpn(struct attr *dst, struct attr *src)
-{
-	struct bgp_route_evpn *old = bgp_attr_get_evpn_overlay(dst);
-	struct bgp_route_evpn *new = bgp_attr_get_evpn_overlay(src);
-
-	dst->evpn_flags = src->evpn_flags;
-
-	if (old == new)
-		return;
-
-	if (old && old->refcnt == 0)
-		evpn_overlay_free(old);
-
-	bgp_attr_set_evpn_overlay(dst, new);
-	bgp_attr_set_evpn_overlay(src, NULL);
-}
-
 void lua_push_bgp_path_info(lua_State *L, const struct bgp_path_info *path)
 {
 	lua_newtable(L);
@@ -800,6 +801,24 @@ void lua_push_bgp_path_info(lua_State *L, const struct bgp_path_info *path)
 	lua_setfield(L, -2, "type_id");
 	lua_pushinteger(L, path->sub_type);
 	lua_setfield(L, -2, "sub_type");
+	/*
+	 * SR-TE color lives on bgp_path_info_extra (set sr-te color), not
+	 * on struct attr.
+	 */
+	lua_pushinteger(L, path->extra ? path->extra->srte_color : 0);
+	lua_setfield(L, -2, "srte_color");
+}
+
+void lua_decode_bgp_path_info(lua_State *L, int idx, struct bgp_path_info *path)
+{
+	lua_getfield(L, idx, "srte_color");
+	if (!lua_isnil(L, -1))
+		bgp_path_info_extra_get(path)->srte_color =
+			(uint32_t)lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	/* pop the path table */
+	lua_pop(L, 1);
 }
 
 void lua_pushpeer(lua_State *L, const struct peer *peer)

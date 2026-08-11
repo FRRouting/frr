@@ -37,6 +37,8 @@ void *lua_toattr(lua_State *L, int idx);
 
 void lua_push_bgp_path_info(lua_State *L, const struct bgp_path_info *path);
 
+void lua_decode_bgp_path_info(lua_State *L, int idx, struct bgp_path_info *path);
+
 /*
  * Transfer script-supported fields from a working attr (src) onto dst.
  * Pointer fields that change are moved (src pointer cleared) so the
