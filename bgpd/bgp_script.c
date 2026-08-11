@@ -17,9 +17,11 @@
 #include "bgp_ecommunity.h"
 #include "bgp_lcommunity.h"
 #include "bgp_attr_evpn.h"
+#include "bgp_route.h"
 #include "frratomic.h"
 #include "frrscript.h"
 #include "ipaddr.h"
+#include "log.h"
 
 /* Encode an optional integer attr: nil when the presence flag is clear. */
 static void lua_push_optional_uint(lua_State *L, const struct attr *attr,
@@ -787,6 +789,17 @@ static void bgp_attr_script_apply_evpn(struct attr *dst, struct attr *src)
 
 	bgp_attr_set_evpn_overlay(dst, new);
 	bgp_attr_set_evpn_overlay(src, NULL);
+}
+
+void lua_push_bgp_path_info(lua_State *L, const struct bgp_path_info *path)
+{
+	lua_newtable(L);
+	lua_pushstring(L, zebra_route_string(path->type));
+	lua_setfield(L, -2, "type");
+	lua_pushinteger(L, path->type);
+	lua_setfield(L, -2, "type_id");
+	lua_pushinteger(L, path->sub_type);
+	lua_setfield(L, -2, "sub_type");
 }
 
 void lua_pushpeer(lua_State *L, const struct peer *peer)
