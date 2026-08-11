@@ -401,12 +401,14 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	}
 	dst->mp_nexthop_global = src->mp_nexthop_global;
 	dst->mp_nexthop_local = src->mp_nexthop_local;
+	dst->mp_nexthop_global_in = src->mp_nexthop_global_in;
 	dst->mp_nexthop_len = src->mp_nexthop_len;
 	SET_FLAG(dst->rmap_change_flags,
 		 CHECK_FLAG(src->rmap_change_flags,
 			    BATTR_RMAP_IPV4_NHOP_CHANGED
 				    | BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED
-				    | BATTR_RMAP_IPV6_LL_NHOP_CHANGED));
+				    | BATTR_RMAP_IPV6_LL_NHOP_CHANGED
+				    | BATTR_RMAP_VPNV4_NHOP_CHANGED));
 
 	dst->origin = src->origin;
 	dst->weight = src->weight;
@@ -495,6 +497,14 @@ static void lua_push_nexthop_table(lua_State *L, const struct attr *attr)
 		lua_pushnil(L);
 	lua_setfield(L, -2, "ipv4");
 
+	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4
+	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
+		inet_ntop(AF_INET, &attr->mp_nexthop_global_in, buf, sizeof(buf));
+		lua_pushstring(L, buf);
+	} else
+		lua_pushnil(L);
+	lua_setfield(L, -2, "vpnv4");
+
 	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL
 	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
 	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL
@@ -539,6 +549,20 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr)
 		}
 	}
 	lua_pop(L, 1); /* ipv4 */
+
+	lua_getfield(L, -1, "vpnv4");
+	if (!lua_isnil(L, -1)) {
+		const char *str = lua_tostring(L, -1);
+
+		if (str && inet_pton(AF_INET, str, &attr->mp_nexthop_global_in) == 1) {
+			attr->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV4;
+			SET_FLAG(attr->rmap_change_flags,
+				 BATTR_RMAP_VPNV4_NHOP_CHANGED);
+		}
+	} else
+		memset(&attr->mp_nexthop_global_in, 0,
+		       sizeof(attr->mp_nexthop_global_in));
+	lua_pop(L, 1);
 
 	lua_getfield(L, -1, "ipv6_global");
 	if (!lua_isnil(L, -1)) {
