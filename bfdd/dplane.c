@@ -813,6 +813,8 @@ static void _bfd_dplane_session_fill(const struct bfd_session *bs,
 		msg->data.session.flags |= SESSION_ECHO;
 	if (bs->flags & BFD_SESS_FLAG_CBIT)
 		msg->data.session.flags |= SESSION_CBIT;
+	if (bs->flags & BFD_SESS_FLAG_DEMAND)
+		msg->data.session.flags |= SESSION_DEMAND;
 	if (bs->flags & BFD_SESS_FLAG_PASSIVE)
 		msg->data.session.flags |= SESSION_PASSIVE;
 	if (bs->flags & BFD_SESS_FLAG_SHUTDOWN)

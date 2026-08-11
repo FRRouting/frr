@@ -200,6 +200,24 @@ BFD peers and profiles share the same BFD session configuration commands.
    Echo mode is not supported on multi-hop setups (see :rfc:`5883`
    section 3).
 
+.. clicmd:: demand-mode
+
+   Enables or disables demand mode. This mode is disabled by default.
+
+   In demand mode this system asks the peer to cease periodic control
+   packet transmission, on the understanding that connectivity is
+   verified by some other means. The path is then verified only when a
+   Poll Sequence is initiated, which happens when the contents of a
+   control packet would otherwise change.
+
+   Because nothing initiates a Poll Sequence on its own, enabling
+   demand mode on both ends of a connection without `echo-mode` can
+   leave a failed path undetected: neither system transmits and
+   neither runs a detection timer. Pair demand mode with `echo-mode`,
+   or ensure some other mechanism verifies the path.
+
+   Unlike echo mode, demand mode is supported on multi-hop setups.
+
 .. clicmd:: shutdown
 
    Enables or disables the peer. When the peer is disabled an
