@@ -389,6 +389,7 @@ struct bfd_session {
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
 	uint8_t remote_cbit;
+	uint8_t remote_ses_state;
 
 	/** BFD profile name. */
 	char *profile_name;

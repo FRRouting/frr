@@ -446,7 +446,14 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
 		BFD_SETCBIT(cp.flags, BFD_CBIT);
 
-	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
+	/*
+	 * The Demand bit is only set once both systems are Up.
+	 *
+	 * RFC 5880, Section 6.8.6.
+	 */
+	BFD_SETDEMANDBIT(cp.flags, CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_DEMAND) &&
+					   bfd->ses_state == PTM_BFD_UP &&
+					   bfd->remote_ses_state == PTM_BFD_UP);
 
 	/* Polling and Final can't be set at the same time.
 	 *
@@ -1390,6 +1397,8 @@ void bfd_recv_cb(struct event *t)
 		bfd->remote_cbit = 1;
 	else
 		bfd->remote_cbit = 0;
+
+	bfd->remote_ses_state = BFD_GETSTATE(cp->flags);
 
 	/* The initiator handle SBFD reflect packet. */
 	if (bfd->bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {

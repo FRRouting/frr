@@ -788,6 +788,7 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, bool notify_admin_do
 	bfd->discrs.remote_discr = 0;
 	bfd->ses_state = PTM_BFD_DOWN;
 	bfd->polling = 0;
+	bfd->remote_ses_state = PTM_BFD_ADM_DOWN;
 	monotime(&bfd->downtime);
 
 	/*
@@ -883,6 +884,7 @@ void ptm_sbfd_init_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd->local_diag = diag;
 	bfd->ses_state = PTM_BFD_DOWN;
 	bfd->polling = 0;
+	bfd->remote_ses_state = PTM_BFD_ADM_DOWN;
 	monotime(&bfd->downtime);
 
 	/*
@@ -932,6 +934,7 @@ void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd->discrs.remote_discr = 0;
 	bfd->ses_state = PTM_BFD_DOWN;
 	bfd->polling = 0;
+	bfd->remote_ses_state = PTM_BFD_ADM_DOWN;
 	monotime(&bfd->downtime);
 	/* only signal clients when going from up->down state */
 	if (old_state == PTM_BFD_UP)
