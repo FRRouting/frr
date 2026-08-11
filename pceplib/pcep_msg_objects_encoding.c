@@ -1551,7 +1551,7 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 		hdr->encoded_object_length - OBJECT_HEADER_LENGTH;
 
 	while ((obj_body_length - read_count) > OBJECT_RO_SUBOBJ_HEADER_LENGTH
-	       && num_sub_objects < MAX_ITERATIONS) {
+	       && num_sub_objects <= MAX_RO_ITERATIONS) {
 		num_sub_objects++;
 		/* Read the Sub-Object Header */
 		bool flag_l = (obj_buf[read_count] & 0x80);
@@ -1975,6 +1975,13 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 		if (err_p)
 			break;
 	}
+
+	/* Warn user when sub-objects have not been decoded */
+	if (!err_p && (obj_body_length - read_count) > 0)
+		pcep_log(LOG_WARNING,
+			 "%s: RO object truncated at %d sub-objects, %d bytes left undecoded",
+			 __func__, num_sub_objects - 1,
+			 obj_body_length - read_count);
 
 	if (err_p) {
 		pcep_obj_free_object((struct pcep_object_header *)obj);
