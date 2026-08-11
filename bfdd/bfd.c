@@ -1385,6 +1385,18 @@ void bfd_set_polling(struct bfd_session *bs)
 		zlog_debug("[%s] Setting polling=1 to negotiate timer change", bs_to_string(bs));
 
 	bs->polling = 1;
+
+	/*
+	 * In demand mode the peer is not transmitting, so the Poll
+	 * Sequence is the only way to verify the path. Arm the
+	 * detection timer so a lost Final brings the session down
+	 * instead of leaving the poll outstanding forever.
+	 *
+	 * RFC 5880, Section 6.6.
+	 */
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND) && bs->ses_state == PTM_BFD_UP &&
+	    bs->remote_ses_state == PTM_BFD_UP)
+		bfd_recvtimer_update(bs);
 }
 
 /*
@@ -1693,15 +1705,6 @@ void bs_final_handler(struct bfd_session *bs)
 	/* Start using our new timers. */
 	bs->cur_timers.desired_min_tx = bs->timers.desired_min_tx;
 	bs->cur_timers.required_min_rx = bs->timers.required_min_rx;
-
-	/*
-	 * TODO: demand mode. See RFC 5880 Section 6.1.
-	 *
-	 * When using demand mode we must disable the detection timer
-	 * for lost control packets.
-	 */
-	if (bs->demand_mode)
-		return;
 
 	/*
 	 * Calculate transmission time based on new timers.
