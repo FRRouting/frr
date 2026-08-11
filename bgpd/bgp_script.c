@@ -418,6 +418,14 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
 	}
 
+	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) {
+		dst->originator_id = src->originator_id;
+		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+	} else {
+		memset(&dst->originator_id, 0, sizeof(dst->originator_id));
+		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+	}
+
 	dst->origin = src->origin;
 	dst->weight = src->weight;
 	dst->distance = src->distance;
@@ -869,6 +877,14 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 		lua_pushnil(L);
 	lua_setfield(L, -2, "aggregator");
 
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) {
+		char buf[INET_ADDRSTRLEN];
+
+		inet_ntop(AF_INET, &attr->originator_id, buf, sizeof(buf));
+		lua_pushstring(L, buf);
+	} else
+		lua_pushnil(L);
+	lua_setfield(L, -2, "originator_id");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -997,6 +1013,18 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 		}
 		lua_pop(L, 1);
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+	}
+	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "originator_id");
+	if (lua_isnil(L, -1)) {
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+		memset(&attr->originator_id, 0, sizeof(attr->originator_id));
+	} else {
+		const char *str = lua_tostring(L, -1);
+
+		if (str && inet_pton(AF_INET, str, &attr->originator_id) == 1)
+			SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
 	}
 	lua_pop(L, 1);
 
