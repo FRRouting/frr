@@ -436,8 +436,11 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	struct attr newattr;
+	uint32_t orig_srte_color;
+	bool keep_path_changes = false;
 
 	bgp_attr_dup_into(&newattr, path->attr);
+	orig_srte_color = path->extra ? path->extra->srte_color : 0;
 
 	int result = frrscript_call(
 		fs, routematch_function, ("prefix", prefix),
@@ -445,7 +448,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		("RM_FAILURE", LUA_RM_FAILURE), ("RM_NOMATCH", LUA_RM_NOMATCH),
 		("RM_MATCH", LUA_RM_MATCH),
 		("RM_MATCH_AND_CHANGE", LUA_RM_MATCH_AND_CHANGE),
-		("path", (const struct bgp_path_info *)path));
+		("path", path));
 
 	if (result) {
 		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
@@ -467,6 +470,9 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		bgp_attr_script_discard(&newattr, path->attr);
 		bgp_attr_extra_discard(&newattr);
 		frrscript_delete(fs);
+		if (orig_srte_color || (path->extra && path->extra->srte_color))
+			bgp_path_info_extra_get(path)->srte_color =
+				orig_srte_color;
 		return RMAP_NOMATCH;
 	}
 
@@ -482,6 +488,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		break;
 	case LUA_RM_MATCH_AND_CHANGE:
 		status = RMAP_MATCH;
+		keep_path_changes = true;
 		zlog_debug("Updating attribute based on script's values");
 		bgp_attr_script_apply(path->attr, &newattr);
 		break;
@@ -500,6 +507,14 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	frrscript_delete(fs);
 
 	bgp_attr_extra_discard(&newattr);
+
+	/*
+	 * path.srte_color may have been written back during decode; keep it
+	 * only for match-and-change (same rule as attributes).
+	 */
+	if (!keep_path_changes
+	    && (orig_srte_color || (path->extra && path->extra->srte_color)))
+		bgp_path_info_extra_get(path)->srte_color = orig_srte_color;
 
 	return status;
 }

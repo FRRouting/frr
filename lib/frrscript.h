@@ -48,6 +48,7 @@ void lua_pushattr(lua_State *L, const struct attr *attr);
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr);
 struct bgp_path_info;
 void lua_push_bgp_path_info(lua_State *L, const struct bgp_path_info *path);
+void lua_decode_bgp_path_info(lua_State *L, int idx, struct bgp_path_info *path);
 
 /*
  * Script name hash
@@ -253,6 +254,7 @@ struct in6_addr * : lua_decode_in6addr,                         \
 union sockunion * : lua_decode_sockunion,                       \
 char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
+struct bgp_path_info * : lua_decode_bgp_path_info,              \
 default : _lua_decode_noop                                      \
 )((L), -1, (value))
 
