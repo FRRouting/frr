@@ -134,6 +134,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	dst->weight = src->weight;
 	dst->distance = src->distance;
 	dst->tag = src->tag;
+	dst->rmap_table_id = src->rmap_table_id;
 
 	bgp_attr_script_apply_aspath(dst, src);
 }
@@ -300,6 +301,9 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 
 	lua_pushinteger(L, attr->tag);
 	lua_setfield(L, -2, "tag");
+
+	lua_pushinteger(L, attr->rmap_table_id);
+	lua_setfield(L, -2, "table");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -353,6 +357,11 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_getfield(L, idx, "tag");
 	if (!lua_isnil(L, -1))
 		attr->tag = (route_tag_t)lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "table");
+	if (!lua_isnil(L, -1))
+		attr->rmap_table_id = (uint32_t)lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
 	/* pop the attributes table */
