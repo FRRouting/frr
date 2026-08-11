@@ -1948,6 +1948,10 @@ DEFPY (show_route,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `show <ip|ipv6> rpf [json]` command")
+#endif
+/* Deprecated on 2024-10-29 in 8983d2428208 */
 ALIAS_DEPRECATED (show_route,
                   show_ip_rpf_cmd,
                   "show <ip$ipv4|ipv6$ipv6> rpf$mrib [json$json]",
