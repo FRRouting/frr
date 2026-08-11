@@ -3127,35 +3127,29 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nbr_connected))
 		nbr_connected_dump_vty(vty, NULL, nbr_connected);
 
-#ifdef HAVE_PROC_NET_DEV
-	/* Statistics print out using proc file system. */
-	vty_out(vty,
-		"    %lu input packets (%lu multicast), %lu bytes, %lu dropped\n",
-		ifp->stats.rx_packets, ifp->stats.rx_multicast,
-		ifp->stats.rx_bytes, ifp->stats.rx_dropped);
+#ifdef HAVE_NETLINK
+	vty_out(vty, "    %llu input packets (%llu multicast), %llu bytes, %llu dropped\n",
+		ifp->stats.rx_packets, ifp->stats.multicast, ifp->stats.rx_bytes,
+		ifp->stats.rx_dropped);
 
-	vty_out(vty,
-		"    %lu input errors, %lu length, %lu overrun, %lu CRC, %lu frame\n",
-		ifp->stats.rx_errors, ifp->stats.rx_length_errors,
-		ifp->stats.rx_over_errors, ifp->stats.rx_crc_errors,
-		ifp->stats.rx_frame_errors);
+	vty_out(vty, "    %llu input errors, %llu length, %llu overrun, %llu CRC, %llu frame\n",
+		ifp->stats.rx_errors, ifp->stats.rx_length_errors, ifp->stats.rx_over_errors,
+		ifp->stats.rx_crc_errors, ifp->stats.rx_frame_errors);
 
-	vty_out(vty, "    %lu fifo, %lu missed\n", ifp->stats.rx_fifo_errors,
+	vty_out(vty, "    %llu fifo, %llu missed\n", ifp->stats.rx_fifo_errors,
 		ifp->stats.rx_missed_errors);
 
-	vty_out(vty, "    %lu output packets, %lu bytes, %lu dropped\n",
-		ifp->stats.tx_packets, ifp->stats.tx_bytes,
-		ifp->stats.tx_dropped);
+	vty_out(vty, "    %llu output packets, %llu bytes, %llu dropped\n", ifp->stats.tx_packets,
+		ifp->stats.tx_bytes, ifp->stats.tx_dropped);
 
 	vty_out(vty,
-		"    %lu output errors, %lu aborted, %lu carrier, %lu fifo, %lu heartbeat\n",
-		ifp->stats.tx_errors, ifp->stats.tx_aborted_errors,
-		ifp->stats.tx_carrier_errors, ifp->stats.tx_fifo_errors,
-		ifp->stats.tx_heartbeat_errors);
+		"    %llu output errors, %llu aborted, %llu carrier, %llu fifo, %llu heartbeat\n",
+		ifp->stats.tx_errors, ifp->stats.tx_aborted_errors, ifp->stats.tx_carrier_errors,
+		ifp->stats.tx_fifo_errors, ifp->stats.tx_heartbeat_errors);
 
-	vty_out(vty, "    %lu window, %lu collisions\n",
-		ifp->stats.tx_window_errors, ifp->stats.collisions);
-#endif /* HAVE_PROC_NET_DEV */
+	vty_out(vty, "    %llu window, %llu collisions\n", ifp->stats.tx_window_errors,
+		ifp->stats.collisions);
+#endif /* HAVE_NETLINK */
 
 #ifdef HAVE_NET_RT_IFLIST
 	/* Statistics print out using sysctl (). */
@@ -3230,6 +3224,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	char buf[BUFSIZ];
 	json_object *json_if;
 	json_object *json_addrs;
+	json_object *json_stats;
 
 	json_if = json_object_new_object();
 	json_object_object_add(json, ifp->name, json_if);
@@ -3542,42 +3537,33 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 					       nbr_connected);
 	}
 
-#ifdef HAVE_PROC_NET_DEV
-	json_object_int_add(json_if, "inputPackets", stats.rx_packets);
-	json_object_int_add(json_if, "inputBytes", ifp->stats.rx_bytes);
-	json_object_int_add(json_if, "inputDropped", ifp->stats.rx_dropped);
-	json_object_int_add(json_if, "inputMulticastPackets",
-			    ifp->stats.rx_multicast);
-	json_object_int_add(json_if, "inputErrors", ifp->stats.rx_errors);
-	json_object_int_add(json_if, "inputLengthErrors",
-			    ifp->stats.rx_length_errors);
-	json_object_int_add(json_if, "inputOverrunErrors",
-			    ifp->stats.rx_over_errors);
-	json_object_int_add(json_if, "inputCrcErrors",
-			    ifp->stats.rx_crc_errors);
-	json_object_int_add(json_if, "inputFrameErrors",
-			    ifp->stats.rx_frame_errors);
-	json_object_int_add(json_if, "inputFifoErrors",
-			    ifp->stats.rx_fifo_errors);
-	json_object_int_add(json_if, "inputMissedErrors",
-			    ifp->stats.rx_missed_errors);
-	json_object_int_add(json_if, "outputPackets", ifp->stats.tx_packets);
-	json_object_int_add(json_if, "outputBytes", ifp->stats.tx_bytes);
-	json_object_int_add(json_if, "outputDroppedPackets",
-			    ifp->stats.tx_dropped);
-	json_object_int_add(json_if, "outputErrors", ifp->stats.tx_errors);
-	json_object_int_add(json_if, "outputAbortedErrors",
-			    ifp->stats.tx_aborted_errors);
-	json_object_int_add(json_if, "outputCarrierErrors",
-			    ifp->stats.tx_carrier_errors);
-	json_object_int_add(json_if, "outputFifoErrors",
-			    ifp->stats.tx_fifo_errors);
-	json_object_int_add(json_if, "outputHeartbeatErrors",
-			    ifp->stats.tx_heartbeat_errors);
-	json_object_int_add(json_if, "outputWindowErrors",
-			    ifp->stats.tx_window_errors);
-	json_object_int_add(json_if, "collisions", ifp->stats.collisions);
-#endif /* HAVE_PROC_NET_DEV */
+#ifdef HAVE_NETLINK
+	json_stats = json_object_new_object();
+
+	json_object_int_add(json_stats, "inputPackets", ifp->stats.rx_packets);
+	json_object_int_add(json_stats, "inputBytes", ifp->stats.rx_bytes);
+	json_object_int_add(json_stats, "inputDropped", ifp->stats.rx_dropped);
+	json_object_int_add(json_stats, "inputMulticastPackets", ifp->stats.multicast);
+	json_object_int_add(json_stats, "inputErrors", ifp->stats.rx_errors);
+	json_object_int_add(json_stats, "inputLengthErrors", ifp->stats.rx_length_errors);
+	json_object_int_add(json_stats, "inputOverrunErrors", ifp->stats.rx_over_errors);
+	json_object_int_add(json_stats, "inputCrcErrors", ifp->stats.rx_crc_errors);
+	json_object_int_add(json_stats, "inputFrameErrors", ifp->stats.rx_frame_errors);
+	json_object_int_add(json_stats, "inputFifoErrors", ifp->stats.rx_fifo_errors);
+	json_object_int_add(json_stats, "inputMissedErrors", ifp->stats.rx_missed_errors);
+	json_object_int_add(json_stats, "outputPackets", ifp->stats.tx_packets);
+	json_object_int_add(json_stats, "outputBytes", ifp->stats.tx_bytes);
+	json_object_int_add(json_stats, "outputDroppedPackets", ifp->stats.tx_dropped);
+	json_object_int_add(json_stats, "outputErrors", ifp->stats.tx_errors);
+	json_object_int_add(json_stats, "outputAbortedErrors", ifp->stats.tx_aborted_errors);
+	json_object_int_add(json_stats, "outputCarrierErrors", ifp->stats.tx_carrier_errors);
+	json_object_int_add(json_stats, "outputFifoErrors", ifp->stats.tx_fifo_errors);
+	json_object_int_add(json_stats, "outputHeartbeatErrors", ifp->stats.tx_heartbeat_errors);
+	json_object_int_add(json_stats, "outputWindowErrors", ifp->stats.tx_window_errors);
+	json_object_int_add(json_stats, "collisions", ifp->stats.collisions);
+
+	json_object_object_add(json_if, "statistics", json_stats);
+#endif /* HAVE_NETLINK */
 
 #ifdef HAVE_NET_RT_IFLIST
 	json_object_int_add(json_if, "inputPackets", ifp->stats.ifi_ipackets);
@@ -3596,13 +3582,11 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	json_object_int_add(json_if, "carrierChanges", zebra_if->carrier_changes);
 }
 
-static void interface_update_stats(void)
+static void interface_update_stats(const struct interface *ifp)
 {
-#ifdef HAVE_PROC_NET_DEV
-	/* If system has interface statistics via proc file system, update
-	   statistics. */
-	ifstat_update_proc();
-#endif /* HAVE_PROC_NET_DEV */
+#ifdef HAVE_NETLINK
+	netlink_request_ifstat(ifp);
+#endif /* HAVE_NETLINK */
 #ifdef HAVE_NET_RT_IFLIST
 	ifstat_update_sysctl();
 #endif /* HAVE_NET_RT_IFLIST */
@@ -3622,8 +3606,6 @@ DEFPY(show_interface, show_interface_cmd,
 	struct interface *ifp;
 	json_object *json = NULL;
 
-	interface_update_stats();
-
 	vrf = vrf_lookup_by_name(vrf_name);
 	if (!vrf) {
 		if (uj)
@@ -3642,6 +3624,7 @@ DEFPY(show_interface, show_interface_cmd,
 		else
 			ifs_dump_brief_vty(vty, vrf);
 	} else {
+		interface_update_stats(NULL);
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (json)
 				if_dump_vty_json(vty, ifp, json);
@@ -3671,8 +3654,6 @@ DEFPY (show_interface_vrf_all,
 	struct interface *ifp;
 	json_object *json = NULL;
 
-	interface_update_stats();
-
 	if (uj)
 		json = json_object_new_object();
 
@@ -3684,6 +3665,7 @@ DEFPY (show_interface_vrf_all,
 			else
 				ifs_dump_brief_vty(vty, vrf);
 		} else {
+			interface_update_stats(NULL);
 			FOR_ALL_INTERFACES (vrf, ifp) {
 				if (json)
 					if_dump_vty_json(vty, ifp, json);
@@ -3714,8 +3696,6 @@ DEFPY (show_interface_name_vrf,
 	struct vrf *vrf;
 	json_object *json = NULL;
 
-	interface_update_stats();
-
 	vrf = vrf_lookup_by_name(vrf_name);
 	if (!vrf) {
 		if (uj)
@@ -3736,6 +3716,8 @@ DEFPY (show_interface_name_vrf,
 
 	if (uj)
 		json = json_object_new_object();
+
+	interface_update_stats(ifp);
 
 	if (json)
 		if_dump_vty_json(vty, ifp, json);
@@ -3763,8 +3745,6 @@ DEFPY (show_interface_name_vrf_all,
 	struct vrf *vrf;
 	json_object *json = NULL;
 	int count = 0;
-
-	interface_update_stats();
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		ifptmp = if_lookup_by_name_vrf(ifname, vrf);
@@ -3797,6 +3777,8 @@ DEFPY (show_interface_name_vrf_all,
 
 	if (uj)
 		json = json_object_new_object();
+
+	interface_update_stats(ifp);
 
 	if (json)
 		if_dump_vty_json(vty, ifp, json);
