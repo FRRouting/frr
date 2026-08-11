@@ -46,6 +46,8 @@ struct attr;
 void lua_pushpeer(lua_State *L, const struct peer *peer);
 void lua_pushattr(lua_State *L, const struct attr *attr);
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr);
+struct bgp_path_info;
+void lua_push_bgp_path_info(lua_State *L, const struct bgp_path_info *path);
 
 /*
  * Script name hash
@@ -230,6 +232,8 @@ union sockunion * : lua_pushsockunion,                          \
 char * : lua_pushstring_wrapper,                                \
 struct attr * : lua_pushattr,                                   \
 struct peer * : lua_pushpeer,                                   \
+const struct bgp_path_info * : lua_push_bgp_path_info,          \
+struct bgp_path_info * : lua_push_bgp_path_info,                \
 const struct prefix * : lua_pushprefix,                         \
 const struct ipaddr * : lua_pushipaddr,                         \
 const struct ethaddr * : lua_pushethaddr,                       \
