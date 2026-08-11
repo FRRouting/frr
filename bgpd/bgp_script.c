@@ -23,6 +23,10 @@
 #include "ipaddr.h"
 #include "log.h"
 
+#if CONFDATE > 20280801
+CPP_NOTICE("This code is no longer considered Experimental and should be converted to set in stone")
+#endif
+
 /* Encode an optional integer attr: nil when the presence flag is clear. */
 static void lua_push_optional_uint(lua_State *L, const struct attr *attr,
 				   uint64_t flagbit, uint64_t value,
@@ -594,6 +598,13 @@ static void lua_push_nexthop_table(lua_State *L, const struct attr *attr)
 static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 				     ifindex_t orig_nh_ifindex)
 {
+	struct in_addr old_ipv4 = attr->nexthop;
+	struct in_addr old_vpnv4 = attr->mp_nexthop_global_in;
+	struct in6_addr old_v6g = attr->mp_nexthop_global;
+	struct in6_addr old_v6l = attr->mp_nexthop_local;
+	uint8_t old_nh_flags = attr->nh_flags;
+	bool had_ipv4 = CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+
 	lua_getfield(L, idx, "nexthop");
 	if (lua_isnil(L, -1) || !lua_istable(L, -1)) {
 		lua_pop(L, 1);
@@ -602,6 +613,9 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 
 	lua_getfield(L, -1, "ipv4");
 	if (lua_isnil(L, -1)) {
+		if (had_ipv4)
+			SET_FLAG(attr->rmap_change_flags,
+				 BATTR_RMAP_IPV4_NHOP_CHANGED);
 		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
 		memset(&attr->nexthop, 0, sizeof(attr->nexthop));
 	} else {
@@ -609,8 +623,9 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 
 		if (str && inet_pton(AF_INET, str, &attr->nexthop) == 1) {
 			SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
-			SET_FLAG(attr->rmap_change_flags,
-				 BATTR_RMAP_IPV4_NHOP_CHANGED);
+			if (!had_ipv4 || old_ipv4.s_addr != attr->nexthop.s_addr)
+				SET_FLAG(attr->rmap_change_flags,
+					 BATTR_RMAP_IPV4_NHOP_CHANGED);
 		}
 	}
 	lua_pop(L, 1); /* ipv4 */
@@ -619,10 +634,12 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 	if (!lua_isnil(L, -1)) {
 		const char *str = lua_tostring(L, -1);
 
-		if (str && inet_pton(AF_INET, str, &attr->mp_nexthop_global_in) == 1) {
+		if (str && inet_pton(AF_INET, str, &attr->mp_nexthop_global_in)
+			    == 1) {
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV4;
-			SET_FLAG(attr->rmap_change_flags,
-				 BATTR_RMAP_VPNV4_NHOP_CHANGED);
+			if (old_vpnv4.s_addr != attr->mp_nexthop_global_in.s_addr)
+				SET_FLAG(attr->rmap_change_flags,
+					 BATTR_RMAP_VPNV4_NHOP_CHANGED);
 		}
 	} else
 		memset(&attr->mp_nexthop_global_in, 0,
@@ -633,24 +650,31 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 	if (!lua_isnil(L, -1)) {
 		const char *str = lua_tostring(L, -1);
 
-		if (str && inet_pton(AF_INET6, str, &attr->mp_nexthop_global) == 1) {
+		if (str && inet_pton(AF_INET6, str, &attr->mp_nexthop_global)
+			    == 1) {
 			if (!attr->mp_nexthop_len)
 				attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-			SET_FLAG(attr->rmap_change_flags,
-				 BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED);
+			if (memcmp(&old_v6g, &attr->mp_nexthop_global,
+				   sizeof(old_v6g)))
+				SET_FLAG(attr->rmap_change_flags,
+					 BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED);
 		}
 	} else
-		memset(&attr->mp_nexthop_global, 0, sizeof(attr->mp_nexthop_global));
+		memset(&attr->mp_nexthop_global, 0,
+		       sizeof(attr->mp_nexthop_global));
 	lua_pop(L, 1);
 
 	lua_getfield(L, -1, "ipv6_local");
 	if (!lua_isnil(L, -1)) {
 		const char *str = lua_tostring(L, -1);
 
-		if (str && inet_pton(AF_INET6, str, &attr->mp_nexthop_local) == 1) {
+		if (str && inet_pton(AF_INET6, str, &attr->mp_nexthop_local)
+			    == 1) {
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-			SET_FLAG(attr->rmap_change_flags,
-				 BATTR_RMAP_IPV6_LL_NHOP_CHANGED);
+			if (memcmp(&old_v6l, &attr->mp_nexthop_local,
+				   sizeof(old_v6l)))
+				SET_FLAG(attr->rmap_change_flags,
+					 BATTR_RMAP_IPV6_LL_NHOP_CHANGED);
 		}
 	} else
 		memset(&attr->mp_nexthop_local, 0, sizeof(attr->mp_nexthop_local));
@@ -700,8 +724,9 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 			SET_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
 		else
 			UNSET_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
-		SET_FLAG(attr->rmap_change_flags,
-			 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
+		if (old_nh_flags != attr->nh_flags)
+			SET_FLAG(attr->rmap_change_flags,
+				 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 	}
 	lua_pop(L, 1);
 
@@ -1130,6 +1155,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_decode_lcommunity_field(L, idx, attr);
 	lua_decode_ecommunity_field(L, idx, attr);
 	lua_decode_ipv6_ecommunity_field(L, idx, attr);
+
 	/*
 	 * Script rmap_change_flags are the base bitfield (peer-address,
 	 * unchanged, etc.). Nexthop decode ORs BATTR_RMAP_*_CHANGED on top
