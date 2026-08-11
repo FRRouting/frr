@@ -149,6 +149,11 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	else
 		bgp_attr_unset_aigp_metric(dst);
 
+	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
+		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+	else
+		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+
 	bgp_attr_script_apply_aspath(dst, src);
 }
 
@@ -329,6 +334,10 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 	else
 		lua_pushnil(L);
 	lua_setfield(L, -2, "aigp_metric");
+
+	lua_pushboolean(L, CHECK_FLAG(attr->flag,
+				      ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)));
+	lua_setfield(L, -2, "atomic_aggregate");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -412,6 +421,13 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 		bgp_attr_unset_aigp_metric(attr);
 	else
 		bgp_attr_set_aigp_metric(attr, (uint64_t)lua_tointeger(L, -1));
+	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "atomic_aggregate");
+	if (!lua_isnil(L, -1) && lua_toboolean(L, -1))
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
 	lua_pop(L, 1);
 
 	/* pop the attributes table */
