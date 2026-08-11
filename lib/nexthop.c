@@ -1462,6 +1462,9 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 					    &in6addr_any))
 				json_object_string_addf(json_nexthop, "srv6EncapSource", "%pI6",
 							&nexthop->nh_srv6->seg6_segs->encap_source);
+			if (nexthop->nh_srv6->seg6_segs->lookup_table)
+				json_object_int_add(json_nexthop, "srv6LookupTable",
+						    nexthop->nh_srv6->seg6_segs->lookup_table);
 		} else {
 			if (nexthop->nh_srv6->seg6_segs) {
 				json_segs = json_object_new_array();
@@ -1489,6 +1492,10 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 								"%pI6",
 								&nexthop->nh_srv6->seg6_segs
 									 ->encap_source);
+				if (nexthop->nh_srv6->seg6_segs->lookup_table)
+					json_object_int_add(json_nexthop, "srv6LookupTable",
+							    nexthop->nh_srv6->seg6_segs
+								->lookup_table);
 			}
 		}
 	}
@@ -1632,6 +1639,9 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 					    &in6addr_any))
 				vty_out(vty, ", encap source %pI6",
 					&nexthop->nh_srv6->seg6_segs->encap_source);
+			if (nexthop->nh_srv6->seg6_segs->lookup_table)
+				vty_out(vty, ", lookup table %u",
+					nexthop->nh_srv6->seg6_segs->lookup_table);
 		}
 	}
 
