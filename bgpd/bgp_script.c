@@ -392,6 +392,16 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	/* nexthop ifindex (flat key; nested nexthop table added later) */
 	dst->nh_ifindex = src->nh_ifindex;
 
+	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+		dst->nexthop = src->nexthop;
+		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+	} else {
+		memset(&dst->nexthop, 0, sizeof(dst->nexthop));
+		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+	}
+	SET_FLAG(dst->rmap_change_flags,
+		 CHECK_FLAG(src->rmap_change_flags, BATTR_RMAP_IPV4_NHOP_CHANGED));
+
 	dst->origin = src->origin;
 	dst->weight = src->weight;
 	dst->distance = src->distance;
@@ -463,6 +473,47 @@ void bgp_attr_script_discard(struct attr *working, const struct attr *orig)
 			ecommunity_free(&ecom);
 		bgp_attr_set_ipv6_ecommunity(working, NULL);
 	}
+}
+
+
+static void lua_push_nexthop_table(lua_State *L, const struct attr *attr)
+{
+	char buf[INET6_ADDRSTRLEN];
+
+	lua_newtable(L);
+
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+		inet_ntop(AF_INET, &attr->nexthop, buf, sizeof(buf));
+		lua_pushstring(L, buf);
+	} else
+		lua_pushnil(L);
+	lua_setfield(L, -2, "ipv4");
+}
+
+static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr)
+{
+	lua_getfield(L, idx, "nexthop");
+	if (lua_isnil(L, -1) || !lua_istable(L, -1)) {
+		lua_pop(L, 1);
+		return;
+	}
+
+	lua_getfield(L, -1, "ipv4");
+	if (lua_isnil(L, -1)) {
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+		memset(&attr->nexthop, 0, sizeof(attr->nexthop));
+	} else {
+		const char *str = lua_tostring(L, -1);
+
+		if (str && inet_pton(AF_INET, str, &attr->nexthop) == 1) {
+			SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+			SET_FLAG(attr->rmap_change_flags,
+				 BATTR_RMAP_IPV4_NHOP_CHANGED);
+		}
+	}
+	lua_pop(L, 1); /* ipv4 */
+
+	lua_pop(L, 1); /* nexthop table */
 }
 
 void lua_pushpeer(lua_State *L, const struct peer *peer)
@@ -646,6 +697,9 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 				  "extcommunity");
 	lua_push_ecommunity_field(L, bgp_attr_get_ipv6_ecommunity(attr),
 				  "ipv6_extcommunity");
+
+	lua_push_nexthop_table(L, attr);
+	lua_setfield(L, -2, "nexthop");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
@@ -742,6 +796,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_decode_lcommunity_field(L, idx, attr);
 	lua_decode_ecommunity_field(L, idx, attr);
 	lua_decode_ipv6_ecommunity_field(L, idx, attr);
+	lua_decode_nexthop_table(L, idx, attr);
 
 	/* pop the attributes table */
 	lua_pop(L, 1);
