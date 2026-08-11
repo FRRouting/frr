@@ -392,6 +392,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	/* nexthop ifindexes (flat ifindex kept for compatibility) */
 	dst->nh_ifindex = src->nh_ifindex;
 	dst->nh_lla_ifindex = src->nh_lla_ifindex;
+	dst->nh_flags = src->nh_flags;
 
 	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
 		dst->nexthop = src->nexthop;
@@ -409,7 +410,8 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 			    BATTR_RMAP_IPV4_NHOP_CHANGED
 				    | BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED
 				    | BATTR_RMAP_IPV6_LL_NHOP_CHANGED
-				    | BATTR_RMAP_VPNV4_NHOP_CHANGED));
+				    | BATTR_RMAP_VPNV4_NHOP_CHANGED
+				    | BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED));
 
 	dst->origin = src->origin;
 	dst->weight = src->weight;
@@ -531,6 +533,10 @@ static void lua_push_nexthop_table(lua_State *L, const struct attr *attr)
 	lua_setfield(L, -2, "ifindex");
 	lua_pushinteger(L, attr->nh_lla_ifindex);
 	lua_setfield(L, -2, "lla_ifindex");
+
+	lua_pushboolean(L, CHECK_FLAG(attr->nh_flags,
+				      BGP_ATTR_NH_MP_PREFER_GLOBAL));
+	lua_setfield(L, -2, "prefer_global");
 }
 
 /*
@@ -628,6 +634,17 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 	lua_getfield(L, -1, "lla_ifindex");
 	if (!lua_isnil(L, -1))
 		attr->nh_lla_ifindex = (ifindex_t)lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	lua_getfield(L, -1, "prefer_global");
+	if (!lua_isnil(L, -1)) {
+		if (lua_toboolean(L, -1))
+			SET_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
+		else
+			UNSET_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
+		SET_FLAG(attr->rmap_change_flags,
+			 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
+	}
 	lua_pop(L, 1);
 
 	lua_pop(L, 1); /* nexthop table */
