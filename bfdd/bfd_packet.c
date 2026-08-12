@@ -60,8 +60,8 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		      ifindex_t *ifindex, struct sockaddr_any *local,
 		      struct sockaddr_any *peer);
-int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
-		struct sockaddr *to, socklen_t tolen);
+int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen, struct sockaddr *to,
+		socklen_t tolen, const struct in6_pktinfo *pktinfo);
 int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		   uint32_t *my_discr, uint64_t *my_rtt);
 static int ptm_bfd_reflector_process_init_packet(struct bfd_vrf_global *bvrf, int s);
@@ -305,6 +305,8 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 	struct bfd_echo_pkt bep;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
+	struct in6_pktinfo pktinfo = {};
+	const struct in6_pktinfo *pktinfop = NULL;
 	struct bfd_vrf_global *bvrf = bfd_vrf_look_by_session(bfd);
 
 	if (!bvrf)
@@ -332,6 +334,17 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 		sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
+		/*
+		 * The echo socket is shared and unbound, so the kernel would
+		 * otherwise pick any address on the outgoing interface. The peer
+		 * reflects only echoes whose source names a known session, so an
+		 * arbitrary source gets the echo dropped there.
+		 */
+		memcpy(&pktinfo.ipi6_addr, &bfd->key.local, sizeof(pktinfo.ipi6_addr));
+		if (bfd->ifp)
+			pktinfo.ipi6_ifindex = bfd->ifp->ifindex;
+		pktinfop = &pktinfo;
+
 		sa = (struct sockaddr *)&sin6;
 		salen = sizeof(sin6);
 	} else {
@@ -347,9 +360,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 		sa = (struct sockaddr *)&sin;
 		salen = sizeof(sin);
 	}
-	if (bp_udp_send(sd, BFD_TTL_VAL, (uint8_t *)&bep, sizeof(bep), sa,
-			salen)
-	    == -1)
+	if (bp_udp_send(sd, BFD_TTL_VAL, (uint8_t *)&bep, sizeof(bep), sa, salen, pktinfop) == -1)
 		return;
 
 	bfd->stats.tx_echo_pkt++;
@@ -1552,7 +1563,8 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		}
 
 		bp_udp_send(sd, *ttl - 1, msgbuf, bep->len, (struct sockaddr *)&peer,
-			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin) : sizeof(peer.sa_sin6));
+			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin) : sizeof(peer.sa_sin6),
+			    NULL);
 		return -1;
 	}
 
@@ -1627,8 +1639,8 @@ int bp_udp_send_fp(int sd, uint8_t *data, size_t datalen,
 }
 #endif
 
-int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
-		struct sockaddr *to, socklen_t tolen)
+int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen, struct sockaddr *to,
+		socklen_t tolen, const struct in6_pktinfo *pktinfo)
 {
 	struct cmsghdr *cmsg;
 	ssize_t wlen;
@@ -1674,6 +1686,24 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 #endif /* BFD_BSD */
 		}
 		memcpy(CMSG_DATA(cmsg), &ttlval, sizeof(ttlval));
+	}
+
+	/*
+	 * Pick the source address when the caller supplies one. The echo
+	 * socket is shared by every session in the VRF, so this cannot be a
+	 * sticky socket option: it has to travel with the message.
+	 */
+	if (pktinfo != NULL) {
+		size_t used = msg.msg_controllen ? CMSG_SPACE(sizeof(ttlval)) : 0;
+
+		msg.msg_control = msgctl;
+		msg.msg_controllen = used + CMSG_SPACE(sizeof(*pktinfo));
+
+		cmsg = used ? CMSG_NXTHDR(&msg, CMSG_FIRSTHDR(&msg)) : CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_level = IPPROTO_IPV6;
+		cmsg->cmsg_type = IPV6_PKTINFO;
+		cmsg->cmsg_len = CMSG_LEN(sizeof(*pktinfo));
+		memcpy(CMSG_DATA(cmsg), pktinfo, sizeof(*pktinfo));
 	}
 
 	/* Send echo back. */
