@@ -4454,14 +4454,13 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	struct ipaddr ip;
 	char buf[ETHER_ADDR_STRLEN];
 	int mac_present = 0;
-	bool is_own;
+	bool is_ext;
 	bool is_router;
 	bool local_inactive;
 	uint32_t ext_flags = 0;
 	bool dp_static = false;
 	int l2_len = 0;
 	int cmd;
-	uint8_t rtprot = RTPROT_UNSPEC;
 
 	ndm = NLMSG_DATA(h);
 
@@ -4585,10 +4584,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 			memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
 		}
 
-		if (tb[NDA_PROTOCOL])
-			rtprot = *(__u8 *)RTA_DATA(tb[NDA_PROTOCOL]);
-
-		is_own = !!(ndm->ndm_flags & NTF_EXT_LEARNED) && rtprot == RTPROT_ZEBRA;
+		is_ext = !!(ndm->ndm_flags & NTF_EXT_LEARNED);
 		is_router = !!(ndm->ndm_flags & NTF_ROUTER);
 
 		if (tb[NDA_EXT_FLAGS]) {
@@ -4598,12 +4594,16 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		}
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Rx %s family %s IF %s(%u) vrf %s(%u) IP %pIA MAC %s state 0x%x flags 0x%x ext_flags 0x%x, proto %u",
-				   nl_msg_type_to_str(h->nlmsg_type),
-				   nl_family_to_str(ndm->ndm_family), ifp->name, ndm->ndm_ifindex,
-				   ifp->vrf->name, ifp->vrf->vrf_id, &ip,
-				   mac_present ? prefix_mac2str(&mac, buf, sizeof(buf)) : "",
-				   ndm->ndm_state, ndm->ndm_flags, ext_flags, rtprot);
+			zlog_debug(
+				"Rx %s family %s IF %s(%u) vrf %s(%u) IP %pIA MAC %s state 0x%x flags 0x%x ext_flags 0x%x",
+				nl_msg_type_to_str(h->nlmsg_type),
+				nl_family_to_str(ndm->ndm_family), ifp->name,
+				ndm->ndm_ifindex, ifp->vrf->name,
+				ifp->vrf->vrf_id, &ip,
+				mac_present
+					? prefix_mac2str(&mac, buf, sizeof(buf))
+					: "",
+				ndm->ndm_state, ndm->ndm_flags, ext_flags);
 
 		/* If the neighbor state is valid for use, process as an add or
 		 * update
@@ -4623,16 +4623,16 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 				local_inactive = false;
 
 			/* Add local neighbors to the l3 interface database */
-			if (is_own)
+			if (is_ext)
 				zebra_neigh_del(ifp, &ip);
 			else
 				zebra_neigh_add(ifp, &ip, &mac);
 
 			if (link_if)
-				zebra_vxlan_handle_kernel_neigh_update(ifp, link_if, &ip, &mac,
-								       ndm->ndm_state, is_own,
-								       is_router, local_inactive,
-								       dp_static);
+				zebra_vxlan_handle_kernel_neigh_update(
+					ifp, link_if, &ip, &mac, ndm->ndm_state,
+					is_ext, is_router, local_inactive,
+					dp_static);
 			return 0;
 		}
 
