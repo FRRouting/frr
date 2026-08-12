@@ -28,7 +28,7 @@ Using SHARP
 All sharp commands are under the enable node and preceded by the ``sharp``
 keyword. At present, no sharp commands will be preserved in the config.
 
-.. clicmd:: sharp install routes A.B.C.D <nexthop <E.F.G.H|X:X::X:X>|nexthop-group NAME> (1-1000000) [table (0-4294967295)] [instance (0-255)] [repeat (2-1000)] [opaque WORD]
+.. clicmd:: sharp install routes A.B.C.D <nexthop <E.F.G.H|X:X::X:X>|nexthop-group NAME> (1-1000000) [table (0-4294967295)] [distance (0-255)] [instance (0-255)] [repeat (2-1000)] [opaque WORD]
 
    Install up to 1,000,000 (one million) /32 routes starting at ``A.B.C.D``
    with specified nexthop ``E.F.G.H`` or ``X:X::X:X``. The nexthop is
