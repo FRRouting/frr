@@ -58,14 +58,6 @@ static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			pim_addr group_addr, pim_addr source_addr,
 			struct pim_interface *pim_ifp);
 
-void pim_if_init(struct pim_instance *pim)
-{
-	int i;
-
-	for (i = 0; i < MAXVIFS; i++)
-		pim->iface_vif_index[i] = 0;
-}
-
 void pim_if_terminate(struct pim_instance *pim)
 {
 	struct interface *ifp;
