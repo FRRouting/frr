@@ -5730,6 +5730,22 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 						     NULL);
 			stream_putc(s, 4);
 			stream_put_ipv4(s, 0);
+		} else if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) {
+			/*
+			 * The path carries a valid IPv4 next hop that arrived
+			 * in an MP_REACH_NLRI rather than the legacy NEXT_HOP
+			 * attribute, for example a route reflected from an
+			 * ipv4 labeled-unicast peer to an ipv4 unicast-only
+			 * client. NEXT_HOP is mandatory for a unicast NLRI, so
+			 * emit it from the stored next hop instead of dropping
+			 * the attribute and producing a malformed UPDATE.
+			 */
+			stream_putc(s, BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, BGP_ATTR_NEXT_HOP);
+			bpacket_attr_vec_arr_set_vec(vecarr, BGP_ATTR_VEC_NH, s,
+						     attr);
+			stream_putc(s, 4);
+			stream_put_ipv4(s, attr->mp_nexthop_global_in.s_addr);
 		}
 	}
 
