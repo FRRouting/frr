@@ -1608,12 +1608,23 @@ bgp_evpn_es_vtep_add(struct bgp *bgp, struct bgp_evpn_es *es,
 			   &es_vtep->vtep_ip, esr ? "esr" : "ead", df_alg, df_pref);
 
 	if (esr) {
+		bool had_esr = CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR);
+
 		SET_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR);
 		if ((es_vtep->df_pref != df_pref)
 		    || (es_vtep->df_alg != df_alg)) {
 			param_change = true;
 			es_vtep->df_pref = df_pref;
 			es_vtep->df_alg = df_alg;
+		}
+		/* FRR only implements preference-based DF election */
+		if (df_alg != EVPN_MH_DF_ALG_PREF && (!had_esr || param_change)) {
+			char alg_buf[EVPN_DF_ALG_STR_LEN];
+
+			zlog_warn("es %s vtep %pIA Type-4 ESR df_alg %s (%u); only preference (%u) is supported",
+				  es->esi_str, &vtep_ip,
+				  evpn_es_df_alg2str(df_alg, alg_buf, sizeof(alg_buf)), df_alg,
+				  EVPN_MH_DF_ALG_PREF);
 		}
 	} else {
 		++es_vtep->evi_cnt;

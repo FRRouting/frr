@@ -2755,10 +2755,6 @@ int zebra_evpn_remote_es_add(const esi_t *esi, struct ipaddr *vtep_ip, bool esr_
 		}
 	}
 
-	if (df_alg != EVPN_MH_DF_ALG_PREF)
-		zlog_warn("remote es %s vtep %pIA add %s with unsupported df_alg %d",
-			  esi_to_str(esi, buf, sizeof(buf)), vtep_ip, esr_rxed ? "esr" : "", df_alg);
-
 	zebra_evpn_es_vtep_add(es, vtep_ip, esr_rxed, df_alg, df_pref);
 	zebra_evpn_es_remote_info_re_eval(&es);
 
