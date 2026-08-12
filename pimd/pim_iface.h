@@ -238,7 +238,6 @@ static inline int if_gm_last_member_query_count(const struct pim_interface *pim_
 		 ? ((pim_ifp)->pim_hello_period * 7 / 2)                       \
 		 : ((pim_ifp)->pim_default_holdtime))
 
-void pim_if_init(struct pim_instance *pim);
 void pim_if_terminate(struct pim_instance *pim);
 
 struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
