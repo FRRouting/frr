@@ -25,7 +25,7 @@ extern void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8
 					uint32_t nhgid, const struct nexthop_group *nhg,
 					const struct nexthop_group *backup_nhg, uint32_t routes,
 					uint32_t flags, char *opaque, uint32_t tableid,
-					bool tableid_set);
+					bool tableid_set, uint8_t distance);
 extern void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 				       uint32_t routes, uint32_t tableid, bool tableid_set);
 extern void sharp_install_stop(void);

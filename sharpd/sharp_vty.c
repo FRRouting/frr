@@ -19,6 +19,7 @@
 #include "cspf.h"
 #include "tc.h"
 #include "lib/json.h"
+#include "lib/frrdistance.h"
 
 #include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"
@@ -217,7 +218,7 @@ DEFPY (install_routes,
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
-	  (1-1000000)$routes [instance (0-255)$instance] [table (0-4294967295)$table_id] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
+	  (1-1000000)$routes [instance (0-255)$instance] [table (0-4294967295)$table_id] [distance (0-255)] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -238,6 +239,8 @@ DEFPY (install_routes,
        "Instance\n"
        "Table to install into\n"
        "Table id\n"
+       "Admin Distance to install\n"
+       "Admin Distance\n"
        "Should we repeat this command\n"
        "How many times to repeat this command\n"
        "What opaque data to send down\n"
@@ -255,6 +258,7 @@ DEFPY (install_routes,
 	sg.r.tableid = 0;
 	sg.r.tableid_set = false;
 	sg.r.stop_loop = false;
+	sg.r.distance = ZEBRA_SHARP_DISTANCE_DEFAULT;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -367,6 +371,9 @@ DEFPY (install_routes,
 		sg.r.tableid_set = true;
 	}
 
+	if (distance_str)
+		sg.r.distance = (uint8_t)distance;
+
 	/* Default is to ask for recursive nexthop resolution */
 	if (norecurse == NULL)
 		SET_FLAG(sg.r.flags, ZEBRA_FLAG_ALLOW_RECURSION);
@@ -376,7 +383,7 @@ DEFPY (install_routes,
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid, &sg.r.nhop_group,
 				    &sg.r.backup_nhop_group, rts, sg.r.flags, sg.r.opaque,
-				    sg.r.tableid, sg.r.tableid_set);
+				    sg.r.tableid, sg.r.tableid_set, sg.r.distance);
 
 	return CMD_SUCCESS;
 }
@@ -409,6 +416,7 @@ DEFPY (install_seg6_routes,
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
 	sg.r.stop_loop = false;
+	sg.r.distance = ZEBRA_SHARP_DISTANCE_DEFAULT;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -456,7 +464,7 @@ DEFPY (install_seg6_routes,
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, 0, &sg.r.nhop_group,
 				    &sg.r.backup_nhop_group, routes, route_flags, sg.r.opaque, 0,
-				    false);
+				    false, sg.r.distance);
 
 	return CMD_SUCCESS;
 }
@@ -503,6 +511,7 @@ DEFPY(install_seg6local_segs_routes, install_seg6local_segs_routes_cmd,
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
 	sg.r.stop_loop = false;
+	sg.r.distance = ZEBRA_SHARP_DISTANCE_DEFAULT;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -555,7 +564,7 @@ DEFPY(install_seg6local_segs_routes, install_seg6local_segs_routes_cmd,
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&sg.r.orig_prefix, sg.r.vrf_id, sg.r.inst, 0, &sg.r.nhop_group,
 				    &sg.r.backup_nhop_group, routes, route_flags, sg.r.opaque, 0,
-				    false);
+				    false, sg.r.distance);
 
 	return CMD_SUCCESS;
 }
@@ -657,6 +666,7 @@ DEFPY (install_seg6local_routes,
 	sg.r.orig_prefix.family = AF_INET6;
 	sg.r.orig_prefix.prefixlen = IPV6_MAX_BITLEN;
 	sg.r.orig_prefix.u.prefix6 = start6;
+	sg.r.distance = ZEBRA_SHARP_DISTANCE_DEFAULT;
 
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
@@ -743,7 +753,7 @@ DEFPY (install_seg6local_routes,
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&sg.r.orig_prefix, sg.r.vrf_id, sg.r.inst, 0, &sg.r.nhop_group,
 				    &sg.r.backup_nhop_group, routes, route_flags, sg.r.opaque, 0,
-				    false);
+				    false, sg.r.distance);
 
 	return CMD_SUCCESS;
 }
@@ -800,6 +810,7 @@ DEFPY (remove_routes,
 	sg.r.total_routes = routes;
 	sg.r.removed_routes = 0;
 	sg.r.stop_loop = false;
+	sg.r.distance = ZEBRA_SHARP_DISTANCE_DEFAULT;
 	uint32_t rts;
 
 	memset(&prefix, 0, sizeof(prefix));
@@ -825,6 +836,7 @@ DEFPY (remove_routes,
 	sg.r.vrf_id = vrf->vrf_id;
 	sg.r.tableid = 0;
 	sg.r.tableid_set = false;
+	sg.r.distance = ZEBRA_SHARP_DISTANCE_DEFAULT;
 	if (table_id_str) {
 		sg.r.tableid = (uint32_t)table_id;
 		sg.r.tableid_set = true;
