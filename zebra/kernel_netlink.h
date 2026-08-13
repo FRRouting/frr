@@ -39,6 +39,7 @@ extern void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 void netlink_parse_rtattr_msg(struct rtattr **tb, int max,
 			      const struct nlmsghdr *msg);
 extern const char *nl_msg_type_to_str(uint16_t msg_type);
+extern const char *nl_msg_type_to_str_sock(uint16_t msg_type, int proto);
 extern const char *nl_rtproto_to_str(uint8_t rtproto);
 extern const char *nl_family_to_str(uint8_t family);
 extern const char *nl_rttype_to_str(uint8_t rttype);

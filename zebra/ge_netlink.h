@@ -32,6 +32,10 @@ struct genl_request {
 };
 
 extern int genl_resolve_family(const char *family);
+
+extern int16_t genl_family_ethtool(void);
+extern int16_t genl_family_seg6(void);
+
 extern ssize_t netlink_sr_tunsrc_set_msg_encode(int cmd,
 						struct zebra_dplane_ctx *ctx,
 						void *buf, size_t buflen);
