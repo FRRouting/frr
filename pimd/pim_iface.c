@@ -1977,14 +1977,6 @@ struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src)
 	return NULL;
 }
 
-bool pim_if_is_vrf_device(struct interface *ifp)
-{
-	if (if_is_vrf(ifp))
-		return true;
-
-	return false;
-}
-
 int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 {
 	struct pim_ifchannel *ch;
@@ -2047,7 +2039,7 @@ static int pim_ifp_create(struct interface *ifp)
 	 * to incoming pim messages irrelevant if the user has configured us
 	 * for pim or not.
 	 */
-	if (pim_if_is_vrf_device(ifp)) {
+	if (if_is_vrf(ifp)) {
 		struct pim_interface *pim_ifp;
 
 		if (!ifp->info) {
