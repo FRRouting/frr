@@ -725,7 +725,7 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 
 void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs, int num_segs,
 			   enum srv6_headend_behavior encap_behavior,
-			   const struct in6_addr *encap_source)
+			   const struct in6_addr *encap_source, uint32_t lookup_table)
 {
 	int i;
 
@@ -757,6 +757,8 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
 
 	if (encap_source)
 		nexthop->nh_srv6->seg6_segs->encap_source = *encap_source;
+
+	nexthop->nh_srv6->seg6_segs->lookup_table = lookup_table;
 }
 
 void nexthop_del_srv6_seg6(struct nexthop *nexthop)
@@ -979,7 +981,8 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 					      &nexthop->nh_srv6->seg6_segs->seg[0],
 					      nexthop->nh_srv6->seg6_segs->num_segs,
 					      nexthop->nh_srv6->seg6_segs->encap_behavior,
-					      &nexthop->nh_srv6->seg6_segs->encap_source);
+					      &nexthop->nh_srv6->seg6_segs->encap_source,
+					      nexthop->nh_srv6->seg6_segs->lookup_table);
 			copy->nh_srv6->seg6_segs->rmap_encap_source =
 				nexthop->nh_srv6->seg6_segs->rmap_encap_source;
 		}

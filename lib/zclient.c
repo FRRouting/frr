@@ -2374,8 +2374,8 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 					   &znh->seg6local_ctx, NULL, 0);
 
 	if (znh->seg_num && !sid_zero_ipv6(znh->seg6_segs))
-		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num, znh->srv6_encap_behavior,
-				      &znh->srv6_encap_source);
+		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num,
+				      znh->srv6_encap_behavior, &znh->srv6_encap_source, 0);
 
 	return n;
 }
