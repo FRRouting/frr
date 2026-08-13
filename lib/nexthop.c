@@ -100,6 +100,12 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (ret != 0)
 		return ret;
 
+	if (nh1->nh_srv6->seg6_segs->lookup_table > nh2->nh_srv6->seg6_segs->lookup_table)
+		return 1;
+
+	if (nh1->nh_srv6->seg6_segs->lookup_table < nh2->nh_srv6->seg6_segs->lookup_table)
+		return -1;
+
 	if (nh1->nh_srv6->seg6_segs->num_segs < nh2->nh_srv6->seg6_segs->num_segs)
 		return -1;
 
@@ -918,6 +924,7 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 				key = jhash_1word(nexthop->nh_srv6->seg6_segs->encap_behavior, key);
 				key = jhash(&nexthop->nh_srv6->seg6_segs->encap_source,
 					    sizeof(struct in6_addr), key);
+				key = jhash_1word(nexthop->nh_srv6->seg6_segs->lookup_table, key);
 			}
 		}
 	}
