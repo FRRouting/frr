@@ -120,6 +120,9 @@ struct seg6_seg_stack {
 	struct in6_addr encap_source;
 	struct in6_addr rmap_encap_source;
 
+	/* optional post-encap lookup table */
+	uint32_t lookup_table;
+
 	uint8_t num_segs;
 	struct in6_addr seg[0]; /* 1 or more segs */
 };
