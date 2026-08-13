@@ -1,0 +1,141 @@
+{
+	"2001:db8:1::/48": [
+		{
+			"protocol": "kernel",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "2001:db8:1::/48",
+			"prefixLen": 48,
+			"table": 254,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth0",
+					"active": true,
+					"seg6": {
+						"segs": "fec0::ff"
+					},
+					"srv6EncapBehavior": "H.Encaps"
+				}
+			]
+		}
+	],
+
+	"2001:db8:2::/48": [
+		{
+			"protocol": "kernel",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "2001:db8:2::/48",
+			"prefixLen": 48,
+			"table": 254,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth0",
+					"active": true,
+					"seg6": {
+						"segs": "fec0::ff"
+					},
+					"srv6EncapBehavior": "H.Encaps",
+					"srv6LookupTable": 254
+				}
+			]
+		}
+	],
+
+	"2001:db8:3::/48": [
+		{
+			"protocol": "kernel",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "2001:db8:3::/48",
+			"prefixLen": 48,
+			"table": 254,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth1",
+					"vrf": "vrfA",
+					"active": true,
+					"seg6": {
+						"segs": "fec1::ff"
+					},
+					"srv6EncapBehavior": "H.Encaps",
+					"srv6LookupTable": 1001
+				}
+			]
+		}
+	],
+
+	"2001:db8:4::/48": [
+		{
+			"protocol": "static",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "2001:db8:4::/48",
+			"prefixLen": 48,
+			"table": 254,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth0",
+					"active": true,
+					"seg6": {
+						"segs": "fec0::ff"
+					},
+					"srv6EncapBehavior": "H.Encaps",
+					"srv6LookupTable": 254
+				}
+			]
+		}
+	],
+
+	"fec0::/64": [
+		{
+			"protocol": "connected",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "fec0::/64",
+			"prefixLen": 64,
+			"table": 254,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth0",
+					"active": true
+				}
+			]
+		}
+	],
+
+	"fec0::1/128": [
+		{
+			"protocol": "local",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "fec0::1/128",
+			"prefixLen": 128,
+			"table": 254,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth0",
+					"active": true
+				}
+			]
+		}
+	]
+}
