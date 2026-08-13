@@ -2439,18 +2439,35 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 
 	pim_mroute_update_counters(up->channel_oil);
 
-	// Have we seen packets?
-	if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt)
-	    && (up->channel_oil->cc.lastused / 100 > 30)) {
-		if (PIM_DEBUG_PIM_TRACE) {
-			zlog_debug(
-				"%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
-				__func__, up->sg_str, pim->vrf->name,
-				up->channel_oil->cc.oldpktcnt,
-				up->channel_oil->cc.pktcnt,
-				up->channel_oil->cc.lastused / 100);
+	/* Have we seen packets?
+	 *
+	 * The kernel sets lastused when the mroute is installed, so on a
+	 * freshly (re-)installed entry it is the age of the entry and not the
+	 * time since a packet was forwarded.  Only trust it when a source
+	 * stream is already active.
+	 */
+	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+		if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+		    (up->channel_oil->cc.lastused / 100 > 30)) {
+			if (PIM_DEBUG_PIM_TRACE) {
+				zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+					   __func__, up->sg_str, pim->vrf->name,
+					   up->channel_oil->cc.oldpktcnt,
+					   up->channel_oil->cc.pktcnt,
+					   up->channel_oil->cc.lastused / 100);
+			}
+			return rv;
 		}
-		return rv;
+	} else {
+		if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) {
+			if (PIM_DEBUG_PIM_TRACE) {
+				zlog_debug("%s[%s]: %s old packet count is equal, (%ld,%ld)",
+					   __func__, up->sg_str, pim->vrf->name,
+					   up->channel_oil->cc.oldpktcnt,
+					   up->channel_oil->cc.pktcnt);
+			}
+			return rv;
+		}
 	}
 
 	if (pim_upstream_kat_start_ok(up)) {
