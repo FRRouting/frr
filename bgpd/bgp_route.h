@@ -146,7 +146,7 @@ struct bgp_sid_info {
 struct bgp_path_info_extra_evpn {
 #define BGP_EVPN_MACIP_TYPE_SVI_IP (1 << 0)
 	/* af specific flags */
-	uint16_t af_flags;
+	uint32_t af_flags;
 	union {
 		struct ethaddr mac; /* MAC set here for VNI IP table */
 		struct ipaddr ip;   /* IP set here for VNI MAC table */

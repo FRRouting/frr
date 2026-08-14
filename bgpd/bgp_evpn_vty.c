@@ -4116,7 +4116,7 @@ DEFUN_HIDDEN (no_bgp_evpn_advertise_vni_subnet,
 	return CMD_SUCCESS;
 }
 
-static uint16_t bgp_evpn_suppress_import_from_evpn_flag(afi_t afi)
+static uint32_t bgp_evpn_suppress_import_from_evpn_flag(afi_t afi)
 {
 	if (afi == AFI_IP)
 		return BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN;
@@ -4129,7 +4129,7 @@ static uint16_t bgp_evpn_suppress_import_from_evpn_flag(afi_t afi)
 static int bgp_evpn_set_suppress_import_from_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 						  bool set)
 {
-	uint16_t flag = bgp_evpn_suppress_import_from_evpn_flag(afi);
+	uint32_t flag = bgp_evpn_suppress_import_from_evpn_flag(afi);
 	bool already_set;
 	bool was_advertising;
 
@@ -4180,8 +4180,8 @@ DEFUN (bgp_evpn_advertise_type5,
 	enum overlay_index_type oly = OVERLAY_INDEX_TYPE_NONE;
 	int idx_oly = 0;
 	bool adv_flag_changed = false;
-	uint16_t flag_oi_none, flag_oi_gw_ip;
-	uint16_t suppress_flag;
+	uint32_t flag_oi_none, flag_oi_gw_ip;
+	uint32_t suppress_flag;
 	bool has_flag_oi_none, has_flag_oi_gw_ip;
 	bool was_advertising;
 	bool suppress_requested = false;
@@ -4338,8 +4338,8 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	int idx_safi = 0;
 	afi_t afi = 0;
 	safi_t safi = 0;
-	uint16_t flag_oi_none, flag_oi_gw_ip;
-	uint16_t suppress_flag;
+	uint32_t flag_oi_none, flag_oi_gw_ip;
+	uint32_t suppress_flag;
 	bool has_flag_oi_none, has_flag_oi_gw_ip;
 
 	if (!bgp_vrf)
