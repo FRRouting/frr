@@ -134,8 +134,6 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state, bool sg_rpt);
 const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state);
 
-int pim_ifchannel_isin_oiflist(struct pim_ifchannel *ch);
-
 void reset_ifassert_state(struct pim_ifchannel *ch);
 
 void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch);
