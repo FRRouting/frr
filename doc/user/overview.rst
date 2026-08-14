@@ -281,6 +281,20 @@ The indicators have the following semantics:
 Known Kernel Issues
 -------------------
 
+- Linux < 7.3
+
+  SRv6 (seg6) Lookup Table - Kernels before 7.3 do not perform SID lookup
+  consistently after the encapsulation. For forwarded traffic, the kernel looks
+  up the SID in the current VRF context. For locally generated traffic, the
+  kernel looks up the SID in the default VRF (main table). This breaks VPN use
+  cases where forwarded traffic needs to resolve the SID in the default VRF
+  (e.g., veth-based VRF cross-connect). Since kernel 7.3, FRRouting ensures
+  consistent behavior across both paths by automatically using the netlink
+  attribute ``SEG6_IPTUNNEL_TABLE``. This feature explicitly tells the kernel
+  which routing table must be used for the post-encapsulation SID lookup. It is
+  silently ignored by kernels with no support, which simply fall back to the
+  default (i.e., inconsistent) behavior.
+
 - Linux < 4.11
 
   v6 Route Replacement - Linux kernels before 4.11 can cause issues with v6
