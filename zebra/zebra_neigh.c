@@ -399,6 +399,11 @@ static void zebra_neigh_handle_5549(uint32_t ndm_family, uint32_t ndm_state, str
 	if (handle_failed && ndm_state & ZEBRA_NUD_FAILED) {
 		zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
 			  ifp->name);
+		/*
+		 * Clear the RFC5549 lock so that a replacement peer's RA
+		 * can establish a new neighbor entry on this interface.
+		 */
+		zif->v6_2_v4_ll_neigh_entry = false;
 		return;
 	}
 
