@@ -3314,9 +3314,10 @@ void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
 	}
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
 	if (!n) {
-		if (!use_json)
-			vty_out(vty,
-				"%% Requested neighbor does not exist in VNI %u\n",
+		if (use_json)
+			vty_json_empty(vty, json);
+		else
+			vty_out(vty, "%% Requested neighbor does not exist in VNI %u\n",
 				vni);
 		return;
 	}
