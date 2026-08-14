@@ -2898,7 +2898,9 @@ DEFPY (show_ip_pim_autorp,
 	} else {
 		v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
 		if (!v || !v->info) {
-			if (!json)
+			if (json)
+				vty_json_empty(vty, json_parent);
+			else
 				vty_out(vty, "%% Unable to find pim instance\n");
 			return CMD_WARNING;
 		}
