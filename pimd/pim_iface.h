@@ -251,8 +251,6 @@ void pim_if_addr_del_all_igmp(struct interface *ifp);
 
 int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term);
 int pim_if_del_vif(struct interface *ifp);
-void pim_if_add_vif_all(struct pim_instance *pim);
-void pim_if_del_vif_all(struct pim_instance *pim);
 
 struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
 					   ifindex_t vif_index);
@@ -287,9 +285,6 @@ int pim_if_static_group_del(struct interface *ifp, pim_addr group_addr,
 void pim_if_update_could_assert(struct interface *ifp);
 
 void pim_if_assert_on_neighbor_down(struct interface *ifp, pim_addr neigh_addr);
-
-void pim_if_rpf_interface_changed(struct interface *old_rpf_ifp,
-				  struct pim_upstream *up);
 
 void pim_if_update_join_desired(struct pim_interface *pim_ifp);
 
