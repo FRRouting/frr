@@ -2382,9 +2382,16 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 		}
 		goto out;
 	}
+
 	isis = isis_lookup_by_vrfname(vrf_name);
-	if (isis == NULL)
+	if (isis == NULL) {
+		if (json) {
+			json_object_free(json);
+			vty_json_empty(vty, NULL);
+		}
 		return CMD_SUCCESS;
+	}
+
 	if (all_algorithm) {
 		for (algorithm = SR_ALGORITHM_FLEX_MIN; algorithm <= SR_ALGORITHM_FLEX_MAX;
 		     algorithm++) {
