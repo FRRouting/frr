@@ -926,8 +926,10 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 		fatal("imsg_get");
 
 	if (imsg.hdr.type != IMSG_ACL_CHECK ||
-	    imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(int))
+	    imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(int)) {
+		imsg_free(&imsg);
 		fatalx("ldp_acl_request: invalid response");
+	}
 
 	return (*((int *)imsg.data));
 }
