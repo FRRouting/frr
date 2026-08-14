@@ -329,6 +329,9 @@ struct interface *if_lookup_by_index_per_nsid(ns_id_t ns_id, uint32_t ifindex)
 {
 	struct zebra_ns *zns;
 
+	if (ns_id == NS_UNKNOWN)
+		return NULL;
+
 	zns = zebra_ns_lookup(ns_id);
 	return zns ? if_lookup_by_index_per_ns(zns, ifindex) : NULL;
 }
@@ -1110,8 +1113,7 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 	zif = (struct zebra_if *)ifp->info;
 	zif->link_nsid = ns_id;
 	zif->link_ifindex = link_ifindex;
-	zif->link = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
-					      link_ifindex);
+	zif->link = if_lookup_by_index_per_nsid(ns_id, link_ifindex);
 }
 
 /*
