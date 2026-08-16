@@ -985,7 +985,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool old_proxy;
 	bool new_proxy;
 	bool new_redist;
+	bool exist_redist;
 	bool new_origin, exist_origin;
+	const struct prefix *p;
 	struct bgp_path_info *bpi_ultimate;
 	struct peer *peer_new, *peer_exist;
 
@@ -1248,10 +1250,37 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 */
 	new_redist = (new->peer == bgp->peer_self) && (new->sub_type == BGP_ROUTE_REDISTRIBUTE) &&
 		     bgp_zebra_announce_eligible(exist);
+	exist_redist = (exist->peer == bgp->peer_self) && (exist->sub_type == BGP_ROUTE_REDISTRIBUTE) &&
+		       bgp_zebra_announce_eligible(new);
 
-	if (new_redist ||
-	    ((exist->peer == bgp->peer_self) && (exist->sub_type == BGP_ROUTE_REDISTRIBUTE) &&
-	     bgp_zebra_announce_eligible(new))) {
+	/* Skip the admin-distance step when the competing path is an eBGP
+	 * copy of our own redistributed route reflected back via allowas-in
+	 * (its AS_PATH contains our own AS) AND the admin-distance comparison
+	 * would pick that reflected copy over the locally sourced path (the
+	 * reflected copy has a lower distance). Only then does picking by
+	 * admin distance evict the source from FIB and flap forever as the
+	 * reflection is withdrawn and re-advertised; when the locally
+	 * sourced path already wins on admin distance, keep the original
+	 * behavior so the selection reason stays "Admin Distance". Weight
+	 * (step 1) then decides: the local redistributed path carries
+	 * weight 32768.
+	 */
+	p = bgp_dest_get_prefix(new->net);
+	if (new_redist &&
+	    !((exist->peer != bgp->peer_self) &&
+	      aspath_loop_check(exist->attr->aspath, bgp->as) > 0 &&
+	      bgp_distance_apply(p, exist, afi, safi, bgp) < new->attr->distance)) {
+		ret = bgp_path_info_cmp_distance(bgp, new, exist, debug, pfx_buf, new_buf,
+						 exist_buf, afi, safi, new_redist);
+		if (ret >= 0) {
+			*reason = bgp_path_selection_admin_distance;
+			return ret;
+		}
+	}
+	if (exist_redist &&
+	    !((new->peer != bgp->peer_self) &&
+	      aspath_loop_check(new->attr->aspath, bgp->as) > 0 &&
+	      bgp_distance_apply(p, new, afi, safi, bgp) < exist->attr->distance)) {
 		ret = bgp_path_info_cmp_distance(bgp, new, exist, debug, pfx_buf, new_buf,
 						 exist_buf, afi, safi, new_redist);
 		if (ret >= 0) {
