@@ -2392,7 +2392,7 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 		}
 	} else if (len > 0) {
 		/* Advance the stream */
-		stream_forward_getp(s, len);
+		STREAM_FORWARD_GETP(s, len);
 	}
 
 	return true;
