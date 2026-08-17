@@ -39,16 +39,16 @@
 #include "command_graph.h"
 #include "clippy.h"
 
-#define ID		258
-#define PREPROC		259
-#define OPERATOR	260
-#define STRING		261
-#define COMMENT		262
-#define SPECIAL		263
+#define ID	 258
+#define PREPROC	 259
+#define OPERATOR 260
+#define STRING	 261
+#define COMMENT	 262
+#define SPECIAL	 263
 
-#define DEFUNNY		270
-#define INSTALL		271
-#define AUXILIARY	272
+#define DEFUNNY	  270
+#define INSTALL	  271
+#define AUXILIARY 272
 
 int comment_link;
 char string_end;
@@ -202,8 +202,8 @@ static PyObject *get_args(const char *filename, int lineno)
 			free(tval);
 			Py_DECREF(pyObj);
 			return PyErr_Format(PyExc_ValueError,
-					"%s:%d: cannot process CPP directive within argument list",
-					filename, lineno);
+					    "%s:%d: cannot process CPP directive within argument list",
+					    filename, lineno);
 		}
 		if (token == SPECIAL) {
 			if (depth == 1 && (tval[0] == ',' || tval[0] == ')')) {
@@ -224,8 +224,8 @@ static PyObject *get_args(const char *filename, int lineno)
 		}
 		if (!tval)
 			return PyErr_Format(PyExc_ValueError,
-					"%s:%d: invalid token in DEFPY parameters",
-					filename, lineno);
+					    "%s:%d: invalid token in DEFPY parameters", filename,
+					    lineno);
 		if (!pyArg)
 			pyArg = PyList_New(0);
 		PyList_Append(pyArg, PyUnicode_FromString(tval));
@@ -241,7 +241,7 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 	const char *filename;
 	if (!PyArg_ParseTuple(args, "s", &filename))
 		return NULL;
-	
+
 	FILE *fd = fopen(filename, "r");
 	if (!fd)
 		return PyErr_SetFromErrnoWithFilename(PyExc_IOError, filename);
@@ -258,7 +258,7 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 	PyDict_SetItemString(pyCont, "data", pyObj);
 
 	while ((token = yylex_clr(&tval)) != YY_NULL) {
-                int lineno = yylineno;
+		int lineno = yylineno;
 		PyObject *pyItem = NULL, *pyArgs;
 		switch (token) {
 		case DEFUNNY:
@@ -276,8 +276,8 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 			PyDict_SetItemString(pyItem, "args", pyArgs);
 			break;
 		case COMMENT:
-                        if (strncmp(tval, "//~", 3) && strncmp(tval, "/*~", 3))
-                                break;
+			if (strncmp(tval, "//~", 3) && strncmp(tval, "/*~", 3))
+				break;
 			pyItem = PyDict_New();
 			PyDict_SetItemString(pyItem, "type", PyUnicode_FromString("COMMENT"));
 			PyDict_SetItemString(pyItem, "line", PyUnicode_FromString(tval));
