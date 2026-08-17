@@ -73,6 +73,11 @@ static struct route_table *get_ext_info(struct isis *i, int family)
 	return i->ext_info[protocol];
 }
 
+static bool isis_redist_info_matches(const struct isis_ext_info *info, int type, uint16_t table)
+{
+	return info->origin == type && info->table == table;
+}
+
 static struct isis_redist *isis_redist_lookup(struct isis_area *area,
 					      int family, int type, int level,
 					      uint16_t table)
@@ -247,6 +252,7 @@ static void isis_redist_ensure_default(struct isis *isis, int family)
 	info->origin = DEFAULT_ROUTE;
 	info->distance = 254;
 	info->metric = MAX_WIDE_PATH_METRIC;
+	info->table = 0;
 }
 
 static int _isis_redist_table_is_present(const struct lyd_node *dnode, void *arg)
@@ -319,17 +325,33 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	}
 
 	ei_node = srcdest_rnode_get(ei_table, p, src_p);
-	if (ei_node->info)
+	if (ei_node->info) {
+		info = ei_node->info;
+		/*
+		 * Zebra uses replace semantics for redistribution: when the
+		 * selected source changes, the new ADD isn't preceded by a DEL.
+		 * Remove reachability derived from the old source before replacing
+		 * the shared external information entry.
+		 */
+		if (!isis_redist_info_matches(info, type, table)) {
+			frr_each (isis_area_list, &isis->area_list, area)
+				for (level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+					if (!get_ext_reach(area, family, level))
+						continue;
+					isis_redist_uninstall(area, level, p, src_p);
+				}
+		}
 		route_unlock_node(ei_node);
-	else
-		ei_node->info = XCALLOC(MTYPE_ISIS_EXT_INFO,
-					sizeof(struct isis_ext_info));
+	} else {
+		ei_node->info = XCALLOC(MTYPE_ISIS_EXT_INFO, sizeof(struct isis_ext_info));
+	}
 
 	info = ei_node->info;
 	info->origin = type;
 	info->distance = distance;
 	info->metric = metric;
 	info->tag = tag;
+	info->table = table;
 
 	if (is_default_prefix(p)
 	    && (!src_p || !src_p->prefixlen)) {
@@ -361,17 +383,6 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 	zlog_debug("%s: Removing route %pFX from %s.", __func__, p,
 		   zebra_route_string(type));
 
-	if (is_default_prefix(p)
-	    && (!src_p || !src_p->prefixlen)) {
-		/* Don't remove default route but add synthetic route for use
-		 * by "default-information originate always". Areas without the
-		 * "always" setting will ignore routes with origin
-		 * DEFAULT_ROUTE. */
-		isis_redist_add(isis, DEFAULT_ROUTE, p, NULL, 254,
-				MAX_WIDE_PATH_METRIC, 0, table);
-		return;
-	}
-
 	if (!ei_table) {
 		zlog_warn("%s: External information table not initialized.",
 			  __func__);
@@ -385,6 +396,22 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 			__func__, zebra_route_string(type), p);
 		if (ei_node)
 			route_unlock_node(ei_node);
+		return;
+	}
+	if (!isis_redist_info_matches(ei_node->info, type, table)) {
+		zlog_debug("%s: Ignoring delete for replaced %s route %pFX table %u.", __func__,
+			   zebra_route_string(type), p, table);
+		route_unlock_node(ei_node);
+		return;
+	}
+
+	if (is_default_prefix(p) && (!src_p || !src_p->prefixlen)) {
+		/* Don't remove default route but add synthetic route for use
+		 * by "default-information originate always". Areas without the
+		 * "always" setting will ignore routes with origin
+		 * DEFAULT_ROUTE. */
+		route_unlock_node(ei_node);
+		isis_redist_add(isis, DEFAULT_ROUTE, p, NULL, 254, MAX_WIDE_PATH_METRIC, 0, table);
 		return;
 	}
 	route_unlock_node(ei_node);
@@ -465,7 +492,7 @@ void isis_redist_update(struct isis_area *area, int level, int family, int type,
 				continue;
 			}
 		} else {
-			if (info->origin != type)
+			if (!isis_redist_info_matches(info, type, table))
 				continue;
 		}
 
@@ -522,7 +549,7 @@ void isis_redist_set(struct isis_area *area, int level, int family, int type,
 				continue;
 			}
 		} else {
-			if (info->origin != type)
+			if (!isis_redist_info_matches(info, type, table))
 				continue;
 		}
 
@@ -572,7 +599,7 @@ void isis_redist_unset(struct isis_area *area, int level, int family, int type,
 				continue;
 			}
 		} else {
-			if (info->origin != type)
+			if (!isis_redist_info_matches(info, type, table))
 				continue;
 		}
 
