@@ -43,12 +43,10 @@ class StringHandler(RenderHandler):
 class Int64Handler(RenderHandler):
     argtype = "int64_t"
     decl = Template("int64_t $varname = 0;")
-    code = Template(
-        """\
+    code = Template("""\
 char *_end;
 $varname = strtoll(argv[_i]->arg, &_end, 10);
-_fail = (_end == argv[_i]->arg) || (*_end != '\\0');"""
-    )
+_fail = (_end == argv[_i]->arg) || (*_end != '\\0');""")
 
 
 class AsDotHandler(RenderHandler):
@@ -124,8 +122,7 @@ class IPGenHandler(IPBase):
     decl = Template(
         """union sockunion s__$varname = { .sa.sa_family = AF_UNSPEC }, *$varname = NULL;"""
     )
-    code = Template(
-        """\
+    code = Template("""\
 if (argv[_i]->text[0] == 'X') {
 	s__$varname.sa.sa_family = AF_INET6;
 	_fail = !inet_pton(AF_INET6, argv[_i]->arg, &s__$varname.sin6.sin6_addr);
@@ -134,8 +131,7 @@ if (argv[_i]->text[0] == 'X') {
 	s__$varname.sa.sa_family = AF_INET;
 	_fail = !inet_aton(argv[_i]->arg, &s__$varname.sin.sin_addr);
 	$varname = &s__$varname;
-}"""
-    )
+}""")
     canassert = True
 
 
@@ -166,8 +162,7 @@ handlers = {
 # the "#if $..." bits are there to keep this template unified into one
 # common form, without requiring a more advanced template engine (e.g.
 # jinja2)
-templ = Template(
-    """$cond_begin/* $fnname => "$cmddef" */
+templ = Template("""$cond_begin/* $fnname => "$cmddef" */
 DEFUN_CMD_FUNC_DECL($fnname)
 #define funcdecl_$fnname static int ${fnname}_magic(\\
 	const struct cmd_element *self __attribute__ ((unused)),\\
@@ -206,16 +201,13 @@ $argassert
 	return ${fnname}_magic(self, vty, argc, argv$arglist);
 }
 $cond_end
-"""
-)
+""")
 
 # invoked for each named parameter
-argblock = Template(
-    """
+argblock = Template("""
 		if (!strcmp(argv[_i]->varname, \"$varname\")) {$strblock
 			$code
-		}"""
-)
+		}""")
 
 
 def get_always_args(token, always_args, args=[], stack=[]):
@@ -292,6 +284,7 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
         errors += process_one(fn, entry, cond_stack, ofd, dumpfd, all_defun, macros)
 
     return errors
+
 
 def process_one(fn, entry, cond_stack, ofd, dumpfd, all_defun, macros) -> int:
     try:
@@ -382,13 +375,10 @@ def process_one(fn, entry, cond_stack, ofd, dumpfd, all_defun, macros) -> int:
                 )
                 arglist.append(", %s%s" % (handler.deref, varname))
                 if basename in always_args and handler.canassert:
-                    argassert.append(
-                        """\tif (!%s) {
+                    argassert.append("""\tif (!%s) {
 \t\tvty_out(vty, "Internal CLI error [%%s]\\n", "%s");
 \t\treturn CMD_WARNING;
-\t}\n"""
-                        % (varname, varname)
-                    )
+\t}\n""" % (varname, varname))
                 if attr == "":
                     at = handler.argtype
                     if not at.startswith("const "):
