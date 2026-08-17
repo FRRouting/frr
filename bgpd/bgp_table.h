@@ -143,6 +143,27 @@ extern struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest);
 extern struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest);
 extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);
 
+static inline void _bgp_dest_auto_unlock(struct bgp_dest **dest)
+{
+	if (*dest)
+		bgp_dest_unlock_node(*dest);
+}
+
+/*
+ * bgp_dest_autounlock
+ *
+ * Declares a dest reference that is released on every exit from the
+ * enclosing scope, so that early returns and gotos cannot leak it:
+ *
+ *	bgp_dest_autounlock(dest) = bgp_node_lookup(table, p);
+ *
+ * Two rules come with it.  Do not also call bgp_dest_unlock_node() on the
+ * variable - that would unlock it twice.  And do not use it for a
+ * reference that has to outlive the scope, i.e. one that is returned to
+ * the caller or stored somewhere.
+ */
+#define bgp_dest_autounlock(_var)                                                                 \
+	struct bgp_dest *_var __attribute__((unused, cleanup(_bgp_dest_auto_unlock)))
 
 /*
  * bgp_dest_from_rnode
