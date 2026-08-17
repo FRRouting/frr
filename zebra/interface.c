@@ -2216,9 +2216,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					    mac_updated) {
 						struct interface *link_if;
 
-						link_if = if_lookup_by_index_per_ns(
-							zebra_ns_lookup(
-								NS_DEFAULT),
+						link_if = if_lookup_by_index_per_nsid(
+								link_nsid,
 							link_ifindex);
 						if (link_if)
 							zebra_vxlan_svi_up(
