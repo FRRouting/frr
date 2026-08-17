@@ -662,9 +662,10 @@ int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri, struct bgp_ls_attr 
 	struct bgp_path_info *new;
 	struct attr attr;
 	struct attr *attr_new;
-	bgp_dest_autounlock(dest) = NULL;
 	struct bgp_ls_nlri *ls_nlri;
 	struct prefix p;
+
+	bgp_dest_autounlock(dest) = NULL;
 
 	if (!bgp || !nlri) {
 		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Invalid parameters to %s", __func__);

@@ -368,6 +368,7 @@ void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct agg_node *rn,
 
 	for (vbpi = rn->info; vbpi; vbpi = vbpi->next) {
 		struct prefix ce;
+
 		if (bpi == vbpi)
 			continue;
 		if (bpi->peer != vbpi->peer)

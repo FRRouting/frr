@@ -554,8 +554,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	struct bgp_labels bgp_labels = {};
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
-	bgp_dest_autounlock(bn) = NULL;
-
 	struct attr attr = {0};
 	struct attr *new_attr;
 	uint32_t label_val;
@@ -570,6 +568,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	bgp_encap_types TunnelType = BGP_ENCAP_TYPE_RESERVED;
 	struct bgp_redist *red;
+
+	bgp_dest_autounlock(bn) = NULL;
 
 	if (safi == SAFI_ENCAP
 	    && !(bgp->rfapi_cfg->flags & BGP_VNC_CONFIG_ADV_UN_METHOD_ENCAP)) {

@@ -11891,13 +11891,14 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 {
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
-	bgp_dest_autounlock(bn) = NULL;
 	struct attr attr;
 	struct attr *new_attr;
 	afi_t afi;
 	route_map_result_t ret;
 	struct bgp_redist *red;
 	struct interface *ifp;
+
+	bgp_dest_autounlock(bn) = NULL;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) ||
 	    bgp->peer_self == NULL)
