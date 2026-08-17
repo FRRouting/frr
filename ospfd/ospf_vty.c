@@ -5681,7 +5681,7 @@ static int show_ip_ospf_neighbor_int_common(struct vty *vty, struct ospf *ospf,
 	ifp = if_lookup_by_name(ifname, ospf->vrf_id);
 	if (!ifp) {
 		if (use_json)
-			json_object_boolean_true_add(json, "noSuchIface");
+			vty_json(vty, json);
 		else
 			vty_out(vty, "No such interface.\n");
 		return CMD_WARNING;
