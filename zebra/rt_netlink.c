@@ -4510,7 +4510,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 * itself
 	 */
 	if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
+		link_if = if_lookup_by_index_per_nsid(ns_id,
 						    zif->link_ifindex);
 		if (!link_if)
 			return 0;
