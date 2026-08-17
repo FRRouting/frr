@@ -12,31 +12,81 @@ the appropriate function signature (parameters) for the hook.
 Example:
 
 .. code-block:: c
+   :caption: mydaemon_hooks.h
+
+   /* note: file may be included multiple times - no include guard! */
+   DO_HOOK(some_update_event, (struct eventinfo *, info));
+
+.. code-block:: c
    :caption: mydaemon.h
 
-   #include "hook.h"
-   DECLARE_HOOK(some_update_event,
-                (struct eventinfo *, info));
+   #define HOOKS_DECLARE
+   #include "lib/hooks_begin.h"
+   #include "mydaemon/mydaemon_hooks.h"
+   #include "lib/hooks_end.h"
 
 .. code-block:: c
    :caption: mydaemon.c
 
-   #include "mydaemon.h"
-   DEFINE_HOOK(some_update_event,
-               (struct eventinfo *, info));
+   #include "mydaemon/mydaemon.h"
+
+   #define HOOKS_DEFINE
+   #include "lib/hooks_begin.h"
+   #include "mydaemon/mydaemon_hooks.h"
+   #include "lib/hooks_end.h"
+
    ...
    hook_call(some_update_event, info);
 
 .. code-block:: c
    :caption: mymodule.c
 
-   #include "mydaemon.h"
+   #include "mydaemon/mydaemon.h"
    static int event_handler(struct eventinfo *info);
    ...
    hook_register(some_update_event, event_handler);
 
 Do not use parameter names starting with "hook", these can collide with
 names used by the hook code itself.
+
+
+File splitting and positioning
+------------------------------
+
+As shown in the example above, the actual hook definitions are now split off
+into separate ``_hooks.h`` files.  These files should contain only
+:c:macro:`DO_HOOK` and :c:macro:`DO_KOOH` macro statements and their comments
+(and possibly some ``#ifdef``), nothing else.
+
+The ``lib/hooks_begin.h`` and ``lib/hooks_end.h`` files connect the
+:c:macro:`DO_HOOK` macro into :c:macro:`DECLARE_HOOK`, :c:macro:`DEFINE_HOOK`
+or :c:macro:`LUA_HOOK` (plus analog for ``_KOOH``), depending on whether
+``HOOKS_DECLARE``, ``HOOKS_DEFINE`` or ``HOOKS_LUA`` were set.
+
+The purpose of this is that the same "definition" can be reused for the hook
+declaration, definition, and at some point in the future scripting language
+bindings.
+
+.. todo::
+
+   The :c:macro:`LUA_HOOK` macro used when ``HOOKS_LUA`` is set don't actually
+   exist yet.
+
+Generally, the following patterns should be followed in this regard:
+
+* each "block" (declaration/definition per hooks file) should only be included
+  in one place.  Including it more than once will cause compiler errors due to
+  duplicate symbols.
+* if a file references multiple ``_hooks.h`` files (this should only happen
+  in header files), group them all together and include ``hooks_begin.h`` /
+  ``hooks_end.h`` only once.
+* the ``_hooks.h`` is mostly named to match the ``.c`` file that the hooks are
+  defined and invoked in.
+* the ``HOOKS_DECLARE`` block in a ``.h`` file should be towards the end of
+  the file (but inside the ``extern "C"`` block if there is one.)
+* the ``HOOKS_DEFINE`` block in a ``.c`` file should be towards the beginning
+  of the file, after all ``#include`` statements and before any function
+  definitions.
 
 
 Return values
@@ -93,6 +143,17 @@ the same thing as DECLARE_HOOK, it's just there to make it obvious.)
 Definition
 ----------
 
+.. c:macro:: DO_HOOK(name, args...)
+.. c:macro:: DO_KOOH(name, args...)
+
+   :param name: Name of the hook to be defined
+   :param args: List of (type, name) tuples specifying hook parameters.
+
+   "dispatcher" macros for use in ``_hooks.h`` files that get included multiple
+   times.  What it expands to depends on whether ``HOOKS_DECLARE``,
+   ``HOOKS_DEFINE`` or ``HOOKS_LUA`` was set before including
+   ``hooks_begin.h``.
+
 .. c:macro:: DECLARE_HOOK(name, args...)
 .. c:macro:: DECLARE_KOOH(name, args...)
 
@@ -144,6 +205,14 @@ Definition
 
    Same as ``DEFINE_HOOK``, but the sense of priorities / order of callbacks
    is reversed.  This should be used for cleanup hooks.
+
+.. c:macro:: LUA_HOOK(name, args...)
+
+   Expands into a Lua binding for the given hook.  Note there is no need for a
+   ``KOOH`` form of this, only a ``HOOK`` form for this which would be used for
+   both call orderings.
+
+   .. todo:: not implemented yet.
 
 .. c:function:: int hook_call(name, ...)
 

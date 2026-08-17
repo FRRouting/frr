@@ -234,6 +234,8 @@ nobase_pkginclude_HEADERS += \
 	lib/graph.h \
 	lib/hash.h \
 	lib/hook.h \
+	lib/hooks_begin.h \
+	lib/hooks_end.h \
 	lib/host_nb.h \
 	lib/iana_afi.h \
 	lib/id_alloc.h \
