@@ -543,8 +543,10 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 				if (sockunion_same(&path->peer->connection->su,
 						   &su)) {
 					cur_index++;
-					if (cur_index == nlri_index)
+					if (cur_index == nlri_index) {
+						bgp_dest_unlock_node(dest);
 						return path;
+					}
 				}
 
 			bgp_dest_unlock_node(dest);

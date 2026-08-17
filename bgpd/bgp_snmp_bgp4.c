@@ -415,9 +415,10 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		if (dest) {
 			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next)
-				if (sockunion_same(&path->peer->connection->su,
-						   &su))
+				if (sockunion_same(&path->peer->connection->su, &su)) {
+					bgp_dest_unlock_node(dest);
 					return path;
+				}
 
 			bgp_dest_unlock_node(dest);
 		}

@@ -10609,8 +10609,10 @@ static bool bgp_aggregate_test_all_med(struct bgp_aggregate *aggregate,
 				break;
 			}
 		}
-		if (!med_matched)
+		if (!med_matched) {
+			bgp_dest_unlock_node(dest);
 			break;
+		}
 	}
 	bgp_dest_unlock_node(top);
 
@@ -11591,8 +11593,10 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		/* Check for duplicate configs */
 		if (bgp_aggregate_cmp_params(aggregate, rmap, summary_only, as_set, origin,
 					     match_med, suppress_map, upa_enabled, upa_drop,
-					     upa_max_routes))
+					     upa_max_routes)) {
+			bgp_dest_unlock_node(dest);
 			return CMD_SUCCESS;
+		}
 
 		vty_out(vty, "There is already same aggregate network.\n");
 		/* try to remove the old entry */
@@ -19803,8 +19807,10 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
-		if (prefix_check || dest_p->prefixlen != match.prefixlen)
+		if (prefix_check || dest_p->prefixlen != match.prefixlen) {
+			bgp_dest_unlock_node(dest);
 			return CMD_SUCCESS;
+		}
 
 		pi = bgp_dest_get_bgp_path_info(dest);
 		while (pi) {
