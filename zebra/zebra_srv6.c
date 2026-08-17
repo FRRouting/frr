@@ -2315,21 +2315,50 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 	struct listnode *node;
 	struct zserv *c;
 	char buf[256];
+<<<<<<< HEAD
+=======
+	struct srv6_locator *locator = NULL;
+	struct in6_addr zero = {};
+>>>>>>> b5dac20 (zebra: notify the client when an SRv6 SID allocation fails)
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: getting SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value ? sid_value : &in6addr_any, locator_name);
 
+<<<<<<< HEAD
 	ret = get_srv6_sid(sid, ctx, sid_value, locator_name);
+=======
+	frrtrace(5, frr_zebra, srv6_manager_get_sid_internal,
+		 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value, locator_name, -1, 1);
+
+	if (locator_name && locator_name[0] != '\0') {
+		locator = zebra_srv6_locator_lookup(locator_name);
+		if (!locator) {
+			flog_err(EC_ZEBRA_SRV6_LOCATOR_LOOKUP_FAIL,
+				 "%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
+				 __func__, locator_name);
+			zsend_srv6_sid_notify(client, ctx, sid_value ? sid_value : &zero, 0, 0,
+					      locator_name, ZAPI_SRV6_SID_FAIL_ALLOC);
+			return -1;
+		}
+	}
+
+	ret = get_srv6_sid(sid, ctx, sid_value, locator_name, is_localonly);
+>>>>>>> b5dac20 (zebra: notify the client when an SRv6 SID allocation fails)
 	if (ret < 0) {
 		zlog_warn("%s: not got SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
 			  __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			  sid_value ? sid_value : &in6addr_any, locator_name);
 
 		/* Notify client about SID alloc failure */
+<<<<<<< HEAD
 		zsend_srv6_sid_notify(client, ctx, sid_value, 0, 0, NULL,
 				      ZAPI_SRV6_SID_FAIL_ALLOC);
+=======
+		zsend_srv6_sid_notify(client, ctx, sid_value ? sid_value : &zero, 0, 0,
+				      locator_name, ZAPI_SRV6_SID_FAIL_ALLOC);
+>>>>>>> b5dac20 (zebra: notify the client when an SRv6 SID allocation fails)
 	} else if (ret == 0) {
 		assert(*sid);
 		if (IS_ZEBRA_DEBUG_SRV6)
