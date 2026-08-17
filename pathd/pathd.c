@@ -1187,6 +1187,7 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_GOING_DOWN:
 			policy->status = SRTE_POLICY_STATUS_DOWN;
 			srte_policy_status_log(policy);
+			path_zebra_update_steering_route(policy);
 			break;
 		}
 		break;
@@ -1200,6 +1201,7 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_GOING_UP:
 			policy->status = SRTE_POLICY_STATUS_UP;
 			srte_policy_status_log(policy);
+			path_zebra_update_steering_route(policy);
 			break;
 		}
 		break;
