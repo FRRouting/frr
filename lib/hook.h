@@ -171,8 +171,8 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 #define hook_call(hookname, ...) hook_call_##hookname(__VA_ARGS__)
 
 /* helpers to add the void * arg */
-#define HOOK_ADDDEF(...) (void *hookarg , ## __VA_ARGS__)
-#define HOOK_ADDARG(...) (hookarg , ## __VA_ARGS__)
+#define HOOK_ADDDEF(...) (void *hookarg, ##__VA_ARGS__)
+#define HOOK_ADDARG(...) (hookarg, ##__VA_ARGS__)
 
 /* and another helper to convert () into (void) to get a proper prototype */
 #define _SKIP_10(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, ret, ...) ret
@@ -187,19 +187,18 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
  * theoretically passlist is not necessary, but let's keep things simple and
  * use exact same args on DECLARE and DEFINE.
  */
-#define DECLARE_HOOK(hookname, arglist, passlist)                              \
-	extern struct hook _hook_##hookname;                                   \
-	__attribute__((unused)) static inline void *                           \
-		_hook_typecheck_##hookname(int(*funcptr) HOOK_VOIDIFY arglist) \
-	{                                                                      \
-		return (void *)funcptr;                                        \
-	}                                                                      \
-	__attribute__((unused)) static inline void                             \
-		*_hook_typecheck_arg_##hookname(int(*funcptr)                  \
-							HOOK_ADDDEF arglist)   \
-	{                                                                      \
-		return (void *)funcptr;                                        \
-	}                                                                      \
+#define DECLARE_HOOK(hookname, arglist, passlist)                                                 \
+	extern struct hook _hook_##hookname;                                                      \
+	__attribute__((unused)) static inline void *_hook_typecheck_##hookname(                   \
+		int(*funcptr) HOOK_VOIDIFY arglist)                                               \
+	{                                                                                         \
+		return (void *)funcptr;                                                           \
+	}                                                                                         \
+	__attribute__((unused)) static inline void *_hook_typecheck_arg_##hookname(               \
+		int(*funcptr) HOOK_ADDDEF arglist)                                                \
+	{                                                                                         \
+		return (void *)funcptr;                                                           \
+	}                                                                                         \
 	MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DECLARE_KOOH(hookname, arglist, passlist)                              \
@@ -207,30 +206,32 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 
 /* use in source file - contains hook-related definitions.
  */
-#define DEFINE_HOOK_INT(hookname, arglist, passlist, rev)                      \
-	struct hook _hook_##hookname = {                                       \
-		.name = #hookname, .entries = NULL, .reverse = rev,            \
-	};                                                                     \
-	static int hook_call_##hookname HOOK_VOIDIFY arglist                   \
-	{                                                                      \
-		int hooksum = 0;                                               \
-		struct hookent *he = _hook_##hookname.entries;                 \
-		void *hookarg;                                                 \
-		union {                                                        \
-			void *voidptr;                                         \
-			int(*fptr) HOOK_VOIDIFY arglist;                       \
-			int(*farg) HOOK_ADDDEF arglist;                        \
-		} hookp;                                                       \
-		for (; he; he = he->next) {                                    \
-			hookarg = he->hookarg;                                 \
-			hookp.voidptr = he->hookfn;                            \
-			if (!he->has_arg)                                      \
-				hooksum += hookp.fptr passlist;                \
-			else                                                   \
-				hooksum += hookp.farg HOOK_ADDARG passlist;    \
-		}                                                              \
-		return hooksum;                                                \
-	}                                                                      \
+#define DEFINE_HOOK_INT(hookname, arglist, passlist, rev)                                         \
+	struct hook _hook_##hookname = {                                                          \
+		.name = #hookname,                                                                \
+		.entries = NULL,                                                                  \
+		.reverse = rev,                                                                   \
+	};                                                                                        \
+	static int hook_call_##hookname HOOK_VOIDIFY arglist                                      \
+	{                                                                                         \
+		int hooksum = 0;                                                                  \
+		struct hookent *he = _hook_##hookname.entries;                                    \
+		void *hookarg;                                                                    \
+		union {                                                                           \
+			void *voidptr;                                                            \
+			int(*fptr) HOOK_VOIDIFY arglist;                                          \
+			int(*farg) HOOK_ADDDEF arglist;                                           \
+		} hookp;                                                                          \
+		for (; he; he = he->next) {                                                       \
+			hookarg = he->hookarg;                                                    \
+			hookp.voidptr = he->hookfn;                                               \
+			if (!he->has_arg)                                                         \
+				hooksum += hookp.fptr passlist;                                   \
+			else                                                                      \
+				hooksum += hookp.farg HOOK_ADDARG passlist;                       \
+		}                                                                                 \
+		return hooksum;                                                                   \
+	}                                                                                         \
 	MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DEFINE_HOOK(hookname, arglist, passlist)                               \
