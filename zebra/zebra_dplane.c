@@ -3916,12 +3916,13 @@ enum dplane_tc_qdisc_notify_e dplane_ctx_tc_qdisc_notify_get_type(const struct z
 static void ctx_info_from_zns(struct zebra_dplane_info *ns_info,
 			      struct zebra_ns *zns)
 {
-	ns_info->ns_id = zns->ns_id;
+	ns_info->ns_id = zns ? zns->ns_id : NS_UNKNOWN;
 
 #if defined(HAVE_NETLINK)
 	ns_info->is_cmd = true;
-	ns_info->sock = zns->netlink_dplane_out.sock;
-	ns_info->seq = zns->netlink_dplane_out.seq;
+
+	ns_info->sock = zns ? zns->netlink_dplane_out.sock : -1;
+	ns_info->seq = zns ? zns->netlink_dplane_out.seq : 0;
 #endif /* NETLINK */
 }
 
@@ -3937,6 +3938,9 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_is_update = is_update;
 
 #if defined(HAVE_NETLINK)
+	if (!zns)
+		return AOK;
+
 	/* Increment message counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
 	 */
