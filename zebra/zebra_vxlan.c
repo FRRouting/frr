@@ -2743,6 +2743,18 @@ static void zl3vni_del_nh_hash_entry(struct l3vni_walk_ctx *wctx, struct zebra_n
 	zl3vni_nh_del(zl3vni, n);
 }
 
+void zebra_vxlan_l3vni_rmac_cleanup(struct zebra_l3vni *zl3vni)
+{
+	struct l3vni_walk_ctx wctx = {
+		.zl3vni = zl3vni,
+	};
+
+	if (!zl3vni)
+		return;
+
+	hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry, &wctx);
+}
+
 /* re-add remote rmac if needed */
 static int zebra_vxlan_readd_remote_rmac(struct zebra_l3vni *zl3vni,
 					 struct ethaddr *rmac)

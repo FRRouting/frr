@@ -215,6 +215,7 @@ extern struct interface *zl3vni_map_to_svi_if(struct zebra_l3vni *zl3vni);
 extern struct interface *zl3vni_map_to_mac_vlan_if(struct zebra_l3vni *zl3vni);
 extern struct zebra_l3vni *zl3vni_lookup(vni_t vni);
 extern vni_t vni_id_from_svi(struct interface *ifp, struct interface *br_if);
+extern void zebra_vxlan_l3vni_rmac_cleanup(struct zebra_l3vni *zl3vni);
 
 DECLARE_HOOK(zebra_rmac_update,
 	     (struct zebra_mac * rmac, struct zebra_l3vni *zl3vni, bool delete,

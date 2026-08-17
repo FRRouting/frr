@@ -163,6 +163,11 @@ static int zebra_vxlan_if_del_vni(struct interface *ifp,
 		/* process oper-down for l3-vni */
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
 
+		/* RMAC uninstall needs the VXLAN and VLAN associations below,
+		 * so clean it up before detaching the VNI.
+		 */
+		zebra_vxlan_l3vni_rmac_cleanup(zl3vni);
+
 		/* remove the association with vxlan_if */
 		memset(&zl3vni->local_vtep_ip, 0, sizeof(zl3vni->local_vtep_ip));
 		zl3vni->vxlan_if = NULL;
