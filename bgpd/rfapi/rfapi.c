@@ -554,7 +554,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	struct bgp_labels bgp_labels = {};
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
-	struct bgp_dest *bn;
+	bgp_dest_autounlock(bn) = NULL;
 
 	struct attr attr = {0};
 	struct attr *new_attr;
@@ -950,7 +950,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 		if (!CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && attrhash_cmp(bpi->attr, new_attr)) {
 			bgp_attr_unintern(&new_attr);
-			bgp_dest_unlock_node(bn);
 
 			vnc_zlog_debug_any(
 				"%s: Found route (safi=%d) at prefix %s, no change",
@@ -1004,7 +1003,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			/* Process change. */
 			bgp_aggregate_increment(bgp, p, bpi, afi, safi);
 			bgp_process(bgp, bn, bpi, afi, safi);
-			bgp_dest_unlock_node(bn);
 
 			vnc_zlog_debug_any(
 				"%s: Found route (safi=%d) at prefix %s, changed attr",
@@ -1058,8 +1056,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	vnc_zlog_debug_any(
 		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRDP)",
 		__func__, safi2str(safi), buf, bn, prd);
-
-	bgp_dest_unlock_node(bn);
 
 done:
 	/* Loop back to import tables */
