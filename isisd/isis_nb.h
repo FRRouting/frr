@@ -570,11 +570,12 @@ DECLARE_HOOK(isis_hook_authentication_failure,
 	     (circuit, raw_pdu, raw_pdu_len));
 DECLARE_HOOK(isis_hook_adj_state_change, (const struct isis_adjacency *adj), (adj));
 DECLARE_HOOK(isis_hook_reject_adjacency,
-	     (const struct isis_circuit *circuit, const char *pdu, size_t pdu_len),
-	     (circuit, pdu, pdu_len));
+	     (const struct isis_circuit *circuit, const char *raw_pdu,
+	      size_t raw_pdu_len),
+	     (circuit, raw_pdu, raw_pdu_len));
 DECLARE_HOOK(isis_hook_area_mismatch,
 	     (const struct isis_circuit *circuit, const char *raw_pdu, size_t raw_pdu_len),
-	     (circuit));
+	     (circuit, raw_pdu, raw_pdu_len));
 DECLARE_HOOK(isis_hook_id_len_mismatch,
 	     (const struct isis_circuit *circuit, uint8_t rcv_id_len, const char *raw_pdu,
 	      size_t raw_pdu_len),
@@ -582,11 +583,11 @@ DECLARE_HOOK(isis_hook_id_len_mismatch,
 DECLARE_HOOK(isis_hook_version_skew,
 	     (const struct isis_circuit *circuit, uint8_t version, const char *raw_pdu,
 	      size_t raw_pdu_len),
-	     (circuit));
+	     (circuit, version, raw_pdu, raw_pdu_len));
 DECLARE_HOOK(isis_hook_lsp_error,
 	     (const struct isis_circuit *circuit, const uint8_t *lsp_id, const char *raw_pdu,
 	      size_t raw_pdu_len),
-	     (circuit));
+	     (circuit, lsp_id, raw_pdu, raw_pdu_len));
 DECLARE_HOOK(isis_hook_seqno_skipped, (const struct isis_circuit *circuit, const uint8_t *lsp_id),
 	     (circuit, lsp_id));
 DECLARE_HOOK(isis_hook_own_lsp_purge, (const struct isis_circuit *circuit, const uint8_t *lsp_id),
