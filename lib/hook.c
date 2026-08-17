@@ -20,7 +20,7 @@ void _hook_register(struct hook *hook, struct hookent *stackent, void *funcptr,
 {
 	struct hookent *he, **pos;
 
-	if (!stackent->ent_used)
+	if (stackent && !stackent->ent_used)
 		he = stackent;
 	else {
 		he = XCALLOC(MTYPE_HOOK_ENTRY, sizeof(*he));
