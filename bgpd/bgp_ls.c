@@ -2248,6 +2248,7 @@ static struct bgp_ls_nlri *bgp_ls_lookup_bgp_link_nlri(struct bgp *bgp, struct p
 				continue;
 		}
 
+		bgp_dest_unlock_node(dest);
 		return nlri;
 	}
 
@@ -2298,6 +2299,7 @@ static struct bgp_ls_nlri *bgp_ls_lookup_bgp_prefix_nlri(struct bgp *bgp, const 
 		if (!prefix_same(&nlri->nlri_data.prefix.prefix_desc.prefix, p))
 			continue;
 
+		bgp_dest_unlock_node(bn);
 		return nlri;
 	}
 

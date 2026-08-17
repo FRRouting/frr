@@ -2610,6 +2610,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 					to_bgp->vpn_policy[afi]
 						.rmap[BGP_VPN_POLICY_DIR_FROMVPN]
 						->name);
+			bgp_dest_unlock_node(bn);
 			return;
 		}
 		/*
