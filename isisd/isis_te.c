@@ -1979,6 +1979,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 		    struct isis *isis)
 {
 	int idx;
+	int ret = CMD_SUCCESS;
 	char *id;
 	struct in_addr ip_addr;
 	struct in6_addr ip6_addr;
@@ -1993,8 +1994,11 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 	json_object *json = NULL;
 
 	if (!IS_MPLS_TE(area->mta) || !area->mta->ted) {
-		vty_out(vty, "MPLS-TE is disabled for Area %s\n",
-			area->area_tag ? area->area_tag : "null");
+		if (uj)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "MPLS-TE is disabled for Area %s\n",
+				area->area_tag ? area->area_tag : "null");
 		return CMD_SUCCESS;
 	}
 
@@ -2019,8 +2023,10 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 		else {
 			vertex = vertex_for_arg(ted, id, isis);
 			if (!vertex) {
-				vty_out(vty, "No vertex found for ID %s\n", id);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No vertex found for ID %s\n", id);
+				ret = CMD_WARNING;
+				goto out;
 			}
 		}
 
@@ -2033,29 +2039,39 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 		/* Show Edge */
 		if (argv_find(argv, argc, "A.B.C.D", &idx)) {
 			if (!inet_pton(AF_INET, argv[idx]->arg, &ip_addr)) {
-				vty_out(vty, "Specified Edge ID %s is invalid\n", argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Specified Edge ID %s is invalid\n",
+						argv[idx]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Edge from the Link State Database */
 			key.family = AF_INET;
 			IPV4_ADDR_COPY(&key.k.addr, &ip_addr);
 			edge = ls_find_edge_by_key(ted, key);
 			if (!edge) {
-				vty_out(vty, "No edge found for ID %pI4\n", &ip_addr);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No edge found for ID %pI4\n", &ip_addr);
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else if (argv_find(argv, argc, "X:X::X:X", &idx)) {
 			if (!inet_pton(AF_INET6, argv[idx]->arg, &ip6_addr)) {
-				vty_out(vty, "Specified Edge ID %s is invalid\n", argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Specified Edge ID %s is invalid\n",
+						argv[idx]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Edge from the Link State Database */
 			key.family = AF_INET6;
 			IPV6_ADDR_COPY(&key.k.addr6, &ip6_addr);
 			edge = ls_find_edge_by_key(ted, key);
 			if (!edge) {
-				vty_out(vty, "No edge found for ID %pI6\n", &ip6_addr);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No edge found for ID %pI6\n", &ip6_addr);
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else
 			edge = NULL;
@@ -2069,25 +2085,33 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 		/* Show Subnet */
 		if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
 			if (!str2prefix(argv[idx]->arg, &pref)) {
-				vty_out(vty, "Invalid prefix format %s\n", argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Invalid prefix format %s\n", argv[idx]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Subnet from the Link State Database */
 			subnet = ls_find_subnet(ted, &pref);
 			if (!subnet) {
-				vty_out(vty, "No subnet found for ID %pFX\n", &pref);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No subnet found for ID %pFX\n", &pref);
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else if (argv_find(argv, argc, "X:X::X:X/M", &idx)) {
 			if (!str2prefix(argv[idx]->arg, &pref)) {
-				vty_out(vty, "Invalid prefix format %s\n", argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Invalid prefix format %s\n", argv[idx]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Subnet from the Link State Database */
 			subnet = ls_find_subnet(ted, &pref);
 			if (!subnet) {
-				vty_out(vty, "No subnet found for ID %pFX\n", &pref);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No subnet found for ID %pFX\n", &pref);
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else
 			subnet = NULL;
@@ -2102,10 +2126,15 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 		ls_show_ted(ted, vty, json, detail);
 	}
 
-	if (uj)
-		vty_json(vty, json);
+out:
+	if (uj) {
+		if (ret == CMD_SUCCESS)
+			vty_json(vty, json);
+		else
+			json_object_free(json);
+	}
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
 /**
