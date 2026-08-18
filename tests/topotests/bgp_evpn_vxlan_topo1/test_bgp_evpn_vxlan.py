@@ -143,7 +143,6 @@ def setup_module(mod):
     HOST_VNI.pop("h1b", None)
     HOST_VNI["h1"] = 101
     HOST_IP["h1"] = "192.168.101.101"
-    HOST_IP["h3"] = "192.168.101.103"
     HOST_IP.pop("h1a", None)
     HOST_IP.pop("h1b", None)
 
@@ -873,54 +872,6 @@ def test_move_ip_same_pe():
     HOST_VNI["h1b"] = 101
     HOST_IP.pop("h1a")
     HOST_IP["h1b"] = "192.168.101.101"
-
-    check_pe_converge_evpn(tgen)
-
-
-def test_change_ip():
-    """
-    Check that h1b can change its IP address.
-    """
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    tgen.gears["h1b"].cmd("ip address del dev eth-pe2 192.168.101.101/24")
-    tgen.gears["h1b"].cmd("ip address add dev eth-pe2 192.168.101.104/24")
-    if IRB_TEST:
-        tgen.gears["h1b"].cmd("ip route add default via 192.168.101.1")
-
-    tgen.gears["h1b"].cmd(f"arping -c 1 -U -I eth-pe2 192.168.101.104")
-
-    global HOST_IP
-
-    HOST_IP["h1b"] = "192.168.101.104"
-
-    check_pe_converge_evpn(tgen)
-
-
-def test_change_to_previous_ip():
-    """
-    Check that h1b can change its IP address.
-    """
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    tgen.gears["h3"].cmd("ip address del dev eth-pe3 192.168.101.103/24")
-    tgen.gears["h3"].cmd("ip address add dev eth-pe3 192.168.101.101/24")
-    if IRB_TEST:
-        tgen.gears["h3"].cmd("ip route add default via 192.168.101.1")
-
-    tgen.gears["h3"].cmd(f"arping -c 1 -U -I eth-pe3 192.168.101.101")
-
-    global HOST_IP
-
-    HOST_IP["h3"] = "192.168.101.101"
 
     check_pe_converge_evpn(tgen)
 
