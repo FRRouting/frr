@@ -5177,168 +5177,118 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
-/****************************************************************************
-* This code was developed in a branch that didn't have dplane APIs for
-* MAC updates. Hence the use of the legacy style. It will be moved to
-* the new dplane style pre-merge to master. XXX
-*/
-static int netlink_fdb_nh_update(uint32_t nh_id, struct ipaddr *vtep_ip)
+/*
+ * Encode an EVPN-MH FDB (L2) nexthop / nexthop-group update from a dplane ctx.
+ *
+ * A single encoder covers both DPLANE_OP_NH_FDB_INSTALL and
+ * DPLANE_OP_NH_FDB_DELETE, and within install both the single-nexthop and the
+ * nexthop-group case (distinguished by the fdb-nh grp count):
+ *   - DELETE            -> RTM_DELNEXTHOP with NHA_ID
+ *   - INSTALL, cnt == 0 -> RTM_NEWNEXTHOP with NHA_FDB + NHA_GATEWAY
+ *   - INSTALL, cnt  > 0 -> RTM_NEWNEXTHOP with NHA_FDB + NHA_GROUP
+ */
+static ssize_t netlink_fdb_nh_msg_encode(struct zebra_dplane_ctx *ctx, void *buf, size_t buflen)
 {
 	struct {
 		struct nlmsghdr n;
 		struct nhmsg nhm;
-		char buf[256];
-	} req;
-	int cmd = RTM_NEWNEXTHOP;
-	struct zebra_vrf *zvrf;
-	struct zebra_ns *zns;
+		char buf[];
+	} *req = buf;
+	int cmd;
+	uint32_t nh_id = dplane_ctx_get_fdb_nh_id(ctx);
+	uint16_t nh_cnt = dplane_ctx_get_fdb_nh_grp_count(ctx);
+	const struct nh_grp *nh_ids = nh_cnt ? dplane_ctx_get_fdb_nh_grp(ctx) : NULL;
+	const struct ipaddr *vtep_ip = NULL;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
-	zvrf = zebra_vrf_get_evpn();
-	zns = zvrf->zns;
+	if (buflen < sizeof(*req))
+		return 0;
 
-	memset(&req, 0, sizeof(req));
+	/* Defensive: never write past the on-stack group array below. */
+	if (nh_cnt > ES_VTEP_MAX_CNT)
+		nh_cnt = ES_VTEP_MAX_CNT;
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
-	req.n.nlmsg_type = cmd;
-	req.nhm.nh_family = ipaddr_family(vtep_ip);
-	req.nhm.nh_protocol = RTPROT_ZEBRA;
+	memset(req, 0, sizeof(*req));
 
-	if (!nl_attr_put32(&req.n, sizeof(req), NHA_ID, nh_id))
-		return -1;
-	if (!nl_attr_put(&req.n, sizeof(req), NHA_FDB, NULL, 0))
-		return -1;
-	if (req.nhm.nh_family == AF_INET) {
-		if (!nl_attr_put(&req.n, sizeof(req), NHA_GATEWAY, &vtep_ip->ipaddr_v4,
-				 IPV4_MAX_BYTELEN))
-			return -1;
-	} else {
-		if (!nl_attr_put(&req.n, sizeof(req), NHA_GATEWAY, &vtep_ip->ipaddr_v6,
-				 IPV6_MAX_BYTELEN))
-			return -1;
-	}
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
 
-	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
-		zlog_debug("Tx %s fdb-nh 0x%x %pIA", nl_msg_type_to_str(cmd), nh_id, vtep_ip);
-
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
-}
-
-static int netlink_fdb_nh_del(uint32_t nh_id)
-{
-	struct {
-		struct nlmsghdr n;
-		struct nhmsg nhm;
-		char buf[256];
-	} req;
-	int cmd = RTM_DELNEXTHOP;
-	struct zebra_vrf *zvrf;
-	struct zebra_ns *zns;
-
-	zvrf = zebra_vrf_get_evpn();
-	zns = zvrf->zns;
-
-	memset(&req, 0, sizeof(req));
-
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_type = cmd;
-	req.nhm.nh_family = AF_UNSPEC;
-
-	if (!nl_attr_put32(&req.n, sizeof(req), NHA_ID, nh_id))
-		return -1;
-
-	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH) {
-		zlog_debug("Tx %s fdb-nh 0x%x",
-			   nl_msg_type_to_str(cmd), nh_id);
-	}
-
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
-}
-
-static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
-		struct nh_grp *nh_ids)
-{
-	struct {
-		struct nlmsghdr n;
-		struct nhmsg nhm;
-		char buf[256];
-	} req;
-	int cmd = RTM_NEWNEXTHOP;
-	struct zebra_vrf *zvrf;
-	struct zebra_ns *zns;
-	struct nexthop_grp grp[nh_cnt];
-	uint32_t i;
-
-	zvrf = zebra_vrf_get_evpn();
-	zns = zvrf->zns;
-
-	memset(&req, 0, sizeof(req));
-
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
-	req.n.nlmsg_type = cmd;
-	req.nhm.nh_family = AF_UNSPEC;
-	req.nhm.nh_protocol = RTPROT_ZEBRA;
-
-	if (!nl_attr_put32(&req.n, sizeof(req), NHA_ID, nhg_id))
-		return -1;
-	if (!nl_attr_put(&req.n, sizeof(req), NHA_FDB, NULL, 0))
-		return -1;
-	memset(&grp, 0, sizeof(grp));
-	for (i = 0; i < nh_cnt; ++i) {
-		grp[i].id = nh_ids[i].id;
-		grp[i].weight = nh_ids[i].weight;
-	}
-	if (!nl_attr_put(&req.n, sizeof(req), NHA_GROUP,
-			grp, nh_cnt * sizeof(struct nexthop_grp)))
-		return -1;
-
-
-	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH) {
-		char vtep_str[ES_VTEP_LIST_STR_SZ];
-		char nh_buf[16];
-
-		vtep_str[0] = '\0';
-		for (i = 0; i < nh_cnt; ++i) {
-			snprintf(nh_buf, sizeof(nh_buf), "%u ",
-					grp[i].id);
-			strlcat(vtep_str, nh_buf, sizeof(vtep_str));
+	if (op == DPLANE_OP_NH_FDB_INSTALL) {
+		cmd = RTM_NEWNEXTHOP;
+		req->n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
+		req->nhm.nh_protocol = RTPROT_ZEBRA;
+		if (nh_cnt) {
+			/* nexthop-group install: family is unspec */
+			req->nhm.nh_family = AF_UNSPEC;
+		} else {
+			/* single-nexthop install: family from the VTEP IP */
+			vtep_ip = dplane_ctx_get_fdb_nh_vtep_ip(ctx);
+			req->nhm.nh_family = ipaddr_family(vtep_ip);
 		}
+	} else {
+		cmd = RTM_DELNEXTHOP;
+		req->nhm.nh_family = AF_UNSPEC;
+	}
+	req->n.nlmsg_type = cmd;
 
-		zlog_debug("Tx %s fdb-nhg 0x%x %s",
-			   nl_msg_type_to_str(cmd), nhg_id, vtep_str);
+	if (!nl_attr_put32(&req->n, buflen, NHA_ID, nh_id))
+		return 0;
+
+	if (cmd == RTM_NEWNEXTHOP) {
+		if (!nl_attr_put(&req->n, buflen, NHA_FDB, NULL, 0))
+			return 0;
+		if (nh_cnt) {
+			struct nexthop_grp grp[ES_VTEP_MAX_CNT];
+			uint16_t i;
+
+			/* memset zeroes the reserved fields not set below */
+			memset(grp, 0, sizeof(grp));
+			for (i = 0; i < nh_cnt; ++i) {
+				grp[i].id = nh_ids[i].id;
+				grp[i].weight = nh_ids[i].weight;
+			}
+			if (!nl_attr_put(&req->n, buflen, NHA_GROUP, grp,
+					 nh_cnt * sizeof(struct nexthop_grp)))
+				return 0;
+		} else if (req->nhm.nh_family == AF_INET) {
+			if (!nl_attr_put(&req->n, buflen, NHA_GATEWAY, &vtep_ip->ipaddr_v4,
+					 IPV4_MAX_BYTELEN))
+				return 0;
+		} else {
+			if (!nl_attr_put(&req->n, buflen, NHA_GATEWAY, &vtep_ip->ipaddr_v6,
+					 IPV6_MAX_BYTELEN))
+				return 0;
+		}
 	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH) {
+		if (nh_cnt) {
+			char vtep_str[ES_VTEP_LIST_STR_SZ];
+			char nh_buf[16];
+			uint16_t i;
+
+			vtep_str[0] = '\0';
+			for (i = 0; i < nh_cnt; ++i) {
+				snprintf(nh_buf, sizeof(nh_buf), "%u ", nh_ids[i].id);
+				strlcat(vtep_str, nh_buf, sizeof(vtep_str));
+			}
+			zlog_debug("Tx %s fdb-nhg 0x%x %s", nl_msg_type_to_str(cmd), nh_id,
+				   vtep_str);
+		} else if (vtep_ip) {
+			zlog_debug("Tx %s fdb-nh 0x%x %pIA", nl_msg_type_to_str(cmd), nh_id,
+				   vtep_ip);
+		} else {
+			zlog_debug("Tx %s fdb-nh 0x%x", nl_msg_type_to_str(cmd), nh_id);
+		}
+	}
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
-static int netlink_fdb_nhg_del(uint32_t nhg_id)
+enum netlink_msg_status netlink_put_nh_fdb_update_msg(struct nl_batch *bth,
+						      struct zebra_dplane_ctx *ctx)
 {
-	return netlink_fdb_nh_del(nhg_id);
-}
-
-int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip)
-{
-	return netlink_fdb_nh_update(nh_id, vtep_ip);
-}
-
-int kernel_del_mac_nh(uint32_t nh_id)
-{
-	return netlink_fdb_nh_del(nh_id);
-}
-
-int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
-		struct nh_grp *nh_ids)
-{
-	return netlink_fdb_nhg_update(nhg_id, nh_cnt, nh_ids);
-}
-
-int kernel_del_mac_nhg(uint32_t nhg_id)
-{
-	return netlink_fdb_nhg_del(nhg_id);
+	return netlink_batch_add_msg(bth, ctx, netlink_fdb_nh_msg_encode, false);
 }
 
 #endif /* HAVE_NETLINK */
