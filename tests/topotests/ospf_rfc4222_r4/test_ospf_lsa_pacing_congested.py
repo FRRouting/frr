@@ -113,22 +113,22 @@ TEST_PREFIXES = ["10.88.{}.0/24".format(i) for i in range(1, NUM_ROUTES + 1)]
 PREFIX_TAG = "10.88."
 
 # Pacing parameters for the congested tests
-GAP_MS = 200          # 200 ms inter-LSU gap — well above the ~8 ms LSU tx time
-MAX_LSAS = 1          # one LSA per LSU — clean 1:1 timing
-ADJINT_MS = 60000     # freeze gap adjuster
+GAP_MS = 200  # 200 ms inter-LSU gap — well above the ~8 ms LSU tx time
+MAX_LSAS = 1  # one LSA per LSU — clean 1:1 timing
+ADJINT_MS = 60000  # freeze gap adjuster
 
 # Link shaping — 100 Kbps
 LINK_RATE = "100kbit"
 LINK_BURST = "4kb"
 LINK_LATENCY = "100ms"
-R1_ETH1 = "eth1"   # interface name inside R1's network namespace
+R1_ETH1 = "eth1"  # interface name inside R1's network namespace
 
 # Heavy-load / duplicate-suppression test (test 5) parameters
-NUM_ROUTES_HEAVY = 20      # heavier burst than the other congested tests
-HEAVY_GAP_MS = 500         # 500 ms gap -> 10 s drain for 20 LSAs
-HEAVY_RXMT_S = 3           # retransmit interval well below drain time
-HEAVY_DEAD_S = 60          # survive the ACK blackout without dead-timer expiry
-BLACKOUT_S = 13            # > 4 retransmit intervals of ACK loss
+NUM_ROUTES_HEAVY = 20  # heavier burst than the other congested tests
+HEAVY_GAP_MS = 500  # 500 ms gap -> 10 s drain for 20 LSAs
+HEAVY_RXMT_S = 3  # retransmit interval well below drain time
+HEAVY_DEAD_S = 60  # survive the ACK blackout without dead-timer expiry
+BLACKOUT_S = 13  # > 4 retransmit intervals of ACK loss
 HEAVY_PREFIXES = ["10.99.{}.0/24".format(i) for i in range(1, NUM_ROUTES_HEAVY + 1)]
 HEAVY_TAG = "10.99."
 
@@ -140,6 +140,7 @@ PM = None
 # Topology
 # ---------------------------------------------------------------------------
 
+
 def build_topo(tgen):
     """Two-router topology: R1 (sender) — R2 (observer)."""
     r1 = tgen.add_router("r1")
@@ -150,6 +151,7 @@ def build_topo(tgen):
 # ---------------------------------------------------------------------------
 # Module-level setup / teardown
 # ---------------------------------------------------------------------------
+
 
 def teardown_module():
     """Placeholder — topology is destroyed per test in teardown_function."""
@@ -175,15 +177,15 @@ def _setup_topology(test_name):
             R1_ETH1, LINK_RATE, LINK_BURST, LINK_LATENCY
         )
     )
-    logger.info("R1 %s shaped to %s (burst=%s latency=%s)",
-                R1_ETH1, LINK_RATE, LINK_BURST, LINK_LATENCY)
-
-    r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf\n"
-        "redistribute static\n"
-        "end"
+    logger.info(
+        "R1 %s shaped to %s (burst=%s latency=%s)",
+        R1_ETH1,
+        LINK_RATE,
+        LINK_BURST,
+        LINK_LATENCY,
     )
+
+    r1.vtysh_cmd("configure terminal\n" "router ospf\n" "redistribute static\n" "end")
 
     global PM
     PM = PerInterfacePcapManager(outdir="pcaps", tag="congested")
@@ -223,6 +225,7 @@ def teardown_function():
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _enable_pacing(r1):
     r1.vtysh_cmd(
         "configure terminal\n"
@@ -235,16 +238,14 @@ def _enable_pacing(r1):
         "end".format(gap=GAP_MS, max_lsas=MAX_LSAS, adjint=ADJINT_MS)
     )
     cfg = r1.vtysh_cmd("show running-config")
-    assert "ip ospf lsa-pacing" in cfg, \
-        "lsa-pacing did not appear in running-config — vtysh command failed"
+    assert (
+        "ip ospf lsa-pacing" in cfg
+    ), "lsa-pacing did not appear in running-config — vtysh command failed"
 
 
 def _disable_pacing(r1):
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "interface eth1\n"
-        "no ip ospf lsa-pacing\n"
-        "end"
+        "configure terminal\n" "interface eth1\n" "no ip ospf lsa-pacing\n" "end"
     )
 
 
@@ -267,8 +268,7 @@ def _remove_routes(r1):
 def _count_external_lsas(router):
     out = router.vtysh_cmd("show ip ospf database external")
     return sum(
-        1 for line in out.splitlines()
-        if "Link State ID" in line and PREFIX_TAG in line
+        1 for line in out.splitlines() if "Link State ID" in line and PREFIX_TAG in line
     )
 
 
@@ -292,9 +292,7 @@ def _wait_at_least(router, minimum, timeout_s):
 
 def _rxmt_list_count(r1, neighbor_id="2.2.2.2"):
     """Return R1's LS retransmission list length toward neighbor_id, or -1."""
-    out = r1.vtysh_cmd(
-        "show ip ospf neighbor {} json".format(neighbor_id), isjson=True
-    )
+    out = r1.vtysh_cmd("show ip ospf neighbor {} json".format(neighbor_id), isjson=True)
     nbr_list = out.get("default", {}).get(neighbor_id)
     if not nbr_list:
         return -1
@@ -304,16 +302,22 @@ def _rxmt_list_count(r1, neighbor_id="2.2.2.2"):
 def _count_heavy_lsas(router):
     out = router.vtysh_cmd("show ip ospf database external")
     return sum(
-        1 for line in out.splitlines()
-        if "Link State ID" in line and HEAVY_TAG in line
+        1 for line in out.splitlines() if "Link State ID" in line and HEAVY_TAG in line
     )
+
+
+def _wait_heavy_lsas(router, expected, timeout_s):
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if _count_heavy_lsas(router) == expected:
+            return expected
+        time.sleep(0.2)
+    return _count_heavy_lsas(router)
 
 
 def _adjacency_is_full(r1, neighbor_id="2.2.2.2"):
     """Return True if R1's adjacency with neighbor_id is Full."""
-    out = r1.vtysh_cmd(
-        "show ip ospf neighbor {} json".format(neighbor_id), isjson=True
-    )
+    out = r1.vtysh_cmd("show ip ospf neighbor {} json".format(neighbor_id), isjson=True)
     nbr_list = out.get("default", {}).get(neighbor_id)
     if not nbr_list:
         return False
@@ -333,9 +337,7 @@ def _wait_adjacency_full(r1, timeout_s=20, neighbor_id="2.2.2.2"):
 def _dead_timer_due_ms(r1, neighbor_id="2.2.2.2"):
     """Return the remaining ms on R1's inactivity (dead) timer for
     neighbor_id, or -1 if unavailable."""
-    out = r1.vtysh_cmd(
-        "show ip ospf neighbor {} json".format(neighbor_id), isjson=True
-    )
+    out = r1.vtysh_cmd("show ip ospf neighbor {} json".format(neighbor_id), isjson=True)
     nbr_list = out.get("default", {}).get(neighbor_id)
     if not nbr_list:
         return -1
@@ -363,6 +365,7 @@ def _wait_dead_timer_above(r1, min_ms, timeout_s, neighbor_id="2.2.2.2"):
 # Test 1: baseline — no pacing, adjacency survives burst on congested link
 # ---------------------------------------------------------------------------
 
+
 def test_congested_no_pacing_adjacency_stable():
     """
     Baseline: without pacing, all LSAs are sent as a burst on the 100 Kbps
@@ -375,7 +378,25 @@ def test_congested_no_pacing_adjacency_stable():
     off.  The shaped link adds real queuing delay but not enough to drop
     the adjacency for a moderate burst size.
 
-    If this test fails the link shaping or Hello timing needs adjustment.
+    Verified in two independent phases so a failure is unambiguous
+    about where the problem is:
+
+      Phase 1 - precondition: R1 must actually originate all
+      NUM_ROUTES external LSAs after redistribute-static picks up the
+      injected routes. This is a redistribution/zebra step, unrelated
+      to the legacy flood path being tested here.
+
+      Phase 2 - the actual behavior under test: once R1 has all
+      NUM_ROUTES LSAs, the legacy (unpaced) flood path must deliver
+      them all to R2.
+
+    Both phases use max(computed, 15s) rather than a tight computed
+    budget, per topotest convention -- a loaded CI host gives no
+    guarantee that either step finishes quickly even when everything
+    is working correctly.
+
+    If this test fails at Phase 2 the link shaping or Hello timing
+    needs adjustment.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -389,16 +410,29 @@ def test_congested_no_pacing_adjacency_stable():
     # No pacing — legacy flood path
     _add_routes(r1)
 
-    # All LSAs should arrive quickly (burst within throttle + link delay)
-    # Budget: 1s throttle + NUM_ROUTES * 8ms per LSU at 100Kbps + 2s margin
-    timeout_s = 1 + NUM_ROUTES * 0.05 + 2
-    count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
+    # Theoretical timeline: 1s throttle headroom + NUM_ROUTES * 50ms
+    # per-LSU margin (conservative vs. the ~8ms actually measured at
+    # 100Kbps) + 2s margin. Floored at 15s per topotest convention.
+    pacing_time_total = 1 + NUM_ROUTES * 0.05 + 2
+    timeout_s = max(pacing_time_total, 15)
 
+    # Phase 1: confirm the precondition on R1 itself before timing the
+    # legacy flood path.
+    origin_count = _wait_lsas(r1, NUM_ROUTES, timeout_s)
+    assert origin_count == NUM_ROUTES, (
+        "R1 only originated {}/{} external LSAs within {:.1f}s of "
+        "adding the routes. This is a redistribution/zebra issue "
+        "(static route -> RIB -> kernel install -> redistribute), "
+        "not the legacy flood path.".format(origin_count, NUM_ROUTES, timeout_s)
+    )
+
+    # Phase 2: now time the thing actually under test -- the legacy
+    # flood path delivering to R2.
+    count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
     assert count == NUM_ROUTES, (
-        "Baseline: only {}/{} LSAs arrived within {:.1f}s without pacing "
-        "on 100Kbps link. Check link shaping parameters.".format(
-            count, NUM_ROUTES, timeout_s
-        )
+        "R1 originated all {} LSAs but only {}/{} arrived at R2 "
+        "within {:.1f}s without pacing on 100Kbps link. Check link "
+        "shaping parameters.".format(NUM_ROUTES, count, NUM_ROUTES, timeout_s)
     )
 
     # Adjacency must still be Full after the burst
@@ -416,6 +450,7 @@ def test_congested_no_pacing_adjacency_stable():
 # Test 2: pacing intercepts flood on congested link
 # ---------------------------------------------------------------------------
 
+
 def test_congested_pacing_slows_flood():
     """
     With pacing active (G=200ms, max-lsas=1) on the 100Kbps link:
@@ -428,6 +463,21 @@ def test_congested_pacing_slows_flood():
     The shaped link makes the timing more realistic — LSUs take ~8ms to
     transmit at 100Kbps, so the 200ms gap is meaningfully larger than the
     wire time, giving clear separation between packets in the pcap.
+
+    This test asserts a negative, transient property ("not all LSAs
+    have arrived yet"), unlike the other tests in this file. That
+    property is checked immediately after the *first* LSA is observed
+    at R2, not after a fixed wall-clock deadline from when the routes
+    were added -- so widening the wait for that first arrival is safe
+    and does not weaken the test: R4 only starts spacing sends apart
+    once an LSA is actually queued, so "first arrival, then still
+    incomplete" holds regardless of how long redistribution took to
+    get that first LSA originated. (Contrast this with the other
+    congested-link tests, where a precondition wait on R1 was added
+    before timing R2 -- doing that here instead would risk the whole
+    15s precondition wait completing only after R4's ~1.8s drain had
+    already finished, which would make the "still queued" assertion
+    fail for a reason unrelated to pacing.)
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -441,10 +491,12 @@ def test_congested_pacing_slows_flood():
     _enable_pacing(r1)
     _add_routes(r1)
 
-    # Wait for the first LSA — may be delayed by 1s LSA throttle
-    first = _wait_at_least(r2, 1, timeout_s=4)
+    # Wait for the first LSA -- may be delayed by 1s LSA throttle plus
+    # whatever redistribution/zebra takes. Floored at 15s per topotest
+    # convention rather than the previous tight 4s.
+    first = _wait_at_least(r2, 1, timeout_s=15)
     assert first >= 1, (
-        "No LSA arrived at R2 within 4s on shaped link with pacing. "
+        "No LSA arrived at R2 within 15s on shaped link with pacing. "
         "Check adjacency and redistribution."
     )
 
@@ -466,6 +518,7 @@ def test_congested_pacing_slows_flood():
 # Test 3: pacing delivers all LSAs on congested link
 # ---------------------------------------------------------------------------
 
+
 def test_congested_pacing_delivers_all():
     """
     Correctness: all NUM_ROUTES LSAs reach R2 when pacing is active on
@@ -476,14 +529,30 @@ def test_congested_pacing_delivers_all():
       t+0.2s: LSA-2  sent
       ...
       t+1.8s: LSA-10 sent
-      Checked at: 1s throttle + (NUM_ROUTES-1)*0.2s + 2s margin
 
-    The shaped link adds ~8ms per packet at 100Kbps, which is well within
-    the 200ms gap so timing is still predictable.
+    Verified in two independent phases so a failure is unambiguous
+    about where the problem is:
 
-    A failure here (count < NUM_ROUTES) means the send timer stopped
-    re-arming or the queue was incorrectly flushed — check
-    ospf_r4_nbr_send_timer() and the re-arm logic.
+      Phase 1 - precondition: R1 must actually originate all
+      NUM_ROUTES external LSAs after redistribute-static picks up the
+      injected routes. This step is entirely outside R4 pacing
+      (static route -> zebra RIB -> kernel dataplane confirmation ->
+      redistribute -> ospf_external_lsa_originate()) and its timing
+      is not governed by GAP_MS at all. A failure here points at
+      redistribution/zebra, not at R4 pacing.
+
+      Phase 2 - the actual behavior under test: once R1 has all
+      NUM_ROUTES LSAs queued, R4 pacing must drain them to R2. A
+      failure here, with Phase 1 already confirmed, points at
+      ospf_r4_nbr_send_timer() and the re-arm logic.
+
+    Both phases use max(pacing_time_total, 15s) rather than timing to
+    the computed best case: the 15s floor matches the project's
+    general "look for state generously" topotest convention, since a
+    CI host running many tests in parallel gives no guarantee that a
+    given step finishes inside a tight window even when everything is
+    working correctly. The shaped link adds ~8ms per packet at
+    100Kbps, folded into pacing_time_total's margin term.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -497,16 +566,32 @@ def test_congested_pacing_delivers_all():
     _enable_pacing(r1)
     _add_routes(r1)
 
-    # Budget: throttle(1s) + (NUM_ROUTES-1)*GAP_MS + link_delay + margin
-    timeout_s = 1 + (NUM_ROUTES - 1) * (GAP_MS / 1000.0) + 2
-    count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
+    # Theoretical pacing timeline: 1s throttle headroom + (NUM_ROUTES-1)
+    # gaps of GAP_MS + 2s margin/link-delay. Floored at 15s per
+    # topotest convention -- a computed "just enough" budget doesn't
+    # survive a loaded CI host.
+    pacing_time_total = 1 + (NUM_ROUTES - 1) * (GAP_MS / 1000.0) + 2
+    timeout_s = max(pacing_time_total, 15)
 
+    # Phase 1: confirm the precondition on R1 itself before timing
+    # anything pacing-related.
+    origin_count = _wait_lsas(r1, NUM_ROUTES, timeout_s)
+    assert origin_count == NUM_ROUTES, (
+        "R1 only originated {}/{} external LSAs within {:.1f}s of "
+        "adding the routes. This is a redistribution/zebra issue "
+        "(static route -> RIB -> kernel install -> redistribute), "
+        "not R4 pacing -- ospf_r4_nbr_send_timer() never had a "
+        "chance to run.".format(origin_count, NUM_ROUTES, timeout_s)
+    )
+
+    # Phase 2: now time the thing actually under test -- R4 pacing
+    # draining the queue to R2.
+    count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
     assert count == NUM_ROUTES, (
-        "Only {}/{} LSAs reached R2 in {:.1f}s with pacing on 100Kbps link. "
-        "Expected all {} delivered at {}ms intervals. "
-        "Check ospf_r4_nbr_send_timer() re-arm logic.".format(
-            count, NUM_ROUTES, timeout_s, NUM_ROUTES, GAP_MS
-        )
+        "R1 originated all {} LSAs but only {}/{} reached R2 within "
+        "{:.1f}s with pacing on the 100Kbps link (expected delivery "
+        "at {}ms intervals). Check ospf_r4_nbr_send_timer() re-arm "
+        "logic.".format(NUM_ROUTES, count, NUM_ROUTES, timeout_s, GAP_MS)
     )
 
     # Cleanup
@@ -518,6 +603,7 @@ def test_congested_pacing_delivers_all():
 # ---------------------------------------------------------------------------
 # Test 4: adjacency survives while pacing drains queue on congested link
 # ---------------------------------------------------------------------------
+
 
 def test_congested_adjacency_survives_pacing():
     """
@@ -532,13 +618,30 @@ def test_congested_adjacency_survives_pacing():
     Scenario
     --------
     1. Enable pacing with G=200ms (slow drain) and inject NUM_ROUTES LSAs.
-    2. While the queue is draining (takes ~2s), poll the adjacency state.
+    2. Poll the adjacency state continuously from the moment the routes
+       are added, for long enough to cover both a possibly-slow
+       redistribution round trip and the subsequent pacing drain.
+       R4 starts pacing and sending each LSA as soon as *that one*
+       originates, not once all NUM_ROUTES exist -- so if redistribution
+       staggers origination, watching only starts after a separate
+       precondition wait could let the real congestion happen entirely
+       before monitoring begins, passing the test without observing
+       anything. Watching continuously from t=0 avoids that gap.
     3. The adjacency must remain Full throughout — dead-interval is 4s,
        so even one missed Hello cycle (1s) must not drop the adjacency.
+    4. Separately confirm R1 actually originated all NUM_ROUTES LSAs
+       (this is a redistribution/zebra concern, not a Hello-starvation
+       one) and that they all reached R2.
 
     If the adjacency drops it means Hellos are being delayed behind LSUs
     in either oi->obuf or the kernel socket send buffer — indicating the
     Hello priority mechanism is not working under the shaped link.
+
+    The origination precondition and the final delivery check both use
+    max(computed, 15s) rather than a tight computed budget, per
+    topotest convention -- a loaded CI host gives no guarantee that
+    either step finishes quickly even when everything is working
+    correctly.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -552,14 +655,21 @@ def test_congested_adjacency_survives_pacing():
     _enable_pacing(r1)
     _add_routes(r1)
 
-    # Poll adjacency state while LSAs are being drained.
-    # The drain takes approximately (NUM_ROUTES-1) * GAP_MS = 1.8s.
-    # Poll every 200ms for 4s total — if it ever goes non-Full, fail.
+    # Theoretical pacing timeline, floored at 15s per topotest convention.
+    pacing_time_total = 1 + (NUM_ROUTES - 1) * (GAP_MS / 1000.0) + 2
+    timeout_s = max(pacing_time_total, 15)
+
+    # Monitor adjacency continuously from the moment the routes are
+    # added, for timeout_s (covering a possibly-slow redistribution
+    # round trip) plus the pacing drain duration -- rather than waiting
+    # for an origination precondition first and watching a separate
+    # window afterward, which could let the real congestion finish
+    # entirely before monitoring ever starts.
     drain_duration = (NUM_ROUTES - 1) * (GAP_MS / 1000.0) + 1.0
-    poll_end = time.time() + drain_duration
+    monitor_end = time.time() + timeout_s + drain_duration
     adjacency_dropped = False
 
-    while time.time() < poll_end:
+    while time.time() < monitor_end:
         if not _adjacency_is_full(r1):
             adjacency_dropped = True
             break
@@ -574,12 +684,25 @@ def test_congested_adjacency_survives_pacing():
         )
     )
 
-    # Also verify all LSAs arrived correctly
-    timeout_s = 1 + (NUM_ROUTES - 1) * (GAP_MS / 1000.0) + 2
+    # Confirm R1 actually originated everything -- the monitor loop
+    # above already spanned timeout_s, so this should already be true;
+    # a distinct failure here points at redistribution/zebra, not
+    # Hello starvation.
+    origin_count = _wait_lsas(r1, NUM_ROUTES, timeout_s=1)
+    assert origin_count == NUM_ROUTES, (
+        "R1 only originated {}/{} external LSAs even after {:.1f}s of "
+        "monitoring. This is a redistribution/zebra issue, not a "
+        "Hello-starvation problem.".format(
+            origin_count, NUM_ROUTES, timeout_s + drain_duration
+        )
+    )
+
+    # Also verify all LSAs arrived correctly at R2.
     count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
     assert count == NUM_ROUTES, (
-        "Only {}/{} LSAs delivered even though adjacency survived.".format(
-            count, NUM_ROUTES
+        "R1 originated all {} LSAs and the adjacency survived, but only "
+        "{}/{} reached R2 within {:.1f}s.".format(
+            NUM_ROUTES, count, NUM_ROUTES, timeout_s
         )
     )
 
@@ -592,6 +715,7 @@ def test_congested_adjacency_survives_pacing():
 # ---------------------------------------------------------------------------
 # Test 5: heavy load + ACK blackout — no duplicate paced retransmits
 # ---------------------------------------------------------------------------
+
 
 def test_congested_heavy_load_no_duplicate_retransmits():
     """
@@ -609,10 +733,21 @@ def test_congested_heavy_load_no_duplicate_retransmits():
     2. Enable pacing with a fixed 500ms gap, one LSA per LSU.
     3. Drop all inbound OSPF on R1 (iptables): R2 still receives and
        ACKs R1's LSUs, but the ACKs never reach R1.
-    4. Inject NUM_ROUTES_HEAVY=20 routes. Draining takes ~10s; every
-       transmitted LSA stays unacknowledged on R1's retransmission
-       list, and the retransmit timer fires 4+ times during the 13s
-       blackout.
+    4. Inject NUM_ROUTES_HEAVY=20 routes, then confirm R1 has actually
+       originated all of them before the 13s blackout clock starts.
+       This origination step is a redistribution/zebra precondition,
+       not part of what's under test: if it were left unverified and
+       ran long, it could eat into BLACKOUT_S uncounted, leaving too
+       little unacked load built up (or in the worst case none at
+       all) for the retransmit timer to ever stress the
+       duplicate-suppression path this test exists to exercise --
+       while the test still reported a pass. Draining takes ~10s;
+       every transmitted LSA stays unacknowledged on R1's
+       retransmission list, and the retransmit timer fires 4+ times
+       during the 13s blackout. A tripwire just before lifting the
+       blackout confirms the retransmission list is actually
+       non-empty, so a future regression here fails loudly instead of
+       silently passing the convergence check below.
     5. Lift the blackout and measure convergence on R1: the LS
        retransmission list toward R2 must drain to 0 (sustained).
 
@@ -664,9 +799,7 @@ def test_congested_heavy_load_no_duplicate_retransmits():
     assert _wait_dead_timer_above(r1, min_ms=30000, timeout_s=10), (
         "R1's inactivity timer was not re-armed with the new {}s "
         "dead-interval within 10s (needs one accepted Hello after the "
-        "config change) — cannot start the ACK blackout safely.".format(
-            HEAVY_DEAD_S
-        )
+        "config change) — cannot start the ACK blackout safely.".format(HEAVY_DEAD_S)
     )
 
     r1.vtysh_cmd(
@@ -699,6 +832,25 @@ def test_congested_heavy_load_no_duplicate_retransmits():
             + "end"
         )
 
+        # Confirm R1 actually originated all NUM_ROUTES_HEAVY external
+        # LSAs before starting the blackout clock. This is a
+        # redistribution/zebra precondition, not part of what's under
+        # test: if it's slow and eats into BLACKOUT_S uncounted, fewer
+        # (or in the worst case zero) LSAs would ever be sent-and-stuck
+        # unacked during the remaining blackout window, so the
+        # retransmit timer would never see sustained unacked load and
+        # the duplicate-suppression path this test exists to exercise
+        # would go untested -- with the test still reporting a pass.
+        origin_count = _wait_heavy_lsas(r1, NUM_ROUTES_HEAVY, timeout_s=15)
+        assert origin_count == NUM_ROUTES_HEAVY, (
+            "R1 only originated {}/{} heavy-load external LSAs within "
+            "15s of adding the routes. This is a redistribution/zebra "
+            "issue, not a pacing/retransmit problem -- the ACK "
+            "blackout stress window was never entered.".format(
+                origin_count, NUM_ROUTES_HEAVY
+            )
+        )
+
         blackout_end = time.time() + BLACKOUT_S
         while time.time() < blackout_end:
             assert _adjacency_is_full(r1), (
@@ -708,6 +860,20 @@ def test_congested_heavy_load_no_duplicate_retransmits():
                 )
             )
             time.sleep(1)
+
+        # Tripwire: confirm the blackout actually produced sustained
+        # unacked load before declaring the stress condition exercised.
+        # This catches (loudly, here) any future regression that lets
+        # LSAs slip through unqueued -- rather than the test silently
+        # passing the convergence check below because there was never
+        # anything to converge.
+        pre_lift_rxmt = _rxmt_list_count(r1)
+        assert pre_lift_rxmt > 0, (
+            "R1's LS retransmission list toward R2 was empty just "
+            "before lifting the ACK blackout -- no unacked load was "
+            "ever built up, so the duplicate-suppression path this "
+            "test exists to exercise was never actually stressed."
+        )
     finally:
         # -- 5. Lift the blackout.
         r1.cmd("iptables -D INPUT -i {} -p 89 -j DROP".format(R1_ETH1))
@@ -753,15 +919,14 @@ def test_congested_heavy_load_no_duplicate_retransmits():
     # All LSAs must have reached R2 (R2 received them during the
     # blackout — only the ACKs were dropped).
     count = _count_heavy_lsas(r2)
-    assert count == NUM_ROUTES_HEAVY, (
-        "Only {}/{} heavy-load LSAs present in R2's LSDB after "
-        "convergence.".format(count, NUM_ROUTES_HEAVY)
+    assert (
+        count == NUM_ROUTES_HEAVY
+    ), "Only {}/{} heavy-load LSAs present in R2's LSDB after " "convergence.".format(
+        count, NUM_ROUTES_HEAVY
     )
 
     # Adjacency must have survived the whole exercise.
-    assert _adjacency_is_full(r1), (
-        "Adjacency not Full after blackout recovery."
-    )
+    assert _adjacency_is_full(r1), "Adjacency not Full after blackout recovery."
 
     # Cleanup
     r1.vtysh_cmd(
@@ -774,4 +939,5 @@ def test_congested_heavy_load_no_duplicate_retransmits():
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(pytest.main(["-s", __file__]))
