@@ -457,7 +457,28 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
 		BFD_SETCBIT(cp.flags, BFD_CBIT);
 
-	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
+	/*
+	 * The demand bit may only be set when we want to use demand
+	 * mode and both ends of the session are up.
+	 *
+	 * RFC 5880, Section 6.8.7.
+	 */
+	bool demand = bfd->demand_mode && bfd->ses_state == PTM_BFD_UP &&
+		      bfd->remote_state == PTM_BFD_UP;
+
+	/*
+	 * Any change to the demand bit must be confirmed with a poll
+	 * sequence, as the peer has no other way to acknowledge the
+	 * demand mode transition.
+	 *
+	 * RFC 5880, Section 6.6.
+	 */
+	if (demand != bfd->last_sent_demand) {
+		bfd->polling = 1;
+		bfd->last_sent_demand = demand;
+	}
+
+	BFD_SETDEMANDBIT(cp.flags, demand);
 
 	/* Polling and Final can't be set at the same time.
 	 *
@@ -1424,6 +1445,12 @@ void bfd_recv_cb(struct event *t)
 
 		return;
 	}
+
+	/* Save last remote state: needed for demand bit computation.
+	 *
+	 * RFC 5880, Section 6.8.7.
+	 */
+	bfd->remote_state = BFD_GETSTATE(cp->flags);
 
 	/* State switch from section 6.2. */
 	bs_state_handler(bfd, BFD_GETSTATE(cp->flags));

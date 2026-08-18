@@ -384,6 +384,10 @@ struct bfd_session {
 	struct bfd_discrs discrs;
 	uint8_t local_diag;
 	uint8_t demand_mode;
+	/* Last session state reported by the remote peer. */
+	uint8_t remote_state;
+	/* Last demand bit value sent to the remote peer. */
+	uint8_t last_sent_demand;
 	uint8_t detect_mult;
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
@@ -495,7 +499,6 @@ struct sbfd_reflector {
 
 /* Various constants */
 /* Retrieved from ptm_timer.h from Cumulus PTM sources. */
-#define BFD_DEF_DEMAND 0
 #define BFD_DEFDETECTMULT 3
 #define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
