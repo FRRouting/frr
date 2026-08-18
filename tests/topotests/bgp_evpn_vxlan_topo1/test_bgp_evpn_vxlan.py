@@ -20,7 +20,6 @@ import sys
 import json
 from functools import partial
 import pytest
-import time
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -150,9 +149,6 @@ ip link set {VRF_OVERLAY} up
 """
             )
 
-        log_path = os.path.join(tgen.logdir, rname, "l2vpn-neighd.log")
-        pe.run(f"nohup /usr/sbin/l2vpn-neighd -v </dev/null >{log_path} 2>&1 &")
-
         i = int(rname.replace("pe", ""))
 
         for host in PE_HOST.get(rname):
@@ -205,9 +201,6 @@ ip link set dev eth-{host} master br{vni}
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
 
-    # wait for l2vpn-neighd to start
-    time.sleep(5)
-
     # Set host default gateway route
     for hname, host in router_list.items():
         if not hname.startswith("h"):
@@ -217,10 +210,7 @@ ip link set dev eth-{host} master br{vni}
         vni = HOST_VNI.get(hname)
         if IRB_TEST:
             host.run(f"ip route add default via 192.168.{vni}.{i}")
-        h = int(hname.replace("h", ""))
-        j = h - 3 if h > 3 else h
-        # Send gratuitous ARP
-        host.run(f"arping -c 1 -U -I eth-{pename} 192.168.{vni}.10{j}")
+        host.run(f"ping -c 1 192.168.{vni}.{i}")
 
     if L3VNI:
         for rname, pe in router_list.items():
@@ -238,9 +228,6 @@ configure terminal
 def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
-
-    # kill all l2vpn-neighd instances
-    tgen.net.cmd_nostatus("pkill -f l2vpn-neighd.py")
 
     # This function tears down the whole topology.
     tgen.stop_topology()
@@ -730,7 +717,7 @@ ip address add dev eth-pe3 192.168.101.101/24
 
     tgen.gears["pe3"].cmd("ip link set dev eth-h1 master br101")
 
-    tgen.gears["h1"].cmd(f"arping -c 1 -U -I eth-pe3 192.168.101.101")
+    tgen.gears["h1"].cmd("ping -c1 192.168.101.1")
 
     global HOST_PE, PE_HOST
     HOST_PE["h1"] = "pe3"
@@ -773,7 +760,7 @@ ip address add dev eth-pe1 192.168.101.101/24
 
     tgen.net.macs[("h1", "eth-pe1")] = "00:00:00:00:01:01"
 
-    tgen.gears["h1"].cmd(f"arping -c 1 -U -I eth-pe1 192.168.101.101")
+    tgen.gears["h1"].cmd("ping -c1 192.168.101.1")
 
     global HOST_PE, PE_HOST
     HOST_PE["h1"] = "pe1"
