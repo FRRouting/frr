@@ -7,14 +7,14 @@
 #include "zebra.h"
 #include "kernel_capabilities.h"
 
-static bool check_srv6_seg6_source_encap_attr_supported;
+static bool seg6_encap_source;
 
-bool kernel_capabilities_is_srv6_seg6_source_encap_attr_supported(void)
+bool kernel_capabilities_has_seg6_encap_source(void)
 {
-	return check_srv6_seg6_source_encap_attr_supported;
+	return seg6_encap_source;
 }
 
-void kernel_capabilities_set_srv6_seg6_source_encap_attr_supported(bool enabled)
+void kernel_capabilities_set_seg6_encap_source(bool enabled)
 {
-	check_srv6_seg6_source_encap_attr_supported = enabled;
+	seg6_encap_source = enabled;
 }

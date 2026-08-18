@@ -4341,13 +4341,13 @@ DEFPY_HIDDEN(show_zebra_capabilities, show_zebra_capabilities_cmd,
 		json = json_object_new_object();
 
 	if (json) {
-		json_object_boolean_add(json, "capabilitiesSrv6Seg6SourceEncapAttribute",
-					kernel_capabilities_is_srv6_seg6_source_encap_attr_supported());
+		json_object_boolean_add(json, "KernelCapabilitySRv6EncapSource",
+					kernel_capabilities_has_seg6_encap_source());
 		vty_json(vty, json);
 		return CMD_SUCCESS;
 	}
-	vty_out(vty, "SRv6 seg6 ENCAP_SRC attribute: %ssupported\n",
-		kernel_capabilities_is_srv6_seg6_source_encap_attr_supported() ? "" : "not ");
+	vty_out(vty, "SRv6 encap source (SEG6_IPTUNNEL_SRC): %ssupported\n",
+		kernel_capabilities_has_seg6_encap_source() ? "" : "not ");
 	return CMD_SUCCESS;
 }
 #ifdef HAVE_NETLINK

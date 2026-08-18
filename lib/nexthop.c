@@ -1444,7 +1444,7 @@ void nexthop_json_helper(json_object *json_nexthop,
 									 false));
 			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
 					    &in6addr_any) &&
-			    kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
+			    kernel_capabilities_has_seg6_encap_source())
 				json_object_string_addf(json_nexthop,
 							"srv6EncapSource",
 							"%pI6",
@@ -1474,7 +1474,7 @@ void nexthop_json_helper(json_object *json_nexthop,
 										 false));
 				if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
 						    &in6addr_any) &&
-				    kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
+				    kernel_capabilities_has_seg6_encap_source())
 					json_object_string_addf(json_nexthop,
 								"srv6EncapSource",
 								"%pI6",
@@ -1627,7 +1627,7 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 								  false));
 			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
 					    &in6addr_any) &&
-			    kernel_capabilities_is_srv6_seg6_source_encap_attr_supported())
+			    kernel_capabilities_has_seg6_encap_source())
 				vty_out(vty, ", encap source %pI6",
 					&nexthop->nh_srv6->seg6_segs->encap_source);
 		}

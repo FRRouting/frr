@@ -25,7 +25,6 @@ bool zebra_kernel_capabilities_configure_interface(
 	enum kernel_capabilities_interface_action_type action);
 void zebra_kernel_capabilities_init(void);
 void zebra_kernel_capabilities_interface_created_cb(struct interface *ifp);
-bool zebra_kernel_capabilities_is_srv6_seg6_source_encap_attr_supported(void);
 
 #ifdef __cplusplus
 }

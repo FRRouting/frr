@@ -12,8 +12,9 @@
 extern "C" {
 #endif
 
-bool kernel_capabilities_is_srv6_seg6_source_encap_attr_supported(void);
-void kernel_capabilities_set_srv6_seg6_source_encap_attr_supported(bool enabled);
+bool kernel_capabilities_has_seg6_encap_source(void);
+
+void kernel_capabilities_set_seg6_encap_source(bool enabled);
 
 #ifdef __cplusplus
 }
