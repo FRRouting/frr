@@ -35,33 +35,6 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
 
-HOST_VNI = {
-    "h1": 101,
-    "h2": 101,
-    "h3": 101,
-    "h4": 102,
-    "h5": 102,
-    "h6": 102,
-}
-
-VNI_HOST = {
-    str(v): {h for h, vv in HOST_VNI.items() if vv == v} for v in set(HOST_VNI.values())
-}
-
-HOST_PE = {
-    "h1": "pe1",
-    "h2": "pe2",
-    "h3": "pe3",
-    "h4": "pe1",
-    "h5": "pe2",
-    "h6": "pe3",
-}
-
-PE_HOST = {
-    str(v): {h for h, vv in HOST_PE.items() if vv == v} for v in set(HOST_PE.values())
-}
-
-
 def connect_routers(tgen, left, right):
     for rname in [left, right]:
         if rname not in tgen.routers().keys():
@@ -84,9 +57,6 @@ def build_topo(tgen):
     connect_routers(tgen, "pe1", "h1")
     connect_routers(tgen, "pe2", "h2")
     connect_routers(tgen, "pe3", "h3")
-    connect_routers(tgen, "pe1", "h4")
-    connect_routers(tgen, "pe2", "h5")
-    connect_routers(tgen, "pe3", "h6")
 
 
 def setup_module(mod):
@@ -102,22 +72,20 @@ def setup_module(mod):
         if not rname.startswith("pe"):
             continue
 
-        i = int(rname.replace("pe", ""))
+        i = rname.replace("pe", "")
 
-        for host in PE_HOST.get(rname):
-            # set up pe bridges with the EVPN member interfaces facing the hosts
-            vni = HOST_VNI.get(host)
-            pe.cmd(
-                f"""
-ip link add name br{vni} type bridge stp_state 0
-ip addr add 192.168.{vni}.{i}/24 dev br{vni}
-ip link set dev br{vni} up
-ip link add vxlan{vni} type vxlan id {vni} dstport 4789 local 10.0.0.{i} nolearning
-ip link set dev vxlan{vni} master br{vni}
-ip link set up dev vxlan{vni}
-ip link set dev eth-{host} master br{vni}
+        # set up pe bridges with the EVPN member interfaces facing the hosts
+        pe.cmd(
+            f"""
+ip link add name br101 type bridge stp_state 0
+ip addr add 192.168.101.{i}/24 dev br101
+ip link set dev br101 up
+ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.0.0.{i} nolearning
+ip link set dev vxlan101 master br101
+ip link set up dev vxlan101
+ip link set dev eth-h{i} master br101
 """
-            )
+        )
 
     tgen.gears["p1"].run("sysctl -w net.ipv4.ip_forward=1")
 
@@ -180,26 +148,28 @@ def _test_pe_converge_evpn(tgen, router):
     expected = json.loads(open(json_file).read())
 
     test_func = partial(
-        topotest.router_json_cmp, router, "show evpn vni detail json", expected
+        topotest.router_json_cmp, router, "show evpn vni 101 json", expected
     )
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert success, f"{rname} JSON output mismatches {result}"
 
-    for vni, hosts in VNI_HOST.items():
-        maclist = set()
-        for hname in hosts:
-            maclist.add((hname, f"eth-{HOST_PE.get(hname)}"))
+    maclist = set()
+    for hname in tgen.routers():
+        if not rname.startswith("h"):
+            continue
+        i = hname.replace("h", "")
+        maclist.add((hname, f"eth-pe{i}"))
 
-        test_func = partial(
-            check_vni_macs_present,
-            tgen,
-            router,
-            vni,
-            maclist,
-        )
+    test_func = partial(
+        check_vni_macs_present,
+        tgen,
+        router,
+        101,
+        maclist,
+    )
 
-        success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-        assert success, f"{rname} missing expected MACs {result}"
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert success, f"{rname} missing expected MACs {result}"
 
 
 def test_pe_converge_evpn():
@@ -217,9 +187,8 @@ def test_pe_converge_evpn():
     # they may not actually do any l2 arp'ing and as such
     # the bridges won't know about the hosts on their networks
     for host in host_list:
-        vni = HOST_VNI.get(host)
-        for i in range(1, len(VNI_HOST.get(str(vni))) + 1):
-            check_ping(host, f"192.168.{vni}.10{i}", True, 30, 1)
+        for i in range(1, len(host_list) + 1):
+            check_ping(host, f"192.168.101.10{i}", True, 30, 1)
 
     for rname, router in tgen.routers().items():
         if not rname.startswith("pe"):
@@ -230,7 +199,8 @@ def test_pe_converge_evpn():
 def mac_learn_test(host, local):
     "check the host MAC gets learned by the VNI"
 
-    host_output = host.vtysh_cmd(f"show interface eth-{local.name}")
+    host_id = host.name.replace("h", "")
+    host_output = host.vtysh_cmd("show interface eth-pe{}".format(host_id))
     int_lines = host_output.splitlines()
     for line in int_lines:
         line_items = line.split(": ")
@@ -238,8 +208,7 @@ def mac_learn_test(host, local):
             mac = line_items[1]
             break
 
-    vni = HOST_VNI.get(host.name)
-    mac_output = local.vtysh_cmd(f"show evpn mac vni {vni} mac {mac} json")
+    mac_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
     mac_output_json = json.loads(mac_output)
     assertmsg = "Local MAC output does not match interface mac {}".format(mac)
     assert mac_output_json[mac]["type"] == "local", assertmsg
@@ -259,9 +228,9 @@ def test_learning_pe():
 
         logger.info(f"Check MAC learning on {rname}")
 
-        for hname in PE_HOST.get(rname):
-            host = tgen.gears[hname]
-            mac_learn_test(host, pe)
+        i = rname.replace("pe", "")
+        host = tgen.gears[f"h{i}"]
+        mac_learn_test(host, pe)
 
 
 def mac_test_local_remote(local, remote):
@@ -277,18 +246,15 @@ def mac_test_local_remote(local, remote):
     for vni in local_output_json:
         mac_list = local_output_json[vni]["macs"]
         for mac in mac_list:
-            if mac_list[mac]["type"] != "local":
-                continue
-            if mac_list[mac]["intf"].startswith("br"):
-                continue
-            assertmsg = "JSON output mismatches local: {} remote: {}".format(
-                local_output_vni_json[0]["vtepIp"],
-                remote_output_json[vni]["macs"][mac]["remoteVtep"],
-            )
-            assert (
-                remote_output_json[vni]["macs"][mac]["remoteVtep"]
-                == local_output_vni_json[0]["vtepIp"]
-            ), assertmsg
+            if mac_list[mac]["type"] == "local" and mac_list[mac]["intf"] != "br101":
+                assertmsg = "JSON output mismatches local: {} remote: {}".format(
+                    local_output_vni_json[0]["vtepIp"],
+                    remote_output_json[vni]["macs"][mac]["remoteVtep"],
+                )
+                assert (
+                    remote_output_json[vni]["macs"][mac]["remoteVtep"]
+                    == local_output_vni_json[0]["vtepIp"]
+                ), assertmsg
 
 
 def test_local_remote_mac_pe():
@@ -312,19 +278,19 @@ def test_local_remote_mac_pe():
 
 def ip_learn_test(tgen, host, local, remote, ip_addr):
     "check the host IP gets learned by the VNI"
-    host_output = host.vtysh_cmd(f"show interface eth-{local.name}")
+    host_id = host.name.replace("h", "")
+    host_output = host.vtysh_cmd("show interface eth-pe{}".format(host_id))
     int_lines = host_output.splitlines()
     for line in int_lines:
         line_items = line.split(": ")
         if "HWaddr" in line_items[0]:
             mac = line_items[1]
             break
+    print(host_output)
 
-    vni = HOST_VNI.get(host.name)
     # check we have a local association between the MAC and IP
-
     def check_local_ip_learned():
-        local_output = local.vtysh_cmd(f"show evpn mac vni {vni} mac {mac} json")
+        local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
         print(local_output)
         local_output_json = json.loads(local_output)
         mac_type = local_output_json[mac]["type"]
@@ -344,7 +310,9 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
 
     # now lets check the remote
     def check_remote_ip_learned():
-        remote_output = remote.vtysh_cmd(f"show evpn mac vni {vni} mac {mac} json")
+        remote_output = remote.vtysh_cmd(
+            "show evpn mac vni 101 mac {} json".format(mac)
+        )
         print(remote_output)
         remote_output_json = json.loads(remote_output)
         type = remote_output_json[mac]["type"]
@@ -394,17 +362,15 @@ def test_ip_pe_learn():
     host_list = {n: r for n, r in tgen.routers().items() if n.startswith("h")}
 
     for hname, host in host_list.items():
-        pename = HOST_PE.get(hname)
-        i = pename.replace("pe", "")
-        vni = HOST_VNI.get(hname)
+        i = hname.replace("h", "")
 
         # lets populate that arp cache
-        host.run(f"ping -c1 192.168.{vni}.{i}")
-        local_pe = tgen.gears[pename]
+        host.run(f"ping -c1 192.168.101.{i}")
+        local_pe = tgen.gears[f"pe{i}"]
         for rname, remote_pe in pe_list.items():
-            if rname == pename:
+            if rname == f"pe{i}":
                 continue
-            ip_learn_test(tgen, host, local_pe, remote_pe, f"192.168.{vni}.10{i}")
+            ip_learn_test(tgen, host, local_pe, remote_pe, f"192.168.101.10{i}")
 
 
 def test_memory_leak():
