@@ -328,7 +328,7 @@ module frr-bfdd {
 
     leaf remote-diagnostic {
       type diagnostic;
-      description "Local session diagnostic";
+      description "Remote session diagnostic";
     }
 
     leaf remote-multiplier {
@@ -632,7 +632,7 @@ module frr-bfdd {
           }
 
           leaf srv6-source-ipv6 {
-            type inet:ip-address;
+            type inet:ipv6-address;
             description "source ipv6 address for srv6 encapsulation";
           }
 
