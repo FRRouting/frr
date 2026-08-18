@@ -100,9 +100,6 @@ def build_topo(tgen):
     connect_routers(tgen, "pe1", "h4")
     connect_routers(tgen, "pe2", "h5")
     connect_routers(tgen, "pe3", "h6")
-    connect_routers(tgen, "pe3", "h1")
-    connect_routers(tgen, "pe2", "h1a")
-    connect_routers(tgen, "pe2", "h1b")
 
 
 def setup_module(mod):
@@ -203,10 +200,6 @@ ip link set dev eth-{host} master br{vni}
 """
             )
 
-    tgen.gears["pe3"].cmd("ip link set dev eth-h1 master br101")
-    tgen.gears["pe2"].cmd("ip link set dev eth-h1a master br101")
-    tgen.gears["pe2"].cmd("ip link set dev eth-h1b master br101")
-
     tgen.gears["p1"].run("sysctl -w net.ipv4.ip_forward=1")
 
     # For all registered routers, load the zebra configuration file
@@ -231,7 +224,7 @@ ip link set dev eth-{host} master br{vni}
 
     # Set host default gateway route and arp_accept
     for hname, host in router_list.items():
-        if hname not in HOST_PE:
+        if not hname.startswith("h"):
             continue
         pename = HOST_PE.get(hname)
         i = pename.replace("pe", "")
@@ -533,8 +526,6 @@ def test_ip_pe_learn():
     host_list = {n: r for n, r in tgen.routers().items() if n.startswith("h")}
 
     for hname, host in host_list.items():
-        if hname not in HOST_PE:
-            continue
         pename = HOST_PE.get(hname)
         i = pename.replace("pe", "")
         vni = HOST_VNI.get(hname)
@@ -735,6 +726,7 @@ ip address del dev eth-pe1 192.168.101.101/24
     )
     tgen.net.macs[("h1", "eth-pe1")] = "00:00:00:00:01:ff"
 
+    connect_routers(tgen, "pe3", "h1")
     tgen.gears["h1"].cmd(
         f"""
 ip link set eth-pe3 down
@@ -749,6 +741,8 @@ ip address add dev eth-pe3 192.168.101.101/24
         tgen.gears["h1"].cmd("ip route add default via 192.168.101.1")
 
     tgen.net.macs[("h1", "eth-pe3")] = "00:00:00:00:01:01"
+
+    tgen.gears["pe3"].cmd("ip link set dev eth-h1 master br101")
 
     tgen.gears["h1"].cmd(f"arping -c 1 -U -I eth-pe3 192.168.101.101")
 
@@ -818,6 +812,8 @@ def test_move_ip():
 
     tgen.gears["h1"].cmd("ip link set dev eth-pe1 down")
 
+    connect_routers(tgen, "pe2", "h1a")
+    tgen.gears["pe2"].cmd("ip link set dev eth-h1a master br101")
     tgen.gears["h1a"].cmd("ip address add dev eth-pe2 192.168.101.101/24")
     if IRB_TEST:
         tgen.gears["h1a"].cmd("ip route add default via 192.168.101.1")
@@ -853,6 +849,8 @@ def test_move_ip_same_pe():
 
     tgen.gears["h1a"].cmd("ip link set dev eth-pe2 down")
 
+    connect_routers(tgen, "pe2", "h1b")
+    tgen.gears["pe2"].cmd("ip link set dev eth-h1b master br101")
     tgen.gears["h1b"].cmd("ip address add dev eth-pe2 192.168.101.101/24")
     if IRB_TEST:
         tgen.gears["h1b"].cmd("ip route add default via 192.168.101.1")
