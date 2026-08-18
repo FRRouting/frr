@@ -62,28 +62,34 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 
+    pe1 = tgen.gears["pe1"]
+    pe2 = tgen.gears["pe2"]
+    p1 = tgen.gears["p1"]
+
+    # set up pe bridges with the EVPN member interfaces facing the CE hosts
+    pe1.run("ip link add name br101 type bridge stp_state 0")
+    pe1.run("ip addr add 192.168.101.1/24 dev br101")
+    pe1.run("ip link set dev br101 up")
+    pe1.run(
+        "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.0.0.1 nolearning"
+    )
+    pe1.run("ip link set dev vxlan101 master br101")
+    pe1.run("ip link set up dev vxlan101")
+    pe1.run("ip link set dev eth-h1 master br101")
+
+    pe2.run("ip link add name br101 type bridge stp_state 0")
+    pe2.run("ip addr add 192.168.101.2/24 dev br101")
+    pe2.run("ip link set dev br101 up")
+    pe2.run(
+        "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.0.0.2 nolearning"
+    )
+    pe2.run("ip link set dev vxlan101 master br101")
+    pe2.run("ip link set up dev vxlan101")
+    pe2.run("ip link set dev eth-h2 master br101")
+    p1.run("sysctl -w net.ipv4.ip_forward=1")
+
+    # This is a sample of configuration loading.
     router_list = tgen.routers()
-
-    for rname, pe in router_list.items():
-        if not rname.startswith("pe"):
-            continue
-
-        i = rname.replace("pe", "")
-
-        # set up pe bridges with the EVPN member interfaces facing the hosts
-        pe.cmd(
-            f"""
-ip link add name br101 type bridge stp_state 0
-ip addr add 192.168.101.{i}/24 dev br101
-ip link set dev br101 up
-ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.0.0.{i} nolearning
-ip link set dev vxlan101 master br101
-ip link set up dev vxlan101
-ip link set dev eth-h{i} master br101
-"""
-        )
-
-    tgen.gears["p1"].run("sysctl -w net.ipv4.ip_forward=1")
 
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
