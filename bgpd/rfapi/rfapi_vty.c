@@ -2761,7 +2761,7 @@ static int nve_addr_cmp(const void *k1, const void *k2)
 			return ret;
 	} else if (a->vn.addr_family == AF_INET6) {
 		ret = IPV6_ADDR_CMP(&a->vn.addr.v6, &b->vn.addr.v6);
-		if (ret == 0) {
+		if (ret != 0) {
 			return ret;
 		}
 	} else {
