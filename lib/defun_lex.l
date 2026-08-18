@@ -158,8 +158,12 @@ SPECIAL		[(),]
 <rstring>[^\\\"\'\n]+		extend(yytext);
 
 "DEFUN"				value = strdup(yytext); return DEFUNNY;
+"DEFUN_ATTR"			value = strdup(yytext); return DEFUNNY;
 "DEFUN_NOSH"			value = strdup(yytext); return DEFUNNY;
 "DEFUN_HIDDEN"			value = strdup(yytext); return DEFUNNY;
+"DEFUN_YANG"			value = strdup(yytext); return DEFUNNY;
+"DEFUN_YANG_NOSH"		value = strdup(yytext); return DEFUNNY;
+"DEFUN_YANG_HIDDEN"		value = strdup(yytext); return DEFUNNY;
 "DEFPY"				value = strdup(yytext); return DEFUNNY;
 "DEFPY_NOSH"			value = strdup(yytext); return DEFUNNY;
 "DEFPY_ATTR"			value = strdup(yytext); return DEFUNNY;
@@ -168,7 +172,10 @@ SPECIAL		[(),]
 "DEFPY_YANG_HIDDEN"		value = strdup(yytext); return DEFUNNY;
 "DEFPY_YANG_NOSH"		value = strdup(yytext); return DEFUNNY;
 "ALIAS"				value = strdup(yytext); return DEFUNNY;
+"ALIAS_ATTR"			value = strdup(yytext); return DEFUNNY;
 "ALIAS_HIDDEN"			value = strdup(yytext); return DEFUNNY;
+"ALIAS_DEPRECATED"		value = strdup(yytext); return DEFUNNY;
+"ALIAS_YANG"			value = strdup(yytext); return DEFUNNY;
 
 "install_element"		value = strdup(yytext); return INSTALL;
 
