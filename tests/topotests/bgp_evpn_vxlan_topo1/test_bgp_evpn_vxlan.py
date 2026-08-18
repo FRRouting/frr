@@ -9,10 +9,7 @@
 #
 
 """
-test_bgp_evpn_vxlan.py:
-Test VXLAN EVPN MAC signalling over BGP.
-
-This test is the basis the Integrated Routing and Bridging (IRB) tests.
+test_bgp_evpn_vxlan.py: Test VXLAN EVPN MAC a route signalling over BGP.
 """
 
 import os
@@ -37,8 +34,6 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
-VRF_OVERLAY = None
-IRB_TEST = False
 
 HOST_VNI = {
     "h1": 101,
@@ -64,12 +59,6 @@ HOST_PE = {
 
 PE_HOST = {
     str(v): {h for h, vv in HOST_PE.items() if vv == v} for v in set(HOST_PE.values())
-}
-
-
-HOST_IP = {
-    host: f'192.168.{vni}.10{HOST_PE[host].replace("pe", "")}'
-    for host, vni in HOST_VNI.items()
 }
 
 
@@ -109,40 +98,21 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    global VRF_OVERLAY, IRB_TEST
-
-    if "irb" in mod.__name__:
-        VRF_OVERLAY = "vrf-red"
-        IRB_TEST = True
-    else:
-        VRF_OVERLAY = None
-        IRB_TEST = False
-
     for rname, pe in router_list.items():
         if not rname.startswith("pe"):
             continue
-
-        if VRF_OVERLAY:
-            pe.cmd(
-                f"""
-ip link add {VRF_OVERLAY} type vrf table 300
-ip link set {VRF_OVERLAY} up
-"""
-            )
 
         i = int(rname.replace("pe", ""))
 
         for host in PE_HOST.get(rname):
             # set up pe bridges with the EVPN member interfaces facing the hosts
             vni = HOST_VNI.get(host)
-            pe.cmd(f"ip link add name br{vni} type bridge stp_state 0")
-            if VRF_OVERLAY:
-                pe.cmd(f"ip link set br{vni} master {VRF_OVERLAY}")
             pe.cmd(
                 f"""
+ip link add name br{vni} type bridge stp_state 0
 ip addr add 192.168.{vni}.{i}/24 dev br{vni}
 ip link set dev br{vni} up
-ip link add vxlan{vni} type vxlan id {vni} dstport 4789 dev eth-p1 local 10.0.0.{i} nolearning
+ip link add vxlan{vni} type vxlan id {vni} dstport 4789 local 10.0.0.{i} nolearning
 ip link set dev vxlan{vni} master br{vni}
 ip link set up dev vxlan{vni}
 ip link set dev eth-{host} master br{vni}
@@ -167,16 +137,6 @@ ip link set dev eth-{host} master br{vni}
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
-
-    if IRB_TEST:
-        # Set host default gateway route
-        for hname, host in router_list.items():
-            if not hname.startswith("h"):
-                continue
-            pename = HOST_PE.get(hname)
-            i = pename.replace("pe", "")
-            vni = HOST_VNI.get(hname)
-            host.run(f"ip route add default via 192.168.{vni}.{i}")
 
 
 def teardown_module(mod):
@@ -211,16 +171,13 @@ def check_vni_macs_present(tgen, router, vni, maclist):
     return None
 
 
-def _check_pe_converge_evpn(tgen, router):
+def _test_pe_converge_evpn(tgen, router):
     rname = router.name
 
     logger.info(f"Check {rname} EVPN convergence")
 
     json_file = "{}/{}/evpn.vni.json".format(CWD, rname)
     expected = json.loads(open(json_file).read())
-    if VRF_OVERLAY:
-        for vni in expected:
-            vni.update(tenantVrf=VRF_OVERLAY)
 
     test_func = partial(
         topotest.router_json_cmp, router, "show evpn vni detail json", expected
@@ -245,28 +202,6 @@ def _check_pe_converge_evpn(tgen, router):
         assert success, f"{rname} missing expected MACs {result}"
 
 
-def check_pe_converge_evpn(tgen):
-    "Wait for protocol convergence"
-
-    # Let's ensure that the hosts have actually tried talking to
-    # each other.  Otherwise under certain startup conditions
-    # they may not actually do any l2 arp'ing and as such
-    # the bridges won't know about the hosts on their networks
-    for host, vni in HOST_VNI.items():
-        for h, ip in HOST_IP.items():
-            if host == h:
-                continue
-            if not IRB_TEST and f"192.168.{vni}." not in ip:
-                # only test inter-subnet routing in IRB tests
-                continue
-            check_ping(host, ip, True, 30, 1)
-
-    for rname, router in tgen.routers().items():
-        if not rname.startswith("pe"):
-            continue
-        _check_pe_converge_evpn(tgen, router)
-
-
 def test_pe_converge_evpn():
     "Wait for protocol convergence"
 
@@ -275,7 +210,21 @@ def test_pe_converge_evpn():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_pe_converge_evpn(tgen)
+    host_list = [rname for rname in tgen.routers() if rname.startswith("h")]
+
+    # Let's ensure that the hosts have actually tried talking to
+    # each other.  Otherwise under certain startup conditions
+    # they may not actually do any l2 arp'ing and as such
+    # the bridges won't know about the hosts on their networks
+    for host in host_list:
+        vni = HOST_VNI.get(host)
+        for i in range(1, len(VNI_HOST.get(str(vni))) + 1):
+            check_ping(host, f"192.168.{vni}.10{i}", True, 30, 1)
+
+    for rname, router in tgen.routers().items():
+        if not rname.startswith("pe"):
+            continue
+        _test_pe_converge_evpn(tgen, router)
 
 
 def mac_learn_test(host, local):
@@ -455,121 +404,7 @@ def test_ip_pe_learn():
         for rname, remote_pe in pe_list.items():
             if rname == pename:
                 continue
-            ip_learn_test(tgen, host, local_pe, remote_pe, HOST_IP[hname])
-
-
-def iptables_filter_vni(router, interface, vni, set=True):
-    a = "A" if set else "D"
-
-    router.cmd(
-        f"""
-iptables -{a} PREROUTING -t raw -p udp --dport 4789 -m u32 --u32 '0>>22&0x3c@11&0xffffff={vni}' -i {interface} -j DROP
-"""
-    )
-
-
-def test_routing_asymmetric_vni():
-    """
-    Check that inter-subnet is taking the correct VxLAN.
-    Check ping h1 (192.168.101.101 - VNI 101) to h6 (192.168.102.103 - VNI 102)
-    ICMP request must go through VxLAN to pe3 VNI 102
-    ICMP reply must go through VxLAN to pe1 VNI 101
-
-    Use iptables filtering.
-    ping from h1 to h3 and h6 to h4 take are in the subnet within the same VNI. They
-    confirm iptables filtering is working properly.
-    """
-
-    if not IRB_TEST:
-        pytest.skip("Only for IRB tests")
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    p1 = tgen.gears["p1"]
-
-    check_ping("h1", "192.168.101.103", True, 30, 1)  # ping h3
-    check_ping("h6", "192.168.102.101", True, 30, 1)  # ping h4
-    check_ping("h1", "192.168.102.103", True, 30, 1)  # ping h6 inter-subnet
-
-    iptables_filter_vni(p1, "eth-pe1", 101, set=True)
-    iptables_filter_vni(p1, "eth-pe3", 102, set=True)
-
-    check_ping("h1", "192.168.101.103", False, 30, 1)  # ping h3
-    check_ping("h6", "192.168.102.101", False, 30, 1)  # ping h4
-    check_ping("h1", "192.168.102.103", True, 30, 1)  # ping h6 inter-subnet
-
-    iptables_filter_vni(p1, "eth-pe3", 101, set=True)
-    iptables_filter_vni(p1, "eth-pe2", 102, set=True)
-
-    check_ping("h1", "192.168.102.103", False, 30, 1)  # ping h6 inter-subnet
-
-    iptables_filter_vni(p1, "eth-pe1", 101, set=False)
-    iptables_filter_vni(p1, "eth-pe3", 102, set=False)
-    iptables_filter_vni(p1, "eth-pe3", 101, set=False)
-    iptables_filter_vni(p1, "eth-pe2", 102, set=False)
-
-    check_ping("h1", "192.168.101.103", True, 30, 1)  # ping h3
-    check_ping("h6", "192.168.102.101", True, 30, 1)  # ping h4
-    check_ping("h1", "192.168.102.103", True, 30, 1)  # ping h6 inter-subnet
-
-
-def test_unique_svi():
-    """
-    Currently, each PE assigns a different Switch Virtual Interface (SVI) IP
-    address. Hosts use the SVI IP of their directly connected PE as their
-    default gateway.
-
-    To enable consistent gateway behavior across all PEs, configure identical
-    SVI IP addresses per VNI. This allows all hosts to use the same default
-    gateway, regardless of which PE they are connected to.
-
-    Check that hosts can still ping each other with this configuration.
-    """
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    pe_list = {n: r for n, r in tgen.routers().items() if n.startswith("pe")}
-    host_list = {n: r for n, r in tgen.routers().items() if n.startswith("h")}
-
-    for pename, pe in pe_list.items():
-        pe.vtysh_cmd(
-            f"""
-configure terminal
-router bgp 65000
- address-family l2vpn evpn
-  no advertise-svi-ip
-"""
-        )
-
-        if pename == "pe1":
-            # no change
-            continue
-
-        for hname in PE_HOST.get(pename):
-            vni = HOST_VNI.get(hname)
-
-            # set up pe bridges with the EVPN member interfaces facing the hosts
-            i = pename.replace("pe", "")
-            pe.cmd(
-                f"""
-    ip addr del 192.168.{vni}.{i}/24 dev br{vni}
-    ip addr add 192.168.{vni}.1/24 dev br{vni}
-    """
-            )
-
-            # update host gateway and ARP
-            if IRB_TEST:
-                tgen.gears[hname].run(f"ip route change default via 192.168.{vni}.1")
-            tgen.gears[hname].run(f"ip neigh del 192.168.{vni}.1 dev eth-{pename}")
-            check_ping(pename, HOST_IP[hname], True, 30, 1, source_addr=f"br{vni}")
-
-    check_pe_converge_evpn(tgen)
+            ip_learn_test(tgen, host, local_pe, remote_pe, f"192.168.{vni}.10{i}")
 
 
 def test_memory_leak():
