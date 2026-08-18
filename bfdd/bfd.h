@@ -383,7 +383,6 @@ struct bfd_session {
 	uint8_t ses_state;
 	struct bfd_discrs discrs;
 	uint8_t local_diag;
-	uint8_t demand_mode;
 	uint8_t detect_mult;
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
@@ -495,7 +494,6 @@ struct sbfd_reflector {
 
 /* Various constants */
 /* Retrieved from ptm_timer.h from Cumulus PTM sources. */
-#define BFD_DEF_DEMAND 0
 #define BFD_DEFDETECTMULT 3
 #define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
