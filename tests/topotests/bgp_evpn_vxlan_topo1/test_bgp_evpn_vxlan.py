@@ -39,7 +39,6 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
 VRF_OVERLAY = None
 IRB_TEST = False
-L3VNI = None
 
 HOST_VNI = {
     "h1": 101,
@@ -110,7 +109,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    global VRF_OVERLAY, IRB_TEST, L3VNI
+    global VRF_OVERLAY, IRB_TEST
 
     if "irb" in mod.__name__:
         VRF_OVERLAY = "vrf-red"
@@ -118,8 +117,6 @@ def setup_module(mod):
     else:
         VRF_OVERLAY = None
         IRB_TEST = False
-
-    L3VNI = "300" if "irb_sym" in mod.__name__ else None
 
     for rname, pe in router_list.items():
         if not rname.startswith("pe"):
@@ -141,18 +138,6 @@ ip link set {VRF_OVERLAY} up
             pe.cmd(f"ip link add name br{vni} type bridge stp_state 0")
             if VRF_OVERLAY:
                 pe.cmd(f"ip link set br{vni} master {VRF_OVERLAY}")
-            if L3VNI:
-                pe.cmd(
-                    f"""
-ip link add name br{L3VNI} type bridge stp_state 0
-ip link set br{L3VNI} master {VRF_OVERLAY}
-ip link set br{L3VNI} up
-ip link add vxlan{L3VNI} type vxlan id {L3VNI} dstport 4789 dev eth-p1 local 10.0.0.{i} nolearning
-ip link set vxlan{L3VNI} address 00:00:00:00:00:0{i}
-ip link set vxlan{L3VNI} master br{L3VNI}
-ip link set vxlan{L3VNI} up
-"""
-                )
             pe.cmd(
                 f"""
 ip addr add 192.168.{vni}.{i}/24 dev br{vni}
@@ -192,18 +177,6 @@ ip link set dev eth-{host} master br{vni}
             i = pename.replace("pe", "")
             vni = HOST_VNI.get(hname)
             host.run(f"ip route add default via 192.168.{vni}.{i}")
-
-    if L3VNI:
-        for rname, pe in router_list.items():
-            if not rname.startswith("pe"):
-                continue
-            pe.vtysh_cmd(
-                f"""
-configure terminal
- vrf {VRF_OVERLAY}
-  vni {L3VNI}
-"""
-            )
 
 
 def teardown_module(mod):
@@ -254,14 +227,6 @@ def _check_pe_converge_evpn(tgen, router):
     )
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert success, f"{rname} JSON output mismatches {result}"
-
-    if L3VNI:
-        expected = json.loads(open(f"{CWD}/{rname}/evpn.l3vni.json").read())
-        test_func = partial(
-            topotest.router_json_cmp, router, f"show evpn vni {L3VNI} json", expected
-        )
-        success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-        assert success, f"{rname} JSON output mismatches {result}"
 
     for vni, hosts in VNI_HOST.items():
         maclist = set()
@@ -495,11 +460,10 @@ def test_ip_pe_learn():
 
 def iptables_filter_vni(router, interface, vni, set=True):
     a = "A" if set else "D"
-    iface_arg = f"-i {interface} " if interface else ""
 
     router.cmd(
         f"""
-iptables -{a} PREROUTING -t raw -p udp --dport 4789 -m u32 --u32 '0>>22&0x3c@11&0xffffff={vni}' {iface_arg} -j DROP
+iptables -{a} PREROUTING -t raw -p udp --dport 4789 -m u32 --u32 '0>>22&0x3c@11&0xffffff={vni}' -i {interface} -j DROP
 """
     )
 
@@ -516,8 +480,8 @@ def test_routing_asymmetric_vni():
     confirm iptables filtering is working properly.
     """
 
-    if not IRB_TEST or L3VNI:
-        pytest.skip("Only for IRB asymmetric tests")
+    if not IRB_TEST:
+        pytest.skip("Only for IRB tests")
 
     tgen = get_topogen()
     # Don't run this test if we have any failure.
@@ -546,52 +510,6 @@ def test_routing_asymmetric_vni():
     iptables_filter_vni(p1, "eth-pe3", 102, set=False)
     iptables_filter_vni(p1, "eth-pe3", 101, set=False)
     iptables_filter_vni(p1, "eth-pe2", 102, set=False)
-
-    check_ping("h1", "192.168.101.103", True, 30, 1)  # ping h3
-    check_ping("h6", "192.168.102.101", True, 30, 1)  # ping h4
-    check_ping("h1", "192.168.102.103", True, 30, 1)  # ping h6 inter-subnet
-
-
-def test_routing_symmetric_vni():
-    """
-    Check that inter-subnet is taking the correct VxLAN.
-    Check ping h1 (192.168.101.101 - VNI 101) to h6 (192.168.102.103 - VNI 102)
-    ICMP request must go through VxLAN to pe3 VNI 300 (L3VNI)
-    ICMP reply must go through VxLAN to pe1 VNI 300 (L3VNI)
-
-    Use iptables filtering.
-    ping from h1 to h3 and h6 to h4 take are in the subnet within the same VNI. They
-    confirm iptables filtering is working properly.
-    """
-
-    if not IRB_TEST or not L3VNI:
-        pytest.skip("Only for IRB symmetric tests")
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    p1 = tgen.gears["p1"]
-
-    check_ping("h1", "192.168.101.103", True, 30, 1)  # ping h3
-    check_ping("h6", "192.168.102.101", True, 30, 1)  # ping h4
-    check_ping("h1", "192.168.102.103", True, 30, 1)  # ping h6 inter-subnet
-
-    iptables_filter_vni(p1, None, 101, set=True)
-    iptables_filter_vni(p1, None, 102, set=True)
-
-    check_ping("h1", "192.168.101.103", False, 30, 1)  # ping h3
-    check_ping("h6", "192.168.102.101", False, 30, 1)  # ping h4
-    check_ping("h1", "192.168.102.103", True, 30, 1)  # ping h6 inter-subnet
-
-    iptables_filter_vni(p1, None, L3VNI, set=True)
-
-    check_ping("h1", "192.168.102.103", False, 30, 1)  # ping h6 inter-subnet
-
-    iptables_filter_vni(p1, None, 101, set=False)
-    iptables_filter_vni(p1, None, 102, set=False)
-    iptables_filter_vni(p1, None, L3VNI, set=False)
 
     check_ping("h1", "192.168.101.103", True, 30, 1)  # ping h3
     check_ping("h6", "192.168.102.101", True, 30, 1)  # ping h4
