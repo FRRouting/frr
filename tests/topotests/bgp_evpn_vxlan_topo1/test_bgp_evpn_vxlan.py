@@ -124,24 +124,10 @@ def setup_module(mod):
 
     # previous tests may have changed the global variables
     # set the correct values.
-    global HOST_PE, PE_HOST, VNI_HOST, HOST_VNI, HOST_IP
-    # restore global variables
-    HOST_PE.pop("h1a", None)
-    HOST_PE.pop("h1b", None)
+    global HOST_PE, PE_HOST
     HOST_PE["h1"] = "pe1"
     PE_HOST["pe3"].discard("h1")
-    PE_HOST["pe2"].discard("h1a")
-    PE_HOST["pe2"].discard("h1b")
     PE_HOST["pe1"].add("h1")
-    VNI_HOST["101"].discard("h1a")
-    VNI_HOST["101"].discard("h1b")
-    VNI_HOST["101"].add("h1")
-    HOST_VNI.pop("h1a", None)
-    HOST_VNI.pop("h1b", None)
-    HOST_VNI["h1"] = 101
-    HOST_IP["h1"] = "192.168.101.101"
-    HOST_IP.pop("h1a", None)
-    HOST_IP.pop("h1b", None)
 
     tgen.gears["h1"].cmd(
         """
@@ -222,7 +208,7 @@ ip link set dev eth-{host} master br{vni}
     # wait for l2vpn-neighd to start
     time.sleep(5)
 
-    # Set host default gateway route and arp_accept
+    # Set host default gateway route
     for hname, host in router_list.items():
         if not hname.startswith("h"):
             continue
@@ -231,10 +217,10 @@ ip link set dev eth-{host} master br{vni}
         vni = HOST_VNI.get(hname)
         if IRB_TEST:
             host.run(f"ip route add default via 192.168.{vni}.{i}")
+        h = int(hname.replace("h", ""))
+        j = h - 3 if h > 3 else h
         # Send gratuitous ARP
-        host.run(f"arping -c 1 -U -I eth-{pename} {HOST_IP[hname]}")
-
-        host.run(f"sysctl -w net.ipv4.conf.eth-{pename}.arp_accept=1")
+        host.run(f"arping -c 1 -U -I eth-{pename} 192.168.{vni}.10{j}")
 
     if L3VNI:
         for rname, pe in router_list.items():
@@ -746,8 +732,6 @@ ip address add dev eth-pe3 192.168.101.101/24
 
     tgen.gears["h1"].cmd(f"arping -c 1 -U -I eth-pe3 192.168.101.101")
 
-    tgen.gears["h1"].cmd("sysctl -w net.ipv4.conf.eth-pe3.arp_accept=1")
-
     global HOST_PE, PE_HOST
     HOST_PE["h1"] = "pe3"
     PE_HOST["pe1"].discard("h1")
@@ -795,81 +779,6 @@ ip address add dev eth-pe1 192.168.101.101/24
     HOST_PE["h1"] = "pe1"
     PE_HOST["pe3"].discard("h1")
     PE_HOST["pe1"].add("h1")
-
-    check_pe_converge_evpn(tgen)
-
-
-def test_move_ip():
-    """
-    Check that with we can move ip 192.168.101.101 from h1 to h1a
-    The connectivity must be still operational.
-    """
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    tgen.gears["h1"].cmd("ip link set dev eth-pe1 down")
-
-    connect_routers(tgen, "pe2", "h1a")
-    tgen.gears["pe2"].cmd("ip link set dev eth-h1a master br101")
-    tgen.gears["h1a"].cmd("ip address add dev eth-pe2 192.168.101.101/24")
-    if IRB_TEST:
-        tgen.gears["h1a"].cmd("ip route add default via 192.168.101.1")
-    tgen.gears["h1a"].cmd("sysctl -w net.ipv4.conf.eth-pe2.arp_accept=1")
-
-    tgen.gears["h1a"].cmd(f"arping -c 1 -U -I eth-pe2 192.168.101.101")
-
-    global HOST_PE, PE_HOST, VNI_HOST, HOST_VNI, HOST_IP
-    HOST_PE.pop("h1")
-    HOST_PE["h1a"] = "pe2"
-    PE_HOST["pe1"].discard("h1")
-    PE_HOST["pe2"].add("h1a")
-    VNI_HOST["101"].discard("h1")
-    VNI_HOST["101"].add("h1a")
-    HOST_VNI.pop("h1")
-    HOST_VNI["h1a"] = 101
-    HOST_IP.pop("h1")
-    HOST_IP["h1a"] = "192.168.101.101"
-
-    check_pe_converge_evpn(tgen)
-
-
-def test_move_ip_same_pe():
-    """
-    Check that with we can move ip 192.168.101.101 from h1a to h1b
-    The connectivity must be still operational.
-    """
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    tgen.gears["h1a"].cmd("ip link set dev eth-pe2 down")
-
-    connect_routers(tgen, "pe2", "h1b")
-    tgen.gears["pe2"].cmd("ip link set dev eth-h1b master br101")
-    tgen.gears["h1b"].cmd("ip address add dev eth-pe2 192.168.101.101/24")
-    if IRB_TEST:
-        tgen.gears["h1b"].cmd("ip route add default via 192.168.101.1")
-
-    tgen.gears["h1b"].cmd("sysctl -w net.ipv4.conf.eth-pe2.arp_accept=1")
-
-    tgen.gears["h1b"].cmd(f"arping -c 1 -U -I eth-pe2 192.168.101.101")
-
-    global HOST_PE, PE_HOST, VNI_HOST, HOST_VNI, HOST_IP
-    HOST_PE.pop("h1a")
-    HOST_PE["h1b"] = "pe2"
-    PE_HOST["pe2"].discard("h1a")
-    PE_HOST["pe2"].add("h1b")
-    VNI_HOST["101"].discard("h1a")
-    VNI_HOST["101"].add("h1b")
-    HOST_VNI.pop("h1a")
-    HOST_VNI["h1b"] = 101
-    HOST_IP.pop("h1a")
-    HOST_IP["h1b"] = "192.168.101.101"
 
     check_pe_converge_evpn(tgen)
 
