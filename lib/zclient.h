@@ -325,6 +325,9 @@ struct zclient {
 	 */
 	bool auxiliary;
 
+	/* Automatically establish a connection to zebra. */
+	bool auto_connect;
+
 	/* BFD enabled with bfd_protocol_integration_init() */
 	bool bfd_integration;
 

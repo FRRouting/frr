@@ -84,6 +84,7 @@ struct zclient *zclient_new(struct event_loop *master,
 
 	zclient->synchronous = opt->synchronous;
 	zclient->auxiliary = opt->auxiliary;
+	zclient->auto_connect = true;
 
 	return zclient;
 }
@@ -895,6 +896,9 @@ void zclient_init(struct zclient *zclient, int redist_default,
 		/* Set default-information redistribute to zero. */
 		vrf_bitmap_init(&zclient->default_information[afi]);
 	}
+
+	if (!zclient->auto_connect)
+		return;
 
 	if (zclient_debug)
 		zlog_debug("scheduling zclient connection");
@@ -5016,6 +5020,9 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 				&zclient->t_connect);
 		break;
 	case ZCLIENT_CONNECT:
+		if (!zclient->auto_connect)
+			break;
+
 		if (zclient_debug)
 			zlog_debug("zclient connect failures: %d schedule interval is now %d",
 				   zclient->fail,

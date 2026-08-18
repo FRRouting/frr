@@ -1234,6 +1234,9 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	if (!bgp_zclient)
 		return;
 
+	if (bgp_option_check(BGP_OPT_NO_ZEBRA))
+		return;
+
 	/* Don't try to register if Zebra doesn't know of this instance. */
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bnc->bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))

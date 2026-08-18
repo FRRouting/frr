@@ -4624,9 +4624,13 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	hook_register_prio(if_down, 0, bgp_ifp_down);
 	hook_register_prio(if_unreal, 0, bgp_ifp_destroy);
 
-	/* Set default values. */
 	bgp_zclient = zclient_new(master, &zclient_options_default, bgp_handlers,
 				  array_size(bgp_handlers));
+
+	if (bgp_option_check(BGP_OPT_NO_ZEBRA))
+		bgp_zclient->auto_connect = false;
+
+	/* Set default values. */
 	zclient_init(bgp_zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	bgp_zclient->zebra_buffer_write_ready = bgp_zebra_buffer_write_ready;
 	bgp_zclient->zebra_connected = bgp_zebra_connected;
@@ -4642,7 +4646,7 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	bgp_zclient_sync->session_id = 1;
 	bgp_zclient_sync->privs = &bgpd_privs;
 
-	if (!bgp_zebra_label_manager_ready())
+	if (!bgp_option_check(BGP_OPT_NO_ZEBRA) && !bgp_zebra_label_manager_ready())
 		event_add_timer(master, bgp_start_label_manager, NULL, 1,
 				&bm->t_bgp_start_label_manager);
 }
