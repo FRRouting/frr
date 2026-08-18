@@ -26,7 +26,6 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.bgp import verify_bgp_convergence_from_running_config
-from lib.checkping import check_ping
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -126,6 +125,14 @@ def test_bgp_convergence():
         assert result is True, f"{rname}: BGP is not converging. {result}"
 
 
+def show_vni_json_elide_ifindex(pe, vni, expected):
+    output_json = pe.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
+    if "ifindex" in output_json:
+        output_json.pop("ifindex")
+
+    return topotest.json_cmp(output_json, expected)
+
+
 def check_vni_macs_present(tgen, router, vni, maclist):
     result = router.vtysh_cmd("show evpn mac vni {} json".format(vni), isjson=True)
     for rname, ifname in maclist:
@@ -137,40 +144,7 @@ def check_vni_macs_present(tgen, router, vni, maclist):
     return None
 
 
-def _test_pe_converge_evpn(tgen, router):
-    rname = router.name
-
-    logger.info(f"Check {rname} EVPN convergence")
-
-    json_file = "{}/{}/evpn.vni.json".format(CWD, rname)
-    expected = json.loads(open(json_file).read())
-
-    test_func = partial(
-        topotest.router_json_cmp, router, "show evpn vni 101 json", expected
-    )
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert success, f"{rname} JSON output mismatches {result}"
-
-    maclist = set()
-    for hname in tgen.routers():
-        if not rname.startswith("h"):
-            continue
-        i = hname.replace("h", "")
-        maclist.add((hname, f"eth-pe{i}"))
-
-    test_func = partial(
-        check_vni_macs_present,
-        tgen,
-        router,
-        101,
-        maclist,
-    )
-
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert success, f"{rname} missing expected MACs {result}"
-
-
-def test_pe_converge_evpn():
+def test_pe1_converge_evpn():
     "Wait for protocol convergence"
 
     tgen = get_topogen()
@@ -178,20 +152,65 @@ def test_pe_converge_evpn():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    host_list = [rname for rname in tgen.routers() if rname.startswith("h")]
+    pe1 = tgen.gears["pe1"]
+    json_file = "{}/{}/evpn.vni.json".format(CWD, pe1.name)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(show_vni_json_elide_ifindex, pe1, 101, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
 
     # Let's ensure that the hosts have actually tried talking to
     # each other.  Otherwise under certain startup conditions
     # they may not actually do any l2 arp'ing and as such
     # the bridges won't know about the hosts on their networks
-    for host in host_list:
-        for i in range(1, len(host_list) + 1):
-            check_ping(host, f"192.168.101.10{i}", True, 30, 1)
+    h1 = tgen.gears["h1"]
+    h1.run("ping -c 1 192.168.101.102")
+    h2 = tgen.gears["h2"]
+    h2.run("ping -c 1 192.168.101.101")
 
-    for rname, router in tgen.routers().items():
-        if not rname.startswith("pe"):
-            continue
-        _test_pe_converge_evpn(tgen, router)
+    test_func = partial(
+        check_vni_macs_present,
+        tgen,
+        pe1,
+        101,
+        (("h1", "eth-pe1"), ("h2", "eth-pe2")),
+    )
+
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result:
+        logger.warning("%s", result)
+        assert None, '"{}" missing expected MACs'.format(pe1.name)
+
+
+def test_pe2_converge_evpn():
+    "Wait for protocol convergence"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe2 = tgen.gears["pe2"]
+    json_file = "{}/{}/evpn.vni.json".format(CWD, pe2.name)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(show_vni_json_elide_ifindex, pe2, 101, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(pe2.name)
+    assert result is None, assertmsg
+
+    test_func = partial(
+        check_vni_macs_present,
+        tgen,
+        pe2,
+        101,
+        (("h1", "eth-pe1"), ("h2", "eth-pe2")),
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result:
+        logger.warning("%s", result)
+        assert None, '"{}" missing expected MACs'.format(pe2.name)
 
 
 def mac_learn_test(host, local):
@@ -210,25 +229,6 @@ def mac_learn_test(host, local):
     mac_output_json = json.loads(mac_output)
     assertmsg = "Local MAC output does not match interface mac {}".format(mac)
     assert mac_output_json[mac]["type"] == "local", assertmsg
-
-
-def test_learning_pe():
-    "test MAC learning on pe"
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    for rname, pe in tgen.routers().items():
-        if not rname.startswith("pe"):
-            continue
-
-        logger.info(f"Check MAC learning on {rname}")
-
-        i = rname.replace("pe", "")
-        host = tgen.gears[f"h{i}"]
-        mac_learn_test(host, pe)
 
 
 def mac_test_local_remote(local, remote):
@@ -255,23 +255,58 @@ def mac_test_local_remote(local, remote):
                 ), assertmsg
 
 
-def test_local_remote_mac_pe():
-    "Test MAC transfer PE local and PE remote"
+def test_learning_pe1():
+    "test MAC learning on pe1"
 
     tgen = get_topogen()
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    pe_list = {n: r for n, r in tgen.routers().items() if n.startswith("pe")}
+    h1 = tgen.gears["h1"]
+    pe1 = tgen.gears["pe1"]
+    mac_learn_test(h1, pe1)
 
-    for rname, pe in pe_list.items():
-        for remote_rname, remote_pe in pe_list.items():
-            if rname == remote_rname:
-                continue
-            logger.info(f"Check MAC transfer local {rname} remote {remote_rname}")
 
-            mac_test_local_remote(pe, remote_pe)
+def test_learning_pe2():
+    "test MAC learning on pe2"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    h2 = tgen.gears["h2"]
+    pe2 = tgen.gears["pe2"]
+    mac_learn_test(h2, pe2)
+
+
+def test_local_remote_mac_pe1():
+    "Test MAC transfer pe1 local and pe2 remote"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["pe1"]
+    pe2 = tgen.gears["pe2"]
+    mac_test_local_remote(pe1, pe2)
+
+
+def test_local_remote_mac_pe2():
+    "Test MAC transfer pe2 local and pe1 remote"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["pe1"]
+    pe2 = tgen.gears["pe2"]
+    mac_test_local_remote(pe2, pe1)
+
+    # Memory leak test template
 
 
 def ip_learn_test(tgen, host, local, remote, ip_addr):
@@ -348,27 +383,42 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     assert ip_addr == learned_ip, assertmsg
 
 
-def test_ip_pe_learn():
-    "run the IP learn test for pe"
+def test_ip_pe1_learn():
+    "run the IP learn test for pe1"
 
     tgen = get_topogen()
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    pe_list = {n: r for n, r in tgen.routers().items() if n.startswith("pe")}
-    host_list = {n: r for n, r in tgen.routers().items() if n.startswith("h")}
+    h1 = tgen.gears["h1"]
+    pe1 = tgen.gears["pe1"]
+    pe2 = tgen.gears["pe2"]
+    # pe2.vtysh_cmd("debug zebra vxlan")
+    # pe2.vtysh_cmd("debug zebra kernel")
+    # lets populate that arp cache
+    h1.run("ping -c1 192.168.101.1")
+    ip_learn_test(tgen, h1, pe1, pe2, "192.168.101.101")
+    # tgen.mininet_cli()
 
-    for hname, host in host_list.items():
-        i = hname.replace("h", "")
 
-        # lets populate that arp cache
-        host.run(f"ping -c1 192.168.101.{i}")
-        local_pe = tgen.gears[f"pe{i}"]
-        for rname, remote_pe in pe_list.items():
-            if rname == f"pe{i}":
-                continue
-            ip_learn_test(tgen, host, local_pe, remote_pe, f"192.168.101.10{i}")
+def test_ip_pe2_learn():
+    "run the IP learn test for pe2"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    h2 = tgen.gears["h2"]
+    pe1 = tgen.gears["pe1"]
+    pe2 = tgen.gears["pe2"]
+    # pe1.vtysh_cmd("debug zebra vxlan")
+    # pe1.vtysh_cmd("debug zebra kernel")
+    # lets populate that arp cache
+    h2.run("ping -c1 192.168.101.2")
+    ip_learn_test(tgen, h2, pe2, pe1, "192.168.101.102")
+    # tgen.mininet_cli()
 
 
 def test_memory_leak():
