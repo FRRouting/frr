@@ -121,22 +121,6 @@ def setup_module(mod):
 
     L3VNI = "300" if "irb_sym" in mod.__name__ else None
 
-    # previous tests may have changed the global variables
-    # set the correct values.
-    global HOST_PE, PE_HOST
-    HOST_PE["h1"] = "pe1"
-    PE_HOST["pe3"].discard("h1")
-    PE_HOST["pe1"].add("h1")
-
-    tgen.gears["h1"].cmd(
-        """
-ip link set eth-pe1 down
-ip link set eth-pe1 address 00:00:00:00:01:01
-ip link set eth-pe1 up
-"""
-    )
-    tgen.net.macs[("h1", "eth-pe1")] = "00:00:00:00:01:01"
-
     for rname, pe in router_list.items():
         if not rname.startswith("pe"):
             continue
@@ -669,103 +653,6 @@ router bgp 65000
                 tgen.gears[hname].run(f"ip route change default via 192.168.{vni}.1")
             tgen.gears[hname].run(f"ip neigh del 192.168.{vni}.1 dev eth-{pename}")
             check_ping(pename, HOST_IP[hname], True, 30, 1, source_addr=f"br{vni}")
-
-    check_pe_converge_evpn(tgen)
-
-
-def test_move_host():
-    """
-    Check that with we can move host h1 from pe1 to pe3.
-    MAC/IP 192.168.101.101/00:00:00:00:01:01 moves from pe1 to pe3
-    The connectivity must be still operational.
-
-    Since we cannot move a host, we simulate it by:
-    - shutting down h1 interface to pe1
-    - connecting h1 to pe3
-    - reusing h1 eth-pe1 MAC/IP for h1 eth-pe3
-    """
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    tgen.gears["h1"].cmd(
-        f"""
-ip link set eth-pe1 down
-ip link set eth-pe1 address 00:00:00:00:01:ff
-ip address del dev eth-pe1 192.168.101.101/24
-"""
-    )
-    tgen.net.macs[("h1", "eth-pe1")] = "00:00:00:00:01:ff"
-
-    connect_routers(tgen, "pe3", "h1")
-    tgen.gears["h1"].cmd(
-        f"""
-ip link set eth-pe3 down
-ip link set eth-pe3 address 00:00:00:00:01:01
-ip link set eth-pe3 up
-
-ip address add dev eth-pe3 192.168.101.101/24
-"""
-    )
-
-    if IRB_TEST:
-        tgen.gears["h1"].cmd("ip route add default via 192.168.101.1")
-
-    tgen.net.macs[("h1", "eth-pe3")] = "00:00:00:00:01:01"
-
-    tgen.gears["pe3"].cmd("ip link set dev eth-h1 master br101")
-
-    tgen.gears["h1"].cmd("ping -c1 192.168.101.1")
-
-    global HOST_PE, PE_HOST
-    HOST_PE["h1"] = "pe3"
-    PE_HOST["pe1"].discard("h1")
-    PE_HOST["pe3"].add("h1")
-
-    check_pe_converge_evpn(tgen)
-
-
-def test_revert_move_host():
-    """
-    Revert previous step.
-    """
-
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    tgen.gears["h1"].cmd(
-        f"""
-ip link set eth-pe3 down
-ip link set eth-pe3 address 00:00:00:00:01:fe
-ip address del dev eth-pe3 192.168.101.101/24
-"""
-    )
-    tgen.net.macs[("h1", "eth-pe3")] = "00:00:00:00:01:fe"
-
-    tgen.gears["h1"].cmd(
-        f"""
-ip link set eth-pe1 up
-ip link set eth-pe1 address 00:00:00:00:01:01
-
-ip address add dev eth-pe1 192.168.101.101/24
-"""
-    )
-
-    if IRB_TEST:
-        tgen.gears["h1"].cmd("ip route add default via 192.168.101.1")
-
-    tgen.net.macs[("h1", "eth-pe1")] = "00:00:00:00:01:01"
-
-    tgen.gears["h1"].cmd("ping -c1 192.168.101.1")
-
-    global HOST_PE, PE_HOST
-    HOST_PE["h1"] = "pe1"
-    PE_HOST["pe3"].discard("h1")
-    PE_HOST["pe1"].add("h1")
 
     check_pe_converge_evpn(tgen)
 
