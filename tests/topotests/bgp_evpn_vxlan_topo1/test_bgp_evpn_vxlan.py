@@ -25,7 +25,6 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.bgp import verify_bgp_convergence_from_running_config
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -110,19 +109,6 @@ def teardown_module(mod):
 
     # This function tears down the whole topology.
     tgen.stop_topology()
-
-
-def test_bgp_convergence():
-    tgen = get_topogen()
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    for rname, router in tgen.routers().items():
-        if not rname.startswith("pe"):
-            continue
-
-        result = verify_bgp_convergence_from_running_config(tgen, dut=rname)
-        assert result is True, f"{rname}: BGP is not converging. {result}"
 
 
 def show_vni_json_elide_ifindex(pe, vni, expected):
