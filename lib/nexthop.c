@@ -1472,7 +1472,8 @@ void nexthop_json_helper(json_object *json_nexthop,
 				 kernel_capabilities_has_seg6_encap_source())
 				json_object_string_addf(json_nexthop, "srv6EncapSource", "%pI6",
 							&nexthop->nh_srv6->seg6_segs->encap_source);
-			if (nexthop->nh_srv6->seg6_segs->lookup_table)
+			if (nexthop->nh_srv6->seg6_segs->lookup_table &&
+			    kernel_capabilities_has_seg6_encap_lookup())
 				json_object_int_add(json_nexthop, "srv6LookupTable",
 						    nexthop->nh_srv6->seg6_segs->lookup_table);
 		} else {
@@ -1510,7 +1511,8 @@ void nexthop_json_helper(json_object *json_nexthop,
 								"%pI6",
 								&nexthop->nh_srv6->seg6_segs
 									 ->encap_source);
-				if (nexthop->nh_srv6->seg6_segs->lookup_table)
+				if (nexthop->nh_srv6->seg6_segs->lookup_table &&
+				    kernel_capabilities_has_seg6_encap_lookup())
 					json_object_int_add(json_nexthop, "srv6LookupTable",
 							    nexthop->nh_srv6->seg6_segs
 								->lookup_table);
@@ -1668,7 +1670,8 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 				 kernel_capabilities_has_seg6_encap_source())
 				vty_out(vty, ", encap source %pI6",
 					&nexthop->nh_srv6->seg6_segs->encap_source);
-			if (nexthop->nh_srv6->seg6_segs->lookup_table)
+			if (nexthop->nh_srv6->seg6_segs->lookup_table &&
+			    kernel_capabilities_has_seg6_encap_lookup())
 				vty_out(vty, ", lookup table %u",
 					nexthop->nh_srv6->seg6_segs->lookup_table);
 		}
