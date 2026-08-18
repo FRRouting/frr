@@ -1968,6 +1968,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	} else
 		bgp_srv6_per_locator_unlink(path_vrf);
 
+	new_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (!CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED) &&
 	    !vpn_leak_to_vpn_active(from_bgp, afi, &debugmsg, false)) {
 		if (debug)
@@ -1976,7 +1977,6 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		return;
 	}
 
-	new_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (!ecommunity_has_route_target(new_ecom)) {
 		ecommunity_free(&new_ecom);
 		if (debug)
