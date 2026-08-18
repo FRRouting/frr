@@ -778,11 +778,24 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, bool notify_admin_do
 	int old_state = bfd->ses_state;
 
 	bfd->local_diag = diag;
-	bfd->discrs.remote_discr = 0;
 	bfd->ses_state = PTM_BFD_DOWN;
 	bfd->polling = 0;
-	bfd->demand_mode = 0;
 	monotime(&bfd->downtime);
+
+	/*
+	 * RFC 5880, Section 6.8.1: RemoteDiscr must only be cleared
+	 * after a full Detection Time without valid packets.  A Down
+	 * or AdminDown message from the peer is a valid packet, so the
+	 * discriminator must be kept to allow a quick restart.  Only a
+	 * local failure (control/echo timeout, path down) proves that
+	 * no valid packets arrived for a full Detection Time.
+	 *
+	 * DemandMode is local configuration and must survive session
+	 * flaps: it is not a temporary state cancelled by a Down
+	 * transition.
+	 */
+	if (diag != BD_NEIGHBOR_DOWN)
+		bfd->discrs.remote_discr = 0;
 
 	/*
 	 * Only attempt to send if we have a valid socket:
