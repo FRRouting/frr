@@ -53,10 +53,8 @@ def build_topo(tgen):
 
     connect_routers(tgen, "p1", "pe1")
     connect_routers(tgen, "p1", "pe2")
-    connect_routers(tgen, "p1", "pe3")
     connect_routers(tgen, "pe1", "h1")
     connect_routers(tgen, "pe2", "h2")
-    connect_routers(tgen, "pe3", "h3")
 
 
 def setup_module(mod):

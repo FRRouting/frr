@@ -6,14 +6,10 @@
   "vtepIp":"10.0.0.1",
   "mcastGroup":"0.0.0.0",
   "advertiseGatewayMacip":"No",
-  "numRemoteVteps":2,
+  "numRemoteVteps":1,
   "remoteVteps":[
       {
         "ip":"10.0.0.2",
-        "flood":"HER"
-      },
-      {
-        "ip":"10.0.0.3",
         "flood":"HER"
       }
   ]
