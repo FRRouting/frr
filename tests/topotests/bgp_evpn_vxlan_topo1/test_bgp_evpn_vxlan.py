@@ -159,8 +159,6 @@ ip addr add 192.168.{vni}.{i}/24 dev br{vni}
 ip link set dev br{vni} up
 ip link add vxlan{vni} type vxlan id {vni} dstport 4789 dev eth-p1 local 10.0.0.{i} nolearning
 ip link set dev vxlan{vni} master br{vni}
-bridge link set dev vxlan{vni} neigh_suppress on
-bridge link set dev vxlan{vni} learning off
 ip link set up dev vxlan{vni}
 ip link set dev eth-{host} master br{vni}
 """
@@ -185,16 +183,15 @@ ip link set dev eth-{host} master br{vni}
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
 
-    # Set host default gateway route
-    for hname, host in router_list.items():
-        if not hname.startswith("h"):
-            continue
-        pename = HOST_PE.get(hname)
-        i = pename.replace("pe", "")
-        vni = HOST_VNI.get(hname)
-        if IRB_TEST:
+    if IRB_TEST:
+        # Set host default gateway route
+        for hname, host in router_list.items():
+            if not hname.startswith("h"):
+                continue
+            pename = HOST_PE.get(hname)
+            i = pename.replace("pe", "")
+            vni = HOST_VNI.get(hname)
             host.run(f"ip route add default via 192.168.{vni}.{i}")
-        host.run(f"ping -c 1 192.168.{vni}.{i}")
 
     if L3VNI:
         for rname, pe in router_list.items():
