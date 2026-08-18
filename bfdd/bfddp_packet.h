@@ -237,7 +237,11 @@ struct bfddp_state_change {
 	uint32_t required_rx;
 	/** Remote minimum echo receive interval. */
 	uint32_t required_echo_rx;
-	/** Remote state. \see bfd_state_values.*/
+	/** Local session state as determined by the data plane.
+	 * This is NOT the remote peer state; the data plane has already
+	 * evaluated the BFD state machine and reports the resulting
+	 * local state.  \see bfd_state_values.
+	 */
 	uint8_t state;
 	/** Remote diagnostics (if any) */
 	uint8_t diagnostics;
