@@ -128,6 +128,15 @@ enum dplane_op_e {
 	DPLANE_OP_NH_UPDATE,
 	DPLANE_OP_NH_DELETE,
 
+	/*
+	 * EVPN-MH FDB (L2) nexthop / nexthop-group update. A single op covers
+	 * both the single-nexthop and the nexthop-group case (distinguished by
+	 * the fdb_nh payload's nh_grp_count), mirroring DPLANE_OP_NH_INSTALL /
+	 * DPLANE_OP_NH_DELETE which likewise handle singles and groups.
+	 */
+	DPLANE_OP_NH_FDB_INSTALL,
+	DPLANE_OP_NH_FDB_DELETE,
+
 	/* LSP update */
 	DPLANE_OP_LSP_INSTALL,
 	DPLANE_OP_LSP_UPDATE,
@@ -668,6 +677,12 @@ const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for EVPN-MH FDB (L2) nexthop / nexthop-group information */
+uint32_t dplane_ctx_get_fdb_nh_id(const struct zebra_dplane_ctx *ctx);
+const struct ipaddr *dplane_ctx_get_fdb_nh_vtep_ip(const struct zebra_dplane_ctx *ctx);
+const struct nh_grp *dplane_ctx_get_fdb_nh_grp(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_fdb_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for LSP information */
 
 /* Init the internal LSP data struct - necessary before adding to it.
@@ -1095,6 +1110,17 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		     const struct interface *br_ifp, vlanid_t vid, const struct ethaddr *mac,
 		     vni_t vni, struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
 		     uint32_t update_flags);
+
+/*
+ * Enqueue EVPN-MH FDB (L2) nexthop / nexthop-group operations for the
+ * dataplane. These program the per-VTEP FDB nexthops and per-ES nexthop
+ * groups used for EVPN multihoming fast failover.
+ */
+enum zebra_dplane_result dplane_nh_fdb_add(uint32_t nh_id, const struct ipaddr *vtep_ip);
+enum zebra_dplane_result dplane_nhg_fdb_add(uint32_t nhg_id, uint32_t nh_cnt,
+					    const struct nh_grp *nh_ids);
+/* Deletes are id-only and shared by the single-nexthop and group cases. */
+enum zebra_dplane_result dplane_nh_fdb_del(uint32_t id);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.

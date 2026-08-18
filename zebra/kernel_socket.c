@@ -1685,6 +1685,12 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 			break;
 
+		/* EVPN-MH FDB nexthops are a netlink-only feature - no-op here */
+		case DPLANE_OP_NH_FDB_INSTALL:
+		case DPLANE_OP_NH_FDB_DELETE:
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			break;
+
 		case DPLANE_OP_INTF_NETCONFIG:
 			res = kernel_intf_netconf_update(ctx);
 			break;

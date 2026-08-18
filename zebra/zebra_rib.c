@@ -5281,6 +5281,11 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_vxlan_handle_result(ctx);
 				break;
 
+			case DPLANE_OP_NH_FDB_INSTALL:
+			case DPLANE_OP_NH_FDB_DELETE:
+				zebra_evpn_l2_nh_dplane_result(ctx);
+				break;
+
 			case DPLANE_OP_RULE_ADD:
 			case DPLANE_OP_RULE_DELETE:
 			case DPLANE_OP_RULE_UPDATE:
