@@ -68,20 +68,20 @@ def setup_module(mod):
 
     # set up pe bridges with the EVPN member interfaces facing the CE hosts
     pe1.run("ip link add name br101 type bridge stp_state 0")
-    pe1.run("ip addr add 192.168.101.1/24 dev br101")
+    pe1.run("ip addr add 10.10.1.1/24 dev br101")
     pe1.run("ip link set dev br101 up")
     pe1.run(
-        "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.0.0.1 nolearning"
+        "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.10.10.10 nolearning"
     )
     pe1.run("ip link set dev vxlan101 master br101")
     pe1.run("ip link set up dev vxlan101")
     pe1.run("ip link set dev eth-h1 master br101")
 
     pe2.run("ip link add name br101 type bridge stp_state 0")
-    pe2.run("ip addr add 192.168.101.2/24 dev br101")
+    pe2.run("ip addr add 10.10.1.3/24 dev br101")
     pe2.run("ip link set dev br101 up")
     pe2.run(
-        "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.0.0.2 nolearning"
+        "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.30.30.30 nolearning"
     )
     pe2.run("ip link set dev vxlan101 master br101")
     pe2.run("ip link set up dev vxlan101")
@@ -157,9 +157,9 @@ def test_pe1_converge_evpn():
     # they may not actually do any l2 arp'ing and as such
     # the bridges won't know about the hosts on their networks
     h1 = tgen.gears["h1"]
-    h1.run("ping -c 1 192.168.101.102")
+    h1.run("ping -c 1 10.10.1.56")
     h2 = tgen.gears["h2"]
-    h2.run("ping -c 1 192.168.101.101")
+    h2.run("ping -c 1 10.10.1.55")
 
     test_func = partial(
         check_vni_macs_present,
@@ -389,8 +389,8 @@ def test_ip_pe1_learn():
     # pe2.vtysh_cmd("debug zebra vxlan")
     # pe2.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
-    h1.run("ping -c1 192.168.101.1")
-    ip_learn_test(tgen, h1, pe1, pe2, "192.168.101.101")
+    h1.run("ping -c1 10.10.1.1")
+    ip_learn_test(tgen, h1, pe1, pe2, "10.10.1.55")
     # tgen.mininet_cli()
 
 
@@ -408,8 +408,8 @@ def test_ip_pe2_learn():
     # pe1.vtysh_cmd("debug zebra vxlan")
     # pe1.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
-    h2.run("ping -c1 192.168.101.2")
-    ip_learn_test(tgen, h2, pe2, pe1, "192.168.101.102")
+    h2.run("ping -c1 10.10.1.3")
+    ip_learn_test(tgen, h2, pe2, pe1, "10.10.1.56")
     # tgen.mininet_cli()
 
 
