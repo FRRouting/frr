@@ -744,6 +744,105 @@ err:
 	zbuf_free(zb);
 }
 
+struct nhrp_cache_purge_ctx {
+	struct prefix pfx;
+	int purged;
+};
+
+static void nhrp_cache_purge_cb(struct nhrp_cache *c, void *ctx)
+{
+	struct nhrp_cache_purge_ctx *pc = ctx;
+	struct prefix cpfx;
+
+	if (c->cur.type == NHRP_CACHE_INVALID)
+		return;
+	if (!sockunion2hostprefix(&c->remote_addr, &cpfx))
+		return;
+	if (!prefix_match(&pc->pfx, &cpfx))
+		return;
+
+	debugf(NHRP_DEBUG_COMMON, "purge: removing cache entry %pSU",
+	       &c->remote_addr);
+	nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL, NULL);
+	pc->purged++;
+}
+
+static void nhrp_handle_purge_request(struct nhrp_packet_parser *p)
+{
+	struct interface *ifp = p->ifp;
+	struct zbuf *zb = NULL, payload;
+	struct nhrp_packet_header *hdr = NULL;
+	struct nhrp_cie_header *cie;
+	union sockunion cie_nbma, cie_proto;
+	struct nhrp_cache_purge_ctx ctx = {};
+	bool reply = !(p->hdr->flags & htons(NHRP_FLAG_PURGE_NO_REPLY));
+	size_t paylen;
+	void *pay;
+
+	debugf(NHRP_DEBUG_COMMON, "Parsing Purge Req");
+
+	if (reply) {
+		/* Create reply: the Purge Request with type changed to
+		 * Purge Reply (RFC 2332, Section 5.2.6).
+		 */
+		zb = zbuf_alloc(1500);
+		hdr = nhrp_packet_push(zb, NHRP_PACKET_PURGE_REPLY,
+				       &p->src_nbma, &p->src_proto,
+				       &p->if_ad->addr);
+
+		/* Copied information from request */
+		hdr->flags = p->hdr->flags;
+		hdr->u.request_id = p->hdr->u.request_id;
+	}
+
+	/* Copy payload CIEs */
+	paylen = zbuf_used(&p->payload);
+	if (reply) {
+		pay = zbuf_pushn(zb, paylen);
+		if (!pay)
+			goto err;
+		memcpy(pay, zbuf_pulln(&p->payload, paylen), paylen);
+		zbuf_init(&payload, pay, paylen, paylen);
+	} else {
+		zbuf_init(&payload, zbuf_pulln(&p->payload, paylen), paylen,
+			  paylen);
+	}
+
+	while ((cie = nhrp_cie_pull(&payload, p->hdr, &cie_nbma, &cie_proto))
+	       != NULL) {
+		union sockunion *proto_addr;
+		struct prefix pfx;
+
+		proto_addr = (sockunion_family(&cie_proto) == AF_UNSPEC)
+				     ? &p->src_proto
+				     : &cie_proto;
+		if (!sockunion2hostprefix(proto_addr, &pfx))
+			continue;
+
+		/* The CIE's Prefix Length specifies the equivalence
+		 * class of addresses to purge (RFC 2332, Section 5.2.5).
+		 */
+		pfx.prefixlen = MIN(cie->prefix_length,
+				    8 * sockunion_get_addrlen(proto_addr));
+
+		ctx.pfx = pfx;
+		ctx.purged = 0;
+		nhrp_cache_foreach(ifp, nhrp_cache_purge_cb, &ctx);
+		debugf(NHRP_DEBUG_COMMON, "purge: %d cache entries purged",
+		       ctx.purged);
+	}
+
+	if (reply) {
+		/* RFC 2332, Section 5.2.5: a Purge Reply MUST be returned
+		 * even when no matching cache entry was found (N bit off).
+		 */
+		nhrp_packet_complete_auth(zb, hdr, ifp, true);
+		nhrp_peer_send(p->peer, zb);
+	}
+err:
+	zbuf_free(zb);
+}
+
 static bool parse_ether_packet(struct zbuf *zb, uint16_t protocol_type,
 			       union sockunion *src, union sockunion *dst)
 {
@@ -915,6 +1014,7 @@ static struct {
 			    {
 				    .type = PACKET_REQUEST,
 				    .name = "Purge-Request",
+				    .handler = nhrp_handle_purge_request,
 			    },
 		    [NHRP_PACKET_PURGE_REPLY] =
 			    {
