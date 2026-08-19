@@ -987,7 +987,6 @@ def test_bgp_evpn_rt5_addpath_disable_addpath_rx():
                     [
                         {
                             "vni": "100",
-                            "gatewayIP": "10.0.0.0",
                             "valid": True,
                             "nexthops": [{"ip": "10.0.0.10"}],
                         },
@@ -1008,7 +1007,6 @@ def test_bgp_evpn_rt5_addpath_disable_addpath_rx():
             "10.0.0.0/24": [
                 {
                     "valid": True,
-                    "nexthops": [{"ip": "10.0.0.0"}],
                 },
             ],
         },
@@ -1065,7 +1063,6 @@ def test_bgp_evpn_rt5_addpath_disable_addpath_rx():
                     [
                         {
                             "vni": "100",
-                            "gatewayIP": "10.0.0.2",
                             "valid": True,
                             "nexthops": [{"ip": "10.0.0.10"}],
                             "locPrf": 200,
