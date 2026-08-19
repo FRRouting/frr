@@ -2105,7 +2105,6 @@ int send_hello(struct isis_circuit *circuit, int level)
 		 circuit->upadjcount[0] + circuit->upadjcount[1] == 0);
 
 	/* RFC6213 BFD TLV */
-	isis_bfd_circuit_update_rfc6213(circuit);
 	if (CHECK_FLAG(circuit->bfd_config.mtid_nlpid,
 		       ISIS_BFD_MT_STANDARD_NLP_IPV4))
 		isis_tlvs_add_bfd_enabled(tlvs, ISIS_MT_STANDARD, NLPID_IP);
@@ -2116,6 +2115,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 		       ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6))
 		isis_tlvs_add_bfd_enabled(tlvs, ISIS_MT_IPV6_UNICAST,
 					  NLPID_IPV6);
+
 	isis_adj_check_stop_circuit(circuit, level);
 
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,

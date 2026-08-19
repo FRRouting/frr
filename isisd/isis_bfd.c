@@ -699,21 +699,24 @@ void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,
 
 /* Set the locally supported BFD TLV MTID/NLPID pairs on the circuit,
  * meaning the list of MTID/NLPID on which BFD TLV is configured.
+ *
+ * And trigger BFD TLV variable update
  */
 void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit)
 {
+	uint8_t old_mtid_nlpid = circuit->bfd_config.mtid_nlpid;
 	struct isis_area_mt_setting **area_settings;
 	unsigned int mt_count = 0, i;
 	uint16_t mtid;
 
-	if (circuit->bfd_config.rfc6213_ipv4 && circuit->bfd_config.enabled)
+	if (circuit->bfd_config.rfc6213_ipv4 && circuit->bfd_config.enabled && circuit->area)
 		SET_FLAG(circuit->bfd_config.mtid_nlpid,
 			 ISIS_BFD_MT_STANDARD_NLP_IPV4);
 	else
 		UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
 			   ISIS_BFD_MT_STANDARD_NLP_IPV4);
 
-	if (circuit->bfd_config.rfc6213_ipv6 && circuit->bfd_config.enabled) {
+	if (circuit->bfd_config.rfc6213_ipv6 && circuit->bfd_config.enabled && circuit->area) {
 		area_settings = area_mt_settings(circuit->area, &mt_count);
 
 		/* MTID ISIS_MT_STANDARD is always enabled
@@ -744,6 +747,9 @@ void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit)
 		UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
 			   ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6);
 	}
+
+	if (old_mtid_nlpid != circuit->bfd_config.mtid_nlpid)
+		isis_circuit_bfd_update_rfc6213(circuit);
 }
 
 
@@ -864,8 +870,6 @@ isis_bfd_adjacency_update_rfc6213_local_params(struct isis_adjacency *adj)
 	if (IS_DEBUG_BFD && isis_bfd_circuit_rfc6213_enabled(adj->circuit))
 		zlog_debug("ISIS-BFD: updating RFC6213 local variables for L%u adjacency %s",
 			   adj->level, isis_adj_name(adj));
-
-	isis_bfd_circuit_update_rfc6213(adj->circuit);
 
 	/* Update the locally supported MTID/NLPID pairs. */
 	if (CHECK_FLAG(bfd_conf->mtid_nlpid, ISIS_BFD_MT_STANDARD_NLP_IPV4))

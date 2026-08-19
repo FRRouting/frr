@@ -1469,8 +1469,10 @@ static int isis_multi_topology_common(enum nb_event event,
 		area = nb_running_get_entry(dnode, NULL, true);
 		setting = area_get_mt_setting(area, mtid);
 		setting->enabled = create;
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
 			circuit_update_nlpids(circuit);
+			isis_bfd_circuit_update_rfc6213(circuit);
+		}
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 		break;
 	}
@@ -3878,6 +3880,8 @@ int lib_interface_isis_bfd_monitoring_enabled_modify(
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->bfd_config.enabled = yang_dnode_get_bool(args->dnode, NULL);
 
+	isis_bfd_circuit_update_rfc6213(circuit);
+
 	return NB_OK;
 }
 
@@ -3928,6 +3932,9 @@ int lib_interface_isis_bfd_monitoring_use_tlv_ipv4_modify(
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->bfd_config.rfc6213_ipv4 = yang_dnode_get_bool(args->dnode,
 							       NULL);
+
+	isis_bfd_circuit_update_rfc6213(circuit);
+
 	return NB_OK;
 }
 
@@ -3945,6 +3952,9 @@ int lib_interface_isis_bfd_monitoring_use_tlv_ipv6_modify(
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->bfd_config.rfc6213_ipv6 = yang_dnode_get_bool(args->dnode,
 							       NULL);
+
+	isis_bfd_circuit_update_rfc6213(circuit);
+
 	return NB_OK;
 }
 
@@ -4326,6 +4336,7 @@ static int lib_interface_isis_multi_topology_common(
 		circuit = nb_running_get_entry(dnode, NULL, true);
 		value = yang_dnode_get_bool(dnode, NULL);
 		isis_circuit_mt_enabled_set(circuit, mtid, value);
+		isis_bfd_circuit_update_rfc6213(circuit);
 		break;
 	}
 

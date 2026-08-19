@@ -243,6 +243,8 @@ void isis_circuit_configure(struct isis_circuit *circuit,
 
 	circuit->idx = flags_get_index(&area->flags);
 
+	isis_bfd_circuit_update_rfc6213(circuit);
+
 	hook_call(isis_circuit_new_hook, circuit);
 
 	return;
@@ -266,6 +268,8 @@ void isis_circuit_deconfigure(struct isis_circuit *circuit,
 	circuit->area = NULL;
 	circuit->isis = NULL;
 
+	isis_bfd_circuit_update_rfc6213(circuit);
+
 	return;
 }
 
@@ -274,7 +278,7 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 	return (struct isis_circuit *)ifp->info;
 }
 /* Update RF6213 variables of circuit adjacencies*/
-static void isis_circuit_bfd_update_rfc6213(struct isis_circuit *circuit)
+void isis_circuit_bfd_update_rfc6213(struct isis_circuit *circuit)
 {
 	struct isis_adjacency *adj;
 	struct listnode *node;
