@@ -13,8 +13,10 @@ extern "C" {
 #endif
 
 bool kernel_capabilities_has_seg6_encap_source(void);
+bool kernel_capabilities_has_seg6_encap_lookup(void);
 
 void kernel_capabilities_set_seg6_encap_source(bool enabled);
+void kernel_capabilities_set_seg6_encap_lookup(bool enabled);
 
 #ifdef __cplusplus
 }

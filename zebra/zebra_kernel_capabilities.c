@@ -36,16 +36,27 @@ static bool kernel_capabilities_logging_enabled;
 		if (kernel_capabilities_logging_enabled)                                      \
 			zlog_err("%s: SRv6 encap source (SEG6_IPTUNNEL_SRC) is NOT supported", __func__);         \
 	} while (0)
+#define LOG_UNSUPPORTED_SEG6_ENCAP_LOOKUP()                                                   \
+	do {                                                                                  \
+		if (kernel_capabilities_logging_enabled)                                      \
+			zlog_err("%s: SRv6 encap lookup (SEG6_IPTUNNEL_TABLE) is NOT supported", __func__);         \
+	} while (0)
 
 #define LOG_SUPPORTED_SEG6_ENCAP_SOURCE()                                                     \
 	do {                                                                                  \
 		if (kernel_capabilities_logging_enabled)                                      \
 			zlog_info("%s: SRv6 encap source (SEG6_IPTUNNEL_SRC) is supported", __func__);            \
 	} while (0)
+#define LOG_SUPPORTED_SEG6_ENCAP_LOOKUP()                                                     \
+	do {                                                                                  \
+		if (kernel_capabilities_logging_enabled)                                      \
+			zlog_info("%s: SRv6 encap lookup (SEG6_IPTUNNEL_TABLE) is supported", __func__);            \
+	} while (0)
 
 #define CHECK_SRV6_ATTR_PREFIX_STR	"2001:db8:efff::"
 #define CHECK_SRV6_DUMMY_INTERFACE	"6wsrv6dummy"
 #define CHECK_SRV6_ATTR_SOURCE_ADDRESS	"2001:db8:dfff::"
+#define CHECK_SRV6_ATTR_LOOKUP_TABLE 254
 #define CHECK_SRV6_ATTR_SUPPORTED_FUNC_DELAY_NOTIFY 30
 
 static bool check_seg6_encap_attrs_in_progress;
@@ -102,6 +113,8 @@ next_rta_encap_inspection:
 		return 0;
 	if ((rta_encap->rta_type & NLA_TYPE_MASK) == SEG6_IPTUNNEL_SRC)
 		kernel_capabilities_set_seg6_encap_source(true);
+	else if ((rta_encap->rta_type & NLA_TYPE_MASK) == SEG6_IPTUNNEL_TABLE)
+		kernel_capabilities_set_seg6_encap_lookup(true);
 	rta_encap = RTA_NEXT(rta_encap, rta_encap_len);
 	goto next_rta_encap_inspection;
 
@@ -190,6 +203,9 @@ static bool handle_fake_seg6_route(struct zebra_ns *zns, int type, struct interf
 	inet_pton(AF_INET6, CHECK_SRV6_ATTR_SOURCE_ADDRESS, &in6_p);
 	if (!nl_attr_put(&req.n, datalen, SEG6_IPTUNNEL_SRC, &in6_p,
 			 sizeof(struct in6_addr)))
+		goto error_fake_seg6_route;
+
+	if (!nl_attr_put32(&req.n, datalen, SEG6_IPTUNNEL_TABLE, CHECK_SRV6_ATTR_LOOKUP_TABLE))
 		goto error_fake_seg6_route;
 
 	nl_attr_nest_end(&req.n, rta_encap);
@@ -282,7 +298,8 @@ static int check_seg6_encap_attrs_supported_func(struct zebra_ns *zns,
 	if (!check_seg6_encap_attrs_in_progress)
 		return 0;
 
-	if (kernel_capabilities_has_seg6_encap_source())
+	if (kernel_capabilities_has_seg6_encap_source() ||
+	    kernel_capabilities_has_seg6_encap_lookup())
 		return 0;
 
 	check_seg6_encap_attrs_in_progress = false;
@@ -298,12 +315,18 @@ static int check_seg6_encap_attrs_supported_func(struct zebra_ns *zns,
 	else
 		LOG_UNSUPPORTED_SEG6_ENCAP_SOURCE();
 
+	if (kernel_capabilities_has_seg6_encap_lookup())
+		LOG_SUPPORTED_SEG6_ENCAP_LOOKUP();
+	else
+		LOG_UNSUPPORTED_SEG6_ENCAP_LOOKUP();
+
 	handle_fake_seg6_route(zns, RTM_DELROUTE, NULL);
 
 	return 1;
 
 netlink_error:
 	LOG_UNSUPPORTED_SEG6_ENCAP_SOURCE();
+	LOG_UNSUPPORTED_SEG6_ENCAP_LOOKUP();
 	return -1;
 }
 
@@ -313,6 +336,11 @@ static void check_srv6_attr_supported_func_notify(struct event *thread)
 		LOG_SUPPORTED_SEG6_ENCAP_SOURCE();
 	else
 		LOG_UNSUPPORTED_SEG6_ENCAP_SOURCE();
+
+	if (kernel_capabilities_has_seg6_encap_lookup())
+		LOG_SUPPORTED_SEG6_ENCAP_LOOKUP();
+	else
+		LOG_UNSUPPORTED_SEG6_ENCAP_LOOKUP();
 }
 
 static bool check_process_is_in_root_netns(void)
@@ -336,6 +364,7 @@ void zebra_kernel_capabilities_init(void)
 {
 	check_seg6_encap_attrs_in_progress = false;
 	kernel_capabilities_set_seg6_encap_source(false);
+	kernel_capabilities_set_seg6_encap_lookup(false);
 
 	kernel_capabilities_logging_enabled = check_process_is_in_root_netns();
 

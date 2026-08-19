@@ -4343,11 +4343,15 @@ DEFPY_HIDDEN(show_zebra_capabilities, show_zebra_capabilities_cmd,
 	if (json) {
 		json_object_boolean_add(json, "KernelCapabilitySRv6EncapSource",
 					kernel_capabilities_has_seg6_encap_source());
+		json_object_boolean_add(json, "KernelCapabilitySRv6EncapLookup",
+					kernel_capabilities_has_seg6_encap_lookup());
 		vty_json(vty, json);
 		return CMD_SUCCESS;
 	}
 	vty_out(vty, "SRv6 encap source (SEG6_IPTUNNEL_SRC): %ssupported\n",
 		kernel_capabilities_has_seg6_encap_source() ? "" : "not ");
+	vty_out(vty, "SRv6 encap lookup (SEG6_IPTUNNEL_TABLE): %ssupported\n",
+		kernel_capabilities_has_seg6_encap_lookup() ? "" : "not ");
 	return CMD_SUCCESS;
 }
 #ifdef HAVE_NETLINK
