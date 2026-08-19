@@ -470,18 +470,130 @@ def test_ip_pe2_learn():
     # tgen.mininet_cli()
 
 
-def show_dvni_route(pe, vni, prefix, vrf):
-    output = pe.vtysh_cmd("show ip route vrf {} {}".format(vrf, prefix))
+def check_dvni_route_frr(pe, vni, prefix, vrf, vtep_ip):
+    """
+    Verify the D-VNI route is present in FRR's RIB (zebra) with the
+    downstream VNI correctly encoded as an MPLS-EVPN "label" on the
+    nexthop pointing at the remote VTEP over the SVD vxlan0 interface.
+    """
+    expected = {
+        prefix: [
+            {
+                "nexthops": [
+                    {
+                        "ip": vtep_ip,
+                        "afi": "ipv4",
+                        "interfaceName": "vxlan0",
+                        "onLink": True,
+                        "labels": [vni],
+                    }
+                ]
+            }
+        ]
+    }
 
-    if str(vni) not in output:
-        return output
+    output = pe.vtysh_cmd("show ip route vrf {} {} json".format(vrf, prefix), isjson=True)
 
-    output = pe.run("ip route show vrf {} {}".format(vrf, prefix))
+    return topotest.json_cmp(output, expected)
 
-    if str(vni) not in output:
-        return output
+
+def get_kernel_route_encap(route):
+    """
+    Normalize the LWT encap fields of an `ip -j route show` route entry
+    across iproute2 versions.
+
+    Newer iproute2 nests the encap fields under an "encap" object with
+    an "encap_type" key, e.g.:
+        {"encap": {"encap_type": "ip", "id": 300, "dst": "...", ...}}
+
+    Older iproute2 (e.g. 5.15, as shipped with Ubuntu 22.04 and used by
+    the FRR topotests docker image) flattens the encap fields onto the
+    route object itself and uses "encap" for just the type string, e.g.:
+        {"encap": "ip", "id": 300, "dst": "...", ...}
+    Note this flat form re-uses the "dst" key for the encap destination,
+    which collides with (and, after JSON parsing, overwrites) the
+    route's own prefix "dst" key.
+
+    Returns a normalized dict with at least an "encap_type" key, or None
+    if the route has no encap information.
+    """
+    encap = route.get("encap")
+
+    if isinstance(encap, dict):
+        return encap
+
+    if isinstance(encap, str):
+        flat = {"encap_type": encap}
+        for key in ("id", "src", "dst", "ttl", "tos", "hoplimit", "tc", "csum"):
+            if key in route:
+                flat[key] = route[key]
+        return flat
 
     return None
+
+
+def check_dvni_route_kernel(pe, vni, prefix, vrf, vtep_ip):
+    """
+    Verify the D-VNI route is present in the kernel with a VXLAN
+    lightweight tunnel (LWT) encap that carries the correct downstream
+    VNI and points at the remote VTEP, i.e. the equivalent of:
+
+      <prefix> encap ip id <vni> src 0.0.0.0 dst <vtep_ip> ttl 0 tos 0 \
+          via <vtep_ip> dev vxlan0 onlink
+    """
+    output = pe.run("ip -j route show vrf {} {}".format(vrf, prefix))
+
+    try:
+        routes = json.loads(output)
+    except ValueError:
+        return "{}: could not parse 'ip -j route show' output: {}".format(pe.name, output)
+
+    if not routes:
+        return "{}: no kernel route found for {} in vrf {}".format(pe.name, prefix, vrf)
+
+    route = routes[0]
+
+    if route.get("dev") != "vxlan0":
+        return "{}: kernel route {} not using vxlan0 dev: {}".format(pe.name, prefix, route)
+
+    if route.get("gateway") != vtep_ip:
+        return "{}: kernel route {} gateway is not {}: {}".format(
+            pe.name, prefix, vtep_ip, route
+        )
+
+    if "onlink" not in route.get("flags", []):
+        return "{}: kernel route {} is missing onlink flag: {}".format(pe.name, prefix, route)
+
+    encap = get_kernel_route_encap(route)
+    if not encap:
+        return "{}: kernel route {} has no encap information: {}".format(
+            pe.name, prefix, route
+        )
+
+    if encap.get("encap_type") != "ip":
+        return "{}: kernel route {} encap type is not 'ip': {}".format(
+            pe.name, prefix, encap
+        )
+
+    if encap.get("id") != vni:
+        return "{}: kernel route {} encap vni {} does not match expected {}: {}".format(
+            pe.name, prefix, encap.get("id"), vni, encap
+        )
+
+    if encap.get("dst") != vtep_ip:
+        return "{}: kernel route {} encap dst is not {}: {}".format(
+            pe.name, prefix, vtep_ip, encap
+        )
+
+    return None
+
+
+def check_dvni_route(pe, vni, prefix, vrf, vtep_ip):
+    result = check_dvni_route_frr(pe, vni, prefix, vrf, vtep_ip)
+    if result is not None:
+        return result
+
+    return check_dvni_route_kernel(pe, vni, prefix, vrf, vtep_ip)
 
 
 def test_dvni():
@@ -495,9 +607,10 @@ def test_dvni():
     pe1 = tgen.gears["PE1"]
 
     prefix = "4.4.4.1/32"
-    test_func = partial(show_dvni_route, pe1, 300, prefix, "vrf-red")
+    vtep_ip = "10.30.30.30"
+    test_func = partial(check_dvni_route, pe1, 300, prefix, "vrf-red", vtep_ip)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assertmsg = '"{}" DVNI route {} not found'.format(pe1.name, prefix)
+    assertmsg = '"{}" DVNI route {} incorrect: {}'.format(pe1.name, prefix, result)
     assert result is None, assertmsg
     # tgen.mininet_cli()
 
