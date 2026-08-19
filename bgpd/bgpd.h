@@ -3390,11 +3390,17 @@ static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 {
 	/*
 	 * GR restarter behavior is supported only for IPv4-unicast,
-	 * IPv6-unicast, L2vpn EVPN, and IPv4/IPv6 unreachability
+	 * IPv6-unicast, L2vpn EVPN, IPv4/IPv6 unreachability and
+	 * IPv4/IPv6 MUP.  This gates both the GR address-family
+	 * capability the speaker advertises and the helper-side stale
+	 * route preservation; a MUP install is per-(vrf, session)
+	 * forwarding state that should survive a peer flap the same way
+	 * a unicast prefix does.
 	 */
 	if ((afi == AFI_IP && safi == SAFI_UNICAST) || (afi == AFI_IP6 && safi == SAFI_UNICAST) ||
 	    (afi == AFI_L2VPN && safi == SAFI_EVPN) || (afi == AFI_IP && safi == SAFI_UNREACH) ||
-	    (afi == AFI_IP6 && safi == SAFI_UNREACH))
+	    (afi == AFI_IP6 && safi == SAFI_UNREACH) ||
+	    ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MUP))
 		return true;
 	return false;
 }
