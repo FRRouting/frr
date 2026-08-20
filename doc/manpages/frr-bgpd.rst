@@ -34,10 +34,13 @@ OPTIONS available for the |DAEMON| command:
 
 .. option:: -n, --no_kernel
 
-   Do not install learned routes into the linux kernel.  This option is useful
-   for a route-reflector environment or if you are running multiple bgp
-   processes in the same namespace.  This option is different than the --no_zebra
-   option in that a ZAPI connection is made.
+   Do not install BGP routes into zebra (and therefore not into the Linux
+   kernel).  This is the supported way to keep BGP from programming routes,
+   for example on a route reflector or when running multiple bgpd processes
+   in the same namespace.
+
+   bgpd still opens a ZAPI connection to zebra.  FRR protocol daemons are
+   tightly integrated with zebra and are not intended to run without it.
 
 .. option:: -e, --ecmp
 
@@ -47,8 +50,12 @@ OPTIONS available for the |DAEMON| command:
 
 .. option:: -Z, --no_zebra
 
-   Do not communicate with zebra at all.  This is different than the --no_kernel
-   option in that we do not even open a ZAPI connection to the zebra process.
+   Deprecated.  This option is buggy and misleading: it does not fully stop
+   communication with zebra, and FRR is tightly integrated with zebra.
+
+   Do not use this option.  It will be removed in a future release.  To avoid
+   installing BGP routes into zebra, use ``-n`` / ``--no_kernel`` (or
+   ``bgp no-rib`` at runtime).
 
 .. option:: -s, --socket_size
 

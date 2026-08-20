@@ -47,10 +47,15 @@ be specified (:ref:`common-invocation-options`).
 
 .. option:: -n, --no_kernel
 
-   Do not install learned routes into the linux kernel.  This option is useful
-   for a route-reflector environment or if you are running multiple bgp
-   processes in the same namespace.  This option is different than the --no_zebra
-   option in that a ZAPI connection is made.
+   Do not install BGP routes into zebra (and therefore not into the Linux
+   kernel).  This is the supported way to keep BGP from programming routes
+   when you still need a working FRR process, for example a route reflector
+   or multiple bgpd processes in the same namespace.
+
+   bgpd still opens a ZAPI connection to zebra.  FRR protocol daemons are
+   tightly integrated with zebra for interface, VRF, nexthop-tracking, label,
+   and other state; they are not intended to run as a standalone process
+   without zebra.
 
    This option can also be toggled during runtime by using the
    ``[no] bgp no-rib`` commands in VTY shell.
@@ -72,8 +77,12 @@ be specified (:ref:`common-invocation-options`).
 
 .. option:: -Z, --no_zebra
 
-   Do not communicate with zebra at all.  This is different than the --no_kernel
-   option in that we do not even open a ZAPI connection to the zebra process.
+   Deprecated.  This option is buggy and misleading: it does not fully stop
+   communication with zebra, and FRR is tightly integrated with zebra.
+
+   Do not use this option.  It will be removed in a future release.  To avoid
+   installing BGP routes into zebra, use ``-n`` / ``--no_kernel`` (or
+   ``bgp no-rib`` at runtime).
 
 .. option:: -s, --socket_size
 
@@ -88,9 +97,7 @@ be specified (:ref:`common-invocation-options`).
    Allow BGP to peer in the V6 afi, when the interface only has v4 addresses.
    This allows bgp to install the v6 routes with a v6 nexthop that has the
    v4 address encoded in the nexthop.  Zebra's equivalent option currently
-   overrides the bgp setting.  This setting is only really usable when
-   the operator has turned off communication to zebra and is running bgpd
-   as a complete standalone process.
+   overrides the bgp setting.
 
 .. option:: -K, --graceful_restart
 
@@ -6032,7 +6039,8 @@ by route reflectors to avoid looping.
 
 To set and unset the BGP daemon ``-n`` / ``--no_kernel`` options during runtime
 to disable BGP route installation to the RIB (Zebra), the ``[no] bgp no-rib``
-commands can be used;
+commands can be used.  This is the supported replacement for the deprecated
+``-Z`` / ``--no_zebra`` option.
 
 Please note that setting the option during runtime will withdraw all routes in
 the daemons RIB from Zebra and unsetting it will announce all routes in the
