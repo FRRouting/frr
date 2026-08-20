@@ -1276,6 +1276,15 @@ static ssize_t netlink_link_update_msg_encoder(struct zebra_dplane_ctx *ctx, voi
 		req->n.nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
 		if (!nl_attr_put(&req->n, buflen, IFLA_IFNAME, name, strlen(name) + 1))
 			return 0;
+		/*
+		 * Apply the device-wide srl2 MTU at create time when configured
+		 * (`l2-mtu`).  0 = unset -> let the kernel sr6 driver pick its
+		 * default (1422 on a 1500 underlay).  IFLA_MTU is a top-level
+		 * attribute, emitted before IFLA_LINKINFO.
+		 */
+		if (zebra_srl2_get_mtu() != ZEBRA_SRL2_MTU_UNSET &&
+		    !nl_attr_put32(&req->n, buflen, IFLA_MTU, zebra_srl2_get_mtu()))
+			return 0;
 		memset(srh_buf, 0, sizeof(srh_buf));
 		fill_srh((struct ipv6_sr_hdr *)srh_buf, sid, 1);
 		linkinfo = nl_attr_nest(&req->n, buflen, IFLA_LINKINFO);
@@ -1308,6 +1317,12 @@ static ssize_t netlink_link_update_msg_encoder(struct zebra_dplane_ctx *ctx, voi
 			return 0;
 		nl_attr_nest_end(&req->n, afinet6);
 		nl_attr_nest_end(&req->n, afspec);
+	} else if (op == DPLANE_OP_SRL2_SET_MTU) {
+		/* Live MTU change on an existing srl2 interface (`l2-mtu`). */
+		req->n.nlmsg_type = RTM_SETLINK;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+		if (!nl_attr_put32(&req->n, buflen, IFLA_MTU, dplane_ctx_get_ifp_mtu(ctx)))
+			return 0;
 	} else {
 		flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
 			 "Context for link update with incorrect OP code (%u)", op);

@@ -37,6 +37,9 @@ extern void zebra_srv6_vpws_walk_encap(void (*cb)(const struct in6_addr *peer_si
 						  ifindex_t srl2_ifindex, void *arg),
 				       void *arg);
 
+/* Live-apply the device-wide srl2 MTU to every VPWS srl2 encap interface. */
+extern void zebra_srv6_vpws_apply_mtu(uint32_t mtu);
+
 /* Delete every vpws-br-*vpws-srl2-* kernel interface (graceful-shutdown
  * cleanup); call while the command netlink socket is still open.
  */

@@ -1112,6 +1112,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SRL2_UPDATE_SID:
 	case DPLANE_OP_SRL2_CREATE:
 	case DPLANE_OP_SRL2_ADDRGENMODE:
+	case DPLANE_OP_SRL2_SET_MTU:
 	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_TC_QDISC_INSTALL:
 	case DPLANE_OP_TC_QDISC_UNINSTALL:

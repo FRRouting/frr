@@ -84,6 +84,26 @@ extern void zebra_srl2_set_encap_mode(enum zebra_srl2_encap_mode mode);
 extern enum zebra_srl2_encap_mode zebra_srl2_get_encap_mode(void);
 extern const char *zebra_srl2_encap_mode2str(enum zebra_srl2_encap_mode mode);
 
+/*
+ * Device-wide MTU applied to every srl2 tunnel interface.  0 = unset: zebra
+ * omits IFLA_MTU at create time so the kernel sr6 driver picks its default
+ * (underlay 1500 - SRv6 encap overhead = 1422).  A non-zero value is emitted
+ * as IFLA_MTU at create time and pushed live onto existing interfaces via the
+ * dplane thread.  The value is the srl2 (inner-facing) device MTU: to carry an
+ * inner frame of N bytes the underlay path must carry N + SRv6 overhead
+ * (~78 bytes FULL, ~54 REDUCED), so size the transport accordingly.
+ */
+#define ZEBRA_SRL2_MTU_UNSET 0
+/*
+ * The sr6 driver's own default MTU for a freshly created srl2 netdev (underlay
+ * 1500 - SRv6 encap overhead 78 = 1422).  On `no l2-mtu` we push this value
+ * back onto existing interfaces so the dataplane actually reverts, matching
+ * what a newly created interface would get when IFLA_MTU is omitted.
+ */
+#define ZEBRA_SRL2_DEFAULT_MTU 1422
+extern void zebra_srl2_set_mtu(uint32_t mtu);
+extern uint32_t zebra_srl2_get_mtu(void);
+
 /* Initialise/tear down global srl2 tracking table. */
 extern void zebra_srl2_init(void);
 extern void zebra_srl2_if_add(struct interface *ifp);
