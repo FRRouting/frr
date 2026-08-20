@@ -234,7 +234,7 @@ def check_show_l2vpn_vpws(router, name, vsi, rvsi, iface, state):
     res = json.loads(router.vtysh_cmd(f"show l2vpn {name} vpws json"))
 
     if not res:
-        f"Can not find L2VPN {name}"
+        return f"Can not find L2VPN {name}"
 
     match = None
     for vpws in res["instances"]:
@@ -501,6 +501,8 @@ def test_vni_changes():
     logger.info("Checking EVPN VPWS state is Down")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101",
                                 "Down")
+    assert res is True, res
+
     logger.info("Adding Vxlan101 VNI 200 interface")
     pe1.run("ip link add vxlan101 type vxlan id 200 dstport 4789")
     pe1.run("ip link set master br101 dev vxlan101")
@@ -512,6 +514,8 @@ def test_vni_changes():
     logger.info("Checking EVPN VPWS VNI 200 state is Up")
     res = check_show_l2vpn_vpws(pe1, "test", PE1_SVI, PE2_SVI, "vxlan101",
                                 "Up")
+    assert res is True, res
+
 
     logger.info("Check ping host1 <-> host2")
     check_ping("host1", "10.10.1.56", True, 10, 3)
