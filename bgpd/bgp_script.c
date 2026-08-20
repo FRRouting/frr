@@ -827,10 +827,10 @@ void lua_push_bgp_path_info(lua_State *L, const struct bgp_path_info *path)
 	lua_pushinteger(L, path->sub_type);
 	lua_setfield(L, -2, "sub_type");
 	/*
-	 * SR-TE color lives on bgp_path_info_extra (set sr-te color), not
-	 * on struct attr.
+	 * Effective SR-TE color: extra (set sr-te color) or Color
+	 * Extended Community.
 	 */
-	lua_pushinteger(L, path->extra ? path->extra->srte_color : 0);
+	lua_pushinteger(L, bgp_path_info_get_srte_color(path));
 	lua_setfield(L, -2, "srte_color");
 }
 

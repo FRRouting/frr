@@ -731,6 +731,8 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	}
 }
 
+extern uint32_t bgp_path_info_get_srte_color(const struct bgp_path_info *bpi);
+
 static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
 						 const struct bgp_path_info *src_bpi)
 {
@@ -739,7 +741,7 @@ static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
 	if (!src_bpi || !dst_bpi)
 		return;
 
-	src_srte_color = src_bpi->extra ? src_bpi->extra->srte_color : 0;
+	src_srte_color = bgp_path_info_get_srte_color(src_bpi);
 	if (src_srte_color || (dst_bpi->extra && dst_bpi->extra->srte_color))
 		bgp_path_info_extra_get(dst_bpi)->srte_color = src_srte_color;
 }
@@ -747,10 +749,7 @@ static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
 static inline bool bgp_path_info_extra_same(const struct bgp_path_info *old_bpi,
 					    const struct bgp_path_info *new_bpi)
 {
-	uint32_t old_srte_color = old_bpi && old_bpi->extra ? old_bpi->extra->srte_color : 0;
-	uint32_t new_srte_color = new_bpi && new_bpi->extra ? new_bpi->extra->srte_color : 0;
-
-	return old_srte_color == new_srte_color;
+	return bgp_path_info_get_srte_color(old_bpi) == bgp_path_info_get_srte_color(new_bpi);
 }
 
 static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,
@@ -1133,6 +1132,6 @@ extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 extern uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp);
 extern int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete);
 extern void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
-extern uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi);
+extern uint32_t bgp_path_info_get_srte_color(const struct bgp_path_info *bpi);
 extern uint64_t bgp_path_info_get_link_bw(struct bgp_path_info *bpi);
 #endif /* _QUAGGA_BGP_ROUTE_H */
