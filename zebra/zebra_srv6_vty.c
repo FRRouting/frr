@@ -146,16 +146,22 @@ DEFPY (show_srv6_manager,
 		 * tunnel interfaces (full = keep SRH, reduced =
 		 * H.Encaps.L2.Red single-SID).
 		 */
-		json_object_string_add(json_encapsulation, "l2Mode",
-				       zebra_sr6_encap_mode2str(zebra_sr6_get_encap_mode()));
+		json_object_string_add(json_encapsulation, "l2Mode", "kernel-owned");
+		if (zebra_sr6_get_mtu() != ZEBRA_SR6_MTU_UNSET)
+			json_object_int_add(json_encapsulation, "l2Mtu", zebra_sr6_get_mtu());
+		else
+			json_object_string_add(json_encapsulation, "l2Mtu", "default");
 		vty_json(vty, json);
 	} else {
 		vty_out(vty, "Parameters:\n");
 		vty_out(vty, "  Encapsulation:\n");
 		vty_out(vty, "    Source Address:\n");
 		vty_out(vty, "      Configured: %pI6\n", &srv6->encap_src_addr);
-		vty_out(vty, "    L2 EVPN (sr6) Mode: %s\n",
-			zebra_sr6_encap_mode2str(zebra_sr6_get_encap_mode()));
+		vty_out(vty, "    L2 EVPN (sr6) Mode: kernel-owned (per EVI/VPWS)\n");
+		if (zebra_sr6_get_mtu() != ZEBRA_SR6_MTU_UNSET)
+			vty_out(vty, "    L2 EVPN (sr6) MTU: %u\n", zebra_sr6_get_mtu());
+		else
+			vty_out(vty, "    L2 EVPN (sr6) MTU: default (kernel)\n");
 	}
 
 	return CMD_SUCCESS;
@@ -1883,6 +1889,38 @@ DEFPY_NOSH (srv6_l2evpn,
  * / VPWS (read from IFLA_SR6_ENCAP_MODE) and never imposes a software default.
  */
 
+DEFPY (srv6_l2evpn_mtu,
+       srv6_l2evpn_mtu_cmd,
+       "l2-mtu (1280-9216)$mtu",
+       "MTU applied to sr6 tunnel interfaces (for jumbo-frame L2 EVPN)\n"
+       "MTU in bytes; the underlay must carry this plus SRv6 encap overhead\n")
+{
+	/*
+	 * Applied at sr6 interface-create time (IFLA_MTU) AND pushed live onto
+	 * existing interfaces via the dplane thread - see zebra_sr6_set_mtu().
+	 * The value is the sr6 (inner-facing) device MTU; the underlay path
+	 * must carry it plus the SRv6 encap overhead (~78 bytes FULL, ~54
+	 * REDUCED) or frames are dropped/fragmented.
+	 */
+	zebra_sr6_set_mtu((uint32_t)mtu);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_srv6_l2evpn_mtu,
+       no_srv6_l2evpn_mtu_cmd,
+       "no l2-mtu [(1280-9216)]",
+       NO_STR
+       "MTU applied to sr6 tunnel interfaces (for jumbo-frame L2 EVPN)\n"
+       "MTU in bytes; the underlay must carry this plus SRv6 encap overhead\n")
+{
+	/* Revert to unset: new sr6 interfaces fall back to the kernel sr6
+	 * driver default (1422 on a 1500 underlay).  Existing interfaces keep
+	 * their current MTU until recreated.
+	 */
+	zebra_sr6_set_mtu(ZEBRA_SR6_MTU_UNSET);
+	return CMD_SUCCESS;
+}
+
 DEFPY_NOSH (srv6_l2evpn_evi,
        srv6_l2evpn_evi_cmd,
        "evi (1-16777215)$vni [locator WORD$locator] [bridge IFNAME$bridge]",
@@ -2031,6 +2069,8 @@ void zebra_srv6_vty_init(void)
 
 	/* SRv6 L2 EVPN (VLAN-to-EVI) */
 	install_element(SRV6_NODE, &srv6_l2evpn_cmd);
+	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_mtu_cmd);
+	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_mtu_cmd);
 	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_evi_cmd);
 	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_evi_cmd);
 	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_service_type_cmd);

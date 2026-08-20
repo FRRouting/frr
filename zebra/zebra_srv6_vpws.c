@@ -120,6 +120,28 @@ void zebra_srv6_vpws_walk_encap(void (*cb)(const struct in6_addr *peer_sid, ifin
 				cb(&v->peer_sid, v->sr6_ifindex, arg);
 }
 
+/*
+ * Live-apply the device-wide sr6 MTU (`l2-mtu`) to every VPWS sr6 encap
+ * interface.  VPWS sr6 ports are tracked in this module's own vpws_hash, not
+ * the EVPN sr6 table, so the device-wide MTU change cannot reach them - it
+ * calls here.  Each sr6 is re-programmed {MTU, mode, SID} on the dplane
+ * thread (dplane_sr6_program()).
+ * New VPWS sr6 interfaces pick the MTU up at create time (IFLA_MTU on the
+ * shared SR6_CREATE path), so this only reprograms already-created ones.
+ */
+void zebra_srv6_vpws_apply_mtu(uint32_t mtu)
+{
+	struct zsrv6_vpws *v;
+
+	if (!vpws_inited || mtu == 0)
+		return;
+
+	frr_each (vpws_htab, vpws_hash, v)
+		if (v->sr6_ifindex && v->remote_present)
+			dplane_sr6_program(v->sr6_ifindex, &v->peer_sid, mtu,
+					    v->l2_encap_mode);
+}
+
 /* ---------- peer-SID underlay /128 flush ----------
  *
  * Type-1 EAD processing installs an IPv6 /128 underlay route to the peer's
