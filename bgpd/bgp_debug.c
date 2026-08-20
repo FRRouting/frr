@@ -503,12 +503,13 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 		struct bgp_nhc_tlv *tlv;
 		struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
 
-		for (tlv = nhc->tlvs; tlv; tlv = tlv->next)
-			snprintfrr(buf + strlen(buf), size - strlen(buf),
-				   ", NHC TLV code %d length %d value %p", tlv->code, tlv->length,
-				   tlv->value);
+		if (nhc) {
+			for (tlv = nhc->tlvs; tlv; tlv = tlv->next)
+				snprintfrr(buf + strlen(buf), size - strlen(buf),
+					   ", NHC TLV code %d length %d value %p", tlv->code,
+					   tlv->length, tlv->value);
+		}
 	}
-
 	if (strlen(buf) > 1)
 		return true;
 	else
