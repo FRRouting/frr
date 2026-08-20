@@ -185,9 +185,6 @@ def test_get_config(tgen):
     ]
   },
   "frr-logging:logging": {
-    "file": {
-      "filename": "mgmtd.log"
-    },
     "record-priority": true,
     "timestamp-precision": 6
   }

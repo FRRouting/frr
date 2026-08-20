@@ -61,17 +61,14 @@ def tgen(request):
     tgen.start_topology()
 
     for rname, router in tgen.routers().items():
-        router.load_frr_config(os.path.join(CWD, "{}_broadcast".format(rname), "frr.conf"))
+        router.load_frr_config(
+            os.path.join(CWD, "{}_broadcast".format(rname), "frr.conf")
+        )
 
     tgen.start_router()
 
     r1 = tgen.gears["r1"]
-    r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf\n"
-        "redistribute static\n"
-        "end"
-    )
+    r1.vtysh_cmd("configure terminal\n" "router ospf\n" "redistribute static\n" "end")
 
     time.sleep(12)
 
@@ -158,15 +155,16 @@ def _wait_all_full(tgen, routers=None, timeout_s=30):
 def _count_external_lsas(router):
     out = router.vtysh_cmd("show ip ospf database external")
     return sum(
-        1 for line in out.splitlines()
-        if "Link State ID" in line and PREFIX_TAG in line
+        1 for line in out.splitlines() if "Link State ID" in line and PREFIX_TAG in line
     )
 
 
 def _wait_all_receivers(expected, receivers, timeout_s):
     deadline = time.time() + timeout_s
     while time.time() < deadline:
-        counts = {name: _count_external_lsas(router) for name, router in receivers.items()}
+        counts = {
+            name: _count_external_lsas(router) for name, router in receivers.items()
+        }
         if all(count == expected for count in counts.values()):
             return counts
         time.sleep(0.2)
@@ -207,12 +205,12 @@ def _enable_dynamic_adjacency_pacing(r1):
         "end"
     )
     cfg = r1.vtysh_cmd("show running-config")
-    assert "ip ospf adjacency-pacing dynamic" in cfg, (
-        "R5 adjacency-pacing dynamic missing from running-config"
-    )
-    assert "ip ospf adjacency-pacing dynamic thresholds 20 6" in cfg, (
-        "R5 adjacency-pacing dynamic thresholds missing from running-config"
-    )
+    assert (
+        "ip ospf adjacency-pacing dynamic" in cfg
+    ), "R5 adjacency-pacing dynamic missing from running-config"
+    assert (
+        "ip ospf adjacency-pacing dynamic thresholds 20 6" in cfg
+    ), "R5 adjacency-pacing dynamic thresholds missing from running-config"
 
 
 def _add_routes(r1):
@@ -254,23 +252,48 @@ def _exercise_lsa_pacing(tgen, constrained):
     step("Inject external LSAs through redistributed static routes")
     _add_routes(r1)
 
-    first = _wait_receiver_at_least(r2, 1, timeout_s=4)
+    # Wait for the first LSA at r2 -- may be delayed by 1s LSA throttle
+    # plus whatever redistribution/zebra takes. Floored at 15s per
+    # topotest convention rather than the previous tight 4s. This
+    # check (and the negative one right after it) is anchored to the
+    # first-arrival event, not to a fixed deadline from when the
+    # routes were added, so widening it is safe: R4 only starts
+    # spacing sends apart once an LSA is actually queued, so "first
+    # arrival, then still incomplete" holds regardless of how long
+    # redistribution took to get that first LSA originated. Adding an
+    # R1-side precondition wait here instead would risk it completing
+    # only after pacing had already fully drained, defeating the
+    # "still queued" check below for a reason unrelated to pacing.
+    first = _wait_receiver_at_least(r2, 1, timeout_s=15)
     assert first >= 1, "No Type-5 LSA reached r2 after enabling broadcast LSA pacing"
 
     count_now = _count_external_lsas(r2)
-    assert count_now < NUM_ROUTES, (
-        "Broadcast LSA pacing did not gate the flood: r2 already has {}/{} LSAs".format(
-            count_now, NUM_ROUTES
-        )
+    assert (
+        count_now < NUM_ROUTES
+    ), "Broadcast LSA pacing did not gate the flood: r2 already has {}/{} LSAs".format(
+        count_now, NUM_ROUTES
+    )
+
+    # Precondition: confirm r1 itself actually originated all
+    # NUM_ROUTES external LSAs before timing delivery to every LAN
+    # receiver below. This is a redistribution/zebra step, not part of
+    # what's under test -- a failure in the final convergence check
+    # without this would be ambiguous between "redistribution was
+    # slow" and "broadcast flooding/pacing across LAN receivers is
+    # broken".
+    origin_counts = _wait_all_receivers(NUM_ROUTES, {"r1": r1}, timeout_s=15)
+    assert origin_counts["r1"] == NUM_ROUTES, (
+        "r1 only originated {}/{} external LSAs within 15s of adding "
+        "the routes. This is a redistribution/zebra issue, not "
+        "broadcast LSA pacing.".format(origin_counts["r1"], NUM_ROUTES)
     )
 
     receivers = {name: tgen.gears[name] for name in LAN_NEIGHBORS}
-    timeout_s = 12
+    timeout_s = 15
     counts = _wait_all_receivers(NUM_ROUTES, receivers, timeout_s=timeout_s)
     assert all(count == NUM_ROUTES for count in counts.values()), (
-        "Not all receivers learned all Type-5 LSAs within {}s: {}".format(
-            timeout_s, counts
-        )
+        "r1 originated all {} LSAs but not all receivers learned them "
+        "within {}s: {}".format(NUM_ROUTES, timeout_s, counts)
     )
 
     # Log check is informational only: it depends on 'debug ospf lsa flooding'
@@ -303,6 +326,22 @@ def _exercise_adj_and_lsa_pacing(tgen, constrained):
     step("Inject external LSAs while flapping three DROther neighbors")
     _add_routes(r1)
 
+    # Precondition: confirm r1 itself actually originated all
+    # NUM_ROUTES external LSAs before flapping neighbors and timing
+    # convergence below. This is a redistribution/zebra step, not part
+    # of what's under test -- without it, a failure in the final
+    # convergence check would be ambiguous between "redistribution was
+    # slow" and "combined R4/R5 broadcast pacing is broken". No
+    # transient/negative property is being tested here (unlike
+    # _exercise_lsa_pacing's "still queued" check), so it's safe to
+    # wait on this precondition unconditionally before anything else.
+    origin_counts = _wait_all_receivers(NUM_ROUTES, {"r1": r1}, timeout_s=15)
+    assert origin_counts["r1"] == NUM_ROUTES, (
+        "r1 only originated {}/{} external LSAs within 15s of adding "
+        "the routes. This is a redistribution/zebra issue, not "
+        "combined R4/R5 broadcast pacing.".format(origin_counts["r1"], NUM_ROUTES)
+    )
+
     for rname in ["r3", "r4", "r5"]:
         tgen.net[rname].cmd("ip link set {}-eth0 down".format(rname))
     time.sleep(1)
@@ -315,9 +354,8 @@ def _exercise_adj_and_lsa_pacing(tgen, constrained):
     timeout_s = 20
     counts = _wait_all_receivers(NUM_ROUTES, receivers, timeout_s=timeout_s)
     assert all(count == NUM_ROUTES for count in counts.values()), (
-        "Combined R4/R5 broadcast pacing did not deliver all Type-5 LSAs: {}".format(
-            counts
-        )
+        "r1 originated all {} LSAs but combined R4/R5 broadcast pacing "
+        "did not deliver them to all receivers: {}".format(NUM_ROUTES, counts)
     )
 
     # Log checks are informational only — see note in _exercise_lsa_pacing.

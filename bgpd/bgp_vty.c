@@ -3629,6 +3629,27 @@ static void bgp_update_graceful_restart_capability(struct peer *peer)
 	}
 }
 
+static void bgp_graceful_restart_restart_time_set(struct bgp *bgp, uint32_t restart_time,
+						  int action)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	if (bgp->restart_time == restart_time)
+		return;
+
+	bgp->restart_time = restart_time;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+		    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+			bgp_update_graceful_restart_capability(peer);
+		else
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART, action);
+	}
+}
+
 DEFUN (bgp_graceful_restart_restart_time,
 	bgp_graceful_restart_restart_time_cmd,
 	"bgp graceful-restart restart-time (0-4095)",
@@ -3639,38 +3660,20 @@ DEFUN (bgp_graceful_restart_restart_time,
 {
 	int idx_number = 3;
 	uint32_t restart;
-	struct listnode *node, *nnode;
-	struct peer *peer;
 
 	restart = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
 		struct bgp *bgp;
 
 		bm->restart_time = restart;
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			bgp->restart_time = restart;
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
-				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-					bgp_update_graceful_restart_capability(peer);
-				else
-					bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-							    CAPABILITY_CODE_RESTART,
-							    CAPABILITY_ACTION_SET);
-			}
-		}
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			bgp_graceful_restart_restart_time_set(bgp, restart, CAPABILITY_ACTION_SET);
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		bgp->restart_time = restart;
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
-			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-				bgp_update_graceful_restart_capability(peer);
-			else
-				bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
-		}
+
+		bgp_graceful_restart_restart_time_set(bgp, restart, CAPABILITY_ACTION_SET);
 	}
 	return CMD_SUCCESS;
 }
@@ -3745,39 +3748,19 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 	"Set the time to wait to delete stale routes before a BGP open message is received\n"
 	"Delay value (seconds)\n")
 {
-	struct listnode *node, *nnode;
-	struct peer *peer;
-
 	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
 		struct bgp *bgp;
 
 		bm->restart_time = BGP_DEFAULT_RESTART_TIME;
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
-
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
-				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-					bgp_update_graceful_restart_capability(peer);
-				else
-					bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-							    CAPABILITY_CODE_RESTART,
-							    CAPABILITY_ACTION_UNSET);
-			}
-		}
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			bgp_graceful_restart_restart_time_set(bgp, BGP_DEFAULT_RESTART_TIME,
+							      CAPABILITY_ACTION_UNSET);
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
-			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-				bgp_update_graceful_restart_capability(peer);
-			else
-				bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART,
-						    CAPABILITY_ACTION_UNSET);
-		}
+		bgp_graceful_restart_restart_time_set(bgp, BGP_DEFAULT_RESTART_TIME,
+						      CAPABILITY_ACTION_UNSET);
 	}
 	return CMD_SUCCESS;
 }
@@ -11396,11 +11379,17 @@ DEFPY (af_rt_vpn_imexport,
 						&bgp->vpn_policy[afi].rtlist[dir]);
 			bgp->vpn_policy[afi].rtlist[dir] =
 				ecommunity_dup(ecom);
+			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
+				SET_FLAG(bgp->vpn_policy[afi].flags,
+					 BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
 		} else {
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);
 			bgp->vpn_policy[afi].rtlist[dir] = NULL;
+			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
+				UNSET_FLAG(bgp->vpn_policy[afi].flags,
+					   BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
 		}
 
 		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);

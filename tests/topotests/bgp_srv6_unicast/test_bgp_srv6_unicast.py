@@ -338,6 +338,63 @@ def test_bgp_srv6_sid_rmap_update():
     assert res is True, res
 
 
+def test_bgp_srv6_sid_rmap_use_count():
+    """
+    Verify SRv6 Service routes do not inflate the route-map use count while
+    walking/re-announcing multiple routes.
+    """
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        network 10.0.0.4/32
+        network 10.0.0.5/32
+        """
+    )
+
+    logger.info("Check newly announced SRv6 Service routes have SRv6 encap on R2")
+    for prefix in ("10.0.0.4/32", "10.0.0.5/32"):
+        res = check_route(
+            tgen.gears["r2"], "show ip route %s json" % prefix, prefix, r1_unicast_sid
+        )
+        assert res is True, res
+
+    logger.info("Detach route-map filter for SRv6 Service routes")
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        no sid export auto route-map filter
+        sid export auto
+        """
+    )
+
+    def _check_route_map_unused():
+        output = json.loads(r1.vtysh_cmd("show route-map-unused json"))
+        if "filter" not in output.get("bgpd", {}):
+            return "filter route-map is still in use"
+        return None
+
+    _, result = topotest.run_and_expect(_check_route_map_unused, None, count=20, wait=1)
+    assert result is None, "filter should be unused after removing it from sid export"
+
+    logger.info("Restore route-map filter for SRv6 Service routes")
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        no sid export auto
+        sid export auto route-map filter
+        """
+    )
+
+
 def test_bgp_srv6_sid_unexport():
     """
     Unconfigure sid export on R1, then check prefixes 10.0.0.1-3/32

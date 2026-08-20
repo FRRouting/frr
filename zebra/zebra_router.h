@@ -333,7 +333,7 @@ extern void zebra_main_router_started(void);
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;
 
-DECLARE_HOOK(nos_initialize_data, (struct zebra_architectural_values *), (zav));
+DECLARE_HOOK(nos_initialize_data, (struct zebra_architectural_values *zav), (zav));
 
 #ifdef __cplusplus
 }

@@ -215,7 +215,7 @@ def test_rip_bfd_convergence(tgen):
                 }
             ],
         },
-        6,
+        15,
     )
 
     expect_routes(
@@ -225,7 +225,7 @@ def test_rip_bfd_convergence(tgen):
             "10.254.254.2/32": None,
             "10.254.254.100/32": [{"code": "S", "subCode": "r", "from": "self"}],
         },
-        6,
+        15,
     )
 
 
@@ -235,8 +235,8 @@ def test_rip_log_neighbor_changes(tgen):
     def poll_r1_mgmtd_log(expression):
         "Helper function to poll the log file"
 
-        r1_mgmtd_log = tgen.gears["r1"].net.getLog("log", "mgmtd")
-        if re.search(expression, r1_mgmtd_log) is None:
+        r1_ripd_log = tgen.gears["r1"].net.getLog("log", "ripd")
+        if re.search(expression, r1_ripd_log) is None:
             return False
         else:
             return True

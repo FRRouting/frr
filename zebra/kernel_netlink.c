@@ -377,6 +377,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 
 	nl->snl = snl;
 	nl->sock = sock;
+	nl->proto = nl_family;
 	nl->buflen = NL_RCV_PKT_BUF_SIZE;
 	nl->buf = XMALLOC(MTYPE_NL_BUF, nl->buflen);
 
@@ -650,6 +651,35 @@ const char *nl_msg_type_to_str(uint16_t msg_type)
 	return lookup_msg(nlmsg_str, msg_type, "");
 }
 
+/*
+ * Name a netlink message type with protocol context. GENL family IDs are
+ * dynamically assigned from the same numeric range as RTM_* (both start at
+ * NLMSG_MIN_TYPE / 16), so they must only be matched when the socket is
+ * NETLINK_GENERIC — otherwise they shadow RTM types (e.g. family 37 vs
+ * RTM_DELQDISC).
+ */
+const char *nl_msg_type_to_str_sock(uint16_t msg_type, int proto)
+{
+	int16_t fam;
+
+	if (proto == NETLINK_GENERIC) {
+		if (msg_type == GENL_ID_CTRL)
+			return "GENL_CTRL";
+
+		fam = genl_family_ethtool();
+		if (fam >= 0 && msg_type == (uint16_t)fam)
+			return "ETHTOOL";
+
+		fam = genl_family_seg6();
+		if (fam >= 0 && msg_type == (uint16_t)fam)
+			return "SEG6";
+
+		return "GENL";
+	}
+
+	return nl_msg_type_to_str(msg_type);
+}
+
 const char *nl_rtproto_to_str(uint8_t rtproto)
 {
 	return lookup_msg(rtproto_str, rtproto, "");
@@ -665,7 +695,7 @@ const char *nl_rttype_to_str(uint8_t rttype)
 	return lookup_msg(rttype_str, rttype, "");
 }
 
-static void netlink_parse_extended_ack(struct nlmsghdr *h)
+static void netlink_parse_extended_ack(struct nlmsghdr *h, int proto)
 {
 	struct nlattr *tb[NLMSGERR_ATTR_MAX + 1] = {};
 	const struct nlmsgerr *err = (const struct nlmsgerr *)NLMSG_DATA(h);
@@ -702,7 +732,7 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 			 */
 			err_nlh = &err->msg;
 			zlog_debug("%s: Received %s extended Ack", __func__,
-				   nl_msg_type_to_str(err_nlh->nlmsg_type));
+				   nl_msg_type_to_str_sock(err_nlh->nlmsg_type, proto));
 		}
 	}
 
@@ -750,7 +780,7 @@ static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
 		zlog_debug("%s: >> netlink message dump [sent]", __func__);
 		frrtrace(2, frr_zebra, netlink_send_msg, nl, msg);
 #ifdef NETLINK_DEBUG
-		nl_dump(buf, buflen);
+		nl_dump(nl, buf, buflen);
 #else
 		zlog_hexdump(buf, buflen);
 #endif /* NETLINK_DEBUG */
@@ -822,7 +852,7 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
 		zlog_debug("%s: << netlink message dump [recv]", __func__);
 #ifdef NETLINK_DEBUG
-		nl_dump(nl->buf, status);
+		nl_dump(nl, nl->buf, status);
 #else
 		zlog_hexdump(nl->buf, status);
 #endif /* NETLINK_DEBUG */
@@ -855,16 +885,14 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	 * point in time we do not do anything other than report the issue.
 	 */
 	if (h->nlmsg_flags & NLM_F_ACK_TLVS)
-		netlink_parse_extended_ack(h);
+		netlink_parse_extended_ack(h, nl->proto);
 
 	/* If the error field is zero, then this is an ACK. */
 	if (err->error == 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL) {
-			zlog_debug("%s: %s ACK: type=%s(%u), seq=%u, pid=%u",
-				   __func__, nl->name,
-				   nl_msg_type_to_str(err->msg.nlmsg_type),
-				   err->msg.nlmsg_type, err->msg.nlmsg_seq,
-				   err->msg.nlmsg_pid);
+			zlog_debug("%s: %s ACK: type=%s(%u), seq=%u, pid=%u", __func__, nl->name,
+				   nl_msg_type_to_str_sock(err->msg.nlmsg_type, nl->proto),
+				   err->msg.nlmsg_type, err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 		}
 
 		return 1;
@@ -883,9 +911,9 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	       msg_type == RTM_GETTUNNEL) &&
 	      (-errnum == EOPNOTSUPP)))) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u",
-				   nl->name, safe_strerror(-errnum),
-				   nl_msg_type_to_str(msg_type), msg_type,
+			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u", nl->name,
+				   safe_strerror(-errnum),
+				   nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
 				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 		return 0;
 	}
@@ -903,17 +931,17 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 		 * error.
 		 */
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s error: %s, type=%s(%u), seq=%u, pid=%u",
-				   nl->name, safe_strerror(-errnum),
-				   nl_msg_type_to_str(msg_type), msg_type,
+			zlog_debug("%s error: %s, type=%s(%u), seq=%u, pid=%u", nl->name,
+				   safe_strerror(-errnum),
+				   nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
 				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 	} else {
 		if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) ||
 		    !startup)
 			flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
-				 "%s error: %s, type=%s(%u), seq=%u, pid=%u",
-				 nl->name, safe_strerror(-errnum),
-				 nl_msg_type_to_str(msg_type), msg_type,
+				 "%s error: %s, type=%s(%u), seq=%u, pid=%u", nl->name,
+				 safe_strerror(-errnum),
+				 nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
 				 err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 	}
 
@@ -1002,12 +1030,10 @@ int netlink_parse_info(netlink_parse_filter_t filter, struct nlsock *nl,
 
 			/* OK we got netlink message. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug(
-					"%s: %s type %s(%u), len=%d, seq=%u, pid=%u",
-					__func__, nl->name,
-					nl_msg_type_to_str(h->nlmsg_type),
-					h->nlmsg_type, h->nlmsg_len,
-					h->nlmsg_seq, h->nlmsg_pid);
+				zlog_debug("%s: %s type %s(%u), len=%d, seq=%u, pid=%u", __func__,
+					   nl->name,
+					   nl_msg_type_to_str_sock(h->nlmsg_type, nl->proto),
+					   h->nlmsg_type, h->nlmsg_len, h->nlmsg_seq, h->nlmsg_pid);
 
 			/*
 			 * Ignore messages that maybe sent from
@@ -1066,11 +1092,9 @@ static int netlink_talk_info(netlink_parse_filter_t filter, struct nlmsghdr *n,
 	n->nlmsg_pid = nl->snl.nl_pid;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"netlink_talk: %s type %s(%u), len=%d seq=%u flags 0x%x",
-			nl->name, nl_msg_type_to_str(n->nlmsg_type),
-			n->nlmsg_type, n->nlmsg_len, n->nlmsg_seq,
-			n->nlmsg_flags);
+		zlog_debug("netlink_talk: %s type %s(%u), len=%d seq=%u flags 0x%x", nl->name,
+			   nl_msg_type_to_str_sock(n->nlmsg_type, nl->proto), n->nlmsg_type,
+			   n->nlmsg_len, n->nlmsg_seq, n->nlmsg_flags);
 
 	if (netlink_send_msg(nl, n, n->nlmsg_len) == -1)
 		return -1;
@@ -1670,6 +1694,7 @@ static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsign
 {
 	snprintf(nl->name, sizeof(nl->name), "%s (NS %u)", name_prefix, ns_id);
 	nl->sock = -1;
+	nl->proto = nl_family;
 
 	if (netlink_socket(nl, groups, ext_groups, ext_group_size, ns_id, nl_family) < 0) {
 		if (warn_only)

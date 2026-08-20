@@ -34,6 +34,8 @@ struct sharp_routes {
 	uint32_t tableid;
 	bool stop_loop;
 
+	uint8_t distance;
+
 	uint8_t inst;
 	vrf_id_t vrf_id;
 

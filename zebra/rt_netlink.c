@@ -9,10 +9,12 @@
 
 /* The following definition is to workaround an issue in the Linux kernel
  * header files with redefinition of 'struct in6_addr' in both
- * netinet/in.h and linux/in6.h.
+ * netinet/in.h and linux/in6.h and redefinition of struct iphdr.
+ *
  * Reference - https://sourceware.org/ml/libc-alpha/2013-01/msg00599.html
  */
 #define _LINUX_IN6_H
+#define _LINUX_IP_H
 
 #include <net/if_arp.h>
 #include <linux/lwtunnel.h>
@@ -22,6 +24,7 @@
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 #include <linux/nexthop.h>
+#include <linux/if_tunnel.h>
 #include <string.h>
 
 /* Hack for GNU libc version 2. */
@@ -1711,6 +1714,7 @@ static bool _netlink_nexthop_encode_dvni_label(const struct nexthop *nexthop,
 					       size_t buflen, char *label_buf)
 {
 	struct in_addr ipv4;
+	uint16_t ival;
 
 	if (!nl_attr_put64(nlmsg, buflen, LWTUNNEL_IP_ID,
 			   htonll((uint64_t)out_lse[0])))
@@ -1730,6 +1734,11 @@ static bool _netlink_nexthop_encode_dvni_label(const struct nexthop *nexthop,
 		} else {
 			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP6_DST, &nexthop->gate.ipv6,
 					 IPV6_MAX_BYTELEN))
+				return false;
+
+			/* This FLAGS value needs to be in net order */
+			ival = htons(1U << IP_TUNNEL_CSUM_BIT);
+			if (!nl_attr_put16(nlmsg, buflen, LWTUNNEL_IP6_FLAGS, ival))
 				return false;
 		}
 	} else {

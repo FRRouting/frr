@@ -728,6 +728,7 @@ fi
 %endif
 %exclude %{_sbindir}/ssd
 %exclude %{_sbindir}/fpm_listener
+%exclude %{_sbindir}/bfd_dplane_listener
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif

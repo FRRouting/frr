@@ -2402,6 +2402,12 @@ module frr-zebra {
           description
             "Unidirectional Link Packet Loss";
         }
+        leaf-list srlg {
+          type uint32;
+          max-elements "32";
+          description
+            "Shared Risk Link Group membership (RFC5307/RFC6119)";
+        }
         // TODO -- other link-params options
         // for (experimental/partial TE use in IGP extensions)
       }

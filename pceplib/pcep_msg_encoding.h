@@ -55,6 +55,11 @@ struct pcep_versioning {
  * received */
 #define MAX_ITERATIONS 10
 
+/* RO objects may carry many sub-objects. For SR-TE, each segment is a
+ * sub-object.
+ */
+#define MAX_RO_ITERATIONS 128
+
 struct pcep_versioning *create_default_pcep_versioning(void);
 void destroy_pcep_versioning(struct pcep_versioning *versioning);
 

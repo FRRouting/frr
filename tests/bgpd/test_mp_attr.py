@@ -52,3 +52,18 @@ TestMpAttr.okfail("PREFIX-SID: PREFIX-SID Test 1")
 TestMpAttr.okfail(
     "PREFIX-SID-SRv6-L3-Service-duplicate: PREFIX-SID ignores duplicate SRv6 L3 Service TLVs"
 )
+TestMpAttr.okfail(
+    "PREFIX-SID-SRv6-L3-Service-length-overflow: PREFIX-SID rejects an overlong SRv6 L3 Service TLV"
+)
+TestMpAttr.okfail(
+    "PREFIX-SID-SRv6-L3-Service-missing-reserved: PREFIX-SID rejects an SRv6 L3 Service TLV without the reserved byte"
+)
+TestMpAttr.okfail(
+    "PREFIX-SID-SRv6-L3-Service-sid-info-short: PREFIX-SID rejects a short SRv6 SID Information Sub-TLV"
+)
+TestMpAttr.okfail(
+    "PREFIX-SID-SRv6-L3-Service-sid-structure-bad-length: PREFIX-SID rejects an SRv6 SID Structure Sub-Sub-TLV with a bad length"
+)
+TestMpAttr.okfail(
+    "PREFIX-SID-SRv6-L3-Service-sid-structure-bad-transposition: PREFIX-SID rejects an SRv6 SID Structure Sub-Sub-TLV with bad transposition"
+)
