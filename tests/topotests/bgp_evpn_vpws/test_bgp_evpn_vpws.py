@@ -172,7 +172,7 @@ def setup_module(mod):
         router.load_frr_config(
             os.path.join(CWD, "{}/frr.conf".format(rname)),
             [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BGP, None),
-             (TopoRouter.RD_OSPF, None)],
+             (TopoRouter.RD_STATIC, None)],
         )
 
     tgen.start_router()
