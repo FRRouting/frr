@@ -280,9 +280,13 @@ void bgp_peer_bfd_update_source(struct peer *p)
 	}
 
 	/* Update interface. */
-	if (p->nexthop.ifp && bfd_sess_interface(session) == NULL) {
+	const char *ifname = bfd_sess_interface(session);
+
+	if (p->nexthop.ifp &&
+	    (!ifname || !strmatch(ifname, p->nexthop.ifp->name))) {
 		if (BGP_DEBUG(bfd, BFD_LIB))
-			zlog_debug("%s: interface none to %s", __func__,
+			zlog_debug("%s: interface %s to %s", __func__,
+				   ifname ? ifname : "none",
 				   p->nexthop.ifp->name);
 
 		bfd_sess_set_interface(session, p->nexthop.ifp->name);
