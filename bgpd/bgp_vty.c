@@ -3377,6 +3377,39 @@ DEFUN (bgp_deterministic_med,
 	return CMD_SUCCESS;
 }
 
+static bool bgp_peer_addpath_strategy_is_used(struct peer *peer, int strategy)
+{
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (strategy == BGP_ADDPATH_BEST_PER_ENCAPSULATION &&
+		    bgp_addpath_encapsulation_required(peer->addpath_type[afi][safi]))
+			return true;
+		if (strategy == BGP_ADDPATH_BEST_PER_AS &&
+		    bgp_addpath_dmed_required(peer->addpath_type[afi][safi]))
+			return true;
+	}
+	return false;
+}
+
+static bool bgp_peer_list_addpath_strategy_is_used(struct list *peer_list, int strategy)
+{
+	struct peer *peer;
+	struct listnode *node, *nnode;
+	struct peer_group *group;
+
+	for (ALL_LIST_ELEMENTS(peer_list, node, nnode, peer)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+			group = peer->group;
+			if (group && bgp_peer_list_addpath_strategy_is_used(group->peer, strategy))
+				return true;
+		} else if (bgp_peer_addpath_strategy_is_used(peer, strategy))
+			return true;
+	}
+	return false;
+}
+
 DEFUN (no_bgp_deterministic_med,
        no_bgp_deterministic_med_cmd,
        "no bgp deterministic-med",
@@ -3385,28 +3418,9 @@ DEFUN (no_bgp_deterministic_med,
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int bestpath_per_as_used;
-	afi_t afi;
-	safi_t safi;
-	struct peer *peer;
-	struct listnode *node, *nnode;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
-		bestpath_per_as_used = 0;
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi)
-				if (bgp_addpath_dmed_required(
-					peer->addpath_type[afi][safi])) {
-					bestpath_per_as_used = 1;
-					break;
-				}
-
-			if (bestpath_per_as_used)
-				break;
-		}
-
-		if (bestpath_per_as_used) {
+		if (bgp_peer_list_addpath_strategy_is_used(bgp->peer, BGP_ADDPATH_BEST_PER_AS)) {
 			vty_out(vty,
 				"bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -3525,30 +3539,13 @@ DEFPY(bgp_encapsulation_selection, bgp_encapsulation_selection_cmd,
       NO_STR BGP_STR "Pick the best encapsulation selection path among paths advertised\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bool bestpath_per_encapsulation_used;
-	afi_t afi;
-	safi_t safi;
-	struct peer *peer;
-	struct listnode *node, *nnode;
 
 	if (no) {
 		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION))
 			return CMD_SUCCESS;
-		bestpath_per_encapsulation_used = false;
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi)
-				if (bgp_addpath_encapsulation_required(
-					    peer->addpath_type[afi][safi])) {
-					bestpath_per_encapsulation_used = true;
-					break;
-				}
-
-			if (bestpath_per_encapsulation_used)
-				break;
-		}
-
-		if (bestpath_per_encapsulation_used) {
+		if (bgp_peer_list_addpath_strategy_is_used(bgp->peer,
+							   BGP_ADDPATH_BEST_PER_ENCAPSULATION)) {
 			vty_out(vty,
 				"bgp encapsulation-selection cannot be disabled while addpath-tx-bestpath-per-encapsulation is in use\n");
 			return CMD_WARNING_CONFIG_FAILED;
