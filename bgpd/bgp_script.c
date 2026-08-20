@@ -43,9 +43,8 @@ static void lua_push_optional_uint(lua_State *L, const struct attr *attr,
  * Decode optional integer. nil/absent clears the flag and zeroes the field.
  * Returns true if the value is present (and *out is set).
  */
-static bool lua_decode_optional_uint(lua_State *L, int idx, const char *key,
-				     struct attr *attr, uint64_t flagbit,
-				     uint64_t *out)
+static bool lua_decode_optional_uint(lua_State *L, int idx, const char *key, struct attr *attr,
+				     uint64_t flagbit, uint64_t *out)
 {
 	lua_getfield(L, idx, key);
 	if (lua_isnil(L, -1)) {
@@ -69,7 +68,7 @@ static void lua_decode_aspath_field(lua_State *L, int idx, struct attr *attr)
 	lua_getfield(L, idx, "aspath");
 	if (lua_isnil(L, -1)) {
 		attr->aspath = NULL;
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+		bgp_attr_unset(attr, BGP_ATTR_AS_PATH);
 		lua_pop(L, 1);
 		return;
 	}
@@ -98,7 +97,7 @@ static void lua_decode_aspath_field(lua_State *L, int idx, struct attr *attr)
 	if (new_aspath)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
 	else
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+		bgp_attr_unset(attr, BGP_ATTR_AS_PATH);
 	lua_pop(L, 1);
 }
 
@@ -375,7 +374,7 @@ static void bgp_attr_script_apply_aspath(struct attr *dst, struct attr *src)
 	if (dst->aspath)
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
 	else
-		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+		bgp_attr_unset(dst, BGP_ATTR_AS_PATH);
 }
 
 static void bgp_attr_script_apply_evpn(struct attr *dst, struct attr *src)
@@ -401,7 +400,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
 		bgp_attr_set_med(dst, src->med);
 	else {
-		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+		bgp_attr_unset(dst, BGP_ATTR_MULTI_EXIT_DISC);
 		dst->med = 0;
 	}
 
@@ -410,7 +409,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
 		dst->local_pref = src->local_pref;
 	} else {
-		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+		bgp_attr_unset(dst, BGP_ATTR_LOCAL_PREF);
 		dst->local_pref = 0;
 	}
 
@@ -424,7 +423,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
 	} else {
 		memset(&dst->nexthop, 0, sizeof(dst->nexthop));
-		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+		bgp_attr_unset(dst, BGP_ATTR_NEXT_HOP);
 	}
 	dst->mp_nexthop_global = src->mp_nexthop_global;
 	dst->mp_nexthop_local = src->mp_nexthop_local;
@@ -440,7 +439,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	} else {
 		dst->aggregator_as = 0;
 		memset(&dst->aggregator_addr, 0, sizeof(dst->aggregator_addr));
-		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+		bgp_attr_unset(dst, BGP_ATTR_AGGREGATOR);
 	}
 
 	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) {
@@ -448,7 +447,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
 	} else {
 		memset(&dst->originator_id, 0, sizeof(dst->originator_id));
-		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+		bgp_attr_unset(dst, BGP_ATTR_ORIGINATOR_ID);
 	}
 
 	dst->origin = src->origin;
@@ -462,7 +461,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 	} else {
 		dst->label_index = 0;
-		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+		bgp_attr_unset(dst, BGP_ATTR_PREFIX_SID);
 	}
 
 	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)))
@@ -473,7 +472,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
 	else
-		UNSET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+		bgp_attr_unset(dst, BGP_ATTR_ATOMIC_AGGREGATE);
 
 	bgp_attr_script_apply_community(dst, src);
 	bgp_attr_script_apply_lcommunity(dst, src);
@@ -616,7 +615,7 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 		if (had_ipv4)
 			SET_FLAG(attr->rmap_change_flags,
 				 BATTR_RMAP_IPV4_NHOP_CHANGED);
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+		bgp_attr_unset(attr, BGP_ATTR_NEXT_HOP);
 		memset(&attr->nexthop, 0, sizeof(attr->nexthop));
 	} else {
 		const char *str = lua_tostring(L, -1);
@@ -1066,8 +1065,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	ifindex_t orig_nh_ifindex = attr->nh_ifindex;
 
 	if (lua_decode_optional_uint(L, idx, "metric", attr,
-				     ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC),
-				     &val))
+				     ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC), &val))
 		bgp_attr_set_med(attr, (uint32_t)val);
 
 	lua_getfield(L, idx, "ifindex");
@@ -1077,8 +1075,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 
 	lua_decode_aspath_field(L, idx, attr);
 
-	if (lua_decode_optional_uint(L, idx, "localpref", attr,
-				     ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF),
+	if (lua_decode_optional_uint(L, idx, "localpref", attr, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF),
 				     &val))
 		attr->local_pref = (uint32_t)val;
 
@@ -1132,7 +1129,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 			SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 		} else {
 			attr->label_index = 0;
-			UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+			bgp_attr_unset(attr, BGP_ATTR_PREFIX_SID);
 		}
 	}
 	lua_pop(L, 1);
@@ -1148,7 +1145,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	if (!lua_isnil(L, -1) && lua_toboolean(L, -1))
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
 	else
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+		bgp_attr_unset(attr, BGP_ATTR_ATOMIC_AGGREGATE);
 	lua_pop(L, 1);
 
 	lua_decode_community_field(L, idx, attr);
@@ -1170,7 +1167,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 
 	lua_getfield(L, idx, "aggregator");
 	if (lua_isnil(L, -1)) {
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+		bgp_attr_unset(attr, BGP_ATTR_AGGREGATOR);
 		attr->aggregator_as = 0;
 		memset(&attr->aggregator_addr, 0, sizeof(attr->aggregator_addr));
 	} else if (lua_istable(L, -1)) {
@@ -1192,7 +1189,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 
 	lua_getfield(L, idx, "originator_id");
 	if (lua_isnil(L, -1)) {
-		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+		bgp_attr_unset(attr, BGP_ATTR_ORIGINATOR_ID);
 		memset(&attr->originator_id, 0, sizeof(attr->originator_id));
 	} else {
 		const char *str = lua_tostring(L, -1);
