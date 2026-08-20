@@ -5420,6 +5420,7 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_BRPORT_FLAGS:
 			case DPLANE_OP_BRIDGE_VLAN_ADD:
 			case DPLANE_OP_SR6_UPDATE_SID:
+			case DPLANE_OP_SR6_SET_MTU:
 			case DPLANE_OP_NONE:
 				break;
 			case DPLANE_OP_STARTUP_STAGE:

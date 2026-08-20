@@ -994,6 +994,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_BRPORT_FLAGS:
 	case DPLANE_OP_BRIDGE_VLAN_ADD:
 	case DPLANE_OP_SR6_UPDATE_SID:
+	case DPLANE_OP_SR6_SET_MTU:
 	case DPLANE_OP_TC_QDISC_INSTALL:
 	case DPLANE_OP_TC_QDISC_UNINSTALL:
 	case DPLANE_OP_TC_CLASS_ADD:
@@ -1317,6 +1318,8 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "BRIDGE_VLAN_ADD";
 	case DPLANE_OP_SR6_UPDATE_SID:
 		return "SR6_UPDATE_SID";
+	case DPLANE_OP_SR6_SET_MTU:
+		return "SR6_SET_MTU";
 
 	case DPLANE_OP_INTF_SPEED_GET:
 		return "INTF_SPEED_GET";
@@ -7893,6 +7896,7 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_BRPORT_FLAGS:
 	case DPLANE_OP_BRIDGE_VLAN_ADD:
 	case DPLANE_OP_SR6_UPDATE_SID:
+	case DPLANE_OP_SR6_SET_MTU:
 		zlog_debug("Dplane intf %s, idx %u", dplane_op2str(dplane_ctx_get_op(ctx)),
 			   dplane_ctx_get_ifindex(ctx));
 		break;
@@ -8095,6 +8099,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_BRPORT_FLAGS:
 	case DPLANE_OP_BRIDGE_VLAN_ADD:
 	case DPLANE_OP_SR6_UPDATE_SID:
+	case DPLANE_OP_SR6_SET_MTU:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors,
 						  1, memory_order_relaxed);

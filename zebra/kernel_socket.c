@@ -1715,6 +1715,7 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_BRPORT_FLAGS:
 		case DPLANE_OP_BRIDGE_VLAN_ADD:
 		case DPLANE_OP_SR6_UPDATE_SID:
+		case DPLANE_OP_SR6_SET_MTU:
 		case DPLANE_OP_VLAN_INSTALL:
 		case DPLANE_OP_FDB_READ:
 		case DPLANE_OP_NEIGH_READ:

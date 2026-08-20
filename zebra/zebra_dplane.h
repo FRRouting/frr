@@ -200,14 +200,6 @@ enum dplane_op_e {
 	DPLANE_OP_INTF_UPDATE,
 	DPLANE_OP_INTF_DELETE,
 
-	/*
-	 * Port master set/unset (enslave/unslave) and link delete.  Used by the
-	 * SRv6 L2 EVPN / VPWS path so it programs the kernel through the dataplane
-	 * provider abstraction instead of private netlink sockets.
-	 */
-	DPLANE_OP_BRPORT_FLAGS,
-	DPLANE_OP_BRIDGE_VLAN_ADD,
-	DPLANE_OP_SR6_UPDATE_SID,
 	/* Traffic control */
 	DPLANE_OP_TC_QDISC_INSTALL,
 	DPLANE_OP_TC_QDISC_UNINSTALL,
@@ -238,6 +230,17 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/*
+	 * Port master set/unset (enslave/unslave) and link delete.  Used by the
+	 * SRv6 L2 EVPN / VPWS path so it programs the kernel through the dataplane
+	 * provider abstraction instead of private netlink sockets.
+	 */
+	DPLANE_OP_BRPORT_FLAGS,
+	DPLANE_OP_BRIDGE_VLAN_ADD,
+	DPLANE_OP_SR6_UPDATE_SID,
+	DPLANE_OP_SR6_SET_MTU,
+
 };
 
 /* Operational status of Bridge Ports */
@@ -1066,8 +1069,6 @@ enum zebra_dplane_result dplane_sr6_program(ifindex_t ifindex, const struct in6_
 					    uint32_t mtu, uint8_t mode);
 void dplane_ctx_set_sr6_sid(struct zebra_dplane_ctx *ctx, const struct in6_addr *sid);
 const struct in6_addr *dplane_ctx_get_sr6_sid(const struct zebra_dplane_ctx *ctx);
-enum zebra_dplane_result dplane_sr6_create(const char *name, const struct in6_addr *sid);
-enum zebra_dplane_result dplane_sr6_addrgenmode(ifindex_t ifindex);
 void dplane_ctx_set_br_is_bum(struct zebra_dplane_ctx *ctx, bool is_bum);
 bool dplane_ctx_get_br_is_bum(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_br_vlan(struct zebra_dplane_ctx *ctx, vlanid_t vid, bool untagged, bool pvid);
