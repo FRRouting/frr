@@ -213,6 +213,7 @@ enum dplane_op_e {
 	DPLANE_OP_SRL2_UPDATE_SID,
 	DPLANE_OP_SRL2_CREATE,
 	DPLANE_OP_SRL2_ADDRGENMODE,
+	DPLANE_OP_SRL2_SET_MTU,
 
 	/* Traffic control */
 	DPLANE_OP_TC_QDISC_INSTALL,
@@ -1080,8 +1081,6 @@ enum zebra_dplane_result dplane_srl2_program(ifindex_t ifindex, const struct in6
 					     uint32_t mtu, uint8_t mode);
 void dplane_ctx_set_srl2_sid(struct zebra_dplane_ctx *ctx, const struct in6_addr *sid);
 const struct in6_addr *dplane_ctx_get_srl2_sid(const struct zebra_dplane_ctx *ctx);
-enum zebra_dplane_result dplane_srl2_create(const char *name, const struct in6_addr *sid);
-enum zebra_dplane_result dplane_srl2_addrgenmode(ifindex_t ifindex);
 void dplane_ctx_set_br_is_bum(struct zebra_dplane_ctx *ctx, bool is_bum);
 bool dplane_ctx_get_br_is_bum(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_br_vlan(struct zebra_dplane_ctx *ctx, vlanid_t vid, bool untagged, bool pvid);

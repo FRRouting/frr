@@ -110,6 +110,7 @@ extern ifindex_t zebra_srl2_discover_on_bridge(ifindex_t bridge_ifindex, bool is
  * what a newly created interface would get when IFLA_MTU is omitted.
  */
 #define ZEBRA_SRL2_DEFAULT_MTU 1422
+extern void zebra_srl2_set_mtu(uint32_t mtu);
 extern uint32_t zebra_srl2_get_mtu(void);
 
 /* Initialise/tear down global srl2 tracking table. */
