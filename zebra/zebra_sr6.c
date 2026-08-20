@@ -23,6 +23,7 @@
 #include "zebra/zebra_router.h"
 #include "zebra/interface.h" /* struct zebra_if, brslave_info */
 #include "zebra/zebra_srv6_l2evpn.h"
+#include "zebra/zebra_srv6_vpws.h"
 #include "zebra/zebra_dplane.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR6, "Zebra SRv6 SR-L2 interface");
@@ -101,6 +102,47 @@ static uint32_t sr6_mtu = ZEBRA_SR6_MTU_UNSET;
 uint32_t zebra_sr6_get_mtu(void)
 {
 	return sr6_mtu;
+}
+
+/*
+ * Store the new device-wide MTU and push it live onto every existing
+ * sr6/bum-sr6 interface via the DPLANE THREAD (dplane_sr6_program()
+ * an RTM_SETLINK IFLA_MTU) so the operator does not have to bounce the EVIs -
+ * never synchronous netlink from this (main/CLI) thread.  New interfaces pick
+ * the MTU up at create time.
+ *
+ * On `no l2-mtu` (mtu == ZEBRA_SR6_MTU_UNSET) we store UNSET (so interfaces
+ * created afterwards omit IFLA_MTU and get the sr6 driver default) AND actively
+ * reprogram existing interfaces back to ZEBRA_SR6_DEFAULT_MTU - otherwise the
+ * dataplane would keep the previously-configured value until a recreate.  The
+ * value actually pushed to the kernel is therefore `apply`, never 0 (the kernel
+ * rejects IFLA_MTU 0).
+ */
+void zebra_sr6_set_mtu(uint32_t mtu)
+{
+	struct zebra_sr6 *sr6;
+	uint32_t apply = (mtu == ZEBRA_SR6_MTU_UNSET) ? ZEBRA_SR6_DEFAULT_MTU : mtu;
+
+	sr6_mtu = mtu;
+
+	/* EVPN sr6 / bum-sr6 (this module's own hash). */
+	if (sr6_inited)
+		frr_each (sr6_htab, sr6_table, sr6) {
+			if (sr6->ifindex <= 0)
+				continue;
+			dplane_sr6_program(sr6->ifindex, &sr6->sid, apply,
+					    zebra_sr6_kernel_encap_mode(
+						    sr6->ifindex,
+						    zebra_sr6_get_encap_mode()));
+		}
+
+	/*
+	 * VPWS sr6 encap ports live in a separate subsystem/hash
+	 * (zebra_srv6_vpws.c) that this walk cannot see, so ask it to
+	 * reprogram its own interfaces.  Self-guarded (no-op if VPWS is not
+	 * initialised).
+	 */
+	zebra_srv6_vpws_apply_mtu(apply);
 }
 
 void zebra_sr6_walk(void (*cb)(struct zebra_sr6 *sr6, void *arg), void *arg)
@@ -548,6 +590,11 @@ uint8_t zebra_sr6_kernel_encap_mode(ifindex_t ifindex, uint8_t fallback)
 }
 
 static uint32_t sr6_mtu = ZEBRA_SR6_MTU_UNSET;
+
+void zebra_sr6_set_mtu(uint32_t mtu)
+{
+	sr6_mtu = mtu;
+}
 
 uint32_t zebra_sr6_get_mtu(void)
 {
