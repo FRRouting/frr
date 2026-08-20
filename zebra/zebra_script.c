@@ -422,6 +422,7 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SRL2_UPDATE_SID:
 	case DPLANE_OP_SRL2_CREATE:
 	case DPLANE_OP_SRL2_ADDRGENMODE:
+	case DPLANE_OP_SRL2_SET_MTU:
 	case DPLANE_OP_TC_QDISC_INSTALL:
 	case DPLANE_OP_TC_QDISC_UNINSTALL:
 	case DPLANE_OP_TC_CLASS_ADD:

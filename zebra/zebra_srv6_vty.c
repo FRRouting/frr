@@ -148,6 +148,10 @@ DEFPY (show_srv6_manager,
 		 */
 		json_object_string_add(json_encapsulation, "l2Mode",
 				       zebra_srl2_encap_mode2str(zebra_srl2_get_encap_mode()));
+		if (zebra_srl2_get_mtu() != ZEBRA_SRL2_MTU_UNSET)
+			json_object_int_add(json_encapsulation, "l2Mtu", zebra_srl2_get_mtu());
+		else
+			json_object_string_add(json_encapsulation, "l2Mtu", "default");
 		vty_json(vty, json);
 	} else {
 		vty_out(vty, "Parameters:\n");
@@ -156,6 +160,10 @@ DEFPY (show_srv6_manager,
 		vty_out(vty, "      Configured: %pI6\n", &srv6->encap_src_addr);
 		vty_out(vty, "    L2 EVPN (srl2) Mode: %s\n",
 			zebra_srl2_encap_mode2str(zebra_srl2_get_encap_mode()));
+		if (zebra_srl2_get_mtu() != ZEBRA_SRL2_MTU_UNSET)
+			vty_out(vty, "    L2 EVPN (srl2) MTU: %u\n", zebra_srl2_get_mtu());
+		else
+			vty_out(vty, "    L2 EVPN (srl2) MTU: default (kernel)\n");
 	}
 
 	return CMD_SUCCESS;
@@ -1907,6 +1915,38 @@ DEFPY (no_srv6_l2evpn_encap_mode,
 	return CMD_SUCCESS;
 }
 
+DEFPY (srv6_l2evpn_mtu,
+       srv6_l2evpn_mtu_cmd,
+       "l2-mtu (1280-9216)$mtu",
+       "MTU applied to srl2 tunnel interfaces (for jumbo-frame L2 EVPN)\n"
+       "MTU in bytes; the underlay must carry this plus SRv6 encap overhead\n")
+{
+	/*
+	 * Applied at srl2 interface-create time (IFLA_MTU) AND pushed live onto
+	 * existing interfaces via the dplane thread - see zebra_srl2_set_mtu().
+	 * The value is the srl2 (inner-facing) device MTU; the underlay path
+	 * must carry it plus the SRv6 encap overhead (~78 bytes FULL, ~54
+	 * REDUCED) or frames are dropped/fragmented.
+	 */
+	zebra_srl2_set_mtu((uint32_t)mtu);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_srv6_l2evpn_mtu,
+       no_srv6_l2evpn_mtu_cmd,
+       "no l2-mtu [(1280-9216)]",
+       NO_STR
+       "MTU applied to srl2 tunnel interfaces (for jumbo-frame L2 EVPN)\n"
+       "MTU in bytes; the underlay must carry this plus SRv6 encap overhead\n")
+{
+	/* Revert to unset: new srl2 interfaces fall back to the kernel sr6
+	 * driver default (1422 on a 1500 underlay).  Existing interfaces keep
+	 * their current MTU until recreated.
+	 */
+	zebra_srl2_set_mtu(ZEBRA_SRL2_MTU_UNSET);
+	return CMD_SUCCESS;
+}
+
 DEFPY_NOSH (srv6_l2evpn_evi,
        srv6_l2evpn_evi_cmd,
        "evi (1-16777215)$vni [locator WORD$locator] [bridge IFNAME$bridge]",
@@ -2057,6 +2097,8 @@ void zebra_srv6_vty_init(void)
 	install_element(SRV6_NODE, &srv6_l2evpn_cmd);
 	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_encap_mode_cmd);
 	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_encap_mode_cmd);
+	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_mtu_cmd);
+	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_mtu_cmd);
 	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_evi_cmd);
 	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_evi_cmd);
 	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_service_type_cmd);
