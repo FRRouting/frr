@@ -209,7 +209,10 @@ daemon_stop() {
 	is_user_root || exit 1
 
 	all=false
+	sig=INT
+	# these can't be used at the same time anyway
 	[ "$2" = "--reallyall" ] && all=true
+	[ "$2" = "--reload" ] && sig=USR1
 
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 	vtyfile="$V_PATH/$daemon${inst:+-$inst}.vty"
@@ -229,8 +232,8 @@ daemon_stop() {
 		debug "kill -6 $pid"
 		kill -6 "$pid"
 	else
-		debug "kill -2 $pid"
-		kill -2 "$pid"
+		debug "kill -$sig $pid"
+		kill -$sig "$pid"
 	fi
 
 	cnt=1200

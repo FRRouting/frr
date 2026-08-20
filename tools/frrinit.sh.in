@@ -89,7 +89,7 @@ reload)
 	# NB: This will NOT cause the other daemons to be restarted.
 	daemon_list enabled_daemons disabled_daemons
 	watchfrr_options="$watchfrr_options $enabled_daemons"
-	daemon_stop watchfrr && \
+	daemon_stop watchfrr --reload && \
 		daemon_start watchfrr
 
 	# If we disable an arbitrary daemon and do reload,
