@@ -4411,12 +4411,14 @@ struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
  */
 bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 {
-	if (pi->attr && pi->attr->srv6_l3service)
+	if (!pi->attr)
+		return false;
+
+	if (pi->attr->srv6_l3service || pi->attr->srv6_vpn)
 		/* srv6 sid */
 		return false;
 
-	if (pi->attr &&
-	    CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) &&
+	if (CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) &&
 	    pi->attr->label_index != BGP_INVALID_LABEL_INDEX)
 		/* prefix_sid attribute */
 		return false;
