@@ -23,6 +23,7 @@
 #include "zebra/zebra_router.h"
 #include "zebra/interface.h" /* struct zebra_if, brslave_info */
 #include "zebra/zebra_srv6_l2evpn.h"
+#include "zebra/zebra_srv6_vpws.h"
 #include "zebra/zebra_dplane.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SRL2, "Zebra SRv6 SR-L2 interface");
@@ -70,6 +71,58 @@ enum zebra_srl2_encap_mode zebra_srl2_get_encap_mode(void)
 const char *zebra_srl2_encap_mode2str(enum zebra_srl2_encap_mode mode)
 {
 	return mode == ZEBRA_SRL2_ENCAP_MODE_REDUCED ? "reduced" : "full";
+}
+
+/*
+ * Device-wide MTU for srl2 interfaces.  0 (ZEBRA_SRL2_MTU_UNSET) means "leave
+ * it to the kernel sr6 driver default" (= 1422 on a 1500 underlay); a non-zero
+ * value is set via `l2-mtu <n>`, emitted as IFLA_MTU at interface-create time
+ * (if_netlink.c SRL2_CREATE branch) and pushed live onto existing interfaces
+ * here.  See zebra_srl2.h for the underlay-sizing note.
+ */
+static uint32_t srl2_mtu = ZEBRA_SRL2_MTU_UNSET;
+
+uint32_t zebra_srl2_get_mtu(void)
+{
+	return srl2_mtu;
+}
+
+/*
+ * Store the new device-wide MTU and push it live onto every existing
+ * srl2/bum-srl2 interface via the DPLANE THREAD (dplane_srl2_set_mtu() queues
+ * an RTM_SETLINK IFLA_MTU) so the operator does not have to bounce the EVIs -
+ * never synchronous netlink from this (main/CLI) thread.  New interfaces pick
+ * the MTU up at create time.
+ *
+ * On `no l2-mtu` (mtu == ZEBRA_SRL2_MTU_UNSET) we store UNSET (so interfaces
+ * created afterwards omit IFLA_MTU and get the sr6 driver default) AND actively
+ * reprogram existing interfaces back to ZEBRA_SRL2_DEFAULT_MTU - otherwise the
+ * dataplane would keep the previously-configured value until a recreate.  The
+ * value actually pushed to the kernel is therefore `apply`, never 0 (the kernel
+ * rejects IFLA_MTU 0).
+ */
+void zebra_srl2_set_mtu(uint32_t mtu)
+{
+	struct zebra_srl2 *srl2;
+	uint32_t apply = (mtu == ZEBRA_SRL2_MTU_UNSET) ? ZEBRA_SRL2_DEFAULT_MTU : mtu;
+
+	srl2_mtu = mtu;
+
+	/* EVPN srl2 / bum-srl2 (this module's own hash). */
+	if (srl2_inited)
+		frr_each (srl2_htab, srl2_table, srl2) {
+			if (srl2->ifindex <= 0)
+				continue;
+			dplane_srl2_set_mtu(srl2->ifindex, apply);
+		}
+
+	/*
+	 * VPWS srl2 encap ports live in a separate subsystem/hash
+	 * (zebra_srv6_vpws.c) that this walk cannot see, so ask it to
+	 * reprogram its own interfaces.  Self-guarded (no-op if VPWS is not
+	 * initialised).
+	 */
+	zebra_srv6_vpws_apply_mtu(apply);
 }
 
 void zebra_srl2_walk(void (*cb)(struct zebra_srl2 *srl2, void *arg), void *arg)
@@ -429,6 +482,18 @@ enum zebra_srl2_encap_mode zebra_srl2_get_encap_mode(void)
 const char *zebra_srl2_encap_mode2str(enum zebra_srl2_encap_mode mode)
 {
 	return mode == ZEBRA_SRL2_ENCAP_MODE_REDUCED ? "reduced" : "full";
+}
+
+static uint32_t srl2_mtu = ZEBRA_SRL2_MTU_UNSET;
+
+void zebra_srl2_set_mtu(uint32_t mtu)
+{
+	srl2_mtu = mtu;
+}
+
+uint32_t zebra_srl2_get_mtu(void)
+{
+	return srl2_mtu;
 }
 
 void zebra_srl2_init(void)

@@ -1554,6 +1554,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_SRL2_UPDATE_SID:
 	case DPLANE_OP_SRL2_CREATE:
 	case DPLANE_OP_SRL2_ADDRGENMODE:
+	case DPLANE_OP_SRL2_SET_MTU:
 		return netlink_put_link_update_msg(bth, ctx);
 
 	case DPLANE_OP_TC_QDISC_INSTALL:
