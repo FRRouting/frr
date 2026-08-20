@@ -336,6 +336,8 @@ struct bfd_profile {
 	bool admin_shutdown;
 	/** Passive mode. */
 	bool passive;
+	/** Demand mode. */
+	bool demand_mode;
 	/** Log session changes. */
 	bool log_session_changes;
 	/** Minimum expected TTL value. */
@@ -384,6 +386,12 @@ struct bfd_session {
 	struct bfd_discrs discrs;
 	uint8_t local_diag;
 	uint8_t demand_mode;
+	/* Last session state reported by the remote peer. */
+	uint8_t remote_state;
+	/* Last demand bit value received from the remote peer. */
+	uint8_t remote_demand_mode;
+	/* Last demand bit value sent to the remote peer. */
+	uint8_t last_sent_demand;
 	uint8_t detect_mult;
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
@@ -745,6 +753,22 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
  * \param passive the passive mode.
  */
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
+
+/**
+ * Set the BFD session demand mode.
+ *
+ * \param bs the BFD session.
+ * \param demand_mode the demand mode.
+ */
+void bfd_set_demand_mode(struct bfd_session *bs, bool demand_mode);
+
+/**
+ * Evaluate whether demand mode is active for the session and start or
+ * stop the periodic transmission and detection timers accordingly.
+ *
+ * \param bs the BFD session.
+ */
+void bs_demand_mode_handler(struct bfd_session *bs);
 
 /**
  * Set the BFD session to log or not log session changes.

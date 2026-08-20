@@ -758,6 +758,24 @@ void bfd_cli_show_passive(struct vty *vty, const struct lyd_node *dnode,
 		yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
+DEFPY_YANG(
+	bfd_peer_demand_mode, bfd_peer_demand_mode_cmd,
+	"[no] demand-mode",
+	NO_STR
+	"Operate the session in Demand mode (RFC 5880, Section 6.6)\n")
+{
+	nb_cli_enqueue_change(vty, "./demand-mode", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_demand_mode(struct vty *vty, const struct lyd_node *dnode,
+			      bool show_defaults)
+{
+	vty_out(vty, "  %sdemand-mode\n",
+		yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
+}
+
 DEFPY_YANG(bfd_peer_log_session_changes, bfd_peer_log_session_changes_cmd,
 	   "[no] log-session-changes",
 	   NO_STR
@@ -1187,6 +1205,11 @@ ALIAS_YANG(bfd_peer_passive, bfd_profile_passive_cmd,
       NO_STR
       "Don't attempt to start sessions\n")
 
+ALIAS_YANG(bfd_peer_demand_mode, bfd_profile_demand_mode_cmd,
+      "[no] demand-mode",
+      NO_STR
+      "Operate the session in Demand mode (RFC 5880, Section 6.6)\n")
+
 ALIAS_YANG(bfd_peer_log_session_changes, bfd_profile_log_session_changes_cmd,
 	   "[no] log-session-changes", NO_STR "Log Up/Down session changes in the profile\n")
 
@@ -1495,6 +1518,7 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_receive_interval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_profile_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_passive_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_demand_mode_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_log_session_changes_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_minimum_ttl_cmd);
 	install_element(BFD_PEER_NODE, &no_bfd_peer_minimum_ttl_cmd);
@@ -1519,6 +1543,7 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_transmit_interval_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_receive_interval_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_passive_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_demand_mode_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_log_session_changes_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_minimum_ttl_cmd);
 	install_element(BFD_PROFILE_NODE, &no_bfd_profile_minimum_ttl_cmd);

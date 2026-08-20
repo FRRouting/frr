@@ -457,7 +457,28 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
 		BFD_SETCBIT(cp.flags, BFD_CBIT);
 
-	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
+	/*
+	 * The demand bit may only be set when the local system wants to
+	 * use demand mode and both ends of the session are up.
+	 *
+	 * RFC 5880, Section 6.8.7.
+	 */
+	bool demand = bfd->demand_mode && bfd->ses_state == PTM_BFD_UP &&
+		      bfd->remote_state == PTM_BFD_UP;
+
+	/*
+	 * Any change to the transmitted demand bit must be confirmed
+	 * with a poll sequence, as the peer has no other way to
+	 * acknowledge the demand mode transition.
+	 *
+	 * RFC 5880, Section 6.6.
+	 */
+	if (demand != bfd->last_sent_demand) {
+		bfd->polling = 1;
+		bfd->last_sent_demand = demand;
+	}
+
+	BFD_SETDEMANDBIT(cp.flags, demand);
 
 	/* Polling and Final can't be set at the same time.
 	 *
@@ -1402,6 +1423,13 @@ void bfd_recv_cb(struct event *t)
 	else
 		bfd->remote_cbit = 0;
 
+	/* Save the demand bit and remote state for demand mode handling.
+	 *
+	 * RFC 5880, Section 6.8.6.
+	 */
+	bfd->remote_demand_mode = BFD_GETDEMANDBIT(cp->flags);
+	bfd->remote_state = BFD_GETSTATE(cp->flags);
+
 	/* The initiator handle SBFD reflect packet. */
 	if (bfd->bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
 		sbfd_initiator_state_handler(bfd, PTM_BFD_UP);
@@ -1454,6 +1482,13 @@ void bfd_recv_cb(struct event *t)
 
 	/* Apply new receive timer immediately. */
 	bfd_recvtimer_update(bfd);
+
+	/* Start or stop the periodic transmission and detection timers
+	 * depending on the demand mode state of both systems.
+	 *
+	 * RFC 5880, Section 6.8.6.
+	 */
+	bs_demand_mode_handler(bfd);
 
 	/* Handle echo timers changes. */
 	bs_echo_timer_handler(bfd);

@@ -235,6 +235,14 @@ void bfd_session_apply(struct bfd_session *bs)
 			bfd_set_passive_mode(bs, bs->peer_profile.passive);
 	}
 
+	/* Toggle 'demand-mode' if default value. */
+	if (bs->bfd_mode == BFD_MODE_TYPE_BFD) {
+		if (bs->peer_profile.demand_mode == false)
+			bfd_set_demand_mode(bs, bp->demand_mode);
+		else
+			bfd_set_demand_mode(bs, bs->peer_profile.demand_mode);
+	}
+
 	/* Toggle 'no shutdown' if default value. */
 	if (bs->peer_profile.admin_shutdown == false)
 		bfd_set_shutdown(bs, bp->admin_shutdown);
@@ -1359,6 +1367,15 @@ void bfd_set_polling(struct bfd_session *bs)
 		zlog_debug("[%s] Setting polling=1 to negotiate timer change", bs_to_string(bs));
 
 	bs->polling = 1;
+
+	/*
+	 * A poll sequence in demand mode arms the detection timer with
+	 * the demand mode detection time: if no packet arrives after the
+	 * poll was sent, the session is declared down.
+	 *
+	 * RFC 5880, Section 6.8.4.
+	 */
+	bs_demand_mode_handler(bs);
 }
 
 /*
@@ -1669,15 +1686,6 @@ void bs_final_handler(struct bfd_session *bs)
 	bs->cur_timers.required_min_rx = bs->timers.required_min_rx;
 
 	/*
-	 * TODO: demand mode. See RFC 5880 Section 6.1.
-	 *
-	 * When using demand mode we must disable the detection timer
-	 * for lost control packets.
-	 */
-	if (bs->demand_mode)
-		return;
-
-	/*
 	 * Calculate transmission time based on new timers.
 	 *
 	 * Transmission calculation:
@@ -1866,6 +1874,115 @@ void bfd_set_passive_mode(struct bfd_session *bs, bool passive)
 
 		/* Session is down, let it attempt to start the connection. */
 		bfd_xmttimer_update(bs, bs->xmt_TO);
+		bfd_recvtimer_update(bs);
+	}
+}
+
+void bfd_set_demand_mode(struct bfd_session *bs, bool demand_mode)
+{
+	if (bs->demand_mode == demand_mode)
+		return;
+
+	bs->demand_mode = demand_mode;
+
+	if (bs->ses_state == PTM_BFD_UP) {
+		/*
+		 * Changing the demand bit requires a poll sequence in
+		 * conjunction with the change so both systems become aware
+		 * of it. ptm_bfd_snd() will set the poll bit because the
+		 * transmitted demand bit value changes.
+		 *
+		 * RFC 5880, Section 6.6.
+		 */
+		ptm_bfd_snd(bs, 0);
+	}
+
+	/* Re-evaluate the demand mode timers. */
+	bs_demand_mode_handler(bs);
+}
+
+/*
+ * Demand mode (RFC 5880, Section 6.6).
+ *
+ * Evaluates whether demand mode is active in either direction and
+ * starts or stops the periodic transmission and detection timers
+ * accordingly:
+ *
+ * - when the remote system is in demand mode and both ends are up, the
+ *   local system MUST cease the periodic transmission of control
+ *   packets (unless a poll sequence is being transmitted) and resume it
+ *   once the remote system leaves demand mode;
+ *
+ * - when the local system is in demand mode and both ends are up, the
+ *   remote system will stop sending periodic control packets, so the
+ *   detection timer must be suspended and only run in conjunction with
+ *   our own poll sequences, using the detection time calculated from
+ *   our own transmit rate.
+ *
+ * RFC 5880, Sections 6.8.4, 6.8.6 and 6.8.14.
+ */
+void bs_demand_mode_handler(struct bfd_session *bs)
+{
+	bool local_demand, remote_demand;
+
+	if (bs->bfd_mode != BFD_MODE_TYPE_BFD)
+		return;
+
+	/* Demand mode is only effective while the session is up. */
+	local_demand = bs->demand_mode && bs->ses_state == PTM_BFD_UP &&
+		       bs->remote_state == PTM_BFD_UP;
+	remote_demand = bs->remote_demand_mode &&
+			bs->ses_state == PTM_BFD_UP && bs->remote_state == PTM_BFD_UP;
+
+	if (remote_demand) {
+		/*
+		 * The remote system wants demand mode: cease the periodic
+		 * transmission of control packets. A poll sequence in
+		 * progress must be allowed to continue.
+		 *
+		 * RFC 5880, Sections 6.8.6 and 6.8.7.
+		 */
+		if (bs->polling)
+			ptm_bfd_start_xmt_timer(bs, false);
+		else
+			bfd_xmttimer_delete(bs);
+	} else if (!event_is_scheduled(bs->xmttimer_ev)) {
+		/*
+		 * Demand mode is no longer active on the remote system:
+		 * resume the periodic transmission of control packets.
+		 *
+		 * RFC 5880, Section 6.8.14.
+		 */
+		ptm_bfd_start_xmt_timer(bs, false);
+	}
+
+	if (local_demand) {
+		if (bs->polling) {
+			/*
+			 * We are verifying connectivity with a poll
+			 * sequence: the detection time is based on our
+			 * own transmit rate.
+			 *
+			 * RFC 5880, Section 6.8.4.
+			 */
+			if (bs->timers.desired_min_tx > bs->remote_timers.required_min_rx)
+				bs->detect_TO = bs->detect_mult * bs->timers.desired_min_tx;
+			else
+				bs->detect_TO = bs->detect_mult * bs->remote_timers.required_min_rx;
+			bfd_recvtimer_update(bs);
+		} else {
+			/*
+			 * We want demand mode: the remote system will stop
+			 * sending periodic control packets, so the
+			 * detection timer must be suspended until we
+			 * initiate a poll sequence to verify connectivity.
+			 *
+			 * RFC 5880, Section 6.8.4.
+			 */
+			bfd_recvtimer_delete(bs);
+		}
+	} else if (!event_is_scheduled(bs->recvtimer_ev)) {
+		/* Not in demand mode: normal detection applies. */
 		bfd_recvtimer_update(bs);
 	}
 }

@@ -596,6 +596,23 @@ int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/demand-mode
+ */
+int bfdd_bfd_profile_demand_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->demand_mode = yang_dnode_get_bool(args->dnode, NULL);
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-bfdd:bfdd/bfd/profile/log-session-changes
  */
 int bfdd_bfd_profile_log_session_changes_modify(struct nb_cb_modify_args *args)
@@ -1109,6 +1126,33 @@ int bfdd_bfd_sessions_single_hop_passive_mode_modify(
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bs->peer_profile.passive = passive;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_single_hop_demand_mode_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct bfd_session *bs;
+	bool demand_mode;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	demand_mode = yang_dnode_get_bool(args->dnode, NULL);
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.demand_mode = demand_mode;
 	bfd_session_apply(bs);
 
 	return NB_OK;

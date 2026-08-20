@@ -218,6 +218,21 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    The default is active-mode (or ``no passive-mode``).
 
+.. clicmd:: demand-mode
+
+   Enable BFD Demand mode (RFC 5880, section 6.6) for this session:
+   the local system signals the remote peer (D bit) that it should stop
+   sending periodic BFD control packets.  The remote peer keeps
+   monitoring the session by sending it polls, and the local system
+   responds with finals.
+
+   This feature is useful when you want to reduce the amount of BFD
+   control packets sent on a link while keeping connectivity detection
+   at the remote peer.
+
+   The D bit is only set while both ends are Up.  The default is
+   asynchronous mode (or ``no demand-mode``).
+
 .. clicmd:: minimum-ttl (1-254)
 
    For multi hop sessions only: configure the minimum expected TTL for
