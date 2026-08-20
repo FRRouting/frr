@@ -1,0 +1,53 @@
+{
+	"5.5.5.0/24": [
+		{
+			"protocol": "static",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "5.5.5.0/24",
+			"prefixLen": 24,
+			"table": 1001,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth0",
+					"active": true,
+					"seg6": {
+						"segs": "fec0::ff"
+					},
+					"srv6EncapBehavior": "H.Encaps",
+					"srv6LookupTable": 254
+				}
+			]
+		}
+	],
+
+	"6.6.6.0/24": [
+		{
+			"protocol": "static",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "6.6.6.0/24",
+			"prefixLen": 24,
+			"table": 1001,
+			"nexthops": [
+				{
+					"fib": true,
+					"ip": "fec1::2",
+					"afi": "ipv6",
+					"interfaceName": "eth1",
+					"vrf": "vrfA",
+					"active": true,
+					"seg6": {
+						"segs": "fec1::ff"
+					},
+					"srv6EncapBehavior": "H.Encaps",
+					"srv6LookupTable": 1001
+				}
+			]
+		}
+	]
+}

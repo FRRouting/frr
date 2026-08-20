@@ -100,6 +100,12 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (ret != 0)
 		return ret;
 
+	if (nh1->nh_srv6->seg6_segs->lookup_table > nh2->nh_srv6->seg6_segs->lookup_table)
+		return 1;
+
+	if (nh1->nh_srv6->seg6_segs->lookup_table < nh2->nh_srv6->seg6_segs->lookup_table)
+		return -1;
+
 	if (nh1->nh_srv6->seg6_segs->num_segs < nh2->nh_srv6->seg6_segs->num_segs)
 		return -1;
 
@@ -724,7 +730,7 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 
 void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs, int num_segs,
 			   enum srv6_headend_behavior encap_behavior,
-			   const struct in6_addr *encap_source)
+			   const struct in6_addr *encap_source, uint32_t lookup_table)
 {
 	int i;
 
@@ -756,6 +762,8 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
 
 	if (encap_source)
 		nexthop->nh_srv6->seg6_segs->encap_source = *encap_source;
+
+	nexthop->nh_srv6->seg6_segs->lookup_table = lookup_table;
 }
 
 void nexthop_del_srv6_seg6(struct nexthop *nexthop)
@@ -918,6 +926,7 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 				key = jhash_1word(nexthop->nh_srv6->seg6_segs->encap_behavior, key);
 				key = jhash(&nexthop->nh_srv6->seg6_segs->encap_source,
 					    sizeof(struct in6_addr), key);
+				key = jhash_1word(nexthop->nh_srv6->seg6_segs->lookup_table, key);
 			}
 		}
 	}
@@ -963,7 +972,8 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 			nexthop_add_srv6_seg6(copy, &nexthop->nh_srv6->seg6_segs->seg[0],
 					      nexthop->nh_srv6->seg6_segs->num_segs,
 					      nexthop->nh_srv6->seg6_segs->encap_behavior,
-					      &nexthop->nh_srv6->seg6_segs->encap_source);
+					      &nexthop->nh_srv6->seg6_segs->encap_source,
+					      nexthop->nh_srv6->seg6_segs->lookup_table);
 	}
 }
 
@@ -1452,6 +1462,9 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 					    &in6addr_any))
 				json_object_string_addf(json_nexthop, "srv6EncapSource", "%pI6",
 							&nexthop->nh_srv6->seg6_segs->encap_source);
+			if (nexthop->nh_srv6->seg6_segs->lookup_table)
+				json_object_int_add(json_nexthop, "srv6LookupTable",
+						    nexthop->nh_srv6->seg6_segs->lookup_table);
 		} else {
 			if (nexthop->nh_srv6->seg6_segs) {
 				json_segs = json_object_new_array();
@@ -1479,6 +1492,10 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 								"%pI6",
 								&nexthop->nh_srv6->seg6_segs
 									 ->encap_source);
+				if (nexthop->nh_srv6->seg6_segs->lookup_table)
+					json_object_int_add(json_nexthop, "srv6LookupTable",
+							    nexthop->nh_srv6->seg6_segs
+								->lookup_table);
 			}
 		}
 	}
@@ -1622,6 +1639,9 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 					    &in6addr_any))
 				vty_out(vty, ", encap source %pI6",
 					&nexthop->nh_srv6->seg6_segs->encap_source);
+			if (nexthop->nh_srv6->seg6_segs->lookup_table)
+				vty_out(vty, ", lookup table %u",
+					nexthop->nh_srv6->seg6_segs->lookup_table);
 		}
 	}
 
