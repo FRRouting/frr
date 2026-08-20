@@ -1031,6 +1031,13 @@ static FRR_NORETURN void sigint(void)
 	exit(0);
 }
 
+static FRR_NORETURN void sigusr1(void)
+{
+	zlog_notice("Terminating to handle reload (SIGUSR1)");
+	systemd_send_status("watchfrr restarting to handle changes in daemons");
+	exit(0);
+}
+
 static int valid_command(const char *cmd)
 {
 	const char *p;
@@ -1285,6 +1292,10 @@ static struct frr_signal_t watchfrr_signals[] = {
 	{
 		.signal = SIGCHLD,
 		.handler = sigchild,
+	},
+	{
+		.signal = SIGUSR1,
+		.handler = sigusr1,
 	},
 };
 
