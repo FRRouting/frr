@@ -221,6 +221,13 @@ module frr-bfdd {
         "Don't attempt to start session establishment.";
     }
 
+    leaf demand-mode {
+      type boolean;
+      default false;
+      description
+        "Operate the session in Demand mode (RFC 5880, Section 6.6).";
+    }
+
     leaf log-session-changes {
       type boolean;
       default false;
