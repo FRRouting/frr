@@ -262,7 +262,7 @@ def teardown_module(mod):
     tgen = get_topogen()
 
     # kill all l2vpn-neighd instances
-    tgen.net.cmd_nostatus("pkill -f l2vpn-neighd.py")
+    tgen.net.cmd_nostatus("pkill -f l2vpn-neighd")
 
     # This function tears down the whole topology.
     tgen.stop_topology()
