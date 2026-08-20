@@ -201,7 +201,10 @@ daemon_stop() {
 	is_user_root || exit 1
 
 	all=false
+	sig=INT
+	# these can't be used at the same time anyway
 	[ "$2" = "--reallyall" ] && all=true
+	[ "$2" = "--reload" ] && sig=USR1
 
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 	vtyfile="$V_PATH/$daemon${inst:+-$inst}.vty"
@@ -217,8 +220,14 @@ daemon_stop() {
 		return 1
 	fi
 
-	debug "kill -2 $pid"
-	kill -2 "$pid"
+	if [ "$FRR_COLLECT_CORE" = "1" ]; then
+		debug "kill -6 $pid"
+		kill -6 "$pid"
+	else
+		debug "kill -$sig $pid"
+		kill -$sig "$pid"
+	fi
+
 	cnt=1200
 	while kill -0 "$pid" 2>/dev/null; do
 		sleep .1
