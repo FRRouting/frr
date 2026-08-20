@@ -28,16 +28,14 @@ CPP_NOTICE("This code is no longer considered Experimental and should be convert
 #endif
 
 /* Encode an optional integer attr: nil when the presence flag is clear. */
-static void lua_push_optional_uint(lua_State *L, const struct attr *attr,
-				   uint64_t flagbit, uint64_t value,
-				   const char *key)
-{
-	if (CHECK_FLAG(attr->flag, flagbit))
-		lua_pushinteger(L, (lua_Integer)value);
-	else
-		lua_pushnil(L);
-	lua_setfield(L, -2, key);
-}
+#define lua_push_optional_uint(L, attr, id, value, key)                                           \
+	do {                                                                                      \
+		if (bgp_attr_exists(attr, id))                                                    \
+			lua_pushinteger((L), (lua_Integer)(value));                               \
+		else                                                                              \
+			lua_pushnil(L);                                                           \
+		lua_setfield((L), -2, (key));                                                     \
+	} while (0)
 
 /*
  * Decode optional integer. nil/absent clears the flag and zeroes the field.
@@ -397,7 +395,7 @@ static void bgp_attr_script_apply_evpn(struct attr *dst, struct attr *src)
 void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 {
 	/* metric / MED */
-	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+	if (bgp_attr_exists(src, BGP_ATTR_MULTI_EXIT_DISC))
 		bgp_attr_set_med(dst, src->med);
 	else {
 		bgp_attr_unset(dst, BGP_ATTR_MULTI_EXIT_DISC);
@@ -405,7 +403,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	}
 
 	/* local preference */
-	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
+	if (bgp_attr_exists(src, BGP_ATTR_LOCAL_PREF)) {
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
 		dst->local_pref = src->local_pref;
 	} else {
@@ -418,7 +416,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	dst->nh_lla_ifindex = src->nh_lla_ifindex;
 	dst->nh_flags = src->nh_flags;
 
-	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+	if (bgp_attr_exists(src, BGP_ATTR_NEXT_HOP)) {
 		dst->nexthop = src->nexthop;
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
 	} else {
@@ -432,7 +430,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	/* Full rmap_change_flags from script (peer-address, unchanged, etc.) */
 	dst->rmap_change_flags = src->rmap_change_flags;
 
-	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
+	if (bgp_attr_exists(src, BGP_ATTR_AGGREGATOR)) {
 		dst->aggregator_as = src->aggregator_as;
 		dst->aggregator_addr = src->aggregator_addr;
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
@@ -442,7 +440,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		bgp_attr_unset(dst, BGP_ATTR_AGGREGATOR);
 	}
 
-	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) {
+	if (bgp_attr_exists(src, BGP_ATTR_ORIGINATOR_ID)) {
 		dst->originator_id = src->originator_id;
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
 	} else {
@@ -456,7 +454,7 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 	dst->tag = src->tag;
 	dst->rmap_table_id = src->rmap_table_id;
 
-	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID))) {
+	if (bgp_attr_exists(src, BGP_ATTR_PREFIX_SID)) {
 		dst->label_index = src->label_index;
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 	} else {
@@ -464,12 +462,12 @@ void bgp_attr_script_apply(struct attr *dst, struct attr *src)
 		bgp_attr_unset(dst, BGP_ATTR_PREFIX_SID);
 	}
 
-	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)))
+	if (bgp_attr_exists(src, BGP_ATTR_AIGP))
 		bgp_attr_set_aigp_metric(dst, bgp_attr_get_aigp_metric(src));
 	else
 		bgp_attr_unset_aigp_metric(dst);
 
-	if (CHECK_FLAG(src->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
+	if (bgp_attr_exists(src, BGP_ATTR_ATOMIC_AGGREGATE))
 		SET_FLAG(dst->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
 	else
 		bgp_attr_unset(dst, BGP_ATTR_ATOMIC_AGGREGATE);
@@ -541,7 +539,7 @@ static void lua_push_nexthop_table(lua_State *L, const struct attr *attr)
 
 	lua_newtable(L);
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP)) {
 		inet_ntop(AF_INET, &attr->nexthop, buf, sizeof(buf));
 		lua_pushstring(L, buf);
 	} else
@@ -602,7 +600,7 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 	struct in6_addr old_v6g = attr->mp_nexthop_global;
 	struct in6_addr old_v6l = attr->mp_nexthop_local;
 	uint8_t old_nh_flags = attr->nh_flags;
-	bool had_ipv4 = CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+	bool had_ipv4 = bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP);
 
 	lua_getfield(L, idx, "nexthop");
 	if (lua_isnil(L, -1) || !lua_istable(L, -1)) {
@@ -962,8 +960,7 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 {
 	lua_newtable(L);
 
-	lua_push_optional_uint(L, attr, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC),
-			       attr->med, "metric");
+	lua_push_optional_uint(L, attr, BGP_ATTR_MULTI_EXIT_DISC, attr->med, "metric");
 
 	lua_pushinteger(L, attr->nh_ifindex);
 	lua_setfield(L, -2, "ifindex");
@@ -974,8 +971,7 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 		lua_pushnil(L);
 	lua_setfield(L, -2, "aspath");
 
-	lua_push_optional_uint(L, attr, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF),
-			       attr->local_pref, "localpref");
+	lua_push_optional_uint(L, attr, BGP_ATTR_LOCAL_PREF, attr->local_pref, "localpref");
 
 	switch (attr->origin) {
 	case BGP_ORIGIN_IGP:
@@ -1003,20 +999,19 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 	lua_pushinteger(L, attr->rmap_table_id);
 	lua_setfield(L, -2, "table");
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)))
+	if (bgp_attr_exists(attr, BGP_ATTR_PREFIX_SID))
 		lua_pushinteger(L, attr->label_index);
 	else
 		lua_pushnil(L);
 	lua_setfield(L, -2, "label_index");
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)))
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP))
 		lua_pushinteger(L, (lua_Integer)bgp_attr_get_aigp_metric(attr));
 	else
 		lua_pushnil(L);
 	lua_setfield(L, -2, "aigp_metric");
 
-	lua_pushboolean(L, CHECK_FLAG(attr->flag,
-				      ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)));
+	lua_pushboolean(L, bgp_attr_exists(attr, BGP_ATTR_ATOMIC_AGGREGATE));
 	lua_setfield(L, -2, "atomic_aggregate");
 
 	lua_push_community_field(L, bgp_attr_get_community(attr), "community");
@@ -1033,7 +1028,7 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 	lua_pushinteger(L, attr->rmap_change_flags);
 	lua_setfield(L, -2, "rmap_change_flags");
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_AGGREGATOR)) {
 		char buf[INET_ADDRSTRLEN];
 
 		lua_newtable(L);
@@ -1046,7 +1041,7 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 		lua_pushnil(L);
 	lua_setfield(L, -2, "aggregator");
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID)) {
 		char buf[INET_ADDRSTRLEN];
 
 		inet_ntop(AF_INET, &attr->originator_id, buf, sizeof(buf));

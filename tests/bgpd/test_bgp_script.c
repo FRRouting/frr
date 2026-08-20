@@ -83,7 +83,7 @@ static void test_metric_localpref_aspath_roundtrip(void)
 	lua_decode_attr(L, -1, &working);
 
 	CHECK(working.med == 150);
-	CHECK(CHECK_FLAG(working.flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)));
+	CHECK(bgp_attr_exists(&working, BGP_ATTR_MULTI_EXIT_DISC));
 	CHECK(working.local_pref == 250);
 	CHECK(working.aspath != orig.aspath);
 	CHECK(working.aspath && working.aspath->str
@@ -124,8 +124,8 @@ static void test_optional_nil_clears_presence(void)
 	lua_decode_attr(L, -1, &working);
 	bgp_attr_script_apply(&dst, &working);
 
-	CHECK(!CHECK_FLAG(dst.flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)));
-	CHECK(!CHECK_FLAG(dst.flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)));
+	CHECK(!bgp_attr_exists(&dst, BGP_ATTR_MULTI_EXIT_DISC));
+	CHECK(!bgp_attr_exists(&dst, BGP_ATTR_LOCAL_PREF));
 	CHECK(dst.med == 0);
 	CHECK(dst.local_pref == 0);
 
@@ -208,7 +208,7 @@ static void test_nexthop_roundtrip(void)
 	lua_decode_attr(L, -1, &working);
 	bgp_attr_script_apply(&dst, &working);
 
-	CHECK(CHECK_FLAG(dst.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)));
+	CHECK(bgp_attr_exists(&dst, BGP_ATTR_NEXT_HOP));
 	CHECK(dst.nexthop.s_addr == working.nexthop.s_addr);
 	CHECK(CHECK_FLAG(dst.rmap_change_flags, BATTR_RMAP_IPV4_NHOP_CHANGED));
 
@@ -379,11 +379,11 @@ static void test_label_index_nil_and_zero_clear_prefix_sid(void)
 
 	working = orig;
 	lua_decode_attr(L, -1, &working);
-	CHECK(!CHECK_FLAG(working.flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)));
+	CHECK(!bgp_attr_exists(&working, BGP_ATTR_PREFIX_SID));
 	CHECK(working.label_index == 0);
 
 	bgp_attr_script_apply(&dst, &working);
-	CHECK(!CHECK_FLAG(dst.flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)));
+	CHECK(!bgp_attr_exists(&dst, BGP_ATTR_PREFIX_SID));
 	CHECK(dst.label_index == 0);
 
 	bgp_attr_script_discard(&working, &orig);
@@ -394,7 +394,7 @@ static void test_label_index_nil_and_zero_clear_prefix_sid(void)
 	lua_pushinteger(L, 0);
 	lua_setfield(L, -2, "label_index");
 	lua_decode_attr(L, -1, &working);
-	CHECK(!CHECK_FLAG(working.flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)));
+	CHECK(!bgp_attr_exists(&working, BGP_ATTR_PREFIX_SID));
 	CHECK(working.label_index == 0);
 
 	bgp_attr_script_discard(&working, &orig);

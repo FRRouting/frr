@@ -20264,12 +20264,11 @@ DEFUN(show_bgp_upa, show_bgp_upa_cmd,
 				} else {
 					vty_out(vty, "*> %-18pFX", p);
 					vty_out(vty, "%-16pI4", &pi->attr->nexthop);
-					if (pi->attr->flag &
-					    ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
+					if (bgp_attr_exists(pi->attr, BGP_ATTR_MULTI_EXIT_DISC))
 						vty_out(vty, "%10u", pi->attr->med);
 					else
 						vty_out(vty, "          ");
-					if (pi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+					if (bgp_attr_exists(pi->attr, BGP_ATTR_LOCAL_PREF))
 						vty_out(vty, " %7u", pi->attr->local_pref);
 					else
 						vty_out(vty, "        ");
