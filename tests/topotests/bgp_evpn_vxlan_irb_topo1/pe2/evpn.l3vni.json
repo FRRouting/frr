@@ -1,0 +1,16 @@
+{
+  "vni":300,
+  "type":"L3",
+  "tenantVrf":"vrf-red",
+  "localVtepIp":"10.0.0.2",
+  "vxlanIntf":"vxlan300",
+  "sviIntf":"br300",
+  "state":"Up",
+  "sysMac":"00:00:00:00:00:02",
+  "routerMac":"00:00:00:00:00:02",
+  "vniFilter":"none",
+  "l2Vnis":[
+    101,
+    102
+  ]
+}

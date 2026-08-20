@@ -1,0 +1,42 @@
+[
+{
+  "vni":101,
+  "type":"L2",
+  "tenantVrf":"default",
+  "vxlanInterface":"vxlan101",
+  "vtepIp":"10.0.0.3",
+  "mcastGroup":"0.0.0.0",
+  "advertiseGatewayMacip":"No",
+  "numRemoteVteps":2,
+  "remoteVteps":[
+      {
+        "ip":"10.0.0.1",
+        "flood":"-"
+      },
+      {
+        "ip":"10.0.0.2",
+        "flood":"-"
+      }
+  ]
+},
+{
+  "vni":102,
+  "type":"L2",
+  "tenantVrf":"default",
+  "vxlanInterface":"vxlan102",
+  "vtepIp":"10.0.0.3",
+  "mcastGroup":"0.0.0.0",
+  "advertiseGatewayMacip":"No",
+  "numRemoteVteps":2,
+  "remoteVteps":[
+      {
+        "ip":"10.0.0.1",
+        "flood":"-"
+      },
+      {
+        "ip":"10.0.0.2",
+        "flood":"-"
+      }
+  ]
+}
+]
