@@ -1186,10 +1186,12 @@ int zebra_srv6_l2evpn_config_write(struct vty *vty)
 	struct zebra_srv6_evi *evi;
 	struct zebra_srv6_evi_bd *bd;
 	enum zebra_srl2_encap_mode mode = zebra_srl2_get_encap_mode();
+	uint32_t mtu = zebra_srl2_get_mtu();
 	bool have_evis = srv6_evi_inited && srv6_evi_htab_count(srv6_evi_table) > 0;
 
-	/* Nothing to persist: no EVIs and the encap mode at its default. */
-	if (!have_evis && mode == ZEBRA_SRL2_ENCAP_MODE_FULL)
+	/* Nothing to persist: no EVIs, encap mode default, MTU unset. */
+	if (!have_evis && mode == ZEBRA_SRL2_ENCAP_MODE_FULL &&
+	    mtu == ZEBRA_SRL2_MTU_UNSET)
 		return 0;
 
 	vty_out(vty, "  l2-evpn\n");
@@ -1198,6 +1200,10 @@ int zebra_srv6_l2evpn_config_write(struct vty *vty)
 	if (mode != ZEBRA_SRL2_ENCAP_MODE_FULL)
 		vty_out(vty, "   l2-encap-mode %s\n",
 			zebra_srl2_encap_mode2str(mode));
+
+	/* Device-wide srl2 MTU; only emitted when explicitly configured. */
+	if (mtu != ZEBRA_SRL2_MTU_UNSET)
+		vty_out(vty, "   l2-mtu %u\n", mtu);
 
 	frr_each (srv6_evi_htab, srv6_evi_table, evi) {
 		vty_out(vty, "   evi %u", evi->vni);

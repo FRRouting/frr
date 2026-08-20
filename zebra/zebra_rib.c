@@ -5379,6 +5379,7 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_SRL2_UPDATE_SID:
 			case DPLANE_OP_SRL2_CREATE:
 			case DPLANE_OP_SRL2_ADDRGENMODE:
+			case DPLANE_OP_SRL2_SET_MTU:
 			case DPLANE_OP_NONE:
 				break;
 			case DPLANE_OP_STARTUP_STAGE:
