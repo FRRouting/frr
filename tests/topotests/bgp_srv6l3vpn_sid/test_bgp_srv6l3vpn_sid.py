@@ -832,20 +832,34 @@ def _check_show_bgp_vrf_ipv6_prefix(router, vrf, prefix, mpls, srv6):
 
 
 @retry(retry_timeout=10)
-def _check_show_bgp_ipv6_vpn_selected(router, prefix, mpls, srv6):
+def _check_show_bgp_ipv6_vpn_selected(router, prefix, rd, mpls, srv6, double=False):
     output = json.loads(router.vtysh_cmd(f"show bgp ipv6 vpn {prefix} json"))
-    found_srv6 = False
-    found_mpls = False
-    if "1:30" not in output.keys() or "paths" not in output["1:30"].keys():
-        return "RD 1:30 not found, or paths key not found"
-    paths = output["1:30"]["paths"]
+    found_srv6_once = False
+    found_mpls_once = False
+    found_srv6_twice = False
+    found_mpls_twice = False
+    if rd not in output.keys() or "paths" not in output[rd].keys():
+        return f"RD {rd} not found, or paths key not found"
+    paths = output[rd]["paths"]
     for path in paths:
         if "remoteSid" in path.keys():
             valid = path.get("valid", False)
             if srv6 and valid:
-                found_srv6 = True
+                if found_srv6_once:
+                    found_srv6_twice = True
+                    found_srv6_once = False
+                else:
+                    found_srv6_once = True
+                if not double and found_srv6_twice:
+                    return (
+                        f"SRv6 path found twice for {prefix} unexpected, expected once"
+                    )
             elif not srv6 and not valid:
-                found_srv6 = True
+                if found_srv6_once:
+                    found_srv6_twice = True
+                    found_srv6_once = False
+                else:
+                    found_srv6_once = True
             else:
                 return (
                     f"SRv6 path 'valid' value for {prefix} unexpected, expected {srv6}"
@@ -853,16 +867,30 @@ def _check_show_bgp_ipv6_vpn_selected(router, prefix, mpls, srv6):
         else:
             valid = path.get("valid", False)
             if mpls and valid:
-                found_mpls = True
+                if found_mpls_once:
+                    found_mpls_twice = True
+                    found_mpls_once = False
+                else:
+                    found_mpls_once = True
+                if not double and found_mpls_twice:
+                    return (
+                        f"MPLS path found twice for {prefix} unexpected, expected once"
+                    )
             elif not mpls and not valid:
-                found_mpls = True
+                if found_mpls_once:
+                    found_mpls_twice = True
+                    found_mpls_once = False
+                else:
+                    found_mpls_once = True
             else:
                 return (
                     f"MPLS path 'valid' value for {prefix} unexpected, expected {mpls}"
                 )
-    if found_mpls and found_srv6:
+    if found_mpls_once and found_srv6_once and not double:
         return True
-    return f"only one path has been found : MPLS {found_mpls}, SRv6 {found_srv6}"
+    if found_mpls_twice and found_srv6_twice and double:
+        return True
+    return f"unexpected paths found : MPLS 1:{found_mpls_once}, 2:{found_mpls_twice}, SRv6 1:{found_srv6_once}, 2:{found_srv6_twice}"
 
 
 @retry(retry_timeout=10)
@@ -933,7 +961,7 @@ def test_sid_configure_r2_listener_as_srv6():
     )
 
     success = _check_show_bgp_ipv6_vpn_selected(
-        tgen.gears["r2"], "2001:8::/64", mpls=False, srv6=True
+        tgen.gears["r2"], "2001:8::/64", "1:30", mpls=False, srv6=True
     )
     assert (
         success is True
@@ -957,7 +985,7 @@ def test_sid_configure_r2_listener_as_srv6_and_mpls():
     )
 
     success = _check_show_bgp_ipv6_vpn_selected(
-        tgen.gears["r2"], "2001:8::/64", mpls=True, srv6=True
+        tgen.gears["r2"], "2001:8::/64", "1:30", mpls=True, srv6=True
     )
     assert (
         success is True
@@ -981,7 +1009,7 @@ def test_sid_configure_r2_listener_as_mpls():
     )
 
     success = _check_show_bgp_ipv6_vpn_selected(
-        tgen.gears["r2"], "2001:8::/64", mpls=True, srv6=False
+        tgen.gears["r2"], "2001:8::/64", "1:30", mpls=True, srv6=False
     )
     assert (
         success is True
@@ -1016,7 +1044,7 @@ def test_sid_configure_r2_listener_as_srv6_and_mpls_again():
         "On r2, check that 2 VPN prefixes MPLS and SRv6 for 2001:8::/64 are received"
     )
     success = _check_show_bgp_ipv6_vpn_selected(
-        tgen.gears["r2"], "2001:8::/64", mpls=True, srv6=True
+        tgen.gears["r2"], "2001:8::/64", "1:30", mpls=True, srv6=True
     )
     assert (
         success is True
@@ -1111,6 +1139,169 @@ def test_sid_configure_r2_listener_with_route_map_import_drop_srv6_and_mpls():
     assert (
         success is True
     ), "path 2001:8::/64 on vrf20 present for srv6, not present for MPLS: not found on r2"
+
+
+def test_sid_configure_r2_unconfigure_route_map():
+    """
+    Suppress r2 route-map and check two addpath entries are present in BGP L3VPN
+    """
+    tgen = get_topogen()
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 2 vrf vrf20
+          address-family ipv6 unicast
+           no route-map vpn import rmap
+          exit-address-family
+         exit
+         no route-map rmap permit 1
+        """
+    )
+    logger.info(
+        "On r2, check that 2 VPN prefixes MPLS and SRv6 for 2001:8::/64 are received"
+    )
+    success = _check_show_bgp_ipv6_vpn_selected(
+        tgen.gears["r2"], "2001:8::/64", "1:30", mpls=True, srv6=True
+    )
+    assert (
+        success is True
+    ), "VPN path 2001:8::/64 present for MPLS, selected for SRv6: not found on r2"
+
+
+def test_sid_configure_r1_perform_peering_with_ce1_and_ce3():
+    """
+    Configure r1 to establish BGP peering with ce1 and ce3
+    ce1 and ce3 both transmit IPv6 prefix 2005:5::5/128
+    Configure r1 to enable MPLS and SRv6 on VRF10
+    Test that r2 receives 4 times the prefix 2005:5::5/128
+    """
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf10
+          segment-routing srv6
+           no srv6-only
+          exit
+          neighbor 2001:1::2 remote-as 1
+          neighbor 2001:3::2 remote-as 1
+          address-family ipv4 unicast
+           no neighbor 2001:1::2 activate
+           no neighbor 2001:3::2 activate
+          exit-address-family
+          address-family ipv6 unicast
+           label vpn export auto
+           neighbor 2001:1::2 activate
+           neighbor 2001:3::2 activate
+          exit-address-family
+         exit
+        """
+    )
+    tgen.gears["ce1"].vtysh_cmd(
+        """
+        configure terminal
+         interface lo
+          ip address 169.254.0.1/32
+         exit
+         router bgp 1
+          bgp router-id 169.254.0.1
+          no bgp network import-check
+          neighbor 2001:1::1 remote-as 1
+          address-family ipv4 unicast
+           no neighbor 2001:1::1 activate
+          exit-address-family
+          address-family ipv6 unicast
+           neighbor 2001:1::1 activate
+           network 2005:5::5/128
+          exit-address-family
+        """
+    )
+    tgen.gears["ce3"].vtysh_cmd(
+        """
+        configure terminal
+         interface lo
+          ip address 169.254.0.3/32
+         exit
+         router bgp 1
+          bgp router-id 169.254.0.3
+          no bgp network import-check
+          neighbor 2001:3::1 remote-as 1
+          address-family ipv4 unicast
+           no neighbor 2001:3::1 activate
+          exit-address-family
+          address-family ipv6 unicast
+           neighbor 2001:3::1 activate
+           network 2005:5::5/128
+          exit-address-family
+        """
+    )
+    logger.info(
+        "On r2, check that 4 VPN prefixes MPLS and SRv6 for 2005:5::5/128 are received"
+    )
+    success = _check_show_bgp_ipv6_vpn_selected(
+        tgen.gears["r2"], "2005:5::5/128", "1:10", mpls=True, srv6=True, double=True
+    )
+    assert (
+        success is True
+    ), "VPN path 2005:5::5/128 present twice for MPLS, twice for SRv6: not found on r2"
+
+
+def test_sid_configure_r1_with_addpath_per_encapsulation():
+    """
+    Configure r1 to perform add path based on encapsulation
+    Test that r2 receives 2 times the prefix 2005:5::5/128, one per encapsulation
+    """
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          bgp encapsulation-selection
+          address-family ipv6 vpn
+           no neighbor 2001::2 addpath-tx-all-paths
+           neighbor 2001::2 addpath-tx-bestpath-per-encapsulation
+          exit-address-family
+         exit
+        """
+    )
+    logger.info(
+        "On r2, check that 2 VPN prefixes MPLS and SRv6 for 2005:5::5/128 are received"
+    )
+    success = _check_show_bgp_ipv6_vpn_selected(
+        tgen.gears["r2"], "2005:5::5/128", "1:10", mpls=True, srv6=True
+    )
+    assert (
+        success is True
+    ), "VPN path 2005:5::5/128 present once for MPLS, and once for SRv6: not found on r2"
+
+
+def test_sid_unconfigure_r1_with_addpath_per_encapsulation():
+    """
+    Unconfigure r1: suppress add path based on encapsulation
+    Test that r2 receives 4 times the prefix 2005:5::5/128
+    """
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          bgp encapsulation-selection
+          address-family ipv6 vpn
+           no neighbor 2001::2 addpath-tx-bestpath-per-encapsulation
+           neighbor 2001::2 addpath-tx-all-paths
+          exit-address-family
+         exit
+        """
+    )
+    logger.info(
+        "On r2, check that 4 VPN prefixes MPLS and SRv6 for 2005:5::5/128 are received"
+    )
+    success = _check_show_bgp_ipv6_vpn_selected(
+        tgen.gears["r2"], "2005:5::5/128", "1:10", mpls=True, srv6=True, double=True
+    )
+    assert (
+        success is True
+    ), "VPN path 2005:5::5/128 present twice for MPLS, twice for SRv6: not found on r2"
 
 
 if __name__ == "__main__":

@@ -875,6 +875,12 @@ topologies are at cross-purposes with each other - see the Flavel and Roughan
 paper above for an example. Hence the guideline that the iBGP topology should
 follow the IGP topology.
 
+.. clicmd:: bgp encapsulation-selection
+
+   Carry out route-selection in order to select the best known path for each
+   encapsulation. This option has to be used with the `addpath` feature, and
+   the per neighbor `addpath-tx-bestpath-per-encapsulation` command.
+
 .. clicmd:: bgp deterministic-med
 
    Carry out route-selection in way that produces deterministic answers
@@ -2344,6 +2350,13 @@ Configuring Peers
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-best-selected (1-6)
 
    Configure BGP to calculate and send N best known paths to the neighbor.
+
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-encapsulation
+
+   Configure BGP to send best known paths to neighbor for each encapsulation. This
+   command is only available for the `ipv4 vpn` and the `ipv6 vpn` address families.
+   The `bgp encapsulation-selection` command must be used to perform the appropriate
+   selection.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx
 
