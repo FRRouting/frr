@@ -110,8 +110,7 @@ static void redist_free_instance(void *data)
 	XFREE(MTYPE_REDIST_INST, data);
 }
 
-unsigned short *redist_check_instance(struct redist_proto *red,
-				      unsigned short instance)
+unsigned short *redist_check_instance(const struct redist_proto *red, unsigned short instance)
 {
 	struct listnode *node;
 	unsigned short *id;
