@@ -306,8 +306,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					 * supplying the implied
 					 * if channel.  So remove it.
 					 */
-					if (oil_if_has(c_oil,
-						       pim_ifp->mroute_vif_index))
+					if (channel_oil_oif_find(c_oil, pim_ifp->mroute_vif_index))
 						pim_channel_del_inherited_oif(
 							c_oil, ch->interface,
 							__func__);
@@ -1322,7 +1321,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 			 */
 			if (!pim_upstream_evaluate_join_desired_interface(child, chchannel,
 									  chchannelrpt, starch) ||
-			    (!chchannel && oil_if_has(c_oil, pim_ifp->mroute_vif_index))) {
+			    (!chchannel && channel_oil_oif_find(c_oil, pim_ifp->mroute_vif_index))) {
 				pim_channel_del_inherited_oif(c_oil, ifp,
 						__func__);
 			}

@@ -23,8 +23,6 @@ struct static_route {
 	pim_addr source;
 
 	struct channel_oil c_oil;
-	ifindex_t iif;
-	unsigned char oif_ttls[MAXVIFS];
 };
 
 /*

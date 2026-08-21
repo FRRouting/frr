@@ -53,6 +53,29 @@ struct channel_counts {
 	unsigned long oldwrong_if;
 };
 
+PREDECL_LIST(channel_oif_list);
+struct channel_oif {
+	struct channel_oif_list_item entry;
+
+	/** Interface index. */
+	ifindex_t index;
+	/** Interface flags. \see `PIM_OIF_FLAG_*`. */
+	uint32_t flags;
+	/** Time of creation. */
+	time_t creation;
+};
+DECLARE_LIST(channel_oif_list, struct channel_oif, entry);
+
+extern struct channel_oif *channel_oil_oif_find(struct channel_oil *oil, ifindex_t index);
+extern struct channel_oif *channel_oil_oif_add(struct channel_oil *oil, ifindex_t index,
+					       uint32_t flags);
+extern void channel_oil_oif_delete(struct channel_oil *oil, ifindex_t index, uint32_t flags);
+#if PIM_IPV == 4
+extern void channel_oil_to_mfcc(struct channel_oil *oil, struct mfcctl *mfcc);
+#else
+extern void channel_oil_to_mfcc(struct channel_oil *oil, struct mf6cctl *mf6cc);
+#endif
+
 /*
   qpim_channel_oil_list holds a list of struct channel_oil.
 
@@ -85,89 +108,21 @@ struct channel_oil {
 
 	struct rb_pim_oil_item oil_rb;
 
-#if PIM_IPV == 4
-	struct mfcctl oil;
-#else
-	struct mf6cctl oil;
-#endif
+	pim_addr source;
+	pim_addr group;
+
+	/* Input interface */
+	struct channel_oif iif;
+	/* List of output interfaces and their state */
+	struct channel_oif_list_head oif_list;
+
 	int installed;
 	int oil_inherited_rescan;
-	int oil_size;
 	int oil_ref_count;
-	time_t oif_creation[MAXVIFS];
-	uint32_t oif_flags[MAXVIFS];
 	struct channel_counts cc;
 	struct pim_upstream *up;
 	time_t mroute_creation;
 };
-
-#if PIM_IPV == 4
-static inline pim_addr *oil_origin(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mfcc_origin;
-}
-
-static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mfcc_mcastgrp;
-}
-
-static inline vifi_t *oil_incoming_vif(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mfcc_parent;
-}
-
-static inline bool oil_if_has(struct channel_oil *c_oil, vifi_t ifi)
-{
-	return !!c_oil->oil.mfcc_ttls[ifi];
-}
-
-static inline void oil_if_set(struct channel_oil *c_oil, vifi_t ifi, uint8_t set)
-{
-	c_oil->oil.mfcc_ttls[ifi] = set;
-}
-
-static inline int oil_if_cmp(struct mfcctl *oil1, struct mfcctl *oil2)
-{
-	return memcmp(&oil1->mfcc_ttls[0], &oil2->mfcc_ttls[0],
-		      sizeof(oil1->mfcc_ttls));
-}
-#else
-static inline pim_addr *oil_origin(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mf6cc_origin.sin6_addr;
-}
-
-static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mf6cc_mcastgrp.sin6_addr;
-}
-
-static inline mifi_t *oil_incoming_vif(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mf6cc_parent;
-}
-
-static inline bool oil_if_has(struct channel_oil *c_oil, mifi_t ifi)
-{
-	return !!IF_ISSET(ifi, &c_oil->oil.mf6cc_ifset);
-}
-
-static inline void oil_if_set(struct channel_oil *c_oil, mifi_t ifi,
-			      uint8_t set)
-{
-	if (set)
-		IF_SET(ifi, &c_oil->oil.mf6cc_ifset);
-	else
-		IF_CLR(ifi, &c_oil->oil.mf6cc_ifset);
-}
-
-static inline int oil_if_cmp(struct mf6cctl *oil1, struct mf6cctl *oil2)
-{
-	return memcmp(&oil1->mf6cc_ifset, &oil2->mf6cc_ifset,
-		      sizeof(oil1->mf6cc_ifset));
-}
-#endif
 
 extern int pim_channel_oil_compare(const struct channel_oil *c1,
 				   const struct channel_oil *c2);

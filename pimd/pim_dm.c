@@ -71,9 +71,8 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 		pim_ifp->pim_mode = mode;
 		if (listcount(pim_ifp->pim_neighbor_list) > 0 || pim_dm_check_gm_group_list(ifp)) {
 			frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
-				if (pim_iface_grp_dm(pim_ifp, *oil_mcastgrp(c_oil)) &&
-				    c_oil->installed) {
-					oil_if_set(c_oil, pim_ifp->mroute_vif_index, 1);
+				if (pim_iface_grp_dm(pim_ifp, c_oil->group) && c_oil->installed) {
+					channel_oil_oif_add(c_oil, pim_ifp->mroute_vif_index, 0);
 					pim_upstream_mroute_update(c_oil, __func__);
 					if (pim_upstream_up_connected(c_oil->up) &&
 					    PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
@@ -87,8 +86,8 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 		}
 	} else if (!HAVE_DENSE_MODE(mode) && HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
 		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
-			if (pim_iface_grp_dm(pim_ifp, *oil_mcastgrp(c_oil)) && c_oil->installed) {
-				oil_if_set(c_oil, pim_ifp->mroute_vif_index, 0);
+			if (pim_iface_grp_dm(pim_ifp, c_oil->group) && c_oil->installed) {
+				channel_oil_oif_delete(c_oil, pim_ifp->mroute_vif_index, 0);
 				pim_upstream_mroute_update(c_oil, __func__);
 				if (!pim_upstream_up_connected(c_oil->up)) {
 					event_cancel(&c_oil->up->t_graft_timer);
@@ -258,8 +257,8 @@ void pim_dm_assert_state_changed(struct pim_ifchannel *ch, enum pim_ifassert_sta
 		/* Defer to the Assert winner: stop forwarding the duplicate
 		 * back onto this LAN.
 		 */
-		if (oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
-			oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+		if (channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index)) {
+			channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index, 0);
 			pim_upstream_mroute_update(up->channel_oil, __func__);
 		}
 
@@ -287,8 +286,8 @@ void pim_dm_assert_state_changed(struct pim_ifchannel *ch, enum pim_ifassert_sta
 		if ((pim_ifp->pim_neighbor_list->count || pim_gm_has_igmp_join(ifp, ch->sg.grp)) &&
 		    !PIM_UPSTREAM_DM_TEST_PRUNE(ch->flags) &&
 		    !PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) &&
-		    !oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
-			oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 1);
+		    !channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index)) {
+			channel_oil_oif_add(up->channel_oil, pim_ifp->mroute_vif_index, 0);
 			pim_upstream_mroute_update(up->channel_oil, __func__);
 		}
 	}
@@ -382,8 +381,8 @@ void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
 		return;
 
 	if (pim_iface_grp_dm(pim_ifp, group_addr) &&
-	    !oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
-		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 1);
+	    !channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index)) {
+		channel_oil_oif_add(up->channel_oil, pim_ifp->mroute_vif_index, 0);
 		pim_upstream_mroute_update(up->channel_oil, __func__);
 
 		pim_ifchannel_find(ifp, sg, &ch, &throwaway);
@@ -434,8 +433,8 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 	vrf = up->pim->vrf;
 
 	if (pim_iface_grp_dm(pim_ifp, group_addr) &&
-	    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
-		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+	    channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index)) {
+		channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index, 0);
 		pim_upstream_mroute_update(up->channel_oil, __func__);
 
 		/* dm: we need to forward the prune upstream if needed */
@@ -445,7 +444,7 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 			if (!pim_ifp2)
 				continue;
 			if (HAVE_DENSE_MODE(pim_ifp2->pim_mode) && ifp2->ifindex != ifp->ifindex &&
-			    oil_if_has(up->channel_oil, pim_ifp2->mroute_vif_index)) {
+			    channel_oil_oif_find(up->channel_oil, pim_ifp2->mroute_vif_index)) {
 				sg_connected = true;
 				break;
 			}
@@ -499,7 +498,7 @@ void pim_dm_prune_iff_on_timer(struct event *t)
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 	if (up->channel_oil && up->channel_oil->installed &&
 	    !PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) && !lost_assert) {
-		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 1);
+		channel_oil_oif_add(up->channel_oil, pim_ifp->mroute_vif_index, 0);
 		pim_upstream_mroute_update(up->channel_oil, __func__);
 	}
 }

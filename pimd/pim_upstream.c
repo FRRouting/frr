@@ -816,40 +816,24 @@ static void pim_upstream_transition_dm_to_sm(struct pim_instance *pim, struct pi
 	/* Clear all OIFs without per-OIF kernel flushes; one final MFC
 	 * update is done after the loop. */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct channel_oif *oif;
+
 		pim_ifp = ifp->info;
 		if (!pim_ifp || pim_ifp->mroute_vif_index < 0)
 			continue;
 
-		if (up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] & PIM_OIF_FLAG_PROTO_ANY) {
-			bool had_oif = oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index);
-			bool had_mute = !!(up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] &
-					   PIM_OIF_FLAG_MUTE);
-
-			/* Clear proto and mute flags together so oif_flags is
-			 * fully zeroed before any oil_if_set/oil_size update.
+		oif = channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index);
+		if (oif && CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_ANY)) {
+			/* Clear proto and mute flags together so the OIF is
+			 * fully released.
 			 */
-			up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] &=
-				~(PIM_OIF_FLAG_PROTO_ANY | PIM_OIF_FLAG_MUTE);
-			if (had_oif) {
-				oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
-				if (up->channel_oil->oil_size > 0)
-					--up->channel_oil->oil_size;
-				else if (PIM_DEBUG_PIM_EVENTS)
-					zlog_debug("%s: oil_size underflow for %s vif %d",
-						   __func__, up->sg_str, pim_ifp->mroute_vif_index);
-			} else if (had_mute) {
-				/* MUTE set but TTL already zeroed externally. */
-				if (PIM_DEBUG_PIM_EVENTS)
-					zlog_debug("%s: MUTE set but OIF inactive for %s vif %d",
-						   __func__, up->sg_str, pim_ifp->mroute_vif_index);
-			}
+			channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index,
+					       PIM_OIF_FLAG_PROTO_ANY | PIM_OIF_FLAG_MUTE);
 		}
 
-		/* DM-native OIFs are installed via oil_if_set() directly. */
-		if (oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
-			oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
-			up->channel_oil->oif_flags[pim_ifp->mroute_vif_index] = 0;
-		}
+		/* DM-native OIFs are installed via channel_oil_oif_delete() directly. */
+		if (channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index))
+			channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index, 0);
 	}
 	/* Rebuild sparse-mode forwarding; already-JOINED upstreams do not
 	 * re-enter pim_upstream_switch() via update_join_desired() alone.
@@ -2391,7 +2375,7 @@ bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	if (!pim_ifp || !c_oil)
 		return false;
 
-	if (pim_ifp->mroute_vif_index != *oil_incoming_vif(c_oil))
+	if (pim_ifp->mroute_vif_index != c_oil->iif.index)
 		return false;
 
 	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,
@@ -2425,7 +2409,7 @@ bool pim_upstream_up_connected(struct pim_upstream *up)
 
 		if (HAVE_DENSE_MODE(pim_ifp->pim_mode) &&
 		    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
-		    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
+		    channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index))
 			return true;
 		if (pim_gm_has_igmp_join(ifp, up->sg.grp))
 			return true;
