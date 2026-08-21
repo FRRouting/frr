@@ -71,9 +71,11 @@
 /* NHRP Flags for Purge request/reply */
 #define NHRP_FLAG_PURGE_NO_REPLY		0x8000
 
-/* NHRP Authentication extension types (ala Cisco) */
-#define NHRP_AUTHENTICATION_PLAINTEXT		0x00000001
-#define NHRP_CISCO_PASS_LEN			8
+/* NHRP Authentication extension (RFC 2332 5.3.4) */
+#define NHRP_AUTH_PASS_LEN			8
+#define NHRP_AUTH_SPI				1
+#define NHRP_AUTH_HASH_LEN			16 /* HMAC-MD5-128 */
+#define NHRP_AUTH_HDR_LEN			4  /* reserved + SPI */
 
 /* NHRP Packet Structures */
 struct nhrp_packet_header {
@@ -120,9 +122,10 @@ struct nhrp_extension_header {
 	uint16_t length;
 } __attribute__((packed));
 
-struct nhrp_cisco_authentication_extension {
-	uint32_t type;
-	uint8_t secret[8];
-} __attribute__((packed));
+/* RFC 2332 5.3.4.1: the Authentication Extension payload is
+ * Reserved(2) + SPI(2) + Src Addr (variable, length from the source
+ * protocol address length of the mandatory header) + Authentication
+ * Data (NHRP_AUTH_HASH_LEN bytes, keyed hash over the entire packet).
+ */
 
 #endif
