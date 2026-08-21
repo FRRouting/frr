@@ -109,6 +109,35 @@ int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr *attr)
  * ===========================================================================
  */
 
+static void populate_adj_sid(struct ls_attributes *ls_attr, int index, int flag,
+			     struct bgp_ls_attr *attr, enum bgp_ls_protocol_id protocol_id)
+{
+	int sid_len;
+
+	if (!CHECK_FLAG(ls_attr->flags, flag))
+		return;
+
+	if (attr->adj_sid_count >= BGP_LS_ADJ_MAX) {
+		zlog_warn("BGP-LS: %s maximum supported number of Adjacency SID is %d, ignoring others",
+			  __func__, BGP_LS_ADJ_MAX);
+		return;
+	}
+
+	sid_len = bgp_ls_attr_adjacency_sid_len(ls_attr->adj_sid[index].flags, protocol_id);
+	if (sid_len == -1) {
+		zlog_warn("BGP-LS: %s TED contains wrong combination of V-Flag and L-Flag for Adjacent SID",
+			  __func__);
+		return;
+	}
+
+	attr->adj_sid[attr->adj_sid_count].sid = ls_attr->adj_sid[index].sid;
+	attr->adj_sid[attr->adj_sid_count].flags = ls_attr->adj_sid[index].flags;
+	attr->adj_sid[attr->adj_sid_count].weight = ls_attr->adj_sid[index].weight;
+	attr->adj_sid_count++;
+
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT);
+}
+
 /*
  * Fill a pre-allocated SRv6 End.X SID entry (TLV 1106) from a Link State adjacency SID
  */
@@ -182,7 +211,8 @@ static void bgp_ls_populate_srv6_adj_sid(struct bgp_ls_attr *attr,
 /*
  * Populate BGP-LS Attributes from Link State Attributes
  */
-int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr)
+int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr,
+			      enum bgp_ls_protocol_id protocol_id)
 {
 	if (!ls_attr || !attr)
 		return -1;
@@ -253,6 +283,12 @@ int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr 
 		memcpy(attr->link_name, ls_attr->name, name_len + 1);
 		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT);
 	}
+
+	/* Adjacency SID (TLV 1099) */
+	populate_adj_sid(ls_attr, ADJ_PRI_IPV4, LS_ATTR_ADJ_SID, attr, protocol_id);
+	populate_adj_sid(ls_attr, ADJ_BCK_IPV4, LS_ATTR_BCK_ADJ_SID, attr, protocol_id);
+	populate_adj_sid(ls_attr, ADJ_PRI_IPV6, LS_ATTR_ADJ_SID6, attr, protocol_id);
+	populate_adj_sid(ls_attr, ADJ_BCK_IPV6, LS_ATTR_BCK_ADJ_SID6, attr, protocol_id);
 
 	/* Remote IPv4 Router-ID (TLV 1030) */
 	if (CHECK_FLAG(ls_attr->flags, LS_ATTR_REMOTE_ADDR)) {
@@ -713,7 +749,7 @@ int bgp_ls_originate_link(struct bgp *bgp, uint8_t protocol_id, uint8_t *local_r
 
 	/* Populate BGP-LS attributes from Link State edge */
 	ls_attr = bgp_ls_attr_alloc();
-	if (bgp_ls_populate_link_attr(edge->attributes, ls_attr) < 0) {
+	if (bgp_ls_populate_link_attr(edge->attributes, ls_attr, protocol_id) < 0) {
 		zlog_warn("BGP-LS: Failed to populate Link attributes");
 		bgp_ls_attr_free(ls_attr);
 		return -1;
