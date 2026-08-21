@@ -5,12 +5,11 @@
       "prefixLen":32,
       "protocol":"kernel",
       "vrfName":"default",
-      "internalFlags":0,
       "internalNextHopNum":1,
       "internalNextHopActiveNum":0,
       "nexthops":[
         {
-          "flags":0,
+          "flags":1024,
           "interfaceName":"r1-eth2"
         }
       ]
