@@ -646,6 +646,11 @@ static void pbr_nht_release_individual_nexthop(struct pbr_map_sequence *pbrms)
 	pbr_map_check_nh_group_change(pnhgc->name);
 
 	hash_release(pbr_nhg_hash, pnhgc);
+
+	/* Release the table-ID index before freeing its backing cache entry. */
+	hash_release(pbr_nhg_allocated_id_hash, pnhgc);
+	pbr_nht_update_next_unallocated_table_id();
+
 	pbr_nhgc_delete(pnhgc);
 
 	nexthop_group_delete(&pbrms->nhg);
