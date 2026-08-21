@@ -1220,7 +1220,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		struct nexthop_group *nhg;
 
 		stream_putc(s, re->type);
-		stream_putw(s, re->instance);
+		stream_putw(s, route_entry_get_proto_instance(re));
 		stream_putc(s, re->distance);
 		stream_putl(s, re->metric);
 		num = 0;

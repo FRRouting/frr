@@ -35,6 +35,7 @@
 #include "lib/json.h"
 #include "lib/route_opaque.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_vrf.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_vty_clippy.c"
 #include "zebra/zserv.h"
@@ -445,7 +446,11 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		vty_out(vty, "Routing entry for %s%s\n",
 			srcdest_rnode2str(rn, buf, sizeof(buf)), mcast_info);
 		vty_out(vty, "  Known via \"%s", zebra_route_string(re->type));
-		if (re->instance)
+		if (re->type == ZEBRA_ROUTE_VRF_IMPORT) {
+			struct zebra_vrf *src_zvrf = vrf_info_lookup(re->vrf_import_src_vrf_id);
+
+			vty_out(vty, "[%s]", src_zvrf ? zvrf_name(src_zvrf) : "unknown");
+		} else if (re->instance)
 			vty_out(vty, "[%d]", re->instance);
 		vty_out(vty, "\"");
 		vty_out(vty, ", distance %u, metric %u", re->distance,
@@ -582,8 +587,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 					       srcdest_rnode2str(rn, buf, sizeof(buf)));
 			json_object_int_add(json_route, "prefixLen", rn->p.prefixlen);
 
-			if (re->instance)
-				json_object_int_add(json_route, "instance", re->instance);
+			if (route_entry_get_proto_instance(re))
+				json_object_int_add(json_route, "instance",
+						    route_entry_get_proto_instance(re));
 
 
 			/* NHG Summary JSON output */
@@ -684,7 +690,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 	 * backup nexthops and start with those.
 	 */
 	len = vty_out(vty, "%c", zebra_route_char(re->type));
-	if (re->instance)
+	if (re->type == ZEBRA_ROUTE_VRF_IMPORT) {
+		struct zebra_vrf *src_zvrf = vrf_info_lookup(re->vrf_import_src_vrf_id);
+
+		len += vty_out(vty, "[%s]", src_zvrf ? zvrf_name(src_zvrf) : "unknown");
+	} else if (re->instance)
 		len += vty_out(vty, "[%d]", re->instance);
 
 	len += vty_out(vty, "%c%c %s", CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) ? '>' : ' ',
@@ -2377,7 +2387,7 @@ static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table, a
 				srcdest_rnode2str(rn, buf, sizeof(buf)));
 			vty_out(vty, "   protocol: %s\n",
 				zebra_route_string(re->type));
-			vty_out(vty, "   instance: %u\n", re->instance);
+			vty_out(vty, "   instance: %u\n", route_entry_get_proto_instance(re));
 			vty_out(vty, "   VRF ID: %u\n", re->vrf_id);
 			vty_out(vty, "   VRF name: %s\n",
 				vrf_id_to_name(re->vrf_id));
