@@ -548,6 +548,50 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 
 			memcpy(auth_payload_ptr, digest, 20);
 		}
+	} else if ((pkt_auth_type == BFD_AUTH_TYPE_KEYED_MD5) ||
+		   (pkt_auth_type == BFD_AUTH_TYPE_METICULOUS_KEYED_MD5)) {
+		const EVP_MD *md_alg = EVP_md5();
+		unsigned int digest_len = 0;
+		unsigned char digest[16]; /* MD5 is always 16 bytes */
+		uint32_t seq_num_n;
+
+		if (md_alg) {
+			/* RFC 5880: Keyed MD5 Auth section is exactly 24 bytes */
+			auth_section_len = 24;
+			packet_len = BFD_PKT_LEN + auth_section_len;
+			cp.len = packet_len;
+
+			SET_FLAG(cp.flags, BFD_ABIT);
+
+			memcpy(send_buffer, &cp, BFD_PKT_LEN);
+			auth_payload_ptr = send_buffer + BFD_PKT_LEN;
+
+			*auth_payload_ptr++ = pkt_auth_type;
+			*auth_payload_ptr++ = auth_section_len;
+			*auth_payload_ptr++ = key->index;
+			*auth_payload_ptr++ = 0; /* Reserved */
+
+			bfd->auth_seq_num++;
+			seq_num_n = htonl(bfd->auth_seq_num);
+			memcpy(auth_payload_ptr, &seq_num_n, sizeof(seq_num_n));
+			auth_payload_ptr += sizeof(seq_num_n);
+
+			/*
+			 * RFC 5880 section 6.7.3: the 16-byte Auth
+			 * Key/Digest field is initialized with the secret
+			 * key, padded with trailing zeroes.  The whole
+			 * packet is then hashed with plain MD5 (not HMAC)
+			 * and the digest replaces the key.
+			 */
+			memset(auth_payload_ptr, 0, 16);
+			memcpy(auth_payload_ptr, key->string,
+			       MIN(strlen(key->string), 16));
+
+			EVP_Digest(send_buffer, packet_len, digest, &digest_len,
+				   md_alg, NULL);
+
+			memcpy(auth_payload_ptr, digest, 16);
+		}
 #endif /* CRYPTO_OPENSSL */
 	} else {
 		cp.len = packet_len;
@@ -1135,6 +1179,97 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
 				 "BFD: Auth digest mismatch for key ID %u", received_key_id);
 			bfd->stats.rx_pkt_authentication_keyed_sha1_mismatch++;
+			return false;
+		}
+
+		break;
+	}
+	case BFD_AUTH_TYPE_KEYED_MD5:
+	case BFD_AUTH_TYPE_METICULOUS_KEYED_MD5: {
+		uint32_t received_seq_num;
+		unsigned int digest_len = 0;
+		unsigned char computed_digest[16]; /* MD5 is always 16 bytes */
+		const unsigned char *received_digest;
+		unsigned char msgbuf[BFD_PACKET_SIZE];
+		const EVP_MD *md_alg = EVP_md5();
+		int32_t seq_diff;
+		int32_t min_diff;
+
+		/* RFC 5880 6.7.3: Auth Len MUST be exactly 24 */
+		if (auth_len != 24) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: MD5 auth length %u must be 24", auth_len);
+			return false;
+		}
+		if (!md_alg) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: MD5 not available");
+			return false;
+		}
+		if (!bfd->kc) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: keychain configured but no keychain found");
+			return false;
+		}
+		received_key_id = auth_section[2];
+		key = key_lookup_for_accept(bfd->kc, received_key_id, true);
+		if (!key || !key->string || key->hash_algo != KEYCHAIN_ALGO_MD5) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: key ID %u not found or invalid in keychain %s",
+				 received_key_id, bfd->kc->name);
+			return false;
+		}
+
+		/* RFC 5880 6.7.3: sequence number validation */
+		memcpy(&received_seq_num, auth_section + 4, sizeof(received_seq_num));
+		received_seq_num = ntohl(received_seq_num);
+
+		if (bfd->auth_last_rx_seq_num != 0) {
+			/*
+			 * Sequence numbers are compared in a circular 32-bit
+			 * number space.  Keyed MD5 accepts RcvAuthSeq ..
+			 * RcvAuthSeq+(3*DetectMult), Meticulous Keyed MD5
+			 * accepts RcvAuthSeq+1 .. RcvAuthSeq+(3*DetectMult).
+			 */
+			min_diff = (received_auth_type == BFD_AUTH_TYPE_METICULOUS_KEYED_MD5)
+				   ? 1 : 0;
+			seq_diff = (int32_t)(received_seq_num - bfd->auth_last_rx_seq_num);
+			if (seq_diff < min_diff || seq_diff > 3 * bfd->detect_mult) {
+				cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa,
+					 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
+					 bfd->vrf ? bfd->vrf->vrf_id : 0,
+					 "Auth: MD5 sequence number error (replay)");
+				bfd->stats.rx_pkt_authentication_failure++;
+				return false;
+			}
+		}
+		bfd->auth_last_rx_seq_num = received_seq_num;
+
+		/* Validate digest */
+		received_digest = auth_section + 8;
+
+		memcpy(msgbuf, cp, cp->len);
+		/*
+		 * RFC 5880 6.7.3: replace the Auth Key/Digest field with the
+		 * secret key (padded with trailing zero bytes) and hash the
+		 * entire packet with plain MD5.
+		 */
+		memset(msgbuf + BFD_PKT_LEN + 8, 0, 16);
+		memcpy(msgbuf + BFD_PKT_LEN + 8, key->string,
+		       MIN(strlen(key->string), 16));
+
+		EVP_Digest(msgbuf, cp->len, computed_digest, &digest_len, md_alg,
+			   NULL);
+
+		if (memcmp(received_digest, computed_digest, 16) != 0) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: MD5 digest mismatch for key ID %u", received_key_id);
+			bfd->stats.rx_pkt_authentication_failure++;
 			return false;
 		}
 
