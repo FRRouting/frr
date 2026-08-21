@@ -446,13 +446,20 @@ struct bgp_path_info_extra *bgp_evpn_path_info_extra_get(struct bgp_path_info *p
  * bgp_path_info_extra), otherwise fall back to the Color Extended
  * Community carried in the BGP attribute (RFC 9012).
  */
-uint32_t bgp_path_info_get_srte_color(struct bgp_path_info *bpi)
+uint32_t bgp_path_info_get_srte_color(const struct bgp_path_info *bpi)
 {
-	struct ecommunity *ecom = bgp_attr_get_ecommunity(bpi->attr);
+	struct ecommunity *ecom;
+
+	if (!bpi)
+		return 0;
 
 	if (bpi->extra && bpi->extra->srte_color)
 		return bpi->extra->srte_color;
 
+	if (!bpi->attr)
+		return 0;
+
+	ecom = bgp_attr_get_ecommunity(bpi->attr);
 	if (ecom)
 		return ecommunity_select_color(ecom);
 
@@ -20257,12 +20264,11 @@ DEFUN(show_bgp_upa, show_bgp_upa_cmd,
 				} else {
 					vty_out(vty, "*> %-18pFX", p);
 					vty_out(vty, "%-16pI4", &pi->attr->nexthop);
-					if (pi->attr->flag &
-					    ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
+					if (bgp_attr_exists(pi->attr, BGP_ATTR_MULTI_EXIT_DISC))
 						vty_out(vty, "%10u", pi->attr->med);
 					else
 						vty_out(vty, "          ");
-					if (pi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+					if (bgp_attr_exists(pi->attr, BGP_ATTR_LOCAL_PREF))
 						vty_out(vty, " %7u", pi->attr->local_pref);
 					else
 						vty_out(vty, "        ");

@@ -137,6 +137,7 @@ for key, value in replace_vars.items():
 # directories to ignore when looking for source files.
 exclude_patterns = [
     "_build",
+    "bgp-lua-attributes.rst",
     "building-libunwind-note.rst",
     "building-libyang.rst",
     "topotests-snippets.rst",
