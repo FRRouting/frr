@@ -174,17 +174,21 @@ static void babel_read_protocol(struct event *event)
 			flog_err_sys(EC_LIB_SOCKET, "recv: %s", safe_strerror(errno));
 		}
 	} else {
-		if (ntohs(sin6.sin6_port) != BABEL_PORT) {
-			return;
-		}
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			if (!if_up(ifp))
-				continue;
-			if (ifp->ifindex == (ifindex_t)sin6.sin6_scope_id) {
-				parse_packet((unsigned char *)&sin6.sin6_addr, ifp, receive_buffer,
-					     rc);
-				break;
+		/* Ignore packets not sent from the Babel port (RFC 8966
+		 * section 4): silently drop them without parsing, but
+		 * keep reading below, otherwise the receive event is
+		 * never re-armed and the daemon stops handling all
+		 * Babel traffic.
+		 */
+		if (ntohs(sin6.sin6_port) == BABEL_PORT) {
+			FOR_ALL_INTERFACES (vrf, ifp) {
+				if (!if_up(ifp))
+					continue;
+				if (ifp->ifindex == (ifindex_t)sin6.sin6_scope_id) {
+					parse_packet((unsigned char *)&sin6.sin6_addr, ifp,
+						     receive_buffer, rc);
+					break;
+				}
 			}
 		}
 	}
