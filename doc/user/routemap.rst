@@ -361,7 +361,9 @@ Route Map Set Command
 
 .. clicmd:: set extended-comm-list delete <EXTCOMMUNITY_LIST_NAME>
 
-   Set BGP extended community list for deletion.
+   Remove extended communities from a route that match the specified
+   extcommunity-list. Both standard and expanded lists may be used. See
+   :ref:`bgp-extended-community-lists` in the BGP documentation.
 
 .. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
 
