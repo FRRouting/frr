@@ -476,6 +476,18 @@ static void route_entry_attach_ref(struct route_entry *re,
 static void route_entry_update_original_nhe(struct route_entry *re, struct nhg_hash_entry *nhe)
 {
 	re->nhe_received = nhe;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re (%p) set nhe_received %p, (%pNG) ", __func__, re, nhe, nhe);
+
+	/*
+	 * We only mark the protocol-received flag in nhg-fib mode
+	 * to pass the full NHG to FPM.
+	 * In normal mode, we skip this to avoid breaking other features.
+	 */
+	if (zebra_nhg_fib_enabled)
+		zebra_nhg_mark_received_flag(nhe);
+
 	zebra_nhg_increment_ref(nhe);
 }
 
@@ -694,6 +706,8 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * Install the resolved nexthop object first.
 	 */
 	zebra_nhg_install_kernel(re->nhe, re->type);
+	if (re->nhe_received && zebra_nhg_fib_enabled)
+		zebra_nhg_install_kernel(re->nhe_received, re->type);
 
 	/*
 	 * If this is a replace to a new RE let the originator of the RE
@@ -2597,6 +2611,10 @@ static void rib_re_nhg_free(struct route_entry *re)
 	 * points to a different NHG than nhe (e.g., after route resolution).
 	 */
 	if (re->nhe_received) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL) {
+			zlog_debug("%s: re (%p) clear nhe_received %p, (%pNG) ", __func__, re,
+				   re->nhe_received, re->nhe_received);
+		}
 		zebra_nhg_decrement_ref(re->nhe_received);
 		re->nhe_received = NULL;
 	}
