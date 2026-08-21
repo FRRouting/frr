@@ -879,8 +879,32 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	IPV6_ADDR_COPY(&p.u.prefix6, &addr->sin6_addr);
 	p.prefixlen = IPV6_MAX_BITLEN;
 
-	if (!nbr_connected_check(ifp, &p))
+	if (!nbr_connected_check(ifp, &p)) {
+		/*
+		 * On multi-access segments, multiple routers may send RAs.
+		 * Once an RFC5549 neighbor entry is programmed, lock to it
+		 * and reject subsequent RA sources to prevent the 169.254.0.1
+		 * nexthop from oscillating between different peers' MACs.
+		 * The entry clears naturally on interface down, BGP peer
+		 * removal, or neighbor deletion.
+		 * See: https://github.com/FRRouting/frr/issues/8668
+		 */
+		if (zif->v6_2_v4_ll_neigh_entry) {
+			if (IS_ZEBRA_DEBUG_PACKET)
+				zlog_debug("%s(%s:%u): Rx RA from %s ignored, RFC5549 neighbor %pI6 already established",
+					   ifp->name, ifp->vrf->name, ifp->ifindex, addr_str,
+					   &zif->v6_2_v4_ll_addr6);
+			return;
+		}
 		nbr_connected_add_ipv6(ifp, &addr->sin6_addr);
+	} else if (!zif->v6_2_v4_ll_neigh_entry) {
+		/*
+		 * The neighbor is already known (same RA source) but the
+		 * RFC5549 entry was cleared (e.g., after NUD_FAILED).
+		 * Re-program the 169.254.0.1 entry from this RA source.
+		 */
+		if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &addr->sin6_addr, 1);
+	}
 }
 
 
