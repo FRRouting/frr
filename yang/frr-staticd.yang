@@ -266,6 +266,22 @@ module frr-staticd {
         container srv6 {
           description
             "Segment Routing over IPv6 (SRv6) configuration.";
+          leaf ua-nexthop-learn-mode {
+            type enumeration {
+              enum radv {
+                description
+                  "Actively trigger Router Advertisement assistance for uA
+                   nexthop resolution.";
+              }
+              enum ndisc {
+                description
+                  "Use normal Neighbor Discovery driven nexthop resolution for uA.";
+              }
+            }
+            default "ndisc";
+            description
+              "Selects the link-local resolution source for uA static SIDs.";
+          }
           container static-sids {
             description
               "This container lists the SRv6 Static SIDs instantiated on the local node.";
