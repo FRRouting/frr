@@ -1595,10 +1595,10 @@ DEFPY_YANG(
 	SR_STR
 	"Segment Routing Global Block label range\n"
 	"The lower bound of the global block\n"
-	"The upper bound of the global block (block size may not exceed 65535)\n"
+	"The upper bound of the global block\n"
 	"Segment Routing Local Block label range\n"
 	"The lower bound of the local block\n"
-	"The upper bound of the local block (block size may not exceed 65535)\n")
+	"The upper bound of the local block\n")
 {
 	nb_cli_enqueue_change(vty, "./segment-routing/label-blocks/srgb/lower-bound", NB_OP_MODIFY,
 			      gb_lower_bound_str);
@@ -1619,10 +1619,10 @@ DEFPY_YANG(no_isis_sr_global_block_label_range,
 	NO_STR SR_STR
 	"Segment Routing Global Block label range\n"
 	"The lower bound of the global block\n"
-	"The upper bound of the global block (block size may not exceed 65535)\n"
+	"The upper bound of the global block\n"
 	"Segment Routing Local Block label range\n"
 	"The lower bound of the local block\n"
-	"The upper bound of the local block (block size may not exceed 65535)\n")
+	"The upper bound of the local block\n")
 {
 	nb_cli_enqueue_change(vty, "./segment-routing/label-blocks/srgb/lower-bound", NB_OP_MODIFY,
 			      NULL);
