@@ -138,8 +138,8 @@ static int nb_cli_schedule_command(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
-void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
-			   enum nb_operation operation, const char *value)
+void nb_cli_enqueue_change_f(struct vty *vty, const char *xpath_base,
+		const char *suffix, enum nb_operation operation, const char *value)
 {
 	struct nb_cfg_change *change;
 
@@ -152,9 +152,22 @@ void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 	}
 
 	change = &vty->cfg_changes[vty->num_cfg_changes++];
-	strlcpy(change->xpath, xpath, sizeof(change->xpath));
+	strlcpy(change->xpath, xpath_base, sizeof(change->xpath));
+	if (suffix && suffix[0]) {
+		if ((suffix[0] == '.') && (suffix[1] == '/'))
+			suffix++;  /* skip '.' */
+		if (suffix[0] != '/')
+			strlcat(change->xpath, "/", sizeof(change->xpath));
+		strlcat(change->xpath, suffix, sizeof(change->xpath));
+	}
 	change->operation = operation;
 	change->value = value;
+}
+
+void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
+			   enum nb_operation operation, const char *value)
+{
+	nb_cli_enqueue_change_f(vty, xpath, NULL, operation, value);
 }
 
 static int nb_cli_apply_changes_internal(struct vty *vty,
