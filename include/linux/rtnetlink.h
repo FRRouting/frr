@@ -200,7 +200,7 @@ enum {
 #define RTM_NR_FAMILIES	(RTM_NR_MSGTYPES >> 2)
 #define RTM_FAM(cmd)	(((cmd) - RTM_BASE) >> 2)
 
-/* 
+/*
    Generic structure for encapsulation of optional route information.
    It is reminiscent of sockaddr, but with sa_family replaced
    with attribute type.
@@ -245,7 +245,7 @@ struct rtmsg {
 
 	unsigned char		rtm_table;	/* Routing table id */
 	unsigned char		rtm_protocol;	/* Routing protocol; see below	*/
-	unsigned char		rtm_scope;	/* See below */	
+	unsigned char rtm_scope;		/* See below */
 	unsigned char		rtm_type;	/* See below	*/
 
 	unsigned		rtm_flags;
@@ -308,7 +308,11 @@ enum {
 #define RTPROT_OSPF		188	/* OSPF Routes */
 #define RTPROT_RIP		189	/* RIP Routes */
 #define RTPROT_EIGRP		192	/* EIGRP Routes */
-
+/* NOTE: RTPROT_HW value is PROVISIONAL pending upstream kernel acceptance.
+ * This value may change when the kernel patch is merged. If the kernel
+ * community assigns a different value, FRR will need to be updated accordingly.
+ */
+#define RTPROT_HW 193 /* Hardware Routes */
 /* rtm_scope
 
    Really it is not scope, but sort of distance to the destination.
@@ -567,7 +571,7 @@ struct ifinfomsg {
 };
 
 /********************************************************************
- *		prefix information 
+ *		prefix information
  ****/
 
 struct prefixmsg {
@@ -581,13 +585,7 @@ struct prefixmsg {
 	unsigned char	prefix_pad3;
 };
 
-enum 
-{
-	PREFIX_UNSPEC,
-	PREFIX_ADDRESS,
-	PREFIX_CACHEINFO,
-	__PREFIX_MAX
-};
+enum { PREFIX_UNSPEC, PREFIX_ADDRESS, PREFIX_CACHEINFO, __PREFIX_MAX };
 
 #define PREFIX_MAX	(__PREFIX_MAX - 1)
 
