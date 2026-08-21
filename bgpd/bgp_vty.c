@@ -18414,6 +18414,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 			json_object_boolean_add(json_neigh, "bfdHoldTimerExpired",
 						!!CHECK_FLAG(p->sflags,
 							     PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED));
+			json_object_boolean_add(json_neigh, "bfdStrictHold",
+						!!CHECK_FLAG(p->sflags,
+							     PEER_STATUS_BFD_STRICT_HOLD));
 		}
 		if (event_is_scheduled(p->connection->t_start))
 			json_object_int_add(json_neigh,
@@ -18480,6 +18483,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 			vty_out(vty, "BFD Hold Time (interval %u) timer expires in %ld seconds\n",
 				p->bfd_config->hold_time,
 				event_timer_remain_second(p->bfd_config->t_hold_timer));
+
+		if (CHECK_FLAG(p->sflags, PEER_STATUS_BFD_STRICT_HOLD))
+			vty_out(vty,
+				"Incoming connection held until BFD session is up (BFD strict mode)\n");
 
 		if (p->password)
 			vty_out(vty, "Peer Authentication Enabled\n");

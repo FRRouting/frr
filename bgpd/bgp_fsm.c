@@ -408,9 +408,12 @@ void bgp_timer_set(struct peer_connection *connection)
 		/* Active is waiting connection from remote peer.  And if
 		   connect timer is expired, change status to Connect. */
 		event_cancel(&connection->t_start);
-		/* If peer is passive mode, do not set connect timer. */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)
-		    || CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
+		/* If peer is passive mode or held by BFD strict mode, do not set
+		 * connect timer.
+		 */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE) ||
+		    CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT) ||
+		    CHECK_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD)) {
 			event_cancel(&connection->t_connect);
 		} else {
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
@@ -2265,6 +2268,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	event_cancel(&connection->t_routeadv);
 	event_cancel(&connection->t_delayopen);
 
+	UNSET_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD);
+
 	/* Clear input and output buffer.  */
 	frr_with_mutex (&connection->io_mtx) {
 		if (connection->ibuf)
@@ -3147,7 +3152,8 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 		}
 		break;
 	case Active:
-		if (has_valid_nexthops) {
+		/* Do not disturb a connection held by BFD strict mode. */
+		if (has_valid_nexthops && !CHECK_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD)) {
 			event_cancel(&connection->t_connect);
 			BGP_EVENT_ADD(connection, ConnectRetry_timer_expired);
 		}

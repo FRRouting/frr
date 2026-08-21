@@ -24,6 +24,7 @@
 #include "nexthop.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_attr.h"
@@ -559,7 +560,11 @@ static void bgp_accept(struct event *event)
 			bgp_fsm_change_status(incoming, Active);
 			event_cancel(&incoming->t_start);
 
-			if (peer_active(incoming) == BGP_PEER_ACTIVE) {
+			/* Rejecting would delete the peer (because it's dynamic) and
+			 * deregister BFD, hold instead.
+			 */
+			if (peer_active(incoming) == BGP_PEER_ACTIVE &&
+			    !bgp_bfd_strict_hold_start(dynamic_peer)) {
 				if (CHECK_FLAG(dynamic_peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 					BGP_EVENT_ADD(incoming, TCP_connection_open_w_delay);
 				else
