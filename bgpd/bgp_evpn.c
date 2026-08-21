@@ -9196,6 +9196,7 @@ void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi, safi_t safi)
 							      addpath_id);
 			}
 		}
+		bgp_dest_unlock_node(top);
 	}
 }
 
