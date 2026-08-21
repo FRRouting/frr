@@ -111,17 +111,11 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	char buf_prefix[PREFIX_STRLEN];
 	char buf_src_prefix[PREFIX_STRLEN] = "::/0";
 	char buf_nh_type[PREFIX_STRLEN] = {};
-	char buf_distance[PREFIX_STRLEN];
-	char buf_tag[PREFIX_STRLEN];
-	char buf_metric[PREFIX_STRLEN];
 	uint8_t label_stack_id = 0;
 	uint8_t segs_stack_id = 0;
 	char *orig_label = NULL, *orig_seg = NULL;
 	const char *buf_gate_str;
 	struct ipaddr gate_ip;
-	uint8_t distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
-	route_tag_t tag = 0;
-	uint32_t metric = 0;
 	uint32_t table_id = 0;
 	const struct lyd_node *dnode;
 	const struct lyd_node *vrf_dnode;
@@ -218,18 +212,6 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			type = STATIC_IPV6_GATEWAY;
 	}
 
-	/* Administrative distance. */
-	if (args->distance)
-		distance = strtol(args->distance, NULL, 10);
-
-	/* tag */
-	if (args->tag)
-		tag = strtoul(args->tag, NULL, 10);
-
-	/* metric */
-	if (args->metric)
-		metric = strtoul(args->metric, NULL, 10);
-
 	/* TableID */
 	if (args->table)
 		table_id = strtol(args->table, NULL, 10);
@@ -252,24 +234,23 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		if (!dnode)
 			nb_cli_enqueue_change(vty, xpath_prefix, NB_OP_CREATE, NULL);
 
-		/* Distance processing */
+		/*
+		 * Distance/tag/metric: pass the user's string through, or NULL
+		 * when the token was not given. A NULL modify returns the leaf
+		 * to its (implicit) schema default, so only values the user
+		 * actually typed become explicit configuration.
+		 */
 		strlcpy(ab_xpath, xpath_prefix, sizeof(ab_xpath));
 		strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_DISTANCE_XPATH, sizeof(ab_xpath));
-		snprintf(buf_distance, sizeof(buf_distance), "%u", distance);
-		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, buf_distance);
+		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, args->distance);
 
-		/* Tag processing */
-		snprintf(buf_tag, sizeof(buf_tag), "%u", tag);
 		strlcpy(ab_xpath, xpath_prefix, sizeof(ab_xpath));
-		strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_TAG_XPATH,
-			sizeof(ab_xpath));
-		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, buf_tag);
+		strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_TAG_XPATH, sizeof(ab_xpath));
+		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, args->tag);
 
-		/* Metric processing */
-		snprintf(buf_metric, sizeof(buf_metric), "%u", metric);
 		strlcpy(ab_xpath, xpath_prefix, sizeof(ab_xpath));
 		strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_METRIC_XPATH, sizeof(ab_xpath));
-		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, buf_metric);
+		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, args->metric);
 
 		/* The path-list entry is the nexthop; xpath_nexthop == xpath_prefix. */
 		strlcpy(xpath_nexthop, xpath_prefix, sizeof(xpath_nexthop));
@@ -1780,18 +1761,18 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 
 	if (yang_dnode_exists(path, "tag")) {
 		tag = yang_dnode_get_uint32(path, "tag");
-		if (tag != 0 || show_defaults)
+		if (!yang_dnode_is_default(path, "tag") || show_defaults)
 			vty_out(vty, " tag %" PRIu32, tag);
 	}
 
 	distance = yang_dnode_get_uint8(path, "distance");
-	if (distance != ZEBRA_STATIC_DISTANCE_DEFAULT || show_defaults)
+	if (!yang_dnode_is_default(path, "distance") || show_defaults)
 		vty_out(vty, " %" PRIu8, distance);
 
 	if (yang_dnode_exists(path, "metric")) {
 		uint32_t metric = yang_dnode_get_uint32(path, "metric");
 
-		if (metric != 0 || show_defaults)
+		if (!yang_dnode_is_default(path, "metric") || show_defaults)
 			vty_out(vty, " metric %" PRIu32, metric);
 	}
 

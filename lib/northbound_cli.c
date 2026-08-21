@@ -711,7 +711,12 @@ static int nb_cli_show_config_libyang(struct vty *vty, LYD_FORMAT format,
 	if (with_defaults)
 		SET_FLAG(options, LYD_PRINT_WD_ALL);
 	else
-		SET_FLAG(options, LYD_PRINT_WD_TRIM);
+		/*
+		 * "As configured": keep leaves explicitly set to their default
+		 * value, drop only implicit defaults. WD_TRIM would drop by
+		 * value comparison, losing the explicitly configured ones.
+		 */
+		SET_FLAG(options, LYD_PRINT_WD_EXPLICIT);
 
 	if (lyd_print_mem(&strp, dnode, format, options) == 0 && strp) {
 		vty_out(vty, "%s", strp);
