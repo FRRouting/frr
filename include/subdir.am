@@ -5,6 +5,8 @@ noinst_HEADERS += \
 	include/linux/if_addr.h \
 	include/linux/if_bridge.h \
 	include/linux/if_link.h \
+	include/linux/if_packet.h \
+	include/linux/if_tunnel.h \
 	include/linux/lwtunnel.h \
 	include/linux/mpls_iptunnel.h \
 	include/linux/neighbour.h \
