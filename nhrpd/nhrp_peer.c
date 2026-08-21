@@ -45,7 +45,7 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 
 	event_cancel(&p->t_fallback);
 	event_cancel(&p->t_timer);
-	if (nifp->peer_hash)
+	if (nifp && nifp->peer_hash)
 		hash_release(nifp->peer_hash, p);
 	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
 	nhrp_vc_notify_del(p->vc, &p->vc_notifier);
@@ -64,6 +64,8 @@ static void nhrp_peer_notify_up(struct event *t)
 		nhrp_peer_ref(p);
 		notifier_call(&p->notifier_list, NOTIFY_PEER_UP);
 		nhrp_peer_unref(p);
+	} else {
+		p->requested = p->fallback_requested = 0;
 	}
 }
 
