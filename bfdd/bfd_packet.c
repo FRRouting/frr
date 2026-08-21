@@ -1397,6 +1397,22 @@ void bfd_recv_cb(struct event *t)
 		ntohl(cp->timers.required_min_echo);
 	bfd->remote_detect_mult = cp->detect_mult;
 
+	/* RFC 5880 Section 6.8.3: when remote RequiredMinRxInterval
+	 * decreases (remote can receive faster), the local system
+	 * MUST begin transmitting at the new shorter interval
+	 * immediately, not just during Poll Sequence.
+	 */
+	if (!bfd->demand_mode) {
+		uint64_t new_xmt_TO = bfd->timers.desired_min_tx;
+
+		if (bfd->remote_timers.required_min_rx > new_xmt_TO)
+			new_xmt_TO = bfd->remote_timers.required_min_rx;
+
+		if (new_xmt_TO < bfd->xmt_TO) {
+			bfd->xmt_TO = new_xmt_TO;
+			ptm_bfd_start_xmt_timer(bfd, false);
+		}
+	}
 	if (BFD_GETCBIT(cp->flags))
 		bfd->remote_cbit = 1;
 	else
