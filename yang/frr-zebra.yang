@@ -2894,6 +2894,13 @@ module frr-zebra {
         description
           "Enable PTM on the interface.";
       }
+      leaf host-routes {
+        type boolean;
+        default "false";
+        description
+          "Enable host routes for local neighbors.";
+      }
+
       container state {
         config false;
         description
