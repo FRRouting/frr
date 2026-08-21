@@ -521,6 +521,25 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 		debugf(NHRP_DEBUG_COMMON,
 		       "shortcut res_rep: holdtime is %u (if 0, using %u)",
 		       holdtime, pp->if_ad->holdtime);
+
+		/* RFC 2332 §6.2.1: source binding from a Resolution Request
+		 * MUST only be cached when the S-bit is set AND the CIE
+		 * Holding Time is greater than zero.  Skip caching if
+		 * either condition is not met.
+		 */
+		if (!(pp->hdr->flags
+		      & htons(NHRP_FLAG_RESOLUTION_SOURCE_STABLE))
+		    || !cie->holding_time) {
+			debugf(NHRP_DEBUG_COMMON,
+			       "shortcut res_rep: skipping source binding cache"
+			       " (S-bit=%u, holding_time=%u)",
+			       !!(pp->hdr->flags &
+				  htons(NHRP_FLAG_RESOLUTION_SOURCE_STABLE)),
+			       htons(cie->holding_time));
+			cie->code = NHRP_CODE_SUCCESS;
+			continue;
+		}
+
 		if (!holdtime)
 			holdtime = pp->if_ad->holdtime;
 
