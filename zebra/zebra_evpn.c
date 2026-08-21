@@ -690,6 +690,7 @@ struct zebra_evpn *zebra_evpn_map_vlan(struct interface *ifp,
 		vni_id = zebra_l2_bridge_if_vni_find(zif, vid);
 		if (vni_id)
 			return zebra_evpn_lookup(vni_id);
+		return NULL;
 	}
 
 	in_param.vid = vid;
