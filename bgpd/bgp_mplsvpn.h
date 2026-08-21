@@ -88,6 +88,14 @@ extern void delete_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
 extern void ensure_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void ensure_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
+
+/* SRv6 L2 EVPN: install an EVI's local decap SIDs (End.DT2U on srl2, BUM on
+ * bum-srl2) from the SIDs+oifs zebra reported in ZEBRA_VNI_ADD.
+ */
+struct bgpevpn;
+extern void bgp_evpn_srv6_install_local_decap(struct bgp *bgp, struct bgpevpn *vpn);
+extern void bgp_evpn_srv6_uninstall_local_decap(struct bgp *bgp, struct bgpevpn *vpn);
+
 extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset, uint8_t size,
 			  uint8_t size_max);
 extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,

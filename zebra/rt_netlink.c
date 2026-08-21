@@ -19,13 +19,28 @@
 #include <net/if_arp.h>
 #include <linux/lwtunnel.h>
 #include <linux/mpls_iptunnel.h>
+#include <linux/seg6.h>
 #include <linux/seg6_iptunnel.h>
 #include <linux/seg6_local.h>
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 #include <linux/nexthop.h>
 #include <linux/if_tunnel.h>
+#include <linux/if_bridge.h>
 #include <string.h>
+
+/*
+ * End.DT2U (RFC 8986 Section 4.1.12) and End.DT2M (RFC 8986 Section 4.1.13) are not yet
+ * in the mainline Linux kernel seg6_local.h.  Define fallback values so FRR
+ * can programme them on kernels that carry forward-ported support.
+ * Values follow the natural extension of SEG6_LOCAL_ACTION_END_BPF (16).
+ */
+#ifndef SEG6_LOCAL_ACTION_END_DT2U
+#define SEG6_LOCAL_ACTION_END_DT2U 17
+#endif
+#ifndef SEG6_LOCAL_ACTION_END_DT2M
+#define SEG6_LOCAL_ACTION_END_DT2M 18
+#endif
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
@@ -72,6 +87,8 @@
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
 #include "lib/srv6.h"
+#include "zebra/zebra_srl2.h"
+#include "zebra/zebra_dplane.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -1858,13 +1875,39 @@ static bool _netlink_route_encode_nexthop_src(const struct nexthop *nexthop,
 	return true;
 }
 
+/*
+ * Fill a bare SRv6 SRH (struct ipv6_sr_hdr + the segment list) into @srh for
+ * @num SIDs.  Segments are written in reverse wire order (segments[0] is the
+ * last SID visited).  The caller must have zeroed the buffer and sized it for
+ * SRH_BASE_HEADER_LENGTH + SRH_SEGMENT_LENGTH * num bytes.  Returns the SRH
+ * length in bytes.
+ *
+ * Single source of the SRH layout, shared by fill_seg6ipt_encap() (which wraps
+ * it in a seg6_iptunnel_encap for route lwtunnel encap) and the srl2 netdev
+ * creation (IFLA_SRL2_SEGS, which takes the bare SRH).
+ */
+size_t fill_srh(struct ipv6_sr_hdr *srh, const struct in6_addr *segs, int num)
+{
+	size_t srhlen = SRH_BASE_HEADER_LENGTH + SRH_SEGMENT_LENGTH * num;
+	int i;
+
+	srh->hdrlen = (srhlen >> 3) - 1;
+	srh->type = 4; /* RFC 8754 SRH */
+	srh->segments_left = num - 1;
+	srh->first_segment = num - 1;
+
+	for (i = 0; i < num; i++)
+		memcpy(&srh->segments[num - i - 1], &segs[i], sizeof(struct in6_addr));
+
+	return srhlen;
+}
+
 static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 				  struct seg6_seg_stack *segs)
 {
 	struct seg6_iptunnel_encap *ipt;
 	struct ipv6_sr_hdr *srh;
 	size_t srhlen;
-	int i;
 
 	if (segs->num_segs > SRV6_MAX_SEGS) {
 		/* Exceeding maximum supported SIDs */
@@ -1906,15 +1949,7 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	}
 
 	srh = (struct ipv6_sr_hdr *)&ipt->srh;
-	srh->hdrlen = (srhlen >> 3) - 1;
-	srh->type = 4;
-	srh->segments_left = segs->num_segs - 1;
-	srh->first_segment = segs->num_segs - 1;
-
-	for (i = 0; i < segs->num_segs; i++) {
-		memcpy(&srh->segments[segs->num_segs - i - 1], &segs->seg[i],
-		       sizeof(struct in6_addr));
-	}
+	fill_srh(srh, segs->seg, segs->num_segs);
 
 	return sizeof(struct seg6_iptunnel_encap) + srhlen;
 }
@@ -2040,6 +2075,36 @@ static bool _netlink_nexthop_encode_seg6local_info(const struct nexthop *nexthop
 			return false;
 		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DX2))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_OIF, ctx->oif))
+			return false;
+		break;
+	/* RFC 8986 Section 4.1.12 - bridge-domain unicast MAC lookup.
+	 * Kernel attribute SEG6_LOCAL_L2DEV (NOT SEG6_LOCAL_OIF): the kernel
+	 * resolves the bridge via netdev_master_upper_dev_get(l2dev) and runs
+	 * the FDB lookup on the inner dst MAC; l2dev's xmit() is never called,
+	 * so pointing at an srl2-* encap port is loop-safe.
+	 */
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DT2U))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_L2DEV, ctx->oif))
+			return false;
+		if (ctx->dt2_vni &&
+		    !nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_VRFTABLE, ctx->dt2_vni))
+			return false;
+		break;
+	/* RFC 8986 Section 4.1.13 - bridge-domain BUM flooding. */
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DT2M))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_L2DEV, ctx->oif))
+			return false;
+		if (ctx->dt2_vni &&
+		    !nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_VRFTABLE, ctx->dt2_vni))
+			return false;
+		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
@@ -2550,6 +2615,34 @@ static bool nexthop_set_src(const struct nexthop *nexthop, int family,
 }
 
 /*
+ * Returns true if any non-recursive, active nexthop in @ng carries a
+ * seg6local encapsulation action.
+ *
+ * The per-EVI SRv6 L2 EVPN local-SID decap routes (End.DT2U / End.DT2M /
+ * End.DX2, and the L3 End.DT46) must be installed with inline nexthops in
+ * RTM_NEWROUTE, NOT via a kernel nexthop-group object (RTA_NH_ID): routing
+ * these local SIDs through the NHG path does not preserve the per-route
+ * seg6local decap action -- the local SID routes silently fail to install
+ * (verified: the srl2/bum-srl2 decap netdevs and their End.DT2U/DT2M/DX2
+ * routes never appear in the kernel, breaking all L2 EVPN forwarding).  A
+ * lone transit End SID can ride an NHG, but these decap SIDs -- which bind an
+ * on-demand srl2/bum-srl2/vpws netdev as their l2dev/oif -- cannot, so force
+ * the inline path whenever a seg6local action is present.
+ */
+static bool nexthop_group_has_seg6local(const struct nexthop_group *ng)
+{
+	const struct nexthop *nh;
+
+	for (ALL_NEXTHOPS_PTR(ng, nh)) {
+		if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+		if (nh->nh_srv6 && nh->nh_srv6->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			return true;
+	}
+	return false;
+}
+
+/*
  * Routing table change via netlink interface, using a dataplane context object
  *
  * Returns -1 on failure, 0 when the msg doesn't fit entirely in the buffer
@@ -2723,7 +2816,9 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 
 	if ((!fpm && kernel_nexthops_supported() &&
 	     (!proto_nexthops_only() || is_proto_nhg(dplane_ctx_get_nhe_id(ctx), 0)) &&
-	     (!src_p || !src_p->prefixlen)) ||
+	     (!src_p || !src_p->prefixlen) &&
+	     /* seg6local encap is not supported inside kernel NHG objects */
+	     !nexthop_group_has_seg6local(dplane_ctx_get_ng(ctx))) ||
 	    (fpm && force_nhg)) {
 		/* Kernel supports nexthop objects */
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -4437,6 +4532,10 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 }
 
+/* Forward declaration - defined in the srl2 section at the bottom of the file. */
+static ssize_t netlink_srl2_macfdb_encode(const struct zebra_dplane_ctx *ctx, int cmd, void *data,
+					  size_t datalen);
+
 /*
  * Netlink-specific handler for MAC updates using dataplane context object.
  */
@@ -4454,6 +4553,15 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	bool nfy = false;
 	uint8_t nfy_flags = 0;
 	int proto = RTPROT_ZEBRA;
+
+	/*
+	 * srl2 path: the outgoing port is an srl2 interface that has the SID
+	 * bound to it.The FDB entry just names the interface - no NDA_DST.
+	 */
+	if (dplane_ctx_mac_has_srl2_if(ctx)) {
+		cmd = dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL ? RTM_NEWNEIGH : RTM_DELNEIGH;
+		return netlink_srl2_macfdb_encode(ctx, cmd, data, datalen);
+	}
 
 	if (dplane_ctx_get_type(ctx) != 0)
 		proto = zebra2proto(dplane_ctx_get_type(ctx));
@@ -5339,6 +5447,94 @@ int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
 int kernel_del_mac_nhg(uint32_t nhg_id)
 {
 	return netlink_fdb_nhg_del(nhg_id);
+}
+
+/* -------------------------------------------------------------------------- */
+/* SRv6 SR-L2 (srl2) interface management moved to if_netlink.c (link ops).    */
+/* fill_srh() (defined above) is shared with them, so it is no longer static.  */
+/* -------------------------------------------------------------------------- */
+
+
+/*
+ * Build a bridge FDB message that uses an srl2 interface as the outgoing port.
+ * Unlike the NDA_DST-based approach for VXLAN/SRv6, the SID is implicit in
+ * the srl2 interface itself - no destination address attribute is needed.
+ *
+ * Kernel equivalent of:
+ *   bridge fdb add <mac> dev srl2-N [permanent]
+ */
+static ssize_t netlink_srl2_macfdb_encode(const struct zebra_dplane_ctx *ctx, int cmd, void *data,
+					  size_t datalen)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ndmsg ndm;
+		char buf[256];
+	} *req = data;
+	const struct ethaddr *mac = dplane_ctx_mac_get_addr(ctx);
+	ifindex_t srl2_ifindex = dplane_ctx_mac_get_srl2_ifindex(ctx);
+	/*
+	 * Flag shape MUST match what zebra's L2VNI MAC watcher considers
+	 * a remote BGP-installed entry:
+	 *
+	 *   NTF_MASTER       - bridge-master FDB (NTF_SELF is rejected by the
+	 *                      srl2 driver, which has no ndo_fdb_add).
+	 *   NTF_EXT_LEARNED  - programmed by an external control plane (BGP).
+	 *   NTF_STICKY       - pin the entry; never let the bridge re-learn or
+	 *                      age it.  THIS is what makes `bridge fdb show`
+	 *                      print the entry with the `static` keyword and,
+	 *                      crucially, what causes zebra_evpn_mac.c to
+	 *                      classify the FDB notification as a REMOTE MAC
+	 *                      instead of a locally-learned one.  Without it,
+	 *                      both VTEPs flip the peer's MAC to "local",
+	 *                      both sides re-announce it via Type-2, EVPN
+	 *                      duplicate-detection or the import re-eval
+	 *                      tears down the IPv6 underlay route, and the
+	 *                      seg6 dataplane never converges.
+	 *   NUD_NOARP        - paired with NTF_STICKY: kernel must not initiate
+	 *                      neighbor resolution for the entry.
+	 */
+	uint8_t flags = NTF_MASTER | NTF_EXT_LEARNED | NTF_STICKY;
+	uint16_t state = NUD_REACHABLE | NUD_NOARP;
+	uint8_t protocol = RTPROT_ZEBRA;
+	vlanid_t vid;
+	int proto = RTPROT_ZEBRA;
+
+	if (dplane_ctx_get_type(ctx) != 0)
+		proto = zebra2proto(dplane_ctx_get_type(ctx));
+	protocol = proto;
+
+	if (dplane_ctx_mac_is_sticky(ctx)) {
+		state |= NUD_NOARP;
+		flags = (flags & ~NTF_EXT_LEARNED) | NTF_STICKY;
+	}
+
+	if (datalen < sizeof(*req))
+		return 0;
+
+	memset(req, 0, sizeof(*req));
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	if (cmd == RTM_NEWNEIGH)
+		req->n.nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
+	req->n.nlmsg_type = cmd;
+
+	req->ndm.ndm_family = AF_BRIDGE;
+	req->ndm.ndm_ifindex = srl2_ifindex;
+	req->ndm.ndm_flags = flags;
+	req->ndm.ndm_state = state;
+
+	if (!nl_attr_put(&req->n, datalen, NDA_PROTOCOL, &protocol, sizeof(protocol)))
+		return 0;
+	if (!nl_attr_put(&req->n, datalen, NDA_LLADDR, mac->octet, ETH_ALEN))
+		return 0;
+
+	vid = dplane_ctx_mac_get_vlan(ctx);
+	if (vid > 0)
+		if (!nl_attr_put16(&req->n, datalen, NDA_VLAN, vid))
+			return 0;
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
 #endif /* HAVE_NETLINK */

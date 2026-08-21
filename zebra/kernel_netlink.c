@@ -1540,6 +1540,17 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_INTF_DELETE:
 		return netlink_put_intf_update_msg(bth, ctx);
 
+	case DPLANE_OP_INTF_SET_MASTER:
+	case DPLANE_OP_LINK_DELETE:
+	case DPLANE_OP_BRPORT_FLAGS:
+	case DPLANE_OP_BRIDGE_VLAN_ADD:
+	case DPLANE_OP_SRL2_IF_UP:
+	case DPLANE_OP_SRL2_UPDATE_SID:
+	case DPLANE_OP_SRL2_CREATE:
+	case DPLANE_OP_SRL2_ADDRGENMODE:
+	case DPLANE_OP_SRL2_SET_MTU:
+		return netlink_put_link_update_msg(bth, ctx);
+
 	case DPLANE_OP_TC_QDISC_INSTALL:
 	case DPLANE_OP_TC_QDISC_UNINSTALL:
 		return netlink_put_tc_qdisc_update_msg(bth, ctx);
