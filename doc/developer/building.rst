@@ -23,6 +23,7 @@ Building FRR
    building-frr-for-freebsd11
    building-frr-for-freebsd13
    building-frr-for-freebsd14
+   building-frr-for-macos
    building-frr-for-netbsd10
    building-frr-for-openbsd6
    building-frr-for-opensuse
