@@ -21993,13 +21993,18 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 			peer->weight[afi][safi]);
 
 	/* encapsulation-srv6|encapsulation-mpls */
-	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
-		vty_out(vty, "  neighbor %s encapsulation-srv6\n", addr);
-	else if (peergroup_af_flag_check(peer, afi, safi,
-					 PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX))
-		vty_out(vty, "  neighbor %s encapsulation-srv6-relax\n", addr);
-	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
-		vty_out(vty, "  neighbor %s encapsulation-mpls\n", addr);
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+		if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+			vty_out(vty, "  neighbor %s encapsulation-type srv6\n", addr);
+	} else {
+		if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+			vty_out(vty, "  neighbor %s encapsulation-srv6\n", addr);
+		else if (peergroup_af_flag_check(peer, afi, safi,
+						 PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX))
+			vty_out(vty, "  neighbor %s encapsulation-srv6-relax\n", addr);
+		if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
+			vty_out(vty, "  neighbor %s encapsulation-mpls\n", addr);
+	}
 
 	/* Filter. */
 	bgp_config_write_filter(vty, peer, afi, safi);
