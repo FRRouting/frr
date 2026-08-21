@@ -447,7 +447,8 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			if (addr->family == AF_INET)
 				continue;
 
-			if (!IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
+			if (peer->nexthop.ifp == ifc->ifp &&
+			    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
 			    memcmp(&peer->nexthop.v6_global, &addr->u.prefix6, IPV6_MAX_BYTELEN) ==
 				    0) {
 				/*
