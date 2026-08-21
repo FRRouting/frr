@@ -191,13 +191,12 @@ struct yang_data *bfdd_bfd_sessions_single_hop_stats_detection_mode_get_elem(
 	 *   2. Async without echo
 	 *   3. Demand with echo
 	 *   4. Demand without echo
-	 *
-	 * TODO: support demand mode.
 	 */
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
-		detection_mode = 1;
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND) && bs->ses_state == PTM_BFD_UP &&
+	    bs->remote_ses_state == PTM_BFD_UP)
+		detection_mode = CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) ? 3 : 4;
 	else
-		detection_mode = 2;
+		detection_mode = CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) ? 1 : 2;
 
 	return yang_data_new_enum(args->xpath, detection_mode);
 }
