@@ -456,7 +456,11 @@ def test_pbr_nhg_with_vrf_disable_enable():
             if nexthop.get("targetVrf") != "vrf-chiyoda":
                 return "Nexthop %s is not in vrf-chiyoda" % nexthop.get("nexthop")
             if nexthop.get("valid") != valid:
-                return "Nexthop %s valid=%s, expected=%s" % (nexthop.get("nexthop"), nexthop.get("valid"), valid)
+                return "Nexthop %s valid=%s, expected=%s" % (
+                    nexthop.get("nexthop"),
+                    nexthop.get("valid"),
+                    valid,
+                )
 
         return None
 
@@ -489,7 +493,6 @@ def test_pbr_nhg_with_vrf_disable_enable():
     router.run("ip link set dev r1-eth3 master vrf-chiyoda")
     router.run("ip link set vrf-chiyoda up")
 
-
     logger.info("Step 5: Verifying nexthop-group C is valid after VRF is enabled")
 
     test_func = partial(check_nhg_c_valid, router, True)
@@ -500,6 +503,45 @@ def test_pbr_nhg_with_vrf_disable_enable():
     assert result is None, assertmsg
 
     logger.info("Test completed successfully - nexthop-group remains valid")
+
+
+def test_pbr_ecn_dscp_combined():
+    """
+    Test that ECN and DSCP bits are combined correctly in kernel TOS field.
+
+    Bug: When both DSCP and ECN are matched, only DSCP was programmed to kernel.
+    Fix: Both DSCP and ECN bits should be ORed together in the TOS field.
+
+    ASAKUSA seq 25: match dscp 10 (af11) + match ecn 1
+    Expected TOS: 0x29 (DSCP 10 << 2 = 0x28, ECN 1 = 0x01, combined = 0x29)
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    logger.info("Checking ECN+DSCP combined TOS value in kernel")
+
+    def _check_ecn_dscp_tos():
+        output = router.run("ip -6 rule show")
+
+        for line in output.splitlines():
+            if "324:" in line and "dead:beef::/64" in line:
+                if "tos 0x29" in line or "tos AF11-ECT(0)" in line:
+                    return None
+                elif "tos 0x28" in line or "tos AF11" in line:
+                    return (
+                        "Bug: TOS has DSCP but missing ECN bit (0x28 instead of 0x29)"
+                    )
+                else:
+                    return f"Unexpected TOS value in rule: {line}"
+
+        return "Rule 324 not found in kernel"
+
+    test_func = partial(_check_ecn_dscp_tos)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert result is None, f"ECN+DSCP TOS check failed: {result}"
 
 
 if __name__ == "__main__":
