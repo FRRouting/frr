@@ -878,7 +878,7 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
-		if (longer_prefix_p && !prefix_match(longer_prefix_p, &rn->p))
+		if (longer_prefix_p && !prefix_contains(longer_prefix_p, &rn->p))
 			continue;
 
 		RNODE_FOREACH_RE (rn, re) {

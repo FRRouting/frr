@@ -362,8 +362,8 @@ static bool bgp_debug_list_remove_entry(struct list *list, const char *host,
 			XFREE(MTYPE_BGP_DEBUG_STR, filter->plist_name);
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
 			return true;
-		} else if (p && filter->p->prefixlen == p->prefixlen
-			   && prefix_match(filter->p, p)) {
+		} else if (p && filter->p->prefixlen == p->prefixlen &&
+			   prefix_contains(filter->p, p)) {
 			listnode_delete(list, filter);
 			prefix_free(&filter->p);
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
@@ -390,10 +390,8 @@ static bool bgp_debug_list_has_entry(struct list *list, const char *host,
 			if (strmatch(filter->host, host))
 				return true;
 		} else if (p) {
-			if (filter->p->prefixlen == p->prefixlen
-			    && prefix_match(filter->p, p)) {
+			if (filter->p->prefixlen == p->prefixlen && prefix_contains(filter->p, p))
 				return true;
-			}
 		}
 	}
 
@@ -2873,8 +2871,8 @@ static int bgp_debug_per_prefix(const struct prefix *p,
 
 			for (ALL_LIST_ELEMENTS(per_prefix_list, node, nnode,
 					       filter))
-				if (filter->p->prefixlen == p->prefixlen
-				    && prefix_match(filter->p, p))
+				if (filter->p->prefixlen == p->prefixlen &&
+				    prefix_contains(filter->p, p))
 					return 1;
 
 			return 0;
