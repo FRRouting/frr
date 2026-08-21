@@ -278,6 +278,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
 /* BGP route-map match conditions */
 #define IS_MATCH_VPN_DATAPLANE(C) (strmatch(C, "frr-bgp-route-map:match-vpn-dataplane"))
+#define IS_MATCH_PREFIX_STATE(C)  (strmatch(C, "frr-bgp-route-map:match-prefix-state"))
 #define IS_MATCH_LOCAL_PREF(C)                                                 \
 	(strmatch(C, "frr-bgp-route-map:match-local-preference"))
 #define IS_MATCH_ALIAS(C) (strmatch(C, "frr-bgp-route-map:match-alias"))

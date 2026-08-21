@@ -716,6 +716,7 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 {
 	memset(dst_pi, 0, sizeof(struct bgp_path_info));
 	memset(dst_pie, 0, sizeof(struct bgp_path_info_extra));
+	dst_pi->flags = src_pi->flags;
 	dst_pi->peer = peer;
 	dst_pi->from = from;
 	dst_pi->attr = attr;
