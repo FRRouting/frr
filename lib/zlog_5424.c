@@ -228,10 +228,11 @@ static size_t zlog_5424_one(struct zlt_5424 *zte, struct zlog_msg *msg,
 		need += bputs(fbuf, "[args@50145");
 
 		for (size_t i = 0; i < n_argpos; i++) {
-			int len = argpos[i].off_end - argpos[i].off_start;
+			unsigned int off_s = MIN(textlen, argpos[i].off_start);
+			unsigned int off_e = MIN(textlen, argpos[i].off_end);
 
-			need += bprintfrr(fbuf, " arg%zu=%*pSQsq", i + 1, len,
-					  text + argpos[i].off_start);
+			need += bprintfrr(fbuf, " arg%zu=%*pSQsq", i + 1, off_e - off_s,
+					  text + off_s);
 		}
 
 		need += bputch(fbuf, ']');
@@ -351,15 +352,16 @@ static size_t zlog_journald_one(struct zlt_5424 *zte, struct zlog_msg *msg,
 
 	if (zte->kw_args && n_argpos) {
 		for (size_t i = 0; i < n_argpos; i++) {
-			int len = argpos[i].off_end - argpos[i].off_start;
+			unsigned int off_s = MIN(textlen, argpos[i].off_start);
+			unsigned int off_e = MIN(textlen, argpos[i].off_end);
 
 			/* rather than escape the value, we could use
 			 * journald's binary encoding, but that seems a bit
 			 * excessive/unnecessary.  99% of things we print here
 			 * will just output 1:1 with %pSE.
 			 */
-			need += bprintfrr(fbuf, "FRR_ARG%zu=%*pSE\n", i + 1,
-					  len, text + argpos[i].off_start);
+			need += bprintfrr(fbuf, "FRR_ARG%zu=%*pSE\n", i + 1, off_e - off_s,
+					  text + off_s);
 		}
 	}
 
