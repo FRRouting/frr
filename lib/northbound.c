@@ -29,6 +29,11 @@ DEFINE_MTYPE_STATIC(LIB, NB_TRANS, "NB transaction");
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
 
+static nb_rpc_dispatch_async_cb nb_rpc_dispatcher_async;
+static nb_config_get_dispatch_cb nb_config_get_dispatcher;
+static nb_config_root_borrow_dispatch_cb nb_config_root_borrow_dispatcher;
+static nb_config_commit_async_cb nb_config_commit_dispatcher_async;
+
 /* Hash table of user pointers associated with configuration entries. */
 static struct hash *running_config_entries;
 
@@ -1958,6 +1963,73 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	return nb_node->cbs.rpc(&args);
 }
 
+void nb_rpc_dispatch_async_set(nb_rpc_dispatch_async_cb cb)
+{
+	/* Single owner by design: one frontend owns backend RPC dispatch. */
+	nb_rpc_dispatcher_async = cb;
+}
+
+int nb_rpc_dispatch_async(const char *xpath, const struct lyd_node *input,
+			  nb_rpc_dispatch_done_cb done, void *arg, char *errmsg, size_t errmsg_len)
+{
+	if (!nb_rpc_dispatcher_async)
+		return -EOPNOTSUPP;
+
+	return nb_rpc_dispatcher_async(xpath, input, done, arg, errmsg, errmsg_len);
+}
+
+void nb_config_get_dispatch_set(nb_config_get_dispatch_cb cb)
+{
+	/* Single owner by design: one frontend owns central config reads. */
+	nb_config_get_dispatcher = cb;
+}
+
+int nb_config_get_dispatch(const char *xpath, struct lyd_node **result, char *errmsg,
+			   size_t errmsg_len)
+{
+	if (!nb_config_get_dispatcher)
+		return -EOPNOTSUPP;
+
+	return nb_config_get_dispatcher(xpath, result, errmsg, errmsg_len);
+}
+
+void nb_config_root_borrow_dispatch_set(nb_config_root_borrow_dispatch_cb cb)
+{
+	/* Single owner by design: one frontend owns central config borrows. */
+	nb_config_root_borrow_dispatcher = cb;
+}
+
+int nb_config_root_borrow_dispatch(const struct lyd_node **result, char *errmsg, size_t errmsg_len)
+{
+	if (!nb_config_root_borrow_dispatcher)
+		return -EOPNOTSUPP;
+
+	return nb_config_root_borrow_dispatcher(result, errmsg, errmsg_len);
+}
+
+void nb_config_commit_dispatch_async_set(nb_config_commit_async_cb cb)
+{
+	/* Single owner by design: one frontend owns central config commits. */
+	nb_config_commit_dispatcher_async = cb;
+}
+
+bool nb_config_commit_dispatch_async_is_set(void)
+{
+	return nb_config_commit_dispatcher_async != NULL;
+}
+
+int nb_config_commit_dispatch_async(const struct nb_config *candidate,
+				    enum nb_config_commit_phase phase, const char *comment,
+				    nb_config_commit_done_cb done, void *arg, char *errmsg,
+				    size_t errmsg_len)
+{
+	if (!nb_config_commit_dispatcher_async)
+		return -EOPNOTSUPP;
+
+	return nb_config_commit_dispatcher_async(candidate, phase, comment, done, arg, errmsg,
+						 errmsg_len);
+}
+
 void nb_callback_notify(const struct nb_node *nb_node, uint8_t op, const char *xpath,
 			struct lyd_node *dnode)
 {
@@ -2517,6 +2589,15 @@ done:
 
 DEFINE_HOOK(nb_notification_tree_send,
 	    (const char *xpath, const struct lyd_node *tree), (xpath, tree));
+DEFINE_HOOK(nb_grpc_terminate, (), ());
+
+void nb_grpc_terminate_call(void)
+{
+	hook_call(nb_grpc_terminate);
+}
+
+static nb_notification_data_subscribe_cb notification_data_subscribe_cb;
+static nb_notification_data_unsubscribe_cb notification_data_unsubscribe_cb;
 
 int nb_notification_tree_send(const char *xpath, const struct lyd_node *tree)
 {
@@ -2530,6 +2611,35 @@ int nb_notification_tree_send(const char *xpath, const struct lyd_node *tree)
 	ret = hook_call(nb_notification_tree_send, xpath, tree);
 
 	return ret;
+}
+
+void nb_notification_data_subscribe_set(nb_notification_data_subscribe_cb cb)
+{
+	/* Single owner by design: one frontend owns notification selectors. */
+	notification_data_subscribe_cb = cb;
+}
+
+void nb_notification_data_unsubscribe_set(nb_notification_data_unsubscribe_cb cb)
+{
+	/* Single owner by design: one frontend owns notification selectors. */
+	notification_data_unsubscribe_cb = cb;
+}
+
+int nb_notification_data_subscribe(const char *const *selectors, size_t selector_count,
+				   LYD_FORMAT format, nb_notification_data_cb cb, void *arg,
+				   void **handle, char *errmsg, size_t errmsg_len)
+{
+	if (!notification_data_subscribe_cb)
+		return -EOPNOTSUPP;
+
+	return notification_data_subscribe_cb(selectors, selector_count, format, cb, arg, handle,
+					      errmsg, errmsg_len);
+}
+
+void nb_notification_data_unsubscribe(void *handle)
+{
+	if (notification_data_unsubscribe_cb)
+		notification_data_unsubscribe_cb(handle);
 }
 
 /* Running configuration user pointers management. */

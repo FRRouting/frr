@@ -36,9 +36,20 @@ extern struct debug mgmt_debug_txn;
 /* The first 1000 session IDs are reserved for backend clients IDs */
 #define MGMT_FE_SESSION_ID_MIN 1001
 #define MGMT_FE_SESSION_ID_MAX UINTPTR_MAX
+/*
+ * Synthetic frontend session IDs live high in the uint64_t space, away from
+ * normal frontend sessions allocated from MGMT_FE_SESSION_ID_MIN upwards.
+ */
+#define MGMT_FE_NOTIFY_SUB_ID_BASE (UINT64_MAX / 4)
+#define MGMT_GRPC_SESSION_ID_BASE  (UINT64_MAX / 2)
 
 #define MGMT_BE_CLIENT_TO_SESSION_ID(client_id)	 ((client_id) + 1)
 #define MGMT_FE_SESSION_TO_CLIENT_ID(session_id) (assert((session_id) > 0), ((session_id)-1))
+
+static_assert(MGMT_FE_SESSION_ID_MIN < MGMT_FE_NOTIFY_SUB_ID_BASE,
+	      "real frontend sessions must not overlap synthetic notify subscribers");
+static_assert(MGMT_FE_NOTIFY_SUB_ID_BASE < MGMT_GRPC_SESSION_ID_BASE,
+	      "synthetic notify and gRPC session ranges must be disjoint");
 
 struct mgmt_txn;
 
@@ -97,6 +108,8 @@ extern struct vty *mgmt_vty_read_config(const char *config_file,
 extern void mgmt_master_init(struct event_loop *master, const int buffer_size);
 
 extern void mgmt_init(void);
+extern void mgmt_grpc_init(void);
+extern void mgmt_grpc_terminate(void);
 extern void mgmt_vty_init(void);
 
 /*

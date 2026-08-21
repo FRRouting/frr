@@ -13,6 +13,7 @@
 #include "mgmt_fe_client.h"
 #include "mgmt_msg.h"
 #include "mgmt_defines.h"
+#include "northbound.h"
 
 struct mgmt_commit_stats {
 	struct timeval last_start;
@@ -156,6 +157,12 @@ extern void mgmt_fe_ns_string_remove_be_client(uint client_id);
  * Get the list (darr) of session_ids interested in a notification.
  */
 extern uint64_t *mgmt_fe_ns_string_select(struct nb_node *nb_node, const char *notif);
+
+extern int mgmt_fe_adapter_notify_subscribe(const char *const *selectors, size_t selector_count,
+					    LYD_FORMAT format, nb_notification_data_cb cb,
+					    void *arg, void **handle, char *errmsg,
+					    size_t errmsg_len);
+extern void mgmt_fe_adapter_notify_unsubscribe(void *handle);
 
 /**
  * mgmt_fe_get_all_selectors() - Get all selectors for all frontend adapters.
