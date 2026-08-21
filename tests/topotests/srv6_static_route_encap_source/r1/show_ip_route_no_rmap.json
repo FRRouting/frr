@@ -106,7 +106,7 @@
 						"fcbb:bbbb:7:8:fe00::"
 					],
 					"srv6EncapBehavior": "H.Encaps.Red",
-					"srv6EncapSource": "2001:db8:dead:4::ff"
+					"srv6EncapSource": "2001:db8:dead:4::4"
 				}
 			]
 		}
@@ -133,8 +133,7 @@
 						"fcbb:bbbb:1:2:3:4:5:7",
 						"fcbb:bbbb:7:8:fe00::"
 					],
-					"srv6EncapBehavior": "H.Encaps.Red",
-					"srv6EncapSource": "2001:db8:dead:4::ff"
+					"srv6EncapBehavior": "H.Encaps.Red"
 				}
 			]
 		}
