@@ -958,6 +958,16 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				       "Received request with invalid hop count 0");
 				goto done;
 			}
+			if (is_all_zero(message + 8, 8)) {
+				flog_err(EC_BABEL_PACKET,
+					 "Received seqno request with all-zero router id.");
+				goto fail;
+			}
+			if (is_all_ones(message + 8, 8)) {
+				flog_err(EC_BABEL_PACKET,
+					 "Received seqno request with all-ones router id.");
+				goto fail;
+			}
 			handle_request(neigh, prefix, plen, message[6], seqno, message + 8);
 		} else {
 			debugf(BABEL_DEBUG_COMMON, "Received unknown packet type %d from %s on %s.",
