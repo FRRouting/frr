@@ -1610,6 +1610,24 @@ extern void *nb_oper_walk_finish_arg(void *walk);
 extern void *nb_oper_walk_cb_arg(void *walk);
 
 /* Generic getter functions */
+extern enum nb_error nb_oper_int8_get(const struct nb_node *nb_node,
+				      const void *parent_list_entry, struct lyd_node *parent);
+
+extern enum nb_error nb_oper_int16_get(const struct nb_node *nb_node,
+				       const void *parent_list_entry, struct lyd_node *parent);
+
+extern enum nb_error nb_oper_int32_get(const struct nb_node *nb_node,
+				       const void *parent_list_entry, struct lyd_node *parent);
+
+extern enum nb_error nb_oper_int64_get(const struct nb_node *nb_node,
+				       const void *parent_list_entry, struct lyd_node *parent);
+
+extern enum nb_error nb_oper_uint8_get(const struct nb_node *nb_node,
+				       const void *parent_list_entry, struct lyd_node *parent);
+
+extern enum nb_error nb_oper_uint16_get(const struct nb_node *nb_node,
+					const void *parent_list_entry, struct lyd_node *parent);
+
 extern enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node,
 					const void *parent_list_entry, struct lyd_node *parent);
 

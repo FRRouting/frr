@@ -738,7 +738,7 @@ static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const
 	struct lyd_node *dnode = NULL;
 	LY_ERR err;
 
-	err = yang_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, 0, options, NULL,
+	err = yang_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, options, NULL,
 			     &dnode);
 	if (err) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %d",
@@ -907,8 +907,7 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	 * merged later with candidate.
 	 */
 	if (parent_xpath) {
-		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, 0, &tree,
-				     &parent);
+		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, &tree, &parent);
 		if (err) {
 			yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 			ret = NB_ERR;
