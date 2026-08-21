@@ -31,6 +31,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_evpn_mac.h"
+#include "zebra/zebra_evpn_vxlan.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NEIGH, "EVI Neighbor");
 
@@ -97,6 +98,7 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 				 struct zebra_neigh *n, bool was_static)
 {
 	struct interface *vlan_if;
+	struct interface *vrr_if = NULL;
 	int flags;
 	int ret = 0;
 
@@ -113,6 +115,10 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 	ZEBRA_NEIGH_SET_ACTIVE(n);
 
 	dplane_rem_neigh_add(vlan_if, &n->ip, &n->emac, flags, was_static);
+
+	vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+	if (vrr_if)
+		dplane_rem_neigh_add(vrr_if, &n->ip, &n->emac, flags, was_static);
 
 	return ret;
 }
@@ -802,6 +808,7 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
 				      struct zebra_neigh *n)
 {
 	struct interface *vlan_if;
+	struct interface *vrr_if = NULL;
 
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
 		return 0;
@@ -814,6 +821,10 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
 	n->loc_seq = 0;
 
 	dplane_rem_neigh_delete(vlan_if, &n->ip);
+
+	vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+	if (vrr_if)
+		dplane_rem_neigh_delete(vrr_if, &n->ip);
 
 	return 0;
 }
