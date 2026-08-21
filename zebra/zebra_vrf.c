@@ -42,6 +42,44 @@ static void zebra_rnhtable_node_cleanup(struct route_table *table,
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_VRF, "ZEBRA VRF");
 DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table");
 
+/*
+ * Inserts a zebra_vrf into the VRF table_id hash.
+ *
+ * zvrf: Pointer to zebra_vrf to insert.
+ */
+static inline void zebra_vrf_hash_insert(struct zebra_vrf *zvrf)
+{
+	zvrf_table_id_hash_add(&zrouter.vrf_table_hash, zvrf);
+}
+
+/*
+ * Removes a zebra_vrf from the VRF table_id hash.
+ *
+ * zvrf: Pointer to zebra_vrf to remove.
+ */
+static inline void zebra_vrf_hash_remove(struct zebra_vrf *zvrf)
+{
+	zvrf_table_id_hash_del(&zrouter.vrf_table_hash, zvrf);
+}
+
+/*
+ * Updates the table_id of a zebra_vrf and adjusts the hash accordingly.
+ *
+ * zvrf: Pointer to zebra_vrf to update.
+ * table_id: New table_id.
+ */
+void zebra_vrf_set_table_id(struct zebra_vrf *zvrf, uint32_t table_id)
+{
+	if (zvrf->_table_id == table_id) {
+		zebra_vrf_hash_insert(zvrf);
+		return;
+	}
+
+	zebra_vrf_hash_remove(zvrf);
+	zvrf->_table_id = table_id;
+	zebra_vrf_hash_insert(zvrf);
+}
+
 /* VRF information update. */
 static void zebra_vrf_add_update(struct zebra_vrf *zvrf)
 {
@@ -220,7 +258,7 @@ static void zebra_vrf_disable_update_vrfid(struct zebra_vrf *zvrf, afi_t afi, sa
 	}
 
 	if (empty_table)
-		zebra_router_release_table(zvrf, zvrf->table_id, afi, safi);
+		zebra_router_release_table(zvrf, zvrf_table_id(zvrf), afi, safi);
 	zvrf->table[afi][safi] = NULL;
 }
 
@@ -287,7 +325,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		 */
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			if (!zvrf->table[afi][safi] || vrf->vrf_id == VRF_DEFAULT) {
-				zebra_router_release_table(zvrf, zvrf->table_id, afi, safi);
+				zebra_router_release_table(zvrf, zvrf_table_id(zvrf), afi, safi);
 				zvrf->table[afi][safi] = NULL;
 				continue;
 			}
@@ -337,6 +375,8 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	list_delete_all_node(zvrf->rid6_all_sorted_list);
 	list_delete_all_node(zvrf->rid6_lo_sorted_list);
 
+	zebra_vrf_hash_remove(zvrf);
+
 	otable_fini(&zvrf->other_tables);
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
 
@@ -368,7 +408,7 @@ struct route_table *zebra_vrf_lookup_table_with_table_id(afi_t afi, safi_t safi,
 	if (afi >= AFI_MAX || safi >= SAFI_MAX)
 		return NULL;
 
-	if (table_id == zvrf->table_id)
+	if (table_id == zvrf_table_id(zvrf))
 		return zebra_vrf_table(afi, safi, vrf_id);
 
 	ort.afi = afi;
@@ -439,7 +479,7 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 	 * Otherwise, create a new table.
 	 */
 	zvrf->table[afi][safi] =
-		zebra_router_get_table(zvrf, zvrf->table_id, afi, safi);
+		zebra_router_get_table(zvrf, zvrf_table_id(zvrf), afi, safi);
 
 	/* If the table existed before the VRF was created, info->zvrf was
 	 * referring to the default VRF.
@@ -485,8 +525,9 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
 	zebra_pw_init_vrf(zvrf);
-	zvrf->table_id = rt_table_main_id;
+	zvrf->_table_id = rt_table_main_id;
 	/* by default table ID is default one */
+	zebra_vrf_hash_insert(zvrf);
 
 	if (DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT) {
 		zvrf->zebra_rnh_ip_default_route = true;
@@ -496,31 +537,25 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 	return zvrf;
 }
 
-/*
- * Pending: create an efficient table_id (in a tree/hash) based lookup)
- */
 vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 {
-	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
+	struct zebra_vrf lookup;
 
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		zvrf = vrf->info;
-
-		if (zvrf == NULL)
-			continue;
-		/* case vrf with netns : match the netnsid */
-		if (vrf_is_backend_netns()) {
-			if (ns_id == zvrf_id(zvrf))
-				return zvrf_id(zvrf);
-		} else {
-			/* VRF is VRF_BACKEND_VRF_LITE */
-			if (zvrf->table_id != table_id)
-				continue;
-
+	/* case vrf with netns : match the netnsid */
+	if (vrf_is_backend_netns()) {
+		zvrf = zebra_vrf_lookup_by_id((vrf_id_t)ns_id);
+		if (zvrf)
 			return zvrf_id(zvrf);
-		}
+		return VRF_DEFAULT;
 	}
+
+	/* VRF is VRF_BACKEND_VRF_LITE */
+	memset(&lookup, 0, sizeof(lookup));
+	lookup._table_id = table_id;
+	zvrf = zvrf_table_id_hash_find(&zrouter.vrf_table_hash, &lookup);
+	if (zvrf)
+		return zvrf_id(zvrf);
 
 	return VRF_DEFAULT;
 }
@@ -539,7 +574,7 @@ int zebra_vrf_lookup_tableid(vrf_id_t vrf_id, ns_id_t ns_id)
 		zvrf = vrf_info_lookup(vrf_id);
 
 	if (zvrf)
-		return zvrf->table_id;
+		return zvrf_table_id(zvrf);
 	else
 		return ZEBRA_ROUTE_TABLE_UNKNOWN;
 }
