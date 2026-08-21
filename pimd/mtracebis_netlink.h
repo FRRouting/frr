@@ -79,12 +79,6 @@ extern int __parse_rtattr_nested_compat(struct rtattr *tb[], int max,
 #define parse_rtattr_nested(tb, max, rta)                                      \
 	(parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta)))
 
-#define parse_rtattr_nested_compat(tb, max, rta, data, len)                    \
-	({                                                                     \
-		data = RTA_PAYLOAD(rta) >= len ? RTA_DATA(rta) : NULL;         \
-		__parse_rtattr_nested_compat(tb, max, rta, len);               \
-	})
-
 extern int rtnl_listen(struct rtnl_handle *rtnl, rtnl_filter_t handler, void *jarg);
 extern int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler, void *jarg);
 

@@ -116,16 +116,6 @@ static inline pim_addr pim_addr_from_prefix(union pimprefixconstptr in)
 	return ret;
 }
 
-static inline uint8_t pim_addr_scope(const pim_addr addr)
-{
-	return PIM_ADDR_FUNCNAME(mcast_scope)(&addr);
-}
-
-static inline bool pim_addr_nofwd(const pim_addr addr)
-{
-	return PIM_ADDR_FUNCNAME(mcast_nofwd)(&addr);
-}
-
 static inline bool pim_addr_ssm(const pim_addr addr)
 {
 	return PIM_ADDR_FUNCNAME(mcast_ssm)(&addr);

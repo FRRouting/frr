@@ -238,7 +238,6 @@ static inline int if_gm_last_member_query_count(const struct pim_interface *pim_
 		 ? ((pim_ifp)->pim_hello_period * 7 / 2)                       \
 		 : ((pim_ifp)->pim_default_holdtime))
 
-void pim_if_init(struct pim_instance *pim);
 void pim_if_terminate(struct pim_instance *pim);
 
 struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
@@ -252,8 +251,6 @@ void pim_if_addr_del_all_igmp(struct interface *ifp);
 
 int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term);
 int pim_if_del_vif(struct interface *ifp);
-void pim_if_add_vif_all(struct pim_instance *pim);
-void pim_if_del_vif_all(struct pim_instance *pim);
 
 struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
 					   ifindex_t vif_index);
@@ -289,9 +286,6 @@ void pim_if_update_could_assert(struct interface *ifp);
 
 void pim_if_assert_on_neighbor_down(struct interface *ifp, pim_addr neigh_addr);
 
-void pim_if_rpf_interface_changed(struct interface *old_rpf_ifp,
-				  struct pim_upstream *up);
-
 void pim_if_update_join_desired(struct pim_interface *pim_ifp);
 
 void pim_if_update_assert_tracking_desired(struct interface *ifp);
@@ -300,8 +294,6 @@ void pim_if_create_pimreg(struct pim_instance *pim);
 
 struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src);
 int pim_update_source_set(struct interface *ifp, pim_addr source);
-
-bool pim_if_is_vrf_device(struct interface *ifp);
 
 int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 

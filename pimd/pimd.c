@@ -43,22 +43,32 @@
 CPP_NOTICE("Work needs to be done to make this work properly via the pim mroute socket\n");
 #endif /* MAXVIFS > 256 */
 
-#if PIM_IPV == 4
-const char *const PIM_ALL_SYSTEMS = MCAST_ALL_SYSTEMS;
-const char *const PIM_ALL_ROUTERS = MCAST_ALL_ROUTERS;
-const char *const PIM_ALL_PIM_ROUTERS = MCAST_ALL_PIM_ROUTERS;
-const char *const PIM_ALL_IGMP_ROUTERS = MCAST_ALL_IGMP_ROUTERS;
-#else
-const char *const PIM_ALL_SYSTEMS = "ff02::1";
-const char *const PIM_ALL_ROUTERS = "ff02::2";
-const char *const PIM_ALL_PIM_ROUTERS = "ff02::d";
-const char *const PIM_ALL_IGMP_ROUTERS = "ff02::16";
-#endif
-
 DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
 
 struct pim_router *router = NULL;
-pim_addr qpim_all_pim_routers_addr;
+
+#if PIM_IPV == 4
+#if BYTE_ORDER == LITTLE_ENDIAN
+const pim_addr qpim_all_systems_addr = { .s_addr = 0x010000E0 };     /* 224.0.0.1 */
+const pim_addr qpim_all_routers_addr = { .s_addr = 0x020000E0 };     /* 224.0.0.2 */
+const pim_addr qpim_all_pim_routers_addr = { .s_addr = 0x0D0000E0 }; /* 224.0.0.13 */
+const pim_addr qpim_all_gmp_routers_addr = { .s_addr = 0x160000E0 }; /* 224.0.0.22 */
+#else
+const pim_addr qpim_all_systems_addr = { .s_addr = 0xE0000001 };     /* 224.0.0.1 */
+const pim_addr qpim_all_routers_addr = { .s_addr = 0xE0000002 };     /* 224.0.0.2 */
+const pim_addr qpim_all_pim_routers_addr = { .s_addr = 0xE000000D }; /* 224.0.0.13 */
+const pim_addr qpim_all_gmp_routers_addr = { .s_addr = 0xE0000016 }; /* 224.0.0.22 */
+#endif
+#else
+const pim_addr qpim_all_systems_addr = { .s6_addr = { 0xFF, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+						      0, 0, 1 } };
+const pim_addr qpim_all_routers_addr = { .s6_addr = { 0xFF, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+						      0, 0, 2 } };
+const pim_addr qpim_all_pim_routers_addr = { .s6_addr = { 0xFF, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+							  0, 0, 0, 0x0D } };
+const pim_addr qpim_all_gmp_routers_addr = { .s6_addr = { 0xFF, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+							  0, 0, 0, 0x16 } };
+#endif
 
 void pim_prefix_list_update(struct prefix_list *plist)
 {
@@ -134,17 +144,6 @@ void pim_router_terminate(void)
 
 void pim_init(void)
 {
-	if (!inet_pton(PIM_AF, PIM_ALL_PIM_ROUTERS,
-		       &qpim_all_pim_routers_addr)) {
-		flog_err(
-			EC_LIB_SOCKET,
-			"%s %s: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __func__, PIM_ALL_PIM_ROUTERS, errno,
-			safe_strerror(errno));
-		assert(0);
-		return;
-	}
-
 	pim_cmd_init();
 }
 
