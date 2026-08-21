@@ -3909,43 +3909,8 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 		capability = lookup_msg(capcode_str, hdr->code, "Unknown");
 
 		/* Length sanity check, type-specific, for known capabilities */
-		switch (hdr->code) {
-		case CAPABILITY_CODE_MP:
-		case CAPABILITY_CODE_REFRESH:
-		case CAPABILITY_CODE_ORF:
-		case CAPABILITY_CODE_RESTART:
-		case CAPABILITY_CODE_AS4:
-		case CAPABILITY_CODE_ADDPATH:
-		case CAPABILITY_CODE_DYNAMIC:
-		case CAPABILITY_CODE_ENHE:
-		case CAPABILITY_CODE_FQDN:
-		case CAPABILITY_CODE_ENHANCED_RR:
-		case CAPABILITY_CODE_EXT_MESSAGE:
-		case CAPABILITY_CODE_ROLE:
-		case CAPABILITY_CODE_SOFT_VERSION:
-		case CAPABILITY_CODE_PATHS_LIMIT:
-		case CAPABILITY_CODE_LLGR:
-			if (hdr->length < cap_minsizes[hdr->code]) {
-				zlog_info("%pBP: %s Capability length error: got %u, expected at least %u",
-					  peer, capability, hdr->length,
-					  (unsigned int)cap_minsizes[hdr->code]);
-				bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR,
-						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
-				goto done;
-			}
-			if (hdr->length &&
-			    hdr->length % cap_modsizes[hdr->code] != 0) {
-				zlog_info("%pBP %s Capability length error: got %u, expected a multiple of %u",
-					  peer, capability, hdr->length,
-					  (unsigned int)cap_modsizes[hdr->code]);
-				bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR,
-						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
-				goto done;
-			}
-			break;
-		default:
-			break;
-		}
+		if (!bgp_capability_length_check(connection, hdr->code, hdr->length))
+			goto done;
 
 		switch (hdr->code) {
 		case CAPABILITY_CODE_SOFT_VERSION:
