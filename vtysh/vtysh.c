@@ -4414,6 +4414,10 @@ DEFUN (vtysh_terminal_length,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `terminal no length` command")
+#endif
+/* Deprecated on 2018-11-08 in 76fd52625de1 */
 ALIAS_DEPRECATED(vtysh_terminal_length,
        vtysh_terminal_no_length_cmd,
        "terminal no length",
