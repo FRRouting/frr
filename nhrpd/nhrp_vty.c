@@ -475,13 +475,12 @@ DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
       "Password, plain text, limited to 8 characters\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct nhrp_cisco_authentication_extension *auth;
 	struct nhrp_interface *nifp = ifp->info;
 	int pass_len = strlen(password);
 
-	if (pass_len > NHRP_CISCO_PASS_LEN) {
+	if (pass_len > NHRP_AUTH_PASS_LEN) {
 		vty_out(vty, "Password size limit exceeded (%d>%d)\n",
-			pass_len, NHRP_CISCO_PASS_LEN);
+			pass_len, NHRP_AUTH_PASS_LEN);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -490,11 +489,10 @@ DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
 		nifp->auth_token = NULL;
 	}
 
-	nifp->auth_token = zbuf_alloc(pass_len + sizeof(uint32_t));
-	auth = (struct nhrp_cisco_authentication_extension *)
-		       nifp->auth_token->buf;
-	auth->type = htonl(NHRP_AUTHENTICATION_PLAINTEXT);
-	memcpy(auth->secret, password, pass_len);
+	/* The password is the key for the HMAC-MD5 keyed hash of the
+	 * RFC 2332 5.3.4 Authentication Extension. */
+	nifp->auth_token = zbuf_alloc(pass_len);
+	zbuf_put(nifp->auth_token, password, pass_len);
 	nifp->auth_afi = cmd_to_afi(argv[0]);
 
 	return CMD_SUCCESS;
@@ -1209,7 +1207,6 @@ static void interface_config_write_nhrp_map(struct nhrp_cache_config *c,
 static int interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct nhrp_cisco_authentication_extension *auth;
 	struct write_map_ctx mapctx;
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
@@ -1240,9 +1237,9 @@ static int interface_config_write(struct vty *vty)
 			aficmd =
 				afi_to_cmd(IS_VALID_AFI(nifp->auth_afi) ? nifp->auth_afi : AFI_IP);
 
-			auth = (struct nhrp_cisco_authentication_extension *)
-				       nifp->auth_token->buf;
-			vty_out(vty, " %s nhrp authentication %s\n", aficmd, auth->secret);
+			vty_out(vty, " %s nhrp authentication %.*s\n", aficmd,
+				(int)zbuf_size(nifp->auth_token),
+				nifp->auth_token->buf);
 		}
 
 		for (afi = 0; afi < AFI_MAX; afi++) {
