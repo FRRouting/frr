@@ -818,7 +818,7 @@ struct bgp {
 	bool gr_route_sync_pending;
 
 	/* BGP Per AF flags */
-	uint16_t af_flags[AFI_MAX][SAFI_MAX];
+	uint32_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
 #define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST (1 << 1)
