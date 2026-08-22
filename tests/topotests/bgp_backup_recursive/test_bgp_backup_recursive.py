@@ -103,6 +103,18 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def _vj(router, cmd):
+    """vtysh_cmd + json.loads that tolerates a transient empty response
+    (returns {} so run_and_expect retries instead of raising)."""
+    out = router.vtysh_cmd(cmd)
+    if not out or not out.strip():
+        return {}
+    try:
+        return json.loads(out)
+    except ValueError:
+        return {}
+
+
 def test_bgp_backup_recursive_nexthop():
     """
     Verify BGP PIC backup-path computation when the backup nexthop
@@ -118,7 +130,7 @@ def test_bgp_backup_recursive_nexthop():
     step("Wait for iBGP sessions to R4 (10.255.255.4) and R5 (10.255.255.5) to come up")
 
     def _check_bgp_convergence():
-        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast summary json"))
+        output = _vj(r1, "show bgp ipv4 unicast summary json")
         peers = output.get("peers", {})
         for peer in ("10.255.255.4", "10.255.255.5"):
             if peer not in peers:
@@ -133,7 +145,7 @@ def test_bgp_backup_recursive_nexthop():
     step("Wait for R1 to receive both paths for 10.99.99.0/24")
 
     def _check_paths_count():
-        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.99.99.0/24 json"))
+        output = _vj(r1, "show bgp ipv4 unicast 10.99.99.0/24 json")
         if output.get("pathCount") != 2:
             return f"expected 2 paths, got {output.get('pathCount')}"
         return None
@@ -144,7 +156,7 @@ def test_bgp_backup_recursive_nexthop():
     step("Verify primary best path is via R4 (nexthop 10.255.255.4, MED 100)")
 
     def _check_best_is_r4():
-        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.99.99.0/24 json"))
+        output = _vj(r1, "show bgp ipv4 unicast 10.99.99.0/24 json")
         for path in output.get("paths", []):
             if path.get("bestpath", {}).get("overall"):
                 nh = path.get("nexthops", [{}])[0].get("ip")
@@ -162,7 +174,7 @@ def test_bgp_backup_recursive_nexthop():
     step("Verify FIB primary nexthop is recursively resolved through R2 (10.0.12.2)")
 
     def _check_fib_recursive_primary():
-        output = json.loads(r1.vtysh_cmd("show ip route 10.99.99.0/24 json"))
+        output = _vj(r1, "show ip route 10.99.99.0/24 json")
         routes = output.get("10.99.99.0/24")
         if not routes:
             return "10.99.99.0/24 not in route table"
@@ -187,7 +199,7 @@ def test_bgp_backup_recursive_nexthop():
     step("Before enabling install backup-path: verify no backup is selected")
 
     def _check_no_backup_in_bgp():
-        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.99.99.0/24 json"))
+        output = _vj(r1, "show bgp ipv4 unicast 10.99.99.0/24 json")
         for path in output.get("paths", []):
             if path.get("backup"):
                 nh = path.get("nexthops", [{}])[0].get("ip")
@@ -198,7 +210,7 @@ def test_bgp_backup_recursive_nexthop():
     assert result is None, f"pre-enable BGP backup check failed: {result}"
 
     def _check_no_backup_in_fib():
-        output = json.loads(r1.vtysh_cmd("show ip route 10.99.99.0/24 json"))
+        output = _vj(r1, "show ip route 10.99.99.0/24 json")
         routes = output.get("10.99.99.0/24")
         if not routes:
             return "10.99.99.0/24 not in route table"
@@ -224,7 +236,7 @@ def test_bgp_backup_recursive_nexthop():
     step("Verify R5 (10.255.255.5) is selected as the BGP backup path")
 
     def _check_backup_is_r5():
-        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.99.99.0/24 json"))
+        output = _vj(r1, "show bgp ipv4 unicast 10.99.99.0/24 json")
         backups = []
         for path in output.get("paths", []):
             if path.get("backup"):
@@ -244,7 +256,7 @@ def test_bgp_backup_recursive_nexthop():
     )
 
     def _check_fib_recursive_backup():
-        output = json.loads(r1.vtysh_cmd("show ip route 10.99.99.0/24 json"))
+        output = _vj(r1, "show ip route 10.99.99.0/24 json")
         routes = output.get("10.99.99.0/24")
         if not routes:
             return "10.99.99.0/24 not in route table"
