@@ -148,6 +148,12 @@ struct dplane_route_info {
 	/* Backup nexthops (if present) */
 	struct nexthop_group backup_ng;
 
+	/* If true, the backup_ng pool is engaged only when ALL primaries
+	 * are down (PIC-Local style). If false (default), backup_ng either
+	 * is empty or follows per-NH protection via primaries' backup_idx[].
+	 */
+	bool backup_all_primaries_down;
+
 	/* "Previous" nexthops, used only in route updates without netlink */
 	struct nexthop_group zd_old_ng;
 	struct nexthop_group old_backup_ng;
@@ -2452,6 +2458,13 @@ dplane_ctx_get_old_backup_ng(const struct zebra_dplane_ctx *ctx)
 	return &(ctx->u.rinfo.old_backup_ng);
 }
 
+bool dplane_ctx_get_backup_all_primaries_down(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rinfo.backup_all_primaries_down;
+}
+
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx)
 {
@@ -4060,6 +4073,9 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	if (re->nhe->backup_info && re->nhe->backup_info->nhe) {
 		copy_nexthops(&(ctx->u.rinfo.backup_ng.nexthop),
 			      re->nhe->backup_info->nhe->nhg.nexthop, NULL);
+
+		if (CHECK_FLAG(re->nhe->flags, NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN))
+			ctx->u.rinfo.backup_all_primaries_down = true;
 	}
 
 	/*

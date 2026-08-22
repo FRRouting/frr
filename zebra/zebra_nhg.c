@@ -446,6 +446,12 @@ struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
 	if (CHECK_FLAG(orig->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
 
+	/* Route-level backup semantic must persist across copies so the
+	 * hash lookup and the dplane-ctx population see it consistently.
+	 */
+	if (CHECK_FLAG(orig->flags, NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN))
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN);
+
 	return nhe;
 }
 
@@ -509,6 +515,12 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 	key = jhash_3words(primary, backup, nhe->type, key);
 
 	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
+
+	/* Distinguish per-NH-protected vs route-level "all-primaries-down"
+	 * backup semantics so two otherwise-identical NHEs do not collide.
+	 */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN))
+		key = jhash_1word(NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN, key);
 
 	return key;
 }
@@ -587,6 +599,11 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 		return false;
 
 	if (nhe1->afi != nhe2->afi)
+		return false;
+
+	/* Route-level "all-primaries-down" semantic must match. */
+	if (CHECK_FLAG(nhe1->flags, NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN) !=
+	    CHECK_FLAG(nhe2->flags, NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN))
 		return false;
 
 	if (nhe1->nhg.nhgr.buckets != nhe2->nhg.nhgr.buckets)
@@ -713,7 +730,15 @@ static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 	 */
 	zebra_nhe_init(&rt_nhe, afi, nh);
 	rt_nhe.nhg.nexthop = nh;
-	rt_nhe.type = type;
+	/*
+	 * Normalize type the same way zebra_nhe_copy() does (0 ->
+	 * ZEBRA_ROUTE_NHG).  Otherwise the hash key computed from this
+	 * lookup (raw type 0) differs from the key of the stored copy
+	 * (type ZEBRA_ROUTE_NHG), so the NHE is filed under one bucket but
+	 * looked up/released under another -- hash_release() misses and the
+	 * NHE is freed while still linked in the hash (use-after-free).
+	 */
+	rt_nhe.type = type ? type : ZEBRA_ROUTE_NHG;
 
 	depend = zebra_nhg_rib_find_nhe(&rt_nhe, afi);
 
@@ -2677,8 +2702,17 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 
 				/* If there are backup nexthops, capture
 				 * that info with the resolving nexthop.
+				 *
+				 * Skip when the resolved NHE already carries a
+				 * route-level "all-primaries-down" backup pool:
+				 * appending per-NH backups from the resolver
+				 * would mix two semantics on the same pool and
+				 * produce a parent NHE flagged route-level while
+				 * primaries also carry per-NH backup_idx[].
 				 */
-				if (resolver && newhop->backup_num > 0) {
+				if (resolver && newhop->backup_num > 0 &&
+				    !CHECK_FLAG(nhe->flags,
+						NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN)) {
 					resolve_backup_nexthops(newhop,
 								match->nhe,
 								resolver, nhe,
