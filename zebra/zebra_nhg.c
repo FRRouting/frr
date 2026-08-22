@@ -730,7 +730,15 @@ static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 	 */
 	zebra_nhe_init(&rt_nhe, afi, nh);
 	rt_nhe.nhg.nexthop = nh;
-	rt_nhe.type = type;
+	/*
+	 * Normalize type the same way zebra_nhe_copy() does (0 ->
+	 * ZEBRA_ROUTE_NHG).  Otherwise the hash key computed from this
+	 * lookup (raw type 0) differs from the key of the stored copy
+	 * (type ZEBRA_ROUTE_NHG), so the NHE is filed under one bucket but
+	 * looked up/released under another -- hash_release() misses and the
+	 * NHE is freed while still linked in the hash (use-after-free).
+	 */
+	rt_nhe.type = type ? type : ZEBRA_ROUTE_NHG;
 
 	depend = zebra_nhg_rib_find_nhe(&rt_nhe, afi);
 
