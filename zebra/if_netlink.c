@@ -439,12 +439,11 @@ static int netlink_extract_gre_info(struct rtattr *link_data, struct zebra_l2inf
 
 		frrtrace(1, frr_zebra, if_netlink_parse_error, 2);
 	} else if (ipv6) {
-		SET_IPADDR_V6(&gre_info->vtep_ip);
-		IPV6_ADDR_COPY(&gre_info->vtep_ip.ipaddr_v6,
-			       (struct in6_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]));
+		ipaddr_set_v6(&gre_info->vtep_ip,
+			      (struct in6_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]));
 	} else {
-		SET_IPADDR_V4(&gre_info->vtep_ip);
-		gre_info->vtep_ip.ipaddr_v4 = *(struct in_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]);
+		ipaddr_set_v4(&gre_info->vtep_ip,
+			      *(struct in_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]));
 	}
 	if (!attr[IFLA_GRE_REMOTE]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
