@@ -4691,7 +4691,9 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 			if (IPV4_ADDR_SAME(&ip, &bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4))
 				return CMD_SUCCESS;
 
+			SET_IPADDR_V4(&bgp_vrf->evpn_info->pip_ip_static);
 			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4 = ip;
+			SET_IPADDR_V4(&bgp_vrf->evpn_info->pip_ip);
 			bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = ip;
 		} else {
 			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
@@ -7762,6 +7764,7 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		vty_out(vty, "  default-originate ipv6\n");
 
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
+<<<<<<< HEAD
 		if (!bgp->evpn_info->advertise_pip)
 			vty_out(vty, "  no advertise-pip\n");
 		if (bgp->evpn_info->advertise_pip) {
@@ -7781,6 +7784,22 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 				vty_out(vty, "\n");
 			} else
 				vty_out(vty, "  advertise-pip\n");
+=======
+		if (bgp->evpn_info->advertise_pip &&
+		    bgp->evpn_info->pip_ip_static.ipaddr_v4.s_addr != INADDR_ANY) {
+			vty_out(vty, "  advertise-pip ip %pIA", &bgp->evpn_info->pip_ip_static);
+			if (!is_zero_mac(&(bgp->evpn_info->pip_rmac_static))) {
+				char buf[ETHER_ADDR_STRLEN];
+
+				vty_out(vty, " mac %s",
+					prefix_mac2str(&bgp->evpn_info->pip_rmac, buf,
+						       sizeof(buf)));
+			}
+			vty_out(vty, "\n");
+		} else if (bgp->evpn_info->advertise_pip != SAVE_BGP_EVPN_ADVERTISE_PIP) {
+			vty_out(vty, "  %sadvertise-pip\n",
+				bgp->evpn_info->advertise_pip ? "" : "no ");
+>>>>>>> 1225328e1 (bgpd: Do not print `advertise-pip` if it has a default value)
 		}
 	}
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))

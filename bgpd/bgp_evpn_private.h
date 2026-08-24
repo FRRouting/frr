@@ -12,6 +12,19 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 
+<<<<<<< HEAD
+=======
+FRR_CFG_DEFAULT_BOOL(BGP_EVPN_ADVERTISE_PIP,
+	{ .val_bool = true },
+);
+
+/* It's not clear how "28" was derived.
+ * Worst Case length for <local_admin>:<global_admin> is IPv4, i.e.
+ * "255.255.255.255:65535" = 15 + 1 + 5
+ * "SoO:" prefix -> 4, so 15 + 1 + 5 + 4 = 25
+ * Plus one NUL terminator, so 25 + 1 = 26 - still some headroom...
+ */
+>>>>>>> 1225328e1 (bgpd: Do not print `advertise-pip` if it has a default value)
 #define RT_ADDRSTRLEN 28
 
 /* EVPN prefix lengths. This represents the sizeof struct evpn_addr
