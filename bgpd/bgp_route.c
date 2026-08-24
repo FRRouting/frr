@@ -8856,7 +8856,7 @@ static void bgp_static_free(struct bgp_static *bgp_static)
 void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 		       struct bgp_static *bgp_static, afi_t afi, safi_t safi)
 {
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *pi;
 	struct bgp_path_info *new;
 	struct bgp_path_info_extra rmap_extra = {};
@@ -8967,7 +8967,6 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			/* Unintern original. */
 			aspath_unintern(&attr.aspath);
 			bgp_static_withdraw(bgp, p, afi, safi, &bgp_static->prd);
-			bgp_dest_unlock_node(dest);
 			return;
 		}
 
@@ -8995,7 +8994,6 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
 		    !CHECK_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS) &&
 		    attrhash_cmp(pi->attr, attr_new) && bgp_path_info_extra_same(pi, &rmap_path)) {
-			bgp_dest_unlock_node(dest);
 			bgp_attr_unintern(&attr_new);
 			aspath_unintern(&attr.aspath);
 			return;
@@ -9078,7 +9076,6 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 			bgp_ls_originate_bgp_prefix(bgp, afi, safi, dest, pi);
 
-			bgp_dest_unlock_node(dest);
 			aspath_unintern(&attr.aspath);
 			return;
 		}
@@ -9113,9 +9110,6 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	/* Process change. */
 	bgp_process(bgp, dest, new, afi, safi);
-
-	/* route_node_get lock */
-	bgp_dest_unlock_node(dest);
 
 	if (SAFI_UNICAST == safi &&
 	    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
@@ -11903,13 +11897,14 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 {
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
-	struct bgp_dest *bn;
 	struct attr attr;
 	struct attr *new_attr;
 	afi_t afi;
 	route_map_result_t ret;
 	struct bgp_redist *red;
 	struct interface *ifp;
+
+	struct bgp_dest *bn BGP_DEST_AUTOUNLOCK = NULL;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) ||
 	    bgp->peer_self == NULL)
@@ -12043,7 +12038,6 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 			    bgp_path_info_extra_same(bpi, &rmap_path)) {
 				bgp_attr_unintern(&new_attr);
 				aspath_unintern(&attr.aspath);
-				bgp_dest_unlock_node(bn);
 				return;
 			} else {
 				/* The attribute is changed. */
@@ -12065,7 +12059,6 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 				bgp_aggregate_increment(bgp, p, bpi, afi,
 							SAFI_UNICAST);
 				bgp_process(bgp, bn, bpi, afi, SAFI_UNICAST);
-				bgp_dest_unlock_node(bn);
 				aspath_unintern(&attr.aspath);
 
 				if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
@@ -12093,7 +12086,6 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 		bgp_aggregate_increment(bgp, p, new, afi, SAFI_UNICAST);
 		SET_FLAG(bn->flags, BGP_NODE_FIB_INSTALLED);
 		bgp_process(bgp, bn, new, afi, SAFI_UNICAST);
-		bgp_dest_unlock_node(bn);
 
 		if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
 		    || (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
