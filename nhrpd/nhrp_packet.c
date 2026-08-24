@@ -158,30 +158,41 @@ void nhrp_packet_complete_auth(struct zbuf *zb, struct nhrp_packet_header *hdr,
 	uint16_t zero = 0, spi;
 
 	afi = htons(hdr->afnum);
-	if (auth && auth_token && IS_VALID_AFI(afi) &&
-	    sockunion_family(&nifp->afi[afi].addr) != AF_UNSPEC) {
-		const union sockunion *src = &nifp->afi[afi].addr;
-
-		dst = nhrp_ext_push(zb, hdr,
-				    NHRP_EXTENSION_AUTHENTICATION |
-					    NHRP_EXTENSION_FLAG_COMPULSORY);
-		if (dst) {
-			/* RFC 2332 5.3.4.1: Reserved(2) + SPI(2) + Src
-			 * Addr + Authentication Data.  The hash field is
-			 * zeroed while the keyed hash is calculated and
-			 * only replaced afterwards.
+	if (auth && auth_token) {
+		if (nifp->auth_mode == NHRP_AUTH_CISCO) {
+			/* Cisco style authentication: the plaintext
+			 * password is embedded in the extension.
 			 */
-			spi = htons(NHRP_AUTH_SPI);
-			zbuf_put(zb, &zero, sizeof(zero));
-			zbuf_put(zb, &spi, sizeof(spi));
-			zbuf_put(zb, sockunion_get_addr(src),
-				 sockunion_get_addrlen(src));
-			auth_data = zbuf_pushn(zb, NHRP_AUTH_HASH_LEN);
-			if (!auth_data) {
-				zbuf_set_werror(zb);
-			} else {
-				memset(auth_data, 0, NHRP_AUTH_HASH_LEN);
-				nhrp_ext_complete(zb, dst);
+			dst = nhrp_ext_push(zb, hdr,
+					    NHRP_EXTENSION_AUTHENTICATION |
+						    NHRP_EXTENSION_FLAG_COMPULSORY);
+			zbuf_copy_peek(zb, auth_token, zbuf_size(auth_token));
+			nhrp_ext_complete(zb, dst);
+		} else if (IS_VALID_AFI(afi) &&
+			   sockunion_family(&nifp->afi[afi].addr) != AF_UNSPEC) {
+			const union sockunion *src = &nifp->afi[afi].addr;
+
+			dst = nhrp_ext_push(zb, hdr,
+					    NHRP_EXTENSION_AUTHENTICATION |
+						    NHRP_EXTENSION_FLAG_COMPULSORY);
+			if (dst) {
+				/* RFC 2332 5.3.4.1: Reserved(2) + SPI(2) + Src
+				 * Addr + Authentication Data.  The hash field is
+				 * zeroed while the keyed hash is calculated and
+				 * only replaced afterwards.
+				 */
+				spi = htons(NHRP_AUTH_SPI);
+				zbuf_put(zb, &zero, sizeof(zero));
+				zbuf_put(zb, &spi, sizeof(spi));
+				zbuf_put(zb, sockunion_get_addr(src),
+					 sockunion_get_addrlen(src));
+				auth_data = zbuf_pushn(zb, NHRP_AUTH_HASH_LEN);
+				if (!auth_data) {
+					zbuf_set_werror(zb);
+				} else {
+					memset(auth_data, 0, NHRP_AUTH_HASH_LEN);
+					nhrp_ext_complete(zb, dst);
+				}
 			}
 		}
 	}
