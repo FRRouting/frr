@@ -934,6 +934,60 @@ def test_mpls_lib_step10():
         )
 
 
+#
+# Step 11
+#
+# Action(s):
+# - Enable SRLG protection between rt2 and rt4
+#
+# Expected changes:
+# Verify that SRLG values are properly advertised in IS-IS LSPs
+# RT2 and RT4 have their interconnecting links configured with SRLG 100
+#
+def test_rib_ipv4_srlg_step11():
+    logger.info("Test (step 4): check IS-IS SRLG configuration in LSPs")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["rt2"].vtysh_cmd(
+        """
+        configure terminal
+        interface eth-rt4-1
+        isis fast-reroute ti-lfa level-1 srlg-protection
+        isis srlg 100
+        exit
+        interface eth-rt4-2
+        isis fast-reroute ti-lfa level-1 srlg-protection
+        isis srlg 100
+        """
+    )
+    tgen.gears["rt4"].vtysh_cmd(
+        """
+        configure terminal
+        interface eth-rt2-1
+        isis fast-reroute ti-lfa level-1 srlg-protection
+        isis srlg 100
+        exit
+        interface eth-rt2-2
+        isis fast-reroute ti-lfa level-1 srlg-protection
+        isis srlg 100
+        """
+    )
+
+    # Verify SRLG information is advertised in LSPs
+    # RT2 and RT4 should show SRLG 100 on their interconnecting links
+    for rname in ["rt2", "rt4"]:
+        router_compare_json_output(
+            rname,
+            "show isis srlg json",
+            11,
+            "show_isis_srlg.ref",
+        )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
