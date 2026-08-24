@@ -27,9 +27,51 @@
 #include "pim_mlag.h"
 #include "pim_sock.h"
 
+DEFINE_MTYPE_STATIC(PIMD, PIM_MULTICAST_IF, "PIM multicast interface index");
+
+int pim_instance_mif_cmp(const struct pim_multicast_if *mifa, const struct pim_multicast_if *mifb)
+{
+	return (mifa->index > mifb->index) ? 1 : (mifa->index < mifb->index) ? -1 : 0;
+}
+
+static struct pim_multicast_if *pim_instance_mif_find(struct pim_instance *pim, ifindex_t index)
+{
+	struct pim_multicast_if entry = { .index = index };
+
+	return multicast_interface_list_find(&pim->mif_list, &entry);
+}
+
+void pim_instance_mif_add(struct pim_instance *pim, ifindex_t index)
+{
+	struct pim_multicast_if *mif = pim_instance_mif_find(pim, index);
+
+	if (mif)
+		return;
+
+	mif = XCALLOC(MTYPE_PIM_MULTICAST_IF, sizeof(*mif));
+	mif->index = index;
+	multicast_interface_list_add(&pim->mif_list, mif);
+}
+
+void pim_instance_mif_delete(struct pim_instance *pim, ifindex_t index)
+{
+	struct pim_multicast_if *mif = pim_instance_mif_find(pim, index);
+
+	if (!mif)
+		return;
+
+	multicast_interface_list_del(&pim->mif_list, mif);
+	XFREE(MTYPE_PIM_MULTICAST_IF, mif);
+}
+
 static void pim_instance_terminate(struct pim_instance *pim)
 {
+	struct pim_multicast_if *mif;
+
 	pim->stopping = true;
+
+	frr_each_safe (multicast_interface_list, &pim->mif_list, mif)
+		pim_instance_mif_delete(pim, mif->index);
 
 	pim_vxlan_exit(pim);
 
@@ -84,10 +126,11 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim = XCALLOC(MTYPE_PIM_PIM_INSTANCE, sizeof(struct pim_instance));
 
+	multicast_interface_list_init(&pim->mif_list);
+
 	pim_ssm_init(pim);
 	pim_dm_init(pim);
 
-	pim->mcast_if_count = 0;
 	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
 	pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
 	pim->staterefresh_time = PIM_STATEREFRESH_PERIOD;
