@@ -2891,7 +2891,7 @@ DEFPY_YANG(
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(
+	snprintfrr(
 		xpath_value, sizeof(xpath_value),
 		"%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
 		xpath);
@@ -2932,7 +2932,7 @@ DEFPY_YANG(
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(
+	snprintfrr(
 		xpath_value, sizeof(xpath_value),
 		"%s/rmap-match-condition/frr-zebra-route-map:ipv6-prefix-length",
 		xpath);
