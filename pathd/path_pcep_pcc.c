@@ -1224,6 +1224,7 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			  format_pcep_message(msg));
 		send_pcep_error(pcc_state, PCEP_ERRT_LSP_INSTANTIATE_ERROR,
 				PCEP_ERRV_UNACCEPTABLE_INSTANTIATE_ERROR, path);
+		pcep_free_path(path);
 		return;
 	}
 
@@ -1262,6 +1263,7 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			send_pcep_error(pcc_state,
 					PCEP_ERRT_LSP_INSTANTIATE_ERROR,
 					PCEP_ERRV_INTERNAL_ERROR, path);
+			pcep_free_path(path);
 			return;
 		}
 
@@ -1278,6 +1280,7 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
 					PCEP_ERRV_LSP_INIT_NON_ZERO_PLSP_ID,
 					path);
+			pcep_free_path(path);
 			return;
 		}
 
@@ -1294,6 +1297,7 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			send_pcep_error(
 				pcc_state, PCEP_ERRT_RECEPTION_OF_INV_OBJECT,
 				PCEP_ERRV_SYMBOLIC_PATH_NAME_TLV_MISSING, path);
+			pcep_free_path(path);
 			return;
 		}
 	}

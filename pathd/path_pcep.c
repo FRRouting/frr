@@ -256,9 +256,20 @@ int pcep_main_event_initiate_candidate(struct path *path)
 			return ret;
 			break;
 		}
+		/*
+		 * On error, the path object (linked by error->path) is
+		 * freed after the error message is sent.
+		 */
 		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
-	} else if (ret != PATH_NB_ERR && path->srp_id != 0)
-		notify_status(path, ret == PATH_NB_NO_CHANGE);
+	} else {
+		if (ret != PATH_NB_ERR && path->srp_id != 0)
+			notify_status(path, ret == PATH_NB_NO_CHANGE);
+		/*
+		 * The path was parsed from the PCInitiate message and its
+		 * content copied into the candidate, now clean up the path.
+		 */
+		pcep_free_path(path);
+	}
 	return ret;
 }
 
@@ -269,6 +280,8 @@ int pcep_main_event_update_candidate(struct path *path)
 	ret = path_pcep_config_update_path(path);
 	if (ret != PATH_NB_ERR && path->srp_id != 0)
 		notify_status(path, ret == PATH_NB_NO_CHANGE);
+	/* Same ownership as the initiate case: the parsed path is ours. */
+	pcep_free_path(path);
 	return ret;
 }
 
