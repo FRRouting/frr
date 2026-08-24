@@ -176,9 +176,32 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 		       struct pcc_state *pcc_state)
 {
+	struct plspid_map_data *plspid_mapping;
+	struct nbkey_map_data *nbkey_mapping;
+	struct req_map_data *req_mapping;
+
 	PCEP_DEBUG("%s PCC finalizing...", pcc_state->tag);
 
 	pcep_pcc_disable(ctrl_state, pcc_state);
+
+	/*
+	 * The mappings are retained for the whole session so a re-created
+	 * policy keeps the PLSP-ID it had before (lookup_plspid) and PCE
+	 * updates referencing a path only by PLSP-ID keep resolving
+	 * (lookup_nbkey).  Once the PCC itself goes away neither applies,
+	 * so this is the one place they can be freed.
+	 */
+	while ((plspid_mapping = plspid_map_pop(&pcc_state->plspid_map)))
+		XFREE(MTYPE_PCEP, plspid_mapping);
+	plspid_map_fini(&pcc_state->plspid_map);
+
+	while ((nbkey_mapping = nbkey_map_pop(&pcc_state->nbkey_map)))
+		XFREE(MTYPE_PCEP, nbkey_mapping);
+	nbkey_map_fini(&pcc_state->nbkey_map);
+
+	while ((req_mapping = req_map_pop(&pcc_state->req_map)))
+		XFREE(MTYPE_PCEP, req_mapping);
+	req_map_fini(&pcc_state->req_map);
 
 	if (pcc_state->pcc_opts != NULL) {
 		XFREE(MTYPE_PCEP, pcc_state->pcc_opts);
