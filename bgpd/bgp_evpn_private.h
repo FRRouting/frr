@@ -12,6 +12,10 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 
+FRR_CFG_DEFAULT_BOOL(BGP_EVPN_ADVERTISE_PIP,
+	{ .val_bool = true },
+);
+
 /* It's not clear how "28" was derived.
  * Worst Case length for <local_admin>:<global_admin> is IPv4, i.e.
  * "255.255.255.255:65535" = 15 + 1 + 5
