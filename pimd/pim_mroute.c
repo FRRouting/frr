@@ -437,7 +437,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 					if (pim_macro_ch_lost_assert(ch_flood))
 						continue;
 				}
-				channel_oil_oif_add(up->channel_oil, pim_ifp2->mroute_vif_index, 0);
+				pim_channel_add_dm_oif(up->channel_oil, ifp2);
 				update_oil = true;
 			}
 		}

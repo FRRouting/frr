@@ -32,6 +32,7 @@
 #include "pim_ssm.h"
 #include "pim_rp.h"
 #include "pim_mlag.h"
+#include "pim_dm.h"
 
 RB_GENERATE(pim_ifchannel_rb, pim_ifchannel, pim_ifp_rb, pim_ifchannel_compare);
 
@@ -168,6 +169,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *origch)
 			for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child))
 				pim_channel_del_inherited_oif(child->channel_oil, ifp, __func__);
 		}
+
+		/* Release any Assert suppression cached for this ifchannel. */
+		pim_dm_ifchannel_deleting(origch);
 	}
 
 	/*

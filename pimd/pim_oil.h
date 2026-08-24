@@ -18,6 +18,7 @@ struct pim_interface;
  * PIM - Learned from PIM
  * SOURCE - Learned from Source multicast packet received
  * STAR - Inherited
+ * DM - Dense mode flooding
  */
 #define PIM_OIF_FLAG_PROTO_GM     (1 << 0)
 #define PIM_OIF_FLAG_PROTO_PIM    (1 << 1)
@@ -29,6 +30,34 @@ struct pim_interface;
 
 /* OIF is present in the OIL but must not be used for forwarding traffic */
 #define PIM_OIF_FLAG_MUTE         (1 << 4)
+
+/*
+ * Dense mode holds its OIFs directly through `channel_oil_oif_add()` and
+ * `channel_oil_oif_delete()` instead of `pim_channel_add_oif()` and
+ * `pim_channel_del_oif()`, so it is deliberately left out of
+ * `PIM_OIF_FLAG_PROTO_ANY` above: that mask means "a `pim_channel_add_oif()`
+ * subscriber other than the one being removed still wants this OIF".
+ */
+#define PIM_OIF_FLAG_PROTO_DM (1 << 5)
+
+/*
+ * Dense mode lost the Assert election on this OIF (RFC 3973 4.6), so traffic
+ * must not be forwarded onto that LAN until the Assert is over.
+ *
+ * This deliberately does not reuse `PIM_OIF_FLAG_MUTE`: that bit is recomputed
+ * from scratch by `pim_channel_update_oif_mute()` whenever the MLAG DF role or
+ * the VXLAN termination state changes, and that computation knows nothing
+ * about the Assert. Sharing a single bit lets either owner drop the other's
+ * suppression and resume forwarding a duplicate onto the LAN.
+ */
+#define PIM_OIF_FLAG_ASSERT_LOSER (1 << 6)
+
+/*
+ * Every flag that suppresses an OIF, for clearing them in one go.  Deciding
+ * whether an OIF is actually suppressed is `channel_oif_no_forward()` below.
+ */
+#define PIM_OIF_FLAG_NO_FORWARD (PIM_OIF_FLAG_MUTE | PIM_OIF_FLAG_ASSERT_LOSER)
+
 /*
  * We need a pimreg vif id from the kernel.
  * Since ifindex == vif id for most cases and the number
@@ -75,6 +104,19 @@ extern void channel_oil_to_mfcc(struct channel_oil *oil, struct mfcctl *mfcc);
 #else
 extern void channel_oil_to_mfcc(struct channel_oil *oil, struct mf6cctl *mf6cc);
 #endif
+
+/*
+ * `PIM_OIF_FLAG_ASSERT_LOSER` only counts while dense mode still owns the OIF,
+ * so do not fold this back into a `PIM_OIF_FLAG_NO_FORWARD` mask test.
+ */
+static inline bool channel_oif_no_forward(const struct channel_oif *oif)
+{
+	if (CHECK_FLAG(oif->flags, PIM_OIF_FLAG_MUTE))
+		return true;
+
+	return CHECK_FLAG(oif->flags, PIM_OIF_FLAG_ASSERT_LOSER) &&
+	       CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_DM);
+}
 
 /*
   qpim_channel_oil_list holds a list of struct channel_oil.
@@ -143,6 +185,7 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 
 int pim_channel_add_oif(struct channel_oil *c_oil, struct interface *oif,
 			uint32_t proto_mask, const char *caller);
+extern struct channel_oif *pim_channel_add_dm_oif(struct channel_oil *c_oil, struct interface *ifp);
 int pim_channel_del_oif(struct channel_oil *c_oil, struct interface *oif,
 			uint32_t proto_mask, const char *caller);
 

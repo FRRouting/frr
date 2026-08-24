@@ -21,6 +21,8 @@
 #include "pim_time.h"
 #include "pim_vxlan.h"
 #include "pim_ssm.h"
+#include "pim_ifchannel.h"
+#include "pim_macro.h"
 
 static void pim_channel_update_mute(struct channel_oil *c_oil);
 
@@ -263,8 +265,15 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 		return 0;
 	}
 
-	/* clear mute; will be re-evaluated when the OIF becomes valid again */
-	if (coif)
+	/*
+	 * Clear mute; will be re-evaluated when the OIF becomes valid again.
+	 *
+	 * Dense mode holds its OIFs outside of `proto_mask`, so an OIF it still
+	 * wants has to be left alone here: that OIF stays in the OIL, and
+	 * releasing its mute would resume forwarding on an interface still held
+	 * down by the MLAG DF role or VXLAN termination.
+	 */
+	if (coif && !CHECK_FLAG(coif->flags, PIM_OIF_FLAG_PROTO_DM))
 		channel_oil_oif_delete(channel_oil, coif->index, PIM_OIF_FLAG_MUTE);
 
 	if (pim_upstream_mroute_add(channel_oil, __func__)) {
@@ -459,8 +468,13 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 	/* Allow other protocol to request subscription of same interface to
 	 * channel (S,G), we need to note this information
+	 *
+	 * Dense mode counts as an owner here even though it is not part of
+	 * `PIM_OIF_FLAG_PROTO_ANY`: an OIF it flooded to first must still record
+	 * the protocol asking for it now, otherwise dropping dense mode's
+	 * interest later would take the OIF away from that protocol.
 	 */
-	if (coif && CHECK_FLAG(coif->flags, PIM_OIF_FLAG_PROTO_ANY)) {
+	if (coif && CHECK_FLAG(coif->flags, PIM_OIF_FLAG_PROTO_ANY | PIM_OIF_FLAG_PROTO_DM)) {
 		/* Updating time here is not required as this time has to
 		 * indicate when the interface is added
 		 */
@@ -595,6 +609,31 @@ struct channel_oif *channel_oil_oif_add(struct channel_oil *oil, ifindex_t index
 	return oif;
 }
 
+struct channel_oif *pim_channel_add_dm_oif(struct channel_oil *c_oil, struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_ifchannel *ch, *throwaway;
+	pim_sgaddr sg = { .src = c_oil->source, .grp = c_oil->group };
+	struct channel_oif *coif;
+
+	coif = channel_oil_oif_add(c_oil, pim_ifp->mroute_vif_index, PIM_OIF_FLAG_PROTO_DM);
+	if (!coif)
+		return NULL;
+
+	if (pim_channel_eval_oif_mute(c_oil, pim_ifp))
+		SET_FLAG(coif->flags, PIM_OIF_FLAG_MUTE);
+	else
+		UNSET_FLAG(coif->flags, PIM_OIF_FLAG_MUTE);
+
+	pim_ifchannel_find(ifp, &sg, &ch, &throwaway);
+	if (ch && pim_macro_ch_lost_assert(ch))
+		SET_FLAG(coif->flags, PIM_OIF_FLAG_ASSERT_LOSER);
+	else
+		UNSET_FLAG(coif->flags, PIM_OIF_FLAG_ASSERT_LOSER);
+
+	return coif;
+}
+
 void channel_oil_oif_delete(struct channel_oil *oil, ifindex_t index, uint32_t flags)
 {
 	struct channel_oif *oif = channel_oil_oif_find(oil, index);
@@ -605,7 +644,7 @@ void channel_oil_oif_delete(struct channel_oil *oil, ifindex_t index, uint32_t f
 	UNSET_FLAG(oif->flags, flags);
 
 	/* Only ownership keeps an OIF in the list */
-	if (CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_ANY))
+	if (CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_ANY | PIM_OIF_FLAG_PROTO_DM))
 		return;
 
 	channel_oif_list_del(&oil->oif_list, oif);
@@ -624,7 +663,7 @@ void channel_oil_to_mfcc(struct channel_oil *oil, struct mfcctl *mfcc)
 	frr_each (channel_oif_list, &oil->oif_list, oif) {
 		if (oif->index == oil->iif.index && !pim_mroute_allow_iif_in_oil(oil, oif->index))
 			continue;
-		if (CHECK_FLAG(oif->flags, PIM_OIF_FLAG_MUTE))
+		if (channel_oif_no_forward(oif))
 			continue;
 
 		mfcc->mfcc_ttls[oif->index] = PIM_MROUTE_MIN_TTL;
@@ -647,7 +686,7 @@ void channel_oil_to_mfcc(struct channel_oil *oil, struct mf6cctl *mf6cc)
 	frr_each (channel_oif_list, &oil->oif_list, oif) {
 		if (oif->index == oil->iif.index && !pim_mroute_allow_iif_in_oil(oil, oif->index))
 			continue;
-		if (CHECK_FLAG(oif->flags, PIM_OIF_FLAG_MUTE))
+		if (channel_oif_no_forward(oif))
 			continue;
 
 		IF_SET(oif->index, &mf6cc->mf6cc_ifset);

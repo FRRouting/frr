@@ -1272,7 +1272,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 											  : ' ',
 					 CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_STAR) ? '*'
 											 : ' ',
-					 CHECK_FLAG(oif->flags, PIM_OIF_FLAG_MUTE) ? 'M' : ' ');
+					 channel_oif_no_forward(oif) ? 'M' : ' ');
 
 				if (first_oif) {
 					first_oif = 0;
@@ -3917,7 +3917,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 			struct interface *ifp_out;
 
 			/* do not display muted OIFs */
-			if (CHECK_FLAG(oif->flags, PIM_OIF_FLAG_MUTE))
+			if (channel_oif_no_forward(oif))
 				continue;
 
 			if (c_oil->iif.index == oif->index &&

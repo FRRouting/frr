@@ -831,9 +831,13 @@ static void pim_upstream_transition_dm_to_sm(struct pim_instance *pim, struct pi
 					       PIM_OIF_FLAG_PROTO_ANY | PIM_OIF_FLAG_MUTE);
 		}
 
-		/* DM-native OIFs are installed via channel_oil_oif_delete() directly. */
+		/*
+		 * Dense mode holds its OIFs directly, outside the
+		 * `pim_channel_add_oif()` accounting cleared above.
+		 */
 		if (channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index))
-			channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+			channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index,
+					       PIM_OIF_FLAG_PROTO_DM | PIM_OIF_FLAG_NO_FORWARD);
 	}
 	/* Rebuild sparse-mode forwarding; already-JOINED upstreams do not
 	 * re-enter pim_upstream_switch() via update_join_desired() alone.

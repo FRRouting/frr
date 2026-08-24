@@ -348,7 +348,7 @@ pim_neighbor_new(struct interface *ifp, pim_addr source_addr,
 		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
 			if (pim_is_grp_dm(pim_ifp->pim, c_oil->group) && c_oil->installed &&
 			    !channel_oil_oif_find(c_oil, pim_ifp->mroute_vif_index)) {
-				channel_oil_oif_add(c_oil, pim_ifp->mroute_vif_index, 0);
+				pim_channel_add_dm_oif(c_oil, ifp);
 				pim_upstream_mroute_update(c_oil, __func__);
 			}
 		}

@@ -72,7 +72,7 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 		if (listcount(pim_ifp->pim_neighbor_list) > 0 || pim_dm_check_gm_group_list(ifp)) {
 			frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
 				if (pim_iface_grp_dm(pim_ifp, c_oil->group) && c_oil->installed) {
-					channel_oil_oif_add(c_oil, pim_ifp->mroute_vif_index, 0);
+					pim_channel_add_dm_oif(c_oil, ifp);
 					pim_upstream_mroute_update(c_oil, __func__);
 					if (pim_upstream_up_connected(c_oil->up) &&
 					    PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
@@ -87,7 +87,9 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 	} else if (!HAVE_DENSE_MODE(mode) && HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
 		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
 			if (pim_iface_grp_dm(pim_ifp, c_oil->group) && c_oil->installed) {
-				channel_oil_oif_delete(c_oil, pim_ifp->mroute_vif_index, 0);
+				channel_oil_oif_delete(c_oil, pim_ifp->mroute_vif_index,
+						       PIM_OIF_FLAG_PROTO_DM |
+							       PIM_OIF_FLAG_ASSERT_LOSER);
 				pim_upstream_mroute_update(c_oil, __func__);
 				if (!pim_upstream_up_connected(c_oil->up)) {
 					event_cancel(&c_oil->up->t_graft_timer);
@@ -239,9 +241,17 @@ void pim_dm_assert_state_changed(struct pim_ifchannel *ch, enum pim_ifassert_sta
 	struct interface *ifp = ch->interface;
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_upstream *up = ch->upstream;
+	struct channel_oif *coif;
 
 	if (!pim_ifp || !up || !up->channel_oil)
 		return;
+
+	coif = channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index);
+	if (new_state != PIM_IFASSERT_I_AM_LOSER && coif &&
+	    CHECK_FLAG(coif->flags, PIM_OIF_FLAG_ASSERT_LOSER)) {
+		UNSET_FLAG(coif->flags, PIM_OIF_FLAG_ASSERT_LOSER);
+		pim_upstream_mroute_update(up->channel_oil, __func__);
+	}
 
 	if (!pim_iface_grp_dm(pim_ifp, ch->sg.grp))
 		return;
@@ -255,10 +265,16 @@ void pim_dm_assert_state_changed(struct pim_ifchannel *ch, enum pim_ifassert_sta
 
 	if (new_state == PIM_IFASSERT_I_AM_LOSER) {
 		/* Defer to the Assert winner: stop forwarding the duplicate
-		 * back onto this LAN.
+		 * back onto this LAN.  Suppress the OIF rather than removing
+		 * it, so that any other protocol holding it (e.g. a local
+		 * IGMP/MLD join) keeps its subscription until the Assert is
+		 * over.  The suppression only stops dense mode's own
+		 * forwarding: `channel_oif_no_forward()` ignores this flag once
+		 * dense mode no longer owns the OIF, matching the GM path, which
+		 * never consults the Assert either.
 		 */
-		if (channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index)) {
-			channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+		if (coif && !CHECK_FLAG(coif->flags, PIM_OIF_FLAG_ASSERT_LOSER)) {
+			SET_FLAG(coif->flags, PIM_OIF_FLAG_ASSERT_LOSER);
 			pim_upstream_mroute_update(up->channel_oil, __func__);
 		}
 
@@ -286,11 +302,42 @@ void pim_dm_assert_state_changed(struct pim_ifchannel *ch, enum pim_ifassert_sta
 		if ((pim_ifp->pim_neighbor_list->count || pim_gm_has_igmp_join(ifp, ch->sg.grp)) &&
 		    !PIM_UPSTREAM_DM_TEST_PRUNE(ch->flags) &&
 		    !PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) &&
-		    !channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index)) {
-			channel_oil_oif_add(up->channel_oil, pim_ifp->mroute_vif_index, 0);
-			pim_upstream_mroute_update(up->channel_oil, __func__);
+		    (!coif || !CHECK_FLAG(coif->flags, PIM_OIF_FLAG_PROTO_DM))) {
+			if (pim_channel_add_dm_oif(up->channel_oil, ifp))
+				pim_upstream_mroute_update(up->channel_oil, __func__);
 		}
 	}
+}
+
+/*
+ * The Assert suppression dense mode records on an OIF is a cache of
+ * `pim_macro_ch_lost_assert()`, which reads the ifchannel.  Once the ifchannel
+ * is gone nothing backs that cache and no further Assert transition can arrive
+ * to clear it, so release it here or the OIF stays out of the MFC for good.
+ *
+ * Note this cannot be solved by deriving the suppression when the MFC is built
+ * instead: the kernel only sees a new OIL when something calls
+ * `pim_upstream_mroute_update()`, and with the ifchannel gone nothing else
+ * would.  The push below is the point of this hook as much as the flag is.
+ *
+ * Deliberately not gated on the group still being dense: outliving dense mode
+ * is exactly the case being handled.
+ */
+void pim_dm_ifchannel_deleting(struct pim_ifchannel *ch)
+{
+	struct pim_interface *pim_ifp = ch->interface->info;
+	struct pim_upstream *up = ch->upstream;
+	struct channel_oif *coif;
+
+	if (!pim_ifp || !up || !up->channel_oil)
+		return;
+
+	coif = channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index);
+	if (!coif || !CHECK_FLAG(coif->flags, PIM_OIF_FLAG_ASSERT_LOSER))
+		return;
+
+	UNSET_FLAG(coif->flags, PIM_OIF_FLAG_ASSERT_LOSER);
+	pim_upstream_mroute_update(up->channel_oil, __func__);
 }
 
 void pim_dm_prune_send(struct pim_rpf rpf, struct pim_upstream *up, bool is_join)
@@ -366,6 +413,7 @@ void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
 	struct pim_interface *pim_ifp = ifp->info;
 	pim_addr group_addr = sg->grp;
 	struct pim_ifchannel *ch, *throwaway;
+	struct channel_oif *coif;
 
 	if (!pim_ifp || !pim_ifp->pim_enable)
 		return;
@@ -380,9 +428,10 @@ void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
 	if (!up)
 		return;
 
+	coif = channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index);
 	if (pim_iface_grp_dm(pim_ifp, group_addr) &&
-	    !channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index)) {
-		channel_oil_oif_add(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+	    !(coif && CHECK_FLAG(coif->flags, PIM_OIF_FLAG_PROTO_DM))) {
+		pim_channel_add_dm_oif(up->channel_oil, ifp);
 		pim_upstream_mroute_update(up->channel_oil, __func__);
 
 		pim_ifchannel_find(ifp, sg, &ch, &throwaway);
@@ -390,7 +439,17 @@ void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
 		if (ch) {
 			PIM_UPSTREAM_DM_UNSET_PRUNE(ch->flags);
 			event_cancel(&ch->t_ifjoin_expiry_timer);
-			pim_ifchannel_delete(ch);
+
+			/*
+			 * As in `pim_dm_prune_iff_on_timer()`, only drop the
+			 * ifchannel once the dense mode prune was the last thing
+			 * left on it.  `pim_ifchannel_delete()` releases this
+			 * interface's PIM and GM ownership of the OIF, so
+			 * deleting an ifchannel still in use would undo the
+			 * co-ownership restored just above.
+			 */
+			if (ch->flags == 0)
+				pim_ifchannel_delete(ch);
 		}
 
 		/* dm: forward graft message */
@@ -434,7 +493,8 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 
 	if (pim_iface_grp_dm(pim_ifp, group_addr) &&
 	    channel_oil_oif_find(up->channel_oil, pim_ifp->mroute_vif_index)) {
-		channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+		channel_oil_oif_delete(up->channel_oil, pim_ifp->mroute_vif_index,
+				       PIM_OIF_FLAG_PROTO_DM);
 		pim_upstream_mroute_update(up->channel_oil, __func__);
 
 		/* dm: we need to forward the prune upstream if needed */
@@ -498,7 +558,7 @@ void pim_dm_prune_iff_on_timer(struct event *t)
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 	if (up->channel_oil && up->channel_oil->installed &&
 	    !PIM_UPSTREAM_DM_TEST_PRUNE(up->flags) && !lost_assert) {
-		channel_oil_oif_add(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+		pim_channel_add_dm_oif(up->channel_oil, ifp);
 		pim_upstream_mroute_update(up->channel_oil, __func__);
 	}
 }
