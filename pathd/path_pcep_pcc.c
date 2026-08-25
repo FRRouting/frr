@@ -336,7 +336,11 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		return 0;
 	}
 
-	event_cancel(&pcc_state->t_reconnect);
+	/*
+	 * Cancel through the controller helper: a raw event_cancel()
+	 * drops the armed timer without freeing its allocated payload.
+	 */
+	pcep_thread_cancel_timer(&pcc_state->t_reconnect);
 
 	select_transport_address(pcc_state);
 
@@ -401,7 +405,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	}
 
 	// In case some best pce alternative were waiting to activate
-	event_cancel(&pcc_state->t_update_best);
+	pcep_thread_cancel_timer(&pcc_state->t_update_best);
 
 	pcc_state->status = PCEP_PCC_CONNECTING;
 
