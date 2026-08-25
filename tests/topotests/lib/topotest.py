@@ -908,6 +908,115 @@ def module_present(module, load=True):
         return module_present_freebsd(module, load)
 
 
+def _frr_bindirs(frrdir=None):
+    """Candidate FRR daemon directories: `frrdir` alone when given."""
+    if frrdir is not None:
+        return [frrdir]
+    return ["/usr/lib/frr", "/usr/lib64/frr"]
+
+
+def frr_module_available(name, frrdir=None):
+    """
+    Return True if an FRR dlopen module is installed.
+
+    `name` is the module basename as passed to `-M` (e.g. ``bgpd_rpki``),
+    corresponding to ``{frrdir}/modules/{name}.so``.
+    """
+    for d in _frr_bindirs(frrdir):
+        path = os.path.join(d, "modules", "{}.so".format(name))
+        if os.path.isfile(path):
+            return True
+    return False
+
+
+@functools.lru_cache(maxsize=None)
+def frr_configure_args(frrdir=None):
+    """
+    Return the configure arguments of the installed daemons, as a tuple,
+    from ``bgpd -v`` or ``zebra -v``.  Empty if they cannot be determined,
+    for example with ``--disable-version-build-config``.  The probe runs
+    once per directory.
+    """
+    for d in _frr_bindirs(frrdir):
+        for daemon in ("bgpd", "zebra"):
+            path = os.path.join(d, daemon)
+            if not os.path.isfile(path):
+                continue
+            try:
+                out = subprocess.check_output(
+                    [path, "-v"],
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                )
+            except (OSError, subprocess.CalledProcessError):
+                continue
+            # Example: configured with:\n\t'--prefix=/usr' '--enable-rpki' ...
+            m = re.search(r"configured with:\s*\n\s*(.*)", out, re.DOTALL)
+            if m:
+                args = re.findall(r"'([^']*)'", m.group(1))
+                if args:
+                    return tuple(args)
+    return ()
+
+
+def frr_configured_with(feature, frrdir=None):
+    """
+    Return whether FRR was configured with ``--enable-<feature>``.
+
+    Arguments are matched exactly, and the last one for the feature wins,
+    as with autoconf: ``--enable-rpki=no`` and ``--disable-rpki`` read as
+    disabled.
+
+    Returns:
+      True  - configure args are known and enable `feature`
+      False - configure args are known and do not enable `feature`
+      None  - configure args unavailable.  Callers must not treat this as
+              "feature disabled"; fall back to another signal such as
+              ``frr_module_available()``.
+    """
+    args = frr_configure_args(frrdir)
+    if not args:
+        return None
+
+    enabled = False
+    for arg in args:
+        if arg == "--enable-" + feature:
+            enabled = True
+        elif arg.startswith("--enable-{}=".format(feature)):
+            enabled = arg.split("=", 1)[1] != "no"
+        elif arg == "--disable-" + feature:
+            enabled = False
+    return enabled
+
+
+def require_frr_module(module, feature, frrdir=None):
+    """
+    Skip or fail the calling module when a dlopen module it loads is missing.
+
+    Call from ``setup_module()``.  Without ``--enable-<feature>`` the tests
+    are skipped.  With it, a missing ``<module>.so`` fails the tests, so a
+    broken install is obvious instead of every test erroring with "bgpd
+    failed to connect to zebra".  When the configure arguments are unknown,
+    a missing module skips.
+    """
+    import pytest  # pylint: disable=import-outside-toplevel
+
+    enabled = frr_configured_with(feature, frrdir)
+    if enabled is False:
+        pytest.skip("FRR built without --enable-{}".format(feature))
+    if frr_module_available(module, frrdir):
+        return
+    if enabled is True:
+        pytest.fail(
+            "FRR was built with --enable-{} but modules/{}.so is not "
+            "installed".format(feature, module)
+        )
+    pytest.skip(
+        "FRR module {}.so not installed (configure args unavailable; "
+        "cannot confirm --enable-{})".format(module, feature)
+    )
+
+
 def version_cmp(v1, v2):
     """
     Compare two version strings and returns:

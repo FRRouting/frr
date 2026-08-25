@@ -34,7 +34,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, get_topogen
+from lib.topogen import Topogen, get_frrdir, get_topogen
 from lib.common_config import step
 from lib.topolog import logger
 
@@ -59,6 +59,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    # r2 runs bgpd with -M bgpd_rpki.
+    topotest.require_frr_module("bgpd_rpki", "rpki", get_frrdir())
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
