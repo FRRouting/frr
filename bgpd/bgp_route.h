@@ -690,8 +690,7 @@ static inline int bgp_fibupd_safi(safi_t safi)
 }
 
 /* Flag if the route path's family matches params. */
-static inline bool is_pi_family_matching(struct bgp_path_info *pi,
-					 afi_t afi, safi_t safi)
+static inline bool is_pi_family_matching(const struct bgp_path_info *pi, afi_t afi, safi_t safi)
 {
 	struct bgp_table *table;
 	struct bgp_dest *dest;
