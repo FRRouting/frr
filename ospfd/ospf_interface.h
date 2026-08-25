@@ -397,6 +397,9 @@ struct ospf_interface {
 
 	uint32_t full_nbrs;
 
+	/* Last Unknown Neighbor warn on this interface (rate-limit). */
+	struct timeval t_unknown_nbr_warn;
+
 	/* Buffered values for keychain and key */
 	struct keychain *keychain;
 	struct key *key;

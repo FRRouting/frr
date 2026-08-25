@@ -1645,6 +1645,32 @@ static int ospf_db_desc_is_dup(struct ospf_db_desc *dd,
 	return 0;
 }
 
+/*
+ * RFC 2328: neighbors are created from Hello, not DD/LSU/LSAck.
+ * After p2p ifindex churn the peer can still send those packets
+ * before Hello recreates the neighbor.  Dropping them is correct;
+ * logging each one at warn can flood syslog and stall the event loop.
+ */
+#define OSPF_UNKNOWN_NBR_WARN_USEC (10LL * 1000000LL)
+
+static void ospf_log_unknown_neighbor(uint8_t pkt_type, const char *what,
+				      struct ospf_interface *oi, const struct in_addr *rid)
+{
+	if (IS_DEBUG_OSPF_PACKET(pkt_type - 1, RECV))
+		zlog_debug("%s: Unknown Neighbor %pI4 on %s", what, rid, IF_NAME(oi));
+
+	if (timerisset(&oi->t_unknown_nbr_warn)) {
+		int64_t since;
+
+		since = monotime_since(&oi->t_unknown_nbr_warn, NULL);
+		if (since >= 0 && since < OSPF_UNKNOWN_NBR_WARN_USEC)
+			return;
+	}
+
+	flog_warn(EC_OSPF_PACKET, "%s: Unknown Neighbor %pI4 on %s", what, rid, IF_NAME(oi));
+	monotime(&oi->t_unknown_nbr_warn);
+}
+
 static void ospf_db_desc_resend_paced(struct ospf_neighbor *nbr);
 
 /* OSPF Database Description message read -- RFC2328 Section 10.6. */
@@ -1662,8 +1688,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		flog_warn(EC_OSPF_PACKET, "Packet[DD]: Unknown Neighbor %pI4",
-			  &ospfh->router_id);
+		ospf_log_unknown_neighbor(OSPF_MSG_DB_DESC, "Packet[DD]", oi, &ospfh->router_id);
 		return;
 	}
 
@@ -1966,9 +1991,8 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		flog_warn(EC_OSPF_PACKET,
-			  "Link State Request: Unknown Neighbor %pI4",
-			  &ospfh->router_id);
+		ospf_log_unknown_neighbor(OSPF_MSG_LS_REQ, "Link State Request", oi,
+					  &ospfh->router_id);
 		return;
 	}
 
@@ -2216,9 +2240,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 	/* Check neighbor. */
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		flog_warn(EC_OSPF_PACKET,
-			  "Link State Update: Unknown Neighbor %pI4 on int: %s",
-			  &ospfh->router_id, IF_NAME(oi));
+		ospf_log_unknown_neighbor(OSPF_MSG_LS_UPD, "Link State Update", oi,
+					  &ospfh->router_id);
 		return;
 	}
 
@@ -2707,9 +2730,8 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		flog_warn(EC_OSPF_PACKET,
-			  "Link State Acknowledgment: Unknown Neighbor %pI4",
-			  &ospfh->router_id);
+		ospf_log_unknown_neighbor(OSPF_MSG_LS_ACK, "Link State Acknowledgment", oi,
+					  &ospfh->router_id);
 		return;
 	}
 
