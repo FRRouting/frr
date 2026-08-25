@@ -603,7 +603,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		if (debug) {
 			char attr_str[BUFSIZ] = {0};
 
-			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+			bgp_dump_attr(attr_new, attr_str, sizeof(attr_str));
 
 			zlog_debug("%s suppress UPDATE %pBD w/ attr: %s, afi=%s, safi=%s",
 				   peer->host, dest, attr_str, afi2str(afi), safi2str(safi));
