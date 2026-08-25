@@ -199,18 +199,26 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 		return;
 
 	if (!prefix_same(&rn->p, p))
-		return;
+		goto done;
 
 	dest = rib_dest_from_rnode(rn);
 	if (!dest || !dest->selected_fib)
-		return;
+		goto done;
 
 	re = dest->selected_fib;
 	if (re->type != ZEBRA_ROUTE_KERNEL)
-		return;
+		goto done;
 
+<<<<<<< HEAD
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, 0, 0, p, NULL, nh, 0,
 		   zvrf->table_id, 0, 0, false);
+=======
+	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, re->instance,
+		   re->flags, p, NULL, nh, 0, zvrf->table_id, re->metric, re->distance, false);
+
+done:
+	route_unlock_node(rn);
+>>>>>>> 602553b (zebra: release route node after connected cleanup)
 }
 
 /* Called from if_up(). */
