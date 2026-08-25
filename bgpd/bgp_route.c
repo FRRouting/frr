@@ -11501,6 +11501,12 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	}
 
 	aggregate = bgp_dest_get_bgp_aggregate_info(dest);
+	if (!aggregate) {
+		vty_out(vty, "%% There is no aggregate-address configuration.\n");
+		bgp_dest_unlock_node(dest);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
 
 	/*
@@ -11591,8 +11597,10 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		/* Check for duplicate configs */
 		if (bgp_aggregate_cmp_params(aggregate, rmap, summary_only, as_set, origin,
 					     match_med, suppress_map, upa_enabled, upa_drop,
-					     upa_max_routes))
+					     upa_max_routes)) {
+			bgp_dest_unlock_node(dest);
 			return CMD_SUCCESS;
+		}
 
 		vty_out(vty, "There is already same aggregate network.\n");
 		/* try to remove the old entry */
