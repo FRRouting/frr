@@ -14,6 +14,10 @@
 
 #define RT_ADDRSTRLEN 28
 
+FRR_CFG_DEFAULT_BOOL(BGP_EVPN_ADVERTISE_PIP,
+	{ .val_bool = true },
+);
+
 /* EVPN prefix lengths. This represents the sizeof struct evpn_addr
  * in bits  */
 #define EVPN_ROUTE_PREFIXLEN (sizeof(struct evpn_addr) * 8)
