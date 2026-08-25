@@ -11654,7 +11654,7 @@ DEFPY (show_bgp_srv6,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (exit_address_family,
+DEFUN_YANG_NOSH (exit_address_family,
        exit_address_family_cmd,
        "exit-address-family",
        "Exit from Address Family configuration mode\n")
