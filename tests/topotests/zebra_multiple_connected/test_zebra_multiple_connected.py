@@ -336,6 +336,369 @@ def test_zebra_mtu_single_local_route_per_address():
     assert result is None, "Local route check failed: {}".format(result)
 
 
+<<<<<<< HEAD
+=======
+def test_zebra_kernel_last_ipv4_address_deleted():
+    "Test that when last IPv4 address is deleted on interface, kernel routes are deleted as well"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    ifname = "dummy0"
+
+    def _get_routes_dict(val):
+        return {
+            "203.0.113.0/24": val,
+            "10.0.170.0/24": val,
+        }
+
+    def _assert_kernel_routes(router, msg, val):
+        routes = topotest.ip4_route(router)
+        expected = _get_routes_dict(val)
+        cmp = topotest.json_cmp(routes, expected)
+        assert cmp is None, msg.format(cmp)
+
+    def _assert_kernel_routes_up(router, msg):
+        _assert_kernel_routes(router, msg, {})
+
+    def _assert_kernel_routes_down(router, msg):
+        _assert_kernel_routes(router, msg, None)
+
+    def _assert_zebra_kernel_routes(router, msg, val):
+        expected = _get_routes_dict(val)
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ip route json", expected
+        )
+        result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result, msg.format(_)
+
+    def _assert_zebra_kernel_routes_up(router, msg):
+        _assert_zebra_kernel_routes(router, msg, [])
+
+    def _assert_zebra_kernel_routes_down(router, msg):
+        _assert_zebra_kernel_routes(router, msg, None)
+
+    # Prepare scene: create dummy interface
+    # add two addresses, two routes
+    router.run(f"ip link add {ifname} type dummy")
+    router.run(f"ip link set {ifname} up")
+    router.run(f"ip -4 addr add 192.168.0.2/24 dev {ifname}")
+    router.run(f"ip -4 addr add 192.168.100.7/24 dev {ifname}")
+    router.run(f"ip -4 route add 203.0.113.0/24 via 192.168.0.1")
+    router.run(f"ip -4 route add 10.0.170.0/24 dev {ifname}")
+
+    _assert_kernel_routes_up(
+        router, "Unexpected kernel behaviour: routes should have been added:\n{}"
+    )
+    _assert_zebra_kernel_routes_up(router, "Expected zebra to add kernel routes:\n{}")
+
+    # Delete one of two addresses, nothing should change
+    router.run(f"ip -4 addr del 192.168.0.2/24 dev {ifname}")
+
+    _assert_kernel_routes_up(
+        router,
+        "Unexpected kernel behaviour: routes should have been unchanged after not last address deletion:\n{}",
+    )
+    _assert_zebra_kernel_routes_up(
+        router,
+        "Expected zebra not to change kernel routes after not last address deletion:\n{}",
+    )
+
+    # Delete last address, all routes should be gone
+    router.run(f"ip -4 addr del 192.168.100.7/24 dev {ifname}")
+    _assert_kernel_routes_down(
+        router,
+        "Unexpected kernel behaviour: routes should have been deleted after last address deletion:\n{}",
+    )
+    _assert_zebra_kernel_routes_down(
+        router,
+        "Expected zebra to delete kernel routes after last address deletion:\n{}",
+    )
+
+
+def _get_early_route_metaq_current(router):
+    """Return Early Route Processing count from 'show zebra metaq json'."""
+    try:
+        output = router.vtysh_cmd("show zebra metaq json")
+        metaq = json.loads(output)
+        for subqueue in metaq["subqueues"]:
+            if subqueue["SubQ"] == "Early Route Processing":
+                return subqueue["Current"]
+    except (KeyError, json.JSONDecodeError, TypeError) as err:
+        logger.info("Failed to parse metaq json: %s", err)
+    return None
+
+
+def test_zebra_metaq_early_route_table_discriminator():
+    "Local route must not remove a same-prefix kernel route in another table"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    ifname = "dummy0"
+    prefix = "192.0.2.99/32"
+    table_id = 198
+
+    step("Create dummy0")
+    router.run(f"ip link del dev {ifname} >/dev/null 2>&1 || true")
+    router.run(f"ip link add {ifname} type dummy")
+    router.run(f"ip link set {ifname} up")
+
+    step("Wait for zebra to finish handling dummy0 up")
+
+    def _dummy0_up_handled():
+        # IPv6 link-local install after link-up is asynchronous. Wait until zebra
+        # has the connected route installed (early-route work for up is done) and
+        # the early-route metaQ is empty before plugging it.
+        try:
+            routes = json.loads(router.vtysh_cmd("show ipv6 route connected json"))
+        except (json.JSONDecodeError, TypeError) as err:
+            return "failed to parse ipv6 connected routes: {}".format(err)
+
+        found_ll = False
+        for route_prefix, entries in routes.items():
+            if not route_prefix.startswith("fe80:"):
+                continue
+            for entry in entries:
+                for nh in entry.get("nexthops", []):
+                    if nh.get("interfaceName") == ifname:
+                        found_ll = True
+                        break
+                if found_ll:
+                    break
+            if found_ll:
+                break
+        if not found_ll:
+            return "waiting for zebra IPv6 link-local connected route on {}".format(
+                ifname
+            )
+
+        count = _get_early_route_metaq_current(router)
+        if count is None:
+            return "failed to read early-route metaq"
+        if count != 0:
+            return (
+                "early-route metaq still draining after dummy0 up, current={}".format(
+                    count
+                )
+            )
+        return None
+
+    _, result = topotest.run_and_expect(_dummy0_up_handled, None, count=20, wait=1)
+    assert result is None, result
+
+    step("Plug the meta queue so early routes remain visible")
+    router.vtysh_cmd("zebra test metaq disable")
+
+    step("Add the table-198 kernel route")
+    router.run(f"ip route add {prefix} dev {ifname} table {table_id}")
+
+    step("Wait for the kernel route to land on the early-route metaQ")
+
+    def _kernel_on_early_metaq():
+        count = _get_early_route_metaq_current(router)
+        if count != 1:
+            return "expected 1 early-route entry after kernel add, got {}".format(count)
+        return None
+
+    _, result = topotest.run_and_expect(_kernel_on_early_metaq, None, count=20, wait=1)
+    assert result is None, result
+
+    step("Immediately add the same /32 as a local address on dummy0")
+    router.run(f"ip address add {prefix} dev {ifname}")
+
+    step("Verify the table-198 kernel route stayed on the early-route metaQ")
+
+    def _kernel_still_on_early_metaq():
+        count = _get_early_route_metaq_current(router)
+        # kernel(table 198) + connected(unicast+multicast) + local(unicast+multicast)
+        if count != 5:
+            return (
+                "expected 5 early-route entries after local add "
+                "(kernel + connected + local, each in unicast and multicast), got {}".format(
+                    count
+                )
+            )
+        return None
+
+    _, result = topotest.run_and_expect(
+        _kernel_still_on_early_metaq, None, count=20, wait=1
+    )
+    assert (
+        result is None
+    ), "connected_up removed the wrong kernel route from early-route metaQ: {}".format(
+        result
+    )
+
+    step("Unplug the meta queue and verify both routes install")
+    router.vtysh_cmd("no zebra test metaq disable")
+
+    kernel = "{}/r1/ip_route_table198_kernel.json".format(CWD)
+    expected = json.loads(open(kernel).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip route table {} {} json".format(table_id, prefix),
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert (
+        result is None
+    ), "Kernel route missing from table {} after metaQ drain".format(table_id)
+
+    def _check_local_installed():
+        local_output = json.loads(
+            router.vtysh_cmd("show ip route {} json".format(prefix))
+        )
+        if prefix not in local_output:
+            return "local route {} missing from main table".format(prefix)
+        if not any(e.get("protocol") == "local" for e in local_output[prefix]):
+            return "expected local route for {} in main table".format(prefix)
+        return None
+
+    _, result = topotest.run_and_expect(_check_local_installed, None, count=20, wait=1)
+    assert result is None, result
+
+
+def test_zebra_kernel_last_ipv6_address_deleted():
+    "Test that both kernel and FRR don't delete route when last address is deleted for IPv6"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    ifname = "dummy0"
+
+    def _get_routes_dict(val):
+        return {
+            "2001:db8:c::/64": val,
+            "2001:db8:d::/64": val,
+        }
+
+    def _assert_kernel_routes(router, msg, val):
+        routes = topotest.ip6_route(router)
+        expected = _get_routes_dict(val)
+        cmp = topotest.json_cmp(routes, expected)
+        assert cmp is None, msg.format(cmp)
+
+    def _assert_kernel_routes_up(router, msg):
+        _assert_kernel_routes(router, msg, {})
+
+    def _assert_kernel_routes_down(router, msg):
+        _assert_kernel_routes(router, msg, None)
+
+    def _assert_zebra_kernel_routes(router, msg, val):
+        expected = _get_routes_dict(val)
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ipv6 route json", expected
+        )
+        result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result, msg.format(_)
+
+    def _assert_zebra_kernel_routes_up(router, msg):
+        _assert_zebra_kernel_routes(router, msg, [])
+
+    def _assert_zebra_kernel_routes_down(router, msg):
+        _assert_zebra_kernel_routes(router, msg, None)
+
+    # Prepare scene: create dummy interface
+    # add two addresses, two routes
+    router.run(f"ip link add {ifname} type dummy")
+    router.run(f"ip link set {ifname} up")
+    # clear scope link address
+    router.run(f"ip -6 addr flush dev {ifname}")
+    router.run(f"ip -6 addr add 2001:db8:a::2/64 dev {ifname}")
+    router.run(f"ip -6 addr add 2001:db8:b::7/64 dev {ifname}")
+    router.run(f"ip -6 route add 2001:db8:c::/64 via 2001:db8:a::1")
+    router.run(f"ip -6 route add 2001:db8:d::/64 dev {ifname}")
+
+    _assert_kernel_routes_up(
+        router, "Unexpected kernel behaviour: routes should have been added:\n{}"
+    )
+    _assert_zebra_kernel_routes_up(router, "Expected zebra to add kernel routes:\n{}")
+
+    # Delete one of two addresses, nothing should change
+    router.run(f"ip -6 addr del 2001:db8:a::2/64 dev {ifname}")
+
+    _assert_kernel_routes_up(
+        router,
+        "Unexpected kernel behaviour: routes should have been unchanged after first IPv6 address deletion:\n{}",
+    )
+    _assert_zebra_kernel_routes_up(
+        router,
+        "Expected zebra not to change kernel routes after first IPv6 address deletion:\n{}",
+    )
+
+    # Delete last address, but no route changes for IPv6
+    router.run(f"ip -6 addr del 2001:db8:b::7/64 dev {ifname}")
+    _assert_kernel_routes_up(
+        router,
+        "Unexpected kernel behaviour: routes should NOT have been deleted after last IPv6 address deletion:\n{}",
+    )
+    _assert_zebra_kernel_routes_up(
+        router,
+        "Expected zebra NOT to delete kernel routes after last IPv6 address deletion:\n{}",
+    )
+
+    # Delete IPv6 routes manually:
+    router.run(f"ip -6 route del 2001:db8:c::/64 via 2001:db8:a::1")
+    router.run(f"ip -6 route del 2001:db8:d::/64 dev {ifname}")
+    _assert_kernel_routes_down(
+        router,
+        "Unexpected kernel behaviour: routes should have been deleted:\n{}",
+    )
+    _assert_zebra_kernel_routes_down(
+        router,
+        "Expected zebra to delete kernel routes after manual IPv6 routes deletion:\n{}",
+    )
+
+
+def test_zebra_ipv6_dad_kernel_route():
+    "Test that a kernel route is deleted in favor of the connected one (IPv6 with DAD enabled)"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("sysctl -w net.ipv6.conf.r1-eth0.accept_dad=1")
+    router.run("ip -6 address add 2001:db8:dead:beef::1/64 dev r1-eth0")
+
+    def _check_duplicated_kernel_route():
+        try:
+            routes = json.loads(router.vtysh_cmd("show ipv6 route json"))
+        except (json.JSONDecodeError, TypeError) as err:
+            return "failed to parse ipv6 routes: {}".format(err)
+
+        found_connected = False
+        for route_prefix, entries in routes.items():
+            if not route_prefix == "2001:db8:dead:beef::/64":
+                continue
+            for entry in entries:
+                if entry.get("protocol") == "connected":
+                    found_connected = True
+                elif entry.get("protocol") == "kernel":
+                    return "found ipv6 kernel route"
+
+        if not found_connected:
+            return "ipv6 connected route not found"
+        return None
+
+    step("IPv6 with DAD enabled: check for duplicated kernel route")
+    _, result = topotest.run_and_expect(
+        _check_duplicated_kernel_route, None, count=20, wait=1
+    )
+    assert result is None, result
+
+
+>>>>>>> 0ad6065 (tests: check kernel route deletion for IPv6+DAD)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
