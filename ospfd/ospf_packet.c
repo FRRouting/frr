@@ -1645,6 +1645,8 @@ static int ospf_db_desc_is_dup(struct ospf_db_desc *dd,
 	return 0;
 }
 
+static void ospf_db_desc_resend_paced(struct ospf_neighbor *nbr);
+
 /* OSPF Database Description message read -- RFC2328 Section 10.6. */
 static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			 struct stream *s, struct ospf_interface *oi,
@@ -1835,19 +1837,17 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		break;
 	case NSM_Exchange:
 		if (ospf_db_desc_is_dup(dd, nbr)) {
-			if (IS_SET_DD_MS(nbr->dd_flags))
+			if (IS_SET_DD_MS(nbr->dd_flags)) {
 				/* Master: discard duplicated DD packet. */
-				zlog_info(
-					"Packet[DD] (Master): Neighbor %pI4 packet duplicated.",
-					&nbr->router_id);
-			else
-			/* Slave: cause to retransmit the last Database
-			   Description. */
-			{
-				zlog_info(
-					"Packet[DD] [Slave]: Neighbor %pI4 packet duplicated.",
-					&nbr->router_id);
-				ospf_db_desc_resend(nbr);
+				if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
+					zlog_debug("Packet[DD] (Master): Neighbor %pI4 packet duplicated.",
+						   &nbr->router_id);
+			} else {
+				/* Slave: retransmit last DD, paced to RxmtInterval. */
+				if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
+					zlog_debug("Packet[DD] [Slave]: Neighbor %pI4 packet duplicated.",
+						   &nbr->router_id);
+				ospf_db_desc_resend_paced(nbr);
 			}
 			break;
 		}
@@ -1869,8 +1869,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 
 		/* Check initialize bit is set. */
 		if (IS_SET_DD_I(dd->flags)) {
-			zlog_info("Packet[DD]: Neighbor %pI4 I-bit set.",
-				  &nbr->router_id);
+			if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
+				zlog_debug("Packet[DD]: Neighbor %pI4 I-bit set.", &nbr->router_id);
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 			break;
 		}
@@ -1905,9 +1905,9 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		if (ospf_db_desc_is_dup(dd, nbr)) {
 			if (IS_SET_DD_MS(nbr->dd_flags)) {
 				/* Master should discard duplicate DD packet. */
-				zlog_info(
-					"Packet[DD]: Neighbor %pI4 duplicated, packet discarded.",
-					&nbr->router_id);
+				if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
+					zlog_debug("Packet[DD]: Neighbor %pI4 duplicated, packet discarded.",
+						   &nbr->router_id);
 				break;
 			} else {
 				if (monotime_since(&nbr->last_send_ts, NULL)
@@ -1930,7 +1930,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 					   SeqNumberMismatch
 					   neighbor event. RFC2328 Section 10.8
 					   */
-					ospf_db_desc_resend(nbr);
+					ospf_db_desc_resend_paced(nbr);
 					break;
 				}
 			}
@@ -4410,6 +4410,7 @@ void ospf_db_desc_resend(struct ospf_neighbor *nbr)
 
 	/* Add packet to the interface output queue. */
 	ospf_packet_add(oi, ospf_packet_dup(nbr->last_send));
+	monotime(&nbr->last_send_ts);
 
 	/* Hook thread to write packet. */
 	OSPF_ISM_WRITE_ON(oi->ospf);
@@ -4418,6 +4419,27 @@ void ospf_db_desc_resend(struct ospf_neighbor *nbr)
 			"%s:Packet[DD]: %pI4 DB Desc resend with seqnum:%x , flags:%x",
 			ospf_get_name(oi->ospf), &nbr->router_id,
 			nbr->dd_seqnum, nbr->dd_flags);
+}
+
+/*
+ * RFC 2328 §10.8: the Slave retransmits its last DD in response to a
+ * duplicate from the Master.  Doing that 1:1 with a flood stalls
+ * ospfd's event loop until the daemon is declared unresponsive.
+ * Pace resends to RxmtInterval; the Master retransmits on the same
+ * timer, so a delayed reply is still correct.
+ */
+static void ospf_db_desc_resend_paced(struct ospf_neighbor *nbr)
+{
+	int64_t since;
+
+	if (!nbr->last_send)
+		return;
+
+	since = monotime_since(&nbr->last_send_ts, NULL);
+	if (since >= 0 && since < (int64_t)nbr->v_db_desc * 1000000LL)
+		return;
+
+	ospf_db_desc_resend(nbr);
 }
 
 /* Send Link State Request. */
