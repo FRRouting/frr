@@ -6586,7 +6586,7 @@ DEFUN (no_bgp_evpn_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (exit_vni,
+DEFUN_YANG_NOSH (exit_vni,
             exit_vni_cmd,
             "exit-vni",
             "Exit from VNI mode\n")
