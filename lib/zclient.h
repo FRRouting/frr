@@ -420,7 +420,10 @@ extern int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS);
 #define ZAPI_MESSAGE_SRTE 0x0200
 #define ZAPI_MESSAGE_OPAQUE 0x0400
 
-#define ZSERV_VERSION 6
+/* Bumped from 6: the EVPN MAC/IP messages grew a trailing eth_tag (ETAG)
+ * field, so the wire layout changed and all daemons must match.
+ */
+#define ZSERV_VERSION 7
 /* Zserv protocol message header */
 struct zmsghdr {
 	uint16_t length;
