@@ -2383,6 +2383,30 @@ class LogFmtFormatter(logging.Formatter):
         return logfmt
 
 
+def delete_via_vtysh_file(ctx_keys, line):
+    """
+    True if this line delete should go through one "vtysh -f" batch instead
+    of a per-line "vtysh -c" call.
+
+    Per-line deletes each trigger a full mgmtd commit. At scale that blows
+    past systemd's ExecReload TimeoutSec (e.g. hundreds of L3VNI unsets under
+    "vrf NAME", or thousands of EVPN "route-target import" unsets under
+    "router bgp ... vrf ..."). Batching keeps one commit for the whole set.
+    """
+    if not ctx_keys or not line:
+        return False
+    if ctx_keys[0].startswith("vrf "):
+        return True
+    # Shared-services / DVNI leaves put large explicit RT import lists under
+    # the BGP VRF address-family, not under a top-level "vrf" context.
+    if ctx_keys[0].startswith("router bgp") and line.lstrip().startswith(
+        "route-target "
+    ):
+        return True
+
+    return False
+
+
 def delete_line_with_vtysh(vtysh, ctx_keys, line):
     """
     Remove a single config line via "vtysh -c configure ...".
@@ -2783,14 +2807,18 @@ if __name__ == "__main__":
                 for handler in log.handlers:
                     handler.flush()
 
-                # Take vrf line deletes out of lines_to_del and apply them as a
-                # single "vtysh -f" batch (below) to avoid the per-line
+                # Take scaled line deletes out of lines_to_del and apply them
+                # as a single "vtysh -f" batch (below) to avoid the per-line
                 # "vtysh -c" timeouts seen at scale (e.g. hundreds of L3VNI
-                # unsets during scaled deletes). The rest stay in lines_to_del and go
-                # through the per-line delete path.
+                # unsets under "vrf NAME", or thousands of EVPN route-target
+                # unsets under "router bgp ... vrf ..."). The rest stay in
+                # lines_to_del and go through the per-line delete path.
                 # old way:
                 #   vtysh -c 'configure' -c 'vrf vrf1' -c ' no vni 4001' -c 'exit'
                 #   vtysh -c 'configure' -c 'vrf vrf2' -c ' no vni 4002' -c 'exit'
+                #   vtysh -c 'configure' -c 'router bgp 1 vrf vrf_shared1' \
+                #        -c 'address-family l2vpn evpn' \
+                #        -c ' no route-target import 1:1' -c 'exit' -c 'exit'
                 #
                 # new way:
                 #   /var/run/frr/reload-batch-del-A1B2C3.txt
@@ -2802,29 +2830,35 @@ if __name__ == "__main__":
                 #      no vni 4002
                 #     exit
                 #
+                #     router bgp 1 vrf vrf_shared1
+                #      address-family l2vpn evpn
+                #       no route-target import 1:1
+                #      exit
+                #     exit
+                #
                 #   vtysh -f /var/run/frr/reload-batch-del-A1B2C3.txt
                 #
-                vrf_lines_to_del = []
+                batch_lines_to_del = []
                 remaining_lines_to_del = []
                 for entry in lines_to_del:
                     ctx_keys, line = entry
-                    if ctx_keys and ctx_keys[0].startswith("vrf ") and line:
-                        vrf_lines_to_del.append(entry)
+                    if delete_via_vtysh_file(ctx_keys, line):
+                        batch_lines_to_del.append(entry)
                     else:
                         remaining_lines_to_del.append(entry)
                 lines_to_del = remaining_lines_to_del
 
-                # Apply vrf deletes first, as one batch file, so they are
+                # Apply batch deletes first, as one file, so they are
                 # committed before the adds further below. This preserves the
                 # delete-before-add ordering the per-line path relied on, so an
                 # in-place change (delete old value + add new value) ends with
                 # the new value. On any failure, fall back to per-line delete
                 # with token trimming so a "picky" no still gets applied.
-                if vrf_lines_to_del:
-                    vrf_del_cmds = []
-                    for ctx_keys, line in vrf_lines_to_del:
+                if batch_lines_to_del:
+                    batch_del_cmds = []
+                    for ctx_keys, line in batch_lines_to_del:
                         cmd = "\n".join(lines_to_config(ctx_keys, line, True)) + "\n"
-                        vrf_del_cmds.append(cmd)
+                        batch_del_cmds.append(cmd)
 
                     random_string = "".join(
                         random.SystemRandom().choice(
@@ -2833,14 +2867,14 @@ if __name__ == "__main__":
                         for _ in range(6)
                     )
                     filename = args.rundir + "/reload-batch-del-%s.txt" % random_string
-                    log.info("%s content\n%s" % (filename, pformat(vrf_del_cmds)))
+                    log.info("%s content\n%s" % (filename, pformat(batch_del_cmds)))
 
                     # Flush log before vtysh.exec_file() so content is preserved if crash occurs
                     for handler in log.handlers:
                         handler.flush()
 
                     with open(filename, "w") as fh:
-                        for cmd in vrf_del_cmds:
+                        for cmd in batch_del_cmds:
                             fh.write(cmd + "\n")
 
                     try:
@@ -2851,7 +2885,7 @@ if __name__ == "__main__":
                             "batch delete failed, falling back to per-line "
                             "delete:\n%s" % (e,)
                         )
-                        for ctx_keys, line in vrf_lines_to_del:
+                        for ctx_keys, line in batch_lines_to_del:
                             if not delete_line_with_vtysh(vtysh, ctx_keys, line):
                                 reload_ok = False
                     os.unlink(filename)
