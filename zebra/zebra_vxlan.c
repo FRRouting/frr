@@ -4460,7 +4460,8 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interfa
 static int32_t zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t *vni,
 					       struct ethaddr *macaddr, uint16_t *ipa_len,
 					       struct ipaddr *ip, struct ipaddr *vtep_ip,
-					       uint8_t *flags, uint32_t *seq, esi_t *esi)
+					       uint8_t *flags, uint32_t *seq, esi_t *esi,
+					       uint32_t *eth_tag)
 {
 	uint16_t l = 0;
 
@@ -4502,6 +4503,9 @@ static int32_t zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t
 		l += sizeof(esi_t);
 	}
 
+	STREAM_GETL(s, *eth_tag);
+	l += 4;
+
 	return l;
 
 stream_failure:
@@ -4524,25 +4528,26 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
+		uint32_t eth_tag = 0;
 		int res_length = zebra_vxlan_remote_macip_helper(
 			false, s, &vni, &macaddr, &ipa_len, &ip, &vtep_ip, NULL,
-			NULL, NULL);
+			NULL, NULL, &eth_tag);
 
 		if (res_length == -1)
 			goto stream_failure;
 
 		l += res_length;
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("Recv MACIP DEL VNI %u MAC %pEA%s%s Remote VTEP %pIA from %s",
+			zlog_debug("Recv MACIP DEL VNI %u MAC %pEA%s%s Remote VTEP %pIA ETAG %u from %s",
 				   vni, &macaddr, ipa_len ? " IP " : "",
 				   ipa_len ? ipaddr2str(&ip, buf1, sizeof(buf1)) : "", &vtep_ip,
-				   zebra_route_string(client->proto));
+				   eth_tag, zebra_route_string(client->proto));
 
 		frrtrace(5, frr_zebra, zebra_vxlan_remote_macip_del, &macaddr, &ip, vni, &vtep_ip,
 			 ipa_len);
 
 		/* Enqueue to workqueue for processing */
-		zebra_rib_queue_evpn_rem_macip_del(vni, &macaddr, &ip, &vtep_ip);
+		zebra_rib_queue_evpn_rem_macip_del(vni, &macaddr, &ip, &vtep_ip, eth_tag);
 	}
 
 stream_failure:
@@ -4578,9 +4583,10 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 
 	while (l < hdr->length) {
 
+		uint32_t eth_tag = 0;
 		int res_length = zebra_vxlan_remote_macip_helper(
 			true, s, &vni, &macaddr, &ipa_len, &ip, &vtep_ip,
-			&flags, &seq, &esi);
+			&flags, &seq, &esi, &eth_tag);
 
 		if (res_length == -1)
 			goto stream_failure;
@@ -4591,17 +4597,18 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 				esi_to_str(&esi, esi_buf, sizeof(esi_buf));
 			else
 				strlcpy(esi_buf, "-", ESI_STR_LEN);
-			zlog_debug("Recv %sMACIP ADD VNI %u MAC %pEA%s%s flags 0x%x seq %u VTEP %pIA ESI %s from %s",
+			zlog_debug("Recv %sMACIP ADD VNI %u MAC %pEA%s%s flags 0x%x seq %u VTEP %pIA ETAG %u ESI %s from %s",
 				   (flags & ZEBRA_MACIP_TYPE_SYNC_PATH) ? "sync-" : "", vni,
 				   &macaddr, ipa_len ? " IP " : "",
 				   ipa_len ? ipaddr2str(&ip, buf1, sizeof(buf1)) : "", flags, seq,
-				   &vtep_ip, esi_buf, zebra_route_string(client->proto));
+				   &vtep_ip, eth_tag, esi_buf, zebra_route_string(client->proto));
 		}
 		frrtrace(6, frr_zebra, zebra_vxlan_remote_macip_add, &macaddr, &ip, vni, &vtep_ip,
 			 flags, &esi);
 
 		/* Enqueue to workqueue for processing */
-		zebra_rib_queue_evpn_rem_macip_add(vni, &macaddr, &ip, flags, seq, &vtep_ip, &esi);
+		zebra_rib_queue_evpn_rem_macip_add(vni, &macaddr, &ip, flags, seq, &vtep_ip, &esi,
+						   eth_tag);
 	}
 
 stream_failure:
