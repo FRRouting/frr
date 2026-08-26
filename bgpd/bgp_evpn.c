@@ -836,9 +836,11 @@ static bool bgp_evpn_wildcard_rt_local_admin_from_eval(uint8_t type,
 }
 
 /* Flag if the route is injectable into EVPN.
- * Routes directly imported from EVPN retain the legacy suppression behavior.
- * With skip-evpn-imported, also suppress paths whose ultimate import
- * parent is the EVPN table.
+ *
+ * A direct EVPN import into VRF1 retains the legacy unconditional suppression.
+ * For other multilevel leak like VRF1->VRF2 and VRF1->VRF2->VRF3 , suppression
+ * is only with "skip-evpn-imported" cli option, by default the route will be
+ * injected.
  */
 bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 					    struct bgp_path_info *pi)
@@ -847,19 +849,27 @@ bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi
 	struct bgp_dest *dest;
 	struct bgp_table *table;
 
-	/* Preserve the previous direct EVPN-import suppression. */
 	if (pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra && pi->extra->vrfleak &&
 	    pi->extra->vrfleak->parent) {
 		parent_pi = pi->extra->vrfleak->parent;
 		dest = parent_pi->net;
 		table = dest ? bgp_dest_table(dest) : NULL;
-		if (table && table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
+		if (table && table->afi == AFI_L2VPN && table->safi == SAFI_EVPN) {
+			if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF) || BGP_DEBUG(vpn, VPN_LEAK_TO_VRF))
+				zlog_debug("vrf %s: skip EVPN re-export of directly imported prefix %pFX",
+					   bgp_vrf ? bgp_vrf->name_pretty : "unknown",
+					   bgp_dest_get_prefix(pi->net));
 			return false;
+		}
 	}
 
 	if (safi == SAFI_UNICAST && bgp_evpn_suppress_import_from_evpn(bgp_vrf, afi) &&
-	    IS_PATH_IMPORTED_FROM_EVPN_TABLE(pi))
+	    IS_PATH_IMPORTED_FROM_EVPN_TABLE(pi)) {
+		if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF) || BGP_DEBUG(vpn, VPN_LEAK_TO_VRF))
+			zlog_debug("vrf %s: skip EVPN re-export of EVPN-derived prefix %pFX",
+				   bgp_vrf->name_pretty, bgp_dest_get_prefix(pi->net));
 		return false;
+	}
 
 	if (safi == SAFI_MPLS_VPN) {
 		if (pi->peer != bgp_vrf->peer_self)
@@ -2736,8 +2746,13 @@ struct bgp_path_info *delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t
 		pi = bgp_evpn_route_get_local_path(bgp, dest, addpath_id);
 
 	/* Mark route for delete. */
-	if (pi)
+	if (pi) {
+		if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF) || BGP_DEBUG(vpn, VPN_LEAK_TO_VRF))
+			zlog_debug("%s: mark EVPN route for delete: prefix %pFX dest %p path %p originator %p addpath %u",
+				   __func__, bgp_dest_get_prefix(dest), dest, pi, originator,
+				   addpath_id);
 		bgp_path_info_mark_for_delete(dest, pi);
+	}
 
 	return pi;
 }
@@ -6437,43 +6452,56 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 }
 
 /*
- * Withdraw every local Type-5 path for a VRF prefix. This walks the EVPN
- * table rather than relying on the source unicast path or AddPath ID.
+ * Walk the VRF unicast RIB and withdraw the Type-5 corresponding to each
+ * EVPN-derived VRF-leak source path.
  */
-void bgp_evpn_withdraw_local_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
+void bgp_evpn_withdraw_imported_type5_leaked_routes(struct bgp *bgp_vrf, afi_t afi)
 {
-	struct bgp_table *table = bgp_vrf->rib[afi][safi];
+	struct bgp_table *table = bgp_vrf->rib[afi][SAFI_UNICAST];
 	struct bgp_dest *dest;
 	struct bgp *bgp_evpn = bgp_get_evpn();
-	struct prefix_evpn evp;
-	struct bgp_path_info *pi;
-	struct bgp_dest *evpn_dest;
+	struct bgp_path_info *src_pi;
+	uint32_t addpath_id;
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF) || BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
-	if (!bgp_evpn)
+	if (!bgp_evpn) {
+		flog_err(EC_BGP_NO_DFLT,
+			 "vrf %s: skip EVPN-derived type-5 cleanup for afi %s: EVPN instance is unavailable",
+			 bgp_vrf->name_pretty, afi2str(afi));
 		return;
+	}
+
+	if (!table) {
+		zlog_warn("vrf %s: skip EVPN-derived type-5 cleanup for afi %s: unicast RIB is unavailable",
+			  bgp_vrf->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug)
+		zlog_debug("vrf %s: withdraw EVPN-derived type-5 routes for afi %s",
+			   bgp_vrf->name_pretty, afi2str(afi));
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
-		build_type5_prefix_from_ip_prefix(&evp, bgp_dest_get_prefix(dest));
-		evpn_dest = bgp_evpn_global_node_lookup(bgp_evpn->rib[AFI_L2VPN][SAFI_EVPN],
-							SAFI_EVPN, &evp, &bgp_vrf->vrf_prd, NULL);
-		if (!evpn_dest)
-			continue;
+		for (src_pi = bgp_dest_get_bgp_path_info(dest); src_pi; src_pi = src_pi->next) {
+			/* Direct EVPN imports are never exported as Type-5 routes, so
+			 * withdrawing them here is unnecessary.
+			 */
+			if (src_pi->sub_type == BGP_ROUTE_IMPORTED && src_pi->extra &&
+			    src_pi->extra->vrfleak && src_pi->extra->vrfleak->parent &&
+			    is_pi_family_evpn(src_pi->extra->vrfleak->parent))
+				continue;
 
-		while (true) {
-			for (pi = bgp_dest_get_bgp_path_info(evpn_dest); pi; pi = pi->next) {
-				if (bgp_evpn_is_path_local(bgp_evpn, pi) &&
-				    !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
-					break;
-			}
+			if (!IS_PATH_IMPORTED_FROM_EVPN_TABLE(src_pi))
+				continue;
 
-			if (!pi)
-				break;
-
-			bgp_path_info_mark_for_delete(evpn_dest, pi);
-			bgp_process(bgp_evpn, evpn_dest, pi, AFI_L2VPN, SAFI_EVPN);
+			addpath_id = bgp_evpn_addpath_id_for_path(bgp_vrf, src_pi, afi);
+			if (debug)
+				zlog_debug("vrf %s: withdraw EVPN-derived type-5 prefix %pFX addpath %u",
+					   bgp_vrf->name_pretty, bgp_dest_get_prefix(dest),
+					   addpath_id);
+			bgp_evpn_withdraw_type5_route(bgp_vrf, src_pi, bgp_dest_get_prefix(dest),
+						      afi, SAFI_UNICAST, addpath_id);
 		}
-
-		bgp_dest_unlock_node(evpn_dest);
 	}
 }
 
