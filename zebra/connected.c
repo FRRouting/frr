@@ -331,6 +331,17 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			return;
 	}
 
+	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_TENTATIVE) ||
+	    CHECK_FLAG(ifc->flags, ZEBRA_IFA_DADFAILED)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("interface %s vrf %s(%u) connected address %pFX is in %s%s state, not installing connected route",
+				   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id, &p,
+				   CHECK_FLAG(ifc->flags, ZEBRA_IFA_TENTATIVE) ? "tentative" : "",
+				   CHECK_FLAG(ifc->flags, ZEBRA_IFA_DADFAILED) ? " DAD failed"
+									       : "");
+		return;
+	}
+
 	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
 		connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
 

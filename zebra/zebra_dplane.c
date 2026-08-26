@@ -268,6 +268,7 @@ struct dplane_intf_info {
 #define DPLANE_INTF_HAS_LABEL   (1 << 4)
 #define DPLANE_INTF_NOPREFIXROUTE (1 << 5)
 #define DPLANE_INTF_TENTATIVE   (1 << 6) /* IPv6 address is tentative (DAD) */
+#define DPLANE_INTF_DADFAILED   (1 << 7)
 
 	/* Interface address/prefix */
 	struct prefix prefix;
@@ -2886,6 +2887,20 @@ void dplane_ctx_intf_set_tentative(struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.intf.flags |= DPLANE_INTF_TENTATIVE;
+}
+
+bool dplane_ctx_intf_is_dadfailed(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_DADFAILED);
+}
+
+void dplane_ctx_intf_set_dadfailed(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_DADFAILED;
 }
 
 const struct prefix *dplane_ctx_get_intf_addr(
