@@ -333,6 +333,17 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 
 	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_TENTATIVE) ||
 	    CHECK_FLAG(ifc->flags, ZEBRA_IFA_DADFAILED)) {
+		/*
+		 * So if we have a kernel route that would match this connected route
+		 * that we are deciding to not install at this point in time, let's just
+		 * go ahead and remove it now, we don't want upper level protocols to be
+		 * using it either since the prefix is still tentative.
+		 */
+		if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+			connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
+			connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
+		}
+
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("interface %s vrf %s(%u) connected address %pFX is in %s%s state, not installing connected route",
 				   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id, &p,
