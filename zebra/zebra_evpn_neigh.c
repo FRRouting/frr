@@ -260,7 +260,7 @@ int zebra_evpn_neigh_send_add_to_client(vni_t vni, const struct ipaddr *ip,
 		SET_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP);
 
 	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, ip, flags, seq, ZEBRA_NEIGH_ACTIVE,
-						   zmac ? zmac->es : NULL, ZEBRA_MACIP_ADD);
+						   0, zmac ? zmac->es : NULL, ZEBRA_MACIP_ADD);
 }
 
 /*
@@ -278,7 +278,7 @@ int zebra_evpn_neigh_send_del_to_client(vni_t vni, struct ipaddr *ip,
 	}
 
 	return zebra_evpn_macip_send_msg_to_client(
-		vni, macaddr, ip, 0, 0, state, NULL, ZEBRA_MACIP_DEL);
+		vni, macaddr, ip, 0, 0, state, 0, NULL, ZEBRA_MACIP_DEL);
 }
 
 static void zebra_evpn_neigh_send_add_del_to_client(struct zebra_neigh *n,
