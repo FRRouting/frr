@@ -174,6 +174,10 @@ extern struct attr_extra *bgp_attr_extra_dup(const struct attr_extra *src);
 extern void bgp_attr_extra_discard(struct attr *attr);
 extern void bgp_attr_dup_into(struct attr *to, const struct attr *from);
 
+#define BGP_ATTR_FLAG_BITS    64
+#define BGP_ATTR_FLAG_SIZE    ((BGP_ATTR_TYPE_RANGE + BGP_ATTR_FLAG_BITS - 1) / BGP_ATTR_FLAG_BITS)
+#define BGP_ATTR_FLAGS_STRLEN (BGP_ATTR_FLAG_SIZE * 16 + 1)
+
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -186,7 +190,7 @@ struct attr {
 	unsigned long refcnt;
 
 	/* Flag of attribute is set or not. */
-	uint64_t flag;
+	uint64_t flag[BGP_ATTR_FLAG_SIZE];
 
 	/* Apart from in6_addr, the remaining static attributes */
 	struct in_addr nexthop;
@@ -374,13 +378,41 @@ struct transit {
 };
 
 /* "(void) 0" will generate a compiler error.  this is a safety check to
- * ensure we're not using a value that exceeds the bit size of attr->flag. */
-#define ATTR_FLAG_BIT(X)                                                       \
-	__builtin_choose_expr((X) >= 1 && (X) <= 64, 1ULL << ((X)-1), (void)0)
+ * ensure we're not using an attribute type that is outside the range
+ * tracked by attr->flag.
+ */
+#define ATTR_FLAG_CHECKED(X, expr)                                                                \
+	__builtin_choose_expr((X) >= 1 && (X) < BGP_ATTR_TYPE_RANGE, expr, (void)0)
+#define ATTR_FLAG_INDEX(X) ATTR_FLAG_CHECKED(X, ((X) - 1) / BGP_ATTR_FLAG_BITS)
+#define ATTR_FLAG_BIT(X)   ATTR_FLAG_CHECKED(X, 1ULL << (((X) - 1) % BGP_ATTR_FLAG_BITS))
 
-#define bgp_attr_exists(attr, id) CHECK_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
-#define bgp_attr_set(attr, id) SET_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
-#define bgp_attr_unset(attr, id) UNSET_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
+#define bgp_attr_exists(attr, id) CHECK_FLAG((attr)->flag[ATTR_FLAG_INDEX(id)], ATTR_FLAG_BIT(id))
+#define bgp_attr_set(attr, id)	  SET_FLAG((attr)->flag[ATTR_FLAG_INDEX(id)], ATTR_FLAG_BIT(id))
+#define bgp_attr_unset(attr, id)  UNSET_FLAG((attr)->flag[ATTR_FLAG_INDEX(id)], ATTR_FLAG_BIT(id))
+
+static inline bool bgp_attr_flags_empty(const struct attr *attr)
+{
+	for (unsigned int i = 0; i < BGP_ATTR_FLAG_SIZE; i++)
+		if (attr->flag[i])
+			return false;
+
+	return true;
+}
+
+static inline bool bgp_attr_flags_equal(const struct attr *attr1, const struct attr *attr2)
+{
+	return !memcmp(attr1->flag, attr2->flag, sizeof(attr1->flag));
+}
+
+static inline const char *bgp_attr_flags_str(const struct attr *attr, char *buf, size_t buflen)
+{
+	size_t pos = 0;
+
+	for (int i = BGP_ATTR_FLAG_SIZE - 1; i >= 0 && buflen - pos > 16; i--)
+		pos += snprintfrr(buf + pos, buflen - pos, "%016" PRIx64, attr->flag[i]);
+
+	return buf;
+}
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                                             \
 	(bgp_attr_exists(attr, BGP_ATTR_CLUSTER_LIST) ? bgp_attr_get_cluster((attr))->length : 0)

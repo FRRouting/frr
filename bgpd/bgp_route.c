@@ -13591,6 +13591,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	char buf[INET6_ADDRSTRLEN];
 	char labels_buf[BGP_MAX_LABEL_DIGITS]; /* 8 per label + / or \0 for each */
 	char vni_buf[30] = {};
+	char flags_buf[BGP_ATTR_FLAGS_STRLEN];
 	struct attr *attr = pattr ? pattr : path->attr;
 	time_t tbuf;
 	char timebuf[32];
@@ -14783,8 +14784,9 @@ skip_nexthop:
 		if (!json_paths) {
 			vty_out(vty, "      net: %p, path: %p, pathext: %p, attr: %p\n", path->net,
 				path, path->extra, attr);
-			vty_out(vty, "      flags net: 0x%u, path: 0x%u, attr: 0x%" PRIu64 "\n",
-				path->net->flags, path->flags, attr->flag);
+			vty_out(vty, "      flags net: 0x%u, path: 0x%u, attr: 0x%s\n",
+				path->net->flags, path->flags,
+				bgp_attr_flags_str(attr, flags_buf, sizeof(flags_buf)));
 		}
 	}
 
@@ -20263,12 +20265,11 @@ DEFUN(show_bgp_upa, show_bgp_upa_cmd,
 				} else {
 					vty_out(vty, "*> %-18pFX", p);
 					vty_out(vty, "%-16pI4", &pi->attr->nexthop);
-					if (pi->attr->flag &
-					    ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
+					if (bgp_attr_exists(pi->attr, BGP_ATTR_MULTI_EXIT_DISC))
 						vty_out(vty, "%10u", pi->attr->med);
 					else
 						vty_out(vty, "          ");
-					if (pi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+					if (bgp_attr_exists(pi->attr, BGP_ATTR_LOCAL_PREF))
 						vty_out(vty, " %7u", pi->attr->local_pref);
 					else
 						vty_out(vty, "        ");

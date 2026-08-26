@@ -1132,9 +1132,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 	const struct attr *attr1 = p1;
 	const struct attr *attr2 = p2;
 
-	if (attr1->flag == attr2->flag && attr1->origin == attr2->origin &&
-	    attr1->nexthop.s_addr == attr2->nexthop.s_addr &&
-	    attr1->aspath == attr2->aspath &&
+	if (bgp_attr_flags_equal(attr1, attr2) && attr1->origin == attr2->origin &&
+	    attr1->nexthop.s_addr == attr2->nexthop.s_addr && attr1->aspath == attr2->aspath &&
 	    bgp_attr_get_community(attr1) == bgp_attr_get_community(attr2) &&
 	    attr1->med == attr2->med && attr1->local_pref == attr2->local_pref &&
 	    attr1->rmap_change_flags == attr2->rmap_change_flags) {
@@ -1214,10 +1213,12 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 	struct vty *vty = args[0];
 	uint32_t *counters = args[1];
 	bool summary = *(bool *)args[2];
+	char flags_buf[BGP_ATTR_FLAGS_STRLEN];
 	unsigned int i;
 
 	for (i = 1; i <= BGP_ATTR_MAX; i++) {
-		if (CHECK_FLAG(attr->flag, 1ULL << (i - 1)))
+		if (CHECK_FLAG(attr->flag[(i - 1) / BGP_ATTR_FLAG_BITS],
+			       1ULL << ((i - 1) % BGP_ATTR_FLAG_BITS)))
 			counters[i]++;
 	}
 
@@ -1232,11 +1233,11 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 	vty_out(vty, "attr[%ld] nexthop %pI4\n", attr->refcnt, &attr->nexthop);
 
 	vty_out(vty,
-		"\tflags: %" PRIu64
-		" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6 aigp_metric: %" PRIu64
+		"\tflags: 0x%s distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6 aigp_metric: %" PRIu64
 		"\n",
-		attr->flag, attr->distance, attr->med, attr->local_pref, attr->origin,
-		attr->weight, attr->label, sid, bgp_attr_get_aigp_metric(attr));
+		bgp_attr_flags_str(attr, flags_buf, sizeof(flags_buf)), attr->distance, attr->med,
+		attr->local_pref, attr->origin, attr->weight, attr->label, sid,
+		bgp_attr_get_aigp_metric(attr));
 	vty_out(vty,
 		"\tnh_ifindex: %u nh_flags: %u distance: %u nexthop_global: %pI6 nexthop_local: %pI6 nexthop_local_ifindex: %u\n",
 		attr->nh_ifindex, attr->nh_flags, attr->distance, &attr->mp_nexthop_global,
@@ -4379,8 +4380,7 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr, bgp_size_t lengt
 	 * we will pass it to be processed as a normal UPDATE without mandatory
 	 * attributes, that could lead to harmful behavior.
 	 */
-	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV) && !attr->flag &&
-	    !length)
+	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV) && bgp_attr_flags_empty(attr) && !length)
 		return BGP_ATTR_PARSE_WITHDRAW;
 
 	if (!bgp_attr_exists(attr, BGP_ATTR_ORIGIN))
