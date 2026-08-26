@@ -40,17 +40,18 @@ def setup_module(mod):
     tgen.start_topology()
 
     r1 = tgen.gears["r1"]
+
+    # VRF 'public'
+    r1.cmd_raises("ip link add public type vrf table 1001")
+    r1.cmd_raises("ip link set up dev public")
+    r1.cmd_raises("ip link set r1-eth0 master public")
+
     r1.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
     r1.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r1/bgpd.conf"))
     r1.start()
 
     peer = tgen.gears["peer1"]
     peer.start(os.path.join(CWD, "peer1"), os.path.join(CWD, "exabgp.env"))
-
-    # VRF 'public'
-    r1.cmd_raises("ip link add public type vrf table 1001")
-    r1.cmd_raises("ip link set up dev public")
-    r1.cmd_raises("ip link set r1-eth0 master public")
 
 
 def teardown_module(mod):
