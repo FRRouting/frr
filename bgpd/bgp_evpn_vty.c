@@ -5429,10 +5429,8 @@ DEFPY(show_bgp_l2vpn_evpn_route_vni_all,
 
 	evpn_show_routes_vni_all(vty, bgp, 0, false, vtep_ip, json, da);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-		json_object_free(json);
-	}
 
 	return CMD_SUCCESS;
 }
