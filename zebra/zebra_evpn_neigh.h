@@ -60,6 +60,12 @@ struct zebra_neigh {
 
 	struct zebra_evpn *zevpn;
 
+	/* VLAN / Ethernet Tag (ETAG) of the bridge domain that owns this
+	 * neighbor. Used by the L3VNI-keyed neighbor-sync container to
+	 * originate the correct per-SVI ETAG and to tear down per-BD.
+	 */
+	vlanid_t eth_tag;
+
 	/* Refcnt - Only used by SVD neighs currently */
 	uint32_t refcnt;
 
