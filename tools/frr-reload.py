@@ -1029,6 +1029,9 @@ def lines_to_config(ctx_keys, line, delete):
         else:
             cmd.append(indent + line)
 
+        # Mirror of the context-opening loop above: one "exit" per ctx_key,
+        # innermost first, with i reused as the indent width so each "exit"
+        # lines up with the key it closes.
         for i in reversed(range(len(ctx_keys))):
             cmd.append(" " * i + "exit")
 
@@ -1896,11 +1899,14 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_del_to_del.append((ctx_keys, route_target_export_line))
                     lines_to_add_to_del.append((ctx_keys, route_target_both_line))
 
-        # Deleting static routes under a vrf can lead to time-outs if each is sent
-        # as separate vtysh -c commands. Change them from being in lines_to_del and
-        # put the "no" form in lines_to_add
+        # Deleting static routes under a vrf can lead to time-outs if each is
+        # sent as separate vtysh -c commands. Change them from being in
+        # lines_to_del and put the "no" form in lines_to_add (prepended so the
+        # no runs before the replacement add). The trailing space is required
+        # as "ip router-id" also starts with "ip route", and "ipv6 router-id"
+        # with "ipv6 route".
         if ctx_keys[0].startswith("vrf ") and line:
-            if line.startswith("ip route") or line.startswith("ipv6 route"):
+            if line.startswith("ip route ") or line.startswith("ipv6 route "):
                 add_cmd = "no " + line
                 lines_to_add_vrf_no_static_route.append((ctx_keys, add_cmd))
                 lines_to_del_to_del.append((ctx_keys, line))
@@ -2318,6 +2324,63 @@ class LogFmtFormatter(logging.Formatter):
         return logfmt
 
 
+def delete_line_with_vtysh(vtysh, ctx_keys, line):
+    """
+    Remove a single config line via "vtysh -c configure ...".
+
+    'no' commands are tricky, we can't just put them in a file and vtysh -f
+    that file. See the comment below for an explanation of their quirks.
+
+    Some commands in frr are picky about taking a "no" of the entire line.
+    OSPF is bad about this, you can't "no" the entire line, you have to "no"
+    only the beginning. If we hit one of these command an exception will be
+    thrown.  Catch it and remove the last '-c', 'FOO' from cmd and try again.
+
+    Example:
+      frr(config-if)# ip ospf authentication message-digest 1.1.1.1
+      frr(config-if)# no ip ospf authentication message-digest 1.1.1.1
+       % Unknown command.
+      frr(config-if)# no ip ospf authentication message-digest
+       % Unknown command.
+      frr(config-if)# no ip ospf authentication
+      frr(config-if)#
+
+    Returns True on success, False if the line could not be removed.
+    """
+    cmd = lines_to_config(ctx_keys, line, True)
+    original_cmd = cmd
+
+    stdouts = []
+    while True:
+        try:
+            vtysh(["configure"] + cmd, stdouts)
+
+        except VtyshException:
+            # - Pull the last entry from cmd (this would be
+            #   'no ip ospf authentication message-digest 1.1.1.1' in
+            #   our example above
+            # - Split that last entry by whitespace and drop the last word
+            log.error("Failed to execute %s", " ".join(cmd))
+            last_arg = cmd[-1].split(" ")
+
+            if len(last_arg) <= 2:
+                log.error(
+                    '"%s" we failed to remove this command',
+                    " -- ".join(original_cmd),
+                )
+                # Log first error msg for original_cmd
+                if stdouts:
+                    log.error(stdouts[0])
+                return False
+
+            new_last_arg = last_arg[0:-1]
+            cmd[-1] = " ".join(new_last_arg)
+        else:
+            # Success is not logged here: lines_to_del is logged upfront before
+            # deletes run (see reload path), matching ADD's avoid-double-log.
+            return True
+
+
 if __name__ == "__main__":
     # Command line options
     parser = argparse.ArgumentParser(
@@ -2664,58 +2727,85 @@ if __name__ == "__main__":
                 for handler in log.handlers:
                     handler.flush()
 
+                # Take vrf line deletes out of lines_to_del and apply them as a
+                # single "vtysh -f" batch (below) to avoid the per-line
+                # "vtysh -c" timeouts seen at scale (e.g. hundreds of L3VNI
+                # unsets during scaled deletes). The rest stay in lines_to_del and go
+                # through the per-line delete path.
+                # old way:
+                #   vtysh -c 'configure' -c 'vrf vrf1' -c ' no vni 4001' -c 'exit'
+                #   vtysh -c 'configure' -c 'vrf vrf2' -c ' no vni 4002' -c 'exit'
+                #
+                # new way:
+                #   /var/run/frr/reload-batch-del-A1B2C3.txt
+                #     vrf vrf1
+                #      no vni 4001
+                #     exit
+                #
+                #     vrf vrf2
+                #      no vni 4002
+                #     exit
+                #
+                #   vtysh -f /var/run/frr/reload-batch-del-A1B2C3.txt
+                #
+                vrf_lines_to_del = []
+                remaining_lines_to_del = []
+                for entry in lines_to_del:
+                    ctx_keys, line = entry
+                    if ctx_keys and ctx_keys[0].startswith("vrf ") and line:
+                        vrf_lines_to_del.append(entry)
+                    else:
+                        remaining_lines_to_del.append(entry)
+                lines_to_del = remaining_lines_to_del
+
+                # Apply vrf deletes first, as one batch file, so they are
+                # committed before the adds further below. This preserves the
+                # delete-before-add ordering the per-line path relied on, so an
+                # in-place change (delete old value + add new value) ends with
+                # the new value. On any failure, fall back to per-line delete
+                # with token trimming so a "picky" no still gets applied.
+                if vrf_lines_to_del:
+                    vrf_del_cmds = []
+                    for ctx_keys, line in vrf_lines_to_del:
+                        cmd = "\n".join(lines_to_config(ctx_keys, line, True)) + "\n"
+                        vrf_del_cmds.append(cmd)
+
+                    random_string = "".join(
+                        random.SystemRandom().choice(
+                            string.ascii_uppercase + string.digits
+                        )
+                        for _ in range(6)
+                    )
+                    filename = args.rundir + "/reload-batch-del-%s.txt" % random_string
+                    log.info("%s content\n%s" % (filename, pformat(vrf_del_cmds)))
+
+                    # Flush log before vtysh.exec_file() so content is preserved if crash occurs
+                    for handler in log.handlers:
+                        handler.flush()
+
+                    with open(filename, "w") as fh:
+                        for cmd in vrf_del_cmds:
+                            fh.write(cmd + "\n")
+
+                    try:
+                        # Sending the batch delete commands to vtysh.
+                        vtysh.exec_file(filename)
+                    except VtyshException as e:
+                        log.warning(
+                            "batch delete failed, falling back to per-line "
+                            "delete:\n%s" % (e.args,)
+                        )
+                        for ctx_keys, line in vrf_lines_to_del:
+                            if not delete_line_with_vtysh(vtysh, ctx_keys, line):
+                                reload_ok = False
+                    os.unlink(filename)
+
+                # Apply the remaining (non-batched) deletes per line.
                 for ctx_keys, line in lines_to_del:
                     if line == "!":
                         continue
-
-                    # 'no' commands are tricky, we can't just put them in a file and
-                    # vtysh -f that file. See the next comment for an explanation
-                    # of their quirks
-                    cmd = lines_to_config(ctx_keys, line, True)
-                    original_cmd = cmd
-
-                    # Some commands in frr are picky about taking a "no" of the entire line.
-                    # OSPF is bad about this, you can't "no" the entire line, you have to "no"
-                    # only the beginning. If we hit one of these command an exception will be
-                    # thrown.  Catch it and remove the last '-c', 'FOO' from cmd and try again.
-                    #
-                    # Example:
-                    # frr(config-if)# ip ospf authentication message-digest 1.1.1.1
-                    # frr(config-if)# no ip ospf authentication message-digest 1.1.1.1
-                    #  % Unknown command.
-                    # frr(config-if)# no ip ospf authentication message-digest
-                    #  % Unknown command.
-                    # frr(config-if)# no ip ospf authentication
-                    # frr(config-if)#
-
-                    stdouts = []
-                    while True:
-                        try:
-                            vtysh(["configure"] + cmd, stdouts)
-
-                        except VtyshException:
-                            # - Pull the last entry from cmd (this would be
-                            #   'no ip ospf authentication message-digest 1.1.1.1' in
-                            #   our example above
-                            # - Split that last entry by whitespace and drop the last word
-                            log.error(f"Failed to execute {' '.join(cmd)}")
-                            last_arg = cmd[-1].split(" ")
-
-                            if len(last_arg) <= 2:
-                                log.error(
-                                    '"%s" we failed to remove this command',
-                                    " -- ".join(original_cmd),
-                                )
-                                # Log first error msg for original_cmd
-                                if stdouts:
-                                    log.error(stdouts[0])
-                                reload_ok = False
-                                break
-
-                            new_last_arg = last_arg[0:-1]
-                            cmd[-1] = " ".join(new_last_arg)
-                        else:
-                            break
+                    if not delete_line_with_vtysh(vtysh, ctx_keys, line):
+                        reload_ok = False
 
             if lines_to_add:
                 lines_to_configure = []
