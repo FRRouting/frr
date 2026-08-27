@@ -8,7 +8,7 @@
         "outLabel":16020,
         "outLabelStack":[
           16020,
-          15004,
+          "*",
           16060
         ],
         "distance":150,
