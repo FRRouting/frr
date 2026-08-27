@@ -343,13 +343,31 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-   Note that there will be just one BFD session per interface. In case both
-   IPv4 and IPv6 support are configured then just a IPv6 based session is
-   created.
+   A BFD session is created for each IS-IS adjacency on the interface. If IPv6
+   is enabled on the circuit, FRR uses an IPv6 link-local address for the
+   session; otherwise, if IPv4 is enabled, it uses IPv4. If IPv6 addresses are
+   not yet available, FRR waits for them instead of falling back to IPv4.
 
 .. clicmd:: isis bfd profile BFDPROF
 
    Use a BFD profile BFDPROF as provided in the BFD configuration.
+
+
+.. _bfd-openfabric-peer-config:
+
+OpenFabric BFD Configuration
+----------------------------
+
+The following command is available inside the interface configuration node.
+
+.. clicmd:: openfabric bfd
+
+   Enable BFD monitoring for OpenFabric adjacencies on the interface. A BFD
+   session is created for each adjacency to monitor the link and provide fast
+   failure detection. If IPv6 is enabled on the circuit, FRR uses an IPv6
+   link-local address for the session; otherwise, if IPv4 is enabled, it uses
+   IPv4. If IPv6 addresses are not yet available, FRR waits for them instead of
+   falling back to IPv4.
 
 
 .. _bfd-ospf-peer-config:
