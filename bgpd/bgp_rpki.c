@@ -1674,8 +1674,8 @@ DEFPY (no_rpki,
 	if (!rpki_vrf)
 		return CMD_WARNING;
 
-	rpki_delete_all_cache_nodes(rpki_vrf);
 	stop(rpki_vrf);
+	rpki_delete_all_cache_nodes(rpki_vrf);
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	rpki_vrf->expire_interval = EXPIRE_INTERVAL_DEFAULT;
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
