@@ -188,6 +188,12 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 
 	zp.color = policy->color;
 	zp.endpoint = policy->endpoint;
+	/* The ZAPI name field is 64 bytes, pathd's is 256 so
+	 * it is truncated to its first 63 characters: it is not
+	 * unique beyond that and must not be used to search for a
+	 * policy.  Zebra matches policies by (color, endpoint) not
+	 * currently by name.
+	 */
 	strlcpy(zp.name, policy->name, sizeof(zp.name));
 	zp.segment_list.type = ZEBRA_LSP_SRTE;
 	zp.segment_list.local_label = policy->binding_sid;
@@ -219,6 +225,7 @@ void path_zebra_delete_sr_policy(struct srte_policy *policy)
 
 	zp.color = policy->color;
 	zp.endpoint = policy->endpoint;
+	/* Truncated at 63 characters, see path_zebra_add_sr_policy(). */
 	strlcpy(zp.name, policy->name, sizeof(zp.name));
 	zp.segment_list.type = ZEBRA_LSP_SRTE;
 	zp.segment_list.local_label = policy->binding_sid;

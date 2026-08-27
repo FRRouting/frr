@@ -121,7 +121,8 @@ static void srte_policy_status_log(struct srte_policy *policy)
  * Adds a segment list to pathd.
  *
  * @param name The name of the segment list to add
- * @return The added segment list
+ * @return The added segment list, or NULL if a segment list with that
+ *	   name already exists
  */
 struct srte_segment_list *srte_segment_list_add(const char *name)
 {
@@ -130,7 +131,15 @@ struct srte_segment_list *srte_segment_list_add(const char *name)
 	segment_list = XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*segment_list));
 	strlcpy(segment_list->name, name, sizeof(segment_list->name));
 	RB_INIT(srte_segment_entry_head, &segment_list->segments);
-	RB_INSERT(srte_segment_list_head, &srte_segment_lists, segment_list);
+	/* Duplicates are not allowed: every caller checks the name is
+	 * free before adding, so a collision here is a bug.  Refuse it
+	 * rather than hand out a segment list that is not in the tree.
+	 */
+	if (RB_INSERT(srte_segment_list_head, &srte_segment_lists, segment_list) != NULL) {
+		zlog_warn("%s: a segment list named %s already exists", __func__, name);
+		XFREE(MTYPE_PATH_SEGMENT_LIST, segment_list);
+		return NULL;
+	}
 
 	return segment_list;
 }
@@ -150,7 +159,18 @@ void srte_segment_list_del(struct srte_segment_list *segment_list)
 			 &segment_list->segments, safe_seg) {
 		srte_segment_entry_del(segment);
 	}
-	RB_REMOVE(srte_segment_list_head, &srte_segment_lists, segment_list);
+
+	/* Check first that the named list is in the tree before
+	 * removing, otherwise it will dereference a NULL pointer.
+	 * This should no longer happen since duplicates are
+	 * prevented at insertion.
+	 */
+	if (RB_FIND(srte_segment_list_head, &srte_segment_lists, segment_list) == segment_list) {
+		RB_REMOVE(srte_segment_list_head, &srte_segment_lists, segment_list);
+	} else {
+		zlog_warn("%s: deleting a segment list named %s that is not in the tree; a duplicate insert slipped through somewhere",
+			  __func__, segment_list->name);
+	}
 	XFREE(MTYPE_PATH_SEGMENT_LIST, segment_list);
 }
 

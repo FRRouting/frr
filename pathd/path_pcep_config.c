@@ -375,7 +375,7 @@ int path_pcep_config_update_path(struct path *path)
 	struct path_hop *hop;
 	struct path_metric *metric;
 	int index;
-	char segment_list_name_buff[64 + 1 + 64 + 1 + 11 + 1];
+	char segment_list_name_buff[SRTE_SEGMENT_LIST_NAME_LENGTH];
 	char *segment_list_name = NULL;
 	struct srte_candidate *candidate;
 	struct srte_segment_list *segment_list = NULL;
@@ -403,7 +403,18 @@ int path_pcep_config_update_path(struct path *path)
 		 "%s-%u", path->name, path->plsp_id);
 	segment_list_name = segment_list_name_buff;
 
+	/* The candidates old segment list was deleted above, so any
+	 * list still under the name belongs to someone else, either
+	 * configured from CLI, or a truncated path name.
+	 * srte_segment_list_add() refuses duplicates, so reject the
+	 * path when the name is taken.
+	 */
 	segment_list = srte_segment_list_add(segment_list_name);
+	if (segment_list == NULL) {
+		zlog_warn("segment list name %s of path %s (plsp %u) is already in use, rejecting the path",
+			  segment_list_name, path->name, path->plsp_id);
+		return ERROR_24_2;
+	}
 	segment_list->protocol_origin = path->update_origin;
 	strlcpy(segment_list->originator, path->originator,
 		sizeof(segment_list->originator));
