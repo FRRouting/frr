@@ -261,6 +261,19 @@ int pcep_main_event_initiate_candidate(struct path *path)
 		 * freed after the error message is sent.
 		 */
 		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret == ERROR_23_1) {
+		/* RFC 8281: a duplicate symbolic path name requires the PCC
+		 * to send a PCErr message (Error-type=23, Error-value=1).
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_BAD_PARAMETER_VALUE;
+		error->error_value = PCEP_ERRV_SYMBOLIC_PATH_NAME_IN_USE;
+
+		/* Error will free the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
 	} else {
 		if (ret != PATH_NB_ERR && path->srp_id != 0)
 			notify_status(path, ret == PATH_NB_NO_CHANGE);
