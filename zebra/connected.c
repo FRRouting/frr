@@ -323,8 +323,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		prefix_copy(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
 
-		if (prefix_same(&cp, &p) &&
-		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
+		if (prefix_same(&cp, &p) && !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN) &&
+		    !(CHECK_FLAG(c->flags, ZEBRA_IFA_TENTATIVE) ||
+		      CHECK_FLAG(c->flags, ZEBRA_IFA_DADFAILED)))
 			count++;
 
 		if (count >= 2)
@@ -543,8 +544,9 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		prefix_copy(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
 
-		if (prefix_same(&p, &cp) &&
-		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
+		if (prefix_same(&p, &cp) && !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN) &&
+		    !(CHECK_FLAG(c->flags, ZEBRA_IFA_TENTATIVE) ||
+		      CHECK_FLAG(c->flags, ZEBRA_IFA_DADFAILED)))
 			count++;
 
 		if (count >= 1)
