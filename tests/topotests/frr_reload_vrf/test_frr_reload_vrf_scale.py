@@ -44,13 +44,13 @@ import pytest
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, ".."))
 
-from lib.topogen import Topogen, TopoRouter
+from lib.topogen import Topogen
 from lib.topolog import logger
 
 import vrf_knobs as K
 import frr_reload_lib as R
 
-pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.pimd, pytest.mark.staticd]
 
 SCALE_N = int(os.environ.get("FRR_RELOAD_VRF_SCALE", "150"))
 BIG_N = int(os.environ.get("FRR_RELOAD_VRF_BIG", "150"))
@@ -70,12 +70,9 @@ RELOAD_TIMEOUT = float(os.environ.get("FRR_RELOAD_VRF_TIMEOUT", "120"))
 
 # Knob set used for the "all knobs" tests. Everything in the catalog.
 ALL = K.ALL_KNOBS
-# The daemons those knobs require.
-NEEDED_DAEMONS = [
-    TopoRouter.RD_ZEBRA,
-    TopoRouter.RD_PIM,
-    TopoRouter.RD_PIM6,
-]
+# Daemon names for load_frr_config (strings, not RD_* ints — bare ints are
+# unpacked as (daemon, param) tuples and raise TypeError).
+NEEDED_DAEMONS = ["zebra", "staticd", "bgpd", "pimd", "pim6d"]
 
 
 def _conf_path(tgen, rname="r1"):

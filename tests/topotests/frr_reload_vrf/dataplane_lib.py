@@ -362,15 +362,17 @@ def gen_frr_conf(node, num_vrfs, num_mcast_vrfs):
 
 
 def daemons_for(node, num_mcast_vrfs):
-    """RD_* daemon list for a node's unified config."""
-    # Imported lazily to avoid a hard dependency at module import time.
-    from lib.topogen import TopoRouter
+    """Daemon name list for a node's unified config (for load_frr_config).
 
-    d = [TopoRouter.RD_ZEBRA, TopoRouter.RD_OSPF, TopoRouter.RD_BGP]
-    if node == MCAST_PE and num_mcast_vrfs > 0:
-        # pim6d is started too so the reload test can inject the full knob
-        # catalog (which includes the IPv6 PIM/MLD knobs) into the tenant VRFs.
-        # The baseline multicast dataplane itself is IPv4-only.
-        d.append(TopoRouter.RD_PIM)
-        d.append(TopoRouter.RD_PIM6)
+    Must be daemon name strings (or (name, param) tuples). Bare RD_* ints are
+    invalid here: load_frr_config unpacks non-str entries as 2-tuples.
+    """
+    d = ["zebra", "ospfd", "bgpd"]
+    if node == MCAST_PE:
+        # staticd + pim6d so the reload test can inject the full knob catalog
+        # (static routes + IPv6 PIM/MLD) into the tenant VRFs. Baseline
+        # multicast dataplane itself is IPv4-only.
+        d.append("staticd")
+        if num_mcast_vrfs > 0:
+            d.extend(["pimd", "pim6d"])
     return d

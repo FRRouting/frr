@@ -73,18 +73,37 @@ def write_conf(path, lines):
     return path
 
 
+def _vtysh_bindir(router):
+    """Directory containing vtysh inside `router`'s namespace.
+
+    frr-reload.py defaults --bindir to /usr/bin, but topotest / source installs
+    often put vtysh under /usr/lib/frr (or similar). Resolve via PATH.
+    """
+    real = router.net.cmd_nostatus("command -v vtysh").strip()
+    assert real.startswith("/"), "could not locate vtysh on {}: {!r}".format(
+        router.name, real
+    )
+    return os.path.dirname(real)
+
+
 def frr_reload(router, conf_path, debug=True, extra_args=None):
     """Run "frr-reload.py --reload" on `router` against `conf_path`.
 
     `extra_args` is appended to the command line (used to point --bindir at the
-    shim built by make_failing_batch_vtysh).
+    shim built by make_failing_batch_vtysh). When --bindir is not already in
+    extra_args, the real vtysh directory is passed so packaged/topotest layouts
+    that do not put vtysh in /usr/bin still work.
 
     Returns a ReloadResult with rc, combined stdout+stderr and wall-clock time.
     Timing is captured so scale tests can assert the batch design keeps the
     reload well under the systemd reload timeout.
     """
+    args = list(extra_args) if extra_args else []
+    if "--bindir" not in args:
+        args.extend(["--bindir", _vtysh_bindir(router)])
+
     dbg = " --debug" if debug else ""
-    extra = (" " + " ".join(extra_args)) if extra_args else ""
+    extra = (" " + " ".join(args)) if args else ""
     cmd = "{} --reload --stdout{}{} {}".format(FRR_RELOAD, dbg, extra, conf_path)
     logger.info("%s: running: %s", router.name, cmd)
 
