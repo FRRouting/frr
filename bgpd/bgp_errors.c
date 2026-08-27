@@ -169,6 +169,12 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Gather log files and open an Issue, restart FRR",
 	},
 	{
+		.code = EC_BGP_INVALID_NEXTHOP_PEER,
+		.title = "BGP is resetting a locally originated route's next-hop away from the peer's own address",
+		.description = "A locally originated route was being advertised to a peer using that peer's own address as NEXT_HOP, which violates RFC 4271 Section 5.1.3",
+		.suggestion = "Ensure any outbound route-map or redistributed route does not set the next-hop to the receiving peer's address",
+	},
+	{
 		.code = EC_BGP_SENDQ_STUCK_WARN,
 		.title = "BGP has been unable to send anything to a peer for an extended time",
 		.description = "The BGP peer does not seem to be receiving or processing any data received from us, causing updates to be delayed.",

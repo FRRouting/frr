@@ -433,6 +433,24 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			nh_modified = 1;
 		}
 
+		/*
+		 * RFC 4271 Section 5.1.3: "A route originated by a BGP
+		 * speaker SHALL NOT be advertised to a peer using an address
+		 * of that peer as NEXT_HOP."  When the next-hop of a locally
+		 * originated route is the receiving peer's own address,
+		 * rewrite it to the local next-hop.
+		 */
+		if (CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_LOCAL_ORIG) && peer->connection &&
+		    peer->connection->su_remote &&
+		    sockunion_family(peer->connection->su_remote) == AF_INET &&
+		    mod_v4nh->s_addr == sockunion2ip(peer->connection->su_remote)) {
+			flog_warn(EC_BGP_INVALID_NEXTHOP_PEER,
+				  "%s: %s: resetting NEXT_HOP to local address (peer's own address is not a valid next-hop, RFC 4271 5.1.3)",
+				  __func__, peer->host);
+			mod_v4nh = &peer->nexthop.v4;
+			nh_modified = 1;
+		}
+
 		if (nh_modified) /* allow for VPN RD */
 			stream_put_in_addr_at(s, offset_nh, mod_v4nh);
 
@@ -787,6 +805,11 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 							      &vecarr, NULL, afi, safi, from, NULL,
 							      NULL, 0, dest->srv6_unicast, 0, 0,
 							      path, NULL, false);
+
+			if (path && path->peer == SUBGRP_INST(subgrp)->peer_self)
+				SET_FLAG(vecarr.entries[BGP_ATTR_VEC_NH].flags,
+					 BPKT_ATTRVEC_FLAGS_LOCAL_ORIG);
+
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				- BGP_MAX_PACKET_SIZE_OVERFLOW;
