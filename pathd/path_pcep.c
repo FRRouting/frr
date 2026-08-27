@@ -274,6 +274,21 @@ int pcep_main_event_initiate_candidate(struct path *path)
 
 		/* Error will free the path object after message is sent. */
 		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret == ERROR_24_2) {
+		/* The path was refused because its segment list name is
+		 * already taken (by a configured segment list, or by a
+		 * name stored truncated to the same value).  There is no
+		 * RFC value that defines this internal error.
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_LSP_INSTANTIATE_ERROR;
+		error->error_value = PCEP_ERRV_INTERNAL_ERROR;
+
+		/* Error will free the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
 	} else {
 		if (ret != PATH_NB_ERR && path->srp_id != 0)
 			notify_status(path, ret == PATH_NB_NO_CHANGE);
@@ -291,6 +306,21 @@ int pcep_main_event_update_candidate(struct path *path)
 	int ret = 0;
 
 	ret = path_pcep_config_update_path(path);
+	if (ret == ERROR_24_2) {
+		/* The update was refused because the segment list name it
+		 * needs is already taken; either through PCEP or CLI.
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_LSP_INSTANTIATE_ERROR;
+		error->error_value = PCEP_ERRV_INTERNAL_ERROR;
+
+		/* Error will free the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+		return ret;
+	}
 	if (ret != PATH_NB_ERR && path->srp_id != 0)
 		notify_status(path, ret == PATH_NB_NO_CHANGE);
 	/* Same ownership as the initiate case: the parsed path is ours. */
