@@ -288,6 +288,12 @@ void *session_logic_loop(void *data)
 					 != TIMER_ID_NOT_SET)
 						? "timer"
 						: "message");
+				/* The messages the event carries are only
+				 * freed when the event is handled, so a
+				 * discarded event must free them itself.
+				 */
+				if (event->received_msg_list != NULL)
+					pcep_msg_free_message_list(event->received_msg_list);
 				pceplib_free(PCEPLIB_INFRA, event);
 				event = queue_dequeue(
 					session_logic_handle
@@ -315,6 +321,9 @@ void *session_logic_loop(void *data)
 					 != TIMER_ID_NOT_SET)
 						? "timer"
 						: "message");
+				/* discarded event must free its own messages. */
+				if (event->received_msg_list != NULL)
+					pcep_msg_free_message_list(event->received_msg_list);
 				pceplib_free(PCEPLIB_INFRA, event);
 				event = queue_dequeue(
 					session_logic_handle
