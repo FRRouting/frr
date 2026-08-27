@@ -36,12 +36,14 @@ PCEP_VERSION_BYTE = 0x20  # version 1, flags 0
 
 MSG_OPEN = 1
 MSG_KEEPALIVE = 2
+MSG_ERROR = 6
 MSG_REPORT = 10
 MSG_INITIATE = 12
 
 CLASS_OPEN = 1
 CLASS_ENDPOINTS = 4
 CLASS_ERO = 7
+CLASS_ERROR = 13
 CLASS_LSP = 32
 CLASS_SRP = 33
 CLASS_VENDOR_INFO = 34
@@ -307,6 +309,37 @@ class MockPce:
                         self.log("MAPPED name=%s plsp-id=%u" % (name, plsp_id))
             index += olen
 
+    def handle_error(self, body):
+        """Walk a PCErr's objects: the PCEP-ERROR object (class 13)
+        carries error-type and error-value in the 3rd and 4th bytes of
+        its body; an SRP object echoing the failed request's SRP-ID
+        may precede it, which lets us name the policy the error is
+        about."""
+        index = 0
+        srp_id = None
+        while index + 4 <= len(body):
+            oclass = body[index]
+            olen = struct.unpack(">H", body[index + 2 : index + 4])[0]
+            if olen < 4 or index + olen > len(body):
+                break
+            if oclass == CLASS_SRP and index + 12 <= len(body):
+                # SRP body: flags(4) then srp-id(4)
+                srp_id = struct.unpack(">I", body[index + 8 : index + 12])[0]
+            if oclass == CLASS_ERROR and index + 8 <= len(body):
+                # PCEP-ERROR body: reserved(1) flags(1) type(1) value(1)
+                error_type = body[index + 6]
+                error_value = body[index + 7]
+                self.log(
+                    "RECV-ERROR type=%u value=%u srp=%s name=%s"
+                    % (
+                        error_type,
+                        error_value,
+                        srp_id,
+                        self.srp_to_name.get(srp_id),
+                    )
+                )
+            index += olen
+
     def handle_message(self, mtype, body):
         if mtype == MSG_OPEN:
             self.log("RECV-OPEN")
@@ -314,6 +347,8 @@ class MockPce:
             self.log("RECV-KEEPALIVE")
         elif mtype == MSG_REPORT:
             self.handle_report(body)
+        elif mtype == MSG_ERROR:
+            self.handle_error(body)
         else:
             self.log("RECV-TYPE-%u" % mtype)
 

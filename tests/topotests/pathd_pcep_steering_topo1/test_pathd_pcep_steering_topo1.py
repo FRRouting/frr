@@ -427,6 +427,163 @@ def test_policy_churn_remove_readd():
     )
 
 
+def mock_pce_log_text():
+    "The mock PCE's log so far (empty when not yet written)"
+
+    tgen = get_topogen()
+    try:
+        with open(os.path.join(tgen.logdir, "rt1", "mock_pce.log")) as log:
+            return log.read()
+    except IOError:
+        return ""
+
+
+def count_pce_errors(error_type, error_value):
+    "Number of PCErr messages of the given type/value the PCE received"
+
+    return mock_pce_log_text().count(
+        "RECV-ERROR type=%d value=%d" % (error_type, error_value)
+    )
+
+
+def get_plsp_id(name):
+    "The last PLSP-ID the PCC reported for the named policy"
+
+    matches = re.findall(
+        r"MAPPED name=%s plsp-id=(\d+)" % re.escape(name), mock_pce_log_text()
+    )
+    if not matches:
+        return None
+    return int(matches[-1])
+
+
+def configure_segment_list(name, no=False):
+    "Configure (or unconfigure) an empty segment list on RT1"
+
+    tgen = get_topogen()
+    return tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          traffic-eng
+           {}segment-list {}
+        """.format("no " if no else "", name)
+    )
+
+
+def test_duplicate_symbolic_name_rejected():
+    "A PCInitiate reusing a live symbolic name must get PCErr 23/1"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    errors_before = count_pce_errors(23, 1)
+
+    # test-steer has been alive since setup; a different color makes
+    # this a create of a NEW LSP with an in-use name, not a
+    # re-initiate of the existing one.
+    logger.info("initiating a duplicate of test-steer (different color)")
+    pce_command("add {},{},test-steer,4242".format(ENDPOINT, LABEL))
+
+    check = lambda: (
+        None if count_pce_errors(23, 1) > errors_before else "no PCErr 23/1 yet"
+    )
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "duplicate name was not rejected: {}".format(result)
+
+    # Nothing new may have come up, and the session must still work.
+    result = check_policy_count(2)
+    assert result is None, result
+
+    logger.info("verifying the session still accepts a unique name")
+    pce_command("add {},{},post-dup-check,4243".format(ENDPOINT, LABEL))
+    check = lambda: check_policy_count(3)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, "session unusable after rejection: {}".format(result)
+
+    pce_command("remove post-dup-check")
+    check = lambda: check_policy_count(2)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, "cleanup remove failed: {}".format(result)
+
+
+def test_cli_rejected_on_pcep_name():
+    "Configuring a segment list named like a PCEP one must be refused"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # A segment list created by a PCInitiate is named "<name>-0": the
+    # PCInitiate carries PLSP-ID 0, and the real PLSP-ID (assigned
+    # when the PCC reports) only renames the list if a PCUpd arrives.
+    # test-steer has never been updated, so its list is test-steer-0.
+    name = "test-steer-0"
+
+    logger.info("trying to configure segment list %s", name)
+    output = configure_segment_list(name)
+    assert "already exists" in output, "config of {} was not refused: {}".format(
+        name, output
+    )
+
+    running = tgen.gears["rt1"].vtysh_cmd("show running-config")
+    assert (
+        "segment-list %s" % name not in running
+    ), "refused segment list {} still appeared in the config".format(name)
+
+
+def test_pcep_rejected_on_cli_name():
+    "A PCEP path whose segment list name is taken by config gets 24/2"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # A PCInitiate-created segment list is named "<name>-0" (see the
+    # previous test), so taking that name in the configuration first
+    # makes the collision deterministic.
+    name = "cli-clash-0"
+    logger.info("configuring segment list %s to squat the name", name)
+    output = configure_segment_list(name)
+    assert (
+        "already exists" not in output
+    ), "config of {} was unexpectedly refused: {}".format(name, output)
+
+    errors_before = count_pce_errors(24, 2)
+    logger.info("initiating cli-clash against the squatted name")
+    pce_command("add {},{},cli-clash,4300".format(ENDPOINT, LABEL))
+    check = lambda: (
+        None if count_pce_errors(24, 2) > errors_before else "no PCErr 24/2 yet"
+    )
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "colliding path was not rejected: {}".format(result)
+    result = check_policy_count(2)
+    assert result is None, result
+
+    # Free the name: the same add must now succeed, and a remove
+    # returns the topology to its baseline.
+    logger.info("releasing %s and re-initiating", name)
+    configure_segment_list(name, no=True)
+    pce_command("add {},{},cli-clash,4300".format(ENDPOINT, LABEL))
+    check = lambda: check_policy_count(3)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "path did not recover after name was freed: {}".format(
+        result
+    )
+
+    pce_command("remove cli-clash")
+    check = lambda: check_policy_count(2)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, "final cleanup failed: {}".format(result)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
 
