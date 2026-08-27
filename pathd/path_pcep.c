@@ -274,6 +274,20 @@ int pcep_main_event_initiate_candidate(struct path *path)
 
 		/* Error will free the path object after message is sent. */
 		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret == ERROR_24_1 || ret == ERROR_24_2) {
+		/* RFC 8281: 24/1 for unacceptable parameters (name too long or
+		 * its segment list name taken), 24/2 for an internal error.
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_LSP_INSTANTIATE_ERROR;
+		error->error_value = ret == ERROR_24_1 ? PCEP_ERRV_UNACCEPTABLE_INSTANTIATE_ERROR
+						       : PCEP_ERRV_INTERNAL_ERROR;
+
+		/* Error will free the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
 	} else {
 		if (ret != PATH_NB_ERR && path->srp_id != 0)
 			notify_status(path, ret == PATH_NB_NO_CHANGE);
@@ -291,6 +305,19 @@ int pcep_main_event_update_candidate(struct path *path)
 	int ret = 0;
 
 	ret = path_pcep_config_update_path(path);
+	if (ret == ERROR_24_1 || ret == ERROR_24_2) {
+		struct path *resp = path_pcep_config_get_path(&path->nbkey);
+
+		if (resp) {
+			resp->srp_id = path->srp_id;
+			resp->lsp_error_code = ret == ERROR_24_1
+						       ? PCEP_TLV_LSP_ERROR_CODE_UNACCEPTABLE_PARAMS
+						       : PCEP_TLV_LSP_ERROR_CODE_INTERNAL_ERROR;
+			pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp, true);
+		}
+		pcep_free_path(path);
+		return ret;
+	}
 	if (ret != PATH_NB_ERR && path->srp_id != 0)
 		notify_status(path, ret == PATH_NB_NO_CHANGE);
 	/* Same ownership as the initiate case: the parsed path is ours. */

@@ -554,6 +554,12 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	PCEP_DEBUG("(%s)%s Send report for candidate path %s", __func__,
 		   pcc_state->tag, path->name);
 
+	if (path->lsp_error_code != 0) {
+		send_report(pcc_state, path);
+		pcep_free_path(path);
+		return;
+	}
+
 	/* ODL and Cisco requires the first reported
 	 * LSP to have a DOWN status, the later status changes
 	 * will be communicated through hook calls.
