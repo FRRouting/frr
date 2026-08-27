@@ -754,8 +754,9 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ebgp(request):
 
 def test_bgp_local_nexthop_p1_tc14_ebgp(request):
     """
-    Verify BGP did not install the static route when it receive route
-    with local next hop
+    Verify a locally originated IPv4 route is not advertised to a peer
+    using that peer's own address as NEXT_HOP (RFC 4271 Section 5.1.3);
+    the next-hop is rewritten to the local address instead.
 
     """
     tc_name = request.node.name
@@ -814,19 +815,30 @@ def test_bgp_local_nexthop_p1_tc14_ebgp(request):
             tc_name
         )
 
-        step(" Verify route did not install in the R3 BGP table, RIB/FIB")
         dut = "r3"
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4, expected=False)
-        assert result is not True, (
-            "Testcase {} : Failed \nError:  routes are"
-            " still present in BGP RIB of R2".format(tc_name)
-        )
+        if addr_type == "ipv4":
+            step("Verify R3 receives the IPv4 route with R2's own address as next-hop")
+            nh = topo["routers"]["r2"]["links"]["r3-link0"][addr_type].split("/")[0]
+            result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4, next_hop=nh)
+            assert result is True, (
+                "Testcase {} : Failed \nError: route missing or wrong "
+                "next-hop in BGP RIB of R3".format(tc_name)
+            )
 
-        result = verify_rib(tgen, addr_type, dut, input_dict_4, expected=False)
-        assert result is not True, (
-            "Testcase {} : Failed \nError:  routes are"
-            " still present in RIB of R2".format(tc_name)
-        )
+            result = verify_rib(
+                tgen, addr_type, dut, input_dict_4, next_hop=nh, protocol="bgp"
+            )
+            assert result is True, (
+                "Testcase {} : Failed \nError: route missing or wrong "
+                "next-hop in RIB of R3".format(tc_name)
+            )
+        else:
+            step("Verify the IPv6 route is still not installed in R3")
+            result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4, expected=False)
+            assert result is not True, (
+                "Testcase {} : Failed \nError: routes are still present "
+                "in BGP RIB of R3".format(tc_name)
+            )
 
     write_test_footer(tc_name)
 
