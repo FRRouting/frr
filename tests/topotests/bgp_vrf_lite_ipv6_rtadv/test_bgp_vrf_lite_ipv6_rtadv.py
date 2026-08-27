@@ -64,8 +64,10 @@ def setup_module(mod):
 
     cmds = [
         "ip link add {0}-cust1 type vrf table 1001",
+        "ip link set {0}-cust1 up",
         "ip link add loop1 type dummy",
         "ip link set loop1 master {0}-cust1",
+        "ip link set loop1 up",
         "ip link set {0}-eth0 master {0}-cust1",
     ]
 
