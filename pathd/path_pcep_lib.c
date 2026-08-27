@@ -1100,7 +1100,12 @@ void pcep_lib_parse_lsp_symbolic_name(
 {
 	uint16_t size = tlv->symbolic_path_name_length;
 	if (path->name == NULL) {
-		size = size > MAX_PATH_NAME_SIZE ? MAX_PATH_NAME_SIZE : size;
+		/* warn user that path name is being truncated. */
+		if (size > MAX_PATH_NAME_SIZE) {
+			zlog_warn("symbolic path name of %u bytes is longer than the supported %u bytes and will be truncated",
+				  size, MAX_PATH_NAME_SIZE);
+			size = MAX_PATH_NAME_SIZE;
+		}
 		path->name = XCALLOC(MTYPE_PCEP, size + 1);
 		strlcpy((char *)path->name, tlv->symbolic_path_name, size + 1);
 	}

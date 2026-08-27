@@ -195,11 +195,22 @@ RB_HEAD(srte_segment_entry_head, srte_segment_entry);
 RB_PROTOTYPE(srte_segment_entry_head, srte_segment_entry, entry,
 	     srte_segment_entry_compare)
 
+/* Symbolic path names received over PCEP are capped at 255 bytes when
+ * the SYMBOLIC-PATH-NAME TLV is parsed (MAX_PATH_NAME_SIZE), and names
+ * from the CLI are capped at 64 by the YANG model, so names sized this
+ * way are never stored truncated.
+ */
+#define SRTE_NAME_LENGTH 256
+/* A PCEP path's segment list is named "<path name>-<plsp_id>": the
+ * name plus '-' plus up to 10 digits of the uint32 PLSP ID.
+ */
+#define SRTE_SEGMENT_LIST_NAME_LENGTH (SRTE_NAME_LENGTH + 12)
+
 struct srte_segment_list {
 	RB_ENTRY(srte_segment_list) entry;
 
 	/* Name of the Segment List. */
-	char name[64];
+	char name[SRTE_SEGMENT_LIST_NAME_LENGTH];
 
 	/* The Protocol-Origin. */
 	enum srte_protocol_origin protocol_origin;
@@ -274,7 +285,7 @@ struct srte_candidate {
 	uint32_t preference;
 
 	/* Symbolic Name. */
-	char name[64];
+	char name[SRTE_NAME_LENGTH];
 
 	/* The associated Segment List. */
 	struct srte_segment_list *segment_list;
@@ -336,7 +347,7 @@ struct srte_policy {
 	struct ipaddr endpoint;
 
 	/* Name */
-	char name[64];
+	char name[SRTE_NAME_LENGTH];
 
 	/* Binding SID */
 	mpls_label_t binding_sid;
