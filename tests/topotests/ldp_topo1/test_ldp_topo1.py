@@ -54,6 +54,7 @@ import json
 from functools import partial
 from time import sleep
 from lib.topolog import logger
+import platform
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -66,6 +67,8 @@ from lib.topogen import Topogen, get_topogen
 fatal_error = ""
 
 pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
+
+kernel_ok = True
 
 #####################################################
 ##
@@ -114,6 +117,8 @@ router_compare_json_output = partial(
 
 
 def setup_module(module):
+    global kernel_ok
+
     print("\n\n** %s: Setup Topology" % module.__name__)
     print("******************************************\n")
 
@@ -130,8 +135,20 @@ def setup_module(module):
         net["r%s" % i].loadConf("ldpd", "%s/r%s/ldpd.conf" % (thisDir, i))
         tgen.gears["r%s" % i].start()
 
+    #
+    # Note known ECMP/MPLS issue in a range of kernel versions; skip some tests
+    # if not supported
+    #
+    kver = platform.release()
+    if (
+        topotest.version_cmp(kver, "6.19") >= 0
+        and topotest.version_cmp(kver, "7.1.6") < 0
+    ):
+        kernel_ok = False
+        logger.warning(f"MPLS tests with ECMP will be skipped, kernel version {kver}")
+
     # For debugging after starting FRR daemons, uncomment the next line
-    # tgen.mininet_cli()
+    # tgen.cli()
 
 
 def teardown_module(module):
@@ -603,7 +620,7 @@ def test_zebra_ipv4_routingTable():
 
 # Use r1 and r2 to test route with changing ldp configuration
 def test_zebra_ipv4_routingtable_with_ldp():
-    global fatal_error
+    global fatal_error, kernel_ok
     router = get_topogen().gears
 
     # Skip if previous fatal error condition is raised
@@ -611,6 +628,12 @@ def test_zebra_ipv4_routingtable_with_ldp():
         pytest.skip(fatal_error)
 
     print("\n\n** Verifying Zebra IPv4 Routing Table With LDP")
+
+    #
+    # Note known ECMP/MPLS issue in a range of kernel version; skip test if not supported
+    #
+    if not kernel_ok:
+        pytest.skip(f"MPLS test with ECMP skipped, no kernel support")
 
     router["r1"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n no int r1-eth0 \n end")
 
@@ -656,7 +679,7 @@ def test_zebra_ipv4_routingtable_with_ldp():
 
 
 def test_mpls_table():
-    global fatal_error
+    global fatal_error, kernel_ok
     net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
@@ -669,6 +692,12 @@ def test_mpls_table():
     print("\n\n** Verifying MPLS table")
     print("******************************************\n")
     failures = 0
+
+    #
+    # Note known ECMP/MPLS issue in a range of kernel version; skip test if not supported
+    #
+    if not kernel_ok:
+        pytest.skip(f"MPLS test with ECMP skipped, no kernel support")
 
     for i in range(1, 5):
         refTableFile = "%s/r%s/show_mpls_table.ref" % (thisDir, i)
@@ -732,7 +761,7 @@ def test_mpls_table():
 
 
 def test_linux_mpls_routes():
-    global fatal_error
+    global fatal_error, kernel_ok
     net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
@@ -744,6 +773,12 @@ def test_linux_mpls_routes():
     # Verify Linux Kernel MPLS routes
     print("\n\n** Verifying Linux Kernel MPLS routes")
     print("******************************************\n")
+
+    #
+    # Note known ECMP/MPLS issue in a range of kernel version; skip test if not supported
+    #
+    if not kernel_ok:
+        pytest.skip(f"MPLS test with ECMP skipped, no kernel support")
 
     def check_mpls_routes(router_id):
         """Check MPLS routes for a specific router"""
