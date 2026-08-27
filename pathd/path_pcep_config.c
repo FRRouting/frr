@@ -30,6 +30,7 @@ static void copy_candidate_affinity_filters(struct srte_candidate *candidate,
 static struct path_hop *
 path_pcep_config_list_path_hops(struct srte_segment_list *segment_list);
 static struct srte_candidate *lookup_candidate(struct lsp_nb_key *key);
+static struct srte_candidate *lookup_candidate_by_name(const char *name);
 static char *candidate_name(struct srte_candidate *candidate);
 static enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status);
@@ -311,6 +312,16 @@ int path_pcep_config_initiate_path(struct path *path)
 
 		candidate = lookup_candidate(&path->nbkey);
 		if (!candidate) {
+			/* Check that the candidates name is defined, and that
+			 * it is not currently being used, if it is, we need
+			 * to return a bad parameter value for name in use. A PCE
+			 * re-initiating an LSP is found already through lookup_candidate().
+			 */
+			if (path->name != NULL && lookup_candidate_by_name(path->name) != NULL) {
+				zlog_warn("PCE %s tried to initiate a path with a symbolic path name already in use: %s",
+					  path->originator, path->name);
+				return ERROR_23_1;
+			}
 			policy = srte_policy_add(
 				path->nbkey.color, &path->nbkey.endpoint,
 				SRTE_ORIGIN_PCEP, path->originator);
@@ -455,6 +466,30 @@ struct srte_candidate *lookup_candidate(struct lsp_nb_key *key)
 	if (policy == NULL)
 		return NULL;
 	return srte_candidate_find(policy, key->preference);
+}
+
+/* Look up a candidate path by the symbolic path name it is reported
+ * with across all policies. For use in preventing candidates with
+ * the same name from being added.
+ */
+struct srte_candidate *lookup_candidate_by_name(const char *name)
+{
+	struct srte_policy *policy;
+	struct srte_candidate *candidate;
+	char *cname;
+	bool match;
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		RB_FOREACH (candidate, srte_candidate_head, &policy->candidate_paths) {
+			cname = candidate_name(candidate);
+			match = strcmp(cname, name) == 0;
+			XFREE(MTYPE_PCEP, cname);
+			if (match)
+				return candidate;
+		}
+	}
+
+	return NULL;
 }
 
 char *candidate_name(struct srte_candidate *candidate)
