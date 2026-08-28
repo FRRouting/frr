@@ -36,6 +36,7 @@ import os
 import re
 import sys
 import json
+import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -105,18 +106,7 @@ def setup_module(mod):
     # retries the PCEP connection, so starting it after the routers
     # is fine.  The command file drives the churn tests: the PCE polls
     # it for 'add'/'remove' lines.
-    pce_log = os.path.join(tgen.logdir, "rt1", "mock_pce.log")
-    pce_commands = os.path.join(tgen.logdir, "rt1", "pce_commands")
-    tgen.gears["rt1"].run(
-        "nohup python3 {}/mock_pce.py "
-        "--policy {},{},test-steer "
-        "--policy {},{},test-steer-v6 "
-        "--pcc-address 1.1.1.1 --pcc-address6 2001:db8::1 "
-        "--command-file {} "
-        "--log {} > /dev/null 2>&1 &".format(
-            CWD, ENDPOINT, LABEL, ENDPOINT6, LABEL6, pce_commands, pce_log
-        )
-    )
+    start_pce()
 
 
 def teardown_module():
@@ -258,11 +248,47 @@ def test_steering_route_reinstalled_on_policy_up():
     assert result is None, "steering route not reinstalled: {}".format(result)
 
 
+# Bumped on every PCE restart so each PCE instance polls a fresh
+# command file instead of replaying the previous instance's history.
+PCE_GEN = [0]
+
+
+def pce_command_file():
+    "The current PCE instance's command file"
+
+    tgen = get_topogen()
+    suffix = "" if PCE_GEN[0] == 0 else "_{}".format(PCE_GEN[0])
+    return os.path.join(tgen.logdir, "rt1", "pce_commands" + suffix)
+
+
+def start_pce():
+    "Start the scripted PCE inside rt1's network namespace"
+
+    tgen = get_topogen()
+    pce_log = os.path.join(tgen.logdir, "rt1", "mock_pce.log")
+    tgen.gears["rt1"].run(
+        "nohup python3 {}/mock_pce.py "
+        "--policy {},{},test-steer "
+        "--policy {},{},test-steer-v6 "
+        "--pcc-address 1.1.1.1 --pcc-address6 2001:db8::1 "
+        "--command-file {} "
+        "--log {} > /dev/null 2>&1 &".format(
+            CWD, ENDPOINT, LABEL, ENDPOINT6, LABEL6, pce_command_file(), pce_log
+        )
+    )
+
+
+def kill_pce():
+    "Kill the scripted PCE"
+
+    tgen = get_topogen()
+    tgen.gears["rt1"].run("pkill -f mock_pce.py; true")
+
+
 def pce_command(line):
     "Append one command line for the mock PCE to act on"
 
-    tgen = get_topogen()
-    with open(os.path.join(tgen.logdir, "rt1", "pce_commands"), "a") as cmds:
+    with open(pce_command_file(), "a") as cmds:
         cmds.write(line + "\n")
 
 
@@ -582,6 +608,106 @@ def test_pcep_rejected_on_cli_name():
     check = lambda: check_policy_count(2)
     _, result = topotest.run_and_expect(check, None, count=60, wait=1)
     assert result is None, "final cleanup failed: {}".format(result)
+
+
+def test_long_symbolic_names():
+    "Two long names sharing a prefix must stay distinct policies"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # 76 bytes each (a multiple of 4, so the SYMBOLIC-PATH-NAME TLV
+    # needs no padding), longer than the 64 bytes the name fields
+    # used to hold -- and only differing after the point where the
+    # old fields would have truncated them.
+    prefix = "L" * 70
+    name_a = prefix + "-alpha"
+    name_b = prefix + "-beta1"
+
+    logger.info("initiating two long-named policies")
+    pce_command("add {},{},{},4501".format(ENDPOINT, LABEL, name_a))
+    pce_command("add {},{},{},4502".format(ENDPOINT, LABEL, name_b))
+    check = lambda: check_policy_count(4)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "long-named policies did not come up: {}".format(result)
+
+    pce_command("remove {}".format(name_a))
+    pce_command("remove {}".format(name_b))
+    check = lambda: check_policy_count(2)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, "long-name cleanup failed: {}".format(result)
+
+
+def test_pce_restart():
+    "Kill and restart the PCE; policies must re-establish"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for round_num in range(2):
+        logger.info("killing the PCE (round %d)", round_num)
+        kill_pce()
+
+        # Flap the link while the session is down: the policy status
+        # reports this fires have no session to be sent on, which is
+        # exactly the path that used to leak the formatted messages.
+        tgen.gears["rt2"].vtysh_cmd(
+            """
+            configure terminal
+             interface eth-rt1
+              shutdown
+            """
+        )
+        time.sleep(2)
+        tgen.gears["rt2"].vtysh_cmd(
+            """
+            configure terminal
+             interface eth-rt1
+              no shutdown
+            """
+        )
+        time.sleep(2)
+
+        logger.info("restarting the PCE (round %d)", round_num)
+        PCE_GEN[0] += 1
+        start_pce()
+
+        # The new instance re-initiates both base policies; whether
+        # pathd kept or timed out the old ones, it must converge back
+        # to exactly the two of them Active.
+        check = lambda: check_policy_count(2)
+        _, result = topotest.run_and_expect(check, None, count=90, wait=1)
+        if result is not None:
+            print_pce_log()
+        assert result is None, "policies did not re-establish: {}".format(result)
+
+    # The steering routes must have survived the whole exercise.
+    check = lambda: check_steering_route(True)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "steering route missing after restarts: {}".format(
+        result
+    )
+
+
+def test_inflight_shutdown():
+    "Leave PCInitiates in flight for the module teardown to race"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Deliberately no waiting: the module teardown races these
+    # in-flight creations, and the teardown memory check is the
+    # detector for anything they leak.
+    logger.info("firing in-flight PCInitiates and ending immediately")
+    for i in range(5):
+        pce_command("add {},{},inflight-{},475{}".format(ENDPOINT, LABEL, i, i))
 
 
 def test_memory_leak():
