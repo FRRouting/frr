@@ -764,9 +764,6 @@ def test_sid_add_peer_no_srv6_only():
         """
     )
 
-    logger.info("On r2, flush BGP sessions to force re-run best path over 2001:8::/64")
-    get_topogen().gears["r2"].vtysh_cmd("clear bgp ipv6 vpn *")
-
     logger.info("On r2, check that the MPLS prefix 2001:8::/64 is selected in vrf20")
     check_rib(
         "r2",
