@@ -618,8 +618,12 @@ void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
 			path = pcep_copy_path(req->path);
 			path->is_delegated = true;
 			send_report(pcc_state, path);
-			free_req_entry(req);
+			/* send_report() formats its own message from the
+			 * path; the copy stays ours and must be freed.
+			 */
+			pcep_free_path(path);
 		}
+		free_req_entry(req);
 		break;
 	case TO_UNDEFINED:
 	case TO_MAX:
