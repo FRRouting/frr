@@ -12,10 +12,12 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_router.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR_POLICY, "SR Policy");
 
 static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy);
+static void zebra_sr_policy_withdraw(struct zebra_sr_policy *policy, mpls_label_t bsid);
 
 /* Generate rb-tree of SR Policy instances. */
 static inline int
@@ -49,8 +51,12 @@ struct zebra_sr_policy *zebra_sr_policy_add(uint32_t color,
 
 void zebra_sr_policy_del(struct zebra_sr_policy *policy)
 {
-	if (policy->status == ZEBRA_SR_POLICY_UP)
+	if (policy->status == ZEBRA_SR_POLICY_UP) {
 		zebra_sr_policy_deactivate(policy);
+	} else if (event_is_scheduled(policy->t_withdraw)) {
+		event_cancel(&policy->t_withdraw);
+		zebra_sr_policy_withdraw(policy, policy->withdraw_bsid);
+	}
 	RB_REMOVE(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
 		  policy);
 	XFREE(MTYPE_ZEBRA_SR_POLICY, policy);
@@ -226,6 +232,11 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
 				     struct zebra_lsp *lsp)
 {
+	/* Drop the BSID nexthops of a freed LSP not yet withdrawn */
+	if (event_is_scheduled(policy->t_withdraw)) {
+		event_cancel(&policy->t_withdraw);
+		zebra_sr_policy_bsid_uninstall(policy, policy->withdraw_bsid);
+	}
 	policy->status = ZEBRA_SR_POLICY_UP;
 	policy->lsp = lsp;
 	(void)zebra_sr_policy_bsid_install(policy);
@@ -266,15 +277,45 @@ static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
 		zebra_sr_policy_notify_update(policy);
 }
 
+static void zebra_sr_policy_withdraw(struct zebra_sr_policy *policy, mpls_label_t bsid)
+{
+	zebra_sr_policy_bsid_uninstall(policy, bsid);
+	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
+				      policy->name, ZEBRA_SR_POLICY_DOWN);
+	zebra_sr_policy_notify_update(policy);
+}
+
 static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy)
 {
 	policy->status = ZEBRA_SR_POLICY_DOWN;
 	policy->lsp = NULL;
-	zebra_sr_policy_bsid_uninstall(policy,
-				       policy->segment_list.local_label);
-	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
-				      policy->name, ZEBRA_SR_POLICY_DOWN);
-	zebra_sr_policy_notify_update(policy);
+	zebra_sr_policy_withdraw(policy, policy->segment_list.local_label);
+}
+
+static void zebra_sr_policy_withdraw_event(struct event *event)
+{
+	struct zebra_sr_policy *policy = EVENT_ARG(event);
+
+	/* Not if its label came back in the meantime */
+	if (policy->status == ZEBRA_SR_POLICY_DOWN)
+		zebra_sr_policy_withdraw(policy, policy->withdraw_bsid);
+}
+
+/* Called from lsp_free(), possibly inside a walk of the LSP table */
+void zebra_sr_policy_lsp_freed(struct zebra_lsp *lsp)
+{
+	struct zebra_sr_policy *policy;
+
+	RB_FOREACH (policy, zebra_sr_policy_instance_head, &zebra_sr_policy_instances) {
+		if (policy->lsp != lsp)
+			continue;
+		policy->status = ZEBRA_SR_POLICY_DOWN;
+		policy->lsp = NULL;
+		/* The BSID may change before the withdrawal runs */
+		policy->withdraw_bsid = policy->segment_list.local_label;
+		event_add_event(zrouter.master, zebra_sr_policy_withdraw_event, policy, 0,
+				&policy->t_withdraw);
+	}
 }
 
 int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
