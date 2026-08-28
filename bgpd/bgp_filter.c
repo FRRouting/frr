@@ -582,6 +582,7 @@ DEFUN (no_as_path_all,
 {
 	int idx_word = 4;
 	struct as_list *aslist;
+	struct aspath_exclude *ase;
 
 	aslist = as_list_lookup(argv[idx_word]->arg);
 	if (aslist == NULL) {
@@ -590,6 +591,12 @@ DEFUN (no_as_path_all,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* put aspath exclude list into orphan */
+	if (as_list_list_count(&aslist->exclude_rule))
+		while ((ase = as_list_list_pop(&aslist->exclude_rule)))
+			as_exclude_set_orphan(ase);
+
+	as_list_list_fini(&aslist->exclude_rule);
 	as_list_delete(aslist);
 
 	/* Run hook function. */
