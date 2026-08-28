@@ -36,6 +36,7 @@ import os
 import re
 import sys
 import json
+import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -105,18 +106,7 @@ def setup_module(mod):
     # retries the PCEP connection, so starting it after the routers
     # is fine.  The command file drives the churn tests: the PCE polls
     # it for 'add'/'remove' lines.
-    pce_log = os.path.join(tgen.logdir, "rt1", "mock_pce.log")
-    pce_commands = os.path.join(tgen.logdir, "rt1", "pce_commands")
-    tgen.gears["rt1"].run(
-        "nohup python3 {}/mock_pce.py "
-        "--policy {},{},test-steer "
-        "--policy {},{},test-steer-v6 "
-        "--pcc-address 1.1.1.1 --pcc-address6 2001:db8::1 "
-        "--command-file {} "
-        "--log {} > /dev/null 2>&1 &".format(
-            CWD, ENDPOINT, LABEL, ENDPOINT6, LABEL6, pce_commands, pce_log
-        )
-    )
+    start_pce()
 
 
 def teardown_module():
@@ -258,11 +248,47 @@ def test_steering_route_reinstalled_on_policy_up():
     assert result is None, "steering route not reinstalled: {}".format(result)
 
 
+# Bumped on every PCE restart so each PCE instance polls a fresh
+# command file instead of replaying the previous instance's history.
+PCE_GEN = [0]
+
+
+def pce_command_file():
+    "The current PCE instance's command file"
+
+    tgen = get_topogen()
+    suffix = "" if PCE_GEN[0] == 0 else "_{}".format(PCE_GEN[0])
+    return os.path.join(tgen.logdir, "rt1", "pce_commands" + suffix)
+
+
+def start_pce():
+    "Start the scripted PCE inside rt1's network namespace"
+
+    tgen = get_topogen()
+    pce_log = os.path.join(tgen.logdir, "rt1", "mock_pce.log")
+    tgen.gears["rt1"].run(
+        "nohup python3 {}/mock_pce.py "
+        "--policy {},{},test-steer "
+        "--policy {},{},test-steer-v6 "
+        "--pcc-address 1.1.1.1 --pcc-address6 2001:db8::1 "
+        "--command-file {} "
+        "--log {} > /dev/null 2>&1 &".format(
+            CWD, ENDPOINT, LABEL, ENDPOINT6, LABEL6, pce_command_file(), pce_log
+        )
+    )
+
+
+def kill_pce():
+    "Kill the scripted PCE"
+
+    tgen = get_topogen()
+    tgen.gears["rt1"].run("pkill -f mock_pce.py; true")
+
+
 def pce_command(line):
     "Append one command line for the mock PCE to act on"
 
-    tgen = get_topogen()
-    with open(os.path.join(tgen.logdir, "rt1", "pce_commands"), "a") as cmds:
+    with open(pce_command_file(), "a") as cmds:
         cmds.write(line + "\n")
 
 
@@ -607,6 +633,149 @@ def test_pcep_rejected_on_cli_name():
     check = lambda: check_policy_count(2)
     _, result = topotest.run_and_expect(check, None, count=60, wait=1)
     assert result is None, "final cleanup failed: {}".format(result)
+
+
+def test_long_symbolic_names():
+    "Names up to the supported length work; longer ones get PCErr 24/1"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # pathd's policy, candidate and segment list names are limited to 64
+    # characters by its YANG model, and a PCEP path's segment list is
+    # named "<name>-<plsp_id>" with a PLSP-ID of up to 7 digits, so 56 is
+    # the longest symbolic name pathd accepts.  Both lengths below are
+    # multiples of 4, so the SYMBOLIC-PATH-NAME TLV needs no padding.
+    name_max = "L" * 56
+    name_long = "L" * 60
+
+    logger.info("initiating a policy with a %d-byte name", len(name_max))
+    pce_command("add {},{},{},4501".format(ENDPOINT, LABEL, name_max))
+    check = lambda: check_policy_count(3)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "longest supported name did not come up: {}".format(result)
+
+    # A name over the YANG limit used to abort every northbound walk of
+    # pathd's tree; the stored name must be readable back in full.
+    output = tgen.gears["rt1"].vtysh_cmd(
+        "show yang operational-data /frr-pathd:pathd with-config pathd"
+    )
+    assert name_max + "-0" in output, "pathd northbound data is not readable"
+
+    errors_before = count_pce_errors(24, 1)
+    logger.info("initiating a policy with a %d-byte name", len(name_long))
+    pce_command("add {},{},{},4502".format(ENDPOINT, LABEL, name_long))
+    check = lambda: (
+        None if count_pce_errors(24, 1) > errors_before else "no PCErr 24/1 yet"
+    )
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "over-long name was not rejected: {}".format(result)
+    result = check_policy_count(3)
+    assert result is None, result
+
+    pce_command("remove {}".format(name_max))
+    check = lambda: check_policy_count(2)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, "long-name cleanup failed: {}".format(result)
+
+
+def test_pce_restart():
+    "Kill and restart the PCE; policies must re-establish"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for round_num in range(2):
+        logger.info("killing the PCE (round %d)", round_num)
+        kill_pce()
+
+        # Flap the link while the session is down: the policy status
+        # reports this fires have no session to be sent on, which is
+        # exactly the path that used to leak the formatted messages.
+        tgen.gears["rt2"].vtysh_cmd(
+            """
+            configure terminal
+             interface eth-rt1
+              shutdown
+            """
+        )
+        time.sleep(2)
+        tgen.gears["rt2"].vtysh_cmd(
+            """
+            configure terminal
+             interface eth-rt1
+              no shutdown
+            """
+        )
+        time.sleep(2)
+
+        logger.info("restarting the PCE (round %d)", round_num)
+        initiated = mock_pce_log_text().count("INITIATE-SENT")
+        PCE_GEN[0] += 1
+        start_pce()
+
+        # The new instance only initiates its two base policies once
+        # pathd has connected to it and completed state sync, so this
+        # proves a fresh session rather than policies kept from the old.
+        def check_new_session():
+            sent = mock_pce_log_text().count("INITIATE-SENT") - initiated
+            if sent < 2:
+                return "new PCE sent {} of 2 base policies".format(sent)
+            return None
+
+        _, result = topotest.run_and_expect(check_new_session, None, count=120, wait=1)
+        if result is not None:
+            print_pce_log()
+        assert result is None, "PCE session did not re-establish: {}".format(result)
+
+        # Whether pathd kept or timed out the old policies, it must
+        # converge back to exactly the two of them Active.
+        check = lambda: check_policy_count(2)
+        _, result = topotest.run_and_expect(check, None, count=90, wait=1)
+        if result is not None:
+            print_pce_log()
+        assert result is None, "policies did not re-establish: {}".format(result)
+
+    # The steering routes must have survived the whole exercise.
+    check = lambda: check_steering_route(True)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "steering route missing after restarts: {}".format(
+        result
+    )
+
+
+def test_inflight_shutdown():
+    "Leave PCInitiates in flight for the module teardown to race"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Deliberately no waiting: the module teardown races these
+    # in-flight creations, and the teardown memory check is the
+    # detector for anything they leak.
+    logger.info("firing in-flight PCInitiates and ending immediately")
+    for i in range(5):
+        pce_command("add {},{},inflight-{},475{}".format(ENDPOINT, LABEL, i, i))
+
+    # Wait only until the mock has put them on the wire, not until pathd
+    # installs them, so the teardown still races their processing.
+    def check_sent():
+        sent = len(re.findall(r"ADD-SENT .*name=inflight-", mock_pce_log_text()))
+        if sent < 5:
+            return "mock PCE sent {} of 5 in-flight PCInitiates".format(sent)
+        return None
+
+    _, result = topotest.run_and_expect(check_sent, None, count=40, wait=0.25)
+    assert result is None, result
 
 
 def test_memory_leak():
