@@ -1081,7 +1081,8 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
 				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		ctx.flv.lcblock_len = sra->locator->block_bits_length;
-		ctx.flv.lcnode_func_len = sra->locator->node_bits_length;
+		ctx.flv.lcnode_func_len = sra->locator->node_bits_length +
+					  sra->locator->function_bits_length;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
 	case SRV6_ENDPOINT_BEHAVIOR_END:
