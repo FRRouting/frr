@@ -41,6 +41,7 @@ extern struct zebra_sr_policy_instance_head zebra_sr_policy_instances;
 struct zebra_sr_policy *
 zebra_sr_policy_add(uint32_t color, struct ipaddr *endpoint, char *name);
 void zebra_sr_policy_del(struct zebra_sr_policy *policy);
+void zebra_sr_policy_lsp_freed(struct zebra_lsp *lsp);
 struct zebra_sr_policy *zebra_sr_policy_find(uint32_t color,
 					     struct ipaddr *endpoint);
 struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name);

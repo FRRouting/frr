@@ -1210,6 +1210,9 @@ static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 		zlog_debug("Free LSP in-label %u flags 0x%x",
 			   lsp->ile.in_label, lsp->flags);
 
+	/* SR policies cache a pointer to their resolved LSP. */
+	zebra_sr_policy_lsp_freed(lsp);
+
 	lsp_free_nhlfe(lsp);
 
 	hash_release(lsp_table, &lsp->ile);
