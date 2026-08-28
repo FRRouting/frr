@@ -73,7 +73,7 @@ def _setup_pe(router, idx):
             [
                 "ip link set eth-h2 master br100",
                 "bridge link set dev eth-h2 learning off",
-                "bridge fdb add 02:00:00:00:00:02 dev eth-h2 master static sticky",
+                "bridge fdb replace 02:00:00:00:00:02 dev eth-h2 master static sticky",
                 "ip neigh add 192.168.0.2 lladdr 02:00:00:00:00:02 dev br100",
             ]
         )
