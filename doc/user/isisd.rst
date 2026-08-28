@@ -213,6 +213,13 @@ ISIS interface
    command :clicmd:`router isis WORD`). To enable IPv4, issue ``ip router isis
    WORD``; to enable IPv6, issue ``ipv6 router isis WORD``.
 
+BFD monitoring can be enabled for IS-IS adjacencies on an interface with
+:clicmd:`isis bfd`. BFD provides faster failure detection than the IS-IS hello
+timers. Use :clicmd:`isis bfd profile BFDPROF` to apply a BFD profile to these
+sessions.
+
+.. seealso:: :ref:`bfd-isis-peer-config`
+
 .. clicmd:: isis circuit-type [level-1 | level-1-2 | level-2]
 
    Configure circuit type for interface:
