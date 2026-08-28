@@ -252,6 +252,13 @@ bool stop_session_logic(void)
 	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 	pthread_join(session_logic_handle_->session_logic_thread, NULL);
 
+	/* Stop the socket comm thread before destroying the sessions
+	 * still on the list. The socket comm handle stays alive so
+	 * the session teardowns below can free their socket state;
+	 * destroy_socket_comm_loop() below cleans up the remains.
+	 */
+	stop_socket_comm_loop();
+
 	/* A session whose destroy was deferred until its Close message was
 	 * written is destroyed by the message-sent callback which can no
 	 * longer be run now.  Destroy any session still on the list.
