@@ -9,7 +9,7 @@ import ipaddress
 import os
 
 from munet import cli
-from munet.base import BaseMunet, LinuxNamespace
+from munet.base import BaseMunet, CalledProcessError, LinuxNamespace
 
 
 class Node(LinuxNamespace):
@@ -97,7 +97,15 @@ class Node(LinuxNamespace):
         self.logger.debug("Removing Linux Iface: %s", iface)
         ip_path = self.get_exec_path("ip")
         assert ip_path, "XXX missing ip command!"
-        self.cmd_raises([ip_path, "link", "del", iface])
+        # Parent delete during teardown can already have removed vlan/child
+        # ifaces. Ignore only a missing device; other failures still raise.
+        rc, out, err = self.cmd_status([ip_path, "link", "del", iface], warn=False)
+        if rc:
+            msg = f"{out or ''}{err or ''}"
+            if "does not exist" not in msg and "Cannot find device" not in msg:
+                raise CalledProcessError(
+                    rc, [ip_path, "link", "del", iface], out, err
+                )
 
     def attach_iface_to_l3vrf(self, ifacename, vrfname):
         self.logger.debug("Attaching Iface %s to Linux VRF %s", ifacename, vrfname)
