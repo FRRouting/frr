@@ -1590,6 +1590,12 @@ void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)
 		PCEP_DEBUG_PCEP("%s Sending PCEP message: %s", pcc_state->tag,
 				format_pcep_message(msg));
 		send_message(pcc_state->sess, msg, true);
+	} else {
+		/* The callers format the message before checking the
+		 * session, so it must be freed when there is no session
+		 * to send it to (when down or reconnecting).
+		 */
+		pcep_msg_free_message(msg);
 	}
 }
 
