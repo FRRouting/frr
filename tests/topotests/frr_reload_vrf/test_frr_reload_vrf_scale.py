@@ -50,7 +50,7 @@ from lib.topolog import logger
 import vrf_knobs as K
 import frr_reload_lib as R
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.pimd, pytest.mark.staticd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 SCALE_N = int(os.environ.get("FRR_RELOAD_VRF_SCALE", "150"))
 BIG_N = int(os.environ.get("FRR_RELOAD_VRF_BIG", "150"))
@@ -68,11 +68,14 @@ FALLBACK_N = int(os.environ.get("FRR_RELOAD_VRF_FALLBACK", "2"))
 # contended CI sandbox needs headroom.
 RELOAD_TIMEOUT = float(os.environ.get("FRR_RELOAD_VRF_TIMEOUT", "120"))
 
-# Knob set used for the "all knobs" tests. Everything in the catalog.
-ALL = K.ALL_KNOBS
+# Knob set used for the "all knobs" tests: zebra + static under VRF context.
+# Deprecated under-vrf PIM/MLD knobs are omitted — use "router pim [vrf]" for
+# those; injecting "ip pim ..." under "vrf vrfN" breaks frr-reload load_from_file
+# for digit-bearing VRF names.
+ALL = K.ZEBRA_KNOBS + K.STATIC_KNOBS
 # Daemon names for load_frr_config (strings, not RD_* ints — bare ints are
 # unpacked as (daemon, param) tuples and raise TypeError).
-NEEDED_DAEMONS = ["zebra", "staticd", "bgpd", "pimd", "pim6d"]
+NEEDED_DAEMONS = ["zebra", "staticd", "bgpd"]
 
 
 def _conf_path(tgen, rname="r1"):

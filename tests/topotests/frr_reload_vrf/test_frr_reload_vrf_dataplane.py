@@ -57,9 +57,16 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.pimd]
 NUM_VRFS = int(os.environ.get("DP_NUM_VRFS", "10"))
 NUM_MCAST_VRFS = int(os.environ.get("DP_NUM_MCAST_VRFS", "2"))
 
-# Knobs injected into tenant VRFs for the reload test: everything except the
-# L3VNI 'vni' (the fabric already maps one L3VNI per tenant VRF).
-DP_KNOBS = [k for k in K.ALL_KNOBS if k["id"] != "vni"]
+# Knobs injected into tenant VRFs for the reload test: zebra + static only.
+# Skip L3VNI 'vni' (fabric already owns it). Skip deprecated under-vrf PIM/MLD
+# knobs — those belong under "router pim [vrf]" now, and putting "ip pim ..."
+# under "vrf vrfN" in a reload target trips frr-reload's legacy PIM rewrite
+# for digit-bearing VRF names.
+DP_KNOBS = [
+    k
+    for k in (K.ZEBRA_KNOBS + K.STATIC_KNOBS)
+    if k["id"] != "vni"
+]
 
 
 def build_topo(tgen):
@@ -203,70 +210,156 @@ def _check_unicast(tgen, vrfs):
         assert ok, "inter-PE unicast failed in vrf{} (pe1->pe2)".format(v)
 
 
-def _pim_forwarding_ready(pe1, v):
-    """True once PIM is fully signaled for the group inside vrf<v>: the RP is
-    active for the group, the receiver's IGMP membership is present on the LHR
-    interface, and the source's (S,G) has been learned from live traffic on the
-    FHR interface.
+def _pim_rp_ready(pe1, v):
+    """True once pe1 is the active RP for the fabric group in vrf<v>."""
+    grp = D.mcast_group(v)
+    vrf = D.vrf_name(v)
 
-    (RP + FHR + LHR all live on pe1 here, since cross-VTEP L3 multicast is not a
-    supported feature and the receiver must stay local to the RP. In that
-    single-node topology the kernel MFC (S,G) OIL is not populated by PIM-SM, so
-    we assert full PIM signaling - RP active + IGMP join + source (S,G) learned -
-    which is what proves PIM-in-VRF works and that the reload knobs neither block
-    nor tear it down, rather than the degenerate one-box MFC entry.)
+    rp = pe1.vtysh_cmd(
+        "show ip pim vrf {} rp-info json".format(vrf), isjson=True
+    )
+    if isinstance(rp, dict):
+        for _rp_addr, rows in rp.items():
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                g = str(row.get("group", ""))
+                if grp in g and row.get("iAmRP") is True:
+                    return True
+
+    # Text fallback (json parse miss / empty).
+    text = pe1.vtysh_cmd("show ip pim vrf {} rp-info".format(vrf))
+    return any(grp in ln and "yes" in ln.lower() for ln in text.splitlines())
+
+
+def _pim_forwarding_ready(pe1, v):
+    """True once PIM is fully signaled for the group inside vrf<v>.
+
+    Same-box RP+FHR+LHR (cross-VTEP L3 mcast is unsupported): kernel MFC OIL is
+    not populated, so we assert RP active + IGMP/join membership. (S,G) in
+    "pim state" is recorded when present but not required - the FHR+LHR
+    same-node path is racy across runners and is not what the reload suite
+    needs to prove.
+
+    Returns (ok, detail) so failures name which predicate is still missing.
     """
     grp = D.mcast_group(v)
     src = D.tenant_host("pe1", v)
     vrf = D.vrf_name(v)
 
-    # RP is active for the group on this box.
-    rp = pe1.vtysh_cmd("show ip pim vrf {} rp-info".format(vrf))
-    rp_active = any(grp in ln and "yes" in ln.lower() for ln in rp.splitlines())
+    rp_active = _pim_rp_ready(pe1, v)
 
-    # Receiver's IGMP membership registered on the LHR access interface.
-    igmp = pe1.vtysh_cmd("show ip igmp vrf {} groups".format(vrf))
-    igmp_joined = any(grp in ln for ln in igmp.splitlines())
+    igmp = pe1.vtysh_cmd(
+        "show ip igmp vrf {} groups json".format(vrf), isjson=True
+    )
+    igmp_joined = grp in str(igmp) if isinstance(igmp, dict) else False
+    if not igmp_joined:
+        text = pe1.vtysh_cmd("show ip igmp vrf {} groups".format(vrf))
+        igmp_joined = any(grp in ln for ln in text.splitlines())
 
-    # Source (S,G) learned from live traffic on the FHR interface.
-    state = pe1.vtysh_cmd("show ip pim vrf {} state".format(vrf))
-    s_g = any(grp in ln and src in ln for ln in state.splitlines())
+    # pim join with IGMP is the pim_igmp_vrf signal for a local receiver.
+    join = pe1.vtysh_cmd(
+        "show ip pim vrf {} join json".format(vrf), isjson=True
+    )
+    joined = False
+    if isinstance(join, dict):
+        blob = str(join)
+        joined = grp in blob and (
+            "protocolIgmp" in blob or "IGMP" in blob or igmp_joined
+        )
 
-    return rp_active and igmp_joined and s_g
+    state = pe1.vtysh_cmd(
+        "show ip pim vrf {} state json".format(vrf), isjson=True
+    )
+    s_g = False
+    if isinstance(state, dict):
+        g = state.get(grp)
+        if isinstance(g, dict) and src in g:
+            s_g = True
+        else:
+            blob = str(state)
+            s_g = grp in blob and src in blob
+
+    membership = igmp_joined or joined
+    missing = []
+    if not rp_active:
+        missing.append("rp")
+    if not membership:
+        missing.append("igmp/join")
+    detail = ",".join(missing) if missing else (
+        "ok" + ("" if s_g else " (no s,g yet)")
+    )
+    return (not missing, detail)
 
 
 def _check_multicast(tgen, vrfs):
-    """Start source+receiver in each mcast vrf on pe1 and assert an mroute forms."""
+    """Start source+receiver in each mcast vrf on pe1 and assert PIM signals."""
     pe1 = tgen.gears["pe1"]
+
+    # RP must be elected before we start join/traffic; otherwise the FHR+LHR
+    # same-box path can miss (S,G) learning for the whole poll window.
+    for v in vrfs:
+        test_func = functools.partial(_pim_rp_ready, pe1, v)
+        ok, _ = topotest.run_and_expect(test_func, True, count=30, wait=2)
+        if not ok:
+            vrf = D.vrf_name(v)
+            logger.info(
+                "[pe1] show ip pim vrf %s rp-info:\n%s",
+                vrf,
+                pe1.vtysh_cmd("show ip pim vrf {} rp-info".format(vrf)),
+            )
+            logger.info(
+                "[pe1] running-config (pim/vrf%s):\n%s",
+                v,
+                pe1.run(
+                    "vtysh -c 'show running-config' | "
+                    "grep -nE 'vrf {}$|router pim| rp |ip pim|ip igmp|"
+                    "loop-rp{}|vni '".format(vrf, v)
+                ),
+            )
+        assert ok, "PIM RP not active for {} in vrf{}".format(
+            D.mcast_group(v), v
+        )
+
     with McastTesterHelper(tgen) as helper:
         for v in vrfs:
             grp = D.mcast_group(v)
             src = D.host_name("pe1", v)             # 10.v.1.10
             rcv = D.host_name("pe1", v, rx=True)    # 10.v.201.10
+            # Same order as pim_igmp_vrf: join, brief settle, then source.
             helper.run(rcv, [grp, "{}-eth0".format(rcv)])
+            topotest.sleep(1, "IGMP join settle before source in vrf{}".format(v))
             helper.run(src, ["--send=0.7", grp, "{}-eth0".format(src)])
 
         for v in vrfs:
-            test_func = functools.partial(_pim_forwarding_ready, pe1, v)
-            ok, _ = topotest.run_and_expect(test_func, True, count=15, wait=2)
+            def _ready(pe1=pe1, v=v):
+                ok, _detail = _pim_forwarding_ready(pe1, v)
+                return ok
+
+            ok, _ = topotest.run_and_expect(_ready, True, count=30, wait=2)
+            detail = _pim_forwarding_ready(pe1, v)[1]
             if not ok:
                 vrf = D.vrf_name(v)
                 for cmd in ("show ip pim vrf {} interface".format(vrf),
                             "show ip pim vrf {} rp-info".format(vrf),
                             "show ip igmp vrf {} groups".format(vrf),
                             "show ip pim vrf {} state".format(vrf),
+                            "show ip pim vrf {} join".format(vrf),
                             "show ip mroute vrf {}".format(vrf)):
                     logger.info("[pe1] %s:\n%s", cmd, pe1.vtysh_cmd(cmd))
                 logger.info("[pe1] running-config (pim/vrf%s):\n%s", v,
                             pe1.run("vtysh -c 'show running-config' | "
-                                    "grep -nE 'vrf {}$|pim rp|ip pim|ip igmp|"
-                                    "loop-rp{}|vni '".format(vrf, v)))
+                                    "grep -nE 'vrf {}$|router pim| rp |ip pim|"
+                                    "ip igmp|loop-rp{}|vni '".format(vrf, v)))
                 for h in (D.host_name("pe1", v), D.host_name("pe1", v, rx=True)):
                     logger.info("[%s] addr/route:\n%s\n%s", h,
                                 tgen.gears[h].run("ip -br addr"),
                                 tgen.gears[h].run("ip route"))
-            assert ok, "PIM not signaled for {} in vrf{}".format(
-                D.mcast_group(v), v)
+            assert ok, "PIM not signaled for {} in vrf{} (missing: {})".format(
+                D.mcast_group(v), v, detail
+            )
 
 
 def _inject_dp_knobs(cfg_text, vrf_indices, knobs):

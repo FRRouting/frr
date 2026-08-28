@@ -227,19 +227,15 @@ def gen_zebra_conf(node, num_vrfs, num_mcast_vrfs):
     _, pe_ip, _ = underlay(node)
     lines += ["interface {}-eth0".format(node),
               " ip address {}/30".format(pe_ip), "!"]
-    # One vrf stanza per VRF carrying ALL per-vrf commands (vni for zebra, and
-    # for mcast VRFs the pim RP for pimd). Emitting a single stanza avoids
-    # duplicate "vrf NAME" stanzas across merged sections, which the integrated
-    # config loader can misattribute (a second "vrf NAME" stanza's commands can
-    # leak into the default VRF).
+    # One vrf stanza per VRF for fabric-owned under-vrf lines (L3VNI only).
+    # Keep a single stanza per VRF: duplicate "vrf NAME" blocks across merged
+    # sections can be misattributed by the integrated config loader. PIM RP
+    # lives under "router pim vrf" in gen_pim_conf (not deprecated under-vrf
+    # "ip pim rp"). Static routes are injected later via frr-reload.
     for v in range(1, num_vrfs + 1):
-        stanza = ["vrf {}".format(vrf_name(v)), " vni {}".format(l3vni(v))]
-        if node == MCAST_PE and v <= num_mcast_vrfs:
-            stanza.append(
-                " ip pim rp {} {}/32".format(rp_addr(v), mcast_group(v))
-            )
-        stanza += ["exit-vrf", "!"]
-        lines += stanza
+        lines += ["vrf {}".format(vrf_name(v)),
+                  " vni {}".format(l3vni(v)),
+                  "exit-vrf", "!"]
     # Tenant access interface addresses live in the vrf (zebra owns them).
     for v in range(1, num_vrfs + 1):
         lines += ["interface {}-eth{} vrf {}".format(
@@ -312,9 +308,13 @@ def gen_pim_conf(node, num_vrfs, num_mcast_vrfs):
     lines = ["hostname {}".format(node), "!"]
     if node != MCAST_PE:
         return "\n".join(lines) + "\n"
-    # NOTE: the per-vrf "ip pim rp" lives in the single vrf stanza emitted by
-    # gen_zebra_conf (avoids duplicate "vrf NAME" stanzas). Here we only emit
-    # the PIM/IGMP interface enablement.
+    # RP under "router pim vrf" (current form; matches pim_igmp_vrf and
+    # running-config). Interface PIM/IGMP enablement stays on the interfaces.
+    for v in range(1, num_mcast_vrfs + 1):
+        vrf = vrf_name(v)
+        lines += ["router pim vrf {}".format(vrf),
+                  " rp {} {}/32".format(rp_addr(v), mcast_group(v)),
+                  "exit", "!"]
     for v in range(1, num_mcast_vrfs + 1):
         vrf = vrf_name(v)
         lines += ["interface {}-eth{} vrf {}".format(
@@ -369,10 +369,8 @@ def daemons_for(node, num_mcast_vrfs):
     """
     d = ["zebra", "ospfd", "bgpd"]
     if node == MCAST_PE:
-        # staticd + pim6d so the reload test can inject the full knob catalog
-        # (static routes + IPv6 PIM/MLD) into the tenant VRFs. Baseline
-        # multicast dataplane itself is IPv4-only.
+        # staticd for injected static-route knobs; pimd for fabric multicast.
         d.append("staticd")
         if num_mcast_vrfs > 0:
-            d.extend(["pimd", "pim6d"])
+            d.append("pimd")
     return d
