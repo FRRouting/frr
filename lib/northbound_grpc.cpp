@@ -1159,17 +1159,25 @@ static void *grpc_pthread_start(void *arg)
 
 	pthread_mutex_lock(&s_server_lock); // Make coverity happy
 	if (grpc_state == GRPC_STATE_SHUTDOWN) {
+		unsigned int n = 0;
+
 		pthread_mutex_unlock(&s_server_lock);
 		if (server)
 			server->Shutdown();
-		/*
-		 * No RPC handlers have been posted yet; REQUEST_NEWRPC*() calls
-		 * happen below after grpc_state is set to RUNNING, so there are
-		 * no RpcStateBase tags to drain from this CQ.
-		 */
 		if (cq)
 			cq->Shutdown();
-		grpc_debug("%s: early shutdown, exiting", __func__);
+		/*
+		 * BuildAndStart() may already have posted library
+		 * events. Drain them before unique_ptr dtors run;
+		 * grpc_completion_queue_destroy() asserts the queue
+		 * is empty. REQUEST_NEWRPC*() has not run, so these
+		 * tags are not RpcStateBase.
+		 */
+		while (cq && cq->Next(&tag, &ok))
+			n++;
+
+		grpc_debug("%s: early shutdown, drained %u CQ events",
+			   __func__, n);
 		return NULL;
 	}
 
