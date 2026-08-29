@@ -2300,7 +2300,7 @@ static unsigned int bfd_perm_vrfs_hash_do(const struct bfd_perm_vrf *vrf)
 
 static bool bfd_perm_vrfs_hash_cmp(const struct bfd_perm_vrf *vrf1, const struct bfd_perm_vrf *vrf2)
 {
-	return strmatch(vrf1->vrf_name, vrf2->vrf_name);
+	return !strmatch(vrf1->vrf_name, vrf2->vrf_name);
 }
 
 /*
