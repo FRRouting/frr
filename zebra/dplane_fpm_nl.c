@@ -1056,7 +1056,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 	case DPLANE_OP_LSP_DELETE:
-		rv = netlink_lsp_msg_encoder(ctx, nl_buf, sizeof(nl_buf));
+		rv = netlink_lsp_msg_encoder_fpm(ctx, nl_buf, sizeof(nl_buf));
 		if (rv <= 0) {
 			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_lsp_msg_encoder failed",
 				 __func__);

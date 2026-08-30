@@ -118,6 +118,31 @@ typedef enum fpm_msg_type_e_ {
 } fpm_msg_type_e;
 
 /*
+ * Route attributes that appear only on the FPM stream.
+ *
+ * They are numbered clear of the kernel's RTA_* space and are never sent to a
+ * kernel.  The precedent is FPM_NH_ENCAP_VXLAN in zebra/zebra_fpm_netlink.c,
+ * an FRR-private value zebra already puts in RTA_ENCAP_TYPE for FPM peers and
+ * for nobody else.
+ *
+ * FPM_RTA_MPLS_PAYLOAD_FAMILY (u8: AF_INET or AF_INET6) names the address
+ * family of the packet that emerges when a label is popped and the result is
+ * looked up in a table -- the egress disposition of an L3VPN.  Linux does not
+ * need it: net/mpls/af_mpls.c leaves mpls_route.rt_payload_type at MPT_UNSPEC
+ * and reads the IP version nibble of the packet instead, so there is no kernel
+ * attribute to reuse, and mpls_rtm_newroute() rejects any attribute it does
+ * not know.  A forwarder that is told the disposition family once, per label
+ * entry, rather than per packet cannot infer it, and without this attribute an
+ * IPv6 VPN label is disposed into the instance's IPv4 table.
+ *
+ * Absent whenever zebra does not know the family -- including when one
+ * instance's two families were allocated the same label, where there is no
+ * single right answer.  A consumer that is not told must keep doing whatever
+ * it did before this attribute existed.
+ */
+#define FPM_RTA_MPLS_PAYLOAD_FAMILY 200
+
+/*
  * The FPM message header is aligned to the same boundary as netlink
  * messages (4). This means that a netlink message does not need
  * padding when encapsulated in an FPM message.

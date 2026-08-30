@@ -3207,7 +3207,8 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     mpls_label_t in_label, uint8_t num_out_labels,
 		     const mpls_label_t *out_labels, enum nexthop_types_t gtype,
-		     const union g_addr *gate, ifindex_t ifindex)
+		     const union g_addr *gate, ifindex_t ifindex,
+		     afi_t payload_afi)
 {
 	struct hash *lsp_table;
 	struct zebra_ile tmp_ile;
@@ -3222,6 +3223,7 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	/* Find or create LSP object */
 	tmp_ile.in_label = in_label;
 	lsp = hash_get(lsp_table, &tmp_ile, lsp_alloc);
+	lsp->payload_afi = payload_afi;
 
 	nhlfe = lsp_add_nhlfe(lsp, type, num_out_labels, out_labels, gtype,
 			      gate, ifindex, VRF_DEFAULT, false /*backup*/);
@@ -3629,7 +3631,7 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 
 	/* (Re)Install LSP in the main table. */
 	if (mpls_lsp_install(zvrf, ZEBRA_LSP_STATIC, in_label, 1, &out_label,
-			     gtype, gate, ifindex))
+			     gtype, gate, ifindex, AFI_UNSPEC))
 		return -1;
 
 	return 0;

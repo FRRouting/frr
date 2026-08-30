@@ -72,6 +72,7 @@
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
 #include "lib/srv6.h"
+#include "fpm/fpm.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -5023,7 +5024,7 @@ netlink_put_neigh_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
  * context information.
  */
 ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
-					  void *buf, size_t buflen)
+					  void *buf, size_t buflen, bool fpm)
 {
 	mpls_lse_t lse;
 	const struct nhlfe_list_head *head;
@@ -5099,6 +5100,24 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	lse = mpls_lse_encode(dplane_ctx_get_in_label(ctx), 0, 0, 1);
 	if (!nl_attr_put(&req->n, buflen, RTA_DST, &lse, sizeof(mpls_lse_t)))
 		return 0;
+
+	/*
+	 * Tell an FPM peer which family the packet under this label is in,
+	 * when zebra was told.  FPM only: the kernel's MPLS parser rejects
+	 * attributes it does not know (net/mpls/af_mpls.c,
+	 * rtm_to_route_config()), and it has no use for this one -- it reads
+	 * the IP version nibble of each packet instead.  A forwarder that is
+	 * programmed per label entry has no packet to read yet.
+	 */
+	if (fpm && cmd == RTM_NEWROUTE) {
+		int payload_family =
+			afi2family(dplane_ctx_get_lsp_payload_afi(ctx));
+
+		if ((payload_family == AF_INET || payload_family == AF_INET6) &&
+		    !nl_attr_put8(&req->n, buflen, FPM_RTA_MPLS_PAYLOAD_FAMILY,
+				  (uint8_t)payload_family))
+			return 0;
+	}
 
 	/* Fill nexthops (paths) based on single-path or multipath. The paths
 	 * chosen depend on the operation.

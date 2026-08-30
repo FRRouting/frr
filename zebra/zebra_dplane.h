@@ -696,6 +696,7 @@ void dplane_ctx_set_addr_family(struct zebra_dplane_ctx *ctx,
 uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_lsp_flags(struct zebra_dplane_ctx *ctx,
 			      uint32_t flags);
+afi_t dplane_ctx_get_lsp_payload_afi(const struct zebra_dplane_ctx *ctx);
 const struct nhlfe_list_head *dplane_ctx_get_nhlfe_list(
 	const struct zebra_dplane_ctx *ctx);
 const struct nhlfe_list_head *dplane_ctx_get_backup_nhlfe_list(

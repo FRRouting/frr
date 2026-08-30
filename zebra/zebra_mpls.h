@@ -100,6 +100,16 @@ struct zebra_lsp {
 	/* Address-family of NHLFE - saved here for delete. All NHLFEs */
 	/* have to be of the same AF */
 	uint8_t addr_family;
+
+	/*
+	 * Address family of the traffic that appears when this label is
+	 * popped, where zebra is told it -- today, a VRF label from
+	 * ZEBRA_VRF_LABEL.  It is not addr_family: that is the family of the
+	 * NHLFE's next hop, and a disposition has no next hop to take a
+	 * family from.  AFI_UNSPEC when nothing said, which is every LSP that
+	 * swaps or pushes.
+	 */
+	afi_t payload_afi;
 };
 
 /*
@@ -285,7 +295,8 @@ void zebra_mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     mpls_label_t in_label, uint8_t num_out_labels,
 		     const mpls_label_t *out_labels, enum nexthop_types_t gtype,
-		     const union g_addr *gate, ifindex_t ifindex);
+		     const union g_addr *gate, ifindex_t ifindex,
+		     afi_t payload_afi);
 
 /*
  * Lookup LSP by its input label.

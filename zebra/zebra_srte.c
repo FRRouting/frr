@@ -342,11 +342,11 @@ int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy)
 			out_labels = zt->labels;
 		}
 
-		if (mpls_lsp_install(
-			    policy->zvrf, zt->type, zt->local_label,
-			    num_out_labels, out_labels, nhlfe->nexthop->type,
-			    &nhlfe->nexthop->gate, nhlfe->nexthop->ifindex)
-		    < 0)
+		if (mpls_lsp_install(policy->zvrf, zt->type, zt->local_label,
+				     num_out_labels, out_labels,
+				     nhlfe->nexthop->type,
+				     &nhlfe->nexthop->gate,
+				     nhlfe->nexthop->ifindex, AFI_UNSPEC) < 0)
 			return -1;
 	}
 

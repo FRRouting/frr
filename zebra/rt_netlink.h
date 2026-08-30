@@ -50,7 +50,8 @@ void rt_netlink_init(void);
 /* MPLS label forwarding table change, using dataplane context information. */
 extern ssize_t netlink_mpls_multipath_msg_encode(int cmd,
 						 struct zebra_dplane_ctx *ctx,
-						 void *buf, size_t buflen);
+						 void *buf, size_t buflen,
+						 bool fpm);
 
 extern ssize_t netlink_route_multipath_msg_encode(int cmd,
 						  struct zebra_dplane_ctx *ctx,
@@ -80,6 +81,8 @@ extern ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 extern ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 				       size_t buflen);
+extern ssize_t netlink_lsp_msg_encoder_fpm(struct zebra_dplane_ctx *ctx,
+					   void *buf, size_t buflen);
 
 extern int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id);
 

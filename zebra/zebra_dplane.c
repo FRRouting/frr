@@ -2618,6 +2618,13 @@ void dplane_ctx_set_lsp_flags(struct zebra_dplane_ctx *ctx,
 	ctx->u.lsp.flags = flags;
 }
 
+afi_t dplane_ctx_get_lsp_payload_afi(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.lsp.payload_afi;
+}
+
 const struct nhlfe_list_head *dplane_ctx_get_nhlfe_list(
 	const struct zebra_dplane_ctx *ctx)
 {
@@ -4457,6 +4464,7 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	ctx->u.lsp.ile = lsp->ile;
 	ctx->u.lsp.addr_family = lsp->addr_family;
+	ctx->u.lsp.payload_afi = lsp->payload_afi;
 	ctx->u.lsp.num_ecmp = lsp->num_ecmp;
 	ctx->u.lsp.flags = lsp->flags;
 

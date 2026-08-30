@@ -3401,8 +3401,28 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 
 	if (nlabel != MPLS_LABEL_NONE) {
 		mpls_label_t out_label = MPLS_LABEL_IMPLICIT_NULL;
+		afi_t payload_afi = afi;
+		afi_t other;
+
+		/*
+		 * The label is disposed into one family's table, and this
+		 * message is the only place that family is known.  It is not
+		 * derivable later: the LSP's next hop is the VRF interface,
+		 * whose own family says nothing about what is under the label.
+		 *
+		 * A client may hand the same label to both families of one
+		 * instance -- the scrubber above exists for exactly that --
+		 * and then there is no single right answer, so record none.
+		 */
+		for (other = AFI_IP; other < AFI_MAX; other++) {
+			if (other == afi)
+				continue;
+			if (zvrf->label[other] == nlabel)
+				payload_afi = AFI_UNSPEC;
+		}
+
 		if (mpls_lsp_install(def_zvrf, ltype, nlabel, 1, &out_label, NEXTHOP_TYPE_IFINDEX,
-				     NULL, ifp->ifindex) < 0) {
+				     NULL, ifp->ifindex, payload_afi) < 0) {
 			zlog_debug("%s: Failed to install LSP for label %u", __func__, nlabel);
 		}
 	}

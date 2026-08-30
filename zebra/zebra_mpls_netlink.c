@@ -17,8 +17,8 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/kernel_netlink.h"
 
-ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
-				size_t buflen)
+static ssize_t lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+			       size_t buflen, bool fpm)
 {
 	int cmd;
 
@@ -41,7 +41,19 @@ ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 		/* Invalid op? */
 		return -1;
 
-	return netlink_mpls_multipath_msg_encode(cmd, ctx, buf, buflen);
+	return netlink_mpls_multipath_msg_encode(cmd, ctx, buf, buflen, fpm);
+}
+
+ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+				size_t buflen)
+{
+	return lsp_msg_encoder(ctx, buf, buflen, false);
+}
+
+ssize_t netlink_lsp_msg_encoder_fpm(struct zebra_dplane_ctx *ctx, void *buf,
+				    size_t buflen)
+{
+	return lsp_msg_encoder(ctx, buf, buflen, true);
 }
 
 enum netlink_msg_status netlink_put_lsp_update_msg(struct nl_batch *bth,
