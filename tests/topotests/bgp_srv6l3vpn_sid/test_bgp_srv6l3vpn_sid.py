@@ -106,6 +106,13 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
+    # This topotest sets net.vrf.strict_mode during setup. That sysctl is
+    # available only after the VRF module is loaded; if the module is not loaded,
+    # the strict_mode command may fail and the test can fail later.
+    # Ensure the VRF module is present and loaded before setting strict_mode.
+    if not topotest.module_present("vrf"):
+        pytest.skip("VRF kernel module is not available")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
@@ -117,7 +124,6 @@ def setup_module(mod):
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
 
-    tgen.gears["r1"].run("modprobe vrf")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
@@ -136,7 +142,6 @@ def setup_module(mod):
     tgen.gears["r1"].run("sysctl net.ipv4.conf.eth1.rp_filter=0")
     tgen.gears["r1"].run("sysctl net.ipv4.conf.vrf10.rp_filter=0")
 
-    tgen.gears["r2"].run("modprobe vrf")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r2"].run("ip link set vrf10 up")
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")

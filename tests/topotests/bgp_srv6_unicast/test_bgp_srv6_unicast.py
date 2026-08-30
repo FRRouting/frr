@@ -49,6 +49,13 @@ r1_unicast_sid = None
 r3_unicast_sid = None
 
 def setup_module(mod):
+    # This topotest sets net.vrf.strict_mode during setup. That sysctl is
+    # available only after the VRF module is loaded; if the module is not loaded,
+    # the strict_mode command may fail and the test can fail later.
+    # Ensure the VRF module is present and loaded before setting strict_mode.
+    if not topotest.module_present("vrf"):
+        pytest.skip("VRF kernel module is not available")
+
     topodef = {"s1": ("r1", "r2"), "s2": ("r1", "r3"), "s3": ("r1", "r4"),
                "s4": ("c1", "r2"), "s5": ("r3", "c2")}
     tgen = Topogen(topodef, mod.__name__)
