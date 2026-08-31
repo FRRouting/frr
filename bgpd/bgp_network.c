@@ -755,10 +755,7 @@ static void bgp_accept(struct event *event)
 static char *bgp_get_bound_name(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
-
-	if ((peer->bgp->vrf_id == VRF_DEFAULT) && !peer->ifname
-	    && !peer->conf_if)
-		return NULL;
+	struct connected *c;
 
 	if (connection->su.sa.sa_family != AF_INET &&
 	    connection->su.sa.sa_family != AF_INET6)
@@ -774,7 +771,20 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 	if (peer->ifname)
 		return peer->ifname;
 
-	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+	/*
+	 * If a v6 neighbors address is covered by an interfaces connected prefix,
+	 * then let's use that interfaces name as the bind point.  This will prevent
+	 * 'fun' situations with DAD not fully saying an address is usable and causing
+	 * some random source address to be choosen.
+	 */
+	if (connection->su.sa.sa_family == AF_INET6) {
+		c = if_lookup_address(&connection->su.sa, connection->su.sa.sa_family,
+				      peer->bgp->vrf_id);
+		if (c)
+			return c->ifp->name;
+	}
+
+	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW || peer->bgp->vrf_id == VRF_DEFAULT)
 		return NULL;
 
 	return peer->bgp->name;
