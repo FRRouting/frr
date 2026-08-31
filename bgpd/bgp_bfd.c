@@ -54,6 +54,49 @@ static void bgp_bfd_strict_holdtime_expire(struct event *event)
 	BGP_EVENT_ADD(peer->connection, BGP_Stop);
 }
 
+bool bgp_bfd_strict_hold_start(struct peer *peer)
+{
+	struct peer_connection *connection = peer->connection;
+
+	if (!peer->bfd_config || !CHECK_FLAG(peer->flags, PEER_FLAG_BFD_STRICT))
+		return false;
+
+	if (bfd_session_is_up(peer->bfd_config->session))
+		return false;
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP BFD strict mode, holding incoming connection until BFD is up for %s",
+			   peer, bgp_peer_get_connection_direction_string(connection));
+
+	SET_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD);
+
+	event_cancel(&connection->t_connect);
+	event_cancel(&peer->bfd_config->t_hold_timer);
+	event_add_timer(bm->master, bgp_bfd_strict_holdtime_expire, peer,
+			peer->bfd_config->hold_time, &peer->bfd_config->t_hold_timer);
+
+	return true;
+}
+
+void bgp_bfd_strict_hold_release(struct peer *peer)
+{
+	struct peer_connection *connection = peer->connection;
+
+	UNSET_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD);
+
+	if (peer->bfd_config)
+		event_cancel(&peer->bfd_config->t_hold_timer);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP BFD is up, releasing connection held by BFD strict mode for %s",
+			   peer, bgp_peer_get_connection_direction_string(connection));
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+		BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
+	else
+		BGP_EVENT_ADD(connection, TCP_connection_open);
+}
+
 static void bfd_session_status_update(struct bfd_session_params *bsp,
 				      const struct bfd_session_status *bss,
 				      void *arg)
@@ -120,7 +163,12 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 	    !peer_established(peer->connection)) {
 		if (!BGP_PEER_START_SUPPRESSED(peer)) {
 			bgp_fsm_nht_update(peer->connection, peer, true);
-			BGP_EVENT_ADD(peer->connection, BGP_Start);
+
+			/* Held connections sit in Active, BGP_Start is ignored there. */
+			if (CHECK_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD))
+				bgp_bfd_strict_hold_release(peer);
+			else
+				BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
 	}
 }
@@ -175,6 +223,10 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 				  gconfig->bfd_config->cbit);
 	else
 		bfd_sess_set_cbit(p->bfd_config->session, p->bfd_config->cbit);
+
+	/* If no hold time was specified in peer, then use the group one. */
+	if (p->bfd_config->hold_time == BFD_DEF_STRICT_HOLD_TIME)
+		p->bfd_config->hold_time = gconfig->bfd_config->hold_time;
 
 	/* If no profile was specified in peer, then use the group profile. */
 	if (p->bfd_config->profile[0] == 0)

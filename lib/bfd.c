@@ -1337,6 +1337,11 @@ int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
 	return 0;
 }
 
+bool bfd_session_is_up(const struct bfd_session_params *session)
+{
+	return session->bss.state == BSS_UP;
+}
+
 bool bfd_session_is_down(const struct bfd_session_params *session)
 {
 	return session->bss.state == BSS_DOWN ||
