@@ -1413,7 +1413,13 @@ static void vty_print_redistribute(struct vty *vty, const struct lyd_node *dnode
 		vty_out(vty, " redistribute %s %s ", family, protocol);
 	}
 	vty_out(vty, "%s", level);
-	if (show_defaults || !yang_dnode_is_default(dnode, "metric"))
+	/*
+	 * "metric" lives in a case of the "protocol-type" choice. When neither
+	 * metric nor route-map is configured, the case has no members, so the
+	 * schema default is not instantiated and the leaf is absent entirely.
+	 */
+	if (yang_dnode_exists(dnode, "metric") &&
+	    (show_defaults || !yang_dnode_is_default(dnode, "metric")))
 		vty_out(vty, " metric %s", yang_dnode_get_string(dnode, "%s", "metric"));
 
 	if (yang_dnode_exists(dnode, "route-map"))
