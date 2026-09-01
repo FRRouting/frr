@@ -157,6 +157,7 @@ typedef struct sioc_sg_req6 pim_sioc_sg_req;
 
 struct channel_oil;
 struct pim_instance;
+struct pim_interface_counters;
 struct pim_upstream;
 struct pim_rpf;
 
@@ -168,6 +169,8 @@ extern int pim_mroute_add(struct channel_oil *c_oil, const char *name);
 int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 		       unsigned char flags);
 void pim_mroute_del_vif(struct interface *ifp);
+void pim_mroute_update_interface_counters_kernel(struct interface *ifp,
+						 struct pim_interface_counters *counters);
 
 int pim_upstream_mroute_update(struct channel_oil *c_oil, const char *name);
 int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name);
@@ -178,6 +181,7 @@ void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 int pim_mroute_del(struct channel_oil *c_oil, const char *name);
 
 void pim_mroute_update_counters(struct channel_oil *c_oil);
+void pim_mroute_update_counters_kernel(struct channel_oil *c_oil);
 bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 		int oif_index);
 int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,

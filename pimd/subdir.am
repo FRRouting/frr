@@ -141,6 +141,7 @@ noinst_HEADERS += \
 	pimd/pim_rpf.h \
 	pimd/pim_signals.h \
 	pimd/pim_sock.h \
+	pimd/pim_southbound.h \
 	pimd/pim_ssm.h \
 	pimd/pim_dm.h \
 	pimd/pim_state_refresh.h \

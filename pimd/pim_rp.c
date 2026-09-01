@@ -469,7 +469,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 
 	rpf_result = pim_rpf_update(pim, up, &old_rpf, NULL, __func__);
 	if (rpf_result == PIM_RPF_FAILURE && up->channel_oil)
-		pim_mroute_del(up->channel_oil, __func__);
+		pim_southbound.mroute_uninstall(up->channel_oil, __func__);
 
 	/* update kernel multicast forwarding cache (MFC) */
 	if (up->rpf.source_nexthop.interface && up->channel_oil)
@@ -1067,6 +1067,10 @@ void pim_rp_check_on_if_add(struct pim_interface *pim_ifp)
 		pim_msdp_i_am_rp_changed(pim);
 #endif /* PIM_IPV == 4 */
 		pim_upstream_reeval_use_rpt(pim);
+
+		/* `pimreg` usage depends on being the RP (see `no_register_on_rp`). */
+		if (pim_southbound.no_register_on_rp)
+			pim_upstream_register_reevaluate(pim);
 	}
 }
 
@@ -1111,6 +1115,10 @@ void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 		pim_msdp_i_am_rp_changed(pim);
 #endif /* PIM_IPV == 4 */
 		pim_upstream_reeval_use_rpt(pim);
+
+		/* `pimreg` usage depends on being the RP (see `no_register_on_rp`). */
+		if (pim_southbound.no_register_on_rp)
+			pim_upstream_register_reevaluate(pim);
 	}
 }
 

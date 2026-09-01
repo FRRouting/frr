@@ -17,6 +17,8 @@
 #define PIM_MSG_REGISTER_LEN   (8)
 #define PIM_MSG_REGISTER_STOP_LEN (4)
 
+struct pim_instance;
+
 int pim_register_stop_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf, int buf_size);
 
 int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
@@ -30,6 +32,7 @@ void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
 			    pim_addr originator);
 void pim_register_join(struct pim_upstream *up);
+bool pim_register_skip_rp(struct pim_instance *pim, pim_addr group);
 void pim_null_register_send(struct pim_upstream *up);
 void pim_reg_del_on_couldreg_fail(struct interface *ifp);
 

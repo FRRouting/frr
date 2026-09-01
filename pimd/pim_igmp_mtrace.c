@@ -127,7 +127,8 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	if (PIM_DEBUG_MTRACE)
 		zlog_debug("fwd_info: upstream next hop=%pI4", &nh_addr);
 
-	if (up->channel_oil)
+	/* Without route counters the packet count is unknown. */
+	if (up->channel_oil && pim_southbound.mroute_update_counters)
 		total = up->channel_oil->cc.pktcnt;
 
 	/* return interface for forwarding mtrace packets */

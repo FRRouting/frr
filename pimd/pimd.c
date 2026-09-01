@@ -110,6 +110,8 @@ void pim_router_init(void)
 
 	router->debugs = 0;
 	router->master = frr_init();
+	/* The modules `frr_init` loaded may have replaced the southbound. */
+	pim_sb_check();
 	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
 	router->t_prune_limit = PIM_DEFAULT_T_PRUNE_LIMIT;
 	router->multipath = MULTIPATH_NUM;

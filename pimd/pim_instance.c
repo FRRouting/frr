@@ -27,6 +27,32 @@
 #include "pim_mlag.h"
 #include "pim_sock.h"
 
+struct pim_sb_cbs pim_southbound = {
+	.interface_max = MAXVIFS,
+	.pim_fd = -1,
+	.mroute_enable = pim_mroute_socket_enable,
+	.mroute_disable = pim_mroute_socket_disable,
+	.mroute_install = pim_mroute_add,
+	.mroute_uninstall = pim_mroute_del,
+	.interface_enable = pim_mroute_add_vif,
+	.interface_disable = pim_mroute_del_vif,
+	.interface_update_counters = pim_mroute_update_interface_counters_kernel,
+	.mroute_update_counters = pim_mroute_update_counters_kernel,
+};
+
+void pim_sb_check(void)
+{
+	assert(pim_southbound.interface_max > 0);
+	assert(pim_southbound.mroute_enable && pim_southbound.mroute_disable);
+	assert(pim_southbound.mroute_install && pim_southbound.mroute_uninstall);
+	assert(pim_southbound.interface_enable && pim_southbound.interface_disable);
+
+	/* Owning the sockets means sending and announcing the static joins. */
+	if (pim_southbound.own_sockets)
+		assert(pim_southbound.send && pim_southbound.interface_join &&
+		       pim_southbound.interface_leave);
+}
+
 DEFINE_MTYPE_STATIC(PIMD, PIM_MULTICAST_IF, "PIM multicast interface index");
 
 int pim_instance_mif_cmp(const struct pim_multicast_if *mifa, const struct pim_multicast_if *mifb)
@@ -101,7 +127,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 		close(pim->reg_sock);
 	pim->reg_sock = -1;
 
-	pim_mroute_socket_disable(pim);
+	pim_southbound.mroute_disable(pim);
 
 	pim_ssm_terminate(pim);
 
@@ -236,7 +262,7 @@ static int pim_vrf_enable(struct vrf *vrf)
 	if (vrf_bind(vrf->vrf_id, pim->reg_sock, NULL) < 0)
 		zlog_warn("Failed to bind register socket to VRF %s", vrf->name);
 
-	pim_mroute_socket_enable(pim);
+	pim_southbound.mroute_enable(pim);
 
 #if PIM_IPV == 4
 	pim_autorp_enable(pim);

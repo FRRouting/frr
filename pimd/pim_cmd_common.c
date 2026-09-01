@@ -928,6 +928,9 @@ void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up)
 	json_object_boolean_add(
 		json, "mlagNonDesignatedForwarder",
 		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF));
+	/* Only data planes without route counters report the traffic. */
+	if (!pim_southbound.mroute_update_counters)
+		json_object_boolean_add(json, "dataPlaneTraffic", pim_upstream_data_started(up));
 }
 
 static const char *
@@ -3715,37 +3718,15 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
-#if PIM_IPV == 4
-		struct sioc_vif_req vreq;
-#else
-		struct sioc_mif_req6 vreq;
-#endif
+		struct pim_interface_counters counters = {};
 
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
 			continue;
 
-		memset(&vreq, 0, sizeof(vreq));
-#if PIM_IPV == 4
-		vreq.vifi = pim_ifp->mroute_vif_index;
-		frr_with_privs (&pimd_privs) {
-			if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
-				zlog_warn("ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
-					  (unsigned long)SIOCGETVIFCNT, ifp->name,
-					  pim_ifp->mroute_vif_index, errno, safe_strerror(errno));
-			}
-		}
-#else
-		vreq.mifi = pim_ifp->mroute_vif_index;
-		if (ioctl(pim->mroute_socket, SIOCGETMIFCNT_IN6, &vreq)) {
-			zlog_warn(
-				"ioctl(SIOCGETMIFCNT_IN6=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
-				(unsigned long)SIOCGETMIFCNT_IN6, ifp->name,
-				pim_ifp->mroute_vif_index, errno,
-				safe_strerror(errno));
-		}
-#endif
+		if (pim_southbound.interface_update_counters)
+			pim_southbound.interface_update_counters(ifp, &counters);
 
 		if (json) {
 			json_row = json_object_new_object();
@@ -3757,23 +3738,16 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
 			json_object_int_add(json_row, "vif",
 					    pim_ifp->mroute_vif_index);
-			json_object_int_add(json_row, "pktsIn",
-					    (unsigned long)vreq.icount);
-			json_object_int_add(json_row, "pktsOut",
-					    (unsigned long)vreq.ocount);
-			json_object_int_add(json_row, "bytesIn",
-					    (unsigned long)vreq.ibytes);
-			json_object_int_add(json_row, "bytesOut",
-					    (unsigned long)vreq.obytes);
+			json_object_int_add(json_row, "pktsIn", counters.packets_in);
+			json_object_int_add(json_row, "pktsOut", counters.packets_out);
+			json_object_int_add(json_row, "bytesIn", counters.bytes_in);
+			json_object_int_add(json_row, "bytesOut", counters.bytes_out);
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
-			ttable_add_row(tt, "%s|%pPAs|%d|%d|%lu|%lu|%lu|%lu",
-				       ifp->name, &pim_ifp->primary_address,
-				       ifp->ifindex, pim_ifp->mroute_vif_index,
-				       (unsigned long)vreq.icount,
-				       (unsigned long)vreq.ocount,
-				       (unsigned long)vreq.ibytes,
-				       (unsigned long)vreq.obytes);
+			ttable_add_row(tt, "%s|%pPAs|%d|%d|%lu|%lu|%lu|%lu", ifp->name,
+				       &pim_ifp->primary_address, ifp->ifindex,
+				       pim_ifp->mroute_vif_index, counters.packets_in,
+				       counters.packets_out, counters.bytes_in, counters.bytes_out);
 		}
 	}
 	/* Dump the generated table. */
@@ -4674,6 +4648,10 @@ void clear_mroute(struct pim_instance *pim)
 	/* clean up all upstreams*/
 	while ((up = rb_pim_upstream_first(&pim->upstream_head)))
 		pim_upstream_del(pim, up, __func__);
+
+	/* Re insert GMP static entries */
+	FOR_ALL_INTERFACES (pim->vrf, ifp)
+		pim_sb_interface_join(ifp);
 }
 
 void clear_pim_statistics(struct pim_instance *pim)

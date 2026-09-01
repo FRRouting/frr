@@ -684,6 +684,9 @@ void pim_if_addr_add(struct connected *ifc)
 		pim_if_gm_join_replay(ifp);
 #endif
 
+	/* Replay static GMP join groups */
+	pim_sb_interface_join(ifp);
+
 	if (pim_ifp->pim_enable) {
 
 		if (!pim_addr_is_any(pim_ifp->primary_address)) {
@@ -1047,7 +1050,7 @@ static ifindex_t pim_iface_next_vif_index(struct interface *ifp)
 		break;
 	}
 
-	if (index >= MAXVIFS)
+	if (index >= pim_southbound.interface_max)
 		return -1;
 
 	return index;
@@ -1099,9 +1102,8 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	pim_ifp->mroute_vif_index = pim_iface_next_vif_index(ifp);
 
 	if (pim_ifp->mroute_vif_index == -1) {
-		zlog_warn(
-			"%s: Attempting to configure more than MAXVIFS=%d on pim enabled interface %s",
-			__func__, MAXVIFS, ifp->name);
+		zlog_warn("%s: Attempting to configure more than %d multicast interfaces on pim enabled interface %s",
+			  __func__, pim_southbound.interface_max, ifp->name);
 		return -3;
 	}
 
@@ -1112,8 +1114,8 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 		flags = VIFF_USE_IFINDEX;
 #endif
 
-	if (pim_mroute_add_vif(ifp, ifaddr, flags)) {
-		/* pim_mroute_add_vif reported error */
+	if (pim_southbound.interface_enable(ifp, ifaddr, flags)) {
+		/* pim_southbound.interface_enable reported error */
 		return -5;
 	}
 
@@ -1161,7 +1163,7 @@ int pim_if_del_vif(struct interface *ifp)
 
 	gm_ifp_teardown(ifp);
 
-	pim_mroute_del_vif(ifp);
+	pim_southbound.interface_disable(ifp);
 
 	pim_instance_mif_delete(pim_ifp->pim, pim_ifp->mroute_vif_index);
 
@@ -1443,7 +1445,24 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (ifp->ifindex == IFINDEX_INTERNAL) {
+	if (pim_southbound.own_sockets) {
+		/* Like `gm_join_sock`: the boundary applies to static joins too. */
+		if (pim_is_group_filtered(pim_ifp, &group_addr, &source_addr)) {
+			if (PIM_DEBUG_GM_EVENTS)
+				zlog_debug("%s: join failed for (S,G)=(%pPAs,%pPAs) due to multicast boundary filtering",
+					   __func__, &source_addr, &group_addr);
+			return NULL;
+		}
+
+		/*
+		 * The southbound owns the membership: see `pim_sb_interface_join`
+		 * below. Counted like the OS joins: when issued, so the deferred
+		 * ones count on replay.
+		 */
+		if (ifp->ifindex != IFINDEX_INTERNAL)
+			pim_ifp->igmp_ifstat_joins_sent++;
+		join_fd = -1;
+	} else if (ifp->ifindex == IFINDEX_INTERNAL) {
 		/* The interface has no ifindex yet -- startup config is
 		 * read before zebra delivers interfaces.  Issuing the join
 		 * now would not just fail: with gsr_interface == 0 the
@@ -1473,6 +1492,9 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 
 	listnode_add(pim_ifp->gm_join_list, ij);
 
+	/* Start static GMP join group (deferred ones start on replay). */
+	pim_sb_interface_join(ifp);
+
 	return ij;
 }
 
@@ -1497,6 +1519,18 @@ static void pim_if_gm_join_replay(struct interface *ifp)
 
 	if (ifp->ifindex == IFINDEX_INTERNAL)
 		return;
+
+	/*
+	 * The southbound owns the memberships: `pim_if_addr_add` (our only
+	 * caller) reissues them through `pim_sb_interface_join`. Count them
+	 * like `gm_join_sock` does.
+	 */
+	if (pim_southbound.own_sockets) {
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij))
+			if (!pim_is_group_filtered(pim_ifp, &ij->group_addr, &ij->source_addr))
+				pim_ifp->igmp_ifstat_joins_sent++;
+		return;
+	}
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
 		/* Open the replacement join before dropping any existing
@@ -1759,6 +1793,9 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 							     : GM_JOIN_STATIC);
 		return 0;
 	}
+
+	/* Leave the group immediately */
+	pim_sb_interface_leave(ifp, &ij->source_addr, &ij->group_addr);
 
 	if (ij->sock_fd >= 0 && close(ij->sock_fd)) {
 		zlog_warn(
@@ -2173,12 +2210,12 @@ static int pim_ifp_create(struct interface *ifp)
 
 	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
 		     sizeof(PIM_VXLAN_TERM_DEV_NAME))) {
-		if (multicast_interface_list_count(&pim->mif_list) < MAXVIFS)
+		if (multicast_interface_list_count(&pim->mif_list) <
+		    (size_t)pim_southbound.interface_max)
 			pim_vxlan_add_term_dev(pim, ifp);
 		else
-			zlog_warn(
-				"%s: Cannot enable pim on %s. MAXVIFS(%d) reached. Deleting and readding the vxlan termimation device after unconfiguring pim from other interfaces may succeed.",
-				__func__, ifp->name, MAXVIFS);
+			zlog_warn("%s: Cannot enable pim on %s. Multicast interface limit (%d) reached. Deleting and readding the vxlan termimation device after unconfiguring pim from other interfaces may succeed.",
+				  __func__, ifp->name, pim_southbound.interface_max);
 	}
 #endif
 

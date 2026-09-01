@@ -992,6 +992,9 @@ static void igmp_send_query_group(struct gm_group *group, char *query_buf,
 			pim_ifp->gm_specific_query_max_response_time_dsec,
 			s_flag, igmp);
 	}
+
+	/* Replay static GMP join groups */
+	pim_sb_interface_join(ifp);
 }
 
 /*
@@ -1521,8 +1524,8 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 }
 
 int igmp_v3_send_query(struct gm_group *group, int fd, const struct interface *ifp,
-		       char *query_buf, size_t query_buf_size, int num_sources,
-		       struct in_addr dst_addr, struct in_addr group_addr,
+		       struct in_addr src_addr, char *query_buf, size_t query_buf_size,
+		       int num_sources, struct in_addr dst_addr, struct in_addr group_addr,
 		       int query_max_response_time_dsec, uint8_t s_flag,
 		       uint8_t querier_robustness_variable, uint16_t querier_query_interval)
 {
@@ -1588,8 +1591,11 @@ int igmp_v3_send_query(struct gm_group *group, int fd, const struct interface *i
 	to.sin_addr = dst_addr;
 	tolen = sizeof(to);
 
-	sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
-		      (struct sockaddr *)&to, tolen);
+	if (pim_sb_owns_interface(ifp))
+		sent = pim_southbound.send(ifp, &src_addr, &dst_addr, PIM_IP_PROTO_IGMP, 1,
+					   query_buf, msg_size);
+	else
+		sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT, (struct sockaddr *)&to, tolen);
 	if (sent != (ssize_t)msg_size) {
 		if (sent < 0) {
 			zlog_warn("Send IGMPv3 query failed due to %pI4s on %s: group=%pI4s msg_size=%zd: errno=%d: %s",

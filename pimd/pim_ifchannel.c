@@ -31,6 +31,7 @@
 #include "pim_upstream.h"
 #include "pim_ssm.h"
 #include "pim_rp.h"
+#include "pim_register.h"
 #include "pim_mlag.h"
 #include "pim_dm.h"
 
@@ -1254,6 +1255,9 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 				pim_upstream_update_join_desired(pim, child);
 			}
 		}
+
+		if (pim_register_skip_rp(pim, up->sg.grp))
+			return 1;
 
 		if (pim->spt.switchover == PIM_SPT_INFINITY) {
 			if (pim->spt.plist) {

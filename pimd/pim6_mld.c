@@ -1185,6 +1185,9 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 
 	/* nothing more to do here, pass2 is no-op for leaves */
 	gm_subscriber_drop(&subscriber);
+
+	/* Replay static GMP join groups */
+	pim_sb_interface_join(gm_ifp->ifp);
 }
 
 /* for each general query received (or sent), a timer is started to expire
@@ -1240,6 +1243,9 @@ static void gm_t_expire(struct event *t)
 
 	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("next general expiry waiting for query"));
+
+	/* Replay static GMP join groups */
+	pim_sb_interface_join(gm_ifp->ifp);
 }
 
 /* NB: the receive handlers will also run when sending packets, since we
@@ -1623,6 +1629,12 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 		gm_ifp->querier = pkt_src->sin6_addr;
 	}
 
+	/*
+	 * Listeners answer every query (the S bit only suppresses the router
+	 * side): replay static GMP join groups.
+	 */
+	pim_sb_interface_join(gm_ifp->ifp);
+
 	if (len == sizeof(struct mld_v1_pkt)) {
 		timers.qrv = gm_ifp->cur_qrv;
 		timers.max_resp_ms = ntohs(hdr->max_resp_code);
@@ -1839,7 +1851,11 @@ static void gm_t_recv(struct event *t)
 	struct pim_interface *pim_ifp = ifp->info;
 	struct gm_if *gm_ifp = pim_ifp->mld;
 
-	if (!gm_ifp)
+	/*
+	 * When the data plane owns the interface the southbound hands us its
+	 * MLD packets: the OS socket would only deliver copies.
+	 */
+	if (!gm_ifp || pim_sb_owns_interface(ifp))
 		goto out_free;
 
 	if (!pktinfo || !hoplimit) {
@@ -2025,8 +2041,20 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	pktinfo->ipi6_ifindex = gm_ifp->ifp->ifindex;
 	pktinfo->ipi6_addr = gm_ifp->cur_ll_lowest;
 
-	frr_with_privs (&pimd_privs) {
-		ret = sendmsg(gm_ifp->pim->gm_socket, mh, 0);
+	if (pim_sb_owns_interface(gm_ifp->ifp)) {
+		uint8_t *buf = XMALLOC(MTYPE_GM_PACKET, expect_ret);
+
+		memcpy(buf, iov[1].iov_base, iov[1].iov_len);
+		if (iov_len == 3)
+			memcpy(buf + iov[1].iov_len, iov[2].iov_base, iov[2].iov_len);
+
+		ret = pim_southbound.send(gm_ifp->ifp, &gm_ifp->cur_ll_lowest, &dstaddr.sin6_addr,
+					  IPPROTO_ICMPV6, 1, buf, expect_ret);
+		XFREE(MTYPE_GM_PACKET, buf);
+	} else {
+		frr_with_privs (&pimd_privs) {
+			ret = sendmsg(gm_ifp->pim->gm_socket, mh, 0);
+		}
 	}
 
 	if (ret != expect_ret) {
@@ -2302,6 +2330,9 @@ static void gm_start(struct interface *ifp)
 	gm_grp_pends_init(gm_ifp->grp_pends);
 	gm_gsq_pends_init(gm_ifp->gsq_pends);
 
+	if (pim_sb_owns_interface(ifp))
+		return;
+
 	frr_with_privs (&pimd_privs) {
 		struct ipv6_mreq mreq;
 		int ret;
@@ -2378,19 +2409,20 @@ void gm_ifp_teardown(struct interface *ifp)
 	event_cancel(&gm_ifp->t_other_querier);
 	event_cancel(&gm_ifp->t_expire);
 
-	frr_with_privs (&pimd_privs) {
-		struct ipv6_mreq mreq;
-		int ret;
+	if (!pim_sb_owns_interface(ifp)) {
+		frr_with_privs (&pimd_privs) {
+			struct ipv6_mreq mreq;
+			int ret;
 
-		/* all-MLDv2 group */
-		mreq.ipv6mr_multiaddr = gm_all_routers;
-		mreq.ipv6mr_interface = ifp->ifindex;
-		ret = setsockopt(gm_ifp->pim->gm_socket, SOL_IPV6,
-				 IPV6_LEAVE_GROUP, &mreq, sizeof(mreq));
-		if (ret)
-			zlog_err(
-				"(%s) failed to leave ff02::16 (all-MLDv2): %m",
-				ifp->name);
+			/* all-MLDv2 group */
+			mreq.ipv6mr_multiaddr = gm_all_routers;
+			mreq.ipv6mr_interface = ifp->ifindex;
+			ret = setsockopt(gm_ifp->pim->gm_socket, SOL_IPV6, IPV6_LEAVE_GROUP, &mreq,
+					 sizeof(mreq));
+			if (ret)
+				zlog_err("(%s) failed to leave ff02::16 (all-MLDv2): %m",
+					 ifp->name);
+		}
 	}
 
 	gm_vrf_socket_decref(gm_ifp->pim);

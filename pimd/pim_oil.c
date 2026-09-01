@@ -141,7 +141,7 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	c_oil->group = sg->grp;
 	c_oil->source = sg->src;
 
-	c_oil->iif.index = MAXVIFS;
+	c_oil->iif.index = pim_southbound.interface_max;
 	c_oil->oil_ref_count = 1;
 	c_oil->installed = 0;
 	c_oil->up = pim_upstream_find(pim, sg);
@@ -456,7 +456,7 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	 */
 	if (!pim_addr_is_any(channel_oil->source) &&
 	    pim_is_grp_ssm(channel_oil->pim, channel_oil->group) &&
-	    channel_oil->iif.index < MAXVIFS &&
+	    channel_oil->iif.index < pim_southbound.interface_max &&
 	    pim_ifp->mroute_vif_index == channel_oil->iif.index &&
 	    !pim_mroute_allow_iif_in_oil(channel_oil, pim_ifp->mroute_vif_index)) {
 		if (PIM_DEBUG_GM_TRACE || PIM_DEBUG_MROUTE)
@@ -529,10 +529,10 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	else
 		UNSET_FLAG(coif->flags, PIM_OIF_FLAG_MUTE);
 
-	/* channel_oil->oil.mfcc_parent != MAXVIFS indicate this entry is not
-	 * valid to get installed in kernel.
+	/* channel_oil->iif.index == pim_southbound.interface_max indicates this
+	 * entry is not valid to get installed in the data plane.
 	 */
-	if (channel_oil->iif.index != MAXVIFS) {
+	if (channel_oil->iif.index != pim_southbound.interface_max) {
 		if (pim_upstream_mroute_add(channel_oil, __func__)) {
 			if (PIM_DEBUG_MROUTE) {
 				zlog_debug("%s %s: could not add output interface %s (vif_index=%d) for channel (S,G)=(%pPAs,%pPAs)",
@@ -601,9 +601,10 @@ struct channel_oif *channel_oil_oif_add(struct channel_oil *oil, ifindex_t index
 	 * The function `channel_oil_to_mfcc()` converts this output
 	 * interface list into a bitfield, so the index of the
 	 * interface has to respect some bounds to avoid corrupting
-	 * memory.
+	 * memory (it is only used by the kernel southbound, whose
+	 * `interface_max` is `MAXVIFS`).
 	 */
-	if (index < 0 || index >= MAXVIFS) {
+	if (index < 0 || index >= pim_southbound.interface_max) {
 		zlog_warn("%s: refusing out of range multicast interface index %d for channel (S,G)=(%pPAs,%pPAs)",
 			  __func__, index, &oil->source, &oil->group);
 		return NULL;

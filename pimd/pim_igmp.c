@@ -503,6 +503,12 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version, int max_resp
 	}
 
 	/*
+	 * Listeners answer every query (whoever the querier is): replay static
+	 * GMP join groups.
+	 */
+	pim_sb_interface_join(ifp);
+
+	/*
 	 * RFC 3376 defines some guidelines on operating in backwards
 	 * compatibility with older versions of IGMP but there are some gaps in
 	 * the logic:
@@ -951,6 +957,9 @@ static void pim_igmp_general_query(struct event *t)
 
 	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
 
+	/* Replay static GMP join groups */
+	pim_sb_interface_join(igmp->interface);
+
 	pim_igmp_general_query_on(igmp);
 }
 
@@ -969,7 +978,8 @@ static void sock_close(struct gm_sock *igmp)
 	}
 	event_cancel(&igmp->t_igmp_read);
 
-	if (close(igmp->fd)) {
+	/* Data plane owned interfaces have no OS socket. */
+	if (igmp->fd >= 0 && close(igmp->fd)) {
 		flog_err(
 			EC_LIB_SOCKET,
 			"Failure closing IGMP socket %pI4 fd=%d on interface %s: errno=%d: %s",
@@ -978,9 +988,12 @@ static void sock_close(struct gm_sock *igmp)
 	}
 
 	if (PIM_DEBUG_GM_TRACE_DETAIL) {
-		zlog_debug("Deleted IGMP socket %pI4 fd=%d on interface %s",
-			   &igmp->ifaddr, igmp->fd,
-			   igmp->interface->name);
+		if (igmp->fd < 0)
+			zlog_debug("Deleted IGMP socket %pI4 (southbound owned) on interface %s",
+				   &igmp->ifaddr, igmp->interface->name);
+		else
+			zlog_debug("Deleted IGMP socket %pI4 fd=%d on interface %s", &igmp->ifaddr,
+				   igmp->fd, igmp->interface->name);
 	}
 }
 
@@ -1181,9 +1194,12 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	pim_ifp = ifp->info;
 
 	if (PIM_DEBUG_GM_TRACE) {
-		zlog_debug(
-			"Creating IGMP socket fd=%d for address %pI4 on interface %s",
-			fd, &ifaddr, ifp->name);
+		if (fd < 0)
+			zlog_debug("Creating IGMP socket (southbound owned) for address %pI4 on interface %s",
+				   &ifaddr, ifp->name);
+		else
+			zlog_debug("Creating IGMP socket fd=%d for address %pI4 on interface %s",
+				   fd, &ifaddr, ifp->name);
 	}
 
 	igmp = XCALLOC(MTYPE_PIM_IGMP_SOCKET, sizeof(*igmp));
@@ -1264,6 +1280,13 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	struct gm_sock *igmp;
 	struct sockaddr_in sin;
 	int fd;
+
+	/* The southbound hands us the packets of the interfaces it owns. */
+	if (pim_sb_owns_interface(ifp)) {
+		igmp = igmp_sock_new(-1, ifaddr, ifp, mtrace_only);
+		listnode_add(igmp_sock_list, igmp);
+		return igmp;
+	}
 
 	fd = igmp_sock_open(ifaddr, ifp);
 	if (fd < 0) {
@@ -1517,14 +1540,15 @@ void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
 		igmp->igmp_stats.group_queries_sent++;
 
 	if (igmp_version == 3) {
-		sent = igmp_v3_send_query(group, igmp->fd, igmp->interface, query_buf,
-					  query_buf_size, num_sources, dst_addr, group_addr,
-					  query_max_response_time_dsec, s_flag,
+		sent = igmp_v3_send_query(group, igmp->fd, igmp->interface, igmp->ifaddr,
+					  query_buf, query_buf_size, num_sources, dst_addr,
+					  group_addr, query_max_response_time_dsec, s_flag,
 					  igmp->querier_robustness_variable,
 					  igmp->querier_query_interval);
 	} else if (igmp_version == 2) {
-		sent = igmp_v2_send_query(group, igmp->fd, igmp->interface, query_buf, dst_addr,
-					  group_addr, query_max_response_time_dsec);
+		sent = igmp_v2_send_query(group, igmp->fd, igmp->interface, igmp->ifaddr,
+					  query_buf, dst_addr, group_addr,
+					  query_max_response_time_dsec);
 	}
 
 	if (sent == 0)
@@ -1559,6 +1583,9 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 	}
 
 	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
+
+	/* Replay static GMP join groups */
+	pim_sb_interface_join(ifp);
 }
 
 void gm_group_delete(struct interface *ifp)

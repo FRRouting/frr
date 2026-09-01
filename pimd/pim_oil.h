@@ -9,6 +9,7 @@
 
 struct pim_interface;
 
+#include "pim_southbound.h"
 #include "pim_mroute.h"
 
 /*
@@ -61,13 +62,14 @@ struct pim_interface;
 /*
  * We need a pimreg vif id from the kernel.
  * Since ifindex == vif id for most cases and the number
- * of expected interfaces is at most 100, using MAXVIFS -1
- * is probably ok.
+ * of expected interfaces is at most 100, using the last
+ * southbound multicast interface index
+ * (`pim_southbound.interface_max - 1`) is probably ok.
  * Don't come running to me if this assumption is bad,
  * fix it.
  */
 #define PIM_OIF_PIM_REGISTER_VIF   0
-#define PIM_MAX_USABLE_VIFS        (MAXVIFS - 1)
+#define PIM_MAX_USABLE_VIFS	   (pim_southbound.interface_max - 1)
 
 struct channel_counts {
 	unsigned long long lastused;
