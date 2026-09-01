@@ -1704,10 +1704,7 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 #endif
 }
 
-/* This function must not be called directly 0
- * use pim_upstream_mroute_add or pim_static_mroute_add instead
- */
-static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
+int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 {
 	struct pim_instance *pim = c_oil->pim;
 #if PIM_IPV == 4
@@ -1905,11 +1902,6 @@ int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
 	return pim_upstream_mroute_update(c_oil, name);
 }
 
-int pim_static_mroute_add(struct channel_oil *c_oil, const char *name)
-{
-	return pim_mroute_add(c_oil, name);
-}
-
 void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 				int input_vif_index,
 				const char *name)
@@ -1921,7 +1913,7 @@ void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 	if (input_vif_index == MAXVIFS)
 		pim_mroute_del(c_oil, name);
 	else
-		pim_static_mroute_add(c_oil, name);
+		pim_mroute_add(c_oil, name);
 }
 
 int pim_mroute_del(struct channel_oil *c_oil, const char *name)

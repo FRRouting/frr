@@ -163,6 +163,8 @@ struct pim_rpf;
 void pim_mroute_socket_enable(struct pim_instance *pim);
 void pim_mroute_socket_disable(struct pim_instance *pim);
 
+extern int pim_mroute_add(struct channel_oil *c_oil, const char *name);
+
 int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 		       unsigned char flags);
 void pim_mroute_del_vif(struct interface *ifp);
@@ -170,7 +172,6 @@ void pim_mroute_del_vif(struct interface *ifp);
 int pim_upstream_mroute_update(struct channel_oil *c_oil, const char *name);
 int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name);
 int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name);
-int pim_static_mroute_add(struct channel_oil *c_oil, const char *name);
 void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 				int input_vif_index,
 				const char *name);
