@@ -164,17 +164,28 @@ Stage 2 - Staging
          TAG=X.Y.Z
          git fetch --all
          git checkout frr-$TAG
+<<<<<<< HEAD
          docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG --push .
+=======
+         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG --push .
+         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/containerlab/Dockerfile --build-arg TAG=$TAG -t quay.io/frrouting/frr-containerlab:$TAG --push .
+>>>>>>> 3484658 (docker: add containerlab image with SSH support)
          git tag docker/$TAG
          git push origin docker/$TAG
 
-      This will build a multi-arch image and upload it to Quay, as well as
-      create a git tag corresponding to the commit that the image was built
+      This will build multi-arch images and upload them to Quay, as well as
+      create a git tag corresponding to the commit that the images were built
       from and upload that to Github. It's important that the git tag point to
-      the exact codebase that was used to build the docker image, so if any
+      the exact codebase that was used to build the docker images, so if any
       changes need to be made on top of the ``frr-$TAG`` release tag, make
       sure these changes are committed and pointed at by the ``docker/X.Y.Z``
       tag.
+
+      The second image is the same release with an SSH server added, for use
+      with `containerlab <https://containerlab.dev>`_. It is built ``FROM``
+      ``quay.io/frrouting/frr:$TAG``, so it must be built after the first
+      image has been pushed, and the ``TAG`` build argument must match the
+      release being built. See ``docker/containerlab/README.md``.
 
 
 Stage 3 - Publish
