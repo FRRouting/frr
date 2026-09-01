@@ -199,6 +199,8 @@ int isis_instance_flex_algo_affinity_include_all_create(struct nb_cb_create_args
 int isis_instance_flex_algo_affinity_include_all_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_flex_algo_affinity_exclude_any_create(struct nb_cb_create_args *args);
 int isis_instance_flex_algo_affinity_exclude_any_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_srlg_exclude_any_create(struct nb_cb_create_args *args);
+int isis_instance_flex_algo_srlg_exclude_any_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args);
 int isis_instance_flex_algo_prefix_metric_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_flex_algo_dplane_sr_mpls_create(struct nb_cb_create_args *args);
@@ -282,6 +284,8 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_1_ti_lfa_srlg_protection_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
 	struct nb_cb_create_args *args);
@@ -297,6 +301,10 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_isis_fast_reroute_level_2_ti_lfa_srlg_protection_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_srlg_create(struct nb_cb_create_args *args);
+int lib_interface_isis_srlg_destroy(struct nb_cb_destroy_args *args);
 struct yang_data *lib_interface_state_isis_get_elem(struct nb_cb_get_elem_args *args);
 const void *
 lib_interface_state_isis_adjacencies_adjacency_get_next(struct nb_cb_get_next_args *args);
@@ -510,8 +518,11 @@ void cli_show_isis_mpls_if_ldp_sync(struct vty *vty, const struct lyd_node *dnod
 				    bool show_defaults);
 void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty, const struct lyd_node *dnode,
 					     bool show_defaults);
+void cli_show_isis_srlg(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_isis_flex_algo_end(struct vty *vty, const struct lyd_node *dnode);
+void cli_show_isis_flex_algo_srlg_exclude_any(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
 
 /* Notifications. */
 void isis_notif_db_overload(const struct isis_area *area, bool overload);

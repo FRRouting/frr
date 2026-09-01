@@ -2963,15 +2963,20 @@ void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode, bool sh
 	l1_link_fallback = yang_dnode_get_bool(dnode, "level-1/ti-lfa/link-fallback");
 	l2_link_fallback = yang_dnode_get_bool(dnode, "level-2/ti-lfa/link-fallback");
 
+	bool l1_srlg_protection = yang_dnode_get_bool(dnode, "level-1/ti-lfa/srlg-protection");
+	bool l2_srlg_protection = yang_dnode_get_bool(dnode, "level-2/ti-lfa/srlg-protection");
 
 	if (l1_enabled || l2_enabled) {
 		if (l1_enabled == l2_enabled && l1_node_protection == l2_node_protection &&
-		    l1_link_fallback == l2_link_fallback) {
+		    l1_link_fallback == l2_link_fallback &&
+		    l1_srlg_protection == l2_srlg_protection) {
 			vty_out(vty, " isis fast-reroute ti-lfa");
 			if (l1_node_protection)
 				vty_out(vty, " node-protection");
 			if (l1_link_fallback)
 				vty_out(vty, " link-fallback");
+			if (l1_srlg_protection)
+				vty_out(vty, " srlg-protection");
 			vty_out(vty, "\n");
 		} else {
 			if (l1_enabled) {
@@ -2980,6 +2985,8 @@ void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode, bool sh
 					vty_out(vty, " node-protection");
 				if (l1_link_fallback)
 					vty_out(vty, " link-fallback");
+				if (l1_srlg_protection)
+					vty_out(vty, " srlg-protection");
 				vty_out(vty, "\n");
 			}
 			if (l2_enabled) {
@@ -2988,6 +2995,8 @@ void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode, bool sh
 					vty_out(vty, " node-protection");
 				if (l2_link_fallback)
 					vty_out(vty, " link-fallback");
+				if (l2_srlg_protection)
+					vty_out(vty, " srlg-protection");
 				vty_out(vty, "\n");
 			}
 		}
@@ -3174,7 +3183,7 @@ void cli_show_frr_remote_lfa_max_metric(struct vty *vty, const struct lyd_node *
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-{1,2}/ti-lfa/enable
  */
 DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
-      "[no] isis fast-reroute ti-lfa [level-1|level-2]$level [node-protection$node_protection [link-fallback$link_fallback]]",
+      "[no] isis fast-reroute ti-lfa [level-1|level-2]$level [node-protection$node_protection [link-fallback$link_fallback]] [srlg-protection$srlg_protection]",
       NO_STR
       "IS-IS routing protocol\n"
       "Interface IP Fast-reroute configuration\n"
@@ -3182,7 +3191,8 @@ DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
       "Enable TI-LFA computation for Level 1 only\n"
       "Enable TI-LFA computation for Level 2 only\n"
       "Protect against node failures\n"
-      "Enable link-protection fallback\n")
+      "Enable link-protection fallback\n"
+      "Protect against SRLG failures\n")
 {
 	if (!level || strmatch(level, "level-1")) {
 		if (no) {
@@ -3195,6 +3205,9 @@ DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/link-fallback",
 					      NB_OP_MODIFY, "false");
+			nb_cli_enqueue_change(vty,
+					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/srlg-protection",
+					      NB_OP_MODIFY, "false");
 		} else {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable",
@@ -3205,6 +3218,9 @@ DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/link-fallback",
 					      NB_OP_MODIFY, link_fallback ? "true" : "false");
+			nb_cli_enqueue_change(vty,
+					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/srlg-protection",
+					      NB_OP_MODIFY, srlg_protection ? "true" : "false");
 		}
 	}
 	if (!level || strmatch(level, "level-2")) {
@@ -3218,6 +3234,9 @@ DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/link-fallback",
 					      NB_OP_MODIFY, "false");
+			nb_cli_enqueue_change(vty,
+					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/srlg-protection",
+					      NB_OP_MODIFY, "false");
 		} else {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/enable",
@@ -3228,6 +3247,9 @@ DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/link-fallback",
 					      NB_OP_MODIFY, link_fallback ? "true" : "false");
+			nb_cli_enqueue_change(vty,
+					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/srlg-protection",
+					      NB_OP_MODIFY, srlg_protection ? "true" : "false");
 		}
 	}
 
@@ -3394,6 +3416,37 @@ void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty, const struct lyd_n
 	vty_out(vty, " isis mpls ldp-sync holddown %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/srlg
+ */
+DEFPY_YANG(isis_srlg, isis_srlg_cmd,
+	   "[no] isis srlg (0-16777215)$srlg",
+	   NO_STR
+	   "IS-IS routing protocol\n"
+	   "Shared Risk Link Group\n"
+	   "SRLG value\n")
+{
+	const struct lyd_node *dnode;
+	char xpath[XPATH_MAXLEN];
+
+	dnode = yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	snprintf(xpath, sizeof(xpath), "./frr-isisd:isis/srlg[.='%s']", srlg_str);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srlg(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " isis srlg %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 DEFPY_YANG_NOSH(flex_algo, flex_algo_cmd, "flex-algo (128-255)$algorithm",
 		"Flexible Algorithm\n"
 		"Flexible Algorithm Number\n")
@@ -3478,6 +3531,26 @@ DEFPY_YANG(affinity_exclude_any, affinity_exclude_any_cmd,
 	const char *xpath = "./affinity-exclude-anies/affinity-exclude-any";
 
 	return ag_change(vty, argc, argv, xpath, no, no ? 3 : 2);
+}
+
+DEFPY_YANG(srlg_exclude_any, srlg_exclude_any_cmd,
+	   "[no] srlg exclude-any (0-16777215)$srlg",
+	   NO_STR
+	   "SRLG configuration\n"
+	   "Exclude links with SRLG\n"
+	   "SRLG value\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./srlg-exclude-anies/srlg-exclude-any[.='%s']", srlg_str);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_flex_algo_srlg_exclude_any(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	vty_out(vty, "  srlg exclude-any %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 DEFPY_YANG(prefix_metric, prefix_metric_cmd, "[no] prefix-metric",
@@ -3777,6 +3850,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_cmd);
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_holddown_cmd);
 	install_element(INTERFACE_NODE, &no_isis_mpls_if_ldp_sync_holddown_cmd);
+	install_element(INTERFACE_NODE, &isis_srlg_cmd);
 
 	install_element(ISIS_NODE, &flex_algo_cmd);
 	install_element(ISIS_NODE, &no_flex_algo_cmd);
@@ -3784,6 +3858,7 @@ void isis_cli_init(void)
 	install_element(ISIS_FLEX_ALGO_NODE, &affinity_include_any_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &affinity_include_all_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &affinity_exclude_any_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &srlg_exclude_any_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &dplane_sr_mpls_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &dplane_srv6_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &dplane_ip_cmd);
