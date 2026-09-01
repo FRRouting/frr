@@ -642,35 +642,96 @@ def test_zebra_ipv4_routingtable_with_ldp():
         expected = {"2.2.2.2/32": [{"nexthops": [{"labels": [3]}]}]}
         return topotest.json_cmp(output, expected)
 
-    # Make sure no label in route
-    test_func = partial(show_route_with_label)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
-    assert result, "r1: wrongly with label in route!\n{}".format(result)
+    def show_route_without_label():
+        """Return None once 2.2.2.2/32 is present without MPLS labels."""
+        output = json.loads(router["r1"].vtysh_cmd("show ip route json"))
+        routes = output.get("2.2.2.2/32")
+        if not routes:
+            return "route 2.2.2.2/32 missing"
+        for route in routes:
+            for nh in route.get("nexthops", []):
+                if "labels" in nh:
+                    return "labels still present: {}".format(nh["labels"])
+        expected = {"2.2.2.2/32": [{"nexthops": [{"ip": "10.0.1.2"}]}]}
+        return topotest.json_cmp(output, expected)
 
-    # r1: with both target and link config, r2: with only targeted config
-    router["r2"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n no int r2-eth0 \n end")
-    router["r2"].vtysh_cmd(
-        "config \n mpls ldp \n addr ipv4 \n neighbor 1.1.1.1 targeted \n end"
-    )
-    router["r1"].vtysh_cmd(
-        "config \n mpls ldp \n addr ipv4 \n neighbor 2.2.2.2 targeted \n end"
-    )
-    router["r1"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n int r1-eth0 \n end")
+    def restore_ldp_link_config():
+        # Restore link-hello LDP on r1/r2 and drop any targeted neighbors
+        # added by this test so later checks (e.g. show mpls table) see the
+        # original topology state even if an assert failed mid-test.
+        router["r1"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               int r1-eth0
+             end
+            """
+        )
+        router["r2"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               no neighbor 1.1.1.1 targeted
+               int r2-eth0
+             end
+            """
+        )
+        router["r1"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               no neighbor 2.2.2.2 targeted
+             end
+            """
+        )
 
-    # Make sure with label in route
-    test_func = partial(show_route_with_label)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
-    assert result is None, "r1: wrongly without label with route!"
+    try:
+        router["r1"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               no int r1-eth0
+             end
+            """
+        )
 
-    # Restore the configurations of r1 and r2 to their original state and
-    # continue with the subsequent tests.
-    router["r2"].vtysh_cmd(
-        "config \n mpls ldp \n addr ipv4 \n no neighbor 1.1.1.1 targeted \n end"
-    )
-    router["r2"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n int r2-eth0 \n end")
-    router["r1"].vtysh_cmd(
-        "config \n mpls ldp \n addr ipv4 \n no neighbor 2.2.2.2 targeted \n end"
-    )
+        # Wait until labels are withdrawn (do not treat "still labeled" as success).
+        test_func = partial(show_route_without_label)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+        assert result is None, "r1: wrongly with label in route!\n{}".format(result)
+
+        # r1: with both target and link config, r2: with only targeted config
+        router["r2"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               no int r2-eth0
+               neighbor 1.1.1.1 targeted
+             end
+            """
+        )
+        router["r1"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               neighbor 2.2.2.2 targeted
+               int r1-eth0
+             end
+            """
+        )
+
+        # Make sure with label in route
+        test_func = partial(show_route_with_label)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+        assert result is None, "r1: wrongly without label with route!"
+    finally:
+        restore_ldp_link_config()
 
     # Make sure with label in route with their original state
     test_func = partial(show_route_with_label)
