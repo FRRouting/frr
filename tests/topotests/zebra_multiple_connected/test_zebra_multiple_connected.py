@@ -547,7 +547,6 @@ def test_zebra_ipv6_dad_kernel_route():
             return "ipv6 connected route not found"
         return None
 
-    step("IPv6 with DAD enabled: check for duplicated kernel route")
     _, result = topotest.run_and_expect(
         _check_duplicated_kernel_route, None, count=20, wait=1
     )
