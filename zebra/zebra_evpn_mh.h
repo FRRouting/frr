@@ -407,24 +407,20 @@ extern void zebra_evpn_es_l3vni_base_evpn_reeval(void);
 extern void zebra_evpn_es_l3vni_oper_down(struct zebra_l3vni *zl3vni);
 extern enum zebra_evpn_bd_evpn_mode
 zebra_evpn_bd_evpn_mode(const struct zebra_evpn_access_bd *acc_bd);
-extern bool zebra_evpn_l3vni_neigh_sync_bd(struct interface *ifp,
-					   struct interface *br_if, vni_t *vni,
-					   struct ipaddr *vtep_ip,
-					   vlanid_t *vid);
+extern bool zebra_evpn_l3vni_neigh_sync_bd(struct interface *ifp, struct interface *br_if,
+					   vni_t *vni, struct ipaddr *vtep_ip, vlanid_t *vid);
 extern bool zebra_evpn_l3vni_from_svi(struct interface *ifp, vni_t *vni);
-extern struct zebra_evpn_es *
-zebra_evpn_l3vni_neigh_es(const struct ethaddr *macaddr,
-			  struct interface *svi_ifp);
-extern void zebra_evpn_l3vni_local_mac_update(struct interface *acc_ifp,
-					      struct interface *br_if,
-					      const struct ethaddr *macaddr,
-					      vlanid_t vid, bool add);
-extern void
-zebra_evpn_l3vni_mac_es_flush(struct zebra_evpn_access_bd *acc_bd);
+extern struct zebra_evpn_es *zebra_evpn_l3vni_neigh_es(const struct ethaddr *macaddr,
+						       struct interface *svi_ifp);
+extern struct interface *zebra_evpn_l3vni_neigh_acc_ifp(const struct ethaddr *macaddr,
+							struct interface *svi_ifp);
+extern void zebra_evpn_l3vni_local_mac_update(struct interface *acc_ifp, struct interface *br_if,
+					      const struct ethaddr *macaddr, vlanid_t vid,
+					      bool add);
+extern void zebra_evpn_l3vni_mac_es_flush(struct zebra_evpn_access_bd *acc_bd);
 extern void zebra_evpn_l3vni_mac_es_flush_all(void);
-extern void
-zebra_evpn_l3vni_mac_es_port_flush(struct zebra_evpn_access_bd *acc_bd,
-				   ifindex_t acc_ifindex);
+extern void zebra_evpn_l3vni_mac_es_port_flush(struct zebra_evpn_access_bd *acc_bd,
+					       ifindex_t acc_ifindex);
 extern void zebra_evpn_l3vni_readvertise_acc_port(struct interface *acc_ifp);
 extern void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 				  struct zebra_if *vxlan_zif);
