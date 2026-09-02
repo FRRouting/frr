@@ -12,8 +12,9 @@
 #
 #
 # The base-convergence tests below pass against the current code; the pure-L3
-# RT-2 acceptance tests are marked xfail and flip to pass as the feature is
-# implemented.
+# RT-2 acceptance tests are enabled as the feature lands (origination, ES-peer
+# neighbor sync, and the non-peer type-5-route / no-sync-neighbor checks now
+# pass).
 #
 
 """
@@ -41,10 +42,11 @@ Ethernet Tag (ETAG) used to select the destination BD/SVI on receive:
   * VLAN 4000 : the L3VNI broadcast domain. SVI vlan4000 (dummy, no host IP) in
                 vrf1; realized as a per-VNI VXLAN device vni4000 (id 4000)
                 enslaved to the VLAN-aware bridge.
-  * VLAN 100  : the host access broadcast domain. SVI vlan100 holds the anycast
-                gateway in vrf1 and is NOT mapped to any VNI -> NO L2VNI. A
-                second access BD would simply be another VLAN (101, ...) sharing
-                the same L3VNI (N:1).
+  * VLAN 100  : host1's access broadcast domain on the MH pair (leaf1/leaf2).
+                SVI vlan100 holds the anycast gateway in vrf1 and is NOT mapped
+                to any VNI -> NO L2VNI. leaf3 uses its own access BD VLAN 200
+                (SVI vlan200, a different subnet) for the single-homed host2, so
+                host2 -> host1 is inter-subnet routed over the L3VNI.
 
 VLAN 100 having an SVI but no VNI mapping is the "acc_bd->zevpn == NULL"
 precondition the feature under test targets. Because the bridge is VLAN-aware,
@@ -99,9 +101,15 @@ L3VNI = 4000
 HOST_VID = 100  # host access BD VLAN -- has an SVI but is NOT mapped to any L2VNI
 ANYCAST_GW = "45.0.0.1"
 
+# leaf3 / host2 live in a DIFFERENT subnet from host1, so host2 -> host1 is
+# inter-subnet routed: host2 resolves its own gateway, leaf3 routes over the
+# L3VNI fabric, and the last hop to host1 uses the ES-peer's synced neighbor.
+LEAF3_VID = 200
+LEAF3_GW = "46.0.0.1"
+
 HOST_IP = {
     "host1": "45.0.0.101",
-    "host2": "45.0.0.102",
+    "host2": "46.0.0.102",
 }
 
 # run_and_expect polling bounds: max retries and per-retry wait (seconds).
@@ -155,11 +163,12 @@ def build_topo(tgen):
 #####################################################
 
 
-def config_leaf_base(node, lo_ip):
+def config_leaf_base(node, lo_ip, host_vid=HOST_VID, gw_ip=ANYCAST_GW):
     """VLAN-aware bridge (single VLAN-filtering bridge), tenant VRF, and a
-    per-VNI VXLAN device for the L3VNI only. VLAN 100 is the host access BD (SVI
-    vlan100, no VXLAN device -> no L2VNI); VLAN 4000 is the L3VNI (SVI vlan4000,
-    carried by the per-VNI device vni4000). Both SVIs are in the tenant VRF.
+    per-VNI VXLAN device for the L3VNI only. host_vid is the host access BD (its
+    SVI has no VXLAN device -> no L2VNI): VLAN 100 for host1 on the MH pair,
+    VLAN 200 for host2 on leaf3. VLAN 4000 is the L3VNI (SVI vlan4000, carried
+    by the per-VNI device vni4000). Both SVIs are in the tenant VRF.
     """
     # Loopback (VTEP source). Applied in the kernel so the VXLAN 'local' address
     # exists before the device is created and so redistribute-connected has it.
@@ -190,7 +199,7 @@ def config_leaf_base(node, lo_ip):
     node.run("ip link set dev vni%d up" % L3VNI)
 
     # Bridge self VLAN membership.
-    node.run("/sbin/bridge vlan add vid %d dev br_default self" % HOST_VID)
+    node.run("/sbin/bridge vlan add vid %d dev br_default self" % host_vid)
     node.run("/sbin/bridge vlan add vid %d dev br_default self" % L3VNI)
 
     # L3VNI SVI in the VRF.
@@ -198,21 +207,21 @@ def config_leaf_base(node, lo_ip):
     node.run("ip link set dev vlan%d master %s" % (L3VNI, VRF))
     node.run("ip link set dev vlan%d up" % L3VNI)
 
-    # Host access-BD SVI (VLAN 100) in the VRF, with the anycast gateway. This
-    # VLAN has an SVI but NO VNI mapping -- it is the "acc_bd->zevpn == NULL"
-    # (no-L2VNI) case the feature targets. Its vid (100) is the RT-2 ETAG source.
+    # Host access-BD SVI in the VRF, with the anycast gateway. This VLAN has an
+    # SVI but NO VNI mapping -- it is the "acc_bd->zevpn == NULL" (no-L2VNI)
+    # case the feature targets. Its vid is the RT-2 ETAG source.
     node.run(
-        "ip link add link br_default name vlan%d type vlan id %d" % (HOST_VID, HOST_VID)
+        "ip link add link br_default name vlan%d type vlan id %d" % (host_vid, host_vid)
     )
-    node.run("ip link set dev vlan%d master %s" % (HOST_VID, VRF))
-    node.run("ip link set dev vlan%d up" % HOST_VID)
-    node.run("ip addr add %s/24 dev vlan%d" % (ANYCAST_GW, HOST_VID))
-    node.run("/sbin/sysctl -w net.ipv4.conf.vlan%d.proxy_arp=1" % HOST_VID)
+    node.run("ip link set dev vlan%d master %s" % (host_vid, VRF))
+    node.run("ip link set dev vlan%d up" % host_vid)
+    node.run("ip addr add %s/24 dev vlan%d" % (gw_ip, host_vid))
+    node.run("/sbin/sysctl -w net.ipv4.conf.vlan%d.proxy_arp=1" % host_vid)
 
 
 def config_esi_bond(node, member):
-    """Leaf-side ESI bond (es-id 1) facing the dual-homed host, added to the
-    VLAN-aware bridge as an access port on VLAN 100."""
+    """Leaf-side ESI bond (es-id 1) facing the dual-homed host1, added to the
+    VLAN-aware bridge as an access port on host1's VLAN 100."""
     node.run("ip link add dev hostbond1 type bond mode 802.3ad")
     node.run("ip link set dev hostbond1 type bond lacp_rate 1")
     node.run("ip link set dev hostbond1 type bond miimon 100")
@@ -228,12 +237,12 @@ def config_esi_bond(node, member):
     node.run("/sbin/bridge vlan add vid %d dev hostbond1 pvid untagged" % HOST_VID)
 
 
-def config_access_port(node, member):
+def config_access_port(node, member, vid=HOST_VID):
     """Leaf-side single-homed access port (no ESI), added to the VLAN-aware
-    bridge as an access port on VLAN 100."""
+    bridge as an access port on its VLAN."""
     node.run("ip link set dev %s master br_default" % member)
     node.run("/sbin/bridge vlan del vid 1 dev %s" % member)
-    node.run("/sbin/bridge vlan add vid %d dev %s pvid untagged" % (HOST_VID, member))
+    node.run("/sbin/bridge vlan add vid %d dev %s pvid untagged" % (vid, member))
 
 
 def config_host_bond(node, members, ip):
@@ -248,11 +257,14 @@ def config_host_bond(node, members, ip):
         node.run("ip link set dev %s up" % member)
     node.run("ip link set dev bond0 up")
     node.run("ip addr add %s/24 dev bond0" % ip)
+    node.run("ip route add default via %s" % ANYCAST_GW)
 
 
-def config_host_single(node, member, ip):
+def config_host_single(node, member, ip, gw):
     """Host-side single uplink (single-homed host)."""
+    node.run("ip link set dev %s up" % member)
     node.run("ip addr add %s/24 dev %s" % (ip, member))
+    node.run("ip route add default via %s" % gw)
 
 
 def config_dataplane(tgen):
@@ -262,18 +274,21 @@ def config_dataplane(tgen):
 
     config_leaf_base(leaf1, LEAF_LO["leaf1"])
     config_leaf_base(leaf2, LEAF_LO["leaf2"])
-    config_leaf_base(leaf3, LEAF_LO["leaf3"])
+    config_leaf_base(leaf3, LEAF_LO["leaf3"], LEAF3_VID, LEAF3_GW)
 
     # ESI bonds on the multihoming pair; single access port on leaf3.
     config_esi_bond(leaf1, "leaf1-eth2")
     config_esi_bond(leaf2, "leaf2-eth2")
-    config_access_port(leaf3, "leaf3-eth2")
+    config_access_port(leaf3, "leaf3-eth2", LEAF3_VID)
 
-    # Hosts.
+
+def config_hosts(tgen):
+    # Host addressing is applied after the routers start so it is not lost when
+    # the framework finishes bringing the host veths up.
     config_host_bond(
         tgen.gears["host1"], ["host1-eth0", "host1-eth1"], HOST_IP["host1"]
     )
-    config_host_single(tgen.gears["host2"], "host2-eth0", HOST_IP["host2"])
+    config_host_single(tgen.gears["host2"], "host2-eth0", HOST_IP["host2"], LEAF3_GW)
 
 
 #####################################################
@@ -302,6 +317,10 @@ def setup_module(module):
         router.load_frr_config(os.path.join(CWD, "%s/frr.conf" % rname))
 
     tgen.start_router()
+
+    # Host IPs are applied last so the framework's veth bring-up does not wipe
+    # a single-homed host's address.
+    config_hosts(tgen)
 
 
 def teardown_module(_mod):
@@ -469,9 +488,9 @@ def test_evpn_mh_local_es():
 ##
 ##   Pure-L3 RT-2 acceptance tests
 ##
-##   These encode the section-5 acceptance targets. Tests for features that
-##   are not yet implemented carry an xfail/skip marker; the markers are
-##   removed as each phase lands.
+##   These encode the section-5 acceptance targets. Tests for features that are
+##   not yet implemented carry an xfail/skip marker; the markers are removed as
+##   each phase lands (the remaining proxy-ARP/ND responder work is pending).
 ##
 #####################################################
 
@@ -853,22 +872,129 @@ def test_pure_l3_sync_neighbor_install():
     assert result is None, result
 
 
-@pytest.mark.xfail(
-    reason="pure-L3 proxy-ARP responder not yet implemented",
-    strict=False,
-)
-def test_pure_l3_proxy_arp_responder():
+@pytest.mark.parametrize("proxy_arp", [1, 0], ids=["proxy_arp_on", "proxy_arp_off"])
+def test_pure_l3_sync_neigh_independent_of_proxy_arp(proxy_arp):
     """
-    On the peer leaf (no local copy of host1), an ARP for host1 is answered
-    locally from the synced neighbor -- the no-L2VNI fabric has no flood path.
+    The synced-neighbor install is orthogonal to the SVI's ARP responder mode.
+    With proxy_arp=1 the peer SVI answers ARP for the host subnet with its own
+    MAC; with proxy_arp=0 it answers nothing and only routes toward the host.
+    The responder mode is set first, then leaf2's RX knob is bounced so the sync
+    neighbor is (re)installed under that mode -- proving install-time, not just
+    survival, independence. leaf2 must install host1's sync neighbor
+    (NTF_EXT_LEARNED) and pin its MAC to the local ES bond either way.
+    Kernel-state assertions only.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    dut = tgen.gears["leaf2"]
+    svi = "vlan%d" % HOST_VID
+
+    try:
+        # Set the responder mode BEFORE the sync neighbor is (re)installed.
+        dut.run("/sbin/sysctl -w net.ipv4.conf.%s.proxy_arp=%d" % (svi, proxy_arp))
+        got = dut.run("/sbin/sysctl -n net.ipv4.conf.%s.proxy_arp" % svi).strip()
+        assert got == str(proxy_arp), "proxy_arp not %d on %s: %s" % (
+            proxy_arp,
+            svi,
+            got,
+        )
+
+        # Bounce leaf2's RX knob so the sync neighbor is flushed and reinstalled
+        # under the responder mode set above (deterministic control-plane replay).
+        dut.vtysh_cmd(
+            "configure terminal\n"
+            "router bgp 65012\n"
+            " address-family l2vpn evpn\n"
+            "  no advertise-l3vni-neigh\n"
+        )
+        dut.vtysh_cmd(
+            "configure terminal\n"
+            "router bgp 65012\n"
+            " address-family l2vpn evpn\n"
+            "  advertise-l3vni-neigh\n"
+        )
+
+        def _has_sync_neigh(dut):
+            out = dut.run("ip neigh show dev %s" % svi)
+            if HOST_IP["host1"] in out and "extern_learn" in out:
+                return None
+            return "no extern_learn neighbor for %s: %s" % (HOST_IP["host1"], out)
+
+        _, result = topotest.run_and_expect(
+            partial(_has_sync_neigh, dut), None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, result
+
+        host1_mac = None
+        for line in dut.run("ip neigh show dev %s" % svi).splitlines():
+            if HOST_IP["host1"] in line and "lladdr" in line:
+                host1_mac = line.split("lladdr")[1].split()[0]
+                break
+        assert host1_mac is not None, "could not find host1 MAC on %s" % svi
+
+        def _has_sync_mac(dut):
+            out = dut.run("bridge fdb show dev hostbond1")
+            if host1_mac.lower() in out.lower():
+                return None
+            return "host1 MAC %s not pinned to hostbond1: %s" % (host1_mac, out)
+
+        _, result = topotest.run_and_expect(
+            partial(_has_sync_mac, dut), None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, result
+    finally:
+        # Restore the base-config responder mode for later tests.
+        dut.run("/sbin/sysctl -w net.ipv4.conf.%s.proxy_arp=1" % svi)
+
+
+def test_pure_l3_non_peer_leaf_type5_route_no_sync_neigh():
+    """
+    leaf3 is a non-ES-peer of host1: it installs host1's subnet as a type-5
+    route (so it can route toward host1 over the L3VNI) but never receives a
+    re-originated pure-L3 synced neighbor for host1. Control-plane assertions
+    only; the topotest dataplane forwarding path is not exercised.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    # host2 (on leaf3) resolving host1 must succeed via the proxy responder.
-    out = _ping(tgen.gears["host2"], HOST_IP["host1"], count=3)
-    assert " 0% packet loss" in out, "host2 could not reach host1: %s" % out
+    # Make host1 known so it is synced on the ES peers (leaf1/leaf2).
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    dut = tgen.gears["leaf3"]
+    host1_net = "45.0.0.0/24"
+
+    def _has_type5_route(dut):
+        out = dut.vtysh_cmd("show ip route vrf %s %s json" % (VRF, host1_net))
+        try:
+            routes = json.loads(out)
+        except ValueError:
+            return "invalid json: %s" % out
+        entry = routes.get(host1_net)
+        if not entry or entry[0].get("protocol") != "bgp":
+            return "leaf3 has no type-5 route to %s: %s" % (host1_net, out)
+        return None
+
+    test_fn = partial(_has_type5_route, dut)
+    _, result = topotest.run_and_expect(test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, result
+
+    # leaf3 (non-peer) must never install a synced (extern_learn) neighbor for
+    # host1; poll a short window to also rule out a delayed install.
+    def _no_sync_neigh(dut):
+        neigh = dut.run("ip neigh show")
+        for line in neigh.splitlines():
+            if HOST_IP["host1"] in line and "extern_learn" in line:
+                return "leaf3 (non-peer) has a synced neighbor for host1: %s" % line
+        return None
+
+    for _ in range(5):
+        err = _no_sync_neigh(dut)
+        assert err is None, err
+        topotest.sleep(1)
 
 
 if __name__ == "__main__":
