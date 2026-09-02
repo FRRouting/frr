@@ -28,6 +28,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_vrf.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_vxlan.h"
@@ -234,6 +235,40 @@ void zebra_neigh_del_all(struct interface *ifp)
 	}
 }
 
+/* Replay one tracked L3-interface neighbor through the no-L2VNI pure-L3
+ * neighbor sync path. The L3VNI/L2VNI skips live in
+ * zebra_vxlan_l3vni_neigh_replay_entry().
+ */
+static void zebra_neigh_l3_replay_one(struct zebra_neigh_ent *n)
+{
+	struct interface *ifp, *link_if;
+	struct zebra_if *zif;
+
+	/* Skip entries retained only for PBR references (no live MAC). */
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE))
+		return;
+
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(n->ns_id), n->ifindex);
+	if (!ifp || !ifp->info)
+		return;
+	zif = ifp->info;
+
+	/* Resolve the underlying bridge from the SVI, exactly as the
+	 * live kernel-neigh path does.
+	 */
+	if (IS_ZEBRA_IF_VLAN(ifp))
+		link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(n->ns_id), zif->link_ifindex);
+	else if (IS_ZEBRA_IF_BRIDGE(ifp))
+		link_if = ifp;
+	else
+		return;
+	if (!link_if)
+		return;
+
+	zebra_vxlan_l3vni_neigh_replay_entry(ifp, link_if, &n->ip, &n->mac,
+					     CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTER));
+}
+
 /* Replay every tracked local L3-interface neighbor (ip/mac learned from the
  * kernel and held in this "l3 interface database") back through the no-L2VNI
  * pure-L3 neighbor sync path. Used to (re)originate sync for hosts learned
@@ -246,35 +281,36 @@ void zebra_neigh_l3_replay(void)
 {
 	struct zebra_neigh_ent *n;
 
-	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree) {
-		struct interface *ifp, *link_if;
-		struct zebra_if *zif;
+	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree)
+		zebra_neigh_l3_replay_one(n);
+}
 
-		/* Skip entries retained only for PBR references (no live MAC). */
-		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE))
-			continue;
+/* Replay only the neighbors of one SVI. Used when a BD loses its L2VNI so
+ * hosts still in the kernel, but no longer in the L2 EVPN table, are
+ * re-originated as pure-L3 without walking every other interface.
+ */
+void zebra_neigh_l3_replay_ifp(struct interface *ifp)
+{
+	struct zebra_neigh_ent *n;
+	struct zebra_neigh_ent lookup = {};
+	struct zebra_vrf *zvrf;
+	struct zebra_ns *zns;
 
-		ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(n->ns_id), n->ifindex);
-		if (!ifp || !ifp->info)
-			continue;
-		zif = ifp->info;
+	if (!ifp || !ifp->vrf)
+		return;
 
-		/* Resolve the underlying bridge from the SVI, exactly as the
-		 * live kernel-neigh path does.
-		 */
-		if (IS_ZEBRA_IF_VLAN(ifp))
-			link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(n->ns_id),
-							    zif->link_ifindex);
-		else if (IS_ZEBRA_IF_BRIDGE(ifp))
-			link_if = ifp;
-		else
-			continue;
-		if (!link_if)
-			continue;
+	zvrf = ifp->vrf->info;
+	zns = zvrf ? zvrf->zns : NULL;
+	if (!zns)
+		return;
 
-		zebra_vxlan_l3vni_neigh_replay_entry(ifp, link_if, &n->ip, &n->mac,
-						     CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTER));
-	}
+	lookup.ns_id = zns->ns_id;
+	lookup.ifindex = ifp->ifindex;
+
+	for (n = RB_NFIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &lookup);
+	     n && n->ns_id == zns->ns_id && n->ifindex == ifp->ifindex;
+	     n = RB_NEXT(zebra_neigh_rb_head, n))
+		zebra_neigh_l3_replay_one(n);
 }
 
 /* kernel neigh add */

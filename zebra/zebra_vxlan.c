@@ -5076,10 +5076,9 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 	zevpn = zebra_evpn_map_vlan(ifp, br_if, vid);
 	if (!zevpn) {
 		/* No L2VNI: drop this host MAC from a BD's L3VNI neighbor-sync
-		 * MAC/ES cache so its pure-L3 RT-2 stops advertising the ESI.
+		 * MAC/ES cache so its pure-L3 RT-2 is withdrawn while unresolved.
 		 */
-		zebra_evpn_l3vni_local_mac_update(ifp, br_if, macaddr, vid,
-						  false /* del */);
+		zebra_evpn_l3vni_local_mac_update(ifp, br_if, macaddr, vid, false /* del */);
 		return 0;
 	}
 	if (!zevpn->vxlan_if) {
