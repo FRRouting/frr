@@ -4690,6 +4690,7 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 						struct route_entry *re)
 {
 	struct nexthop *nexthop = NULL;
+	struct zebra_if *zif;
 	bool alive = false;
 
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
@@ -4727,8 +4728,17 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 			break;
 		}
 
-		/* Check if there are any IPv4 addresses connected, if yes - set alive */
-		if (if_has_connected_with_family(ifp, AF_INET)) {
+		/*
+		 * That deletion is a transition, not a state: only an interface
+		 * that just lost its last IPv4 address had its routes dropped.
+		 * An interface that never carried one - a route installed as
+		 * "dev <ifname> scope link" on an addressless interface - keeps
+		 * its routes, and so must we.  Without this the walk reaps live
+		 * routes whenever any unrelated interface goes down or loses an
+		 * address, since it visits every kernel route in every VRF.
+		 */
+		zif = ifp->info;
+		if (!zif || !CHECK_FLAG(zif->flags, ZIF_FLAG_IPV4_ADDR_GONE)) {
 			alive = true;
 			break;
 		}
@@ -4828,6 +4838,26 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 	}
 }
 
+/*
+ * ZIF_FLAG_IPV4_ADDR_GONE marks a single transition and is consumed by the
+ * walk above.  Clear it once the walk is done, or the next walk - triggered
+ * by some unrelated interface - would reap kernel routes installed on the
+ * interface after the kernel dropped the earlier ones.
+ */
+static void rib_update_clear_ipv4_addr_gone(void)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			zif = ifp->info;
+			if (zif)
+				UNSET_FLAG(zif->flags, ZIF_FLAG_IPV4_ADDR_GONE);
+		}
+}
+
 void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 {
 	struct zebra_router_table *zrt;
@@ -4839,6 +4869,9 @@ void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 	/* Just iterate over all the route tables, rather than vrf lookups */
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables)
 		rib_update_table(zrt->table, event, rtype);
+
+	if (event == RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED)
+		rib_update_clear_ipv4_addr_gone();
 }
 
 struct rib_update_ctx {
