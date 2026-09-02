@@ -461,11 +461,13 @@ struct connected {
 	 */
 
 	/* Flags for connected address. */
-	uint8_t flags;
+	uint16_t flags;
 #define ZEBRA_IFA_SECONDARY    (1 << 0)
 #define ZEBRA_IFA_PEER         (1 << 1)
 #define ZEBRA_IFA_UNNUMBERED   (1 << 2)
 #define ZEBRA_IFA_NOPREFIXROUTE (1 << 3)
+#define ZEBRA_IFA_TENTATIVE     (1 << 4)
+#define ZEBRA_IFA_DADFAILED     (1 << 5)
 
 	/* N.B. the ZEBRA_IFA_PEER flag should be set if and only if
 	   a peer address has been configured.  If this flag is set,

@@ -756,6 +756,8 @@ bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_intf_is_tentative(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_tentative(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_is_dadfailed(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_intf_set_dadfailed(struct zebra_dplane_ctx *ctx);
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx);
 const struct in6_addr *
