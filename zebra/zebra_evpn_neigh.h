@@ -66,6 +66,12 @@ struct zebra_neigh {
 	 */
 	vlanid_t eth_tag;
 
+	/* For a remote pure-L3 (no-L2VNI) synced neighbor: ifindex of the ES
+	 * bond the host MAC was pinned to in the bridge FDB (local-ES sync-MAC),
+	 * so the exact FDB entry can be removed on update/withdraw. 0 if none.
+	 */
+	ifindex_t sync_mac_ifindex;
+
 	/* Refcnt - Only used by SVD neighs currently */
 	uint32_t refcnt;
 
@@ -88,6 +94,8 @@ struct zebra_neigh {
  * is local connected
  */
 #define ZEBRA_NEIGH_LOCAL_INACTIVE 0x200
+/* Saved NTF_ROUTER of the peer's copy while a local learn overlays it. */
+#define ZEBRA_NEIGH_ES_PEER_ROUTER 0x400
 #define ZEBRA_NEIGH_ALL_LOCAL_FLAGS                                            \
 	(ZEBRA_NEIGH_LOCAL | ZEBRA_NEIGH_LOCAL_INACTIVE)
 #define ZEBRA_NEIGH_ALL_PEER_FLAGS                                             \
@@ -107,6 +115,9 @@ struct zebra_neigh {
 	 */
 	uint32_t rem_seq;
 	uint32_t loc_seq;
+
+	/* Saved ESI of the peer's copy while a local learn overlays it. */
+	esi_t rem_esi;
 
 	/* list of hosts pointing to this remote NH entry */
 	struct host_rb_tree_entry host_rb;
@@ -282,21 +293,27 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				  const struct ipaddr *ip,
 				  const struct ethaddr *macaddr, bool is_router,
 				  bool local_inactive, bool dp_static);
-int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp,
-					struct interface *br_if,
-					const struct ipaddr *ip,
-					const struct ethaddr *macaddr,
+int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp, struct interface *br_if,
+					const struct ipaddr *ip, const struct ethaddr *macaddr,
 					bool is_own, bool is_router);
-int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp,
-				     struct interface *br_if,
+int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, struct interface *br_if,
 				     const struct ipaddr *ip);
 void zebra_evpn_l3vni_neigh_flush(struct zebra_evpn *zevpn);
 void zebra_evpn_l3vni_neigh_flush_all(void);
-void zebra_evpn_l3vni_neigh_flush_bd(vni_t l3vni, vlanid_t vid);
-void zebra_evpn_l3vni_neigh_readvertise_mac(vni_t l3vni,
-					    const struct ethaddr *macaddr,
+void zebra_evpn_l3vni_neigh_handoff_bd(vni_t l3vni, vlanid_t vid, struct zebra_evpn *l2zevpn,
+				       struct interface *svi_ifp);
+void zebra_evpn_l2vni_neigh_handoff_to_l3(struct zebra_evpn *l2zevpn, struct interface *svi_ifp);
+void zebra_evpn_l3vni_neigh_readvertise_mac(vni_t l3vni, const struct ethaddr *macaddr,
 					    vlanid_t vid);
 void zebra_evpn_l3vni_neigh_readvertise_bd(vni_t l3vni, vlanid_t vid);
+void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
+				       const struct ethaddr *macaddr, vlanid_t eth_tag,
+				       uint32_t seq, const esi_t *esi, bool is_router);
+void zebra_evpn_l3vni_remote_neigh_del(struct zebra_evpn *zevpn, const struct ipaddr *ip,
+				       const struct ethaddr *macaddr, vlanid_t eth_tag);
+void zebra_evpn_l3vni_remote_neigh_reinstall_bd(vni_t l3vni, vlanid_t vid);
+void zebra_evpn_l3vni_svi_vrf_change(struct interface *ifp, vrf_id_t old_vrf_id);
+ifindex_t zebra_evpn_l3vni_sync_mac_ifindex(vni_t l3vni, const struct ethaddr *mac, vlanid_t vid);
 int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
 				   const struct ipaddr *ip, const struct ethaddr *macaddr,
 				   uint16_t state, bool is_router);
