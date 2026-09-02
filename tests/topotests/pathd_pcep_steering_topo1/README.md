@@ -20,7 +20,7 @@ implement pcep testing.
          +-------------+                       +-------------+
          |             |eth-rt2         eth-rt1|             |
          |     RT1     +-----------------------+     RT2     |
-         | 1.1.1.1     |     10.0.1.0/24       | 2.2.2.2     |
+         | 192.0.2.1   |   203.0.113.0/24      | 192.0.2.2   |
          | 2001:db8::1 |  2001:db8:10:1::/64   | 2001:db8::2 |
          +-------------+                       +-------------+
                 |
@@ -29,15 +29,15 @@ implement pcep testing.
 
 Loopbacks (= policy endpoints):
 
-| Router | IPv4       | IPv6            |
-|--------|------------|-----------------|
-| RT1    | 1.1.1.1/32 | 2001:db8::1/128 |
-| RT2    | 2.2.2.2/32 | 2001:db8::2/128 |
+| Router | IPv4         | IPv6            |
+|--------|--------------|-----------------|
+| RT1    | 192.0.2.1/32 | 2001:db8::1/128 |
+| RT2    | 192.0.2.2/32 | 2001:db8::2/128 |
 
 - **RT1**: SR-TE headend. zebra + isisd (IS-IS SR, SRGB 16000-23999,
   IPv4 + IPv6 topologies) + pathd with the `pathd_pcep` module
   (`-M pathd_pcep`).
-- **RT2**: policy endpoint. Loopbacks 2.2.2.2/32 (prefix-SID index
+- **RT2**: policy endpoint. Loopbacks 192.0.2.2/32 (prefix-SID index
   20, label 16020) and 2001:db8::2/128 (prefix-SID index 21, label
   16021).
 - **mock PCE**: a Python TCP server started inside RT1's network
@@ -74,7 +74,7 @@ Every steering-route check asserts both address families (ipv4, ipv6).
    PCE-initiated policies resolve through these labels.
 2. **test_steering_route_installed**: after the PCEP session
    establishes and the PCE initiates both policies, RT1 installs the
-   steering routes: `2.2.2.2/32` and `2001:db8::2/128`, proto `srte`,
+   steering routes: `192.0.2.2/32` and `2001:db8::2/128`, proto `srte`,
    distance 10, each resolving through its policy via SR-TE color.
 3. **test_steering_route_withdrawn_on_policy_down**: shutting RT2's
    link takes the labels away, the policies go down, and pathd
