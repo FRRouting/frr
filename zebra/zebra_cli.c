@@ -1997,6 +1997,69 @@ lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_cli_write(
 	vty_out(vty, "\n");
 }
 
+DEFPY_YANG (ipv6_nd_prefix_lifetime,
+	ipv6_nd_prefix_lifetime_cmd,
+	"[no] ipv6 nd prefix-lifetime [<(0-4294967295)|infinite>$valid <(0-4294967295)|infinite>$preferred]",
+	NO_STR
+	"Interface IPv6 config commands\n"
+	"Neighbor discovery\n"
+	"Lifetimes for the prefixes advertised by default\n"
+	"Valid lifetime in seconds\n"
+	"Infinite valid lifetime\n"
+	"Preferred lifetime in seconds\n"
+	"Infinite preferred lifetime\n")
+{
+	if (!no) {
+		/*
+		 * RFC 4861 4.6.2: a host discards a prefix option whose
+		 * preferred lifetime exceeds its valid lifetime, so accepting
+		 * one without the other would leave the operator advertising a
+		 * prefix hosts silently ignore.
+		 */
+		if (!valid || !preferred) {
+			vty_out(vty, "%% both valid and preferred lifetime are required\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (strmatch(valid, "infinite"))
+			valid = "4294967295";
+		if (strmatch(preferred, "infinite"))
+			preferred = "4294967295";
+
+		nb_cli_enqueue_change(vty, "./default-lifetimes", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./default-lifetimes/valid-lifetime", NB_OP_MODIFY,
+				      valid);
+		nb_cli_enqueue_change(vty, "./default-lifetimes/preferred-lifetime", NB_OP_MODIFY,
+				      preferred);
+	} else {
+		nb_cli_enqueue_change(vty, "./default-lifetimes", NB_OP_DESTROY, NULL);
+	}
+
+	return nb_cli_apply_changes(vty,
+				    "./frr-zebra:zebra/ipv6-router-advertisements/prefix-list");
+}
+
+static void lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	uint32_t valid = yang_dnode_get_uint32(dnode, "valid-lifetime");
+	uint32_t preferred = yang_dnode_get_uint32(dnode, "preferred-lifetime");
+
+	vty_out(vty, " ipv6 nd prefix-lifetime");
+
+	if (valid == UINT32_MAX)
+		vty_out(vty, " infinite");
+	else
+		vty_out(vty, " %u", valid);
+
+	if (preferred == UINT32_MAX)
+		vty_out(vty, " infinite");
+	else
+		vty_out(vty, " %u", preferred);
+
+	vty_out(vty, "\n");
+}
+
 DEFPY_YANG (ipv6_nd_router_preference,
 	ipv6_nd_router_preference_cmd,
 	"[no] ipv6 nd router-preference ![<high|medium|low>$pref]",
@@ -3304,6 +3367,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_default_router_preference_cli_write,
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/default-lifetimes",
+			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_cli_write,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix",
 			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_cli_write,
 		},
@@ -3429,6 +3496,7 @@ void zebra_cli_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_prefix_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_prefix_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);

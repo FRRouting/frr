@@ -88,6 +88,35 @@ Router Advertisement
 
      Default: not set, i.e. hosts do not assume a complete IP address is placed.
 
+.. clicmd:: ipv6 nd prefix-lifetime <valid-lifetime|infinite> <preferred-lifetime|infinite>
+
+   Lifetimes advertised for every prefix on the interface that does not name its
+   own, whether it was derived from an address configured on the interface or
+   came from an ``ipv6 nd prefix`` entry that left the lifetimes out. This avoids
+   having to name each prefix in order to shorten its lifetime.
+
+   A prefix whose ``ipv6 nd prefix`` entry gives lifetimes of its own carries
+   those and is not affected by this command. An entry that gives exactly the
+   RFC 4861 defaults, ``2592000`` and ``604800``, counts as giving none; the
+   running configuration leaves them out too.
+
+   Both values must be given. RFC 4861 section 4.6.2 requires hosts to discard a
+   prefix option whose preferred lifetime exceeds its valid lifetime, so
+   lowering one without the other would remove the prefix from stateless address
+   autoconfiguration entirely.
+
+   Note that RFC 4862 section 5.5.3 clamps the stored valid lifetime of an
+   address a host already holds to a minimum of two hours, so a value below
+   ``7200`` only takes full effect for addresses formed after the change.
+
+   A prefix lifetime shorter than a few advertisement intervals will cause a
+   host that misses an advertisement to lose the address, so ``ra-interval``
+   should be lowered alongside it. A warning is logged when the valid lifetime
+   is below three advertisement intervals.
+
+   Range: ``(0-4294967295)``  Default: not set, i.e. ``2592000`` and ``604800``
+   are used.
+
 .. clicmd:: ipv6 nd ra-interval [(1-1800)]
 
    The maximum time allowed between sending unsolicited multicast router
