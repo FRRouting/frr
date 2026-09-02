@@ -81,6 +81,10 @@ class MockPce:
     def __init__(self, args):
         self.args = args
         self.logfile = open(args.log, "a", buffering=1)
+        # The keepalive thread and the main loop both write to the
+        # socket; serialise them so a keepalive can never be spliced
+        # into a partially sent message when sendall blocks.
+        self.send_lock = threading.Lock()
         self.sock = None
         self.conn = None
         self.sync_done = False
@@ -120,8 +124,8 @@ class MockPce:
     def _obj(oclass, otype, body):
         """Wrap body in the PCEP common object header (RFC 5440 S7.2):
 
-            Object-Class (1) | Object-Type(4 bits)+flags(4 bits) (1) |
-            Object Length (2, includes this header)
+        Object-Class (1) | Object-Type(4 bits)+flags(4 bits) (1) |
+        Object Length (2, includes this header)
         """
         # object header: class(1) type<<4(1) total-length(2)
         return struct.pack(">BBH", oclass, otype << 4, 4 + len(body)) + body
@@ -130,8 +134,8 @@ class MockPce:
     def _msg(mtype, body):
         """Wrap body in the PCEP common message header (RFC 5440 S6.1):
 
-            Version(3 bits)+Flags(5 bits) (1) | Message-Type (1) |
-            Message-Length (2, includes this header)
+        Version(3 bits)+Flags(5 bits) (1) | Message-Type (1) |
+        Message-Length (2, includes this header)
         """
         # message header: version/flags(1) type(1) total-length(2)
         return struct.pack(">BBH", PCEP_VERSION_BYTE, mtype, 4 + len(body)) + body
@@ -392,7 +396,7 @@ class MockPce:
                 srp_id = self.next_srp_id
                 self.next_srp_id += 1
                 self.srp_to_name[srp_id] = policy["name"]
-                self.conn.sendall(self.build_initiate(policy, srp_id))
+                self.send(self.build_initiate(policy, srp_id))
                 self.log(
                     "ADD-SENT endpoint=%s label=%u name=%s color=%s"
                     % (
@@ -413,14 +417,18 @@ class MockPce:
         srp_id = self.next_srp_id
         self.next_srp_id += 1
         plsp_id = self.plsp_by_name.pop(name)
-        self.conn.sendall(self.build_remove(name, plsp_id, srp_id))
+        self.send(self.build_remove(name, plsp_id, srp_id))
         self.log("REMOVE-SENT name=%s plsp-id=%u" % (name, plsp_id))
+
+    def send(self, data):
+        with self.send_lock:
+            self.conn.sendall(data)
 
     def keepalive_loop(self):
         while True:
             time.sleep(10)
             try:
-                self.conn.sendall(self.build_keepalive())
+                self.send(self.build_keepalive())
             except OSError:
                 return
 
@@ -436,8 +444,8 @@ class MockPce:
 
         # Both Open-first and Keepalive-first orders are accepted by
         # pceplib; send both back to back.
-        self.conn.sendall(self.build_open())
-        self.conn.sendall(self.build_keepalive())
+        self.send(self.build_open())
+        self.send(self.build_keepalive())
         self.log("SENT-OPEN-KEEPALIVE")
 
         threading.Thread(target=self.keepalive_loop, daemon=True).start()
@@ -472,7 +480,7 @@ class MockPce:
                     srp_id = self.next_srp_id
                     self.next_srp_id += 1
                     self.srp_to_name[srp_id] = policy["name"]
-                    self.conn.sendall(self.build_initiate(policy, srp_id))
+                    self.send(self.build_initiate(policy, srp_id))
                     self.log(
                         "INITIATE-SENT endpoint=%s label=%u name=%s color=%s"
                         % (
@@ -488,7 +496,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--address", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=4189)
-    parser.add_argument("--pcc-address", default="1.1.1.1")
+    parser.add_argument("--pcc-address", default="192.0.2.1")
     parser.add_argument("--pcc-address6", default="2001:db8::1")
     parser.add_argument("--endpoint")
     parser.add_argument("--label", type=int)
