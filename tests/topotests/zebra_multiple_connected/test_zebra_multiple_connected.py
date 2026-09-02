@@ -694,6 +694,117 @@ def test_zebra_ipv6_dad_kernel_route():
     assert result is None, result
 
 
+def test_zebra_kernel_route_on_addressless_interface():
+    """Kernel route on an interface that never had an IPv4 address must survive
+    unrelated interface events.
+
+    zebra emulates the kernel dropping IPv4 routes when an interface loses its
+    last IPv4 address. That emulation runs as a walk over every kernel route in
+    every VRF, so it must only reap routes on the interface that actually lost
+    an address - not on an interface that never carried one. See issue #23164.
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    # victim never gets an IPv4 address and carries the route under test;
+    # other is unrelated and only exists to generate the trigger events.
+    victim = "dummy23164a"
+    other = "dummy23164b"
+    prefix = "198.51.100.0/24"
+    connected = "192.0.2.0/24"
+
+    def _wait_zebra_route(pfx, present, msg):
+        expected = {pfx: [] if present else None}
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ip route json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result is None, msg.format(result)
+
+    def _assert_kernel_route(present, msg):
+        routes = topotest.ip4_route(router)
+        cmp = topotest.json_cmp(routes, {prefix: {} if present else None})
+        assert cmp is None, msg.format(cmp)
+
+    def _assert_zebra_keeps_route(msg):
+        # The deletion this guards against is asynchronous, so a single
+        # "still there" check could pass before zebra even processed the
+        # trigger. The caller has already synchronised on an observable
+        # effect of the trigger; give the walk a moment on top of that.
+        topotest.sleep(2, "Waiting for zebra to finish the kernel route walk")
+        _wait_zebra_route(prefix, True, msg)
+
+    step("Create an addressless interface carrying a scope-link kernel route")
+    router.run(f"ip link add {victim} type dummy")
+    router.run(f"ip link set {victim} up")
+    router.run(f"ip link add {other} type dummy")
+    router.run(f"ip link set {other} up")
+    router.run(f"ip -4 addr add 192.0.2.171/24 dev {other}")
+    router.run(f"ip -4 route add {prefix} dev {victim} scope link proto static")
+
+    _assert_kernel_route(
+        True, "Unexpected kernel behaviour: route should have been added:\n{}"
+    )
+    _wait_zebra_route(prefix, True, "Expected zebra to learn the kernel route:\n{}")
+    _wait_zebra_route(
+        connected, True, "Expected zebra to learn the connected route:\n{}"
+    )
+
+    step("Take an unrelated interface down")
+    router.run(f"ip link set {other} down")
+
+    # Synchronise: once the connected route of "other" is gone, zebra has
+    # processed the interface-down event that triggers the kernel route walk.
+    _wait_zebra_route(
+        connected, False, "Expected zebra to withdraw the connected route:\n{}"
+    )
+    _assert_kernel_route(
+        True,
+        "Unexpected kernel behaviour: route should have survived an unrelated interface going down:\n{}",
+    )
+    _assert_zebra_keeps_route(
+        "zebra deleted a kernel route on an addressless interface after an unrelated interface went down:\n{}"
+    )
+
+    step("Delete the last IPv4 address of the unrelated interface")
+    router.run(f"ip link set {other} up")
+    _wait_zebra_route(
+        connected, True, "Expected zebra to relearn the connected route:\n{}"
+    )
+    router.run(f"ip -4 addr del 192.0.2.171/24 dev {other}")
+
+    # Same synchronisation, for the last-address-deleted trigger.
+    _wait_zebra_route(
+        connected,
+        False,
+        "Expected zebra to withdraw the connected route after address deletion:\n{}",
+    )
+    _assert_kernel_route(
+        True,
+        "Unexpected kernel behaviour: route should have survived an unrelated last address deletion:\n{}",
+    )
+    _assert_zebra_keeps_route(
+        "zebra deleted a kernel route on an addressless interface after an unrelated interface lost its last IPv4 address:\n{}"
+    )
+
+    step("Take the route's own interface down - the route must now go away")
+    router.run(f"ip link set {victim} down")
+
+    _assert_kernel_route(
+        False,
+        "Unexpected kernel behaviour: route should have been deleted with its own interface:\n{}",
+    )
+    _wait_zebra_route(
+        prefix,
+        False,
+        "Expected zebra to delete the kernel route when its own interface went down:\n{}",
+    )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
