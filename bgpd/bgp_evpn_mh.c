@@ -2124,8 +2124,25 @@ static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 		}
 		list_delete(&es->es_evi_list);
 	}
+
+	/* Free any residual ES-VTEP payloads: the list holds app-node memory
+	 * with no del callback, so list_delete() would drop the nodes but leak
+	 * the VTEPs. The embedded listnode lives inside each payload, so unlink
+	 * before freeing. The ES is being destroyed, so free unconditionally.
+	 */
+	if (es->es_vtep_list) {
+		struct listnode *node;
+		struct bgp_evpn_es_vtep *es_vtep;
+
+		while ((node = listhead(es->es_vtep_list))) {
+			es_vtep = listgetdata(node);
+			list_delete_node(es->es_vtep_list, node);
+			XFREE(MTYPE_BGP_EVPN_ES_VTEP, es_vtep);
+		}
+	}
 	list_delete(&es->es_vtep_list);
 	list_delete(&es->macip_evi_path_list);
+
 	list_delete(&es->macip_global_path_list);
 	list_delete(&es->es_frag_list);
 	bgp_table_unlock(es->route_table);
