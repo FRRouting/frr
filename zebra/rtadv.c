@@ -1652,13 +1652,49 @@ static struct rtadv_prefix *rtadv_prefix_get(struct rtadv_prefixes_head *list,
 	return rprefix;
 }
 
-static void rtadv_prefix_set_defaults(struct rtadv_prefix *rp)
+/*
+ * Lifetimes for a prefix that named none of its own: "ipv6 nd prefix-lifetime"
+ * when the interface has it, otherwise the RFC 4861 defaults.  Every path that
+ * leaves a prefix unqualified comes through here, so the precedence rule lives
+ * in one place.  An operator can therefore shorten a whole link without naming
+ * each prefix, which is the mis-cabling case: the wrong prefix a host picked up
+ * ages out on its own once it stops being advertised at that host.
+ */
+static void rtadv_prefix_inherit_lifetimes(struct zebra_if *zif, struct rtadv_prefix *rp)
+{
+	if (zif->rtadv.AdvPrefixLifetimeSet) {
+		rp->AdvPreferredLifetime = zif->rtadv.AdvPrefixPreferredLifetime;
+		rp->AdvValidLifetime = zif->rtadv.AdvPrefixValidLifetime;
+	} else {
+		rp->AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
+		rp->AdvValidLifetime = RTADV_VALID_LIFETIME;
+	}
+}
+
+/*
+ * A per-prefix lifetime leaf changed.  When the prefix no longer names its own
+ * the interface-wide default has to be put back, otherwise removing an explicit
+ * pair would silently leave the RFC values behind until the next re-stamp.
+ */
+void rtadv_prefix_lifetime_reeval(struct interface *ifp, struct rtadv_prefix *rprefix, bool named)
+{
+	struct zebra_if *zif = ifp->info;
+
+	rprefix->AdvLifetimeSet = named;
+
+	if (!named)
+		rtadv_prefix_inherit_lifetimes(zif, rprefix);
+}
+
+/* Reset a prefix to what an address on the interface alone would give it. */
+static void rtadv_prefix_set_defaults(struct zebra_if *zif, struct rtadv_prefix *rp)
 {
 	rp->AdvAutonomousFlag = 1;
 	rp->AdvOnLinkFlag = 1;
 	rp->AdvRouterAddressFlag = 0;
-	rp->AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
-	rp->AdvValidLifetime = RTADV_VALID_LIFETIME;
+	rp->AdvLifetimeSet = false;
+
+	rtadv_prefix_inherit_lifetimes(zif, rp);
 }
 
 static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
@@ -1685,14 +1721,18 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 		rprefix->AdvAutonomousFlag = rp->AdvAutonomousFlag;
 		rprefix->AdvOnLinkFlag = rp->AdvOnLinkFlag;
 		rprefix->AdvRouterAddressFlag = rp->AdvRouterAddressFlag;
-		rprefix->AdvPreferredLifetime = rp->AdvPreferredLifetime;
-		rprefix->AdvValidLifetime = rp->AdvValidLifetime;
+		rprefix->AdvLifetimeSet = rp->AdvLifetimeSet;
+		if (rp->AdvLifetimeSet) {
+			rprefix->AdvPreferredLifetime = rp->AdvPreferredLifetime;
+			rprefix->AdvValidLifetime = rp->AdvValidLifetime;
+		} else
+			rtadv_prefix_inherit_lifetimes(zif, rprefix);
 	} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 		if (rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
 		else if (rprefix->AdvPrefixCreate != PREFIX_SRC_BOTH) {
 			rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
-			rtadv_prefix_set_defaults(rprefix);
+			rtadv_prefix_set_defaults(zif, rprefix);
 		}
 	}
 
@@ -1717,7 +1757,7 @@ static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
 		if (rp->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
-				rtadv_prefix_set_defaults(rprefix);
+				rtadv_prefix_set_defaults(zif, rprefix);
 				return;
 			} else if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
 				return;
@@ -1778,6 +1818,91 @@ void rtadv_delete_prefix_manual(struct zebra_if *zif,
 	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
 
 	rtadv_prefix_reset(zif, &rp, rprefix, true);
+}
+
+/*
+ * Apply the interface-wide lifetimes to the prefixes already in the list.
+ *
+ * PREFIX_SRC_AUTO only.  A PREFIX_SRC_BOTH entry holds the values the operator
+ * typed into "ipv6 nd prefix", and those are kept live by the per-leaf
+ * northbound callbacks; re-stamping one here would put a lifetime on the wire
+ * that running-config does not mention, with nothing able to explain the
+ * difference.  An AUTO entry has no configuration to contradict.
+ */
+static void rtadv_prefix_lifetime_restamp(struct zebra_if *zif)
+{
+	struct rtadv_prefix *rprefix;
+
+	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
+		/*
+		 * A prefix that named its own lifetimes keeps them.  Everything
+		 * else follows the interface, whether it came from an address
+		 * on the link or from an "ipv6 nd prefix" line that left the
+		 * lifetimes out: an operator setting an interface-wide default
+		 * means it to cover the prefixes they did not qualify, and on a
+		 * link where every prefix is configured explicitly the knob
+		 * would otherwise reach nothing at all.
+		 */
+		if (rprefix->AdvLifetimeSet)
+			continue;
+
+		rtadv_prefix_inherit_lifetimes(zif, rprefix);
+	}
+
+	/*
+	 * Nudge the next RA out rather than sending one from here.  frr-reload
+	 * replays a value change as a delete followed by an add, so an inline
+	 * send would put the RFC defaults on the wire in between the two.  The
+	 * existing fast-retransmit counter is wheel-driven and coalesces the
+	 * pair.  When fast retransmit is off the change simply appears on the
+	 * next periodic RA, which is fine: nothing here is time critical.
+	 */
+	if (zif->rtadv.AdvSendAdvertisements && zif->rtadv.MaxRtrAdvInterval >= 1000 &&
+	    zif->rtadv.UseFastRexmit) {
+		zif->rtadv.inFastRexmit = 1;
+		zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
+	}
+}
+
+void rtadv_prefix_lifetime_set(struct interface *ifp, uint32_t valid, uint32_t preferred)
+{
+	struct zebra_if *zif = ifp->info;
+
+	/*
+	 * RFC 4861 6.2.1 wants a prefix to outlive a few advertisement
+	 * intervals so a host that misses one does not drop the address.  Warn
+	 * rather than reject: aggressively short lifetimes are the whole point
+	 * of this knob, and 0 is legitimate for retiring a prefix outright.
+	 */
+	if (valid != 0 && valid < (uint32_t)(3 * (zif->rtadv.MaxRtrAdvInterval / 1000)))
+		zlog_warn("%s: valid lifetime %u is under three ra-intervals (%d ms); a host missing two RAs will lose its address",
+			  ifp->name, valid, zif->rtadv.MaxRtrAdvInterval);
+
+	/*
+	 * RFC 4862 5.5.3 floors the stored valid lifetime at two hours for an
+	 * address a host already holds, so a shorter value only takes full
+	 * effect for addresses formed after this point.
+	 */
+	if (valid != 0 && valid < 7200)
+		zlog_warn("%s: valid lifetime %u is under two hours; hosts already holding an address will retain it for up to 7200 seconds (RFC 4862 5.5.3)",
+			  ifp->name, valid);
+
+	zif->rtadv.AdvPrefixValidLifetime = valid;
+	zif->rtadv.AdvPrefixPreferredLifetime = preferred;
+	zif->rtadv.AdvPrefixLifetimeSet = true;
+
+	rtadv_prefix_lifetime_restamp(zif);
+}
+
+void rtadv_prefix_lifetime_reset(struct interface *ifp)
+{
+	struct zebra_if *zif = ifp->info;
+
+	zif->rtadv.AdvPrefixLifetimeSet = false;
+	zif->rtadv.AdvPrefixValidLifetime = RTADV_VALID_LIFETIME;
+	zif->rtadv.AdvPrefixPreferredLifetime = RTADV_PREFERRED_LIFETIME;
+
+	rtadv_prefix_lifetime_restamp(zif);
 }
 
 /* Add IPv6 prefixes learned from the kernel to the RA prefix list */
@@ -2323,6 +2448,10 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 		else
 			vty_out(vty,
 				"  ND router advertisements lifetime tracks ra-interval\n");
+		if (rtadv->AdvPrefixLifetimeSet)
+			vty_out(vty,
+				"  ND derived prefixes advertised with valid %u preferred %u seconds\n",
+				rtadv->AdvPrefixValidLifetime, rtadv->AdvPrefixPreferredLifetime);
 		vty_out(vty,
 			"  ND router advertisement default router preference is %s\n",
 			rtadv_pref_strs[rtadv->DefaultPreference]);
@@ -2391,6 +2520,13 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 			json_object_boolean_add(json_if,
 						"ndRouterAdvertisementsLifetimeTracksRaInterval",
 						true);
+
+		if (rtadv->AdvPrefixLifetimeSet) {
+			json_object_int_add(json_if, "ndDerivedPrefixValidLifetimeSecs",
+					    rtadv->AdvPrefixValidLifetime);
+			json_object_int_add(json_if, "ndDerivedPrefixPreferredLifetimeSecs",
+					    rtadv->AdvPrefixPreferredLifetime);
+		}
 
 		json_object_string_add(json_if, "ndRouterAdvertisementDefaultRouterPreference",
 				       rtadv_pref_strs[rtadv->DefaultPreference]);
@@ -2540,6 +2676,9 @@ void rtadv_if_init(struct zebra_if *zif)
 	rtadv->AdvIntervalOption = 0;
 	rtadv->UseFastRexmit = true;
 	rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
+	rtadv->AdvPrefixLifetimeSet = false;
+	rtadv->AdvPrefixValidLifetime = RTADV_VALID_LIFETIME;
+	rtadv->AdvPrefixPreferredLifetime = RTADV_PREFERRED_LIFETIME;
 
 	rtadv_prefixes_init(rtadv->prefixes);
 

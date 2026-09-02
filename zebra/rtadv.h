@@ -191,6 +191,19 @@ struct rtadvconf {
 	   included in the list of advertised prefixes. */
 	struct rtadv_prefixes_head prefixes[1];
 
+	/*
+	 * Lifetimes stamped on the prefixes derived from the addresses
+	 * configured on this interface.  A prefix named by "ipv6 nd prefix"
+	 * carries its own lifetimes and is never stamped from here, so what
+	 * the operator spelled out stays authoritative.
+	 *
+	 * Default: unset, in which case RTADV_VALID_LIFETIME and
+	 * RTADV_PREFERRED_LIFETIME are used.
+	 */
+	uint32_t AdvPrefixValidLifetime;
+	uint32_t AdvPrefixPreferredLifetime;
+	bool AdvPrefixLifetimeSet;
+
 	/* The true/false value to be placed in the "Home agent"
 	   flag field in the Router Advertisement.  See [RFC6275 7.1].
 
@@ -339,6 +352,16 @@ struct rtadv_prefix {
 	uint32_t AdvPreferredLifetime;
 #define RTADV_PREFERRED_LIFETIME 604800
 
+	/*
+	 * The lifetimes above were named by this prefix's own configuration
+	 * rather than inherited from "ipv6 nd prefix-lifetime" on the
+	 * interface.  The values alone cannot say which, as an inherited pair
+	 * looks the same as a named one.  A pair equal to the RFC 4861 values
+	 * counts as not named: the running config leaves it out, so it would
+	 * be inherited after a reload anyway.
+	 */
+	bool AdvLifetimeSet;
+
 	/* The value to be placed in the Autonomous Flag. */
 	int AdvAutonomousFlag;
 
@@ -486,6 +509,11 @@ struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
 /* rprefix must be the one returned by rtadv_add_prefix_manual */
 void rtadv_delete_prefix_manual(struct zebra_if *zif,
 				struct rtadv_prefix *rprefix);
+
+/* interface-wide lifetimes for every prefix that names none of its own */
+void rtadv_prefix_lifetime_set(struct interface *ifp, uint32_t valid, uint32_t preferred);
+void rtadv_prefix_lifetime_reset(struct interface *ifp);
+void rtadv_prefix_lifetime_reeval(struct interface *ifp, struct rtadv_prefix *rprefix, bool named);
 
 /* returns created address */
 struct rtadv_rdnss *rtadv_rdnss_set(struct zebra_if *zif,

@@ -2710,6 +2710,51 @@ module frr-zebra {
           reference
             "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
                        - AdvPrefixList";
+          container default-lifetimes {
+            presence "Lifetimes for prefixes that name none of their own.";
+            description
+              "Lifetimes advertised for every prefix on the
+              interface that does not carry lifetimes of its own,
+              whether it was derived from an address configured on
+              the interface or comes from an entry in the 'prefix'
+              list that left them out.
+
+              A prefix whose entry in that list gives its own
+              lifetimes carries those and is not affected. An entry
+              whose lifetimes both equal their defaults counts as
+              giving none.
+
+              When this container is absent the RFC 4861 defaults of
+              2592000 and 604800 seconds are used.";
+            leaf valid-lifetime {
+              type uint32;
+              units "seconds";
+              mandatory true;
+              description
+                "Value to be placed in the Valid Lifetime in the
+                Prefix Information option.  0xffffffff represents
+                infinity.";
+              reference
+                "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                           - AdvValidLifetime";
+            }
+            leaf preferred-lifetime {
+              type uint32;
+              units "seconds";
+              mandatory true;
+              must ". <= ../valid-lifetime" {
+                error-message
+                  "preferred-lifetime must not be greater than valid-lifetime";
+              }
+              description
+                "Value to be placed in the Preferred Lifetime in the
+                Prefix Information option.  0xffffffff represents
+                infinity.";
+              reference
+                "RFC 4861: Neighbor Discovery for IP version 6 (IPv6)
+                           - AdvPreferredLifetime";
+            }
+          }
           list prefix {
             key "prefix-spec";
             description
