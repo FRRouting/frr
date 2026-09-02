@@ -676,6 +676,17 @@ submodule frr-bgp-common {
         "RFC 8203 shutdown communication message.
          Maps to: bgp shutdown message MSG...";
     }
+
+    leaf shutdown-no-notify {
+      when "../shutdown = 'true'";
+      type boolean;
+      default "false";
+      description
+        "Administrative shutdown without sending BGP notification.
+         Useful in active/standby HA setups to preserve BGP Graceful
+         Restart state on receiving peers.
+         Maps to: bgp shutdown no-notify.";
+    }
   }
 
   grouping bgp-daemon-config {
