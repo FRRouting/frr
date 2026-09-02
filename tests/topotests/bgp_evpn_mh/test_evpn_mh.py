@@ -775,7 +775,7 @@ def test_evpn_ead_update():
     # tgen.mininet_cli()
 
 
-def ping_anycast_gw(tgen):
+def ping_anycast_gw(tgen, timeout=2.0):
     # ping the anycast gw from the local and remote hosts to populate
     # the mac address on the PEs
     python3_path = tgen.net.get_exec_path(["python3", "python"])
@@ -787,6 +787,7 @@ def ping_anycast_gw(tgen):
         script_path,
         "--imports=Ether,ARP",
         "--interface=" + intf,
+        "--timeout=" + str(timeout),
         'Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="{}")'.format(ipaddr),
     ]
     for name in ("hostd11", "hostd21", "hostd12", "hostd22"):
@@ -1334,12 +1335,16 @@ def get_evpn_rd_paths(node, route_type, rd, match):
     return paths
 
 
-def check_es_evpn_routes(tgen, dut, observer, esi, mac, vni):
+def check_es_evpn_routes(dut, observer, esi, mac, vni, tgen=None):
     """
     Return None if the Type-1 and Type-2 routes that dut originates for esi
     are present on dut and observer, an error string otherwise. The
     VxLAN devices in this topology use a multicast underlay, so no Type-3
     routes are exchanged.
+
+    If tgen is set and a MAC-IP route is missing, send a short ARP after
+    the observation so the next poll can see a newly learned MAC. Do not
+    ARP when RDs are missing: BGP is not ready to originate Type-2 yet.
     """
     es_rd = get_bgp_es(dut, esi).get("rd")
     vni_rd = json.loads(
@@ -1348,15 +1353,13 @@ def check_es_evpn_routes(tgen, dut, observer, esi, mac, vni):
     if not es_rd or not vni_rd:
         return "%s ES RD %s or VNI %d RD %s missing" % (dut.name, es_rd, vni, vni_rd)
 
-    # refresh the host MACs so the ES MAC route is originated again
-    ping_anycast_gw(tgen)
-
     routes = (
         ("EAD-per-ES", 1, es_rd, "[4294967295]:[%s]" % esi, None),
         ("EAD-per-EVI", 1, vni_rd, "[0]:[%s]" % esi, None),
         ("MAC-IP", 2, vni_rd, "[%s]" % mac, esi),
     )
     errors = []
+    macip_missing = False
     for node in (dut, observer):
         for name, route_type, rd, match, path_esi in routes:
             paths = get_evpn_rd_paths(node, route_type, rd, match)
@@ -1366,6 +1369,11 @@ def check_es_evpn_routes(tgen, dut, observer, esi, mac, vni):
                 errors.append(
                     "%s missing %s route %s under RD %s" % (node.name, name, match, rd)
                 )
+                if name == "MAC-IP":
+                    macip_missing = True
+
+    if tgen is not None and macip_missing:
+        ping_anycast_gw(tgen, timeout=0.2)
 
     return "\n".join(errors) if errors else None
 
@@ -1394,14 +1402,14 @@ def check_bgp_instance_absent(dut, instance):
     return output
 
 
-def check_rebuilt_es(tgen, dut, observer, esi, originator, mac, vni, vni_count):
+def check_rebuilt_es(dut, observer, esi, originator, mac, vni, vni_count, tgen=None):
     """
     Return None once the local ES and all its EVPN state is rebuilt on dut
     and visible on observer, an error string otherwise.
     """
     es = get_bgp_es(dut, esi)
     checks = (
-        ("ES routes", check_es_evpn_routes(tgen, dut, observer, esi, mac, vni)),
+        ("ES routes", check_es_evpn_routes(dut, observer, esi, mac, vni, tgen)),
         (
             "local Type-4",
             check_type4_route(dut, esi, originator, True, self_orig=True),
@@ -1448,38 +1456,45 @@ def test_evpn_mh_bgp_instance_delete_readd():
     vni = 1000
     instance = "router bgp 65002"
 
-    test_fn = partial(check_type4_route, observer, esi, originator, True)
-    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
-    assert result is None, result
+    def _pull(test_fn, count=30, wait=2):
+        _, result = topotest.run_and_expect(test_fn, None, count=count, wait=wait)
+        assert result is None, result
 
-    test_fn = partial(check_es_evpn_routes, tgen, dut, observer, esi, mac, vni)
-    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
-    assert result is None, result
+    _pull(partial(check_type4_route, observer, esi, originator, True))
+
+    ping_anycast_gw(tgen)
+    _pull(partial(check_es_evpn_routes, dut, observer, esi, mac, vni, tgen))
 
     vni_count = get_bgp_es(dut, esi).get("vniCount")
     assert vni_count, "ES %s has no ES-EVIs on %s" % (esi, dut.name)
 
     for _ in range(2):
         dut.vtysh_cmd("configure terminal\nno %s" % instance)
-        test_fn = partial(check_bgp_instance_absent, dut, instance)
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
-        assert result is None, result
-
-        test_fn = partial(check_bgp_es_local, dut, esi, False)
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
-        assert result is None, result
-
-        test_fn = partial(check_type4_route, observer, esi, originator, False)
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
-        assert result is None, result
+        _pull(partial(check_bgp_instance_absent, dut, instance))
+        _pull(partial(check_bgp_es_local, dut, esi, False))
+        _pull(partial(check_type4_route, observer, esi, originator, False))
 
         dut.cmd_raises("vtysh -f %s/torm11/evpn.conf" % CWD)
 
-        test_fn = partial(
-            check_rebuilt_es, tgen, dut, observer, esi, originator, mac, vni, vni_count
+        # Pull until the ES is local, then pull EVPN state. MAC-IP refresh
+        # is a failure-path ARP inside check_es_evpn_routes (short timeout)
+        # so a missed first packet can still be retried.
+        _pull(partial(check_bgp_es_local, dut, esi, True))
+        _pull(
+            partial(
+                check_rebuilt_es,
+                dut,
+                observer,
+                esi,
+                originator,
+                mac,
+                vni,
+                vni_count,
+                tgen,
+            ),
+            count=45,
+            wait=2,
         )
-        _, result = topotest.run_and_expect(test_fn, None, count=60, wait=1)
-        assert result is None, result
 
     assert dut.check_router_running() == "", "torm11 daemons are not running"
 
