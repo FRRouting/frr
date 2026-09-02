@@ -1499,6 +1499,18 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 	struct zebra_if *zif = NULL;
 	struct zebra_vrf *zvrf;
 
+	/* Pure-L3 (no-L2VNI) neighbor sync: install a MAC-less NTF_EXT_LEARNED
+	 * neighbor on the ETAG-selected SVI; no VXLAN interface or bridge FDB
+	 * is involved, so this is handled before the L2VNI state checks.
+	 */
+	if (ipa_len && CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC)) {
+		zebra_evpn_l3vni_remote_neigh_add(vni, ipaddr, macaddr, eth_tag,
+						  seq, esi,
+						  !!CHECK_FLAG(flags,
+							       ZEBRA_MACIP_TYPE_ROUTER_FLAG));
+		return;
+	}
+
 	/* Locate EVPN hash entry - expected to exist. */
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
@@ -1617,6 +1629,15 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t
 	if (!zevpn) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Unknown VNI %u upon remote MACIP DEL", vni);
+		return;
+	}
+
+	/* Pure-L3 (no-L2VNI) neighbor sync singleton: neighbor-only delete,
+	 * no VXLAN interface or zebra_mac involved.
+	 */
+	if (ipa_len && CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC)) {
+		zebra_evpn_l3vni_remote_neigh_del(zevpn, ipaddr, macaddr,
+						  eth_tag);
 		return;
 	}
 

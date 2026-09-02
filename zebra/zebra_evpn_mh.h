@@ -408,6 +408,9 @@ extern bool zebra_evpn_l3vni_from_svi(struct interface *ifp, vni_t *vni);
 extern struct zebra_evpn_es *
 zebra_evpn_l3vni_neigh_es(const struct ethaddr *macaddr,
 			  struct interface *svi_ifp);
+extern struct interface *
+zebra_evpn_l3vni_neigh_acc_ifp(const struct ethaddr *macaddr,
+			       struct interface *svi_ifp);
 extern void zebra_evpn_l3vni_local_mac_update(struct interface *acc_ifp,
 					      struct interface *br_if,
 					      const struct ethaddr *macaddr,

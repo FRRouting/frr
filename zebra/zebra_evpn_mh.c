@@ -773,21 +773,23 @@ static void zebra_evpn_bd_l2vni_appeared_flush(struct zebra_evpn_access_bd *acc_
 {
 	struct zebra_l3vni *zl3vni;
 
-	/* The BD no longer originates pure-L3; drop its MAC/ES cache. Do this
-	 * first, unconditionally: the cache is populated for any no-L2VNI BD
-	 * (even one with no SVI yet), so it must be dropped on the L2VNI
-	 * transition regardless of whether an SVI/VRF/L3VNI can be resolved to
-	 * withdraw neighbors.
+	/* Hand the BD's local pure-L3 neighbors off to the new L2VNI EVI BEFORE
+	 * dropping the MAC/ES cache: the handoff needs the cache to resolve each
+	 * host MAC's access port. Only possible with a usable SVI/VRF/L3VNI.
+	 */
+	if (acc_bd->vlan_zif && acc_bd->vlan_zif->ifp &&
+	    acc_bd->vlan_zif->ifp->vrf) {
+		zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
+		if (zl3vni)
+			zebra_evpn_l3vni_neigh_handoff_bd(zl3vni->vni, vid,
+							  acc_bd->zevpn,
+							  acc_bd->vlan_zif->ifp);
+	}
+
+	/* The BD no longer originates pure-L3; drop its MAC/ES cache
+	 * unconditionally (it is populated even for a BD with no SVI yet).
 	 */
 	zebra_evpn_l3vni_mac_es_flush(acc_bd);
-
-	if (!acc_bd->vlan_zif || !acc_bd->vlan_zif->ifp ||
-	    !acc_bd->vlan_zif->ifp->vrf)
-		return;
-
-	zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
-	if (zl3vni)
-		zebra_evpn_l3vni_neigh_flush_bd(zl3vni->vni, vid);
 }
 
 /* handle VLAN->VxLAN_IF association */
@@ -910,10 +912,23 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
 		zlog_debug("access vlan %d bridge ifindex %u vni %u deref", acc_bd->vid,
 			   bridge_ifindex, vni_id);
 
-	if (acc_bd->zevpn)
-		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, acc_bd->zevpn);
+	if (acc_bd->zevpn) {
+		/* Losing the L2VNI (ML2 -> ML3): request kernel neighbor
+		 * discovery for the BD's local hosts so a still-present host is
+		 * re-learned via NEWNEIGH and re-originated as pure-L3. Run
+		 * after acc_bd->zevpn is cleared so the pure-L3 BD check passes.
+		 */
+		struct zebra_evpn *old_zevpn = acc_bd->zevpn;
+		struct interface *svi_ifp =
+			acc_bd->vlan_zif ? acc_bd->vlan_zif->ifp : NULL;
 
-	acc_bd->zevpn = NULL;
+		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, acc_bd->zevpn);
+		acc_bd->zevpn = NULL;
+		zebra_evpn_l2vni_neigh_handoff_to_l3(old_zevpn, svi_ifp);
+	} else {
+		acc_bd->zevpn = NULL;
+	}
+
 	acc_bd->vxlan_zif = NULL;
 	acc_bd->vni = 0;
 
@@ -986,9 +1001,18 @@ void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, struct zebra_evpn *zevpn,
 		}
 	} else {
 		if (acc_bd->zevpn) {
+			/* L2VNI detaching as an EVPN object (ML2 -> ML3): request
+			 * kernel neighbor discovery for the BD's local hosts so
+			 * they are re-learned and re-originated as pure-L3 after
+			 * acc_bd->zevpn is cleared.
+			 */
 			struct zebra_evpn *old_zevpn = acc_bd->zevpn;
+			struct interface *svi_ifp =
+				acc_bd->vlan_zif ? acc_bd->vlan_zif->ifp : NULL;
+
 			acc_bd->zevpn = NULL;
 			zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, old_zevpn);
+			zebra_evpn_l2vni_neigh_handoff_to_l3(old_zevpn, svi_ifp);
 		}
 	}
 }
@@ -4407,6 +4431,57 @@ struct zebra_evpn_es *zebra_evpn_l3vni_neigh_es(const struct ethaddr *macaddr,
 		return NULL;
 
 	return acc_zif->es_info.es;
+}
+
+/* Resolve the access port an SVI-side host MAC sits behind, from the BD's
+ * MAC->port cache. The ML3->ML2 handoff needs it to build the L2 local MAC on
+ * the correct access port (not the SVI). Returns NULL if unresolved.
+ */
+struct interface *zebra_evpn_l3vni_neigh_acc_ifp(const struct ethaddr *macaddr,
+						 struct interface *svi_ifp)
+{
+	struct zebra_if *svi_zif;
+	struct interface *br_if;
+	struct interface *acc_ifp;
+	struct zebra_evpn_access_bd *acc_bd;
+	ifindex_t acc_ifindex;
+
+	if (!macaddr || !svi_ifp || !svi_ifp->info || !IS_ZEBRA_IF_VLAN(svi_ifp))
+		return NULL;
+
+	svi_zif = svi_ifp->info;
+	br_if = svi_zif->link;
+	if (!br_if)
+		return NULL;
+
+	acc_bd = zebra_evpn_acc_vl_find(svi_zif->l2info.vl.vid, br_if);
+	if (!acc_bd)
+		return NULL;
+
+	acc_ifindex = zebra_evpn_l3_mac_es_find(acc_bd, macaddr);
+	if (!acc_ifindex) {
+		/* No per-MAC binding cached: fall back to the BD's lone access
+		 * member (the same single-member model as the ES fallback), so
+		 * the handoff still resolves a port for a single-homed BD.
+		 */
+		struct zebra_if *lone;
+
+		if (!acc_bd->mbr_zifs || listcount(acc_bd->mbr_zifs) != 1)
+			return NULL;
+		lone = listnode_head(acc_bd->mbr_zifs);
+		return (lone && lone->ifp) ? lone->ifp : NULL;
+	}
+
+	acc_ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+					    acc_ifindex);
+	if (!acc_ifp || !acc_ifp->info)
+		return NULL;
+
+	/* The port must still be a member of this BD. */
+	if (!listnode_lookup(acc_bd->mbr_zifs, acc_ifp->info))
+		return NULL;
+
+	return acc_ifp;
 }
 
 /* Re-advertise every pure-L3 neighbor on the access BDs that a given port is a

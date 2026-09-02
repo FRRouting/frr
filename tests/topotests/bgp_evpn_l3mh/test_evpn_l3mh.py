@@ -806,21 +806,20 @@ def test_pure_l3_rt2_replay_on_knob_toggle():
     assert result is None, result
 
 
-@pytest.mark.xfail(
-    reason="ESI-match sync-neighbor install not yet implemented",
-    strict=False,
-)
 def test_pure_l3_sync_neighbor_install():
     """
     The multihoming peer (leaf2) installs host1's ARP entry as a sync neighbor
-    (NTF_EXT_LEARNED) learned from the ESI-matched pure-L3 RT-2, with NO bridge
-    FDB entry for host1's MAC.
+    (NTF_EXT_LEARNED) learned from the ESI-matched pure-L3 RT-2. Because the ESI
+    is local and the BD has no L2VNI, leaf2 also pins host1's MAC to the local
+    ES bond (hostbond1) in the bridge FDB so routed delivery reaches the exact
+    port instead of flooding the VLAN.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-
     _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    dut = tgen.gears["leaf2"]
 
     def _has_sync_neigh(dut):
         out = dut.run("ip neigh show dev vlan%d" % HOST_VID)
@@ -828,9 +827,29 @@ def test_pure_l3_sync_neighbor_install():
             return None
         return "no extern_learn neighbor for %s: %s" % (HOST_IP["host1"], out)
 
-    dut = tgen.gears["leaf2"]
     test_fn = partial(_has_sync_neigh, dut)
     _, result = topotest.run_and_expect(test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, result
+
+    # The neighbor's lladdr is host1's MAC; it must also be pinned to the local
+    # ES bond (hostbond1) in the bridge FDB (the local-ES sync-MAC).
+    neigh = dut.run("ip neigh show dev vlan%d" % HOST_VID)
+    host1_mac = None
+    for line in neigh.splitlines():
+        if HOST_IP["host1"] in line and "lladdr" in line:
+            host1_mac = line.split("lladdr")[1].split()[0]
+            break
+    assert host1_mac is not None, "could not find host1 MAC in: %s" % neigh
+
+    def _has_sync_mac(dut):
+        out = dut.run("bridge fdb show dev hostbond1")
+        if host1_mac.lower() in out.lower():
+            return None
+        return "host1 MAC %s not pinned to hostbond1: %s" % (host1_mac, out)
+
+    _, result = topotest.run_and_expect(
+        partial(_has_sync_mac, dut), None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
     assert result is None, result
 
 
