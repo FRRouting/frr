@@ -291,6 +291,8 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn);
 void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn);
 void zebra_evpn_mac_ifp_del(struct interface *ifp);
 void zebra_evpn_mac_clear_fwd_info(struct zebra_mac *zmac);
+void zebra_evpn_mac_handoff_to_l3(struct zebra_evpn *zevpn,
+				  struct interface *svi_ifp);
 extern void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip,
 					     bool sticky, vni_t vni);
 
