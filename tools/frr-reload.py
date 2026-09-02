@@ -2342,10 +2342,23 @@ def delete_via_vtysh_file(ctx_keys, line):
 
     Per-line deletes each trigger a full mgmtd commit. At scale that blows
     past systemd's ExecReload TimeoutSec (e.g. hundreds of L3VNI unsets under
-    "vrf NAME", or thousands of EVPN "route-target import" unsets under
-    "router bgp ... vrf ..."). Batching keeps one commit for the whole set.
+    "vrf NAME", thousands of EVPN "route-target import" unsets under
+    "router bgp ... vrf ...", or a thousand "route-map" unsets). Batching
+    keeps one commit for the whole set.
     """
-    if not ctx_keys or not line:
+    if not ctx_keys:
+        return False
+    # A route-map delete is translated to,
+    # ("no route-map RM permit 10")
+    # which gets represented as,
+    # (('route-map RM permit 10',), None)
+    # so for route-map line=None is expected.
+    if ctx_keys[0].startswith("route-map "):
+        return True
+    # Note: Only route-map is parsed above this check, because its delete
+    # could have line=None. Every other context with a valid line has to
+    # be added after the below line!=None check.
+    if not line:
         return False
     if ctx_keys[0].startswith("vrf "):
         return True
@@ -2765,15 +2778,19 @@ if __name__ == "__main__":
                 # Take scaled line deletes out of lines_to_del and apply them
                 # as a single "vtysh -f" batch (below) to avoid the per-line
                 # "vtysh -c" timeouts seen at scale (e.g. hundreds of L3VNI
-                # unsets under "vrf NAME", or thousands of EVPN route-target
-                # unsets under "router bgp ... vrf ..."). The rest stay in
-                # lines_to_del and go through the per-line delete path.
+                # unsets under "vrf NAME", thousands of EVPN route-target
+                # unsets under "router bgp ... vrf ...", or a thousand
+                # "route-map" unsets). The rest stay in lines_to_del
+                # and go through the per-line delete path.
                 # old way:
                 #   vtysh -c 'configure' -c 'vrf vrf1' -c ' no vni 4001' -c 'exit'
                 #   vtysh -c 'configure' -c 'vrf vrf2' -c ' no vni 4002' -c 'exit'
                 #   vtysh -c 'configure' -c 'router bgp 1 vrf vrf_shared1' \
                 #        -c 'address-family l2vpn evpn' \
                 #        -c ' no route-target import 1:1' -c 'exit' -c 'exit'
+                #   vtysh -c 'configure' -c 'no route-map rmap1 permit 10'
+                #   vtysh -c 'configure' -c 'route-map rmap2 permit 10' \
+                #        -c ' no set metric 10'
                 #
                 # new way:
                 #   /var/run/frr/reload-batch-del-A1B2C3.txt
@@ -2790,6 +2807,11 @@ if __name__ == "__main__":
                 #       no route-target import 1:1
                 #      exit
                 #     exit
+                #
+                #     no route-map rmap1 permit 10
+                #
+                #     route-map rmap2 permit 10
+                #      no set metric 10
                 #
                 #   vtysh -f /var/run/frr/reload-batch-del-A1B2C3.txt
                 #
