@@ -5389,6 +5389,14 @@ static void rib_process_dplane_results(struct event *event)
 			ctx = dplane_ctx_dequeue(&ctxlist);
 		}
 
+		/*
+		 * If the dplane still has results queued, yield back to the
+		 * event loop instead of draining everything in this one call.
+		 * Re-arm rib_process_dplane_results below to serve other events.
+		 */
+		if (work_left_to_do)
+			break;
+
 	} while (1);
 
 #ifdef HAVE_SCRIPTING
