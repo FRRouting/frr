@@ -2006,10 +2006,13 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 {
 	/*
-	 * A KEEP_AROUND reference already retains the NHE and its dependencies.
-	 * Reusing that reference must not increment the dependencies again.
+	 * A KEEP_AROUND reference already retains the NHE and its
+	 * dependencies. Reusing that reference must not increment the
+	 * dependencies again. Gate on the flag: the timer can already
+	 * have been cancelled while KEEP_AROUND is still set, and
+	 * incrementing deps then leaks one reference per member.
 	 */
-	if (event_is_scheduled(nhe->timer)) {
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 			zlog_debug("%s: nhe %p (%pNG) %d => %d (cancel keep-around)", __func__,
 				   nhe, nhe, nhe->refcnt, nhe->refcnt);

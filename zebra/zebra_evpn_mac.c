@@ -397,6 +397,53 @@ static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
 	}
 }
 
+struct mac_l3_handoff_ctx {
+	struct interface *br_if;
+	vlanid_t vid;
+};
+
+static void zebra_evpn_mac_handoff_to_l3_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_mac *mac = bucket->data;
+	struct mac_l3_handoff_ctx *ctx = arg;
+	struct interface *acc_ifp = NULL;
+	vlanid_t vid;
+
+	/* LOCAL_INACTIVE and a remote MAC resolved through a local ES both name
+	 * the host's local access port. The latter occurs when this leaf learned
+	 * the ARP locally but its peer owns the L2 FDB entry. The kernel will not
+	 * necessarily re-notify either FDB entry after the L2VNI is removed, and
+	 * without this cache the retained local ARP cannot originate a pure-L3
+	 * RT-2 with its ESI.
+	 */
+	if ((!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) && (!mac->es || !mac->es->zif)) ||
+	    CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW | ZEBRA_MAC_SVI))
+		return;
+
+	zebra_evpn_mac_get_access_info(mac, &acc_ifp, &vid);
+	if (acc_ifp)
+		zebra_evpn_l3vni_local_mac_update(acc_ifp, ctx->br_if, &mac->macaddr, ctx->vid,
+						  true);
+}
+
+/* The VLAN is losing its L2VNI and its hosts move to pure-L3 sync. The kernel
+ * sends no new FDB learn for a MAC already in the FDB, so copy each local
+ * MAC's access port from the L2VNI into the pure-L3 MAC->port cache, including
+ * LOCAL_INACTIVE entries and peer MACs resolved through a local ES.
+ */
+void zebra_evpn_mac_handoff_to_l3(struct zebra_evpn *zevpn, struct interface *svi_ifp)
+{
+	struct zebra_if *svi_zif = svi_ifp->info;
+	struct mac_l3_handoff_ctx ctx = {};
+
+	if (!svi_zif || !IS_ZEBRA_IF_VLAN(svi_ifp) || !svi_zif->link || !zevpn->mac_table)
+		return;
+
+	ctx.br_if = svi_zif->link;
+	ctx.vid = svi_zif->l2info.vl.vid;
+	hash_iterate(zevpn->mac_table, zebra_evpn_mac_handoff_to_l3_cb, &ctx);
+}
+
 #define MAC_BUF_SIZE 256
 static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 					    size_t len)
