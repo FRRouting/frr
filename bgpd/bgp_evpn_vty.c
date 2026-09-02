@@ -3675,10 +3675,16 @@ static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
  */
 static void evpn_set_advertise_all_vni(struct bgp *bgp, bool l3vni_neigh)
 {
+	bool reimport = l3vni_neigh && !bgp->advertise_l3vni_neigh;
+
 	bgp->advertise_all_vni = 1;
 	bgp->advertise_l3vni_neigh = l3vni_neigh;
 	bgp_set_evpn(bgp);
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
+
+	/* After the zapi enable so zebra accepts the synced neighbors. */
+	if (reimport)
+		bgp_evpn_l3vni_neigh_reimport(NULL);
 }
 
 /*
