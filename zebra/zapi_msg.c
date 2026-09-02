@@ -1431,6 +1431,9 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	unsigned short l = 0;
 	safi_t safi;
 	uint32_t srte_color __attribute__((unused));
+	struct route_table *table;
+	struct route_node *rn_ipv6 = NULL;
+	struct route_entry *re;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1486,6 +1489,23 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi);
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);
+
+			/* check if any route matching that rnh entry is 6PE route */
+			if (p.family == AF_INET6) {
+				table = zebra_vrf_table(family2afi(p.family), rnh->safi,
+							zvrf->vrf->vrf_id);
+				if (table)
+					rn_ipv6 = route_node_lookup(table, &p);
+				if (rn_ipv6) {
+					RNODE_FOREACH_RE (rn_ipv6, re) {
+						if (re->type == ZEBRA_ROUTE_6PE)
+							break;
+					}
+					if (re)
+						zebra_install_6pe_resolved_route(ZEBRA_ROUTE_DELETE,
+										 &p, rnh, zvrf);
+				}
+			}
 			zebra_remove_rnh_client(rnh, client);
 		}
 	}
