@@ -1008,6 +1008,11 @@ struct bgp {
 	 */
 	int advertise_l3vni_neigh;
 
+	/* Per-route stamp set while importing a pure-L3 (L3MH) RT-2 so each
+	 * matching VRF's L3VNI neighbor is programmed once across all its RTs.
+	 */
+	uint32_t l3vni_neigh_sync_walk;
+
 	/* draft-ietf-idr-deprecate-as-set-confed-set
 	 * Reject aspaths with AS_SET and/or AS_CONFED_SET.
 	 */
