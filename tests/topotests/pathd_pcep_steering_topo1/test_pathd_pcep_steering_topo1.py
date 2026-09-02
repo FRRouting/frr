@@ -15,7 +15,7 @@ reinstalls it when the policy comes back up.
          +-------------+                       +-------------+
          |             |eth-rt2         eth-rt1|             |
          |     RT1     +-----------------------+     RT2     |
-         | 1.1.1.1     |     10.0.1.0/24       | 2.2.2.2     |
+         | 192.0.2.1   |   203.0.113.0/24      | 192.0.2.2   |
          | 2001:db8::1 |  2001:db8:10:1::/64   | 2001:db8::2 |
          +-------------+                       +-------------+
                 |
@@ -28,7 +28,7 @@ family, each with a single prefix-SID label (IPv4: 16020, IPv6:
 16021).  Once IS-IS SR has installed the labels, the policies come up
 and pathd is expected to install the steering routes:
 
-    2.2.2.2/32       proto srte distance 10, resolving via SR-TE color
+    192.0.2.2/32     proto srte distance 10, resolving via SR-TE color
     2001:db8::2/128  proto srte distance 10, resolving via SR-TE color
 """
 
@@ -44,13 +44,13 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.isisd, pytest.mark.pathd]
 
-ENDPOINT = "2.2.2.2"
-PREFIX = "2.2.2.2/32"
+ENDPOINT = "192.0.2.2"
+PREFIX = "192.0.2.2/32"
 LABEL = 16020
 
 ENDPOINT6 = "2001:db8::2"
@@ -88,17 +88,14 @@ def setup_module(mod):
 
     tgen.start_topology()
 
+    # pathd is not inferred from frr.conf (there are no candidate paths,
+    # the policies are PCE-initiated) and needs the PCEP module, so it
+    # is named explicitly on rt1.
     for rname, router in tgen.routers().items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
-        )
-
-    tgen.gears["rt1"].load_config(
-        TopoRouter.RD_PATH, os.path.join(CWD, "rt1/pathd.conf"), " -M pathd_pcep"
-    )
+        if rname == "rt1":
+            router.load_frr_config(extra_daemons=[("pathd", " -M pathd_pcep")])
+        else:
+            router.load_frr_config()
 
     tgen.start_router()
 
@@ -214,11 +211,13 @@ def test_steering_route_withdrawn_on_policy_down():
         pytest.skip(tgen.errors)
 
     logger.info("shutting down rt2's eth-rt1")
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
          interface eth-rt1
           shutdown
-        """)
+        """
+    )
 
     check = lambda: check_steering_route(False)
     _, result = topotest.run_and_expect(check, None, count=60, wait=1)
@@ -235,11 +234,13 @@ def test_steering_route_reinstalled_on_policy_up():
         pytest.skip(tgen.errors)
 
     logger.info("bringing rt2's eth-rt1 back up")
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
          interface eth-rt1
           no shutdown
-        """)
+        """
+    )
 
     check = lambda: check_steering_route(True)
     _, result = topotest.run_and_expect(check, None, count=60, wait=1)
@@ -270,7 +271,7 @@ def start_pce():
         "nohup python3 {}/mock_pce.py "
         "--policy {},{},test-steer "
         "--policy {},{},test-steer-v6 "
-        "--pcc-address 1.1.1.1 --pcc-address6 2001:db8::1 "
+        "--pcc-address 192.0.2.1 --pcc-address6 2001:db8::1 "
         "--command-file {} "
         "--log {} > /dev/null 2>&1 &".format(
             CWD, ENDPOINT, LABEL, ENDPOINT6, LABEL6, pce_command_file(), pce_log
@@ -378,7 +379,9 @@ def test_policy_churn_scale():
 
     logger.info(
         "initiating %u churn policies each for %s and %s",
-        CHURN_COUNT, ENDPOINT, ENDPOINT6,
+        CHURN_COUNT,
+        ENDPOINT,
+        ENDPOINT6,
     )
     for i in range(CHURN_COUNT):
         churn_add(i, v6=False)
@@ -493,7 +496,9 @@ def configure_segment_list(name, no=False):
          segment-routing
           traffic-eng
            {}segment-list {}
-        """.format("no " if no else "", name)
+        """.format(
+            "no " if no else "", name
+        )
     )
 
 
@@ -690,9 +695,7 @@ def test_pce_restart():
     _, result = topotest.run_and_expect(check, None, count=60, wait=1)
     if result is not None:
         print_pce_log()
-    assert result is None, "steering route missing after restarts: {}".format(
-        result
-    )
+    assert result is None, "steering route missing after restarts: {}".format(result)
 
 
 def test_inflight_shutdown():
