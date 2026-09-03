@@ -1404,14 +1404,30 @@ static void bgp_advertisement_delay_begin(struct bgp *bgp)
 }
 
 /*
- * Handle first peer Established for advertisement-delay.
+ * Called when any peer reaches Established.
+ * Start advertisement-delay for every instance that has it configured.
+ *
+ * The peer that triggered this belongs to one instance, but the timer is
+ * started for all of them, so graceful-restart has to be checked per instance
+ * here.  gr_route_sync_pending is true only while that instance is actually
+ * retaining routes for a graceful restart, which is what advertisement-delay
+ * has to stay out of the way of.
  */
-static void bgp_advertisement_delay_process_status_change(struct peer *peer)
+static void bgp_peer_established_handle_all_vrfs(void)
 {
-	struct bgp *bgp = peer->bgp;
+	struct listnode *node;
+	struct bgp *bgp;
 
-	if (peer_established(peer->connection) && !bgp->advertisement_delay_started)
-		bgp_advertisement_delay_begin(bgp);
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		if (!bgp_advertisement_delay_configured(bgp))
+			continue;
+
+		if (bgp->gr_route_sync_pending)
+			continue;
+
+		if (bgp_advertisement_delay_applicable(bgp) && !bgp->advertisement_delay_started)
+			bgp_advertisement_delay_begin(bgp);
+	}
 }
 
 /* Steps to begin the update delay:
@@ -2101,20 +2117,19 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 			bgp->maxmed_onstartup_over = 1;
 	}
 
-	/* Check for GR restarter, update-delay, or advertisement-delay.
-	 * When GR is not applicable, both update-delay and advertisement-delay
-	 * can run independently.
-	 */
+	/* Check for GR restarter or update-delay. */
 	if (gr_path_select_deferral_applicable(bgp))
 		bgp_gr_process_peer_status_change(peer);
-	else {
-		if (bgp_update_delay_configured(bgp) && bgp_update_delay_applicable(bgp))
-			bgp_update_delay_process_status_change(peer);
+	else if (bgp_update_delay_configured(bgp) && bgp_update_delay_applicable(bgp))
+		bgp_update_delay_process_status_change(peer);
 
-		if (bgp_advertisement_delay_configured(bgp) &&
-		    bgp_advertisement_delay_applicable(bgp))
-			bgp_advertisement_delay_process_status_change(peer);
-	}
+	/* advertisement-delay is VRF-aware: a peer reaching Established in any
+	 * instance starts the timer for every instance that has it configured.
+	 * Graceful-restart is checked per instance inside, so this must not be
+	 * gated on the state of the triggering peer's instance.
+	 */
+	if (status == Established)
+		bgp_peer_established_handle_all_vrfs();
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s fd %d went from %s to %s for %s", peer->host, connection->fd,

@@ -1776,9 +1776,10 @@ Redistribute routes from a routing table number into BGP.
    After a non-graceful restart, peers detect the session loss and withdraw
    routes to this router, so the receiver has no routes to this router at all.
    ``advertisement-delay`` controls when this router re-announces itself,
-   ensuring it only attracts traffic once it has fully converged.  When
-   graceful-restart is active, ``advertisement-delay`` is not started -- the
-   GR restarter path handles route retention separately.
+   ensuring it only attracts traffic once it has fully converged.  While a
+   graceful restart is in progress for a BGP instance, ``advertisement-delay``
+   is not started for that instance -- the GR restarter path handles route
+   retention separately.  Other instances are unaffected.
 
    This feature holds route advertisements to peers for a configured number of
    seconds after the first peer reaches Established status.  The delay applies
@@ -1824,19 +1825,30 @@ Redistribute routes from a routing table number into BGP.
    After a non-graceful restart, peers detect the session loss and withdraw
    routes to this router, so the receiver has no routes to this router at all.
    ``advertisement-delay`` controls when this router re-announces itself,
-   ensuring it only attracts traffic once it has fully converged.  When
-   graceful-restart is active, ``advertisement-delay`` is not started -- the
-   GR restarter path handles route retention separately.
+   ensuring it only attracts traffic once it has fully converged.  While a
+   graceful restart is in progress for a BGP instance, ``advertisement-delay``
+   is not started for that instance -- the GR restarter path handles route
+   retention separately.  Other instances are unaffected.
 
    This feature holds route advertisements to peers for a configured number of
-   seconds after the first peer reaches Established status.  Note that this
-   command is configured under the specific bgp instance/vrf that the feature
-   is enabled for.  It cannot be used at the same time as the global
-   ``bgp advertisement-delay`` described above.  The global and per-vrf
+   seconds after the first BGP peer in any VRF reaches Established status.
+   Note that this command is configured under the specific bgp instance/vrf
+   that the feature is enabled for.  It cannot be used at the same time as the
+   global ``bgp advertisement-delay`` described above.  The global and per-vrf
    approaches are mutually exclusive.
 
-   When the first peer reaches Established, a timer for the configured delay is
-   started.  During this period, best-path selection and FIB programming proceed
+   The timer is VRF-aware: when the first peer in any VRF (including the
+   default VRF) reaches Established, the advertisement-delay timer starts for
+   every VRF that has it configured.  A VRF that has no BGP peers of its own,
+   and learns its routes by import from another instance, is held as well.
+   Each VRF manages its own timer independently.
+
+   Because a peer in one VRF starts the timer everywhere it is configured,
+   enable it only on the VRFs whose advertisements should be held.  A VRF
+   that carries the sessions used to reach other routers will otherwise hold
+   those advertisements too.
+
+   During the delay period, best-path selection and FIB programming proceed
    normally, but route advertisements to peers are held.  When the timer
    expires, advertisements are released to all established peers.
 

@@ -32,6 +32,8 @@ Test cases:
    finishes earlier.
 8. Re-trigger advertisement-delay on clear ip bgp *.
 9. Remove advertisement-delay, verify routes advertised promptly.
+10. A VRF with no peers of its own has its timer started by a peer
+    establishing in another VRF, and reports it in show bgp summary.
 """
 
 import os
@@ -171,9 +173,9 @@ def test_bgp_advertisement_delay_in_progress():
 
     test_func = functools.partial(_check_delay_active_with_peers)
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
-    assert result is None, (
-        "advertisement-delay not active with Established peers: {}".format(result)
-    )
+    assert (
+        result is None
+    ), "advertisement-delay not active with Established peers: {}".format(result)
 
 
 def test_bgp_advertisement_delay_route_installed_during_delay():
@@ -192,9 +194,7 @@ def test_bgp_advertisement_delay_route_installed_during_delay():
 
     test_func = functools.partial(_check_route_in_rib)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-    assert result is None, (
-        "r2 should install routes in RIB during advertisement-delay"
-    )
+    assert result is None, "r2 should install routes in RIB during advertisement-delay"
 
 
 def test_bgp_advertisement_delay_completed():
@@ -227,8 +227,8 @@ def test_bgp_advertisement_delay_completed():
 
     test_func = functools.partial(_check_delay_completed)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, (
-        "advertisement-delay did not complete properly: {}".format(result)
+    assert result is None, "advertisement-delay did not complete properly: {}".format(
+        result
     )
 
 
@@ -310,9 +310,7 @@ def test_bgp_update_delay_with_advertisement_delay():
         for peer_addr, peer_data in peers.items():
             if peer_data.get("state") == "Established":
                 if peer_data.get("pfxSnt", -1) != 0:
-                    return "pfxSnt not 0 for {} while ad-delay active".format(
-                        peer_addr
-                    )
+                    return "pfxSnt not 0 for {} while ad-delay active".format(peer_addr)
         established = [p for p in peers.values() if p.get("state") == "Established"]
         if not established:
             return "No peers Established yet"
@@ -320,9 +318,9 @@ def test_bgp_update_delay_with_advertisement_delay():
 
     test_func = functools.partial(_check_ad_delay_holding_after_ud)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-    assert result is None, (
-        "ad-delay should hold ads after update-delay ends: {}".format(result)
-    )
+    assert (
+        result is None
+    ), "ad-delay should hold ads after update-delay ends: {}".format(result)
 
     def _check_both_completed():
         output = json.loads(r2.vtysh_cmd("show bgp summary json"))
@@ -418,9 +416,64 @@ def test_bgp_no_advertisement_delay():
 
     test_func = functools.partial(_check_no_delay)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, (
-        "Routes not advertised promptly without advertisement-delay: {}".format(result)
+    assert (
+        result is None
+    ), "Routes not advertised promptly without advertisement-delay: {}".format(result)
+
+
+def test_bgp_advertisement_delay_vrf_without_peers():
+    """A VRF with no peers of its own is started by a peer in another VRF."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+
+    r2.run("ip link add vrf-quiet type vrf table 1010")
+    r2.run("ip link set vrf-quiet up")
+
+    r2.vtysh_cmd(
+        """
+          configure terminal
+            router bgp 65002 vrf vrf-quiet
+              advertisement-delay 20
+        """
     )
+
+    # vrf-quiet has no peers, so only a peer in the default VRF can start it.
+    r2.vtysh_cmd("clear ip bgp *")
+
+    def _check_delay_started():
+        output = json.loads(r2.vtysh_cmd("show bgp vrf vrf-quiet summary json"))
+        expected = {
+            "ipv4Unicast": {
+                "advertisementDelay": 20,
+                "advertisementDelayInProgress": True,
+                "totalPeers": 0,
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_check_delay_started)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "advertisement-delay did not start for a VRF without peers"
+
+    def _check_delay_completed():
+        output = json.loads(r2.vtysh_cmd("show bgp vrf vrf-quiet summary json"))
+        ipv4 = output.get("ipv4Unicast", {})
+
+        if ipv4.get("advertisementDelayInProgress"):
+            return "still in progress"
+        if "advertisementDelayResumeTime" not in ipv4:
+            return "no resume time recorded"
+        return None
+
+    test_func = functools.partial(_check_delay_completed)
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+    assert (
+        result is None
+    ), "advertisement-delay did not complete for a peerless VRF: {}".format(result)
 
 
 if __name__ == "__main__":

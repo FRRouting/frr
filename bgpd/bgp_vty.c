@@ -14355,6 +14355,29 @@ static void bgp_show_summary_advertisement_delay(struct vty *vty,
 	}
 }
 
+/*
+ * Per-instance identification header, shared by the peered and the peerless
+ * paths of bgp_show_summary().
+ */
+static void bgp_show_summary_instance_header(struct vty *vty, struct bgp *bgp, json_object *json,
+					     bool use_json)
+{
+	int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : (int64_t)bgp->vrf_id;
+
+	if (use_json) {
+		json_object_string_addf(json, "routerId", "%pI4", &bgp->router_id);
+		asn_asn2json(json, "as", bgp->as, bgp->asnotation);
+		json_object_int_add(json, "vrfId", vrf_id_ui);
+		json_object_string_add(json, "vrfName",
+				       bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+					       ? VRF_DEFAULT_NAME
+					       : bgp->name);
+	} else {
+		vty_out(vty, "BGP router identifier %pI4, local AS number %s %s vrf-id %d\n",
+			&bgp->router_id, bgp->as_pretty, bgp->name_pretty, (int)vrf_id_ui);
+	}
+}
+
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			    struct peer *fpeer, enum peer_asn_type as_type,
 			    as_t as, uint16_t show_flags)
@@ -14495,42 +14518,14 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (!count) {
 			unsigned long ents;
 			char memstrbuf[MTYPE_MEMSTR_LEN];
-			int64_t vrf_id_ui;
-
-			vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
-					    ? -1
-					    : (int64_t)bgp->vrf_id;
 
 			/* Usage summary and header */
-			if (use_json) {
-				json_object_string_addf(json, "routerId",
-							"%pI4",
-							&bgp->router_id);
-				asn_asn2json(json, "as", bgp->as,
-					     bgp->asnotation);
-				json_object_int_add(json, "vrfId", vrf_id_ui);
-				json_object_string_add(
-					json, "vrfName",
-					(bgp->inst_type
-					 == BGP_INSTANCE_TYPE_DEFAULT)
-						? VRF_DEFAULT_NAME
-						: bgp->name);
-			} else {
-				vty_out(vty,
-					"BGP router identifier %pI4, local AS number %s %s vrf-id %d",
-					&bgp->router_id, bgp->as_pretty,
-					bgp->name_pretty,
-					bgp->vrf_id == VRF_UNKNOWN
-						? -1
-						: (int)bgp->vrf_id);
-				vty_out(vty, "\n");
-			}
+			bgp_show_summary_instance_header(vty, bgp, json, use_json);
 
 			bgp_show_summary_update_delay(vty, bgp, json,
 						     use_json);
 
-			bgp_show_summary_advertisement_delay(vty, bgp, json,
-							     use_json);
+			bgp_show_summary_advertisement_delay(vty, bgp, json, use_json);
 
 			if (use_json) {
 				if (bgp_maxmed_onstartup_configured(bgp)
@@ -14999,6 +14994,17 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		}
 	}
 
+	/*
+	 * An instance with no peers in this AFI/SAFI never reached the header
+	 * block inside the loop above, but it can still have advertisement-delay
+	 * state to report: the timer is started by the first peer to reach
+	 * Established in any instance.
+	 */
+	if (!count && bgp_advertisement_delay_configured(bgp)) {
+		bgp_show_summary_instance_header(vty, bgp, json, use_json);
+		bgp_show_summary_advertisement_delay(vty, bgp, json, use_json);
+	}
+
 	if (use_json) {
 		json_object_object_add(json, "peers", json_peers);
 		json_object_int_add(json, "failedPeers", failed_count);
@@ -15042,6 +15048,36 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Number of peers configured in this BGP instance, counted once per peer
+ * regardless of how many address families it is activated in.
+ */
+static uint32_t bgp_instance_peer_count(struct bgp *bgp)
+{
+	struct listnode *node;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	uint32_t count = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		bool activated = false;
+
+		if (!peer_is_config_node(peer))
+			continue;
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (peer->afc[afi][safi])
+				activated = true;
+		}
+
+		if (activated)
+			count++;
+	}
+
+	return count;
+}
+
 static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 				      int safi, struct peer *fpeer, int as_type,
 				      as_t as, uint16_t show_flags)
@@ -15052,6 +15088,11 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 	int is_wildcard = (afi_wildcard || safi_wildcard);
 	bool nbr_output = false;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	/* A VRF with no peers of its own still has to report its
+	 * advertisement-delay state; show it once, under IPv4 unicast.
+	 */
+	bool adv_delay_only = bgp_advertisement_delay_configured(bgp) &&
+			      !bgp_instance_peer_count(bgp);
 
 	if (use_json && is_wildcard)
 		vty_out(vty, "{\n");
@@ -15061,7 +15102,8 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 		if (safi_wildcard)
 			safi = 1; /* SAFI_UNICAST */
 		while (safi < SAFI_MAX) {
-			if (bgp_afi_safi_peer_exists(bgp, afi, safi)) {
+			if (bgp_afi_safi_peer_exists(bgp, afi, safi) ||
+			    (adv_delay_only && afi == AFI_IP && safi == SAFI_UNICAST)) {
 				nbr_output = true;
 
 				if (is_wildcard) {
