@@ -1217,7 +1217,7 @@ bool zapi_ipset_notify_decode(struct stream *s,
 bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 				 struct in6_addr *sid_value, uint32_t *func,
 				 uint32_t *wide_func, enum zapi_srv6_sid_notify *note,
-				 char *locator_name, size_t loc_size);
+				 char *locator_name, size_t loc_size, uint8_t *flags);
 
 /* Nexthop-group message apis */
 extern enum zclient_send_status

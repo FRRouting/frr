@@ -1040,11 +1040,12 @@ void zsend_neighbor_notify(int cmd, struct interface *ifp,
 void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 			   struct in6_addr *sid_value, uint32_t func,
 			   uint32_t wide_func, const char *locator_name,
-			   enum zapi_srv6_sid_notify note)
+			   enum zapi_srv6_sid_notify note, bool is_localonly)
 
 {
 	struct stream *s;
 	uint16_t cmd = ZEBRA_SRV6_SID_NOTIFY;
+	uint8_t flags = 0;
 	char buf[256];
 
 	if (IS_ZEBRA_DEBUG_PACKET)
@@ -1069,6 +1070,10 @@ void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 	stream_putl(s, wide_func);
 	/* SRv6 locator name optional */
 	zapi_srv6_locname_encode(s, locator_name, __func__);
+	/* SID representation flags */
+	if (is_localonly)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY);
+	stream_putc(s, flags);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
