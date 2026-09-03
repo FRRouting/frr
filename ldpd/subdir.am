@@ -59,6 +59,9 @@ noinst_HEADERS += \
 	ldpd/ldpe.h \
 	ldpd/log.h \
 	ldpd/rlfa.h \
+	\
+	ldpd/ldpd_hooks.h \
+	ldpd/neighbor_hooks.h \
 	# end
 
 ldpd_ldpd_SOURCES = ldpd/ldpd.c
