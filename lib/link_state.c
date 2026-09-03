@@ -858,8 +858,11 @@ struct ls_edge *ls_edge_update(struct ls_ted *ted,
 	if (old) {
 		/* Check if attributes are similar */
 		if (!ls_attributes_same(old->attributes, attributes)) {
+			ls_disconnect(old->source, old, true);
+			ls_disconnect(old->destination, old, false);
 			ls_attributes_del(old->attributes);
 			old->attributes = attributes;
+			ls_edge_connect_to(ted, old);
 		} else
 			ls_attributes_del(attributes);
 
