@@ -166,6 +166,107 @@ double_linked_list *pcep_msg_read(int sock_fd)
 	return msg_list;
 }
 
+/*
+ * Create a buffered reader, otherwise messages sent partially are
+ * lost and pcep does not correctly parse the message.
+ */
+double_linked_list *pcep_msg_read_buffered(int sock_fd, uint8_t *buffer, uint32_t buffer_size,
+					   uint32_t *buffer_len, int *invalid_msgs)
+{
+	int ret;
+	uint32_t offset = 0;
+
+	/*
+	 * The caller sizes the buffer at PCEP_MESSAGE_LENGTH, the
+	 * largest a message's 16-bit length field can express, and the loop
+	 * below never leaves a whole message buffered.
+	 */
+	if (*buffer_len >= buffer_size) {
+		pcep_log(LOG_ERR, "%s: buffer full (%u bytes) fd [%d], discarding", __func__,
+			 *buffer_len, sock_fd);
+		*buffer_len = 0;
+	}
+
+	/* Append to whatever partial bytes a previous call left buffered. */
+	ret = read(sock_fd, buffer + *buffer_len, buffer_size - *buffer_len);
+
+	if (ret < 0) {
+		/*
+		 * Non-blocking socket with nothing to read, or an interrupted
+		 * read: not an error and not a close. Return an empty list so
+		 * the caller keeps the session and the buffer as they are.
+		 */
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+			return dll_initialize();
+		/* A real read error: report it as a closed socket (NULL). */
+		pcep_log(LOG_INFO, "%s: Failed to read from socket fd [%d] errno [%d %s]",
+			 __func__, sock_fd, errno, strerror(errno));
+		return NULL;
+	} else if (ret == 0) {
+		/*
+		 * The peer closed the connection: NULL tells the caller the
+		 * socket is gone so it can tear the session down.
+		 */
+		pcep_log(LOG_INFO, "%s: Remote shutdown fd [%d]", __func__, sock_fd);
+		return NULL;
+	}
+
+	*buffer_len += ret;
+
+	double_linked_list *msg_list = dll_initialize();
+
+	/*
+	 * Decode every complete message the buffer now holds.
+	 * Stop once fewer than a header's worth of bytes are left,
+	 * the length field is not yet in.
+	 */
+	while (*buffer_len - offset >= MESSAGE_HEADER_LENGTH) {
+		int32_t msg_length = pcep_decode_validate_msg_header(buffer + offset);
+
+		if (msg_length < 0 || (uint32_t)msg_length > buffer_size) {
+			pcep_log(LOG_INFO,
+				 "%s: Received an invalid message fd [%d], discarding %u bytes",
+				 __func__, sock_fd, *buffer_len - offset);
+			(*invalid_msgs)++;
+			*buffer_len = 0;
+			return msg_list;
+		}
+
+		/*
+		 * The header is valid but the whole message has not arrived
+		 * yet. A later read() completes it.
+		 */
+		if (*buffer_len - offset < (uint32_t)msg_length)
+			break;
+
+		/*
+		 * A full message is now present.
+		 */
+		struct pcep_message *msg = pcep_decode_message(buffer + offset);
+
+		if (msg == NULL) {
+			pcep_log(LOG_INFO, "%s: Could not decode a message of length [%d] fd [%d]",
+				 __func__, msg_length, sock_fd);
+			(*invalid_msgs)++;
+		} else {
+			dll_append(msg_list, msg);
+		}
+		offset += msg_length;
+	}
+
+	/*
+	 * Drop the consumed bytes, shifting any trailing partial message to
+	 * the front so the next call reads in right after it.
+	 */
+	if (offset > 0) {
+		*buffer_len -= offset;
+		if (*buffer_len > 0)
+			memmove(buffer, buffer + offset, *buffer_len);
+	}
+
+	return msg_list;
+}
+
 struct pcep_message *pcep_msg_get(double_linked_list *msg_list, uint8_t type)
 {
 	if (msg_list == NULL) {

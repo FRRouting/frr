@@ -19,6 +19,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 
 #include <CUnit/CUnit.h>
@@ -180,6 +181,61 @@ void test_session_logic_msg_ready_handler()
 	pceplib_free(PCEPLIB_INFRA, socket_event);
 	close(fd);
 	unlink(tmpfile);
+}
+
+
+/* A message split across reads must not close the session: the handler
+ * returns a positive value and queues nothing until the message is
+ * complete, then delivers it.
+ */
+void test_session_logic_msg_ready_handler_partial(void)
+{
+	int sv[2];
+	pcep_session session;
+	struct pcep_versioning *versioning;
+	struct pcep_message *keep_alive_msg;
+	pcep_session_event *socket_event;
+	uint16_t len, first;
+
+	CU_ASSERT_EQUAL_FATAL(socketpair(AF_UNIX, SOCK_STREAM, 0, sv), 0);
+
+	memset(&session, 0, sizeof(pcep_session));
+	session.session_id = 100;
+
+	versioning = create_default_pcep_versioning();
+	keep_alive_msg = pcep_msg_create_keepalive();
+	pcep_encode_message(keep_alive_msg, versioning);
+	len = keep_alive_msg->encoded_message_length;
+	first = len / 2;
+
+	/* First part only: the socket stays open and nothing is queued */
+	CU_ASSERT_EQUAL(write(sv[1], keep_alive_msg->encoded_message, first), first);
+	CU_ASSERT_TRUE(session_logic_msg_ready_handler(&session, sv[0]) > 0);
+	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries, 0);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
+	CU_ASSERT_EQUAL(session.rx_buffer_len, first);
+
+	/* The remainder completes the message, which is delivered */
+	CU_ASSERT_EQUAL(write(sv[1], keep_alive_msg->encoded_message + first, len - first),
+			len - first);
+	CU_ASSERT_EQUAL(session_logic_msg_ready_handler(&session, sv[0]), len);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
+	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries, 1);
+	socket_event =
+		(pcep_session_event *)queue_dequeue(session_logic_handle_->session_event_queue);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(socket_event);
+	assert(socket_event != NULL);
+	CU_ASSERT_FALSE(socket_event->socket_closed);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(socket_event->received_msg_list);
+	CU_ASSERT_EQUAL(socket_event->received_msg_list->num_entries, 1);
+	CU_ASSERT_EQUAL(session.rx_buffer_len, 0);
+
+	pcep_msg_free_message_list(socket_event->received_msg_list);
+	pceplib_free(PCEPLIB_INFRA, socket_event);
+	pcep_msg_free_message(keep_alive_msg);
+	destroy_pcep_versioning(versioning);
+	close(sv[0]);
+	close(sv[1]);
 }
 
 
