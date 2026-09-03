@@ -404,10 +404,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int star
 		return netlink_route_change(h, ns_id, startup, arg);
 	case RTM_DELROUTE:
 		return netlink_route_change(h, ns_id, startup, arg);
-	case RTM_NEWRULE:
-		return netlink_rule_change(h, ns_id, startup, arg);
-	case RTM_DELRULE:
-		return netlink_rule_change(h, ns_id, startup, arg);
 
 	/* Messages we may receive, but ignore */
 	case RTM_NEWCHAIN:
@@ -438,6 +434,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int star
 	case RTM_DELTCLASS:
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
+	case RTM_NEWRULE:
+	case RTM_DELRULE:
 		return 0;
 	default:
 		/*
@@ -474,6 +472,10 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, i
 	case RTM_NEWNEXTHOP:
 	case RTM_DELNEXTHOP:
 		return netlink_nexthop_change(h, ns_id, startup, arg);
+
+	case RTM_NEWRULE:
+	case RTM_DELRULE:
+		return netlink_rule_change(h, ns_id, startup, arg);
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
@@ -1739,10 +1741,11 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
  * Initialize all netlink sockets and subsystem for a given network namespace.
  *
  * Creates five netlink sockets:
- *   netlink            - Inbound route/rule/nexthop events (main pthread)
+ *   netlink            - Inbound route events (main pthread)
  *   netlink_cmd        - Outbound synchronous commands (main pthread)
  *   netlink_dplane_out - Outbound dataplane programming (dplane pthread)
- *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc events (dplane pthread)
+ *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/nexthop/rule
+ *                        events (dplane pthread)
  *   ge_netlink_cmd     - Generic netlink commands (optional, non-fatal)
  *
  * Also configures: multicast group subscriptions, extended ACK, non-blocking
@@ -1762,15 +1765,15 @@ void kernel_init(struct zebra_ns *zns)
 	 * ----------------------------------------------------------------
 	 */
 
-	/* Main listener: route and rule change notifications */
-	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
-		 FRR_NLGRP_BIT(RTNLGRP_IPV4_RULE) | FRR_NLGRP_BIT(RTNLGRP_IPV6_RULE);
+	/* Main listener: route change notifications */
+	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE;
 
-	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop */
+	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop, rule */
 	dplane_groups = RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
 			FRR_NLGRP_BIT(RTNLGRP_IPV4_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_IPV6_NETCONF) |
 			FRR_NLGRP_BIT(RTNLGRP_MPLS_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_TC) |
-			FRR_NLGRP_BIT(RTNLGRP_NEXTHOP);
+			FRR_NLGRP_BIT(RTNLGRP_NEXTHOP) | FRR_NLGRP_BIT(RTNLGRP_IPV4_RULE) |
+			FRR_NLGRP_BIT(RTNLGRP_IPV6_RULE);
 
 	/* Extended group: bit position >= 32, requires setsockopt */
 	ext_groups = RTNLGRP_TUNNEL;
