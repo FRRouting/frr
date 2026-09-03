@@ -24,6 +24,7 @@ void test_pcep_msg_read_pcep_initiate(void);
 void test_pcep_msg_read_pcep_initiate2(void);
 void test_pcep_msg_read_pcep_initiate_vendor_info(void);
 void test_pcep_msg_read_pcep_initiate_unknown_tlv(void);
+void test_pcep_msg_read_buffered_split(void);
 void test_pcep_msg_read_pcep_update(void);
 void test_pcep_msg_read_pcep_open(void);
 void test_pcep_msg_read_pcep_open_initiate(void);
