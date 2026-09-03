@@ -724,6 +724,8 @@ void test_handle_socket_comm_event_unknown_msg()
 	create_message_for_test(13, false, false);
 	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
 	mock_info->send_message_save_message = true;
+	/* The session is only closed on max unknown messages while connected */
+	session.session_state = SESSION_STATE_PCEP_CONNECTED;
 
 	handle_socket_comm_event(&event);
 
@@ -802,6 +804,35 @@ void test_handle_socket_comm_event_unknown_msg()
 	CU_ASSERT_EQUAL(PCEP_CLOSE_REASON_UNREC_MSG, close_obj->reason);
 	pcep_msg_free_message(msg);
 	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	destroy_message_for_test();
+
+	/*
+	 * Send a third unsupported message type while the session is closing.
+	 * An error should still be sent, but the session must not be closed
+	 * again: the unknown message count stays over the limit, and closing
+	 * more than once destroys the session more than once.
+	 */
+	CU_ASSERT_NOT_EQUAL(session.session_state, SESSION_STATE_PCEP_CONNECTED);
+	create_message_for_test(13, false, false);
+	reset_mock_socket_comm_info();
+	mock_info = get_mock_socket_comm_info();
+	mock_info->send_message_save_message = true;
+
+	handle_socket_comm_event(&event);
+
+	verify_socket_comm_times_called(0, 0, 0, 1, 0, 0, 0);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
+	encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
+	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
+	assert(encoded_msg != NULL);
+	msg = pcep_decode_message(encoded_msg);
+	CU_ASSERT_PTR_NOT_NULL(msg);
+	assert(msg != NULL);
+	CU_ASSERT_EQUAL(PCEP_TYPE_ERROR, msg->msg_header->type);
+	pcep_msg_free_message(msg);
+	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	/* No Close message was queued */
+	CU_ASSERT_PTR_NULL(dll_delete_first_node(mock_info->sent_message_list));
 }
 
 
