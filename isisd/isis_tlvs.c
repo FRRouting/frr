@@ -8047,7 +8047,10 @@ void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs, struct isis_srv
 	 * applied (e.g. End, End.DT6, ...). Before proceeding, let's make sure
 	 * we are encoding one of the supported behaviors. */
 	if (sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_PSP &&
 	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD &&
 	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT6 &&
 	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID &&
 	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT4 &&
@@ -8088,7 +8091,10 @@ void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs, uint16_t mtid,
 	loc_tlv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR);
 	for (ALL_LIST_ELEMENTS_RO(loc->srv6_sid, node, sid)) {
 		if (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_PSP ||
 		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD ||
 		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6 ||
 		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID ||
 		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4 ||
