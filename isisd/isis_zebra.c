@@ -997,6 +997,11 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 		return;
 	}
 
+	ctx.block_len = sid->structure.loc_block_len;
+	ctx.node_len = sid->structure.loc_node_len;
+	ctx.function_len = sid->structure.func_len;
+	ctx.argument_len = sid->structure.arg_len;
+
 	/* Attach the SID to the SRv6 interface */
 	ifp = if_lookup_by_name(area->srv6db.config.srv6_ifname, VRF_DEFAULT);
 	if (!ifp) {
@@ -1021,6 +1026,7 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 				   struct isis_srv6_sid *sid)
 {
 	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct seg6local_context ctx = {};
 	struct interface *ifp;
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
 
@@ -1066,6 +1072,11 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 		return;
 	}
 
+	ctx.block_len = sid->structure.loc_block_len;
+	ctx.node_len = sid->structure.loc_node_len;
+	ctx.function_len = sid->structure.func_len;
+	ctx.argument_len = sid->structure.arg_len;
+
 	/* The SID is attached to the SRv6 interface */
 	ifp = if_lookup_by_name(area->srv6db.config.srv6_ifname, VRF_DEFAULT);
 	if (!ifp) {
@@ -1076,7 +1087,7 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 
 	/* Send delete request to zebra */
 	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sid->sid, prefixlen, ifp->ifindex,
-			      action, NULL);
+			      action, &ctx);
 }
 
 void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
@@ -1146,6 +1157,11 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 		return;
 	}
 
+	ctx.block_len = sra->structure.loc_block_len;
+	ctx.node_len = sra->structure.loc_node_len;
+	ctx.function_len = sra->structure.func_len;
+	ctx.argument_len = sra->structure.arg_len;
+
 	ifp = sra->adj->circuit->interface;
 
 	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sra->sid, prefixlen, ifp->ifindex,
@@ -1155,6 +1171,7 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 {
 	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct seg6local_context ctx = {};
 	struct interface *ifp;
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
 	struct isis_circuit *circuit;
@@ -1204,13 +1221,18 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 		return;
 	}
 
+	ctx.block_len = sra->structure.loc_block_len;
+	ctx.node_len = sra->structure.loc_node_len;
+	ctx.function_len = sra->structure.func_len;
+	ctx.argument_len = sra->structure.arg_len;
+
 	ifp = sra->adj->circuit->interface;
 
 	sr_debug("ISIS-SRv6 (%s): delete End.X SID %pI6", area->area_tag,
 		 &sra->sid);
 
 	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen, ifp->ifindex,
-			      action, NULL);
+			      action, &ctx);
 }
 
 /**
