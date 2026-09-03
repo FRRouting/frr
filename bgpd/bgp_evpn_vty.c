@@ -6528,7 +6528,7 @@ DEFUN (show_bgp_vrf_l3vni_info,
 		json = json_object_new_object();
 
 	name = argv[idx_vrf]->arg;
-	bgp = bgp_lookup_by_name(name);
+	bgp = bgp_lookup_by_name_filter(name, false);
 	if (strmatch(name, VRF_DEFAULT_NAME))
 		bgp = bgp_get_default();
 
