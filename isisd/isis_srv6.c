@@ -25,6 +25,16 @@
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_INFO, "ISIS SRv6 information");
 
+static void isis_srv6_sid_structure_init(struct isis_srv6_sid_structure *structure,
+					 const struct srv6_locator *locator,
+					 enum srv6_endpoint_behavior_codepoint behavior)
+{
+	structure->loc_block_len = locator->block_bits_length;
+	structure->loc_node_len = locator->node_bits_length;
+	structure->func_len = locator->function_bits_length;
+	structure->arg_len = locator->argument_bits_length;
+}
+
 /**
  * Fill in SRv6 SID Structure Sub-Sub-TLV with information from an SRv6 SID.
  *
@@ -241,10 +251,7 @@ struct isis_srv6_sid *isis_srv6_sid_alloc(struct isis_area *area, struct srv6_lo
 	sid->sid = *sid_value;
 
 	sid->behavior = behavior;
-	sid->structure.loc_block_len = locator->block_bits_length;
-	sid->structure.loc_node_len = locator->node_bits_length;
-	sid->structure.func_len = locator->function_bits_length;
-	sid->structure.arg_len = locator->argument_bits_length;
+	isis_srv6_sid_structure_init(&sid->structure, locator, behavior);
 	sid->locator = locator;
 	sid->area = area;
 
@@ -323,10 +330,7 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct li
 	sra->type = backup ? ISIS_SRV6_ADJ_BACKUP : ISIS_SRV6_ADJ_NORMAL;
 	sra->behavior = behavior;
 	sra->locator = locator;
-	sra->structure.loc_block_len = locator->block_bits_length;
-	sra->structure.loc_node_len = locator->node_bits_length;
-	sra->structure.func_len = locator->function_bits_length;
-	sra->structure.arg_len = locator->argument_bits_length;
+	isis_srv6_sid_structure_init(&sra->structure, locator, behavior);
 	sra->nexthop = nexthop;
 
 	sra->sid = *sid_value;
