@@ -1473,7 +1473,11 @@ int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up, struct
 			return 1;
 	}
 
-	if (chrpt)
+	/*
+	 * prunes(S,G,rpt) is subtracted from joins(*,G) only, so a neighbour
+	 * pruning the RPT cannot cancel a local receiver on this interface.
+	 */
+	if (chrpt && !(starch && pim_macro_chisin_pim_include(starch)))
 		return 0;
 	/*
 	 * joins (*,G)
