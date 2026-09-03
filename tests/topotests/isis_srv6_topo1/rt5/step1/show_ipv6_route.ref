@@ -253,7 +253,13 @@
           "interfaceName":"sr0",
           "active":true,
           "seg6local":{
-            "action":"uN"
+            "action":"uN",
+            "sidStructure":{
+              "blockLen":32,
+              "nodeLen":16,
+              "funcLen":0,
+              "argLen":0
+            }
           },
           "seg6localContext":{
             "flavors":["psp"]
@@ -277,7 +283,13 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"uA"
+            "action":"uA",
+            "sidStructure":{
+              "blockLen":32,
+              "nodeLen":16,
+              "funcLen":16,
+              "argLen":0
+            }
           }
         }
       ]
@@ -298,7 +310,13 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"uA"
+            "action":"uA",
+            "sidStructure":{
+              "blockLen":32,
+              "nodeLen":16,
+              "funcLen":16,
+              "argLen":0
+            }
           }
         }
       ]
@@ -319,7 +337,13 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"uA"
+            "action":"uA",
+            "sidStructure":{
+              "blockLen":32,
+              "nodeLen":16,
+              "funcLen":16,
+              "argLen":0
+            }
           }
         }
       ]
@@ -340,7 +364,13 @@
           "directlyConnected":true,
           "active":true,
           "seg6local":{
-            "action":"uA"
+            "action":"uA",
+            "sidStructure":{
+              "blockLen":32,
+              "nodeLen":16,
+              "funcLen":16,
+              "argLen":0
+            }
           }
         }
       ]
