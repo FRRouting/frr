@@ -291,8 +291,6 @@ DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
 DECLARE_MTYPE(ISIS_PLIST_NAME);
 DECLARE_MTYPE(ISIS_BFD_PROFILE); /* isis_circuit->bfd_config.profile */
 
-DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
-
 void isis_terminate(void);
 void isis_master_init(struct event_loop *master);
 void isis_master_terminate(void);
