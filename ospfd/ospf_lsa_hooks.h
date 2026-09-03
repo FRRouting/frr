@@ -7,9 +7,5 @@
 /*
  * LSA Update and Delete Hook LSAs.
  */
-/*
- * LSA Update and Delete Hook LSAs.
- */
 DO_HOOK(ospf_lsa_update, (struct ospf_lsa *, lsa));
-
 DO_HOOK(ospf_lsa_delete, (struct ospf_lsa *, lsa));

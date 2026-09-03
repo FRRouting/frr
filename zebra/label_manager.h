@@ -47,11 +47,6 @@ struct label_manager_chunk {
 	uint32_t end;   /* Last label of the chunk */
 };
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "zebra/label_manager_hooks.h"
-#include "lib/hooks_end.h"
-
 /* declare wrappers to be called in zapi_msg.c or zebra_mpls_vty.c (as hooks
  * must be called in source file where they were defined)
  */
@@ -93,6 +88,11 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 			uint32_t session_id, uint32_t start, uint32_t end);
 int lm_client_disconnect_cb(struct zserv *client);
 int release_daemon_label_chunks(struct zserv *client);
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/label_manager_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

@@ -265,11 +265,6 @@ extern bool zlog_get_prefix_xid(void);
  */
 extern void zlog_aux_init(const char *prefix, int prio_min);
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "lib/zlog_hooks.h"
-#include "lib/hooks_end.h"
-
 extern void zlog_startup_end(void);
 
 extern void zlog_tls_buffer_init(void);
@@ -284,6 +279,11 @@ extern const char *zlog_priority_str(int priority);
 
 /* Remove temp dirs at shutdown */
 void zlog_tmpdir_fini(void);
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/zlog_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

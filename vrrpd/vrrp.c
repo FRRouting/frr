@@ -30,6 +30,11 @@
 DEFINE_MTYPE_STATIC(VRRPD, VRRP_IP, "VRRP IP address");
 DEFINE_MTYPE_STATIC(VRRPD, VRRP_RTR, "VRRP Router");
 
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "vrrpd/vrrp_hooks.h"
+#include "lib/hooks_end.h"
+
 /* statics */
 struct hash *vrrp_vrouters_hash;
 bool vrrp_autoconfig_is_on;
@@ -1368,10 +1373,7 @@ done:
 	return ret;
 }
 
-#define HOOKS_DEFINE
-#include "lib/hooks_begin.h"
-#include "vrrpd/vrrp_hooks.h"
-#include "lib/hooks_end.h"
+/* State machine ----------------------------------------------------------- */
 
 /*
  * Handle any necessary actions during state change to MASTER state.

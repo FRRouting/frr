@@ -5,5 +5,4 @@
  */
 
 DO_HOOK(agentx_cli_enabled);
-
 DO_HOOK(agentx_cli_disabled);

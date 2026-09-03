@@ -402,11 +402,6 @@ DECLARE_QOBJ_TYPE(interface);
 	if (vrf)                                                               \
 		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "lib/if_hooks.h"
-#include "lib/hooks_end.h"
-
 #define METRIC_MAX (~0)
 
 /* Connected address structure. */
@@ -654,6 +649,11 @@ extern void if_update_state_speed(struct interface *ifp, uint32_t speed);
 extern bool if_notify_oper_changes;
 extern const struct frr_yang_module_info frr_interface_info;
 extern const struct frr_yang_module_info frr_interface_cli_info;
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/if_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

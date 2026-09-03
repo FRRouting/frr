@@ -5,5 +5,4 @@
  */
 
 DO_HOOK(zlog_rotate);
-
 DO_HOOK(zlog_cli_show, (struct vty *, vty));

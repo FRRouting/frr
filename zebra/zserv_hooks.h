@@ -5,7 +5,5 @@
  */
 
 /* Hooks for client connect / disconnect */
-/* Hooks for client connect / disconnect */
 DO_HOOK(zserv_client_connect, (struct zserv *, client));
-
 DO_KOOH(zserv_client_close, (struct zserv *, client));

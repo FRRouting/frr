@@ -355,12 +355,6 @@ struct srte_policy {
 RB_HEAD(srte_policy_head, srte_policy);
 RB_PROTOTYPE(srte_policy_head, srte_policy, entry, srte_policy_compare)
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "pathd/path_cli_hooks.h"
-#include "pathd/pathd_hooks.h"
-#include "lib/hooks_end.h"
-
 extern struct srte_segment_list_head srte_segment_lists;
 extern struct srte_policy_head srte_policies;
 extern struct zebra_privs_t pathd_privs;
@@ -472,4 +466,12 @@ int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
  */
 int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
 				 struct ipaddr *local, struct ipaddr *remote);
+
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "pathd/path_cli_hooks.h"
+#include "pathd/pathd_hooks.h"
+#include "lib/hooks_end.h"
+
 #endif /* _FRR_PATHD_H_ */

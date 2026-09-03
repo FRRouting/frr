@@ -94,14 +94,10 @@ struct isis_master *im;
 /* ISIS config processing thread */
 struct event *t_isis_cfg;
 
-#ifndef FABRICD
-
 #define HOOKS_DEFINE
 #include "lib/hooks_begin.h"
 #include "isisd/isisd_hooks.h"
 #include "lib/hooks_end.h"
-
-#endif /* ifndef FABRICD */
 
 /*
  * Prototypes.

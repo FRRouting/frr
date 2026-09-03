@@ -215,13 +215,10 @@ struct json_object;
 extern struct json_object *frr_daemon_state_load(void);
 extern void frr_daemon_state_save(struct json_object **statep);
 
+/* before the protocol daemon does its own shutdown */
 extern void frr_early_fini(void);
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "lib/libfrr_hooks.h"
-#include "lib/hooks_end.h"
-
+/* after the daemon did its own cleanup */
 extern void frr_fini(void);
 
 extern char config_default[512];
@@ -285,6 +282,12 @@ void frr_exit_with_buffer_flush(int status);
 #define FRR_MEM_RELEASE_MB_DEFAULT 1
 void frr_mem_release_config(uint32_t rate);
 uint32_t frr_mem_release_rate_get(void);
+
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/libfrr_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

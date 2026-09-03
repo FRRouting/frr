@@ -13,16 +13,14 @@
  * interface data
  */
 DO_HOOK(if_add, (struct interface *, ifp));
-
 DO_KOOH(if_del, (struct interface *, ifp));
 
 /* called (in daemons) when ZAPI tells us the interface actually exists
  * (ifindex != IFINDEX_INTERNAL)
  *
- * WARNING: these 2 hooks NEVER CALLED inside zebra!
+ * WARNING: these 2 hooks are NEVER CALLED inside zebra!
  */
 DO_HOOK(if_real, (struct interface *, ifp));
-
 DO_KOOH(if_unreal, (struct interface *, ifp));
 
 /* called (in daemons) on state changes on interfaces.  Whether this is admin
@@ -30,8 +28,7 @@ DO_KOOH(if_unreal, (struct interface *, ifp));
  * zebra's "link-detect" configuration.  By default, it's carrier state, so
  * this won't happen until the interface actually has a link.
  *
- * WARNING: these 2 hooks NEVER CALLED inside zebra!
+ * WARNING: these 2 hooks are NEVER CALLED inside zebra!
  */
 DO_HOOK(if_up, (struct interface *, ifp));
-
 DO_KOOH(if_down, (struct interface *, ifp));

@@ -5,9 +5,7 @@
  */
 
 DO_HOOK(ospf_vl_add, (struct ospf_vl_data *, vd));
-
 DO_HOOK(ospf_vl_delete, (struct ospf_vl_data *, vd));
 
 DO_HOOK(ospf_if_update, (struct interface *, ifp));
-
 DO_HOOK(ospf_if_delete, (struct interface *, ifp));

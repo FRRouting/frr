@@ -5,7 +5,6 @@
  */
 
 DO_HOOK(bgp_inst_delete, (struct bgp *, bgp));
-
 DO_HOOK(bgp_instance_state, (struct bgp *, bgp));
 
 DO_HOOK(bgp_routerid_update, (struct bgp *, bgp), (bool, withdraw));

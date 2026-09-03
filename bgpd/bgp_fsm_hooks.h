@@ -5,7 +5,6 @@
  */
 
 DO_HOOK(peer_backward_transition, (struct peer *, peer));
-
 DO_HOOK(peer_status_changed, (struct peer *, peer));
 
 DO_HOOK(bgp_rpki_connection_status, (const char *, vrf_name));

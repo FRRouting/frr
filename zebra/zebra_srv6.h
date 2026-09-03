@@ -245,11 +245,6 @@ struct zebra_srv6 {
 	struct list *sid_blocks;
 };
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "zebra/zebra_srv6_hooks.h"
-#include "lib/hooks_end.h"
-
 extern void zebra_srv6_locator_add(struct srv6_locator *locator);
 extern void zebra_srv6_locator_delete(struct srv6_locator *locator);
 extern struct srv6_locator *zebra_srv6_locator_lookup(const char *name);
@@ -348,5 +343,10 @@ extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
 extern void delete_zebra_srv6_sid_ctx(void *val);
 extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx,
 							    struct zebra_srv6_sid_block *block);
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_srv6_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* _ZEBRA_SRV6_H */

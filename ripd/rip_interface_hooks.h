@@ -5,5 +5,4 @@
  */
 
 DO_HOOK(rip_ifaddr_add, (struct connected *, ifc));
-
 DO_HOOK(rip_ifaddr_del, (struct connected *, ifc));

@@ -9,7 +9,5 @@
  * based on the control plane protocol
  */
 DO_HOOK(routing_conf_event, (struct nb_cb_create_args *, args));
-
 DO_HOOK(routing_create, (struct nb_cb_create_args *, args));
-
 DO_KOOH(routing_destroy, (struct nb_cb_destroy_args *, args));

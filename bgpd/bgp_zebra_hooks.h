@@ -5,5 +5,4 @@
  */
 
 /* hook to indicate vrf status change for SNMP */
-/* Hooks */
 DO_HOOK(bgp_vrf_status_changed, (struct bgp *, bgp), (struct interface *, ifp));

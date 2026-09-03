@@ -54,11 +54,6 @@ RB_PROTOTYPE(zebra_pw_head, zebra_pw, pw_entry, zebra_pw_compare);
 RB_HEAD(zebra_static_pw_head, zebra_pw);
 RB_PROTOTYPE(zebra_static_pw_head, zebra_pw, static_pw_entry, zebra_pw_compare);
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "zebra/zebra_pw_hooks.h"
-#include "lib/hooks_end.h"
-
 struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 			      uint8_t protocol, struct zserv *client);
 void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw);
@@ -73,6 +68,11 @@ void zebra_pw_exit_vrf(struct zebra_vrf *zvrf);
 void zebra_pw_terminate(void);
 void zebra_pw_vty_init(void);
 void zebra_pw_handle_dplane_results(struct zebra_dplane_ctx *ctx);
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_pw_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

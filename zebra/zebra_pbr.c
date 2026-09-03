@@ -28,6 +28,10 @@ DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPSET, "PBR ipset");
 DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPSET_ENTRY, "PBR ipset entry");
 DEFINE_MTYPE(ZEBRA, PBR_IPTABLE, "PBR iptable");
 
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_pbr_hooks.h"
+#include "lib/hooks_end.h"
 
 /* definitions */
 static const struct message ipset_type_msg[] = {
@@ -121,11 +125,6 @@ struct zebra_pbr_env_display {
 	struct vty *vty;
 	char *name;
 };
-
-#define HOOKS_DEFINE
-#include "lib/hooks_begin.h"
-#include "zebra/zebra_pbr_hooks.h"
-#include "lib/hooks_end.h"
 
 /* resolve nexthop for dataplane (dpdk) programming */
 static bool zebra_pbr_expand_action;

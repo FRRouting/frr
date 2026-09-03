@@ -26,6 +26,11 @@ DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Config");
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Config Entry");
 DEFINE_MTYPE_STATIC(LIB, NB_TRANS, "NB transaction");
 
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/northbound_hooks.h"
+#include "lib/hooks_end.h"
+
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
 
@@ -2451,11 +2456,6 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 		return false;
 	}
 }
-
-#define HOOKS_DEFINE
-#include "lib/hooks_begin.h"
-#include "lib/northbound_hooks.h"
-#include "lib/hooks_end.h"
 
 int nb_notification_send(const char *xpath, struct list *arguments)
 {

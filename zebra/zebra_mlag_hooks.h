@@ -5,11 +5,7 @@
  */
 
 DO_HOOK(zebra_mlag_private_write_data, (uint8_t *, data), (uint32_t, len));
-
 DO_HOOK(zebra_mlag_private_monitor_state);
-
 DO_HOOK(zebra_mlag_private_open_channel);
-
 DO_HOOK(zebra_mlag_private_close_channel);
-
 DO_HOOK(zebra_mlag_private_cleanup_data);

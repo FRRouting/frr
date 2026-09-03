@@ -6,5 +6,4 @@
 
 /* Hooks. */
 DO_HOOK(nb_notification_send, (const char *, xpath), (struct list *, arguments));
-
 DO_HOOK(nb_notification_tree_send, (const char *, xpath), (const struct lyd_node *, tree));

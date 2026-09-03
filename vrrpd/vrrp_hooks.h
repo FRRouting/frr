@@ -4,7 +4,6 @@
  * note: file may be included multiple times - intentionally no include guard!
  */
 
-/* State machine ----------------------------------------------------------- */
 /*
  * This hook called whenever the state of a Virtual Router changes, after the
  * specific internal state handlers have run.

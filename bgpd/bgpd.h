@@ -3385,16 +3385,6 @@ extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char
 				      enum asnotation_mode asnotation, const char *name,
 				      enum bgp_instance_type inst_type, bool force_config);
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "bgpd/bgp_fsm_hooks.h"
-#include "bgpd/bgp_main_hooks.h"
-#include "bgpd/bgp_route_hooks.h"
-#include "bgpd/bgp_vty_hooks.h"
-#include "bgpd/bgp_zebra_hooks.h"
-#include "bgpd/bgpd_hooks.h"
-#include "lib/hooks_end.h"
-
 void peer_nsf_stop(struct peer *peer);
 
 void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss);
@@ -3454,5 +3444,16 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&                                       \
 	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_RCV) &&                                       \
 	 IN6_IS_ADDR_LINKLOCAL(&_peer->nexthop.v6_local))
+
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_fsm_hooks.h"
+#include "bgpd/bgp_main_hooks.h"
+#include "bgpd/bgp_route_hooks.h"
+#include "bgpd/bgp_vty_hooks.h"
+#include "bgpd/bgp_zebra_hooks.h"
+#include "bgpd/bgpd_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* _QUAGGA_BGPD_H */

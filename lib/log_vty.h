@@ -27,11 +27,6 @@ extern const char *facility_name(int facility);
 
 extern void zlog_rotate(void);
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "lib/log_vty_hooks.h"
-#include "lib/hooks_end.h"
-
 /* Default logging level in the YANG model */
 extern const int log_default_lvl;
 
@@ -52,6 +47,11 @@ void log_stdout_apply_level(void);
 void clear_cmdline_targets(void);
 
 extern struct frr_yang_module_info frr_logging_cli_info;
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/log_vty_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

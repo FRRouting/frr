@@ -32,12 +32,12 @@ int routing_control_plane_protocols_control_plane_protocol_destroy(
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[vrf='%s']"
 
+void routing_control_plane_protocols_register_vrf_dependency(void);
+
 #define HOOKS_DECLARE
 #include "lib/hooks_begin.h"
 #include "lib/routing_nb_config_hooks.h"
 #include "lib/hooks_end.h"
-
-void routing_control_plane_protocols_register_vrf_dependency(void);
 
 #ifdef __cplusplus
 }

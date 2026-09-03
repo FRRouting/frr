@@ -5,5 +5,4 @@
  */
 
 DO_HOOK(isis_adj_ip_enabled_hook, (struct isis_adjacency *, adj), (int, family), (bool, global));
-
 DO_HOOK(isis_adj_ip_disabled_hook, (struct isis_adjacency *, adj), (int, family), (bool, global));

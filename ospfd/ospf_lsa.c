@@ -39,6 +39,11 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_errors.h"
 
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ospfd/ospf_lsa_hooks.h"
+#include "lib/hooks_end.h"
+
 static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf_area *area,
 							struct prefix_ipv4 *p,
 							uint8_t type,
@@ -61,11 +66,6 @@ static struct ospf_lsa *ospf_handle_exnl_lsa_lsId_chg(struct ospf *ospf,
 static struct ospf_lsa *
 ospf_exnl_lsa_prepare_and_flood(struct ospf *ospf, struct external_info *ei,
 				struct in_addr id);
-
-#define HOOKS_DEFINE
-#include "lib/hooks_begin.h"
-#include "ospfd/ospf_lsa_hooks.h"
-#include "lib/hooks_end.h"
 
 uint32_t get_metric(uint8_t *metric)
 {

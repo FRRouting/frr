@@ -5,5 +5,4 @@
  */
 
 DO_HOOK(rib_update, (struct route_node *, rn), (const char *, reason));
-
 DO_HOOK(rib_shutdown, (struct route_node *, rn));

@@ -6,6 +6,5 @@
 
 DO_HOOK(bgp_packet_dump, (struct peer *, peer), (uint8_t, type), (bgp_size_t, size),
 	(struct stream *, s));
-
 DO_HOOK(bgp_packet_send, (struct peer *, peer), (uint8_t, type), (bgp_size_t, size),
 	(struct stream *, s));

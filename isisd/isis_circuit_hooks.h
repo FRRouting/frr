@@ -7,7 +7,6 @@
 DO_HOOK(isis_if_new_hook, (struct interface *, ifp));
 
 DO_HOOK(isis_circuit_new_hook, (struct isis_circuit *, circuit));
-
 DO_HOOK(isis_circuit_del_hook, (struct isis_circuit *, circuit));
 
 DO_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *, circuit));

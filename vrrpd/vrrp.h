@@ -471,11 +471,6 @@ int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 
 extern const char *const vrrp_state_names[3];
 
-#define HOOKS_DECLARE
-#include "lib/hooks_begin.h"
-#include "vrrpd/vrrp_hooks.h"
-#include "lib/hooks_end.h"
-
 /*
  * Trigger a VRRP event on a given Virtual Router..
  *
@@ -557,5 +552,11 @@ int vrrp_config_write_global(struct vty *vty);
  * Find VRRP Virtual Router by Virtual Router ID
  */
 struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid);
+
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "vrrpd/vrrp_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* __VRRP_H__ */

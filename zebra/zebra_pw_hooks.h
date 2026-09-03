@@ -5,5 +5,4 @@
  */
 
 DO_HOOK(pw_install, (struct zebra_pw *, pw));
-
 DO_HOOK(pw_uninstall, (struct zebra_pw *, pw));

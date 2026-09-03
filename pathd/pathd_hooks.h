@@ -5,7 +5,5 @@
  */
 
 DO_HOOK(pathd_candidate_created, (struct srte_candidate *, candidate));
-
 DO_HOOK(pathd_candidate_updated, (struct srte_candidate *, candidate));
-
 DO_HOOK(pathd_candidate_removed, (struct srte_candidate *, candidate));

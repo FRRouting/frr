@@ -565,13 +565,13 @@ extern struct rip_instance_head rip_instances;
 /* Master thread structure. */
 extern struct event_loop *master;
 
+extern void rip_ecmp_change(struct rip *rip);
+
+extern uint32_t zebra_ecmp_count;
+
 #define HOOKS_DECLARE
 #include "lib/hooks_begin.h"
 #include "ripd/rip_interface_hooks.h"
 #include "lib/hooks_end.h"
-
-extern void rip_ecmp_change(struct rip *rip);
-
-extern uint32_t zebra_ecmp_count;
 
 #endif /* _ZEBRA_RIP_H */
