@@ -286,35 +286,31 @@ int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
  */
-#define frrscript_call(fs, f, ...)                                                                                                                                 \
-	({                                                                                                                                                         \
-		struct lua_function_state lookup = {.name = (f)};                                                                                                  \
-		struct lua_function_state *lfs;                                                                                                                    \
-		lfs = hash_lookup((fs)->lua_function_hash, &lookup);                                                                                               \
-		lfs == NULL ? ({                                                                                                                                   \
-			zlog_err(                                                                                                                                  \
-				"frrscript: '%s.lua': '%s': tried to call this function but it was not loaded",                                                    \
-				(fs)->name, (f));                                                                                                                  \
-			1;                                                                                                                                         \
-		})                                                                                                                                                 \
-			    : ({                                                                                                                                   \
-				      lua_settop(lfs->L, 0);                                                                                                       \
-				      lua_getglobal(lfs->L, f);                                                                                                    \
-				      MACRO_REPEAT_SEMICOLON(ENCODE_ARGS, ##__VA_ARGS__);                                                                          \
-				      _frrscript_call_lua(                                                                                                         \
-					      lfs, MACRO_NARGS(__VA_ARGS__));                                                                                      \
-			      }) != 0                                                                                                                              \
-				      ? ({                                                                                                                         \
-						zlog_err(                                                                                                          \
-							"frrscript: '%s.lua': '%s': this function called but returned non-zero exit code. No variables modified.", \
-							(fs)->name, (f));                                                                                          \
-						1;                                                                                                                 \
-					})                                                                                                                         \
-				      : ({                                                                                                                         \
-						MACRO_REPEAT_SEMICOLON(DECODE_ARGS,                                                                                \
-							  ##__VA_ARGS__);                                                                                          \
-						0;                                                                                                                 \
-					});                                                                                                                        \
+#define frrscript_call(fs, f, ...)                                                                                                                    \
+	({                                                                                                                                            \
+		struct lua_function_state lookup = { .name = (f) };                                                                                   \
+		struct lua_function_state *lfs;                                                                                                       \
+		lfs = hash_lookup((fs)->lua_function_hash, &lookup);                                                                                  \
+		lfs == NULL ? ({                                                                                                                      \
+			zlog_err("frrscript: '%s.lua': '%s': tried to call this function but it was not loaded",                                      \
+				 (fs)->name, (f));                                                                                                    \
+			1;                                                                                                                            \
+		})                                                                                                                                    \
+		: ({                                                                                                                                  \
+			  lua_settop(lfs->L, 0);                                                                                                      \
+			  lua_getglobal(lfs->L, f);                                                                                                   \
+			  MACRO_REPEAT_SEMICOLON(ENCODE_ARGS, ##__VA_ARGS__);                                                                         \
+			  _frrscript_call_lua(lfs, MACRO_NARGS(__VA_ARGS__));                                                                         \
+		  }) != 0                                                                                                                             \
+			? ({                                                                                                                          \
+				  zlog_err("frrscript: '%s.lua': '%s': this function called but returned non-zero exit code. No variables modified.", \
+					   (fs)->name, (f));                                                                                          \
+				  1;                                                                                                                  \
+			  })                                                                                                                          \
+			: ({                                                                                                                          \
+				  MACRO_REPEAT_SEMICOLON(DECODE_ARGS, ##__VA_ARGS__);                                                                 \
+				  0;                                                                                                                  \
+			  });                                                                                                                         \
 	})
 
 /*
