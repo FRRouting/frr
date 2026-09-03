@@ -290,6 +290,20 @@ def test_srv6_locator_step1():
         )
 
 
+def test_srv6_sid_advertisement_step1():
+    logger.info("Test (step 1): verify advertised SRv6 SID information")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router_compare_json_output(
+        "rt2",
+        "show isis database detail json",
+        "step1/show_isis_database_detail.ref",
+    )
+
+
 def test_ping_step1():
     logger.info("Test (step 1): verify ping")
     tgen = get_topogen()
