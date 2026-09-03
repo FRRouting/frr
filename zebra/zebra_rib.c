@@ -5405,6 +5405,12 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_RULE_ADD:
 			case DPLANE_OP_RULE_DELETE:
 			case DPLANE_OP_RULE_UPDATE:
+				if (dplane_ctx_get_rule_notif(ctx))
+					zebra_pbr_process_kernel_notif(ctx);
+				else
+					zebra_pbr_dplane_result(ctx);
+				break;
+
 			case DPLANE_OP_IPTABLE_ADD:
 			case DPLANE_OP_IPTABLE_DELETE:
 			case DPLANE_OP_IPSET_ADD:
