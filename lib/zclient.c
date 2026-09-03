@@ -85,6 +85,8 @@ struct zclient *zclient_new(struct event_loop *master,
 	zclient->synchronous = opt->synchronous;
 	zclient->auxiliary = opt->auxiliary;
 
+	zclient->sock = -1;
+
 	return zclient;
 }
 

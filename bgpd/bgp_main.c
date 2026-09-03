@@ -440,12 +440,16 @@ int main(int argc, char **argv)
 
 	addresses->cmp = (int (*)(void *, void *))strcmp;
 
+#if CONFDATE > 20280901
+CPP_NOTICE("Remove `--no_zebra` option as that it is deprecated")
+#endif
+
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add("p:l:SnZe:I:s:x" DEPRECATED_OPTIONS, longopts,
 		    "  -p, --bgp_port           Set BGP listen port number (0 means do not listen).\n"
 		    "  -l, --listenon           Listen on specified address (implies -n)\n"
 		    "  -n, --no_kernel          Do not install route to kernel.\n"
-		    "  -Z, --no_zebra           Do not communicate with Zebra.\n"
+		    "  -Z, --no_zebra           Deprecated; use -n/--no_kernel instead.\n"
 		    "  -S, --skip_runas         Skip capabilities checks, and changing user and group IDs.\n"
 		    "  -e, --ecmp               Specify ECMP to use.\n"
 		    "  -I, --int_num            Set instance number (label-manager)\n"
@@ -499,6 +503,8 @@ int main(int argc, char **argv)
 			break;
 		case 'Z':
 			no_zebra_flag = 1;
+			fprintf(stderr,
+				"The -Z/--no_zebra option is deprecated and will be removed. FRR is tightly integrated with zebra; use -n/--no_kernel (or 'bgp no-rib') to avoid installing BGP routes into zebra.\n");
 			break;
 		case 'S':
 			skip_runas = 1;
