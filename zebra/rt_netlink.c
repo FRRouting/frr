@@ -3902,6 +3902,7 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 
 	zebra_router_set_supports_nhgs(supports_nh);
 
+	zebra_dplane_startup_stage(zns->ns_id, ZEBRA_DPLANE_NEXTHOPS_READ);
 	return ret;
 }
 
