@@ -857,8 +857,15 @@ void dplane_ctx_neigh_set_link_layer_ipv4(struct zebra_dplane_ctx *ctx,
 					  union sockunion link_layer_ipv4);
 
 /* Accessors for policy based routing rule information */
+struct zebra_pbr_rule;
 void dplane_ctx_rule_get(const struct zebra_dplane_ctx *ctx,
 	struct pbr_rule *pNew, struct pbr_rule *pOld);
+void dplane_ctx_set_rule_notif(struct zebra_dplane_ctx *ctx, bool notif);
+bool dplane_ctx_get_rule_notif(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_rule_proto(struct zebra_dplane_ctx *ctx, uint8_t proto);
+uint8_t dplane_ctx_get_rule_proto(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_rule_from_pbr(struct zebra_dplane_ctx *ctx,
+				  const struct zebra_pbr_rule *rule);
 int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_seq(const struct zebra_dplane_ctx *ctx);

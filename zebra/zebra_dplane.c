@@ -359,6 +359,14 @@ struct dplane_rule_info {
 	int unique;
 	int seq;
 
+	/*
+	 * Kernel notification vs zebra->kernel programming result.
+	 * Inbound RTM_NEWRULE/RTM_DELRULE reuse DPLANE_OP_RULE_ADD/DELETE
+	 * and set is_notif so the master pthread can tell them apart.
+	 */
+	bool is_notif;
+	uint8_t proto; /* FRA_PROTOCOL, for leftover RTPROT_ZEBRA cleanup */
+
 	struct dplane_ctx_rule new;
 	struct dplane_ctx_rule old;
 };
@@ -3764,6 +3772,56 @@ vrf_id_t dplane_ctx_rule_get_vrfid(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rule.new.prule.vrf_id;
+}
+
+void dplane_ctx_set_rule_notif(struct zebra_dplane_ctx *ctx, bool notif)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rule.is_notif = notif;
+}
+
+bool dplane_ctx_get_rule_notif(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.is_notif;
+}
+
+void dplane_ctx_set_rule_proto(struct zebra_dplane_ctx *ctx, uint8_t proto)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rule.proto = proto;
+}
+
+uint8_t dplane_ctx_get_rule_proto(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.proto;
+}
+
+void dplane_ctx_set_rule_from_pbr(struct zebra_dplane_ctx *ctx,
+				  const struct zebra_pbr_rule *rule)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (!rule)
+		return;
+
+	ctx->u.rule.new.prule = rule->rule;
+	ctx->zd_vrf_id = rule->vrf_id;
+
+	/* Inbound netlink currently fills zebra_pbr_rule.ifname; outbound
+	 * zapi fills pbr_rule.ifname. Accept either so the ctx is complete.
+	 */
+	if (rule->ifname[0])
+		strlcpy(ctx->u.rule.new.prule.ifname, rule->ifname,
+			sizeof(ctx->u.rule.new.prule.ifname));
+
+	strlcpy(ctx->zd_ifname, ctx->u.rule.new.prule.ifname,
+		sizeof(ctx->zd_ifname));
 }
 
 /***********************************************************************
