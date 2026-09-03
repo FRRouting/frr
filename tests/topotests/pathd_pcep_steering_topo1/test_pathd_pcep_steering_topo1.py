@@ -306,6 +306,49 @@ def churn_add(i, v6=False):
     pce_command("add {},{},{},{}".format(endpoint, label, churn_name(i, v6), color))
 
 
+def _diag_section(title, lines, empty="(no output)"):
+    """One labelled block for failure_diagnostics(): a title line followed
+    by its output indented four spaces, so the sections stay visually
+    distinct in the CI console."""
+
+    body = "\n".join("    " + line for line in lines) if lines else "    " + empty
+    return "{}\n{}".format(title, body)
+
+
+def failure_diagnostics():
+    """A readable dump of the head-end's PCEP and policy state plus the
+    mock PCE log, appended to the assertion message so that a CI failure
+    explains itself without needing the archived logs."""
+
+    tgen = get_topogen()
+    rt1 = tgen.gears["rt1"]
+
+    sections = [
+        _diag_section("routers", [tgen.routers_have_failure() or "all running"])
+    ]
+
+    for cmd in [
+        "show sr-te pcep session",
+        "show sr-te policy",
+        "show zebra client summary",
+    ]:
+        lines = rt1.vtysh_cmd(cmd).splitlines()
+        if len(lines) > 30:
+            lines = lines[:30] + ["... ({} more lines)".format(len(lines) - 30)]
+        sections.append(_diag_section("vtysh -c '{}'".format(cmd), lines))
+
+    sections.append(
+        _diag_section(
+            "mock PCE log (last 40 lines)",
+            mock_pce_log_text().splitlines()[-40:],
+            empty="(empty)",
+        )
+    )
+
+    rule = "=" * 64
+    return "\n\n{0}\nDIAGNOSTICS\n{0}\n\n{1}\n{0}".format(rule, "\n\n".join(sections))
+
+
 def check_policy_count(expected):
     "Check the number of Active SR-TE policies on RT1"
 
@@ -392,6 +435,7 @@ def test_policy_churn_scale():
     _, result = topotest.run_and_expect(check, None, count=180, wait=1)
     if result is not None:
         print_pce_log()
+        result += failure_diagnostics()
     assert result is None, "churn policies never came up: {}".format(result)
 
     # Each endpoint now has 1 + CHURN_COUNT policies; its steering route

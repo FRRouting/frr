@@ -424,13 +424,32 @@ class MockPce:
         with self.send_lock:
             self.conn.sendall(data)
 
-    def keepalive_loop(self):
+    def keepalive_loop(self, conn):
+        # Bound to one session's connection: a reconnect starts a fresh
+        # keepalive thread, and this one exits once self.conn has moved on
+        # so it never writes a keepalive onto the new session's socket.
         while True:
             time.sleep(10)
+            if self.conn is not conn:
+                return
             try:
-                self.send(self.build_keepalive())
+                with self.send_lock:
+                    conn.sendall(self.build_keepalive())
             except OSError:
                 return
+
+    def reset_session_state(self):
+        # A reconnected PCC starts a clean PCEP session: pathd dropped
+        # every PCE-initiated policy when the old session went down, so
+        # re-sync and re-initiate everything, replaying the command file
+        # from the top.
+        self.sync_done = False
+        self.initiated = False
+        self.next_srp_id = 1
+        self.srp_to_name = {}
+        self.plsp_by_name = {}
+        self.command_pos = 0
+        self.deferred_removes = []
 
     def run(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -439,16 +458,35 @@ class MockPce:
         self.sock.listen(1)
         self.log("LISTENING %s:%u" % (self.args.address, self.args.port))
 
-        self.conn, peer = self.sock.accept()
-        self.log("CONNECT %s:%u" % peer)
+        # Accept loop: a real PCE survives a session going down and lets
+        # the PCC reconnect.  Without this a single transient drop ends
+        # the mock for good and strands pathd retrying a dead socket.
+        while True:
+            self.conn, peer = self.sock.accept()
+            self.log("CONNECT %s:%u" % peer)
+            self.reset_session_state()
+            try:
+                self.serve_session()
+            except OSError as e:
+                # Broken pipe / connection reset: the PCC went away.  Log
+                # it and wait for the reconnect instead of crashing.
+                self.log("SESSION-ERROR err=%r" % e)
+            try:
+                self.conn.close()
+            except OSError:
+                pass
+            self.log("SESSION-END awaiting-reconnect")
 
+    def serve_session(self):
         # Both Open-first and Keepalive-first orders are accepted by
         # pceplib; send both back to back.
         self.send(self.build_open())
         self.send(self.build_keepalive())
         self.log("SENT-OPEN-KEEPALIVE")
 
-        threading.Thread(target=self.keepalive_loop, daemon=True).start()
+        threading.Thread(
+            target=self.keepalive_loop, args=(self.conn,), daemon=True
+        ).start()
 
         buffer = b""
         while True:
