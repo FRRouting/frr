@@ -179,7 +179,7 @@ Stage 2 - Staging
          git fetch --all
          git checkout frr-$TAG
          docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG --push .
-         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/containerlab/Dockerfile --build-arg TAG=$TAG -t quay.io/frrouting/frr-containerlab:$TAG --push .
+         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/containerlab/Dockerfile --build-arg TAG=$TAG -t quay.io/frrouting/frr:containerlab-$TAG --push .
          git tag docker/$TAG
          git push origin docker/$TAG
 
