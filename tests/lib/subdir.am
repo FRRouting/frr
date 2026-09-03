@@ -333,6 +333,14 @@ tests_lib_test_srcdest_table_SOURCES = tests/lib/test_srcdest_table.c tests/help
 EXTRA_DIST += tests/lib/test_srcdest_table.py
 
 
+check_PROGRAMS += tests/lib/test_srv6_sid_notify
+tests_lib_test_srv6_sid_notify_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_srv6_sid_notify_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_srv6_sid_notify_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_srv6_sid_notify_SOURCES = tests/lib/test_srv6_sid_notify.c
+EXTRA_DIST += tests/lib/test_srv6_sid_notify.py
+
+
 check_PROGRAMS += tests/lib/test_stream
 tests_lib_test_stream_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_stream_CPPFLAGS = $(TESTS_CPPFLAGS)
