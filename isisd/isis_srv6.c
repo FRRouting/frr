@@ -349,6 +349,7 @@ bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid
 	struct isis_srv6_lan_endx_sid_subtlv *ladj_sid;
 	struct srv6_adjacency *other;
 	struct listnode *node;
+	uint8_t arg_len = sra->structure.arg_len;
 
 	if (state->allocated && IPV6_ADDR_SAME(&state->sid, sid_value)) {
 		isis_zebra_srv6_adj_sid_install(sra, is_localonly);
@@ -376,6 +377,11 @@ bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid
 	if (!circuit->ext)
 		circuit->ext = isis_alloc_ext_subtlvs();
 
+	/* RFC 9800: NEXT-CSID arguments occupy the remaining SID bits. */
+	if (sra->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID)
+		arg_len = IPV6_MAX_BITLEN - sra->structure.loc_block_len -
+			  sra->structure.loc_node_len - sra->structure.func_len;
+
 	switch (circuit->circ_type) {
 	/* SRv6 LAN End.X SID for Broadcast interface section #8.2 */
 	case CIRCUIT_T_BROADCAST:
@@ -396,7 +402,7 @@ bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid
 		ladj_sid->subsubtlvs->srv6_sid_structure->loc_node_len =
 			sra->structure.loc_node_len;
 		ladj_sid->subsubtlvs->srv6_sid_structure->func_len = sra->structure.func_len;
-		ladj_sid->subsubtlvs->srv6_sid_structure->arg_len = sra->structure.arg_len;
+		ladj_sid->subsubtlvs->srv6_sid_structure->arg_len = arg_len;
 		isis_tlvs_add_srv6_lan_endx_sid(circuit->ext, ladj_sid);
 		sra->u.lendx_sid = ladj_sid;
 		break;
@@ -416,7 +422,7 @@ bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid
 			sra->structure.loc_block_len;
 		adj_sid->subsubtlvs->srv6_sid_structure->loc_node_len = sra->structure.loc_node_len;
 		adj_sid->subsubtlvs->srv6_sid_structure->func_len = sra->structure.func_len;
-		adj_sid->subsubtlvs->srv6_sid_structure->arg_len = sra->structure.arg_len;
+		adj_sid->subsubtlvs->srv6_sid_structure->arg_len = arg_len;
 		isis_tlvs_add_srv6_endx_sid(circuit->ext, adj_sid);
 		sra->u.endx_sid = adj_sid;
 		break;
