@@ -1748,7 +1748,7 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
  * Initialize all netlink sockets and subsystem for a given network namespace.
  *
  * Creates five netlink sockets:
- *   netlink            - Inbound mroute events (main pthread)
+ *   netlink            - Main pthread inbound listener (no multicast groups)
  *   netlink_cmd        - Outbound synchronous commands (main pthread)
  *   netlink_dplane_out - Outbound dataplane programming (dplane pthread)
  *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/nexthop/rule/tunnel/route
@@ -1772,8 +1772,11 @@ void kernel_init(struct zebra_ns *zns)
 	 * ----------------------------------------------------------------
 	 */
 
-	/* Main listener: multicast route notifications */
-	groups = RTMGRP_IPV4_MROUTE;
+	/* Main listener: no remaining multicast groups. IPMR notifications
+	 * were ignored, and RTM_GETROUTE queries for multicast stats use
+	 * netlink_cmd, so RTMGRP_IPV4_MROUTE is not needed.
+	 */
+	groups = 0;
 
 	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop, rule,
 	 * unicast route. RTNLGRP_TUNNEL is group ID >= 32 and is subscribed via
