@@ -219,6 +219,8 @@ struct zebra_if {
 
 	/* The description of the interface */
 	char *desc;
+
+	uint8_t prev_notif_oper_status;
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struct interface *ifp),

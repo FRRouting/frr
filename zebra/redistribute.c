@@ -491,12 +491,17 @@ void zebra_interface_up_update(struct interface *ifp)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
+	struct zebra_if *zif = ifp->info;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_UP %s vrf %s(%u)",
 			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
-	zlog_notice("INTERFACE UP %s l3vrf %s(%u)", ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
+	if (zif->prev_notif_oper_status != IF_ZEBRA_DATA_ON) {
+		zlog_notice("INTERFACE UP %s l3vrf %s(%u)", ifp->name, ifp->vrf->name,
+			    ifp->vrf->vrf_id);
+		zif->prev_notif_oper_status = IF_ZEBRA_DATA_ON;
+	}
 
 	if (ifp->ptm_status || !ifp->ptm_enable) {
 		for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode,
@@ -519,12 +524,17 @@ void zebra_interface_down_update(struct interface *ifp)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
+	struct zebra_if *zif = ifp->info;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DOWN %s vrf %s(%u)",
 			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
-	zlog_notice("INTERFACE DOWN %s l3vrf %s(%u)", ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
+	if (zif->prev_notif_oper_status != IF_ZEBRA_DATA_OFF) {
+		zlog_notice("INTERFACE DOWN %s l3vrf %s(%u)", ifp->name, ifp->vrf->name,
+			    ifp->vrf->vrf_id);
+		zif->prev_notif_oper_status = IF_ZEBRA_DATA_OFF;
+	}
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */

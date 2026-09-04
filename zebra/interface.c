@@ -133,6 +133,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->link_nsid = NS_UNKNOWN;
 
+	zebra_if->prev_notif_oper_status = IF_ZEBRA_DATA_UNSPEC;
+
 	nhg_connected_tree_init(&zebra_if->nhg_dependents);
 
 	zebra_ptm_if_init(zebra_if);
