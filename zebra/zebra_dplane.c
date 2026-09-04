@@ -464,6 +464,26 @@ struct dplane_tc_qdisc_notify_info {
 };
 
 /*
+ * Kernel tunnel (VXLAN VNI filter) notification info. Filled by the
+ * dplane thread when it parses an RTM_NEWTUNNEL/RTM_DELTUNNEL message,
+ * consumed by the zebra master thread.
+ *
+ * The 'startup' indication uses the generic dplane ctx 'zd_startup'
+ * field; see dplane_ctx_set_startup()/dplane_ctx_get_startup().
+ */
+struct dplane_tunnel_notify_info {
+	uint8_t family;
+	ifindex_t ifindex;
+	vni_t vni_start;
+	vni_t vni_end;
+	struct in_addr mcast_grp;
+	struct in6_addr mcast_grp6;
+	bool has_mcast_grp;
+	bool has_mcast_grp6;
+	enum dplane_tunnel_notify_e notify_type;
+};
+
+/*
  * VLAN info for the dataplane
  */
 struct dplane_vlan_info {
@@ -541,6 +561,7 @@ struct zebra_dplane_ctx {
 		struct dplane_macfdb_read_info macfdb_read;
 		struct dplane_neigh_read_info neigh_read;
 		struct dplane_tc_qdisc_notify_info tc_qdisc_notify;
+		struct dplane_tunnel_notify_info tunnel_notify;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -1020,6 +1041,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NEIGH_READ:
 	case DPLANE_OP_TC_QDISC_READ:
 	case DPLANE_OP_TC_QDISC_NOTIFY:
+	case DPLANE_OP_TUNNEL_NOTIFY:
 		break;
 	}
 }
@@ -1338,6 +1360,8 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "TC_QDISC_READ";
 	case DPLANE_OP_TC_QDISC_NOTIFY:
 		return "TC_QDISC_NOTIFY";
+	case DPLANE_OP_TUNNEL_NOTIFY:
+		return "TUNNEL_NOTIFY";
 	}
 
 	return "UNKNOWN";
@@ -4166,6 +4190,72 @@ enum dplane_tc_qdisc_notify_e dplane_ctx_tc_qdisc_notify_get_type(const struct z
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.tc_qdisc_notify.notify_type;
+}
+
+uint8_t dplane_ctx_tunnel_notify_get_family(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tunnel_notify.family;
+}
+
+ifindex_t dplane_ctx_tunnel_notify_get_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tunnel_notify.ifindex;
+}
+
+vni_t dplane_ctx_tunnel_notify_get_vni_start(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tunnel_notify.vni_start;
+}
+
+vni_t dplane_ctx_tunnel_notify_get_vni_end(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tunnel_notify.vni_end;
+}
+
+const struct in_addr *
+dplane_ctx_tunnel_notify_get_mcast_grp(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.tunnel_notify.mcast_grp;
+}
+
+const struct in6_addr *
+dplane_ctx_tunnel_notify_get_mcast_grp6(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.tunnel_notify.mcast_grp6;
+}
+
+bool dplane_ctx_tunnel_notify_has_mcast_grp(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tunnel_notify.has_mcast_grp;
+}
+
+bool dplane_ctx_tunnel_notify_has_mcast_grp6(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tunnel_notify.has_mcast_grp6;
+}
+
+enum dplane_tunnel_notify_e
+dplane_ctx_tunnel_notify_get_type(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tunnel_notify.notify_type;
 }
 
 /*
@@ -7034,6 +7124,38 @@ enum zebra_dplane_result dplane_tc_qdisc_notify_enqueue(ns_id_t ns_id,
 	return ZEBRA_DPLANE_REQUEST_QUEUED;
 }
 
+enum zebra_dplane_result
+dplane_tunnel_notify_enqueue(ns_id_t ns_id, enum dplane_tunnel_notify_e notify_type, bool startup,
+			     uint8_t family, ifindex_t ifindex, vni_t vni_start, vni_t vni_end,
+			     const struct in_addr *mcast_grp, const struct in6_addr *mcast_grp6)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = DPLANE_OP_TUNNEL_NOTIFY;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_startup(ctx, startup);
+
+	ctx->u.tunnel_notify.family = family;
+	ctx->u.tunnel_notify.ifindex = ifindex;
+	ctx->u.tunnel_notify.vni_start = vni_start;
+	ctx->u.tunnel_notify.vni_end = vni_end ? vni_end : vni_start;
+	ctx->u.tunnel_notify.notify_type = notify_type;
+	if (mcast_grp) {
+		ctx->u.tunnel_notify.mcast_grp = *mcast_grp;
+		ctx->u.tunnel_notify.has_mcast_grp = true;
+	}
+	if (mcast_grp6) {
+		ctx->u.tunnel_notify.mcast_grp6 = *mcast_grp6;
+		ctx->u.tunnel_notify.has_mcast_grp6 = true;
+	}
+
+	dplane_provider_enqueue_to_zebra(ctx);
+
+	return ZEBRA_DPLANE_REQUEST_QUEUED;
+}
+
 /*
  * Handler for 'show dplane'
  */
@@ -7823,6 +7945,18 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_tc_qdisc_notify_get_major_handle(ctx),
 			   dplane_ctx_get_startup(ctx));
 		break;
+	case DPLANE_OP_TUNNEL_NOTIFY:
+		zlog_debug("Dplane %s, ns %u, ifindex %u, family %u, vni %u-%u, %s, startup %d",
+			   dplane_op2str(dplane_ctx_get_op(ctx)), dplane_ctx_get_ns(ctx)->ns_id,
+			   dplane_ctx_tunnel_notify_get_ifindex(ctx),
+			   dplane_ctx_tunnel_notify_get_family(ctx),
+			   dplane_ctx_tunnel_notify_get_vni_start(ctx),
+			   dplane_ctx_tunnel_notify_get_vni_end(ctx),
+			   dplane_ctx_tunnel_notify_get_type(ctx) == DPLANE_TUNNEL_NOTIFY_NEW
+				   ? "new"
+				   : "del",
+			   dplane_ctx_get_startup(ctx));
+		break;
 	}
 }
 
@@ -8020,6 +8154,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NEIGH_READ:
 	case DPLANE_OP_TC_QDISC_READ:
 	case DPLANE_OP_TC_QDISC_NOTIFY:
+	case DPLANE_OP_TUNNEL_NOTIFY:
 		break;
 	}
 }

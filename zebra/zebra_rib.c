@@ -5475,6 +5475,7 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_NEIGH_READ:
 			case DPLANE_OP_TC_QDISC_READ:
+			case DPLANE_OP_TUNNEL_NOTIFY:
 				break;
 			} /* Dispatch by op code */
 

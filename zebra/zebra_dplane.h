@@ -228,6 +228,9 @@ enum dplane_op_e {
 	DPLANE_OP_TC_QDISC_READ,
 	DPLANE_OP_TC_QDISC_NOTIFY,
 
+	/* Incoming kernel tunnel (VXLAN VNI filter) events */
+	DPLANE_OP_TUNNEL_NOTIFY,
+
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
@@ -297,6 +300,14 @@ enum dplane_netconf_status_e {
 enum dplane_tc_qdisc_notify_e {
 	DPLANE_TC_QDISC_NOTIFY_NEW,
 	DPLANE_TC_QDISC_NOTIFY_DEL,
+};
+
+/*
+ * Kernel tunnel (VXLAN VNI filter) notification enum.
+ */
+enum dplane_tunnel_notify_e {
+	DPLANE_TUNNEL_NOTIFY_NEW,
+	DPLANE_TUNNEL_NOTIFY_DEL,
 };
 
 /* Enable system route notifications */
@@ -628,6 +639,19 @@ dplane_ctx_tc_qdisc_notify_get_type(const struct zebra_dplane_ctx *ctx);
  * For the 'startup' indication on the notification ctx, use the
  * generic dplane_ctx_get_startup() / dplane_ctx_set_startup() pair.
  */
+
+uint8_t dplane_ctx_tunnel_notify_get_family(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_tunnel_notify_get_ifindex(const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_tunnel_notify_get_vni_start(const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_tunnel_notify_get_vni_end(const struct zebra_dplane_ctx *ctx);
+const struct in_addr *
+dplane_ctx_tunnel_notify_get_mcast_grp(const struct zebra_dplane_ctx *ctx);
+const struct in6_addr *
+dplane_ctx_tunnel_notify_get_mcast_grp6(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_tunnel_notify_has_mcast_grp(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_tunnel_notify_has_mcast_grp6(const struct zebra_dplane_ctx *ctx);
+enum dplane_tunnel_notify_e
+dplane_ctx_tunnel_notify_get_type(const struct zebra_dplane_ctx *ctx);
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
@@ -1090,6 +1114,17 @@ enum zebra_dplane_result dplane_tc_qdisc_notify_enqueue(ns_id_t ns_id,
 							enum dplane_tc_qdisc_notify_e notify_type,
 							bool startup, int kind, ifindex_t ifindex,
 							uint32_t major_handle);
+
+/*
+ * Enqueue a kernel tunnel (VXLAN VNI filter) notification from the dplane
+ * thread to the zebra master thread. The kernel-specific RTM_*TUNNEL
+ * message type is translated into a generic dplane_tunnel_notify_e
+ * by the dplane decoder before this is called.
+ */
+enum zebra_dplane_result
+dplane_tunnel_notify_enqueue(ns_id_t ns_id, enum dplane_tunnel_notify_e notify_type, bool startup,
+			     uint8_t family, ifindex_t ifindex, vni_t vni_start, vni_t vni_end,
+			     const struct in_addr *mcast_grp, const struct in6_addr *mcast_grp6);
 
 /*
  * Link layer operations for the dataplane.
