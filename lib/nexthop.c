@@ -95,6 +95,11 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (nh1->nh_srv6->seg6_segs->encap_behavior < nh2->nh_srv6->seg6_segs->encap_behavior)
 		return -1;
 
+	ret = IPV6_ADDR_CMP(&nh1->nh_srv6->seg6_segs->rmap_encap_source,
+			    &nh2->nh_srv6->seg6_segs->rmap_encap_source);
+	if (ret != 0)
+		return ret;
+
 	ret = IPV6_ADDR_CMP(&nh1->nh_srv6->seg6_segs->encap_source,
 			    &nh2->nh_srv6->seg6_segs->encap_source);
 	if (ret != 0)
@@ -959,11 +964,14 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 				&nexthop->nh_srv6->seg6local_ctx);
 		if (nexthop->nh_srv6->seg6_segs &&
 		    nexthop->nh_srv6->seg6_segs->num_segs &&
-		    !sid_zero(nexthop->nh_srv6->seg6_segs))
+		    !sid_zero(nexthop->nh_srv6->seg6_segs)) {
 			nexthop_add_srv6_seg6(copy, &nexthop->nh_srv6->seg6_segs->seg[0],
 					      nexthop->nh_srv6->seg6_segs->num_segs,
 					      nexthop->nh_srv6->seg6_segs->encap_behavior,
 					      &nexthop->nh_srv6->seg6_segs->encap_source);
+			copy->nh_srv6->seg6_segs->rmap_encap_source =
+				nexthop->nh_srv6->seg6_segs->rmap_encap_source;
+		}
 	}
 }
 
@@ -1448,8 +1456,12 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 					       srv6_headend_behavior2str(nexthop->nh_srv6->seg6_segs
 										 ->encap_behavior,
 									 false));
-			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->rmap_encap_source,
 					    &in6addr_any))
+				json_object_string_addf(json_nexthop, "srv6EncapSource", "%pI6",
+							&nexthop->nh_srv6->seg6_segs->rmap_encap_source);
+			else if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+						 &in6addr_any))
 				json_object_string_addf(json_nexthop, "srv6EncapSource", "%pI6",
 							&nexthop->nh_srv6->seg6_segs->encap_source);
 		} else {
@@ -1473,8 +1485,14 @@ void nexthop_json_helper(json_object *json_nexthop, const struct nexthop *nextho
 											 ->seg6_segs
 											 ->encap_behavior,
 										 false));
-				if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+				if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->rmap_encap_source,
 						    &in6addr_any))
+					json_object_string_addf(json_nexthop, "srv6EncapSource",
+								"%pI6",
+								&nexthop->nh_srv6->seg6_segs
+									 ->rmap_encap_source);
+				else if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+							 &in6addr_any))
 					json_object_string_addf(json_nexthop, "srv6EncapSource",
 								"%pI6",
 								&nexthop->nh_srv6->seg6_segs
@@ -1618,8 +1636,12 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 					srv6_headend_behavior2str(nexthop->nh_srv6->seg6_segs
 									  ->encap_behavior,
 								  false));
-			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+			if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->rmap_encap_source,
 					    &in6addr_any))
+				vty_out(vty, ", encap source %pI6",
+					&nexthop->nh_srv6->seg6_segs->rmap_encap_source);
+			else if (!IPV6_ADDR_SAME(&nexthop->nh_srv6->seg6_segs->encap_source,
+						 &in6addr_any))
 				vty_out(vty, ", encap source %pI6",
 					&nexthop->nh_srv6->seg6_segs->encap_source);
 		}
