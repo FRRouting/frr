@@ -414,9 +414,14 @@ void frr_opt_add(const char *optstr, const struct option *longopts,
 	opt_extend(&main_opts);
 }
 
+extern uint64_t foobar;
+uint64_t foobar = UINT64_C(12345678901234567890);
+
 void frr_help_exit(int status)
 {
 	FILE *target = status ? stderr : stdout;
+
+	fprintf(stderr, "%w64u\n", foobar);
 
 	if (status != 0)
 		fprintf(stderr, "Invalid options.\n\n");
