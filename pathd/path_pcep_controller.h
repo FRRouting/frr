@@ -39,6 +39,10 @@ struct ctrl_state {
 	struct pcc_opts *pcc_opts;
 	int pcc_count;
 	int pcc_last_id;
+	/* Set at the start of the finish handler: refuse and free events
+	 * arriving from the pceplib threads while shutting down.
+	 */
+	bool halting;
 	struct pcc_state *pcc[MAX_PCC];
 };
 
@@ -101,6 +105,7 @@ int pcep_ctrl_initialize(struct event_loop *main_thread,
 			 struct frr_pthread **fpt,
 			 pcep_main_event_handler_t event_handler);
 int pcep_ctrl_finalize(struct frr_pthread **fpt);
+void pcep_ctrl_finalize_main_events(void);
 int pcep_ctrl_update_pcc_options(struct frr_pthread *fpt,
 				 struct pcc_opts *opts);
 int pcep_ctrl_update_pce_options(struct frr_pthread *fpt,

@@ -21,6 +21,11 @@
 
 typedef struct pcep_socket_comm_handle_ {
 	bool active;
+	/* Set once the socket comm thread has been joined, so the stop
+	 * can be requested early (before the sessions are destroyed)
+	 * and the destroy stays safe to call afterwards.
+	 */
+	bool thread_stopped;
 	pthread_t socket_comm_thread;
 	pthread_mutex_t socket_comm_mutex;
 	fd_set read_master_set;
