@@ -114,8 +114,8 @@ struct route_entry {
 	uint32_t nhe_installed_id;
 
 	/*
-	 * Parent NHG id of the flushing NHG-event-tracker that drained this
-	 * RE as a phase-1 loser; consumed in tracker_flush_batch_route_dplane_ack.
+	 * Parent NHG id of the flushing NHG-event-tracker that tagged this RE,
+	 * as a phase-1 loser or a phase-2 winner.
 	 */
 	uint32_t tracker_parent_nhg_id;
 
