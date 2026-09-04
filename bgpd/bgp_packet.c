@@ -52,6 +52,7 @@
 #include "bgpd/bgp_unreach.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_mup.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -333,6 +334,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
 	case SAFI_UNREACH:
 		return bgp_nlri_parse_unreach(peer, attr, packet, mp_withdraw);
+	case SAFI_MUP:
+		return bgp_nlri_parse_mup(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
