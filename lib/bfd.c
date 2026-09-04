@@ -348,6 +348,86 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putc(s, args->profilelen);
 	if (args->profilelen)
 		stream_put(s, args->profile, args->profilelen);
+
+	/*
+	 * Optional-field tail. Modeled on the ZAPI_MESSAGE_* pattern used by
+	 * the route ZAPI messages: each BFD_REGEXT_FLAG_* bit in
+	 * `args->bfd_regext_flags` indicates that the corresponding field
+	 * follows. The tail is emitted iff at least one bit is set —
+	 * including on `ZEBRA_BFD_DEST_DEREGISTER`, because `bfd_name`
+	 * participates in `gen_bfd_key` and a named session cannot be
+	 * located for deletion without it. Classical-BFD callers leave
+	 * `bfd_regext_flags` zero and produce byte-identical wire frames to
+	 * the pre-extension layout.
+	 *
+	 * Tail format:
+	 *   w bfd_regext_flags          (always, when tail is emitted)
+	 *   if FLAG_BFD_MODE:     c     bfd_mode
+	 *   if FLAG_REMOTE_DISCR: l     remote_discr
+	 *   if FLAG_SRV6_SOURCE:  16    srv6_source_ipv6
+	 *   if FLAG_SEG_LIST:     c     seg_num + 16*seg_num bytes seg_list
+	 *   if FLAG_BFD_NAME:     c     bfd_name length + X bytes bfd_name
+	 *
+	 * q(64), l(32), w(16), c(8)
+	 */
+	if (args->bfd_regext_flags != 0) {
+		uint16_t flags = args->bfd_regext_flags;
+
+		/*
+		 * Reject cross-flag combinations the wire format admits but
+		 * the session semantics don't: `remote_discr` is only
+		 * meaningful when `bfd_mode` is set to an SBFD mode, and
+		 * `FLAG_BFD_MODE` should carry a non-classical mode value.
+		 * Catch caller bugs at the boundary rather than silently
+		 * shipping garbage on the wire.
+		 */
+		if ((flags & BFD_REGEXT_FLAG_REMOTE_DISCR) && !(flags & BFD_REGEXT_FLAG_BFD_MODE)) {
+			zlog_err("%s: FLAG_REMOTE_DISCR set without FLAG_BFD_MODE; rejecting",
+				 __func__);
+			return -1;
+		}
+		if ((flags & BFD_REGEXT_FLAG_BFD_MODE) && args->bfd_mode == 0) {
+			zlog_err("%s: FLAG_BFD_MODE set with classical mode (0); rejecting",
+				 __func__);
+			return -1;
+		}
+
+		/*
+		 * Reject out-of-range `seg_num` rather than silently
+		 * truncating: an SBFD/SRv6 session whose SID list is short
+		 * by one entry would route through the wrong path and the
+		 * BFD session would still report Up — the worst possible
+		 * silent failure mode for fast-switchover infrastructure.
+		 */
+		if ((flags & BFD_REGEXT_FLAG_SEG_LIST) && args->seg_num > SRV6_MAX_SEGS) {
+			zlog_err("%s: seg_num %u exceeds SRV6_MAX_SEGS %u; rejecting registration",
+				 __func__, args->seg_num, SRV6_MAX_SEGS);
+			return -1;
+		}
+
+		stream_putw(s, flags);
+
+		if (flags & BFD_REGEXT_FLAG_BFD_MODE)
+			stream_putc(s, args->bfd_mode);
+		if (flags & BFD_REGEXT_FLAG_REMOTE_DISCR)
+			stream_putl(s, args->remote_discr);
+		if (flags & BFD_REGEXT_FLAG_SRV6_SOURCE)
+			stream_put(s, &args->srv6_source_ipv6, sizeof(struct in6_addr));
+		if (flags & BFD_REGEXT_FLAG_SEG_LIST) {
+			stream_putc(s, args->seg_num);
+			for (uint8_t i = 0; i < args->seg_num; i++)
+				stream_put(s, &args->seg_list[i], sizeof(struct in6_addr));
+		}
+		if (flags & BFD_REGEXT_FLAG_BFD_NAME) {
+			size_t bfd_name_len = strnlen(args->bfd_name, sizeof(args->bfd_name));
+
+			if (bfd_name_len > UINT8_MAX)
+				bfd_name_len = UINT8_MAX;
+			stream_putc(s, (uint8_t)bfd_name_len);
+			if (bfd_name_len)
+				stream_put(s, args->bfd_name, bfd_name_len);
+		}
+	}
 #else /* PTM BFD */
 	/* Encode timers if this is a registration message. */
 	if (args->command != ZEBRA_BFD_DEST_DEREGISTER) {
