@@ -15480,7 +15480,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 		if (is_last) {
 			unsigned long i;
 			for (i = 0; i < *json_header_depth; ++i) {
-				if (i == *json_header_depth - 1)
+				if (!all && i == *json_header_depth - 1)
 					vty_out(vty, ",\"numRoutes\":%lu\n", output_count);
 				vty_out(vty, " } ");
 				/* Put this information before closing the last `}` */
@@ -15488,7 +15488,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 					vty_out(vty, ", \"totalRoutes\": %ld, \"totalPaths\": %ld",
 						output_count, total_count);
 			}
-			if (!all)
+			if (all)
+				vty_out(vty, ",\n\"numRoutes\":%lu\n", output_count);
+			else
 				vty_out(vty, "\n");
 		}
 	} else {
