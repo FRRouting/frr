@@ -1557,10 +1557,10 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 		}
 	}
 
-	if (!printed) {
+	if (!printed)
 		vty_out(vty, "    --?--%s", HVTYNL);
-		return;
-	}
+
+	bgp_dest_unlock_node(bd);
 }
 
 void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
