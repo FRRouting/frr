@@ -2369,10 +2369,11 @@ stream_failure:
 bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 				 struct in6_addr *sid_value, uint32_t *func,
 				 uint32_t *wide_func, enum zapi_srv6_sid_notify *note,
-				 char *locator_name, size_t loc_size)
+				 char *locator_name, size_t loc_size, uint8_t *flags)
 {
 	uint32_t f, wf;
 	uint16_t len = 0;
+	uint8_t sid_flags = 0;
 
 	STREAM_GET(note, s, sizeof(*note));
 	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
@@ -2403,6 +2404,12 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 		/* Advance the stream */
 		STREAM_FORWARD_GETP(s, len);
 	}
+
+	/* Older notifications have no representation flags. */
+	if (STREAM_READABLE(s) > 0)
+		STREAM_GETC(s, sid_flags);
+	if (flags)
+		*flags = sid_flags;
 
 	return true;
 

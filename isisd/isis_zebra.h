@@ -63,8 +63,8 @@ extern void isis_zebra_srv6_sid_install(struct isis_area *area,
 extern void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 					  struct isis_srv6_sid *sid);
 
-void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra);
-void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra);
+void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra, bool is_localonly);
+void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra, bool is_localonly);
 
 extern int isis_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int isis_zebra_srv6_manager_release_locator_chunk(const char *name);
@@ -73,7 +73,8 @@ extern int isis_zebra_srv6_manager_get_locator(const char *name);
 extern void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj);
 extern bool isis_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 					struct in6_addr *sid_value,
-					const char *locator_name);
-extern void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *locator_name);
+					const char *locator_name, bool is_localonly);
+extern void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *locator_name,
+				       bool is_localonly);
 
 #endif /* _ZEBRA_ISIS_ZEBRA_H */

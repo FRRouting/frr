@@ -3820,7 +3820,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 	/* Decode the received notification message */
 	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, &sid_wide_func,
-					 &note, loc_name, sizeof(loc_name))) {
+					 &note, loc_name, sizeof(loc_name), NULL)) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}

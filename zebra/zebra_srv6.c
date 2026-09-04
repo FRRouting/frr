@@ -734,7 +734,7 @@ static void zebra_srv6_sid_clients_notify_single(struct zebra_srv6_sid *sid,
 
 	zebra_srv6_sid_compose(&sid_value, locator, sid->func, sid->wide_func, is_localonly);
 	zsend_srv6_sid_notify(client, &sid->ctx->ctx, &sid_value, sid->func, sid->wide_func,
-			      locator->name, notify);
+			      locator->name, notify, is_localonly);
 }
 
 static void zebra_srv6_sid_clients_release_notify_all(struct zebra_srv6_sid *sid)
@@ -746,7 +746,7 @@ static void zebra_srv6_sid_clients_release_notify_all(struct zebra_srv6_sid *sid
 		frr_each (zebra_srv6_sid_client_list, &entry->clients_list, zclient)
 			zsend_srv6_sid_notify(zclient->client, &sid->ctx->ctx, &entry->sid_value,
 					      sid->func, sid->wide_func, entry->locator->name,
-					      ZAPI_SRV6_SID_RELEASED);
+					      ZAPI_SRV6_SID_RELEASED, entry->is_localonly);
 }
 
 static void zebra_srv6_sid_clients_notify_all(struct zebra_srv6_sid *sid,
@@ -765,7 +765,7 @@ static void zebra_srv6_sid_clients_notify_all(struct zebra_srv6_sid *sid,
 
 	frr_each (zebra_srv6_sid_client_list, &entry->clients_list, zclient)
 		zsend_srv6_sid_notify(zclient->client, &sid->ctx->ctx, &sid_value, sid->func,
-				      sid->wide_func, locator->name, notify);
+				      sid->wide_func, locator->name, notify, is_localonly);
 }
 
 void zebra_srv6_sid_client_add(struct zebra_srv6_sid *sid, bool is_localonly,
@@ -2664,7 +2664,8 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 				 "%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
 				 __func__, locator_name);
 			zsend_srv6_sid_notify(client, ctx, sid_value ? sid_value : &zero, 0, 0,
-					      locator_name, ZAPI_SRV6_SID_FAIL_ALLOC);
+					      locator_name, ZAPI_SRV6_SID_FAIL_ALLOC,
+					      is_localonly);
 			return -1;
 		}
 	}
@@ -2680,7 +2681,7 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 
 		/* Notify client about SID alloc failure */
 		zsend_srv6_sid_notify(client, ctx, sid_value ? sid_value : &zero, 0, 0,
-				      locator_name, ZAPI_SRV6_SID_FAIL_ALLOC);
+				      locator_name, ZAPI_SRV6_SID_FAIL_ALLOC, is_localonly);
 	} else if (ret == 0) {
 		assert(*sid);
 		if (IS_ZEBRA_DEBUG_SRV6)
@@ -2831,10 +2832,10 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 
 	if (ret == 0)
 		zsend_srv6_sid_notify(client, ctx, &sid_value, 0, 0, locator_name,
-				      ZAPI_SRV6_SID_RELEASED);
+				      ZAPI_SRV6_SID_RELEASED, is_localonly);
 	else
 		zsend_srv6_sid_notify(client, ctx, &sid_value, 0, 0, locator_name,
-				      ZAPI_SRV6_SID_FAIL_RELEASE);
+				      ZAPI_SRV6_SID_FAIL_RELEASE, is_localonly);
 
 	return ret;
 }
