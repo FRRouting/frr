@@ -1143,17 +1143,17 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 			tmp_prefix.prefix = srv6_l3service->sid;
 			if (bgp_nexthop->vpn_policy[afi].tovpn_sid_locator &&
 			    bgp_nexthop->vpn_policy[afi].tovpn_sid)
-				local_sid = prefix_match(&bgp_nexthop->vpn_policy[afi]
-								  .tovpn_sid_locator->prefix,
-							 &tmp_prefix);
+				local_sid = prefix_contains(&bgp_nexthop->vpn_policy[afi]
+								     .tovpn_sid_locator->prefix,
+							    &tmp_prefix);
 			else if (bgp_nexthop->tovpn_sid_locator && bgp_nexthop->tovpn_sid)
-				local_sid = prefix_match(&bgp_nexthop->tovpn_sid_locator->prefix,
-							 &tmp_prefix);
+				local_sid = prefix_contains(&bgp_nexthop->tovpn_sid_locator->prefix,
+							    &tmp_prefix);
 			else if (bgp_nexthop->srv6_unicast[afi].sid_locator &&
 				 bgp_nexthop->srv6_unicast[afi].sid)
-				local_sid = prefix_match(&bgp_nexthop->srv6_unicast[afi]
-								  .sid_locator->prefix,
-							 &tmp_prefix);
+				local_sid = prefix_contains(&bgp_nexthop->srv6_unicast[afi]
+								     .sid_locator->prefix,
+							    &tmp_prefix);
 		}
 		if (local_sid == false && srv6_l3service) {
 			p->prefixlen = IPV6_MAX_BITLEN;
