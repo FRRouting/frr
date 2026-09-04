@@ -1926,6 +1926,20 @@ Defining Peers
 
    The neighbor's ASN is detected automatically from the OPEN message.
 
+   .. warn::
+
+      This option presents a serious operational and security hazard.  BGP
+      protocol operation differs significantly between eBGP and iBGP, including
+      weaker session security properties for iBGP.  Even if security isn't an
+      issue, the distinction between the modes present massive potential for
+      operational footguns.
+
+      This option should only ever be considered in datacenter operations, and
+      only temporarily when migrating between different overall network
+      designs.  Never use this option in telecommunications setups, e.g. on the
+      open internet.  Use either of ``remote-as internal`` or ``remote-as
+      external`` instead.
+
 .. clicmd:: neighbor PEER oad
 
    Mark a peer belonging to the One Administrative Domain.

@@ -156,6 +156,15 @@ DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty * vty), (vty));
 DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
 	    (bgp, afi, preconfig));
 
+static void warn_auto(struct vty *vty, const char *linestart)
+{
+	vty_out(vty,
+		"%s the \"remote-as auto\" option is an operations and security vulnerability\n"
+		"%s eBGP and iBGP fundamentally behave very differently and should not be mixed\n"
+		"%s please use \"remote-as external\" or \"remote-as internal\" instead\n",
+		linestart, linestart, linestart);
+}
+
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
 
@@ -5394,6 +5403,7 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	} else if (as_str[0] == 'a') {
 		as = 0;
 		as_type = AS_AUTO;
+		warn_auto(vty, "%");
 	} else if (!asn_str2asn(as_str, &as))
 		as_type = AS_UNSPECIFIED;
 
@@ -5606,6 +5616,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 			as_type = AS_EXTERNAL;
 		} else if (as_str[0] == 'a') {
 			as_type = AS_AUTO;
+			warn_auto(vty, "%");
 		} else {
 			/* Get AS number.  */
 			if (asn_str2asn(as_str, &as))
@@ -21370,6 +21381,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " remote-as external");
 			if_ras_printed = true;
 		} else if (CHECK_FLAG(peer->as_type, AS_AUTO)) {
+			warn_auto(vty, " !");
 			vty_out(vty, " remote-as auto");
 			if_ras_printed = true;
 		}
@@ -21402,6 +21414,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 					" neighbor %s remote-as external\n",
 					addr);
 			} else if (CHECK_FLAG(peer->as_type, AS_AUTO)) {
+				warn_auto(vty, " !");
 				vty_out(vty, " neighbor %s remote-as auto\n",
 					addr);
 			}
@@ -21428,6 +21441,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 					" neighbor %s remote-as external\n",
 					addr);
 			} else if (CHECK_FLAG(peer->as_type, AS_AUTO)) {
+				warn_auto(vty, " !");
 				vty_out(vty, " neighbor %s remote-as auto\n",
 					addr);
 			}
