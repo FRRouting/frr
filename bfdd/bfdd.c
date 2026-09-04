@@ -468,7 +468,7 @@ int main(int argc, char *argv[])
 		distributed_bfd_init(dplane_addr);
 
 	if (perm_vrfs)
-		free(perm_vrfs);
+		XFREE(MTYPE_TMP, perm_vrfs);
 
 	frr_run(master);
 	/* NOTREACHED */
