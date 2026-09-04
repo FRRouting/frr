@@ -11879,15 +11879,48 @@ static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
 
 static void bgp_srv6_only_change(struct bgp *bgp, bool enable)
 {
+	struct bgp *bgp_inst;
+	struct listnode *node;
+
 	/* pre-change */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	if (bgp == bgp_get_default()) {
+		/* srv6-only changed on default BGP instance, refresh importation to vrf */
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
+			if (bgp_inst->inst_type != BGP_INSTANCE_TYPE_VIEW) {
+				vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP,
+						   bgp_get_default(), bgp_inst);
+				vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
+						   bgp_get_default(), bgp_inst);
+			}
+		}
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	} else {
+		/* srv6-only changed on BGP VRF instance, refresh importation to vpn */
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	}
 
 	bgp->srv6_only = enable;
 
 	/* post-change */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	if (bgp_get_default() == bgp) {
+		/* srv6-only changed on default BGP instance, refresh importation to vrf */
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
+			if (bgp_inst->inst_type != BGP_INSTANCE_TYPE_VIEW) {
+				vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP,
+						    bgp_get_default(), bgp_inst);
+				vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
+						    bgp_get_default(), bgp_inst);
+			}
+		}
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	} else {
+		/* srv6-only changed on BGP VRF instance, refresh importation to vpn */
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	}
 }
 
 DEFUN (no_bgp_segment_routing_srv6,
