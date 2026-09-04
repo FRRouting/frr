@@ -2618,8 +2618,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 	/* Transparency check. */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
-	    && CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+	if ((CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT) &&
+	     CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)) ||
+	    (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED) &&
+	     CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)))
 		transparent = 1;
 	else
 		transparent = 0;
