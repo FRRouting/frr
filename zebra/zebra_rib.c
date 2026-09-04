@@ -5463,6 +5463,10 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_vlan_dplane_result(ctx);
 				break;
 
+			case DPLANE_OP_TUNNEL_NOTIFY:
+				zebra_tunnel_dplane_result(ctx);
+				break;
+
 			case DPLANE_OP_NEIGH_IP_INSTALL:
 			case DPLANE_OP_NEIGH_IP_DELETE:
 			case DPLANE_OP_NEIGH_INSTALL:
@@ -5475,7 +5479,6 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_NEIGH_READ:
 			case DPLANE_OP_TC_QDISC_READ:
-			case DPLANE_OP_TUNNEL_NOTIFY:
 				break;
 			} /* Dispatch by op code */
 
