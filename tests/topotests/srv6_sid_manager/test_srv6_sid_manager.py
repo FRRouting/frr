@@ -224,6 +224,12 @@ def build_topo(tgen):
         netmask="128",
         create=True,
     )
+    tgen.gears["rt1"].run("sysctl net.vrf.strict_mode=1")
+    tgen.gears["rt2"].run("sysctl net.vrf.strict_mode=1")
+    tgen.gears["rt3"].run("sysctl net.vrf.strict_mode=1")
+    tgen.gears["rt4"].run("sysctl net.vrf.strict_mode=1")
+    tgen.gears["rt5"].run("sysctl net.vrf.strict_mode=1")
+    tgen.gears["rt6"].run("sysctl net.vrf.strict_mode=1")
 
 
 def setup_module(mod):
