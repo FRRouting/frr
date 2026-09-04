@@ -76,6 +76,22 @@ service Northbound {
 
   // Execute a YANG RPC.
   rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
+
+  // Subscribe to YANG notifications and/or operational-state snapshots on a
+  // set of paths.  The server keeps the stream open and pushes a
+  // SubscribeResponse for every event matching the subscription.  Modes:
+  //
+  //   ON_CHANGE  -- forward notifications as they happen.
+  //   STREAM     -- send an initial snapshot of subscribed oper-state then
+  //                 remain registered for matching notifications.  A
+  //                 SubscribeResponse with the sync_response field marks the
+  //                 end of the snapshot.
+  //   SAMPLE     -- periodically read subscribed oper-state at the
+  //                 sample_interval_ms cadence and push the result.
+  //   POLL       -- reserved for a future client-streaming Subscribe shape.
+  //
+  // Client cancellation closes the stream; server cleans up selectors.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse) {}
 }
 
 // ----------------------- Parameters and return types -------------------------
@@ -387,6 +403,69 @@ message ExecuteResponse {
   repeated PathValue output = 1;
 }
 
+//
+// RPC: Subscribe()
+//
+message SubscribeRequest {
+  enum SubscriptionMode {
+    ON_CHANGE = 0;
+    STREAM = 1;
+    SAMPLE = 2;
+    POLL = 3;
+  }
+
+  // Subscription mode.  See the Subscribe RPC documentation for semantics.
+  SubscriptionMode mode = 1;
+
+  // Wire encoding for SubscribeResponse update payloads.
+  Encoding response_encoding = 2;
+
+  // YANG xpaths the subscriber is interested in.  ON_CHANGE accepts
+  // notification selectors that resolve to a loaded YANG node, or a
+  // module-root shorthand such as "/frr-ripd".  STREAM and SAMPLE use
+  // operational-state data-tree paths.  At least one path is required.
+  repeated string path = 3;
+
+  // SAMPLE-only: cadence in milliseconds.  Server enforces a minimum
+  // (default 100 ms) and may reject sub-minimum values with
+  // INVALID_ARGUMENT.
+  uint32 sample_interval_ms = 4;
+
+  // Optional heartbeat interval in milliseconds.  If non-zero the server
+  // emits an empty SubscribeResponse.heartbeat at this cadence whenever no
+  // update has flowed within the heartbeat window.  Zero disables.  Server
+  // enforces the same minimum interval as SAMPLE.
+  uint32 heartbeat_interval_ms = 5;
+}
+
+message SubscribeResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Stream ended normally.
+  // - grpc::StatusCode::INVALID_ARGUMENT: Bad selector, path, mode or
+  //   interval.
+  // - grpc::StatusCode::OUT_OF_RANGE: Stream closed because the client
+  //   cannot drain updates quickly enough.
+
+  oneof response {
+    // A notification or an oper-state update fragment.
+    DataTree update = 1;
+
+    // Marker emitted once at the end of the STREAM-mode initial snapshot.
+    SyncResponse sync_response = 2;
+
+    // Empty heartbeat tick (only when heartbeat_interval_ms > 0).
+    SubscribeHeartbeat heartbeat = 3;
+  }
+}
+
+message SyncResponse {
+  // Empty.  Carries no payload; presence is the signal.
+}
+
+message SubscribeHeartbeat {
+  // Empty.  Carries no payload; presence is the signal.
+}
+
 // -------------------------------- Definitions --------------------------------
 
 // YANG module.
@@ -420,4 +499,9 @@ message PathValue {
 message DataTree {
   Encoding encoding = 1;
   string data = 2;
+  // YANG path represented by this fragment, when the producer has a specific
+  // path to report. Get sets this to the requested path. Subscribe updates
+  // set this to the notification xpath or operational-state path that
+  // produced the data. Other responses may leave it unset.
+  string path = 3;
 }
