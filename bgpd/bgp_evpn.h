@@ -21,9 +21,19 @@ static inline int is_evpn_enabled(void)
 	return bgp ? EVPN_ENABLED(bgp) : 0;
 }
 
-static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi)
+static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 {
 	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
+
+	if (safi == SAFI_MPLS_VPN) {
+		if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_VPN))
+			return 1;
+
+		if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_VPN))
+			return 1;
+
+		return 0;
+	}
 
 	if (!bgp_vrf->l3vni)
 		return 0;
@@ -36,9 +46,13 @@ static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi
 	return 0;
 }
 
-static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi)
+static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi,
+						   safi_t safi)
 {
 	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
+
+	if (safi == SAFI_MPLS_VPN)
+		return 0;
 
 	if (!bgp_vrf->l3vni)
 		return 0;
@@ -118,7 +132,7 @@ static inline int is_route_parent_evpn(struct bgp_path_info *ri)
 	(afi == AFI_L2VPN && safi == SAFI_EVPN && bgp != bgp_get_evpn())
 
 /* Flag if the route path's family is EVPN. */
-static inline bool is_pi_family_evpn(struct bgp_path_info *pi)
+static inline bool is_pi_family_evpn(const struct bgp_path_info *pi)
 {
 	return is_pi_family_matching(pi, AFI_L2VPN, SAFI_EVPN);
 }

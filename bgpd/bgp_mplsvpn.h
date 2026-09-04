@@ -348,7 +348,7 @@ static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
 }
 
 /* Flag if the route path's family is VPN. */
-static inline bool is_pi_family_vpn(struct bgp_path_info *pi)
+static inline bool is_pi_family_vpn(const struct bgp_path_info *pi)
 {
 	return (is_pi_family_matching(pi, AFI_IP, SAFI_MPLS_VPN) ||
 		is_pi_family_matching(pi, AFI_IP6, SAFI_MPLS_VPN));
