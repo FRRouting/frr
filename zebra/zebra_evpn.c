@@ -285,9 +285,6 @@ int zebra_evpn_del_macip_for_intf(struct interface *ifp,
 				  struct zebra_evpn *zevpn)
 {
 	struct connected *c = NULL;
-	struct ethaddr macaddr;
-
-	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 
 	frr_each_safe (if_connected, ifp->connected, c) {
 		struct ipaddr ip;
@@ -383,9 +380,6 @@ int zebra_evpn_advertise_subnet(struct zebra_evpn *zevpn, struct interface *ifp,
 				int advertise)
 {
 	struct connected *c = NULL;
-	struct ethaddr macaddr;
-
-	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 
 	frr_each (if_connected, ifp->connected, c) {
 		struct prefix p;
@@ -449,7 +443,7 @@ int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 		return 0;
 
 	/* mac entry should be present */
-	mac = zebra_evpn_mac_lookup(zevpn, &n->emac);
+	mac = n->mac;
 	if (!mac) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("MAC %pEA doesn't exist for neigh %pIA on VNI %u",
@@ -475,9 +469,8 @@ int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 	/* Delete this neighbor entry. */
 	zebra_evpn_neigh_del(zevpn, n);
 
-	/* see if the mac needs to be deleted as well*/
-	if (mac)
-		zebra_evpn_deref_ip2mac(zevpn, mac);
+	/* see if the mac needs to be deleted as well */
+	zebra_evpn_deref_ip2mac(zevpn, mac);
 
 	return 0;
 }
