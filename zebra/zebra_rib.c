@@ -4192,6 +4192,9 @@ static struct nhg_event_tracker *rib_link_track_ecmp_change(struct route_node *r
 	} else if (re->nhe && CHECK_FLAG(orig_nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
 		   (zebra_nhg_tracker_has_flushing(orig_nhe) ||
 		    !zebra_nhg_tracker_nhgs_equal(re->nhe, orig_nhe, false))) {
+		bool orig_is_group = !zebra_nhg_depends_is_empty(orig_nhe);
+		bool new_is_group = zebra_nhg_content_is_group(re->nhe);
+
 		/*
 		 * No active tracker, and the incoming NH set differs from the
 		 * installed NHG.  Create a tracker for NHG reuse.
@@ -4201,22 +4204,12 @@ static struct nhg_event_tracker *rib_link_track_ecmp_change(struct route_node *r
 		 * preserve and the tracker would just delay normal rib_process
 		 * convergence with no upside.
 		 *
-		 * Skip tracker creation when the incoming NHG has a different
-		 * shape (singleton vs group) than orig_nhe.  The Linux kernel
-		 * rejects an in-place RTM_NEWNEXTHOP that changes the
-		 * structural form, so orig_nhe cannot be reworked/reused for
-		 * the winner.  Without this gate, the tracker would build,
-		 * flush, trip the struct-change bypass in phase 2 (which leaves
-		 * orig_nhe out of the content hash but still INSTALLED), and
-		 * the next ECMP-change rib_link on the same prefix would create
-		 * another tracker on the now-zombie orig_nhe — cascading until
-		 * refcount drains naturally.  Falling through to regular
-		 * rib_process achieves the same outcome (winner migrates to a
-		 * fresh NHG) without parking any RE.
+		 * Reuse rewrites orig_nhe's contents in place under the same
+		 * kernel id (RTM_NEWNEXTHOP), which the kernel accepts only
+		 * within one form either group->group or singleton->singleton.
+		 * So skip the tracker when a leaf singleton faces a group.
 		 */
-		if (ZEBRA_NHG_IS_SINGLETON(re->nhe) != ZEBRA_NHG_IS_SINGLETON(orig_nhe)) {
-			/* Shape mismatch (singleton vs group): skip tracker. */
-		} else {
+		if (orig_is_group == new_is_group) {
 			if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 				zlog_debug("%s: re %p NHG %u old_re %p NHG %u prefix %pRN (ECMP change, creating tracker)",
 					   __func__, re, re->nhe->id, old_re, orig_nhe->id, rn);

@@ -1284,7 +1284,7 @@ static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
  * The from_dplane leg of zebra_nhe_find()'s case 2 is not reproduced here:
  * kernel-learned NHEs are never reworked.
  */
-static bool zebra_nhg_content_is_group(const struct nhg_hash_entry *nhe)
+bool zebra_nhg_content_is_group(const struct nhg_hash_entry *nhe)
 {
 	const struct nexthop *nh = nhe->nhg.nexthop;
 
@@ -3896,8 +3896,8 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 	 * first winner RE) the in-place rework + mark_duplicate.
 	 */
 	is_tracker_winner = CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
-	if (is_tracker_winner && old_re && old_re->nhe)
-		parent_nhe = old_re->nhe;
+	if (is_tracker_winner && re->tracker_parent_nhg_id)
+		parent_nhe = zebra_nhg_lookup_id(re->tracker_parent_nhg_id);
 
 	if (!is_tracker_winner && CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
 		zrouter.tracker_counters.new_nhg_on_loser++;
@@ -3967,12 +3967,12 @@ backups_done:
 		}
 
 		/*
-		 * Kernel shape is depends-emptiness, not only nexthop count
+		 * Connected/blackhole parents are AFI-pinned (zebra_nhe_init) and stay
+		 * real kernel singletons; kernel rejects a leaf<->group replace in place.
+		 * So, skip NHG reuse for them.
 		 */
-		shape_differs = (ZEBRA_NHG_IS_SINGLETON(parent_nhe) !=
-				 ZEBRA_NHG_IS_SINGLETON(curr_nhe)) ||
-				(!zebra_nhg_depends_is_empty(parent_nhe) !=
-				 zebra_nhg_content_is_group(curr_nhe));
+		shape_differs = !zebra_nhg_depends_is_empty(parent_nhe) !=
+				zebra_nhg_content_is_group(curr_nhe);
 		/*
 		 * WINNER survives resolution unless a route-map denied a NH on this RE.
 		 * RE still has WINNER means this RE is eligible to reuse the old NHG.
@@ -4004,10 +4004,8 @@ backups_done:
 				 * onto a not-yet-reworked parent_nhe.
 				 */
 #ifdef NHG_TRK_VERBOSE_LOG
-				zlog_info("%s: NHG reuse skipped for old NHG %u: shape mismatch (parent_singleton=%d curr_singleton=%d parent_group=%d curr_group=%d)",
+				zlog_info("%s: NHG reuse skipped for old NHG %u: shape mismatch (parent_group=%d curr_group=%d)",
 					  __func__, parent_nhe->id,
-					  ZEBRA_NHG_IS_SINGLETON(parent_nhe) ? 1 : 0,
-					  ZEBRA_NHG_IS_SINGLETON(curr_nhe) ? 1 : 0,
 					  zebra_nhg_depends_is_empty(parent_nhe) ? 0 : 1,
 					  zebra_nhg_content_is_group(curr_nhe) ? 1 : 0);
 #endif
@@ -4088,41 +4086,26 @@ backups_done:
 			 CHECK_FLAG(parent_nhe->flags, NEXTHOP_GROUP_DUPLICATE) ? 1 : 0);
 	} else if (is_tracker_winner) {
 		/*
-		 * Winner with no installed peer (old_re NULL).  The RE takes
-		 * the find-or-create path, but the flag must still be consumed.
-		 * otherwise it would be read by a later tracker flush.
+		 * Winner whose tagged parent NHG is gone: no kernel id is left
+		 * to reuse, so the RE takes the find-or-create path.  The flag
+		 * must still be consumed, otherwise it would be read by a later
+		 * tracker flush.  The parent carried the counter, so there is
+		 * nothing left to decrement.
 		 */
-		struct nhg_hash_entry *tagged_nhe = NULL;
 		uint32_t tagged_id = re->tracker_parent_nhg_id;
-
-		if (tagged_id)
-			tagged_nhe = zebra_nhg_lookup_id(tagged_id);
 
 		UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
 		re->tracker_parent_nhg_id = 0;
 		zrouter.tracker_counters.winners_consumed++;
-
-		if (!tagged_nhe)
-			zrouter.tracker_counters.winner_drained_no_parent++;
-
-		if (tagged_nhe && tagged_nhe->tracker_pending_winners > 0) {
-			tagged_nhe->tracker_pending_winners--;
-
-			if (tagged_nhe->tracker_pending_winners == 0)
-				zebra_nhg_tracker_winners_drained(tagged_nhe);
-		}
+		zrouter.tracker_counters.winner_drained_no_parent++;
 
 		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
-			zlog_debug("%s: winner drained without peer %pRN tagged NHG %u %s -> pending_winners=%u (re->nhe %u)",
-				   __func__, rn, tagged_id, tagged_nhe ? "present" : "gone",
-				   tagged_nhe ? tagged_nhe->tracker_pending_winners : 0,
-				   re->nhe ? re->nhe->id : 0);
+			zlog_debug("%s: winner drained without parent %pRN tagged NHG %u gone (re->nhe %u)",
+				   __func__, rn, tagged_id, re->nhe ? re->nhe->id : 0);
 
-		frrtrace(6, frr_zebra, nhg_re_change,
-			 tagged_nhe ? "tracker-winner-no-peer" : "tracker-winner-no-peer-gone",
+		frrtrace(6, frr_zebra, nhg_re_change, "tracker-winner-no-parent",
 			 re->nhe ? re->nhe->id : 0, tagged_id, re->status,
-			 re->nhe ? re->nhe->flags : 0,
-			 tagged_nhe ? tagged_nhe->tracker_pending_winners : 0);
+			 re->nhe ? re->nhe->flags : 0, 0);
 	}
 
 	/*
