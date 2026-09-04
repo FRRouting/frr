@@ -5186,6 +5186,120 @@ void zebra_rib_dplane_results_unplug(void)
 #endif
 
 /*
+ * Interpret a kernel unicast-route notification encoded by the dplane
+ * pthread and add/delete it on the zebra pthread. VRF lookup, table
+ * validation, leftover self-route ignore, and interface/VRF resolution
+ * for nexthops all belong here — the dplane is only the decoder.
+ */
+static void rib_process_kernel_route_notif(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	vrf_id_t vrf_id = dplane_ctx_get_vrf(ctx);
+	uint32_t table = dplane_ctx_get_table(ctx);
+	uint32_t flags = dplane_ctx_get_flags(ctx);
+	bool startup = dplane_ctx_get_startup(ctx);
+	bool selfroute = CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE);
+	int proto = dplane_ctx_get_type(ctx);
+	uint32_t nhe_id = dplane_ctx_get_nhg_id(ctx);
+	uint32_t metric = dplane_ctx_get_metric(ctx);
+	uint32_t mtu = dplane_ctx_get_mtu(ctx);
+	uint8_t distance = dplane_ctx_get_distance(ctx);
+	route_tag_t tag = dplane_ctx_get_tag(ctx);
+	afi_t afi = dplane_ctx_get_afi(ctx);
+	const struct prefix *p = dplane_ctx_get_dest(ctx);
+	const struct prefix *src = dplane_ctx_get_src(ctx);
+	struct prefix src_p = {};
+	struct nexthop_group *ng = NULL;
+	const struct nexthop_group *ctx_ng;
+	struct nexthop *nexthop;
+	struct interface *ifp;
+	struct zebra_ns *zns;
+	uint16_t nhop_num = 0;
+
+	if (!startup && selfroute && op == DPLANE_OP_ROUTE_INSTALL && !zrouter.zav.asic_offloaded) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
+				   proto);
+		return;
+	}
+
+	if (vrf_id == VRF_DEFAULT) {
+		if (!is_zebra_valid_kernel_table(table) && !is_zebra_main_routing_table(table)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Route %s unable to parse table received %u, ignoring",
+					   dplane_op2str(op), table);
+			return;
+		}
+	}
+
+	if (src)
+		src_p = *src;
+
+	ctx_ng = dplane_ctx_get_ng(ctx);
+	if (!nhe_id && ctx_ng && ctx_ng->nexthop) {
+		ng = nexthop_group_new();
+		copy_nexthops(&ng->nexthop, ctx_ng->nexthop, NULL);
+
+		zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+		for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
+			if (!nexthop->ifindex) {
+				nexthop->vrf_id = vrf_id;
+				continue;
+			}
+
+			ifp = zns ? if_lookup_by_index_per_ns(zns, nexthop->ifindex) : NULL;
+			if (ifp)
+				nexthop->vrf_id = ifp->vrf->vrf_id;
+			else {
+				flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
+					  "%s: Unknown interface %u specified, defaulting to VRF_DEFAULT",
+					  __func__, nexthop->ifindex);
+				nexthop->vrf_id = VRF_DEFAULT;
+			}
+		}
+		nhop_num = nexthop_group_nexthop_num(ng);
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char buf2[PREFIX_STRLEN];
+
+		zlog_debug("%s %pFX%s%s vrf %s(%u) table_id: %u metric: %d Admin Distance: %d",
+			   dplane_op2str(op), p, src_p.prefixlen ? " from " : "",
+			   src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2)) : "",
+			   vrf_id_to_name(vrf_id), vrf_id, table, metric, distance);
+	}
+
+	if (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE) {
+		struct route_entry *re;
+
+		if (!nhe_id)
+			zserv_nexthop_num_warn(__func__, p, nhop_num);
+
+		if (nhe_id || ng) {
+			re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, nhe_id, table,
+						       metric, mtu, distance, tag);
+			rib_add_multipath(afi, SAFI_UNICAST, (struct prefix *)p,
+					  (struct prefix_ipv6 *)&src_p, re, ng, startup,
+					  dplane_ctx_route_get_replace(ctx));
+		} else {
+			zlog_err("%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
+				 __func__, p);
+		}
+	} else {
+		const struct nexthop *nh = NULL;
+
+		if (!nhe_id && nhop_num == 1)
+			nh = ng->nexthop;
+
+		rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, p, (struct prefix_ipv6 *)&src_p,
+			   nh, nhe_id, table, metric, distance, true);
+	}
+
+	if (ng)
+		nexthop_group_delete(&ng);
+}
+
+/*
  * Interpret a kernel nexthop notification encoded by the dplane pthread
  * and install/delete it on the zebra pthread.
  */
@@ -5350,7 +5464,9 @@ static void rib_process_dplane_results(struct event *event)
 				 * we don't want to continue processing these
 				 * in the rib.
 				 */
-				if (dplane_ctx_get_notif_provider(ctx) == 0)
+				if (dplane_ctx_get_route_notif(ctx))
+					rib_process_kernel_route_notif(ctx);
+				else if (dplane_ctx_get_notif_provider(ctx) == 0)
 					rib_process_result(ctx);
 				break;
 
