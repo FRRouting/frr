@@ -1068,8 +1068,7 @@ static void bgp_unreach_path_detail_json(json_object *json_path,
 				       json_last_update);
 	}
 
-	if (pi->attr &&
-	    (pi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
+	if (pi->attr && bgp_attr_exists(pi->attr, BGP_ATTR_COMMUNITIES)) {
 		struct community *comm = bgp_attr_get_community(pi->attr);
 
 		if (comm) {
@@ -1114,8 +1113,7 @@ static void bgp_unreach_path_summary_json(json_object *json_path,
 	if (pi->attr)
 		json_object_int_add(json_path, "metric", pi->attr->med);
 
-	if (pi->attr &&
-	    (pi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+	if (pi->attr && bgp_attr_exists(pi->attr, BGP_ATTR_LOCAL_PREF))
 		json_object_int_add(json_path, "locPrf",
 				    pi->attr->local_pref);
 
@@ -1263,9 +1261,7 @@ static void bgp_unreach_path_summary_vty(
 		vty_out(vty, " ");
 
 	if (afi == AFI_IP) {
-		if (pi->attr &&
-		    (pi->attr->flag &
-		     ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+		if (pi->attr && bgp_attr_exists(pi->attr, BGP_ATTR_LOCAL_PREF))
 			vty_out(vty,
 				" %-18s %7u %7u %7u %-19s %-17s %s %s\n",
 				prefix_display, pi->attr->med,
@@ -1282,9 +1278,7 @@ static void bgp_unreach_path_summary_vty(
 				reason_str, reporter_str,
 				aspath_str, origin_str);
 	} else {
-		if (pi->attr &&
-		    (pi->attr->flag &
-		     ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+		if (pi->attr && bgp_attr_exists(pi->attr, BGP_ATTR_LOCAL_PREF))
 			vty_out(vty,
 				" %-48s %7u %7u %7u %-19s %-17s %s %s\n",
 				prefix_display, pi->attr->med,
