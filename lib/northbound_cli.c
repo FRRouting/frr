@@ -200,29 +200,23 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-static void create_xpath_base_abs(struct vty *vty, char *xpath_base_abs,
-				  size_t xpath_base_abs_size,
-				  const char *xpath_base)
-{
-	memset(xpath_base_abs, 0, xpath_base_abs_size);
-
-	if (xpath_base[0] == 0)
-		xpath_base = ".";
-
-	/* If base xpath is relative, prepend current vty xpath. */
-	if (vty->xpath_index > 0 && xpath_base[0] == '.') {
-		strlcpy(xpath_base_abs, VTY_CURR_XPATH, xpath_base_abs_size);
-		xpath_base++; /* skip '.' */
-	}
-	strlcat(xpath_base_abs, xpath_base, xpath_base_abs_size);
-}
-
 static int _nb_cli_apply_changes(struct vty *vty, const char *xpath_base, bool clear_pending)
 {
-	char xpath_base_abs[XPATH_MAXLEN] = {};
+	const char *xpath_base_abs = xpath_base;
+	char abs[XPATH_MAXLEN];
 
-	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
-			      xpath_base);
+	/* create xpath_base_abs: If xpath_base is relative, prepend current vty xpath */
+	if (xpath_base[0] == 0)
+		xpath_base_abs = xpath_base = ".";
+	if (vty->xpath_index > 0 && xpath_base[0] != '/') {
+		strlcpy(abs, VTY_CURR_XPATH, sizeof(abs));
+		if (xpath_base[0] == '.')
+			xpath_base = xpath_base + 1;    /* "./path/to/leaf", skip '.' */
+		else
+			strlcat(abs, "/", sizeof(abs)); /* "path/to/leaf", add '/' */
+		strlcat(abs, xpath_base, sizeof(abs));
+		xpath_base_abs = abs;
+	}
 
 	if (vty->type != VTY_FILE && nb_cli_apply_changes_mgmt_cb)
 		return nb_cli_apply_changes_mgmt_cb(vty, xpath_base_abs);
