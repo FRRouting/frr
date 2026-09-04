@@ -50,6 +50,7 @@ an example.)
     cd frr
     ./bootstrap.sh
     ./configure \
+        --sysconfdir=/etc \
         --bindir=/usr/bin \
         --sbindir=/usr/lib/frr \
         --libdir=/usr/lib/frr \
