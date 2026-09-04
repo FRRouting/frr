@@ -1,0 +1,46 @@
+{
+  "areas":[
+    {
+      "levels":[
+        {
+          "lsps":[
+            {
+              "srv6Locator":{
+                "prefix":"fc00:0:1::/48",
+                "subtlvs":{
+                  "srv6EndSid":{
+                    "sidValue":"fc00:0:1::",
+                    "endpointBehavior":"uN PSP",
+                    "subsubtlvs":{
+                      "srv6SidStructure":{
+                        "locBlockLen":32,
+                        "locNodeLen":16,
+                        "funcLen":0,
+                        "argLen":0
+                      }
+                    }
+                  }
+                }
+              },
+              "extReach":[
+                {
+                  "srv6LanEndxSID":[
+                    {
+                      "behavior":"uA",
+                      "srv6SidStructure":{
+                        "locBlockLen":32,
+                        "locNodeLen":16,
+                        "funcLen":16,
+                        "argLen":0
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
