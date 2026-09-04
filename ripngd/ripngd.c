@@ -162,6 +162,38 @@ error:
 	return ret;
 }
 
+/* Select the source address for a packet sent on the given
+ * interface.  RFC 2080 Section 2.5.2 requires the IPv6 source
+ * address of a Response to be a designated link-local address of
+ * the sending interface; the only exception is a reply to a
+ * unicast Request from a port other than the RIPng port, which
+ * must use a globally valid source address (Section 2.4.1).
+ * Returns the selected address, or NULL when the interface has no
+ * address of the requested scope.
+ */
+static struct in6_addr *ripng_select_src_address(struct interface *ifp,
+						 bool linklocal)
+{
+	struct connected *connected;
+
+	frr_each (if_connected, ifp->connected, connected) {
+		struct prefix *p = connected->address;
+
+		if (p->family != AF_INET6)
+			continue;
+		if (linklocal) {
+			if (IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
+				return &p->u.prefix6;
+		} else if (!IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6)
+			   && !IN6_IS_ADDR_LOOPBACK(&p->u.prefix6)
+			   && !IN6_IS_ADDR_MULTICAST(&p->u.prefix6)
+			   && !IN6_IS_ADDR_UNSPECIFIED(&p->u.prefix6)) {
+			return &p->u.prefix6;
+		}
+	}
+	return NULL;
+}
+
 /* Send RIPng packet. */
 int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 		      struct interface *ifp)
@@ -218,6 +250,30 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 	pkt = (struct in6_pktinfo *)CMSG_DATA(cmsgptr);
 	memset(&pkt->ipi6_addr, 0, sizeof(struct in6_addr));
 	pkt->ipi6_ifindex = ifp->ifindex;
+
+	/* RFC 2080 Section 2.4.1/2.5.2: the source address is not
+	 * left to the kernel.  A reply to a Request from a non-RIPng
+	 * UDP port must use a globally valid source address, since
+	 * the requestor may not reside on the directly attached
+	 * network.  Every other packet uses a designated link-local
+	 * address of the sending interface, which is the address
+	 * neighbors store as the next hop.
+	 */
+	if (to && ntohs(to->sin6_port) != RIPNG_PORT_DEFAULT) {
+		struct in6_addr *src = ripng_select_src_address(ifp, false);
+
+		if (!src) {
+			zlog_warn("RIPng: no global source address on %s to reply to %pI6",
+				  ifp->name, &to->sin6_addr);
+			return -1;
+		}
+		pkt->ipi6_addr = *src;
+	} else {
+		struct in6_addr *src = ripng_select_src_address(ifp, true);
+
+		if (src)
+			pkt->ipi6_addr = *src;
+	}
 
 	ret = sendmsg(ripng->sock, &msg, 0);
 
