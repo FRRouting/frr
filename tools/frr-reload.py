@@ -2420,6 +2420,249 @@ def delete_via_vtysh_file(ctx_keys, line):
     return False
 
 
+# CMD_ARGC_MAX is 256 in lib/command.h, and command_match() prepends a dummy
+# token before matching, so a command is rejected with CMD_ERR_NO_MATCH once
+# its own token count reaches 256. "no route-target import" already consumes
+# 3 tokens, leaving 252 RTs. Emitting 253 makes vtysh reject the whole batch
+# file with "% Unknown command" and exit 2, which drops the reload back to the
+# per-RT path this packing exists to avoid.
+RT_LIST_CHUNK = 256 - 1 - 3
+
+# vtysh reads the batch file with fgets(vty->buf, VTY_BUFSIZ, ...) and the
+# daemons read the command over the vtysh socket into the same size buffer, so
+# a packed line must also stay under VTY_BUFSIZ (8192 in lib/vty.h). Keep a
+# margin for the leading indent and the trailing newline.
+RT_LINE_MAX_BYTES = 8192 - 256
+
+
+def group_ctx_lines(entries):
+    """Group (ctx_keys, line) pairs by full ctx_keys, preserving first-seen order."""
+    groups = OrderedDict()
+    for ctx_keys, line in entries:
+        key = tuple(ctx_keys)
+        groups.setdefault(key, []).append(line)
+    return groups
+
+
+def parse_rt_line(line):
+    """Return (import|export|both, value) or None if the line is not packable.
+
+    "route-target import auto" is not packable: the CLI rejects auto on RTLIST.
+    """
+    if not line:
+        return None
+    match = re.match(r"^route-target\s+(import|export|both)\s+(\S+)$", line.lstrip())
+    if not match:
+        return None
+    if match.group(2) == "auto":
+        return None
+    return match.group(1), match.group(2)
+
+
+def is_vrf_evpn_af(ctx_keys):
+    """True for L3 VRF EVPN AF (not a nested L2 VNI context)."""
+    return (
+        len(ctx_keys) == 2
+        and ctx_keys[0].startswith("router bgp")
+        and ctx_keys[1].startswith("address-family l2vpn evpn")
+    )
+
+
+def _ctx_open_close(ctx_keys):
+    open_lines = []
+    close_lines = []
+    for i, ctx_key in enumerate(ctx_keys):
+        open_lines.append(" " * i + ctx_key)
+        close_lines.append(" " * i + "exit")
+    close_lines.reverse()
+    return open_lines, close_lines
+
+
+def _emit_line_in_ctx(indent, line, delete):
+    line = line.lstrip()
+    if delete:
+        if line.startswith("no "):
+            return "%s%s" % (indent, line[3:])
+        return "%sno %s" % (indent, line)
+    return indent + line
+
+
+def _rt_chunks(values, direction, indent, delete):
+    """Split RT values into commands that vtysh will actually parse.
+
+    Bounded by RT_LIST_CHUNK tokens and RT_LINE_MAX_BYTES bytes, whichever
+    hits first. Both bounds are hard: exceeding either makes vtysh reject the
+    line, and one rejected line aborts the whole batch file.
+    """
+    fixed = len(_emit_line_in_ctx(indent, "route-target %s x" % direction, delete)) - 1
+    chunk = []
+    size = fixed
+    for value in values:
+        grow = len(value) + 1
+        if chunk and (len(chunk) == RT_LIST_CHUNK or size + grow > RT_LINE_MAX_BYTES):
+            yield chunk
+            chunk = []
+            size = fixed
+        chunk.append(value)
+        size += grow
+    if chunk:
+        yield chunk
+
+
+def emit_ctx_block(ctx_keys, lines, delete):
+    """Emit one context stanza for a group of lines.
+
+    EVPN VRF route-target deletes (and the matching adds) are grouped
+    into one address-family block with RTLIST chunks so bgpd runs
+    parse_rtlist once per line (one unmap/map), not once per RT.
+
+    old way (still what lines_to_config emits per delta line):
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target import 60005:1
+       exit
+      exit
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target import 60005:2
+       exit
+      exit
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target export 65000:1
+       exit
+      exit
+
+    new way (one AF; import list and export list are separate commands):
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target import 60005:1 60005:2
+        no route-target export 65000:1
+       exit
+      exit
+
+    Do not pack "route-target import auto" into RTLIST (CLI rejects auto).
+    Do not pack L2 VNI ctx_keys (..., "vni N") into RTLIST (CLI is a single RT).
+    Chunk at RT_LIST_CHUNK RTs and RT_LINE_MAX_BYTES bytes per command.
+    Fallback per-line delete still uses the old one-RT form.
+    """
+    cmd = []
+    open_lines, close_lines = _ctx_open_close(ctx_keys)
+    indent = len(ctx_keys) * " "
+
+    if is_vrf_evpn_af(ctx_keys):
+        buckets = {"import": [], "export": [], "both": []}
+        leftover = []
+        for line in lines:
+            parsed = parse_rt_line(line)
+            if parsed:
+                buckets[parsed[0]].append(parsed[1])
+            else:
+                leftover.append(line)
+
+        cmd.extend(open_lines)
+        for direction in ("import", "export", "both"):
+            for chunk in _rt_chunks(buckets[direction], direction, indent, delete):
+                rtline = "route-target %s %s" % (direction, " ".join(chunk))
+                cmd.append(_emit_line_in_ctx(indent, rtline, delete))
+        for line in leftover:
+            cmd.append(_emit_line_in_ctx(indent, line, delete))
+        cmd.extend(close_lines)
+        return cmd
+
+    cmd.extend(open_lines)
+    for line in lines:
+        cmd.append(_emit_line_in_ctx(indent, line, delete))
+    cmd.extend(close_lines)
+    return cmd
+
+
+def emit_grouped_config(entries, delete):
+    """Serialize delta entries as one stanza per ctx_keys (RTLIST inside VRF EVPN AF).
+
+    entries is a list of (ctx_keys, line) from the vtysh -f batch.  Same
+    ctx_keys are collapsed into one stanza.  VRF EVPN route-targets pack
+    into RTLIST; a context-only delete (line is None) still goes through
+    lines_to_config so a whole route-map becomes "no route-map ...".
+
+    Input (delete=True), list of (ctx_keys, line):
+      (("router bgp 4200000102 vrf vrf_shared1",
+        "address-family l2vpn evpn"), "route-target import 60005:1")
+      (same ctx, "route-target import 60005:2")
+      (same ctx, "route-target import 60005:3")
+      (("route-map rmap1 permit 10",), None)
+      (("vrf vrf1",), "vni 4001")
+      (("vrf vrf1",), "vni 4002")
+
+    Output (blocks written to reload-batch-del-*.txt):
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target import 60005:1 60005:2 60005:3
+       exit
+      exit
+
+      no route-map rmap1 permit 10
+
+      vrf vrf1
+       no vni 4001
+       no vni 4002
+      exit
+    """
+    blocks = []
+    for ctx_keys, lines in group_ctx_lines(entries).items():
+        if any(line is None for line in lines):
+            for line in lines:
+                blocks.append("\n".join(lines_to_config(ctx_keys, line, delete)) + "\n")
+            continue
+        cmd = emit_ctx_block(ctx_keys, lines, delete)
+        blocks.append("\n".join(cmd) + "\n")
+    return blocks
+
+
+def emit_add_config(entries):
+    """Pack VRF EVPN route-target adds; leave other add lines as-is.
+
+    Restoring a previous config that still has the import list is an add
+    of the same lines (the inverse of the unset).  Pack so bgpd sees one
+    RTLIST per command, not one RT per command.
+
+      route-target import 60005:1
+      route-target import 60005:2
+      route-target import 60005:3
+    becomes
+      route-target import 60005:1 60005:2 60005:3
+    """
+    rt_by_ctx = OrderedDict()
+    slots = []
+    for ctx_keys, line in entries:
+        if line == "!":
+            continue
+        key = tuple(ctx_keys)
+        if is_vrf_evpn_af(key) and parse_rt_line(line):
+            if key not in rt_by_ctx:
+                rt_by_ctx[key] = []
+                slots.append(("rt", key))
+            rt_by_ctx[key].append(line)
+        else:
+            # Everything that is not a packable VRF EVPN RT: one stanza,
+            # via lines_to_config (including line is None = context-only).
+            #   (("router bgp 1",), "bgp router-id 1.1.1.1")
+            #   (("router bgp 1",), None)
+            #   (("no ipv6 forwarding",), None)
+            #   (("vrf vrf1",), "vni 4001")
+            slots.append(("line", ctx_keys, line))
+
+    cmds = []
+    for slot in slots:
+        if slot[0] == "rt":
+            cmd = emit_ctx_block(slot[1], rt_by_ctx[slot[1]], False)
+            cmds.append("\n".join(cmd) + "\n")
+        else:
+            _, ctx_keys, line = slot
+            cmds.append("\n".join(lines_to_config(ctx_keys, line, False)) + "\n")
+    return cmds
+
+
 def delete_line_with_vtysh(vtysh, ctx_keys, line):
     """
     Remove a single config line via "vtysh -c configure ...".
@@ -2849,7 +3092,8 @@ if __name__ == "__main__":
                 #
                 #     router bgp 1 vrf vrf_shared1
                 #      address-family l2vpn evpn
-                #       no route-target import 1:1
+                #       no route-target import 1:1 1:2
+                #       no route-target export 2:1
                 #      exit
                 #     exit
                 #
@@ -2859,6 +3103,9 @@ if __name__ == "__main__":
                 #      no set metric 10
                 #
                 #   vtysh -f /var/run/frr/reload-batch-del-A1B2C3.txt
+                # Route-target lines for one VRF EVPN AF are packed into RTLIST
+                # commands (see emit_ctx_block). Fallback still uses one RT per
+                # vtysh -c call.
                 #
                 batch_lines_to_del = []
                 remaining_lines_to_del = []
@@ -2877,10 +3124,7 @@ if __name__ == "__main__":
                 # the new value. On any failure, fall back to per-line delete
                 # with token trimming so a "picky" no still gets applied.
                 if batch_lines_to_del:
-                    batch_del_cmds = []
-                    for ctx_keys, line in batch_lines_to_del:
-                        cmd = "\n".join(lines_to_config(ctx_keys, line, True)) + "\n"
-                        batch_del_cmds.append(cmd)
+                    batch_del_cmds = emit_grouped_config(batch_lines_to_del, True)
 
                     random_string = "".join(
                         random.SystemRandom().choice(
@@ -2920,19 +3164,25 @@ if __name__ == "__main__":
                         reload_ok = False
 
             if lines_to_add:
-                lines_to_configure = []
+                add_entries = []
 
                 for ctx_keys, line in lines_to_add:
                     if line == "!":
                         continue
 
                     # Don't run "no" commands twice since they can error
-                    # out the second time due to first deletion
-                    if x == 1 and ctx_keys[0].startswith("no "):
+                    # out the second time due to first deletion.
+                    # Also, do not run bgp global config knob in second run
+                    # as it may end being in different vtysh context.
+                    if x == 1 and (
+                        ctx_keys[0].startswith("no ")
+                        or ctx_keys[0].startswith("bgp graceful-shutdown")
+                    ):
                         continue
 
-                    cmd = "\n".join(lines_to_config(ctx_keys, line, False)) + "\n"
-                    lines_to_configure.append(cmd)
+                    add_entries.append((ctx_keys, line))
+
+                lines_to_configure = emit_add_config(add_entries)
 
                 if lines_to_configure:
                     random_string = "".join(
