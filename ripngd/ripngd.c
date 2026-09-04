@@ -1633,6 +1633,16 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 	ripng_rte_list = ripng_rte_new();
 
 	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
+		/* RFC 2080 Section 2.5.2: routes to link-local destinations
+		 * must never be included in an RTE, and a compliant
+		 * neighbor discards such an RTE as invalid (Section 2.4.2).
+		 * Filter the destination prefix here, at generation time,
+		 * so it never reaches the response.
+		 */
+		p = (struct prefix_ipv6 *)agg_node_get_prefix(rp);
+		if (IN6_IS_ADDR_LINKLOCAL(&p->prefix))
+			continue;
+
 		if ((list = rp->info) != NULL
 		    && (rinfo = ripng_info_list_first(list)) != NULL
 		    && rinfo->suppress == 0) {
@@ -1640,7 +1650,6 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 			 * following
 			 * information.
 			 */
-			p = (struct prefix_ipv6 *)agg_node_get_prefix(rp);
 			rinfo->metric_out = rinfo->metric;
 			rinfo->tag_out = rinfo->tag;
 			memset(&rinfo->nexthop_out, 0,
@@ -1778,7 +1787,6 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 			 * following
 			 * information.
 			 */
-			p = (struct prefix_ipv6 *)agg_node_get_prefix(rp);
 			aggregate->metric_set = 0;
 			aggregate->metric_out = aggregate->metric;
 			aggregate->tag_out = aggregate->tag;
