@@ -23,16 +23,22 @@ struct pim_dm {
 
 void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode);
 void pim_dm_graft_send(struct pim_rpf rpf, struct pim_upstream *up);
+void pim_dm_upstream_graft(struct pim_upstream *up);
 void pim_dm_wrongif(struct interface *ifp, pim_sgaddr sg, struct pim_upstream *up);
 void pim_dm_prune_wrongif(struct interface *ifp, pim_sgaddr sg, struct pim_upstream *up);
 void pim_dm_assert_state_changed(struct pim_ifchannel *ch, enum pim_ifassert_state new_state);
 void pim_dm_prune_send(struct pim_rpf rpf, struct pim_upstream *up, bool is_join);
 bool pim_dm_check_gm_group_list(struct interface *ifp);
 bool pim_gm_has_igmp_join(struct interface *ifp, pim_addr group_addr);
-void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg);
+void pim_dm_gm_oif_del(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif);
+void pim_dm_recv_graft(struct interface *ifp, pim_addr upstream, pim_sgaddr *sg);
+void pim_dm_recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
+		      pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags);
 void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
 		       pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags);
 void pim_dm_prune_iff_on_timer(struct event *t);
+void pim_dm_prune_pending_on_timer(struct event *t);
+void pim_dm_join_override_on_timer(struct event *t);
 void pim_dm_prefix_list_update(struct pim_instance *pim, struct prefix_list *plist);
 bool pim_is_grp_dm(struct pim_instance *pim, pim_addr group_addr);
 bool pim_is_dm_prefix_filter(struct pim_instance *pim, pim_addr group_addr);
