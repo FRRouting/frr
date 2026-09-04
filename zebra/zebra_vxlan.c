@@ -2614,11 +2614,14 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 
 		frrtrace(2, frr_zebra, zebra_vxlan_handle_vni_transition, vni, 1);
 
+		/* Withdraw all local routes before deleting the VNI from BGP.
+		 * bgpd needs the VNI hash to process per-route DELs.
+		 */
+		zebra_evpn_neigh_del_all(zevpn, 1, 1, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_mac_del_all(zevpn, 1, 1, DEL_ALL_MAC, NULL);
+
 		/* Delete EVPN from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
-
-		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
-		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 
 		/* Free up all remote VTEPs, if any. */
 		zebra_evpn_vtep_del_all(zevpn, 1, NULL);
