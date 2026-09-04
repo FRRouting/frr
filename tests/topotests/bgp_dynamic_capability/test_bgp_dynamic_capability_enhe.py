@@ -131,7 +131,7 @@ def test_bgp_dynamic_capability_enhe():
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
                     "extendedNexthop": "advertisedAndReceived",
-                    "extendedNexthopFamililesByPeer": {
+                    "extendedNexthopFamiliesByPeer": {
                         "ipv4Unicast": "recieved",
                     },
                 },
