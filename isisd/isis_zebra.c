@@ -656,29 +656,30 @@ void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
-	struct in6_addr nexthop;
 	struct srv6_sid_ctx ctx = {};
 	struct in6_addr sid_value = {};
-	bool ret;
+	struct srv6_adjacency *sra;
 
-	if (!area || !area->srv6db.srv6_locator)
+	if (!area || !area->srv6db.config.enabled || !area->srv6db.srv6_locator ||
+	    adj->adj_state != ISIS_ADJ_UP)
 		return;
 
 	/* Determine nexthop IP address */
 	if (!circuit->ipv6_router || !adj->ll_ipv6_count)
 		return;
 
-	nexthop = adj->ll_ipv6_addrs[0];
+	sra = isis_srv6_endx_sid_find(adj, ISIS_SRV6_ADJ_NORMAL);
+	if (!sra)
+		sra = srv6_endx_sid_alloc(adj, false, NULL);
+	if (!sra)
+		return;
 
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-	ctx.nh6 = nexthop;
-	ctx.ifindex = circuit->interface->ifindex;
-	ret = isis_zebra_request_srv6_sid(&ctx, &sid_value,
-					  area->srv6db.config.srv6_locator_name);
-	if (!ret) {
-		zlog_err("%s: not allocated new End.X SID for IS-IS area %s",
-			 __func__, area->area_tag);
-		return;
+	ctx.nh6 = sra->nexthop;
+	ctx.ifindex = sra->ifindex;
+	if (!sra->combined.requested && !sra->combined.allocated) {
+		sra->combined.requested = isis_zebra_request_srv6_sid(&ctx, &sid_value,
+								    sra->locator->name);
 	}
 }
 
@@ -1084,38 +1085,39 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context ctx = {};
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
-	struct interface *ifp;
 	struct isis_circuit *circuit;
 	struct isis_area *area;
+	struct srv6_adjacency_sid *state;
 
 	if (!sra)
+		return;
+	state = &sra->combined;
+	if (!state->allocated || state->installed)
 		return;
 
 	circuit = sra->adj->circuit;
 	area = circuit->area;
 
 	sr_debug("ISIS-SRv6 (%s): setting adjacency SID %pI6", area->area_tag,
-		 &sra->sid);
+		 &state->sid);
 
 	switch (sra->behavior) {
 	case SRV6_ENDPOINT_BEHAVIOR_END_X:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		prefixlen = IPV6_MAX_BITLEN;
 		ctx.nh6 = sra->nexthop;
-		ctx.ifindex = sra->adj->circuit->interface->ifindex;
+		ctx.ifindex = sra->ifindex;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		prefixlen = sra->locator->block_bits_length +
-			    sra->locator->node_bits_length +
-			    sra->locator->function_bits_length;
+		prefixlen = sra->structure.loc_block_len + sra->structure.loc_node_len +
+			    sra->structure.func_len;
 		ctx.nh6 = sra->nexthop;
-		ctx.ifindex = sra->adj->circuit->interface->ifindex;
+		ctx.ifindex = sra->ifindex;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
 				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
-		ctx.flv.lcblock_len = sra->locator->block_bits_length;
-		ctx.flv.lcnode_func_len = sra->locator->node_bits_length +
-					  sra->locator->function_bits_length;
+		ctx.flv.lcblock_len = sra->structure.loc_block_len;
+		ctx.flv.lcnode_func_len = sra->structure.loc_node_len + sra->structure.func_len;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
 	case SRV6_ENDPOINT_BEHAVIOR_END:
@@ -1146,21 +1148,23 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 		return;
 	}
 
-	ifp = sra->adj->circuit->interface;
-
-	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sra->sid, prefixlen, ifp->ifindex,
-			      action, &ctx);
+	state->installed = zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &state->sid,
+						prefixlen, sra->ifindex, action, &ctx) !=
+			   ZCLIENT_SEND_FAILURE;
 }
 
 void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 {
 	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
-	struct interface *ifp;
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
 	struct isis_circuit *circuit;
 	struct isis_area *area;
+	struct srv6_adjacency_sid *state;
 
 	if (!sra)
+		return;
+	state = &sra->combined;
+	if (!state->installed)
 		return;
 
 	circuit = sra->adj->circuit;
@@ -1171,9 +1175,8 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 		prefixlen = IPV6_MAX_BITLEN;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
-		prefixlen = sra->locator->block_bits_length +
-			    sra->locator->node_bits_length +
-			    sra->locator->function_bits_length;
+		prefixlen = sra->structure.loc_block_len + sra->structure.loc_node_len +
+			    sra->structure.func_len;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
 	case SRV6_ENDPOINT_BEHAVIOR_END:
@@ -1204,13 +1207,12 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 		return;
 	}
 
-	ifp = sra->adj->circuit->interface;
-
 	sr_debug("ISIS-SRv6 (%s): delete End.X SID %pI6", area->area_tag,
-		 &sra->sid);
+		 &state->sid);
 
-	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen, ifp->ifindex,
-			      action, NULL);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &state->sid, prefixlen,
+			      sra->ifindex, action, NULL);
+	state->installed = false;
 }
 
 /**
@@ -1483,9 +1485,9 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator *locator;
 	struct prefix_ipv6 tmp_prefix;
 	struct srv6_adjacency *sra;
+	struct srv6_adjacency_sid *state;
 	enum srv6_endpoint_behavior_codepoint behavior;
 	struct isis_srv6_sid *sid;
-	struct isis_adjacency *adj;
 
 	if (!isis)
 		return -1;
@@ -1506,7 +1508,6 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			continue;
 
 		locator = area->srv6db.srv6_locator;
-
 		/* Verify that the received SID belongs to the configured locator */
 		if (note == ZAPI_SRV6_SID_ALLOCATED) {
 			tmp_prefix.family = AF_INET6;
@@ -1519,6 +1520,27 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 					 __func__, area->area_tag);
 				continue;
 			}
+		}
+
+		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X) {
+			for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_endx_sids, node, sra)) {
+				if (sra->type != ISIS_SRV6_ADJ_NORMAL ||
+				    sra->adj->adj_state != ISIS_ADJ_UP ||
+				    sra->ifindex != ctx.ifindex ||
+				    !IPV6_ADDR_SAME(&sra->nexthop, &ctx.nh6))
+					continue;
+				state = &sra->combined;
+				if (!state->requested && !state->allocated)
+					continue;
+				if (note == ZAPI_SRV6_SID_ALLOCATED) {
+					state->requested = false;
+					if (srv6_endx_sid_update(sra, &sid_addr))
+						lsp_regenerate_schedule(area, area->is_type, 0);
+				} else if (note == ZAPI_SRV6_SID_FAIL_ALLOC) {
+					state->requested = false;
+				}
+			}
+			continue;
 		}
 
 		/* Handle notification */
@@ -1559,26 +1581,6 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				/* Store the SID */
 				listnode_add(area->srv6db.srv6_sids, sid);
 
-			} else if (ctx.behavior ==
-				   ZEBRA_SEG6_LOCAL_ACTION_END_X) {
-				frr_each (isis_area_adj_list, &area->adjacency_list, adj) {
-					/* Check if the End.X SID is for this adjacecny */
-					if (adj->ll_ipv6_count == 0 ||
-					    memcmp(&adj->ll_ipv6_addrs[0],
-						   &ctx.nh6,
-						   sizeof(struct in6_addr)) != 0)
-						continue;
-
-					/* Remove old End.X SIDs, if any */
-					for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids,
-							       node, nnode, sra))
-						srv6_endx_sid_del(sra);
-
-					/* Allocate new End.X SID for the adjacency */
-					srv6_endx_sid_add_single(adj, false,
-								 NULL,
-								 &sid_addr);
-				}
 			} else {
 				zlog_warn("%s: unsupported behavior %u",
 					  __func__, ctx.behavior);

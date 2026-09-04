@@ -72,6 +72,14 @@ enum srv6_adj_type {
 	ISIS_SRV6_ADJ_BACKUP,
 };
 
+/* Allocation and FIB state of an adjacency SID. */
+struct srv6_adjacency_sid {
+	struct in6_addr sid;
+	bool requested;
+	bool allocated;
+	bool installed;
+};
+
 /* SRv6 Adjacency. */
 struct srv6_adjacency {
 	/* Adjacency type */
@@ -80,8 +88,8 @@ struct srv6_adjacency {
 	/* SID flags */
 	uint8_t flags;
 
-	/* SID value */
-	struct in6_addr sid;
+	/* Allocation and forwarding state of the advertised SID. */
+	struct srv6_adjacency_sid combined;
 
 	/* Endpoint behavior bound to the SID */
 	enum srv6_endpoint_behavior_codepoint behavior;
@@ -94,6 +102,7 @@ struct srv6_adjacency {
 
 	/* Adjacency-SID nexthop information */
 	struct in6_addr nexthop;
+	ifindex_t ifindex;
 
 	/* End.X SID TI-LFA backup nexthops */
 	struct list *backup_nexthops;
@@ -172,9 +181,9 @@ void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
 void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 			   struct isis_srv6_locator_tlv *loc_tlv);
 
-void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct list *nexthops,
-			      struct in6_addr *sid_value);
-void srv6_endx_sid_add(struct isis_adjacency *adj, struct in6_addr *sid_value);
+struct srv6_adjacency *srv6_endx_sid_alloc(struct isis_adjacency *adj, bool backup,
+					struct list *nexthops);
+bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid_value);
 void srv6_endx_sid_del(struct srv6_adjacency *sra);
 struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj, enum srv6_adj_type type);
 void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level);

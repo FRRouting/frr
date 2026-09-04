@@ -140,7 +140,7 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 		 */
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		ctx.nh6 = sra->nexthop;
-		ctx.ifindex = sra->adj->circuit->interface->ifindex;
+		ctx.ifindex = sra->ifindex;
 		isis_zebra_release_srv6_sid(&ctx, area->srv6db.config.srv6_locator_name);
 
 		srv6_endx_sid_del(sra);
@@ -275,45 +275,34 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
 /* --- SRv6 End.X SID management functions ------------------- */
 
 /**
- * Add new local End.X SID.
+ * Create the logical adjacency before requesting its SID representations.
  *
  * @param adj	   IS-IS Adjacency
  * @param backup   True to initialize backup Adjacency SID
  * @param nexthops List of backup nexthops (for backup End.X SIDs only)
- * @param sid_value SID value associated to be associated with the adjacency
  */
-void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct list *nexthops,
-			      struct in6_addr *sid_value)
+struct srv6_adjacency *srv6_endx_sid_alloc(struct isis_adjacency *adj, bool backup,
+					struct list *nexthops)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
 	struct srv6_adjacency *sra;
-	struct isis_srv6_endx_sid_subtlv *adj_sid;
-	struct isis_srv6_lan_endx_sid_subtlv *ladj_sid;
 	struct in6_addr nexthop;
-	uint8_t flags = 0;
 	struct srv6_locator *locator;
 	uint32_t behavior;
 
 	if (!area || !area->srv6db.srv6_locator)
-		return;
+		return NULL;
 
 	sr_debug("ISIS-SRv6 (%s): Add %s End.X SID", area->area_tag, backup ? "Backup" : "Primary");
 
 	/* Determine nexthop IP address */
 	if (!circuit->ipv6_router || !adj->ll_ipv6_count)
-		return;
+		return NULL;
 
 	locator = area->srv6db.srv6_locator;
 
 	nexthop = adj->ll_ipv6_addrs[0];
-
-	/* Prepare SRv6 End.X as per RFC9352 section #8.1 */
-	if (backup)
-		SET_FLAG(flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG);
-
-	if (circuit->ext == NULL)
-		circuit->ext = isis_alloc_ext_subtlvs();
 
 	behavior = (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
 			   ? SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID
@@ -328,19 +317,64 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct li
 	sra->structure.func_len = locator->function_bits_length;
 	sra->structure.arg_len = locator->argument_bits_length;
 	sra->nexthop = nexthop;
+	sra->ifindex = circuit->interface->ifindex;
+	sra->backup_nexthops = nexthops;
+	sra->adj = adj;
+	if (backup)
+		SET_FLAG(sra->flags, EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG);
 
-	sra->sid = *sid_value;
+	listnode_add(area->srv6db.srv6_endx_sids, sra);
+	listnode_add(adj->srv6_endx_sids, sra);
+	return sra;
+}
+
+static void srv6_endx_sid_unadvertise(struct srv6_adjacency *sra)
+{
+	struct isis_circuit *circuit = sra->adj->circuit;
+
+	if (!sra->u.endx_sid)
+		return;
+
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+		isis_tlvs_del_srv6_lan_endx_sid(circuit->ext, sra->u.lendx_sid);
+	else
+		isis_tlvs_del_srv6_endx_sid(circuit->ext, sra->u.endx_sid);
+	sra->u.endx_sid = NULL;
+}
+
+/* Return true only when the advertised SID changes. */
+bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid_value)
+{
+	struct srv6_adjacency_sid *state = &sra->combined;
+	struct isis_circuit *circuit = sra->adj->circuit;
+	struct isis_srv6_endx_sid_subtlv *adj_sid;
+	struct isis_srv6_lan_endx_sid_subtlv *ladj_sid;
+
+	if (state->allocated && IPV6_ADDR_SAME(&state->sid, sid_value)) {
+		isis_zebra_srv6_adj_sid_install(sra);
+		if (sra->u.endx_sid)
+			return false;
+	} else {
+		isis_zebra_srv6_adj_sid_uninstall(sra);
+		state->sid = *sid_value;
+		state->allocated = true;
+		isis_zebra_srv6_adj_sid_install(sra);
+	}
+
+	srv6_endx_sid_unadvertise(sra);
+	if (!circuit->ext)
+		circuit->ext = isis_alloc_ext_subtlvs();
 
 	switch (circuit->circ_type) {
 	/* SRv6 LAN End.X SID for Broadcast interface section #8.2 */
 	case CIRCUIT_T_BROADCAST:
 		ladj_sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*ladj_sid));
-		memcpy(ladj_sid->neighbor_id, adj->sysid, sizeof(ladj_sid->neighbor_id));
-		ladj_sid->flags = flags;
+		memcpy(ladj_sid->neighbor_id, sra->adj->sysid, sizeof(ladj_sid->neighbor_id));
+		ladj_sid->flags = sra->flags;
 		ladj_sid->algorithm = SR_ALGORITHM_SPF;
 		ladj_sid->weight = 0;
 		ladj_sid->behavior = sra->behavior;
-		ladj_sid->sid = sra->sid;
+		ladj_sid->sid = state->sid;
 		ladj_sid->subsubtlvs =
 			isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_LAN_ENDX_SID);
 		ladj_sid->subsubtlvs->srv6_sid_structure =
@@ -358,11 +392,11 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct li
 	/* SRv6 End.X SID for Point to Point interface section #8.1 */
 	case CIRCUIT_T_P2P:
 		adj_sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*adj_sid));
-		adj_sid->flags = flags;
+		adj_sid->flags = sra->flags;
 		adj_sid->algorithm = SR_ALGORITHM_SPF;
 		adj_sid->weight = 0;
 		adj_sid->behavior = sra->behavior;
-		adj_sid->sid = sra->sid;
+		adj_sid->sid = state->sid;
 		adj_sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
 		adj_sid->subsubtlvs->srv6_sid_structure =
 			XCALLOC(MTYPE_ISIS_SUBSUBTLV,
@@ -381,51 +415,16 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup, struct li
 		exit(1);
 	}
 
-	/* Add Adjacency-SID in SRDB */
-	sra->adj = adj;
-	listnode_add(area->srv6db.srv6_endx_sids, sra);
-	listnode_add(adj->srv6_endx_sids, sra);
-
-	isis_zebra_srv6_adj_sid_install(sra);
+	return true;
 }
 
-/**
- * Add Primary and Backup local SRv6 End.X SID.
- *
- * @param adj	  IS-IS Adjacency
- */
-void srv6_endx_sid_add(struct isis_adjacency *adj, struct in6_addr *sid_value)
-{
-	srv6_endx_sid_add_single(adj, false, NULL, sid_value);
-}
-
-/**
- * Delete local SRv6 End.X SID.
- *
- * @param sra	SRv6 Adjacency
- */
 void srv6_endx_sid_del(struct srv6_adjacency *sra)
 {
-	struct isis_circuit *circuit = sra->adj->circuit;
-	struct isis_area *area = circuit->area;
+	struct isis_area *area = sra->adj->circuit->area;
 
 	sr_debug("ISIS-SRv6 (%s): Delete SRv6 End.X SID", area->area_tag);
-
 	isis_zebra_srv6_adj_sid_uninstall(sra);
-
-	/* Release dynamic SRv6 SID and remove subTLVs */
-	switch (circuit->circ_type) {
-	case CIRCUIT_T_BROADCAST:
-		isis_tlvs_del_srv6_lan_endx_sid(circuit->ext, sra->u.lendx_sid);
-		break;
-	case CIRCUIT_T_P2P:
-		isis_tlvs_del_srv6_endx_sid(circuit->ext, sra->u.endx_sid);
-		break;
-	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: unexpected circuit type: %u", __func__,
-			 circuit->circ_type);
-		exit(1);
-	}
+	srv6_endx_sid_unadvertise(sra);
 
 	if (sra->type == ISIS_SRV6_ADJ_BACKUP && sra->backup_nexthops) {
 		sra->backup_nexthops->del = (void (*)(void *))isis_nexthop_delete;
@@ -471,8 +470,10 @@ static int srv6_adj_state_change(struct isis_adjacency *adj)
 	if (!adj->circuit->area->srv6db.config.enabled)
 		return 0;
 
-	if (adj->adj_state == ISIS_ADJ_UP)
+	if (adj->adj_state == ISIS_ADJ_UP) {
+		isis_zebra_request_srv6_sid_endx(adj);
 		return 0;
+	}
 
 	for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids, node, nnode, sra))
 		srv6_endx_sid_del(sra);
