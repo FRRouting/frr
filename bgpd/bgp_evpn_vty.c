@@ -4011,7 +4011,7 @@ DEFPY (bgp_evpn_advertise_all_vni,
 		return CMD_WARNING;
 
 	bgp_evpn = bgp_get_evpn();
-	if (bgp_evpn && bgp_evpn != bgp) {
+	if (bgp_evpn && bgp_evpn != bgp && EVPN_ENABLED(bgp_evpn)) {
 		vty_out(vty, "%% Please unconfigure EVPN in %s\n",
 			bgp_evpn->name_pretty);
 		return CMD_WARNING_CONFIG_FAILED;
