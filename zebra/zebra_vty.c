@@ -325,6 +325,10 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		for (i = 1; i < nexthop->backup_num; i++)
 			vty_out(vty, ",%d", nexthop->backup_idx[i]);
 	}
+
+	if (nexthop->res_info)
+		vty_out(vty, ", res via %pIA/%d (%u)", &(nexthop->res_info->addr),
+			nexthop->res_info->pfxlen, nexthop->res_info->id);
 }
 
 static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
