@@ -14,6 +14,11 @@
 
 #include "pbr_vrf.h"
 
+/*
+ * Maximum number of interfaces that can be associated with a single PBR map.
+ */
+#define PBR_MAP_INTERFACE_MAX 512
+
 struct pbr_map {
 	/*
 	 * RB Tree of the pbr_maps
@@ -175,10 +180,7 @@ struct pbr_map_sequence {
 	 */
 	bool nhs_installed;
 
-	/*
-	 * Are we installed
-	 */
-	uint64_t installed;
+	bitfield_t installed;
 
 	/*
 	 * A reason of 0 means we think the pbr_map_sequence is good to go
@@ -210,7 +212,7 @@ extern struct pbr_map *pbrm_find(const char *name);
 extern void pbr_map_delete(struct pbr_map_sequence *pbrms);
 extern void pbr_map_delete_nexthops(struct pbr_map_sequence *pbrms);
 extern void pbr_map_delete_vrf(struct pbr_map_sequence *pbrms);
-extern void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
+extern bool pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
 extern void pbr_map_interface_delete(struct pbr_map *pbrm,
 				     struct interface *ifp);
 
