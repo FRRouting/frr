@@ -31,7 +31,7 @@
                         "locBlockLen":32,
                         "locNodeLen":16,
                         "funcLen":16,
-                        "argLen":0
+                        "argLen":64
                       }
                     }
                   ]
