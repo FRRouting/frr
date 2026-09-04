@@ -59,8 +59,8 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 		zns_info->sock = zns->netlink_cmd.sock;
 		zns_info->seq = zns->netlink_cmd.seq;
 	} else {
-		zns_info->sock = zns->netlink.sock;
-		zns_info->seq = zns->netlink.seq;
+		zns_info->sock = zns->netlink_dplane_in.sock;
+		zns_info->seq = zns->netlink_dplane_in.seq;
 	}
 #endif /* NETLINK */
 }

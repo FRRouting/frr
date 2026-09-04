@@ -19,7 +19,6 @@
 #include "table.h"
 #include "memory.h"
 #include "rib.h"
-#include "frrevent.h"
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"
@@ -164,8 +163,6 @@ static const struct message rttype_str[] = {{RTN_UNSPEC, "none"},
 					    {RTN_NAT, "nat"},
 					    {RTN_XRESOLVE, "resolver"},
 					    {0}};
-
-extern struct event_loop *master;
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -385,73 +382,6 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 }
 
 /*
- * Dispatch an incoming netlink message; used by the zebra main pthread's
- * netlink event reader.
- */
-static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
-{
-	/*
-	 * When we handle new message types here
-	 * because we are starting to install them
-	 * then lets check the netlink_install_filter
-	 * and see if we should add the corresponding
-	 * allow through entry there.
-	 * Probably not needed to do but please
-	 * think about it.
-	 */
-	switch (h->nlmsg_type) {
-	/* Messages we may receive, but ignore */
-	case RTM_NEWCHAIN:
-	case RTM_DELCHAIN:
-	case RTM_GETCHAIN:
-		return 0;
-
-	/* Messages handled in the dplane thread */
-	case RTM_NEWROUTE:
-	case RTM_DELROUTE:
-	case RTM_NEWLINK:
-	case RTM_DELLINK:
-	case RTM_NEWADDR:
-	case RTM_DELADDR:
-	case RTM_NEWNEXTHOP:
-	case RTM_DELNEXTHOP:
-	case RTM_NEWNETCONF:
-	case RTM_DELNETCONF:
-	case RTM_NEWTUNNEL:
-	case RTM_DELTUNNEL:
-	case RTM_GETTUNNEL:
-	case RTM_NEWVLAN:
-	case RTM_DELVLAN:
-	case RTM_NEWNEIGH:
-	case RTM_DELNEIGH:
-	case RTM_GETNEIGH:
-	case RTM_NEWQDISC:
-	case RTM_DELQDISC:
-	case RTM_NEWTCLASS:
-	case RTM_DELTCLASS:
-	case RTM_NEWTFILTER:
-	case RTM_DELTFILTER:
-	case RTM_NEWRULE:
-	case RTM_DELRULE:
-		return 0;
-	default:
-		/*
-		 * If we have received this message then
-		 * we have made a mistake during development
-		 * and we need to write some code to handle
-		 * this message type or not ask for
-		 * it to be sent up to us
-		 */
-		flog_err(EC_ZEBRA_UNKNOWN_NLMSG,
-			 "Unknown netlink nlmsg_type %s(%d) vrf %u",
-			 nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_type,
-			 ns_id);
-		break;
-	}
-	return 0;
-}
-
-/*
  * Dispatch an incoming netlink message; used by the dataplane pthread's
  * netlink event reader code.
  */
@@ -517,20 +447,6 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, i
 	}
 
 	return 0;
-}
-
-static void kernel_read(struct event *event)
-{
-	struct zebra_ns *zns = (struct zebra_ns *)EVENT_ARG(event);
-	struct zebra_dplane_info dp_info;
-
-	/* Capture key info from ns struct */
-	zebra_dplane_info_from_zns(&dp_info, zns, false);
-
-	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info, 5, false, NULL, NULL);
-
-	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
-		       &zns->t_netlink);
 }
 
 /*
@@ -1694,7 +1610,7 @@ static void netlink_set_nonblock(struct nlsock *nl)
  * common 5-step init pattern: format name, mark uncreated, create socket,
  * log on failure, and insert into the global nlsock hash.
  *
- * @name_prefix:    Prefix for socket name (e.g., "netlink-listen")
+ * @name_prefix:    Prefix for socket name (e.g., "netlink-cmd")
  * @groups:         Bitmask of RTMGRP/RTNLGRP groups for nl_groups (< 32)
  * @ext_groups:     Array of RTNLGRP group IDs >= 32 for setsockopt subscription
  * @ext_group_size: Number of entries in ext_groups[]
@@ -1747,8 +1663,7 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
 /*
  * Initialize all netlink sockets and subsystem for a given network namespace.
  *
- * Creates five netlink sockets:
- *   netlink            - Main pthread inbound listener (no multicast groups)
+ * Creates four netlink sockets:
  *   netlink_cmd        - Outbound synchronous commands (main pthread)
  *   netlink_dplane_out - Outbound dataplane programming (dplane pthread)
  *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/nexthop/rule/tunnel/route
@@ -1756,11 +1671,11 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
  *   ge_netlink_cmd     - Generic netlink commands (optional, non-fatal)
  *
  * Also configures: multicast group subscriptions, extended ACK, non-blocking
- * mode, receive buffer sizes, BPF self-echo filters, and event loop registration.
+ * mode, receive buffer sizes, and BPF self-echo filters.
  */
 void kernel_init(struct zebra_ns *zns)
 {
-	uint32_t groups, dplane_groups, ext_groups;
+	uint32_t dplane_groups, ext_groups;
 #if defined SOL_NETLINK
 	int one, ret, grp;
 #endif
@@ -1771,12 +1686,6 @@ void kernel_init(struct zebra_ns *zns)
 	 * and are subscribed via setsockopt in netlink_socket().
 	 * ----------------------------------------------------------------
 	 */
-
-	/* Main listener: no remaining multicast groups. IPMR notifications
-	 * were ignored, and RTM_GETROUTE queries for multicast stats use
-	 * netlink_cmd, so RTMGRP_IPV4_MROUTE is not needed.
-	 */
-	groups = 0;
 
 	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop, rule,
 	 * unicast route. RTNLGRP_TUNNEL is group ID >= 32 and is subscribed via
@@ -1793,14 +1702,10 @@ void kernel_init(struct zebra_ns *zns)
 	ext_groups = RTNLGRP_TUNNEL;
 
 	/* ----------------------------------------------------------------
-	 * Create netlink sockets. The first four are critical (fatal on
+	 * Create netlink sockets. The first three are critical (fatal on
 	 * failure). The generic netlink socket is optional (warn-only).
 	 * ----------------------------------------------------------------
 	 */
-
-	if (kernel_init_nlsock(&zns->netlink, "netlink-listen", groups, NULL, 0, zns->ns_id,
-			       NETLINK_ROUTE, false) < 0)
-		frr_exit_with_buffer_flush(-1);
 
 	if (kernel_init_nlsock(&zns->netlink_cmd, "netlink-cmd", 0, NULL, 0, zns->ns_id,
 			       NETLINK_ROUTE, false) < 0)
@@ -1866,7 +1771,6 @@ void kernel_init(struct zebra_ns *zns)
 	 * Set all sockets to non-blocking mode for event loop integration.
 	 * ----------------------------------------------------------------
 	 */
-	netlink_set_nonblock(&zns->netlink);
 	netlink_set_nonblock(&zns->netlink_cmd);
 	netlink_set_nonblock(&zns->netlink_dplane_out);
 	netlink_set_nonblock(&zns->netlink_dplane_in);
@@ -1880,7 +1784,6 @@ void kernel_init(struct zebra_ns *zns)
 	 * ----------------------------------------------------------------
 	 */
 	if (rcvbufsize) {
-		netlink_recvbuf(&zns->netlink, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_out, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_in, rcvbufsize);
@@ -1890,22 +1793,15 @@ void kernel_init(struct zebra_ns *zns)
 	}
 
 	/* ----------------------------------------------------------------
-	 * Install BPF filters on inbound sockets to suppress self-generated
+	 * Install a BPF filter on the inbound socket to suppress self-generated
 	 * echo messages. Allows through: RTM_NEWADDR, RTM_DELADDR,
 	 * RTM_NEWNETCONF, RTM_DELNETCONF (these must be processed
 	 * regardless of origin to keep state in sync).
 	 * ----------------------------------------------------------------
 	 */
-	netlink_install_filter(zns->netlink.sock, zns->netlink_cmd.snl.nl_pid,
-			       zns->netlink_dplane_out.snl.nl_pid);
 	netlink_install_filter(zns->netlink_dplane_in.sock,
 			       zns->netlink_cmd.snl.nl_pid,
 			       zns->netlink_dplane_out.snl.nl_pid);
-
-	/* Register main netlink socket with the event loop */
-	zns->t_netlink = NULL;
-	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
-		       &zns->t_netlink);
 
 	/* Initialize route and generic netlink subsystems */
 	rt_netlink_init();
@@ -1926,10 +1822,6 @@ static void kernel_nlsock_fini(struct nlsock *nls)
 
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
-	event_cancel(&zns->t_netlink);
-
-	kernel_nlsock_fini(&zns->netlink);
-
 	kernel_nlsock_fini(&zns->netlink_cmd);
 
 	kernel_nlsock_fini(&zns->netlink_dplane_in);
