@@ -167,31 +167,33 @@ static void babel_read_protocol(struct event *event)
 	assert(babel_routing_process != NULL);
 	assert(protocol_socket >= 0);
 
+	/* Re-arm the receive event before reading, so an early return
+	 * below can never leave the protocol socket unobserved.
+	 */
+	event_add_read(master, &babel_read_protocol, NULL, protocol_socket,
+		       &babel_routing_process->t_read);
+
 	rc = babel_recv(protocol_socket, receive_buffer, receive_buffer_size,
 			(struct sockaddr *)&sin6, sizeof(sin6));
 	if (rc < 0) {
 		if (errno != EAGAIN && errno != EINTR) {
 			flog_err_sys(EC_LIB_SOCKET, "recv: %s", safe_strerror(errno));
 		}
-	} else {
-		if (ntohs(sin6.sin6_port) != BABEL_PORT) {
-			return;
-		}
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			if (!if_up(ifp))
-				continue;
-			if (ifp->ifindex == (ifindex_t)sin6.sin6_scope_id) {
-				parse_packet((unsigned char *)&sin6.sin6_addr, ifp, receive_buffer,
-					     rc);
-				break;
-			}
-		}
+		return;
 	}
 
-	/* re-add event */
-	event_add_read(master, &babel_read_protocol, NULL, protocol_socket,
-		       &babel_routing_process->t_read);
+	if (ntohs(sin6.sin6_port) != BABEL_PORT)
+		return;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		if (!if_up(ifp))
+			continue;
+		if (ifp->ifindex == (ifindex_t)sin6.sin6_scope_id) {
+			parse_packet((unsigned char *)&sin6.sin6_addr, ifp, receive_buffer,
+				     rc);
+			break;
+		}
+	}
 }
 
 /* Zebra will give some information, especially about interfaces. This function
