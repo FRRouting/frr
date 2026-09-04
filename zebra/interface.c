@@ -2332,10 +2332,10 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					    mac_updated) {
 						struct interface *link_if;
 
-						link_if = if_lookup_by_index_per_ns(
-							zebra_ns_lookup(
-								NS_DEFAULT),
-							link_ifindex);
+						link_if =
+							if_lookup_by_index_per_ns(zebra_ns_lookup(
+											  link_nsid),
+										  link_ifindex);
 						if (link_if)
 							zebra_vxlan_svi_up(
 								ifp, link_if);
@@ -3061,8 +3061,16 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
 		if (zebra_if->link)
 			vty_out(vty, "  Parent interface: %s\n", zebra_if->link->name);
-		else
-			vty_out(vty, "  Parent ifindex: %d\n", zebra_if->link_ifindex);
+		else {
+			vty_out(vty, "  Parent ifindex: %d", zebra_if->link_ifindex);
+
+			if (zebra_if->link_nsid == NS_DEFAULT)
+				vty_out(vty, "\n");
+			else if (zebra_if->link_nsid == NS_UNKNOWN)
+				vty_out(vty, " Netns ID: unknown\n");
+			else
+				vty_out(vty, " Netns ID: %d\n", zebra_if->link_nsid);
+		}
 	}
 
 	if (HAS_LINK_PARAMS(ifp)) {
@@ -3456,9 +3464,11 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 		if (zebra_if->link)
 			json_object_string_add(json_if, "parentInterface",
 					       zebra_if->link->name);
-		else
+		else {
 			json_object_int_add(json_if, "parentIfindex",
 					    zebra_if->link_ifindex);
+			json_object_int_add(json_if, "netnsId", zebra_if->link_nsid);
+		}
 	}
 
 	if (HAS_LINK_PARAMS(ifp)) {
