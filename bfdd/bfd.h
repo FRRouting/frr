@@ -459,6 +459,8 @@ struct bfd_session {
 #define AUTH_SEQ_NUM_MODULO_METICULOUS 1
 	uint32_t auth_seq_num_update_modulo;
 	bool auth_meticulous;
+
+	uint8_t prev_ses_state;
 };
 
 struct bfd_diag_str_list {

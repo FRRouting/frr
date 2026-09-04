@@ -195,6 +195,7 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 	struct stream *msg;
 
 	hook_call(bfd_tracking_notify_filename, bs);
+	bs->prev_ses_state = bs->ses_state;
 
 	bs->stats.znotification++;
 

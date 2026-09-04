@@ -152,6 +152,15 @@ static int bfd_tracking_call_notify_filename(const struct bfd_session *bs)
 	int ret;
 	char buf[INET6_ADDRSTRLEN];
 
+	if (bs->prev_ses_state != bs->ses_state) {
+		if (bs->ses_state == PTM_BFD_UP)
+			zlog_notice("[%s] BFD is up", bs_to_string(bs));
+		else if (bs->ses_state == PTM_BFD_DOWN)
+			zlog_notice("[%s] BFD is down", bs_to_string(bs));
+		else if (bs->ses_state == PTM_BFD_INIT)
+			zlog_notice("[%s] BFD is init", bs_to_string(bs));
+	}
+
 	ctx = bfd_tracking_lookup_from_bs(bs);
 	if (!ctx)
 		return 0;

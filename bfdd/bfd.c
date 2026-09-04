@@ -1071,6 +1071,7 @@ struct bfd_session *bfd_session_new(enum bfd_mode_type mode)
 	bs->detect_mult = BFD_DEFDETECTMULT;
 	bs->mh_ttl = BFD_DEF_MHOP_TTL;
 	bs->ses_state = PTM_BFD_DOWN;
+	bs->prev_ses_state = PTM_BFD_INIT;
 
 	/* Initiate connection with slow timers. */
 	/* RFC 5880, Section 6.7.3: unpredictable initial sequence number */
