@@ -184,7 +184,7 @@ void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 struct srv6_adjacency *srv6_endx_sid_alloc(struct isis_adjacency *adj, bool backup,
 					struct list *nexthops);
 bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid_value);
-void srv6_endx_sid_del(struct srv6_adjacency *sra);
+void srv6_endx_sid_del(struct srv6_adjacency *sra, bool release);
 struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj, enum srv6_adj_type type);
 void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level);
 

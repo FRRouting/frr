@@ -1340,7 +1340,7 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		/* Uninstall all local Adjacency-SIDs. */
 		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode,
 				       sra))
-			srv6_endx_sid_del(sra);
+			srv6_endx_sid_del(sra, false);
 
 		/* Free the SRv6 locator chunks */
 		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node,

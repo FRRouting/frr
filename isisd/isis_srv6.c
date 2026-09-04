@@ -132,19 +132,8 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 	}
 
 	/* Uninstall all local Adjacency-SIDs. */
-	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra)) {
-		/*
-		 * Inform the SID Manager that IS-IS will no longer use the SID, so
-		 * that the SID Manager can remove the SID context ownership from IS-IS
-		 * and release/free the SID context if it is not yes by other protocols.
-		 */
-		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		ctx.nh6 = sra->nexthop;
-		ctx.ifindex = sra->ifindex;
-		isis_zebra_release_srv6_sid(&ctx, area->srv6db.config.srv6_locator_name);
-
-		srv6_endx_sid_del(sra);
-	}
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
+		srv6_endx_sid_del(sra, true);
 
 	/* Inform Zebra that we are releasing the SRv6 locator */
 	ret = isis_zebra_srv6_manager_release_locator_chunk(area->srv6db.config.srv6_locator_name);
@@ -269,7 +258,7 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
 
 	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
 		if (sra->type == ISIS_SRV6_ADJ_BACKUP && (sra->adj->level & level))
-			srv6_endx_sid_del(sra);
+			srv6_endx_sid_del(sra, true);
 }
 
 /* --- SRv6 End.X SID management functions ------------------- */
@@ -331,9 +320,17 @@ struct srv6_adjacency *srv6_endx_sid_alloc(struct isis_adjacency *adj, bool back
 static void srv6_endx_sid_unadvertise(struct srv6_adjacency *sra)
 {
 	struct isis_circuit *circuit = sra->adj->circuit;
+	struct srv6_adjacency *other;
+	struct listnode *node;
 
 	if (!sra->u.endx_sid)
 		return;
+	for (ALL_LIST_ELEMENTS_RO(circuit->area->srv6db.srv6_endx_sids, node, other)) {
+		if (other != sra && other->u.endx_sid == sra->u.endx_sid) {
+			sra->u.endx_sid = NULL;
+			return;
+		}
+	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 		isis_tlvs_del_srv6_lan_endx_sid(circuit->ext, sra->u.lendx_sid);
@@ -349,6 +346,8 @@ bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid
 	struct isis_circuit *circuit = sra->adj->circuit;
 	struct isis_srv6_endx_sid_subtlv *adj_sid;
 	struct isis_srv6_lan_endx_sid_subtlv *ladj_sid;
+	struct srv6_adjacency *other;
+	struct listnode *node;
 
 	if (state->allocated && IPV6_ADDR_SAME(&state->sid, sid_value)) {
 		isis_zebra_srv6_adj_sid_install(sra);
@@ -362,6 +361,15 @@ bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid
 	}
 
 	srv6_endx_sid_unadvertise(sra);
+	/* The circuit's sub-TLV list is shared by its L1 and L2 adjacencies. */
+	for (ALL_LIST_ELEMENTS_RO(circuit->area->srv6db.srv6_endx_sids, node, other)) {
+		if (other != sra && other->adj->circuit == circuit && other->type == sra->type &&
+		    other->u.endx_sid && IPV6_ADDR_SAME(&other->combined.sid, sid_value) &&
+		    memcmp(other->adj->sysid, sra->adj->sysid, ISIS_SYS_ID_LEN) == 0) {
+			sra->u = other->u;
+			return false;
+		}
+	}
 	if (!circuit->ext)
 		circuit->ext = isis_alloc_ext_subtlvs();
 
@@ -418,12 +426,55 @@ bool srv6_endx_sid_update(struct srv6_adjacency *sra, const struct in6_addr *sid
 	return true;
 }
 
-void srv6_endx_sid_del(struct srv6_adjacency *sra)
+/* L1/L2 LAN adjacencies can share a single SID Manager context. */
+static bool srv6_endx_sid_shared(struct srv6_adjacency *sra)
+{
+	struct srv6_adjacency *other;
+	struct listnode *node;
+	struct srv6_adjacency_sid *state = &sra->combined;
+	struct srv6_adjacency_sid *other_state;
+
+	for (ALL_LIST_ELEMENTS_RO(sra->adj->circuit->area->srv6db.srv6_endx_sids, node, other)) {
+		if (other == sra || other->ifindex != sra->ifindex ||
+		    !IPV6_ADDR_SAME(&other->nexthop, &sra->nexthop) ||
+		    strcmp(other->locator->name, sra->locator->name) != 0)
+			continue;
+		other_state = &other->combined;
+		if (!other_state->requested && !other_state->allocated)
+			continue;
+		/* Preserve FIB ownership even if the other allocation reply is pending. */
+		if (!other_state->allocated && state->allocated) {
+			other_state->sid = state->sid;
+			other_state->allocated = true;
+		}
+		other_state->installed |= state->installed;
+		return true;
+	}
+	return false;
+}
+
+static void srv6_endx_sid_cleanup(struct srv6_adjacency *sra, bool release)
+{
+	struct srv6_adjacency_sid *state = &sra->combined;
+	struct srv6_sid_ctx ctx = {};
+
+	if (srv6_endx_sid_shared(sra))
+		return;
+	if (release && (state->requested || state->allocated)) {
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		ctx.nh6 = sra->nexthop;
+		ctx.ifindex = sra->ifindex;
+		isis_zebra_release_srv6_sid(&ctx, sra->locator->name);
+	}
+	isis_zebra_srv6_adj_sid_uninstall(sra);
+}
+
+void srv6_endx_sid_del(struct srv6_adjacency *sra, bool release)
 {
 	struct isis_area *area = sra->adj->circuit->area;
 
 	sr_debug("ISIS-SRv6 (%s): Delete SRv6 End.X SID", area->area_tag);
-	isis_zebra_srv6_adj_sid_uninstall(sra);
+	srv6_endx_sid_cleanup(sra, release);
 	srv6_endx_sid_unadvertise(sra);
 
 	if (sra->type == ISIS_SRV6_ADJ_BACKUP && sra->backup_nexthops) {
@@ -476,7 +527,7 @@ static int srv6_adj_state_change(struct isis_adjacency *adj)
 	}
 
 	for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids, node, nnode, sra))
-		srv6_endx_sid_del(sra);
+		srv6_endx_sid_del(sra, true);
 
 	return 0;
 }
@@ -520,7 +571,7 @@ static int srv6_adj_ip_disabled(struct isis_adjacency *adj, int family, bool glo
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(adj->srv6_endx_sids, node, nnode, sra))
-		srv6_endx_sid_del(sra);
+		srv6_endx_sid_del(sra, true);
 
 	return 0;
 }
@@ -721,7 +772,7 @@ void isis_srv6_area_term(struct isis_area *area)
 	/* Uninstall all local SRv6 End.X SIDs */
 	if (area->srv6db.config.enabled)
 		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
-			srv6_endx_sid_del(sra);
+			srv6_endx_sid_del(sra, true);
 
 	/* Free SRv6 Locator chunks list */
 	for (ALL_LIST_ELEMENTS(srv6db->srv6_locator_chunks, node, nnode, chunk))
