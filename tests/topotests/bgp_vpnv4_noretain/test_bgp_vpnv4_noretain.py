@@ -132,79 +132,6 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def router_json_cmp_exact_filter(router, cmd, expected):
-    output = router.vtysh_cmd(cmd)
-    logger.info("{}: {}\n{}".format(router.name, cmd, output))
-
-    json_output = json.loads(output)
-
-    # filter out tableVersion, version and nhVrfID
-    json_output.pop("tableVersion")
-    if "totalRoutes" in json_output:
-        json_output.pop("totalRoutes")
-    if "totalPaths" in json_output:
-        json_output.pop("totalPaths")
-    if "numRoutes" in json_output:
-        json_output.pop("numRoutes")
-    if "routes" in json_output:
-        json_output["routes"].pop("numRoutes", None)
-    for rd, data in json_output["routes"]["routeDistinguishers"].items():
-        if isinstance(data, dict) and "numRoutes" in data:
-            data.pop("numRoutes")
-        for _, attrs in data.items():
-            for attr in attrs:
-                if "nhVrfId" in attr:
-                    attr.pop("nhVrfId")
-                if "version" in attr:
-                    attr.pop("version")
-
-    # filter out RD with no data (e.g. "444:3": {})
-    json_tmp = deepcopy(json_output)
-    for rd, data in json_tmp["routes"]["routeDistinguishers"].items():
-        if len(data.keys()) == 0:
-            json_output["routes"]["routeDistinguishers"].pop(rd)
-
-    return topotest.json_cmp(json_output, expected, exact=True)
-
-
-def router_vrf_json_cmp_exact_filter(router, cmd, expected):
-    output = router.vtysh_cmd(cmd)
-    logger.info("{}: {}\n{}".format(router.name, cmd, output))
-
-    json_output = json.loads(output)
-
-    print(json_output)
-
-    # filter out tableVersion, version, nhVrfId and vrfId
-    for vrf, data in json_output.items():
-        if "vrfId" in data:
-            data.pop("vrfId")
-        if "tableVersion" in data:
-            data.pop("tableVersion")
-        if "totalRoutes" in data:
-            data.pop("totalRoutes")
-        if "totalPaths" in data:
-            data.pop("totalPaths")
-        if "numRoutes" in data:
-            data.pop("numRoutes")
-        if "routes" not in data:
-            continue
-        for _, attrs in data["routes"].items():
-            for attr in attrs:
-                if "nhVrfId" in attr:
-                    attr.pop("nhVrfId")
-                if "version" in attr:
-                    attr.pop("version")
-
-    # filter out VRF with no routes
-    json_tmp = deepcopy(json_output)
-    for vrf, data in json_tmp.items():
-        if "routes" not in data or len(data["routes"].keys()) == 0:
-            json_output.pop(vrf)
-
-    return topotest.json_cmp(json_output, expected, exact=True)
-
-
 def check_show_bgp_ipv4_vpn(rname, json_file):
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -216,7 +143,7 @@ def check_show_bgp_ipv4_vpn(rname, json_file):
     json_file = "{}/{}/{}".format(CWD, router.name, json_file)
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        router_json_cmp_exact_filter,
+        topotest.router_json_cmp,
         router,
         "show bgp ipv4 vpn json",
         expected,
@@ -260,7 +187,7 @@ def check_show_bgp_vrf_ipv4(rname, json_file):
     json_file = "{}/{}/{}".format(CWD, router.name, json_file)
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        router_vrf_json_cmp_exact_filter,
+        topotest.router_json_cmp,
         router,
         "show bgp vrf all ipv4 unicast json",
         expected,

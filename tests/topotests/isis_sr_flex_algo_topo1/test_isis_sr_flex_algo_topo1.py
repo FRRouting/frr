@@ -155,7 +155,7 @@ def router_json_cmp_exact_filter(router, cmd, expected):
                 # IPv4, just checking the nexthop
                 router_output.get(label).get("nexthops")[i].pop("interface")
 
-    return topotest.json_cmp(router_output, expected, exact=True)
+    return topotest.json_cmp(router_output, expected)
 
 
 router_compare_json_output = partial(

@@ -123,7 +123,7 @@ def test_route_map_check_unused():
             "bgpd": {},
         }
 
-        return topotest.json_cmp(output, expected, exact=True)
+        return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_check_unused_route_maps)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)

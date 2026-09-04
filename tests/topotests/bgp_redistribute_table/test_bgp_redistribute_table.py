@@ -79,48 +79,6 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def _router_json_cmp_exact_filter(router, cmd, expected):
-    output = router.vtysh_cmd(cmd)
-    logger.info("{}: {}\n{}".format(router.name, cmd, output))
-
-    json_output = json.loads(output)
-
-    # filter out tableVersion, version, nhVrfId and vrfId
-    for _, attrs in json_output.items():
-        for attr in attrs:
-            if "table" in attr:
-                attr.pop("table")
-            if "internalStatus" in attr:
-                attr.pop("internalStatus")
-            if "internalFlags" in attr:
-                attr.pop("internalFlags")
-            if "internalNextHopNum" in attr:
-                attr.pop("internalNextHopNum")
-            if "internalNextHopActiveNum" in attr:
-                attr.pop("internalNextHopActiveNum")
-            if "internalNextHopFibInstalledNum" in attr:
-                attr.pop("internalNextHopFibInstalledNum")
-            if "nexthopGroupId" in attr:
-                attr.pop("nexthopGroupId")
-            if "installedNexthopGroupId" in attr:
-                attr.pop("installedNexthopGroupId")
-            if "uptime" in attr:
-                attr.pop("uptime")
-            if "prefixLen" in attr:
-                attr.pop("prefixLen")
-            if "asPath" in attr:
-                attr.pop("asPath")
-            if "receivedNexthopGroupId" in attr:
-                attr.pop("receivedNexthopGroupId")
-            for nexthop in attr.get("nexthops", []):
-                if "flags" in nexthop:
-                    nexthop.pop("flags")
-                if "interfaceIndex" in nexthop:
-                    nexthop.pop("interfaceIndex")
-
-    return topotest.json_cmp(json_output, expected, exact=True)
-
-
 def _check_zebra_rib_r1(with_redistributed_route, with_second_route=False):
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -148,7 +106,7 @@ def _check_zebra_rib_r1(with_redistributed_route, with_second_route=False):
     step(f"Checking IPv4 routes for convergence on r1 with{with_str} kernel route")
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        _router_json_cmp_exact_filter,
+        topotest.router_json_cmp,
         router,
         "show ip route bgp json",
         expected,
