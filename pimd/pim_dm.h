@@ -33,6 +33,7 @@ void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg);
 void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
 		       pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags);
 void pim_dm_prune_iff_on_timer(struct event *t);
+void pim_dm_ifchannel_deleting(struct pim_ifchannel *ch);
 void pim_dm_prefix_list_update(struct pim_instance *pim, struct prefix_list *plist);
 bool pim_is_grp_dm(struct pim_instance *pim, pim_addr group_addr);
 bool pim_is_dm_prefix_filter(struct pim_instance *pim, pim_addr group_addr);
