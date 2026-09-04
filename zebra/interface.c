@@ -35,6 +35,8 @@
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_srv6_vpws.h"
+#include "zebra/zebra_srl2.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_l2.h"
 
@@ -596,6 +598,13 @@ void if_add_update(struct interface *ifp)
 	zebra_ptm_if_set_ptm_state(ifp, if_data);
 
 	zebra_interface_add_update(ifp);
+
+	/*
+	 * SRv6 VPWS: resolve an asynchronously-created vpws-br-<name> bridge (and
+	 * finish a deferred AC/srl2 enslave) now that the ifindex is known.
+	 */
+	zebra_srv6_vpws_if_add(ifp);
+	zebra_srl2_if_add(ifp);
 
 	if (IS_ZEBRA_IF_DUMMY(ifp))
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);

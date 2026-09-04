@@ -40,6 +40,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_srv6_vpws.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/rt.h"
 #include "zebra/zebra_trace.h"
@@ -4131,6 +4132,61 @@ static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
 	zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr);
 }
 
+
+/* === EVPN-VPWS dataplane handlers ============================ */
+static void zread_vpws_local_add(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_vpws_local api;
+
+	if (zapi_vpws_local_decode(msg, &api) < 0) {
+		zlog_warn("%s: decode failed", __func__);
+		return;
+	}
+	zebra_srv6_vpws_local_add(&api);
+}
+
+static void zread_vpws_local_del(ZAPI_HANDLER_ARGS)
+{
+	char name[64];
+
+	STREAM_GET(name, msg, sizeof(name));
+	zebra_srv6_vpws_local_del(name);
+	return;
+stream_failure:
+	zlog_warn("%s: stream short-read", __func__);
+}
+
+static void zread_vpws_remote_add(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_vpws_remote api;
+
+	if (zapi_vpws_remote_decode(msg, &api) < 0) {
+		zlog_warn("%s: decode failed", __func__);
+		return;
+	}
+	zebra_srv6_vpws_remote_add(&api);
+}
+
+static void zread_vpws_remote_del(ZAPI_HANDLER_ARGS)
+{
+	char name[64];
+
+	STREAM_GET(name, msg, sizeof(name));
+	zebra_srv6_vpws_remote_del(name);
+	return;
+stream_failure:
+	zlog_warn("%s: stream short-read", __func__);
+}
+/* === end EVPN-VPWS handlers =================================== */
+
+/*
+ * ZEBRA_EVPN_ENCAP_MODE was removed: EVPN encapsulation is decided per-EVI
+ * (bgpd derives it from the per-EVI SIDs it already receives in
+ * ZEBRA_VNI_ADD), so bgpd no longer signals an instance-wide mode and zebra
+ * no longer keeps a global VxLAN/SRv6 mode.  The message id remains reserved
+ * in lib/zclient.h for wire compatibility but is never sent or handled.
+ */
+
 void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
@@ -4179,6 +4235,10 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REMOTE_VTEP_DEL] = zebra_vxlan_remote_vtep_del_zapi,
 	[ZEBRA_REMOTE_MACIP_ADD] = zebra_vxlan_remote_macip_add,
 	[ZEBRA_REMOTE_MACIP_DEL] = zebra_vxlan_remote_macip_del,
+	[ZEBRA_VPWS_LOCAL_ADD] = zread_vpws_local_add,
+	[ZEBRA_VPWS_LOCAL_DEL] = zread_vpws_local_del,
+	[ZEBRA_VPWS_REMOTE_ADD] = zread_vpws_remote_add,
+	[ZEBRA_VPWS_REMOTE_DEL] = zread_vpws_remote_del,
 	[ZEBRA_DUPLICATE_ADDR_DETECTION] = zebra_vxlan_dup_addr_detection,
 	[ZEBRA_INTERFACE_SET_MASTER] = zread_interface_set_master,
 	[ZEBRA_INTERFACE_SET_ARP] = zread_interface_set_arp,

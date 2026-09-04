@@ -6611,6 +6611,17 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (CHECK_FLAG(pi->flags, BGP_PATH_STALE)) {
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_STALE);
 			bgp_dest_set_defer_flag(dest, false);
+
+			/* For EVPN routes, ensure import is triggered after stale
+			 * flag is cleared during GR recovery. This ensures L2VPN/EVPN
+			 * SRv6 SIDs are properly installed when routes are restored.
+			 */
+			if (safi == SAFI_EVPN && CHECK_FLAG(pi->flags, BGP_PATH_VALID)) {
+				if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+					zlog_debug("%s: Re-importing EVPN route %pFX after GR stale flag clear",
+						   __func__, p);
+				bgp_evpn_import_route(bgp, afi, safi, p, pi);
+			}
 		}
 
 		/* The attribute is changed. */
@@ -14562,6 +14573,38 @@ skip_nexthop:
 					srv6_l3service->arg_len, srv6_l3service->transposition_len,
 					srv6_l3service->transposition_offset);
 			}
+			vty_out(vty, "\n");
+		}
+	}
+
+	/* Local or Remote SID for EVPN L2 Service */
+	if (bgp_attr_get_srv6_l2vpn(path->attr) && safi == SAFI_EVPN) {
+		struct bgp_attr_srv6_l3service *l2srv = bgp_attr_get_srv6_l2vpn(path->attr);
+		bool is_local = (path->peer == bgp->peer_self);
+
+		if (json_paths) {
+			json_object *json_sid_attr;
+			const char *sid_key = is_local ? "localL2Sid" : "remoteL2Sid";
+			const char *sid_struct_key = is_local ? "localL2SidStructure"
+							      : "remoteL2SidStructure";
+
+			json_object_string_addf(json_path, sid_key, "%pI6", &l2srv->sid);
+			json_sid_attr = json_object_new_object();
+			json_object_object_add(json_path, sid_struct_key, json_sid_attr);
+			json_object_int_add(json_sid_attr, "locatorBlockLen", l2srv->loc_block_len);
+			json_object_int_add(json_sid_attr, "locatorNodeLen", l2srv->loc_node_len);
+			json_object_int_add(json_sid_attr, "functionLen", l2srv->func_len);
+			json_object_int_add(json_sid_attr, "argumentLen", l2srv->arg_len);
+			json_object_int_add(json_sid_attr, "transpositionLen",
+					    l2srv->transposition_len);
+			json_object_int_add(json_sid_attr, "transpositionOffset",
+					    l2srv->transposition_offset);
+		} else {
+			vty_out(vty, "      %s L2 SID: %pI6", is_local ? "Local" : "Remote",
+				&l2srv->sid);
+			vty_out(vty, ", sid structure=[%u %u %u %u %u %u]", l2srv->loc_block_len,
+				l2srv->loc_node_len, l2srv->func_len, l2srv->arg_len,
+				l2srv->transposition_len, l2srv->transposition_offset);
 			vty_out(vty, "\n");
 		}
 	}
