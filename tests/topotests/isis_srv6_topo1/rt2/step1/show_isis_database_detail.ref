@@ -1,0 +1,23 @@
+{
+  "areas":[
+    {
+      "levels":[
+        {
+          "lsps":[
+            {
+              "srv6Locator":{
+                "prefix":"fc00:0:1::/48",
+                "subtlvs":{
+                  "srv6EndSid":{
+                    "sidValue":"fc00:0:1::",
+                    "endpointBehavior":"uN PSP"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
