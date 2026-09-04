@@ -557,6 +557,8 @@ CPP_NOTICE("Remove `--no_zebra` option as that it is deprecated")
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);
 
+	resolver_init(bm->master);
+
 	if (list_isempty(bm->addresses)) {
 		snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo),
 			 ", bgp@<all>:%d", bm->port);
