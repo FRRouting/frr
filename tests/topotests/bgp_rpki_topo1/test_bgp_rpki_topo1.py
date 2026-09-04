@@ -21,6 +21,33 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
+# Without --enable-rpki: skip cleanly. With --enable-rpki but missing
+# modules/bgpd_rpki.so: fail so a broken install is obvious (otherwise r2's
+# `-M bgpd_rpki` makes bgpd exit(1) and every test errors as "bgpd failed to
+# connect to zebra").
+#
+# If configure args are unavailable (e.g. --disable-version-build-config),
+# frr_configured_with() returns None — do not treat that as "RPKI disabled";
+# fall back to whether bgpd_rpki.so is installed.
+_rpki_enabled = topotest.frr_configured_with("--enable-rpki")
+_rpki_module = topotest.frr_module_available("bgpd_rpki")
+if _rpki_enabled is False:
+    pytest.skip(
+        "FRR built without --enable-rpki",
+        allow_module_level=True,
+    )
+elif not _rpki_module:
+    if _rpki_enabled is True:
+        raise RuntimeError(
+            "FRR was built with --enable-rpki but modules/bgpd_rpki.so is not "
+            "installed; install the RPKI module (e.g. frr-rpki-rtrlib / make install)"
+        )
+    pytest.skip(
+        "FRR RPKI module (bgpd_rpki.so) not installed "
+        "(configure args unavailable; cannot confirm --enable-rpki)",
+        allow_module_level=True,
+    )
+
 
 def build_topo(tgen):
     for routern in range(1, 5):
