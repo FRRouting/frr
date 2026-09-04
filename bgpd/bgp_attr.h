@@ -45,7 +45,9 @@
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL       (8 + IPV6_MAX_BYTELEN)
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ((8+IPV6_MAX_BYTELEN) * 2)
 
-/* Prefix SID types */
+/* Prefix SID types
+ * https://www.iana.org/assignments/bgp-parameters/bgp-parameters.xhtml#bgp-prefix-sid-tlv-types
+ */
 #define BGP_PREFIX_SID_LABEL_INDEX     1
 #define BGP_PREFIX_SID_IPV6            2
 #define BGP_PREFIX_SID_ORIGINATOR_SRGB 3
@@ -59,13 +61,13 @@
 #define BGP_PREFIX_SID_VPN_SID_LENGTH         19
 
 /* SRv6 Service Sub-TLV types */
-#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO 1
-#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH 21
+#define BGP_PREFIX_SID_SRV6_SERVICE_SID_INFO		 1
+#define BGP_PREFIX_SID_SRV6_SERVICE_SID_INFO_LENGTH	 21
 #define BGP_PREFIX_SID_SRV6_SERVICE_SID_FLAGS_KNOWN_MASK 0x00
 
 /* SRv6 Service Data Sub-Sub-TLV types */
-#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE 1
-#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH 6
+#define BGP_PREFIX_SID_SRV6_SERVICE_SID_STRUCTURE	 1
+#define BGP_PREFIX_SID_SRV6_SERVICE_SID_STRUCTURE_LENGTH 6
 
 #define BGP_ATTR_NH_AFI(afi, attr) \
 	((afi != AFI_L2VPN) ? afi : \
@@ -153,7 +155,7 @@ struct attr_extra {
 	struct bgp_attr_srv6_vpn *srv6_vpn;
 
 	/* SRv6 L3 service SID */
-	struct bgp_attr_srv6_l3service *srv6_l3service;
+	struct bgp_attr_srv6_service *srv6_service;
 
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
@@ -410,9 +412,8 @@ extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection
 					      bgp_size_t size, struct bgp_nlri *mp_update,
 					      struct bgp_nlri *mp_withdraw, bool has_nlri);
 extern struct attr *bgp_attr_intern(struct attr *attr);
-extern struct bgp_attr_srv6_l3service *
-bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_l3service *vpn);
-extern void bgp_attr_srv6_l3service_free(struct bgp_attr_srv6_l3service *vpn);
+extern struct bgp_attr_srv6_service *bgp_attr_srv6_service_intern(struct bgp_attr_srv6_service *vpn);
+extern void bgp_attr_srv6_service_free(struct bgp_attr_srv6_service *vpn);
 extern void bgp_attr_unintern_sub(struct attr *attr);
 extern void bgp_attr_unintern(struct attr **pattr);
 extern void bgp_attr_flush(struct attr *attr);
@@ -428,7 +429,7 @@ extern bgp_size_t
 bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
 		     struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi, safi_t safi,
 		     struct peer *from, struct prefix_rd *prd, mpls_label_t *label,
-		     uint8_t num_labels, struct bgp_attr_srv6_l3service *srv6_unicast,
+		     uint8_t num_labels, struct bgp_attr_srv6_service *srv6_unicast,
 		     bool addpath_capable, uint32_t addpath_tx_id, struct bgp_path_info *bpi,
 		     struct bgp_ls_nlri *ls_nlri, bool for_bmp);
 extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
@@ -846,22 +847,22 @@ static inline void bgp_attr_set_srv6_vpn(struct attr *attr, struct bgp_attr_srv6
 	}
 }
 
-static inline struct bgp_attr_srv6_l3service *bgp_attr_get_srv6_l3service(const struct attr *attr)
+static inline struct bgp_attr_srv6_service *bgp_attr_get_srv6_service(const struct attr *attr)
 {
-	return attr->extra ? attr->extra->srv6_l3service : NULL;
+	return attr->extra ? attr->extra->srv6_service : NULL;
 }
 
-static inline void bgp_attr_set_srv6_l3service(struct attr *attr,
-					       struct bgp_attr_srv6_l3service *srv6_l3service)
+static inline void bgp_attr_set_srv6_service(struct attr *attr,
+					     struct bgp_attr_srv6_service *srv6_service)
 {
-	struct bgp_attr_srv6_l3service *old = bgp_attr_get_srv6_l3service(attr);
+	struct bgp_attr_srv6_service *old = bgp_attr_get_srv6_service(attr);
 
-	if (srv6_l3service && !old) {
-		bgp_attr_extra_get(attr)->srv6_l3service = srv6_l3service;
-	} else if (srv6_l3service && old) {
-		attr->extra->srv6_l3service = srv6_l3service; /* replace; refcnt unchanged */
-	} else if (!srv6_l3service && old) {
-		attr->extra->srv6_l3service = NULL;
+	if (srv6_service && !old) {
+		bgp_attr_extra_get(attr)->srv6_service = srv6_service;
+	} else if (srv6_service && old) {
+		attr->extra->srv6_service = srv6_service; /* replace; refcnt unchanged */
+	} else if (!srv6_service && old) {
+		attr->extra->srv6_service = NULL;
 		bgp_attr_extra_put(attr);
 	}
 }
