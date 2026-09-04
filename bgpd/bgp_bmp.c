@@ -3247,10 +3247,10 @@ DEFPY(bmp_stats_send_experimental,
 #define BMP_POLICY_IS_PRE(str) ((str)[1] == 'r')    /* p__r__e-policy */
 
 DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
-      "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn|vpn> <pre-policy|post-policy|loc-rib>$policy",
+      "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn|vpn|mup> <pre-policy|post-policy|loc-rib>$policy",
       NO_STR BMP_STR
       "Send BMP route monitoring messages\n" BGP_AF_STR BGP_AF_STR BGP_AF_STR
-	      BGP_AF_STR BGP_AF_STR BGP_AF_STR BGP_AF_STR
+	      BGP_AF_STR BGP_AF_STR BGP_AF_STR BGP_AF_STR BGP_AF_STR
       "Send state before policy and filter processing\n"
       "Send state with policy and filters applied\n"
       "Send state after decision process is applied\n")
