@@ -440,6 +440,7 @@ int zsend_interface_addresses(struct zserv *client, struct interface *ifp)
 /* Add new nbr connected IPv6 address */
 void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 {
+	struct zebra_if *zif = ifp->info;
 	struct nbr_connected *ifc;
 	struct prefix p;
 
@@ -448,6 +449,14 @@ void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 	p.prefixlen = IPV6_MAX_BITLEN;
 
 	ifc = listnode_head(ifp->nbr_connected);
+	if (ifc && zif->v6_2_v4_ll_neigh_entry) {
+		/* RFC5549 entry already locked; refuse to overwrite */
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug("%s: refusing to overwrite locked RFC5549 entry on %s",
+				   __func__, ifp->name);
+		return;
+	}
+
 	if (!ifc) {
 		/* new addition */
 		ifc = nbr_connected_new();
