@@ -158,6 +158,14 @@ struct dplane_route_info {
 	uint32_t zd_flags;
 	bool zd_replace;
 
+	/*
+	 * Kernel notification vs zebra->kernel programming result.
+	 * Inbound RTM_NEWROUTE/RTM_DELROUTE reuse DPLANE_OP_ROUTE_INSTALL/DELETE
+	 * and set is_notif so the master pthread can tell them apart from
+	 * programming ACKs handled by rib_process_result().
+	 */
+	bool is_notif;
+
 	/* Nexthop hash entry info */
 	struct dplane_nexthop_info nhe;
 
@@ -2139,6 +2147,20 @@ void dplane_ctx_route_set_replace(struct zebra_dplane_ctx *ctx, bool replace)
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.rinfo.zd_replace = replace;
+}
+
+void dplane_ctx_set_route_notif(struct zebra_dplane_ctx *ctx, bool notif)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.is_notif = notif;
+}
+
+bool dplane_ctx_get_route_notif(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rinfo.is_notif;
 }
 
 void dplane_ctx_set_route_metric(struct zebra_dplane_ctx *ctx, uint32_t metric)
