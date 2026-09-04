@@ -1,0 +1,93 @@
+{
+	"2001:db8:5::/48": [
+		{
+			"protocol": "static",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "2001:db8:5::/48",
+			"prefixLen": 48,
+			"table": 1001,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth0",
+					"active": true,
+					"seg6": {
+						"segs": "fec0::ff"
+					},
+					"srv6EncapBehavior": "H.Encaps",
+					"srv6LookupTable": 254
+				}
+			]
+		}
+	],
+
+	"2001:db8:6::/48": [
+		{
+			"protocol": "static",
+			"selected": true,
+			"installed": true,
+			"vrfId": 0,
+			"prefix": "2001:db8:6::/48",
+			"prefixLen": 48,
+			"table": 1001,
+			"nexthops": [
+				{
+					"fib": true,
+					"ip": "fec1::2",
+					"afi": "ipv6",
+					"interfaceName": "eth1",
+					"vrf": "vrfA",
+					"active": true,
+					"seg6": {
+						"segs": "fec1::ff"
+					},
+					"srv6EncapBehavior": "H.Encaps",
+					"srv6LookupTable": 1001
+				}
+			]
+		}
+	],
+
+	"fec1::/64": [
+		{
+			"protocol": "connected",
+			"selected": true,
+			"installed": true,
+			"vrfName": "vrfA",
+			"prefix": "fec1::/64",
+			"prefixLen": 64,
+			"table": 1001,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth1",
+					"active": true
+				}
+			]
+		}
+	],
+
+	"fec1::1/128": [
+		{
+			"protocol": "local",
+			"selected": true,
+			"installed": true,
+			"vrfName": "vrfA",
+			"prefix": "fec1::1/128",
+			"prefixLen": 128,
+			"table": 1001,
+			"nexthops": [
+				{
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "eth1",
+					"active": true
+				}
+			]
+		}
+	]
+}
