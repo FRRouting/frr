@@ -400,11 +400,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int star
 	 * think about it.
 	 */
 	switch (h->nlmsg_type) {
-	case RTM_NEWROUTE:
-		return netlink_route_change(h, ns_id, startup, arg);
-	case RTM_DELROUTE:
-		return netlink_route_change(h, ns_id, startup, arg);
-
 	/* Messages we may receive, but ignore */
 	case RTM_NEWCHAIN:
 	case RTM_DELCHAIN:
@@ -412,6 +407,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int star
 		return 0;
 
 	/* Messages handled in the dplane thread */
+	case RTM_NEWROUTE:
+	case RTM_DELROUTE:
 	case RTM_NEWLINK:
 	case RTM_DELLINK:
 	case RTM_NEWADDR:
@@ -476,6 +473,10 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, i
 	case RTM_NEWRULE:
 	case RTM_DELRULE:
 		return netlink_rule_change(h, ns_id, startup, arg);
+
+	case RTM_NEWROUTE:
+	case RTM_DELROUTE:
+		return netlink_route_change(h, ns_id, startup, arg);
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
@@ -1747,10 +1748,10 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
  * Initialize all netlink sockets and subsystem for a given network namespace.
  *
  * Creates five netlink sockets:
- *   netlink            - Inbound route events (main pthread)
+ *   netlink            - Inbound mroute events (main pthread)
  *   netlink_cmd        - Outbound synchronous commands (main pthread)
  *   netlink_dplane_out - Outbound dataplane programming (dplane pthread)
- *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/nexthop/rule/tunnel
+ *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/nexthop/rule/tunnel/route
  *                        events (dplane pthread)
  *   ge_netlink_cmd     - Generic netlink commands (optional, non-fatal)
  *
@@ -1771,13 +1772,15 @@ void kernel_init(struct zebra_ns *zns)
 	 * ----------------------------------------------------------------
 	 */
 
-	/* Main listener: route change notifications */
-	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE;
+	/* Main listener: multicast route notifications */
+	groups = RTMGRP_IPV4_MROUTE;
 
-	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop, rule.
-	 * RTNLGRP_TUNNEL is group ID >= 32 and is subscribed via ext_groups.
+	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop, rule,
+	 * unicast route. RTNLGRP_TUNNEL is group ID >= 32 and is subscribed via
+	 * ext_groups.
 	 */
 	dplane_groups = RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
+			RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE |
 			FRR_NLGRP_BIT(RTNLGRP_IPV4_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_IPV6_NETCONF) |
 			FRR_NLGRP_BIT(RTNLGRP_MPLS_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_TC) |
 			FRR_NLGRP_BIT(RTNLGRP_NEXTHOP) | FRR_NLGRP_BIT(RTNLGRP_IPV4_RULE) |
