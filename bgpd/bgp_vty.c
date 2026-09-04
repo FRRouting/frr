@@ -3377,6 +3377,39 @@ DEFUN (bgp_deterministic_med,
 	return CMD_SUCCESS;
 }
 
+static bool bgp_peer_addpath_strategy_is_used(struct peer *peer, int strategy)
+{
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (strategy == BGP_ADDPATH_BEST_PER_ENCAPSULATION &&
+		    bgp_addpath_encapsulation_required(peer->addpath_type[afi][safi]))
+			return true;
+		if (strategy == BGP_ADDPATH_BEST_PER_AS &&
+		    bgp_addpath_dmed_required(peer->addpath_type[afi][safi]))
+			return true;
+	}
+	return false;
+}
+
+static bool bgp_peer_list_addpath_strategy_is_used(struct list *peer_list, int strategy)
+{
+	struct peer *peer;
+	struct listnode *node, *nnode;
+	struct peer_group *group;
+
+	for (ALL_LIST_ELEMENTS(peer_list, node, nnode, peer)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+			group = peer->group;
+			if (group && bgp_peer_list_addpath_strategy_is_used(group->peer, strategy))
+				return true;
+		} else if (bgp_peer_addpath_strategy_is_used(peer, strategy))
+			return true;
+	}
+	return false;
+}
+
 DEFUN (no_bgp_deterministic_med,
        no_bgp_deterministic_med_cmd,
        "no bgp deterministic-med",
@@ -3385,28 +3418,9 @@ DEFUN (no_bgp_deterministic_med,
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int bestpath_per_as_used;
-	afi_t afi;
-	safi_t safi;
-	struct peer *peer;
-	struct listnode *node, *nnode;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
-		bestpath_per_as_used = 0;
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi)
-				if (bgp_addpath_dmed_required(
-					peer->addpath_type[afi][safi])) {
-					bestpath_per_as_used = 1;
-					break;
-				}
-
-			if (bestpath_per_as_used)
-				break;
-		}
-
-		if (bestpath_per_as_used) {
+		if (bgp_peer_list_addpath_strategy_is_used(bgp->peer, BGP_ADDPATH_BEST_PER_AS)) {
 			vty_out(vty,
 				"bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -3517,6 +3531,35 @@ static int bgp_global_gr_config_vty(struct vty *vty, bool on, bool disable)
 	vty_out(vty,
 		"Graceful restart configuration changed, reset all peers to take effect\n");
 	return bgp_vty_return(vty, ret);
+}
+
+/* "bgp encapsulation-selection" configuration. */
+DEFPY(bgp_encapsulation_selection, bgp_encapsulation_selection_cmd,
+      "[no] bgp encapsulation-selection",
+      NO_STR BGP_STR "Pick the best encapsulation selection path among paths advertised\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no) {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION))
+			return CMD_SUCCESS;
+
+		if (bgp_peer_list_addpath_strategy_is_used(bgp->peer,
+							   BGP_ADDPATH_BEST_PER_ENCAPSULATION)) {
+			vty_out(vty,
+				"bgp encapsulation-selection cannot be disabled while addpath-tx-bestpath-per-encapsulation is in use\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		UNSET_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION);
+		bgp_recalculate_all_bestpaths(bgp);
+		return CMD_SUCCESS;
+	}
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION)) {
+		SET_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION);
+		bgp_recalculate_all_bestpaths(bgp);
+	}
+
+	return CMD_SUCCESS;
 }
 
 /* "bgp graceful-restart mode" configuration. */
@@ -10171,6 +10214,40 @@ ALIAS_HIDDEN(no_neighbor_addpath_tx_bestpath_per_as,
 	     "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Use addpath to advertise the bestpath per each neighboring AS\n")
+
+DEFPY(neighbor_addpath_tx_bestpath_per_encapsulation,
+      neighbor_addpath_tx_bestpath_per_encapsulation_cmd,
+      "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-bestpath-per-encapsulation",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Use addpath to advertise the bestpath per each encapsulation (MPLS, SRv6)\n")
+{
+	struct peer *peer;
+	safi_t safi = bgp_node_safi(vty);
+
+	if (safi != SAFI_MPLS_VPN)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no) {
+		if (peer->addpath_type[bgp_node_afi(vty)][safi] !=
+		    BGP_ADDPATH_BEST_PER_ENCAPSULATION) {
+			vty_out(vty,
+				"%% Peer not currently configured to transmit all best path per encapsulation.");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+					  BGP_ADDPATH_NONE, 0);
+		return CMD_SUCCESS;
+	}
+
+	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+				  BGP_ADDPATH_BEST_PER_ENCAPSULATION, 0);
+
+	return CMD_SUCCESS;
+}
 
 DEFPY(
 	neighbor_aspath_loop_detection, neighbor_aspath_loop_detection_cmd,
@@ -21830,6 +21907,9 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 					addr,
 					peer->addpath_best_selected[afi][safi]);
 			break;
+		case BGP_ADDPATH_BEST_PER_ENCAPSULATION:
+			vty_out(vty, "  neighbor %s addpath-tx-bestpath-per-encapsulation\n", addr);
+			break;
 		case BGP_ADDPATH_MAX:
 		case BGP_ADDPATH_NONE:
 			break;
@@ -22550,6 +22630,10 @@ int bgp_config_write(struct vty *vty)
 					   BGP_FLAG_DETERMINISTIC_MED)
 					? ""
 					: "no ");
+
+		/* BGP encapsulation-selection. */
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENCAPSULATION_SELECTION))
+			vty_out(vty, " bgp encapsulation-selection\n");
 
 		/* BGP update-delay. */
 		bgp_config_write_update_delay(vty, bgp);
@@ -23690,6 +23774,9 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_deterministic_med_cmd);
 	install_element(BGP_NODE, &no_bgp_deterministic_med_cmd);
 
+	/* "bgp encapsulation-selection" commands */
+	install_element(BGP_NODE, &bgp_encapsulation_selection_cmd);
+
 	/* "bgp graceful-restart" command */
 	install_element(BGP_NODE, &bgp_graceful_restart_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_cmd);
@@ -24445,6 +24532,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_addpath_paths_limit_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_addpath_paths_limit_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_addpath_paths_limit_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_addpath_tx_bestpath_per_encapsulation_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_addpath_tx_bestpath_per_encapsulation_cmd);
 
 	/* "neighbor sender-as-path-loop-detection" commands. */
 	install_element(BGP_NODE, &neighbor_aspath_loop_detection_cmd);
