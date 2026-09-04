@@ -1289,6 +1289,9 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 	return current;
 }
 
+static bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2,
+			       bool replace);
+
 /* Core function for processing routing information base. */
 static void rib_process(struct route_node *rn)
 {
@@ -1508,13 +1511,24 @@ static void rib_process(struct route_node *rn)
 			 * route entries as no longer installed.  We can
 			 * make do for the moment with Kernel/Connected/Local
 			 * routes because we know if we have a removal/addition
-			 * of one of those route types, we had a very very
+			 * of the same one of those route types, we had a very very
 			 * quick interface flap and zebra was unable to
 			 * finish up processing the down event before
-			 * new up events have come in.
+			 * new up events have come in.  Multiple system routes can
+			 * share a prefix; matching on type alone would fire on normal
+			 * failover to another connected route.  rib_compare_routes()
+			 * limits this to the same route re-added after the flap, but
+			 * for KERNEL it only checks type/instance/metric, not
+			 * the nexthop, so a normal failover to a different kernel
+			 * route with the same metric would still match. Require the
+			 * nexthops to be unchanged as well, which is true for the
+			 * same route reappearing but not for a failover.
 			 */
 			if (new_selected && CHECK_FLAG(old_selected->status, ROUTE_ENTRY_REMOVED) &&
-			    RSYSTEM_ROUTE(old_selected->type))
+			    RSYSTEM_ROUTE(old_selected->type) &&
+			    rib_compare_routes(old_selected, new_selected, true) &&
+			    nexthop_group_equal_no_recurse(&old_selected->nhe->nhg,
+							   &new_selected->nhe->nhg))
 				SET_FLAG(new_selected->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
 
 			/*
@@ -2239,7 +2253,14 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	}
 
 	zebra_rib_evaluate_rn_nexthops(rn, seq, rt_delete);
-	if (re)
+	/*
+	 * Only clear this once the result we just processed was current
+	 * for re (dplane_sequence == seq). A stale result leaves
+	 * ROUTE_ENTRY_QUEUED set, so zebra_rnh_evaluate_entry() returns
+	 * without notifying above; clearing the flag here anyway would
+	 * lose the forced withdraw/add once the real result arrives.
+	 */
+	if (re && re->dplane_sequence == seq)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
 
 	zebra_rib_evaluate_mpls(rn);
