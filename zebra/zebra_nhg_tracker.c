@@ -1254,9 +1254,10 @@ void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
 /*
  * Drain a phase-2 winner RE that's being withdrawn before its
  * nexthop_active_update runs, so parent_nhe->tracker_pending_winners
- * stays accurate.  Called from rib_delnode BEFORE SET REMOVED while
- * the previously-installed peer RE is still on the RN; the peer's
- * nhe is parent_nhe.  May also schedule consolidation if needed.
+ * stays accurate.  Called from rib_delnode BEFORE SET REMOVED so the
+ * counter is settled while the RE is still countable.  parent_nhe comes
+ * from re->tracker_parent_nhg_id, the id stamped at winner-tag time.
+ * May also schedule consolidation if needed.
  */
 void tracker_winner_pre_remove(struct route_node *rn, struct route_entry *re)
 {
