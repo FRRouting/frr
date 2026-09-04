@@ -491,6 +491,11 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, i
 	case RTM_DELVLAN:
 		return netlink_vlan_change(h, ns_id, startup, arg);
 
+	case RTM_NEWTUNNEL:
+	case RTM_DELTUNNEL:
+	case RTM_GETTUNNEL:
+		return netlink_tunnel_change(h, ns_id, startup, arg);
+
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
@@ -1745,7 +1750,7 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
  *   netlink            - Inbound route events (main pthread)
  *   netlink_cmd        - Outbound synchronous commands (main pthread)
  *   netlink_dplane_out - Outbound dataplane programming (dplane pthread)
- *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/nexthop/rule
+ *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/nexthop/rule/tunnel
  *                        events (dplane pthread)
  *   ge_netlink_cmd     - Generic netlink commands (optional, non-fatal)
  *
@@ -1769,7 +1774,9 @@ void kernel_init(struct zebra_ns *zns)
 	/* Main listener: route change notifications */
 	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE;
 
-	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop, rule */
+	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop, rule.
+	 * RTNLGRP_TUNNEL is group ID >= 32 and is subscribed via ext_groups.
+	 */
 	dplane_groups = RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
 			FRR_NLGRP_BIT(RTNLGRP_IPV4_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_IPV6_NETCONF) |
 			FRR_NLGRP_BIT(RTNLGRP_MPLS_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_TC) |
@@ -1785,7 +1792,7 @@ void kernel_init(struct zebra_ns *zns)
 	 * ----------------------------------------------------------------
 	 */
 
-	if (kernel_init_nlsock(&zns->netlink, "netlink-listen", groups, &ext_groups, 1, zns->ns_id,
+	if (kernel_init_nlsock(&zns->netlink, "netlink-listen", groups, NULL, 0, zns->ns_id,
 			       NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
 
@@ -1797,8 +1804,8 @@ void kernel_init(struct zebra_ns *zns)
 			       NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
 
-	if (kernel_init_nlsock(&zns->netlink_dplane_in, "netlink-dp-in", dplane_groups, NULL, 0,
-			       zns->ns_id, NETLINK_ROUTE, false) < 0)
+	if (kernel_init_nlsock(&zns->netlink_dplane_in, "netlink-dp-in", dplane_groups, &ext_groups,
+			       1, zns->ns_id, NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
 
 	/* Generic netlink — non-fatal on failure */
