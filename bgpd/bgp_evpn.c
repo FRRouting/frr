@@ -5780,22 +5780,54 @@ static bool bgp_evpn_vrf_should_generate_export_auto_rt(struct bgp *bgp_vrf)
 	return !bgp_evpn_vrf_has_manual_export_rt_cfgd(bgp_vrf);
 }
 
+enum bgp_evpn_vni_type {
+	BGP_EVPN_VNI_TYPE_L2,
+	BGP_EVPN_VNI_TYPE_L3,
+};
+
 /*
- * Create the auto export RT extended community value for the VRF, of
+ * Create the auto export RT extended community value for the VRF or L2VNI, of
  * the form AS:VNI. Only the export direction uses this fully qualified
  * form; the auto import route target is a wildcard route target.
  * NOTE: We use only the lower 16 bits of the AS. This is sufficient as
  * the need is to get a RT value that will be unique across different
  * VNIs but the same across routers (in the same AS) for a particular
  * VNI.
+ *
+ * Returns: true if the RT was successfully derived and placed in eval,
+ *          false if the generation was aborted (e.g. VNI > 16-bit limit).
  */
-static void bgp_evpn_vrf_form_auto_rt_eval(struct bgp *bgp_vrf, struct ecommunity_val *eval)
+static inline bool bgp_evpn_derive_auto_rt_export_eval(struct bgp *bgp, vni_t vni,
+						       struct ecommunity_val *eval,
+						       enum bgp_evpn_vni_type vni_type)
 {
-	vni_t vni = bgp_vrf->l3vni;
-
-	if (bgp_vrf->autort_rfc8365_export)
+	if (bgp->autort_enforce_as4_export) {
+		if (vni > 0xFFFF) {
+			zlog_warn("%s %u exceeds 16-bit limit, cannot auto-derive RT with enforce-as4",
+				  vni_type == BGP_EVPN_VNI_TYPE_L2 ? "L2VNI" : "VRF L3VNI", vni);
+			return false;
+		}
+		encode_route_target_as4(bgp->as, (uint16_t)(vni & 0xFFFF), eval, true);
+		return true;
+	}
+	if (bgp->autort_rfc8365_export)
 		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
-	encode_route_target_as((bgp_vrf->as & 0xFFFF), vni, eval, true);
+	encode_route_target_as((bgp->as & 0xFFFF), vni, eval, true);
+	return true;
+}
+
+static inline bool bgp_evpn_derive_auto_rt_import_local_admin(struct bgp *bgp, vni_t *vni,
+							      enum bgp_evpn_vni_type vni_type)
+{
+	if (bgp->autort_enforce_as4_import) {
+		if (*vni > 0xFFFF) {
+			zlog_warn("%s %u exceeds 16-bit limit, cannot auto-derive import RT with enforce-as4",
+				  vni_type == BGP_EVPN_VNI_TYPE_L2 ? "L2VNI" : "VRF L3VNI", *vni);
+			return false;
+		}
+	} else if (bgp->autort_rfc8365_import)
+		SET_FLAG(*vni, EVPN_AUTORT_VXLAN);
+	return true;
 }
 
 /* Encode a fully qualified user configured route target into an
@@ -5859,15 +5891,12 @@ static void bgp_evpn_vrf_regenerate_effective_import_rts(struct bgp *bgp_vrf)
 
 	if (bgp_vrf->l3vni && bgp_evpn_vrf_should_generate_import_auto_rt(bgp_vrf)) {
 		vni_t vni = bgp_vrf->l3vni;
-
-		if (bgp_vrf->autort_rfc8365_import)
-			SET_FLAG(vni, EVPN_AUTORT_VXLAN);
-
 		/* The auto import route target is a wildcard route
 		 * target: it matches any route target carrying the VNI
 		 * as local admin value, regardless of the AS.
 		 */
-		bgp_evpn_vrf_add_effective_wildcard_import_rt(bgp_vrf, htonl(vni));
+		if (bgp_evpn_derive_auto_rt_import_local_admin(bgp_vrf, &vni, BGP_EVPN_VNI_TYPE_L3))
+			bgp_evpn_vrf_add_effective_wildcard_import_rt(bgp_vrf, htonl(vni));
 	}
 
 	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_import, cfgd_rt) {
@@ -5901,10 +5930,13 @@ static void bgp_evpn_vrf_regenerate_effective_export_rts(struct bgp *bgp_vrf)
 	bgp_evpn_effective_fq_rt_list_flush(&bgp_vrf->effective_fq_export_rts);
 
 	if (bgp_vrf->l3vni && bgp_evpn_vrf_should_generate_export_auto_rt(bgp_vrf)) {
-		bgp_evpn_vrf_form_auto_rt_eval(bgp_vrf, &eval);
-		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
-		if (bgp_evpn_effective_fq_rt_slu_add(&bgp_vrf->effective_fq_export_rts, fq_rt))
-			bgp_evpn_effective_fq_rt_free(fq_rt); /* duplicate */
+		if (bgp_evpn_derive_auto_rt_export_eval(bgp_vrf, bgp_vrf->l3vni, &eval,
+							BGP_EVPN_VNI_TYPE_L3)) {
+			fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
+			if (bgp_evpn_effective_fq_rt_slu_add(&bgp_vrf->effective_fq_export_rts,
+							     fq_rt))
+				bgp_evpn_effective_fq_rt_free(fq_rt); /* duplicate */
+		}
 	}
 
 	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_export, cfgd_rt) {
@@ -5965,27 +5997,6 @@ static bool bgp_evpn_l2vni_should_generate_export_auto_rt(struct bgpevpn *vpn)
 	return !bgp_evpn_l2vni_has_manual_export_rt_cfgd(vpn);
 }
 
-/*
- * Create the auto export RT extended community value for the L2VNI, of
- * the form AS:VNI. The AS and the RFC 8365 export setting are taken
- * from the EVPN instance. Only the export direction uses this fully
- * qualified form; the auto import route target is a wildcard route
- * target.
- * NOTE: We use only the lower 16 bits of the AS. This is sufficient as
- * the need is to get a RT value that will be unique across different
- * VNIs but the same across routers (in the same AS) for a particular
- * VNI.
- */
-static void bgp_evpn_l2vni_form_auto_rt_eval(struct bgp *bgp, struct bgpevpn *vpn,
-					     struct ecommunity_val *eval)
-{
-	vni_t vni = vpn->vni;
-
-	if (bgp->autort_rfc8365_export)
-		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
-	encode_route_target_as((bgp->as & 0xFFFF), vni, eval, true);
-}
-
 /* Add an effective wildcard import route target to the L2VNI */
 static void bgp_evpn_l2vni_add_effective_wildcard_import_rt(struct bgpevpn *vpn,
 							    uint32_t local_admin_nbo)
@@ -6018,10 +6029,8 @@ void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, struct bgpe
 	if (bgp_evpn_l2vni_should_generate_import_auto_rt(vpn)) {
 		vni_t vni = vpn->vni;
 
-		if (bgp->autort_rfc8365_import)
-			SET_FLAG(vni, EVPN_AUTORT_VXLAN);
-
-		bgp_evpn_l2vni_add_effective_wildcard_import_rt(vpn, htonl(vni));
+		if (bgp_evpn_derive_auto_rt_import_local_admin(bgp, &vni, BGP_EVPN_VNI_TYPE_L2))
+			bgp_evpn_l2vni_add_effective_wildcard_import_rt(vpn, htonl(vni));
 	}
 
 	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_import, cfgd_rt) {
@@ -6053,10 +6062,12 @@ void bgp_evpn_l2vni_regenerate_effective_export_rts(struct bgp *bgp, struct bgpe
 	bgp_evpn_effective_fq_rt_list_flush(&vpn->effective_fq_export_rts);
 
 	if (bgp_evpn_l2vni_should_generate_export_auto_rt(vpn)) {
-		bgp_evpn_l2vni_form_auto_rt_eval(bgp, vpn, &eval);
-		fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
-		if (bgp_evpn_effective_fq_rt_slu_add(&vpn->effective_fq_export_rts, fq_rt))
-			bgp_evpn_effective_fq_rt_free(fq_rt);
+		if (bgp_evpn_derive_auto_rt_export_eval(bgp, vpn->vni, &eval,
+							BGP_EVPN_VNI_TYPE_L2)) {
+			fq_rt = bgp_evpn_effective_fq_rt_new(&eval);
+			if (bgp_evpn_effective_fq_rt_slu_add(&vpn->effective_fq_export_rts, fq_rt))
+				bgp_evpn_effective_fq_rt_free(fq_rt);
+		}
 	}
 
 	frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_export, cfgd_rt) {
