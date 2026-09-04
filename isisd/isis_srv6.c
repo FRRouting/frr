@@ -688,12 +688,31 @@ int isis_srv6_ifp_up_notify(struct interface *ifp)
 	return 0;
 }
 
-/**
- * Request SRv6 locator info from the SID Manager for all IS-IS areas where SRv6
- * is enabled and a locator has been configured.
- * This function is called as soon as the connection with Zebra is established
- * to get information about all configured locators.
- */
+/* Discard local state without releasing SID Manager ownership. */
+void isis_srv6_locator_reset(struct isis_area *area)
+{
+	struct listnode *node, *nnode;
+	struct isis_srv6_sid *sid;
+	struct srv6_adjacency *sra;
+	struct srv6_locator_chunk *chunk;
+
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids, node, nnode, sid)) {
+		isis_zebra_srv6_sid_uninstall(area, sid);
+		listnode_delete(area->srv6db.srv6_sids, sid);
+		isis_srv6_sid_free(sid);
+	}
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
+		srv6_endx_sid_del(sra, false);
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node, nnode, chunk)) {
+		listnode_delete(area->srv6db.srv6_locator_chunks, chunk);
+		srv6_locator_chunk_free(&chunk);
+	}
+	srv6_locator_free(area->srv6db.srv6_locator);
+	area->srv6db.srv6_locator = NULL;
+	lsp_regenerate_schedule(area, area->is_type, 0);
+}
+
+/* Rebuild SRv6 state whenever the connection with Zebra is established. */
 void isis_srv6_locators_request(void)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
@@ -704,8 +723,10 @@ void isis_srv6_locators_request(void)
 
 	frr_each (isis_area_list, &isis->area_list, area)
 		if (area->srv6db.config.enabled &&
-		    area->srv6db.config.srv6_locator_name[0] != '\0' && !area->srv6db.srv6_locator)
+		    area->srv6db.config.srv6_locator_name[0] != '\0') {
+			isis_srv6_locator_reset(area);
 			isis_zebra_srv6_manager_get_locator(area->srv6db.config.srv6_locator_name);
+		}
 }
 
 /**
