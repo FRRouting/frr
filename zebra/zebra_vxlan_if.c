@@ -189,12 +189,14 @@ static int zebra_vxlan_if_del_vni(struct interface *ifp,
 		zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
 		if (zl3vni)
 			listnode_delete(zl3vni->l2vnis, zevpn);
+		/* Withdraw all local routes before deleting the VNI from BGP.
+		 * bgpd needs the VNI hash to process per-route DELs.
+		 */
+		zebra_evpn_neigh_del_all(zevpn, 1, 1, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_mac_del_all(zevpn, 1, 1, DEL_ALL_MAC, NULL);
+
 		/* Delete VNI from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
-
-		/* Free up all neighbors and MAC, if any. */
-		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
-		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 
 		/* Free up all remote VTEPs, if any. */
 		zebra_evpn_vtep_del_all(zevpn, 1, NULL);
@@ -320,12 +322,16 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		/* Removed from bridge? Cleanup and return */
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE) &&
 		    (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
+			/* Withdraw all local routes before deleting the VNI from
+			 * BGP. bgpd needs the VNI hash to process per-route DELs.
+			 */
+			zebra_evpn_neigh_del_all(zevpn, 1, 1, DEL_ALL_NEIGH,
+						 NULL);
+			zebra_evpn_mac_del_all(zevpn, 1, 1, DEL_ALL_MAC, NULL);
+
 			/* Delete from client, remove all remote VTEPs */
-			/* Also, free up all MACs and neighbors. */
 			zevpn->svi_if = NULL;
 			zebra_evpn_send_del_to_client(zevpn);
-			zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
-			zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 			zebra_evpn_vtep_del_all(zevpn, 1, NULL);
 			return 0;
 		}
@@ -947,12 +953,14 @@ int zebra_vxlan_if_vni_down(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 
 		zebra_evpn_vl_vxl_deref(vnip->access_vlan, vnip->vni, zif);
 
+		/* Withdraw all local routes before deleting the VNI from BGP.
+		 * bgpd needs the VNI hash to process per-route DELs.
+		 */
+		zebra_evpn_neigh_del_all(zevpn, 1, 1, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_mac_del_all(zevpn, 1, 1, DEL_ALL_MAC, NULL);
+
 		/* Delete this VNI from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
-
-		/* Free up all neighbors and MACs, if any. */
-		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
-		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 
 		/* Free up all remote VTEPs, if any. */
 		zebra_evpn_vtep_del_all(zevpn, 1, NULL);
