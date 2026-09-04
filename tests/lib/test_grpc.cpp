@@ -35,8 +35,8 @@
 #include <grpcpp/security/credentials.h>
 #include "grpc/frr-northbound.grpc.pb.h"
 
-DEFINE_HOOK(test_grpc_late_init, (struct event_loop * tm), (tm));
-DEFINE_KOOH(test_grpc_fini, (), ());
+DEFINE_HOOK(test_grpc_late_init, (struct event_loop *, tm));
+DEFINE_KOOH(test_grpc_fini);
 
 struct vty *vty;
 

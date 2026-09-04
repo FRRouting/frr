@@ -47,6 +47,9 @@ noinst_HEADERS += \
 	pathd/path_ted.h \
 	pathd/path_zebra.h \
 	pathd/pathd.h \
+	\
+	pathd/path_cli_hooks.h \
+	pathd/pathd_hooks.h \
 	# end
 
 pathd_pathd_SOURCES = \

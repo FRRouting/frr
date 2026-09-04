@@ -26,12 +26,10 @@ DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List");
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy");
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE, "SR Policy candidate path");
 
-DEFINE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
-	    (candidate));
-DEFINE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
-	    (candidate));
-DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
-	    (candidate));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "pathd/pathd_hooks.h"
+#include "lib/hooks_end.h"
 
 struct debug path_policy_debug = {
 	.conf = "debug pathd policy",

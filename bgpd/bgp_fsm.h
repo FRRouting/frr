@@ -145,9 +145,6 @@ extern void bgp_start_routeadv(struct bgp *bgp);
 extern void bgp_adjust_routeadv(struct peer *peer);
 
 #include "hook.h"
-DECLARE_HOOK(peer_backward_transition, (struct peer *peer), (peer));
-DECLARE_HOOK(peer_established, (struct peer *peer), (peer));
-
 int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd);
 int bgp_neighbor_graceful_restart(struct peer *peer,
 				  enum peer_gr_command peer_gr_cmd);

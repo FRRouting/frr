@@ -28,9 +28,10 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_abr.h"
 
-DEFINE_HOOK(ospf_ism_change,
-	    (struct ospf_interface * oi, int state, int oldstate),
-	    (oi, state, oldstate));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ospfd/ospf_ism_hooks.h"
+#include "lib/hooks_end.h"
 
 /* elect DR and BDR. Refer to RFC2319 section 9.4 */
 static struct ospf_neighbor *ospf_dr_election_sub(struct list *routers)

@@ -107,19 +107,10 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_METAQ, "BGP MetaQ");
 /* Memory for batched clearing of peers from the RIB */
 DEFINE_MTYPE(BGPD, CLEARING_BATCH, "Clearing batch");
 
-DEFINE_HOOK(bgp_snmp_update_stats,
-	    (struct bgp_dest *rn, struct bgp_path_info *pi, bool added),
-	    (rn, pi, added));
-
-DEFINE_HOOK(bgp_rpki_prefix_status,
-	    (struct peer *peer, struct attr *attr,
-	     const struct prefix *prefix),
-	    (peer, attr, prefix));
-
-DEFINE_HOOK(bgp_route_update,
-	    (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
-	     struct bgp_path_info *old_route, struct bgp_path_info *new_route),
-	    (bgp, afi, safi, bn, old_route, new_route));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_route_hooks.h"
+#include "lib/hooks_end.h"
 
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
@@ -233,13 +224,6 @@ static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 
 	return buf;
 }
-
-DEFINE_HOOK(bgp_process,
-	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
-	     struct peer *peer, bool withdraw),
-	    (bgp, afi, safi, bn, peer, withdraw));
-
-DEFINE_HOOK(bgp_adj_in_needed, (struct peer *peer, afi_t afi, safi_t safi), (peer, afi, safi));
 
 /* The peer's Adj-RIB-In is maintained when soft-reconfiguration inbound is
  * configured, or when another component consuming it (BMP pre-policy

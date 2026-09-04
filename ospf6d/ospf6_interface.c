@@ -46,9 +46,11 @@ DEFINE_MTYPE(OSPF6D, OSPF6_AUTH_KEYCHAIN, "OSPF6 auth keychain");
 DEFINE_MTYPE(OSPF6D, OSPF6_AUTH_MANUAL_KEY, "OSPF6 auth key");
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names");
 DEFINE_QOBJ_TYPE(ospf6_interface);
-DEFINE_HOOK(ospf6_interface_change,
-	    (struct ospf6_interface * oi, int state, int old_state),
-	    (oi, state, old_state));
+
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ospf6d/ospf6_interface_hooks.h"
+#include "lib/hooks_end.h"
 
 unsigned char conf_debug_ospf6_interface = 0;
 

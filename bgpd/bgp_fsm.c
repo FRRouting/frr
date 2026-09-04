@@ -45,9 +45,10 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
 
-DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
-DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
-DEFINE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_fsm_hooks.h"
+#include "lib/hooks_end.h"
 
 bool bgp_rpki_cache_connected(struct bgp *bgp)
 {

@@ -43,6 +43,11 @@
 #define TLV_SIZE_MISMATCH(log, indent, target)                                                    \
 	sbuf_push(log, indent, "TLV size does not match expected size for " target "!\n")
 
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_tlvs_hooks.h"
+#include "lib/hooks_end.h"
+
 DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs");
 DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs");
 DEFINE_MTYPE(ISISD, ISIS_SUBSUBTLV, "ISIS Sub-Sub-TLVs");
@@ -7422,13 +7427,6 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs, struct isis_
 	adj->nlpids.count = reduced.count;
 	memcpy(adj->nlpids.nlpids, reduced.nlpids, reduced.count);
 }
-
-DEFINE_HOOK(isis_adj_ip_enabled_hook,
-	    (struct isis_adjacency *adj, int family, bool global),
-	    (adj, family, global));
-DEFINE_HOOK(isis_adj_ip_disabled_hook,
-	    (struct isis_adjacency *adj, int family, bool global),
-	    (adj, family, global));
 
 static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
 				       bool *changed)

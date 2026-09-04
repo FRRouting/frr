@@ -902,7 +902,10 @@ void ldp_zebra_regdereg_zebra_info(bool want_register);
 	(__IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_INTFACELOCAL))
 #endif
 
-DECLARE_HOOK(ldp_register_mib, (struct event_loop * tm), (tm));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "ldpd/ldpd_hooks.h"
+#include "lib/hooks_end.h"
 
 extern void ldp_agentx_enabled(void);
 

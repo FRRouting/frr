@@ -42,6 +42,11 @@
 DEFINE_MTYPE_STATIC(ISISD, ISIS_ADJACENCY, "ISIS adjacency");
 DEFINE_MTYPE(ISISD, ISIS_ADJACENCY_INFO, "ISIS adjacency info");
 
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_adjacency_hooks.h"
+#include "lib/hooks_end.h"
+
 static struct isis_adjacency *adj_alloc(struct isis_circuit *circuit,
 					const uint8_t *id)
 {
@@ -138,8 +143,6 @@ const struct isis_adjacency *isis_adj_find(const struct isis_area *area,
 
 	return NULL;
 }
-
-DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));
 
 void isis_delete_adj(void *arg)
 {

@@ -248,10 +248,6 @@ DECLARE_LIST(zserv_stale_client_list, struct zserv, stale_client_list_entry);
 	struct zserv *client, struct zmsghdr *hdr, struct stream *msg,         \
 		struct zebra_vrf *zvrf
 
-/* Hooks for client connect / disconnect */
-DECLARE_HOOK(zserv_client_connect, (struct zserv *client), (client));
-DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
-
 #define DYNAMIC_CLIENT_GR_DISABLED(_client)                                    \
 	((_client->proto <= ZEBRA_ROUTE_LOCAL) || !(_client->gr_instance_count))
 
@@ -413,6 +409,11 @@ extern void zebra_gr_stale_client_cleanup(void);
 extern void zread_client_capabilities(struct zserv *client, struct zmsghdr *hdr,
 				      struct stream *msg,
 				      struct zebra_vrf *zvrf);
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/zserv_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

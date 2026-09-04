@@ -58,9 +58,6 @@ struct bgp_upa_prefix_entry {
 	struct bgp_upa_prefix_hash_item hash_link;
 };
 
-DECLARE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
-	     (vty, vrf));
-
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
 
@@ -1193,19 +1190,6 @@ struct bgp_interface {
 #define BGP_INTERFACE_MPLS_L3VPN_SWITCHING (1 << 1)
 	uint32_t flags;
 };
-
-DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
-DECLARE_HOOK(bgp_inst_config_write,
-		(struct bgp *bgp, struct vty *vty),
-		(bgp, vty));
-DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
-DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
-DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
-	     (vrf, enabled));
-DECLARE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
-DECLARE_HOOK(bgp_routerid_update, (struct bgp *bgp, bool withdraw), (bgp, withdraw));
-DECLARE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
-	     (bgp, afi, preconfig));
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -3401,21 +3385,6 @@ extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char
 				      enum asnotation_mode asnotation, const char *name,
 				      enum bgp_instance_type inst_type, bool force_config);
 
-/* Hooks */
-DECLARE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
-	     (bgp, ifp));
-DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer));
-DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
-DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
-DECLARE_HOOK(bgp_snmp_update_stats,
-	     (struct bgp_dest *rn, struct bgp_path_info *pi, bool added),
-	     (rn, pi, added));
-DECLARE_HOOK(bgp_rpki_prefix_status,
-	     (struct peer * peer, struct attr *attr,
-	      const struct prefix *prefix),
-	     (peer, attr, prefix));
-DECLARE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
-
 void peer_nsf_stop(struct peer *peer);
 
 void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss);
@@ -3475,5 +3444,16 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&                                       \
 	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_RCV) &&                                       \
 	 IN6_IS_ADDR_LINKLOCAL(&_peer->nexthop.v6_local))
+
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_fsm_hooks.h"
+#include "bgpd/bgp_main_hooks.h"
+#include "bgpd/bgp_route_hooks.h"
+#include "bgpd/bgp_vty_hooks.h"
+#include "bgpd/bgp_zebra_hooks.h"
+#include "bgpd/bgpd_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* _QUAGGA_BGPD_H */

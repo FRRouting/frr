@@ -234,6 +234,8 @@ nobase_pkginclude_HEADERS += \
 	lib/graph.h \
 	lib/hash.h \
 	lib/hook.h \
+	lib/hooks_begin.h \
+	lib/hooks_end.h \
 	lib/host_nb.h \
 	lib/iana_afi.h \
 	lib/id_alloc.h \
@@ -331,6 +333,17 @@ nobase_pkginclude_HEADERS += \
 	lib/pbr.h \
 	lib/tc.h \
 	lib/routing_nb.h \
+	\
+	lib/agentx_hooks.h \
+	lib/if_hooks.h \
+	lib/keychain_hooks.h \
+	lib/keychain_nb_hooks.h \
+	lib/libagentx_hooks.h \
+	lib/libfrr_hooks.h \
+	lib/log_vty_hooks.h \
+	lib/northbound_hooks.h \
+	lib/routing_nb_config_hooks.h \
+	lib/zlog_hooks.h \
 	\
 	lib/assert/assert.h \
 	# end

@@ -72,10 +72,10 @@ static _Atomic uint32_t rib_dplane_q_max;
 static _Atomic bool dplane_results_plugged;
 #endif
 
-DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
-	    (rn, reason));
-DEFINE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
-
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_rib_hooks.h"
+#include "lib/hooks_end.h"
 
 /*
  * Meta Q's specific names

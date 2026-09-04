@@ -42,8 +42,10 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
 #define ZEBRA_PTM_SUPPORT
 
-DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struct interface *ifp),
-	    (vty, json_if, ifp));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/interface_hooks.h"
+#include "lib/hooks_end.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZIF_DESC, "Intf desc");
 

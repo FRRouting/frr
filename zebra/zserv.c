@@ -56,6 +56,11 @@
 #endif
 /* clang-format on */
 
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/zserv_hooks.h"
+#include "lib/hooks_end.h"
+
 /* privileges */
 extern struct zebra_privs_t zserv_privs;
 
@@ -620,10 +625,6 @@ int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
 
 	return 0;
 }
-
-/* Hooks for client connect / disconnect */
-DEFINE_HOOK(zserv_client_connect, (struct zserv *client), (client));
-DEFINE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /*
  * Deinitialize zebra client.
