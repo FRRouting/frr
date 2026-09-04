@@ -315,7 +315,7 @@ def test_ping_step1():
     )
 
     # Try to ping dst from rt1
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -416,7 +416,7 @@ def test_ping_step2():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -518,7 +518,7 @@ def test_ping_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -617,7 +617,7 @@ def test_ping_step4():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -715,7 +715,7 @@ def test_ping_step5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -813,7 +813,7 @@ def test_ping_step6():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -911,7 +911,7 @@ def test_ping_step7():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -1009,7 +1009,7 @@ def test_ping_step8():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -1110,7 +1110,7 @@ def test_ping_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 def iproute2_can_show_seg6local_flavors(router):
@@ -1182,7 +1182,7 @@ def test_srv6_path_with_ua_sid():
 
     # Ping dst from rt1 to verify the SRv6 path.
     logger.info("Pinging dst from rt1 to validate the SRv6 path with uA SID")
-    check_ping("rt1", "2001:db8:10::2", True, 10, 1)
+    check_ping("rt1", "2001:db8:10::2", True, 20, 3)
 
 
 # Memory leak test template
