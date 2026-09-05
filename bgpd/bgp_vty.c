@@ -5471,7 +5471,7 @@ DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_shutdown_enable(bgp, msgstr);
+	bgp_shutdown_enable(bgp, msgstr, true);
 	XFREE(MTYPE_TMP, msgstr);
 
 	return CMD_SUCCESS;
@@ -5482,7 +5482,19 @@ DEFPY(bgp_shutdown, bgp_shutdown_cmd, "bgp shutdown",
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	bgp_shutdown_enable(bgp, NULL);
+	bgp_shutdown_enable(bgp, NULL, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bgp_shutdown_no_notify, bgp_shutdown_no_notify_cmd, "bgp shutdown no-notify",
+      BGP_STR
+      "Administrative shutdown of the BGP instance\n"
+      "Do not send BGP notification (for HA standby transition)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_shutdown_enable(bgp, NULL, false);
 
 	return CMD_SUCCESS;
 }
@@ -5501,6 +5513,11 @@ ALIAS(no_bgp_shutdown, no_bgp_shutdown_msg_cmd,
       "no bgp shutdown message MSG...", NO_STR BGP_STR
       "Administrative shutdown of the BGP instance\n"
       "Add a shutdown message (RFC 8203)\n" "Shutdown message\n")
+
+ALIAS(no_bgp_shutdown, no_bgp_shutdown_no_notify_cmd,
+      "no bgp shutdown no-notify", NO_STR BGP_STR
+      "Administrative shutdown of the BGP instance\n"
+      "Do not send BGP notification (for HA standby transition)\n")
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
@@ -22766,8 +22783,12 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp default shutdown\n");
 
 		/* BGP instance administrative shutdown */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
-			vty_out(vty, " bgp shutdown\n");
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN)) {
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN_NO_NOTIFY))
+				vty_out(vty, " bgp shutdown no-notify\n");
+			else
+				vty_out(vty, " bgp shutdown\n");
+		}
 
 		/* Automatic RA enabling by BGP */
 		if (!CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
@@ -23834,8 +23855,10 @@ void bgp_vty_init(void)
 	/* "bgp shutdown" commands */
 	install_element(BGP_NODE, &bgp_shutdown_cmd);
 	install_element(BGP_NODE, &bgp_shutdown_msg_cmd);
+	install_element(BGP_NODE, &bgp_shutdown_no_notify_cmd);
 	install_element(BGP_NODE, &no_bgp_shutdown_cmd);
 	install_element(BGP_NODE, &no_bgp_shutdown_msg_cmd);
+	install_element(BGP_NODE, &no_bgp_shutdown_no_notify_cmd);
 
 	/* "neighbor remote-as" commands. */
 	install_element(BGP_NODE, &neighbor_remote_as_cmd);
