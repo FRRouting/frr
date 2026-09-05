@@ -106,6 +106,8 @@ DEFUN_NOSH (show_debugging_zebra,
 		vty_out(vty, "  Zebra detailed nexthop debugging is on\n");
 	else if (IS_ZEBRA_DEBUG_NHG)
 		vty_out(vty, "  Zebra nexthop debugging is on\n");
+	if (CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG_TRACKER) && !IS_ZEBRA_DEBUG_NHG_DETAIL)
+		vty_out(vty, "  Zebra nexthop tracker debugging is on\n");
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		vty_out(vty, "  Zebra EVPN-MH ethernet segment debugging is on\n");
@@ -690,16 +692,20 @@ DEFUN (no_debug_zebra_pbr,
 
 DEFPY (debug_zebra_nexthop,
        debug_zebra_nexthop_cmd,
-       "[no$no] debug zebra nexthop [detail$detail]",
+       "[no$no] debug zebra nexthop [<detail$detail|tracker$tracker>]",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
        "Debug zebra nexthop events\n"
-       "Detailed information\n")
+       "Detailed information (includes NHG tracker)\n"
+       "NHG event tracker logs\n")
 {
 	if (no) {
 		zebra_debug_nexthop = 0;
 		vty_out(vty, "Zebra nexthop debugging is off\n");
+	} else if (tracker) {
+		SET_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG_TRACKER);
+		vty_out(vty, "Zebra nexthop tracker debugging is on\n");
 	} else {
 		SET_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG);
 
@@ -846,6 +852,11 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	} else if (CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG)) {
 		vty_out(vty, "debug zebra nexthop\n");
+		write++;
+	}
+	if (CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG_TRACKER) &&
+	    !CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG_DETAILED)) {
+		vty_out(vty, "debug zebra nexthop tracker\n");
 		write++;
 	}
 
