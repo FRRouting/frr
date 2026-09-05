@@ -1,4 +1,4 @@
-    #!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 eval: (blacken-mode 1) -*-
 # SPDX-License-Identifier: ISC
 #
@@ -111,14 +111,15 @@ TEST_PREFIXES = ["10.99.{}.0/24".format(i) for i in range(1, NUM_ROUTES + 1)]
 PREFIX_TAG = "10.99."  # substring used to filter these LSAs in 'show' output
 
 # Pacing parameters — large gap so timing is reliable on a loaded test host.
-GAP_MS = 1000      # 1 s between LSU batches
-MAX_LSAS = 1       # 1 LSA per LSU — clean 1:1 timing, no batching ambiguity
+GAP_MS = 1000  # 1 s between LSU batches
+MAX_LSAS = 1  # 1 LSA per LSU — clean 1:1 timing, no batching ambiguity
 ADJINT_MS = 60000  # freeze gap adjuster so G stays fixed during the test
 
 
 # ---------------------------------------------------------------------------
 # Topology
 # ---------------------------------------------------------------------------
+
 
 def build_topo(tgen):
     """Two-router topology: R1 (sender) — R2 (observer)."""
@@ -130,6 +131,7 @@ def build_topo(tgen):
 # ---------------------------------------------------------------------------
 # Per-test fixture — fresh topology for every test function
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="function")
 def tgen(request):
@@ -149,12 +151,7 @@ def tgen(request):
 
     # Enable redistribution of static routes into OSPF so that blackhole
     # routes added per-test become AS-External (Type-5) LSAs.
-    r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf\n"
-        "redistribute static\n"
-        "end"
-    )
+    r1.vtysh_cmd("configure terminal\n" "router ospf\n" "redistribute static\n" "end")
 
     # hello-interval 1 s / dead-interval 4 s — adjacency normally reaches
     # Full in < 10 s; allow 12 s for a loaded test host.
@@ -168,6 +165,7 @@ def tgen(request):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _enable_pacing(r1):
     """Configure R1 eth1 with a fixed gap and frozen adjuster.
@@ -187,18 +185,16 @@ def _enable_pacing(r1):
         "end".format(gap=GAP_MS, max_lsas=MAX_LSAS, adjint=ADJINT_MS)
     )
     cfg = r1.vtysh_cmd("show running-config")
-    assert "ip ospf lsa-pacing" in cfg, \
-        "lsa-pacing did not appear in R1 running-config after _enable_pacing() — " \
+    assert "ip ospf lsa-pacing" in cfg, (
+        "lsa-pacing did not appear in R1 running-config after _enable_pacing() — "
         "vtysh command may have failed silently."
+    )
 
 
 def _disable_pacing(r1):
     """Remove all pacing config from R1 eth1."""
     r1.vtysh_cmd(
-        "configure terminal\n"
-        "interface eth1\n"
-        "no ip ospf lsa-pacing\n"
-        "end"
+        "configure terminal\n" "interface eth1\n" "no ip ospf lsa-pacing\n" "end"
     )
 
 
@@ -221,8 +217,7 @@ def _count_external_lsas(router):
     """
     out = router.vtysh_cmd("show ip ospf database external")
     return sum(
-        1 for line in out.splitlines()
-        if "Link State ID" in line and PREFIX_TAG in line
+        1 for line in out.splitlines() if "Link State ID" in line and PREFIX_TAG in line
     )
 
 
@@ -256,6 +251,7 @@ def _wait_at_least(router, minimum, timeout_s):
 # Test 1: pacing slows down the flood
 # ---------------------------------------------------------------------------
 
+
 def test_pacing_slows_flood(tgen):
     """
     Prove pacing is active: after the first LSA arrives at R2, the remaining
@@ -282,6 +278,17 @@ def test_pacing_slows_flood(tgen):
     Polling until count >= 1 means we only start the race after R1 has
     actually sent the first packet — the subsequent check is then purely
     about the gap timer, not the throttle.
+
+    This check (and the negative one right after it) is anchored to the
+    first-arrival event, not to a fixed deadline from when the routes
+    were added, so a generous 15s wait here is safe: R4 only starts
+    spacing sends apart once an LSA is actually queued, so "first
+    arrival, then still incomplete" holds regardless of how long
+    redistribution took to get that first LSA originated. This is
+    also why no precondition wait on R1's own LSDB is added here --
+    doing that instead would risk it completing only after the gap
+    timer had already fully drained, defeating the "still queued"
+    check below for a reason unrelated to pacing.
     """
 
     if tgen.routers_have_failure():
@@ -293,10 +300,11 @@ def test_pacing_slows_flood(tgen):
     _enable_pacing(r1)
     _add_routes(r1)
 
-    # Wait up to (throttle_max + first_packet_travel) for LSA-1 to appear.
-    first = _wait_at_least(r2, 1, timeout_s=4)
+    # Wait for LSA-1 to appear. Floored at 15s per topotest convention
+    # rather than the previous tight 4s.
+    first = _wait_at_least(r2, 1, timeout_s=15)
     assert first >= 1, (
-        "No LSA arrived at R2 within 4 s. "
+        "No LSA arrived at R2 within 15 s. "
         "Check that OSPF adjacency is Full and redistribution is active."
     )
 
@@ -319,6 +327,7 @@ def test_pacing_slows_flood(tgen):
 # Test 2: pacing delivers all LSAs eventually
 # ---------------------------------------------------------------------------
 
+
 def test_pacing_delivers_all(tgen):
     """
     Correctness: every injected LSA reaches R2, just spaced over time.
@@ -336,6 +345,11 @@ def test_pacing_delivers_all(tgen):
     lsu_sent_for_dst() advances nbr->next_send_ms by sent_count * GAP_MS.
     The timer re-arms with that exact delay so the next batch fires on
     schedule.  The queue drains completely; no LSA is dropped or skipped.
+
+    Verified in two phases: first confirm R1 itself originated all
+    NUM_ROUTES LSAs (a redistribution/zebra precondition, unrelated to
+    the send-timer/re-arm logic actually under test), then time
+    delivery to R2. Both floored at 15s per topotest convention.
     """
 
     if tgen.routers_have_failure():
@@ -349,14 +363,27 @@ def test_pacing_delivers_all(tgen):
 
     # LSA throttle can delay first origination by up to 1 s, then the queue
     # drains one LSA per GAP_MS.  Total budget:
-    #   throttle_max(1s) + (NUM_ROUTES-1)*GAP_MS + 2s margin
-    timeout_s = 1 + (NUM_ROUTES - 1) * (GAP_MS / 1000.0) + 2
+    #   throttle_max(1s) + (NUM_ROUTES-1)*GAP_MS + 2s margin,
+    # floored at 15s per topotest convention.
+    pacing_time_total = 1 + (NUM_ROUTES - 1) * (GAP_MS / 1000.0) + 2
+    timeout_s = max(pacing_time_total, 15)
+
+    # Precondition: confirm R1 itself originated all NUM_ROUTES LSAs
+    # before timing delivery to R2.
+    origin_count = _wait_lsas(r1, NUM_ROUTES, timeout_s)
+    assert origin_count == NUM_ROUTES, (
+        "R1 only originated {}/{} external LSAs within {:.1f}s of "
+        "adding the routes. This is a redistribution/zebra issue, "
+        "not the send timer/re-arm logic.".format(origin_count, NUM_ROUTES, timeout_s)
+    )
+
     final_count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
 
     assert final_count == NUM_ROUTES, (
-        "Only {}/{} external LSAs reached R2 after {:.1f} s with pacing. "
+        "R1 originated all {} LSAs but only {}/{} reached R2 within "
+        "{:.1f} s with pacing. "
         "Check ospf_r4_nbr_send_timer() queue drain and re-arm logic.".format(
-            final_count, NUM_ROUTES, timeout_s
+            NUM_ROUTES, final_count, NUM_ROUTES, timeout_s
         )
     )
 
@@ -364,6 +391,7 @@ def test_pacing_delivers_all(tgen):
 # ---------------------------------------------------------------------------
 # Test 3: without pacing all LSAs arrive quickly
 # ---------------------------------------------------------------------------
+
 
 def test_no_pacing_fast_delivery(tgen):
     """
@@ -378,6 +406,12 @@ def test_no_pacing_fast_delivery(tgen):
 
     With no pacing configured, rec4_gap_pacing == 0 and the existing
     multicast/unicast send path runs unchanged.
+
+    Verified in two phases: first confirm R1 itself originated all
+    NUM_ROUTES LSAs (a redistribution/zebra precondition, unrelated to
+    the legacy flood path actually under test), then time delivery to
+    R2. Both floored at 15s per topotest convention rather than the
+    previous flat 3s.
     """
 
     if tgen.routers_have_failure():
@@ -389,20 +423,32 @@ def test_no_pacing_fast_delivery(tgen):
     # No _enable_pacing() call — legacy path only.
     _add_routes(r1)
 
-    # LSA throttle (up to 1 s) + propagation; all LSAs flood immediately
-    # so 3 s total is a generous budget.
-    final_count = _wait_lsas(r2, NUM_ROUTES, timeout_s=3)
+    timeout_s = 15
+
+    # Precondition: confirm R1 itself originated all NUM_ROUTES LSAs
+    # before timing delivery to R2.
+    origin_count = _wait_lsas(r1, NUM_ROUTES, timeout_s)
+    assert origin_count == NUM_ROUTES, (
+        "R1 only originated {}/{} external LSAs within {}s of adding "
+        "the routes. This is a redistribution/zebra issue, not the "
+        "legacy flood path.".format(origin_count, NUM_ROUTES, timeout_s)
+    )
+
+    final_count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
 
     assert final_count == NUM_ROUTES, (
-        "Without pacing only {}/{} external LSAs reached R2 within 3 s. "
-        "The legacy flood path may be broken, or LSA/SPF timers are too "
-        "conservative for this host.".format(final_count, NUM_ROUTES)
+        "R1 originated all {} LSAs but only {}/{} reached R2 within "
+        "{}s without pacing. The legacy flood path may be broken, or "
+        "LSA/SPF timers are too conservative for this host.".format(
+            NUM_ROUTES, final_count, NUM_ROUTES, timeout_s
+        )
     )
 
 
 # ---------------------------------------------------------------------------
 # Test 4: dynamic enable / disable mid-session
 # ---------------------------------------------------------------------------
+
 
 def test_pacing_enable_disable_mid_session(tgen):
     """
@@ -413,7 +459,7 @@ def test_pacing_enable_disable_mid_session(tgen):
       (count < NUM_ROUTES immediately after first arrival).
 
     Phase B — pacing toggled OFF (same adjacency, routes removed first):
-      Inject the same routes again.  All arrive within 3 s.
+      Inject the same routes again.  All arrive within a generous budget.
 
     What the code does for the disable path
     ----------------------------------------
@@ -421,6 +467,14 @@ def test_pacing_enable_disable_mid_session(tgen):
     ospf_rec4_recompute_effective() setting oi->rec4_gap_pacing = 0, then
     walks existing neighbors calling ospf_nbr_apply_rec4_params() to reset
     their runtime state.  The next flood falls through to the legacy path.
+
+    Phase A's checks are anchored to the first-arrival event (like
+    test_pacing_slows_flood), so widening that wait is safe and no R1
+    precondition is added there. Phase B has no transient property to
+    protect -- it only asserts eventual delivery -- so it gets the
+    standard fix: confirm R1 itself originated all NUM_ROUTES LSAs
+    before timing delivery to R2, both floored at 15s per topotest
+    convention.
     """
 
     if tgen.routers_have_failure():
@@ -433,8 +487,8 @@ def test_pacing_enable_disable_mid_session(tgen):
     _enable_pacing(r1)
     _add_routes(r1)
 
-    first = _wait_at_least(r2, 1, timeout_s=4)
-    assert first >= 1, "Phase A: no LSA arrived within 4 s — check adjacency."
+    first = _wait_at_least(r2, 1, timeout_s=15)
+    assert first >= 1, "Phase A: no LSA arrived within 15 s — check adjacency."
 
     count_paced = _count_external_lsas(r2)
     assert count_paced < NUM_ROUTES, (
@@ -455,12 +509,23 @@ def test_pacing_enable_disable_mid_session(tgen):
     _disable_pacing(r1)
     _add_routes(r1)
 
-    count_unpaced = _wait_lsas(r2, NUM_ROUTES, timeout_s=3)
+    # Precondition: confirm R1 itself originated all NUM_ROUTES LSAs
+    # before timing delivery to R2 -- a redistribution/zebra issue
+    # here would otherwise be misattributed to the disable path.
+    origin_count = _wait_lsas(r1, NUM_ROUTES, timeout_s=15)
+    assert origin_count == NUM_ROUTES, (
+        "Phase B: R1 only originated {}/{} external LSAs within 15s "
+        "of re-adding the routes. This is a redistribution/zebra "
+        "issue, not the pacing disable path.".format(origin_count, NUM_ROUTES)
+    )
+
+    count_unpaced = _wait_lsas(r2, NUM_ROUTES, timeout_s=15)
     assert count_unpaced == NUM_ROUTES, (
-        "Phase B: only {}/{} LSAs arrived within 3 s after disabling pacing. "
-        "Check that ospf_if_update_params_all() correctly clears "
+        "Phase B: R1 originated all {} LSAs but only {}/{} arrived at "
+        "R2 within 15 s after disabling pacing. Check that "
+        "ospf_if_update_params_all() correctly clears "
         "oi->rec4_gap_pacing on the live interface.".format(
-            count_unpaced, NUM_ROUTES
+            NUM_ROUTES, count_unpaced, NUM_ROUTES
         )
     )
 
@@ -468,6 +533,7 @@ def test_pacing_enable_disable_mid_session(tgen):
 # ---------------------------------------------------------------------------
 # Test 5: gap adjuster speedup — U < L causes G to halve toward min-gap
 # ---------------------------------------------------------------------------
+
 
 def test_gap_adjuster_speedup(tgen):
     """
@@ -491,17 +557,30 @@ def test_gap_adjuster_speedup(tgen):
       adjust-interval = 1 ms  effectively no rate-limit
       max-lsas    = 1
 
-    Expected delivery timeline (from first LSA sent):
-      call 1: U<100 → G 2000→1000ms  LSA-1 sent,  next_send += 1000ms
-      call 2: U<100 → G 1000→ 500ms  LSA-2 sent,  next_send +=  500ms
-      call 3: U<100 → G  500→ 250→200ms(min)  LSA-3 sent,  next_send += 200ms
-      call 4: U<100 → G stays 200ms  LSA-4 sent
-      Total ≈ 1000+500+200 = 1700ms from first send
+    Expected delivery timeline (from first LSA sent)
+    -------------------------------------------------
+    ospf_r4_nbr_send_timer() calls ospf_ls_upd_queue_send() -- which
+    schedules the *next* send using whatever lsu_gap_ms already is --
+    before calling pace_maybe_adjust_gap() to compute the new value.
+    Each adjustment therefore lags one call behind: the halved gap
+    computed after sending LSA-N governs the wait before LSA-(N+1),
+    never the wait that just elapsed. Accounting for that lag:
 
-    Without speedup (fixed G=2000ms):
+      call 1: send LSA-1 using G=2000 (initial); next_send += 2000
+              post-adjust: G 2000→1000
+      call 2 (t=2000): send LSA-2 using G=1000;   next_send += 1000
+              post-adjust: G 1000→500
+      call 3 (t=3000): send LSA-3 using G=500;    next_send += 500
+              post-adjust: G 500→250
+      call 4 (t=3500): send LSA-4 (last one)
+      Total ≈ 2000+1000+500 = 3500ms from first send
+
+    Without speedup (fixed G=2000ms throughout, no one-call lag to
+    account for since G never changes):
       LSA-2 at 2000ms, LSA-3 at 4000ms, LSA-4 at 6000ms — total ≈ 6000ms
 
-    The 4s timeout discriminates: speedup completes in ~2.7s; without it ~7s.
+    The remaining-LSA budget discriminates: speedup completes in
+    ~3.5s from first arrival; without it, ~6.0s from first arrival.
 
     What the code does
     ------------------
@@ -509,8 +588,24 @@ def test_gap_adjuster_speedup(tgen):
         } else if (U < L) {
             G = max(G / F, Gmin);   ← this branch fires on every call
         }
-    lsu_sent_for_dst() then uses the updated G to advance next_send_ms,
-    so each subsequent timer arms with the reduced delay.
+    ospf_ls_upd_queue_send() uses the *current* (pre-adjustment)
+    lsu_gap_ms to advance next_send_ms; pace_maybe_adjust_gap() runs
+    immediately after and only affects the following call's schedule
+    -- see the one-call lag above.
+
+    Why this test is timed differently from the others in this file
+    -----------------------------------------------------------------
+    Unlike the other tests here, the timeout value IS the assertion:
+    it has to be short enough to reject the no-speedup outcome (~6.0s
+    remaining) while still admitting the speedup outcome (~3.5s
+    remaining). Flooring it at 15s like the other tests would make
+    both outcomes pass, silently discarding the coverage this test
+    exists to provide. Instead, the clock starts at *first arrival*
+    (a generous, separately-floored wait that absorbs redistribution
+    jitter, since that has nothing to do with the gap timer's
+    behavior after LSA-1 is sent) rather than at _add_routes() time,
+    so a slow redistribution round-trip can no longer eat into the
+    discriminating margin and false-fail a working implementation.
     """
 
     if tgen.routers_have_failure():
@@ -533,24 +628,42 @@ def test_gap_adjuster_speedup(tgen):
     )
 
     cfg = r1.vtysh_cmd("show running-config")
-    assert "ip ospf lsa-pacing initial-gap 2000" in cfg, \
-        "initial-gap 2000 not in running-config — vtysh command failed."
+    assert (
+        "ip ospf lsa-pacing initial-gap 2000" in cfg
+    ), "initial-gap 2000 not in running-config — vtysh command failed."
 
     _add_routes(r1)
 
-    # Budget: 1s throttle + ~1.7s actual + 1.3s margin = 4s.
-    # Without speedup the same 4 LSAs need ~7s (1s throttle + 6s at G=2000ms).
-    # Passing within 4s proves speedup fired.
-    timeout_s = 4.0
-    final_count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
+    # Anchor on first arrival -- generous, since redistribution/
+    # origination timing has nothing to do with what this test
+    # discriminates (the gap timer's behavior *after* LSA-1 is sent).
+    # Widening this wait is safe.
+    first = _wait_at_least(r2, 1, timeout_s=15)
+    assert first >= 1, (
+        "No LSA arrived at R2 within 15s. "
+        "Check that OSPF adjacency is Full and redistribution is active."
+    )
+
+    # From first arrival, the remaining (NUM_ROUTES-1) LSAs must land
+    # within the speedup timeline (~3.5s, accounting for the one-call
+    # lag in ospf_r4_nbr_send_timer() -- see the docstring) + margin,
+    # discriminating against the no-speedup timeline (~6.0s for the
+    # same remaining LSAs). This window MUST stay tight -- it is the
+    # actual assertion under test, not a safety margin, so it is NOT
+    # floored at 15s like the other tests in this file.
+    remaining_budget_s = 3.5 + 1.0  # 4.5s
+    final_count = _wait_lsas(r2, NUM_ROUTES, remaining_budget_s)
 
     assert final_count == NUM_ROUTES, (
-        "Speedup did not reduce delivery time: only {}/{} LSAs arrived in {:.0f}s. "
-        "With initial-gap=2000ms and low-watermark=100, G should halve on every "
-        "send cycle reaching min-gap=200ms quickly. "
-        "Without speedup all {} LSAs need ~7s. "
+        "Speedup did not reduce delivery time: only {}/{} LSAs arrived "
+        "within {:.1f}s of the first one. "
+        "With initial-gap=2000ms and low-watermark=100, G should halve on "
+        "every send cycle reaching min-gap=200ms quickly (expected ~3.5s "
+        "for the remaining {} LSAs, accounting for the one-call lag "
+        "before an adjustment takes effect). Without speedup the same "
+        "LSAs need ~6.0s. "
         "Check the U < L branch in pace_maybe_adjust_gap().".format(
-            final_count, NUM_ROUTES, timeout_s, NUM_ROUTES
+            final_count, NUM_ROUTES, remaining_budget_s, NUM_ROUTES - 1
         )
     )
 
@@ -558,6 +671,7 @@ def test_gap_adjuster_speedup(tgen):
 # ---------------------------------------------------------------------------
 # Test 6: gap adjuster backoff — aggressive config still delivers all LSAs
 # ---------------------------------------------------------------------------
+
 
 def test_gap_adjuster_backoff(tgen):
     """
@@ -595,6 +709,11 @@ def test_gap_adjuster_backoff(tgen):
       Worst case (G maxes at 500ms for all remaining LSAs after first):
         1s throttle + (NUM_ROUTES-1) * 500ms + 2s margin
       This is the upper bound regardless of how many times backoff fires.
+      Unlike test_gap_adjuster_speedup, this budget is a pure upper
+      bound with no discrimination against a "backoff didn't fire"
+      case baked into the timing -- so it can safely be floored at 15s
+      per topotest convention, and preceded by a precondition check
+      confirming R1 itself originated all NUM_ROUTES LSAs first.
     """
 
     if tgen.routers_have_failure():
@@ -617,23 +736,37 @@ def test_gap_adjuster_backoff(tgen):
     )
 
     cfg = r1.vtysh_cmd("show running-config")
-    assert "ip ospf lsa-pacing initial-gap 100" in cfg, \
-        "initial-gap 100 not in running-config — vtysh command failed."
+    assert (
+        "ip ospf lsa-pacing initial-gap 100" in cfg
+    ), "initial-gap 100 not in running-config — vtysh command failed."
 
     _add_routes(r1)
 
     # Worst case: G maxes at 500ms for every inter-LSA gap.
-    # Budget: 1s throttle + (NUM_ROUTES-1)*500ms + 2s margin.
-    timeout_s = 1 + (NUM_ROUTES - 1) * 0.5 + 2
+    # Budget: 1s throttle + (NUM_ROUTES-1)*500ms + 2s margin, floored
+    # at 15s per topotest convention.
+    pacing_time_total = 1 + (NUM_ROUTES - 1) * 0.5 + 2
+    timeout_s = max(pacing_time_total, 15)
+
+    # Precondition: confirm R1 itself originated all NUM_ROUTES LSAs
+    # before timing delivery to R2.
+    origin_count = _wait_lsas(r1, NUM_ROUTES, timeout_s)
+    assert origin_count == NUM_ROUTES, (
+        "R1 only originated {}/{} external LSAs within {:.1f}s of "
+        "adding the routes. This is a redistribution/zebra issue, "
+        "not the backoff path.".format(origin_count, NUM_ROUTES, timeout_s)
+    )
+
     final_count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
 
     assert final_count == NUM_ROUTES, (
-        "Only {}/{} LSAs delivered with aggressive backoff config in {:.1f}s. "
+        "R1 originated all {} LSAs but only {}/{} were delivered with "
+        "aggressive backoff config in {:.1f}s. "
         "With initial-gap=100ms, max-gap=500ms and factor=3, all {} LSAs must "
         "still be delivered even if G backs off to max-gap. "
         "Check the U > H branch in pace_maybe_adjust_gap() and the "
         "send timer re-arm logic under increasing G.".format(
-            final_count, NUM_ROUTES, timeout_s, NUM_ROUTES
+            NUM_ROUTES, final_count, NUM_ROUTES, timeout_s, NUM_ROUTES
         )
     )
 
@@ -641,6 +774,7 @@ def test_gap_adjuster_backoff(tgen):
 # ---------------------------------------------------------------------------
 # Fixture: pacing pre-configured in frr.conf (active before adjacency forms)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="function")
 def tgen_pacing(request):
@@ -659,12 +793,7 @@ def tgen_pacing(request):
     tgen.start_router()
 
     r1 = tgen.gears["r1"]
-    r1.vtysh_cmd(
-        "configure terminal\n"
-        "router ospf\n"
-        "redistribute static\n"
-        "end"
-    )
+    r1.vtysh_cmd("configure terminal\n" "router ospf\n" "redistribute static\n" "end")
 
     time.sleep(12)
 
@@ -676,6 +805,7 @@ def tgen_pacing(request):
 # ---------------------------------------------------------------------------
 # Test 7: Router-LSA paced via pre-configured frr.conf
 # ---------------------------------------------------------------------------
+
 
 def test_router_lsa_paced_from_config(tgen_pacing):
     """
@@ -709,29 +839,42 @@ def test_router_lsa_paced_from_config(tgen_pacing):
 
     # Verify pacing is active from config — no _enable_pacing() call needed
     cfg = r1.vtysh_cmd("show running-config")
-    assert "ip ospf lsa-pacing" in cfg, \
-        "Pacing not active from frr_pacing.conf — check fixture config load"
+    assert (
+        "ip ospf lsa-pacing" in cfg
+    ), "Pacing not active from frr_pacing.conf — check fixture config load"
 
     # Trigger Type-1 Router-LSA re-origination via cost change
-    r1.vtysh_cmd(
-        "configure terminal\n"
-        "interface eth1\n"
-        "ip ospf cost 100\n"
-        "end"
-    )
+    r1.vtysh_cmd("configure terminal\n" "interface eth1\n" "ip ospf cost 100\n" "end")
 
     # Inject Type-5 LSAs — these and the Type-1 share the same R4 queue
     _add_routes(r1)
 
-    # Budget: 1s LSA throttle + (NUM_ROUTES + 1 Type-1) gaps + 2s margin
-    timeout_s = 1 + (NUM_ROUTES + 1) * 1.0 + 2
+    # Budget: 1s LSA throttle + (NUM_ROUTES + 1 Type-1) gaps + 2s margin,
+    # floored at 15s per topotest convention.
+    pacing_time_total = 1 + (NUM_ROUTES + 1) * 1.0 + 2
+    timeout_s = max(pacing_time_total, 15)
+
+    # Precondition: confirm R1 itself originated all NUM_ROUTES Type-5
+    # LSAs before timing delivery to R2. This is a redistribution/zebra
+    # step, unrelated to whether the R4 queue correctly mixes Type-1
+    # and Type-5 LSAs -- the thing actually under test below.
+    origin_count = _wait_lsas(r1, NUM_ROUTES, timeout_s)
+    assert origin_count == NUM_ROUTES, (
+        "R1 only originated {}/{} Type-5 external LSAs within {:.1f}s "
+        "of adding the routes. This is a redistribution/zebra issue, "
+        "not the mixed Type-1/Type-5 R4 queue path.".format(
+            origin_count, NUM_ROUTES, timeout_s
+        )
+    )
+
     count = _wait_lsas(r2, NUM_ROUTES, timeout_s)
 
     assert count == NUM_ROUTES, (
-        "Only {}/{} Type-5 LSAs arrived within {}s. "
+        "R1 originated all {} Type-5 LSAs but only {}/{} arrived at R2 "
+        "within {:.1f}s. "
         "Expected Type-1 and Type-5 to share the R4 queue and be delivered "
         "at 1000ms intervals. Check R4: flood enqueue lines in ospfd.log "
-        "for [Type1:] entries.".format(count, NUM_ROUTES, timeout_s)
+        "for [Type1:] entries.".format(NUM_ROUTES, count, NUM_ROUTES, timeout_s)
     )
 
 

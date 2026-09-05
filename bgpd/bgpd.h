@@ -328,9 +328,11 @@ struct vpn_policy {
 /* Manual label is registered with zebra label manager */
 #define BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG (1 << 5)
 #define BGP_VPN_POLICY_TOVPN_SID_EXPLICIT     (1 << 6)
-/* Is this value set by the cli? */
+/* Is this RD value set by the cli? */
 #define BGP_VPN_POLICY_TOVPN_RD_CLI_SET       (1 << 7)
 #define BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE    (1 << 8)
+/* Is this RT value set by the cli? */
+#define BGP_VPN_POLICY_TOVPN_RT_CLI_SET (1 << 9)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
@@ -785,11 +787,10 @@ struct bgp {
 #define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW (1ULL << 45)
 #define BGP_FLAG_USE_RECURSIVE_WEIGHT (1ULL << 46)
-
 /* Use current (imported) path's attributes instead of source path's attributes
  * for bestpath comparison of imported paths.
  */
-#define BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS (1ULL << 45)
+#define BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS (1ULL << 47)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -833,6 +834,8 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 /* vpnvx retain flag */
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
+#define BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN (1 << 12)
+#define BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN (1 << 13)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
@@ -2013,6 +2016,7 @@ struct peer {
 #define PEER_STATUS_EXT_OPT_PARAMS_LENGTH	 (1U << 5)
 #define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 6) /* BFD strict hold time expired */
 #define PEER_STATUS_COND_ADV_PENDING		 (1U << 7) /* conditional advertisement pending */
+#define PEER_STATUS_BFD_STRICT_HOLD		 (1U << 8) /* BFD strict mode holds the connection */
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];

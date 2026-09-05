@@ -2883,7 +2883,7 @@ DEFUN (vnc_nve_group_responselifetime,
  * with the lack of rigorous level control in the command handler.
  * TBD fix command handler.
  */
-DEFUN_NOSH (exit_vnc,
+DEFUN_YANG_NOSH (exit_vnc,
        exit_vnc_cmd,
        "exit-vnc",
        "Exit VNC configuration mode\n")
@@ -3318,7 +3318,7 @@ DEFUN (vnc_vrf_policy_rd,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (exit_vrf_policy,
+DEFUN_YANG_NOSH (exit_vrf_policy,
        exit_vrf_policy_cmd,
        "exit-vrf-policy",
        "Exit VRF policy configuration mode\n")

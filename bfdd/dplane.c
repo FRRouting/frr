@@ -380,6 +380,12 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 	bs->remote_diag = state->diagnostics;
 	bs->discrs.remote_discr = ntohl(state->rid);
 	bs->remote_cbit = !!(flags & RBIT_CPI);
+	/*
+	 * Only the peer's Demand bit is recorded here. The data plane
+	 * owns transmission and detection for offloaded sessions, so
+	 * demand mode is reported as configured rather than active.
+	 */
+	bs->remote_demand_mode = !!(flags & RBIT_DEMAND);
 	bs->remote_detect_mult = state->detection_multiplier;
 	bs->remote_timers.desired_min_tx = ntohl(state->desired_tx);
 	bs->remote_timers.required_min_rx = ntohl(state->required_rx);
@@ -576,6 +582,16 @@ static int bfd_dplane_expect(struct bfd_dplane_ctx *bdc, uint16_t id,
 	ssize_t rv;
 
 	/*
+	 * Reclaim space consumed by previous calls. Synchronous callers
+	 * (e.g. the counters request) consume one message per call, so the
+	 * `reads`-based pulldown below never runs for them and consumed
+	 * bytes would otherwise accumulate until the buffer artificially
+	 * fills mid-message and a zero-length read is misdiagnosed as the
+	 * peer closing the connection.
+	 */
+	stream_pulldown(bdc->inbuf);
+
+	/*
 	 * Don't attempt to read if buffer is full, otherwise we'll get a
 	 * bogus 'connection closed' signal (rv == 0).
 	 */
@@ -583,6 +599,28 @@ static int bfd_dplane_expect(struct bfd_dplane_ctx *bdc, uint16_t id,
 		goto skip_read;
 
 read_again:
+	/*
+	 * Never issue a zero-length read: `read()` returns 0 and would be
+	 * misdiagnosed below as the peer closing the connection. If there
+	 * is no headroom, reclaim consumed space first; a buffer that is
+	 * still full after that holds a message larger than the buffer,
+	 * which is a protocol violation.
+	 */
+	if (STREAM_WRITEABLE(bdc->inbuf) == 0) {
+		stream_pulldown(bdc->inbuf);
+		if (STREAM_WRITEABLE(bdc->inbuf) == 0) {
+			/*
+			 * A single message larger than the whole buffer:
+			 * protocol violation, this peer cannot be parsed.
+			 * Tear the connection down like the other fatal
+			 * paths do.
+			 */
+			zlog_err("%s: input buffer full with incomplete message", __func__);
+			bfd_dplane_ctx_free(bdc);
+			return -1;
+		}
+	}
+
 	/* Attempt to read message from client. */
 	rv = stream_read_try(bdc->inbuf, bdc->sock,
 			     STREAM_WRITEABLE(bdc->inbuf));
@@ -740,6 +778,49 @@ static void _bfd_session_unregister_dplane(struct hash_bucket *hb, void *arg)
 	bfd_session_enable(bs);
 }
 
+/*
+ * Best-effort synchronous drain of the output buffer during shutdown.
+ *
+ * At shutdown every session enqueues a `DP_DELETE_SESSION` message, but
+ * the event loop never runs again to service the write event, so anything
+ * still buffered when the context is freed would be silently lost. Write
+ * it out here with a bounded retry so the data plane learns about all
+ * teardowns.
+ *
+ * This must not call `bfd_dplane_flush()`: its error path frees the
+ * context, and we are called from inside `bfd_dplane_ctx_free()`.
+ */
+static void bfd_dplane_ctx_shutdown_drain(struct bfd_dplane_ctx *bdc)
+{
+	size_t remaining;
+	ssize_t rv;
+
+	/* Nothing to write or nowhere to write it. */
+	if (bdc->sock == -1 || bdc->connecting)
+		return;
+
+	/*
+	 * Best-effort flush of the queued session deletions. The event
+	 * loop is already gone at shutdown and the socket is owned by the
+	 * frrevent machinery, so we do not re-arm a write event or block
+	 * waiting on it: a single pass writing whatever the socket will
+	 * take, and if it would block or errors we give up. Any unsent
+	 * deletions are simply timed out by the data plane instead.
+	 */
+	while ((remaining = STREAM_READABLE(bdc->outbuf)) > 0) {
+		rv = write(bdc->sock, stream_pnt(bdc->outbuf), remaining);
+		if (rv <= 0)
+			break;
+		bdc->out_bytes += (uint64_t)rv;
+		stream_forward_getp(bdc->outbuf, (size_t)rv);
+	}
+
+	remaining = STREAM_READABLE(bdc->outbuf);
+	if (remaining)
+		zlog_warn("%s: %zu bytes of data plane messages lost on shutdown", __func__,
+			  remaining);
+}
+
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
 {
 	if (bglobal.debug_dplane)
@@ -771,6 +852,10 @@ free_resources:
 	/* Detach all associated sessions. */
 	if (bglobal.bg_shutdown == false)
 		bfd_key_iterate(_bfd_session_unregister_dplane, bdc);
+
+	/* Deliver pending messages (e.g. session deletions) on shutdown. */
+	if (bglobal.bg_shutdown)
+		bfd_dplane_ctx_shutdown_drain(bdc);
 
 	/* Free resources. */
 	socket_close(&bdc->sock);
@@ -813,6 +898,8 @@ static void _bfd_dplane_session_fill(const struct bfd_session *bs,
 		msg->data.session.flags |= SESSION_ECHO;
 	if (bs->flags & BFD_SESS_FLAG_CBIT)
 		msg->data.session.flags |= SESSION_CBIT;
+	if (bs->flags & BFD_SESS_FLAG_DEMAND)
+		msg->data.session.flags |= SESSION_DEMAND;
 	if (bs->flags & BFD_SESS_FLAG_PASSIVE)
 		msg->data.session.flags |= SESSION_PASSIVE;
 	if (bs->flags & BFD_SESS_FLAG_SHUTDOWN)

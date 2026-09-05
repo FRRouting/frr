@@ -498,7 +498,11 @@ routes until the respective ``advertise <afi> unicast`` command has been
 configured in the BGP instance of the VRF in question. All routes in the BGP
 RIB (locally originated, learned from a peer, or leaked from another VRF) will
 be eligible to be exported to EVPN so long as they are valid and selected in
-the VRF's unicast table.
+the VRF's unicast table. Routes directly imported from EVPN are not exported
+again. The optional ``skip-evpn-imported`` keyword additionally
+prevents export of a route whose ultimate VRF-leak import parent is in the
+EVPN table. This avoids re-export loops for EVPN-origin routes leaked between
+VRFs.
 
 In this example, the BGP instances for vrf1 and vrf2 will have their static
 routes redistributed into the BGP loc-rib for the ipv4 unicast and ipv6 unicast

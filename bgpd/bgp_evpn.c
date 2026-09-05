@@ -836,40 +836,40 @@ static bool bgp_evpn_wildcard_rt_local_admin_from_eval(uint8_t type,
 }
 
 /* Flag if the route is injectable into EVPN.
- * This would be following category:
- * Non-imported route,
- * Non-EVPN imported route,
+ * Routes directly imported from EVPN retain the legacy suppression behavior.
+ * With skip-evpn-imported, also suppress paths whose ultimate import
+ * parent is the EVPN table.
  */
-bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi)
+bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
+					    struct bgp_path_info *pi)
 {
 	struct bgp_path_info *parent_pi;
-	struct bgp_table *table;
 	struct bgp_dest *dest;
+	struct bgp_table *table;
 
-	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
-	    !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
-		return true;
+	/* Preserve the previous direct EVPN-import suppression. */
+	if (pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra && pi->extra->vrfleak &&
+	    pi->extra->vrfleak->parent) {
+		parent_pi = pi->extra->vrfleak->parent;
+		dest = parent_pi->net;
+		table = dest ? bgp_dest_table(dest) : NULL;
+		if (table && table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
+			return false;
+	}
 
-        parent_pi = (struct bgp_path_info *)pi->extra->vrfleak->parent;
-        dest = parent_pi->net;
-        if (!dest)
-		return true;
-        table = bgp_dest_table(dest);
-        if (table &&
-            table->afi == AFI_L2VPN &&
-            table->safi == SAFI_EVPN)
-                return false;
+	if (safi == SAFI_UNICAST && bgp_evpn_suppress_import_from_evpn(bgp_vrf, afi) &&
+	    IS_PATH_IMPORTED_FROM_EVPN_TABLE(pi))
+		return false;
 
-        return true;
+	return true;
 }
 
 /* Flag if the route is injectable into EVPN.
- * This would be following category:
- * Non-imported route,
- * Non-EVPN imported route,
- * Non Aggregate suppressed route.
+ * This includes the imported-from-EVPN suppression check above and skips
+ * aggregate-suppressed paths.
  */
-bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
+bool is_route_injectable_into_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
+				   struct bgp_path_info *pi)
 {
 	/* do not import aggr suppressed routes */
 	if (bgp_path_suppressed(pi)) {
@@ -877,7 +877,7 @@ bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
 		return false;
 	}
 
-	return is_route_injectable_into_evpn_non_supp(pi);
+	return is_route_injectable_into_evpn_non_supp(bgp_vrf, afi, safi, pi);
 }
 
 /*
@@ -1191,9 +1191,6 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	uint16_t ipa_len;
 	static struct ipaddr zero_remote_vtep_ip = { .ipa_type = IPADDR_V4, .ipaddr_v4 = { INADDR_ANY } };
 	bool esi_valid;
-
-	if (ipaddr_is_same(&vpn->originator_ip, remote_vtep_ip))
-		return ZCLIENT_SEND_SUCCESS;
 
 	/* Check socket. */
 	if (!bgp_zclient || bgp_zclient->sock < 0) {
@@ -1684,7 +1681,6 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct bgp_dest *global_dest;
 	struct bgp_path_info *pi;
-	struct prefix_evpn *global_evp;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 
@@ -1702,9 +1698,6 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 				      : "");
 	}
 
-	/* Delete route entry in the VNI route table, caller to remove. */
-	bgp_path_info_mark_for_delete(dest, old_local);
-
 	/* Locate route node in the global EVPN routing table. Note that
 	 * this table is a 2-level tree (RD-level + Prefix-level) similar to
 	 * L3VPN routes.
@@ -1720,16 +1713,13 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
 		 */
-		if (pi) {
+		if (pi)
 			bgp_process(bgp, global_dest, pi, afi, safi);
-			global_evp = (struct prefix_evpn *)bgp_dest_get_prefix(global_dest);
-			if (global_evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
-			    !is_evpn_prefix_ipaddr_none(global_evp))
-				bgp_evpn_unimport_route(bgp, afi, safi,
-							(struct prefix *)global_evp, pi);
-		}
 		bgp_dest_unlock_node(global_dest);
 	}
+
+	/* Delete route entry in the VNI route table, caller to remove. */
+	bgp_path_info_mark_for_delete(dest, old_local);
 }
 
 /*
@@ -2694,11 +2684,6 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 			NULL /* ip */, 1, &global_pi, flags, seq,
 			false /* setup_sync */, NULL /* old_is_sync */);
 
-		if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE && !mac_only) {
-			SET_FLAG(global_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
-			bgp_evpn_import_route(bgp, afi, safi, bgp_dest_get_prefix(dest), global_pi);
-		}
-
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, dest, global_pi, afi, safi);
 		bgp_dest_unlock_node(dest);
@@ -2804,13 +2789,8 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
 		 */
-		if (pi) {
+		if (pi)
 			bgp_process(bgp, global_dest, pi, afi, safi);
-			if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
-			    !is_evpn_prefix_ipaddr_none(p))
-				bgp_evpn_unimport_route(bgp, afi, safi,
-							bgp_dest_get_prefix(global_dest), pi);
-		}
 		bgp_dest_unlock_node(global_dest);
 	}
 
@@ -2847,7 +2827,6 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	int route_change;
 	bool old_is_sync = false;
 	struct ecommunity *macvrf_soo = NULL;
-	bool mac_ip = false;
 
 	if (CHECK_FLAG(local_pi->flags, BGP_PATH_REMOVED))
 		return;
@@ -2866,7 +2845,6 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		evpn_type2_prefix_global_copy(
 			&evp, (struct prefix_evpn *)&dest->rn->p,
 			evpn_type2_path_info_get_mac(local_pi), NULL /* ip */);
-		mac_ip = true;
 	}
 
 	/*
@@ -2990,12 +2968,6 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, global_dest, global_pi, afi, safi);
-
-		if (mac_ip) {
-			SET_FLAG(global_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
-			bgp_evpn_import_route(bgp, afi, safi, (struct prefix *)&evp, global_pi);
-		}
-
 		bgp_dest_unlock_node(global_dest);
 	}
 
@@ -3072,12 +3044,8 @@ static void delete_global_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 				continue;
 
 			pi = delete_evpn_route_entry(bgp, afi, safi, dest, NULL, 0);
-			if (pi) {
+			if (pi)
 				bgp_process(bgp, dest, pi, afi, safi);
-				if (!is_evpn_prefix_ipaddr_none(evp))
-					bgp_evpn_unimport_route(bgp, afi, safi,
-								(struct prefix *)evp, pi);
-			}
 		}
 
 		/* Unlock RD node. */
@@ -3381,8 +3349,6 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 	/* Create new route with its attribute. */
 	pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0, parent_pi->peer,
 		       attr_new, dest);
-	if (CHECK_FLAG(parent_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
-		SET_FLAG(pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
 	SET_FLAG(pi->flags, BGP_PATH_VALID);
 	bgp_path_info_extra_get(pi);
 	if (!pi->extra->vrfleak)
@@ -4984,7 +4950,7 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 	struct attr *attr;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
-	bool mac_ip = false;
+
 	struct prefix_evpn tmp_evp;
 	const struct prefix_evpn *evp =
 		(const struct prefix_evpn *)bgp_dest_get_prefix(dest);
@@ -5016,7 +4982,6 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 			evpn_type2_prefix_global_copy(
 				&tmp_evp, evp, evpn_type2_path_info_get_mac(pi),
 				NULL /* ip */);
-			mac_ip = true;
 		}
 	} else {
 		memcpy(&tmp_evp, evp, sizeof(tmp_evp));
@@ -5037,11 +5002,6 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 			NULL /* ip */, 1, &global_pi, 0,
 			mac_mobility_seqnum(attr), false /* setup_sync */,
 			NULL /* old_is_sync */);
-		if (mac_ip) {
-			SET_FLAG(global_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
-			bgp_evpn_import_route(bgp, afi, safi, (struct prefix *)&tmp_evp, global_pi);
-		}
-
 	} else {
 		/* Type-1 route */
 		struct bgp_evpn_es *es;
@@ -6236,7 +6196,7 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 		 * type-5s in the EVPN table.
 		 */
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			if (!is_route_injectable_into_evpn_non_supp(pi))
+			if (!is_route_injectable_into_evpn_non_supp(bgp_vrf, afi, safi, pi))
 				continue;
 			addpath_id = bgp_evpn_addpath_id_for_path(bgp_vrf, pi, afi);
 			bgp_evpn_withdraw_type5_route(bgp_vrf, pi, bgp_dest_get_prefix(dest), afi,
@@ -6245,6 +6205,47 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 			if (advertise_type5_routes_bestpath(bgp_vrf, afi))
 				break;
 		}
+	}
+}
+
+/*
+ * Withdraw every local Type-5 path for a VRF prefix. This walks the EVPN
+ * table rather than relying on the source unicast path or AddPath ID.
+ */
+void bgp_evpn_withdraw_local_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
+{
+	struct bgp_table *table = bgp_vrf->rib[afi][safi];
+	struct bgp_dest *dest;
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct prefix_evpn evp;
+	struct bgp_path_info *pi;
+	struct bgp_dest *evpn_dest;
+
+	if (!bgp_evpn)
+		return;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		build_type5_prefix_from_ip_prefix(&evp, bgp_dest_get_prefix(dest));
+		evpn_dest = bgp_evpn_global_node_lookup(bgp_evpn->rib[AFI_L2VPN][SAFI_EVPN],
+							SAFI_EVPN, &evp, &bgp_vrf->vrf_prd, NULL);
+		if (!evpn_dest)
+			continue;
+
+		while (true) {
+			for (pi = bgp_dest_get_bgp_path_info(evpn_dest); pi; pi = pi->next) {
+				if (bgp_evpn_is_path_local(bgp_evpn, pi) &&
+				    !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+					break;
+			}
+
+			if (!pi)
+				break;
+
+			bgp_path_info_mark_for_delete(evpn_dest, pi);
+			bgp_process(bgp_evpn, evpn_dest, pi, AFI_L2VPN, SAFI_EVPN);
+		}
+
+		bgp_dest_unlock_node(evpn_dest);
 	}
 }
 
@@ -6306,7 +6307,7 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 		 * into EVPN.
 		 */
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			if (!is_route_injectable_into_evpn(pi))
+			if (!is_route_injectable_into_evpn(bgp_vrf, afi, safi, pi))
 				continue;
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) ||
@@ -8543,11 +8544,11 @@ void bgp_evpn_init(struct bgp *bgp)
 		bgp->evpn_info->dad_freeze_time = 0;
 		/* Initialize zebra vxlan */
 		bgp_zebra_dup_addr_detection(bgp);
-		/* Enable PIP feature by default for bgp vrf instance */
+
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
 			struct bgp *bgp_default;
 
-			bgp->evpn_info->advertise_pip = true;
+			bgp->evpn_info->advertise_pip = DFLT_BGP_EVPN_ADVERTISE_PIP;
 			bgp_default = bgp_get_default();
 			if (bgp_default) {
 				SET_IPADDR_V4(&bgp->evpn_info->pip_ip);
@@ -9187,7 +9188,7 @@ void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi, safi_t safi)
 					zlog_debug("%s aggregated %pFX remove suppressed route %pFX",
 						   __func__, aggr_p, dest_p);
 
-				if (!is_route_injectable_into_evpn_non_supp(pi))
+				if (!is_route_injectable_into_evpn_non_supp(bgp, afi, safi, pi))
 					continue;
 
 				addpath_id = bgp_evpn_addpath_id_for_path(bgp, pi, afi);
@@ -9195,6 +9196,7 @@ void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi, safi_t safi)
 							      addpath_id);
 			}
 		}
+		bgp_dest_unlock_node(top);
 	}
 }
 

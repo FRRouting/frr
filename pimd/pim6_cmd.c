@@ -101,6 +101,11 @@ DEFPY_YANG (pim6_joinprune_time,
 {
 	return pim_process_join_prune_cmd(vty, jpi_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim join-prune-interval (1-65535)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_joinprune_time,
            ipv6_pim_joinprune_time_cmd,
            "ipv6 pim join-prune-interval (1-65535)$jpi",
@@ -151,6 +156,10 @@ DEFPY_YANG (no_pim6_joinprune_time,
 	return pim_process_no_join_prune_cmd(vty);
 }
 
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim join-prune-interval [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_joinprune_time,
            no_ipv6_pim_joinprune_time_cmd,
            "no ipv6 pim join-prune-interval [(1-65535)]",
@@ -252,6 +261,11 @@ DEFPY (pim6_spt_switchover_infinity,
 {
 	return pim_process_spt_switchover_infinity_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim spt-switchover infinity-and-beyond` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_spt_switchover_infinity,
            ipv6_pim_spt_switchover_infinity_cmd,
            "ipv6 pim spt-switchover infinity-and-beyond",
@@ -303,6 +317,11 @@ DEFPY (pim6_spt_switchover_infinity_plist,
 {
 	return pim_process_spt_switchover_prefixlist_cmd(vty, plist);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME`")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_spt_switchover_infinity_plist,
            ipv6_pim_spt_switchover_infinity_plist_cmd,
            "ipv6 pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME$plist",
@@ -355,6 +374,11 @@ DEFPY (no_pim6_spt_switchover_infinity,
 {
 	return pim_process_no_spt_switchover_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim spt-switchover infinity-and-beyond` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_spt_switchover_infinity,
            no_ipv6_pim_spt_switchover_infinity_cmd,
            "no ipv6 pim spt-switchover infinity-and-beyond",
@@ -408,6 +432,11 @@ DEFPY (no_pim6_spt_switchover_infinity_plist,
 {
 	return pim_process_no_spt_switchover_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME`")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_spt_switchover_infinity_plist,
            no_ipv6_pim_spt_switchover_infinity_plist_cmd,
            "no ipv6 pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME",
@@ -460,6 +489,11 @@ DEFPY_YANG (pim6_packets,
 {
 	return pim_process_pim_packet_cmd(vty, packets_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim packets (1-255)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_pim_packets,
            ipv6_pim_packets_cmd,
            "ipv6 pim packets (1-255)",
@@ -510,6 +544,11 @@ DEFPY_YANG (no_pim6_packets,
 {
 	return pim_process_no_pim_packet_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim packets [(1-255)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_packets,
            no_ipv6_pim_packets_cmd,
            "no ipv6 pim packets [(1-255)]",
@@ -560,6 +599,11 @@ DEFPY_YANG (pim6_keep_alive,
 {
 	return pim_process_keepalivetimer_cmd(vty, kat_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim keep-alive-timer (1-65535)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_pim_keep_alive,
            ipv6_pim_keep_alive_cmd,
            "ipv6 pim keep-alive-timer (1-65535)$kat",
@@ -610,6 +654,11 @@ DEFPY_YANG (no_pim6_keep_alive,
 {
 	return pim_process_no_keepalivetimer_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim keep-alive-timer [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_keep_alive,
            no_ipv6_pim_keep_alive_cmd,
            "no ipv6 pim keep-alive-timer [(1-65535)]",
@@ -661,6 +710,11 @@ DEFPY_YANG (pim6_rp_keep_alive,
 {
 	return pim_process_rp_kat_cmd(vty, kat_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim rp keep-alive-timer (1-65535)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_pim_rp_keep_alive,
            ipv6_pim_rp_keep_alive_cmd,
            "ipv6 pim rp keep-alive-timer (1-65535)$kat",
@@ -713,6 +767,11 @@ DEFPY_YANG (no_pim6_rp_keep_alive,
 {
 	return pim_process_no_rp_kat_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim rp keep-alive-timer [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_rp_keep_alive,
            no_ipv6_pim_rp_keep_alive_cmd,
            "no ipv6 pim rp keep-alive-timer [(1-65535)]",
@@ -764,6 +823,11 @@ DEFPY_YANG (pim6_register_suppress,
 {
 	return pim_process_register_suppress_cmd(vty, rst_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim register-suppress-time (1-65535)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_pim_register_suppress,
            ipv6_pim_register_suppress_cmd,
            "ipv6 pim register-suppress-time (1-65535)$rst",
@@ -814,6 +878,11 @@ DEFPY_YANG (no_pim6_register_suppress,
 {
 	return pim_process_no_register_suppress_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim register-suppress-time [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_register_suppress,
            no_ipv6_pim_register_suppress_cmd,
            "no ipv6 pim register-suppress-time [(1-65535)]",
@@ -1050,6 +1119,11 @@ DEFPY (pim6_rp,
 
 	return pim_process_rp_cmd(vty, rp_str, group_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim rp X:X::X:X [X:X::X:X/M]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_pim_rp,
            ipv6_pim_rp_cmd,
            "ipv6 pim rp X:X::X:X$rp [X:X::X:X/M]$gp",
@@ -1105,6 +1179,11 @@ DEFPY (no_pim6_rp,
 
 	return pim_process_no_rp_cmd(vty, rp_str, group_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim rp X:X::X:X [X:X::X:X/M]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_rp,
            no_ipv6_pim_rp_cmd,
            "no ipv6 pim rp X:X::X:X$rp [X:X::X:X/M]$gp",
@@ -1159,6 +1238,11 @@ DEFPY (pim6_rp_prefix_list,
 {
 	return pim_process_rp_plist_cmd(vty, rp_str, plist);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 pim rp X:X::X:X prefix-list PREFIXLIST6_NAME` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_pim_rp_prefix_list,
            ipv6_pim_rp_prefix_list_cmd,
            "ipv6 pim rp X:X::X:X$rp prefix-list PREFIXLIST6_NAME$plist",
@@ -1213,6 +1297,11 @@ DEFPY (no_pim6_rp_prefix_list,
 {
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 pim rp X:X::X:X prefix-list PREFIXLIST6_NAME` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_pim_rp_prefix_list,
            no_ipv6_pim_rp_prefix_list_cmd,
            "no ipv6 pim rp X:X::X:X$rp prefix-list PREFIXLIST6_NAME$plist",
@@ -1411,6 +1500,11 @@ DEFPY (pim6_ssmpingd,
 
 	return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ipv6 ssmpingd [X:X::X:X]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ipv6_ssmpingd,
            ipv6_ssmpingd_cmd,
            "ipv6 ssmpingd [X:X::X:X]$source",
@@ -1463,6 +1557,11 @@ DEFPY (no_pim6_ssmpingd,
 
 	return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ipv6 ssmpingd [X:X::X:X]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ipv6_ssmpingd,
            no_ipv6_ssmpingd_cmd,
            "no ipv6 ssmpingd [X:X::X:X]$source",

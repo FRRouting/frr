@@ -3629,6 +3629,27 @@ static void bgp_update_graceful_restart_capability(struct peer *peer)
 	}
 }
 
+static void bgp_graceful_restart_restart_time_set(struct bgp *bgp, uint32_t restart_time,
+						  int action)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	if (bgp->restart_time == restart_time)
+		return;
+
+	bgp->restart_time = restart_time;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+		    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+			bgp_update_graceful_restart_capability(peer);
+		else
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART, action);
+	}
+}
+
 DEFUN (bgp_graceful_restart_restart_time,
 	bgp_graceful_restart_restart_time_cmd,
 	"bgp graceful-restart restart-time (0-4095)",
@@ -3639,38 +3660,20 @@ DEFUN (bgp_graceful_restart_restart_time,
 {
 	int idx_number = 3;
 	uint32_t restart;
-	struct listnode *node, *nnode;
-	struct peer *peer;
 
 	restart = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
 		struct bgp *bgp;
 
 		bm->restart_time = restart;
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			bgp->restart_time = restart;
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
-				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-					bgp_update_graceful_restart_capability(peer);
-				else
-					bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-							    CAPABILITY_CODE_RESTART,
-							    CAPABILITY_ACTION_SET);
-			}
-		}
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			bgp_graceful_restart_restart_time_set(bgp, restart, CAPABILITY_ACTION_SET);
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		bgp->restart_time = restart;
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
-			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-				bgp_update_graceful_restart_capability(peer);
-			else
-				bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
-		}
+
+		bgp_graceful_restart_restart_time_set(bgp, restart, CAPABILITY_ACTION_SET);
 	}
 	return CMD_SUCCESS;
 }
@@ -3745,39 +3748,19 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 	"Set the time to wait to delete stale routes before a BGP open message is received\n"
 	"Delay value (seconds)\n")
 {
-	struct listnode *node, *nnode;
-	struct peer *peer;
-
 	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
 		struct bgp *bgp;
 
 		bm->restart_time = BGP_DEFAULT_RESTART_TIME;
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
-
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
-				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-					bgp_update_graceful_restart_capability(peer);
-				else
-					bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-							    CAPABILITY_CODE_RESTART,
-							    CAPABILITY_ACTION_UNSET);
-			}
-		}
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			bgp_graceful_restart_restart_time_set(bgp, BGP_DEFAULT_RESTART_TIME,
+							      CAPABILITY_ACTION_UNSET);
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
-			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-				bgp_update_graceful_restart_capability(peer);
-			else
-				bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART,
-						    CAPABILITY_ACTION_UNSET);
-		}
+		bgp_graceful_restart_restart_time_set(bgp, BGP_DEFAULT_RESTART_TIME,
+						      CAPABILITY_ACTION_UNSET);
 	}
 	return CMD_SUCCESS;
 }
@@ -11364,11 +11347,17 @@ DEFPY (af_rt_vpn_imexport,
 						&bgp->vpn_policy[afi].rtlist[dir]);
 			bgp->vpn_policy[afi].rtlist[dir] =
 				ecommunity_dup(ecom);
+			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
+				SET_FLAG(bgp->vpn_policy[afi].flags,
+					 BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
 		} else {
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);
 			bgp->vpn_policy[afi].rtlist[dir] = NULL;
+			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
+				UNSET_FLAG(bgp->vpn_policy[afi].flags,
+					   BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
 		}
 
 		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
@@ -12090,7 +12079,7 @@ DEFPY (show_bgp_srv6,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (exit_address_family,
+DEFUN_YANG_NOSH (exit_address_family,
        exit_address_family_cmd,
        "exit-address-family",
        "Exit from Address Family configuration mode\n")
@@ -14366,6 +14355,29 @@ static void bgp_show_summary_advertisement_delay(struct vty *vty,
 	}
 }
 
+/*
+ * Per-instance identification header, shared by the peered and the peerless
+ * paths of bgp_show_summary().
+ */
+static void bgp_show_summary_instance_header(struct vty *vty, struct bgp *bgp, json_object *json,
+					     bool use_json)
+{
+	int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : (int64_t)bgp->vrf_id;
+
+	if (use_json) {
+		json_object_string_addf(json, "routerId", "%pI4", &bgp->router_id);
+		asn_asn2json(json, "as", bgp->as, bgp->asnotation);
+		json_object_int_add(json, "vrfId", vrf_id_ui);
+		json_object_string_add(json, "vrfName",
+				       bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+					       ? VRF_DEFAULT_NAME
+					       : bgp->name);
+	} else {
+		vty_out(vty, "BGP router identifier %pI4, local AS number %s %s vrf-id %d\n",
+			&bgp->router_id, bgp->as_pretty, bgp->name_pretty, (int)vrf_id_ui);
+	}
+}
+
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			    struct peer *fpeer, enum peer_asn_type as_type,
 			    as_t as, uint16_t show_flags)
@@ -14506,42 +14518,14 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (!count) {
 			unsigned long ents;
 			char memstrbuf[MTYPE_MEMSTR_LEN];
-			int64_t vrf_id_ui;
-
-			vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
-					    ? -1
-					    : (int64_t)bgp->vrf_id;
 
 			/* Usage summary and header */
-			if (use_json) {
-				json_object_string_addf(json, "routerId",
-							"%pI4",
-							&bgp->router_id);
-				asn_asn2json(json, "as", bgp->as,
-					     bgp->asnotation);
-				json_object_int_add(json, "vrfId", vrf_id_ui);
-				json_object_string_add(
-					json, "vrfName",
-					(bgp->inst_type
-					 == BGP_INSTANCE_TYPE_DEFAULT)
-						? VRF_DEFAULT_NAME
-						: bgp->name);
-			} else {
-				vty_out(vty,
-					"BGP router identifier %pI4, local AS number %s %s vrf-id %d",
-					&bgp->router_id, bgp->as_pretty,
-					bgp->name_pretty,
-					bgp->vrf_id == VRF_UNKNOWN
-						? -1
-						: (int)bgp->vrf_id);
-				vty_out(vty, "\n");
-			}
+			bgp_show_summary_instance_header(vty, bgp, json, use_json);
 
 			bgp_show_summary_update_delay(vty, bgp, json,
 						     use_json);
 
-			bgp_show_summary_advertisement_delay(vty, bgp, json,
-							     use_json);
+			bgp_show_summary_advertisement_delay(vty, bgp, json, use_json);
 
 			if (use_json) {
 				if (bgp_maxmed_onstartup_configured(bgp)
@@ -15010,6 +14994,17 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		}
 	}
 
+	/*
+	 * An instance with no peers in this AFI/SAFI never reached the header
+	 * block inside the loop above, but it can still have advertisement-delay
+	 * state to report: the timer is started by the first peer to reach
+	 * Established in any instance.
+	 */
+	if (!count && bgp_advertisement_delay_configured(bgp)) {
+		bgp_show_summary_instance_header(vty, bgp, json, use_json);
+		bgp_show_summary_advertisement_delay(vty, bgp, json, use_json);
+	}
+
 	if (use_json) {
 		json_object_object_add(json, "peers", json_peers);
 		json_object_int_add(json, "failedPeers", failed_count);
@@ -15053,6 +15048,36 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Number of peers configured in this BGP instance, counted once per peer
+ * regardless of how many address families it is activated in.
+ */
+static uint32_t bgp_instance_peer_count(struct bgp *bgp)
+{
+	struct listnode *node;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	uint32_t count = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		bool activated = false;
+
+		if (!peer_is_config_node(peer))
+			continue;
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (peer->afc[afi][safi])
+				activated = true;
+		}
+
+		if (activated)
+			count++;
+	}
+
+	return count;
+}
+
 static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 				      int safi, struct peer *fpeer, int as_type,
 				      as_t as, uint16_t show_flags)
@@ -15063,6 +15088,11 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 	int is_wildcard = (afi_wildcard || safi_wildcard);
 	bool nbr_output = false;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	/* A VRF with no peers of its own still has to report its
+	 * advertisement-delay state; show it once, under IPv4 unicast.
+	 */
+	bool adv_delay_only = bgp_advertisement_delay_configured(bgp) &&
+			      !bgp_instance_peer_count(bgp);
 
 	if (use_json && is_wildcard)
 		vty_out(vty, "{\n");
@@ -15072,7 +15102,8 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 		if (safi_wildcard)
 			safi = 1; /* SAFI_UNICAST */
 		while (safi < SAFI_MAX) {
-			if (bgp_afi_safi_peer_exists(bgp, afi, safi)) {
+			if (bgp_afi_safi_peer_exists(bgp, afi, safi) ||
+			    (adv_delay_only && afi == AFI_IP && safi == SAFI_UNICAST)) {
 				nbr_output = true;
 
 				if (is_wildcard) {
@@ -15886,31 +15917,26 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			char comm_attri_sent_to_nbr[BGP_SEND_COMMUNITY_STR_SIZE] = { 0 };
 
 			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)) {
-				strncat(comm_attri_sent_to_nbr, "standard",
-					sizeof(comm_attri_sent_to_nbr) -
-						strlen(comm_attri_sent_to_nbr) - 1);
+				strlcat(comm_attri_sent_to_nbr, "standard",
+					sizeof(comm_attri_sent_to_nbr));
 			}
 
 			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)) {
 				if (strlen(comm_attri_sent_to_nbr) > 0) {
-					strncat(comm_attri_sent_to_nbr, "And",
-						sizeof(comm_attri_sent_to_nbr) -
-							strlen(comm_attri_sent_to_nbr) - 1);
+					strlcat(comm_attri_sent_to_nbr, "And",
+						sizeof(comm_attri_sent_to_nbr));
 				}
-				strncat(comm_attri_sent_to_nbr, "extended",
-					sizeof(comm_attri_sent_to_nbr) -
-						strlen(comm_attri_sent_to_nbr) - 1);
+				strlcat(comm_attri_sent_to_nbr, "extended",
+					sizeof(comm_attri_sent_to_nbr));
 			}
 
 			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_LARGE_COMMUNITY)) {
 				if (strlen(comm_attri_sent_to_nbr) > 0) {
-					strncat(comm_attri_sent_to_nbr, "And",
-						sizeof(comm_attri_sent_to_nbr) -
-							strlen(comm_attri_sent_to_nbr) - 1);
+					strlcat(comm_attri_sent_to_nbr, "And",
+						sizeof(comm_attri_sent_to_nbr));
 				}
-				strncat(comm_attri_sent_to_nbr, "large",
-					sizeof(comm_attri_sent_to_nbr) -
-						strlen(comm_attri_sent_to_nbr) - 1);
+				strlcat(comm_attri_sent_to_nbr, "large",
+					sizeof(comm_attri_sent_to_nbr));
 			}
 
 			json_object_string_add(json_addr, "commAttriSentToNbr",
@@ -18430,6 +18456,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 			json_object_boolean_add(json_neigh, "bfdHoldTimerExpired",
 						!!CHECK_FLAG(p->sflags,
 							     PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED));
+			json_object_boolean_add(json_neigh, "bfdStrictHold",
+						!!CHECK_FLAG(p->sflags,
+							     PEER_STATUS_BFD_STRICT_HOLD));
 		}
 		if (event_is_scheduled(p->connection->t_start))
 			json_object_int_add(json_neigh,
@@ -18496,6 +18525,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 			vty_out(vty, "BFD Hold Time (interval %u) timer expires in %ld seconds\n",
 				p->bfd_config->hold_time,
 				event_timer_remain_second(p->bfd_config->t_hold_timer));
+
+		if (CHECK_FLAG(p->sflags, PEER_STATUS_BFD_STRICT_HOLD))
+			vty_out(vty,
+				"Incoming connection held until BFD session is up (BFD strict mode)\n");
 
 		if (p->password)
 			vty_out(vty, "Peer Authentication Enabled\n");

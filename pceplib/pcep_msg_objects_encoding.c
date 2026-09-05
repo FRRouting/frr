@@ -989,6 +989,7 @@ struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf, size_t buf
 {
 
 	struct pcep_object_header object_hdr;
+	struct pcep_object_tlv_header tlv_hdr;
 
 	if (buflen < OBJECT_HEADER_LENGTH) {
 		pcep_log(LOG_INFO, "%s: Cannot decode Object: invalid length", __func__);
@@ -1042,13 +1043,36 @@ struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf, size_t buf
 		object->tlv_list = dll_initialize();
 		int num_iterations = 0;
 		uint16_t tlv_index = pcep_object_get_length_by_hdr(&object_hdr);
-		while ((object->encoded_object_length - tlv_index) > 0
-		       && num_iterations++ < MAX_ITERATIONS) {
+		while (tlv_index <= object->encoded_object_length &&
+		       (object->encoded_object_length - tlv_index) >= TLV_HEADER_LENGTH &&
+		       num_iterations++ < MAX_ITERATIONS) {
+			/* Examine the header fields, validate on-the-wire length */
+			pcep_decode_tlv_hdr(obj_buf + tlv_index, &tlv_hdr);
+
+			if ((tlv_hdr.encoded_tlv_length + TLV_HEADER_LENGTH) >
+			    (object->encoded_object_length - tlv_index)) {
+				/* Invalid, clean up: we don't know how to proceed
+				 * if the incoming data is invalid.
+				 */
+				pcep_log(LOG_INFO, "%s: Invalid TLV header: invalid header length %d",
+					 __func__, tlv_hdr.encoded_tlv_length);
+				pcep_obj_free_object(object);
+				object = NULL;
+				break;
+			}
+
 			struct pcep_object_tlv_header *tlv =
 				pcep_decode_tlv(obj_buf + tlv_index);
 			if (tlv == NULL) {
-				/* TODO should we do anything else here ? */
-				return object;
+				/* The caller expects this code to consume all of the
+				 * octets in the object; if we cannot do that, we should
+				 * fail the decode.
+				 */
+				pcep_log(LOG_INFO, "%s: Invalid TLV: Failed to decode",
+					 __func__);
+				pcep_obj_free_object(object);
+				object = NULL;
+				break;
 			}
 
 			/* The TLV length does not include the TLV header */
@@ -1551,7 +1575,7 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 		hdr->encoded_object_length - OBJECT_HEADER_LENGTH;
 
 	while ((obj_body_length - read_count) > OBJECT_RO_SUBOBJ_HEADER_LENGTH
-	       && num_sub_objects < MAX_ITERATIONS) {
+	       && num_sub_objects <= MAX_RO_ITERATIONS) {
 		num_sub_objects++;
 		/* Read the Sub-Object Header */
 		bool flag_l = (obj_buf[read_count] & 0x80);
@@ -1975,6 +1999,13 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 		if (err_p)
 			break;
 	}
+
+	/* Warn user when sub-objects have not been decoded */
+	if (!err_p && (obj_body_length - read_count) > 0)
+		pcep_log(LOG_WARNING,
+			 "%s: RO object truncated at %d sub-objects, %d bytes left undecoded",
+			 __func__, num_sub_objects - 1,
+			 obj_body_length - read_count);
 
 	if (err_p) {
 		pcep_obj_free_object((struct pcep_object_header *)obj);

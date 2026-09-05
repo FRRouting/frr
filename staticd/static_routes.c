@@ -389,6 +389,13 @@ static void static_ifindex_update_nh(struct interface *ifp, bool up, struct stat
 			return;
 		if (nh->nh_vrf_id != ifp->vrf->vrf_id)
 			return;
+		/*
+		 * Nexthop is already resolved to this interface: nothing
+		 * changed, so avoid needlessly uninstalling/reinstalling the
+		 * route on redundant up notifications.
+		 */
+		if (nh->ifindex == ifp->ifindex)
+			return;
 		nh->ifindex = ifp->ifindex;
 	} else {
 		if (nh->ifindex != ifp->ifindex)

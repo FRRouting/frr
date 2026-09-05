@@ -13,6 +13,9 @@
 #include <linux/netlink.h>
 #include <linux/nexthop.h>
 #include <linux/rtnetlink.h>
+#include <linux/genetlink.h>
+#include <linux/ethtool_netlink.h>
+#include <linux/seg6_genl.h>
 #include <net/if_arp.h>
 #include <linux/fib_rules.h>
 #include <linux/lwtunnel.h>
@@ -22,12 +25,31 @@
 
 #include "zebra/rt_netlink.h"
 #include "zebra/kernel_netlink.h"
+#include "zebra/ge_netlink.h"
+#include "zebra/zebra_ns.h"
 #include "lib/netlink_parser.h"
 #include "lib/vxlan.h"
 #include "zebra/zebra_router.h"
 
-const char *nlmsg_type2str(uint16_t type)
+static const char *nlmsg_type2str_sock(uint16_t type, int proto)
 {
+	int16_t fam;
+
+	if (proto == NETLINK_GENERIC) {
+		if (type == GENL_ID_CTRL)
+			return "GENL_CTRL";
+
+		fam = genl_family_ethtool();
+		if (fam >= 0 && type == (uint16_t)fam)
+			return "ETHTOOL";
+
+		fam = genl_family_seg6();
+		if (fam >= 0 && type == (uint16_t)fam)
+			return "SEG6";
+
+		return "GENL";
+	}
+
 	switch (type) {
 	/* Generic */
 	case NLMSG_NOOP:
@@ -99,6 +121,11 @@ const char *nlmsg_type2str(uint16_t type)
 	default:
 		return "UNKNOWN";
 	}
+}
+
+const char *nlmsg_type2str(uint16_t type)
+{
+	return nlmsg_type2str_sock(type, NETLINK_ROUTE);
 }
 
 const char *af_type2str(int type)
@@ -1559,6 +1586,300 @@ static const char *tcm_nltype2str(int nltype)
 	}
 }
 
+static const char *genl_ctrl_cmd2str(uint8_t cmd)
+{
+	switch (cmd) {
+	case CTRL_CMD_NEWFAMILY:
+		return "NEWFAMILY";
+	case CTRL_CMD_DELFAMILY:
+		return "DELFAMILY";
+	case CTRL_CMD_GETFAMILY:
+		return "GETFAMILY";
+	case CTRL_CMD_NEWOPS:
+		return "NEWOPS";
+	case CTRL_CMD_DELOPS:
+		return "DELOPS";
+	case CTRL_CMD_GETOPS:
+		return "GETOPS";
+	case CTRL_CMD_NEWMCAST_GRP:
+		return "NEWMCAST_GRP";
+	case CTRL_CMD_DELMCAST_GRP:
+		return "DELMCAST_GRP";
+	case CTRL_CMD_GETMCAST_GRP:
+		return "GETMCAST_GRP";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static const char *genl_ctrl_attr2str(int type)
+{
+	switch (type) {
+	case CTRL_ATTR_FAMILY_ID:
+		return "FAMILY_ID";
+	case CTRL_ATTR_FAMILY_NAME:
+		return "FAMILY_NAME";
+	case CTRL_ATTR_VERSION:
+		return "VERSION";
+	case CTRL_ATTR_HDRSIZE:
+		return "HDRSIZE";
+	case CTRL_ATTR_MAXATTR:
+		return "MAXATTR";
+	case CTRL_ATTR_OPS:
+		return "OPS";
+	case CTRL_ATTR_MCAST_GROUPS:
+		return "MCAST_GROUPS";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+/*
+ * Ethtool user↔kernel cmd enums share numeric values for many ops
+ * (e.g. LINKMODES_GET and LINKMODES_GET_REPLY are both 4). Prefer the
+ * request-side name when NLM_F_REQUEST is set.
+ */
+static const char *ethtool_cmd2str(uint8_t cmd, uint16_t nlflags)
+{
+	if (CHECK_FLAG(nlflags, NLM_F_REQUEST)) {
+		switch (cmd) {
+		case ETHTOOL_MSG_STRSET_GET:
+			return "STRSET_GET";
+		case ETHTOOL_MSG_LINKINFO_GET:
+			return "LINKINFO_GET";
+		case ETHTOOL_MSG_LINKINFO_SET:
+			return "LINKINFO_SET";
+		case ETHTOOL_MSG_LINKMODES_GET:
+			return "LINKMODES_GET";
+		case ETHTOOL_MSG_LINKMODES_SET:
+			return "LINKMODES_SET";
+		case ETHTOOL_MSG_LINKSTATE_GET:
+			return "LINKSTATE_GET";
+		default:
+			return "UNKNOWN";
+		}
+	}
+
+	switch (cmd) {
+	case ETHTOOL_MSG_STRSET_GET_REPLY:
+		return "STRSET_GET_REPLY";
+	case ETHTOOL_MSG_LINKINFO_GET_REPLY:
+		return "LINKINFO_GET_REPLY";
+	case ETHTOOL_MSG_LINKINFO_NTF:
+		return "LINKINFO_NTF";
+	case ETHTOOL_MSG_LINKMODES_GET_REPLY:
+		return "LINKMODES_GET_REPLY";
+	case ETHTOOL_MSG_LINKMODES_NTF:
+		return "LINKMODES_NTF";
+	case ETHTOOL_MSG_LINKSTATE_GET_REPLY:
+		return "LINKSTATE_GET_REPLY";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static const char *ethtool_header_attr2str(int type)
+{
+	switch (type) {
+	case ETHTOOL_A_HEADER_DEV_INDEX:
+		return "DEV_INDEX";
+	case ETHTOOL_A_HEADER_DEV_NAME:
+		return "DEV_NAME";
+	case ETHTOOL_A_HEADER_FLAGS:
+		return "FLAGS";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static const char *ethtool_linkmodes_attr2str(int type)
+{
+	switch (type) {
+	case ETHTOOL_A_LINKMODES_HEADER:
+		return "LINKMODES_HEADER";
+	case ETHTOOL_A_LINKMODES_AUTONEG:
+		return "AUTONEG";
+	case ETHTOOL_A_LINKMODES_OURS:
+		return "OURS";
+	case ETHTOOL_A_LINKMODES_PEER:
+		return "PEER";
+	case ETHTOOL_A_LINKMODES_SPEED:
+		return "SPEED";
+	case ETHTOOL_A_LINKMODES_DUPLEX:
+		return "DUPLEX";
+	case ETHTOOL_A_LINKMODES_MASTER_SLAVE_CFG:
+		return "MASTER_SLAVE_CFG";
+	case ETHTOOL_A_LINKMODES_MASTER_SLAVE_STATE:
+		return "MASTER_SLAVE_STATE";
+	case ETHTOOL_A_LINKMODES_LANES:
+		return "LANES";
+	case ETHTOOL_A_LINKMODES_RATE_MATCHING:
+		return "RATE_MATCHING";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static const char *seg6_cmd2str(uint8_t cmd)
+{
+	switch (cmd) {
+	case SEG6_CMD_SETHMAC:
+		return "SETHMAC";
+	case SEG6_CMD_DUMPHMAC:
+		return "DUMPHMAC";
+	case SEG6_CMD_SET_TUNSRC:
+		return "SET_TUNSRC";
+	case SEG6_CMD_GET_TUNSRC:
+		return "GET_TUNSRC";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static const char *seg6_attr2str(int type)
+{
+	switch (type) {
+	case SEG6_ATTR_DST:
+		return "DST";
+	case SEG6_ATTR_DSTLEN:
+		return "DSTLEN";
+	case SEG6_ATTR_HMACKEYID:
+		return "HMACKEYID";
+	case SEG6_ATTR_SECRET:
+		return "SECRET";
+	case SEG6_ATTR_SECRETLEN:
+		return "SECRETLEN";
+	case SEG6_ATTR_ALGID:
+		return "ALGID";
+	case SEG6_ATTR_HMACINFO:
+		return "HMACINFO";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+enum nlgenl_attr_kind {
+	NLGENL_ATTR_GENERIC = 0,
+	NLGENL_ATTR_CTRL,
+	NLGENL_ATTR_ETHTOOL_TOP,
+	NLGENL_ATTR_ETHTOOL_HEADER,
+	NLGENL_ATTR_SEG6,
+};
+
+static const char *nlgenl_attr_name(enum nlgenl_attr_kind kind, int type)
+{
+	switch (kind) {
+	case NLGENL_ATTR_CTRL:
+		return genl_ctrl_attr2str(type);
+	case NLGENL_ATTR_ETHTOOL_TOP:
+		return ethtool_linkmodes_attr2str(type);
+	case NLGENL_ATTR_ETHTOOL_HEADER:
+		return ethtool_header_attr2str(type);
+	case NLGENL_ATTR_SEG6:
+		return seg6_attr2str(type);
+	case NLGENL_ATTR_GENERIC:
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static void nlgenl_attrs_dump(struct rtattr *rta, size_t msglen, int indent,
+			      enum nlgenl_attr_kind kind)
+{
+	size_t plen;
+	unsigned short rta_type;
+	char prefix[32];
+	char dbuf[128];
+	uint32_t u32v;
+	uint16_t u16v;
+	uint8_t u8v;
+	enum nlgenl_attr_kind child_kind;
+
+	snprintfrr(prefix, sizeof(prefix), "%*s", indent, "");
+
+next_rta:
+	if (RTA_OK(rta, msglen) == 0)
+		return;
+
+	plen = RTA_PAYLOAD(rta);
+	rta_type = rta->rta_type & NLA_TYPE_MASK;
+
+	zlog_debug("%srta [len=%d (payload=%zu) type=(%d) %s%s]", prefix, rta->rta_len, plen,
+		   rta_type, nlgenl_attr_name(kind, rta_type),
+		   CHECK_FLAG(rta->rta_type, NLA_F_NESTED) ? " NESTED" : "");
+
+	if (CHECK_FLAG(rta->rta_type, NLA_F_NESTED)) {
+		child_kind = kind;
+		if (kind == NLGENL_ATTR_ETHTOOL_TOP && rta_type == ETHTOOL_A_LINKMODES_HEADER)
+			child_kind = NLGENL_ATTR_ETHTOOL_HEADER;
+
+		nlgenl_attrs_dump(RTA_DATA(rta), plen, indent + 2, child_kind);
+	} else if (kind == NLGENL_ATTR_ETHTOOL_HEADER && rta_type == ETHTOOL_A_HEADER_DEV_NAME &&
+		   plen > 0) {
+		snprintfrr(dbuf, sizeof(dbuf), "%s", (char *)RTA_DATA(rta));
+		zlog_debug("%s  %s", prefix, dbuf);
+	} else if (kind == NLGENL_ATTR_CTRL && rta_type == CTRL_ATTR_FAMILY_NAME && plen > 0) {
+		snprintfrr(dbuf, sizeof(dbuf), "%s", (char *)RTA_DATA(rta));
+		zlog_debug("%s  %s", prefix, dbuf);
+	} else if (kind == NLGENL_ATTR_CTRL && rta_type == CTRL_ATTR_FAMILY_ID &&
+		   plen >= sizeof(uint16_t)) {
+		u16v = *(uint16_t *)RTA_DATA(rta);
+		zlog_debug("%s  %u", prefix, u16v);
+	} else if ((kind == NLGENL_ATTR_ETHTOOL_TOP && (rta_type == ETHTOOL_A_LINKMODES_SPEED ||
+							rta_type == ETHTOOL_A_LINKMODES_LANES)) ||
+		   (kind == NLGENL_ATTR_ETHTOOL_HEADER && (rta_type == ETHTOOL_A_HEADER_DEV_INDEX ||
+							   rta_type == ETHTOOL_A_HEADER_FLAGS))) {
+		if (plen >= sizeof(uint32_t)) {
+			u32v = *(uint32_t *)RTA_DATA(rta);
+			zlog_debug("%s  %u", prefix, u32v);
+		}
+	} else if (kind == NLGENL_ATTR_ETHTOOL_TOP &&
+		   (rta_type == ETHTOOL_A_LINKMODES_AUTONEG ||
+		    rta_type == ETHTOOL_A_LINKMODES_DUPLEX ||
+		    rta_type == ETHTOOL_A_LINKMODES_MASTER_SLAVE_CFG ||
+		    rta_type == ETHTOOL_A_LINKMODES_MASTER_SLAVE_STATE ||
+		    rta_type == ETHTOOL_A_LINKMODES_RATE_MATCHING) &&
+		   plen >= sizeof(uint8_t)) {
+		u8v = *(uint8_t *)RTA_DATA(rta);
+		zlog_debug("%s  %u", prefix, u8v);
+	} else if (kind == NLGENL_ATTR_SEG6 && rta_type == SEG6_ATTR_DST &&
+		   plen >= sizeof(struct in6_addr)) {
+		zlog_debug("%s  %pI6", prefix, (struct in6_addr *)RTA_DATA(rta));
+	}
+
+	rta = RTA_NEXT(rta, msglen);
+	goto next_rta;
+}
+
+static void nlgenl_dump(struct genlmsghdr *ghdr, size_t msglen, uint16_t family, uint16_t nlflags)
+{
+	const char *cmdstr = "UNKNOWN";
+	enum nlgenl_attr_kind kind = NLGENL_ATTR_GENERIC;
+	int16_t ethtool_fam = genl_family_ethtool();
+	int16_t seg6_fam = genl_family_seg6();
+	struct rtattr *attrs;
+
+	if (family == GENL_ID_CTRL) {
+		cmdstr = genl_ctrl_cmd2str(ghdr->cmd);
+		kind = NLGENL_ATTR_CTRL;
+	} else if (ethtool_fam >= 0 && family == (uint16_t)ethtool_fam) {
+		cmdstr = ethtool_cmd2str(ghdr->cmd, nlflags);
+		/* FRR currently only issues LINKMODES_*; name attrs that way. */
+		kind = NLGENL_ATTR_ETHTOOL_TOP;
+	} else if (seg6_fam >= 0 && family == (uint16_t)seg6_fam) {
+		cmdstr = seg6_cmd2str(ghdr->cmd);
+		kind = NLGENL_ATTR_SEG6;
+	}
+
+	zlog_debug("  genlmsghdr [cmd=(%u) %s version=%u]", ghdr->cmd, cmdstr, ghdr->version);
+
+	if (msglen == 0)
+		return;
+
+	attrs = (struct rtattr *)((char *)ghdr + GENL_HDRLEN);
+	nlgenl_attrs_dump(attrs, msglen, 4, kind);
+}
+
 static void nlncm_dump(const struct netconfmsg *ncm, size_t msglen)
 {
 	const struct rtattr *rta;
@@ -1605,7 +1926,7 @@ next_rta:
 	goto next_rta;
 }
 
-void nl_dump(void *msg, size_t msglen)
+void nl_dump(const struct nlsock *nl, void *msg, size_t msglen)
 {
 	struct nlmsghdr *nlmsg = msg;
 	struct nlmsgerr *nlmsgerr;
@@ -1619,17 +1940,36 @@ void nl_dump(void *msg, size_t msglen)
 	struct tunnel_msg *tnlm;
 	struct fib_rule_hdr *frh;
 	struct tcmsg *tcm;
+	struct genlmsghdr *ghdr;
+	int proto = nl ? nl->proto : NETLINK_ROUTE;
+	int16_t ethtool_fam = genl_family_ethtool();
+	int16_t seg6_fam = genl_family_seg6();
 
 	char fbuf[128];
 	char ibuf[128];
 
 next_header:
-	zlog_debug(
-		"nlmsghdr [len=%u type=(%d) %s flags=(0x%04x) {%s} seq=%u pid=%u]",
-		nlmsg->nlmsg_len, nlmsg->nlmsg_type,
-		nlmsg_type2str(nlmsg->nlmsg_type), nlmsg->nlmsg_flags,
-		nlmsg_flags2str(nlmsg->nlmsg_flags, fbuf, sizeof(fbuf)),
-		nlmsg->nlmsg_seq, nlmsg->nlmsg_pid);
+	zlog_debug("nlmsghdr [len=%u type=(%d) %s flags=(0x%04x) {%s} seq=%u pid=%u]",
+		   nlmsg->nlmsg_len, nlmsg->nlmsg_type,
+		   nlmsg_type2str_sock(nlmsg->nlmsg_type, proto), nlmsg->nlmsg_flags,
+		   nlmsg_flags2str(nlmsg->nlmsg_flags, fbuf, sizeof(fbuf)), nlmsg->nlmsg_seq,
+		   nlmsg->nlmsg_pid);
+
+	/* Generic Netlink families (dynamic IDs) and the controller. */
+	if (proto == NETLINK_GENERIC &&
+	    (nlmsg->nlmsg_type == GENL_ID_CTRL ||
+	     (ethtool_fam >= 0 && nlmsg->nlmsg_type == (uint16_t)ethtool_fam) ||
+	     (seg6_fam >= 0 && nlmsg->nlmsg_type == (uint16_t)seg6_fam) ||
+	     (nlmsg->nlmsg_type > NLMSG_MIN_TYPE && nlmsg->nlmsg_type != NLMSG_ERROR &&
+	      nlmsg->nlmsg_type != NLMSG_DONE && nlmsg->nlmsg_type != NLMSG_NOOP &&
+	      nlmsg->nlmsg_type != NLMSG_OVERRUN))) {
+		if (nlmsg->nlmsg_len >= NLMSG_LENGTH(GENL_HDRLEN)) {
+			ghdr = NLMSG_DATA(nlmsg);
+			nlgenl_dump(ghdr, nlmsg->nlmsg_len - NLMSG_LENGTH(GENL_HDRLEN),
+				    nlmsg->nlmsg_type, nlmsg->nlmsg_flags);
+		}
+		goto advance;
+	}
 
 	switch (nlmsg->nlmsg_type) {
 	/* Generic. */
@@ -1639,6 +1979,17 @@ next_header:
 		nlmsgerr = NLMSG_DATA(nlmsg);
 		zlog_debug("  nlmsgerr [error=(%d) %s]", nlmsgerr->error,
 			   strerror(-nlmsgerr->error));
+		/*
+		 * When the failed request is present (uncapped ACK), dump its
+		 * type using this socket's protocol so ETHTOOL/SEG6 name well.
+		 */
+		if (!(nlmsg->nlmsg_flags & NLM_F_CAPPED) &&
+		    nlmsg->nlmsg_len >= NLMSG_LENGTH(sizeof(*nlmsgerr))) {
+			zlog_debug("  failed-nlmsghdr [type=(%d) %s seq=%u pid=%u]",
+				   nlmsgerr->msg.nlmsg_type,
+				   nlmsg_type2str_sock(nlmsgerr->msg.nlmsg_type, proto),
+				   nlmsgerr->msg.nlmsg_seq, nlmsgerr->msg.nlmsg_pid);
+		}
 		break;
 	case NLMSG_DONE:
 		return;
@@ -1774,6 +2125,7 @@ next_header:
 		break;
 	}
 
+advance:
 	/*
 	 * Try to get the next header. There should only be more
 	 * messages if this header was flagged as MULTI, otherwise just

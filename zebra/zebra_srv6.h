@@ -260,7 +260,7 @@ DECLARE_HOOK(srv6_manager_get_chunk,
 	      struct zserv *client,
 	      const char *locator_name,
 	      vrf_id_t vrf_id),
-	     (mc, client, keep, size, base, vrf_id));
+	     (loc, client, locator_name, vrf_id));
 DECLARE_HOOK(srv6_manager_release_chunk,
 	     (struct zserv *client,
 	      const char *locator_name,

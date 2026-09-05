@@ -878,6 +878,21 @@ void bfd_cli_show_tx(struct vty *vty, const struct lyd_node *dnode,
 }
 
 DEFPY_YANG(
+	bfd_peer_demand, bfd_peer_demand_cmd,
+	"[no] demand-mode",
+	NO_STR
+	"Configure demand mode\n")
+{
+	nb_cli_enqueue_change(vty, "./demand-mode", NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_demand(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  %sdemand-mode\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
+}
+
+DEFPY_YANG(
 	bfd_peer_echo, bfd_peer_echo_cmd,
 	"[no] echo-mode",
 	NO_STR
@@ -1201,6 +1216,11 @@ ALIAS_YANG(no_bfd_peer_minimum_ttl, no_bfd_profile_minimum_ttl_cmd,
       NO_STR
       "Expect packets with at least this TTL\n")
 
+ALIAS_YANG(bfd_peer_demand, bfd_profile_demand_cmd,
+      "[no] demand-mode",
+      NO_STR
+      "Configure demand mode\n")
+
 ALIAS_YANG(bfd_peer_echo, bfd_profile_echo_cmd,
       "[no] echo-mode",
       NO_STR
@@ -1490,6 +1510,7 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_rx_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_tx_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_demand_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_interval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_transmit_interval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_receive_interval_cmd);
@@ -1515,6 +1536,7 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &bfd_profile_rx_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_shutdown_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_demand_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_interval_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_transmit_interval_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_echo_receive_interval_cmd);

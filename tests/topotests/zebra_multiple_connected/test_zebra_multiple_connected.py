@@ -445,6 +445,49 @@ def test_zebra_metaq_early_route_table_discriminator():
     router.run(f"ip link add {ifname} type dummy")
     router.run(f"ip link set {ifname} up")
 
+    step("Wait for zebra to finish handling dummy0 up")
+
+    def _dummy0_up_handled():
+        # IPv6 link-local install after link-up is asynchronous. Wait until zebra
+        # has the connected route installed (early-route work for up is done) and
+        # the early-route metaQ is empty before plugging it.
+        try:
+            routes = json.loads(router.vtysh_cmd("show ipv6 route connected json"))
+        except (json.JSONDecodeError, TypeError) as err:
+            return "failed to parse ipv6 connected routes: {}".format(err)
+
+        found_ll = False
+        for route_prefix, entries in routes.items():
+            if not route_prefix.startswith("fe80:"):
+                continue
+            for entry in entries:
+                for nh in entry.get("nexthops", []):
+                    if nh.get("interfaceName") == ifname:
+                        found_ll = True
+                        break
+                if found_ll:
+                    break
+            if found_ll:
+                break
+        if not found_ll:
+            return "waiting for zebra IPv6 link-local connected route on {}".format(
+                ifname
+            )
+
+        count = _get_early_route_metaq_current(router)
+        if count is None:
+            return "failed to read early-route metaq"
+        if count != 0:
+            return (
+                "early-route metaq still draining after dummy0 up, current={}".format(
+                    count
+                )
+            )
+        return None
+
+    _, result = topotest.run_and_expect(_dummy0_up_handled, None, count=20, wait=1)
+    assert result is None, result
+
     step("Plug the meta queue so early routes remain visible")
     router.vtysh_cmd("zebra test metaq disable")
 
@@ -611,6 +654,44 @@ def test_zebra_kernel_last_ipv6_address_deleted():
         router,
         "Expected zebra to delete kernel routes after manual IPv6 routes deletion:\n{}",
     )
+
+
+def test_zebra_ipv6_dad_kernel_route():
+    "Test that a kernel route is deleted in favor of the connected one (IPv6 with DAD enabled)"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("sysctl -w net.ipv6.conf.r1-eth0.accept_dad=1")
+    router.run("ip -6 address add 2001:db8:dead:beef::1/64 dev r1-eth0")
+
+    def _check_duplicated_kernel_route():
+        try:
+            routes = json.loads(router.vtysh_cmd("show ipv6 route json"))
+        except (json.JSONDecodeError, TypeError) as err:
+            return "failed to parse ipv6 routes: {}".format(err)
+
+        found_connected = False
+        for route_prefix, entries in routes.items():
+            if not route_prefix == "2001:db8:dead:beef::/64":
+                continue
+            for entry in entries:
+                if entry.get("protocol") == "connected":
+                    found_connected = True
+                elif entry.get("protocol") == "kernel":
+                    return "found ipv6 kernel route"
+
+        if not found_connected:
+            return "ipv6 connected route not found"
+        return None
+
+    step("IPv6 with DAD enabled: check for duplicated kernel route")
+    _, result = topotest.run_and_expect(
+        _check_duplicated_kernel_route, None, count=20, wait=1
+    )
+    assert result is None, result
 
 
 if __name__ == "__main__":

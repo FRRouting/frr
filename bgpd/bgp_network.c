@@ -24,6 +24,7 @@
 #include "nexthop.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_attr.h"
@@ -559,7 +560,11 @@ static void bgp_accept(struct event *event)
 			bgp_fsm_change_status(incoming, Active);
 			event_cancel(&incoming->t_start);
 
-			if (peer_active(incoming) == BGP_PEER_ACTIVE) {
+			/* Rejecting would delete the peer (because it's dynamic) and
+			 * deregister BFD, hold instead.
+			 */
+			if (peer_active(incoming) == BGP_PEER_ACTIVE &&
+			    !bgp_bfd_strict_hold_start(dynamic_peer)) {
 				if (CHECK_FLAG(dynamic_peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 					BGP_EVENT_ADD(incoming, TCP_connection_open_w_delay);
 				else
@@ -750,10 +755,7 @@ static void bgp_accept(struct event *event)
 static char *bgp_get_bound_name(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
-
-	if ((peer->bgp->vrf_id == VRF_DEFAULT) && !peer->ifname
-	    && !peer->conf_if)
-		return NULL;
+	struct connected *c;
 
 	if (connection->su.sa.sa_family != AF_INET &&
 	    connection->su.sa.sa_family != AF_INET6)
@@ -769,7 +771,20 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 	if (peer->ifname)
 		return peer->ifname;
 
-	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+	/*
+	 * If a v6 neighbors address is covered by an interfaces connected prefix,
+	 * then let's use that interfaces name as the bind point.  This will prevent
+	 * 'fun' situations with DAD not fully saying an address is usable and causing
+	 * some random source address to be choosen.
+	 */
+	if (connection->su.sa.sa_family == AF_INET6) {
+		c = if_lookup_address(&connection->su.sa, connection->su.sa.sa_family,
+				      peer->bgp->vrf_id);
+		if (c)
+			return c->ifp->name;
+	}
+
+	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW || peer->bgp->vrf_id == VRF_DEFAULT)
 		return NULL;
 
 	return peer->bgp->name;

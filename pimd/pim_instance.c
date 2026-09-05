@@ -87,8 +87,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_ssm_init(pim);
 	pim_dm_init(pim);
 
-	pim_if_init(pim);
-
 	pim->mcast_if_count = 0;
 	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
 	pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;

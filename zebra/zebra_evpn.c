@@ -495,10 +495,8 @@ void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 	/* Add primary SVI MAC*/
 	zevpn = (struct zebra_evpn *)bucket->data;
 
-	/* Global (Zvrf) advertise-default-gw is disabled,
-	 * but zevpn advertise-default-gw is enabled
-	 */
-	if (zevpn->advertise_gw_macip) {
+	/* Retain the GW MAC-IP if it is still enabled for this VNI. */
+	if (advertise_gw_macip_enabled(zevpn)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VNI: %u GW-MACIP enabled, retain gw-macip", zevpn->vni);
 		return;
@@ -523,6 +521,10 @@ void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 
 	/* Del primary MAC-IP */
 	zebra_evpn_del_macip_for_intf(vlan_if, zevpn);
+
+	/* Re-advertise it as an SVI route, if enabled. */
+	if (advertise_svi_macip_enabled(zevpn))
+		zebra_evpn_add_macip_for_intf(vlan_if, zevpn);
 
 	/* Del VRR MAC-IP - if any*/
 	vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
@@ -588,14 +590,16 @@ void zebra_evpn_svi_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn)
 		return;
-
-	/* Global(vrf) advertise-svi-ip disabled, but zevpn advertise-svi-ip
-	 * enabled
-	 */
-	if (zevpn->advertise_svi_macip) {
+	if (advertise_svi_macip_enabled(zevpn)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VNI: %u SVI-MACIP enabled, retain svi-macip",
 				   zevpn->vni);
+		return;
+	}
+	/* Retain the GW MAC-IP if it is still enabled */
+	if (advertise_gw_macip_enabled(zevpn)) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI: %u GW-MACIP enabled, retain gw-macip", zevpn->vni);
 		return;
 	}
 

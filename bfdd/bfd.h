@@ -260,6 +260,7 @@ enum bfd_session_flags {
 					     * actively
 					     */
 	BFD_SESS_FLAG_MH = 1 << 2,		     /* BFD Multi-hop session */
+	BFD_SESS_FLAG_DEMAND = 1 << 3,		     /* Demand mode configured */
 	BFD_SESS_FLAG_IPV6 = 1 << 4,		     /* BFD IPv6 session */
 	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5,	     /* send event timer active */
 	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6,	     /* ignore send event when timer
@@ -343,6 +344,7 @@ struct bfd_profile {
 
 	/** Echo mode (only applies to single hop). */
 	bool echo_mode;
+	bool demand_mode;
 	/** Desired echo transmission interval (in microseconds). */
 	uint32_t min_echo_tx;
 	/** Minimum required echo receive interval (in microseconds). */
@@ -383,11 +385,12 @@ struct bfd_session {
 	uint8_t ses_state;
 	struct bfd_discrs discrs;
 	uint8_t local_diag;
-	uint8_t demand_mode;
 	uint8_t detect_mult;
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
 	uint8_t remote_cbit;
+	uint8_t remote_ses_state;
+	uint8_t remote_demand_mode;
 
 	/** BFD profile name. */
 	char *profile_name;
@@ -495,7 +498,6 @@ struct sbfd_reflector {
 
 /* Various constants */
 /* Retrieved from ptm_timer.h from Cumulus PTM sources. */
-#define BFD_DEF_DEMAND 0
 #define BFD_DEFDETECTMULT 3
 #define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
@@ -745,6 +747,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
  * \param passive the passive mode.
  */
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
+void bfd_set_demand(struct bfd_session *bs, bool demand);
 
 /**
  * Set the BFD session to log or not log session changes.

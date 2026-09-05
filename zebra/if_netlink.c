@@ -439,12 +439,11 @@ static int netlink_extract_gre_info(struct rtattr *link_data, struct zebra_l2inf
 
 		frrtrace(1, frr_zebra, if_netlink_parse_error, 2);
 	} else if (ipv6) {
-		SET_IPADDR_V6(&gre_info->vtep_ip);
-		IPV6_ADDR_COPY(&gre_info->vtep_ip.ipaddr_v6,
-			       (struct in6_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]));
+		ipaddr_set_v6(&gre_info->vtep_ip,
+			      (struct in6_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]));
 	} else {
-		SET_IPADDR_V4(&gre_info->vtep_ip);
-		gre_info->vtep_ip.ipaddr_v4 = *(struct in_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]);
+		ipaddr_set_v4(&gre_info->vtep_ip,
+			      *(struct in_addr *)RTA_DATA(attr[IFLA_GRE_LOCAL]));
 	}
 	if (!attr[IFLA_GRE_REMOTE]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1205,27 +1204,6 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id, int startup
 
 			return -1;
 		}
-
-		/* Only consider valid addresses; we'll not get a kernel
-		 * notification till IPv6 DAD has completed, but at init
-		 * time, FRR does query for and will receive all addresses.
-		 */
-		if (h->nlmsg_type == RTM_NEWADDR
-		    && (kernel_flags & IFA_F_DADFAILED)) {
-			/* DAD failed - always skip these addresses */
-			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: %s: DAD failed addr",
-					   __func__,
-					   nl_msg_type_to_str(h->nlmsg_type));
-
-			frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type),
-				 0, 5);
-
-			return 0;
-		}
-		/* Note: IFA_F_TENTATIVE is passed via context to main pthread
-		 * for handling - we cannot access interface pointers here.
-		 */
 	}
 
 	/* logic copied from iproute2/ip/ipaddress.c:print_addrinfo() */
@@ -1305,6 +1283,9 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id, int startup
 
 	if (kernel_flags & IFA_F_TENTATIVE)
 		dplane_ctx_intf_set_tentative(ctx);
+
+	if (kernel_flags & IFA_F_DADFAILED)
+		dplane_ctx_intf_set_dadfailed(ctx);
 
 	/* Label */
 	if (tb[IFA_LABEL]) {

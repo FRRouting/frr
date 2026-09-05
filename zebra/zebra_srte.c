@@ -236,7 +236,8 @@ static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
 
 static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
 				   struct zebra_lsp *lsp,
-				   struct zapi_srte_tunnel *old_tunnel)
+				   struct zapi_srte_tunnel *old_tunnel,
+				   bool lsp_changed)
 {
 	bool bsid_changed;
 	bool segment_list_changed;
@@ -260,8 +261,8 @@ static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
 	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
 				      policy->name, ZEBRA_SR_POLICY_UP);
 
-	/* Handle segment-list update. */
-	if (segment_list_changed)
+	/* Update policy either when segment list changes or when the lsp changed. */
+	if (segment_list_changed || lsp_changed)
 		zebra_sr_policy_notify_update(policy);
 }
 
@@ -298,7 +299,8 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 	if (policy->status == ZEBRA_SR_POLICY_DOWN)
 		zebra_sr_policy_activate(policy, lsp);
 	else
-		zebra_sr_policy_update(policy, lsp, &old_tunnel);
+		/* When new_tunnel is NULL, the lsp has changed */
+		zebra_sr_policy_update(policy, lsp, &old_tunnel, new_tunnel == NULL);
 
 	return 0;
 }

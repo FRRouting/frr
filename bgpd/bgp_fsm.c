@@ -408,9 +408,12 @@ void bgp_timer_set(struct peer_connection *connection)
 		/* Active is waiting connection from remote peer.  And if
 		   connect timer is expired, change status to Connect. */
 		event_cancel(&connection->t_start);
-		/* If peer is passive mode, do not set connect timer. */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)
-		    || CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
+		/* If peer is passive mode or held by BFD strict mode, do not set
+		 * connect timer.
+		 */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE) ||
+		    CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT) ||
+		    CHECK_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD)) {
 			event_cancel(&connection->t_connect);
 		} else {
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
@@ -1401,14 +1404,30 @@ static void bgp_advertisement_delay_begin(struct bgp *bgp)
 }
 
 /*
- * Handle first peer Established for advertisement-delay.
+ * Called when any peer reaches Established.
+ * Start advertisement-delay for every instance that has it configured.
+ *
+ * The peer that triggered this belongs to one instance, but the timer is
+ * started for all of them, so graceful-restart has to be checked per instance
+ * here.  gr_route_sync_pending is true only while that instance is actually
+ * retaining routes for a graceful restart, which is what advertisement-delay
+ * has to stay out of the way of.
  */
-static void bgp_advertisement_delay_process_status_change(struct peer *peer)
+static void bgp_peer_established_handle_all_vrfs(void)
 {
-	struct bgp *bgp = peer->bgp;
+	struct listnode *node;
+	struct bgp *bgp;
 
-	if (peer_established(peer->connection) && !bgp->advertisement_delay_started)
-		bgp_advertisement_delay_begin(bgp);
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		if (!bgp_advertisement_delay_configured(bgp))
+			continue;
+
+		if (bgp->gr_route_sync_pending)
+			continue;
+
+		if (bgp_advertisement_delay_applicable(bgp) && !bgp->advertisement_delay_started)
+			bgp_advertisement_delay_begin(bgp);
+	}
 }
 
 /* Steps to begin the update delay:
@@ -2098,20 +2117,19 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 			bgp->maxmed_onstartup_over = 1;
 	}
 
-	/* Check for GR restarter, update-delay, or advertisement-delay.
-	 * When GR is not applicable, both update-delay and advertisement-delay
-	 * can run independently.
-	 */
+	/* Check for GR restarter or update-delay. */
 	if (gr_path_select_deferral_applicable(bgp))
 		bgp_gr_process_peer_status_change(peer);
-	else {
-		if (bgp_update_delay_configured(bgp) && bgp_update_delay_applicable(bgp))
-			bgp_update_delay_process_status_change(peer);
+	else if (bgp_update_delay_configured(bgp) && bgp_update_delay_applicable(bgp))
+		bgp_update_delay_process_status_change(peer);
 
-		if (bgp_advertisement_delay_configured(bgp) &&
-		    bgp_advertisement_delay_applicable(bgp))
-			bgp_advertisement_delay_process_status_change(peer);
-	}
+	/* advertisement-delay is VRF-aware: a peer reaching Established in any
+	 * instance starts the timer for every instance that has it configured.
+	 * Graceful-restart is checked per instance inside, so this must not be
+	 * gated on the state of the triggering peer's instance.
+	 */
+	if (status == Established)
+		bgp_peer_established_handle_all_vrfs();
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s fd %d went from %s to %s for %s", peer->host, connection->fd,
@@ -2264,6 +2282,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	event_cancel(&connection->t_holdtime);
 	event_cancel(&connection->t_routeadv);
 	event_cancel(&connection->t_delayopen);
+
+	UNSET_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD);
 
 	/* Clear input and output buffer.  */
 	frr_with_mutex (&connection->io_mtx) {
@@ -2967,6 +2987,14 @@ bgp_establish(struct peer_connection *connection)
 
 	/* Increment established count. */
 	peer->established++;
+
+	/* Stamp the session uptime before the status change so that the
+	 * peer_status_changed hook (which builds the BMP Peer Up message)
+	 * sees this session's establish time rather than the previous
+	 * session's disconnect time.
+	 */
+	peer->uptime = monotime(NULL);
+
 	bgp_fsm_change_status(connection, Established);
 
 	/* bgp log-neighbor-changes of neighbor Up */
@@ -2989,11 +3017,9 @@ bgp_establish(struct peer_connection *connection)
 	/* graceful restart handling */
 	bgp_peer_process_gr_cap_clear_stale(peer);
 
-	/* Reset uptime, turn on keepalives, send current table. */
+	/* Turn on keepalives, send current table. */
 	if (!peer->v_holdtime)
 		bgp_keepalives_on(connection);
-
-	peer->uptime = monotime(NULL);
 
 	/* Send route-refresh when ORF is enabled.
 	 * Stop Long-lived Graceful Restart timers.
@@ -3141,7 +3167,8 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 		}
 		break;
 	case Active:
-		if (has_valid_nexthops) {
+		/* Do not disturb a connection held by BFD strict mode. */
+		if (has_valid_nexthops && !CHECK_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD)) {
 			event_cancel(&connection->t_connect);
 			BGP_EVENT_ADD(connection, ConnectRetry_timer_expired);
 		}

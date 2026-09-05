@@ -54,6 +54,7 @@ import json
 from functools import partial
 from time import sleep
 from lib.topolog import logger
+import platform
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -66,6 +67,8 @@ from lib.topogen import Topogen, get_topogen
 fatal_error = ""
 
 pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
+
+kernel_ok = True
 
 #####################################################
 ##
@@ -114,6 +117,8 @@ router_compare_json_output = partial(
 
 
 def setup_module(module):
+    global kernel_ok
+
     print("\n\n** %s: Setup Topology" % module.__name__)
     print("******************************************\n")
 
@@ -130,8 +135,20 @@ def setup_module(module):
         net["r%s" % i].loadConf("ldpd", "%s/r%s/ldpd.conf" % (thisDir, i))
         tgen.gears["r%s" % i].start()
 
+    #
+    # Note known ECMP/MPLS issue in a range of kernel versions; skip some tests
+    # if not supported
+    #
+    kver = platform.release()
+    if (
+        topotest.version_cmp(kver, "6.19") >= 0
+        and topotest.version_cmp(kver, "7.1.6") < 0
+    ):
+        kernel_ok = False
+        logger.warning(f"MPLS tests with ECMP will be skipped, kernel version {kver}")
+
     # For debugging after starting FRR daemons, uncomment the next line
-    # tgen.mininet_cli()
+    # tgen.cli()
 
 
 def teardown_module(module):
@@ -603,7 +620,7 @@ def test_zebra_ipv4_routingTable():
 
 # Use r1 and r2 to test route with changing ldp configuration
 def test_zebra_ipv4_routingtable_with_ldp():
-    global fatal_error
+    global fatal_error, kernel_ok
     router = get_topogen().gears
 
     # Skip if previous fatal error condition is raised
@@ -612,6 +629,12 @@ def test_zebra_ipv4_routingtable_with_ldp():
 
     print("\n\n** Verifying Zebra IPv4 Routing Table With LDP")
 
+    #
+    # Note known ECMP/MPLS issue in a range of kernel version; skip test if not supported
+    #
+    if not kernel_ok:
+        pytest.skip(f"MPLS test with ECMP skipped, no kernel support")
+
     router["r1"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n no int r1-eth0 \n end")
 
     def show_route_with_label():
@@ -619,35 +642,96 @@ def test_zebra_ipv4_routingtable_with_ldp():
         expected = {"2.2.2.2/32": [{"nexthops": [{"labels": [3]}]}]}
         return topotest.json_cmp(output, expected)
 
-    # Make sure no label in route
-    test_func = partial(show_route_with_label)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
-    assert result, "r1: wrongly with label in route!\n{}".format(result)
+    def show_route_without_label():
+        """Return None once 2.2.2.2/32 is present without MPLS labels."""
+        output = json.loads(router["r1"].vtysh_cmd("show ip route json"))
+        routes = output.get("2.2.2.2/32")
+        if not routes:
+            return "route 2.2.2.2/32 missing"
+        for route in routes:
+            for nh in route.get("nexthops", []):
+                if "labels" in nh:
+                    return "labels still present: {}".format(nh["labels"])
+        expected = {"2.2.2.2/32": [{"nexthops": [{"ip": "10.0.1.2"}]}]}
+        return topotest.json_cmp(output, expected)
 
-    # r1: with both target and link config, r2: with only targeted config
-    router["r2"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n no int r2-eth0 \n end")
-    router["r2"].vtysh_cmd(
-        "config \n mpls ldp \n addr ipv4 \n neighbor 1.1.1.1 targeted \n end"
-    )
-    router["r1"].vtysh_cmd(
-        "config \n mpls ldp \n addr ipv4 \n neighbor 2.2.2.2 targeted \n end"
-    )
-    router["r1"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n int r1-eth0 \n end")
+    def restore_ldp_link_config():
+        # Restore link-hello LDP on r1/r2 and drop any targeted neighbors
+        # added by this test so later checks (e.g. show mpls table) see the
+        # original topology state even if an assert failed mid-test.
+        router["r1"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               int r1-eth0
+             end
+            """
+        )
+        router["r2"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               no neighbor 1.1.1.1 targeted
+               int r2-eth0
+             end
+            """
+        )
+        router["r1"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               no neighbor 2.2.2.2 targeted
+             end
+            """
+        )
 
-    # Make sure with label in route
-    test_func = partial(show_route_with_label)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
-    assert result is None, "r1: wrongly without label with route!"
+    try:
+        router["r1"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               no int r1-eth0
+             end
+            """
+        )
 
-    # Restore the configurations of r1 and r2 to their original state and
-    # continue with the subsequent tests.
-    router["r2"].vtysh_cmd(
-        "config \n mpls ldp \n addr ipv4 \n no neighbor 1.1.1.1 targeted \n end"
-    )
-    router["r2"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n int r2-eth0 \n end")
-    router["r1"].vtysh_cmd(
-        "config \n mpls ldp \n addr ipv4 \n no neighbor 2.2.2.2 targeted \n end"
-    )
+        # Wait until labels are withdrawn (do not treat "still labeled" as success).
+        test_func = partial(show_route_without_label)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+        assert result is None, "r1: wrongly with label in route!\n{}".format(result)
+
+        # r1: with both target and link config, r2: with only targeted config
+        router["r2"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               no int r2-eth0
+               neighbor 1.1.1.1 targeted
+             end
+            """
+        )
+        router["r1"].vtysh_cmd(
+            """
+            config
+             mpls ldp
+              addr ipv4
+               neighbor 2.2.2.2 targeted
+               int r1-eth0
+             end
+            """
+        )
+
+        # Make sure with label in route
+        test_func = partial(show_route_with_label)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+        assert result is None, "r1: wrongly without label with route!"
+    finally:
+        restore_ldp_link_config()
 
     # Make sure with label in route with their original state
     test_func = partial(show_route_with_label)
@@ -656,7 +740,7 @@ def test_zebra_ipv4_routingtable_with_ldp():
 
 
 def test_mpls_table():
-    global fatal_error
+    global fatal_error, kernel_ok
     net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
@@ -669,6 +753,12 @@ def test_mpls_table():
     print("\n\n** Verifying MPLS table")
     print("******************************************\n")
     failures = 0
+
+    #
+    # Note known ECMP/MPLS issue in a range of kernel version; skip test if not supported
+    #
+    if not kernel_ok:
+        pytest.skip(f"MPLS test with ECMP skipped, no kernel support")
 
     for i in range(1, 5):
         refTableFile = "%s/r%s/show_mpls_table.ref" % (thisDir, i)
@@ -732,7 +822,7 @@ def test_mpls_table():
 
 
 def test_linux_mpls_routes():
-    global fatal_error
+    global fatal_error, kernel_ok
     net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
@@ -744,6 +834,12 @@ def test_linux_mpls_routes():
     # Verify Linux Kernel MPLS routes
     print("\n\n** Verifying Linux Kernel MPLS routes")
     print("******************************************\n")
+
+    #
+    # Note known ECMP/MPLS issue in a range of kernel version; skip test if not supported
+    #
+    if not kernel_ok:
+        pytest.skip(f"MPLS test with ECMP skipped, no kernel support")
 
     def check_mpls_routes(router_id):
         """Check MPLS routes for a specific router"""

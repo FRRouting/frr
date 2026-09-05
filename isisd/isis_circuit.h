@@ -5,6 +5,7 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
+ * Copyright (C) 2003        Ofer Wald, Hannes Gredler
  */
 
 #ifndef ISIS_CIRCUIT_H

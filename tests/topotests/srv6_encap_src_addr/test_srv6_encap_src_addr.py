@@ -31,14 +31,6 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.sharpd]
 
 
-def open_json_file(filename):
-    try:
-        with open(filename, "r") as f:
-            return json.load(f)
-    except IOError:
-        assert False, "Could not read file {}".format(filename)
-
-
 def setup_module(mod):
     tgen = Topogen({None: "r1"}, mod.__name__)
     tgen.start_topology()

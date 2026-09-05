@@ -85,6 +85,8 @@ struct zclient *zclient_new(struct event_loop *master,
 	zclient->synchronous = opt->synchronous;
 	zclient->auxiliary = opt->auxiliary;
 
+	zclient->sock = -1;
+
 	return zclient;
 }
 
@@ -2399,7 +2401,7 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 		}
 	} else if (len > 0) {
 		/* Advance the stream */
-		stream_forward_getp(s, len);
+		STREAM_FORWARD_GETP(s, len);
 	}
 
 	return true;
@@ -3011,6 +3013,12 @@ static int link_params_set_value(struct stream *s, struct interface *ifp)
 	STREAM_GETF(s, iflp->ava_bw);
 	STREAM_GETF(s, iflp->use_bw);
 
+	STREAM_GETC(s, iflp->srlg_num);
+	if (iflp->srlg_num > LP_MAX_SRLG)
+		iflp->srlg_num = LP_MAX_SRLG;
+	for (size_t i = 0; i < iflp->srlg_num; i++)
+		STREAM_GETL(s, iflp->srlgs[i]);
+
 	return 0;
 stream_failure:
 	return -1;
@@ -3172,6 +3180,10 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	w += stream_putf(s, iflp->res_bw);
 	w += stream_putf(s, iflp->ava_bw);
 	w += stream_putf(s, iflp->use_bw);
+
+	w += stream_putc(s, iflp->srlg_num);
+	for (size_t idx = 0; idx < iflp->srlg_num; idx++)
+		w += stream_putl(s, iflp->srlgs[idx]);
 
 	return w;
 }

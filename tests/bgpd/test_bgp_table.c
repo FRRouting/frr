@@ -129,10 +129,9 @@ static void test_range_lookup(void)
 	printf("Testing bgp_table_range_lookup\n");
 
 	printf("Setup bgp_table");
-	const char *prefixes[] = {"1.16.0.0/16",   "1.16.128.0/18",
-				  "1.16.192.0/18", "1.16.64.0/19",
-				  "1.16.160.0/19", "1.16.32.0/20",
-				  "1.16.32.0/21",  "16.0.0.0/16"};
+	static const char *const prefixes[] = { "1.16.0.0/16",	"1.16.128.0/18", "1.16.192.0/18",
+						"1.16.64.0/19", "1.16.160.0/19", "1.16.32.0/20",
+						"1.16.32.0/21", "16.0.0.0/16" };
 
 	int num_prefixes = array_size(prefixes);
 	struct test_node_t tns[num_prefixes];
@@ -162,7 +161,154 @@ static void test_range_lookup(void)
 	bgp_table_finish(&table);
 }
 
+/*
+ * Reference-count checks for BGP_DEST_AUTOUNLOCK.
+ *
+ * add_node() leaves exactly one permanent reference on each dest it adds, so
+ * any balanced operation must leave the count back at one.
+ */
+
+/*
+ * stable_lock_count
+ *
+ * Reference count of the dest for the given prefix, discounting the reference
+ * taken by the lookup this helper does itself.
+ */
+static unsigned int stable_lock_count(struct bgp_table *table, const char *prefix_str)
+{
+	struct prefix p;
+	struct bgp_dest *dest;
+	unsigned int locks;
+
+	if (str2prefix(prefix_str, &p) <= 0)
+		assert(0);
+
+	dest = bgp_node_lookup(table, &p);
+	assert(dest);
+	locks = route_node_get_lock_count(bgp_dest_to_rnode(dest));
+	bgp_dest_unlock_node(dest);
+
+	return locks - 1;
+}
+
+/*
+ * One acquire, more than one exit.  Neither path releases the dest by hand.
+ */
+static void autounlock_single(struct bgp_table *table, const char *prefix_str, bool early)
+{
+	struct prefix p;
+
+	if (str2prefix(prefix_str, &p) <= 0)
+		assert(0);
+
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = bgp_node_lookup(table, &p);
+
+	assert(dest);
+	if (early)
+		return;
+
+	assert(bgp_dest_get_prefix(dest));
+}
+
+/*
+ * A walk left early.  route_next() only releases the current dest when it
+ * advances, so leaving the loop early is what used to leak.  A NULL stop
+ * prefix runs the walk to completion instead.
+ */
+static bool autounlock_walk(struct bgp_table *table, const struct prefix *stop)
+{
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
+		if (stop && prefix_same(bgp_dest_get_prefix(dest), stop))
+			return true;
+
+	return false;
+}
+
+/*
+ * The same walk without the attribute, which must leak, so that the checks
+ * above are known to be able to detect a regression.  The caller releases
+ * the returned dest.
+ */
+static struct bgp_dest *leaky_walk(struct bgp_table *table, const struct prefix *stop)
+{
+	struct bgp_dest *dest;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
+		if (prefix_same(bgp_dest_get_prefix(dest), stop))
+			return dest;
+
+	return NULL;
+}
+
+/*
+ * test_autounlock
+ */
+static void test_autounlock(void)
+{
+	struct bgp_table *table = bgp_table_init(NULL, AFI_IP, SAFI_UNICAST);
+	static const char *const prefixes[] = { "10.0.0.0/8", "10.1.0.0/16", "10.1.1.0/24",
+						"10.2.0.0/16" };
+	int num_prefixes = array_size(prefixes);
+	struct test_node_t tns[num_prefixes];
+	struct bgp_dest *leaked;
+	unsigned long count;
+	struct prefix stop;
+
+	printf("\nTesting BGP_DEST_AUTOUNLOCK reference counts\n");
+
+	for (int i = 0; i < num_prefixes; i++)
+		add_node(table, prefixes[i], &tns[i]);
+	count = bgp_table_count(table);
+
+	for (int i = 0; i < num_prefixes; i++)
+		assert(stable_lock_count(table, prefixes[i]) == 1);
+	printf("Checks successfull\n");
+
+	/* one acquire, early exit and full path */
+	autounlock_single(table, "10.1.0.0/16", true);
+	assert(stable_lock_count(table, "10.1.0.0/16") == 1);
+	autounlock_single(table, "10.1.0.0/16", false);
+	assert(stable_lock_count(table, "10.1.0.0/16") == 1);
+	printf("Checks successfull\n");
+
+	/* walk left early, stopping at each position in turn */
+	for (int i = 0; i < num_prefixes; i++) {
+		if (str2prefix(prefixes[i], &stop) <= 0)
+			assert(0);
+
+		assert(autounlock_walk(table, &stop));
+
+		for (int j = 0; j < num_prefixes; j++)
+			assert(stable_lock_count(table, prefixes[j]) == 1);
+	}
+	printf("Checks successfull\n");
+
+	/* walk run to completion, where the cleanup must be a no-op */
+	assert(!autounlock_walk(table, NULL));
+	for (int i = 0; i < num_prefixes; i++)
+		assert(stable_lock_count(table, prefixes[i]) == 1);
+	printf("Checks successfull\n");
+
+	/* control: the same walk without the attribute leaks one reference */
+	if (str2prefix(prefixes[1], &stop) <= 0)
+		assert(0);
+	leaked = leaky_walk(table, &stop);
+	assert(leaked);
+	assert(stable_lock_count(table, prefixes[1]) == 2);
+	bgp_dest_unlock_node(leaked);
+	assert(stable_lock_count(table, prefixes[1]) == 1);
+	printf("Checks successfull\n");
+
+	/* nothing was created or destroyed along the way */
+	assert(bgp_table_count(table) == count);
+
+	bgp_table_finish(&table);
+}
+
 int main(void)
 {
 	test_range_lookup();
+	test_autounlock();
 }

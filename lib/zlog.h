@@ -159,8 +159,8 @@ extern const struct xref_logmsg *zlog_msg_xref(struct zlog_msg *msg);
  */
 extern const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen);
 
-extern void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen,
-			  size_t *n_argpos, const struct fmt_outpos **argpos);
+extern void zlog_msg_args(struct zlog_msg *msg, size_t *texthdrlen, size_t *n_argpos,
+			  const struct fmt_outpos **argpos);
 
 /* timestamp formatting control flags */
 

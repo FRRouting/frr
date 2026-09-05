@@ -123,6 +123,12 @@ OpenFabric interface
 
    Set CSNP interval in seconds.
 
+BFD monitoring can be enabled for OpenFabric adjacencies on an interface with
+:clicmd:`openfabric bfd`. BFD provides faster failure detection than the
+OpenFabric hello timers.
+
+.. seealso:: :ref:`bfd-openfabric-peer-config`
+
 .. clicmd:: openfabric hello-interval (1-600)
 
 

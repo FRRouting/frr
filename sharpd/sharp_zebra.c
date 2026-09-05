@@ -220,6 +220,7 @@ struct buffer_delay {
 	uint32_t flags;
 	uint32_t tableid;
 	bool tableid_set;
+	uint8_t distance;
 	const struct nexthop_group *nhg;
 	const struct nexthop_group *backup_nhg;
 	enum where_to_restart restart;
@@ -234,7 +235,8 @@ struct buffer_delay {
  */
 static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance, uint32_t nhgid,
 		      const struct nexthop_group *nhg, const struct nexthop_group *backup_nhg,
-		      uint32_t flags, char *opaque, uint32_t tableid, bool tableid_set)
+		      uint32_t flags, char *opaque, uint32_t tableid, bool tableid_set,
+		      uint8_t distance)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -257,6 +259,9 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		api.tableid = tableid;
 		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
 	}
+
+	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+	api.distance = distance;
 
 	/* Only send via ID if nhgroup has been successfully installed */
 	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
@@ -343,7 +348,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count, vrf_i
 					 const struct nexthop_group *nhg,
 					 const struct nexthop_group *backup_nhg, uint32_t routes,
 					 uint32_t flags, char *opaque, uint32_t tableid,
-					 bool tableid_set)
+					 bool tableid_set, uint8_t distance)
 {
 	uint32_t temp, i;
 	bool v4 = false;
@@ -356,7 +361,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count, vrf_i
 
 	for (i = count; i < routes; i++) {
 		bool buffered = route_add(p, vrf_id, (uint8_t)instance, nhgid, nhg, backup_nhg,
-					  flags, opaque, tableid, tableid_set);
+					  flags, opaque, tableid, tableid_set, distance);
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -375,6 +380,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count, vrf_i
 			wb.tableid_set = tableid_set;
 			wb.backup_nhg = backup_nhg;
 			wb.opaque = opaque;
+			wb.distance = distance;
 			wb.restart = SHARP_INSTALL_ROUTES_RESTART;
 
 			return;
@@ -385,7 +391,8 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count, vrf_i
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 				 uint32_t nhgid, const struct nexthop_group *nhg,
 				 const struct nexthop_group *backup_nhg, uint32_t routes,
-				 uint32_t flags, char *opaque, uint32_t tableid, bool tableid_set)
+				 uint32_t flags, char *opaque, uint32_t tableid, bool tableid_set,
+				 uint8_t distance)
 {
 	zlog_debug("Inserting %u routes", routes);
 
@@ -395,7 +402,7 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id, uint8_t inst
 
 	monotime(&sg.r.t_start);
 	sharp_install_routes_restart(p, 0, vrf_id, instance, nhgid, nhg, backup_nhg, routes, flags,
-				     opaque, tableid, tableid_set);
+				     opaque, tableid, tableid_set, distance);
 }
 
 static void sharp_remove_routes_restart(struct prefix *p, uint32_t count, vrf_id_t vrf_id,
@@ -467,7 +474,7 @@ static void handle_repeated(bool installed)
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst, sg.r.nhgid,
 					    &sg.r.nhop_group, &sg.r.backup_nhop_group,
 					    sg.r.total_routes, sg.r.flags, sg.r.opaque,
-					    sg.r.tableid, sg.r.tableid_set);
+					    sg.r.tableid, sg.r.tableid_set, sg.r.distance);
 	}
 }
 
@@ -479,7 +486,7 @@ static void sharp_zclient_buffer_ready(void)
 	case SHARP_INSTALL_ROUTES_RESTART:
 		sharp_install_routes_restart(&wb.p, wb.count, wb.vrf_id, wb.instance, wb.nhgid,
 					     wb.nhg, wb.backup_nhg, wb.routes, wb.flags, wb.opaque,
-					     wb.tableid, wb.tableid_set);
+					     wb.tableid, wb.tableid_set, wb.distance);
 		return;
 	case SHARP_DELETE_ROUTES_RESTART:
 		sharp_remove_routes_restart(&wb.p, wb.count, wb.vrf_id, wb.instance, wb.routes,

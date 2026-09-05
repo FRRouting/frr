@@ -226,6 +226,10 @@ enum dplane_op_e {
 	/* Traffic control qdisc read */
 	DPLANE_OP_TC_QDISC_READ,
 	DPLANE_OP_TC_QDISC_NOTIFY,
+
+	/* EVPN-MH FDB (L2) nexthop update */
+	DPLANE_OP_NH_FDB_INSTALL,
+	DPLANE_OP_NH_FDB_DELETE,
 };
 
 /* Operational status of Bridge Ports */
@@ -668,6 +672,12 @@ const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for EVPN-MH FDB (L2) nexthop / nexthop-group information */
+uint32_t dplane_ctx_get_fdb_nh_id(const struct zebra_dplane_ctx *ctx);
+const struct ipaddr *dplane_ctx_get_fdb_nh_vtep_ip(const struct zebra_dplane_ctx *ctx);
+const struct nh_grp *dplane_ctx_get_fdb_nh_grp(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_fdb_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for LSP information */
 
 /* Init the internal LSP data struct - necessary before adding to it.
@@ -746,6 +756,8 @@ bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_intf_is_tentative(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_tentative(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_is_dadfailed(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_intf_set_dadfailed(struct zebra_dplane_ctx *ctx);
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx);
 const struct in6_addr *
@@ -1095,6 +1107,17 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		     const struct interface *br_ifp, vlanid_t vid, const struct ethaddr *mac,
 		     vni_t vni, struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
 		     uint32_t update_flags);
+
+/*
+ * Enqueue EVPN-MH FDB (L2) nexthop / nexthop-group operations for the
+ * dataplane. These program the per-VTEP FDB nexthops and per-ES nexthop
+ * groups used for EVPN multihoming fast failover.
+ */
+enum zebra_dplane_result dplane_nh_fdb_add(uint32_t nh_id, const struct ipaddr *vtep_ip);
+enum zebra_dplane_result dplane_nhg_fdb_add(uint32_t nhg_id, uint32_t nh_cnt,
+					    const struct nh_grp *nh_ids);
+/* Deletes are id-only and shared by the single-nexthop and group cases. */
+enum zebra_dplane_result dplane_nh_fdb_del(uint32_t id);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.

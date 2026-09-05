@@ -281,6 +281,9 @@ struct cmd_node {
 			    struct cmd_token *argv[] __attribute__((unused)))
 
 /* DEFPY variants */
+/* please update lib/defun_lex.l when adding or removing macros here
+ * (just needs the macro name in the list, nothing else)
+ */
 
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)  \
@@ -307,6 +310,7 @@ struct cmd_node {
 		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
 
 /* DEFUN variants */
+/* as above, please update lib/defun_lex.l when adding/removing macros here */
 
 #define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
@@ -323,6 +327,8 @@ struct cmd_node {
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
 /* DEFUN_NOSH for commands that vtysh should ignore */
+/* as above, please update lib/defun_lex.l when adding/removing macros here */
+
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
 
@@ -335,6 +341,8 @@ struct cmd_node {
 		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
 
 /* DEFSH for vtysh. */
+/* (these do NOT go in lib/defun_lex.l since they are vtysh only) */
+
 #define DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, attr)                     \
 	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, attr, daemon)
 
@@ -345,6 +353,7 @@ struct cmd_node {
 	DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
 
 /* DEFUN + DEFSH */
+
 #define DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, attr)         \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr,     \
@@ -359,6 +368,8 @@ struct cmd_node {
 		     CMD_ATTR_HIDDEN)
 
 /* ALIAS macro which define existing command's alias. */
+/* as above, please update lib/defun_lex.l when adding/removing macros here */
+
 #define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
 

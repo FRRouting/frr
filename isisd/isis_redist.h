@@ -19,6 +19,7 @@ struct isis_ext_info {
 	uint32_t metric;
 	uint8_t distance;
 	route_tag_t tag;
+	uint16_t table;
 };
 
 struct isis_redist {

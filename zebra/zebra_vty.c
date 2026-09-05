@@ -325,6 +325,10 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		for (i = 1; i < nexthop->backup_num; i++)
 			vty_out(vty, ",%d", nexthop->backup_idx[i]);
 	}
+
+	if (nexthop->res_info)
+		vty_out(vty, ", res via %pIA/%d (%u)", &(nexthop->res_info->addr),
+			nexthop->res_info->pfxlen, nexthop->res_info->id);
 }
 
 static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
@@ -1948,6 +1952,10 @@ DEFPY (show_route,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `show <ip|ipv6> rpf [json]` command")
+#endif
+/* Deprecated on 2024-10-29 in 8983d2428208 */
 ALIAS_DEPRECATED (show_route,
                   show_ip_rpf_cmd,
                   "show <ip$ipv4|ipv6$ipv6> rpf$mrib [json$json]",
@@ -4115,6 +4123,26 @@ DEFPY_HIDDEN(zebra_test_metaq_plug,
 	return CMD_SUCCESS;
 }
 
+#ifdef DEV_BUILD
+DEFPY_HIDDEN(zebra_test_dplane_results_plug,
+	     zebra_test_dplane_results_plug_cmd,
+	     "[no] zebra test dplane disable results",
+	     NO_STR
+	     ZEBRA_STR
+	     "Test command\n"
+	     "Dataplane\n"
+	     "Plug dplane processing (prevent processing)\n"
+	     "Plug the dplane results queue (prevent processing)\n")
+{
+	if (no)
+		zebra_rib_dplane_results_unplug();
+	else
+		zebra_rib_dplane_results_plug();
+
+	return CMD_SUCCESS;
+}
+#endif
+
 /* Display Zebra MetaQ counters */
 DEFUN (show_zebra_metaq_counters,
        show_zebra_metaq_counters_cmd,
@@ -4387,6 +4415,9 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
 	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
+#ifdef DEV_BUILD
+	install_element(VIEW_NODE, &zebra_test_dplane_results_plug_cmd);
+#endif
 
 #ifdef HAVE_NETLINK
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);

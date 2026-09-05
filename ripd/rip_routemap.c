@@ -55,11 +55,7 @@ static void *route_match_metric_compile(const char *arg)
 	metric = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 	*metric = atoi(arg);
 
-	if (*metric > 0)
-		return metric;
-
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, metric);
-	return NULL;
+	return metric;
 }
 
 /* Free route map's compiled `match metric' value. */

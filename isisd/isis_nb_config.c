@@ -2086,20 +2086,6 @@ int isis_instance_segment_routing_label_blocks_pre_validate(struct nb_cb_pre_val
 	srlb_lbound = yang_dnode_get_uint32(args->dnode, "srlb/lower-bound");
 	srlb_ubound = yang_dnode_get_uint32(args->dnode, "srlb/upper-bound");
 
-	/* Check that the block size does not exceed 65535 */
-	if ((srgb_ubound - srgb_lbound + 1) > 65535) {
-		snprintf(args->errmsg, args->errmsg_len,
-			 "New SR Global Block (%u/%u) exceed the limit of 65535", srgb_lbound,
-			 srgb_ubound);
-		return NB_ERR_VALIDATION;
-	}
-	if ((srlb_ubound - srlb_lbound + 1) > 65535) {
-		snprintf(args->errmsg, args->errmsg_len,
-			 "New SR Local Block (%u/%u) exceed the limit of 65535", srlb_lbound,
-			 srlb_ubound);
-		return NB_ERR_VALIDATION;
-	}
-
 	/* Validate SRGB against SRLB */
 	if (!((srgb_ubound < srlb_lbound) || (srgb_lbound > srlb_ubound))) {
 		snprintf(args->errmsg, args->errmsg_len,

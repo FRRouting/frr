@@ -120,10 +120,6 @@ ospfd_ospfd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
 ospfd_ospfd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 ospfd_ospfd_snmp_la_LIBADD = lib/libfrrsnmp.la
 
-EXTRA_DIST += \
-	ospfd/ChangeLog.opaque.txt \
-	# end
-
 nodist_ospfd_ospfd_SOURCES = \
 	yang/frr-ospf-route-map.yang.c \
 	# end

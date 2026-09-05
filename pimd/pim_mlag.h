@@ -28,7 +28,6 @@ extern int pim_zebra_mlag_handle_msg(ZAPI_CALLBACK_ARGS);
 
 /* pm_zpthread.c */
 extern int pim_mlag_signal_zpthread(void);
-extern void pim_zpthread_init(void);
 extern void pim_zpthread_terminate(void);
 
 extern void pim_mlag_register(void);

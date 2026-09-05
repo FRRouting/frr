@@ -49,7 +49,7 @@ DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
  * are made. The minor version (at least) should be updated when new APIs
  * are introduced.
  */
-static uint32_t zdplane_version = MAKE_FRRVERSION(4, 0, 0);
+static uint32_t zdplane_version = MAKE_FRRVERSION(4, 1, 0);
 
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
@@ -91,6 +91,20 @@ struct dplane_nexthop_info {
 
 	struct nexthop_group ng;
 	struct nh_grp nh_grp[MULTIPATH_NUM];
+	uint16_t nh_grp_count;
+};
+
+/*
+ * EVPN-MH FDB (L2) nexthop / nexthop-group info for the dataplane.
+ *
+ * A single FDB nexthop carries the remote VTEP ip (NHA_GATEWAY); an FDB
+ * nexthop-group carries the member nh ids (NHA_GROUP). Both use a single
+ * kernel id space, stored in 'id'. This payload is POD - nothing to free.
+ */
+struct dplane_fdb_nh_info {
+	uint32_t id;
+	struct ipaddr vtep_ip;
+	struct nh_grp nh_grp[ES_VTEP_MAX_CNT];
 	uint16_t nh_grp_count;
 };
 
@@ -254,6 +268,7 @@ struct dplane_intf_info {
 #define DPLANE_INTF_HAS_LABEL   (1 << 4)
 #define DPLANE_INTF_NOPREFIXROUTE (1 << 5)
 #define DPLANE_INTF_TENTATIVE   (1 << 6) /* IPv6 address is tentative (DAD) */
+#define DPLANE_INTF_DADFAILED   (1 << 7)
 
 	/* Interface address/prefix */
 	struct prefix prefix;
@@ -492,6 +507,7 @@ struct zebra_dplane_ctx {
 		struct dplane_intf_info intf;
 		struct dplane_vlan_info vlan_info;
 		struct dplane_mac_info macinfo;
+		struct dplane_fdb_nh_info fdb_nh;
 		struct dplane_neigh_info neigh;
 		struct dplane_rule_info rule;
 		struct dplane_tc_qdisc_info tc_qdisc;
@@ -648,6 +664,9 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_nexthops_in;
 	_Atomic uint32_t dg_nexthop_errors;
+
+	_Atomic uint32_t dg_nh_fdb_in;
+	_Atomic uint32_t dg_nh_fdb_errors;
 
 	_Atomic uint32_t dg_lsps_in;
 	_Atomic uint32_t dg_lsp_errors;
@@ -926,6 +945,8 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
+	case DPLANE_OP_NH_FDB_INSTALL:
+	case DPLANE_OP_NH_FDB_DELETE:
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
 	case DPLANE_OP_NEIGH_DELETE:
@@ -1170,6 +1191,11 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "NH_UPDATE";
 	case DPLANE_OP_NH_DELETE:
 		return "NH_DELETE";
+
+	case DPLANE_OP_NH_FDB_INSTALL:
+		return "NH_FDB_INSTALL";
+	case DPLANE_OP_NH_FDB_DELETE:
+		return "NH_FDB_DELETE";
 
 	case DPLANE_OP_LSP_INSTALL:
 		return "LSP_INSTALL";
@@ -2522,6 +2548,31 @@ uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.nhe.nh_grp_count;
 }
 
+/* Accessors for EVPN-MH FDB (L2) nexthop / nexthop-group information */
+uint32_t dplane_ctx_get_fdb_nh_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.fdb_nh.id;
+}
+
+const struct ipaddr *dplane_ctx_get_fdb_nh_vtep_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &ctx->u.fdb_nh.vtep_ip;
+}
+
+const struct nh_grp *dplane_ctx_get_fdb_nh_grp(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.fdb_nh.nh_grp;
+}
+
+uint16_t dplane_ctx_get_fdb_nh_grp_count(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.fdb_nh.nh_grp_count;
+}
+
 /* Accessors for LSP information */
 
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx)
@@ -2836,6 +2887,20 @@ void dplane_ctx_intf_set_tentative(struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.intf.flags |= DPLANE_INTF_TENTATIVE;
+}
+
+bool dplane_ctx_intf_is_dadfailed(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_DADFAILED);
+}
+
+void dplane_ctx_intf_set_dadfailed(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_DADFAILED;
 }
 
 const struct prefix *dplane_ctx_get_intf_addr(
@@ -5265,6 +5330,84 @@ enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe)
 }
 
 /*
+ * Common helper to enqueue an EVPN-MH FDB (L2) nexthop / nexthop-group op.
+ */
+static enum zebra_dplane_result fdb_nh_update_common(enum dplane_op_e op, uint32_t id,
+						     const struct ipaddr *vtep_ip, uint32_t nh_cnt,
+						     const struct nh_grp *nh_ids)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	struct zebra_vrf *zvrf;
+	struct zebra_ns *zns;
+	int ret;
+
+	/* ctx is zero-initialized by dplane_ctx_alloc()'s XCALLOC. */
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	/* EVPN-MH FDB nexthops live in the EVPN vrf's namespace. */
+	zvrf = zebra_vrf_get_evpn();
+	zns = zvrf ? zvrf->zns : zebra_ns_lookup(NS_DEFAULT);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ctx->u.fdb_nh.id = id;
+	if (vtep_ip)
+		ctx->u.fdb_nh.vtep_ip = *vtep_ip;
+	if (nh_cnt > ES_VTEP_MAX_CNT)
+		nh_cnt = ES_VTEP_MAX_CNT;
+	if (nh_cnt)
+		memcpy(ctx->u.fdb_nh.nh_grp, nh_ids, nh_cnt * sizeof(struct nh_grp));
+	ctx->u.fdb_nh.nh_grp_count = nh_cnt;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("init fdb-nh ctx %s: id 0x%x cnt %u", dplane_op2str(op), id, nh_cnt);
+
+	ret = dplane_update_enqueue(ctx);
+
+	atomic_fetch_add_explicit(&zdplane_info.dg_nh_fdb_in, 1, memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_nh_fdb_errors, 1, memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+/*
+ * Enqueue an EVPN-MH FDB (L2) single-nexthop add/update.
+ */
+enum zebra_dplane_result dplane_nh_fdb_add(uint32_t nh_id, const struct ipaddr *vtep_ip)
+{
+	return fdb_nh_update_common(DPLANE_OP_NH_FDB_INSTALL, nh_id, vtep_ip, 0, NULL);
+}
+
+/*
+ * Enqueue an EVPN-MH FDB (L2) nexthop / nexthop-group delete. A delete is
+ * id-only, so a single entry point covers both the single-nexthop and the
+ * nexthop-group case (both live in the same kernel id space).
+ */
+enum zebra_dplane_result dplane_nh_fdb_del(uint32_t id)
+{
+	return fdb_nh_update_common(DPLANE_OP_NH_FDB_DELETE, id, NULL, 0, NULL);
+}
+
+/*
+ * Enqueue an EVPN-MH FDB (L2) nexthop-group add/update. This shares the
+ * install op with the single-nexthop case; a non-zero nh_cnt selects the
+ * group (NHA_GROUP) encoding.
+ */
+enum zebra_dplane_result dplane_nhg_fdb_add(uint32_t nhg_id, uint32_t nh_cnt,
+					    const struct nh_grp *nh_ids)
+{
+	return fdb_nh_update_common(DPLANE_OP_NH_FDB_INSTALL, nhg_id, NULL, nh_cnt, nh_ids);
+}
+
+/*
  * Enqueue LSP add for the dataplane.
  */
 enum zebra_dplane_result dplane_lsp_add(struct zebra_lsp *lsp)
@@ -6735,6 +6878,11 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "Nexthop updates:          %" PRIu64 "\n", incoming);
 	vty_out(vty, "Nexthop update errors:    %" PRIu64 "\n", errs);
 
+	incoming = atomic_load_explicit(&zdplane_info.dg_nh_fdb_in, memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_nh_fdb_errors, memory_order_relaxed);
+	vty_out(vty, "FDB nexthop updates:      %" PRIu64 "\n", incoming);
+	vty_out(vty, "FDB nexthop update errs:  %" PRIu64 "\n", errs);
+
 	vty_out(vty, "Other errors       :      %"PRIu64"\n", other_errs);
 	vty_out(vty, "Route update queue limit: %"PRIu64"\n", limit);
 	vty_out(vty, "Route update queue depth: %"PRIu64"\n", queued);
@@ -7287,6 +7435,14 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_op2str(dplane_ctx_get_op(ctx)));
 		break;
 
+	case DPLANE_OP_NH_FDB_INSTALL:
+	case DPLANE_OP_NH_FDB_DELETE:
+		zlog_debug("ID (0x%x) Dplane fdb-nh update ctx %p op %s cnt %u",
+			   dplane_ctx_get_fdb_nh_id(ctx), ctx,
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_fdb_nh_grp_count(ctx));
+		break;
+
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 	case DPLANE_OP_LSP_DELETE:
@@ -7518,6 +7674,13 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 			atomic_fetch_add_explicit(
 				&zdplane_info.dg_nexthop_errors, 1,
 				memory_order_relaxed);
+		break;
+
+	case DPLANE_OP_NH_FDB_INSTALL:
+	case DPLANE_OP_NH_FDB_DELETE:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(&zdplane_info.dg_nh_fdb_errors, 1,
+						  memory_order_relaxed);
 		break;
 
 	case DPLANE_OP_LSP_INSTALL:

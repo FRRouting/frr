@@ -49,6 +49,13 @@ r1_unicast_sid = None
 r3_unicast_sid = None
 
 def setup_module(mod):
+    # This topotest sets net.vrf.strict_mode during setup. That sysctl is
+    # available only after the VRF module is loaded; if the module is not loaded,
+    # the strict_mode command may fail and the test can fail later.
+    # Ensure the VRF module is present and loaded before setting strict_mode.
+    if not topotest.module_present("vrf"):
+        pytest.skip("VRF kernel module is not available")
+
     topodef = {"s1": ("r1", "r2"), "s2": ("r1", "r3"), "s3": ("r1", "r4"),
                "s4": ("c1", "r2"), "s5": ("r3", "c2")}
     tgen = Topogen(topodef, mod.__name__)
@@ -336,6 +343,63 @@ def test_bgp_srv6_sid_rmap_update():
         r1_unicast_sid,
     )
     assert res is True, res
+
+
+def test_bgp_srv6_sid_rmap_use_count():
+    """
+    Verify SRv6 Service routes do not inflate the route-map use count while
+    walking/re-announcing multiple routes.
+    """
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        network 10.0.0.4/32
+        network 10.0.0.5/32
+        """
+    )
+
+    logger.info("Check newly announced SRv6 Service routes have SRv6 encap on R2")
+    for prefix in ("10.0.0.4/32", "10.0.0.5/32"):
+        res = check_route(
+            tgen.gears["r2"], "show ip route %s json" % prefix, prefix, r1_unicast_sid
+        )
+        assert res is True, res
+
+    logger.info("Detach route-map filter for SRv6 Service routes")
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        no sid export auto route-map filter
+        sid export auto
+        """
+    )
+
+    def _check_route_map_unused():
+        output = json.loads(r1.vtysh_cmd("show route-map-unused json"))
+        if "filter" not in output.get("bgpd", {}):
+            return "filter route-map is still in use"
+        return None
+
+    _, result = topotest.run_and_expect(_check_route_map_unused, None, count=20, wait=1)
+    assert result is None, "filter should be unused after removing it from sid export"
+
+    logger.info("Restore route-map filter for SRv6 Service routes")
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        no sid export auto
+        sid export auto route-map filter
+        """
+    )
 
 
 def test_bgp_srv6_sid_unexport():

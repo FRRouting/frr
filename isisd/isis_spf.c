@@ -6,6 +6,7 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
+ * Copyright (C) 2003        Ofer Wald, Hannes Gredler
  * Copyright (C) 2017        Christian Franke <chris@opensourcerouting.org>
  */
 
@@ -2381,9 +2382,16 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 		}
 		goto out;
 	}
+
 	isis = isis_lookup_by_vrfname(vrf_name);
-	if (isis == NULL)
+	if (isis == NULL) {
+		if (json) {
+			json_object_free(json);
+			vty_json_empty(vty, NULL);
+		}
 		return CMD_SUCCESS;
+	}
+
 	if (all_algorithm) {
 		for (algorithm = SR_ALGORITHM_FLEX_MIN; algorithm <= SR_ALGORITHM_FLEX_MAX;
 		     algorithm++) {

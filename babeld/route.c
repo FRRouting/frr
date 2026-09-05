@@ -772,6 +772,11 @@ struct babel_route *update_route(const unsigned char *router_id, const unsigned 
 			if (src != route->src) {
 				uninstall_route(route);
 				lost = 1;
+			} else {
+				/* Same source, unfeasible update: per RFC 8966 §3.5.3,
+				 * ignore this update if the source has not changed.
+				 */
+				return route;
 			}
 		}
 
@@ -1045,12 +1050,17 @@ void expire_routes(void)
 		r = routes[i];
 		while (r) {
 			/* Protect against clock being stepped. */
-			if (r->time > babel_now.tv_sec || route_old(r)) {
+			if (r->time > babel_now.tv_sec) {
 				flush_route(r);
 				goto again;
 			}
 
 			update_route_metric(r);
+
+			if (route_expired(r)) {
+				flush_route(r);
+				goto again;
+			}
 
 			if (r->installed && r->refmetric < INFINITY) {
 				if (route_old(r))

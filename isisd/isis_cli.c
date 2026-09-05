@@ -97,6 +97,17 @@ void cli_show_router_isis_end(struct vty *vty, const struct lyd_node *dnode)
 }
 
 /*
+ * The per-interface IS-IS configuration lives in a container that only exists
+ * while the interface is enabled for IS-IS, and the area-tag inside it is
+ * mandatory. Enqueueing a change below that container while it is absent
+ * recreates it without an area tag and fails validation.
+ */
+static const struct lyd_node *isis_iface_cfg_dnode(struct vty *vty)
+{
+	return yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/ipv4-routing
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/ipv6-routing
@@ -155,7 +166,7 @@ DEFPY_YANG(no_ip_router_isis, no_ip_router_isis_cmd,
 {
 	const struct lyd_node *dnode;
 
-	dnode = yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	dnode = isis_iface_cfg_dnode(vty);
 	if (!dnode)
 		return CMD_SUCCESS;
 
@@ -212,10 +223,7 @@ DEFPY_YANG(isis_bfd,
       NO_STR PROTO_HELP
       "Enable BFD support\n")
 {
-	const struct lyd_node *dnode;
-
-	dnode = yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
-	if (dnode == NULL) {
+	if (!isis_iface_cfg_dnode(vty)) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
 	}
@@ -237,10 +245,7 @@ DEFPY_YANG(isis_bfd_profile,
       "Use a pre-configured profile\n"
       "Profile name\n")
 {
-	const struct lyd_node *dnode;
-
-	dnode = yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
-	if (dnode == NULL) {
+	if (!isis_iface_cfg_dnode(vty)) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
 	}
@@ -1595,10 +1600,10 @@ DEFPY_YANG(
 	SR_STR
 	"Segment Routing Global Block label range\n"
 	"The lower bound of the global block\n"
-	"The upper bound of the global block (block size may not exceed 65535)\n"
+	"The upper bound of the global block\n"
 	"Segment Routing Local Block label range\n"
 	"The lower bound of the local block\n"
-	"The upper bound of the local block (block size may not exceed 65535)\n")
+	"The upper bound of the local block\n")
 {
 	nb_cli_enqueue_change(vty, "./segment-routing/label-blocks/srgb/lower-bound", NB_OP_MODIFY,
 			      gb_lower_bound_str);
@@ -1619,10 +1624,10 @@ DEFPY_YANG(no_isis_sr_global_block_label_range,
 	NO_STR SR_STR
 	"Segment Routing Global Block label range\n"
 	"The lower bound of the global block\n"
-	"The upper bound of the global block (block size may not exceed 65535)\n"
+	"The upper bound of the global block\n"
 	"Segment Routing Local Block label range\n"
 	"The lower bound of the local block\n"
-	"The upper bound of the local block (block size may not exceed 65535)\n")
+	"The upper bound of the local block\n")
 {
 	nb_cli_enqueue_change(vty, "./segment-routing/label-blocks/srgb/lower-bound", NB_OP_MODIFY,
 			      NULL);
@@ -1688,7 +1693,7 @@ DEFPY_YANG (isis_sr_prefix_sid,
        isis_sr_prefix_sid_cmd,
        "segment-routing prefix\
           <A.B.C.D/M|X:X::X:X/M>$prefix\
-	  <absolute$sid_type (16-1048575)$sid_value|index$sid_type (0-65535)$sid_value>\
+	  <absolute$sid_type (16-1048575)$sid_value|index$sid_type (0-1048575)$sid_value>\
 	  [<no-php-flag|explicit-null>$lh_behavior] [n-flag-clear$n_flag_clear]",
        SR_STR
        "Prefix SID\n"
@@ -1727,7 +1732,7 @@ DEFPY_YANG (isis_sr_prefix_sid,
 DEFPY_YANG (no_isis_sr_prefix_sid,
        no_isis_sr_prefix_sid_cmd,
        "no segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
-         [<absolute$sid_type (16-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]\
+         [<absolute$sid_type (16-1048575)|index (0-1048575)> [<no-php-flag|explicit-null>]]\
 	 [n-flag-clear]",
        NO_STR
        SR_STR
@@ -1786,7 +1791,7 @@ DEFPY_YANG(
 	isis_sr_prefix_sid_algorithm, isis_sr_prefix_sid_algorithm_cmd,
 	"segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
               algorithm (128-255)$algorithm\
-              <absolute$sid_type (16-1048575)$sid_value|index$sid_type (0-65535)$sid_value>\
+              <absolute$sid_type (16-1048575)$sid_value|index$sid_type (0-1048575)$sid_value>\
               [<no-php-flag|explicit-null>$lh_behavior] [n-flag-clear$n_flag_clear]",
 	SR_STR
 	"Prefix SID\n"
@@ -1830,7 +1835,7 @@ DEFPY_YANG(
 	no_isis_sr_prefix_algorithm_sid, no_isis_sr_prefix_sid_algorithm_cmd,
 	"no segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
               algorithm (128-255)$algorithm\
-              [<absolute$sid_type (16-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]\
+              [<absolute$sid_type (16-1048575)|index (0-1048575)> [<no-php-flag|explicit-null>]]\
               [n-flag-clear]",
 	NO_STR SR_STR
 	"Prefix SID\n"
@@ -2313,7 +2318,10 @@ DEFPY_YANG(isis_passive, isis_passive_cmd, "[no] isis passive",
       "IS-IS routing protocol\n"
       "Configure the passive mode for interface\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive", NB_OP_MODIFY, no ? "false" : "true");
+	if (no)
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive", NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2393,9 +2401,9 @@ DEFPY_YANG(no_isis_metric, no_isis_metric_cmd,
       "Default metric value\n")
 {
 	if (!level || strmatch(level, "level-1"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/metric/level-1", NB_OP_MODIFY, NULL);
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/metric/level-1", NB_OP_DESTROY, NULL);
 	if (!level || strmatch(level, "level-2"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/metric/level-2", NB_OP_MODIFY, NULL);
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/metric/level-2", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2444,11 +2452,11 @@ DEFPY_YANG(no_isis_hello_interval, no_isis_hello_interval_cmd,
       "Holdtime 1 second, interval depends on multiplier\n")
 {
 	if (!level || strmatch(level, "level-1"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/interval/level-1", NB_OP_MODIFY,
-				      NULL);
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/interval/level-1",
+				      NB_OP_DESTROY, NULL);
 	if (!level || strmatch(level, "level-2"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/interval/level-2", NB_OP_MODIFY,
-				      NULL);
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/interval/level-2",
+				      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2499,10 +2507,10 @@ DEFPY_YANG(no_isis_hello_multiplier, no_isis_hello_multiplier_cmd,
 {
 	if (!level || strmatch(level, "level-1"))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/multiplier/level-1",
-				      NB_OP_MODIFY, NULL);
+				      NB_OP_DESTROY, NULL);
 	if (!level || strmatch(level, "level-2"))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/multiplier/level-2",
-				      NB_OP_MODIFY, NULL);
+				      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2529,6 +2537,11 @@ DEFPY_YANG(isis_threeway_adj, isis_threeway_adj_cmd, "[no] isis three-way-handsh
       "IS-IS commands\n"
       "Enable/Disable three-way handshake\n")
 {
+	if (!isis_iface_cfg_dnode(vty)) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/disable-three-way-handshake", NB_OP_MODIFY,
 			      no ? "true" : "false");
 
@@ -2554,6 +2567,11 @@ DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd,
 	   "Pad hello packets\n"
 	   "Add padding to hello packets during adjacency formation only.\n")
 {
+	if (!isis_iface_cfg_dnode(vty)) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
 	if (no) {
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding", NB_OP_MODIFY,
 				      "disabled");
@@ -2608,10 +2626,10 @@ DEFPY_YANG(no_csnp_interval, no_csnp_interval_cmd,
       "Specify interval for level-2 CSNPs\n")
 {
 	if (!level || strmatch(level, "level-1"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/csnp-interval/level-1", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/csnp-interval/level-1", NB_OP_DESTROY,
 				      NULL);
 	if (!level || strmatch(level, "level-2"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/csnp-interval/level-2", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/csnp-interval/level-2", NB_OP_DESTROY,
 				      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2662,10 +2680,10 @@ DEFPY_YANG(no_psnp_interval, no_psnp_interval_cmd,
       "Specify interval for level-2 PSNPs\n")
 {
 	if (!level || strmatch(level, "level-1"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/psnp-interval/level-1", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/psnp-interval/level-1", NB_OP_DESTROY,
 				      NULL);
 	if (!level || strmatch(level, "level-2"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/psnp-interval/level-2", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/psnp-interval/level-2", NB_OP_DESTROY,
 				      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2702,6 +2720,11 @@ DEFPY_YANG(circuit_topology, circuit_topology_cmd,
       "IPv6 management topology\n"
       "IPv6 dst-src topology\n")
 {
+	if (!isis_iface_cfg_dnode(vty)) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, ".", NB_OP_MODIFY, no ? "false" : "true");
 
 	if (strmatch(topology, "ipv4-mgmt"))
@@ -2795,7 +2818,7 @@ DEFPY_YANG(no_isis_circuit_type, no_isis_circuit_type_cmd,
       "Level-1-2 adjacencies are formed\n"
       "Level-2 only adjacencies are formed\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2846,8 +2869,11 @@ DEFPY_YANG(isis_network, isis_network_cmd, "[no] isis network point-to-point",
       "Set network type\n"
       "point-to-point network type\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/network-type", NB_OP_MODIFY,
-			      no ? "broadcast" : "point-to-point");
+	if (no)
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/network-type", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/network-type", NB_OP_MODIFY,
+				      "point-to-point");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2892,9 +2918,11 @@ DEFPY_YANG(no_isis_priority, no_isis_priority_cmd,
       "Specify priority for level-2 routing\n")
 {
 	if (!level || strmatch(level, "level-1"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/priority/level-1", NB_OP_MODIFY, NULL);
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/priority/level-1", NB_OP_DESTROY,
+				      NULL);
 	if (!level || strmatch(level, "level-2"))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/priority/level-2", NB_OP_MODIFY, NULL);
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/priority/level-2", NB_OP_DESTROY,
+				      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3010,7 +3038,7 @@ DEFPY_YANG(isis_lfa, isis_lfa_cmd,
 		if (no) {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/lfa/enable",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 		} else {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/lfa/enable",
@@ -3021,7 +3049,7 @@ DEFPY_YANG(isis_lfa, isis_lfa_cmd,
 		if (no) {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/lfa/enable",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 		} else {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/lfa/enable",
@@ -3100,7 +3128,7 @@ DEFPY_YANG(isis_remote_lfa, isis_remote_lfa_cmd,
 		if (no) {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/remote-lfa/enable",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 		} else {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/remote-lfa/enable",
@@ -3111,7 +3139,7 @@ DEFPY_YANG(isis_remote_lfa, isis_remote_lfa_cmd,
 		if (no) {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/remote-lfa/enable",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 		} else {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/remote-lfa/enable",
@@ -3188,13 +3216,13 @@ DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
 		if (no) {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/node-protection",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/link-fallback",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 		} else {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable",
@@ -3211,13 +3239,13 @@ DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
 		if (no) {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/enable",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/node-protection",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/link-fallback",
-					      NB_OP_MODIFY, "false");
+					      NB_OP_DESTROY, NULL);
 		} else {
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/fast-reroute/level-2/ti-lfa/enable",
@@ -3327,10 +3355,7 @@ DEFPY_YANG(isis_mpls_if_ldp_sync, isis_mpls_if_ldp_sync_cmd,
       "[no] isis mpls ldp-sync",
       NO_STR "IS-IS routing protocol\n" MPLS_STR MPLS_LDP_SYNC_STR)
 {
-	const struct lyd_node *dnode;
-
-	dnode = yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
-	if (dnode == NULL) {
+	if (!isis_iface_cfg_dnode(vty)) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
 	}
@@ -3357,10 +3382,7 @@ DEFPY_YANG(isis_mpls_if_ldp_sync_holddown, isis_mpls_if_ldp_sync_holddown_cmd,
       "Time to wait for LDP-SYNC to occur before restoring interface metric\n"
       "Time in seconds\n")
 {
-	const struct lyd_node *dnode;
-
-	dnode = yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
-	if (dnode == NULL) {
+	if (!isis_iface_cfg_dnode(vty)) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
 	}
@@ -3375,10 +3397,7 @@ DEFPY_YANG(no_isis_mpls_if_ldp_sync_holddown, no_isis_mpls_if_ldp_sync_holddown_
       NO_STR "IS-IS routing protocol\n" MPLS_STR NO_MPLS_LDP_SYNC_STR
 	      NO_MPLS_LDP_SYNC_HOLDDOWN_STR "Time in seconds\n")
 {
-	const struct lyd_node *dnode;
-
-	dnode = yang_dnode_getf(vty->candidate_config->dnode, "%s/frr-isisd:isis", VTY_CURR_XPATH);
-	if (dnode == NULL) {
+	if (!isis_iface_cfg_dnode(vty)) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
 	}

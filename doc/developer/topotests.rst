@@ -860,6 +860,37 @@ There is no magic bullet here.  You as a developer might have to experiment with
 values and different combinations of the above to cause the problem to happen more often.
 These are just the tools that we know of at this point in time.
 
+Overloading the system can also prevent daemons from exiting in time at
+teardown; that is reported as ``SIGXCPU``.  See :ref:`topotests-sigxcpu`.
+
+
+.. _topotests-sigxcpu:
+
+SIGXCPU During Test Shutdown
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When a test tears down, topotest sends ``SIGTERM`` to each FRR daemon and waits
+up to 30 seconds for a clean exit.  If a daemon is still running after that
+wait, the harness sends ``SIGXCPU`` so the process dumps core and exits.
+
+This is **intentional**.  ``SIGXCPU`` is used so the resulting core is obviously
+produced by the test harness.
+
+A ``SIGXCPU`` core, or a log line such as ``sending SIGXCPU to: ...``, is
+almost never an FRR crash.  It means the daemon did not finish shutting down
+in time.  That commonly happens on a heavily loaded host (parallel pytest
+workers, other builds or tests, CI micronet under contention).
+
+If you see this:
+
+- Treat it as a loaded-system problem first, not a daemon bug.
+- Reduce pytest parallelism (``-n``), stop other heavy work on the machine,
+  and re-run the test.
+- If the same daemon still fails to exit on an unloaded system, then
+  investigate a shutdown hang.
+
+Do not file or chase ``SIGXCPU`` cores from teardown as hardware faults.
+
 
 .. _topotests_docker:
 
@@ -1029,15 +1060,63 @@ Some things to keep in mind:
 - Avoid including unstable data in your test: don't rely on link-local
   addresses or ifindex values, for example, because these can change
   from run to run.
-- Using sleep is almost never appropriate. As an example: if the test resets the
-  peers in BGP, the test should look for the peers re-converging instead of just
-  sleeping an arbitrary amount of time and continuing on. See
-  ``verify_bgp_convergence`` as a good example of this. In particular look at
-  it's use of the ``@retry`` decorator. If you are having troubles figuring out
-  what to look for, please do not be afraid to ask.
+- Using ``sleep`` is almost never appropriate. Poll for observable state with
+  ``topotest.run_and_expect()`` instead, and check intermediate conditions
+  rather than jumping straight to the end of the topology (see
+  :ref:`topotests-run-and-expect`).
 - Don't duplicate effort. There exists many protocol utility functions that can
   be found in their eponymous module under ``tests/topotests/lib/`` (e.g.,
   ``ospf.py``)
+
+
+.. _topotests-run-and-expect:
+
+Waiting for state with ``run_and_expect``
+"""""""""""""""""""""""""""""""""""""""""
+
+Topotests must wait for protocol and forwarding state to appear rather than
+pausing for an arbitrary interval. The standard pattern is
+``topotest.run_and_expect()``: pass a helper that gathers and compares state,
+and retry until the expected result is seen. Helpers such as
+``verify_bgp_convergence`` and the ``@retry`` decorator follow the same idea.
+If you are having troubles figuring out what to look for, please do not be
+afraid to ask.
+
+Give ``run_and_expect`` generous timeouts. Topotests are routinely executed in
+parallel (``pytest -nauto --dist=loadfile``). On a loaded CI host, daemons take
+longer to converge and show-command output takes longer to collect than on a
+quiet developer machine. Short ``count`` / ``wait`` values that pass locally
+often flake under that load. BGP tests in particular MUST still use a
+convergence timeout of at least 130 seconds.
+
+The total wait (``count * wait``) MUST be at least 15 seconds. Values below
+that are treated as too small: ``run_and_expect`` logs a warning and overrides
+them to the defaults (``count=20``, ``wait=3``, 60 seconds). Choose an
+explicit ``count`` and ``wait`` whose product is 15 seconds or more; do not
+rely on that override.
+
+A typical check looks like this:
+
+.. code:: py
+
+   from functools import partial
+   from lib import topotest
+
+   test_func = partial(
+       topotest.router_json_cmp, router, "show ip bgp neighbor json", expected
+   )
+   _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+   assert result is None, "BGP neighbors did not come up:\n{}".format(result)
+
+Do not jump straight to the end state. After introducing a route or changing
+configuration, assert intermediate conditions so a failure identifies where
+things went wrong. For example, if several BGP neighbors form a chain and a
+route should appear on the last router: first wait for the sessions to come
+up, then confirm the route is present on the first neighbor, then check each
+hop, and only then assert it on the last router. Introducing the route and
+immediately looking for it only on the last router hides whether the session
+never established, the route never left the originator, or it was dropped in
+the middle of the chain.
 
 
 
@@ -1872,6 +1951,7 @@ Instructions for use, write or debug topologies can be found in :ref:`topotests-
 To learn/remember common code snippets see :ref:`topotests-snippets`.
 For restarting FRR or individual daemons on a router during a test, see :ref:`topotests-restart`.
 For information on multicast testing in topotests, see :ref:`topotest-multicast`.
+For ``SIGXCPU`` cores at test shutdown, see :ref:`topotests-sigxcpu`.
 
 Before creating a new topology, make sure that there isn't one already that
 does what you need. If nothing is similar, then you may create a new topology,

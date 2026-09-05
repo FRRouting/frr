@@ -47,10 +47,15 @@ be specified (:ref:`common-invocation-options`).
 
 .. option:: -n, --no_kernel
 
-   Do not install learned routes into the linux kernel.  This option is useful
-   for a route-reflector environment or if you are running multiple bgp
-   processes in the same namespace.  This option is different than the --no_zebra
-   option in that a ZAPI connection is made.
+   Do not install BGP routes into zebra (and therefore not into the Linux
+   kernel).  This is the supported way to keep BGP from programming routes
+   when you still need a working FRR process, for example a route reflector
+   or multiple bgpd processes in the same namespace.
+
+   bgpd still opens a ZAPI connection to zebra.  FRR protocol daemons are
+   tightly integrated with zebra for interface, VRF, nexthop-tracking, label,
+   and other state; they are not intended to run as a standalone process
+   without zebra.
 
    This option can also be toggled during runtime by using the
    ``[no] bgp no-rib`` commands in VTY shell.
@@ -72,8 +77,12 @@ be specified (:ref:`common-invocation-options`).
 
 .. option:: -Z, --no_zebra
 
-   Do not communicate with zebra at all.  This is different than the --no_kernel
-   option in that we do not even open a ZAPI connection to the zebra process.
+   Deprecated.  This option is buggy and misleading: it does not fully stop
+   communication with zebra, and FRR is tightly integrated with zebra.
+
+   Do not use this option.  It will be removed in a future release.  To avoid
+   installing BGP routes into zebra, use ``-n`` / ``--no_kernel`` (or
+   ``bgp no-rib`` at runtime).
 
 .. option:: -s, --socket_size
 
@@ -88,9 +97,7 @@ be specified (:ref:`common-invocation-options`).
    Allow BGP to peer in the V6 afi, when the interface only has v4 addresses.
    This allows bgp to install the v6 routes with a v6 nexthop that has the
    v4 address encoded in the nexthop.  Zebra's equivalent option currently
-   overrides the bgp setting.  This setting is only really usable when
-   the operator has turned off communication to zebra and is running bgpd
-   as a complete standalone process.
+   overrides the bgp setting.
 
 .. option:: -K, --graceful_restart
 
@@ -1769,9 +1776,10 @@ Redistribute routes from a routing table number into BGP.
    After a non-graceful restart, peers detect the session loss and withdraw
    routes to this router, so the receiver has no routes to this router at all.
    ``advertisement-delay`` controls when this router re-announces itself,
-   ensuring it only attracts traffic once it has fully converged.  When
-   graceful-restart is active, ``advertisement-delay`` is not started -- the
-   GR restarter path handles route retention separately.
+   ensuring it only attracts traffic once it has fully converged.  While a
+   graceful restart is in progress for a BGP instance, ``advertisement-delay``
+   is not started for that instance -- the GR restarter path handles route
+   retention separately.  Other instances are unaffected.
 
    This feature holds route advertisements to peers for a configured number of
    seconds after the first peer reaches Established status.  The delay applies
@@ -1817,19 +1825,30 @@ Redistribute routes from a routing table number into BGP.
    After a non-graceful restart, peers detect the session loss and withdraw
    routes to this router, so the receiver has no routes to this router at all.
    ``advertisement-delay`` controls when this router re-announces itself,
-   ensuring it only attracts traffic once it has fully converged.  When
-   graceful-restart is active, ``advertisement-delay`` is not started -- the
-   GR restarter path handles route retention separately.
+   ensuring it only attracts traffic once it has fully converged.  While a
+   graceful restart is in progress for a BGP instance, ``advertisement-delay``
+   is not started for that instance -- the GR restarter path handles route
+   retention separately.  Other instances are unaffected.
 
    This feature holds route advertisements to peers for a configured number of
-   seconds after the first peer reaches Established status.  Note that this
-   command is configured under the specific bgp instance/vrf that the feature
-   is enabled for.  It cannot be used at the same time as the global
-   ``bgp advertisement-delay`` described above.  The global and per-vrf
+   seconds after the first BGP peer in any VRF reaches Established status.
+   Note that this command is configured under the specific bgp instance/vrf
+   that the feature is enabled for.  It cannot be used at the same time as the
+   global ``bgp advertisement-delay`` described above.  The global and per-vrf
    approaches are mutually exclusive.
 
-   When the first peer reaches Established, a timer for the configured delay is
-   started.  During this period, best-path selection and FIB programming proceed
+   The timer is VRF-aware: when the first peer in any VRF (including the
+   default VRF) reaches Established, the advertisement-delay timer starts for
+   every VRF that has it configured.  A VRF that has no BGP peers of its own,
+   and learns its routes by import from another instance, is held as well.
+   Each VRF manages its own timer independently.
+
+   Because a peer in one VRF starts the timer everywhere it is configured,
+   enable it only on the VRFs whose advertisements should be held.  A VRF
+   that carries the sessions used to reach other routers will otherwise hold
+   those advertisements too.
+
+   During the delay period, best-path selection and FIB programming proceed
    normally, but route advertisements to peers are held.  When the timer
    expires, advertisements are released to all established peers.
 
@@ -4372,7 +4391,7 @@ route with gateway IP.
 1. CLI to add gateway IP while generating EVPN type-5 route from a BGP IPv4/IPv6
 prefix:
 
-.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip]
+.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip] [route-map RMAP_NAME] [skip-evpn-imported]
 
 When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
 type-5 routes are generated for BGP prefixes in the vrf.
@@ -4387,6 +4406,14 @@ of the corresponding type-5 paths.
 
 Note that EVPN will still perform its own bestpath selection for each EVPN
 prefix, and addpath must be properly configured in EVPN to enable multipathing.
+
+The optional ``skip-evpn-imported`` keyword prevents exporting a
+unicast route as a Type-5 route when its ultimate VRF-leak import parent is in
+the EVPN table. This prevents an EVPN-origin route leaked between VRFs from
+being re-exported into EVPN. It can be removed without disabling Type-5 export
+with the following command:
+
+.. clicmd:: no advertise <ipv4|ipv6> unicast skip-evpn-imported
 
 2. Add gateway IP to EVPN type-5 route using a route-map:
 
@@ -5129,8 +5156,10 @@ The following command is available in ``config`` mode as well as in the
 
 .. clicmd:: bgp input-queue-limit (1-4294967295)
 
-   Set the BGP Input Queue limit for all peers when messaging parsing. Increase
-   this only if you have the memory to handle large queues of messages at once.
+   Set the BGP Input Queue limit for all peers. The limit is checked
+   before reading from the socket; messages from a single read are all
+   processed even if temporarily exceeding the limit. Increase this only
+   if you have the memory to handle large queues of messages at once.
 
 .. clicmd:: bgp output-queue-limit (1-4294967295)
 
@@ -5856,6 +5885,25 @@ Displaying Routes by Route Distinguisher
    ``all`` is used instead of a specific RD). Only ``json`` is supported here;
    there is no ``brief`` modifier on this variant.
 
+BGP EVPN Route RD Brief Command
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp l2vpn evpn route rd <ASN:NN_OR_IP-ADDRESS:NN|all> [json [brief]]
+
+   Display EVPN routes for the given Route Distinguisher. Without ``json``,
+   output is the usual detailed text. With ``json``, output is full detail in
+   JSON.
+
+   The ``brief`` keyword is only valid together with ``json``. Use
+   ``json brief`` for a reduced JSON structure: ``numPrefixes`` per RD and, per
+   prefix, ``pathCount``, ``multiPathCount``, and ``flags`` (including
+   ``bestPathExists``).
+
+.. clicmd:: show bgp l2vpn evpn route rd <ASN:NN_OR_IP-ADDRESS:NN|all> type <ead|1|macip|2|multicast|3|es|4|prefix|5> [json [brief]]
+
+   Same as above, restricted to the given EVPN route type. Use ``json brief``
+   for the same reduced JSON format.
+
 Displaying Update Group Information
 -----------------------------------
 
@@ -6005,7 +6053,8 @@ by route reflectors to avoid looping.
 
 To set and unset the BGP daemon ``-n`` / ``--no_kernel`` options during runtime
 to disable BGP route installation to the RIB (Zebra), the ``[no] bgp no-rib``
-commands can be used;
+commands can be used.  This is the supported replacement for the deprecated
+``-Z`` / ``--no_zebra`` option.
 
 Please note that setting the option during runtime will withdraw all routes in
 the daemons RIB from Zebra and unsetting it will announce all routes in the

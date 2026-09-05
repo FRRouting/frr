@@ -153,6 +153,10 @@ struct if_stats {
 #define DEFAULT_BANDWIDTH 10
 #define MAX_CLASS_TYPE          8
 #define MAX_PKT_LOSS            50.331642
+/* Max SRLG values per link. A single RFC5307 (TLV 138) / RFC6119 (TLV 139)
+ * advertisement fits ~50 values; cap conservatively to keep the struct fixed.
+ */
+#define LP_MAX_SRLG 32
 
 enum affinity_mode {
 	/* RFC7308 Extended Administrative group */
@@ -183,6 +187,7 @@ enum affinity_mode {
 #define LP_AVA_BW               0x0800
 #define LP_USE_BW               0x1000
 #define LP_EXTEND_ADM_GRP 0x2000
+#define LP_SRLG			0x4000
 
 #define IS_PARAM_UNSET(lp, st) !(lp->lp_status & st)
 #define IS_PARAM_SET(lp, st) (lp->lp_status & st)
@@ -216,6 +221,8 @@ struct if_link_params {
 	float res_bw;			/* Residual Bandwidth */
 	float ava_bw;			/* Available Bandwidth */
 	float use_bw;			/* Utilized Bandwidth */
+	uint32_t srlgs[LP_MAX_SRLG];	/* RFC5307/RFC6119 Shared Risk Link Groups */
+	uint8_t srlg_num;		/* Number of valid entries in srlgs[] */
 };
 
 #define INTERFACE_LINK_PARAMS_SIZE   sizeof(struct if_link_params)
@@ -454,11 +461,13 @@ struct connected {
 	 */
 
 	/* Flags for connected address. */
-	uint8_t flags;
+	uint16_t flags;
 #define ZEBRA_IFA_SECONDARY    (1 << 0)
 #define ZEBRA_IFA_PEER         (1 << 1)
 #define ZEBRA_IFA_UNNUMBERED   (1 << 2)
 #define ZEBRA_IFA_NOPREFIXROUTE (1 << 3)
+#define ZEBRA_IFA_TENTATIVE     (1 << 4)
+#define ZEBRA_IFA_DADFAILED     (1 << 5)
 
 	/* N.B. the ZEBRA_IFA_PEER flag should be set if and only if
 	   a peer address has been configured.  If this flag is set,
