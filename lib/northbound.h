@@ -1839,6 +1839,13 @@ extern void nb_init(struct event_loop *tm, const struct frr_yang_module_info *co
 		    size_t nmodules, bool db_enabled, bool load_library);
 
 /*
+ * Assure the module is loaded, if it has to be loaded, all features are
+ * enabled. NOTE: Currently just fails if not loaded until other 1/2 is coded
+ * up
+ */
+extern int nb_assure_module(const char *module_name);
+
+/*
  * Finish the northbound layer gracefully. Should be called only when the daemon
  * is exiting.
  */
