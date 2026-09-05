@@ -3057,7 +3057,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	uint32_t table_id;
 	afi_t afi;
 	safi_t safi;
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp *bgp;
 	struct bgp_path_info *pi, *new_select;
 
@@ -3113,7 +3113,6 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 			flog_err(EC_BGP_INVALID_ROUTE,
 				 "selected route %pBD not found", dest);
 
-			bgp_dest_unlock_node(dest);
 			return -1;
 		}
 		break;
@@ -3169,7 +3168,6 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		break;
 	}
 
-	bgp_dest_unlock_node(dest);
 	return 0;
 }
 
