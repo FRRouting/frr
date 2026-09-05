@@ -305,7 +305,7 @@ struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table, safi_t safi,
 				      struct prefix_rd *prd)
 {
 	struct bgp_dest *dest;
-	struct bgp_dest *pdest = NULL;
+	struct bgp_dest *pdest BGP_DEST_AUTOUNLOCK = NULL;
 
 	if (!table)
 		return NULL;
@@ -316,13 +316,10 @@ struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table, safi_t safi,
 		if (!pdest)
 			return NULL;
 
-		if (!bgp_dest_has_bgp_path_info_data(pdest)) {
-			bgp_dest_unlock_node(pdest);
+		if (!bgp_dest_has_bgp_path_info_data(pdest))
 			return NULL;
-		}
 
 		table = bgp_dest_get_bgp_table_info(pdest);
-		bgp_dest_unlock_node(pdest);
 	}
 
 	dest = bgp_node_lookup(table, p);
@@ -7132,7 +7129,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 {
 	struct bgp *bgp;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *pi;
 
 #ifdef ENABLE_BGP_VNC
@@ -7171,7 +7168,6 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 					"%s withdrawing route %s not in adj-in",
 					peer->host, pfx_buf);
 			}
-			bgp_dest_unlock_node(dest);
 			return;
 		}
 
@@ -7207,9 +7203,6 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 					pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s Can't find the route %s", peer->host, pfx_buf);
 	}
-
-	/* Unlock bgp_node_get() lock. */
-	bgp_dest_unlock_node(dest);
 
 	return;
 }
@@ -10128,7 +10121,7 @@ static bool bgp_upa_originate_single_global(struct bgp *bgp, struct bgp_dest *de
 
 void bgp_upa_check_prefix_global(struct bgp *bgp, const struct prefix *p, afi_t afi, safi_t safi)
 {
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	bool is_unreachable;
 	bool upa_exists = false;
 	struct bgp_upa_prefix_entry *tracked_prefix = NULL;
@@ -10154,10 +10147,8 @@ void bgp_upa_check_prefix_global(struct bgp *bgp, const struct prefix *p, afi_t 
 		uint32_t max_routes = bgp->upa_max_routes[afi][safi];
 		uint32_t current_count = bgp_upa_count_tracked_hash(&bgp->upa_routes[afi][safi]);
 
-		if (max_routes > 0 && current_count >= max_routes) {
-			bgp_dest_unlock_node(dest);
+		if (max_routes > 0 && current_count >= max_routes)
 			return;
-		}
 
 		if (bgp_upa_originate_single_global(bgp, dest, afi, safi,
 						    bgp->upa_drop[afi][safi])) {
@@ -10169,8 +10160,6 @@ void bgp_upa_check_prefix_global(struct bgp *bgp, const struct prefix *p, afi_t 
 			XFREE(MTYPE_BGP_AGGREGATE, tracked_prefix);
 		}
 	}
-
-	bgp_dest_unlock_node(dest);
 }
 
 void bgp_upa_originate_global(struct bgp *bgp, afi_t afi, safi_t safi)

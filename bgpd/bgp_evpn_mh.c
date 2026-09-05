@@ -268,7 +268,7 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 		struct bgp_path_info *parent_pi)
 {
 	int ret = 0;
-	struct bgp_dest *dest = NULL;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *pi = NULL;
 	struct attr *attr_new = NULL;
 
@@ -302,10 +302,9 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 		bgp_path_info_add(dest, pi);
 	} else {
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
-		    attrhash_cmp(pi->attr, parent_pi->attr)) {
-			bgp_dest_unlock_node(dest);
+		    attrhash_cmp(pi->attr, parent_pi->attr))
 			return 0;
-		}
+
 		/* The attribute has changed. */
 		/* Add (or update) attribute to hash. */
 		attr_new = bgp_attr_intern(parent_pi->attr);
@@ -327,8 +326,6 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 	/* Perform route selection and update zebra, if required. */
 	ret = bgp_evpn_es_route_select_install(bgp, es, dest, pi);
 
-	bgp_dest_unlock_node(dest);
-
 	return ret;
 }
 
@@ -337,7 +334,7 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 		struct prefix_evpn *p, struct bgp_path_info *parent_pi)
 {
 	int ret;
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *pi;
 
 	if (!es->route_table)
@@ -357,19 +354,14 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 			    parent_pi)
 			break;
 
-	if (!pi) {
-		bgp_dest_unlock_node(dest);
+	if (!pi)
 		return 0;
-	}
 
 	/* Mark entry for deletion */
 	bgp_path_info_mark_for_delete(dest, pi);
 
 	/* Perform route selection and update zebra, if required. */
 	ret = bgp_evpn_es_route_select_install(bgp, es, dest, pi);
-
-	/* Unlock route node. */
-	bgp_dest_unlock_node(dest);
 
 	return ret;
 }

@@ -2452,7 +2452,7 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *pi;
 	uint32_t path_cnt = 0;
 	afi_t afi;
@@ -2475,9 +2475,6 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
-
-		if (dest)
-			bgp_dest_unlock_node(dest);
 
 		return;
 	}
@@ -2514,8 +2511,6 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\nDisplayed %u paths for requested prefix\n",
 			path_cnt);
 	}
-
-	bgp_dest_unlock_node(dest);
 }
 
 /*
@@ -2529,7 +2524,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
 	struct prefix_evpn tmp_p;
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *pi;
 	uint32_t path_cnt = 0;
 	afi_t afi;
@@ -2558,9 +2553,6 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
-
-		if (dest)
-			bgp_dest_unlock_node(dest);
 
 		return;
 	}
@@ -2642,8 +2634,6 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\nDisplayed %u paths for requested prefix\n",
 			path_cnt);
 	}
-
-	bgp_dest_unlock_node(dest);
 }
 
 /* Disaplay EVPN routes for a ESI - VTY handler */
@@ -2809,7 +2799,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 				     struct ipaddr *ip, json_object *json)
 {
 	struct prefix_evpn p;
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *pi;
 	afi_t afi;
 	safi_t safi;
@@ -2826,9 +2816,6 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
-
-		if (dest)
-			bgp_dest_unlock_node(dest);
 
 		return;
 	}
@@ -2864,8 +2851,6 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\nDisplayed %u paths for requested prefix\n",
 			path_cnt);
 	}
-
-	bgp_dest_unlock_node(dest);
 }
 
 /*
@@ -2877,7 +2862,7 @@ static void evpn_show_route_rd_prefix(struct vty *vty, struct bgp *bgp, struct p
 				      struct prefix *ip_prefix, json_object *json)
 {
 	struct prefix_evpn p;
-	struct bgp_dest *rn;
+	struct bgp_dest *rn BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *pi;
 	afi_t afi;
 	safi_t safi;
@@ -2895,8 +2880,6 @@ static void evpn_show_route_rd_prefix(struct vty *vty, struct bgp *bgp, struct p
 	if (!rn || !bgp_dest_has_bgp_path_info_data(rn)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
-		if (rn)
-			bgp_dest_unlock_node(rn);
 		return;
 	}
 
@@ -2930,8 +2913,6 @@ static void evpn_show_route_rd_prefix(struct vty *vty, struct bgp *bgp, struct p
 	} else {
 		vty_out(vty, "\nDisplayed %u paths for requested prefix\n", path_cnt);
 	}
-
-	bgp_dest_unlock_node(rn);
 }
 
 /*
