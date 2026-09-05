@@ -421,7 +421,7 @@ void frr_help_exit(int status)
 {
 	FILE *target = status ? stderr : stdout;
 
-	fprintf(stderr, "%w64u\n", foobar);
+	printfrr("%w64u\n", foobar);
 
 	if (status != 0)
 		fprintf(stderr, "Invalid options.\n\n");
