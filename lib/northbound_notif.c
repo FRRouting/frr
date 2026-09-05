@@ -796,14 +796,16 @@ void nb_notif_init(struct event_loop *tm)
 
 void nb_notif_terminate(void)
 {
-	struct nb_notif_walk_args *args = nb_notif_timer ? EVENT_ARG(nb_notif_timer) : NULL;
+	struct nb_notif_walk_args *args;
 	struct op_changes_group *group;
-
-	_dbg("terminating: notif running: %d timer: %p timer arg: %p walk %p", nb_notif_running,
-	     nb_notif_timer, args, nb_notif_walk);
 
 	if (nb_notif_lock)
 		pthread_mutex_lock(nb_notif_lock);
+
+	args = nb_notif_timer ? EVENT_ARG(nb_notif_timer) : NULL;
+
+	_dbg("terminating: notif running: %d timer: %p timer arg: %p walk %p", nb_notif_running,
+	     nb_notif_timer, args, nb_notif_walk);
 
 	event_cancel(&nb_notif_timer);
 
