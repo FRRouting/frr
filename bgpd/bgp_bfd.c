@@ -505,6 +505,7 @@ static void bgp_group_remove_bfd(struct peer *p)
 		return;
 
 	/* Free configuration and point to `NULL`. */
+	event_cancel(&p->bfd_config->t_hold_timer);
 	XFREE(MTYPE_BFD_CONFIG, p->bfd_config);
 
 	/* Now that it is `NULL` recalculate configuration for all peers. */
