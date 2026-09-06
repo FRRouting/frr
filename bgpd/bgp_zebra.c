@@ -3303,6 +3303,7 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 static void bgp_zebra_connected(struct zclient *zclient)
 {
 	struct bgp *bgp;
+	struct listnode *bnode;
 	afi_t afi;
 	safi_t safi;
 
@@ -3311,25 +3312,27 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
-	/* At this point, we may or may not have BGP instances configured, but
-	 * we're only interested in the default VRF (others wouldn't have learnt
-	 * the VRF from Zebra yet.)
-	 */
-	bgp = bgp_get_default();
-	if (!bgp)
-		return;
-
-	bgp_zebra_instance_register(bgp);
-
 	/* A restarted zebra has lost any previously installed BGP routes, and a
 	 * stable BGP RIB will not re-select unchanged best paths on its own.
-	 * Replay the selected routes so zebra and the kernel FIB are rebuilt.
+	 * Re-register every BGP instance known to zebra and replay its selected
+	 * routes so zebra and the kernel FIB are rebuilt. This must cover the
+	 * tenant VRF instances too, not just the default instance, or their
+	 * routes are lost after a zebra restart.
 	 */
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!bgp_fibupd_safi(safi))
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bnode, bgp)) {
+		if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 			continue;
 
-		bgp_zebra_announce_table(bgp, afi, safi);
+		bgp_zebra_instance_register(bgp);
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (!bgp_fibupd_safi(safi))
+				continue;
+
+			bgp_zebra_announce_table(bgp, afi, safi);
+		}
+
+		BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 	}
 
 	/* Retry the deferred suppress-fib-pending configuration */
@@ -3338,7 +3341,6 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	/* TODO - What if we have peers and networks configured, do we have to
 	 * kick-start them?
 	 */
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 }
 
 void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
