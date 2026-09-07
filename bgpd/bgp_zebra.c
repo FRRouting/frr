@@ -342,6 +342,8 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 
 	frrtrace(4, frr_bgp, interface_address_oper_zrecv, vrf_id, ifc->ifp->name, ifc->address, 1);
 
+	bgp_evpn_handle_pip_ip_change(ifc->ifp);
+
 	if (!bgp)
 		return 0;
 
@@ -425,6 +427,8 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			   ifc->ifp->vrf->name, ifc->ifp->name, ifc->address);
 
 	frrtrace(4, frr_bgp, interface_address_oper_zrecv, vrf_id, ifc->ifp->name, ifc->address, 2);
+
+	bgp_evpn_handle_pip_ip_change(ifc->ifp);
 
 	if (bgp && if_is_operative(ifc->ifp)) {
 		bgp_connected_delete(bgp, ifc);
