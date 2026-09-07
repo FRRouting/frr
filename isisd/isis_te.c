@@ -1936,6 +1936,8 @@ static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id, stru
 		if (strncmp(pos, "-", 1) == 0) {
 			memcpy(number, ++pos, 2);
 			lspid[ISIS_SYS_ID_LEN + 1] = (uint8_t)strtol((char *)number, NULL, 16);
+			if (pos - id < 4)
+				return NULL;
 			pos -= 4;
 			if (strncmp(pos, ".", 1) != 0)
 				return NULL;
