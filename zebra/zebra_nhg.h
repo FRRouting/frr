@@ -178,6 +178,13 @@ struct nhg_hash_entry {
  * by the NHG layer, not the EVPN-MH layer.
  */
 #define NEXTHOP_GROUP_STALE_FDB (1 << 11)
+
+/*
+ * Marks an install queued before interface-flap invalidation as stale,
+ * separately from REINSTALL (carrier-up reinstall of dependents).
+ * zebra_nhg_dplane_result() consumes it even if the nhe is valid again.
+ */
+#define NEXTHOP_GROUP_STALE_QUEUED (1 << 12)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
