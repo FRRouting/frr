@@ -90,6 +90,7 @@ static void bgp_evpn_remote_ip_hash_link_nexthop(struct hash_bucket *bucket,
 						 void *args);
 static void bgp_evpn_remote_ip_hash_unlink_nexthop(struct hash_bucket *bucket,
 						   void *args);
+static bool bgp_evpn_pip_ip_usable(struct bgp *bgp_vrf, const struct ipaddr *vtep_ip);
 static struct ipaddr zero_vtep_ip = {
 	.ipa_type = IPADDR_V4,
 	.ip = {
@@ -933,14 +934,13 @@ static void bgp_evpn_get_rmac_nexthop(struct bgpevpn *vpn,
 	 * Otherwise, for all host MAC-IP route's
 	 * copy anycast RMAC.
 	 */
-	if (CHECK_FLAG(flags, BGP_EVPN_MACIP_TYPE_SVI_IP)
-	    && bgp_vrf->evpn_info->advertise_pip &&
-	    bgp_vrf->evpn_info->is_anycast_mac) {
-		/* copy sys rmac */
+	if (CHECK_FLAG(flags, BGP_EVPN_MACIP_TYPE_SVI_IP) && bgp_vrf->evpn_info->advertise_pip &&
+	    bgp_vrf->evpn_info->is_anycast_mac &&
+	    bgp_evpn_pip_ip_usable(bgp_vrf, &vpn->originator_ip)) {
+		/* copy sys rmac and the system IP of the VTEP-IP family */
 		memcpy(&attr->rmac, &bgp_vrf->evpn_info->pip_rmac,
 		       ETH_ALEN);
-		attr->nexthop = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
-		attr->mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
+		bgp_evpn_vtep_ip_to_attr_nh(&bgp_vrf->evpn_info->pip_ip, attr);
 	} else
 		memcpy(&attr->rmac, &bgp_vrf->rmac, ETH_ALEN);
 }
@@ -9072,20 +9072,54 @@ bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 
 
 /*
+ * The system IP is only usable as a nexthop if it is set and belongs to the
+ * same family as the VTEP-IP it replaces. struct ipaddr is a union, taking
+ * the address of the other family would advertise the bytes of whatever is
+ * stored in it, padded with zeroes.
+ */
+static bool bgp_evpn_pip_ip_usable(struct bgp *bgp_vrf, const struct ipaddr *vtep_ip)
+{
+	struct ipaddr *pip_ip = &bgp_vrf->evpn_info->pip_ip;
+
+	if (pip_ip->ipa_type != vtep_ip->ipa_type)
+		return false;
+
+	return !ipaddr_is_zero(pip_ip);
+}
+
+/*
  * From tenant vrf instance's L3VNI source VTEP_IP fill V4 or V6
  * version of attr's nexthop field from PIP.
  */
 void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr, struct prefix_evpn *evp,
 				   struct ipaddr *vtep_ip)
 {
+	bool use_pip;
+
 	if (!bgp_vrf || !attr)
 		return;
+
+	use_pip = bgp_vrf->evpn_info->advertise_pip && bgp_vrf->evpn_info->is_anycast_mac;
+
+	/* The system IP is derived from the L3VNI tunnel source, it is not
+	 * available before zebra has announced the L3VNI. Both the RMAC and
+	 * the nexthop have to fall back to the anycast values then, remote
+	 * VTEPs use the pair to encapsulate towards this VTEP.
+	 */
+	if (use_pip && !bgp_evpn_pip_ip_usable(bgp_vrf, &bgp_vrf->originator_ip)) {
+		if (bgp_debug_zebra(NULL))
+			zlog_debug("VRF %s evp %pFX advertise-pip primary ip %pIA does not match VTEP-IP %pIA, using the anycast IP",
+				   vrf_id_to_name(bgp_vrf->vrf_id), evp,
+				   &bgp_vrf->evpn_info->pip_ip, &bgp_vrf->originator_ip);
+		use_pip = false;
+	}
+
 	/* Advertise Primary IP (PIP) is enabled, send individual
 	 * IP (default instance router-id) as nexthop.
 	 * PIP is disabled or vrr interface is not present
 	 * use anycast-IP as nexthop and anycast RMAC.
 	 */
-	if (!bgp_vrf->evpn_info->advertise_pip || (!bgp_vrf->evpn_info->is_anycast_mac)) {
+	if (!use_pip) {
 		memcpy(&attr->rmac, &bgp_vrf->rmac, ETH_ALEN);
 		if (IS_IPADDR_V4(&bgp_vrf->originator_ip)) {
 			attr->nexthop = bgp_vrf->originator_ip.ipaddr_v4;
@@ -9099,39 +9133,11 @@ void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr, struc
 		if (vtep_ip)
 			*vtep_ip = bgp_vrf->originator_ip;
 	} else {
-		/* copy sys rmac */
+		/* copy sys rmac and the system IP of the VTEP-IP family */
 		memcpy(&attr->rmac, &bgp_vrf->evpn_info->pip_rmac, ETH_ALEN);
-		/* L3VNI VTEP-IP is IPv4 copy v4 PIP IP, otherwise copy
-		 * v6 PIP IP for nexthop path attribute
-		 */
+		bgp_evpn_vtep_ip_to_attr_nh(&bgp_vrf->evpn_info->pip_ip, attr);
 		if (vtep_ip)
 			*vtep_ip = bgp_vrf->evpn_info->pip_ip;
-
-		if (IS_IPADDR_V4(&bgp_vrf->originator_ip)) {
-			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-			if (bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr != INADDR_ANY) {
-				attr->nexthop = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
-				attr->mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
-				bgp_attr_set(attr, BGP_ATTR_NEXT_HOP);
-			} else if (bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr == INADDR_ANY) {
-				if (bgp_debug_zebra(NULL))
-					zlog_debug("VRF %s evp %pFX advertise-pip primary ip is not configured",
-						   vrf_id_to_name(bgp_vrf->vrf_id), evp);
-			}
-		} else if (IS_IPADDR_V6(&bgp_vrf->originator_ip)) {
-			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-			if (!IN6_IS_ADDR_UNSPECIFIED(&bgp_vrf->evpn_info->pip_ip.ipaddr_v6)) {
-				IPV6_ADDR_COPY(&attr->mp_nexthop_global,
-					       &bgp_vrf->evpn_info->pip_ip.ipaddr_v6);
-				if (bgp_debug_zebra(NULL))
-					zlog_debug("%s ipv6 vtep, pip %pI6 address as nexthop",
-						   __func__, &bgp_vrf->evpn_info->pip_ip.ipaddr_v6);
-			} else if (IN6_IS_ADDR_UNSPECIFIED(&bgp_vrf->evpn_info->pip_ip.ipaddr_v6)) {
-				if (bgp_debug_zebra(NULL))
-					zlog_debug("VRF %s evp %pFX advertise-pip primary ip is not configured",
-						   vrf_id_to_name(bgp_vrf->vrf_id), evp);
-			}
-		}
 	}
 }
 
