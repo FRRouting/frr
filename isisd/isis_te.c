@@ -1925,8 +1925,13 @@ DEFUN (show_isis_mpls_te_interface,
 static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id,
 					struct isis *isis)
 {
+<<<<<<< HEAD
 	char sysid[255] = {0};
 	uint8_t number[3];
+=======
+	char sysid[255] = { 0 };
+	uint8_t number[3] = { 0 };
+>>>>>>> 3222840 (isisd: NUL-terminate TE vertex suffix buffer)
 	const char *pos;
 	uint8_t lspid[ISIS_SYS_ID_LEN + 2] = {0};
 	struct isis_dynhn *dynhn;
