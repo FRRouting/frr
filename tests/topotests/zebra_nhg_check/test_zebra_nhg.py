@@ -332,9 +332,6 @@ def test_bgp_shutdown_some_links():
 
     step("Test that all BGP routes are using the same nexthop group")
 
-    logger.info(net["r2"].cmd('vtysh -c "show ip route bgp nexthop"'))
-    logger.info(net["r2"].cmd('vtysh -c "show nexthop-group rib"'))
-
     # First check that all BGP routes are using the same nexthop group
     def check_nhg_consistency():
         nonlocal first_nhg
