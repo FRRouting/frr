@@ -1936,8 +1936,13 @@ static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id,
 	uint8_t lspid[ISIS_SYS_ID_LEN + 2] = {0};
 	struct isis_dynhn *dynhn;
 	uint64_t key = 0;
+	size_t id_len;
 
 	if (!id)
+		return NULL;
+
+	id_len = strlen(id);
+	if (id_len >= sizeof(sysid))
 		return NULL;
 
 	/*
@@ -1950,8 +1955,8 @@ static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id,
 	 * xxxx.xxxx.xxxx
 	 */
 	strlcpy(sysid, id, sizeof(sysid));
-	if (strlen(id) > 3) {
-		pos = id + strlen(id) - 3;
+	if (id_len > 3) {
+		pos = id + id_len - 3;
 		if (strncmp(pos, "-", 1) == 0) {
 			memcpy(number, ++pos, 2);
 			lspid[ISIS_SYS_ID_LEN + 1] =
