@@ -193,7 +193,7 @@ eigrpd_instance_passive_interface_create(struct nb_cb_create_args *args)
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;
 
-		eif->params.passive_interface = EIGRP_IF_PASSIVE;
+		eif->params->passive_interface = EIGRP_IF_PASSIVE;
 		break;
 	}
 
@@ -220,7 +220,7 @@ eigrpd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args)
 		if (eif == NULL)
 			break;
 
-		eif->params.passive_interface = EIGRP_IF_ACTIVE;
+		eif->params->passive_interface = EIGRP_IF_ACTIVE;
 		break;
 	}
 
@@ -935,35 +935,23 @@ static int eigrpd_instance_redistribute_metrics_mtu_destroy(
  */
 static int lib_interface_eigrp_delay_modify(struct nb_cb_modify_args *args)
 {
-	struct eigrp_interface *ei;
 	struct interface *ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		/* NOTHING */
+		/*
+		 * Nothing to validate: interface configuration is stored on
+		 * the interface itself and no longer requires EIGRP to be
+		 * running on it.
+		 */
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
 
-		ei->params.delay = yang_dnode_get_uint32(args->dnode, NULL);
+		eigrp_if_info_get(ifp)->def_params->delay =
+			yang_dnode_get_uint32(args->dnode, NULL);
 		eigrp_if_reset(ifp);
 		break;
 	}
@@ -977,34 +965,18 @@ static int lib_interface_eigrp_delay_modify(struct nb_cb_modify_args *args)
 static int lib_interface_eigrp_bandwidth_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	struct eigrp_interface *ei;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
 
-		ei->params.bandwidth = yang_dnode_get_uint32(args->dnode, NULL);
+		eigrp_if_info_get(ifp)->def_params->bandwidth =
+			yang_dnode_get_uint32(args->dnode, NULL);
 		eigrp_if_reset(ifp);
 		break;
 	}
@@ -1019,34 +991,18 @@ static int
 lib_interface_eigrp_hello_interval_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	struct eigrp_interface *ei;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
 
-		ei->params.v_hello = yang_dnode_get_uint16(args->dnode, NULL);
+		eigrp_if_info_get(ifp)->def_params->v_hello =
+			yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
@@ -1059,34 +1015,18 @@ lib_interface_eigrp_hello_interval_modify(struct nb_cb_modify_args *args)
 static int lib_interface_eigrp_hold_time_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	struct eigrp_interface *ei;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
 
-		ei->params.v_wait = yang_dnode_get_uint16(args->dnode, NULL);
+		eigrp_if_info_get(ifp)->def_params->v_wait =
+			yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
@@ -1233,7 +1173,7 @@ static int lib_interface_eigrp_instance_authentication_modify(
 		break;
 	case NB_EV_APPLY:
 		eif = nb_running_get_entry(args->dnode, NULL, true);
-		eif->params.auth_type = yang_dnode_get_enum(args->dnode, NULL);
+		eif->params->auth_type = yang_dnode_get_enum(args->dnode, NULL);
 		break;
 	}
 
@@ -1268,10 +1208,10 @@ lib_interface_eigrp_instance_keychain_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		eif = nb_running_get_entry(args->dnode, NULL, true);
-		if (eif->params.auth_keychain)
-			free(eif->params.auth_keychain);
+		if (eif->params->auth_keychain)
+			free(eif->params->auth_keychain);
 
-		eif->params.auth_keychain = args->resource->ptr;
+		eif->params->auth_keychain = args->resource->ptr;
 		break;
 	}
 
@@ -1291,10 +1231,10 @@ lib_interface_eigrp_instance_keychain_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		eif = nb_running_get_entry(args->dnode, NULL, true);
-		if (eif->params.auth_keychain)
-			free(eif->params.auth_keychain);
+		if (eif->params->auth_keychain)
+			free(eif->params->auth_keychain);
 
-		eif->params.auth_keychain = NULL;
+		eif->params->auth_keychain = NULL;
 		break;
 	}
 

@@ -256,8 +256,17 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 		if (CHECK_FLAG(co->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 
-		if (p->family == co->address->family && !ifp->info
-		    && eigrp_network_match_iface(co->address, p)) {
+		/*
+		 * ifp->info is now always set (it holds the interface
+		 * configuration), so it can no longer be used to test whether
+		 * EIGRP is already running here.  Keep the existing
+		 * one-instance-per-interface behaviour by checking for a
+		 * running instance instead; supporting several connected
+		 * prefixes is a separate change.
+		 */
+		if (p->family == co->address->family &&
+		    !eigrp_if_lookup_by_ifp(ifp) &&
+		    eigrp_network_match_iface(co->address, p)) {
 
 			ei = eigrp_if_new(eigrp, ifp, co->address);
 
@@ -319,8 +328,13 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	prefix_ipv4_free((struct prefix_ipv4 **)&rn->info);
 	route_unlock_node(rn); /* initial reference */
 
-	/* Find interfaces that not configured already.  */
-	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
+	/*
+	 * Find interfaces that not configured already.
+	 *
+	 * Iterate safely: eigrp_if_free() now removes the instance from this
+	 * hash.
+	 */
+	frr_each_safe (eigrp_interface_hash, &eigrp->eifs, ei) {
 		bool found = false;
 
 		for (rn = route_top(eigrp->networks); rn; rn = route_next(rn)) {
