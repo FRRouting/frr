@@ -1693,8 +1693,13 @@ static void ospf_router_info_show_info(struct vty *vty,
 	if (json) {
 		if (json_object_object_length(jpce) > 1)
 			json_object_object_add(jri, "pceInformation", jpce);
+		else
+			json_object_free(jpce);
+
 		if (json_object_object_length(jsr) > 1)
 			json_object_object_add(jri, "segmentRouting", jsr);
+		else
+			json_object_free(jsr);
 	}
 	return;
 }
