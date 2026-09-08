@@ -1265,7 +1265,7 @@ int pim_if_jp_hold(const struct pim_interface *pim_interface)
 struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr)
 {
 	struct listnode *neighnode;
-	struct pim_neighbor *neigh;
+	struct pim_neighbor *neigh, *second_neigh = NULL;
 	struct pim_interface *pim_ifp;
 	struct prefix p;
 
@@ -1280,24 +1280,36 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr)
 
 	pim_addr_to_prefix(&p, addr);
 
+	/*
+	 * The goal here should always to prefer the primary address
+	 * if one matches, else choose a secondary
+	 */
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 				  neigh)) {
 
-		/* primary address ? */
+		/*
+		 * If we find a primary address that matches, stop looking
+		 * for the primary address
+		 */
 		if (!pim_addr_cmp(neigh->source_addr, addr))
 			return neigh;
 
-		/* secondary address ? */
-		if (pim_neighbor_find_secondary(neigh, &p))
-			return neigh;
+		/*
+		 * Find the first secondary address that matches this
+		 * address.
+		 */
+		if (!second_neigh && pim_neighbor_find_secondary(neigh, &p)) {
+			second_neigh = neigh;
+			continue;
+		}
 	}
 
-	if (PIM_DEBUG_PIM_TRACE)
+	if (PIM_DEBUG_PIM_TRACE && !second_neigh)
 		zlog_debug(
 			"%s: neighbor not found for address %pPA on interface %s",
 			__func__, &addr, ifp->name);
 
-	return NULL;
+	return second_neigh;
 }
 
 long pim_if_t_suppressed_msec(struct interface *ifp)
