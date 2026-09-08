@@ -41,6 +41,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
+#include "vrf.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN, "VNI hash");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_VTEP, "VNI remote VTEP");
@@ -1292,6 +1293,201 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall, struct l2vn
 	}
 
 	return 0;
+}
+
+/* Periodic orphan remote VTEP cleanup (see zebra_evpn_vtep_sweep_start). */
+#define ZEBRA_EVPN_VTEP_SWEEP_INTERVAL 120
+
+struct zebra_evpn_vtep_ref_ctx {
+	struct zebra_evpn *zevpn;
+};
+
+static void zebra_evpn_vtep_sweep_mac_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn_vtep_ref_ctx *ctx = arg;
+	struct zebra_mac *mac = bucket->data;
+	struct zebra_vtep *zvtep;
+
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+		return;
+	if (ipaddr_is_zero(&mac->fwd_info.r_vtep_ip))
+		return;
+
+	zvtep = zebra_evpn_vtep_find(ctx->zevpn, &mac->fwd_info.r_vtep_ip);
+	if (zvtep)
+		UNSET_FLAG(zvtep->flags, ZEBRA_VTEP_SWEEP_ORPHAN);
+}
+
+static void zebra_evpn_vtep_sweep(struct zebra_evpn *zevpn)
+{
+	struct zebra_evpn_vtep_ref_ctx ctx = { .zevpn = zevpn };
+	struct zebra_vtep *zvtep, *zvtep_next;
+	struct zebra_neigh *n;
+
+	if (!zevpn)
+		return;
+
+	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
+		if (zvtep->flood_control != VXLAN_FLOOD_DISABLED)
+			continue;
+		SET_FLAG(zvtep->flags, ZEBRA_VTEP_SWEEP_ORPHAN);
+	}
+
+	if (zevpn->mac_table)
+		hash_iterate(zevpn->mac_table, zebra_evpn_vtep_sweep_mac_cb, &ctx);
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!(n->flags & ZEBRA_NEIGH_REMOTE))
+			continue;
+		if (ipaddr_is_zero(&n->r_vtep_ip))
+			continue;
+
+		zvtep = zebra_evpn_vtep_find(zevpn, &n->r_vtep_ip);
+		if (zvtep)
+			UNSET_FLAG(zvtep->flags, ZEBRA_VTEP_SWEEP_ORPHAN);
+	}
+
+	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep_next) {
+		zvtep_next = zvtep->next;
+
+		if (!CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_SWEEP_ORPHAN))
+			continue;
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VTEP sweep: deleting orphan %pIA VNI %u",
+				   &zvtep->vtep_ip, zevpn->vni);
+
+		zebra_evpn_vtep_del(zevpn, zvtep);
+	}
+}
+
+static struct zebra_vrf *zebra_evpn_vtep_sweep_find_vrf(bool started)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		if (started && vrf->vrf_id <= zrouter.evpn_vtep_sweep_vrf_id)
+			continue;
+
+		zvrf = vrf->info;
+		if (zvrf && zvrf->evpn_table)
+			return zvrf;
+	}
+
+	return NULL;
+}
+
+static void zebra_evpn_vtep_sweep_reset(void)
+{
+	zrouter.evpn_vtep_sweep_started = false;
+	zrouter.evpn_vtep_sweep_vrf_id = VRF_UNKNOWN;
+	zrouter.evpn_vtep_sweep_hash_index = 0;
+	zrouter.evpn_vtep_sweep_vni = 0;
+}
+
+static void zebra_evpn_vtep_sweep_timer(struct event *thread)
+{
+	struct zebra_vrf *zvrf;
+	struct zebra_evpn *zevpn = NULL;
+	struct hash_bucket *bucket;
+	struct zebra_vrf *current_zvrf = NULL;
+	struct vrf *vrf;
+	unsigned int hash_index;
+	vni_t last_vni;
+
+	(void)thread;
+
+	if (!is_evpn_enabled()) {
+		zebra_evpn_vtep_sweep_reset();
+		return;
+	}
+
+	if (zrouter.evpn_vtep_sweep_started) {
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			if (vrf->vrf_id != zrouter.evpn_vtep_sweep_vrf_id)
+				continue;
+
+			zvrf = vrf->info;
+			if (zvrf && zvrf->evpn_table)
+				current_zvrf = zvrf;
+			break;
+		}
+	}
+
+	if (!current_zvrf) {
+		current_zvrf = zebra_evpn_vtep_sweep_find_vrf(zrouter.evpn_vtep_sweep_started);
+		if (!current_zvrf) {
+			zebra_evpn_vtep_sweep_reset();
+			event_add_timer(zrouter.master, zebra_evpn_vtep_sweep_timer, NULL,
+					ZEBRA_EVPN_VTEP_SWEEP_INTERVAL, &zrouter.t_evpn_vtep_sweep);
+			return;
+		}
+
+		zrouter.evpn_vtep_sweep_vrf_id = zvrf_id(current_zvrf);
+		zrouter.evpn_vtep_sweep_hash_index = 0;
+		zrouter.evpn_vtep_sweep_vni = 0;
+	}
+
+	hash_index = zrouter.evpn_vtep_sweep_hash_index;
+	last_vni = zrouter.evpn_vtep_sweep_vni;
+	if (hash_index >= current_zvrf->evpn_table->size) {
+		current_zvrf = zebra_evpn_vtep_sweep_find_vrf(true);
+		if (!current_zvrf) {
+			zebra_evpn_vtep_sweep_reset();
+			event_add_timer(zrouter.master, zebra_evpn_vtep_sweep_timer, NULL,
+					ZEBRA_EVPN_VTEP_SWEEP_INTERVAL, &zrouter.t_evpn_vtep_sweep);
+			return;
+		}
+
+		zrouter.evpn_vtep_sweep_vrf_id = zvrf_id(current_zvrf);
+		zrouter.evpn_vtep_sweep_hash_index = 0;
+		zrouter.evpn_vtep_sweep_vni = 0;
+		event_add_event(zrouter.master, zebra_evpn_vtep_sweep_timer, NULL, 0,
+				&zrouter.t_evpn_vtep_sweep);
+		return;
+	}
+
+	bucket = current_zvrf->evpn_table->index[hash_index];
+	for (; bucket; bucket = bucket->next) {
+		struct zebra_evpn *candidate = bucket->data;
+
+		if (candidate->vni <= last_vni)
+			continue;
+		if (!zevpn || candidate->vni < zevpn->vni)
+			zevpn = candidate;
+	}
+
+	if (zevpn) {
+		zebra_evpn_vtep_sweep(zevpn);
+		zrouter.evpn_vtep_sweep_vni = zevpn->vni;
+	} else {
+		zrouter.evpn_vtep_sweep_hash_index++;
+		zrouter.evpn_vtep_sweep_vni = 0;
+	}
+
+	zrouter.evpn_vtep_sweep_started = true;
+	event_add_event(zrouter.master, zebra_evpn_vtep_sweep_timer, NULL, 0,
+			&zrouter.t_evpn_vtep_sweep);
+}
+
+void zebra_evpn_vtep_sweep_start(void)
+{
+	if (!is_evpn_enabled())
+		return;
+
+	if (event_is_scheduled(zrouter.t_evpn_vtep_sweep))
+		return;
+
+	zebra_evpn_vtep_sweep_reset();
+	event_add_event(zrouter.master, zebra_evpn_vtep_sweep_timer, NULL, 0,
+			&zrouter.t_evpn_vtep_sweep);
+}
+
+void zebra_evpn_vtep_sweep_stop(void)
+{
+	event_cancel(&zrouter.t_evpn_vtep_sweep);
+	zebra_evpn_vtep_sweep_reset();
 }
 
 /*

@@ -44,6 +44,7 @@ struct zebra_vtep {
 	 * tunnel type advertised by the remote VTEP
 	 */
 	int flood_control;
+	uint8_t flags;
 
 	/* Links. */
 	struct zebra_vtep *next;
@@ -55,6 +56,8 @@ struct zebra_vtep {
 	 */
 	uint64_t gr_refresh_time;
 };
+
+#define ZEBRA_VTEP_SWEEP_ORPHAN (1 << 0) /* transient, set during vtep sweep */
 
 /* for parsing evpn and vni contexts */
 struct zebra_from_svi_param {
@@ -168,6 +171,8 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
 			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip);
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt);
+void zebra_evpn_vtep_sweep_start(void);
+void zebra_evpn_vtep_sweep_stop(void);
 
 #ifdef __cplusplus
 }
