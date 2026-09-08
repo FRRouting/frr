@@ -1281,6 +1281,11 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall, struct l2vn
 		if (uninstall)
 			zebra_evpn_vtep_uninstall(zevpn, &zvtep->vtep_ip);
 
+		if (l2_wctx && l2_wctx->gr_stale_cleanup) {
+			zvtep->flood_control = VXLAN_FLOOD_DISABLED;
+			continue;
+		}
+
 		zebra_evpn_vtep_del(zevpn, zvtep);
 	}
 
