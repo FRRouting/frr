@@ -115,6 +115,11 @@ HOST_IP = {
     "host2": "46.0.0.102",
 }
 
+# IPv6 dual-stack overlay on host1's BD (VLAN 100), used by the ND-sync smoke
+# test. Only the MH pair's host BD is dual-stacked; leaf3/host2 stay IPv4-only.
+ANYCAST_GW6 = "fd00:45::1"
+HOST_IP6 = {"host1": "fd00:45::101"}
+
 # Additional no-L2VNI BDs on the MH pair (leaf1/leaf2), same VRF/L3VNI, to prove
 # per-BD/ETAG isolation. VLAN 101 carries host3 (a second IP on host1's bond,
 # tagged); VLAN 102 exists as an SVI only (a third BD with no sync traffic).
@@ -179,7 +184,7 @@ def build_topo(tgen):
 
 
 def config_leaf_base(
-    node, lo_ip, host_vid=HOST_VID, gw_ip=ANYCAST_GW, extra_host_bds=None
+    node, lo_ip, host_vid=HOST_VID, gw_ip=ANYCAST_GW, gw_ip6=None, extra_host_bds=None
 ):
     """VLAN-aware bridge (single VLAN-filtering bridge), tenant VRF, and a
     per-VNI VXLAN device for the L3VNI only. host_vid is the host access BD (its
@@ -237,6 +242,13 @@ def config_leaf_base(
     node.run("ip link set dev vlan%d up" % host_vid)
     node.run("ip addr add %s/24 dev vlan%d" % (gw_ip, host_vid))
     node.run("/sbin/sysctl -w net.ipv4.conf.vlan%d.proxy_arp=1" % host_vid)
+
+    # Optional IPv6 anycast gateway on the host BD (ND-sync smoke coverage).
+    if gw_ip6:
+        node.run("/sbin/sysctl -w net.ipv6.conf.vlan%d.forwarding=1" % host_vid)
+        node.run("/sbin/sysctl -w net.ipv6.conf.vlan%d.proxy_ndp=1" % host_vid)
+        # nodad: the anycast GW is intentionally identical on both MH leaves.
+        node.run("ip addr add %s/64 dev vlan%d nodad" % (gw_ip6, host_vid))
 
     # Additional no-L2VNI BDs (extra VLANs/SVIs) in the same VRF.
     for bd_vid, bd_gw in extra_host_bds or ():
@@ -298,7 +310,7 @@ def config_del_l2vni(node, vni):
     node.run("ip link del vni%d 2>/dev/null || true" % vni)
 
 
-def config_host_bond(node, members, ip):
+def config_host_bond(node, members, ip, ip6=None):
     """Host-side LACP bond across two uplinks (dual-homed host)."""
     node.run("ip link add dev bond0 type bond mode 802.3ad")
     node.run("ip link set dev bond0 type bond lacp_rate 1")
@@ -311,6 +323,8 @@ def config_host_bond(node, members, ip):
     node.run("ip link set dev bond0 up")
     node.run("ip addr add %s/24 dev bond0" % ip)
     node.run("ip route add default via %s" % ANYCAST_GW)
+    if ip6:
+        node.run("ip -6 addr add %s/64 dev bond0" % ip6)
 
 
 def config_host_single(node, member, ip, gw):
@@ -328,11 +342,13 @@ def config_dataplane(tgen):
     config_leaf_base(
         leaf1,
         LEAF_LO["leaf1"],
+        gw_ip6=ANYCAST_GW6,
         extra_host_bds=[(HOST_VID2, ANYCAST_GW2), (HOST_VID3, ANYCAST_GW3)],
     )
     config_leaf_base(
         leaf2,
         LEAF_LO["leaf2"],
+        gw_ip6=ANYCAST_GW6,
         extra_host_bds=[(HOST_VID2, ANYCAST_GW2), (HOST_VID3, ANYCAST_GW3)],
     )
     config_leaf_base(leaf3, LEAF_LO["leaf3"], LEAF3_VID, LEAF3_GW)
@@ -347,7 +363,10 @@ def config_hosts(tgen):
     # Host addressing is applied after the routers start so it is not lost when
     # the framework finishes bringing the host veths up.
     config_host_bond(
-        tgen.gears["host1"], ["host1-eth0", "host1-eth1"], HOST_IP["host1"]
+        tgen.gears["host1"],
+        ["host1-eth0", "host1-eth1"],
+        HOST_IP["host1"],
+        ip6=HOST_IP6["host1"],
     )
     # host3: a second BD on host1's bond (VLAN 101, tagged) in the same VRF.
     h1 = tgen.gears["host1"]
@@ -581,12 +600,22 @@ def _active_host(host, dst):
         p.wait()
 
 
-def _pure_l3_rt2_path(dut, asn, ip=None, eth_tag=HOST_VID):
+def _assert_stable(bad_fn, msg, count=WAIT_COUNT // 3, wait=WAIT_STEP):
+    """Assert bad_fn() never becomes True across a polled window, catching a
+    delayed churn/withdraw. Uses run_and_expect's polling (which returns as soon
+    as the bad condition appears) instead of a fixed sleep."""
+    matched, _ = topotest.run_and_expect(bad_fn, True, count=count, wait=wait)
+    assert not matched, msg
+
+
+def _pure_l3_rt2_path(dut, asn, ip=None, eth_tag=HOST_VID, mac=None):
     """Return the pure-L3 RT-2 path dict for ip/eth_tag on dut, or None.
 
     A pure-L3 RT-2 is a routeType-2 macip route for the host IP with ethTag =
     the host VLAN, vni "0/L3VNI" (label[0]=0 Explicit NULL / label[1]=L3VNI)
-    and the IP-VRF route-target.
+    and the IP-VRF route-target. When `mac` is given the path's MAC must match
+    too (the RT-2 NLRI key is (MAC, IP, ETAG)), so a mobility move can assert
+    the old-key route is gone and the new-key route is present.
     """
     if ip is None:
         ip = HOST_IP["host1"]
@@ -609,6 +638,8 @@ def _pure_l3_rt2_path(dut, asn, ip=None, eth_tag=HOST_VID):
                 or entry.get("ip") != ip
                 or entry.get("ethTag") != eth_tag
             ):
+                continue
+            if mac is not None and entry.get("mac", "").lower() != mac.lower():
                 continue
             for pathset in entry["paths"]:
                 for path in pathset:
@@ -682,6 +713,13 @@ def _host1_synced(dut, vid=HOST_VID):
     return HOST_IP["host1"] in out and "extern_learn" in out
 
 
+def _host1_local(dut, vid=HOST_VID):
+    """True if host1 is learned locally (not synced) on dev vlan<vid>: present
+    with an lladdr but without the extern_learn flag."""
+    out = dut.run("ip neigh show dev vlan%d" % vid)
+    return HOST_IP["host1"] in out and "lladdr" in out and "extern_learn" not in out
+
+
 def _synced_neigh_on_vlan_only(dut, ip, want_vid, all_vids):
     """Assert `ip` is an extern_learn (synced) neighbor on exactly `dev
     vlan<want_vid>` and on none of the other `all_vids`. Returns None on
@@ -727,6 +765,39 @@ def _mac_static_pinned(dut, mac, vid, dev="hostbond1"):
             if i + 1 < len(toks) and toks[i + 1] == str(vid):
                 return True
     return False
+
+
+def _host_bond_mac(host):
+    """Return host1's bond0 MAC (its neighbor lladdr on the leaves)."""
+    return host.run("cat /sys/class/net/bond0/address").strip()
+
+
+def host_move_ip_to_macvlan(host, ip, mac, plen=24):
+    """Give host1's IP a new, legitimately reachable MAC without disturbing the
+    LACP bond: move the address onto a macvlan over bond0 with `mac`. The host
+    keeps answering ARP (new lladdr) so the moved adjacency is real, not stale.
+    Reverse with host_restore_ip_to_bond()."""
+    host.run("ip addr del %s/%d dev bond0" % (ip, plen))
+    host.run("ip link add hmv link bond0 address %s type macvlan mode bridge" % mac)
+    host.run("ip link set dev hmv up")
+    host.run("ip addr add %s/%d dev hmv" % (ip, plen))
+
+
+def host_restore_ip_to_bond(host, ip, plen=24):
+    """Undo host_move_ip_to_macvlan(): move the IP back onto bond0."""
+    host.run("ip link del hmv 2>/dev/null || true")
+    host.run("ip addr add %s/%d dev bond0 2>/dev/null || true" % (ip, plen))
+
+
+def leaf_move_host_bd(node, old_vid, new_vid, gw=ANYCAST_GW, plen=24):
+    """Move host1's untagged access VLAN (the RT-2 ETAG) old_vid -> new_vid on a
+    leaf, carrying the anycast-GW subnet to the new SVI so the same host IP still
+    resolves under the new ETAG. Reverse with leaf_move_host_bd(new, old)."""
+    node.run("/sbin/bridge vlan add vid %d dev hostbond1 pvid untagged" % new_vid)
+    node.run("/sbin/bridge vlan del vid %d dev hostbond1" % old_vid)
+    node.run("ip addr del %s/%d dev vlan%d 2>/dev/null || true" % (gw, plen, old_vid))
+    node.run("ip addr add %s/%d dev vlan%d" % (gw, plen, new_vid))
+    node.run("/sbin/sysctl -w net.ipv4.conf.vlan%d.proxy_arp=1" % new_vid)
 
 
 def test_advertise_l3vni_neigh_cli():
@@ -1440,6 +1511,407 @@ def test_pure_l3_sync_esi_reprogrammed_reconciles():
     assert result is None, result
 
 
+def test_pure_l3_arp_delete_withdraws_sync():
+    """
+    ARP delete / age-out withdraw. Removing the locally-learned ARP entry for
+    host1 on its local owner (leaf1) -- as happens on neighbor delete or kernel
+    age-out -- makes leaf1 withdraw the pure-L3 RT-2, and the ES peer (leaf2)
+    removes both the synced extern_learn neighbor and the static sync-MAC pin.
+    Re-learning host1 restores the full sync. An explicit `ip neigh del` drives
+    the DELNEIGH -> withdraw -> peer-cleanup path deterministically (waiting for
+    kernel aging would only add timing flakes to the same code path).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    leaf2 = tgen.gears["leaf2"]
+    host1 = tgen.gears["host1"]
+    _ping(host1, ANYCAST_GW)
+
+    def _expect(fn):
+        _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+        assert result is None, result
+
+    ip = HOST_IP["host1"]
+    host1_mac = _host_bond_mac(host1)
+
+    def _synced_pinned(dut):
+        if not _host1_synced(dut):
+            return "host1 not synced on leaf2: %s" % dut.run(
+                "ip neigh show dev vlan%d" % HOST_VID
+            )
+        if not _mac_static_pinned(dut, host1_mac, HOST_VID):
+            return "host1 sync-MAC pin missing on hostbond1"
+        return None
+
+    # Baseline: leaf1 owns the local ARP + originates the RT-2; leaf2 syncs + pins.
+    _expect(
+        lambda: (
+            None
+            if _pure_l3_rt2_path(leaf1, 65011) is not None
+            else "baseline pure-L3 RT-2 missing"
+        )
+    )
+    _expect(lambda: _synced_pinned(leaf2))
+    # host1's ARP must be a local (not synced) entry on leaf1 -- that is the
+    # entry whose deletion drives the withdraw.
+    _expect(
+        lambda: (
+            None
+            if _host1_local(leaf1)
+            else "host1 not learned locally on leaf1: %s"
+            % leaf1.run("ip neigh show dev vlan%d" % HOST_VID)
+        )
+    )
+
+    try:
+        # Delete host1's local ARP entry on leaf1 (models neighbor del/age-out).
+        leaf1.run("ip neigh del %s dev vlan%d" % (ip, HOST_VID))
+
+        # leaf1 withdraws its RT-2 ...
+        _expect(
+            lambda: (
+                None
+                if _pure_l3_rt2_path(leaf1, 65011) is None
+                else "pure-L3 RT-2 not withdrawn after ARP delete"
+            )
+        )
+
+        # ... and leaf2 clears both the synced neighbor and the static pin.
+        def _cleaned(dut):
+            if _host1_synced(dut):
+                return "leaf2 synced neighbor still present after ARP delete"
+            if _mac_static_pinned(dut, host1_mac, HOST_VID):
+                return "leaf2 sync-MAC pin still present after ARP delete"
+            return None
+
+        _expect(lambda: _cleaned(leaf2))
+    finally:
+        # Re-learn host1 so the baseline is restored for later tests.
+        _ping(host1, ANYCAST_GW)
+
+    # Baseline restored: RT-2 re-originated and leaf2 re-syncs neighbor + pin.
+    _expect(
+        lambda: (
+            None
+            if _pure_l3_rt2_path(leaf1, 65011) is not None
+            else "pure-L3 RT-2 did not return after re-learn"
+        )
+    )
+    _expect(lambda: _synced_pinned(leaf2))
+
+
+def test_pure_l3_sync_mac_mobility_reoriginates():
+    """
+    Host mobility -- same IP and VLAN, new MAC. host1's IP is relocated to a
+    macvlan over bond0 with a new MAC, so the RT-2 NLRI key (MAC, IP, ETAG)
+    changes only in MAC. leaf1 must withdraw the old-MAC RT-2 and originate the
+    new-MAC RT-2; leaf2's synced neighbor lladdr and its static sync-MAC pin
+    must move from the old MAC to the new MAC. A trailing withdraw of the old
+    key must not evict the new synced state.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    leaf2 = tgen.gears["leaf2"]
+    host1 = tgen.gears["host1"]
+    _ping(host1, ANYCAST_GW)
+
+    def _expect(fn):
+        _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+        assert result is None, result
+
+    ip = HOST_IP["host1"]
+    old_mac = _host_bond_mac(host1)
+    new_mac = "02:00:00:00:0a:01"
+
+    # Baseline: leaf1 originates the old-MAC RT-2; leaf2 syncs + pins old MAC.
+    _expect(
+        lambda: (
+            None
+            if _pure_l3_rt2_path(leaf1, 65011, mac=old_mac) is not None
+            else "baseline old-MAC RT-2 missing"
+        )
+    )
+    _expect(
+        lambda: (
+            None
+            if _mac_static_pinned(leaf2, old_mac, HOST_VID)
+            else "baseline old-MAC pin missing on leaf2"
+        )
+    )
+
+    try:
+        # Real MAC move for the same IP: relocate 45.0.0.101 onto a macvlan over
+        # bond0 with new_mac so the host genuinely answers with the new lladdr
+        # (a live adjacency, not a synthetic neighbor) without bouncing LACP. A
+        # single ARP is used (not continuous traffic): the moved neighbor stays
+        # advertised while STALE, and only leaf1 learns it locally so leaf2 is a
+        # stable sync peer (continuous traffic can hash to leaf2 and flap it).
+        host_move_ip_to_macvlan(host1, ip, new_mac)
+        _ping(host1, ANYCAST_GW)
+
+        # Old-key RT-2 withdrawn; new-key RT-2 originated (IP + ETAG + ESI).
+        _expect(
+            lambda: (
+                None
+                if _pure_l3_rt2_path(leaf1, 65011, mac=old_mac) is None
+                else "old-MAC RT-2 not withdrawn after MAC move"
+            )
+        )
+
+        def _new_rt2():
+            path = _pure_l3_rt2_path(leaf1, 65011, mac=new_mac)
+            if path is None:
+                return "new-MAC RT-2 not originated after MAC move"
+            if path.get("esi") != ES1_ID:
+                return "new-MAC RT-2 esi %s, want %s" % (path.get("esi"), ES1_ID)
+            return None
+
+        _expect(_new_rt2)
+
+        # leaf1 is the authoritative TX check (asserted above). On leaf2, local
+        # learn wins over peer sync -- the dual-homed host can also land locally
+        # on leaf2 -- so tolerate either ownership. Invariants that always hold
+        # after the move: leaf2's BGP carries the new-key RT-2 from leaf1, no
+        # stale old-MAC sync pin remains, and if leaf2 did not learn host1
+        # locally its synced neighbor carries the new MAC.
+        def _leaf2_reconverged():
+            if _pure_l3_rt2_path(leaf2, 65011, mac=new_mac) is None:
+                return "new-MAC RT-2 absent in leaf2 BGP"
+            if _mac_static_pinned(leaf2, old_mac, HOST_VID):
+                return "stale old-MAC sync pin remains on leaf2"
+            if not _host1_local(leaf2) and (_host1_mac(leaf2) or "").lower() != new_mac:
+                return "leaf2 not synced with new MAC: %s" % _host1_mac(leaf2)
+            return None
+
+        _expect(_leaf2_reconverged)
+
+        # Stale-withdraw guard: after the move, the leaf1 new-key RT-2 and the
+        # reconverged leaf2 state must not churn across a polled settle window
+        # (a delayed old-key withdraw must not evict them).
+        _assert_stable(
+            lambda: _pure_l3_rt2_path(leaf1, 65011, mac=new_mac) is None
+            or _leaf2_reconverged() is not None,
+            "leaf1/leaf2 state churned after move",
+        )
+    finally:
+        host_restore_ip_to_bond(host1, ip)
+        _ping(host1, ANYCAST_GW)
+
+    # Baseline restored: old-MAC RT-2 and pin return.
+    _expect(
+        lambda: (
+            None
+            if _pure_l3_rt2_path(leaf1, 65011, mac=old_mac) is not None
+            else "old-MAC RT-2 did not return after restore"
+        )
+    )
+    _expect(
+        lambda: (
+            None
+            if _mac_static_pinned(leaf2, old_mac, HOST_VID)
+            else "old-MAC pin did not return on leaf2"
+        )
+    )
+
+
+def test_pure_l3_sync_etag_mobility_reoriginates():
+    """
+    Host mobility -- same IP and MAC, new VLAN (ETAG). host1's untagged access
+    VLAN moves 100 -> 102 on the MH pair (carrying the anycast-GW subnet to the
+    new SVI), so the RT-2 NLRI key (MAC, IP, ETAG) changes only in ETAG. leaf1
+    withdraws the ETAG-100 RT-2 and originates the ETAG-102 RT-2; leaf2's synced
+    neighbor moves from vlan100 to vlan102. A trailing DELNEIGH for the old SVI
+    must not evict the moved route (zebra stale-DEL guard).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    leaf2 = tgen.gears["leaf2"]
+    host1 = tgen.gears["host1"]
+    _ping(host1, ANYCAST_GW)
+
+    def _expect(fn):
+        _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+        assert result is None, result
+
+    ip = HOST_IP["host1"]
+    old_vid = HOST_VID  # 100
+    new_vid = HOST_VID3  # 102 (spare BD, no host)
+    all_vids = [HOST_VID, HOST_VID2, HOST_VID3]
+
+    # Baseline: leaf1 originates the ETAG-100 RT-2; leaf2 synced only on vlan100.
+    _expect(
+        lambda: (
+            None
+            if _pure_l3_rt2_path(leaf1, 65011, eth_tag=old_vid) is not None
+            else "baseline ETAG-100 RT-2 missing"
+        )
+    )
+    _expect(lambda: _synced_neigh_on_vlan_only(leaf2, ip, old_vid, all_vids))
+
+    try:
+        # Move host1's access VLAN 100 -> 102 on both peers, carrying the GW
+        # subnet so the same IP resolves under the new ETAG.
+        for leaf in (leaf1, leaf2):
+            leaf_move_host_bd(leaf, old_vid, new_vid)
+        _ping(host1, ANYCAST_GW)
+
+        # Old ETAG withdrawn; new ETAG originated (same IP + MAC + ESI).
+        _expect(
+            lambda: (
+                None
+                if _pure_l3_rt2_path(leaf1, 65011, eth_tag=old_vid) is None
+                else "ETAG-100 RT-2 not withdrawn after VLAN move"
+            )
+        )
+
+        def _new_etag():
+            path = _pure_l3_rt2_path(leaf1, 65011, eth_tag=new_vid)
+            if path is None:
+                return "ETAG-102 RT-2 not originated after VLAN move"
+            if path.get("esi") != ES1_ID:
+                return "ETAG-102 RT-2 esi %s, want %s" % (path.get("esi"), ES1_ID)
+            return None
+
+        _expect(_new_etag)
+
+        # leaf2's synced neighbor exists only on vlan102 (ETAG isolation): the
+        # trailing old-SVI DELNEIGH must not evict it.
+        _expect(lambda: _synced_neigh_on_vlan_only(leaf2, ip, new_vid, all_vids))
+    finally:
+        for leaf in (leaf1, leaf2):
+            leaf_move_host_bd(leaf, new_vid, old_vid)
+        _ping(host1, ANYCAST_GW)
+
+    # Baseline restored: ETAG-100 RT-2 and vlan100 sync return.
+    _expect(
+        lambda: (
+            None
+            if _pure_l3_rt2_path(leaf1, 65011, eth_tag=old_vid) is not None
+            else "ETAG-100 RT-2 did not return after restore"
+        )
+    )
+    _expect(lambda: _synced_neigh_on_vlan_only(leaf2, ip, old_vid, all_vids))
+
+
+def test_pure_l3_sync_mac_and_etag_mobility_reoriginates():
+    """
+    Host mobility -- same IP, new MAC AND new VLAN together. host1's IP moves to
+    a macvlan (new MAC) and its access VLAN moves 100 -> 102 on the MH pair, so
+    both the MAC and the ETAG of the RT-2 NLRI change at once. leaf1 withdraws
+    the (old MAC, ETAG 100) RT-2 and originates the (new MAC, ETAG 102) RT-2;
+    leaf2's synced neighbor and sync-MAC pin move to vlan102 with the new MAC.
+    The old vlan100 sync-MAC pin is NOT asserted gone: removing vlan100 from the
+    ES bond can leave an orphaned static FDB entry the kernel keeps (same-VLAN
+    pin move is covered by the MAC-mobility test). The reconverged state stays
+    stable (the trailing old-key withdraws must not evict it).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    leaf2 = tgen.gears["leaf2"]
+    host1 = tgen.gears["host1"]
+    _ping(host1, ANYCAST_GW)
+
+    def _expect(fn):
+        _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+        assert result is None, result
+
+    ip = HOST_IP["host1"]
+    old_mac = _host_bond_mac(host1)
+    new_mac = "02:00:00:00:0b:02"
+    old_vid = HOST_VID  # 100
+    new_vid = HOST_VID3  # 102
+    all_vids = [HOST_VID, HOST_VID2, HOST_VID3]
+
+    # Baseline: leaf1 originates (old MAC, ETAG 100); leaf2 synced on vlan100.
+    _expect(
+        lambda: (
+            None
+            if _pure_l3_rt2_path(leaf1, 65011, mac=old_mac, eth_tag=old_vid) is not None
+            else "baseline (old MAC, ETAG 100) RT-2 missing"
+        )
+    )
+    _expect(lambda: _synced_neigh_on_vlan_only(leaf2, ip, old_vid, all_vids))
+
+    try:
+        # Change MAC (macvlan) and ETAG (access VLAN) together.
+        host_move_ip_to_macvlan(host1, ip, new_mac)
+        for leaf in (leaf1, leaf2):
+            leaf_move_host_bd(leaf, old_vid, new_vid)
+        _ping(host1, ANYCAST_GW)
+
+        # Old (MAC, ETAG) key withdrawn; new (MAC, ETAG) key originated + ESI.
+        _expect(
+            lambda: (
+                None
+                if _pure_l3_rt2_path(leaf1, 65011, mac=old_mac, eth_tag=old_vid) is None
+                else "old (MAC, ETAG) RT-2 not withdrawn after combined move"
+            )
+        )
+
+        def _new_key():
+            path = _pure_l3_rt2_path(leaf1, 65011, mac=new_mac, eth_tag=new_vid)
+            if path is None:
+                return "new (MAC, ETAG) RT-2 not originated after combined move"
+            if path.get("esi") != ES1_ID:
+                return "new RT-2 esi %s, want %s" % (path.get("esi"), ES1_ID)
+            return None
+
+        _expect(_new_key)
+
+        # leaf2's synced neighbor + sync-MAC pin move to vlan102 with new MAC.
+        # (The old pin's FDB entry on vlan100 is not asserted absent here: this
+        # test removes vlan100 from the ES bond, so the kernel keeps that static
+        # entry orphaned; same-VLAN pin move is covered by the MAC-mobility
+        # test.) The trailing old-key DELs/withdraws must not evict new state.
+        def _leaf2_moved():
+            err = _synced_neigh_on_vlan_only(leaf2, ip, new_vid, all_vids)
+            if err:
+                return err
+            if (_host1_mac(leaf2, new_vid) or "").lower() != new_mac:
+                return "leaf2 lladdr not new MAC: %s" % _host1_mac(leaf2, new_vid)
+            if not _mac_static_pinned(leaf2, new_mac, new_vid):
+                return "new sync-MAC pin missing on leaf2 vlan102"
+            return None
+
+        _expect(_leaf2_moved)
+
+        # Stale-withdraw guard: the reconverged state must not churn across a
+        # polled settle window (a delayed old-key withdraw must not evict it).
+        _assert_stable(
+            lambda: _pure_l3_rt2_path(leaf1, 65011, mac=new_mac, eth_tag=new_vid)
+            is None
+            or _leaf2_moved() is not None,
+            "leaf2 state churned after combined move",
+        )
+    finally:
+        for leaf in (leaf1, leaf2):
+            leaf_move_host_bd(leaf, new_vid, old_vid)
+        host_restore_ip_to_bond(host1, ip)
+        _ping(host1, ANYCAST_GW)
+
+    # Baseline restored.
+    _expect(
+        lambda: (
+            None
+            if _pure_l3_rt2_path(leaf1, 65011, mac=old_mac, eth_tag=old_vid) is not None
+            else "baseline (old MAC, ETAG 100) RT-2 did not return"
+        )
+    )
+    _expect(lambda: _synced_neigh_on_vlan_only(leaf2, ip, old_vid, all_vids))
+
+
 def test_pure_l3_bd_gains_l2vni_transfers_ownership():
     """
     When a pure-L3 (no-L2VNI) BD gains an L2VNI, ownership of host1 moves from
@@ -1648,17 +2120,121 @@ def test_pure_l3_non_peer_leaf_type5_route_no_sync_neigh():
 
     # leaf3 (non-peer) must never install a synced (extern_learn) neighbor for
     # host1; poll a short window to also rule out a delayed install.
-    def _no_sync_neigh(dut):
-        neigh = dut.run("ip neigh show")
-        for line in neigh.splitlines():
+    def _sync_neigh_present(dut):
+        for line in dut.run("ip neigh show").splitlines():
             if HOST_IP["host1"] in line and "extern_learn" in line:
-                return "leaf3 (non-peer) has a synced neighbor for host1: %s" % line
+                return True
+        return False
+
+    _assert_stable(
+        partial(_sync_neigh_present, dut),
+        "leaf3 (non-peer) installed a synced neighbor for host1",
+        count=5,
+        wait=1,
+    )
+
+
+def test_pure_l3_nd_sync_smoke():
+    """
+    IPv6 ND sync smoke test. VLAN 100 is dual-stacked with an IPv6 anycast
+    gateway, so host1 also has an IPv6 address on its bond. Repeated ping6
+    during polling drives ND learning on leaf1, whose entry must originate as a
+    pure-L3 RT-2 with the same family-agnostic marker (vni 0/L3VNI, ETAG = VLAN,
+    local ESI), and leaf2 (the ES peer) must install it as an extern_learn
+    neighbor on vlan100. Light coverage only -- the full IPv6 delete/aging/mixed
+    matrix is a separate PR.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    leaf2 = tgen.gears["leaf2"]
+    host1 = tgen.gears["host1"]
+    ip6 = HOST_IP6["host1"]
+
+    def _expect(fn):
+        _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+        assert result is None, result
+
+    # leaf1 originates the IPv6 pure-L3 RT-2 (0/L3VNI marker, ETAG 100, ES1).
+    # Re-trigger ND each poll: v6 origination is event-driven (NEWNEIGH), and a
+    # single initial ping can resolve the neighbor as STALE without originating.
+    def _v6_rt2():
+        host1.run("ping -6 -c 1 -W 1 %s" % ANYCAST_GW6)
+        path = _pure_l3_rt2_path(leaf1, 65011, ip=ip6)
+        if path is None:
+            return "no IPv6 pure-L3 RT-2 for %s" % ip6
+        if path.get("esi") != ES1_ID:
+            return "IPv6 pure-L3 RT-2 esi %s, want %s" % (path.get("esi"), ES1_ID)
         return None
 
-    for _ in range(5):
-        err = _no_sync_neigh(dut)
-        assert err is None, err
-        topotest.sleep(1)
+    _expect(_v6_rt2)
+
+    # leaf2 installs host1's IPv6 as an extern_learn (synced) neighbor on vlan100.
+    def _v6_synced(dut):
+        out = dut.run("ip -6 neigh show dev vlan%d" % HOST_VID)
+        if ip6 in out and "extern_learn" in out:
+            return None
+        return "host1 IPv6 not synced on leaf2: %s" % out
+
+    _expect(lambda: _v6_synced(leaf2))
+
+
+def test_pure_l3_fdb_sync_mac_delete_reconciles():
+    """
+    Out-of-band delete of the local-ES sync-MAC pin reconciles. The pin leaf2
+    programs for a synced host (a static `master` FDB entry on the ES bond) is
+    zebra-owned derived state: if zebra observes the delete it re-pins right
+    away (DB still owns the synced neighbor), and any RX-side sync event
+    (advertise-l3vni-neigh reimport) re-resolves the ESI and restores it too.
+    Either way the synced extern_learn neighbor is never disturbed and the pin
+    ends up back in place. Deterministic kernel-state assertions; no aging waits.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf2 = tgen.gears["leaf2"]
+    host1 = tgen.gears["host1"]
+    _ping(host1, ANYCAST_GW)
+    mac = _host_bond_mac(host1)
+
+    def _expect(fn):
+        _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+        assert result is None, result
+
+    # Baseline: host1 synced and its MAC pinned (static) to the ES bond.
+    _expect(
+        lambda: (
+            None
+            if _host1_synced(leaf2) and _mac_static_pinned(leaf2, mac, HOST_VID)
+            else "baseline sync neighbor/pin missing on leaf2"
+        )
+    )
+
+    # Delete the static sync-MAC pin (a `master` bridge FDB entry) by hand, then
+    # drive a RX-side sync event so reconciliation is guaranteed regardless of
+    # whether zebra also observed the kernel delete directly.
+    leaf2.run("bridge fdb del %s dev hostbond1 master vlan %d" % (mac, HOST_VID))
+    assert _host1_synced(leaf2), "synced neighbor lost after FDB pin delete"
+    leaf2.vtysh_cmd(
+        "configure terminal\nrouter bgp 65012\n"
+        " address-family l2vpn evpn\n  no advertise-l3vni-neigh\n"
+    )
+    leaf2.vtysh_cmd(
+        "configure terminal\nrouter bgp 65012\n"
+        " address-family l2vpn evpn\n  advertise-l3vni-neigh\n"
+    )
+
+    # Reconciled: neighbor and pin are both back.
+    _expect(
+        lambda: (
+            None
+            if _host1_synced(leaf2) and _mac_static_pinned(leaf2, mac, HOST_VID)
+            else "sync neighbor/pin not reconciled after FDB pin delete"
+        )
+    )
 
 
 if __name__ == "__main__":
