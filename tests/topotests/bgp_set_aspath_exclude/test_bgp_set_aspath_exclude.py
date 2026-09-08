@@ -101,6 +101,12 @@ def bgp_converge(router, expected):
     return topotest.json_cmp(output, expected)
 
 
+def bgp_route_present(router, prefix):
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
+
+    return None if prefix in output.get("routes", {}) else "missing"
+
+
 def test_bgp_set_aspath_exclude():
     tgen = get_topogen()
 
@@ -239,6 +245,50 @@ clear bgp *
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, "Failed to renegotiate with peers 2"
+
+
+def test_no_bgp_aspath_exclude_full_access_list_delete():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "r1"
+    r1 = tgen.gears[rname]
+
+    # Reference a dedicated ACL from the route-map, then delete the entire
+    # ACL. The full-delete path must orphan the route-map reference instead
+    # of leaving a dangling exclude_aspath_acl pointer behind.
+    r1.vtysh_cmd(
+        """
+conf
+ bgp as-path access-list FULL permit 2$
+ route-map r2 permit 6
+  set as-path exclude as-path-access-list FULL
+    """
+    )
+    r1.vtysh_cmd(
+        """
+conf
+ no bgp as-path access-list FULL
+    """
+    )
+
+    # Trigger route-map evaluation. Without the fix, bgpd dereferences the
+    # freed ACL and crashes.
+    r1.vtysh_cmd(
+        """
+clear bgp *
+    """
+    )
+
+    # The orphaned rule must not crash bgpd and the route must stay present.
+    test_func = functools.partial(
+        bgp_route_present, tgen.gears["r1"], "172.16.255.32/32"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+
+    assert result is None, "bgpd crashed or dropped the route after full ACL delete"
 
 
 if __name__ == "__main__":
