@@ -1768,14 +1768,12 @@ static void show_ext_sub(struct vty *vty, char *name, struct isis_ext_subtlvs *e
 	struct sbuf buf;
 	char ibuf[PREFIX2STR_BUFFER];
 
-	sbuf_init(&buf, NULL, 0);
-
 	if (!ext || ext->status == EXT_DISABLE)
 		return;
 
 	vty_out(vty, "-- MPLS-TE link parameters for %s --\n", name);
 
-	sbuf_reset(&buf);
+	sbuf_init(&buf, NULL, 0);
 
 	if (IS_SUBTLV(ext, EXT_ADM_GRP))
 		sbuf_push(&buf, 4, "Administrative Group: 0x%x\n", ext->adm_group);
