@@ -466,6 +466,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_OPAQUE_NOTIFY),
 	DESC_ENTRY(ZEBRA_SRV6_SID_NOTIFY),
 	DESC_ENTRY(ZEBRA_MROUTE_EVENT),
+	DESC_ENTRY(ZEBRA_PIM_FPM_SYNC),
 };
 #undef DESC_ENTRY
 

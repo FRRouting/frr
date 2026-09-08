@@ -98,6 +98,14 @@ extern void zebra_mroute_init(void);
 /** Frees the multicast routes tracking. */
 extern void zebra_mroute_terminate(void);
 
+/**
+ * Tell PIM clients that the forwarding plane lost its multicast state and
+ * that every installed multicast route must be sent again.
+ *
+ * \param vrf_id the VRF whose routes must be resynchronized.
+ */
+extern void zmroute_sync(vrf_id_t vrf_id);
+
 #ifdef __cplusplus
 }
 #endif
