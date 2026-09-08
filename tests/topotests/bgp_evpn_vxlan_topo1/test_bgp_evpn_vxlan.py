@@ -874,7 +874,6 @@ def test_evpn_mac_vni_all_json_nummacs():
         for mac in macs:
             pe1.run("bridge fdb del {} dev PE1-eth0 master static".format(mac))
 
-
 def _restore_pe2_vni_state(pe2):
     pe2.run("ip link set dev PE2-eth1 up")
     pe2.run("ip link set dev br101 up")
