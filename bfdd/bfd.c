@@ -272,6 +272,15 @@ void bfd_session_apply(struct bfd_session *bs)
 		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO;
 	}
 
+	/*
+	 * Warn here rather than per packet. A keychain that holds nothing
+	 * this session can use now keeps the session down instead of
+	 * quietly running it unauthenticated, so say which keychain it was.
+	 */
+	if (bs->kc && !bfd_keychain_key_find_active(bs->kc, bs->auth_meticulous))
+		zlog_warn("BFD: session [%s] has keychain %s but no key it can use; the session will not authenticate",
+			  bs_to_string(bs), bs->kc->name);
+
 	/* If session interval changed negotiate new timers. */
 	if (bs->ses_state == PTM_BFD_UP &&
 	    (bs->timers.desired_min_tx != min_tx || bs->timers.required_min_rx != min_rx)) {
