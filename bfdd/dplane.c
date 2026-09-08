@@ -23,6 +23,7 @@
 #include <time.h>
 
 #include "lib/hook.h"
+#include "lib/keychain.h"
 #include "lib/network.h"
 #include "lib/printfrr.h"
 #include "lib/stream.h"
@@ -122,6 +123,8 @@ static const char *bfd_dplane_messagetype2str(enum bfddp_message_type bmt)
 		return "DP_REQUEST_SESSION_COUNTERS";
 	case BFD_SESSION_COUNTERS:
 		return "BFD_SESSION_COUNTERS";
+	case DP_SESSION_AUTH:
+		return "DP_SESSION_AUTH";
 	default:
 		return "UNKNOWN";
 	}
@@ -190,6 +193,15 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 			msg->data.session.detect_mult,
 			ntohl(msg->data.session.ifindex),
 			msg->data.session.ifname);
+		break;
+
+	case DP_SESSION_AUTH:
+		/*
+		 * Key material is deliberately absent: this is written to
+		 * the log at debug level.
+		 */
+		zlog_debug("  [lid=%u keys=%u]", ntohl(msg->data.session_auth.lid),
+			   ntohs(msg->data.session_auth.key_count));
 		break;
 
 	case BFD_STATE_CHANGE:
@@ -548,6 +560,7 @@ static void bfd_dplane_handle_message(struct bfddp_message *msg, void *arg)
 	case DP_ADD_SESSION:
 	case DP_DELETE_SESSION:
 	case DP_REQUEST_SESSION_COUNTERS:
+	case DP_SESSION_AUTH:
 		/* NOTHING: we are not supposed to receive this. */
 		break;
 	case BFD_SESSION_COUNTERS:
@@ -902,6 +915,8 @@ static void _bfd_dplane_session_fill(const struct bfd_session *bs,
 		msg->data.session.flags |= SESSION_DEMAND;
 	if (bs->flags & BFD_SESS_FLAG_PASSIVE)
 		msg->data.session.flags |= SESSION_PASSIVE;
+	if (bs->kc)
+		msg->data.session.flags |= SESSION_AUTH;
 	if (bs->flags & BFD_SESS_FLAG_SHUTDOWN)
 		msg->data.session.flags |= SESSION_SHUTDOWN;
 
@@ -1267,9 +1282,94 @@ int bfd_dplane_add_session(struct bfd_session *bs)
 	return -1;
 }
 
+/*
+ * Send every key the session's key chain holds, with the lifetimes that
+ * say when each may be used.
+ *
+ * The data plane picks the key, not us. It has the packets, so it is the
+ * only side that can tell which key applies to one, and pushing a new key
+ * at every rollover would put the BFD daemon back in a path that
+ * offloading exists to keep it out of.
+ *
+ * Only sent for a session that has a key chain. `SESSION_AUTH` in the
+ * session message is what says whether the session authenticates at all,
+ * so a data plane drops the keys it holds when that flag goes away.
+ */
+static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
+{
+	struct bfddp_message msg = {};
+	struct bfddp_auth_key *keys = msg.data.session_auth.keys;
+	struct listnode *node;
+	struct key *key;
+	uint16_t count = 0;
+	uint16_t msglen;
+
+	for (ALL_LIST_ELEMENTS_RO(bs->kc->key, node, key)) {
+		enum bfd_auth_type type;
+		size_t keylen;
+
+		if (key->string == NULL)
+			continue;
+
+		/* A key whose algorithm has no BFD equivalent is unusable. */
+		type = map_keychain_algo_to_bfd_auth_type(key->hash_algo,
+							  bs->auth_meticulous);
+		if (type == BFD_AUTH_TYPE_RESERVED)
+			continue;
+
+		keylen = strlen(key->string);
+		if (keylen == 0 || keylen > BFDDP_AUTH_KEY_MAX)
+			continue;
+
+		/*
+		 * RFC 5880 gives the Auth Key ID eight bits, so a key chain
+		 * index above that cannot be put on the wire. Skipping it
+		 * keeps the data plane's view of the key chain honest;
+		 * truncating would give two keys the same identifier.
+		 */
+		if (key->index > UINT8_MAX)
+			continue;
+
+		if (count == BFDDP_AUTH_KEY_COUNT_MAX) {
+			zlog_warn("%s: key chain %s has more than %u usable keys, the rest are not offloaded",
+				  __func__, bs->kc->name,
+				  BFDDP_AUTH_KEY_COUNT_MAX);
+			break;
+		}
+
+		keys[count].type = type;
+		keys[count].key_id = (uint8_t)key->index;
+		keys[count].key_len = (uint8_t)keylen;
+		keys[count].send.start = htobe64((uint64_t)key->send.start);
+		keys[count].send.end = htobe64((uint64_t)key->send.end);
+		keys[count].accept.start = htobe64((uint64_t)key->accept.start);
+		keys[count].accept.end = htobe64((uint64_t)key->accept.end);
+		memcpy(keys[count].key, key->string, keylen);
+		count++;
+	}
+
+	/*
+	 * Only the keys that are present go on the wire, so the message is
+	 * shorter than the structure it was built in.
+	 */
+	msglen = sizeof(msg.header) +
+		 offsetof(struct bfddp_session_auth, keys) +
+		 (uint16_t)(count * sizeof(*keys));
+
+	msg.header.version = BFD_DP_VERSION;
+	msg.header.length = htons(msglen);
+	msg.header.type = htons(DP_SESSION_AUTH);
+
+	msg.data.session_auth.lid = htonl(bs->discrs.my_discr);
+	msg.data.session_auth.key_count = htons(count);
+
+	return bfd_dplane_enqueue(bs->bdc, &msg, msglen);
+}
+
 int bfd_dplane_update_session(const struct bfd_session *bs)
 {
 	struct bfddp_message msg = {};
+	int rv;
 
 	if (bs->bdc == NULL)
 		return 0;
@@ -1280,7 +1380,15 @@ int bfd_dplane_update_session(const struct bfd_session *bs)
 		 ntohl(msg.data.session.flags), msg.data.session.detect_mult, msg.data.session.ttl);
 
 	/* Enqueue message to data plane client. */
-	return bfd_dplane_enqueue(bs->bdc, &msg, ntohs(msg.header.length));
+	rv = bfd_dplane_enqueue(bs->bdc, &msg, ntohs(msg.header.length));
+	if (rv != 0)
+		return rv;
+
+	/* The keys follow the session they belong to. */
+	if (bs->kc)
+		rv = bfd_dplane_send_session_auth(bs);
+
+	return rv;
 }
 
 int bfd_dplane_delete_session(struct bfd_session *bs)
