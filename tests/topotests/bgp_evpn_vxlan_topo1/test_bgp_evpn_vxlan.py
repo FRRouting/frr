@@ -26,11 +26,14 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.evpn import (
+    evpn_check_bgp_imet,
+    evpn_check_bgp_imet_absent,
     evpn_check_vni_macs_present,
     evpn_mac_learn_test,
     evpn_mac_test_local_remote,
     evpn_show_vni_json_elide_ifindex,
-    evpn_check_bgp_imet,
+    evpn_verify_hrep_absent,
+    evpn_verify_vni_remote_vtep_flood,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
@@ -822,6 +825,108 @@ def test_imet():
     _, result = topotest.run_and_expect(test_fn, None, count=10, wait=3)
     assertmsg = f"{dut_name} IMET not present/incorrect, result:{result}"
     assert result is None, assertmsg
+
+
+def test_remote_vtep_soft_imet_withdraw():
+    """
+    RT-3 withdraw should soft-disable the remote VTEP while remote MACs
+    and neighs remain.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+    host2 = tgen.gears["host2"]
+    vni = 101
+    remote_vtep = "10.30.30.30"
+    host2_ip = "10.10.1.56"
+    pe2_rd = "10.30.30.30:2"
+    pe2_imet_prefix = "[3]:[0]:[32]:[10.30.30.30]"
+    host2_mac = tgen.net.macs[("host2", "host2-eth0")]
+
+    host2.run("ping -c 1 10.10.1.3")
+
+    test_fn = partial(
+        evpn_check_vni_macs_present,
+        tgen,
+        pe1,
+        vni,
+        (("host2", "host2-eth0"),),
+    )
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+    assert result is None, f"PE1 missing expected MACs before test: {result}"
+
+    test_fn = partial(
+        evpn_verify_vni_remote_vtep_flood, pe1, vni, remote_vtep, "HER"
+    )
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=1)
+    assert result is None, f"PE1 baseline remote VTEP flood HER missing: {result}"
+
+    pe2.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65000
+         address-family l2vpn evpn
+          vni 101
+           flooding disable
+        """
+    )
+
+    test_fn = partial(
+        evpn_check_bgp_imet_absent, pe1, pe2_rd, pe2_imet_prefix
+    )
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=2)
+    assert result is None, f"PE1 still has PE2 IMET route: {result}"
+
+    test_fn = partial(
+        evpn_verify_vni_remote_vtep_flood, pe1, vni, remote_vtep, "-"
+    )
+    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=2)
+    assert result is None, f"PE1 remote VTEP not soft-disabled: {result}"
+
+    test_fn = partial(
+        evpn_check_vni_macs_present,
+        tgen,
+        pe1,
+        vni,
+        (("host1", "host1-eth0"), ("host2", "host2-eth0")),
+    )
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=1)
+    assert result is None, f"PE1 lost remote MACs after IMET withdraw: {result}"
+
+    test_fn = partial(evpn_verify_hrep_absent, pe1, vni, remote_vtep)
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=2)
+    assert result is None, f"PE1 still has HREP after IMET withdraw: {result}"
+
+    pe2.run("ip link set dev PE2-eth1 down")
+
+    def _remote_mac_withdrawn():
+        result = pe1.vtysh_cmd(f"show evpn mac vni {vni} json", isjson=True)
+        if host2_mac in result.get("macs", {}):
+            return f"remote MAC {host2_mac} still present on PE1"
+        return None
+
+    _, result = topotest.run_and_expect(_remote_mac_withdrawn, None, count=30, wait=2)
+    assert result is None, f"PE1 remote MAC not withdrawn: {result}"
+
+    def _remote_neigh_withdrawn():
+        out = pe1.vtysh_cmd(
+            f"show evpn arp-cache vni {vni} ip {host2_ip} json", isjson=True
+        )
+        if not out:
+            return None
+        return f"remote neigh {host2_ip} still present on PE1"
+
+    _, result = topotest.run_and_expect(_remote_neigh_withdrawn, None, count=30, wait=2)
+    assert result is None, f"PE1 remote neigh not withdrawn: {result}"
+
+    test_fn = partial(
+        evpn_verify_vni_remote_vtep_flood, pe1, vni, remote_vtep, "-"
+    )
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=1)
+    assert result is None, f"PE1 remote VTEP not retained after withdraw: {result}"
 
 
 def test_remote_neigh_uninstall_on_vxlan_down():
