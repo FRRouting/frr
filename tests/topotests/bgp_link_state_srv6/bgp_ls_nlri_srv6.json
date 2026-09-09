@@ -223,7 +223,7 @@
 					"srv6SidStructure": {
 						"lbLen": 32,
 						"lnLen": 16,
-						"funLen": 16,
+						"funLen": 0,
 						"argLen": 0
 					}
 				}
@@ -252,7 +252,7 @@
 					"srv6SidStructure": {
 						"lbLen": 32,
 						"lnLen": 16,
-						"funLen": 16,
+						"funLen": 0,
 						"argLen": 0
 					}
 				}
@@ -281,7 +281,7 @@
 					"srv6SidStructure": {
 						"lbLen": 32,
 						"lnLen": 16,
-						"funLen": 16,
+						"funLen": 0,
 						"argLen": 0
 					}
 				}
@@ -310,7 +310,7 @@
 					"srv6SidStructure": {
 						"lbLen": 32,
 						"lnLen": 16,
-						"funLen": 16,
+						"funLen": 0,
 						"argLen": 0
 					}
 				}
@@ -339,7 +339,7 @@
 					"srv6SidStructure": {
 						"lbLen": 32,
 						"lnLen": 16,
-						"funLen": 16,
+						"funLen": 0,
 						"argLen": 0
 					}
 				}
