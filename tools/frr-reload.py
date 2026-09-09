@@ -1538,6 +1538,44 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     lines_to_add_to_del = []
     lines_to_del_to_del = []
 
+    def evpn_advertise_options(advertise_line):
+        if not advertise_line:
+            return None
+
+        words = advertise_line.split()
+        # bgpd accepts the unicast and vpn SAFIs here and rejects the rest, so
+        # no other SAFI can reach a running configuration. The vpn form takes
+        # only a route-map; gateway-ip and skip-evpn-imported are unicast only.
+        if len(words) < 3 or words[:3] not in (
+            ["advertise", "ipv4", "unicast"],
+            ["advertise", "ipv6", "unicast"],
+            ["advertise", "ipv4", "vpn"],
+            ["advertise", "ipv6", "vpn"],
+        ):
+            return None
+
+        # The word after route-map is a name and may match an option keyword.
+        route_map = None
+        skip_evpn_imported = False
+        i = 3
+        while i < len(words):
+            if words[i] == "route-map":
+                if i + 1 < len(words):
+                    route_map = words[i + 1]
+                i += 2
+                continue
+            if words[i] == "skip-evpn-imported":
+                skip_evpn_imported = True
+            i += 1
+
+        return {
+            "base": " ".join(words[:3]),
+            "route_map": route_map,
+            "skip_evpn_imported": skip_evpn_imported,
+        }
+
+    evpn_option_deletes = []
+
     index = -1
     for ctx_keys, line in lines_to_del:
         deleted = False
@@ -1805,6 +1843,71 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if found_table_map:
                     lines_to_del_to_del.append((ctx_keys, line))
 
+            evpn_options = evpn_advertise_options(line)
+            if evpn_options:
+                desired_advertise = None
+                for add_ctx_keys, add_line in lines_to_add:
+                    if add_ctx_keys != ctx_keys:
+                        continue
+                    add_options = evpn_advertise_options(add_line)
+                    if add_options and add_options["base"] == evpn_options["base"]:
+                        desired_advertise = (add_ctx_keys, add_line, add_options)
+                        break
+
+                if desired_advertise:
+                    add_ctx_keys, add_line, add_options = desired_advertise
+                    # Each parsed command records its base command, route-map,
+                    # and skip option. For example, changing
+                    # "advertise ipv4 unicast route-map map1 skip-evpn-imported"
+                    # to "advertise ipv4 unicast skip-evpn-imported" produces:
+                    # evpn_options = {"base": "advertise ipv4 unicast",
+                    #                 "route_map": "map1", "skip_evpn_imported": True}
+                    # add_options = {"base": "advertise ipv4 unicast",
+                    #                "route_map": None, "skip_evpn_imported": True}
+                    route_map_removed = (
+                        evpn_options["route_map"] and not add_options["route_map"]
+                    )
+                    skip_removed = (
+                        evpn_options["skip_evpn_imported"]
+                        and not add_options["skip_evpn_imported"]
+                    )
+                    route_map_added_or_changed = add_options["route_map"] and (
+                        add_options["route_map"] != evpn_options["route_map"]
+                    )
+                    skip_added = (
+                        add_options["skip_evpn_imported"]
+                        and not evpn_options["skip_evpn_imported"]
+                    )
+
+                    # Route-map and skip-evpn-imported are updated independently.
+                    # Do not turn an option change into a bare "no advertise",
+                    # because that disables Type-5 export before the replacement
+                    # command can apply the requested option state.
+                    lines_to_del_to_del.append((ctx_keys, line))
+
+                    # If route-map is deleted, add its no form.
+                    if route_map_removed:
+                        evpn_option_deletes.append(
+                            (
+                                ctx_keys,
+                                "%s route-map %s"
+                                % (evpn_options["base"], evpn_options["route_map"]),
+                            )
+                        )
+                    # If skip-evpn-imported is deleted, add its no form.
+                    if skip_removed:
+                        evpn_option_deletes.append(
+                            (ctx_keys, "%s skip-evpn-imported" % evpn_options["base"])
+                        )
+
+                    # Removes the desired positive command from lines_to_add.
+                    if not route_map_added_or_changed and not skip_added:
+                        lines_to_add_to_del.append((add_ctx_keys, add_line))
+                else:
+                    # When the whole command is removed, render the bare
+                    # "no advertise <afi> <safi>" to disable Type-5 export.
+                    lines_to_del[index] = (ctx_keys, evpn_options["base"])
+
         # More old-to-new config handling. ip import-table no longer accepts
         # distance, but we honor the old syntax. But 'show running' shows only
         # the new syntax. This causes an unnecessary 'no import-table' followed
@@ -2013,6 +2116,8 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     if found_add_line:
                         lines_to_del_to_del.append((ctx_keys, line))
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
+
+    lines_to_del.extend(evpn_option_deletes)
 
     for ctx_keys, line in lines_to_del_to_del:
         try:
