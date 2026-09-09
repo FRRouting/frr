@@ -278,13 +278,18 @@ void pbr_map_policy_interface_update(const struct interface *ifp, bool state_up)
 	       pbr_ifp->mapname, (state_up ? "installing" : "removing"),
 	       ifp->name);
 
+	pbr_map_check_valid_internal(pbrm);
+
 	/*
 	 * Walk the list and install/remove maps on the interface.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
-			if (pmi->ifp == ifp && pbr_map_interface_is_valid(pmi))
+			if (pmi->ifp == ifp && pbr_map_interface_is_valid(pmi)) {
+				if (state_up && pbrms->reason != PBR_MAP_VALID_SEQUENCE_NUMBER)
+					continue;
 				pbr_send_pbr_map(pbrms, pmi, state_up, true);
+			}
 }
 
 static void pbrms_vrf_update(struct pbr_map_sequence *pbrms,
