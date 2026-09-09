@@ -1394,7 +1394,7 @@ static void frr_grpc_module_very_late_init(struct event *event)
 							__func__);
 						goto error;
 					}
-					
+
 					host = arg.substr(0, colon);
 					port = std::stoul(arg.substr(colon + 1));
 				}
