@@ -24,8 +24,13 @@
 #include <memory>
 #include <string>
 
+#define GRPC_DEFAULT_HOST "0.0.0.0"
 #define GRPC_DEFAULT_PORT 50051
 
+struct grpc_args {
+	std::string host;
+	uint port;
+};
 
 // ------------------------------------------------------
 //                 File Local Variables
@@ -1136,6 +1141,9 @@ static grpc::ServerCompletionQueue *s_cq;
 static void *grpc_pthread_start(void *arg)
 {
 	struct frr_pthread *fpt = static_cast<frr_pthread *>(arg);
+	struct grpc_args *args = static_cast<struct grpc_args *>(fpt->data);
+
+	std::string host = args->host;
 	uint port = (uint) reinterpret_cast<intptr_t>(fpt->data);
 
 	Candidates candidates;
@@ -1145,7 +1153,7 @@ static void *grpc_pthread_start(void *arg)
 
 	frr_pthread_set_name(fpt);
 
-	server_address << "0.0.0.0:" << port;
+	server_address << host << ":" << port;
 	builder.AddListeningPort(server_address.str(),
 				 grpc::InsecureServerCredentials());
 	builder.RegisterService(&service);
@@ -1256,7 +1264,7 @@ static void *grpc_pthread_start(void *arg)
 }
 
 
-static int frr_grpc_init(uint port)
+static int frr_grpc_init(std::string host, uint port)
 {
 	struct frr_pthread_attr attr = {
 		.start = grpc_pthread_start,
@@ -1265,8 +1273,13 @@ static int frr_grpc_init(uint port)
 
 	grpc_debug("%s: entered", __func__);
 
+	grpc_args *args = new grpc_args {
+		.host = std::move(host),
+		.port = port,
+	};
+
 	fpt = frr_pthread_new(&attr, "frr-grpc", "frr-grpc");
-	fpt->data = reinterpret_cast<void *>((intptr_t)port);
+	fpt->data = args;
 
 	/* Create a pthread for gRPC since it runs its own event loop. */
 	if (frr_pthread_run(fpt, NULL) < 0) {
@@ -1330,19 +1343,44 @@ static int frr_grpc_finish(void)
 static void frr_grpc_module_very_late_init(struct event *event)
 {
 	const char *args = THIS_MODULE->load_args;
+	std::string host = GRPC_DEFAULT_HOST;
 	uint port = GRPC_DEFAULT_PORT;
 
 	if (args) {
-		port = std::stoul(args);
-		if (port < 1024 || port > UINT16_MAX) {
+		try {
+			std::string arg(args);
+			size_t colon = arg.find_last_of(':');
+
+			if (colon == std::string::npos) {
+				// backward compatible with port-only config
+				port = std::stoul(arg);
+			} else {
+				if (colon == 0) {
+					flog_err(EC_LIB_GRPC_INIT,
+						"%s: host must not be empty",
+						__func__);
+					goto error;
+				}
+				
+				host = arg.substr(0, colon);
+				port = std::stoul(arg.substr(colon + 1));
+			}
+
+			if (port < 1024 || port > UINT16_MAX) {
+				flog_err(EC_LIB_GRPC_INIT,
+					"%s: port number must be between 1025 and %d",
+					__func__, UINT16_MAX);
+				goto error;
+			}
+		} catch (const std::exception &e) {
 			flog_err(EC_LIB_GRPC_INIT,
-				 "%s: port number must be between 1025 and %d",
-				 __func__, UINT16_MAX);
+				 "%s: invalid gRPC argument '%s': %s",
+				 __func__, args, e.what());
 			goto error;
 		}
 	}
 
-	if (frr_grpc_init(port) < 0)
+	if (frr_grpc_init(host, port) < 0)
 		goto error;
 
 	return;
