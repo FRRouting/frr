@@ -1049,7 +1049,7 @@ void if_up(struct interface *ifp, bool install_connected)
 
 	if_handle_bond_speed_change(ifp);
 
-	rib_update_handle_vrf_all(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_KERNEL);
+	rib_update(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_KERNEL);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1103,7 +1103,7 @@ void if_down(struct interface *ifp)
 
 	if_handle_bond_speed_change(ifp);
 
-	rib_update_handle_vrf_all(RIB_UPDATE_INTERFACE_DOWN, ZEBRA_ROUTE_KERNEL);
+	rib_update(RIB_UPDATE_INTERFACE_DOWN, ZEBRA_ROUTE_KERNEL);
 }
 
 void if_refresh(struct interface *ifp)
