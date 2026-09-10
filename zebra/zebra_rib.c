@@ -4900,7 +4900,7 @@ void rib_update_finish(void)
 }
 
 /* Schedule a RIB update event for all vrfs */
-void rib_update(enum rib_update_event event)
+void rib_update(enum rib_update_event event, int type)
 {
 	struct rib_update_ctx *ctx;
 
@@ -4910,7 +4910,7 @@ void rib_update(enum rib_update_event event)
 	if (zebra_router_in_shutdown())
 		return;
 
-	ctx = rib_update_ctx_init(0, event, ZEBRA_ROUTE_ALL);
+	ctx = rib_update_ctx_init(0, event, type);
 
 	event_add_event(zrouter.master, rib_update_handler, ctx, 0,
 			&t_rib_update_threads[event]);
