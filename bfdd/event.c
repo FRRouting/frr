@@ -136,9 +136,13 @@ void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 	/* Remove previous schedule if any. */
 	bfd_xmttimer_delete(bs);
 
-	/* Skip if inactive; allow scheduling while AdminDown. */
-	if (bs->sock == -1 ||
-	    (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) && bs->ses_state != PTM_BFD_ADM_DOWN)) {
+	/*
+	 * Skip if inactive. A shut session transmits only its AdminDown
+	 * burst, so once that is spent a peer's Poll (bs_final_handler())
+	 * must not start the timer again.
+	 */
+	if (bs->sock == -1 || (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) &&
+			       (bs->ses_state != PTM_BFD_ADM_DOWN || bs->admindown_tx_left == 0))) {
 		bs->xmt_TO_actual = 0; /* Unscheduled */
 		frrtrace(4, frr_bfd, xmttimer_schedule, bs, jitter, false);
 		return;
