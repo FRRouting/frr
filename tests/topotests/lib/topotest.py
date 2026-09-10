@@ -3015,7 +3015,7 @@ class Router(Node):
                 interface = m.group(1)
                 ll_per_if_count = 0
             m = re.search(
-                "inet6 (fe80::[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+)[/0-9]* scope link",
+                r"inet6 (fe80:[0-9a-f:]*)(?:/\d+)? scope link",
                 line,
             )
             if m:
