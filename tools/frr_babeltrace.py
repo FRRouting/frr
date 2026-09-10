@@ -782,6 +782,19 @@ def parse_frr_bfd_stats_error(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_libfrr_bfd_sess_defer_linklocal_without_intf(event):
+    """Parse BFD client-lib single-hop link-local defer events (lib/bfd.c)."""
+    family = event.get("family", 0)
+    field_parsers = {
+        "family": lambda x: "IPv4" if x == socket.AF_INET
+                            else "IPv6" if x == socket.AF_INET6
+                            else f"AF_{x}",
+        "dst": lambda x: print_bfd_addr(x, family) if family else "N/A",
+        "src": lambda x: print_bfd_addr(x, family) if family else "N/A",
+    }
+    parse_event(event, field_parsers)
+
+
 ############################ BFD parsers - end #################################
 
 
@@ -2000,6 +2013,8 @@ def main():
         "frr_bfd:ptm_config_refcount_error": parse_frr_bfd_ptm_config_refcount_error,
         "frr_bfd:packet_send_error": parse_frr_bfd_packet_send_error,
         "frr_bfd:stats_error": parse_frr_bfd_stats_error,
+        "frr_libfrr:bfd_sess_defer_linklocal_without_intf":
+            parse_frr_libfrr_bfd_sess_defer_linklocal_without_intf,
     }
 
     # get the trace path from the first command line argument
