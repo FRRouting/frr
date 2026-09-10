@@ -713,6 +713,21 @@ void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 	/* Send the scheduled control packet */
 	ptm_bfd_snd(bfd, fbit);
 
+	/*
+	 * Cap AdminDown re-transmit to BFD_ADMIN_DOWN_TX_MAX slow-rate
+	 * packets. Once the budget is exhausted, stop the transmit timer
+	 * so a shut session no longer burns 1 pps forever.
+	 */
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_SHUTDOWN) &&
+	    bfd->ses_state == PTM_BFD_ADM_DOWN) {
+		if (bfd->admindown_tx_left > 0)
+			bfd->admindown_tx_left--;
+		if (bfd->admindown_tx_left == 0) {
+			bfd_xmttimer_delete(bfd);
+			return;
+		}
+	}
+
 	/* Restart the timer for next time */
 	ptm_bfd_start_xmt_timer(bfd, false);
 }
@@ -1867,11 +1882,31 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		bs->ses_state = PTM_BFD_ADM_DOWN;
 		ptm_bfd_notify(bs, bs->ses_state);
 
-		/* Advertise AdminDown at slow rate while shut. */
+		/*
+		 * Advertise AdminDown at slow rate for a bounded burst:
+		 *   max(BFD_ADMIN_DOWN_TX_MIN,
+		 *       ceil(pre-slow detect_TO / BFD_DEF_SLOWTX))
+		 * so RFC 5880 6.8.16 ("SHOULD be transmitted for at least a
+		 * Detection Time") holds for any negotiated timers, and
+		 * aggressive-timer sessions still get the min-floor as a
+		 * loss-tolerance margin. Sample detect_TO BEFORE moving to
+		 * slow timers, since bs_set_slow_timers() resets it.
+		 * The first packet goes out immediately; the timer is
+		 * re-armed only while budget remains.
+		 */
 		if (bs->sock != -1) {
+			uint64_t pre_slow_detect_TO = bs->detect_TO;
+			uint32_t detect_pkts;
+
 			bs_set_slow_timers(bs);
+			detect_pkts = (pre_slow_detect_TO + BFD_DEF_SLOWTX - 1)
+				      / BFD_DEF_SLOWTX;
+			bs->admindown_tx_left =
+				MAX(BFD_ADMIN_DOWN_TX_MIN, detect_pkts);
 			ptm_bfd_snd(bs, 0);
-			ptm_bfd_start_xmt_timer(bs, false);
+			bs->admindown_tx_left--;
+			if (bs->admindown_tx_left > 0)
+				ptm_bfd_start_xmt_timer(bs, false);
 		}
 	} else {
 		/* Already working. */
@@ -1879,6 +1914,14 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			return;
 
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+
+		/*
+		 * Clear any pending AdminDown transmit budget so a rapid
+		 * shut/no-shut cannot leak stale state into the recovered
+		 * session; the timer restart below replaces any pending
+		 * slow-rate AdminDown slot.
+		 */
+		bs->admindown_tx_left = 0;
 
 		/* Handle data plane shutdown case. */
 		if (bs->bdc) {

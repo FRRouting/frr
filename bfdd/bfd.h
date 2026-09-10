@@ -418,6 +418,14 @@ struct bfd_session {
 	/* software object state */
 	uint8_t polling;
 
+	/*
+	 * AdminDown transmit budget: number of slow-rate AdminDown Control
+	 * packets still to send after administrative shutdown. Seeded on
+	 * entering shutdown, decremented after each send, and reset to 0 on
+	 * no-shutdown so a rapid shut/no-shut cannot leak stale state.
+	 */
+	uint8_t admindown_tx_left;
+
 	/* This and the localDiscr are the keys to state info */
 	struct bfd_key key;
 	struct peer_label *pl;
@@ -506,6 +514,20 @@ struct sbfd_reflector {
 #define BFD_DEF_REQ_MIN_ECHO_RX (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
 #define SBFD_ECHO_DEF_SLOWTX	(1000 * 1000) /* microseconds. */
+/*
+ * Minimum number of AdminDown control packets to transmit at slow rate
+ * after administrative shutdown. The actual budget is:
+ *
+ *     max(BFD_ADMIN_DOWN_TX_MIN,
+ *         ceil(pre_slow_detect_TO / BFD_DEF_SLOWTX))
+ *
+ * so RFC 5880 Section 6.8.16 ("SHOULD be transmitted for at least a
+ * Detection Time") holds for any negotiated timers, while aggressive-
+ * timer sessions still get this floor as a loss-tolerance safety margin.
+ * Once the budget is spent the transmit timer stops, so a shut session
+ * no longer burns a packet-per-second forever.
+ */
+#define BFD_ADMIN_DOWN_TX_MIN 5
 /** Minimum multi hop TTL. */
 #define BFD_DEF_MHOP_TTL 254
 #define BFD_PKT_LEN 24 /* Length of control packet */
