@@ -1271,7 +1271,7 @@ static int frr_grpc_init(std::string host, uint port)
 
 	grpc_debug("%s: entered", __func__);
 
-	grpc_args *args = new grpc_args {
+	grpc_args *args = new grpc_args{
 		.host = std::move(host),
 		.port = port,
 	};
@@ -1366,9 +1366,8 @@ static void frr_grpc_module_very_late_init(struct event *event)
 				size_t close_bracket = arg.find(']');
 
 				if (close_bracket == std::string::npos) {
-					flog_err(EC_LIB_GRPC_INIT,
-						"%s: invalid IPv6 address '%s'",
-						__func__, args);
+					flog_err(EC_LIB_GRPC_INIT, "%s: invalid IPv6 address '%s'",
+						 __func__, args);
 					goto error;
 				}
 
@@ -1383,15 +1382,14 @@ static void frr_grpc_module_very_late_init(struct event *event)
 				} else {
 					if (arg.find(':') != colon) {
 						flog_err(EC_LIB_GRPC_INIT,
-							"%s: IPv6 address must use [addr]:port format",
-							__func__);
+							 "%s: IPv6 address must use [addr]:port format",
+							 __func__);
 						goto error;
 					}
 
 					if (colon == 0) {
 						flog_err(EC_LIB_GRPC_INIT,
-							"%s: host must not be empty",
-							__func__);
+							 "%s: host must not be empty", __func__);
 						goto error;
 					}
 
@@ -1402,14 +1400,13 @@ static void frr_grpc_module_very_late_init(struct event *event)
 
 			if (port < 1024 || port > UINT16_MAX) {
 				flog_err(EC_LIB_GRPC_INIT,
-					"%s: port number must be between 1024 and %d",
-					__func__, UINT16_MAX);
+					 "%s: port number must be between 1024 and %d", __func__,
+					 UINT16_MAX);
 				goto error;
 			}
 		} catch (const std::exception &e) {
-			flog_err(EC_LIB_GRPC_INIT,
-				 "%s: invalid gRPC argument '%s': %s",
-				 __func__, args, e.what());
+			flog_err(EC_LIB_GRPC_INIT, "%s: invalid gRPC argument '%s': %s", __func__,
+				 args, e.what());
 			goto error;
 		}
 	}
