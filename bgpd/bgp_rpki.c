@@ -66,6 +66,8 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 
 #define RPKI_OUTPUT_STRING "Control rpki specific settings\n"
 
+#define nb_cli_apply_changes nb_cli_apply_changes_pending
+
 struct cache {
 	enum {
 		TCP,
@@ -2545,7 +2547,7 @@ DEFUN_YANG (match_rpki,
 		 "%s/rmap-match-condition/frr-bgp-route-map:rpki", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[2]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_rpki,
@@ -2562,7 +2564,7 @@ DEFUN_YANG (no_match_rpki,
 		"./match-condition[condition='frr-bgp-route-map:rpki']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void install_cli_commands(void)

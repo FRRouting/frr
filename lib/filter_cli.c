@@ -19,6 +19,8 @@
 
 #include "lib/filter_cli_clippy.c"
 
+#define nb_cli_apply_changes nb_cli_apply_changes_pending
+
 /*
  * Prefix-list NB handlers no-op until access_list_init_new(), prefix_list_init(),
  * or filter_cli_init() marks the lib ready (mgmtd only uses filter_cli_init).
@@ -147,7 +149,7 @@ static int filter_remove_check_empty(struct vty *vty, const char *ftype,
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	}
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /*
@@ -226,7 +228,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./source-any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes_pending(vty, "%s", xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -391,7 +393,7 @@ DEFPY_YANG(
 				      NULL);
 	}
 
-	return nb_cli_apply_changes_pending(vty, "%s", xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -543,7 +545,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes_pending(vty, "%s", xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -605,7 +607,7 @@ DEFPY_YANG(
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -626,7 +628,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 3);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes_pending(vty, "%s", xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -723,7 +725,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes_pending(vty, "%s", xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -787,7 +789,7 @@ DEFPY_YANG(
 		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -809,7 +811,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes_pending(vty, "%s", xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -900,7 +902,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes_pending(vty, "%s", xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -959,7 +961,7 @@ DEFPY_YANG(
 		 "/frr-filter:lib/access-list[type='mac'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -981,7 +983,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes_pending(vty, "%s", xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -1285,7 +1287,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes_pending(vty, "%s", xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -1341,7 +1343,7 @@ DEFPY_YANG(
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1366,7 +1368,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes_pending(vty, "%s", xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;
@@ -1490,7 +1492,7 @@ DEFPY_YANG(
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes_pending(vty, "%s", xpath_entry);
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
 }
 
 DEFPY_YANG(
@@ -1546,7 +1548,7 @@ DEFPY_YANG(
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1571,7 +1573,7 @@ DEFPY_YANG(
 
 	remark = argv_concat(argv, argc, 4);
 	nb_cli_enqueue_change(vty, "./remark", NB_OP_CREATE, remark);
-	rv = nb_cli_apply_changes_pending(vty, "%s", xpath);
+	rv = nb_cli_apply_changes(vty, "%s", xpath);
 	XFREE(MTYPE_TMP, remark);
 
 	return rv;

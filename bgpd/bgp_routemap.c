@@ -128,6 +128,8 @@ o Local extensions
 #define RMAP_VALUE_ADD 1
 #define RMAP_VALUE_SUB 2
 
+#define nb_cli_apply_changes nb_cli_apply_changes_pending
+
 struct rmap_value {
 	uint8_t action;
 	uint8_t variable;
@@ -5280,7 +5282,7 @@ DEFUN_YANG (match_mac_address,
 		 "%s/rmap-match-condition/frr-bgp-route-map:list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_mac_address,
@@ -5296,7 +5298,7 @@ DEFUN_YANG (no_match_mac_address,
 		"./match-condition[condition='frr-bgp-route-map:mac-address-list']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /*
@@ -5351,7 +5353,7 @@ DEFUN_YANG (match_evpn_route_type,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      parse_evpn_rt_type(argv[3]->arg));
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_evpn_route_type,
@@ -5377,7 +5379,7 @@ DEFUN_YANG (no_match_evpn_route_type,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -5398,7 +5400,7 @@ DEFUN_YANG (match_evpn_vni,
 		 "%s/rmap-match-condition/frr-bgp-route-map:evpn-vni", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_evpn_vni,
@@ -5419,7 +5421,7 @@ DEFUN_YANG (no_match_evpn_vni,
 		 "%s/rmap-match-condition/frr-bgp-route-map:evpn-vni", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, argv[3]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (match_evpn_default_route,
@@ -5440,7 +5442,7 @@ DEFUN_YANG (match_evpn_default_route,
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_evpn_default_route,
@@ -5456,7 +5458,7 @@ DEFUN_YANG (no_match_evpn_default_route,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (match_evpn_rd,
@@ -5478,7 +5480,7 @@ DEFUN_YANG (match_evpn_rd,
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_evpn_rd,
@@ -5494,7 +5496,7 @@ DEFUN_YANG (no_match_evpn_rd,
 		"./match-condition[condition='frr-bgp-route-map:evpn-rd']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_evpn_gw_ip_ipv4,
@@ -5532,7 +5534,7 @@ DEFUN_YANG (set_evpn_gw_ip_ipv4,
 		 xpath);
 
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_evpn_gw_ip_ipv4,
@@ -5565,7 +5567,7 @@ DEFUN_YANG (no_set_evpn_gw_ip_ipv4,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_evpn_gw_ip_ipv6,
@@ -5603,7 +5605,7 @@ DEFUN_YANG (set_evpn_gw_ip_ipv6,
 		 xpath);
 
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_evpn_gw_ip_ipv6,
@@ -5636,7 +5638,7 @@ DEFUN_YANG (no_set_evpn_gw_ip_ipv6,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(match_vrl_source_vrf,
@@ -5655,7 +5657,7 @@ DEFPY_YANG(match_vrl_source_vrf,
 		 "%s/rmap-match-condition/frr-bgp-route-map:source-vrf", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, vrf_name);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(no_match_vrl_source_vrf,
@@ -5669,7 +5671,7 @@ DEFPY_YANG(no_match_vrl_source_vrf,
 		"./match-condition[condition='frr-bgp-route-map:source-vrf']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (match_peer,
@@ -5705,7 +5707,7 @@ DEFPY_YANG (match_peer,
 	nb_cli_enqueue_change(vty, xpath_value,
 			      intf ? NB_OP_MODIFY : NB_OP_DESTROY, intf);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (match_peer_local,
@@ -5725,7 +5727,7 @@ DEFUN_YANG (match_peer_local,
 		 "%s/rmap-match-condition/frr-bgp-route-map:peer-local", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_peer,
@@ -5744,7 +5746,7 @@ DEFUN_YANG (no_match_peer,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 #ifdef HAVE_SCRIPTING
@@ -5772,7 +5774,7 @@ DEFUN_YANG (match_script,
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY,
 				      script);
 
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -5782,7 +5784,7 @@ DEFUN_YANG (match_script,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			script);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 #endif /* HAVE_SCRIPTING */
 
@@ -5807,7 +5809,7 @@ DEFUN_YANG (match_probability,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_number]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -5827,7 +5829,7 @@ DEFUN_YANG (no_match_probability,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	if (argc <= idx_number)
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/frr-bgp-route-map:probability",
@@ -5835,7 +5837,7 @@ DEFUN_YANG (no_match_probability,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY,
 			      argv[idx_number]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -5859,7 +5861,7 @@ DEFPY_YANG (match_ip_route_source,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_acl]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -5876,7 +5878,7 @@ DEFUN_YANG (no_match_ip_route_source,
 		"./match-condition[condition='frr-bgp-route-map:ip-route-source']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (match_ip_route_source_prefix_list,
@@ -5899,7 +5901,7 @@ DEFUN_YANG (match_ip_route_source_prefix_list,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_word]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -5917,7 +5919,7 @@ DEFUN_YANG (no_match_ip_route_source_prefix_list,
 		"./match-condition[condition='frr-bgp-route-map:ip-route-source-prefix-list']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (match_local_pref,
@@ -5940,7 +5942,7 @@ DEFUN_YANG (match_local_pref,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_number]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -5960,7 +5962,7 @@ DEFUN_YANG (no_match_local_pref,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	if (argc <= idx_localpref)
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/frr-bgp-route-map:local-preference",
@@ -5968,7 +5970,7 @@ DEFUN_YANG (no_match_local_pref,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY,
 			      argv[idx_localpref]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG(match_alias, match_alias_cmd, "match alias ALIAS_NAME",
@@ -5997,7 +5999,7 @@ DEFUN_YANG(match_alias, match_alias_cmd, "match alias ALIAS_NAME",
 		 "%s/rmap-match-condition/frr-bgp-route-map:alias", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, alias);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -6014,14 +6016,14 @@ DEFUN_YANG(no_match_alias, no_match_alias_cmd, "no match alias [ALIAS_NAME]",
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	if (argc <= idx_alias)
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/frr-bgp-route-map:alias", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY,
 			      argv[idx_alias]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -6065,7 +6067,7 @@ DEFPY_YANG(
 	else
 		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -6084,7 +6086,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/frr-bgp-route-map:community-limit", xpath);
 
 	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, limit_str);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG(
@@ -6101,7 +6103,7 @@ DEFUN_YANG(
 		"./match-condition[condition='frr-bgp-route-map:match-community']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -6145,7 +6147,7 @@ DEFPY_YANG(
 	else
 		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG(
@@ -6162,7 +6164,7 @@ DEFUN_YANG(
 		"./match-condition[condition='frr-bgp-route-map:match-large-community']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (match_ecommunity,
@@ -6205,7 +6207,7 @@ DEFPY_YANG (match_ecommunity,
 	else
 		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -6246,7 +6248,7 @@ DEFUN_YANG (no_match_ecommunity,
 		"./match-condition[condition='frr-bgp-route-map:match-extcommunity']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static int _set_ecommunity_delete_cmd(struct vty *vty, const char *name)
@@ -6296,7 +6298,7 @@ DEFPY_YANG (no_set_ecommunity_delete,
 		"./set-action[action='frr-bgp-route-map:extended-comm-list-delete']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (set_ecommunity_delete_method2,
@@ -6350,7 +6352,7 @@ DEFUN_YANG (match_aspath,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_word]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -6367,7 +6369,7 @@ DEFUN_YANG (no_match_aspath,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -6387,7 +6389,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/frr-bgp-route-map:as-path-count", xpath);
 
 	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, count_str);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -6422,7 +6424,7 @@ DEFUN_YANG (match_origin,
 		 "%s/rmap-match-condition/frr-bgp-route-map:origin", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, origin_type);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -6439,7 +6441,7 @@ DEFUN_YANG (no_match_origin,
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-origin']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_table_id,
@@ -6458,7 +6460,7 @@ DEFUN_YANG (set_table_id,
 		 "%s/rmap-set-action/frr-bgp-route-map:table", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_number]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_table_id,
@@ -6471,7 +6473,7 @@ DEFUN_YANG (no_set_table_id,
 {
 	const char *xpath = "./set-action[action='frr-bgp-route-map:table']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_ip_nexthop_peer,
@@ -6497,7 +6499,7 @@ DEFUN_YANG (set_ip_nexthop_peer,
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 				      "peer-address");
 	}
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_ip_nexthop_unchanged,
@@ -6523,7 +6525,7 @@ DEFUN_YANG (set_ip_nexthop_unchanged,
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 				      "unchanged");
 	}
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_distance,
@@ -6542,7 +6544,7 @@ DEFUN_YANG (set_distance,
 		 "%s/rmap-set-action/frr-bgp-route-map:distance", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_number]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_distance,
@@ -6555,7 +6557,7 @@ DEFUN_YANG (no_set_distance,
 	const char *xpath = "./set-action[action='frr-bgp-route-map:distance']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
@@ -6580,11 +6582,11 @@ DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
 
 	nb_cli_enqueue_change(vty, xpath, operation, NULL);
 	if (operation == NB_OP_DESTROY)
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ziftype);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(set_psid_srv6_function_length, set_psid_srv6_function_length_cmd,
@@ -6632,7 +6634,7 @@ DEFUN_YANG (set_local_pref,
 		 "%s/rmap-set-action/frr-bgp-route-map:local-pref", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_number]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_local_pref,
@@ -6647,7 +6649,7 @@ DEFUN_YANG (no_set_local_pref,
 		"./set-action[action='frr-bgp-route-map:set-local-preference']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_weight,
@@ -6666,7 +6668,7 @@ DEFUN_YANG (set_weight,
 		 "%s/rmap-set-action/frr-bgp-route-map:weight", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_number]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_weight,
@@ -6680,7 +6682,7 @@ DEFUN_YANG (no_set_weight,
 	const char *xpath = "./set-action[action='frr-bgp-route-map:weight']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_label_index,
@@ -6700,7 +6702,7 @@ DEFUN_YANG (set_label_index,
 		 "%s/rmap-set-action/frr-bgp-route-map:label-index", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_number]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_label_index,
@@ -6715,7 +6717,7 @@ DEFUN_YANG (no_set_label_index,
 		"./set-action[action='frr-bgp-route-map:label-index']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_aspath_prepend_asn,
@@ -6747,7 +6749,7 @@ DEFUN_YANG (set_aspath_prepend_asn,
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-bgp-route-map:prepend-as-path", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -6772,7 +6774,7 @@ DEFUN_YANG (set_aspath_prepend_lastas,
 		 "%s/rmap-set-action/frr-bgp-route-map:last-as", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_num]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(set_aspath_replace_asn, set_aspath_replace_asn_cmd,
@@ -6806,7 +6808,7 @@ DEFPY_YANG(set_aspath_replace_asn, set_aspath_replace_asn_cmd,
 		 configured_asn_str ? " " : "",
 		 configured_asn_str ? configured_asn_str : "");
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, replace_value);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(no_set_aspath_replace_asn, no_set_aspath_replace_asn_cmd,
@@ -6822,7 +6824,7 @@ DEFPY_YANG(no_set_aspath_replace_asn, no_set_aspath_replace_asn_cmd,
 		"./set-action[action='frr-bgp-route-map:as-path-replace']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -6860,7 +6862,7 @@ DEFPY_YANG(
 		 "%s/rmap-set-action/frr-bgp-route-map:replace-as-path", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
 
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -6880,7 +6882,7 @@ DEFPY_YANG(
 		"./set-action[action='frr-bgp-route-map:as-path-replace']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_aspath_prepend,
@@ -6897,7 +6899,7 @@ DEFUN_YANG (no_set_aspath_prepend,
 		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_aspath_prepend,
@@ -6938,7 +6940,7 @@ DEFUN_YANG (set_aspath_exclude,
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -6964,7 +6966,7 @@ DEFPY_YANG(set_aspath_exclude_all, set_aspath_exclude_all_cmd,
 			 xpath);
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, all);
 	}
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 
 	return ret;
 }
@@ -6982,7 +6984,7 @@ DEFUN_YANG (no_set_aspath_exclude,
 		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(set_aspath_exclude_access_list, set_aspath_exclude_access_list_cmd,
@@ -7007,7 +7009,7 @@ DEFPY_YANG(set_aspath_exclude_access_list, set_aspath_exclude_access_list_cmd,
 		 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
 
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -7025,7 +7027,7 @@ DEFPY_YANG(no_set_aspath_exclude_access_list, no_set_aspath_exclude_access_list_
 		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_aspath_exclude, no_set_aspath_exclude_all_cmd,
@@ -7139,7 +7141,7 @@ DEFUN_YANG (set_community,
 	} else
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
 
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 
 	if (argstr)
 		XFREE(MTYPE_TMP, argstr);
@@ -7164,7 +7166,7 @@ DEFUN_YANG (set_community_none,
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-bgp-route-map:community-none", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_community,
@@ -7179,7 +7181,7 @@ DEFUN_YANG (no_set_community,
 		"./set-action[action='frr-bgp-route-map:set-community']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_community,
@@ -7248,7 +7250,7 @@ DEFUN_YANG_HIDDEN (no_set_community_delete,
 		"./set-action[action='frr-bgp-route-map:comm-list-delete']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (set_community_change,
@@ -7317,7 +7319,7 @@ DEFUN_YANG (set_lcommunity,
 		 xpath);
 	str = argv_concat(argv, argc, 2);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -7339,7 +7341,7 @@ DEFUN_YANG (set_lcommunity_none,
 		 "%s/rmap-set-action/frr-bgp-route-map:large-community-none",
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_lcommunity,
@@ -7354,7 +7356,7 @@ DEFUN_YANG (no_set_lcommunity,
 		"./set-action[action='frr-bgp-route-map:set-large-community']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_lcommunity1,
@@ -7369,7 +7371,7 @@ DEFUN_YANG (no_set_lcommunity1,
 		"./set-action[action='frr-bgp-route-map:set-large-community']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_lcommunity1,
@@ -7426,7 +7428,7 @@ DEFUN_YANG (no_set_lcommunity_delete,
 		"./set-action[action='frr-bgp-route-map:large-comm-list-delete']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_lcommunity_delete,
@@ -7489,7 +7491,7 @@ DEFUN_YANG (set_ecommunity_rt,
 		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-rt", xpath);
 	str = argv_concat(argv, argc, idx_asn_nn);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -7506,7 +7508,7 @@ DEFUN_YANG (no_set_ecommunity_rt,
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-rt']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_ecommunity_rt,
@@ -7539,7 +7541,7 @@ DEFUN_YANG (set_ecommunity_soo,
 		 xpath);
 	str = argv_concat(argv, argc, idx_asn_nn);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -7556,7 +7558,7 @@ DEFUN_YANG (no_set_ecommunity_soo,
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-soo']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_ecommunity_soo,
@@ -7583,7 +7585,7 @@ DEFUN_YANG(set_ecommunity_none, set_ecommunity_none_cmd,
 		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-none",
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG(no_set_ecommunity_none, no_set_ecommunity_none_cmd,
@@ -7595,7 +7597,7 @@ DEFUN_YANG(no_set_ecommunity_none, no_set_ecommunity_none_cmd,
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-none']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_ecommunity_lb,
@@ -7649,7 +7651,7 @@ DEFUN_YANG (set_ecommunity_lb,
 		nb_cli_enqueue_change(vty, xpath_non_transitive, NB_OP_MODIFY,
 				      "false");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_ecommunity_lb,
@@ -7668,7 +7670,7 @@ DEFUN_YANG (no_set_ecommunity_lb,
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-lb']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_ecommunity_lb,
@@ -7700,7 +7702,7 @@ DEFPY_YANG (set_ecommunity_nt,
 		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-nt", xpath);
 	str = argv_concat(argv, argc, idx_nt);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -7717,7 +7719,7 @@ DEFPY_YANG (no_set_ecommunity_nt,
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-nt']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(set_ecommunity_color, set_ecommunity_color_cmd,
@@ -7741,7 +7743,7 @@ DEFPY_YANG(set_ecommunity_color, set_ecommunity_color_cmd,
 		 xpath);
 	str = argv_concat(argv, argc, idx_color);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
-	ret = nb_cli_apply_changes_pending(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
@@ -7755,7 +7757,7 @@ DEFPY_YANG(no_set_ecommunity_color_all, no_set_ecommunity_color_all_cmd,
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(no_set_ecommunity_color, no_set_ecommunity_color_cmd,
@@ -7768,7 +7770,7 @@ DEFPY_YANG(no_set_ecommunity_color, no_set_ecommunity_color_cmd,
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_YANG (no_set_ecommunity_nt,
@@ -7810,7 +7812,7 @@ DEFUN_YANG (set_origin,
 		 "%s/rmap-set-action/frr-bgp-route-map:origin", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, origin_type);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_origin,
@@ -7827,7 +7829,7 @@ DEFUN_YANG (no_set_origin,
 		"./set-action[action='frr-bgp-route-map:set-origin']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_atomic_aggregate,
@@ -7846,7 +7848,7 @@ DEFUN_YANG (set_atomic_aggregate,
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_atomic_aggregate,
@@ -7860,7 +7862,7 @@ DEFUN_YANG (no_set_atomic_aggregate,
 		"./set-action[action='frr-bgp-route-map:atomic-aggregate']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (set_aigp_metric,
@@ -7880,7 +7882,7 @@ DEFPY_YANG (set_aigp_metric,
 		 "%s/rmap-set-action/frr-bgp-route-map:aigp-metric", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, aigp_metric);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (no_set_aigp_metric,
@@ -7896,7 +7898,7 @@ DEFPY_YANG (no_set_aigp_metric,
 		"./set-action[action='frr-bgp-route-map:aigp-metric']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_aggregator_as,
@@ -7937,7 +7939,7 @@ DEFUN_YANG (set_aggregator_as,
 	nb_cli_enqueue_change(vty, xpath_addr, NB_OP_MODIFY,
 			      argv[idx_ipv4]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_aggregator_as,
@@ -7954,7 +7956,7 @@ DEFUN_YANG (no_set_aggregator_as,
 		"./set-action[action='frr-bgp-route-map:aggregator']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (match_ipv6_next_hop_address,
@@ -7977,7 +7979,7 @@ DEFUN_YANG (match_ipv6_next_hop_address,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[argc - 1]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_ipv6_next_hop_address,
@@ -7994,7 +7996,7 @@ DEFUN_YANG (no_match_ipv6_next_hop_address,
 		"./match-condition[condition='frr-bgp-route-map:ipv6-nexthop']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_HIDDEN (match_ipv6_next_hop_address,
@@ -8033,7 +8035,7 @@ DEFPY_YANG (match_ipv4_next_hop,
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (no_match_ipv4_next_hop,
@@ -8050,7 +8052,7 @@ DEFPY_YANG (no_match_ipv4_next_hop,
 		"./match-condition[condition='frr-bgp-route-map:ipv4-nexthop']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_ipv6_nexthop_peer,
@@ -8070,7 +8072,7 @@ DEFUN_YANG (set_ipv6_nexthop_peer,
 		 "%s/rmap-set-action/frr-bgp-route-map:preference", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_ipv6_nexthop_peer,
@@ -8086,7 +8088,7 @@ DEFUN_YANG (no_set_ipv6_nexthop_peer,
 		"./set-action[action='frr-bgp-route-map:ipv6-peer-address']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_ipv6_nexthop_prefer_global,
@@ -8106,7 +8108,7 @@ DEFUN_YANG (set_ipv6_nexthop_prefer_global,
 		 "%s/rmap-set-action/frr-bgp-route-map:preference", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_ipv6_nexthop_prefer_global,
@@ -8122,7 +8124,7 @@ DEFUN_YANG (no_set_ipv6_nexthop_prefer_global,
 		"./set-action[action='frr-bgp-route-map:ipv6-prefer-global']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_ipv6_nexthop_global,
@@ -8145,7 +8147,7 @@ DEFUN_YANG (set_ipv6_nexthop_global,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_ipv6]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_ipv6_nexthop_global,
@@ -8162,7 +8164,7 @@ DEFUN_YANG (no_set_ipv6_nexthop_global,
 		"./set-action[action='frr-bgp-route-map:ipv6-nexthop-global']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(set_srv6_locator,
@@ -8182,7 +8184,7 @@ DEFPY_YANG(set_srv6_locator,
 		 "%s/rmap-set-action/frr-bgp-route-map:srv6-locator", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG(no_set_srv6_locator,
@@ -8199,7 +8201,7 @@ DEFUN_YANG(no_set_srv6_locator,
 
 	/* locator name is ignored */
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 #ifdef KEEP_OLD_VPN_COMMANDS
@@ -8243,7 +8245,7 @@ DEFUN_YANG (set_vpn_nexthop,
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 				argv[idx_ip]->arg);
 
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -8274,7 +8276,7 @@ DEFUN_YANG (no_set_vpn_nexthop,
 				"./set-action[action='frr-bgp-route-map:ipv6-vpn-address']";
 			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		}
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 	}
 	return CMD_SUCCESS;
 }
@@ -8328,7 +8330,7 @@ DEFPY_YANG (set_ipx_vpn_nexthop,
 		}
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 				      argv[idx_ip]->arg);
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 	}
 	return CMD_SUCCESS;
 }
@@ -8358,7 +8360,7 @@ DEFUN_YANG (no_set_ipx_vpn_nexthop,
 				"./set-action[action='frr-bgp-route-map:ipv6-vpn-address']";
 			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		}
-		return nb_cli_apply_changes_pending(vty, NULL);
+		return nb_cli_apply_changes(vty, NULL);
 	}
 	return CMD_SUCCESS;
 }
@@ -8381,7 +8383,7 @@ DEFUN_YANG (set_originator_id,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_ipv4]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_originator_id,
@@ -8396,7 +8398,7 @@ DEFUN_YANG (no_set_originator_id,
 		"./set-action[action='frr-bgp-route-map:originator-id']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (match_rpki_extcommunity,
@@ -8424,7 +8426,7 @@ DEFPY_YANG (match_rpki_extcommunity,
 				      argv[2]->arg);
 	}
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (match_source_protocol,
@@ -8444,7 +8446,7 @@ DEFPY_YANG (match_source_protocol,
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, proto);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (no_match_source_protocol,
@@ -8460,7 +8462,7 @@ DEFPY_YANG (no_match_source_protocol,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG (match_vpn_dataplane,
@@ -8489,7 +8491,7 @@ DEFPY_YANG (match_vpn_dataplane,
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, dataplane);
 	}
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static enum route_map_cmd_result_t route_set_srv6_locator(void *rule_val, const struct prefix *p,

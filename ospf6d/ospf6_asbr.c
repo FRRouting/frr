@@ -56,6 +56,8 @@ unsigned char conf_debug_ospf6_asbr = 0;
 
 #define ZROUTE_NAME(x) zebra_route_string(x)
 
+#define nb_cli_apply_changes nb_cli_apply_changes_pending
+
 /* Originate Type-5 and Type-7 LSA */
 static struct ospf6_lsa *ospf6_originate_type5_type7_lsas(
 						struct ospf6_route *route,
@@ -2260,7 +2262,7 @@ DEFUN_YANG (ospf6_routemap_set_metric_type, ospf6_routemap_set_metric_type_cmd,
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-ospf-route-map:metric-type", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* delete "set metric-type" */
@@ -2276,7 +2278,7 @@ DEFUN_YANG (ospf6_routemap_no_set_metric_type, ospf6_routemap_no_set_metric_type
 		"./set-action[action='frr-ospf-route-map:metric-type']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* add "set forwarding-address" */
@@ -2296,7 +2298,7 @@ DEFUN_YANG (ospf6_routemap_set_forwarding, ospf6_routemap_set_forwarding_cmd,
 		 "%s/rmap-set-action/frr-ospf6-route-map:ipv6-address", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      argv[idx_ipv6]->arg);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* delete "set forwarding-address" */
@@ -2311,7 +2313,7 @@ DEFUN_YANG (ospf6_routemap_no_set_forwarding, ospf6_routemap_no_set_forwarding_c
 		"./set-action[action='frr-ospf6-route-map:forwarding-address']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void ospf6_routemap_init(void)

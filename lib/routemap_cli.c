@@ -23,6 +23,8 @@
 #define ROUTE_MAP_SEQUENCE_CMD_STR \
 	"Sequence to insert to/delete from existing route-map entry\n"
 
+#define nb_cli_apply_changes nb_cli_apply_changes_pending
+
 DEFPY_YANG_NOSH(
 	route_map, route_map_cmd,
 	"route-map RMAP_NAME$name <deny|permit>$action (1-65535)$sequence",
@@ -46,7 +48,7 @@ DEFPY_YANG_NOSH(
 	snprintf(xpath_action, sizeof(xpath_action), "%s/action", xpath_index);
 	nb_cli_enqueue_change(vty, xpath_action, NB_OP_MODIFY, action);
 
-	rv = nb_cli_apply_changes_pending(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
 	if (rv == CMD_SUCCESS)
 		VTY_PUSH_XPATH(RMAP_NODE, xpath_index);
 
@@ -65,7 +67,7 @@ DEFPY_YANG(
 		 "/frr-route-map:lib/route-map[name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -84,7 +86,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 int route_map_instance_cmp(const struct lyd_node *dnode1,
@@ -129,7 +131,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/interface", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ifname);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -145,7 +147,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -165,7 +167,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -182,7 +184,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -204,7 +206,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -222,7 +224,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -242,7 +244,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -259,7 +261,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -281,7 +283,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -300,7 +302,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -321,7 +323,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/ipv4-next-hop-type", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, type);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -337,7 +339,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -357,7 +359,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -374,7 +376,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -395,7 +397,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -414,7 +416,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (match_ipv6_next_hop,
@@ -432,7 +434,7 @@ DEFUN_YANG (match_ipv6_next_hop,
 	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-match-condition/list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[argc - 1]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_ipv6_next_hop,
@@ -447,7 +449,7 @@ DEFUN_YANG (no_match_ipv6_next_hop,
 	const char *xpath = "./match-condition[condition='frr-route-map:ipv6-next-hop-list']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (match_ipv6_next_hop_prefix_list,
@@ -466,7 +468,7 @@ DEFUN_YANG (match_ipv6_next_hop_prefix_list,
 	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-match-condition/list-name", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[argc - 1]->arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_ipv6_next_hop_prefix_list,
@@ -482,7 +484,7 @@ DEFUN_YANG (no_match_ipv6_next_hop_prefix_list,
 	const char *xpath = "./match-condition[condition='frr-route-map:ipv6-next-hop-prefix-list']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -502,7 +504,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/ipv6-next-hop-type", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, type);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -518,7 +520,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -537,7 +539,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/metric", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, metric_str);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -553,7 +555,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -572,7 +574,7 @@ DEFPY_YANG(
 		 "%s/rmap-match-condition/tag", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, tag_str);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -588,7 +590,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG_NOSH(match_tracker, match_tracker_cmd,
@@ -613,7 +615,7 @@ DEFPY_YANG_NOSH(match_tracker, match_tracker_cmd,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 			      down ? "false" : "true");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG_NOSH(no_match_tracker, no_match_tracker_cmd,
@@ -629,7 +631,7 @@ DEFPY_YANG_NOSH(no_match_tracker, no_match_tracker_cmd,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -936,7 +938,7 @@ DEFPY_YANG(
 		 "%s/rmap-set-action/ipv4-address", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, addr_str);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -953,7 +955,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -974,7 +976,7 @@ DEFPY_YANG(
 		 "%s/rmap-set-action/ipv6-address", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, addr_str);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -992,7 +994,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1037,7 +1039,7 @@ DEFPY_YANG(
 	}
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1051,7 +1053,7 @@ DEFPY_YANG(
 	const char *xpath = "./set-action[action='frr-route-map:set-metric']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(set_min_metric, set_min_metric_cmd,
@@ -1073,7 +1075,7 @@ DEFPY_YANG(set_min_metric, set_min_metric_cmd,
 
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(no_set_min_metric, no_set_min_metric_cmd,
@@ -1086,7 +1088,7 @@ DEFPY_YANG(no_set_min_metric, no_set_min_metric_cmd,
 		"./set-action[action='frr-route-map:set-min-metric']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(set_max_metric, set_max_metric_cmd,
@@ -1108,7 +1110,7 @@ DEFPY_YANG(set_max_metric, set_max_metric_cmd,
 
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(no_set_max_metric, no_set_max_metric_cmd,
@@ -1121,7 +1123,7 @@ DEFPY_YANG(no_set_max_metric, no_set_max_metric_cmd,
 		"./set-action[action='frr-route-map:set-max-metric']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1139,7 +1141,7 @@ DEFPY_YANG(
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, tag_str);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1154,7 +1156,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (set_srte_color,
@@ -1179,7 +1181,7 @@ DEFUN_YANG (set_srte_color,
 		 "%s/rmap-set-action/policy", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, arg);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_set_srte_color,
@@ -1196,7 +1198,7 @@ DEFUN_YANG (no_set_srte_color,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 
@@ -1563,7 +1565,7 @@ DEFPY_YANG(
 {
 	nb_cli_enqueue_change(vty, "./exit-policy", NB_OP_MODIFY, "next");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1576,7 +1578,7 @@ DEFPY_YANG(
 {
 	nb_cli_enqueue_change(vty, "./exit-policy", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1589,7 +1591,7 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, "./exit-policy", NB_OP_MODIFY, "goto");
 	nb_cli_enqueue_change(vty, "./goto-value", NB_OP_MODIFY, rm_num_str);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1602,7 +1604,7 @@ DEFPY_YANG(
 {
 	nb_cli_enqueue_change(vty, "./exit-policy", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* Cisco/GNU Zebra compatibility aliases */
@@ -1646,7 +1648,7 @@ DEFPY_YANG(
 {
 	nb_cli_enqueue_change(vty, "./call", NB_OP_MODIFY, name);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -1658,7 +1660,7 @@ DEFPY_YANG(
 {
 	nb_cli_enqueue_change(vty, "./call", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void route_map_call_show(struct vty *vty, const struct lyd_node *dnode,
@@ -1678,7 +1680,7 @@ DEFPY_YANG(
 
 	desc = argv_concat(argv, argc, 1);
 	nb_cli_enqueue_change(vty, "./description", NB_OP_MODIFY, desc);
-	rv = nb_cli_apply_changes_pending(vty, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, desc);
 
 	return rv;
@@ -1692,7 +1694,7 @@ DEFUN_YANG (no_rmap_description,
 {
 	nb_cli_enqueue_change(vty, "./description", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void route_map_description_show(struct vty *vty, const struct lyd_node *dnode,
@@ -1720,7 +1722,7 @@ DEFPY_YANG(
 		name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, no ? "true" : "false");
 
-	return nb_cli_apply_changes_pending(vty, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void route_map_optimization_disabled_show(struct vty *vty,
