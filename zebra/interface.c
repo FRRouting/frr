@@ -1386,7 +1386,7 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	 */
 	if (op != DPLANE_OP_INTF_ADDR_ADD && addr->family == AF_INET &&
 	    !if_has_connected_with_family(ifp, AF_INET))
-		rib_update(RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED);
+		rib_update(RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED, ZEBRA_ROUTE_ALL);
 }
 
 static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
@@ -2306,7 +2306,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					frrtrace(3, frr_zebra, if_dplane_ifp_handling, name,
 						 ifp->ifindex, 1);
 					if_down(ifp);
-					rib_update(RIB_UPDATE_KERNEL);
+					rib_update(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_ALL);
 				} else if (if_is_operative(ifp)) {
 					bool mac_updated = false;
 
@@ -2373,7 +2373,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					frrtrace(3, frr_zebra, if_dplane_ifp_handling, name,
 						 ifp->ifindex, 5);
 					if_down(ifp);
-					rib_update(RIB_UPDATE_KERNEL);
+					rib_update(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_ALL);
 				}
 			}
 
