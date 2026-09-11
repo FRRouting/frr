@@ -1310,6 +1310,10 @@ static int ospf_ext_pref_lsa_originate(void *arg)
 		if (exti->stype != PREF_SID)
 			continue;
 
+		/* Skip Inactive Extended Prefix */
+		if (!CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE))
+			continue;
+
 		/* Process only Extended Prefix with valid Area ID */
 		if ((exti->area == NULL)
 		    || (!IPV4_ADDR_SAME(&exti->area->area_id, &area->area_id)))
