@@ -8910,20 +8910,14 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 				XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
 					sizeof(struct bgp_route_evpn));
 
-			SET_IPADDR_V4(&bre->gw_ip);
-			memcpy(&bre->gw_ip.ipaddr_v4,
-			       &bgp_static->gatewayIp.u.prefix4,
-			       IPV4_MAX_BYTELEN);
+			ipaddr_set_v4(&bre->gw_ip, bgp_static->gatewayIp.u.prefix4);
 			bgp_attr_set_evpn_overlay(&attr, bre);
 		} else if (bgp_static->gatewayIp.family == AF_INET6) {
 			struct bgp_route_evpn *bre =
 				XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
 					sizeof(struct bgp_route_evpn));
 
-			SET_IPADDR_V6(&bre->gw_ip);
-			memcpy(&bre->gw_ip.ipaddr_v6,
-			       &bgp_static->gatewayIp.u.prefix6,
-			       IPV6_MAX_BYTELEN);
+			ipaddr_set_v6(&bre->gw_ip, &bgp_static->gatewayIp.u.prefix6);
 			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
 		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));

@@ -571,8 +571,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 
 	if (new_afi == AF_INET && hashcount(bgp->tip_hash)) {
 		memset(&tmp_tip, 0, sizeof(tmp_tip));
-		SET_IPADDR_V4(&tmp_tip.addr);
-		IPV4_ADDR_COPY(&tmp_tip.addr.ipaddr_v4, &attr->nexthop);
+		ipaddr_set_v4(&tmp_tip.addr, attr->nexthop);
 
 		if (bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP)) {
 			IPV4_ADDR_COPY(&tmp_tip.addr.ipaddr_v4, &attr->nexthop);
@@ -584,8 +583,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) ||
 			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL) ||
 			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)) {
-			SET_IPADDR_V6(&tmp_tip.addr);
-			IPV6_ADDR_COPY(&tmp_tip.addr.ipaddr_v6, &attr->mp_nexthop_global);
+			ipaddr_set_v6(&tmp_tip.addr, &attr->mp_nexthop_global);
 		}
 
 		tip = hash_lookup(bgp->tip_hash, &tmp_tip);
