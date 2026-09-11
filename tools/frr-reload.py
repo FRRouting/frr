@@ -103,7 +103,12 @@ class Vtysh(object):
                 % (proc.returncode, command, combined)
             )
         # Success returns stdout only: callers parse this as command output
-        # ("show running-config"), and stderr is not part of it.
+        # ("show running-config"), and stderr is not part of it. Before we
+        # piped stderr, those diagnostics inherited the parent process; a
+        # successful daemon reconnect still warns there, so replay it.
+        if err:
+            sys.stderr.write(err)
+            sys.stderr.flush()
         return out
 
     def is_config_available(self):
@@ -126,20 +131,29 @@ class Vtysh(object):
             ["-f", filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         stdout, stderr = child.communicate()
+        # errors="replace" as in __call__(): echoed config may not be UTF-8;
+        # keep going and turn those bytes into U+FFFD so we still get the text.
+        out = (stdout or b"").decode("UTF-8", errors="replace")
+        err = (stderr or b"").decode("UTF-8", errors="replace")
         if child.returncode != 0:
             # Both streams matter, as in __call__() above: vtysh names the
             # offending line on stderr ("line N: % Unknown command: ..."),
             # while a daemon rejecting an otherwise valid command ("% Only
             # inactive VRFs can be deleted") answers on stdout. The batch is
             # applied as a whole, so the reason is only recoverable from this
-            # message. errors="replace" means keep going: turn non-UTF-8 bytes
-            # in the echoed config into U+FFFD so we still get the error text.
-            out = (stdout or b"").decode("UTF-8", errors="replace")
-            err = (stderr or b"").decode("UTF-8", errors="replace")
+            # message.
             raise VtyshException(
                 "vtysh (exec file) exited with status %d:\n%s%s"
                 % (child.returncode, out, err)
             )
+        # Same as __call__(): piping both streams means a successful batch
+        # would otherwise drop warnings that used to reach the operator.
+        if out:
+            sys.stdout.write(out)
+            sys.stdout.flush()
+        if err:
+            sys.stderr.write(err)
+            sys.stderr.flush()
 
     def mark_file(self, filename, stdin=None):
         child = self._call(
