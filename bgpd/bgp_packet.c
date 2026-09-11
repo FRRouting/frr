@@ -3500,8 +3500,7 @@ static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 	}
 }
 
-static void bgp_dynamic_capability_role(uint8_t *pnt, int action,
-					struct capability_header *hdr,
+static void bgp_dynamic_capability_role(uint8_t *pnt, int action, struct capability_header *hdr,
 					struct peer *peer)
 {
 	uint8_t role;
@@ -4032,6 +4031,8 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 			break;
 		case CAPABILITY_CODE_ROLE:
 			bgp_dynamic_capability_role(pnt, action, hdr, peer);
+			if (bgp_role_violation(connection))
+				return BGP_Stop;
 			break;
 		default:
 			flog_warn(EC_BGP_UNRECOGNIZED_CAPABILITY,

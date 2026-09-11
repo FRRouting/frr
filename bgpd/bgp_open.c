@@ -1305,7 +1305,7 @@ static bool strict_capability_same(struct peer *peer)
 }
 
 
-static bool bgp_role_violation(struct peer_connection *connection)
+bool bgp_role_violation(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 	uint8_t local_role = peer->local_role;
