@@ -655,6 +655,23 @@ def test_zebra_ipv4_routingtable_with_ldp():
         expected = {"2.2.2.2/32": [{"nexthops": [{"ip": "10.0.1.2"}]}]}
         return topotest.json_cmp(output, expected)
 
+    def r1_r2_ldp_neighbors_operational():
+        """Return None once r1 and r2 have an OPERATIONAL LDP session."""
+        r1_nbr = router["r1"].vtysh_cmd("show mpls ldp neighbor")
+        r2_nbr = router["r2"].vtysh_cmd("show mpls ldp neighbor")
+        if not re.search(r"ipv4\s+2\.2\.2\.2\s+OPERATIONAL", r1_nbr):
+            return "r1 missing OPERATIONAL neighbor 2.2.2.2"
+        if not re.search(r"ipv4\s+1\.1\.1\.1\s+OPERATIONAL", r2_nbr):
+            return "r2 missing OPERATIONAL neighbor 1.1.1.1"
+        return None
+
+    def original_ldp_state_restored():
+        """Wait for the r1-r2 session, not only r1's leftover labeled route."""
+        result = r1_r2_ldp_neighbors_operational()
+        if result:
+            return result
+        return show_route_with_label()
+
     def restore_ldp_link_config():
         # Restore link-hello LDP on r1/r2 and drop any targeted neighbors
         # added by this test so later checks (e.g. show mpls table) see the
@@ -733,10 +750,11 @@ def test_zebra_ipv4_routingtable_with_ldp():
     finally:
         restore_ldp_link_config()
 
-    # Make sure with label in route with their original state
-    test_func = partial(show_route_with_label)
+    # LDE can reinstall r1's route labels before ldpe finishes if_start.
+    # Wait for the r1-r2 session so later MPLS-table checks see the ILM.
+    test_func = partial(original_ldp_state_restored)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
-    assert result is None, "r1: wrongly without label with route!"
+    assert result is None, "r1-r2 LDP session did not restore:\n{}".format(result)
 
 
 def test_mpls_table():
