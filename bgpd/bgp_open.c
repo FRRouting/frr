@@ -1003,10 +1003,23 @@ static int bgp_capability_role(struct peer_connection *connection, struct capabi
 	if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
 		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
 			  "Role: Received invalid length %d", hdr->length);
+		bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 		return -1;
 	}
 
 	uint8_t role = stream_getc(BGP_INPUT(connection));
+
+	/* If the BGP speaker receives multiple BGP Role Capabilities, and not
+	 * all of them have the same value, then the connection MUST be
+	 * rejected with the Role Mismatch Notification.
+	 */
+	if (CHECK_FLAG(peer->cap, PEER_CAP_ROLE_RCV) && peer->remote_role != role) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+			  "%pBP: Role: Received multiple Role capabilities with conflicting values %u and %u",
+			  peer, peer->remote_role, role);
+		bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_ROLE_MISMATCH);
+		return -1;
+	}
 
 	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 
@@ -1236,7 +1249,8 @@ static int bgp_capability_parse(struct peer_connection *connection, size_t lengt
 			ret = bgp_capability_hostname(connection, &caphdr);
 			break;
 		case CAPABILITY_CODE_ROLE:
-			ret = bgp_capability_role(connection, &caphdr);
+			if (bgp_capability_role(connection, &caphdr) < 0)
+				return -1;
 			break;
 		case CAPABILITY_CODE_SOFT_VERSION:
 			ret = bgp_capability_software_version(connection, &caphdr);
