@@ -496,6 +496,8 @@ void zebra_interface_up_update(struct interface *ifp)
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_UP %s vrf %s(%u)",
 			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
+	zlog_notice("INTERFACE UP %s l3vrf %s(%u)", ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
+
 	if (ifp->ptm_status || !ifp->ptm_enable) {
 		for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode,
 				       client)) {
@@ -521,6 +523,8 @@ void zebra_interface_down_update(struct interface *ifp)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DOWN %s vrf %s(%u)",
 			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
+
+	zlog_notice("INTERFACE DOWN %s l3vrf %s(%u)", ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */
