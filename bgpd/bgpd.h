@@ -1713,8 +1713,7 @@ struct peer {
 #define ROLE_RS_SERVER                      1
 #define ROLE_RS_CLIENT                      2
 #define ROLE_CUSTOMER                       3
-#define ROLE_PEER                           4
-#define ROLE_UNDEFINED                    255
+#define ROLE_PEER			    4
 
 #define ROLE_NAME_MAX_LEN                  20
 

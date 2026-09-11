@@ -2117,6 +2117,9 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 
 static bool bgp_otc_filter(struct peer *peer, struct attr *attr)
 {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_ROLE))
+		return false;
+
 	if (bgp_attr_exists(attr, BGP_ATTR_OTC)) {
 		if (peer->local_role == ROLE_PROVIDER ||
 		    peer->local_role == ROLE_RS_SERVER)
@@ -2135,6 +2138,9 @@ static bool bgp_otc_filter(struct peer *peer, struct attr *attr)
 
 static bool bgp_otc_egress(struct peer *peer, struct attr *attr)
 {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_ROLE))
+		return false;
+
 	if (bgp_attr_exists(attr, BGP_ATTR_OTC)) {
 		if (peer->local_role == ROLE_CUSTOMER ||
 		    peer->local_role == ROLE_RS_CLIENT ||
