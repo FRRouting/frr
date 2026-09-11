@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.19
 
 # Create a basic stage set up to build APKs
 FROM alpine:3.22 as alpine-builder
@@ -64,10 +64,11 @@ RUN cd /dist \
 	&& git init \
 	&& abuild -P /pkgs/apk
 
-# This stage installs frr from the apk
+# This stage installs frr from the apk. No dev, doc or dbg packages included.
 FROM alpine:3.22
 RUN mkdir -p /pkgs/apk
-COPY --from=alpine-apk-builder /pkgs/apk/ /pkgs/apk/
+COPY --exclude=**/*-dev-*.apk --exclude=**/*-doc-*.apk --exclude=**/*-dbg-*.apk \
+	--from=alpine-apk-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add \
 		--no-cache \
 		--update-cache \
