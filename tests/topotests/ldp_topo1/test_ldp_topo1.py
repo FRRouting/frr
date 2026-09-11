@@ -770,7 +770,6 @@ def test_mpls_table():
     # Verify MPLS table
     print("\n\n** Verifying MPLS table")
     print("******************************************\n")
-    failures = 0
 
     #
     # Note known ECMP/MPLS issue in a range of kernel version; skip test if not supported
@@ -778,60 +777,66 @@ def test_mpls_table():
     if not kernel_ok:
         pytest.skip(f"MPLS test with ECMP skipped, no kernel support")
 
+    def check_mpls_table(router_id):
+        """Return a unified diff if the MPLS table does not match the reference."""
+        refTableFile = "%s/r%s/show_mpls_table.ref" % (thisDir, router_id)
+        if not os.path.isfile(refTableFile):
+            return None
+
+        # Read expected result from file
+        expected = open(refTableFile).read()
+        # Fix newlines (make them all the same)
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        # Actual output from router
+        actual = net["r%s" % router_id].cmd(
+            'vtysh -c "show mpls table" 2> /dev/null'
+        )
+
+        # Fix inconsistent Label numbers at beginning of line
+        actual = re.sub(r"(\s+)[0-9]+(\s+LDP)", r"\1XX\2", actual)
+        # Fix inconsistent Label numbers at end of line
+        actual = re.sub(
+            r"(\s+[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s+)[0-9][0-9]", r"\1XX", actual
+        )
+
+        # Fix newlines (make them all the same)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        # Sort lines which start with "      XX      LDP"
+        pattern = r"^\s+[0-9X]+\s+LDP"
+        swapped = True
+        while swapped:
+            swapped = False
+            for j in range(1, len(actual)):
+                if re.search(pattern, actual[j]) and re.search(
+                    pattern, actual[j - 1]
+                ):
+                    if actual[j - 1] > actual[j]:
+                        temp = actual[j - 1]
+                        actual[j - 1] = actual[j]
+                        actual[j] = temp
+                        swapped = True
+
+        diff = topotest.get_textdiff(
+            actual,
+            expected,
+            title1="actual MPLS table output",
+            title2="expected MPLS table output",
+        )
+        return diff or None
+
     for i in range(1, 5):
-        refTableFile = "%s/r%s/show_mpls_table.ref" % (thisDir, i)
-        if os.path.isfile(refTableFile):
-            # Read expected result from file
-            expected = open(refTableFile).read()
-            # Fix newlines (make them all the same)
-            expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+        test_func = partial(check_mpls_table, i)
+        _, diff = topotest.run_and_expect(test_func, None, count=30, wait=1)
 
-            # Actual output from router
-            actual = net["r%s" % i].cmd('vtysh -c "show mpls table" 2> /dev/null')
-
-            # Fix inconsistent Label numbers at beginning of line
-            actual = re.sub(r"(\s+)[0-9]+(\s+LDP)", r"\1XX\2", actual)
-            # Fix inconsistent Label numbers at end of line
-            actual = re.sub(
-                r"(\s+[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s+)[0-9][0-9]", r"\1XX", actual
+        if diff:
+            sys.stderr.write(
+                "r%s failed MPLS table output Check:\n%s\n" % (i, diff)
             )
-
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
-
-            # Sort lines which start with "      XX      LDP"
-            pattern = r"^\s+[0-9X]+\s+LDP"
-            swapped = True
-            while swapped:
-                swapped = False
-                for j in range(1, len(actual)):
-                    if re.search(pattern, actual[j]) and re.search(
-                        pattern, actual[j - 1]
-                    ):
-                        if actual[j - 1] > actual[j]:
-                            temp = actual[j - 1]
-                            actual[j - 1] = actual[j]
-                            actual[j] = temp
-                            swapped = True
-
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual MPLS table output",
-                title2="expected MPLS table output",
-            )
-
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write(
-                    "r%s failed MPLS table output Check:\n%s\n" % (i, diff)
-                )
-                failures += 1
-            else:
-                print("r%s ok" % i)
-
-            assert failures == 0, "MPLS table output for router r%s:\n%s" % (i, diff)
+            assert False, "MPLS table output for router r%s:\n%s" % (i, diff)
+        else:
+            print("r%s ok" % i)
 
     # Make sure that all daemons are running
     for i in range(1, 5):
