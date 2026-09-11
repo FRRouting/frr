@@ -51,18 +51,15 @@ static void bgp_evpn_mh_get_vtep_ip(const struct attr *attr, struct ipaddr *vtep
 	nhfamily = NEXTHOP_FAMILY(attr->mp_nexthop_len);
 
 	if (nhfamily == AF_INET) {
-		SET_IPADDR_V4(vtep_ip);
 		if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
 		    attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
-			IPV4_ADDR_COPY(&vtep_ip->ipaddr_v4, &attr->mp_nexthop_global_in);
+			ipaddr_set_v4(vtep_ip, attr->mp_nexthop_global_in);
 		else
-			IPV4_ADDR_COPY(&vtep_ip->ipaddr_v4, &attr->nexthop);
+			ipaddr_set_v4(vtep_ip, attr->nexthop);
 	} else if (nhfamily == AF_INET6) {
-		SET_IPADDR_V6(vtep_ip);
-		IPV6_ADDR_COPY(&vtep_ip->ipaddr_v6, &attr->mp_nexthop_global);
+		ipaddr_set_v6(vtep_ip, &attr->mp_nexthop_global);
 	} else {
-		SET_IPADDR_V4(vtep_ip);
-		IPV4_ADDR_COPY(&vtep_ip->ipaddr_v4, &attr->nexthop);
+		ipaddr_set_v4(vtep_ip, attr->nexthop);
 	}
 }
 
@@ -78,15 +75,12 @@ bgp_evpn_mh_fill_vtep_ip_from_pi(const struct bgp_path_info *pi,
 	 */
 	if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
 	    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
-		SET_IPADDR_V4(vtep_ip);
-		vtep_ip->ipaddr_v4 = pi->attr->mp_nexthop_global_in;
+		ipaddr_set_v4(vtep_ip, pi->attr->mp_nexthop_global_in);
 	} else if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
 		   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
 		   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||
 		   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
-		SET_IPADDR_V6(vtep_ip);
-		IPV6_ADDR_COPY(&vtep_ip->ipaddr_v6,
-			       &pi->attr->mp_nexthop_global);
+		ipaddr_set_v6(vtep_ip, &pi->attr->mp_nexthop_global);
 	}
 }
 
@@ -236,17 +230,12 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 			uint8_t nhfamily = NEXTHOP_FAMILY(old_select->attr->mp_nexthop_len);
 
 			if (nhfamily == AF_INET) {
-				SET_IPADDR_V4(&vtep_ip);
-				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4,
-					       &old_select->attr->mp_nexthop_global_in);
+				ipaddr_set_v4(&vtep_ip, old_select->attr->mp_nexthop_global_in);
 			} else if (nhfamily == AF_INET6) {
-				SET_IPADDR_V6(&vtep_ip);
-				IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6,
-					       &old_select->attr->mp_nexthop_global);
+				ipaddr_set_v6(&vtep_ip, &old_select->attr->mp_nexthop_global);
 			} else {
 				/* default condition */
-				SET_IPADDR_V4(&vtep_ip);
-				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4, &old_select->attr->nexthop);
+				ipaddr_set_v4(&vtep_ip, old_select->attr->nexthop);
 			}
 			bgp_evpn_es_vtep_del(bgp, es, vtep_ip, true /*esr*/);
 		}
@@ -562,11 +551,9 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			struct ipaddr vtep_ip = {};
 
 			if (IS_IPADDR_V4(&es->originator_ip)) {
-				SET_IPADDR_V4(&vtep_ip);
-				vtep_ip.ipaddr_v4 = attr->mp_nexthop_global_in;
+				ipaddr_set_v4(&vtep_ip, attr->mp_nexthop_global_in);
 			} else if (IS_IPADDR_V6(&es->originator_ip)) {
-				SET_IPADDR_V6(&vtep_ip);
-				IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &attr->mp_nexthop_global);
+				ipaddr_set_v6(&vtep_ip, &attr->mp_nexthop_global);
 			}
 			frrtrace(4, frr_bgp, evpn_mh_local_ead_es_evi_route_upd, &es->esi,
 				 (vpn ? vpn->vni : 0), evp->prefix.route_type, &vtep_ip);
@@ -5051,17 +5038,13 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	memset(&ip, 0, sizeof(ip));
 	/* copy path attribute's ipv4 or ipv6 address as nexthop field synced to zebra */
 	if (pi->net->rn->p.family == AF_INET6 || BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr)) {
-		SET_IPADDR_V6(&ip);
-		memcpy(&ip.ipaddr_v6, &pi->attr->mp_nexthop_global,
-		       sizeof(ip.ipaddr_v6));
+		ipaddr_set_v6(&ip, &pi->attr->mp_nexthop_global);
 	} else {
-		SET_IPADDR_V4(&ip);
 		if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
 		    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
-			memcpy(&ip.ipaddr_v4, &pi->attr->mp_nexthop_global_in,
-			       sizeof(ip.ipaddr_v4));
+			ipaddr_set_v4(&ip, pi->attr->mp_nexthop_global_in);
 		else
-			memcpy(&ip.ipaddr_v4, &pi->attr->nexthop, sizeof(ip.ipaddr_v4));
+			ipaddr_set_v4(&ip, pi->attr->nexthop);
 	}
 
 	nh = bgp_evpn_nh_find(bgp_vrf, &ip);
