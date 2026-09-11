@@ -2316,9 +2316,6 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	/* Capabilities are gone: revert the message-size limit to standard. */
 	bgp_peer_set_max_packet_size(peer);
 
-	/* Resetting neighbor role to the default value */
-	peer->remote_role = ROLE_UNDEFINED;
-
 	FOREACH_AFI_SAFI (afi, safi) {
 		/* Reset all negotiated variables */
 		peer->afc_nego[afi][safi] = 0;

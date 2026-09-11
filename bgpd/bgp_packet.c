@@ -3518,7 +3518,6 @@ static void bgp_dynamic_capability_role(uint8_t *pnt, int action, struct capabil
 		peer->remote_role = role;
 	} else {
 		UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
-		peer->remote_role = ROLE_UNDEFINED;
 	}
 }
 

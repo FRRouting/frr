@@ -1786,8 +1786,6 @@ struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_dire
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
 	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
-	peer->local_role = ROLE_UNDEFINED;
-	peer->remote_role = ROLE_UNDEFINED;
 	peer->password = NULL;
 	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 	peer->last_reset = PEER_DOWN_NONE;
@@ -2489,8 +2487,6 @@ const char *bgp_get_name_by_role(uint8_t role)
 		return "customer";
 	case ROLE_PEER:
 		return "peer";
-	case ROLE_UNDEFINED:
-		return "undefined";
 	}
 	return "unknown";
 }
@@ -6370,102 +6366,59 @@ int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
 	struct peer *member;
 	struct listnode *node, *nnode;
 
-	peer_flag_set(peer, PEER_FLAG_ROLE);
-
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (peer->sort != BGP_PEER_EBGP)
 			return BGP_ERR_INVALID_INTERNAL_ROLE;
 
-		if (peer->local_role == role) {
-			if (CHECK_FLAG(peer->flags,
-				       PEER_FLAG_ROLE_STRICT_MODE) &&
-			    !strict_mode)
-				/* TODO: Is session restart needed if it was
-				 * down?
-				 */
-				UNSET_FLAG(peer->flags,
-					   PEER_FLAG_ROLE_STRICT_MODE);
-			if (!CHECK_FLAG(peer->flags,
-					PEER_FLAG_ROLE_STRICT_MODE) &&
-			    strict_mode) {
-				SET_FLAG(peer->flags,
-					 PEER_FLAG_ROLE_STRICT_MODE);
-				/* Restart session to throw Role Mismatch
-				 * Notification
-				 */
-				if (peer->remote_role == ROLE_UNDEFINED)
-					bgp_session_reset(peer);
-			}
-		} else {
-			peer->local_role = role;
-			if (strict_mode)
-				SET_FLAG(peer->flags,
-					 PEER_FLAG_ROLE_STRICT_MODE);
-			else
-				UNSET_FLAG(peer->flags,
-					   PEER_FLAG_ROLE_STRICT_MODE);
-		}
+		/* Restart the session to throw a Role Mismatch Notification if
+		 * strict mode is being turned on while the peer did not send
+		 * us a Role. Decided before the flag is changed.
+		 */
+		if (strict_mode && !CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE) &&
+		    !CHECK_FLAG(peer->cap, PEER_CAP_ROLE_RCV))
+			bgp_session_reset(peer);
+
+		peer_flag_set(peer, PEER_FLAG_ROLE);
+		peer->local_role = role;
+
+		if (strict_mode)
+			peer_flag_set(peer, PEER_FLAG_ROLE_STRICT_MODE);
+		else
+			peer_flag_unset(peer, PEER_FLAG_ROLE_STRICT_MODE);
 
 		return CMD_SUCCESS;
 	}
 
-	peer->local_role = role;
-	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+	/* Validate every member up front, so that a rejected member does not
+	 * leave the group half configured.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member))
 		if (member->sort != BGP_PEER_EBGP)
 			return BGP_ERR_INVALID_INTERNAL_ROLE;
 
-		if (member->local_role == role) {
-			if (CHECK_FLAG(member->flags,
-				       PEER_FLAG_ROLE_STRICT_MODE) &&
-			    !strict_mode)
-				/* TODO: Is session restart needed if it was
-				 * down?
-				 */
-				UNSET_FLAG(member->flags,
-					   PEER_FLAG_ROLE_STRICT_MODE);
-			if (!CHECK_FLAG(member->flags,
-					PEER_FLAG_ROLE_STRICT_MODE) &&
-			    strict_mode) {
-				SET_FLAG(peer->flags,
-					 PEER_FLAG_ROLE_STRICT_MODE);
-				SET_FLAG(member->flags,
-					 PEER_FLAG_ROLE_STRICT_MODE);
-				/* Restart session to throw Role Mismatch
-				 * Notification
-				 */
-				if (member->remote_role == ROLE_UNDEFINED)
-					bgp_session_reset(member);
-			}
-		} else {
-			member->local_role = role;
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		member->local_role = role;
 
-			if (strict_mode) {
-				SET_FLAG(peer->flags,
-					 PEER_FLAG_ROLE_STRICT_MODE);
-				SET_FLAG(member->flags,
-					 PEER_FLAG_ROLE_STRICT_MODE);
-			} else {
-				UNSET_FLAG(member->flags,
-					   PEER_FLAG_ROLE_STRICT_MODE);
-			}
-		}
+		if (strict_mode && !CHECK_FLAG(member->flags, PEER_FLAG_ROLE_STRICT_MODE) &&
+		    !CHECK_FLAG(member->cap, PEER_CAP_ROLE_RCV))
+			bgp_session_reset(member);
 	}
+
+	peer_flag_set(peer, PEER_FLAG_ROLE);
+	peer->local_role = role;
+
+	if (strict_mode)
+		peer_flag_set(peer, PEER_FLAG_ROLE_STRICT_MODE);
+	else
+		peer_flag_unset(peer, PEER_FLAG_ROLE_STRICT_MODE);
 
 	return CMD_SUCCESS;
 }
 
 int peer_role_unset(struct peer *peer)
 {
-	struct peer *member;
-	struct listnode *node, *nnode;
-
 	peer_flag_unset(peer, PEER_FLAG_ROLE);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return peer_role_set(peer, ROLE_UNDEFINED, 0);
-
-	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member))
-		peer_role_set(member, ROLE_UNDEFINED, 0);
+	peer_flag_unset(peer, PEER_FLAG_ROLE_STRICT_MODE);
 
 	return CMD_SUCCESS;
 }

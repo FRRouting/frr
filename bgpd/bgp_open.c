@@ -1324,19 +1324,19 @@ bool bgp_role_violation(struct peer_connection *connection)
 	struct peer *peer = connection->peer;
 	uint8_t local_role = peer->local_role;
 	uint8_t remote_role = peer->remote_role;
+	bool role_cfgd = CHECK_FLAG(peer->flags, PEER_FLAG_ROLE);
+	bool role_rcvd = CHECK_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 
-	if (local_role != ROLE_UNDEFINED && remote_role != ROLE_UNDEFINED &&
+	if (role_cfgd && role_rcvd &&
 	    !((local_role == ROLE_PEER && remote_role == ROLE_PEER) ||
 	      (local_role == ROLE_PROVIDER && remote_role == ROLE_CUSTOMER) ||
 	      (local_role == ROLE_CUSTOMER && remote_role == ROLE_PROVIDER) ||
 	      (local_role == ROLE_RS_SERVER && remote_role == ROLE_RS_CLIENT) ||
-	      (local_role == ROLE_RS_CLIENT &&
-	       remote_role == ROLE_RS_SERVER))) {
+	      (local_role == ROLE_RS_CLIENT && remote_role == ROLE_RS_SERVER))) {
 		bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_ROLE_MISMATCH);
 		return true;
 	}
-	if (remote_role == ROLE_UNDEFINED &&
-	    CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)) {
+	if (!role_rcvd && CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)) {
 		const char *err_msg =
 			"Strict mode. Please set the role on your side.";
 		bgp_notify_send_with_data(connection, BGP_NOTIFY_OPEN_ERR,
@@ -1970,7 +1970,7 @@ uint16_t bgp_open_capability(struct stream *s, struct peer_connection *connectio
 	stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE_LEN);
 
 	/* Role*/
-	if (peer->local_role != ROLE_UNDEFINED) {
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_ROLE)) {
 		SET_FLAG(peer->cap, PEER_CAP_ROLE_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		stream_putc(s, CAPABILITY_CODE_ROLE_LEN + 2);
