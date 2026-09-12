@@ -183,6 +183,8 @@ static int getsockopt_ipv6_ifindex(struct msghdr *msgh)
 
 	pktinfo = getsockopt_cmsg_data(msgh, IPPROTO_IPV6, IPV6_PKTINFO);
 
+	if (!pktinfo)
+		return 0;
 	return pktinfo->ipi6_ifindex;
 }
 
