@@ -7,3 +7,4 @@
 **/.libs
 docker/alpine/pkgs
 docker/centos/pkgs
+docker/**/Dockerfile
