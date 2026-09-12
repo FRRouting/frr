@@ -1,0 +1,27 @@
+[
+	{
+		"dst": "5.5.5.0/24",
+		"encap": {
+			"encap_type": "seg6",
+			"mode": "encap",
+			"segs": ["fec0::ff"],
+			"lookup": "main"
+		},
+		"dev": "eth0"
+	},
+
+	{
+		"dst": "6.6.6.0/24",
+		"encap": {
+			"encap_type": "seg6",
+			"mode": "encap",
+			"segs": ["fec1::ff"],
+			"lookup": "1001"
+		},
+		"via": {
+			"family": "inet6",
+			"host": "fec1::2"
+		},
+		"dev": "eth1"
+	}
+]
