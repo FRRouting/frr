@@ -540,8 +540,7 @@ void static_srv6_neigh_add(struct interface *ifp, struct in6_addr *addr, uint32_
 					       "%s: Requesting neighbor discovery for STALE neighbor %pI6 on interface %s (index %u)",
 					       __func__, addr, ifp->name, ifp->ifindex);
 
-					SET_IPADDR_V6(&ipaddr);
-					ipaddr.ipaddr_v6 = *addr;
+					ipaddr_set_v6(&ipaddr, addr);
 
 					static_zebra_send_neigh_discovery_req(ifp, &ipaddr);
 				}

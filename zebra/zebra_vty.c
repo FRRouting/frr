@@ -3413,11 +3413,9 @@ DEFPY (show_evpn_mac_vni_all_vtep,
 
 	if (ip) {
 		if (sockunion_family(ip) == AF_INET) {
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
+			ipaddr_set_v4(&vtep_ip, ip->sin.sin_addr);
 		} else {
-			SET_IPADDR_V6(&vtep_ip);
-			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
+			ipaddr_set_v6(&vtep_ip, &ip->sin6.sin6_addr);
 		}
 	}
 
@@ -3482,11 +3480,9 @@ DEFPY (show_evpn_mac_vni_vtep,
 
 	if (ip) {
 		if (sockunion_family(ip) == AF_INET) {
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
+			ipaddr_set_v4(&vtep_ip, ip->sin.sin_addr);
 		} else {
-			SET_IPADDR_V6(&vtep_ip);
-			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
+			ipaddr_set_v6(&vtep_ip, &ip->sin6.sin6_addr);
 		}
 	}
 
@@ -3683,11 +3679,9 @@ DEFPY (show_evpn_neigh_vni_vtep,
 
 	if (ip) {
 		if (sockunion_family(ip) == AF_INET) {
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
+			ipaddr_set_v4(&vtep_ip, ip->sin.sin_addr);
 		} else {
-			SET_IPADDR_V6(&vtep_ip);
-			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
+			ipaddr_set_v6(&vtep_ip, &ip->sin6.sin6_addr);
 		}
 	} else {
 		SET_IPADDR_NONE(&vtep_ip);

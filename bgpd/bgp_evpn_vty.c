@@ -2293,8 +2293,7 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 		/* tenant vrf will be updated when we get local_vni_add from
 		 * zebra
 		 */
-		SET_IPADDR_V4(&orignator_ip);
-		orignator_ip.ipaddr_v4 = bgp->router_id;
+		ipaddr_set_v4(&orignator_ip, bgp->router_id);
 		vpn = bgp_evpn_new(bgp, vni, &orignator_ip, 0, mcast_grp, 0);
 	}
 
@@ -2394,11 +2393,9 @@ static void evpn_show_routes_vni_all(struct vty *vty, struct bgp *bgp, int type,
 	SET_IPADDR_NONE(&wctx.vtep_ip);
 	if (vtep_ip) {
 		if (sockunion_family(vtep_ip) == AF_INET) {
-			SET_IPADDR_V4(&wctx.vtep_ip);
-			wctx.vtep_ip.ipaddr_v4 = vtep_ip->sin.sin_addr;
+			ipaddr_set_v4(&wctx.vtep_ip, vtep_ip->sin.sin_addr);
 		} else if (sockunion_family(vtep_ip) == AF_INET6) {
-			SET_IPADDR_V6(&wctx.vtep_ip);
-			wctx.vtep_ip.ipaddr_v6 = vtep_ip->sin6.sin6_addr;
+			ipaddr_set_v6(&wctx.vtep_ip, &vtep_ip->sin6.sin6_addr);
 		}
 	}
 	wctx.json = json;
@@ -2428,11 +2425,9 @@ static void evpn_show_routes_vni_all_type_all(struct vty *vty, struct bgp *bgp,
 	SET_IPADDR_NONE(&wctx.vtep_ip);
 	if (vtep_ip) {
 		if (sockunion_family(vtep_ip) == AF_INET) {
-			SET_IPADDR_V4(&wctx.vtep_ip);
-			wctx.vtep_ip.ipaddr_v4 = vtep_ip->sin.sin_addr;
+			ipaddr_set_v4(&wctx.vtep_ip, vtep_ip->sin.sin_addr);
 		} else if (sockunion_family(vtep_ip) == AF_INET6) {
-			SET_IPADDR_V6(&wctx.vtep_ip);
-			wctx.vtep_ip.ipaddr_v6 = vtep_ip->sin6.sin6_addr;
+			ipaddr_set_v6(&wctx.vtep_ip, &vtep_ip->sin6.sin6_addr);
 		}
 	}
 	wctx.json = json;
@@ -2674,11 +2669,9 @@ static void evpn_show_routes_vni(struct vty *vty, struct bgp *bgp, vni_t vni,
 	}
 
 	if (_vtep_ip && sockunion_family(_vtep_ip) == AF_INET) {
-		SET_IPADDR_V4(&vtep_ip);
-		vtep_ip.ipaddr_v4 = _vtep_ip->sin.sin_addr;
+		ipaddr_set_v4(&vtep_ip, _vtep_ip->sin.sin_addr);
 	} else if (_vtep_ip && sockunion_family(_vtep_ip) == AF_INET6) {
-		SET_IPADDR_V6(&vtep_ip);
-		vtep_ip.ipaddr_v6 = _vtep_ip->sin6.sin6_addr;
+		ipaddr_set_v6(&vtep_ip, &_vtep_ip->sin6.sin6_addr);
 	} else {
 		SET_IPADDR_NONE(&vtep_ip);
 	}
@@ -4780,10 +4773,8 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 			if (IPV4_ADDR_SAME(&ip, &bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4))
 				return CMD_SUCCESS;
 
-			SET_IPADDR_V4(&bgp_vrf->evpn_info->pip_ip_static);
-			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4 = ip;
-			SET_IPADDR_V4(&bgp_vrf->evpn_info->pip_ip);
-			bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = ip;
+			ipaddr_set_v4(&bgp_vrf->evpn_info->pip_ip_static, ip);
+			ipaddr_set_v4(&bgp_vrf->evpn_info->pip_ip, ip);
 		} else {
 			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
 			/* default instance router-id assignemt */
@@ -6378,8 +6369,7 @@ DEFPY_HIDDEN(test_es_add,
 			oper_up = true;
 		else
 			oper_up = false;
-		SET_IPADDR_V4(&vtep_ip);
-		vtep_ip.ipaddr_v4 = bgp->router_id;
+		ipaddr_set_v4(&vtep_ip, bgp->router_id);
 
 		ret = bgp_evpn_local_es_add(bgp, &esi, vtep_ip, oper_up,
 					    EVPN_MH_DF_PREF_MIN, false);

@@ -3550,8 +3550,7 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	 * the EVPN VTEP/originator IP.
 	 */
 	if (cmd == ZEBRA_VNI_ADD && ipaddr_is_zero(&vtep_ip)) {
-		SET_IPADDR_V4(&vtep_ip);
-		vtep_ip.ipaddr_v4 = bgp->router_id;
+		ipaddr_set_v4(&vtep_ip, bgp->router_id);
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("Rx VNI add with unspecified VTEP IP, using router-id %pIA",
 				   &vtep_ip);

@@ -1581,12 +1581,10 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 
 		switch (nhfamily) {
 		case AF_INET:
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4 = pi->attr->mp_nexthop_global_in;
+			ipaddr_set_v4(&vtep_ip, pi->attr->mp_nexthop_global_in);
 			break;
 		case AF_INET6:
-			SET_IPADDR_V6(&vtep_ip);
-			IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &pi->attr->mp_nexthop_global);
+			ipaddr_set_v6(&vtep_ip, &pi->attr->mp_nexthop_global);
 			break;
 		}
 
@@ -1641,12 +1639,10 @@ enum zclient_send_status evpn_zebra_uninstall(struct bgp *bgp,
 
 		switch (nhfamily) {
 		case AF_INET:
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4 = pi->attr->mp_nexthop_global_in;
+			ipaddr_set_v4(&vtep_ip, pi->attr->mp_nexthop_global_in);
 			break;
 		case AF_INET6:
-			SET_IPADDR_V6(&vtep_ip);
-			IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &pi->attr->mp_nexthop_global);
+			ipaddr_set_v6(&vtep_ip, &pi->attr->mp_nexthop_global);
 			break;
 		}
 	}
@@ -2058,10 +2054,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 					sizeof(struct bgp_route_evpn));
 
 			bre->type = OVERLAY_INDEX_GATEWAY_IP;
-			SET_IPADDR_V6(&bre->gw_ip);
-			memcpy(&bre->gw_ip.ipaddr_v6,
-			       &src_attr->mp_nexthop_global,
-			       sizeof(struct in6_addr));
+			ipaddr_set_v6(&bre->gw_ip, &src_attr->mp_nexthop_global);
 			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
 	} else if (src_afi == AFI_IP &&
@@ -2073,9 +2066,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 					sizeof(struct bgp_route_evpn));
 
 			bre->type = OVERLAY_INDEX_GATEWAY_IP;
-			SET_IPADDR_V4(&bre->gw_ip);
-			memcpy(&bre->gw_ip.ipaddr_v4, &src_attr->nexthop,
-			       sizeof(struct in_addr));
+			ipaddr_set_v4(&bre->gw_ip, src_attr->nexthop);
 			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
 	}
@@ -3574,11 +3565,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		struct ipaddr nhip = {};
 
 		if (pi->net->rn->p.family == AF_INET6) {
-			SET_IPADDR_V6(&nhip);
-			IPV6_ADDR_COPY(&nhip.ipaddr_v6, &pi->attr->mp_nexthop_global);
+			ipaddr_set_v6(&nhip, &pi->attr->mp_nexthop_global);
 		} else {
-			SET_IPADDR_V4(&nhip);
-			IPV4_ADDR_COPY(&nhip.ipaddr_v4, &pi->attr->nexthop);
+			ipaddr_set_v4(&nhip, pi->attr->nexthop);
 		}
 		zlog_debug("... %s pi %s dest %p (l %d) pi %p (l %d, f 0x%x) nh %pIA",
 			   new_pi ? "new" : "update",
@@ -3923,11 +3912,9 @@ int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_e
 		struct ipaddr nhip = {};
 
 		if (pi->net->rn->p.family == AF_INET6) {
-			SET_IPADDR_V6(&nhip);
-			IPV6_ADDR_COPY(&nhip.ipaddr_v6, &pi->attr->mp_nexthop_global);
+			ipaddr_set_v6(&nhip, &pi->attr->mp_nexthop_global);
 		} else {
-			SET_IPADDR_V4(&nhip);
-			IPV4_ADDR_COPY(&nhip.ipaddr_v4, &pi->attr->nexthop);
+			ipaddr_set_v4(&nhip, pi->attr->nexthop);
 		}
 
 		zlog_debug("... delete pi %s dest %p (l %d) pi %p (l %d, f 0x%x) nh %pIA",
@@ -6550,8 +6537,7 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 				    IS_IPADDR_V4(&bgp_vrf->originator_ip) &&
 				    (bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr ==
 				     INADDR_ANY)) {
-					SET_IPADDR_V4(&bgp_vrf->evpn_info->pip_ip);
-					bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = bgp->router_id;
+					ipaddr_set_v4(&bgp_vrf->evpn_info->pip_ip, bgp->router_id);
 					/* advertise type-5 routes with
 					 * new nexthop
 					 */
@@ -8016,8 +8002,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 			if (bgp_debug_zebra(NULL))
 				zlog_debug("%s vni %u ifp %s addr %pI6 copy as pip", __func__,
 					   bgp_vrf->l3vni, ifp->name, &addr);
-			SET_IPADDR_V6(&bgp_vrf->evpn_info->pip_ip);
-			IPV6_ADDR_COPY(&bgp_vrf->evpn_info->pip_ip.ipaddr_v6, &addr);
+			ipaddr_set_v6(&bgp_vrf->evpn_info->pip_ip, &addr);
 		} else if (ifp)
 			if (bgp_debug_zebra(NULL))
 				zlog_debug("%s vni %u ifp %s v6 addr not found, skip pip assignment",
@@ -8551,8 +8536,7 @@ void bgp_evpn_init(struct bgp *bgp)
 			bgp->evpn_info->advertise_pip = DFLT_BGP_EVPN_ADVERTISE_PIP;
 			bgp_default = bgp_get_default();
 			if (bgp_default) {
-				SET_IPADDR_V4(&bgp->evpn_info->pip_ip);
-				bgp->evpn_info->pip_ip.ipaddr_v4 = bgp_default->router_id;
+				ipaddr_set_v4(&bgp->evpn_info->pip_ip, bgp_default->router_id);
 			}
 		}
 	}

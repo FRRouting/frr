@@ -1667,11 +1667,9 @@ void nexthop_set_res_info(struct nexthop *nh, uint32_t id, const struct prefix *
 
 	nh->res_info->id = id;
 	if (pfx->family == AF_INET) {
-		SET_IPADDR_V4(&nh->res_info->addr);
-		nh->res_info->addr.ipaddr_v4 = pfx->u.prefix4;
+		ipaddr_set_v4(&nh->res_info->addr, pfx->u.prefix4);
 	} else {
-		SET_IPADDR_V6(&nh->res_info->addr);
-		nh->res_info->addr.ipaddr_v6 = pfx->u.prefix6;
+		ipaddr_set_v6(&nh->res_info->addr, &pfx->u.prefix6);
 	}
 	nh->res_info->pfxlen = pfx->prefixlen;
 }
