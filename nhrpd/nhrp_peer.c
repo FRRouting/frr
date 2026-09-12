@@ -1151,6 +1151,16 @@ static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
 	struct nhrp_packet_header *hdr;
 	struct zbuf *zb;
 
+	/* RFC 2332, Section 5.2.7: an Error Indication SHALL NEVER be
+	 * generated in response to another Error Indication, and in no
+	 * case should more than one Error Indication be generated for a
+	 * single packet.
+	 */
+	if (pp->error_sent
+	    || pp->hdr->type == NHRP_PACKET_ERROR_INDICATION)
+		return 0;
+	pp->error_sent = true;
+
 	src_proto = pp->src_proto;
 	dst_proto = pp->dst_proto;
 	if (packet_types[pp->hdr->type].type != PACKET_REPLY) {
@@ -1330,17 +1340,25 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	nhrp_packet_debug(zb, "Recv");
 	if (nifp->auth_token) {
 		if (!nhrp_connection_authorized(&pp)) {
-			if (!(hdr->type == NHRP_PACKET_ERROR_INDICATION &&
-			      hdr->u.error.code ==
-				      htons(NHRP_ERROR_AUTHENTICATION_FAILURE)))
-				nhrp_packet_send_error(
-					&pp,
-					NHRP_ERROR_AUTHENTICATION_FAILURE,
-					0);
+			/* nhrp_packet_send_error() itself suppresses the
+			 * reply when the offending packet is an Error
+			 * Indication (RFC 2332, Section 5.2.7).
+			 */
+			nhrp_packet_send_error(
+				&pp, NHRP_ERROR_AUTHENTICATION_FAILURE, 0);
 			info = "authentication failure";
 			goto drop;
 		}
 	}
+
+	/* RFC 2332, Section 5.2.7: if a transiting Error Indication
+	 * carries our own NBMA and Protocol addresses as its source,
+	 * the Error Indication itself is in a loop; quietly drop it.
+	 */
+	if (hdr->type == NHRP_PACKET_ERROR_INDICATION
+	    && sockunion_same(&pp.src_nbma, &nifp->nbma)
+	    && sockunion_same(&pp.src_proto, &pp.if_ad->addr))
+		goto drop;
 
 	/* Figure out if this is local */
 	target_addr = (packet_types[hdr->type].type == PACKET_REPLY)
