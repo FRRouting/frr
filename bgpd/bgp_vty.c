@@ -7898,6 +7898,8 @@ DEFPY(neighbor_role,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_role_set_vty(vty, peer, role, false);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
 
@@ -7921,6 +7923,8 @@ DEFPY(neighbor_role_strict,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_role_set_vty(vty, peer, role, true);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
 
