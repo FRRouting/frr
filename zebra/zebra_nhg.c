@@ -1382,17 +1382,12 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
 	/*
-	 * On startup Zebra is creating the nexthop group cache entry
-	 * after the router has it's startup time set.  This is because
-	 * the process of grabbing routes and nexthops is now *after*
-	 * the dataplane starts up, which is after the routers startup
-	 * time is set.  So let's just cheat a tiny bit on the time
-	 * and set the nexthop group hash entry startup time to be
-	 * slightly before the zrouter.startup_time.  Then graceful
-	 * restart sweeping will work properly for these nexthop entries
+	 * The startup boundary is recorded after kernel nexthops are read.
+	 * Use zero to mark an entry imported before that boundary.  A later
+	 * protocol update replaces it with the current monotonic time.
 	 */
 	if (startup) {
-		nhe->uptime = zrouter.startup_time - 1;
+		nhe->uptime = 0;
 		/* tag stale FDB NH/NHG and reserve its bitmap bit; sweep
 		 * releases the bit via zebra_evpn_mh_release_stale_nhid()
 		 */
@@ -1888,6 +1883,9 @@ static void zebra_nhg_timer(struct event *event)
 
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 {
+	bool unrefreshed_stale_fdb = CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_FDB) &&
+				     nhe->uptime == 0;
+
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: nhe %p (%pNG) %d => %d", __func__, nhe, nhe,
 			   nhe->refcnt, nhe->refcnt - 1);
@@ -1897,7 +1895,8 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 	if (!zebra_router_in_shutdown() && nhe->refcnt <= 0 &&
 	    (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
 	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) &&
-	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND) &&
+	    !unrefreshed_stale_fdb) {
 		nhe->refcnt = 1;
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
 		event_add_timer(zrouter.master, zebra_nhg_timer, nhe,
@@ -3775,13 +3774,11 @@ static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	}
 
 	/*
-	 * same logic as with routes.
-	 *
-	 * If older than startup time, we know we read them in from the
-	 * kernel and have not gotten and update for them since startup
-	 * from an upper level proto.
+	 * Entries imported from the kernel during startup have an uptime of
+	 * zero.  An upper-level protocol refresh gives the entry a nonzero
+	 * timestamp.
 	 */
-	if (zrouter.startup_time < nhe->uptime)
+	if (nhe->uptime != 0)
 		return HASHWALK_CONTINUE;
 
 	/*
