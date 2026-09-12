@@ -53,6 +53,12 @@ module frr-bgp-route-map {
       "Match vpn dataplane kind used in a BGP path";
   }
 
+  identity match-prefix-state {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match prefix state used in a BGP path";
+  }
+
   identity match-local-preference {
     base frr-route-map:rmap-match-type;
     description
@@ -621,6 +627,20 @@ identity set-extcommunity-color {
         reference
           "RFC 9012 - The BGP Tunnel Encapsulation Attribute.
            RFC 9252 - BGP Overlay Services Based on Segment Routing over IPv6 (SRv6).";
+      }
+    }
+
+    case prefix-state {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-prefix-state')";
+      leaf prefix-state {
+        type enumeration {
+          enum "bestpath" {
+            description
+              "BGP path selected as best path.";
+          }
+        }
+        description
+          "Selects the prefix based on the state of that BGP path";
       }
     }
 

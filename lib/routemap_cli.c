@@ -697,6 +697,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " match vpn dataplane %s\n",
 			yang_dnode_get_string(dnode,
 					      "./rmap-match-condition/frr-bgp-route-map:vpn-dataplane"));
+	} else if (IS_MATCH_PREFIX_STATE(condition)) {
+		vty_out(vty, " match prefix-state %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-match-condition/frr-bgp-route-map:prefix-state"));
 	} else if (IS_MATCH_LOCAL_PREF(condition)) {
 		vty_out(vty, " match local-preference %s\n",
 			yang_dnode_get_string(

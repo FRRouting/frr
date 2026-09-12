@@ -26,6 +26,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:prefix-state",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_prefix_state_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_prefix_state_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:local-preference",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_local_preference_modify,
