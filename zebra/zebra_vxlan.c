@@ -43,6 +43,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zserv.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZL3VNI, "L3 VNI hash");
@@ -4994,10 +4995,10 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
 		return;
 
-	/* If the remote VTEP does not exist, there's nothing more to
-	 * do.
-	 * Otherwise, uninstall any remote MACs pointing to this VTEP
-	 * and then, the VTEP entry itself and remove it.
+	/* If the remote VTEP does not exist, there's nothing more to do.
+	 * Otherwise, withdraw IMET flood state (uninstall HREP, disable flood)
+	 * but keep the entry for MAC/neigh references; orphan cleanup is
+	 * handled by the periodic sweeper.
 	 */
 	zvtep = zebra_evpn_vtep_find(zevpn, vtep_ip);
 	if (!zvtep)
@@ -5006,7 +5007,11 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 	zvtep->gr_refresh_time = monotime(NULL);
 
 	zebra_evpn_vtep_uninstall(zevpn, vtep_ip);
-	zebra_evpn_vtep_del(zevpn, zvtep);
+	zvtep->flood_control = VXLAN_FLOOD_DISABLED;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("Remote VTEP %pIA VNI %u flood disabled (IMET withdrawn)",
+			   vtep_ip, vni);
 }
 
 /*
@@ -5080,11 +5085,12 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		 * the flood mode has changed
 		 */
 		if (zvtep->flood_control != flood_control) {
-			if (zvtep->flood_control == VXLAN_FLOOD_DISABLED)
-				/* old mode was head-end-replication but
-				 * is no longer; get rid of the HER fdb
-				 * entry installed before
-				 */
+			/*
+			 * Uninstall only when leaving HER; that is when a
+			 * HREP FDB entry may exist. Previously this checked
+			 * for DISABLED, leaving stale HREP on HER -> DISABLED.
+			 */
+			if (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)
 				zebra_evpn_vtep_uninstall(zevpn, vtep_ip);
 			zvtep->flood_control = flood_control;
 			zebra_evpn_vtep_install(zevpn, zvtep);
@@ -6109,7 +6115,11 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 		/* Read neighbors */
 		ns_walk_func(neigh_read_ns, NULL, NULL);
+
+		zebra_evpn_vtep_sweep_start();
 	} else {
+		zebra_evpn_vtep_sweep_stop();
+
 		/* Cleanup VTEPs for all EVPNs - uninstall from
 		 * kernel and free entries.
 		 */
@@ -6684,6 +6694,12 @@ bool zebra_vxlan_get_accept_bgp_seq(void)
 extern void zebra_evpn_init(void)
 {
 	hook_register(zserv_client_close, zebra_evpn_cfg_clean_up);
+}
+
+extern void zebra_evpn_fini(void)
+{
+	zebra_evpn_vtep_sweep_stop();
+	hook_unregister(zserv_client_close, zebra_evpn_cfg_clean_up);
 }
 
 static const char *port_state2str(uint8_t state)

@@ -340,6 +340,69 @@ def evpn_verify_vni_remote_vteps(router, vni_list, expected_vteps):
     return None
 
 
+def evpn_verify_vni_remote_vtep_flood(router, vni, vtep_ip, expected_flood):
+    """
+    Verify a remote VTEP is present with the expected flood mode.
+
+    * `expected_flood`: flood string from "show evpn vni json" (e.g. "HER", "-")
+    """
+    output = router.vtysh_cmd(f"show evpn vni {vni} json", isjson=True)
+    if not output:
+        return f"No output for VNI {vni}"
+
+    remote_vteps = output.get("remoteVteps", [])
+    for vtep in remote_vteps:
+        if vtep.get("ip") == vtep_ip:
+            flood = vtep.get("flood")
+            if flood != expected_flood:
+                return (
+                    f"VNI {vni}: remote VTEP {vtep_ip} flood mismatch. "
+                    f"Expected: {expected_flood}, Found: {flood}"
+                )
+            return None
+
+    return f"VNI {vni}: remote VTEP {vtep_ip} not found"
+
+
+def evpn_verify_vni_remote_vtep_absent(router, vni, vtep_ip):
+    """Verify a remote VTEP is no longer present in zebra EVPN state."""
+    output = router.vtysh_cmd(f"show evpn vni {vni} json", isjson=True)
+    if not output:
+        return f"No output for VNI {vni}"
+
+    remote_vteps = output.get("remoteVteps", [])
+    for vtep in remote_vteps:
+        if vtep.get("ip") == vtep_ip:
+            return f"VNI {vni}: remote VTEP {vtep_ip} still present"
+
+    return None
+
+
+def evpn_verify_hrep_absent(router, vni, vtep_ip):
+    """Verify no HREP bridge FDB entry exists for the given VNI and VTEP."""
+    if not topotest.iproute2_is_fdb_get_capable():
+        return None
+
+    fdb_output = router.run("bridge -j fdb show")
+    try:
+        fdb_entries = json.loads(fdb_output)
+    except json.JSONDecodeError:
+        return "Failed to parse bridge FDB output as JSON"
+
+    for entry in fdb_entries:
+        if (
+            entry.get("mac") == "00:00:00:00:00:00"
+            and entry.get("dst") == vtep_ip
+            and entry.get("src_vni") == int(vni)
+        ):
+            return (
+                f"Bridge FDB: unexpected HREP entry for VNI {vni} "
+                f"VTEP {vtep_ip}"
+            )
+
+    return None
+
+
 def evpn_verify_vni_vtep_src_ip(
     router, expected_vtep_ip, vni_list, vni_type="L2", vxlan_device=None
 ):
@@ -1581,6 +1644,26 @@ def evpn_check_bgp_imet(dut, rd, prefix, pmsi_label, pmsi_id):
     out_id = paths[0][0]["pmsi"].get("id", "")
     if out_id != pmsi_id:
         return f"Imet PMSI Id mismatch Expected {pmsi_id} Got {out_id}"
+    return None
+
+
+def evpn_check_bgp_imet_absent(dut, rd, prefix):
+    """Return error if the type-3 IMET route is still present."""
+    rd_routes_json = dut.vtysh_cmd(f"show bgp l2vpn evpn route rd {rd} type 3 json")
+    if not rd_routes_json:
+        return None
+
+    try:
+        rd_routes = json.loads(rd_routes_json)
+    except json.JSONDecodeError:
+        return None
+
+    if not rd_routes:
+        return None
+
+    if rd in rd_routes and prefix in rd_routes[rd]:
+        return f"Imet route still present for rd {rd} prefix {prefix}"
+
     return None
 
 

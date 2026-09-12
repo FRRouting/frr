@@ -218,6 +218,7 @@ struct zebra_router {
 	int gr_cleanup_time;
 #define ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME 500
 	struct event *t_rib_sweep;
+	struct event *t_evpn_vtep_sweep;
 
 	/*
 	 * The hash of nexthop groups associated with this router
