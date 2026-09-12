@@ -1163,24 +1163,6 @@ int zebra_vxlan_if_update(struct interface *ifp,
 	return 0;
 }
 
-int zebra_vxlan_if_vni_add(struct interface *ifp, struct zebra_vxlan_vni *vni)
-{
-	struct zebra_if *zif;
-	struct zebra_vxlan_vni_info *vni_info;
-
-	zif = ifp->info;
-	assert(zif);
-
-	/* This should be called in SVD context only */
-	assert(IS_ZEBRA_VXLAN_IF_SVD(zif));
-
-	/* First insert into the table */
-	vni_info = VNI_INFO_FROM_ZEBRA_IF(zif);
-	hash_get(vni_info->vni_table, (void *)vni, zebra_vxlan_vni_alloc);
-
-	return zebra_vxlan_if_vni_entry_add(zif, vni);
-}
-
 /*
  * Handle VxLAN interface add.
  */
