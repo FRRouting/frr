@@ -25,6 +25,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zebra_vrf_import.h"
 
 #include "zebra/zebra_routemap_clippy.c"
 
@@ -35,6 +36,8 @@ char *zebra_import_table_routemap[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
 	struct route_entry *re;
+	afi_t set_afi;
+	union g_addr set_gate;
 };
 
 /* 'match tag TAG'
@@ -920,7 +923,7 @@ route_match_source_instance(void *rule, const struct prefix *p, void *object)
 	if (!rm_data)
 		return RMAP_NOMATCH;
 
-	return (rm_data->re->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
+	return route_entry_get_proto_instance(rm_data->re) == *instance ? RMAP_MATCH : RMAP_NOMATCH;
 }
 
 static void *route_match_source_instance_compile(const char *arg)
@@ -989,6 +992,86 @@ static const struct route_map_rule_cmd route_set_src_cmd = {
 	route_set_src,
 	route_set_src_compile,
 	route_set_src_free,
+};
+
+/* `set ip next-hop A.B.C.D' for zebra VRF import. */
+static enum route_map_cmd_result_t route_set_ip_nexthop(void *rule, const struct prefix *prefix,
+							void *object)
+{
+	struct zebra_rmap_obj *rm_data = object;
+
+	if (!rm_data)
+		return RMAP_OKAY;
+
+	rm_data->set_afi = AFI_IP;
+	rm_data->set_gate.ipv4 = *(struct in_addr *)rule;
+
+	return RMAP_OKAY;
+}
+
+static void *route_set_ip_nexthop_compile(const char *arg)
+{
+	struct in_addr *addr;
+
+	addr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*addr));
+	if (inet_pton(AF_INET, arg, addr) != 1) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, addr);
+		return NULL;
+	}
+
+	return addr;
+}
+
+static void route_set_ip_nexthop_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_set_ip_nexthop_cmd = {
+	"ip next-hop",
+	route_set_ip_nexthop,
+	route_set_ip_nexthop_compile,
+	route_set_ip_nexthop_free,
+};
+
+/* `set ipv6 next-hop local X:X::X:X' for zebra VRF import. */
+static enum route_map_cmd_result_t route_set_ipv6_nexthop(void *rule, const struct prefix *prefix,
+							  void *object)
+{
+	struct zebra_rmap_obj *rm_data = object;
+
+	if (!rm_data)
+		return RMAP_OKAY;
+
+	rm_data->set_afi = AFI_IP6;
+	rm_data->set_gate.ipv6 = *(struct in6_addr *)rule;
+
+	return RMAP_OKAY;
+}
+
+static void *route_set_ipv6_nexthop_compile(const char *arg)
+{
+	struct in6_addr *addr;
+
+	addr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*addr));
+	if (inet_pton(AF_INET6, arg, addr) != 1) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, addr);
+		return NULL;
+	}
+
+	return addr;
+}
+
+static void route_set_ipv6_nexthop_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_set_ipv6_nexthop_cmd = {
+	"ipv6 next-hop local",
+	route_set_ipv6_nexthop,
+	route_set_ipv6_nexthop_compile,
+	route_set_ipv6_nexthop_free,
 };
 
 /* The function checks if the changed routemap specified by parameter rmap
@@ -1162,6 +1245,7 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 	zebra_import_table_rm_update(rmap_name);
 	zebra_rib_table_rm_update(rmap_name);
 	zebra_nht_rm_update(rmap_name);
+	zebra_vrf_import_route_map_update(rmap_name);
 }
 
 static void zebra_route_map_update_timer(struct event *event)
@@ -1298,6 +1382,32 @@ route_map_result_t zebra_import_table_route_map_check(int family,
 	return (ret);
 }
 
+route_map_result_t zebra_vrf_import_route_map_check(afi_t afi, struct route_entry *re,
+						    const struct prefix *p,
+						    struct nexthop *nexthop, const char *rmap_name,
+						    afi_t *set_afi, union g_addr *set_gate)
+{
+	struct route_map *rmap = NULL;
+	route_map_result_t ret = RMAP_DENYMATCH;
+	struct zebra_rmap_obj rm_obj = {};
+
+	rm_obj.nexthop = nexthop;
+	rm_obj.re = re;
+	rm_obj.set_afi = AFI_UNSPEC;
+
+	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX)
+		rmap = route_map_lookup_by_name(rmap_name);
+	if (rmap)
+		ret = route_map_apply(rmap, p, &rm_obj);
+
+	if (set_afi)
+		*set_afi = rm_obj.set_afi;
+	if (set_gate && rm_obj.set_afi != AFI_UNSPEC)
+		*set_gate = rm_obj.set_gate;
+
+	return ret;
+}
+
 route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 					     const struct prefix *p,
 					     struct zebra_vrf *zvrf,
@@ -1432,5 +1542,12 @@ void zebra_route_map_init(void)
 	route_map_install_match(&route_match_source_instance_cmd);
 
 	/* */
+	route_map_set_ip_nexthop_hook(generic_set_add);
+	route_map_no_set_ip_nexthop_hook(generic_set_delete);
+	route_map_set_ipv6_nexthop_local_hook(generic_set_add);
+	route_map_no_set_ipv6_nexthop_local_hook(generic_set_delete);
+
 	route_map_install_set(&route_set_src_cmd);
+	route_map_install_set(&route_set_ip_nexthop_cmd);
+	route_map_install_set(&route_set_ipv6_nexthop_cmd);
 }

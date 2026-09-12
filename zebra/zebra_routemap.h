@@ -22,6 +22,11 @@ extern void zebra_del_import_table_route_map(afi_t afi, safi_t safi, uint32_t ta
 extern route_map_result_t zebra_import_table_route_map_check(
 	int family, struct route_entry *re, const struct prefix *p,
 	struct nexthop *nexthop, const char *rmap_name);
+extern route_map_result_t zebra_vrf_import_route_map_check(afi_t afi, struct route_entry *re,
+							   const struct prefix *p,
+							   struct nexthop *nexthop,
+							   const char *rmap_name, afi_t *set_afi,
+							   union g_addr *set_gate);
 extern route_map_result_t zebra_route_map_check(afi_t family,
 						struct route_entry *re,
 						const struct prefix *p,

@@ -558,8 +558,8 @@ struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_instance_get_elem(
 {
 	struct route_entry *re = (struct route_entry *)args->list_entry;
 
-	if (re->instance)
-		return yang_data_new_uint16(args->xpath, re->instance);
+	if (route_entry_get_proto_instance(re))
+		return yang_data_new_uint16(args->xpath, route_entry_get_proto_instance(re));
 
 	return NULL;
 }
