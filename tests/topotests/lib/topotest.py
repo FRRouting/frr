@@ -866,6 +866,89 @@ def module_present(module, load=True):
         return module_present_freebsd(module, load)
 
 
+def _frr_bindirs(frrdir=None):
+    """Candidate FRR sbin directories (…/usr/lib/frr)."""
+    if frrdir is not None:
+        return [frrdir]
+
+    frrdirs = ["/usr/lib/frr", "/usr/lib64/frr"]
+    try:
+        import configparser
+
+        cfg = configparser.ConfigParser({"frrdir": "/usr/lib/frr"})
+        cfg.read(os.path.join(os.path.dirname(__file__), "../pytest.ini"))
+        if cfg.has_section("topogen") and cfg.has_option("topogen", "frrdir"):
+            frrdirs.insert(0, cfg.get("topogen", "frrdir"))
+    except Exception:
+        pass
+    return frrdirs
+
+
+def frr_module_available(name, frrdir=None):
+    """
+    Return True if an FRR dlopen module is installed.
+
+    `name` is the module basename as passed to `-M` (e.g. ``bgpd_rpki``),
+    corresponding to ``{frrdir}/modules/{name}.so``.
+    """
+    for d in _frr_bindirs(frrdir):
+        path = os.path.join(d, "modules", "{}.so".format(name))
+        if os.path.isfile(path):
+            return True
+    return False
+
+
+def frr_configure_args(frrdir=None):
+    """
+    Return the configure argument string from ``bgpd -v`` / ``zebra -v``.
+    Empty string if it cannot be determined.
+    """
+    for d in _frr_bindirs(frrdir):
+        for daemon in ("bgpd", "zebra"):
+            path = os.path.join(d, daemon)
+            if not os.path.isfile(path):
+                continue
+            try:
+                out = subprocess.check_output(
+                    [path, "-v"],
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                )
+            except (OSError, subprocess.CalledProcessError):
+                continue
+            # Example: configured with:\n\t'--prefix=/usr' '--enable-rpki' ...
+            # Join all single-quoted args; do not stop after the first quote.
+            m = re.search(r"configured with:\s*\n\s*(.*)", out, re.DOTALL)
+            if m:
+                args = re.findall(r"'([^']*)'", m.group(1))
+                if args:
+                    return " ".join(args)
+            # Fallback: any line containing --enable- / --disable-
+            for line in out.splitlines():
+                if "--enable-" in line or "--disable-" in line:
+                    return line.strip().strip("'")
+    return ""
+
+
+def frr_configured_with(option, frrdir=None):
+    """
+    Probe whether `option` appears in the installed daemon's configure line
+    (e.g. ``--enable-rpki``).
+
+    Returns:
+      True  – configure args are known and contain `option`
+      False – configure args are known and do not contain `option`
+      None  – configure args unavailable (e.g. built with
+              ``--disable-version-build-config``). Callers must not treat
+              this as “feature disabled”; fall back to another signal such
+              as ``frr_module_available()``.
+    """
+    args = frr_configure_args(frrdir)
+    if not args:
+        return None
+    return option in args
+
+
 def version_cmp(v1, v2):
     """
     Compare two version strings and returns:
