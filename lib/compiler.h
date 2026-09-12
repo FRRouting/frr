@@ -138,70 +138,110 @@ extern "C" {
 #define MACRO_REQUIRE_SEMICOLON() \
 	_Static_assert(1, "please add a semicolon after this macro")
 
+/* the purpose of these macros is to deal with C's macro expansion rules;
+ * specifically token pasting and nesting.
+ */
+#define _MACRO_EXPAND(a) a
+#define _CONCAT2(a, b)	 a##b
+#define _CONCAT(a, b)	 _CONCAT2(a, b)
+
+#define MACRO_APPLY(NAME, ARGS) NAME ARGS
+
+#define NAMECTR(name) _CONCAT(name, __COUNTER__)
+
+/* clang-format off */
+
 /* variadic macros, use like:
  * #define V_0()  ...
  * #define V_1(x) ...
  * #define V(...) MACRO_VARIANT(V, ##__VA_ARGS__)(__VA_ARGS__)
  */
-#define _MACRO_VARIANT(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10, N, ...) N
+#define _MACRO_VARIANT(A0, \
+		       A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, \
+		       A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, \
+		       A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, \
+		       A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, \
+		       N, ...) N
 
-#define _CONCAT2(a, b) a ## b
-#define _CONCAT(a, b) _CONCAT2(a,b)
-
+/* _XX for 11..20, _YY for 21..30, _ZZ for 31..40 - hopefully that's enough.
+ * _XX, _YY and _ZZ are expected to "recurse back"
+ */
 #define MACRO_VARIANT(NAME, ...) \
 	_CONCAT(NAME, _MACRO_VARIANT(0, ##__VA_ARGS__, \
-			_10, _9, _8, _7, _6, _5, _4, _3, _2, _1, _0))
-
-#define NAMECTR(name) _CONCAT(name, __COUNTER__)
+			_ZZ, _ZZ, _ZZ, _ZZ, _ZZ, _ZZ, _ZZ, _ZZ, _ZZ, _ZZ, \
+			_YY, _YY, _YY, _YY, _YY, _YY, _YY, _YY, _YY, _YY, \
+			_XX, _XX, _XX, _XX, _XX, _XX, _XX, _XX, _XX, _XX, \
+			_10,  _9,  _8,  _7,  _6,  _5,  _4,  _3,  _2,  _1, \
+			_0))
 
 /* per-arg repeat macros, use like:
  * #define PERARG(n) ...n...
  * #define FOO(...) MACRO_REPEAT(PERARG, ##__VA_ARGS__)
  */
 
-#define _MACRO_REPEAT_0(NAME)
-#define _MACRO_REPEAT_1(NAME, A1) \
-	NAME(A1)
-#define _MACRO_REPEAT_2(NAME, A1, A2) \
-	NAME(A1) NAME(A2)
-#define _MACRO_REPEAT_3(NAME, A1, A2, A3) \
-	NAME(A1) NAME(A2) NAME(A3)
-#define _MACRO_REPEAT_4(NAME, A1, A2, A3, A4) \
-	NAME(A1) NAME(A2) NAME(A3) NAME(A4)
-#define _MACRO_REPEAT_5(NAME, A1, A2, A3, A4, A5) \
-	NAME(A1) NAME(A2) NAME(A3) NAME(A4) NAME(A5)
-#define _MACRO_REPEAT_6(NAME, A1, A2, A3, A4, A5, A6) \
-	NAME(A1) NAME(A2) NAME(A3) NAME(A4) NAME(A5) NAME(A6)
-#define _MACRO_REPEAT_7(NAME, A1, A2, A3, A4, A5, A6, A7) \
-	NAME(A1) NAME(A2) NAME(A3) NAME(A4) NAME(A5) NAME(A6) NAME(A7)
-#define _MACRO_REPEAT_8(NAME, A1, A2, A3, A4, A5, A6, A7, A8) \
-	NAME(A1) NAME(A2) NAME(A3) NAME(A4) NAME(A5) NAME(A6) NAME(A7) NAME(A8)
+#define _EMPTY()
+#define _SEMICOLON() ;
+#define _COMMA()     ,
 
-#define MACRO_REPEAT(NAME, ...) \
-	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(NAME, ##__VA_ARGS__)
-
-/* per-arglist repeat macro, use like this:
- * #define foo(...) MAP_LISTS(F, ##__VA_ARGS__)
- * where F is a n-ary function where n is the number of args in each arglist.
- * e.g.: MAP_LISTS(f, (a, b), (c, d))
- * expands to: f(a, b); f(c, d)
+/* multiple copies to get around the macro being disabled while being itself
+ * expanded, for _MACRO_REPEAT_{XX,YY,ZZ} below
  */
+#define _MACRO_REPEAT0(SEP, MARGS, NAME, ...)                                                     \
+	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(SEP, MARGS, NAME, ##__VA_ARGS__)
+#define _MACRO_REPEAT1(SEP, MARGS, NAME, ...)                                                     \
+	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(SEP, MARGS, NAME, ##__VA_ARGS__)
+#define _MACRO_REPEAT2(SEP, MARGS, NAME, ...)                                                     \
+	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(SEP, MARGS, NAME, ##__VA_ARGS__)
+#define _MACRO_REPEAT3(SEP, MARGS, NAME, ...)                                                     \
+	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(SEP, MARGS, NAME, ##__VA_ARGS__)
 
-#define ESC(...) __VA_ARGS__
-#define MAP_LISTS(M, ...)                                                      \
-	_CONCAT(_MAP_LISTS_, PP_NARG(__VA_ARGS__))(M, ##__VA_ARGS__)
-#define _MAP_LISTS_0(M)
-#define _MAP_LISTS_1(M, _1) ESC(M _1)
-#define _MAP_LISTS_2(M, _1, _2) ESC(M _1; M _2)
-#define _MAP_LISTS_3(M, _1, _2, _3) ESC(M _1; M _2; M _3)
-#define _MAP_LISTS_4(M, _1, _2, _3, _4) ESC(M _1; M _2; M _3; M _4)
-#define _MAP_LISTS_5(M, _1, _2, _3, _4, _5) ESC(M _1; M _2; M _3; M _4; M _5)
-#define _MAP_LISTS_6(M, _1, _2, _3, _4, _5, _6)                                \
-	ESC(M _1; M _2; M _3; M _4; M _5; M _6)
-#define _MAP_LISTS_7(M, _1, _2, _3, _4, _5, _6, _7)                            \
-	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7)
-#define _MAP_LISTS_8(M, _1, _2, _3, _4, _5, _6, _7, _8)                        \
-	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7; M _8)
+#define _MACRO_REPEAT_0(SEP, MARGS, NAME)
+#define _MACRO_REPEAT_1(SEP, MARGS, NAME, A1) \
+	NAME(MARGS, A1)
+#define _MACRO_REPEAT_2(SEP, MARGS, NAME, A1, A2) \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2)
+#define _MACRO_REPEAT_3(SEP, MARGS, NAME, A1, A2, A3) \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2) SEP() NAME(MARGS, A3)
+#define _MACRO_REPEAT_4(SEP, MARGS, NAME, A1, A2, A3, A4)                                         \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2) SEP() NAME(MARGS, A3) SEP() NAME(MARGS, A4)
+#define _MACRO_REPEAT_5(SEP, MARGS, NAME, A1, A2, A3, A4, A5) \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2) SEP() NAME(MARGS, A3) SEP() NAME(MARGS, A4) SEP() NAME(MARGS, A5)
+#define _MACRO_REPEAT_6(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6) \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2) SEP() NAME(MARGS, A3) SEP() NAME(MARGS, A4) SEP() NAME(MARGS, A5) SEP() NAME(MARGS, A6)
+#define _MACRO_REPEAT_7(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7) \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2) SEP() NAME(MARGS, A3) SEP() NAME(MARGS, A4) SEP() NAME(MARGS, A5) SEP() NAME(MARGS, A6) SEP() NAME(MARGS, A7)
+#define _MACRO_REPEAT_8(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8) \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2) SEP() NAME(MARGS, A3) SEP() NAME(MARGS, A4) SEP() NAME(MARGS, A5) SEP() NAME(MARGS, A6) SEP() NAME(MARGS, A7) SEP() NAME(MARGS, A8)
+#define _MACRO_REPEAT_9(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8, A9) \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2) SEP() NAME(MARGS, A3) SEP() NAME(MARGS, A4) SEP() NAME(MARGS, A5) SEP() NAME(MARGS, A6) SEP() NAME(MARGS, A7) SEP() NAME(MARGS, A8) SEP() NAME(MARGS, A9)
+#define _MACRO_REPEAT_10(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) \
+	NAME(MARGS, A1) SEP() NAME(MARGS, A2) SEP() NAME(MARGS, A3) SEP() NAME(MARGS, A4) SEP() NAME(MARGS, A5) SEP() NAME(MARGS, A6) SEP() NAME(MARGS, A7) SEP() NAME(MARGS, A8) SEP() NAME(MARGS, A9) SEP() NAME(MARGS, A10)
+
+/* clang-format on */
+
+/* note these must use a separate copy of _MACRO_REPEAT */
+#define _MACRO_REPEAT_XX(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, ...)          \
+	_MACRO_REPEAT_10(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10)               \
+	SEP() _MACRO_REPEAT1(SEP, MARGS, NAME, __VA_ARGS__)
+
+#define _MACRO_REPEAT_YY(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, ...)          \
+	_MACRO_REPEAT_10(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10)               \
+	SEP() _MACRO_REPEAT2(SEP, MARGS, NAME, __VA_ARGS__)
+
+#define _MACRO_REPEAT_ZZ(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, ...)          \
+	_MACRO_REPEAT_10(SEP, MARGS, NAME, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10)               \
+	SEP() _MACRO_REPEAT3(SEP, MARGS, NAME, __VA_ARGS__)
+
+#define _MACRO_PLAIN_ARG(NAME, ARG) NAME(ARG)
+#define _MACRO_REPEAT(NAME, ...)    _MACRO_REPEAT0(_EMPTY, NAME, _MACRO_PLAIN_ARG, ##__VA_ARGS__)
+#define MACRO_REPEAT(...)	    _MACRO_REPEAT(__VA_ARGS__)
+
+#define _MACRO_REPEAT_SEMICOLON(NAME, ...)                                                        \
+	_MACRO_REPEAT0(_SEMICOLON, NAME, MACRO_APPLY, ##__VA_ARGS__)
+#define MACRO_REPEAT_SEMICOLON(...) _MACRO_REPEAT_SEMICOLON(__VA_ARGS__)
+
+#define _ONE(ARG)	 +1
+#define MACRO_NARGS(...) (0 MACRO_REPEAT(_ONE, ##__VA_ARGS__))
 
 /*
  * for warnings on macros, put in the macro content like this:
@@ -317,29 +357,6 @@ extern "C" {
 	})
 
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
-
-/* Some insane macros to count number of varargs to a functionlike macro */
-#define PP_ARG_N( \
-          _1,  _2,  _3,  _4,  _5,  _6,  _7,  _8,  _9, _10, \
-         _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, \
-         _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, \
-         _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, \
-         _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, \
-         _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, \
-         _61, _62, _63, N, ...) N
-
-#define PP_RSEQ_N()                                        \
-         62, 61, 60,                                       \
-         59, 58, 57, 56, 55, 54, 53, 52, 51, 50,           \
-         49, 48, 47, 46, 45, 44, 43, 42, 41, 40,           \
-         39, 38, 37, 36, 35, 34, 33, 32, 31, 30,           \
-         29, 28, 27, 26, 25, 24, 23, 22, 21, 20,           \
-         19, 18, 17, 16, 15, 14, 13, 12, 11, 10,           \
-          9,  8,  7,  6,  5,  4,  3,  2,  1,  0
-
-#define PP_NARG_(...) PP_ARG_N(__VA_ARGS__)
-#define PP_NARG(...)     PP_NARG_(_, ##__VA_ARGS__, PP_RSEQ_N())
-
 
 /* sigh. this is so ugly, it overflows and wraps to being nice again.
  *

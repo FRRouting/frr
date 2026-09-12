@@ -42,8 +42,10 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 			struct bgp *bgp_nexthop, struct bgp_path_info *pi_source);
 static void bgp_nht_ifp_initial(struct event *event);
 
-DEFINE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
-	    (bgp, pi, valid));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_nht_hooks.h"
+#include "lib/hooks_end.h"
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {

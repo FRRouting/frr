@@ -9,7 +9,10 @@
 #include "northbound.h"
 #include "keychain.h"
 
-DEFINE_HOOK(keychain_updated, (const char *keychain_name), (keychain_name));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/keychain_nb_hooks.h"
+#include "lib/hooks_end.h"
 
 static void keychain_touch(struct keychain *keychain)
 {

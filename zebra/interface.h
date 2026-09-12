@@ -217,9 +217,6 @@ struct zebra_if {
 	char *desc;
 };
 
-DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struct interface *ifp),
-	     (vty, json_if, ifp));
-
 #define IS_ZEBRA_IF_VRF(ifp)                                                   \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VRF)
 
@@ -357,6 +354,12 @@ extern int interface_list_proc(void);
 #ifdef HAVE_PROC_NET_IF_INET6
 extern int ifaddr_proc_ipv6(void);
 #endif /* HAVE_PROC_NET_IF_INET6 */
+
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/interface_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

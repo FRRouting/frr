@@ -110,6 +110,11 @@ noinst_HEADERS += \
 	ospfd/ospf_vty.h \
 	ospfd/ospf_zebra.h \
 	ospfd/ospf_auth.h \
+	\
+	ospfd/ospf_interface_hooks.h \
+	ospfd/ospf_ism_hooks.h \
+	ospfd/ospf_lsa_hooks.h \
+	ospfd/ospf_nsm_hooks.h \
 	# end
 
 ospfd_ospfd_LDADD = ospfd/libfrrospf.a ospfd/libfrrospfclient.a lib/libfrr.la $(LIBCAP) $(LIBM)

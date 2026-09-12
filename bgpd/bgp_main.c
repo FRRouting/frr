@@ -52,15 +52,14 @@
 #include "bgpd/bgp_routemap_nb.h"
 #include "bgpd/bgp_community_alias.h"
 
-DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
-	    (vty, vrf));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_main_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
-
-DEFINE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
-	    (vrf, enabled));
 
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = { { "bgp_port", required_argument, NULL, 'p' },

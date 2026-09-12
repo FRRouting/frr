@@ -46,9 +46,10 @@ DECLARE_RBTREE_UNIQ(ospf6_if_p2xp_neighcfgs, struct ospf6_if_p2xp_neighcfg,
 
 static void p2xp_neigh_refresh(struct ospf6_neighbor *on, uint32_t prev_cost);
 
-DEFINE_HOOK(ospf6_neighbor_change,
-	    (struct ospf6_neighbor * on, int state, int next_state),
-	    (on, state, next_state));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ospf6d/ospf6_neighbor_hooks.h"
+#include "lib/hooks_end.h"
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 

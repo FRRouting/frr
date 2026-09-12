@@ -51,10 +51,10 @@ DEFINE_MTYPE_STATIC(ZEBRA, L3NEIGH, "EVPN Neighbor");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVXLAN_SG, "zebra VxLAN multicast group");
 DEFINE_MTYPE_STATIC(ZEBRA, EVPN_VTEP, "zebra VxLAN VTEP IP");
 
-DEFINE_HOOK(zebra_rmac_update,
-	    (struct zebra_mac * rmac, struct zebra_l3vni *zl3vni, bool delete,
-	     const char *reason),
-	    (rmac, zl3vni, delete, reason));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_vxlan_hooks.h"
+#include "lib/hooks_end.h"
 
 /* config knobs */
 static bool accept_bgp_seq = true;

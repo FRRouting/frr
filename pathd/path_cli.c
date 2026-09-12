@@ -45,9 +45,10 @@ static int segment_list_has_prefix(
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client");
 
-DEFINE_HOOK(pathd_srte_check_config_not_empty, (), ());
-DEFINE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
-DEFINE_HOOK(pathd_srte_no_srte, (), ());
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "pathd/path_cli_hooks.h"
+#include "lib/hooks_end.h"
 
 /* Vty node structures. */
 static struct cmd_node segment_routing_node = {

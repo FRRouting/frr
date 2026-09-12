@@ -63,6 +63,9 @@ noinst_HEADERS += \
 	ospf6d/ospf6_zebra.h \
 	ospf6d/ospf6d.h \
 	ospf6d/ospf6_auth_trailer.h \
+	\
+	ospf6d/ospf6_interface_hooks.h \
+	ospf6d/ospf6_neighbor_hooks.h \
 	# end
 
 ospf6d_ospf6d_LDADD = ospf6d/libospf6.a lib/libfrr.la $(LIBCAP)

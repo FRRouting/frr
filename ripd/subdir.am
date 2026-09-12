@@ -42,6 +42,8 @@ noinst_HEADERS += \
 	ripd/rip_interface.h \
 	ripd/rip_nb.h \
 	ripd/ripd.h \
+	\
+	ripd/rip_interface_hooks.h \
 	# end
 
 ripd_ripd_LDADD = lib/libfrr.la $(LIBCAP)

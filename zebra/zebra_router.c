@@ -27,7 +27,10 @@ struct zebra_router zrouter = {
 	.zav.multipath_num = MULTIPATH_NUM,
 };
 
-DEFINE_HOOK(nos_initialize_data, (struct zebra_architectural_values *zav), (zav));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_router_hooks.h"
+#include "lib/hooks_end.h"
 
 static inline int
 zebra_router_table_entry_compare(const struct zebra_router_table *e1,

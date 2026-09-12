@@ -274,8 +274,10 @@ extern uint8_t dr_election(struct ospf6_interface *oi);
 extern void ospf6_interface_auth_trailer_cmd_init(void);
 extern void ospf6_auth_write_config(struct vty *vty,
 				    struct ospf6_auth_data *at_data);
-DECLARE_HOOK(ospf6_interface_change,
-	     (struct ospf6_interface * oi, int state, int old_state),
-	     (oi, state, old_state));
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "ospf6d/ospf6_interface_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* OSPF6_INTERFACE_H */

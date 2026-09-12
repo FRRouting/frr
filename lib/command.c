@@ -1144,17 +1144,12 @@ int cmd_execute_command_strict(vector vline, struct vty *vty,
  * cmd_out
  *    The result of any processing.
  */
-DECLARE_HOOK(cmd_execute,
-	     (struct vty *vty, const char *cmd_in, char **cmd_out),
-	     (vty, cmd_in, cmd_out));
-DEFINE_HOOK(cmd_execute, (struct vty *vty, const char *cmd_in, char **cmd_out),
-	    (vty, cmd_in, cmd_out));
+DECLARE_HOOK(cmd_execute, (struct vty *, vty), (const char *, cmd_in), (char **, cmd_out));
+DEFINE_HOOK(cmd_execute, (struct vty *, vty), (const char *, cmd_in), (char **, cmd_out));
 
 /* Hook executed after a CLI command. */
-DECLARE_KOOH(cmd_execute_done, (struct vty *vty, const char *cmd_exec),
-	     (vty, cmd_exec));
-DEFINE_KOOH(cmd_execute_done, (struct vty *vty, const char *cmd_exec),
-	    (vty, cmd_exec));
+DECLARE_KOOH(cmd_execute_done, (struct vty *, vty), (const char *, cmd_exec));
+DEFINE_KOOH(cmd_execute_done, (struct vty *, vty), (const char *, cmd_exec));
 
 /*
  * cmd_execute hook subscriber to handle `|` actions.

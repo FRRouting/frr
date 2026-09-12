@@ -129,9 +129,11 @@ extern struct key *key_match_for_accept(const struct keychain *keychain,
 extern struct key *key_lookup_for_send(const struct keychain *);
 const char *keychain_algo_str(enum keychain_hash_algo hash_algo);
 
-
-DECLARE_HOOK(keychain_updated, (const char *keychain_name), (keychain_name));
-DECLARE_HOOK(keychain_removed, (const char *keychain_name), (keychain_name));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/keychain_hooks.h"
+#include "lib/keychain_nb_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

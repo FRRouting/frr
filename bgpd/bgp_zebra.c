@@ -64,9 +64,10 @@ struct zclient *bgp_zclient = NULL;
 struct zclient *bgp_zclient_sync;
 static bool bgp_zebra_label_manager_connect(void);
 
-/* hook to indicate vrf status change for SNMP */
-DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
-	    (bgp, ifp));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_zebra_hooks.h"
+#include "lib/hooks_end.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_IF_INFO, "BGP interface context");
 

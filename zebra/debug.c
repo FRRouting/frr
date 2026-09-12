@@ -31,7 +31,10 @@ unsigned long zebra_debug_neigh;
 unsigned long zebra_debug_tc;
 unsigned long zebra_debug_srv6;
 
-DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/debug_hooks.h"
+#include "lib/hooks_end.h"
 
 DEFUN_NOSH (show_debugging_zebra,
 	    show_debugging_zebra_cmd,

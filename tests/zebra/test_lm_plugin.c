@@ -14,7 +14,7 @@
 extern struct label_manager lbl_mgr;
 
 /* shim out unused functions/variables to allow the lablemanager to compile*/
-DEFINE_KOOH(zserv_client_close, (struct zserv * client), (client));
+DEFINE_KOOH(zserv_client_close, (struct zserv *, client));
 unsigned long zebra_debug_packet = 0;
 struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
 					uint32_t session_id)

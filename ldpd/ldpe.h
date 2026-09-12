@@ -306,7 +306,9 @@ void ldpe_l2vpn_exit(struct l2vpn *l2vpn);
 void ldpe_l2vpn_pw_init(struct l2vpn_pw *pw);
 void ldpe_l2vpn_pw_exit(struct l2vpn_pw *pw);
 
-DECLARE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),
-	     (nbr, old_state));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "ldpd/neighbor_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif	/* _LDPE_H_ */

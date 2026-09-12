@@ -156,7 +156,10 @@ extern void oid_copy_int(oid oid[], int *val);
 extern void oid2string(oid oid[], int len, char *string);
 extern void oid_copy_str(oid oid[], const char *string, int len);
 
-DECLARE_HOOK(agentx_enabled, (), ());
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/agentx_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

@@ -549,48 +549,10 @@ void isis_notif_own_lsp_purge(const struct isis_circuit *circuit, const uint8_t 
 /* cmp */
 int cli_cmp_isis_redistribute_table(const struct lyd_node *dnode1, const struct lyd_node *dnode2);
 
-/* We also declare hook for every notification */
-
-DECLARE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
-DECLARE_HOOK(isis_hook_lsp_too_large,
-	     (const struct isis_circuit *circuit, uint32_t pdu_size, const uint8_t *lsp_id),
-	     (circuit, pdu_size, lsp_id));
-/* Note: no isis_hook_corrupted_lsp - because this notification is not used */
-DECLARE_HOOK(isis_hook_lsp_exceed_max, (const struct isis_area *area, const uint8_t *lsp_id),
-	     (area, lsp_id));
-DECLARE_HOOK(isis_hook_max_area_addr_mismatch,
-	     (const struct isis_circuit *circuit, uint8_t max_addrs, const char *raw_pdu,
-	      size_t raw_pdu_len),
-	     (circuit, max_addrs, raw_pdu, raw_pdu_len));
-DECLARE_HOOK(isis_hook_authentication_type_failure,
-	     (const struct isis_circuit *circuit, const char *raw_pdu, size_t raw_pdu_len),
-	     (circuit, raw_pdu, raw_pdu_len));
-DECLARE_HOOK(isis_hook_authentication_failure,
-	     (const struct isis_circuit *circuit, const char *raw_pdu, size_t raw_pdu_len),
-	     (circuit, raw_pdu, raw_pdu_len));
-DECLARE_HOOK(isis_hook_adj_state_change, (const struct isis_adjacency *adj), (adj));
-DECLARE_HOOK(isis_hook_reject_adjacency,
-	     (const struct isis_circuit *circuit, const char *raw_pdu,
-	      size_t raw_pdu_len),
-	     (circuit, raw_pdu, raw_pdu_len));
-DECLARE_HOOK(isis_hook_area_mismatch,
-	     (const struct isis_circuit *circuit, const char *raw_pdu, size_t raw_pdu_len),
-	     (circuit, raw_pdu, raw_pdu_len));
-DECLARE_HOOK(isis_hook_id_len_mismatch,
-	     (const struct isis_circuit *circuit, uint8_t rcv_id_len, const char *raw_pdu,
-	      size_t raw_pdu_len),
-	     (circuit, rcv_id_len, raw_pdu, raw_pdu_len));
-DECLARE_HOOK(isis_hook_version_skew,
-	     (const struct isis_circuit *circuit, uint8_t version, const char *raw_pdu,
-	      size_t raw_pdu_len),
-	     (circuit, version, raw_pdu, raw_pdu_len));
-DECLARE_HOOK(isis_hook_lsp_error,
-	     (const struct isis_circuit *circuit, const uint8_t *lsp_id, const char *raw_pdu,
-	      size_t raw_pdu_len),
-	     (circuit, lsp_id, raw_pdu, raw_pdu_len));
-DECLARE_HOOK(isis_hook_seqno_skipped, (const struct isis_circuit *circuit, const uint8_t *lsp_id),
-	     (circuit, lsp_id));
-DECLARE_HOOK(isis_hook_own_lsp_purge, (const struct isis_circuit *circuit, const uint8_t *lsp_id),
-	     (circuit, lsp_id));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_nb_notifications_hooks.h"
+#include "isisd/isisd_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* ISISD_ISIS_NB_H_ */
