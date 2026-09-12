@@ -791,6 +791,118 @@ def test_tvd_vxlan_interface_vty():
         )
 
 
+def _evpn_l2vni_svi_setup(router, vni, vtep, addr):
+    router.run(
+        "ip link add name br{} type bridge stp_state 0 vlan_filtering 1".format(vni)
+    )
+    router.run("ip link set dev br{} up".format(vni))
+    router.run("bridge vlan add vid {} dev br{} self".format(vni, vni))
+    router.run(
+        "ip link add vxlan{} type vxlan id {} dstport 4789 local {} nolearning".format(
+            vni, vni, vtep
+        )
+    )
+    router.run("ip link set dev vxlan{} master br{}".format(vni, vni))
+    router.run("bridge vlan del vid 1 dev vxlan{}".format(vni))
+    router.run("bridge vlan add vid {} dev vxlan{} pvid untagged".format(vni, vni))
+    router.run("ip link set up dev vxlan{}".format(vni))
+    router.run(
+        "ip link add link br{} name vlan{} type vlan id {} protocol 802.1q".format(
+            vni, vni, vni
+        )
+    )
+    router.run("ip addr add {} dev vlan{}".format(addr, vni))
+    router.run("ip link set dev vlan{} up".format(vni))
+
+
+def _wait_for_existing_l2vni(router, vni, vxlan_if, svi_if):
+    expected = {
+        "vni": vni,
+        "type": "L2",
+        "vxlanInterface": vxlan_if,
+        "sviInterface": svi_if,
+    }
+
+    test_func = partial(evpn_show_vni_json_elide_ifindex, router, vni, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
+    assertmsg = '"{}" VNI {} did not converge before repro: {}'.format(
+        router.name, vni, result
+    )
+    assert result is None, assertmsg
+
+
+def _evpn_l2vni_svi_cleanup(router, vni):
+    router.run("ip link del vlan{} 2>/dev/null || true".format(vni))
+    router.run("ip link del vxlan{} 2>/dev/null || true".format(vni))
+    router.run("ip link del br{} 2>/dev/null || true".format(vni))
+
+
+def _check_vni_svi(router, vni, svi_name):
+    output = router.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
+    if not output:
+        return "VNI {} missing".format(vni)
+
+    if output.get("sviInterface") != svi_name:
+        return "VNI {} SVI mismatch: {}".format(vni, json.dumps(output, indent=4))
+
+    return None
+
+
+def _evpn_l2vni_vlan_flip(router, vni, vlan):
+    other_vlan = 202 if vlan == vni else vni
+    router.run(
+        "bridge vlan del vid {} dev vxlan{} 2>/dev/null || true".format(
+            other_vlan, vni
+        )
+    )
+    router.run("bridge vlan add vid {} dev vxlan{} pvid untagged".format(vlan, vni))
+
+
+def _evpn_l2vni_remap_away_then_delete_svi(router, vni):
+    _evpn_l2vni_vlan_flip(router, vni, 202)
+    router.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
+    router.run("ip link del vlan{} 2>/dev/null || true".format(vni))
+    _evpn_l2vni_vlan_flip(router, vni, vni)
+    router.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
+
+
+def test_evpn_l2vni_svi_delete_after_vlan_remap_issue_21794():
+    """
+    Delete an L2 VNI SVI after remapping the VXLAN away from its VLAN.
+
+    This targets stale zevpn->svi_if references. The SVI-down lookup no longer
+    maps back to the VNI once the VXLAN access VLAN is changed, so a later VNI
+    update can expose a stale zevpn->svi_if pointer.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    vni = 201
+    svi_name = "vlan{}".format(vni)
+
+    _wait_for_existing_l2vni(pe1, 101, "vxlan101", "br101")
+    _evpn_l2vni_svi_cleanup(pe1, vni)
+    try:
+        _evpn_l2vni_svi_setup(pe1, vni, "10.10.10.10", "10.201.0.1/24")
+
+        test_func = partial(_check_vni_svi, pe1, vni, svi_name)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assertmsg = '"{}" VNI {} did not bind to {}'.format(pe1.name, vni, svi_name)
+        assert result is None, assertmsg
+
+        _evpn_l2vni_remap_away_then_delete_svi(pe1, vni)
+
+        status = pe1.check_router_running()
+        assertmsg = "Router {} has issues after SVI delete: {}".format(
+            pe1.name, status
+        )
+        assert not status, assertmsg
+    finally:
+        _evpn_l2vni_svi_cleanup(pe1, vni)
+
+
 def test_imet():
     """
     Verify PMSI tunnel attribute info
