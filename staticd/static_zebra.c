@@ -94,7 +94,16 @@ static int static_ifp_destroy(struct interface *ifp)
 
 static int interface_address_add(ZAPI_CALLBACK_ARGS)
 {
-	zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
+	struct interface *ifp;
+	struct connected *ifc;
+
+	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
+
+	ifp = ifc->ifp;
+
+	/* route walk */
+	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+		static_ifindex_update(ifp, true);
 
 	return 0;
 }
