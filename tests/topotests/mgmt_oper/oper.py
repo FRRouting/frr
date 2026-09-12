@@ -63,7 +63,41 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
+def is_link_local(prefix):
+    if not prefix or ":" not in prefix:
+        return False
+    return ipaddress.ip_network(prefix, strict=False).network_address.is_link_local
+
+
+def rm_link_local_routes(j):
+    """Drop IPv6 link-local routes from any RIB in a `get-data` result.
+
+    Every interface carries a link-local address, so a RIB holds one
+    fe80::/64 route with a connected route-entry per interface.  Zebra
+    learns those interfaces in whatever order it gets them, and that order
+    is not stable from one topology setup to the next: both the order of
+    the entries and which one of them wins route selection move around, so
+    the entry carrying "selected" and "internal-flags" is a different one
+    on different runs.  Stored results are compared exactly, keys included,
+    so they cannot pin any of that down.  test_oper_link_local() covers the
+    link-locals directly instead, comparing entry counts per prefix.
+    """
+    if j is None:
+        return j
+    for vrf in (j.get("frr-vrf:lib") or {}).get("vrf") or []:
+        zebra = vrf.get("frr-zebra:zebra")
+        if not isinstance(zebra, dict):
+            continue
+        for rib in (zebra.get("ribs") or {}).get("rib") or []:
+            routes = rib.get("route")
+            if routes is None:
+                continue
+            rib["route"] = [x for x in routes if not is_link_local(x.get("prefix"))]
+    return j
+
+
 def clean_json(j):
+    j = rm_link_local_routes(copy.deepcopy(j))
     if (
         j is None
         or not isinstance(j.get("frr-interface:lib"), dict)
@@ -71,7 +105,6 @@ def clean_json(j):
     ):
         return j
     rm_if_re = r"span|gre|sit|tnl|tun|vti"
-    j = copy.deepcopy(j)
     try:
         iflist = j["frr-interface:lib"]["interface"]
     except KeyError:
@@ -211,6 +244,33 @@ def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
                 "proto (static|196) metric 20"
             )
         assert re.search(route, kernel), f"Failed to find \n'{route}'\n in \n'{kernel}'"
+
+
+@retry(retry_timeout=60, initial_wait=0.1)
+def check_link_local_routes(r1, vrf):
+    """Every link-local route the CLI shows must also come back from the NB."""
+    vrfstr = "" if vrf == "default" else f" vrf {vrf}"
+    cli = json.loads(r1.cmd_raises(f"vtysh -c 'show ipv6 route{vrfstr} json'"))
+    expect = {p: len(e) for p, e in cli.items() if is_link_local(p)}
+    assert expect, f"vrf {vrf}: 'show ipv6 route' has no link-local routes"
+
+    query = f'/frr-vrf:lib/vrf[name="{vrf}"]/frr-zebra:zebra/ribs/rib'
+    nb = json.loads(r1.cmd_raises(f"vtysh -c 'show mgmt get-data {query}'"))
+
+    got = {}
+    for lvrf in nb["frr-vrf:lib"]["vrf"]:
+        for rib in lvrf["frr-zebra:zebra"]["ribs"]["rib"]:
+            if rib["afi-safi-name"] != "frr-routing:ipv6-unicast":
+                continue
+            for route in rib.get("route", []):
+                if not is_link_local(route["prefix"]):
+                    continue
+                nentries = len(route.get("route-entry", []))
+                got[route["prefix"]] = max(got.get(route["prefix"], 0), nentries)
+
+    assert (
+        got == expect
+    ), f"vrf {vrf}: northbound link-local routes {got} differ from cli {expect}"
 
 
 def addrgen(a, count, step=1):
