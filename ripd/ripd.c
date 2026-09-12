@@ -2136,6 +2136,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	}
 
 	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		bool poison = false;
+
 		list = rp->info;
 
 		if (list == NULL)
@@ -2182,16 +2184,27 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 
 		/* Apply output filters. */
 		ret = rip_filter(RIP_FILTER_OUT, p, ri);
-		if (ret < 0)
-			continue;
+		if (ret < 0) {
+			/* If this route was advertised under the previous
+			 * policy and is now denied by the outbound
+			 * distribute-list/access-list, poison it once so
+			 * neighbors withdraw it instead of keeping it until
+			 * timeout. Otherwise it was never advertised, so just
+			 * skip it.
+			 */
+			if (!CHECK_FLAG(rinfo->flags,
+					RIP_RTF_POLICY_ADVERTISED))
+				continue;
+			poison = true;
+		}
 
 		/* Changed route only output. */
-		if (route_type == rip_changed_route &&
+		if (!poison && route_type == rip_changed_route &&
 		    (!(rinfo->flags & RIP_RTF_CHANGED)))
 			continue;
 
 		/* Split horizon. */
-		if (ri->split_horizon == RIP_SPLIT_HORIZON) {
+		if (!poison && ri->split_horizon == RIP_SPLIT_HORIZON) {
 			/*
 			 * We perform split horizon for RIP and connected
 			 * route.  For rip routes, we want to suppress the
@@ -2246,7 +2259,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			rinfo->nexthop_out = rinfo->nh.gate.ipv4;
 
 		/* Interface route-map */
-		if (ri->routemap[RIP_FILTER_OUT]) {
+		if (!poison && ri->routemap[RIP_FILTER_OUT]) {
 			ret = route_map_apply(ri->routemap[RIP_FILTER_OUT],
 					      (struct prefix *)p, rinfo);
 
@@ -2255,12 +2268,15 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					zlog_debug(
 						"RIP %pFX is filtered by route-map out",
 						p);
-				continue;
+				if (!CHECK_FLAG(rinfo->flags,
+						RIP_RTF_POLICY_ADVERTISED))
+					continue;
+				poison = true;
 			}
 		}
 
-		/* Apply redistribute route map - continue, if deny */
-		if (rip->redist[rinfo->type].route_map.name &&
+		/* Apply redistribute route map - poison or skip, if deny */
+		if (!poison && rip->redist[rinfo->type].route_map.name &&
 		    rinfo->sub_type != RIP_ROUTE_INTERFACE) {
 			ret = route_map_apply(
 				rip->redist[rinfo->type].route_map.map,
@@ -2271,7 +2287,10 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					zlog_debug(
 						"%pFX is filtered by route-map",
 						p);
-				continue;
+				if (!CHECK_FLAG(rinfo->flags,
+						RIP_RTF_POLICY_ADVERTISED))
+					continue;
+				poison = true;
 			}
 		}
 
@@ -2336,6 +2355,17 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					}
 			}
 		}
+
+		/* Remember that this route is advertised under the current
+		 * policy, or, when poisoning a previously advertised route,
+		 * force the metric to infinity and clear the flag so it is
+		 * withdrawn only once.
+		 */
+		if (poison) {
+			rinfo->metric_out = RIP_METRIC_INFINITY;
+			UNSET_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED);
+		} else
+			SET_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED);
 
 		/* Prepare preamble, auth headers, if needs be */
 		if (num == 0) {
