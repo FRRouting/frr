@@ -2035,6 +2035,14 @@ class LinuxNamespace(Commander, InterfaceMixin):
                 x: os.readlink(f"{unet.proc_path}/{unet.pid}/ns/{x}") for x in nslist
             }
 
+        # The namespace process is forked from *this* (the launching) process and
+        # only later nsenter's into the parent (`nsdict`) namespaces and then
+        # unshares into its own fresh namespaces.  Until it has nsenter'd it is
+        # transiently in our (the launcher's) namespaces, whose ids differ from
+        # `nsdict`.  Record them so the readiness loop below does not mistake that
+        # transient state for the final, freshly-unshared namespaces.
+        launch_nsdict = {x: os.readlink(f"/proc/self/ns/{x}") for x in nslist}
+
         #
         # (A) Basically we need to save the pid of the unshare call for nsenter.
         #
@@ -2380,18 +2388,27 @@ class LinuxNamespace(Commander, InterfaceMixin):
                             "unswitched: error (ok) checking %s: %s", nspath, error
                         )
                         continue
-                    if nsdict[fname] != nsf:
+                    if nsf != nsdict[fname] and nsf != launch_nsdict[fname]:
+                        # Differs from both the parent (`nsdict`) and the launcher
+                        # (`launch_nsdict`): this is the final, freshly-unshared ns.
                         self.logger.debug(
                             "switched: original %s current %s", nsdict[fname], nsf
                         )
                         nslist.remove(fname)
-                    elif unshare_inline:
+                    elif unshare_inline and nsf == nsdict[fname]:
                         logging.warning(
                             "unshare_inline not unshared %s == %s", nsdict[fname], nsf
                         )
                     else:
+                        # Either still in the parent ns (nsdict) or transiently still
+                        # in the launcher's ns (launch_nsdict, before nsenter): the
+                        # unshare has not completed yet, keep waiting.
                         self.logger.debug(
-                            "unswitched: current %s elapsed: %s", nsf, timeout.elapsed()
+                            "unswitched: current %s (parent %s launcher %s) elapsed: %s",
+                            nsf,
+                            nsdict[fname],
+                            launch_nsdict[fname],
+                            timeout.elapsed(),
                         )
                 if not nslist:
                     self.logger.debug(
