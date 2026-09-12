@@ -240,4 +240,6 @@ extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn);
 extern int install_uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn, bool install);
 extern void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr,
 					  struct prefix_evpn *evp, struct ipaddr *vtep_ip);
+extern bool bgp_evpn_derive_pip_ip(struct bgp *bgp_vrf);
+extern void bgp_evpn_handle_pip_ip_change(struct interface *ifp);
 #endif /* _QUAGGA_BGP_EVPN_H */
