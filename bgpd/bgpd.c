@@ -2421,6 +2421,10 @@ void peer_as_change(struct peer *peer, as_t as, enum peer_asn_type as_type,
 		UNSET_FLAG(peer->af_flags[AFI_L2VPN][SAFI_EVPN],
 			   PEER_FLAG_REFLECTOR_CLIENT);
 	}
+
+	/* local-role reset, BGP Roles are for eBGP sessions only */
+	if (newtype != BGP_PEER_EBGP)
+		peer_role_unset(peer);
 }
 
 /* If peer does not exist, create new one.  If peer already exists,
