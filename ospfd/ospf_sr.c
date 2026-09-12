@@ -691,6 +691,9 @@ mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id)
 		 * the list, probably needs tweaking.
 		 */
 		srp = listnode_head(srn->ext_prefix);
+		if (!srp)
+			return MPLS_INVALID_LABEL;
+
 		label = index2label(srp->sid, srn->srgb);
 	} else {
 		label = MPLS_INVALID_LABEL;
