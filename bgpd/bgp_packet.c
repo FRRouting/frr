@@ -52,6 +52,7 @@
 #include "bgpd/bgp_unreach.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
+#include "bgpd/bgp_rtc.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -333,6 +334,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
 	case SAFI_UNREACH:
 		return bgp_nlri_parse_unreach(peer, attr, packet, mp_withdraw);
+	case SAFI_RTC:
+		return bgp_nlri_parse_rtc(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
@@ -614,8 +617,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 			 * packet with appropriate attributes from peer
 			 * and advance peer */
 			s = bpacket_reformat_for_peer(next_pkt, paf);
-			assert(s);
-			bgp_packet_add(connection, s);
+			if (s)
+				bgp_packet_add(connection, s);
 			bpacket_queue_advance_peer(paf);
 		}
 	} while (s && (++generated < wpq) && (connection->obuf->count <= bm->outq_limit) &&
@@ -2211,6 +2214,7 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 			peer->afc[AFI_IP][SAFI_LABELED_UNICAST];
 		peer->afc_nego[AFI_IP][SAFI_FLOWSPEC] =
 			peer->afc[AFI_IP][SAFI_FLOWSPEC];
+		peer->afc_nego[AFI_IP][SAFI_RTC] = peer->afc[AFI_IP][SAFI_RTC];
 		peer->afc_nego[AFI_IP6][SAFI_UNICAST] =
 			peer->afc[AFI_IP6][SAFI_UNICAST];
 		peer->afc_nego[AFI_IP6][SAFI_MULTICAST] =
@@ -2400,6 +2404,8 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	bgp_size_t attribute_len;
 	bgp_size_t update_len;
 	bgp_size_t withdraw_len;
+	bool safi_rtc_refresh = false;
+
 	enum NLRI_TYPES {
 		NLRI_UPDATE,
 		NLRI_WITHDRAW,
@@ -2581,11 +2587,15 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 		case NLRI_MP_UPDATE:
 			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
 						  &nlris[i], 0);
+			if (nlris[i].safi == SAFI_RTC)
+				safi_rtc_refresh = true;
 			break;
 		case NLRI_WITHDRAW:
 		case NLRI_MP_WITHDRAW:
 			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
 						  &nlris[i], 1);
+			if (nlris[i].safi == SAFI_RTC)
+				safi_rtc_refresh = true;
 			break;
 		default:
 			nlri_ret = BGP_NLRI_PARSE_ERROR;
@@ -2605,6 +2615,24 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 			return BGP_Stop;
 		}
 	}
+
+	if (safi_rtc_refresh)
+		/* Upon BGP session establishment, an End-of-RIB (EoR) message is sent
+		 * for each negotiated AFI/SAFI. However, subsequent UPDATEs do not
+		 * conclude with an EoR message.
+		 *
+		 * When receiving an RTC UPDATE, there is no way to determine if it will
+		 * be the last one. To address this, an RTC EoR marker is added to the
+		 * queue upon each RTC UPDATE reception.
+		 *
+		 * Since RTC UPDATEs are prioritized over the RTC EoR marker in the queue,
+		 * the marker ensures that (E)VPN announcements are refreshed only after
+		 * processing all RTC UPDATEs.
+		 *
+		 * Additionally, a check prevents multiple EoR markers from being added
+		 * if one is already present in the queue.
+		 */
+		bgp_add_rtc_eor_mark(peer->bgp);
 
 	/* EoR checks
 	 *
@@ -2627,8 +2655,25 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 			safi = nlris[NLRI_MP_WITHDRAW].safi;
 		}
 
-		if (afi && peer->afc[afi][safi])
+		if (afi && peer->afc[afi][safi]) {
 			bgp_update_receive_eor(connection, afi, safi);
+
+			if (peer->afc_nego[AFI_IP][SAFI_RTC] && !safi_rtc_refresh) {
+				/* Upon BGP session establishment, an End-of-RIB (EoR) message is sent
+				 * for each negotiated AFI/SAFI. If an EoR is received for the RTC SAFI
+				 * but no UPDATE was received for that SAFI, it indicates that the peer
+				 * does not subscribe to any Route-Target and does not wish to receive
+				 * any (E)VPN prefixes.
+				 *
+				 * Since no RTC UPDATEs were received, the peer was not flagged for RTC UPDATEs,
+				 * and no RTC EoR marker was added to the queue. The flag is required to build
+				 * an empty prefix-list, while the marker ensures that any previously sent
+				 * prefixes are properly withdrawn.
+				 */
+				SET_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE);
+				bgp_add_rtc_eor_mark(peer->bgp);
+			}
+		}
 	}
 
 	/* Everything is done.  We unintern temporary structures which
@@ -3002,7 +3047,8 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 						orfp.p.prefixlen = *p_pnt++;
 
 					/* afi checked already */
-					orfp.p.family = afi2family(afi);
+					orfp.p.family = (safi == SAFI_RTC) ? AF_RTC
+									   : afi2family(afi);
 
 					/* 0 if not ok */
 					psize = PSIZE(orfp.p.prefixlen);
@@ -3996,6 +4042,9 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 			} else {
 				peer->afc_recv[afi][safi] = 0;
 				peer->afc_nego[afi][safi] = 0;
+
+				if (safi == SAFI_RTC)
+					bgp_peer_destroy_rtc_plist(peer);
 
 				if (peer_active_nego(peer))
 					bgp_clear_route(peer, afi, safi);

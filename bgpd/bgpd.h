@@ -118,6 +118,7 @@ enum bgp_af_index {
 	BGP_AF_BGP_LS,
 	BGP_AF_IPV4_UNREACH,
 	BGP_AF_IPV6_UNREACH,
+	BGP_AF_RTC,
 	BGP_AF_MAX
 };
 
@@ -791,6 +792,7 @@ struct bgp {
  * for bestpath comparison of imported paths.
  */
 #define BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS (1ULL << 47)
+#define BGP_FLAG_RTC_EOR_MARKER		     (1ULL << 63)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1181,6 +1183,9 @@ struct bgp {
 	uint64_t bestpath_runs;
 	uint64_t node_already_on_queue;
 	uint64_t node_deferred_on_queue;
+
+	/* list if Route-Target Constraint prefix-list */
+	struct list *rtc_plists;
 
 	QOBJ_FIELDS;
 };
@@ -1910,6 +1915,7 @@ struct peer {
 #define PEER_FLAG_LS_LOCAL_LINK_ID  (1ULL << 49)
 #define PEER_FLAG_LS_REMOTE_LINK_ID (1ULL << 50)
 #define PEER_FLAG_EBGP_MULTIHOP	    (1ULL << 51) /* explicit ebgp-multihop config */
+#define PEER_FLAG_RTC_UPDATE	    (1ULL << 63)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -2162,6 +2168,9 @@ struct peer {
 
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
+
+	/* Route Target Constraint list */
+	struct bgp_rtc_plist *rtc_plist;
 
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
@@ -3070,6 +3079,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_BGP_LS;
 		case SAFI_UNREACH:
 			return BGP_AF_IPV4_UNREACH;
+		case SAFI_RTC:
+			return BGP_AF_RTC;
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -3094,6 +3105,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_BGP_LS;
 		case SAFI_UNREACH:
 			return BGP_AF_IPV6_UNREACH;
+		case SAFI_RTC:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -3112,6 +3124,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 		case SAFI_ENCAP:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
+		case SAFI_RTC:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
 			return BGP_AF_MAX;
@@ -3130,6 +3143,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
 		case SAFI_UNSPEC:
+		case SAFI_RTC:
 		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
@@ -3157,6 +3171,7 @@ static inline int peer_afi_active_nego(const struct peer *peer, afi_t afi)
 	if (peer->afc_nego[afi][SAFI_UNICAST] || peer->afc_nego[afi][SAFI_MULTICAST] ||
 	    peer->afc_nego[afi][SAFI_LABELED_UNICAST] || peer->afc_nego[afi][SAFI_MPLS_VPN] ||
 	    peer->afc_nego[afi][SAFI_ENCAP] || peer->afc_nego[afi][SAFI_FLOWSPEC] ||
+	    peer->afc_nego[afi][SAFI_RTC] ||
 	    peer->afc_nego[afi][SAFI_UNREACH] || peer->afc_nego[afi][SAFI_EVPN])
 		return 1;
 	return 0;
@@ -3180,6 +3195,7 @@ static inline int peer_group_af_configured(struct peer_group *group)
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
 	    || peer->afc[AFI_IP6][SAFI_UNREACH]
 	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
+	    || peer->afc[AFI_IP][SAFI_RTC]
 	    || peer->afc[AFI_BGP_LS][SAFI_BGP_LS])
 		return 1;
 	return 0;

@@ -224,6 +224,11 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 							       "capabilityErrorMultiProtocolSafi",
 							       "unreachability");
 					break;
+				case SAFI_RTC:
+					json_object_string_add(json_cap,
+							       "capabilityErrorMultiProtocolSafi",
+							       "rtc");
+					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
 					json_object_int_add(
@@ -281,6 +286,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 					break;
 				case SAFI_UNREACH:
 					vty_out(vty, "SAFI Unreachability");
+					break;
+				case SAFI_RTC:
+					vty_out(vty, "SAFI RTC");
 					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
@@ -1585,6 +1593,7 @@ int bgp_open_option_parse(struct peer_connection *connection, uint16_t length, i
 		    && !peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 		    && !peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
 		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]
+		    && !peer->afc_nego[AFI_IP][SAFI_RTC]
 		    && !peer->afc_nego[AFI_BGP_LS][SAFI_BGP_LS]) {
 			flog_err(EC_BGP_PKT_OPEN,
 				 "%s [Error] Configured AFI/SAFIs do not overlap with received MP capabilities",

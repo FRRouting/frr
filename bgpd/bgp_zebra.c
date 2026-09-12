@@ -1622,6 +1622,10 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 		return ZCLIENT_SEND_SUCCESS;
 	}
 
+	if (table->safi == SAFI_RTC)
+		/* nothing to install */
+		return ZCLIENT_SEND_SUCCESS;
+
 	zapi_route_init(&api);
 
 	/* Make Zebra API structure. */
@@ -1825,6 +1829,10 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 				     table->safi, false);
 		return ZCLIENT_SEND_SUCCESS;
 	}
+
+	if (table->safi == SAFI_RTC)
+		/* Route-Target Constraint (RTC) prefixes are not installed into zebra RIB */
+		return ZCLIENT_SEND_SUCCESS;
 
 	zapi_route_init(&api);
 	api.vrf_id = bgp->vrf_id;
