@@ -2468,10 +2468,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--logfile",
         help="logfile for frr-reload",
-        default="/var/log/frr/frr-reload.log",
+        default=None,
     )
 
     args = parser.parse_args()
+
+    # Derive logfile path if not explicitly specified.
+    # In topotest context, use cwd (router's log directory).
+    # In production, use /var/log/frr/.
+    if args.logfile is None:
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            args.logfile = os.path.join(os.getcwd(), "frr-reload.log")
+        else:
+            args.logfile = "/var/log/frr/frr-reload.log"
 
     # Logging
     # For --test log to stdout
