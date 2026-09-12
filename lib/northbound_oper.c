@@ -1039,6 +1039,30 @@ static bool nb_op_schema_path_has_predicate(struct nb_op_yield_state *ys,
 }
 
 /**
+ * nb_op_pred_needs_siblings() - must this level emit its whole entry?
+ * @ys: the yield state for this tree walk.
+ * @level: the level whose children are about to be walked.
+ *
+ * A predicate naming keys is resolved into a specific entry while walking, but
+ * one naming anything else is not resolvable that way -- it is applied
+ * afterwards, by trimming the returned tree with the query xpath.  That trim
+ * can only keep an entry if the leaves the predicate names are in the tree, so
+ * a level carrying such a predicate has to emit its whole entry rather than
+ * only the node the query descends to.
+ *
+ * The predicates that need this are exactly the ones the walk already failed
+ * to resolve, which it records in @non_specific_predicate before descending.
+ *
+ * Return: true if every child of @level should be walked.
+ */
+static bool nb_op_pred_needs_siblings(struct nb_op_yield_state *ys, int level)
+{
+	if (level < 0 || level > darr_lasti(ys->query_tokens))
+		return false;
+	return ys->non_specific_predicate[level];
+}
+
+/**
  * nb_op_empty_container_ok() - determine if should keep empty container node.
  *
  * Return: true if the empty container should be kept.
@@ -1136,8 +1160,20 @@ static const struct lysc_node *nb_op_sib_next(struct nb_op_yield_state *ys,
 	 * working our way down the specific query path so just return NULL
 	 * (i.e., don't process siblings)
 	 */
-	if (darr_len(ys->schema_path) > darr_len(ys->node_infos))
-		return NULL;
+	if (darr_len(ys->schema_path) > darr_len(ys->node_infos)) {
+		struct nb_op_node_info *last = darr_last(ys->node_infos);
+		int level = darr_lasti(ys->node_infos);
+
+		/*
+		 * When sib is the node on top of the stack we are done with it,
+		 * so the predicate governing its siblings is its parent's.
+		 */
+		if (last && last->schema == sib)
+			level--;
+
+		if (!nb_op_pred_needs_siblings(ys, level))
+			return NULL;
+	}
 	/*
 	 * If sib is on top of the node info stack then
 	 * 1) it's a container node -or-
@@ -1202,7 +1238,8 @@ static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
 	 */
 	if (last != NULL)
 		assert(last->schema == parent);
-	if (darr_lasti(ys->node_infos) < ys->query_base_level)
+	if (darr_lasti(ys->node_infos) < ys->query_base_level &&
+	    !nb_op_pred_needs_siblings(ys, darr_lasti(ys->node_infos)))
 		return ys->schema_path[darr_lasti(ys->node_infos) + 1];
 
 	/* We always skip keys. */
