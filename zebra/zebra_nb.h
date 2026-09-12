@@ -38,6 +38,7 @@ int zebra_ipv6_forwarding_destroy(struct nb_cb_destroy_args *args);
 int zebra_workqueue_hold_timer_modify(struct nb_cb_modify_args *args);
 struct yang_data *zebra_ipv6_forwarding_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *zebra_state_mpls_forwarding_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *zebra_state_kernel_mac_ext_learn_get_elem(struct nb_cb_get_elem_args *args);
 int zebra_zapi_packets_modify(struct nb_cb_modify_args *args);
 int zebra_import_kernel_table_create(struct nb_cb_create_args *args);
 int zebra_import_kernel_table_destroy(struct nb_cb_destroy_args *args);

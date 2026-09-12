@@ -122,6 +122,29 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    8 bit values are scaled to a range of 1-254 and 16 bit values are
    scaled to a range of 1-65534.
 
+.. option:: --kernel-mac-ext-learn
+
+   **Global option** that enables hardware-based MAC learning and aging mode.
+
+   This is a system-wide zebra option (not EVPN-MH specific) designed for
+   platforms with hardware ASIC capabilities that perform MAC learning and
+   aging in hardware rather than kernel software.
+
+   When enabled:
+
+   - All MAC addresses (regardless of origin) are programmed with the
+     'extern_learn' attribute in the kernel
+   - Kernel-based MAC learning and aging are disabled system-wide
+   - Hardware is responsible for MAC aging, zebra manages control plane
+   - ARP and Neighbor Discovery (ND) suppression are disabled
+   - Asymmetric IRB (Integrated Routing and Bridging) is not supported
+
+   **Primary use case**: EVPN VXLAN Multihoming deployments with hardware
+   acceleration, but the infrastructure affects all MAC handling globally.
+
+   **Scope**: This flag changes how zebra interacts with the kernel for
+   all MAC entries, not just those associated with EVPN or multihoming.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour
