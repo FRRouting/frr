@@ -188,6 +188,7 @@ struct nhrp_packet_parser {
 struct nhrp_reqid_pool {
 	struct hash *reqid_hash;
 	uint32_t next_request_id;
+	bool persist;			/* RFC 2332 5.2.3: keep in nonvolatile storage */
 };
 
 struct nhrp_reqid {

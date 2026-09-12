@@ -34,6 +34,15 @@ struct timeval current_time;
 /* nhrpd options. */
 struct option longopts[] = {{0}};
 
+/* nhrpd state file */
+#define NHRPD_STATE_NAME	 "%s/nhrpd.json", frr_libstatedir
+
+static char state_path[512];
+static char *state_paths[] = {
+	state_path,
+	NULL,
+};
+
 /* nhrpd privileges */
 static zebra_capabilities_t _caps_p[] = {
 	ZCAP_NET_RAW, ZCAP_NET_ADMIN,
@@ -135,11 +144,15 @@ FRR_DAEMON_INFO(nhrpd, NHRP,
 
 	.yang_modules = nhrpd_yang_modules,
 	.n_yang_modules = array_size(nhrpd_yang_modules),
+
+	.state_paths = state_paths,
 );
 /* clang-format on */
 
 int main(int argc, char **argv)
 {
+	snprintfrr(state_path, sizeof(state_path), NHRPD_STATE_NAME);
+
 	frr_preinit(&nhrpd_di, argc, argv);
 	frr_opt_add("", longopts, "");
 
