@@ -30,6 +30,16 @@
 
 struct mgmt_master;
 
+/*
+ * Called when an RPC transaction completes.  The result tree is borrowed for
+ * the duration of the callback; callers that need it after return must copy it.
+ */
+typedef void (*mgmt_txn_rpc_done_cb)(uint64_t txn_id, uint64_t req_id, int error,
+				     const char *errstr, LYD_FORMAT result_type, bool restconf,
+				     const struct lyd_node *result, void *arg);
+typedef void (*mgmt_txn_commit_done_cb)(uint64_t txn_id, uint64_t req_id, int error,
+					const char *errstr, bool running_updated, void *arg);
+
 enum mgmt_txn_type {
 	MGMTD_TXN_TYPE_NONE = 0,
 	MGMTD_TXN_TYPE_CONFIG,
@@ -119,6 +129,14 @@ mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_i
 				struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
 				struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
 				bool implicit, bool unlock, struct mgmt_edit_req *edit);
+extern void
+mgmt_txn_send_commit_config_notify(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				   struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
+				   struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
+				   bool implicit, bool unlock, struct mgmt_edit_req *edit,
+				   mgmt_txn_commit_done_cb done, void *arg);
+extern bool mgmt_txn_cancel_commit_config_notify(uint64_t txn_id, uint64_t req_id, int error,
+						 const char *errstr);
 
 /**
  * mgmt_txn_send_get_tree() - Send get-tree to the backend `clients`.
@@ -154,6 +172,16 @@ extern int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t cli
 extern void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 			      LYD_FORMAT result_type, bool restconf, const char *xpath,
 			      const char *data, size_t data_len);
+/*
+ * Send an RPC request and notify the caller on completion.  The caller keeps
+ * ownership of xpath/data and must keep arg valid until done is invoked.
+ */
+extern void mgmt_txn_send_rpc_notify(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+				     LYD_FORMAT result_type, bool restconf, const char *xpath,
+				     const char *data, size_t data_len, mgmt_txn_rpc_done_cb done,
+				     void *arg);
+extern bool mgmt_txn_cancel_rpc_notify(uint64_t txn_id, uint64_t req_id, int error,
+				       const char *errstr);
 
 /**
  * mgmt_txn_send_notify_selectors() - Send NOTIFY SELECT request.
