@@ -16719,7 +16719,6 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 	int neighbor_col_default_width = 16;
 	struct peer_af *paf;
 	const char *afi_safi = NULL;
-	const char *local_role_str, *remote_role_str;
 	uint32_t peer_pcount = 0, peer_scount = 0;
 	bool is_first_afi_safi = true;
 	bool show_brief = ((CHECK_FLAG(sh_flags, VTY_BGP_PEER_SHOW_STATE_ESTABLISHED_INFO) ||
@@ -16929,18 +16928,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 	}
 
 	/* Roles */
-	local_role_str = CHECK_FLAG(p->flags, PEER_FLAG_ROLE) ? bgp_get_name_by_role(p->local_role)
-							      : "undefined";
-	remote_role_str = CHECK_FLAG(p->cap, PEER_CAP_ROLE_RCV)
-				  ? bgp_get_name_by_role(p->remote_role)
-				  : "undefined";
-
 	if (use_json) {
-		json_object_string_add(json_neigh, "localRole", local_role_str);
-		json_object_string_add(json_neigh, "remoteRole", remote_role_str);
+		json_object_string_add(json_neigh, "localRole", bgp_get_local_role_name(p));
+		json_object_string_add(json_neigh, "remoteRole", bgp_get_remote_role_name(p));
 	} else {
-		vty_out(vty, "  Local Role: %s\n", local_role_str);
-		vty_out(vty, "  Remote Role: %s\n", remote_role_str);
+		vty_out(vty, "  Local Role: %s\n", bgp_get_local_role_name(p));
+		vty_out(vty, "  Remote Role: %s\n", bgp_get_remote_role_name(p));
 	}
 
 	/* Are we showing specific information? */
@@ -21577,11 +21570,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 	/* role */
 	if (peergroup_flag_check(peer, PEER_FLAG_ROLE))
-		vty_out(vty, " neighbor %s local-role %s%s\n", addr,
-			bgp_get_name_by_role(peer->local_role),
-			CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)
-				? " strict-mode"
-				: "");
+		vty_out(vty, " neighbor %s local-role %s%s\n", addr, bgp_get_local_role_name(peer),
+			CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE) ? " strict-mode" : "");
 
 	if (peer->sub_sort == BGP_PEER_EBGP_OAD)
 		vty_out(vty, " neighbor %s oad\n", addr);
