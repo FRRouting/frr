@@ -140,11 +140,29 @@ bool initialize_socket_comm_loop(void)
 }
 
 
+/* Stop the socket comm thread without destroying the handle: the
+ * session teardowns still need the handle to free their socket
+ * state, but the thread must not run once the session bookkeeping
+ * it calls into starts being destroyed.
+ */
+bool stop_socket_comm_loop(void)
+{
+	if (socket_comm_handle_ == NULL)
+		return false;
+
+	if (socket_comm_handle_->thread_stopped == false) {
+		socket_comm_handle_->active = false;
+		pthread_join(socket_comm_handle_->socket_comm_thread, NULL);
+		socket_comm_handle_->thread_stopped = true;
+	}
+
+	return true;
+}
+
 bool destroy_socket_comm_loop(void)
 {
-	socket_comm_handle_->active = false;
+	stop_socket_comm_loop();
 
-	pthread_join(socket_comm_handle_->socket_comm_thread, NULL);
 	ordered_list_destroy(socket_comm_handle_->read_list);
 	ordered_list_destroy(socket_comm_handle_->write_list);
 	ordered_list_destroy(socket_comm_handle_->session_list);
@@ -668,6 +686,18 @@ bool socket_comm_session_teardown(pcep_socket_comm_session *socket_comm_session)
 	}
 
 	pthread_mutex_lock(&(socket_comm_handle_->socket_comm_mutex));
+	/* Free any messages still queued. The queue only stores pointers,
+	 * queue_destroy() and queue_destroy_with_data() would leak
+	 * both the queued message and its encoded buffer.
+	 */
+	pcep_socket_comm_queued_message *queued_message =
+		queue_dequeue(socket_comm_session->message_queue);
+	while (queued_message != NULL) {
+		if (queued_message->free_after_send)
+			pceplib_free(PCEPLIB_MESSAGES, (void *)queued_message->encoded_message);
+		pceplib_free(PCEPLIB_MESSAGES, queued_message);
+		queued_message = queue_dequeue(socket_comm_session->message_queue);
+	}
 	queue_destroy(socket_comm_session->message_queue);
 	ordered_list_remove_first_node_equals(socket_comm_handle_->session_list,
 					      socket_comm_session);
@@ -708,6 +738,8 @@ void socket_comm_session_send_message(
 			LOG_WARNING,
 			"%s: socket_comm_session_send_message NULL socket_comm_session.",
 			__func__);
+		if (free_after_send)
+			pceplib_free(PCEPLIB_MESSAGES, (void *)encoded_message);
 		return;
 	}
 
@@ -730,6 +762,8 @@ void socket_comm_session_send_message(
 			"%s: Cannot write a message on a deleted socket comm session, discarding message",
 			__func__);
 		pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
+		if (queued_message->free_after_send)
+			pceplib_free(PCEPLIB_MESSAGES, (void *)queued_message->encoded_message);
 		pceplib_free(PCEPLIB_MESSAGES, queued_message);
 
 		return;
@@ -744,6 +778,8 @@ void socket_comm_session_send_message(
 			"%s: Cannot write a message on a closed socket, discarding message",
 			__func__);
 		pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
+		if (queued_message->free_after_send)
+			pceplib_free(PCEPLIB_MESSAGES, (void *)queued_message->encoded_message);
 		pceplib_free(PCEPLIB_MESSAGES, queued_message);
 
 		return;
