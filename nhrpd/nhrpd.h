@@ -316,11 +316,17 @@ DECLARE_DLIST(nhrp_reglist, struct nhrp_registration, reglist_entry);
 #define NHRP_IFF_REDIRECT		0x0002
 #define NHRP_IFF_REG_NO_UNIQUE		0x0100
 
+enum nhrp_auth_mode {
+	NHRP_AUTH_CISCO = 0,	/* Cisco style: plaintext password */
+	NHRP_AUTH_RFC2332,	/* RFC 2332: HMAC-MD5-128 keyed hash */
+};
+
 struct nhrp_interface {
 	struct interface *ifp;
 
 	struct zbuf *auth_token;
 	afi_t auth_afi;
+	enum nhrp_auth_mode auth_mode;
 	unsigned enabled : 1;
 
 	char *ipsec_profile, *ipsec_fallback_profile, *source;
