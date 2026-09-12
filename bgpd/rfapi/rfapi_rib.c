@@ -451,7 +451,7 @@ static int bgp_tea_options_cmp(struct bgp_tea_options *a,
 	if (a->type != b->type)
 		return (a->type - b->type);
 	if (a->length != b->length)
-		return (a->length = b->length);
+		return (a->length - b->length);
 	if ((rc = memcmp(a->value, b->value, a->length)))
 		return rc;
 	if (!a->next != !b->next) { /* logical xor */
