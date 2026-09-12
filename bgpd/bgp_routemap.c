@@ -431,30 +431,50 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	if (frrscript_load(fs, routematch_function, NULL)) {
 		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
 			 "Issue loading script or function; defaulting to no match");
+		frrscript_delete(fs);
 		return RMAP_NOMATCH;
 	}
 
 	struct attr newattr;
+	uint32_t orig_srte_color;
+	bool keep_path_changes = false;
 
 	bgp_attr_dup_into(&newattr, path->attr);
+	orig_srte_color = path->extra ? path->extra->srte_color : 0;
 
 	int result = frrscript_call(
 		fs, routematch_function, ("prefix", prefix),
 		("attributes", &newattr), ("peer", path->peer),
 		("RM_FAILURE", LUA_RM_FAILURE), ("RM_NOMATCH", LUA_RM_NOMATCH),
 		("RM_MATCH", LUA_RM_MATCH),
-		("RM_MATCH_AND_CHANGE", LUA_RM_MATCH_AND_CHANGE));
+		("RM_MATCH_AND_CHANGE", LUA_RM_MATCH_AND_CHANGE),
+		("path", path));
 
 	if (result) {
 		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
 			 "Issue running script rule; defaulting to no match");
+		bgp_attr_script_discard(&newattr, path->attr);
 		bgp_attr_extra_discard(&newattr);
+		frrscript_delete(fs);
 		return RMAP_NOMATCH;
 	}
 
 	int *action = frrscript_get_result(fs, routematch_function, "action", lua_tointegerp);
 
 	int status = RMAP_NOMATCH;
+
+	if (!action) {
+		flog_err(EC_BGP_ROUTE_MAP_SCRIPT,
+			 "Executing route-map match script '%s' returned no action; defaulting to no match",
+			 scriptname);
+		bgp_attr_script_discard(&newattr, path->attr);
+		bgp_attr_extra_discard(&newattr);
+		frrscript_delete(fs);
+		if (orig_srte_color || (path->extra && path->extra->srte_color))
+			bgp_path_info_extra_get(path)->srte_color =
+				orig_srte_color;
+		return RMAP_NOMATCH;
+	}
 
 	switch (*action) {
 	case LUA_RM_FAILURE:
@@ -468,29 +488,33 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		break;
 	case LUA_RM_MATCH_AND_CHANGE:
 		status = RMAP_MATCH;
+		keep_path_changes = true;
 		zlog_debug("Updating attribute based on script's values");
-
-		uint32_t locpref = 0;
-
-		path->attr->med = newattr.med;
-
-		if (bgp_attr_exists(path->attr, BGP_ATTR_LOCAL_PREF))
-			locpref = path->attr->local_pref;
-		if (locpref != newattr.local_pref) {
-			bgp_attr_set(path->attr, BGP_ATTR_LOCAL_PREF);
-			path->attr->local_pref = newattr.local_pref;
-		}
+		bgp_attr_script_apply(path->attr, &newattr);
 		break;
 	case LUA_RM_MATCH:
 		status = RMAP_MATCH;
 		break;
+	default:
+		status = RMAP_NOMATCH;
+		break;
 	}
+
+	bgp_attr_script_discard(&newattr, path->attr);
 
 	XFREE(MTYPE_SCRIPT_RES, action);
 
 	frrscript_delete(fs);
 
 	bgp_attr_extra_discard(&newattr);
+
+	/*
+	 * path.srte_color may have been written back during decode; keep it
+	 * only for match-and-change (same rule as attributes).
+	 */
+	if (!keep_path_changes
+	    && (orig_srte_color || (path->extra && path->extra->srte_color)))
+		bgp_path_info_extra_get(path)->srte_color = orig_srte_color;
 
 	return status;
 }
