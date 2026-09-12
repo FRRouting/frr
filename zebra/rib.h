@@ -425,7 +425,7 @@ extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     const union g_addr *addr, struct route_node **rn_out);
 
-extern void rib_update(enum rib_update_event event);
+extern void rib_update(enum rib_update_event event, int type);
 extern void rib_update_table(struct route_table *table,
 			     enum rib_update_event event, int rtype);
 extern void rib_sweep_route(struct event *t);
@@ -488,7 +488,6 @@ extern uint8_t route_distance(int type);
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
 
-extern void rib_update_handle_vrf_all(enum rib_update_event event, int rtype);
 int zebra_show_metaq_counter(struct vty *vty, bool uj);
 
 /*

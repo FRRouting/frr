@@ -4828,7 +4828,7 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 	}
 }
 
-void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
+static void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 {
 	struct zebra_router_table *zrt;
 
@@ -4844,10 +4844,11 @@ void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 struct rib_update_ctx {
 	enum rib_update_event event;
 	vrf_id_t vrf_id;
+	int type;
 };
 
-static struct rib_update_ctx *rib_update_ctx_init(vrf_id_t vrf_id,
-						  enum rib_update_event event)
+static struct rib_update_ctx *rib_update_ctx_init(vrf_id_t vrf_id, enum rib_update_event event,
+						  int type)
 {
 	struct rib_update_ctx *ctx;
 
@@ -4855,6 +4856,7 @@ static struct rib_update_ctx *rib_update_ctx_init(vrf_id_t vrf_id,
 
 	ctx->event = event;
 	ctx->vrf_id = vrf_id;
+	ctx->type = type;
 
 	return ctx;
 }
@@ -4870,7 +4872,7 @@ static void rib_update_handler(struct event *event)
 
 	ctx = EVENT_ARG(event);
 
-	rib_update_handle_vrf_all(ctx->event, ZEBRA_ROUTE_ALL);
+	rib_update_handle_vrf_all(ctx->event, ctx->type);
 
 	rib_update_ctx_fini(&ctx);
 }
@@ -4898,7 +4900,7 @@ void rib_update_finish(void)
 }
 
 /* Schedule a RIB update event for all vrfs */
-void rib_update(enum rib_update_event event)
+void rib_update(enum rib_update_event event, int type)
 {
 	struct rib_update_ctx *ctx;
 
@@ -4908,7 +4910,7 @@ void rib_update(enum rib_update_event event)
 	if (zebra_router_in_shutdown())
 		return;
 
-	ctx = rib_update_ctx_init(0, event);
+	ctx = rib_update_ctx_init(0, event, type);
 
 	event_add_event(zrouter.master, rib_update_handler, ctx, 0,
 			&t_rib_update_threads[event]);
