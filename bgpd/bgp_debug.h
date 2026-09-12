@@ -141,6 +141,7 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_PBR_ERROR           0x02
 #define BGP_DEBUG_EVPN_MH_ES          0x01
 #define BGP_DEBUG_EVPN_MH_RT          0x02
+#define BGP_DEBUG_EVPN_MH_L3_NEIGH    0x04
 
 #define BGP_DEBUG_GRACEFUL_RESTART     0x01
 

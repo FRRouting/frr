@@ -5225,7 +5225,7 @@ char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf, size_t len)
 	}
 
 	snprintfrr(
-		buf, len, "%s%s%s%s%s%s%s",
+		buf, len, "%s%s%s%s%s%s%s%s",
 		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY) ? "Sticky MAC " : "",
 		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW) ? "Gateway MAC " : "",
 		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG) ? "Router "
@@ -5235,7 +5235,9 @@ char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf, size_t len)
 		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP) ? "SVI MAC " : "",
 		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT) ? "Proxy "
 								 : "",
-		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH) ? "Sync " : "");
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH) ? "Sync " : "",
+		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC) ? "L3-neigh-sync "
+								  : "");
 
 	return buf;
 }

@@ -60,6 +60,18 @@ struct zebra_neigh {
 
 	struct zebra_evpn *zevpn;
 
+	/* VLAN / Ethernet Tag (ETAG) of the bridge domain that owns this
+	 * neighbor. Used by the L3VNI-keyed neighbor-sync container to
+	 * originate the correct per-SVI ETAG and to tear down per-BD.
+	 */
+	vlanid_t eth_tag;
+
+	/* For a remote pure-L3 (no-L2VNI) synced neighbor: ifindex of the ES
+	 * bond the host MAC was pinned to in the bridge FDB (local-ES sync-MAC),
+	 * so the exact FDB entry can be removed on update/withdraw. 0 if none.
+	 */
+	ifindex_t sync_mac_ifindex;
+
 	/* Refcnt - Only used by SVD neighs currently */
 	uint32_t refcnt;
 
@@ -273,6 +285,33 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				  const struct ipaddr *ip,
 				  const struct ethaddr *macaddr, bool is_router,
 				  bool local_inactive, bool dp_static);
+int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp,
+					struct interface *br_if,
+					const struct ipaddr *ip,
+					const struct ethaddr *macaddr,
+					bool is_own, bool is_router);
+int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp,
+				     struct interface *br_if,
+				     const struct ipaddr *ip);
+void zebra_evpn_l3vni_neigh_flush(struct zebra_evpn *zevpn);
+void zebra_evpn_l3vni_neigh_flush_all(void);
+void zebra_evpn_l3vni_neigh_handoff_bd(vni_t l3vni, vlanid_t vid,
+				       struct zebra_evpn *l2zevpn,
+				       struct interface *svi_ifp);
+void zebra_evpn_l2vni_neigh_handoff_to_l3(struct zebra_evpn *l2zevpn,
+					  struct interface *svi_ifp);
+void zebra_evpn_l3vni_neigh_readvertise_mac(vni_t l3vni,
+					    const struct ethaddr *macaddr,
+					    vlanid_t vid);
+void zebra_evpn_l3vni_neigh_readvertise_bd(vni_t l3vni, vlanid_t vid);
+void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
+				       const struct ethaddr *macaddr,
+				       vlanid_t eth_tag, uint32_t seq,
+				       const esi_t *esi, bool is_router);
+void zebra_evpn_l3vni_remote_neigh_del(struct zebra_evpn *zevpn,
+				       const struct ipaddr *ip,
+				       const struct ethaddr *macaddr,
+				       vlanid_t eth_tag);
 int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
 				   const struct ipaddr *ip, const struct ethaddr *macaddr,
 				   uint16_t state, bool is_router);

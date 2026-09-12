@@ -1001,6 +1001,17 @@ struct bgp {
 	/* EVPN enable - advertise local VNIs and their MACs etc. */
 	int advertise_all_vni;
 
+	/* EVPN enable - advertise/sync neighbor (ARP/ND) RT-2 routes for an
+	 * EVPN L3 multihoming (L3MH) deployment. Gates both origination (TX)
+	 * and acceptance (RX) of label[0]=0 RT-2s.
+	 */
+	int advertise_l3vni_neigh;
+
+	/* Per-route stamp set while importing a pure-L3 (L3MH) RT-2 so each
+	 * matching VRF's L3VNI neighbor is programmed once across all its RTs.
+	 */
+	uint32_t l3vni_neigh_sync_walk;
+
 	/* draft-ietf-idr-deprecate-as-set-confed-set
 	 * Reject aspaths with AS_SET and/or AS_CONFED_SET.
 	 */

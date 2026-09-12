@@ -4173,6 +4173,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ADVERTISE_SVI_MACIP] = zebra_vxlan_advertise_svi_macip,
 	[ZEBRA_ADVERTISE_SUBNET] = zebra_vxlan_advertise_subnet,
 	[ZEBRA_ADVERTISE_ALL_VNI] = zebra_vxlan_advertise_all_vni,
+	[ZEBRA_ADVERTISE_L3VNI_NEIGH] = zebra_vxlan_advertise_l3vni_neigh,
 	[ZEBRA_REMOTE_ES_VTEP_ADD] = zebra_evpn_proc_remote_es,
 	[ZEBRA_REMOTE_ES_VTEP_DEL] = zebra_evpn_proc_remote_es,
 	[ZEBRA_REMOTE_VTEP_ADD] = zebra_vxlan_remote_vtep_add_zapi,

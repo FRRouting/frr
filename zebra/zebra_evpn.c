@@ -1101,6 +1101,62 @@ int zebra_evpn_del(struct zebra_evpn *zevpn)
 }
 
 /*
+ * Look up the L3VNI-keyed L3 multihoming (L3MH) neighbor-sync singleton for
+ * this VNI, if one exists. Returns NULL for a plain L2VNI instance with the
+ * same key.
+ */
+struct zebra_evpn *zebra_evpn_l3_neigh_sync_lookup(vni_t vni)
+{
+	struct zebra_evpn *zevpn = zebra_evpn_lookup(vni);
+
+	if (zevpn && CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return zevpn;
+
+	return NULL;
+}
+
+/*
+ * Take a hold on the L3VNI-keyed L3 multihoming (L3MH) neighbor-sync singleton,
+ * creating it on first use. One instance is shared by all of a VRF's L3-only
+ * bridge domains; each holder (the advertise-l3vni-neigh knob and each
+ * referencing BD) takes a reference.
+ */
+struct zebra_evpn *zebra_evpn_l3_neigh_sync_ref(vni_t vni)
+{
+	struct zebra_evpn *zevpn = zebra_evpn_lookup(vni);
+
+	/* Never hijack a plain L2VNI instance that already owns this key. */
+	if (zevpn && !CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return NULL;
+
+	if (!zevpn) {
+		zevpn = zebra_evpn_add(vni);
+		SET_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC);
+	}
+
+	zevpn->l3_sync_holders++;
+
+	return zevpn;
+}
+
+/*
+ * Release a hold taken with zebra_evpn_l3_neigh_sync_ref(). The singleton is
+ * freed only once it has no holders left and no synced neighbors remain.
+ */
+void zebra_evpn_l3_neigh_sync_unref(struct zebra_evpn *zevpn)
+{
+	if (!zevpn)
+		return;
+
+	if (zevpn->l3_sync_holders)
+		zevpn->l3_sync_holders--;
+
+	if (zevpn->l3_sync_holders == 0 &&
+	    zebra_neigh_db_count(zevpn->neigh_table) == 0)
+		zebra_evpn_del(zevpn);
+}
+
+/*
  * Inform BGP about local EVPN addition.
  */
 int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
@@ -1434,7 +1490,7 @@ static void zebra_evpn_process_sync_macip_add(struct zebra_evpn *zevpn,
 /* Process a remote MACIP add from BGP. */
 void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
 			      const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-			      struct ipaddr *vtep_ip, const esi_t *esi)
+			      struct ipaddr *vtep_ip, const esi_t *esi, vlanid_t eth_tag)
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_vtep *zvtep;
@@ -1442,6 +1498,18 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_vrf *zvrf;
+
+	/* Pure-L3 (no-L2VNI) neighbor sync: install a MAC-less NTF_EXT_LEARNED
+	 * neighbor on the ETAG-selected SVI; no VXLAN interface or bridge FDB
+	 * is involved, so this is handled before the L2VNI state checks.
+	 */
+	if (ipa_len && CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC)) {
+		zebra_evpn_l3vni_remote_neigh_add(vni, ipaddr, macaddr, eth_tag,
+						  seq, esi,
+						  !!CHECK_FLAG(flags,
+							       ZEBRA_MACIP_TYPE_ROUTER_FLAG));
+		return;
+	}
 
 	/* Locate EVPN hash entry - expected to exist. */
 	zevpn = zebra_evpn_lookup(vni);
@@ -1537,7 +1605,8 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 
 /* Process a remote MACIP delete from BGP. */
 void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
-			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip)
+			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip,
+			      vlanid_t eth_tag)
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_mac *mac = NULL;
@@ -1560,6 +1629,15 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t
 	if (!zevpn) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Unknown VNI %u upon remote MACIP DEL", vni);
+		return;
+	}
+
+	/* Pure-L3 (no-L2VNI) neighbor sync singleton: neighbor-only delete,
+	 * no VXLAN interface or zebra_mac involved.
+	 */
+	if (ipa_len && CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC)) {
+		zebra_evpn_l3vni_remote_neigh_del(zevpn, ipaddr, macaddr,
+						  eth_tag);
 		return;
 	}
 
