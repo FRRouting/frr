@@ -638,6 +638,21 @@ data plane (SRv6) as per RFC 9352.
    SID and adjacency SIDs, creates local SID entries in the data plane, and
    advertises them in the IGP domain.
 
+   For a uSID locator using the ``usid-f3216`` or ``usid-f4816`` SID format,
+   each primary adjacency has two local End.X NEXT-CSID
+   (uA) representations sharing the same function and nexthop: the combined
+   block:node:function SID and the local-only block:function SID. Only the
+   combined SID is advertised in IS-IS. The local-only SID is installed in
+   the data plane with a zero-length node field; its NEXT-CSID node-function
+   length is the function length alone. For a 32/16/16 locator, the combined
+   and local-only routes are /64 and /48, respectively, with NEXT-CSID
+   node-function lengths of 32 and 16 bits. Both are removed when the
+   adjacency is removed and restored after reconnection to Zebra.
+
+   A uSID locator without a SID format retains only the combined entry:
+   its function allocation range is not separated from Global CSIDs, so a
+   local-only SID could overlap a node locator prefix.
+
 .. clicmd:: interface NAME
 
    Specify the dummy interface used to install SRv6 SIDs in the Linux data plane.
