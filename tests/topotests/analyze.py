@@ -22,6 +22,106 @@ import xmltodict
 XDIST_WORKER_RE = re.compile(r"^gw\d+$")
 
 
+def _first_node(node):
+    """Return the first dict node when xmltodict yields a list."""
+    if isinstance(node, list):
+        node = node[0] if node else None
+    return node if isinstance(node, dict) else None
+
+
+def _skipped_node(testcase):
+    return _first_node(testcase.get("skipped"))
+
+
+def is_xfail(testcase):
+    """Expected failure: <skipped type="pytest.xfail" .../>."""
+    skipped = _skipped_node(testcase)
+    return bool(skipped) and skipped.get("@type") == "pytest.xfail"
+
+
+def is_xpass(testcase):
+    """Strict unexpected pass: <failure message="[XPASS(strict)] ..."/>."""
+    failure = _first_node(testcase.get("failure"))
+    if not failure:
+        return False
+    return failure.get("@message", "").startswith("[XPASS")
+
+
+def is_error(testcase):
+    return "error" in testcase
+
+
+def is_failure(testcase):
+    """Any JUnit failure, including strict XPASS."""
+    return "failure" in testcase
+
+
+def is_skip(testcase):
+    """Real skip, excluding expected xfails."""
+    return "skipped" in testcase and not is_xfail(testcase)
+
+
+def is_pass(testcase):
+    return (
+        "failure" not in testcase
+        and "error" not in testcase
+        and "skipped" not in testcase
+    )
+
+
+STATUS_XFAIL = "Known Failure"
+STATUS_XPASS = "Unexpected Pass"
+STATUS_FAIL = "Failure"
+STATUS_WIDTH = max(len(STATUS_XFAIL), len(STATUS_XPASS), len(STATUS_FAIL))
+
+
+def testcase_label(tcname, testcase):
+    if is_xfail(testcase):
+        status = STATUS_XFAIL
+    elif is_xpass(testcase):
+        status = STATUS_XPASS
+    elif is_failure(testcase) or is_error(testcase):
+        status = STATUS_FAIL
+    else:
+        return tcname
+    return "{}: {}".format(status.ljust(STATUS_WIDTH), tcname)
+
+
+def get_errmsg(testcase):
+    error = _first_node(testcase.get("error"))
+    if error is not None:
+        return error.get("@message", "none found")
+    failure = _first_node(testcase.get("failure"))
+    if failure is not None:
+        return failure.get("@message", "none found")
+    if is_xfail(testcase):
+        skipped = _skipped_node(testcase)
+        return skipped.get("@message", "none found") if skipped else "none found"
+    return "none found"
+
+
+def get_errtext(testcase):
+    error = _first_node(testcase.get("error"))
+    if error is not None:
+        return error.get("#text") or error.get("@message", "none found")
+    failure = _first_node(testcase.get("failure"))
+    if failure is not None:
+        return failure.get("#text") or failure.get("@message", "none found")
+    if is_xfail(testcase):
+        skipped = _skipped_node(testcase)
+        if skipped is None:
+            return "none found"
+        return skipped.get("#text") or skipped.get("@message", "none found")
+    return "none found"
+
+
+def iter_testcases(suite):
+    testcases = suite.get("testcase", [])
+    if isinstance(testcases, dict):
+        return [testcases]
+    return testcases or []
+
+
 def get_range_list(rangestr):
     result = []
     for e in rangestr.split(","):
@@ -65,30 +165,59 @@ def dict_range_values(dct, rangestr):
     return dict_range_(dct, rangestr, False)
 
 
-def get_summary(results):
-    ntest = int(results["@tests"])
-    nfail = int(results["@failures"])
-    nerror = int(results["@errors"])
-    nskip = int(results["@skipped"])
-    npass = ntest - nfail - nskip - nerror
-    return ntest, npass, nfail, nerror, nskip
+def get_summary(suite):
+    # Suite @failures includes strict XPASS; @skipped includes expected xfail.
+    ntest = int(suite["@tests"])
+    nfail_attr = int(suite["@failures"])
+    nerror = int(suite["@errors"])
+    nskip_attr = int(suite["@skipped"])
+    nxfail = 0
+    nxpass = 0
+    for testcase in iter_testcases(suite):
+        if is_xfail(testcase):
+            nxfail += 1
+        elif is_xpass(testcase):
+            nxpass += 1
+    nfail = nfail_attr - nxpass
+    nskip = nskip_attr - nxfail
+    npass = ntest - nfail_attr - nerror - nskip_attr
+    return ntest, npass, nfail, nxpass, nerror, nxfail, nskip
+
+
+def format_summary(ntest, npass, nfail, nxpass, nerror, nxfail, nskip):
+    return (
+        f"Total: {ntest} PASSED: {npass} FAIL: {nfail} XPASS: {nxpass}"
+        f" ERROR: {nerror} XFAIL: {nxfail} SKIP: {nskip}"
+    )
 
 
 def print_summary(results, args):
-    ntest, npass, nfail, nerror, nskip = (0, 0, 0, 0, 0)
+    ntest, npass, nfail, nxpass, nerror, nxfail, nskip = (0, 0, 0, 0, 0, 0, 0)
     for group in results:
-        _ntest, _npass, _nfail, _nerror, _nskip = get_summary(results[group])
+        (
+            _ntest,
+            _npass,
+            _nfail,
+            _nxpass,
+            _nerror,
+            _nxfail,
+            _nskip,
+        ) = get_summary(results[group])
         if args.verbose:
             print(
-                f"Group: {group} Total: {_ntest} PASSED: {_npass}"
-                " FAIL: {_nfail} ERROR: {_nerror} SKIP: {_nskip}"
+                f"Group: {group} "
+                + format_summary(
+                    _ntest, _npass, _nfail, _nxpass, _nerror, _nxfail, _nskip
+                )
             )
         ntest += _ntest
         npass += _npass
         nfail += _nfail
+        nxpass += _nxpass
         nerror += _nerror
+        nxfail += _nxfail
         nskip += _nskip
-    print(f"Total: {ntest} PASSED: {npass} FAIL: {nfail} ERROR: {nerror} SKIP: {nskip}")
+    print(format_summary(ntest, npass, nfail, nxpass, nerror, nxfail, nskip))
 
 
 def get_global_testcase(results):
@@ -100,24 +229,13 @@ def get_global_testcase(results):
 
 
 def get_filtered(tfilters, results, args):
-    if isinstance(tfilters, str) or tfilters is None:
+    if not isinstance(tfilters, (list, tuple)):
         tfilters = [tfilters]
     found_files = OrderedDict()
     for group in results:
-        if isinstance(results[group]["testcase"], list):
-            tlist = results[group]["testcase"]
-        else:
-            tlist = [results[group]["testcase"]]
-        for testcase in tlist:
+        for testcase in iter_testcases(results[group]):
             for tfilter in tfilters:
-                if tfilter is None:
-                    if (
-                        "failure" not in testcase
-                        and "error" not in testcase
-                        and "skipped" not in testcase
-                    ):
-                        break
-                elif tfilter in testcase:
+                if tfilter(testcase):
                     break
             else:
                 continue
@@ -200,8 +318,9 @@ def main():
         "--select",
         help=(
             "select results combination of letters: "
-            "'e'rrored 'f'ailed 'p'assed 's'kipped. "
-            "Default is 'fe', unless --search or --time which default to 'efps'"
+            "'e'rrored 'f'ailed 'X'pass(strict) 'x'fail 'p'assed 's'kipped. "
+            "'f' includes strict XPASS; 's' excludes expected XFAIL. "
+            "Default is 'fex', unless --search or --time which default to 'efspx'"
         ),
     )
     parser.add_argument(
@@ -376,19 +495,24 @@ def main():
 
     if args.select is None:
         if search_re or args.time:
-            args.select = "efsp"
+            args.select = "efspx"
         else:
-            args.select = "fe"
+            args.select = "fex"
 
     filters = []
     if "e" in args.select:
-        filters.append("error")
+        filters.append(is_error)
     if "f" in args.select:
-        filters.append("failure")
+        filters.append(is_failure)
+    elif "X" in args.select:
+        # 'f' already includes strict XPASS; only add when 'f' is absent.
+        filters.append(is_xpass)
+    if "x" in args.select:
+        filters.append(is_xfail)
     if "s" in args.select:
-        filters.append("skipped")
+        filters.append(is_skip)
     if "p" in args.select:
-        filters.append(None)
+        filters.append(is_pass)
 
     found_files = get_filtered(filters, results, args)
 
@@ -397,35 +521,26 @@ def main():
             k: v for k, v in found_files.items() if search_testcase(v, search_re)
         }
 
-    if args.enumerate:
-        # print the selected test names with ordinal
-        print("\n".join(["{} {}".format(i, x) for i, x in enumerate(found_files)]))
-    elif args.test is None and count == 0 and not args.time:
-        # print the selected test names
-        print("\n".join([str(x) for x in found_files]))
+    if args.enumerate or (args.test is None and count == 0 and not args.time):
+        # print the selected test names with ordinal (usable with --test)
+        print(
+            "\n".join(
+                "{}: {}".format(i, testcase_label(name, found_files[name]))
+                for i, name in enumerate(found_files)
+            )
+        )
     else:
         rangestr = args.test if args.test else "all"
         for key in dict_range_keys(found_files, rangestr):
             testcase = found_files[key]
+            label = testcase_label(key, testcase)
             if args.time:
                 text = testcase["@time"]
-                s = "{}: {}".format(text, key)
+                s = "{}: {}".format(text, label)
             elif args.errtext:
-                if "error" in testcase:
-                    errmsg = testcase["error"]["#text"]
-                elif "failure" in testcase:
-                    errmsg = testcase["failure"]["#text"]
-                else:
-                    errmsg = "none found"
-                s = "{}: {}".format(key, errmsg)
+                s = "{}: {}".format(label, get_errtext(testcase))
             elif args.errmsg:
-                if "error" in testcase:
-                    errmsg = testcase["error"]["@message"]
-                elif "failure" in testcase:
-                    errmsg = testcase["failure"]["@message"]
-                else:
-                    errmsg = "none found"
-                s = "{}: {}".format(key, errmsg)
+                s = "{}: {}".format(label, get_errmsg(testcase))
             else:
                 s = dump_testcase(testcase)
             print(s)
