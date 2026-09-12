@@ -1316,9 +1316,15 @@ void bfd_recv_cb(struct event *t)
 		return;
 	}
 
-	/* Ensure that existing good sessions are not overridden. */
-	if (!cp->discrs.remote_discr && bfd->ses_state != PTM_BFD_DOWN &&
-	    bfd->ses_state != PTM_BFD_ADM_DOWN) {
+	/*
+	 * RFC 5880 Section 6.8.6: a packet carrying a zero Your Discriminator
+	 * is discarded when the State field in that packet is not Down or
+	 * AdminDown. Testing the local state instead would refuse a peer that
+	 * has lost its state and is correctly announcing Down, which in demand
+	 * mode is never recovered from because no detection timer is running.
+	 */
+	if (!cp->discrs.remote_discr && BFD_GETSTATE(cp->flags) != PTM_BFD_DOWN &&
+	    BFD_GETSTATE(cp->flags) != PTM_BFD_ADM_DOWN) {
 		frrtrace(6, frr_bfd, packet_remote_discr_zero, is_mhop, &peer, &local, ifindex,
 			 vrfid, bfd->ses_state);
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
