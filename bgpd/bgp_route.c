@@ -2151,7 +2151,7 @@ static bool bgp_otc_egress(struct peer *peer, struct attr *attr)
 	if (peer->local_role == ROLE_PROVIDER ||
 	    peer->local_role == ROLE_PEER ||
 	    peer->local_role == ROLE_RS_SERVER) {
-		bgp_attr_set_otc(attr, peer->bgp->as);
+		bgp_attr_set_otc(attr, bgp_local_as_for_peer(peer));
 	}
 	return false;
 }
