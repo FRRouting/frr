@@ -25,6 +25,11 @@ DEFINE_MTYPE_STATIC(PIMD, PIM_STATIC_ROUTE_CFG, "PIM Static Route config");
 
 void pim_static_route_free(struct static_route *s_route)
 {
+	struct channel_oif *oif;
+
+	frr_each_safe (channel_oif_list, &s_route->c_oil.oif_list, oif)
+		channel_oil_oif_delete(&s_route->c_oil, oif->index, oif->flags);
+
 	XFREE(MTYPE_PIM_STATIC_ROUTE, s_route);
 }
 
@@ -35,26 +40,30 @@ void pim_static_route_config_free(struct static_route_config *cfg)
 
 static struct static_route *static_route_alloc(void)
 {
-	return XCALLOC(MTYPE_PIM_STATIC_ROUTE, sizeof(struct static_route));
+	struct static_route *sroute = XCALLOC(MTYPE_PIM_STATIC_ROUTE, sizeof(struct static_route));
+
+	channel_oif_list_init(&sroute->c_oil.oif_list);
+
+	return sroute;
 }
 
 static struct static_route *static_route_new(ifindex_t iif, ifindex_t oif, pim_addr group,
 					     pim_addr source)
 {
 	struct static_route *s_route;
+	struct channel_oif *c_oif;
 
 	s_route = static_route_alloc();
 
 	s_route->group = group;
 	s_route->source = source;
-	s_route->iif = iif;
-	s_route->oif_ttls[oif] = 1;
 	s_route->c_oil.oil_ref_count = 1;
-	*oil_origin(&s_route->c_oil) = source;
-	*oil_mcastgrp(&s_route->c_oil) = group;
-	*oil_incoming_vif(&s_route->c_oil) = iif;
-	oil_if_set(&s_route->c_oil, oif, 1);
-	s_route->c_oil.oif_creation[oif] = pim_time_monotonic_sec();
+	s_route->c_oil.source = source;
+	s_route->c_oil.group = group;
+	s_route->c_oil.iif.index = iif;
+	c_oif = channel_oil_oif_add(&s_route->c_oil, oif, 0);
+	if (c_oif)
+		c_oif->creation = pim_time_monotonic_sec();
 
 	return s_route;
 }
@@ -142,6 +151,23 @@ static int static_route_config_del(struct pim_instance *pim, const char *iifname
 	return 0;
 }
 
+static void pim_static_route_copy(struct static_route *sroute_dest,
+				  struct static_route *sroute_source)
+{
+	struct channel_oif *oif;
+
+	/* Clean up old list if any entries found before copying data */
+	frr_each_safe (channel_oif_list, &sroute_dest->c_oil.oif_list, oif)
+		channel_oil_oif_delete(&sroute_dest->c_oil, oif->index, oif->flags);
+
+	memcpy(sroute_dest, sroute_source, sizeof(*sroute_source));
+
+	/* Copy the output interface list */
+	channel_oif_list_init(&sroute_dest->c_oil.oif_list);
+	frr_each (channel_oif_list, &sroute_source->c_oil.oif_list, oif)
+		channel_oil_oif_add(&sroute_dest->c_oil, oif->index, oif->flags);
+}
+
 /*
  * Install a static mroute into the kernel.  Both interfaces are guaranteed by
  * the caller to have valid VIF indices.
@@ -150,6 +176,7 @@ static int pim_static_add_install(struct pim_instance *pim, struct interface *ii
 				  struct interface *oif, pim_addr group, pim_addr source)
 {
 	struct listnode *node = NULL;
+	struct channel_oif *coif;
 	struct static_route *s_route = NULL;
 	struct static_route *original_s_route = NULL;
 	struct pim_interface *pim_iif = iif->info;
@@ -167,8 +194,9 @@ static int pim_static_add_install(struct pim_instance *pim, struct interface *ii
 
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
 		if (!pim_addr_cmp(s_route->group, group) &&
-		    !pim_addr_cmp(s_route->source, source) && (s_route->iif == iif_index)) {
-			if (s_route->oif_ttls[oif_index]) {
+		    !pim_addr_cmp(s_route->source, source) &&
+		    (s_route->c_oil.iif.index == iif_index)) {
+			if (channel_oil_oif_find(&s_route->c_oil, oif_index)) {
 				zlog_warn("%s %s: Unable to add static route: Route already exists (iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
 					  __FILE__, __func__, iif_index, oif_index, &group,
 					  &source);
@@ -181,12 +209,12 @@ static int pim_static_add_install(struct pim_instance *pim, struct interface *ii
 			 * restore the previous state, so save a copy.
 			 */
 			original_s_route = static_route_alloc();
-			memcpy(original_s_route, s_route, sizeof(struct static_route));
+			pim_static_route_copy(original_s_route, s_route);
 
 			/* Adding a new output interface to an existing route. */
-			s_route->oif_ttls[oif_index] = 1;
-			oil_if_set(&s_route->c_oil, oif_index, 1);
-			s_route->c_oil.oif_creation[oif_index] = pim_time_monotonic_sec();
+			coif = channel_oil_oif_add(&s_route->c_oil, oif_index, 0);
+			if (coif)
+				coif->creation = pim_time_monotonic_sec();
 			++s_route->c_oil.oil_ref_count;
 			break;
 		}
@@ -206,7 +234,7 @@ static int pim_static_add_install(struct pim_instance *pim, struct interface *ii
 
 		/* Restore the previous state. */
 		if (original_s_route) {
-			memcpy(s_route, original_s_route, sizeof(struct static_route));
+			pim_static_route_copy(s_route, original_s_route);
 			pim_static_route_free(original_s_route);
 		} else {
 			listnode_delete(pim->static_routes, s_route);
@@ -263,12 +291,12 @@ static int pim_static_del_install(struct pim_instance *pim, struct interface *ii
 	ifindex_t oif_index = pim_oif->mroute_vif_index;
 
 	for (ALL_LIST_ELEMENTS(pim->static_routes, node, nextnode, s_route)) {
-		if (s_route->iif != iif_index || pim_addr_cmp(s_route->group, group) ||
-		    pim_addr_cmp(s_route->source, source) || !s_route->oif_ttls[oif_index])
+		if (s_route->c_oil.iif.index != iif_index || pim_addr_cmp(s_route->group, group) ||
+		    pim_addr_cmp(s_route->source, source) ||
+		    !channel_oil_oif_find(&s_route->c_oil, oif_index))
 			continue;
 
-		s_route->oif_ttls[oif_index] = 0;
-		oil_if_set(&s_route->c_oil, oif_index, 0);
+		channel_oil_oif_delete(&s_route->c_oil, oif_index, 0);
 		--s_route->c_oil.oil_ref_count;
 
 		/*
@@ -281,14 +309,11 @@ static int pim_static_del_install(struct pim_instance *pim, struct interface *ii
 			zlog_warn("%s %s: Unable to remove static route(iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
 				  __FILE__, __func__, iif_index, oif_index, &group, &source);
 
-			s_route->oif_ttls[oif_index] = 1;
-			oil_if_set(&s_route->c_oil, oif_index, 1);
+			channel_oil_oif_add(&s_route->c_oil, oif_index, 0);
 			++s_route->c_oil.oil_ref_count;
 
 			return -1;
 		}
-
-		s_route->c_oil.oif_creation[oif_index] = 0;
 
 		if (s_route->c_oil.oil_ref_count <= 0) {
 			listnode_delete(pim->static_routes, s_route);
@@ -353,7 +378,7 @@ static struct static_route *pim_static_match(struct pim_instance *pim, ifindex_t
 	struct static_route *s_route;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
-		if (s_route->iif != iif_vif)
+		if (s_route->c_oil.iif.index != iif_vif)
 			continue;
 		if (pim_addr_cmp(s_route->group, group))
 			continue;
@@ -464,6 +489,7 @@ int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty, struct in
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct listnode *node;
+	struct channel_oif *oif;
 	struct static_route *sroute;
 	struct static_route_config *cfg;
 	int count = 0;
@@ -473,16 +499,13 @@ int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty, struct in
 
 	/* Installed routes. */
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sroute)) {
-		if (sroute->iif != pim_ifp->mroute_vif_index)
+		if (sroute->c_oil.iif.index != pim_ifp->mroute_vif_index)
 			continue;
 
-		for (int i = 0; i < MAXVIFS; i++) {
+		frr_each (channel_oif_list, &sroute->c_oil.oif_list, oif) {
 			struct interface *oifp;
 
-			if (!sroute->oif_ttls[i])
-				continue;
-
-			oifp = pim_if_find_by_vif_index(pim, i);
+			oifp = pim_if_find_by_vif_index(pim, oif->index);
 			if (!oifp)
 				continue;
 

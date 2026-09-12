@@ -185,7 +185,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_sock_reset(ifp);
 
 	pim_if_add_vif(ifp, ispimreg, is_vxlan_term);
-	pim_ifp->pim->mcast_if_count++;
 
 	pim_filter_ref_init(&pim_ifp->gmp_filter);
 	pim_filter_ref_init(&pim_ifp->gm_proxy_filter);
@@ -200,8 +199,6 @@ void pim_if_delete(struct interface *ifp)
 	assert(ifp);
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
-
-	pim_ifp->pim->mcast_if_count--;
 
 	pim_upstream_rpf_interface_del(ifp);
 
@@ -1022,11 +1019,12 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 #endif
 }
 
-static int pim_iface_next_vif_index(struct interface *ifp)
+static ifindex_t pim_iface_next_vif_index(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
-	int i;
+	struct pim_multicast_if *mif;
+	ifindex_t index;
 
 	/*
 	 * The pimreg vif is always going to be in index 0
@@ -1035,11 +1033,29 @@ static int pim_iface_next_vif_index(struct interface *ifp)
 	if (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF)
 		return 0;
 
-	for (i = 1; i < MAXVIFS; i++) {
-		if (pim->iface_vif_index[i] == 0)
-			return i;
+	/* Look for holes in the list or return the next highest number. */
+	index = 1;
+	frr_each (multicast_interface_list, &pim->mif_list, mif) {
+		/*
+		 * Index is less than the minimum, just skip it
+		 * (e.g. pimreg).
+		 */
+		if (mif->index < index)
+			continue;
+		/* Index points to already existing interface, go to the next one. */
+		if (mif->index == index) {
+			index++;
+			continue;
+		}
+
+		/* Found the hole */
+		break;
 	}
-	return MAXVIFS;
+
+	if (index >= MAXVIFS)
+		return -1;
+
+	return index;
 }
 
 /*
@@ -1087,7 +1103,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 
 	pim_ifp->mroute_vif_index = pim_iface_next_vif_index(ifp);
 
-	if (pim_ifp->mroute_vif_index >= MAXVIFS) {
+	if (pim_ifp->mroute_vif_index == -1) {
 		zlog_warn(
 			"%s: Attempting to configure more than MAXVIFS=%d on pim enabled interface %s",
 			__func__, MAXVIFS, ifp->name);
@@ -1106,7 +1122,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 		return -5;
 	}
 
-	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 1;
+	pim_instance_mif_add(pim_ifp->pim, pim_ifp->mroute_vif_index);
 
 	if (!ispimreg)
 		gm_ifp_update(ifp);
@@ -1143,10 +1159,7 @@ int pim_if_del_vif(struct interface *ifp)
 
 	pim_mroute_del_vif(ifp);
 
-	/*
-	  Update vif_index
-	 */
-	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 0;
+	pim_instance_mif_delete(pim_ifp->pim, pim_ifp->mroute_vif_index);
 
 	pim_ifp->mroute_vif_index = -1;
 	return 0;
@@ -2053,7 +2066,7 @@ static int pim_ifp_create(struct interface *ifp)
 
 	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
 		     sizeof(PIM_VXLAN_TERM_DEV_NAME))) {
-		if (pim->mcast_if_count < MAXVIFS)
+		if (multicast_interface_list_count(&pim->mif_list) < MAXVIFS)
 			pim_vxlan_add_term_dev(pim, ifp);
 		else
 			zlog_warn(
