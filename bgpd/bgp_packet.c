@@ -3500,7 +3500,7 @@ static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 	}
 }
 
-static void bgp_dynamic_capability_role(uint8_t *pnt, int action, struct capability_header *hdr,
+static bool bgp_dynamic_capability_role(uint8_t *pnt, int action, struct capability_header *hdr,
 					struct peer *peer)
 {
 	uint8_t role;
@@ -3510,7 +3510,7 @@ static void bgp_dynamic_capability_role(uint8_t *pnt, int action, struct capabil
 			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
 				 "%pBP: ROLE Capability length error: got %u, expected %zu",
 				 peer, hdr->length, sizeof(role));
-			return;
+			return false;
 		}
 		SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 		memcpy(&role, pnt + 3, sizeof(role));
@@ -3519,6 +3519,8 @@ static void bgp_dynamic_capability_role(uint8_t *pnt, int action, struct capabil
 	} else {
 		UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 	}
+
+	return true;
 }
 
 static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
@@ -4029,7 +4031,11 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 			bgp_dynamic_capability_enhe(pnt, action, hdr, peer);
 			break;
 		case CAPABILITY_CODE_ROLE:
-			bgp_dynamic_capability_role(pnt, action, hdr, peer);
+			if (!bgp_dynamic_capability_role(pnt, action, hdr, peer)) {
+				bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				return BGP_Stop;
+			}
 			if (bgp_role_violation(connection))
 				return BGP_Stop;
 			break;
