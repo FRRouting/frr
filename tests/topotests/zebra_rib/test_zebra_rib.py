@@ -228,6 +228,108 @@ configure terminal
     assert ok, result
 
 
+def test_zebra_stale_nhg_not_reinstalled_after_vrf_change():
+    "Test stale old-VRF NHGs are not reinstalled after a VRF change."
+    logger.info("Test stale old-VRF NHGs are not reinstalled")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    vrf = "nhg-vrf"
+    interface = "nhg-test0"
+    connected_prefix = "192.0.2.0/24"
+    gateway = "192.0.2.2"
+    static_prefix = "203.0.113.0/24"
+    route_command = "ip route {} {} {}".format(static_prefix, gateway, interface)
+    nhg_id = 0
+
+    try:
+        r1.run("ip link add {} type vrf table 1001".format(vrf))
+        r1.run("ip link set dev {} up".format(vrf))
+        r1.run("ip link add {} type dummy".format(interface))
+        r1.run("ip link set dev {} master {}".format(interface, vrf))
+        r1.run("ip address add 192.0.2.1/24 dev {}".format(interface))
+        r1.run("ip link set dev {} up".format(interface))
+
+        r1.vtysh_cmd(
+            """
+configure terminal
+ vrf {}
+  {}
+""".format(
+                vrf, route_command
+            )
+        )
+
+        def static_route_installed():
+            output = json.loads(
+                r1.vtysh_cmd("show ip route vrf {} {} json".format(vrf, static_prefix))
+            )
+            routes = output.get(static_prefix, [])
+            if not routes:
+                return False
+
+            nonlocal nhg_id
+            nhg_id = routes[0]["nexthopGroupId"]
+            return (
+                routes[0].get("protocol") == "static"
+                and routes[0].get("installed", False)
+                and nhg_id != 0
+            )
+
+        _, result = topotest.run_and_expect(
+            static_route_installed, True, count=20, wait=0.5
+        )
+        assert result is True, "{} is not installed in {}".format(static_prefix, vrf)
+
+        r1.vtysh_cmd(
+            """
+configure terminal
+ vrf {}
+  no {}
+""".format(
+                vrf, route_command
+            )
+        )
+
+        r1.run("ip link set dev {} nomaster".format(interface))
+
+        def stale_nhe_state():
+            output = json.loads(
+                r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
+            )
+            nhe = output.get(str(nhg_id))
+            return {
+                "valid": bool(nhe and nhe.get("valid", False)),
+                "installed": bool(nhe and nhe.get("installed", False)),
+            }
+
+        expected = {
+            "valid": False,
+            "installed": False,
+        }
+        _, result = topotest.run_and_expect(
+            stale_nhe_state, expected, count=20, wait=0.5
+        )
+        assert result == expected, (
+            "Stale NHE {} was reinstalled after interface {} moved out of {}: {}"
+        ).format(nhg_id, interface, vrf, result)
+
+    finally:
+        r1.vtysh_cmd(
+            """
+configure terminal
+ vrf {}
+  no {}
+""".format(
+                vrf, route_command
+            )
+        )
+        r1.run("ip link del dev {}".format(interface))
+        r1.run("ip link del dev {}".format(vrf))
+
+
 def test_zebra_kernel_admin_distance():
     "Test some basic kernel routes added that should be accepted"
     logger.info("Test some basic kernel routes that should be accepted")
