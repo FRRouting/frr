@@ -1029,7 +1029,7 @@ static bool is_srv6_sid_localonly(const struct static_srv6_sid *sid)
 
 	locator = sid->locator->prefix;
 
-	if (prefix_match(&block, &sid->addr) && !prefix_match(&locator, &sid->addr))
+	if (prefix_contains(&block, &sid->addr) && !prefix_contains(&locator, &sid->addr))
 		return true;
 
 	return false;
