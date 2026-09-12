@@ -347,6 +347,8 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 {
 	struct pim_interface *pim_oif = oif->info;
 	struct channel_oil *c_oil;
+	bool created = false;
+	int result = 0;
 
 	if (!pim_oif) {
 		if (PIM_DEBUG_GM_TRACE)
@@ -355,10 +357,13 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		return false;
 	}
 
-	if (!*oilp)
+	if (!*oilp) {
 		*oilp = tib_sg_oil_setup(pim, sg, oif);
-	if (!*oilp)
-		return false;
+		if (!*oilp)
+			return false;
+
+		created = true;
+	}
 
 	tib_sg_proxy_join_prune_check(pim, sg, oif, true);
 
@@ -393,15 +398,20 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 	}
 
 	if (PIM_I_am_DR(pim_oif) || PIM_I_am_DualActive(pim_oif)) {
-		int result;
-
 		result = pim_channel_add_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 					     __func__);
-		if (result) {
+		/*
+		  PIM_OIF_ADD_EXISTS means the other subscriber on this
+		  interface - a static group, or IGMP/MLD membership - claimed
+		  the flag first.  The forwarding state this join asks for is
+		  in place, it is just shared, so this is a success here too
+		  and this subscriber is on the hook for releasing it.
+		 */
+		if (result && result != PIM_OIF_ADD_EXISTS) {
 			if (PIM_DEBUG_MROUTE)
 				zlog_warn("%s: add_oif() failed with return=%d",
 					  __func__, result);
-			return false;
+			goto fail;
 		}
 	} else {
 		if (PIM_DEBUG_GM_TRACE)
@@ -409,11 +419,11 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 				"%s: %pSG was received on %s interface but we are not DR for that interface",
 				__func__, &sg, oif->name);
 
-		return false;
+		goto fail;
 	}
 	/*
-	  Feed IGMPv3-gathered local membership information into PIM
-	  per-interface (S,G) state.
+	 * Feed IGMPv3-gathered local membership information into PIM
+	 * per-interface (S,G) state.
 	 */
 	if (!pim_ifchannel_local_membership_add(oif, &sg, false /*is_vxlan*/)) {
 		if (PIM_DEBUG_MROUTE)
@@ -421,22 +431,148 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 				"%s: Failure to add local membership for %pSG",
 				__func__, &sg);
 
-		pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
-				    __func__);
-		return false;
+		/* only undo a subscription this call actually made */
+		if (result != PIM_OIF_ADD_EXISTS)
+			pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM, __func__);
+		goto fail;
 	}
 
 	return true;
+
+fail:
+	/*
+	 * Do not leave a caller that did not get a join holding a channel_oil
+	 * reference for it.  static_group_activate() returns early when
+	 * stgrp->oilp is set and pim_if_static_group_replay() only retries
+	 * entries with a NULL oilp, so a static group whose activation failed
+	 * would look activated forever.  Only what this call created is given
+	 * back; a reference the caller already held is left alone.
+	 */
+	if (created) {
+		pim_channel_oil_del(*oilp, __func__);
+		*oilp = NULL;
+	}
+
+	return false;
 }
 
-void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
-		     struct interface *oif, struct channel_oil **oilp)
+/*
+ * "ip igmp static-group" / "ipv6 mld static-group" and IGMP/MLD membership
+ * learned on the interface are independent subscribers to the same OIF, but
+ * PIM_OIF_FLAG_PROTO_GM is one bit per (channel_oil, vif) and is not
+ * reference counted.  Return true when the subscriber that is *not* leaving
+ * still wants sg on oif, so only the last one out removes anything.
+ *
+ * Each half only looks at the other subscriber's own state, so the caller need
+ * not have dropped its state first - the leaver can never be found here.
+ *
+ * oif_flags is deliberately not consulted:  PIM_OIF_FLAG_PROTO_GM is also
+ * re-derived from the ifchannel by pim_forward_start() and
+ * pim_upstream_inherited_olist_decide(), and a static group's own local
+ * membership sets the ifchannel flag they read, so the bit is not evidence
+ * that a dynamic membership exists.  On the static side the configuration
+ * entry alone is not enough either: an entry whose activation failed holds no
+ * subscription, and retaining on its behalf would strand state that
+ * pim_if_static_group_del() can never release (it returns early on a NULL
+ * oilp).  stgrp->oilp is required as well, and it is accurate here: a failed
+ * activation gives the reference back and pim_if_del_vif() releases it, so
+ * the pointer is set exactly while the entry holds its subscription.
+ *
+ * Matching is exact.  A (*,G) subscriber holds its state on the (*,G)
+ * channel_oil - a different oif_flags array - and reaches (S,G) entries
+ * through PIM_OIF_FLAG_PROTO_STAR, added and removed by the ifchannel
+ * inheritance code.  Keeping an (S,G) PROTO_GM bit alive for (*,G) interest
+ * would leave a bit that no later event can clear.  gm_join_list ("ip igmp
+ * join-group") is not consulted for a similar reason:  those entries only open
+ * a kernel socket, they never call tib_sg_gm_join() and hold nothing, and
+ * pim_if_gm_join_del() never prunes.  The membership such a socket creates is
+ * seen here as ordinary IGMP/MLD membership.
+ */
+static bool tib_sg_gm_other_sub(struct interface *oif, pim_sgaddr sg, enum tib_sg_gm_sub leaving)
+{
+	struct pim_interface *pim_ifp = oif->info;
+	struct listnode *node;
+
+	if (!pim_ifp)
+		return false;
+
+	if (leaving != TIB_GM_SUB_STATIC) {
+		struct static_group *stgrp;
+
+		if (!pim_ifp->static_group_list)
+			return false;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
+			/*
+			 * Configured but not activated (failed activation, or
+			 * released by pim_if_del_vif()): holds no subscription,
+			 * so it must not retain one.  Retaining here would keep
+			 * an OIF, a local membership and a proxy join that
+			 * pim_if_static_group_del() could never release - it
+			 * returns early on a NULL oilp.
+			 */
+			if (!stgrp->oilp)
+				continue;
+
+			if (!pim_addr_cmp(stgrp->group_addr, sg.grp) &&
+			    !pim_addr_cmp(stgrp->source_addr, sg.src))
+				return true;
+		}
+
+		return false;
+	}
+
+#if PIM_IPV == 4
+	if (pim_ifp->gm_group_list) {
+		struct gm_group *group;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, node, group)) {
+			struct listnode *srcnode;
+			struct gm_source *src;
+
+			if (pim_addr_cmp(group->group_addr, sg.grp))
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(group->group_source_list, srcnode, src))
+				if (!pim_addr_cmp(src->source_addr, sg.src) &&
+				    IGMP_SOURCE_TEST_FORWARDING(src->source_flags))
+					return true;
+		}
+	}
+#else
+	if (pim_ifp->mld) {
+		struct gm_sg *mlsg, ref = {};
+
+		ref.sgaddr = sg;
+		mlsg = gm_sgs_find(pim_ifp->mld->sgs, &ref);
+		if (mlsg && mlsg->tib_joined)
+			return true;
+	}
+#endif
+
+	return false;
+}
+
+void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif,
+		     enum tib_sg_gm_sub leaving, struct channel_oil **oilp)
 {
 	int result;
 	struct pim_interface *pim_oif = oif->info;
 	struct channel_oil *live;
+	bool retain;
 
-	tib_sg_proxy_join_prune_check(pim, sg, oif, false);
+	/*
+	 * When the other subscriber on this interface still wants sg, the OIF,
+	 * the PIM local membership and the upstream proxy join all have to
+	 * stay.  pim_ifchannel_local_membership_del() would drop the upstream
+	 * join and can delete the ifchannel, which removes the OIF itself, and
+	 * the proxy check cannot see what remains here because
+	 * tib_sg_downstream_receivers_remain() skips oif.
+	 */
+	retain = !pim->stopping && tib_sg_gm_other_sub(oif, sg, leaving);
+
+	if (!retain)
+		tib_sg_proxy_join_prune_check(pim, sg, oif, false);
 
 	/*
 	 It appears that in certain circumstances that
@@ -458,6 +594,21 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 
 	if (!*oilp)
 		return;
+
+	if (retain) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("%s: %pSG on %s still has another subscriber, keeping OIF",
+				   __func__, &sg, oif->name);
+
+		/*
+		 * No need for the pim_find_channel_oil() check below: nothing
+		 * that could free the channel oil has run, and the remaining
+		 * subscriber holds a reference of its own.
+		 */
+		pim_channel_oil_del(*oilp, __func__);
+		*oilp = NULL;
+		return;
+	}
 
 	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				     __func__);

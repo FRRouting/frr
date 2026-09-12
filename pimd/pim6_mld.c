@@ -527,7 +527,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 				  gm_ifp->ifp->name);
 
 	} else if (sg->tib_joined && !new_join) {
-		tib_sg_gm_prune(gm_ifp->pim, sg->sgaddr, gm_ifp->ifp, &sg->oil);
+		tib_sg_gm_prune(gm_ifp->pim, sg->sgaddr, gm_ifp->ifp, TIB_GM_SUB_DYNAMIC, &sg->oil);
 
 		sg->oil = NULL;
 		sg->tib_joined = false;

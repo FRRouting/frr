@@ -243,7 +243,7 @@ void igmp_source_forward_stop(struct gm_source *source)
 		return;
 	}
 
-	tib_sg_gm_prune(pim_oif->pim, sg, group->interface,
+	tib_sg_gm_prune(pim_oif->pim, sg, group->interface, TIB_GM_SUB_DYNAMIC,
 			&source->source_channel_oil);
 	IGMP_SOURCE_DONT_FORWARDING(source->source_flags);
 }
