@@ -1223,6 +1223,14 @@ Administrative Shutdown
 
    An optional shutdown message `MSG` can be specified.
 
+.. clicmd:: bgp shutdown no-notify
+
+   Administrative shutdown of all peers of a bgp instance without sending
+   BGP notification messages. This is useful in active/standby HA setups
+   where, when the node becomes standby, BGP should be shut down without
+   sending notifications in order to preserve BGP Graceful Restart state
+   on the receiving peers.
+
 
 .. _bgp-network:
 
