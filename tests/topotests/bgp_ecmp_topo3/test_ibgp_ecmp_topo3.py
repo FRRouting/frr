@@ -12,6 +12,7 @@
 Following tests are covered to test ecmp functionality on iBGP.
 1. Verify bgp fast-convergence functionality
 """
+import json
 import os
 import sys
 import time
@@ -26,6 +27,8 @@ sys.path.append(os.path.join(CWD, "../../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+import functools
+from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (
@@ -41,7 +44,7 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
-from lib.bgp import create_router_bgp, verify_bgp_convergence
+from lib.bgp import create_router_bgp, verify_bgp_convergence, verify_bgp_rib
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
@@ -99,7 +102,6 @@ def teardown_module():
 
 
 def static_or_nw(tgen, topo, tc_name, test_type, dut):
-
     if test_type == "redist_static":
         input_dict_static = {
             dut: {
@@ -243,24 +245,65 @@ def test_ecmp_fast_convergence(request, test_type, tgen, topo):
     logger.info("Shutdown one link b/w r2 and r3")
     shutdown_bringup_interface(tgen, "r2", intf1, False)
 
-    logger.info("Verify bgp neighbors goes down immediately")
-    result = verify_bgp_convergence(tgen, topo, dut="r2", expected=False)
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        "Expected: BGP should not be converged for {} \n "
-        "Found: {}".format(tc_name, "r2", result)
-    )
+    logger.info("Verify bgp neighbors are still up (session not reset on NHT change)")
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    logger.info("Verify routes are still present via remaining link")
+    for addr_type in ADDR_TYPES:
+        input_dict = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+        result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     logger.info("Shutdown second link b/w r2 and r3")
     shutdown_bringup_interface(tgen, "r2", intf2, False)
 
-    logger.info("Verify bgp neighbors goes down immediately")
-    result = verify_bgp_convergence(tgen, topo, dut="r2", expected=False)
-    assert result is not True, (
-        "Testcase {} : Failed \n "
-        "Expected: BGP should not be converged for {} \n "
-        "Found: {}".format(tc_name, "r2", result)
-    )
+    logger.info("Verify bgp neighbors are still up (session not reset on NHT change)")
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    logger.info("Verify routes in BGP table with nexthop unresolved, not in Zebra")
+    r3 = tgen.gears["r3"]
+    for addr_type in ADDR_TYPES:
+        # Check BGP table - route should exist with nexthop inaccessible
+        def _check_bgp_nexthop_inaccessible():
+            cmd = "show bgp {} {} json".format(addr_type, NETWORK[addr_type])
+            output = r3.vtysh_cmd(cmd)
+            bgp_json = json.loads(output)
+            if "paths" not in bgp_json:
+                return "Route {} not in BGP table".format(NETWORK[addr_type])
+            nexthops = bgp_json["paths"][0].get("nexthops", [])
+            if not nexthops:
+                return "Route has no nexthops"
+            nh_accessible = nexthops[0].get("accessible", True)
+            if nh_accessible is not False:
+                return "Nexthop still accessible: {}".format(nh_accessible)
+            return None
+
+        test_func = functools.partial(_check_bgp_nexthop_inaccessible)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, (
+            "Testcase {} : Failed \n "
+            "Expected: Nexthop should be inaccessible (unresolved) \n "
+            "Error: {}".format(tc_name, result)
+        )
+
+        # Check Zebra table - route should not be installed
+        input_dict = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
+        result = verify_rib(
+            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be in Zebra table (nexthop unresolved) \n "
+            "Found: {}".format(tc_name, result)
+        )
 
     write_test_footer(tc_name)
 
