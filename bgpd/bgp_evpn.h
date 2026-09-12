@@ -12,7 +12,25 @@
 #define EVPN_ROUTE_STRLEN 200 /* Must be >> MAC + IPv6 strings. */
 #define EVPN_AUTORT_VXLAN 0x10000000
 
-#define EVPN_ENABLED(bgp)  (bgp)->advertise_all_vni
+/* EVPN is enabled if EITHER transport enable is set (VXLAN or SRv6). */
+#define EVPN_ENABLED(bgp) ((bgp)->advertise_all_vni || (bgp)->l2vpn_evpn_enabled)
+
+/*
+ * Per-VNI advertise gate for the transport-scoped enables:
+ *   SRv6 EVIs  are advertised only when `advertise-srv6-evpn` is set;
+ *   VXLAN VNIs are advertised only when `advertise-all-vni`   is set.
+ * Defined in bgp_evpn.c.
+ */
+struct bgpevpn;
+extern bool vni_advertise_enabled(struct bgp *bgp, struct bgpevpn *vpn);
+
+/*
+ * (Un)advertise every VNI of one transport (srv6 == true -> SRv6 EVIs,
+ * false -> VXLAN VNIs): on enable advertise+import the subset, on disable
+ * withdraw+uninstall it (and release SRv6 local decap).  Defined in
+ * bgp_evpn.c.
+ */
+extern void bgp_evpn_advertise_scope(struct bgp *bgp, bool srv6, bool enable);
 static inline int is_evpn_enabled(void)
 {
 	struct bgp *bgp = NULL;
@@ -145,6 +163,10 @@ extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					    safi_t safi);
 extern void bgp_evpn_vrf_delete(struct bgp *bgp_vrf);
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
+/* Per-EVI End.DT2U/End.DT2M SID table for `show bgp segment-routing srv6
+ * evpn` (defined in bgp_evpn_vty.c; needs private bgpevpn internals).
+ */
+extern void bgp_evpn_show_srv6_evi_sids(struct vty *vty, struct bgp *bgp);
 extern char *bgp_evpn_label2str(mpls_label_t *label, uint8_t num_labels,
 				char *buf, int len);
 extern void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json);
@@ -217,12 +239,26 @@ extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
 extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
+
 extern bool is_route_injectable_into_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 					  struct bgp_path_info *pi);
 extern bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 						   struct bgp_path_info *pi);
 extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
 					     safi_t safi);
+
+
+/* Re-advertise every locally-originated Type-2 (MAC/IP) route on every L2VNI.
+ * Called by the EVPN encap-mode CLI handler so that a late `encapsulation
+ * srv6` / `encapsulation vxlan` flip immediately rebuilds the outbound
+ * attribute set on existing Type-2 routes (in particular: attach / strip the
+ * RFC 9252 SRv6 L2 service SID).  flood_control_change() only re-walks
+ * Type-3 (IMET) routes - this helper covers the Type-2 gap.
+ */
+extern void bgp_evpn_re_advertise_all_type2_routes(struct bgp *bgp);
+extern void bgp_evpn_re_advertise_all_type3_routes(struct bgp *bgp);
+extern void bgp_evpn_program_srv6_ipv6_route(struct bgp *bgp, const struct in6_addr *sid,
+					     const struct attr *attr, struct peer *peer, bool add);
 
 extern enum zclient_send_status evpn_zebra_install(struct bgp *bgp,
 						   struct bgpevpn *vpn,

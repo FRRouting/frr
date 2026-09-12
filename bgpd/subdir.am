@@ -40,6 +40,8 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_errors.c \
 	bgpd/bgp_evpn.c \
 	bgpd/bgp_evpn_mh.c \
+	bgpd/bgp_evpn_vpws.c \
+	bgpd/bgp_evpn_vpws_vty.c \
 	bgpd/bgp_evpn_vty.c \
 	bgpd/bgp_filter.c \
 	bgpd/bgp_flowspec.c \
@@ -130,6 +132,7 @@ noinst_HEADERS += \
 	bgpd/bgp_evpn.h \
 	bgpd/bgp_evpn_mh.h \
 	bgpd/bgp_evpn_private.h \
+	bgpd/bgp_evpn_vpws.h \
 	bgpd/bgp_evpn_vty.h \
 	bgpd/bgp_filter.h \
 	bgpd/bgp_flowspec.h \
@@ -224,6 +227,7 @@ clippy_scan += \
 	bgpd/bgp_bmp.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_evpn_vty.c \
+	bgpd/bgp_evpn_vpws_vty.c \
 	bgpd/bgp_labelpool.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
