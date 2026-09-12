@@ -23,6 +23,10 @@
     -Delete the static route and verify the RIB and FIB state
 
     -Verify 8 static route functionality with 8 ECMP next hop
+
+Note: flush_zstatic_routes() is called between stop_router() and
+    start_router() to clean up residual RTPROT_ZSTATIC (proto 196)
+    kernel routes.  See common_config.flush_zstatic_routes() for details.
 """
 import sys
 import time
@@ -53,6 +57,7 @@ from lib.common_config import (
     shutdown_bringup_interface,
     stop_router,
     start_router,
+    flush_zstatic_routes,
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
@@ -489,6 +494,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
     step("TC9: Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
+    flush_zstatic_routes(tgen, "r2")
     start_router(tgen, "r2")
 
     step(
@@ -834,7 +840,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
     step("TC6: Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
-
+    flush_zstatic_routes(tgen, "r2")
     start_router(tgen, "r2")
 
     for addr_type in ADDR_TYPES:
@@ -1118,7 +1124,7 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
     step("TC8: Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
-
+    flush_zstatic_routes(tgen, "r2")
     start_router(tgen, "r2")
 
     for addr_type in ADDR_TYPES:
@@ -1465,7 +1471,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             step("Reload the FRR router")
             # stop/start -> restart FRR router and verify
             stop_router(tgen, "r2")
-
+            flush_zstatic_routes(tgen, "r2")
             start_router(tgen, "r2")
 
             step("After reloading, verify that routes are still present in R2.")
