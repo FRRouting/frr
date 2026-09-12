@@ -2300,7 +2300,7 @@ static unsigned int bfd_perm_vrfs_hash_do(const struct bfd_perm_vrf *vrf)
 
 static bool bfd_perm_vrfs_hash_cmp(const struct bfd_perm_vrf *vrf1, const struct bfd_perm_vrf *vrf2)
 {
-	return strmatch(vrf1->vrf_name, vrf2->vrf_name);
+	return !strmatch(vrf1->vrf_name, vrf2->vrf_name);
 }
 
 /*
@@ -2728,8 +2728,10 @@ static void init_bfd_perm_vrfs_data(const char *context)
 
 	frrstr_split(context, delim, &vrfs_list, &num);
 
-	for (int i = 0; i < num; i++)
+	for (int i = 0; i < num; i++) {
 		insert_bfd_perm_vrf(vrfs_list[i]);
+		XFREE(MTYPE_TMP, vrfs_list[i]);
+	}
 
 	XFREE(MTYPE_TMP, vrfs_list);
 }
@@ -2739,9 +2741,12 @@ static void destroy_bfd_perm_vrfs_data(void)
 	struct bfd_perm_vrf *vrf_item;
 
 	frr_each_safe (bfd_perm_vrfs, &bfd_perm_vrfs, vrf_item) {
+		bfd_perm_vrfs_del(&bfd_perm_vrfs, vrf_item);
 		XFREE(MTYPE_TMP, vrf_item->vrf_name);
 		XFREE(MTYPE_BFD_PERM_VRF, vrf_item);
 	}
+
+	bfd_perm_vrfs_fini(&bfd_perm_vrfs);
 }
 
 /*
