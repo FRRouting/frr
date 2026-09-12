@@ -543,10 +543,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			   (intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
 						PEER_FLAG_MAX_PREFIX_OUT));
 		zlog_debug("%pBP Update Group Hash: local role: %s AIGP: %d SOO: %s", peer,
-			   CHECK_FLAG(peer->flags, PEER_FLAG_ROLE)
-				   ? bgp_get_name_by_role(peer->local_role)
-				   : "(NONE)",
-			   !!CHECK_FLAG(peer->flags, PEER_FLAG_AIGP),
+			   bgp_get_local_role_name(peer), !!CHECK_FLAG(peer->flags, PEER_FLAG_AIGP),
 			   peer->soo[afi][safi] ? ecommunity_str(peer->soo[afi][safi]) : "(NONE)");
 		zlog_debug("%pBP Update Group Hash: IPv6 nexthop-local unchanged: %d IPv6 global %pI6",
 			   peer,

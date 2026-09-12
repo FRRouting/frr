@@ -2478,7 +2478,7 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 	return 0;
 }
 
-const char *bgp_get_name_by_role(uint8_t role)
+static const char *bgp_get_name_by_role(uint8_t role)
 {
 	switch (role) {
 	case ROLE_PROVIDER:
@@ -2493,6 +2493,22 @@ const char *bgp_get_name_by_role(uint8_t role)
 		return "peer";
 	}
 	return "unknown";
+}
+
+const char *bgp_get_local_role_name(const struct peer *peer)
+{
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_ROLE))
+		return "undefined";
+
+	return bgp_get_name_by_role(peer->local_role);
+}
+
+const char *bgp_get_remote_role_name(const struct peer *peer)
+{
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_ROLE_RCV))
+		return "undefined";
+
+	return bgp_get_name_by_role(peer->remote_role);
 }
 
 enum asnotation_mode bgp_get_asnotation(struct bgp *bgp)

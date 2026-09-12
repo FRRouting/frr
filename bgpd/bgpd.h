@@ -2977,7 +2977,8 @@ extern void peer_tx_shutdown_message_set(struct peer *peer, const char *msg);
 extern void peer_tx_shutdown_message_unset(struct peer *peer);
 
 extern void bgp_route_map_update_timer(struct event *event);
-extern const char *bgp_get_name_by_role(uint8_t role);
+extern const char *bgp_get_local_role_name(const struct peer *peer);
+extern const char *bgp_get_remote_role_name(const struct peer *peer);
 extern enum asnotation_mode bgp_get_asnotation(struct bgp *bgp);
 
 extern void bgp_route_map_terminate(void);
