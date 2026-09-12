@@ -391,8 +391,7 @@ lde_kernel_update(struct fec *fec)
 			if (CHECK_FLAG(ldeconf->flags, F_LDPD_ENABLED)) {
 				iface = if_lookup(ldeconf,fnh->ifindex);
 				if (CHECK_FLAG(fnh->flags, F_FEC_NH_CONNECTED) ||
-				    iface ||
-				    fnh->route_type == ZEBRA_ROUTE_STATIC)
+				    iface)
 					UNSET_FLAG(fnh->flags, F_FEC_NH_NO_LDP);
 				else
 					SET_FLAG(fnh->flags, F_FEC_NH_NO_LDP);
