@@ -65,10 +65,11 @@ void static_install_path(struct static_path *pn)
 /* Uninstall static path from RIB. */
 static void static_uninstall_path(struct static_path *pn)
 {
-	if (static_nexthop_list_count(&pn->nexthop_list))
-		static_zebra_route_add(pn, true);
-	else
-		static_zebra_route_add(pn, false);
+	/* Remaining valid nexthops are sent in a route update,
+	 * static_zebra_route_add() converts the request to
+	 * a route delete when none remain.
+	 */
+	static_zebra_route_add(pn, true);
 }
 
 struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
