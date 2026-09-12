@@ -18,6 +18,8 @@ extern "C" {
  */
 int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 
+int netlink_request_ifstat(const struct interface *ifp);
+
 extern int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 extern int interface_lookup_netlink(struct zebra_ns *zns);
 

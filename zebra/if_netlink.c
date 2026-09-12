@@ -807,6 +807,47 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 	return bypass;
 }
 
+static int netlink_parse_ifstat(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
+{
+	struct ifinfomsg *ifi;
+	struct rtattr *tb[IFLA_MAX + 1];
+	struct rtnl_link_stats64 *stats_rtnl;
+	struct interface *ifp;
+	int len;
+
+	if (h->nlmsg_type != RTM_NEWLINK) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: wrong kernel message %s", __func__,
+				   nl_msg_type_to_str(h->nlmsg_type));
+
+		frrtrace(3, frr_zebra, netlink_msg_err, nl_msg_type_to_str(h->nlmsg_type), 0, 7);
+
+		return 0;
+	}
+
+	ifi = NLMSG_DATA(h);
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
+	if (len < 0) {
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size %d %zu", __func__,
+			 h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(*ifi)));
+		return -1;
+	}
+
+	ifp = if_lookup_by_index_per_nsid(ns_id, ifi->ifi_index);
+	if (!ifp)
+		return 0;
+
+	netlink_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+	if (tb[IFLA_STATS64]) {
+		stats_rtnl = (struct rtnl_link_stats64 *)RTA_DATA(tb[IFLA_STATS64]);
+		memcpy(&ifp->stats, stats_rtnl, sizeof(ifp->stats));
+	}
+
+	return 0;
+}
+
 /* Request for specific interface or address information from the kernel */
 static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 				     int type, uint32_t filter_mask)
@@ -832,6 +873,46 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 		return -1;
 
 	return netlink_request(netlink_cmd, &req);
+}
+
+/*
+ * Request link statistics from the kernel for a specific interface
+ * or for all interfaces if ifp is NULL.
+ */
+int netlink_request_ifstat(const struct interface *ifp)
+{
+	struct zebra_vrf *zvrf;
+	struct zebra_ns *zns = NULL;
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[64];
+	} req;
+
+	if (ifp && ifp->vrf) {
+		zvrf = ifp->vrf->info;
+		if (zvrf)
+			zns = zvrf->zns;
+	}
+
+	if (!zns)
+		zns = zebra_ns_lookup(NS_DEFAULT);
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_type = RTM_GETLINK;
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.ifi.ifi_family = AF_UNSPEC;
+
+	if (ifp) {
+		req.ifi.ifi_index = ifp->ifindex;
+	} else {
+		req.n.nlmsg_flags |= NLM_F_DUMP;
+		req.ifi.ifi_index = 0;
+	}
+
+	return netlink_talk(netlink_parse_ifstat, &req.n, &zns->netlink_cmd, zns, false, NULL,
+			    NULL);
 }
 
 enum netlink_msg_status
