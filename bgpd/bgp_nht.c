@@ -922,7 +922,28 @@ static void bgp_nht_ifp_handle(struct interface *ifp, bool up)
 
 void bgp_nht_ifp_up(struct interface *ifp)
 {
+	struct bgp *bgp = ifp->vrf->info;
+	struct listnode *node;
+	struct peer *peer;
+
 	bgp_nht_ifp_handle(ifp, true);
+
+	if (!bgp || ifp->ifindex == IFINDEX_INTERNAL)
+		return;
+
+	/* A peer started before its interface was known has no scoped BNC
+	 * for the interface update above to notify. Register it now; the
+	 * initial NHT update will wake the FSM without waiting for its timer.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (peer->conf_if || !peer->ifname || strcmp(peer->ifname, ifp->name) ||
+		    (peer->connection->status != Active && peer->connection->status != Connect) ||
+		    peer->connection->su.sa.sa_family != AF_INET6 ||
+		    !IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr))
+			continue;
+
+		bgp_peer_connection_reg_with_nht(peer->connection);
+	}
 }
 
 void bgp_nht_ifp_down(struct interface *ifp)
