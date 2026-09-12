@@ -2261,6 +2261,12 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		zebra_nhe_init(&nhe, afi, ng->nexthop);
 		nhe.nhg.nexthop = ng->nexthop;
 		nhe.backup_info = bnhg;
+		/* Route-level "all-primaries-down" semantic is signalled on
+		 * the parent NHE; must be set before zebra_nhe_copy() so it
+		 * participates in the hash lookup/insert.
+		 */
+		if (bnhg && CHECK_FLAG(api.message, ZAPI_MESSAGE_BACKUP_ALL_PRIMARIES_DOWN))
+			SET_FLAG(nhe.flags, NEXTHOP_GROUP_BACKUP_ALL_PRIMARIES_DOWN);
 		n = zebra_nhe_copy(&nhe, 0);
 	}
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p, re, n, false, true);
