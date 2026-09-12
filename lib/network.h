@@ -7,6 +7,9 @@
 #ifndef _ZEBRA_NETWORK_H
 #define _ZEBRA_NETWORK_H
 
+#include <sys/socket.h>
+
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -102,6 +105,43 @@ static inline long frr_weak_random(void)
 	/* coverity[dont_call] */
 	return random();
 }
+
+/** Parsed network address information. */
+struct network_address {
+	/** Address storage. */
+	struct sockaddr_storage address;
+	/** Used address storage. */
+	socklen_t address_size;
+	/** Listen mode otherwise connect. */
+	bool listen;
+	/** Error string (if function returned false). */
+	char error[256];
+};
+
+/**
+ * Parses a string and returns the formatted network address if successful.
+ *
+ * When the parse fails the function returns `false` and the parameter
+ * `address` member `error` is set with the error message that occurred.
+ *
+ * When no port is present on the string the corresponding `sockaddr` port
+ * field will be set to the provided `default_port`.  `default_port` is used
+ * as-is and is not validated: a port explicitly written as `0` is rejected
+ * (it is most likely a typo), but callers that have no meaningful default
+ * may pass `0` to get the wildcard port.
+ *
+ * IPv6 addresses must be enclosed in `[]` and may carry a scope/zone
+ * identifier (e.g. `ipv6:[fe80::1%eth0]:1234`), which is resolved with
+ * `if_nametoindex()` and stored in `sin6_scope_id`.
+ *
+ * \param address_string the string to parse
+ * \param address the formatted address output
+ * \param default_port port to use if none found in string (IPv4/IPv6 only).
+ * \returns `true` on success with address set in `address` members, otherwise
+ *          `false` and error message in `address.error`.
+ */
+extern bool network_address_parse(const char *address_string, struct network_address *address,
+				  uint16_t default_port);
 
 #ifdef __cplusplus
 }

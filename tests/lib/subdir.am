@@ -235,6 +235,17 @@ tests_lib_test_memory_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_memory_SOURCES = tests/lib/test_memory.c
 
 
+check_PROGRAMS += tests/lib/test_network_address
+tests_lib_test_network_address_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_network_address_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_network_address_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_network_address_SOURCES = tests/lib/test_network_address.c
+EXTRA_DIST += \
+	tests/lib/test_network_address.py \
+	tests/lib/test_network_address.refout \
+	# end
+
+
 check_PROGRAMS += tests/lib/test_nexthop_iter
 tests_lib_test_nexthop_iter_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_nexthop_iter_CPPFLAGS = $(TESTS_CPPFLAGS)
