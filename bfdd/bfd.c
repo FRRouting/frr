@@ -263,14 +263,8 @@ void bfd_session_apply(struct bfd_session *bs)
 	else if (bs->profile && bs->profile->auth_config.key_chain_name[0] != '\0')
 		bs->kc = keychain_lookup(bs->profile->auth_config.key_chain_name);
 
-	if (bs->peer_profile.auth_config.meticulous ||
-	    (bs->profile && bs->profile->auth_config.meticulous)) {
-		bs->auth_meticulous = true;
-		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO_METICULOUS;
-	} else {
-		bs->auth_meticulous = false;
-		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO;
-	}
+	bs->auth_meticulous = bs->peer_profile.auth_config.meticulous ||
+			      (bs->profile && bs->profile->auth_config.meticulous);
 
 	/* If session interval changed negotiate new timers. */
 	if (bs->ses_state == PTM_BFD_UP &&
@@ -1125,6 +1119,7 @@ struct bfd_session *bfd_session_new(enum bfd_mode_type mode)
 	/* RFC 5880, Section 6.7.3: unpredictable initial sequence number */
 	bs->auth_seq_num = frr_weak_random();
 	bs->auth_last_rx_seq_num = 0;
+	bs->auth_seq_known = false;
 	bs->auth_meticulous = false;
 	bs_set_slow_timers(bs);
 

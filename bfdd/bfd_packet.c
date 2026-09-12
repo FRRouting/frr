@@ -1098,29 +1098,54 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 		memcpy(&received_seq_num, auth_section + 4, sizeof(received_seq_num));
 		received_seq_num = ntohl(received_seq_num);
 
-		if (bfd->auth_last_rx_seq_num != 0) {
-			if (received_auth_type == BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1) {
-				if (received_seq_num <= bfd->auth_last_rx_seq_num) {
-					cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa,
-						 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
-						 bfd->vrf ? bfd->vrf->vrf_id : 0,
-						 "Auth: meticulous sequence number error");
+		/*
+		 * RFC 5880 Section 6.8.1: the expected sequence number is no
+		 * longer known once nothing has been received for twice the
+		 * detection time, so that it resynchronises when the remote
+		 * system restarts.
+		 */
+		if (bfd->auth_seq_known && bfd->detect_TO &&
+		    monotime_since(&bfd->auth_last_rx_time, NULL) >
+			    (int64_t)(2 * bfd->detect_TO))
+			bfd->auth_seq_known = false;
+
+		if (bfd->auth_seq_known) {
+			bool meticulous = received_auth_type ==
+					  BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1;
+			uint32_t lowest = meticulous ? 1 : 0;
+			/*
+			 * RFC 5880 names the local state variable
+			 * bfd.DetectMult and the header field Detect Mult;
+			 * Section 6.7.4 asks for the latter, which is the
+			 * value carried by the packet being checked.
+			 * bfd_recv_cb() has already discarded the packet if
+			 * that field is zero.
+			 */
+			uint32_t highest = 3 * cp->detect_mult;
+			uint32_t distance;
+
+			/*
+			 * The window is bfd.RcvAuthSeq to bfd.RcvAuthSeq +
+			 * (3 * Detect Mult) inclusive, one past that for the
+			 * meticulous variants. Unsigned subtraction gives the
+			 * circular number space the RFC asks for: a sequence
+			 * number behind the stored one wraps to a distance
+			 * larger than the window and is rejected.
+			 */
+			distance = received_seq_num - bfd->auth_last_rx_seq_num;
+			if (distance < lowest || distance > highest) {
+				cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa,
+					 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
+					 bfd->vrf ? bfd->vrf->vrf_id : 0,
+					 "Auth: sequence number %u outside window %u..%u",
+					 received_seq_num, bfd->auth_last_rx_seq_num + lowest,
+					 bfd->auth_last_rx_seq_num + highest);
+				if (meticulous)
 					bfd->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error++;
-					return false;
-				}
-			} else {
-				/* Non-meticulous allows equal sequence numbers on stable state */
-				if (received_seq_num < bfd->auth_last_rx_seq_num) {
-					cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa,
-						 &local_sa, bfd->ifp ? bfd->ifp->ifindex : 0,
-						 bfd->vrf ? bfd->vrf->vrf_id : 0,
-						 "Auth: sequence number error (replay)");
+				else
 					bfd->stats.rx_pkt_authentication_keyed_sha1_sequence_error++;
-					return false;
-				}
+				return false;
 			}
-			if ((received_seq_num % bfd->auth_seq_num_update_modulo) == 0)
-				bfd->auth_last_rx_seq_num = received_seq_num;
 		}
 
 		/* Validate Digest */
@@ -1144,6 +1169,15 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 			bfd->stats.rx_pkt_authentication_keyed_sha1_mismatch++;
 			return false;
 		}
+
+		/*
+		 * Accepted. The replay window moves only now, after the digest
+		 * has been verified, so that a packet failing authentication
+		 * cannot advance it.
+		 */
+		bfd->auth_last_rx_seq_num = received_seq_num;
+		bfd->auth_seq_known = true;
+		monotime(&bfd->auth_last_rx_time);
 
 		break;
 	}

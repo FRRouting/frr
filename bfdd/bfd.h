@@ -454,13 +454,12 @@ struct bfd_session {
 	struct keychain *kc; /* Currently active keychain for this session */
 	uint32_t auth_seq_num;
 	uint32_t auth_last_rx_seq_num;
-/* the last sequence number will be updated:
- * - on non meticulous mode: every 5 packets
- * - on meticulous mode: every packet
- */
-#define AUTH_SEQ_NUM_MODULO	       5
-#define AUTH_SEQ_NUM_MODULO_METICULOUS 1
-	uint32_t auth_seq_num_update_modulo;
+	/*
+	 * RFC 5880 Section 6.8.1 bfd.AuthSeqKnown, with the time the
+	 * sequence number was last accepted so that it can be aged out.
+	 */
+	bool auth_seq_known;
+	struct timeval auth_last_rx_time;
 	bool auth_meticulous;
 };
 
