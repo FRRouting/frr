@@ -936,8 +936,6 @@ extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
 /*
  * Libyang future functions
  */
-extern const char *yang_ly_strerrcode(LY_ERR err);
-extern const char *yang_ly_strvecode(LY_VECODE vecode);
 extern LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
 				const struct yang_list_keys *keys, struct lyd_node **nodes);
 extern LY_ERR yang_lyd_trim_xpath(struct lyd_node **rootp, const char *xpath);
@@ -952,30 +950,10 @@ extern LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx,
  * Handle NBC API changes between versions of Libyang
  */
 
-/* Use this helper function to deal with change in value_size units */
-extern LY_ERR yang_new_term_bin(struct lyd_node *parent, const struct lys_module *module,
-				const char *name, const void *value, uint32_t value_size,
-				uint32_t options, struct lyd_node **node);
-#define lyd_new_term_bin(...)                                                                     \
-	_Pragma("GCC error \"Use yang_new_term_bin() instead of lyd_new_term_bin()\"")
-
-LY_ERR yang_change_term_bin(struct lyd_node *term, const void *value, uint32_t value_size_bits);
-#define lyd_change_term_bin(...)                                                                  \
-	_Pragma("GCC error \"Use yang_change_term_bin() instead of lyd_new_change_term_bin()\"")
-
 extern LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
-			     const void *value, uint32_t value_size_bits,
-			     LYD_ANYDATA_VALUETYPE value_type, uint32_t options,
+			     const void *value, uint32_t value_size_bytes, uint32_t options,
 			     struct lyd_node **new_parent, struct lyd_node **new_node);
 #define lyd_new_path2(...) _Pragma("GCC error \"Use yang_new_path2() instead of lyd_new_path2()\"")
-
-#if (LY_VERSION_MAJOR >= 3) && (LY_VERSION_MAJOR < 5)
-extern LY_ERR yang_new_ext_term(const struct lysc_ext_instance *ext, const char *name,
-				const void *value, uint32_t value_size_bits, uint32_t options,
-				struct lyd_node **node);
-#define lyd_new_ext_term(...)                                                                     \
-	_Pragma("GCC error \"Use yang_new_ext_term() instead of lyd_new_ext_term()\"")
-#endif
 
 #ifdef __cplusplus
 }
