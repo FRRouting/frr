@@ -368,6 +368,23 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	 * - c: profile name length.
 	 * - X bytes: profile name.
 	 *
+	 * Optional tail (modeled on route ZAPI's ZAPI_MESSAGE_* pattern):
+	 *  - w: bfd_regext_flags        (always, when tail present)
+	 *  if FLAG_BFD_MODE:     c      bfd_mode (`bfd_mode_type` in bfdd/bfd.h)
+	 *  if FLAG_REMOTE_DISCR: l      remote_discr
+	 *  if FLAG_SRV6_SOURCE:  16     srv6_source_ipv6
+	 *  if FLAG_SEG_LIST:     c      seg_num (0..SRV6_MAX_SEGS)
+	 *                        16*seg_num bytes: seg_list[]
+	 *  if FLAG_BFD_NAME:     c      bfd_name length
+	 *                        X bytes: bfd_name
+	 *
+	 * The encoder emits the tail when at least one BFD_REGEXT_FLAG_* bit
+	 * is set on `bfd_session_arg`, including on deregister frames so a
+	 * named session (whose key includes `bfd_name`) can be located for
+	 * deletion. The decoder detects the no-tail case via STREAM_READABLE
+	 * and leaves all optional fields zero-initialised, so classical-BFD
+	 * senders are accepted unchanged.
+	 *
 	 * q(64), l(32), w(16), c(8)
 	 */
 
@@ -461,6 +478,82 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 		bpc->bpc_profile[ifnamelen] = 0;
 	}
 
+	/*
+	 * Optional-field tail. Each BFD_REGEXT_FLAG_* bit in the leading
+	 * flags word (see `lib/bfd.h`) explicitly indicates that the
+	 * corresponding field follows. Classical-BFD senders write no tail
+	 * at all and are detected via STREAM_READABLE; in that case every
+	 * optional field stays at its memset-zero default.
+	 *
+	 * The "no tail" check is the only positional probing left; past the
+	 * flags word, every field's presence is signalled explicitly, so a
+	 * future upstream extension that appends bytes here (or that lands
+	 * with no flags word at all) is rejected cleanly via the bounds
+	 * check on the trailing wire bytes rather than silently misparsing
+	 * as an SBFD field.
+	 *
+	 * Forward compatibility: bytes left after the last flagged field
+	 * this decoder knows about are silently ignored. A newer sender
+	 * may append fields by claiming new BFD_REGEXT_FLAG_* bits; older
+	 * decoders parse what they recognise and stop.
+	 */
+	if (STREAM_READABLE(msg) > 0) {
+		uint16_t flags;
+		uint8_t i;
+
+		STREAM_GETW(msg, flags);
+		bpc->bfd_regext_flags = flags;
+
+		if (flags & BFD_REGEXT_FLAG_BFD_MODE) {
+			STREAM_GETC(msg, bpc->bfd_mode);
+			if (bpc->bfd_mode > BFD_MODE_TYPE_SBFD_INIT) {
+				zlog_err("ptm-read: unknown bfd_mode %u (max %u)", bpc->bfd_mode,
+					 BFD_MODE_TYPE_SBFD_INIT);
+				goto stream_failure;
+			}
+		}
+		if (flags & BFD_REGEXT_FLAG_REMOTE_DISCR)
+			STREAM_GETL(msg, bpc->remote_discr);
+		if (flags & BFD_REGEXT_FLAG_SRV6_SOURCE)
+			STREAM_GET(&bpc->srv6_source_ipv6, msg, sizeof(struct in6_addr));
+		if (flags & BFD_REGEXT_FLAG_SEG_LIST) {
+			STREAM_GETC(msg, bpc->seg_num);
+			if (bpc->seg_num > SRV6_MAX_SEGS) {
+				zlog_err("ptm-read: seg_num %u exceeds SRV6_MAX_SEGS %u",
+					 bpc->seg_num, SRV6_MAX_SEGS);
+				goto stream_failure;
+			}
+			for (i = 0; i < bpc->seg_num; i++)
+				STREAM_GET(&bpc->seg_list[i], msg, sizeof(struct in6_addr));
+		}
+		if (flags & BFD_REGEXT_FLAG_BFD_NAME) {
+			/*
+			 * bfd_name_len is uint8_t (max 255) and the destination
+			 * buffer has BFD_NAME_SIZE + 1 == 256 bytes, so any wire
+			 * value fits with room for the NUL terminator.
+			 */
+			STREAM_GETC(msg, bpc->bfd_name_len);
+			if (bpc->bfd_name_len) {
+				STREAM_GET(bpc->bfd_name, msg, bpc->bfd_name_len);
+				bpc->bfd_name[bpc->bfd_name_len] = '\0';
+			}
+		}
+
+		/*
+		 * Cross-flag validation: SBFD_INIT identifies the remote end
+		 * by a discriminator (RFC 7881 §3); discriminator 0 is reserved,
+		 * so a session whose mode is SBFD_INIT must arrive with an
+		 * explicit `remote_discr` (FLAG_REMOTE_DISCR set). Reject the
+		 * frame rather than create a session that can never come up.
+		 */
+		if ((flags & BFD_REGEXT_FLAG_BFD_MODE) &&
+		    bpc->bfd_mode == BFD_MODE_TYPE_SBFD_INIT &&
+		    !(flags & BFD_REGEXT_FLAG_REMOTE_DISCR)) {
+			zlog_err("ptm-read: SBFD_INIT mode without FLAG_REMOTE_DISCR; rejecting");
+			goto stream_failure;
+		}
+	}
+
 	/* Sanity check: peer and local address must match IP types. */
 	if (bpc->bpc_local.sa_sin.sin_family != AF_UNSPEC
 	    && (bpc->bpc_local.sa_sin.sin_family
@@ -512,6 +605,22 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 		if (bpc.bpc_has_profile)
 			bfd_profile_apply(bpc.bpc_profile, bs);
 	}
+
+	/*
+	 * the SBFD/SRv6 fields decoded in `_ptm_msg_read` are
+	 * propagated onto the freshly-created session inside
+	 * `ptm_bfd_sess_new` — *before* `bs_registrate` runs. That ordering
+	 * matters because `bfd_session_enable` (called from `bs_registrate`)
+	 * dispatches on `bs->bfd_mode` to choose between the SRH and the
+	 * classical UDP socket; setting `bs->bfd_mode` here would be too
+	 * late.
+	 *
+	 * Re-registers of an *existing* session reach the `bs != NULL`
+	 * branch above and never enter `ptm_bfd_sess_new`, so the SBFD
+	 * fields on the live session are intentionally immutable from the
+	 * ZAPI surface. A pathd-side reroute that wants to change the
+	 * segment list must issue a DEREGISTER followed by a REGISTER.
+	 */
 
 	/* Create client peer notification register. */
 	pcn_new(pc, bs);
