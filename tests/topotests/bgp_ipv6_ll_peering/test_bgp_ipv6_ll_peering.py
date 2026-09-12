@@ -776,6 +776,84 @@ def test_bgp_global_peer_ll_nexthop_nht_wrong_interface():
     )
 
 
+def test_bgp_explicit_ll_nht_late_interface():
+    """Interface arrival must register a peer without waiting for its timer."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    neighbor = "fe80:2::2"
+    interface = "r1-late0"
+
+    try:
+        r1.vtysh_cmd(
+            f"""
+            configure terminal
+             router bgp 65001
+              neighbor {neighbor} remote-as external
+              neighbor {neighbor} interface {interface}
+              neighbor {neighbor} timers connect 600
+            end
+            """
+        )
+
+        def _waiting_for_interface():
+            output = json.loads(r1.vtysh_cmd("show bgp summary json"))
+            result = topotest.json_cmp(
+                output, {"ipv4Unicast": {"peers": {neighbor: {"state": "Active"}}}}
+            )
+            if result is not None:
+                return result
+            output = json.loads(r1.vtysh_cmd("show bgp summary failed json"))
+            expected = {
+                "ipv4Unicast": {
+                    "peers": {
+                        neighbor: {
+                            "lastResetDueTo": "No path to specified Neighbor",
+                        }
+                    }
+                }
+            }
+            return topotest.json_cmp(output, expected)
+
+        _, result = topotest.run_and_expect(
+            _waiting_for_interface, None, count=30, wait=0.5
+        )
+        assert result is None, "Peer did not wait for its missing interface"
+        output = json.loads(r1.vtysh_cmd("show bgp nexthop json"))
+        assert neighbor not in output.get("ipv6", {}), "Unexpected unscoped BNC"
+
+        r1.run(f"ip link add {interface} type dummy")
+        r1.run(f"ip -6 address add fe80:2::1/64 dev {interface} nodad")
+        r1.run(f"ip link set {interface} up")
+
+        def _registered_on_interface():
+            output = json.loads(r1.vtysh_cmd("show bgp nexthop json"))
+            expected = {
+                "ipv6": {
+                    neighbor: {
+                        "valid": True,
+                        "peer": neighbor,
+                        "nexthops": [{"interfaceName": interface}],
+                    }
+                }
+            }
+            return topotest.json_cmp(output, expected)
+
+        # Much shorter than the 600-second connect retry: only an interface
+        # event can create and validate the BNC in this window.
+        _, result = topotest.run_and_expect(
+            _registered_on_interface, None, count=30, wait=0.5
+        )
+        assert result is None, "Interface arrival did not register the waiting peer"
+    finally:
+        r1.vtysh_cmd(
+            f"configure terminal\nrouter bgp 65001\nno neighbor {neighbor}\nend"
+        )
+        r1.run(f"ip link delete {interface}")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
