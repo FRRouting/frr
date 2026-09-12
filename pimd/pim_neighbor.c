@@ -526,7 +526,7 @@ pim_neighbor_add(struct interface *ifp, pim_addr source_addr,
 	else
 		pim_hello_restart_triggered(neigh->interface);
 
-	pim_upstream_find_new_rpf(pim_ifp->pim);
+	pim_upstream_find_new_rpf(pim_ifp->pim, ifp);
 
 	/* RNH can send nexthop update prior to PIM neibhor UP
 	   in that case nexthop cache would not consider this neighbor
@@ -654,6 +654,7 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 	listnode_delete(pim_ifp->pim_neighbor_list, neigh);
 
 	pim_neighbor_free(neigh);
+	pim_upstream_find_new_rpf(pim_ifp->pim, ifp);
 
 	sched_rpf_cache_refresh(pim_ifp->pim);
 }
@@ -861,5 +862,5 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 	 * resolvable. Re-evaluate upstreams that don't have a valid RPF path.
 	 */
 	if (secondary_addr_changed)
-		pim_upstream_find_new_rpf(pim_ifp->pim);
+		pim_upstream_find_new_rpf(pim_ifp->pim, neigh->interface);
 }
