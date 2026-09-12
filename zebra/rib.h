@@ -51,6 +51,14 @@ struct rnh {
 	uint32_t seqno;
 
 	struct route_entry *state;
+
+	/* The NHG ID of the resolved route entry. Used by NHT consumers
+	 * (e.g. fpmsyncd) to identify the nexthop-group when building FIB
+	 * entries from NHT notifications. We cache this ID in rnh instead
+	 * of the cached NHG entry due to some misuse concern on the cached
+	 * NHG entry after it gets a valid NHG ID.
+	 */
+	uint32_t resolved_nhg_id;
 	struct prefix resolved_route;
 
 	/* Single client that owns this rnh */
