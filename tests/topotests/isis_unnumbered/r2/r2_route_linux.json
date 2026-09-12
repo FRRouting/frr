@@ -1,0 +1,23 @@
+[
+  {
+    "dst": "10.254.0.1",
+    "gateway": "10.254.0.1",
+    "dev": "r2-eth0",
+    "protocol": "isis",
+    "metric": 20,
+    "flags": [
+      "onlink"
+    ]
+  },
+  {
+    "dst": "10.254.0.3",
+    "gateway": "10.254.0.3",
+    "dev": "r2-eth1",
+    "protocol": "isis",
+    "metric": 20,
+    "flags": [
+      "onlink"
+    ]
+  }
+]
+
