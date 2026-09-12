@@ -995,14 +995,18 @@ static void build_tlv(struct stream *s, struct tlv_header *tlvh)
 /* Build an Extended Prefix Opaque LSA body for extended prefix TLV */
 static void ospf_ext_pref_lsa_body_set(struct stream *s, struct ext_itf *exti)
 {
+	uint16_t size = EXT_TLV_PREFIX_SIZE;
 
 	/* Sanity check */
 	if ((exti == NULL) || (exti->stype != PREF_SID))
 		return;
 
+	/* Only account for the Prefix-SID SubTLV if present */
+	if (ntohs(TLV_TYPE(exti->node_sid)) != 0)
+		size += TLV_HDR_SIZE + ntohs(TLV_LEN(exti->node_sid));
+
 	/* Adjust Extended Prefix TLV size */
-	TLV_LEN(exti->prefix) = htons(ntohs(TLV_LEN(exti->node_sid))
-				      + EXT_TLV_PREFIX_SIZE + TLV_HDR_SIZE);
+	TLV_LEN(exti->prefix) = htons(size);
 
 	/* Build LSA body for an Extended Prefix TLV */
 	build_tlv_header(s, &exti->prefix.header);
@@ -1308,6 +1312,10 @@ static int ospf_ext_pref_lsa_originate(void *arg)
 
 		/* Process only Prefix SID */
 		if (exti->stype != PREF_SID)
+			continue;
+
+		/* Skip Inactive Extended Prefix */
+		if (!CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE))
 			continue;
 
 		/* Process only Extended Prefix with valid Area ID */
