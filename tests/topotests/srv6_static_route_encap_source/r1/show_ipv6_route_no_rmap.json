@@ -1,8 +1,27 @@
 {
-	"192.0.2.1/32": [
+	"fcbb:bbbb:1::/48": [
 		{
-			"prefix": "192.0.2.1/32",
-			"prefixLen": 32,
+			"prefix": "fcbb:bbbb:1::/48",
+			"prefixLen": 48,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1
+				}
+			]
+		}
+	],
+	"2001:db8:1:1::1/128": [
+		{
+			"prefix": "2001:db8:1:1::1/128",
+			"prefixLen": 128,
 			"protocol": "static",
 			"selected": true,
 			"destSelected": true,
@@ -22,15 +41,15 @@
 						"fcbb:bbbb:7:8:fe00::"
 					],
 					"srv6EncapBehavior": "H.Encaps",
-					"srv6EncapSource": "2001:db8:dead:4::1"
+					"srv6EncapSource": "2001:db8:dead:6::1"
 				}
 			]
 		}
 	],
-	"192.0.2.2/32": [
+	"2001:db8:1:1::2/128": [
 		{
-			"prefix": "192.0.2.2/32",
-			"prefixLen": 32,
+			"prefix": "2001:db8:1:1::2/128",
+			"prefixLen": 128,
 			"protocol": "static",
 			"selected": true,
 			"destSelected": true,
@@ -50,15 +69,15 @@
 						"fcbb:bbbb:7:8:fe00::"
 					],
 					"srv6EncapBehavior": "H.Encaps",
-					"srv6EncapSource": "2001:db8:dead:4::2"
+					"srv6EncapSource": "2001:db8:dead:6::2"
 				}
 			]
 		}
 	],
-	"192.0.2.3/32": [
+	"2001:db8:1:1::3/128": [
 		{
-			"prefix": "192.0.2.3/32",
-			"prefixLen": 32,
+			"prefix": "2001:db8:1:1::3/128",
+			"prefixLen": 128,
 			"protocol": "static",
 			"selected": true,
 			"destSelected": true,
@@ -78,15 +97,15 @@
 						"fcbb:bbbb:7:8:fe00::"
 					],
 					"srv6EncapBehavior": "H.Encaps.Red",
-					"srv6EncapSource": "2001:db8:dead:4::3"
+					"srv6EncapSource": "2001:db8:dead:6::3"
 				}
 			]
 		}
 	],
-	"192.0.2.4/32": [
+	"2001:db8:1:1::4/128": [
 		{
-			"prefix": "192.0.2.4/32",
-			"prefixLen": 32,
+			"prefix": "2001:db8:1:1::4/128",
+			"prefixLen": 128,
 			"protocol": "static",
 			"selected": true,
 			"destSelected": true,
@@ -106,15 +125,15 @@
 						"fcbb:bbbb:7:8:fe00::"
 					],
 					"srv6EncapBehavior": "H.Encaps.Red",
-					"srv6EncapSource": "2001:db8:dead:4::ff"
+					"srv6EncapSource": "2001:db8:dead:6::4"
 				}
 			]
 		}
 	],
-	"192.0.2.5/32": [
+	"2001:db8:1:1::5/128": [
 		{
-			"prefix": "192.0.2.5/32",
-			"prefixLen": 32,
+			"prefix": "2001:db8:1:1::5/128",
+			"prefixLen": 128,
 			"protocol": "static",
 			"selected": true,
 			"destSelected": true,
@@ -133,8 +152,7 @@
 						"fcbb:bbbb:1:2:3:4:5:7",
 						"fcbb:bbbb:7:8:fe00::"
 					],
-					"srv6EncapBehavior": "H.Encaps.Red",
-					"srv6EncapSource": "2001:db8:dead:4::ff"
+					"srv6EncapBehavior": "H.Encaps.Red"
 				}
 			]
 		}
