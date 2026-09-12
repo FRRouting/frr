@@ -168,7 +168,9 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 		    uint32_t addpath_id, struct bgp_labels *labels)
 {
 	struct bgp_adj_in *adj;
+	struct timeval now;
 
+	monotime(&now);
 	for (adj = dest->adj_in; adj; adj = adj->next) {
 		if (adj->peer == peer && adj->addpath_rx_id == addpath_id) {
 			if (!attrhash_cmp(adj->attr, attr)) {
@@ -179,14 +181,16 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 				bgp_labels_unintern(&adj->labels);
 				adj->labels = bgp_labels_intern(labels);
 			}
-			adj->uptime = monotime(NULL);
+			adj->uptime = now.tv_sec;
+			adj->uptime_usec = now.tv_usec;
 			return;
 		}
 	}
 	adj = XCALLOC(MTYPE_BGP_ADJ_IN, sizeof(struct bgp_adj_in));
 	adj->peer = peer_lock(peer); /* adj_in peer reference */
 	adj->attr = bgp_attr_intern(attr);
-	adj->uptime = monotime(NULL);
+	adj->uptime = now.tv_sec;
+	adj->uptime_usec = now.tv_usec;
 	adj->addpath_rx_id = addpath_id;
 	adj->labels = bgp_labels_intern(labels);
 	BGP_ADJ_IN_ADD(dest, adj);
