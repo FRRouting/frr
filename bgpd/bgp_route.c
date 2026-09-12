@@ -2117,11 +2117,15 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 
 static bool bgp_otc_filter(struct peer *peer, struct attr *attr)
 {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_ROLE))
+		return false;
+
 	if (bgp_attr_exists(attr, BGP_ATTR_OTC)) {
 		if (peer->local_role == ROLE_PROVIDER ||
 		    peer->local_role == ROLE_RS_SERVER)
 			return true;
-		if (peer->local_role == ROLE_PEER && bgp_attr_get_otc(attr) != peer->as)
+		if ((peer->local_role == ROLE_PEER || peer->local_role == ROLE_RS_CLIENT) &&
+		    bgp_attr_get_otc(attr) != peer->as)
 			return true;
 		return false;
 	}
@@ -2135,6 +2139,9 @@ static bool bgp_otc_filter(struct peer *peer, struct attr *attr)
 
 static bool bgp_otc_egress(struct peer *peer, struct attr *attr)
 {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_ROLE))
+		return false;
+
 	if (bgp_attr_exists(attr, BGP_ATTR_OTC)) {
 		if (peer->local_role == ROLE_CUSTOMER ||
 		    peer->local_role == ROLE_RS_CLIENT ||
@@ -2145,7 +2152,7 @@ static bool bgp_otc_egress(struct peer *peer, struct attr *attr)
 	if (peer->local_role == ROLE_PROVIDER ||
 	    peer->local_role == ROLE_PEER ||
 	    peer->local_role == ROLE_RS_SERVER) {
-		bgp_attr_set_otc(attr, peer->bgp->as);
+		bgp_attr_set_otc(attr, bgp_local_as_for_peer(peer));
 	}
 	return false;
 }
