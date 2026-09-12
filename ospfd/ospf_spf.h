@@ -35,6 +35,10 @@ struct vertex {
 struct vertex_nexthop {
 	struct in_addr router;     /* router address to send to */
 	int lsa_pos; /* LSA position for resolving the interface */
+	ifindex_t ifindex; /* resolved egress interface, for nexthops whose
+			    * lsa_pos is not valid in the area being populated
+			    * (e.g. a virtual-link nexthop, whose position is
+			    * relative to the transit area); 0 when unset. */
 };
 
 struct vertex_parent {
