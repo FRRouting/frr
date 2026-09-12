@@ -272,6 +272,15 @@ void bfd_session_apply(struct bfd_session *bs)
 		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO;
 	}
 
+	/*
+	 * Warn here rather than per packet. A keychain that holds nothing
+	 * this session can use now keeps the session down instead of
+	 * quietly running it unauthenticated, so say which keychain it was.
+	 */
+	if (bs->kc && !bfd_keychain_key_find_active(bs->kc, bs->auth_meticulous))
+		zlog_warn("BFD: session [%s] has keychain %s but no key it can use; the session will not authenticate",
+			  bs_to_string(bs), bs->kc->name);
+
 	/* If session interval changed negotiate new timers. */
 	if (bs->ses_state == PTM_BFD_UP &&
 	    (bs->timers.desired_min_tx != min_tx || bs->timers.required_min_rx != min_rx)) {
@@ -659,6 +668,8 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool m
 	now_sec = now_ts.tv_sec; /* Use seconds part for comparison with time_t lifetimes */
 
 	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		size_t keylen, maxlen;
+
 		if (meticulous && key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
 			continue;
 		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT &&
@@ -666,9 +677,18 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool m
 			continue;
 		if (!key->string)
 			continue;
-		if (strlen(key->string) < BFD_AUTH_SIMPLE_PASSWD_MIN_LEN)
-			continue;
-		if (strlen(key->string) > BFD_AUTH_SIMPLE_PASSWD_MAX_LEN)
+
+		/*
+		 * RFC 5880 Section 6.7.2 bounds a simple password at 16 bytes,
+		 * Section 6.7.4 a keyed SHA1 key at 20. The keyed SHA1 section
+		 * is 28 bytes whatever the key length, so the longer key does
+		 * not grow the packet.
+		 */
+		maxlen = key->hash_algo == KEYCHAIN_ALGO_HMAC_SHA1
+				 ? BFD_AUTH_SHA1_KEY_MAX_LEN
+				 : BFD_AUTH_SIMPLE_PASSWD_MAX_LEN;
+		keylen = strlen(key->string);
+		if (keylen < BFD_AUTH_SIMPLE_PASSWD_MIN_LEN || keylen > maxlen)
 			continue;
 		if (key->send.start == 0 || /* Always valid if start is 0 */
 		    (key->send.start <= now_sec &&
