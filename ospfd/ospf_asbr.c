@@ -399,7 +399,7 @@ static void ospf_asbr_redist_update_timer(struct event *event)
 		}
 	}
 
-	ospf_external_lsa_refresh_default(ospf);
+	ospf_external_lsa_refresh_default(ospf, NULL);
 }
 
 void ospf_schedule_asbr_redist_update(struct ospf *ospf)
