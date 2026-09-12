@@ -43,6 +43,9 @@ For sorted containers, these data structures are implemented:
 
 - hash table (note below)
 
+- atomic hash table (same note applies)
+
+
 Except for hash tables, each of the sorted data structures has a variant with
 unique and non-unique items.  Hash tables always require unique items
 and mostly follow the "sorted" API but use the hash value as sorting
@@ -58,8 +61,6 @@ The following sorted structures are likely to be implemented at some point
 in the future:
 
 - atomic skiplist
-
-- atomic hash table (note below)
 
 
 The APIs are all designed to be as type-safe as possible.  This means that
@@ -100,6 +101,7 @@ Available types:
    DECLARE_RBTREE_NONUNIQ
 
    DECLARE_HASH
+   DECLARE_ATOMHASH
 
 Functions provided:
 
@@ -116,7 +118,7 @@ Functions provided:
 |                                    | only  |      |      |         |            |
 | _const_last, _const_prev           |       |      |      |         |            |
 +------------------------------------+-------+------+------+---------+------------+
-| _swap_all                          | yes   | yes  | yes  | yes     | yes        |
+| _swap_all                          | yesᴬ  | yes  | yesᴬ | yesᴬ    | yesᴬ       |
 +------------------------------------+-------+------+------+---------+------------+
 | _anywhere                          | yes   | --   | --   | --      | --         |
 +------------------------------------+-------+------+------+---------+------------+
@@ -128,7 +130,7 @@ Functions provided:
 +------------------------------------+-------+------+------+---------+------------+
 | _del, _pop                         | yes   | yes  | yes  | yes     | yes        |
 +------------------------------------+-------+------+------+---------+------------+
-|  _pop_all                          | --    | --   | yes  | --      | --         |
+|  _pop_all                          | --    | --   | yesᴬ | --      | --         |
 +------------------------------------+-------+------+------+---------+------------+
 |  _pop_final                        | --    | --   | --   | yes     | yes        |
 +------------------------------------+-------+------+------+---------+------------+
@@ -141,6 +143,8 @@ Functions provided:
 | use with frr_each() macros         | yes   | yes  | yes  | yes     | yes        |
 +------------------------------------+-------+------+------+---------+------------+
 
+ᴬ The atomic containers do not provide the ``swap_all`` and ``pop_all``
+functions.
 
 
 Datastructure type setup
@@ -707,6 +711,9 @@ Heaps provide the same API as the sorted data structures, except:
 * all heap modifications are O(log n).  However, cacheline efficiency and
   latency is likely quite a bit better than with other data structures.
 
+
+.. _atomic-lists:
+
 Atomic lists
 ------------
 
@@ -808,6 +815,95 @@ Head removal (pop) and deallocation:
    /* i now guaranteed to be gone from the list.
     * note nothing between wrlock() and unlock() */
    XFREE(MTYPE_ITEM, i);
+
+
+Atomic hash table
+-----------------
+
+Most considerations discussed under :ref:`atomic-lists` apply analogous to
+atomic hash tables.  The lock-free hash table has the following
+properties (sizes for 64-bit platforms):
+
+* while the embedded item is not particularly large (16 bytes), the table head
+  is unconditionally 272 bytes large.  Needless to say, it is not a great idea
+  to use a lot of these tables.  It is intended that most of these are global.
+
+* inserting the first item immediately allocates another 256 bytes for the hash
+  bucket array.  For simplicity of the lock-free code, this memory is not freed
+  even if the last item is removed.  It is only released when the whole hash
+  table is cleaned up with the :c:func:`Z_fini()` function.
+
+* note that :c:func:`Z_fini()` is not a concurrent / lock-free function.  The
+  table must be held exclusively when calling that function.
+
+* the lock-free hash table is **strongly optimized for read-heavy accesses**.
+  Write heavy workloads will cause significant strain on the CPU caches, which
+  will in turn be quite costly for performance.  **Run benchmarks and/or use
+  plain old locking if modifications to the list are expected to exceed even
+  10% of total accesses.**
+
+The functions have the following characteristics (assuming uniform distribution
+of items across the hash value space).  Note that these are only estimates and
+not mathematically rigorous.
+
+* :c:func:`Z_first()`, :c:func:`Z_next()`: wait-free, roughly :math:`O(1)`.
+
+  Generally constant time (linked list forward iteration).
+
+  If the list is under heavy deletion load, skipping over items that are being
+  deleted *right now* can inflate the cost to :math:`O(\log n)`.
+
+* :c:func:`Z_find()`, :c:func:`Z_member()`: wait-free, roughly :math:`O(1)`.
+
+  Generally constant time, given there are no hash collisions.
+
+  Same caveat as above regarding load and deleted items and :math:`O(\log n)`.
+
+  This function will attempt at most one hash array update when encountering
+  a "hole" in the hash array (incomplete/in-progress ``grow``).  Due to not
+  being in a retry loop, this is also a constant cost.  However, CAS operations
+  can be somewhat expensive depending on CPU cache usage.
+
+* :c:func:`Z_add()`: lock-free, not wait-free.
+
+  Time strongly depends on concurrent table modification load, for roughly
+  :math:`O(p)`. (:math:`p` being threads accessing in parallel.)
+
+  This function is not wait-free due to the possibility of other threads
+  continuously making changes in the immediate vicinity of the item being
+  added, causing CAS operations to repeatedly fail.
+
+  Will occasionally trigger a *grow* operation.  The cost of this is roughly
+  :math:`O(n\cdot p)`.  However, this is amortized over table lifetime to
+  :math:`O(\frac{n\cdot p}{n})`.  One ``add`` call will only ever grow the
+  table by one level.  However, multiple threads may attempt the same ``grow``
+  operation if adding items at the same time.
+
+  .. note::
+
+     ``grow`` operations are performed inline, blocking the calling thread
+     until the new array has been allocated and filled.  (This is the same as
+     the regular hash tables above.)
+
+     The ``grow`` operation is performed after insertion of the item has
+     completed.  This is intentional: an ``add`` also performs an uniqueness
+     check of the item being added.  RCU commonly uses this in a
+     "try-alloc-insert-fail-free" pattern.  For this pattern to work
+     effectively, the time between allocation and insertion must be kept
+     minimal.
+
+* :c:func:`Z_del()`, :c:func:`Z_pop()`: lock-free, not wait-free.
+
+  Same as above, strongly depends on concurrent access patterns, and will wait
+  on CAS operations.
+
+  Unlike ``grow`` operations, ``shrink`` operations are performed *out of band*
+  in the RCU thread.  The caller will therefore not be blocked.  To avoid
+  degenerate situations, a maximum of 3 levels can be queued for shrinking in
+  the RCU thread.  If this is exceeded, levels can remain sitting around;
+  however this is generally "self-healing" as any further item removal will
+  attempt to queue the operation again.
+
 
 FAQ
 ---

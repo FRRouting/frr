@@ -160,6 +160,23 @@ tests_lib_test_atomlist_SOURCES = tests/lib/test_atomlist.c
 EXTRA_DIST += tests/lib/test_atomlist.py
 
 
+# test_atomhash is built twice, once in "fast" mode to catch barrier issues,
+# once in "slow" mode to catch consistency issues
+
+check_PROGRAMS += tests/lib/test_atomhash_fast
+tests_lib_test_atomhash_fast_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_atomhash_fast_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_atomhash_fast_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_atomhash_fast_SOURCES = tests/lib/test_atomhash.c tests/helpers/c/prng.c
+
+
+check_PROGRAMS += tests/lib/test_atomhash_slow
+tests_lib_test_atomhash_slow_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_atomhash_slow_CPPFLAGS = $(TESTS_CPPFLAGS) -DTEST_HIJACK_ATOMICS
+tests_lib_test_atomhash_slow_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_atomhash_slow_SOURCES = tests/lib/test_atomhash.c tests/helpers/c/prng.c
+
+
 check_PROGRAMS += tests/lib/test_buffer
 tests_lib_test_buffer_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_buffer_CPPFLAGS = $(TESTS_CPPFLAGS)

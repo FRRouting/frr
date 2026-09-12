@@ -447,6 +447,9 @@ static void rcu_watchdog(struct rcu_thread *rt)
 #endif
 }
 
+/* current position in rcu_main() */
+static seqlock_ctr_t rcu_tail_pos;
+
 static void *rcu_main(void *arg)
 {
 	struct rcu_thread *rt;
@@ -455,6 +458,7 @@ static void *rcu_main(void *arg)
 	struct timespec maxwait;
 
 	seqlock_val_t rcuval = SEQLOCK_STARTVAL;
+	atomic_init(&rcu_tail_pos, rcuval);
 
 	pthread_setspecific(rcu_thread_key, &rcu_thread_rcu);
 
@@ -486,6 +490,7 @@ static void *rcu_main(void *arg)
 		}
 
 		rcuval += SEQLOCK_INCR;
+		atomic_store_explicit(&rcu_tail_pos, rcuval, memory_order_relaxed);
 	}
 
 	/* rcu_shutdown can only be called singlethreaded, and it does a
@@ -579,6 +584,7 @@ struct rcu_local_state rcu_local_state(void)
 	 */
 	struct rcu_local_state ret;
 
+	ret.seq_tail = atomic_load_explicit(&rcu_tail_pos, memory_order_relaxed);
 	ret.seq_local = seqlock_cur(&rcu_self()->rcu);
 	ret.seq_head = seqlock_cur(&rcu_seq);
 	return ret;

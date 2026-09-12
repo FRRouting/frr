@@ -90,6 +90,25 @@ const char *prng_fuzz(struct prng *prng, const char *string,
 	return buf;
 }
 
+void prng_permute(struct prng *prng, void *array[], size_t n)
+{
+	void *tmp;
+
+	if (n <= 1)
+		return;
+	assert(n < INT_MAX);
+
+	for (size_t i = 0; i < n - 1; i++) {
+		int idx = prng_rand(prng) % (n - i);
+
+		if (!idx)
+			continue;
+		tmp = array[i + idx];
+		array[i + idx] = array[i];
+		array[i] = tmp;
+	}
+}
+
 void prng_free(struct prng *prng)
 {
 	free(prng);
