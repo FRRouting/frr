@@ -536,7 +536,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 		       "shortcut res_rep: updating binding for nmba addr %pSU",
 		       nbma_addr);
 		if (!nhrp_cache_update_binding(
-			    c, NHRP_CACHE_DYNAMIC, holdtime,
+			    c, NHRP_CACHE_DYNAMIC, holdtime, 0,
 			    nhrp_peer_get(pp->ifp, nbma_addr), htons(cie->mtu),
 			    nbma_addr, claimed_nbma_addr)) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
@@ -557,6 +557,26 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			     | NHRP_FLAG_RESOLUTION_SOURCE_STABLE);
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_DESTINATION_STABLE
 			    | NHRP_FLAG_RESOLUTION_AUTHORATIVE);
+
+	/* RFC 2332 §5.2.1: if the U-bit is set, only return bindings
+	 * that were registered as unique.  Check the cache entry for
+	 * the source protocol address and return Code 13 if no unique
+	 * binding exists.
+	 */
+	if (pp->hdr->flags & htons(NHRP_FLAG_RESOLUTION_UNIQUE)) {
+		struct nhrp_cache *uc = nhrp_cache_get(ifp,
+						       &pp->dst_proto, 0);
+		if (uc && !uc->cur.unique) {
+			debugf(NHRP_DEBUG_COMMON,
+			       "shortcut res_rep: U-bit set but binding not unique, returning Code 13");
+			hdr->flags &= ~htons(NHRP_FLAG_RESOLUTION_UNIQUE);
+			cie = nhrp_cie_push(zb, NHRP_CODE_BINDING_NON_UNIQUE,
+					    &nifp->nbma, &pp->if_ad->addr);
+			if (cie)
+				cie->code = NHRP_CODE_BINDING_NON_UNIQUE;
+			goto err;
+		}
+	}
 	hdr->u.request_id = pp->hdr->u.request_id;
 
 	/* CIE payload for the reply packet */
@@ -696,7 +716,21 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 			continue;
 		}
 
+		/* RFC 2332 §5.2.3: a registration with the uniqueness
+		 * qualifier set must be rejected with Code 14 when the
+		 * cache already holds a unique binding for the same
+		 * protocol address from another peer.  A refresh of its
+		 * own unique binding is allowed to proceed.
+		 */
+		if ((p->hdr->flags & htons(NHRP_FLAG_REGISTRATION_UNIQUE))
+		    && c->cur.unique && c->cur.peer != p->peer) {
+			cie->code = NHRP_CODE_UNIQUE_ADDRESS_REGISTERED;
+			continue;
+		}
+
 		if (!nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC, holdtime,
+					       !!(p->hdr->flags
+						  & htons(NHRP_FLAG_REGISTRATION_UNIQUE)),
 					       nhrp_peer_ref(p->peer),
 					       htons(cie->mtu), nbma_natoa,
 					       nbma_addr)) {
