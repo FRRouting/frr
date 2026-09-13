@@ -621,6 +621,173 @@ def test_evpn_l3vni_vlan_bridge():
         assert "Type: L3" in output, assertmsg
 
 
+<<<<<<< HEAD
+=======
+def show_interface_vxlan101_json(pe, expected):
+    output_json = pe.vtysh_cmd("show interface vxlan101 json", isjson=True)
+    return topotest.json_cmp(output_json, expected)
+
+
+def test_tvd_vxlan_interface_json():
+    "Verify TVD vxlan101 JSON output on PE1 contains vxlanId with single VNI entry"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    json_file = "{}/{}/show_intf_vxlan101.json".format(CWD, pe1.name)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(show_interface_vxlan101_json, pe1, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+
+    output_json = pe1.vtysh_cmd("show interface vxlan101 json", isjson=True)
+    logger.info(
+        "PE1 show interface vxlan101 json:\n%s", json.dumps(output_json, indent=2)
+    )
+
+    assertmsg = '"{}" show interface vxlan101 json output mismatch'.format(pe1.name)
+    assert result is None, assertmsg
+
+
+def test_tvd_vxlan_interface_vty():
+    "Verify TVD vxlan101 VTY output on PE1 shows VTEP IP and VNI info"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    output = pe1.vtysh_cmd("show interface vxlan101")
+    logger.info("PE1 show interface vxlan101:\n%s", output)
+
+    expected_strings = [
+        "VTEP IP: 10.10.10.10",
+        "VxLAN Id 101",
+        "Master interface: br101",
+    ]
+
+    for s in expected_strings:
+        assert (
+            s in output
+        ), '"{}" show interface vxlan101 missing "{}"\nFull output:\n{}'.format(
+            pe1.name, s, output
+        )
+
+
+def test_imet():
+    """
+    Verify PMSI tunnel attribute info
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut_name = "PE1"
+    dut = tgen.gears[dut_name]
+    rd = "10.30.30.30:2"
+    prefix = "[3]:[0]:[32]:[10.30.30.30]"
+    pmsi_label = 101
+    pmsi_id = "10.30.30.30"
+    # Check Imet from PE2 to PE1
+    test_fn = partial(evpn_check_bgp_imet, dut, rd, prefix, pmsi_label, pmsi_id)
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=3)
+    assertmsg = f"{dut_name} IMET not present/incorrect, result:{result}"
+    assert result is None, assertmsg
+
+    # Check Imet from PE1 to PE2
+    dut_name = "PE2"
+    dut = tgen.gears[dut_name]
+    rd = "10.10.10.10:2"
+    prefix = "[3]:[0]:[32]:[10.10.10.10]"
+    pmsi_label = 101
+    pmsi_id = "10.10.10.10"
+    test_fn = partial(evpn_check_bgp_imet, dut, rd, prefix, pmsi_label, pmsi_id)
+    _, result = topotest.run_and_expect(test_fn, None, count=10, wait=3)
+    assertmsg = f"{dut_name} IMET not present/incorrect, result:{result}"
+    assert result is None, assertmsg
+
+
+def _evpn_mac_vni_json_nummacs(pe, command, vni, macs):
+    output = pe.vtysh_cmd(command)
+    try:
+        output_json = json.loads(output)
+    except ValueError as err:
+        return "'{}' is not valid JSON: {}".format(command, err)
+
+    vni_json = output_json.get(str(vni))
+    if vni_json is None:
+        return "VNI {} missing from '{}'".format(vni, command)
+    missing = [mac for mac in macs if mac not in vni_json["macs"]]
+    if missing:
+        return "MACs {} missing from '{}'".format(missing, command)
+    if "numMacs" in vni_json["macs"]:
+        return "numMacs is nested inside macs in '{}'".format(command)
+    if vni_json.get("numMacs", 0) < len(macs):
+        return "numMacs {} is missing or below {} in '{}'".format(
+            vni_json.get("numMacs"), len(macs), command
+        )
+    return None
+
+
+def test_evpn_mac_vni_all_json_nummacs():
+    """
+    Verify numMacs stays at the VNI level in 'show evpn mac vni all [detail] json'
+
+    zebra flushes this JSON output incrementally after every 50 MACs, so add
+    more than 50 local MACs to VNI 101 to force a flush in the middle of its
+    MAC list.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    macs = ["02:00:00:00:65:{:02x}".format(i) for i in range(1, 61)]
+    for mac in macs:
+        pe1.run("bridge fdb add {} dev PE1-eth0 master static".format(mac))
+
+    try:
+        for command in (
+            "show evpn mac vni all json",
+            "show evpn mac vni all detail json",
+        ):
+            test_func = partial(_evpn_mac_vni_json_nummacs, pe1, command, 101, macs)
+            _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+            assert result is None, '"{}" {}'.format(pe1.name, result)
+    finally:
+        for mac in macs:
+            pe1.run("bridge fdb del {} dev PE1-eth0 master static".format(mac))
+
+
+def test_remote_neigh_uninstall_on_vxlan_down():
+    "Ensure remote neighs are removed when VxLAN if is down"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    host1 = tgen.gears["host1"]
+    pe1 = tgen.gears["PE1"]
+
+    # Trigger ARP/neighbor learning for the remote host
+    host1.run("ping -c1 10.10.1.56")
+
+    test_func = partial(_ip_neigh_has_entry, pe1, "br101", "10.10.1.56", True)
+    _, result = topotest.run_and_expect(test_func, True, count=20, wait=3)
+    assertmsg = "PE1 missing extern_learn neighbor 10.10.1.56 on br101"
+    assert result, assertmsg
+
+    # Remove VxLAN device to trigger L2VNI cleanup
+    pe1.run("ip link del vxlan101")
+
+    test_func = partial(_ip_neigh_missing, pe1, "br101", "10.10.1.56")
+    _, result = topotest.run_and_expect(test_func, True, count=20, wait=3)
+    assertmsg = "PE1 still has neighbor 10.10.1.56 after VxLAN down"
+    assert result, assertmsg
+
+
+>>>>>>> 878a7a1 (tests: check numMacs placement in evpn mac vni all json)
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
