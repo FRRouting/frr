@@ -783,7 +783,7 @@ uint16_t pcep_encode_tlv_arbitrary(struct pcep_object_tlv_header *tlv,
 	struct pcep_object_tlv_arbitrary *tlv_arbitrary =
 		(struct pcep_object_tlv_arbitrary *)tlv;
 	memcpy(tlv_body_buf, tlv_arbitrary->data, tlv_arbitrary->data_length);
-	tlv->type = tlv_arbitrary->arbitraty_type;
+	tlv->type = tlv_arbitrary->arbitrary_type;
 
 	return tlv_arbitrary->data_length;
 }
@@ -1380,14 +1380,13 @@ struct pcep_object_tlv_header *
 pcep_decode_tlv_arbitrary(struct pcep_object_tlv_header *tlv_hdr,
 			  const uint8_t *tlv_body_buf)
 {
-	struct pcep_object_tlv_arbitrary *tlv_arbitrary =
-		(struct pcep_object_tlv_arbitrary *)common_tlv_create(
-			tlv_hdr, sizeof(struct pcep_object_tlv_arbitrary));
-
+	struct pcep_object_tlv_arbitrary *tlv;
 	uint16_t length = tlv_hdr->encoded_tlv_length;
+
+	/* No controlling RFC - this is internal/private */
+	tlv = (void *)common_tlv_create(tlv_hdr, sizeof(struct pcep_object_tlv_arbitrary));
+
 	if (length > MAX_ARBITRARY_SIZE) {
-		/* TODO should we also reset the tlv_hdr->encoded_tlv_length ?
-		 */
 		length = MAX_ARBITRARY_SIZE;
 		pcep_log(
 			LOG_INFO,
@@ -1396,12 +1395,14 @@ pcep_decode_tlv_arbitrary(struct pcep_object_tlv_header *tlv_hdr,
 			MAX_ARBITRARY_SIZE);
 	}
 
-	tlv_arbitrary->data_length = length;
-	tlv_arbitrary->arbitraty_type = tlv_hdr->type;
+	tlv->data_length = length;
+	tlv->arbitrary_type = tlv_hdr->type;
 	tlv_hdr->type = PCEP_OBJ_TLV_TYPE_ARBITRARY;
-	memcpy(tlv_arbitrary->data, tlv_body_buf, length);
 
-	return (struct pcep_object_tlv_header *)tlv_arbitrary;
+	if (length > 0)
+		memcpy(tlv->data, tlv_body_buf, length);
+
+	return (struct pcep_object_tlv_header *)tlv;
 }
 
 struct pcep_object_tlv_header *
