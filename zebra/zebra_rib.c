@@ -2163,22 +2163,34 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			if (zvrf)
 				zvrf->installs++;
 
-			/* Notify route owner */
-			if (zebra_router_notify_on_ack())
-				zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
-			else {
-				if (re) {
-					if (CHECK_FLAG(re->flags,
-						       ZEBRA_FLAG_OFFLOADED))
-						zsend_route_notify_owner_ctx(
-							ctx,
-							ZAPI_ROUTE_INSTALLED);
-					if (CHECK_FLAG(
-						    re->flags,
-						    ZEBRA_FLAG_OFFLOAD_FAILED))
-						zsend_route_notify_owner_ctx(
-							ctx,
-							ZAPI_ROUTE_FAIL_INSTALL);
+			/*
+			 * Notify route owner
+			 *
+			 * Note this is gated on this re actually being
+			 * the selected.  It's possible that a re comes in
+			 * is selected->installed, then another re comes
+			 * in while this one is in flight to the kernel
+			 * in that case this re is no longer the winner
+			 * and we should not notify. Later re's will
+			 * cause the winner to be shown.
+			 *
+			 * In this case the BETTER_ADMIN_WON message
+			 * was already sent if the re is of a different
+			 * protocol type.
+			 */
+			if (dest && re && re == dest->selected_fib) {
+				if (zebra_router_notify_on_ack())
+					zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
+				else {
+					if (re) {
+						if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED))
+							zsend_route_notify_owner_ctx(ctx,
+										     ZAPI_ROUTE_INSTALLED);
+						if (CHECK_FLAG(re->flags,
+							       ZEBRA_FLAG_OFFLOAD_FAILED))
+							zsend_route_notify_owner_ctx(ctx,
+										     ZAPI_ROUTE_FAIL_INSTALL);
+					}
 				}
 			}
 		} else {
