@@ -213,6 +213,7 @@ struct wq_evpn_wrapper {
 	uint32_t seq;
 	esi_t esi;
 	vni_t vni;
+	vlanid_t eth_tag;
 	struct ipaddr ip;
 	struct ethaddr macaddr;
 	struct prefix prefix;
@@ -2434,9 +2435,10 @@ static void process_subq_evpn(struct listnode *lnode)
 
 		if (w->add_p)
 			zebra_evpn_rem_macip_add(w->vni, &w->macaddr, ipa_len, &w->ip, w->flags,
-						 w->seq, &w->vtep_ip, &w->esi);
+						 w->seq, &w->vtep_ip, &w->esi, w->eth_tag);
 		else
-			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip);
+			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip,
+						 w->eth_tag);
 	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_VTEP) {
 		if (w->add_p)
 			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni, &w->vtep_ip, w->flags);
@@ -3681,7 +3683,7 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_
  */
 int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 				       const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-				       struct ipaddr *vtep_ip, const esi_t *esi)
+				       struct ipaddr *vtep_ip, const esi_t *esi, vlanid_t eth_tag)
 {
 	struct wq_evpn_wrapper *w;
 	char buf[ESI_STR_LEN];
@@ -3691,6 +3693,7 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
 	w->add_p = true;
 	w->vni = vni;
+	w->eth_tag = eth_tag;
 	w->macaddr = *macaddr;
 	w->ip = *ipaddr;
 	w->flags = flags;
@@ -3712,7 +3715,8 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 }
 
 int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
-				       const struct ipaddr *ip, struct ipaddr *vtep_ip)
+				       const struct ipaddr *ip, struct ipaddr *vtep_ip,
+				       vlanid_t eth_tag)
 {
 	struct wq_evpn_wrapper *w;
 
@@ -3721,6 +3725,7 @@ int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
 	w->add_p = false;
 	w->vni = vni;
+	w->eth_tag = eth_tag;
 	w->macaddr = *macaddr;
 	w->ip = *ip;
 	w->vtep_ip = *vtep_ip;

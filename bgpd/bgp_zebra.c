@@ -2565,6 +2565,12 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	if (bgp->advertise_all_vni)
 		bgp_zebra_advertise_all_vni(bgp, 1);
 
+	/* Replay the L3VNI neighbor-sync knob so zebra's per-VRF flag is
+	 * restored on config-before-connect and on zebra reconnect.
+	 */
+	if (bgp->advertise_l3vni_neigh)
+		bgp_zebra_advertise_l3vni_neigh(bgp, 1);
+
 	bgp_nht_register_nexthops(bgp);
 
 	/*
@@ -2592,6 +2598,9 @@ void bgp_zebra_instance_deregister(struct bgp *bgp)
 	/* For EVPN instance, unregister learning about VNIs, if appropriate. */
 	if (bgp->advertise_all_vni)
 		bgp_zebra_advertise_all_vni(bgp, 0);
+
+	if (bgp->advertise_l3vni_neigh)
+		bgp_zebra_advertise_l3vni_neigh(bgp, 0);
 
 	/* Deregister for router-id, interfaces, redistributed routes. */
 	zclient_send_dereg_requests(bgp_zclient, bgp->vrf_id);
@@ -2785,6 +2794,28 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	 * relevant only when 'advertise' is set.
 	 */
 	stream_putc(s, bgp->vxlan_flood_ctrl);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(bgp_zclient);
+}
+
+int bgp_zebra_advertise_l3vni_neigh(struct bgp *bgp, int advertise)
+{
+	struct stream *s;
+
+	/* Check socket. */
+	if (!bgp_zclient || bgp_zclient->sock < 0)
+		return 0;
+
+	/* Don't try to register if Zebra doesn't know of this instance. */
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+		return 0;
+
+	s = bgp_zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_ADVERTISE_L3VNI_NEIGH, bgp->vrf_id);
+	stream_putc(s, advertise);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(bgp_zclient);
@@ -3583,6 +3614,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 	uint8_t flags = 0;
 	uint32_t seqnum = 0;
 	int state = 0;
+	uint32_t eth_tag = 0;
 	char buf2[ESI_STR_LEN];
 	esi_t esi;
 
@@ -3614,15 +3646,17 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		memset(&esi, 0, sizeof(esi_t));
 	}
 
+	eth_tag = stream_getl(s);
+
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp)
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug(
-			"%u:Recv MACIP %s f 0x%x MAC %pEA IP %pIA VNI %u seq %u state %d ESI %s",
+			"%u:Recv MACIP %s f 0x%x MAC %pEA IP %pIA VNI %u seq %u state %d ETAG %u ESI %s",
 			vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del", flags,
-			&mac, &ip, vni, seqnum, state,
+			&mac, &ip, vni, seqnum, state, eth_tag,
 			esi_to_str(&esi, buf2, sizeof(buf2)));
 
 	if (cmd == ZEBRA_MACIP_ADD) {
@@ -3630,12 +3664,12 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 			 flags, seqnum, &esi);
 
 		return bgp_evpn_local_macip_add(bgp, vni, &mac, &ip,
-						flags, seqnum, &esi);
+						flags, seqnum, &esi, eth_tag);
 	} else {
 		frrtrace(4, frr_bgp, evpn_local_macip_del_zrecv, vni, &mac, &ip,
 			 state);
 
-		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, state);
+		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, state, eth_tag);
 	}
 }
 

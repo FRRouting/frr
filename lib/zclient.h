@@ -238,6 +238,7 @@ typedef enum {
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
 	ZEBRA_SRV6_SID_NOTIFY,
+	ZEBRA_ADVERTISE_L3VNI_NEIGH,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
@@ -420,7 +421,10 @@ extern int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS);
 #define ZAPI_MESSAGE_SRTE 0x0200
 #define ZAPI_MESSAGE_OPAQUE 0x0400
 
-#define ZSERV_VERSION 6
+/* Bumped from 6: the EVPN MAC/IP messages grew a trailing eth_tag (ETAG)
+ * field, so the wire layout changed and all daemons must match.
+ */
+#define ZSERV_VERSION 7
 /* Zserv protocol message header */
 struct zmsghdr {
 	uint16_t length;
@@ -865,8 +869,10 @@ static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify not
 #define ZEBRA_MACIP_TYPE_SVI_IP                0x10 /* SVI MAC-IP */
 #define ZEBRA_MACIP_TYPE_PROXY_ADVERT          0x20 /* Not locally active */
 #define ZEBRA_MACIP_TYPE_SYNC_PATH             0x40 /* sync path */
-/* XXX - flags is an u8; that needs to be changed to u32 if you need
- * to allocate past 0x80.  Additionally touch zclient_evpn_dump_macip_flags
+#define ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC         0x80 /* pure-L3 neigh sync (no L2VNI) */
+/* XXX - flags is an u8 and 0x80 is now the last free bit; that needs to be
+ * changed to u32 if you need to allocate past 0x80.  Additionally touch
+ * zclient_evpn_dump_macip_flags
  */
 #define MACIP_BUF_SIZE 128
 extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,

@@ -210,6 +210,53 @@ struct zebra_evpn_access_bd {
 	struct zebra_if *vlan_zif;
 	/* VNI count */
 	uint8_t vni_refcnt;
+	/* For a no-L2VNI BD only: cache of host MAC -> access-port ifindex,
+	 * learned from the local bridge FDB. It is populated for any no-L2VNI
+	 * BD (independently of whether the BD has yet entered L3VNI
+	 * neighbor-sync mode) because the FDB event that binds a MAC to its
+	 * port routinely arrives before the knob/L3VNI make the BD eligible.
+	 * Pure-L3 RT-2 origination consults it to stamp the neighbor's real ESI
+	 * (there is no zebra_mac to read the ES from, as in the L2 path). NULL
+	 * until the first FDB entry is cached; freed on BD teardown.
+	 */
+	struct hash *l3_mac_es_table;
+};
+
+/* One host MAC -> access-port entry in an access BD's L3VNI neighbor-sync
+ * MAC/ES cache (zebra_evpn_access_bd.l3_mac_es_table).
+ *
+ * Where this lives (only the two leaf levels are new; the rest is existing MH
+ * infrastructure that this feature reuses):
+ *
+ *   zmh_info                        (global MH info)
+ *     +- evpn_vlan_table            (hash of all access BDs,
+ *        |                           key = vid + bridge_ifindex)
+ *        +- zebra_evpn_access_bd    (one per bridge+VLAN)
+ *           +- l3_mac_es_table      (hash: host MAC -> access-port)
+ *              +- zebra_evpn_l3_mac_es { macaddr (key), acc_ifindex }
+ *
+ * Rationale: on a no-L2VNI BD there is no struct zebra_mac (those live only in
+ * zevpn->mac_table), so nothing records which access port a host MAC sits
+ * behind. ESI resolution for a pure-L3 RT-2 is a join of IP->MAC (from the
+ * ARP/ND neighbor, keyed by IP) and MAC->port (this cache, keyed by MAC); the
+ * two kernel events are independent and often arrive out of order, so the
+ * MAC-keyed binding is parked here until a neighbor needs it.
+ */
+struct zebra_evpn_l3_mac_es {
+	struct ethaddr macaddr;	 /* key */
+	ifindex_t acc_ifindex;	 /* access port the MAC was learned behind */
+};
+
+/* EVPN origination mode of an access broadcast domain, derived from the
+ * presence of an L2VNI and the advertise-l3vni-neigh knob.
+ */
+enum zebra_evpn_bd_evpn_mode {
+	/* No L2VNI and not eligible for L3VNI neighbor sync: originate nothing. */
+	ZEBRA_EVPN_BD_MODE_NONE,
+	/* Backed by an L2VNI: standard EVPN origination. */
+	ZEBRA_EVPN_BD_MODE_L2VNI,
+	/* No L2VNI: L3VNI neighbor sync, originated as a label[0]=0 RT-2. */
+	ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH,
 };
 
 /* multihoming information stored in zrouter */
@@ -353,6 +400,33 @@ extern void zebra_evpn_vxl_evpn_set(struct zebra_if *zif,
 				    struct zebra_evpn *zevpn, bool set);
 extern void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn);
 extern void zebra_evpn_es_clear_base_evpn(struct zebra_evpn *zevpn);
+extern void zebra_evpn_es_l3vni_base_evpn_clear(void);
+extern void zebra_evpn_es_l3vni_base_evpn_reeval(void);
+extern void zebra_evpn_es_l3vni_oper_down(struct zebra_l3vni *zl3vni);
+extern enum zebra_evpn_bd_evpn_mode
+zebra_evpn_bd_evpn_mode(const struct zebra_evpn_access_bd *acc_bd);
+extern bool zebra_evpn_l3vni_neigh_sync_bd(struct interface *ifp,
+					   struct interface *br_if, vni_t *vni,
+					   struct ipaddr *vtep_ip,
+					   vlanid_t *vid);
+extern bool zebra_evpn_l3vni_from_svi(struct interface *ifp, vni_t *vni);
+extern struct zebra_evpn_es *
+zebra_evpn_l3vni_neigh_es(const struct ethaddr *macaddr,
+			  struct interface *svi_ifp);
+extern struct interface *
+zebra_evpn_l3vni_neigh_acc_ifp(const struct ethaddr *macaddr,
+			       struct interface *svi_ifp);
+extern void zebra_evpn_l3vni_local_mac_update(struct interface *acc_ifp,
+					      struct interface *br_if,
+					      const struct ethaddr *macaddr,
+					      vlanid_t vid, bool add);
+extern void
+zebra_evpn_l3vni_mac_es_flush(struct zebra_evpn_access_bd *acc_bd);
+extern void zebra_evpn_l3vni_mac_es_flush_all(void);
+extern void
+zebra_evpn_l3vni_mac_es_port_flush(struct zebra_evpn_access_bd *acc_bd,
+				   ifindex_t acc_ifindex);
+extern void zebra_evpn_l3vni_readvertise_acc_port(struct interface *acc_ifp);
 extern void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 				  struct zebra_if *vxlan_zif);
 extern void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
