@@ -457,19 +457,20 @@ static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt
 		json_evpn = json_object_new_object();
 		json_mac = json_object_new_object();
 		snprintf(vni_str, VNI_STR_LEN, "%u", zevpn->vni);
+
+		/* Add numMacs before the open "macs" container: an incremental
+		 * flush during the MAC walk would otherwise print it inside "macs".
+		 */
+		if (!CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP))
+			json_object_int_add(json_evpn, "numMacs", num_macs);
 	}
 
-	if (!CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP)) {
-		if (json == NULL) {
-			vty_out(vty, "\nVNI %u #MACs (local and remote) %u\n\n",
-				zevpn->vni, num_macs);
-			vty_out(vty,
-				"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
-			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC",
-				"Type", "Flags", "Intf/Remote ES/VTEP",
-				"VLAN", "Seq #'s");
-		} else
-			json_object_int_add(json_evpn, "numMacs", num_macs);
+	if (json == NULL && !CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP)) {
+		vty_out(vty, "\nVNI %u #MACs (local and remote) %u\n\n", zevpn->vni, num_macs);
+		vty_out(vty,
+			"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
+		vty_out(vty, "%-17s %-6s %-5s %-39s %-5s %s\n", "MAC", "Type", "Flags",
+			"Intf/Remote ES/VTEP", "VLAN", "Seq #'s");
 	}
 
 	if (!num_macs) {
@@ -540,15 +541,16 @@ static void zevpn_print_mac_hash_all_evpn_detail(struct hash_bucket *bucket,
 		json_evpn = json_object_new_object();
 		json_mac = json_object_new_object();
 		snprintf(vni_str, VNI_STR_LEN, "%u", zevpn->vni);
-	}
 
-	if (!CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP)) {
-		if (json == NULL) {
-			vty_out(vty, "\nVNI %u #MACs (local and remote) %u\n\n",
-				zevpn->vni, num_macs);
-		} else
+		/* Add numMacs before the open "macs" container: an incremental
+		 * flush during the MAC walk would otherwise print it inside "macs".
+		 */
+		if (!CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP))
 			json_object_int_add(json_evpn, "numMacs", num_macs);
 	}
+
+	if (json == NULL && !CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP))
+		vty_out(vty, "\nVNI %u #MACs (local and remote) %u\n\n", zevpn->vni, num_macs);
 	/* assign per-evpn to wctx->json object to fill macs
 	 * under the evpn. Re-assign primary json object to fill
 	 * next evpn information.
