@@ -1133,19 +1133,15 @@ void pcep_lib_parse_metric(struct path *path, struct pcep_object_metric *obj)
 void pcep_lib_parse_endpoints_ipv4(struct path *path,
 				   struct pcep_object_endpoints_ipv4 *obj)
 {
-	SET_IPADDR_V4(&path->pcc_addr);
-	path->pcc_addr.ipaddr_v4 = obj->src_ipv4;
-	SET_IPADDR_V4(&path->nbkey.endpoint);
-	path->nbkey.endpoint.ipaddr_v4 = obj->dst_ipv4;
+	ipaddr_set_v4(&path->pcc_addr, obj->src_ipv4);
+	ipaddr_set_v4(&path->nbkey.endpoint, obj->dst_ipv4);
 }
 
 void pcep_lib_parse_endpoints_ipv6(struct path *path,
 				   struct pcep_object_endpoints_ipv6 *obj)
 {
-	SET_IPADDR_V6(&path->pcc_addr);
-	path->pcc_addr.ipaddr_v6 = obj->src_ipv6;
-	SET_IPADDR_V6(&path->nbkey.endpoint);
-	path->nbkey.endpoint.ipaddr_v6 = obj->dst_ipv6;
+	ipaddr_set_v6(&path->pcc_addr, &obj->src_ipv6);
+	ipaddr_set_v6(&path->nbkey.endpoint, &obj->dst_ipv6);
 }
 
 void pcep_lib_parse_vendor_info(struct path *path,

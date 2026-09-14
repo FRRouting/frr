@@ -452,13 +452,11 @@ static int netlink_extract_gre_info(struct rtattr *link_data, struct zebra_l2inf
 
 		frrtrace(1, frr_zebra, if_netlink_parse_error, 3);
 	} else if (ipv6) {
-		SET_IPADDR_V6(&gre_info->vtep_ip_remote);
-		IPV6_ADDR_COPY(&gre_info->vtep_ip_remote.ipaddr_v6,
-			       (struct in6_addr *)RTA_DATA(attr[IFLA_GRE_REMOTE]));
+		ipaddr_set_v6(&gre_info->vtep_ip_remote,
+			      (struct in6_addr *)RTA_DATA(attr[IFLA_GRE_REMOTE]));
 	} else {
-		SET_IPADDR_V4(&gre_info->vtep_ip_remote);
-		gre_info->vtep_ip_remote.ipaddr_v4 =
-			*(struct in_addr *)RTA_DATA(attr[IFLA_GRE_REMOTE]);
+		ipaddr_set_v4(&gre_info->vtep_ip_remote,
+			      *(struct in_addr *)RTA_DATA(attr[IFLA_GRE_REMOTE]));
 	}
 
 	if (!attr[IFLA_GRE_LINK]) {
@@ -524,15 +522,14 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 
 
 	if (attr[IFLA_VXLAN_LOCAL]) {
-		vxl_info->vtep_ip.ipaddr_v4 = *(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL]);
-		SET_IPADDR_V4(&vxl_info->vtep_ip);
+		ipaddr_set_v4(&vxl_info->vtep_ip,
+			      *(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL]));
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_VXLAN_LOCAL VXLAN IF message, local address V4: %pIA",
 				   &vxl_info->vtep_ip);
 	} else if (attr[IFLA_VXLAN_LOCAL6]) {
-		IPV6_ADDR_COPY(&vxl_info->vtep_ip.ipaddr_v6,
-			       (struct in6_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL6]));
-		SET_IPADDR_V6(&vxl_info->vtep_ip);
+		ipaddr_set_v6(&vxl_info->vtep_ip,
+			      (struct in6_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL6]));
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("IFLA_VXLAN_LOCAL VXLAN IF message, local address V6: %pIA",
 				   &vxl_info->vtep_ip);
