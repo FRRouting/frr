@@ -282,7 +282,7 @@ struct pcep_object_tlv_vendor_info {
 #define MAX_ARBITRARY_SIZE 256
 struct pcep_object_tlv_arbitrary {
 	struct pcep_object_tlv_header header;
-	enum pcep_object_tlv_types arbitraty_type;
+	enum pcep_object_tlv_types arbitrary_type;
 	uint16_t data_length;
 	char data[MAX_ARBITRARY_SIZE];
 };
