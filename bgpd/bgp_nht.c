@@ -203,7 +203,7 @@ static ifindex_t bgp_nht_peer_ifindex(const struct peer_connection *connection)
 
 	if (connection->su.sa.sa_family != AF_INET6 ||
 	    !IN6_IS_ADDR_LINKLOCAL(&connection->su.sin6.sin6_addr))
-		return 0;
+		return IFINDEX_INTERNAL;
 
 	if (peer->conf_if)
 		return connection->su.sin6.sin6_scope_id;
@@ -211,7 +211,7 @@ static ifindex_t bgp_nht_peer_ifindex(const struct peer_connection *connection)
 	if (peer->ifname)
 		return ifname2ifindex(peer->ifname, peer->bgp->vrf_id);
 
-	return 0;
+	return IFINDEX_INTERNAL;
 }
 
 void bgp_replace_nexthop_by_peer(struct peer_connection *from, struct peer_connection *to)
@@ -931,12 +931,13 @@ void bgp_nht_ifp_up(struct interface *ifp)
 	if (!bgp || ifp->ifindex == IFINDEX_INTERNAL)
 		return;
 
-	/* A peer started before its interface was known has no scoped BNC
-	 * for the interface update above to notify. Register it now; the
-	 * initial NHT update will wake the FSM without waiting for its timer.
+	/* An Active or Connect peer may have started before its interface was
+	 * known and therefore has no scoped BNC for the interface update above
+	 * to notify. Register it now; the initial NHT update will wake the FSM
+	 * without waiting for its timer.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (peer->conf_if || !peer->ifname || strcmp(peer->ifname, ifp->name) ||
+		if (peer->conf_if || !peer->ifname || !strmatch(peer->ifname, ifp->name) ||
 		    (peer->connection->status != Active && peer->connection->status != Connect) ||
 		    peer->connection->su.sa.sa_family != AF_INET6 ||
 		    !IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr))
