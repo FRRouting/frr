@@ -1283,6 +1283,51 @@ int bfd_dplane_add_session(struct bfd_session *bs)
 }
 
 /*
+ * Whether this data plane connection can be trusted with a shared secret.
+ *
+ * A UNIX socket is bounded by the file system, and the documentation already
+ * tells an operator to set its permissions. A TCP connection to the loopback
+ * never leaves the host. Anything else is a plain TCP session with no
+ * transport security and no peer authentication: bfdd cannot tell who
+ * accepted it, and cannot stop anyone on the path from reading it.
+ *
+ * Every other message in this protocol describes a session. This one carries
+ * the key that protects it, which is the one thing that must not be given
+ * away, so the test is on the connection rather than on the operator.
+ */
+static bool bfd_dplane_transport_is_confined(const struct bfd_dplane_ctx *bdc)
+{
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_storage ss;
+	} peer = {};
+	socklen_t peerlen = sizeof(peer);
+	static const uint8_t v4mapped_loopback[16] = { 0, 0, 0,	   0,	0, 0,
+						       0, 0, 0,	   0,	0xff,
+						       0xff, 127, 0, 0,	1 };
+
+	if (getpeername(bdc->sock, &peer.sa, &peerlen) == -1)
+		return false;
+
+	switch (peer.sa.sa_family) {
+	case AF_UNIX:
+		return true;
+	case AF_INET:
+		return peer.sin.sin_addr.s_addr == htonl(INADDR_LOOPBACK);
+	case AF_INET6:
+		if (IN6_IS_ADDR_LOOPBACK(&peer.sin6.sin6_addr))
+			return true;
+		/* A v4 client on a dual stack listener arrives mapped. */
+		return memcmp(&peer.sin6.sin6_addr, v4mapped_loopback,
+			      sizeof(v4mapped_loopback)) == 0;
+	default:
+		return false;
+	}
+}
+
+/*
  * Send every key the session's key chain holds, with the lifetimes that
  * say when each may be used.
  *
@@ -1304,6 +1349,12 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 	uint16_t count = 0;
 	uint16_t msglen;
 	time_t now = time(NULL);
+
+	if (!bfd_dplane_transport_is_confined(bs->bdc)) {
+		zlog_err("%s: [%s] refusing to send authentication keys over an unprotected data plane connection; use a UNIX socket or a loopback address",
+			 __func__, bs_to_string(bs));
+		return -1;
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(bs->kc->key, node, key)) {
 		enum bfd_auth_type type;
