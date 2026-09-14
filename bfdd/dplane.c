@@ -1283,6 +1283,84 @@ int bfd_dplane_add_session(struct bfd_session *bs)
 }
 
 /*
+ * Whether this data plane connection can be trusted with a shared secret.
+ *
+ * A UNIX socket is bounded by the file system, and the documentation already
+ * tells an operator to set its permissions. A TCP connection to the loopback
+ * never leaves the host. Anything else is a plain TCP session with no
+ * transport security and no peer authentication: bfdd cannot tell who
+ * accepted it, and cannot stop anyone on the path from reading it.
+ *
+ * Every other message in this protocol describes a session. This one carries
+ * the key that protects it, which is the one thing that must not be given
+ * away, so the test is on the connection rather than on the operator.
+ */
+static bool bfd_dplane_addr_is_confined(const struct sockaddr *sa)
+{
+	const struct sockaddr_in6 *sin6;
+	const struct sockaddr_in *sin;
+	uint32_t v4;
+
+	switch (sa->sa_family) {
+	case AF_UNIX:
+		return true;
+	case AF_INET:
+		sin = (const struct sockaddr_in *)sa;
+		/* The whole of 127.0.0.0/8, not just 127.0.0.1. */
+		return IPV4_NET127(ntohl(sin->sin_addr.s_addr));
+	case AF_INET6:
+		sin6 = (const struct sockaddr_in6 *)sa;
+		if (IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
+			return true;
+		/*
+		 * A v4 client on a dual stack listener arrives mapped, and
+		 * the whole of 127.0.0.0/8 maps.
+		 */
+		if (IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr)) {
+			memcpy(&v4, &sin6->sin6_addr.s6_addr[12], sizeof(v4));
+			return IPV4_NET127(ntohl(v4));
+		}
+		return false;
+	default:
+		return false;
+	}
+}
+
+static bool bfd_dplane_transport_is_confined(const struct bfd_dplane_ctx *bdc)
+{
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_storage ss;
+	} peer = {};
+	socklen_t peerlen = sizeof(peer);
+
+	/*
+	 * In client mode the address bfdd was told to connect to is the one
+	 * to judge, and it is known before the connection completes. That
+	 * matters: sessions are registered while the connect is still in
+	 * flight, which `bfd_dplane_enqueue` has its own case for, and
+	 * `getpeername` on a socket that is still connecting fails. Asking
+	 * the socket here would refuse every session registered during a
+	 * connect, which is how a data plane that starts with bfdd looks.
+	 */
+	if (bdc->client)
+		return bfd_dplane_addr_is_confined(&bdc->addr.sa);
+
+	/*
+	 * In server mode `bdc->addr` is what bfdd bound, which says nothing
+	 * about who reached it, so ask the socket instead. An accepted socket
+	 * is connected by definition, so this does not have the problem
+	 * above.
+	 */
+	if (getpeername(bdc->sock, &peer.sa, &peerlen) == -1)
+		return false;
+
+	return bfd_dplane_addr_is_confined(&peer.sa);
+}
+
+/*
  * The end of a period as the protocol spells it. The key chain stores a key
  * never given a period zeroed and reads a zero start as always valid,
  * whatever the end says; bfddp_packet.h promises a data plane a zero start
@@ -1315,6 +1393,12 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 	uint16_t count = 0;
 	uint16_t msglen;
 	time_t now = time(NULL);
+
+	if (!bfd_dplane_transport_is_confined(bs->bdc)) {
+		zlog_err("%s: [%s] refusing to send authentication keys over an unprotected data plane connection; use a UNIX socket or a loopback address",
+			 __func__, bs_to_string(bs));
+		return -1;
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(bs->kc->key, node, key)) {
 		enum bfd_auth_type type;
