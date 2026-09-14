@@ -39,6 +39,16 @@ DPLANE_PORT = 50700
 # Three keys are configured: two carrying lifetimes and one without.
 KEY_COUNT = 3
 
+# The chain uses cleartext rather than hmac-sha-1 on purpose. hmac-sha-1
+# needs --with-crypto=openssl, and `keychain_get_algo_id_by_name` does not
+# even recognise the name without it, so the algorithm fails validation and
+# takes the whole candidate configuration with it, `bfd peer` block
+# included. Guarding with `has_crypto_openssl` the way
+# bfd_authentication_topo1 does would not help, because the damage is done
+# at startup before any test runs. Nothing here asserts on the
+# authentication type, and a key carries its lifetimes the same either way,
+# so cleartext lets the module run everywhere instead of skipping.
+
 
 def setup_module(mod):
     topodef = {"s1": ("r1",)}
@@ -127,10 +137,18 @@ def _keys(dump):
     from a local time, so nothing here compares them against a fixed
     value. What matters is how they sit relative to one another.
 
-    The chain itself is dated well into the future on purpose: a key whose
+    The chain itself is dated into the future on purpose: a key whose
     accept period has closed is not offloaded, so a fixture written around
     the date it was authored would quietly lose a key and take the overlap
     it demonstrates with it.
+
+    The accept periods end with a duration rather than a date, because the
+    CLI takes years only up to 2035 and a fixed end date is therefore a
+    date this test starts failing on. A duration is added to the start, so
+    the end is never written down and the ceiling does not apply to it.
+    The send periods keep their dates: they have to close before the next
+    key opens, which is the overlap being demonstrated, and they are
+    bounded by that rather than by the calendar.
     """
     out = []
     pattern = re.compile(
@@ -243,7 +261,7 @@ def test_a_new_key_is_pushed():
         key chain rollover
         key 4
         key-string fourthkey0000004
-        cryptographic-algorithm hmac-sha-1
+        cryptographic-algorithm cleartext
         end
         """
     )
@@ -277,7 +295,7 @@ def test_a_lifetime_edit_is_pushed():
         configure terminal
         key chain rollover
         key {}
-        accept-lifetime 00:00:00 Jan 1 2020 23:59:59 Dec 31 2037
+        accept-lifetime 00:00:00 1 January 2030 23:59:59 31 December 2035
         end
         """.format(target)
     )
