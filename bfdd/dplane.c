@@ -1410,9 +1410,22 @@ int bfd_dplane_update_session(const struct bfd_session *bs)
 	if (rv != 0)
 		return rv;
 
-	/* The keys follow the session they belong to. */
-	if (bs->kc)
+	/*
+	 * The keys follow the session they belong to, and the two are
+	 * separate messages: the output queue can take the first and refuse
+	 * the second. On registration that is handled, because
+	 * `_bfd_dplane_add_session` drops the association and the session
+	 * runs in the daemon instead. On a later update the session is
+	 * already offloaded and most callers discard this return, so say so
+	 * here rather than leaving a data plane holding `SESSION_AUTH` with
+	 * keys that no longer match the configuration.
+	 */
+	if (bs->kc) {
 		rv = bfd_dplane_send_session_auth(bs);
+		if (rv != 0)
+			zlog_err("%s: [%s] authentication keys were not sent to the data plane",
+				 __func__, bs_to_string(bs));
+	}
 
 	return rv;
 }
