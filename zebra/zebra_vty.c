@@ -3412,13 +3412,10 @@ DEFPY (show_evpn_mac_vni_all_vtep,
 	bool uj = use_json(argc, argv);
 
 	if (ip) {
-		if (sockunion_family(ip) == AF_INET) {
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
-		} else {
-			SET_IPADDR_V6(&vtep_ip);
-			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
-		}
+		if (sockunion_family(ip) == AF_INET)
+			ipaddr_set_v4(&vtep_ip, ip->sin.sin_addr);
+		else
+			ipaddr_set_v6(&vtep_ip, &ip->sin6.sin6_addr);
 	}
 
 	if (IS_IPADDR_NONE(&vtep_ip)) {
@@ -3481,13 +3478,10 @@ DEFPY (show_evpn_mac_vni_vtep,
 	bool uj = use_json(argc, argv);
 
 	if (ip) {
-		if (sockunion_family(ip) == AF_INET) {
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
-		} else {
-			SET_IPADDR_V6(&vtep_ip);
-			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
-		}
+		if (sockunion_family(ip) == AF_INET)
+			ipaddr_set_v4(&vtep_ip, ip->sin.sin_addr);
+		else
+			ipaddr_set_v6(&vtep_ip, &ip->sin6.sin6_addr);
 	}
 
 	if (IS_IPADDR_NONE(&vtep_ip)) {
@@ -3682,13 +3676,10 @@ DEFPY (show_evpn_neigh_vni_vtep,
 	bool uj = use_json(argc, argv);
 
 	if (ip) {
-		if (sockunion_family(ip) == AF_INET) {
-			SET_IPADDR_V4(&vtep_ip);
-			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
-		} else {
-			SET_IPADDR_V6(&vtep_ip);
-			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
-		}
+		if (sockunion_family(ip) == AF_INET)
+			ipaddr_set_v4(&vtep_ip, ip->sin.sin_addr);
+		else
+			ipaddr_set_v6(&vtep_ip, &ip->sin6.sin6_addr);
 	} else {
 		SET_IPADDR_NONE(&vtep_ip);
 	}
