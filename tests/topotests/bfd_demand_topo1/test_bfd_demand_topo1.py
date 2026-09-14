@@ -359,6 +359,46 @@ def test_bfd_demand_both_ends_disable():
     assert flaps == 0, "r1 recorded {} down events on a healthy path".format(flaps)
 
 
+def test_bfd_demand_peer_restart_recovers():
+    """A peer that restarts must be able to re-establish the session.
+
+    The restarted peer has lost its discriminator, so it announces itself
+    with Your Discriminator zero and State Down, which RFC 5880 section
+    6.8.6 permits.  r1 is the demanding end here and therefore the one not
+    running a detection timer, so if it refuses those packets there is
+    nothing left to bring the session back: it holds a stale remote
+    discriminator and r2 stays in Down.
+
+    Asynchronous mode does not show this, because the detection timer
+    expires and the session is Down by the time the peer returns.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    _set_demand(r1, R2_ADDR, True)
+
+    test_func = partial(
+        _check_peer, r1, R2_ADDR, {"status": "up", "demand-mode": True}
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=16, wait=1)
+    assert result is None, "r1 is not up in demand mode before the restart"
+
+    # Restart the end that is not demanding, so the end that keeps its
+    # session is the one without a detection timer.
+    r2.killDaemons(["bfdd"])
+    r2.startDaemons(["bfdd"])
+
+    for router, peer in ((r1, R2_ADDR), (r2, R1_ADDR)):
+        test_func = partial(_check_peer, router, peer, {"status": "up"})
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+        assert result is None, "{} did not recover after bfdd restarted on r2".format(
+            router.name
+        )
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
