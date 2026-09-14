@@ -157,8 +157,12 @@ associated with a particular ``bmp targets``:
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
    IPv6 are currently valid for AFI. SAFI valid values are currently
-   unicast, multicast, evpn and vpn.
+   unicast, multicast, evpn, vpn and mup.
    Other AFI/SAFI combinations may be added in the future.
+
+   A station collecting ``mup`` needs to understand the BGP-MUP SAFI to
+   make sense of the NLRIs; the Route Monitoring messages carry them
+   verbatim.
 
    All BGP neighbors are included in Route Monitoring.  Options to select
    a subset of BGP sessions may be added in the future.
