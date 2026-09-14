@@ -3357,18 +3357,19 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 	STREAM_GETC(s, p.prefixlen);
 
 	if (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD) {
-		/* Currently only supporting P2P links, so any new RA source
-		   address is
-		   considered as the replacement of the previously learnt
-		   Link-Local address. */
-		if (!(ifc = listnode_head(ifp->nbr_connected))) {
+		/*
+		 * On multi-access segments multiple RA sources may advertise.
+		 * Append new entries instead of overwriting so BGP can
+		 * round-robin through candidates.
+		 */
+		ifc = nbr_connected_check(ifp, &p);
+		if (!ifc) {
 			ifc = nbr_connected_new();
 			ifc->address = prefix_new();
 			ifc->ifp = ifp;
 			listnode_add(ifp->nbr_connected, ifc);
+			prefix_copy(ifc->address, &p);
 		}
-
-		prefix_copy(ifc->address, &p);
 	} else {
 		assert(type == ZEBRA_INTERFACE_NBR_ADDRESS_DELETE);
 

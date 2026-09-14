@@ -447,15 +447,19 @@ void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 	IPV6_ADDR_COPY(&p.u.prefix6, address);
 	p.prefixlen = IPV6_MAX_BITLEN;
 
-	ifc = listnode_head(ifp->nbr_connected);
-	if (!ifc) {
-		/* new addition */
-		ifc = nbr_connected_new();
-		ifc->address = prefix_new();
-		ifc->ifp = ifp;
-		listnode_add(ifp->nbr_connected, ifc);
-	}
+	/*
+	 * On multi-access segments multiple RA sources may advertise.
+	 * Allow a list of entries (one per peer) instead of overwriting
+	 * the single head entry.  Each gets its own 169.254.x.y ARP
+	 * entry so zebra can track peers independently (donaldsharp).
+	 */
+	if (nbr_connected_check(ifp, &p))
+		return;
 
+	ifc = nbr_connected_new();
+	ifc->address = prefix_new();
+	ifc->ifp = ifp;
+	listnode_add(ifp->nbr_connected, ifc);
 	prefix_copy(ifc->address, &p);
 
 	zebra_interface_nbr_address_add_update(ifp, ifc);

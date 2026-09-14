@@ -49,7 +49,6 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZNEIGH_ENT, "Zebra neigh entry");
 
 #define ZEBRA_NTF_EXT_LEARNED 0x10
 
-static const char ipv4_ll_buf[16] = "169.254.0.1";
 static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx);
 static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx);
 
@@ -378,31 +377,45 @@ void zebra_neigh_terminate(void)
 
 /*
  * In the event the kernel deletes ipv4 link-local neighbor entries created for
- * 5549 support, re-install them.
+ * 5549 support, re-install them.  On multi-access segments each RA source has
+ * its own 169.254.x.y derived from ipv6ll_to_ipv4ll(), so we iterate
+ * nbr_connected to find the matching entry rather than comparing against a
+ * singleton address.
  */
 static void zebra_neigh_handle_5549(uint32_t ndm_family, uint32_t ndm_state, struct zebra_if *zif,
 				    struct interface *ifp, struct ipaddr *ip, bool handle_failed)
 {
+	struct listnode *node;
+	struct nbr_connected *ifc_nbr;
+	struct in_addr v4ll;
+
 	if (ndm_family != AF_INET)
 		return;
 
 	if (!zif->v6_2_v4_ll_neigh_entry)
 		return;
 
-	struct in_addr ipv4_ll;
-
-	inet_pton(AF_INET, ipv4_ll_buf, &ipv4_ll);
-
-	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
+	/* Check if the address is in the 169.254.0.0/16 range */
+	if ((ip->ip._v4_addr.s_addr & htonl(0xFFFF0000)) != htonl(0xA9FE0000))
 		return;
 
-	if (handle_failed && ndm_state & ZEBRA_NUD_FAILED) {
-		zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
-			  ifp->name);
+	/* Find the nbr_connected entry whose per-peer address matches */
+	for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, ifc_nbr)) {
+		if (ifc_nbr->address->family != AF_INET6)
+			continue;
+		ipv6ll_to_ipv4ll(&ifc_nbr->address->u.prefix6, &v4ll);
+		if (v4ll.s_addr != ip->ip._v4_addr.s_addr)
+			continue;
+
+		if (handle_failed && ndm_state & ZEBRA_NUD_FAILED) {
+			zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
+				  ifp->name);
+			return;
+		}
+
+		if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &ifc_nbr->address->u.prefix6, true);
 		return;
 	}
-
-	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &zif->v6_2_v4_ll_addr6, true);
 }
 
 /* Is vni mcast group */
