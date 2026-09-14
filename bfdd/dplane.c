@@ -102,6 +102,7 @@ static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc);
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc);
 static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
 				   struct bfd_session *bs);
+static int _bfd_dplane_update_session(struct bfd_session *bs, bool detach);
 
 /*
  * BFD data plane helper functions.
@@ -950,7 +951,7 @@ static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
 	bs->ses_state = PTM_BFD_DOWN;
 
 	/* Enqueue message to data plane client. */
-	rv = bfd_dplane_update_session(bs);
+	rv = _bfd_dplane_update_session(bs, false);
 	if (rv != 0)
 		bs->bdc = NULL;
 
@@ -1360,6 +1361,77 @@ static bool bfd_dplane_transport_is_confined(const struct bfd_dplane_ctx *bdc)
 	return bfd_dplane_addr_is_confined(&peer.sa);
 }
 
+/* How a key stands relative to the moment it is being offloaded. */
+enum bfd_dplane_key_class {
+	/* Cannot go on the wire at all. */
+	BFD_DPLANE_KEY_UNUSABLE,
+	/* Its accept period has closed; it can never verify anything again. */
+	BFD_DPLANE_KEY_CLOSED,
+	/* Acceptable now, so the data plane needs it now. */
+	BFD_DPLANE_KEY_LIVE,
+	/* Its accept period has not opened yet; it is a future rollover. */
+	BFD_DPLANE_KEY_FUTURE,
+};
+
+/*
+ * Decide whether a key can be offloaded and, if so, whether it is needed
+ * now or is one the chain has yet to roll on to.
+ *
+ * The periods are read the way `key_valid` reads them: a key is stored
+ * zeroed, so a zero start means no lifetime was configured and the key is
+ * always acceptable. Only a key that was given a period can be outside one.
+ *
+ * `warn` is set on the pass that visits every key once, so a key is only
+ * ever complained about once per message.
+ */
+static enum bfd_dplane_key_class bfd_dplane_classify_key(const struct bfd_session *bs,
+							 const struct key *key, time_t now,
+							 enum bfd_auth_type *type, size_t *keylen,
+							 bool warn)
+{
+	if (key->string == NULL)
+		return BFD_DPLANE_KEY_UNUSABLE;
+
+	/* A key whose algorithm has no BFD equivalent is unusable. */
+	*type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, bs->auth_meticulous);
+	if (*type == BFD_AUTH_TYPE_RESERVED) {
+		if (warn)
+			zlog_warn("%s: %s: key id %u has no BFD authentication type, not offloaded",
+				  __func__, bs->kc->name, key->index);
+		return BFD_DPLANE_KEY_UNUSABLE;
+	}
+
+	*keylen = strlen(key->string);
+	if (*keylen == 0 || *keylen > BFDDP_AUTH_KEY_MAX) {
+		if (warn)
+			zlog_warn("%s: %s: key id %u is %zu bytes, outside 1..%u, not offloaded",
+				  __func__, bs->kc->name, key->index, *keylen, BFDDP_AUTH_KEY_MAX);
+		return BFD_DPLANE_KEY_UNUSABLE;
+	}
+
+	/*
+	 * RFC 5880 gives the Auth Key ID eight bits, so a key chain index
+	 * above that cannot be put on the wire. Skipping it keeps the data
+	 * plane's view of the key chain honest; truncating would give two
+	 * keys the same identifier.
+	 */
+	if (key->index > UINT8_MAX) {
+		if (warn)
+			zlog_warn("%s: %s: key id %u does not fit the eight bit Auth Key ID, not offloaded",
+				  __func__, bs->kc->name, key->index);
+		return BFD_DPLANE_KEY_UNUSABLE;
+	}
+
+	if (key->accept.start == 0)
+		return BFD_DPLANE_KEY_LIVE;
+	if (key->accept.start > now)
+		return BFD_DPLANE_KEY_FUTURE;
+	if (key->accept.end != -1 && key->accept.end < now)
+		return BFD_DPLANE_KEY_CLOSED;
+
+	return BFD_DPLANE_KEY_LIVE;
+}
+
 /*
  * The end of a period as the protocol spells it. The key chain stores a key
  * never given a period zeroed and reads a zero start as always valid,
@@ -1393,6 +1465,8 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 	uint16_t count = 0;
 	uint16_t msglen;
 	time_t now = time(NULL);
+	bool truncated = false;
+	int pass;
 
 	if (!bfd_dplane_transport_is_confined(bs->bdc)) {
 		zlog_err("%s: [%s] refusing to send authentication keys over an unprotected data plane connection; use a UNIX socket or a loopback address",
@@ -1400,69 +1474,50 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 		return -1;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(bs->kc->key, node, key)) {
-		enum bfd_auth_type type;
-		size_t keylen;
+	/*
+	 * Two passes, because the message holds fewer keys than a chain may.
+	 *
+	 * A key that is acceptable now is one the data plane needs to verify
+	 * the packets arriving at it, so those go in first and cannot be
+	 * displaced. Whatever room is left goes to the keys the chain has yet
+	 * to roll on to, in chain order, so the next handover is covered
+	 * before a distant one. Taking the list as it comes would let key ids
+	 * that sorted early spend every slot on rollovers years away.
+	 *
+	 * Only the first pass warns, so each key is complained about once.
+	 */
+	for (pass = 0; pass < 2; pass++) {
+		enum bfd_dplane_key_class want = pass == 0 ? BFD_DPLANE_KEY_LIVE
+							   : BFD_DPLANE_KEY_FUTURE;
 
-		if (key->string == NULL)
-			continue;
+		for (ALL_LIST_ELEMENTS_RO(bs->kc->key, node, key)) {
+			enum bfd_auth_type type;
+			size_t keylen;
 
-		/* A key whose algorithm has no BFD equivalent is unusable. */
-		type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, bs->auth_meticulous);
-		if (type == BFD_AUTH_TYPE_RESERVED) {
-			zlog_warn("%s: %s: key id %u has no BFD authentication type, not offloaded",
-				  __func__, bs->kc->name, key->index);
-			continue;
+			if (bfd_dplane_classify_key(bs, key, now, &type, &keylen, pass == 0) !=
+			    want)
+				continue;
+
+			if (count == BFDDP_AUTH_KEY_COUNT_MAX) {
+				if (!truncated) {
+					truncated = true;
+					zlog_warn("%s: %s: more keys are usable than the %u a message holds, the rest are not offloaded",
+						  __func__, bs->kc->name, BFDDP_AUTH_KEY_COUNT_MAX);
+				}
+				break;
+			}
+
+			keys[count].type = type;
+			keys[count].key_id = (uint8_t)key->index;
+			keys[count].key_len = (uint8_t)keylen;
+			keys[count].send.start = htobe64((uint64_t)key->send.start);
+			keys[count].send.end = htobe64((uint64_t)bfd_dplane_key_end(&key->send));
+			keys[count].accept.start = htobe64((uint64_t)key->accept.start);
+			keys[count].accept.end =
+				htobe64((uint64_t)bfd_dplane_key_end(&key->accept));
+			memcpy(keys[count].key, key->string, keylen);
+			count++;
 		}
-
-		keylen = strlen(key->string);
-		if (keylen == 0 || keylen > BFDDP_AUTH_KEY_MAX) {
-			zlog_warn("%s: %s: key id %u is %zu bytes, outside 1..%u, not offloaded",
-				  __func__, bs->kc->name, key->index, keylen, BFDDP_AUTH_KEY_MAX);
-			continue;
-		}
-
-		/*
-		 * RFC 5880 gives the Auth Key ID eight bits, so a key chain
-		 * index above that cannot be put on the wire. Skipping it
-		 * keeps the data plane's view of the key chain honest;
-		 * truncating would give two keys the same identifier.
-		 */
-		if (key->index > UINT8_MAX) {
-			zlog_warn("%s: %s: key id %u does not fit the eight bit Auth Key ID, not offloaded",
-				  __func__, bs->kc->name, key->index);
-			continue;
-		}
-
-		/*
-		 * A key whose accept period has closed can never be used
-		 * again by either side. Spending one of this message's few
-		 * slots on it costs a key the chain has yet to roll on to,
-		 * which is the one case the slots exist for.
-		 *
-		 * Read the period the way `key_valid` does: a key is stored
-		 * zeroed, so a zero start means no lifetime was configured
-		 * and the key is always acceptable. Only a key that was
-		 * given a period can fall out of one.
-		 */
-		if (key->accept.start != 0 && key->accept.end != -1 && key->accept.end < now)
-			continue;
-
-		if (count == BFDDP_AUTH_KEY_COUNT_MAX) {
-			zlog_warn("%s: %s: more than %u keys are still live, the rest are not offloaded",
-				  __func__, bs->kc->name, BFDDP_AUTH_KEY_COUNT_MAX);
-			break;
-		}
-
-		keys[count].type = type;
-		keys[count].key_id = (uint8_t)key->index;
-		keys[count].key_len = (uint8_t)keylen;
-		keys[count].send.start = htobe64((uint64_t)key->send.start);
-		keys[count].send.end = htobe64((uint64_t)bfd_dplane_key_end(&key->send));
-		keys[count].accept.start = htobe64((uint64_t)key->accept.start);
-		keys[count].accept.end = htobe64((uint64_t)bfd_dplane_key_end(&key->accept));
-		memcpy(keys[count].key, key->string, keylen);
-		count++;
 	}
 
 	/*
@@ -1482,7 +1537,16 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 	return bfd_dplane_enqueue(bs->bdc, &msg, msglen);
 }
 
-int bfd_dplane_update_session(const struct bfd_session *bs)
+/*
+ * `detach` says whether this call is allowed to take the session back from
+ * the data plane when its keys cannot be sent.
+ *
+ * Registration must not: `bfd_session_enable` is what calls
+ * `bfd_dplane_add_session` in the first place, so falling back from
+ * underneath it would call it again with the association already cleared
+ * and recurse. That path has its own handling, in `_bfd_dplane_add_session`.
+ */
+static int _bfd_dplane_update_session(struct bfd_session *bs, bool detach)
 {
 	struct bfddp_message msg = {};
 	int rv;
@@ -1500,24 +1564,42 @@ int bfd_dplane_update_session(const struct bfd_session *bs)
 	if (rv != 0)
 		return rv;
 
+	if (bs->kc == NULL)
+		return rv;
+
+	rv = bfd_dplane_send_session_auth(bs);
+	if (rv == 0)
+		return rv;
+
 	/*
-	 * The keys follow the session they belong to, and the two are
-	 * separate messages: the output queue can take the first and refuse
-	 * the second. On registration that is handled, because
-	 * `_bfd_dplane_add_session` drops the association and the session
-	 * runs in the daemon instead. On a later update the session is
-	 * already offloaded and most callers discard this return, so say so
-	 * here rather than leaving a data plane holding `SESSION_AUTH` with
-	 * keys that no longer match the configuration.
+	 * The session and its keys are separate messages and the queue can
+	 * take the first and refuse the second, which would leave the data
+	 * plane running a session whose keys no longer match what is
+	 * configured. There is no transaction here to roll back with, so take
+	 * the session back instead: `bfd_dplane_delete_session` tells the data
+	 * plane to drop it, best effort on the same queue, and clears the
+	 * association either way, and the session then runs in the daemon
+	 * where it authenticates as usual.
+	 *
+	 * Losing the fast path is the smaller harm. The alternative is a
+	 * session the data plane believes it is protecting with keys that are
+	 * no longer the configured ones.
 	 */
-	if (bs->kc) {
-		rv = bfd_dplane_send_session_auth(bs);
-		if (rv != 0)
-			zlog_err("%s: [%s] authentication keys were not sent to the data plane",
-				 __func__, bs_to_string(bs));
-	}
+	zlog_err("%s: [%s] authentication keys did not reach the data plane, taking the session back",
+		 __func__, bs_to_string(bs));
+
+	if (!detach)
+		return rv;
+
+	bfd_dplane_delete_session(bs);
+	bfd_session_enable(bs);
 
 	return rv;
+}
+
+int bfd_dplane_update_session(struct bfd_session *bs)
+{
+	return _bfd_dplane_update_session(bs, true);
 }
 
 int bfd_dplane_delete_session(struct bfd_session *bs)
