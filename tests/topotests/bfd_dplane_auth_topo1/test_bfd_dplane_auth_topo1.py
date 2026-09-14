@@ -242,6 +242,47 @@ def test_a_new_key_is_pushed():
     )
 
 
+def test_a_lifetime_edit_is_pushed():
+    """Changing only a lifetime sends the set again.
+
+    A key string or an algorithm reaches the data plane because changing it
+    notifies the key chain hook. A lifetime is just as much a part of the
+    key, and it is the part this message exists to carry: software BFD
+    re-reads it on every packet, but an offloaded session was handed it
+    once and has nothing to re-read.
+    """
+    _skip_on_failure()
+
+    before = _keys(_listener_dump())
+    assert before, "the listener holds no keys to edit"
+    target = before[0]["id"]
+
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        key chain rollover
+        key {}
+        accept-lifetime 00:00:00 Jan 1 2020 23:59:59 Dec 31 2037
+        end
+        """.format(target)
+    )
+
+    def _accept_end():
+        for key in _keys(_listener_dump()):
+            if key["id"] == target:
+                return key["accept_end"]
+        return -1
+
+    _, result = topotest.run_and_expect(
+        lambda: _accept_end() != before[0]["accept_end"], True, count=30, wait=1
+    )
+    assert result is True, (
+        "the data plane still holds the old accept lifetime for key {}, {}".format(
+            target, before[0]["accept_end"]
+        )
+    )
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
