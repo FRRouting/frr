@@ -48,7 +48,7 @@ DEFINE_MTYPE_STATIC(LIB, NB_NODE_INFOS, "NB Node Infos");
 /* ---------- */
 PREDECL_LIST(nb_op_walks);
 
-typedef const struct lyd_node *(*get_tree_locked_cb)(const char *xpath, void **user_tree_lock);
+typedef const struct lyd_node *(*get_tree_locked_cb)(void **user_tree_lock);
 typedef void (*unlock_tree_cb)(const struct lyd_node *tree, void *user_tree_lock);
 
 /*
@@ -709,8 +709,7 @@ static get_tree_locked_cb _get_get_tree_funcs(const char *module_name,
 	return module->frr_info->get_tree_locked;
 }
 
-static const struct lyd_node *_get_tree(struct nb_op_yield_state *ys, const struct nb_node *nb_node,
-					const char *xpath)
+static const struct lyd_node *_get_tree(struct nb_op_yield_state *ys, const struct nb_node *nb_node)
 {
 	get_tree_locked_cb get_tree_cb;
 
@@ -720,7 +719,7 @@ static const struct lyd_node *_get_tree(struct nb_op_yield_state *ys, const stru
 	get_tree_cb = _get_get_tree_funcs(_module_name(nb_node), &ys->user_tree_unlock);
 	assert(get_tree_cb);
 
-	ys->user_tree = get_tree_cb(xpath, &ys->user_tree_lock);
+	ys->user_tree = get_tree_cb(&ys->user_tree_lock);
 	return ys->user_tree;
 }
 
@@ -732,7 +731,7 @@ static enum nb_error nb_op_libyang_cb_get(struct nb_op_yield_state *ys,
 					  const char *xpath)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	const struct lyd_node *tree = _get_tree(ys, nb_node, xpath);
+	const struct lyd_node *tree = _get_tree(ys, nb_node);
 	struct lyd_node *node;
 	LY_ERR err;
 
@@ -752,7 +751,7 @@ static enum nb_error nb_op_libyang_cb_get_leaflist(struct nb_op_yield_state *ys,
 						   struct lyd_node *parent, const char *xpath)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	const struct lyd_node *tree = _get_tree(ys, nb_node, xpath);
+	const struct lyd_node *tree = _get_tree(ys, nb_node);
 	struct ly_set *set = NULL;
 	LY_ERR err;
 	int ret = NB_OK;
@@ -808,8 +807,10 @@ static const struct lyd_node *_get_node_other_tree(const struct lyd_node *tree,
 
 	if (lyd_find_xpath(tree, xpath, &set))
 		return NULL;
-	if (set->count < 1)
+	if (set->count < 1) {
+		ly_set_free(set, NULL);
 		return NULL;
+	}
 	node = set->dnodes[0];
 	ly_set_free(set, NULL);
 	return node;
@@ -842,7 +843,7 @@ static const void *nb_op_list_lookup_entry(struct nb_op_yield_state *ys, struct 
 		}
 		keys = &_keys;
 	}
-	tree = _get_tree(ys, nb_node, NULL);
+	tree = _get_tree(ys, nb_node);
 	parent_node = pni ? pni->inner : NULL;
 	return _get_node_other_tree(tree, parent_node, nb_node->snode, keys);
 }
@@ -851,7 +852,7 @@ static const void *_get_next(struct nb_op_yield_state *ys, struct nb_node *nb_no
 			     const struct nb_op_node_info *pni, const void *list_entry)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	const struct lyd_node *tree = _get_tree(ys, nb_node, NULL);
+	const struct lyd_node *tree = _get_tree(ys, nb_node);
 	const struct lyd_node *parent_node = pni ? pni->inner : NULL;
 	const struct lyd_node *node = list_entry;
 
@@ -1494,8 +1495,15 @@ static enum nb_error _walk(struct nb_op_yield_state *ys, bool is_resume)
 				 * will push our node info below. The top is our
 				 * parent.
 				 */
-				/* Check no oper-state below, and skip if so */
-				if (CHECK_FLAG(nn->flags, F_NB_NODE_CONFIG_ONLY)) {
+
+				/*
+				 * For config only we still allow op-query;
+				 * however, make sure the client actually
+				 * supports this since it is currently
+				 * not required by the northbound cb validation.
+				 */
+				if (CHECK_FLAG(nn->flags, F_NB_NODE_CONFIG_ONLY) &&
+				    (!nn->cbs.get_next || !nn->cbs.lookup_entry)) {
 					sib = nb_op_sib_next(ys, sib);
 					continue;
 				}
