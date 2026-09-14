@@ -39,6 +39,16 @@ DPLANE_PORT = 50700
 # Three keys are configured: two carrying lifetimes and one without.
 KEY_COUNT = 3
 
+# The chain uses cleartext rather than hmac-sha-1 on purpose. hmac-sha-1
+# needs --with-crypto=openssl, and `keychain_get_algo_id_by_name` does not
+# even recognise the name without it, so the algorithm fails validation and
+# takes the whole candidate configuration with it, `bfd peer` block
+# included. Guarding with `has_crypto_openssl` the way
+# bfd_authentication_topo1 does would not help, because the damage is done
+# at startup before any test runs. Nothing here asserts on the
+# authentication type, and a key carries its lifetimes the same either way,
+# so cleartext lets the module run everywhere instead of skipping.
+
 
 def build_topo(tgen):
     "Build function"
@@ -236,7 +246,7 @@ def test_a_new_key_is_pushed():
         key chain rollover
         key 4
         key-string fourthkey0000004
-        cryptographic-algorithm hmac-sha-1
+        cryptographic-algorithm cleartext
         end
         """
     )
