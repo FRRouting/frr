@@ -116,6 +116,11 @@ def _keys(dump):
     The lifetimes are seconds since the epoch, and the daemon reads them
     from a local time, so nothing here compares them against a fixed
     value. What matters is how they sit relative to one another.
+
+    The chain itself is dated well into the future on purpose: a key whose
+    accept period has closed is not offloaded, so a fixture written around
+    the date it was authored would quietly lose a key and take the overlap
+    it demonstrates with it.
     """
     out = []
     pattern = re.compile(
