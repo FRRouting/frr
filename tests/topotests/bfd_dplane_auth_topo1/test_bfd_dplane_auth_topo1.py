@@ -117,10 +117,18 @@ def _keys(dump):
     from a local time, so nothing here compares them against a fixed
     value. What matters is how they sit relative to one another.
 
-    The chain itself is dated well into the future on purpose: a key whose
+    The chain itself is dated into the future on purpose: a key whose
     accept period has closed is not offloaded, so a fixture written around
     the date it was authored would quietly lose a key and take the overlap
     it demonstrates with it.
+
+    The accept periods end with a duration rather than a date, because the
+    CLI takes years only up to 2035 and a fixed end date is therefore a
+    date this test starts failing on. A duration is added to the start, so
+    the end is never written down and the ceiling does not apply to it.
+    The send periods keep their dates: they have to close before the next
+    key opens, which is the overlap being demonstrated, and they are
+    bounded by that rather than by the calendar.
     """
     out = []
     pattern = re.compile(
@@ -262,7 +270,7 @@ def test_a_lifetime_edit_is_pushed():
         configure terminal
         key chain rollover
         key {}
-        accept-lifetime 00:00:00 Jan 1 2020 23:59:59 Dec 31 2037
+        accept-lifetime 00:00:00 1 January 2030 23:59:59 31 December 2035
         end
         """.format(target)
     )
