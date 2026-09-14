@@ -1314,6 +1314,7 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 	struct key *key;
 	uint16_t count = 0;
 	uint16_t msglen;
+	time_t now = time(NULL);
 
 	for (ALL_LIST_ELEMENTS_RO(bs->kc->key, node, key)) {
 		enum bfd_auth_type type;
@@ -1324,12 +1325,18 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 
 		/* A key whose algorithm has no BFD equivalent is unusable. */
 		type = map_keychain_algo_to_bfd_auth_type(key->hash_algo, bs->auth_meticulous);
-		if (type == BFD_AUTH_TYPE_RESERVED)
+		if (type == BFD_AUTH_TYPE_RESERVED) {
+			zlog_warn("%s: %s: key id %u has no BFD authentication type, not offloaded",
+				  __func__, bs->kc->name, key->index);
 			continue;
+		}
 
 		keylen = strlen(key->string);
-		if (keylen == 0 || keylen > BFDDP_AUTH_KEY_MAX)
+		if (keylen == 0 || keylen > BFDDP_AUTH_KEY_MAX) {
+			zlog_warn("%s: %s: key id %u is %zu bytes, outside 1..%u, not offloaded",
+				  __func__, bs->kc->name, key->index, keylen, BFDDP_AUTH_KEY_MAX);
 			continue;
+		}
 
 		/*
 		 * RFC 5880 gives the Auth Key ID eight bits, so a key chain
@@ -1337,11 +1344,28 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 		 * keeps the data plane's view of the key chain honest;
 		 * truncating would give two keys the same identifier.
 		 */
-		if (key->index > UINT8_MAX)
+		if (key->index > UINT8_MAX) {
+			zlog_warn("%s: %s: key id %u does not fit the eight bit Auth Key ID, not offloaded",
+				  __func__, bs->kc->name, key->index);
+			continue;
+		}
+
+		/*
+		 * A key whose accept period has closed can never be used
+		 * again by either side. Spending one of this message's few
+		 * slots on it costs a key the chain has yet to roll on to,
+		 * which is the one case the slots exist for.
+		 *
+		 * Read the period the way `key_valid` does: a key is stored
+		 * zeroed, so a zero start means no lifetime was configured
+		 * and the key is always acceptable. Only a key that was
+		 * given a period can fall out of one.
+		 */
+		if (key->accept.start != 0 && key->accept.end != -1 && key->accept.end < now)
 			continue;
 
 		if (count == BFDDP_AUTH_KEY_COUNT_MAX) {
-			zlog_warn("%s: key chain %s has more than %u usable keys, the rest are not offloaded",
+			zlog_warn("%s: %s: more than %u keys are still live, the rest are not offloaded",
 				  __func__, bs->kc->name, BFDDP_AUTH_KEY_COUNT_MAX);
 			break;
 		}
