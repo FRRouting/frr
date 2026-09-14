@@ -817,7 +817,7 @@ struct bgp {
 	bool gr_route_sync_pending;
 
 	/* BGP Per AF flags */
-	uint16_t af_flags[AFI_MAX][SAFI_MAX];
+	uint32_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
 #define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST (1 << 1)
@@ -836,6 +836,10 @@ struct bgp {
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
 #define BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN (1 << 12)
 #define BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN (1 << 13)
+/* per-AF backup-path flags (ipv4/ipv6 unicast) */
+#define BGP_CONFIG_BACKUP_PATH	     (1 << 14)
+#define BGP_CONFIG_BACKUP_PATH_ECMP  (1 << 15)
+#define BGP_CONFIG_BACKUP_PATH_FLUSH (1 << 16)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
