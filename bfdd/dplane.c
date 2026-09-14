@@ -1575,24 +1575,37 @@ static int _bfd_dplane_update_session(struct bfd_session *bs, bool detach)
 	 * The session and its keys are separate messages and the queue can
 	 * take the first and refuse the second, which would leave the data
 	 * plane running a session whose keys no longer match what is
-	 * configured. There is no transaction here to roll back with, so take
-	 * the session back instead: `bfd_dplane_delete_session` tells the data
+	 * configured. There is no transaction here to roll back with, so
+	 * withdraw the session: `bfd_dplane_delete_session` asks the data
 	 * plane to drop it, best effort on the same queue, and clears the
-	 * association either way, and the session then runs in the daemon
-	 * where it authenticates as usual.
+	 * association whether or not that message fits.
+	 *
+	 * The withdrawal is not conditional on `detach`. Registration has
+	 * already queued `DP_ADD_SESSION` by the time the keys are refused,
+	 * so clearing only the local association would leave the data plane
+	 * holding a session bfdd believes it never offloaded, and a data
+	 * plane that ignores `SESSION_AUTH` would run it unprotected. That is
+	 * the downgrade the confinement check above exists to prevent, and it
+	 * would happen every time on a connection that check rejects.
 	 *
 	 * Losing the fast path is the smaller harm. The alternative is a
 	 * session the data plane believes it is protecting with keys that are
 	 * no longer the configured ones.
 	 */
-	zlog_err("%s: [%s] authentication keys did not reach the data plane, taking the session back",
+	zlog_err("%s: [%s] authentication keys did not reach the data plane, withdrawing the session",
 		 __func__, bs_to_string(bs));
 
-	if (!detach)
-		return rv;
-
 	bfd_dplane_delete_session(bs);
-	bfd_session_enable(bs);
+
+	/*
+	 * Only an update may start the session in the daemon from here.
+	 * `bfd_session_enable` is what calls `bfd_dplane_add_session` in the
+	 * first place, so doing it on the registration path would re-enter it
+	 * with the association already cleared and recurse; that caller opens
+	 * a socket itself once this returns non-zero.
+	 */
+	if (detach)
+		bfd_session_enable(bs);
 
 	return rv;
 }
