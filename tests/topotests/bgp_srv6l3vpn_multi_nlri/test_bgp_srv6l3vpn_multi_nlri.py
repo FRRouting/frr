@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: ISC
 
 # Test SRv6 L3VPN multi-NLRI handling: a single BGP UPDATE carrying
-# multiple VPN prefixes must preserve srv6_l3service for every prefix.
+# multiple VPN prefixes must preserve srv6_service for every prefix.
 
 import os
 import sys
@@ -87,7 +87,7 @@ def test_multi_nlri_vpn_rib():
 
 def test_multi_nlri_vrf_rib():
     """All 10 prefixes must be installed in PE2's VRF; without the fix only the
-    first prefix gets its srv6_l3service and the rest are dropped during VPN-to-VRF
+    first prefix gets its srv6_service and the rest are dropped during VPN-to-VRF
     leak, leaving a single VRF entry instead of 10."""
     check_rib("pe2", "show ip route vrf Vrf1 json", "pe2/vrf1_rib.json")
 

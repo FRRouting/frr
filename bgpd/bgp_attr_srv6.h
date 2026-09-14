@@ -13,7 +13,8 @@
  * SRv6-L3-Service-TLV
  * RFC 9252
  */
-struct bgp_attr_srv6_l3service {
+struct bgp_attr_srv6_service {
+	uint8_t type;
 	unsigned long refcnt;
 	uint8_t sid_flags;
 	uint16_t endpoint_behavior;
