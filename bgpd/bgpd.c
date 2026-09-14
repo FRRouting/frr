@@ -4366,7 +4366,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pr
 		bgp = bgp_get_default();
 
 	if (bgp) {
-		if (IS_BGP_INSTANCE_HIDDEN(bgp) && *as != AS_UNSPECIFIED)
+		if (IS_BGP_INSTANCE_HIDDEN(bgp) && *as != BGP_AS_ZERO)
 			hidden = true;
 		/* Handle AS number change */
 		if (bgp->as != *as) {
