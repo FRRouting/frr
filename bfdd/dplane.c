@@ -1304,9 +1304,6 @@ static bool bfd_dplane_transport_is_confined(const struct bfd_dplane_ctx *bdc)
 		struct sockaddr_storage ss;
 	} peer = {};
 	socklen_t peerlen = sizeof(peer);
-	static const uint8_t v4mapped_loopback[16] = { 0, 0, 0,	   0,	0, 0,
-						       0, 0, 0,	   0,	0xff,
-						       0xff, 127, 0, 0,	1 };
 
 	if (getpeername(bdc->sock, &peer.sa, &peerlen) == -1)
 		return false;
@@ -1315,13 +1312,23 @@ static bool bfd_dplane_transport_is_confined(const struct bfd_dplane_ctx *bdc)
 	case AF_UNIX:
 		return true;
 	case AF_INET:
-		return peer.sin.sin_addr.s_addr == htonl(INADDR_LOOPBACK);
+		/* The whole of 127.0.0.0/8, not just 127.0.0.1. */
+		return IPV4_NET127(ntohl(peer.sin.sin_addr.s_addr));
 	case AF_INET6:
 		if (IN6_IS_ADDR_LOOPBACK(&peer.sin6.sin6_addr))
 			return true;
-		/* A v4 client on a dual stack listener arrives mapped. */
-		return memcmp(&peer.sin6.sin6_addr, v4mapped_loopback,
-			      sizeof(v4mapped_loopback)) == 0;
+		/*
+		 * A v4 client on a dual stack listener arrives mapped, and
+		 * the whole of 127.0.0.0/8 maps.
+		 */
+		if (IN6_IS_ADDR_V4MAPPED(&peer.sin6.sin6_addr)) {
+			uint32_t v4;
+
+			memcpy(&v4, &peer.sin6.sin6_addr.s6_addr[12],
+			       sizeof(v4));
+			return IPV4_NET127(ntohl(v4));
+		}
+		return false;
 	default:
 		return false;
 	}
