@@ -741,7 +741,7 @@ uint16_t pcep_encode_tlv_cpath_id(struct pcep_object_tlv_header *tlv,
 	encode_ipv6(&cpath_id_tlv->orig_addres, &uint32_ptr[2]);
 	uint32_ptr[6] = htonl(cpath_id_tlv->discriminator);
 
-	return sizeof(cpath_id_tlv->proto) + sizeof(cpath_id_tlv->orig_asn)
+	return sizeof(uint32_t) + sizeof(cpath_id_tlv->orig_asn)
 	       + sizeof(cpath_id_tlv->orig_addres)
 	       + sizeof(cpath_id_tlv->discriminator);
 }
@@ -1328,9 +1328,17 @@ pcep_decode_tlv_cpath_id(struct pcep_object_tlv_header *tlv_hdr,
 			 const uint8_t *tlv_body_buf)
 {
 	uint32_t *uint32_ptr = (uint32_t *)tlv_body_buf;
-	struct pcep_object_tlv_srpag_cp_id *tlv =
-		(struct pcep_object_tlv_srpag_cp_id *)common_tlv_create(
-			tlv_hdr, sizeof(struct pcep_object_tlv_srpag_cp_id));
+	struct pcep_object_tlv_srpag_cp_id *tlv;
+
+	/* RFC9862, 4.5.2 */
+	if (tlv_hdr->encoded_tlv_length != 28) {
+		pcep_log(LOG_INFO, "%s: SR Policy CPath ID TLV: invalid length %d",
+			 __func__, tlv_hdr->encoded_tlv_length);
+		return NULL;
+	}
+
+	tlv = (void *)common_tlv_create(tlv_hdr,
+					sizeof(struct pcep_object_tlv_srpag_cp_id));
 
 	tlv->proto = tlv_body_buf[0];
 	tlv->orig_asn = ntohl(uint32_ptr[1]);
