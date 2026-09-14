@@ -18591,7 +18591,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 			if (rm == NULL)
 				continue;
 
-			const struct prefix *rm_p = bgp_dest_get_prefix(dest);
+			const struct prefix *rm_p = bgp_dest_get_prefix(rm);
 
 			if (!prefix_check
 			    || rm_p->prefixlen == match.prefixlen) {
@@ -18616,7 +18616,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
-		if (prefix_check || dest_p->prefixlen != match.prefixlen)
+		if (prefix_check && dest_p->prefixlen != match.prefixlen)
 			return CMD_SUCCESS;
 
 		pi = bgp_dest_get_bgp_path_info(dest);
@@ -18629,8 +18629,10 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 			pi_temp = pi->next;
 			struct bgp_damp_info *bdi = pi->extra->damp_info;
 
-			if (bdi->lastrecord != BGP_RECORD_UPDATE)
+			if (bdi->lastrecord != BGP_RECORD_UPDATE) {
+				pi = pi_temp;
 				continue;
+			}
 
 			bgp_aggregate_increment(bgp,
 						bgp_dest_get_prefix(bdi->dest),
@@ -18712,8 +18714,7 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
 		return CMD_WARNING;
 	}
 
-	return bgp_clear_damp_route(vty, NULL, prefix_str, AFI_IP, SAFI_UNICAST,
-				    NULL, 0);
+	return bgp_clear_damp_route(vty, NULL, prefix_str, AFI_IP, SAFI_UNICAST, NULL, 1);
 }
 
 static void show_bgp_connectionhash_entry(struct hash_bucket *bucket, void *arg)
