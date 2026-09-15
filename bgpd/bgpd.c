@@ -5799,7 +5799,7 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 }
 
 /* Enable global administrative shutdown of all peers of BGP instance */
-void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
+void bgp_shutdown_enable(struct bgp *bgp, const char *msg, bool send_notify)
 {
 	struct peer *peer;
 	struct listnode *node;
@@ -5816,14 +5816,22 @@ void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 
 	/* iterate through peers of BGP instance */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		peer_set_last_reset(peer, PEER_DOWN_USER_SHUTDOWN);
-
 		/* continue, if peer is already in administrative shutdown. */
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 			continue;
 
-		/* send a RFC 4486 notification message if necessary */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
+		/*
+		 * Send a RFC 4486 notification message if necessary.
+		 *
+		 * Note that BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN may be converted
+		 * to BGP_NOTIFY_CEASE_HARD_RESET in the notification, and
+		 * would result in GR termination on the receiver.
+		 *
+		 * In a active/standby HA setup, when the node becomes standby,
+		 * the BGP notification should not be sent out in order to
+		 * preserve BGP Graceful Restart state on the receiver.
+		 */
+		if (send_notify && BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			if (msg) {
 				size_t datalen = strlen(msg);
 
@@ -5849,10 +5857,16 @@ void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 
 		/* trigger a RFC 4271 ManualStop event */
 		BGP_EVENT_ADD(peer->connection, BGP_Stop);
+		peer_set_last_reset(peer, PEER_DOWN_USER_SHUTDOWN);
 	}
 
 	/* set the BGP instances shutdown flag */
 	SET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);
+
+	if (!send_notify)
+		SET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN_NO_NOTIFY);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN_NO_NOTIFY);
 }
 
 /* Disable global administrative shutdown of all peers of BGP instance */
