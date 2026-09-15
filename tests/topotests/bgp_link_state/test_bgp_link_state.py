@@ -473,6 +473,21 @@ def test_bgp_ls_attributes_consumer():
     assertmsg = '"rr" BGP-LS node attributes not received correctly'
     assert result is None, assertmsg
 
+    # Check BGP-LS attributes are received for link
+    reffile = os.path.join(CWD, "rr/bgp_ls_attrs_link43.json")
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp link-state link-state [E][L2][I0x0][N[s0000.0000.0004.00]][R[s0000.0000.0003.00]][L[i10.0.5.4][n10.0.5.3]] json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assertmsg = '"rr" BGP-LS link attributes not received correctly'
+    assert result is None, assertmsg
+
+
 
 def test_bgp_ls_static_route_add():
     """Test adding a static route and verifying BGP-LS update"""
