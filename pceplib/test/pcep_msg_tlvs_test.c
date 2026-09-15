@@ -535,7 +535,7 @@ void test_pcep_tlv_create_srpag_cp_id(void)
 	CU_ASSERT_EQUAL(tlv->header.type,
 			(PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID));
 	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length,
-			(sizeof(proto_origin) + sizeof(ASN)
+			(sizeof(uint32_t) + sizeof(ASN)
 			 + sizeof(with_mapped_ipv4) + sizeof(discriminator)));
 	CU_ASSERT_EQUAL(tlv->proto, (proto_origin));
 	CU_ASSERT_EQUAL(tlv->orig_asn, (ASN));
