@@ -26,7 +26,10 @@
 
 XREF_SETUP();
 
-DEFINE_HOOK(agentx_enabled, (), ());
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/agentx_hooks.h"
+#include "lib/hooks_end.h"
 
 //bool agentx_enabled = false;
 

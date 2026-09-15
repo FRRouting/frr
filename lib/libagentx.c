@@ -8,8 +8,10 @@
 #include "lib/libagentx.h"
 #include "command.h"
 
-DEFINE_HOOK(agentx_cli_enabled, (), ());
-DEFINE_HOOK(agentx_cli_disabled, (), ());
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/libagentx_hooks.h"
+#include "lib/hooks_end.h"
 
 bool agentx_enabled;
 

@@ -12,10 +12,10 @@
 #include "lib_errors.h"
 #include "routing_nb.h"
 
-
-DEFINE_HOOK(routing_conf_event, (struct nb_cb_create_args *args), (args));
-DEFINE_HOOK(routing_create, (struct nb_cb_create_args *args), (args));
-DEFINE_KOOH(routing_destroy, (struct nb_cb_destroy_args *args), (args));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/routing_nb_config_hooks.h"
+#include "lib/hooks_end.h"
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol

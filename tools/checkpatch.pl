@@ -3782,6 +3782,7 @@ sub process {
 			}
 
 			if ($msg_type ne "" &&
+			    $realfile !~ m@^lib/(compiler|frrscript)\.h$@ &&
 			    (show_type("LONG_LINE") || show_type($msg_type))) {
 				my $msg_level = \&WARN;
 				$msg_level = \&CHK if ($file);
@@ -5887,7 +5888,8 @@ sub process {
 			my $stmt_cnt = statement_rawlines($ctx);
 			my $herectx = get_stat_here($linenr, $stmt_cnt, $here);
 
-			if ($dstat ne '' &&
+			if ($realfile !~ m@^lib/(compiler|hook)\.h$@ &&
+			    $dstat ne '' &&
 			    $dstat !~ /^(?:$Ident|-?$Constant),$/ &&			# 10, // foo(),
 			    $dstat !~ /^(?:$Ident|-?$Constant);$/ &&			# foo();
 			    $dstat !~ /^[!~-]?(?:$Lval|$Constant)$/ &&		# 10 // foo() // !foo // ~foo // -foo // foo->bar // foo.bar->baz
@@ -5982,6 +5984,7 @@ sub process {
 # macro should not end with a semicolon
 		if ($perl_version_ok &&
 		    $realfile !~ m@/vmlinux.lds.h$@ &&
+		    $realfile !~ m@^lib/compiler\.h$@ &&
 		    $line =~ /^.\s*\#\s*define\s+$Ident(\()?/) {
 			my $ln = $linenr;
 			my $cnt = $realcnt;

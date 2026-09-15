@@ -51,14 +51,10 @@ RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
 
 DEFINE_QOBJ_TYPE(interface);
 
-DEFINE_HOOK(if_add, (struct interface *ifp), (ifp));
-DEFINE_KOOH(if_del, (struct interface *ifp), (ifp));
-
-DEFINE_HOOK(if_real, (struct interface *ifp), (ifp));
-DEFINE_KOOH(if_unreal, (struct interface *ifp), (ifp));
-
-DEFINE_HOOK(if_up, (struct interface *ifp), (ifp));
-DEFINE_KOOH(if_down, (struct interface *ifp), (ifp));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/if_hooks.h"
+#include "lib/hooks_end.h"
 
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the

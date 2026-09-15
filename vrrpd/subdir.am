@@ -28,6 +28,8 @@ noinst_HEADERS += \
 	vrrpd/vrrp_packet.h \
 	vrrpd/vrrp_vty.h \
 	vrrpd/vrrp_zebra.h \
+	\
+	vrrpd/vrrp_hooks.h \
 	# end
 
 clippy_scan += \
