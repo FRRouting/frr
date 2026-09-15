@@ -11468,9 +11468,9 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 	bgp_default = bgp_get_default();
 	if (!bgp_default) {
 		int32_t ret;
-		as_t as = AS_UNSPECIFIED;
+		as_t as = BGP_AS_ZERO;
 
-		/* Auto-create with AS_UNSPECIFIED, to be filled in later */
+		/* Auto-create with an unspecified ASN, to be filled in later. */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
 				  BGP_INSTANCE_TYPE_DEFAULT, NULL,
 				  ASNOTATION_UNDEFINED);
@@ -11584,9 +11584,9 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 
 	bgp_default = bgp_get_default();
 	if (!bgp_default) {
-		as = AS_UNSPECIFIED;
+		as = BGP_AS_ZERO;
 
-		/* Auto-create with AS_UNSPECIFIED, to be filled in later */
+		/* Auto-create with an unspecified ASN, to be filled in later. */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
 				  BGP_INSTANCE_TYPE_DEFAULT, NULL,
 				  ASNOTATION_UNDEFINED);
