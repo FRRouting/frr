@@ -4789,6 +4789,37 @@ static const struct route_map_rule_cmd route_match_vpn_dataplane_cmd = {
 };
 
 
+static enum route_map_cmd_result_t route_match_prefix_state(void *rule, const struct prefix *prefix,
+							    void *object)
+{
+	struct bgp_path_info *path;
+
+	/* Fetch routemap's rule information. */
+	path = object;
+
+	if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_prefix_state_compile(const char *arg)
+{
+	uint32_t *path_flags;
+
+	path_flags = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+
+	if (strmatch(arg, "bestpath"))
+		SET_FLAG(*path_flags, BGP_PATH_SELECTED);
+
+	return path_flags;
+}
+
+static const struct route_map_rule_cmd route_match_prefix_state_cmd = {
+	"prefix-state", route_match_prefix_state, route_match_prefix_state_compile, route_value_free
+};
+
+
 /*
  * This is the workhorse routine for processing in/out routemap
  * modifications.
@@ -8495,6 +8526,32 @@ DEFPY_YANG (match_vpn_dataplane,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (match_prefix_state,
+       match_prefix_state_cmd,
+       "[no$no] match prefix-state [bestpath$bestpath]",
+       NO_STR
+       MATCH_STR
+       "BGP state of a prefix\n"
+       "prefix is the best path\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:match-prefix-state']";
+	char xpath_value[XPATH_MAXLEN];
+	enum nb_operation operation = NB_OP_CREATE;
+
+	if (no || !bestpath)
+		operation = NB_OP_DESTROY;
+
+	nb_cli_enqueue_change(vty, xpath, operation, NULL);
+
+	if (!no && bestpath) {
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-match-condition/frr-bgp-route-map:prefix-state", xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, bestpath);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /* Initialization of route map. */
 void bgp_route_map_init(void)
 {
@@ -8784,8 +8841,10 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ipv6_nexthop_peer_cmd);
 	route_map_install_match(&route_match_rpki_extcommunity_cmd);
 	route_map_install_match(&route_match_vpn_dataplane_cmd);
+	route_map_install_match(&route_match_prefix_state_cmd);
 
 	install_element(RMAP_NODE, &match_vpn_dataplane_cmd);
+	install_element(RMAP_NODE, &match_prefix_state_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_address_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_address_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_old_cmd);

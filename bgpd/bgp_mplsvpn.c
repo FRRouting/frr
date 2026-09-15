@@ -1884,6 +1884,28 @@ static void _vpn_leak_from_vrf_update_leak_attr(struct attr *static_attr, struct
 		bgp_dest_unlock_node(bn);
 }
 
+void vpn_leak_from_vrf_refresh(struct bgp *bgp, struct bgp_dest *dest,
+			       struct bgp_path_info *select_to_refresh, afi_t afi,
+			       bool full_refresh)
+{
+	struct bgp_path_info *pi;
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	zlog_debug("%s() called full %u", __func__, full_refresh);
+	if (full_refresh == false) {
+		/* withdraw the exact vpn prefix exported */
+		vpn_leak_from_vrf_update(bgp_get_default(), bgp, select_to_refresh);
+		return;
+	}
+
+	/* perform withdraw */
+	vpn_leak_from_vrf_withdraw_filtered(bgp_get_default(), bgp, afi, bgp_dest_get_prefix(dest));
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (debug)
+			zlog_debug("%s: calling vpn_leak_from_vrf_update", __func__);
+		vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+	}
+}
+
 /* cf vnc_import_bgp_add_route_mode_nvegroup() and add_vnc_route() */
 void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			      struct bgp *from_bgp,	   /* from */
@@ -2227,8 +2249,9 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 	bgp_dest_unlock_node(bn);
 }
 
-void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
-				    afi_t afi)
+
+void vpn_leak_from_vrf_withdraw_filtered(struct bgp *to_bgp, struct bgp *from_bgp, afi_t afi,
+					 const struct prefix *p_match)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	struct bgp_dest *pdest;
@@ -2239,10 +2262,10 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 	 */
 	for (pdest = bgp_table_top(to_bgp->rib[afi][safi]); pdest;
 	     pdest = bgp_route_next(pdest)) {
-
 		struct bgp_table *table;
 		struct bgp_dest *bn;
 		struct bgp_path_info *bpi, *next;
+		const struct prefix *p;
 
 		/* This is the per-RD table of prefixes */
 		table = bgp_dest_get_bgp_table_info(pdest);
@@ -2251,7 +2274,14 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 			continue;
 
 		for (bn = bgp_table_top(table); bn; bn = bgp_route_next(bn)) {
+			if (p_match) {
+				p = bgp_dest_get_prefix(bn);
+				if (!prefix_same(p, p_match))
+					continue;
+			}
+
 			bpi = bgp_dest_get_bgp_path_info(bn);
+
 			if (debug && bpi) {
 				zlog_debug("%s: looking at prefix %pBD",
 					   __func__, bn);
@@ -2286,6 +2316,11 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 			}
 		}
 	}
+}
+
+void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp, afi_t afi)
+{
+	vpn_leak_from_vrf_withdraw_filtered(to_bgp, from_bgp, afi, NULL);
 }
 
 void vpn_leak_from_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
