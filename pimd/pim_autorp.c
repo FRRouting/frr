@@ -947,7 +947,8 @@ static size_t autorp_build_disc_rps(struct pim_autorp *autorp, uint8_t *buf, siz
 		 */
 		skip = false;
 		frr_each (pim_autorp_grppfix, &rp->grp_pfix_list, grp2) {
-			if (prefix_match(&grp2->grp, &grp->grp) && grp->negative == grp2->negative) {
+			if (prefix_contains(&grp2->grp, &grp->grp) &&
+			    grp->negative == grp2->negative) {
 				skip = true;
 				break;
 			}

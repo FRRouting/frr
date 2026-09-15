@@ -875,8 +875,8 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 
 				++queries_total;
 
-				if (pfx_match && !prefix_match(pfx_match, p)
-				    && !prefix_match(p, pfx_match))
+				if (pfx_match && !prefix_contains(pfx_match, p) &&
+				    !prefix_contains(p, pfx_match))
 					continue;
 
 				++queries_displayed;
@@ -945,9 +945,8 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 				pfx_mac.prefixlen = 48;
 				pfx_mac.u.prefix_eth = mon_eth->macaddr;
 
-				if (pfx_match
-				    && !prefix_match(pfx_match, &pfx_mac)
-				    && !prefix_match(&pfx_mac, pfx_match))
+				if (pfx_match && !prefix_contains(pfx_match, &pfx_mac) &&
+				    !prefix_contains(&pfx_mac, pfx_match))
 					continue;
 
 				++queries_displayed;
@@ -1213,8 +1212,8 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 			int count_only;
 
 			/* allow for wider or more narrow mask from user */
-			if (prefix_only && !prefix_match(prefix_only, p)
-			    && !prefix_match(p, prefix_only))
+			if (prefix_only && !prefix_contains(prefix_only, p) &&
+			    !prefix_contains(p, prefix_only))
 				count_only = 1;
 			else
 				count_only = 0;
@@ -1674,13 +1673,13 @@ void rfapiPrintMatchingDescriptors(struct vty *vty, struct prefix *vn_prefix,
 
 		if (vn_prefix) {
 			assert(!rfapiRaddr2Qprefix(&rfd->vn_addr, &pfx));
-			if (!prefix_match(vn_prefix, &pfx))
+			if (!prefix_contains(vn_prefix, &pfx))
 				continue;
 		}
 
 		if (un_prefix) {
 			assert(!rfapiRaddr2Qprefix(&rfd->un_addr, &pfx));
-			if (!prefix_match(un_prefix, &pfx))
+			if (!prefix_contains(un_prefix, &pfx))
 				continue;
 		}
 
@@ -4208,13 +4207,13 @@ static int rfapi_show_nves(struct vty *vty, struct prefix *vn_prefix,
 
 		if (vn_prefix) {
 			assert(!rfapiRaddr2Qprefix(&rfd->vn_addr, &pfx));
-			if (!prefix_match(vn_prefix, &pfx))
+			if (!prefix_contains(vn_prefix, &pfx))
 				continue;
 		}
 
 		if (un_prefix) {
 			assert(!rfapiRaddr2Qprefix(&rfd->un_addr, &pfx));
-			if (!prefix_match(un_prefix, &pfx))
+			if (!prefix_contains(un_prefix, &pfx))
 				continue;
 		}
 

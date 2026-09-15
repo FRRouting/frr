@@ -2896,7 +2896,7 @@ static void gm_show_joins_one(struct vty *vty, struct gm_if *gm_ifp,
 			struct prefix grp_p;
 
 			pim_addr_to_prefix(&grp_p, sg->sgaddr.grp);
-			if (!prefix_match(groups, &grp_p))
+			if (!prefix_contains(groups, &grp_p))
 				break;
 		}
 
@@ -2904,7 +2904,7 @@ static void gm_show_joins_one(struct vty *vty, struct gm_if *gm_ifp,
 			struct prefix src_p;
 
 			pim_addr_to_prefix(&src_p, sg->sgaddr.src);
-			if (!prefix_match(sources, &src_p))
+			if (!prefix_contains(sources, &src_p))
 				continue;
 		}
 
