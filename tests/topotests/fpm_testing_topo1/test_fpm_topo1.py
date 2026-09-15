@@ -14,6 +14,7 @@ test_fpm_topo1.py: Testing FPM module
 
 """
 import os
+import re
 import sys
 import pytest
 import json
@@ -397,6 +398,218 @@ def test_fpm_system_route_nhg_sent_to_fpm_not_kernel():
 
     # Cleanup sub-case 3
     router.run("ip route del 172.16.2.0/24 dev r1-eth0")
+
+
+def _get_route_nhg_id(router, prefix):
+    """
+    Return the nexthop group id for the route ``prefix``, or None if the
+    route is not present.
+    """
+    output = router.vtysh_cmd("show ip route {} json".format(prefix))
+    try:
+        route_json = json.loads(output)
+    except json.JSONDecodeError:
+        return None
+
+    for pfx, routes in route_json.items():
+        if pfx == prefix and routes:
+            return routes[0].get("nexthopGroupId")
+
+    return None
+
+
+def _get_nhg_tree(router, nhg_id):
+    """
+    Walk the nexthop group dependency tree rooted at ``nhg_id`` and return
+    {nhg_id: nhg json object} as reported by vtysh.
+    """
+    tree = {}
+    todo = [nhg_id]
+
+    while todo:
+        cur = todo.pop()
+        if cur in tree:
+            continue
+
+        output = router.vtysh_cmd("show nexthop-group rib {} json".format(cur))
+        try:
+            data = json.loads(output)
+        except json.JSONDecodeError:
+            continue
+
+        nhg = data.get(str(cur))
+        if nhg is None:
+            continue
+
+        tree[cur] = nhg
+        todo.extend(nhg.get("depends", []))
+
+    return tree
+
+
+def _get_fpm_resolved_via(router):
+    """
+    Dump the fpm_listener tables and return {nhg_id: resolved via id} for
+    the nexthop groups received with a resolved-via attribute.
+    """
+    if not _fpm_listener_dump(router):
+        return {}
+
+    # Entries are not always newline-terminated (a group printed without
+    # its nexthop list runs into the next entry), so parse them by
+    # splitting on the entry marker instead of line by line.
+    dump = _read_fpm_dump(router).split("=== Route Tree Dump ===")[0]
+
+    resolved_via = {}
+    for entry in re.split(r"(?=  ID: \d+,)", dump):
+        nhg_id = re.match(r"  ID: (\d+),", entry)
+        value = re.search(r"ResolvedVia: (\d+)", entry)
+        if nhg_id and value:
+            resolved_via[int(nhg_id.group(1))] = int(value.group(1))
+
+    return resolved_via
+
+
+def test_fpm_resolved_via_recursive_routes():
+    """
+    Check that the resolved-via information zebra sends down the FPM pipe
+    matches what vtysh reports, for static routes that resolve recursively.
+
+    The routes form a small resolution chain:
+      - 10.200.10.0/24 is resolved via the connected route
+      - 10.200.20.0/24 is resolved via 10.200.10.0/24
+      - 10.200.30.0/24 is resolved via 10.200.20.0/24
+    """
+    tgen = get_topogen()
+    router = tgen.gears["r1"]
+
+    connected_prefix = "192.168.44.0/24"
+    prefixes = ["10.200.10.0/24", "10.200.20.0/24", "10.200.30.0/24"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+        ip route 10.200.10.0/24 192.168.44.2
+        ip route 10.200.20.0/24 10.200.10.1
+        ip route 10.200.30.0/24 10.200.20.1
+        """
+    )
+
+    route_nhg_ids = {}
+
+    def routes_resolved():
+        for prefix in prefixes:
+            output = router.vtysh_cmd("show ip route {} json".format(prefix))
+            try:
+                route_json = json.loads(output)
+            except json.JSONDecodeError:
+                return False
+
+            routes = route_json.get(prefix)
+            if not routes:
+                return False
+
+            nexthop_group_id = routes[0].get("nexthopGroupId")
+            if nexthop_group_id is None:
+                return False
+            route_nhg_ids[prefix] = nexthop_group_id
+
+            # The routes need to be resolved before the resolved-via
+            # information is reported for their nexthops.
+            if not any(
+                "resolvedVia" in nexthop for nexthop in routes[0].get("nexthops", [])
+            ):
+                return False
+
+        return True
+
+    success, _ = topotest.run_and_expect(routes_resolved, True, count=30, wait=1)
+    assert success, "Recursive static routes were not resolved: {}".format(
+        route_nhg_ids
+    )
+
+    # Collect the nexthop groups used by the routes and the resolved-via
+    # values vtysh reports for them.
+    our_nhgs = {}
+    vtysh_resolved_via = {}
+    for prefix in prefixes:
+        nhg_id = _get_route_nhg_id(router, prefix)
+        if nhg_id is None:
+            continue
+        for cur_id, nhg in _get_nhg_tree(router, nhg_id).items():
+            our_nhgs[cur_id] = nhg
+            for nexthop in nhg.get("nexthops", []):
+                if "resolvedVia" in nexthop:
+                    vtysh_resolved_via.setdefault(cur_id, set()).add(
+                        nexthop["resolvedVia"]
+                    )
+
+    # Nexthop groups without dependencies are sent to the FPM as singleton
+    # nexthop messages, which carry the resolved-via attribute; groups with
+    # dependencies (the recursive parents included) are sent as NHA_GROUP
+    # messages, which cannot carry it.  Require every mapping that can be
+    # observed on the FPM pipe, so an incomplete one fails the test.
+    expected_resolved_via = {
+        nhg_id: values
+        for nhg_id, values in vtysh_resolved_via.items()
+        if not our_nhgs[nhg_id].get("depends")
+    }
+    assert (
+        expected_resolved_via
+    ), "vtysh reports no resolved-via for singleton nexthop groups: " "{}".format(
+        vtysh_resolved_via
+    )
+
+    # The first route's nexthop resolves via the connected route, so that
+    # nexthop group id is what vtysh should report as the resolved-via.
+    connected_nhg_id = _get_route_nhg_id(router, connected_prefix)
+    assert connected_nhg_id is not None, "Connected route has no nexthop group id"
+    expected_values = set().union(*expected_resolved_via.values())
+    assert (
+        connected_nhg_id in expected_values
+    ), "vtysh did not report resolved-via {} for the routes: {}".format(
+        connected_nhg_id, vtysh_resolved_via
+    )
+
+    # Wait until the FPM listener has received all of them over the FPM pipe.
+    def fpm_has_expected_resolved_via():
+        fpm_resolved_via = _get_fpm_resolved_via(router)
+        for nhg_id, values in expected_resolved_via.items():
+            if fpm_resolved_via.get(nhg_id) not in values:
+                return False
+        return True
+
+    success, _ = topotest.run_and_expect(
+        fpm_has_expected_resolved_via, True, count=30, wait=1
+    )
+    assert success, (
+        "FPM pipe did not report the expected resolved-via mappings.\n"
+        "Expected: {}\nFPM: {}\nFPM dump:\n{}".format(
+            expected_resolved_via,
+            _get_fpm_resolved_via(router),
+            _read_fpm_dump(router)[-2000:],
+        )
+    )
+
+    # The resolved-via value sent down the FPM pipe must match the value
+    # vtysh reports for the same nexthop group.
+    fpm_resolved_via = _get_fpm_resolved_via(router)
+    for nhg_id, resolved_via in fpm_resolved_via.items():
+        if nhg_id in vtysh_resolved_via:
+            assert resolved_via in vtysh_resolved_via[nhg_id], (
+                "FPM received resolved-via {} for NHG {}, but vtysh "
+                "reports {}".format(resolved_via, nhg_id, vtysh_resolved_via[nhg_id])
+            )
+
+    # Cleanup
+    router.vtysh_cmd(
+        """
+        configure terminal
+        no ip route 10.200.10.0/24 192.168.44.2
+        no ip route 10.200.20.0/24 10.200.10.1
+        no ip route 10.200.30.0/24 10.200.20.1
+        """
+    )
 
 
 if __name__ == "__main__":
