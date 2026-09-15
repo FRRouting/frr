@@ -1012,16 +1012,25 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 
 static void static_route_args_uninstall(struct static_route_args *args)
 {
+	struct static_route_info *si;
 	struct static_path *pn;
+	struct route_node *rn;
 
 	if (args->bfd)
 		static_next_hop_bfd_monitor_disable(args->nh);
 	if (args->nh) {
 		pn = args->nh->pn;
+		rn = args->nh->rn;
+		si = rn->info;
+
 		static_delete_nexthop(args->nh);
 
 		if (static_nexthop_list_count(&pn->nexthop_list) == 0)
 			static_del_path(pn);
+
+		if (static_path_list_count(&si->path_list) == 0)
+			static_del_route(rn);
+
 		args->nh = NULL;
 	}
 }
