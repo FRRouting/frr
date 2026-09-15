@@ -1,0 +1,66 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.5",
+  "localAS": 65001,
+  "routes": {
+    "routeDistinguishers": {
+      "65000:100": {
+        "2001:db8:9::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "(unspec)",
+            "path": "65509",
+            "nhVrfName": "RED",
+            "nexthops": [
+              {
+                "ip": "3fff:9::ff",
+                "hostname": "pe5",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "65000:101": {
+        "2001:db8:10::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "(unspec)",
+            "path": "65510",
+            "nhVrfName": "BLUE",
+            "nexthops": [
+              {
+                "ip": "3fff:10::ff",
+                "hostname": "pe5",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "65000:102": {},
+      "65000:103": {
+        "2001:db8:11::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "(unspec)",
+            "path": "65510",
+            "nhVrfName": "ORANGE",
+            "nexthops": [
+              {
+                "ip": "3fff:11::ff",
+                "hostname": "pe5",
+                "used": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "totalRoutes": 3,
+  "totalPaths": 3
+}

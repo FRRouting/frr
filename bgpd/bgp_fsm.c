@@ -36,6 +36,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_rtc.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_keepalives.h"
@@ -2130,6 +2131,8 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	 */
 	if (status == Established)
 		bgp_peer_established_handle_all_vrfs();
+	else
+		bgp_peer_destroy_rtc_plist(peer);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s fd %d went from %s to %s for %s", peer->host, connection->fd,
@@ -2347,6 +2350,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 			prefix_bgp_orf_remove_all(afi, orf_name);
 		}
 	}
+
+	bgp_peer_destroy_rtc_plist(peer);
 
 	/* Reset keepalive and holdtime */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER)) {

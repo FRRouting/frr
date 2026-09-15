@@ -68,6 +68,7 @@
 #include "bgpd/bgp_conditional_adv.h"
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_unreach.h"
+#include "bgpd/bgp_rtc.h"
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
@@ -186,6 +187,8 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_FLOWSPECV4_NODE;
 		case SAFI_UNREACH:
 			return BGP_IPV4U_NODE;
+		case SAFI_RTC:
+			return BGP_RTC_NODE;
 		case SAFI_BGP_LS:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
@@ -210,6 +213,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 		case SAFI_UNREACH:
 			return BGP_IPV6U_NODE;
 		case SAFI_BGP_LS:
+		case SAFI_RTC:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
@@ -249,6 +253,8 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 			return "IPv4 Flowspec";
 		if (safi == SAFI_UNREACH)
 			return "IPv4 Unreachability";
+		if (safi == SAFI_RTC)
+			return "IPv4 RT Filter";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "IPv6 Unicast";
@@ -298,6 +304,8 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 			return "ipv4Flowspec";
 		if (safi == SAFI_UNREACH)
 			return "ipv4Unreachability";
+		if (safi == SAFI_RTC)
+			return "ipv4Rtc";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "ipv6Unicast";
@@ -517,6 +525,9 @@ safi_t bgp_node_safi(struct vty *vty)
 	case BGP_IPV6U_NODE:
 		safi = SAFI_UNREACH;
 		break;
+	case BGP_RTC_NODE:
+		safi = SAFI_RTC;
+		break;
 	default:
 		safi = SAFI_UNICAST;
 		break;
@@ -583,6 +594,8 @@ safi_t bgp_vty_safi_from_str(const char *safi_str)
 		safi = SAFI_FLOWSPEC;
 	else if (strmatch(safi_str, "unreachability"))
 		safi = SAFI_UNREACH;
+	else if (strmatch(safi_str, "rtfilter"))
+		safi = SAFI_RTC;
 	return safi;
 }
 
@@ -618,6 +631,10 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (safi)
 			*safi = SAFI_UNREACH;
+	} else if (argv_find(argv, argc, "rtfilter", index)) {
+		ret = 1;
+		if (safi)
+			*safi = SAFI_RTC;
 	}
 	return ret;
 }
@@ -657,6 +674,8 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv4-bgp-ls";
 		case SAFI_UNREACH:
 			return "ipv4-unreachability";
+		case SAFI_RTC:
+			return "rtfilter";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -681,6 +700,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv6-bgp-ls";
 		case SAFI_UNREACH:
 			return "ipv6-unreachability";
+		case SAFI_RTC:
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -697,6 +717,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_MPLS_VPN:
 		case SAFI_ENCAP:
 		case SAFI_LABELED_UNICAST:
+		case SAFI_RTC:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNREACH:
 		case SAFI_UNSPEC:
@@ -713,6 +734,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_MPLS_VPN:
 		case SAFI_ENCAP:
 		case SAFI_LABELED_UNICAST:
+		case SAFI_RTC:
 		case SAFI_FLOWSPEC:
 		case SAFI_EVPN:
 		case SAFI_UNREACH:
@@ -11292,6 +11314,24 @@ static int vpn_policy_getdirs(struct vty *vty, const char *dstr, int *dodir)
 	return CMD_SUCCESS;
 }
 
+DEFUN(rtc_network, rtc_network_cmd, "network WORD",
+      "Specify a route-target prefix to announce via BGP\n"
+      "Route-target prefix [ASN:X:2:](A.B.C.D:MN|EF:OPQR|GHJK:MN)[/XX]\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	return bgp_rtc_static_from_str(vty, bgp, argv[1]->arg, true);
+}
+
+
+DEFUN(no_rtc_network, no_rtc_network_cmd, "no network WORD",
+      NO_STR
+      "Remove a route-target prefix no longer to announce\n"
+      "Route-target prefix [ASN:X:2:](A.B.C.D:MN|EF:OPQR|GHJK:MN)[/XX]\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	return bgp_rtc_static_from_str(vty, bgp, argv[2]->arg, false);
+}
+
 DEFPY (af_rt_vpn_imexport,
        af_rt_vpn_imexport_cmd,
        "[no] <rt|route-target> vpn <import|export|both>$direction_str RTLIST...",
@@ -11306,7 +11346,7 @@ DEFPY (af_rt_vpn_imexport,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
-	struct ecommunity *ecom = NULL;
+	struct ecommunity *ecom = NULL, *dup_ecom;
 	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
 	enum vpn_policy_direction dir;
 	afi_t afi;
@@ -11342,15 +11382,27 @@ DEFPY (af_rt_vpn_imexport,
 		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
 		if (yes) {
+			dup_ecom = ecommunity_dup(ecom);
+			if (dir == BGP_VPN_POLICY_DIR_FROMVPN)
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+									     bgp->vpn_policy[afi]
+										     .rtlist[dir],
+									     dup_ecom);
+
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);
-			bgp->vpn_policy[afi].rtlist[dir] =
-				ecommunity_dup(ecom);
+			bgp->vpn_policy[afi].rtlist[dir] = dup_ecom;
 			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
 				SET_FLAG(bgp->vpn_policy[afi].flags,
 					 BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
 		} else {
+			if (dir == BGP_VPN_POLICY_DIR_FROMVPN)
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+									     bgp->vpn_policy[afi]
+										     .rtlist[dir],
+									     NULL);
+
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);
@@ -11762,8 +11814,8 @@ DEFPY (af_routetarget_import,
 }
 
 DEFUN_NOSH(address_family_ipv4_safi, address_family_ipv4_safi_cmd,
-	   "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability>]",
-	   "Enter Address Family command mode\n" BGP_AF_STR BGP_SAFI_WITH_LABEL_HELP_STR)
+	   "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec|unreachability|rtfilter>]",
+	   "Enter Address Family command mode\n" BGP_AF_STR BGP_SAFI_WITH_LABEL_HELP_STR BGP_AF_MODIFIER_STR)
 {
 
 	if (argc == 3) {
@@ -12117,6 +12169,7 @@ DEFUN_YANG_NOSH (exit_address_family,
 	    || vty->node == BGP_FLOWSPECV4_NODE
 	    || vty->node == BGP_FLOWSPECV6_NODE
 	    || vty->node == BGP_LS_NODE
+	    || vty->node == BGP_RTC_NODE
 	    || vty->node == BGP_IPV4U_NODE
 	    || vty->node == BGP_IPV6U_NODE)
 		vty->node = BGP_NODE;
@@ -12209,9 +12262,9 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 
 /* one clear bgp command to rule them all */
 DEFUN(clear_ip_bgp_all, clear_ip_bgp_all_cmd,
-      "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn|unreachability>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|ASNUM|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out|message-stats|capabilities>]",
+      "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn|unreachability|rtfilter>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|ASNUM|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out|message-stats|capabilities>]",
       CLEAR_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR BGP_AF_STR
-	      BGP_SAFI_WITH_LABEL_HELP_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR BGP_AF_MODIFIER_STR
       "Address Family modifier\n"
       "Clear all peers\n"
       "BGP IPv4 neighbor to clear\n"
@@ -15292,10 +15345,10 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 /* `show [ip] bgp summary' commands. */
 DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
-      " [" BGP_SAFI_WITH_LABEL_CMD_STR
+      " [" BGP_SAFI_NO_EVPN_CMD_STR
       "]] [all$all] summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <ASNUM|internal|external>>] [terse] [wide] [json$uj]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
-	      BGP_SAFI_WITH_LABEL_HELP_STR
+	      BGP_SAFI_NO_EVPN_HELP_STR
       "Display the entries for all address families\n"
       "Summary of BGP neighbor status\n"
       "Show only sessions in Established state\n"
@@ -19414,13 +19467,13 @@ static int bgp_show_update_groups(struct vty *vty, const char *name, int afi,
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] update-groups [SUBGROUP-ID] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_NO_EVPN_CMD_STR"]] update-groups [SUBGROUP-ID] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_SAFI_NO_EVPN_HELP_STR
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n"
        JSON_STR)
@@ -22148,6 +22201,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_frame(vty, "ipv4 flowspec");
 		else if (safi == SAFI_UNREACH)
 			vty_frame(vty, "ipv4 unreachability");
+		else if (safi == SAFI_RTC)
+			vty_frame(vty, "ipv4 rtfilter");
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			vty_frame(vty, "ipv6 unicast");
@@ -22882,6 +22937,9 @@ int bgp_config_write(struct vty *vty)
 		/* BGP-LS configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_BGP_LS, SAFI_BGP_LS);
 
+		/* BGP-RTC (rtfilter) configuration.  */
+		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_RTC);
+
 		hook_call(bgp_inst_config_write, bgp, vty);
 
 #ifdef ENABLE_BGP_VNC
@@ -23028,6 +23086,13 @@ static struct cmd_node bgp_ls_node = {
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 	.no_xpath = true,
+};
+
+static struct cmd_node bgp_rtc_node = {
+	.name = "bgp rtfilter",
+	.node = BGP_RTC_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af-rtfilter)# ",
 };
 
 static void community_list_vty(void);
@@ -23482,6 +23547,7 @@ void bgp_vty_init(void)
 	install_node(&bgp_ipv6_unreachability_node);
 	install_node(&bgp_srv6_node);
 	install_node(&bgp_ls_node);
+	install_node(&bgp_rtc_node);
 
 	/* Install default VTY commands to new nodes.  */
 	install_default(BGP_NODE);
@@ -23501,6 +23567,7 @@ void bgp_vty_init(void)
 	install_default(BGP_EVPN_VNI_NODE);
 	install_default(BGP_SRV6_NODE);
 	install_default(BGP_LS_NODE);
+	install_default(BGP_RTC_NODE);
 
 	/* "global bgp inq-limit command */
 	install_element(CONFIG_NODE, &bgp_inq_limit_cmd);
@@ -23671,6 +23738,16 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
 	install_element(BGP_IPV6L_NODE, &no_bgp_maxpaths_ibgp_cmd);
+
+	install_element(BGP_RTC_NODE, &bgp_maxpaths_cmd);
+	install_element(BGP_RTC_NODE, &no_bgp_maxpaths_cmd);
+	install_element(BGP_RTC_NODE, &bgp_maxpaths_ibgp_cmd);
+	install_element(BGP_RTC_NODE, &no_bgp_maxpaths_ibgp_cmd);
+	install_element(BGP_RTC_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
+
+	/* Route-Target constraint - static prefixes */
+	install_element(BGP_RTC_NODE, &no_rtc_network_cmd);
+	install_element(BGP_RTC_NODE, &rtc_network_cmd);
 
 	/* "timers bgp" commands. */
 	install_element(BGP_NODE, &bgp_timers_cmd);
@@ -23908,6 +23985,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &neighbor_activate_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_activate_cmd);
 
 	/* "no neighbor activate" commands. */
 	install_element(BGP_NODE, &no_neighbor_activate_hidden_cmd);
@@ -23925,6 +24003,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_activate_cmd);
 	install_element(BGP_LS_NODE, &no_neighbor_activate_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_activate_cmd);
 
 	/* "neighbor peer-group" set commands. */
 	install_element(BGP_NODE, &neighbor_set_peer_group_cmd);
@@ -23939,6 +24018,8 @@ void bgp_vty_init(void)
 			&neighbor_set_peer_group_hidden_cmd);
 	install_element(BGP_FLOWSPECV6_NODE,
 			&neighbor_set_peer_group_hidden_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_set_peer_group_hidden_cmd);
+
 
 	/* "no neighbor peer-group unset" commands. */
 	install_element(BGP_NODE, &no_neighbor_set_peer_group_cmd);
@@ -23953,6 +24034,7 @@ void bgp_vty_init(void)
 			&no_neighbor_set_peer_group_hidden_cmd);
 	install_element(BGP_FLOWSPECV6_NODE,
 			&no_neighbor_set_peer_group_hidden_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_set_peer_group_hidden_cmd);
 
 	/* "neighbor softreconfiguration inbound" commands.*/
 	install_element(BGP_NODE, &neighbor_soft_reconfiguration_hidden_cmd);
@@ -23983,6 +24065,8 @@ void bgp_vty_init(void)
 			&no_neighbor_soft_reconfiguration_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_soft_reconfiguration_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_soft_reconfiguration_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_soft_reconfiguration_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_soft_reconfiguration_cmd);
 
 	/* "neighbor attribute-unchanged" commands.  */
 	install_element(BGP_NODE, &neighbor_attr_unchanged_hidden_cmd);
@@ -24006,6 +24090,8 @@ void bgp_vty_init(void)
 
 	install_element(BGP_EVPN_NODE, &neighbor_attr_unchanged_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_attr_unchanged_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_attr_unchanged_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_attr_unchanged_cmd);
 
 	install_element(BGP_FLOWSPECV4_NODE, &neighbor_attr_unchanged_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_attr_unchanged_cmd);
@@ -24038,6 +24124,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_nexthop_self_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_nexthop_self_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_nexthop_self_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_nexthop_self_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_nexthop_self_cmd);
 
 	/* "neighbor next-hop-self force" commands. */
 	install_element(BGP_NODE, &neighbor_nexthop_self_force_hidden_cmd);
@@ -24086,6 +24174,8 @@ void bgp_vty_init(void)
 			&no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_nexthop_self_force_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_nexthop_self_force_cmd);
 
 	/* "neighbor as-override" commands. */
 	install_element(BGP_NODE, &neighbor_as_override_hidden_cmd);
@@ -24218,6 +24308,14 @@ void bgp_vty_init(void)
 			&neighbor_remove_private_as_all_replace_as_cmd);
 	install_element(BGP_VPNV6_NODE,
 			&no_neighbor_remove_private_as_all_replace_as_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_remove_private_as_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_remove_private_as_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_remove_private_as_all_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_remove_private_as_all_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_remove_private_as_replace_as_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_remove_private_as_replace_as_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_remove_private_as_all_replace_as_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_remove_private_as_all_replace_as_cmd);
 
 	/* "neighbor send-community" commands.*/
 	install_element(BGP_NODE, &neighbor_send_community_hidden_cmd);
@@ -24265,6 +24363,10 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &neighbor_ecommunity_rpki_cmd);
 	install_element(BGP_VPNV4_NODE, &neighbor_ecommunity_rpki_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_ecommunity_rpki_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_send_community_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_send_community_type_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_send_community_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_send_community_type_cmd);
 
 	/* "neighbor route-reflector" commands.*/
 	install_element(BGP_NODE, &neighbor_route_reflector_client_hidden_cmd);
@@ -24302,6 +24404,8 @@ void bgp_vty_init(void)
 			&no_neighbor_route_reflector_client_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_route_reflector_client_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_route_reflector_client_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_route_reflector_client_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_route_reflector_client_cmd);
 
 	/* "neighbor route-server" commands.*/
 	install_element(BGP_NODE, &neighbor_route_server_client_hidden_cmd);
@@ -24330,6 +24434,8 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_server_client_cmd);
 	install_element(BGP_FLOWSPECV6_NODE,
 			&no_neighbor_route_server_client_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_route_server_client_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_route_server_client_cmd);
 
 	/* "neighbor disable-addpath-rx" commands. */
 	install_element(BGP_IPV4_NODE, &neighbor_disable_addpath_rx_cmd);
@@ -24537,6 +24643,8 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6M_NODE, &no_neighbor_capability_orf_prefix_cmd);
 	install_element(BGP_IPV6L_NODE, &neighbor_capability_orf_prefix_cmd);
 	install_element(BGP_IPV6L_NODE, &no_neighbor_capability_orf_prefix_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_capability_orf_prefix_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_capability_orf_prefix_cmd);
 
 	/* "neighbor capability dynamic" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_dynamic_cmd);
@@ -24633,6 +24741,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_weight_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_weight_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_weight_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_weight_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_weight_cmd);
 
 	/* "neighbor encapsulation-srv6|encapsulation-mpls" commands. */
 	install_element(BGP_VPNV4_NODE, &neighbor_encapsulation_srv6_or_mpls_cmd);
@@ -24685,6 +24795,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_distribute_list_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_distribute_list_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_distribute_list_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_distribute_list_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_distribute_list_cmd);
 
 	/* "neighbor prefix-list" commands. */
 	install_element(BGP_NODE, &neighbor_prefix_list_hidden_cmd);
@@ -24709,6 +24821,8 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_prefix_list_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_prefix_list_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_prefix_list_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_prefix_list_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_prefix_list_cmd);
 
 	/* "neighbor filter-list" commands. */
 	install_element(BGP_NODE, &neighbor_filter_list_hidden_cmd);
@@ -24733,6 +24847,8 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &no_neighbor_filter_list_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_filter_list_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &no_neighbor_filter_list_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_filter_list_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_filter_list_cmd);
 
 	/* "neighbor route-map" commands. */
 	install_element(BGP_NODE, &neighbor_route_map_hidden_cmd);
@@ -24765,6 +24881,8 @@ void bgp_vty_init(void)
 	install_element(BGP_EVPN_NODE, &no_neighbor_route_map_cmd);
 	install_element(BGP_LS_NODE, &neighbor_route_map_cmd);
 	install_element(BGP_LS_NODE, &no_neighbor_route_map_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_route_map_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_route_map_cmd);
 
 	/* "neighbor unsuppress-map" commands. */
 	install_element(BGP_NODE, &neighbor_unsuppress_map_hidden_cmd);
@@ -24785,6 +24903,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_unsuppress_map_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_unsuppress_map_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_unsuppress_map_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_unsuppress_map_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_unsuppress_map_cmd);
 
 	/* "neighbor advertise-map" commands. */
 	install_element(BGP_NODE, &bgp_condadv_period_cmd);
@@ -24935,6 +25055,14 @@ void bgp_vty_init(void)
 			&neighbor_maximum_prefix_threshold_restart_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_maximum_prefix_cmd);
 
+	install_element(BGP_RTC_NODE, &neighbor_maximum_prefix_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_maximum_prefix_threshold_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_maximum_prefix_warning_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_maximum_prefix_threshold_warning_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_maximum_prefix_restart_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_maximum_prefix_threshold_restart_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_maximum_prefix_cmd);
+
 	/* "neighbor allowas-in" */
 	install_element(BGP_NODE, &neighbor_allowas_in_hidden_cmd);
 	install_element(BGP_NODE, &no_neighbor_allowas_in_hidden_cmd);
@@ -24960,6 +25088,8 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV4U_NODE, &no_neighbor_allowas_in_cmd);
 	install_element(BGP_IPV6U_NODE, &neighbor_allowas_in_cmd);
 	install_element(BGP_IPV6U_NODE, &no_neighbor_allowas_in_cmd);
+	install_element(BGP_RTC_NODE, &neighbor_allowas_in_cmd);
+	install_element(BGP_RTC_NODE, &no_neighbor_allowas_in_cmd);
 
 	/* neighbor accept-own */
 	install_element(BGP_VPNV4_NODE, &neighbor_accept_own_cmd);
@@ -25028,6 +25158,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6U_NODE, &exit_address_family_cmd);
 	install_element(BGP_EVPN_NODE, &exit_address_family_cmd);
 	install_element(BGP_LS_NODE, &exit_address_family_cmd);
+	install_element(BGP_RTC_NODE, &exit_address_family_cmd);
 
 	/* BGP retain all route-target */
 	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_cmd);

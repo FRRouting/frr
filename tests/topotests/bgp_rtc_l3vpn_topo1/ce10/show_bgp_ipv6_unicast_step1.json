@@ -1,0 +1,65 @@
+{
+  "vrfName": "default",
+  "routerId": "172.16.10.254",
+  "localAS": 65510,
+  "routes": {
+    "2001:db8:2::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:10::1",
+        "path": "65001 65205 65204 65201 65000 65502",
+        "nexthops": [
+          {
+            "ip": "3fff:10::1",
+            "hostname": "pe5",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe5",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:6::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:10::1",
+        "path": "65001 65205 65204 65201 65000 65506",
+        "nexthops": [
+          {
+            "ip": "3fff:10::1",
+            "hostname": "pe5",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe5",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:10::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "ce10",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ]
+  },
+  "totalRoutes": 3,
+  "totalPaths": 3
+}

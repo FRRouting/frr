@@ -1,0 +1,105 @@
+{
+  "vrfName": "default",
+  "routerId": "172.16.7.254",
+  "localAS": 65507,
+  "routes": {
+    "2001:db8:1::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:7::1",
+        "path": "65000 65501",
+        "nexthops": [
+          {
+            "ip": "3fff:7::1",
+            "hostname": "pe4",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe4",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:3::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:7::1",
+        "path": "65000 65503",
+        "nexthops": [
+          {
+            "ip": "3fff:7::1",
+            "hostname": "pe4",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe4",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:5::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:7::1",
+        "path": "65000 65505",
+        "nexthops": [
+          {
+            "ip": "3fff:7::1",
+            "hostname": "pe4",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe4",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:7::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "ce7",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:9::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:7::1",
+        "path": "65000 65201 65204 65205 65001 65509",
+        "nexthops": [
+          {
+            "ip": "3fff:7::1",
+            "hostname": "pe4",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe4",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ]
+  },
+  "totalRoutes": 5,
+  "totalPaths": 5
+}

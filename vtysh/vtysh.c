@@ -1491,6 +1491,13 @@ static struct cmd_node bgp_ipv6l_node = {
 	.no_xpath = true,
 };
 
+static struct cmd_node bgp_rtc_node = {
+	.name = "bgp rtfilter",
+	.node = BGP_RTC_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af-rtfilter)# ",
+};
+
 static struct cmd_node bgp_vnc_defaults_node = {
 	.name = "bgp vnc defaults",
 	.node = BGP_VNC_DEFAULTS_NODE,
@@ -1883,6 +1890,16 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_unreachability, address_family_ipv6_unre
 	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6U_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, address_family_rtc,
+	address_family_rtc_cmd, "address-family ipv4 rtfilter",
+	"Enter Address Family command mode\n"
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
+{
+	vty->node = BGP_RTC_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2649,6 +2666,7 @@ DEFUNSH(VTYSH_BGPD, exit_address_family, exit_address_family_cmd,
 	    || vty->node == BGP_FLOWSPECV4_NODE
 	    || vty->node == BGP_FLOWSPECV6_NODE
 	    || vty->node == BGP_LS_NODE
+	    || vty->node == BGP_RTC_NODE
 	    || vty->node == BGP_IPV4U_NODE
 	    || vty->node == BGP_IPV6U_NODE)
 		vty->node = BGP_NODE;
@@ -5409,6 +5427,7 @@ void vtysh_init_vty(void)
 	install_node(&srv6_sid_format_uncompressed_f4024_node);
 	install_node(&bgp_ipv4_unreachability_node);
 	install_node(&bgp_ipv6_unreachability_node);
+	install_node(&bgp_rtc_node);
 
 	vtysh_init_cmd();
 
@@ -5534,6 +5553,12 @@ void vtysh_init_vty(void)
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &exit_vni_cmd);
+
+	install_element(BGP_NODE, &address_family_rtc_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_RTC_NODE, &exit_address_family_cmd);
 
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(RPKI_NODE, &rpki_exit_cmd);

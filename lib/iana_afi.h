@@ -41,6 +41,7 @@ typedef enum {
 	IANA_SAFI_UNREACH = 81,
 	/* BGP MPLS-VPN per RFC 4364 / RFC 8277 */
 	IANA_SAFI_MPLS_VPN = 128,
+	IANA_SAFI_RTC = 132,	 /* BGP-RTC RFC 4684 */
 	IANA_SAFI_FLOWSPEC = 133 /* Flowspec per RFC 8955 */
 } iana_safi_t;
 
@@ -107,6 +108,8 @@ static inline safi_t safi_iana2int(iana_safi_t safi)
 		return SAFI_FLOWSPEC;
 	case IANA_SAFI_BGP_LS:
 		return SAFI_BGP_LS;
+	case IANA_SAFI_RTC:
+		return SAFI_RTC;
 	case IANA_SAFI_RESERVED:
 		return SAFI_MAX;
 	}
@@ -135,6 +138,8 @@ static inline iana_safi_t safi_int2iana(safi_t safi)
 		return IANA_SAFI_FLOWSPEC;
 	case SAFI_BGP_LS:
 		return IANA_SAFI_BGP_LS;
+	case SAFI_RTC:
+		return IANA_SAFI_RTC;
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return IANA_SAFI_RESERVED;
