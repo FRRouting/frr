@@ -260,6 +260,18 @@ BFD peers and profiles share the same BFD session configuration commands.
    a key-string. Those values are used in BFD packets. Clear text and
    hmac-sha1 algorithm is currently supported.
 
+   A key is used only if its ``cryptographic-algorithm`` is one of those
+   two, and if its ``key-string`` is within the length RFC 5880 allows:
+   1 to 16 bytes for clear text, up to 20 bytes for hmac-sha1. A key
+   defaults to no algorithm, so configuring ``key-string`` on its own
+   leaves nothing the session can use.
+
+   A session whose key-chain holds no usable key stays down. It is not
+   brought up unauthenticated, since that would leave the link
+   unprotected while the configuration says otherwise. ``show bfd peer``
+   distinguishes the two: authentication is reported as enabled once a
+   key is in effect, and as configured when only the key-chain is.
+
 .. clicmd:: authentication algorithm meticulous
 
    Configure peer or profile to use meticulous mode when the key-chain
