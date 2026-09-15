@@ -2375,35 +2375,15 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 	}
 }
 
-static void zebra_evpn_flush_local_mac(struct zebra_mac *mac,
-				       struct interface *ifp)
+static void zebra_evpn_flush_local_mac(struct zebra_mac *mac)
 {
-	vlanid_t vid;
-	struct zebra_if *zif;
-	struct interface *br_ifp;
-	struct zebra_vxlan_vni *vni;
-
-	zif = ifp->info;
-	br_ifp = zif->brslave_info.br_if;
-	if (!br_ifp)
-		return;
-
-	if (mac->zevpn->vxlan_if) {
-		zif = mac->zevpn->vxlan_if->info;
-		vni = zebra_vxlan_if_vni_find(zif, mac->zevpn->vni);
-		vid = vni->access_vlan;
-	} else {
-		vid = 0;
-	}
-
-	/* delete the local mac from the dataplane */
-	dplane_local_mac_del(ifp, br_ifp, vid, &mac->macaddr);
+	/* delete the sync/local mac from the dataplane */
+	zebra_evpn_sync_mac_dp_uninstall(mac, __func__);
 	/* delete the local mac in zebra */
 	zebra_evpn_del_local_mac(mac->zevpn, mac, true);
 }
 
-static void zebra_evpn_es_flush_local_macs(struct zebra_evpn_es *es,
-					   struct interface *ifp, bool add)
+static void zebra_evpn_es_flush_local_macs(struct zebra_evpn_es *es, bool add)
 {
 	struct zebra_mac *mac;
 	struct listnode	*node;
@@ -2421,7 +2401,7 @@ static void zebra_evpn_es_flush_local_macs(struct zebra_evpn_es *es,
 				   mac->zevpn->vni,
 				   &mac->macaddr,
 				   es->esi_str, add ? "add" : "del");
-		zebra_evpn_flush_local_mac(mac, ifp);
+		zebra_evpn_flush_local_mac(mac);
 	}
 }
 
@@ -2606,7 +2586,7 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 	/* if there any local macs referring to the ES as dest we
 	 * need to clear the contents and start over
 	 */
-	zebra_evpn_es_flush_local_macs(es, zif->ifp, true);
+	zebra_evpn_es_flush_local_macs(es, true);
 
 	/* inherit EVPN protodown flags on the access port */
 	zebra_evpn_mh_update_protodown_es(es, true /*resync_dplane*/);
@@ -2636,7 +2616,7 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 	/* if there any local macs referring to the ES as dest we
 	 * need to clear the contents and start over
 	 */
-	zebra_evpn_es_flush_local_macs(es, zif->ifp, false);
+	zebra_evpn_es_flush_local_macs(es, false);
 
 	es->flags &= ~(ZEBRA_EVPNES_LOCAL | ZEBRA_EVPNES_READY_FOR_BGP);
 
@@ -3061,7 +3041,7 @@ static void zebra_evpn_es_bypass_update_macs(struct zebra_evpn_es *es,
 				   &mac->macaddr,
 				   bypass ? "bypass" : "non-bypass",
 				   es->esi_str);
-		zebra_evpn_flush_local_mac(mac, ifp);
+		zebra_evpn_flush_local_mac(mac);
 	}
 
 	/* While in bypass-mode locally learnt MACs are linked
@@ -3080,7 +3060,7 @@ static void zebra_evpn_es_bypass_update_macs(struct zebra_evpn_es *es,
 				   mac->zevpn->vni,
 				   &mac->macaddr,
 				   bypass ? "bypass" : "non-bypass", ifp->name);
-		zebra_evpn_flush_local_mac(mac, ifp);
+		zebra_evpn_flush_local_mac(mac);
 	}
 }
 
