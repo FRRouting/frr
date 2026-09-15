@@ -938,8 +938,14 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 		if (!BGP_CONNECTION_SU_UNSPEC(connection))
 			bgp_md5_set(connection);
 
-		bgp_md5_set_connect(connection->fd, &connection->su, prefixlen,
-				    peer->password);
+		/* Don't connect unauthenticated if the configured TCP MD5 key
+		 * could not be installed on the socket.
+		 */
+		if (bgp_md5_set_connect(connection->fd, &connection->su, prefixlen,
+					peer->password) < 0) {
+			peer_set_last_reset(peer, PEER_DOWN_SOCKET_ERROR);
+			return connect_error;
+		}
 	}
 
 	/* Update source bind. */
