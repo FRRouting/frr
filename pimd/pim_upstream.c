@@ -2255,7 +2255,7 @@ int pim_upstream_empty_inherited_olist(struct pim_upstream *up)
  * set and see if the new neighbor allows
  * the join to be sent
  */
-void pim_upstream_find_new_rpf(struct pim_instance *pim)
+void pim_upstream_find_new_rpf(struct pim_instance *pim, struct interface *ifp)
 {
 	struct pim_upstream *up;
 	struct pim_rpf old;
@@ -2273,11 +2273,11 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 			continue;
 		}
 
-		if (pim_rpf_addr_is_inaddr_any(&up->rpf)) {
+		if (pim_rpf_addr_is_inaddr_any(&up->rpf) ||
+		    up->rpf.source_nexthop.interface == ifp) {
 			if (PIM_DEBUG_PIM_TRACE)
-				zlog_debug(
-					"%s: Upstream %s without a path to send join, checking",
-					__func__, up->sg_str);
+				zlog_debug("%s: Upstream %s without a path to send join, or interface being used is getting a new neighbor, checking",
+					   __func__, up->sg_str);
 			old.source_nexthop.interface =
 				up->rpf.source_nexthop.interface;
 			rpf_result = pim_rpf_update(pim, up, &old, NULL, __func__);
