@@ -52,6 +52,11 @@ static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 		    && bnc->nexthop_num > 0));
 }
 
+bool bgp_path_import_check_valid(struct bgp_path_info *pi)
+{
+	return bgp_isvalid_nexthop(pi ? pi->nexthop : NULL);
+}
+
 static int bgp_isvalid_nexthop_for_ebgp(struct bgp_nexthop_cache *bnc,
 					struct bgp_path_info *path)
 {
@@ -706,6 +711,10 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 
 		bnc_nexthop_free(bnc);
 		bnc->nexthop = NULL;
+		/* Drop stale nexthops so a synchronous validity read cannot
+		 * observe the prefix as still reachable.
+		 */
+		bnc->nexthop_num = 0;
 
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(

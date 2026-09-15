@@ -83,6 +83,13 @@ extern void bgp_nht_ifp_down(struct interface *ifp);
 
 extern void bgp_nht_interface_events(struct peer *peer);
 
+/*
+ * Return true if the import-check nexthop currently tracked for this path is
+ * valid right now (fresh NHT state), independent of the path's possibly stale
+ * BGP_PATH_VALID/SELECTED flags.
+ */
+extern bool bgp_path_import_check_valid(struct bgp_path_info *pi);
+
 /* called when a path becomes valid or invalid, because of nexthop tracking */
 DECLARE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
 	     (bgp, pi, valid));

@@ -9786,7 +9786,7 @@ bool bgp_upa_get_dbit(struct bgp_path_info *pi)
 	return CHECK_FLAG(pi->flags, BGP_PATH_UPA_DROP);
 }
 
-static bool bgp_upa_is_prefix_unreachable(struct bgp_dest *dest)
+static bool bgp_upa_is_prefix_unreachable(struct bgp *bgp, struct bgp_dest *dest)
 {
 	struct bgp_path_info *pi;
 
@@ -9795,8 +9795,24 @@ static bool bgp_upa_is_prefix_unreachable(struct bgp_dest *dest)
 			continue;
 		if (CHECK_FLAG(pi->flags, BGP_PATH_STALE))
 			continue;
-		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
-			return false;
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+			continue;
+
+		/*
+		 * A locally originated "network" path validated by import-check
+		 * must not count as reachability unless its import-check nexthop
+		 * is valid right now.  During NHT churn the path can remain
+		 * selected from a stale resolution (including via our own UPA
+		 * blackhole); trusting it would make UPA withdraw itself and then
+		 * re-originate once the stale state settles.
+		 */
+		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP &&
+		    pi->sub_type == BGP_ROUTE_STATIC &&
+		    CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK) &&
+		    !bgp_path_import_check_valid(pi))
+			continue;
+
+		return false;
 	}
 	return true;
 }
@@ -9991,7 +10007,7 @@ void bgp_upa_originate_all(struct bgp *bgp, const struct prefix *aggr_p, afi_t a
 		if (dest_p->prefixlen <= aggr_p->prefixlen)
 			continue;
 
-		if (!bgp_upa_is_prefix_unreachable(dest))
+		if (!bgp_upa_is_prefix_unreachable(bgp, dest))
 			continue;
 
 		if (aggregate->upa_max_routes > 0 &&
@@ -10127,7 +10143,7 @@ void bgp_upa_check_prefix_global(struct bgp *bgp, const struct prefix *p, afi_t 
 	if (!dest)
 		return;
 
-	is_unreachable = bgp_upa_is_prefix_unreachable(dest);
+	is_unreachable = bgp_upa_is_prefix_unreachable(bgp, dest);
 
 	if (bgp->upa_routes[afi][safi].hh.count > 0) {
 		struct bgp_upa_prefix_entry lookup;
@@ -10173,7 +10189,7 @@ void bgp_upa_originate_global(struct bgp *bgp, afi_t afi, safi_t safi)
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		const struct prefix *p = bgp_dest_get_prefix(dest);
 
-		if (!bgp_upa_is_prefix_unreachable(dest))
+		if (!bgp_upa_is_prefix_unreachable(bgp, dest))
 			continue;
 
 		if (max_routes > 0 &&
