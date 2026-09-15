@@ -2164,10 +2164,15 @@ def compare_context_objects(newconf, running):
             ):
                 continue
 
-            # Segment routing never needs to be deleted
+            # Segment routing and its srv6 stanza never need to be deleted (they are automatically
+            # removed if they are empty)
             elif (
                 running_ctx_keys[0].startswith("segment-routing")
                 and len(running_ctx_keys) == 1
+            ) or (
+                running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[1].startswith("srv6")
+                and len(running_ctx_keys) == 2
             ):
                 continue
 
