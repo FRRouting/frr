@@ -168,6 +168,124 @@ def test_pbr_data():
         )
 
 
+def _get_pbr_count_in_table(router, table_id):
+    "Return (rib, fib) for PBR in table_id, or (None, None) if no PBR entry."
+    cmd = "show ip route summary table {} json".format(table_id)
+    output = router.vtysh_cmd(cmd)
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError:
+        return None, None
+    for entry in data.get("prefixRoutes", []):
+        if entry.get("type") == "pbr":
+            return entry.get("rib", 0), entry.get("fib", 0)
+    return 0, 0
+
+
+def test_pbr_route_count():
+    "Verify PBR route count in show ip route summary"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Verifying PBR route count in route summary")
+
+    router = tgen.gears["r1"]
+
+    # 1) Add PBR entries to the table: create a new pbr-map with one rule
+    PBR_MAP = "ROUTE_COUNT_TEST"
+    vcmd = (
+        "configure terminal\n"
+        "pbr-map {} seq 1\n"
+        "match dst-ip 10.99.99.0/24\n"
+        "set nexthop-group A\n"
+        "end\n"
+        "end"
+    ).format(PBR_MAP)
+    router.vtysh_multicmd(vcmd)
+
+    # 2) Wait for route to be installed and find its table (poll with retries)
+    table_id = None
+    rib = 0
+    table_range = range(10000, 10021)
+    for attempt in range(15):
+        topotest.sleep(1, "Waiting for PBR route (attempt %d)" % (attempt + 1))
+        # Try to get table id from show pbr map json
+        try:
+            pbr_map_output = router.vtysh_cmd("show pbr map json")
+            pbr_maps = json.loads(pbr_map_output)
+            if not isinstance(pbr_maps, list):
+                pbr_maps = [pbr_maps]
+            for m in pbr_maps:
+                if m.get("name") != PBR_MAP:
+                    continue
+                for pol in m.get("policies", []):
+                    nhg = pol.get("nexthopGroup")
+                    if nhg and "tableId" in nhg and nhg["tableId"] > 0:
+                        table_id = nhg["tableId"]
+                        break
+                if table_id is not None:
+                    break
+        except (json.JSONDecodeError, TypeError):
+            pass
+        # If we have table_id from JSON, check if it has PBR routes
+        if table_id is not None:
+            rib, fib = _get_pbr_count_in_table(router, table_id)
+            if rib is not None and rib >= 1:
+                break
+        # Otherwise scan table range for any table with PBR routes (our new one)
+        table_id = None
+        for tid in table_range:
+            r, f = _get_pbr_count_in_table(router, tid)
+            if r is not None and r >= 1:
+                table_id = tid
+                rib, fib = r, f
+                break
+        if table_id is not None and rib >= 1:
+            break
+
+    assert table_id is not None, (
+        "Could not find table id for PBR map {} after 15s".format(PBR_MAP)
+    )
+    assert rib >= 1, (
+        "Expected at least 1 PBR route in table {} after adding pbr-map, got rib={}".format(
+            table_id, rib
+        )
+    )
+
+    # 3) Verify route summary shows PBR entries in that table
+    rib, fib = _get_pbr_count_in_table(router, table_id)
+    assert rib is not None, "No route summary for table {}".format(table_id)
+    assert rib >= 1, (
+        "Expected at least 1 PBR route in table {} after adding pbr-map, got rib={}".format(
+            table_id, rib
+        )
+    )
+    assert rib >= 0 and fib >= 0, "PBR counts negative: rib={} fib={}".format(
+        rib, fib
+    )
+    logger.info("Table %d: PBR rib=%s fib=%s (after adding %s)", table_id, rib, fib, PBR_MAP)
+
+    # 4) Remove PBR map and verify count drops
+    router.vtysh_multicmd(
+        "configure terminal\nno pbr-map {}\nend".format(PBR_MAP)
+    )
+    rib_after = -1
+    for _ in range(10):
+        topotest.sleep(1, "Waiting for PBR route to be removed")
+        rib_after, fib_after = _get_pbr_count_in_table(router, table_id)
+        if rib_after is not None and rib_after == 0:
+            break
+    assert rib_after is not None, "No route summary for table {} after remove".format(table_id)
+    assert rib_after == 0, (
+        "Expected 0 PBR routes in table {} after removing pbr-map, got rib={}".format(
+            table_id, rib_after
+        )
+    )
+    logger.info("Table %d: PBR rib=%s after removing %s", table_id, rib_after, PBR_MAP)
+
+
 ########################################################################
 # 			Field test - START
 ########################################################################
