@@ -97,6 +97,13 @@ struct lp_fifo {
 
 DECLARE_LIST(lp_fifo, struct lp_fifo, fifo);
 
+PREDECL_LIST(lp_lu_delete);
+struct lp_lu_delete {
+	struct lp_lu_delete_item item;
+	void *labelid;
+};
+DECLARE_LIST(lp_lu_delete, struct lp_lu_delete, item);
+
 struct lp_cbq_item {
 	int		(*cbfunc)(mpls_label_t label, void *lblid, bool alloc);
 	int		type;
@@ -281,6 +288,80 @@ void bgp_lp_release_pending_lu_locks(void)
 			q->labelid = NULL;
 		}
 	}
+}
+
+/* Only valid while the dest is alive, i.e. before its table is freed */
+static bool lp_lu_labelid_in_bgp(void *labelid, struct bgp *bgp)
+{
+	struct bgp_table *table;
+
+	if (!labelid)
+		return false;
+
+	table = bgp_dest_table((struct bgp_dest *)labelid);
+
+	return table && table->bgp == bgp;
+}
+
+/* Live instance delete; shutdown uses bgp_lp_release_pending_lu_locks() */
+void bgp_lp_release_instance_lu(struct bgp *bgp)
+{
+	struct lp_lu_delete_head to_delete;
+	struct lp_lu_delete *goner;
+	struct lp_fifo *lf;
+	struct work_queue_item *item;
+	struct lp_cbq_item *q;
+	struct lp_lcb *lcb;
+	void *labelid;
+	void *cursor;
+	int debug = BGP_DEBUG(labelpool, LABELPOOL);
+
+	if (!lp || !bgp)
+		return;
+
+	/* Remove, not just clear: an emptied chunk can then go back to zebra */
+	frr_each_safe (lp_fifo, &lp->requests, lf) {
+		if (lf->lcb.type == LP_TYPE_BGP_LU && lp_lu_labelid_in_bgp(lf->lcb.labelid, bgp)) {
+			bgp_dest_unlock_node(lf->lcb.labelid);
+			lp_fifo_del(&lp->requests, lf);
+			XFREE(MTYPE_BGP_LABEL_FIFO, lf);
+		}
+	}
+
+	if (lp->callback_q) {
+		STAILQ_FOREACH (item, &lp->callback_q->items, wq) {
+			q = item->data;
+			if (q && q->type == LP_TYPE_BGP_LU &&
+			    lp_lu_labelid_in_bgp(q->labelid, bgp)) {
+				bgp_dest_unlock_node(q->labelid);
+				q->labelid = NULL;
+			}
+		}
+	}
+
+	/* Collect keys first - releasing below modifies the ledger we walk */
+	lp_lu_delete_init(&to_delete);
+	cursor = NULL;
+	while (!skiplist_next(lp->ledger, &labelid, (void **)&lcb, &cursor)) {
+		if (lcb->type != LP_TYPE_BGP_LU || !lp_lu_labelid_in_bgp(labelid, bgp))
+			continue;
+		goner = XCALLOC(MTYPE_TMP, sizeof(*goner));
+		goner->labelid = labelid;
+		lp_lu_delete_add_tail(&to_delete, goner);
+	}
+
+	while ((goner = lp_lu_delete_pop(&to_delete))) {
+		labelid = goner->labelid;
+		XFREE(MTYPE_TMP, goner);
+		if (skiplist_search(lp->ledger, labelid, (void **)&lcb))
+			continue;
+		if (lcb->label != MPLS_LABEL_NONE)
+			bgp_lp_release(lcb->label, labelid, LP_TYPE_BGP_LU, true, debug);
+		else
+			skiplist_delete(lp->ledger, labelid, NULL);
+	}
+
+	lp_lu_delete_fini(&to_delete);
 }
 
 void bgp_lp_finish(void)
