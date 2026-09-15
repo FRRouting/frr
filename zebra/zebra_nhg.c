@@ -1147,6 +1147,16 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 		 */
 		if (!zebra_router_in_shutdown())
 			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+
+		/*
+		 * QUEUED is not cleared on invalidation, so a dplane install
+		 * may still be in flight. Mark it STALE_QUEUED so
+		 * zebra_nhg_dplane_result() can tell a delayed result
+		 * belongs to pre-flap state even if if_up() restores VALID
+		 * before the result lands.
+		 */
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED))
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_QUEUED);
 	}
 
 	/* Update validity of nexthops depending on it */
@@ -1164,6 +1174,29 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 				if (nexthop_same_no_weight(nexthop, nhe->nhg.nexthop)) {
 					/* Invalid Nexthop */
 					UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+
+					/*
+					 * This dependent's active nexthop set
+					 * just changed, even if it stays
+					 * VALID overall (other members still
+					 * active). A queued install reflects
+					 * the old set, so mark it stale here
+					 * too, not only on full invalidation.
+					 * Also clear INSTALLED: zebra_nhg_dplane_result()
+					 * unconditionally clears REINSTALL before
+					 * retrying a stale install, so leaving
+					 * INSTALLED set here would make that
+					 * retry's install condition fail and
+					 * skip reinstalling with the corrected
+					 * nexthop set.
+					 */
+					if (CHECK_FLAG(rb_node_dep->nhe->flags,
+						       NEXTHOP_GROUP_QUEUED)) {
+						SET_FLAG(rb_node_dep->nhe->flags,
+							 NEXTHOP_GROUP_STALE_QUEUED);
+						UNSET_FLAG(rb_node_dep->nhe->flags,
+							   NEXTHOP_GROUP_INSTALLED);
+					}
 				} else {
 					/*
 					 * If other nexthops in the nexthop
@@ -3708,10 +3741,33 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 			return;
 		}
 
+		bool stale_queued = CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_QUEUED);
+
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_QUEUED);
 		switch (status) {
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
+			/*
+			 * stale_queued means this request was queued before
+			 * a quick interface flap invalidated the nhe (set in
+			 * zebra_nhg_set_valid()). The kernel now holds that
+			 * stale set; record INSTALLED|REINSTALL so uninstall
+			 * cannot be skipped if the fresh install below fails
+			 * to enqueue, and so carrier-up still pushes a
+			 * corrected install when valid again.
+			 */
+			if (stale_queued) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: dplane install for nh id %u succeeded but was queued before an interface flap invalidated it; not adopting as authoritative install",
+						   __func__, nhe->id);
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+				if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID))
+					zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
+				break;
+			}
+
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 			zebra_nhg_handle_install(nhe, true);
 
@@ -3729,6 +3785,9 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 			 * or even what those versions were.  So at this point
 			 * we cannot unset the INSTALLED flag.
 			 */
+			if (stale_queued && CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID))
+				zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
+
 			/* If daemon nhg, send it an update */
 			if (PROTO_OWNED(nhe))
 				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
@@ -4279,9 +4338,14 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			zebra_nhg_install_kernel(rb_node_dep->nhe,
 						 ZEBRA_ROUTE_MAX);
 
-			/* Don't need to modify dependents if installed */
-			if (CHECK_FLAG(rb_node_dep->nhe->flags,
-				       NEXTHOP_GROUP_INSTALLED))
+			/*
+			 * Skip dependent updates only when the leaf is fully
+			 * installed. INSTALLED|REINSTALL means a stale dplane
+			 * success landed while the interface was still down;
+			 * carrier-up must still reactivate dependents.
+			 */
+			if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+			    !CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL))
 				continue;
 
 			/* mark dependent uninstalled; when interface associated
@@ -4340,6 +4404,12 @@ void dump_nhg_flags(uint32_t flags, char *buf, size_t len)
 		strlcat(buf, "Queued", len);
 		first = false;
 	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_STALE_QUEUED)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Stale Queued", len);
+		first = false;
+	}
 	if (CHECK_FLAG(flags, NEXTHOP_GROUP_RECURSIVE)) {
 		if (!first)
 			strlcat(buf, ", ", len);
@@ -4380,5 +4450,17 @@ void dump_nhg_flags(uint32_t flags, char *buf, size_t len)
 		if (!first)
 			strlcat(buf, ", ", len);
 		strlcat(buf, "Initial Delay", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Received External", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_STALE_FDB)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Stale FDB", len);
 	}
 }
