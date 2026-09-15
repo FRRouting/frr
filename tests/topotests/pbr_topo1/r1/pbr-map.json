@@ -98,7 +98,7 @@
       {
         "sequenceNumber":5,
         "vrfUnchanged":false,
-        "installed":true,
+        "installed":false,
         "installedReason":"Invalid NH-group",
         "nexthopGroup":{
           "name":"B",
