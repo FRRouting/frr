@@ -3260,7 +3260,7 @@ DEFPY (log_commands,
        log_commands_cmd,
        "[no] log commands",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Log all commands\n")
 {
 	if (no) {

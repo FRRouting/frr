@@ -3266,7 +3266,7 @@ DEFPY_YANG(isis_ti_lfa, isis_ti_lfa_cmd,
  * XPath: /frr-isisd:isis/instance/log-adjacency-changes
  */
 DEFPY_YANG(log_adj_changes, log_adj_changes_cmd, "[no] log-adjacency-changes",
-      NO_STR "Log changes in adjacency state\n")
+      NO_STR LOG_ADJ_CHANGES_STR)
 {
 	nb_cli_enqueue_change(vty, "./log-adjacency-changes", NB_OP_MODIFY, no ? "false" : "true");
 

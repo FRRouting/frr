@@ -150,7 +150,7 @@ static int reconf_clear_dst(struct zlog_cfg_5424_user *cfg, struct vty *vty)
 DEFPY_NOSH(log_5424_target,
 	   log_5424_target_cmd,
 	   "log extended-syslog EXTLOGNAME",
-	   "Logging control\n"
+	   LOG_STR
 	   "Extended RFC5424 syslog (including file targets)\n"
 	   "Name identifying this syslog target\n")
 {
@@ -170,7 +170,7 @@ DEFPY(no_log_5424_target,
       no_log_5424_target_cmd,
       "no log extended-syslog EXTLOGNAME",
       NO_STR
-      "Logging control\n"
+      LOG_STR
       "Extended RFC5424 syslog (including file targets)\n"
       "Name identifying this syslog target\n")
 {
