@@ -2831,6 +2831,23 @@ void nb_validate_callbacks(void)
 	}
 }
 
+/*
+ *Call this for unknown modules backend clients are talking about
+ *
+ * TODO: attempt to yang_module_load() the module and then yang_snode_iterate
+ * with nb_node_new_cb, to initialize the module.
+ */
+int nb_assure_module(const char *module_name)
+{
+	struct yang_module *module = yang_module_find(module_name);
+
+	if (module)
+		return NB_OK;
+
+	/* We need backend clients to be OK with loading */
+	return NB_ERR_NOT_FOUND;
+}
+
 void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
 	     size_t nmodules, bool db_enabled, bool load_library)
