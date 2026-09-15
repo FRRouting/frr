@@ -29,6 +29,8 @@ frr_northbound*
 /lib/cxxcompat
 /lib/fuzz_zlog
 /lib/test_assert
+/lib/test_atomhash_fast
+/lib/test_atomhash_slow
 /lib/test_atomlist
 /lib/test_buffer
 /lib/test_checksum
