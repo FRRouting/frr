@@ -474,7 +474,7 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 				oil_origin(channel_oil),
 				oil_mcastgrp(channel_oil));
 		}
-		return -3;
+		return PIM_OIF_ADD_EXISTS;
 	}
 
 	/* Allow other protocol to request subscription of same interface to

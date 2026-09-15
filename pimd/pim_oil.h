@@ -186,6 +186,15 @@ void pim_clear_nocache_state(struct pim_interface *pim_ifp);
 struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 					const char *name);
 
+/*
+ * pim_channel_add_oif() return code for "this protocol has already subscribed
+ * this OIF to this channel".  PIM_OIF_FLAG_PROTO_GM is shared by
+ * "ip igmp static-group" / "ipv6 mld static-group" and by IGMP/MLD membership
+ * learned on the interface, so for that flag this is a shared subscription
+ * rather than an error.
+ */
+#define PIM_OIF_ADD_EXISTS (-3)
+
 int pim_channel_add_oif(struct channel_oil *c_oil, struct interface *oif,
 			uint32_t proto_mask, const char *caller);
 int pim_channel_del_oif(struct channel_oil *c_oil, struct interface *oif,

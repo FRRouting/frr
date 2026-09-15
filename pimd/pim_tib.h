@@ -12,10 +12,28 @@
 struct pim_instance;
 struct channel_oil;
 
+/*
+ * Which of the two subscribers that share PIM_OIF_FLAG_PROTO_GM on an OIF is
+ * dropping its subscription.  The flag is a single bit per (channel_oil, vif)
+ * and is not reference counted, so the OIF may only be removed once both are
+ * gone.
+ */
+enum tib_sg_gm_sub {
+	/* IGMP/MLD membership learned on the interface */
+	TIB_GM_SUB_DYNAMIC,
+	/* "ip igmp static-group" / "ipv6 mld static-group" */
+	TIB_GM_SUB_STATIC,
+};
+
 extern bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 			   struct interface *oif, struct channel_oil **oilp);
-extern void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
-			    struct interface *oif, struct channel_oil **oilp);
+/*
+ * Drop one subscriber's (S,G) subscription on oif.  The OIF, the PIM local
+ * membership and the upstream proxy join are only torn down when the other
+ * subscriber named by "leaving" is gone as well.
+ */
+extern void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif,
+			    enum tib_sg_gm_sub leaving, struct channel_oil **oilp);
 extern void tib_sg_proxy_join_prune_check(struct pim_instance *pim,
 					  pim_sgaddr sg, struct interface *oif,
 					  bool join);
