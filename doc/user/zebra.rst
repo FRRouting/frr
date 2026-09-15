@@ -359,6 +359,14 @@ the default route.
    groups.  A nexthop group that an upper level protocol has already requested
    to be resilient keeps its own parameters and is not overridden.
 
+.. clicmd:: [no] zebra nexthop-group tracker [(1-3600)]
+
+   Set the timeout in seconds that zebra will use for tracking nexthop group
+   up/down events. When a nexthop group changes state, zebra waits for this
+   duration before acting on the event, allowing transient flaps to settle.
+   The default value is 60 seconds. The ``no`` form resets the timeout back
+   to the default.
+
 .. clicmd:: ip nht resolve-via-default
 
    Allow IPv4 nexthop tracking to resolve via the default route. This parameter
