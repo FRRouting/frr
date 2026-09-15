@@ -111,6 +111,7 @@ extern uint16_t bgp_open_capability(struct stream *s, struct peer_connection *co
 				    bool ext_opt_params);
 extern void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 				   bool use_json, json_object *json_neigh);
+extern bool bgp_role_violation(struct peer_connection *connection);
 extern as_t peek_for_as4_capability(struct peer_connection *connection, uint16_t length);
 extern const struct message capcode_str[];
 extern const struct message orf_type_str[];

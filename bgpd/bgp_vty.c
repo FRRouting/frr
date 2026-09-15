@@ -7832,27 +7832,52 @@ DEFPY (neighbor_aigp,
 		return peer_flag_set_vty(vty, neighbor, PEER_FLAG_AIGP);
 }
 
-static uint8_t get_role_by_name(const char *role_str)
+static bool get_role_by_name(const char *role_str, uint8_t *role)
 {
 	if (strncmp(role_str, "peer", 2) == 0)
-		return ROLE_PEER;
-	if (strncmp(role_str, "provider", 2) == 0)
-		return ROLE_PROVIDER;
-	if (strncmp(role_str, "customer", 2) == 0)
-		return ROLE_CUSTOMER;
-	if (strncmp(role_str, "rs-server", 4) == 0)
-		return ROLE_RS_SERVER;
-	if (strncmp(role_str, "rs-client", 4) == 0)
-		return ROLE_RS_CLIENT;
-	return ROLE_UNDEFINED;
+		*role = ROLE_PEER;
+	else if (strncmp(role_str, "provider", 2) == 0)
+		*role = ROLE_PROVIDER;
+	else if (strncmp(role_str, "customer", 2) == 0)
+		*role = ROLE_CUSTOMER;
+	else if (strncmp(role_str, "rs-server", 4) == 0)
+		*role = ROLE_RS_SERVER;
+	else if (strncmp(role_str, "rs-client", 4) == 0)
+		*role = ROLE_RS_CLIENT;
+	else
+		return false;
+
+	return true;
+}
+
+/* Re-evaluate routes when the role changes */
+static void bgp_vty_role_update(struct peer *peer, int action)
+{
+	struct listnode *node;
+	struct peer *member;
+
+	bgp_vty_capability_send_dynamic_peer_group(peer, AFI_IP, SAFI_UNICAST,
+						   CAPABILITY_CODE_ROLE, action);
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+			peer_clear_soft(member, AFI_IP, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
+			peer_clear_soft(member, AFI_IP6, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
+		}
+
+		return;
+	}
+
+	peer_clear_soft(peer, AFI_IP, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
+	peer_clear_soft(peer, AFI_IP6, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
 }
 
 static int peer_role_set_vty(struct vty *vty, struct peer *peer,
 			     const char *role_str, bool strict_mode)
 {
-	uint8_t role = get_role_by_name(role_str);
+	uint8_t role;
 
-	if (role == ROLE_UNDEFINED)
+	if (!get_role_by_name(role_str, &role))
 		return bgp_vty_return(vty, BGP_ERR_INVALID_ROLE_NAME);
 	return bgp_vty_return(vty, peer_role_set(peer, role, strict_mode));
 }
@@ -7873,9 +7898,10 @@ DEFPY(neighbor_role,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_role_set_vty(vty, peer, role, false);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
-			    CAPABILITY_ACTION_SET);
+	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -7897,9 +7923,10 @@ DEFPY(neighbor_role_strict,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_role_set_vty(vty, peer, role, true);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
-			    CAPABILITY_ACTION_SET);
+	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -7923,8 +7950,7 @@ DEFPY(no_neighbor_role,
 
 	ret = bgp_vty_return(vty, peer_role_unset(peer));
 
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
-			    CAPABILITY_ACTION_UNSET);
+	bgp_vty_role_update(peer, CAPABILITY_ACTION_UNSET);
 
 	return ret;
 }
@@ -16907,15 +16933,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 
 	/* Roles */
 	if (use_json) {
-		json_object_string_add(json_neigh, "localRole",
-				       bgp_get_name_by_role(p->local_role));
-		json_object_string_add(json_neigh, "remoteRole",
-				       bgp_get_name_by_role(p->remote_role));
+		json_object_string_add(json_neigh, "localRole", bgp_get_local_role_name(p));
+		json_object_string_add(json_neigh, "remoteRole", bgp_get_remote_role_name(p));
 	} else {
-		vty_out(vty, "  Local Role: %s\n",
-			bgp_get_name_by_role(p->local_role));
-		vty_out(vty, "  Remote Role: %s\n",
-			bgp_get_name_by_role(p->remote_role));
+		vty_out(vty, "  Local Role: %s\n", bgp_get_local_role_name(p));
+		vty_out(vty, "  Remote Role: %s\n", bgp_get_remote_role_name(p));
 	}
 
 	/* Are we showing specific information? */
@@ -21551,13 +21573,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s graceful-shutdown\n", addr);
 
 	/* role */
-	if (peergroup_flag_check(peer, PEER_FLAG_ROLE) &&
-	    peer->local_role != ROLE_UNDEFINED)
-		vty_out(vty, " neighbor %s local-role %s%s\n", addr,
-			bgp_get_name_by_role(peer->local_role),
-			CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)
-				? " strict-mode"
-				: "");
+	if (peergroup_flag_check(peer, PEER_FLAG_ROLE))
+		vty_out(vty, " neighbor %s local-role %s%s\n", addr, bgp_get_local_role_name(peer),
+			CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE) ? " strict-mode" : "");
 
 	if (peer->sub_sort == BGP_PEER_EBGP_OAD)
 		vty_out(vty, " neighbor %s oad\n", addr);
