@@ -651,7 +651,7 @@ static bool zebra_gr_unicast_stale_route_delete(struct route_table *table,
 			 */
 
 			if (re->type == gac->proto &&
-			    re->instance == gac->instance &&
+			    route_entry_get_proto_instance(re) == gac->instance &&
 			    zebra_gr_process_route_entry(rn, re,
 							 gac->restart_time,
 							 gac->proto))
