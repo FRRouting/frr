@@ -66,7 +66,9 @@ struct op_changes nb_notif_dels = RB_INITIALIZER(&nb_notif_dels);
 struct event_loop *nb_notif_master;
 struct event *nb_notif_timer;
 void *nb_notif_walk;
+bool nb_notif_running;
 
+/* Set and read only in main mgmt thread, so not lock protected. */
 const char **nb_notif_filters;
 
 /*
@@ -91,7 +93,7 @@ struct nb_notif_walk_args {
 	struct lyd_node *tree;
 };
 
-static void nb_notif_set_walk_timer(void);
+static void _set_walk_timer(void);
 
 
 static int pathncmp(const char *s1, const char *s2, size_t n)
@@ -319,7 +321,7 @@ static void __op_change_add_del(const char *path, struct op_changes *this_head,
 	next = RB_NFIND(op_changes, other_head, note);
 	__drop_eq_or_more_specific(other_head, path, plen, next);
 
-	nb_notif_set_walk_timer();
+	_set_walk_timer();
 }
 
 void nb_notif_add(const char *path)
@@ -510,21 +512,15 @@ struct lyd_node *nb_op_updatef(struct lyd_node *tree, const char *path, const ch
 	return dnode;
 }
 
-static struct op_changes_group *op_changes_group_next(void)
+static struct op_changes_group *_op_changes_group_next(void)
 {
 	struct op_changes_group *group;
-
-	if (nb_notif_lock)
-		pthread_mutex_lock(nb_notif_lock);
 
 	group = op_changes_queue_pop(&op_changes_queue);
 	if (!group) {
 		__op_changes_group_push(0);
 		group = op_changes_queue_pop(&op_changes_queue);
 	}
-
-	if (nb_notif_lock)
-		pthread_mutex_unlock(nb_notif_lock);
 
 	if (!group)
 		return NULL;
@@ -561,7 +557,7 @@ static struct op_changes_group *__next_group(struct op_changes_group *group)
 {
 	_dbg("done with oper-path collection for group");
 	op_changes_group_free(group);
-	return op_changes_group_next();
+	return _op_changes_group_next();
 }
 
 static enum nb_error oper_walk_done(const struct lyd_node *tree, void *arg, enum nb_error ret)
@@ -569,9 +565,18 @@ static enum nb_error oper_walk_done(const struct lyd_node *tree, void *arg, enum
 	struct nb_notif_walk_args *args = arg;
 	struct op_changes_group *group = args->group;
 	const char *path = group->cur_change->path;
+	bool unlock = false;
 
 	/* we don't send batches when yielding as we need completed edit in any patch */
 	assert(ret != NB_YIELD);
+
+	if (nb_notif_lock) {
+		pthread_mutex_lock(nb_notif_lock);
+		unlock = true;
+	}
+
+	assert(nb_notif_running);
+	nb_notif_walk = NULL;
 
 	if (ret == NB_ERR_NOT_FOUND) {
 		_dbg("Path not found while walking oper tree: %s", path);
@@ -608,9 +613,10 @@ error:
 
 	/* Run next walk after giving other events a shot to run */
 	event_add_timer_msec(nb_notif_master, timer_walk_continue, args, 0, &nb_notif_timer);
+
 done:
-	/* Done with current walk and scheduled next one if there is more */
-	nb_notif_walk = NULL;
+	if (unlock)
+		pthread_mutex_unlock(nb_notif_lock);
 
 	return ret;
 }
@@ -633,10 +639,30 @@ static int nb_notify_delete_changes(struct nb_notif_walk_args *args)
 
 static void timer_walk_continue(struct event *event)
 {
-	struct nb_notif_walk_args *args = EVENT_ARG(event);
-	struct op_changes_group *group = args->group;
+	struct nb_notif_walk_args *args;
+	struct op_changes_group *group;
 	const char *path;
 	int ret;
+
+	/* Obtain lock */
+	if (nb_notif_lock)
+		pthread_mutex_lock(nb_notif_lock);
+
+	args = EVENT_ARG(event);
+	if (args)
+		_dbg("oper-state change notification continuing timer fires");
+	else {
+		_dbg("oper-state change notification start timer fires");
+		group = _op_changes_group_next();
+		if (!group) {
+			_dbg("no oper changes to notify");
+			nb_notif_running = false;
+			goto unlock;
+		}
+		args = XCALLOC(MTYPE_NB_NOTIF_WALK_ARGS, sizeof(*args));
+		args->group = group;
+	}
+	group = args->group;
 
 	/*
 	 * Notify about deletes until we have add changes to collect.
@@ -645,7 +671,7 @@ static void timer_walk_continue(struct event *event)
 		ret = nb_notify_delete_changes(args);
 		if (ret) {
 			timer_walk_abort(args);
-			return;
+			goto unlock;
 		}
 
 		/* after deletes advance to adds */
@@ -657,34 +683,23 @@ static void timer_walk_continue(struct event *event)
 		args->group = __next_group(group);
 		if (!args->group) {
 			timer_walk_done(args);
-			return;
+			goto unlock;
 		}
 		group = args->group;
 	}
 
+	/* we have removed the group of changes to walk, unlock while we walk it */
+	if (nb_notif_lock)
+		pthread_mutex_unlock(nb_notif_lock);
+
 	path = group->cur_change->path;
 	_dbg("starting next oper-path replace walk for path: %s", path);
 	nb_notif_walk = nb_oper_walk(path, NULL, 0, false, NULL, NULL, oper_walk_done, args);
-}
+	return;
 
-static void timer_walk_start(struct event *event)
-{
-	struct op_changes_group *group;
-	struct nb_notif_walk_args *args;
-
-	_dbg("oper-state change notification timer fires");
-
-	group = op_changes_group_next();
-	if (!group) {
-		_dbg("no oper changes to notify");
-		return;
-	}
-
-	args = XCALLOC(MTYPE_NB_NOTIF_WALK_ARGS, sizeof(*args));
-	args->group = group;
-
-	EVENT_ARG(event) = args;
-	timer_walk_continue(event);
+unlock:
+	if (nb_notif_lock)
+		pthread_mutex_unlock(nb_notif_lock);
 }
 
 static void timer_walk_abort(struct nb_notif_walk_args *args)
@@ -701,21 +716,22 @@ static void timer_walk_done(struct nb_notif_walk_args *args)
 	_dbg("Finished notifying for all datastore changes");
 	assert(!args->group);
 	XFREE(MTYPE_NB_NOTIF_WALK_ARGS, args);
+	nb_notif_running = false;
 }
 
-static void nb_notif_set_walk_timer(void)
+static void _set_walk_timer(void)
 {
-	if (nb_notif_walk) {
+	if (nb_notif_running) {
 		_dbg("oper-state walk already in progress.");
 		return;
 	}
-	if (event_is_scheduled(nb_notif_timer)) {
-		_dbg("oper-state notification timer already set.");
-		return;
-	}
+	assert(!event_is_scheduled(nb_notif_timer));
 
 	_dbg("oper-state notification setting timer to fire in: %d msec ", NB_NOTIF_TIMER_MSEC);
-	event_add_timer_msec(nb_notif_master, timer_walk_start, NULL, NB_NOTIF_TIMER_MSEC,
+
+	nb_notif_running = true;
+
+	event_add_timer_msec(nb_notif_master, timer_walk_continue, NULL, NB_NOTIF_TIMER_MSEC,
 			     &nb_notif_timer);
 }
 
@@ -780,10 +796,16 @@ void nb_notif_init(struct event_loop *tm)
 
 void nb_notif_terminate(void)
 {
-	struct nb_notif_walk_args *args = nb_notif_timer ? EVENT_ARG(nb_notif_timer) : NULL;
+	struct nb_notif_walk_args *args;
 	struct op_changes_group *group;
 
-	_dbg("terminating: timer: %p timer arg: %p walk %p", nb_notif_timer, args, nb_notif_walk);
+	if (nb_notif_lock)
+		pthread_mutex_lock(nb_notif_lock);
+
+	args = nb_notif_timer ? EVENT_ARG(nb_notif_timer) : NULL;
+
+	_dbg("terminating: notif running: %d timer: %p timer arg: %p walk %p", nb_notif_running,
+	     nb_notif_timer, args, nb_notif_walk);
 
 	event_cancel(&nb_notif_timer);
 
@@ -798,8 +820,13 @@ void nb_notif_terminate(void)
 		XFREE(MTYPE_NB_NOTIF_WALK_ARGS, args);
 	}
 
-	while ((group = op_changes_group_next()))
+	while ((group = _op_changes_group_next()))
 		op_changes_group_free(group);
 
 	darr_free_free(nb_notif_filters);
+
+	nb_notif_running = false;
+
+	if (nb_notif_lock)
+		pthread_mutex_unlock(nb_notif_lock);
 }

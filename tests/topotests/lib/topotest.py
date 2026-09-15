@@ -408,7 +408,7 @@ def json_cmp(output, expected, exact=False):
       order when it is compared to an Array in output
     """
 
-    (errors_n, errors) = gen_json_diff_report(
+    errors_n, errors = gen_json_diff_report(
         deepcopy(output), deepcopy(expected), exact=exact
     )
 
@@ -1343,6 +1343,14 @@ def _sysctl_atleast(commander, variable, min_value):
         min_value = list(min_value)
     is_list = isinstance(min_value, list)
 
+    path = "/proc/sys/" + variable.replace(".", "/")
+    try:
+        # In some tests commander is actually a TopoGear which only has cmd_raises
+        commander.cmd_raises(f"test -e {path}", warn=False)
+    except subprocess.CalledProcessError:
+        logging.debug("%s sysctl file not present", path)
+        return
+
     sval = commander.cmd_raises("sysctl -n " + variable).strip()
     if is_list:
         cur_val = [int(x) for x in sval.split()]
@@ -1372,6 +1380,14 @@ def _sysctl_assure(commander, variable, value):
     if isinstance(value, tuple):
         value = list(value)
     is_list = isinstance(value, list)
+
+    path = "/proc/sys/" + variable.replace(".", "/")
+    try:
+        # In some tests commander is actually a TopoGear which only has cmd_raises
+        commander.cmd_raises(f"test -e {path}", warn=False)
+    except subprocess.CalledProcessError:
+        logging.debug("%s sysctl file not present", path)
+        return
 
     sval = commander.cmd_raises("sysctl -n " + variable).strip()
     if is_list:
@@ -1512,30 +1528,34 @@ def fix_host_limits():
     sysctl_assure(None, "fs.suid_dumpable", 1)
 
     # Maximum connection backlog
-    sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)
+    sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)  # NSF
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)
-    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)
+    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)  # NSF
+    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)  # NSF
 
     # Garbage Collection Settings for ARP and Neighbors
-    sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)
-    sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh3", 8 * 1024)
-    sysctl_atleast(None, "net.ipv6.neigh.default.gc_thresh2", 4 * 1024)
-    sysctl_atleast(None, "net.ipv6.neigh.default.gc_thresh3", 8 * 1024)
+    sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)  # NSF
+    sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh3", 8 * 1024)  # NSF
+    sysctl_atleast(None, "net.ipv6.neigh.default.gc_thresh2", 4 * 1024)  # NSF
+    sysctl_atleast(None, "net.ipv6.neigh.default.gc_thresh3", 8 * 1024)  # NSF
     # Hold entries for 10 minutes
-    sysctl_assure(None, "net.ipv4.neigh.default.base_reachable_time_ms", 10 * 60 * 1000)
-    sysctl_assure(None, "net.ipv6.neigh.default.base_reachable_time_ms", 10 * 60 * 1000)
+    sysctl_assure(
+        None, "net.ipv4.neigh.default.base_reachable_time_ms", 10 * 60 * 1000
+    )  # NSF
+    sysctl_assure(
+        None, "net.ipv6.neigh.default.base_reachable_time_ms", 10 * 60 * 1000
+    )  # NSF
 
     # igmp
-    sysctl_assure(None, "net.ipv4.neigh.default.mcast_solicit", 10)
+    sysctl_assure(None, "net.ipv4.neigh.default.mcast_solicit", 10)  # NSF
 
     # MLD
-    sysctl_atleast(None, "net.ipv6.mld_max_msf", 512)
+    sysctl_atleast(None, "net.ipv6.mld_max_msf", 512)  # NSF
 
     # Increase routing table size to 128K
-    sysctl_atleast(None, "net.ipv4.route.max_size", 128 * 1024)
-    sysctl_atleast(None, "net.ipv6.route.max_size", 128 * 1024)
+    sysctl_atleast(None, "net.ipv4.route.max_size", 128 * 1024)  # NSF
+    sysctl_atleast(None, "net.ipv6.route.max_size", 128 * 1024)  # NSF??
 
 
 def setup_node_tmpdir(logdir, name):
