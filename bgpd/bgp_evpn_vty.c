@@ -4804,10 +4804,8 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 			ipaddr_set_v4(&bgp_vrf->evpn_info->pip_ip, ip);
 		} else {
 			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
-			/* default instance router-id assignemt */
-			if (bgp_evpn)
-				bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
-		}
+
+		bgp_evpn_derive_pip_ip(bgp_vrf);
 		/* parse sys mac */
 		if (!is_zero_mac(&mac->eth_addr)) {
 			/* Already configured with same MAC */
@@ -4875,11 +4873,8 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 		memset(&bgp_vrf->evpn_info->pip_rmac_static, 0, ETH_ALEN);
 		/* reset user configured sys IP */
 		bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
-		/* Assign default PIP IP (bgp instance router-id) */
-		if (bgp_evpn)
-			bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
-		else
-			bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr = INADDR_ANY;
+		/* assign the default system IP again */
+		bgp_evpn_derive_pip_ip(bgp_vrf);
 	}
 
 	if (is_evpn_enabled()) {
