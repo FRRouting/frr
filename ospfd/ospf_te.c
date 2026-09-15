@@ -2643,6 +2643,11 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 	/* Get vertex / Node from LSA Advertised Router ID */
 	vertex = get_vertex(ted, lsa);
+	/* AS-scope (Type 11) RI LSAs have no area, so get_vertex() returns NULL */
+	if (!vertex) {
+		zlog_warn("Cannot process RI LSA without an area");
+		return -1;
+	}
 	node = vertex->node;
 
 	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
