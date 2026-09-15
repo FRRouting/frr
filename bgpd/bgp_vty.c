@@ -11130,8 +11130,8 @@ DEFPY (bgp_sid_vpn_export,
 			return CMD_SUCCESS;
 
 		sid_idx = 0;
-		sid_auto = false;
-		sid_explicit = false;
+		sid_auto = NULL;
+		sid_explicit = NULL;
 		bgp->tovpn_sid_index = 0;
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
