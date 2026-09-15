@@ -29,29 +29,17 @@ Stage 1 - Preparation
 
    .. code-block:: console
 
-      ./tools/release_notes.py -b dev/9.1 -t frr-9.0.1
+      ./tools/release_notes.py -b stable/10.8 -t frr-10.7.0
 
-   dev/9.1 is the branch to be renamed to stable/9.1, and frr-9.0.1 in this
-   example is the latest tag from which to generate the logs.
+   ``stable/10.8`` is the upcoming release branch (forked from master four
+   weeks before the release date), and ``frr-10.7.0`` in this example is the
+   latest tag from which to generate the logs.
 
-#. Checkout the existing ``dev/<version>`` branch.
-
-   .. code-block:: console
-
-      git checkout dev/<version>
-
-#. Create and push a new branch called ``stable/<version>`` based on the
-   ``dev/<version>`` branch.
+#. Checkout the existing ``stable/<version>`` branch.
 
    .. code-block:: console
 
-      git checkout -b stable/<version>
-
-#. Remove the development branch called ``dev/<version>``
-
-   .. code-block:: console
-
-      git push origin --delete dev/<version>
+      git checkout stable/<version>
 
 #. Update Changelog for Red Hat Packages:
 

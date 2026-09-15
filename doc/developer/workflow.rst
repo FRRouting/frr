@@ -95,16 +95,23 @@ March/July/November.  Walking backwards from this date:
  - 6 weeks earlier, ``master`` is frozen for new features, and feature PRs
    are considered lowest priority (regardless of when they were opened.)
 
- - 4 weeks earlier, the stable branch separates from master (named
-   ``dev/MAJOR.MINOR`` at this point) and tagged as ``base_X.Y``.
+ - 4 weeks earlier, the stable branch separates from master as
+   ``stable/MAJOR.MINOR`` and is tagged as ``base_X.Y``.
    Master is unfrozen and new features may again proceed.
+   There is no intermediate ``dev/`` branch; the upcoming release is
+   tracked on ``stable/`` from this point on.
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
-   :file:`configure.ac` to reflect the new development version that master
-   now refers to.  This is accompanied by a ``frr-X.Y.Z-dev`` tag on master,
-   which should always be on the first commit on master *after* the stable
-   branch was forked (even if that is not the edit to ``AC_INIT``; it's more
-   important to have it on the very first commit on master after the fork.)
+   :file:`configure.ac` to reflect the next development version that master
+   now refers to.  This is accompanied by a ``frr-X.Y.Z-dev`` tag on master
+   (for that next version), which should always be on the first commit on
+   master *after* the stable branch was forked (even if that is not the edit
+   to ``AC_INIT``; it's more important to have it on the very first commit on
+   master after the fork.)
+
+   ``base_X.Y`` tags the fork point of ``stable/X.Y``, the branch that tracks
+   the upcoming release.  It is not the start of the new development series
+   on master; that is the ``frr-*.*-dev`` tag created after the bump below.
 
    (The :file:`configure.ac` edit and tag push are considered git housekeeping
    and are pushed directly to ``master``, not through a PR.)
@@ -119,17 +126,17 @@ March/July/November.  Walking backwards from this date:
 
         % git checkout master
         % git pull upstream master
-        % git checkout -b dev/10.5
-        % git tag base_10.5
-        % git push upstream base_10.5
-        % git push upstream dev/10.5
+        % git checkout -b stable/10.8
+        % git tag base_10.8
+        % git push upstream base_10.8
+        % git push upstream stable/10.8
         % git checkout master
-        % sed -i 's/10.4.0-dev/10.5.0-dev/' configure.ac
+        % sed -i 's/10.8.0-dev/10.9.0-dev/' configure.ac
         % git add configure.ac
-        % git commit -s -m "build: FRR 10.5.0 development version"
-        % git tag -a frr-10.5.0-dev -m "frr-10.5.0-dev"
+        % git commit -s -m "build: FRR 10.9.0 development version"
+        % git tag -a frr-10.9.0-dev -m "frr-10.9.0-dev"
         % git push upstream master
-        % git push upstream frr-10.5.0-dev
+        % git push upstream frr-10.9.0-dev
 
    In this step, we also have to update package versions to reflect
    the development version. Versions need to be updated using
@@ -141,7 +148,7 @@ March/July/November.  Walking backwards from this date:
    files on the release branch need to be cherry-picked to the master branch.
 
    Update essential dates in advance for reference table (below) when
-   the next freeze, dev/X.Y, RC, and release phases are scheduled. This should
+   the next freeze, stable/X.Y, RC, and release phases are scheduled. This should
    go in the ``master`` branch.
 
  - The zebra dataplane API is versioned separately from the FRR
@@ -159,11 +166,12 @@ March/July/November.  Walking backwards from this date:
         upstream  git@github.com:frrouting/frr (fetch)
         upstream  git@github.com:frrouting/frr (push)
 
-        % git checkout dev/10.5
-        % git tag frr-10.5.0-rc
-        % git push upstream frr-10.5.0-rc
+        % git checkout stable/10.8
+        % git tag frr-10.8.0-rc
+        % git push upstream frr-10.8.0-rc
 
- - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
+ - on release date, ``frr-X.Y.Z`` is tagged on ``stable/MAJOR.MINOR``.
+   The branch is already named ``stable/``; it is not renamed at release time.
 
 The 2 week window between each of these events should be used to run any and
 all testing possible for the release in progress.  However, the current
@@ -210,7 +218,7 @@ Here is the hint on how to get the dates easily:
          echo ""
          echo "Release Month: $(date -d "$release_date" +%B)"
          echo "  Freeze date:     $freeze_date"
-         echo "  dev/X.Y.Z date:  $dev_date"
+         echo "  stable/X.Y date: $dev_date"
          echo "  RC date:         $rc_date"
          echo "  Release date:    $release_date"
       done
