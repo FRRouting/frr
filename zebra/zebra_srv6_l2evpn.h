@@ -169,6 +169,16 @@ struct zebra_srv6_evi {
 	 */
 	struct in6_addr local_decap_sid;
 
+	/* Operator-owned srl2 (End.DT2U) / bum-srl2 (End.DT2M) interfaces for this
+	 * EVI's bridge, discovered by name prefix; 0 until discovered.
+	 */
+	ifindex_t srl2_ifindex;
+	ifindex_t bum_srl2_ifindex;
+	/* Encap mode mirrored from the kernel for this EVI (enum
+	 * zebra_srl2_encap_mode); no software default.
+	 */
+	uint8_t l2_encap_mode;
+
 	struct evi_bds_head bds; /* member BDs: struct zebra_srv6_evi_bd* */
 
 	QOBJ_FIELDS; /* vty config-context registration */

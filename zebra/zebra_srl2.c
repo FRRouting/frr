@@ -28,6 +28,7 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SRL2, "Zebra SRv6 SR-L2 interface");
 
+static void srl2_reset_if(ifindex_t ifindex);
 /* -------------------------------------------------------------------------- */
 /* Hash / compare helpers                                                      */
 /* -------------------------------------------------------------------------- */
@@ -49,7 +50,6 @@ static struct srl2_htab_head srl2_table[1];
 static bool srl2_inited;
 
 /* Sequential counter for generating unique interface names. */
-static uint32_t srl2_next_id;
 
 /*
  * Device-wide sr6 encapsulation mode for srl2 interfaces.  Defaults to FULL;
@@ -73,6 +73,23 @@ const char *zebra_srl2_encap_mode2str(enum zebra_srl2_encap_mode mode)
 	return mode == ZEBRA_SRL2_ENCAP_MODE_REDUCED ? "reduced" : "full";
 }
 
+
+uint8_t zebra_srl2_kernel_encap_mode(ifindex_t ifindex, uint8_t fallback)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	if (ifindex == 0)
+		return fallback;
+	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	if (!ifp)
+		return fallback;
+	zif = ifp->info;
+	if (zif && zif->srl2_kernel_mode_present)
+		return zif->srl2_kernel_mode;
+	return fallback;
+}
+
 /*
  * Device-wide MTU for srl2 interfaces.  0 (ZEBRA_SRL2_MTU_UNSET) means "leave
  * it to the kernel sr6 driver default" (= 1422 on a 1500 underlay); a non-zero
@@ -89,7 +106,7 @@ uint32_t zebra_srl2_get_mtu(void)
 
 /*
  * Store the new device-wide MTU and push it live onto every existing
- * srl2/bum-srl2 interface via the DPLANE THREAD (dplane_srl2_set_mtu() queues
+ * srl2/bum-srl2 interface via the DPLANE THREAD (dplane_srl2_program()
  * an RTM_SETLINK IFLA_MTU) so the operator does not have to bounce the EVIs -
  * never synchronous netlink from this (main/CLI) thread.  New interfaces pick
  * the MTU up at create time.
@@ -113,7 +130,10 @@ void zebra_srl2_set_mtu(uint32_t mtu)
 		frr_each (srl2_htab, srl2_table, srl2) {
 			if (srl2->ifindex <= 0)
 				continue;
-			dplane_srl2_set_mtu(srl2->ifindex, apply);
+			dplane_srl2_program(srl2->ifindex, &srl2->sid, apply,
+					    zebra_srl2_kernel_encap_mode(
+						    srl2->ifindex,
+						    zebra_srl2_get_encap_mode()));
 		}
 
 	/*
@@ -143,7 +163,6 @@ void zebra_srl2_init(void)
 {
 	srl2_htab_init(srl2_table);
 	srl2_inited = true;
-	srl2_next_id = 0;
 }
 
 /*
@@ -154,11 +173,10 @@ void zebra_srl2_init(void)
  */
 void zebra_srl2_delete_all_kernel(void)
 {
-	struct zebra_srl2 *entry;
-
-	if (srl2_inited)
-		frr_each (srl2_htab, srl2_table, entry)
-			netlink_srl2_if_del(entry->ifindex);
+	/*
+	 * srl2 netdevs are operator-owned - FRR never deletes them.  Retained
+	 * as a no-op so the shutdown path (main.c) stays unchanged.
+	 */
 }
 
 void zebra_srl2_terminate(void)
@@ -205,64 +223,86 @@ struct zebra_srl2 *zebra_srl2_find_on_bridge(ifindex_t bridge_ifindex, bool is_b
  * Return (or create) the srl2 interface for @sid on bridge @bridge_ifindex.
  * Increments refcnt.
  */
+/*
+ * Discover the operator-owned srl2 (is_bum=false, prefix "srl2-") or bum-srl2
+ * (is_bum=true, prefix "bum-srl2-") interface slaved to @bridge_ifindex.  FRR
+ * never creates it.  Returns its ifindex (0 if not present yet) and, when
+ * @namebuf is non-NULL, copies its name.
+ */
+ifindex_t zebra_srl2_discover_on_bridge(ifindex_t bridge_ifindex, bool is_bum, char *namebuf)
+{
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *ifp;
+	const char *pfx = is_bum ? "bum-srl2-" : "srl2-";
+	size_t pfxlen = strlen(pfx);
+
+	if (!vrf || bridge_ifindex == 0)
+		return 0;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		struct zebra_if *zif = ifp->info;
+
+		if (!zif || ifp->ifindex == 0)
+			continue;
+		if (zif->brslave_info.bridge_ifindex != bridge_ifindex)
+			continue;
+		if (strncmp(ifp->name, pfx, pfxlen) != 0)
+			continue;
+		if (namebuf)
+			strlcpy(namebuf, ifp->name, IFNAMSIZ);
+		return ifp->ifindex;
+	}
+	return 0;
+}
+
+/*
+ * Program an operator-owned srl2 entry in place with its SID, the device-wide
+ * MTU and the kernel-mirrored encap mode.  FRR never creates the interface.
+ */
+static void srl2_program_if(struct zebra_srl2 *entry)
+{
+	if (!entry || entry->ifindex == 0)
+		return;
+	dplane_srl2_program(entry->ifindex, &entry->sid,
+			    zebra_srl2_get_mtu() ? zebra_srl2_get_mtu()
+						 : ZEBRA_SRL2_DEFAULT_MTU,
+			    zebra_srl2_kernel_encap_mode(entry->ifindex,
+						 zebra_srl2_get_encap_mode()));
+}
+
 struct zebra_srl2 *zebra_srl2_get_or_create(const struct in6_addr *sid, ifindex_t bridge_ifindex,
 					    bool is_bum, vlanid_t vid)
 {
 	struct zebra_srl2 key = {};
 	struct zebra_srl2 *entry;
-	char ifname[IFNAMSIZ];
+	char ifname[IFNAMSIZ] = {};
+	ifindex_t ifindex;
 
 	key.sid = *sid;
 	entry = srl2_htab_find(srl2_table, &key);
 	if (entry) {
 		entry->refcnt++;
+		if (entry->ifindex == 0) {
+			entry->ifindex = zebra_srl2_discover_on_bridge(bridge_ifindex, is_bum,
+								 entry->ifname);
+			if (entry->ifindex)
+				srl2_program_if(entry);
+		}
 		return entry;
 	}
 
 	/*
-	 * Unicast srl2 (flood off) is named  srl2-N
-	 * BUM srl2     (flood on)  is named  bum-srl2-N
-	 *
-	 * The prefix is the authoritative role marker - bgpd uses it to
-	 * pick the right l2dev for DT2U (unicast) vs DT2M (BUM) decap
-	 * routes.  Both share the same monotonically-increasing counter
-	 * so the resulting kernel ifnames are deterministic and the order
-	 * of remote-MAC vs remote-VTEP arrival doesn't matter.
+	 * Operator-owned model: FRR does NOT create the srl2 netdev.  The operator
+	 * pre-creates srl2-<n> (unicast, End.DT2U) / bum-srl2-<n> (BUM, End.DT2M)
+	 * and enslaves them to the bridge.  Discover the one for this bridge+role
+	 * by name prefix; if not present yet, record the SID (ifindex 0) and
+	 * program it when zebra_srl2_if_add() sees the netdev appear.
 	 */
-	if (is_bum)
-		snprintfrr(ifname, sizeof(ifname), "bum-srl2-%u", srl2_next_id++);
-	else
-		snprintfrr(ifname, sizeof(ifname), "srl2-%u", srl2_next_id++);
-
-	/*
-	 * Orphan left by a prior zebra run may hold this name; delete it via
-	 * the dplane before recreating.  Enqueued before the create below, and
-	 * the single dplane FIFO guarantees the delete lands first (no EEXIST).
-	 */
-	{
-		struct interface *orphan = if_lookup_by_name(ifname, VRF_DEFAULT);
-
-		if (orphan && orphan->ifindex) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("%s: removing stale orphan %s (ifindex %u) before recreate",
-					   __func__, ifname, orphan->ifindex);
-			dplane_link_delete(orphan->ifindex);
-		}
-	}
-
-	/*
-	 * Create the sr6 netdev through the dataplane provider (fire-and-forget).
-	 * The kernel ifindex is unknown here: the entry is created with ifindex 0
-	 * and filled in by zebra_srl2_if_add() when the netdev appears, which then
-	 * queues addr-gen-mode -> enslave -> brport -> vlan -> up and re-realizes
-	 * the EVI.  Callers tolerate ifindex 0 and re-realize (zebra_srv6_l2evpn.c
-	 * / zebra_evpn_mac.c both retry get_or_create while their oif is 0).
-	 */
-	dplane_srl2_create(ifname, sid);
+	ifindex = zebra_srl2_discover_on_bridge(bridge_ifindex, is_bum, ifname);
 
 	entry = XCALLOC(MTYPE_ZEBRA_SRL2, sizeof(*entry));
 	entry->sid = *sid;
-	entry->ifindex = 0;
+	entry->ifindex = ifindex;
 	entry->bridge_ifindex = bridge_ifindex;
 	entry->vid = vid;
 	strlcpy(entry->ifname, ifname, sizeof(entry->ifname));
@@ -271,9 +311,11 @@ struct zebra_srl2 *zebra_srl2_get_or_create(const struct in6_addr *sid, ifindex_
 
 	srl2_htab_add(srl2_table, entry);
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s: srl2 %s create queued for SID %pI6 on bridge %u (ifindex pending)",
-			   __func__, ifname, sid, bridge_ifindex);
+	if (ifindex)
+		srl2_program_if(entry);
+	else if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: no %s srl2 on bridge %u yet for SID %pI6 (program on if-add)",
+			   __func__, is_bum ? "BUM" : "unicast", bridge_ifindex, sid);
 
 	return entry;
 }
@@ -288,35 +330,44 @@ struct zebra_srl2 *zebra_srl2_get_or_create(const struct in6_addr *sid, ifindex_
 void zebra_srl2_if_add(struct interface *ifp)
 {
 	struct zebra_srl2 *entry;
+	struct zebra_if *zif;
+	ifindex_t bridge_ifindex;
+	bool is_bum;
 
 	if (!srl2_inited || !ifp || ifp->ifindex == 0)
 		return;
-	if (strncmp(ifp->name, "srl2-", 5) != 0 && strncmp(ifp->name, "bum-srl2-", 9) != 0)
+	if (strncmp(ifp->name, "bum-srl2-", 9) == 0)
+		is_bum = true;
+	else if (strncmp(ifp->name, "srl2-", 5) == 0)
+		is_bum = false;
+	else
 		return;
 
+	zif = ifp->info;
+	bridge_ifindex = zif ? zif->brslave_info.bridge_ifindex : 0;
+
+	/*
+	 * Operator-owned interface appeared (or its master/ifindex resolved).
+	 * Bind + program any tracked entry that was waiting (ifindex 0).  FRR never
+	 * enslaves, brings up or VLAN-binds it - the operator did that.
+	 */
 	frr_each (srl2_htab, srl2_table, entry) {
-		if (entry->ifindex != 0 || strcmp(entry->ifname, ifp->name) != 0)
+		if (entry->ifindex != 0 || entry->is_bum != is_bum)
+			continue;
+		if (bridge_ifindex != 0 && entry->bridge_ifindex != bridge_ifindex)
 			continue;
 
 		entry->ifindex = ifp->ifindex;
-
-		dplane_srl2_addrgenmode(ifp->ifindex);
-		if (entry->bridge_ifindex) {
-			dplane_intf_set_master(ifp->ifindex, entry->bridge_ifindex);
-			dplane_srl2_brport_flags(ifp->ifindex, entry->is_bum);
-			if (entry->vid)
-				dplane_srl2_bridge_vlan_add(ifp->ifindex, entry->vid,
-							    false /* untagged */, false /* pvid */);
-		}
-		dplane_srl2_if_up(ifp->ifindex);
+		strlcpy(entry->ifname, ifp->name, sizeof(entry->ifname));
+		srl2_program_if(entry);
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("%s: srl2 %s added (ifindex %u); programmed + re-realizing bridge %u",
-				   __func__, ifp->name, ifp->ifindex, entry->bridge_ifindex);
-
-		zebra_srv6_l2evpn_realize_on_bridge(entry->bridge_ifindex);
-		break;
+			zlog_debug("%s: srl2 %s (ifindex %u) appeared; programmed SID %pI6",
+				   __func__, ifp->name, ifp->ifindex, &entry->sid);
 	}
+
+	if (bridge_ifindex != 0)
+		zebra_srv6_l2evpn_realize_on_bridge(bridge_ifindex);
 }
 
 /*
@@ -348,7 +399,8 @@ void zebra_srl2_bind_vlan_on_bridge(ifindex_t bridge_ifindex, vlanid_t vid)
  * orphan pre-delete only catches a name that the counter happens to
  * regenerate.  Scan zebra's interface table by name prefix + bridge master.
  */
-static void srl2_release_kernel_orphans_on_bridge(ifindex_t bridge_ifindex)
+static void srl2_release_kernel_orphans_on_bridge(ifindex_t bridge_ifindex,
+						  const ifindex_t *skip, size_t nskip)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
@@ -358,6 +410,8 @@ static void srl2_release_kernel_orphans_on_bridge(ifindex_t bridge_ifindex)
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct zebra_if *zif = ifp->info;
+		size_t i;
+		bool handled = false;
 
 		if (!zif)
 			continue;
@@ -366,10 +420,27 @@ static void srl2_release_kernel_orphans_on_bridge(ifindex_t bridge_ifindex)
 		if (strncmp(ifp->name, "srl2-", 5) != 0 && strncmp(ifp->name, "bum-srl2-", 9) != 0)
 			continue;
 
+		/*
+		 * Skip interfaces the tracked-entry loop already reset in this
+		 * teardown.  Those entries have just been removed from the hash,
+		 * so a name-prefix match here would otherwise re-reset the SAME
+		 * ifindex - a redundant duplicate RTM_NEWLINK changelink in the
+		 * same dplane batch.  Only genuinely untracked leftovers (from a
+		 * prior zebra run) should be reset here.
+		 */
+		for (i = 0; i < nskip; i++) {
+			if (skip[i] == ifp->ifindex) {
+				handled = true;
+				break;
+			}
+		}
+		if (handled)
+			continue;
+
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("%s: deleting orphan srl2 %s (ifindex %u) on bridge %u (EVI teardown)",
+			zlog_debug("%s: resetting orphan srl2 %s (ifindex %u) on bridge %u (EVI teardown)",
 				   __func__, ifp->name, ifp->ifindex, bridge_ifindex);
-		dplane_link_delete(ifp->ifindex);
+		srl2_reset_if(ifp->ifindex);
 	}
 }
 
@@ -382,6 +453,8 @@ static void srl2_release_kernel_orphans_on_bridge(ifindex_t bridge_ifindex)
 void zebra_srl2_release_all_on_bridge(ifindex_t bridge_ifindex)
 {
 	struct zebra_srl2 *entry;
+	ifindex_t reset_ifindexes[64];
+	size_t n_reset = 0;
 
 	if (!srl2_inited || bridge_ifindex == 0)
 		return;
@@ -391,17 +464,23 @@ void zebra_srl2_release_all_on_bridge(ifindex_t bridge_ifindex)
 			continue;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("%s: force-deleting srl2 %s (ifindex %u) SID %pI6 on bridge %u (EVI teardown)",
+			zlog_debug("%s: resetting srl2 %s (ifindex %u) SID %pI6 on bridge %u (EVI teardown)",
 				   __func__, entry->ifname, entry->ifindex, &entry->sid,
 				   bridge_ifindex);
 
-		dplane_link_delete(entry->ifindex);
+		srl2_reset_if(entry->ifindex);
+		if (n_reset < array_size(reset_ifindexes))
+			reset_ifindexes[n_reset++] = entry->ifindex;
 		srl2_htab_del(srl2_table, entry);
 		XFREE(MTYPE_ZEBRA_SRL2, entry);
 	}
 
-	/* Catch interfaces left behind by a previous zebra run (not in table). */
-	srl2_release_kernel_orphans_on_bridge(bridge_ifindex);
+	/*
+	 * Catch interfaces left behind by a previous zebra run (not in table),
+	 * skipping the ones just reset above so we don't emit a second, redundant
+	 * reset changelink for the same ifindex.
+	 */
+	srl2_release_kernel_orphans_on_bridge(bridge_ifindex, reset_ifindexes, n_reset);
 }
 
 /*
@@ -439,7 +518,26 @@ struct zebra_srl2 *zebra_srl2_update_sid(const struct in6_addr *old_sid,
 }
 
 /*
- * Decrement refcount.  Delete the kernel interface when it reaches zero.
+ * Reset an operator-owned srl2 interface's encap policy in place: program segs
+ * :: (stop encapsulating) while keeping the kernel-mirrored MTU and encap mode.
+ * The netdev is never deleted.
+ */
+static void srl2_reset_if(ifindex_t ifindex)
+{
+	struct in6_addr any = {};
+
+	if (ifindex == 0)
+		return;
+	dplane_srl2_program(ifindex, &any,
+			    zebra_srl2_get_mtu() ? zebra_srl2_get_mtu()
+						 : ZEBRA_SRL2_DEFAULT_MTU,
+			    zebra_srl2_kernel_encap_mode(ifindex,
+						 zebra_srl2_get_encap_mode()));
+}
+
+/*
+ * Decrement refcount.  Reset the encap policy when it reaches zero; the
+ * operator-owned kernel interface is never deleted.
  */
 void zebra_srl2_release(const struct in6_addr *sid)
 {
@@ -453,12 +551,12 @@ void zebra_srl2_release(const struct in6_addr *sid)
 		return;
 	}
 
-	/* Last reference - delete the kernel interface. */
+	/* Last reference - reset the interface (segs ::), keep it in place. */
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s: deleting srl2 if %s (ifindex %u) for SID %pI6", __func__,
+		zlog_debug("%s: resetting srl2 if %s (ifindex %u) for SID %pI6", __func__,
 			   entry->ifname, entry->ifindex, sid);
 
-	dplane_link_delete(entry->ifindex);
+	srl2_reset_if(entry->ifindex);
 	srl2_htab_del(srl2_table, entry);
 	XFREE(MTYPE_ZEBRA_SRL2, entry);
 }
@@ -482,6 +580,12 @@ enum zebra_srl2_encap_mode zebra_srl2_get_encap_mode(void)
 const char *zebra_srl2_encap_mode2str(enum zebra_srl2_encap_mode mode)
 {
 	return mode == ZEBRA_SRL2_ENCAP_MODE_REDUCED ? "reduced" : "full";
+}
+
+
+uint8_t zebra_srl2_kernel_encap_mode(ifindex_t ifindex, uint8_t fallback)
+{
+	return fallback;
 }
 
 static uint32_t srl2_mtu = ZEBRA_SRL2_MTU_UNSET;
@@ -540,6 +644,11 @@ void zebra_srl2_walk(void (*cb)(struct zebra_srl2 *srl2, void *arg), void *arg)
 struct zebra_srl2 *zebra_srl2_find_on_bridge(ifindex_t bridge_ifindex, bool is_bum)
 {
 	return NULL;
+}
+
+ifindex_t zebra_srl2_discover_on_bridge(ifindex_t bridge_ifindex, bool is_bum, char *namebuf)
+{
+	return 0;
 }
 
 void zebra_srl2_release_all_on_bridge(ifindex_t bridge_ifindex)

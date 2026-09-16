@@ -5,14 +5,15 @@
  * Copyright (C) 2026 Aviz Networks
  *
  * For each VPWS instance:
- *   1. on LOCAL_ADD : bind the operator-created bridge, enslave AC,
+ *   1. on LOCAL_ADD : resolve the operator-created bridge + AC,
  *                     install End.DX2 decap with oif = AC ifindex.
- *   2. on REMOTE_ADD: create srl2 `vpws-srl2-<name>` with segs=peer_sid,
- *                     enslave it to the bridge with flood/learning flags set
- *                     for point-to-point operation.
- *   3. LOCAL_DEL / REMOTE_DEL: symmetric teardown.
+ *   2. on REMOTE_ADD: discover the operator-created srl2 `vpws-srl2-<name>`
+ *                     and program segs=peer_sid into it in place.
+ *   3. LOCAL_DEL / REMOTE_DEL: symmetric teardown (reset, never delete).
  *
- * State is held in a small hash keyed by instance name. We do NOT touch
+ * Operator-owned model: the operator creates the bridge, the AC (its vlan)
+ * and the srl2 netdev, and enslaves them.  FRR never creates, deletes or
+ * enslaves any interface; it only programs / resets the SID.  We do NOT touch
  * the ELAN bridge/br10 or any srl2-N / bum-srl2-N interface.
  */
 
@@ -42,8 +43,8 @@
 #include "lib/netlink_parser.h" /* 10.6: nl_attr_put*, netlink_parse_rtattr* */
 #include "zebra/interface.h"
 #include "zebra/zebra_router.h"
-#include "zebra/zebra_dplane.h" /* dplane_intf_set_master/link_delete */
-#include "zebra/zebra_srl2.h"	/* reuse srl2-create helpers */
+#include "zebra/zebra_dplane.h" /* dplane_srl2_program (in-place SID) */
+#include "zebra/zebra_srl2.h"	/* srl2 discovery / program helpers */
 #include "zebra/zebra_srv6_vpws.h"
 #include "zebra/zebra_ns.h"
 
@@ -62,6 +63,7 @@ struct zsrv6_vpws {
 	ifindex_t br_ifindex;
 	ifindex_t srl2_ifindex;	   /* 0 until REMOTE_ADD */
 	bool srl2_pending;	   /* create queued via dplane, ifindex not yet known */
+	uint8_t l2_encap_mode;	   /* mirrored from kernel; no software default */
 	struct in6_addr local_sid; /* DX2 decap installed */
 	struct in6_addr peer_sid;  /* srl2 encap dst */
 	bool remote_present;
@@ -121,8 +123,9 @@ void zebra_srv6_vpws_walk_encap(void (*cb)(const struct in6_addr *peer_sid, ifin
 /*
  * Live-apply the device-wide srl2 MTU (`l2-mtu`) to every VPWS srl2 encap
  * interface.  VPWS srl2 ports are tracked in this module's own vpws_hash, not
- * the EVPN srl2 table, so zebra_srl2_set_mtu() cannot reach them - it calls
- * here.  Each change is queued on the dplane thread (dplane_srl2_set_mtu()).
+ * the EVPN srl2 table, so the device-wide MTU change cannot reach them - it
+ * calls here.  Each srl2 is re-programmed {MTU, mode, SID} on the dplane
+ * thread (dplane_srl2_program()).
  * New VPWS srl2 interfaces pick the MTU up at create time (IFLA_MTU on the
  * shared SRL2_CREATE path), so this only reprograms already-created ones.
  */
@@ -134,8 +137,9 @@ void zebra_srv6_vpws_apply_mtu(uint32_t mtu)
 		return;
 
 	frr_each (vpws_htab, vpws_hash, v)
-		if (v->srl2_ifindex)
-			dplane_srl2_set_mtu(v->srl2_ifindex, mtu);
+		if (v->srl2_ifindex && v->remote_present)
+			dplane_srl2_program(v->srl2_ifindex, &v->peer_sid, mtu,
+					    v->l2_encap_mode);
 }
 
 /* ---------- peer-SID underlay /128 flush ----------
@@ -179,12 +183,12 @@ static void vpws_flush_underlay_sid(const struct in6_addr *sid)
 
 /* ---------- operator bridge / interface-add hook ----------
  *
- * Operator-created bridge model: zebra does NOT create a bridge for the
- * pseudowire.  The operator provisions a dedicated bridge and names it in the
- * `interface <ac> ... bridge <br>` CLI; zebra only enslaves the AC and the srl2
- * encap netdev to it, through the dataplane provider abstraction
- * (dplane_intf_set_master() / dplane_link_delete()), not private netlink
- * sockets.
+ * Operator-owned model: zebra does NOT create the bridge, the AC or the
+ * srl2 encap netdev, and does NOT enslave/un-enslave them.  The operator
+ * provisions the bridge, the AC (`vpws-srl2-<inst>` + its vlan) and enslaves
+ * them.  zebra only discovers the srl2 netdev by name and programs the peer
+ * SID into it in place; on teardown it resets that programmed value, leaving
+ * the netdev and its bridge membership untouched.
  *
  * The bridge must be present and used EXCLUSIVELY by this instance.  It is
  * resolved synchronously in local_add() when already present; if the operator
@@ -202,6 +206,7 @@ static bool vpws_bridge_usable(struct zsrv6_vpws *v, struct interface *br_ifp)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
+	char srl2name[IFNAMSIZ];
 
 	if (!br_ifp || !IS_ZEBRA_IF_BRIDGE(br_ifp)) {
 		zlog_err("VPWS %s: %s is not a bridge - cannot bind", v->name, v->bridge_ifname);
@@ -210,16 +215,34 @@ static bool vpws_bridge_usable(struct zsrv6_vpws *v, struct interface *br_ifp)
 	if (!vrf)
 		return false;
 
+	if (snprintfrr(srl2name, sizeof(srl2name), "vpws-srl2-%s", v->name) >=
+	    (int)sizeof(srl2name))
+		srl2name[0] = '\0';
+
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct zebra_if *zif = ifp->info;
 
 		if (!zif || !IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) ||
 		    zif->brslave_info.bridge_ifindex != br_ifp->ifindex)
 			continue;
-		/* This instance's own ports are allowed; anything else means the
+		/*
+		 * This instance's own ports are allowed; anything else means the
 		 * bridge is shared and therefore not dedicated to this VPWS.
+		 *
+		 * Operator-owned model: the operator pre-enslaves this instance's
+		 * AC and its vpws-srl2-<inst> netdev before FRR has resolved their
+		 * ifindices (v->srl2_ifindex is still 0 at local_add time, and the
+		 * AC may not be resolved yet either).  So match this instance's own
+		 * ports by NAME as well as by tracked ifindex - otherwise an
+		 * operator-enslaved srl2 makes the dedicated bridge look "shared"
+		 * and the pseudowire is refused (br_ifindex never set, peer SID
+		 * never programmed).
 		 */
 		if (ifp->ifindex == v->ac_ifindex || ifp->ifindex == v->srl2_ifindex)
+			continue;
+		if (v->ac_ifname[0] && strcmp(ifp->name, v->ac_ifname) == 0)
+			continue;
+		if (srl2name[0] && strcmp(ifp->name, srl2name) == 0)
 			continue;
 		zlog_err("VPWS %s: bridge %s already has port %s; a VPWS bridge must be used exclusively by one instance",
 			 v->name, v->bridge_ifname, ifp->name);
@@ -229,21 +252,23 @@ static bool vpws_bridge_usable(struct zsrv6_vpws *v, struct interface *br_ifp)
 }
 
 /*
- * The dedicated bridge is present (v->br_ifindex set): enslave the AC and finish
- * a remote that was learned before the bridge existed.  Called from local_add()
- * (bridge already present) and from the interface-add hook (bridge just
- * created).
+ * The dedicated bridge is present (v->br_ifindex set): finish a remote that was
+ * learned before the bridge existed.  The operator owns the bridge and the
+ * enslaving of the AC / srl2; FRR does not.  Called from local_add() (bridge
+ * already present) and from the interface-add hook (bridge just created).
  */
 static void vpws_on_bridge_ready(struct zsrv6_vpws *v)
 {
-	if (v->ac_ifindex) {
-		dplane_intf_set_master(v->ac_ifindex, v->br_ifindex);
-		zlog_debug("VPWS %s: AC %s enslave queued to bridge ifindex %u", v->name,
-			   v->ac_ifname, v->br_ifindex);
-	}
-
-	/* If a remote was learned before the local bridge came up, finish it. */
-	if (v->remote_present && v->srl2_ifindex == 0 && !v->srl2_pending) {
+	/*
+	 * If a remote was learned before the bridge was usable, finish it now.
+	 * remote_add() deferred (returned early) while br_ifindex was 0 and did
+	 * NOT program the peer SID, so re-drive it whenever a remote is present -
+	 * NOT only when srl2_ifindex == 0.  The srl2 ifindex is usually already
+	 * resolved by the interface-add hook by this point, and gating on
+	 * srl2_ifindex == 0 would skip the deferred program and leave segs ::.
+	 * remote_add() is idempotent (a complete re-statement of {mtu,mode,SID}).
+	 */
+	if (v->remote_present) {
 		struct zapi_vpws_remote r = {};
 
 		strlcpy(r.instance_name, v->name, sizeof(r.instance_name));
@@ -255,8 +280,8 @@ static void vpws_on_bridge_ready(struct zsrv6_vpws *v)
 /*
  * Interface-add notification from zebra's if_add_update() (see interface.c).
  * Resolves the operator bridge ifindex when it appears (VPWS config may precede
- * the bridge), validates it, and finishes the deferred enslave.  Also picks up
- * an AC that becomes available after the bridge.
+ * the bridge), validates it, and finishes the deferred SID program.  Also picks
+ * up an AC that becomes available after the bridge.
  *
  * NOTE: the lib if_add hook fires at struct-creation time, BEFORE the ifindex is
  * assigned (ifindex == 0), and zebra never fires the if_real/if_up hooks (those
@@ -272,13 +297,13 @@ void zebra_srv6_vpws_if_add(struct interface *ifp)
 		return;
 
 	frr_each (vpws_htab, vpws_hash, v) {
-		/* Our operator bridge just appeared: validate + finish enslave. */
+		/* Our operator bridge just appeared: validate + finish setup. */
 		if (v->br_ifindex == 0 && v->bridge_ifname[0] &&
 		    strcmp(ifp->name, v->bridge_ifname) == 0) {
 			if (!vpws_bridge_usable(v, ifp))
 				continue; /* logged; leave br_ifindex unset */
 			v->br_ifindex = ifp->ifindex;
-			zlog_debug("VPWS %s: bridge %s added (ifindex=%u), finishing enslave",
+			zlog_debug("VPWS %s: bridge %s added (ifindex=%u), finishing setup",
 				   v->name, v->bridge_ifname, v->br_ifindex);
 			vpws_on_bridge_ready(v);
 			continue;
@@ -290,29 +315,33 @@ void zebra_srv6_vpws_if_add(struct interface *ifp)
 		 * from what we track - not only when srl2_ifindex == 0.  If an
 		 * earlier same-named netdev was deleted (churn) srl2_ifindex can be
 		 * left pointing at the stale ifindex; keying on ifindex mismatch lets
-		 * the freshly created netdev still be brought up and enslaved instead
-		 * of being stranded DOWN.
+		 * the freshly (re)created netdev be (re)programmed instead of being
+		 * stranded with a stale SID.
 		 */
 		if (snprintfrr(srl2name, sizeof(srl2name), "vpws-srl2-%s", v->name) <
 			    (int)sizeof(srl2name) &&
 		    v->srl2_ifindex != ifp->ifindex && strcmp(ifp->name, srl2name) == 0) {
 			v->srl2_ifindex = ifp->ifindex;
 			v->srl2_pending = false;
-			dplane_srl2_addrgenmode(ifp->ifindex);
-			if (v->br_ifindex)
-				dplane_intf_set_master(ifp->ifindex, v->br_ifindex);
-			dplane_srl2_if_up(ifp->ifindex);
+			/* Operator owns enslave/up; FRR only programs the SID. */
+			v->l2_encap_mode = zebra_srl2_kernel_encap_mode(
+				ifp->ifindex, zebra_srl2_get_encap_mode());
+			dplane_srl2_program(ifp->ifindex, &v->peer_sid,
+					    zebra_srl2_get_mtu() ? zebra_srl2_get_mtu()
+								 : ZEBRA_SRL2_DEFAULT_MTU,
+					    v->l2_encap_mode);
 			zlog_debug("VPWS %s: srl2 %s added (ifindex=%u), programmed", v->name,
 				   srl2name, ifp->ifindex);
 			continue;
 		}
 
-		/* The AC appeared after the bridge: enslave it now. */
+		/* The AC appeared: track its ifindex.  The operator enslaves it to the
+		 * bridge; FRR does not.
+		 */
 		if (v->br_ifindex != 0 && v->ac_ifindex == 0 && v->ac_ifname[0] &&
 		    strcmp(ifp->name, v->ac_ifname) == 0) {
 			v->ac_ifindex = ifp->ifindex;
-			dplane_intf_set_master(v->ac_ifindex, v->br_ifindex);
-			zlog_debug("VPWS %s: AC %s added (ifindex=%u), enslave queued", v->name,
+			zlog_debug("VPWS %s: AC %s added (ifindex=%u)", v->name,
 				   v->ac_ifname, v->ac_ifindex);
 		}
 	}
@@ -354,7 +383,7 @@ int zebra_srv6_vpws_local_add(const struct zapi_vpws_local *api)
 	if (v->br_ifindex == 0) {
 		br_ifp = if_lookup_by_name(v->bridge_ifname, VRF_DEFAULT);
 		if (!br_ifp || br_ifp->ifindex == 0) {
-			zlog_warn("VPWS %s: bridge %s not present yet, deferring enslave to if-add",
+			zlog_warn("VPWS %s: bridge %s not present yet, deferring setup to if-add",
 				  v->name, v->bridge_ifname);
 			return 0;
 		}
@@ -364,10 +393,11 @@ int zebra_srv6_vpws_local_add(const struct zapi_vpws_local *api)
 	}
 
 	/*
-	 * Bridge resolved: enslave the AC and finish any deferred remote.  The
+	 * Bridge resolved: finish any deferred remote (program the srl2 SID).  The
 	 * local End.DX2 decap route is installed by bgpd through the RIB
 	 * (zclient_send_localsid), the same way End.DT2U/DT2M are; zebra only
-	 * sets up the srl2 encap / AC enslave here.
+	 * programs the operator-created srl2 encap netdev here - the operator
+	 * owns the AC / srl2 enslave.
 	 */
 	vpws_on_bridge_ready(v);
 	return 0;
@@ -382,7 +412,13 @@ int zebra_srv6_vpws_local_del(const char *instance_name)
 
 	/* tear remote first */
 	if (v->srl2_ifindex) {
-		dplane_link_delete(v->srl2_ifindex);
+		/* Reset the encap policy (segs ::); operator-owned netdev stays. */
+		struct in6_addr any = {};
+
+		dplane_srl2_program(v->srl2_ifindex, &any,
+				    zebra_srl2_get_mtu() ? zebra_srl2_get_mtu()
+							 : ZEBRA_SRL2_DEFAULT_MTU,
+				    v->l2_encap_mode);
 		v->srl2_ifindex = 0;
 	}
 	/*
@@ -404,12 +440,9 @@ int zebra_srv6_vpws_local_del(const char *instance_name)
 	/* The End.DX2 decap route is bgpd-owned (RIB); bgpd removes it via
 	 * zclient_send_localsid on VPWS teardown/SID-release.
 	 */
-	if (v->ac_ifindex)
-		dplane_intf_set_master(v->ac_ifindex, 0);
 	/*
-	 * The bridge is operator-owned in this model - do NOT delete it, only
-	 * detach our ports.  The srl2 was deleted above; the AC was unenslaved
-	 * just above.
+	 * The bridge, AC and srl2 are operator-owned - FRR detaches nothing on
+	 * teardown.  The srl2 encap was reset above.
 	 */
 	v->br_ifindex = 0;
 	vpws_htab_del(vpws_hash, v);
@@ -432,82 +465,51 @@ int zebra_srv6_vpws_remote_add(const struct zapi_vpws_remote *api)
 	if (v->br_ifindex == 0) {
 		/* Store the SID so we can finish when the local AC arrives. */
 		v->peer_sid = api->peer_sid;
-		zlog_debug("VPWS %s: remote received before local ready, deferring srl2 create",
+		zlog_debug("VPWS %s: remote received before local ready, deferring srl2 program",
 			   v->name);
 		return 0;
 	}
-	/*
-	 * A create for this instance is already in flight (srl2_pending, ifindex
-	 * not yet learned) or already done (srl2_ifindex set).  If the desired
-	 * peer SID is unchanged there is nothing to do.  This guard is critical
-	 * during the async create window: without it a duplicate remote_add with
-	 * the SAME SID falls through to the if_nametoindex() stale-delete below,
-	 * which finds the in-flight kernel netdev and deletes+recreates it.  The
-	 * recreated netdev then races the hook (srl2_ifindex still points at the
-	 * deleted one) and is stranded DOWN/unenslaved.
-	 */
-	if ((v->srl2_pending || v->srl2_ifindex) &&
-	    memcmp(&v->peer_sid, &api->peer_sid, sizeof(v->peer_sid)) == 0) {
-		zlog_debug("VPWS %s: srl2 create already in-flight/done with same peer SID %pI6, skipping",
-			   v->name, &v->peer_sid);
-		return 0;
-	}
-	if (v->srl2_ifindex) {
-		/* srl2 already exists - check if the peer SID has changed
-		 * (e.g. normal->uSID locator migration).  If the SID is
-		 * identical just skip; if it differs tear down the old srl2
-		 * first so we create a fresh one with the new SID.
-		 */
-		if (memcmp(&v->peer_sid, &api->peer_sid, sizeof(v->peer_sid)) == 0) {
-			zlog_debug("VPWS %s: srl2 already present with same SID (ifindex=%u), skipping",
-				   v->name, v->srl2_ifindex);
-			return 0;
-		}
-		zlog_debug("VPWS %s: peer SID changed (%pI6 -> %pI6), tearing down old srl2 (ifindex=%u) for re-create",
-			   v->name, &v->peer_sid, &api->peer_sid, v->srl2_ifindex);
-		dplane_link_delete(v->srl2_ifindex);
-		v->srl2_ifindex = 0;
-	}
 
-	/* Update stored peer SID to the incoming value before creating srl2. */
+	/* Store the peer SID (the srl2 encap dst) for this and later re-drives. */
 	v->peer_sid = api->peer_sid;
 
-	/* 1. create srl2 with peer SID as encap dst */
+	/*
+	 * Operator-owned model: FRR does NOT create the vpws-srl2-<inst> netdev.
+	 * Resolve its ifindex by name; if not present yet, record the SID and
+	 * program it once the interface-add hook (zebra_srv6_vpws_if_add) sees it.
+	 */
 	if (snprintfrr(ifname, sizeof(ifname), "vpws-srl2-%s", v->name) >= (int)sizeof(ifname)) {
 		zlog_err("%s: VPWS instance name '%s' too long for srl2 ifname", __func__, v->name);
 		return -1;
 	}
 
-	/*
-	 * Defensive: if an srl2 interface with this name was leaked by an
-	 * earlier run (untracked because v->srl2_ifindex was lost across a
-	 * locator-format migration), netlink_srl2_if_add() - which uses
-	 * NLM_F_EXCL - would fail with EEXIST and strand a srl2 pointing at
-	 * the OLD peer SID. Delete any leftover by name first so the create
-	 * below always starts clean with the new peer SID.
-	 */
-	{
-		ifindex_t stale = if_nametoindex(ifname);
+	if (v->srl2_ifindex == 0) {
+		struct interface *srl2_ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 
-		if (stale != 0) {
-			zlog_debug("VPWS %s: stale srl2 %s (ifindex=%u) found before create, deleting",
-				   v->name, ifname, stale);
-			dplane_link_delete(stale);
-		}
+		if (srl2_ifp && srl2_ifp->ifindex)
+			v->srl2_ifindex = srl2_ifp->ifindex;
+	}
+
+	if (v->srl2_ifindex == 0) {
+		v->srl2_pending = true;
+		zlog_debug("VPWS %s: srl2 %s not present yet, will program peer SID %pI6 on if-add",
+			   v->name, ifname, &v->peer_sid);
+		return 0;
 	}
 
 	/*
-	 * Create the srl2 through the dataplane provider (fire-and-forget).  The
-	 * kernel ifindex is unknown here; it stays 0 (srl2_pending set) until
-	 * zebra_srv6_vpws_if_add() sees the netdev appear and queues
-	 * addr-gen-mode -> enslave -> up.  The DX2 encap (walk_encap) is gated on
-	 * srl2_ifindex != 0 and re-drives once the ifindex is known.
+	 * Program the encap policy {MTU, mode, peer-SID} in place (idempotent; a
+	 * peer SID change is a complete re-statement).  The mode mirrors the
+	 * operator's kernel-configured mode.  The interface is never recreated.
 	 */
-	v->srl2_ifindex = 0;
-	v->srl2_pending = true;
-	dplane_srl2_create(ifname, &v->peer_sid);
-	zlog_debug("VPWS %s: srl2 %s create queued (peer=%pI6, ifindex pending)", v->name, ifname,
-		   &v->peer_sid);
+	v->l2_encap_mode = zebra_srl2_kernel_encap_mode(v->srl2_ifindex,
+							zebra_srl2_get_encap_mode());
+	v->srl2_pending = false;
+	dplane_srl2_program(v->srl2_ifindex, &v->peer_sid,
+			    zebra_srl2_get_mtu() ? zebra_srl2_get_mtu() : ZEBRA_SRL2_DEFAULT_MTU,
+			    v->l2_encap_mode);
+	zlog_debug("VPWS %s: srl2 %s (ifindex=%u) programmed with peer SID %pI6", v->name, ifname,
+		   v->srl2_ifindex, &v->peer_sid);
 
 	return 0;
 }
@@ -519,8 +521,13 @@ int zebra_srv6_vpws_remote_del(const char *instance_name)
 	if (!v)
 		return 0;
 	if (v->srl2_ifindex) {
-		dplane_link_delete(v->srl2_ifindex);
-		v->srl2_ifindex = 0;
+		/* Reset the encap policy (segs ::); operator-owned netdev stays. */
+		struct in6_addr any = {};
+
+		dplane_srl2_program(v->srl2_ifindex, &any,
+				    zebra_srl2_get_mtu() ? zebra_srl2_get_mtu()
+							 : ZEBRA_SRL2_DEFAULT_MTU,
+				    v->l2_encap_mode);
 	}
 	/* Remove the peer-SID underlay /128 before clearing the stored SID. */
 	vpws_flush_underlay_sid(&v->peer_sid);
@@ -556,10 +563,11 @@ void zebra_srv6_vpws_delete_all_kernel(void)
 		/* The End.DX2 decap route is bgpd-owned (RIB); zebra purges all
 		 * bgpd routes when bgpd disconnects, so nothing dangles here.
 		 */
-		if (v->srl2_ifindex) {
-			dplane_link_delete(v->srl2_ifindex);
-			v->srl2_ifindex = 0;
-		}
+		/*
+		 * srl2 netdevs are operator-owned - never deleted here.  Their
+		 * encap SID is reset on remote/local teardown; on shutdown FRR
+		 * leaves them in place (re-programmed idempotently on restart).
+		 */
 		/* The bridge is operator-owned - never delete it here. */
 		v->br_ifindex = 0;
 	}

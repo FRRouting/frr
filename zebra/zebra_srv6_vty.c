@@ -146,8 +146,7 @@ DEFPY (show_srv6_manager,
 		 * tunnel interfaces (full = keep SRH, reduced =
 		 * H.Encaps.L2.Red single-SID).
 		 */
-		json_object_string_add(json_encapsulation, "l2Mode",
-				       zebra_srl2_encap_mode2str(zebra_srl2_get_encap_mode()));
+		json_object_string_add(json_encapsulation, "l2Mode", "kernel-owned");
 		if (zebra_srl2_get_mtu() != ZEBRA_SRL2_MTU_UNSET)
 			json_object_int_add(json_encapsulation, "l2Mtu", zebra_srl2_get_mtu());
 		else
@@ -158,8 +157,7 @@ DEFPY (show_srv6_manager,
 		vty_out(vty, "  Encapsulation:\n");
 		vty_out(vty, "    Source Address:\n");
 		vty_out(vty, "      Configured: %pI6\n", &srv6->encap_src_addr);
-		vty_out(vty, "    L2 EVPN (srl2) Mode: %s\n",
-			zebra_srl2_encap_mode2str(zebra_srl2_get_encap_mode()));
+		vty_out(vty, "    L2 EVPN (srl2) Mode: kernel-owned (per EVI/VPWS)\n");
 		if (zebra_srl2_get_mtu() != ZEBRA_SRL2_MTU_UNSET)
 			vty_out(vty, "    L2 EVPN (srl2) MTU: %u\n", zebra_srl2_get_mtu());
 		else
@@ -1885,32 +1883,11 @@ DEFPY_NOSH (srv6_l2evpn,
 	return CMD_SUCCESS;
 }
 
-DEFPY (srv6_l2evpn_encap_mode,
-       srv6_l2evpn_encap_mode_cmd,
-       "l2-encap-mode <full|reduced>$mode",
-       "SRv6 L2 (sr6) encapsulation mode for srl2 tunnel interfaces\n"
-       "Keep the Segment Routing Header on the wire (default)\n"
-       "Single-SID H.Encaps.L2.Red: SID in the outer IPv6 DA, no SRH\n")
-{
-	/* Applies to srl2 interfaces created after this point; existing ones
-	 * keep their mode until they are recreated (sr6 has no changelink).
-	 */
-	zebra_srl2_set_encap_mode(strmatch(mode, "reduced") ? ZEBRA_SRL2_ENCAP_MODE_REDUCED
-							    : ZEBRA_SRL2_ENCAP_MODE_FULL);
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_srv6_l2evpn_encap_mode,
-       no_srv6_l2evpn_encap_mode_cmd,
-       "no l2-encap-mode [<full|reduced>]",
-       NO_STR
-       "SRv6 L2 (sr6) encapsulation mode for srl2 tunnel interfaces\n"
-       "Keep the Segment Routing Header on the wire (default)\n"
-       "Single-SID H.Encaps.L2.Red: SID in the outer IPv6 DA, no SRH\n")
-{
-	zebra_srl2_set_encap_mode(ZEBRA_SRL2_ENCAP_MODE_FULL);
-	return CMD_SUCCESS;
-}
+/*
+ * The `l2-encap-mode` CLI has been removed: the srl2 encap mode is owned by the
+ * kernel (operator `ip link add ... type sr6 mode ...`).  FRR MIRRORS it per EVI
+ * / VPWS (read from IFLA_SR6_ENCAP_MODE) and never imposes a software default.
+ */
 
 DEFPY (srv6_l2evpn_mtu,
        srv6_l2evpn_mtu_cmd,
@@ -2092,8 +2069,6 @@ void zebra_srv6_vty_init(void)
 
 	/* SRv6 L2 EVPN (VLAN-to-EVI) */
 	install_element(SRV6_NODE, &srv6_l2evpn_cmd);
-	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_encap_mode_cmd);
-	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_encap_mode_cmd);
 	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_mtu_cmd);
 	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_mtu_cmd);
 	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_evi_cmd);

@@ -83,6 +83,15 @@ enum zebra_srl2_encap_mode {
 extern void zebra_srl2_set_encap_mode(enum zebra_srl2_encap_mode mode);
 extern enum zebra_srl2_encap_mode zebra_srl2_get_encap_mode(void);
 extern const char *zebra_srl2_encap_mode2str(enum zebra_srl2_encap_mode mode);
+/* Kernel-reported encap mode of the operator-owned srl2 @ifindex (cached on
+ * zebra_if), or @fallback if unknown.  No software default.
+ */
+extern uint8_t zebra_srl2_kernel_encap_mode(ifindex_t ifindex, uint8_t fallback);
+/* Discover the operator-owned srl2 (is_bum=false)/bum-srl2 (is_bum=true) on a
+ * bridge by name prefix; 0 if not present.  namebuf (optional) gets the name.
+ */
+extern ifindex_t zebra_srl2_discover_on_bridge(ifindex_t bridge_ifindex, bool is_bum,
+					       char *namebuf);
 
 /*
  * Device-wide MTU applied to every srl2 tunnel interface.  0 = unset: zebra
