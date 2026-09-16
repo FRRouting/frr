@@ -1132,6 +1132,122 @@ def test_pim_autorp_discovery_static(request):
         assert result is None, "{} does not have correct rp-info".format(rtr)
 
 
+def test_pim_autorp_mapping_agent_election(request):
+    "Test PIM AutoRP mapping agent election with multiple mapping agents"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    # r1 is already a mapping agent with source 10.0.0.1 from previous tests.
+    # Configure r4 as a second mapping agent with source 10.0.3.4.
+    # Since 10.0.3.4 > 10.0.0.1, r4 should win and r1 should be suppressed.
+    step("Configure r4 as a second mapping agent")
+    tgen.routers()["r4"].vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp send-rp-discovery source interface r4-eth1
+          autorp send-rp-discovery scope 31 interval 1 holdtime 15
+        """
+    )
+
+    step("Verify r4 mapping agent is active (higher IP wins)")
+    expected = json.loads(
+        """
+        {
+          "mapping-agent": {
+            "enabled":true,
+            "active":true,
+            "address":"10.0.3.4"
+          }
+        }"""
+    )
+    test_func = partial(
+        topotest.router_json_cmp, tgen.gears["r4"], "show ip pim autorp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r4 mapping agent should be active"
+
+    step("Verify r1 mapping agent is suppressed (lower IP loses)")
+    expected = json.loads(
+        """
+        {
+          "mapping-agent": {
+            "enabled":true,
+            "active":false
+          }
+        }"""
+    )
+    test_func = partial(
+        topotest.router_json_cmp, tgen.gears["r1"], "show ip pim autorp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r1 mapping agent should be suppressed"
+
+    # Verify all routers learn RPs from the active mapping agent (r4).
+    # This also implicitly verifies discovery is sent on all interfaces:
+    #   - r4 is connected to r2 via r4-eth0 (10.0.2.0/24)
+    #   - r4 is connected to r3 via r4-eth1 (10.0.3.0/24)
+    # Both r2 and r3 receiving discovery proves r4 sends on both interfaces.
+    step("Verify all routers learn RPs from the active mapping agent")
+    expected = json.loads(
+        """
+        {
+          "10.0.0.2":[
+            {
+              "rpAddress":"10.0.0.2",
+              "group":"224.0.0.0/4",
+              "source":"AutoRP"
+            }
+          ],
+          "10.0.1.3":[
+            {
+              "rpAddress":"10.0.1.3",
+              "prefixList":"__AUTORP_10.0.1.3__",
+              "source":"AutoRP"
+            }
+          ]
+        }"""
+    )
+    for rtr in ["r1", "r2", "r3", "r4"]:
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[rtr],
+            "show ip pim rp-info json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None)
+        assert result is None, "{} does not have correct rp-info".format(rtr)
+
+    step("Remove r4 mapping agent and verify r1 becomes active again")
+    tgen.routers()["r4"].vtysh_cmd(
+        """
+        conf
+         router pim
+          no autorp send-rp-discovery
+        """
+    )
+
+    expected = json.loads(
+        """
+        {
+          "mapping-agent": {
+            "enabled":true,
+            "active":true,
+            "address":"10.0.0.1"
+          }
+        }"""
+    )
+    test_func = partial(
+        topotest.router_json_cmp, tgen.gears["r1"], "show ip pim autorp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "r1 mapping agent should become active after r4 is removed"
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

@@ -1473,7 +1473,11 @@ int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up, struct
 			return 1;
 	}
 
-	if (chrpt)
+	/*
+	 * prunes(S,G,rpt) is subtracted from joins(*,G) only, so a neighbour
+	 * pruning the RPT cannot cancel a local receiver on this interface.
+	 */
+	if (chrpt && !(starch && pim_macro_chisin_pim_include(starch)))
 		return 0;
 	/*
 	 * joins (*,G)
@@ -2251,7 +2255,7 @@ int pim_upstream_empty_inherited_olist(struct pim_upstream *up)
  * set and see if the new neighbor allows
  * the join to be sent
  */
-void pim_upstream_find_new_rpf(struct pim_instance *pim)
+void pim_upstream_find_new_rpf(struct pim_instance *pim, struct interface *ifp)
 {
 	struct pim_upstream *up;
 	struct pim_rpf old;
@@ -2269,11 +2273,11 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 			continue;
 		}
 
-		if (pim_rpf_addr_is_inaddr_any(&up->rpf)) {
+		if (pim_rpf_addr_is_inaddr_any(&up->rpf) ||
+		    up->rpf.source_nexthop.interface == ifp) {
 			if (PIM_DEBUG_PIM_TRACE)
-				zlog_debug(
-					"%s: Upstream %s without a path to send join, checking",
-					__func__, up->sg_str);
+				zlog_debug("%s: Upstream %s without a path to send join, or interface being used is getting a new neighbor, checking",
+					   __func__, up->sg_str);
 			old.source_nexthop.interface =
 				up->rpf.source_nexthop.interface;
 			rpf_result = pim_rpf_update(pim, up, &old, NULL, __func__);
@@ -2439,18 +2443,35 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 
 	pim_mroute_update_counters(up->channel_oil);
 
-	// Have we seen packets?
-	if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt)
-	    && (up->channel_oil->cc.lastused / 100 > 30)) {
-		if (PIM_DEBUG_PIM_TRACE) {
-			zlog_debug(
-				"%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
-				__func__, up->sg_str, pim->vrf->name,
-				up->channel_oil->cc.oldpktcnt,
-				up->channel_oil->cc.pktcnt,
-				up->channel_oil->cc.lastused / 100);
+	/* Have we seen packets?
+	 *
+	 * The kernel sets lastused when the mroute is installed, so on a
+	 * freshly (re-)installed entry it is the age of the entry and not the
+	 * time since a packet was forwarded.  Only trust it when a source
+	 * stream is already active.
+	 */
+	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+		if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+		    (up->channel_oil->cc.lastused / 100 > 30)) {
+			if (PIM_DEBUG_PIM_TRACE) {
+				zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+					   __func__, up->sg_str, pim->vrf->name,
+					   up->channel_oil->cc.oldpktcnt,
+					   up->channel_oil->cc.pktcnt,
+					   up->channel_oil->cc.lastused / 100);
+			}
+			return rv;
 		}
-		return rv;
+	} else {
+		if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) {
+			if (PIM_DEBUG_PIM_TRACE) {
+				zlog_debug("%s[%s]: %s old packet count is equal, (%ld,%ld)",
+					   __func__, up->sg_str, pim->vrf->name,
+					   up->channel_oil->cc.oldpktcnt,
+					   up->channel_oil->cc.pktcnt);
+			}
+			return rv;
+		}
 	}
 
 	if (pim_upstream_kat_start_ok(up)) {

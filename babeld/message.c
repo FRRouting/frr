@@ -2057,6 +2057,16 @@ void handle_request(struct neighbour *neigh, const unsigned char *prefix, unsign
 	struct babel_route *route;
 	struct neighbour *successor = NULL;
 
+	/* RFC 8966 section 4.6.11: the router id in a seqno request must
+	 * not be all-zero or all-ones; a request carrying a reserved
+	 * value is not answerable and must not be forwarded either.
+	 */
+	if (is_all_zero(id, 8) || is_all_ones(id, 8)) {
+		debugf(BABEL_DEBUG_COMMON, "Received request with invalid router id %s.",
+		       format_eui64(id));
+		return;
+	}
+
 	xroute = find_xroute(prefix, plen);
 	route = find_installed_route(prefix, plen);
 

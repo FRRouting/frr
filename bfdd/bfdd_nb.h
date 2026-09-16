@@ -26,6 +26,9 @@ int bfdd_bfd_profile_administrative_down_modify(struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_log_session_changes_modify(struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_minimum_ttl_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_demand_mode_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_single_hop_demand_mode_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_multi_hop_demand_mode_modify(struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_echo_mode_modify(struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_desired_echo_transmission_interval_modify(
 	struct nb_cb_modify_args *args);
@@ -229,6 +232,7 @@ void bfd_cli_show_rx(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults);
 void bfd_cli_show_shutdown(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
+void bfd_cli_show_demand(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void bfd_cli_show_echo(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults);
 void bfd_cli_show_desired_echo_transmission_interval(

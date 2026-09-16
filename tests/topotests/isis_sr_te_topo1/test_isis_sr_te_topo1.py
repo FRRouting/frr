@@ -326,6 +326,45 @@ def delete_segment(rname, name, index):
     )
 
 
+def add_segment_adj(rname, name, index, src, dst):
+    get_topogen().net[rname].cmd(
+        """ \
+        vtysh -c "conf t" \
+              -c "segment-routing" \
+              -c "traffic-eng" \
+              -c "segment-list """
+        + name
+        + """" \
+              -c "index """
+        + str(index)
+        + """ nai adjacency """
+        + str(src)
+        + """ """
+        + str(dst)
+        + '''"'''
+    )
+
+
+def set_ted_import(rname, enable):
+    """
+    pathd can't apply its "mpls-te" traffic-eng configuration from a
+    configuration file at start up, so it has to be toggled with live vtysh
+    commands instead (mirrors ospf_sr_te_topo1's setup_pathd_traffic_eng()).
+    """
+    get_topogen().net[rname].cmd(
+        """ \
+        vtysh -c "conf t" \
+              -c "segment-routing" \
+              -c "traffic-eng" \
+              -c \""""
+        + ("" if enable else "no ")
+        + """mpls-te on" \
+              -c \""""
+        + ("" if enable else "no ")
+        + '''mpls-te import isis"'''
+    )
+
+
 def create_sr_policy(rname, endpoint, bsid):
     get_topogen().net[rname].cmd(
         """ \
@@ -612,6 +651,73 @@ def test_srte_segment_list_add_segment_check_mpls_table_step4():
     delete_segment("rt1", "test", 25)
     cmp_json_output("rt1", "show mpls table json", "step4/show_mpls_table.ref")
     delete_candidate_path("rt1", "6.6.6.6", 100)
+
+
+def test_srte_change_sl_priority_error_ted_check_mpls_table_step4():
+    setup_testcase(
+        "Test (step 4): check MPLS table keeps low prio segment list active when "
+        "a higher prio segment list can't be resolved by the TED"
+    )
+
+    # "test"'s middle hop (index 20), replaced below with a real adjacency-SID
+    # (NAI) segment resolved live against the TED. rt1's and rt6's own local
+    # circuit is the eth-sw1 LAN, and IS-IS only emits the Local/Remote IP
+    # Address TE sub-TLVs used for "nai adjacency" lookups on point-to-point
+    # circuits (RFC 6119 SS3.2.3; see isis_mpls_te_circuit_ip_update() in
+    # isisd/isis_te.c), so the adjacency segment instead targets an interior
+    # point-to-point hop that's actually on each router's SPF path: rt2->rt4
+    # for rt1's "test" list (rt1 -[node-SID]-> rt2 -[adjacency-SID]-> rt4
+    # -[node-SID]-> rt6), and rt5->rt3 for rt6's.
+    adjacency = {
+        "rt1": ("10.0.2.2", "10.0.2.4"),
+        "rt6": ("10.0.4.5", "10.0.4.3"),
+    }
+
+    for rname, endpoint in [("rt1", "6.6.6.6"), ("rt6", "1.1.1.1")]:
+        # pathd can't validate a segment list against the TED unless the
+        # TED is actually enabled and fed from IS-IS; isis_sr_te_topo1
+        # otherwise never turns this on, since every other test in this
+        # file only uses plain "mpls label" segments, which pathd never
+        # checks against the TED at all (see SRTE_SEGMENT_NAI_TYPE_NONE
+        # in srte_policy_update_ted_sid()).
+        set_ted_import(rname, True)
+
+        # Low priority candidate using the "default" segment list, which is
+        # always resolvable since it stacks two real node-SID labels.
+        add_candidate_path(rname, endpoint, 100, "default")
+        # Higher priority candidate using the "test" segment list, whose
+        # middle hop is about to become a TED-resolved adjacency-SID, so it
+        # should be the one selected and programmed into the MPLS table.
+        add_candidate_path(rname, endpoint, 200, "test", "test")
+
+        src, dst = adjacency[rname]
+        delete_segment(rname, "test", 20)
+        add_segment_adj(rname, "test", 20, src, dst)
+
+        cmp_json_output(rname, "show mpls table json", "step4/show_mpls_table_ted.ref")
+
+        # Re-point the adjacency segment at addresses nobody in the topology
+        # owns. pathd's TED lookup for a NAI adjacency segment can't find a
+        # matching link, unlike a plain "mpls label" segment (which pathd
+        # never validates against the TED at all), so this actually sets
+        # F_SEGMENT_LIST_SID_CONFLICT on the "test" segment list.
+        delete_segment(rname, "test", 20)
+        add_segment_adj(rname, "test", 20, "10.0.99.1", "10.0.99.2")
+
+        # The higher priority candidate can no longer resolve, so the policy
+        # must fall back to keeping the lower priority "default" candidate
+        # programmed instead of leaving the BSID unprogrammed (blackholed).
+        cmp_json_output(
+            rname, "show mpls table json", "step1/show_mpls_table_with_candidate.ref"
+        )
+
+        # Restore "test"'s original all-label form for any later test.
+        delete_segment(rname, "test", 20)
+        add_segment(rname, "test", 20, 16040 if rname == "rt1" else 16030)
+
+        delete_candidate_path(rname, endpoint, 100)
+        delete_candidate_path(rname, endpoint, 200)
+        set_ted_import(rname, False)
 
 
 def save_rt(routername, filename):

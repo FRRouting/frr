@@ -824,6 +824,58 @@ def test_imet():
     assert result is None, assertmsg
 
 
+def _evpn_mac_vni_json_nummacs(pe, command, vni, macs):
+    output = pe.vtysh_cmd(command)
+    try:
+        output_json = json.loads(output)
+    except ValueError as err:
+        return "'{}' is not valid JSON: {}".format(command, err)
+
+    vni_json = output_json.get(str(vni))
+    if vni_json is None:
+        return "VNI {} missing from '{}'".format(vni, command)
+    missing = [mac for mac in macs if mac not in vni_json["macs"]]
+    if missing:
+        return "MACs {} missing from '{}'".format(missing, command)
+    if "numMacs" in vni_json["macs"]:
+        return "numMacs is nested inside macs in '{}'".format(command)
+    if vni_json.get("numMacs", 0) < len(macs):
+        return "numMacs {} is missing or below {} in '{}'".format(
+            vni_json.get("numMacs"), len(macs), command
+        )
+    return None
+
+
+def test_evpn_mac_vni_all_json_nummacs():
+    """
+    Verify numMacs stays at the VNI level in 'show evpn mac vni all [detail] json'
+
+    zebra flushes this JSON output incrementally after every 50 MACs, so add
+    more than 50 local MACs to VNI 101 to force a flush in the middle of its
+    MAC list.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    macs = ["02:00:00:00:65:{:02x}".format(i) for i in range(1, 61)]
+    for mac in macs:
+        pe1.run("bridge fdb add {} dev PE1-eth0 master static".format(mac))
+
+    try:
+        for command in (
+            "show evpn mac vni all json",
+            "show evpn mac vni all detail json",
+        ):
+            test_func = partial(_evpn_mac_vni_json_nummacs, pe1, command, 101, macs)
+            _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+            assert result is None, '"{}" {}'.format(pe1.name, result)
+    finally:
+        for mac in macs:
+            pe1.run("bridge fdb del {} dev PE1-eth0 master static".format(mac))
+
+
 def test_remote_neigh_uninstall_on_vxlan_down():
     "Ensure remote neighs are removed when VxLAN if is down"
     tgen = get_topogen()

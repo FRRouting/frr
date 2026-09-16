@@ -1645,6 +1645,34 @@ static int ospf_db_desc_is_dup(struct ospf_db_desc *dd,
 	return 0;
 }
 
+/*
+ * RFC 2328: neighbors are created from Hello, not DD/LSU/LSAck.
+ * After p2p ifindex churn the peer can still send those packets
+ * before Hello recreates the neighbor.  Dropping them is correct;
+ * logging each one at warn can flood syslog and stall the event loop.
+ */
+#define OSPF_UNKNOWN_NBR_WARN_USEC (10LL * 1000000LL)
+
+static void ospf_log_unknown_neighbor(uint8_t pkt_type, const char *what,
+				      struct ospf_interface *oi, const struct in_addr *rid)
+{
+	if (IS_DEBUG_OSPF_PACKET(pkt_type - 1, RECV))
+		zlog_debug("%s: Unknown Neighbor %pI4 on %s", what, rid, IF_NAME(oi));
+
+	if (timerisset(&oi->t_unknown_nbr_warn)) {
+		int64_t since;
+
+		since = monotime_since(&oi->t_unknown_nbr_warn, NULL);
+		if (since >= 0 && since < OSPF_UNKNOWN_NBR_WARN_USEC)
+			return;
+	}
+
+	flog_warn(EC_OSPF_PACKET, "%s: Unknown Neighbor %pI4 on %s", what, rid, IF_NAME(oi));
+	monotime(&oi->t_unknown_nbr_warn);
+}
+
+static void ospf_db_desc_resend_paced(struct ospf_neighbor *nbr);
+
 /* OSPF Database Description message read -- RFC2328 Section 10.6. */
 static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			 struct stream *s, struct ospf_interface *oi,
@@ -1660,8 +1688,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		flog_warn(EC_OSPF_PACKET, "Packet[DD]: Unknown Neighbor %pI4",
-			  &ospfh->router_id);
+		ospf_log_unknown_neighbor(OSPF_MSG_DB_DESC, "Packet[DD]", oi, &ospfh->router_id);
 		return;
 	}
 
@@ -1835,19 +1862,17 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		break;
 	case NSM_Exchange:
 		if (ospf_db_desc_is_dup(dd, nbr)) {
-			if (IS_SET_DD_MS(nbr->dd_flags))
+			if (IS_SET_DD_MS(nbr->dd_flags)) {
 				/* Master: discard duplicated DD packet. */
-				zlog_info(
-					"Packet[DD] (Master): Neighbor %pI4 packet duplicated.",
-					&nbr->router_id);
-			else
-			/* Slave: cause to retransmit the last Database
-			   Description. */
-			{
-				zlog_info(
-					"Packet[DD] [Slave]: Neighbor %pI4 packet duplicated.",
-					&nbr->router_id);
-				ospf_db_desc_resend(nbr);
+				if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
+					zlog_debug("Packet[DD] (Master): Neighbor %pI4 packet duplicated.",
+						   &nbr->router_id);
+			} else {
+				/* Slave: retransmit last DD, paced to RxmtInterval. */
+				if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
+					zlog_debug("Packet[DD] [Slave]: Neighbor %pI4 packet duplicated.",
+						   &nbr->router_id);
+				ospf_db_desc_resend_paced(nbr);
 			}
 			break;
 		}
@@ -1869,8 +1894,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 
 		/* Check initialize bit is set. */
 		if (IS_SET_DD_I(dd->flags)) {
-			zlog_info("Packet[DD]: Neighbor %pI4 I-bit set.",
-				  &nbr->router_id);
+			if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
+				zlog_debug("Packet[DD]: Neighbor %pI4 I-bit set.", &nbr->router_id);
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 			break;
 		}
@@ -1905,9 +1930,9 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		if (ospf_db_desc_is_dup(dd, nbr)) {
 			if (IS_SET_DD_MS(nbr->dd_flags)) {
 				/* Master should discard duplicate DD packet. */
-				zlog_info(
-					"Packet[DD]: Neighbor %pI4 duplicated, packet discarded.",
-					&nbr->router_id);
+				if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
+					zlog_debug("Packet[DD]: Neighbor %pI4 duplicated, packet discarded.",
+						   &nbr->router_id);
 				break;
 			} else {
 				if (monotime_since(&nbr->last_send_ts, NULL)
@@ -1930,7 +1955,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 					   SeqNumberMismatch
 					   neighbor event. RFC2328 Section 10.8
 					   */
-					ospf_db_desc_resend(nbr);
+					ospf_db_desc_resend_paced(nbr);
 					break;
 				}
 			}
@@ -1966,9 +1991,8 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		flog_warn(EC_OSPF_PACKET,
-			  "Link State Request: Unknown Neighbor %pI4",
-			  &ospfh->router_id);
+		ospf_log_unknown_neighbor(OSPF_MSG_LS_REQ, "Link State Request", oi,
+					  &ospfh->router_id);
 		return;
 	}
 
@@ -2216,9 +2240,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 	/* Check neighbor. */
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		flog_warn(EC_OSPF_PACKET,
-			  "Link State Update: Unknown Neighbor %pI4 on int: %s",
-			  &ospfh->router_id, IF_NAME(oi));
+		ospf_log_unknown_neighbor(OSPF_MSG_LS_UPD, "Link State Update", oi,
+					  &ospfh->router_id);
 		return;
 	}
 
@@ -2707,9 +2730,8 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		flog_warn(EC_OSPF_PACKET,
-			  "Link State Acknowledgment: Unknown Neighbor %pI4",
-			  &ospfh->router_id);
+		ospf_log_unknown_neighbor(OSPF_MSG_LS_ACK, "Link State Acknowledgment", oi,
+					  &ospfh->router_id);
 		return;
 	}
 
@@ -4410,6 +4432,7 @@ void ospf_db_desc_resend(struct ospf_neighbor *nbr)
 
 	/* Add packet to the interface output queue. */
 	ospf_packet_add(oi, ospf_packet_dup(nbr->last_send));
+	monotime(&nbr->last_send_ts);
 
 	/* Hook thread to write packet. */
 	OSPF_ISM_WRITE_ON(oi->ospf);
@@ -4418,6 +4441,27 @@ void ospf_db_desc_resend(struct ospf_neighbor *nbr)
 			"%s:Packet[DD]: %pI4 DB Desc resend with seqnum:%x , flags:%x",
 			ospf_get_name(oi->ospf), &nbr->router_id,
 			nbr->dd_seqnum, nbr->dd_flags);
+}
+
+/*
+ * RFC 2328 §10.8: the Slave retransmits its last DD in response to a
+ * duplicate from the Master.  Doing that 1:1 with a flood stalls
+ * ospfd's event loop until the daemon is declared unresponsive.
+ * Pace resends to RxmtInterval; the Master retransmits on the same
+ * timer, so a delayed reply is still correct.
+ */
+static void ospf_db_desc_resend_paced(struct ospf_neighbor *nbr)
+{
+	int64_t since;
+
+	if (!nbr->last_send)
+		return;
+
+	since = monotime_since(&nbr->last_send_ts, NULL);
+	if (since >= 0 && since < (int64_t)nbr->v_db_desc * 1000000LL)
+		return;
+
+	ospf_db_desc_resend(nbr);
 }
 
 /* Send Link State Request. */

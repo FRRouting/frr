@@ -135,6 +135,10 @@ struct zebra_evpn_l2_nh {
 
 	/* es_vtep entries using this nexthop */
 	uint32_t ref_cnt;
+
+	uint16_t flags;
+	/* NH has been confirmed installed by the dataplane */
+#define ZEBRA_EVPN_L2_NH_INSTALLED (1 << 0)
 };
 
 PREDECL_SORTLIST_UNIQ(mh_vtep_list);
@@ -339,6 +343,7 @@ extern void zebra_evpn_mh_init(void);
 extern void zebra_evpn_mh_terminate(void);
 extern void zebra_evpn_mh_reserve_stale_nhid(uint32_t nh_id);
 extern void zebra_evpn_mh_release_stale_nhid(uint32_t nh_id);
+extern void zebra_evpn_l2_nh_dplane_result(struct zebra_dplane_ctx *ctx);
 extern bool zebra_evpn_is_if_es_capable(struct zebra_if *zif);
 extern void zebra_evpn_if_init(struct zebra_if *zif);
 extern void zebra_evpn_if_cleanup(struct zebra_if *zif);

@@ -739,6 +739,15 @@ Interfaces
    config. The optional address ``A.B.C.D`` scopes the override to a
    specific address on multi-address interfaces.
 
+BFD monitoring can be enabled for OSPF neighbors on an interface with
+:clicmd:`ip ospf bfd [quick]`. BFD provides faster failure detection than the
+OSPF dead interval. The optional ``quick`` mode keeps BFD sessions active when
+OSPF removes a neighbor, allowing OSPF to reestablish the neighbor more quickly
+when BFD reports the peer up. Use :clicmd:`ip ospf bfd profile BFDPROF` to apply
+a BFD profile to these sessions.
+
+.. seealso:: :ref:`bfd-ospf-peer-config`
+
 .. clicmd:: ip ospf cost (1-65535)
 
 

@@ -130,6 +130,9 @@ static int bgp_isvalid_nexthop_for_mpls(struct bgp_nexthop_cache *bnc,
 static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
 					  struct bgp_path_info *path)
 {
+	struct bgp_table *table;
+	bool nh_valid;
+
 	if (bgp_zebra_num_connects() == 0)
 		return 1;
 
@@ -143,13 +146,23 @@ static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
 			return 1;
 		return 0;
 	}
+
 	/*
 	 * In the case of MPLS-VPN, the label is learned from LDP or other
 	 * protocols, and nexthop tracking is enabled for the label.
 	 * The value is recorded as BGP_NEXTHOP_LABELED_VALID.
 	 * - Otherwise check for mpls-gre acceptance
 	 */
-	return bgp_isvalid_nexthop_for_mpls(bnc, path);
+	nh_valid = bgp_isvalid_nexthop_for_mpls(bnc, path);
+
+	table = path->net ? bgp_dest_table(path->net) : NULL;
+	if (nh_valid && table && bnc->bgp->srv6_only &&
+	    ((bgp_srv6_locator_is_configured(bnc->bgp) ||
+	      (table->bgp && bgp_srv6_locator_is_configured(table->bgp)))))
+		/* Control if srv6/mpls coexistence is autorised */
+		nh_valid = false;
+
+	return nh_valid;
 }
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
@@ -1440,23 +1453,30 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	}
 
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
+		dest = path->net;
+		assert(dest && bgp_dest_table(dest));
+		p = bgp_dest_get_prefix(dest);
+		afi = family2afi(p->family);
+		table = bgp_dest_table(dest);
+		safi = table->safi;
+
 		/*
-		 * Currently when a peer goes down, bgp immediately
-		 * sees this via the interface events( if it is directly
-		 * connected).  And in this case it takes and puts on
-		 * a special peer queue all path info's associated with
-		 * but these items are not yet processed typically when
-		 * the nexthop is being handled here.  Thus we end
-		 * up in a situation where the process Queue for BGP
-		 * is being asked to look at the same path info multiple
-		 * times.  Let's just cut to the chase here and if
-		 * the bnc has a peer associated with it and the path info
-		 * being looked at uses that peer and the peer is no
-		 * longer established we know the path_info is being
-		 * handled elsewhere and we do not need to process
-		 * it here at all since the pathinfo is going away
+		 * Currently when a peer goes down, bgp immediately sees this
+		 * via the interface events (if it is directly connected).
+		 * The peer-down queue processes the associated path infos in
+		 * the future.  Meanwhile zebra sends a nexthop removal event
+		 * to BGP too, triggering an evaluate_paths() walk that would
+		 * redo work already scheduled on the peer-down queue.  Skip
+		 * such paths here.
+		 *
+		 * Exception: GR-helper paths in a GR-covered (afi, safi) are
+		 * intentionally retained and are not removed by the peer-down
+		 * queue in bgp_clear_route_node().  Do not skip those paths
+		 * here so that an NH-unreachable event can drop them per RFC
+		 * 4724 §4.2 via bgp_nht_handle_gr_stale_nh_unreach().
 		 */
-		if (peer && path->peer == peer && !peer_established(peer->connection))
+		if (peer && path->peer == peer && !peer_established(peer->connection) &&
+		    !(CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT) && peer->nsf[afi][safi]))
 			continue;
 
 		if (path->type == ZEBRA_ROUTE_BGP &&
@@ -1475,13 +1495,6 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		} else
 			/* don't evaluate the path */
 			continue;
-
-		dest = path->net;
-		assert(dest && bgp_dest_table(dest));
-		p = bgp_dest_get_prefix(dest);
-		afi = family2afi(p->family);
-		table = bgp_dest_table(dest);
-		safi = table->safi;
 
 		/*
 		 * handle routes from other VRFs (they can have a

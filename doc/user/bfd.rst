@@ -200,6 +200,24 @@ BFD peers and profiles share the same BFD session configuration commands.
    Echo mode is not supported on multi-hop setups (see :rfc:`5883`
    section 3).
 
+.. clicmd:: demand-mode
+
+   Enables or disables demand mode. This mode is disabled by default.
+
+   In demand mode this system asks the peer to cease periodic control
+   packet transmission, on the understanding that connectivity is
+   verified by some other means. The path is then verified only when a
+   Poll Sequence is initiated, which happens when the contents of a
+   control packet would otherwise change.
+
+   Because nothing initiates a Poll Sequence on its own, enabling
+   demand mode on both ends of a connection without `echo-mode` can
+   leave a failed path undetected: neither system transmits and
+   neither runs a detection timer. Pair demand mode with `echo-mode`,
+   or ensure some other mechanism verifies the path.
+
+   Unlike echo mode, demand mode is supported on multi-hop setups.
+
 .. clicmd:: shutdown
 
    Enables or disables the peer. When the peer is disabled an
@@ -241,6 +259,18 @@ BFD peers and profiles share the same BFD session configuration commands.
    to a list of available key tuple made up of a crypto algorithm and
    a key-string. Those values are used in BFD packets. Clear text and
    hmac-sha1 algorithm is currently supported.
+
+   A key is used only if its ``cryptographic-algorithm`` is one of those
+   two, and if its ``key-string`` is within the length RFC 5880 allows:
+   1 to 16 bytes for clear text, up to 20 bytes for hmac-sha1. A key
+   defaults to no algorithm, so configuring ``key-string`` on its own
+   leaves nothing the session can use.
+
+   A session whose key-chain holds no usable key stays down. It is not
+   brought up unauthenticated, since that would leave the link
+   unprotected while the configuration says otherwise. ``show bfd peer``
+   distinguishes the two: authentication is reported as enabled once a
+   key is in effect, and as configured when only the key-chain is.
 
 .. clicmd:: authentication algorithm meticulous
 
@@ -325,13 +355,31 @@ The following commands are available inside the interface configuration node.
    a new neighbor is found a BFD peer is created to monitor the link
    status for fast convergence.
 
-   Note that there will be just one BFD session per interface. In case both
-   IPv4 and IPv6 support are configured then just a IPv6 based session is
-   created.
+   A BFD session is created for each IS-IS adjacency on the interface. If IPv6
+   is enabled on the circuit, FRR uses an IPv6 link-local address for the
+   session; otherwise, if IPv4 is enabled, it uses IPv4. If IPv6 addresses are
+   not yet available, FRR waits for them instead of falling back to IPv4.
 
 .. clicmd:: isis bfd profile BFDPROF
 
    Use a BFD profile BFDPROF as provided in the BFD configuration.
+
+
+.. _bfd-openfabric-peer-config:
+
+OpenFabric BFD Configuration
+----------------------------
+
+The following command is available inside the interface configuration node.
+
+.. clicmd:: openfabric bfd
+
+   Enable BFD monitoring for OpenFabric adjacencies on the interface. A BFD
+   session is created for each adjacency to monitor the link and provide fast
+   failure detection. If IPv6 is enabled on the circuit, FRR uses an IPv6
+   link-local address for the session; otherwise, if IPv4 is enabled, it uses
+   IPv4. If IPv6 addresses are not yet available, FRR waits for them instead of
+   falling back to IPv4.
 
 
 .. _bfd-ospf-peer-config:

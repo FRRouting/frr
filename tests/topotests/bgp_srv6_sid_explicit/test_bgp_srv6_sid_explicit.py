@@ -67,6 +67,13 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
+    # This topotest sets net.vrf.strict_mode during setup. That sysctl is
+    # available only after the VRF module is loaded; if the module is not loaded,
+    # the strict_mode command may fail and the test can fail later.
+    # Ensure the VRF module is present and loaded before setting strict_mode.
+    if not topotest.module_present("vrf"):
+        pytest.skip("VRF kernel module is not available")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 

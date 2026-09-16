@@ -735,13 +735,20 @@ static int pim_msg_send_frame(pim_addr src, pim_addr dst, ifindex_t ifindex,
 	pktinfo->ipi6_addr = src;
 
 	retval = sendmsg(fd, &smsghdr, 0);
-	if (retval < 0)
+	if (retval < 0) {
 		flog_err(
 			EC_LIB_SOCKET,
 			"sendmsg failed: source: %pI6 Dest: %pI6 ifindex: %d: %s (%d)",
 			&src, &dst, ifindex, safe_strerror(errno), errno);
+		return -1;
+	}
 
-	return retval;
+	/*
+	 * Callers test this as a boolean, and the IPv4 half of pim_msg_send()
+	 * returns 0 for success.  sendmsg() returns the byte count, so
+	 * returning it directly made every SUCCESSFUL send read as a failure.
+	 */
+	return 0;
 }
 #endif
 

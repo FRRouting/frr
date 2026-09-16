@@ -1040,47 +1040,113 @@ static size_t autorp_build_disc_packet(struct pim_autorp *autorp, uint8_t *buf, 
 	return sz;
 }
 
+#if defined(HAVE_IP_PKTINFO)
+/*
+ * Send discovery packet on a specific interface.
+ * Uses sendmsg with IP_PKTINFO to set both the outgoing interface and source
+ * address. The source is always the configured mapping agent address for
+ * consistent mapping agent election.
+ */
+static void autorp_send_discovery_on_intf(struct pim_autorp *autorp, struct interface *ifp,
+					  uint8_t *buf, size_t len, struct sockaddr_in *dst)
+{
+	struct msghdr mh = {};
+	struct iovec iov;
+	char cmsgbuf[CMSG_SPACE(sizeof(struct in_pktinfo))] = {};
+	struct cmsghdr *cmh;
+	struct in_pktinfo *pktinfo;
+
+	iov.iov_base = buf;
+	iov.iov_len = len;
+
+	mh.msg_name = dst;
+	mh.msg_namelen = sizeof(*dst);
+	mh.msg_iov = &iov;
+	mh.msg_iovlen = 1;
+	mh.msg_control = cmsgbuf;
+	mh.msg_controllen = sizeof(cmsgbuf);
+
+	cmh = CMSG_FIRSTHDR(&mh);
+	cmh->cmsg_level = IPPROTO_IP;
+	cmh->cmsg_type = IP_PKTINFO;
+	cmh->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+	pktinfo = (struct in_pktinfo *)CMSG_DATA(cmh);
+	pktinfo->ipi_ifindex = ifp->ifindex;
+	pktinfo->ipi_spec_dst = autorp->mapping_agent_addrsel.run_addr;
+
+	if (sendmsg(autorp->sock, &mh, 0) <= 0)
+		zlog_warn("%s: Failed to send AutoRP discovery on %s, errno=%d, %s", __func__,
+			  ifp->name, errno, safe_strerror(errno));
+	else if (PIM_DEBUG_AUTORP)
+		zlog_debug("%s: AutoRP discovery sent on %s (src=%pI4)", __func__, ifp->name,
+			   &autorp->mapping_agent_addrsel.run_addr);
+}
+#endif
+
 static void autorp_send_discovery(struct event *evt)
 {
 	struct pim_autorp *autorp = EVENT_ARG(evt);
-	struct sockaddr_in discGrp;
+	struct sockaddr_in dst;
 	size_t disc_sz;
-	size_t buf_sz = 65535;
 	uint8_t buf[65535] = { 0 };
+#if defined(HAVE_IP_PKTINFO)
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+#endif
 
 	if (PIM_DEBUG_AUTORP)
-		zlog_debug("%s: AutoRP sending discovery info", __func__);
+		zlog_debug("%s: AutoRP sending discovery", __func__);
 
-	/* Mark true, even if nothing is sent */
-	autorp->mapping_agent_active = true;
-	disc_sz = autorp_build_disc_packet(autorp, buf, buf_sz);
-
-	if (disc_sz > 0) {
-		discGrp.sin_family = AF_INET;
-		discGrp.sin_port = htons(PIM_AUTORP_PORT);
-		inet_pton(PIM_AF, PIM_AUTORP_DISCOVERY_GRP, &discGrp.sin_addr);
-
-		if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_TTL,
-			       &(autorp->discovery_scope), sizeof(autorp->discovery_scope)) == 0) {
-			if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_IF,
-				       &(autorp->mapping_agent_addrsel.run_addr),
-				       sizeof(autorp->mapping_agent_addrsel.run_addr)) == 0) {
-				if (sendto(autorp->sock, buf, disc_sz, 0,
-					   (struct sockaddr *)&discGrp, sizeof(discGrp)) > 0) {
-					if (PIM_DEBUG_AUTORP)
-						zlog_debug("%s: AutoRP discovery message sent",
-							   __func__);
-				} else if (PIM_DEBUG_AUTORP)
-					zlog_warn("%s: Failed to send AutoRP discovery message, errno=%d, %s",
-						  __func__, errno, safe_strerror(errno));
-			} else if (PIM_DEBUG_AUTORP)
-				zlog_warn("%s: Failed to set Multicast Interface for sending AutoRP discovery message, errno=%d, %s",
-					  __func__, errno, safe_strerror(errno));
-		} else if (PIM_DEBUG_AUTORP)
-			zlog_warn("%s: Failed to set Multicast TTL for sending AutoRP discovery message, errno=%d, %s",
-				  __func__, errno, safe_strerror(errno));
+	/* Verify the configured source is still valid */
+	if (!autorp->mapping_agent_addrsel.run) {
+		if (PIM_DEBUG_AUTORP)
+			zlog_debug("%s: AutoRP discovery skipped, source not available", __func__);
+		goto reschedule;
 	}
 
+	/* Mark active even if nothing is sent */
+	autorp->mapping_agent_active = true;
+	disc_sz = autorp_build_disc_packet(autorp, buf, sizeof(buf));
+
+	if (disc_sz > 0) {
+		dst.sin_family = AF_INET;
+		dst.sin_port = htons(PIM_AUTORP_PORT);
+		inet_pton(PIM_AF, PIM_AUTORP_DISCOVERY_GRP, &dst.sin_addr);
+
+		if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_TTL,
+			       &autorp->discovery_scope, sizeof(autorp->discovery_scope)) < 0)
+			zlog_warn("%s: Failed to set IP_MULTICAST_TTL, errno=%d, %s", __func__,
+				  errno, safe_strerror(errno));
+
+#if defined(HAVE_IP_PKTINFO)
+		/*
+		 * Send discovery on all PIM interfaces to ensure all routers
+		 * receive it regardless of L2 topology.
+		 */
+		FOR_ALL_INTERFACES (autorp->pim->vrf, ifp) {
+			pim_ifp = ifp->info;
+			if (autorp_is_pim_interface(ifp) &&
+			    !pim_addr_is_any(pim_ifp->primary_address))
+				autorp_send_discovery_on_intf(autorp, ifp, buf, disc_sz, &dst);
+		}
+#else
+		/* Fallback: send from configured source interface only */
+		if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_IF,
+			       &(autorp->mapping_agent_addrsel.run_addr),
+			       sizeof(autorp->mapping_agent_addrsel.run_addr)) < 0) {
+			zlog_warn("%s: Failed to set IP_MULTICAST_IF, errno=%d, %s", __func__,
+				  errno, safe_strerror(errno));
+		} else if (sendto(autorp->sock, buf, disc_sz, 0, (struct sockaddr *)&dst,
+				  sizeof(dst)) <= 0) {
+			zlog_warn("%s: Failed to send AutoRP discovery, errno=%d, %s", __func__,
+				  errno, safe_strerror(errno));
+		} else if (PIM_DEBUG_AUTORP) {
+			zlog_debug("%s: AutoRP discovery sent", __func__);
+		}
+#endif
+	}
+
+reschedule:
 	/* Start the new timer for the entire send discovery interval */
 	event_add_timer(router->master, autorp_send_discovery, autorp, autorp->discovery_interval,
 			&(autorp->send_discovery_timer));

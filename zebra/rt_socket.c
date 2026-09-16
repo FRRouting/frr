@@ -389,25 +389,4 @@ void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx)
 	dplane_ctx_set_ifp_speed_set(ctx, false);
 }
 
-int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip)
-{
-	return 0;
-}
-
-int kernel_del_mac_nh(uint32_t nh_id)
-{
-	return 0;
-}
-
-int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
-		struct nh_grp *nh_ids)
-{
-	return 0;
-}
-
-int kernel_del_mac_nhg(uint32_t nhg_id)
-{
-	return 0;
-}
-
 #endif /* !HAVE_NETLINK */

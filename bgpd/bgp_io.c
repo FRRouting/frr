@@ -180,11 +180,6 @@ static int read_ibuf_work(struct peer_connection *connection)
 	if (!ibw)
 		return 0;
 
-	frr_with_mutex (&connection->io_mtx) {
-		if (connection->ibuf->count >= bm->inq_limit)
-			return -ENOMEM;
-	}
-
 	/* check that we have enough data for a header */
 	if (ringbuf_remain(ibw) < BGP_HEADER_SIZE)
 		return 0;
@@ -252,6 +247,24 @@ static void bgp_process_reads(struct event *event)
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
+	/*
+	 * Soft limit: check queue before reading. This provides TCP
+	 * back-pressure: if we stop reading, the TCP window fills up,
+	 * slowing the sender.
+	 */
+	frr_with_mutex (&connection->io_mtx) {
+		if (connection->ibuf->count >= bm->inq_limit) {
+			if (!ibuf_full_logged) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s [Event] Peer Input-Queue is full: limit (%u)",
+						   peer->host, bm->inq_limit);
+				ibuf_full_logged = true;
+			}
+			return;
+		}
+		ibuf_full_logged = false;
+	}
+
 	frr_with_mutex (&connection->io_mtx) {
 		status = bgp_read(connection, &code);
 	}
@@ -281,24 +294,8 @@ static void bgp_process_reads(struct event *event)
 		added_pkt = true;
 	}
 
-	switch (ret) {
-	case -EBADMSG:
+	if (ret == -EBADMSG)
 		fatal = true;
-		break;
-	case -ENOMEM:
-		if (!ibuf_full_logged) {
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug(
-					"%s [Event] Peer Input-Queue is full: limit (%u)",
-					peer->host, bm->inq_limit);
-
-			ibuf_full_logged = true;
-		}
-		break;
-	default:
-		ibuf_full_logged = false;
-		break;
-	}
 
 done:
 	/* handle invalid header */
@@ -317,9 +314,8 @@ done:
 		connection->ibuf_work = NULL;
 	}
 
-	if (ret != -ENOMEM)
-		event_add_read(fpt->master, bgp_process_reads, connection, connection->fd,
-			       &connection->t_read);
+	event_add_read(fpt->master, bgp_process_reads, connection, connection->fd,
+		       &connection->t_read);
 	if (added_pkt) {
 		frr_with_mutex (&bm->peer_connection_mtx) {
 			if (!peer_connection_fifo_member(&bm->connection_fifo, connection))

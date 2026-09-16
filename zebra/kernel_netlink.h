@@ -31,6 +31,18 @@ struct zebra_ns;
 #define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
 #define NL_PKT_BUF_SIZE         8192
 
+/* FPM Attributes */
+
+/* FPM Attributes for the nexthop/nexthop-group messages.
+ * We pick a starting value well beyond the current OS/netlink values.
+ */
+enum fpm_nha_attrs {
+	/* Resolved-via nexthop group id; uint32 */
+	NHA_FPM_RESOLVED_VIA = 30,
+
+	NHA_FPM_MAX
+};
+
 extern void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 				 struct rtattr *rta, int len,
 				 unsigned short flags);

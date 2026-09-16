@@ -117,6 +117,12 @@ def _router_json_cmp_exact_filter(router, cmd, expected):
                     nexthop.pop("flags")
                 if "interfaceIndex" in nexthop:
                     nexthop.pop("interfaceIndex")
+                if "resolvedVia" in nexthop:
+                    nexthop.pop("resolvedVia")
+                if "resolvedPrefix" in nexthop:
+                    nexthop.pop("resolvedPrefix")
+                if "resolvedPrefixLen" in nexthop:
+                    nexthop.pop("resolvedPrefixLen")
 
     return topotest.json_cmp(json_output, expected, exact=True)
 

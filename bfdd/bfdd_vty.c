@@ -186,6 +186,13 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, "\t\tActive mode\n");
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES))
 		vty_out(vty, "\t\tLog session changes\n");
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND))
+		vty_out(vty, "\t\tDemand mode: %s\n",
+			bs->ses_state == PTM_BFD_UP && bs->remote_ses_state == PTM_BFD_UP
+				? "active"
+				: "configured");
+	if (bs->remote_demand_mode)
+		vty_out(vty, "\t\tPeer is in demand mode\n");
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		vty_out(vty, "\t\tMinimum TTL: %d\n", bs->mh_ttl);
 	vty_out(vty, "\t\tStatus: ");
@@ -355,6 +362,8 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 				CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE));
 	json_object_boolean_add(jo, "log-session-changes",
 				CHECK_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES));
+	json_object_boolean_add(jo, "demand-mode", CHECK_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND));
+	json_object_boolean_add(jo, "remote-demand-mode", bs->remote_demand_mode);
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		json_object_int_add(jo, "minimum-ttl", bs->mh_ttl);
 

@@ -652,6 +652,28 @@ int bfdd_bfd_profile_echo_mode_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/demand-mode
+ */
+int bfdd_bfd_profile_demand_mode_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_profile *bp;
+	bool demand;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	demand = yang_dnode_get_bool(args->dnode, NULL);
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	if (bp->demand_mode == demand)
+		return NB_OK;
+
+	bp->demand_mode = demand;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-bfdd:bfdd/bfd/profile/desired-echo-transmission-interval
  */
 int bfdd_bfd_profile_desired_echo_transmission_interval_modify(
@@ -1182,6 +1204,60 @@ int bfdd_bfd_sessions_bfd_mode_modify(struct nb_cb_modify_args *args)
 
 int bfdd_bfd_sessions_bfd_mode_destroy(struct nb_cb_destroy_args *args)
 {
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/demand-mode
+ */
+int bfdd_bfd_sessions_single_hop_demand_mode_modify(struct nb_cb_modify_args *args)
+{
+	bool demand = yang_dnode_get_bool(args->dnode, NULL);
+	struct bfd_session *bs;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.demand_mode = demand;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/multi-hop/demand-mode
+ */
+int bfdd_bfd_sessions_multi_hop_demand_mode_modify(struct nb_cb_modify_args *args)
+{
+	bool demand = yang_dnode_get_bool(args->dnode, NULL);
+	struct bfd_session *bs;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.demand_mode = demand;
+	bfd_session_apply(bs);
+
 	return NB_OK;
 }
 

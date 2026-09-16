@@ -60,4 +60,15 @@ extern void bgp_peer_remove_bfd_config(struct peer *p);
  */
 extern void bgp_peer_bfd_update_source(struct peer *p);
 
+/**
+ * Keep an accepted connection in Active while `bfd strict` is configured and
+ * BFD is not up yet. Arms the strict mode hold timer.
+ */
+extern bool bgp_bfd_strict_hold_start(struct peer *p);
+
+/**
+ * Let a held connection proceed.
+ */
+extern void bgp_bfd_strict_hold_release(struct peer *p);
+
 #endif /* _QUAGGA_BGP_BFD_H */

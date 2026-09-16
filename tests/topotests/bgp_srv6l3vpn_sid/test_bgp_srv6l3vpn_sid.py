@@ -106,6 +106,13 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
+    # This topotest sets net.vrf.strict_mode during setup. That sysctl is
+    # available only after the VRF module is loaded; if the module is not loaded,
+    # the strict_mode command may fail and the test can fail later.
+    # Ensure the VRF module is present and loaded before setting strict_mode.
+    if not topotest.module_present("vrf"):
+        pytest.skip("VRF kernel module is not available")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
@@ -117,7 +124,6 @@ def setup_module(mod):
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
 
-    tgen.gears["r1"].run("modprobe vrf")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
@@ -136,7 +142,6 @@ def setup_module(mod):
     tgen.gears["r1"].run("sysctl net.ipv4.conf.eth1.rp_filter=0")
     tgen.gears["r1"].run("sysctl net.ipv4.conf.vrf10.rp_filter=0")
 
-    tgen.gears["r2"].run("modprobe vrf")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r2"].run("ip link set vrf10 up")
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
@@ -672,6 +677,122 @@ def test_sid_add_vrf_30_readd_srv6_keep_mpls():
     )
 
 
+def test_sid_add_peer_srv6_check_both_entries_received():
+    """
+    Configure peer 2001::2 with addpath
+    Test that both SRv6 and MPLS prefixes are sent to r2
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           neighbor 2001::2 addpath-tx-all-paths
+          exit-address-family
+        """
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls_srv6.json"
+    )
+
+
+def test_sid_r2_add_route_map_to_priorize_mpls_entry():
+    """
+    Configure a route-map on r2 so that bestpath in VPN is the MPLS VPN update
+    Test that MPLS prefix is bestpath
+    """
+    get_topogen().gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+         bgp route-map delay-timer 5
+         route-map rmap permit 10
+          match vpn dataplane mpls
+          set local-preference 250
+         exit
+         route-map rmap permit 20
+         exit
+         router bgp 2
+          address-family ipv6 vpn
+           neighbor 2001::1 route-map rmap in
+          exit-address-family
+        """
+    )
+    check_rib(
+        "r2",
+        "show bgp ipv6 vpn 2001:8::/64 json",
+        "r2/vpnv6_rib_2001_8_mpls_srv6_localpref.json",
+    )
+
+
+def test_sid_add_peer_srv6_check_srv6_entry_selected_on_vrf():
+    """
+    Configure vrf20 so that 2001:8::/64 is imported.
+    Test that on vrf20, only srv6 received prefix is selected.
+    """
+
+    get_topogen().gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 2 vrf vrf20
+          address-family ipv6 unicast
+           rt vpn both 88:88 55:55
+          exit
+        """
+    )
+    logger.info("On r2, check that the SRv6 prefix 2001:8::/64 is selected in vrf20")
+    check_rib(
+        "r2",
+        "show bgp vrf vrf20 ipv6 2001:8::/64 json",
+        "r2/vrf20_ipv6_2001_8_both_srv6_selected.json",
+    )
+
+
+def test_sid_add_peer_no_srv6_only():
+    """
+    Configure no srv6-only on r2 default VRF
+    Test that on vrf20, that MPLS prefix 2001:8::/64 is imported
+    """
+
+    get_topogen().gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 2
+          segment-routing srv6
+           no srv6-only
+          exit
+         exit
+        """
+    )
+
+    logger.info("On r2, check that the MPLS prefix 2001:8::/64 is selected in vrf20")
+    check_rib(
+        "r2",
+        "show bgp vrf vrf20 ipv6 2001:8::/64 json",
+        "r2/vrf20_ipv6_2001_8_both_mpls_selected.json",
+    )
+
+
+def test_sid_r2_del_route_map_to_depriorize_mpls_entry():
+    """
+    Unconfigure the r2 route-map initially used to priorize mpls entry
+    Test that both SRv6 and MPLS VPN prefixes are received.
+    """
+    get_topogen().gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 2
+          address-family ipv6 vpn
+           no neighbor 2001::1 route-map rmap in
+          exit-address-family
+         exit
+         no route-map rmap
+        """
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls_srv6.json"
+    )
+
+
 def test_sid_add_peer_srv6_filtered():
     """
     Configure peer 2001::2 with encapsulation-srv6
@@ -682,7 +803,6 @@ def test_sid_add_peer_srv6_filtered():
         configure terminal
          router bgp 1
           address-family ipv6 vpn
-           neighbor 2001::2 addpath-tx-all-paths
            neighbor 2001::2 encapsulation-srv6
           exit-address-family
         """
@@ -1002,7 +1122,6 @@ def test_sid_configure_r2_listener_as_srv6_and_mpls_again():
          router bgp 2 vrf vrf20
           address-family ipv6 unicast
            label vpn export auto
-           rt vpn both 55:55 88:88
           exit-address-family
          exit
          router bgp 2

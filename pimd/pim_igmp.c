@@ -255,7 +255,6 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp)
 {
 	int fd;
 	int join = 0;
-	struct in_addr group;
 	struct pim_interface *pim_ifp = ifp->info;
 
 	fd = pim_socket_mcast(IPPROTO_IGMP, ifaddr, ifp, 1);
@@ -263,42 +262,19 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp)
 	if (fd < 0)
 		return -1;
 
-	if (inet_aton(PIM_ALL_ROUTERS, &group)) {
-		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex, pim_ifp))
-			++join;
-	} else {
-		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __func__, fd, &ifaddr, PIM_ALL_ROUTERS, errno,
-			safe_strerror(errno));
-	}
+	if (!pim_socket_join(fd, qpim_all_routers_addr, ifaddr, ifp->ifindex, pim_ifp))
+		++join;
 
 	/*
 	  IGMP routers periodically send IGMP general queries to
 	  AllSystems=224.0.0.1
 	  IGMP routers must receive general queries for querier election.
 	*/
-	if (inet_aton(PIM_ALL_SYSTEMS, &group)) {
-		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex, pim_ifp))
-			++join;
-	} else {
-		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __func__, fd, &ifaddr,
-			PIM_ALL_SYSTEMS, errno, safe_strerror(errno));
-	}
+	if (!pim_socket_join(fd, qpim_all_systems_addr, ifaddr, ifp->ifindex, pim_ifp))
+		++join;
 
-	if (inet_aton(PIM_ALL_IGMP_ROUTERS, &group)) {
-		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex,
-				     pim_ifp)) {
-			++join;
-		}
-	} else {
-		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __func__, fd, &ifaddr,
-			PIM_ALL_IGMP_ROUTERS, errno, safe_strerror(errno));
-	}
+	if (!pim_socket_join(fd, qpim_all_gmp_routers_addr, ifaddr, ifp->ifindex, pim_ifp))
+		++join;
 
 	if (!join) {
 		flog_err_sys(

@@ -528,6 +528,15 @@ int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 
 	struct pcep_ctrl_timer_data *data;
 
+	/*
+	 * A timer can be re-scheduled while still armed (e.g. the
+	 * reconnect timer under backoff).  event_add_timer() ignores the
+	 * request when *thread is already set, which would orphan the
+	 * data allocated below; cancel the previous timer first, which
+	 * also frees its data.
+	 */
+	pcep_thread_cancel_timer(thread);
+
 	data = XCALLOC(MTYPE_PCEP, sizeof(*data));
 	data->ctrl_state = ctrl_state;
 	data->timer_type = timer_type;

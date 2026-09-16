@@ -206,18 +206,21 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 		return;
 
 	if (!prefix_same(&rn->p, p))
-		return;
+		goto done;
 
 	dest = rib_dest_from_rnode(rn);
 	if (!dest || !dest->selected_fib)
-		return;
+		goto done;
 
 	re = dest->selected_fib;
 	if (re->type != ZEBRA_ROUTE_KERNEL)
-		return;
+		goto done;
 
-	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, 0, 0, p, NULL, nh, 0,
-		   zvrf->table_id, 0, 0, false);
+	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, re->instance,
+		   re->flags, p, NULL, nh, 0, zvrf->table_id, re->metric, re->distance, false);
+
+done:
+	route_unlock_node(rn);
 }
 
 /* Called from if_up(). */
@@ -320,12 +323,35 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		prefix_copy(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
 
-		if (prefix_same(&cp, &p) &&
-		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
+		if (prefix_same(&cp, &p) && !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN) &&
+		    !(CHECK_FLAG(c->flags, ZEBRA_IFA_TENTATIVE) ||
+		      CHECK_FLAG(c->flags, ZEBRA_IFA_DADFAILED)))
 			count++;
 
 		if (count >= 2)
 			return;
+	}
+
+	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_TENTATIVE) ||
+	    CHECK_FLAG(ifc->flags, ZEBRA_IFA_DADFAILED)) {
+		/*
+		 * So if we have a kernel route that would match this connected route
+		 * that we are deciding to not install at this point in time, let's just
+		 * go ahead and remove it now, we don't want upper level protocols to be
+		 * using it either since the prefix is still tentative.
+		 */
+		if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+			connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
+			connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
+		}
+
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("interface %s vrf %s(%u) connected address %pFX is in %s%s state, not installing connected route",
+				   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id, &p,
+				   CHECK_FLAG(ifc->flags, ZEBRA_IFA_TENTATIVE) ? "tentative" : "",
+				   CHECK_FLAG(ifc->flags, ZEBRA_IFA_DADFAILED) ? " DAD failed"
+									       : "");
+		return;
 	}
 
 	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
@@ -518,8 +544,9 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		prefix_copy(&cp, CONNECTED_PREFIX(c));
 		apply_mask(&cp);
 
-		if (prefix_same(&p, &cp) &&
-		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
+		if (prefix_same(&p, &cp) && !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN) &&
+		    !(CHECK_FLAG(c->flags, ZEBRA_IFA_TENTATIVE) ||
+		      CHECK_FLAG(c->flags, ZEBRA_IFA_DADFAILED)))
 			count++;
 
 		if (count >= 1)

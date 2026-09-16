@@ -907,6 +907,8 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	      (-errnum == ENODEV || -errnum == ESRCH)) ||
 	     (msg_type == RTM_NEWROUTE &&
 	      (-errnum == ENETDOWN || -errnum == EEXIST)) ||
+	     (msg_type == RTM_DELNEXTHOP &&
+	      (-errnum == ENOENT || -errnum == ESRCH)) ||
 	     ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
 	       msg_type == RTM_GETTUNNEL) &&
 	      (-errnum == EOPNOTSUPP)))) {
@@ -1485,6 +1487,10 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
 		return netlink_put_mac_update_msg(bth, ctx);
+
+	case DPLANE_OP_NH_FDB_INSTALL:
+	case DPLANE_OP_NH_FDB_DELETE:
+		return netlink_put_nh_fdb_update_msg(bth, ctx);
 
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:

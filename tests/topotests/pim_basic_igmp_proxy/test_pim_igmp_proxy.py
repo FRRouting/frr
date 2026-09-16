@@ -84,6 +84,7 @@ def build_topo(tgen):
 
     # Dummy interface for static joins
     tgen.gears["r2"].run("ip link add r2-eth1 type dummy")
+    tgen.gears["r2"].run("ip link set r2-eth1 up")
 
 
 def setup_module(mod):

@@ -380,6 +380,12 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 	bs->remote_diag = state->diagnostics;
 	bs->discrs.remote_discr = ntohl(state->rid);
 	bs->remote_cbit = !!(flags & RBIT_CPI);
+	/*
+	 * Only the peer's Demand bit is recorded here. The data plane
+	 * owns transmission and detection for offloaded sessions, so
+	 * demand mode is reported as configured rather than active.
+	 */
+	bs->remote_demand_mode = !!(flags & RBIT_DEMAND);
 	bs->remote_detect_mult = state->detection_multiplier;
 	bs->remote_timers.desired_min_tx = ntohl(state->desired_tx);
 	bs->remote_timers.required_min_rx = ntohl(state->required_rx);
@@ -892,6 +898,8 @@ static void _bfd_dplane_session_fill(const struct bfd_session *bs,
 		msg->data.session.flags |= SESSION_ECHO;
 	if (bs->flags & BFD_SESS_FLAG_CBIT)
 		msg->data.session.flags |= SESSION_CBIT;
+	if (bs->flags & BFD_SESS_FLAG_DEMAND)
+		msg->data.session.flags |= SESSION_DEMAND;
 	if (bs->flags & BFD_SESS_FLAG_PASSIVE)
 		msg->data.session.flags |= SESSION_PASSIVE;
 	if (bs->flags & BFD_SESS_FLAG_SHUTDOWN)

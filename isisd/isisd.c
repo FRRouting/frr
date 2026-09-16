@@ -3499,7 +3499,7 @@ void isis_area_lsp_refresh_set(struct isis_area *area, int level,
 DEFUN (log_adj_changes,
        log_adj_changes_cmd,
        "log-adjacency-changes",
-       "Log changes in adjacency state\n")
+       LOG_ADJ_CHANGES_STR)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 

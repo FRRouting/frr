@@ -68,6 +68,9 @@ static pthread_mutex_t dplane_mutex;
 static struct event *t_dplane;
 static struct dplane_ctx_list_head rib_dplane_q;
 static _Atomic uint32_t rib_dplane_q_max;
+#ifdef DEV_BUILD
+static _Atomic bool dplane_results_plugged;
+#endif
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
@@ -2160,22 +2163,34 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			if (zvrf)
 				zvrf->installs++;
 
-			/* Notify route owner */
-			if (zebra_router_notify_on_ack())
-				zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
-			else {
-				if (re) {
-					if (CHECK_FLAG(re->flags,
-						       ZEBRA_FLAG_OFFLOADED))
-						zsend_route_notify_owner_ctx(
-							ctx,
-							ZAPI_ROUTE_INSTALLED);
-					if (CHECK_FLAG(
-						    re->flags,
-						    ZEBRA_FLAG_OFFLOAD_FAILED))
-						zsend_route_notify_owner_ctx(
-							ctx,
-							ZAPI_ROUTE_FAIL_INSTALL);
+			/*
+			 * Notify route owner
+			 *
+			 * Note this is gated on this re actually being
+			 * the selected.  It's possible that a re comes in
+			 * is selected->installed, then another re comes
+			 * in while this one is in flight to the kernel
+			 * in that case this re is no longer the winner
+			 * and we should not notify. Later re's will
+			 * cause the winner to be shown.
+			 *
+			 * In this case the BETTER_ADMIN_WON message
+			 * was already sent if the re is of a different
+			 * protocol type.
+			 */
+			if (dest && re && re == dest->selected_fib) {
+				if (zebra_router_notify_on_ack())
+					zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
+				else {
+					if (re) {
+						if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED))
+							zsend_route_notify_owner_ctx(ctx,
+										     ZAPI_ROUTE_INSTALLED);
+						if (CHECK_FLAG(re->flags,
+							       ZEBRA_FLAG_OFFLOAD_FAILED))
+							zsend_route_notify_owner_ctx(ctx,
+										     ZAPI_ROUTE_FAIL_INSTALL);
+					}
 				}
 			}
 		} else {
@@ -5156,6 +5171,32 @@ static void rib_process_sys_route(struct zebra_dplane_ctx *ctx)
 	}
 }
 
+static void rib_process_dplane_results(struct event *event);
+
+static void dplane_results_event_add(void)
+{
+#ifdef DEV_BUILD
+	if (atomic_load_explicit(&dplane_results_plugged, memory_order_relaxed))
+		return;
+#endif
+
+	event_add_event(zrouter.master, rib_process_dplane_results, NULL, 0, &t_dplane);
+}
+
+#ifdef DEV_BUILD
+void zebra_rib_dplane_results_plug(void)
+{
+	atomic_store_explicit(&dplane_results_plugged, true, memory_order_relaxed);
+	event_cancel(&t_dplane);
+}
+
+void zebra_rib_dplane_results_unplug(void)
+{
+	atomic_store_explicit(&dplane_results_plugged, false, memory_order_relaxed);
+	dplane_results_event_add();
+}
+#endif
+
 /*
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
@@ -5281,6 +5322,11 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_vxlan_handle_result(ctx);
 				break;
 
+			case DPLANE_OP_NH_FDB_INSTALL:
+			case DPLANE_OP_NH_FDB_DELETE:
+				zebra_evpn_l2_nh_dplane_result(ctx);
+				break;
+
 			case DPLANE_OP_RULE_ADD:
 			case DPLANE_OP_RULE_DELETE:
 			case DPLANE_OP_RULE_UPDATE:
@@ -5355,6 +5401,14 @@ static void rib_process_dplane_results(struct event *event)
 			ctx = dplane_ctx_dequeue(&ctxlist);
 		}
 
+		/*
+		 * If the dplane still has results queued, yield back to the
+		 * event loop instead of draining everything in this one call.
+		 * Re-arm rib_process_dplane_results below to serve other events.
+		 */
+		if (work_left_to_do)
+			break;
+
 	} while (1);
 
 #ifdef HAVE_SCRIPTING
@@ -5363,8 +5417,7 @@ static void rib_process_dplane_results(struct event *event)
 #endif
 
 	if (work_left_to_do)
-		event_add_event(zrouter.master, rib_process_dplane_results, NULL, 0,
-				&t_dplane);
+		dplane_results_event_add();
 }
 
 /*
@@ -5387,8 +5440,7 @@ static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 	}
 
 	/* Ensure event is signalled to zebra main pthread */
-	event_add_event(zrouter.master, rib_process_dplane_results, NULL, 0,
-			&t_dplane);
+	dplane_results_event_add();
 
 	return 0;
 }

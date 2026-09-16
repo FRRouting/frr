@@ -2228,8 +2228,6 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 	table = bgp_dest_table(dest);
 	if (table && table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
 		is_evpn = true;
-	else if (CHECK_FLAG(info->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
-		return;
 
 	/*
 	 * BGP is installing this route and bgp has been configured
@@ -3235,7 +3233,7 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	uint32_t table_id;
 	afi_t afi;
 	safi_t safi;
-	struct bgp_dest *dest;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp *bgp;
 	struct bgp_path_info *pi, *new_select;
 
@@ -3291,7 +3289,6 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 			flog_err(EC_BGP_INVALID_ROUTE,
 				 "selected route %pBD not found", dest);
 
-			bgp_dest_unlock_node(dest);
 			return -1;
 		}
 		break;
@@ -3347,7 +3344,6 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		break;
 	}
 
-	bgp_dest_unlock_node(dest);
 	return 0;
 }
 
@@ -3483,6 +3479,7 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 static void bgp_zebra_connected(struct zclient *zclient)
 {
 	struct bgp *bgp;
+	struct listnode *bnode;
 	afi_t afi;
 	safi_t safi;
 
@@ -3491,25 +3488,27 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
-	/* At this point, we may or may not have BGP instances configured, but
-	 * we're only interested in the default VRF (others wouldn't have learnt
-	 * the VRF from Zebra yet.)
-	 */
-	bgp = bgp_get_default();
-	if (!bgp)
-		return;
-
-	bgp_zebra_instance_register(bgp);
-
 	/* A restarted zebra has lost any previously installed BGP routes, and a
 	 * stable BGP RIB will not re-select unchanged best paths on its own.
-	 * Replay the selected routes so zebra and the kernel FIB are rebuilt.
+	 * Re-register every BGP instance known to zebra and replay its selected
+	 * routes so zebra and the kernel FIB are rebuilt. This must cover the
+	 * tenant VRF instances too, not just the default instance, or their
+	 * routes are lost after a zebra restart.
 	 */
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!bgp_fibupd_safi(safi))
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bnode, bgp)) {
+		if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 			continue;
 
-		bgp_zebra_announce_table(bgp, afi, safi);
+		bgp_zebra_instance_register(bgp);
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (!bgp_fibupd_safi(safi))
+				continue;
+
+			bgp_zebra_announce_table(bgp, afi, safi);
+		}
+
+		BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 	}
 
 	/* Retry the deferred suppress-fib-pending configuration */
@@ -3518,7 +3517,6 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	/* TODO - What if we have peers and networks configured, do we have to
 	 * kick-start them?
 	 */
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 }
 
 void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
@@ -3728,8 +3726,7 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	 * the EVPN VTEP/originator IP.
 	 */
 	if (cmd == ZEBRA_VNI_ADD && ipaddr_is_zero(&vtep_ip)) {
-		SET_IPADDR_V4(&vtep_ip);
-		vtep_ip.ipaddr_v4 = bgp->router_id;
+		ipaddr_set_v4(&vtep_ip, bgp->router_id);
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("Rx VNI add with unspecified VTEP IP, using router-id %pIA",
 				   &vtep_ip);

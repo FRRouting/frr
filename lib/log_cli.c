@@ -24,7 +24,7 @@ DEFPY_YANG (config_log_stdout,
 	    config_log_stdout_cmd,
 	    "[no] log stdout [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
 	    NO_STR
-	    "Logging control\n"
+	    LOG_STR
 	    "Set stdout logging level\n"
 	    LOG_LEVEL_DESC)
 {
@@ -46,7 +46,7 @@ DEFPY_HIDDEN (config_log_monitor,
        config_log_monitor_cmd,
        "[no] log monitor [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Set terminal line (monitor) logging level\n"
        LOG_LEVEL_DESC)
 {
@@ -75,7 +75,7 @@ DEFPY_YANG_NOSH (debug_uid_backtrace,
 DEFUN_YANG (config_log_dmn_file,
 	    config_log_dmn_file_cmd,
             "log daemon " DAEMONS_LIST " file FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
-	    "Logging control\n"
+	    LOG_STR
 	    "Specific daemon\n"
 	    DAEMONS_STR
 	    "Logging to file\n"
@@ -101,7 +101,7 @@ DEFUN_YANG (no_config_log_dmn_file,
 	    no_config_log_dmn_file_cmd,
 	    "no log daemon " DAEMONS_LIST " file [FILENAME [LEVEL]]",
 	    NO_STR
-	    "Logging control\n"
+	    LOG_STR
 	    "Specific daemon\n"
 	    DAEMONS_STR
 	    "Cancel logging to file\n"
@@ -120,7 +120,7 @@ DEFPY_YANG (config_log_file,
 	    config_log_file_cmd,
 	    "[no] log file ![FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]]",
 	    NO_STR
-	    "Logging control\n"
+	    LOG_STR
 	    "Logging to file\n"
 	    "Logging filename\n"
 	    LOG_LEVEL_DESC)
@@ -143,7 +143,7 @@ DEFPY_YANG (config_log_file,
 DEFPY_YANG (config_log_syslog,
 	    config_log_syslog_cmd,
        "log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
-       "Logging control\n"
+       LOG_STR
        "Set syslog logging level\n"
        LOG_LEVEL_DESC)
 {
@@ -161,7 +161,7 @@ DEFPY_YANG (no_config_log_syslog,
        no_config_log_syslog_cmd,
        "no log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Cancel logging to syslog\n"
        LOG_LEVEL_DESC)
 {
@@ -172,7 +172,7 @@ DEFPY_YANG (no_config_log_syslog,
 DEFPY_YANG (config_log_facility,
        config_log_facility_cmd,
        "log facility <kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>$facilityarg",
-       "Logging control\n"
+       LOG_STR
        "Facility parameter for syslog messages\n"
        LOG_FACILITY_DESC)
 {
@@ -187,7 +187,7 @@ DEFPY_YANG (no_config_log_facility,
        no_config_log_facility_cmd,
        "no log facility [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>] [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Reset syslog facility to default (daemon)\n"
        LOG_FACILITY_DESC
        LOG_LEVEL_DESC)
@@ -200,7 +200,7 @@ DEFPY_YANG (config_log_record_priority,
        config_log_record_priority_cmd,
        "[no] log record-priority",
 	NO_STR
-       "Logging control\n"
+       LOG_STR
        "Log the priority of the message within the message\n")
 {
 	nb_cli_enqueue_change(vty, "/frr-logging:logging/record-priority", NB_OP_MODIFY,
@@ -212,7 +212,7 @@ DEFPY_YANG (config_log_record_severity,
        config_log_record_severity_cmd,
        "[no] log record-severity",
 	NO_STR
-       "Logging control\n"
+       LOG_STR
        "Log the severity of the message within the message\n")
 {
 	nb_cli_enqueue_change(vty, "/frr-logging:logging/record-severity", NB_OP_MODIFY,
@@ -223,7 +223,7 @@ DEFPY_YANG (config_log_record_severity,
 DEFPY_YANG (config_log_timestamp_precision,
        config_log_timestamp_precision_cmd,
        "log timestamp precision (0-6)",
-       "Logging control\n"
+       LOG_STR
        "Timestamp configuration\n"
        "Set the timestamp precision\n"
        "Number of subsecond digits\n")
@@ -239,7 +239,7 @@ DEFPY_YANG (no_config_log_timestamp_precision,
        no_config_log_timestamp_precision_cmd,
        "no log timestamp precision [(0-6)]",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Timestamp configuration\n"
        "Reset the timestamp precision to the default value of 0\n"
        "Number of subsecond digits\n")
@@ -252,7 +252,7 @@ DEFPY_YANG (config_log_ec,
        config_log_ec_cmd,
        "[no] log error-category",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Prefix log message text with [EC 9999] code\n")
 {
 	nb_cli_enqueue_change(vty, "/frr-logging:logging/error-category", NB_OP_MODIFY,
@@ -264,7 +264,7 @@ DEFPY_YANG (config_log_xid,
        config_log_xid_cmd,
        "[no] log unique-id",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Prefix log message text with [XXXXX-XXXXX] identifier\n")
 {
 	nb_cli_enqueue_change(vty, "/frr-logging:logging/unique-id", NB_OP_MODIFY,
@@ -275,7 +275,7 @@ DEFPY_YANG (config_log_xid,
 DEFPY_YANG (config_log_filterfile,
        config_log_filterfile_cmd,
        "log filtered-file FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
-       "Logging control\n"
+       LOG_STR
        "Logging to file with string filter\n"
        "Logging filename\n"
        LOG_LEVEL_DESC)
@@ -296,7 +296,7 @@ DEFPY_YANG (no_config_log_filterfile,
        no_config_log_filterfile_cmd,
        "no log filtered-file [FILENAME [LEVEL]]",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Cancel logging to file with string filter\n"
        "Logging file name\n"
        "Logging level\n")
@@ -309,7 +309,7 @@ DEFPY_YANG (log_filter,
        log_filter_cmd,
        "[no] log filter-text WORD$filter",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        FILTER_LOG_STR
        "String to filter by\n")
 {
@@ -323,7 +323,7 @@ DEFPY_YANG (log_filter_clear,
        log_filter_clear_cmd,
        "clear log filter-text",
        CLEAR_STR
-       "Logging control\n"
+       LOG_STR
        FILTER_LOG_STR)
 {
 	nb_cli_enqueue_change(vty, "/frr-logging:logging/filter-text", NB_OP_DESTROY, NULL);
@@ -337,7 +337,7 @@ DEFPY_YANG (log_immediate_mode,
        log_immediate_mode_cmd,
        "[no] log immediate-mode",
        NO_STR
-       "Logging control\n"
+       LOG_STR
        "Output immediately, without buffering\n")
 {
 	nb_cli_enqueue_change(vty, "/frr-logging:logging/immediate-mode", NB_OP_MODIFY,
@@ -350,7 +350,7 @@ DEFPY_YANG (clear_log_cmdline,
 	    clear_log_cmdline_cmd,
 	    "clear log cmdline-targets",
 	    CLEAR_STR
-	    "Logging control\n"
+	    LOG_STR
 	    "Disable log targets specified at startup by --log option\n")
 {
 	return nb_cli_rpc(vty, "/frr-logging:clear-cmdline-targets", NULL);

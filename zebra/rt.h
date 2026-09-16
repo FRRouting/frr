@@ -93,11 +93,6 @@ extern void kernel_read_neigh(struct zebra_dplane_ctx *ctx);
 extern void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx);
 extern void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx);
 extern void route_read(struct zebra_ns *zns);
-extern int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip);
-extern int kernel_del_mac_nh(uint32_t nh_id);
-extern int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
-		struct nh_grp *nh_ids);
-extern int kernel_del_mac_nhg(uint32_t nhg_id);
 
 /*
  * Message batching interface.

@@ -12,6 +12,10 @@ source-built FRR on the following base platforms:
 * Centos 7
 * Centos 8
 
+The Alpine image is a minimal runtime image that excludes development
+(``-dev``), documentation (``-doc``), and debug (``-dbg``) packages, which
+are only needed at build time.
+
 The following platform images are used to support Travis CI and can also
 be used to reproduce topotest failures when the docker host is Ubuntu
 (tested on 20.04 and 22.04):

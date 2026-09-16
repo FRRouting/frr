@@ -1822,7 +1822,7 @@ class Router(Node):
 
         running = self.listDaemons()
         if running:
-            for _ in range(0, 30):
+            for _ in range(0, 60):
                 sleep(
                     0.5,
                     "{}: waiting for daemons stopping: {}".format(
@@ -1835,19 +1835,20 @@ class Router(Node):
 
         if running:
             logger.warning(
-                "%s: sending SIGBUS to: %s",
+                "%s: sending SIGXCPU to: %s",
                 self.name,
                 ", ".join([x[0] for x in running]),
             )
             for name, pid in running:
                 pidfile = "/var/run/{}/{}.pid".format(self.routertype, name)
                 logger.info("%s: killing %s", self.name, name)
-                self.cmd("kill -SIGBUS %d" % pid)
+                self.cmd("kill -SIGXCPU %d" % pid)
                 self.cmd("rm -- " + pidfile)
 
             sleep(
                 0.5,
-                "%s: waiting for daemons to exit/core after initial SIGBUS" % self.name,
+                "%s: waiting for daemons to exit/core after initial SIGXCPU"
+                % self.name,
             )
 
         errors = self.checkRouterCores(reportOnce=True)
@@ -3014,7 +3015,7 @@ class Router(Node):
                 interface = m.group(1)
                 ll_per_if_count = 0
             m = re.search(
-                "inet6 (fe80::[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+)[/0-9]* scope link",
+                r"inet6 (fe80:[0-9a-f:]*)(?:/\d+)? scope link",
                 line,
             )
             if m:

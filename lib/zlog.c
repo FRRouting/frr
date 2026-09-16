@@ -108,7 +108,8 @@ struct zlog_msg {
 	size_t stackbufsz;
 	char *text;
 	size_t textlen;
-	size_t hdrlen;
+	/* length of "[XXXXX-XXXXX][EC 0] ", if present */
+	size_t texthdrlen;
 
 	/* for relayed log messages ONLY (cf. zlog_recirculate_live_msg) */
 	intmax_t pid, tid;
@@ -536,10 +537,10 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 		return;
 
 	hdr = (struct zlog_live_hdr *)data;
-	if (hdr->hdrlen < sizeof(*hdr))
+	if (hdr->hdrlen < sizeof(*hdr) || hdr->hdrlen > len)
 		return;
 	data += hdr->hdrlen;
-	len -= sizeof(*hdr);
+	len -= hdr->hdrlen;
 
 	msg->ts.tv_sec = hdr->ts_sec;
 	msg->ts.tv_nsec = hdr->ts_nsec;
@@ -547,10 +548,15 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 	msg->tid = hdr->tid;
 	msg->prio = hdr->prio;
 
-	if (hdr->textlen > len)
-		return;
 	msg->textlen = hdr->textlen;
-	msg->hdrlen = hdr->texthdrlen;
+	if (msg->textlen > len) {
+		const char *uid = hdr->uid[0] ? hdr->uid : "<no uid>";
+
+		zlog_warn("log message %s truncated in recirculation (%zu cut off to %zu)", uid,
+			  msg->textlen, len);
+		msg->textlen = len;
+	}
+	msg->texthdrlen = MIN(hdr->texthdrlen, msg->textlen);
 	msg->text = (char *)data;
 
 	/* caller needs to make sure we have a trailing \n\0, it's not
@@ -560,9 +566,15 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 	    msg->text[msg->textlen + 1] != '\0')
 		return;
 
+	/* NB: even if the message is truncated, argpos are left intact.  It
+	 * just further mangled a log event that already got mangled, and
+	 * readers/consumers of these values should be resilient against
+	 * invalid offsets anyway
+	 */
 	static_assert(sizeof(msg->argpos[0]) == sizeof(hdr->argpos[0]),
 		      "in-memory struct doesn't match on-wire variant");
 	msg->n_argpos = MIN(hdr->n_argpos, array_size(msg->argpos));
+	msg->n_argpos = MIN(msg->n_argpos, (hdr->hdrlen - sizeof(*hdr)) / sizeof(msg->argpos[0]));
 	memcpy(msg->argpos, hdr->argpos, msg->n_argpos * sizeof(msg->argpos[0]));
 
 	/* This will only work if we're in the same daemon: we received a log
@@ -589,7 +601,7 @@ void zlog_recirculate_live_msg(uint8_t *data, size_t len)
 		msg->fmt = xref_logmsg->fmtstring;
 	} else {
 		/* fake out format string... */
-		msg->fmt = msg->text + hdr->texthdrlen;
+		msg->fmt = msg->text + msg->texthdrlen;
 	}
 
 	rcu_read_lock();
@@ -816,7 +828,7 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 	if (!msg->text) {
 		va_list args;
 		bool do_xid, do_ec;
-		size_t need = 0, hdrlen;
+		size_t need = 0, texthdrlen;
 		struct fbuf fb = {
 			.buf = msg->stackbuf,
 			.pos = msg->stackbuf,
@@ -836,8 +848,8 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		if (need)
 			need += bputch(&fb, ' ');
 
-		msg->hdrlen = hdrlen = need;
-		assert(hdrlen < msg->stackbufsz);
+		msg->texthdrlen = texthdrlen = need;
+		assert(texthdrlen < msg->stackbufsz);
 
 		fb.outpos = msg->argpos;
 		fb.outpos_n = array_size(msg->argpos);
@@ -859,11 +871,11 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		else {
 			msg->text = XMALLOC(MTYPE_LOG_MESSAGE, need);
 
-			memcpy(msg->text, msg->stackbuf, hdrlen);
+			memcpy(msg->text, msg->stackbuf, texthdrlen);
 
 			fb.buf = msg->text;
 			fb.len = need;
-			fb.pos = msg->text + hdrlen;
+			fb.pos = msg->text + texthdrlen;
 			fb.outpos_i = 0;
 
 			va_copy(args, msg->args);
@@ -884,14 +896,14 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 	return msg->text;
 }
 
-void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen, size_t *n_argpos,
+void zlog_msg_args(struct zlog_msg *msg, size_t *texthdrlen, size_t *n_argpos,
 		   const struct fmt_outpos **argpos)
 {
 	if (!msg->text)
 		zlog_msg_text(msg, NULL);
 
-	if (hdrlen)
-		*hdrlen = msg->hdrlen;
+	if (texthdrlen)
+		*texthdrlen = msg->texthdrlen;
 	if (n_argpos)
 		*n_argpos = msg->n_argpos;
 	if (argpos)

@@ -631,6 +631,10 @@ extern void rib_add_finished_startup(void);
 extern void zebra_vty_init(void);
 extern uint32_t zebra_rib_dplane_results_count(void);
 extern uint32_t zebra_rib_dplane_results_max(void);
+#ifdef DEV_BUILD
+extern void zebra_rib_dplane_results_plug(void);
+extern void zebra_rib_dplane_results_unplug(void);
+#endif
 
 extern pid_t zebra_pid;
 

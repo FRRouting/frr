@@ -45,6 +45,8 @@
 
 #define BFD_AUTH_SIMPLE_PASSWD_MIN_LEN 1
 #define BFD_AUTH_SIMPLE_PASSWD_MAX_LEN 16
+/* RFC 5880 Section 6.7.4: the keyed SHA1 key is up to 20 bytes. */
+#define BFD_AUTH_SHA1_KEY_MAX_LEN      20
 
 DECLARE_MGROUP(BFDD);
 DECLARE_MTYPE(BFDD_CLIENT);
@@ -260,6 +262,7 @@ enum bfd_session_flags {
 					     * actively
 					     */
 	BFD_SESS_FLAG_MH = 1 << 2,		     /* BFD Multi-hop session */
+	BFD_SESS_FLAG_DEMAND = 1 << 3,		     /* Demand mode configured */
 	BFD_SESS_FLAG_IPV6 = 1 << 4,		     /* BFD IPv6 session */
 	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5,	     /* send event timer active */
 	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6,	     /* ignore send event when timer
@@ -343,6 +346,7 @@ struct bfd_profile {
 
 	/** Echo mode (only applies to single hop). */
 	bool echo_mode;
+	bool demand_mode;
 	/** Desired echo transmission interval (in microseconds). */
 	uint32_t min_echo_tx;
 	/** Minimum required echo receive interval (in microseconds). */
@@ -383,11 +387,12 @@ struct bfd_session {
 	uint8_t ses_state;
 	struct bfd_discrs discrs;
 	uint8_t local_diag;
-	uint8_t demand_mode;
 	uint8_t detect_mult;
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
 	uint8_t remote_cbit;
+	uint8_t remote_ses_state;
+	uint8_t remote_demand_mode;
 
 	/** BFD profile name. */
 	char *profile_name;
@@ -451,13 +456,12 @@ struct bfd_session {
 	struct keychain *kc; /* Currently active keychain for this session */
 	uint32_t auth_seq_num;
 	uint32_t auth_last_rx_seq_num;
-/* the last sequence number will be updated:
- * - on non meticulous mode: every 5 packets
- * - on meticulous mode: every packet
- */
-#define AUTH_SEQ_NUM_MODULO	       5
-#define AUTH_SEQ_NUM_MODULO_METICULOUS 1
-	uint32_t auth_seq_num_update_modulo;
+	/*
+	 * RFC 5880 Section 6.8.1 bfd.AuthSeqKnown, with the time the
+	 * sequence number was last accepted so that it can be aged out.
+	 */
+	bool auth_seq_known;
+	struct timeval auth_last_rx_time;
 	bool auth_meticulous;
 };
 
@@ -495,7 +499,6 @@ struct sbfd_reflector {
 
 /* Various constants */
 /* Retrieved from ptm_timer.h from Cumulus PTM sources. */
-#define BFD_DEF_DEMAND 0
 #define BFD_DEFDETECTMULT 3
 #define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
@@ -745,6 +748,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
  * \param passive the passive mode.
  */
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
+void bfd_set_demand(struct bfd_session *bs, bool demand);
 
 /**
  * Set the BFD session to log or not log session changes.

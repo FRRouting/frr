@@ -2966,6 +2966,10 @@ DEFPY (show_ip_pim_nexthop_lookup,
 	return pim_show_nexthop_lookup_cmd_helper(vrf, vty, source, group);
 }
 
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `show ip rpf A.B.C.D` command")
+#endif
+/* Deprecated on 2024-10-23 in 5cce666d49b4 */
 ALIAS_DEPRECATED (show_ip_pim_nexthop_lookup,
                   show_ip_rpf_source_cmd,
                   "show ip rpf A.B.C.D$source",
@@ -3465,6 +3469,11 @@ DEFPY_YANG (pim_spt_switchover_infinity,
 {
 	return pim_process_spt_switchover_infinity_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim spt-switchover infinity-and-beyond` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_spt_switchover_infinity,
 			  ip_pim_spt_switchover_infinity_cmd,
 			  "ip pim spt-switchover infinity-and-beyond",
@@ -3516,6 +3525,11 @@ DEFPY (pim_spt_switchover_infinity_plist,
 {
 	return pim_process_spt_switchover_prefixlist_cmd(vty, plist);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME`")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_spt_switchover_infinity_plist,
 			  ip_pim_spt_switchover_infinity_plist_cmd,
 			  "ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME$plist",
@@ -3568,6 +3582,11 @@ DEFPY (no_pim_spt_switchover_infinity,
 {
 	return pim_process_no_spt_switchover_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim spt-switchover infinity-and-beyond` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_spt_switchover_infinity,
 			  no_ip_pim_spt_switchover_infinity_cmd,
 			  "no ip pim spt-switchover infinity-and-beyond",
@@ -3621,6 +3640,11 @@ DEFPY (no_pim_spt_switchover_infinity_plist,
 {
 	return pim_process_no_spt_switchover_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME`")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_spt_switchover_infinity_plist,
 			  no_ip_pim_spt_switchover_infinity_plist_cmd,
 			  "no ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME",
@@ -3686,6 +3710,11 @@ DEFPY_YANG (pim_register_accept_list,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `[no] ip pim register-accept-list PREFIXLIST4_NAME` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_register_accept_list,
 			  ip_pim_register_accept_list_cmd,
 			  "[no] ip pim register-accept-list PREFIXLIST4_NAME$word",
@@ -3745,6 +3774,11 @@ DEFPY_YANG (pim_joinprune_time,
 {
 	return pim_process_join_prune_cmd(vty, jpi_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim join-prune-interval (1-65535)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_joinprune_time,
 			  ip_pim_joinprune_time_cmd,
 			  "ip pim join-prune-interval (1-65535)$jpi",
@@ -3796,6 +3830,10 @@ DEFPY_YANG (no_pim_joinprune_time,
 	return pim_process_no_join_prune_cmd(vty);
 }
 
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim join-prune-interval [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_joinprune_time,
 			  no_ip_pim_joinprune_time_cmd,
 			  "no ip pim join-prune-interval [(1-65535)]",
@@ -3846,6 +3884,11 @@ DEFPY_YANG (pim_register_suppress,
 {
 	return pim_process_register_suppress_cmd(vty, rst_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim register-suppress-time (1-65535)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_register_suppress,
 			  ip_pim_register_suppress_cmd,
 			  "ip pim register-suppress-time (1-65535)$rst",
@@ -3896,6 +3939,11 @@ DEFPY_YANG (no_pim_register_suppress,
 {
 	return pim_process_no_register_suppress_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim register-suppress-time [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_register_suppress,
 			  no_ip_pim_register_suppress_cmd,
 			  "no ip pim register-suppress-time [(1-65535)]",
@@ -3947,6 +3995,11 @@ DEFPY_YANG (pim_rp_keep_alive,
 {
 	return pim_process_rp_kat_cmd(vty, kat_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim rp keep-alive-timer (1-65535)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_rp_keep_alive,
 			  ip_pim_rp_keep_alive_cmd,
 			  "ip pim rp keep-alive-timer (1-65535)$kat",
@@ -3999,6 +4052,11 @@ DEFPY_YANG (no_pim_rp_keep_alive,
 {
 	return pim_process_no_rp_kat_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim rp keep-alive-timer [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_rp_keep_alive,
 			  no_ip_pim_rp_keep_alive_cmd,
 			  "no ip pim rp keep-alive-timer [(1-65535)]",
@@ -4050,6 +4108,11 @@ DEFPY_YANG (pim_keep_alive,
 {
 	return pim_process_keepalivetimer_cmd(vty, kat_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim keep-alive-timer (1-65535)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_keep_alive,
 			  ip_pim_keep_alive_cmd,
 			  "ip pim keep-alive-timer (1-65535)$kat",
@@ -4100,6 +4163,11 @@ DEFPY_YANG (no_pim_keep_alive,
 {
 	return pim_process_no_keepalivetimer_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim keep-alive-timer [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_keep_alive,
 			  no_ip_pim_keep_alive_cmd,
 			  "no ip pim keep-alive-timer [(1-65535)]",
@@ -4150,6 +4218,11 @@ DEFPY_YANG (pim_packets,
 {
 	return pim_process_pim_packet_cmd(vty, packets_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim packets (1-255)` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_packets,
 			  ip_pim_packets_cmd,
 			  "ip pim packets (1-255)",
@@ -4200,6 +4273,11 @@ DEFPY_YANG (no_pim_packets,
 {
 	return pim_process_no_pim_packet_cmd(vty);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim packets [(1-255)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_packets,
 			  no_ip_pim_packets_cmd,
 			  "no ip pim packets [(1-255)]",
@@ -4330,6 +4408,11 @@ DEFPY_YANG (pim_v6_secondary,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim send-v6-secondary` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_v6_secondary,
 			  ip_pim_v6_secondary_cmd,
 			  "ip pim send-v6-secondary",
@@ -4391,6 +4474,11 @@ DEFPY_YANG (no_pim_v6_secondary,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim send-v6-secondary` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_v6_secondary,
 			  no_ip_pim_v6_secondary_cmd,
 			  "no ip pim send-v6-secondary",
@@ -4448,6 +4536,11 @@ DEFPY (pim_rp,
 
 	return pim_process_rp_cmd(vty, rp_str, group_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim rp A.B.C.D [A.B.C.D/M]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_rp,
 			  ip_pim_rp_cmd,
 			  "ip pim rp A.B.C.D$rp [A.B.C.D/M]$gp",
@@ -4501,6 +4594,11 @@ DEFPY (pim_rp_prefix_list,
 {
 	return pim_process_rp_plist_cmd(vty, rp_str, plist);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim rp A.B.C.D prefix-list PREFIXLIST4_NAME` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_rp_prefix_list,
 			  ip_pim_rp_prefix_list_cmd,
 			  "ip pim rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
@@ -4556,6 +4654,11 @@ DEFPY (no_pim_rp,
 
 	return pim_process_no_rp_cmd(vty, rp_str, group_str);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim rp A.B.C.D [A.B.C.D/M]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_rp,
 			  no_ip_pim_rp_cmd,
 			  "no ip pim rp A.B.C.D$rp [A.B.C.D/M]$gp",
@@ -4623,6 +4726,11 @@ DEFPY (no_pim_rp_prefix_list,
 {
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim rp A.B.C.D prefix-list PREFIXLIST4_NAME` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_rp_prefix_list,
 			  no_ip_pim_rp_prefix_list_cmd,
 			  "no ip pim rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
@@ -4821,6 +4929,11 @@ DEFPY_YANG (pim_ssm_prefix_list,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim ssm prefix-list PREFIXLIST4_NAME` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_ssm_prefix_list,
 			  ip_pim_ssm_prefix_list_cmd,
 			  "ip pim ssm prefix-list PREFIXLIST4_NAME$plist",
@@ -4881,6 +4994,11 @@ DEFPY_YANG (no_pim_ssm_prefix_list,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim ssm prefix-list` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_ssm_prefix_list,
 			  no_ip_pim_ssm_prefix_list_cmd,
 			  "no ip pim ssm prefix-list",
@@ -4959,6 +5077,11 @@ DEFPY_YANG (no_pim_ssm_prefix_list_name,
 
 	return CMD_WARNING_CONFIG_FAILED;
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim ssm prefix-list PREFIXLIST4_NAME` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_ssm_prefix_list_name,
 			  no_ip_pim_ssm_prefix_list_name_cmd,
 			  "no ip pim ssm prefix-list PREFIXLIST4_NAME$plist",
@@ -5119,6 +5242,11 @@ DEFPY (pim_ssmpingd,
 	else
 		return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, "0.0.0.0");
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip ssmpingd [A.B.C.D]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_ssmpingd,
 			  ip_ssmpingd_cmd,
 			  "ip ssmpingd [A.B.C.D]$src",
@@ -5174,6 +5302,11 @@ DEFPY (no_pim_ssmpingd,
 	else
 		return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, "0.0.0.0");
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip ssmpingd [A.B.C.D]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_ssmpingd,
 			  no_ip_ssmpingd_cmd,
 			  "no ip ssmpingd [A.B.C.D]$src",
@@ -5230,6 +5363,11 @@ DEFPY_YANG (pim_ecmp,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim ecmp` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_ecmp,
 			  ip_pim_ecmp_cmd,
 			  "ip pim ecmp",
@@ -5286,6 +5424,11 @@ DEFPY_YANG (no_pim_ecmp,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim ecmp` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_ecmp,
 			  no_ip_pim_ecmp_cmd,
 			  "no ip pim ecmp",
@@ -5348,6 +5491,11 @@ DEFPY_YANG (pim_ecmp_rebalance,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim ecmp rebalance` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_ecmp_rebalance,
 			  ip_pim_ecmp_rebalance_cmd,
 			  "ip pim ecmp rebalance",
@@ -5412,6 +5560,11 @@ DEFPY_YANG (no_pim_ecmp_rebalance,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim ecmp rebalance` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_ecmp_rebalance,
 			  no_ip_pim_ecmp_rebalance_cmd,
 			  "no ip pim ecmp rebalance",
@@ -7103,6 +7256,11 @@ DEFPY_YANG(pim_msdp_peer, pim_msdp_peer_cmd,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip msdp peer A.B.C.D source A.B.C.D` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_msdp_peer,
 			  ip_msdp_peer_cmd,
 			  "ip msdp peer A.B.C.D$peer source A.B.C.D$source",
@@ -7224,6 +7382,11 @@ DEFPY_YANG(pim_msdp_timers, pim_msdp_timers_cmd,
 	nb_cli_apply_changes(vty, NULL);
 	return CMD_SUCCESS;
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip msdp timers (1-65535) (1-65535) [(1-65535)]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_msdp_timers,
 			  ip_msdp_timers_cmd,
 			  "ip msdp timers (1-65535)$keepalive (1-65535)$holdtime [(1-65535)$connretry]",
@@ -7293,6 +7456,11 @@ DEFPY_YANG(no_pim_msdp_timers, no_pim_msdp_timers_cmd,
 	nb_cli_apply_changes(vty, NULL);
 	return CMD_SUCCESS;
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip msdp timers [(1-65535) (1-65535) [(1-65535)]]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_msdp_timers,
 			  no_ip_msdp_timers_cmd,
 			  "no ip msdp timers [(1-65535) (1-65535) [(1-65535)]]",
@@ -7357,6 +7525,11 @@ DEFPY_YANG (no_pim_msdp_peer,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip msdp peer A.B.C.D` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_msdp_peer,
 			  no_ip_msdp_peer_cmd,
 			  "no ip msdp peer A.B.C.D",
@@ -7490,6 +7663,11 @@ DEFPY_YANG(pim_msdp_mesh_group_member,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip msdp mesh-group WORD member A.B.C.D` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_msdp_mesh_group_member,
 			  ip_msdp_mesh_group_member_cmd,
 			  "ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
@@ -7588,6 +7766,11 @@ DEFPY_YANG(no_pim_msdp_mesh_group_member,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip msdp mesh-group WORD member A.B.C.D` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_msdp_mesh_group_member,
 			  no_ip_msdp_mesh_group_member_cmd,
 			  "no ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
@@ -7685,6 +7868,11 @@ DEFPY_YANG(pim_msdp_mesh_group_source,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip msdp mesh-group WORD source A.B.C.D` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_msdp_mesh_group_source,
 			  ip_msdp_mesh_group_source_cmd,
 			  "ip msdp mesh-group WORD$gname source A.B.C.D$saddr",
@@ -7765,6 +7953,11 @@ DEFPY_YANG(no_pim_msdp_mesh_group_source,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip msdp mesh-group WORD source [A.B.C.D]` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_msdp_mesh_group_source,
 			  no_ip_msdp_mesh_group_source_cmd,
 			  "no ip msdp mesh-group WORD$gname source [A.B.C.D]",
@@ -7843,6 +8036,11 @@ DEFPY_YANG(no_pim_msdp_mesh_group,
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip msdp mesh-group WORD` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_msdp_mesh_group,
 			  no_ip_msdp_mesh_group_cmd,
 			  "no ip msdp mesh-group WORD$gname",
@@ -9134,6 +9332,11 @@ DEFPY_YANG_HIDDEN (no_pim_mlag,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `no ip pim mlag` command")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(no_ip_pim_mlag,
 			  no_ip_pim_mlag_cmd,
 			  "no ip pim mlag",
@@ -9234,6 +9437,11 @@ DEFPY_YANG_HIDDEN (pim_mlag,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+#if CONFDATE > 20280811
+CPP_NOTICE("Remove `ip pim mlag INTERFACE role [primary|secondary] state [up|down] addr A.B.C.D`")
+#endif
+/* Deprecated on 2024-06-12 in fd8edc3dfbd4 */
 DEFPY_ATTR(ip_pim_mlag,
 			  ip_pim_mlag_cmd,
 			  "ip pim mlag INTERFACE$iface role [primary|secondary]$role state [up|down]$state addr A.B.C.D$addr",

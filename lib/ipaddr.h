@@ -55,6 +55,44 @@ struct ipaddr {
 
 #define IPADDR_STRING_SIZE 46
 
+/* Max bit/byte length of IPv4 address. */
+#define IPV4_MAX_BYTELEN   4
+#define IPV4_MAX_BITLEN    32
+#define IPV4_ADDR_CMP(D, S) memcmp((D), (S), IPV4_MAX_BYTELEN)
+
+/* Max bit/byte length of IPv6 address. */
+#define IPV6_MAX_BYTELEN  16
+#define IPV6_MAX_BITLEN   128
+#define IPV6_ADDR_CMP(D, S)  memcmp((D), (S), IPV6_MAX_BYTELEN)
+#define IPV6_ADDR_SAME(D, S) (memcmp((D), (S), IPV6_MAX_BYTELEN) == 0)
+#define IPV6_ADDR_COPY(D, S) memcpy((D), (S), IPV6_MAX_BYTELEN)
+
+static inline bool ipv4_addr_same(const struct in_addr *a,
+				  const struct in_addr *b)
+{
+	return (a->s_addr == b->s_addr);
+}
+#define IPV4_ADDR_SAME(A, B) ipv4_addr_same((A), (B))
+
+static inline void ipv4_addr_copy(struct in_addr *dst,
+				  const struct in_addr *src)
+{
+	dst->s_addr = src->s_addr;
+}
+#define IPV4_ADDR_COPY(D, S) ipv4_addr_copy((D), (S))
+
+macro_inline void ipaddr_set_v4(struct ipaddr *ip, const struct in_addr addr)
+{
+	SET_IPADDR_V4(ip);
+	ip->ipaddr_v4 = addr;
+}
+
+macro_inline void ipaddr_set_v6(struct ipaddr *ip, const struct in6_addr *addr)
+{
+	SET_IPADDR_V6(ip);
+	IPV6_ADDR_COPY(&ip->ipaddr_v6, addr);
+}
+
 static inline int ipaddr_family(const struct ipaddr *ip)
 {
 	switch (ip->ipa_type) {

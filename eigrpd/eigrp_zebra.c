@@ -170,14 +170,16 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			   c->ifp->name, c->address);
 
 	ifp = c->ifp;
-	ei = ifp->info;
-	if (!ei)
-		return 0;
+	ei = eigrp_if_lookup_by_ifp(ifp);
 
 	/* Call interface hook functions to clean up */
-	if (prefix_cmp(&ei->address, c->address) == 0)
+	if (ei && prefix_cmp(&ei->address, c->address) == 0)
 		eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
 
+	/*
+	 * Free on every path.  Returning early when EIGRP is not running on
+	 * the interface used to leak this.
+	 */
 	connected_free(&c);
 
 	return 0;

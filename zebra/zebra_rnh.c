@@ -1340,7 +1340,6 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 	 */
 	frr_each (rnh_rbtree, &rnhc->rnh_rbtree, rnh) {
 		bool already_shown = false;
-		bool first_client = true;
 
 		/* Check if we already displayed this resolution */
 		frr_each (rnh_rbtree, &rnhc->rnh_rbtree, compare_rnh) {
@@ -1421,11 +1420,8 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 			/* Skip pseudowire sentinel client in client list */
 			if (client == PSEUDOWIRE_CLIENT) {
 				/* But do show pseudowires if attached */
-				if (!json && !list_isempty(compare_rnh->zebra_pseudowire_list)) {
-					vty_out(vty, "%szebra[pseudowires]",
-						first_client ? " " : " ");
-					first_client = false;
-				}
+				if (!json && !list_isempty(compare_rnh->zebra_pseudowire_list))
+					vty_out(vty, " zebra[pseudowires]");
 				if (json && !list_isempty(compare_rnh->zebra_pseudowire_list))
 					json_object_boolean_true_add(json_resolution,
 								     "zebraPseudowires");
@@ -1468,11 +1464,10 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 									    ? flags_str + 1
 									    : flags_str;
 
-					vty_out(vty, "%s%s(fd %d)%s%s%s", first_client ? " " : " ",
+					vty_out(vty, " %s(fd %d)%s%s%s",
 						zebra_route_string(client->proto), client->sock,
 						display_flags[0] ? "(" : "", display_flags,
 						display_flags[0] ? ")" : "");
-					first_client = false;
 				}
 			}
 		}

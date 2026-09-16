@@ -860,6 +860,37 @@ There is no magic bullet here.  You as a developer might have to experiment with
 values and different combinations of the above to cause the problem to happen more often.
 These are just the tools that we know of at this point in time.
 
+Overloading the system can also prevent daemons from exiting in time at
+teardown; that is reported as ``SIGXCPU``.  See :ref:`topotests-sigxcpu`.
+
+
+.. _topotests-sigxcpu:
+
+SIGXCPU During Test Shutdown
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When a test tears down, topotest sends ``SIGTERM`` to each FRR daemon and waits
+up to 30 seconds for a clean exit.  If a daemon is still running after that
+wait, the harness sends ``SIGXCPU`` so the process dumps core and exits.
+
+This is **intentional**.  ``SIGXCPU`` is used so the resulting core is obviously
+produced by the test harness.
+
+A ``SIGXCPU`` core, or a log line such as ``sending SIGXCPU to: ...``, is
+almost never an FRR crash.  It means the daemon did not finish shutting down
+in time.  That commonly happens on a heavily loaded host (parallel pytest
+workers, other builds or tests, CI micronet under contention).
+
+If you see this:
+
+- Treat it as a loaded-system problem first, not a daemon bug.
+- Reduce pytest parallelism (``-n``), stop other heavy work on the machine,
+  and re-run the test.
+- If the same daemon still fails to exit on an unloaded system, then
+  investigate a shutdown hang.
+
+Do not file or chase ``SIGXCPU`` cores from teardown as hardware faults.
+
 
 .. _topotests_docker:
 
@@ -1920,6 +1951,7 @@ Instructions for use, write or debug topologies can be found in :ref:`topotests-
 To learn/remember common code snippets see :ref:`topotests-snippets`.
 For restarting FRR or individual daemons on a router during a test, see :ref:`topotests-restart`.
 For information on multicast testing in topotests, see :ref:`topotest-multicast`.
+For ``SIGXCPU`` cores at test shutdown, see :ref:`topotests-sigxcpu`.
 
 Before creating a new topology, make sure that there isn't one already that
 does what you need. If nothing is similar, then you may create a new topology,

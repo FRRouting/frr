@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# Copy of docker/alpine/docker-start with an sshd started alongside watchfrr,
+# which the containerlab image needs and the alpine one does not. Keep the
+# frrcommon.sh handling below in sync with that script.
+
+if [ -r "/lib/lsb/init-functions" ]; then
+        . /lib/lsb/init-functions
+else
+        log_success_msg() {
+                echo "$@"
+        }
+        log_warning_msg() {
+                echo "$@" >&2
+        }
+        log_failure_msg() {
+                echo "$@" >&2
+        }
+fi
+
+# Host keys are generated here rather than baked into the image, so that every
+# container gets its own set instead of the whole world sharing one key.
+if ! ls /etc/ssh/ssh_host_*_key >/dev/null 2>&1; then
+        ssh-keygen -A >/dev/null
+fi
+
+# Containerlab writes authorized_keys into this directory after the container
+# is up. sshd rejects the file if the directory is group- or world-writable.
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+
+/usr/sbin/sshd || log_failure_msg "failed to start sshd"
+
+source /usr/lib/frr/frrcommon.sh
+# exec so that tini signals reach watchfrr directly
+exec /usr/lib/frr/watchfrr $(daemon_list)

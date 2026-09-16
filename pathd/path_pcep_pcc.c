@@ -176,9 +176,32 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 		       struct pcc_state *pcc_state)
 {
+	struct plspid_map_data *plspid_mapping;
+	struct nbkey_map_data *nbkey_mapping;
+	struct req_map_data *req_mapping;
+
 	PCEP_DEBUG("%s PCC finalizing...", pcc_state->tag);
 
 	pcep_pcc_disable(ctrl_state, pcc_state);
+
+	/*
+	 * The mappings are retained for the whole session so a re-created
+	 * policy keeps the PLSP-ID it had before (lookup_plspid) and PCE
+	 * updates referencing a path only by PLSP-ID keep resolving
+	 * (lookup_nbkey).  Once the PCC itself goes away neither applies,
+	 * so this is the one place they can be freed.
+	 */
+	while ((plspid_mapping = plspid_map_pop(&pcc_state->plspid_map)))
+		XFREE(MTYPE_PCEP, plspid_mapping);
+	plspid_map_fini(&pcc_state->plspid_map);
+
+	while ((nbkey_mapping = nbkey_map_pop(&pcc_state->nbkey_map)))
+		XFREE(MTYPE_PCEP, nbkey_mapping);
+	nbkey_map_fini(&pcc_state->nbkey_map);
+
+	while ((req_mapping = req_map_pop(&pcc_state->req_map)))
+		XFREE(MTYPE_PCEP, req_mapping);
+	req_map_fini(&pcc_state->req_map);
 
 	if (pcc_state->pcc_opts != NULL) {
 		XFREE(MTYPE_PCEP, pcc_state->pcc_opts);
@@ -336,7 +359,11 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		return 0;
 	}
 
-	event_cancel(&pcc_state->t_reconnect);
+	/*
+	 * Cancel through the controller helper: a raw event_cancel()
+	 * drops the armed timer without freeing its allocated payload.
+	 */
+	pcep_thread_cancel_timer(&pcc_state->t_reconnect);
 
 	select_transport_address(pcc_state);
 
@@ -401,7 +428,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	}
 
 	// In case some best pce alternative were waiting to activate
-	event_cancel(&pcc_state->t_update_best);
+	pcep_thread_cancel_timer(&pcc_state->t_update_best);
 
 	pcc_state->status = PCEP_PCC_CONNECTING;
 
@@ -1224,6 +1251,7 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			  format_pcep_message(msg));
 		send_pcep_error(pcc_state, PCEP_ERRT_LSP_INSTANTIATE_ERROR,
 				PCEP_ERRV_UNACCEPTABLE_INSTANTIATE_ERROR, path);
+		pcep_free_path(path);
 		return;
 	}
 
@@ -1262,6 +1290,7 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			send_pcep_error(pcc_state,
 					PCEP_ERRT_LSP_INSTANTIATE_ERROR,
 					PCEP_ERRV_INTERNAL_ERROR, path);
+			pcep_free_path(path);
 			return;
 		}
 
@@ -1278,6 +1307,7 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
 					PCEP_ERRV_LSP_INIT_NON_ZERO_PLSP_ID,
 					path);
+			pcep_free_path(path);
 			return;
 		}
 
@@ -1294,6 +1324,7 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			send_pcep_error(
 				pcc_state, PCEP_ERRT_RECEPTION_OF_INV_OBJECT,
 				PCEP_ERRV_SYMBOLIC_PATH_NAME_TLV_MISSING, path);
+			pcep_free_path(path);
 			return;
 		}
 	}

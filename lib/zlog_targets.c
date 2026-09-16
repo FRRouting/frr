@@ -379,12 +379,22 @@ static bool zlog_is_aux;
 
 static int zlt_aux_init(const char *prefix, int prio_min)
 {
-	zlog_is_aux = true;
-
 	zlog_aux_stdout.zt.prio_min = prio_min;
+	if (zlog_is_aux)
+		/* allow easily changing priority (zlog_aux_stdout is private
+		 * and has no associated zlog_cfg_file struct)
+		 *
+		 * this is intended for tests and doesn't make any attempt at
+		 * synchronizing with multiple threads (if that can happen, the
+		 * test shouldn't be using zlog_aux_init)
+		 */
+		return 0;
+
 	zlog_aux_stdout.zt.logfn = zlog_fd;
 	zlog_aux_stdout.zt.logfn_sigsafe = zlog_fd_sigsafe;
 	zlog_aux_stdout.fd = STDOUT_FILENO;
+
+	zlog_is_aux = true;
 
 	zlog_target_replace(NULL, &zlog_aux_stdout.zt);
 	zlog_startup_end();

@@ -78,6 +78,7 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["r3"], tgen.gears["r4"], "r3-eth1", "r4-eth1")
 
     tgen.gears["r4"].run("ip link add r4-dum0 type dummy")
+    tgen.gears["r4"].run("ip link set r4-dum0 up")
 
 
 def setup_module(mod):

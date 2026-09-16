@@ -989,6 +989,7 @@ struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf, size_t buf
 {
 
 	struct pcep_object_header object_hdr;
+	struct pcep_object_tlv_header tlv_hdr;
 
 	if (buflen < OBJECT_HEADER_LENGTH) {
 		pcep_log(LOG_INFO, "%s: Cannot decode Object: invalid length", __func__);
@@ -1042,13 +1043,36 @@ struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf, size_t buf
 		object->tlv_list = dll_initialize();
 		int num_iterations = 0;
 		uint16_t tlv_index = pcep_object_get_length_by_hdr(&object_hdr);
-		while ((object->encoded_object_length - tlv_index) > 0
-		       && num_iterations++ < MAX_ITERATIONS) {
+		while (tlv_index <= object->encoded_object_length &&
+		       (object->encoded_object_length - tlv_index) >= TLV_HEADER_LENGTH &&
+		       num_iterations++ < MAX_ITERATIONS) {
+			/* Examine the header fields, validate on-the-wire length */
+			pcep_decode_tlv_hdr(obj_buf + tlv_index, &tlv_hdr);
+
+			if ((tlv_hdr.encoded_tlv_length + TLV_HEADER_LENGTH) >
+			    (object->encoded_object_length - tlv_index)) {
+				/* Invalid, clean up: we don't know how to proceed
+				 * if the incoming data is invalid.
+				 */
+				pcep_log(LOG_INFO, "%s: Invalid TLV header: invalid header length %d",
+					 __func__, tlv_hdr.encoded_tlv_length);
+				pcep_obj_free_object(object);
+				object = NULL;
+				break;
+			}
+
 			struct pcep_object_tlv_header *tlv =
 				pcep_decode_tlv(obj_buf + tlv_index);
 			if (tlv == NULL) {
-				/* TODO should we do anything else here ? */
-				return object;
+				/* The caller expects this code to consume all of the
+				 * octets in the object; if we cannot do that, we should
+				 * fail the decode.
+				 */
+				pcep_log(LOG_INFO, "%s: Invalid TLV: Failed to decode",
+					 __func__);
+				pcep_obj_free_object(object);
+				object = NULL;
+				break;
 			}
 
 			/* The TLV length does not include the TLV header */

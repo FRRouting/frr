@@ -662,9 +662,10 @@ int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri, struct bgp_ls_attr 
 	struct bgp_path_info *new;
 	struct attr attr;
 	struct attr *attr_new;
-	struct bgp_dest *dest;
 	struct bgp_ls_nlri *ls_nlri;
 	struct prefix p;
+
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 
 	if (!bgp || !nlri) {
 		flog_err(EC_BGP_LS_PACKET, "BGP-LS: Invalid parameters to %s", __func__);
@@ -716,7 +717,6 @@ int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri, struct bgp_ls_attr 
 			/* The attribute is not changed. */
 			bgp_attr_unintern(&attr_new);
 			aspath_unintern(&attr.aspath);
-			bgp_dest_unlock_node(dest);
 		} else {
 			/* The attribute is changed. */
 			bgp_path_info_set_flag(dest, bpi, BGP_PATH_ATTR_CHANGED);
@@ -731,7 +731,6 @@ int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri, struct bgp_ls_attr 
 
 			/* Process change. */
 			bgp_process(bgp, dest, bpi, AFI_BGP_LS, SAFI_BGP_LS);
-			bgp_dest_unlock_node(dest);
 			aspath_unintern(&attr.aspath);
 		}
 
@@ -747,9 +746,6 @@ int bgp_ls_update(struct bgp *bgp, struct bgp_ls_nlri *nlri, struct bgp_ls_attr 
 
 	/* Process change */
 	bgp_process(bgp, dest, new, AFI_BGP_LS, SAFI_BGP_LS);
-
-	/* Unlock node from bgp_afi_node_get */
-	bgp_dest_unlock_node(dest);
 
 	/* Unintern original */
 	aspath_unintern(&attr.aspath);
@@ -2248,6 +2244,7 @@ static struct bgp_ls_nlri *bgp_ls_lookup_bgp_link_nlri(struct bgp *bgp, struct p
 				continue;
 		}
 
+		bgp_dest_unlock_node(dest);
 		return nlri;
 	}
 
@@ -2298,6 +2295,7 @@ static struct bgp_ls_nlri *bgp_ls_lookup_bgp_prefix_nlri(struct bgp *bgp, const 
 		if (!prefix_same(&nlri->nlri_data.prefix.prefix_desc.prefix, p))
 			continue;
 
+		bgp_dest_unlock_node(bn);
 		return nlri;
 	}
 

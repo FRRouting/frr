@@ -91,6 +91,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
 				.cli_show = bfd_cli_show_echo,
                         }
                 },
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/demand-mode",
+			.cbs = {
+				.modify = bfdd_bfd_profile_demand_mode_modify,
+				.cli_show = bfd_cli_show_demand,
+			}
+		},
                 {
                         .xpath = "/frr-bfdd:bfdd/bfd/profile/desired-echo-transmission-interval",
                         .cbs = {
@@ -179,6 +186,20 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs = {
 				.modify = bfdd_bfd_sessions_single_hop_echo_mode_modify,
 				.cli_show = bfd_cli_show_echo,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/demand-mode",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_single_hop_demand_mode_modify,
+				.cli_show = bfd_cli_show_demand,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/demand-mode",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_multi_hop_demand_mode_modify,
+				.cli_show = bfd_cli_show_demand,
 			}
 		},
 		{

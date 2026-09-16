@@ -61,9 +61,6 @@ int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group);
 void pim_rp_check_on_if_add(struct pim_interface *pim_ifp);
 void pim_i_am_rp_re_evaluate(struct pim_instance *pim);
 
-bool pim_rp_check_is_my_ip_address(struct pim_instance *pim,
-				   struct in_addr dest_addr);
-
 int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 			     pim_addr source, pim_addr group);
 

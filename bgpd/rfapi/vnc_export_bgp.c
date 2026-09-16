@@ -168,7 +168,7 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
 	struct peer *peer = bpi->peer;
 	const struct prefix *prefix = agg_node_get_prefix(rn);
 	afi_t afi = family2afi(prefix->family);
-	struct bgp_dest *udest;
+	struct bgp_dest *udest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp_path_info *ubpi;
 	struct attr hattr;
 	struct attr *iattr;
@@ -258,10 +258,8 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
 		    && ubpi->sub_type == BGP_ROUTE_REDISTRIBUTE
 		    && ubpi->peer == peer
 		    && prefix_same(&unicast_nexthop, &ce_nexthop)) {
-
-			vnc_zlog_debug_verbose(
-				"%s: already have matching exported unicast route, skipping",
-				__func__);
+			vnc_zlog_debug_verbose("%s: already have matching exported unicast route, skipping",
+					       __func__);
 			return;
 		}
 	}

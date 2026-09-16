@@ -153,13 +153,13 @@ void show_ip_eigrp_interface_sub(struct vty *vty, struct eigrp *eigrp,
 				 struct eigrp_interface *ei)
 {
 	vty_out(vty, "%-16s ", IF_NAME(ei));
-	vty_out(vty, "%-11u", ei->params.bandwidth);
-	vty_out(vty, "%-11u", ei->params.delay);
+	vty_out(vty, "%-11u", ei->params->bandwidth);
+	vty_out(vty, "%-11u", ei->params->delay);
 	vty_out(vty, "%-7zu", eigrp_nbr_hash_count(&ei->nbr_hash_head));
 	vty_out(vty, "%u %c %-10u", 0, '/',
 		eigrp_neighbor_packet_queue_sum(ei));
 	vty_out(vty, "%-7u %-14u %-12u %-8u", 0, 0, 0, 0);
-	vty_out(vty, "%-8u %-8u \n", ei->params.v_hello, ei->params.v_wait);
+	vty_out(vty, "%-8u %-8u \n", ei->params->v_hello, ei->params->v_wait);
 }
 
 void show_ip_eigrp_interface_detail(struct vty *vty, struct eigrp *eigrp,

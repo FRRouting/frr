@@ -223,7 +223,7 @@ static void cli_show_rip_log_neighbor_changes(struct vty *vty, const struct lyd_
 DEFPY_YANG (rip_distance,
        rip_distance_cmd,
        "distance (1-255)",
-       "Administrative distance\n"
+       DISTANCE_STR
        "Distance value\n")
 {
 	nb_cli_enqueue_change(vty, "./distance/default", NB_OP_MODIFY,
@@ -236,7 +236,7 @@ DEFPY_YANG (no_rip_distance,
        no_rip_distance_cmd,
        "no distance [(1-255)]",
        NO_STR
-       "Administrative distance\n"
+       DISTANCE_STR
        "Distance value\n")
 {
 	nb_cli_enqueue_change(vty, "./distance/default", NB_OP_MODIFY, NULL);
@@ -261,7 +261,7 @@ DEFPY_YANG (rip_distance_source,
        rip_distance_source_cmd,
        "[no] distance (1-255) A.B.C.D/M$prefix [WORD$acl]",
        NO_STR
-       "Administrative distance\n"
+       DISTANCE_STR
        "Distance value\n"
        "IP source prefix\n"
        "Access list name\n")

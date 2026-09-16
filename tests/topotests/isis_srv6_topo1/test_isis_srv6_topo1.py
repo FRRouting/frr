@@ -290,6 +290,20 @@ def test_srv6_locator_step1():
         )
 
 
+def test_srv6_sid_advertisement_step1():
+    logger.info("Test (step 1): verify advertised SRv6 SID information")
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router_compare_json_output(
+        "rt2",
+        "show isis database detail json",
+        "step1/show_isis_database_detail.ref",
+    )
+
+
 def test_ping_step1():
     logger.info("Test (step 1): verify ping")
     tgen = get_topogen()
@@ -315,7 +329,7 @@ def test_ping_step1():
     )
 
     # Try to ping dst from rt1
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -416,7 +430,7 @@ def test_ping_step2():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -518,7 +532,7 @@ def test_ping_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -617,7 +631,7 @@ def test_ping_step4():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -715,7 +729,7 @@ def test_ping_step5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -813,7 +827,7 @@ def test_ping_step6():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -911,7 +925,7 @@ def test_ping_step7():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -1009,7 +1023,7 @@ def test_ping_step8():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
 
 
 #
@@ -1110,7 +1124,45 @@ def test_ping_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+    check_ping("rt1", "fc00:0:9::1", True, 20, 3)
+
+
+def iproute2_can_show_seg6local_flavors(router):
+    """Check whether iproute2 can display SEG6_LOCAL_FLAVORS attributes."""
+    version = router.run("ip -Version").strip()
+    help_output = router.run("ip -6 route help 2>&1")
+
+    return (
+        "flavors FLAVORS" in help_output and "next-csid" in help_output,
+        version,
+    )
+
+
+def test_srv6_ua_sid_kernel_attributes():
+    """Verify the NEXT-CSID flavor of the dynamic uA SID."""
+    logger.info("Test: Verify NEXT-CSID flavor of the dynamic uA SID")
+    tgen = get_topogen()
+
+    # Required linux kernel version for this case to run.
+    result = required_linux_kernel_version("6.17")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.17")
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt2 = tgen.gears["rt2"]
+    supported, version = iproute2_can_show_seg6local_flavors(rt2)
+    logger.info("Installed iproute2: %s", version)
+    if not supported:
+        pytest.skip(
+            "Installed iproute2 cannot display SEG6_LOCAL_FLAVORS "
+            f"attributes: {version}"
+        )
+
+    output = rt2.run("ip -6 -d route show exact fc00:0:2:4::/64")
+    assert "flavors next-csid lblen 32 nflen 32" in output, output
 
 
 def test_srv6_path_with_ua_sid():
@@ -1144,7 +1196,7 @@ def test_srv6_path_with_ua_sid():
 
     # Ping dst from rt1 to verify the SRv6 path.
     logger.info("Pinging dst from rt1 to validate the SRv6 path with uA SID")
-    check_ping("rt1", "2001:db8:10::2", True, 10, 1)
+    check_ping("rt1", "2001:db8:10::2", True, 20, 3)
 
 
 # Memory leak test template

@@ -28,6 +28,38 @@
 
 /* clang-format off */
 
+/*
+ * Fired by _bfd_sess_valid() (lib/bfd.c) when a single-hop IPv6 link-local
+ * BFD session is deferred because its outgoing interface is not yet known
+ * (the #5131052 fix). One event per deferral tells us exactly which session
+ * is being held back and how often, before it later installs with a unique
+ * per-interface key.
+ *
+ *   bsp_ptr : pointer of the struct bfd_session_params (per-session id)
+ *   vrf_id  : VRF id recorded on the session params
+ *   family  : AF_INET (2) or AF_INET6 (10); expected AF_INET6 for this event
+ *   dst/src : 16-byte in6_addr link-local pair (only first 4 bytes for AF_INET)
+ */
+TRACEPOINT_EVENT(
+	frr_libfrr,
+	bfd_sess_defer_linklocal_without_intf,
+	TP_ARGS(
+		void *, bsp,
+		uint32_t, vrf_id,
+		uint8_t, family,
+		const void *, dst,
+		const void *, src
+	),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, bsp_ptr, (intptr_t)bsp)
+		ctf_integer(uint32_t, vrf_id, vrf_id)
+		ctf_integer(uint8_t, family, family)
+		ctf_array(uint8_t, dst, dst ? (const uint8_t *)dst : (const uint8_t[16]) {0}, 16)
+		ctf_array(uint8_t, src, src ? (const uint8_t *)src : (const uint8_t[16]) {0}, 16)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_libfrr, bfd_sess_defer_linklocal_without_intf, TRACE_INFO)
+
 TRACEPOINT_EVENT(
 	frr_libfrr,
 	hash_get,

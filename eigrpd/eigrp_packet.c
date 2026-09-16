@@ -108,7 +108,7 @@ int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
 	stream_get(auth_TLV, s, EIGRP_AUTH_MD5_TLV_SIZE);
 	stream_set_getp(s, backup_get);
 
-	keychain = keychain_lookup(ei->params.auth_keychain);
+	keychain = keychain_lookup(ei->params->auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 	else {
@@ -189,7 +189,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	ibuf = s->data;
 	backup_end = s->endp;
 
-	keychain = keychain_lookup(nbr->ei->params.auth_keychain);
+	keychain = keychain_lookup(nbr->ei->params->auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 
@@ -266,7 +266,7 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 	stream_get(auth_TLV, s, EIGRP_AUTH_SHA256_TLV_SIZE);
 	stream_set_getp(s, backup_get);
 
-	keychain = keychain_lookup(ei->params.auth_keychain);
+	keychain = keychain_lookup(ei->params->auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 
@@ -527,7 +527,7 @@ void eigrp_read(struct event *event)
 	}
 
 	/* associate packet with eigrp interface */
-	ei = ifp->info;
+	ei = eigrp_if_lookup_by_ifp(ifp);
 
 	/* eigrp_verify_header() relies on a valid "ei" and thus can be called
 	   only
@@ -1255,12 +1255,12 @@ uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
 	authTLV->key_sequence = 0;
 	memset(authTLV->Nullpad, 0, sizeof(authTLV->Nullpad));
 
-	keychain = keychain_lookup(ei->params.auth_keychain);
+	keychain = keychain_lookup(ei->params->auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 	else {
-		free(ei->params.auth_keychain);
-		ei->params.auth_keychain = NULL;
+		free(ei->params->auth_keychain);
+		ei->params->auth_keychain = NULL;
 		eigrp_authTLV_MD5_free(authTLV);
 		return 0;
 	}
@@ -1295,12 +1295,12 @@ uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
 	authTLV->key_sequence = 0;
 	memset(authTLV->Nullpad, 0, sizeof(authTLV->Nullpad));
 
-	keychain = keychain_lookup(ei->params.auth_keychain);
+	keychain = keychain_lookup(ei->params->auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 	else {
-		free(ei->params.auth_keychain);
-		ei->params.auth_keychain = NULL;
+		free(ei->params->auth_keychain);
+		ei->params->auth_keychain = NULL;
 		eigrp_authTLV_SHA256_free(authTLV);
 		return 0;
 	}

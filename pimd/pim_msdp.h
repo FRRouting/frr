@@ -275,8 +275,6 @@ bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 				    struct pim_upstream *xg_up);
 void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg);
-enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
-				  const char *mesh_group_name);
 
 extern void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up);
 

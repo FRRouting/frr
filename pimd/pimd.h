@@ -77,10 +77,7 @@
 
 #define PIM_PROTO_VERSION             (2)
 
-#define MCAST_ALL_SYSTEMS      "224.0.0.1"
-#define MCAST_ALL_ROUTERS      "224.0.0.2"
-#define MCAST_ALL_PIM_ROUTERS  "224.0.0.13"
-#define MCAST_ALL_IGMP_ROUTERS "224.0.0.22"
+#define MCAST_ALL_ROUTERS "224.0.0.2"
 
 #define PIM_FORCE_BOOLEAN(expr) ((expr) != 0)
 
@@ -133,13 +130,11 @@
 #define PIM_UPDATE_SOURCE_DUP           -10
 #define PIM_GROUP_BAD_ADDR_MASK_COMBO   -11
 
-extern const char *const PIM_ALL_SYSTEMS;
-extern const char *const PIM_ALL_ROUTERS;
-extern const char *const PIM_ALL_PIM_ROUTERS;
-extern const char *const PIM_ALL_IGMP_ROUTERS;
-
 extern struct zebra_privs_t pimd_privs;
-extern pim_addr qpim_all_pim_routers_addr;
+extern const pim_addr qpim_all_systems_addr;
+extern const pim_addr qpim_all_routers_addr;
+extern const pim_addr qpim_all_pim_routers_addr;
+extern const pim_addr qpim_all_gmp_routers_addr;
 extern uint8_t qpim_ecmp_enable;
 extern uint8_t qpim_ecmp_rebalance_enable;
 

@@ -29,29 +29,17 @@ Stage 1 - Preparation
 
    .. code-block:: console
 
-      ./tools/release_notes.py -b dev/9.1 -t frr-9.0.1
+      ./tools/release_notes.py -b stable/10.8 -t frr-10.7.0
 
-   dev/9.1 is the branch to be renamed to stable/9.1, and frr-9.0.1 in this
-   example is the latest tag from which to generate the logs.
+   ``stable/10.8`` is the upcoming release branch (forked from master four
+   weeks before the release date), and ``frr-10.7.0`` in this example is the
+   latest tag from which to generate the logs.
 
-#. Checkout the existing ``dev/<version>`` branch.
-
-   .. code-block:: console
-
-      git checkout dev/<version>
-
-#. Create and push a new branch called ``stable/<version>`` based on the
-   ``dev/<version>`` branch.
+#. Checkout the existing ``stable/<version>`` branch.
 
    .. code-block:: console
 
-      git checkout -b stable/<version>
-
-#. Remove the development branch called ``dev/<version>``
-
-   .. code-block:: console
-
-      git push origin --delete dev/<version>
+      git checkout stable/<version>
 
 #. Update Changelog for Red Hat Packages:
 
@@ -179,16 +167,23 @@ Stage 2 - Staging
          git fetch --all
          git checkout frr-$TAG
          docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG --push .
+         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6,linux/riscv64 -f docker/containerlab/Dockerfile --build-arg TAG=$TAG -t quay.io/frrouting/frr:containerlab-$TAG --push .
          git tag docker/$TAG
          git push origin docker/$TAG
 
-      This will build a multi-arch image and upload it to Quay, as well as
-      create a git tag corresponding to the commit that the image was built
+      This will build multi-arch images and upload them to Quay, as well as
+      create a git tag corresponding to the commit that the images were built
       from and upload that to Github. It's important that the git tag point to
-      the exact codebase that was used to build the docker image, so if any
+      the exact codebase that was used to build the docker images, so if any
       changes need to be made on top of the ``frr-$TAG`` release tag, make
       sure these changes are committed and pointed at by the ``docker/X.Y.Z``
       tag.
+
+      The second image is the same release with an SSH server added, for use
+      with `containerlab <https://containerlab.dev>`_. It is built ``FROM``
+      ``quay.io/frrouting/frr:$TAG``, so it must be built after the first
+      image has been pushed, and the ``TAG`` build argument must match the
+      release being built. See ``docker/containerlab/README.md``.
 
 
 Stage 3 - Publish

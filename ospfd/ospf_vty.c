@@ -1108,12 +1108,6 @@ ospf_find_vl_data(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 	vty = vl_config->vty;
 	area_id = vl_config->area_id;
 
-	if (!CHECK_FLAG(ospf->flags, OSPF_FLAG_ABR)) {
-		vty_out(vty,
-			"Configuring VLs on non-ABRs is not allowed\n");
-		return NULL;
-	}
-
 	if (area_id.s_addr == OSPF_AREA_BACKBONE) {
 		vty_out(vty,
 			"Configuring VLs over the backbone is not allowed\n");
@@ -2423,7 +2417,7 @@ DEFUN (no_ospf_abr_type,
 DEFUN (ospf_log_adjacency_changes,
        ospf_log_adjacency_changes_cmd,
        "log-adjacency-changes",
-       "Log changes in adjacency state\n")
+       LOG_ADJ_CHANGES_STR)
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
@@ -2435,7 +2429,7 @@ DEFUN (ospf_log_adjacency_changes,
 DEFUN (ospf_log_adjacency_changes_detail,
        ospf_log_adjacency_changes_detail_cmd,
        "log-adjacency-changes detail",
-       "Log changes in adjacency state\n"
+       LOG_ADJ_CHANGES_STR
        "Log all state changes\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -2449,7 +2443,7 @@ DEFUN (no_ospf_log_adjacency_changes,
        no_ospf_log_adjacency_changes_cmd,
        "no log-adjacency-changes",
        NO_STR
-       "Log changes in adjacency state\n")
+       LOG_ADJ_CHANGES_STR)
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
@@ -2462,7 +2456,7 @@ DEFUN (no_ospf_log_adjacency_changes_detail,
        no_ospf_log_adjacency_changes_detail_cmd,
        "no log-adjacency-changes detail",
        NO_STR
-       "Log changes in adjacency state\n"
+       LOG_ADJ_CHANGES_STR
        "Log all state changes\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -10336,7 +10330,7 @@ DEFPY (ospf_forwarding_address_self,
 DEFUN (ospf_distance,
        ospf_distance_cmd,
        "distance (1-255)",
-       "Administrative distance\n"
+       DISTANCE_STR
        "OSPF Administrative distance\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -10356,7 +10350,7 @@ DEFUN (no_ospf_distance,
        no_ospf_distance_cmd,
        "no distance [(1-255)]",
        NO_STR
-       "Administrative distance\n"
+       DISTANCE_STR
        "OSPF Administrative distance\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -10373,7 +10367,7 @@ DEFUN (no_ospf_distance_ospf,
        no_ospf_distance_ospf_cmd,
        "no distance ospf [{intra-area [(1-255)]|inter-area [(1-255)]|external [(1-255)]}]",
        NO_STR
-       "Administrative distance\n"
+       DISTANCE_STR
        "OSPF administrative distance\n"
        "Intra-area routes\n"
        "Distance for intra-area routes\n"
@@ -10398,7 +10392,7 @@ DEFUN (no_ospf_distance_ospf,
 DEFUN (ospf_distance_ospf,
        ospf_distance_ospf_cmd,
        "distance ospf {intra-area (1-255)|inter-area (1-255)|external (1-255)}",
-       "Administrative distance\n"
+       DISTANCE_STR
        "OSPF administrative distance\n"
        "Intra-area routes\n"
        "Distance for intra-area routes\n"

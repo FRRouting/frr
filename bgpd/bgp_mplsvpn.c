@@ -1431,9 +1431,6 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_IMPORTED, 0, to_bgp->peer_self, static_attr, bn);
 
-	if (CHECK_FLAG(source_bpi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
-		SET_FLAG(new->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
-
 	bgp_path_info_extra_get(new);
 	if (!new->extra->vrfleak)
 		new->extra->vrfleak =
@@ -2503,8 +2500,6 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 
 	community_strip_accept_own(&static_attr);
 
-	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
-
 	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
 		if (bpi->extra && bpi->extra->vrfleak &&
 		    bpi->extra->vrfleak->parent == path_vpn)
@@ -2613,6 +2608,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 					to_bgp->vpn_policy[afi]
 						.rmap[BGP_VPN_POLICY_DIR_FROMVPN]
 						->name);
+			bgp_dest_unlock_node(bn);
 			return;
 		}
 		/*

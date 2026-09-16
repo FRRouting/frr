@@ -743,6 +743,19 @@ void srte_candidate_del(struct srte_candidate *candidate)
 	RB_REMOVE(srte_candidate_head, &srte_policy->candidate_paths,
 		  candidate);
 
+	/* A PCE-initiated candidate's segment list is created per path by
+	 * path_pcep_config_update_path() and is owned by this candidate
+	 * alone; nothing else deletes it when the candidate goes away, so
+	 * it must be reclaimed here.
+	 */
+	if (candidate->protocol_origin == SRTE_ORIGIN_PCEP &&
+	    candidate->lsp->segment_list != NULL) {
+		SET_FLAG(candidate->lsp->segment_list->flags,
+			 F_SEGMENT_LIST_DELETED);
+		srte_segment_list_del(candidate->lsp->segment_list);
+		candidate->lsp->segment_list = NULL;
+	}
+
 	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate->lsp);
 	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate);
 }
