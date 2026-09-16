@@ -4761,7 +4761,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		/* OSPF Authentication information */
 		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
 
-		ospf_interface_auth_show(vty, oi, json_oi, use_json);
+		if (use_json)
+			ospf_interface_auth_show(vty, oi, json_oi, true);
 
 		/* Point-to-Multipoint Interface options. */
 		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
